@@ -1,0 +1,97 @@
+Worker_Task
+
+* Make worker_task wait for all threads to startup before continuing (otherwise we have a race condition where it exits straight away)
+* Allow jobs to be reserved for the current thread to avoid context switches (so that a task that creates a lot of jobs then waits for a group to finish will get at least one of the jobs to be done)
+
+Generic
+* Implement minivec and compact_vector classes
+* Use compact_vector for Label_Dist class
+* Include amount of example weight in W matrix
+* Standardize and fix NaN handling (x < x doesn't work) (DONE)
+  * Move from isnan() to ismissing() and check performance of isnan()
+* Least squares: fall back to gelsd if rank deficient in gels (DONE)
+* Use eigen2 matrix and vector classes (stop using boost::multi_array)
+
+Datasets
+* Deterministic adaptive quantization
+* Allow @filename syntax
+* Add feature set filters
+* Allow "nan" in a dataset (shouldn't make it catagorical)
+* Store if a feature type has been inferred and relax the rules if it has
+* Allow filtered initialization that never allocates memory for those feature vectors that are filtered out
+* Don't index NaN values *at all* in the training data (DONE)
+  * Unless there is also a non-missing value of the same feature in the same example...
+
+Explaining
+* Add explanations
+
+Classifier
+* Add in Feature_Set_Mapping class
+* Add in optimized predict functionality
+* Add single label predict methods
+
+Boosting
+* Use optimized predict to calculate weights
+
+Decision Trees
+* Split subtree training over multiple threads (DONE)
+* Split features over multiple threads (DONE)
+* For one dimensional weight arrays, don't create pointers (manipulate arrays directly)
+* Test explicit NaN, -inf, inf split points work properly
+* Implement random forest building blocks and options
+* Implement pruning
+* Add in optimization
+* Check for >= vs < and unsafe less values
+* Fix problems with zero weight in the class
+* Add min split weight and min split samples to avoid overfitting; choose a good default
+* Use double for Z values
+* Improve detection of conditions where no progress possible
+* Keep trying to progress where no feature found (eg, XOR problem)
+* Unify split class with boosted stumps (DONE)
+* Multithreading unit test
+* Unify equal/<= handling with stumps (DONE)
+* SIMD speedups
+* Re-code recursive algorithms as non-recursive to allow porting to non-recursive architectures (eg CUDA)
+* Unit test for -INF value in the distribution
+* Unit test for INF value in the distribution
+* Unit test for values with no floating point numbers between them
+* Unit test that the split point agrees with the training
+
+Stumps
+* Use a spinlock for the accum function with multiple threads
+* Implement optimized predict
+* Clean up Z nearly-equal behaviour
+* Implement multithreaded speedup
+* Speed up accumulate in multithreaded mode
+* Unit test for multithreaded training
+* Unit test for splitting
+* Unify Stump::Relation, Stump::Update with decision tree version (DONE)
+
+Searching core
+* Parameterize W on double class
+* Used fixed point class for W
+* Clean up and parameterize
+* Speed up buckets core
+* Don't bother searching except where there is a label transition (speedup)
+* Parallel feature searching (DONE)
+* Coalesce parallel feature searching so that we don't create too many tasks to be run
+* Deal with the situation where a feature has multiple values, one of which is missing and the others not
+
+Probabilizer
+* Allow GLZ probabilizers to be merged together to allow better averaging behaviour
+* Use optimized classifier to produce output
+* Parallelize running of the classifier (DONE)
+
+Algorithms
+* Implement adtrees
+* Implement combining of decision trees into an adtree
+* Implement decision tree re-arranging
+
+Speedup
+* Port splitting core to CUDA
+* Port splitting core to CAL
+
+Bugs
+* Figure out why it doesn't matter what direction the LESS relation is in split.h (similar results seem to be obtained anyway) (DONE).  Because the split is run to generate the classes, so they are always compatible.
+* Make sure that the binsym always returns the same as the non-binsym versions
+* Finding an out-of-range split point for categorical feature TESTING-COMMAND6

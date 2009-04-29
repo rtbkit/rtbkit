@@ -1,0 +1,16 @@
+(^|/)\.svn($|/)
+(^|/)\.hg($|/)
+(^|/)\.hgtags($|/)
+^project.log$
+^tailor.state$
+^tailor.state.old$
+^tailor.state.journal$
+.*~
+.*\.orig$
+.*\.rej$
+^build$
+build
+.target.mk
+datasets
+src/local.mk
+TESTING-COMMAND*
