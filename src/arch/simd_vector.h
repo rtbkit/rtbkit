@@ -49,10 +49,17 @@ double vec_dotprod(const double * x, const double * y, size_t n);
 void vec_minus(const double * x, const double * y, double * r, size_t n);
 double vec_accum_prod3(const double * x, const double * y, const double * z,
                       size_t n);
+double vec_sum(const double * x, size_t n);
 
 /* Mixed float-double versions */
 double vec_dotprod_dp(const float * x, const float * y, size_t n);
 double vec_sum_dp(const float * x, size_t n);
+
+inline double vec_sum_dp(const double * x, size_t n)
+{
+    return vec_sum(x, n);
+}
+
 inline double vec_dotprod_dp(const double * x, const double * y, size_t n)
 {
     return vec_dotprod(x, y, n);
