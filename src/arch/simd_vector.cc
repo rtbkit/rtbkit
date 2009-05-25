@@ -63,7 +63,7 @@ void vec_add(const float * x, float k, const float * y, float * r, size_t n)
 
     //bool alignment_unimportant = true;  // nehalem?
 
-    if (n >= 16 && (ptr_align(x) == ptr_align(y) && ptr_align(y) == ptr_align(r))) {
+    if (false && n >= 16 && (ptr_align(x) == ptr_align(y) && ptr_align(y) == ptr_align(r))) {
 
         /* Align everything on 16 byte boundaries */
         if (ptr_align(x) != 0) {
