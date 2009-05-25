@@ -61,6 +61,8 @@ public:
     unsigned min_iter;
     float learning_rate;
     Perceptron::Activation activation;
+    bool do_decorrelate;
+    float batch_size;
 
     std::string arch_str;
 
@@ -99,7 +101,7 @@ public:
     /** Trains a single iteration.  Returns the accuracy over the training
         corpus of the previous iteration.
     */
-    double
+    std::pair<double, double>
     train_iteration(Thread_Context & context,
                     const boost::multi_array<float, 2> & decorrelated,
                     const std::vector<Label> & labels,

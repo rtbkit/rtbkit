@@ -26,6 +26,8 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/bind.hpp>
 #include "utils/smart_ptr_utils.h"
+#include "utils/vector_utils.h"
+
 
 using namespace std;
 
@@ -39,12 +41,14 @@ Env_Option<bool> profile("PROFILE_PERCEPTRON", false);
 
 double t_train = 0.0, t_decorrelate = 0.0;
 double t_cholesky = 0.0, t_qr = 0.0, t_gs = 0.0, t_mean = 0.0, t_covar = 0.0;
+double t_update = 0.0, t_fprop = 0.0, t_bprop = 0.0, t_zero = 0.0;
+double t_setup = 0.0;
 
 struct Stats {
     ~Stats()
     {
         if (profile) {
-            cerr << "perceptron profile: " << endl;
+            cerr << "perceptron training profile: " << endl;
             cerr << "  decorrelate:    " << t_decorrelate << "s" << endl;
             cerr << "    qr:           " << t_qr          << "s" << endl;
             cerr << "    gram schmidt: " << t_gs          << "s" << endl;
@@ -52,6 +56,11 @@ struct Stats {
             cerr << "    covar         " << t_covar       << "s" << endl;
             cerr << "    cholesky:     " << t_cholesky    << "s" << endl;
             cerr << "  train:          " << t_train       << "s" << endl;
+            cerr << "    setup:        " << t_setup       << "s" << endl;
+            cerr << "    update:       " << t_update      << "s" << endl;
+            cerr << "    fprop:        " << t_fprop       << "s" << endl;
+            cerr << "    bprop:        " << t_bprop       << "s" << endl;
+            cerr << "    zero:         " << t_zero        << "s" << endl;
         }
     }
 } stats;
@@ -83,6 +92,9 @@ configure(const Configuration & config)
     config.find(min_iter, "min_iter");
     config.find(learning_rate, "learning_rate");
     config.find(arch_str, "arch");
+    config.find(batch_size, "batch_size");
+    config.find(activation, "activation");
+    config.find(do_decorrelate, "decorrelate");
 }
 
 void
@@ -95,6 +107,8 @@ defaults()
     learning_rate = 0.01;
     arch_str = "%i";
     activation = Perceptron::TANH;
+    do_decorrelate = true;
+    batch_size = 1024;
 }
 
 Config_Options
@@ -112,7 +126,11 @@ options() const
         .add("arch", arch_str, "(see doc)",
              "hidden unit specification; %i=in vars, %o=out vars; eg 5_10")
         .add("activation", activation,
-             "activation function for neurons");
+             "activation function for neurons")
+        .add("decorrelate", do_decorrelate,
+             "decorrelate the features before training")
+        .add("batch_size", batch_size, "0.0-1.0 or 1 - nvectors",
+             "number of samples in each \"mini batch\" for stochastic");
 
     return result;
 }
@@ -181,10 +199,11 @@ generate(Thread_Context & context,
         throw Exception("min_iter is greater than max_iter");
 
     log("perceptron_generator", 3)
-        << "  it   train     val    best     diff" << endl;
+        << "  it   train     rmse     val    best     diff" << endl;
     
     float validate_acc = 0.0;
     float train_acc = 0.0;
+    float rms_error = 0.0;
 
     const std::vector<Label> & labels
         = training_set.index().labels(predicted);
@@ -208,12 +227,15 @@ generate(Thread_Context & context,
             best_iter = i;
         }
                 
-        train_acc = train_iteration(context, decorrelated, labels, training_ex_weights,
-                                    current);
+        
+        boost::tie(train_acc, rms_error)
+            = train_iteration(context, decorrelated, labels,
+                              training_ex_weights,
+                              current);
         
         log("perceptron_generator", 3)
-            << format("%4d %6.2f%% %6.2f%% %6.2f%% %+7.3f%%",
-                      i, train_acc * 100.0, validate_acc * 100.0,
+            << format("%4d %6.2f%% %8.6f %6.2f%% %6.2f%% %+7.3f%%",
+                      i, train_acc * 100.0, rms_error, validate_acc * 100.0,
                       best_acc * 100.0, (validate_acc - last_best_acc) * 100.0)
             << endl;
         
@@ -240,7 +262,7 @@ generate(Thread_Context & context,
 
 namespace {
 
-boost::multi_array<float, 2>
+boost::multi_array<double, 2>
 cholesky(const boost::multi_array<double, 2> & A_)
 {
     PROFILE_FUNCTION(t_cholesky);
@@ -250,7 +272,7 @@ cholesky(const boost::multi_array<double, 2> & A_)
     
     int n = A_.shape()[0];
 
-    boost::multi_array<float, 2> A(boost::extents[n][n]);
+    boost::multi_array<double, 2> A(boost::extents[n][n]);
     std::copy(A_.begin(), A_.end(), A.begin());
     
     int res = LAPack::potrf('U', n, A.data(), n);
@@ -258,31 +280,34 @@ cholesky(const boost::multi_array<double, 2> & A_)
     if (res < 0)
         throw Exception(format("cholesky: potrf: argument %d was illegal", -res));
     else if (res > 0)
-        throw Exception(format("cholesky: potrf: leading minor %d not positive "
-                               "definite", res));
+        throw Exception(format("cholesky: potrf: leading minor %d of %d "
+                               "not positive definite", res, n));
     
     for (unsigned i = 0;  i < n;  ++i)
         std::fill(&A[i][0] + i + 1, &A[i][0] + n, 0.0);
 
     return A;
 
+#if 0
     //cerr << "residuals = " << endl << (A * transpose(A)) - A_ << endl;
 
-    //boost::multi_array<float, 2> result(n, n);
-    //std::copy(A.data_begin(), A.data_end(), result.data_begin());
+    boost::multi_array<float, 2> result(boost::extents[n][n]);
+    std::copy(A.begin(), A.end(), result.begin());
 
-    //return result;
+    return result;
+#endif
 }
 
-boost::multi_array<float, 2>
-lower_inverse(const boost::multi_array<float, 2> & A)
+template<typename Float>
+boost::multi_array<Float, 2>
+lower_inverse(const boost::multi_array<Float, 2> & A)
 {
     if (A.shape()[0] != A.shape()[1])
         throw Exception("lower_inverse: matrix isn't square");
     
     int n = A.shape()[0];
 
-    boost::multi_array<float, 2> L = A;
+    boost::multi_array<Float, 2> L = A;
     
     for (int j = 0;  j < n;  ++j) {
         L[j][j] = 1.0 / L[j][j];
@@ -294,7 +319,7 @@ lower_inverse(const boost::multi_array<float, 2> & A)
             L[i][j] = sum / L[i][i];
         }
     }
-
+    
     //cerr << "L * A = " << endl << L * A << endl;
 
     return L;
@@ -315,6 +340,9 @@ decorrelate(const Training_Data & data,
 
     vector<Feature> & features = result.features;
     features.clear();
+
+    cerr << "decorrelate: " << possible_features.size() << " features at input"
+         << endl;
     
     /* Figure out if we can keep each feature or not. */
     
@@ -330,21 +358,24 @@ decorrelate(const Training_Data & data,
             continue;
         }
         else if (!index.exactly_one(feature)) {
-            cerr << "feature " << result.feature_space()->print(feature)
-                 << " skipped due to more than one value" << endl;
+            cerr << "feature " << i << " ("
+                 << result.feature_space()->print(feature)
+                 << ") skipped due to more than one value" << endl;
             continue;
         }
         else if (index.constant(feature)) {
-            cerr << "feature " << result.feature_space()->print(feature)
-                 << " skipped as it is constant over the dataset" << endl;
+            cerr << "feature " << i << " ("
+                 << result.feature_space()->print(feature)
+                 << ") skipped as it is constant over the dataset" << endl;
             continue;
         }
         else {
             float min, max;
             boost::tie(min, max) = index.range(feature);
             if (abs(min) > 1e10 || abs(max) > 1e10) {
-                cerr << "feature " << result.feature_space()->print(feature)
-                     << " skipped as its range is too large: "
+                cerr << "feature " << i << " ("
+                     << result.feature_space()->print(feature)
+                     << ") skipped as its range is too large: "
                      << min << " to " << max << endl;
                 continue;
             }
@@ -352,13 +383,16 @@ decorrelate(const Training_Data & data,
         features.push_back(feature);
     }
 
-    std::sort(features.begin(), features.end());
+    cerr << "decorrelate: " << features.size()
+         << " features after trivial elimination" << endl;
     
+    std::sort(features.begin(), features.end());
+
     size_t nx = data.example_count();
     size_t nf = features.size();
 
     /* Get a dense matrix of the features. */
-    boost::multi_array<float, 2> input(boost::extents[nx][nf + 1]);
+    boost::multi_array<double, 2> input(boost::extents[nx][nf + 1]);
     
     for (unsigned x = 0;  x < nx;  ++x) {
         result.extract_features(data[x], &input[x][0]);
@@ -367,11 +401,11 @@ decorrelate(const Training_Data & data,
 
     //cerr << "input.shape()[0] = " << input.shape()[0] << endl;
     //cerr << "input.shape()[1] = " << input.shape()[1] << endl;
-    boost::multi_array<float, 2> inputt = transpose(input);
+    boost::multi_array<double, 2> inputt = transpose(input);
 
     //cerr << "inputt.shape()[0] = " << inputt.shape()[0] << endl;
     //cerr << "inputt.shape()[1] = " << inputt.shape()[1] << endl;
-    vector<distribution<float> > dependent;
+    vector<distribution<double> > dependent;
     vector<int> permutations(nf + 1, 0);
     
 #if 0
@@ -406,12 +440,18 @@ decorrelate(const Training_Data & data,
         PROFILE_FUNCTION(t_gs);
         permutations = remove_dependent_impl(inputt, dependent, 1e-4);
     }
+
+    //cerr << "permutations = " << permutations << endl;
     
     /* Find which features are left */
     vector<Feature> new_features;
     for (unsigned i = 0;  i < features.size();  ++i) {
-        if (permutations[i] != -1)
+        if (permutations[i] != -1) {
+            //cerr << "feature " << new_features.size() << " is old feature "
+            //     << i << " (" << feature_space->print(features[i]) << ")"
+            //     << endl;
             new_features.push_back(features[i]);
+        }
     }
     
     for (unsigned i = 0;  i < features.size();  ++i) {
@@ -423,7 +463,7 @@ decorrelate(const Training_Data & data,
                  << " = ";
             bool first = true;
             for (unsigned j = 0;  j < dependent[i].size();  ++j) {
-                float v = dependent[i][j];
+                double v = dependent[i][j];
                 if (abs(v) < 0.0001) continue;
 
                 if (v < 0.0) {
@@ -474,9 +514,23 @@ decorrelate(const Training_Data & data,
         }
     }
 
+#if 0
+    vector<double> cov2(&covar[121][0], (&covar[121][0]) + nf);
+
+    cerr << "covariance[121][121] = " << covar[121][121] << endl;
+
+    cerr << "covariance 121 = " << cov2 << endl;
+
+    //cerr << "covariance = " << covar << endl;
+#endif    
+
+
     /* Do the cholevsky stuff */
-    boost::multi_array<float, 2> transform
-        = transpose(lower_inverse(cholesky(covar)));
+    boost::multi_array<double, 2> transform(boost::extents[nf][nf]);
+    {
+        PROFILE_FUNCTION(t_cholesky);
+        transform = transpose(lower_inverse(cholesky(covar)));
+    }
 
     /* Finally, we add a layer.  This will perform both the removal of the
        mean (via the biasing) and the decorrelation (via the application
@@ -522,6 +576,8 @@ struct Training_Job_Info {
     vector<distribution<float> > & bias_updates;
     double & correct;
     double & total;
+    double & total_rms_error;
+    float learning_rate;
 
     Training_Job_Info(const boost::multi_array<float, 2> & decorrelated,
                       const std::vector<Label> & labels,
@@ -529,22 +585,28 @@ struct Training_Job_Info {
                       const Perceptron & result,
                       vector<boost::multi_array<float, 2> > & weight_updates,
                       vector<distribution<float> > & bias_updates,
-                      double & correct, double & total)
+                      double & correct, double & total,
+                      double & total_rms_error,
+                      float learning_rate)
         : decorrelated(decorrelated), labels(labels),
           example_weights(example_weights), result(result),
           weight_updates(weight_updates), bias_updates(bias_updates),
-          correct(correct), total(total)
+          correct(correct), total(total), total_rms_error(total_rms_error),
+          learning_rate(learning_rate)
     {
     }
 
     void train(int x_start, int x_end)
     {
+        //cerr << "training " << x_start << " to " << x_end << endl;
+
         const vector<Perceptron::Layer> & layers = result.layers;
         size_t max_units = result.max_units;
 
         vector<distribution<float> > layer_outputs(layers.size());
 
         size_t nl = layers.size();
+
 
         // Accumulate the weight updates here.  They are applied later.
         vector<boost::multi_array<float, 2> > sub_weight_updates;
@@ -558,6 +620,13 @@ struct Training_Job_Info {
                 .push_back(boost::multi_array<float, 2>(boost::extents[ni][no]));
             sub_bias_updates[l].resize(no);
         }
+
+#if 0
+        /* If there's only a single chunk, then we don't gain anything by
+           batching the update, we can just directly write it */
+        vector<boost::multi_array<float, 2> > & sub_weight_updates
+            = (only_updater ? 
+#endif
         
         double sub_correct = 0.0, sub_total = 0.0;
 
@@ -565,26 +634,29 @@ struct Training_Job_Info {
         size_t nf = decorrelated.shape()[1];
         size_t no = layers.back().outputs(); // num outputs
 
-        float learning_rate = 0.5;
-        
         distribution<float> correct(no, 0.0);
 
         const float fire = 1.0, inhibit = -1.0;
         
         float errors[max_units], delta[max_units];
+
+        double my_rms_error = 0.0;
         
         for (unsigned x = x_start;  x < x_end;  ++x) {
             float w = example_weights[x];
             
             if (w == 0.0) continue;
             
+            {
+                PROFILE_FUNCTION(t_fprop);
             /* Compute weights going forward. */
             std::copy(&decorrelated[x][0], &decorrelated[x][0] + nf,
                       &layer_outputs[0][0]);
             
             for (unsigned l = 1;  l < nl;  ++l)
                 layers[l].apply(layer_outputs[l - 1], layer_outputs[l]);
-     
+            }
+
             /* Calculate the correctness. */
             Correctness c = correctness(layer_outputs.back().begin(),
                                         layer_outputs.back().end(),
@@ -596,9 +668,17 @@ struct Training_Job_Info {
             /* TODO: regression */
             correct[labels[x]] = fire;
             
-            for (unsigned i = 0;  i < no;  ++i)
+            double example_rms_error = 0.0;
+
+            PROFILE_FUNCTION(t_bprop);
+            /* Original output errors.  Also update the RMS errors. */
+            for (unsigned i = 0;  i < no;  ++i) {
                 errors[i] = correct[i] - layer_outputs.back()[i];
-            
+                example_rms_error += 0.5 * errors[i] * errors[i] / no;
+            }
+
+            my_rms_error += example_rms_error * w;
+
             /* Backpropegate. */
             for (int l = nl - 1;  l >= 1;  --l) {
                 
@@ -611,10 +691,11 @@ struct Training_Job_Info {
                 layer.deltas(&layer_outputs[l][0], &errors[0], delta);
                 
                 if (l > 1) {
-                    /* Calculate new errors. */
+                    /* Calculate new errors (for the next layer). */
                     for (unsigned i = 0;  i < ni;  ++i)
                         errors[i] = SIMD::vec_dotprod_dp(&delta[0],
-                                                        &layer.weights[i][0], no);
+                                                         &layer.weights[i][0],
+                                                         no);
                 }
                 
                 /* Update the weights. */
@@ -622,13 +703,13 @@ struct Training_Job_Info {
                 for (unsigned i = 0;  i < ni;  ++i) {
                     float k2 = layer_outputs[l - 1][i] * k;
                     SIMD::vec_add(&sub_weight_updates[l][i][0], k2, &delta[0],
-                                 &sub_weight_updates[l][i][0], no);
+                                  &sub_weight_updates[l][i][0], no);
                 }
             
                 /* Update the bias terms.  The previous layer output (input) is
                    always 1. */
                 SIMD::vec_add(&sub_bias_updates[l][0], k, &delta[0],
-                             &sub_bias_updates[l][0], no);
+                              &sub_bias_updates[l][0], no);
             }
         
             correct[labels[x]] = inhibit;
@@ -638,6 +719,7 @@ struct Training_Job_Info {
 
         this->correct += sub_correct;
         this->total += sub_total;
+        total_rms_error += my_rms_error;
 
         /* Finally, put the accumulated weights back. */
         for (unsigned l = 1;  l < nl;  ++l) {
@@ -648,11 +730,11 @@ struct Training_Job_Info {
             
             for (unsigned i = 0;  i < ni;  ++i)
                 SIMD::vec_add(&weight_updates[l][i][0],
-                             &sub_weight_updates[l][i][0],
-                             &weight_updates[l][i][0], no);
+                              &sub_weight_updates[l][i][0],
+                              &weight_updates[l][i][0], no);
             
             SIMD::vec_add(&bias_updates[l][0], &sub_bias_updates[l][0],
-                         &bias_updates[l][0], no);
+                          &bias_updates[l][0], no);
         }
     }
 };
@@ -675,7 +757,7 @@ struct Training_Job {
 
 } // file scope
 
-double
+std::pair<double, double>
 Perceptron_Generator::
 train_iteration(Thread_Context & context,
                 const boost::multi_array<float, 2> & decorrelated,
@@ -693,64 +775,118 @@ train_iteration(Thread_Context & context,
     vector<Perceptron::Layer> & layers = result.layers;
     size_t nl = layers.size();
 
+    int our_batch_size = batch_size;
+    if (batch_size == 0.0) our_batch_size = nx;
+    else if (batch_size < 1.0) our_batch_size = nx * batch_size;
+
+    //cerr << "batch size of " << our_batch_size << " examples" << endl;
+    
+    int done_ex = 0;
+
     // Accumulate the weight updates here.  They are applied later.
     vector<boost::multi_array<float, 2> > weight_updates;
     vector<distribution<float> > bias_updates(nl);
     double correct = 0.0;
     double total = 0.0;
-    
+    double total_rms_error = 0.0;
+
+    {
+        PROFILE_FUNCTION(t_setup);
+
     for (unsigned l = 0;  l < nl;  ++l) {
         size_t no = layers[l].outputs();
         size_t ni = layers[l].inputs();
         weight_updates.push_back(boost::multi_array<float, 2>(boost::extents[ni][no]));
         bias_updates[l].resize(no);
     }
-
-    Training_Job_Info info(decorrelated, labels, example_weights, result,
-                           weight_updates, bias_updates, correct, total);
-
-    static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
-    
-    int group;
-    {
-        group = worker.get_group(NO_JOB,
-                                 format("Perceptron_Generator::train_iteration "
-                                        "under %d", context.group()),
-                                 context.group());
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
-                                     group));
-        
-        /* Do 4096 examples per job. */
-        for (size_t x = 0;  x < nx;  x += 4096) {
-            size_t end = std::min(x + 4096, nx);
-            worker.add(Training_Job(info, x, end),
-                       format("Perceptron_Generator::train_iteration(): %zd-%zd "
-                              "under %d", x, end, group),
-                       group);
-        }
     }
-    
-    worker.run_until_finished(group);
 
-    /* Finally, put the accumulated weights back. */
-    for (unsigned l = 1;  l < nl;  ++l) {
-        Perceptron::Layer & layer = layers[l];
-        
-        size_t no = layer.outputs();
-        size_t ni = layer.inputs();
-        
-        for (unsigned i = 0;  i < ni;  ++i)
-            SIMD::vec_add(&layer.weights[i][0], &weight_updates[l][i][0],
-                         &layer.weights[i][0], no);
-        
-        SIMD::vec_add(&layer.bias[0], &bias_updates[l][0],
-                     &layer.bias[0], no);
+    for (; done_ex < nx;  done_ex += our_batch_size) {
+
+        // Zero everything out
+        {
+            PROFILE_FUNCTION(t_zero);
+
+        for (unsigned l = 0;  l < nl;  ++l) {
+            size_t no = layers[l].outputs();
+            size_t ni = layers[l].inputs();
+
+#if 1
+            float * to_empty = &weight_updates[l][0][0];
+
+            std::fill(to_empty, to_empty + no * ni, 0.0f);
+#else
+            for (unsigned i = 0;  i < ni;  ++i)
+                for (unsigned o = 0;  o < no;  ++o)
+                    weight_updates[l][i][o] = 0.0;
+#endif
+
+            std::fill(bias_updates[l].begin(), bias_updates[l].end(), 0.0);
+        }
+        }
+
+        Training_Job_Info info(decorrelated, labels, example_weights, result,
+                               weight_updates, bias_updates, correct, total,
+                               total_rms_error, learning_rate);
+
+        static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+
+        int group;
+        {
+            group = worker.get_group(NO_JOB,
+                                     format("Perceptron_Generator::train_iteration "
+                                            "under %d", context.group()),
+                                     context.group());
+            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                         boost::ref(worker),
+                                         group));
+            
+            size_t last_ex = std::min<size_t>(done_ex + our_batch_size, nx);
+
+            int num_in_batch = last_ex - done_ex;
+
+            int ex_per_job = std::max(8, std::min(1024, num_in_batch / (4 * num_threads())));
+            ex_per_job = std::min(ex_per_job, num_in_batch);
+
+            //cerr << "num_in_batch = " << num_in_batch << " ex_per_job = " << ex_per_job << endl;
+            
+            for (size_t x = done_ex;  x < last_ex;  x += ex_per_job) {
+                size_t end = std::min(x + ex_per_job, nx);
+
+                //cerr << "x = " << x << " last_ex = " << last_ex
+                //     << " ex_per_job = " << ex_per_job << " nx = " << nx
+                //     << " end = " << end << endl;
+
+                worker.add(Training_Job(info, x, end),
+                           format("Perceptron_Generator::train_iteration(): %zd-%zd "
+                                  "under %d", x, end, group),
+                           group);
+            }
+        }
+    
+        worker.run_until_finished(group);
+
+        PROFILE_FUNCTION(t_update);
+
+        /* Finally, put the accumulated weights back. */
+        for (unsigned l = 1;  l < nl;  ++l) {
+            Perceptron::Layer & layer = layers[l];
+            
+            size_t no = layer.outputs();
+            size_t ni = layer.inputs();
+            
+            for (unsigned i = 0;  i < ni;  ++i)
+                SIMD::vec_add(&layer.weights[i][0], &weight_updates[l][i][0],
+                              &layer.weights[i][0], no);
+            
+            SIMD::vec_add(&layer.bias[0], &bias_updates[l][0],
+                          &layer.bias[0], no);
+        }
     }
 
     //cerr << "correct = " << correct << " total = " << total << endl;
 
-    return correct / total;
+    return make_pair(correct / total, sqrt(total_rms_error));
 }
 
 boost::multi_array<float, 2>
@@ -773,10 +909,18 @@ init(const Training_Data & data,
 
     int nunits = result.features.size();
 
+    cerr << "adding decorrelating input layer with " << nunits
+         << " linear units" << endl;
+
     /* Add hidden layers with the specified sizes */
     for (unsigned i = 0;  i < architecture.size();  ++i) {
         int units = architecture[i];
         if (units == -1) units = result.features.size();
+
+        cerr << "adding hidden layer " << i + 1 << " with "
+             << units << " units and activation function "
+             << activation << endl;
+
         Perceptron::Layer layer(nunits, units, activation);
         result.add_layer(layer);
         nunits = units;
@@ -786,6 +930,9 @@ init(const Training_Data & data,
     Perceptron::Layer layer(nunits, nout, activation);
     result.add_layer(layer);
 
+    cerr << "adding output layer with " << nout << " units and activation "
+         << activation << endl;
+    
     return decorrelated;
 }
 
