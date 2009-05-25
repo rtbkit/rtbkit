@@ -21,6 +21,11 @@
 */
 
 #include "simd_vector.h"
+#include "compiler/compiler.h"
+#include <iostream>
+
+using namespace std;
+
 
 namespace ML {
 namespace SIMD {
@@ -45,62 +50,93 @@ JML_ALWAYS_INLINE v4sf vec_splat(float val)
     return result;
 }
 
+template<typename X>
+int ptr_align(const X * p) 
+{
+    return size_t(p) & 15;
+} JML_PURE_FN
+
 void vec_add(const float * x, float k, const float * y, float * r, size_t n)
 {
     v4sf kkkk = vec_splat(k);
+    unsigned i = 0;
 
-    while (n > 16) {
-        const v4sf * xx = reinterpret_cast<const v4sf *>(x);
-        const v4sf * yy = reinterpret_cast<const v4sf *>(y);
-        v4sf * rr = reinterpret_cast<v4sf *>(r);
+    //bool alignment_unimportant = true;  // nehalem?
 
-        v4sf yyyy0 = yy[0];
-        v4sf xxxx0 = xx[0];
-        yyyy0 *= kkkk;
-        v4sf yyyy1 = yy[1];
-        yyyy0 += xxxx0;
-        v4sf xxxx1 = xx[1];
-        rr[0] = yyyy0;
-        yyyy1 *= kkkk;
-        v4sf yyyy2 = yy[2];
-        yyyy1 += xxxx1;
-        v4sf xxxx2 = xx[2];
-        rr[1] = yyyy1;
-        yyyy2 *= kkkk;
-        v4sf yyyy3 = yy[3];
-        yyyy2 += xxxx2;
-        v4sf xxxx3 = xx[3];
-        rr[2] = yyyy2;
-        yyyy3 *= kkkk;
-        yyyy3 += xxxx3;
-        rr[3] = yyyy3;
+    if (n >= 16 && (ptr_align(x) == ptr_align(y) && ptr_align(y) == ptr_align(r))) {
 
-#if 0
-        r[0]  = x[0]  + k * y[0];
-        r[1]  = x[1]  + k * y[1];
-        r[2]  = x[2]  + k * y[2];
-        r[3]  = x[3]  + k * y[3];
+        /* Align everything on 16 byte boundaries */
+        if (ptr_align(x) != 0) {
+            int needed_to_align = (16 - ptr_align(x)) / 4;
+            
+            for (unsigned i = 0;  i < needed_to_align;  ++i)
+                r[i] = x[i] + k * y[i];
 
-        r[4]  = x[4]  + k * y[4];
-        r[5]  = x[5]  + k * y[5];
-        r[6]  = x[6]  + k * y[6];
-        r[7]  = x[7]  + k * y[7];
+            r += needed_to_align;  x += needed_to_align;  y += needed_to_align;
+            n -= needed_to_align;
+        }
 
-        r[8]  = x[8]  + k * y[8];
-        r[9]  = x[9]  + k * y[9];
-        r[10] = x[10] + k * y[10];
-        r[11] = x[11] + k * y[11];
+        //cerr << "optimized" << endl;
 
-        r[12] = x[12] + k * y[12];
-        r[13] = x[13] + k * y[13];
-        r[14] = x[14] + k * y[14];
-        r[15] = x[15] + k * y[15];
-#endif
+        while (n > 16) {
+            const v4sf * xx = reinterpret_cast<const v4sf *>(x);
+            const v4sf * yy = reinterpret_cast<const v4sf *>(y);
+            v4sf * rr = reinterpret_cast<v4sf *>(r);
+            
+            v4sf yyyy0 = yy[0];
+            v4sf xxxx0 = xx[0];
+            yyyy0 *= kkkk;
+            v4sf yyyy1 = yy[1];
+            yyyy0 += xxxx0;
+            v4sf xxxx1 = xx[1];
+            rr[0] = yyyy0;
+            yyyy1 *= kkkk;
+            v4sf yyyy2 = yy[2];
+            yyyy1 += xxxx1;
+            v4sf xxxx2 = xx[2];
+            rr[1] = yyyy1;
+            yyyy2 *= kkkk;
+            v4sf yyyy3 = yy[3];
+            yyyy2 += xxxx2;
+            v4sf xxxx3 = xx[3];
+            rr[2] = yyyy2;
+            yyyy3 *= kkkk;
+            yyyy3 += xxxx3;
+            rr[3] = yyyy3;
 
-        r += 16;  x += 16;  y += 16;  n -= 16;
+            r += 16;  x += 16;  y += 16;  n -= 16;
+        }
+
+        for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] + k * y[i];
     }
+    else {
+        //cerr << "unoptimized" << endl;
 
-    for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] + k * y[i];
+        for (; i + 16 <= n;  i += 16) {
+            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
+            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            yyyy0 *= kkkk;
+            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
+            yyyy0 += xxxx0;
+            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            __builtin_ia32_storeups(r + i + 0, yyyy0);
+            yyyy1 *= kkkk;
+            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
+            yyyy1 += xxxx1;
+            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            __builtin_ia32_storeups(r + i + 4, yyyy1);
+            yyyy2 *= kkkk;
+            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
+            yyyy2 += xxxx2;
+            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            __builtin_ia32_storeups(r + i + 8, yyyy2);
+            yyyy3 *= kkkk;
+            yyyy3 += xxxx3;
+            __builtin_ia32_storeups(r + i + 12, yyyy3);
+        }
+
+        for (; i < n;  ++i) r[i] = x[i] + k * y[i];
+    }
 }
 
 float vec_dotprod(const float * x, const float * y, size_t n)
