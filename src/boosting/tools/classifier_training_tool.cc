@@ -110,17 +110,17 @@ try
              "split X% of training data for validation [0-100]"     )
             ( "testing-split,T", value<float>(&testing_split),
               "split X% of training data for testing [0-100]" )
-            ( "randomize-order,R", value<bool>(&randomize_order),
+            ( "randomize-order,R", value<bool>(&randomize_order)->zero_tokens(),
               "randomize the order of data before splitting" )
             ( "ignore-var,z", value<vector<string> >(&ignore_features),
               "ignore variable with name matching REGEX [REGEX|@FILE]" )
             ( "optional-feature,O", value<vector<string> >(&optional_features),
               "feature with name REGEX is optional [REGEX|@FILE]" )
-            ( "sparse-data,S", value<bool>(&data_is_sparse),
+            ( "sparse-data,S", value<bool>(&data_is_sparse)->default_value(true),
               "dataset is in sparse format" )
             ( "min-feature-count,c", value<int>(&min_feature_count),
               "don't consider features seen < NUM times [NUM]" )
-            ( "remove-aliased,A", value<bool>(&remove_aliased),
+            ( "remove-aliased,A", value<bool>(&remove_aliased)->default_value(true),
               "remove aliased training rows from the training data" )
             ( "num-buckets,1", value(&num_buckets),
               "number of buckets to discretize into (0=off) [INT]" )
