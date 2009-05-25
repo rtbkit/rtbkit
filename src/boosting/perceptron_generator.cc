@@ -970,8 +970,8 @@ train_iteration(Thread_Context & context,
 
     //cerr << "correct = " << correct << " total = " << total << endl;
 
-    cerr << "biggest value: " << biggest_value
-         << " biggest update: " << biggest_update << endl;
+    //cerr << "biggest value: " << biggest_value
+    //     << " biggest update: " << biggest_update << endl;
 
     return make_pair(correct / total, sqrt(total_rms_error));
 }
