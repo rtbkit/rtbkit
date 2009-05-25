@@ -37,21 +37,14 @@ namespace {
 
 Env_Option<bool> profile("PROFILE_PERCEPTRON", false);
 
-double t_train = 0.0, t_predict = 0.0, t_accuracy = 0.0, t_decorrelate = 0.0;
-double t_cholesky = 0.0, t_qr = 0.0, t_gs = 0.0, t_mean = 0.0, t_covar = 0.0;
+double t_predict = 0.0, t_accuracy = 0.0, t_decorrelate = 0.0;
 
 struct Stats {
     ~Stats()
     {
         if (profile) {
-            cerr << "perceptron profile: " << endl;
+            cerr << "perceptron runtime profile: " << endl;
             cerr << "  decorrelate:    " << t_decorrelate << "s" << endl;
-            cerr << "    qr:           " << t_qr          << "s" << endl;
-            cerr << "    gram schmidt: " << t_gs          << "s" << endl;
-            cerr << "    mean:         " << t_mean        << "s" << endl;
-            cerr << "    covar         " << t_covar       << "s" << endl;
-            cerr << "    cholesky:     " << t_cholesky    << "s" << endl;
-            cerr << "  train:          " << t_train       << "s" << endl;
             cerr << "  predict:        " << t_predict     << "s" << endl;
             cerr << "  accuracy:       " << t_accuracy    << "s" << endl;
         }
@@ -657,6 +650,16 @@ Register_Factory<Classifier_Impl, Perceptron>
 
 } // file scope
 
+std::ostream & operator << (std::ostream & stream, Perceptron::Activation act)
+{
+    switch (act) {
+    case Perceptron::LOGSIG:   return stream << "LOGSIG";
+    case Perceptron::TANH:     return stream << "TANH";
+    case Perceptron::TANHS:    return stream << "TANHS";
+    case Perceptron::IDENTITY: return stream << "IDENTITY";
+    default: return stream << format("Activation(%d)", act);
+    }
+}
 
 } // namespace ML
 

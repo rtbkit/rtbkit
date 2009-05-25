@@ -224,6 +224,8 @@ private:
 
 };
 
+std::ostream & operator << (std::ostream & stream, Perceptron::Activation act);
+
 } // namespace ML
 
 DECLARE_ENUM_INFO(ML::Perceptron::Activation, 4);
