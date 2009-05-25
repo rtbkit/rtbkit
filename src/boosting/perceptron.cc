@@ -120,8 +120,6 @@ print() const
     return result;
 }
 
-COMPACT_PERSISTENT_ENUM_IMPL(Perceptron::Activation);
-
 void
 Perceptron::Layer::
 serialize(DB::Store_Writer & store) const
@@ -218,17 +216,17 @@ deltas(const float * outputs, const float * errors, float * deltas) const
     size_t no = this->outputs();
 
     switch (activation) {
-    case IDENTITY:
+    case ACT_IDENTITY:
         for (unsigned o = 0;  o < no;  ++o)
             deltas[o] = outputs[o] * errors[o];
         break;
         
-    case LOGSIG:
+    case ACT_LOGSIG:
         for (unsigned o = 0;  o < no;  ++o)
             deltas[o] = errors[o] * (1.0 - outputs[o]);
         break;
         
-    case TANH:
+    case ACT_TANH:
         for (unsigned o = 0;  o < no;  ++o)
             deltas[o] = errors[o] * (1.0 - (outputs[o] * outputs[o]));
         break;
@@ -566,14 +564,14 @@ Perceptron::
 transform(float * values, size_t nv, Activation activation)
 {
     switch (activation) {
-    case IDENTITY: return;
+    case ACT_IDENTITY: return;
         
-    case LOGSIG:
+    case ACT_LOGSIG:
         for (unsigned i = 0;  i < nv;  ++i)
             values[i] = 1.0 / (1.0 + exp(-values[i]));
         break;
         
-    case TANH:
+    case ACT_TANH:
         for (unsigned i = 0;  i < nv;  ++i)
             values[i] = tanh(values[i]);
         break;
@@ -594,16 +592,16 @@ void Perceptron::
 derivative(distribution<float> & values, Activation activation)
 {
     switch (activation) {
-    case IDENTITY:
+    case ACT_IDENTITY:
         std::fill(values.begin(), values.end(), 1.0);
         break;
         
-    case LOGSIG:
+    case ACT_LOGSIG:
         for (unsigned i = 0;  i < values.size();  ++i)
             values[i] *= (1.0 - values[i]);
         break;
         
-    case TANH:
+    case ACT_TANH:
         for (unsigned i = 0;  i < values.size();  ++i)
             values[i] = 1.0 - (values[i] * values[i]);
         break;
@@ -650,29 +648,4 @@ Register_Factory<Classifier_Impl, Perceptron>
 
 } // file scope
 
-std::ostream & operator << (std::ostream & stream, Perceptron::Activation act)
-{
-    switch (act) {
-    case Perceptron::LOGSIG:   return stream << "LOGSIG";
-    case Perceptron::TANH:     return stream << "TANH";
-    case Perceptron::TANHS:    return stream << "TANHS";
-    case Perceptron::IDENTITY: return stream << "IDENTITY";
-    default: return stream << format("Activation(%d)", act);
-    }
-}
-
 } // namespace ML
-
-ENUM_INFO_NAMESPACE
-
-const Enum_Opt<ML::Perceptron::Activation>
-Enum_Info<ML::Perceptron::Activation>::OPT[4] = {
-    { "logsig",      ML::Perceptron::LOGSIG   },
-    { "tanh",        ML::Perceptron::TANH     },
-    { "tanhs",       ML::Perceptron::TANHS    },
-    { "identity",    ML::Perceptron::IDENTITY } };
-
-const char * Enum_Info<ML::Perceptron::Activation>::NAME
-   = "Perceptron::Activation";
-
-END_ENUM_INFO_NAMESPACE

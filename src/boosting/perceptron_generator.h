@@ -60,7 +60,7 @@ public:
     unsigned max_iter;
     unsigned min_iter;
     float learning_rate;
-    Perceptron::Activation activation;
+    Activation activation;
     bool do_decorrelate;
     float batch_size;
 

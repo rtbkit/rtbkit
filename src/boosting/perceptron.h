@@ -15,7 +15,7 @@
 #include "stump.h"
 #include "utils/pair_utils.h"
 #include <boost/multi_array.hpp>
-#include "utils/enum_info.h"
+#include "perceptron_defs.h"
 
 namespace ML {
 
@@ -106,14 +106,6 @@ public:
 
     /* Variables... */
     std::vector<Feature> features;  ///< Features to use as input
-    
-    /** Activation function for a layer */
-    enum Activation {
-        LOGSIG,    ///< Log of sigmoid
-        TANH,      
-        TANHS,
-        IDENTITY
-    };
     
     /** This structure holds a layer of neurons. */
     struct Layer {
@@ -224,10 +216,6 @@ private:
 
 };
 
-std::ostream & operator << (std::ostream & stream, Perceptron::Activation act);
-
 } // namespace ML
-
-DECLARE_ENUM_INFO(ML::Perceptron::Activation, 4);
 
 #endif /* __boosting__perceptron_h__ */

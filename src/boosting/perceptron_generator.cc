@@ -106,7 +106,7 @@ defaults()
     min_iter = 10;
     learning_rate = 0.01;
     arch_str = "%i";
-    activation = Perceptron::TANH;
+    activation = ACT_TANH;
     do_decorrelate = true;
     batch_size = 1024;
 }
@@ -545,7 +545,7 @@ decorrelate(const Training_Data & data,
     layer.weights.resize(boost::extents[transform.shape()[0]][transform.shape()[1]]);
     layer.weights = transform;
     layer.bias = distribution<float>(nf, 0.0);  // already have mean removed
-    layer.activation = Perceptron::IDENTITY;
+    layer.activation = ACT_IDENTITY;
     
     boost::multi_array<float, 2> decorrelated(boost::extents[nx][nf]);
     float fv_in[nf];
