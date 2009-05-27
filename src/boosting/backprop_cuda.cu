@@ -12,13 +12,18 @@
 #include <boost/timer.hpp>
 #include <boost/utility.hpp>
 #include "arch/cuda/device_data.h"
+#include "arch/cuda/atomic.h"
 #include "math/xdiv.h"
 #include "perceptron_defs.h"
 #include <vector>
+#include "backprop_cuda.h"
+
 
 using namespace std;
 
 
+/** Given an activation function and an input, apply that activation
+    function */
 __device__ float transform(float input, int activation)
 {
     switch (activation) {
@@ -33,7 +38,7 @@ __device__ float transform(float input, int activation)
     }
 }
 
-/* Given an output and an error, what's the delta? */
+/** Given an output and an error, what's the delta (derivative * error)? */
 __device__ float delta(float output, float error, int activation)
 {
     switch (activation) {
@@ -179,8 +184,11 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         /* Calculate the new error terms for the next layer */
         // TODO: atomic... and then find a way to avoid data dependencies...
         if (l > 1)
-            for (unsigned i = 0;  i < ni;  ++i)
-                errors[i] += d * layer_weights[i * w_stride + tid];
+            for (unsigned i = 0;  i < ni;  ++i) {
+                float update = d * layer_weights[i * w_stride + tid];
+                //errors[i] += update;
+                atomic_add(errors[i], update); 
+            }
 
 
         /* Update the weights. */
@@ -188,122 +196,254 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         for (unsigned i = 0;  i < ni;  ++i) {
             // No bank conflicts here as all threads are reading with the same
             // i value
-            float k2 = last_layer_outputs[i] * k;
-            
-            layer_updates[i * w_stride + tid] += k2 * d;
+            float update = last_layer_outputs[i] * k * d;
+
+            //layer_updates[i * w_stride + tid] += update;
+            atomic_add(layer_updates[i * w_stride + tid], update);
         }
         
         /* Update the bias */
-        layer_bias_updates[tid] += k * d;
+        //layer_bias_updates[tid] += k * d;
+        atomic_add(layer_bias_updates[tid], k * d);
     }
 }
 
 namespace ML {
 namespace CUDA {
 
-void train_examples(const float * feature_vectors,
-                    int num_feature_vectors,
-                    int feature_vector_width,
-                    const float * example_weights,
-                    const int * labels,
-                    int num_layers,
-                    const int * architecture,
-                    const float * const * weights,
-                    const float * const * biases,
-                    const int * w_strides,
-                    float * const * weight_updates,
-                    float * const * bias_updates,
-                    Activation activation,
-                    float fire,
-                    float inhibit,
-                    float learning_rate)
-{
-    DeviceData<float> d_feature_vectors
-        (feature_vectors,
-         num_feature_vectors * feature_vector_width);
+struct Backprop::Plan {
+    int num_layers;
 
-    if (feature_vector_width != architecture[0])
-        throw Exception("number of inputs doesn't match");
+    vector<int> architecture;
+    DeviceData<int> d_architecture;
 
-    DeviceData<float> d_example_weights(example_weights,
-                                              num_feature_vectors);
+    vector<DeviceData<float> > d_weights_storage;
+    vector<const float *> d_weights;
 
-    DeviceData<int> d_labels(labels, num_feature_vectors);
+    vector<DeviceData<float> > d_biases_storage;
+    vector<const float *> d_biases;
 
-    DeviceData<int> d_architecture(architecture, num_layers + 1);
+    vector<int> w_strides;
+    DeviceData<int> d_w_strides;
 
-    vector<DeviceData<float> > d_weights_storage(num_layers);
-    const float * d_weights[num_layers];
+    Activation activation;
+    float fire;
+    float inhibit;
+    float learning_rate;
 
-    for (unsigned l = 0;  l < num_layers;  ++l) {
-        int no = architecture[l + 1];
-        int w_stride = w_strides[l];
-        d_weights_storage[l].init(weights[l], no * w_stride);
-        d_weights[l] = d_weights_storage[l];
-    }
-    
-    vector<DeviceData<float> > d_biases_storage(num_layers);
-    const float * d_biases[num_layers];
-
-    for (unsigned l = 0;  l < num_layers;  ++l) {
-        int no = architecture[l + 1];
-        d_biases_storage[l].init(biases[l], no);
-        d_biases[l] = d_biases_storage[l];
-    }
-    
-    DeviceData<int> d_w_strides(w_strides, num_layers);
-
-    vector<DeviceData<float> > d_weight_updates_storage(num_layers);
-    float * d_weight_updates[num_layers];
-
-    for (unsigned l = 0;  l < num_layers;  ++l) {
-        int no = architecture[l + 1];
-        int w_stride = w_strides[l];
-        d_weight_updates_storage[l].init(weights[l], no * w_stride);
-        d_weight_updates[l] = d_weight_updates_storage[l];
-    }
-
-    vector<DeviceData<float> > d_bias_updates_storage(num_layers);
-    float * d_bias_updates[num_layers];
-
-    for (unsigned l = 0;  l < num_layers;  ++l) {
-        int no = architecture[l + 1];
-        d_bias_updates_storage[l].init(biases[l], no);
-        d_bias_updates[l] = d_bias_updates_storage[l];
-    }
-
-    int max_width = 0;
-    int total_neurons = 0;
-    for (unsigned l = 0;  l <= num_layers;  ++l) {
-        max_width = max(max_width, architecture[l]);
-        total_neurons += architecture[l];
-    }
+    int max_width;
+    int total_neurons;
 
     // We need our grid size to be exactly the maximum width of the output
-    dim3 threads(max_width);
+    dim3 threads;
+    
+    size_t shared_mem_size;
 
-    // Our grid size is one per example
-    dim3 grid(num_feature_vectors);
+    Plan(int num_layers,
+         const int * architecture,
+         const float * const * weights,
+         const float * const * biases,
+         const int * w_strides,
+         Activation activation,
+         float fire,
+         float inhibit,
+         float learning_rate,
+         bool on_host)
+        : num_layers(num_layers),
+          architecture(architecture, architecture + num_layers + 1),
+          w_strides(w_strides, w_strides + num_layers),
+          activation(activation),
+          fire(fire),
+          inhibit(inhibit),
+          learning_rate(learning_rate)
+    {
+        d_architecture.init(architecture, num_layers + 1);
 
-    size_t shared_mem_size = (max_width + total_neurons) * sizeof(float);
+        d_weights_storage.resize(num_layers);
+        d_weights.resize(num_layers);
 
-    train_example_kernel <<< grid, threads, shared_mem_size >>>
-        (d_feature_vectors,
-         feature_vector_width,
-         d_labels,
-         d_example_weights,
-         num_layers,
-         d_weights,
-         d_biases,
-         d_architecture,
-         d_w_strides,
-         d_weight_updates,
-         d_bias_updates,
-         activation,
-         fire,
-         inhibit,
-         learning_rate);
+        for (unsigned l = 0;  l < num_layers;  ++l) {
+            int no = architecture[l + 1];
+            int w_stride = w_strides[l];
+            d_weights_storage[l].init(weights[l], no * w_stride);
+            d_weights[l] = d_weights_storage[l];
+        }
+    
+        d_biases_storage.resize(num_layers);
+        d_biases.resize(num_layers);
+
+        for (unsigned l = 0;  l < num_layers;  ++l) {
+            int no = architecture[l + 1];
+            d_biases_storage[l].init(biases[l], no);
+            d_biases[l] = d_biases_storage[l];
+        }
+    
+        d_w_strides.init(w_strides, num_layers);
+        
+        max_width = 0;
+        total_neurons = 0;
+
+        for (unsigned l = 0;  l <= num_layers;  ++l) {
+            max_width = max(max_width, architecture[l]);
+            total_neurons += architecture[l];
+        }
+
+        // We need our grid size to be exactly the maximum width of the output
+        threads = dim3(max_width);
+
+        shared_mem_size = (max_width + total_neurons) * sizeof(float);
+    }
+};
+
+struct Backprop::Context {
+
+    const Plan & plan;
+    
+    DeviceData<float> d_feature_vectors;
+    DeviceData<float> d_example_weights;
+    DeviceData<int> d_labels;
+        
+    float * const * weight_updates;
+    vector<DeviceData<float> > d_weight_updates_storage;
+    float * const * bias_updates;
+    vector<float *> d_weight_updates;
+    
+    vector<DeviceData<float> > d_bias_updates_storage;
+    vector<float *> d_bias_updates;
+
+    dim3 grid;
+
+    int feature_vector_width;
+
+    Context(const Plan & plan,
+            const float * feature_vectors,
+            int num_feature_vectors,
+            const float * example_weights,
+            const int * labels,
+            float * const * weight_updates,
+            float * const * bias_updates,
+            float & correct,
+            float & total,
+            float & rms_error)
+        : plan(plan), weight_updates(weight_updates), bias_updates(bias_updates)
+    {
+        feature_vector_width = plan.architecture[0];
+        
+        d_feature_vectors.init(feature_vectors,
+                               num_feature_vectors * feature_vector_width);
+        
+        d_example_weights.init(example_weights, num_feature_vectors);
+        
+        d_labels.init(labels, num_feature_vectors);
+        
+        d_weight_updates_storage.resize(plan.num_layers);
+        
+        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
+            int no = plan.architecture[l + 1];
+            int w_stride = plan.w_strides[l];
+            d_weight_updates_storage[l].init(weight_updates[l],
+                                             no * w_stride);
+            d_weight_updates[l] = d_weight_updates_storage[l];
+        }
+
+        d_bias_updates_storage.resize(plan.num_layers);
+
+        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
+            int no = plan.architecture[l + 1];
+            d_bias_updates_storage[l].init(bias_updates[l], no);
+            d_bias_updates[l] = d_bias_updates_storage[l];
+        }
+
+        // Our grid size is one per example
+        grid = dim3(num_feature_vectors);
+    }
+
+    void execute()
+    {
+        train_example_kernel<<<grid, plan.threads, plan.shared_mem_size>>>
+            (d_feature_vectors,
+             feature_vector_width,
+             d_labels,
+             d_example_weights,
+             plan.num_layers,
+             &plan.d_weights[0],
+             &plan.d_biases[0],
+             plan.d_architecture,
+             plan.d_w_strides,
+             &d_weight_updates[0],
+             &d_bias_updates[0],
+             plan.activation,
+             plan.fire,
+             plan.inhibit,
+             plan.learning_rate);
+    }
+    
+    void synchronize()
+    {
+        cudaError_t err = cudaThreadSynchronize();
+        
+        if (err != cudaSuccess)
+            throw Exception(cudaGetErrorString(err));
+        
+        for (unsigned l = 0;  l < plan.num_layers;  ++l)
+            d_weight_updates_storage[l].sync(weight_updates[l]);
+        for (unsigned l = 0;  l < plan.num_layers;  ++l)
+            d_bias_updates_storage[l].sync(bias_updates[l]);
+    }
+};
+
+boost::shared_ptr<Backprop::Plan>
+Backprop::
+plan(int num_layers,
+     const int * architecture,
+     const float * const * weights,
+     const float * const * biases,
+     const int * w_strides,
+     Activation activation,
+     float fire,
+     float inhibit,
+     float learning_rate,
+     bool on_host) const
+{
+    boost::shared_ptr<Plan> result
+        (new Plan(num_layers, architecture, weights, biases, w_strides,
+                  activation, fire, inhibit, learning_rate, on_host));
+
+    return result;
 }
+
+boost::shared_ptr<Backprop::Context>
+Backprop::
+execute(const Plan & plan,
+        const float * feature_vectors,
+        int num_feature_vectors,
+        const float * example_weights,
+        const int * labels,
+        float * const * weight_updates,
+        float * const * bias_updates,
+        float & correct,
+        float & total,
+        float & rms_error) const
+{
+    boost::shared_ptr<Context> result
+        (new Context(plan, feature_vectors, num_feature_vectors,
+                     example_weights, labels,
+                     weight_updates, bias_updates,
+                     correct, total, rms_error));
+
+    result->execute();
+
+    return result;
+}
+
+/** Wait for the given context to be finished. */
+void
+Backprop::
+synchronize(Context & context) const
+{
+    context.synchronize();
+}
+
 
 } // namespace CUDA
 } // namespace ML

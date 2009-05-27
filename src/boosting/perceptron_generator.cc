@@ -27,7 +27,7 @@
 #include <boost/bind.hpp>
 #include "utils/smart_ptr_utils.h"
 #include "utils/vector_utils.h"
-
+#include "backprop_cuda.h"
 
 using namespace std;
 
@@ -865,6 +865,122 @@ train_iteration(Thread_Context & context,
 
     for (; done_ex < nx;  done_ex += our_batch_size) {
 
+        size_t last_ex = std::min<size_t>(done_ex + our_batch_size, nx);
+        
+        int num_in_batch = last_ex - done_ex;
+
+        bool use_cuda = true;
+
+        if (use_cuda) {
+            using namespace CUDA;
+
+            const vector<Perceptron::Layer> & layers = result.layers;
+
+            size_t num_layers = layers.size();
+            vector<int> architecture_spec(nl + 1);
+            architecture_spec.push_back(layers[0].inputs());
+            for (unsigned i = 0;  i < num_layers;  ++i)
+                architecture_spec.push_back(layers[i].outputs());
+            const int * architecture = &architecture_spec[0];
+            
+            vector<const float *> weights_vec;
+            for (unsigned l = 0;  l < nl;  ++l)
+                weights_vec.push_back(&layers[l].weights[0][0]);
+            const float * const * weights = &weights_vec[0];
+            
+            vector<const float *> bias_vec;
+            for (unsigned l = 0;  l < nl;  ++l)
+                bias_vec.push_back(&layers[l].bias[0]);
+            const float * const * biases = &bias_vec[0];
+            
+            vector<int> w_strides_vec;
+            for (unsigned l = 0;  l < nl;  ++l)
+                w_strides_vec.push_back(layers[l].weights.shape()[0]);
+            const int * w_strides = &w_strides_vec[0];
+
+            const float fire = 1.0, inhibit = -1.0;
+
+            Backprop backprop;
+            
+            boost::shared_ptr<Backprop::Plan>
+                plan = backprop.plan(num_layers,
+                                     architecture,
+                                     weights,
+                                     biases,
+                                     w_strides,
+                                     activation,
+                                     fire,
+                                     inhibit,
+                                     learning_rate,
+                                     false /* on_host */);
+
+
+            for (unsigned i = 0;  i < 1;  ++i) {
+                float correct = 0.0, total = 0.0, rms_error = 0.0;
+
+                int x_start = done_ex;
+                int x_end = last_ex;
+                
+                /* First, get everything into the shape needed for CUDA. */
+                
+                const float * feature_vectors = &decorrelated[x_start][0];
+                int num_feature_vectors = x_end - x_start;
+                const float * example_weights_ptr = &example_weights[x_start];
+                const int * labels_ptr
+                    = reinterpret_cast<const int *>(&labels[x_start]);
+                
+                vector<float *> weight_updates_vec;
+                for (unsigned l = 0;  l < nl;  ++l)
+                    weight_updates_vec.push_back(&weight_updates[l][0][0]);
+                float * const * weight_updates = &weight_updates_vec[0];
+                
+                vector<float *> bias_updates_vec;
+                for (unsigned l = 0;  l < nl;  ++l)
+                    bias_updates_vec.push_back(&bias_updates[l][0]);
+                float * const * bias_updates = &bias_updates_vec[0];
+                
+                boost::shared_ptr<Backprop::Context>
+                    context = backprop.execute(*plan,
+                                               feature_vectors,
+                                               num_feature_vectors,
+                                               example_weights_ptr,
+                                               labels_ptr,
+                                               weight_updates,
+                                               bias_updates,
+                                               correct,
+                                               total,
+                                               rms_error);
+
+                
+#if 0
+                /* Update the parameters */
+                Guard guard(lock);
+                
+                this->correct += sub_correct;
+                this->total += sub_total;
+                total_rms_error += my_rms_error;
+                
+                /* Finally, put the accumulated weights back. */
+                for (unsigned l = 1;  l < nl;  ++l) {
+                    const Perceptron::Layer & layer = layers[l];
+                    
+                    size_t no = layer.outputs();
+                    size_t ni = layer.inputs();
+                    
+                    for (unsigned i = 0;  i < ni;  ++i)
+                        SIMD::vec_add(&weight_updates[l][i][0],
+                                      &sub_weight_updates[l][i][0],
+                                      &weight_updates[l][i][0], no);
+                    
+                    SIMD::vec_add(&bias_updates[l][0], &sub_bias_updates[l][0],
+                                  &bias_updates[l][0], no);
+                }
+#endif
+            }
+
+            continue;
+        }
+
         // Zero everything out
         if (our_batch_size > 1) {
             PROFILE_FUNCTION(t_zero);
@@ -885,10 +1001,6 @@ train_iteration(Thread_Context & context,
                                weight_updates_ptrs, bias_updates_ptrs,
                                correct, total,
                                total_rms_error, learning_rate);
-        
-        size_t last_ex = std::min<size_t>(done_ex + our_batch_size, nx);
-        
-        int num_in_batch = last_ex - done_ex;
         
         int ex_per_job = std::max(8, std::min(1024, num_in_batch / (4 * num_threads())));
         ex_per_job = std::min(ex_per_job, num_in_batch);
