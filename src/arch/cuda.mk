@@ -6,4 +6,4 @@ CUDA_LIBRARY_PATH := $(CUDA_PATH)/lib
 NVCC       := $(CUDA_INSTALL_PATH)/bin/nvcc -D_FORTIFY_SOURCE=0 -shared -Xcompiler -fPIC,-g,-O3 -arch=sm_13 --ptxas-options=-v
 
 # Uncomment to emulate the CUDA device
-#NVCC       += -Xcompiler -fno-access-control --device-emulation
+NVCC       += -Xcompiler -fno-access-control --device-emulation

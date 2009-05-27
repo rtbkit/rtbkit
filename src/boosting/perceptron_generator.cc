@@ -891,34 +891,45 @@ train_iteration(Thread_Context & context,
 
             const vector<Perceptron::Layer> & layers = result.layers;
 
-            size_t num_layers = layers.size();
+            // NOTE: we don't keep layer 0, as it's the decorrelating and
+            // conditioning layer.  That's the reason for indexes starting
+            // at one, etc.
+
+            size_t num_active_layers = layers.size() - 1;
+
             vector<int> architecture_spec;
-            architecture_spec.push_back(layers[0].inputs());
-            for (unsigned i = 0;  i < num_layers;  ++i)
-                architecture_spec.push_back(layers[i].outputs());
+
+            architecture_spec.push_back(layers[1].inputs());
+            for (unsigned l = 0;  l < num_active_layers;  ++l)
+                architecture_spec.push_back(layers[l + 1].outputs());
             const int * architecture = &architecture_spec[0];
             
+            cerr << "architecture_spec = " << architecture_spec << endl;
+
             vector<const float *> weights_vec;
-            for (unsigned l = 0;  l < nl;  ++l)
-                weights_vec.push_back(&layers[l].weights[0][0]);
+            for (unsigned l = 0;  l < num_active_layers;  ++l)
+                weights_vec.push_back(&layers[l + 1].weights[0][0]);
             const float * const * weights = &weights_vec[0];
             
             vector<const float *> bias_vec;
-            for (unsigned l = 0;  l < nl;  ++l)
-                bias_vec.push_back(&layers[l].bias[0]);
+            for (unsigned l = 0;  l < num_active_layers;  ++l)
+                bias_vec.push_back(&layers[l + 1].bias[0]);
             const float * const * biases = &bias_vec[0];
             
             vector<int> w_strides_vec;
-            for (unsigned l = 0;  l < nl;  ++l)
-                w_strides_vec.push_back(layers[l].weights.shape()[0]);
+            for (unsigned l = 0;  l < num_active_layers;  ++l)
+                w_strides_vec.push_back(layers[l + 1].weights.shape()[1]);
+
+            cerr << "w_strides_vec = " << w_strides_vec << endl;
+
             const int * w_strides = &w_strides_vec[0];
 
             const float fire = 1.0, inhibit = -1.0;
-
+            
             Backprop backprop;
             
             boost::shared_ptr<Backprop::Plan>
-                plan = backprop.plan(num_layers,
+                plan = backprop.plan(num_active_layers,
                                      architecture,
                                      weights,
                                      biases,
@@ -945,14 +956,14 @@ train_iteration(Thread_Context & context,
                     = reinterpret_cast<const int *>(&labels[x_start]);
                 
                 vector<float *> weight_updates_vec;
-                for (unsigned l = 0;  l < nl;  ++l)
-                    weight_updates_vec.push_back(&weight_updates[l][0][0]);
-                float * const * weight_updates = &weight_updates_vec[0];
+                for (unsigned l = 0;  l < num_active_layers;  ++l)
+                    weight_updates_vec.push_back(&weight_updates[l + 1][0][0]);
+                float * const * weight_updates_ptrs = &weight_updates_vec[0];
                 
                 vector<float *> bias_updates_vec;
-                for (unsigned l = 0;  l < nl;  ++l)
-                    bias_updates_vec.push_back(&bias_updates[l][0]);
-                float * const * bias_updates = &bias_updates_vec[0];
+                for (unsigned l = 0;  l < num_active_layers;  ++l)
+                    bias_updates_vec.push_back(&bias_updates[l + 1][0]);
+                float * const * bias_updates_ptrs = &bias_updates_vec[0];
                 
                 boost::shared_ptr<Backprop::Context>
                     context = backprop.execute(*plan,
@@ -960,8 +971,8 @@ train_iteration(Thread_Context & context,
                                                num_feature_vectors,
                                                example_weights_ptr,
                                                labels_ptr,
-                                               weight_updates,
-                                               bias_updates,
+                                               weight_updates_ptrs,
+                                               bias_updates_ptrs,
                                                correct,
                                                total,
                                                rms_error);
@@ -970,85 +981,73 @@ train_iteration(Thread_Context & context,
                 backprop.synchronize(*context);
                 
 #if 0
-                /* Update the parameters */
-                Guard guard(lock);
-                
                 this->correct += sub_correct;
                 this->total += sub_total;
                 total_rms_error += my_rms_error;
-                
-                /* Finally, put the accumulated weights back. */
-                for (unsigned l = 1;  l < nl;  ++l) {
-                    const Perceptron::Layer & layer = layers[l];
-                    
-                    size_t no = layer.outputs();
-                    size_t ni = layer.inputs();
-                    
-                    for (unsigned i = 0;  i < ni;  ++i)
-                        SIMD::vec_add(&weight_updates[l][i][0],
-                                      &sub_weight_updates[l][i][0],
-                                      &weight_updates[l][i][0], no);
-                    
-                    SIMD::vec_add(&bias_updates[l][0], &sub_bias_updates[l][0],
-                                  &bias_updates[l][0], no);
-                }
 #endif
             }
-
-            continue;
-        }
-        
-        Training_Job_Info info(decorrelated, labels, example_weights, result,
-                               weight_updates_ptrs, bias_updates_ptrs,
-                               correct, total,
-                               total_rms_error, learning_rate);
-        
-        int ex_per_job = std::max(8, std::min(1024, num_in_batch / (4 * num_threads())));
-        ex_per_job = std::min(ex_per_job, num_in_batch);
-        
-        //cerr << "num_in_batch = " << num_in_batch << " ex_per_job = " << ex_per_job << endl;
-        
-        bool one_thread = num_in_batch == our_batch_size;
-
-        if (one_thread) {
-            Training_Job job(info, done_ex, last_ex, true /* one_thread */);
-            job();
         }
         else {
-            static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+        
+            Training_Job_Info info(decorrelated, labels, example_weights,
+                                   result,
+                                   weight_updates_ptrs, bias_updates_ptrs,
+                                   correct, total,
+                                   total_rms_error, learning_rate);
             
-            int group;
-            {
-                group = worker.get_group(NO_JOB,
-                                         format("Perceptron_Generator::train_iteration "
-                                                "under %d", context.group()),
-                                         context.group());
-                Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                             boost::ref(worker),
-                                             group));
-                
-                for (size_t x = done_ex;  x < last_ex;  x += ex_per_job) {
-                    size_t end = std::min(x + ex_per_job, nx);
-                    
-                    //cerr << "x = " << x << " last_ex = " << last_ex
-                    //     << " ex_per_job = " << ex_per_job << " nx = " << nx
-                    //     << " end = " << end << endl;
-                    
-                    worker.add(Training_Job(info, x, end,
-                                            false /* one_thread */),
-                               format("Perceptron_Generator::train_iteration(): %zd-%zd "
-                                      "under %d", x, end, group),
-                               group);
-                }
+            int ex_per_job = std::max(8,
+                                      std::min(1024,
+                                               num_in_batch / (4 * num_threads())));
+            ex_per_job = std::min(ex_per_job, num_in_batch);
+            
+            //cerr << "num_in_batch = " << num_in_batch << " ex_per_job = " << ex_per_job << endl;
+            
+            bool one_thread = num_in_batch == our_batch_size;
+            
+            if (one_thread) {
+                Training_Job job(info, done_ex, last_ex, true /* one_thread */);
+                job();
             }
-            
-            worker.run_until_finished(group);
-        }
+            else {
+                static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+                
+                int group;
+                {
+                    group = worker.get_group(NO_JOB,
+                                             format("Perceptron_Generator::train_iteration "
+                                                    "under %d", context.group()),
+                                             context.group());
+                    Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                                 boost::ref(worker),
+                                                 group));
+                    
+                    for (size_t x = done_ex;  x < last_ex;  x += ex_per_job) {
+                        size_t end = std::min(x + ex_per_job, nx);
+                        
+                        //cerr << "x = " << x << " last_ex = " << last_ex
+                        //     << " ex_per_job = " << ex_per_job << " nx = " << nx
+                        //     << " end = " << end << endl;
+                        
+                        worker.add(Training_Job(info, x, end,
+                                                false /* one_thread */),
+                                   format("Perceptron_Generator::train_iteration(): %zd-%zd "
+                                          "under %d", x, end, group),
+                                   group);
+                    }
+                }
+                
+                worker.run_until_finished(group);
+            }
+        } // CUDA or not CUDA
 
         PROFILE_FUNCTION(t_update);
 
+        biggest_value = 0.0;
+        biggest_update = 0.0;
+
         /* Finally, put the accumulated weights back. */
-        for (unsigned l = 1;  l < nl && our_batch_size != 1;  ++l) {
+        for (unsigned l = 1;  l < nl && (our_batch_size != 1 || use_cuda);
+             ++l) {
             Perceptron::Layer & layer = layers[l];
             
             size_t no = layer.outputs();
@@ -1060,8 +1059,8 @@ train_iteration(Thread_Context & context,
                     biggest_update = std::max(biggest_update,
                                               abs(weight_updates[l][i][o]));
 
-                SIMD::vec_add(&layer.weights[i][0], &weight_updates[l][i][0],
-                              &layer.weights[i][0], no);
+                //SIMD::vec_add(&layer.weights[i][0], &weight_updates[l][i][0],
+                //              &layer.weights[i][0], no);
 
                 for (unsigned o = 0;  o < no;  ++o)
                     biggest_value = std::max(biggest_value,
@@ -1072,19 +1071,19 @@ train_iteration(Thread_Context & context,
                 biggest_update = std::max(biggest_update,
                                           abs(bias_updates[l][o]));
             
-            SIMD::vec_add(&layer.bias[0], &bias_updates[l][0],
-                          &layer.bias[0], no);
+            //SIMD::vec_add(&layer.bias[0], &bias_updates[l][0],
+            //              &layer.bias[0], no);
 
             for (unsigned o = 0;  o < no;  ++o)
                 biggest_value = std::max(biggest_value,
                                          abs(layer.bias[o]));
         }
+
+        cerr << "biggest value: " << biggest_value
+             << " biggest update: " << biggest_update << endl;
     }
 
     //cerr << "correct = " << correct << " total = " << total << endl;
-
-    //cerr << "biggest value: " << biggest_value
-    //     << " biggest update: " << biggest_update << endl;
 
     return make_pair(correct / total, sqrt(total_rms_error));
 }

@@ -38,15 +38,34 @@ struct DeviceData {
 
     ~DeviceData()
     {
-        if (devicePtr_) cudaFree(devicePtr_);
+        free();
+    }
+
+    void free()
+    {
+        if (!devicePtr_) return;
+
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess)
+            cerr << "error before calling cudaFree for " << num_bytes()
+                 << " bytes at "
+                 << devicePtr_ << ": " << cudaGetErrorString(err);
+
+        err = cudaFree(devicePtr_);
+
+        // We don't throw, as this normally occurs within destructors
+        if (err != cudaSuccess)
+            cerr << "error calling cudaFree for " << num_bytes()
+                 << " bytes at "
+                 << devicePtr_ << ": " << cudaGetErrorString(err);
+        
         devicePtr_ = 0;
     }
 
     void init(const D * hostData, size_t size)
     {
-        if (devicePtr_) cudaFree(devicePtr_);
+        free();
 
-        devicePtr_ = 0;
         size_ = size;
 
         if (hostData) {
@@ -67,9 +86,9 @@ struct DeviceData {
                 throw Exception(cudaGetErrorString(err));
             }
             
-            //cerr << "copied " << size * sizeof(D) << " bytes from host "
-            //     << hostData << " to " << devicePtr_ << " type "
-            //     << demangle(typeid(D).name()) << endl;
+            cerr << "copied " << size * sizeof(D) << " bytes from host "
+                 << hostData << " to " << devicePtr_ << " type "
+                 << demangle(typeid(D).name()) << endl;
         }
     }
 
@@ -88,10 +107,19 @@ struct DeviceData {
         if (!devicePtr_)
             throw Exception("couldn't sync device data");
 
-        //cerr << "syncing back " << size_ * sizeof(D) << " bytes" << endl;
+        cerr << "syncing back " << size_ * sizeof(D) << " bytes"
+             << " from " << devicePtr_ << " to " << hostData
+             << endl;
 
-        cudaError_t err = cudaMemcpy(hostData, devicePtr_, size_ * sizeof(D),
-                                     cudaMemcpyDeviceToHost);
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess)
+            cerr << "error before calling cudaMemcpy(): "
+                 << cudaGetErrorString(err)
+                 << endl;;
+        
+        
+        err = cudaMemcpy(hostData, devicePtr_, size_ * sizeof(D),
+                         cudaMemcpyDeviceToHost);
         
         if (err != cudaSuccess)
             throw Exception(cudaGetErrorString(err));
