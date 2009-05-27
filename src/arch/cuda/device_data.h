@@ -86,9 +86,11 @@ struct DeviceData {
                 throw Exception(cudaGetErrorString(err));
             }
             
+#if 0
             cerr << "copied " << size * sizeof(D) << " bytes from host "
                  << hostData << " to " << devicePtr_ << " type "
                  << demangle(typeid(D).name()) << endl;
+#endif
         }
     }
 
@@ -107,9 +109,11 @@ struct DeviceData {
         if (!devicePtr_)
             throw Exception("couldn't sync device data");
 
+#if 0
         cerr << "syncing back " << size_ * sizeof(D) << " bytes"
              << " from " << devicePtr_ << " to " << hostData
              << endl;
+#endif
 
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess)

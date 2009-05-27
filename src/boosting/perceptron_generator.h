@@ -63,6 +63,7 @@ public:
     Activation activation;
     bool do_decorrelate;
     float batch_size;
+    bool use_cuda;
 
     std::string arch_str;
 

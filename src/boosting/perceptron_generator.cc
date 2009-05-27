@@ -95,6 +95,7 @@ configure(const Configuration & config)
     config.find(batch_size, "batch_size");
     config.find(activation, "activation");
     config.find(do_decorrelate, "decorrelate");
+    config.find(use_cuda, "use_cuda");
 }
 
 void
@@ -109,6 +110,7 @@ defaults()
     activation = ACT_TANH;
     do_decorrelate = true;
     batch_size = 1024;
+    use_cuda = false;
 }
 
 Config_Options
@@ -130,8 +132,9 @@ options() const
         .add("decorrelate", do_decorrelate,
              "decorrelate the features before training")
         .add("batch_size", batch_size, "0.0-1.0 or 1 - nvectors",
-             "number of samples in each \"mini batch\" for stochastic");
-
+             "number of samples in each \"mini batch\" for stochastic")
+        .add("use_cuda", use_cuda, "boolean", "use the CUDA optimized kernel");
+    
     return result;
 }
 
@@ -863,8 +866,6 @@ train_iteration(Thread_Context & context,
 
     float biggest_update = 0.0, biggest_value = 0.0;
 
-    bool use_cuda = true;
-
     for (; done_ex < nx;  done_ex += our_batch_size) {
 
         size_t last_ex = std::min<size_t>(done_ex + our_batch_size, nx);
@@ -904,7 +905,7 @@ train_iteration(Thread_Context & context,
                 architecture_spec.push_back(layers[l + 1].outputs());
             const int * architecture = &architecture_spec[0];
             
-            cerr << "architecture_spec = " << architecture_spec << endl;
+            //cerr << "architecture_spec = " << architecture_spec << endl;
 
             vector<const float *> weights_vec;
             for (unsigned l = 0;  l < num_active_layers;  ++l)
@@ -920,7 +921,7 @@ train_iteration(Thread_Context & context,
             for (unsigned l = 0;  l < num_active_layers;  ++l)
                 w_strides_vec.push_back(layers[l + 1].weights.shape()[1]);
 
-            cerr << "w_strides_vec = " << w_strides_vec << endl;
+            //cerr << "w_strides_vec = " << w_strides_vec << endl;
 
             const int * w_strides = &w_strides_vec[0];
 
@@ -1059,8 +1060,8 @@ train_iteration(Thread_Context & context,
                     biggest_update = std::max(biggest_update,
                                               abs(weight_updates[l][i][o]));
 
-                //SIMD::vec_add(&layer.weights[i][0], &weight_updates[l][i][0],
-                //              &layer.weights[i][0], no);
+                SIMD::vec_add(&layer.weights[i][0], &weight_updates[l][i][0],
+                              &layer.weights[i][0], no);
 
                 for (unsigned o = 0;  o < no;  ++o)
                     biggest_value = std::max(biggest_value,
@@ -1071,18 +1072,19 @@ train_iteration(Thread_Context & context,
                 biggest_update = std::max(biggest_update,
                                           abs(bias_updates[l][o]));
             
-            //SIMD::vec_add(&layer.bias[0], &bias_updates[l][0],
-            //              &layer.bias[0], no);
+            SIMD::vec_add(&layer.bias[0], &bias_updates[l][0],
+                          &layer.bias[0], no);
 
             for (unsigned o = 0;  o < no;  ++o)
                 biggest_value = std::max(biggest_value,
                                          abs(layer.bias[o]));
         }
 
-        cerr << "biggest value: " << biggest_value
-             << " biggest update: " << biggest_update << endl;
     }
 
+    //cerr << "biggest value: " << biggest_value
+    //     << " biggest update: " << biggest_update << endl;
+    
     //cerr << "correct = " << correct << " total = " << total << endl;
 
     return make_pair(correct / total, sqrt(total_rms_error));

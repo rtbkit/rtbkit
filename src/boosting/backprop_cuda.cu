@@ -28,10 +28,8 @@ __device__ float transform(float input, int activation)
 {
     switch (activation) {
     case ML::ACT_TANH: {
-        if (input > 1.0) input *= 1.000001;  // TODO: remove...
-        float pos = __expf(input);
-        float neg = __expf(-input);
-        return __fdividef(pos + neg, pos - neg);
+        float exp2i = __expf(input + input);
+        return __fdividef(exp2i - 1.0f, exp2i + 1.0f);
     }
     case ML::ACT_IDENTITY: return input;
     default:
@@ -155,8 +153,6 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                 // Coalesced access; maybe texture would be better
                 float weight = layer_weights[i * w_stride + tid];
                 
-                if (weight > 1.0) weight *= 1.000001;  // TODO: remove
-
                 accum += weight * inval;
             }
             
@@ -181,6 +177,19 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     
     /* Let everything catch up */
     __syncthreads();
+
+
+#if defined(__DEVICE_EMULATION__)
+    if (tid == 0) {
+        fprintf(stderr, "completed fprop example %d; label %d\n",
+                example_num, label);
+        for (unsigned i = 0;  i < no;  ++i) {
+            fprintf(stderr, "output %d: value %f error %f correct %d\n",
+                    i, this_layer_outputs[i], errors[i], (label == i));
+        }
+    }
+#endif
+
 
     /* Backpropegate. */
     for (int l = num_layers - 1;  l >= 0;
@@ -256,12 +265,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             // No bank conflicts here as all threads are reading with the same
             // i value
             float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
-
-            if (prev > 1.0) prev *= 1.0000000001;  // TODO: remove
-
             float update = prev * k * d;
-            
-            if (update > 1.0) update *= 1.0000000001;  // TODO: remove
 
             //layer_updates[i * w_stride + tid] += update;
             atomic_add(layer_updates[i * w_stride + tid], update);
@@ -413,9 +417,9 @@ struct Backprop::Context {
     {
         feature_vector_width = plan.architecture[0];
         
-        cerr << "num_feature_vectors = " << num_feature_vectors << endl;
-        cerr << "feature_vector_width = " << feature_vector_width
-             << endl;
+        //cerr << "num_feature_vectors = " << num_feature_vectors << endl;
+        //cerr << "feature_vector_width = " << feature_vector_width
+        //     << endl;
 
         d_feature_vectors.init(feature_vectors,
                                num_feature_vectors * feature_vector_width);
@@ -471,18 +475,18 @@ struct Backprop::Context {
              plan.inhibit,
              plan.learning_rate);
 
-        cerr << "launched" << endl;
+        //cerr << "launched" << endl;
     }
     
     void synchronize()
     {
-        cerr << "waiting for execution" << endl;
+        //cerr << "waiting for execution" << endl;
         cudaError_t err = cudaThreadSynchronize();
         
         if (err != cudaSuccess)
             throw Exception(cudaGetErrorString(err));
 
-        cerr << "copying memory back" << endl;
+        //cerr << "copying memory back" << endl;
 
         for (unsigned l = 0;  l < plan.num_layers;  ++l)
             d_weight_updates_storage[l].sync(weight_updates[l]);
