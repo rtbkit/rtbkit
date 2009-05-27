@@ -877,7 +877,7 @@ train_iteration(Thread_Context & context,
             const vector<Perceptron::Layer> & layers = result.layers;
 
             size_t num_layers = layers.size();
-            vector<int> architecture_spec(nl + 1);
+            vector<int> architecture_spec;
             architecture_spec.push_back(layers[0].inputs());
             for (unsigned i = 0;  i < num_layers;  ++i)
                 architecture_spec.push_back(layers[i].outputs());
@@ -951,6 +951,8 @@ train_iteration(Thread_Context & context,
                                                total,
                                                rms_error);
 
+
+                backprop.synchronize(*context);
                 
 #if 0
                 /* Update the parameters */

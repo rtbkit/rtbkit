@@ -5,6 +5,7 @@
    CUDA-based backprop implementation.
 */
 
+
 #include "arch/exception.h"
 #include "compiler/compiler.h"
 #include <cstdio>
@@ -17,7 +18,6 @@
 #include "perceptron_defs.h"
 #include <vector>
 #include "backprop_cuda.h"
-
 
 using namespace std;
 
@@ -82,6 +82,11 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     // 
     const unsigned example_num  = blockIdx.x;
 
+#ifdef __DEVICE_EMULATION__
+    fprintf(stderr, "tid = %d example_num = %d\n",
+            tid, example_num);
+#endif
+
     /* The layer outputs (activation of the neurons).  This is where the
        shared memory goes to.  Note that we store only the activated outputs,
        not the inputs. */
@@ -90,6 +95,11 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     /* Where we accumulate our errors, layer by layer.  The size is that of
        the largest dimension. */
     extern __shared__ float errors[];
+
+#ifdef __DEVICE_EMULATION__
+    fprintf(stderr, "layer_outputs = %p errors = %p\n",
+            layer_outputs, errors);
+#endif
 
     const float * input = feature_vectors + example_num * feature_vector_width;
 
@@ -140,6 +150,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             this_layer_outputs[tid] = transform(accum, activation);
         }
     }
+
 
     /*************************************************************************/
     /* BPROP                                                                 */
@@ -218,10 +229,12 @@ struct Backprop::Plan {
     DeviceData<int> d_architecture;
 
     vector<DeviceData<float> > d_weights_storage;
-    vector<const float *> d_weights;
+    vector<const float *> weights_vec;
+    DeviceData<const float *> d_weights;
 
     vector<DeviceData<float> > d_biases_storage;
-    vector<const float *> d_biases;
+    vector<const float *> biases_vec;
+    DeviceData<const float *> d_biases;
 
     vector<int> w_strides;
     DeviceData<int> d_w_strides;
@@ -257,27 +270,36 @@ struct Backprop::Plan {
           inhibit(inhibit),
           learning_rate(learning_rate)
     {
+        cerr << "plan: num_layers = " << num_layers << endl;
+
         d_architecture.init(architecture, num_layers + 1);
 
         d_weights_storage.resize(num_layers);
-        d_weights.resize(num_layers);
+        weights_vec.resize(num_layers);
 
         for (unsigned l = 0;  l < num_layers;  ++l) {
             int no = architecture[l + 1];
             int w_stride = w_strides[l];
             d_weights_storage[l].init(weights[l], no * w_stride);
-            d_weights[l] = d_weights_storage[l];
+            weights_vec[l] = d_weights_storage[l];
+
+            cerr << "layer " << l << ": no = " << no << " w_stride = "
+                 << w_stride << endl;
         }
     
+        d_weights.init(&weights_vec[0], num_layers);
+
         d_biases_storage.resize(num_layers);
-        d_biases.resize(num_layers);
+        biases_vec.resize(num_layers);
 
         for (unsigned l = 0;  l < num_layers;  ++l) {
             int no = architecture[l + 1];
             d_biases_storage[l].init(biases[l], no);
-            d_biases[l] = d_biases_storage[l];
+            biases_vec[l] = d_biases_storage[l];
         }
     
+        d_biases.init(&biases_vec[0], num_layers);
+
         d_w_strides.init(w_strides, num_layers);
         
         max_width = 0;
@@ -304,12 +326,16 @@ struct Backprop::Context {
     DeviceData<int> d_labels;
         
     float * const * weight_updates;
-    vector<DeviceData<float> > d_weight_updates_storage;
     float * const * bias_updates;
-    vector<float *> d_weight_updates;
+
+    vector<DeviceData<float> > d_weight_updates_storage;
+    vector<float *> weight_updates_vec;
+    DeviceData<float *> d_weight_updates;
     
+
     vector<DeviceData<float> > d_bias_updates_storage;
-    vector<float *> d_bias_updates;
+    vector<float *> bias_updates_vec;
+    DeviceData<float *> d_bias_updates;
 
     dim3 grid;
 
@@ -337,22 +363,28 @@ struct Backprop::Context {
         d_labels.init(labels, num_feature_vectors);
         
         d_weight_updates_storage.resize(plan.num_layers);
+        weight_updates_vec.resize(plan.num_layers);
         
         for (unsigned l = 0;  l < plan.num_layers;  ++l) {
             int no = plan.architecture[l + 1];
             int w_stride = plan.w_strides[l];
             d_weight_updates_storage[l].init(weight_updates[l],
                                              no * w_stride);
-            d_weight_updates[l] = d_weight_updates_storage[l];
+            weight_updates_vec[l] = d_weight_updates_storage[l];
         }
 
+        d_weight_updates.init(&weight_updates_vec[0], plan.num_layers);
+
         d_bias_updates_storage.resize(plan.num_layers);
+        bias_updates_vec.resize(plan.num_layers);
 
         for (unsigned l = 0;  l < plan.num_layers;  ++l) {
             int no = plan.architecture[l + 1];
             d_bias_updates_storage[l].init(bias_updates[l], no);
-            d_bias_updates[l] = d_bias_updates_storage[l];
+            bias_updates_vec[l] = d_bias_updates_storage[l];
         }
+
+        d_bias_updates.init(&bias_updates_vec[0], plan.num_layers);
 
         // Our grid size is one per example
         grid = dim3(num_feature_vectors);
@@ -366,12 +398,12 @@ struct Backprop::Context {
              d_labels,
              d_example_weights,
              plan.num_layers,
-             &plan.d_weights[0],
-             &plan.d_biases[0],
+             plan.d_weights,
+             plan.d_biases,
              plan.d_architecture,
              plan.d_w_strides,
-             &d_weight_updates[0],
-             &d_bias_updates[0],
+             d_weight_updates,
+             d_bias_updates,
              plan.activation,
              plan.fire,
              plan.inhibit,

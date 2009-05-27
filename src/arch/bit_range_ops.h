@@ -258,6 +258,11 @@ private:
 
 template<typename Data>
 struct Buffered_Mem_Buffer {
+    Buffered_Mem_Buffer()
+        : data(0), b0(0), b1(0)
+    {
+    }
+    
     Buffered_Mem_Buffer(const Data * data)
         : data(data)
     {
@@ -293,6 +298,11 @@ private:
 
 template<typename Data, class MemBuf = Simple_Mem_Buffer<Data> >
 struct Bit_Buffer {
+    Bit_Buffer()
+        : bit_ofs(0)
+    {
+    }
+
     Bit_Buffer(const Data * data)
         : data(data), bit_ofs(0)
     {
@@ -345,6 +355,12 @@ private:
 
 template<typename Data, typename Buffer = Bit_Buffer<Data> >
 struct Bit_Extractor {
+
+    JML_COMPUTE_METHOD
+    Bit_Extractor()
+        : bit_ofs(0)
+    {
+    }
 
     JML_COMPUTE_METHOD
     Bit_Extractor(const Data * data)

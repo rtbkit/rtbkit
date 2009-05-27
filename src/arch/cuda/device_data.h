@@ -9,6 +9,8 @@
 #define __cuda__device_data_h__
 
 #include "compiler/compiler.h"
+#include "arch/demangle.h"
+#include <typeinfo>
 
 #if (! defined(JML_COMPILER_NVCC) ) || (! JML_COMPILER_NVCC)
 # warning "This file should only be included for CUDA"
@@ -57,11 +59,17 @@ struct DeviceData {
             err = cudaMemcpy(devicePtr_, hostData, size * sizeof(D),
                              cudaMemcpyHostToDevice);
 
-            if (err != cudaSuccess)
+            if (err != cudaSuccess) {
+                cerr << "failed to copy " << size * sizeof(D)
+                     << " bytes from host "
+                     << hostData << " to " << devicePtr_ << " type "
+                     << demangle(typeid(D).name()) << endl;
                 throw Exception(cudaGetErrorString(err));
-
-            //cerr << "copied " << size * sizeof(D) << " bytes from host "
-            //     << hostData << " to " << devicePtr_ << endl;
+            }
+            
+            cerr << "copied " << size * sizeof(D) << " bytes from host "
+                 << hostData << " to " << devicePtr_ << " type "
+                 << demangle(typeid(D).name()) << endl;
         }
     }
 
