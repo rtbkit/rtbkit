@@ -22,7 +22,7 @@ else
 include functions.mk
 include rules.mk
 
-$(eval $(call include_sub_makes,math arch utils algebra db stats judy boosting flayers))
+$(eval $(call include_sub_makes,math arch utils algebra db stats judy boosting))
 
 $(shell echo GOALS := $(MAKECMDGOALS) > .target.mk)
 endif
