@@ -654,10 +654,11 @@ struct Training_Job_Info {
         size_t nf = decorrelated.shape()[1];
         size_t no = layers.back().outputs(); // num outputs
 
-        distribution<float> correct(no, 0.0);
-
-        const float fire = 1.0, inhibit = -1.0;
+        const float saturated = 0.8;
+        const float fire = saturated, inhibit = -saturated;
         
+        distribution<float> correct(no, inhibit);
+
         float errors[max_units], delta[max_units];
 
         double my_rms_error = 0.0;
@@ -677,7 +678,7 @@ struct Training_Job_Info {
                 for (unsigned l = 1;  l < nl;  ++l)
                     layers[l].apply(layer_outputs[l - 1], layer_outputs[l]);
 
-                if (x == 0) {
+                if (x == 0 && false) {
                     cerr << "fprop: " << endl;
                     for (unsigned l = 0;  l < nl;  ++l)
                         cerr << "layer " << (l-1) << ": " << layer_outputs[l]
@@ -706,6 +707,11 @@ struct Training_Job_Info {
                 example_rms_error += 0.5 * errors[i] * errors[i] / no;
             }
 
+            if (x == 0 && false) {
+                cerr << "errors for layer " << 0 << ": "
+                     << distribution<float>(errors, errors + no) << endl;
+            }
+
             my_rms_error += example_rms_error * w;
 
             /* Backpropegate. */
@@ -725,6 +731,13 @@ struct Training_Job_Info {
                         errors[i] = SIMD::vec_dotprod_dp(&delta[0],
                                                          &layer.weights[i][0],
                                                          no);
+                    
+                    if (x == 0 && false) {
+                        cerr << "errors for layer " << l << ": "
+                             << distribution<float>(errors, errors + ni)
+                             << endl;
+                    }
+                    
                 }
                 
                 /* Update the weights. */
@@ -933,10 +946,11 @@ train_iteration(Thread_Context & context,
 
             const int * w_strides = &w_strides_vec[0];
 
-            const float fire = 1.0, inhibit = -1.0;
-            
             Backprop backprop;
             
+            const float saturated = 0.8;
+            const float fire = saturated, inhibit = -saturated;
+
             boost::shared_ptr<Backprop::Plan>
                 plan = backprop.plan(num_active_layers,
                                      architecture,

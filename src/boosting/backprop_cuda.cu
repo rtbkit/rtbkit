@@ -208,8 +208,8 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     __syncthreads();
 
 
-#if defined(__DEVICE_EMULATION__) && 0
-    if (tid == 0) {
+#if defined(__DEVICE_EMULATION__)
+    if (tid == 0 && example_num == 0) {
         fprintf(stderr, "completed fprop example %d; label %d\n",
                 example_num, label);
         for (unsigned i = 0;  i < no;  ++i) {
@@ -245,26 +245,50 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         // 
         float error = errors[tid];
         
-        if (error > 1.0) error *= 1.00000001;
-
         float d = (tid > no ? 0.0 : delta(prev_output, error, activation));
 
         if (l > 0) {
             // Make sure all threads have caught up so that we can modify error
             // without affecting them
             __syncthreads();
+
+            // Broadcast the d values so that we can use them to calculate the
+            // errors
+            errors[tid] = d;
+
+            // Make sure everything can get its d value
+            __syncthreads();
             
             float total = 0.0;
             if (tid < ni) {
                 for (unsigned o = 0;  o < no;  ++o) {
+                    float d = errors[o];  // may be the d from another thread
                     float update = d * layer_weights[tid * w_stride + o];
                     total += update;
                 }
-                
             }
 
+            // Wait for everything to finish so that we can overwrite the d
+            // values with the new errors
+            __syncthreads();
+            
             errors[tid] = total;
         }
+
+
+#if defined(__DEVICE_EMULATION__)
+        __syncthreads();
+
+        if (tid == 0 && example_num == 0) {
+            fprintf(stderr, "completed error propagation layer %d\n",
+                    l);
+            for (unsigned i = 0;  i < ni;  ++i) {
+                fprintf(stderr, "input %d: error %f\n",
+                        i, errors[i]);
+            }
+        }
+#endif
+
 
         // Again, threads indexed too low just leave
         if (tid >= no) continue;
@@ -285,27 +309,16 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
             float update = prev * k * d;
 
-            //errors[tid] += (update - update);
-
-            layer_updates[i * w_stride + tid] += update;
-            
-
             //layer_updates[i * w_stride + tid] += update;
-            //atomic_add(layer_updates[i * w_stride + tid], update);
-
-            //layer_updates[i * w_stride + tid] = 0.1;
+            atomic_add(layer_updates[i * w_stride + tid], update);
         }
         
         /* Update the bias */
         float update = k * d;
 
-        layer_bias_updates[tid] = update;
-        
-        //errors[tid] += (update - update);
         //layer_bias_updates[tid] += update;
-        //atomic_add(layer_bias_updates[tid], k * d);
+        atomic_add(layer_bias_updates[tid], update);
 
-        //layer_bias_updates[tid] = 0.2;
     }
 }
 
