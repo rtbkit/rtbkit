@@ -676,6 +676,14 @@ struct Training_Job_Info {
                 
                 for (unsigned l = 1;  l < nl;  ++l)
                     layers[l].apply(layer_outputs[l - 1], layer_outputs[l]);
+
+                if (x == 0) {
+                    cerr << "fprop: " << endl;
+                    for (unsigned l = 0;  l < nl;  ++l)
+                        cerr << "layer " << (l-1) << ": " << layer_outputs[l]
+                             << endl;
+                }
+                    
             }
             
             /* Calculate the correctness. */

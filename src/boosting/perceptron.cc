@@ -158,11 +158,13 @@ apply(const distribution<float> & input,
       distribution<float> & output) const
 {
     std::copy(bias.begin(), bias.end(), output.begin());
+
     for (unsigned i = 0;  i < input.size();  ++i)
         SIMD::vec_add(&output[0], input[i], &weights[i][0], &output[0],
                       outputs());
         //for (unsigned o = 0;  o < output.size();  ++o)
         //    output[o] += input[i] * weights[i][o];
+
     transform(output);
 }
 
@@ -171,12 +173,14 @@ Perceptron::Layer::
 apply(const float * input, float * output) const
 {
     std::copy(bias.begin(), bias.end(), output);
+
     size_t ni = inputs(), no = outputs();
     for (unsigned i = 0;  i < ni;  ++i)
         SIMD::vec_add(output, input[i], &weights[i][0], output,
                       outputs());
         //for (unsigned o = 0;  o < no;  ++o)
         //    output[o] += input[i] * weights[i][o];
+
     Perceptron::transform(output, no, activation);
 }
 

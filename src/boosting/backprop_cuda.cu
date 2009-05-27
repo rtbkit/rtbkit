@@ -28,6 +28,7 @@ __device__ float transform(float input, int activation)
 {
     switch (activation) {
     case ML::ACT_TANH: {
+        return tanh(input);
         float exp2i = __expf(input + input);
         return __fdividef(exp2i - 1.0f, exp2i + 1.0f);
     }
@@ -98,16 +99,23 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     */
     float * layer_outputs = errors + blockDim.x;
 
-#ifdef __DEVICE_EMULATION__
-    //fprintf(stderr, "layer_outputs = %p errors = %p\n",
-    //        layer_outputs, errors);
-#endif
-
     const float * input = feature_vectors + example_num * feature_vector_width;
 
     int label = labels[example_num];
 
     float example_weight = example_weights[example_num];
+
+#ifdef __DEVICE_EMULATION__
+    if (tid == 0 && example_num == 0) {
+        fprintf(stderr, "starting fprop example %d wt %f; label %d\n",
+                example_num, example_weight, label);
+
+        for (unsigned i = 0;  i < feature_vector_width;  ++i) {
+            fprintf(stderr, "input %d: value %f\n",
+                    i, input[i]);
+        }
+    }
+#endif
 
 
     /*************************************************************************/
@@ -140,13 +148,21 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                     tid, l, ni, no, last_layer_outputs, this_layer_outputs);
 #endif
 
+#if 0
+    std::copy(bias.begin(), bias.end(), output.begin());
+    for (unsigned i = 0;  i < input.size();  ++i)
+        SIMD::vec_add(&output[0], input[i], &weights[i][0], &output[0],
+                      outputs());
+        //for (unsigned o = 0;  o < output.size();  ++o)
+        //    output[o] += input[i] * weights[i][o];
+    transform(output);
+#endif
 
         /* Add in the layer outputs.  We iterate with all threads */
         if (tid < no) {
             // Start off with the bias terms
-            this_layer_outputs[tid] = biases[l][tid];
-            
-            float accum = 0;
+            float accum = biases[l][tid];
+
             for (unsigned i = 0;  i < ni;  ++i) {
                 float inval = (l == 0 ? input[i] : last_layer_outputs[i]);
 
@@ -158,6 +174,19 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             
             this_layer_outputs[tid] = transform(accum, activation);
         }
+
+#if defined(__DEVICE_EMULATION__)
+        __syncthreads();
+        if (tid == 0 && example_num == 0) {
+            fprintf(stderr, "completed fprop layer %d example %d; label %d\n",
+                    l, example_num, label);
+            for (unsigned i = 0;  i < no;  ++i) {
+                fprintf(stderr, "output %d: value %f\n",
+                        i, this_layer_outputs[i]);
+            }
+        }
+#endif
+        
     }
 
 
@@ -179,7 +208,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     __syncthreads();
 
 
-#if defined(__DEVICE_EMULATION__)
+#if defined(__DEVICE_EMULATION__) && 0
     if (tid == 0) {
         fprintf(stderr, "completed fprop example %d; label %d\n",
                 example_num, label);
@@ -256,15 +285,25 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
             float update = prev * k * d;
 
+            //errors[tid] += (update - update);
+
+            layer_updates[i * w_stride + tid] += update;
+            
+
             //layer_updates[i * w_stride + tid] += update;
-            atomic_add(layer_updates[i * w_stride + tid], update);
+            //atomic_add(layer_updates[i * w_stride + tid], update);
 
             //layer_updates[i * w_stride + tid] = 0.1;
         }
         
         /* Update the bias */
-        //layer_bias_updates[tid] += k * d;
-        atomic_add(layer_bias_updates[tid], k * d);
+        float update = k * d;
+
+        layer_bias_updates[tid] = update;
+        
+        //errors[tid] += (update - update);
+        //layer_bias_updates[tid] += update;
+        //atomic_add(layer_bias_updates[tid], k * d);
 
         //layer_bias_updates[tid] = 0.2;
     }
