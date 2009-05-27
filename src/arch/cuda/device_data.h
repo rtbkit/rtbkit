@@ -67,9 +67,9 @@ struct DeviceData {
                 throw Exception(cudaGetErrorString(err));
             }
             
-            cerr << "copied " << size * sizeof(D) << " bytes from host "
-                 << hostData << " to " << devicePtr_ << " type "
-                 << demangle(typeid(D).name()) << endl;
+            //cerr << "copied " << size * sizeof(D) << " bytes from host "
+            //     << hostData << " to " << devicePtr_ << " type "
+            //     << demangle(typeid(D).name()) << endl;
         }
     }
 

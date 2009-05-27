@@ -79,26 +79,31 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     // access thread id
     const unsigned tid = threadIdx.x;
 
-    // 
     const unsigned example_num  = blockIdx.x;
 
 #ifdef __DEVICE_EMULATION__
-    fprintf(stderr, "tid = %d example_num = %d\n",
-            tid, example_num);
+    //fprintf(stderr, "tid = %d example_num = %d\n",
+    //        tid, example_num);
 #endif
-
-    /* The layer outputs (activation of the neurons).  This is where the
-       shared memory goes to.  Note that we store only the activated outputs,
-       not the inputs. */
-    extern __shared__ float layer_outputs[];
 
     /* Where we accumulate our errors, layer by layer.  The size is that of
        the largest dimension. */
     extern __shared__ float errors[];
 
+    /* The layer outputs (activation of the neurons).  This is where the
+       shared memory goes to.  Note that we store only the activated outputs,
+       not the inputs.
+
+       blockDim.x gives us the number of threads, which is also the size of
+       the errors array, so that our layer outputs have to start at this
+       offset.
+    */
+    float * layer_outputs = errors + blockDim.x;
+
+
 #ifdef __DEVICE_EMULATION__
-    fprintf(stderr, "layer_outputs = %p errors = %p\n",
-            layer_outputs, errors);
+    //fprintf(stderr, "layer_outputs = %p errors = %p\n",
+    //        layer_outputs, errors);
 #endif
 
     const float * input = feature_vectors + example_num * feature_vector_width;
@@ -122,7 +127,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
              __syncthreads(),
              last_layer_outputs = this_layer_outputs,
              this_layer_outputs = next_layer_outputs) {
-        
+
         // Get information about the layer:
         int ni = architecture[l];
         int no = architecture[l + 1];
@@ -132,24 +137,32 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
         next_layer_outputs = this_layer_outputs + no;
 
-        // Start off with the bias terms
-        if (tid < no) this_layer_outputs[tid] = biases[l][tid];
-
         /* Add in the layer outputs.  We iterate with all threads */
         if (tid < no) {
+            // Start off with the bias terms
+            this_layer_outputs[tid] = biases[l][tid];
+            
             float accum = 0;
             for (unsigned i = 0;  i < ni;  ++i) {
                 float inval = (l == 0 ? input[i] : last_layer_outputs[i]);
 
                 // Coalesced access; maybe texture would be better
+
+                // ERROR: layer_weights access doesn't work...
                 float weight = layer_weights[i * w_stride + tid];
 
                 accum += weight * inval;
             }
 
+            w_updates[0][0] += accum;
+
+            continue;
+
             this_layer_outputs[tid] = transform(accum, activation);
         }
     }
+
+    return;
 
 
     /*************************************************************************/
@@ -270,7 +283,7 @@ struct Backprop::Plan {
           inhibit(inhibit),
           learning_rate(learning_rate)
     {
-        cerr << "plan: num_layers = " << num_layers << endl;
+        //cerr << "plan: num_layers = " << num_layers << endl;
 
         d_architecture.init(architecture, num_layers + 1);
 
@@ -283,8 +296,8 @@ struct Backprop::Plan {
             d_weights_storage[l].init(weights[l], no * w_stride);
             weights_vec[l] = d_weights_storage[l];
 
-            cerr << "layer " << l << ": no = " << no << " w_stride = "
-                 << w_stride << endl;
+            //cerr << "layer " << l << ": no = " << no << " w_stride = "
+            //     << w_stride << endl;
         }
     
         d_weights.init(&weights_vec[0], num_layers);

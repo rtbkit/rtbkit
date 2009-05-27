@@ -863,13 +863,28 @@ train_iteration(Thread_Context & context,
 
     float biggest_update = 0.0, biggest_value = 0.0;
 
+    bool use_cuda = true;
+
     for (; done_ex < nx;  done_ex += our_batch_size) {
 
         size_t last_ex = std::min<size_t>(done_ex + our_batch_size, nx);
         
         int num_in_batch = last_ex - done_ex;
 
-        bool use_cuda = true;
+        // Zero everything out
+        if (our_batch_size > 1 || use_cuda) {
+            PROFILE_FUNCTION(t_zero);
+            
+            for (unsigned l = 0;  l < nl;  ++l) {
+                size_t no = layers[l].outputs();
+                size_t ni = layers[l].inputs();
+                
+                float * to_empty = &weight_updates[l][0][0];
+                std::fill(to_empty, to_empty + no * ni, 0.0f);
+                
+                std::fill(bias_updates[l].begin(), bias_updates[l].end(), 0.0);
+            }
+        }
 
         if (use_cuda) {
             using namespace CUDA;
@@ -982,22 +997,6 @@ train_iteration(Thread_Context & context,
 
             continue;
         }
-
-        // Zero everything out
-        if (our_batch_size > 1) {
-            PROFILE_FUNCTION(t_zero);
-            
-            for (unsigned l = 0;  l < nl;  ++l) {
-                size_t no = layers[l].outputs();
-                size_t ni = layers[l].inputs();
-                
-                float * to_empty = &weight_updates[l][0][0];
-                std::fill(to_empty, to_empty + no * ni, 0.0f);
-                
-                std::fill(bias_updates[l].begin(), bias_updates[l].end(), 0.0);
-            }
-        }
-
         
         Training_Job_Info info(decorrelated, labels, example_weights, result,
                                weight_updates_ptrs, bias_updates_ptrs,
