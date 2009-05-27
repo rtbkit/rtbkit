@@ -58,7 +58,7 @@ endef
 define add_cuda_source
 $(if $(trace),$$(warning called add_cuda_source "$(1)" "$(2)"))
 $(OBJ)/$(CWD)/$(2).d: $(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
-	($(NVCC) $(NVCCFLAGS) -M $$< | awk 'NR == 1 { print "$(OBJ)/$(CWD)/$(2).lo", "$$@", ":", $$$$3, "\\"; next; } /usr/ { next; } { print; }'; echo) > $$@~
+	($(NVCC) $(NVCCFLAGS) -D__CUDACC__ -M $$< | awk 'NR == 1 { print "$(OBJ)/$(CWD)/$(2).lo", "$$@", ":", $$$$3, "\\"; next; } /usr/ { next; } { print; }'; echo) > $$@~
 	mv $$@~ $$@
 
 BUILD_$(CWD)/$(2).lo_COMMAND:=$(NVCC) $(NVCCFLAGS) -c -o $(OBJ)/$(CWD)/$(2).lo --verbose $(SRC)/$(CWD)/$(1)
