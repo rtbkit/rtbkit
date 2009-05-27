@@ -225,27 +225,16 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             // without affecting them
             __syncthreads();
             
-            errors[tid] = 0.0;
-
-            // Sync again so that we're sure all errors have been cleared
-            __syncthreads();
-
-            // Now, any threads with an index too low can leave
-            if (tid >= no) continue;
-        
-            /* Calculate the new error terms for the next layer */
-            for (unsigned i = 0;  i < ni;  ++i) {
-
-#if defined(__DEVICE_EMULATION__) && 0
-                if (false && tid == 0)
-                    fprintf(stderr, "update: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p i %d\n",
-                            tid, l, ni, no, last_layer_outputs, this_layer_outputs, i);
-#endif
-
-                float update = d * layer_weights[i * w_stride + tid];
-                //errors[i] += update;
-                atomic_add(errors[i], update); 
+            float total = 0.0;
+            if (tid < ni) {
+                for (unsigned o = 0;  o < no;  ++o) {
+                    float update = d * layer_weights[tid * w_stride + o];
+                    total += update;
+                }
+                
             }
+
+            errors[tid] = total;
         }
 
         // Again, threads indexed too low just leave
