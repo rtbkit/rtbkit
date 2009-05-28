@@ -314,25 +314,31 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
         int start_at = (example_num * thread_stride) % ni;
 
+        bool lock_rows = false;
+
         for (unsigned i_ = start_at;  i_ < ni + start_at;  ++i_) {
 
             // Get the real index of i
             unsigned i = i_ - (i_ >= ni) * ni;
 
             // Thread 0 locks the row; the rest wait for it
-            //int * row_lock_addr = output_row_locks[l] + i;
+            int * row_lock_addr = 0;
+            if (lock_rows) {
+                row_lock_addr = output_row_locks[l] + i;
 
-            //if (tid == 0) while (atomicExch(row_lock_addr, 1)) ;
-            //__syncthreads();
+                if (tid == 0) while (atomicExch(row_lock_addr, 1)) ;
+                __syncthreads();
+            }
 
             float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
             float update = prev * k * d;
 
-            //layer_updates[i * w_stride + tid] += update;
-            atomic_add(layer_updates[i * w_stride + tid], update);
+            if (lock_rows)
+                layer_updates[i * w_stride + tid] += update;
+            else atomic_add(layer_updates[i * w_stride + tid], update);
 
             // Now unlock the row with thread 0
-            //if (tid == 0) *row_lock_addr = 0;
+            if (lock_rows && tid == 0) *row_lock_addr = 0;
         }
         
         /* Update the bias */
