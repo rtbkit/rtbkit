@@ -56,62 +56,40 @@ __device__ float delta(float output, float error, int activation)
 /** Train a fully-connected neural network architecture via backpropagation
     one a single training example.  The work is split over all of the cores
     within a single multiprocessor.  (So, on a Geforce 260 core 216, we have
-    28 multiprocessors with 8 cores each, and so we could compute 28 different
-    samples at once).
+    27 multiprocessors with 8 cores each, and so we could train on 27 different
+    feature vectors in parallel.
 */
-__global__ void
-train_example_kernel(const float * feature_vectors,  // feature vector [ni]
-                     int feature_vector_width,
-                     const int * labels,
-                     const float * example_weights,
-                     int num_layers,
-                     const float * const * w,  // weights for each layer
-                     const float * const * biases, // for each layer
-                     const int * architecture,
-                     const int * w_strides,
-                     UpdateFloat * const * w_updates, // wt updates for each layer
-                     UpdateFloat * const * b_updates, // bias upd for each layer
-                     int activation,            // activation function
-                     float fire,   // target value for firing neuron
-                     float inhibit, // target value for inhibited neuron)
-                     float learning_rate,
-                     int num_threads_in_block,
-                     int total_neurons,
-                     float * layer_outputs  // scratch space[total neurons]
-                     )
+__device__ void
+train_example(const float * input,
+              int label,
+              float example_weight,
+              int num_layers,
+              float * scratch,  // shared memory scratch space
+              const float * const * w,  // weights for each layer
+              const float * const * biases, // for each layer
+              const int * architecture,
+              const int * w_strides,
+              UpdateFloat * const * w_updates, // wt updates for each layer
+              UpdateFloat * const * b_updates, // bias upd for each layer
+              int activation,            // activation function
+              float fire,   // target value for firing neuron
+              float inhibit, // target value for inhibited neuron)
+              float learning_rate,
+              int num_threads_in_block,
+              int total_neurons,
+              float * layer_outputs)  // global scratch space[total neurons]
 {
     // access thread id
     const unsigned tid = threadIdx.x;
 
-    const unsigned example_num  = blockIdx.x;
-
-    /* Where we accumulate our errors, layer by layer.  The size is that of
-       the largest dimension. */
-    extern __shared__ float scratch[];
-
-    /* The layer outputs (activation of the neurons).  This is where the
-       shared memory goes to.  Note that we store only the activated outputs,
-       not the inputs.
-
-       blockDim.x gives us the number of threads, which is also the size of
-       the errors array, so that our layer outputs have to start at this
-       offset.
-    */
-    //float * layer_outputs = scratch + blockDim.x;
-
-    // Get our private scratch memory for this block
-    layer_outputs += example_num * total_neurons;
-
-    const float * input = feature_vectors + example_num * feature_vector_width;
-
-    int label = labels[example_num];
-
-    float example_weight = example_weights[example_num];
+    const unsigned block_num  = blockIdx.x;
 
 #if defined(__DEVICE_EMULATION__) && 0
-    if (tid == 0 && example_num == 0) {
+    if (tid == 0 && block_num == 0) {
         fprintf(stderr, "starting fprop example %d wt %f; label %d\n",
-                example_num, example_weight, label);
+                block_num, example_weight, label);
+
+        int feature_vector_width = architecture[0];
 
         for (unsigned i = 0;  i < feature_vector_width;  ++i) {
             fprintf(stderr, "input %d: value %f\n",
@@ -192,9 +170,9 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
 #if defined(__DEVICE_EMULATION__) && 0
         __syncthreads();
-        if (tid == 0 && example_num == 0) {
+        if (tid == 0 && block_num == 0) {
             fprintf(stderr, "completed fprop layer %d example %d; label %d\n",
-                    l, example_num, label);
+                    l, block_num, label);
             for (unsigned i = 0;  i < no;  ++i) {
                 fprintf(stderr, "output %d: value %f\n",
                         i, this_layer_outputs[i]);
@@ -229,9 +207,9 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
 
 #if defined(__DEVICE_EMULATION__) && 0
-    if (tid == 0 && example_num == 0) {
+    if (tid == 0 && block_num == 0) {
         fprintf(stderr, "completed fprop example %d; label %d\n",
-                example_num, label);
+                block_num, label);
         for (unsigned i = 0;  i < no;  ++i) {
             fprintf(stderr, "output %d: value %f error %f correct %d\n",
                     i, this_layer_outputs[i], scratch[i], (label == i));
@@ -304,7 +282,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 #if defined(__DEVICE_EMULATION__) && 0
         __syncthreads();
 
-        if (tid == 0 && example_num == 0) {
+        if (tid == 0 && block_num == 0) {
             fprintf(stderr, "completed error propagation layer %d\n",
                     l);
             for (unsigned i = 0;  i < ni;  ++i) {
@@ -330,7 +308,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         int thread_stride = ni / num_threads_in_block;
         if (thread_stride == 0) thread_stride = 1;
 
-        int start_at = (example_num * thread_stride) % ni;
+        int start_at = (block_num * thread_stride) % ni;
 
         for (unsigned i_ = start_at;  i_ < ni + start_at;  ++i_) {
 
@@ -350,6 +328,67 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         atomic_add(layer_bias_updates[tid], update);
     }
 }
+
+__global__ void
+train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
+                      int feature_vector_width,
+                      const int * labels,
+                      const float * example_weights,
+                      int num_layers,
+                      const float * const * w,  // weights for each layer
+                      const float * const * biases, // for each layer
+                      const int * architecture,
+                      const int * w_strides,
+                      UpdateFloat * const * w_updates, // wt updates for each layer
+                      UpdateFloat * const * b_updates, // bias upd for each layer
+                      int activation,            // activation function
+                      float fire,   // target value for firing neuron
+                      float inhibit, // target value for inhibited neuron)
+                      float learning_rate,
+                      int num_threads_in_block,
+                      int total_neurons,
+                      float * layer_outputs,  // scratch space[total neurons]
+                      int examples_per_block,
+                      int total_num_examples)
+{
+    const unsigned block_num  = blockIdx.x;
+    
+    /* Where we accumulate our errors, layer by layer.  The size is that of
+       the largest dimension. */
+    extern __shared__ float scratch[];
+    
+    /* The layer outputs (activation of the neurons).  This is where the
+       shared memory goes to.  Note that we store only the activated outputs,
+       not the inputs.
+
+       blockDim.x gives us the number of threads, which is also the size of
+       the errors array, so that our layer outputs have to start at this
+       offset.
+    */
+
+    // Get our private scratch memory for this block
+    layer_outputs += block_num * total_neurons;
+    
+    unsigned example_num_base = block_num * examples_per_block;
+    unsigned last_example = min(total_num_examples, example_num_base + examples_per_block);
+
+    for (unsigned example_num = example_num_base;  example_num < last_example;  ++example_num) {
+
+        const float * input = feature_vectors + example_num * feature_vector_width;
+
+        int label = labels[example_num];
+
+        float example_weight = example_weights[example_num];
+
+        train_example(input, label, example_weight,
+                      num_layers, scratch, w, biases, architecture, w_strides,
+                      w_updates, b_updates,
+                      activation, fire, inhibit, learning_rate,
+                      num_threads_in_block,
+                      total_neurons, layer_outputs);
+    }
+}
+
 
 namespace ML {
 namespace CUDA {
@@ -474,6 +513,7 @@ struct Backprop::Context {
 
     int num_feature_vectors;
     int feature_vector_width;
+    int num_examples_per_invocation;
 
     Context(const Plan & plan,
             const float * feature_vectors,
@@ -525,7 +565,9 @@ struct Backprop::Context {
 
         d_bias_updates.init(&bias_updates_vec[0], plan.num_layers);
 
-        int grid_size = num_feature_vectors;
+        num_examples_per_invocation = 4;
+
+        int grid_size = rudiv(num_feature_vectors, num_examples_per_invocation);
 
         // Get the scratch space
         d_layer_outputs.init(plan.total_neurons * grid_size);
@@ -536,7 +578,7 @@ struct Backprop::Context {
 
     void execute()
     {
-        train_example_kernel<<<grid, plan.threads, plan.shared_mem_size>>>
+        train_examples_kernel<<<grid, plan.threads, plan.shared_mem_size>>>
             (d_feature_vectors,
              feature_vector_width,
              d_labels,
@@ -552,9 +594,11 @@ struct Backprop::Context {
              plan.fire,
              plan.inhibit,
              plan.learning_rate,
-             num_feature_vectors,
+             grid.x,
              plan.total_neurons,
-             d_layer_outputs);
+             d_layer_outputs,
+             num_examples_per_invocation,
+             num_feature_vectors /* total num examples */);
 
         //cerr << "launched" << endl;
     }
