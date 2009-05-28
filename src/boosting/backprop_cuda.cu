@@ -30,7 +30,6 @@ using namespace std;
    - Remove learning rate from the update (apply it when updating the weights)
      and use a constant that conditions the numbers to work well within the
      range of the update
-   - Process 4 feature vectors together in the same loop
 */
 
 
@@ -88,6 +87,7 @@ train_example(const float * input,
               float inhibit, // target value for inhibited neuron)
               float learning_rate,
               int num_threads_in_block,
+              int num_threads_on_multiprocessor,
               int total_neurons,
               float * layer_outputs)  // global scratch space[total neurons]
 {
@@ -145,13 +145,14 @@ train_example(const float * input,
 
 #if defined(__DEVICE_EMULATION__) && 0
         if (tid == 0)
-            fprintf(stderr, "fprop: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p next_layer_outputs %p\n",
-                    tid, l, ni, no, last_layer_outputs, this_layer_outputs,
+            fprintf(stderr, "fprop: layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p next_layer_outputs %p\n",
+                    l, ni, no, last_layer_outputs, this_layer_outputs,
                     next_layer_outputs);
 #endif
 
         /* Add in the layer outputs.  We iterate with all threads */
         
+#if 0
         // Start off with the bias terms
         double accum = (tid < no ? biases[l][tid] : 0.0);
 
@@ -176,9 +177,91 @@ train_example(const float * input,
         if (__any(tid < no)) {
 
             if (tid < no)
-                this_layer_outputs[tid] = scratch[tid]
+                this_layer_outputs[tid]
+                    = scratch[tid]
                     = transform(accum, activation);
         }
+
+#else
+        /* We want to have each thread working here, even if no is much less
+           than the number of threads.  To do so, we assign each thread to
+           a certain o value and a certain subset of the i values, and then
+           accumulate the updates, broadcasting them at the end.
+
+           For example:
+           32 threads
+           2 outputs
+
+           So we have 16 threads working on each example
+
+           100 threads
+           16 outputs
+
+           So we have 7 threads on the first 4 examples, and 6 threads on
+           the rest.
+        */
+
+        int nt = num_threads_on_multiprocessor;
+
+        int min_threads = nt / no;
+        int left_over   = nt % no;
+        int max_threads = min_threads + (left_over > 0);
+
+        int o = tid % no;    // which o value are we working on?
+        int idx = tid / no;  // which thread in that block?
+        int o_threads = min_threads + (o < left_over);
+
+#if defined(__DEVICE_EMULATION__)
+        if (tid == 0)
+            fprintf(stderr, "fprop: layer %d ni %d no %d min_threads %d left_over %d max_threads %d nib %d nt %d\n",
+                    l, ni, no, min_threads, left_over, max_threads,
+                    num_threads_in_block);
+        fprintf(stderr, "      tid %d o %d idx %d o_threads %d\n",
+                tid, o, idx, o_threads);
+#endif
+
+        double accum = 0.0;
+
+        for (unsigned i = idx;  i < ni;  i += o_threads) {
+            // warning: bank conflicts...
+            float inval = scratch[i];
+            float weight = layer_weights[i * w_stride + o];
+            
+            accum += weight * inval;
+        }
+
+        if (max_threads > 1) {
+
+            __syncthreads();
+
+            if (tid < no) scratch[tid] = biases[l][tid];
+
+            __syncthreads();
+            
+            /* Now we accumulate them, allowing each thread to increment in its
+               turn. */
+            for (unsigned i = 0;  i < max_threads;  ++i, __syncthreads())
+                if (i == idx) scratch[o] += accum;
+            
+            __syncthreads();
+            
+            if (__any(tid < no)) {
+                
+                if (tid < no)
+                    this_layer_outputs[tid]
+                        = scratch[tid]
+                        = transform(scratch[tid], activation);
+            }
+        }
+        else {
+            accum += biases[l][o];
+            this_layer_outputs[o]
+                = scratch[o]
+                = transform(accum, activation);
+            
+        }
+#endif
+
 
 #if defined(__DEVICE_EMULATION__) && 1
         __syncthreads();
@@ -710,6 +793,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                       float inhibit, // target value for inhibited neuron)
                       float learning_rate,
                       int num_threads_in_block,
+                      int num_threads_on_multiprocessor,
                       int total_neurons,
                       float * layer_outputs,  // scratch space[total neurons]
                       int examples_per_block,
@@ -794,6 +878,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                       w_updates, b_updates,
                       activation, fire, inhibit, learning_rate,
                       num_threads_in_block,
+                      num_threads_on_multiprocessor,
                       total_neurons, layer_outputs);
     }
 }
@@ -1006,6 +1091,7 @@ struct Backprop::Context {
              plan.inhibit,
              plan.learning_rate,
              grid.x,
+             plan.threads.x,
              plan.total_neurons,
              d_layer_outputs,
              num_examples_per_invocation,
