@@ -164,7 +164,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         /* Add in the layer outputs.  We iterate with all threads */
         if (tid < no) {
             // Start off with the bias terms
-            float accum = biases[l][tid];
+            double accum = biases[l][tid];
 
             for (unsigned i = 0;  i < ni;  ++i) {
                 float inval = (l == 0 ? input[i] : last_layer_outputs[i]);
@@ -262,7 +262,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             // Make sure everything can get its d value
             __syncthreads();
             
-            float total = 0.0;
+            double total = 0.0;
             if (tid < ni) {
                 for (unsigned o = 0;  o < no;  ++o) {
                     float d = errors[o];  // may be the d from another thread
