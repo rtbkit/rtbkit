@@ -23,6 +23,17 @@
 using namespace std;
 
 
+/* TODO:
+   - Allow it to run with max_width > 512 (maximum thread block width)
+   - tanh function that gives bit-for-bit equivalent results as on the
+     host
+   - Remove learning rate from the update (apply it when updating the weights)
+     and use a constant that conditions the numbers to work well within the
+     range of the update
+   - Process 4 feature vectors together in the same loop
+*/
+
+
 typedef ML::FixedPointAccum32 UpdateFloat;
 //typedef float UpdateFloat;
 
