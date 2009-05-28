@@ -94,6 +94,20 @@ struct DeviceData {
         }
     }
 
+    void init(size_t size)
+    {
+        free();
+        size_ = size;
+
+        cudaError_t err
+            = cudaMalloc((void **) &devicePtr_, size * sizeof(D));
+        
+        if (err != cudaSuccess)
+            throw Exception(cudaGetErrorString(err));
+        
+        cudaMemset(devicePtr_, 0, size * sizeof(D));
+    }
+
     operator D * () const
     {
         return devicePtr_;

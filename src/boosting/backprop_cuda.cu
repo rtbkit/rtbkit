@@ -28,7 +28,6 @@ __device__ float transform(float input, int activation)
 {
     switch (activation) {
     case ML::ACT_TANH: {
-        return tanh(input);
         float exp2i = __expf(input + input);
         return __fdividef(exp2i - 1.0f, exp2i + 1.0f);
     }
@@ -55,8 +54,6 @@ __device__ float delta(float output, float error, int activation)
     within a single multiprocessor.  (So, on a Geforce 260 core 216, we have
     28 multiprocessors with 8 cores each, and so we could compute 28 different
     samples at once).
-    
-    of threads equal to the widest layer that there is.
 */
 __global__ void
 train_example_kernel(const float * feature_vectors,  // feature vector [ni]
@@ -73,7 +70,9 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                      int activation,            // activation function
                      float fire,   // target value for firing neuron
                      float inhibit, // target value for inhibited neuron)
-                     float learning_rate)
+                     float learning_rate,
+                     int * const * output_row_locks,
+                     int num_threads_in_block)
 {
     // access thread id
     const unsigned tid = threadIdx.x;
@@ -302,15 +301,34 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                     tid, l, ni, no, last_layer_outputs, this_layer_outputs);
 #endif
 
+        /* Now for the updates.  In order to avoid trying to write the same
+           memory over and over, we stagger the starting points so that
+           each thread will start at a different place. */
 
-        for (unsigned i = 0;  i < ni;  ++i) {
-            // No bank conflicts here as all threads are reading with the same
-            // i value
+        int thread_stride = ni / num_threads_in_block;
+        if (thread_stride == 0) thread_stride = 1;
+
+        int start_at = (example_num * thread_stride) % ni;
+
+        for (unsigned i_ = start_at;  i_ < ni + start_at;  ++i_) {
+
+            // Get the real index of i
+            unsigned i = i_ - (i_ >= ni) * ni;
+
+            // Thread 0 locks the row; the rest wait for it
+            //int * row_lock_addr = output_row_locks[l] + i;
+
+            //if (tid == 0) while (atomicExch(row_lock_addr, 1)) ;
+            //__syncthreads();
+
             float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
             float update = prev * k * d;
 
             //layer_updates[i * w_stride + tid] += update;
             atomic_add(layer_updates[i * w_stride + tid], update);
+
+            // Now unlock the row with thread 0
+            //if (tid == 0) *row_lock_addr = 0;
         }
         
         /* Update the bias */
@@ -435,13 +453,18 @@ struct Backprop::Context {
     vector<float *> weight_updates_vec;
     DeviceData<float *> d_weight_updates;
     
-
     vector<DeviceData<float> > d_bias_updates_storage;
     vector<float *> bias_updates_vec;
     DeviceData<float *> d_bias_updates;
 
+    // These are to lock the output so that updates can be made without
+    // an atomic operation per update
+    DeviceData<int> d_output_row_lock_entries;
+    DeviceData<int *> d_output_row_locks;
+
     dim3 grid;
 
+    int num_feature_vectors;
     int feature_vector_width;
 
     Context(const Plan & plan,
@@ -454,7 +477,9 @@ struct Backprop::Context {
             float & correct,
             float & total,
             float & rms_error)
-        : plan(plan), weight_updates(weight_updates), bias_updates(bias_updates)
+        : plan(plan), weight_updates(weight_updates),
+          bias_updates(bias_updates), num_feature_vectors(num_feature_vectors),
+          feature_vector_width(feature_vector_width)
     {
         feature_vector_width = plan.architecture[0];
         
@@ -493,6 +518,24 @@ struct Backprop::Context {
 
         d_bias_updates.init(&bias_updates_vec[0], plan.num_layers);
 
+        int total_inputs = 0;
+        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
+            int ni = plan.architecture[l];
+            total_inputs += ni;
+        }
+        
+        d_output_row_lock_entries.init(total_inputs);
+        vector<int *> output_rows;
+
+        total_inputs = 0;
+        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
+            int ni = plan.architecture[l];
+            output_rows.push_back(d_output_row_lock_entries + total_inputs);
+            total_inputs += ni;
+        }
+
+        d_output_row_locks.init(&output_rows[0], plan.num_layers);
+
         // Our grid size is one per example
         grid = dim3(num_feature_vectors);
     }
@@ -514,7 +557,9 @@ struct Backprop::Context {
              plan.activation,
              plan.fire,
              plan.inhibit,
-             plan.learning_rate);
+             plan.learning_rate,
+             d_output_row_locks,
+             num_feature_vectors);
 
         //cerr << "launched" << endl;
     }
