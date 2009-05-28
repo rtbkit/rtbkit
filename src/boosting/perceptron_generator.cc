@@ -1023,9 +1023,9 @@ train_iteration(Thread_Context & context,
                                                num_in_batch / (4 * num_threads())));
             ex_per_job = std::min(ex_per_job, num_in_batch);
             
-            //cerr << "num_in_batch = " << num_in_batch << " ex_per_job = " << ex_per_job << endl;
+            //cerr << "num_in_batch = " << num_in_batch << " ex_per_job = " << ex_per_job << "our_batch_size = " << our_batch_size << endl;
             
-            bool one_thread = num_in_batch == our_batch_size;
+            bool one_thread = ex_per_job == our_batch_size;
             
             if (one_thread) {
                 Training_Job job(info, done_ex, last_ex, true /* one_thread */);
