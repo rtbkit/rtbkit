@@ -248,6 +248,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         float error = errors[tid];
         
         float d = (tid > no ? 0.0 : delta(prev_output, error, activation));
+        float d2 = 0.0;
 
         if (l > 0) {
             // Make sure all threads have caught up so that we can modify error
@@ -260,6 +261,9 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
             // Make sure everything can get its d value
             __syncthreads();
+
+            // Get the d value for the next thread, for the updates
+            if (tid < no - 1) d2 = errors[tid + 1];
             
             double total = 0.0;
             if (tid < ni) {
@@ -306,7 +310,9 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
         /* Now for the updates.  In order to avoid trying to write the same
            memory over and over, we stagger the starting points so that
-           each thread will start at a different place. */
+           each example will start at a different place, thus minimising
+           conflicting writes when we have multiple multiprocessors working
+           on the same thing. */
 
         int thread_stride = ni / num_threads_in_block;
         if (thread_stride == 0) thread_stride = 1;
@@ -314,14 +320,26 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         int start_at = (example_num * thread_stride) % ni;
 
         for (unsigned i_ = start_at;  i_ < ni + start_at;  ++i_) {
+            if (tid % 2 == 1) continue;
 
             // Get the real index of i
             unsigned i = i_ - (i_ >= ni) * ni;
-
+            
             float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
             float update = prev * k * d;
+            float update2 = prev * k * d2;
 
-            atomic_add(layer_updates[i * w_stride + tid], update);
+            ML::FixedPointAccum32 upd1(update), upd2(update2);
+
+            unsigned long long two_updates
+                = (((unsigned long long)upd2.rep) << 32)
+                | upd1.rep;
+            
+            atomicAdd((unsigned long long *)(layer_updates
+                                             + i * w_stride + tid),
+                      two_updates);
+            
+            //atomic_add(layer_updates[i * w_stride + tid], update);
         }
         
         /* Update the bias */
