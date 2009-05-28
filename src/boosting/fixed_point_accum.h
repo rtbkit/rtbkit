@@ -15,13 +15,49 @@ namespace ML {
 /** A structure to accumulate values between zero and one in a single 32
     bit integer. */
 
-struct FixedPointAccum32 {
+struct FixedPointAccum32Unsigned {
     unsigned rep;
 
     static const float VAL_2_REP = 1ULL << 32;
     static const float REP_2_VAL = 1.0f / (1ULL << 32);
     static const float ADD_TO_ROUND = 1.0f / (1ULL << 33);
     static const unsigned MAX_REP = (unsigned)-1;
+
+    FixedPointAccum32Unsigned()
+        : rep(0)
+    {
+    }
+
+    FixedPointAccum32Unsigned(float value)
+        : rep((value + ADD_TO_ROUND)* VAL_2_REP)
+    {
+    }
+
+    operator float() const { return rep * REP_2_VAL; }
+
+    FixedPointAccum32Unsigned &
+    operator += (const FixedPointAccum32Unsigned & other)
+    {
+        unsigned new_rep = rep + other.rep;
+        rep = (new_rep < rep ? MAX_REP : new_rep);
+        return *this;
+    }
+
+    FixedPointAccum32Unsigned
+    operator + (const FixedPointAccum32Unsigned & other) const
+    {
+        FixedPointAccum32Unsigned result = *this;
+        result += other;
+        return result;
+    }
+};
+
+struct FixedPointAccum32 {
+    int rep;
+
+    static const float VAL_2_REP = 1ULL << 31;
+    static const float REP_2_VAL = 1.0f / (1ULL << 31);
+    static const float ADD_TO_ROUND = 0.5f / (1ULL << 31);
 
     FixedPointAccum32()
         : rep(0)
@@ -37,8 +73,7 @@ struct FixedPointAccum32 {
 
     FixedPointAccum32 & operator += (const FixedPointAccum32 & other)
     {
-        unsigned new_rep = rep + other.rep;
-        rep = (new_rep < rep ? MAX_REP : new_rep);
+        rep += other.rep;
         return *this;
     }
 

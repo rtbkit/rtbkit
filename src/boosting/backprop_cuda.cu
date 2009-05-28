@@ -18,9 +18,13 @@
 #include "perceptron_defs.h"
 #include <vector>
 #include "backprop_cuda.h"
+#include "fixed_point_accum.h"
 
 using namespace std;
 
+
+typedef ML::FixedPointAccum32 UpdateFloat;
+//typedef float UpdateFloat;
 
 /** Given an activation function and an input, apply that activation
     function */
@@ -65,8 +69,8 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                      const float * const * biases, // for each layer
                      const int * architecture,
                      const int * w_strides,
-                     float * const * w_updates, // wt updates for each layer
-                     float * const * b_updates, // bias upd for each layer
+                     UpdateFloat * const * w_updates, // wt updates for each layer
+                     UpdateFloat * const * b_updates, // bias upd for each layer
                      int activation,            // activation function
                      float fire,   // target value for firing neuron
                      float inhibit, // target value for inhibited neuron)
@@ -232,8 +236,8 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         const float * layer_weights = w[l];
         int w_stride = w_strides[l];
 
-        float * layer_updates = w_updates[l];
-        float * layer_bias_updates  = b_updates[l];
+        UpdateFloat * layer_updates = w_updates[l];
+        UpdateFloat * layer_bias_updates  = b_updates[l];
         
         last_layer_outputs = this_layer_outputs - ni;
         
@@ -449,13 +453,13 @@ struct Backprop::Context {
     float * const * weight_updates;
     float * const * bias_updates;
 
-    vector<DeviceData<float> > d_weight_updates_storage;
-    vector<float *> weight_updates_vec;
-    DeviceData<float *> d_weight_updates;
+    vector<DeviceData<UpdateFloat> > d_weight_updates_storage;
+    vector<UpdateFloat *> weight_updates_vec;
+    DeviceData<UpdateFloat *> d_weight_updates;
     
-    vector<DeviceData<float> > d_bias_updates_storage;
-    vector<float *> bias_updates_vec;
-    DeviceData<float *> d_bias_updates;
+    vector<DeviceData<UpdateFloat> > d_bias_updates_storage;
+    vector<UpdateFloat *> bias_updates_vec;
+    DeviceData<UpdateFloat *> d_bias_updates;
 
     // These are to lock the output so that updates can be made without
     // an atomic operation per update
@@ -500,8 +504,7 @@ struct Backprop::Context {
         for (unsigned l = 0;  l < plan.num_layers;  ++l) {
             int ni = plan.architecture[l];
             int w_stride = plan.w_strides[l];
-            d_weight_updates_storage[l].init(weight_updates[l],
-                                             ni * w_stride);
+            d_weight_updates_storage[l].init(ni * w_stride);
             weight_updates_vec[l] = d_weight_updates_storage[l];
         }
 
@@ -512,7 +515,7 @@ struct Backprop::Context {
 
         for (unsigned l = 0;  l < plan.num_layers;  ++l) {
             int no = plan.architecture[l + 1];
-            d_bias_updates_storage[l].init(bias_updates[l], no);
+            d_bias_updates_storage[l].init(no);
             bias_updates_vec[l] = d_bias_updates_storage[l];
         }
 
@@ -574,10 +577,27 @@ struct Backprop::Context {
 
         //cerr << "copying memory back" << endl;
 
-        for (unsigned l = 0;  l < plan.num_layers;  ++l)
-            d_weight_updates_storage[l].sync(weight_updates[l]);
-        for (unsigned l = 0;  l < plan.num_layers;  ++l)
-            d_bias_updates_storage[l].sync(bias_updates[l]);
+        
+
+
+        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
+            int ni = plan.architecture[l];
+            int w_stride = plan.w_strides[l];
+            
+            UpdateFloat sync_to[ni * w_stride];
+
+            d_weight_updates_storage[l].sync(sync_to);
+            std::copy(sync_to, sync_to + ni * w_stride, weight_updates[l]);
+        }
+
+        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
+            int no = plan.architecture[l + 1];
+
+            UpdateFloat sync_to[no];
+            
+            d_bias_updates_storage[l].sync(sync_to);
+            std::copy(sync_to, sync_to + no, bias_updates[l]);
+        }
     }
 };
 
