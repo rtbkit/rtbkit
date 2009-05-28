@@ -738,7 +738,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
     unsigned last_example = min(total_num_examples, example_num_base + examples_per_block);
 
     unsigned example_num = example_num_base;
-#if 1
+#if 0
     for (;  example_num < last_example - 3;  example_num += 4) {
         const float * input1 = feature_vectors + example_num * feature_vector_width;
         const float * input2 = input1 + feature_vector_width;
@@ -780,48 +780,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
     }
 #endif
 
-#if 0
-    for (;  example_num < last_example;  example_num += 1) {
-        const float * input1 = feature_vectors + example_num * feature_vector_width;
-        const float * input2 = input1 + feature_vector_width;
-        const float * input3 = input1;
-        const float * input4 = input2;
-
-        int4 label;
-        label.x = labels[example_num];
-        label.y = labels[example_num + 1];
-        label.z = labels[example_num];
-        label.w = labels[example_num + 1];
-
-        float4 example_weight;
-        example_weight.x = 0.0;
-        example_weight.y = 0.0;
-        example_weight.z = example_weights[example_num];
-        example_weight.w = 0.0;//example_weights[example_num + 1];
-
-        float * scratch1 = scratch;
-        float * scratch2 = scratch1 + max_width;
-        float * scratch3 = scratch2 + max_width;
-        float * scratch4 = scratch3 + max_width;
-        
-        float * layer_outputs1 = layer_outputs;
-        float * layer_outputs2 = layer_outputs1 + total_neurons;
-        float * layer_outputs3 = layer_outputs2 + total_neurons;
-        float * layer_outputs4 = layer_outputs3 + total_neurons;
-        
-        train_4_examples(input1, input2, input3, input4,
-                         label, example_weight,
-                         num_layers, scratch1, scratch2, scratch3, scratch4,
-                         w, biases, architecture, w_strides,
-                         w_updates, b_updates,
-                         activation, fire, inhibit, learning_rate,
-                         num_threads_in_block, total_neurons,
-                         layer_outputs1, layer_outputs2, layer_outputs3,
-                         layer_outputs4);
-
-    }
-#endif
-
+    // Do any others singly
     for (;  example_num < last_example;  ++example_num) {
 
         const float * input = feature_vectors + example_num * feature_vector_width;
