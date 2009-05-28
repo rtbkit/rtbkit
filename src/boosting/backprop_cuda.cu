@@ -75,7 +75,9 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                      float fire,   // target value for firing neuron
                      float inhibit, // target value for inhibited neuron)
                      float learning_rate,
-                     int num_threads_in_block)
+                     int num_threads_in_block,
+                     float * layer_outputs  // scratch space[total neurons]
+                     )
 {
     // access thread id
     const unsigned tid = threadIdx.x;
@@ -89,7 +91,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
     /* Where we accumulate our errors, layer by layer.  The size is that of
        the largest dimension. */
-    extern __shared__ float errors[];
+    extern __shared__ float scratch[];
 
     /* The layer outputs (activation of the neurons).  This is where the
        shared memory goes to.  Note that we store only the activated outputs,
@@ -99,7 +101,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
        the errors array, so that our layer outputs have to start at this
        offset.
     */
-    float * layer_outputs = errors + blockDim.x;
+    //float * layer_outputs = scratch + blockDim.x;
 
     const float * input = feature_vectors + example_num * feature_vector_width;
 
@@ -123,6 +125,14 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     /*************************************************************************/
     /* FPROP                                                                 */
     /*************************************************************************/
+
+    /* First, copy the inputs into shared memory */
+    int ni = architecture[0];
+    scratch[tid] = (tid < ni ? input[tid] : 0.0);
+
+    /* Let everything catch up */
+    __syncthreads();
+
 
     float * last_layer_outputs = 0;
     float * this_layer_outputs = layer_outputs;
@@ -150,31 +160,34 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                     tid, l, ni, no, last_layer_outputs, this_layer_outputs);
 #endif
 
-#if 0
-    std::copy(bias.begin(), bias.end(), output.begin());
-    for (unsigned i = 0;  i < input.size();  ++i)
-        SIMD::vec_add(&output[0], input[i], &weights[i][0], &output[0],
-                      outputs());
-        //for (unsigned o = 0;  o < output.size();  ++o)
-        //    output[o] += input[i] * weights[i][o];
-    transform(output);
-#endif
-
         /* Add in the layer outputs.  We iterate with all threads */
-        if (tid < no) {
-            // Start off with the bias terms
-            double accum = biases[l][tid];
+        
+        // Start off with the bias terms
+        double accum = (tid < no ? biases[l][tid] : 0.0);
+
+        if (__any(tid < no)) {
 
             for (unsigned i = 0;  i < ni;  ++i) {
-                float inval = (l == 0 ? input[i] : last_layer_outputs[i]);
-
+                // No bank conflicts as all threads are accessing same value
+                float inval = scratch[i];
+                //float inval = (l == 0 ? input[i] : last_layer_outputs[i]);
+                
                 // Coalesced access; maybe texture would be better
-                float weight = layer_weights[i * w_stride + tid];
+                float weight
+                    = (tid < no ? layer_weights[i * w_stride + tid] : 0.0);
                 
                 accum += weight * inval;
             }
-            
-            this_layer_outputs[tid] = transform(accum, activation);
+        }         
+
+        // Let everything catch up so that we can write to scratch
+        __syncthreads();
+        
+        if (__any(tid < no)) {
+
+            if (tid < no)
+                /* this_layer_outputs[tid] = */ scratch[tid]
+                    = transform(accum, activation);
         }
 
 #if defined(__DEVICE_EMULATION__)
@@ -204,7 +217,12 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     /* First error calculation pass */
     bool correct = (label == tid);
     float wanted = (correct ? fire : inhibit);
-    errors[tid] = (tid < no ? wanted - this_layer_outputs[tid] : 0.0);
+
+    float last_output = scratch[tid];
+
+    __syncthreads();
+
+    scratch[tid] = (tid < no ? wanted - last_output : 0.0);
     
     /* Let everything catch up */
     __syncthreads();
@@ -216,7 +234,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                 example_num, label);
         for (unsigned i = 0;  i < no;  ++i) {
             fprintf(stderr, "output %d: value %f error %f correct %d\n",
-                    i, this_layer_outputs[i], errors[i], (label == i));
+                    i, this_layer_outputs[i], scratch[i], (label == i));
         }
     }
 #endif
@@ -240,12 +258,9 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         
         last_layer_outputs = this_layer_outputs - ni;
         
-        float prev_output = (tid > no ? 0.0 : last_layer_outputs[tid]);
+        float prev_output = 0.0;//(tid > no ? 0.0 : last_layer_outputs[tid]);
 
-        if (prev_output > 1.0) prev_output *= 1.0000001;
-
-        // 
-        float error = errors[tid];
+        float error = scratch[tid];
         
         float d = (tid > no ? 0.0 : delta(prev_output, error, activation));
 
@@ -256,7 +271,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
             // Broadcast the d values so that we can use them to calculate the
             // errors
-            errors[tid] = d;
+            scratch[tid] = d;
 
             // Make sure everything can get its d value
             __syncthreads();
@@ -264,7 +279,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             double total = 0.0;
             if (tid < ni) {
                 for (unsigned o = 0;  o < no;  ++o) {
-                    float d = errors[o];  // may be the d from another thread
+                    float d = scratch[o];  // may be the d from another thread
                     float update = d * layer_weights[tid * w_stride + o];
                     total += update;
                 }
@@ -274,7 +289,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             // values with the new errors
             __syncthreads();
             
-            errors[tid] = total;
+            scratch[tid] = total;
         }
 
 
@@ -286,7 +301,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                     l);
             for (unsigned i = 0;  i < ni;  ++i) {
                 fprintf(stderr, "input %d: error %f\n",
-                        i, errors[i]);
+                        i, scratch[i]);
             }
         }
 #endif
@@ -320,7 +335,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             // Get the real index of i
             unsigned i = i_ - (i_ >= ni) * ni;
 
-            float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
+            float prev = 0.0;//(l == 0 ? input[i] : last_layer_outputs[i]); 
             float update = prev * k * d;
 
             atomic_add(layer_updates[i * w_stride + tid], update);
@@ -428,7 +443,7 @@ struct Backprop::Plan {
         // We need our grid size to be exactly the maximum width of the output
         threads = dim3(max_width);
 
-        shared_mem_size = (max_width + total_neurons) * sizeof(float);
+        shared_mem_size = max_width * sizeof(float);
     }
 };
 
@@ -450,6 +465,8 @@ struct Backprop::Context {
     vector<DeviceData<UpdateFloat> > d_bias_updates_storage;
     vector<UpdateFloat *> bias_updates_vec;
     DeviceData<UpdateFloat *> d_bias_updates;
+
+    DeviceData<float> d_layer_outputs;
 
     dim3 grid;
 
@@ -489,7 +506,7 @@ struct Backprop::Context {
         for (unsigned l = 0;  l < plan.num_layers;  ++l) {
             int ni = plan.architecture[l];
             int w_stride = plan.w_strides[l];
-            d_weight_updates_storage[l].init(ni * w_stride);
+            d_weight_updates_storage[l].init_zeroed(ni * w_stride);
             weight_updates_vec[l] = d_weight_updates_storage[l];
         }
 
@@ -500,17 +517,14 @@ struct Backprop::Context {
 
         for (unsigned l = 0;  l < plan.num_layers;  ++l) {
             int no = plan.architecture[l + 1];
-            d_bias_updates_storage[l].init(no);
+            d_bias_updates_storage[l].init_zeroed(no);
             bias_updates_vec[l] = d_bias_updates_storage[l];
         }
 
         d_bias_updates.init(&bias_updates_vec[0], plan.num_layers);
 
-        int total_inputs = 0;
-        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
-            int ni = plan.architecture[l];
-            total_inputs += ni;
-        }
+        // Get the scratch space
+        //d_layer_outputs.init(plan.total_neurons);
         
         // Our grid size is one per example
         grid = dim3(num_feature_vectors);
@@ -534,7 +548,8 @@ struct Backprop::Context {
              plan.fire,
              plan.inhibit,
              plan.learning_rate,
-             num_feature_vectors);
+             num_feature_vectors,
+             d_layer_outputs);
 
         //cerr << "launched" << endl;
     }
