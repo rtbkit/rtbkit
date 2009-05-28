@@ -76,6 +76,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                      float inhibit, // target value for inhibited neuron)
                      float learning_rate,
                      int num_threads_in_block,
+                     int total_neurons,
                      float * layer_outputs  // scratch space[total neurons]
                      )
 {
@@ -83,11 +84,6 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     const unsigned tid = threadIdx.x;
 
     const unsigned example_num  = blockIdx.x;
-
-#ifdef __DEVICE_EMULATION__
-    //fprintf(stderr, "tid = %d example_num = %d\n",
-    //        tid, example_num);
-#endif
 
     /* Where we accumulate our errors, layer by layer.  The size is that of
        the largest dimension. */
@@ -103,13 +99,16 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     */
     //float * layer_outputs = scratch + blockDim.x;
 
+    // Get our private scratch memory for this block
+    layer_outputs += example_num * total_neurons;
+
     const float * input = feature_vectors + example_num * feature_vector_width;
 
     int label = labels[example_num];
 
     float example_weight = example_weights[example_num];
 
-#ifdef __DEVICE_EMULATION__
+#if defined(__DEVICE_EMULATION__) && 0
     if (tid == 0 && example_num == 0) {
         fprintf(stderr, "starting fprop example %d wt %f; label %d\n",
                 example_num, example_weight, label);
@@ -154,10 +153,11 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
         next_layer_outputs = this_layer_outputs + no;
 
-#if defined(__DEVICE_EMULATION__) && 0
+#if defined(__DEVICE_EMULATION__) && 1
         if (tid == 0)
-            fprintf(stderr, "fprop: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p\n",
-                    tid, l, ni, no, last_layer_outputs, this_layer_outputs);
+            fprintf(stderr, "fprop: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p next_layer_outputs %p\n",
+                    tid, l, ni, no, last_layer_outputs, this_layer_outputs,
+                    next_layer_outputs);
 #endif
 
         /* Add in the layer outputs.  We iterate with all threads */
@@ -186,11 +186,11 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         if (__any(tid < no)) {
 
             if (tid < no)
-                /* this_layer_outputs[tid] = */ scratch[tid]
+                this_layer_outputs[tid] = scratch[tid]
                     = transform(accum, activation);
         }
 
-#if defined(__DEVICE_EMULATION__)
+#if defined(__DEVICE_EMULATION__) && 0
         __syncthreads();
         if (tid == 0 && example_num == 0) {
             fprintf(stderr, "completed fprop layer %d example %d; label %d\n",
@@ -228,7 +228,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
     __syncthreads();
 
 
-#if defined(__DEVICE_EMULATION__)
+#if defined(__DEVICE_EMULATION__) && 0
     if (tid == 0 && example_num == 0) {
         fprintf(stderr, "completed fprop example %d; label %d\n",
                 example_num, label);
@@ -257,12 +257,20 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         UpdateFloat * layer_bias_updates  = b_updates[l];
         
         last_layer_outputs = this_layer_outputs - ni;
+
+#if defined(__DEVICE_EMULATION__) && 1
+        if (tid == 0)
+            fprintf(stderr, "bprop: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p layer_outputs %p end %p\n",
+                    tid, l, ni, no, last_layer_outputs, this_layer_outputs,
+                    layer_outputs, layer_outputs + total_neurons);
+#endif
+
         
-        float prev_output = 0.0;//(tid > no ? 0.0 : last_layer_outputs[tid]);
+        float prev_output = (tid >= no ? 0.0 : this_layer_outputs[tid]);
 
         float error = scratch[tid];
         
-        float d = (tid > no ? 0.0 : delta(prev_output, error, activation));
+        float d = (tid >= no ? 0.0 : delta(prev_output, error, activation));
 
         if (l > 0) {
             // Make sure all threads have caught up so that we can modify error
@@ -293,7 +301,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         }
 
 
-#if defined(__DEVICE_EMULATION__)
+#if defined(__DEVICE_EMULATION__) && 0
         __syncthreads();
 
         if (tid == 0 && example_num == 0) {
@@ -313,12 +321,6 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
         /* Update the weights. */
         float k = example_weight * learning_rate;
 
-#if defined(__DEVICE_EMULATION__) && 0
-        if (tid == 0)
-            fprintf(stderr, "bprop: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p\n",
-                    tid, l, ni, no, last_layer_outputs, this_layer_outputs);
-#endif
-
         /* Now for the updates.  In order to avoid trying to write the same
            memory over and over, we stagger the starting points so that
            each example will start at a different place, thus minimising
@@ -335,7 +337,7 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
             // Get the real index of i
             unsigned i = i_ - (i_ >= ni) * ni;
 
-            float prev = 0.0;//(l == 0 ? input[i] : last_layer_outputs[i]); 
+            float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
             float update = prev * k * d;
 
             atomic_add(layer_updates[i * w_stride + tid], update);
@@ -523,11 +525,13 @@ struct Backprop::Context {
 
         d_bias_updates.init(&bias_updates_vec[0], plan.num_layers);
 
+        int grid_size = num_feature_vectors;
+
         // Get the scratch space
-        //d_layer_outputs.init(plan.total_neurons);
+        d_layer_outputs.init(plan.total_neurons * grid_size);
         
         // Our grid size is one per example
-        grid = dim3(num_feature_vectors);
+        grid = dim3(grid_size);
     }
 
     void execute()
@@ -549,6 +553,7 @@ struct Backprop::Context {
              plan.inhibit,
              plan.learning_rate,
              num_feature_vectors,
+             plan.total_neurons,
              d_layer_outputs);
 
         //cerr << "launched" << endl;
