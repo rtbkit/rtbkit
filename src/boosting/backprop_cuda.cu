@@ -75,7 +75,6 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
                      float fire,   // target value for firing neuron
                      float inhibit, // target value for inhibited neuron)
                      float learning_rate,
-                     int * const * output_row_locks,
                      int num_threads_in_block)
 {
     // access thread id
@@ -314,31 +313,15 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
         int start_at = (example_num * thread_stride) % ni;
 
-        bool lock_rows = false;
-
         for (unsigned i_ = start_at;  i_ < ni + start_at;  ++i_) {
 
             // Get the real index of i
             unsigned i = i_ - (i_ >= ni) * ni;
 
-            // Thread 0 locks the row; the rest wait for it
-            int * row_lock_addr = 0;
-            if (lock_rows) {
-                row_lock_addr = output_row_locks[l] + i;
-
-                if (tid == 0) while (atomicExch(row_lock_addr, 1)) ;
-                __syncthreads();
-            }
-
             float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
             float update = prev * k * d;
 
-            if (lock_rows)
-                layer_updates[i * w_stride + tid] += update;
-            else atomic_add(layer_updates[i * w_stride + tid], update);
-
-            // Now unlock the row with thread 0
-            if (lock_rows && tid == 0) *row_lock_addr = 0;
+            atomic_add(layer_updates[i * w_stride + tid], update);
         }
         
         /* Update the bias */
@@ -346,7 +329,6 @@ train_example_kernel(const float * feature_vectors,  // feature vector [ni]
 
         //layer_bias_updates[tid] += update;
         atomic_add(layer_bias_updates[tid], update);
-
     }
 }
 
@@ -467,11 +449,6 @@ struct Backprop::Context {
     vector<UpdateFloat *> bias_updates_vec;
     DeviceData<UpdateFloat *> d_bias_updates;
 
-    // These are to lock the output so that updates can be made without
-    // an atomic operation per update
-    DeviceData<int> d_output_row_lock_entries;
-    DeviceData<int *> d_output_row_locks;
-
     dim3 grid;
 
     int num_feature_vectors;
@@ -533,18 +510,6 @@ struct Backprop::Context {
             total_inputs += ni;
         }
         
-        d_output_row_lock_entries.init(total_inputs);
-        vector<int *> output_rows;
-
-        total_inputs = 0;
-        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
-            int ni = plan.architecture[l];
-            output_rows.push_back(d_output_row_lock_entries + total_inputs);
-            total_inputs += ni;
-        }
-
-        d_output_row_locks.init(&output_rows[0], plan.num_layers);
-
         // Our grid size is one per example
         grid = dim3(num_feature_vectors);
     }
@@ -567,7 +532,6 @@ struct Backprop::Context {
              plan.fire,
              plan.inhibit,
              plan.learning_rate,
-             d_output_row_locks,
              num_feature_vectors);
 
         //cerr << "launched" << endl;
