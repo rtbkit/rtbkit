@@ -43,6 +43,7 @@ __device__ float transform(float input, int activation)
 {
     switch (activation) {
     case ML::ACT_TANH: {
+        return tanh(input);
         float exp2i = __expf(input + input);
         return __fdividef(exp2i - 1.0f, exp2i + 1.0f);
     }
@@ -142,7 +143,7 @@ train_example(const float * input,
 
         next_layer_outputs = this_layer_outputs + no;
 
-#if defined(__DEVICE_EMULATION__) && 1
+#if defined(__DEVICE_EMULATION__) && 0
         if (tid == 0)
             fprintf(stderr, "fprop: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p next_layer_outputs %p\n",
                     tid, l, ni, no, last_layer_outputs, this_layer_outputs,
@@ -179,7 +180,7 @@ train_example(const float * input,
                     = transform(accum, activation);
         }
 
-#if defined(__DEVICE_EMULATION__) && 0
+#if defined(__DEVICE_EMULATION__) && 1
         __syncthreads();
         if (tid == 0 && block_num == 0) {
             fprintf(stderr, "completed fprop layer %d example %d; label %d\n",
@@ -247,7 +248,7 @@ train_example(const float * input,
         
         last_layer_outputs = this_layer_outputs - ni;
 
-#if defined(__DEVICE_EMULATION__) && 1
+#if defined(__DEVICE_EMULATION__) && 0
         if (tid == 0)
             fprintf(stderr, "bprop: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p layer_outputs %p end %p\n",
                     tid, l, ni, no, last_layer_outputs, this_layer_outputs,
@@ -329,7 +330,23 @@ train_example(const float * input,
             float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
             float update = prev * k * d;
 
+#if defined(__DEVICE_EMULATION__)
+            //__syncthreads();
+
+            if (tid < 10 && block_num == 0 && l == 2 && i == 0) {
+                fprintf(stderr, "update for layer 2 i=0 o=%d = %.15g * %.15g * %.15g = %.15g before update %.15g\n", tid, prev, k, d, update, (float)layer_updates[i * w_stride + tid]);
+            }
+#endif
+
             atomic_add(layer_updates[i * w_stride + tid], update);
+
+#if defined(__DEVICE_EMULATION__)
+            //__syncthreads();
+
+            if (tid < 10 && block_num == 0 && l == 2 && i == 0) {
+                fprintf(stderr, "                          after %.15g\n", (float)layer_updates[i * w_stride + tid]);
+            }
+#endif
         }
         
         /* Update the bias */
@@ -472,11 +489,11 @@ train_4_examples(const float * input1,
                 this_layer_outputs1[tid] = scratch1[tid]
                     = transform(accum1, activation);
                 this_layer_outputs2[tid] = scratch2[tid]
-                    = transform(accum1, activation);
+                    = transform(accum2, activation);
                 this_layer_outputs3[tid] = scratch3[tid]
-                    = transform(accum1, activation);
+                    = transform(accum3, activation);
                 this_layer_outputs4[tid] = scratch4[tid]
-                    = transform(accum1, activation);
+                    = transform(accum4, activation);
             }
         }
     }
@@ -637,63 +654,43 @@ train_4_examples(const float * input1,
             float prev3 = (l == 0 ? input3[i] : last_layer_outputs3[i]); 
             float prev4 = (l == 0 ? input4[i] : last_layer_outputs4[i]); 
 
-#if 1
-            float update1 = prev1 * k1 * d1;
-            float update2 = prev2 * k2 * d2;
-            float update3 = prev3 * k3 * d3;
-            float update4 = prev4 * k4 * d4;
+            float update1 = k1 * d1 * prev1;
+            float update2 = k2 * d2 * prev2;
+            float update3 = k3 * d3 * prev3;
+            float update4 = k4 * d4 * prev4;
 
-            atomic_add(layer_updates[i * w_stride + tid], update1);
-            atomic_add(layer_updates[i * w_stride + tid], update2);
-            atomic_add(layer_updates[i * w_stride + tid], update3);
-            atomic_add(layer_updates[i * w_stride + tid], update4);
-#else
-            float update
-                = (k1 * d1 * prev1)
-                + (k2 * d2 * prev2)
-                + (k3 * d3 * prev3)
-                + (k4 * d4 * prev4);
+            float update = update1 + update2 + update3 + update4;
+
+#if defined(__DEVICE_EMULATION__)
+            //__syncthreads();
+
+            if (tid < 10 && block_num == 0 && l == 2 && i == 0) {
+                fprintf(stderr, "update for layer 2 i=0 o=%d = %.15g * %.15g * %.15g = %.15g before update %.15g\n", tid, prev1, k1, d1, update1, (float)layer_updates[i * w_stride + tid]);
+                fprintf(stderr, "update for layer 2 i=0 o=%d = %.15g * %.15g * %.15g = %.15g before update %.15g\n", tid, prev2, k2, d2, update2, (float)layer_updates[i * w_stride + tid]);
+                fprintf(stderr, "update for layer 2 i=0 o=%d = %.15g * %.15g * %.15g = %.15g before update %.15g\n", tid, prev3, k3, d3, update3, (float)layer_updates[i * w_stride + tid]);
+                fprintf(stderr, "update for layer 2 i=0 o=%d = %.15g * %.15g * %.15g = %.15g before update %.15g\n", tid, prev4, k4, d4, update4, (float)layer_updates[i * w_stride + tid]);
+            }
+#endif
 
             atomic_add(layer_updates[i * w_stride + tid], update);
-#endif
-        }
-#if 1
-        float update1 = k1 * d1;
-        float update2 = k2 * d2;
-        float update3 = k3 * d3;
-        float update4 = k4 * d4;
 
-        atomic_add(layer_bias_updates[tid], update1);
-        atomic_add(layer_bias_updates[tid], update2);
-        atomic_add(layer_bias_updates[tid], update3);
-        atomic_add(layer_bias_updates[tid], update4);
-#else
+#if defined(__DEVICE_EMULATION__)
+            if (tid < 10 && block_num == 0 && l == 2 && i == 0) {
+                fprintf(stderr, "                          after %.15g\n", (float)layer_updates[i * w_stride + tid]);
+            }
+#endif
+
+        }
+
         /* Update the bias */
-        float update = ((k1 * d1) + (k2 * d2) + (k3 * d3) + (k4 * d4));
+        double update
+            = double(k1 * d1)
+            + double(k2 * d2)
+            + double(k3 * d3)
+            + double(k4 * d4);
 
         atomic_add(layer_bias_updates[tid], update);
-#endif
     }
-
-#if 0
-        for (unsigned i_ = start_at;  i_ < ni + start_at;  ++i_) {
-
-            // Get the real index of i
-            unsigned i = i_ - (i_ >= ni) * ni;
-
-            float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
-            float update = prev * k * d;
-
-            atomic_add(layer_updates[i * w_stride + tid], update);
-        }
-        
-        /* Update the bias */
-        float update = k * d;
-
-        //layer_bias_updates[tid] += update;
-        atomic_add(layer_bias_updates[tid], update);
-#endif
-
 }
 
 __global__ void
@@ -741,7 +738,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
     unsigned last_example = min(total_num_examples, example_num_base + examples_per_block);
 
     unsigned example_num = example_num_base;
-#if 0
+#if 1
     for (;  example_num < last_example - 3;  example_num += 4) {
         const float * input1 = feature_vectors + example_num * feature_vector_width;
         const float * input2 = input1 + feature_vector_width;
@@ -783,7 +780,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
     }
 #endif
 
-#if 1
+#if 0
     for (;  example_num < last_example;  example_num += 1) {
         const float * input1 = feature_vectors + example_num * feature_vector_width;
         const float * input2 = input1 + feature_vector_width;
@@ -1080,6 +1077,13 @@ struct Backprop::Context {
 
             d_weight_updates_storage[l].sync(sync_to);
             std::copy(sync_to, sync_to + ni * w_stride, weight_updates[l]);
+
+#if 0
+            cerr << "first 10 weight updates for layer " << l << ": ";
+            for (unsigned i = 0;  i < 10;  ++i)
+                cerr << sync_to[i] << " ";
+            cerr << endl;
+#endif
         }
 
         for (unsigned l = 0;  l < plan.num_layers;  ++l) {
@@ -1089,6 +1093,13 @@ struct Backprop::Context {
             
             d_bias_updates_storage[l].sync(sync_to);
             std::copy(sync_to, sync_to + no, bias_updates[l]);
+
+#if 0            
+            cerr << "first 10 bias updates for layer " << l << ": ";
+            for (unsigned i = 0;  i < 10;  ++i)
+                cerr << sync_to[i] << " ";
+            cerr << endl;
+#endif
         }
     }
 };
