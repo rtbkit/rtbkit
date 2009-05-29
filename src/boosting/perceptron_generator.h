@@ -64,6 +64,8 @@ public:
     bool do_decorrelate;
     float batch_size;
     bool use_cuda;
+    int training_mode;
+    int training_algo;
 
     std::string arch_str;
 

@@ -1459,7 +1459,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
     }
 #endif
 
-#if 1
+#if 0
     for (;  example_num < last_example - 3;  example_num += 4) {
         const float * input1 = feature_vectors + example_num * feature_vector_width;
         const float * input2 = input1 + feature_vector_width;
@@ -1698,12 +1698,12 @@ struct Backprop::Context {
 
         d_bias_updates.init(&bias_updates_vec[0], plan.num_layers);
 
-        num_examples_per_invocation = 8;//16;
+        num_examples_per_invocation = 4;//16;
 
         int grid_size = rudiv(num_feature_vectors, num_examples_per_invocation);
 
         // Get the scratch space
-        d_layer_outputs.init(plan.total_neurons * grid_size * 8);
+        d_layer_outputs.init(plan.total_neurons * grid_size * 4);
         
         // Our grid size is one per example
         grid = dim3(grid_size);
