@@ -919,32 +919,57 @@ struct Training_Job_Info {
                 size_t ni = layer.inputs();
 
                 const distribution<float> & delta = deltas[l];
-
-                /* Update the bias terms.  The previous layer output
-                   (input) is always 1. */
-                SIMD::vec_add(&layer.bias[0], k, &delta[0],
-                              &layer.bias[0], no);
-
+                
+                if (mode == 0 || mode == 1) {
+                    /* Update the bias terms.  The previous layer output
+                       (input) is always 1. */
+                    SIMD::vec_add(&layer.bias[0], k, &delta[0],
+                                  &layer.bias[0], no);
+                    
 #if 0
-                cerr << "x " << x << " layer " << l << " k " << k
-                     << " output " << layer_outputs[l]
-                     << " error " << errors[l] << " bias upd " << delta << endl;
+                    cerr << "x " << x << " layer " << l << " k " << k
+                         << " output " << layer_outputs[l]
+                         << " error " << errors[l] << " bias upd " << delta << endl;
 #endif
-
-                if (mode == 1) {
-                    fprop(x, layers, layer_outputs);
-                    example_rms_error = bprop(x, layers, layer_outputs, errors, deltas);
-                }
-
-                for (unsigned i = 0;  i < ni;  ++i) {
-                    float k2 = layer_outputs[l - 1][i] * k;
-                    SIMD::vec_add(&layer.weights[i][0], k2, &delta[0],
-                                  &layer.weights[i][0], no);
                     
                     if (mode == 1) {
-                        // re-propagate; we've modified some parameters already
                         fprop(x, layers, layer_outputs);
-                        example_rms_error = bprop(x, layers, layer_outputs, errors, deltas);
+                        example_rms_error
+                            = bprop(x, layers, layer_outputs, errors, deltas);
+                    }
+                    
+                    for (unsigned i = 0;  i < ni;  ++i) {
+                        float k2 = layer_outputs[l - 1][i] * k;
+                        SIMD::vec_add(&layer.weights[i][0], k2, &delta[0],
+                                      &layer.weights[i][0], no);
+                        
+                        if (mode == 1) {
+                            // re-propagate; we've modified some parameters already
+                            fprop(x, layers, layer_outputs);
+                            example_rms_error
+                                = bprop(x, layers, layer_outputs, errors, deltas);
+                        }
+                    }
+                }
+                else if (mode == 2) {
+                }
+                else if (mode == 3) {
+                    for (unsigned o = 0;  o < no;  ++o) {
+                        layer.bias[o] += k * delta[o];
+                        fprop(x, layers, layer_outputs);
+                        example_rms_error
+                            = bprop(x, layers, layer_outputs, errors, deltas);
+                    }
+                    
+                    for (unsigned i = 0;  i < ni;  ++i) {
+                        float k2 = layer_outputs[l - 1][i] * k;
+
+                        for (unsigned o = 0;  o < no;  ++o) {
+                            layer.weights[i][0] += k2 * delta[o];
+                            fprop(x, layers, layer_outputs);
+                            example_rms_error
+                                = bprop(x, layers, layer_outputs, errors, deltas);
+                        }
                     }
                 }
             }
