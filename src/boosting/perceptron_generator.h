@@ -66,6 +66,8 @@ public:
     bool use_cuda;
     int training_mode;
     int training_algo;
+    int min_examples_per_job;
+    int max_examples_per_job;
 
     std::string arch_str;
 

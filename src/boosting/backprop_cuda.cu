@@ -30,6 +30,7 @@ using namespace std;
    - Remove learning rate from the update (apply it when updating the weights)
      and use a constant that conditions the numbers to work well within the
      range of the update
+   - Try using textures for the W arrays (caching could make a big difference)
 */
 
 

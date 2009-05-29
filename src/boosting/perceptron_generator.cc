@@ -98,6 +98,8 @@ configure(const Configuration & config)
     config.find(use_cuda, "use_cuda");
     config.find(training_algo, "training_algo");
     config.find(training_mode, "training_mode");
+    config.find(min_examples_per_job, "min_examples_per_job");
+    config.find(max_examples_per_job, "max_examples_per_job");
 }
 
 void
@@ -115,6 +117,8 @@ defaults()
     use_cuda = false;
     training_algo = 0;
     training_mode = 1;
+    min_examples_per_job = 8;
+    max_examples_per_job = 1024;
 }
 
 Config_Options
@@ -952,6 +956,22 @@ struct Training_Job_Info {
                     }
                 }
                 else if (mode == 2) {
+                    for (unsigned o = 0;  o < no;  ++o) {
+                        layer.bias[o] += k * delta[o];
+                        
+                        fprop(x, layers, layer_outputs);
+                        example_rms_error
+                            = bprop(x, layers, layer_outputs, errors, deltas);
+                        
+                        for (unsigned i = 0;  i < ni;  ++i) {
+                            float k2 = layer_outputs[l - 1][i] * k;
+                            layer.weights[i][o] += k2 * delta[o];
+                        }
+
+                        fprop(x, layers, layer_outputs);
+                        example_rms_error
+                            = bprop(x, layers, layer_outputs, errors, deltas);
+                    }
                 }
                 else if (mode == 3) {
                     for (unsigned o = 0;  o < no;  ++o) {
@@ -1240,8 +1260,8 @@ train_iteration(Thread_Context & context,
                                    total_rms_error, learning_rate,
                                    training_algo, training_mode);
             
-            int ex_per_job = std::max(8,
-                                      std::min(1024,
+            int ex_per_job = std::max(min_examples_per_job,
+                                      std::min(max_examples_per_job,
                                                num_in_batch / (4 * num_threads())));
             ex_per_job = std::min(ex_per_job, num_in_batch);
             
