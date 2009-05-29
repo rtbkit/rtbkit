@@ -788,6 +788,180 @@ struct Training_Job_Info {
             }
         }
     }
+
+#if 0
+    void train_stochastic(int x_start, int x_end, bool one_thread)
+    {
+        /* Train using a more stochastic algorithm.  This algorithm will
+           update the output weights from one hidden unit at a time, and
+           then re-do the fprop and backprop so that multiple hidden units
+           that have similar behaviour will tend to diverge from each other.
+        */
+
+        //cerr << "training " << x_start << " to " << x_end << endl;
+
+        // Make a copy of the old perceptron that we can update as we go
+        vector<Perceptron::Layer> layers = result.layers;
+        vector<Perceptron::Layer> original = layers;  // so we know updates
+
+        size_t max_units = result.max_units;
+
+        vector<distribution<float> > layer_outputs(layers.size());
+
+        size_t nl = layers.size();
+
+        double sub_correct = 0.0, sub_total = 0.0;
+
+        //size_t nx = decorrelated.shape()[0];
+        size_t nf = decorrelated.shape()[1];
+        size_t no = layers.back().outputs(); // num outputs
+
+        const float saturated = 0.8;
+        const float fire = saturated, inhibit = -saturated;
+        
+        distribution<float> correct(no, inhibit);
+
+        vector<distribution<float> > errors(nl), deltas(nl);
+
+        for (unsigned l = 1;  l < nl;  ++l) {
+            errors[l].resize(layers[l].outputs());
+            deltas[l].resize(layers[l].outputs());
+        }
+
+        double my_rms_error = 0.0;
+        
+        for (unsigned x = x_start;  x < x_end;  ++x) {
+            float w = example_weights[x];
+            
+            if (w == 0.0) continue;
+            
+            /* Forward propagate */
+            {
+                PROFILE_FUNCTION(t_fprop);
+                /* Compute weights going forward. */
+                std::copy(&decorrelated[x][0], &decorrelated[x][0] + nf,
+                          &layer_outputs[0][0]);
+                
+                for (unsigned l = 1;  l < nl;  ++l)
+                    layers[l].apply(layer_outputs[l - 1], layer_outputs[l]);
+
+                if (x == 0 && false) {
+                    cerr << "fprop: " << endl;
+                    for (unsigned l = 0;  l < nl;  ++l)
+                        cerr << "layer " << (l-1) << ": " << layer_outputs[l]
+                             << endl;
+                }
+                    
+            }
+            
+            /* Calculate the correctness. */
+            Correctness c = correctness(layer_outputs.back().begin(),
+                                        layer_outputs.back().end(),
+                                        labels[x]);
+            sub_correct += w * c.possible * c.correct;
+            sub_total += w * c.possible;
+       
+            /* Calculate the error terms for each output unit. */
+            /* TODO: regression */
+            correct[labels[x]] = fire;
+            
+            double example_rms_error = 0.0;
+
+            PROFILE_FUNCTION(t_bprop);
+            /* Original output errors.  Also update the RMS errors. */
+            for (unsigned i = 0;  i < no;  ++i) {
+                errors[l][i] = correct[i] - layer_outputs.back()[i];
+                example_rms_error += 0.5 * errors[l][i] * errors[l][i] / no;
+            }
+
+            if (x == 0 && false) {
+                cerr << "errors for layer " << 0 << ": "
+                     << distribution<float>(errors, errors + no) << endl;
+            }
+
+            my_rms_error += example_rms_error * w;
+
+            /* Backpropegate.  We actually go from the input to the output,
+               as it's useless to calculate output updates based upon inputs
+               that are going to change. */
+            for (int l = 1;  l < nl;  ++l) {
+                
+                Perceptron::Layer & layer = layers[l];
+                
+                size_t no = layer.outputs();
+                size_t ni = layer.inputs();
+                
+                float deltas[no];
+
+                /* Differentiate the output. */
+                layer.deltas(&layer_outputs[l][0], &errors[l][0], deltas);
+                
+                if (l > 1) {
+                    /* Calculate new errors (for the next layer). */
+                    for (unsigned i = 0;  i < ni;  ++i)
+                        errors[l - 1][i]
+                            = SIMD::vec_dotprod_dp(deltas, &layer.weights[i][0],
+                                                   no);
+                    
+                    if (x == 0 && false) {
+                        cerr << "errors for layer " << l << ": "
+                             << distribution<float>(errors, errors + ni)
+                             << endl;
+                    }
+                    
+                }
+                
+                /* Update the weights. */
+                float k = w * learning_rate;
+
+                for (unsigned i = 0;  i < ni;  ++i) {
+                    float k2 = layer_outputs[l - 1][i] * k;
+                    SIMD::vec_add(&sub_weight_updates[l][i][0], k2, &delta[0],
+                                  &sub_weight_updates[l][i][0], no);
+                }
+            
+                /* Update the bias terms.  The previous layer output (input) is
+                   always 1. */
+                SIMD::vec_add(&sub_bias_updates[l][0], k, &delta[0],
+                              &sub_bias_updates[l][0], no);
+            }
+        
+            /* Turn back off this example for the next time. */
+            correct[labels[x]] = inhibit;
+        }
+
+        if (one_thread) {
+            /* Weight updates were already calculated in place */
+            this->correct += sub_correct;
+            this->total += sub_total;
+            total_rms_error += my_rms_error;
+        }
+        else {
+            Guard guard(lock);
+            
+            this->correct += sub_correct;
+            this->total += sub_total;
+            total_rms_error += my_rms_error;
+            
+            /* Finally, put the accumulated weights back. */
+            for (unsigned l = 1;  l < nl;  ++l) {
+                const Perceptron::Layer & layer = layers[l];
+                
+                size_t no = layer.outputs();
+                size_t ni = layer.inputs();
+                
+                for (unsigned i = 0;  i < ni;  ++i)
+                    SIMD::vec_add(&weight_updates[l][i][0],
+                                  &sub_weight_updates[l][i][0],
+                                  &weight_updates[l][i][0], no);
+                
+                SIMD::vec_add(&bias_updates[l][0], &sub_bias_updates[l][0],
+                              &bias_updates[l][0], no);
+            }
+        }
+    }
+#endif
+
 };
 
 struct Training_Job {
