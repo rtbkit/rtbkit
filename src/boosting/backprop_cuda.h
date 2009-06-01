@@ -37,7 +37,8 @@ struct Backprop {
          float fire,
          float inhibit,
          float learning_rate,
-         bool on_host) const;
+         bool on_host,
+         bool use_textures) const;
         
     /** Execute a planned batch of updates on the GPU.  The set of feature
         vectors to train over and their associated weights, as well as the

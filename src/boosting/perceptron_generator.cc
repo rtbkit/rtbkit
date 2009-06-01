@@ -100,6 +100,7 @@ configure(const Configuration & config)
     config.find(training_mode, "training_mode");
     config.find(min_examples_per_job, "min_examples_per_job");
     config.find(max_examples_per_job, "max_examples_per_job");
+    config.find(use_textures, "use_textures");
 }
 
 void
@@ -119,6 +120,7 @@ defaults()
     training_mode = 1;
     min_examples_per_job = 8;
     max_examples_per_job = 1024;
+    use_textures = false;
 }
 
 Config_Options
@@ -1202,7 +1204,8 @@ train_iteration(Thread_Context & context,
                                      fire,
                                      inhibit,
                                      learning_rate,
-                                     false /* on_host */);
+                                     false /* on_host */,
+                                     use_textures);
 
 
             for (unsigned i = 0;  i < 1;  ++i) {

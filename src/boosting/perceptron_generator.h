@@ -68,6 +68,7 @@ public:
     int training_algo;
     int min_examples_per_job;
     int max_examples_per_job;
+    bool use_textures;
 
     std::string arch_str;
 
