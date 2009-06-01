@@ -102,12 +102,301 @@ struct WeightsAccess {
     }
 };
 
+
 /** Train a fully-connected neural network architecture via backpropagation
     one a single training example.  The work is split over all of the cores
     within a single multiprocessor.  (So, on a Geforce 260 core 216, we have
     27 multiprocessors with 8 cores each, and so we could train on 27 different
     feature vectors in parallel.
 */
+
+#define FOR_ALL_X(expr) \
+    for (int x = 0;  x < N;  ++x) expr;
+
+template<int N>
+__device__ void
+train_N_examples(const float * input,
+                 const int *labels,
+                 const float * example_weights,
+                 int num_layers,
+                 float * scratch,  // shared memory scratch space
+                 const WeightsAccess<weights_tex> & w,
+                 const WeightsAccess<biases_tex> & biases,
+                 const int * architecture,
+                 const int * w_strides,
+                 UpdateFloat * const * w_updates, // wt updates for each layer
+                 UpdateFloat * const * b_updates, // bias upd for each layer
+                 int activation,            // activation function
+                 float fire,   // target value for firing neuron
+                 float inhibit, // target value for inhibited neuron)
+                 float learning_rate,
+                 int num_threads_in_block,
+                 int num_threads_on_multiprocessor,
+                 int total_neurons,
+                 int max_width,
+                 float * layer_outputs)  // global scratch space[total neurons]
+{
+    // access thread id
+    const unsigned tid = threadIdx.x;
+
+    const unsigned block_num  = blockIdx.x;
+
+
+    /*************************************************************************/
+    /* FPROP                                                                 */
+    /*************************************************************************/
+
+    /* First, copy the inputs into shared memory */
+    int ni = architecture[0], no, w_stride;
+
+    int input_stride = ni;
+    int scratch_stride = max_width;
+    
+    for (unsigned x = 0;  x < N;  ++x)
+        scratch[x * scratch_stride + tid]
+            = (tid < ni ? input[x * input_stride + tid] : 0.0);
+
+    /* Let everything catch up */
+    __syncthreads();
+
+    float * this_layer_outputs = layer_outputs;
+
+    WeightsAccess<weights_tex> layer_weights = w;
+    WeightsAccess<biases_tex> layer_biases  = biases;
+
+    for (unsigned l = 0;
+         l < num_layers;
+         ++l,
+             __syncthreads(),
+             layer_weights += ni * w_stride,
+             layer_biases += no,
+             this_layer_outputs += no) {
+
+        // Get architecture information about the layer:
+        ni = architecture[l];
+        no = architecture[l + 1];
+        w_stride = w_strides[l];
+
+        /* We want to have each thread working here, even if no is much less
+           than the number of threads.  To do so, we assign each thread to
+           a certain o value and a certain subset of the i values, and then
+           accumulate the updates, broadcasting them at the end.
+
+           For example:
+           32 threads
+           2 outputs
+
+           So we have 16 threads working on each example
+
+           100 threads
+           16 outputs
+
+           So we have 7 threads on the first 4 examples, and 6 threads on
+           the rest.
+        */
+
+        int nt = num_threads_on_multiprocessor;
+
+        int min_threads = nt / no;
+        int left_over   = nt % no;
+        int max_threads = min_threads + (left_over > 0);
+
+        int o = tid % no;    // which o value are we working on?
+        int idx = tid / no;  // which thread in that block?
+        int o_threads = min_threads + (o < left_over);
+
+        //double * accum = (double *)(scratch + N * scratch_stride);
+        double accum[N];
+
+        FOR_ALL_X(accum[x] = 0.0);
+        
+        for (unsigned i = idx;  i < ni;  i += o_threads) {
+            float weight = layer_weights[i * w_stride + o];
+            FOR_ALL_X(accum[x] += weight * scratch[x * scratch_stride + i]);
+        }
+
+        if (max_threads > 1) {
+            // Multiple threads working per entry; we need to synchronize
+
+            __syncthreads();
+
+            if (tid < no) {
+                float bias = layer_biases[tid];
+                FOR_ALL_X(scratch[x * scratch_stride + tid] = bias);
+            }
+            
+            __syncthreads();
+            
+            /* Now we accumulate them, allowing each thread to increment in its
+               turn. */
+            for (unsigned i = 0;  i < max_threads;  ++i, __syncthreads())
+
+                if (i == idx)
+                    FOR_ALL_X(scratch[x * scratch_stride + o] += accum[x]);
+            
+            if (__any(tid < no)) {
+                
+                if (tid < no)
+                    for (unsigned x = 0;  x < N;  ++x)
+                        this_layer_outputs[x * total_neurons + tid]
+                            = scratch[x * scratch_stride + tid]
+                            = transform(scratch[x * scratch_stride + tid],
+                                        activation);
+            }
+        }
+        else {
+            // A single thread per entry; no synchronization
+            float bias = layer_biases[o];
+
+            for (unsigned x = 0;  x < N;  ++x) {
+                accum[x] += bias;
+                this_layer_outputs[x * total_neurons + o]
+                    = scratch[x * scratch_stride + o]
+                    = transform(accum[x], activation);
+            }
+        }
+    }
+
+    // layer_biases is no longer used
+
+    /*************************************************************************/
+    /* BPROP                                                                 */
+    /*************************************************************************/
+
+    /* How many output layers? */
+    this_layer_outputs -= no;
+
+    layer_weights -= ni * w_stride;
+
+    /* First error calculation pass */
+    float last_output[N];
+    FOR_ALL_X(last_output[x] = scratch[x * scratch_stride + tid]);
+
+    __syncthreads();
+
+    for (unsigned x = 0;  x < N;  ++x) {
+        bool correct = (labels[x] == tid);
+        float wanted = (correct ? fire : inhibit);
+        scratch[x * scratch_stride + tid]
+            = (tid < no ? wanted - last_output[x] : 0.0);
+    }
+    
+    /* Let everything catch up */
+    __syncthreads();
+
+    /* Backpropegate. */
+    for (int l = num_layers - 1;  l >= 0;
+         --l,
+             __syncthreads(),
+             layer_weights -= (l == -1 ? 0 : architecture[l] * w_strides[l]),
+             this_layer_outputs -= architecture[l + 1]) {
+        
+        // Get information about the layer:
+        ni = architecture[l];
+        no = architecture[l + 1];
+        w_stride = w_strides[l];
+
+        UpdateFloat * layer_updates = w_updates[l];
+        UpdateFloat * layer_bias_updates  = b_updates[l];
+        
+        const float * last_layer_outputs = this_layer_outputs - ni;
+
+        float d[N];
+
+        for (unsigned x = 0;  x < N;  ++x) {
+            float prev_output
+                = (tid >= no
+                   ? 0.0
+                   : this_layer_outputs[x * total_neurons + tid]);
+            
+            float error = scratch[x * scratch_stride + tid];
+        
+            d[x] = (tid >= no ? 0.0 : delta(prev_output, error, activation));
+        }
+        
+        if (l > 0) {
+            // Make sure all threads have caught up so that we can modify error
+            // without affecting them
+            __syncthreads();
+
+            // Broadcast the d values so that we can use them to calculate the
+            // errors
+
+            for (int x = 0;  x < N;  ++x)
+                scratch[x * scratch_stride + tid] = d[x];
+            
+            // Make sure everything can get its d value
+            __syncthreads();
+            
+            double total[N];
+            FOR_ALL_X(total[x] = 0.0);
+
+            if (tid < ni) {
+                for (unsigned o = 0;  o < no;  ++o) {
+                    float w = layer_weights[tid * w_stride + o];
+                    
+                    for (int x = 0;  x < N;  ++x) {
+                        float d = scratch[x * scratch_stride + o];
+                        float update = d * w;
+                        total[x] += update;
+                    }
+                }
+            }
+
+            // Wait for everything to finish so that we can overwrite the d
+            // values with the new errors
+            __syncthreads();
+            
+            for (int x = 0;  x < N;  ++x)
+                scratch[x * scratch_stride + tid] = total[x];
+        }
+
+        // Again, threads indexed too low just leave
+        if (tid >= no) continue;
+        
+        /* Update the weights. */
+        float k[N];
+        FOR_ALL_X(k[x] = example_weights[x] * learning_rate);
+
+        /* Now for the updates.  In order to avoid trying to write the same
+           memory over and over, we stagger the starting points so that
+           each example will start at a different place, thus minimising
+           conflicting writes when we have multiple multiprocessors working
+           on the same thing. */
+
+        int thread_stride = ni / num_threads_in_block;
+        if (thread_stride == 0) thread_stride = 1;
+
+        int start_at = (block_num * thread_stride) % ni;
+
+        for (unsigned i_ = start_at;  i_ < ni + start_at;  ++i_) {
+
+            // Get the real index of i
+            unsigned i = i_ - (i_ >= ni) * ni;
+
+            double total_update = 0.0;
+
+            for (int x = 0;  x < N;  ++x) {
+                float prev
+                    = (l == 0
+                       ? input[x * input_stride + i]
+                       : last_layer_outputs[x * total_neurons + i]); 
+                float update = prev * k[x] * d[x];
+                total_update += update;
+            }
+            
+            atomic_add(layer_updates[i * w_stride + tid], total_update);
+        }
+        
+        /* Update the bias */
+        double total_update = 0.0;
+        FOR_ALL_X(total_update += k[x] * d[x]);
+
+        //layer_bias_updates[tid] += update;
+        atomic_add(layer_bias_updates[tid], total_update);
+    }
+}
+
 __device__ void
 train_example(const float * input,
               int label,
@@ -817,482 +1106,6 @@ train_4_examples(const float * input1,
 }
 #endif
 
-#if 0
-/** Train 8 examples at once */
-__device__ void
-train_8_examples(const float * input1,
-                 const float * input2,
-                 const float * input3,
-                 const float * input4,
-                 const float * input5,
-                 const float * input6,
-                 const float * input7,
-                 const float * input8,
-                 int4 label1, int4 label2,
-                 float4 example_weight1, float4 example_weight2,
-                 int num_layers,
-                 float * scratch1,
-                 float * scratch2,
-                 float * scratch3,
-                 float * scratch4,
-                 float * scratch5,
-                 float * scratch6,
-                 float * scratch7,
-                 float * scratch8,
-                 const float * const * w,  // weights for each layer
-                 const float * const * biases, // for each layer
-                 const int * architecture,
-                 const int * w_strides,
-                 UpdateFloat * const * w_updates, // wt updates for each layer
-                 UpdateFloat * const * b_updates, // bias upd for each layer
-                 int activation,            // activation function
-                 float fire,   // target value for firing neuron
-                 float inhibit, // target value for inhibited neuron)
-                 float learning_rate,
-                 int num_threads_in_block,
-                 int total_neurons,
-                 float * layer_outputs1,
-                 float * layer_outputs2,
-                 float * layer_outputs3,
-                 float * layer_outputs4,
-                 float * layer_outputs5,
-                 float * layer_outputs6,
-                 float * layer_outputs7,
-                 float * layer_outputs8)  // global scratch space[total neurons]
-{
-    // access thread id
-    const unsigned tid = threadIdx.x;
-    
-    const unsigned block_num  = blockIdx.x;
-    
-
-    /*************************************************************************/
-    /* FPROP                                                                 */
-    /*************************************************************************/
-
-    /* First, copy the inputs into shared memory */
-    int ni = architecture[0];
-    scratch1[tid] = (tid < ni ? input1[tid] : 0.0);
-    scratch2[tid] = (tid < ni ? input2[tid] : 0.0);
-    scratch3[tid] = (tid < ni ? input3[tid] : 0.0);
-    scratch4[tid] = (tid < ni ? input4[tid] : 0.0);
-    scratch5[tid] = (tid < ni ? input5[tid] : 0.0);
-    scratch6[tid] = (tid < ni ? input6[tid] : 0.0);
-    scratch7[tid] = (tid < ni ? input7[tid] : 0.0);
-    scratch8[tid] = (tid < ni ? input8[tid] : 0.0);
-
-    /* Let everything catch up */
-    __syncthreads();
-
-
-    float * last_layer_outputs1 = 0;
-    float * this_layer_outputs1 = layer_outputs1;
-    float * next_layer_outputs1;
-
-    float * last_layer_outputs2 = 0;
-    float * this_layer_outputs2 = layer_outputs2;
-    float * next_layer_outputs2;
-
-    float * last_layer_outputs3 = 0;
-    float * this_layer_outputs3 = layer_outputs3;
-    float * next_layer_outputs3;
-
-    float * last_layer_outputs4 = 0;
-    float * this_layer_outputs4 = layer_outputs4;
-    float * next_layer_outputs4;
-
-    float * last_layer_outputs5 = 0;
-    float * this_layer_outputs5 = layer_outputs5;
-    float * next_layer_outputs5;
-
-    float * last_layer_outputs6 = 0;
-    float * this_layer_outputs6 = layer_outputs6;
-    float * next_layer_outputs6;
-
-    float * last_layer_outputs7 = 0;
-    float * this_layer_outputs7 = layer_outputs7;
-    float * next_layer_outputs7;
-
-    float * last_layer_outputs8 = 0;
-    float * this_layer_outputs8 = layer_outputs8;
-    float * next_layer_outputs8;
-
-    for (unsigned l = 0;
-         l < num_layers;
-         ++l,
-             __syncthreads(),
-             last_layer_outputs1 = this_layer_outputs1,
-             this_layer_outputs1 = next_layer_outputs1,
-             last_layer_outputs2 = this_layer_outputs2,
-             this_layer_outputs2 = next_layer_outputs2,
-             last_layer_outputs3 = this_layer_outputs3,
-             this_layer_outputs3 = next_layer_outputs3,
-             last_layer_outputs4 = this_layer_outputs4,
-             this_layer_outputs4 = next_layer_outputs4,
-             last_layer_outputs5 = this_layer_outputs5,
-             this_layer_outputs5 = next_layer_outputs5,
-             last_layer_outputs6 = this_layer_outputs6,
-             this_layer_outputs6 = next_layer_outputs6,
-             last_layer_outputs7 = this_layer_outputs7,
-             this_layer_outputs7 = next_layer_outputs7,
-             last_layer_outputs8 = this_layer_outputs8,
-             this_layer_outputs8 = next_layer_outputs8
-         ) {
-
-        // Get information about the layer:
-        int ni = architecture[l];
-        int no = architecture[l + 1];
-
-        const float * layer_weights = w[l];
-        int w_stride = w_strides[l];
-
-        next_layer_outputs1 = this_layer_outputs1 + no;
-        next_layer_outputs2 = this_layer_outputs2 + no;
-        next_layer_outputs3 = this_layer_outputs3 + no;
-        next_layer_outputs4 = this_layer_outputs4 + no;
-        next_layer_outputs5 = this_layer_outputs5 + no;
-        next_layer_outputs6 = this_layer_outputs6 + no;
-        next_layer_outputs7 = this_layer_outputs7 + no;
-        next_layer_outputs8 = this_layer_outputs8 + no;
-
-        /* Add in the layer outputs.  We iterate with all threads */
-        
-        // Start off with the bias terms
-        double accum1 = (tid < no ? biases[l][tid] : 0.0);
-        double accum2 = accum1, accum3 = accum1, accum4 = accum1,
-            accum5 = accum1, accum6 = accum1, accum7 = accum1, accum8 = accum1;
-
-        if (__any(tid < no)) {
-
-            for (unsigned i = 0;  i < ni;  ++i) {
-                // No bank conflicts as all threads are accessing same value
-                float inval1 = scratch1[i];
-                float inval2 = scratch2[i];
-                float inval3 = scratch3[i];
-                float inval4 = scratch4[i];
-                float inval5 = scratch5[i];
-                float inval6 = scratch6[i];
-                float inval7 = scratch7[i];
-                float inval8 = scratch8[i];
-                
-                // Coalesced access; maybe texture would be better
-                float weight
-                    = (tid < no ? layer_weights[i * w_stride + tid] : 0.0);
-                
-                accum1 += weight * inval1;
-                accum2 += weight * inval2;
-                accum3 += weight * inval3;
-                accum4 += weight * inval4;
-                accum5 += weight * inval5;
-                accum6 += weight * inval6;
-                accum7 += weight * inval7;
-                accum8 += weight * inval8;
-            }
-        }
-
-        // Let everything catch up so that we can write to scratch
-        __syncthreads();
-        
-        if (__any(tid < no)) {
-
-            if (tid < no) {
-                this_layer_outputs1[tid] = scratch1[tid]
-                    = transform(accum1, activation);
-                this_layer_outputs2[tid] = scratch2[tid]
-                    = transform(accum2, activation);
-                this_layer_outputs3[tid] = scratch3[tid]
-                    = transform(accum3, activation);
-                this_layer_outputs4[tid] = scratch4[tid]
-                    = transform(accum4, activation);
-                this_layer_outputs5[tid] = scratch5[tid]
-                    = transform(accum5, activation);
-                this_layer_outputs6[tid] = scratch6[tid]
-                    = transform(accum6, activation);
-                this_layer_outputs7[tid] = scratch7[tid]
-                    = transform(accum7, activation);
-                this_layer_outputs8[tid] = scratch8[tid]
-                    = transform(accum8, activation);
-            }
-        }
-    }
-
-
-    /*************************************************************************/
-    /* BPROP                                                                 */
-    /*************************************************************************/
-
-    /* How many output layers? */
-    int no = architecture[num_layers];
-
-    this_layer_outputs1 = last_layer_outputs1;
-    this_layer_outputs2 = last_layer_outputs2;
-    this_layer_outputs3 = last_layer_outputs3;
-    this_layer_outputs4 = last_layer_outputs4;
-    this_layer_outputs5 = last_layer_outputs5;
-    this_layer_outputs6 = last_layer_outputs6;
-    this_layer_outputs7 = last_layer_outputs7;
-    this_layer_outputs8 = last_layer_outputs8;
-    
-    /* First error calculation pass */
-    bool correct1 = (label1.x == tid);
-    bool correct2 = (label1.y == tid);
-    bool correct3 = (label1.z == tid);
-    bool correct4 = (label1.w == tid);
-    bool correct5 = (label2.x == tid);
-    bool correct6 = (label2.y == tid);
-    bool correct7 = (label2.z == tid);
-    bool correct8 = (label2.w == tid);
-
-    float wanted1 = (correct1 ? fire : inhibit);
-    float wanted2 = (correct2 ? fire : inhibit);
-    float wanted3 = (correct3 ? fire : inhibit);
-    float wanted4 = (correct4 ? fire : inhibit);
-    float wanted5 = (correct5 ? fire : inhibit);
-    float wanted6 = (correct6 ? fire : inhibit);
-    float wanted7 = (correct7 ? fire : inhibit);
-    float wanted8 = (correct8 ? fire : inhibit);
-
-    float last_output1 = scratch1[tid];
-    float last_output2 = scratch2[tid];
-    float last_output3 = scratch3[tid];
-    float last_output4 = scratch4[tid];
-    float last_output5 = scratch5[tid];
-    float last_output6 = scratch6[tid];
-    float last_output7 = scratch7[tid];
-    float last_output8 = scratch8[tid];
-
-    __syncthreads();
-
-    scratch1[tid] = (tid < no ? wanted1 - last_output1 : 0.0);
-    scratch2[tid] = (tid < no ? wanted2 - last_output2 : 0.0);
-    scratch3[tid] = (tid < no ? wanted3 - last_output3 : 0.0);
-    scratch4[tid] = (tid < no ? wanted4 - last_output4 : 0.0);
-    scratch5[tid] = (tid < no ? wanted5 - last_output5 : 0.0);
-    scratch6[tid] = (tid < no ? wanted6 - last_output6 : 0.0);
-    scratch7[tid] = (tid < no ? wanted7 - last_output7 : 0.0);
-    scratch8[tid] = (tid < no ? wanted8 - last_output8 : 0.0);
-    
-    /* Let everything catch up */
-    __syncthreads();
-
-
-    /* Backpropegate. */
-    for (int l = num_layers - 1;  l >= 0;
-         --l,
-             __syncthreads(),
-             this_layer_outputs1 = last_layer_outputs1,
-             this_layer_outputs2 = last_layer_outputs2,
-             this_layer_outputs3 = last_layer_outputs3,
-             this_layer_outputs4 = last_layer_outputs4,
-             this_layer_outputs5 = last_layer_outputs5,
-             this_layer_outputs6 = last_layer_outputs6,
-             this_layer_outputs7 = last_layer_outputs7,
-             this_layer_outputs8 = last_layer_outputs8
-         ) {
-        
-        // Get information about the layer:
-        int ni = architecture[l];
-        int no = architecture[l + 1];
-
-        const float * layer_weights = w[l];
-        int w_stride = w_strides[l];
-
-        UpdateFloat * layer_updates = w_updates[l];
-        UpdateFloat * layer_bias_updates  = b_updates[l];
-        
-        last_layer_outputs1 = this_layer_outputs1 - ni;
-        last_layer_outputs2 = this_layer_outputs2 - ni;
-        last_layer_outputs3 = this_layer_outputs3 - ni;
-        last_layer_outputs4 = this_layer_outputs4 - ni;
-        last_layer_outputs5 = this_layer_outputs5 - ni;
-        last_layer_outputs6 = this_layer_outputs6 - ni;
-        last_layer_outputs7 = this_layer_outputs7 - ni;
-        last_layer_outputs8 = this_layer_outputs8 - ni;
-        
-        float prev_output1 = (tid >= no ? 0.0 : this_layer_outputs1[tid]);
-        float prev_output2 = (tid >= no ? 0.0 : this_layer_outputs2[tid]);
-        float prev_output3 = (tid >= no ? 0.0 : this_layer_outputs3[tid]);
-        float prev_output4 = (tid >= no ? 0.0 : this_layer_outputs4[tid]);
-        float prev_output5 = (tid >= no ? 0.0 : this_layer_outputs5[tid]);
-        float prev_output6 = (tid >= no ? 0.0 : this_layer_outputs6[tid]);
-        float prev_output7 = (tid >= no ? 0.0 : this_layer_outputs7[tid]);
-        float prev_output8 = (tid >= no ? 0.0 : this_layer_outputs8[tid]);
-
-        float error1 = scratch1[tid];
-        float error2 = scratch2[tid];
-        float error3 = scratch3[tid];
-        float error4 = scratch4[tid];
-        float error5 = scratch5[tid];
-        float error6 = scratch6[tid];
-        float error7 = scratch7[tid];
-        float error8 = scratch8[tid];
-        
-        float d1 = (tid >= no ? 0.0 : delta(prev_output1, error1, activation));
-        float d2 = (tid >= no ? 0.0 : delta(prev_output2, error2, activation));
-        float d3 = (tid >= no ? 0.0 : delta(prev_output3, error3, activation));
-        float d4 = (tid >= no ? 0.0 : delta(prev_output4, error4, activation));
-        float d5 = (tid >= no ? 0.0 : delta(prev_output5, error5, activation));
-        float d6 = (tid >= no ? 0.0 : delta(prev_output6, error6, activation));
-        float d7 = (tid >= no ? 0.0 : delta(prev_output7, error7, activation));
-        float d8 = (tid >= no ? 0.0 : delta(prev_output8, error8, activation));
-
-        if (l > 0) {
-            // Make sure all threads have caught up so that we can modify error
-            // without affecting them
-            __syncthreads();
-
-            // Broadcast the d values so that we can use them to calculate the
-            // errors
-            scratch1[tid] = d1;
-            scratch2[tid] = d2;
-            scratch3[tid] = d3;
-            scratch4[tid] = d4;
-            scratch5[tid] = d5;
-            scratch6[tid] = d6;
-            scratch7[tid] = d7;
-            scratch8[tid] = d8;
-
-            // Make sure everything can get its d value
-            __syncthreads();
-            
-            double total1 = 0.0, total2 = 0.0, total3 = 0.0, total4 = 0.0,
-                total5 = 0.0, total6 = 0.0, total7 = 0.0, total8 = 0.0;
-            if (tid < ni) {
-                for (unsigned o = 0;  o < no;  ++o) {
-                    float d1 = scratch1[o];
-                    float d2 = scratch2[o];
-                    float d3 = scratch3[o];
-                    float d4 = scratch4[o];
-                    float d5 = scratch5[o];
-                    float d6 = scratch6[o];
-                    float d7 = scratch7[o];
-                    float d8 = scratch8[o];
-                    
-                    float w = layer_weights[tid * w_stride + o];
-
-                    float update1 = d1 * w;
-                    float update2 = d2 * w;
-                    float update3 = d3 * w;
-                    float update4 = d4 * w;
-                    float update5 = d5 * w;
-                    float update6 = d6 * w;
-                    float update7 = d7 * w;
-                    float update8 = d8 * w;
-
-                    total1 += update1;
-                    total2 += update2;
-                    total3 += update3;
-                    total4 += update4;
-                    total5 += update5;
-                    total6 += update6;
-                    total7 += update7;
-                    total8 += update8;
-                }
-            }
-
-            // Wait for everything to finish so that we can overwrite the d
-            // values with the new errors
-            __syncthreads();
-            
-            scratch1[tid] = total1;
-            scratch2[tid] = total2;
-            scratch3[tid] = total3;
-            scratch4[tid] = total4;
-            scratch5[tid] = total5;
-            scratch6[tid] = total6;
-            scratch7[tid] = total7;
-            scratch8[tid] = total8;
-        }
-
-        // Again, threads indexed too low just leave
-        if (tid >= no) continue;
-
-        /* Update the weights. */
-        float k1 = example_weight1.x * learning_rate;
-        float k2 = example_weight1.y * learning_rate;
-        float k3 = example_weight1.z * learning_rate;
-        float k4 = example_weight1.w * learning_rate;
-        float k5 = example_weight2.x * learning_rate;
-        float k6 = example_weight2.y * learning_rate;
-        float k7 = example_weight2.z * learning_rate;
-        float k8 = example_weight2.w * learning_rate;
-
-        /* Now for the updates.  In order to avoid trying to write the same
-           memory over and over, we stagger the starting points so that
-           each example will start at a different place, thus minimising
-           conflicting writes when we have multiple multiprocessors working
-           on the same thing. */
-
-        int thread_stride = ni / num_threads_in_block;
-        if (thread_stride == 0) thread_stride = 1;
-
-        int start_at = (block_num * thread_stride) % ni;
-
-        for (unsigned i_ = start_at;  i_ < ni + start_at;  ++i_) {
-
-            // Get the real index of i
-            unsigned i = i_ - (i_ >= ni) * ni;
-
-            float prev1 = (l == 0 ? input1[i] : last_layer_outputs1[i]); 
-            float prev2 = (l == 0 ? input2[i] : last_layer_outputs2[i]); 
-            float prev3 = (l == 0 ? input3[i] : last_layer_outputs3[i]); 
-            float prev4 = (l == 0 ? input4[i] : last_layer_outputs4[i]); 
-            float prev5 = (l == 0 ? input5[i] : last_layer_outputs5[i]); 
-            float prev6 = (l == 0 ? input6[i] : last_layer_outputs6[i]); 
-            float prev7 = (l == 0 ? input7[i] : last_layer_outputs7[i]); 
-            float prev8 = (l == 0 ? input8[i] : last_layer_outputs8[i]); 
-
-            float update1 = k1 * d1 * prev1;
-            float update2 = k2 * d2 * prev2;
-            float update3 = k3 * d3 * prev3;
-            float update4 = k4 * d4 * prev4;
-            float update5 = k5 * d5 * prev5;
-            float update6 = k6 * d6 * prev6;
-            float update7 = k7 * d7 * prev7;
-            float update8 = k8 * d8 * prev8;
-
-            float update
-                = update1 + update2 + update3 + update4
-                + update5 + update6 + update7 + update8;
-
-#if defined(__DEVICE_EMULATION__)
-            //__syncthreads();
-
-            if (tid < 10 && block_num == 0 && l == 2 && i == 0) {
-                fprintf(stderr, "update for layer 2 i=0 o=%d = %.15g * %.15g * %.15g = %.15g before update %.15g\n", tid, prev1, k1, d1, update1, (float)layer_updates[i * w_stride + tid]);
-                fprintf(stderr, "update for layer 2 i=0 o=%d = %.15g * %.15g * %.15g = %.15g before update %.15g\n", tid, prev2, k2, d2, update2, (float)layer_updates[i * w_stride + tid]);
-                fprintf(stderr, "update for layer 2 i=0 o=%d = %.15g * %.15g * %.15g = %.15g before update %.15g\n", tid, prev3, k3, d3, update3, (float)layer_updates[i * w_stride + tid]);
-                fprintf(stderr, "update for layer 2 i=0 o=%d = %.15g * %.15g * %.15g = %.15g before update %.15g\n", tid, prev4, k4, d4, update4, (float)layer_updates[i * w_stride + tid]);
-            }
-#endif
-
-            atomic_add(layer_updates[i * w_stride + tid], update);
-
-#if defined(__DEVICE_EMULATION__)
-            if (tid < 10 && block_num == 0 && l == 2 && i == 0) {
-                fprintf(stderr, "                          after %.15g\n", (float)layer_updates[i * w_stride + tid]);
-            }
-#endif
-
-        }
-
-        /* Update the bias */
-        double update
-            = double(k1 * d1)
-            + double(k2 * d2)
-            + double(k3 * d3)
-            + double(k4 * d4)
-            + double(k5 * d5)
-            + double(k6 * d6)
-            + double(k7 * d7)
-            + double(k8 * d8)
-            ;
-
-        atomic_add(layer_bias_updates[tid], update);
-    }
-}
-#endif
-
 __global__ void
 train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                       int feature_vector_width,
@@ -1334,7 +1147,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
     */
 
     // Get our private scratch memory for this block
-    layer_outputs += block_num * total_neurons * 4;
+    layer_outputs += block_num * total_neurons;
     
     unsigned example_num_base = block_num * examples_per_block;
     unsigned last_example = min(total_num_examples, example_num_base + examples_per_block);
@@ -1342,6 +1155,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
     unsigned example_num = example_num_base;
 
 #if 0
+#pragma unroll 8
     for (;  example_num < last_example - 7;  example_num += 8) {
         const float * input1 = feature_vectors + example_num * feature_vector_width;
         const float * input2 = input1 + feature_vector_width;
@@ -1457,22 +1271,55 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
         biases_access.init(biases);
     }
 
+    for (;  example_num < last_example - 7;  example_num += 8) {
+
+        const float * input = feature_vectors + example_num * feature_vector_width;
+        train_N_examples<8>(input,
+                            labels + example_num,
+                            example_weights + example_num,
+                            num_layers, scratch,
+                            weights_access, biases_access,
+                            architecture, w_strides,
+                            w_updates, b_updates,
+                            activation, fire, inhibit, learning_rate,
+                            num_threads_in_block,
+                            num_threads_on_multiprocessor,
+                            total_neurons, max_width, layer_outputs);
+    }
+
+    for (;  example_num < last_example - 3;  example_num += 4) {
+
+        const float * input = feature_vectors + example_num * feature_vector_width;
+        train_N_examples<4>(input,
+                            labels + example_num,
+                            example_weights + example_num,
+                            num_layers, scratch,
+                            weights_access, biases_access,
+                            architecture, w_strides,
+                            w_updates, b_updates,
+                            activation, fire, inhibit, learning_rate,
+                            num_threads_in_block,
+                            num_threads_on_multiprocessor,
+                            total_neurons, max_width, layer_outputs);
+    }
+
     // Do any others singly
     for (;  example_num < last_example;  ++example_num) {
 
-        const float * input = feature_vectors + example_num * feature_vector_width;
+        const float * input
+            = feature_vectors + example_num * feature_vector_width;
 
-        int label = labels[example_num];
-
-        float example_weight = example_weights[example_num];
-
-        train_example(input, label, example_weight,
-                      num_layers, scratch, weights_access, biases_access, architecture, w_strides,
-                      w_updates, b_updates,
-                      activation, fire, inhibit, learning_rate,
-                      num_threads_in_block,
-                      num_threads_on_multiprocessor,
-                      total_neurons, layer_outputs);
+        train_N_examples<1>(input,
+                            labels + example_num,
+                            example_weights + example_num,
+                            num_layers, scratch,
+                            weights_access, biases_access,
+                            architecture, w_strides,
+                            w_updates, b_updates,
+                            activation, fire, inhibit, learning_rate,
+                            num_threads_in_block,
+                            num_threads_on_multiprocessor,
+                            total_neurons, max_width, layer_outputs);
     }
 }
 
@@ -1504,6 +1351,7 @@ struct Backprop::Plan {
     // We need our grid size to be exactly the maximum width of the output
     dim3 threads;
     
+    int shared_mem_stride;
     size_t shared_mem_size;
 
     bool use_textures;
@@ -1593,9 +1441,14 @@ struct Backprop::Plan {
         // We need our grid size to be exactly the maximum width of the output
         threads = dim3(max_width);
 
+        // Storage for max_width
+        shared_mem_stride = max_width * sizeof(float);
+        
         // Since we do 4 examples per loop, we need enough memory for all of
         // the four outputs for a single layer
-        shared_mem_size = max_width * sizeof(float)* 4;
+        shared_mem_size
+            = shared_mem_stride * 4
+            + 4 * sizeof(double);
 
         if (use_textures) {
             cudaError_t err;
