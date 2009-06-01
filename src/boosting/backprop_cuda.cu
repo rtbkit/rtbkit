@@ -44,8 +44,8 @@ __device__ float transform(float input, int activation)
     switch (activation) {
     case ML::ACT_TANH: {
         return tanh(input);
-        float exp2i = __expf(input + input);
-        return __fdividef(exp2i - 1.0f, exp2i + 1.0f);
+        //float exp2i = __expf(input + input);
+        //return __fdividef(exp2i - 1.0f, exp2i + 1.0f);
     }
     case ML::ACT_IDENTITY: return input;
     default:
@@ -65,106 +65,6 @@ __device__ float delta(float output, float error, int activation)
     }
 }
 
-#if 0
-/** Given a matrix[ni][no] with stride stride, multiply by the vector[ni] and
-    overwrite the vector[no] with the output.  The size of the vector should
-    be at least max(no, ni).  Splits the work over the given number of
-    threads.  Works best if the vector is in shared memory; global memory will
-    be slow.
-
-    It always goes through the matrix in such a way that the unit stride is
-    respected.
-*/
-__device__ void
-matrix_vector_multiply_left(const float * matrix,
-                            const float * vector,
-                            int ni, int no, int stride,
-                            int num_threads_on_multiprocessor)
-{
-    /* We want to have each thread working here, even if no is much less
-       than the number of threads.  To do so, we assign each thread to
-       a certain o value and a certain subset of the i values, and then
-       accumulate the updates, broadcasting them at the end.
-       
-       For example:
-       32 threads
-       2 outputs
-       
-       So we have 16 threads working on each example
-       
-       100 threads
-       16 outputs
-       
-       So we have 7 threads on the first 4 examples, and 6 threads on
-       the rest.
-    
-       32 threads
-       100 outputs
-
-       So most threads do 3 examples but the first 4 do 4.
-*/
-    
-    int nt = num_threads_on_multiprocessor;
-    
-    for (unsigned o_start = 0;  o_start < no;  o_start += nt) {
-
-        int nob = std::min(nt, no - o_start);  // no for the block
-
-        int min_threads = nt / no;  // min num threads for the block
-        int left_over   = nt % no;  // left over to help with extra work
-        int max_threads = min_threads + (left_over > 0);
-        
-        int o = tid % no;    // which o value are we working on?
-        int idx = tid / no;  // which thread in that block?
-        int o_threads = min_threads + (o < left_over);
-        
-        double accum = 0.0;
-        
-        for (unsigned i = idx;  i < ni;  i += o_threads) {
-            // warning: bank conflicts...
-            float inval = vector[i];
-            float weight = matrix[i * w_stride + o];
-            
-            accum += weight * inval;
-        }
-        
-        if (max_threads > 1) {
-        
-            __syncthreads();
-        
-            if (tid < no) vector[tid] = biases[l][tid];
-            
-            __syncthreads();
-            
-            /* Now we accumulate them, allowing each thread to increment in its
-               turn. */
-            for (unsigned i = 0;  i < max_threads;  ++i, __syncthreads())
-                if (i == idx) vector[o] += accum;
-        }
-    }
-    else {
-        /* More outputs than threads.  We break up into blocks. */
-        
-        __syncthreads();
-        
-        if (__any(tid < no)) {
-            
-            if (tid < no)
-                this_layer_outputs[tid]
-                    = vector[tid]
-                    = transform(vector[tid], activation);
-        }
-    }
-    else {
-        accum += biases[l][o];
-        this_layer_outputs[o]
-            = vector[o]
-            = transform(accum, activation);
-            
-    }
-}
-
-#endif
 
 /** Train a fully-connected neural network architecture via backpropagation
     one a single training example.  The work is split over all of the cores
@@ -178,8 +78,8 @@ train_example(const float * input,
               float example_weight,
               int num_layers,
               float * scratch,  // shared memory scratch space
-              const float * const * w,  // weights for each layer
-              const float * const * biases, // for each layer
+              const float * w,  // weights for each layer, packed
+              const float * biases, // for each layer
               const int * architecture,
               const int * w_strides,
               UpdateFloat * const * w_updates, // wt updates for each layer
@@ -218,52 +118,47 @@ train_example(const float * input,
     /*************************************************************************/
 
     /* First, copy the inputs into shared memory */
-    int ni = architecture[0];
+    int ni = architecture[0], no, w_stride;
     scratch[tid] = (tid < ni ? input[tid] : 0.0);
 
     /* Let everything catch up */
     __syncthreads();
 
-
-    float * last_layer_outputs = 0;
     float * this_layer_outputs = layer_outputs;
-    float * next_layer_outputs;
+    const float * layer_weights = w;
+    const float * layer_biases  = biases;
 
     for (unsigned l = 0;
          l < num_layers;
          ++l,
              __syncthreads(),
-             last_layer_outputs = this_layer_outputs,
-             this_layer_outputs = next_layer_outputs) {
+             layer_weights += ni * w_stride,
+             layer_biases += no,
+             this_layer_outputs += no) {
 
-        // Get information about the layer:
-        int ni = architecture[l];
-        int no = architecture[l + 1];
+        // Get architecture information about the layer:
+        ni = architecture[l];
+        no = architecture[l + 1];
+        w_stride = w_strides[l];
 
-        const float * layer_weights = w[l];
-        int w_stride = w_strides[l];
-
-        next_layer_outputs = this_layer_outputs + no;
-
-#if defined(__DEVICE_EMULATION__) && 0
+#if defined(__DEVICE_EMULATION__) && 1
         if (tid == 0)
-            fprintf(stderr, "fprop: layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p next_layer_outputs %p\n",
-                    l, ni, no, last_layer_outputs, this_layer_outputs,
-                    next_layer_outputs);
+            fprintf(stderr, "fprop: layer %d ni %d no %d this_layer_outputs %p layer_weights %p layer_biases %p\n",
+                    l, ni, no, this_layer_outputs,
+                    layer_weights, layer_biases);
 #endif
 
         /* Add in the layer outputs.  We iterate with all threads */
         
 #if 0
         // Start off with the bias terms
-        double accum = (tid < no ? biases[l][tid] : 0.0);
+        double accum = (tid < no ? layer_biases[tid] : 0.0);
 
         if (__any(tid < no)) {
 
             for (unsigned i = 0;  i < ni;  ++i) {
                 // No bank conflicts as all threads are accessing same value
                 float inval = scratch[i];
-                //float inval = (l == 0 ? input[i] : last_layer_outputs[i]);
                 
                 // Coalesced access; maybe texture would be better
                 float weight
@@ -313,7 +208,7 @@ train_example(const float * input,
         int idx = tid / no;  // which thread in that block?
         int o_threads = min_threads + (o < left_over);
 
-#if defined(__DEVICE_EMULATION__)
+#if defined(__DEVICE_EMULATION__) && 0
         if (tid == 0)
             fprintf(stderr, "fprop: layer %d ni %d no %d min_threads %d left_over %d max_threads %d nib %d nt %d\n",
                     l, ni, no, min_threads, left_over, max_threads,
@@ -336,7 +231,7 @@ train_example(const float * input,
 
             __syncthreads();
 
-            if (tid < no) scratch[tid] = biases[l][tid];
+            if (tid < no) scratch[tid] = layer_biases[tid];
 
             __syncthreads();
             
@@ -356,7 +251,7 @@ train_example(const float * input,
             }
         }
         else {
-            accum += biases[l][o];
+            accum += layer_biases[o];
             this_layer_outputs[o]
                 = scratch[o]
                 = transform(accum, activation);
@@ -365,7 +260,7 @@ train_example(const float * input,
 #endif
 
 
-#if defined(__DEVICE_EMULATION__) && 1
+#if defined(__DEVICE_EMULATION__) && 0
         __syncthreads();
         if (tid == 0 && block_num == 0) {
             fprintf(stderr, "completed fprop layer %d example %d; label %d\n",
@@ -379,16 +274,29 @@ train_example(const float * input,
         
     }
 
+    // layer_biases is no longer used
 
     /*************************************************************************/
     /* BPROP                                                                 */
     /*************************************************************************/
 
     /* How many output layers? */
-    int no = architecture[num_layers];
+    this_layer_outputs -= no;
 
-    this_layer_outputs = last_layer_outputs;
-    
+#if defined(__DEVICE_EMULATION__) && 0
+        if (tid == 0)
+            fprintf(stderr, "before fixing up layer_weights: %p no: %d w_stride: %d\n",
+                    layer_weights, no, w_stride);
+#endif
+
+    layer_weights -= ni * w_stride;
+
+#if defined(__DEVICE_EMULATION__) && 0
+        if (tid == 0)
+            fprintf(stderr, "after fixing up layer_weights: %p no: %d w_stride: %d\n",
+                    layer_weights, no, w_stride);
+#endif
+
     /* First error calculation pass */
     bool correct = (label == tid);
     float wanted = (correct ? fire : inhibit);
@@ -419,25 +327,25 @@ train_example(const float * input,
     for (int l = num_layers - 1;  l >= 0;
          --l,
              __syncthreads(),
-             this_layer_outputs = last_layer_outputs) {
+             layer_weights -= (l == -1 ? 0 : architecture[l] * w_strides[l]),
+             this_layer_outputs -= architecture[l + 1]) {
         
         // Get information about the layer:
-        int ni = architecture[l];
-        int no = architecture[l + 1];
-
-        const float * layer_weights = w[l];
-        int w_stride = w_strides[l];
+        ni = architecture[l];
+        no = architecture[l + 1];
+        w_stride = w_strides[l];
 
         UpdateFloat * layer_updates = w_updates[l];
         UpdateFloat * layer_bias_updates  = b_updates[l];
         
-        last_layer_outputs = this_layer_outputs - ni;
+        const float * last_layer_outputs = this_layer_outputs - ni;
 
-#if defined(__DEVICE_EMULATION__) && 0
+#if defined(__DEVICE_EMULATION__) && 1
         if (tid == 0)
-            fprintf(stderr, "bprop: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p layer_outputs %p end %p\n",
+            fprintf(stderr, "bprop: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p layer_outputs %p end %p layer_weights %p w_stride %d new layer_weights %p\n",
                     tid, l, ni, no, last_layer_outputs, this_layer_outputs,
-                    layer_outputs, layer_outputs + total_neurons);
+                    layer_outputs, layer_outputs + total_neurons,
+                    layer_weights, w_stride, layer_weights - (ni * w_stride));
 #endif
 
         
@@ -515,6 +423,404 @@ train_example(const float * input,
             float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
             float update = prev * k * d;
 
+#if defined(__DEVICE_EMULATION__) && 0
+            //__syncthreads();
+
+            if (tid < 10 && block_num == 0 && l == 2 && i == 0) {
+                fprintf(stderr, "update for layer 2 i=0 o=%d = %.15g * %.15g * %.15g = %.15g before update %.15g\n", tid, prev, k, d, update, (float)layer_updates[i * w_stride + tid]);
+            }
+#endif
+
+            atomic_add(layer_updates[i * w_stride + tid], update);
+
+#if defined(__DEVICE_EMULATION__) && 0
+            //__syncthreads();
+
+            if (tid < 10 && block_num == 0 && l == 2 && i == 0) {
+                fprintf(stderr, "                          after %.15g\n", (float)layer_updates[i * w_stride + tid]);
+            }
+#endif
+        }
+        
+        /* Update the bias */
+        float update = k * d;
+
+        //layer_bias_updates[tid] += update;
+        atomic_add(layer_bias_updates[tid], update);
+    }
+}
+
+#if 0
+texture<float, 1, cudaReadModeElementType> weights_tex;
+texture<float, 1, cudaReadModeElementType> biases_tex;;
+
+/** Train a fully-connected neural network architecture via backpropagation
+    one a single training example.  The work is split over all of the cores
+    within a single multiprocessor.  (So, on a Geforce 260 core 216, we have
+    27 multiprocessors with 8 cores each, and so we could train on 27 different
+    feature vectors in parallel.
+*/
+__device__ void
+train_example_tex(const float * input,
+                  int label,
+                  float example_weight,
+                  int num_layers,
+                  float * scratch,  // shared memory scratch space
+                  const int * architecture,
+                  const int * w_strides,
+                  UpdateFloat * const * w_updates, // wt updates for each layer
+                  UpdateFloat * const * b_updates, // bias upd for each layer
+                  int activation,            // activation function
+                  float fire,   // target value for firing neuron
+                  float inhibit, // target value for inhibited neuron)
+                  float learning_rate,
+                  int num_threads_in_block,
+                  int num_threads_on_multiprocessor,
+                  int total_neurons,
+                  float * layer_outputs)  // global scratch space[total neurons]
+{
+    // access thread id
+    const unsigned tid = threadIdx.x;
+
+    const unsigned block_num  = blockIdx.x;
+
+#if defined(__DEVICE_EMULATION__) && 0
+    if (tid == 0 && block_num == 0) {
+        fprintf(stderr, "starting fprop example %d wt %f; label %d\n",
+                block_num, example_weight, label);
+
+        int feature_vector_width = architecture[0];
+
+        for (unsigned i = 0;  i < feature_vector_width;  ++i) {
+            fprintf(stderr, "input %d: value %f\n",
+                    i, input[i]);
+        }
+    }
+#endif
+
+
+    /*************************************************************************/
+    /* FPROP                                                                 */
+    /*************************************************************************/
+
+    /* First, copy the inputs into shared memory */
+    int ni = architecture[0];
+    scratch[tid] = (tid < ni ? input[tid] : 0.0);
+
+    /* Let everything catch up */
+    __syncthreads();
+
+
+    float * last_layer_outputs = 0;
+    float * this_layer_outputs = layer_outputs;
+    float * next_layer_outputs;
+
+    int layer_weights_offset = 0;
+    int next_layer_weights_offset = 0;
+    int layer_bias_offset = 0;
+    int next_layer_bias_offset = 0;
+    
+    for (unsigned l = 0;
+         l < num_layers;
+         ++l,
+             __syncthreads(),
+             last_layer_outputs = this_layer_outputs,
+             this_layer_outputs = next_layer_outputs,
+             layer_weights_offset = next_layer_weights_offset,
+             layer_bias_offset = next_layer_bias_offset) {
+        
+        // Get information about the layer:
+        int ni = architecture[l];
+        int no = architecture[l + 1];
+
+        int w_stride = w_strides[l];
+
+        next_layer_outputs = this_layer_outputs + no;
+        next_layer_weights_offset += ni * w_stride;
+        next_layer_bias_offset += no;
+
+#if defined(__DEVICE_EMULATION__) && 0
+        if (tid == 0)
+            fprintf(stderr, "fprop: layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p next_layer_outputs %p\n",
+                    l, ni, no, last_layer_outputs, this_layer_outputs,
+                    next_layer_outputs);
+#endif
+
+        /* Add in the layer outputs.  We iterate with all threads */
+        
+#if 0
+        // Start off with the bias terms
+        double accum = (tid < no ? biases[l][tid] : 0.0);
+
+        if (__any(tid < no)) {
+            
+            for (unsigned i = 0;  i < ni;  ++i) {
+                // No bank conflicts as all threads are accessing same value
+                float inval = scratch[i];
+                //float inval = (l == 0 ? input[i] : last_layer_outputs[i]);
+                
+                // Coalesced access; maybe texture would be better
+                float weight
+                    = (tid < no ? layer_weights[i * w_stride + tid] : 0.0);
+                
+                accum += weight * inval;
+            }
+        }         
+
+        // Let everything catch up so that we can write to scratch
+        __syncthreads();
+        
+        if (__any(tid < no)) {
+
+            if (tid < no)
+                this_layer_outputs[tid]
+                    = scratch[tid]
+                    = transform(accum, activation);
+        }
+
+#else
+        /* We want to have each thread working here, even if no is much less
+           than the number of threads.  To do so, we assign each thread to
+           a certain o value and a certain subset of the i values, and then
+           accumulate the updates, broadcasting them at the end.
+
+           For example:
+           32 threads
+           2 outputs
+
+           So we have 16 threads working on each example
+
+           100 threads
+           16 outputs
+
+           So we have 7 threads on the first 4 examples, and 6 threads on
+           the rest.
+        */
+
+        int nt = num_threads_on_multiprocessor;
+
+        int min_threads = nt / no;
+        int left_over   = nt % no;
+        int max_threads = min_threads + (left_over > 0);
+
+        int o = tid % no;    // which o value are we working on?
+        int idx = tid / no;  // which thread in that block?
+        int o_threads = min_threads + (o < left_over);
+
+#if defined(__DEVICE_EMULATION__)
+        if (tid == 0)
+            fprintf(stderr, "fprop: layer %d ni %d no %d min_threads %d left_over %d max_threads %d nib %d nt %d\n",
+                    l, ni, no, min_threads, left_over, max_threads,
+                    num_threads_in_block);
+        fprintf(stderr, "      tid %d o %d idx %d o_threads %d\n",
+                tid, o, idx, o_threads);
+#endif
+
+        double accum = 0.0;
+
+        for (unsigned i = idx;  i < ni;  i += o_threads) {
+            // warning: bank conflicts...
+            float inval = scratch[i];
+            float weight = tex1Dfetch(weights_tex,
+                                      layer_weights_offset
+                                      + i * w_stride + 0);
+            
+            accum += weight * inval;
+        }
+
+        if (max_threads > 1) {
+
+            __syncthreads();
+
+            if (tid < no)
+                scratch[tid] = tex1Dfetch(biases_tex,
+                                          layer_bias_offset
+                                          + tid);
+            
+            __syncthreads();
+            
+            /* Now we accumulate them, allowing each thread to increment in its
+               turn. */
+            for (unsigned i = 0;  i < max_threads;  ++i, __syncthreads())
+                if (i == idx) scratch[o] += accum;
+            
+            __syncthreads();
+            
+            if (__any(tid < no)) {
+                
+                if (tid < no)
+                    this_layer_outputs[tid]
+                        = scratch[tid]
+                        = transform(scratch[tid], activation);
+            }
+        }
+        else {
+            accum += tex1Dfetch(biases_tex,
+                                layer_bias_offset
+                                + o);
+            this_layer_outputs[o]
+                = scratch[o]
+                = transform(accum, activation);
+            
+        }
+#endif
+
+
+#if defined(__DEVICE_EMULATION__) && 1
+        __syncthreads();
+        if (tid == 0 && block_num == 0) {
+            fprintf(stderr, "completed fprop layer %d example %d; label %d\n",
+                    l, block_num, label);
+            for (unsigned i = 0;  i < no;  ++i) {
+                fprintf(stderr, "output %d: value %f\n",
+                        i, this_layer_outputs[i]);
+            }
+        }
+#endif
+        
+    }
+
+
+    /*************************************************************************/
+    /* BPROP                                                                 */
+    /*************************************************************************/
+
+    /* How many output layers? */
+    int no = architecture[num_layers];
+
+    this_layer_outputs = last_layer_outputs;
+    
+    /* First error calculation pass */
+    bool correct = (label == tid);
+    float wanted = (correct ? fire : inhibit);
+
+    float last_output = scratch[tid];
+
+    __syncthreads();
+
+    scratch[tid] = (tid < no ? wanted - last_output : 0.0);
+    
+    /* Let everything catch up */
+    __syncthreads();
+
+
+#if defined(__DEVICE_EMULATION__) && 0
+    if (tid == 0 && block_num == 0) {
+        fprintf(stderr, "completed fprop example %d; label %d\n",
+                block_num, label);
+        for (unsigned i = 0;  i < no;  ++i) {
+            fprintf(stderr, "output %d: value %f error %f correct %d\n",
+                    i, this_layer_outputs[i], scratch[i], (label == i));
+        }
+    }
+#endif
+
+
+    /* Backpropegate. */
+    for (int l = num_layers - 1;  l >= 0;
+         --l,
+             __syncthreads(),
+             this_layer_outputs = last_layer_outputs) {
+        
+        // Get information about the layer:
+        int ni = architecture[l];
+        int no = architecture[l + 1];
+
+        int w_stride = w_strides[l];
+
+        next_weight_offset -= w_stride * ni;
+        next_bias_offset -= no;
+
+        UpdateFloat * layer_updates = w_updates[l];
+        UpdateFloat * layer_bias_updates  = b_updates[l];
+        
+        last_layer_outputs = this_layer_outputs - ni;
+
+#if defined(__DEVICE_EMULATION__) && 0
+        if (tid == 0)
+            fprintf(stderr, "bprop: tid %d layer %d ni %d no %d last_layer_outputs %p this_layer_outputs %p layer_outputs %p end %p\n",
+                    tid, l, ni, no, last_layer_outputs, this_layer_outputs,
+                    layer_outputs, layer_outputs + total_neurons);
+#endif
+
+        
+        float prev_output = (tid >= no ? 0.0 : this_layer_outputs[tid]);
+
+        float error = scratch[tid];
+        
+        float d = (tid >= no ? 0.0 : delta(prev_output, error, activation));
+
+        if (l > 0) {
+            // Make sure all threads have caught up so that we can modify error
+            // without affecting them
+            __syncthreads();
+
+            // Broadcast the d values so that we can use them to calculate the
+            // errors
+            scratch[tid] = d;
+
+            // Make sure everything can get its d value
+            __syncthreads();
+            
+            double total = 0.0;
+            if (tid < ni) {
+                for (unsigned o = 0;  o < no;  ++o) {
+                    float d = scratch[o];  // may be the d from another thread
+                    float w = tex1Dfetch(weights_tex,
+                                         layer_weights_offset
+                                         + tid * w_stride + o);
+                    float update = d * w;
+                    total += update;
+                }
+            }
+
+            // Wait for everything to finish so that we can overwrite the d
+            // values with the new errors
+            __syncthreads();
+            
+            scratch[tid] = total;
+        }
+
+
+#if defined(__DEVICE_EMULATION__) && 0
+        __syncthreads();
+
+        if (tid == 0 && block_num == 0) {
+            fprintf(stderr, "completed error propagation layer %d\n",
+                    l);
+            for (unsigned i = 0;  i < ni;  ++i) {
+                fprintf(stderr, "input %d: error %f\n",
+                        i, scratch[i]);
+            }
+        }
+#endif
+
+
+        // Again, threads indexed too low just leave
+        if (tid >= no) continue;
+
+        /* Update the weights. */
+        float k = example_weight * learning_rate;
+
+        /* Now for the updates.  In order to avoid trying to write the same
+           memory over and over, we stagger the starting points so that
+           each example will start at a different place, thus minimising
+           conflicting writes when we have multiple multiprocessors working
+           on the same thing. */
+
+        int thread_stride = ni / num_threads_in_block;
+        if (thread_stride == 0) thread_stride = 1;
+
+        int start_at = (block_num * thread_stride) % ni;
+
+        for (unsigned i_ = start_at;  i_ < ni + start_at;  ++i_) {
+
+            // Get the real index of i
+            unsigned i = i_ - (i_ >= ni) * ni;
+
+            float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
+            float update = prev * k * d;
+
 #if defined(__DEVICE_EMULATION__)
             //__syncthreads();
 
@@ -541,7 +847,9 @@ train_example(const float * input,
         atomic_add(layer_bias_updates[tid], update);
     }
 }
+#endif
 
+#if 0
 /** Train 4 examples at once */
 __device__ void
 train_4_examples(const float * input1,
@@ -872,7 +1180,9 @@ train_4_examples(const float * input1,
         atomic_add(layer_bias_updates[tid], update);
     }
 }
+#endif
 
+#if 0
 /** Train 8 examples at once */
 __device__ void
 train_8_examples(const float * input1,
@@ -1346,6 +1656,7 @@ train_8_examples(const float * input1,
         atomic_add(layer_bias_updates[tid], update);
     }
 }
+#endif
 
 __global__ void
 train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
@@ -1353,8 +1664,8 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                       const int * labels,
                       const float * example_weights,
                       int num_layers,
-                      const float * const * w,  // weights for each layer
-                      const float * const * biases, // for each layer
+                      const float * w,  // weights for each layer
+                      const float * biases, // for each layer
                       const int * architecture,
                       const int * w_strides,
                       UpdateFloat * const * w_updates, // wt updates for each layer
@@ -1387,7 +1698,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
     */
 
     // Get our private scratch memory for this block
-    layer_outputs += block_num * total_neurons * 8;
+    layer_outputs += block_num * total_neurons * 4;
     
     unsigned example_num_base = block_num * examples_per_block;
     unsigned last_example = min(total_num_examples, example_num_base + examples_per_block);
@@ -1531,13 +1842,9 @@ struct Backprop::Plan {
     vector<int> architecture;
     DeviceData<int> d_architecture;
 
-    vector<DeviceData<float> > d_weights_storage;
-    vector<const float *> weights_vec;
-    DeviceData<const float *> d_weights;
+    DeviceData<float> d_weights;
 
-    vector<DeviceData<float> > d_biases_storage;
-    vector<const float *> biases_vec;
-    DeviceData<const float *> d_biases;
+    DeviceData<float> d_biases;
 
     vector<int> w_strides;
     DeviceData<int> d_w_strides;
@@ -1577,31 +1884,53 @@ struct Backprop::Plan {
 
         d_architecture.init(architecture, num_layers + 1);
 
-        d_weights_storage.resize(num_layers);
-        weights_vec.resize(num_layers);
+        size_t total_weights_size = 0;
+        size_t total_bias_size = 0;
 
         for (unsigned l = 0;  l < num_layers;  ++l) {
             int ni = architecture[l];
-            int w_stride = w_strides[l];
-            d_weights_storage[l].init(weights[l], ni * w_stride);
-            weights_vec[l] = d_weights_storage[l];
-
-            //cerr << "layer " << l << ": no = " << no << " w_stride = "
-            //     << w_stride << endl;
-        }
-    
-        d_weights.init(&weights_vec[0], num_layers);
-
-        d_biases_storage.resize(num_layers);
-        biases_vec.resize(num_layers);
-
-        for (unsigned l = 0;  l < num_layers;  ++l) {
             int no = architecture[l + 1];
-            d_biases_storage[l].init(biases[l], no);
-            biases_vec[l] = d_biases_storage[l];
+            int w_stride = w_strides[l];
+            total_weights_size += ni * w_stride;
+            total_bias_size += no;
+            // TODO: align?
         }
-    
-        d_biases.init(&biases_vec[0], num_layers);
+
+        d_weights.init(total_weights_size);
+        d_biases.init(total_bias_size);
+        
+        // Now copy them all in
+
+        size_t weights_start_offset = 0;
+        size_t bias_start_offset = 0;
+        
+        for (unsigned l = 0;  l < num_layers;  ++l) {
+            int ni = architecture[l];
+            int no = architecture[l + 1];
+            int w_stride = w_strides[l];
+            size_t w_size = ni * w_stride;
+
+            cudaError_t err
+                = cudaMemcpy(d_weights + weights_start_offset,
+                             weights[l],
+                             w_size * sizeof(float),
+                             cudaMemcpyHostToDevice);
+            
+            if (err != cudaSuccess)
+                throw Exception(cudaGetErrorString(err));
+
+            err = cudaMemcpy(d_biases + bias_start_offset,
+                             biases[l],
+                             no * sizeof(float),
+                             cudaMemcpyHostToDevice);
+            
+            if (err != cudaSuccess)
+                throw Exception(cudaGetErrorString(err));
+            
+            weights_start_offset += ni * w_stride;
+            bias_start_offset += no;
+            // TODO: align?
+        }
 
         d_w_strides.init(w_strides, num_layers);
         
@@ -1618,7 +1947,7 @@ struct Backprop::Plan {
 
         // Since we do 4 examples per loop, we need enough memory for all of
         // the four outputs for a single layer
-        shared_mem_size = max_width * sizeof(float)* 8;
+        shared_mem_size = max_width * sizeof(float)* 4;
     }
 };
 
