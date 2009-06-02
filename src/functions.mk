@@ -30,7 +30,7 @@ endef
 # $(2): basename of the filename
 define add_c++_source
 $(if $(trace),$$(warning called add_c++_source "$(1)" "$(2)"))
-BUILD_$(CWD)/$(2).lo_COMMAND:=$(CXX) $(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $(SRC)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $$(OPTIONS_$(CWD)/$(1))
+BUILD_$(CWD)/$(2).lo_COMMAND:=$(CXX) $(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $(SRC)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $$(OPTIONS_$(CWD)/$(1)) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$(CXXDEBUGFLAGS))
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
 $(OBJ)/$(CWD)/$(2).d:
 $(OBJ)/$(CWD)/$(2).lo:	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
