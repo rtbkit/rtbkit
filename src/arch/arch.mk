@@ -23,10 +23,13 @@ LIBARCH_CUDA_LINK 	:= arch cudart
 
 $(eval $(call library,arch_cuda,$(LIBARCH_CUDA_SOURCES),$(LIBARCH_CUDA_LINK)))
 
+ifeq ($(CAL_ENABLED),1)
+
 LIBARCH_CAL_SOURCES 	:= cal.cc
-LIBARCH_CAL_LINK 	:= arch amdcalrt
+LIBARCH_CAL_LINK 	:= arch amd
 
 $(eval $(call library,arch_cal,$(LIBARCH_CAL_SOURCES),$(LIBARCH_CAL_LINK)))
 
 $(eval $(call include_sub_make,arch_testing,testing))
 
+endif
