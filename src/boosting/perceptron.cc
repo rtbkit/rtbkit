@@ -94,7 +94,7 @@ Perceptron::Layer::Layer(const Layer & other)
 Perceptron::Layer::Layer(size_t inputs, size_t units, Activation activation)
     : weights(boost::extents[inputs][units]), bias(units), activation(activation)
 {
-    random_fill();
+    random_fill(1.0 / sqrt(inputs));
 }
 
 std::string
@@ -227,7 +227,6 @@ deltas(const float * outputs, const float * errors, float * deltas) const
         break;
         
     case ACT_LOGSIG:
-    case ACT_LOGSOFTMAX:
         for (unsigned o = 0;  o < no;  ++o)
             deltas[o] = errors[o] * (1.0 - outputs[o]);
         break;
@@ -235,6 +234,11 @@ deltas(const float * outputs, const float * errors, float * deltas) const
     case ACT_TANH:
         for (unsigned o = 0;  o < no;  ++o)
             deltas[o] = errors[o] * (1.0 - (outputs[o] * outputs[o]));
+        break;
+
+    case ACT_LOGSOFTMAX:
+        for (unsigned o = 0;  o < no;  ++o)
+            deltas[o] = errors[o] * (1.0 - outputs[o]);
         break;
         
     default:

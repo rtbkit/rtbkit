@@ -95,3 +95,11 @@ Bugs
 * Figure out why it doesn't matter what direction the LESS relation is in split.h (similar results seem to be obtained anyway) (DONE).  Because the split is run to generate the classes, so they are always compatible.
 * Make sure that the binsym always returns the same as the non-binsym versions
 * Finding an out-of-range split point for categorical feature TESTING-COMMAND6
+
+* Running out of precision (?) in logsoftmax:
+  ../build/x86_64/bin/classifier_training_tool letters.dat.gz -V 10 -T 20 type=perceptron max_iter=50 learning_rate=20 verbosity=3 arch=100 batch_size=1 profile=1 use_cuda=0 training_algo=1 training_mode=1 -R min_examples_per_job=1 batch_size=20 output_activation=logsoftmax
+
+* decorrelate optional in Perceptron_Generator
+* compare against fprop
+   ./fexp -d ../../../optbprop/letters.dat / --oh -h 100 -e 20 -l 0.01 --lsm
+
