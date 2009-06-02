@@ -134,8 +134,8 @@ options() const
              "minimum number of training iterations to run")
         .add("max_iter", max_iter, ">=min_iter",
              "maximum number of training iterations to run")
-        .add("learning_rate", learning_rate, "0<=%n<=1",
-             "rate of learning relative to dataset size")
+        .add("learning_rate", learning_rate, "real",
+             "positive: rate of learning relative to dataset size: negative for absolute")
         .add("arch", arch_str, "(see doc)",
              "hidden unit specification; %i=in vars, %o=out vars; eg 5_10")
         .add("activation", activation,
@@ -1081,6 +1081,19 @@ train_iteration(Thread_Context & context,
     //cerr << "batch size of " << our_batch_size << " examples" << endl;
     
     int done_ex = 0;
+
+    /* If we specified a negative learning rate, that means that we wanted it
+       to be absolute (and so not depend upon the size of the dataset).  In
+       order to get this behaviour, we need to multipy by the number of
+       examples in the dataset, since it is implicitly multiplied by the
+       example weight (on average 1/num examples in training set) as part of
+       the training, and we want to counteract this effect).
+    */
+    float learning_rate = this->learning_rate;
+    if (learning_rate < 0.0) {
+        learning_rate *= -example_weights.size() / example_weights.total();
+        //cerr << "learning_rate: " << learning_rate << endl;
+    }
 
     // Accumulate the weight updates here.  They are applied later.  These
     // are not however used if we only present a single example at a time;
