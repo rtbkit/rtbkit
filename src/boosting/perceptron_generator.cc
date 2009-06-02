@@ -185,8 +185,6 @@ generate(Thread_Context & context,
         || &validation_set == &training_set) 
         validate_is_train = true;
 
-    cerr << "validate_is_train = " << validate_is_train << endl;
-
     boost::scoped_ptr<boost::progress_display> progress;
 
     log("perceptron_generator", 1)
@@ -201,8 +199,13 @@ generate(Thread_Context & context,
     boost::multi_array<float, 2> decorrelated
         = init(training_set, features, arch, current);
 
+    size_t nx_validate
+        = (validate_is_train ? training_set : validation_set)
+        .example_count();
+
     boost::multi_array<float, 2> val_decorrelated
-        (boost::extents[validation_set.example_count()][decorrelated.shape()[1]]);
+        (boost::extents[nx_validate][decorrelated.shape()[1]]);
+
     if (validate_is_train) val_decorrelated = decorrelated;
     else val_decorrelated = current.decorrelate(validation_set);
 
