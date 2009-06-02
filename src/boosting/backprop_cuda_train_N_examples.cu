@@ -1,5 +1,12 @@
+/* backprop_cuda_train_N_examples.cu                               -*- C++ -*-
+   Jeremy Barnes, 1 June 2009
+   Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+
+   Code to train the N examples for CUDA.
+*/
+
 #define FOR_ALL_X(expr) \
-    for (int x = 0;  x < N;  ++x) expr;
+    for (int x = 0;  x < N && x < valid_examples;  ++x) expr;
 
 __device__ void
 train_N_examples(const float * input,
