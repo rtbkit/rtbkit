@@ -189,7 +189,7 @@ try
             .add(probabilize_options).add(output_options);
         all_opt.add_options()
             ("help,h", "print this message")
-            ("help-config", value(&help_config),
+            ("help-config", value(&help_config)->zero_tokens(),
              "print out config options for the generator");
         
         variables_map vm;
