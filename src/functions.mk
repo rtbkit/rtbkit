@@ -188,8 +188,11 @@ $(1)_PROGFILES:=$$(if $(3),$(3),$(1:%=%.cc))
 
 $$(eval $$(call add_sources,$$($(1)_PROGFILES)))
 
-$(1)_OBJFILES:=$$(foreach file,$$(addsuffix .lo,$$(basename $$($(1)_PROGFILES:%=/$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
+#$$(warning $(1)_PROGFILES = $$($(1)_PROGFILES))
 
+$(1)_OBJFILES:=$$(foreach file,$$(addsuffix .lo,$$(basename $$($(1)_PROGFILES:%=$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
+
+#$$(warning $(1)_OBJFILES = $$($(1)_OBJFILES))
 #$$(warning $(1)_PROGFILES = "$$($(1)_PROGFILES)")
 
 LINK_$(1)_COMMAND:=$(CXX) $(CXXFLAGS) $(CXXEXEFLAGS) -o $(BIN)/$(1) $$(BUILD_arch/exception_hook.lo_OBJ) -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES)
