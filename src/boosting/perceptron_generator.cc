@@ -94,6 +94,7 @@ configure(const Configuration & config)
     config.find(arch_str, "arch");
     config.find(batch_size, "batch_size");
     config.find(activation, "activation");
+    config.find(output_activation, "output_activation");
     config.find(do_decorrelate, "decorrelate");
     config.find(use_cuda, "use_cuda");
     config.find(training_algo, "training_algo");
@@ -112,7 +113,7 @@ defaults()
     min_iter = 10;
     learning_rate = 0.01;
     arch_str = "%i";
-    activation = ACT_TANH;
+    activation = output_activation = ACT_TANH;
     do_decorrelate = true;
     batch_size = 1024;
     use_cuda = false;
@@ -139,6 +140,8 @@ options() const
              "hidden unit specification; %i=in vars, %o=out vars; eg 5_10")
         .add("activation", activation,
              "activation function for neurons")
+        .add("output_activation", output_activation,
+             "activation function for output layer of neurons")
         .add("decorrelate", do_decorrelate,
              "decorrelate the features before training")
         .add("batch_size", batch_size, "0.0-1.0 or 1 - nvectors",
@@ -1395,11 +1398,11 @@ init(const Training_Data & data,
     }
     
     /* Add the output units. */
-    Perceptron::Layer layer(nunits, nout, activation);
+    Perceptron::Layer layer(nunits, nout, output_activation);
     result.add_layer(layer);
 
     cerr << "adding output layer with " << nout << " units and activation "
-         << activation << endl;
+         << output_activation << endl;
     
     return decorrelated;
 }

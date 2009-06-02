@@ -152,7 +152,7 @@ public:
                     float * deltas) const;
 
         /** Fill with random weights. */
-        void random_fill();
+        void random_fill(float limit = 0.1);
 
         /** Return the number of parameters (degrees of freedom) for the
             layer. */

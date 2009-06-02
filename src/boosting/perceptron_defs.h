@@ -19,7 +19,8 @@ enum Activation {
     ACT_LOGSIG,    ///< Log of sigmoid
     ACT_TANH,      
     ACT_TANHS,
-    ACT_IDENTITY
+    ACT_IDENTITY,
+    ACT_LOGSOFTMAX
 };
 
 std::ostream & operator << (std::ostream & stream, Activation act);
@@ -28,7 +29,7 @@ BYTE_PERSISTENT_ENUM_DECL(Activation);
     
 } // namespace ML
 
-DECLARE_ENUM_INFO(ML::Activation, 4);
+DECLARE_ENUM_INFO(ML::Activation, 5);
 
 
 #endif /* __jml__perceptron_defs_h__ */

@@ -60,7 +60,7 @@ public:
     unsigned max_iter;
     unsigned min_iter;
     float learning_rate;
-    Activation activation;
+    Activation activation, output_activation;
     bool do_decorrelate;
     float batch_size;
     bool use_cuda;

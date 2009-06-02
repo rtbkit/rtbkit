@@ -20,6 +20,7 @@
 #include <boost/random/uniform_01.hpp>
 #include "utils/parse_context.h"
 #include "stats/distribution_simd.h"
+#include "stats/distribution_ops.h"
 #include "evaluation.h"
 #include "arch/simd_vector.h"
 #include "algebra/lapack.h"
@@ -226,6 +227,7 @@ deltas(const float * outputs, const float * errors, float * deltas) const
         break;
         
     case ACT_LOGSIG:
+    case ACT_LOGSOFTMAX:
         for (unsigned o = 0;  o < no;  ++o)
             deltas[o] = errors[o] * (1.0 - outputs[o]);
         break;
@@ -240,14 +242,14 @@ deltas(const float * outputs, const float * errors, float * deltas) const
     }
 }
 
-void Perceptron::Layer::random_fill()
+void Perceptron::Layer::random_fill(float limit)
 {
     for (unsigned i = 0;  i < weights.shape()[0];  ++i)
         for (unsigned j = 0;  j < weights.shape()[1];  ++j)
-            weights[i][j] = dist_gen() * 0.1 - 0.05;
+            weights[i][j] = limit * (dist_gen() * 2.0f - 1.0f);
 
     for (unsigned i = 0;  i < bias.size();  ++i)
-        bias[i] = dist_gen() * 0.1 - 0.05;
+        bias[i] = limit * (dist_gen() * 2.0f - 1.0f);
 }
 
 
@@ -580,6 +582,18 @@ transform(float * values, size_t nv, Activation activation)
             values[i] = tanh(values[i]);
         break;
         
+    case ACT_LOGSOFTMAX: {
+        // TODO: optimize...
+        distribution<float> outputs(values, values + nv);
+        float max_val = outputs.max();
+        distribution<float> norm_outputs = outputs - max_val;
+        float logsum = log(exp(norm_outputs).total());
+        distribution<float> result = norm_outputs - logsum;
+
+        std::copy(values, values + nv, result.begin());
+    }
+        break;
+
     default:
         throw Exception("Perceptron::transform(): invalid activation");
     }
@@ -601,6 +615,7 @@ derivative(distribution<float> & values, Activation activation)
         break;
         
     case ACT_LOGSIG:
+    case ACT_LOGSOFTMAX:
         for (unsigned i = 0;  i < values.size();  ++i)
             values[i] *= (1.0 - values[i]);
         break;

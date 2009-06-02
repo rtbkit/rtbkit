@@ -21,6 +21,7 @@ std::ostream & operator << (std::ostream & stream, Activation act)
     case ACT_TANH:     return stream << "TANH";
     case ACT_TANHS:    return stream << "TANHS";
     case ACT_IDENTITY: return stream << "IDENTITY";
+    case ACT_LOGSOFTMAX: return stream << "LOGSOFTMAX";
     default: return stream << format("Activation(%d)", act);
     }
 }
@@ -32,11 +33,13 @@ BYTE_PERSISTENT_ENUM_IMPL(Activation);
 ENUM_INFO_NAMESPACE
 
 const Enum_Opt<ML::Activation>
-Enum_Info<ML::Activation>::OPT[4] = {
+Enum_Info<ML::Activation>::OPT[5] = {
     { "logsig",      ML::ACT_LOGSIG   },
     { "tanh",        ML::ACT_TANH     },
     { "tanhs",       ML::ACT_TANHS    },
-    { "identity",    ML::ACT_IDENTITY } };
+    { "identity",    ML::ACT_IDENTITY },
+    { "logsoftmax",  ML::ACT_LOGSOFTMAX }
+};
 
 const char * Enum_Info<ML::Activation>::NAME
    = "Activation";
