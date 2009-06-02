@@ -148,7 +148,7 @@ options() const
              "number of samples in each \"mini batch\" for stochastic")
         .add("use_cuda", use_cuda, "boolean", "use the CUDA optimized kernel")
         .add("training_algo", training_algo, "0-1", "train: 0 = std, 1 = ultrastochastic")
-        .add("training_mode", training_mode, "0-1", "ultrastochastic mode: 1 = per neuron output");
+        .add("training_mode", training_mode, "0-3", "ultrastochastic mode: 0 = standard backprop; 1 = per neuron output; 2 = per neuron input; 3 = after each weight");
     
     return result;
 }
@@ -532,29 +532,27 @@ decorrelate(const Training_Data & data,
         }
     }
 
-#if 0
-    vector<double> cov2(&covar[121][0], (&covar[121][0]) + nf);
-
-    cerr << "covariance[121][121] = " << covar[121][121] << endl;
-
-    cerr << "covariance 121 = " << cov2 << endl;
-
-    //cerr << "covariance = " << covar << endl;
-#endif    
-
-
-    /* Do the cholevsky stuff */
     boost::multi_array<double, 2> transform(boost::extents[nf][nf]);
-    {
+
+    if (do_decorrelate) {
+        /* Do the cholevsky stuff */
         PROFILE_FUNCTION(t_cholesky);
         transform = transpose(lower_inverse(cholesky(covar)));
     }
-
+    else {
+        /* Use the identity matrix for the transform; no decorrelation */
+        std::fill(transform.origin(),
+                  transform.origin() + transform.num_elements(),
+                  0.0f);
+        for (unsigned f = 0;  f < nf;  ++f)
+            transform[f][f] = 1.0;
+    }
+    
     /* Finally, we add a layer.  This will perform both the removal of the
        mean (via the biasing) and the decorrelation (via the application
        of the matrix).
     */
-
+    
     /* y = (x - mean) * A;
          = (x * A) - (mean * A);
     */
