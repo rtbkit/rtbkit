@@ -4,6 +4,9 @@ dollars=$$
 
 SHELL := /bin/bash
 
+# Command to hash the name of a command.
+hash_command = $(wordlist 1,1,$(shell echo $(strip $(1)) | md5sum))
+
 # arg 1: names
 define include_sub_makes
 $$(foreach name,$(1),$$(eval $$(call include_sub_make,$$(name))))
@@ -32,10 +35,16 @@ define add_c++_source
 $(if $(trace),$$(warning called add_c++_source "$(1)" "$(2)"))
 BUILD_$(CWD)/$(2).lo_COMMAND:=$(CXX) $(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $(SRC)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $$(OPTIONS_$(CWD)/$(1)) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$(CXXDEBUGFLAGS))
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
+
+BUILD_$(CWD)/$(2).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).lo_COMMAND))
+BUILD_$(CWD)/$(2).lo_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).lo_HASH).lo
+
+BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/$(2).lo_OBJ),$$(BUILD_$(CWD)/$(2).lo_COMMAND))
+
 $(OBJ)/$(CWD)/$(2).d:
-$(OBJ)/$(CWD)/$(2).lo:	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND),@echo "[C++] $(CWD)/$(1)")
-	@$$(BUILD_$(CWD)/$(2).lo_COMMAND) || (echo "FAILED += $$@" >> .target.mk && false)
+$$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "[C++] $(CWD)/$(1)")
+	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
 -include $(OBJ)/$(CWD)/$(2).d
@@ -46,10 +55,17 @@ define add_fortran_source
 $(if $(trace),$$(warning called add_fortran_source "$(1)" "$(2)"))
 BUILD_$(CWD)/$(2).lo_COMMAND:=$(FC) $(FFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $(SRC)/$(CWD)/$(1) -MP -MMD
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
+
+BUILD_$(CWD)/$(2).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).lo_COMMAND))
+BUILD_$(CWD)/$(2).lo_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).lo_HASH).lo
+
+BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/$(2).lo_OBJ),$$(BUILD_$(CWD)/$(2).lo_COMMAND))
+
+
 $(OBJ)/$(CWD)/$(2).d:
-$(OBJ)/$(CWD)/$(2).lo:	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND),@echo "[FORTRAN] $(CWD)/$(1)")
-	@$$(BUILD_$(CWD)/$(2).lo_COMMAND) || (echo "FAILED += $$@" >> .target.mk && false)
+$$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "[FORTRAN] $(CWD)/$(1)")
+	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
 
 
 -include $(OBJ)/$(CWD)/$(2).d
@@ -58,15 +74,21 @@ endef
 define add_cuda_source
 $(if $(trace),$$(warning called add_cuda_source "$(1)" "$(2)"))
 $(OBJ)/$(CWD)/$(2).d: $(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
-	($(NVCC) $(NVCCFLAGS) -D__CUDACC__ -M $$< | awk 'NR == 1 { print "$(OBJ)/$(CWD)/$(2).lo", "$$@", ":", $$$$3, "\\"; next; } /usr/ { next; } { print; }'; echo) > $$@~
+	($(NVCC) $(NVCCFLAGS) -D__CUDACC__ -M $$< | awk 'NR == 1 { print "$(OBJ)/$(CWD)/$(2).lo", "$$@", ":", $$$$3, "\\"; next; } /usr/ { next; } /\/ \\$$$$/ { next; } { print; }'; echo) > $$@~
 	mv $$@~ $$@
 
 BUILD_$(CWD)/$(2).lo_COMMAND:=$(NVCC) $(NVCCFLAGS) -c -o $(OBJ)/$(CWD)/$(2).lo --verbose $(SRC)/$(CWD)/$(1)
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
 
-$(OBJ)/$(CWD)/$(2).lo:	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND),@echo "[CUDA] $(CWD)/$(1)")
-	@$$(BUILD_$(CWD)/$(2).lo_COMMAND) || (echo "FAILED += $$@" >> .target.mk && false)
+BUILD_$(CWD)/$(2).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).lo_COMMAND))
+BUILD_$(CWD)/$(2).lo_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).lo_HASH).lo
+
+BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/$(2).lo_OBJ),$$(BUILD_$(CWD)/$(2).lo_COMMAND))
+
+
+$$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "[CUDA] $(CWD)/$(1)")
+	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
 
 
 -include $(OBJ)/$(CWD)/$(2).d
@@ -121,12 +143,30 @@ define library
 $$(if $(trace),$$(warning called library "$(1)" "$(2)" "$(3)"))
 $$(eval $$(call add_sources,$(2)))
 
-OBJFILES_$(1):=$(addsuffix .lo,$(basename $(2:%=$(OBJ)/$(CWD)/%)))
+OBJFILES_$(1):=$$(foreach file,$(addsuffix .lo,$(basename $(2:%=$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
+
 LINK_$(1)_COMMAND:=$(CXX) $(CXXFLAGS) $(CXXLINKFLAGS) -o $(BIN)/lib$(1).so $$(OBJFILES_$(1)) $$(foreach lib,$(3), -l$$(lib))
 
-$(BIN)/lib$(1).so:	$(BIN)/.dir_exists $$(OBJFILES_$(1)) $(foreach lib,$(3),$$(LIB_$(lib)_DEPS))
-	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "[SO] lib$(1).so")
-	@$$(LINK_$(1)_COMMAND) || (echo "FAILED += $$@" >> .target.mk && false)
+LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
+LIB_$(1)_SO   := $(BIN)/lib$(1).$$(LINK_$(1)_HASH).so
+
+LIB_$(1)_CURRENT_VERSION := $$(shell cat $(BIN)/lib$(1).so.version 2>/dev/null)
+
+# We need the library so names to stay the same, so we copy the correct one
+# into our version
+$(BIN)/lib$(1).so: $$(LIB_$(1)_SO) $$(if $$(findstring $$(LINK_$(1)_HASH),$$(LIB_$(1)_CURRENT_VERSION)),,redo)
+	$$(if $$(findstring,redo,$$^),$$(warning $(1) version mismatch (relink required): current $$(LIB_$(1)_CURRENT_VERSION) required: $$(LINK_$(1)_HASH)))
+	@cp $$< $$@
+	@echo $$(LINK_$(1)_HASH) > $$@.version
+
+redo:
+.PHONY: redo
+
+LINK_$(1)_COMMAND2 := $$(subst $(BIN)/lib$(1).so,$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
+
+$$(LIB_$(1)_SO):	$(BIN)/.dir_exists $$(OBJFILES_$(1)) $(foreach lib,$(3),$$(LIB_$(lib)_DEPS))
+	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo "[SO] lib$(1).so")
+	@$$(LINK_$(1)_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
 
 LIB_$(1)_DEPS := $(BIN)/lib$(1).so
 
@@ -145,13 +185,16 @@ define program
 $$(if $(trace4),$$(warning called program "$(1)" "$(2)" "$(3)"))
 
 $(1)_PROGFILES:=$$(if $(3),$(3),$(1:%=%.cc))
-$(1)_OBJFILES:=$$(addsuffix .lo,$$(basename $$($(1)_PROGFILES:%=$(OBJ)/$(CWD)/%)))
-#$$(warning $(1)_PROGFILES = "$$($(1)_PROGFILES)")
+
 $$(eval $$(call add_sources,$$($(1)_PROGFILES)))
 
-LINK_$(1)_COMMAND:=$(CXX) $(CXXFLAGS) $(CXXEXEFLAGS) -o $(BIN)/$(1) $(OBJ)/arch/exception_hook.lo -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES)
+$(1)_OBJFILES:=$$(foreach file,$$(addsuffix .lo,$$(basename $$($(1)_PROGFILES:%=/$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
 
-$(BIN)/$(1):	$(BIN)/.dir_exists $$($(1)_OBJFILES) $(foreach lib,$(2),$$(LIB_$(lib)_DEPS)) $(OBJ)/arch/exception_hook.lo
+#$$(warning $(1)_PROGFILES = "$$($(1)_PROGFILES)")
+
+LINK_$(1)_COMMAND:=$(CXX) $(CXXFLAGS) $(CXXEXEFLAGS) -o $(BIN)/$(1) $$(BUILD_arch/exception_hook.lo_OBJ) -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES)
+
+$(BIN)/$(1):	$(BIN)/.dir_exists $$($(1)_OBJFILES) $(foreach lib,$(2),$$(LIB_$(lib)_DEPS)) $$(BUILD_arch/exception_hook.lo_OBJ)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "[BIN] $(1)")
 	@$$(LINK_$(1)_COMMAND)
 
