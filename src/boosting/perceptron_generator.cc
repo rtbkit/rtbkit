@@ -96,6 +96,7 @@ configure(const Configuration & config)
     config.find(activation, "activation");
     config.find(output_activation, "output_activation");
     config.find(do_decorrelate, "decorrelate");
+    config.find(do_normalize, "normalize");
     config.find(use_cuda, "use_cuda");
     config.find(training_algo, "training_algo");
     config.find(training_mode, "training_mode");
@@ -115,6 +116,7 @@ defaults()
     arch_str = "%i";
     activation = output_activation = ACT_TANH;
     do_decorrelate = true;
+    do_normalize = true;
     batch_size = 1024;
     use_cuda = false;
     training_algo = 0;
@@ -144,6 +146,8 @@ options() const
              "activation function for output layer of neurons")
         .add("decorrelate", do_decorrelate,
              "decorrelate the features before training")
+        .add("normalize", do_normalize,
+             "normalize to zero mean and unit std before training")
         .add("batch_size", batch_size, "0.0-1.0 or 1 - nvectors",
              "number of samples in each \"mini batch\" for stochastic")
         .add("use_cuda", use_cuda, "boolean", "use the CUDA optimized kernel")
@@ -516,39 +520,52 @@ decorrelate(const Training_Data & data,
     nf = features.size();
 
     distribution<double> mean(nf, 0.0);
-    {
+    distribution<double> stdev(nf, 0.0);
+    boost::multi_array<double, 2> covar(boost::extents[nf][nf]);
+
+    if (do_normalize) {
         PROFILE_FUNCTION(t_mean);
         for (unsigned f = 0;  f < nf;  ++f) {
             mean[f] = SIMD::vec_sum_dp(&inputt[f][0], nx) / nx;
             for (unsigned x = 0;  x < nx;  ++x)
                 inputt[f][x] -= mean[f];
         }
+
+        cerr << "mean = " << mean << endl;
     }
 
-    boost::multi_array<double, 2> covar(boost::extents[nf][nf]);
-    {
+
+    if (do_normalize || do_decorrelate) {
         PROFILE_FUNCTION(t_covar);
         for (unsigned f = 0;  f < nf;  ++f) {
             for (unsigned f2 = 0;  f2 <= f;  ++f2)
                 covar[f][f2] = covar[f2][f]
                     = SIMD::vec_dotprod_dp(&inputt[f][0], &inputt[f2][0], nx) / nx;
         }
-    }
 
+        for (unsigned f = 0;  f < nf;  ++f)
+            stdev[f] = sqrt(covar[f][f]);
+
+        cerr << "stdev = " << stdev << endl;
+    }
+    
     boost::multi_array<double, 2> transform(boost::extents[nf][nf]);
 
     if (do_decorrelate) {
-        /* Do the cholevsky stuff */
-        PROFILE_FUNCTION(t_cholesky);
-        transform = transpose(lower_inverse(cholesky(covar)));
+        {
+            /* Do the cholevsky stuff */
+            PROFILE_FUNCTION(t_cholesky);
+            transform = transpose(lower_inverse(cholesky(covar)));
+        }
     }
     else {
-        /* Use the identity matrix for the transform; no decorrelation */
+        /* Use a unit diagonal of 1/stdev for the transform; no
+           decorrelation */
         std::fill(transform.origin(),
                   transform.origin() + transform.num_elements(),
                   0.0f);
         for (unsigned f = 0;  f < nf;  ++f)
-            transform[f][f] = 1.0;
+            transform[f][f] = 1.0 / stdev[f];
     }
     
     /* Finally, we add a layer.  This will perform both the removal of the

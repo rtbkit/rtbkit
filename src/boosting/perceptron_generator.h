@@ -62,6 +62,7 @@ public:
     float learning_rate;
     Activation activation, output_activation;
     bool do_decorrelate;
+    bool do_normalize;
     float batch_size;
     bool use_cuda;
     int training_mode;
