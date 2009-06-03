@@ -31,7 +31,8 @@ namespace ML {
 
 class Thread_Context {
 public:
-    Thread_Context(Worker_Task & worker = Worker_Task::instance(),
+    Thread_Context(Worker_Task & worker
+                       = Worker_Task::instance(num_threads() - 1),
                    int group = -1,
                    uint32_t rand_seed = 0,
                    int recursion = 0)
