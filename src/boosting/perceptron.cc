@@ -28,6 +28,7 @@
 #include "worker_task.h"
 #include "utils/guard.h"
 #include <boost/bind.hpp>
+#include "arch/backtrace.h"
 
 using namespace std;
 using namespace DB;
@@ -237,8 +238,9 @@ deltas(const float * outputs, const float * errors, float * deltas) const
         break;
 
     case ACT_LOGSOFTMAX:
+        // TODO: this looks screwey, but it yields good results...
         for (unsigned o = 0;  o < no;  ++o)
-            deltas[o] = errors[o] * (1.0 - outputs[o]);
+            deltas[o] = errors[o];
         break;
         
     default:
@@ -246,14 +248,28 @@ deltas(const float * outputs, const float * errors, float * deltas) const
     }
 }
 
+float randomu(float n){return (2*n*((double(rand())/RAND_MAX)-0.5));}
+
+
 void Perceptron::Layer::random_fill(float limit)
 {
-    for (unsigned i = 0;  i < weights.shape()[0];  ++i)
-        for (unsigned j = 0;  j < weights.shape()[1];  ++j)
-            weights[i][j] = limit * (dist_gen() * 2.0f - 1.0f);
+    int ni = weights.shape()[0], no = weights.shape()[1];
+    
+    cerr << "initializing " << (ni * no) << " weights with limit "
+         << limit << endl;
+        for (unsigned j = 0;  j < no;  ++j)
+    for (unsigned i = 0;  i < ni;  ++i)
+            weights[i][j] = randomu(limit); //limit * (dist_gen() * 2.0f - 1.0f);
+    
+    if (no != bias.size())
+        throw Exception("bias sized wrong");
 
-    for (unsigned i = 0;  i < bias.size();  ++i)
-        bias[i] = limit * (dist_gen() * 2.0f - 1.0f);
+    cerr << "initializing " << no << " bias weights with limit "
+         << limit << endl;
+    for (unsigned o = 0;  o < bias.size();  ++o)
+        bias[o] = randomu(limit); /* limit * (dist_gen() * 2.0f - 1.0f); */
+
+    cerr << "initialized biases: " << bias << endl;
 }
 
 
@@ -592,9 +608,34 @@ transform(float * values, size_t nv, Activation activation)
         float max_val = outputs.max();
         distribution<float> norm_outputs = outputs - max_val;
         float logsum = log(exp(norm_outputs).total());
-        distribution<float> result = norm_outputs - logsum;
+        distribution<float> log_result = norm_outputs - logsum;
+        distribution<float> result = exp(log_result);
 
-        std::copy(values, values + nv, result.begin());
+#if 0
+        //backtrace();
+
+        static Lock lock;
+        Guard guard(lock);
+                cerr << "outputs: " << outputs << endl;
+                cerr << "max_val: " << max_val << endl;
+                cerr << "norm_outputs: " << norm_outputs << endl;
+                cerr << "logsum: " << logsum << endl;
+                cerr << "log_result: " << log_result << endl;
+                cerr << "result: " << result << endl;
+#endif
+
+        for (unsigned i = 0;  i < result.size();  ++i) {
+            if (!isfinite(result[i])) {
+                cerr << "outputs: " << outputs << endl;
+                cerr << "max_val: " << max_val << endl;
+                cerr << "norm_outputs: " << norm_outputs << endl;
+                cerr << "logsum: " << logsum << endl;
+                cerr << "result: " << result << endl;
+                throw Exception("Perceptron::transform(): non-finite");
+            }
+        }
+
+        std::copy(result.begin(), result.end(), values);
     }
         break;
 
@@ -619,7 +660,6 @@ derivative(distribution<float> & values, Activation activation)
         break;
         
     case ACT_LOGSIG:
-    case ACT_LOGSOFTMAX:
         for (unsigned i = 0;  i < values.size();  ++i)
             values[i] *= (1.0 - values[i]);
         break;
@@ -628,9 +668,28 @@ derivative(distribution<float> & values, Activation activation)
         for (unsigned i = 0;  i < values.size();  ++i)
             values[i] = 1.0 - (values[i] * values[i]);
         break;
+
+    case ACT_LOGSOFTMAX:
+        for (unsigned i = 0;  i < values.size();  ++i)
+            values[i] = 1.0 / values[i];
+        break;
         
     default:
         throw Exception("Perceptron::transform(): invalid activation");
+    }
+}
+
+std::pair<float, float>
+Perceptron::
+targets(float maximum, int activation)
+{
+    switch (activation) {
+    case ACT_TANH:
+    case ACT_IDENTITY: return std::make_pair(-maximum, maximum);
+    case ACT_LOGSOFTMAX:
+    case ACT_LOGSIG: return std::make_pair(0.0f, maximum);
+    default:
+        throw Exception("Perceptron::targets(): invalid activation");
     }
 }
 

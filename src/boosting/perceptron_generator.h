@@ -70,6 +70,7 @@ public:
     int min_examples_per_job;
     int max_examples_per_job;
     bool use_textures;
+    float target_value;
 
     std::string arch_str;
 

@@ -137,8 +137,8 @@ train_example(const float * input,
               UpdateFloat * const * w_updates, // wt updates for each layer
               UpdateFloat * const * b_updates, // bias upd for each layer
               int activation,            // activation function
-              float fire,   // target value for firing neuron
               float inhibit, // target value for inhibited neuron)
+              float fire,   // target value for firing neuron
               float learning_rate,
               int num_threads_in_block,
               int num_threads_on_multiprocessor,
@@ -515,8 +515,8 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                       UpdateFloat * const * w_updates, // wt updates for each layer
                       UpdateFloat * const * b_updates, // bias upd for each layer
                       int activation,            // activation function
-                      float fire,   // target value for firing neuron
                       float inhibit, // target value for inhibited neuron)
+                      float fire,   // target value for firing neuron
                       float learning_rate,
                       int num_threads_in_block,
                       int num_threads_on_multiprocessor,
@@ -575,7 +575,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                          weights_access, biases_access,
                          architecture, w_strides,
                          w_updates, b_updates,
-                         activation, fire, inhibit, learning_rate,
+                         activation, inhibit, fire, learning_rate,
                          num_threads_in_block,
                          num_threads_on_multiprocessor,
                          total_neurons, max_width, layer_outputs);
@@ -595,7 +595,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                          weights_access, biases_access,
                          architecture, w_strides,
                          w_updates, b_updates,
-                         activation, fire, inhibit, learning_rate,
+                         activation, inhibit, fire, learning_rate,
                          num_threads_in_block,
                          num_threads_on_multiprocessor,
                          total_neurons, max_width, layer_outputs);
@@ -615,7 +615,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                         weights_access, biases_access,
                         architecture, w_strides,
                         w_updates, b_updates,
-                        activation, fire, inhibit, learning_rate,
+                        activation, inhibit, fire, learning_rate,
                         num_threads_in_block,
                         num_threads_on_multiprocessor,
                         total_neurons, max_width, layer_outputs);
@@ -641,8 +641,8 @@ struct Backprop::Plan {
     DeviceData<int> d_w_strides;
 
     Activation activation;
-    float fire;
     float inhibit;
+    float fire;
     float learning_rate;
 
     int max_width;
@@ -662,8 +662,8 @@ struct Backprop::Plan {
          const float * const * biases,
          const int * w_strides,
          Activation activation,
-         float fire,
          float inhibit,
+         float fire,
          float learning_rate,
          bool on_host,
          bool use_textures)
@@ -671,8 +671,8 @@ struct Backprop::Plan {
           architecture(architecture, architecture + num_layers + 1),
           w_strides(w_strides, w_strides + num_layers),
           activation(activation),
-          fire(fire),
           inhibit(inhibit),
+          fire(fire),
           learning_rate(learning_rate),
           use_textures(use_textures)
     {
@@ -866,8 +866,8 @@ struct Backprop::Context {
              d_weight_updates,
              d_bias_updates,
              plan.activation,
-             plan.fire,
              plan.inhibit,
+             plan.fire,
              plan.learning_rate,
              grid.x,
              plan.threads.x,
@@ -936,15 +936,15 @@ plan(int num_layers,
      const float * const * biases,
      const int * w_strides,
      Activation activation,
-     float fire,
      float inhibit,
+     float fire,
      float learning_rate,
      bool on_host,
      bool use_textures) const
 {
     boost::shared_ptr<Plan> result
         (new Plan(num_layers, architecture, weights, biases, w_strides,
-                  activation, fire, inhibit, learning_rate, on_host,
+                  activation, inhibit, fire, learning_rate, on_host,
                   use_textures));
 
     return result;

@@ -87,8 +87,7 @@ public:
     
     virtual Perceptron * make_copy() const;
 
-    /** Parse the architecture.  The value -1 means the number of input
-        variables. */
+    /** Parse the architecture. */
     static std::vector<int> parse_architecture(const std::string & arch);
 
 
@@ -179,6 +178,8 @@ public:
     /** Perform the transformation given the activation function. */
     static void derivative(distribution<float> & values,
                            Activation activation);
+
+    static std::pair<float, float> targets(float maximum, int activation);
     
     void add_layer(const Layer & layer);
 

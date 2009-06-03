@@ -103,6 +103,7 @@ configure(const Configuration & config)
     config.find(min_examples_per_job, "min_examples_per_job");
     config.find(max_examples_per_job, "max_examples_per_job");
     config.find(use_textures, "use_textures");
+    config.find(target_value, "target_value");
 }
 
 void
@@ -124,6 +125,7 @@ defaults()
     min_examples_per_job = 8;
     max_examples_per_job = 1024;
     use_textures = false;
+    target_value = 0.0;
 }
 
 Config_Options
@@ -152,7 +154,8 @@ options() const
              "number of samples in each \"mini batch\" for stochastic")
         .add("use_cuda", use_cuda, "boolean", "use the CUDA optimized kernel")
         .add("training_algo", training_algo, "0-1", "train: 0 = std, 1 = ultrastochastic")
-        .add("training_mode", training_mode, "0-3", "ultrastochastic mode: 0 = standard backprop; 1 = per neuron output; 2 = per neuron input; 3 = after each weight");
+        .add("training_mode", training_mode, "0-3", "ultrastochastic mode: 0 = standard backprop; 1 = per neuron output; 2 = per neuron input; 3 = after each weight")
+        .add("target_value", target_value, "0.0-1.0", "the output for a 1 that we ask the network to provide");
     
     return result;
 }
@@ -232,7 +235,7 @@ generate(Thread_Context & context,
 
     const std::vector<Label> & labels
         = training_set.index().labels(predicted);
-    const std::vector<Label> & val_labels
+    const std::vector<Label> & val_labels JML_UNUSED
         = validation_set.index().labels(predicted);
 
     for (unsigned i = 0;  i < max_iter;  ++i) {
@@ -614,10 +617,10 @@ struct Training_Job_Info {
     double & total;
     double & total_rms_error;
     float learning_rate;
-    float inhibit;
-    float fire;
     int algo;
     int mode;
+    float inhibit;
+    float fire;
 
     Training_Job_Info(const boost::multi_array<float, 2> & decorrelated,
                       const std::vector<Label> & labels,
@@ -629,15 +632,16 @@ struct Training_Job_Info {
                       double & total_rms_error,
                       float learning_rate,
                       int algo,
-                      int mode)
+                      int mode,
+                      float inhibit,
+                      float fire)
         : decorrelated(decorrelated), labels(labels),
           example_weights(example_weights), result(result),
           weight_updates(weight_updates), bias_updates(bias_updates),
           correct(correct), total(total), total_rms_error(total_rms_error),
-          learning_rate(learning_rate), algo(algo), mode(mode)
+          learning_rate(learning_rate), algo(algo), mode(mode),
+          inhibit(inhibit), fire(fire)
     {
-        inhibit = -0.8;
-        fire = 0.8;
     }
 
     void fprop(int x, const vector<Perceptron::Layer> & layers,
@@ -652,9 +656,15 @@ struct Training_Job_Info {
             /* Compute weights going forward. */
             std::copy(&decorrelated[x][0], &decorrelated[x][0] + nf,
                       &layer_outputs[0][0]);
+
+            //cerr << "input for example " << x << ": " << layer_outputs[0]
+            //     << endl;
             
-            for (unsigned l = 1;  l < nl;  ++l)
+            for (unsigned l = 1;  l < nl;  ++l) {
                 layers[l].apply(layer_outputs[l - 1], layer_outputs[l]);
+                //cerr << "  output of layer " << l << ": " << layer_outputs[l]
+                //     << endl;
+            }
         }
     }
 
@@ -774,9 +784,22 @@ struct Training_Job_Info {
                 
                 size_t no = layer.outputs();
                 size_t ni = layer.inputs();
+
+#if 0
+                cerr << "layer " << l << " errors: "
+                     << distribution<float>(errors, errors + no)
+                     << endl;
+#endif
+                
                 
                 /* Differentiate the output. */
                 layer.deltas(&layer_outputs[l][0], &errors[0], delta);
+
+#if 0
+                cerr << "layer " << l << " deltas: "
+                     << distribution<float>(delta, delta + no)
+                     << endl;
+#endif
                 
                 if (l > 1) {
                     /* Calculate new errors (for the next layer). */
@@ -796,7 +819,18 @@ struct Training_Job_Info {
                 /* Update the weights. */
                 float k = w * learning_rate;
                 for (unsigned i = 0;  i < ni;  ++i) {
+
                     float k2 = layer_outputs[l - 1][i] * k;
+
+#if 0
+                    for (unsigned o = 0;  o < no;  ++o)
+                        cerr << "update parameter (" << i << "," << o
+                             << ") : before " << layer.weights[i][o]
+                             << " + " << k << " * " << layer_outputs[l-1][i]
+                             << " * " << delta[o] << " = "
+                             << k2 * delta[o] << endl;
+#endif
+                    
                     SIMD::vec_add(&sub_weight_updates[l][i][0], k2, &delta[0],
                                   &sub_weight_updates[l][i][0], no);
                 }
@@ -1083,6 +1117,11 @@ train_iteration(Thread_Context & context,
 {
     PROFILE_FUNCTION(t_train);
 
+    float inhibit, fire;
+    boost::tie(inhibit, fire)
+        = Perceptron::targets(target_value,
+                              result.layers.back().activation);
+
     size_t nx = decorrelated.shape()[0];
 
     if (!example_weights.empty() && nx != example_weights.size())
@@ -1225,9 +1264,6 @@ train_iteration(Thread_Context & context,
 
             Backprop backprop;
             
-            const float saturated = 0.8;
-            const float fire = saturated, inhibit = -saturated;
-
             boost::shared_ptr<Backprop::Plan>
                 plan = backprop.plan(num_active_layers,
                                      architecture,
@@ -1235,8 +1271,8 @@ train_iteration(Thread_Context & context,
                                      biases,
                                      w_strides,
                                      activation,
-                                     fire,
                                      inhibit,
+                                     fire,
                                      learning_rate,
                                      false /* on_host */,
                                      use_textures);
@@ -1295,7 +1331,8 @@ train_iteration(Thread_Context & context,
                                    weight_updates_ptrs, bias_updates_ptrs,
                                    correct, total,
                                    total_rms_error, learning_rate,
-                                   training_algo, training_mode);
+                                   training_algo, training_mode,
+                                   inhibit, fire);
             
             int ex_per_job = std::max(min_examples_per_job,
                                       std::min(max_examples_per_job,
