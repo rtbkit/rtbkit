@@ -248,28 +248,19 @@ deltas(const float * outputs, const float * errors, float * deltas) const
     }
 }
 
-float randomu(float n){return (2*n*((double(rand())/RAND_MAX)-0.5));}
-
-
 void Perceptron::Layer::random_fill(float limit)
 {
     int ni = weights.shape()[0], no = weights.shape()[1];
     
-    cerr << "initializing " << (ni * no) << " weights with limit "
-         << limit << endl;
-        for (unsigned j = 0;  j < no;  ++j)
-    for (unsigned i = 0;  i < ni;  ++i)
-            weights[i][j] = randomu(limit); //limit * (dist_gen() * 2.0f - 1.0f);
+    for (unsigned j = 0;  j < no;  ++j)
+        for (unsigned i = 0;  i < ni;  ++i)
+            weights[i][j] = limit * (dist_gen() * 2.0f - 1.0f);
     
     if (no != bias.size())
         throw Exception("bias sized wrong");
 
-    cerr << "initializing " << no << " bias weights with limit "
-         << limit << endl;
     for (unsigned o = 0;  o < bias.size();  ++o)
-        bias[o] = randomu(limit); /* limit * (dist_gen() * 2.0f - 1.0f); */
-
-    cerr << "initialized biases: " << bias << endl;
+        bias[o] = limit * (dist_gen() * 2.0f - 1.0f);
 }
 
 
