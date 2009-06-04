@@ -595,40 +595,18 @@ transform(float * values, size_t nv, Activation activation)
         
     case ACT_LOGSOFTMAX: {
         // TODO: optimize...
-        distribution<float> outputs(values, values + nv);
-        float max_val = outputs.max();
-        distribution<float> norm_outputs = outputs - max_val;
-        float logsum = log(exp(norm_outputs).total());
-        distribution<float> log_result = norm_outputs - logsum;
-        distribution<float> result = exp(log_result);
+        double total = 0.0;
+        
+        for (unsigned i = 0;  i < nv;  ++i)
+            total += (values[i] = exp(values[i]));
 
-#if 0
-        //backtrace();
+        double factor = 1.0 / total;
 
-        static Lock lock;
-        Guard guard(lock);
-                cerr << "outputs: " << outputs << endl;
-                cerr << "max_val: " << max_val << endl;
-                cerr << "norm_outputs: " << norm_outputs << endl;
-                cerr << "logsum: " << logsum << endl;
-                cerr << "log_result: " << log_result << endl;
-                cerr << "result: " << result << endl;
-#endif
+        for (unsigned i = 0;  i < nv;  ++i)
+            values[i] *= factor;
 
-        for (unsigned i = 0;  i < result.size();  ++i) {
-            if (!isfinite(result[i])) {
-                cerr << "outputs: " << outputs << endl;
-                cerr << "max_val: " << max_val << endl;
-                cerr << "norm_outputs: " << norm_outputs << endl;
-                cerr << "logsum: " << logsum << endl;
-                cerr << "result: " << result << endl;
-                throw Exception("Perceptron::transform(): non-finite");
-            }
-        }
-
-        std::copy(result.begin(), result.end(), values);
-    }
         break;
+    }
 
     default:
         throw Exception("Perceptron::transform(): invalid activation");
