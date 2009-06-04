@@ -25,8 +25,14 @@ struct cmp_xchg_switch {
         uint8_t result;
         asm volatile ("lock cmpxchg %[new_val], %[val]\n\t"
                       "     setz    %[result]\n\t"
-                      : "+a" (old), [result] "=r" (result)
-                      : [val] "m" (val), [new_val] "r" (new_val)
+                      : "+a" (old),
+#if JML_BITS == 32
+                        [result] "=m" (result)
+#else
+                        [result] "=r" (result)
+#endif
+                      : [val] "m" (val),
+                        [new_val] "r" (new_val)
                       : "cc");
         return result;
     }

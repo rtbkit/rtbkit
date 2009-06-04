@@ -14,7 +14,7 @@
 
 namespace ML {
 
-#if defined __i686__ || defined __amd64__
+#if defined __i686__ || defined __amd64__ || defined __i586__ || defined __i386__
 
 
 struct CPU_Info {

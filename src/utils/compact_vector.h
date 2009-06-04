@@ -446,9 +446,14 @@ private:
 
         }
 
+        cerr << "data() = " << data() << endl;
+
         // New element
-        for (unsigned i = 0;  i < n;  ++i, ++size_)
+        for (unsigned i = 0;  i < n;  ++i, ++size_) {
+            cerr << "i = " << i << " n = " << n << " size_ = " << size_
+                 << endl;
             new (data() + size_) Data();
+        }
 
         // Move elements to the end
         for (int i = size_ - 1;  i >= index + (int)n;  --i)

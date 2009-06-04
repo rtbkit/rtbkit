@@ -1,11 +1,13 @@
 # Makefile for Jeremy's Machine Learning library
 # Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
 
+-include local.mk
+
 default: all
 .PHONY: default
 
 BUILD 	?= ../build
-ARCH 	:= $(shell uname -m)
+ARCH 	?= $(shell uname -m)
 OBJ 	:= $(BUILD)/$(ARCH)/obj
 BIN 	:= $(BUILD)/$(ARCH)/bin
 TESTS 	:= $(BUILD)/$(ARCH)/tests

@@ -61,11 +61,14 @@ LIBBOOSTING_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-m
 
 $(eval $(call library,boosting,$(LIBBOOSTING_SOURCES),$(LIBBOOSTING_LINK)))
 
+ifeq ($(CUDA_ENABLED),1)
+
 LIBBOOSTING_CUDA_SOURCES := stump_training_cuda.cu stump_training_cuda_host.cc backprop_cuda.cu
 LIBBOOSTING_CUDA_LINK := boosting cudart arch_cuda
 
 $(eval $(call library,boosting_cuda,$(LIBBOOSTING_CUDA_SOURCES),$(LIBBOOSTING_CUDA_LINK)))
 
+endif # CUDA_ENABLED
 
 $(eval $(call include_sub_make,boosting_tools,tools))
 $(eval $(call include_sub_make,boosting_testing,testing))

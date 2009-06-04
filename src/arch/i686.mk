@@ -1,9 +1,8 @@
-CXX := colorccache distcc g++
-CXXFLAGS := -I. -pipe -Wall -Werror -Wno-sign-compare -O3 -march=i686 -m32 -g -fPIC
-CXXLINKFLAGS := -shared -L$(BIN) -Wl,--rpath,$(BIN)
-CXXEXEFLAGS :=	-L$(BIN) -Wl,--rpath,$(BIN)
-CXXDEBUGFLAGS := -O0 -g
+CAL_ENABLED ?= 0
+CUDA_ENABLED ?= 0
 
-FC := colorccache f77
-FFLAGS := -I. -fPIC
+include arch/x86_64.mk
+
+CXX := colorccache g++
+CXXFLAGS += -m32 -march=i686 -msse2
 

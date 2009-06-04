@@ -145,7 +145,7 @@ $$(eval $$(call add_sources,$(2)))
 
 OBJFILES_$(1):=$$(foreach file,$(addsuffix .lo,$(basename $(2:%=$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
 
-LINK_$(1)_COMMAND:=$(CXX) $(CXXFLAGS) $(CXXLINKFLAGS) -o $(BIN)/lib$(1).so $$(OBJFILES_$(1)) $$(foreach lib,$(3), -l$$(lib))
+LINK_$(1)_COMMAND:=$(CXX) $(CXXFLAGS) $(CXXLIBRARYFLAGS) -o $(BIN)/lib$(1).so $$(OBJFILES_$(1)) $$(foreach lib,$(3), -l$$(lib))
 
 LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
 LIB_$(1)_SO   := $(BIN)/lib$(1).$$(LINK_$(1)_HASH).so

@@ -27,7 +27,10 @@
 #include <boost/bind.hpp>
 #include "utils/smart_ptr_utils.h"
 #include "utils/vector_utils.h"
+
+#if (JML_USE_CUDA == 1)
 #include "backprop_cuda.h"
+#endif
 
 using namespace std;
 
@@ -1225,6 +1228,7 @@ train_iteration(Thread_Context & context,
         }
 
         if (use_cuda) {
+#if (JML_USE_CUDA == 1)
             using namespace CUDA;
 
             const vector<Perceptron::Layer> & layers = result.layers;
@@ -1323,6 +1327,9 @@ train_iteration(Thread_Context & context,
                 total_rms_error += my_rms_error;
 #endif
             }
+#else
+            throw Exception("CUDA not configured but was asked for");
+#endif
         }
         else {
         

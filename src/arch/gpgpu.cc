@@ -24,6 +24,7 @@ struct Load_CUDA {
 
     Load_CUDA()
     {
+        handle = 0;
         if (!use_cuda) return;
 
         handle = dlopen("libarch_cuda.so", RTLD_NOW);
@@ -48,6 +49,7 @@ struct Load_CAL {
 
     Load_CAL()
     {
+        handle = 0;
         if (!use_cal) return;
 
         handle = dlopen("libarch_cal.so", RTLD_NOW);
