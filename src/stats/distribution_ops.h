@@ -26,6 +26,7 @@
 #include "distribution.h"
 #include "math/bound.h"
 #include "math/round.h"
+#include "arch/math_builtins.h"
 #include <cmath>
 
 namespace ML {
@@ -84,7 +85,7 @@ distribution<F, Underlying> exp(const distribution<F, Underlying> & dist)
 {
     distribution<F, Underlying> result(dist.size());
     for (unsigned i = 0;  i < dist.size();  ++i)
-        result[i] = std::exp(dist[i]);
+        result[i] = ML::exp(dist[i]);
     return result;
 }
 
