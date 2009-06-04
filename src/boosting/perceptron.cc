@@ -594,7 +594,6 @@ transform(float * values, size_t nv, Activation activation)
         break;
         
     case ACT_LOGSOFTMAX: {
-        // TODO: optimize...
         double total = 0.0;
         
         for (unsigned i = 0;  i < nv;  ++i)
