@@ -116,6 +116,8 @@ struct WeightsAccess {
 #define N 4
 #define train_N_examples train_4_examples
 #include "backprop_cuda_train_N_examples.cu"
+#undef N
+#undef train_N_examples
 
 #define N 1
 #define train_N_examples train_1_example
