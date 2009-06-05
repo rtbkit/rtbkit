@@ -23,8 +23,21 @@
 #ifndef __stats__distribution_simd_h__
 #define __stats__distribution_simd_h__
 
+#include "distribution.h"
+#include "arch/simd_vector.h"
 
-/* Nothing for the moment... */
+namespace ML {
+namespace Stats {
 
+template<>
+inline float
+distribution<float>::
+total() const
+{
+    return SIMD::vec_sum_dp(&(*this)[0], this->size());
+}
+
+} // namespace Stats
+} // namespace ML
 
 #endif /* __stats__distribution_simd_h__ */
