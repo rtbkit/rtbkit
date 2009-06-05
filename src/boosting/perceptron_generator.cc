@@ -1040,7 +1040,9 @@ struct Training_Job_Info {
                     }
                 }
                 else if (mode == 2) {
-                    for (unsigned o = 0;  o < no;  ++o) {
+                    for (unsigned oi = 0;  oi < no;  ++oi) {
+                        unsigned o = (order_of_sensitivity ? output_indexes[oo] : oo);
+                        
                         layer.bias[o] += k * delta[o];
                         
                         fprop(x, layers, layer_outputs);
