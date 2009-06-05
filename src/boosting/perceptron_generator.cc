@@ -107,6 +107,7 @@ configure(const Configuration & config)
     config.find(max_examples_per_job, "max_examples_per_job");
     config.find(use_textures, "use_textures");
     config.find(target_value, "target_value");
+    config.find(order_of_sensitivity, "order_of_sensitivity");
 }
 
 void
@@ -129,6 +130,7 @@ defaults()
     max_examples_per_job = 1024;
     use_textures = false;
     target_value = 0.0;
+    order_of_sensitivity = true;
 }
 
 Config_Options
@@ -624,6 +626,7 @@ struct Training_Job_Info {
     int mode;
     float inhibit;
     float fire;
+    bool order_of_sensitivity;
 
     Training_Job_Info(const boost::multi_array<float, 2> & decorrelated,
                       const std::vector<Label> & labels,
@@ -637,13 +640,15 @@ struct Training_Job_Info {
                       int algo,
                       int mode,
                       float inhibit,
-                      float fire)
+                      float fire,
+                      bool order_of_sensitivity)
         : decorrelated(decorrelated), labels(labels),
           example_weights(example_weights), result(result),
           weight_updates(weight_updates), bias_updates(bias_updates),
           correct(correct), total(total), total_rms_error(total_rms_error),
           learning_rate(learning_rate), algo(algo), mode(mode),
-          inhibit(inhibit), fire(fire)
+          inhibit(inhibit), fire(fire),
+          order_of_sensitivity(order_of_sensitivity)
     {
     }
 
@@ -922,6 +927,20 @@ struct Training_Job_Info {
         return example_rms_error;
     }
 
+    static vector<int> sort_by_abs(const distribution<float> & values)
+    {
+        vector<pair<float, int> > to_sort;
+        to_sort.reserve(values.size());
+
+        for (unsigned i = 0;  i < values.size();  ++i)
+            to_sort.push_back(make_pair(abs(values[i]), i));
+
+        std::sort(to_sort.begin(), to_sort.end());
+
+        return vector<int>(second_extractor(to_sort.begin()),
+                           second_extractor(to_sort.end()));
+    }
+
     void train_ultrastochastic(int x_start, int x_end, bool one_thread)
     {
         /* Train using a more stochastic algorithm.  This algorithm will
@@ -982,6 +1001,9 @@ struct Training_Job_Info {
                 size_t no = layer.outputs();
                 size_t ni = layer.inputs();
 
+                vector<int> input_indexes = sort_by_abs(deltas[l - 1]);
+                vector<int> output_indexes = sort_by_abs(deltas[l]);
+
                 const distribution<float> & delta = deltas[l];
                 
                 if (mode == 0 || mode == 1) {
@@ -1002,7 +1024,9 @@ struct Training_Job_Info {
                             = bprop(x, layers, layer_outputs, errors, deltas);
                     }
                     
-                    for (unsigned i = 0;  i < ni;  ++i) {
+                    for (unsigned ii = 0;  ii < ni;  ++ii) {
+                        unsigned i = (order_of_sensitivity ? input_indexes[ii] : ii);
+                        
                         float k2 = layer_outputs[l - 1][i] * k;
                         SIMD::vec_add(&layer.weights[i][0], k2, &delta[0],
                                       &layer.weights[i][0], no);
@@ -1339,7 +1363,8 @@ train_iteration(Thread_Context & context,
                                    correct, total,
                                    total_rms_error, learning_rate,
                                    training_algo, training_mode,
-                                   inhibit, fire);
+                                   inhibit, fire,
+                                   order_of_sensitivity);
             
             int ex_per_job = std::max(min_examples_per_job,
                                       std::min(max_examples_per_job,
