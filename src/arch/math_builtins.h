@@ -33,12 +33,12 @@ namespace ML {
 // control word, which makes it extremely slow.  The expm1f implementation
 // doesn't have this problem, and so we use it to emulate an exp.
 
-float exp(float val)
+inline float exp(float val)
 {
     return expm1f(val) + 1.0f;
 }
 
-double exp(double val)
+inline double exp(double val)
 {
     return std::exp(val);
 }

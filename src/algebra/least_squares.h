@@ -20,7 +20,6 @@
 #include <cmath>
 #include "utils/string_functions.h"
 #include "arch/simd_vector.h"
-#include <Eigen/Core>
 
 namespace ML {
 

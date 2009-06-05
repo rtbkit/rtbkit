@@ -1041,7 +1041,7 @@ struct Training_Job_Info {
                 }
                 else if (mode == 2) {
                     for (unsigned oi = 0;  oi < no;  ++oi) {
-                        unsigned o = (order_of_sensitivity ? output_indexes[oo] : oo);
+                        unsigned o = (order_of_sensitivity ? output_indexes[oi] : oi);
                         
                         layer.bias[o] += k * delta[o];
                         

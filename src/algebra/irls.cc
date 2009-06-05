@@ -16,11 +16,14 @@
 #include "multi_array_utils.h"
 #include "boosting/config_impl.h"
 #include "utils/string_functions.h"
-#include <boost/math/special_functions/erf.hpp>
-
+#include <boost/version.hpp>
 
 using namespace std;
 using namespace Stats;
+
+// TODO:in which boost version was this added?
+#if (BOOST_VERSION > 103500)
+#include <boost/math/special_functions/erf.hpp>
 
 namespace ML {
 
@@ -33,6 +36,28 @@ double erfinv(double y)
 {
     return boost::math::erf_inv(y);
 }
+
+} // namespace ML
+
+#else
+
+namespace ML {
+
+double erf(double x)
+{
+    return ::erf(x);
+}
+
+double erfinv(double y)
+{
+    return ::erfinv(y);
+}
+
+} // namespace ML
+
+#endif
+
+namespace ML {
 
 template<class FloatIn, class FloatCalc>
 vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
