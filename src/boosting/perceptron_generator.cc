@@ -1045,7 +1045,7 @@ struct Training_Job_Info {
                         float k2 = layer_outputs[l - 1][i] * k;
 
                         for (unsigned o = 0;  o < no;  ++o) {
-                            layer.weights[i][0] += k2 * delta[o];
+                            layer.weights[i][o] += k2 * delta[o];
                             fprop(x, layers, layer_outputs);
                             example_rms_error
                                 = bprop(x, layers, layer_outputs, errors, deltas);
