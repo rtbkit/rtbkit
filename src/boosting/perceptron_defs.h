@@ -26,10 +26,21 @@ enum Activation {
 std::ostream & operator << (std::ostream & stream, Activation act);
 
 BYTE_PERSISTENT_ENUM_DECL(Activation);
-    
+
+enum Sampling {
+    SAMP_DETERMINISTIC,     /// Deterministic; always the same value
+    SAMP_BINARY_STOCHASTIC, /// Stochastic; transfer is P(output == 1)
+    SAMP_REAL_STOCHASTIC    /// Stochastic; normal dist with std=1 mean=transfer
+};
+
+std::ostream & operator << (std::ostream & stream, Sampling smp);
+
+BYTE_PERSISTENT_ENUM_DECL(Sampling);
+
 } // namespace ML
 
 DECLARE_ENUM_INFO(ML::Activation, 5);
+DECLARE_ENUM_INFO(ML::Sampling, 3);
 
 
 #endif /* __jml__perceptron_defs_h__ */

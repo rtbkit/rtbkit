@@ -172,6 +172,15 @@ apply(const distribution<float> & input,
 
 void
 Perceptron::Layer::
+apply_stochastic(const distribution<float> & input,
+                 distribution<float> & output,
+                 Thread_Context & context) const
+{
+    apply(input, output);
+}
+
+void
+Perceptron::Layer::
 apply(const float * input, float * output) const
 {
     std::copy(bias.begin(), bias.end(), output);
@@ -184,6 +193,13 @@ apply(const float * input, float * output) const
         //    output[o] += input[i] * weights[i][o];
 
     Perceptron::transform(output, no, activation);
+}
+
+void
+Perceptron::Layer::
+apply_stochastic(const float * input, float * output,
+                 Thread_Context & context) const
+{
 }
 
 #if 0
@@ -581,7 +597,8 @@ Perceptron::
 transform(float * values, size_t nv, Activation activation)
 {
     switch (activation) {
-    case ACT_IDENTITY: return;
+    case ACT_IDENTITY:
+        return;
         
     case ACT_LOGSIG:
         for (unsigned i = 0;  i < nv;  ++i)

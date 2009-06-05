@@ -21,6 +21,7 @@ namespace ML {
 
 
 class Label;
+class Thread_Context;
 
 
 /*****************************************************************************/
@@ -136,9 +137,25 @@ public:
         void apply(const distribution<float> & input,
                    distribution<float> & output) const;
 
-        //void apply(const double * input, double * output) const;
+        void apply_stochastic(const distribution<float> & input,
+                              distribution<float> & output,
+                              Thread_Context & context) const;
 
         void apply(const float * input, float * output) const;
+
+        void apply_stochastic(const float * input, float * output,
+                              Thread_Context & context) const;
+
+        /** Generate a single stochastic Gibbs sample from the stocastic
+            distribution, starting from the given input values.  It will
+            modify both the input and the output of the new sample.
+
+            Performs the given number of iterations.
+        */
+        void sample(distribution<float> & input,
+                    distribution<float> & output,
+                    Thread_Context & context,
+                    int num_iterations) const;
 
         /** Transform the given value according to the transfer function. */
         void transform(distribution<float> & values) const;
