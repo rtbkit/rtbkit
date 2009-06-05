@@ -1176,7 +1176,7 @@ train_iteration(Thread_Context & context,
     */
     float learning_rate = this->learning_rate;
     if (learning_rate < 0.0) {
-        learning_rate *= -example_weights.size() / example_weights.total();
+        learning_rate *= -1.0 * example_weights.size() / example_weights.total();
         //cerr << "learning_rate: " << learning_rate << endl;
     }
 
