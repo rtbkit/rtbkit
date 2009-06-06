@@ -16,6 +16,7 @@
 #include "utils/pair_utils.h"
 #include <boost/multi_array.hpp>
 #include "perceptron_defs.h"
+#include <boost/shared_ptr.hpp>
 
 namespace ML {
 
@@ -181,7 +182,7 @@ public:
         size_t outputs() const { return weights.shape()[1]; }
     };
     
-    std::vector<Layer> layers;  ///< Different layers
+    std::vector<boost::shared_ptr<Layer> > layers;  ///< Different layers
     
     size_t max_units;  ///< Number of units in layer with highest number
 
@@ -198,7 +199,7 @@ public:
 
     static std::pair<float, float> targets(float maximum, int activation);
     
-    void add_layer(const Layer & layer);
+    void add_layer(const boost::shared_ptr<Layer> & layer);
 
     void clear();
 

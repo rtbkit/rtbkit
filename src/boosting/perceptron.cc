@@ -328,14 +328,14 @@ predict(const Feature_Set & fs) const
     float scratch1[max_units], scratch2[max_units];
     float * input = scratch1, * output = scratch2;
     extract_features(fs, input);
-    layers[0].apply(input, output);
+    layers[0]->apply(input, output);
     
     for (unsigned l = 1;  l < layers.size();  ++l) {
-        layers[l].apply(output, input);
+        layers[l]->apply(output, input);
         std::swap(input, output);
     }
     
-    return distribution<float>(output, output + layers.back().outputs());
+    return distribution<float>(output, output + layers.back()->outputs());
 }
 
 namespace {
@@ -378,10 +378,10 @@ struct Accuracy_Job_Info {
 
             // Skip the first layer since we've already decorrelated
             // Second layer calculated directly over input
-            perceptron.layers[1].apply(&decorrelated[x][0], input);
+            perceptron.layers[1]->apply(&decorrelated[x][0], input);
 
             for (unsigned l = 2;  l < perceptron.layers.size();  ++l) {
-                perceptron.layers[l].apply(input, output);
+                perceptron.layers[l]->apply(input, output);
                 std::swap(input, output);
             }
             
@@ -461,7 +461,7 @@ std::string Perceptron::print() const
 {
     string result = format("{ Perceptron: %zd layers, %zd inputs, %zd outputs\n",
                            layers.size(), features.size(),
-                           (layers.size() ? layers.back().outputs() : 0));
+                           (layers.size() ? layers.back()->outputs() : 0));
 
     result += "  features:\n";
     for (unsigned f = 0;  f < features.size();  ++f)
@@ -470,7 +470,7 @@ std::string Perceptron::print() const
     result += "\n";
 
     for (unsigned i = 0;  i < layers.size();  ++i)
-        result += format("  layer %d\n", i) + layers[i].print();
+        result += format("  layer %d\n", i) + layers[i]->print();
 
     result += "}";
 
@@ -510,13 +510,13 @@ parse_architecture(const std::string & arch)
     return result;
 }
 
-void Perceptron::add_layer(const Layer & layer)
+void Perceptron::add_layer(const boost::shared_ptr<Layer> & layer)
 {
     layers.push_back(layer);
-    if (layers.size() == 1 || layer.inputs() > max_units)
-        max_units = layer.inputs();
-    if (layer.outputs() > max_units)
-        max_units = layer.outputs();
+    if (layers.size() == 1 || layer->inputs() > max_units)
+        max_units = layer->inputs();
+    if (layer->outputs() > max_units)
+        max_units = layer->outputs();
 }
 
 void Perceptron::clear()
@@ -530,7 +530,7 @@ size_t Perceptron::parameters() const
 {
     size_t result = 0;
     for (unsigned l = 1;  l < layers.size();  ++l)
-        result += layers[l].parameters();
+        result += layers[l]->parameters();
     return result;
 }
 
@@ -555,7 +555,7 @@ void Perceptron::serialize(DB::Store_Writer & store) const
     /* Now the layers... */
     store << compact_size_t(layers.size());
     for (unsigned i = 0;  i < layers.size();  ++i)
-        layers[i].serialize(store);
+        layers[i]->serialize(store);
 
     store << string("END PERCEPTRON");
 }
@@ -697,7 +697,7 @@ decorrelate(const Training_Data & data) const
 
     for (unsigned x = 0;  x < nx;  ++x) {
         extract_features(data[x], &input[0]);
-        layers[0].apply(input, &result[x][0]);
+        layers[0]->apply(input, &result[x][0]);
     }
     
     return result;
