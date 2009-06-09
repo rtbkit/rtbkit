@@ -288,7 +288,7 @@ void Perceptron::Layer::random_fill(float limit)
 
     int ni = weights.shape()[0], no = weights.shape()[1];
 
-    cerr << "random fill of " << ni << "x" << no << " with " << limit << endl;
+    //cerr << "random fill of " << ni << "x" << no << " with " << limit << endl;
     
     for (unsigned i = 0;  i < ni;  ++i) {
         for (unsigned j = 0;  j < no;  ++j) {
@@ -303,8 +303,8 @@ void Perceptron::Layer::random_fill(float limit)
     if (no != bias.size())
         throw Exception("bias sized wrong");
 
-    cerr << "before bias: seed " << randseed << " nrandoms " << nrandoms
-         << endl;
+    //cerr << "before bias: seed " << randseed << " nrandoms " << nrandoms
+    //     << endl;
 
     for (unsigned o = 0;  o < bias.size();  ++o) {
         //bias[o] = limit * (dist_gen() * 2.0f - 1.0f);

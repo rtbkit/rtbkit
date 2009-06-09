@@ -666,13 +666,13 @@ struct Training_Job_Info {
             std::copy(&decorrelated[x][0], &decorrelated[x][0] + nf,
                       &layer_outputs[0][0]);
             
-            cerr << "input for example " << x << ": " << layer_outputs[0]
-                 << endl;
+            //cerr << "input for example " << x << ": " << layer_outputs[0]
+            //     << endl;
             
             for (unsigned l = 1;  l < nl;  ++l) {
                 layers[l]->apply(layer_outputs[l - 1], layer_outputs[l]);
-                cerr << "  output of layer " << l << ": " << layer_outputs[l]
-                     << endl;
+                //cerr << "  output of layer " << l << ": " << layer_outputs[l]
+                //     << endl;
             }
         }
     }
@@ -771,7 +771,7 @@ struct Training_Job_Info {
             /* TODO: regression */
             correct[labels[x]] = fire;
 
-            cerr << "correct = " << correct << endl;
+            //cerr << "correct = " << correct << endl;
             
             double example_rms_error = 0.0;
 
@@ -797,7 +797,7 @@ struct Training_Job_Info {
                 size_t no = layer.outputs();
                 size_t ni = layer.inputs();
 
-#if 1
+#if 0
                 cerr << "layer " << l << " errors: "
                      << distribution<float>(errors, errors + no)
                      << endl;
@@ -807,6 +807,7 @@ struct Training_Job_Info {
                 /* Differentiate the output. */
                 layer.deltas(&layer_outputs[l][0], &errors[0], delta);
 
+#if 0
                 distribution<float> ddelta(delta, delta + no);
                 distribution<float> derrors(errors, errors + no);
 
@@ -816,7 +817,6 @@ struct Training_Job_Info {
                      << endl;
 
 
-#if 1
                 cerr << "layer " << l << " deltas: "
                      << distribution<float>(delta, delta + no)
                      << endl;
@@ -826,7 +826,7 @@ struct Training_Job_Info {
                     /* Calculate new errors (for the next layer). */
                     for (unsigned i = 0;  i < ni;  ++i) {
 
-                        if (i == 0 && l == 2) {
+                        if (i == 0 && l == 2 && false) {
                             cerr << "for input 0: weights "
                                  << distribution<float>(&layer.weights[i][0],
                                                         &layer.weights[i][0] + no)
@@ -852,9 +852,11 @@ struct Training_Job_Info {
                     
                     // BIAS?
 
+#if 0
                     cerr << "errors for layer " << l - 1 << ": "
                          << distribution<float>(errors, errors + ni)
                          << endl;
+#endif
                 }
                 
                 /* Update the weights. */
@@ -952,6 +954,8 @@ struct Training_Job_Info {
             }
             else errors[nl - 1][o] = 0.0;
         }
+
+        //cerr << "errors " << nl - 1 << " = " << errors[nl - 1] << endl;
         
         /* Backpropegate. */
         for (int l = nl - 1;  l >= 1;  --l) {
@@ -964,6 +968,8 @@ struct Training_Job_Info {
             /* Differentiate the output. */
             layer.deltas(&layer_outputs[l][0], &errors[l][0], &deltas[l][0]);
 
+            //cerr << "deltas " << l << " = " << deltas[l] << endl;
+
             if (l > 1) {
                 /* Calculate new errors (for the next layer). */
                 for (unsigned i = 0;  i < ni;  ++i)
@@ -971,6 +977,8 @@ struct Training_Job_Info {
                         = SIMD::vec_dotprod_dp(&deltas[l][0],
                                                &layer.weights[i][0],
                                                no);
+
+                //cerr << "errors " << l - 1 << " = " << errors[l - 1] << endl;
             }
         }
 
@@ -1092,14 +1100,14 @@ struct Training_Job_Info {
                     fprop(x, layers, layer_outputs);
                     example_rms_error = bprop(x, layers, layer_outputs,
                                               errors, deltas, o);
+                    
 
-                    for (unsigned l = 1;  l < nl;  ++l) {
+                    for (int l = nl - 1;  l >= 1;  --l) {
                         
                         Perceptron::Layer & layer = *layers[l];
                         
                         size_t no = layer.outputs();
                         size_t ni = layer.inputs();
-                        
                         
                         const distribution<float> & delta = deltas[l];
                         
@@ -1107,9 +1115,16 @@ struct Training_Job_Info {
                            (input) is always 1. */
                         SIMD::vec_add(&layer.bias[0], k, &delta[0],
                                       &layer.bias[0], no);
+
+                        //cerr << "w updates for layer " << l << endl;
                         
                         for (unsigned i = 0;  i < ni;  ++i) {
                             float k2 = layer_outputs[l - 1][i] * k;
+
+                            //for (unsigned o = 0;  o < no;  ++o)
+                            //    cerr << "update[" << i << "][" << o << "] = "
+                            //         << k2 * delta[o] << endl;
+
                             SIMD::vec_add(&layer.weights[i][0], k2, &delta[0],
                                           &layer.weights[i][0], no);
                         }
