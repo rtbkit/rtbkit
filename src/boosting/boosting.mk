@@ -59,7 +59,7 @@ LIBBOOSTING_SOURCES := \
 
 LIBBOOSTING_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt
 
-$(eval $(call set_compile_option,perceptron_generator.cc perceptron.cc,-ffast-math))
+#$(eval $(call set_compile_option,perceptron_generator.cc perceptron.cc,-ffast-math))
 
 $(eval $(call library,boosting,$(LIBBOOSTING_SOURCES),$(LIBBOOSTING_LINK)))
 
