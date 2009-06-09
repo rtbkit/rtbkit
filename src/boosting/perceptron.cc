@@ -16,6 +16,7 @@
 #include "algebra/irls.h"
 #include "utils/vector_utils.h"
 #include <iomanip>
+#include <boost/random/mersenne_twister.hpp>
 #include <boost/random/lagged_fibonacci.hpp>
 #include <boost/random/uniform_01.hpp>
 #include "utils/parse_context.h"
@@ -63,9 +64,10 @@ struct Stats {
 
 namespace {
 
-typedef boost::lagged_fibonacci607 rng_type;
+//typedef boost::lagged_fibonacci607 rng_type;
+typedef boost::mt19937 rng_type;
 typedef boost::uniform_01<rng_type, float> dist_gen_type;
-static rng_type rng;
+static rng_type rng(1);
 static dist_gen_type dist_gen(rng);
 
 void init_rng(int seed)
@@ -264,19 +266,52 @@ deltas(const float * outputs, const float * errors, float * deltas) const
     }
 }
 
+static uint32_t randseed = 5;
+static int nrandoms = 0;
+
+void seed()
+{
+    randseed = 5;
+    nrandoms = 0;
+}
+
+float onerand()
+{
+    randseed *= 31;
+    ++nrandoms;
+    return (randseed % 131072) / 131071.0;
+}
+
 void Perceptron::Layer::random_fill(float limit)
 {
+    seed();
+
     int ni = weights.shape()[0], no = weights.shape()[1];
+
+    cerr << "random fill of " << ni << "x" << no << " with " << limit << endl;
     
-    for (unsigned j = 0;  j < no;  ++j)
-        for (unsigned i = 0;  i < ni;  ++i)
-            weights[i][j] = limit * (dist_gen() * 2.0f - 1.0f);
+    for (unsigned i = 0;  i < ni;  ++i) {
+        for (unsigned j = 0;  j < no;  ++j) {
+            //weights[i][j] = limit * (dist_gen() * 2.0f - 1.0f);
+            weights[i][j] = limit * (onerand() * 2.0f - 1.0f);
+            if (i < 500 && j < 5 && false)
+                cerr << "random: w[" << i << "][" << j << "] = "
+                     << weights[i][j] << endl;
+        }
+    }
     
     if (no != bias.size())
         throw Exception("bias sized wrong");
 
-    for (unsigned o = 0;  o < bias.size();  ++o)
-        bias[o] = limit * (dist_gen() * 2.0f - 1.0f);
+    cerr << "before bias: seed " << randseed << " nrandoms " << nrandoms
+         << endl;
+
+    for (unsigned o = 0;  o < bias.size();  ++o) {
+        //bias[o] = limit * (dist_gen() * 2.0f - 1.0f);
+        bias[o] = limit * (onerand() * 2.0f - 1.0f);
+        if (o < 5 && false)
+            cerr << "bias[" << o << "] = " << bias[o] << endl;
+    }
 }
 
 

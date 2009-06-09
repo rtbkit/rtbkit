@@ -665,14 +665,14 @@ struct Training_Job_Info {
             /* Compute weights going forward. */
             std::copy(&decorrelated[x][0], &decorrelated[x][0] + nf,
                       &layer_outputs[0][0]);
-
-            //cerr << "input for example " << x << ": " << layer_outputs[0]
-            //     << endl;
+            
+            cerr << "input for example " << x << ": " << layer_outputs[0]
+                 << endl;
             
             for (unsigned l = 1;  l < nl;  ++l) {
                 layers[l]->apply(layer_outputs[l - 1], layer_outputs[l]);
-                //cerr << "  output of layer " << l << ": " << layer_outputs[l]
-                //     << endl;
+                cerr << "  output of layer " << l << ": " << layer_outputs[l]
+                     << endl;
             }
         }
     }
@@ -770,6 +770,8 @@ struct Training_Job_Info {
             /* Calculate the error terms for each output unit. */
             /* TODO: regression */
             correct[labels[x]] = fire;
+
+            cerr << "correct = " << correct << endl;
             
             double example_rms_error = 0.0;
 
@@ -795,7 +797,7 @@ struct Training_Job_Info {
                 size_t no = layer.outputs();
                 size_t ni = layer.inputs();
 
-#if 0
+#if 1
                 cerr << "layer " << l << " errors: "
                      << distribution<float>(errors, errors + no)
                      << endl;
@@ -805,7 +807,16 @@ struct Training_Job_Info {
                 /* Differentiate the output. */
                 layer.deltas(&layer_outputs[l][0], &errors[0], delta);
 
-#if 0
+                distribution<float> ddelta(delta, delta + no);
+                distribution<float> derrors(errors, errors + no);
+
+                cerr << "layer " << l << " outputs: " << layer_outputs[l]
+                     << endl;
+                cerr << "layer " << l << " derivs: " << ddelta / derrors
+                     << endl;
+
+
+#if 1
                 cerr << "layer " << l << " deltas: "
                      << distribution<float>(delta, delta + no)
                      << endl;
@@ -813,17 +824,37 @@ struct Training_Job_Info {
                 
                 if (l > 1) {
                     /* Calculate new errors (for the next layer). */
-                    for (unsigned i = 0;  i < ni;  ++i)
+                    for (unsigned i = 0;  i < ni;  ++i) {
+
+                        if (i == 0 && l == 2) {
+                            cerr << "for input 0: weights "
+                                 << distribution<float>(&layer.weights[i][0],
+                                                        &layer.weights[i][0] + no)
+                                 << endl;
+                            double herror0 = 0.0;
+                            for (unsigned j = 0;  j < no;  ++j) {
+                                cerr << "calc error for input 0: o = " << j
+                                     << ": " << delta[j]
+                                     << " * " << layer.weights[i][j]
+                                     << " = " << (delta[j] * layer.weights[i][j])
+                                     << endl;
+                                herror0 += (delta[j] * layer.weights[i][j]);
+                            }
+                            cerr << "herror0 = " << herror0 << endl;
+                        }
+
                         errors[i] = SIMD::vec_dotprod_dp(&delta[0],
                                                          &layer.weights[i][0],
                                                          no);
-                    
-                    if (x == 0 && false) {
-                        cerr << "errors for layer " << l << ": "
-                             << distribution<float>(errors, errors + ni)
-                             << endl;
                     }
+
                     
+                    
+                    // BIAS?
+
+                    cerr << "errors for layer " << l - 1 << ": "
+                         << distribution<float>(errors, errors + ni)
+                         << endl;
                 }
                 
                 /* Update the weights. */
@@ -886,23 +917,40 @@ struct Training_Job_Info {
         }
     }
 
+    /** output_num_in_isolation == -1: calculate deltas for all outputs.
+        Otherwise, just for the given output */
     double bprop(int x,
                  const vector<boost::shared_ptr<Perceptron::Layer> > & layers,
                  const vector<distribution<float> > & layer_outputs,
                  vector<distribution<float> > & errors,
-                 vector<distribution<float> > & deltas) const
+                 vector<distribution<float> > & deltas,
+                 int output_num_in_isolation = -1) const
     {
         double example_rms_error = 0.0;
         size_t nl = layers.size();
         int no = layers[nl - 1]->outputs();
         
         PROFILE_FUNCTION(t_bprop);
+
         /* Original output errors.  Also update the RMS errors. */
-        for (unsigned i = 0;  i < no;  ++i) {
-            float correct = (labels[x] == i ? fire : inhibit);
-            errors[nl - 1][i] = correct - layer_outputs[nl - 1][i];
-            example_rms_error
-                += 0.5 * errors[nl - 1][i] * errors[nl - 1][i] / no;
+        for (unsigned o = 0;  o < no;  ++o) {
+            float correct = (labels[x] == o ? fire : inhibit);
+            float error = correct - layer_outputs[nl - 1][o];
+
+            if (isnan(error)) {
+                cerr << "example " << x << " of " << example_weights.size()
+                     << endl;
+                throw Exception("bprop: error is NaN");
+            }
+
+            example_rms_error += 0.5 * error * error / no;
+
+            if (o == output_num_in_isolation || output_num_in_isolation == -1) {
+                /* If we just want to calculate deltas for one of the outputs,
+                   then we set the others to zero. */
+                errors[nl - 1][o] = error;
+            }
+            else errors[nl - 1][o] = 0.0;
         }
         
         /* Backpropegate. */
@@ -915,7 +963,7 @@ struct Training_Job_Info {
             
             /* Differentiate the output. */
             layer.deltas(&layer_outputs[l][0], &errors[l][0], &deltas[l][0]);
-            
+
             if (l > 1) {
                 /* Calculate new errors (for the next layer). */
                 for (unsigned i = 0;  i < ni;  ++i)
@@ -934,13 +982,45 @@ struct Training_Job_Info {
         vector<pair<float, int> > to_sort;
         to_sort.reserve(values.size());
 
-        for (unsigned i = 0;  i < values.size();  ++i)
+        for (unsigned i = 0;  i < values.size();  ++i) {
+            if (isnan(values[i]))
+                throw Exception("sort_by_abs: value is NaN");
+            if (!isfinite(values[i]))
+                throw Exception("sort_by_abs: value is not finite");
             to_sort.push_back(make_pair(abs(values[i]), i));
+        }
 
         std::sort(to_sort.begin(), to_sort.end());
 
         return vector<int>(second_extractor(to_sort.begin()),
                            second_extractor(to_sort.end()));
+    }
+
+    void update_with_deltas
+        (const vector<boost::shared_ptr<Perceptron::Layer> > & original,
+         const vector<boost::shared_ptr<Perceptron::Layer> > & updated)
+    {
+        size_t nl = updated.size();
+
+        /* Finally, put the accumulated weights back.  We calculate the
+           updates by taking the difference between the current weights
+           and the original weights. */
+        for (unsigned l = 1;  l < nl;  ++l) {
+            const Perceptron::Layer & layer0 = *original[l];
+            const Perceptron::Layer & layer = *updated[l];
+                
+            size_t no = layer.outputs();
+            size_t ni = layer.inputs();
+            
+            for (unsigned i = 0;  i < ni;  ++i)
+                for (unsigned o = 0;  o < no;  ++o)
+                    weight_updates[l][i][o]
+                        += (layer.weights[i][o] - layer0.weights[i][o]);
+            
+            for (unsigned o = 0;  o < no;  ++o)
+                bias_updates[l][o]
+                    += (layer.bias[o] - layer0.bias[o]);
+        }
     }
 
     void train_ultrastochastic(int x_start, int x_end, bool one_thread)
@@ -996,11 +1076,53 @@ struct Training_Job_Info {
             /* Update the weights. */
             float k = w * learning_rate;
 
+            if (mode == 4) {
+                /* Implement the fraka4 mode.  In this mode, we optimize
+                   separately for each of the output units. */
+                int no_final = layers[nl - 1]->outputs();
+
+                vector<int> output_indexes = sort_by_abs(deltas[nl - 1]);
+
+                for (unsigned oi = 0;  oi < no_final;  ++oi) {
+                    unsigned o
+                        = (order_of_sensitivity
+                           ? output_indexes[oi]
+                           : oi);
+
+                    fprop(x, layers, layer_outputs);
+                    example_rms_error = bprop(x, layers, layer_outputs,
+                                              errors, deltas, o);
+
+                    for (unsigned l = 1;  l < nl;  ++l) {
+                        
+                        Perceptron::Layer & layer = *layers[l];
+                        
+                        size_t no = layer.outputs();
+                        size_t ni = layer.inputs();
+                        
+                        
+                        const distribution<float> & delta = deltas[l];
+                        
+                        /* Update the bias terms.  The previous layer output
+                           (input) is always 1. */
+                        SIMD::vec_add(&layer.bias[0], k, &delta[0],
+                                      &layer.bias[0], no);
+                        
+                        for (unsigned i = 0;  i < ni;  ++i) {
+                            float k2 = layer_outputs[l - 1][i] * k;
+                            SIMD::vec_add(&layer.weights[i][0], k2, &delta[0],
+                                          &layer.weights[i][0], no);
+                        }
+                    }
+                }
+            }
+
+
             // Now for the updates.  We go from the lower layer to the higher
             // layer.  Once all updates have been made on a particular unit,
             // we re-propagate.
 
-            for (unsigned l = 1;  l < nl;  ++l) {
+            for (unsigned l = 1;  l < nl && mode < 4;  ++l) {
 
                 Perceptron::Layer & layer = *layers[l];
                 
@@ -1100,26 +1222,8 @@ struct Training_Job_Info {
         this->correct += sub_correct;
         this->total += sub_total;
         total_rms_error += my_rms_error;
-        
-        /* Finally, put the accumulated weights back.  We calculate the
-           updates by taking the difference between the current weights
-           and the original weights. */
-        for (unsigned l = 1;  l < nl;  ++l) {
-            const Perceptron::Layer & layer0 = *original[l];
-            const Perceptron::Layer & layer = *layers[l];
-                
-            size_t no = layer.outputs();
-            size_t ni = layer.inputs();
-            
-            for (unsigned i = 0;  i < ni;  ++i)
-                for (unsigned o = 0;  o < no;  ++o)
-                    weight_updates[l][i][o]
-                        += (layer.weights[i][o] - layer0.weights[i][o]);
-            
-            for (unsigned o = 0;  o < no;  ++o)
-                bias_updates[l][o]
-                    += (layer.bias[o] - layer0.bias[o]);
-        }
+
+        update_with_deltas(original, layers);
     }
 };
 
