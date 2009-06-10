@@ -666,13 +666,13 @@ struct Training_Job_Info {
             std::copy(&decorrelated[x][0], &decorrelated[x][0] + nf,
                       &layer_outputs[0][0]);
             
-            //cerr << "input for example " << x << ": " << layer_outputs[0]
-            //     << endl;
+            cerr << "input for example " << x << ": " << layer_outputs[0]
+                 << endl;
             
             for (unsigned l = 1;  l < nl;  ++l) {
                 layers[l]->apply(layer_outputs[l - 1], layer_outputs[l]);
-                //cerr << "  output of layer " << l << ": " << layer_outputs[l]
-                //     << endl;
+                cerr << "  output of layer " << l << ": " << layer_outputs[l]
+                     << endl;
             }
         }
     }
@@ -1059,11 +1059,14 @@ struct Training_Job_Info {
         vector<distribution<float> > layer_outputs(layers.size());
         
         vector<distribution<float> > errors(nl), deltas(nl);
+        vector<distribution<float> > errors2(nl), deltas2(nl);
 
         for (unsigned l = 0;  l < nl;  ++l) {
             size_t no = layers[l]->outputs();
             errors[l].resize(no);
             deltas[l].resize(no);
+            errors2[l].resize(no);
+            deltas2[l].resize(no);
             layer_outputs[l].resize(no);
         }
 
@@ -1101,45 +1104,78 @@ struct Training_Job_Info {
                            ? output_indexes[oi]
                            : oi);
 
-                    if (mode == 5) {
-                        fprop(x, layers, layer_outputs);
-                        example_rms_error = bprop(x, layers, layer_outputs,
-                                                  errors, deltas, o);
-                    }
+                    fprop(x, layers, layer_outputs);
+                    example_rms_error = bprop(x, layers, layer_outputs,
+                                              errors, deltas, o);
+                    example_rms_error = bprop(x, layers, layer_outputs,
+                                              errors2, deltas2);
 
                     for (int l = nl - 1;  l >= 1;  --l) {
 
-                        if (mode == 4) {
-                            fprop(x, layers, layer_outputs);
-                            example_rms_error = bprop(x, layers, layer_outputs,
-                                                      errors, deltas,
-                                                      (l == 1 ? o : -1));
-                        }
-                        
                         Perceptron::Layer & layer = *layers[l];
                         
                         size_t no = layer.outputs();
                         size_t ni = layer.inputs();
                         
-                        const distribution<float> & delta = deltas[l];
+                        const distribution<float> & delta
+                            = (l == 1 ? deltas[l] : deltas2[l]);
                         
                         /* Update the bias terms.  The previous layer output
                            (input) is always 1. */
                         SIMD::vec_add(&layer.bias[0], k, &delta[0],
                                       &layer.bias[0], no);
 
-                        //cerr << "w updates for layer " << l << endl;
+                        cerr << "w updates for layer " << l << endl;
                         
                         for (unsigned i = 0;  i < ni;  ++i) {
                             float k2 = layer_outputs[l - 1][i] * k;
 
-                            //for (unsigned o = 0;  o < no;  ++o)
-                            //    cerr << "update[" << i << "][" << o << "] = "
-                            //         << k2 * delta[o] << endl;
+                            if (i < 3 || i >= (ni - 3)) {
+                                for (unsigned o = 0;  o < no;  ++o) {
+                                    if (o < 3 || o >= (no - 3))
+                                        cerr << "update[" << i << "]["
+                                             << o << "] = "
+                                             << k2 * delta[o] << endl;
+                                }
+                            }
 
                             SIMD::vec_add(&layer.weights[i][0], k2, &delta[0],
                                           &layer.weights[i][0], no);
                         }
+
+                        for (unsigned o = 0;  o < no;  ++o) {
+                            if (o < 3 || o >= (no - 3))
+                                cerr << "biasup[" << o << "] = "
+                                     << k * delta[o] << endl;
+                        }
+                    }
+                }
+
+                cerr << "AFTER PRESENTATION OF ONE EXAMPLE" << endl;
+
+                for (int l = nl - 1;  l >= 1;  --l) {
+                    
+                    Perceptron::Layer & layer = *layers[l];
+                    
+                    size_t no = layer.outputs();
+                    size_t ni = layer.inputs();
+
+                    for (unsigned i = 0;  i < ni;  ++i) {
+                        if (i < 3 || i >= (ni - 3)) {
+                            for (unsigned o = 0;  o < no;  ++o) {
+                                if (o < 3 || o >= (no - 3))
+                                    cerr << "weights[" << l << "][" << i
+                                         << "][" << o << "] = "
+                                         << layer.weights[i][o]
+                                         << endl;
+                            }
+                        }
+                    }
+
+                    for (unsigned o = 0;  o < no;  ++o) {
+                        if (o < 3 || o >= (no - 3))
+                            cerr << "biases[" << l << "][" << o << "] = "
+                                 << layer.bias[o] << endl;
                     }
                 }
             }
