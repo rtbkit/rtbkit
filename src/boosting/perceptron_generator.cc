@@ -811,51 +811,13 @@ struct Training_Job_Info {
                 /* Differentiate the output. */
                 layer.deltas(&layer_outputs[l][0], &errors[0], delta);
 
-#if 0
-                distribution<float> ddelta(delta, delta + no);
-                distribution<float> derrors(errors, errors + no);
-
-                cerr << "layer " << l << " outputs: " << layer_outputs[l]
-                     << endl;
-                cerr << "layer " << l << " derivs: " << ddelta / derrors
-                     << endl;
-
-
-                cerr << "layer " << l << " deltas: "
-                     << distribution<float>(delta, delta + no)
-                     << endl;
-#endif
                 
                 if (l > 1) {
                     /* Calculate new errors (for the next layer). */
-                    for (unsigned i = 0;  i < ni;  ++i) {
-
-                        if (i == 0 && l == 2 && false) {
-                            cerr << "for input 0: weights "
-                                 << distribution<float>(&layer.weights[i][0],
-                                                        &layer.weights[i][0] + no)
-                                 << endl;
-                            double herror0 = 0.0;
-                            for (unsigned j = 0;  j < no;  ++j) {
-                                cerr << "calc error for input 0: o = " << j
-                                     << ": " << delta[j]
-                                     << " * " << layer.weights[i][j]
-                                     << " = " << (delta[j] * layer.weights[i][j])
-                                     << endl;
-                                herror0 += (delta[j] * layer.weights[i][j]);
-                            }
-                            cerr << "herror0 = " << herror0 << endl;
-                        }
-
+                    for (unsigned i = 0;  i < ni;  ++i)
                         errors[i] = SIMD::vec_dotprod_dp(&delta[0],
                                                          &layer.weights[i][0],
                                                          no);
-                    }
-
-                    
-                    
-                    // BIAS?
-
 #if 0
                     cerr << "errors for layer " << l - 1 << ": "
                          << distribution<float>(errors, errors + ni)
@@ -1122,9 +1084,11 @@ struct Training_Job_Info {
                     fprop(x, layers, layer_outputs);
                     example_rms_error = bprop(x, layers, layer_outputs,
                                               errors, deltas, o);
-                    example_rms_error = bprop(x, layers, layer_outputs,
-                                              errors2, deltas2);
 
+                    if (mode == 4)
+                        example_rms_error = bprop(x, layers, layer_outputs,
+                                                  errors2, deltas2);
+                    
                     for (int l = nl - 1;  l >= 1;  --l) {
 
                         Perceptron::Layer & layer = *layers[l];
