@@ -147,6 +147,11 @@ void vec_add(const float * x, float k, const float * y, float * r, size_t n)
     }
 }
 
+void vec_add(const float * x, float k, const double * y, float * r, size_t n)
+{
+    for (unsigned i = 0; i < n;  ++i) r[i] = x[i] + k * y[i];
+}
+
 float vec_dotprod(const float * x, const float * y, size_t n)
 {
     double res = 0.0;
@@ -287,6 +292,13 @@ double vec_dotprod_dp(const float * x, const float * y, size_t n)
     }
         
 
+    double res = 0.0;
+    for (unsigned i = 0;  i < n;  ++i) res += x[i] * y[i];
+    return res;
+}
+
+double vec_dotprod_dp(const float * x, const double * y, size_t n)
+{
     double res = 0.0;
     for (unsigned i = 0;  i < n;  ++i) res += x[i] * y[i];
     return res;

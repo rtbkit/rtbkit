@@ -122,8 +122,8 @@ public:
             return *this;
         }
 
-        boost::multi_array<float, 2> weights;
-        distribution<float> bias;
+        boost::multi_array<double, 2> weights;
+        distribution<double> bias;
         Activation activation;   ///< Activation function
         
         /** Dump as ASCII.  This will be big. */

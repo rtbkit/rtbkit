@@ -616,8 +616,8 @@ struct Training_Job_Info {
     const distribution<float> & example_weights;
     const Perceptron & result;
     Lock lock;
-    const vector<vector<float *> > & weight_updates;
-    const vector<float *> & bias_updates;
+    const vector<vector<double *> > & weight_updates;
+    const vector<double *> & bias_updates;
     double & correct;
     double & total;
     double & total_rms_error;
@@ -632,8 +632,8 @@ struct Training_Job_Info {
                       const std::vector<Label> & labels,
                       const distribution<float> & example_weights,
                       const Perceptron & result,
-                      const vector<vector<float *> > & weight_updates,
-                      const vector<float *> & bias_updates,
+                      const vector<vector<double *> > & weight_updates,
+                      const vector<double *> & bias_updates,
                       double & correct, double & total,
                       double & total_rms_error,
                       float learning_rate,
@@ -706,12 +706,12 @@ struct Training_Job_Info {
         size_t nl = layers.size();
 
         // Accumulate the weight updates here.  They are applied later.
-        vector<boost::multi_array<float, 2> > sub_weight_updates_storage;
-        vector<distribution<float> > sub_bias_updates_storage(nl);
+        vector<boost::multi_array<double, 2> > sub_weight_updates_storage;
+        vector<distribution<double> > sub_bias_updates_storage(nl);
         sub_weight_updates_storage.reserve(nl);
 
-        vector<vector<float *> > sub_weight_updates_ptrs;
-        vector<float *> sub_bias_updates_ptrs;
+        vector<vector<double *> > sub_weight_updates_ptrs;
+        vector<double *> sub_bias_updates_ptrs;
     
         for (unsigned l = 0;  l < nl;  ++l) {
             size_t no = layers[l]->outputs();
@@ -720,10 +720,10 @@ struct Training_Job_Info {
 
             if (!one_thread) {
                 sub_weight_updates_storage
-                    .push_back(boost::multi_array<float, 2>
+                    .push_back(boost::multi_array<double, 2>
                                (boost::extents[ni][no]));
 
-                sub_weight_updates_ptrs.push_back(vector<float *>());
+                sub_weight_updates_ptrs.push_back(vector<double *>());
 
                 for (unsigned i = 0;  i < ni;  ++i)
                     sub_weight_updates_ptrs.back()
@@ -737,10 +737,10 @@ struct Training_Job_Info {
 
         /* If there's only a single thread, then we don't gain anything by
            batching the update, we can just directly write it */
-        const vector<vector<float *> > & sub_weight_updates
+        const vector<vector<double *> > & sub_weight_updates
             = (one_thread ? weight_updates : sub_weight_updates_ptrs);
             
-        const vector<float *> & sub_bias_updates
+        const vector<double *> & sub_bias_updates
             = (one_thread ? bias_updates : sub_bias_updates_ptrs);
 
         double sub_correct = 0.0, sub_total = 0.0;
@@ -1046,14 +1046,18 @@ struct Training_Job_Info {
         // and know what the combined updates were
         vector<boost::shared_ptr<Perceptron::Layer> > layers = result.layers;
 
+        size_t nl = layers.size();
+
+        // Weights and biases in double precision to accumulate updates
+        vector<boost::multi_array<double, 2> > d_weights(nl);
+        vector<distribution<double> > d_biases(nl);
+
         vector<boost::shared_ptr<Perceptron::Layer> > original;
         for (unsigned i = 0;  i < layers.size();  ++i)
             original.push_back(make_sp(new Perceptron::Layer(*layers[i])));
 
         vector<distribution<float> > layer_outputs(layers.size());
         
-        size_t nl = layers.size();
-
         vector<distribution<float> > errors(nl), deltas(nl);
 
         for (unsigned l = 0;  l < nl;  ++l) {
@@ -1308,13 +1312,13 @@ train_iteration(Thread_Context & context,
     // Accumulate the weight updates here.  They are applied later.  These
     // are not however used if we only present a single example at a time;
     // in that case, we apply to the output weights directly.
-    vector<boost::multi_array<float, 2> > weight_updates;
+    vector<boost::multi_array<double, 2> > weight_updates;
     weight_updates.reserve(nl);
-    vector<distribution<float> > bias_updates(nl);
+    vector<distribution<double> > bias_updates(nl);
 
     // Pointers to the weights that we update
-    vector<vector<float *> > weight_updates_ptrs;
-    vector<float *> bias_updates_ptrs;
+    vector<vector<double *> > weight_updates_ptrs;
+    vector<double *> bias_updates_ptrs;
     
     double correct = 0.0;
     double total = 0.0;
@@ -1326,11 +1330,11 @@ train_iteration(Thread_Context & context,
         for (unsigned l = 0;  l < nl;  ++l) {
             size_t no = layers[l]->outputs();
             size_t ni = layers[l]->inputs();
-            weight_updates.push_back(boost::multi_array<float, 2>
+            weight_updates.push_back(boost::multi_array<double, 2>
                                      (boost::extents[ni][no]));
             bias_updates[l].resize(no);
 
-            weight_updates_ptrs.push_back(vector<float *>());
+            weight_updates_ptrs.push_back(vector<double *>());
             
             for (unsigned i = 0;  i < ni;  ++i)
                 weight_updates_ptrs.back()
@@ -1344,7 +1348,7 @@ train_iteration(Thread_Context & context,
         for (unsigned l = 0;  l < nl;  ++l) {
             size_t ni = layers[l]->inputs();
 
-            weight_updates_ptrs.push_back(vector<float *>());
+            weight_updates_ptrs.push_back(vector<double *>());
             
             for (unsigned i = 0;  i < ni;  ++i)
                 weight_updates_ptrs.back()
@@ -1355,7 +1359,7 @@ train_iteration(Thread_Context & context,
         }
     }
 
-    float biggest_update = 0.0, biggest_value = 0.0;
+    double biggest_update = 0.0, biggest_value = 0.0;
 
     for (; done_ex < nx;  done_ex += our_batch_size) {
 
@@ -1371,7 +1375,7 @@ train_iteration(Thread_Context & context,
                 size_t no = layers[l]->outputs();
                 size_t ni = layers[l]->inputs();
                 
-                float * to_empty = &weight_updates[l][0][0];
+                double * to_empty = &weight_updates[l][0][0];
                 std::fill(to_empty, to_empty + no * ni, 0.0f);
                 
                 std::fill(bias_updates[l].begin(), bias_updates[l].end(), 0.0);

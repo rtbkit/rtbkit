@@ -51,7 +51,12 @@ double vec_accum_prod3(const double * x, const double * y, const double * z,
                       size_t n);
 double vec_sum(const double * x, size_t n);
 
-/* Mixed float-double versions */
+/* Mixed versions */
+void vec_add(const float * x, float k, const double * y, float * r, size_t n);
+double vec_dotprod_dp(const float * x, const double * y, size_t n);
+
+
+/* Floating point using double precision accumulation */
 double vec_dotprod_dp(const float * x, const float * y, size_t n);
 double vec_sum_dp(const float * x, size_t n);
 
