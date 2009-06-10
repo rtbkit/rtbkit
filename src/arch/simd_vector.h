@@ -59,6 +59,8 @@ double vec_dotprod_dp(const float * x, const double * y, size_t n);
 /* Floating point using double precision accumulation */
 double vec_dotprod_dp(const float * x, const float * y, size_t n);
 double vec_sum_dp(const float * x, size_t n);
+void vec_add(const double * x, double k, const float * y, double * r,
+             size_t n);
 
 inline double vec_sum_dp(const double * x, size_t n)
 {
@@ -69,8 +71,6 @@ inline double vec_dotprod_dp(const double * x, const double * y, size_t n)
 {
     return vec_dotprod(x, y, n);
 }
-void vec_add(const double * x, double k, const float * y, double * r,
-             size_t n);
 
 } // namespace Generic
 

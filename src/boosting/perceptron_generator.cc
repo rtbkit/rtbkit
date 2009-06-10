@@ -1088,7 +1088,7 @@ struct Training_Job_Info {
             /* Update the weights. */
             float k = w * learning_rate;
 
-            if (mode == 4) {
+            if (mode == 4 || mode == 5) {
                 /* Implement the fraka4 mode.  In this mode, we optimize
                    separately for each of the output units. */
                 int no_final = layers[nl - 1]->outputs();
@@ -1101,12 +1101,20 @@ struct Training_Job_Info {
                            ? output_indexes[oi]
                            : oi);
 
-                    fprop(x, layers, layer_outputs);
-                    example_rms_error = bprop(x, layers, layer_outputs,
-                                              errors, deltas, o);
-                    
+                    if (mode == 5) {
+                        fprop(x, layers, layer_outputs);
+                        example_rms_error = bprop(x, layers, layer_outputs,
+                                                  errors, deltas, o);
+                    }
 
                     for (int l = nl - 1;  l >= 1;  --l) {
+
+                        if (mode == 4) {
+                            fprop(x, layers, layer_outputs);
+                            example_rms_error = bprop(x, layers, layer_outputs,
+                                                      errors, deltas,
+                                                      (l == 1 ? o : -1));
+                        }
                         
                         Perceptron::Layer & layer = *layers[l];
                         
