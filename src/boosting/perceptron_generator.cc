@@ -666,13 +666,17 @@ struct Training_Job_Info {
             std::copy(&decorrelated[x][0], &decorrelated[x][0] + nf,
                       &layer_outputs[0][0]);
             
+#if 0
             cerr << "input for example " << x << ": " << layer_outputs[0]
                  << endl;
+#endif
             
             for (unsigned l = 1;  l < nl;  ++l) {
                 layers[l]->apply(layer_outputs[l - 1], layer_outputs[l]);
+#if 0
                 cerr << "  output of layer " << l << ": " << layer_outputs[l]
                      << endl;
+#endif
             }
         }
     }
@@ -1042,19 +1046,30 @@ struct Training_Job_Info {
         //cerr << "training ultrastochastic " << x_start << " to " << x_end
         //     << " mode = " << mode << endl;
 
+        // If we have a single thread, we can simply update the values in place
+        // straight away.  Otherwise, we need to accumulate updates.
+
         // Make a deep copy of the old perceptron that we can update as we go
         // and know what the combined updates were
-        vector<boost::shared_ptr<Perceptron::Layer> > layers = result.layers;
 
-        size_t nl = layers.size();
+        size_t nl = result.layers.size();
 
-        // Weights and biases in double precision to accumulate updates
-        vector<boost::multi_array<double, 2> > d_weights(nl);
-        vector<distribution<double> > d_biases(nl);
+        vector<boost::shared_ptr<Perceptron::Layer> > layers;
 
+        // Starting version of weights to compute updates
         vector<boost::shared_ptr<Perceptron::Layer> > original;
-        for (unsigned i = 0;  i < layers.size();  ++i)
-            original.push_back(make_sp(new Perceptron::Layer(*layers[i])));
+
+        if (one_thread) {
+            layers = result.layers;
+            // original not needed
+        }
+        else {
+            // Layers is a copy
+            for (unsigned i = 0;  i < layers.size();  ++i)
+                layers.push_back(make_sp(new Perceptron::Layer
+                                         (*result.layers[i])));
+            original = result.layers;
+        }
 
         vector<distribution<float> > layer_outputs(layers.size());
         
@@ -1118,18 +1133,19 @@ struct Training_Job_Info {
                         size_t ni = layer.inputs();
                         
                         const distribution<float> & delta
-                            = (l == 1 ? deltas[l] : deltas2[l]);
+                            = (l == 1 || mode == 5 ? deltas[l] : deltas2[l]);
                         
                         /* Update the bias terms.  The previous layer output
                            (input) is always 1. */
                         SIMD::vec_add(&layer.bias[0], k, &delta[0],
                                       &layer.bias[0], no);
 
-                        cerr << "w updates for layer " << l << endl;
+                        //cerr << "w updates for layer " << l << endl;
                         
                         for (unsigned i = 0;  i < ni;  ++i) {
                             float k2 = layer_outputs[l - 1][i] * k;
 
+#if 0
                             if (i < 3 || i >= (ni - 3)) {
                                 for (unsigned o = 0;  o < no;  ++o) {
                                     if (o < 3 || o >= (no - 3))
@@ -1138,19 +1154,23 @@ struct Training_Job_Info {
                                              << k2 * delta[o] << endl;
                                 }
                             }
+#endif
 
                             SIMD::vec_add(&layer.weights[i][0], k2, &delta[0],
                                           &layer.weights[i][0], no);
                         }
 
+#if 0
                         for (unsigned o = 0;  o < no;  ++o) {
                             if (o < 3 || o >= (no - 3))
                                 cerr << "biasup[" << o << "] = "
                                      << k * delta[o] << endl;
                         }
+#endif
                     }
                 }
 
+#if 0
                 cerr << "AFTER PRESENTATION OF ONE EXAMPLE" << endl;
 
                 for (int l = nl - 1;  l >= 1;  --l) {
@@ -1178,6 +1198,7 @@ struct Training_Job_Info {
                                  << layer.bias[o] << endl;
                     }
                 }
+#endif
             }
 
 
@@ -1280,11 +1301,14 @@ struct Training_Job_Info {
             my_rms_error += example_rms_error * w;
         }
 
+
         Guard guard(lock);
             
         this->correct += sub_correct;
         this->total += sub_total;
         total_rms_error += my_rms_error;
+
+        if (one_thread) return;  // layer updates were done in place
 
         update_with_deltas(original, layers);
     }
@@ -1625,10 +1649,11 @@ train_iteration(Thread_Context & context,
                                          abs(layer.bias[o]));
         }
 
+        //cerr << "biggest value: " << biggest_value
+        //     << " biggest update: " << biggest_update << endl;
+
     }
 
-    //cerr << "biggest value: " << biggest_value
-    //     << " biggest update: " << biggest_update << endl;
     
     //cerr << "correct = " << correct << " total = " << total << endl;
 
