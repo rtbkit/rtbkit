@@ -16,7 +16,6 @@ ifeq ($(CAL_ENABLED),1)
 CAL_PATH := /usr/local/amdcal/
 CAL_INCLUDE_PATH := /usr/local/amdcal/include
 CXXFLAGS += -I$(CAL_INCLUDE_PATH) -DJML_USE_CAL=1
-CXXLINKFLAGS := -L$(CUDA_LIBRARY_PATH) -Wl,--rpath,$(CUDA_LIBRARY_PATH)
 
 endif
 
