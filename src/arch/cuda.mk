@@ -3,7 +3,11 @@ CUDA_PATH := $(CUDA_INSTALL_PATH)
 CUDA_INCLUDE_PATH := $(CUDA_PATH)/include
 CUDA_LIBRARY_PATH := $(CUDA_PATH)/lib
 
-NVCC       := $(CUDA_INSTALL_PATH)/bin/nvcc -D_FORTIFY_SOURCE=0 -shared -Xcompiler -fPIC,-g,-O3 -arch=sm_13 --ptxas-options=-v
+# Set to 1 to emulate the CUDA device
+CUDA_DEVICE_EMULATION ?= 0
 
-# Uncomment to emulate the CUDA device
-#NVCC       += -Xcompiler -fno-access-control --device-emulation
+NVCC_EMULATION       := -Xcompiler -fno-access-control --device-emulation
+
+NVCC       := $(CUDA_INSTALL_PATH)/bin/nvcc -D_FORTIFY_SOURCE=0 -shared -Xcompiler -fPIC,-g,-O3 -arch=sm_13 --ptxas-options=-v $(if $(findstring x1x,x$(CUDA_DEVICE_EMULATION)x),$(CUDA_DEVICE_EMULATION))
+
+CXXFLAGS += -DJML_USE_CUDA=1 -I$(CUDA_INCLUDE_PATH)

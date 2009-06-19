@@ -21,7 +21,7 @@ $(eval $(call library,arch,$(LIBARCH_SOURCES),$(LIBARCH_LINK)))
 ifeq ($(CUDA_ENABLED),1)
 
 LIBARCH_CUDA_SOURCES 	:= cuda.cc
-LIBARCH_CUDA_LINK 	:= arch cudart
+LIBARCH_CUDA_LINK 	:= arch cuda
 
 $(eval $(call library,arch_cuda,$(LIBARCH_CUDA_SOURCES),$(LIBARCH_CUDA_LINK)))
 

@@ -1356,7 +1356,7 @@ train_iteration(Thread_Context & context,
     double total = 0.0;
     double total_rms_error = 0.0;
 
-    if (our_batch_size > 1) {
+    if (our_batch_size > 1 || use_cuda) {
         PROFILE_FUNCTION(t_setup);
 
         for (unsigned l = 0;  l < nl;  ++l) {
@@ -1407,6 +1407,10 @@ train_iteration(Thread_Context & context,
                 size_t no = layers[l]->outputs();
                 size_t ni = layers[l]->inputs();
                 
+                cerr << "l = " << l << " ni = " << ni << " no = "
+                     << no << " size=" << weight_updates[l].shape()[0]
+                     << "x" << weight_updates[l].shape()[1] << endl;
+
                 float * to_empty = &weight_updates[l][0][0];
                 std::fill(to_empty, to_empty + no * ni, 0.0f);
                 
@@ -1418,7 +1422,8 @@ train_iteration(Thread_Context & context,
 #if (JML_USE_CUDA == 1)
             using namespace CUDA;
 
-            const vector<Perceptron::Layer> & layers = result.layers;
+            const vector<boost::shared_ptr<Perceptron::Layer> > & layers
+                = result.layers;
 
             // NOTE: we don't keep layer 0, as it's the decorrelating and
             // conditioning layer.  That's the reason for indexes starting
@@ -1428,26 +1433,26 @@ train_iteration(Thread_Context & context,
 
             vector<int> architecture_spec;
 
-            architecture_spec.push_back(layers[1].inputs());
+            architecture_spec.push_back(layers[1]->inputs());
             for (unsigned l = 0;  l < num_active_layers;  ++l)
-                architecture_spec.push_back(layers[l + 1].outputs());
+                architecture_spec.push_back(layers[l + 1]->outputs());
             const int * architecture = &architecture_spec[0];
             
             //cerr << "architecture_spec = " << architecture_spec << endl;
 
             vector<const float *> weights_vec;
             for (unsigned l = 0;  l < num_active_layers;  ++l)
-                weights_vec.push_back(&layers[l + 1].weights[0][0]);
+                weights_vec.push_back(&layers[l + 1]->weights[0][0]);
             const float * const * weights = &weights_vec[0];
             
             vector<const float *> bias_vec;
             for (unsigned l = 0;  l < num_active_layers;  ++l)
-                bias_vec.push_back(&layers[l + 1].bias[0]);
+                bias_vec.push_back(&layers[l + 1]->bias[0]);
             const float * const * biases = &bias_vec[0];
             
             vector<int> w_strides_vec;
             for (unsigned l = 0;  l < num_active_layers;  ++l)
-                w_strides_vec.push_back(layers[l + 1].weights.shape()[1]);
+                w_strides_vec.push_back(layers[l + 1]->weights.shape()[1]);
 
             //cerr << "w_strides_vec = " << w_strides_vec << endl;
 
