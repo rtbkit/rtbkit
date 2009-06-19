@@ -43,8 +43,10 @@
 # undef  JML_UNLIKELY
 # define JML_UNLIKELY(x) x
 
+#if 0 // CUDA 2.1 only
 // Required so that nvcc works with optimization on under CUDA 2.1, GCC 4.3.3
 static __typeof__(int (pthread_t)) __gthrw_pthread_cancel __attribute__((__alias__("pthread_cancel"))); 
+#endif
 
 #else
 # define JML_COMPUTE_METHOD 
