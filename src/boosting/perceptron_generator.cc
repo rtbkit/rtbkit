@@ -1407,10 +1407,6 @@ train_iteration(Thread_Context & context,
                 size_t no = layers[l]->outputs();
                 size_t ni = layers[l]->inputs();
                 
-                cerr << "l = " << l << " ni = " << ni << " no = "
-                     << no << " size=" << weight_updates[l].shape()[0]
-                     << "x" << weight_updates[l].shape()[1] << endl;
-
                 float * to_empty = &weight_updates[l][0][0];
                 std::fill(to_empty, to_empty + no * ni, 0.0f);
                 
