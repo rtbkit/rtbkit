@@ -10,6 +10,7 @@
 #define __jml__backprop_cuda_h__
 
 #include <boost/shared_ptr.hpp>
+#include "perceptron_defs.h"
 
 namespace ML {
 namespace CUDA {
