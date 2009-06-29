@@ -148,7 +148,7 @@ train_N_examples(const float * input,
             if (__any(tid < no)) {
                 
                 if (tid < no)
-                    for (int x = 0;  x < N;  ++x)
+                    for (int x = 0;  x < N && x < valid_examples;  ++x)
                         this_layer_outputs[x * total_neurons + tid]
                             = scratch[x * scratch_stride + tid]
                             = transform(scratch[x * scratch_stride + tid],
@@ -159,7 +159,7 @@ train_N_examples(const float * input,
             // A single thread per entry; no synchronization
             float bias = layer_biases[o];
 
-            for (int x = 0;  x < N;  ++x) {
+            for (int x = 0;  x < N && x < valid_examples;  ++x) {
                 accum[x] += bias;
                 this_layer_outputs[x * total_neurons + o]
                     = scratch[x * scratch_stride + o]
@@ -307,8 +307,6 @@ train_N_examples(const float * input,
 
     // layer_biases is no longer used
 
-#if 0
-
     /*************************************************************************/
     /* BPROP                                                                 */
     /*************************************************************************/
@@ -324,7 +322,7 @@ train_N_examples(const float * input,
 
     __syncthreads();
 
-    for (int x = 0;  x < N;  ++x) {
+    for (int x = 0;  x < N && x < valid_examples;  ++x) {
         bool correct = (labels[x] == tid);
         float wanted = (correct ? fire : inhibit);
         scratch[x * scratch_stride + tid]
@@ -354,7 +352,7 @@ train_N_examples(const float * input,
         //float * d = (scratch + N * scratch_stride);
         float d[N];
 
-        for (int x = 0;  x < N;  ++x) {
+        for (int x = 0;  x < N && x < valid_examples;  ++x) {
             float prev_output
                 = (tid >= no
                    ? 0.0
@@ -373,7 +371,7 @@ train_N_examples(const float * input,
             // Broadcast the d values so that we can use them to calculate the
             // errors
 
-            for (int x = 0;  x < N;  ++x)
+            for (int x = 0;  x < N && x < valid_examples;  ++x)
                 scratch[x * scratch_stride + tid] = d[x];
             
             // Make sure everything can get its d value
@@ -386,7 +384,7 @@ train_N_examples(const float * input,
                 for (unsigned o = 0;  o < no;  ++o) {
                     float w = layer_weights[tid * w_stride + o];
                     
-                    for (int x = 0;  x < N;  ++x) {
+                    for (int x = 0;  x < N && x < valid_examples;  ++x) {
                         float d = scratch[x * scratch_stride + o];
                         float update = d * w;
                         total[x] += update;
@@ -398,7 +396,7 @@ train_N_examples(const float * input,
             // values with the new errors
             __syncthreads();
             
-            for (int x = 0;  x < N;  ++x)
+            for (int x = 0;  x < N && x < valid_examples;  ++x)
                 scratch[x * scratch_stride + tid] = total[x];
         }
 
@@ -427,7 +425,7 @@ train_N_examples(const float * input,
 
             double total_update = 0.0;
 
-            for (int x = 0;  x < N;  ++x) {
+            for (int x = 0;  x < N && x < valid_examples;  ++x) {
                 float prev
                     = (l == 0
                        ? input[x * input_stride + i]
@@ -446,115 +444,5 @@ train_N_examples(const float * input,
         //layer_bias_updates[tid] += update;
         atomic_add(layer_bias_updates[tid], total_update);
     }
-#else
-    /*************************************************************************/
-    /* BPROP                                                                 */
-    /*************************************************************************/
-
-    /* How many output layers? */
-    this_layer_outputs -= no;
-
-    layer_weights -= ni * w_stride;
-
-    /* First error calculation pass */
-    bool correct = (labels[0] == tid);
-    float wanted = (correct ? fire : inhibit);
-
-    float last_output = scratch[tid];
-
-    __syncthreads();
-
-    scratch[tid] = (tid < no ? wanted - last_output : 0.0);
-    
-    /* Let everything catch up */
-    __syncthreads();
-
-    /* Backpropegate. */
-    for (int l = num_layers - 1;  l >= 0;
-         --l,
-             __syncthreads(),
-             layer_weights -= (l == -1 ? 0 : architecture[l] * w_strides[l]),
-             this_layer_outputs -= architecture[l + 1]) {
-        
-        // Get information about the layer:
-        ni = architecture[l];
-        no = architecture[l + 1];
-        w_stride = w_strides[l];
-
-        UpdateFloat * layer_updates = w_updates[l];
-        UpdateFloat * layer_bias_updates  = b_updates[l];
-        
-        const float * last_layer_outputs = this_layer_outputs - ni;
-        
-        float prev_output = (tid >= no ? 0.0 : this_layer_outputs[tid]);
-
-        float error = scratch[tid];
-        
-        float d = (tid >= no ? 0.0 : delta(prev_output, error, activation));
-
-        if (l > 0) {
-            // Make sure all threads have caught up so that we can modify error
-            // without affecting them
-            __syncthreads();
-
-            // Broadcast the d values so that we can use them to calculate the
-            // errors
-            scratch[tid] = d;
-
-            // Make sure everything can get its d value
-            __syncthreads();
-            
-            double total = 0.0;
-            if (tid < ni) {
-                for (unsigned o = 0;  o < no;  ++o) {
-                    float d = scratch[o];  // may be the d from another thread
-                    float update = d * layer_weights[tid * w_stride + o];
-                    total += update;
-                }
-            }
-
-            // Wait for everything to finish so that we can overwrite the d
-            // values with the new errors
-            __syncthreads();
-            
-            scratch[tid] = total;
-        }
-
-        // Again, threads indexed too low just leave
-        if (tid >= no) continue;
-
-        /* Update the weights. */
-        float k = example_weights[0] * learning_rate;
-
-        /* Now for the updates.  In order to avoid trying to write the same
-           memory over and over, we stagger the starting points so that
-           each example will start at a different place, thus minimising
-           conflicting writes when we have multiple multiprocessors working
-           on the same thing. */
-
-        int thread_stride = ni / num_threads_in_block;
-        if (thread_stride == 0) thread_stride = 1;
-
-        int start_at = (block_num * thread_stride) % ni;
-
-        for (unsigned i_ = start_at;  i_ < ni + start_at;  ++i_) {
-
-            // Get the real index of i
-            unsigned i = i_ - (i_ >= ni) * ni;
-
-            float prev = (l == 0 ? input[i] : last_layer_outputs[i]); 
-            float update = prev * k * d;
-
-            atomic_add(layer_updates[i * w_stride + tid], update);
-        }
-        
-        /* Update the bias */
-        float update = k * d;
-
-        //layer_bias_updates[tid] += update;
-        atomic_add(layer_bias_updates[tid], update);
-    }
-#endif
-
 }
 
