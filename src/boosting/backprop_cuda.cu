@@ -189,13 +189,13 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
 #endif
 
 #if 0
-    for (;  example_num < last_example;  example_num += N) {
+    for (;  example_num < last_example;  example_num += 4) {
 
         const float * input = feature_vectors + example_num * feature_vector_width;
         train_4_examples(input,
                          labels + example_num,
                          example_weights + example_num,
-                         last_example - example_num,
+                         min(4, last_example - example_num),
                          num_layers, scratch,
                          weights_access, biases_access,
                          architecture, w_strides,
