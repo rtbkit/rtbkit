@@ -15,13 +15,8 @@ train_N_examples(const float * input,
                  int valid_examples,
                  int num_layers,
                  float * scratch,  // shared memory scratch space
-#if defined(__DEVICE_EMULATION__)
-                 const float * w,
-                 const float * biases,
-#else
                  const WeightsAccess<weights_tex> & w,
                  const WeightsAccess<biases_tex> & biases,
-#endif
                  const int * architecture,
                  const int * w_strides,
                  UpdateFloat * const * w_updates, // wt updates for each layer
@@ -54,10 +49,6 @@ train_N_examples(const float * input,
     int scratch_stride = max_width;
     
     for (int x = 0;  x < N;  ++x) {
-#if defined(__DEVICE_EMULATION__) && 0
-        fprintf(stderr, "tid %d block_num %d scratch_stride %d x %d\n",
-                tid, block_num, scratch_stride, x);
-#endif
         scratch[x * scratch_stride + tid]
             = (tid < ni ? input[x * input_stride + tid] : 0.0);
     }
@@ -67,13 +58,8 @@ train_N_examples(const float * input,
 
     float * this_layer_outputs = layer_outputs;
 
-#if defined(__DEVICE_EMULATION__)
-    const float * layer_weights = w;
-    const float * layer_biases = biases;
-#else
     WeightsAccess<weights_tex> layer_weights = w;
     WeightsAccess<biases_tex> layer_biases  = biases;
-#endif
 
     for (unsigned l = 0;
          l < num_layers;
@@ -87,6 +73,44 @@ train_N_examples(const float * input,
         ni = architecture[l];
         no = architecture[l + 1];
         w_stride = w_strides[l];
+
+#if 1
+        // Start off with the bias terms
+        double initial = (tid < no ? layer_biases[tid] : 0.0);
+        double accum[N];
+        FOR_ALL_X(accum[x] = initial);
+                  
+        if (__any(tid < no)) {
+
+            for (unsigned i = 0;  i < ni;  ++i) {
+
+                // Coalesced access; maybe texture would be better
+                float weight
+                    = (tid < no ? layer_weights[i * w_stride + tid] : 0.0);
+
+                for (int x = 0;  x < N && x < valid_examples;  ++x) {
+                    // No bank conflicts as all threads are accessing same value
+                    float inval = scratch[x * scratch_stride + i];
+                    accum[x] += weight * inval;
+                }
+            }
+        }         
+
+        // Let everything catch up so that we can write to scratch
+        __syncthreads();
+        
+        if (__any(tid < no)) {
+
+            if (tid < no) {
+                for (int x = 0;  x < N && x < valid_examples;  ++x) {
+                    this_layer_outputs[x * total_neurons + tid]
+                        = scratch[x * scratch_stride + tid]
+                        = transform(accum[x], activation);
+                }
+            }
+        }
+#else
+        // WARNING: causes variability
 
         /* We want to have each thread working here, even if no is much less
            than the number of threads.  To do so, we assign each thread to
@@ -166,6 +190,7 @@ train_N_examples(const float * input,
                     = transform(accum[x], activation);
             }
         }
+#endif
     }
 #else
     // access thread id

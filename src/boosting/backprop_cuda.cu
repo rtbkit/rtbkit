@@ -69,8 +69,6 @@ texture<float, 1, cudaReadModeElementType> weights_tex;
 texture<float, 1, cudaReadModeElementType> biases_tex;;
 
 
-#if !defined(__DEVICE_EMULATION__)
-
 template<const texture<float, 1, cudaReadModeElementType> & Tex>
 struct WeightsAccess {
     const float * base;  // if zero, then texture access
@@ -103,8 +101,6 @@ struct WeightsAccess {
         else return tex1Dfetch(Tex, offset + ofs);
     }
 };
-
-#endif
 
 /** Train a fully-connected neural network architecture via backpropagation
     one a single training example.  The work is split over all of the cores
@@ -175,10 +171,6 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
 
     unsigned example_num = example_num_base;
 
-#if defined(__DEVICE_EMULATION__)
-    const float * weights_access = w;
-    const float * biases_access = biases;
-#else
     WeightsAccess<weights_tex> weights_access;
     WeightsAccess<biases_tex> biases_access;
 
@@ -186,7 +178,6 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
         weights_access.init(w);
         biases_access.init(biases);
     }
-#endif
 
 #if 0
     for (;  example_num < last_example;  example_num += 4) {
@@ -205,7 +196,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                          num_threads_on_multiprocessor,
                          total_neurons, max_width, layer_outputs);
     }
-#elif 1
+#elif 0
     // Do any others singly
     for (;  example_num < last_example;  ++example_num) {
 
@@ -232,6 +223,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
         const float * input
             = feature_vectors + example_num * feature_vector_width;
 
+#if 1
         train_1_example(input,
                         labels + example_num,
                         example_weights + example_num,
@@ -244,6 +236,19 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                         num_threads_in_block,
                         num_threads_on_multiprocessor,
                         total_neurons, max_width, layer_outputs);
+#else
+        train_example(input,
+                      labels[example_num],
+                      example_weights[example_num],
+                      num_layers, scratch,
+                      weights_access, biases_access,
+                      architecture, w_strides,
+                      w_updates, b_updates,
+                      activation, inhibit, fire, learning_rate,
+                      num_threads_in_block,
+                      num_threads_on_multiprocessor,
+                      total_neurons, layer_outputs);
+#endif
     }
 }
 

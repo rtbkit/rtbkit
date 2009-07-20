@@ -1,4 +1,4 @@
-/* c++-mode */
+/* -*- c++ -*- */
 
 __device__ void
 train_example(const float * input,
@@ -57,7 +57,7 @@ train_example(const float * input,
 
         /* Add in the layer outputs.  We iterate with all threads */
         
-#if 0
+#if 1
         // Start off with the bias terms
         double accum = (tid < no ? layer_biases[tid] : 0.0);
 
