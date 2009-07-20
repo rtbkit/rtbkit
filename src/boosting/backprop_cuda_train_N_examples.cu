@@ -470,4 +470,3 @@ train_N_examples(const float * input,
         atomic_add(layer_bias_updates[tid], total_update);
     }
 }
-
