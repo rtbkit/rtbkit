@@ -251,15 +251,7 @@ train_N_examples(const float * input,
            errors from the previous layer on input, and the deltas from the
            current layer on output. */
         for (int x = 0;  x < N && x < valid_examples;  ++x) {
-            
-            // XXX Can get rid of this load...
-            //prev_outputs[x]
-            //    = (tid >= no
-            //       ? 0.0
-            //       : this_layer_outputs[x * total_neurons + tid]);
-            
             float error = scratch[x * scratch_stride + tid];
-        
             d[x] = (tid >= no ? 0.0 : delta(prev_outputs[x], error,
                                             activation));
         }
