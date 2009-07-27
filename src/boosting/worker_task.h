@@ -82,6 +82,8 @@ public:
 
     virtual ~Worker_Task();
     
+    int threads() const { return threads_; }
+
     /** Allocate a new job group.  The given job will be called once the group
         is finished.  Note that if nothing is ever added to the group, it won't
         be finished automatically unless check_finished() is called.
@@ -163,6 +165,8 @@ public:
     virtual int svc();
 
 private:
+    int threads_;
+    
     struct Job_Info;
 
     typedef std::list<Job_Info> Jobs;

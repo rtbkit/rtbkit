@@ -58,6 +58,8 @@ Worker_Task::Worker_Task(int threads)
     if (threads == -1)
         threads = num_cpus();
 
+    threads_ = threads;
+
     //cerr << "creating worker task with " << threads << " threads" << endl;
 
     /* Create our threads */
