@@ -45,7 +45,7 @@ Env_Option<bool> profile("PROFILE_PERCEPTRON", false);
 double t_train = 0.0, t_decorrelate = 0.0;
 double t_cholesky = 0.0, t_qr = 0.0, t_gs = 0.0, t_mean = 0.0, t_covar = 0.0;
 double t_update = 0.0, t_fprop = 0.0, t_bprop = 0.0, t_zero = 0.0;
-double t_setup = 0.0;
+double t_setup = 0.0, t_cuda = 0.0;
 
 struct Stats {
     ~Stats()
@@ -64,6 +64,7 @@ struct Stats {
             cerr << "    fprop:        " << t_fprop       << "s" << endl;
             cerr << "    bprop:        " << t_bprop       << "s" << endl;
             cerr << "    zero:         " << t_zero        << "s" << endl;
+            cerr << "    cuda:         " << t_cuda        << "s" << endl;
         }
     }
 } stats;
@@ -1416,6 +1417,8 @@ train_iteration(Thread_Context & context,
 
         if (use_cuda) {
 #if (JML_USE_CUDA == 1)
+            PROFILE_FUNCTION(t_cuda);
+
             using namespace CUDA;
 
             const vector<boost::shared_ptr<Perceptron::Layer> > & layers
