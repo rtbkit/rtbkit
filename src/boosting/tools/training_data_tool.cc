@@ -9,14 +9,14 @@
 #include "boosting/training_data.h"
 #include "boosting/training_index.h"
 #include "boosting/dense_features.h"
-#include "boosting/boosting_tool_common.h"
-#include "utils/command_line.h"
+#include "boosting_tool_common.h"
 #include "utils/file_functions.h"
 #include "utils/parse_context.h"
 #include "stats/moments.h"
 #include "utils/pair_utils.h"
 #include "stats/sparse_distribution.h"
 #include "utils/vector_utils.h"
+#include "utils/floating_point.h"
 
 #include <iterator>
 #include <iostream>
@@ -25,19 +25,16 @@
 
 #include <boost/math/distributions/normal.hpp>
 
+#include "boost/program_options/cmdline.hpp"
+#include "boost/program_options/options_description.hpp"
+#include "boost/program_options/positional_options.hpp"
+#include "boost/program_options/parsers.hpp"
+#include "boost/program_options/variables_map.hpp"
+
 using namespace std;
 
 using namespace ML;
-using namespace Math;
 using namespace Stats;
-
-/* Hash function for a float.   Just converts it bitwise to an int. */
-struct float_hasher {
-    int operator () (float x) const
-    {
-        return *(int *)(&x);
-    }
-};
 
 /** Return the iterator before.  Requires a bidirectional iterator. */
 template<class Iterator>
@@ -132,7 +129,7 @@ struct Variable_Stats {
         }
 
         /* Scan through and calculate the mean and standard deviation. */
-        mean = Stats::mean(data.begin(), data.end(), 0.0);
+        mean = Stats::mean(data.begin(), data.end());
         stddev = Stats::std_dev(data.begin(), data.end(), mean);
     }
 
@@ -190,8 +187,6 @@ struct Variable_Stats {
     }
 };
 
-double sqr(double x) { return x * x; }
-
 double t_test(const Variable_Stats & s1, const Variable_Stats & s2)
 {
     return (s1.mean - s2.mean)
@@ -209,66 +204,77 @@ try
     string predicted_name   = "LABEL";
 
     int verbosity           = 1;
-    bool is_regression = false;   // Set to be a regression?
-    bool is_regression_set = false;  // Value of is_regression set?
+    bool is_regression      = false;   // Set to be a regression?
 
-    vector<string> extra;
+    vector<string> dataset_files;
+
+    namespace opt = boost::program_options;
+
+    opt::options_description data_options("Data options");
+    opt::options_description output_options("Output options");
     {
-        using namespace CmdLine;
+        using namespace boost::program_options;
 
-        static const Option data_options[] = {
-            { "variable-names", 'n', variable_name_file, variable_name_file,
-              false, "read variables names from FILE", "FILE" },
-            { "variable-header", 'd', NO_ARG, flag(variable_header),
-              false, "use first line of file as a variable header" },
-            { "regression", 'N', NO_ARG, flag(is_regression, is_regression_set),
-              false, "force dataset to be a regression problem" },
-            { "predict-feature", 'L', predicted_name, predicted_name,
-              true, "train classifier to predict FEATURE", "FEATURE" },
-            Last_Option
-        };
-        
-        static const Option output_options[] = {
-            { "quiet", 'q', NO_ARG, assign(verbosity, 0),
-              false, "don't write any non-fatal output" },
-            { "verbosity", 'v', optional(2), verbosity,
-              false, "set verbosity to LEVEL (0-3)", "LEVEL" },
-            Last_Option
-        };
+        data_options.add_options()
+            ( "variable-names,n", value<string>(&variable_name_file),
+              "read variables names from FILE")
+            ( "variable-header,d", value<bool>(&variable_header)->zero_tokens(),
+              "use first line of file as a variable header")
+            ( "regression,N", value<bool>(&is_regression),
+              "force dataset to be a regression problem" )
+            ( "predict-feature,L", value<string>(&predicted_name),
+              "train classifier to predict FEATURE" )
+            ( "dataset", value<vector<string> >(&dataset_files),
+              "datasets to process" );
 
-        static const Option options[] = {
-            group("Data options", data_options),
-            group("Output options",   output_options),
-            Help_Options,
-            Last_Option };
+        output_options.add_options()
+            ( "verbosity,v", value(&verbosity),
+              "set verbosity to LEVEL [0-3]" );
 
-        Command_Line_Parser parser("training_data_tool", argc, argv, options);
+        positional_options_description p;
+        p.add("dataset", -1);
+
+        options_description all_opt;
+        all_opt
+            .add(data_options)
+            .add(output_options);
+
+        all_opt.add_options()
+            ("help,h", "print this message");
         
-        bool res = parser.parse();
-        if (res == false) exit(1);
-        
-        extra.insert(extra.end(), parser.extra_begin(), parser.extra_end());
+        variables_map vm;
+        store(command_line_parser(argc, argv)
+              .options(all_opt)
+              .positional(p)
+              .run(),
+              vm);
+        notify(vm);
+
+        if (vm.count("help")) {
+            cerr << all_opt << endl;
+            return 1;
+        }
     }
 
-    if (extra.empty())
+    if (dataset_files.empty())
         throw Exception("error: need to specify at least one data set");
 
     /* Variables for holding our datasets and feature spaces. */
-    vector<boost::shared_ptr<Dense_Training_Data> > data(extra.size());
-    vector<boost::shared_ptr<Dense_Feature_Space> > fs(extra.size());
-    vector<Feature> predicted(extra.size(), MISSING_FEATURE);
+    vector<boost::shared_ptr<Dense_Training_Data> > data(dataset_files.size());
+    vector<boost::shared_ptr<Dense_Feature_Space> > fs(dataset_files.size());
+    vector<Feature> predicted(dataset_files.size(), MISSING_FEATURE);
 
     vector<string> feature_names;
     map<string, vector<int> > feature_name_map;
 
     /* First, read in all of the data. */
-    for (unsigned i = 0;  i < extra.size();  ++i) {
+    for (unsigned i = 0;  i < dataset_files.size();  ++i) {
         fs[i].reset(new Dense_Feature_Space());
         data[i].reset(new Dense_Training_Data());
-        data[i]->init(extra[i], fs[i]);
+        data[i]->init(dataset_files[i], fs[i]);
 
         if (verbosity > 0)
-            cout << "dataset \'" << extra[i] << "\': "
+            cout << "dataset \'" << dataset_files[i] << "\': "
                  << data[i]->all_features().size() << " features, "
                  << data[i]->example_count() << " rows." << endl;
 
@@ -278,7 +284,7 @@ try
             string feat = data_feature_names[j];
             if (feature_name_map.count(feat) == 0) {
                 feature_names.push_back(feat);
-                feature_name_map[feat] = vector<int>(extra.size(), -1);
+                feature_name_map[feat] = vector<int>(dataset_files.size(), -1);
             }
             feature_name_map[feat][i] = j;
         }
