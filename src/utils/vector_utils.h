@@ -70,6 +70,20 @@ void sort_on_first_ascending(std::vector<T, Alloc> & vec)
     std::sort(vec.begin(), vec.end(), sort_first_asc());
 }
 
+struct sort_first_desc {
+    template<class P>
+    bool operator () (const P & p1, const P & p2) const
+    {
+        return p2.first < p1.first;
+    }
+};
+
+template<typename T, class Alloc>
+void sort_on_first_descending(std::vector<T, Alloc> & vec)
+{
+    std::sort(vec.begin(), vec.end(), sort_first_desc());
+}
+
 template<typename T>
 void make_vector_set(std::vector<T> & vec)
 {
