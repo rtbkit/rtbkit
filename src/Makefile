@@ -13,7 +13,9 @@ BIN 	:= $(BUILD)/$(ARCH)/bin
 TESTS 	:= $(BUILD)/$(ARCH)/tests
 SRC 	:= .
 
-include arch/$(ARCH).mk
+JML_TOP := .
+
+include $(JML_TOP)/arch/$(ARCH).mk
 
 ifeq ($(MAKECMDGOALS),failed)
 include .target.mk
@@ -21,8 +23,8 @@ failed:
 	+make $(FAILED) $(GOALS)
 else
 
-include functions.mk
-include rules.mk
+include $(JML_TOP)/functions.mk
+include $(JML_TOP)/rules.mk
 
 $(eval $(call include_sub_makes,math arch utils db algebra stats judy boosting))
 
