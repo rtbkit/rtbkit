@@ -229,6 +229,7 @@ public:
             *this >> t;
             v.push_back(t);
         }
+        vec.swap(v);
     }
 
     void load_binary(void * address, size_t size)
