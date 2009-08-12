@@ -64,7 +64,18 @@ struct Binary_Input::Buffer_Source
 
     virtual size_t more(Binary_Input & input, size_t amount)
     {
-        return 0;  // we can never get more
+        // First try?  Initialize
+        if (input.end_ != region->start + region->size) {
+            cerr << "Buffer Input init" << endl;
+
+            input.pos_ = region->start;
+            input.end_ = input.pos_ + region->size;
+            input.offset_ = 0;
+            
+            cerr << "first char = " << int(*input.pos_) << endl;
+        }
+
+        return input.avail();  // we can never get more after this
     }
 
     boost::shared_ptr<File_Read_Buffer::Region> region;
@@ -193,6 +204,7 @@ void Binary_Input::open(std::istream & stream)
 void Binary_Input::make_avail(size_t min_avail)
 {
     size_t avail = source->more(*this, min_avail);
+
     if (avail < min_avail)
         throw Exception("Binary_Input: read past end of data");
 }

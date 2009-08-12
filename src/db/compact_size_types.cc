@@ -87,8 +87,11 @@ unsigned long decode_compact(Store_Reader & store)
        and finding the first 1 bit in the result. */
     store.must_have(1);
 
-    char marker = *store;
+    unsigned char marker = *store;
     int len = 8 - highest_bit((char)~marker);// no bits set=-1, so len=9 as reqd
+
+    //cerr << "marker = " << int(marker) << endl;
+    //cerr << "len = " << len << endl;
 
     /* Make sure this data is available. */
     store.must_have(len);
@@ -96,15 +99,21 @@ unsigned long decode_compact(Store_Reader & store)
     /* Construct our value from the bytes. */
     unsigned long result = 0;
     for (int i = 0;  i < len;  ++i) {
+        int val = store[i];
+        if (val < 0) val += 256;
+
         result <<= 8;
-        result |= store[i]; 
+        result |= val; 
+        //cerr << "i " << i << " result " << result << endl;
     }
 
     /* Filter off the top bits, which told us the length. */
     if (len == 9) ;
     else {
         int bits = len * 7;
-        result &= (~((1 << bits)-1));
+        //cerr << "bits = " << bits << endl;
+        result &= ((1ULL << bits)-1);
+        //cerr << "result = " << result << endl;
     }
 
     /* Skip the data.  Makes sure we are in sync even if we throw. */
