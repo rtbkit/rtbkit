@@ -1,6 +1,6 @@
 CXX ?= g++
 CXXFLAGS := -I. -pipe -Wall -Werror -Wno-sign-compare -Woverloaded-virtual -O3 -fPIC -m64 -g -I/usr/include/eigen2
-CXXLINKFLAGS = -L$(BIN)  -Wl,--rpath,$(BIN) 
+CXXLINKFLAGS = -L$(BIN)  -Wl,--rpath,$(BIN) -Wl,--rpath,$(PWD)/$(BIN)
 CXXLIBRARYFLAGS = -shared $(CXXLINKFLAGS)
 CXXEXEFLAGS =$(if $(MEMORY_ALLOC_LIBRARY),-l$(MEMORY_ALLOC_LIBRARY)) $(CXXLINKFLAGS)
 CXXDEBUGFLAGS := -O0 -g

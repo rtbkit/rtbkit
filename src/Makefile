@@ -12,6 +12,7 @@ OBJ 	:= $(BUILD)/$(ARCH)/obj
 BIN 	:= $(BUILD)/$(ARCH)/bin
 TESTS 	:= $(BUILD)/$(ARCH)/tests
 SRC 	:= .
+PWD     := $(shell pwd)
 
 JML_TOP := .
 
