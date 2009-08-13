@@ -49,7 +49,9 @@ public:
         exception. */
     void swap(Perceptron & other)
     {
-        throw Exception("Perceptron::swap(): not implemented");
+        features.swap(other.features);
+        layers.swap(other.layers);
+        std::swap(max_units, other.max_units);
     }
 
     using Classifier_Impl::predict;
