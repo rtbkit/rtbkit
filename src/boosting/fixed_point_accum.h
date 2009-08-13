@@ -9,6 +9,7 @@
 #define __boosting__fixed_point_accum_h__
 
 #include "compiler/compiler.h"
+#include "utils/float_traits.h"
 
 namespace ML {
 
@@ -200,6 +201,24 @@ atomic_add_shared(FixedPointAccum64 & result, const FixedPointAccum64 & other)
     if (toadd != 0) atomicAdd(((unsigned *)(&result)) + 1, toadd);
 }
 #endif // JML_COMPILER_NVCC
+
+template<typename F>
+double operator / (const FixedPointAccum64 & f1, const F & f2)
+{
+    return f1 / f2;
+}
+
+template<typename F>
+double operator / (const F & f1, const FixedPointAccum64 & f2)
+{
+    return f1 / f2;
+}
+
+inline double operator / (const FixedPointAccum64 & f1,
+                          const FixedPointAccum64 & f2)
+{
+    return f1 / f2;
+}
 
 
 } // namespace ML
