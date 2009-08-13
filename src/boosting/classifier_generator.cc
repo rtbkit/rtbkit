@@ -224,6 +224,11 @@ get_type(const std::string & name, const Configuration & config)
                         "initial was " + name + ".type)");
     
     std::string key = config.find_key(type_key, true);
+
+    if (config.prefix() != ""
+        && key.find(config.prefix() + '.') != string::npos)
+        key = string(key, config.prefix().size() + 1);
+
     name2 = key;
     name2.resize(std::max<int>(0, name2.size() - 5));  // remove the ".type"
     
@@ -236,10 +241,12 @@ get_trainer(const std::string & name, const Configuration & config)
     std::string type, name2;
     boost::tie(type, name2) = get_type(name, config);
     
-    if (type == "")
+    if (type == "") {
+        //cerr << config << endl;
         throw Exception("Object with name \"" + name + "\" has no type "
                         "in configuration file with prefix "
                         + config.prefix());
+    }
     
     boost::shared_ptr<Classifier_Generator> result
         = Registry<Classifier_Generator>::singleton().create(type);
