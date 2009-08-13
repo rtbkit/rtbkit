@@ -72,7 +72,8 @@ serialize(DB::Store_Writer & store,
 {
     store << (unsigned char)0;  // version
     fs.serialize(store, feature_);
-    store << (unsigned char)op_; // operation
+    unsigned char ucop = (unsigned char)op_;
+    store << ucop; // operation
     if (op_ == EQUAL || op_ == LESS)
         fs.serialize(store, feature_, split_val_);
 }
