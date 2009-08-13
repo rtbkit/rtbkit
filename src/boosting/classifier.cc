@@ -368,6 +368,9 @@ Classifier_Impl::poly_reconstitute(DB::Store_Reader & store)
     boost::shared_ptr<Feature_Space> fs_mutable;
     if (fs_flag) {
         store >> fs_mutable;
+
+        //cerr << "reconstituted feature space " << fs_mutable->print() << endl;
+
         fs = fs_mutable;
     }
     else fs = FS_Context::inner();
@@ -444,8 +447,8 @@ FS_Context(const boost::shared_ptr<const Feature_Space> & feature_space)
 
 FS_Context::~FS_Context()
 {
-    assert(fs_stack.get());
-    assert(!fs_stack->empty());
+    if (!fs_stack.get())
+        throw Exception("FS_Context never initialized");
     if (fs_stack->empty())
         throw Exception("FS stack was empty in destructor; bad problem");
     fs_stack->pop_back();
@@ -453,7 +456,8 @@ FS_Context::~FS_Context()
 
 const boost::shared_ptr<const Feature_Space> & FS_Context::inner()
 {
-    assert(fs_stack.get());
+    if (!fs_stack.get())
+        throw Exception("FS_Context never initialized");
     if (fs_stack->empty()) throw Exception("feature space stack is empty");
     return fs_stack->back();
 }
