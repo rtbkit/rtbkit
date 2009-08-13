@@ -186,7 +186,7 @@ generate(Thread_Context & context,
                                   validation_set, features,
                                   validation_output, validate_ex_weights);
 
-#if 1
+#if 0
         float min_weight = 1.0, max_weight = 0.0, max_diff = 0.0;
         int where_max_diff = -1, where_max_weight = -1;
 
@@ -461,9 +461,9 @@ train_iteration(Thread_Context & context,
 
     if (Z == 0.0) Z = total;
 
-    //cerr << "weak learner returned Z of " << Z << endl;
     if (Z > 1.0) {
-        cerr << weak_classifier->print() << endl;
+        cerr << "weak learner returned Z of " << Z << endl;
+        //cerr << weak_classifier->print() << endl;
     }
     
     float * start = weights.data();
