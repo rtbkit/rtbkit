@@ -231,7 +231,8 @@ serialize(DB::Store_Writer & store, const Feature_Space & fs) const
 {
     store << compact_size_t(1);  // version
     root.serialize(store, fs);
-    store << compact_size_t(12345);  // end marker
+    store << compact_size_t(3212345);  // end marker
+    store << string("END_TREE");
 }
 
 void Tree::
@@ -249,9 +250,14 @@ reconstitute(DB::Store_Reader & store, const Feature_Space & fs)
     }
 
     compact_size_t marker(store);
-    if (marker != 12345)
+    if (marker != 3212345)
         throw Exception("Tree::reconstitute: "
                         "read bad marker at end");
+
+    string s;
+    store >> s;
+    if (s != "END_TREE")
+        throw Exception("Bad end Tree marker " + s);
 }
 
 } // namespace ML
