@@ -29,7 +29,7 @@
 namespace ML {
 
 template<typename F1, typename F2>
-typename float_traits<F1, F2>::return_type
+typename float_traits<F1, F2>::fraction_type
 xdiv(F1 x, F2 y)
 {
     return (y == 0 ? 0 : x / y);

@@ -28,11 +28,13 @@ namespace ML {
 template<typename F1, typename F2>
 struct float_traits {
     typedef typeof(F1() + F2()) return_type;
+    typedef typeof(F1() / F2(1)) fraction_type;
 };
 
 template <typename F>
 struct float_traits<F, F> {
     typedef F return_type;
+    typedef typeof(F() / F(1)) fraction_type;
 };
 
 template<typename F1, typename F2, typename F3>
@@ -44,25 +46,6 @@ template <typename F>
 struct float_traits3<F, F, F> {
     typedef F return_type;
 };
-
-#if 0
-
-#define FLOAT_SPECIALIZATION(f1, f2, result) \
-template<> struct float_traits<f1, f2> { \
-    typedef result return_type; \
-};
-
-template<> struct float_traits<f2, f1> { \
-    typedef result return_type; \
-};
-
-FLOAT_SPECIALIZATION(
-
-
-template<>
-struct float_traits<int, int> {
-
-#endif
 
 } // namespace ML
 
