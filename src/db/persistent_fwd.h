@@ -91,14 +91,15 @@ operator >> (::ML::DB::Store_Reader & store, type & val)
 ::ML::DB::Store_Writer & \
 operator << (::ML::DB::Store_Writer & store, const type & val) \
 { \
-    store << char(val); \
+    unsigned char c = (unsigned char)val; \
+    store << c; \
     return store; \
 } \
 \
 ::ML::DB::Store_Reader & \
 operator >> (::ML::DB::Store_Reader & store, type & val) \
 { \
-    char c;  store >> c; \
+    unsigned char c;  store >> c; \
     val = (type)c; \
     return store; \
 } \
