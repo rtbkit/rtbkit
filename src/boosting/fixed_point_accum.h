@@ -203,21 +203,21 @@ atomic_add_shared(FixedPointAccum64 & result, const FixedPointAccum64 & other)
 #endif // JML_COMPILER_NVCC
 
 template<typename F>
-double operator / (const FixedPointAccum64 & f1, const F & f2)
+float operator / (const FixedPointAccum64 & f1, const F & f2)
 {
-    return f1 / f2;
+    return f1.operator float() / float(f2);
 }
 
 template<typename F>
-double operator / (const F & f1, const FixedPointAccum64 & f2)
+float operator / (const F & f1, const FixedPointAccum64 & f2)
 {
-    return f1 / f2;
+    return float(f1) / f2.operator float();
 }
 
-inline double operator / (const FixedPointAccum64 & f1,
+inline float operator / (const FixedPointAccum64 & f1,
                           const FixedPointAccum64 & f2)
 {
-    return f1 / f2;
+    return f1.operator float() / f2.operator float();
 }
 
 
