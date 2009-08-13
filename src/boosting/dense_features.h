@@ -70,19 +70,54 @@ public:
         Mapping() : initialized_(false) {}
         std::vector<int> vars;
         bool initialized_;
+        int num_vars_expected_;
         std::vector<boost::shared_ptr<Categorical_Mapping> > categories;
         bool initialized() const;
         void clear();
     };
 
-    /** Create a mapping to go from this feature space to the other given
-        feature space. */
+    /** Create a mapping to go from the other feature space to this feature
+        space.  This can be used to encode a feature vector (created in a
+        problem feature space) into a feature vector for the classifier
+        feature space.  The classifier feature space may be different from
+        the problem feature space in the following circumstances:
+
+        * When there were extra features added for the training of the
+          classifier.  For example, if there were label, weighting or grouping
+          features added for the training (these features don't make sense
+          when running, as opposed to training, the classifier).
+        * When extra features have been added to the problem feature space.
+          For example, if new features were added but we still want to run an
+          old classifier that was trained without these features for
+          comparison.
+
+        Note that it is easy to confuse the two classifiers.
+
+        For example:
+
+        Classifier classifier;
+        classifier.load("classifier.cls");
+        boost::shared_ptr<const Dense_Feature_Space>
+            problem_fs = feature_space();
+        boost::shared_ptr<const Dense_Feature_Space>
+            classifier_fs = classifier.feature_space<ML::Dense_Feature_Space>();
+
+        classifier_fs->create_mapping(*problem_fs, mapping);
+
+        distribution<float> features = ...;
+
+        boost::shared_ptr<Mutable_Feature_Set> encoded
+            = classifier_fs->encode(features, *problem_fs, mapping);
+
+        float score = classifier.predict(1, *encoded);
+    */
     void create_mapping(const Dense_Feature_Space & other,
                         Mapping & mapping) const;
 
-    /** Encode the given parameter vector into a feature set for another
-        dense feature space.  Takes care of mapping the variables onto each
-        other via their variable names.
+    /** Encode the given parameter vector (in the other feature space) into
+        a feature set suitable for this classifier.
+
+        Creates the mapping if necessary (see create_mapping).
 
         The extra map argument is a map which will be used to cache the
         important information (which should make it substantially faster to
@@ -94,12 +129,12 @@ public:
     encode(const std::vector<float> & variables,
            const Dense_Feature_Space & other, Mapping & mapping) const;
 
-    /** Encode the given parameter vector into a feature set for another
-        dense feature space.  Takes care of mapping the variables onto each
-        other via their variable names.
+    /** Encode the given parameter vector (in the other feature space) into
+        a feature set suitable for this classifier.
 
         The mapping argument must have already been initialized with
-        create_mapping.
+        create_mapping.  Make sure that the parameters are in the right
+        order (see create_mapping).
     */
     boost::shared_ptr<Mutable_Feature_Set>
     encode(const std::vector<float> & variables,
