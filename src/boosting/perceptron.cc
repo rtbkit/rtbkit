@@ -139,7 +139,25 @@ void
 Perceptron::Layer::
 reconstitute(DB::Store_Reader & store)
 {
-    throw Exception("Perceptron::Layer::reconstitute(): not implemented");
+    compact_size_t version(store);
+    if (version != 0)
+        throw Exception("invalid layer version");
+
+    string s;
+    store >> s;
+    if (s != "PERCEPTRON LAYER")
+        throw Exception("invalid layer start " + s);
+
+    compact_size_t i(store), o(store);
+
+    weights.resize(boost::extents[i][o]);
+
+    for (unsigned i = 0;  i < inputs();  ++i)
+        for (unsigned j = 0;  j < outputs();  ++j)
+            store >> weights[i][j];
+
+    store >> bias;
+    store >> activation;
 }
 
 // TODO: put all these in a template...
@@ -562,7 +580,7 @@ void Perceptron::serialize(DB::Store_Writer & store) const
 
 void Perceptron::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & features)
+             const boost::shared_ptr<const Feature_Space> & feature_space)
 {
     /* Implement the strong exception guarantee, except for the store. */
     string magic;
@@ -580,9 +598,29 @@ reconstitute(DB::Store_Reader & store,
     compact_size_t label_count(store);
 
     predicted_ = MISSING_FEATURE;
-    features->reconstitute(store, predicted_);
+    feature_space->reconstitute(store, predicted_);
 
-    Perceptron new_me(features, predicted_, label_count);
+    Perceptron new_me(feature_space, predicted_, label_count);
+
+    compact_size_t nfeat(store);
+    cerr << "nfeat = " << nfeat << endl;
+    new_me.features.resize(nfeat);
+    for (unsigned i = 0;  i < nfeat;  ++i)
+        feature_space->reconstitute(store, new_me.features[i]);
+
+    /* Now the layers... */
+    compact_size_t nlayers(store);
+    cerr << "nlayers = " << nlayers << endl;
+    new_me.layers.resize(nlayers);
+    for (unsigned i = 0;  i < nlayers;  ++i) {
+        new_me.layers[i].reset(new Layer());
+        new_me.layers[i]->reconstitute(store);
+    }
+
+    string s;
+    store >> s;
+    if (s != "END PERCEPTRON")
+        throw Exception("problem with perceptron reconstitution");
     
     swap(new_me);
 }
