@@ -1141,7 +1141,7 @@ std::string
 Dense_Training_Data::
 row_comment(size_t row) const
 {
-    if (row > row_comments.size())
+    if (row >= row_comments.size())
         throw Exception("Dense_Training_Data::row_comment(): "
                         "row out of range");
     return row_comments[row];
