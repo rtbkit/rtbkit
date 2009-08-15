@@ -14,6 +14,7 @@
 #include <boost/timer.hpp>
 #include "training_index.h"
 #include "config_impl.h"
+#include <limits>
 
 
 using namespace std;
@@ -60,14 +61,59 @@ GLZ_Classifier::~GLZ_Classifier()
 {
 }
 
-distribution<float> GLZ_Classifier::
+distribution<float>
+GLZ_Classifier::
 decode(const Feature_Set & feature_set) const
 {
     boost::shared_ptr<const Dense_Feature_Space> dense_fs
         = boost::dynamic_pointer_cast<const Dense_Feature_Space>
             (feature_space_);
-    if (dense_fs && features.size() == dense_fs->variable_count())
-        return dense_fs->decode(feature_set);
+    if (dense_fs) {
+        // Dense feature space.  We can create a mapping.
+        
+        if (optimized_mapping.empty()) {
+            // TODO: everything is sorted, so map is unnecessary here...
+
+            map<Feature, int> feature_map;
+            for (unsigned i = 0;  i < features.size();  ++i)
+                feature_map[features[i]] = i;
+
+            optimized_mapping.resize(feature_set.size(), -1);
+
+            int i = 0;
+            for (Feature_Set::const_iterator
+                     it = feature_set.begin();  i < feature_set.size();
+                 ++i, ++it) {
+                
+                pair<Feature, float> ff = *it;
+
+                if (feature_map.count(ff.first))
+                    optimized_mapping[i] = feature_map[ff.first];
+            }
+        }
+        
+        if (optimized_mapping.size() != feature_set.size())
+            throw Exception("optimized mapping but features not there");
+        
+        distribution<float> result(features.size(),
+                                   numeric_limits<float>::quiet_NaN());
+
+        int i = 0;
+        for (Feature_Set::const_iterator
+                 it = feature_set.begin();  i < feature_set.size();
+             ++i, ++it) {
+
+            if (optimized_mapping[i] == -1) continue;
+
+            // TODO: check feature...
+            // TODO: avoid returning feature if not needed
+            pair<Feature, float> ff = *it;
+            
+            result[optimized_mapping[i]] = ff.second;
+        }
+        
+        return result;
+    }
 
     distribution<float> result(features.size());
     

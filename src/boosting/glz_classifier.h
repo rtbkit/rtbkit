@@ -96,6 +96,10 @@ public:
                               
     /** Allow polymorphic copying. */
     virtual GLZ_Classifier * make_copy() const;
+
+    // TEMPORARY THREAD UNSAFE UGLY OPTIMIZATION
+    // To be replaced with optimize() interface
+    mutable std::vector<int> optimized_mapping;
 };
 
 } // namespace ML
