@@ -127,8 +127,11 @@ create_mapping(const Dense_Feature_Space & other,
          it != other.names_bwd.end();  ++it)
         cerr << it->first << " = " << it->second << endl;
     cerr << endl;
+
+    cerr << "create_mapping: this = " << print() << endl;
+    cerr << "create_mapping: other = " << other.print() << endl;
 #endif
-    
+
     mapping.clear();
 
     mapping.vars.resize(names_fwd.size());
@@ -238,9 +241,14 @@ encode(const std::vector<float> & variables,
         || mapping.categories.size() != names_fwd.size())
         throw Exception("using wrong or stale mapping");
 
-    if (variables.size() != mapping.num_vars_expected_)
+    if (variables.size() != mapping.num_vars_expected_) {
+        cerr << "variables.size() = " << variables.size() << endl;
+        cerr << "mapping.num_vars_expected = " << mapping.num_vars_expected_
+             << endl;
+        cerr << "mapping.vars.size() = " << mapping.vars.size() << endl;
         throw Exception("wrong number of variables expected; have you reversed "
                         "feature spaces?");
+    }
     
     /* Map their variables into ours.  Those that have no corresponding
        variable get a NaN instead. */
