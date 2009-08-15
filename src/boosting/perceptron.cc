@@ -344,7 +344,8 @@ predict(const Feature_Set & fs) const
     PROFILE_FUNCTION(t_predict);
 
     float scratch1[max_units], scratch2[max_units];
-    float * input = scratch1, * output = scratch2;
+    float * input = scratch1;
+    float * output = scratch2;
     extract_features(fs, input);
     layers[0]->apply(input, output);
     
@@ -603,18 +604,22 @@ reconstitute(DB::Store_Reader & store,
     Perceptron new_me(feature_space, predicted_, label_count);
 
     compact_size_t nfeat(store);
-    cerr << "nfeat = " << nfeat << endl;
     new_me.features.resize(nfeat);
     for (unsigned i = 0;  i < nfeat;  ++i)
         feature_space->reconstitute(store, new_me.features[i]);
 
     /* Now the layers... */
     compact_size_t nlayers(store);
-    cerr << "nlayers = " << nlayers << endl;
     new_me.layers.resize(nlayers);
+
+    new_me.max_units = 0;
     for (unsigned i = 0;  i < nlayers;  ++i) {
         new_me.layers[i].reset(new Layer());
         new_me.layers[i]->reconstitute(store);
+        new_me.max_units = max<int>(new_me.max_units,
+                                    new_me.layers[i]->inputs());
+        new_me.max_units = max<int>(new_me.max_units,
+                                    new_me.layers[i]->outputs());
     }
 
     string s;
