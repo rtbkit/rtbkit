@@ -83,7 +83,7 @@ try
     int num_buckets         = DEFAULT_NUM_BUCKETS;
     string group_feature_name = "";
     bool eval_by_group      = false;  // Evaluate a group at a time?
-    bool eval_by_group_set  = false;  // Value of eval_by_group has been set?
+    bool no_eval_by_group   = false;
     string predicted_name   = "LABEL";
     vector<string> type_overrides;
     vector<string> transformations;
@@ -170,8 +170,10 @@ try
               "dump output of classifier on testing sets" )
             ( "print-confusion,C", value(&print_confusion),
               "print confusion matrix" )
-            ( "eval-by-group", value(&eval_by_group), //eval_by_group_set),
-              "evaluate by group rather than by example" );
+            ( "eval-by-group", value(&eval_by_group)->zero_tokens(),
+              "evaluate by group rather than by example" )
+            ( "no-eval-by-group", value(&no_eval_by_group)->zero_tokens(),
+              "evaluate by example rather than by group" );
 
         positional_options_description p;
         p.add("dataset", -1);
@@ -290,12 +292,11 @@ try
         
         group_feature = feature_index[group_feature_name];
 
-        if (!eval_by_group_set) {
-            if (verbosity > 0)
-                cerr << "note: overriding eval-by-group=1, use "
-                     << "--no-eval-by-group to avoid" << endl;
+        if (!no_eval_by_group)
             eval_by_group = true;
-        }
+
+        cerr << "no_eval_by_group = " << no_eval_by_group << endl;
+        cerr << "eval_by_group = " << eval_by_group << endl;
     }
 
     vector<Feature> grouping_features;
@@ -461,6 +462,11 @@ try
                  << mean * 100.0 << "% std " << std_dev * 100.0 << "%."
                  << endl;
         }
+    }
+
+    if (dump_testing) {
+        // Redump the datasets with all comments, etc intact
+        // ...
     }
 }
 catch (const std::exception & exc) {
