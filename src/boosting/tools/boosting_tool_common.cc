@@ -86,7 +86,7 @@ struct Graphic_Metrics {
         int stars = 15;  // how many stars we want
 
         /* Work out the width of the counts. */
-        distribution<int> widths = round(counts / max * stars);
+        distribution<int> widths = round(counts / (max ? max : 1) * stars);
 
         /* Add the distributions. */
         for (unsigned i = 0;  i < 10;  ++i) {
@@ -150,6 +150,9 @@ void calc_stats(const Classifier_Impl & current,
                 bool by_group,
                 const Feature & group_feature)
 {
+    cerr << "dump_testing = " << dump_testing << endl;
+    cerr << "by_group = " << by_group << endl;
+
     size_t nl = current.label_count();
     size_t nx = data.example_count();
 
@@ -267,7 +270,9 @@ void calc_stats(const Classifier_Impl & current,
                     cout << format("%6.2f ", input[i])
                          << format("%5.2f", result[i]);
                 cout <<  format(" %5.2f %5.2f %5.2f", c.possible, c.correct,
-                                c.margin) << endl;
+                                c.margin);
+                //cout << data.row_comment(x);
+                cout << endl;
             }
         }
 
