@@ -15,6 +15,8 @@
 #include "config_impl.h"
 #include "worker_task.h"
 #include "utils/guard.h"
+#include "dense_features.h"
+#include "utils/smart_ptr_utils.h"
 #include <boost/bind.hpp>
 #include <boost/thread/tss.hpp>
 
@@ -28,6 +30,37 @@ namespace ML {
 
 
 BYTE_PERSISTENT_ENUM_IMPL(Output_Encoding);
+
+/*****************************************************************************/
+/* OPTIMIZATION_INFO                                                         */
+/*****************************************************************************/
+
+void
+Optimization_Info::
+apply(const Feature_Set & fset, float * output) const
+{
+    for (unsigned i = 0;  i < indexes.size();  ++i)
+        output[i] = fset[indexes[i]].second;
+}
+
+void
+Optimization_Info::
+apply(const std::vector<float> & fset, float * output) const
+{
+    for (unsigned i = 0;  i < indexes.size();  ++i)
+        output[i] = fset[indexes[i]];
+}
+
+int
+Optimization_Info::
+get_optimized_index(const Feature & feature) const
+{
+    map<Feature, int>::const_iterator it
+        = feature_to_optimized_index.find(feature);
+    if (it == feature_to_optimized_index.end())
+        throw Exception("didn't find optimized feature index");
+    return it->second;
+}
 
 
 /*****************************************************************************/
@@ -129,6 +162,161 @@ float Classifier_Impl::predict_highest(const Feature_Set & features) const
     distribution<float> prediction = predict(features);
     return std::max_element(prediction.begin(), prediction.end())
         - prediction.begin();
+}
+
+Optimization_Info
+Classifier_Impl::
+optimize(const std::vector<Feature> & features)
+{
+    if (!optimization_supported())
+        return Optimization_Info();
+
+    Optimization_Info result;
+    result.from_features = features;
+    result.to_features = all_features();
+
+    map<Feature, int> & feature_map = result.feature_to_optimized_index;
+    for (unsigned i = 0;  i < result.to_features.size();  ++i) {
+        feature_map[result.to_features[i]] = i;
+    }
+
+    int num_done = 0;
+    result.indexes.resize(features.size());
+    for (unsigned i = 0;  i < features.size();  ++i) {
+        if (!feature_map.count(features[i])) {
+            // We don't need this feature
+            result.indexes[i] = -1;
+        }
+        else {
+            result.indexes[i] = feature_map[features[i]];
+            ++num_done;
+        }
+    }
+
+    if (num_done != result.to_features.size())
+        throw Exception("optimize(): didn't find all features needed for "
+                        "classifier");
+
+    result.initialized = true;
+
+    return result;
+}
+
+Optimization_Info
+Classifier_Impl::
+optimize(const Feature_Set & feature_set)
+{
+    if (!optimization_supported())
+        return Optimization_Info();
+
+    // Extract the list of features, and continue
+    vector<Feature> features;
+    features.reserve(feature_set.size());
+
+    for (Feature_Set::const_iterator
+             it = feature_set.begin(),
+             end = feature_set.end();
+         it != end;  ++it) {
+        pair<Feature, float> val = *it;
+        features.push_back(val.first);
+    }
+
+    return optimize(features);
+}
+
+bool
+Classifier_Impl::
+optimization_supported() const
+{
+    return false;
+}
+
+bool
+Classifier_Impl::
+predict_is_optimized() const
+{
+    return false;
+}
+
+Label_Dist
+Classifier_Impl::
+predict(const Feature_Set & features,
+        const Optimization_Info & info) const
+{
+    if (!predict_is_optimized() || !info) return predict(features);
+
+    float fv[info.features_out()];
+    info.apply(features, fv);
+
+    return optimized_predict_impl(fv, info);
+}
+
+Label_Dist
+Classifier_Impl::
+predict(const std::vector<float> & features,
+        const Optimization_Info & info) const
+{
+    float fv[info.features_out()];
+    info.apply(features, fv);
+
+    return optimized_predict_impl(fv, info);
+}
+
+float
+Classifier_Impl::
+predict(int label,
+        const Feature_Set & features,
+        const Optimization_Info & info) const
+{
+    if (!predict_is_optimized() || !info) return predict(label, features);
+
+    float fv[info.features_out()];
+    info.apply(features, fv);
+
+    return optimized_predict_impl(label, fv, info);
+}
+
+float
+Classifier_Impl::
+predict(int label,
+        const std::vector<float> & features,
+        const Optimization_Info & info) const
+{
+    float fv[info.features_out()];
+    info.apply(features, fv);
+
+    return optimized_predict_impl(label, fv, info);
+}
+
+Label_Dist
+Classifier_Impl::
+optimized_predict_impl(const float * features,
+                       const Optimization_Info & info) const
+{
+    // If the classifier implemented optimized predict, then this would have
+    // been overridden.
+    
+    // Convert to standard feature set, then call classical predict
+    Dense_Feature_Set fset(make_unowned_sp(info.to_features),
+                           features);
+    
+    return predict(fset);
+}
+
+float
+Classifier_Impl::
+optimized_predict_impl(int label,
+                       const float * features,
+                       const Optimization_Info & info) const
+{
+    // If the classifier implemented optimized predict, then this would have
+    // been overridden.
+    
+    // Convert to standard feature set, then call classical predict
+    Dense_Feature_Set fset(make_unowned_sp(info.to_features),
+                           features);
+
+    return predict(label, fset);
 }
 
 namespace {

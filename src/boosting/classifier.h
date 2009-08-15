@@ -20,6 +20,7 @@
 #include <boost/multi_array.hpp>
 #include <boost/function.hpp>
 #include <string>
+#include "utils/unnamed_bool.h"
 
 namespace ML {
 
@@ -44,6 +45,49 @@ BYTE_PERSISTENT_ENUM_DECL(Output_Encoding);
 
 typedef distribution<float> Label_Dist;
 //typedef distribution<float, compact_vector<float, 3> > Label_Dist;
+
+
+/*****************************************************************************/
+/* OPTIMIZATION_INFO                                                         */
+/*****************************************************************************/
+
+/** A structure that provides information on optimization to a classifier. */
+
+struct Optimization_Info {
+    Optimization_Info() : initialized(false) {}
+
+    std::vector<Feature> from_features;
+    std::vector<Feature> to_features;
+    std::vector<int> indexes;
+    bool initialized;
+
+    std::map<Feature, int> feature_to_optimized_index;
+
+    int features_in() const
+    {
+        if (!initialized)
+            throw Exception("using uninitialized feature map");
+        return from_features.size();
+    }
+
+    int features_out() const
+    {
+        if (!initialized)
+            throw Exception("using uninitialized feature map");
+        return to_features.size();
+    }
+
+    void apply(const Feature_Set & fset, float * output) const;
+    void apply(const std::vector<float> & fset, float * output) const;
+    
+
+    /** Given a feature, return the index in the dense feature vector that
+        it corresponds to.  If there is none, an exception will be thrown. */
+    int get_optimized_index(const Feature & feature) const;
+
+    JML_IMPLEMENT_OPERATOR_BOOL(initialized);
+};
+
 
 
 /*****************************************************************************/
@@ -187,6 +231,55 @@ public:
     virtual Label_Dist
     predict(const Feature_Set & features) const = 0;
 
+    /** Optimize the classifier to be called optimally with the given list of
+        features.  The Optimization_Info structure can then be passed to the
+        optimized predict method.  Note that the feature vector passed to the
+        optimized predict method MUST have EXACTLY the features indicated.
+    */
+    virtual Optimization_Info optimize(const std::vector<Feature> & features);
+    virtual Optimization_Info optimize(const Feature_Set & features);
+
+    /** Is optimization supported by the classifier? */
+    virtual bool optimization_supported() const;
+
+    /** Is predict optimized?  Default returns false; those classifiers which
+        a) support optimized predict and b) have had optimize_predict() called
+        will override to return true in this case.
+    */
+    virtual bool predict_is_optimized() const;
+    
+
+    /** Methods to call for the optimized predict.  Will check if
+        predict_is_optimized() and if true, will call the optimized methods.
+        Otherwise, they fall back to the non-optimized versions. */
+    virtual Label_Dist predict(const Feature_Set & features,
+                               const Optimization_Info & info) const;
+    virtual Label_Dist predict(const std::vector<float> & features,
+                               const Optimization_Info & info) const;
+    
+    virtual float predict(int label,
+                          const Feature_Set & features,
+                          const Optimization_Info & info) const;
+    virtual float predict(int label,
+                          const std::vector<float> & features,
+                          const Optimization_Info & info) const;
+    
+protected:
+    /** Optimized predict for a dense feature vector.
+        This is the worker function that all classifiers that implement the
+        optimized predict should override.  The default implementation will
+        convert to a Feature_Set and will call the non-optimized predict.
+    */
+    virtual Label_Dist
+    optimized_predict_impl(const float * features,
+                           const Optimization_Info & info) const;
+    
+    virtual float
+    optimized_predict_impl(int label,
+                           const float * features,
+                           const Optimization_Info & info) const;
+    
+public:
     /** Run the classifier over the entire dataset, calling the predict
         function on each of them.  The output function will be called once
         for each example number (from 0 to data.example_count() - 1) pointing
