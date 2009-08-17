@@ -25,16 +25,105 @@
 
 #include "distribution.h"
 #include "arch/simd_vector.h"
+#include "compiler/compiler.h"
 
 namespace ML {
 namespace Stats {
 
 template<>
-inline float
+JML_ALWAYS_INLINE float
 distribution<float>::
 total() const
 {
     return SIMD::vec_sum_dp(&(*this)[0], this->size());
+}
+
+template<>
+JML_ALWAYS_INLINE double
+distribution<double>::
+total() const
+{
+    return SIMD::vec_sum(&(*this)[0], this->size());
+}
+
+template<>
+JML_ALWAYS_INLINE double
+distribution<float>::
+dotprod(const distribution<float> & d2) const
+{
+    if (size() != d2.size())
+        wrong_sizes_exception();
+    return SIMD::vec_dotprod_dp(&(*this)[0], &d2[0], size());
+}
+
+template<>
+JML_ALWAYS_INLINE double
+distribution<double>::
+dotprod(const distribution<double> & d2) const
+{
+    if (size() != d2.size())
+        wrong_sizes_exception();
+    return SIMD::vec_dotprod(&(*this)[0], &d2[0], size());
+}
+
+inline distribution<double>
+operator + (const distribution<double> & d1,
+            const distribution<double> & d2)
+{
+    distribution<double> result(d1.size());
+    if (d1.size() != d2.size()) wrong_sizes_exception();
+    SIMD::vec_add(&d1[0], &d2[0], &result[0], d1.size());
+    return result;
+}
+
+inline distribution<float>
+operator + (const distribution<float> & d1,
+            const distribution<float> & d2)
+{
+    distribution<float> result(d1.size());
+    if (d1.size() != d2.size()) wrong_sizes_exception();
+    SIMD::vec_add(&d1[0], &d2[0], &result[0], d1.size());
+    return result;
+}
+
+inline distribution<double>
+operator - (const distribution<double> & d1,
+            const distribution<double> & d2)
+{
+    distribution<double> result(d1.size());
+    if (d1.size() != d2.size()) wrong_sizes_exception();
+    SIMD::vec_minus(&d1[0], &d2[0], &result[0], d1.size());
+    return result;
+}
+
+inline distribution<float>
+operator - (const distribution<float> & d1,
+            const distribution<float> & d2)
+{
+    distribution<float> result(d1.size());
+    if (d1.size() != d2.size()) wrong_sizes_exception();
+    SIMD::vec_minus(&d1[0], &d2[0], &result[0], d1.size());
+    return result;
+}
+
+inline distribution<double>
+operator * (const distribution<double> & d1,
+            const distribution<double> & d2)
+{
+    distribution<double> result(d1.size());
+    if (d1.size() != d2.size()) wrong_sizes_exception();
+    SIMD::vec_prod(&d1[0], &d2[0], &result[0], d1.size());
+    return result;
+}
+
+inline distribution<float>
+operator * (const distribution<float> & d1,
+            const distribution<float> & d2)
+{
+    distribution<float> result(d1.size());
+    if (d1.size() != d2.size()) wrong_sizes_exception();
+    SIMD::vec_prod(&d1[0], &d2[0], &result[0], d1.size());
+    return result;
 }
 
 } // namespace Stats

@@ -140,6 +140,21 @@ public:
     UPDATE_SCALAR_OP(/=)
     #undef UPDATE_SCALAR_OP
 
+    double dotprod(const distribution & other) const
+    {
+        if (this->size() != other.size())
+            wrong_sizes_exception();
+        double result = 0.0;
+        for (unsigned i = 0;  i < this->size();  ++i)
+            result += (*this)[i] * other[i];
+        return result;
+    }
+
+    double two_norm() const
+    {
+        return sqrt(dotprod(*this));
+    }
+
     void normalize()
     {
         *this /= total();
