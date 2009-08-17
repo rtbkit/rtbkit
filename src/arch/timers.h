@@ -12,6 +12,7 @@
 #include "tick_counter.h"
 #include "format.h"
 #include <string>
+#include <cerrno>
 
 namespace ML {
 
