@@ -35,6 +35,6 @@ LIBARCH_CAL_LINK 	:= arch amd
 
 $(eval $(call library,arch_cal,$(LIBARCH_CAL_SOURCES),$(LIBARCH_CAL_LINK)))
 
-$(eval $(call include_sub_make,arch_testing,testing))
-
 endif # CAL_ENABLED
+
+$(eval $(call include_sub_make,arch_testing,testing))
