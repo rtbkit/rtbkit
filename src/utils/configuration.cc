@@ -227,6 +227,10 @@ parse(Parse_Context & context)
             string value = expect_value(context);
 
             context.match_literal(';');
+            context.skip_whitespace();
+            if (context.match_literal('#'))
+                context.expect_text('\n', true, "expected comment");
+            
             context.expect_eol();
 
             data_->entries[add_prefix(scope, name)] = value;
