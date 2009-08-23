@@ -199,6 +199,8 @@ optimize(const std::vector<Feature> & features)
 
     result.initialized = true;
 
+    optimize_impl(result);
+
     return result;
 }
 
@@ -286,6 +288,13 @@ predict(int label,
     info.apply(features, fv);
 
     return optimized_predict_impl(label, fv, info);
+}
+
+bool
+Classifier_Impl::
+optimize_impl(Optimization_Info & info)
+{
+    return false;
 }
 
 Label_Dist

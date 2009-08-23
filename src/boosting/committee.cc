@@ -28,12 +28,14 @@ namespace ML {
 
 Committee::
 Committee()
+    : optimized_(false)
 {
 }
 
 Committee::
 Committee(DB::Store_Reader & store,
           const boost::shared_ptr<const Feature_Space> & feature_space)
+    : optimized_(false)
 {
     reconstitute(store, feature_space);
 }
@@ -42,7 +44,8 @@ Committee::
 Committee(const boost::shared_ptr<const Feature_Space>
              & feature_space,
           const Feature & predicted)
-    : Classifier_Impl(feature_space, predicted)
+    : Classifier_Impl(feature_space, predicted),
+      optimized_(false)
 {
 }
 
@@ -77,6 +80,72 @@ predict(const Feature_Set & features) const
     return result;
 }
 
+bool
+Committee::
+optimization_supported() const
+{
+    return true;
+}
+
+bool
+Committee::
+predict_is_optimized() const
+{
+    return optimized_;
+}
+
+bool
+Committee::
+optimize_impl(Optimization_Info & info)
+{
+    bool any_succeeded = false;
+
+    for (unsigned i = 0;  i < classifiers.size();  ++i) {
+        bool succeeded = classifiers[i]->optimize_impl(info);
+        if (succeeded) any_succeeded = true;
+    }
+
+    return optimized_ = any_succeeded;
+}
+
+Label_Dist
+Committee::
+optimized_predict_impl(const float * features,
+                       const Optimization_Info & info) const
+{
+    distribution<float> result = bias;
+
+    for (unsigned i = 0;  i < classifiers.size();  ++i) {
+        if (weights[i] == 0.0) continue;
+        result = result
+            + weights[i]
+            * classifiers[i]->optimized_predict_impl(features, info);
+    }
+    
+    return result;
+}
+
+float
+Committee::
+optimized_predict_impl(int label,
+                       const float * features,
+                       const Optimization_Info & info) const
+{
+    if (label >= bias.size())
+        throw Exception("Committee::predict(): invalid label");
+
+    float result = bias[label];
+
+    for (unsigned i = 0;  i < classifiers.size();  ++i) {
+        if (weights[i] == 0.0) continue;
+        result = result
+            + weights[i]
+            * classifiers[i]->optimized_predict_impl(label, features, info);
+    }
+
+    return result;
+}
+
 void
 Committee::
 add(boost::shared_ptr<Classifier_Impl> classifier, float weight)
@@ -97,6 +166,7 @@ add(boost::shared_ptr<Classifier_Impl> classifier, float weight)
 
     classifiers.push_back(classifier);
     weights.push_back(weight);
+    optimized_ = false;
 }
 
 std::string
@@ -189,6 +259,8 @@ reconstitute(DB::Store_Reader & store,
         throw Exception("Committee::reconstitute(): invalid canary \""
                         + canary + "\"");
    
+    new_me.optimized_ = false;
+
     swap(new_me);
 }
 

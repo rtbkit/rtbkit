@@ -264,7 +264,15 @@ public:
                           const std::vector<float> & features,
                           const Optimization_Info & info) const;
     
-protected:
+    //protected:
+
+    /** Function to override to perform the optimization.  Default will
+        simply modify the optimization info to indicate that optimization
+        had failed.
+    */
+    virtual bool
+    optimize_impl(Optimization_Info & info);
+
     /** Optimized predict for a dense feature vector.
         This is the worker function that all classifiers that implement the
         optimized predict should override.  The default implementation will
