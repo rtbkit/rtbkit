@@ -113,16 +113,33 @@ Committee::
 optimized_predict_impl(const float * features,
                        const Optimization_Info & info) const
 {
-    distribution<float> result = bias;
+    int nl = bias.size();
+
+    double accum[nl];
+    std::fill(accum, accum + nl, 0.0);
 
     for (unsigned i = 0;  i < classifiers.size();  ++i) {
         if (weights[i] == 0.0) continue;
-        result = result
-            + weights[i]
-            * classifiers[i]->optimized_predict_impl(features, info);
+        classifiers[i]
+            ->optimized_predict_impl(features, info, accum, weights[i]);
     }
     
-    return result;
+    return Label_Dist(accum, accum + nl);
+}
+
+void
+Committee::
+optimized_predict_impl(const float * features,
+                       const Optimization_Info & info,
+                       double * accum,
+                       double weight) const
+{
+    for (unsigned i = 0;  i < classifiers.size();  ++i) {
+        if (weights[i] == 0.0) continue;
+        classifiers[i]
+            ->optimized_predict_impl(features, info, accum,
+                                     weight * weights[i]);
+    }
 }
 
 float

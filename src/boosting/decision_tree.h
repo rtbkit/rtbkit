@@ -89,6 +89,11 @@ public:
     optimized_predict_impl(const float * features,
                            const Optimization_Info & info) const;
     
+    virtual void
+    optimized_predict_impl(const float * features,
+                           const Optimization_Info & info,
+                           double * accum,
+                           double weight) const;
     virtual float
     optimized_predict_impl(int label,
                            const float * features,

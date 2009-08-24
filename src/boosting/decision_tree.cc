@@ -95,21 +95,42 @@ struct OptimizedGetFeatures {
                       
 };
 
-struct DistResults {
-    explicit DistResults(int nl)
-        : result(nl)
+struct AccumResults {
+    explicit AccumResults(double * accum, int nl, double weight)
+        : accum(accum), nl(nl), weight(weight)
     {
     }
 
-    Label_Dist result;
+    double * accum;
+    int nl;
+    double weight;
+
+    JML_ALWAYS_INLINE
+    void operator () (const Label_Dist & dist, float weight1)
+    {
+        for (unsigned i = 0;  i < nl;  ++i)
+            accum[i] += dist[i] * weight1 * weight;
+    }
+};
+
+struct DistResults {
+    explicit DistResults(double * accum, int nl)
+        : accum(accum), nl(nl)
+    {
+        std::fill(accum, accum + nl, 0.0);
+    }
+
+    double * accum;
+    int nl;
 
     JML_ALWAYS_INLINE
     void operator () (const Label_Dist & dist, float weight)
     {
-        result += dist * weight;
+        for (unsigned i = 0;  i < nl;  ++i)
+            accum[i] += dist[i] * weight;
     }
     
-    operator Label_Dist () const { return result; }
+    operator Label_Dist () const { return Label_Dist(accum, accum + nl); }
 };
 
 struct LabelResults {
@@ -148,7 +169,9 @@ Decision_Tree::
 predict(const Feature_Set & features) const
 {
     StandardGetFeatures get_features(features);
-    DistResults results(label_count());
+    int nl = label_count();
+    double accum[nl];
+    DistResults results(accum, nl);
 
     predict_recursive_impl(get_features, results, tree.root);
     return results;
@@ -199,10 +222,26 @@ optimized_predict_impl(const float * features,
                        const Optimization_Info & info) const
 {
     OptimizedGetFeatures get_features(features);
-    DistResults results(label_count());
+
+    int nl = label_count();
+    double accum[nl];
+    DistResults results(accum, nl);
 
     predict_recursive_impl(get_features, results, tree.root);
     return results;
+}
+
+void
+Decision_Tree::
+optimized_predict_impl(const float * features,
+                       const Optimization_Info & info,
+                       double * accum,
+                       double weight) const
+{
+    OptimizedGetFeatures get_features(features);
+    AccumResults results(accum, label_count(), weight);
+
+    predict_recursive_impl(get_features, results, tree.root);
 }
 
 float

@@ -322,6 +322,19 @@ optimized_predict_impl(const float * features,
     return predict(fset);
 }
 
+void
+Classifier_Impl::
+optimized_predict_impl(const float * features,
+                       const Optimization_Info & info,
+                       double * accum,
+                       double weight) const
+{
+    Label_Dist result = optimized_predict_impl(features, info);
+    for (unsigned i = 0;  i < result.size();  ++i) {
+        accum[i] += weight * result[i];
+    }
+}
+
 float
 Classifier_Impl::
 optimized_predict_impl(int label,
