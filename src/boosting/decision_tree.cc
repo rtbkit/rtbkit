@@ -28,13 +28,14 @@ namespace ML {
 /*****************************************************************************/
 
 Decision_Tree::Decision_Tree()
-    : encoding(OE_PROB)
+    : encoding(OE_PROB), optimized_(false)
 {
 }
 
 Decision_Tree::
 Decision_Tree(DB::Store_Reader & store,
               const boost::shared_ptr<const Feature_Space> & fs)
+    : optimized_(false)
 {
     throw Exception("Decision_Tree constructor(reconst): not implemented");
 }
@@ -42,69 +43,215 @@ Decision_Tree(DB::Store_Reader & store,
 Decision_Tree::
 Decision_Tree(boost::shared_ptr<const Feature_Space> feature_space,
               const Feature & predicted)
-    : Classifier_Impl(feature_space, predicted)
+    : Classifier_Impl(feature_space, predicted),
+      encoding(OE_PROB),
+      optimized_(false)
 {
 }
     
-Decision_Tree::~Decision_Tree()
+Decision_Tree::
+~Decision_Tree()
 {
 }
     
-void Decision_Tree::swap(Decision_Tree & other)
+void
+Decision_Tree::
+swap(Decision_Tree & other)
 {
     Classifier_Impl::swap(other);
     std::swap(tree, other.tree);
     std::swap(encoding, other.encoding);
+    std::swap(optimized_, other.optimized_);
 }
 
-float Decision_Tree::
+namespace {
+
+struct StandardGetFeatures {
+    StandardGetFeatures(const Feature_Set & features)
+        : features(features)
+    {
+    }
+
+    const Feature_Set & features;
+
+    Split::Weights operator () (const Split & split) const
+    {
+        return split.apply(features);
+    }
+};
+
+struct OptimizedGetFeatures {
+    OptimizedGetFeatures(const float * features)
+        : features(features)
+    {
+    }
+
+    const float * features;
+
+    JML_ALWAYS_INLINE Split::Weights operator () (const Split & split) const
+    {
+        return split.apply(features);
+    }
+                      
+};
+
+struct DistResults {
+    explicit DistResults(int nl)
+        : result(nl)
+    {
+    }
+
+    Label_Dist result;
+
+    JML_ALWAYS_INLINE
+    void operator () (const Label_Dist & dist, float weight)
+    {
+        result += dist * weight;
+    }
+    
+    operator Label_Dist () const { return result; }
+};
+
+struct LabelResults {
+    explicit LabelResults(int label)
+        : label(label), result(0.0)
+    {
+    }
+
+    JML_ALWAYS_INLINE
+    void operator () (const Label_Dist & dist, float weight)
+    {
+        result += weight * dist[label];
+    }
+
+    int label;
+    double result;
+
+    operator double () const { return result; }
+};
+
+} // file scope
+
+float
+Decision_Tree::
 predict(int label, const Feature_Set & features) const
 {
-    /* Simple version, for now. */
-    return predict(features).at(label);
+    StandardGetFeatures get_features(features);
+    LabelResults results(label);
+
+    predict_recursive_impl(get_features, results, tree.root);
+    return results;
 }
 
-distribution<float>
+Label_Dist
 Decision_Tree::
 predict(const Feature_Set & features) const
 {
-    try {
-        const distribution<float> & result
-            = predict_recursive(features, tree.root);
-        //cerr << "Decision_Tree::predict(): returning " << result << endl;
-        return result;
-    } catch (const std::exception & exc) {
-        cerr << "tree: " << print() << endl;
-        cerr << "features: " << feature_space()->print(features)
-             << endl;
-        throw;
-    }
+    StandardGetFeatures get_features(features);
+    DistResults results(label_count());
+
+    predict_recursive_impl(get_features, results, tree.root);
+    return results;
 }
 
-distribution<float>
+bool
 Decision_Tree::
-predict_recursive(const Feature_Set & features,
-                  const Tree::Ptr & ptr) const
+optimization_supported() const
 {
-    if (!ptr) return distribution<float>(label_count(), 0.0);
-    else if (!ptr.node()) return ptr.leaf()->pred;
+    return true;
+}
+
+bool
+Decision_Tree::
+predict_is_optimized() const
+{
+    return optimized_;
+}
+
+bool
+Decision_Tree::
+optimize_impl(Optimization_Info & info)
+{
+    optimize_recursive(info, tree.root);
+    optimized_ = true;
+    return true;
+}
+
+void
+Decision_Tree::
+optimize_recursive(Optimization_Info & info,
+                   const Tree::Ptr & ptr)
+{
+    if (!ptr) return;
+    if (!ptr.node()) return;
+
+    Tree::Node & node = *ptr.node();
+
+    node.split.optimize(info);
+    optimize_recursive(info, node.child_true);
+    optimize_recursive(info, node.child_false);
+    optimize_recursive(info, node.child_missing);
+}
+
+Label_Dist
+Decision_Tree::
+optimized_predict_impl(const float * features,
+                       const Optimization_Info & info) const
+{
+    OptimizedGetFeatures get_features(features);
+    DistResults results(label_count());
+
+    predict_recursive_impl(get_features, results, tree.root);
+    return results;
+}
+
+float
+Decision_Tree::
+optimized_predict_impl(int label,
+                       const float * features,
+                       const Optimization_Info & info) const
+{
+    OptimizedGetFeatures get_features(features);
+    LabelResults results(label);
+
+    predict_recursive_impl(get_features, results, tree.root);
+    return results;
+}
+
+template<class GetFeatures, class Results>
+void
+Decision_Tree::
+predict_recursive_impl(const GetFeatures & get_features,
+                       Results & results,
+                       const Tree::Ptr & ptr,
+                       double weight) const
+{
+    if (!ptr) return;
+
+    if (!ptr.node()) {
+        results(ptr.leaf()->pred, weight);
+        return;
+    }
 
     const Tree::Node & node = *ptr.node();
     
-    Split::Weights weights = node.split.apply(features);
+    Split::Weights weights = get_features(node.split);
     
     /* Go down all of the edges that we need to for this example. */
     distribution<float> result(label_count(), 0.0);
     if (weights[true] > 0.0)
-        result += weights[true] * predict_recursive(features, node.child_true);
+        predict_recursive_impl(get_features, results, node.child_true,
+                               weights[true]);
     if (weights[false] > 0.0)
-        result += weights[false] * predict_recursive(features, node.child_false);
+        predict_recursive_impl(get_features, results, node.child_false,
+                               weights[false]);
     if (weights[MISSING] > 0.0)
-        result += weights[MISSING] * predict_recursive(features, node.child_missing);
-    return result;
+        predict_recursive_impl(get_features, results, node.child_missing,
+                               weights[MISSING]);
 }
 
-string Decision_Tree::
+string
+Decision_Tree::
 print_recursive(int level, const Tree::Ptr & ptr,
                 float total_weight) const
 {
@@ -141,7 +288,9 @@ print_recursive(int level, const Tree::Ptr & ptr,
     else return spaces + "NULL";
 }
 
-std::string Decision_Tree::print() const
+std::string
+Decision_Tree::
+print() const
 {
     string result = "Decision tree:\n";
     float total_weight = 0.0;
@@ -150,7 +299,9 @@ std::string Decision_Tree::print() const
     return result;
 }
 
-std::string Decision_Tree::summary() const
+std::string
+Decision_Tree::
+summary() const
 {
     if (!tree.root)
         return "NULL";
@@ -192,7 +343,9 @@ void all_features_recursive(const Tree::Ptr & ptr,
 
 } // file scope
 
-std::vector<ML::Feature> Decision_Tree::all_features() const
+std::vector<ML::Feature>
+Decision_Tree::
+all_features() const
 {
     std::vector<ML::Feature> result;
     all_features_recursive(tree.root, result);
@@ -207,7 +360,9 @@ output_encoding() const
     return encoding;
 }
 
-void Decision_Tree::serialize(DB::Store_Writer & store) const
+void
+Decision_Tree::
+serialize(DB::Store_Writer & store) const
 {
     store << string("DECISION_TREE");
     store << compact_size_t(3);  // version
@@ -218,7 +373,8 @@ void Decision_Tree::serialize(DB::Store_Writer & store) const
     store << compact_size_t(12345);  // end marker
 }
 
-void Decision_Tree::
+void
+Decision_Tree::
 reconstitute(DB::Store_Reader & store,
              const boost::shared_ptr<const Feature_Space> & feature_space)
 {
@@ -257,14 +413,20 @@ reconstitute(DB::Store_Reader & store,
     compact_size_t marker(store);
     if (marker != 12345)
         throw Exception("Decision_Tree::reconstitute: read bad marker at end");
+
+    optimized_ = false;
 }
     
-std::string Decision_Tree::class_id() const
+std::string
+Decision_Tree::
+class_id() const
 {
     return "DECISION_TREE";
 }
 
-Decision_Tree * Decision_Tree::make_copy() const
+Decision_Tree *
+Decision_Tree::
+make_copy() const
 {
     return new Decision_Tree(*this);
 }

@@ -1,7 +1,6 @@
 /* classifier.cc
    Jeremy Barnes, 6 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
-   $Source$
 
    Implementation of basic classifier methods.
 */
@@ -17,6 +16,7 @@
 #include "utils/guard.h"
 #include "dense_features.h"
 #include "utils/smart_ptr_utils.h"
+#include "utils/vector_utils.h"
 #include <boost/bind.hpp>
 #include <boost/thread/tss.hpp>
 
@@ -39,16 +39,24 @@ void
 Optimization_Info::
 apply(const Feature_Set & fset, float * output) const
 {
+    if (fset.size() != indexes.size())
+        throw Exception("Optimization_Info::apply(): size mismatch");
+
     for (unsigned i = 0;  i < indexes.size();  ++i)
-        output[i] = fset[indexes[i]].second;
+        if (indexes[i] != -1)
+            output[indexes[i]] = fset[i].second;
 }
 
 void
 Optimization_Info::
 apply(const std::vector<float> & fset, float * output) const
 {
+    if (fset.size() != indexes.size())
+        throw Exception("Optimization_Info::apply(): size mismatch");
+
     for (unsigned i = 0;  i < indexes.size();  ++i)
-        output[i] = fset[indexes[i]];
+        if (indexes[i] != -1)
+            output[indexes[i]] = fset[i];
 }
 
 int
@@ -273,6 +281,7 @@ predict(int label,
     if (!predict_is_optimized() || !info) return predict(label, features);
 
     float fv[info.features_out()];
+
     info.apply(features, fv);
 
     return optimized_predict_impl(label, fv, info);
@@ -285,6 +294,7 @@ predict(int label,
         const Optimization_Info & info) const
 {
     float fv[info.features_out()];
+
     info.apply(features, fv);
 
     return optimized_predict_impl(label, fv, info);

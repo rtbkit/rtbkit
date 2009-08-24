@@ -20,6 +20,7 @@ namespace ML {
 class Feature_Space;
 class Feature_Set;
 class Feature_Info;
+class Optimization_Info;
 
 class Split {
 public:
@@ -153,6 +154,9 @@ public:
 
         weights[apply(fset[idx_])] += weight;
     }
+
+    /** Optimize for the given optimization info. */
+    void optimize(const Optimization_Info & info);
 
     /** Given the feature info for a given feature, figure out which type
         of relationship it should have. */

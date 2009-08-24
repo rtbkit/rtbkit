@@ -50,6 +50,56 @@ Decoded_Classifier::predict(const Feature_Set & features) const
     return result;
 }
 
+float
+Decoded_Classifier::
+predict(int label, const Feature_Set & features) const
+{
+    /* We require predictions for all labels as some decoders work with
+       all of them and won't work with just one. */
+    return predict(features)[label];
+}
+
+bool
+Decoded_Classifier::
+optimization_supported() const
+{
+    return classifier_.impl->optimization_supported();
+}
+
+bool
+Decoded_Classifier::
+predict_is_optimized() const
+{
+    return classifier_.impl->predict_is_optimized();
+}
+
+bool
+Decoded_Classifier::
+optimize_impl(Optimization_Info & info)
+{
+    return classifier_.impl->optimize_impl(info);
+}
+
+Label_Dist
+Decoded_Classifier::
+optimized_predict_impl(const float * features,
+                       const Optimization_Info & info) const
+{
+    Label_Dist result
+        = classifier_.impl->optimized_predict_impl(features, info);
+    if (decoder_) result = decoder_.apply(result);
+    return result;
+}
+
+float
+Decoded_Classifier::
+optimized_predict_impl(int label,
+                       const float * features,
+                       const Optimization_Info & info) const
+{
+    return optimized_predict_impl(features, info)[label];
+}
+
 std::string Decoded_Classifier::print() const
 {
     return "Decoded_Classifier";

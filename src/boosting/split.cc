@@ -8,6 +8,7 @@
 #include "feature_space.h"
 #include "feature_info.h"
 #include "feature_set.h"
+#include "classifier.h"
 
 
 using namespace std;
@@ -47,6 +48,18 @@ apply(const Feature_Set & fset,
     Feature_Set::const_iterator first, last;
     boost::tie(first, last) = fset.find(feature_);
     return apply(first, last, weights, weight);
+}
+
+void
+Split::
+optimize(const Optimization_Info & info)
+{
+    map<Feature, int>::const_iterator it
+        = info.feature_to_optimized_index.find(feature_);
+    if (it == info.feature_to_optimized_index.end())
+        throw Exception("Split::optimize(): feature not found");
+    idx_ = it->second;
+    opt_ = true;
 }
 
 std::string

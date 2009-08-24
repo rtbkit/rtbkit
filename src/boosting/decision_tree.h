@@ -53,6 +53,7 @@ public:
 
     Tree tree;                 ///< The tree we have learned
     Output_Encoding encoding;  ///< How the outputs are represented
+    bool optimized_;           ///< Is predict() optimized?
 
     using Classifier_Impl::predict;
 
@@ -61,9 +62,43 @@ public:
     virtual distribution<float>
     predict(const Feature_Set & features) const;
 
-    distribution<float>
-    predict_recursive(const Feature_Set & features,
-                      const Tree::Ptr & ptr) const;
+    /** Is optimization supported by the classifier? */
+    virtual bool optimization_supported() const;
+
+    /** Is predict optimized?  Default returns false; those classifiers which
+        a) support optimized predict and b) have had optimize_predict() called
+        will override to return true in this case.
+    */
+    virtual bool predict_is_optimized() const;
+    /** Function to override to perform the optimization.  Default will
+        simply modify the optimization info to indicate that optimization
+        had failed.
+    */
+    virtual bool
+    optimize_impl(Optimization_Info & info);
+
+    void optimize_recursive(Optimization_Info & info,
+                            const Tree::Ptr & ptr);
+
+    /** Optimized predict for a dense feature vector.
+        This is the worker function that all classifiers that implement the
+        optimized predict should override.  The default implementation will
+        convert to a Feature_Set and will call the non-optimized predict.
+    */
+    virtual Label_Dist
+    optimized_predict_impl(const float * features,
+                           const Optimization_Info & info) const;
+    
+    virtual float
+    optimized_predict_impl(int label,
+                           const float * features,
+                           const Optimization_Info & info) const;
+
+    template<class GetFeatures, class Results>
+    void predict_recursive_impl(const GetFeatures & get_features,
+                                Results & results,
+                                const Tree::Ptr & ptr,
+                                double weight = 1.0) const;
 
     virtual std::string print() const;
 
