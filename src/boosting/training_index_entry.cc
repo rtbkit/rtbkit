@@ -847,10 +847,9 @@ create_buckets(size_t num_buckets)
         result.buckets.push_back(bucket);
     }
 
-    if (feature.type() == 22) {
-        cerr << "bucket_count = " << bucket_count << endl;
-    }
-
+    //if (feature.type() == 22) {
+    //    cerr << "bucket_count = " << bucket_count << endl;
+    //}
 
     return result;
 }
