@@ -108,6 +108,13 @@ struct AccumResults {
     JML_ALWAYS_INLINE
     void operator () (const Label_Dist & dist, float weight1)
     {
+        if (JML_LIKELY(nl == 2)) {
+            double factor = weight1 * weight;
+            accum[0] += dist[0] * factor;
+            accum[1] += dist[1] * factor;
+            return;
+        }
+
         for (unsigned i = 0;  i < nl;  ++i)
             accum[i] += dist[i] * weight1 * weight;
     }
@@ -277,7 +284,6 @@ predict_recursive_impl(const GetFeatures & get_features,
     Split::Weights weights = get_features(node.split);
     
     /* Go down all of the edges that we need to for this example. */
-    distribution<float> result(label_count(), 0.0);
     if (weights[true] > 0.0)
         predict_recursive_impl(get_features, results, node.child_true,
                                weights[true]);
