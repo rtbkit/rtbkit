@@ -226,10 +226,8 @@ struct Tree_Accum {
     /** Method that gets called when we have found a potential split point. */
     float add_z(const Feature & feature, const W & w, float arg, float z)
     {
-        //bool print_feat = fs.print(feature) == "hmmInfSubNeTypeProbability";
-        //bool print_feat = fs.print(feature) == "hmmInfNeSurfTypeProbability";
-        //bool print_feat = fs.print(feature) == "language_cosine";
         bool print_feat = false;
+        //print_feat = fs.print(feature) == "language_cosine";
         if (tracer || print_feat)
             tracer("tree accum", 3)
                 << "  accum: feature " << feature << " arg " << arg

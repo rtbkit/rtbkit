@@ -801,7 +801,7 @@ bucket_dist_reduced(vector<float> & result, size_t num_buckets)
     
     if (debug) {
         for (unsigned i = 0;  i < result.size();  ++i)
-            cerr << format("  bucket %5d has value %16.9f 0x%08x, %6zd values",
+            cerr << format("  bucket %5d has value %16.9f 0x%08x, %8.1f values",
                            i, result[i], reinterpret_as_int(result[i]),
                            bucket_sizes[i]) << endl;
     }
@@ -830,18 +830,27 @@ create_buckets(size_t num_buckets)
     result.buckets.clear();
 
     const vector<float> & values = get_values(BY_EXAMPLE);
+
+    vector<int> bucket_count(result.splits.size() + 1);
         
     for (unsigned i = 0;  i < values.size();  ++i) {
         float value = values[i];
-        int bucket = std::lower_bound(result.splits.begin(),
+        int bucket = std::upper_bound(result.splits.begin(),
                                       result.splits.end(), value)
             - result.splits.begin();
 
         //cerr << "i = " << i << "  value = " << value << "  bucket = "
         //     << bucket << endl;
 
+        bucket_count[bucket] += 1;
+
         result.buckets.push_back(bucket);
     }
+
+    if (feature.type() == 22) {
+        cerr << "bucket_count = " << bucket_count << endl;
+    }
+
 
     return result;
 }
