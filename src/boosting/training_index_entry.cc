@@ -689,6 +689,7 @@ void Dataset_Index::Index_Entry::
 bucket_dist_reduced(vector<float> & result, size_t num_buckets)
 {
     bool debug = false;
+    //debug = (feature.type() == 22);
 
     /* NOTE: this algorithm tends to overcluster well-distributed data.
        It should probably be re-done to produce a number of buckets
@@ -745,7 +746,7 @@ bucket_dist_reduced(vector<float> & result, size_t num_buckets)
         float v = it->first;
         num += n;
 
-        if (debug)
+        if (debug && false)
             cerr << "i = " << i << " n = " << n << " v = " << v
                  << " num = " << num << endl;
 
@@ -758,27 +759,51 @@ bucket_dist_reduced(vector<float> & result, size_t num_buckets)
             bucket_sizes.push_back(num - n);
             if (debug) 
                 cerr << "i = " << i << ": split [1] at "
-                     << val << " with " << num - n
+                     << format("val: %16.9f 0x%08x ", val,
+                               reinterpret_as_int(val))
+                     << format("v: %16.9f 0x%08x ", v,
+                               reinterpret_as_int(v))
+                     << format("prior: %16.9f 0x%08x ", boost::prior(it)->first,
+                               reinterpret_as_int(boost::prior(it)->first))
+                     << " with " << num - n
                      << " examples." << endl;
             num -= n;
         }
         if (i < (int)freqs.size() - 1
             && (num >= per_bucket || boost::next(it)->second >= per_bucket)) {
-            float val = (v + boost::next(it)->first) * 0.5;
+            float val = (v + boost::next(it)->first) * 0.5f;
+
+            // If the two values are one ulp apart, then we need to make sure
+            // that it gets rounded up otherwise we will have two buckets
+            // with the same split value
+            if (val == v)
+                val = boost::next(it)->first;
+
             result.push_back(val);
             bucket_sizes.push_back(num);
             if (debug)
                 cerr << "i = " << i << ": split [2] at "
-                     << val << " with " << num
+                     << format("val: %16.9f 0x%08x ", val,
+                               reinterpret_as_int(val))
+                     << format("v: %16.9f 0x%08x ", v,
+                               reinterpret_as_int(v))
+                     << format("next: %16.9f 0x%08x ", boost::next(it)->first,
+                               reinterpret_as_int(boost::next(it)->first))
+                     << " with " << num
                      << " examples." << endl;
             num = 0;
         }
     }
+
+    for (unsigned i = 1;  i < result.size();  ++i)
+        if (result[i] == result[i - 1])
+            throw Exception("two buckets with the same split point");
     
     if (debug) {
         for (unsigned i = 0;  i < result.size();  ++i)
-            cerr << "  bucket " << i << " has value " << result[i]
-                 << ", \t" << bucket_sizes[i] << " values" << endl;
+            cerr << format("  bucket %5d has value %16.9f 0x%08x, %6zd values",
+                           i, result[i], reinterpret_as_int(result[i]),
+                           bucket_sizes[i]) << endl;
     }
 }
 

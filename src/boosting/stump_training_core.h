@@ -1023,7 +1023,7 @@ struct Stump_Trainer {
         using namespace std;
 
         bool debug = false;
-        //debug = (feature.type() == 23);
+        debug = (feature.type() == 22);
 
         Joint_Index index
             = data.index().joint(predicted, feature, BY_EXAMPLE,

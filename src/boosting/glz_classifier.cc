@@ -131,22 +131,30 @@ decode(const Feature_Set & feature_set) const
     return result;
 }
 
-distribution<float>
+Label_Dist
 GLZ_Classifier::predict(const Feature_Set & features) const
 {
     return predict(decode(features));
 }
 
-distribution<float>
+Label_Dist
 GLZ_Classifier::predict(const distribution<float> & features_c) const
 {
     //cerr << "glz_classifier: predict: features = " << features_c << endl;
+    //cerr << "features_c.size() = " << features_c.size() << endl;
     //cerr << "features.size() = " << features.size() << endl;
+
+    for (unsigned i = 0;  i < features.size();  ++i) {
+        if (!isfinite(features_c[i]))
+            throw Exception("GLZ_Classifier: feature "
+                            + feature_space()->print(features[i])
+                            + " is not finite");
+    }
 
     distribution<float> features = features_c;
     if (add_bias) features.push_back(1.0);  // add bias term
 
-    distribution<float> result(label_count());
+    Label_Dist result(label_count());
     for (unsigned i = 0;  i < result.size();  ++i)
         result[i] = apply_link_inverse((features * weights[i]).total(), link);
 

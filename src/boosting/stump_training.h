@@ -463,7 +463,7 @@ struct C_gentle {
             for (unsigned l = 0;  l < w.nl();  ++l)
                 result[j][l] 
                     = xdiv(w(l, j, true) - w(l, j, false),
-                                 w(l, j, true) + w(l, j, false));
+                           w(l, j, true) + w(l, j, false));
         return result;
     }
 

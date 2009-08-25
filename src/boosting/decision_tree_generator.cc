@@ -228,13 +228,14 @@ struct Tree_Accum {
     {
         //bool print_feat = fs.print(feature) == "hmmInfSubNeTypeProbability";
         //bool print_feat = fs.print(feature) == "hmmInfNeSurfTypeProbability";
-        //bool print_feat = fs.print(feature) == "documentName";
+        //bool print_feat = fs.print(feature) == "language_cosine";
         bool print_feat = false;
         if (tracer || print_feat)
             tracer("tree accum", 3)
                 << "  accum: feature " << feature << " arg " << arg
                 << " (" << fs.print(feature, arg)
-                << "  z " << z << "  " << fs.print(feature)
+                << "; 0x" << format("%08x", reinterpret_as_int(arg))
+                << ") z " << z << "  " << fs.print(feature)
                 << (z < best_z ? " ****" : "")
                 << endl;
         
@@ -331,6 +332,8 @@ new_leaf(Tree & tree,
 
     distribution<float> dist;
 
+    //cerr << "new_leaf: advance = " << advance << endl;
+    
     if (advance < 0)
         throw Exception("invalid advance");
 
