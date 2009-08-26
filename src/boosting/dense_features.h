@@ -198,6 +198,10 @@ public:
     /** Add the given feature to the feature space.  Returns its index. */
     int add_feature(const std::string & name, const Feature_Info & info);
 
+    /** Add the entire feature space */
+    void add(const Dense_Feature_Space & other_fs,
+             const std::string & name_prefix = "");
+
     virtual Type type() const { return DENSE; }
 
     /** Turn the feature info for the given feature into a mutable categorical

@@ -568,6 +568,16 @@ add_feature(const string & name, const Feature_Info & info)
     return index;
 }
 
+void
+Dense_Feature_Space::
+add(const Dense_Feature_Space & other_fs,
+    const std::string & name_prefix)
+{
+    for (unsigned i = 0;  i < other_fs.names_fwd.size();  ++i)
+        add_feature(name_prefix + other_fs.names_fwd[i],
+                    other_fs.info_array[i]);
+}
+
 boost::shared_ptr<Mutable_Categorical_Info>
 Dense_Feature_Space::
 make_categorical(Feature feature)
