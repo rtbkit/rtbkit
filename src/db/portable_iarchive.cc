@@ -66,13 +66,9 @@ struct Binary_Input::Buffer_Source
     {
         // First try?  Initialize
         if (input.end_ != region->start + region->size) {
-            cerr << "Buffer Input init" << endl;
-
             input.pos_ = region->start;
             input.end_ = input.pos_ + region->size;
             input.offset_ = 0;
-            
-            cerr << "first char = " << int(*input.pos_) << endl;
         }
 
         return input.avail();  // we can never get more after this
