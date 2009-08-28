@@ -977,10 +977,26 @@ struct Stump_Trainer {
             w.clip(true);
 
             /* Add this split point. */
-            float arg = (index[i].value() + prev) / 2.0;
+            float arg = (index[i].value() + prev) * 0.5;
             
-            if (arg == prev || arg == index[i].value())
+            if (arg == prev || arg == index[i].value()) {
+                arg = index[i].value();
+#if 0 // TODO: should be equal to lower or highest?
+                cerr << "feature: " << data.feature_space()->print(feature)
+                     << endl;
+                cerr << "arg: " << format("arg: %.10f (0x%08x) "
+                                          "prev: %.10f (0x%08x) "
+                                          "val: %.10f (0x%08x)",
+                                          arg, reinterpret_as_int(arg),
+                                          prev, reinterpret_as_int(prev),
+                                          index[i].value(),
+                                          reinterpret_as_int(index[i].value()))
+                     << endl;
+                cerr << "density: " << data.index().density(feature) << endl;
+                cerr << "examples: " << data.example_count() << endl;
                 throw Exception("adjacent floats");
+#endif // equal to lower or highest?
+            }
 
             float new_Z = results.add(feature, w, arg, missing);
             if (debug) {
