@@ -93,6 +93,9 @@ std::vector<std::string> split(const std::string & str, char c)
         ++pos;
     }
 
+    if (start < str.size())
+        result.push_back(string(str, start, pos - start));
+
     return result;
 }
 
