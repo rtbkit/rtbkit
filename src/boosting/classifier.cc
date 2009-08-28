@@ -59,6 +59,15 @@ apply(const std::vector<float> & fset, float * output) const
             output[indexes[i]] = fset[i];
 }
 
+void
+Optimization_Info::
+apply(const float * fset, float * output) const
+{
+    for (unsigned i = 0;  i < indexes.size();  ++i)
+        if (indexes[i] != -1)
+            output[indexes[i]] = fset[i];
+}
+
 int
 Optimization_Info::
 get_optimized_index(const Feature & feature) const
@@ -176,12 +185,12 @@ Optimization_Info
 Classifier_Impl::
 optimize(const std::vector<Feature> & features)
 {
-    if (!optimization_supported())
-        return Optimization_Info();
-
     Optimization_Info result;
     result.from_features = features;
     result.to_features = all_features();
+
+    if (!optimization_supported())
+        return result;
 
     map<Feature, int> & feature_map = result.feature_to_optimized_index;
     for (unsigned i = 0;  i < result.to_features.size();  ++i) {
@@ -272,6 +281,17 @@ predict(const std::vector<float> & features,
     return optimized_predict_impl(fv, info);
 }
 
+Label_Dist
+Classifier_Impl::
+predict(const float * features,
+        const Optimization_Info & info) const
+{
+    float fv[info.features_out()];
+    info.apply(features, fv);
+
+    return optimized_predict_impl(fv, info);
+}
+
 float
 Classifier_Impl::
 predict(int label,
@@ -293,6 +313,37 @@ predict(int label,
         const std::vector<float> & features,
         const Optimization_Info & info) const
 {
+    if (!predict_is_optimized() || !info) {
+
+        // Convert to standard feature set, then call classical predict
+        Dense_Feature_Set fset(make_unowned_sp(info.to_features),
+                               &features[0]);
+
+        return predict(label, fset);
+    }
+
+    float fv[info.features_out()];
+
+    info.apply(features, fv);
+
+    return optimized_predict_impl(label, fv, info);
+}
+
+float
+Classifier_Impl::
+predict(int label,
+        const float * features,
+        const Optimization_Info & info) const
+{
+    if (!predict_is_optimized() || !info) {
+
+        // Convert to standard feature set, then call classical predict
+        Dense_Feature_Set fset(make_unowned_sp(info.to_features),
+                               features);
+
+        return predict(label, fset);
+    }
+
     float fv[info.features_out()];
 
     info.apply(features, fv);

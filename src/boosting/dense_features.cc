@@ -273,7 +273,38 @@ encode(const std::vector<float> & variables,
     return encode(our_variables);
 }
 
-distribution<float> Dense_Feature_Space::
+void
+Dense_Feature_Space::
+encode(const float * features,
+       float * output,
+       const Dense_Feature_Space & other,
+       const Mapping & mapping) const
+{
+    if (!mapping.initialized()
+        || mapping.vars.size() != names_fwd.size()
+        || mapping.categories.size() != names_fwd.size())
+        throw Exception("using wrong or stale mapping");
+
+    /* Map their variables into ours.  Those that have no corresponding
+       variable get a NaN instead. */
+    for (unsigned i = 0;  i < mapping.vars.size();  ++i) {
+        if (mapping.vars[i] != -1) {
+            if (mapping.categories[i]) {
+                /* Map a categorical variable. */
+                output[i]
+                    = mapping.categories[i]
+                    ->map((int)features[mapping.vars[i]],
+                          *info_array[i].categorical(),
+                          *other.info_array[mapping.vars[i]].categorical());
+            }
+            else output[i] = features[mapping.vars[i]];
+        }
+        else output[i] = NAN;
+    }
+}
+
+distribution<float>
+Dense_Feature_Space::
 decode(const Feature_Set & feature_set) const
 {
     /* TODO: make this be able to work on another feature space. */
@@ -555,6 +586,10 @@ add_feature(const string & name, const Feature_Info & info)
         Feature_Info & current = info_array[index];
         current = promote(current, info);
 
+        cerr << "warning: adding feature " << name
+             << " to dense feature face that already contains it; "
+             << "they are being mapped onto the same feature" << endl;
+            
 #if 0
         /* Already exists.  Check that the info is compatible. */
         if (info_array[index] != info)

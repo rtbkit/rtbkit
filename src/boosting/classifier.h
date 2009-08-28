@@ -79,6 +79,7 @@ struct Optimization_Info {
 
     void apply(const Feature_Set & fset, float * output) const;
     void apply(const std::vector<float> & fset, float * output) const;
+    void apply(const float * fset, float * output) const;
     
 
     /** Given a feature, return the index in the dense feature vector that
@@ -256,12 +257,17 @@ public:
                                const Optimization_Info & info) const;
     virtual Label_Dist predict(const std::vector<float> & features,
                                const Optimization_Info & info) const;
+    virtual Label_Dist predict(const float * features,
+                               const Optimization_Info & info) const;
     
     virtual float predict(int label,
                           const Feature_Set & features,
                           const Optimization_Info & info) const;
     virtual float predict(int label,
                           const std::vector<float> & features,
+                          const Optimization_Info & info) const;
+    virtual float predict(int label,
+                          const float * features,
                           const Optimization_Info & info) const;
     
     //protected:

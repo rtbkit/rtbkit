@@ -31,14 +31,15 @@ namespace ML {
 /*****************************************************************************/
 
 GLZ_Classifier::GLZ_Classifier()
-    : add_bias(true), link(LOGIT)
+    : add_bias(true), link(LOGIT), optimized_(false)
 {
 }
 
 GLZ_Classifier::
 GLZ_Classifier(const boost::shared_ptr<const Feature_Space> & fs,
                const Feature & predicted)
-    : Classifier_Impl(fs, predicted), add_bias(true), link(LOGIT)
+    : Classifier_Impl(fs, predicted), add_bias(true), link(LOGIT),
+      optimized_(false)
 {
 }
 
@@ -65,56 +66,6 @@ distribution<float>
 GLZ_Classifier::
 decode(const Feature_Set & feature_set) const
 {
-    boost::shared_ptr<const Dense_Feature_Space> dense_fs
-        = boost::dynamic_pointer_cast<const Dense_Feature_Space>
-            (feature_space_);
-    if (dense_fs) {
-        // Dense feature space.  We can create a mapping.
-        
-        if (optimized_mapping.empty()) {
-            // TODO: everything is sorted, so map is unnecessary here...
-
-            map<Feature, int> feature_map;
-            for (unsigned i = 0;  i < features.size();  ++i)
-                feature_map[features[i]] = i;
-
-            optimized_mapping.resize(feature_set.size(), -1);
-
-            int i = 0;
-            for (Feature_Set::const_iterator
-                     it = feature_set.begin();  i < feature_set.size();
-                 ++i, ++it) {
-                
-                pair<Feature, float> ff = *it;
-
-                if (feature_map.count(ff.first))
-                    optimized_mapping[i] = feature_map[ff.first];
-            }
-        }
-        
-        if (optimized_mapping.size() != feature_set.size())
-            throw Exception("optimized mapping but features not there");
-        
-        distribution<float> result(features.size(),
-                                   numeric_limits<float>::quiet_NaN());
-
-        int i = 0;
-        for (Feature_Set::const_iterator
-                 it = feature_set.begin();  i < feature_set.size();
-             ++i, ++it) {
-
-            if (optimized_mapping[i] == -1) continue;
-
-            // TODO: check feature...
-            // TODO: avoid returning feature if not needed
-            pair<Feature, float> ff = *it;
-            
-            result[optimized_mapping[i]] = ff.second;
-        }
-        
-        return result;
-    }
-
     distribution<float> result(features.size());
     
     for (unsigned i = 0;  i < features.size();  ++i) {
@@ -140,10 +91,35 @@ GLZ_Classifier::predict(const Feature_Set & features) const
 Label_Dist
 GLZ_Classifier::predict(const distribution<float> & features_c) const
 {
-    //cerr << "glz_classifier: predict: features = " << features_c << endl;
-    //cerr << "features_c.size() = " << features_c.size() << endl;
-    //cerr << "features.size() = " << features.size() << endl;
+    return optimized_predict_impl(&features_c[0], Optimization_Info());
+}
 
+bool
+GLZ_Classifier::
+optimization_supported() const
+{
+    return true;
+}
+
+bool
+GLZ_Classifier::
+predict_is_optimized() const
+{
+    return optimized_;
+}
+
+bool
+GLZ_Classifier::
+optimize_impl(Optimization_Info & info)
+{
+    return optimized_ = true;
+}
+
+Label_Dist
+GLZ_Classifier::
+optimized_predict_impl(const float * features_c,
+                       const Optimization_Info & info) const
+{
     for (unsigned i = 0;  i < features.size();  ++i) {
         if (!isfinite(features_c[i]))
             throw Exception("GLZ_Classifier: feature "
@@ -151,14 +127,65 @@ GLZ_Classifier::predict(const distribution<float> & features_c) const
                             + " is not finite");
     }
 
-    distribution<float> features = features_c;
-    if (add_bias) features.push_back(1.0);  // add bias term
-
     Label_Dist result(label_count());
-    for (unsigned i = 0;  i < result.size();  ++i)
-        result[i] = apply_link_inverse((features * weights[i]).total(), link);
+    for (unsigned i = 0;  i < result.size();  ++i) {
+        double accum = 0.0;
+
+        for (unsigned j = 0;  j < features.size();  ++j)
+            accum += features_c[j] * weights[i][j];
+        if (add_bias) accum += weights[i][features.size() + 1];
+        result[i] = apply_link_inverse(accum, link);
+    }
 
     return result;
+}
+
+void
+GLZ_Classifier::
+optimized_predict_impl(const float * features_c,
+                       const Optimization_Info & info,
+                       double * accum_out,
+                       double weight) const
+{
+    for (unsigned i = 0;  i < features.size();  ++i) {
+        if (!isfinite(features_c[i]))
+            throw Exception("GLZ_Classifier: feature "
+                            + feature_space()->print(features[i])
+                            + " is not finite");
+    }
+
+    int nl = label_count();
+    for (unsigned i = 0;  i < nl;  ++i) {
+        double accum = 0.0;
+
+        for (unsigned j = 0;  j < features.size();  ++j)
+            accum += features_c[j] * weights[i][j];
+        if (add_bias) accum += weights[i][features.size() + 1];
+
+        accum_out[i] += weight * apply_link_inverse(accum, link);
+    }
+}
+
+float
+GLZ_Classifier::
+optimized_predict_impl(int label,
+                       const float * features_c,
+                       const Optimization_Info & info) const
+{
+    for (unsigned i = 0;  i < features.size();  ++i) {
+        if (!isfinite(features_c[i]))
+            throw Exception("GLZ_Classifier: feature "
+                            + feature_space()->print(features[i])
+                            + " is not finite");
+    }
+
+    double accum = 0.0;
+    
+    for (unsigned j = 0;  j < features.size();  ++j)
+        accum += features_c[j] * weights[label][j];
+    if (add_bias) accum += weights[label][features.size() + 1];
+
+    return apply_link_inverse(accum, link);
 }
 
 std::vector<ML::Feature> GLZ_Classifier::all_features() const
@@ -238,6 +265,8 @@ reconstitute(DB::Store_Reader & store)
         throw Exception("GLZ_Classifier::reconstitute(): bad guard value");
     
     init(feature_space_, predicted_, weights.size());
+
+    optimized_ = false;
 }
 
 void GLZ_Classifier::

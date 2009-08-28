@@ -139,6 +139,20 @@ public:
     boost::shared_ptr<Mutable_Feature_Set>
     encode(const std::vector<float> & variables,
            const Dense_Feature_Space & other, const Mapping & mapping) const;
+
+    /** Encode in an optimized way such that memory isn't allocated.  The
+        mapping and the info should have been already allocated.  The features
+        are assumed to contain the correct number of variables for the
+        mapping (mapping.num_vars_expected_), and the output is expected to
+        contain at least n values.  It will leave output in a state that will
+        allow Classifier_Impl::optimized_predict_impl to be called with the
+        array.
+    */
+    void
+    encode(const float * features,
+           float * output,
+           const Dense_Feature_Space & other,
+           const Mapping & mapping) const;
     
     /** Decode the results of an encode step. */
     distribution<float> decode(const Feature_Set & feature_set) const;

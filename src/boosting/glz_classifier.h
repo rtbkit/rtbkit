@@ -72,6 +72,43 @@ public:
     /** Predict, but from a feature vector rather than a feature set. */
     distribution<float> predict(const distribution<float> & features) const;
 
+    /** Predict, but from a mapped feature vector rather than a feature set. */
+    distribution<float> predict(const float * features) const;
+
+    /** Is optimization supported by the classifier? */
+    virtual bool optimization_supported() const;
+
+    /** Is predict optimized?  Default returns false; those classifiers which
+        a) support optimized predict and b) have had optimize_predict() called
+        will override to return true in this case.
+    */
+    virtual bool predict_is_optimized() const;
+    /** Function to override to perform the optimization.  Default will
+        simply modify the optimization info to indicate that optimization
+        had failed.
+    */
+    virtual bool
+    optimize_impl(Optimization_Info & info);
+
+    /** Optimized predict for a dense feature vector.
+        This is the worker function that all classifiers that implement the
+        optimized predict should override.  The default implementation will
+        convert to a Feature_Set and will call the non-optimized predict.
+    */
+    virtual Label_Dist
+    optimized_predict_impl(const float * features,
+                           const Optimization_Info & info) const;
+    
+    virtual void
+    optimized_predict_impl(const float * features,
+                           const Optimization_Info & info,
+                           double * accum,
+                           double weight) const;
+    virtual float
+    optimized_predict_impl(int label,
+                           const float * features,
+                           const Optimization_Info & info) const;
+
     virtual std::string print() const;
 
     virtual std::vector<Feature> all_features() const;
@@ -97,9 +134,7 @@ public:
     /** Allow polymorphic copying. */
     virtual GLZ_Classifier * make_copy() const;
 
-    // TEMPORARY THREAD UNSAFE UGLY OPTIMIZATION
-    // To be replaced with optimize() interface
-    mutable std::vector<int> optimized_mapping;
+    bool optimized_;
 };
 
 } // namespace ML
