@@ -427,10 +427,62 @@ double vec_dotprod_dp(const float * x, const float * y, size_t n)
     return res;
 }
 
-double vec_dotprod_dp(const float * x, const double * y, size_t n)
+double vec_dotprod_dp(const double * x, const float * y, size_t n)
 {
     double res = 0.0;
-    for (unsigned i = 0;  i < n;  ++i) res += x[i] * y[i];
+
+    unsigned i = 0;
+    if (true) {
+        v2df rr0 = vec_splat(0.0), rr1 = vec_splat(0.0);
+        
+        for (; i + 8 <= n;  i += 8) {
+            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
+            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
+
+            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            rr0        += xx0 * yy0;
+
+            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            rr1        += xx1 * yy1;
+
+            v4sf yyyy23 = __builtin_ia32_loadups(y + i + 4);
+            v2df yy2    = __builtin_ia32_cvtps2pd(yyyy23);
+            yyyy23      = __builtin_ia32_shufps(yyyy23, yyyy23, 14);
+            v2df yy3    = __builtin_ia32_cvtps2pd(yyyy23);
+
+            v2df xx2    = __builtin_ia32_loadupd(x + i + 4);
+            rr0        += xx2 * yy2;
+
+            v2df xx3    = __builtin_ia32_loadupd(x + i + 6);
+            rr1        += xx3 * yy3;
+        }
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
+            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
+
+            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            rr0        += xx0 * yy0;
+
+            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            rr1        += xx1 * yy1;
+        }
+
+        rr0 += rr1;
+
+        double results[2];
+        *(v2df *)results = rr0;
+        
+        res = results[0] + results[1];
+    }
+
+
+    for (;  i < n;  ++i) res += x[i] * y[i];
+
     return res;
 }
 
