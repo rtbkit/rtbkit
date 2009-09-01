@@ -20,6 +20,8 @@
 #include "backprop_cuda.h"
 #include "fixed_point_accum.h"
 
+extern "c" __sync_lock_test_and_set(...);
+
 using namespace std;
 
 
@@ -135,6 +137,8 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                       const int * w_strides,
                       UpdateFloat * const * w_updates, // wt updates for each layer
                       UpdateFloat * const * b_updates, // bias upd for each layer
+                      UpdateFloat * const * w_updates2, // wt updates for each layer
+                      UpdateFloat * const * b_updates2, // bias upd for each layer
                       int activation,            // activation function
                       float inhibit, // target value for inhibited neuron)
                       float fire,   // target value for firing neuron
@@ -143,6 +147,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                       int num_threads_on_multiprocessor,
                       int total_neurons,
                       float * layer_outputs,  // scratch space[total neurons]
+                      float * layer_outputs2,  // scratch space[total neurons]
                       int examples_per_block,
                       int total_num_examples,
                       int max_width,
@@ -179,7 +184,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
         biases_access.init(biases);
     }
 
-#if 0
+#if 1
     for (;  example_num < last_example;  example_num += 4) {
 
         const float * input = feature_vectors + example_num * feature_vector_width;
@@ -195,6 +200,19 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                          num_threads_in_block,
                          num_threads_on_multiprocessor,
                          total_neurons, max_width, layer_outputs);
+
+        train_4_examples(input,
+                         labels + example_num,
+                         example_weights + example_num,
+                         min(4, last_example - example_num),
+                         num_layers, scratch,
+                         weights_access, biases_access,
+                         architecture, w_strides,
+                         w_updates2, b_updates2,
+                         activation, inhibit, fire, learning_rate,
+                         num_threads_in_block,
+                         num_threads_on_multiprocessor,
+                         total_neurons, max_width, layer_outputs2);
     }
 #elif 0
     // Do any others singly
@@ -232,6 +250,19 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
                         weights_access, biases_access,
                         architecture, w_strides,
                         w_updates, b_updates,
+                        activation, inhibit, fire, learning_rate,
+                        num_threads_in_block,
+                        num_threads_on_multiprocessor,
+                        total_neurons, max_width, layer_outputs);
+
+        train_1_example(input,
+                        labels + example_num,
+                        example_weights + example_num,
+                        1 /* num valid examples */,
+                        num_layers, scratch,
+                        weights_access, biases_access,
+                        architecture, w_strides,
+                        w_updates2, b_updates2,
                         activation, inhibit, fire, learning_rate,
                         num_threads_in_block,
                         num_threads_on_multiprocessor,
@@ -410,7 +441,16 @@ struct Backprop::Context {
     vector<UpdateFloat *> bias_updates_vec;
     DeviceData<UpdateFloat *> d_bias_updates;
 
+    vector<DeviceData<UpdateFloat> > d_weight_updates2_storage;
+    vector<UpdateFloat *> weight_updates2_vec;
+    DeviceData<UpdateFloat *> d_weight_updates2;
+    
+    vector<DeviceData<UpdateFloat> > d_bias_updates2_storage;
+    vector<UpdateFloat *> bias_updates2_vec;
+    DeviceData<UpdateFloat *> d_bias_updates2;
+
     DeviceData<float> d_layer_outputs;
+    DeviceData<float> d_layer_outputs2;
 
     dim3 grid;
 
@@ -468,6 +508,32 @@ struct Backprop::Context {
 
         d_bias_updates.init(&bias_updates_vec[0], plan.num_layers);
 
+
+        d_weight_updates2_storage.resize(plan.num_layers);
+        weight_updates2_vec.resize(plan.num_layers);
+        
+        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
+            int ni = plan.architecture[l];
+            int w_stride = plan.w_strides[l];
+            d_weight_updates2_storage[l].init_zeroed(ni * w_stride);
+            weight_updates2_vec[l] = d_weight_updates2_storage[l];
+        }
+
+        d_weight_updates2.init(&weight_updates2_vec[0], plan.num_layers);
+
+        d_bias_updates2_storage.resize(plan.num_layers);
+        bias_updates2_vec.resize(plan.num_layers);
+
+        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
+            int no = plan.architecture[l + 1];
+            d_bias_updates2_storage[l].init_zeroed(no);
+            bias_updates2_vec[l] = d_bias_updates2_storage[l];
+        }
+
+        d_bias_updates2.init(&bias_updates2_vec[0], plan.num_layers);
+
+
+
         num_examples_per_invocation = 4;//16;
 
         int grid_size = rudiv(num_feature_vectors, num_examples_per_invocation);
@@ -475,6 +541,8 @@ struct Backprop::Context {
         // Get the scratch space.  This is 4 in flight examples for each
         // of the concurrent threads.
         d_layer_outputs.init(plan.total_neurons * grid_size * 4);
+
+        d_layer_outputs2.init(plan.total_neurons * grid_size * 4);
         
         // Our grid size is one per example
         grid = dim3(grid_size);
@@ -494,6 +562,8 @@ struct Backprop::Context {
              plan.d_w_strides,
              d_weight_updates,
              d_bias_updates,
+             d_weight_updates2,
+             d_bias_updates2,
              plan.activation,
              plan.inhibit,
              plan.fire,
@@ -502,6 +572,7 @@ struct Backprop::Context {
              plan.threads.x,
              plan.total_neurons,
              d_layer_outputs,
+             d_layer_outputs2,
              num_examples_per_invocation,
              num_feature_vectors /* total num examples */,
              plan.max_width,
@@ -519,7 +590,46 @@ struct Backprop::Context {
 
         //cerr << "copying memory back" << endl;
 
-        
+        /* Copy back the layer outputs */
+        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
+            int ni = plan.architecture[l];
+            int w_stride = plan.w_strides[l];
+            
+            UpdateFloat sync_to[ni * w_stride];
+
+            d_weight_updates_storage[l].sync(sync_to);
+
+
+
+
+            std::copy(sync_to, sync_to + ni * w_stride, weight_updates[l]);
+
+#if 0
+            cerr << "first 10 weight updates for layer " << l << ": ";
+            for (unsigned i = 0;  i < 10;  ++i)
+                cerr << sync_to[i] << " ";
+            cerr << endl;
+#endif
+        }
+
+
+
+        for (unsigned l = 0;  l < plan.num_layers;  ++l) {
+            int ni = plan.architecture[l];
+            int w_stride = plan.w_strides[l];
+            
+            UpdateFloat sync_to[ni * w_stride];
+
+            d_weight_updates_storage[l].sync(sync_to);
+            std::copy(sync_to, sync_to + ni * w_stride, weight_updates[l]);
+
+#if 0
+            cerr << "first 10 weight updates for layer " << l << ": ";
+            for (unsigned i = 0;  i < 10;  ++i)
+                cerr << sync_to[i] << " ";
+            cerr << endl;
+#endif
+        }
 
 
         for (unsigned l = 0;  l < plan.num_layers;  ++l) {

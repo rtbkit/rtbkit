@@ -382,8 +382,6 @@ struct Accuracy_Job_Info {
 
     void calc(int x_start, int x_end)
     {
-        //cerr << "calculating from " << x_start << " to " << x_end << endl;
-
         double sub_total = 0.0, sub_correct = 0.0;
 
         float scratch1[perceptron.max_units], scratch2[perceptron.max_units];
@@ -461,9 +459,11 @@ accuracy(const boost::multi_array<float, 2> & decorrelated,
                                      boost::ref(worker),
                                      group));
         
+        int nx_per_job = 512;
+
         /* Do 2048 examples per job. */
-        for (unsigned x = 0;  x < nx;  x += 2048) {
-            int end = std::min(x + 2048, nx);
+        for (unsigned x = 0;  x < nx;  x += nx_per_job) {
+            int end = std::min(x + nx_per_job, nx);
             worker.add(Accuracy_Job(info, x, end),
                        format("Perceptron::accuracy() %d-%d under %d",
                               x, end, group),

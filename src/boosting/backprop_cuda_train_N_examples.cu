@@ -252,6 +252,7 @@ train_N_examples(const float * input,
            current layer on output. */
         for (int x = 0;  x < N && x < valid_examples;  ++x) {
             float error = scratch[x * scratch_stride + tid];
+
             d[x] = (tid >= no ? 0.0 : delta(prev_outputs[x], error,
                                             activation));
         }

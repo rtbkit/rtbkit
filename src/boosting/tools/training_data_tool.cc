@@ -64,6 +64,10 @@ struct Variable_Stats {
         counts.clear();
         total_count = missing = denorm = 0;
         min = max = range = mean = mode = median = stddev = NAN;
+        label_totals.clear();
+        label_min.clear();
+        label_max.clear();
+        label_counts.clear();
     }
 
     /** Count of unique values of the variable. */
@@ -89,6 +93,12 @@ struct Variable_Stats {
     double stddev;
     double r_squared;
     double b;
+
+    // Only for when we have two labels
+    distribution<double> label_totals;
+    distribution<double> label_min;
+    distribution<double> label_max;
+    distribution<double> label_counts;
     
     /** Add an instance to the stats. */
     void add(double val)
@@ -134,9 +144,16 @@ struct Variable_Stats {
     }
 
     /** Calculate from a vector of values. */
-    void calc(vector<float> values, const vector<double> & labels)
+    void calc(vector<float> values, const vector<double> & labels, int nl)
     {
         clear();
+
+        if (nl == 2) {
+            label_totals.resize(nl);
+            label_min.resize(nl, INFINITY);
+            label_max.resize(nl, -INFINITY);
+            label_counts.resize(nl);
+        }
 
         /* Calculate the r-squared. */
         double sum_vsq = 0.0, sum_v = 0.0, sum_lsq = 0.0, sum_l = 0.0;
@@ -148,6 +165,15 @@ struct Variable_Stats {
             sum_lsq += l*l;  sum_l += l;
             sum_vl  += v*l;
             n += 1.0;
+
+            if (nl == 2) {
+                int label = labels[i];
+                if (label < 0 || label > 1) continue;
+                label_totals[label] += v;
+                label_min[label] = std::min(label_min[label], v);
+                label_max[label] = std::max(label_max[label], v);
+                label_counts[label] += 1;
+            }
         }
         
         double svl = n * sum_vl - sum_v * sum_l;
@@ -329,6 +355,8 @@ try
         for (unsigned d = 0;  d < data.size();  ++d) {
             if (ids[d] == -1) continue;
 
+            int nl = data[d]->label_count(predicted[d]);
+
             Feature feature(ids[d]);
 
             ++contained[f];
@@ -336,7 +364,7 @@ try
             vector<double> vec;
 
             // TODO: fill in
-            stats[d].calc(data[d]->index().values(feature), label_dists[d]);
+            stats[d].calc(data[d]->index().values(feature), label_dists[d], nl);
 
             cout << format("  %2d %8zd %8.3f %8.3f %8.3f %8.3f %8.3f "
                            "%7zd %5.3f %8.3g\n",
@@ -348,6 +376,19 @@ try
                            stats[d].stddev, stats[d].mode,
                            stats[d].counts.size(),
                            stats[d].r_squared, stats[d].b);
+
+            if (nl == 2) {
+                for (unsigned i = 0;  i < nl;  ++i) {
+                    cout
+                        << format("        label %d: min %8.3f max: %8.3f avg: %8.3f count: %7f",
+                                  i, stats[d].label_min[i],
+                                  stats[d].label_max[i],
+                                  stats[d].label_totals[i] / stats[d].label_counts[i],
+                                  stats[d].label_counts[i])
+                        << endl;
+
+                }
+            }
         }
         
         //cerr << "contained[" << f << "] = " << contained[f] << endl;
