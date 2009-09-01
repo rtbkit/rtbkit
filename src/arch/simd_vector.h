@@ -55,7 +55,12 @@ double vec_sum(const double * x, size_t n);
 
 /* Mixed versions */
 void vec_add(const float * x, float k, const double * y, float * r, size_t n);
-double vec_dotprod_dp(const float * x, const double * y, size_t n);
+double vec_dotprod_dp(const double * x, const float * y, size_t n);
+JML_ALWAYS_INLINE
+double vec_dotprod_dp(const float * x, const double * y, size_t n)
+{
+    return vec_dotprod_dp(y, x, n);
+}
 
 
 /* Floating point using double precision accumulation */

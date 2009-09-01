@@ -150,6 +150,17 @@ public:
         return result;
     }
 
+    template<class OFloat, class OUnderlying>
+    double dotprod(const distribution<OFloat, OUnderlying> & other) const
+    {
+        if (this->size() != other.size())
+            wrong_sizes_exception();
+        double result = 0.0;
+        for (unsigned i = 0;  i < this->size();  ++i)
+            result += (*this)[i] * other[i];
+        return result;
+    }
+
     double two_norm() const
     {
         return sqrt(dotprod(*this));

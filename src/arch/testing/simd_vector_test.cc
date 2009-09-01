@@ -251,6 +251,29 @@ void vec_dotprod_dp_test_case(int nvals)
     BOOST_CHECK(fabs(r - r2) / max(fabs(r), fabs(r2)) < eps);
 }
 
+void vec_dotprod_dp_mixed_test_case(int nvals)
+{
+    double x[nvals];
+    float y[nvals];
+    double r = 0.0, r2;
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        y[i] = rand() / 16384.0;
+        r += x[i] * y[i];
+    }
+    
+    r2 = SIMD::vec_dotprod_dp(x, y, nvals);
+
+    double eps = get_eps(0.0);
+    if (fabs(r - r2) / max(fabs(r), fabs(r2)) >= eps) {
+        cerr << "difference = " << (abs(r - r2) / max(abs(r), abs(r2)))
+             << endl;
+        BOOST_CHECK_EQUAL(r, r2);
+    }
+    BOOST_CHECK(fabs(r - r2) / max(fabs(r), fabs(r2)) < eps);
+}
+
 BOOST_AUTO_TEST_CASE(vec_dotprod_test)
 {
     cerr << "float" << endl;
@@ -288,4 +311,16 @@ BOOST_AUTO_TEST_CASE(vec_dotprod_test)
     vec_dotprod_test_case<double>(12);
     vec_dotprod_test_case<double>(16);
     vec_dotprod_test_case<double>(123);
+
+    cerr << "mixed" << endl;
+    vec_dotprod_dp_mixed_test_case(1);
+    vec_dotprod_dp_mixed_test_case(2);
+    vec_dotprod_dp_mixed_test_case(3);
+    vec_dotprod_dp_mixed_test_case(4);
+    vec_dotprod_dp_mixed_test_case(5);
+    vec_dotprod_dp_mixed_test_case(8);
+    vec_dotprod_dp_mixed_test_case(9);
+    vec_dotprod_dp_mixed_test_case(12);
+    vec_dotprod_dp_mixed_test_case(16);
+    vec_dotprod_dp_mixed_test_case(123);
 }

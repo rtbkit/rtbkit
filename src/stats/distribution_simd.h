@@ -63,7 +63,29 @@ dotprod(const distribution<double> & d2) const
 {
     if (size() != d2.size())
         wrong_sizes_exception();
-    return SIMD::vec_dotprod(&(*this)[0], &d2[0], size());
+    return SIMD::vec_dotprod_dp(&(*this)[0], &d2[0], size());
+}
+
+template<>
+template<>
+JML_ALWAYS_INLINE double
+distribution<double>::
+dotprod(const distribution<float> & d2) const
+{
+    if (size() != d2.size())
+        wrong_sizes_exception();
+    return SIMD::vec_dotprod_dp(&d2[0], &(*this)[0], size());
+}
+
+template<>
+template<>
+JML_ALWAYS_INLINE double
+distribution<float>::
+dotprod(const distribution<double> & d2) const
+{
+    if (size() != d2.size())
+        wrong_sizes_exception();
+    return SIMD::vec_dotprod_dp(&(*this)[0], &d2[0], size());
 }
 
 inline distribution<double>
