@@ -12,6 +12,7 @@
 #include "classifier.h"
 #include "stats/moments.h"
 #include "stats/distribution_ops.h"
+#include "stats/distribution_simd.h"
 #include "math/xdiv.h"
 #include "registry.h"
 #include "utils/environment.h"
