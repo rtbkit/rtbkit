@@ -85,7 +85,9 @@ decode(const Feature_Set & feature_set) const
 Label_Dist
 GLZ_Classifier::predict(const Feature_Set & features) const
 {
-    return predict(decode(features));
+    distribution<float> features_c = decode(features);
+    Label_Dist result = predict(features_c);
+    return result;
 }
 
 Label_Dist
@@ -133,7 +135,7 @@ optimized_predict_impl(const float * features_c,
 
         for (unsigned j = 0;  j < features.size();  ++j)
             accum += features_c[j] * weights[i][j];
-        if (add_bias) accum += weights[i][features.size() + 1];
+        if (add_bias) accum += weights[i][features.size()];
         result[i] = apply_link_inverse(accum, link);
     }
 
@@ -160,7 +162,7 @@ optimized_predict_impl(const float * features_c,
 
         for (unsigned j = 0;  j < features.size();  ++j)
             accum += features_c[j] * weights[i][j];
-        if (add_bias) accum += weights[i][features.size() + 1];
+        if (add_bias) accum += weights[i][features.size()];
 
         accum_out[i] += weight * apply_link_inverse(accum, link);
     }
@@ -183,7 +185,7 @@ optimized_predict_impl(int label,
     
     for (unsigned j = 0;  j < features.size();  ++j)
         accum += features_c[j] * weights[label][j];
-    if (add_bias) accum += weights[label][features.size() + 1];
+    if (add_bias) accum += weights[label][features.size()];
 
     return apply_link_inverse(accum, link);
 }
