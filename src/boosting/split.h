@@ -14,6 +14,7 @@
 #include "db/persistent_fwd.h"
 #include <cmath>
 #include "arch/exception.h"
+#include <iostream>
 
 namespace ML {
 
@@ -34,12 +35,14 @@ public:
         : feature_(MISSING_FEATURE), split_val_(0.0f), op_(LESS),
           opt_(false), idx_(0)
     {
+        validate();
     }
 
     Split(const Feature & feature, float split_val, Op op)
         : feature_(feature), split_val_(split_val), op_(op),
           opt_(false), idx_(0)
     {
+        validate();
     }
 
     Split(const Feature & feature, float split_val, const Feature_Space & fs);
@@ -54,12 +57,6 @@ public:
     // Will return true, false or MISSING
     JML_ALWAYS_INLINE int apply(float feature_val) const
     {
-        if (isnanf(split_val_))
-            throw Exception("bad split val");
-        
-        if (!finite(split_val_))
-            throw Exception("non-finite split val");
-
         // TODO: optimize to avoid conditionals
         if (isnanf(feature_val)) return MISSING;
 
@@ -192,6 +189,9 @@ public:
 
     void reconstitute(DB::Store_Reader & store,
                       const Feature_Space & fs);
+
+    /** Check that everything is OK; throws an exception if not */
+    void validate() const;
 
 private:
     Feature feature_;      ///< Feature to obtain

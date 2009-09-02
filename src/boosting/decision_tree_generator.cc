@@ -201,6 +201,8 @@ struct Tree_Accum {
     float best_z;
     Feature best_feature;
 
+    bool has_result() const { return best_feature != MISSING_FEATURE; }
+
     Lock lock;
 
     const Feature_Space & fs;
@@ -276,6 +278,7 @@ struct Tree_Accum {
 
     Split split()
     {
+        if (!has_result()) return Split();
         Split result(best_feature, best_arg, fs);
         return result;
     }
@@ -492,7 +495,14 @@ void split_dataset(const Training_Data & data,
             continue;
         }
 
-        int decision = split.apply(val);
+        int decision;
+        try {
+            decision = split.apply(val);
+        } catch (...) {
+            cerr << "exception on split: " << split.print(*data.feature_space())
+                 << endl;
+            throw;
+        }
 
         switch(decision) {
         case false:

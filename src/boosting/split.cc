@@ -35,8 +35,15 @@ Split::
 Split(const Feature & feature, float split_val, const Feature_Space & fs)
     : feature_(feature), split_val_(split_val), opt_(false), idx_(0)
 {
-    Feature_Info info = fs.info(feature);
-    op_ = get_op_from_feature(info);
+    if (split_val == -INFINITY) {
+        split_val_ = 0.0;
+        op_ = NOT_MISSING;
+    }
+    else {
+        Feature_Info info = fs.info(feature);
+        op_ = get_op_from_feature(info);
+    }
+    validate();
 }
 
 void
@@ -111,6 +118,27 @@ reconstitute(DB::Store_Reader & store,
 
 void
 Split::
+validate() const
+{
+    if (isnanf(split_val_)) {
+        using namespace std;
+        cerr << "split_val_ = " << split_val_ << endl;
+        cerr << "feature_ = " << feature_ << endl;
+        cerr << "op_ = " << op_ << endl;
+        throw Exception("bad split val");
+    }
+    
+    if (!finite(split_val_)) {
+        using namespace std;
+        cerr << "split_val_ = " << split_val_ << endl;
+        cerr << "feature_ = " << feature_ << endl;
+        cerr << "op_ = " << op_ << endl;
+        throw Exception("non-finite split val");
+    }
+}
+
+void
+Split::
 throw_invalid_op_exception(Op op)
 {
     throw Exception("invalid split op: " + ML::print(op));
@@ -130,6 +158,6 @@ std::ostream & operator << (std::ostream & stream, Split::Op op)
 {
     return stream << print(op);
 }
-
+ 
 
 } // namespace ML
