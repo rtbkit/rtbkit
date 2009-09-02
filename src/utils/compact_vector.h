@@ -24,18 +24,21 @@
 
 namespace ML {
 
-template<class Data,
+template<typename Data,
          size_t Internal = 0,
-         class Size = uint32_t,
+         typename Size = uint32_t,
          bool Safe = true,
-         class Pointer = Data *,
+         typename Pointer = Data *,
          class Allocator = std::allocator<Data> >
 class compact_vector {
 public:
     typedef typename std::vector<Data>::iterator iterator;
     typedef typename std::vector<Data>::const_iterator const_iterator;
+    typedef Pointer pointer;
     typedef Size size_type;
     typedef Data value_type;
+    typedef Data & reference;
+    typedef const Data & const_reference;
     
     compact_vector()
         : size_(0), is_internal_(true)
@@ -152,8 +155,15 @@ public:
         for (size_type i = 0;  i < size_;  ++i)
             p[i].~Data();
 
-        if (!is_internal())
+        if (!is_internal()) {
+            bool debug = false;
+            using namespace std;
+            if (debug) 
+                cerr << "deallocating " << ext.capacity_ << " elements at "
+                     << ext.pointer_ << " for " << this << endl;
             allocator.deallocate(ext.pointer_, ext.capacity_);
+            is_internal_ = true;
+        }
 
         size_ = 0;
     }
@@ -434,24 +444,29 @@ private:
             throw Exception("compact_vector insert: invalid index");
 
         using namespace std;
-        cerr << "start_insert: index = " << index << " n = " << n
+        bool debug = false;
+        if (debug)
+            cerr << "start_insert: index = " << index << " n = " << n
              << " size() = " << size() << " capacity() = "
-             << capacity() << endl;
-
+                 << capacity() << endl;
+        
         if (size() + n > capacity()) {
             reserve(size() + n);
-            cerr << "after reserve: index = " << index << " n = " << n
-                 << " size() = " << size() << " capacity() = "
-                 << capacity() << endl;
-
+            if (debug)
+                cerr << "after reserve: index = " << index << " n = " << n
+                     << " size() = " << size() << " capacity() = "
+                     << capacity() << endl;
+            
         }
 
-        cerr << "data() = " << data() << endl;
+        if (debug)
+            cerr << "data() = " << data() << endl;
 
         // New element
         for (unsigned i = 0;  i < n;  ++i, ++size_) {
-            cerr << "i = " << i << " n = " << n << " size_ = " << size_
-                 << endl;
+            if (debug)
+                cerr << "i = " << i << " n = " << n << " size_ = " << size_
+                     << endl;
             new (data() + size_) Data();
         }
 
@@ -501,6 +516,12 @@ operator << (std::ostream & stream,
     return stream << " }";
 }
 
+template<typename D, size_t I, typename S, bool Sf, typename P, class A>
+void make_vector_set(compact_vector<D, I, S, Sf, P, A> & vec)
+{
+    std::sort(vec.begin(), vec.end());
+    vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+}
 
 } // namespace ML
 
