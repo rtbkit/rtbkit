@@ -69,6 +69,7 @@ public:
     int max_depth;
     int trace;
     Stump::Update update_alg;
+    float random_feature_propn;
 
     /* Once init has been called, we clone our potential models from this
        one. */

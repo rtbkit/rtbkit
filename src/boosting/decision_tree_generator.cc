@@ -18,6 +18,11 @@
 #include "stump_regress.h"
 #include "utils/smart_ptr_utils.h"
 
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int.hpp>
+#include <boost/random/variate_generator.hpp>
+
+
 using namespace std;
 
 
@@ -47,6 +52,7 @@ configure(const Configuration & config)
     config.find(trace, "trace");
     config.find(max_depth, "max_depth");
     config.find(update_alg, "update_alg");
+    config.find(random_feature_propn, "random_feature_propn");
 }
 
 void
@@ -57,6 +63,7 @@ defaults()
     trace = 0;
     max_depth = -1;
     update_alg = Stump::PROB;
+    random_feature_propn = 1.0;
 }
 
 Config_Options
@@ -70,7 +77,9 @@ options() const
         .add("max_depth", max_depth, "0- or -1",
              "give maximum tree depth.  -1 means go until data separated")
         .add("update_alg", update_alg,
-             "select the type of output that the tree gives");
+             "select the type of output that the tree gives")
+        .add("random_feature_propn", random_feature_propn, "0.0-1.0",
+             "proportion of the features to enable (for random forests)");
     
     return result;
 }
@@ -148,14 +157,39 @@ train_weighted(Thread_Context & context,
     bool regression_problem
         = result.feature_space()->info(predicted).type() == Feature_Info::REAL;
 
+    if (random_feature_propn < 0.0 || random_feature_propn > 1.0)
+        throw Exception("random_feature_propn is not between 0.0 and 1.0");
+
+
+    vector<Feature> filtered_features;
+    if (random_feature_propn < 1.0) {
+
+        int iter = 0;
+        while (filtered_features.empty() && iter < 50) {
+            typedef boost::mt19937 engine_type;
+            engine_type engine(context.random());
+            boost::uniform_01<engine_type> rng(engine);
+            
+            for (unsigned i = 0;  i < features.size();  ++i) {
+                if (rng() < random_feature_propn)
+                    filtered_features.push_back(features[i]);
+            }
+        }
+        
+        if (filtered_features.empty())
+            throw Exception("random_feature_propn is too low");
+    }
+    else filtered_features.insert(filtered_features.end(),
+                                  features.begin(), features.end());
+
     if (regression_problem) {
         vector<float> weights_vec(data.example_count());
         for (unsigned x = 0;  x < weights_vec.size();  ++x)
             weights_vec[x] = weights[x][0];
 
         result.tree.root = train_recursive_regression
-            (context, data, weights_vec, features, in_class, 0, max_depth,
-             result.tree);
+            (context, data, weights_vec, filtered_features, in_class,
+             0, max_depth, result.tree);
     }
     else {
         int advance = get_advance(weights);
@@ -165,9 +199,8 @@ train_weighted(Thread_Context & context,
             weights_vec[x] = &weights[x][0];
         
         result.tree.root = train_recursive
-            (context, data, weights_vec, advance, features, in_class,
-             0, max_depth,
-             result.tree);
+            (context, data, weights_vec, advance, filtered_features, in_class,
+             0, max_depth, result.tree);
 
         result.encoding = Stump::update_to_encoding(update_alg);
 
