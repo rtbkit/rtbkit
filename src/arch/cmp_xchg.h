@@ -23,17 +23,17 @@ struct cmp_xchg_switch {
     JML_ALWAYS_INLINE bool cmp_xchg(X & val, X & old, const X & new_val)
     {
         uint8_t result;
-        asm volatile ("lock cmpxchg %[new_val], %[val]\n\t"
+        asm volatile ("lock cmpxchg %[new_val], (%[val])\n\t"
                       "     setz    %[result]\n\t"
-                      : "+a" (old),
+                      : "+&a" (old),
 #if JML_BITS == 32
                         [result] "=m" (result)
 #else
                         [result] "=r" (result)
 #endif
-                      : [val] "m" (val),
+                      : [val] "r" (&val),
                         [new_val] "r" (new_val)
-                      : "cc");
+                      : "cc", "memory");
         return result;
     }
 };
