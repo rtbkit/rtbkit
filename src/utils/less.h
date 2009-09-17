@@ -52,6 +52,22 @@ bool less_all(const T1 & x1, const T1 & y1,
                             && (x4 < y4))))));
 }
 
+template<typename T>
+int compare_3way(const T & o1, const T & o2)
+{
+    if (o1 < o2) return -1;
+    if (o2 < o1) return 1;
+    return 0;
+}
+
+template<typename T, class Less>
+int compare_3way(const T & o1, const T & o2)
+{
+    if (Less()(o1, o2)) return -1;
+    if (Less()(o2, o1)) return 1;
+    return 0;
+}
+
 } // namespace ML
 
 #endif /* __utils__less_h__ */
