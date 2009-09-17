@@ -156,11 +156,14 @@ public:
             p[i].~Data();
 
         if (!is_internal()) {
-            bool debug = false;
+            bool debug JML_UNUSED = false;
             using namespace std;
+
+#if COMPACT_VECTOR_DEBUG
             if (debug) 
                 cerr << "deallocating " << ext.capacity_ << " elements at "
                      << ext.pointer_ << " for " << this << endl;
+#endif
             allocator.deallocate(ext.pointer_, ext.capacity_);
             is_internal_ = true;
         }
@@ -444,29 +447,37 @@ private:
             throw Exception("compact_vector insert: invalid index");
 
         using namespace std;
-        bool debug = false;
+        bool debug JML_UNUSED = false;
+#if COMPACT_VECTOR_DEBUG
         if (debug)
             cerr << "start_insert: index = " << index << " n = " << n
              << " size() = " << size() << " capacity() = "
                  << capacity() << endl;
+#endif
         
         if (size() + n > capacity()) {
             reserve(size() + n);
+#if COMPACT_VECTOR_DEBUG
             if (debug)
                 cerr << "after reserve: index = " << index << " n = " << n
                      << " size() = " << size() << " capacity() = "
                      << capacity() << endl;
             
+#endif
         }
 
+#if COMPACT_VECTOR_DEBUG
         if (debug)
             cerr << "data() = " << data() << endl;
+#endif
 
         // New element
         for (unsigned i = 0;  i < n;  ++i, ++size_) {
+#if COMPACT_VECTOR_DEBUG
             if (debug)
                 cerr << "i = " << i << " n = " << n << " size_ = " << size_
                      << endl;
+#endif
             new (data() + size_) Data();
         }
 
