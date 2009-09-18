@@ -56,7 +56,7 @@ JML_ALWAYS_INLINE unnamed_bool make_unnamed_bool(bool val)
 }
 
 #define JML_IMPLEMENT_OPERATOR_BOOL(expr) \
-operator unnamed_bool () const { return make_unnamed_bool(expr); }
+    operator ML::unnamed_bool () const { return ML::make_unnamed_bool(expr); }
 
 } // namespace ML
 
