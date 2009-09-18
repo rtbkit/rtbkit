@@ -1,4 +1,4 @@
-// Copyright (C) 2001-2003, 2008-2009 Francis Piéraut <fpieraut@gmail.com>
+// Copyright (C) 2001-2003, 2008-2009 Francis Piéraut <fpieraut@gmail.com> -*- C++ -*-
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as
@@ -49,16 +49,19 @@
 %array_class(float,floatArray);
 
 class Classifier {
+public:
     Classifier();
     ~Classifier();
-    void load(const std::string & filename);
-    std::string _print() const;
+    void load(const char * filename);
+    std::string print() const;
 };
 
 # example: usage classifierTrainingTool["--output-file","out.cls","data.txt"]
 
+void classifierTrainingTool(int argc, char** argv);
 
+Classifier * getClassifier();
 Classifier::Classifier();
 Classifier::~Classifier();
-void Classifier::load(const std::string & filename);
-std::string Classifier::_print() const;
+void Classifier::load(const char * filename);
+std::string Classifier::print() const;

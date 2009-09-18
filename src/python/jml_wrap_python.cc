@@ -14,18 +14,23 @@ Classifier()
 
 void
 Classifier::
-load(const std::string & filename)
+load(const char * filename)
 {
 }
 
 
 std::string
 Classifier::
-_print() const
+print() const
 {
     return "hello";
 }
 
 void classifierTrainingTool(int argc, char** argv)
 {
+}
+
+Classifier * getClassifier()
+{
+    return new Classifier();
 }

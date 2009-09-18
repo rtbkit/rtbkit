@@ -13,11 +13,12 @@
 class Classifier {
 public:
     Classifier();
-    void load(const std::string & filename);
-    std::string _print() const;
+    void load(const char * filename);
+    std::string print() const;
 };
 
 void classifierTrainingTool(int argc, char** argv);
+Classifier * getClassifier();
 
 
 #endif /* __jml__wrap_python_h__ */
