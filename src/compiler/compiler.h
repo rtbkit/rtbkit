@@ -28,6 +28,7 @@
 #endif
 
 #define JML_ALWAYS_INLINE __attribute__((__always_inline__)) inline 
+#define JML_NORETURN __attribute__((__noreturn__))
 #define JML_UNUSED  __attribute__((__unused__))
 #define JML_PACKED  __attribute__((__packed__))
 #define JML_PURE_FN __attribute__((__pure__))
