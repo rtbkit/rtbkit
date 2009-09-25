@@ -174,7 +174,7 @@ float Classifier_Impl::predict(int label, const Feature_Set & features) const
     return predict(features)[label];
 }
 
-float Classifier_Impl::predict_highest(const Feature_Set & features) const
+int Classifier_Impl::predict_highest(const Feature_Set & features) const
 {
     distribution<float> prediction = predict(features);
     return std::max_element(prediction.begin(), prediction.end())

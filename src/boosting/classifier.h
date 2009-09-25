@@ -216,7 +216,7 @@ public:
         Throws an exception if label_count() == 0, or if there was a problem
         performing the classification.
     */
-    virtual float predict_highest(const Feature_Set & features) const;
+    virtual int predict_highest(const Feature_Set & features) const;
 
     /** Predict the score for all labels.  This method needs to be overridden
         at the very minimum.
@@ -583,7 +583,7 @@ public:
     }
 
     /** Predict the highest class. */
-    float predict_highest(const Feature_Set & features) const
+    int predict_highest(const Feature_Set & features) const
     {
         return impl->predict_highest(features);
     }

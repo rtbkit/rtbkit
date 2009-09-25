@@ -33,10 +33,10 @@ from metainfo import __version__, JML_CORE_FILES
 jml_modules_files = [os.path.join("jml", "src", f) 
                          for f in JML_CORE_FILES]
 # To create jml_wrap.cxx you have to call swig like that: swig -python -c++ jml.i
-for filename in ['python/jml_wrap_python']:
+for filename in ['python/classifier']:
     print "creating %s_wrap.cxx" % filename
     call(['swig', '-python', '-c++', '%s.i' % filename])
-    jml_modules_files.extend(['%s.cc' % filename, '%s_wrap.cxx' % filename]) 
+    jml_modules_files.extend(['%s_wrap.cxx' % filename]) 
 
 jml_extension = Extension("_jml", sources=jml_modules_files)
 

@@ -31,9 +31,15 @@ endef
 # add a c++ source file
 # $(1): filename of source file
 # $(2): basename of the filename
+# $(3): directory under which the source lives; default $(SRC)
+# $(4): extra compiler options
+
 define add_c++_source
-$(if $(trace),$$(warning called add_c++_source "$(1)" "$(2)"))
-BUILD_$(CWD)/$(2).lo_COMMAND:=$$(CXX) $$(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $(SRC)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $$(OPTIONS_$(CWD)/$(1)) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$$(CXXDEBUGFLAGS))
+
+$$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
+
+$(if $(trace),$$(warning called add_c++_source "$(1)" "$(2)" "$(3)" "$(4)"))
+BUILD_$(CWD)/$(2).lo_COMMAND:=$$(CXX) $$(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $$(tmpDIR)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $$(OPTIONS_$(CWD)/$(1)) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$$(CXXDEBUGFLAGS))
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
 
 BUILD_$(CWD)/$(2).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).lo_COMMAND))
@@ -42,7 +48,7 @@ BUILD_$(CWD)/$(2).lo_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).lo_HASH).l
 BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/$(2).lo_OBJ),$$(BUILD_$(CWD)/$(2).lo_COMMAND))
 
 $(OBJ)/$(CWD)/$(2).d:
-$$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
+$$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "[C++] $(CWD)/$(1)")
 	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
@@ -94,11 +100,37 @@ $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 -include $(OBJ)/$(CWD)/$(2).d
 endef
 
+# add a swig wrapper source file
+# $(1): filename of source file
+# $(2): basename of the filename
+define add_swig_source
+$(if $(trace),$$(warning called add_swig_source "$(1)" "$(2)"))
+
+BUILD_$(OBJ)/$(CWD)/$(2)_wrap.cxx_COMMAND := swig -python -c++ -o $(OBJ)/$(CWD)/$(2)_wrap.cxx~ $(SRC)/$(CWD)/$(1)
+
+# Call swig to generate the source file
+$(OBJ)/$(CWD)/$(2)_wrap.cxx:	$(SRC)/$(CWD)/$(1)
+	$$(if $(verbose_build),@echo $$(BUILD_$(OBJ)/$(CWD)/$(2)_wrap.cxx_COMMAND),@echo "[SWIG python] $(CWD)/$(1)")
+	@$$(BUILD_$(OBJ)/$(CWD)/$(2)_wrap.cxx_COMMAND)
+	@mv $$@~ $$@
+
+# We use the add_c++_source to do most of the work, then simply point
+# to the file
+$$(eval OPTIONS_$(CWD)/$(2)_wrap.cxx := -I/usr/include/python2.6/)
+$$(eval $$(call add_c++_source,$(2)_wrap.cxx,$(2)_wrap,$(OBJ)))
+
+# Point to the object file produced by the previous macro
+BUILD_$(CWD)/$(2).lo_OBJ  := $$(BUILD_$(CWD)/$(2)_wrap.lo_OBJ)
+
+
+endef
+
 # Set up the map to map an extension to the name of a function to call
 $(call set,EXT_FUNCTIONS,.cc,add_c++_source)
 $(call set,EXT_FUNCTIONS,.c,add_c++_source)
 $(call set,EXT_FUNCTIONS,.f,add_fortran_source)
 $(call set,EXT_FUNCTIONS,.cu,add_cuda_source)
+$(call set,EXT_FUNCTIONS,.i,add_swig_source)
 
 # add a single source file
 # $(1): filename
