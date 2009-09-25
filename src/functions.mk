@@ -171,23 +171,26 @@ endef
 # $(1): name of the library
 # $(2): source files to include in the library
 # $(3): libraries to link with
+# $(4): output name; default lib$(1)
 
 define library
 $$(if $(trace),$$(warning called library "$(1)" "$(2)" "$(3)"))
 $$(eval $$(call add_sources,$(2)))
 
+$$(eval tmpLIBNAME := $(if $(4),$(4),lib$(1).so))
+
 OBJFILES_$(1):=$$(foreach file,$(addsuffix .lo,$(basename $(2:%=$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) -o $(BIN)/lib$(1).so $$(OBJFILES_$(1)) $$(foreach lib,$(3), -l$$(lib))
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) -o $(BIN)/$$(tmpLIBNAME).so $$(OBJFILES_$(1)) $$(foreach lib,$(3), -l$$(lib))
 
 LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
-LIB_$(1)_SO   := $(BIN)/lib$(1).$$(LINK_$(1)_HASH).so
+LIB_$(1)_SO   := $(BIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH).so
 
-LIB_$(1)_CURRENT_VERSION := $$(shell cat $(BIN)/lib$(1).so.version 2>/dev/null)
+LIB_$(1)_CURRENT_VERSION := $$(shell cat $(BIN)/$$(tmpLIBNAME).so.version 2>/dev/null)
 
 # We need the library so names to stay the same, so we copy the correct one
 # into our version
-$(BIN)/lib$(1).so: $$(LIB_$(1)_SO) $$(if $$(findstring $$(LINK_$(1)_HASH),$$(LIB_$(1)_CURRENT_VERSION)),,redo)
+$(BIN)/$$(tmpLIBNAME).so: $$(LIB_$(1)_SO) $$(if $$(findstring $$(LINK_$(1)_HASH),$$(LIB_$(1)_CURRENT_VERSION)),,redo)
 	$$(if $$(findstring,redo,$$^),$$(warning $(1) version mismatch (relink required): current $$(LIB_$(1)_CURRENT_VERSION) required: $$(LINK_$(1)_HASH)))
 	@cp $$< $$@
 	@echo $$(LINK_$(1)_HASH) > $$@.version
@@ -195,15 +198,15 @@ $(BIN)/lib$(1).so: $$(LIB_$(1)_SO) $$(if $$(findstring $$(LINK_$(1)_HASH),$$(LIB
 redo:
 .PHONY: redo
 
-LINK_$(1)_COMMAND2 := $$(subst $(BIN)/lib$(1).so,$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
+LINK_$(1)_COMMAND2 := $$(subst $(BIN)/$$(tmpLIBNAME).so,$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
 
 $$(LIB_$(1)_SO):	$(BIN)/.dir_exists $$(OBJFILES_$(1)) $(foreach lib,$(3),$$(LIB_$(lib)_DEPS))
-	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo "[SO] lib$(1).so")
+	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo "[SO] $$(tmpLIBNAME).so")
 	@$$(LINK_$(1)_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
 
-LIB_$(1)_DEPS := $(BIN)/lib$(1).so
+LIB_$(1)_DEPS := $(BIN)/$$(tmpLIBNAME).so
 
-libraries: $(BIN)/lib$(1).so
+libraries: $(BIN)/$$(tmpLIBNAME).so
 
 endef
 
