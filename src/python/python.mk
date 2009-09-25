@@ -5,9 +5,8 @@
 # Makefile for the python wrappers for jml
 
 PYTHON_SOURCES := \
-        classifier.i
+        feature.i ../arch/exception_hook.cc
 
-PYTHON_LINK :=	ACE arch boost_iostreams-mt
+PYTHON_LINK :=	boosting
 
-$(eval $(call library,python,$(PYTHON_SOURCES),$(PYTHON_LINK)))
-
+$(eval $(call library,_jml,$(PYTHON_SOURCES),$(PYTHON_LINK),_jml))
