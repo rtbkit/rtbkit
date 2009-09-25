@@ -33,6 +33,125 @@ class Feature_Info;
 
 
 /*****************************************************************************/
+/* FEATURE_SET_CONST_ITERATOR                                                */
+/*****************************************************************************/
+
+struct Feature_Set_Const_Iterator {
+    typedef std::random_access_iterator_tag iterator_category;
+    typedef std::pair<Feature, float> value_type;
+    typedef value_type & reference;
+    typedef value_type * pointer;
+    typedef ssize_t difference_type;
+
+    Feature_Set_Const_Iterator() : feat(0), val(0), feat_stride(0), val_stride(0) {}
+    Feature_Set_Const_Iterator(const Feature * feat, const float * val,
+                   int feat_stride, int val_stride)
+        : feat(feat), val(val),
+          feat_stride(feat_stride), val_stride(val_stride) {}
+
+    const Feature * feat;
+    const float * val;
+    int feat_stride;
+    int val_stride;
+
+    void advance(int num)
+    {
+        size_t i_f = (size_t)feat;
+        size_t i_v = (size_t)val;
+        i_f += feat_stride * num;
+        i_v += val_stride * num;
+        feat = (const Feature *)i_f;
+        val = (const float *)i_v;
+    }
+
+    Feature_Set_Const_Iterator & operator ++ ()
+    {
+        advance(1);
+        return *this;
+    }
+
+    Feature_Set_Const_Iterator operator ++ (int)
+    {
+        Feature_Set_Const_Iterator result = *this;
+        advance(1);
+        return result;
+    }
+        
+    Feature_Set_Const_Iterator & operator += (int num)
+    {
+        advance(num);
+        return *this;
+    }
+        
+    Feature_Set_Const_Iterator operator + (int num) const
+    {
+        Feature_Set_Const_Iterator result(*this);
+        result.advance(num);
+        //using namespace std;
+        //cerr << "opterator + (" << num << "): feat = " << feat
+        //     << " result.feat = " << result.feat << endl;
+        return result;
+    }
+
+    Feature_Set_Const_Iterator & operator -- ()
+    {
+        advance(-1);
+        return *this;
+    }
+
+    Feature_Set_Const_Iterator operator -- (int)
+    {
+        Feature_Set_Const_Iterator result = *this;
+        advance(-1);
+        return result;
+    }
+        
+    Feature_Set_Const_Iterator & operator -= (int num)
+    {
+        advance(-num);
+        return *this;
+    }
+        
+    Feature_Set_Const_Iterator operator - (int num) const
+    {
+        Feature_Set_Const_Iterator result(*this);
+        result.advance(-num);
+        return result;
+    }
+
+    int operator - (const Feature_Set_Const_Iterator & other) const
+    {
+        size_t i1 = (size_t)feat;
+        size_t i2 = (size_t)other.feat;
+        return (i1 - i2) / feat_stride;
+    }
+
+    std::pair<Feature, float> operator * () const
+    {
+        return std::make_pair(*feat, *val);
+    }
+
+    const Feature & feature() const { return *feat; }
+    float value() const { return *val; }
+
+#define ITERATOR_COMP(op)                                       \
+    bool operator op (const Feature_Set_Const_Iterator & other) const       \
+    {                                                           \
+        return feat op other.feat;                              \
+    }
+
+    ITERATOR_COMP(==);
+    ITERATOR_COMP(!=);
+    ITERATOR_COMP(> );
+    ITERATOR_COMP(< );
+    ITERATOR_COMP(>=);
+    ITERATOR_COMP(<=);
+#undef ITERATOR_COMP
+};
+
+
+
+/*****************************************************************************/
 /* FEATURE_SET                                                               */
 /*****************************************************************************/
 
@@ -93,117 +212,7 @@ public:
         return operator [] (feature);
     }
 
-    struct const_iterator {
-        typedef std::random_access_iterator_tag iterator_category;
-        typedef std::pair<Feature, float> value_type;
-        typedef value_type & reference;
-        typedef value_type * pointer;
-        typedef ssize_t difference_type;
-
-        const_iterator() : feat(0), val(0), feat_stride(0), val_stride(0) {}
-        const_iterator(const Feature * feat, const float * val,
-                       int feat_stride, int val_stride)
-            : feat(feat), val(val),
-              feat_stride(feat_stride), val_stride(val_stride) {}
-
-        const Feature * feat;
-        const float * val;
-        int feat_stride;
-        int val_stride;
-
-        void advance(int num)
-        {
-            size_t i_f = (size_t)feat;
-            size_t i_v = (size_t)val;
-            i_f += feat_stride * num;
-            i_v += val_stride * num;
-            feat = (const Feature *)i_f;
-            val = (const float *)i_v;
-        }
-
-        const_iterator & operator ++ ()
-        {
-            advance(1);
-            return *this;
-        }
-
-        const_iterator operator ++ (int)
-        {
-            const_iterator result = *this;
-            advance(1);
-            return result;
-        }
-        
-        const_iterator & operator += (int num)
-        {
-            advance(num);
-            return *this;
-        }
-        
-        const_iterator operator + (int num) const
-        {
-            const_iterator result(*this);
-            result.advance(num);
-            //using namespace std;
-            //cerr << "opterator + (" << num << "): feat = " << feat
-            //     << " result.feat = " << result.feat << endl;
-            return result;
-        }
-
-        const_iterator & operator -- ()
-        {
-            advance(-1);
-            return *this;
-        }
-
-        const_iterator operator -- (int)
-        {
-            const_iterator result = *this;
-            advance(-1);
-            return result;
-        }
-        
-        const_iterator & operator -= (int num)
-        {
-            advance(-num);
-            return *this;
-        }
-        
-        const_iterator operator - (int num) const
-        {
-            const_iterator result(*this);
-            result.advance(-num);
-            return result;
-        }
-
-        int operator - (const const_iterator & other) const
-        {
-            size_t i1 = (size_t)feat;
-            size_t i2 = (size_t)other.feat;
-            return (i1 - i2) / feat_stride;
-        }
-
-        std::pair<Feature, float> operator * () const
-        {
-            return std::make_pair(*feat, *val);
-        }
-
-        const Feature & feature() const { return *feat; }
-        float value() const { return *val; }
-
-        #define ITERATOR_COMP(op) \
-        bool operator op (const const_iterator & other) const \
-        { \
-            return feat op other.feat; \
-        }
-
-        ITERATOR_COMP(==);
-        ITERATOR_COMP(!=);
-        ITERATOR_COMP(> );
-        ITERATOR_COMP(< );
-        ITERATOR_COMP(>=);
-        ITERATOR_COMP(<=);
-    };
+    typedef Feature_Set_Const_Iterator const_iterator;
 
     const_iterator begin() const
     {
