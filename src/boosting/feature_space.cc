@@ -56,17 +56,17 @@ bool Feature_Space::parse(Parse_Context & context, Feature & feature) const
 
     int type;
     if (!context.match_int(type)) return false;
-    feature.type() = type;
+    feature.set_type(type);
 
     context.skip_whitespace();
     int arg1;
     if (!context.match_int(arg1)) return false;
-    feature.arg1() = arg1;
+    feature.set_arg1(arg1);
 
     context.skip_whitespace();
     int arg2;
     if (!context.match_int(arg2)) return false;
-    feature.arg2() = arg2;
+    feature.set_arg2(arg2);
 
     if (!context.match_literal(')')) return false;
     tok.ignore();

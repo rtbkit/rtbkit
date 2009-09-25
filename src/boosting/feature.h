@@ -41,7 +41,9 @@ struct Feature {
     
     Feature()
     {
-        type() = arg1() = arg2() = 0;
+        set_type(0);
+        set_arg1(0);
+        set_arg2(0);
     }
     
     explicit Feature(id_type type, id_type arg1 = 0, id_type arg2 = 0)
@@ -53,14 +55,14 @@ struct Feature {
 
     id_type args_[3];
 
-    id_type type() const { return args_[0]; }
-    id_type & type() { return args_[0]; }
+    const id_type & type() const { return args_[0]; }
+    void set_type(id_type new_type) { args_[0] = new_type; }
 
-    id_type arg1() const { return args_[1]; }
-    id_type & arg1() { return args_[1]; }
+    const id_type & arg1() const { return args_[1]; }
+    void set_arg1(id_type new_arg1) { args_[1] = new_arg1; }
 
-    id_type arg2() const { return args_[2]; }
-    id_type & arg2() { return args_[2]; }
+    const id_type&  arg2() const { return args_[2]; }
+    void set_arg2(id_type new_arg2) { args_[2] = new_arg2; }
 
     JML_ALWAYS_INLINE size_t hash() const
     {
