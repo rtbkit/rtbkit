@@ -13,6 +13,20 @@
 namespace ML {
 
 /*****************************************************************************/
+/* OUTPUT_ENCODING                                                           */
+/*****************************************************************************/
+
+/** This enumeration gives the output encoding for a classifier.   There are
+    currently three different possibilities.
+*/
+
+enum Output_Encoding {
+    OE_PROB,     ///< Output encoding is a probability between 0 and 1
+    OE_PM_INF,   ///< Output encoding is a value between -inf and inf
+    OE_PM_ONE    ///< Output encoding is a value between -1 and 1
+};
+
+/*****************************************************************************/
 /* CLASSIFIER                                                                */
 /*****************************************************************************/
 
@@ -65,8 +79,8 @@ public:
     //boost::shared_ptr<const Feature_Space> feature_space() const;
     
     /** Returns the feature space, dynamic cast as specified. */
-    template<class Target_FS>
-    boost::shared_ptr<const Target_FS> feature_space() const;
+    //template<class Target_FS>
+    //boost::shared_ptr<const Target_FS> feature_space() const;
     
     /** Predict the score for a single class. */
     float predict(int label, const Feature_Set & features) const;
@@ -74,6 +88,7 @@ public:
     /** Predict the highest class. */
     int predict_highest(const Feature_Set & features) const;
 
+#if 0
     /** Predict the score for all classes. */
     Label_Dist
     predict(const Feature_Set & features) const;
@@ -82,6 +97,7 @@ public:
     float accuracy(const Training_Data & data,
                    const distribution<float> & example_weights
                        = UNIFORM_WEIGHTS) const;
+#endif
 
     /** Dump it to a string. */
     std::string print() const;
@@ -92,6 +108,7 @@ public:
     /** Return the feature that this classifier is predicting. */
     const Feature & predicted() const;
 
+#if 0
     /** Serialization and reconstitution. */
     void serialize(DB::Store_Writer & store, bool write_fs = true) const;
 
@@ -102,6 +119,7 @@ public:
 
     /** Reconstitute. */
     void reconstitute(DB::Store_Reader & store);
+#endif
 
     /** Return the class ID of the given classifier. */
     std::string class_id() const;

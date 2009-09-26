@@ -5,7 +5,7 @@
 # Makefile for the python wrappers for jml
 
 PYTHON_SOURCES := \
-        feature.i
+        jml_wrap_python.i
 
 PYTHON_LINK :=	boosting
 

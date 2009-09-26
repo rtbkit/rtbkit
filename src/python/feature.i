@@ -27,12 +27,6 @@ struct Feature {
     
     explicit Feature(id_type type, id_type arg1 = 0, id_type arg2 = 0);
 
-    //void set_type(id_type new_type);
-
-    //void set_arg1(id_type new_arg1);
-
-    //void set_arg2(id_type new_arg2);
-
     size_t hash() const;
 
     bool operator == (const Feature & other) const;
@@ -69,6 +63,7 @@ extern const Feature MISSING_FEATURE;
 
 } // namespace ML
 
+// Implementation of accessor functions for type, arg1 and arg2
 %{
     void ML_Feature_type_set(ML::Feature * f, ML::Feature::id_type val) { f->set_type(val); }
     void ML_Feature_arg1_set(ML::Feature * f, ML::Feature::id_type val) { f->set_arg1(val); }
