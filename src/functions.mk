@@ -177,7 +177,7 @@ define library
 $$(if $(trace),$$(warning called library "$(1)" "$(2)" "$(3)"))
 $$(eval $$(call add_sources,$(2)))
 
-$$(eval tmpLIBNAME := $(if $(4),$(4),lib$(1).so))
+$$(eval tmpLIBNAME := $(if $(4),$(4),lib$(1)))
 
 OBJFILES_$(1):=$$(foreach file,$(addsuffix .lo,$(basename $(2:%=$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
 
