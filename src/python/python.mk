@@ -5,7 +5,7 @@
 # Makefile for the python wrappers for jml
 
 PYTHON_SOURCES := \
-        feature.i ../arch/exception_hook.cc
+        feature.i
 
 PYTHON_LINK :=	boosting
 

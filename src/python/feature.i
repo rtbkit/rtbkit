@@ -27,14 +27,11 @@ struct Feature {
     
     explicit Feature(id_type type, id_type arg1 = 0, id_type arg2 = 0);
 
-    const id_type & type() const;
-    void set_type(id_type new_type);
+    //void set_type(id_type new_type);
 
-    const id_type & arg1() const;
-    void set_arg1(id_type new_arg1);
+    //void set_arg1(id_type new_arg1);
 
-    const id_type&  arg2() const;
-    void set_arg2(id_type new_arg2);
+    //void set_arg2(id_type new_arg2);
 
     size_t hash() const;
 
@@ -50,6 +47,17 @@ struct Feature {
         {
             return $self->print();
         }
+
+        size_t __hash__() const
+        {
+            return $self->hash();
+        }
+
+        // Export these as variables, ignoring the getter/setter functions
+        // (these are implemented below).
+        id_type type;
+        id_type arg1;
+        id_type arg2;
     }
 };
 
@@ -58,4 +66,17 @@ struct Feature {
     as a real feature code. */
 extern const Feature MISSING_FEATURE;
 
+
 } // namespace ML
+
+%{
+    void ML_Feature_type_set(ML::Feature * f, ML::Feature::id_type val) { f->set_type(val); }
+    void ML_Feature_arg1_set(ML::Feature * f, ML::Feature::id_type val) { f->set_arg1(val); }
+    void ML_Feature_arg2_set(ML::Feature * f, ML::Feature::id_type val) { f->set_arg2(val); }
+    
+    ML::Feature::id_type ML_Feature_type_get(ML::Feature * f) { return f->type(); }
+    
+    ML::Feature::id_type ML_Feature_arg1_get(ML::Feature * f) { return f->arg1(); }
+    ML::Feature::id_type ML_Feature_arg2_get(ML::Feature * f) { return f->arg2(); }
+%}
+
