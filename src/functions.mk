@@ -106,7 +106,7 @@ endef
 define add_swig_source
 $(if $(trace),$$(warning called add_swig_source "$(1)" "$(2)"))
 
-BUILD_$(OBJ)/$(CWD)/$(2)_wrap.cxx_COMMAND := swig -python -c++ -o $(OBJ)/$(CWD)/$(2)_wrap.cxx~ $(SRC)/$(CWD)/$(1)
+BUILD_$(OBJ)/$(CWD)/$(2)_wrap.cxx_COMMAND := swig -python -c++  -MMD -MF $(OBJ)/$(CWD)/$(2).d -MT "$(OBJ)/$(CWD)/$(2)_wrap.cxx $(OBJ)/$(CWD)/$(2).lo" -o $(OBJ)/$(CWD)/$(2)_wrap.cxx~ $(SRC)/$(CWD)/$(1)
 
 # Call swig to generate the source file
 $(OBJ)/$(CWD)/$(2)_wrap.cxx:	$(SRC)/$(CWD)/$(1)
@@ -122,6 +122,7 @@ $$(eval $$(call add_c++_source,$(2)_wrap.cxx,$(2)_wrap,$(OBJ)))
 # Point to the object file produced by the previous macro
 BUILD_$(CWD)/$(2).lo_OBJ  := $$(BUILD_$(CWD)/$(2)_wrap.lo_OBJ)
 
+-include $(OBJ)/$(CWD)/$(2).d
 
 endef
 
