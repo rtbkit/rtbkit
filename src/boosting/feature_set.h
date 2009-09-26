@@ -314,7 +314,7 @@ public:
 
 
 /*****************************************************************************/
-/* FEATURE_SET                                                               */
+/* MUTABLE_FEATURE_SET                                                       */
 /*****************************************************************************/
 
 /** This provides a set of features.  It is used as the interface between
