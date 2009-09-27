@@ -14,8 +14,6 @@
 #include "feature_set.h"
 #include "feature_info.h"
 
-
-
 namespace ML {
 
 
@@ -485,9 +483,6 @@ public:
 
 
 } // namespace ML
-
-
-
 
 #endif /* __boosting__feature_space_h__ */
 

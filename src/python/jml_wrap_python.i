@@ -15,6 +15,39 @@
 
 %module jml 
 
+%{
+#include "arch/demangle.h"
+#include <cxxabi.h>
+%}
+
+// Cause things that call out to jml to handle exceptions so that we don't
+// crash the python interpreter
+%exception {
+    try {
+        $action
+    }
+    catch (const std::exception & exc) {
+        PyErr_SetString(PyExc_Exception, ("JML library threw exceptionr of type " + ML::demangle(typeid(exc).name()) + ": " + exc.what()).c_str());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_Exception, ("JML library threw exception of type " + ML::demangle(abi::__cxa_current_exception_type()->name())).c_str());
+        return NULL;
+        
+    }
+}
+
+namespace ML {
+namespace DB {
+struct Store_Reader;
+struct Store_Writer;
+
+} // namespace DB
+
+struct Parse_Context;
+};
+
+%include "distribution.i"
 %include "feature.i"
 %include "feature_set.i"
 %include "feature_info.i"

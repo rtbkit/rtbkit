@@ -21,6 +21,25 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* DENSE_FEATURE_MAPPING                                                     */
+/*****************************************************************************/
+
+/** Holds a mapping between two dense feature spaces.  This includes how
+    to map variables onto each other, and how to map the values of
+    categorical variables onto each other.
+*/
+struct Dense_Feature_Mapping {
+    Dense_Feature_Mapping() : initialized_(false) {}
+    std::vector<int> vars;
+    bool initialized_;
+    int num_vars_expected_;
+    std::vector<boost::shared_ptr<Categorical_Mapping> > categories;
+    bool initialized() const;
+    void clear();
+};
+
+
         
 /*****************************************************************************/
 /* DENSE_FEATURE_SPACE                                                       */
@@ -62,19 +81,7 @@ public:
     encode(const std::vector<float> & variables,
            const Dense_Feature_Space & other) const;
 
-    /** Holds a mapping between two dense feature spaces.  This includes how
-        to map variables onto each other, and how to map the values of
-        categorical variables onto each other.
-    */
-    struct Mapping {
-        Mapping() : initialized_(false) {}
-        std::vector<int> vars;
-        bool initialized_;
-        int num_vars_expected_;
-        std::vector<boost::shared_ptr<Categorical_Mapping> > categories;
-        bool initialized() const;
-        void clear();
-    };
+    typedef Dense_Feature_Mapping Mapping;
 
     /** Create a mapping to go from the other feature space to this feature
         space.  This can be used to encode a feature vector (created in a

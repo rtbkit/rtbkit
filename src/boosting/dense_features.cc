@@ -27,7 +27,24 @@ using namespace DB;
 
 namespace ML {
 
-        
+/*****************************************************************************/
+/* DENSE_FEATURE_MAPPING                                                     */
+/*****************************************************************************/
+
+bool Dense_Feature_Mapping::initialized() const
+{
+    return initialized_;
+}
+
+void Dense_Feature_Mapping::clear()
+{
+    vars.clear();
+    categories.clear();
+    initialized_ = false;
+    num_vars_expected_ = -1;
+}
+
+
 /*****************************************************************************/
 /* DENSE_FEATURE_SPACE                                                       */
 /*****************************************************************************/
@@ -687,19 +704,6 @@ reconstitute(DB::Store_Reader & store)
     features_.clear();
     for (unsigned i = 0;  i < names_fwd.size();  ++i)
         features_.push_back(Feature(i));
-}
-
-bool Dense_Feature_Space::Mapping::initialized() const
-{
-    return initialized_;
-}
-
-void Dense_Feature_Space::Mapping::clear()
-{
-    vars.clear();
-    categories.clear();
-    initialized_ = false;
-    num_vars_expected_ = -1;
 }
 
 void
