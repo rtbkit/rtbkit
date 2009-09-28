@@ -155,7 +155,7 @@ train_weighted(Thread_Context & context,
     distribution<float> in_class(data.example_count(), 1.0);
 
     bool regression_problem
-        = result.feature_space()->info(predicted).type() == Feature_Info::REAL;
+        = result.feature_space()->info(predicted).type() == REAL;
 
     if (random_feature_propn < 0.0 || random_feature_propn > 1.0)
         throw Exception("random_feature_propn is not between 0.0 and 1.0");

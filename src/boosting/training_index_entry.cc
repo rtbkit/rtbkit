@@ -600,7 +600,7 @@ get_labels()
 
     switch (info.type()) {
 
-    case Feature_Info::REAL:
+    case REAL:
         for (unsigned i = 0;  i < values.size();  ++i)
             new_labels.push_back(Label(values[i]));
         break;

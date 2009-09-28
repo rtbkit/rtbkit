@@ -63,7 +63,7 @@ public:
         a REAL variable.  This should work fine, except for categorical
         variables. */
     void init(const std::vector<std::string> & feature_names,
-              Feature_Info::Type type = REAL);
+              Feature_Type type = REAL);
 
     /** Initialise, given the array of feature names and the associated
         info. */

@@ -36,7 +36,7 @@ void test(const std::string & dataset)
         cerr << "feature " << i << " (" << feature_space->print(features[i])
              << ")... ";
 
-        if (feature_space->info(features[i]).type == Feature_Info::INUTILE) {
+        if (feature_space->info(features[i]).type == INUTILE) {
             cerr << " (skipped... INUTILE)" << endl;
             continue;
         }

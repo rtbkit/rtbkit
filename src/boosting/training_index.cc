@@ -43,7 +43,7 @@ void Dataset_Index::init(const Training_Data & data)
     itl->feature_space = data.feature_space();
     
     size_t nx = data.example_count();
-    bool sparse = (data.feature_space()->type() == Feature_Space::SPARSE);
+    bool sparse = (data.feature_space()->type() == SPARSE);
 
     //cerr << "sparse = " << sparse << endl;
     

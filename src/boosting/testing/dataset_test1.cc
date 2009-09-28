@@ -30,12 +30,12 @@ try
 
     /* Find the feature for surface-gin */
     Feature make_feature = feature_space->get_feature("surface-make");
-    if (feature_space->info(make_feature) == Feature_Info::INUTILE)
+    if (feature_space->info(make_feature) == INUTILE)
         throw Exception("feature surface-make is not meant to be INUTILE");
 
     /* Find the feature for surface-make */
     Feature gin_feature = feature_space->get_feature("lemma-gin");
-    if (feature_space->info(make_feature) != Feature_Info::REAL)
+    if (feature_space->info(make_feature) != REAL)
         throw Exception("feature lemma-gin is meant to be REAL");
     
     return 0;

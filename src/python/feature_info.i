@@ -174,7 +174,7 @@ protected:
 };
 
 
-std::string print(Feature_Info::Type type);
+std::string print(Feature_Type type);
 
 extern const Feature_Info MISSING_FEATURE_INFO;
 
@@ -183,7 +183,7 @@ extern const Feature_Info MISSING_FEATURE_INFO;
 Feature_Info
 guess_info(const Training_Data & data,
            const Feature & feat,
-           const Feature_Info & before = Feature_Info::UNKNOWN);
+           const Feature_Info & before = UNKNOWN);
 
 /** Return the most inclusive of the two feature info values.  Used when two
     have been automatically detected over different datasets, to get the
@@ -204,25 +204,25 @@ struct Mutable_Feature_Info : public Feature_Info {
     Mutable_Feature_Info(const Feature_Info & info);
 
     /** Initialise for one of the non-categorical types. */
-    Mutable_Feature_Info(Type type = REAL, bool optional = false);
+    Mutable_Feature_Info(Feature_Type type = REAL, bool optional = false);
 
     /** Initialise for a categorical feature info. */
     Mutable_Feature_Info(boost::shared_ptr<Mutable_Categorical_Info> categorical,
                          bool optional = false,
-                         Type type = CATEGORICAL /* or STRING */);
+                         Feature_Type type = CATEGORICAL /* or STRING */);
 
     void reconstitute(DB::Store_Reader & store);
 
     /** Turn a non-categorical feature info into a categorical one. */
-    void make_categorical(Type type = CATEGORICAL);
+    void make_categorical(Feature_Type type = CATEGORICAL);
 
     /** Set the categorical info. */
     void set_categorical(boost::shared_ptr<Mutable_Categorical_Info> info,
-                         Type type = CATEGORICAL);
+                         Feature_Type type = CATEGORICAL);
 
     /** Set the categorical info. */
     void set_categorical(Mutable_Categorical_Info * info,
-                         Type type = CATEGORICAL);
+                         Feature_Type type = CATEGORICAL);
     
     boost::shared_ptr<Mutable_Categorical_Info> mutable_categorical() const
     {
@@ -232,7 +232,7 @@ struct Mutable_Feature_Info : public Feature_Info {
     }
 
     /** Set the feature type. */
-    void set_type(Type type);
+    void set_type(Feature_Type type);
 
     /** Set the optional flag. */
     void set_optional(bool optional);

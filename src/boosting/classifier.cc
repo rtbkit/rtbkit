@@ -108,7 +108,7 @@ size_t check_label_count(const Feature_Space & fs,
     Feature_Info info = fs.info(predicted);
 
     /* For reals, we assume the number of labels are known. */
-    if (info.type() != Feature_Info::REAL
+    if (info.type() != REAL
         && info.value_count() != label_count) {
         
 

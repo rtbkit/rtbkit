@@ -181,7 +181,7 @@ protected:
 };
 
 
-PERSISTENT_ENUM_DECL(Feature_Info::Type);
+PERSISTENT_ENUM_DECL(Feature_Type);
 
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store, Feature_Info & info);
@@ -192,10 +192,10 @@ operator << (DB::Store_Writer & store, const Feature_Info & info);
 std::ostream &
 operator << (std::ostream & stream, const Feature_Info & info);
 
-std::string print(Feature_Info::Type type);
+std::string print(Feature_Type type);
 
 std::ostream &
-operator << (std::ostream & stream, Feature_Info::Type type);
+operator << (std::ostream & stream, Feature_Type type);
 
 extern const Feature_Info MISSING_FEATURE_INFO;
 

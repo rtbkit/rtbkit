@@ -38,6 +38,11 @@ class distribution;
 using Stats::distribution;
 
 
+enum Feature_Space_Type {
+    DENSE,   ///< Dense feature space
+    SPARSE   ///< Sparse feature space
+};
+
 
 /*****************************************************************************/
 /* FEATURE_SPACE                                                             */
@@ -79,12 +84,7 @@ public:
 
     virtual std::string class_id() const = 0;
 
-    enum Type {
-        DENSE,   ///< Dense feature space
-        SPARSE   ///< Sparse feature space
-    };
-
-    virtual Type type() const = 0;
+    virtual Feature_Space_Type type() const = 0;
 
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store,
@@ -132,7 +132,7 @@ public:
     */
     virtual Feature
     make_feature(const std::string & name,
-                 const Feature_Info & info = Feature_Info::UNKNOWN) = 0;
+                 const Feature_Info & info = UNKNOWN) = 0;
 
     /** Return the feature with the given name.  Throws if the name is
         unknown. */
@@ -188,7 +188,7 @@ public:
         a REAL variable.  This should work fine, except for categorical
         variables. */
     void init(const std::vector<std::string> & feature_names,
-              Feature_Info::Type type = Feature_Info::REAL);
+              Feature_Type type = REAL);
 
     /** Initialise, given the array of feature names and the associated
         info. */
@@ -348,7 +348,7 @@ public:
     void add(const Dense_Feature_Space & other_fs,
              const std::string & name_prefix = "");
 
-    virtual Type type() const { return DENSE; }
+    virtual Feature_Space_Type type() const { return DENSE; }
 
     /** Turn the feature info for the given feature into a mutable categorical
         version. */
@@ -361,7 +361,7 @@ public:
     */
     virtual Feature
     make_feature(const std::string & name,
-                 const Feature_Info & info = Feature_Info::UNKNOWN);
+                 const Feature_Info & info = UNKNOWN);
 
     /** Return the feature with the given name.  Throws if the name is
         unknown. */

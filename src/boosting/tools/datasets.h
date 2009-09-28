@@ -25,10 +25,10 @@ class Dense_Feature_Space;
 
 /** Tells us about what the user wanted to use the dataset for. */
 enum Disposition {
-    TRAIN,      ///< Dataset is a training set
-    VALIDATE,   ///< Dataset is a validation set
-    TEST,       ///< Dataset is a testing set
-    UNKNOWN     ///< No disposition was given
+    DSP_TRAIN,      ///< Dataset is a training set
+    DSP_VALIDATE,   ///< Dataset is a validation set
+    DSP_TEST,       ///< Dataset is a testing set
+    DSP_UNKNOWN     ///< No disposition was given
 };
 
 std::ostream & operator << (std::ostream & stream, Disposition d);    

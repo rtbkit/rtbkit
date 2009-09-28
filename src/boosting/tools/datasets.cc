@@ -24,10 +24,10 @@ namespace ML {
 std::ostream & operator << (std::ostream & stream, Disposition d)
 {
     switch (d) {
-    case TRAIN: return stream << "TRAIN";
-    case VALIDATE: return stream << "VALIDATE";
-    case TEST: return stream << "TEST";
-    case UNKNOWN: return stream << "UNKNOWN";
+    case DSP_TRAIN: return stream << "TRAIN";
+    case DSP_VALIDATE: return stream << "VALIDATE";
+    case DSP_TEST: return stream << "TEST";
+    case DSP_UNKNOWN: return stream << "UNKNOWN";
     default: return stream << format("Disposition(%d)", d);
     }
 }
@@ -75,7 +75,7 @@ init(const std::vector<std::string> & files, int verbosity, bool profile)
         feature_space = dense_feature_space;
     }
 
-    Disposition d = UNKNOWN;
+    Disposition d = DSP_UNKNOWN;
     
     /* First, read in all of the data. */
     for (unsigned i = 0;  i < files.size();  ++i) {
@@ -83,15 +83,15 @@ init(const std::vector<std::string> & files, int verbosity, bool profile)
 
         /* Look for a marker to change the disposition. */
         if (files[i] == "TRAIN") {
-            d = TRAIN;
+            d = DSP_TRAIN;
             continue;
         }
         else if (files[i] == "VALIDATE") {
-            d = VALIDATE;
+            d = DSP_VALIDATE;
             continue;
         }
         else if (files[i] == "TEST") {
-            d = TEST;
+            d = DSP_TEST;
             continue;
         }
 
@@ -112,7 +112,7 @@ init(const std::vector<std::string> & files, int verbosity, bool profile)
         
         if (verbosity > 0) {
             cerr << "dataset \'" << files[i] << "\': ";
-            if (d != UNKNOWN)
+            if (d != DSP_UNKNOWN)
                 cerr << "(" << d << "): ";
             cerr << data.back()->all_features().size() << " features, "
                  << data.back()->example_count() << " rows." << endl;
@@ -153,21 +153,21 @@ split(float training_split, float validation_split, float testing_split,
 
     for (unsigned i = 0;  i < data.size();  ++i) {
         switch (dispositions[i]) {
-        case UNKNOWN:
+        case DSP_UNKNOWN:
             unknowns.push_back(data[i]);
             break;
-        case TRAIN:
+        case DSP_TRAIN:
             if (!training)
                 training = data[i];
             else training->add(*data[i]);
             break;
-        case VALIDATE:
+        case DSP_VALIDATE:
             if (!validation)
                 validation = data[i];
             else validation->add(*data[i]);
             break;
             
-        case TEST:
+        case DSP_TEST:
             if (testing.empty())
                 testing.push_back(data[i]);
             else testing[0]->add(*data[i]);

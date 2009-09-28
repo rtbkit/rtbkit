@@ -795,7 +795,7 @@ void do_features(const Training_Data & data,
                         info = data.index()
                             .guess_info_categorical(features[j]);
                     else if (result == "REAL")
-                        info.set_type(Feature_Info::REAL);
+                        info.set_type(REAL);
                     else throw Exception("unknown or unimplemented type "
                                          "override: " + result);
                     

@@ -492,24 +492,24 @@ struct Stump_Trainer {
         Feature_Info info = fs->info(feature);
         
         switch (info.type()) {
-        case Feature_Info::PRESENCE:
+        case PRESENCE:
             return test_presence(feature, data, predicted, weights, ex_weights,
                                  default_w, results, advance);
             
-        case Feature_Info::BOOLEAN:
+        case BOOLEAN:
             return test_boolean(feature, data, predicted, weights, ex_weights,
                                 default_w, results, advance);
 
-        case Feature_Info::CATEGORICAL:
-        case Feature_Info::STRING:
+        case CATEGORICAL:
+        case STRING:
             return test_categorical(feature, data, predicted, weights,
                                     ex_weights, default_w, results, advance);
 
-        case Feature_Info::REAL:
+        case REAL:
             return test_real(feature, data, predicted, weights, ex_weights,
                              default_w, results, advance);
             
-        case Feature_Info::INUTILE: {
+        case INUTILE: {
             double missing;
             if (!results.start(feature, default_w, missing))
                 return Z::worst;

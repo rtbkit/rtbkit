@@ -15,7 +15,7 @@ if [ $# -eq 3 ];
     dir=$3
 fi
 
-FILES=`find $DIR -name "*.cc" -or -name "*.h" | xargs grep -l "$REGEX"`
+FILES=`find $DIR -name "*.cc" -or -name "*.h" -or -name "*.i" | xargs grep -l "$REGEX"`
 
 #echo "files = " $FILES
 

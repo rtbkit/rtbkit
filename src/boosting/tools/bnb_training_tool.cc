@@ -38,7 +38,7 @@ using namespace Stats;
 #if 0
 // Stump representation
     Feature feature;                   ///< which feature to operate on?
-    Feature_Info::Type type;           ///< what type of feature is it?
+    Feature_Type type;           ///< what type of feature is it?
     float arg;                         ///< p ::=  x > arg
     float Z;                           ///< Z score of the rule
     distribution<float> pred_true;     ///< predictions if p holds

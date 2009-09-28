@@ -28,7 +28,7 @@ try
         
         /* Find the feature for surface-gin */
         Feature chord_feature = feature_space->get_feature("surf_p2-chord");
-        if (feature_space->info(chord_feature) != Feature_Info::PRESENCE)
+        if (feature_space->info(chord_feature) != PRESENCE)
             throw Exception("feature surf_p2-chord is meant to be PRESENCE"
                             ", is " + ostream_format(feature_space
                                                      ->info(chord_feature)));
@@ -46,7 +46,7 @@ try
         
         /* Find the feature for surface-gin */
         Feature barely_feature = feature_space->get_feature("lemma-barely");
-        if (feature_space->info(barely_feature) != Feature_Info::REAL)
+        if (feature_space->info(barely_feature) != REAL)
             throw Exception("feature lemma-barely is meant to be REAL"
                             ", is " + ostream_format(feature_space
                                                      ->info(barely_feature)));

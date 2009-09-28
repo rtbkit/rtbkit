@@ -77,7 +77,7 @@ Dense_Feature_Space::~Dense_Feature_Space()
 }
 
 void Dense_Feature_Space::
-init(const vector<string> & feature_names, Feature_Info::Type type)
+init(const vector<string> & feature_names, Feature_Type type)
 {
     Feature_Info def_info(type);
     vector<Mutable_Feature_Info> feature_info(feature_names.size(), def_info);
@@ -192,13 +192,13 @@ create_mapping(const Dense_Feature_Space & other,
                 //     << endl;
 
 
-                if (info_array[i].type() == Feature_Info::CATEGORICAL) {
+                if (info_array[i].type() == CATEGORICAL) {
                     mapping.categories[i]
                         = make_sp(new Fixed_Categorical_Mapping
                                   (info_array[i].categorical(),
                                    other.info_array[it->second].categorical()));
                 }
-                else if (info_array[i].type() == Feature_Info::STRING) {
+                else if (info_array[i].type() == STRING) {
                     mapping.categories[i]
                         = make_sp(new Dynamic_Categorical_Mapping());
                 }
@@ -1005,7 +1005,7 @@ init(const std::vector<Data_Source> & data_sources,
                 immutable_features.push_back(true);
             }
             else {
-                feature_info.push_back(Feature_Info(Feature_Info::UNKNOWN));
+                feature_info.push_back(Feature_Info(UNKNOWN));
                 immutable_features.push_back(false);
             }
         }
@@ -1118,7 +1118,7 @@ init(const std::vector<Data_Source> & data_sources,
                         float value;
                         if (immutable_features[v]
                             && feature_space->info_array[v].type()
-                               != Feature_Info::STRING) 
+                               != STRING) 
                             value = categorical[v]->parse(category);
                         else value = categorical[v]->parse_or_add(category);
                         

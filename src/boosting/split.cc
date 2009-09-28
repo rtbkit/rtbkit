@@ -25,8 +25,8 @@ Split::Op
 Split::
 get_op_from_feature(const Feature_Info & info)
 {
-    if (info.type() == Feature_Info::CATEGORICAL
-        || info.type() == Feature_Info::STRING)
+    if (info.type() == CATEGORICAL
+        || info.type() == STRING)
         return EQUAL;
     return LESS;
 }

@@ -26,6 +26,12 @@ enum Output_Encoding {
     OE_PM_ONE    ///< Output encoding is a value between -1 and 1
 };
 
+
+class Classifier_Impl;
+
+typedef distribution<float> Label_Dist;
+
+
 /*****************************************************************************/
 /* CLASSIFIER                                                                */
 /*****************************************************************************/

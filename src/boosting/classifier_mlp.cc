@@ -80,7 +80,7 @@ read(const string & input_file)
            classification label. */
         vector<Mutable_Feature_Info> info(nfv);
         for (unsigned i = 0;  i < nfv;  ++i)
-            info[i].set_type(Feature_Info::REAL);
+            info[i].set_type(REAL);
         
         /* How many labels do we have? */
         size_t nl = mlp.nbLabels();
@@ -90,7 +90,7 @@ read(const string & input_file)
         for (unsigned i = 0;  i < label_names.size();  ++i)
             label_names[i] = format("%d", i);
         
-        info[0].set_type(Feature_Info::CATEGORICAL);
+        info[0].set_type(CATEGORICAL);
         info[0].set_categorical(new Mutable_Categorical_Info(label_names));
         
         /* Initialize the feature space. */

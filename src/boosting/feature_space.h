@@ -40,7 +40,7 @@ public:
         \returns             a Feature_Info object for the given feature.
         
         This is an abstract method; subclasses must override it.  In most
-        cases, choosing a Feature_Info::REAL value should be sufficient.
+        cases, choosing a REAL value should be sufficient.
 
         Note also that this method is called frequently, and thus shouldn't
         do any major computation.
