@@ -296,6 +296,55 @@ operator << (std::ostream & stream, const distribution<F, Underlying> & dist)
     return stream << " }";
 }
 
+// TODO: replace with boost::enable_if<>
+template<>
+inline
+distribution<float>
+distribution<float>::
+operator & (float f) const
+{
+    throw Exception("distribibution<float> doesn't support operator &");
+}
+
+// TODO: replace with boost::enable_if<>
+template<>
+inline
+distribution<double>
+distribution<double>::
+operator & (double f) const
+{
+    throw Exception("distribibution<double> doesn't support operator &");
+}
+
+// TODO: replace with boost::enable_if<>
+template<>
+inline
+distribution<float>
+distribution<float>::
+operator | (float f) const
+{
+    throw Exception("distribibution<float> doesn't support operator &");
+}
+
+// TODO: replace with boost::enable_if<>
+template<>
+inline
+distribution<double>
+distribution<double>::
+operator | (double f) const
+{
+    throw Exception("distribibution<double> doesn't support operator &");
+}
+
+template<>
+template<class F2>
+distribution<bool> &
+distribution<bool>::
+operator /= (F2 val)
+{
+    throw Exception("distribution<bool> doesn't support operator /=");
+}
+
 } // namespace Stats
 
 using Stats::distribution;
