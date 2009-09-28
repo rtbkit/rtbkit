@@ -6,15 +6,26 @@
 */
 
 %module jml 
+
 %{
 #include "boosting/feature_space.h"
 #include "boosting/dense_features.h"
 #include "stats/distribution.h"
 
-    using ML::Stats::distribution;
+// Avoid compilation errors due to SWIG being confused by the using statement
+// in distribution.h
+using ML::Stats::distribution;
 %}
 
 %include "std_vector.i"
+%include "shared_ptr.i"
+
+%template(svector) std::vector<std::string>;
+%template(ivector) std::vector<int>;
+%template(Categorical_Mapping_Vector) std::vector<boost::shared_ptr<ML::Categorical_Mapping> >;
+%template(Mutable_Feature_Info_Vector) std::vector<ML::Mutable_Feature_Info>;
+%template(Feature_Vector) std::vector<ML::Feature>;
+
 
 namespace ML {
 namespace Stats {
@@ -25,6 +36,7 @@ class distribution;
 } // namespace Stats
 
 using Stats::distribution;
+
 
 
 /*****************************************************************************/
@@ -40,29 +52,29 @@ public:
     virtual Feature_Info info(const Feature & feature) const = 0;
     virtual std::string print(const Feature & feature) const;
     virtual std::string print(const Feature & feature, float value) const;
-    //virtual bool parse(Parse_Context & context, Feature & feature) const;
-    //virtual void parse(const std::string & name, Feature & feature) const;
-    //virtual void expect(Parse_Context & context, Feature & feature) const;
+    virtual bool parse(Parse_Context & context, Feature & feature) const;
+    virtual void parse(const std::string & name, Feature & feature) const;
+    virtual void expect(Parse_Context & context, Feature & feature) const;
 
-    //virtual void serialize(DB::Store_Writer & store,
-    //                       const Feature & feature) const;
+    virtual void serialize(DB::Store_Writer & store,
+                           const Feature & feature) const;
 
-    //virtual void reconstitute(DB::Store_Reader & store,
-    //                          Feature & feature) const;
-    //virtual void serialize(DB::Store_Writer & store,
-    //                       const Feature & feature,
-    //                       float value) const;
+    virtual void reconstitute(DB::Store_Reader & store,
+                              Feature & feature) const;
+    virtual void serialize(DB::Store_Writer & store,
+                           const Feature & feature,
+                           float value) const;
 
-    //virtual void reconstitute(DB::Store_Reader & store,
-    //                          const Feature & feature,
-    //                          float & value) const;
+    virtual void reconstitute(DB::Store_Reader & store,
+                              const Feature & feature,
+                              float & value) const;
 
 
-    //virtual std::string print(const Feature_Set & fs) const;
-    //virtual void serialize(DB::Store_Writer & store,
-    //                       const Feature_Set & fs) const;
-    //virtual void reconstitute(DB::Store_Reader & store,
-    //                          boost::shared_ptr<Feature_Set> & fs) const;
+    virtual std::string print(const Feature_Set & fs) const;
+    virtual void serialize(DB::Store_Writer & store,
+                           const Feature_Set & fs) const;
+    virtual void reconstitute(DB::Store_Reader & store,
+                              boost::shared_ptr<Feature_Set> & fs) const;
 
 
     virtual std::string class_id() const = 0;
@@ -74,9 +86,9 @@ public:
 
     virtual Type type() const = 0;
 
-    //virtual void serialize(DB::Store_Writer & store) const;
-    //virtual void reconstitute(DB::Store_Reader & store,
-    //                        const boost::shared_ptr<const Feature_Space> & fs);
+    virtual void serialize(DB::Store_Writer & store) const;
+    virtual void reconstitute(DB::Store_Reader & store,
+                              const boost::shared_ptr<const Feature_Space> & fs);
     
     virtual Feature_Space * make_copy() const = 0;
 
@@ -87,6 +99,7 @@ public:
 
     virtual void freeze();
 };
+
 
 /*****************************************************************************/
 /* MUTABLE_FEATURE_SPACE                                                     */
@@ -276,29 +289,29 @@ public:
     /** Decode the results of an encode step. */
     distribution<float> decode(const Feature_Set & feature_set) const;
 
-    //using Feature_Space::serialize;
-    //using Feature_Space::reconstitute;
-    //using Feature_Space::print;
-    //using Feature_Space::parse;
+    using Feature_Space::serialize;
+    using Feature_Space::reconstitute;
+    using Feature_Space::print;
+    using Feature_Space::parse;
 
     virtual Feature_Info info(const Feature & feature) const;
     virtual void set_info(const Feature & feature, const Feature_Info & info);
     virtual std::string print(const Feature & feature) const;
     virtual std::string print(const Feature & feature, float value) const;
-    //virtual void parse(const std::string & name, Feature & feature) const;
-    //virtual bool parse(Parse_Context & context, Feature & feature) const;
-    //virtual void expect(Parse_Context & context, Feature & feature) const;
-    //virtual void serialize(DB::Store_Writer & store,
-    //                       const Feature & feature) const;
-    //virtual void reconstitute(DB::Store_Reader & store,
-    //                          Feature & feature) const;
+    virtual void parse(const std::string & name, Feature & feature) const;
+    virtual bool parse(Parse_Context & context, Feature & feature) const;
+    virtual void expect(Parse_Context & context, Feature & feature) const;
+    virtual void serialize(DB::Store_Writer & store,
+                           const Feature & feature) const;
+    virtual void reconstitute(DB::Store_Reader & store,
+                              Feature & feature) const;
 
     /** Methods to deal with a feature set. */
     virtual std::string print(const Feature_Set & fs) const;
-    //virtual void serialize(DB::Store_Writer & store,
-    //                       const Feature_Set & fs) const;
-    //virtual void reconstitute(DB::Store_Reader & store,
-    //                          boost::shared_ptr<Feature_Set> & fs) const;
+    virtual void serialize(DB::Store_Writer & store,
+                           const Feature_Set & fs) const;
+    virtual void reconstitute(DB::Store_Reader & store,
+                              boost::shared_ptr<Feature_Set> & fs) const;
 
     /* Methods to deal with the feature space as a whole. */
     virtual Dense_Feature_Space * make_copy() const;
@@ -306,11 +319,11 @@ public:
 
     /** Serialization and reconstitution. */
     virtual std::string class_id() const;
-    //virtual void serialize(DB::Store_Writer & store) const;
-    //virtual void reconstitute(DB::Store_Reader & store);
-    //virtual void reconstitute(DB::Store_Reader & store,
-    //                          const boost::shared_ptr<const Feature_Space>
-    //                              & feature_space);
+    virtual void serialize(DB::Store_Writer & store) const;
+    virtual void reconstitute(DB::Store_Reader & store);
+    virtual void reconstitute(DB::Store_Reader & store,
+                              const boost::shared_ptr<const Feature_Space>
+                                  & feature_space);
 
     /** Return the total number of variables in the dense feature array. */
     size_t variable_count() const { return info_array.size(); }

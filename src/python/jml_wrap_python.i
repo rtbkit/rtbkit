@@ -27,7 +27,7 @@
         $action
     }
     catch (const std::exception & exc) {
-        PyErr_SetString(PyExc_Exception, ("JML library threw exceptionr of type " + ML::demangle(typeid(exc).name()) + ": " + exc.what()).c_str());
+        PyErr_SetString(PyExc_Exception, ("JML library threw exception of type " + ML::demangle(typeid(exc).name()) + ": " + exc.what()).c_str());
         return NULL;
     }
     catch (...) {

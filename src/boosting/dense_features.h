@@ -63,7 +63,7 @@ public:
         a REAL variable.  This should work fine, except for categorical
         variables. */
     void init(const std::vector<std::string> & feature_names,
-              Feature_Info::Type type = Feature_Info::REAL);
+              Feature_Info::Type type = REAL);
 
     /** Initialise, given the array of feature names and the associated
         info. */
@@ -236,7 +236,7 @@ public:
     */
     virtual Feature
     make_feature(const std::string & name,
-                 const Feature_Info & info = Feature_Info::UNKNOWN);
+                 const Feature_Info & info = UNKNOWN);
 
     /** Return the feature with the given name.  Throws if the name is
         unknown. */

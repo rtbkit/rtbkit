@@ -37,13 +37,13 @@ public:
     Classifier();
 
     /** Construct from given implementation. */
-    //Classifier(const boost::shared_ptr<Classifier_Impl> & impl);
+    Classifier(const boost::shared_ptr<Classifier_Impl> & impl);
 
     /** Construct from implementation pointer. */
-    //Classifier(Classifier_Impl * impl, bool take_copy = false);
+    Classifier(Classifier_Impl * impl, bool take_copy = false);
 
     /** Construct by copying an existing implementation. */
-    //explicit Classifier(const Classifier_Impl & impl);
+    explicit Classifier(const Classifier_Impl & impl);
 
     /** Construct by instantiating a new object of the given type. */
     //template<class Impl>
@@ -55,12 +55,12 @@ public:
 
     /** Construct by instantiating a new object of the given registered
         name. */
-    //Classifier(const std::string & name,
-    //           const boost::shared_ptr<const Feature_Space> & feature_space);
+    Classifier(const std::string & name,
+               const boost::shared_ptr<const Feature_Space> & feature_space);
 
     /** Construct by reconstitution. */
-    //Classifier(const boost::shared_ptr<const Feature_Space> & feature_space,
-    //           DB::Store_Reader & store);
+    Classifier(const boost::shared_ptr<const Feature_Space> & feature_space,
+               DB::Store_Reader & store);
 
     /** Copy constructor. */
     Classifier(const Classifier & other);
@@ -76,7 +76,7 @@ public:
     size_t label_count() const;
     
     /** Returns the feature space. */
-    //boost::shared_ptr<const Feature_Space> feature_space() const;
+    boost::shared_ptr<const Feature_Space> feature_space() const;
     
     /** Returns the feature space, dynamic cast as specified. */
     //template<class Target_FS>
@@ -88,7 +88,6 @@ public:
     /** Predict the highest class. */
     int predict_highest(const Feature_Set & features) const;
 
-#if 0
     /** Predict the score for all classes. */
     Label_Dist
     predict(const Feature_Set & features) const;
@@ -97,7 +96,6 @@ public:
     float accuracy(const Training_Data & data,
                    const distribution<float> & example_weights
                        = UNIFORM_WEIGHTS) const;
-#endif
 
     /** Dump it to a string. */
     std::string print() const;
@@ -108,7 +106,6 @@ public:
     /** Return the feature that this classifier is predicting. */
     const Feature & predicted() const;
 
-#if 0
     /** Serialization and reconstitution. */
     void serialize(DB::Store_Writer & store, bool write_fs = true) const;
 
@@ -119,7 +116,6 @@ public:
 
     /** Reconstitute. */
     void reconstitute(DB::Store_Reader & store);
-#endif
 
     /** Return the class ID of the given classifier. */
     std::string class_id() const;

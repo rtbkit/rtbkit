@@ -356,7 +356,7 @@ guess_info(const Feature & feat) const
        If there is just a 1 value or missing, we say it's a presence
        feature.  If none are missing and all values are the same, we
        say it's inutile.  Otherwise, we say that it's real. */
-    //return Feature_Info(Feature_Info::PRESENCE);
+    //return Feature_Info(PRESENCE);
 
     const Index_Entry & entry = itl->index[feat];
     
@@ -368,7 +368,7 @@ guess_info(const Feature & feat) const
 
     Mutable_Feature_Info result;
     if (entry.seen == 0)
-        result.set_type(Feature_Info::INUTILE);
+        result.set_type(INUTILE);
     else {
         bool dense = entry.dense();
         bool boolean = (entry.ones + entry.zeros == entry.seen);
@@ -385,24 +385,24 @@ guess_info(const Feature & feat) const
 
         /* Uniformly the same value and none missing? */
         if (dense && one_example && one_value)
-            result.set_type(Feature_Info::INUTILE);
-        else if (one_value && uniform_one) result.set_type(Feature_Info::PRESENCE);
-        else if (boolean) result.set_type(Feature_Info::BOOLEAN);
+            result.set_type(INUTILE);
+        else if (one_value && uniform_one) result.set_type(PRESENCE);
+        else if (boolean) result.set_type(BOOLEAN);
         else if (itl->feature_space->info(feat).type()
-                     == Feature_Info::CATEGORICAL
+                     == CATEGORICAL
                  || itl->feature_space->info(feat).type()
-                     == Feature_Info::STRING)
+                     == STRING)
             result = itl->feature_space->info(feat);
 #if 0
         else if (all_integral
                  && entry.min_value >= 0 && entry.max_value <= 255) {
-            result.type = Feature_Info::CATEGORICAL;
+            result.type = CATEGORICAL;
             result.categorical.reset
                 (new Fixed_Categorical_Info((int)entry.max_value + 1));
             // TODO: detect categorical (?)
         }
 #endif
-        else result.set_type(Feature_Info::REAL);
+        else result.set_type(REAL);
     }
     
     if (debug)
@@ -420,7 +420,7 @@ guess_info_categorical(const Feature & feat) const
 
     Mutable_Feature_Info result;
     if (entry.seen == 0)
-        result.set_type(Feature_Info::INUTILE);
+        result.set_type(INUTILE);
     else {
         bool dense = entry.dense();
         bool boolean = (entry.ones + entry.zeros == entry.seen);
@@ -431,22 +431,22 @@ guess_info_categorical(const Feature & feat) const
         
         /* Uniformly the same value and none missing? */
         if (dense && one_example && one_value)
-            result.set_type(Feature_Info::INUTILE);
+            result.set_type(INUTILE);
         else if (one_value && uniform_one)
-            result.set_type(Feature_Info::PRESENCE);
-        else if (boolean) result.set_type(Feature_Info::BOOLEAN);
+            result.set_type(PRESENCE);
+        else if (boolean) result.set_type(BOOLEAN);
         else if (itl->feature_space->info(feat).type()
-                     == Feature_Info::CATEGORICAL
+                     == CATEGORICAL
                  || itl->feature_space->info(feat).type()
-                     == Feature_Info::STRING)
+                     == STRING)
             result = itl->feature_space->info(feat);
         else if (all_integral && entry.min_value >= 0
                  && entry.max_value <= 255) {
-            result.set_type(Feature_Info::CATEGORICAL);
+            result.set_type(CATEGORICAL);
             result.set_categorical
                 (new Mutable_Categorical_Info((int)entry.max_value + 1));
         }
-        else result.set_type(Feature_Info::REAL);
+        else result.set_type(REAL);
     }
 
     return result;

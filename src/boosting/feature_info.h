@@ -76,6 +76,24 @@ struct Categorical_Info {
     poly_reconstitute(DB::Store_Reader & store);
 };
 
+/*****************************************************************************/
+/* FEATURE_TYPE                                                              */
+/*****************************************************************************/
+
+/** Encodes the type of the feature, which in turn encodes how the
+    learning algorithms attempt to learn rules for the algorithm.
+*/
+enum Feature_Type {
+    UNKNOWN,      ///< we have not yet determined the feature type
+    PRESENCE,     ///< feature is present or not present; value unimportant
+    BOOLEAN,      ///< feature is true (1.0) or false (0.0)
+    CATEGORICAL,  ///< feature is categorical; ordering makes no sense
+    REAL,         ///< feature is real valued
+    UNUSED1,      ///< Was PROB
+    INUTILE,      ///< feature is inutile and should be ignored
+    STRING        ///< feature is an open categorical feature
+};
+
 
 /*****************************************************************************/
 /* FEATURE_INFO                                                              */
@@ -87,19 +105,7 @@ struct Categorical_Info {
 
 struct Feature_Info {
 public:
-    /** Encodes the type of the feature, which in turn encodes how the
-        learning algorithms attempt to learn rules for the algorithm.
-    */
-    enum Type {
-        UNKNOWN,      ///< we have not yet determined the feature type
-        PRESENCE,     ///< feature is present or not present; value unimportant
-        BOOLEAN,      ///< feature is true (1.0) or false (0.0)
-        CATEGORICAL,  ///< feature is categorical; ordering makes no sense
-        REAL,         ///< feature is real valued
-        UNUSED1,      ///< Was PROB
-        INUTILE,      ///< feature is inutile and should be ignored
-        STRING        ///< feature is an open categorical feature
-    };
+    typedef Feature_Type Type;
 
     /** Initialise for one of the non-categorical types. */
     Feature_Info(Type type = REAL, bool optional = false, bool biased = false,
@@ -198,7 +204,7 @@ extern const Feature_Info MISSING_FEATURE_INFO;
 Feature_Info
 guess_info(const Training_Data & data,
            const Feature & feat,
-           const Feature_Info & before = Feature_Info::UNKNOWN);
+           const Feature_Info & before = UNKNOWN);
 
 /** Return the most inclusive of the two feature info values.  Used when two
     have been automatically detected over different datasets, to get the

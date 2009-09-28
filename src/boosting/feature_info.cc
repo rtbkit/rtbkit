@@ -23,8 +23,8 @@ namespace ML {
 using namespace DB;
 
 
-const Feature_Info MISSING_FEATURE_INFO(Feature_Info::INUTILE);
-const Feature_Info MISSING_INFO(Feature_Info::INUTILE);
+const Feature_Info MISSING_FEATURE_INFO(INUTILE);
+const Feature_Info MISSING_INFO(INUTILE);
 
 
 
@@ -32,23 +32,23 @@ const Feature_Info MISSING_INFO(Feature_Info::INUTILE);
 /* FEATURE_INFO::TYPE                                                        */
 /*****************************************************************************/
 
-std::string print(Feature_Info::Type type)
+std::string print(Feature_Type type)
 {
     switch (type) {
-    case Feature_Info::UNKNOWN:       return "UNKNOWN";
-    case Feature_Info::PRESENCE:      return "PRESENCE";
-    case Feature_Info::BOOLEAN:       return "BOOLEAN";
-    case Feature_Info::CATEGORICAL:   return "CATEGORICAL";
-    case Feature_Info::REAL:          return "REAL";
-    case Feature_Info::INUTILE:       return "INUTILE";
-    case Feature_Info::STRING:        return "STRING";
+    case UNKNOWN:       return "UNKNOWN";
+    case PRESENCE:      return "PRESENCE";
+    case BOOLEAN:       return "BOOLEAN";
+    case CATEGORICAL:   return "CATEGORICAL";
+    case REAL:          return "REAL";
+    case INUTILE:       return "INUTILE";
+    case STRING:        return "STRING";
     default:
         throw Exception("Unknown Feature_Info");
     }
 }
 
 std::ostream &
-operator << (std::ostream & stream, Feature_Info::Type type)
+operator << (std::ostream & stream, Feature_Type type)
 {
     return stream << ML::print(type);
 }
@@ -123,7 +123,7 @@ struct FI_Flags {
 } // file scope
 
 
-COMPACT_PERSISTENT_ENUM_IMPL(Feature_Info::Type);
+COMPACT_PERSISTENT_ENUM_IMPL(Feature_Type);
 
 void Feature_Info::serialize(DB::Store_Writer & store) const
 {
@@ -397,15 +397,15 @@ operator << (std::ostream & stream, const Feature_Info & info)
 
 Feature_Info promote(const Feature_Info & i1, const Feature_Info & i2)
 {
-    static const Feature_Info::Type UNKN = Feature_Info::UNKNOWN;
-    static const Feature_Info::Type PRES = Feature_Info::PRESENCE;
-    static const Feature_Info::Type BOOL = Feature_Info::BOOLEAN;
-    static const Feature_Info::Type CAT  = Feature_Info::CATEGORICAL;
-    static const Feature_Info::Type REAL = Feature_Info::REAL;
-    static const Feature_Info::Type INUT = Feature_Info::INUTILE;
-    static const Feature_Info::Type STR = Feature_Info::INUTILE;
+    static const Feature_Type UNKN = UNKNOWN;
+    static const Feature_Type PRES = PRESENCE;
+    static const Feature_Type BOOL = BOOLEAN;
+    static const Feature_Type CAT  = CATEGORICAL;
+    static const Feature_Type REAL = REAL;
+    static const Feature_Type INUT = INUTILE;
+    static const Feature_Type STR  = STRING;
     
-    static const Feature_Info::Type lookup[8][8] = {
+    static const Feature_Type lookup[8][8] = {
         { UNKN, PRES, BOOL, CAT,  REAL, UNKN, INUT, STR }, // UNKNOWN
         { PRES, PRES, BOOL, CAT,  REAL, UNKN, PRES, STR }, // PRESENCE
         { BOOL, BOOL, BOOL, CAT,  REAL, UNKN, BOOL, STR }, // BOOLEAN
@@ -418,14 +418,14 @@ Feature_Info promote(const Feature_Info & i1, const Feature_Info & i2)
     
     /* TODO: map categorical/string features. */
 
-    if (i1.type() == Feature_Info::STRING)
+    if (i1.type() == STRING)
         return i1;
-    else if (i2.type() == Feature_Info::STRING)
+    else if (i2.type() == STRING)
         return i2;
 
-    if (i1.type() == Feature_Info::CATEGORICAL)
+    if (i1.type() == CATEGORICAL)
         return i1;
-    else if (i2.type() == Feature_Info::CATEGORICAL)
+    else if (i2.type() == CATEGORICAL)
         return i2;
 
     if (i1.type() < 0 || i1.type() >= 8 || i2.type() < 0 || i2.type() >= 8)
@@ -457,7 +457,7 @@ void guess_all_info(const Training_Data & data,
     for (unsigned i = 0;  i < all_features.size();  ++i) {
         const Feature & feat = all_features[i];
         Feature_Info before
-            = use_existing ? fs.info(feat) : Feature_Info::UNKNOWN;
+            = use_existing ? fs.info(feat) : UNKNOWN;
         Feature_Info info = guess_info(data, feat, before);
         fs.set_info(feat, info);
     }

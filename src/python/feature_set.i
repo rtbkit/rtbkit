@@ -179,22 +179,20 @@ public:
     iterator end() { return features.end(); }
     const_iterator begin() const { return features.begin(); }
     const_iterator end() const { return features.end(); }
+#endif
 
     features_type::value_type & at(int index) { return features.at(index); }
     const features_type::value_type & at(int index) const
     {
         return features.at(index);
     }
-#endif
 
     using Feature_Set::operator [];
 
-#if 0
     features_type::value_type & operator [] (int index)
     { 
         return features[index];
     }
-#endif
 
     const features_type::value_type & operator [] (int index) const
     {

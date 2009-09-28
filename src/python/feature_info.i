@@ -71,6 +71,24 @@ struct Categorical_Info {
     poly_reconstitute(DB::Store_Reader & store);
 };
 
+/*****************************************************************************/
+/* FEATURE_TYPE                                                              */
+/*****************************************************************************/
+
+/** Encodes the type of the feature, which in turn encodes how the
+    learning algorithms attempt to learn rules for the algorithm.
+*/
+enum Feature_Type {
+    UNKNOWN,      ///< we have not yet determined the feature type
+    PRESENCE,     ///< feature is present or not present; value unimportant
+    BOOLEAN,      ///< feature is true (1.0) or false (0.0)
+    CATEGORICAL,  ///< feature is categorical; ordering makes no sense
+    REAL,         ///< feature is real valued
+    UNUSED1,      ///< Was PROB
+    INUTILE,      ///< feature is inutile and should be ignored
+    STRING        ///< feature is an open categorical feature
+};
+
 
 /*****************************************************************************/
 /* FEATURE_INFO                                                              */
@@ -82,28 +100,14 @@ struct Categorical_Info {
 
 struct Feature_Info {
 public:
-    /** Encodes the type of the feature, which in turn encodes how the
-        learning algorithms attempt to learn rules for the algorithm.
-    */
-    enum Type {
-        UNKNOWN,      ///< we have not yet determined the feature type
-        PRESENCE,     ///< feature is present or not present; value unimportant
-        BOOLEAN,      ///< feature is true (1.0) or false (0.0)
-        CATEGORICAL,  ///< feature is categorical; ordering makes no sense
-        REAL,         ///< feature is real valued
-        UNUSED1,      ///< Was PROB
-        INUTILE,      ///< feature is inutile and should be ignored
-        STRING        ///< feature is an open categorical feature
-    };
-
     /** Initialise for one of the non-categorical types. */
-    Feature_Info(Type type = REAL, bool optional = false, bool biased = false,
+    Feature_Info(Feature_Type type = REAL, bool optional = false, bool biased = false,
                  bool grouping = false);
 
     /** Initialise for a categorical feature info. */
     Feature_Info(boost::shared_ptr<const Categorical_Info> categorical,
                  bool optional = false, bool biased = false,
-                 Type type = CATEGORICAL, bool grouping = false);
+                 Feature_Type type = CATEGORICAL, bool grouping = false);
     
     void serialize(DB::Store_Writer & store) const;
     void reconstitute(DB::Store_Reader & store);
@@ -120,7 +124,7 @@ public:
         0 for real features (which take an infinite number of values). */
     size_t value_count() const;
 
-    Type type() const { return (Type)type_; }
+    Feature_Type type() const { return (Feature_Type)type_; }
 
     boost::shared_ptr<const Categorical_Info> categorical() const
     {
@@ -170,21 +174,7 @@ protected:
 };
 
 
-PERSISTENT_ENUM_DECL(Feature_Info::Type);
-
-DB::Store_Reader &
-operator >> (DB::Store_Reader & store, Feature_Info & info);
-
-DB::Store_Writer &
-operator << (DB::Store_Writer & store, const Feature_Info & info);
-
-std::ostream &
-operator << (std::ostream & stream, const Feature_Info & info);
-
 std::string print(Feature_Info::Type type);
-
-std::ostream &
-operator << (std::ostream & stream, Feature_Info::Type type);
 
 extern const Feature_Info MISSING_FEATURE_INFO;
 

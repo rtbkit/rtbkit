@@ -17,6 +17,12 @@
 namespace ML {
 
 
+enum Feature_Space_Type {
+    DENSE,   ///< Dense feature space
+    SPARSE   ///< Sparse feature space
+};
+
+
 /*****************************************************************************/
 /* FEATURE_SPACE                                                             */
 /*****************************************************************************/
@@ -333,10 +339,7 @@ public:
      */
     virtual std::string class_id() const = 0;
 
-    enum Type {
-        DENSE,   ///< Dense feature space
-        SPARSE   ///< Sparse feature space
-    };
+    typedef Feature_Space_Type Type;
 
     /** Return the feature space type. */
     virtual Type type() const = 0;
@@ -466,7 +469,7 @@ public:
     */
     virtual Feature
     make_feature(const std::string & name,
-                 const Feature_Info & info = Feature_Info::UNKNOWN) = 0;
+                 const Feature_Info & info = UNKNOWN) = 0;
 
     /** Return the feature with the given name.  Throws if the name is
         unknown. */

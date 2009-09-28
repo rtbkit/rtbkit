@@ -107,7 +107,7 @@ serialize(DB::Store_Writer & store,
           float value) const
 {
     Feature_Info finfo = info(feature);
-    if (finfo.type() != Feature_Info::STRING)
+    if (finfo.type() != STRING)
         store << value;
     else {
         //cerr << "serializing STRING for feature " << print(feature)
@@ -126,7 +126,7 @@ reconstitute(DB::Store_Reader & store,
              float & value) const
 {
     Feature_Info finfo = info(feature);
-    if (finfo.type() != Feature_Info::STRING)
+    if (finfo.type() != STRING)
         store >> value;
     else {
         string s;

@@ -66,7 +66,7 @@ public:
 
     virtual Feature
     make_feature(const std::string & name,
-                 const Feature_Info & info = Feature_Info::UNKNOWN);
+                 const Feature_Info & info = UNKNOWN);
 
     /** Return the feature with the given name.  Throws if the name is
         unknown. */
