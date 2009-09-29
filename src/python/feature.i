@@ -42,6 +42,11 @@ struct Feature {
             return $self->print();
         }
 
+        std::string __repr__() const
+        {
+            return $self->print();
+        }
+
         size_t __hash__() const
         {
             return $self->hash();

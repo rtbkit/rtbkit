@@ -22,7 +22,6 @@ using ML::Stats::distribution;
 
 %template(svector) std::vector<std::string>;
 %template(ivector) std::vector<int>;
-%template(Categorical_Mapping_Vector) std::vector<boost::shared_ptr<ML::Categorical_Mapping> >;
 %template(Mutable_Feature_Info_Vector) std::vector<ML::Mutable_Feature_Info>;
 %template(Feature_Vector) std::vector<ML::Feature>;
 
@@ -156,11 +155,7 @@ public:
     categorical variables onto each other.
 */
 struct Dense_Feature_Mapping {
-    Dense_Feature_Mapping() : initialized_(false) {}
-    std::vector<int> vars;
-    bool initialized_;
-    int num_vars_expected_;
-    std::vector<boost::shared_ptr<Categorical_Mapping> > categories;
+    Dense_Feature_Mapping();
     bool initialized() const;
     void clear();
 };

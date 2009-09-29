@@ -11,7 +11,9 @@
 %}
 
 %include "std_string.i"
+%include "boost_shared_ptr.i"
 
+%template(svector) std::vector<std::string>;
 
 namespace ML {
 
@@ -69,7 +71,25 @@ struct Categorical_Info {
     /** Reconstitute polymorphically a Categorical_Info from a store. */
     static boost::shared_ptr<Categorical_Info>
     poly_reconstitute(DB::Store_Reader & store);
+
+    %extend {
+        std::string __str__() const
+        {
+            return $self->print();
+        }
+
+        std::string __repr__() const
+        {
+            return $self->print();
+        }
+    }
 };
+
+} // namespace ML
+
+SWIG_SHARED_PTR(ML::Categorical_Info_Ptr, ML::Categorical_Info);
+
+namespace ML {
 
 /*****************************************************************************/
 /* FEATURE_TYPE                                                              */
@@ -145,32 +165,17 @@ public:
         dataset. */
     bool grouping() const { return grouping_; }
 
-protected:
-    /** What type of feature is it? */
-    uint8_t type_;
+    %extend {
+        std::string __str__() const
+        {
+            return $self->print();
+        }
 
-    /** This tells us that we cannot rely on the feature being there (that is,
-        it being there or not there conveys no information, but if it is there
-        then we can extract something from its value).  It allows us to train
-        features which may or may not be present, but which will be helpful
-        if they are. */
-    uint8_t optional_;
-
-    /** This tells us if the feature is biased; ie, if the feature has some
-        kind of information that is associated with labeled data.  The label,
-        for example, will always be biased.
-    */
-    uint8_t biased_;
-
-    /** Tells us if it's a grouping feature. */
-    uint8_t grouping_;
-
-    /** Contains the pointer to the categorical information, for those features
-        that are categorical. */
-    boost::shared_ptr<const Categorical_Info> categorical_;
-
-    /** Mutable version of the same.  Not required to be non-null. */
-    boost::shared_ptr<Mutable_Categorical_Info> mutable_categorical_;
+        std::string __repr__() const
+        {
+            return $self->print();
+        }
+    }
 };
 
 
@@ -191,6 +196,101 @@ guess_info(const Training_Data & data,
 */
 Feature_Info promote(const Feature_Info & i1, const Feature_Info & i2);
 
+
+/*****************************************************************************/
+/* FIXED_CATEGORICAL_INFO                                                    */
+/*****************************************************************************/
+
+struct Fixed_Categorical_Info : public Categorical_Info {
+public:
+    /** Default construct.  For when we will reconstitute after. */
+    Fixed_Categorical_Info();
+
+    /** Construct a bogus list of the given length. */
+    Fixed_Categorical_Info(unsigned num);
+    
+    /** Construct from a list of names. */
+    Fixed_Categorical_Info(const std::vector<std::string> & names);
+
+    /** Reconstitute from a store. */
+    Fixed_Categorical_Info(DB::Store_Reader & store);
+
+    virtual ~Fixed_Categorical_Info();
+
+    virtual std::string print() const;
+    virtual std::string print(int value) const;
+    virtual int lookup(const std::string & value) const;
+    virtual unsigned count() const;
+    virtual void serialize(DB::Store_Writer & store) const;
+    virtual void reconstitute(DB::Store_Reader & store);
+    virtual std::string class_id() const;
+    virtual void freeze();
+
+    %extend {
+        std::string __str__() const
+        {
+            return $self->print();
+        }
+
+        std::string __repr__() const
+        {
+            return $self->print();
+        }
+    }
+};
+
+
+/*****************************************************************************/
+/* MUTABLE_CATEGORICAL_INFO                                                  */
+/*****************************************************************************/
+
+struct Mutable_Categorical_Info : public Fixed_Categorical_Info {
+public:
+    /** Construct an empty list */
+    Mutable_Categorical_Info();
+
+    /** Construct from a list of names. */
+    Mutable_Categorical_Info(const std::vector<std::string> & names);
+
+    /** Construct a bogus list of names. */
+    Mutable_Categorical_Info(unsigned num);
+
+    /** Reconstitute from a store. */
+    Mutable_Categorical_Info(DB::Store_Reader & store);
+
+    /** Copy another Categorical_Info object */
+    Mutable_Categorical_Info(const Categorical_Info & other);
+
+    /** Either parse (if it is already there) or add (if not) the given name
+        to the internal structures. */
+    int parse_or_add(const std::string & name) const;
+
+    virtual int lookup(const std::string & value) const;
+
+    virtual void freeze();
+
+    bool frozen;
+
+    %extend {
+        std::string __str__() const
+        {
+            return $self->print();
+        }
+
+        std::string __repr__() const
+        {
+            return $self->print();
+        }
+    }
+};
+
+} // namespace ML
+
+
+SWIG_SHARED_PTR_DERIVED(Fixed_Categorical_Info_Ptr, ML::Categorical_Info, ML::Fixed_Categorical_Info)
+SWIG_SHARED_PTR_DERIVED(Mutable_Categorical_Info_Ptr, ML::Categorical_Info, ML::Mutable_Categorical_Info)
+
+namespace ML {
 
 /*****************************************************************************/
 /* MUTABLE_FEATURE_INFO                                                      */
@@ -248,13 +348,19 @@ struct Mutable_Feature_Info : public Feature_Info {
 
     /** Stop it from growing. */
     void freeze();
+
+    %extend {
+        std::string __str__() const
+        {
+            return $self->print();
+        }
+
+        std::string __repr__() const
+        {
+            return $self->print();
+        }
+    }
 };
-
-DB::Store_Reader &
-operator >> (DB::Store_Reader & store, Mutable_Feature_Info & info);
-
-DB::Store_Writer &
-operator << (DB::Store_Writer & store, const Mutable_Feature_Info & info);
 
 /** Guess the feature info for each of the features, and modify the
     given feature space to reflect this.  Requires that finish() has
@@ -262,141 +368,6 @@ operator << (DB::Store_Writer & store, const Mutable_Feature_Info & info);
 */
 void guess_all_info(const Training_Data & data,
                     Mutable_Feature_Space & fs, bool use_existing);
-
-
-/*****************************************************************************/
-/* FIXED_CATEGORICAL_INFO                                                    */
-/*****************************************************************************/
-
-struct Fixed_Categorical_Info : public Categorical_Info {
-public:
-    /** Default construct.  For when we will reconstitute after. */
-    Fixed_Categorical_Info();
-
-    /** Construct a bogus list of the given length. */
-    Fixed_Categorical_Info(unsigned num);
-    
-    /** Construct from a list of names. */
-    Fixed_Categorical_Info(const std::vector<std::string> & names);
-
-    /** Reconstitute from a store. */
-    Fixed_Categorical_Info(DB::Store_Reader & store);
-
-    virtual ~Fixed_Categorical_Info();
-
-    virtual std::string print() const;
-    virtual std::string print(int value) const;
-    virtual int lookup(const std::string & value) const;
-    virtual unsigned count() const;
-    virtual void serialize(DB::Store_Writer & store) const;
-    virtual void reconstitute(DB::Store_Reader & store);
-    virtual std::string class_id() const;
-    virtual void freeze();
-
-protected:
-    /* Note that these are only considered mutable, and the lock used, if the
-       field is_mutable is set to true. */
-    bool is_mutable;
-    mutable Lock lock;
-    mutable std::hash_map<std::string, int> parse_;
-    mutable std::vector<std::string> print_;
-    void make_parse_from_print();
-};
-
-
-/*****************************************************************************/
-/* MUTABLE_CATEGORICAL_INFO                                                  */
-/*****************************************************************************/
-
-struct Mutable_Categorical_Info : public Fixed_Categorical_Info {
-public:
-    /** Construct an empty list */
-    Mutable_Categorical_Info();
-
-    /** Construct from a list of names. */
-    Mutable_Categorical_Info(const std::vector<std::string> & names);
-
-    /** Construct a bogus list of names. */
-    Mutable_Categorical_Info(unsigned num);
-
-    /** Reconstitute from a store. */
-    Mutable_Categorical_Info(DB::Store_Reader & store);
-
-    /** Copy another Categorical_Info object */
-    Mutable_Categorical_Info(const Categorical_Info & other);
-
-    /** Either parse (if it is already there) or add (if not) the given name
-        to the internal structures. */
-    int parse_or_add(const std::string & name) const;
-
-    virtual int lookup(const std::string & value) const;
-
-    virtual void freeze();
-
-    bool frozen;
-};
-
-
-/*****************************************************************************/
-/* CATEGORICAL_MAPPING                                                       */
-/*****************************************************************************/
-
-/** A class that allows categories to be mapped from one feature info to
-    another.  Abstract.
-*/
-
-class Categorical_Mapping {
-public:
-    virtual ~Categorical_Mapping() {}
-
-    virtual int map(int value,
-                    const Categorical_Info & info1,
-                    const Categorical_Info & info2) const = 0;
-};
-
-
-/*****************************************************************************/
-/* FIXED_CATEGORICAL_MAPPING                                                 */
-/*****************************************************************************/
-
-/** Categorical mapping that has a fixed map between two feature info
-    classes.  Initialized once then never needs any locking.
-*/
-
-class Fixed_Categorical_Mapping : public Categorical_Mapping {
-public:
-    Fixed_Categorical_Mapping(boost::shared_ptr<const Categorical_Info> info1,
-                                boost::shared_ptr<const Categorical_Info> info2);
-
-    virtual ~Fixed_Categorical_Mapping();
-
-    virtual int map(int value,
-                    const Categorical_Info & info1,
-                    const Categorical_Info & info2) const;
-    
-private:
-    std::vector<int> mapping;
-};
-
-
-/*****************************************************************************/
-/* DYNAMIC_CATEGORICAL_MAPPING                                               */
-/*****************************************************************************/
-
-/** A dynamic mapping that simply keeps two Categorical_Info objects and
-    maps the objects as it goes.  Used when they might change.
-*/
-
-class Dynamic_Categorical_Mapping : public Categorical_Mapping {
-public:
-    Dynamic_Categorical_Mapping();
-
-    virtual ~Dynamic_Categorical_Mapping();
-
-    virtual int map(int value,
-                    const Categorical_Info & info1,
-                    const Categorical_Info & info2) const;
-};
 
 
 } // namespace ML

@@ -146,8 +146,8 @@ public:
 
     virtual ~Mutable_Feature_Set();
 
-    //virtual boost::tuple<const Feature *, const float *, int, int, size_t>
-    //get_data(bool need_sorted = false) const;
+    virtual boost::tuple<const Feature *, const float *, int, int, size_t>
+    get_data(bool need_sorted = false) const;
 
     virtual void sort();
 

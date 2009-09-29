@@ -15,6 +15,8 @@
 
 %module jml 
 
+%feature("autodoc", "1");
+
 %{
 #include "arch/demangle.h"
 #include <cxxabi.h>
