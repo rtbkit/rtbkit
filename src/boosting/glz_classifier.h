@@ -109,6 +109,32 @@ public:
                            const float * features,
                            const Optimization_Info & info) const;
 
+protected:
+    // These actually do the prediction.  They will dereference the features
+    // vector in the order given by indexes; if indexes is null then they
+    // will do it in unit order
+
+    Label_Dist
+    do_predict_impl(const float * features,
+                    const int * indexes) const;
+    
+    void
+    do_predict_impl(const float * features,
+                    const int * indexes,
+                    double * accum,
+                    double weight) const;
+    float
+    do_predict_impl(int label,
+                    const float * features,
+                    const int * indexes) const;
+
+    // Internal function used to do the actual work
+    double
+    do_accum(const float * features_c,
+             const int * indexes,
+             int label) const;
+
+public:
     virtual std::string print() const;
 
     virtual std::string summary() const;
@@ -137,6 +163,7 @@ public:
     virtual GLZ_Classifier * make_copy() const;
 
     bool optimized_;
+    std::vector<int> feature_indexes;
 };
 
 } // namespace ML

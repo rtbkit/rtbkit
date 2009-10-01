@@ -15,7 +15,8 @@
 #include "training_index.h"
 #include "config_impl.h"
 #include <limits>
-
+#include "utils/vector_utils.h"
+#include "arch/backtrace.h"
 
 using namespace std;
 using namespace DB;
@@ -93,7 +94,7 @@ GLZ_Classifier::predict(const Feature_Set & features) const
 Label_Dist
 GLZ_Classifier::predict(const distribution<float> & features_c) const
 {
-    return optimized_predict_impl(&features_c[0], Optimization_Info());
+    return do_predict_impl(&features_c[0], 0);
 }
 
 bool
@@ -114,37 +115,30 @@ bool
 GLZ_Classifier::
 optimize_impl(Optimization_Info & info)
 {
+    feature_indexes.clear();
+
+    // Fill in the feature order
+    for (unsigned i = 0;  i < features.size();  ++i) {
+        map<Feature, int>::const_iterator it
+            = info.feature_to_optimized_index.find(features[i]);
+        if (it == info.feature_to_optimized_index.end())
+            throw Exception("GLZ_Classifier::optimize(): feature not found");
+        feature_indexes.push_back(it->second);
+    }
+
+    cerr << "feature_indexes = " << feature_indexes << endl;
+    
     return optimized_ = true;
 }
+
+extern bool debug_glz_predict;
 
 Label_Dist
 GLZ_Classifier::
 optimized_predict_impl(const float * features_c,
                        const Optimization_Info & info) const
 {
-    for (unsigned i = 0;  i < features.size();  ++i) {
-        if (!isfinite(features_c[i]))
-            throw Exception("GLZ_Classifier: feature "
-                            + feature_space()->print(features[i])
-                            + " is not finite");
-    }
-
-    Label_Dist result(label_count());
-    for (unsigned i = 0;  i < result.size();  ++i) {
-        double accum = 0.0;
-
-        for (unsigned j = 0;  j < features.size();  ++j)
-            accum += features_c[j] * weights[i][j];
-        if (add_bias) accum += weights[i][features.size()];
-
-        //if (i == 0)
-        //    cerr << "predict: input " << accum << " output "
-        //         << apply_link_inverse(accum, link) << endl;
-
-        result[i] = apply_link_inverse(accum, link);
-    }
-
-    return result;
+    return do_predict_impl(features_c, &feature_indexes[0]);
 }
 
 void
@@ -154,23 +148,7 @@ optimized_predict_impl(const float * features_c,
                        double * accum_out,
                        double weight) const
 {
-    for (unsigned i = 0;  i < features.size();  ++i) {
-        if (!isfinite(features_c[i]))
-            throw Exception("GLZ_Classifier: feature "
-                            + feature_space()->print(features[i])
-                            + " is not finite");
-    }
-
-    int nl = label_count();
-    for (unsigned i = 0;  i < nl;  ++i) {
-        double accum = 0.0;
-
-        for (unsigned j = 0;  j < features.size();  ++j)
-            accum += features_c[j] * weights[i][j];
-        if (add_bias) accum += weights[i][features.size()];
-
-        accum_out[i] += weight * apply_link_inverse(accum, link);
-    }
+    do_predict_impl(features_c, &feature_indexes[0], accum_out, weight);
 }
 
 float
@@ -179,21 +157,84 @@ optimized_predict_impl(int label,
                        const float * features_c,
                        const Optimization_Info & info) const
 {
-    for (unsigned i = 0;  i < features.size();  ++i) {
-        if (!isfinite(features_c[i]))
-            throw Exception("GLZ_Classifier: feature "
-                            + feature_space()->print(features[i])
-                            + " is not finite");
-    }
+    return do_predict_impl(label, features_c, &feature_indexes[0]);
+}
 
+double
+GLZ_Classifier::
+do_accum(const float * features_c,
+         const int * indexes,
+         int label) const
+{
     double accum = 0.0;
     
-    for (unsigned j = 0;  j < features.size();  ++j)
-        accum += features_c[j] * weights[label][j];
+    for (unsigned j = 0;  j < features.size();  ++j) {
+        int idx = (indexes ? indexes[j] : j);
+        float feat_val = features_c[idx];
+        if (!isfinite(feat_val))
+            throw Exception("GLZ_Classifier: feature "
+                            + feature_space()->print(features[j])
+                            + " is not finite");
+        
+        accum +=  feat_val * weights[label][j];
+    }
+    
     if (add_bias) accum += weights[label][features.size()];
+    
+    if (debug_glz_predict) cerr << "  accum = " << accum << endl;
 
     return apply_link_inverse(accum, link);
 }
+
+Label_Dist
+GLZ_Classifier::
+do_predict_impl(const float * features_c,
+                const int * indexes) const
+{
+    if (debug_glz_predict) {
+        cerr << "predict 1: features = " << distribution<float>(features_c, features_c + 10) << endl;
+        //backtrace();
+    }
+
+    Label_Dist result(label_count());
+
+    for (unsigned i = 0;  i < result.size();  ++i)
+        result[i] = do_accum(features_c, indexes, i);
+    
+
+    return result;
+}
+
+void
+GLZ_Classifier::
+do_predict_impl(const float * features_c,
+                const int * indexes,
+                double * accum,
+                double weight) const
+{
+    if (debug_glz_predict) {
+        cerr << "predict 2: features = " << distribution<float>(features_c, features_c + 10) << endl;
+        //backtrace();
+    }
+
+    int nl = label_count();
+
+    for (unsigned i = 0;  i < nl;  ++i)
+        accum[i] += weight * do_accum(features_c, indexes, i);
+}
+
+float
+GLZ_Classifier::
+do_predict_impl(int label,
+                const float * features_c,
+                const int * indexes) const
+{
+    if (debug_glz_predict)
+        cerr << "predict 3: features = " << distribution<float>(features_c, features_c + 10) << endl;
+
+    return do_accum(features_c, indexes, label);
+}
+
 
 std::vector<ML::Feature> GLZ_Classifier::all_features() const
 {
