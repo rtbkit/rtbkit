@@ -125,10 +125,16 @@ class File_Read_Buffer::MMap_Region
         : inode(inode)
     {
         size = get_file_size(fd);
-        start = (const char *)mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
 
-        if (start == MAP_FAILED)
-            throw Exception(errno, "mmap", "MMap_Region()");
+        if (size == 0) {
+            start = 0;
+        }
+        else {
+            start = (const char *)mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
+            if (start == MAP_FAILED)
+                throw Exception(errno, "mmap", "MMap_Region()");
+        }
+
     }
 
     MMap_Region(const MMap_Region & other);
@@ -162,7 +168,7 @@ public:
 
     virtual ~MMap_Region()
     {
-        munmap((void *)start, size);
+        if  (size) munmap((void *)start, size);
 
         if (cache()[inode].expired())
             cache().erase(inode);
