@@ -60,6 +60,15 @@ distribution<F, Underlying> abs(const distribution<F, Underlying> & dist)
 }
 
 template<typename F, class Underlying>
+distribution<F, Underlying> sqr(const distribution<F, Underlying> & dist)
+{
+    distribution<F, Underlying> result(dist.size());
+    for (unsigned i = 0;  i < dist.size();  ++i)
+        result[i] = dist[i] * dist[i];
+    return result;
+}
+
+template<typename F, class Underlying>
 distribution<F, Underlying> tanh(const distribution<F, Underlying> & dist)
 {
     distribution<F, Underlying> result(dist.size());
