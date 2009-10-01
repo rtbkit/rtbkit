@@ -32,6 +32,7 @@
 namespace std {
 
 using __gnu_cxx::hash_map;
+using __gnu_cxx::hash_multimap;
 
 } // namespace std
 
