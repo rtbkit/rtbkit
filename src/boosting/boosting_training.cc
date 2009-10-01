@@ -22,20 +22,24 @@ namespace ML {
 void 
 update_weights(boost::multi_array<float, 2> & weights,
                const Stump & stump,
+               const Optimization_Info & opt_info,
                const Training_Data & data,
                Cost_Function cost,
                bool bin_sym,
                int parent)
 {
     vector<Stump> stumps(1, stump);
+    vector<Optimization_Info> opt_infos(1, opt_info);
     distribution<float> cl_weights(1, 1.0 / stump.Z);
-    update_weights(weights, stumps, cl_weights, data, cost, bin_sym,
+    update_weights(weights, stumps, opt_infos,
+                   cl_weights, data, cost, bin_sym,
                    parent);
 }
 
 void 
 update_weights(boost::multi_array<float, 2> & weights,
                const std::vector<Stump> & stumps,
+               const std::vector<Optimization_Info> & opt_infos,
                const distribution<float> & cl_weights,
                const Training_Data & data,
                Cost_Function cost,
@@ -65,7 +69,7 @@ update_weights(boost::multi_array<float, 2> & weights,
             typedef Update_Weights<Updater> Update;
             Update update;
             
-            total = update(stumps, cl_weights, weights, data);
+            total = update(stumps, opt_infos, cl_weights, weights, data);
         }
         else {
             //PROFILE_FUNCTION(t_update);
@@ -74,7 +78,7 @@ update_weights(boost::multi_array<float, 2> & weights,
             Updater updater(nl);
             Update update(updater);
             
-            total = update(stumps, cl_weights, weights, data);
+            total = update(stumps, opt_infos, cl_weights, weights, data);
         }
     }
     else if (cost == CF_LOGISTIC) {
@@ -88,7 +92,7 @@ update_weights(boost::multi_array<float, 2> & weights,
             Updater updater(nl, loss);
             Update update(updater);
             
-            total = update(stumps, cl_weights, weights, data);
+            total = update(stumps, opt_infos, cl_weights, weights, data);
         }
         else {
             //PROFILE_FUNCTION(t_update);
@@ -97,7 +101,7 @@ update_weights(boost::multi_array<float, 2> & weights,
             Updater updater(nl, loss);
             Update update(updater);
             
-            total = update(stumps, cl_weights, weights, data);
+            total = update(stumps, opt_infos, cl_weights, weights, data);
         }
     }
     else throw Exception("update_weights: unknown cost function");
@@ -109,7 +113,9 @@ update_weights(boost::multi_array<float, 2> & weights,
 
 void 
 update_scores(boost::multi_array<float, 2> & example_scores,
-              const Training_Data & data, const Stump & stump,
+              const Training_Data & data,
+              const Stump & stump,
+              const Optimization_Info & opt_info,
               int parent)
 {
     //PROFILE_FUNCTION(t_update);
@@ -126,12 +132,14 @@ update_scores(boost::multi_array<float, 2> & example_scores,
     Updater updater(nl);
     Update update(updater);
 
-    update(stump, 1.0, example_scores, data);
+    update(stump, opt_info, 1.0, example_scores, data);
 }
 
 void 
 update_scores(boost::multi_array<float, 2> & example_scores,
-              const Training_Data & data, const Classifier_Impl & classifier,
+              const Training_Data & data,
+              const Classifier_Impl & classifier,
+              const Optimization_Info & opt_info,
               int parent)
 {
     //PROFILE_FUNCTION(t_update);
@@ -148,13 +156,14 @@ update_scores(boost::multi_array<float, 2> & example_scores,
     Updater updater(nl);
     Update update(updater);
 
-    update(classifier, 1.0, example_scores, data);
+    update(classifier, opt_info, 1.0, example_scores, data);
 }
 
 void 
 update_scores(boost::multi_array<float, 2> & example_scores,
               const Training_Data & data,
               const std::vector<Stump> & trained_stumps,
+              const std::vector<Optimization_Info> & opt_infos,
               int parent)
 {
     if (trained_stumps.empty()) return;
@@ -174,7 +183,7 @@ update_scores(boost::multi_array<float, 2> & example_scores,
     for (unsigned i = 0;  i < nx;  ++i) {
         distribution<float> total(nl, 0.0);
         for (unsigned s = 0;  s < trained_stumps.size();  ++s)
-            total += trained_stumps[s].predict(data[i]);
+            total += trained_stumps[s].predict(data[i], opt_infos[s]);
         total /= trained_stumps.size();
         std::transform(total.begin(), total.end(), &example_scores[i][0],
                        &example_scores[i][0], std::plus<float>());

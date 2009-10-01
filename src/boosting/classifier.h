@@ -308,7 +308,8 @@ public:
     typedef boost::function<void (int example_num, const float * predictions)>
         Predict_All_Output_Func;
     virtual void predict(const Training_Data & data,
-                         Predict_All_Output_Func output) const;
+                         Predict_All_Output_Func output,
+                         const Optimization_Info * opt_info = 0) const;
 
     /** Run the classifier over the entire dataset, calling the predict
         function on each of them, to predict a single label.  The output
@@ -319,7 +320,8 @@ public:
         Predict_One_Output_Func;
     virtual void predict(const Training_Data & data,
                          int label,
-                         Predict_One_Output_Func output) const;
+                         Predict_One_Output_Func output,
+                         const Optimization_Info * opt_info = 0) const;
 
     ///@}
 
@@ -346,7 +348,8 @@ public:
     */
     virtual float accuracy(const Training_Data & data,
                            const distribution<float> & example_weights
-                               = UNIFORM_WEIGHTS) const;
+                               = UNIFORM_WEIGHTS,
+                           const Optimization_Info * opt_info = 0) const;
 
     ///@}
     

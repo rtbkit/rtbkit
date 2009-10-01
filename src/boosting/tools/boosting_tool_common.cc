@@ -141,6 +141,7 @@ idxmax2(It begin, It end)
 } // file scope
 
 void calc_stats(const Classifier_Impl & current,
+                const Optimization_Info & opt_info,
                 const Decoder_Impl & prob,
                 const Training_Data & data,
                 //const distribution<float> & weights,
@@ -171,7 +172,8 @@ void calc_stats(const Classifier_Impl & current,
 
     if (nl == 1) {
         /* Regression problem gets treated specially. */
-        calc_stats_regression(current, prob, data, draw_graphs, dump_testing,
+        calc_stats_regression(current, opt_info, prob,
+                              data, draw_graphs, dump_testing,
                               dump_confusion);
         return;
     }
@@ -207,7 +209,7 @@ void calc_stats(const Classifier_Impl & current,
     if (!by_group) {
         //boost::progress_timer timer;
         for (unsigned x = 0;  x < nx;  ++x) {
-            distribution<float> input = current.predict(data[x]);
+            distribution<float> input = current.predict(data[x], opt_info);
             
             distribution<float> result = prob.apply(input);
             //distribution<float> result = input;
@@ -334,7 +336,7 @@ void calc_stats(const Classifier_Impl & current,
 
             for (unsigned i = 0;  i < nxg;  ++i) {
                 int x = group_examples[g][i];
-                distribution<float> input = current.predict(data[x]);
+                distribution<float> input = current.predict(data[x], opt_info);
                 
                 distribution<float> result = prob.apply(input);
 
@@ -485,6 +487,7 @@ void calc_stats(const Classifier_Impl & current,
 }
 
 void calc_stats_regression(const Classifier_Impl & current,
+                           const Optimization_Info & opt_info,
                            const Decoder_Impl & prob,
                            const Training_Data & data, int draw_graphs,
                            bool dump_testing, int dump_confusion)
@@ -513,7 +516,7 @@ void calc_stats_regression(const Classifier_Impl & current,
     double sum_vl = 0.0, n = nx;
     
     for (unsigned x = 0;  x < nx;  ++x) {
-        distribution<float> input = current.predict(data[x]);
+        distribution<float> input = current.predict(data[x], opt_info);
         
         distribution<float> result = prob.apply(input);
         

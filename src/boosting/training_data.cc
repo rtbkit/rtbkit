@@ -81,7 +81,7 @@ Training_Data::all_features() const
 {
     return index().all_features();
 }
-    
+
 void Training_Data::dump(const std::string & filename) const
 {
     filter_ostream stream(filename);

@@ -47,10 +47,12 @@ public:
 
     void train(const Training_Data & data,
                const Classifier_Impl & classifier,
+               const Optimization_Info & opt_info,
                int mode, const std::string & link_name);
 
     void train(const Training_Data & data,
                const Classifier_Impl & classifier,
+               const Optimization_Info & opt_info,
                const distribution<float> & weights,
                int mode, const std::string & link_name);
 
@@ -100,7 +102,8 @@ public:
         This one adds the result over the entire training data. */
     static void add_data_sparse(std::vector<distribution<double> > & data,
                                 const Training_Data & training_data,
-                                const Classifier_Impl & classifier);
+                                const Classifier_Impl & classifier,
+                                const Optimization_Info & opt_info);
 
     /** Train the parameters for a sparse probabilizer.  Returns values which
         can be passed to construct_sparse to perform the actual construction.

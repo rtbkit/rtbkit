@@ -344,6 +344,12 @@ public:
     /** Return the feature space type. */
     virtual Type type() const = 0;
 
+    /** Return a dense set of features.  Default returns an empty list for
+        sparse feature spaces and throws for dense feature spaces (which
+        should override the method).
+    */
+    virtual const std::vector<Feature> & dense_features() const;
+
     /** Serialize the feature space.  This method is called to serialize the
         feature space.  For those where there is no need to do so, the default
         implementation will suffice which writes only the name of the store.

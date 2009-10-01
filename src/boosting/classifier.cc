@@ -408,6 +408,7 @@ struct Accuracy_Job_Info {
     const Training_Data & data;
     const distribution<float> & example_weights;
     const Classifier_Impl & classifier;
+    const Optimization_Info & opt_info;
     Lock lock;
     double & correct;
     double & total;
@@ -415,9 +416,10 @@ struct Accuracy_Job_Info {
     Accuracy_Job_Info(const Training_Data & data,
                       const distribution<float> & example_weights,
                       const Classifier_Impl & classifier,
+                      const Optimization_Info & opt_info,
                       double & correct, double & total)
         : data(data), example_weights(example_weights),
-          classifier(classifier),
+          classifier(classifier), opt_info(opt_info),
           correct(correct), total(total)
     {
     }
@@ -434,7 +436,7 @@ struct Accuracy_Job_Info {
 
             //cerr << "x = " << x << " w = " << w << endl;
             
-            distribution<float> result = classifier.predict(data[x]);
+            distribution<float> result = classifier.predict(data[x], opt_info);
             Correctness c = correctness(result, classifier.predicted(), data[x]);
             sub_correct += w * c.possible * c.correct;
             sub_total += w * c.possible;
@@ -464,9 +466,11 @@ struct Accuracy_Job {
 
 } // file scope
 
-float Classifier_Impl::
+float
+Classifier_Impl::
 accuracy(const Training_Data & data,
-         const distribution<float> & example_weights) const
+         const distribution<float> & example_weights,
+         const Optimization_Info * opt_info_ptr) const
 {
     double correct = 0.0;
     double total = 0.0;
@@ -478,7 +482,12 @@ accuracy(const Training_Data & data,
 
     unsigned nx = data.example_count();
 
-    Accuracy_Job_Info info(data, example_weights, *this, correct, total);
+    Optimization_Info new_opt_info;
+    const Optimization_Info & opt_info
+        = (opt_info_ptr ? *opt_info_ptr : new_opt_info);
+
+    Accuracy_Job_Info info(data, example_weights, *this, opt_info,
+                           correct, total);
     static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
     
     int group;
@@ -510,12 +519,15 @@ struct Predict_Job {
 
     int x_start, x_end;
     const Classifier_Impl & classifier;
+    const Optimization_Info * opt_info;
     const Training_Data & data;
 
     Predict_Job(int x_start, int x_end,
                 const Classifier_Impl & classifier,
+                const Optimization_Info * opt_info,
                 const Training_Data & data)
-        : x_start(x_start), x_end(x_end), classifier(classifier),
+        : x_start(x_start), x_end(x_end),
+          classifier(classifier), opt_info(opt_info),
           data(data)
     {
         
@@ -526,7 +538,10 @@ struct Predict_Job {
     void operator () (Classifier_Impl::Predict_All_Output_Func output)
     {
         for (unsigned x = x_start;  x < x_end;  ++x) {
-            Label_Dist prediction = classifier.predict(data[x]);
+            Label_Dist prediction
+                = opt_info
+                ? classifier.predict(data[x], *opt_info)
+                : classifier.predict(data[x]);
             output(x, &prediction[0]);
         }
     }
@@ -535,7 +550,10 @@ struct Predict_Job {
                       Classifier_Impl::Predict_One_Output_Func output)
     {
         for (unsigned x = x_start;  x < x_end;  ++x) {
-            float prediction = classifier.predict(label, data[x]);
+            float prediction
+                = opt_info
+                ? classifier.predict(label, data[x], *opt_info)
+                : classifier.predict(label, data[x]);
             output(x, prediction);
         }
     }
@@ -546,7 +564,8 @@ struct Predict_Job {
 void
 Classifier_Impl::
 predict(const Training_Data & data,
-        Predict_All_Output_Func output) const
+        Predict_All_Output_Func output,
+        const Optimization_Info * opt_info) const
 {
     unsigned nx = data.example_count();
 
@@ -567,6 +586,7 @@ predict(const Training_Data & data,
             worker.add(boost::bind(Predict_Job(x,
                                                std::min(x + 1024, nx),
                                                *this,
+                                               opt_info,
                                                data),
                                    output),
                        "predict job",
@@ -580,7 +600,8 @@ void
 Classifier_Impl::
 predict(const Training_Data & data,
         int label,
-        Predict_One_Output_Func output) const
+        Predict_One_Output_Func output,
+        const Optimization_Info * opt_info) const
 {
     unsigned nx = data.example_count();
 
@@ -601,6 +622,7 @@ predict(const Training_Data & data,
             worker.add(boost::bind(Predict_Job(x,
                                                std::min(x + 1024, nx),
                                                *this,
+                                               opt_info,
                                                data),
                                    label,
                                    output),

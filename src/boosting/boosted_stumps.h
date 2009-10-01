@@ -166,7 +166,8 @@ public:
         by the training data. */
     virtual float accuracy(const Training_Data & data,
                            const distribution<float> & example_weights
-                               = UNIFORM_WEIGHTS) const;
+                               = UNIFORM_WEIGHTS,
+                           const Optimization_Info * opt_info = 0) const;
 
     using Classifier_Impl::accuracy;
 

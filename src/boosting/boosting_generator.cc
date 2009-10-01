@@ -169,20 +169,22 @@ generate(Thread_Context & context,
         float Z;
 
         boost::shared_ptr<Classifier_Impl> weak_classifier;
+        Optimization_Info opt_info;
+
         if (validate_is_train || trace_training_acc)
             weak_classifier
                 = train_iteration(context, training_set, weights, features,
                                   training_output, training_ex_weights,
-                                  train_acc, Z);
+                                  train_acc, Z, opt_info);
         else
             weak_classifier
                 = train_iteration(context, training_set, weights, features,
-                                  Z);
+                                  Z, opt_info);
         
         if (validate_is_train) validate_acc = train_acc;
         else
             validate_acc
-                = update_accuracy(context, *weak_classifier,
+                = update_accuracy(context, *weak_classifier, opt_info,
                                   validation_set, features,
                                   validation_output, validate_ex_weights);
 
@@ -325,10 +327,12 @@ generate_and_update(Thread_Context & context,
 
         float Z;
 
+        Optimization_Info opt_info;
+
         boost::shared_ptr<Classifier_Impl> weak_classifier
             = train_iteration(context, training_set, weights, features,
                               training_output, training_ex_weights,
-                              train_acc, Z);
+                              train_acc, Z, opt_info);
         
         if (verbosity > 2) {
             cerr << format("%4d", i);
@@ -373,7 +377,8 @@ train_iteration(Thread_Context & context,
                 const Training_Data & data,
                 boost::multi_array<float, 2> & weights,
                 vector<Feature> & features,
-                float & Z) const
+                float & Z,
+                Optimization_Info & opt_info) const
 {
     bool bin_sym = convert_bin_sym(weights, data, predicted, features);
 
@@ -386,6 +391,11 @@ train_iteration(Thread_Context & context,
     boost::shared_ptr<Classifier_Impl> weak_classifier
         = weak_learner->generate(context, data, weights, features, Z);
     
+    const Feature_Space & fs = *data.feature_space();
+
+    if (fs.type() == DENSE)
+        opt_info = weak_classifier->optimize(fs.dense_features());
+
     /* Update the d distribution. */
     double total = 0.0;
     
@@ -401,7 +411,7 @@ train_iteration(Thread_Context & context,
                 typedef Update_Weights_Parallel<Updater> Update;
                 Update update(task);
                 
-                update(*weak_classifier, 1.0, weights, data, total,
+                update(*weak_classifier, opt_info, 1.0, weights, data, total,
                        NO_JOB, context.group());
                 task.run_until_finished(update.group);
             }
@@ -410,7 +420,7 @@ train_iteration(Thread_Context & context,
                 typedef Update_Weights<Updater> Update;
                 Update update;
                 
-                total = update(*weak_classifier, 1.0, weights, data);
+                total = update(*weak_classifier, opt_info, 1.0, weights, data);
             }
         }
         else {
@@ -419,7 +429,7 @@ train_iteration(Thread_Context & context,
             Updater updater(nl);
             Update update(task, updater);
 
-            update(*weak_classifier, 1.0, weights, data, total,
+            update(*weak_classifier, opt_info, 1.0, weights, data, total,
                    NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -437,7 +447,7 @@ train_iteration(Thread_Context & context,
             Updater updater(loss);
             Update update(task, updater);
 
-            update(*weak_classifier, 1.0, weights, data, total,
+            update(*weak_classifier, opt_info, 1.0, weights, data, total,
                    NO_JOB, parent);
             task.run_until_finished(update.group);
         }
@@ -448,7 +458,7 @@ train_iteration(Thread_Context & context,
             Updater updater(nl, loss);
             Update update(task, updater);
 
-            update(*weak_classifier, 1.0, weights, data, total,
+            update(*weak_classifier, opt_info, 1.0, weights, data, total,
                    NO_JOB, parent);
             task.run_until_finished(update.group);
         }
@@ -490,7 +500,8 @@ train_iteration(Thread_Context & context,
                 std::vector<Feature> & features,
                 boost::multi_array<float, 2> & output,
                 const distribution<float> & ex_weights,
-                double & training_accuracy, float & Z) const
+                double & training_accuracy, float & Z,
+                Optimization_Info & opt_info) const
 {
     bool bin_sym
         = convert_bin_sym(weights, data, predicted, features);
@@ -501,9 +512,14 @@ train_iteration(Thread_Context & context,
 
     Z = 0.0;
     
-    /* Find the best stump */
+    /* Find the best weak learner */
     boost::shared_ptr<Classifier_Impl> weak_classifier
         = weak_learner->generate(context, data, weights, features, Z);
+
+    const Feature_Space & fs = *data.feature_space();
+
+    if (fs.type() == DENSE)
+        opt_info = weak_classifier->optimize(fs.dense_features());
 
     /* Update the d distribution. */
     double total = 0.0;
@@ -529,7 +545,8 @@ train_iteration(Thread_Context & context,
             Weights_Updater weights_updater;
             Update update(task, weights_updater, output_updater);
             
-            update(*weak_classifier, 1.0, weights, output, data, ex_weights,
+            update(*weak_classifier, opt_info,
+                   1.0, weights, output, data, ex_weights,
                    correct, total, NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -541,7 +558,8 @@ train_iteration(Thread_Context & context,
             Weights_Updater weights_updater(nl);
             Update update(task, weights_updater, output_updater);
 
-            update(*weak_classifier, 1.0, weights, output, data, ex_weights,
+            update(*weak_classifier, opt_info,
+                   1.0, weights, output, data, ex_weights,
                    correct, total, NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -561,7 +579,8 @@ train_iteration(Thread_Context & context,
             Weights_Updater weights_updater(loss);
             Update update(task, weights_updater, output_updater);
 
-            update(stump, 1.0, weights, output, data, ex_weights,
+            update(stump, opt_info,
+                   1.0, weights, output, data, ex_weights,
                    correct, total, NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -573,7 +592,8 @@ train_iteration(Thread_Context & context,
             Weights_Updater weights_updater(nl, loss);
             Update update(task, weights_updater, output_updater);
 
-            update(stump, 1.0, weights, output, data, ex_weights,
+            update(stump, opt_info,
+                   1.0, weights, output, data, ex_weights,
                    correct, total, NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -609,6 +629,7 @@ double
 Boosting_Generator::
 update_accuracy(Thread_Context & context,
                 const Classifier_Impl & weak_classifier,
+                const Optimization_Info & opt_info,
                 const Training_Data & data,
                 const vector<Feature> & features,
                 boost::multi_array<float, 2> & output,
@@ -629,7 +650,8 @@ update_accuracy(Thread_Context & context,
         typedef Update_Scores_Parallel<Output_Updater, Binsym_Scorer> Update;
         Update update(task, output_updater);
         
-        update(weak_classifier, 1.0, output, data, ex_weights, correct,
+        update(weak_classifier, opt_info,
+               1.0, output, data, ex_weights, correct,
                NO_JOB, context.group());
         task.run_until_finished(update.group);
     }
@@ -640,7 +662,8 @@ update_accuracy(Thread_Context & context,
         typedef Update_Scores_Parallel<Output_Updater, Normal_Scorer> Update;
         Update update(task, output_updater);
         
-        update(weak_classifier, 1.0, output, data, ex_weights, correct,
+        update(weak_classifier, opt_info,
+               1.0, output, data, ex_weights, correct,
                NO_JOB, context.group());
 
         task.run_until_finished(update.group);

@@ -39,6 +39,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
 
     struct Job_Info {
         const Stump & stump;
+        const Optimization_Info & opt_info;
         float cl_weight;
         boost::multi_array<float, 2> & weights;
         const Training_Data & data;
@@ -51,11 +52,15 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
 
         const Update_Weights<Updater> & update_weights;
 
-        Job_Info(const Stump & stump, float cl_weight,
-                 boost::multi_array<float, 2> & weights, const Training_Data & data,
+        Job_Info(const Stump & stump,
+                 const Optimization_Info & opt_info,
+                 float cl_weight,
+                 boost::multi_array<float, 2> & weights,
+                 const Training_Data & data,
                  double & total,
                  const Update_Weights<Updater> & update_weights)
-            : stump(stump), cl_weight(cl_weight), weights(weights),
+            : stump(stump), opt_info(opt_info),
+              cl_weight(cl_weight), weights(weights),
               data(data),
               index(data.index().joint
                     (stump.predicted(), stump.split.feature(), BY_EXAMPLE,
@@ -69,7 +74,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
         void update_range(int x_begin, int x_end)
         {
             double subtotal
-                = update_weights(stump, cl_weight, weights, data,
+                = update_weights(stump, opt_info, cl_weight, weights, data,
                                  x_begin, x_end);
 
             Guard guard(lock);
@@ -95,7 +100,9 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
 
     /** Apply the given stump to the given weights, given the training
         data.  This will update all of the weights. */
-    void operator () (const Stump & stump, float cl_weight,
+    void operator () (const Stump & stump,
+                      const Optimization_Info & opt_info,
+                      float cl_weight,
                       boost::multi_array<float, 2> & weights,
                       const Training_Data & data,
                       double & total,
@@ -103,7 +110,8 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
     {
         /* Create the job info. */
         boost::shared_ptr<Job_Info> info
-            = make_sp(new Job_Info(stump, cl_weight, weights, data, total,
+            = make_sp(new Job_Info(stump, opt_info,
+                                   cl_weight, weights, data, total,
                                    *this));
 
         /* Get our task group for the update. */
@@ -142,6 +150,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
 
     struct Job_Info_Classifier {
         const Classifier_Impl & classifier;
+        const Optimization_Info & opt_info;
         float cl_weight;
         boost::multi_array<float, 2> & weights;
         const Training_Data & data;
@@ -153,12 +162,15 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
 
         const Update_Weights<Updater> & update_weights;
 
-        Job_Info_Classifier(const Classifier_Impl & classifier, float cl_weight,
+        Job_Info_Classifier(const Classifier_Impl & classifier,
+                            const Optimization_Info & info,
+                            float cl_weight,
                             boost::multi_array<float, 2> & weights,
                             const Training_Data & data,
                             double & total,
                             const Update_Weights<Updater> & update_weights)
-            : classifier(classifier), cl_weight(cl_weight), weights(weights),
+            : classifier(classifier), opt_info(opt_info),
+              cl_weight(cl_weight), weights(weights),
               data(data),
               labels(data.index().labels(classifier.predicted())),
               total(total), update_weights(update_weights)
@@ -169,7 +181,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
         void update_range(int x_begin, int x_end)
         {
             double subtotal
-                = update_weights(classifier, cl_weight, weights, data,
+                = update_weights(classifier, opt_info, cl_weight, weights, data,
                                  x_begin, x_end);
 
             Guard guard(lock);
@@ -195,7 +207,9 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
 
     /** Apply the given classifier to the given weights, given the training
         data.  This will update all of the weights. */
-    void operator () (const Classifier_Impl & classifier, float cl_weight,
+    void operator () (const Classifier_Impl & classifier,
+                      const Optimization_Info & opt_info,
+                      float cl_weight,
                       boost::multi_array<float, 2> & weights,
                       const Training_Data & data,
                       double & total,
@@ -204,7 +218,8 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
         /* Create the job info. */
         boost::shared_ptr<Job_Info_Classifier> info
             = make_sp(new Job_Info_Classifier
-                      (classifier, cl_weight, weights, data, total, *this));
+                      (classifier, opt_info, cl_weight, weights, data,
+                       total, *this));
         
         /* Get our task group for the update. */
         group = worker.get_group
@@ -268,6 +283,7 @@ struct Update_Scores_Parallel
 
     struct Job_Info {
         const Stump & stump;
+        const Optimization_Info & opt_info;
         float cl_weight;
         boost::multi_array<float, 2> & output;
         const Training_Data & data;
@@ -281,12 +297,15 @@ struct Update_Scores_Parallel
 
         const Updater & updater;
 
-        Job_Info(const Stump & stump, float cl_weight,
+        Job_Info(const Stump & stump,
+                 const Optimization_Info & opt_info,
+                 float cl_weight,
                  boost::multi_array<float, 2> & output, const Training_Data & data,
                  const distribution<float> & example_weights,                 
                  double & correct,
                  const Updater & updater)
-            : stump(stump), cl_weight(cl_weight), output(output),
+            : stump(stump), opt_info(opt_info),
+              cl_weight(cl_weight), output(output),
               data(data), example_weights(example_weights),
               index(data.index().joint
                     (stump.predicted(), stump.split.feature(), BY_EXAMPLE,
@@ -301,7 +320,8 @@ struct Update_Scores_Parallel
         void update_range(int x_begin, int x_end)
         {
             double subtotal
-                = updater(stump, cl_weight, output, data, example_weights,
+                = updater(stump, opt_info,
+                          cl_weight, output, data, example_weights,
                           x_begin, x_end);
 
             Guard guard(lock);
@@ -327,7 +347,9 @@ struct Update_Scores_Parallel
 
     /** Apply the given stump to the given output, given the training
         data.  This will update all of the output. */
-    void operator () (const Stump & stump, float cl_weight,
+    void operator () (const Stump & stump,
+                      const Optimization_Info & opt_info,
+                      float cl_weight,
                       boost::multi_array<float, 2> & output,
                       const Training_Data & data,
                       const distribution<float> & example_weights,
@@ -336,7 +358,7 @@ struct Update_Scores_Parallel
     {
         /* Create the job info. */
         boost::shared_ptr<Job_Info> info
-            = make_sp(new Job_Info(stump, cl_weight, output, data,
+            = make_sp(new Job_Info(stump, opt_info, cl_weight, output, data,
                                    example_weights, correct,
                                    *this));
         
@@ -373,6 +395,7 @@ struct Update_Scores_Parallel
 
     struct Job_Info_Classifier {
         const Classifier_Impl & classifier;
+        const Optimization_Info & opt_info;
         float cl_weight;
         boost::multi_array<float, 2> & output;
         const Training_Data & data;
@@ -385,13 +408,16 @@ struct Update_Scores_Parallel
 
         const Updater & updater;
 
-        Job_Info_Classifier(const Classifier_Impl & classifier, float cl_weight,
+        Job_Info_Classifier(const Classifier_Impl & classifier,
+                            const Optimization_Info & opt_info,
+                            float cl_weight,
                             boost::multi_array<float, 2> & output,
                             const Training_Data & data,
                             const distribution<float> & example_weights,
                             double & correct,
                             const Updater & updater)
-            : classifier(classifier), cl_weight(cl_weight), output(output),
+            : classifier(classifier), opt_info(opt_info),
+              cl_weight(cl_weight), output(output),
               data(data), example_weights(example_weights),
               labels(data.index().labels(classifier.predicted())),
               correct(correct), updater(updater)
@@ -403,7 +429,8 @@ struct Update_Scores_Parallel
         void update_range(int x_begin, int x_end)
         {
             double subtotal
-                = updater(classifier, cl_weight, output, data, example_weights,
+                = updater(classifier, opt_info,
+                          cl_weight, output, data, example_weights,
                           x_begin, x_end);
 
             Guard guard(lock);
@@ -429,7 +456,9 @@ struct Update_Scores_Parallel
 
     /** Apply the given classifier to the given output, given the training
         data.  This will update all of the output. */
-    void operator () (const Classifier_Impl & classifier, float cl_weight,
+    void operator () (const Classifier_Impl & classifier,
+                      const Optimization_Info & opt_info,
+                      float cl_weight,
                       boost::multi_array<float, 2> & output,
                       const Training_Data & data,
                       const distribution<float> & example_weights,
@@ -439,7 +468,7 @@ struct Update_Scores_Parallel
         /* Create the job info. */
         boost::shared_ptr<Job_Info_Classifier> info
             = make_sp(new Job_Info_Classifier
-                      (classifier, cl_weight, output, data,
+                      (classifier, opt_info, cl_weight, output, data,
                        example_weights, correct, *this));
         
         /* Get our task group for the update.  We make a job to calculate
@@ -505,6 +534,7 @@ struct Update_Weights_And_Scores_Parallel
 
     struct Job_Info {
         const Stump & stump;
+        const Optimization_Info & opt_info;
         float cl_weight;
         boost::multi_array<float, 2> & weights;
         boost::multi_array<float, 2> & output;
@@ -517,7 +547,9 @@ struct Update_Weights_And_Scores_Parallel
 
         const Updater & updater;
 
-        Job_Info(const Stump & stump, float cl_weight,
+        Job_Info(const Stump & stump,
+                 const Optimization_Info & opt_info,
+                 float cl_weight,
                  boost::multi_array<float, 2> & weights,
                  boost::multi_array<float, 2> & output,
                  const Training_Data & data,
@@ -525,7 +557,8 @@ struct Update_Weights_And_Scores_Parallel
                  double & correct,
                  double & total,
                  const Updater & updater)
-            : stump(stump), cl_weight(cl_weight), weights(weights),
+            : stump(stump), opt_info(opt_info),
+              cl_weight(cl_weight), weights(weights),
               output(output),
               data(data), example_weights(example_weights),
               correct(correct), total(total), updater(updater)
@@ -554,7 +587,7 @@ struct Update_Weights_And_Scores_Parallel
             //boost::timer timer;
             double sub_correct = 0.0;
             double subtotal
-                = updater(stump, cl_weight, weights, output, data,
+                = updater(stump, opt_info, cl_weight, weights, output, data,
                           example_weights, sub_correct, x_begin, x_end);
 
 #if 0
@@ -590,6 +623,7 @@ struct Update_Weights_And_Scores_Parallel
     /** Apply the given stump to the given output, given the training
         data.  This will update all of the output. */
     void operator () (const Stump & stump,
+                      const Optimization_Info & opt_info,
                       float cl_weight,
                       boost::multi_array<float, 2> & weights,
                       boost::multi_array<float, 2> & output,
@@ -601,7 +635,8 @@ struct Update_Weights_And_Scores_Parallel
     {
         /* Create the job info. */
         boost::shared_ptr<Job_Info> info
-            = make_sp(new Job_Info(stump, cl_weight, weights, output, data,
+            = make_sp(new Job_Info(stump, opt_info,
+                                   cl_weight, weights, output, data,
                                    example_weights, correct, total,
                                    *this));
         
@@ -638,6 +673,7 @@ struct Update_Weights_And_Scores_Parallel
 
     struct Job_Info_Classifier {
         const Classifier_Impl & classifier;
+        const Optimization_Info & opt_info;
         float cl_weight;
         boost::multi_array<float, 2> & weights;
         boost::multi_array<float, 2> & output;
@@ -650,15 +686,18 @@ struct Update_Weights_And_Scores_Parallel
 
         const Updater & updater;
 
-        Job_Info_Classifier(const Classifier_Impl & classifier, float cl_weight,
-                 boost::multi_array<float, 2> & weights,
-                 boost::multi_array<float, 2> & output,
-                 const Training_Data & data,
-                 const distribution<float> & example_weights,                 
-                 double & correct,
-                 double & total,
-                 const Updater & updater)
-            : classifier(classifier), cl_weight(cl_weight), weights(weights),
+        Job_Info_Classifier(const Classifier_Impl & classifier,
+                            const Optimization_Info & opt_info,
+                            float cl_weight,
+                            boost::multi_array<float, 2> & weights,
+                            boost::multi_array<float, 2> & output,
+                            const Training_Data & data,
+                            const distribution<float> & example_weights,                 
+                            double & correct,
+                            double & total,
+                            const Updater & updater)
+            : classifier(classifier), opt_info(opt_info),
+              cl_weight(cl_weight), weights(weights),
               output(output),
               data(data), example_weights(example_weights),
               correct(correct), total(total), updater(updater)
@@ -670,7 +709,8 @@ struct Update_Weights_And_Scores_Parallel
         {
             double sub_correct = 0.0;
             double subtotal
-                = updater(classifier, cl_weight, weights, output, data,
+                = updater(classifier, opt_info,
+                          cl_weight, weights, output, data,
                           example_weights, sub_correct, x_begin, x_end);
 
             Guard guard(lock);
@@ -698,6 +738,7 @@ struct Update_Weights_And_Scores_Parallel
     /** Apply the given classifier to the given output, given the training
         data.  This will update all of the output. */
     void operator () (const Classifier_Impl & classifier,
+                      const Optimization_Info & opt_info,
                       float cl_weight,
                       boost::multi_array<float, 2> & weights,
                       boost::multi_array<float, 2> & output,
@@ -710,7 +751,7 @@ struct Update_Weights_And_Scores_Parallel
         /* Create the job info. */
         boost::shared_ptr<Job_Info_Classifier> info
             = make_sp(new Job_Info_Classifier
-                      (classifier, cl_weight, weights, output, data,
+                      (classifier, opt_info, cl_weight, weights, output, data,
                        example_weights, correct, total, *this));
         
         /* Get our task group for the update.  We make a job to calculate

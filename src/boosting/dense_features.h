@@ -205,6 +205,8 @@ public:
 
     /** Return the list of features. */
     const std::vector<Feature> & features() const { return features_; }
+
+    const std::vector<Feature> & dense_features() const { return features_; }
     
     /** Return an array with the names of each feature. */
     const std::vector<std::string> & feature_names() const;

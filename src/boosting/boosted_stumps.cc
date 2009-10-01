@@ -286,6 +286,7 @@ struct Accuracy_Job_Info {
     const Training_Data & data;
     const distribution<float> & example_weights;
     const Boosted_Stumps & stumps;
+    const Optimization_Info & opt_info;
     boost::multi_array<float, 2> & output;
     bool bin_sym;
 
@@ -295,10 +296,12 @@ struct Accuracy_Job_Info {
     Accuracy_Job_Info(const Training_Data & data,
                       const distribution<float> & example_weights,
                       const Boosted_Stumps & stumps,
+                      const Optimization_Info & opt_info,
                       boost::multi_array<float, 2> & output,
                       bool bin_sym,
                       double & correct)
-        : data(data), example_weights(example_weights), stumps(stumps),
+        : data(data), example_weights(example_weights),
+          stumps(stumps), opt_info(opt_info),
           output(output), bin_sym(bin_sym), correct(correct)
     {
     }
@@ -321,7 +324,7 @@ struct Accuracy_Job_Info {
                 Updater updater;
                 Update update(updater);
                 
-                update(*it, 1.0, output, data, start_x, end_x);
+                update(*it, opt_info, 1.0, output, data, start_x, end_x);
             }
 
             /* Now for the scoring. */
@@ -348,7 +351,7 @@ struct Accuracy_Job_Info {
                 Updater updater(nl);
                 Update update(updater);
                 
-                update(*it, 1.0, output, data, start_x, end_x);
+                update(*it, opt_info, 1.0, output, data, start_x, end_x);
             }
 
             /* Now for the scoring. */
@@ -390,9 +393,11 @@ struct Accuracy_Job {
 
 } // file scope
 
-float Boosted_Stumps::
+float
+Boosted_Stumps::
 accuracy(const Training_Data & data,
-         const distribution<float> & example_weights) const
+         const distribution<float> & example_weights,
+         const Optimization_Info * opt_info_ptr) const
 {
     PROFILE_FUNCTION(t_accuracy);
     unsigned nx = data.example_count();
@@ -404,7 +409,12 @@ accuracy(const Training_Data & data,
     
     double correct = 0.0;
 
-    Accuracy_Job_Info info(data, example_weights, *this, scores, bin_sym,
+    Optimization_Info new_opt_info;
+    const Optimization_Info & opt_info
+        = (opt_info_ptr ? *opt_info_ptr : new_opt_info);
+
+    Accuracy_Job_Info info(data, example_weights, *this, opt_info,
+                           scores, bin_sym,
                            correct);
 
     static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);

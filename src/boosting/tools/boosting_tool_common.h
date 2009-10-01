@@ -27,10 +27,12 @@ class Feature;
 class Feature_Space;
 class Mutable_Feature_Space;
 class Weight_Spec;
+class Optimization_Info;
 
 
 /** Calculate and print statistics of how a classifier went over a dataset. */
 void calc_stats(const Classifier_Impl & current,
+                const Optimization_Info & opt_info,
                 const Decoder_Impl & prob,
                 const Training_Data & data,
                 int draw_graphs,
@@ -40,12 +42,14 @@ void calc_stats(const Classifier_Impl & current,
 /** Calculate and print statistics of how a classifier went over a dataset, but
     done group by group. */
 void calc_stats_by_group(const Classifier_Impl & current,
+                         const Optimization_Info & opt_info,
                          const Decoder_Impl & prob,
                          const Training_Data & data, int draw_graphs,
                          bool dump_testing, int dump_confusion);
 
 /** Calculate and print statistics of how good a regression was. */
 void calc_stats_regression(const Classifier_Impl & current,
+                           const Optimization_Info & opt_info,
                            const Decoder_Impl & prob,
                            const Training_Data & data, int draw_graphs,
                            bool dump_testing, int dump_confusion);

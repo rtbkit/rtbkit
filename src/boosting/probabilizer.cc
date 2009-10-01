@@ -167,7 +167,8 @@ add_data_sparse(std::vector<distribution<double> > & data,
 void GLZ_Probabilizer::
 add_data_sparse(std::vector<distribution<double> > & data,
                 const Training_Data & training_data,
-                const Classifier_Impl & classifier)
+                const Classifier_Impl & classifier,
+                const Optimization_Info & opt_info)
 {
     size_t nx = training_data.example_count();
 
@@ -178,7 +179,7 @@ add_data_sparse(std::vector<distribution<double> > & data,
        outputs. */
     for (unsigned x = 0;  x < nx;  ++x) {
         distribution<float> output
-            = classifier.predict(training_data[x]);
+            = classifier.predict(training_data[x], opt_info);
         add_data_sparse(data, output, labels[x]);
     }
 }
@@ -625,6 +626,7 @@ struct Write_Output {
 void GLZ_Probabilizer::
 train(const Training_Data & training_data,
       const Classifier_Impl & classifier,
+      const Optimization_Info & opt_info,
       const distribution<float> & weights,
       int mode, const string & link_name)
 {
@@ -668,7 +670,7 @@ train(const Training_Data & training_data,
 
     /* Go through the training examples one by one, and record the
        outputs. */
-    classifier.predict(training_data, Write_Output(outputs, nl));
+    classifier.predict(training_data, Write_Output(outputs, nl), &opt_info);
     
     for (unsigned x = 0;  x < nx;  ++x) {
         //distribution<float> output
@@ -756,10 +758,11 @@ train(const Training_Data & training_data,
 void GLZ_Probabilizer::
 train(const Training_Data & training_data,
       const Classifier_Impl & classifier,
+      const Optimization_Info & opt_info,
       int mode, const string & link_name)
 {
     distribution<float> weights(training_data.example_count(), 1.0);
-    train(training_data, classifier, weights, mode, link_name);
+    train(training_data, classifier, opt_info, weights, mode, link_name);
 }
 
 void

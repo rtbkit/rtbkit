@@ -391,6 +391,9 @@ try
             throw Exception("probabilize-data must be 0 or 1 (currently "
                             + ostream_format(probabilize_data) + ")");
         
+        Optimization_Info opt_info
+            = current->optimize(feature_space->dense_features());
+
         boost::shared_ptr<const Training_Data> prob_set
             = (probabilize_data == 0 ? datasets.training : datasets.validation);
         
@@ -401,19 +404,21 @@ try
                 = apply_weight_spec(*prob_set, trained_weight_spec);
         
         GLZ_Probabilizer prob;
-        prob.train(*prob_set, *current, pr_weights,
+        prob.train(*prob_set, *current, opt_info, pr_weights,
                    probabilize_mode, probabilize_link);
 
         //cerr << prob.print() << endl;
 
         if (repeat_trials == 1 || verbosity > 2) {
             cerr << "Stats over training set: " << endl;
-            calc_stats(*current, prob, *datasets.training, draw_graphs,
+            calc_stats(*current, opt_info, prob,
+                       *datasets.training, draw_graphs,
                        dump_testing,
                        print_confusion, eval_by_group, group_feature);
             
             cerr << "Stats over validation set: " << endl;
-            calc_stats(*current, prob, *datasets.validation, draw_graphs,
+            calc_stats(*current, opt_info, prob,
+                       *datasets.validation, draw_graphs,
                        dump_testing, print_confusion, eval_by_group,
                        group_feature);
         }
@@ -433,7 +438,8 @@ try
         for (unsigned j = 0;  j < datasets.testing.size();  ++j) {
             cerr << "Stats over testing set " << j << ":" << endl;
             
-            calc_stats(*current, prob, *datasets.testing[j], draw_graphs,
+            calc_stats(*current, opt_info,
+                       prob, *datasets.testing[j], draw_graphs,
                        dump_testing, print_confusion, eval_by_group,
                        group_feature);
             

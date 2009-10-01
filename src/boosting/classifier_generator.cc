@@ -161,9 +161,15 @@ generate(Thread_Context & context,
 
     size_t nx = training_data.example_count();
 
-    if ((weights.shape()[0] != nx) || (weights.shape()[1] != nl))
+    if ((weights.shape()[0] != nx)
+        || (weights.shape()[1] != nl && nl != 2 && weights.shape()[1] != 1))
         throw Exception("Classifier_Generator::generate(): "
-                        "weights array has the wrong dimensions");
+                        "weights array has the wrong dimensions"
+                        + format("(%dx%x), should be (%dx%d)",
+                                 (int)weights.shape()[0],
+                                 (int)weights.shape()[1],
+                                 (int)nx,
+                                 (int)nl));
     
     /* Generate some normal example weights as the average of those here. */
     distribution<float> ex_weights(nx);
@@ -171,8 +177,10 @@ generate(Thread_Context & context,
     double total = 0.0;
     for (unsigned x = 0;  x < nx;  ++x) {
         double ex_total = 0.0;
-        for (unsigned l = 0;  l < nl;  ++l)
+        for (unsigned l = 0;  l < weights.shape()[1];  ++l)
             ex_total += weights[x][l];
+        if (nl == 2 && weights.shape()[1] == 1)
+            ex_total *= 2.0;
         ex_weights[x] = ex_total;
         total += ex_total;
     }

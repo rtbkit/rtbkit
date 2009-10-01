@@ -241,6 +241,23 @@ freeze()
 {
 }
 
+namespace {
+
+const vector<Feature> NO_FEATURES;
+
+} // file scope
+
+const std::vector<Feature> &
+Feature_Space::
+dense_features() const
+{
+    if (type() == DENSE)
+        throw Exception("Feature space of type "
+                        + demangle(typeid(*this).name())
+                        + " should override dense_features()");
+    return NO_FEATURES;
+}
+
 DB::Store_Writer &
 operator << (DB::Store_Writer & store,
              const boost::shared_ptr<Feature_Space> & fs)

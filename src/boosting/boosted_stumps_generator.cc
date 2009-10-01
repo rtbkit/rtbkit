@@ -270,24 +270,27 @@ generate_stumps(Thread_Context & context,
         if (!fair) {
 
             Stump stump;
+            Optimization_Info opt_info;
+
             if (validate_is_train || trace_training_acc) {
                 stump
                     = train_iteration(context,
                                       training_set, weights, features, stumps,
                                       training_output, training_ex_weights,
-                                      train_acc);
+                                      train_acc, opt_info);
             }
             else {
                 stump
                     = train_iteration(context,
-                                      training_set, weights, features, stumps);
+                                      training_set, weights, features, stumps,
+                                      opt_info);
             }
             
             if (validate_is_train) validate_acc = train_acc;
             else {
                 validate_acc
                     = update_accuracy(context,
-                                      stump, validation_set, features,
+                                      stump, opt_info, validation_set, features,
                                       validation_output, validate_ex_weights);
             }
 
@@ -302,12 +305,17 @@ generate_stumps(Thread_Context & context,
             }
         }
         else {
+            vector<Optimization_Info> opt_infos;
             vector<Stump> all_stumps
                 = train_iteration_fair(context,
-                                       training_set, weights, features, stumps);
+                                       training_set, weights, features, stumps,
+                                       opt_infos);
+
             update_scores(training_output, training_set, all_stumps,
+                          opt_infos,
                           context.group());
             update_scores(validation_output, validation_set, all_stumps,
+                          opt_infos,
                           context.group());
             
             float train_acc
@@ -320,6 +328,7 @@ generate_stumps(Thread_Context & context,
             if (verbosity > 2) {
                 cerr << format("%4d %6.2f%% %6.2f%% ",
                                i, train_acc * 100.0, validate_acc * 100.0);
+
                 for (unsigned i = 0;  i < all_stumps.size();  ++i) {
                     if (i != 0) cerr << "                     ";
                     const Stump & stump = all_stumps[i];
@@ -429,8 +438,11 @@ generate_and_update(Thread_Context & context,
 
         if (progress) ++(*progress);
 
+        Optimization_Info opt_info;
+
         Stump stump
-            = train_iteration(context, training_set, weights, features, stumps);
+            = train_iteration(context, training_set, weights, features, stumps,
+                              opt_info);
 
         float Z = stump.Z;
 
@@ -473,7 +485,8 @@ train_iteration_fair(Thread_Context & context,
                      const Training_Data & data,
                      boost::multi_array<float, 2> & weights,
                      std::vector<Feature> & features,
-                     Boosted_Stumps & result) const
+                     Boosted_Stumps & result,
+                     vector<Optimization_Info> & opt_infos) const
 {
     Feature predicted = model.predicted();
 
@@ -482,6 +495,17 @@ train_iteration_fair(Thread_Context & context,
 
     vector<Stump> all_trained
         = weak_learner.train_all(context, data, weights, features);
+
+    opt_infos.resize(all_trained.size());
+
+    const Feature_Space & fs = *data.feature_space();
+
+    if (fs.type() == DENSE) {
+        for (unsigned i = 0;  i < opt_infos.size();  ++i) {
+            opt_infos[i] = all_trained[i].optimize(fs.dense_features());
+        }
+    }
+
 
     /* Work out the weights.  This depends upon the 1/Z score. */
     distribution<float> cl_weights(all_trained.size());
@@ -503,7 +527,7 @@ train_iteration_fair(Thread_Context & context,
     /* Insert it */
     result.insert(all_trained, cl_weights);
 
-    update_weights(weights, all_trained, cl_weights, data,
+    update_weights(weights, all_trained, opt_infos, cl_weights, data,
                    cost_function, bin_sym, context.group());
     
     return all_trained;
@@ -514,7 +538,8 @@ Boosted_Stumps_Generator::
 train_iteration(Thread_Context & context,
                 const Training_Data & data,
                 boost::multi_array<float, 2> & weights, vector<Feature> & features,
-                Boosted_Stumps & result) const
+                Boosted_Stumps & result,
+                Optimization_Info & opt_info) const
 {
     //PROFILE_FUNCTION(t_train);
     Feature predicted = model.predicted();
@@ -546,7 +571,7 @@ train_iteration(Thread_Context & context,
             typedef Update_Weights_Parallel<Updater> Update;
             Update update(task);
             
-            update(stump, 1.0, weights, data, total,
+            update(stump,opt_info, 1.0, weights, data, total,
                    NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -556,7 +581,7 @@ train_iteration(Thread_Context & context,
             Updater updater(nl);
             Update update(task, updater);
 
-            update(stump, 1.0, weights, data, total,
+            update(stump, opt_info, 1.0, weights, data, total,
                    NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -571,7 +596,7 @@ train_iteration(Thread_Context & context,
             Updater updater(loss);
             Update update(task, updater);
 
-            update(stump, 1.0, weights, data, total,
+            update(stump, opt_info, 1.0, weights, data, total,
                    NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -582,7 +607,7 @@ train_iteration(Thread_Context & context,
             Updater updater(nl, loss);
             Update update(task, updater);
 
-            update(stump, 1.0, weights, data, total,
+            update(stump, opt_info, 1.0, weights, data, total,
                    NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -617,7 +642,8 @@ train_iteration(Thread_Context & context,
                 Boosted_Stumps & result,
                 boost::multi_array<float, 2> & output,
                 const distribution<float> & ex_weights,
-                double & training_accuracy) const
+                double & training_accuracy,
+                Optimization_Info & opt_info) const
 {
     size_t ticks_before = ticks();
 
@@ -631,6 +657,9 @@ train_iteration(Thread_Context & context,
 
     /* Find the best stump */
     Stump stump = weak_learner.train_weighted(context, data, weights, features);
+
+    if (data.feature_space()->type() == DENSE)
+        opt_info = stump.optimize(data.feature_space()->dense_features());
 
     /* Insert it */
     result.insert(stump);
@@ -662,7 +691,7 @@ train_iteration(Thread_Context & context,
             Weights_Updater weights_updater;
             Update update(task, weights_updater, output_updater);
             
-            update(stump, 1.0, weights, output, data, ex_weights,
+            update(stump, opt_info, 1.0, weights, output, data, ex_weights,
                    correct, total, NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -674,7 +703,7 @@ train_iteration(Thread_Context & context,
             Weights_Updater weights_updater(nl);
             Update update(task, weights_updater, output_updater);
 
-            update(stump, 1.0, weights, output, data, ex_weights,
+            update(stump, opt_info, 1.0, weights, output, data, ex_weights,
                    correct, total, NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -691,7 +720,7 @@ train_iteration(Thread_Context & context,
             Weights_Updater weights_updater(loss);
             Update update(task, weights_updater, output_updater);
 
-            update(stump, 1.0, weights, output, data, ex_weights,
+            update(stump, opt_info, 1.0, weights, output, data, ex_weights,
                    correct, total, NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -703,7 +732,7 @@ train_iteration(Thread_Context & context,
             Weights_Updater weights_updater(nl, loss);
             Update update(task, weights_updater, output_updater);
 
-            update(stump, 1.0, weights, output, data, ex_weights,
+            update(stump, opt_info, 1.0, weights, output, data, ex_weights,
                    correct, total, NO_JOB, context.group());
             task.run_until_finished(update.group);
         }
@@ -738,6 +767,7 @@ double
 Boosted_Stumps_Generator::
 update_accuracy(Thread_Context & context,
                 const Stump & stump,
+                const Optimization_Info & opt_info,
                 const Training_Data & data,
                 const vector<Feature> & features,
                 boost::multi_array<float, 2> & output,
@@ -763,7 +793,7 @@ update_accuracy(Thread_Context & context,
         typedef Update_Scores_Parallel<Output_Updater, Binsym_Scorer> Update;
         Update update(task, output_updater);
         
-        update(stump, 1.0, output, data, ex_weights, correct,
+        update(stump, opt_info, 1.0, output, data, ex_weights, correct,
                NO_JOB, context.group());
         task.run_until_finished(update.group);
     }
@@ -774,7 +804,7 @@ update_accuracy(Thread_Context & context,
         typedef Update_Scores_Parallel<Output_Updater, Normal_Scorer> Update;
         Update update(task, output_updater);
         
-        update(stump, 1.0, output, data, ex_weights, correct,
+        update(stump, opt_info, 1.0, output, data, ex_weights, correct,
                NO_JOB, context.group());
         task.run_until_finished(update.group);
     }

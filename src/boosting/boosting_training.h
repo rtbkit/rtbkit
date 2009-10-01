@@ -26,12 +26,15 @@ enum Cost_Function {
     using the last decision stump learned.  This can remove an O(n) from
     the iterative training complexity. */
 void update_scores(boost::multi_array<float, 2> & example_scores,
-                   const Training_Data & data, const Stump & stump,
+                   const Training_Data & data,
+                   const Stump & stump,
+                   const Optimization_Info & opt_info,
                    int parent);
 
 void update_scores(boost::multi_array<float, 2> & example_scores,
                    const Training_Data & data,
                    const Classifier_Impl & classifier,
+                   const Optimization_Info & opt_info,
                    int parent);
 
 /** Update the weights which we have been maintaining for a set of data,
@@ -40,6 +43,7 @@ void update_scores(boost::multi_array<float, 2> & example_scores,
 void update_scores(boost::multi_array<float, 2> & example_scores,
                    const Training_Data & data,
                    const std::vector<Stump> & stumps,
+                   const std::vector<Optimization_Info> & opt_info,
                    int parent);
 
 void update_weights(boost::multi_array<float, 2> & weights,
@@ -51,6 +55,7 @@ void update_weights(boost::multi_array<float, 2> & weights,
 
 void update_weights(boost::multi_array<float, 2> & weights,
                     const std::vector<Stump> & stumps,
+                    const std::vector<Optimization_Info> & opt_info,
                     const distribution<float> & cl_weights,
                     const Training_Data & data,
                     Cost_Function cost,

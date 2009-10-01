@@ -63,7 +63,7 @@ public:
         to calculate.
     */
     std::vector<Feature> all_features() const;
-    
+
     size_t example_count() const { return data_.size(); }
 
     bool empty() const { return example_count() == 0; }

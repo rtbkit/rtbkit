@@ -99,7 +99,8 @@ public:
                           const Training_Data & data,
                           boost::multi_array<float, 2> & weights,
                           std::vector<Feature> & features,
-                          Boosted_Stumps & result) const;
+                          Boosted_Stumps & result,
+                          Optimization_Info & opt_info) const;
 
     Stump
     train_iteration(Thread_Context & context,
@@ -109,7 +110,8 @@ public:
                     Boosted_Stumps & result,
                     boost::multi_array<float, 2> & output,
                     const distribution<float> & ex_weights,
-                    double & training_accuracy) const;
+                    double & training_accuracy,
+                    Optimization_Info & opt_info) const;
 
     /** Train a committee of decision stumps.  This function will examine all
         of the features, and return a committee of decision stumps.  It is
@@ -142,11 +144,13 @@ public:
                          const Training_Data & data,
                          boost::multi_array<float, 2> & weights,
                          std::vector<Feature> & features,
-                         Boosted_Stumps & result) const;
+                         Boosted_Stumps & result,
+                         std::vector<Optimization_Info> & opt_infos) const;
 
     double
     update_accuracy(Thread_Context & context,
                     const Stump & stump,
+                    const Optimization_Info & opt_info,
                     const Training_Data & data,
                     const std::vector<Feature> & features,
                     boost::multi_array<float, 2> & output,

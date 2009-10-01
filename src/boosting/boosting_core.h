@@ -85,7 +85,9 @@ struct Binsym_Updater {
     Fn fn;
 
     template<class FeatureIt, class WeightIt>
-    float operator () (const Stump & stump, float cl_weight, int corr,
+    float operator () (const Stump & stump,
+                       const Optimization_Info & opt_info,
+                       float cl_weight, int corr,
                        FeatureIt ex_start, FeatureIt ex_range,
                        WeightIt weight_begin, int advance) const
     {
@@ -101,12 +103,13 @@ struct Binsym_Updater {
 
     template<class WeightIt>
     float operator () (const Classifier_Impl & classifier,
+                       const Optimization_Info & opt_info,
                        float cl_weight, int corr,
                        const Feature_Set & features,
                        WeightIt weight_begin,
                        int advance) const
     {
-        float pred = classifier.predict(0, features) * cl_weight;
+        float pred = classifier.predict(0, features, opt_info) * cl_weight;
         *weight_begin = fn(0, corr, pred, *weight_begin);
         return *weight_begin * 2.0;
     }
@@ -130,7 +133,9 @@ struct Normal_Updater {
 
     /* Make a prediction and return an update. */
     template<class FeatureIt, class WeightIt>
-    float operator () (const Stump & stump, float cl_weight, int corr,
+    float operator () (const Stump & stump,
+                       const Optimization_Info & opt_info,
+                       float cl_weight, int corr,
                        FeatureIt ex_start, FeatureIt ex_range,
                        WeightIt weight_begin, int advance) const
     {
@@ -146,12 +151,13 @@ struct Normal_Updater {
 
     template<class WeightIt>
     float operator () (const Classifier_Impl & classifier,
+                       const Optimization_Info & opt_info,
                        float cl_weight, int corr,
                        const Feature_Set & features,
                        WeightIt weight_begin,
                        int advance) const
     {
-        distribution<float> pred = classifier.predict(features);
+        distribution<float> pred = classifier.predict(features, opt_info);
         if (cl_weight != 1.0) pred *= cl_weight;
 
         return operator () (pred.begin(), pred.end(), corr, weight_begin,
@@ -206,7 +212,9 @@ struct Update_Weights {
 
     /** Apply the given stump to the given weights, given the training
         data.  This will update all of the weights. */
-    float operator () (const Stump & stump, float cl_weight,
+    float operator () (const Stump & stump,
+                       const Optimization_Info & opt_info,
+                       float cl_weight,
                        boost::multi_array<float, 2> & weights,
                        const Training_Data & data,
                        int start_x = 0, int end_x = -1) const
@@ -240,9 +248,9 @@ struct Update_Weights {
             while (ex_range != ex_end && ex_range->example() == x)
                 ++ex_range;
 
-            float t = updater(stump, cl_weight, labels[x],
-                           ex_start, ex_range,
-                           &weights[x][0], advance);
+            float t = updater(stump, opt_info, cl_weight, labels[x],
+                              ex_start, ex_range,
+                              &weights[x][0], advance);
             total += t;
 
             __builtin_prefetch(&weights[x][0] + 48, 1, 3);
@@ -255,13 +263,15 @@ struct Update_Weights {
     /** Apply the given population of stumps with the given classifier weight
         distribution to the given sample weights, given the training data.  */
     float operator () (const std::vector<Stump> & stumps,
+                       const std::vector<Optimization_Info> & opt_infos,
                        const std::vector<float> & cl_weights,
                        boost::multi_array<float, 2> & sample_weights,
                        const Training_Data & data) const
     {
         double total = 0.0;
         for (unsigned i = 0;  i < stumps.size();  ++i) {
-            total = operator () (stumps[i], cl_weights.at(i), sample_weights,
+            total = operator () (stumps[i], opt_infos[i],
+                                 cl_weights.at(i), sample_weights,
                                  data);
             //cerr << "after stump " << i << ": total = " << total << endl;
         }
@@ -271,6 +281,7 @@ struct Update_Weights {
     /** Apply the given classifier to the given weights, given the training
         data.  This will update all of the weights. */
     float operator () (const Classifier_Impl & classifier,
+                       const Optimization_Info & opt_info,
                        float cl_weight,
                        boost::multi_array<float, 2> & weights,
                        const Training_Data & data,
@@ -291,8 +302,8 @@ struct Update_Weights {
         for (unsigned x = start_x;  x < end_x;  ++x) {
             //float val = classifier.predict(0, data[x]);
             //output[val] += 1;
-
-            float t = updater(classifier, cl_weight, labels[x],
+            
+            float t = updater(classifier, opt_info, cl_weight, labels[x],
                               data[x], &weights[x][0], advance);
             total += t;
 
@@ -373,6 +384,7 @@ struct Update_Weights_And_Scores {
     /** Apply the given stump to the given weights, given the training
         data.  This will update all of the weights. */
     float operator () (const Stump & stump,
+                       const Optimization_Info & opt_info,
                        float cl_weight,
                        boost::multi_array<float, 2> & weights,
                        boost::multi_array<float, 2> & output,
@@ -426,11 +438,11 @@ struct Update_Weights_And_Scores {
             //         << cl_weight << " classifier.predict(data[x]) = "
             //         << stump.predict(data[x]) << endl;
 
-            float t = weights_updater(stump, cl_weight, labels[x],
+            float t = weights_updater(stump, opt_info, cl_weight, labels[x],
                                       ex_start, ex_range,
                                       &weights[x][0], advance);
             
-            output_updater(stump, cl_weight, labels[x],
+            output_updater(stump, opt_info, cl_weight, labels[x],
                            ex_start, ex_range,
                            &output[x][0], advance);
 
@@ -453,6 +465,7 @@ struct Update_Weights_And_Scores {
     /** Apply the given stump to the given weights, given the training
         data.  This will update all of the weights. */
     float operator () (const Classifier_Impl & classifier,
+                       const Optimization_Info & opt_info,
                        float cl_weight,
                        boost::multi_array<float, 2> & weights,
                        boost::multi_array<float, 2> & output,
@@ -489,10 +502,11 @@ struct Update_Weights_And_Scores {
             //         << cl_weight << " classifier.predict(data[x]) = "
             //         << classifier.predict(data[x]) << endl;
 
-            float t = weights_updater(classifier, cl_weight, labels[x],
+            float t = weights_updater(classifier, opt_info,
+                                      cl_weight, labels[x],
                                       data[x], &weights[x][0], advance);
             
-            output_updater(classifier, cl_weight, labels[x],
+            output_updater(classifier, opt_info, cl_weight, labels[x],
                            data[x], &output[x][0], advance);
             
             correct += scorer(labels[x], &output[x][0], &output[x][0] + nl)
@@ -545,6 +559,7 @@ struct Update_Scores {
         correct.
     */
     double operator () (const Stump & stump,
+                        const Optimization_Info & opt_info,
                         float cl_weight,
                         boost::multi_array<float, 2> & output,
                         const Training_Data & data,
@@ -586,7 +601,7 @@ struct Update_Scores {
                 continue;  // must be zero...
             }
 
-            output_updater(stump, cl_weight, labels[x],
+            output_updater(stump, opt_info, cl_weight, labels[x],
                            ex_start, ex_range,
                            &output[x][0], advance);
             
@@ -605,6 +620,7 @@ struct Update_Scores {
         correct.
     */
     double operator () (const Classifier_Impl & classifier,
+                        const Optimization_Info & opt_info,
                         float cl_weight,
                         boost::multi_array<float, 2> & output,
                         const Training_Data & data,
@@ -625,7 +641,7 @@ struct Update_Scores {
         for (unsigned x = start_x;  x < end_x;  ++x) {
             if (example_weights[x] == 0.0) continue;  // must be zero...
 
-            output_updater(classifier, cl_weight, labels[x],
+            output_updater(classifier, opt_info, cl_weight, labels[x],
                            data[x], &output[x][0], advance);
             
             correct += scorer(labels[x], &output[x][0], &output[x][0] + nl)

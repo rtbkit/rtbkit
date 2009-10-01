@@ -79,7 +79,8 @@ public:
                     const Training_Data & data,
                     boost::multi_array<float, 2> & weights,
                     std::vector<Feature> & features,
-                    float & Z) const;
+                    float & Z,
+                    Optimization_Info & opt_info) const;
 
     boost::shared_ptr<Classifier_Impl>
     train_iteration(Thread_Context & context,
@@ -88,11 +89,13 @@ public:
                     std::vector<Feature> & features,
                     boost::multi_array<float, 2> & output,
                     const distribution<float> & ex_weights,
-                    double & training_accuracy, float & Z) const;
+                    double & training_accuracy, float & Z,
+                    Optimization_Info & opt_info) const;
 
     double
     update_accuracy(Thread_Context & context,
                     const Classifier_Impl & weak_classifier,
+                    const Optimization_Info & opt_info,
                     const Training_Data & data,
                     const std::vector<Feature> & features,
                     boost::multi_array<float, 2> & output,
