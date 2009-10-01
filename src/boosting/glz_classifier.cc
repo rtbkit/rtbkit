@@ -16,7 +16,7 @@
 #include "config_impl.h"
 #include <limits>
 #include "utils/vector_utils.h"
-#include "arch/backtrace.h"
+
 
 using namespace std;
 using namespace DB;
@@ -126,12 +126,8 @@ optimize_impl(Optimization_Info & info)
         feature_indexes.push_back(it->second);
     }
 
-    cerr << "feature_indexes = " << feature_indexes << endl;
-    
     return optimized_ = true;
 }
-
-extern bool debug_glz_predict;
 
 Label_Dist
 GLZ_Classifier::
@@ -181,8 +177,6 @@ do_accum(const float * features_c,
     
     if (add_bias) accum += weights[label][features.size()];
     
-    if (debug_glz_predict) cerr << "  accum = " << accum << endl;
-
     return apply_link_inverse(accum, link);
 }
 
@@ -191,11 +185,6 @@ GLZ_Classifier::
 do_predict_impl(const float * features_c,
                 const int * indexes) const
 {
-    if (debug_glz_predict) {
-        cerr << "predict 1: features = " << distribution<float>(features_c, features_c + 10) << endl;
-        //backtrace();
-    }
-
     Label_Dist result(label_count());
 
     for (unsigned i = 0;  i < result.size();  ++i)
@@ -212,11 +201,6 @@ do_predict_impl(const float * features_c,
                 double * accum,
                 double weight) const
 {
-    if (debug_glz_predict) {
-        cerr << "predict 2: features = " << distribution<float>(features_c, features_c + 10) << endl;
-        //backtrace();
-    }
-
     int nl = label_count();
 
     for (unsigned i = 0;  i < nl;  ++i)
@@ -229,9 +213,6 @@ do_predict_impl(int label,
                 const float * features_c,
                 const int * indexes) const
 {
-    if (debug_glz_predict)
-        cerr << "predict 3: features = " << distribution<float>(features_c, features_c + 10) << endl;
-
     return do_accum(features_c, indexes, label);
 }
 

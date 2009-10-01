@@ -53,8 +53,6 @@ float
 Committee::
 predict(int label, const Feature_Set & features) const
 {
-    cerr << "called 4" << endl;
-    
     if (label >= bias.size())
         throw Exception("Committee::predict(): invalid label");
 
@@ -68,31 +66,19 @@ predict(int label, const Feature_Set & features) const
     return result;
 }
 
-static int num_printed = 0;
-bool debug_glz_predict = false;
-
-distribution<float>
+Label_Dist
 Committee::
 predict(const Feature_Set & features) const
 {
-    distribution<float> result = bias;
-
-    bool print = num_printed++ < 10;
-    debug_glz_predict = print;
+    Label_Dist result = bias;
 
     for (unsigned i = 0;  i < classifiers.size();  ++i) {
         if (weights[i] == 0.0) continue;
 
         Label_Dist sub_result = classifiers[i]->predict(features);
 
-        if (print) cerr << "predict: subclassifier " << i << " with weight "
-                        << weights[i] << " returned "
-                        << sub_result << endl;
-
         result += weights[i] * sub_result;
     }
-
-    if (print) cerr << "final result: " << result << endl;
 
     return result;
 }
@@ -130,39 +116,18 @@ Committee::
 optimized_predict_impl(const float * features,
                        const Optimization_Info & info) const
 {
-    bool print = num_printed++ < 10;
-    debug_glz_predict = print;
-
     int nl = bias.size();
 
     double accum[nl];
     std::copy(&bias[0], &bias[0] + nl, accum);
 
-    if (print) cerr << "bias is " << bias << endl;
-
     for (unsigned i = 0;  i < classifiers.size();  ++i) {
         if (weights[i] == 0.0) continue;
 
-        Label_Dist sub_result
-            = classifiers[i]->optimized_predict_impl(features, info);
-
-        //classifiers[i]
-        //    ->optimized_predict_impl(features, info, accum, weights[i]);
-
-        if (print) cerr << "predict: subclassifier " << i << " with weight "
-                        << weights[i] << " returned "
-                        << sub_result << endl;
-
         classifiers[i]
             ->optimized_predict_impl(features, info, accum, weights[i]);
-
-        if (print) cerr << "accum is now " << Label_Dist(accum, accum + nl)
-                        << endl;
     }
 
-    if (print) cerr << "final result: " << Label_Dist(accum, accum + nl)
-                    << endl;
-    
     return Label_Dist(accum, accum + nl);
 }
 
@@ -173,8 +138,6 @@ optimized_predict_impl(const float * features,
                        double * accum,
                        double weight) const
 {
-    cerr << "called 2" << endl;
-    
     int nl = bias.size();
 
     for (unsigned i = 0;  i < nl;  ++i)
@@ -194,8 +157,6 @@ optimized_predict_impl(int label,
                        const float * features,
                        const Optimization_Info & info) const
 {
-    cerr << "called 3" << endl;
-
     if (label >= bias.size())
         throw Exception("Committee::predict(): invalid label");
 

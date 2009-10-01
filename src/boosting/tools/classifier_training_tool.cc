@@ -391,8 +391,8 @@ try
             throw Exception("probabilize-data must be 0 or 1 (currently "
                             + ostream_format(probabilize_data) + ")");
         
-        Optimization_Info opt_info;
-        opt_info = current->optimize(feature_space->dense_features());
+        Optimization_Info opt_info
+            = current->optimize(feature_space->dense_features());
 
         boost::shared_ptr<const Training_Data> prob_set
             = (probabilize_data == 0 ? datasets.training : datasets.validation);
@@ -408,8 +408,6 @@ try
                    probabilize_mode, probabilize_link);
 
         cerr << prob.print() << endl;
-
-        opt_info = current->optimize(feature_space->dense_features());
 
         if (repeat_trials == 1 || verbosity > 2) {
             cerr << "Stats over training set: " << endl;

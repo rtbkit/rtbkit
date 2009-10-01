@@ -672,10 +672,9 @@ train(const Training_Data & training_data,
        outputs. */
     classifier.predict(training_data, Write_Output(outputs, nl), &opt_info);
 
-    for (unsigned i = 0;  i < 10;  ++i)
-        cerr << "outputs[" << 0 << "][" << i << "] = "
-             << outputs[0][i] << endl;
-
+    //for (unsigned i = 0;  i < 10;  ++i)
+    //    cerr << "outputs[" << 0 << "][" << i << "] = "
+    //         << outputs[0][i] << endl;
     
     for (unsigned x = 0;  x < nx;  ++x) {
         //distribution<float> output
