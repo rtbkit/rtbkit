@@ -167,8 +167,8 @@ train_weighted(const Training_Data & data,
     size_t nv = result.features.size();      // Number of variables
     if (add_bias) ++nv;
 
-    cerr << "nx = " << nx << " nv = " << nv << " nx * nv = " << nx * nv
-         << endl;
+    //cerr << "nx = " << nx << " nv = " << nv << " nx * nv = " << nx * nv
+    //     << endl;
 
     boost::timer t;
 
