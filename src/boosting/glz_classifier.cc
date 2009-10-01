@@ -136,6 +136,11 @@ optimized_predict_impl(const float * features_c,
         for (unsigned j = 0;  j < features.size();  ++j)
             accum += features_c[j] * weights[i][j];
         if (add_bias) accum += weights[i][features.size()];
+
+        //if (i == 0)
+        //    cerr << "predict: input " << accum << " output "
+        //         << apply_link_inverse(accum, link) << endl;
+
         result[i] = apply_link_inverse(accum, link);
     }
 
@@ -205,7 +210,12 @@ output_encoding() const
 
 std::string GLZ_Classifier::print() const
 {
-    return "GLZ_Classifier";
+    return "GLZ_Classifier: link " + ML::print(link);
+}
+
+std::string GLZ_Classifier::summary() const
+{
+    return "GLZ_Classifier: link " + ML::print(link);
 }
 
 namespace {

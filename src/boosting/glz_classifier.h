@@ -49,7 +49,7 @@ public:
     /** Do we add a constant bias term to the GLZ?  Usually this will be
         yes (it is by default). */
     bool add_bias;
-    
+
     /** Parameters.  For each label we have a vector of input parameters,
         one for each of the features. */
     std::vector<distribution<float> > weights;
@@ -110,6 +110,8 @@ public:
                            const Optimization_Info & info) const;
 
     virtual std::string print() const;
+
+    virtual std::string summary() const;
 
     virtual std::vector<Feature> all_features() const;
 

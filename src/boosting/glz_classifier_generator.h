@@ -52,12 +52,20 @@ public:
     virtual boost::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
-             const Training_Data & validation_data,
-             const distribution<float> & training_weights,
-             const distribution<float> & validation_weights,
-             const std::vector<Feature> & features, int) const;
+             const boost::multi_array<float, 2> & weights,
+             const std::vector<Feature> & features,
+             float & Z,
+             int) const;
+#if 0
+    generate(Thread_Context & context,
+             const Training_Data & training_data,
+             const distribution<float> & weights,
+             const std::vector<Feature> & features,
+             int) const;
+#endif
 
     bool add_bias;
+    bool do_decode;
     Link_Function link_function;
 
     /* Once init has been called, we clone our potential models from this

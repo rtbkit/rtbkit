@@ -42,6 +42,7 @@ configure(const Configuration & config)
     Classifier_Generator::configure(config);
 
     config.find(add_bias, "add_bias");
+    config.find(do_decode, "decode");
     config.find(link_function, "link_function");
 }
 
@@ -52,6 +53,7 @@ defaults()
     Classifier_Generator::defaults();
     link_function = LOGIT;
     add_bias = true;
+    do_decode = true;
 }
 
 Config_Options
@@ -62,6 +64,8 @@ options() const
     result
         .add("add_bias", add_bias,
              "add a constant bias term to the classifier?")
+        .add("decode", do_decode,
+             "run the decoder (link function) after classification?")
         .add("link_function", link_function,
              "which link function to use for the output function");
 
@@ -79,22 +83,25 @@ init(boost::shared_ptr<const Feature_Space> fs, Feature predicted)
 boost::shared_ptr<Classifier_Impl>
 GLZ_Classifier_Generator::
 generate(Thread_Context & context,
-         const Training_Data & training_set,
-         const Training_Data & validation_set,
-         const distribution<float> & training_ex_weights,
-         const distribution<float> & validate_ex_weights,
-         const std::vector<Feature> & features, int) const
+         const Training_Data & training_data,
+         const boost::multi_array<float, 2> & weights,
+         const std::vector<Feature> & features,
+         float & Z,
+         int) const
 {
     boost::timer timer;
 
     Feature predicted = model.predicted();
 
     GLZ_Classifier current(model);
+    
+    //for (unsigned i = 0;  i < 20;  ++i)
+    //    cerr << "weights[" << i << "][0] = " << weights[i][0] << endl;
 
-    boost::multi_array<float, 2> weights
-        = expand_weights(training_set, training_ex_weights, predicted);
+    //boost::multi_array<float, 2> weights
+    //    = expand_weights(training_data, weights_, predicted);
 
-    train_weighted(training_set, weights, features, current);
+    train_weighted(training_data, weights, features, current);
     
     if (verbosity > 2) {
         cerr << endl << "Learned GLZ function: " << endl;
@@ -122,6 +129,8 @@ generate(Thread_Context & context,
         }
         cerr << endl;
     }
+
+    Z = 0.0;
     
     return make_sp(current.make_copy());
 }
@@ -141,7 +150,7 @@ train_weighted(const Training_Data & data,
     result = model;
     result.features.clear();
     result.add_bias = add_bias;
-    result.link = link_function;
+    result.link = (do_decode ? link_function : LINEAR);
 
     Feature predicted = model.predicted();
     
@@ -191,6 +200,11 @@ train_weighted(const Training_Data & data,
             /* Record the correct label. */
             if (regression_problem) {
                 correct[0][x] = labels[x].value();
+                w[0][x] = weights[x][0];
+            }
+            else if (nl == 2 && weights.shape()[1] == 1) {
+                correct[0][x] = (double)(labels[x] == 0);
+                correct[1][x] = (double)(labels[x] == 1);
                 w[0][x] = weights[x][0];
             }
             else {
