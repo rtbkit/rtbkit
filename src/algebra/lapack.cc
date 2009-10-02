@@ -86,6 +86,23 @@ extern "C" {
                  double * VT, const int * ldvt,
                  double * workspace, int * workspace_size, int * info);
 
+    /* Better SVD of a matrix. */
+    void sgesdd_(const char * jobz, const int * m, const int * n,
+                 float * A, const int * lda,
+                 float * S,
+                 float * U, const int * ldu,
+                 float * vt, const int * ldvt,
+                 float * workspace, int * workspace_size,
+                 int * iwork, int * info);
+
+    void dgesdd_(const char * jobz, const int * m, const int * n,
+                 double * A, const int * lda,
+                 double * S,
+                 double * U, const int * ldu,
+                 double * vt, const int * ldvt,
+                 double * workspace, int * workspace_size,
+                 int * iword, int * info);
+
     /* Solve a system of linear equations. */
     void dgesv_(const int * n, const int * nrhs, double * A, const int * lda,
                 int * pivots, double * B, const int * ldb, int * info);
@@ -394,6 +411,58 @@ int gesvd(const char * jobu, const char * jobvt, int m, int n,
     /* Perform the computation. */
     dgesvd_(jobu, jobvt, &m, &n, A, &lda, S, U, &ldu, VT, &ldvt,
             workspace.get(), &workspace_size, &info);
+    
+    return info;
+}
+
+int gesdd(const char * jobz, int m, int n,
+          float * A, int lda, float * S, float * U, int ldu,
+          float * vt, int ldvt)
+{
+    int info = 0;
+    int workspace_size = -1;
+    float ws_return;
+    
+    int iwork[8 * std::min(m, n)];
+
+    /* Find out how much to allocate. */
+    sgesdd_(jobz, &m, &n, A, &lda, S, U, &ldu, vt, &ldvt, &ws_return,
+            &workspace_size, iwork, &info);
+    
+    if (info != 0) return info;
+    workspace_size = (int)ws_return;
+    
+    boost::scoped_array<float> workspace(new float[workspace_size]);
+    
+    /* Perform the computation. */
+    sgesdd_(jobz, &m, &n, A, &lda, S, U, &ldu, vt, &ldvt, workspace.get(),
+            &workspace_size, iwork, &info);
+    
+    return info;
+}
+
+int gesdd(const char * jobz, int m, int n,
+          double * A, int lda, double * S, double * U, int ldu,
+          double * vt, int ldvt)
+{
+    int info = 0;
+    int workspace_size = -1;
+    double ws_return;
+    
+    int iwork[8 * std::min(m, n)];
+
+    /* Find out how much to allocate. */
+    dgesdd_(jobz, &m, &n, A, &lda, S, U, &ldu, vt, &ldvt, &ws_return,
+            &workspace_size, iwork, &info);
+    
+    if (info != 0) return info;
+    workspace_size = (int)ws_return;
+    
+    boost::scoped_array<double> workspace(new double[workspace_size]);
+    
+    /* Perform the computation. */
+    dgesdd_(jobz, &m, &n, A, &lda, S, U, &ldu, vt, &ldvt, workspace.get(),
+            &workspace_size, iwork, &info);
     
     return info;
 }

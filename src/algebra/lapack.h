@@ -87,6 +87,15 @@ int gesvd(const char * jobu, const char * jobvt, int m, int n,
           double * A, int lda, double * S, double * U, int ldu,
           double * VT, int ldvt);
 
+/** SVD with improved algorithm */
+int gesdd(const char * jobz, int m, int n,
+          float * A, int lda, float * S, float * U, int ldu,
+          float * vt, int ldvt);
+
+int gesdd(const char * jobz, int m, int n,
+          double * A, int lda, double * S, double * U, int ldu,
+          double * vt, int ldvt);
+
 /** Solve a system of linear equations. */
 int gesv(int n, int nrhs, double * A, int lda, int * pivots, double * B,
          int ldb);

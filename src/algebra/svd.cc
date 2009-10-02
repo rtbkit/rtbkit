@@ -118,8 +118,8 @@ svd_impl(const boost::multi_array<Float, 2> & A, int nsv)
        ...
     */
     
-    boost::multi_array<Float, 2> U(nsv, m);
-    boost::multi_array<Float, 2> V(nsv, n);
+    boost::multi_array<Float, 2> U(boost::extents[nsv][m]);
+    boost::multi_array<Float, 2> V(boost::extents[nsv][n]);
 
     for (unsigned i = 0;  i < m;  ++i)
         for (unsigned j = 0;  j < nsv;  ++j)
