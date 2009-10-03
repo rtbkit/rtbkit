@@ -249,19 +249,19 @@ diag_mult(const boost::multi_array<Float, 2> & XT,
     boost::multi_array<Float, 2> result(boost::extents[nv][nv]);
 
     int chunk_size = 2048;  // ensure we fit in the cache
-    //distribution<double> Xid(chunk_size);
+    distribution<Float> Xid(chunk_size);
 
     int x = 0;
     while (x < nx) {
         int nxc = std::min<size_t>(chunk_size, nx - x);
 
         for (unsigned i = 0;  i < nv;  ++i) {
-            //simd_vec_mult(&XT[i][x], &d[x], &Xid[0], nxc);
+            SIMD::vec_prod(&XT[i][x], &d[x], &Xid[0], nxc);
             
             for (unsigned j = 0;  j < nv;  ++j) {
-                //result[i][j] += simd_vec_dotprod(&XT[j][x], &Xid[0], nxc);
-                result[i][j] += SIMD::vec_accum_prod3(&XT[i][x], &XT[j][x],
-                                                      &d[x], nxc);
+                result[i][j] += SIMD::vec_dotprod_dp(&XT[j][x], &Xid[0], nxc);
+                //result[i][j] += SIMD::vec_accum_prod3(&XT[i][x], &XT[j][x],
+                //                                      &d[x], nxc);
                 //for (unsigned x = 0;  x < nx;  ++x)
                 //result[i][j] += XT[i][x] * XT[j][x] * d[x];
             }
