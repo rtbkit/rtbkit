@@ -176,6 +176,12 @@ public:
         return std::accumulate(this->begin(), this->end(), F());
     }
 
+    int count() const
+    {
+        return std::count_if(this->begin(), this->end(),
+                             std::bind2nd(std::not_equal_to<F>(), F()));
+    }
+
     F max() const
     {
         return (this->empty()
@@ -285,6 +291,25 @@ DIST_DIST_COMPARE_OP(>);
 DIST_DIST_COMPARE_OP(<);
 DIST_DIST_COMPARE_OP(>=);
 DIST_DIST_COMPARE_OP(<=);
+
+#define DIST_SCALAR_COMPARE_OP(op) \
+template<class F, class Underlying, class Other>        \
+distribution<bool> \
+ operator op (const distribution<F, Underlying> & d1,\
+              const Other & scalar)        \
+{ \
+    distribution<bool> result(d1.size()); \
+    for (unsigned i = 0;  i < d1.size();  ++i) \
+        result[i] = (d1[i] op scalar); \
+    return result; \
+}
+
+DIST_SCALAR_COMPARE_OP(==);
+DIST_SCALAR_COMPARE_OP(!=);
+DIST_SCALAR_COMPARE_OP(>);
+DIST_SCALAR_COMPARE_OP(<);
+DIST_SCALAR_COMPARE_OP(>=);
+DIST_SCALAR_COMPARE_OP(<=);
 
 template<typename F, class Underlying>
 std::ostream &
