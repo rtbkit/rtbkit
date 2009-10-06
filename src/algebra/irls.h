@@ -191,7 +191,6 @@ double apply_link_inverse(double val, Link_Function func);
 double erf(double);
 double erfinv(double);
 
-
 } // namespace ML
 
 

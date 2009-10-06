@@ -25,7 +25,10 @@ using namespace Stats;
 #if (BOOST_VERSION > 103500)
 #include <boost/math/special_functions/erf.hpp>
 
+
 namespace ML {
+
+__thread std::ostream * debug_irls = 0;
 
 double erf(double x)
 {
@@ -82,30 +85,54 @@ vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
         v[i] = distribution<FloatCalc>(&x[i][0], &x[i][0] + nj);
         z[i][i] = 1.0;   // because v[i] = x[i]
     }
-    
+
     for (int i = ni - 1;  i >= 0;  --i) {
-        //cerr << "i = " << i << endl;
-        r[i][i] = sqrt(SIMD::vec_dotprod_dp(&v[i][0], &v[i][0], nj));
+        r[i][i] = v[i].two_norm();
+
         if (r[i][i] < tolerance) {
             z[i][i] = 0.0;
             r[i][i] = 0.0;
             continue;  // linearly dependent
         }
-        SIMD::vec_scale(&v[i][0], 1.0 / r[i][i], &v[i][0], nj);
-        z[i] *= 1.0 / r[i][i];
+
+        v[i] /= r[i][i];
+        z[i] /= r[i][i];
         
-        for (int j = i - 1;  j >= 0;  --j) {
-            r[j][i] = SIMD::vec_dotprod_dp(&v[i][0], &v[j][0], nj);
-            SIMD::vec_add(&v[j][0], -r[j][i], &v[i][0], &v[j][0], nj);
-            z[j] += -r[j][i] * z[i];
+
+        // Check that our v is orthogonal to all other vs
+        for (int i2 = ni - 1;  i2 > i;  --i2) {
+            double error = v[i2].dotprod(v[i]);
+            if (error > tolerance) {
+                cerr << "error: between " << i << " and " << i2 << ": "
+                     << error << endl;
+            }
         }
+
+        // TODO: re-vectorize
+
+        for (int j = i - 1;  j >= 0;  --j) {
+            r[j][i] = v[i].dotprod(v[j]);
+            v[j] -= r[j][i] * v[i];
+
+            // Check that v[i] and v[j] are now orthogonal
+            double error = v[i].dotprod(v[j]);
+            if (error > tolerance)
+                cerr << "tolerance: v[i] and v[j] aren't orthogonal"
+                     << endl;
+
+            //SIMD::vec_add(&v[j][0], -r[j][i], &v[i][0], &v[j][0], nj);
+            z[j] -= r[j][i] * z[i];
+        }
+
+        // Check that we can 
     }
 
     //cerr << "done gram schmidt" << endl;
 
     //for (unsigned i = 0;  i < ni;  ++i) {
-    //    cerr << "r[" << i << "] = " << r[i][i] << endl;
+    //    cerr << "r[" << i << "] = " << r[i][i] << "  ";
     //}
+    //cerr << endl;
 
     //for (unsigned i = 0;  i < ni;  ++i) {
     //    cerr << "z[" << i << "] = " << z[i] << endl;
@@ -121,7 +148,7 @@ vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
             source.push_back(i);
         }
         else {
-            //cerr << "column " << i << " is dependent; basis vector is "
+            //cerr << "column " << i << " is dependent; r vector is "
             //     << r[i] << endl;
             //cerr << "column " << i << " is dependent; basis vector is "
             //     << v[i] << endl;
