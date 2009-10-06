@@ -401,7 +401,6 @@ Feature_Info promote(const Feature_Info & i1, const Feature_Info & i2)
     static const Feature_Type PRES = PRESENCE;
     static const Feature_Type BOOL = BOOLEAN;
     static const Feature_Type CAT  = CATEGORICAL;
-    static const Feature_Type REAL = REAL;
     static const Feature_Type INUT = INUTILE;
     static const Feature_Type STR  = STRING;
     
@@ -446,7 +445,8 @@ guess_info(const Training_Data & data, const Feature & feature,
 {
     /* Use the training data to do the job. */
     Feature_Info guessed = data.index().guess_info(feature);
-    return promote(before, guessed);
+    Feature_Info result = promote(before, guessed);
+    return result;
 }
 
 void guess_all_info(const Training_Data & data,
