@@ -163,7 +163,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
         const Update_Weights<Updater> & update_weights;
 
         Job_Info_Classifier(const Classifier_Impl & classifier,
-                            const Optimization_Info & info,
+                            const Optimization_Info & opt_info,
                             float cl_weight,
                             boost::multi_array<float, 2> & weights,
                             const Training_Data & data,
