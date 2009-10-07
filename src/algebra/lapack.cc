@@ -204,7 +204,7 @@ int gelsd(int m, int n, int nrhs, float * A, int lda, float * B, int ldb,
     int workspace_size = -1;
     float ws_return;
 
-    int smallsz = ilaenv(9, "DGELSD", "", m, n, nrhs, -1); 
+    int smallsz = ilaenv(9, "SGELSD", "", m, n, nrhs, -1); 
     
     //cerr << "smallsz = " << smallsz << endl;
 
@@ -239,7 +239,7 @@ int gelsd(int m, int n, int nrhs, double * A, int lda, double * B, int ldb,
     int workspace_size = -1;
     double ws_return;
 
-    int smallsz = ilaenv(9, "SGELSD", "", m, n, nrhs, -1); 
+    int smallsz = ilaenv(9, "DGELSD", "", m, n, nrhs, -1); 
     
     //cerr << "smallsz = " << smallsz << endl;
 
