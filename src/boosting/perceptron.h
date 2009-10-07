@@ -183,6 +183,10 @@ public:
 
         size_t inputs() const { return weights.shape()[0]; }
         size_t outputs() const { return weights.shape()[1]; }
+
+        /** Check that all parameters are reasonable and invariants are met.
+            Will throw an exception if there is a problem. */
+        void validate() const;
     };
     
     std::vector<boost::shared_ptr<Layer> > layers;  ///< Different layers

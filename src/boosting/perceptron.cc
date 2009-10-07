@@ -297,6 +297,37 @@ void Perceptron::Layer::random_fill(float limit)
         bias[o] = limit * (dist_gen() * 2.0f - 1.0f);
 }
 
+void
+Perceptron::Layer::
+validate() const
+{
+    if (weights.shape()[1] != bias.size())
+        throw Exception("perceptron laye has bad shape");
+
+    int ni = weights.shape()[0], no = weights.shape()[1];
+    
+    bool has_nonzero = false;
+
+    for (unsigned j = 0;  j < no;  ++j) {
+        for (unsigned i = 0;  i < ni;  ++i) {
+            if (!finite(weights[i][j]))
+                throw Exception("perceptron layer has non-finite weights");
+            if (weights[i][j] != 0.0)
+                has_nonzero = true;
+        }
+    }
+    
+    if (!has_nonzero)
+        throw Exception("perceptron layer has all zero weights");
+
+    if (no != bias.size())
+        throw Exception("bias sized wrong");
+
+    for (unsigned o = 0;  o < bias.size();  ++o)
+        if (!finite(bias[o]))
+            throw Exception("perceptron layer has non-finite bias");
+}
+
 
 /*****************************************************************************/
 /* PERCEPTRON                                                                */
@@ -531,6 +562,8 @@ parse_architecture(const std::string & arch)
 
 void Perceptron::add_layer(const boost::shared_ptr<Layer> & layer)
 {
+    layer->validate();
+
     layers.push_back(layer);
     if (layers.size() == 1 || layer->inputs() > max_units)
         max_units = layer->inputs();

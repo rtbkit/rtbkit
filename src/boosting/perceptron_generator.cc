@@ -130,7 +130,7 @@ defaults()
     min_examples_per_job = 8;
     max_examples_per_job = 1024;
     use_textures = false;
-    target_value = 0.0;
+    target_value = 0.8;
     order_of_sensitivity = true;
 }
 
@@ -200,6 +200,9 @@ generate(Thread_Context & context,
 
     boost::scoped_ptr<boost::progress_display> progress;
 
+    //cerr << "training_ex_weights = " << training_ex_weights << endl;
+    //cerr << "validate_ex_weights = " << validate_ex_weights << endl;
+
     log("perceptron_generator", 1)
         << "training " << max_iter << " iterations..." << endl;
 
@@ -244,35 +247,37 @@ generate(Thread_Context & context,
     const std::vector<Label> & val_labels JML_UNUSED
         = validation_set.index().labels(predicted);
 
+    double last_best_acc = 0.0;
+
     for (unsigned i = 0;  i < max_iter;  ++i) {
 
-        if (progress) ++(*progress);
-
+        boost::tie(train_acc, rms_error)
+            = train_iteration(context, decorrelated, labels,
+                              training_ex_weights,
+                              current);
+        
         if (validate_is_train) validate_acc = train_acc;
         else validate_acc
                  = current.accuracy(val_decorrelated, val_labels,
                                     validate_ex_weights);
 
-        double last_best_acc = best_acc;
+        last_best_acc = best_acc;
 
         if (validate_acc > best_acc || i == min_iter) {
             best = current;
             best_acc = validate_acc;
             best_iter = i;
         }
-                
-        
-        boost::tie(train_acc, rms_error)
-            = train_iteration(context, decorrelated, labels,
-                              training_ex_weights,
-                              current);
-        
+
         log("perceptron_generator", 3)
             << format("%4d %6.2f%% %8.6f %6.2f%% %6.2f%% %+7.3f%%",
                       i, train_acc * 100.0, rms_error, validate_acc * 100.0,
                       best_acc * 100.0, (validate_acc - last_best_acc) * 100.0)
             << endl;
-        
+
+        if (progress) ++(*progress);
+
+                
         log("perceptron_generator", 5) << current.print() << endl;
     }
     
@@ -532,42 +537,44 @@ decorrelate(const Training_Data & data,
     distribution<double> stdev(nf, 0.0);
     boost::multi_array<double, 2> covar(boost::extents[nf][nf]);
 
-    if (do_normalize) {
-        PROFILE_FUNCTION(t_mean);
-        for (unsigned f = 0;  f < nf;  ++f) {
-            mean[f] = SIMD::vec_sum_dp(&inputt[f][0], nx) / nx;
-            for (unsigned x = 0;  x < nx;  ++x)
-                inputt[f][x] -= mean[f];
+    if (do_decorrelate && !do_normalize)
+        throw Exception("normalization required if decorrelation is done");
+
+    if (do_normalize || do_decorrelate) {
+        {
+            PROFILE_FUNCTION(t_mean);
+            for (unsigned f = 0;  f < nf;  ++f) {
+                mean[f] = SIMD::vec_sum_dp(&inputt[f][0], nx) / nx;
+                for (unsigned x = 0;  x < nx;  ++x)
+                    inputt[f][x] -= mean[f];
+            }
         }
 
         cerr << "mean = " << mean << endl;
-    }
 
-
-    if (do_normalize || do_decorrelate) {
-        PROFILE_FUNCTION(t_covar);
-        for (unsigned f = 0;  f < nf;  ++f) {
-            for (unsigned f2 = 0;  f2 <= f;  ++f2)
-                covar[f][f2] = covar[f2][f]
-                    = SIMD::vec_dotprod_dp(&inputt[f][0], &inputt[f2][0], nx) / nx;
+        {
+            PROFILE_FUNCTION(t_covar);
+            for (unsigned f = 0;  f < nf;  ++f) {
+                for (unsigned f2 = 0;  f2 <= f;  ++f2)
+                    covar[f][f2] = covar[f2][f]
+                        = SIMD::vec_dotprod_dp(&inputt[f][0], &inputt[f2][0], nx) / nx;
+            }
+        
+            for (unsigned f = 0;  f < nf;  ++f)
+                stdev[f] = sqrt(covar[f][f]);
+            
+            cerr << "stdev = " << stdev << endl;
         }
-
-        for (unsigned f = 0;  f < nf;  ++f)
-            stdev[f] = sqrt(covar[f][f]);
-
-        cerr << "stdev = " << stdev << endl;
     }
     
     boost::multi_array<double, 2> transform(boost::extents[nf][nf]);
 
     if (do_decorrelate) {
-        {
-            /* Do the cholevsky stuff */
-            PROFILE_FUNCTION(t_cholesky);
-            transform = transpose(lower_inverse(cholesky(covar)));
-        }
+        /* Do the cholevsky stuff */
+        PROFILE_FUNCTION(t_cholesky);
+        transform = transpose(lower_inverse(cholesky(covar)));
     }
-    else {
+    else if (do_normalize) {
         /* Use a unit diagonal of 1/stdev for the transform; no
            decorrelation */
         std::fill(transform.origin(),
@@ -575,6 +582,14 @@ decorrelate(const Training_Data & data,
                   0.0f);
         for (unsigned f = 0;  f < nf;  ++f)
             transform[f][f] = 1.0 / stdev[f];
+    }
+    else {
+        /* Use the identity function */
+        std::fill(transform.origin(),
+                  transform.origin() + transform.num_elements(),
+                  0.0f);
+        for (unsigned f = 0;  f < nf;  ++f)
+            transform[f][f] = 1.0;
     }
     
     /* Finally, we add a layer.  This will perform both the removal of the
@@ -592,6 +607,8 @@ decorrelate(const Training_Data & data,
     layer->bias = distribution<float>(nf, 0.0);  // already have mean removed
     layer->activation = ACT_IDENTITY;
     
+    //cerr << "transform = " << transform << endl;
+
     boost::multi_array<float, 2> decorrelated(boost::extents[nx][nf]);
     float fv_in[nf];
 
@@ -599,13 +616,23 @@ decorrelate(const Training_Data & data,
         for (unsigned f = 0;  f < nf;  ++f)
             fv_in[f] = inputt[f][x];
 
+        //cerr << "fv_in = " << distribution<float>(fv_in, fv_in + nf) << endl;
+
         layer->apply(&fv_in[0], &decorrelated[x][0]);
+
+        //cerr << "fv_out = "
+        //     << distribution<float>(&decorrelated[x][0],
+        //                            &decorrelated[x][0] + nf)
+        //     << endl;
+        
     }
 
     layer->bias = (transform * mean) * -1.0;  // now add the bias
     result.layers.clear();
     result.add_layer(layer);
     
+    layer->validate();
+
     return decorrelated;
 }
 
@@ -775,6 +802,11 @@ struct Training_Job_Info {
             /* Calculate the error terms for each output unit. */
             /* TODO: regression */
             correct[labels[x]] = fire;
+
+
+            //cerr << "layer_output = " << layer_outputs.back()
+            //     << " correct " << correct << " label " << labels[x]
+            //     << endl;
 
             //cerr << "correct = " << correct << endl;
             
