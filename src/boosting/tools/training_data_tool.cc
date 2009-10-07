@@ -231,6 +231,7 @@ try
 
     int verbosity           = 1;
     bool is_regression      = false;   // Set to be a regression?
+    bool by_label           = false;
 
     vector<string> dataset_files;
 
@@ -251,7 +252,9 @@ try
             ( "predict-feature,L", value<string>(&predicted_name),
               "train classifier to predict FEATURE" )
             ( "dataset", value<vector<string> >(&dataset_files),
-              "datasets to process" );
+              "datasets to process" )
+            ( "by-label", value<bool>(&by_label)->zero_tokens(),
+              "further break down stats by label");
 
         output_options.add_options()
             ( "verbosity,v", value(&verbosity),
@@ -377,7 +380,7 @@ try
                            stats[d].counts.size(),
                            stats[d].r_squared, stats[d].b);
 
-            if (nl == 2) {
+            if (nl == 2 && by_label) {
                 for (unsigned i = 0;  i < nl;  ++i) {
                     cout
                         << format("        label %d: min %8.3f max: %8.3f avg: %8.3f count: %7f",
