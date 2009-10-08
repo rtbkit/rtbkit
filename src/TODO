@@ -99,7 +99,12 @@ Bugs
 * Running out of precision (?) in logsoftmax:
   ../build/x86_64/bin/classifier_training_tool letters.dat.gz -V 10 -T 20 type=perceptron max_iter=50 learning_rate=20 verbosity=3 arch=100 batch_size=1 profile=1 use_cuda=0 training_algo=1 training_mode=1 -R min_examples_per_job=1 batch_size=20 output_activation=logsoftmax
 
-* decorrelate optional in Perceptron_Generator
-* compare against fprop
+* decorrelate optional in Perceptron_Generator (done)
+* compare against fprop (done)
    ./fexp -d ../../../optbprop/letters.dat / --oh -h 100 -e 20 -l 0.01 --lsm
+
+
+Bagging
+* Use group-aware and sampled (via weights) split scheme, not naive version that is currently used
+* Unify code to split into training/validation sets from all over the place
 
