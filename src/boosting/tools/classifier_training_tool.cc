@@ -444,9 +444,10 @@ try
                        group_feature);
             
             if (repeat_trials > 1) {
-                float acc = current->accuracy(*datasets.testing[j]);
-                accum_acc[j].push_back(acc);
-                cerr << "trial " << i + 1 << ": accuracy " << acc * 100.0
+                pair<float, float> acc
+                    = current->accuracy(*datasets.testing[j]);
+                accum_acc[j].push_back(acc.first);
+                cerr << "trial " << i + 1 << ": accuracy " << acc.first * 100.0
                      << "%, average over all trials = "
                      << accum_acc[j].total() * 100.0 / (i + 1)
                      << "%" << endl;

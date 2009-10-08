@@ -292,8 +292,12 @@ void calc_stats(const Classifier_Impl & current,
                        xdiv<float>(label_freq.max(),
                                          label_freq.total()) * 100.0) << endl;
         
+        float acc, rmse;
+        boost::tie(acc, rmse) = current.accuracy(data);
+
         cerr << "non-prob accuracy              = "
-             << format("%8.3f%%", current.accuracy(data) * 100.0) << endl;
+             << format("%8.3f%% %8.3f%%",
+                       acc * 100.0, rmse * 100.0) << endl;
     }
     else {
         /* Evaluate a group at a time */

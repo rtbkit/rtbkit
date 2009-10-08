@@ -26,6 +26,34 @@ class Thread_Context;
 
 
 /*****************************************************************************/
+/* OUTPUT_TRANSFORM                                                          */
+/*****************************************************************************/
+
+/** A structure used by the perceptron to transform its output from one range
+    to another.  For example, if we wanted to predict movies on a scale of
+    1 to 5 with a tanh algorithm (scale -1 to 1), this would scale the final
+    output by multiplying by 2 and adding 3.
+*/
+
+struct Output_Transform {
+    float bias;
+    float slope;
+
+    float apply(float input) const;
+    float inverse(float input) const;
+
+    distribution<float> apply(const distribution<float> & input) const;
+    distribution<float> inverse(const distribution<float> & input) const;
+
+    void apply(distribution<float> & input) const;
+    void inverse(distribution<float> & input) const;
+
+    void serialize(DB::Store_Writer & store) const;
+    void reconstitute(DB::Store_Reader & store);
+};
+
+
+/*****************************************************************************/
 /* PERCEPTRON                                                                */
 /*****************************************************************************/
 
@@ -66,10 +94,11 @@ public:
     /** Calculate the accuracy.  This method takes a set of decorrelated
         samples.  The accuracy can be calculated much faster in this case
         as there is no need to decorrelate nor extract the features. */
-    float accuracy(const boost::multi_array<float, 2> & decorrelated,
-                   const std::vector<Label> & labels,
-                   const distribution<float> & example_weights
-                       = UNIFORM_WEIGHTS) const;
+    std::pair<float, float>
+    accuracy(const boost::multi_array<float, 2> & decorrelated,
+             const std::vector<Label> & labels,
+             const distribution<float> & example_weights
+                   = UNIFORM_WEIGHTS) const;
 
     /** Apply the first layer to a dataset to decorrelate it. */
     boost::multi_array<float, 2> decorrelate(const Training_Data & data) const;
@@ -204,6 +233,14 @@ public:
     static void derivative(distribution<float> & values,
                            Activation activation);
 
+    /** Given the activation function and the maximum amount of the range
+        that we want to use (eg, 0.8 for asymptotic functions), what are
+        the minimum and maximum values that we want to use.
+
+        For example, tanh goes from -1 to 1, but asymptotically.  We would
+        normally want to go from -0.8 to 0.8, to leave a bit of space for
+        expansion.
+    */
     static std::pair<float, float> targets(float maximum, int activation);
     
     void add_layer(const boost::shared_ptr<Layer> & layer);

@@ -398,27 +398,32 @@ struct Accuracy_Job_Info {
 
     Lock lock;
     double & correct;
+    double & rmse;
     double & total;
 
     Accuracy_Job_Info(const boost::multi_array<float, 2> & decorrelated,
                       const std::vector<Label> & labels,
                       const distribution<float> & example_weights,
                       const Perceptron & perceptron,
-                      double & correct, double & total)
+                      double & correct, double & rmse, double & total)
         : decorrelated(decorrelated), labels(labels),
           example_weights(example_weights), perceptron(perceptron),
-          correct(correct), total(total)
+          correct(correct), rmse(rmse), total(total)
     {
     }
 
     void calc(int x_start, int x_end)
     {
-        double sub_total = 0.0, sub_correct = 0.0;
+        double sub_total = 0.0, sub_rmse = 0.0, sub_correct = 0.0;
 
         float scratch1[perceptron.max_units], scratch2[perceptron.max_units];
         float * input = scratch1, * output = scratch2;
 
         size_t nl = perceptron.label_count();
+
+        bool regression_problem
+            = perceptron.feature_space()->info(perceptron.predicted()).type()
+            == REAL;
 
         for (unsigned x = x_start;  x < x_end;  ++x) {
             float w = (example_weights.empty() ? 1.0 : example_weights[x]);
@@ -432,15 +437,24 @@ struct Accuracy_Job_Info {
                 perceptron.layers[l]->apply(input, output);
                 std::swap(input, output);
             }
-            
-        
-            Correctness c = correctness(input, input + nl, labels[x]);
-            sub_correct += w * c.possible * c.correct;
-            sub_total += w * c.possible;
+
+            if (regression_problem) {
+                double error = input[0] - labels[x].value();
+                sub_correct += w * fabs(error);
+                sub_rmse    += w * error * error;
+                sub_total   += w;
+            }
+            else {
+                Correctness c = correctness(input, input + nl, labels[x]);
+                sub_correct += w * c.possible * c.correct;
+                sub_rmse    += w * c.possible * c.margin * c.margin;
+                sub_total   += w * c.possible;
+            }
         }
 
         Guard guard(lock);
         correct += sub_correct;
+        rmse += sub_rmse;
         total += sub_total;
     }
 };
@@ -463,7 +477,7 @@ struct Accuracy_Job {
 
 } // file scope
 
-float
+std::pair<float, float>
 Perceptron::
 accuracy(const boost::multi_array<float, 2> & decorrelated,
          const std::vector<Label> & labels,
@@ -472,12 +486,13 @@ accuracy(const boost::multi_array<float, 2> & decorrelated,
     PROFILE_FUNCTION(t_accuracy);
 
     double correct = 0.0;
+    double rmse = 0.0;
     double total = 0.0;
 
     unsigned nx = decorrelated.shape()[0];
 
-    Accuracy_Job_Info info(decorrelated, labels, example_weights, *this, correct,
-                           total);
+    Accuracy_Job_Info info(decorrelated, labels, example_weights, *this,
+                           correct, rmse, total);
     static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
     
     int group;
@@ -504,7 +519,7 @@ accuracy(const boost::multi_array<float, 2> & decorrelated,
     
     worker.run_until_finished(group);
     
-    return correct / total;
+    return make_pair(correct / total, sqrt(rmse / total));
 }
 
 std::string Perceptron::print() const

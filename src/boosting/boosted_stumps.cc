@@ -280,6 +280,8 @@ insert(const std::vector<Stump> & stumps, const distribution<float> & scale)
         insert(stumps[i], scale[i]);
 }
 
+#if 0
+
 namespace {
 
 struct Accuracy_Job_Info {
@@ -292,6 +294,7 @@ struct Accuracy_Job_Info {
 
     Lock lock;
     double & correct;
+    double & margin;
     
     Accuracy_Job_Info(const Training_Data & data,
                       const distribution<float> & example_weights,
@@ -299,16 +302,16 @@ struct Accuracy_Job_Info {
                       const Optimization_Info & opt_info,
                       boost::multi_array<float, 2> & output,
                       bool bin_sym,
-                      double & correct)
+                      double & correct, double & margin)
         : data(data), example_weights(example_weights),
           stumps(stumps), opt_info(opt_info),
-          output(output), bin_sym(bin_sym), correct(correct)
+          output(output), bin_sym(bin_sym), correct(correct), margin(margin)
     {
     }
 
     void calc(unsigned start_x, unsigned end_x)
     {
-        double sub_correct = 0.0;
+        double sub_correct = 0.0, sub_margin = 0.0;
 
         int nl = output.shape()[1];
 
@@ -393,7 +396,7 @@ struct Accuracy_Job {
 
 } // file scope
 
-float
+std::pair<float, float>
 Boosted_Stumps::
 accuracy(const Training_Data & data,
          const distribution<float> & example_weights,
@@ -407,7 +410,7 @@ accuracy(const Training_Data & data,
 
     bool bin_sym = convert_bin_sym(scores, data, predicted_, all_features());
     
-    double correct = 0.0;
+    double correct = 0.0, margin = 0.0;
 
     Optimization_Info new_opt_info;
     const Optimization_Info & opt_info
@@ -415,7 +418,7 @@ accuracy(const Training_Data & data,
 
     Accuracy_Job_Info info(data, example_weights, *this, opt_info,
                            scores, bin_sym,
-                           correct);
+                           correct, margin);
 
     static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
     
@@ -445,8 +448,19 @@ accuracy(const Training_Data & data,
     double total
         = (example_weights.empty() ? (float)nx : example_weights.total());
     
-    return correct / total;
+    return make_pair(correct / total, margin / total);
 }
+
+#else
+std::pair<float, float>
+Boosted_Stumps::
+accuracy(const Training_Data & data,
+         const distribution<float> & example_weights,
+         const Optimization_Info * opt_info_ptr) const
+{
+    return Classifier_Impl::accuracy(data, example_weights, opt_info_ptr);
+}
+#endif
 
 std::string Boosted_Stumps::print() const
 {

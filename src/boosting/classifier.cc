@@ -412,15 +412,17 @@ struct Accuracy_Job_Info {
     Lock lock;
     double & correct;
     double & total;
+    double & rmse_accum;
 
     Accuracy_Job_Info(const Training_Data & data,
                       const distribution<float> & example_weights,
                       const Classifier_Impl & classifier,
                       const Optimization_Info & opt_info,
-                      double & correct, double & total)
+                      double & correct, double & total,
+                      double & rmse_accum)
         : data(data), example_weights(example_weights),
           classifier(classifier), opt_info(opt_info),
-          correct(correct), total(total)
+          correct(correct), total(total), rmse_accum(rmse_accum)
     {
     }
 
@@ -428,7 +430,11 @@ struct Accuracy_Job_Info {
     {
         //cerr << "calculating from " << x_start << " to " << x_end << endl;
 
-        double sub_total = 0.0, sub_correct = 0.0;
+        double sub_total = 0.0, sub_correct = 0.0, sub_rmse = 0.0;
+
+        bool regression_problem
+            = classifier.feature_space()->info(classifier.predicted()).type()
+            == REAL;
 
         for (unsigned x = x_start;  x < x_end;  ++x) {
             double w = (example_weights.empty() ? 1.0 : example_weights[x]);
@@ -437,14 +443,26 @@ struct Accuracy_Job_Info {
             //cerr << "x = " << x << " w = " << w << endl;
             
             distribution<float> result = classifier.predict(data[x], opt_info);
-            Correctness c = correctness(result, classifier.predicted(), data[x]);
-            sub_correct += w * c.possible * c.correct;
-            sub_total += w * c.possible;
+            
+            if (regression_problem) {
+                float correct = data[x][classifier.predicted()];
+                double error = 1.0 - correct;
+                sub_rmse += w * error * error;
+                sub_total += w;
+            }
+            else {
+                Correctness c = correctness(result, classifier.predicted(),
+                                            data[x]);
+                sub_correct += w * c.possible * c.correct;
+                sub_total += w * c.possible;
+                sub_rmse += w * c.possible * c.margin * c.margin;
+            }
         }
 
         Guard guard(lock);
         correct += sub_correct;
         total += sub_total;
+        rmse_accum += sub_rmse;
     }
 };
 
@@ -466,7 +484,7 @@ struct Accuracy_Job {
 
 } // file scope
 
-float
+std::pair<float, float>
 Classifier_Impl::
 accuracy(const Training_Data & data,
          const distribution<float> & example_weights,
@@ -474,6 +492,7 @@ accuracy(const Training_Data & data,
 {
     double correct = 0.0;
     double total = 0.0;
+    double rmse_accum = 0.0;
 
     if (!example_weights.empty()
         && example_weights.size() != data.example_count())
@@ -487,7 +506,7 @@ accuracy(const Training_Data & data,
         = (opt_info_ptr ? *opt_info_ptr : new_opt_info);
 
     Accuracy_Job_Info info(data, example_weights, *this, opt_info,
-                           correct, total);
+                           correct, total, rmse_accum);
     static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
     
     int group;
@@ -510,7 +529,7 @@ accuracy(const Training_Data & data,
 
     worker.run_until_finished(group);
     
-    return correct / total;
+    return make_pair(correct / total, sqrt(rmse_accum / total));
 }
 
 namespace {

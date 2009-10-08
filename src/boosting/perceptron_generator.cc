@@ -27,6 +27,7 @@
 #include <boost/bind.hpp>
 #include "utils/smart_ptr_utils.h"
 #include "utils/vector_utils.h"
+#include "utils/pair_utils.h"
 
 #if (JML_USE_CUDA == 1)
 #include "backprop_cuda.h"
@@ -187,16 +188,22 @@ generate(Thread_Context & context,
 
     Feature predicted = model.predicted();
 
+    bool regression = feature_space->info(predicted).type() == REAL;
+
     Perceptron current(model);
     Perceptron best(model);
     
     float best_acc = 0.0;
+    float best_rmse = 0.0;
     int best_iter = 0;
 
     bool validate_is_train = false;
-    if (validation_set.example_count() == 0
-        || &validation_set == &training_set) 
-        validate_is_train = true;
+    //if (validation_set.example_count() == 0
+    //    || &validation_set == &training_set) 
+    //    validate_is_train = true;
+
+    if (validate_ex_weights.total() == 0.0)
+        throw Exception("no validate ex weights");
 
     boost::scoped_ptr<boost::progress_display> progress;
 
@@ -236,11 +243,10 @@ generate(Thread_Context & context,
         throw Exception("min_iter is greater than max_iter");
 
     log("perceptron_generator", 3)
-        << "  it   train     rmse     val    best     diff" << endl;
+        << "  it   train     rmse     val     rmse    best     diff" << endl;
     
-    float validate_acc = 0.0;
-    float train_acc = 0.0;
-    float rms_error = 0.0;
+    float validate_acc = 0.0, validate_rmse = 0.0;
+    float train_acc = 0.0, train_rmse = 0.0;
 
     const std::vector<Label> & labels
         = training_set.index().labels(predicted);
@@ -248,30 +254,39 @@ generate(Thread_Context & context,
         = validation_set.index().labels(predicted);
 
     double last_best_acc = 0.0;
+    double last_best_rmse = 0.0;
 
     for (unsigned i = 0;  i < max_iter;  ++i) {
 
-        boost::tie(train_acc, rms_error)
+        boost::tie(train_acc, train_rmse)
             = train_iteration(context, decorrelated, labels,
                               training_ex_weights,
                               current);
         
-        if (validate_is_train) validate_acc = train_acc;
-        else validate_acc
+        if (validate_is_train) {
+            validate_acc = train_acc;
+            validate_rmse = train_rmse;
+        }
+        else boost::tie(validate_acc, validate_rmse)
                  = current.accuracy(val_decorrelated, val_labels,
                                     validate_ex_weights);
-
+        
         last_best_acc = best_acc;
+        last_best_rmse = best_rmse;
 
-        if (validate_acc > best_acc || i == min_iter) {
+        if (i == min_iter
+            || (validate_acc > best_acc && !regression)
+            || (validate_acc < best_acc && regression)) {
             best = current;
             best_acc = validate_acc;
+            best_rmse = validate_rmse;
             best_iter = i;
         }
 
         log("perceptron_generator", 3)
-            << format("%4d %6.2f%% %8.6f %6.2f%% %6.2f%% %+7.3f%%",
-                      i, train_acc * 100.0, rms_error, validate_acc * 100.0,
+            << format("%4d %6.2f%% %8.6f %6.2f%% %8.6f %6.2f%% %+7.3f%%",
+                      i, train_acc * 100.0, train_rmse, validate_acc * 100.0,
+                      validate_rmse,
                       best_acc * 100.0, (validate_acc - last_best_acc) * 100.0)
             << endl;
 
@@ -290,9 +305,17 @@ generate(Thread_Context & context,
                   best_iter)
         << endl;
 
+    float trn_acc, trn_rmse, val_acc, val_rmse;
+    boost::tie(trn_acc, trn_rmse)
+        = best.accuracy(training_set);
+    boost::tie(val_acc, val_rmse)
+        = best.accuracy(validation_set);
+
     log("perceptron_generator", 1)
-        << "best accuracy: " << best.accuracy(training_set) << " train, "
-        << best.accuracy(validation_set) << " validate" << endl;
+        << "best accuracy: " << trn_acc << "/"
+        << trn_rmse << " train, "
+        << val_acc << "/" << val_rmse
+        << " validation" << endl;
     
     log("perceptron_generator", 4) << best.print() << endl;
     
@@ -785,6 +808,9 @@ struct Training_Job_Info {
 
         double my_rms_error = 0.0;
         
+        bool regression_problem
+            = result.feature_space()->info(result.predicted()).type() == REAL;
+
         for (unsigned x = x_start;  x < x_end;  ++x) {
             float w = example_weights[x];
             
@@ -792,20 +818,28 @@ struct Training_Job_Info {
             
             fprop(x, layers, layer_outputs);
             
-            /* Calculate the correctness. */
-            Correctness c = correctness(layer_outputs.back().begin(),
-                                        layer_outputs.back().end(),
-                                        labels[x]);
-            sub_correct += w * c.possible * c.correct;
-            sub_total += w * c.possible;
+            if (regression_problem) {
+                correct[0] = labels[x].value();
+                double error = fabs(correct[0] - layer_outputs.back()[0]);
+                sub_correct += w * error;
+                my_rms_error+= w * error * error;
+                sub_total += w;
+            }
+            else {
+                /* Calculate the correctness. */
+                Correctness c = correctness(layer_outputs.back().begin(),
+                                            layer_outputs.back().end(),
+                                            labels[x]);
+                sub_correct += w * c.possible * c.correct;
+                my_rms_error += w * c.possible * c.margin * c.margin;
+                sub_total += w * c.possible;
+                correct[labels[x]] = fire;
+            }
        
-            /* Calculate the error terms for each output unit. */
-            /* TODO: regression */
-            correct[labels[x]] = fire;
 
 
             //cerr << "layer_output = " << layer_outputs.back()
-            //     << " correct " << correct << " label " << labels[x]
+            //     << " correct " << correct << " label " << labels[x].value()
             //     << endl;
 
             //cerr << "correct = " << correct << endl;
@@ -819,14 +853,14 @@ struct Training_Job_Info {
                 example_rms_error += 0.5 * errors[i] * errors[i] / no;
             }
 
-            if (x == 0 && false) {
+            if ((x == 0 && false)) {
                 cerr << "errors for layer " << 0 << ": "
                      << distribution<float>(errors, errors + no) << endl;
             }
 
-            my_rms_error += example_rms_error * w;
+            //my_rms_error += example_rms_error * w;
 
-            /* Backpropegate. */
+            /* Backpropegate.s */
             for (int l = nl - 1;  l >= 1;  --l) {
                 
                 const Perceptron::Layer & layer = *layers[l];
@@ -884,7 +918,8 @@ struct Training_Job_Info {
             }
         
             /* Turn back off this example for the next time. */
-            correct[labels[x]] = inhibit;
+            if (!regression_problem)
+                correct[labels[x]] = inhibit;
         }
 
         if (one_thread) {
@@ -1657,7 +1692,7 @@ train_iteration(Thread_Context & context,
     
     //cerr << "correct = " << correct << " total = " << total << endl;
 
-    return make_pair(correct / total, sqrt(total_rms_error));
+    return make_pair(correct / total, sqrt(total_rms_error / total));
 }
 
 boost::multi_array<float, 2>

@@ -99,9 +99,10 @@ public:
     predict(const Feature_Set & features) const;
 
     /** Calculate the prediction accuracy over a training set. */
-    float accuracy(const Training_Data & data,
-                   const distribution<float> & example_weights
-                       = UNIFORM_WEIGHTS) const;
+    std::pair<float, float>
+    accuracy(const Training_Data & data,
+             const distribution<float> & example_weights
+                  = UNIFORM_WEIGHTS) const;
 
     /** Dump it to a string. */
     std::string print() const;

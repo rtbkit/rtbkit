@@ -340,16 +340,20 @@ public:
                                   will count as if they were duplicated this
                                   number of times.  An empty distribution is
                                   the same as all ones.
-        \returns                  a number between 0 and 1, giving the
+        \returns                  first: a number between 0 and 1, giving the
                                   proportion of the examples in data that were
-                                  correct.
+                                  correct (for categorical classifiers), or the
+                                  RMSE (for regression).
+                                  second: the weighted average margin (for
+                                  classification) or the RMSE (for regression).
 
         Note that this method cannot be overridden.
     */
-    virtual float accuracy(const Training_Data & data,
-                           const distribution<float> & example_weights
-                               = UNIFORM_WEIGHTS,
-                           const Optimization_Info * opt_info = 0) const;
+    virtual std::pair<float, float>
+    accuracy(const Training_Data & data,
+             const distribution<float> & example_weights
+                 = UNIFORM_WEIGHTS,
+             const Optimization_Info * opt_info = 0) const;
 
     ///@}
     
@@ -599,9 +603,10 @@ public:
     }
 
     /** Calculate the prediction accuracy over a training set. */
-    float accuracy(const Training_Data & data,
-                   const distribution<float> & example_weights
-                       = UNIFORM_WEIGHTS) const
+    std::pair<float, float>
+    accuracy(const Training_Data & data,
+             const distribution<float> & example_weights
+                   = UNIFORM_WEIGHTS) const
     {
         return impl->accuracy(data);
     }

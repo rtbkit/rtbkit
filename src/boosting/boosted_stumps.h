@@ -164,10 +164,11 @@ public:
         boosted stumps as it only needs to look at the index for the features
         that it has learned a stump for, and these are nicely indexed
         by the training data. */
-    virtual float accuracy(const Training_Data & data,
-                           const distribution<float> & example_weights
-                               = UNIFORM_WEIGHTS,
-                           const Optimization_Info * opt_info = 0) const;
+    virtual std::pair<float, float>
+    accuracy(const Training_Data & data,
+             const distribution<float> & example_weights
+                 = UNIFORM_WEIGHTS,
+             const Optimization_Info * opt_info = 0) const;
 
     using Classifier_Impl::accuracy;
 
