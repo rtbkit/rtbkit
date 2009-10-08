@@ -94,23 +94,6 @@ init(boost::shared_ptr<const Feature_Space> fs, Feature predicted)
 
 namespace {
 
-template<class RNG>
-struct RNG_Adaptor {
-
-    RNG_Adaptor(RNG & rng)
-        : rng(rng)
-    {
-    }
-
-    RNG & rng;
-    
-    template<class T>
-    T operator () (T val) const
-    {
-        return rng() % val;
-    }
-};
-
 struct Bag_Job_Info {
     Thread_Context & context;
     const Training_Data & training_set;

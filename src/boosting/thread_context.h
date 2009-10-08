@@ -29,6 +29,23 @@
 
 namespace ML {
 
+template<class RNG>
+struct RNG_Adaptor {
+
+    RNG_Adaptor(RNG & rng)
+        : rng(rng)
+    {
+    }
+
+    RNG & rng;
+    
+    template<class T>
+    T operator () (T val) const
+    {
+        return rng() % val;
+    }
+};
+
 class Thread_Context {
 public:
     Thread_Context(Worker_Task & worker
@@ -62,6 +79,9 @@ public:
     {
         return rng_();
     }
+
+    typedef RNG_Adaptor<boost::mt19937> RNG_Type;
+    RNG_Type rng() { return RNG_Type(rng_); }
 
     /** What level are we recursed to? */
     int recursion() const { return recursion_; }
