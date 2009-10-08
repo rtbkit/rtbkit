@@ -460,6 +460,61 @@ struct Binomial_Dist {
     }
 };
 
+/** The binomial distribution.  This is the error distribution of choice for
+    probabilistic phenomena.  It is usually paired with the logit, probit or
+    complementary log-log distributions (see above).
+*/
+
+template<class Float>
+struct Normal_Dist {
+
+    typedef distribution<Float> Vector;
+
+    /** Calculates the variance:
+        \f[
+            \sigma^2 = \mu - \frac{\mu^2}{m};
+        \f]
+     */
+    static Float variance(Float mu, Float m = 1.0)
+    {
+        return 1.0;
+    }
+
+    /** Calculates the variance:
+        \f[
+            \sigma^2 = \mu - \frac{\mu^2}{m};
+        \f]
+     */
+    static Vector variance(Vector mu, Vector m)
+    {
+        return Vector(mu.size(), 1.0);
+    }
+
+    /** Calculates the variance:
+        \f[
+            \sigma^2 = \mu - \mu^2;
+        \f]
+     */
+    static Vector variance(Vector mu)
+    {
+        return Vector(mu.size(), 1.0);
+    }
+
+    /** Calculates the deviance:
+        \f[
+            r = 2 \sum w_i \left[ y \log \left( \frac{y}{\mu} \right) \right]
+                           \left[ (1-y) \log \left( \frac{1-y}{1-\mu} \right)
+                           \right]
+        \f]
+        of a sample y with respect to the binomial distribution.
+     */
+    static Float deviance(const Vector & y, const Vector & mu,
+                          const Vector & weights)
+    {
+        return weights.dotprod(sqr(y - mu));
+    }
+};
+
 
 /*****************************************************************************/
 /* GLZ                                                                       */

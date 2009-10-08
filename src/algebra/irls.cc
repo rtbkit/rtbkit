@@ -248,7 +248,7 @@ irls_linear(const distribution<double> & correct,
             const distribution<double> & w)
 {
     return irls(correct, outputs, w, Linear_Link<double>(),
-                Binomial_Dist<double>());
+                Normal_Dist<double>());
 }
 
 distribution<double>
