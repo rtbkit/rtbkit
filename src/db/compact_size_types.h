@@ -32,13 +32,13 @@ namespace ML {
 namespace DB {
 
 
-void encode_compact(Store_Writer & store, unsigned long val);
+void encode_compact(Store_Writer & store, unsigned long long val);
 
-unsigned long decode_compact(Store_Reader & store);
+unsigned long long decode_compact(Store_Reader & store);
 
-void encode_signed_compact(Store_Reader & store, signed long val);
+void encode_signed_compact(Store_Reader & store, signed long long val);
 
-signed long decode_signed_compact(Store_Reader & store);
+signed long long decode_signed_compact(Store_Reader & store);
 
 
 /*****************************************************************************/
@@ -47,10 +47,10 @@ signed long decode_signed_compact(Store_Reader & store);
 
 struct compact_size_t {
     compact_size_t() : size_(0) {}
-    compact_size_t(unsigned long size) : size_(size) {}
+    compact_size_t(unsigned long long size) : size_(size) {}
     compact_size_t(Store_Reader & archive);
     
-    operator unsigned long () const { return size_; }
+    operator unsigned long long () const { return size_; }
 
     void serialize(Store_Writer & store) const;
     void reconstitute(Store_Reader & store);
@@ -70,10 +70,10 @@ const compact_size_t compact_const(unsigned val);
 
 struct compact_int_t {
     compact_int_t() : size_(0) {}
-    compact_int_t(signed long size) : size_(size) {}
+    compact_int_t(signed long long size) : size_(size) {}
     compact_int_t(Store_Reader & archive);
     
-    operator signed long () const { return size_; }
+    operator signed long long () const { return size_; }
 
     void serialize(Store_Writer & store) const;
     void reconstitute(Store_Reader & store);

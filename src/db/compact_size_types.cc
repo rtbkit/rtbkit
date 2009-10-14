@@ -55,7 +55,7 @@ const compact_size_t compact_const(unsigned val)
    11111111      8    2^56  2^64-1
 */
 
-void encode_compact(Store_Writer & store, unsigned long val)
+void encode_compact(Store_Writer & store, unsigned long long val)
 {
     char buf[9];
 
@@ -81,7 +81,7 @@ void encode_compact(Store_Writer & store, unsigned long val)
     store.save_binary(buf, len);
 }
 
-unsigned long decode_compact(Store_Reader & store)
+unsigned long long decode_compact(Store_Reader & store)
 {
     /* Find the first zero bit in the marker.  We do this by bit flipping
        and finding the first 1 bit in the result. */
@@ -97,7 +97,7 @@ unsigned long decode_compact(Store_Reader & store)
     store.must_have(len);
 
     /* Construct our value from the bytes. */
-    unsigned long result = 0;
+    unsigned long long result = 0;
     for (int i = 0;  i < len;  ++i) {
         int val = store[i];
         if (val < 0) val += 256;
@@ -171,12 +171,12 @@ std::ostream & operator << (std::ostream & stream, const compact_size_t & s)
    11111111   sxxxxxxx 7       2^63
 */
 
-void encode_signed_compact(Store_Reader & store, signed long val)
+void encode_signed_compact(Store_Reader & store, signed long long val)
 {
     throw Exception("not implemented");
 }
 
-signed long decode_signed_compact(Store_Reader & store)
+signed long long decode_signed_compact(Store_Reader & store)
 {
     throw Exception("not implemented");
 }
