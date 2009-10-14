@@ -61,6 +61,8 @@ T do_shrd(T low, T high, int bits)
     T val2 = shrd(low, high, bits);
 
     if (val1 != val2) {
+        cerr << "size: " << sizeof(T) << endl;
+	cerr << "type: " << demangle(typeid(T).name()) << endl;
         cerr << "val1 = " << val1 << endl;
         cerr << "val2 = " << val2 << endl;
         cerr << "low  = " << low << endl;

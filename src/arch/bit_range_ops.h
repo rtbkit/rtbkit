@@ -78,6 +78,24 @@ signed char shrd(signed char low, signed char high, shift_t bits)
     return shrd_emulated(low, high, bits);
 }
 
+#if JML_BITS == 32
+
+// There's no 8 byte shrd instruction available
+JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+unsigned long long shrd(unsigned long long low, unsigned long long high, shift_t bits)
+{
+    return shrd_emulated(low, high, bits);
+}
+
+// There's no 8 byte shrd instruction available
+JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+signed long long shrd(signed long long low, signed long long high, shift_t bits)
+{
+    return shrd_emulated(low, high, bits);
+}
+#endif
+
+
 #else // no SHRD instruction available
 
 template<typename T>
