@@ -8,6 +8,13 @@ CXXDEBUGFLAGS := -O0 -g
 FC ?= gfortran
 FFLAGS := -I. -fPIC
 
+PYTHON_ENABLED ?= 1
+
+ifeq ($(PYTHON_ENABLED),1)
+
+PYTHON_INCLUDE_PATH ?= /usr/include/python2.6/
+
+endif
 
 CAL_ENABLED ?= 0
 
