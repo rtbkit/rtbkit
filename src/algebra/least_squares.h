@@ -90,7 +90,7 @@ least_squares(const boost::multi_array<Float, 2> & A,
     return result;
 }
 
-extern __thread std::ostream * debug_irls;
+//extern __thread std::ostream * debug_irls;
 
 /** Solve a least squares linear problem.
     This solves the linear least squares problem
@@ -146,14 +146,14 @@ least_squares(const boost::multi_array<Float, 2> & A, const distribution<Float> 
         throw Exception(format("least_squares(): gels returned error in arg "
                                "%d", -res));
 
-    if (debug_irls) {
-        (*debug_irls) << "gels returned " << res << endl;
-        (*debug_irls) << "x = " << x << endl;
-    }
+    //if (debug_irls) {
+    //    (*debug_irls) << "gels returned " << res << endl;
+    //    (*debug_irls) << "x = " << x << endl;
+    //}
 
     if (res > 0) {
-        if (debug_irls)
-            (*debug_irls) << "retrying; " << res << " are too small" << endl;
+        //if (debug_irls)
+        //      (*debug_irls) << "retrying; " << res << " are too small" << endl;
     
         /* Rank-deficient matrix.  Use the more efficient routine. */
         int rank;
@@ -171,9 +171,9 @@ least_squares(const boost::multi_array<Float, 2> & A, const distribution<Float> 
 
         res = gelsd(m, n, 1, A2.data(), m, &x[0], x.size(), sv, rcond, rank);
 
-        if (debug_irls)
-            (*debug_irls) << "rcond: " << rcond << " rank: "
-                          << rank << endl;
+        //if (debug_irls)
+        //    (*debug_irls) << "rcond: " << rcond << " rank: "
+        //                  << rank << endl;
     }
 
     if (res < 0) {
@@ -401,8 +401,8 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
             if (!std::isfinite(deta_dmu[i]))
                 throw Exception(format("deta_dmu[%d] = %f", i, deta_dmu[i]));
 
-        if (debug_irls)
-            (*debug_irls) << "deta_demu: " << deta_dmu << endl;
+        //if (debug_irls)
+        //    (*debug_irls) << "deta_demu: " << deta_dmu << endl;
 
         //cerr << "diff: " << t.elapsed() << endl;
 
@@ -411,8 +411,8 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
             if (!std::isfinite(var[i]))
                 throw Exception(format("var[%d] = %f", i, var[i]));
 
-        if (debug_irls)
-            (*debug_irls) << "var: " << deta_dmu << endl;
+        //if (debug_irls)
+        //    (*debug_irls) << "var: " << deta_dmu << endl;
 
         //cerr << "variance: " << t.elapsed() << endl;
 
@@ -427,8 +427,8 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
             }
         }
 
-        if (debug_irls)
-            (*debug_irls) << "fit_weights: " << fit_weights << endl;
+        //if (debug_irls)
+        //    (*debug_irls) << "fit_weights: " << fit_weights << endl;
 
         //cerr << "fit_weights: " << t.elapsed() << endl;
 
@@ -440,17 +440,17 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         Vector xTwz        = diag_mult(x, fit_weights, z);
         //cerr << "xTwz: " << t.elapsed() << endl;
 
-        if (debug_irls)
-            (*debug_irls) << "z: " << z << endl
-                          << "xTwx: " << xTwx << endl
-                          << "xTwz: " << xTwz << endl;
+        //if (debug_irls)
+        //    (*debug_irls) << "z: " << z << endl
+        //                  << "xTwx: " << xTwx << endl
+        //                  << "xTwz: " << xTwz << endl;
 
         /* Solve the reweighted problem using a linear least squares. */
         b2                 = b;
         b                  = least_squares_rd(xTwx, xTwz);
 
-        if (debug_irls)
-            (*debug_irls) << "b: " << b << endl;
+        //if (debug_irls)
+        //    (*debug_irls) << "b: " << b << endl;
 
         //cerr << "least squares: " << t.elapsed() << endl;
 
@@ -460,8 +460,8 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
             if (!std::isfinite(eta[i]))
                 throw Exception(format("eta[%d] = %f", i, eta[i]));
 
-        if (debug_irls)
-            (*debug_irls) << "eta: " << eta << endl;
+        //if (debug_irls)
+        //    (*debug_irls) << "eta: " << eta << endl;
 
         //cerr << "eta: " << t.elapsed() << endl;
 
@@ -470,8 +470,8 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
             if (!std::isfinite(mu[i]))
                 throw Exception(format("mu[%d] = %f", i, mu[i]));
 
-        if (debug_irls)
-            (*debug_irls) << "me: " << mu << endl;
+        //if (debug_irls)
+        //    (*debug_irls) << "me: " << mu << endl;
 
         //cerr << "mu: " << t.elapsed() << endl;
 
@@ -484,11 +484,11 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 
         ++iter;
 
-        if (debug_irls) {
-            *debug_irls << "iter " << iter << " rdev " << rdev
-                        << " rdev2 " << rdev2 << " diff " << abs(rdev - rdev2)
-                        << " tolerance " << tolerence << endl;
-        }
+        //if (debug_irls) {
+        //    *debug_irls << "iter " << iter << " rdev " << rdev
+        //                << " rdev2 " << rdev2 << " diff " << abs(rdev - rdev2)
+        //                << " tolerance " << tolerence << endl;
+        //}
     }
 
     return b;
