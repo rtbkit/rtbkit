@@ -29,7 +29,22 @@ using namespace DB;
 namespace ML {
 
 
+/*****************************************************************************/
+/* OUTPUT_ENCODING                                                           */
+/*****************************************************************************/
+
+std::string print(Output_Encoding encoding)
+{
+    switch (encoding) {
+    case OE_PROB:   return "PROB";
+    case OE_PM_INF: return "PM_INF";
+    case OE_PM_ONE: return "PM_ONE";
+    default:        return format("Output_Encoding(%d)", encoding);
+    }
+}
+
 BYTE_PERSISTENT_ENUM_IMPL(Output_Encoding);
+
 
 /*****************************************************************************/
 /* OPTIMIZATION_INFO                                                         */

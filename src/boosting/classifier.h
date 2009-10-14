@@ -43,6 +43,13 @@ enum Output_Encoding {
 
 BYTE_PERSISTENT_ENUM_DECL(Output_Encoding);
 
+std::string print(Output_Encoding encoding);
+
+inline std::ostream & operator << (std::ostream & stream, Output_Encoding e)
+{
+    return stream << print(e);
+}
+
 typedef distribution<float> Label_Dist;
 //typedef distribution<float, compact_vector<float, 3> > Label_Dist;
 

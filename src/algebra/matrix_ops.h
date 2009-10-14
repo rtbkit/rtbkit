@@ -100,8 +100,7 @@ multiply(const boost::multi_array<Float1, 2> & A,
 
 template<typename Float1, typename Float2>
 JML_ALWAYS_INLINE
-distribution<double>
-//ML::distribution<typename float_traits<Float1, Float2>::return_type>
+distribution<typename float_traits<Float1, Float2>::return_type>
 operator * (const boost::multi_array<Float1, 2> & A,
             const ML::distribution<Float2> & b)
 {

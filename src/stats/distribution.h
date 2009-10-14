@@ -49,7 +49,7 @@ class distribution : public Underlying {
 public:
     distribution() {}
 
-    distribution(size_t size, F val = F())
+    explicit distribution(size_t size, F val = F())
         : parent(size, val)
     {
     }
@@ -61,7 +61,7 @@ public:
     }
 
     template<typename OtherF, class OtherUnderlying>
-    distribution(const distribution<OtherF, OtherUnderlying> & dist)
+    explicit distribution(const distribution<OtherF, OtherUnderlying> & dist)
     {
         reserve(dist.size());
         for (unsigned i = 0;  i < dist.size();  ++i)
@@ -74,6 +74,13 @@ public:
     {
         resize(dist.size());
         std::copy(dist.begin(), dist.end(), this->begin());
+        return *this;
+    }
+
+    distribution &
+    operator = (const F & val)
+    {
+        std::fill(this->begin(), this->end(), val);
         return *this;
     }
 
@@ -176,6 +183,11 @@ public:
         return std::accumulate(this->begin(), this->end(), F());
     }
 
+    double mean() const
+    {
+        return this->total() / this->size();
+    }
+
     int count() const
     {
         return std::count_if(this->begin(), this->end(),
@@ -210,6 +222,13 @@ public:
         for (unsigned i = 0;  i < this->size();  ++i)
             if (this->operator [] (i)) return true;
         return false;
+    }
+
+    template<class Other>
+    distribution<Other>
+    cast() const
+    {
+        return distribution<Other>(this->begin(), this->end());
     }
 
     template<class Archive>

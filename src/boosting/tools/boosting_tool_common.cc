@@ -86,7 +86,8 @@ struct Graphic_Metrics {
         int stars = 15;  // how many stars we want
 
         /* Work out the width of the counts. */
-        distribution<int> widths = round(counts / (max ? max : 1) * stars);
+        distribution<int> widths
+            = round(counts / (max ? max : 1) * stars).cast<int>();
 
         /* Add the distributions. */
         for (unsigned i = 0;  i < 10;  ++i) {
