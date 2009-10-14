@@ -26,11 +26,7 @@ struct cmp_xchg_switch {
         asm volatile ("lock cmpxchg %[new_val], (%[val])\n\t"
                       "     setz    %[result]\n\t"
                       : "+&a" (old),
-#if JML_BITS == 32
-                        [result] "=m" (result)
-#else
-                        [result] "=r" (result)
-#endif
+                        [result] "=q" (result)
                       : [val] "r" (&val),
                         [new_val] "r" (new_val)
                       : "cc", "memory");
@@ -38,7 +34,27 @@ struct cmp_xchg_switch {
     }
 };
 
+
 #if JML_BITS == 32
+
+template<>
+struct cmp_xchg_switch<1> {
+
+    template<class X>
+    JML_ALWAYS_INLINE bool cmp_xchg(X & val, X & old, const X & new_val)
+    {
+        uint8_t result;
+        asm volatile ("lock cmpxchg %[new_val], (%[val])\n\t"
+                      "     setz    %[result]\n\t"
+                      : "+&a" (old),
+                        [result] "=q" (result)
+                      : [val] "r" (&val),
+                        [new_val] "q" (new_val)
+                      : "cc", "memory");
+        return result;
+    }
+
+};
 
 template<>
 struct cmp_xchg_switch<8> {
