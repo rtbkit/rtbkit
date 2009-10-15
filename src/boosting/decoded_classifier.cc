@@ -117,6 +117,15 @@ std::string Decoded_Classifier::print() const
     return "Decoded_Classifier";
 }
 
+Explanation
+Decoded_Classifier::
+explain(const Feature_Set & feature_set,
+        int label,
+        double weight) const
+{
+    return classifier_.impl->explain(feature_set, label, weight);
+}
+
 std::vector<ML::Feature> Decoded_Classifier::all_features() const
 {
     return classifier_.all_features();

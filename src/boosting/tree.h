@@ -80,6 +80,7 @@ struct Tree {
         Split split;       ///< Value to split on
         float z;           ///< Z score for this split
         float examples;    ///< Num examples at this point
+        distribution<float> pred;  ///< Prediction if it was pruned here
         Ptr child_true;    ///< Result if true
         Ptr child_false;   ///< Result if false
         Ptr child_missing; ///< Result if missing

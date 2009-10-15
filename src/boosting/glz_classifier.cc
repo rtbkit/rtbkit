@@ -230,6 +230,31 @@ output_encoding() const
     else return OE_PROB;
 }
 
+Explanation
+GLZ_Classifier::
+explain(const Feature_Set & feature_set,
+        int label,
+        double weight) const
+{
+    Explanation result(feature_set, *feature_space(), label);
+
+    for (unsigned j = 0;  j < features.size();  ++j) {
+        float feat_val = feature_set[features[j]];
+        if (!isfinite(feat_val))
+            throw Exception("GLZ_Classifier: feature "
+                            + feature_space()->print(features[j])
+                            + " is not finite");
+        
+        result.feature_weights[features[j]]
+            += weight * weights[label][j] * feat_val;
+    }
+    
+    if (add_bias) result.bias += weight * weights[label][features.size()];
+
+    return result;
+}
+
+
 std::string GLZ_Classifier::print() const
 {
     return "GLZ_Classifier: link " + ML::print(link);

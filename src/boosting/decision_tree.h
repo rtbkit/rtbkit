@@ -105,6 +105,15 @@ public:
                                 const Tree::Ptr & ptr,
                                 double weight = 1.0) const;
 
+    virtual Explanation explain(const Feature_Set & feature_set,
+                                int label,
+                                double weight = 1.0) const;
+
+    void explain_recursive(Explanation & explanation,
+                           double weight,
+                           const Tree::Ptr & ptr,
+                           const Tree::Node * parent) const;
+
     virtual std::string print() const;
 
     virtual std::string summary() const;

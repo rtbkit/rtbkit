@@ -172,6 +172,23 @@ optimized_predict_impl(int label,
     return result;
 }
 
+Explanation
+Committee::
+explain(const Feature_Set & feature_set,
+        int label,
+        double weight) const
+{
+    Explanation result(feature_set, *feature_space(), label);
+
+    for (unsigned i = 0;  i < classifiers.size();  ++i) {
+        if (weights[i] == 0.0) continue;
+        result.add(classifiers[i]->explain(feature_set, label),
+                   weight * weights[i]);
+    }
+
+    return result;
+}
+
 void
 Committee::
 add(boost::shared_ptr<Classifier_Impl> classifier, float weight)

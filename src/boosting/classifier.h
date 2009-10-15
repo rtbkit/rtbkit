@@ -97,6 +97,32 @@ struct Optimization_Info {
 };
 
 
+/*****************************************************************************/
+/* EXPLANATION                                                               */
+/*****************************************************************************/
+
+/** This structure is used to accumulate the effect of various features on
+    the prediction. */
+
+struct Explanation {
+    Explanation(const Feature_Set & fset,
+                const Feature_Space & fspace,
+                int label);
+
+    void add(const Explanation & other, double weight = 1.0);
+
+    std::string print(int nfeatures = 10) const;
+
+    double value;
+    double bias;
+
+    typedef std::map<Feature, double> Feature_Weights;
+    Feature_Weights feature_weights;
+    const Feature_Set * fset;
+    const Feature_Space * fspace;
+    int label;
+};
+
 
 /*****************************************************************************/
 /* CLASSIFIER_IMPL                                                           */
@@ -331,6 +357,13 @@ public:
                          const Optimization_Info * opt_info = 0) const;
 
     ///@}
+
+    /** Perform a prediction and explain why the prediction was done in the
+        given way.  If not implemented, an exception will be thrown.
+    */
+    virtual Explanation explain(const Feature_Set & feature_set,
+                                int label,
+                                double weight = 1.0) const;
 
     /** \name Accuracy
         These methods are all ways of returning the accuracy of the classifier

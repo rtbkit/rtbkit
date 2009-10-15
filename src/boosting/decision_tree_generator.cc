@@ -350,15 +350,15 @@ get_probs(const W & w_, Stump::Update update, float epsilon = 0.0)
 #endif
 }
 
-Tree::Leaf * 
-new_leaf(Tree & tree,
-         const Training_Data & data,
-         const Feature & predicted,
-         const vector<const float *> & weights,
-         int advance,
-         const distribution<float> & in_class,
-         Stump::Update update_alg,
-         float examples = -1.0)
+void
+fillin_leaf(Tree::Leaf & leaf,
+            const Training_Data & data,
+            const Feature & predicted,
+            const vector<const float *> & weights,
+            int advance,
+            const distribution<float> & in_class,
+            Stump::Update update_alg,
+            float examples = -1.0)
 {
     /* Use the stump trainer to accumulate for us. */
 
@@ -402,9 +402,8 @@ new_leaf(Tree & tree,
         //     << w.print() << endl;
     }
 
-    Tree::Leaf * result = tree.new_leaf(dist, examples);
-    
-    return result;
+    leaf.examples = examples;
+    leaf.pred = dist;
 }
 
 Tree::Leaf * 
@@ -660,8 +659,9 @@ do_branch(Tree::Ptr & ptr,
                               new_in_class, new_depth, max_depth, tree);
     else {
         // Leaf only
-        ptr = new_leaf(tree, data, model.predicted(), weights,
-                       advance, new_in_class, update_alg, 0.0);
+        ptr = tree.new_leaf();
+        fillin_leaf(*ptr.leaf(), data, model.predicted(), weights,
+                    advance, new_in_class, update_alg, 0.0);
     }
 }
 
@@ -737,6 +737,11 @@ train_recursive(Thread_Context & context,
                 class_weights[l] += w(l, j, true);
     }
 
+    // What would we have as a leaf if we were to stop splitting here?
+    Tree::Leaf leaf;
+    fillin_leaf(leaf, data, model.predicted(), weights, advance,
+                in_class, update_alg, total_weight);
+
     //cerr << "class_weights = " << class_weights << endl;
     
     //cerr << "done test" << endl;
@@ -746,9 +751,11 @@ train_recursive(Thread_Context & context,
         || total_weight < 1.0       // split up finer than one example
         || class_weights.total() == 0.0 // weights to small to count
         || in_class.size() == 1     // only one example
-        || false)
-        return new_leaf(tree, data, model.predicted(), weights, advance,
-                        in_class, update_alg, total_weight);
+        || false) {
+        Tree::Leaf * result = tree.new_leaf();
+        *result = leaf;
+        return result;
+    }
     
     int num_non_zero = std::count_if(in_class.begin(), in_class.end(),
                                      std::bind2nd(std::greater<float>(), 0.0));
@@ -823,8 +830,9 @@ train_recursive(Thread_Context & context,
         cerr << "class_weights = " << class_weights << endl;
         cerr << "total_weight = " << total_weight << endl;
         
-        return new_leaf(tree, data, model.predicted(), weights, advance,
-                        in_class, update_alg, total_weight);
+        Tree::Leaf * result = tree.new_leaf();
+        *result = leaf;
+        return result;
 
         throw Exception("Decision_Tree_Generator::train_recursive(): "
                         "no feature was learned");
@@ -839,8 +847,9 @@ train_recursive(Thread_Context & context,
 
     if (best_z == 0.0) {
         // No impurity at all
-        return new_leaf(tree, data, model.predicted(), weights, advance,
-                        in_class, update_alg, total_weight);
+        Tree::Leaf * result = tree.new_leaf();
+        *result = leaf;
+        return result;
     }
 
     
@@ -873,6 +882,7 @@ train_recursive(Thread_Context & context,
     node->split = split;
     node->z = best_z;
     node->examples = total_weight;
+    node->pred = leaf.pred;
 
     int group_to_wait_for = -1;
 

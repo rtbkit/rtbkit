@@ -135,6 +135,10 @@ protected:
              int label) const;
 
 public:
+    virtual Explanation explain(const Feature_Set & feature_set,
+                                int label,
+                                double weight = 1.0) const;
+
     virtual std::string print() const;
 
     virtual std::string summary() const;

@@ -26,9 +26,9 @@ namespace ML {
 void Tree::Node::
 serialize(DB::Store_Writer & store, const Feature_Space & fs) const
 {
-    store << compact_size_t(3);  // version
+    store << compact_size_t(4);  // version
     split.serialize(store, fs);
-    store << z << examples;
+    store << z << examples << pred;
     child_true.serialize(store, fs);
     child_false.serialize(store, fs);
     child_missing.serialize(store, fs);
@@ -43,6 +43,15 @@ reconstitute(DB::Store_Reader & store, const Feature_Space & fs,
     case 3: {
         split.reconstitute(store, fs);
         store >> z >> examples;
+        child_true.reconstitute(store, fs, parent);
+        child_false.reconstitute(store, fs, parent);
+        child_missing.reconstitute(store, fs, parent);
+        pred.clear();
+        break;
+    }
+    case 4: {
+        split.reconstitute(store, fs);
+        store >> z >> examples >> pred;
         child_true.reconstitute(store, fs, parent);
         child_false.reconstitute(store, fs, parent);
         child_missing.reconstitute(store, fs, parent);

@@ -96,6 +96,73 @@ get_optimized_index(const Feature & feature) const
 
 
 /*****************************************************************************/
+/* EXPLANATION                                                               */
+/*****************************************************************************/
+
+Explanation::
+Explanation(const Feature_Set & fset,
+            const Feature_Space & fspace,
+            int label)
+    : value(0.0), bias(0.0), fset(&fset), fspace(&fspace), label(label)
+{
+}
+
+void
+Explanation::
+add(const Explanation & other, double weight)
+{
+    for (Feature_Weights::const_iterator
+             it = other.feature_weights.begin(),
+             end = other.feature_weights.end();
+         it != end;  ++it)
+        feature_weights[it->first] += weight * it->second;
+}
+
+struct Sort_On_Abs_Second {
+    template<class X>
+    bool operator () (const X & x1, const X & x2)
+    {
+        return abs(x1.second) > abs(x2.second);
+    }
+};
+
+std::string
+Explanation::
+print(int nfeatures) const
+{
+    // Rank the features
+    vector<pair<Feature, float> > ranked(feature_weights.begin(),
+                                         feature_weights.end());
+
+    std::sort(ranked.begin(), ranked.end(),
+              Sort_On_Abs_Second());
+    
+    std::string result;
+    if (bias != 0.0)
+        result += format("%12.6f                      BIAS\n",
+                         bias);
+    for (unsigned i = 0;  i < ranked.size() && i < nfeatures;  ++i) {
+        const Feature & feature = ranked[i].first;
+        float score = ranked[i].second;
+        result += format("%12.6f %-20s %s\n",
+                         score,
+                         fspace->print(feature, (*fset)[feature]).c_str(),
+                         fspace->print(feature).c_str());
+    }
+
+    double total = bias;
+    for (unsigned i = 0;  i < ranked.size();  ++i)
+        total += ranked[i].second;
+    
+
+    result += format("%12.6f                      TOTAL\n",
+                     total);
+
+    return result;
+}
+
+
+/*****************************************************************************/
 /* CLASSIFIER_IMPL                                                           */
 /*****************************************************************************/
 
@@ -666,6 +733,17 @@ predict(const Training_Data & data,
 
     worker.run_until_finished(group);
 }
+
+Explanation
+Classifier_Impl::
+explain(const Feature_Set & feature_set,
+        int label,
+        double weight) const
+{
+    throw Exception("class " + demangle(typeid(*this).name())
+                    + " doesn't implement the explain() method");
+}
+
 
 boost::shared_ptr<Classifier_Impl>
 Classifier_Impl::

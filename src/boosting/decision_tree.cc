@@ -333,6 +333,76 @@ print_recursive(int level, const Tree::Ptr & ptr,
     else return spaces + "NULL";
 }
 
+Explanation
+Decision_Tree::
+explain(const Feature_Set & feature_set,
+        int label,
+        double weight) const
+{
+    Explanation result(feature_set, *feature_space(), label); 
+
+    explain_recursive(result, weight, tree.root, 0);
+
+    return result;
+}
+
+void
+Decision_Tree::
+explain_recursive(Explanation & explanation,
+                  double weight,
+                  const Tree::Ptr & ptr,
+                  const Tree::Node * parent) const
+{
+    StandardGetFeatures get_features(*explanation.fset);
+    int nl = label_count();
+    int label = explanation.label;
+
+    if (label < 0 || label >= nl)
+        throw Exception("Decision_Tree::explain(): no label");
+
+    if (!ptr) return;
+
+    if (!ptr.node()) {
+        // It's a leaf; we give the difference to the parent's feature
+        if (parent) {
+            explanation.feature_weights[parent->split.feature()]
+                += weight
+                * (ptr.leaf()->pred.at(label) - parent->pred.at(label));
+        }
+        else {
+            // No parent, therefore it's all bias
+            explanation.bias += weight * (ptr.leaf()->pred.at(label));
+        }
+
+        return;
+    }
+
+    const Tree::Node & node = *ptr.node();
+    
+    Split::Weights weights = get_features(node.split);
+
+    // Accumulate the weight for this split
+    if (!parent)
+        explanation.bias += weight * node.pred.at(label);
+    else
+        explanation.feature_weights[parent->split.feature()]
+            += weight
+            * (node.pred.at(label) - parent->pred.at(label));
+    
+    /* Go down all of the edges that we need to for this example. */
+    if (weights[true] > 0.0)
+        explain_recursive(explanation, weight * weights[true],
+                          node.child_true, &node);
+
+    if (weights[false] > 0.0)
+        explain_recursive(explanation, weight * weights[false],
+                          node.child_false, &node);
+
+    if (weights[MISSING] > 0.0)
+        explain_recursive(explanation, weight * weights[MISSING],
+                          node.child_missing, &node);
+}
+
 std::string
 Decision_Tree::
 print() const
