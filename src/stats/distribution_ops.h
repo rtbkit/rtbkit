@@ -26,6 +26,7 @@
 #include "distribution.h"
 #include "math/bound.h"
 #include "math/round.h"
+#include "math/xdiv.h"
 #include "arch/math_builtins.h"
 #include <cmath>
 
@@ -116,7 +117,7 @@ distribution<F, Underlying> max(const distribution<F, Underlying> & dist1,
 
     distribution<F, Underlying> result(dist1.size());
     for (unsigned i = 0;  i < dist1.size();  ++i)
-        result[i] = std::max(dist2[i], dist2[i]);
+        result[i] = std::max(dist1[i], dist2[i]);
     return result;
 }
 
@@ -138,7 +139,40 @@ distribution<F, Underlying> min(const distribution<F, Underlying> & dist1,
 
     distribution<F, Underlying> result(dist1.size());
     for (unsigned i = 0;  i < dist1.size();  ++i)
-        result[i] = std::min(dist2[i], dist2[i]);
+        result[i] = std::min(dist1[i], dist2[i]);
+    return result;
+}
+
+template<typename F, class Underlying>
+distribution<F, Underlying> xdiv(const distribution<F, Underlying> & dist,
+                                 F val)
+{
+    distribution<F, Underlying> result(dist.size());
+    for (unsigned i = 0;  i < dist.size();  ++i)
+        result[i] = ML::xdiv(dist[i], val);
+    return result;
+}
+
+template<typename F, class Underlying>
+distribution<F, Underlying> xdiv(F val,
+                                 const distribution<F, Underlying> & dist)
+{
+    distribution<F, Underlying> result(dist.size());
+    for (unsigned i = 0;  i < dist.size();  ++i)
+        result[i] = ML::xdiv(val, dist[i]);
+    return result;
+}
+
+template<typename F, class Underlying>
+distribution<F, Underlying> xdiv(const distribution<F, Underlying> & dist1,
+                                 const distribution<F, Underlying> & dist2)
+{
+    if (dist1.size() != dist2.size())
+        wrong_sizes_exception();
+
+    distribution<F, Underlying> result(dist1.size());
+    for (unsigned i = 0;  i < dist1.size();  ++i)
+        result[i] = ML::xdiv(dist1[i], dist2[i]);
     return result;
 }
 
