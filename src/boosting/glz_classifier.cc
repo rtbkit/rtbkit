@@ -94,6 +94,8 @@ GLZ_Classifier::predict(const Feature_Set & features) const
 Label_Dist
 GLZ_Classifier::predict(const distribution<float> & features_c) const
 {
+    if (features_c.size() != features.size())
+        throw Exception("wrong number of features");
     return do_predict_impl(&features_c[0], 0);
 }
 
@@ -174,8 +176,11 @@ do_accum(const float * features_c,
         
         accum +=  feat_val * weights[label][j];
     }
-    
+
     if (add_bias) accum += weights[label][features.size()];
+
+    //cerr << "do accum " << label << " = " << accum << endl;
+    
     
     return apply_link_inverse(accum, link);
 }
