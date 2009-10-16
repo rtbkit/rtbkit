@@ -415,6 +415,18 @@ struct C_normal {
         return result;
     }
 
+    template<class W>
+    void
+    operator() (float * dist, int forwhich,
+                const W & w, float epsilon, bool optional) const
+    {
+        for (unsigned l = 0;  l < w.nl();  ++l) {
+            dist[l] = 0.5
+                * log ((w(l, forwhich, true) + epsilon)
+                       / (w(l, forwhich, false) + epsilon));
+        }
+    }
+
     Stump::Update update_alg() const { return Stump::NORMAL; }
 };
 
@@ -437,8 +449,19 @@ struct C_prob {
             for (unsigned l = 0;  l < w.nl();  ++l)
                 result[j][l] 
                     = xdiv(w(l, j, true),
-                                 w(l, j, true) + w(l, j, false));
+                           w(l, j, true) + w(l, j, false));
         return result;
+    }
+
+    template<class W>
+    void
+    operator() (float * dist, int forwhich,
+                const W & w, float epsilon, bool optional) const
+    {
+        for (unsigned l = 0;  l < w.nl();  ++l)
+            dist[l] 
+                = xdiv(w(l, forwhich, true),
+                       w(l, forwhich, true) + w(l, forwhich, false));
     }
 
     Stump::Update update_alg() const { return Stump::PROB; }
@@ -467,6 +490,17 @@ struct C_gentle {
         return result;
     }
 
+    template<class W>
+    void
+    operator() (float * dist, int forwhich,
+                const W & w, float epsilon, bool optional) const
+    {
+        for (unsigned l = 0;  l < w.nl();  ++l)
+            dist[l] 
+                = xdiv(w(l, forwhich, true) - w(l, forwhich, false),
+                       w(l, forwhich, true) + w(l, forwhich, false));
+    }
+
     Stump::Update update_alg() const { return Stump::GENTLE; }
 };
 
@@ -481,6 +515,23 @@ struct C_any {
         if (alg == Stump::NORMAL) return C_normal()(w, epsilon, optional);
         else if (alg == Stump::GENTLE) return C_gentle()(w, epsilon, optional);
         else if (alg == Stump::PROB) return C_prob()(w, epsilon, optional);
+        else throw Exception("C_any: unknown update alg");
+    }    
+
+    // Simpler version that only calculates one part and doesn't allocate lots
+    // of memory.  The forwhich parameter should be false, true or MISSING.
+    // Note that dist must already be the right size (nl entries).
+    template<class W>
+    void
+    operator() (float * dist, int forwhich,
+                const W & w, float epsilon, bool optional) const
+    {
+        if (alg == Stump::NORMAL)
+            return C_normal()(dist, forwhich, w, epsilon, optional);
+        else if (alg == Stump::GENTLE)
+            return C_gentle()(dist, forwhich, w, epsilon, optional);
+        else if (alg == Stump::PROB)
+            return C_prob()(dist, forwhich, w, epsilon, optional);
         else throw Exception("C_any: unknown update alg");
     }    
 

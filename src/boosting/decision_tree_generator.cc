@@ -323,8 +323,9 @@ struct Tree_Accum {
 };
 
 template<class W>
-distribution<float>
-get_probs(const W & w_, Stump::Update update, float epsilon = 0.0)
+void
+get_probs(distribution<float> & probs, const W & w_,
+          Stump::Update update, float epsilon = 0.0)
 {
 #if 1
     W w = w_;
@@ -335,8 +336,10 @@ get_probs(const W & w_, Stump::Update update, float epsilon = 0.0)
         }
     }
 
+    probs.resize(w.nl());
+    
     C_any c(update);
-    return c(w, epsilon, false)[0];
+    return c(&probs[0], 0, w, epsilon, false);
 
 #else
     distribution<float> result(w.nl());
@@ -364,12 +367,12 @@ fillin_leaf(Tree::Leaf & leaf,
 
     if (examples == -1.0) examples = in_class.total();
 
-    distribution<float> dist;
-
     //cerr << "new_leaf: advance = " << advance << endl;
     
     if (advance < 0)
         throw Exception("invalid advance");
+
+    leaf.examples = examples;
 
     if (advance != 0) {
         typedef W_normal W;
@@ -380,7 +383,7 @@ fillin_leaf(Tree::Leaf & leaf,
         W w = trainer.calc_default_w(data, predicted, in_class, weights, advance);
 
         double epsilon = xdiv<double>(1.0, examples);
-        dist = get_probs(w, update_alg, epsilon);
+        get_probs(leaf.pred, w, update_alg, epsilon);
 
         //cerr << "new_leaf norm: dist = " << dist << " W = " << endl
         //     << w.print() << endl;
@@ -396,14 +399,11 @@ fillin_leaf(Tree::Leaf & leaf,
         W w = trainer.calc_default_w(data, predicted, in_class, weights, advance);
 
         double epsilon = xdiv<double>(1.0, examples);
-        dist = get_probs(w, update_alg, epsilon);
+        get_probs(leaf.pred, w, update_alg, epsilon);
 
         //cerr << "new_leaf binsym: dist = " << dist << " W = " << endl
         //     << w.print() << endl;
     }
-
-    leaf.examples = examples;
-    leaf.pred = dist;
 }
 
 Tree::Leaf * 
