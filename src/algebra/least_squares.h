@@ -20,7 +20,6 @@
 #include <cmath>
 #include "utils/string_functions.h"
 #include "arch/simd_vector.h"
-#include "arch/threads.h"
 
 
 namespace ML {
@@ -203,9 +202,6 @@ template<class Float>
 distribution<Float>
 least_squares_rd(const boost::multi_array<Float, 2> & A, const distribution<Float> & b)
 {
-    static Lock lock;
-    Guard guard(lock);
-
     using namespace LAPack;
     
     int m = A.shape()[0];
@@ -253,6 +249,8 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
                  const distribution<Float> & b,
                  float lambda)
 {
+    boost::timer t;
+
     // Step 1: SVD
 
     using namespace std;
@@ -276,16 +274,22 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     boost::multi_array<Float, 2> GK(boost::extents[minmn][minmn]);
 
     bool debug = false;
-
+    
+    cerr << "m = " << m << " n = " << n << endl;
 
     
     // Take either A * transpose(A) or (A transpose) * A, whichever is smaller
     if (m < n) {
         for (unsigned i1 = 0;  i1 < m;  ++i1)
             for (unsigned i2 = 0;  i2 < m;  ++i2)
-                for (unsigned j = 0;  j < n;  ++j)
-                    GK[i1][i2] += A[i1][j] * A[i2][j];
+                GK[i1][i2] = SIMD::vec_dotprod_dp(&A[i1][0], &A[i2][0], n);
+
+        //for (unsigned i1 = 0;  i1 < m;  ++i1)
+        //    for (unsigned i2 = 0;  i2 < m;  ++i2)
+        //        for (unsigned j = 0;  j < n;  ++j)
+        //            GK[i1][i2] += A[i1][j] * A[i2][j];
     } else {
+        // TODO: vectorize and look at loop order
         for (unsigned i = 0;  i < m;  ++i)
             for (unsigned j1 = 0;  j1 < n;  ++j1)
                 for (unsigned j2 = 0;  j2 < n;  ++j2)
@@ -307,6 +311,9 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     boost::multi_array<Float, 2> VT(boost::extents[minmn][minmn]);
     boost::multi_array<Float, 2> U(boost::extents[minmn][minmn]);
     
+    boost::timer tsvd;
+
+    // SVD
     int result = LAPack::gesdd("S", minmn, minmn,
                                GK.data(), minmn,
                                &svalues[0],
@@ -316,11 +323,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     if (result != 0)
         throw Exception("gesdd returned non-zero");
 
-    // Transpose lvectors
-    //boost::multi_array<float, 2> lvectors(boost::extents[minmn][minmn]);
-    //for (unsigned i = 0;  i < minmn;  ++i)
-    //    for (unsigned j = 0;  j < minmn;  ++j)
-    //        lvectors[i][j] = lvectorsT[j][i];
+    cerr << "svd: " << tsvd.elapsed() << endl;
 
     distribution<Float> singular_values
         (svalues.begin(), svalues.begin() + minmn);
@@ -340,25 +343,114 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         //cerr << "errors = " << endl << (GK_test - GK) << endl;
     }
 
-    boost::multi_array<Float, 2> GK_pinv
-        = transpose(U * diag((Float)1.0 / singular_values) * VT);
+    distribution<Float> x_best;
 
-    if (debug) {
-        cerr << "GK_pinv = " << endl << GK_pinv
+    // Figure out the optimal value of lambda based upon leave-one-out cross
+    // validation
+
+    double current_lambda = 10.0;
+    double best_lambda = -1000;
+    double best_error = 1000000;
+
+    for (unsigned i = 0; current_lambda >= 1e-14;  ++i, current_lambda /= 10.0) {
+        
+        // Adjust the singular values for the new lambda
+        distribution<Float> my_singular = singular_values;
+        my_singular += (current_lambda - lambda);
+
+        boost::timer t1;
+
+        boost::multi_array<Float, 2> GK_pinv
+            = transpose(U * diag((Float)1.0 / my_singular) * VT);
+
+        cerr << "GK_pinv: " << t1.elapsed() << endl;
+        
+        // TODO: reduce GK by removing those basis vectors where the singular
+        // values are too close to lambda
+        
+        if (debug && false) {
+            cerr << "GK_pinv = " << endl << GK_pinv
+                 << endl;
+            cerr << "prod = " << endl << (GK * GK_pinv * GK) << endl;
+            cerr << "prod2 = " << endl << (GK_pinv * GK * GK) << endl;
+        }
+
+        distribution<Float> x;
+
+        boost::timer t2;
+        
+        boost::multi_array<Float, 2> A_pinv
+            = (m < n ? GK_pinv * A : A * GK_pinv);
+
+        cerr << "A_pinv: " << t2.elapsed() << endl;
+
+        if (debug)
+            cerr << "A_pinv = " << endl << A_pinv << endl;
+
+        x = A_pinv * b;
+        
+        if (debug)
+            cerr << "x = " << x << endl;
+
+        distribution<Float> predictions = A * x;
+
+        //cerr << "A: " << A.shape()[0] << "x" << A.shape()[1] << endl;
+        //cerr << "A_pinv: " << A_pinv.shape()[0] << "x" << A_pinv.shape()[1]
+        //     << endl;
+
+        boost::timer t3;
+
+        boost::multi_array<Float, 2> A_A_pinv
+            = A * GK_pinv * transpose(A);
+
+        cerr << "A_A_pinv: " << t3.elapsed() << endl;
+
+        //cerr << "A_A_pinv: " << A_A_pinv.shape()[0] << "x"
+        //     << A_A_pinv.shape()[1] << endl;
+
+        if (debug)
+            cerr << "A_A_pinv = " << endl << A_A_pinv << endl;
+
+        boost::timer t4;
+
+        // Now figure out the performance
+        double total_mse_biased = 0.0, total_mse_unbiased = 0.0;
+        for (unsigned j = 0;  j < m;  ++j) {
+
+            double resid = b[j] - predictions[j];
+
+            // Adjust for the bias cause by training on this example.  This is
+            // A * pinv(A), which is A * 
+
+            double factor = 1.0 - A_A_pinv[j][j];
+
+            double resid_unbiased = resid / factor;
+
+            total_mse_biased += (1.0 / m) * resid * resid;
+            total_mse_unbiased += (1.0 / m) * resid_unbiased * resid_unbiased;
+        }
+
+        cerr << "errors: " << t4.elapsed() << endl;
+
+        cerr << "lambda " << current_lambda
+             << " rmse_biased = " << sqrt(total_mse_biased)
+             << " rmse_unbiased = " << sqrt(total_mse_unbiased)
              << endl;
-        cerr << "prod = " << endl << (GK * GK_pinv * GK) << endl;
-        cerr << "prod2 = " << endl << (GK_pinv * GK * GK) << endl;
+
+        if (sqrt(total_mse_biased) > 1.0) {
+            cerr << "rmse_biased: x = " << x << endl;
+        }
+        
+        if (total_mse_unbiased < best_error) {
+            x_best = x;
+            best_lambda = current_lambda;
+            best_error = total_mse_unbiased;
+        }
     }
 
-    distribution<Float> x;
-    if (m < n)
-        x = GK_pinv * A * b;
-    else x = A * GK_pinv * b;
+    cerr << "total: " << t.elapsed() << endl;
 
-    if (debug)
-        cerr << "x = " << x << endl;
-
-    return x;
+    return x_best;
 }
 
 
