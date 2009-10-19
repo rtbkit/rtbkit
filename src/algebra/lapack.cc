@@ -10,6 +10,10 @@
 #include <vector>
 #include <boost/scoped_array.hpp>
 #include <cmath>
+#include "arch/threads.h"
+#include "arch/exception.h"
+#include <iostream>
+
 
 using namespace std;
 
@@ -20,6 +24,10 @@ extern "C" {
     /* Information on the linear algebra environment. */
     int ilaenv_(const int * ispec, const char * routine, const char * opts,
                 const int * n1, const int * n2, const int * n3, const int * n4);
+
+    /* Information about the machine precision */
+    float slamch_(const char * param);
+    double dlamch_(const char * param);
 
     /* Constrained least squares. */
     void sgglse_(const int * m, const int * n, const int * p,
@@ -136,10 +144,100 @@ extern "C" {
                 const double * A, const int * lda, const double * b,
                 const int * ldb, const double * beta, double * c, const int * ldc,
                 int * info);
+
+    /* Dummy (weak) implementation */
+    static void slarfp_dummy(const int * n, float * alpha, float * X, const int * incx,
+                      float * tau)
+    {
+        if (*n != -234)
+            throw ML::Exception("wrong version of slarfp called; this weak "
+                                "version should have been overridden");
+        
+        *tau = 1.0;
+    }
+
+    /* Elementary reflector.  Used to detect version 3.2 of the LAPACK.  Most
+       important thing is that if n < 0, it will return zero in tau. */
+    void slarfp_(const int * n, float * alpha, float * X, const int * incx,
+                 float * tau) __attribute__ ((__weak__, __alias__ ("slarfp_dummy")));
+
+
 }
 
 namespace ML {
 namespace LAPack {
+
+namespace {
+
+// TODO: Determine if we need to lock the LAPack based upon its version
+// For lapack 3.1.x, yes we do
+// for lapack 3.2.x, no we don't
+
+// To determine, we look for the routine slarfp which was added in version 3.2.
+// If we find it (our weak reference is ignored), then we know that we are in
+// version 3.2.  Otherwise, we know that there is a previous version.
+
+bool lapack_version_3_2_or_later()
+{
+    float tau, alpha, x;
+    // 234 is the special value for the slarfp_dummy function above
+    int n = -234, incx;
+
+    slarfp_(&n, &alpha, &x, &incx, &tau);
+
+    // If the dummy slarfp function ran, it will return 1.0, which means that
+    // we are using a version of lapack 3.1 or lower.  If the lapack
+    // 3.2 version ran, it will return 0.0.
+    if (tau == 1.0) return false;  // dummy version ran
+    if (tau == 0.0) return true;
+    
+    throw Exception("unable to interpret result of slarfp");
+}
+
+
+static bool need_lock = true;
+
+struct Init {
+    Init()
+    {
+        need_lock = !lapack_version_3_2_or_later();
+        
+        // ilaenv isn't thread safe (it can return different results if it's
+        // called for the first time twice from two different threads; see
+        // http://icl.cs.utk.edu/lapack-forum/archives/lapack/msg00342.html
+
+        int ispec = 10;
+        const char * routine = "BONUS";
+        const char * opts = "T";
+        int n1 = 0, n2 = 0, n3 = 0, n4 = 0;
+        
+        // Call this one once so that it's thread safe thereafter
+        ilaenv_(&ispec, routine, opts, &n1, &n2, &n3, &n4);
+
+        dlamch_("e");
+        slamch_("e");
+    }
+} init;
+
+
+static Lock lock;
+
+struct Lapack_Guard {
+    Lapack_Guard()
+    {
+        if (!need_lock) return;
+        if (lock.acquire() == -1)
+            throw ML::Exception("failed to acquire lock");
+    }
+
+    ~Lapack_Guard()
+    {
+        if (!need_lock) return;
+        lock.release();
+    }
+};
+
+} // file scope
 
 int ilaenv(int ispec, const char * routine, const char * opts,
            int n1, int n2, int n3, int n4)
@@ -150,6 +248,8 @@ int ilaenv(int ispec, const char * routine, const char * opts,
 int gels(char trans, int m, int n, int nrhs, float * A, int lda, float * B,
          int ldb)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     float ws_return;
@@ -175,6 +275,8 @@ int gels(char trans, int m, int n, int nrhs, float * A, int lda, float * B,
 int gels(char trans, int m, int n, int nrhs, double * A, int lda, double * B,
          int ldb)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     double ws_return;
@@ -200,6 +302,8 @@ int gels(char trans, int m, int n, int nrhs, double * A, int lda, double * B,
 int gelsd(int m, int n, int nrhs, float * A, int lda, float * B, int ldb,
           float * S, float rcond, int & rank)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     float ws_return;
@@ -235,6 +339,8 @@ int gelsd(int m, int n, int nrhs, float * A, int lda, float * B, int ldb,
 int gelsd(int m, int n, int nrhs, double * A, int lda, double * B, int ldb,
           double * S, double rcond, int & rank)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     double ws_return;
@@ -270,6 +376,8 @@ int gelsd(int m, int n, int nrhs, double * A, int lda, double * B, int ldb,
 int gglse(int m, int n, int p, float * A, int lda, float * B, int ldb,
           float * c, float * d, float * result)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     float ws_return;
@@ -294,6 +402,8 @@ int gglse(int m, int n, int p, float * A, int lda, float * B, int ldb,
 int gglse(int m, int n, int p, double * A, int lda, double * B, int ldb,
           double * c, double * d, double * result)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     double ws_return;
@@ -319,6 +429,8 @@ int gglse(int m, int n, int p, double * A, int lda, double * B, int ldb,
 int gebrd(int m, int n, double * A, int lda,
           double * D, double * E, double * tauq, double * taup)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     double ws_return;
@@ -342,6 +454,8 @@ int gebrd(int m, int n, double * A, int lda,
 int orgbr(const char * vect, int m, int n, int k,
           double * A, int lda, const double * tau)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     double ws_return;
@@ -368,6 +482,8 @@ int bdsdc(const char * uplo, const char * compq, int n,
           double * VT, int ldvt,
           double * Q, int * iq)
 {
+    Lapack_Guard guard;
+
     int workspace_size;
     switch (*compq) {
     case 'N': workspace_size = 2 * n;  break;
@@ -395,6 +511,8 @@ int gesvd(const char * jobu, const char * jobvt, int m, int n,
           double * A, int lda, double * S, double * U, int ldu,
           double * VT, int ldvt)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     double ws_return;
@@ -419,6 +537,8 @@ int gesdd(const char * jobz, int m, int n,
           float * A, int lda, float * S, float * U, int ldu,
           float * vt, int ldvt)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     float ws_return;
@@ -445,6 +565,8 @@ int gesdd(const char * jobz, int m, int n,
           double * A, int lda, double * S, double * U, int ldu,
           double * vt, int ldvt)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     double ws_return;
@@ -470,6 +592,8 @@ int gesdd(const char * jobz, int m, int n,
 int gesv(int n, int nrhs, double * A, int lda, int * pivots, double * B,
          int ldb)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     dgesv_(&n, &nrhs, A, &lda, pivots, B, &ldb, &info);
     return info;
@@ -477,6 +601,8 @@ int gesv(int n, int nrhs, double * A, int lda, int * pivots, double * B,
 
 int spotrf(char uplo, int n, float * A, int lda)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     spotrf_(&uplo, &n, A, &lda, &info);
     return info;
@@ -484,6 +610,8 @@ int spotrf(char uplo, int n, float * A, int lda)
 
 int dpotrf(char uplo, int n, double * A, int lda)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     dpotrf_(&uplo, &n, A, &lda, &info);
     return info;
@@ -491,6 +619,8 @@ int dpotrf(char uplo, int n, double * A, int lda)
 
 int geqp3(int m, int n, float * A, int lda, int * jpvt, float * tau)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     float ws_return;
@@ -513,6 +643,8 @@ int geqp3(int m, int n, float * A, int lda, int * jpvt, float * tau)
 
 int geqp3(int m, int n, double * A, int lda, int * jpvt, double * tau)
 {
+    Lapack_Guard guard;
+
     int info = 0;
     int workspace_size = -1;
     double ws_return;
