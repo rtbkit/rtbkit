@@ -270,8 +270,12 @@ train_weighted(const Training_Data & data,
         for (unsigned l = 0;  l < nlr;  ++l) {
             //cerr << "l = " << l << "  correct[l] = " << correct[l]
             //     << " w = " << w[l] << endl;
+            
+            Ridge_Regressor regressor(1e-5);
+
             distribution<double> trained
-                = run_irls(correct[l], dense_data, w[l], link_function);
+                = run_irls(correct[l], dense_data, w[l], link_function,
+                           regressor);
             
             trained /= stds;
             extra_bias = - (trained.dotprod(means));

@@ -198,6 +198,40 @@ least_squares(const boost::multi_array<Float, 2> & A, const distribution<Float> 
 
 }
 
+/* Solve a rank deficient least squares problem. */
+template<class Float>
+distribution<Float>
+least_squares_rd(const boost::multi_array<Float, 2> & A, const distribution<Float> & b)
+{
+    static Lock lock;
+    Guard guard(lock);
+
+    using namespace LAPack;
+    
+    int m = A.shape()[0];
+    int n = A.shape()[1];
+
+    distribution<Float> x = b;
+    x.resize(std::max<size_t>(m, n) + 1);
+
+    boost::multi_array<Float, 2> A2 = A;
+
+    distribution<Float> sv(std::min(m, n));
+
+    int rank;
+
+    int res = gelsd(m, n, 1, A2.data(), A2.shape()[0], &x[0], x.size(),
+                    &sv[0], -1.0, rank);
+
+    if (res != 0)
+        throw Exception(format("least_squares(): gglse returned error in arg "
+                               "%d", res));
+    
+    x.resize(n);
+    return x;
+}
+
+
 /** Solve a least squares linear problem using ridge regression.
 
     This solves the linear least squares problem
@@ -241,6 +275,9 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     // The matrix to decompose is square
     boost::multi_array<Float, 2> GK(boost::extents[minmn][minmn]);
 
+    bool debug = false;
+
+
     
     // Take either A * transpose(A) or (A transpose) * A, whichever is smaller
     if (m < n) {
@@ -255,13 +292,15 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
                     GK[j1][j2] += A[i][j1] * A[i][j2];
     }
 
-    cerr << "GK = " << endl << GK << endl;
+    if (debug)
+        cerr << "GK = " << endl << GK << endl;
 
     // Add in the ridge
     for (unsigned i = 0;  i < minmn;  ++i)
         GK[i][i] += lambda;
 
-    cerr << "GK with ridge = " << endl << GK << endl;
+    if (debug)
+        cerr << "GK with ridge = " << endl << GK << endl;
 
     // Decompose to get the pseudoinverse
     distribution<Float> svalues(minmn);
@@ -286,9 +325,8 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     distribution<Float> singular_values
         (svalues.begin(), svalues.begin() + minmn);
 
-    cerr << "singular values = " << singular_values << endl;
-
-    bool debug = true;
+    if (debug)
+        cerr << "singular values = " << singular_values << endl;
 
     if (debug) {
         // Multiply decomposition back to make sure that we get the original
@@ -303,7 +341,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     }
 
     boost::multi_array<Float, 2> GK_pinv
-        = transpose(U * diag(1.0 / singular_values) * VT);
+        = transpose(U * diag((Float)1.0 / singular_values) * VT);
 
     if (debug) {
         cerr << "GK_pinv = " << endl << GK_pinv
@@ -317,84 +355,12 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         x = GK_pinv * A * b;
     else x = A * GK_pinv * b;
 
-    cerr << "x = " << x << endl;
+    if (debug)
+        cerr << "x = " << x << endl;
 
     return x;
-
-
-
-#if 0
-    singular_models.resize(models.size());
-    
-    for (unsigned i = 0;  i < models.size();  ++i)
-        singular_models[i]
-            = distribution<float>(&lvectors[i][0],
-                                  &lvectors[i][nwanted - 1] + 1);
-
-    //cerr << "singular_models[0] = " << singular_models[0] << endl;
-    //cerr << "singular_models[1] = " << singular_models[1] << endl;
-
-    singular_targets.resize(targets.size());
-
-    for (unsigned i = 0;  i < targets.size();  ++i)
-        singular_targets[i]
-            = distribution<float>(&rvectors[i][0],
-                                  &rvectors[i][nwanted - 1] + 1);
-#endif
-
-    
-
-
-
-    x.resize(n);
- 
-    //using namespace std;
-    //cerr << "least_squares: took " << t.elapsed() << "s" << endl;
-    
-    return x;
-    //cerr << "least squares: gels returned " << x2 << endl;
-    //cerr << "least squares: A2 = " << endl << A2 << endl;
-
-    //cerr << "least_squares: " << t.elapsed() << "s" << endl;
-    //distribution<Float> x3
-    //    = least_squares(A, b, boost::multi_array<Float, 2>(0, n), distribution<Float>());
-    
-    //cerr << "least squares: gglse returned " << x3 << endl;
-
 }
 
-/* Solve a rank deficient least squares problem. */
-template<class Float>
-distribution<Float>
-least_squares_rd(const boost::multi_array<Float, 2> & A, const distribution<Float> & b)
-{
-    static Lock lock;
-    Guard guard(lock);
-
-    using namespace LAPack;
-    
-    int m = A.shape()[0];
-    int n = A.shape()[1];
-
-    distribution<Float> x = b;
-    x.resize(std::max<size_t>(m, n) + 1);
-
-    boost::multi_array<Float, 2> A2 = A;
-
-    distribution<Float> sv(std::min(m, n));
-
-    int rank;
-
-    int res = gelsd(m, n, 1, A2.data(), A2.shape()[0], &x[0], x.size(),
-                    &sv[0], -1.0, rank);
-
-    if (res != 0)
-        throw Exception(format("least_squares(): gglse returned error in arg "
-                               "%d", res));
-    
-    x.resize(n);
-    return x;
-}
 
 /*****************************************************************************/
 /* IRLS                                                                      */
@@ -519,10 +485,11 @@ diag_mult(const boost::multi_array<Float, 2> & X,
     \post         b.size() == x.shape()[0]
 */
 
-template<class Link, class Dist, class Float>
+template<class Link, class Dist, class Float, class Regressor>
 distribution<Float>
 irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
-     const distribution<Float> & w, const Link & link, const Dist & dist)
+     const distribution<Float> & w, const Link & link, const Dist & dist,
+     const Regressor & regressor)
 {
     using namespace std;
 
@@ -612,7 +579,7 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 
         /* Solve the reweighted problem using a linear least squares. */
         b2                 = b;
-        b                  = least_squares_rd(xTwx, xTwz);
+        b                  = regressor.calc(xTwx, xTwz);
 
         //if (debug_irls)
         //    (*debug_irls) << "b: " << b << endl;

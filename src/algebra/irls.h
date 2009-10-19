@@ -15,14 +15,10 @@
 #include "stats/distribution.h"
 #include "db/persistent.h"
 #include "utils/enum_info.h"
-
-enum Regression_Type {
-    RT_LINEAR,  // Linear regression
-    RT_RIDGE    // Ridge regression
-};
-
+#include <boost/function.hpp>
 
 namespace ML {
+
 
 /** Implementation of the removal of the linearly dependent columns.
     In addition to the permutation vector, it also provides a vector
@@ -86,6 +82,58 @@ Link_Function parse_link_function(const std::string & name);
 /** Put a link function in a stream. */
 std::ostream & operator << (std::ostream & stream, Link_Function link);
 
+
+/*****************************************************************************/
+/* REGRESSOR                                                                 */
+/*****************************************************************************/
+
+struct Regressor {
+    virtual ~Regressor();
+
+    virtual distribution<float>
+    calc(const boost::multi_array<float, 2> & A,
+         const distribution<float> & b) const = 0;
+
+    virtual distribution<double>
+    calc(const boost::multi_array<double, 2> & A,
+         const distribution<double> & b) const = 0;
+};
+
+struct Least_Squares_Regressor : Regressor {
+    virtual ~Least_Squares_Regressor();
+
+    virtual distribution<float>
+    calc(const boost::multi_array<float, 2> & A,
+         const distribution<float> & b) const;
+
+    virtual distribution<double>
+    calc(const boost::multi_array<double, 2> & A,
+         const distribution<double> & b) const;
+};
+
+struct Ridge_Regressor : Regressor {
+    Ridge_Regressor(double lambda = 1e-10);
+    virtual ~Ridge_Regressor();
+
+    double lambda;
+
+    virtual distribution<float>
+    calc(const boost::multi_array<float, 2> & A,
+         const distribution<float> & b) const;
+
+    virtual distribution<double>
+    calc(const boost::multi_array<double, 2> & A,
+         const distribution<double> & b) const;
+};
+
+
+const Regressor & default_regressor();
+
+
+/*****************************************************************************/
+/* IRLS                                                                      */
+/*****************************************************************************/
+
 /** Run the iteratively reweighted least squares algorithm with a logit link
     function and a binomial distribution.
     
@@ -99,12 +147,14 @@ std::ostream & operator << (std::ostream & stream, Link_Function link);
 distribution<double>
 irls_logit(const distribution<double> & correct,
            const boost::multi_array<double, 2> & outputs,
-           const distribution<double> & w);
+           const distribution<double> & w,
+           const Regressor & regressor);
 
 distribution<float>
 irls_logit(const distribution<float> & correct,
            const boost::multi_array<float, 2> & outputs,
-           const distribution<float> & w);
+           const distribution<float> & w,
+           const Regressor & regressor);
 
 
 /** Run the iteratively reweighted least squares algorithm with a log link
@@ -115,28 +165,32 @@ irls_logit(const distribution<float> & correct,
 distribution<double>
 irls_log(const distribution<double> & correct,
          const boost::multi_array<double, 2> & outputs,
-         const distribution<double> & w);
+         const distribution<double> & w,
+         const Regressor & regressor);
 
 distribution<float>
 irls_log(const distribution<float> & correct,
          const boost::multi_array<float, 2> & outputs,
-         const distribution<float> & w);
+         const distribution<float> & w,
+         const Regressor & regressor);
 
 
 /** Run the iteratively reweighted least squares algorithm with a linear link
-    function and a binomial distribution.
+    function and a normal distribution.
 
     \copydoc irls_logit
 */
 distribution<double>
 irls_linear(const distribution<double> & correct,
             const boost::multi_array<double, 2> & outputs,
-            const distribution<double> & w);
+            const distribution<double> & w,
+            const Regressor & regressor);
 
 distribution<float>
 irls_linear(const distribution<float> & correct,
             const boost::multi_array<float, 2> & outputs,
-            const distribution<float> & w);
+            const distribution<float> & w,
+            const Regressor & regressor);
 
 
 /** Run the iteratively reweighted least squares algorithm with a probit link
@@ -147,12 +201,14 @@ irls_linear(const distribution<float> & correct,
 distribution<double>
 irls_probit(const distribution<double> & correct,
             const boost::multi_array<double, 2> & outputs,
-            const distribution<double> & w);
+            const distribution<double> & w,
+            const Regressor & regressor);
 
 distribution<float>
 irls_probit(const distribution<float> & correct,
             const boost::multi_array<float, 2> & outputs,
-            const distribution<float> & w);
+            const distribution<float> & w,
+            const Regressor & regressor);
 
 
 /** Run the iteratively reweighted least squares algorithm with a
@@ -163,12 +219,14 @@ irls_probit(const distribution<float> & correct,
 distribution<double>
 irls_complog(const distribution<double> & correct,
              const boost::multi_array<double, 2> & outputs,
-             const distribution<double> & w);
+             const distribution<double> & w,
+             const Regressor & regressor);
 
 distribution<float>
 irls_complog(const distribution<float> & correct,
              const boost::multi_array<float, 2> & outputs,
-             const distribution<float> & w);
+             const distribution<float> & w,
+             const Regressor & regressor);
 
 
 /** Run the correct version of the IRLS algorithm depending upon the link
@@ -181,13 +239,15 @@ distribution<double>
 run_irls(const distribution<double> & correct,
          const boost::multi_array<double, 2> & outputs,
          const distribution<double> & w,
-         Link_Function func = LOGIT);
+         Link_Function func = LOGIT,
+         const Regressor & regressor = default_regressor());
 
 distribution<float>
 run_irls(const distribution<float> & correct,
          const boost::multi_array<float, 2> & outputs,
          const distribution<float> & w,
-         Link_Function func = LOGIT);
+         Link_Function func = LOGIT,
+         const Regressor & regressor = default_regressor());
 
 /** Apply the inverse IRLS function to the given value. */
 double apply_link_inverse(double val, Link_Function func);

@@ -269,12 +269,17 @@ DIST_DIST_OP(&&);
 DIST_DIST_OP(||);
 #undef DIST_DIST_OP
 
+// NOTE: cannot make the two types different here, as then
+// distribution-distribution operations get caught.  Need to use a MPL
+// technique to disable this if the value isn't convertible to the
+// underlying type.
+
 #define SCALAR_DIST_OP(op) \
-template<typename F1, typename F2, class Underlying> \
-distribution<F2> \
- operator op (F1 val, const distribution<F2, Underlying> & d2)       \
+template<typename F, class Underlying> \
+distribution<F> \
+ operator op (F val, const distribution<F, Underlying> & d2)       \
 { \
-    distribution<F2, Underlying> result(d2.size()); \
+    distribution<F, Underlying> result(d2.size()); \
     for (unsigned i = 0;  i < d2.size();  ++i) \
         result[i] = val op d2[i]; \
     return result; \
