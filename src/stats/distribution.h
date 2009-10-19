@@ -270,11 +270,11 @@ DIST_DIST_OP(||);
 #undef DIST_DIST_OP
 
 #define SCALAR_DIST_OP(op) \
-template<class F, class Underlying>     \
-distribution<F> \
- operator op (F val, const distribution<F, Underlying> & d2)       \
+template<typename F1, typename F2, class Underlying> \
+distribution<F2> \
+ operator op (F1 val, const distribution<F2, Underlying> & d2)       \
 { \
-    distribution<F, Underlying> result(d2.size()); \
+    distribution<F2, Underlying> result(d2.size()); \
     for (unsigned i = 0;  i < d2.size();  ++i) \
         result[i] = val op d2[i]; \
     return result; \

@@ -16,6 +16,11 @@
 #include "db/persistent.h"
 #include "utils/enum_info.h"
 
+enum Regression_Type {
+    RT_LINEAR,  // Linear regression
+    RT_RIDGE    // Ridge regression
+};
+
 
 namespace ML {
 

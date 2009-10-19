@@ -198,6 +198,171 @@ least_squares(const boost::multi_array<Float, 2> & A, const distribution<Float> 
 
 }
 
+/** Solve a least squares linear problem using ridge regression.
+
+    This solves the linear least squares problem
+    \f[
+        A\mathbf{x} = \mathbf{b}
+    \f]
+ 
+    for the parameter <bf>x</bf>.
+
+    \param    A the coefficient matrix
+    \param    b the required output vector
+    \returns  x
+
+    \pre      A.shape()[0] == b.size()
+ */
+template<class Float>
+distribution<Float>
+ridge_regression(const boost::multi_array<Float, 2> & A,
+                 const distribution<Float> & b,
+                 float lambda)
+{
+    // Step 1: SVD
+
+    using namespace std;
+    using namespace Stats;
+
+    //boost::timer t;
+
+    if (A.shape()[0] != b.size())
+        throw Exception("incompatible dimensions for least_squares");
+
+    using namespace LAPack;
+    
+    int m = A.shape()[0];
+    int n = A.shape()[1];
+
+    int minmn = std::min(m, n);
+
+    // See http://www.clopinet.com/isabelle/Projects/ETH/KernelRidge.pdf
+
+    // The matrix to decompose is square
+    boost::multi_array<Float, 2> GK(boost::extents[minmn][minmn]);
+
+    
+    // Take either A * transpose(A) or (A transpose) * A, whichever is smaller
+    if (m < n) {
+        for (unsigned i1 = 0;  i1 < m;  ++i1)
+            for (unsigned i2 = 0;  i2 < m;  ++i2)
+                for (unsigned j = 0;  j < n;  ++j)
+                    GK[i1][i2] += A[i1][j] * A[i2][j];
+    } else {
+        for (unsigned i = 0;  i < m;  ++i)
+            for (unsigned j1 = 0;  j1 < n;  ++j1)
+                for (unsigned j2 = 0;  j2 < n;  ++j2)
+                    GK[j1][j2] += A[i][j1] * A[i][j2];
+    }
+
+    cerr << "GK = " << endl << GK << endl;
+
+    // Add in the ridge
+    for (unsigned i = 0;  i < minmn;  ++i)
+        GK[i][i] += lambda;
+
+    cerr << "GK with ridge = " << endl << GK << endl;
+
+    // Decompose to get the pseudoinverse
+    distribution<Float> svalues(minmn);
+    boost::multi_array<Float, 2> VT(boost::extents[minmn][minmn]);
+    boost::multi_array<Float, 2> U(boost::extents[minmn][minmn]);
+    
+    int result = LAPack::gesdd("S", minmn, minmn,
+                               GK.data(), minmn,
+                               &svalues[0],
+                               &VT[0][0], minmn,
+                               &U[0][0], minmn);
+
+    if (result != 0)
+        throw Exception("gesdd returned non-zero");
+
+    // Transpose lvectors
+    //boost::multi_array<float, 2> lvectors(boost::extents[minmn][minmn]);
+    //for (unsigned i = 0;  i < minmn;  ++i)
+    //    for (unsigned j = 0;  j < minmn;  ++j)
+    //        lvectors[i][j] = lvectorsT[j][i];
+
+    distribution<Float> singular_values
+        (svalues.begin(), svalues.begin() + minmn);
+
+    cerr << "singular values = " << singular_values << endl;
+
+    bool debug = true;
+
+    if (debug) {
+        // Multiply decomposition back to make sure that we get the original
+        // matrix
+        boost::multi_array<Float, 2> D = diag(singular_values);
+
+        boost::multi_array<Float, 2> GK_test
+            = U * D * VT;
+
+        cerr << "GK_test = " << endl << GK_test << endl;
+        //cerr << "errors = " << endl << (GK_test - GK) << endl;
+    }
+
+    boost::multi_array<Float, 2> GK_pinv
+        = transpose(U * diag(1.0 / singular_values) * VT);
+
+    if (debug) {
+        cerr << "GK_pinv = " << endl << GK_pinv
+             << endl;
+        cerr << "prod = " << endl << (GK * GK_pinv * GK) << endl;
+        cerr << "prod2 = " << endl << (GK_pinv * GK * GK) << endl;
+    }
+
+    distribution<Float> x;
+    if (m < n)
+        x = GK_pinv * A * b;
+    else x = A * GK_pinv * b;
+
+    cerr << "x = " << x << endl;
+
+    return x;
+
+
+
+#if 0
+    singular_models.resize(models.size());
+    
+    for (unsigned i = 0;  i < models.size();  ++i)
+        singular_models[i]
+            = distribution<float>(&lvectors[i][0],
+                                  &lvectors[i][nwanted - 1] + 1);
+
+    //cerr << "singular_models[0] = " << singular_models[0] << endl;
+    //cerr << "singular_models[1] = " << singular_models[1] << endl;
+
+    singular_targets.resize(targets.size());
+
+    for (unsigned i = 0;  i < targets.size();  ++i)
+        singular_targets[i]
+            = distribution<float>(&rvectors[i][0],
+                                  &rvectors[i][nwanted - 1] + 1);
+#endif
+
+    
+
+
+
+    x.resize(n);
+ 
+    //using namespace std;
+    //cerr << "least_squares: took " << t.elapsed() << "s" << endl;
+    
+    return x;
+    //cerr << "least squares: gels returned " << x2 << endl;
+    //cerr << "least squares: A2 = " << endl << A2 << endl;
+
+    //cerr << "least_squares: " << t.elapsed() << "s" << endl;
+    //distribution<Float> x3
+    //    = least_squares(A, b, boost::multi_array<Float, 2>(0, n), distribution<Float>());
+    
+    //cerr << "least squares: gglse returned " << x3 << endl;
+
+}
+
 /* Solve a rank deficient least squares problem. */
 template<class Float>
 distribution<Float>

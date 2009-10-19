@@ -48,7 +48,7 @@ template<typename Float>
 boost::multi_array<Float, 2>
 diag(const distribution<Float> & d)
 {
-    boost::multi_array<Float, 2> D(d.size(), d.size());
+    boost::multi_array<Float, 2> D(boost::extents[d.size()][d.size()]);
     for (unsigned i = 0;  i < d.size();  ++i)
         D[i][i] = d[i];
     return D;
@@ -116,7 +116,7 @@ multiply(const boost::multi_array<Float1, 2> & A,
     if (A.shape()[1] != B.shape()[0])
         throw ML::Exception("Incompatible matrix sizes");
 
-    boost::multi_array<FloatR, 2> X(A.shape()[0], B.shape()[1]);
+    boost::multi_array<FloatR, 2> X(boost::extents[A.shape()[0]][B.shape()[1]]);
     for (unsigned i = 0;  i < A.shape()[0];  ++i)
         for (unsigned j = 0;  j < B.shape()[1];  ++j)
             for (unsigned k = 0;  k < A.shape()[1];  ++k)
