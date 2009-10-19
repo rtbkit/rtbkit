@@ -75,7 +75,8 @@ public:
     typedef long long Id;  // 64 bits so no wraparound
 
     /** Return the instance.  Creates it with the number of threads given,
-        or num_threads() if thr == -1. */
+        or num_threads() if thr == -1.  If thr == 0, then only local work
+        is done (no work is transferred to other threads). */
     static Worker_Task & instance(int thr = -1);
 
     Worker_Task(int threads);

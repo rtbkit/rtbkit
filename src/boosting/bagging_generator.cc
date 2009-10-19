@@ -95,51 +95,49 @@ init(boost::shared_ptr<const Feature_Space> fs, Feature predicted)
 namespace {
 
 struct Bag_Job_Info {
-    Thread_Context & context;
     const Training_Data & training_set;
     const distribution<float> & training_ex_weights;
     const vector<Feature> & features;
     vector<boost::shared_ptr<Classifier_Impl> > & results;
-    vector<uint32_t> & random_seeds;
     float train_prop;
     boost::shared_ptr<Classifier_Generator> weak_learner;
     boost::progress_display * progress;
+    int num_bags;
     
-    Bag_Job_Info(Thread_Context & context,
-                 const Training_Data & training_set,
+    Bag_Job_Info(const Training_Data & training_set,
                  const distribution<float> & training_ex_weights,
                  const vector<Feature> & features,
                  vector<boost::shared_ptr<Classifier_Impl> > & results,
-                 vector<uint32_t> & random_seeds,
                  float train_prop,
-                 boost::shared_ptr<Classifier_Generator> weak_learner)
-        : context(context),
-          training_set(training_set), training_ex_weights(training_ex_weights),
-          features(features), results(results), random_seeds(random_seeds),
+                 boost::shared_ptr<Classifier_Generator> weak_learner,
+                 int num_bags)
+        : training_set(training_set), training_ex_weights(training_ex_weights),
+          features(features), results(results),
           train_prop(train_prop), weak_learner(weak_learner),
-          progress(0)
+          progress(0), num_bags(num_bags)
     {
     }
 };
 
 struct Bag_Job {
-    Bag_Job(Bag_Job_Info & info, int bag_num, int num_bags, int verbosity)
-        : info(info), bag_num(bag_num), num_bags(num_bags),
+    Bag_Job(Bag_Job_Info & info,
+            Thread_Context & context,
+            int bag_num, int verbosity)
+        : info(info), context(context), bag_num(bag_num),
           verbosity(verbosity)
     {
     }
 
     Bag_Job_Info & info;
+    Thread_Context & context;
     int bag_num;
-    int num_bags;
     int verbosity;
 
     typedef boost::mt19937 engine_type;
 
     void operator () () const
     {
-        engine_type engine(info.random_seeds[bag_num]);
-        RNG_Adaptor<engine_type> rng(engine);
+        Thread_Context::RNG_Type rng = context.rng();
 
         int nx = info.training_set.example_count();
         /* Partition the dataset. */
@@ -177,7 +175,7 @@ struct Bag_Job {
         validate_weights.normalize();
 
         if (verbosity > 0)
-            cerr << "bag " << bag_num << " of " << num_bags << endl;
+            cerr << "bag " << bag_num << " of " << info.num_bags << endl;
 
 #if 0
         cerr << "train_prop = " << info.train_prop << endl;
@@ -192,7 +190,8 @@ struct Bag_Job {
         /* Train me! */
         boost::shared_ptr<Classifier_Impl> bag
             = info.weak_learner
-            ->generate(info.context, info.training_set, info.training_set,
+            ->generate(context,
+                       info.training_set, info.training_set,
                        training_weights, validate_weights,
                        info.features);
 
@@ -247,14 +246,16 @@ generate(Thread_Context & context,
     //     << validation_split << " testing_split = " << testing_split
     //     << endl;
 
+    bool local_thread_only = (num_bags > num_threads() * 2);
+
     vector<boost::shared_ptr<Classifier_Impl> > results(num_bags);
-    vector<uint32_t> random_seeds(num_bags);
+    vector<Thread_Context> contexts(num_bags);
     for (unsigned i = 0;  i < num_bags;  ++i)
-        random_seeds[i] = context.random();
-    
-    Bag_Job_Info info(context, training_set, training_ex_weights,
+        contexts[i] = context.child(-1, local_thread_only);
+
+    Bag_Job_Info info(training_set, training_ex_weights,
                       features, results,
-                      random_seeds, train_prop, weak_learner);
+                      train_prop, weak_learner, num_bags);
     static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
     
     int group;
@@ -268,7 +269,7 @@ generate(Thread_Context & context,
                                      boost::ref(worker),
                                      group));
         for (unsigned i = 0;  i < num_bags;  ++i)
-            worker.add(Bag_Job(info, i, num_bags, verbosity),
+            worker.add(Bag_Job(info, contexts[i], i, verbosity),
                        format("Bagging_Generator::generate() bag %d under %d",
                               i, group),
                        group);

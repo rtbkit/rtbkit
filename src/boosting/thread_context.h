@@ -26,6 +26,8 @@
 
 #include "worker_task.h"
 #include <boost/random/mersenne_twister.hpp>
+#include "utils/smart_ptr_utils.h"
+
 
 namespace ML {
 
@@ -53,7 +55,18 @@ public:
                    int group = -1,
                    uint32_t rand_seed = 0,
                    int recursion = 0)
-        : worker_(&worker), group_(group), recursion_(recursion)
+        : worker_(make_unowned_sp(worker)), group_(group),
+          recursion_(recursion)
+    {
+        if (rand_seed != 0)
+            rng_.seed(rand_seed);
+    }
+
+    Thread_Context(boost::shared_ptr<Worker_Task> worker,
+                   int group = -1,
+                   uint32_t rand_seed = 0,
+                   int recursion = 0)
+        : worker_(worker), group_(group), recursion_(recursion)
     {
         if (rand_seed != 0)
             rng_.seed(rand_seed);
@@ -88,14 +101,17 @@ public:
 
     /** Create a new thread context for another thread, optionally with a
         child identifier. */
-    Thread_Context child(int new_group = -1)
+    Thread_Context child(int new_group = -1, bool local_thread_only = false)
     {
-        return Thread_Context(worker(), new_group == -1 ? group_ : new_group,
+        boost::shared_ptr<Worker_Task> new_worker = worker_;
+        if (local_thread_only)
+            new_worker.reset(new Worker_Task(0));
+        return Thread_Context(new_worker, new_group == -1 ? group_ : new_group,
                               random(), recursion_ + 1);
     }
 
 private:
-    Worker_Task * worker_;
+    boost::shared_ptr<Worker_Task> worker_;
     int group_;
     boost::mt19937 rng_;
     int recursion_;
