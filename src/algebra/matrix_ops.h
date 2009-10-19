@@ -29,6 +29,8 @@
 #include <iostream>
 #include "utils/float_traits.h"
 #include "compiler/compiler.h"
+#include "arch/simd_vector.h"
+
 
 namespace ML {
 
@@ -82,8 +84,9 @@ multiply(const boost::multi_array<Float1, 2> & A,
     else if (b.size() == A.shape()[1]) {
         ML::distribution<FloatR> result(A.shape()[0], 0.0);
         for (unsigned i = 0;  i < A.shape()[0];  ++i)
-            for (unsigned j = 0;  j < A.shape()[1];  ++j)
-                result[i] += b[j] * A[i][j];
+            result[i] = SIMD::vec_dotprod_dp(&A[i][0], &b[0], A.shape()[1]);
+            //for (unsigned j = 0;  j < A.shape()[1];  ++j)
+            //    result[i] += b[j] * A[i][j];
         return result;
     }
     else throw ML::Exception("Incompatible matrix sizes");
@@ -117,10 +120,19 @@ multiply(const boost::multi_array<Float1, 2> & A,
         throw ML::Exception("Incompatible matrix sizes");
 
     boost::multi_array<FloatR, 2> X(boost::extents[A.shape()[0]][B.shape()[1]]);
-    for (unsigned i = 0;  i < A.shape()[0];  ++i)
-        for (unsigned j = 0;  j < B.shape()[1];  ++j)
-            for (unsigned k = 0;  k < A.shape()[1];  ++k)
-                X[i][j] += A[i][k] * B[k][j];
+    Float2 bentries[A.shape()[1]];
+    for (unsigned j = 0;  j < B.shape()[1];  ++j) {
+        for (unsigned k = 0;  k < A.shape()[1];  ++k)
+            bentries[k] = B[k][j];
+
+        for (unsigned i = 0;  i < A.shape()[0];  ++i)
+            X[i][j] = SIMD::vec_dotprod_dp(&A[i][0], bentries, A.shape()[1]);
+
+        //for (unsigned i = 0;  i < A.shape()[0];  ++i)
+        //    for (unsigned k = 0;  k < A.shape()[1];  ++k)
+        //        X[i][j] += A[i][k] * B[k][j];
+
+    }
     return X;
 }
 
