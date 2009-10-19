@@ -227,6 +227,34 @@ least_squares_rd(const boost::multi_array<Float, 2> & A, const distribution<Floa
     return x;
 }
 
+/* Returns U * diag(d) * V */
+template<class Float>
+boost::multi_array<Float, 2>
+diag_mult(const boost::multi_array<Float, 2> & U,
+          const distribution<Float> & d,
+          const boost::multi_array<Float, 2> & V)
+{
+    size_t m = U.shape()[0], n = V.shape()[1], x = d.size();
+
+    boost::multi_array<Float, 2> result(boost::extents[m][n]);
+
+    if (U.shape()[1] != x || V.shape()[0] != x)
+        throw Exception("diag_mult(): wrong shape");
+
+    Float Vj_values[x];
+    for (unsigned j = 0;  j < n;  ++j) {
+        for (unsigned k = 0;  k < x;  ++k)
+            Vj_values[k] = V[k][j];
+        for (unsigned i = 0;  i < m;  ++i) {
+            result[i][j] = SIMD::vec_accum_prod3(&U[i][0], &d[0], Vj_values, x);
+            //for (unsigned k = 0;  k < x;  ++k)
+            //    result[i][j] += U[i][k] * d[k] * Vj_values[k];
+        }
+    }
+
+    return result;
+}
+
 
 /** Solve a least squares linear problem using ridge regression.
 
@@ -249,14 +277,12 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
                  const distribution<Float> & b,
                  float lambda)
 {
-    boost::timer t;
+    //boost::timer t;
 
     // Step 1: SVD
 
     using namespace std;
     using namespace Stats;
-
-    //boost::timer t;
 
     if (A.shape()[0] != b.size())
         throw Exception("incompatible dimensions for least_squares");
@@ -275,7 +301,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
 
     bool debug = false;
     
-    cerr << "m = " << m << " n = " << n << endl;
+    //cerr << "m = " << m << " n = " << n << endl;
 
     
     // Take either A * transpose(A) or (A transpose) * A, whichever is smaller
@@ -311,8 +337,6 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     boost::multi_array<Float, 2> VT(boost::extents[minmn][minmn]);
     boost::multi_array<Float, 2> U(boost::extents[minmn][minmn]);
     
-    boost::timer tsvd;
-
     // SVD
     int result = LAPack::gesdd("S", minmn, minmn,
                                GK.data(), minmn,
@@ -322,8 +346,6 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
 
     if (result != 0)
         throw Exception("gesdd returned non-zero");
-
-    cerr << "svd: " << tsvd.elapsed() << endl;
 
     distribution<Float> singular_values
         (svalues.begin(), svalues.begin() + minmn);
@@ -358,13 +380,12 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         distribution<Float> my_singular = singular_values;
         my_singular += (current_lambda - lambda);
 
-        boost::timer t1;
+        //boost::multi_array<Float, 2> GK_pinv
+        //    = U * diag((Float)1.0 / my_singular) * VT;
 
         boost::multi_array<Float, 2> GK_pinv
-            = transpose(U * diag((Float)1.0 / my_singular) * VT);
+            = diag_mult(U, (Float)1.0 / my_singular, VT);
 
-        cerr << "GK_pinv: " << t1.elapsed() << endl;
-        
         // TODO: reduce GK by removing those basis vectors where the singular
         // values are too close to lambda
         
@@ -377,12 +398,8 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
 
         distribution<Float> x;
 
-        boost::timer t2;
-        
         boost::multi_array<Float, 2> A_pinv
             = (m < n ? GK_pinv * A : A * GK_pinv);
-
-        cerr << "A_pinv: " << t2.elapsed() << endl;
 
         if (debug)
             cerr << "A_pinv = " << endl << A_pinv << endl;
@@ -398,20 +415,17 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         //cerr << "A_pinv: " << A_pinv.shape()[0] << "x" << A_pinv.shape()[1]
         //     << endl;
 
-        boost::timer t3;
+        //boost::multi_array<Float, 2> A_A_pinv
+        //    = A * transpose(A_pinv);
 
         boost::multi_array<Float, 2> A_A_pinv
-            = A * GK_pinv * transpose(A);
-
-        cerr << "A_A_pinv: " << t3.elapsed() << endl;
+            = multiply_transposed(A, A_pinv);
 
         //cerr << "A_A_pinv: " << A_A_pinv.shape()[0] << "x"
         //     << A_A_pinv.shape()[1] << endl;
 
         if (debug)
             cerr << "A_A_pinv = " << endl << A_A_pinv << endl;
-
-        boost::timer t4;
 
         // Now figure out the performance
         double total_mse_biased = 0.0, total_mse_unbiased = 0.0;
@@ -430,16 +444,14 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
             total_mse_unbiased += (1.0 / m) * resid_unbiased * resid_unbiased;
         }
 
-        cerr << "errors: " << t4.elapsed() << endl;
+        //cerr << "lambda " << current_lambda
+        //     << " rmse_biased = " << sqrt(total_mse_biased)
+        //     << " rmse_unbiased = " << sqrt(total_mse_unbiased)
+        //     << endl;
 
-        cerr << "lambda " << current_lambda
-             << " rmse_biased = " << sqrt(total_mse_biased)
-             << " rmse_unbiased = " << sqrt(total_mse_unbiased)
-             << endl;
-
-        if (sqrt(total_mse_biased) > 1.0) {
-            cerr << "rmse_biased: x = " << x << endl;
-        }
+        //if (sqrt(total_mse_biased) > 1.0) {
+        //    cerr << "rmse_biased: x = " << x << endl;
+        //}
         
         if (total_mse_unbiased < best_error) {
             x_best = x;
@@ -448,7 +460,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         }
     }
 
-    cerr << "total: " << t.elapsed() << endl;
+    //cerr << "total: " << t.elapsed() << endl;
 
     return x_best;
 }

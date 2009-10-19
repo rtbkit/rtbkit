@@ -156,6 +156,34 @@ operator * (const boost::multi_array<Float1, 2> & A,
         (A, B);
 }
 
+template<typename FloatR, typename Float1, typename Float2>
+boost::multi_array<FloatR, 2>
+multiply_transposed(const boost::multi_array<Float1, 2> & A,
+                    const boost::multi_array<Float2, 2> & BT)
+{
+    if (A.shape()[1] != BT.shape()[1])
+        throw ML::Exception("Incompatible matrix sizes");
+
+    boost::multi_array<FloatR, 2> X
+        (boost::extents[A.shape()[0]][BT.shape()[0]]);
+    for (unsigned j = 0;  j < BT.shape()[0];  ++j) {
+        for (unsigned i = 0;  i < A.shape()[0];  ++i)
+            X[i][j] = SIMD::vec_dotprod_dp(&A[i][0], &BT[j][0], A.shape()[1]);
+    }
+
+    return X;
+}
+
+template<typename Float1, typename Float2>
+boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
+multiply_transposed(const boost::multi_array<Float1, 2> & A,
+                    const boost::multi_array<Float2, 2> & B)
+{
+    return multiply_transposed
+        <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
+        (A, B);
+}
+
 } // namespace ML
 
 
