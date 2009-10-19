@@ -44,6 +44,7 @@ configure(const Configuration & config)
     config.find(add_bias, "add_bias");
     config.find(do_decode, "decode");
     config.find(link_function, "link_function");
+    config.find(normalize, "normalize");
 }
 
 void
@@ -54,6 +55,7 @@ defaults()
     link_function = LOGIT;
     add_bias = true;
     do_decode = true;
+    normalize = true;
 }
 
 Config_Options
@@ -218,21 +220,71 @@ train_weighted(const Training_Data & data,
         /* Remove linearly dependent columns. */
         vector<int> dest = remove_dependent(dense_data);
         
+        if (add_bias && dest.back() == -1)
+            throw Exception("bias column disappeared");
+
+        int nvr = dense_data.shape()[0];
+
+        distribution<double> means(nvr), stds(nvr, 1.0);
+
+        /* Scale */
+        for (unsigned v = 0;  v < nvr && normalize;  ++v) {
+            double total = 0.0;
+
+            for (unsigned x = 0;  x < nx;  ++x)
+                total += dense_data[v][x];
+
+            double mean = total / nx;
+
+            double std_total = 0.0;
+            for (unsigned x = 0;  x < nx;  ++x)
+                std_total
+                    += (dense_data[v][x] - mean)
+                    *  (dense_data[v][x] - mean);
+            
+            double std = sqrt(std_total / nx);
+
+            if (std == 0.0 && mean == 1.0) {
+                // bias column
+                std = 1.0;
+                mean = 0.0;
+            }
+            else if (std == 0.0)
+                std = 1.0;
+            
+            double std_recip = 1.0 / std;
+
+            for (unsigned x = 0;  x < nx;  ++x)
+                dense_data[v][x] = (dense_data[v][x] - mean) * std_recip;
+
+            means[v] = mean;
+            stds[v] = std;
+        }
+
         int nlr = nl;
         if (nl == 2) nlr = 1;
         
         /* Perform a GLZ for each label. */
         result.weights.clear();
+        double extra_bias = 0.0;
         for (unsigned l = 0;  l < nlr;  ++l) {
             //cerr << "l = " << l << "  correct[l] = " << correct[l]
             //     << " w = " << w[l] << endl;
             distribution<double> trained
                 = run_irls(correct[l], dense_data, w[l], link_function);
             
+            trained /= stds;
+            extra_bias = - (trained.dotprod(means));
+
             distribution<float> param(nv);
             for (unsigned v = 0;  v < nv;  ++v)
                 if (dest[v] != -1) param[v] = trained[dest[v]];
-            
+
+            if (extra_bias != 0.0) {
+                if (!add_bias)
+                    throw Exception("extra bias but nowhere to put it");
+                param.back() += extra_bias;
+            }
         
             //cerr << "l = " << l <<"  param = " << param << endl;
             

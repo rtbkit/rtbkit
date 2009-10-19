@@ -66,6 +66,7 @@ public:
 
     bool add_bias;
     bool do_decode;
+    bool normalize;
     Link_Function link_function;
 
     /* Once init has been called, we clone our potential models from this
