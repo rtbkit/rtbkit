@@ -8,12 +8,15 @@
 #include "demangle.h"
 #include <cxxabi.h>
 #include "backtrace.h"
+#include "compiler/compiler.h"
+
 
 using namespace std;
 
+
 namespace ML {
 
-void (*exception_tracer) (void *, const std::type_info *) __attribute__((__weak__)) = 0;
+void (*exception_tracer) (void *, const std::type_info *) JML_WEAK_FN = 0;
 
 /** We install this handler for when an exception is thrown. */
 

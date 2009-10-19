@@ -33,6 +33,7 @@
 #define JML_PACKED  __attribute__((__packed__))
 #define JML_PURE_FN __attribute__((__pure__))
 #define JML_CONST_FN __attribute__((__const__))
+#define JML_WEAK_FN __attribute__((__weak__))
 #define JML_LIKELY(x) __builtin_expect((x), true)
 #define JML_UNLIKELY(x) __builtin_expect((x), false)
 
