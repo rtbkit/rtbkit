@@ -324,3 +324,54 @@ BOOST_AUTO_TEST_CASE(vec_dotprod_test)
     vec_dotprod_dp_mixed_test_case(16);
     vec_dotprod_dp_mixed_test_case(123);
 }
+
+template<typename T>
+void vec_accum_prod3_test_case(int nvals)
+{
+    T x[nvals], y[nvals], z[nvals];
+    double r = 0.0, r2;
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        y[i] = rand() / 16384.0;
+        z[i] = rand() / 16384.0;
+        r += x[i] * y[i] * z[i];
+    }
+    
+    r2 = SIMD::vec_accum_prod3(x, y, z, nvals);
+
+    T eps = get_eps(T());
+    if (fabs(r - r2) / max(fabs(r), fabs(r2)) >= eps) {
+        cerr << "difference = " << (abs(r - r2) / max(abs(r), abs(r2)))
+             << endl;
+        BOOST_CHECK_EQUAL(r, r2);
+    }
+    BOOST_CHECK(fabs(r - r2) / max(fabs(r), fabs(r2)) < eps);
+}
+
+BOOST_AUTO_TEST_CASE(vec_accum_prod3_test)
+{
+    cerr << "float" << endl;
+    vec_accum_prod3_test_case<float>(1);
+    vec_accum_prod3_test_case<float>(2);
+    vec_accum_prod3_test_case<float>(3);
+    vec_accum_prod3_test_case<float>(4);
+    vec_accum_prod3_test_case<float>(5);
+    vec_accum_prod3_test_case<float>(8);
+    vec_accum_prod3_test_case<float>(9);
+    vec_accum_prod3_test_case<float>(12);
+    vec_accum_prod3_test_case<float>(16);
+    vec_accum_prod3_test_case<float>(123);
+
+    cerr << "double" << endl;
+    vec_accum_prod3_test_case<double>(1);
+    vec_accum_prod3_test_case<double>(2);
+    vec_accum_prod3_test_case<double>(3);
+    vec_accum_prod3_test_case<double>(4);
+    vec_accum_prod3_test_case<double>(5);
+    vec_accum_prod3_test_case<double>(8);
+    vec_accum_prod3_test_case<double>(9);
+    vec_accum_prod3_test_case<double>(12);
+    vec_accum_prod3_test_case<double>(16);
+    vec_accum_prod3_test_case<double>(123);
+}
