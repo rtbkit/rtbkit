@@ -30,6 +30,7 @@
 #include "utils/float_traits.h"
 #include "compiler/compiler.h"
 #include "arch/simd_vector.h"
+#include "utils/string_functions.h"
 
 
 namespace ML {
@@ -69,31 +70,30 @@ operator << (std::ostream & stream, const boost::multi_array<Float, 2> & m)
     return stream;
 }
 
+/*****************************************************************************/
+/* MATRIX VECTOR                                                             */
+/*****************************************************************************/
+
 template<typename FloatR, typename Float1, typename Float2>
 ML::distribution<FloatR>
 multiply(const boost::multi_array<Float1, 2> & A,
          const ML::distribution<Float2> & b)
 {
-    if (b.size() == A.shape()[0]) {
-        ML::distribution<FloatR> result(A.shape()[1], 0.0);
-        for (unsigned i = 0;  i < A.shape()[0];  ++i)
-            for (unsigned j = 0;  j < A.shape()[1];  ++j)
-                result[j] += b[i] * A[i][j];
-        return result;
-    }
-    else if (b.size() == A.shape()[1]) {
-        ML::distribution<FloatR> result(A.shape()[0], 0.0);
-        for (unsigned i = 0;  i < A.shape()[0];  ++i)
-            result[i] = SIMD::vec_dotprod_dp(&A[i][0], &b[0], A.shape()[1]);
-            //for (unsigned j = 0;  j < A.shape()[1];  ++j)
-            //    result[i] += b[j] * A[i][j];
-        return result;
-    }
-    else throw ML::Exception("Incompatible matrix sizes");
+    if (b.size() != A.shape()[1])
+        throw Exception(format("multiply(matrix, vector): "
+                               "shape (%dx%d) x (%dx1) wrong",
+                               (int)A.shape()[0], (int)A.shape()[1],
+                               (int)b.size()));
+    ML::distribution<FloatR> result(A.shape()[0], 0.0);
+    for (unsigned i = 0;  i < A.shape()[0];  ++i)
+        result[i] = SIMD::vec_dotprod_dp(&A[i][0], &b[0], A.shape()[1]);
+    //for (unsigned j = 0;  j < A.shape()[1];  ++j)
+    //    result[i] += b[j] * A[i][j];
+    return result;
 }
 
 template<typename Float1, typename Float2>
-JML_ALWAYS_INLINE
+//JML_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
 multiply(const boost::multi_array<Float1, 2> & A,
          const ML::distribution<Float2> & b)
@@ -102,7 +102,7 @@ multiply(const boost::multi_array<Float1, 2> & A,
 }
 
 template<typename Float1, typename Float2>
-JML_ALWAYS_INLINE
+//JML_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
 operator * (const boost::multi_array<Float1, 2> & A,
             const ML::distribution<Float2> & b)
@@ -110,6 +110,53 @@ operator * (const boost::multi_array<Float1, 2> & A,
     typedef typename float_traits<Float1, Float2>::return_type FloatR;
     return multiply<FloatR, Float1, Float2>(A, b);
 }
+
+
+/*****************************************************************************/
+/* VECTOR MATRIX                                                             */
+/*****************************************************************************/
+
+template<typename FloatR, typename Float1, typename Float2>
+ML::distribution<FloatR>
+multiply(const ML::distribution<Float2> & b,
+         const boost::multi_array<Float1, 2> & A)
+{
+    if (b.size() != A.shape()[0])
+        throw Exception(format("multiply(vector, matrix): "
+                               "shape (1x%d) x (%dx%d) wrong",
+                               (int)b.size(),
+                               (int)A.shape()[0], (int)A.shape()[1]));
+
+    ML::distribution<FloatR> result(A.shape()[1], 0.0);
+    for (unsigned i = 0;  i < A.shape()[0];  ++i)
+        for (unsigned j = 0;  j < A.shape()[1];  ++j)
+            result[j] += b[i] * A[i][j];
+    return result;
+}
+
+template<typename Float1, typename Float2>
+//JML_ALWAYS_INLINE
+distribution<typename float_traits<Float1, Float2>::return_type>
+multiply(const ML::distribution<Float2> & b,
+         const boost::multi_array<Float1, 2> & A)
+{
+    return multiply<typename float_traits<Float1, Float2>::return_type>(b, A);
+}
+
+template<typename Float1, typename Float2>
+//JML_ALWAYS_INLINE
+distribution<typename float_traits<Float1, Float2>::return_type>
+operator * (const ML::distribution<Float2> & b,
+            const boost::multi_array<Float1, 2> & A)
+{
+    typedef typename float_traits<Float1, Float2>::return_type FloatR;
+    return multiply<FloatR, Float1, Float2>(b, A);
+}
+
+
+/*****************************************************************************/
+/* MATRIX MATRIX                                                             */
+/*****************************************************************************/
 
 template<typename FloatR, typename Float1, typename Float2>
 boost::multi_array<FloatR, 2>

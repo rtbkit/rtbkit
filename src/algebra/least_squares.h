@@ -404,7 +404,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         if (debug)
             cerr << "A_pinv = " << endl << A_pinv << endl;
 
-        x = A_pinv * b;
+        x = b * A_pinv;
         
         if (debug)
             cerr << "x = " << x << endl;
@@ -691,7 +691,7 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         //cerr << "least squares: " << t.elapsed() << endl;
 
         /* Re-estimate eta and mu based on refined estimate. */
-        eta                = (x * b) + offset;
+        eta                = (b * x) + offset;
         for (unsigned i = 0;  i < eta.size();  ++i)
             if (!std::isfinite(eta[i]))
                 throw Exception(format("eta[%d] = %f", i, eta[i]));
