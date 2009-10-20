@@ -27,6 +27,7 @@
 #include "worker_task.h"
 #include <boost/random/mersenne_twister.hpp>
 #include "utils/smart_ptr_utils.h"
+#include <boost/random/uniform_int.hpp>
 
 
 namespace ML {
@@ -56,7 +57,7 @@ public:
                    uint32_t rand_seed = 0,
                    int recursion = 0)
         : worker_(make_unowned_sp(worker)), group_(group),
-          recursion_(recursion)
+          uniform01_(rng_), recursion_(recursion)
     {
         if (rand_seed != 0)
             rng_.seed(rand_seed);
@@ -66,7 +67,8 @@ public:
                    int group = -1,
                    uint32_t rand_seed = 0,
                    int recursion = 0)
-        : worker_(worker), group_(group), recursion_(recursion)
+        : worker_(worker), group_(group), uniform01_(rng_),
+          recursion_(recursion)
     {
         if (rand_seed != 0)
             rng_.seed(rand_seed);
@@ -93,6 +95,12 @@ public:
         return rng_();
     }
 
+    /** Get a uniform (0, 1) random number in a deterministic way */
+    float random01()
+    {
+        return uniform01_();
+    }
+
     typedef RNG_Adaptor<boost::mt19937> RNG_Type;
     RNG_Type rng() { return RNG_Type(rng_); }
 
@@ -114,6 +122,7 @@ private:
     boost::shared_ptr<Worker_Task> worker_;
     int group_;
     boost::mt19937 rng_;
+    boost::uniform_01<boost::mt19937> uniform01_;
     int recursion_;
 };
 
