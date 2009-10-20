@@ -31,15 +31,19 @@
 #include <limits>
 #include <algorithm>
 #include <ostream>
+#include "utils/string_functions.h"
+
+#include <boost/utility/enable_if.hpp>
+#include <boost/type_traits/is_convertible.hpp>
 
 namespace ML {
 namespace Stats {
 
 
-inline void wrong_sizes_exception()
+inline void wrong_sizes_exception(const char * op, int size1, int size2)
 {
-    throw Exception("distribution: operation between different sized "
-                    "distributions");
+    throw Exception(format("distribution: operation %s between different sized "
+                           "distributions %d and %d", op, size1, size2));
 }
 
 
@@ -119,7 +123,8 @@ public:
     distribution & \
     operator op (const distribution<F2, Underlying2> & d)       \
     { \
-        if (d.size() != this->size()) wrong_sizes_exception(); \
+        if (d.size() != this->size()) \
+            wrong_sizes_exception(#op, this->size(), d.size()); \
         for (unsigned i = 0;  i < this->size();  ++i) \
             this->operator [] (i) op d[i]; \
         return *this; \
@@ -150,7 +155,7 @@ public:
     double dotprod(const distribution & other) const
     {
         if (this->size() != other.size())
-            wrong_sizes_exception();
+            wrong_sizes_exception("dotprod", this->size(), other.size());
         double result = 0.0;
         for (unsigned i = 0;  i < this->size();  ++i)
             result += (*this)[i] * other[i];
@@ -161,7 +166,7 @@ public:
     double dotprod(const distribution<OFloat, OUnderlying> & other) const
     {
         if (this->size() != other.size())
-            wrong_sizes_exception();
+            wrong_sizes_exception("dotprod", this->size(), other.size());
         double result = 0.0;
         for (unsigned i = 0;  i < this->size();  ++i)
             result += (*this)[i] * other[i];
@@ -251,7 +256,7 @@ operator op (const distribution<F1, Underlying1> & d1, \
                  const distribution<F2, Underlying2> & d2)             \
 { \
     if (d1.size() != d2.size()) \
-        wrong_sizes_exception(); \
+        wrong_sizes_exception(#op, d1.size(), d2.size());      \
     distribution<F1, Underlying1> \
         result(d1.size()); \
     for (unsigned i = 0;  i < d1.size();  ++i) \
@@ -275,11 +280,11 @@ DIST_DIST_OP(||);
 // underlying type.
 
 #define SCALAR_DIST_OP(op) \
-template<typename F, class Underlying> \
-distribution<F> \
- operator op (F val, const distribution<F, Underlying> & d2)       \
+template<typename F1, typename F2, class Underlying>                 \
+typename boost::enable_if<boost::is_convertible<F1, F2>, distribution<F2> >::type \
+operator op (F1 val, const distribution<F2, Underlying> & d2)       \
 { \
-    distribution<F, Underlying> result(d2.size()); \
+    distribution<F2, Underlying> result(d2.size()); \
     for (unsigned i = 0;  i < d2.size();  ++i) \
         result[i] = val op d2[i]; \
     return result; \

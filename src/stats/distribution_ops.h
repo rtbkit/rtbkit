@@ -113,7 +113,7 @@ distribution<F, Underlying> max(const distribution<F, Underlying> & dist1,
                     const distribution<F, Underlying> & dist2)
 {
     if (dist1.size() != dist2.size())
-        wrong_sizes_exception();
+        wrong_sizes_exception("max", dist1.size(), dist2.size());
 
     distribution<F, Underlying> result(dist1.size());
     for (unsigned i = 0;  i < dist1.size();  ++i)
@@ -135,7 +135,7 @@ distribution<F, Underlying> min(const distribution<F, Underlying> & dist1,
                     const distribution<F, Underlying> & dist2)
 {
     if (dist1.size() != dist2.size())
-        wrong_sizes_exception();
+        wrong_sizes_exception("min", dist1.size(), dist2.size());
 
     distribution<F, Underlying> result(dist1.size());
     for (unsigned i = 0;  i < dist1.size();  ++i)
@@ -168,7 +168,7 @@ distribution<F, Underlying> xdiv(const distribution<F, Underlying> & dist1,
                                  const distribution<F, Underlying> & dist2)
 {
     if (dist1.size() != dist2.size())
-        wrong_sizes_exception();
+        wrong_sizes_exception("xdiv", dist1.size(), dist2.size());
 
     distribution<F, Underlying> result(dist1.size());
     for (unsigned i = 0;  i < dist1.size();  ++i)

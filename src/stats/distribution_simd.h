@@ -52,7 +52,7 @@ distribution<float>::
 dotprod(const distribution<float> & d2) const
 {
     if (size() != d2.size())
-        wrong_sizes_exception();
+        wrong_sizes_exception("dotprod", size(), d2.size());
     return SIMD::vec_dotprod_dp(&(*this)[0], &d2[0], size());
 }
 
@@ -62,7 +62,7 @@ distribution<double>::
 dotprod(const distribution<double> & d2) const
 {
     if (size() != d2.size())
-        wrong_sizes_exception();
+        wrong_sizes_exception("dotprod", size(), d2.size());
     return SIMD::vec_dotprod_dp(&(*this)[0], &d2[0], size());
 }
 
@@ -73,7 +73,7 @@ distribution<double>::
 dotprod(const distribution<float> & d2) const
 {
     if (size() != d2.size())
-        wrong_sizes_exception();
+        wrong_sizes_exception("dotprod", size(), d2.size());
     return SIMD::vec_dotprod_dp(&d2[0], &(*this)[0], size());
 }
 
@@ -84,7 +84,7 @@ distribution<float>::
 dotprod(const distribution<double> & d2) const
 {
     if (size() != d2.size())
-        wrong_sizes_exception();
+        wrong_sizes_exception("dotprod", size(), d2.size());
     return SIMD::vec_dotprod_dp(&(*this)[0], &d2[0], size());
 }
 
@@ -93,7 +93,8 @@ operator + (const distribution<double> & d1,
             const distribution<double> & d2)
 {
     distribution<double> result(d1.size());
-    if (d1.size() != d2.size()) wrong_sizes_exception();
+    if (d1.size() != d2.size())
+        wrong_sizes_exception("+", d1.size(), d2.size());
     SIMD::vec_add(&d1[0], &d2[0], &result[0], d1.size());
     return result;
 }
@@ -103,7 +104,8 @@ operator + (const distribution<float> & d1,
             const distribution<float> & d2)
 {
     distribution<float> result(d1.size());
-    if (d1.size() != d2.size()) wrong_sizes_exception();
+    if (d1.size() != d2.size())
+        wrong_sizes_exception("+", d1.size(), d2.size());
     SIMD::vec_add(&d1[0], &d2[0], &result[0], d1.size());
     return result;
 }
@@ -113,7 +115,8 @@ operator - (const distribution<double> & d1,
             const distribution<double> & d2)
 {
     distribution<double> result(d1.size());
-    if (d1.size() != d2.size()) wrong_sizes_exception();
+    if (d1.size() != d2.size())
+        wrong_sizes_exception("-", d1.size(), d2.size());
     SIMD::vec_minus(&d1[0], &d2[0], &result[0], d1.size());
     return result;
 }
@@ -123,7 +126,8 @@ operator - (const distribution<float> & d1,
             const distribution<float> & d2)
 {
     distribution<float> result(d1.size());
-    if (d1.size() != d2.size()) wrong_sizes_exception();
+    if (d1.size() != d2.size())
+        wrong_sizes_exception("-", d1.size(), d2.size());
     SIMD::vec_minus(&d1[0], &d2[0], &result[0], d1.size());
     return result;
 }
@@ -133,7 +137,8 @@ operator * (const distribution<double> & d1,
             const distribution<double> & d2)
 {
     distribution<double> result(d1.size());
-    if (d1.size() != d2.size()) wrong_sizes_exception();
+    if (d1.size() != d2.size())
+        wrong_sizes_exception("*", d1.size(), d2.size());
     SIMD::vec_prod(&d1[0], &d2[0], &result[0], d1.size());
     return result;
 }
@@ -143,7 +148,8 @@ operator * (const distribution<float> & d1,
             const distribution<float> & d2)
 {
     distribution<float> result(d1.size());
-    if (d1.size() != d2.size()) wrong_sizes_exception();
+    if (d1.size() != d2.size())
+        wrong_sizes_exception("*", d1.size(), d2.size());
     SIMD::vec_prod(&d1[0], &d2[0], &result[0], d1.size());
     return result;
 }
