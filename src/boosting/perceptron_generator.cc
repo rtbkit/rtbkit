@@ -624,7 +624,7 @@ decorrelate(const Training_Data & data,
          = (x * A) - (mean * A);
     */
 
-    boost::shared_ptr<Perceptron::Layer> layer(new Perceptron::Layer());
+    boost::shared_ptr<Layer> layer(new Layer());
     layer->weights.resize(boost::extents[transform.shape()[0]][transform.shape()[1]]);
     layer->weights = transform;
     layer->bias = distribution<float>(nf, 0.0);  // already have mean removed
@@ -704,7 +704,7 @@ struct Training_Job_Info {
     }
 
     void fprop(int x,
-               const vector<boost::shared_ptr<Perceptron::Layer> > & layers,
+               const vector<boost::shared_ptr<Layer> > & layers,
                vector<distribution<float> > & layer_outputs) const
     {
         size_t nf = decorrelated.shape()[1];
@@ -752,7 +752,7 @@ struct Training_Job_Info {
     {
         //cerr << "training " << x_start << " to " << x_end << endl;
 
-        const vector<boost::shared_ptr<Perceptron::Layer> > & layers
+        const vector<boost::shared_ptr<Layer> > & layers
             = result.layers;
         size_t max_units = result.max_units;
 
@@ -863,7 +863,7 @@ struct Training_Job_Info {
             /* Backpropegate.s */
             for (int l = nl - 1;  l >= 1;  --l) {
                 
-                const Perceptron::Layer & layer = *layers[l];
+                const Layer & layer = *layers[l];
                 
                 size_t no = layer.outputs();
                 size_t ni = layer.inputs();
@@ -937,7 +937,7 @@ struct Training_Job_Info {
             
             /* Finally, put the accumulated weights back. */
             for (unsigned l = 1;  l < nl;  ++l) {
-                const Perceptron::Layer & layer = *layers[l];
+                const Layer & layer = *layers[l];
                 
                 size_t no = layer.outputs();
                 size_t ni = layer.inputs();
@@ -956,7 +956,7 @@ struct Training_Job_Info {
     /** output_num_in_isolation == -1: calculate deltas for all outputs.
         Otherwise, just for the given output */
     double bprop(int x,
-                 const vector<boost::shared_ptr<Perceptron::Layer> > & layers,
+                 const vector<boost::shared_ptr<Layer> > & layers,
                  const vector<distribution<float> > & layer_outputs,
                  vector<distribution<float> > & errors,
                  vector<distribution<float> > & deltas,
@@ -994,7 +994,7 @@ struct Training_Job_Info {
         /* Backpropegate. */
         for (int l = nl - 1;  l >= 1;  --l) {
             
-            const Perceptron::Layer & layer = *layers[l];
+            const Layer & layer = *layers[l];
             
             size_t no = layer.outputs();
             size_t ni = layer.inputs();
@@ -1039,8 +1039,8 @@ struct Training_Job_Info {
     }
 
     void update_with_deltas
-        (const vector<boost::shared_ptr<Perceptron::Layer> > & original,
-         const vector<boost::shared_ptr<Perceptron::Layer> > & updated)
+        (const vector<boost::shared_ptr<Layer> > & original,
+         const vector<boost::shared_ptr<Layer> > & updated)
     {
         size_t nl = updated.size();
 
@@ -1048,8 +1048,8 @@ struct Training_Job_Info {
            updates by taking the difference between the current weights
            and the original weights. */
         for (unsigned l = 1;  l < nl;  ++l) {
-            const Perceptron::Layer & layer0 = *original[l];
-            const Perceptron::Layer & layer = *updated[l];
+            const Layer & layer0 = *original[l];
+            const Layer & layer = *updated[l];
                 
             size_t no = layer.outputs();
             size_t ni = layer.inputs();
@@ -1084,10 +1084,10 @@ struct Training_Job_Info {
 
         size_t nl = result.layers.size();
 
-        vector<boost::shared_ptr<Perceptron::Layer> > layers;
+        vector<boost::shared_ptr<Layer> > layers;
 
         // Starting version of weights to compute updates
-        vector<boost::shared_ptr<Perceptron::Layer> > original;
+        vector<boost::shared_ptr<Layer> > original;
 
         if (one_thread) {
             layers = result.layers;
@@ -1096,7 +1096,7 @@ struct Training_Job_Info {
         else {
             // Layers is a copy
             for (unsigned i = 0;  i < layers.size();  ++i)
-                layers.push_back(make_sp(new Perceptron::Layer
+                layers.push_back(make_sp(new Layer
                                          (*result.layers[i])));
             original = result.layers;
         }
@@ -1159,7 +1159,7 @@ struct Training_Job_Info {
                     
                     for (int l = nl - 1;  l >= 1;  --l) {
 
-                        Perceptron::Layer & layer = *layers[l];
+                        Layer & layer = *layers[l];
                         
                         size_t no = layer.outputs();
                         size_t ni = layer.inputs();
@@ -1207,7 +1207,7 @@ struct Training_Job_Info {
 
                 for (int l = nl - 1;  l >= 1;  --l) {
                     
-                    Perceptron::Layer & layer = *layers[l];
+                    Layer & layer = *layers[l];
                     
                     size_t no = layer.outputs();
                     size_t ni = layer.inputs();
@@ -1240,7 +1240,7 @@ struct Training_Job_Info {
 
             for (unsigned l = 1;  l < nl && mode < 4;  ++l) {
 
-                Perceptron::Layer & layer = *layers[l];
+                Layer & layer = *layers[l];
                 
                 size_t no = layer.outputs();
                 size_t ni = layer.inputs();
@@ -1385,7 +1385,7 @@ train_iteration(Thread_Context & context,
     if (!example_weights.empty() && nx != example_weights.size())
         throw Exception("Perceptron::train_iteration(): error propegating");
 
-    vector<boost::shared_ptr<Perceptron::Layer> > & layers = result.layers;
+    vector<boost::shared_ptr<Layer> > & layers = result.layers;
     size_t nl = layers.size();
 
     int our_batch_size = batch_size;
@@ -1488,7 +1488,7 @@ train_iteration(Thread_Context & context,
 
             using namespace CUDA;
 
-            const vector<boost::shared_ptr<Perceptron::Layer> > & layers
+            const vector<boost::shared_ptr<Layer> > & layers
                 = result.layers;
 
             // NOTE: we don't keep layer 0, as it's the decorrelating and
@@ -1653,7 +1653,7 @@ train_iteration(Thread_Context & context,
         /* Finally, put the accumulated weights back. */
         for (unsigned l = 1;  l < nl && (our_batch_size != 1 || use_cuda);
              ++l) {
-            Perceptron::Layer & layer = *layers[l];
+            Layer & layer = *layers[l];
             
             size_t no = layer.outputs();
             size_t ni = layer.inputs();
@@ -1727,15 +1727,15 @@ init(const Training_Data & data,
              << units << " units and activation function "
              << activation << endl;
 
-        boost::shared_ptr<Perceptron::Layer>
-            layer(new Perceptron::Layer(nunits, units, activation));
+        boost::shared_ptr<Layer>
+            layer(new Layer(nunits, units, activation));
         result.add_layer(layer);
         nunits = units;
     }
     
     /* Add the output units. */
-    boost::shared_ptr<Perceptron::Layer> layer
-        (new Perceptron::Layer(nunits, nout, output_activation));
+    boost::shared_ptr<Layer> layer
+        (new Layer(nunits, nout, output_activation));
     result.add_layer(layer);
 
     cerr << "adding output layer with " << nout << " units and activation "

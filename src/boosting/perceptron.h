@@ -54,6 +54,93 @@ struct Output_Transform {
 
 
 /*****************************************************************************/
+/* LAYER                                                                     */
+/*****************************************************************************/
+
+/** A basic layer of a neural network.  Other kinds of layers can be built on
+    this base.
+*/
+
+struct Layer {
+    Layer();
+    Layer(const Layer & other);
+    Layer(size_t inputs, size_t units, Activation activation);
+
+    Layer & operator = (const Layer & other)
+    {
+        weights = other.weights;
+        bias = other.bias;
+        activation = other.activation;
+        return *this;
+    }
+
+    boost::multi_array<float, 2> weights;
+    distribution<float> bias;
+    Activation activation;   ///< Activation function
+        
+    /** Dump as ASCII.  This will be big. */
+    std::string print() const;
+        
+    void serialize(DB::Store_Writer & store) const;
+    void reconstitute(DB::Store_Reader & store);
+
+    /** Apply the layer to the input and return an output. */
+    distribution<float> apply(const distribution<float> & input) const;
+        
+    void apply(const distribution<float> & input,
+               distribution<float> & output) const;
+
+    void apply_stochastic(const distribution<float> & input,
+                          distribution<float> & output,
+                          Thread_Context & context) const;
+
+    void apply(const float * input, float * output) const;
+
+    void apply_stochastic(const float * input, float * output,
+                          Thread_Context & context) const;
+
+    /** Generate a single stochastic Gibbs sample from the stocastic
+        distribution, starting from the given input values.  It will
+        modify both the input and the output of the new sample.
+
+        Performs the given number of iterations.
+    */
+    void sample(distribution<float> & input,
+                distribution<float> & output,
+                Thread_Context & context,
+                int num_iterations) const;
+
+    /** Transform the given value according to the transfer function. */
+    void transform(distribution<float> & values) const;
+
+    /** Return the derivative of the given value according to the transfer
+        function. */
+    distribution<float> derivative(const distribution<float> & outputs) const;
+
+    void deltas(const float * outputs, const float * errors,
+                float * deltas) const;
+
+    /** Fill with random weights. */
+    void random_fill(float limit = 0.1);
+
+    /** Return the number of parameters (degrees of freedom) for the
+        layer. */
+    size_t parameters() const
+    {
+        return bias.size() + (inputs() * outputs());
+    }
+
+    size_t inputs() const { return weights.shape()[0]; }
+    size_t outputs() const { return weights.shape()[1]; }
+
+    /** Check that all parameters are reasonable and invariants are met.
+        Will throw an exception if there is a problem. */
+    void validate() const;
+};
+    
+
+
+/*****************************************************************************/
 /* PERCEPTRON                                                                */
 /*****************************************************************************/
 
@@ -139,84 +226,6 @@ public:
 
     /* Variables... */
     std::vector<Feature> features;  ///< Features to use as input
-    
-    /** This structure holds a layer of neurons. */
-    struct Layer {
-        Layer();
-        Layer(const Layer & other);
-        Layer(size_t inputs, size_t units, Activation activation);
-
-        Layer & operator = (const Layer & other)
-        {
-            weights = other.weights;
-            bias = other.bias;
-            activation = other.activation;
-            return *this;
-        }
-
-        boost::multi_array<float, 2> weights;
-        distribution<float> bias;
-        Activation activation;   ///< Activation function
-        
-        /** Dump as ASCII.  This will be big. */
-        std::string print() const;
-        
-        void serialize(DB::Store_Writer & store) const;
-        void reconstitute(DB::Store_Reader & store);
-
-        /** Apply the layer to the input and return an output. */
-        distribution<float> apply(const distribution<float> & input) const;
-        
-        void apply(const distribution<float> & input,
-                   distribution<float> & output) const;
-
-        void apply_stochastic(const distribution<float> & input,
-                              distribution<float> & output,
-                              Thread_Context & context) const;
-
-        void apply(const float * input, float * output) const;
-
-        void apply_stochastic(const float * input, float * output,
-                              Thread_Context & context) const;
-
-        /** Generate a single stochastic Gibbs sample from the stocastic
-            distribution, starting from the given input values.  It will
-            modify both the input and the output of the new sample.
-
-            Performs the given number of iterations.
-        */
-        void sample(distribution<float> & input,
-                    distribution<float> & output,
-                    Thread_Context & context,
-                    int num_iterations) const;
-
-        /** Transform the given value according to the transfer function. */
-        void transform(distribution<float> & values) const;
-
-        /** Return the derivative of the given value according to the transfer
-            function. */
-        distribution<float> derivative(const distribution<float> & outputs) const;
-
-        void deltas(const float * outputs, const float * errors,
-                    float * deltas) const;
-
-        /** Fill with random weights. */
-        void random_fill(float limit = 0.1);
-
-        /** Return the number of parameters (degrees of freedom) for the
-            layer. */
-        size_t parameters() const
-        {
-            return bias.size() + (inputs() * outputs());
-        }
-
-        size_t inputs() const { return weights.shape()[0]; }
-        size_t outputs() const { return weights.shape()[1]; }
-
-        /** Check that all parameters are reasonable and invariants are met.
-            Will throw an exception if there is a problem. */
-        void validate() const;
-    };
     
     std::vector<boost::shared_ptr<Layer> > layers;  ///< Different layers
     

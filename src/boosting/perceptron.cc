@@ -82,24 +82,24 @@ void init_rng(int seed)
 
 } // file scope
 
-Perceptron::Layer::Layer()
+Layer::Layer()
 {
 }
 
-Perceptron::Layer::Layer(const Layer & other)
+Layer::Layer(const Layer & other)
     : weights(other.weights), bias(other.bias),
       activation(other.activation)
 {
 }
 
-Perceptron::Layer::Layer(size_t inputs, size_t units, Activation activation)
+Layer::Layer(size_t inputs, size_t units, Activation activation)
     : weights(boost::extents[inputs][units]), bias(units), activation(activation)
 {
     random_fill(1.0 / sqrt(inputs));
 }
 
 std::string
-Perceptron::Layer::
+Layer::
 print() const
 {
     size_t ni = inputs(), no = outputs();
@@ -123,7 +123,7 @@ print() const
 }
 
 void
-Perceptron::Layer::
+Layer::
 serialize(DB::Store_Writer & store) const
 {
     store << compact_size_t(0) << string("PERCEPTRON LAYER");
@@ -136,7 +136,7 @@ serialize(DB::Store_Writer & store) const
 }
 
 void
-Perceptron::Layer::
+Layer::
 reconstitute(DB::Store_Reader & store)
 {
     compact_size_t version(store);
@@ -163,17 +163,17 @@ reconstitute(DB::Store_Reader & store)
 // TODO: put all these in a template...
 
 distribution<float>
-Perceptron::Layer::
+Layer::
 apply(const distribution<float> & input) const
 {
-    distribution<float> result = weights * input;
+    distribution<float> result = input * weights;
     result += bias;
     transform(result);
     return result;
 }
 
 void
-Perceptron::Layer::
+Layer::
 apply(const distribution<float> & input,
       distribution<float> & output) const
 {
@@ -189,7 +189,7 @@ apply(const distribution<float> & input,
 }
 
 void
-Perceptron::Layer::
+Layer::
 apply_stochastic(const distribution<float> & input,
                  distribution<float> & output,
                  Thread_Context & context) const
@@ -198,7 +198,7 @@ apply_stochastic(const distribution<float> & input,
 }
 
 void
-Perceptron::Layer::
+Layer::
 apply(const float * input, float * output) const
 {
     std::copy(bias.begin(), bias.end(), output);
@@ -214,7 +214,7 @@ apply(const float * input, float * output) const
 }
 
 void
-Perceptron::Layer::
+Layer::
 apply_stochastic(const float * input, float * output,
                  Thread_Context & context) const
 {
@@ -222,7 +222,7 @@ apply_stochastic(const float * input, float * output,
 
 #if 0
 void
-Perceptron::Layer::
+Layer::
 apply(const float * input, double * output) const
 {
     std::copy(bias.begin(), bias.end(), output);
@@ -235,14 +235,14 @@ apply(const float * input, double * output) const
 #endif
 
 void
-Perceptron::Layer::
+Layer::
 transform(distribution<float> & input) const
 {
     Perceptron::transform(input, activation);
 }
 
 distribution<float>
-Perceptron::Layer::
+Layer::
 derivative(const distribution<float> & outputs) const
 {
     distribution<float> result = outputs;
@@ -250,7 +250,7 @@ derivative(const distribution<float> & outputs) const
     return result;
 }
 
-void Perceptron::Layer::
+void Layer::
 deltas(const float * outputs, const float * errors, float * deltas) const
 {
     size_t no = this->outputs();
@@ -278,11 +278,11 @@ deltas(const float * outputs, const float * errors, float * deltas) const
         break;
         
     default:
-        throw Exception("Perceptron::Layer::deltas(): invalid activation");
+        throw Exception("Layer::deltas(): invalid activation");
     }
 }
 
-void Perceptron::Layer::random_fill(float limit)
+void Layer::random_fill(float limit)
 {
     int ni = weights.shape()[0], no = weights.shape()[1];
     
@@ -298,7 +298,7 @@ void Perceptron::Layer::random_fill(float limit)
 }
 
 void
-Perceptron::Layer::
+Layer::
 validate() const
 {
     if (weights.shape()[1] != bias.size())
