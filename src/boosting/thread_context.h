@@ -28,7 +28,7 @@
 #include <boost/random/mersenne_twister.hpp>
 #include "utils/smart_ptr_utils.h"
 #include <boost/random/uniform_int.hpp>
-
+#include "arch/exception.h"
 
 namespace ML {
 
