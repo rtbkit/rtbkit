@@ -4,6 +4,8 @@
 #
 # Makefile for the python wrappers for jml
 
+ifeq ($(PYTHON_ENABLED),1)
+
 PYTHON_SOURCES := \
         jml_wrap_python.i
 
@@ -17,3 +19,5 @@ PYTHON_LINK :=	boosting
 OPTIONS_python/jml_wrap_python_wrap.cxx := -Wno-uninitialized
 
 $(eval $(call library,_jml,$(PYTHON_SOURCES),$(PYTHON_LINK),_jml))
+
+endif
