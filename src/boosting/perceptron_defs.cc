@@ -14,20 +14,21 @@ using namespace std;
 
 namespace ML {
 
-std::ostream & operator << (std::ostream & stream, Activation act)
+std::ostream & operator << (std::ostream & stream, Transfer_Function_Type act)
 {
     switch (act) {
-    case ACT_LOGSIG:   return stream << "LOGSIG";
-    case ACT_TANH:     return stream << "TANH";
-    case ACT_TANHS:    return stream << "TANHS";
-    case ACT_IDENTITY: return stream << "IDENTITY";
-    case ACT_LOGSOFTMAX: return stream << "LOGSOFTMAX";
+    case TF_LOGSIG:   return stream << "LOGSIG";
+    case TF_TANH:     return stream << "TANH";
+    case TF_TANHS:    return stream << "TANHS";
+    case TF_IDENTITY: return stream << "IDENTITY";
+    case TF_LOGSOFTMAX: return stream << "LOGSOFTMAX";
+    case TF_NONSTANDARD: return stream << "NONSTANDARD";
 
-    default: return stream << format("Activation(%d)", act);
+    default: return stream << format("Transfer_Function_Type(%d)", act);
     }
 }
 
-BYTE_PERSISTENT_ENUM_IMPL(Activation);
+BYTE_PERSISTENT_ENUM_IMPL(Transfer_Function_Type);
 
 std::ostream & operator << (std::ostream & stream, Sampling smp)
 {
@@ -46,16 +47,19 @@ BYTE_PERSISTENT_ENUM_IMPL(Sampling);
 
 ENUM_INFO_NAMESPACE
 
-const Enum_Opt<ML::Activation>
-Enum_Info<ML::Activation>::OPT[Enum_Info<ML::Activation>::NUM] = {
-    { "logsig",      ML::ACT_LOGSIG   },
-    { "tanh",        ML::ACT_TANH     },
-    { "tanhs",       ML::ACT_TANHS    },
-    { "identity",    ML::ACT_IDENTITY },
-    { "logsoftmax",  ML::ACT_LOGSOFTMAX }
+const Enum_Opt<ML::Transfer_Function_Type>
+Enum_Info<ML::Transfer_Function_Type>::
+OPT[Enum_Info<ML::Transfer_Function_Type>::NUM] = {
+    { "logsig",      ML::TF_LOGSIG   },
+    { "tanh",        ML::TF_TANH     },
+    { "tanhs",       ML::TF_TANHS    },
+    { "identity",    ML::TF_IDENTITY },
+    { "logsoftmax",  ML::TF_LOGSOFTMAX },
+    { "nonstandard", ML::TF_NONSTANDARD }
 };
 
-const char * Enum_Info<ML::Activation>::NAME = "Activation";
+const char * Enum_Info<ML::Transfer_Function_Type>::NAME
+    = "Transfer_Function_Type";
 
 const Enum_Opt<ML::Sampling>
 Enum_Info<ML::Sampling>::OPT[Enum_Info<ML::Sampling>::NUM] = {

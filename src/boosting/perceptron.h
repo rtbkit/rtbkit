@@ -12,10 +12,9 @@
 
 #include "config.h"
 #include "classifier.h"
-#include "stump.h"
+#include "layer.h"
 #include "utils/pair_utils.h"
 #include <boost/multi_array.hpp>
-#include "perceptron_defs.h"
 #include <boost/shared_ptr.hpp>
 
 namespace ML {
@@ -54,100 +53,10 @@ struct Output_Transform {
 
 
 /*****************************************************************************/
-/* LAYER                                                                     */
-/*****************************************************************************/
-
-/** A basic layer of a neural network.  Other kinds of layers can be built on
-    this base.
-*/
-
-struct Layer {
-    Layer();
-    Layer(const Layer & other);
-    Layer(size_t inputs, size_t units, Activation activation);
-
-    Layer & operator = (const Layer & other)
-    {
-        weights = other.weights;
-        bias = other.bias;
-        activation = other.activation;
-        return *this;
-    }
-
-    boost::multi_array<float, 2> weights;
-    distribution<float> bias;
-    Activation activation;   ///< Activation function
-        
-    /** Dump as ASCII.  This will be big. */
-    std::string print() const;
-        
-    void serialize(DB::Store_Writer & store) const;
-    void reconstitute(DB::Store_Reader & store);
-
-    /** Apply the layer to the input and return an output. */
-    distribution<float> apply(const distribution<float> & input) const;
-        
-    void apply(const distribution<float> & input,
-               distribution<float> & output) const;
-
-    void apply_stochastic(const distribution<float> & input,
-                          distribution<float> & output,
-                          Thread_Context & context) const;
-
-    void apply(const float * input, float * output) const;
-
-    void apply_stochastic(const float * input, float * output,
-                          Thread_Context & context) const;
-
-    /** Generate a single stochastic Gibbs sample from the stocastic
-        distribution, starting from the given input values.  It will
-        modify both the input and the output of the new sample.
-
-        Performs the given number of iterations.
-    */
-    void sample(distribution<float> & input,
-                distribution<float> & output,
-                Thread_Context & context,
-                int num_iterations) const;
-
-    /** Transform the given value according to the transfer function. */
-    void transform(distribution<float> & values) const;
-
-    /** Return the derivative of the given value according to the transfer
-        function. */
-    distribution<float> derivative(const distribution<float> & outputs) const;
-
-    void deltas(const float * outputs, const float * errors,
-                float * deltas) const;
-
-    /** Fill with random weights. */
-    void random_fill(float limit = 0.1);
-
-    /** Return the number of parameters (degrees of freedom) for the
-        layer. */
-    size_t parameters() const
-    {
-        return bias.size() + (inputs() * outputs());
-    }
-
-    size_t inputs() const { return weights.shape()[0]; }
-    size_t outputs() const { return weights.shape()[1]; }
-
-    /** Check that all parameters are reasonable and invariants are met.
-        Will throw an exception if there is a problem. */
-    void validate() const;
-};
-    
-
-
-/*****************************************************************************/
 /* PERCEPTRON                                                                */
 /*****************************************************************************/
 
-/** The boosted decision stumps classifier.  It has a whole bunch of decision
-    stumps (decision trees with only one decision), which it combines together
-    linearly (with weights based upon the boosting algorithm) in order to
-    determine the best output.
+/** The perceptron classifier.
 */
 
 class Perceptron : public Classifier_Impl {
@@ -231,27 +140,6 @@ public:
     
     size_t max_units;  ///< Number of units in layer with highest number
 
-    /** Perform the transformation given the activation function. */
-    static void transform(distribution<float> & values,
-                          Activation activation);
-
-    /** Perform the transformation given the activation function. */
-    static void transform(float * values, size_t nv, Activation activation);
-
-    /** Perform the transformation given the activation function. */
-    static void derivative(distribution<float> & values,
-                           Activation activation);
-
-    /** Given the activation function and the maximum amount of the range
-        that we want to use (eg, 0.8 for asymptotic functions), what are
-        the minimum and maximum values that we want to use.
-
-        For example, tanh goes from -1 to 1, but asymptotically.  We would
-        normally want to go from -0.8 to 0.8, to leave a bit of space for
-        expansion.
-    */
-    static std::pair<float, float> targets(float maximum, int activation);
-    
     void add_layer(const boost::shared_ptr<Layer> & layer);
 
     void clear();

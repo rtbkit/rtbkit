@@ -60,7 +60,7 @@ public:
     unsigned max_iter;
     unsigned min_iter;
     float learning_rate;
-    Activation activation, output_activation;
+    Transfer_Function_Type activation, output_activation;
     bool do_decorrelate;
     bool do_normalize;
     float batch_size;
@@ -85,7 +85,8 @@ public:
     init(const Training_Data & data,
          const std::vector<Feature> & possible_features,
          const std::vector<int> & architecture,
-         Perceptron & perceptron) const;
+         Perceptron & perceptron,
+         Thread_Context & context) const;
 
 
     float train_weighted(const Training_Data & data,

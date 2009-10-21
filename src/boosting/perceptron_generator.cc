@@ -121,7 +121,7 @@ defaults()
     min_iter = 10;
     learning_rate = 0.01;
     arch_str = "%i";
-    activation = output_activation = ACT_TANH;
+    activation = output_activation = TF_TANH;
     do_decorrelate = true;
     do_normalize = true;
     batch_size = 1024;
@@ -220,7 +220,7 @@ generate(Thread_Context & context,
     vector<int> arch = Perceptron::parse_architecture(arch_str);
     
     boost::multi_array<float, 2> decorrelated
-        = init(training_set, features, arch, current);
+        = init(training_set, features, arch, current, context);
 
     size_t nx_validate
         = (validate_is_train ? training_set : validation_set)
@@ -624,11 +624,11 @@ decorrelate(const Training_Data & data,
          = (x * A) - (mean * A);
     */
 
-    boost::shared_ptr<Layer> layer(new Layer());
+    boost::shared_ptr<Dense_Layer<float> > layer(new Dense_Layer<float>());
     layer->weights.resize(boost::extents[transform.shape()[0]][transform.shape()[1]]);
     layer->weights = transform;
     layer->bias = distribution<float>(nf, 0.0);  // already have mean removed
-    layer->activation = ACT_IDENTITY;
+    layer->transfer_function = TF_IDENTITY;
     
     //cerr << "transform = " << transform << endl;
 
@@ -863,7 +863,8 @@ struct Training_Job_Info {
             /* Backpropegate.s */
             for (int l = nl - 1;  l >= 1;  --l) {
                 
-                const Layer & layer = *layers[l];
+                const Dense_Layer<float> & layer
+                    = dynamic_cast<const Dense_Layer<float> &>(*layers[l]);
                 
                 size_t no = layer.outputs();
                 size_t ni = layer.inputs();
@@ -937,7 +938,8 @@ struct Training_Job_Info {
             
             /* Finally, put the accumulated weights back. */
             for (unsigned l = 1;  l < nl;  ++l) {
-                const Layer & layer = *layers[l];
+                const Dense_Layer<float> & layer
+                    = dynamic_cast<const Dense_Layer<float> &>(*layers[l]);
                 
                 size_t no = layer.outputs();
                 size_t ni = layer.inputs();
@@ -994,7 +996,8 @@ struct Training_Job_Info {
         /* Backpropegate. */
         for (int l = nl - 1;  l >= 1;  --l) {
             
-            const Layer & layer = *layers[l];
+            const Dense_Layer<float> & layer
+                = dynamic_cast<const Dense_Layer<float> &>(*layers[l]);
             
             size_t no = layer.outputs();
             size_t ni = layer.inputs();
@@ -1048,9 +1051,12 @@ struct Training_Job_Info {
            updates by taking the difference between the current weights
            and the original weights. */
         for (unsigned l = 1;  l < nl;  ++l) {
-            const Layer & layer0 = *original[l];
-            const Layer & layer = *updated[l];
-                
+
+            const Dense_Layer<float> & layer0
+                = dynamic_cast<const Dense_Layer<float> &>(*original[l]);
+            const Dense_Layer<float> & layer
+                = dynamic_cast<const Dense_Layer<float> &>(*updated[l]);
+
             size_t no = layer.outputs();
             size_t ni = layer.inputs();
             
@@ -1096,8 +1102,7 @@ struct Training_Job_Info {
         else {
             // Layers is a copy
             for (unsigned i = 0;  i < layers.size();  ++i)
-                layers.push_back(make_sp(new Layer
-                                         (*result.layers[i])));
+                layers.push_back(make_sp(result.layers[i]->make_copy()));
             original = result.layers;
         }
 
@@ -1159,7 +1164,9 @@ struct Training_Job_Info {
                     
                     for (int l = nl - 1;  l >= 1;  --l) {
 
-                        Layer & layer = *layers[l];
+                        Dense_Layer<float> & layer
+                            = dynamic_cast<Dense_Layer<float> &>
+                            (*layers[l]);
                         
                         size_t no = layer.outputs();
                         size_t ni = layer.inputs();
@@ -1240,7 +1247,8 @@ struct Training_Job_Info {
 
             for (unsigned l = 1;  l < nl && mode < 4;  ++l) {
 
-                Layer & layer = *layers[l];
+                Dense_Layer<float> & layer
+                    = dynamic_cast<Dense_Layer<float> &>(*layers[l]);
                 
                 size_t no = layer.outputs();
                 size_t ni = layer.inputs();
@@ -1377,15 +1385,18 @@ train_iteration(Thread_Context & context,
 
     float inhibit, fire;
     boost::tie(inhibit, fire)
-        = Perceptron::targets(target_value,
-                              result.layers.back()->activation);
+        = Layer::targets(target_value,
+                         result.layers.back()->transfer_function);
 
     size_t nx = decorrelated.shape()[0];
 
     if (!example_weights.empty() && nx != example_weights.size())
         throw Exception("Perceptron::train_iteration(): error propegating");
 
-    vector<boost::shared_ptr<Layer> > & layers = result.layers;
+    vector<boost::shared_ptr<Dense_Layer<float> > > layers;
+    for (unsigned i = 0;  i < result.layers.size();  ++i)
+        layers.push_back(boost::dynamic_pointer_cast<Dense_Layer<float> >
+                         (result.layers[i]));
     size_t nl = layers.size();
 
     int our_batch_size = batch_size;
@@ -1653,7 +1664,8 @@ train_iteration(Thread_Context & context,
         /* Finally, put the accumulated weights back. */
         for (unsigned l = 1;  l < nl && (our_batch_size != 1 || use_cuda);
              ++l) {
-            Layer & layer = *layers[l];
+            Dense_Layer<float> & layer
+                = dynamic_cast<Dense_Layer<float> &>(*layers[l]);
             
             size_t no = layer.outputs();
             size_t ni = layer.inputs();
@@ -1700,7 +1712,8 @@ Perceptron_Generator::
 init(const Training_Data & data,
      const std::vector<Feature> & possible_features,
      const std::vector<int> & architecture,
-     Perceptron & result) const
+     Perceptron & result,
+     Thread_Context & context) const
 {
     result = model;
 
@@ -1728,14 +1741,14 @@ init(const Training_Data & data,
              << activation << endl;
 
         boost::shared_ptr<Layer>
-            layer(new Layer(nunits, units, activation));
+            layer(new Dense_Layer<float>(nunits, units, activation, context));
         result.add_layer(layer);
         nunits = units;
     }
     
     /* Add the output units. */
     boost::shared_ptr<Layer> layer
-        (new Layer(nunits, nout, output_activation));
+        (new Dense_Layer<float>(nunits, nout, output_activation, context));
     result.add_layer(layer);
 
     cerr << "adding output layer with " << nout << " units and activation "

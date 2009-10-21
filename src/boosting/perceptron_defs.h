@@ -14,18 +14,19 @@
 
 namespace ML {
     
-/** Activation function for a layer */
-enum Activation {
-    ACT_LOGSIG,    ///< Log of sigmoid
-    ACT_TANH,      
-    ACT_TANHS,
-    ACT_IDENTITY,
-    ACT_LOGSOFTMAX
+/** Transfer function for a neural network layer */
+enum Transfer_Function_Type {
+    TF_LOGSIG,    ///< Log of sigmoid
+    TF_TANH,      
+    TF_TANHS,
+    TF_IDENTITY,
+    TF_LOGSOFTMAX,
+    TF_NONSTANDARD
 };
 
-std::ostream & operator << (std::ostream & stream, Activation act);
+std::ostream & operator << (std::ostream & stream, Transfer_Function_Type fn);
 
-BYTE_PERSISTENT_ENUM_DECL(Activation);
+BYTE_PERSISTENT_ENUM_DECL(Transfer_Function_Type);
 
 enum Sampling {
     SAMP_DETERMINISTIC,     /// Deterministic; always the same value
@@ -39,7 +40,7 @@ BYTE_PERSISTENT_ENUM_DECL(Sampling);
 
 } // namespace ML
 
-DECLARE_ENUM_INFO(ML::Activation, 5);
+DECLARE_ENUM_INFO(ML::Transfer_Function_Type, 6);
 DECLARE_ENUM_INFO(ML::Sampling, 3);
 
 

@@ -55,7 +55,8 @@ LIBBOOSTING_SOURCES := \
 	training_index_iterators.cc \
 	feature.cc \
 	bit_compressed_index.cc \
-	perceptron_defs.cc
+	perceptron_defs.cc \
+	layer.cc
 
 LIBBOOSTING_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt
 
