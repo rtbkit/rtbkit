@@ -76,8 +76,8 @@ operator << (std::ostream & stream, const boost::multi_array<Float, 2> & m)
 
 template<typename FloatR, typename Float1, typename Float2>
 ML::distribution<FloatR>
-multiply(const boost::multi_array<Float1, 2> & A,
-         const ML::distribution<Float2> & b)
+multiply_r(const boost::multi_array<Float1, 2> & A,
+           const ML::distribution<Float2> & b)
 {
     if (b.size() != A.shape()[1])
         throw Exception(format("multiply(matrix, vector): "
@@ -98,7 +98,7 @@ distribution<typename float_traits<Float1, Float2>::return_type>
 multiply(const boost::multi_array<Float1, 2> & A,
          const ML::distribution<Float2> & b)
 {
-    return multiply<typename float_traits<Float1, Float2>::return_type>(A, b);
+    return multiply_r<typename float_traits<Float1, Float2>::return_type>(A, b);
 }
 
 template<typename Float1, typename Float2>
@@ -108,7 +108,7 @@ operator * (const boost::multi_array<Float1, 2> & A,
             const ML::distribution<Float2> & b)
 {
     typedef typename float_traits<Float1, Float2>::return_type FloatR;
-    return multiply<FloatR, Float1, Float2>(A, b);
+    return multiply_r<FloatR, Float1, Float2>(A, b);
 }
 
 
@@ -118,8 +118,8 @@ operator * (const boost::multi_array<Float1, 2> & A,
 
 template<typename FloatR, typename Float1, typename Float2>
 ML::distribution<FloatR>
-multiply(const ML::distribution<Float2> & b,
-         const boost::multi_array<Float1, 2> & A)
+multiply_r(const ML::distribution<Float2> & b,
+           const boost::multi_array<Float1, 2> & A)
 {
     if (b.size() != A.shape()[0])
         throw Exception(format("multiply(vector, matrix): "
@@ -128,9 +128,20 @@ multiply(const ML::distribution<Float2> & b,
                                (int)A.shape()[0], (int)A.shape()[1]));
 
     ML::distribution<FloatR> result(A.shape()[1], 0.0);
+#if 1 // more accurate
+    double accum[A.shape()[1]];
+    for (unsigned j = 0;  j < A.shape()[1];  ++j)
+        accum[j] = 0.0;
+    for (unsigned i = 0;  i < A.shape()[0];  ++i) {
+        //for (unsigned j = 0;  j < A.shape()[1];  ++j)
+        //    result[j] += b[i] * A[i][j];
+        SIMD::vec_add(accum, b[i], &A[i][0], accum, A.shape()[1]);
+    }
+    std::copy(accum, accum + A.shape()[1], result.begin());
+#else
     for (unsigned i = 0;  i < A.shape()[0];  ++i)
-        for (unsigned j = 0;  j < A.shape()[1];  ++j)
-            result[j] += b[i] * A[i][j];
+        SIMD::vec_add(&result[0], b[i], &A[i][0], &result[0], A.shape()[1]);
+#endif
     return result;
 }
 
@@ -140,7 +151,7 @@ distribution<typename float_traits<Float1, Float2>::return_type>
 multiply(const ML::distribution<Float2> & b,
          const boost::multi_array<Float1, 2> & A)
 {
-    return multiply<typename float_traits<Float1, Float2>::return_type>(b, A);
+    return multiply_r<typename float_traits<Float1, Float2>::return_type>(b, A);
 }
 
 template<typename Float1, typename Float2>
@@ -150,7 +161,7 @@ operator * (const ML::distribution<Float2> & b,
             const boost::multi_array<Float1, 2> & A)
 {
     typedef typename float_traits<Float1, Float2>::return_type FloatR;
-    return multiply<FloatR, Float1, Float2>(b, A);
+    return multiply_r<FloatR, Float1, Float2>(b, A);
 }
 
 
@@ -160,8 +171,8 @@ operator * (const ML::distribution<Float2> & b,
 
 template<typename FloatR, typename Float1, typename Float2>
 boost::multi_array<FloatR, 2>
-multiply(const boost::multi_array<Float1, 2> & A,
-         const boost::multi_array<Float2, 2> & B)
+multiply_r(const boost::multi_array<Float1, 2> & A,
+           const boost::multi_array<Float2, 2> & B)
 {
     if (A.shape()[1] != B.shape()[0])
         throw ML::Exception("Incompatible matrix sizes");
@@ -188,7 +199,7 @@ boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
 multiply(const boost::multi_array<Float1, 2> & A,
          const boost::multi_array<Float2, 2> & B)
 {
-    return multiply
+    return multiply_r
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
         (A, B);
 }
@@ -198,7 +209,7 @@ boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
 operator * (const boost::multi_array<Float1, 2> & A,
             const boost::multi_array<Float2, 2> & B)
 {
-    return multiply
+    return multiply_r
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
         (A, B);
 }
