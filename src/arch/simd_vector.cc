@@ -273,7 +273,45 @@ void vec_scale(const double * x, double factor, double * r, size_t n)
 void vec_add(const double * x, double k, const double * y, double * r,
              size_t n)
 {
-    for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] + k * y[i];
+    v2df kk = vec_splat(k);
+    unsigned i = 0;
+    if (true) {
+        for (; i + 8 <= n;  i += 8) {
+            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
+            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            yy0 *= kk;
+            yy0 += xx0;
+            __builtin_ia32_storeupd(r + i + 0, yy0);
+
+            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
+            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            yy1 *= kk;
+            yy1 += xx1;
+            __builtin_ia32_storeupd(r + i + 2, yy1);
+            
+            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
+            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
+            yy2 *= kk;
+            yy2 += xx2;
+            __builtin_ia32_storeupd(r + i + 4, yy2);
+
+            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
+            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
+            yy3 *= kk;
+            yy3 += xx3;
+            __builtin_ia32_storeupd(r + i + 6, yy3);
+        }
+
+        for (; i + 2 <= n;  i += 2) {
+            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
+            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            yy0 *= kk;
+            yy0 += xx0;
+            __builtin_ia32_storeupd(r + i + 0, yy0);
+        }
+    }
+
+    for (;  i < n;  ++i) r[i] = x[i] + k * y[i];
 }
 
 double vec_dotprod(const double * x, const double * y, size_t n)
