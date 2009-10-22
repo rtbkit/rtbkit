@@ -48,6 +48,16 @@ public:
     virtual void serialize(DB::Store_Writer & store) const = 0;
     virtual void reconstitute(DB::Store_Reader & store) = 0;
 
+    /*************************************************************************/
+    /* APPLY                                                                 */
+    /*************************************************************************/
+
+    /* These functions take an input, compute the activations, apply the
+       transfer function and return the result.
+       
+       Equivalent to transfer(activation(input)).
+    */
+
     /** Apply the layer to the input and return an output. */
     distribution<float> apply(const distribution<float> & input) const;
     distribution<double> apply(const distribution<double> & input) const;
@@ -64,33 +74,27 @@ public:
     void apply(const double * input,
                double * output) const;
 
+    /*************************************************************************/
+    /* ACTIVATION                                                            */
+    /*************************************************************************/
+
+    /* Calculate the activation function for the output neurons */
+
     virtual void activation(const float * input,
                             float * activation) const;
 
     virtual void activation(const double * input,
                             double * activation) const = 0;
 
-#if 0  // for later if we want to do RBMs
-    void apply_stochastic(const distribution<float> & input,
-                          distribution<float> & output,
-                          Thread_Context & context) const;
+    distribution<float> activation(const distribution<float> & input) const;
+    distribution<double> activation(const distribution<double> & input) const;
 
-    void apply(const float * input, float * output) const;
 
-    void apply_stochastic(const float * input, float * output,
-                          Thread_Context & context) const;
+    /*************************************************************************/
+    /* TRANSFER                                                              */
+    /*************************************************************************/
 
-    /** Generate a single stochastic Gibbs sample from the stocastic
-        distribution, starting from the given input values.  It will
-        modify both the input and the output of the new sample.
-
-        Performs the given number of iterations.
-    */
-    void sample(distribution<float> & input,
-                distribution<float> & output,
-                Thread_Context & context,
-                int num_iterations) const;
-#endif // RBMs
+    /* Apply the transfer function to the activations. */
 
     /** Transform the given value according to the transfer function. */
     template<typename Float>
@@ -101,8 +105,18 @@ public:
     void transfer(const float * activation, float * outputs) const;
     void transfer(const double * activation, double * outputs) const;
 
+    distribution<float> transfer(const distribution<float> & activation) const;
+    distribution<double> transfer(const distribution<double> & activation) const;
+
+    
+    /*************************************************************************/
+    /* DERIVATIVE                                                            */
+    /*************************************************************************/
+
     /** Return the derivative of the given value according to the transfer
-        function. */
+        function.  Note that only the output of the activation function is
+        provided; this is sufficient for most cases.
+    */
     distribution<float> derivative(const distribution<float> & outputs) const;
     distribution<double> derivative(const distribution<double> & outputs) const;
 
@@ -114,6 +128,13 @@ public:
                             float * derivatives) const;
     virtual void derivative(const double * outputs,
                             double * derivatives) const;
+
+    
+    /*************************************************************************/
+    /* DELTAS                                                                */
+    /*************************************************************************/
+
+    /* deltas = derivative * error */
 
     void deltas(const float * outputs, const float * errors,
                 float * deltas) const;
@@ -136,12 +157,6 @@ public:
 
     virtual Layer * make_copy() const = 0;
     
-    /** Perform the transformation given the activation function. */
-    template<typename Float>
-    static void transfer(const float * in, size_t nv,
-                         float * out,
-                         Transfer_Function_Type transfer_function);
-
     /** Given the activation function and the maximum amount of the range
         that we want to use (eg, 0.8 for asymptotic functions), what are
         the minimum and maximum values that we want to use.
@@ -186,6 +201,8 @@ struct Dense_Layer : public Layer {
     virtual void activation(const double * input,
                             double * activation) const;
 
+    using Layer::activation;
+
     /** Fill with random weights. */
     virtual void random_fill(float limit, Thread_Context & context);
 
@@ -206,6 +223,28 @@ extern template class Dense_Layer<double>;
 
 
 } // namespace ML
+
+#if 0  // for later if we want to do RBMs
+    void apply_stochastic(const distribution<float> & input,
+                          distribution<float> & output,
+                          Thread_Context & context) const;
+
+    void apply(const float * input, float * output) const;
+
+    void apply_stochastic(const float * input, float * output,
+                          Thread_Context & context) const;
+
+    /** Generate a single stochastic Gibbs sample from the stocastic
+        distribution, starting from the given input values.  It will
+        modify both the input and the output of the new sample.
+
+        Performs the given number of iterations.
+    */
+    void sample(distribution<float> & input,
+                distribution<float> & output,
+                Thread_Context & context,
+                int num_iterations) const;
+#endif // RBMs
 
 
 #endif /* __jml__layer_h__ */

@@ -8,6 +8,7 @@
 #include "db/persistent.h"
 #include "arch/demangle.h"
 #include "algebra/matrix_ops.h"
+#include "arch/simd_vector.h"
 
 
 using namespace std;
@@ -107,6 +108,26 @@ activation(const float * input,
     std::copy(actd, actd + no, act);
 }
 
+distribution<float>
+Layer::
+activation(const distribution<float> & input) const
+{
+    int no = outputs();
+    distribution<float> output(no);
+    activation(&input[0], &output[0]);
+    return output;
+}
+
+distribution<double>
+Layer::
+activation(const distribution<double> & input) const
+{
+    int no = outputs();
+    distribution<double> output(no);
+    activation(&input[0], &output[0]);
+    return output;
+}
+
 template<typename Float>
 void
 Layer::
@@ -118,8 +139,11 @@ transfer(const Float * activation, Float * outputs, int nvals,
         return;
         
     case TF_LOGSIG:
-        for (unsigned i = 0;  i < nvals;  ++i)
-            outputs[i] = 1.0 / (1.0 + exp(-activation[i]));
+        for (unsigned i = 0;  i < nvals;  ++i) {
+            // See https://bugzilla.redhat.com/show_bug.cgi?id=521190
+            // for why we use double version of exp
+            outputs[i] = 1.0 / (1.0 + exp((double)-activation[i]));
+        }
         break;
         
     case TF_TANH:
@@ -130,8 +154,11 @@ transfer(const Float * activation, Float * outputs, int nvals,
     case TF_LOGSOFTMAX: {
         double total = 0.0;
         
-        for (unsigned i = 0;  i < nvals;  ++i)
-            total += (outputs[i] = exp(activation[i]));
+        for (unsigned i = 0;  i < nvals;  ++i) {
+            // See https://bugzilla.redhat.com/show_bug.cgi?id=521190
+            // for why we use double version of exp
+            total += (outputs[i] = exp((double)activation[i]));
+        }
 
         double factor = 1.0 / total;
 
@@ -158,6 +185,26 @@ Layer::
 transfer(const double * activation, double * outputs) const
 {
     transfer(activation, outputs, this->outputs(), transfer_function);
+}
+
+distribution<float>
+Layer::
+transfer(const distribution<float> & input) const
+{
+    int no = outputs();
+    distribution<float> output(no);
+    transfer(&input[0], &output[0]);
+    return output;
+}
+
+distribution<double>
+Layer::
+transfer(const distribution<double> & input) const
+{
+    int no = outputs();
+    distribution<double> output(no);
+    transfer(&input[0], &output[0]);
+    return output;
 }
 
 template<class Float>
@@ -379,9 +426,20 @@ Dense_Layer<Float>::
 activation(const float * input,
            float * activation) const
 {
-    distribution<Float> i(input, input + inputs());
-    distribution<Float> o = i * weights + bias;
-    std::copy(o.begin(), o.end(), activation);
+    int ni = inputs(), no = outputs();
+    double accum[no];  // Accumulate in double precision to improve rounding
+    std::copy(bias.begin(), bias.end(), accum);
+    for (unsigned i = 0;  i < ni;  ++i) {
+        SIMD::vec_add(accum, input[i], &weights[i][0], accum, no);
+        //for (unsigned o = 0;  o < no;  ++o)
+        //    accum[o] += weights[i][o] * input[i];
+    }
+    
+    std::copy(accum, accum + no, activation);
+
+    //distribution<Float> i(input, input + inputs());
+    //distribution<Float> o = i * weights + bias;
+    //std::copy(o.begin(), o.end(), activation);
 }
 
 template<typename Float>
@@ -390,9 +448,20 @@ Dense_Layer<Float>::
 activation(const double * input,
            double * activation) const
 {
-    distribution<Float> i(input, input + inputs());
-    distribution<Float> o = i * weights + bias;
-    std::copy(o.begin(), o.end(), activation);
+    int ni = inputs(), no = outputs();
+    double accum[no];
+    std::copy(bias.begin(), bias.end(), accum);
+    for (unsigned i = 0;  i < ni;  ++i) {
+        SIMD::vec_add(accum, input[i], &weights[i][0], accum, no);
+        //for (unsigned o = 0;  o < no;  ++o)
+        //    accum[o] += weights[i][o] * input[i];
+    }
+    
+    std::copy(accum, accum + no, activation);
+
+    //distribution<Float> i(input, input + inputs());
+    //distribution<Float> o = i * weights + bias;
+    //std::copy(o.begin(), o.end(), activation);
 }
 
 template<typename Float>
