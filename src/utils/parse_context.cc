@@ -15,6 +15,7 @@
 #include "fast_int_parsing.h"
 #include "fast_float_parsing.h"
 #include "utils/file_functions.h"
+#include <cassert>
 
 
 using namespace std;
