@@ -885,6 +885,69 @@ void vec_prod(const double * x, const double * y, double * r, size_t n)
     for (;  i < n;  ++i) r[i] = x[i] * y[i];
 }
 
+void vec_k1_x_plus_k2_y_z(double k1, const double * x,
+                          double k2, const double * y, const double * z,
+                          double * r, size_t n)
+{
+    unsigned i = 0;
+
+    v2df kk1 = vec_splat(k1);
+    v2df kk2 = vec_splat(k2);
+
+    if (true) {
+        for (; i + 8 <= n;  i += 8) {
+            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
+            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df zz0 = __builtin_ia32_loadupd(z + i + 0);
+            yy0 *= kk2;
+            xx0 *= kk1;
+            yy0 *= zz0;
+            yy0 += xx0;
+            __builtin_ia32_storeupd(r + i + 0, yy0);
+
+            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
+            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            v2df zz1 = __builtin_ia32_loadupd(z + i + 2);
+            yy1 *= kk2;
+            xx1 *= kk1;
+            yy1 *= zz1;
+            yy1 += xx1;
+            __builtin_ia32_storeupd(r + i + 2, yy1);
+            
+            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
+            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
+            v2df zz2 = __builtin_ia32_loadupd(z + i + 4);
+            yy2 *= kk2;
+            xx2 *= kk1;
+            yy2 *= zz2;
+            yy2 += xx2;
+            __builtin_ia32_storeupd(r + i + 4, yy2);
+
+            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
+            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
+            v2df zz3 = __builtin_ia32_loadupd(z + i + 6);
+            yy3 *= kk2;
+            xx3 *= kk1;
+            yy3 *= zz3;
+            yy3 += xx3;
+            __builtin_ia32_storeupd(r + i + 6, yy3);
+        }
+
+        for (; i + 2 <= n;  i += 2) {
+            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
+            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df zz0 = __builtin_ia32_loadupd(z + i + 0);
+            yy0 *= kk2;
+            xx0 *= kk1;
+            yy0 *= zz0;
+            yy0 += xx0;
+            __builtin_ia32_storeupd(r + i + 0, yy0);
+        }
+    }
+
+    for (;  i < n;  ++i) r[i] = k1 * x[i] + k2 * y[i] * z[i];
+}
+
 
 } // namespace Generic
 

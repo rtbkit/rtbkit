@@ -46,6 +46,11 @@ void vec_minus(const float * x, const float * y, float * r, size_t n);
 double vec_accum_prod3(const float * x, const float * y, const float * z,
                       size_t n);
 
+// set r = k1 x + k2 y z
+void vec_k1_x_plus_k2_y_z(float k1, const float * x,
+                          float k2, const float * y, const float * z,
+                          float * r, size_t n);
+
 /* Double versions */
 void vec_scale(const double * x, double factor, double * r, size_t n);
 void vec_add(const double * x, const double * y, double * r, size_t n);
@@ -60,6 +65,12 @@ double vec_dotprod(const double * x, const double * y, size_t n);
 void vec_minus(const double * x, const double * y, double * r, size_t n);
 double vec_accum_prod3(const double * x, const double * y, const double * z,
                       size_t n);
+
+// set r = k1 x + k2 y z
+void vec_k1_x_plus_k2_y_z(double k1, const double * x,
+                          double k2, const double * y, const double * z,
+                          double * r, size_t n);
+
 double vec_sum(const double * x, size_t n);
 
 /* Mixed versions */
