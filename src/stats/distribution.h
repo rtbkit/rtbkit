@@ -35,6 +35,7 @@
 
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_convertible.hpp>
+#include <boost/type_traits/is_same.hpp>
 
 namespace ML {
 namespace Stats {
@@ -84,8 +85,13 @@ public:
     distribution &
     operator = (const F & val)
     {
-        std::fill(this->begin(), this->end(), val);
+        this->fill(val);
         return *this;
+    }
+
+    void fill(const F & val)
+    {
+        std::fill(this->begin(), this->end(), val);
     }
 
     distribution
@@ -229,11 +235,29 @@ public:
         return false;
     }
 
+    template<typename T1, typename T2>
+    struct is_same_type : boost::false_type {
+    };
+
+    template<typename T>
+    struct is_same_type<T, T> : boost::true_type {
+    };
+
+    // Version of cast to cast to another type
     template<class Other>
-    distribution<Other>
+    typename boost::disable_if<is_same_type<F, Other>, distribution<Other> >::type
     cast() const
     {
         return distribution<Other>(this->begin(), this->end());
+    }
+
+    // Version of cast to cast to the same type; returns a reference which is
+    // more efficient.
+    template<class Other>
+    typename boost::enable_if<is_same_type<F, Other>, const distribution<F, Underlying> &>::type
+    cast() const
+    {
+        return *this;
     }
 
     template<class Archive>
