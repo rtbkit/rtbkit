@@ -35,6 +35,11 @@ namespace Generic {
 void vec_scale(const float * x, float factor, float * r, size_t n);
 void vec_add(const float * x, const float * y, float * r, size_t n);
 void vec_add(const float * x, float k, const float * y, float * r, size_t n);
+
+// r = x + k y
+void vec_add(const float * x, const float * k, const float * y, float * r,
+             size_t n);
+
 void vec_prod(const float * x, const float * y, float * r, size_t n);
 float vec_dotprod(const float * x, const float * y, size_t n);
 void vec_minus(const float * x, const float * y, float * r, size_t n);
@@ -46,6 +51,10 @@ void vec_scale(const double * x, double factor, double * r, size_t n);
 void vec_add(const double * x, const double * y, double * r, size_t n);
 void vec_add(const double * x, double k, const double * y, double * r,
              size_t n);
+// r = x + k y
+void vec_add(const double * x, const double * k, const double * y, double * r,
+             size_t n);
+
 void vec_prod(const double * x, const double * y, double * r, size_t n);
 double vec_dotprod(const double * x, const double * y, size_t n);
 void vec_minus(const double * x, const double * y, double * r, size_t n);

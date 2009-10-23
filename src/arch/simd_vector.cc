@@ -253,6 +253,52 @@ void vec_add(const float * x, float k, const float * y, float * r, size_t n)
     }
 }
 
+void vec_add(const float * x, const float * k, const float * y, float * r,
+             size_t n)
+{
+    unsigned i = 0;
+
+    if (true) {
+        for (; i + 16 <= n;  i += 16) {
+            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
+            v4sf kkkk0 = __builtin_ia32_loadups(k + i + 0);
+            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            yyyy0 *= kkkk0;
+            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
+            v4sf kkkk1 = __builtin_ia32_loadups(k + i + 4);
+            yyyy0 += xxxx0;
+            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            __builtin_ia32_storeups(r + i + 0, yyyy0);
+            yyyy1 *= kkkk1;
+            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
+            v4sf kkkk2 = __builtin_ia32_loadups(k + i + 8);
+            yyyy1 += xxxx1;
+            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            __builtin_ia32_storeups(r + i + 4, yyyy1);
+            yyyy2 *= kkkk2;
+            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
+            v4sf kkkk3 = __builtin_ia32_loadups(k + i + 12);
+            yyyy2 += xxxx2;
+            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            __builtin_ia32_storeups(r + i + 8, yyyy2);
+            yyyy3 *= kkkk3;
+            yyyy3 += xxxx3;
+            __builtin_ia32_storeups(r + i + 12, yyyy3);
+        }
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
+            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf kkkk0 = __builtin_ia32_loadups(k + i + 0);
+            yyyy0 *= kkkk0;
+            yyyy0 += xxxx0;
+            __builtin_ia32_storeups(r + i + 0, yyyy0);
+        }
+
+        for (; i < n;  ++i) r[i] = x[i] + k[i] * y[i];
+    }
+}
+
 void vec_add(const float * x, float k, const double * y, float * r, size_t n)
 {
     for (unsigned i = 0; i < n;  ++i) r[i] = x[i] + k * y[i];
@@ -275,6 +321,7 @@ void vec_add(const double * x, double k, const double * y, double * r,
 {
     v2df kk = vec_splat(k);
     unsigned i = 0;
+
     if (true) {
         for (; i + 8 <= n;  i += 8) {
             v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
@@ -300,6 +347,7 @@ void vec_add(const double * x, double k, const double * y, double * r,
             yy3 *= kk;
             yy3 += xx3;
             __builtin_ia32_storeupd(r + i + 6, yy3);
+
         }
 
         for (; i + 2 <= n;  i += 2) {
@@ -312,6 +360,54 @@ void vec_add(const double * x, double k, const double * y, double * r,
     }
 
     for (;  i < n;  ++i) r[i] = x[i] + k * y[i];
+}
+
+void vec_add(const double * x, const double * k, const double * y,
+             double * r, size_t n)
+{
+    unsigned i = 0;
+    if (true) {
+        for (; i + 8 <= n;  i += 8) {
+            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
+            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df kk0 = __builtin_ia32_loadupd(k + i + 0);
+            yy0 *= kk0;
+            yy0 += xx0;
+            __builtin_ia32_storeupd(r + i + 0, yy0);
+
+            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
+            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            v2df kk1 = __builtin_ia32_loadupd(k + i + 2);
+            yy1 *= kk1;
+            yy1 += xx1;
+            __builtin_ia32_storeupd(r + i + 2, yy1);
+            
+            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
+            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
+            v2df kk2 = __builtin_ia32_loadupd(k + i + 4);
+            yy2 *= kk2;
+            yy2 += xx2;
+            __builtin_ia32_storeupd(r + i + 4, yy2);
+
+            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
+            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
+            v2df kk3 = __builtin_ia32_loadupd(k + i + 6);
+            yy3 *= kk3;
+            yy3 += xx3;
+            __builtin_ia32_storeupd(r + i + 6, yy3);
+        }
+
+        for (; i + 2 <= n;  i += 2) {
+            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
+            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df kk0 = __builtin_ia32_loadupd(k + i + 0);
+            yy0 *= kk0;
+            yy0 += xx0;
+            __builtin_ia32_storeupd(r + i + 0, yy0);
+        }
+    }
+
+    for (;  i < n;  ++i) r[i] = x[i] + k[i] * y[i];
 }
 
 double vec_dotprod(const double * x, const double * y, size_t n)

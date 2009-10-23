@@ -11,6 +11,8 @@ LIBARCH_SOURCES := \
 	gpgpu.cc \
 	environment_static.cc
 
+$(eval $(call set_single_compile_option,simd_vector.cc,-funsafe-loop-optimizations -Wunsafe-loop-optimizations))
+
 $(eval $(call add_sources,$(LIBARCH_SOURCES)))
 $(eval $(call add_sources,exception_hook.cc))
 
