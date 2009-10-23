@@ -83,6 +83,13 @@ public:
         return *worker_;
     }
 
+    void seed(uint32_t value)
+    {
+        if (value == 0) value = 1;
+        rng_.seed(value);
+        uniform01_.base().seed(value);
+    }
+
     /** Return the group that any parent groups should be under */
     int group() const
     {
