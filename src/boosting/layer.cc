@@ -339,6 +339,16 @@ Dense_Layer()
 template<typename Float>
 Dense_Layer<Float>::
 Dense_Layer(size_t inputs, size_t units,
+            Transfer_Function_Type transfer_function)
+    : weights(boost::extents[inputs][units]), bias(units)
+{
+    this->transfer_function = transfer_function;
+    zero_fill();
+}
+
+template<typename Float>
+Dense_Layer<Float>::
+Dense_Layer(size_t inputs, size_t units,
             Transfer_Function_Type transfer_function,
             Thread_Context & thread_context)
     : weights(boost::extents[inputs][units]), bias(units)
@@ -480,6 +490,24 @@ random_fill(float limit, Thread_Context & context)
 
     for (unsigned o = 0;  o < bias.size();  ++o)
         bias[o] = limit * (context.random01() * 2.0f - 1.0f);
+}
+
+template<typename Float>
+void
+Dense_Layer<Float>::
+zero_fill()
+{
+    int ni = weights.shape()[0], no = weights.shape()[1];
+    
+    for (unsigned j = 0;  j < no;  ++j)
+        for (unsigned i = 0;  i < ni;  ++i)
+            weights[i][j] = 0.0;
+    
+    if (no != bias.size())
+        throw Exception("bias sized wrong");
+
+    for (unsigned o = 0;  o < bias.size();  ++o)
+        bias[o] = 0.0;
 }
 
 template<typename Float>

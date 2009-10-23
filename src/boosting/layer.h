@@ -144,6 +144,8 @@ public:
     /** Fill with random weights. */
     virtual void random_fill(float limit, Thread_Context & context) = 0;
 
+    virtual void zero_fill() = 0;
+
     /** Return the number of parameters (degrees of freedom) for the
         layer. */
     virtual size_t parameter_count() const = 0;
@@ -179,6 +181,12 @@ public:
 template<typename Float>
 struct Dense_Layer : public Layer {
     Dense_Layer();
+
+    /** Initialize to zero */
+    Dense_Layer(size_t inputs, size_t units,
+                Transfer_Function_Type transfer_function);
+
+    /** Initialize with random values */
     Dense_Layer(size_t inputs, size_t units,
                 Transfer_Function_Type transfer_function,
                 Thread_Context & thread_context);
@@ -205,6 +213,9 @@ struct Dense_Layer : public Layer {
 
     /** Fill with random weights. */
     virtual void random_fill(float limit, Thread_Context & context);
+
+    /** Fill with zero values */
+    virtual void zero_fill();
 
     /** Return the number of parameters (degrees of freedom) for the
         layer. */
