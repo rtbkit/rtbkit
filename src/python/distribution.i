@@ -12,6 +12,8 @@
 
 %include "std_vector.i"
 
+%ignore wrong_sizes_exception;
+
 %include "stats/distribution.h"
 
 %template(fvector) std::vector<float>;
@@ -21,3 +23,4 @@
 %template(fdistribution) ML::Stats::distribution<float>;
 %template(ddistribution) ML::Stats::distribution<double>;
 %template(bdistribution) ML::Stats::distribution<bool>;
+
