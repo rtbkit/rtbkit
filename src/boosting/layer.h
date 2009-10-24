@@ -187,9 +187,10 @@ struct Dense_Layer : public Layer {
                 Transfer_Function_Type transfer_function);
 
     /** Initialize with random values */
-    Dense_Layer(size_t inputs, size_t units,
+    Dense_Layer(size_t ninputs, size_t units,
                 Transfer_Function_Type transfer_function,
-                Thread_Context & thread_context);
+                Thread_Context & thread_context,
+                float limit = -1.0);
 
     boost::multi_array<Float, 2> weights;
     distribution<Float> bias;

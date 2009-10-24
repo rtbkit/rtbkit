@@ -136,6 +136,7 @@ transfer(const Float * activation, Float * outputs, int nvals,
 {
     switch (transfer_function) {
     case TF_IDENTITY:
+        std::copy(activation, activation + nvals, outputs);
         return;
         
     case TF_LOGSIG:
@@ -350,11 +351,14 @@ template<typename Float>
 Dense_Layer<Float>::
 Dense_Layer(size_t inputs, size_t units,
             Transfer_Function_Type transfer_function,
-            Thread_Context & thread_context)
+            Thread_Context & thread_context,
+            float limit)
     : weights(boost::extents[inputs][units]), bias(units)
 {
     this->transfer_function = transfer_function;
-    random_fill(1.0 / sqrt(inputs), thread_context);
+    if (limit == -1.0)
+        limit = 1.0 / sqrt(inputs);
+    random_fill(limit, thread_context);
 }
 
 template<typename Float>
