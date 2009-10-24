@@ -4,13 +4,14 @@ Worker_Task
 * Allow jobs to be reserved for the current thread to avoid context switches (so that a task that creates a lot of jobs then waits for a group to finish will get at least one of the jobs to be done)
 
 Generic
-* Implement minivec and compact_vector classes
+* Implement minivec
+* Implement compact_vector (DONE)
 * Use compact_vector for Label_Dist class
 * Include amount of example weight in W matrix
 * Standardize and fix NaN handling (x < x doesn't work) (DONE)
   * Move from isnan() to ismissing() and check performance of isnan()
 * Least squares: fall back to gelsd if rank deficient in gels (DONE)
-* Use eigen2 matrix and vector classes (stop using boost::multi_array)
+* Use eigen2 matrix and vector classes (stop using boost::multi_array) (NO).  The eigen2 classes have a size limit of 10000 in each dimension and are unuseable.  It's a shame.
 
 Datasets
 * Deterministic adaptive quantization
@@ -23,24 +24,25 @@ Datasets
   * Unless there is also a non-missing value of the same feature in the same example...
 
 Explaining
-* Add explanations
+* Add explanations (DONE)
 
 Classifier
-* Add in Feature_Set_Mapping class
-* Add in optimized predict functionality
-* Add single label predict methods
+* Add in Feature_Set_Mapping class (DONE)
+* Add in optimized predict functionality (DONE)
+* Add single label predict methods (DONE)
+* Enumerate types of output (prob, +/- one, +/- infinity) and include as a specification of the classifier to generate
 
 Boosting
-* Use optimized predict to calculate weights
+* Use optimized predict to calculate weights (DONE)
 
 Decision Trees
 * Split subtree training over multiple threads (DONE)
 * Split features over multiple threads (DONE)
 * For one dimensional weight arrays, don't create pointers (manipulate arrays directly)
 * Test explicit NaN, -inf, inf split points work properly
-* Implement random forest building blocks and options
+* Implement random forest building blocks and options (DONE)
 * Implement pruning
-* Add in optimization
+* Add in optimization (DONE)
 * Check for >= vs < and unsafe less values
 * Fix problems with zero weight in the class
 * Add min split weight and min split samples to avoid overfitting; choose a good default
@@ -56,6 +58,7 @@ Decision Trees
 * Unit test for INF value in the distribution
 * Unit test for values with no floating point numbers between them
 * Unit test that the split point agrees with the training
+* Test and fix up regression
 
 Stumps
 * Use a spinlock for the accum function with multiple threads
@@ -68,7 +71,7 @@ Stumps
 * Unify Stump::Relation, Stump::Update with decision tree version (DONE)
 
 Searching core
-* Parameterize W on double class
+* Parameterize W on double class 
 * Used fixed point class for W
 * Clean up and parameterize
 * Speed up buckets core
@@ -79,8 +82,9 @@ Searching core
 
 Probabilizer
 * Allow GLZ probabilizers to be merged together to allow better averaging behaviour
-* Use optimized classifier to produce output
+* Use optimized classifier to produce output (DONE)
 * Parallelize running of the classifier (DONE)
+* Use ridge regression option
 
 Algorithms
 * Implement adtrees
@@ -107,4 +111,27 @@ Bugs
 Bagging
 * Use group-aware and sampled (via weights) split scheme, not naive version that is currently used
 * Unify code to split into training/validation sets from all over the place
+* Use thread-reproducible RNG for bags (DONE)
+* Use group-aware sampling scheme
+* Use weighted sampling
+* Handle run away threading
 
+Perceptrons
+* Get a handle on the domain and range of classifiers and treat automatically
+* Make regression work
+* Make regression work for arbitrary label range
+
+GLZ classifier
+* Use ridge regression for training (DONE)
+* Optimization (DONE)
+
+
+
+Other
+* Use scheme from ausdm to remove linearly dependent columns and unify between GLZ classifier and perceptron
+* Ridge regression (DONE)
+* Unified input stage for 
+* Allow regression-like classifiers (GLZ, perceptrons) to handle missing values via guard features and default activations
+
+Worker_Task
+* Reduce lock contention (use lock-free algorithms; divide work ahead of time; etc)
