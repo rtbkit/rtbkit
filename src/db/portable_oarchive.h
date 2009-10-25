@@ -34,6 +34,13 @@
 #include <vector>
 #include <string.h>
 
+namespace boost {
+
+template <typename T, std::size_t NumDims, typename TPtr>
+class const_multi_array_ref;
+
+} // namespace boost
+
 namespace ML {
 namespace DB {
 
@@ -180,6 +187,20 @@ public:
         size.serialize(*stream);
         for (unsigned i = 0;  i < vec.size();  ++i)
             *this << vec[i];
+    }
+
+    template<typename T, std::size_t NumDims, typename TPtr>
+    void save(const boost::const_multi_array_ref<T, NumDims, TPtr> & arr)
+    {
+        save((char)1);  // version
+        save((char)NumDims);
+        for (unsigned i = 0;  i < NumDims;  ++i) {
+            compact_size_t dim(arr.shape()[i]);
+            dim.serialize(*stream);
+        }
+
+        // TODO: big/litle endian
+        save_binary(arr.data(), sizeof(T) * arr.num_elements());
     }
 
     void save(const Nested_Writer & writer);

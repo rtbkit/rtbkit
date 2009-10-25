@@ -30,6 +30,14 @@
 #include "arch/exception.h"
 #include "compact_size_types.h"
 #include <vector>
+#include <boost/array.hpp>
+
+namespace boost {
+
+template<typename T, std::size_t NumDims, class Allocator>
+class multi_array;
+
+} // namespace boost
 
 namespace ML {
 
@@ -230,6 +238,29 @@ public:
             v.push_back(t);
         }
         vec.swap(v);
+    }
+
+    template<typename T, std::size_t NumDims, class Allocator>
+    void load(boost::multi_array<T, NumDims, Allocator> & arr)
+    {
+        char version;
+        load(version);
+        if (version != 1)
+            throw Exception("unknown multi array version");
+        char nd;
+        load(nd);
+        if (nd != NumDims)
+            throw Exception("NumDims wrong");
+        boost::array<size_t, NumDims> sizes;
+        for (unsigned i = 0;  i < NumDims;  ++i) {
+            compact_size_t sz(*this);
+            sizes[i] = sz;
+        }
+
+        arr.resize(sizes);
+
+        // TODO: big/little endian
+        load_binary(arr.data(), sizeof(T) * arr.num_elements());
     }
 
     void load_binary(void * address, size_t size)
