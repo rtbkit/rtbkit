@@ -48,14 +48,15 @@ public:
     virtual void serialize(DB::Store_Writer & store) const = 0;
     virtual void reconstitute(DB::Store_Reader & store) = 0;
 
+
     /*************************************************************************/
     /* APPLY                                                                 */
     /*************************************************************************/
 
-    /* These functions take an input, compute the activations, apply the
-       transfer function and return the result.
+    /* These functions take an input, preprocess it, compute the activations,
+       apply the transfer function and return the result.
        
-       Equivalent to transfer(activation(input)).
+       Equivalent to transfer(activation(preprocess(input))).
     */
 
     /** Apply the layer to the input and return an output. */
@@ -73,6 +74,28 @@ public:
 
     void apply(const double * input,
                double * output) const;
+
+
+    /*************************************************************************/
+    /* PREPROCESS                                                            */
+    /*************************************************************************/
+
+    /** Performs pre-processing of the input including any shift and scaling
+        factors, potential decorrelation and the replacement of any missing
+        values with their replacements.
+
+        Default implementation does nothing.
+    */
+
+    virtual void preprocess(const float * input,
+                            float * preprocessed) const;
+
+    virtual void preprocess(const double * input,
+                            double * preprocessed) const = 0;
+
+    distribution<float> preprocess(const distribution<float> & input) const;
+    distribution<double> preprocess(const distribution<double> & input) const;
+    
 
     /*************************************************************************/
     /* ACTIVATION                                                            */
@@ -192,8 +215,13 @@ struct Dense_Layer : public Layer {
                 Thread_Context & thread_context,
                 float limit = -1.0);
 
+    /// Network parameters
     boost::multi_array<Float, 2> weights;
     distribution<Float> bias;
+
+    /// Values to use for input when the value is missing (NaN)
+    distribution<Float> missing_replacements;
+
 
     /** Dump as ASCII.  This will be big. */
     virtual std::string print() const;
@@ -204,10 +232,16 @@ struct Dense_Layer : public Layer {
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store);
 
-    virtual void activation(const float * input,
+    virtual void preprocess(const float * input,
+                            float * preprocessed) const;
+
+    virtual void preprocess(const double * input,
+                            double * preprocessed) const;
+
+    virtual void activation(const float * preprocessed,
                             float * activation) const;
 
-    virtual void activation(const double * input,
+    virtual void activation(const double * preprocessed,
                             double * activation) const;
 
     using Layer::activation;

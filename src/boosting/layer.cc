@@ -79,9 +79,11 @@ Layer::
 apply(const float * input,
       float * output) const
 {
-    int no = outputs();
+    int ni = inputs(), no = outputs();
+    float pre[ni];
+    preprocess(input, pre);
     float act[no];
-    activation(input, act);
+    activation(pre, act);
     transfer(act, output);
 }
 
@@ -90,41 +92,83 @@ Layer::
 apply(const double * input,
       double * output) const
 {
-    int no = outputs();
+    int ni = inputs(), no = outputs();
+    double pre[ni];
+    preprocess(input, pre);
     double act[no];
-    activation(input, act);
+    activation(pre, act);
     transfer(act, output);
 }
 
 void
 Layer::
-activation(const float * input,
+preprocess(const float * input,
+           float * preprocessed) const
+{
+    if (input == preprocessed) return;
+    int ni = inputs();
+    std::copy(input, input + ni, preprocessed);
+}
+
+void
+Layer::
+preprocess(const double * input,
+           double * preprocessed) const
+{
+    if (input == preprocessed) return;
+    int ni = inputs();
+    std::copy(input, input + ni, preprocessed);
+}
+
+distribution<float>
+Layer::
+preprocess(const distribution<float> & input) const
+{
+    int ni = inputs();
+    distribution<float> pre(ni);
+    activation(&input[0], &pre[0]);
+    return pre;
+}
+
+distribution<double>
+Layer::
+preprocess(const distribution<double> & input) const
+{
+    int ni = inputs();
+    distribution<double> pre(ni);
+    activation(&input[0], &pre[0]);
+    return pre;
+}
+
+void
+Layer::
+activation(const float * preprocessed,
            float * act) const
 {
     int ni = inputs(), no = outputs();
-    double inputd[ni], actd[no];
-    std::copy(input, input + ni, inputd);
-    activation(inputd, actd);
+    double preprocessedd[ni], actd[no];
+    std::copy(preprocessed, preprocessed + ni, preprocessedd);
+    activation(preprocessedd, actd);
     std::copy(actd, actd + no, act);
 }
 
 distribution<float>
 Layer::
-activation(const distribution<float> & input) const
+activation(const distribution<float> & preprocessed) const
 {
     int no = outputs();
     distribution<float> output(no);
-    activation(&input[0], &output[0]);
+    activation(&preprocessed[0], &output[0]);
     return output;
 }
 
 distribution<double>
 Layer::
-activation(const distribution<double> & input) const
+activation(const distribution<double> & preprocessed) const
 {
     int no = outputs();
     distribution<double> output(no);
-    activation(&input[0], &output[0]);
+    activation(&preprocessed[0], &output[0]);
     return output;
 }
 
@@ -190,21 +234,21 @@ transfer(const double * activation, double * outputs) const
 
 distribution<float>
 Layer::
-transfer(const distribution<float> & input) const
+transfer(const distribution<float> & activation) const
 {
     int no = outputs();
     distribution<float> output(no);
-    transfer(&input[0], &output[0]);
+    transfer(&activation[0], &output[0]);
     return output;
 }
 
 distribution<double>
 Layer::
-transfer(const distribution<double> & input) const
+transfer(const distribution<double> & activation) const
 {
     int no = outputs();
     distribution<double> output(no);
-    transfer(&input[0], &output[0]);
+    transfer(&activation[0], &output[0]);
     return output;
 }
 
@@ -341,7 +385,8 @@ template<typename Float>
 Dense_Layer<Float>::
 Dense_Layer(size_t inputs, size_t units,
             Transfer_Function_Type transfer_function)
-    : weights(boost::extents[inputs][units]), bias(units)
+    : weights(boost::extents[inputs][units]), bias(units),
+      missing_replacements(inputs)
 {
     this->transfer_function = transfer_function;
     zero_fill();
@@ -353,7 +398,8 @@ Dense_Layer(size_t inputs, size_t units,
             Transfer_Function_Type transfer_function,
             Thread_Context & thread_context,
             float limit)
-    : weights(boost::extents[inputs][units]), bias(units)
+    : weights(boost::extents[inputs][units]), bias(units),
+      missing_replacements(inputs)
 {
     this->transfer_function = transfer_function;
     if (limit == -1.0)
@@ -381,6 +427,11 @@ print() const
         result += format("%8.4f", bias[j]);
     result += " ]\n";
     
+    result += "  missing replacements: \n    [ ";
+    for (unsigned j = 0;  j < no;  ++j)
+        result += format("%8.4f", bias[j]);
+    result += " ]\n";
+    
     result += "}\n";
     
     return result;
@@ -399,12 +450,9 @@ void
 Dense_Layer<Float>::
 serialize(DB::Store_Writer & store) const
 {
-    store << compact_size_t(0) << string("PERCEPTRON LAYER");
+    store << compact_size_t(1) << string("PERCEPTRON LAYER");
     store << compact_size_t(inputs()) << compact_size_t(outputs());
-    for (unsigned i = 0;  i < inputs();  ++i)
-        for (unsigned j = 0;  j < outputs();  ++j)
-            store << weights[i][j];
-    store << bias;
+    store << weights << bias << missing_replacements;
     store << transfer_function;
 }
 
@@ -414,68 +462,70 @@ Dense_Layer<Float>::
 reconstitute(DB::Store_Reader & store)
 {
     compact_size_t version(store);
-    if (version != 0)
+    if (version != 1)
         throw Exception("invalid layer version");
 
     string s;
     store >> s;
     if (s != "PERCEPTRON LAYER")
         throw Exception("invalid layer start " + s);
-
-    compact_size_t i(store), o(store);
-
-    weights.resize(boost::extents[i][o]);
-
-    for (unsigned i = 0;  i < inputs();  ++i)
-        for (unsigned j = 0;  j < outputs();  ++j)
-            store >> weights[i][j];
-
-    store >> bias;
+    store >> weights >> bias >> missing_replacements;
     store >> transfer_function;
 }
 
 template<typename Float>
 void
 Dense_Layer<Float>::
-activation(const float * input,
+preprocess(const float * input,
            float * activation) const
 {
-    int ni = inputs(), no = outputs();
-    double accum[no];  // Accumulate in double precision to improve rounding
-    std::copy(bias.begin(), bias.end(), accum);
-    for (unsigned i = 0;  i < ni;  ++i) {
-        SIMD::vec_add(accum, input[i], &weights[i][0], accum, no);
-        //for (unsigned o = 0;  o < no;  ++o)
-        //    accum[o] += weights[i][o] * input[i];
-    }
-    
-    std::copy(accum, accum + no, activation);
+    int ni = inputs();
 
-    //distribution<Float> i(input, input + inputs());
-    //distribution<Float> o = i * weights + bias;
-    //std::copy(o.begin(), o.end(), activation);
+    for (unsigned i = 0;  i < ni;  ++i)
+        activation[i] = isnan(input[i]) ? missing_replacements[i] : input[i];
 }
 
 template<typename Float>
 void
 Dense_Layer<Float>::
-activation(const double * input,
+preprocess(const double * input,
+           double * activation) const
+{
+    int ni = inputs();
+
+    for (unsigned i = 0;  i < ni;  ++i)
+        activation[i] = isnan(input[i]) ? missing_replacements[i] : input[i];
+}
+
+template<typename Float>
+void
+Dense_Layer<Float>::
+activation(const float * pre,
+           float * activation) const
+{
+    int ni = inputs(), no = outputs();
+    double accum[no];  // Accumulate in double precision to improve rounding
+    std::copy(bias.begin(), bias.end(), accum);
+
+    for (unsigned i = 0;  i < ni;  ++i)
+        SIMD::vec_add(accum, pre[i], &weights[i][0], accum, no);
+    
+    std::copy(accum, accum + no, activation);
+}
+
+template<typename Float>
+void
+Dense_Layer<Float>::
+activation(const double * pre,
            double * activation) const
 {
     int ni = inputs(), no = outputs();
     double accum[no];
     std::copy(bias.begin(), bias.end(), accum);
-    for (unsigned i = 0;  i < ni;  ++i) {
-        SIMD::vec_add(accum, input[i], &weights[i][0], accum, no);
-        //for (unsigned o = 0;  o < no;  ++o)
-        //    accum[o] += weights[i][o] * input[i];
-    }
+    for (unsigned i = 0;  i < ni;  ++i)
+        SIMD::vec_add(accum, pre[i], &weights[i][0], accum, no);
     
     std::copy(accum, accum + no, activation);
-
-    //distribution<Float> i(input, input + inputs());
-    //distribution<Float> o = i * weights + bias;
-    //std::copy(o.begin(), o.end(), activation);
 }
 
 template<typename Float>
@@ -494,6 +544,9 @@ random_fill(float limit, Thread_Context & context)
 
     for (unsigned o = 0;  o < bias.size();  ++o)
         bias[o] = limit * (context.random01() * 2.0f - 1.0f);
+
+    for (unsigned i = 0;  i < ni;  ++i)
+        missing_replacements[i] = limit * (context.random01() * 2.0f - 1.0f);
 }
 
 template<typename Float>
@@ -510,8 +563,8 @@ zero_fill()
     if (no != bias.size())
         throw Exception("bias sized wrong");
 
-    for (unsigned o = 0;  o < bias.size();  ++o)
-        bias[o] = 0.0;
+    bias.fill(0.0);
+    missing_replacements.fill(0.0);
 }
 
 template<typename Float>
@@ -544,6 +597,13 @@ validate() const
     for (unsigned o = 0;  o < bias.size();  ++o)
         if (!finite(bias[o]))
             throw Exception("perceptron layer has non-finite bias");
+
+    if (ni != missing_replacements.size())
+        throw Exception("missing replacements sized wrong");
+
+    for (unsigned i = 0;  i < missing_replacements.size();  ++i)
+        if (!finite(missing_replacements[i]))
+            throw Exception("perceptron layer has non-finite missing replacement");
 }
 
 template<typename Float>
@@ -551,104 +611,11 @@ size_t
 Dense_Layer<Float>::
 parameter_count() const
 {
-    return inputs() * (outputs() + 1);
+    return (inputs() * 1) * (outputs() + 1);
 }
 
 template class Dense_Layer<float>;
 template class Dense_Layer<double>;
-
-#if 0
-
-/*****************************************************************************/
-/* PERCEPTRON::LAYER                                                         */
-/*****************************************************************************/
-
-
-distribution<float>
-Layer::
-apply(const distribution<float> & input) const
-{
-    distribution<float> result = input * weights;
-    result += bias;
-    transfer(result);
-    return result;
-}
-
-void
-Layer::
-apply(const distribution<float> & input,
-      distribution<float> & output) const
-{
-    std::copy(bias.begin(), bias.end(), output.begin());
-
-    for (unsigned i = 0;  i < input.size();  ++i)
-        SIMD::vec_add(&output[0], input[i], &weights[i][0], &output[0],
-                      outputs());
-        //for (unsigned o = 0;  o < output.size();  ++o)
-        //    output[o] += input[i] * weights[i][o];
-
-    transfer(output);
-}
-
-void
-Layer::
-apply_stochastic(const distribution<float> & input,
-                 distribution<float> & output,
-                 Thread_Context & context) const
-{
-    apply(input, output);
-}
-
-void
-Layer::
-apply(const float * input, float * output) const
-{
-    std::copy(bias.begin(), bias.end(), output);
-
-    size_t ni = inputs(), no = outputs();
-    for (unsigned i = 0;  i < ni;  ++i)
-        SIMD::vec_add(output, input[i], &weights[i][0], output,
-                      outputs());
-        //for (unsigned o = 0;  o < no;  ++o)
-        //    output[o] += input[i] * weights[i][o];
-
-    Layer::transfer(output, no, transfer_function);
-}
-
-#if 0
-void
-Layer::
-apply(const float * input, double * output) const
-{
-    std::copy(bias.begin(), bias.end(), output);
-    size_t ni = inputs(), no = outputs();
-    for (unsigned i = 0;  i < ni;  ++i)
-        for (unsigned o = 0;  o < no;  ++o)
-            output[o] += input[i] * weights[i][o];
-    Layer::transfer(output, no, transfer_function);
-}
-#endif
-
-void
-Layer::
-transfer(distribution<float> & input) const
-{
-    Layer::transfer(input, transfer_function);
-}
-
-distribution<float>
-Layer::
-derivative(const distribution<float> & outputs) const
-{
-    distribution<float> result = outputs;
-    Layer::derivative(result, transfer_function);
-    return result;
-}
-
-
-
-
-#endif
 
 
 } // namespace ML
