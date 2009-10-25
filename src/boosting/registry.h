@@ -198,6 +198,11 @@ public:
 
         return entries.find(key)->second->create();
     }
+
+    bool known_type(const std::string & key) const
+    {
+        return entries.count(key);
+    }
 };
 
 template<class Base> Registry<Base> * Registry<Base>::registry;
