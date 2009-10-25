@@ -54,7 +54,9 @@ public:
     virtual boost::shared_ptr<Base>
     reconstitute(DB::Store_Reader & store) const
     {
-        return boost::shared_ptr<Base>(new Derived(store));
+        boost::shared_ptr<Derived> result(new Derived());
+        result->reconstitute(store);
+        return result;
     }
 };
 

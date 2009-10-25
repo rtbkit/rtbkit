@@ -38,7 +38,6 @@ public:
 
     virtual Output_Encoding output_encoding(Output_Encoding input) const;
 
-protected:
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store);
 };
