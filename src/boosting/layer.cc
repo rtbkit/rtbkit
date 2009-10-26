@@ -126,7 +126,7 @@ preprocess(const distribution<float> & input) const
 {
     int ni = inputs();
     distribution<float> pre(ni);
-    activation(&input[0], &pre[0]);
+    preprocess(&input[0], &pre[0]);
     return pre;
 }
 
@@ -136,7 +136,7 @@ preprocess(const distribution<double> & input) const
 {
     int ni = inputs();
     distribution<double> pre(ni);
-    activation(&input[0], &pre[0]);
+    preprocess(&input[0], &pre[0]);
     return pre;
 }
 

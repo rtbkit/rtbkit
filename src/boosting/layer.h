@@ -238,6 +238,8 @@ struct Dense_Layer : public Layer {
     virtual void preprocess(const double * input,
                             double * preprocessed) const;
 
+    using Layer::preprocess;
+
     virtual void activation(const float * preprocessed,
                             float * activation) const;
 
