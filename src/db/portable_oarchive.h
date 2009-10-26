@@ -71,6 +71,11 @@ public:
         save_binary(&x, 1);
     }
 
+    void save(char x)
+    {
+        save_binary(&x, 1);
+    }
+
     void save(unsigned short x)
     {
         uint16_t xx = x;
@@ -192,13 +197,15 @@ public:
     template<typename T, std::size_t NumDims, typename TPtr>
     void save(const boost::const_multi_array_ref<T, NumDims, TPtr> & arr)
     {
-        save((char)1);  // version
-        save((char)NumDims);
+        char version = 1;
+        save(version);
+        char nd = NumDims;
+        save(nd);
         for (unsigned i = 0;  i < NumDims;  ++i) {
             compact_size_t dim(arr.shape()[i]);
             dim.serialize(*stream);
         }
-
+        
         // TODO: big/litle endian
         save_binary(arr.data(), sizeof(T) * arr.num_elements());
     }

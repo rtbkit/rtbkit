@@ -32,6 +32,22 @@
 #include "arch/simd_vector.h"
 #include "utils/string_functions.h"
 
+namespace boost {
+
+template<class Float>
+std::ostream &
+operator << (std::ostream & stream, const boost::multi_array<Float, 2> & m)
+{
+    for (unsigned i = 0;  i < m.shape()[0];  ++i) {
+        stream << "    [";
+        for (unsigned j = 0;  j < m.shape()[1];  ++j)
+            stream << ML::format(" %8.3g", m[i][j]);
+        stream << " ]" << std::endl;
+    }
+    return stream;
+}
+
+} // namespace boost
 
 namespace ML {
 
@@ -57,18 +73,6 @@ diag(const distribution<Float> & d)
     return D;
 }
 
-template<class Float>
-std::ostream &
-operator << (std::ostream & stream, const boost::multi_array<Float, 2> & m)
-{
-    for (unsigned i = 0;  i < m.shape()[0];  ++i) {
-        stream << "    [";
-        for (unsigned j = 0;  j < m.shape()[1];  ++j)
-            stream << format(" %8.3g", m[i][j]);
-        stream << " ]" << std::endl;
-    }
-    return stream;
-}
 
 /*****************************************************************************/
 /* MATRIX VECTOR                                                             */
