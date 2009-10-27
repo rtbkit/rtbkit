@@ -73,6 +73,12 @@ diag(const distribution<Float> & d)
     return D;
 }
 
+template<typename Float>
+std::string print_size(const boost::multi_array<Float, 2> & array)
+{
+    return format("%dx%d", (int)array.shape()[0], (int)array.shape()[1]);
+}
+
 
 /*****************************************************************************/
 /* MATRIX VECTOR                                                             */

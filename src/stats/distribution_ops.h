@@ -70,6 +70,15 @@ distribution<F, Underlying> sqr(const distribution<F, Underlying> & dist)
 }
 
 template<typename F, class Underlying>
+distribution<F, Underlying> sqrt(const distribution<F, Underlying> & dist)
+{
+    distribution<F, Underlying> result(dist.size());
+    for (unsigned i = 0;  i < dist.size();  ++i)
+        result[i] = std::sqrt(dist[i]);
+    return result;
+}
+
+template<typename F, class Underlying>
 distribution<F, Underlying> tanh(const distribution<F, Underlying> & dist)
 {
     distribution<F, Underlying> result(dist.size());
@@ -173,6 +182,15 @@ distribution<F, Underlying> xdiv(const distribution<F, Underlying> & dist1,
     distribution<F, Underlying> result(dist1.size());
     for (unsigned i = 0;  i < dist1.size();  ++i)
         result[i] = ML::xdiv(dist1[i], dist2[i]);
+    return result;
+}
+
+template<typename F, class Underlying>
+distribution<bool> isnan(const distribution<F, Underlying> & dist)
+{
+    distribution<bool> result(dist.size());
+    for (unsigned i = 0;  i < dist.size();  ++i)
+        result[i] = std::isnan(dist[i]);
     return result;
 }
 
