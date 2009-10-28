@@ -33,6 +33,8 @@ void test_compact_size_type(uint64_t value)
         store << cs;
     }
 
+    cerr << "os.str().size() = " << os.str().size() << endl;
+
     std::istringstream is(os.str());
     DB::Store_Reader store(is);
 

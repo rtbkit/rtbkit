@@ -95,18 +95,22 @@ struct Binary_Input::Stream_Source
     size_t get_more(char * buffer, size_t amount)
     {
         //cerr << "get_more: amount = " << amount << endl;
-        stream.read(buf_start, amount);
+        stream.read(buffer, amount);
         //cerr << "get_more got " << stream.gcount() << endl;
         return stream.gcount();
     }
 
     virtual size_t more(Binary_Input & input, size_t amount)
     {
-        //cerr << "input.avail() = " << input.avail() << " amount = "
+        //cerr << "calling more(): input.avail() = "
+        //     << input.avail() << " amount = "
         //     << amount << " buf_size = " << buf_size << endl;
+
+        //size_t avail_at_start = input.avail();
 
         /* Check if we need to enlarge the buffer. */
         if (input.avail() + amount > buf_size) {
+            //cerr << "enlarging" << endl;
             /* We need to enlarge the buffer to hold the current data plus the
                new data. */
             /* At least double it */
@@ -120,7 +124,8 @@ struct Binary_Input::Stream_Source
 
             buf_start = new char[new_size];
 
-            /* Copy the start of the old buffer into the new one. */
+            /* Copy what's left in the old buffer into the start of the new
+               one. */
             std::copy(input.pos_, input.end_, buf_start);
 
             delete[] old_buf_start;
@@ -129,27 +134,42 @@ struct Binary_Input::Stream_Source
 
             //cerr << "leftover = " << leftover << endl;
 
-            input.offset_ += input.pos_ - old_buf_start;
+            //input.offset_ += input.pos_ - old_buf_start;
             input.pos_     = buf_start;
 
             /* Read some more */
             input.end_ 
-                = buf_start + get_more(buf_start + leftover, new_size - leftover)
+                = buf_start
+                + get_more(buf_start + leftover, new_size - leftover)
                 + leftover;
             
-            input.end_ = buf_start + leftover + new_size;
+            //input.end_ = buf_start + leftover + new_size;
             buf_size = new_size;
+
+            //cerr << "buf_size = " << buf_size << " avail = "
+            //     << input.avail() << endl;
         }
         else {
+            //cerr << "reading without enlarging" << endl;
             /* We can make do with the same buffer.  Reshuffle to put it back
                at the start. */
-            std::copy(input.pos_, input.end_, buf_start);
-            input.offset_ += (input.pos_ - buf_start);
+            size_t leftover = input.end_ - input.pos_;
+
+            if (input.pos_ != buf_start)
+                std::copy(input.pos_, input.end_, buf_start);
+            //input.offset_ += (input.pos_ - buf_start);
             input.pos_ = buf_start;
+            input.end_ = buf_start + leftover;
             
             /* Now read it in. */
-            input.end_ = buf_start + get_more(buf_start, buf_size);
+            input.end_ += get_more(buf_start + leftover, buf_size - leftover);
         }
+
+        //cerr << "*** more returned " << (input.end_ - buf_start)
+        //     << endl;
+
+        //cerr << "avail(): start " << avail_at_start << " end: "
+        //     << input.avail() << endl;
         
         return input.end_ - buf_start;
     }
@@ -216,6 +236,13 @@ void Binary_Input::make_avail(size_t min_avail)
 
     if (avail < min_avail)
         throw Exception("Binary_Input: read past end of data");
+}
+
+size_t
+Binary_Input::
+try_make_avail(size_t min_avail)
+{
+    return source->more(*this, min_avail);
 }
 
 

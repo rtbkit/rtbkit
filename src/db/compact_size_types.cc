@@ -78,7 +78,12 @@ void encode_compact(Store_Writer & store, unsigned long long val)
     uint32_t indicator = ~((1 << (8-idx)) - 1);
     buf[0] |= indicator;
     
+    //size_t offset = store.offset();
     store.save_binary(buf, len);
+    //size_t offset_after = store.offset();
+
+    //if (offset_after - offset != len)
+    //    throw Exception("offsets are wrong");
 }
 
 unsigned long long decode_compact(Store_Reader & store)

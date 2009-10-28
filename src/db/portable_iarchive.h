@@ -69,15 +69,25 @@ public:
         if (avail() < amount) make_avail(amount);
         return avail();
     }
-    
+
+    /** Trys to make it available, but if it's not then it just returns
+        what is available. */
+    size_t try_to_have(size_t amount)
+    {
+        if (avail() < amount) return try_make_avail(amount);
+        return avail();
+    }
+
     void skip(size_t amount)
     {
-        if (amount < avail()) pos_ += amount;
-        else {
-            // TODO: more efficient...
+        if (amount >= avail())
             make_avail(amount);
-            pos_ += amount;
-        }
+
+        if (avail() < amount)
+            throw Exception("skipped past end of store");
+
+        offset_ += amount;
+        pos_ += amount;
     }
 
     //const char * start() const { return start_; }
@@ -88,12 +98,15 @@ public:
 
     char operator [] (int idx) const { return pos_[idx]; }
 
+    size_t offset() const { return offset_; }
+
 private:
     size_t offset_;       ///< Offset of start from archive start
     const char * pos_;    ///< Position in memory region
     const char * end_;    ///< End of memory region
 
     void make_avail(size_t min_avail);
+    size_t try_make_avail(size_t amount);    
 
     struct Source;
     struct Buffer_Source;
@@ -230,6 +243,7 @@ public:
     void load(std::vector<T, A> & vec)
     {
         compact_size_t sz(*this);
+
         std::vector<T, A> v;
         v.reserve(sz);
         for (unsigned i = 0;  i < sz;  ++i) {
@@ -243,14 +257,17 @@ public:
     template<typename T, std::size_t NumDims, class Allocator>
     void load(boost::multi_array<T, NumDims, Allocator> & arr)
     {
+        using namespace std;
         char version;
         load(version);
         if (version != 1)
             throw Exception("unknown multi array version");
+
         char nd;
         load(nd);
         if (nd != NumDims)
             throw Exception("NumDims wrong");
+
         boost::array<size_t, NumDims> sizes;
         for (unsigned i = 0;  i < NumDims;  ++i) {
             compact_size_t sz(*this);
@@ -259,8 +276,10 @@ public:
 
         arr.resize(sizes);
 
-        // TODO: big/little endian
-        load_binary(arr.data(), sizeof(T) * arr.num_elements());
+        size_t ne = arr.num_elements();
+        T * el = arr.data();
+        for (unsigned i = 0;  i < ne;  ++i, ++el)
+            *this >> *el;
     }
 
     void load_binary(void * address, size_t size)

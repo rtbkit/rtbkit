@@ -18,14 +18,50 @@
 #include <sstream>
 #include <boost/multi_array.hpp>
 #include "algebra/matrix_ops.h"
+#include "stats/distribution.h"
+
 
 using namespace ML;
 using namespace ML::DB;
+using namespace ML::Stats;
 using namespace std;
 
 using boost::unit_test::test_suite;
 
-template<class X>
+namespace boost {
+namespace test_tools {
+namespace tt_detail {
+
+predicate_result
+equal_impl(const ML::Stats::distribution<float> & d1,
+           const ML::Stats::distribution<float> & d2)
+{
+    return (d1.size() == d2.size()
+            && (d1 == d2).all());
+}
+
+} // namespace tt_detail
+} // namespace test_tools
+} // namespace boost
+
+namespace ML {
+namespace Stats {
+
+template<typename T, class U, typename T2, typename U2>
+boost::test_tools::predicate_result
+equal_impl(const distribution<T, U> & d1,
+           const distribution<T2, U2> & d2)
+{
+    if (d1.size() != d2.size())
+        return false;
+
+    return (d1 == d2).all();
+}
+
+} // namespace Stats
+} // namespace ML
+
+template<typename X>
 void test_serialize_reconstitute(const X & x)
 {
     ostringstream stream_out;
@@ -92,3 +128,30 @@ BOOST_AUTO_TEST_CASE( test_multi_array )
     test_serialize_reconstitute(A);
 }
 
+BOOST_AUTO_TEST_CASE( test_bool )
+{
+    ostringstream stream_out;
+    {
+        DB::Store_Writer writer(stream_out);
+        writer << true;
+    }
+
+    BOOST_CHECK_EQUAL(stream_out.str().size(), 1);
+    BOOST_CHECK_EQUAL(stream_out.str().at(0), 1);
+
+    test_serialize_reconstitute(true);
+
+    test_serialize_reconstitute(false);
+}
+
+BOOST_AUTO_TEST_CASE( test_distribution )
+{
+    distribution<float> dist;
+    test_serialize_reconstitute(dist);
+
+    dist.push_back(1.0);
+    test_serialize_reconstitute(dist);
+
+    dist.push_back(2.0);
+    test_serialize_reconstitute(dist);
+}

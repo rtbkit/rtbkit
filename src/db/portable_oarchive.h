@@ -31,6 +31,7 @@
 #include "compact_size_types.h"
 #include <boost/shared_ptr.hpp>
 #include <boost/type_traits.hpp>
+#include <boost/utility.hpp>
 #include <vector>
 #include <string.h>
 
@@ -52,7 +53,7 @@ class Nested_Writer;
 /* PORTABLE_BIN_OARCHIVE                                                     */
 /*****************************************************************************/
 
-class portable_bin_oarchive {
+class portable_bin_oarchive : boost::noncopyable {
 public:
     portable_bin_oarchive();
     portable_bin_oarchive(const std::string & filename);
@@ -113,7 +114,7 @@ public:
         if (!stream)
             throw Exception("Writing to unopened portable_bin_oarchive");
         compact_size_t sz(x);
-        sz.serialize(*stream);
+        sz.serialize(*this);
     }
 
     void save(signed long x)
@@ -121,7 +122,7 @@ public:
         if (!stream)
             throw Exception("Writing to unopened portable_bin_oarchive");
         compact_int_t sz(x);
-        sz.serialize(*stream);
+        sz.serialize(*this);
     }
 
     void save(unsigned long long x)
@@ -129,7 +130,7 @@ public:
         if (!stream)
             throw Exception("Writing to unopened portable_bin_oarchive");
         compact_size_t sz(x);
-        sz.serialize(*stream);
+        sz.serialize(*this);
     }
 
     void save(signed long long x)
@@ -137,7 +138,7 @@ public:
         if (!stream)
             throw Exception("Writing to unopened portable_bin_oarchive");
         compact_int_t sz(x);
-        sz.serialize(*stream);
+        sz.serialize(*this);
     }
     
     void save(bool x)
@@ -172,7 +173,7 @@ public:
         if (!stream)
             throw Exception("Writing to unopened portable_bin_oarchive");
         compact_size_t size(str.length());
-        size.serialize(*stream);
+        size.serialize(*this);
         save_binary(&str[0], size);
     }
 
@@ -181,7 +182,7 @@ public:
         if (!stream)
             throw Exception("Writing to unopened portable_bin_oarchive");
         compact_size_t size(strlen(str));
-        size.serialize(*stream);
+        size.serialize(*this);
         save_binary(str, size);
     }
 
@@ -189,7 +190,7 @@ public:
     void save(const std::vector<T, A> & vec)
     {
         compact_size_t size(vec.size());
-        size.serialize(*stream);
+        size.serialize(*this);
         for (unsigned i = 0;  i < vec.size();  ++i)
             *this << vec[i];
     }
@@ -203,11 +204,13 @@ public:
         save(nd);
         for (unsigned i = 0;  i < NumDims;  ++i) {
             compact_size_t dim(arr.shape()[i]);
-            dim.serialize(*stream);
+            dim.serialize(*this);
         }
-        
-        // TODO: big/litle endian
-        save_binary(arr.data(), sizeof(T) * arr.num_elements());
+
+        size_t ne = arr.num_elements();
+        const T * el = arr.data();
+        for (unsigned i = 0;  i < ne;  ++i, ++el)
+            *this << *el;
     }
 
     void save(const Nested_Writer & writer);
@@ -217,13 +220,17 @@ public:
         if (!stream)
             throw Exception("Writing to unopened portable_bin_oarchive");
         stream->write((char *)address, size);
+        offset_ += size;
         if (!(*stream))
             throw Exception("Error writing to stream");
     }
 
+    size_t offset() const { return offset_; }
+
 private:
     std::ostream * stream;
     boost::shared_ptr<std::ostream> owned_stream;
+    size_t offset_;
 };
 
 
