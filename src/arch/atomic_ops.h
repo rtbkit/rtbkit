@@ -13,17 +13,17 @@
 namespace ML {
 
 
-template<typename Val>
-void atomic_accumulate(Val & value, const Val & increment)
+template<typename Val1, typename Val2>
+void atomic_accumulate(Val1 & value, const Val2 & increment)
 {
-    Val old_val = value, new_val;
+    Val1 old_val = value, new_val;
     do {
         new_val = old_val + increment;
     } while (!JML_LIKELY(cmp_xchg(value, old_val, new_val)));
 }
 
-template<typename Val>
-void atomic_accumulate(Val * old, const Val * increment, int n)
+template<typename Val1, typename Val2>
+void atomic_accumulate(Val1 * old, const Val2 * increment, int n)
 {
     for (unsigned i = 0;  i < n;  ++i)
         atomic_accumulate(old[i], increment[i]);
