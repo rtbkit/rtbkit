@@ -123,6 +123,23 @@ public:
                         + full_key);
     }
 
+    void parse_value(std::vector<std::string> & val, const std::string & str,
+                     const std::string & full_key, Not_Enum_Tag) const
+    {
+        //bool in_quote = false, after_backslash = false;
+        //..
+    }
+
+    template<class X>
+    void parse_value(std::vector<X> & val, const std::string & str,
+                     const std::string & full_key, Not_Enum_Tag) const
+    {
+        std::vector<std::string> vals = split(str, ',');
+        val.resize(vals.size());
+        for (unsigned i = 0;  i < vals.size();  ++i)
+            parse_value(val[i], vals[i], full_key);
+    }
+
     template<class X>
     void parse_value(X & val, const std::string & str,
                      const std::string & full_key, Not_Enum_Tag) const

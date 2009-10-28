@@ -11,6 +11,7 @@
 #include "utils/configuration.h"
 #include "utils/enum_info.h"
 #include <boost/test/unit_test.hpp>
+#include "utils/vector_utils.h"
 
 using namespace ML;
 using namespace std;
@@ -116,8 +117,12 @@ static const char * config1 =
 "    inner {\n"
 "        setting=2;\n"
 "    }\n"
-"}\n";
-
+"}\n"
+"vector_values=1,2,3,4,5,6;\n"
+"vector_values2=1,2,3,4,5,6\n"
+"vector_values3 = 1,2,3,4,5,6\n"
+"vector_values4 = \"w\",\"x\",\"y\";";
+    
 enum Update {
     NORMAL = 0,   ///< Normal update
     GENTLE = 1,   ///< Gentle update
@@ -232,4 +237,42 @@ BOOST_AUTO_TEST_CASE( test1 )
     config.parse_command_line(extra);
     BOOST_CHECK_EQUAL(config["weak_learner.weak_learner.type"], "bonus");
 
+    vector<int> v;
+    config.get(v, "vector_values");
+    BOOST_CHECK_EQUAL(v.size(), 6);
+    BOOST_CHECK_EQUAL(v.at(0), 1);
+    BOOST_CHECK_EQUAL(v.at(1), 2);
+    BOOST_CHECK_EQUAL(v.at(2), 3);
+    BOOST_CHECK_EQUAL(v.at(3), 4);
+    BOOST_CHECK_EQUAL(v.at(4), 5);
+    BOOST_CHECK_EQUAL(v.at(5), 6);
+
+    v.clear();
+    config.get(v, "vector_values2");
+    BOOST_CHECK_EQUAL(v.size(), 6);
+    BOOST_CHECK_EQUAL(v.at(0), 1);
+    BOOST_CHECK_EQUAL(v.at(1), 2);
+    BOOST_CHECK_EQUAL(v.at(2), 3);
+    BOOST_CHECK_EQUAL(v.at(3), 4);
+    BOOST_CHECK_EQUAL(v.at(4), 5);
+    BOOST_CHECK_EQUAL(v.at(5), 6);
+
+    v.clear();
+    config.get(v, "vector_values3");
+    BOOST_CHECK_EQUAL(v.size(), 6);
+    BOOST_CHECK_EQUAL(v.at(0), 1);
+    BOOST_CHECK_EQUAL(v.at(1), 2);
+    BOOST_CHECK_EQUAL(v.at(2), 3);
+    BOOST_CHECK_EQUAL(v.at(3), 4);
+    BOOST_CHECK_EQUAL(v.at(4), 5);
+    BOOST_CHECK_EQUAL(v.at(5), 6);
+
+#if 0
+    vector<string> v2;
+    config.get(v2, "vector_values4");
+    BOOST_CHECK_EQUAL(v2.size(), 3);
+    BOOST_CHECK_EQUAL(v2.at(0), "w");
+    BOOST_CHECK_EQUAL(v2.at(1), "x");
+    BOOST_CHECK_EQUAL(v2.at(2), "y");
+#endif
 }
