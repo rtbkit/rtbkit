@@ -848,6 +848,11 @@ void vec_add(const double * x, double k, const float * y, double * r, size_t n)
     for (;  i < n;  ++i) r[i] = x[i] + k * y[i];
 }
 
+void vec_add(const double * x, const float * y, double * r, size_t n)
+{
+    for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] * y[i];
+}
+
 void vec_prod(const double * x, const double * y, double * r, size_t n)
 {
     unsigned i = 0;
@@ -942,6 +947,69 @@ void vec_k1_x_plus_k2_y_z(double k1, const double * x,
             yy0 *= zz0;
             yy0 += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
+        }
+    }
+
+    for (;  i < n;  ++i) r[i] = k1 * x[i] + k2 * y[i] * z[i];
+}
+
+void vec_k1_x_plus_k2_y_z(float k1, const float * x,
+                          float k2, const float * y, const float * z,
+                          float * r, size_t n)
+{
+    unsigned i = 0;
+
+    v4sf kkkk1 = vec_splat(k1);
+    v4sf kkkk2 = vec_splat(k2);
+
+    if (true) {
+        for (; i + 16 <= n;  i += 16) {
+            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
+            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf zzzz0 = __builtin_ia32_loadups(z + i + 0);
+            yyyy0 *= kkkk2;
+            xxxx0 *= kkkk1;
+            yyyy0 *= zzzz0;
+            yyyy0 += xxxx0;
+            __builtin_ia32_storeups(r + i + 0, yyyy0);
+
+            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
+            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            v4sf zzzz1 = __builtin_ia32_loadups(z + i + 4);
+            yyyy1 *= kkkk2;
+            xxxx1 *= kkkk1;
+            yyyy1 *= zzzz1;
+            yyyy1 += xxxx1;
+            __builtin_ia32_storeups(r + i + 4, yyyy1);
+            
+            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
+            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            v4sf zzzz2 = __builtin_ia32_loadups(z + i + 8);
+            yyyy2 *= kkkk2;
+            xxxx2 *= kkkk1;
+            yyyy2 *= zzzz2;
+            yyyy2 += xxxx2;
+            __builtin_ia32_storeups(r + i + 8, yyyy2);
+
+            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
+            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            v4sf zzzz3 = __builtin_ia32_loadups(z + i + 12);
+            yyyy3 *= kkkk2;
+            xxxx3 *= kkkk1;
+            yyyy3 *= zzzz3;
+            yyyy3 += xxxx3;
+            __builtin_ia32_storeups(r + i + 12, yyyy3);
+        }
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
+            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf zzzz0 = __builtin_ia32_loadups(z + i + 0);
+            yyyy0 *= kkkk2;
+            xxxx0 *= kkkk1;
+            yyyy0 *= zzzz0;
+            yyyy0 += xxxx0;
+            __builtin_ia32_storeups(r + i + 0, yyyy0);
         }
     }
 
