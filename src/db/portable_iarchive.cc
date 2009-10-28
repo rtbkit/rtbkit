@@ -94,18 +94,26 @@ struct Binary_Input::Stream_Source
 
     size_t get_more(char * buffer, size_t amount)
     {
+        //cerr << "get_more: amount = " << amount << endl;
         stream.read(buf_start, amount);
+        //cerr << "get_more got " << stream.gcount() << endl;
         return stream.gcount();
     }
 
     virtual size_t more(Binary_Input & input, size_t amount)
     {
+        //cerr << "input.avail() = " << input.avail() << " amount = "
+        //     << amount << " buf_size = " << buf_size << endl;
+
         /* Check if we need to enlarge the buffer. */
         if (input.avail() + amount > buf_size) {
             /* We need to enlarge the buffer to hold the current data plus the
                new data. */
             /* At least double it */
-            size_t new_size = std::max(buf_size * 2, input.avail() + buf_size);
+            size_t new_size = std::max(buf_size * 2, input.avail() + amount);
+
+            //cerr << "new_size = " << new_size << endl;
+
             /* Make it at least one page big */
             new_size = std::max<size_t>(DEFAULT_BUF_SIZE, new_size);
             char * old_buf_start = buf_start;
@@ -118,6 +126,8 @@ struct Binary_Input::Stream_Source
             delete[] old_buf_start;
             
             size_t leftover = input.end_ - input.pos_;
+
+            //cerr << "leftover = " << leftover << endl;
 
             input.offset_ += input.pos_ - old_buf_start;
             input.pos_     = buf_start;
@@ -200,6 +210,9 @@ void Binary_Input::open(std::istream & stream)
 void Binary_Input::make_avail(size_t min_avail)
 {
     size_t avail = source->more(*this, min_avail);
+
+    //cerr << "avail = " << avail << " min_avail = " << min_avail << endl;
+    //cerr << "source: " << typeid(*source).name() << endl;
 
     if (avail < min_avail)
         throw Exception("Binary_Input: read past end of data");
