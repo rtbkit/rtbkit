@@ -429,7 +429,7 @@ print() const
     
     result += "  missing replacements: \n    [ ";
     for (unsigned j = 0;  j < no;  ++j)
-        result += format("%8.4f", bias[j]);
+        result += format("%8.4f", missing_replacements[j]);
     result += " ]\n";
     
     result += "}\n";
@@ -450,9 +450,13 @@ void
 Dense_Layer<Float>::
 serialize(DB::Store_Writer & store) const
 {
-    store << compact_size_t(1) << string("PERCEPTRON LAYER");
-    store << compact_size_t(inputs()) << compact_size_t(outputs());
-    store << weights << bias << missing_replacements;
+    store << compact_size_t(1);
+    store << string("PERCEPTRON LAYER");
+    store << compact_size_t(inputs());
+    store << compact_size_t(outputs());
+    store << weights;
+    store << bias;
+    store << missing_replacements;
     store << transfer_function;
 }
 
@@ -462,6 +466,7 @@ Dense_Layer<Float>::
 reconstitute(DB::Store_Reader & store)
 {
     compact_size_t version(store);
+    //cerr << "version = " << version << endl;
     if (version != 1)
         throw Exception("invalid layer version");
 
@@ -469,8 +474,58 @@ reconstitute(DB::Store_Reader & store)
     store >> s;
     if (s != "PERCEPTRON LAYER")
         throw Exception("invalid layer start " + s);
-    store >> weights >> bias >> missing_replacements;
+
+    compact_size_t inputs_read(store), outputs_read(store);
+
+    store >> weights;
+
+#if 0
+    cerr << "getting bias: offset = " << store.offset() << endl;
+    size_t bytes_left = store.try_to_have(256);
+
+    for (unsigned i = 0;  i < bytes_left && i < 256;  i += 16) {
+        cerr << format("%04x | ", i + store.offset());
+        for (unsigned j = i;  j < i + 16;  ++j) {
+            if (j < bytes_left)
+                cerr << format("%02x ", (uint8_t)(store[j]));
+            else cerr << "   ";
+        }
+        
+        cerr << "| ";
+        
+        for (unsigned j = i;  j < i + 16;  ++j) {
+            if (j < bytes_left) {
+                if (store[j] >= ' ' && store[j] < 127)
+                    cerr << store[j];
+                else cerr << '.';
+            }
+            else cerr << " ";
+        }
+        cerr << endl;
+    }
+#endif
+
+    store >> bias;
+
+
+    //cerr << "after bias: offset = " << store.offset() << endl;
+    store >> missing_replacements;
     store >> transfer_function;
+
+    if (inputs_read != inputs() || outputs_read != outputs())
+        throw Exception("inputs read weren't right");
+
+    if (weights.shape()[0] != inputs_read)
+        throw Exception("weights has wrong shape");
+    if (weights.shape()[1] != outputs_read)
+        throw Exception("weights has wrong output shape");
+    if (bias.size() != outputs_read) {
+        cerr << "bias.size() = " << bias.size() << endl;
+        cerr << "outputs_read = " << outputs_read << endl;
+        throw Exception("bias is wrong size");
+    }
+    if (missing_replacements.size() != inputs_read)
+        throw Exception("missing replacements are wrong size");
 }
 
 template<typename Float>
@@ -613,6 +668,24 @@ parameter_count() const
 {
     return (inputs() * 1) * (outputs() + 1);
 }
+
+template<typename Float>
+bool
+Dense_Layer<Float>::
+operator == (const Dense_Layer & other) const
+{
+    return (transfer_function == other.transfer_function
+            && inputs() == other.inputs()
+            && outputs() == other.outputs()
+            && weights.shape()[0] == other.weights.shape()[0]
+            && weights.shape()[1] == other.weights.shape()[1]
+            && missing_replacements.size() == other.missing_replacements.size()
+            && bias.size() == other.bias.size()
+            && weights == other.weights
+            && (bias == other.bias).all()
+            && (missing_replacements == other.missing_replacements).all());
+}
+
 
 template class Dense_Layer<float>;
 template class Dense_Layer<double>;

@@ -194,9 +194,13 @@ public:
     targets(float maximum, Transfer_Function_Type transfer_function);
 };
 
+inline std::ostream & operator << (std::ostream & stream, const Layer & layer)
+{
+    return stream << layer.print();
+}
 
 /*****************************************************************************/
-/* DENSE_LAYER                                                              */
+/* DENSE_LAYER                                                               */
 /*****************************************************************************/
 
 /** A simple one way layer with dense connections. */
@@ -264,7 +268,13 @@ struct Dense_Layer : public Layer {
     virtual Dense_Layer * make_copy() const { return new Dense_Layer(*this); }
 
     virtual void validate() const;
+
+    // For testing purposes
+    bool operator == (const Dense_Layer & other) const;
 };
+
+JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(typename Float, Dense_Layer<Float>);
+
 
 extern template class Dense_Layer<float>;
 extern template class Dense_Layer<double>;
