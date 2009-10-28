@@ -327,16 +327,16 @@ SCALAR_DIST_OP(||);
 #undef SCALAR_DIST_OP
 
 #define DIST_DIST_COMPARE_OP(op) \
-template<class F, class Underlying>           \
+    template<class F1, class Underlying1, class F2, class Underlying2>    \
 distribution<bool> \
- operator op (const distribution<F, Underlying> & d1,\
-              const distribution<F> & d2)            \
+operator op (const distribution<F1, Underlying1> & d1,\
+             const distribution<F2, Underlying2> & d2)            \
 { \
     if (d1.size() != d2.size()) \
         throw Exception("distribution sizes don't match for compare"); \
     distribution<bool> result(d1.size()); \
     for (unsigned i = 0;  i < d1.size();  ++i) \
-        result[i] = (d1[i] op d2[2]); \
+        result[i] = (d1[i] op d2[i]); \
     return result; \
 }
 
