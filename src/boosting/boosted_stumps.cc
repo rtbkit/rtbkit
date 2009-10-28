@@ -184,7 +184,7 @@ predict(const Feature_Set & features) const
             if ((float)total == 0.0F) {
                 cerr << "warning: boosted stumps says no results are correct"
                      << endl;
-                result = 1;  // assign all elements
+                result.fill(1);  // assign all elements
                 result.normalize();
             }
             else result /= total;

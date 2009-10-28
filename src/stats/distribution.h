@@ -82,12 +82,14 @@ public:
         return *this;
     }
 
+#if 0 // use fill instead
     distribution &
     operator = (const F & val)
     {
         this->fill(val);
         return *this;
     }
+#endif // use fill instead
 
     void fill(const F & val)
     {
