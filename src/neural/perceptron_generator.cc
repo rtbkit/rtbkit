@@ -7,27 +7,28 @@
 */
 
 #include "perceptron_generator.h"
-#include "registry.h"
+#include "boosting/registry.h"
 #include <boost/timer.hpp>
 #include <boost/progress.hpp>
-#include "training_index.h"
+#include "boosting/training_index.h"
 #include "stats/distribution_simd.h"
 #include "arch/simd_vector.h"
 #include "algebra/lapack.h"
 #include "algebra/matrix_ops.h"
 #include "algebra/irls.h"
 #include <iomanip>
-#include "config_impl.h"
+#include "boosting/config_impl.h"
 #include "utils/environment.h"
 #include "utils/profile.h"
-#include "worker_task.h"
+#include "boosting/worker_task.h"
 #include "utils/guard.h"
-#include "evaluation.h"
+#include "boosting/evaluation.h"
 #include <boost/scoped_ptr.hpp>
 #include <boost/bind.hpp>
 #include "utils/smart_ptr_utils.h"
 #include "utils/vector_utils.h"
 #include "utils/pair_utils.h"
+#include "neural/dense_layer.h"
 
 #if (JML_USE_CUDA == 1)
 #include "backprop_cuda.h"

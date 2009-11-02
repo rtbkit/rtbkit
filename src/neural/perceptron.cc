@@ -29,6 +29,7 @@
 #include "utils/guard.h"
 #include <boost/bind.hpp>
 #include "arch/backtrace.h"
+#include "dense_layer.h"
 
 using namespace std;
 using namespace DB;

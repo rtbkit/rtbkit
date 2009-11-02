@@ -21,7 +21,7 @@
 #include "algebra/matrix_ops.h"
 #include "stats/distribution.h"
 #include "boosting/thread_context.h"
-#include "neural/layer.h"
+#include "neural/dense_layer.h"
 
 
 using namespace ML;
