@@ -19,7 +19,6 @@ LIBBOOSTING_SOURCES := \
         naive_bayes.cc \
         null_classifier.cc \
         null_decoder.cc \
-        perceptron.cc \
         probabilizer.cc \
         sparse_features.cc \
         stump.cc \
@@ -34,7 +33,6 @@ LIBBOOSTING_SOURCES := \
         boosted_stumps_generator.cc \
         bagging_generator.cc \
         boosting_generator.cc \
-        perceptron_generator.cc \
         naive_bayes_generator.cc \
         worker_task.cc \
         decision_tree_generator.cc \
@@ -54,9 +52,7 @@ LIBBOOSTING_SOURCES := \
 	split.cc \
 	training_index_iterators.cc \
 	feature.cc \
-	bit_compressed_index.cc \
-	perceptron_defs.cc \
-	layer.cc
+	bit_compressed_index.cc
 
 LIBBOOSTING_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt
 

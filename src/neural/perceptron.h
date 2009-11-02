@@ -10,8 +10,8 @@
 #define __boosting__perceptron_h__
 
 
-#include "config.h"
-#include "classifier.h"
+#include "boosting/config.h"
+#include "boosting/classifier.h"
 #include "layer.h"
 #include "utils/pair_utils.h"
 #include <boost/multi_array.hpp>

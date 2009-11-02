@@ -8,11 +8,11 @@
 */
 
 #include "perceptron.h"
-#include "classifier_persist_impl.h"
+#include "boosting/classifier_persist_impl.h"
 #include "utils/profile.h"
 #include "utils/environment.h"
 #include "algebra/matrix_ops.h"
-#include "training_index.h"
+#include "boosting/training_index.h"
 #include "algebra/irls.h"
 #include "utils/vector_utils.h"
 #include <iomanip>
@@ -21,11 +21,11 @@
 #include "utils/parse_context.h"
 #include "stats/distribution_simd.h"
 #include "stats/distribution_ops.h"
-#include "evaluation.h"
+#include "boosting/evaluation.h"
 #include "arch/simd_vector.h"
 #include "algebra/lapack.h"
-#include "config_impl.h"
-#include "worker_task.h"
+#include "boosting/config_impl.h"
+#include "boosting/worker_task.h"
 #include "utils/guard.h"
 #include <boost/bind.hpp>
 #include "arch/backtrace.h"

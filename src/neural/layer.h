@@ -9,7 +9,7 @@
 #define __jml__layer_h__
 
 #include "perceptron_defs.h"
-#include "thread_context.h"
+#include "boosting/thread_context.h"
 #include "stats/distribution.h"
 #include <boost/multi_array.hpp>
 
