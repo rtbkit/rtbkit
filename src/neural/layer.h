@@ -17,15 +17,6 @@ namespace ML {
 
 
 /*****************************************************************************/
-/* TRANSFER_FUNCTION                                                         */
-/*****************************************************************************/
-
-struct Transfer_Function {
-    virtual ~Transfer_Function();
-};
-
-
-/*****************************************************************************/
 /* LAYER                                                                     */
 /*****************************************************************************/
 
@@ -69,118 +60,8 @@ public:
     void apply(const distribution<double> & input,
                distribution<double> & output) const;
 
-    void apply(const float * input,
-               float * output) const;
-
-    void apply(const double * input,
-               double * output) const;
-
-
-    /*************************************************************************/
-    /* PREPROCESS                                                            */
-    /*************************************************************************/
-
-    /** Performs pre-processing of the input including any shift and scaling
-        factors, potential decorrelation and the replacement of any missing
-        values with their replacements.
-
-        Default implementation does nothing.
-    */
-
-    virtual void preprocess(const float * input,
-                            float * preprocessed) const;
-
-    virtual void preprocess(const double * input,
-                            double * preprocessed) const = 0;
-
-    distribution<float> preprocess(const distribution<float> & input) const;
-    distribution<double> preprocess(const distribution<double> & input) const;
-    
-
-    /*************************************************************************/
-    /* ACTIVATION                                                            */
-    /*************************************************************************/
-
-    /* Calculate the activation function for the output neurons */
-
-    virtual void activation(const float * input,
-                            float * activation) const;
-
-    virtual void activation(const double * input,
-                            double * activation) const = 0;
-
-    distribution<float> activation(const distribution<float> & input) const;
-    distribution<double> activation(const distribution<double> & input) const;
-
-
-    /*************************************************************************/
-    /* TRANSFER                                                              */
-    /*************************************************************************/
-
-    /* Apply the transfer function to the activations. */
-
-    /** Transform the given value according to the transfer function. */
-    template<typename Float>
-    static void transfer(const Float * activation, Float * outputs, int nvals,
-                         Transfer_Function_Type transfer_function);
-        
-
-    void transfer(const float * activation, float * outputs) const;
-    void transfer(const double * activation, double * outputs) const;
-
-    distribution<float> transfer(const distribution<float> & activation) const;
-    distribution<double> transfer(const distribution<double> & activation) const;
-
-    
-    /*************************************************************************/
-    /* DERIVATIVE                                                            */
-    /*************************************************************************/
-
-    /** Return the derivative of the given value according to the transfer
-        function.  Note that only the output of the activation function is
-        provided; this is sufficient for most cases.
-    */
-    distribution<float> derivative(const distribution<float> & outputs) const;
-    distribution<double> derivative(const distribution<double> & outputs) const;
-
-    template<class Float>
-    static void derivative(const Float * outputs, Float * deriv, int nvals,
-                           Transfer_Function_Type transfer_function);
-    
-    virtual void derivative(const float * outputs,
-                            float * derivatives) const;
-    virtual void derivative(const double * outputs,
-                            double * derivatives) const;
-
-    /** These are the same, but they operate on the second derivative. */
-
-    distribution<float>
-    second_derivative(const distribution<float> & outputs) const;
-
-    distribution<double>
-    second_derivative(const distribution<double> & outputs) const;
-
-    template<class Float>
-    static void second_derivative(const Float * outputs,
-                                  Float * second_deriv, int nvals,
-                                  Transfer_Function_Type transfer_function);
-
-    virtual void second_derivative(const float * outputs,
-                                   float * second_derivatives) const;
-    virtual void second_derivative(const double * outputs,
-                                   double * second_derivatives) const;
-
-    
-    /*************************************************************************/
-    /* DELTAS                                                                */
-    /*************************************************************************/
-
-    /* deltas = derivative * error */
-
-    void deltas(const float * outputs, const float * errors,
-                float * deltas) const;
-    void deltas(const double * outputs, const double * errors,
-                double * deltas) const;
+    virtual void apply(const float * input, float * output) const = 0;
+    virtual void apply(const double * input, double * output) const = 0;
 
     /** Fill with random weights. */
     virtual void random_fill(float limit, Thread_Context & context) = 0;
@@ -218,28 +99,5 @@ inline std::ostream & operator << (std::ostream & stream, const Layer & layer)
 }
 
 } // namespace ML
-
-#if 0  // for later if we want to do RBMs
-    void apply_stochastic(const distribution<float> & input,
-                          distribution<float> & output,
-                          Thread_Context & context) const;
-
-    void apply(const float * input, float * output) const;
-
-    void apply_stochastic(const float * input, float * output,
-                          Thread_Context & context) const;
-
-    /** Generate a single stochastic Gibbs sample from the stocastic
-        distribution, starting from the given input values.  It will
-        modify both the input and the output of the new sample.
-
-        Performs the given number of iterations.
-    */
-    void sample(distribution<float> & input,
-                distribution<float> & output,
-                Thread_Context & context,
-                int num_iterations) const;
-#endif // RBMs
-
 
 #endif /* __jml__layer_h__ */
