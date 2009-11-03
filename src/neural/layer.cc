@@ -81,19 +81,5 @@ validate() const
     // Default does none
 }
 
-std::pair<float, float>
-Layer::
-targets(float maximum, Transfer_Function_Type transfer_function)
-{
-    switch (transfer_function) {
-    case TF_TANH:
-    case TF_IDENTITY: return std::make_pair(-maximum, maximum);
-    case TF_LOGSOFTMAX:
-    case TF_LOGSIG: return std::make_pair(0.0f, maximum);
-    default:
-        throw Exception("Layer::targets(): invalid transfer_function");
-    }
-}
-
 } // namespace ML
 

@@ -31,6 +31,8 @@ struct Dense_Layer : public Layer {
                 Thread_Context & thread_context,
                 float limit = -1.0);
 
+    Transfer_Function_Type transfer_function;
+        
     /// Network parameters
     boost::multi_array<Float, 2> weights;
     distribution<Float> bias;
@@ -105,6 +107,17 @@ struct Dense_Layer : public Layer {
 
     distribution<float> transfer(const distribution<float> & activation) const;
     distribution<double> transfer(const distribution<double> & activation) const;
+    
+    /** Given the activation function and the maximum amount of the range
+        that we want to use (eg, 0.8 for asymptotic functions), what are
+        the minimum and maximum values that we want to use.
+
+        For example, tanh goes from -1 to 1, but asymptotically.  We would
+        normally want to go from -0.8 to 0.8, to leave a bit of space for
+        expansion.
+    */
+    static std::pair<float, float>
+    targets(float maximum, Transfer_Function_Type transfer_function);
 
     
     /*************************************************************************/

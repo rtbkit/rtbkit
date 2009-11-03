@@ -679,6 +679,23 @@ operator == (const Dense_Layer & other) const
 }
 
 
+template<typename Float>
+std::pair<float, float>
+Dense_Layer<Float>::
+targets(float maximum, Transfer_Function_Type transfer_function)
+{
+    switch (transfer_function) {
+    case TF_TANH:
+    case TF_IDENTITY: return std::make_pair(-maximum, maximum);
+    case TF_LOGSOFTMAX:
+    case TF_LOGSIG: return std::make_pair(0.0f, maximum);
+    default:
+        throw Exception("Layer::targets(): invalid transfer_function");
+    }
+}
+
+
+
 template class Dense_Layer<float>;
 template class Dense_Layer<double>;
 

@@ -1386,8 +1386,11 @@ train_iteration(Thread_Context & context,
 
     float inhibit, fire;
     boost::tie(inhibit, fire)
-        = Layer::targets(target_value,
-                         result.layers.back()->transfer_function);
+        = Dense_Layer<float>
+        ::targets(target_value,
+                  dynamic_cast <const Dense_Layer<float > &>
+                       (*result.layers.back())
+                  .transfer_function);
 
     size_t nx = decorrelated.shape()[0];
 
