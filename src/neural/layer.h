@@ -152,6 +152,24 @@ public:
     virtual void derivative(const double * outputs,
                             double * derivatives) const;
 
+    /** These are the same, but they operate on the second derivative. */
+
+    distribution<float>
+    second_derivative(const distribution<float> & outputs) const;
+
+    distribution<double>
+    second_derivative(const distribution<double> & outputs) const;
+
+    template<class Float>
+    static void second_derivative(const Float * outputs,
+                                  Float * second_deriv, int nvals,
+                                  Transfer_Function_Type transfer_function);
+
+    virtual void second_derivative(const float * outputs,
+                                   float * second_derivatives) const;
+    virtual void second_derivative(const double * outputs,
+                                   double * second_derivatives) const;
+
     
     /*************************************************************************/
     /* DELTAS                                                                */

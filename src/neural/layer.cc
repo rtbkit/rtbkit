@@ -326,6 +326,84 @@ derivative(const double * outputs,
     derivative(outputs, derivatives, no, transfer_function);
 }
 
+template<class Float>
+void
+Layer::
+second_derivative(const Float * outputs, Float * deriv, int nvals,
+                  Transfer_Function_Type transfer_function)
+{
+    switch (transfer_function) {
+
+    case TF_IDENTITY:
+        std::fill(deriv, deriv + nvals, 0.0);
+        break;
+        
+    case TF_TANH:
+        for (unsigned i = 0;  i < nvals;  ++i)
+            deriv[i] = -2.0 * outputs[i] * (1.0 - (outputs[i] * outputs[i]));
+        break;
+
+#if 0
+    case TF_LOGSIG:
+        for (unsigned i = 0;  i < nvals;  ++i)
+            deriv[i] = ...;
+        break;
+        
+    case TF_LOGSOFTMAX:
+        for (unsigned i = 0;  i < nvals;  ++i)
+            deriv[i] = ...;
+        break;
+#endif
+        
+    default:
+        throw Exception("Layer::transfer(): second derivative not implemented "
+                        "for this transfer_function "
+                        + ML::print(transfer_function));
+    }
+}
+
+distribution<float>
+Layer::
+second_derivative(const distribution<float> & outputs) const
+{
+    if (outputs.size() != this->outputs())
+        throw Exception("second_derivative(): wrong size");
+    int no = this->outputs();
+    distribution<float> result(no);
+    second_derivative(&outputs[0], &result[0], no, transfer_function);
+    return result;
+}
+
+distribution<double>
+Layer::
+second_derivative(const distribution<double> & outputs) const
+{
+    if (outputs.size() != this->outputs())
+        throw Exception("second_derivative(): wrong size");
+    int no = this->outputs();
+    distribution<double> result(no);
+    second_derivative(&outputs[0], &result[0], no, transfer_function);
+    return result;
+}
+
+void
+Layer::
+second_derivative(const float * outputs,
+                  float * second_derivatives) const
+{
+    int no = this->outputs();
+    second_derivative(outputs, second_derivatives, no, transfer_function);
+}
+
+void
+Layer::
+second_derivative(const double * outputs,
+                  double * second_derivatives) const
+{
+    int no = this->outputs();
+    second_derivative(outputs, second_derivatives, no, transfer_function);
+}
+
 void
 Layer::
 deltas(const float * outputs, const float * errors, float * deltas) const

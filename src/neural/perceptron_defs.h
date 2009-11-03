@@ -24,6 +24,8 @@ enum Transfer_Function_Type {
     TF_NONSTANDARD
 };
 
+std::string print(Transfer_Function_Type tf);
+
 std::ostream & operator << (std::ostream & stream, Transfer_Function_Type fn);
 
 BYTE_PERSISTENT_ENUM_DECL(Transfer_Function_Type);

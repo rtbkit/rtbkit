@@ -14,18 +14,23 @@ using namespace std;
 
 namespace ML {
 
-std::ostream & operator << (std::ostream & stream, Transfer_Function_Type act)
+std::string print(Transfer_Function_Type act)
 {
     switch (act) {
-    case TF_LOGSIG:   return stream << "LOGSIG";
-    case TF_TANH:     return stream << "TANH";
-    case TF_TANHS:    return stream << "TANHS";
-    case TF_IDENTITY: return stream << "IDENTITY";
-    case TF_LOGSOFTMAX: return stream << "LOGSOFTMAX";
-    case TF_NONSTANDARD: return stream << "NONSTANDARD";
+    case TF_LOGSIG:   return "LOGSIG";
+    case TF_TANH:     return "TANH";
+    case TF_TANHS:    return "TANHS";
+    case TF_IDENTITY: return "IDENTITY";
+    case TF_LOGSOFTMAX: return "LOGSOFTMAX";
+    case TF_NONSTANDARD: return "NONSTANDARD";
 
-    default: return stream << format("Transfer_Function_Type(%d)", act);
+    default: return format("Transfer_Function_Type(%d)", act);
     }
+}
+
+std::ostream & operator << (std::ostream & stream, Transfer_Function_Type act)
+{
+    return stream << print(act);
 }
 
 BYTE_PERSISTENT_ENUM_IMPL(Transfer_Function_Type);
