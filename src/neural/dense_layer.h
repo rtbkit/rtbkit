@@ -47,6 +47,7 @@ struct Dense_Layer : public Layer {
     virtual void apply(const float * input, float * output) const;
     virtual void apply(const double * input, double * output) const;
 
+    using Layer::apply;
 
 
     /*************************************************************************/
