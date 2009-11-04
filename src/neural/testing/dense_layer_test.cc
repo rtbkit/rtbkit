@@ -83,17 +83,31 @@ void test_serialize_reconstitute(const X & x)
     BOOST_CHECK_EQUAL(s, "END");
 }
 
-BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer )
+BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer1 )
 {
     Thread_Context context;
-    Dense_Layer<float> layer(200, 400, TF_TANH, context);
+    Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_ZERO, context);
+    test_serialize_reconstitute(layer);
+}
+
+BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer2 )
+{
+    Thread_Context context;
+    Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_INPUT, context);
+    test_serialize_reconstitute(layer);
+}
+
+BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer3 )
+{
+    Thread_Context context;
+    Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_DENSE, context);
     test_serialize_reconstitute(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer_double )
 {
     Thread_Context context;
-    Dense_Layer<double> layer(200, 400, TF_TANH, context);
+    Dense_Layer<double> layer("test", 200, 400, TF_TANH, MV_DENSE, context);
     test_serialize_reconstitute(layer);
 }
 

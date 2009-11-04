@@ -1745,14 +1745,16 @@ init(const Training_Data & data,
              << activation << endl;
 
         boost::shared_ptr<Layer>
-            layer(new Dense_Layer<float>(nunits, units, activation, context));
+            layer(new Dense_Layer<float>(format("hidden%d", i),
+                                         nunits, units, activation, context));
         result.add_layer(layer);
         nunits = units;
     }
     
     /* Add the output units. */
     boost::shared_ptr<Layer> layer
-        (new Dense_Layer<float>(nunits, nout, output_activation, context));
+        (new Dense_Layer<float>("output", nunits, nout, output_activation,
+                                context));
     result.add_layer(layer);
 
     cerr << "adding output layer with " << nout << " units and activation "

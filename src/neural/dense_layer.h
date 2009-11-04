@@ -7,9 +7,33 @@
 #ifndef __neural__dense_layer_h__
 #define __neural__dense_layer_h__
 
+
 #include "layer.h"
+#include "transfer_function.h"
+#include "utils/enum_info.h"
+#include "layer_stack.h"
+
 
 namespace ML {
+
+
+/*****************************************************************************/
+/* MISSING_VALUES                                                            */
+/*****************************************************************************/
+
+enum Missing_Values {
+    MV_NONE,  ///< Missing values are not accepted
+    MV_ZERO,  ///< Missing values are replaced with a zero
+    MV_INPUT, ///< Missing values are replaced with a value per input
+    MV_DENSE  ///< Missing inputs use a different activation matrix
+};
+
+BYTE_PERSISTENT_ENUM_DECL(Missing_Values);
+
+std::string print(Missing_Values mv);
+
+std::ostream & operator << (std::ostream & stream, Missing_Values mv);
+
 
 /*****************************************************************************/
 /* DENSE_LAYER                                                               */
@@ -19,26 +43,40 @@ namespace ML {
 
 template<typename Float>
 struct Dense_Layer : public Layer {
+
     Dense_Layer();
 
     /** Initialize to zero */
-    Dense_Layer(size_t inputs, size_t units,
-                Transfer_Function_Type transfer_function);
+    Dense_Layer(const std::string & name,
+                size_t inputs, size_t units,
+                Transfer_Function_Type transfer_function,
+                Missing_Values missing_values);
 
     /** Initialize with random values */
-    Dense_Layer(size_t ninputs, size_t units,
+    Dense_Layer(const std::string & name,
+                size_t ninputs, size_t units,
                 Transfer_Function_Type transfer_function,
+                Missing_Values missing_values,
                 Thread_Context & thread_context,
                 float limit = -1.0);
 
-    Transfer_Function_Type transfer_function;
+    /// Transfer function for the output
+    boost::shared_ptr<const Transfer_Function> transfer_function;
+
+    /// How to treat missing values in the input
+    Missing_Values missing_values;
         
-    /// Network parameters
+    /// Network parameters: activation weights
     boost::multi_array<Float, 2> weights;
+
+    /// Network parameters: bias
     distribution<Float> bias;
 
-    /// Values to use for input when the value is missing (NaN)
+    /// missing_values == MV_INPUT: Input value to use instead of missing
     distribution<Float> missing_replacements;
+
+    /// missing_values == MV_DENSE: Activation matrix to use when missing
+    boost::multi_array<Float, 2> missing_activations;
 
 
     /*************************************************************************/
@@ -52,6 +90,7 @@ struct Dense_Layer : public Layer {
     using Layer::apply;
 
 
+#if 0
     /*************************************************************************/
     /* PREPROCESS                                                            */
     /*************************************************************************/
@@ -87,94 +126,65 @@ struct Dense_Layer : public Layer {
 
     distribution<float> activation(const distribution<float> & input) const;
     distribution<double> activation(const distribution<double> & input) const;
+#endif
 
 
     /*************************************************************************/
-    /* TRANSFER                                                              */
+    /* FPROP                                                                 */
     /*************************************************************************/
 
-    /* Apply the transfer function to the activations. */
+    /** Return the amount of space necessary to save temporary results for the
+        forward prop.  There will be an array of the given precision (double
+        or single) provided.
 
-    /** Transform the given value according to the transfer function. */
-    template<typename FloatIn>
-    static void transfer(const FloatIn * activation, FloatIn * outputs,
-                         int nvals,
-                         Transfer_Function_Type transfer_function);
-        
-
-    void transfer(const float * activation, float * outputs) const;
-    void transfer(const double * activation, double * outputs) const;
-
-    distribution<float> transfer(const distribution<float> & activation) const;
-    distribution<double> transfer(const distribution<double> & activation) const;
-    
-    /** Given the activation function and the maximum amount of the range
-        that we want to use (eg, 0.8 for asymptotic functions), what are
-        the minimum and maximum values that we want to use.
-
-        For example, tanh goes from -1 to 1, but asymptotically.  We would
-        normally want to go from -0.8 to 0.8, to leave a bit of space for
-        expansion.
+        Default implementation returns outputs().
     */
-    static std::pair<float, float>
-    targets(float maximum, Transfer_Function_Type transfer_function);
 
-    
-    /*************************************************************************/
-    /* DERIVATIVE                                                            */
-    /*************************************************************************/
+    virtual void fprop_temporary_space_required() const;
 
-    /** Return the derivative of the given value according to the transfer
-        function.  Note that only the output of the activation function is
-        provided; this is sufficient for most cases.
+    /** These functions perform a forward propagation.  They also save whatever
+        information is necessary to perform an efficient backprop at a later
+        period in time.
+
+        Default implementation calls apply() and saves the outputs only in the
+        temporary space.
     */
-    distribution<float> derivative(const distribution<float> & outputs) const;
-    distribution<double> derivative(const distribution<double> & outputs) const;
+    virtual distribution<float>
+    fprop(const distribution<float> & inputs,
+          float * temp_space, size_t temp_space_size) const;
 
-    template<class FloatIn>
-    static void derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
-                           Transfer_Function_Type transfer_function);
+    virtual distribution<double>
+    fprop(const distribution<double> & inputs,
+          double * temp_space, size_t temp_space_size) const;
     
-    virtual void derivative(const float * outputs,
-                            float * derivatives) const;
-    virtual void derivative(const double * outputs,
-                            double * derivatives) const;
+               
 
-    /** These are the same, but they operate on the second derivative. */
-
-    distribution<float>
-    second_derivative(const distribution<float> & outputs) const;
-
-    distribution<double>
-    second_derivative(const distribution<double> & outputs) const;
-
-    template<class FloatIn>
-    static void second_derivative(const FloatIn * outputs,
-                                  FloatIn * second_deriv, int nvals,
-                                  Transfer_Function_Type transfer_function);
-
-    virtual void second_derivative(const float * outputs,
-                                   float * second_derivatives) const;
-    virtual void second_derivative(const double * outputs,
-                                   double * second_derivatives) const;
-
-    
     /*************************************************************************/
-    /* DELTAS                                                                */
+    /* BPROP                                                                 */
     /*************************************************************************/
 
-    /* deltas = derivative * error */
+    /** Perform a back propagation.  Given the derivative of the error with
+        respect to each of the errors, they compute the gradient of the
+        parameter space.
+    */
 
-    void deltas(const float * outputs, const float * errors,
-                float * deltas) const;
-    void deltas(const double * outputs, const double * errors,
-                double * deltas) const;
+    virtual void bprop(const distribution<float> & output_errors,
+                       float * temp_space, size_t temp_space_size,
+                       Parameters & gradient,
+                       distribution<float> & input_errors,
+                       double example_weight,
+                       bool calculate_input_errors) const;
+
+    virtual void bprop(const distribution<double> & output_errors,
+                       double * temp_space, size_t temp_space_size,
+                       Parameters & gradient,
+                       distribution<double> & input_errors,
+                       double example_weight,
+                       bool calculate_input_errors) const;
 
 
-
-
-
-
+    /** Add in our parameters to the params object. */
+    virtual boost::shared_ptr<Parameters> parameters();
 
     /** Dump as ASCII.  This will be big. */
     virtual std::string print() const;
@@ -195,9 +205,6 @@ struct Dense_Layer : public Layer {
         layer. */
     virtual size_t parameter_count() const;
 
-    virtual size_t inputs() const { return weights.shape()[0]; }
-    virtual size_t outputs() const { return weights.shape()[1]; }
-
     virtual Dense_Layer * make_copy() const { return new Dense_Layer(*this); }
 
     virtual void validate() const;
@@ -212,7 +219,11 @@ JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(typename Float, Dense_Layer<Float>);
 extern template class Dense_Layer<float>;
 extern template class Dense_Layer<double>;
 
+extern template class Layer_Stack<Dense_Layer<float> >;
+extern template class Layer_Stack<Dense_Layer<double> >;
 
 } // namespace ML
+
+DECLARE_ENUM_INFO(ML::Missing_Values, 4);
 
 #endif /* __neural__dense_layer_h__ */

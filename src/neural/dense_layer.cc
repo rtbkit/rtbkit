@@ -29,14 +29,18 @@ namespace ML {
 template<typename Float>
 Dense_Layer<Float>::
 Dense_Layer()
+    : Layer("", 0, 0)
 {
 }
 
 template<typename Float>
 Dense_Layer<Float>::
-Dense_Layer(size_t inputs, size_t units,
+Dense_Layer(const std::string & name,
+            size_t inputs, size_t units,
+            Missing_Values missing_values,
             Transfer_Function_Type transfer_function)
-    : weights(boost::extents[inputs][units]), bias(units),
+    : Layer(name, inputs, units),
+      weights(boost::extents[inputs][units]), bias(units),
       missing_replacements(inputs)
 {
     this->transfer_function = transfer_function;
@@ -45,17 +49,44 @@ Dense_Layer(size_t inputs, size_t units,
 
 template<typename Float>
 Dense_Layer<Float>::
-Dense_Layer(size_t inputs, size_t units,
+Dense_Layer(const std::string & name,
+            size_t inputs, size_t units,
             Transfer_Function_Type transfer_function,
+            Missing_Values missing_values,
             Thread_Context & thread_context,
             float limit)
-    : weights(boost::extents[inputs][units]), bias(units),
+    : Layer(name, inputs, units),
+      weights(boost::extents[inputs][units]), bias(units),
       missing_replacements(inputs)
 {
     this->transfer_function = transfer_function;
     if (limit == -1.0)
         limit = 1.0 / sqrt(inputs);
     random_fill(limit, thread_context);
+}
+
+template<typename Float>
+void
+Dense_Layer<Float>::
+parameters(Parameters & params)
+{
+    params
+        .add("weights", weights)
+        .add("bias", bias);
+
+    switch (missing_values) {
+    case MV_NONE:
+    case MV_ZERO:
+        break;
+    case MV_INPUT:
+        params.add("missing_replacements", missing_replacements);
+        break;
+    case MV_DENSE:
+        params.add("missing_activations", missing_activations);
+        break;
+    default:
+        throw Exception("Dense_Layer::parameters(): none there");
+    }
 }
 
 template<typename Float>
@@ -698,6 +729,233 @@ targets(float maximum, Transfer_Function_Type transfer_function)
 
 template class Dense_Layer<float>;
 template class Dense_Layer<double>;
+
+
+
+
+/*****************************************************************************/
+/* DENSE_MISSING_LAYER                                                       */
+/*****************************************************************************/
+
+Dense_Missing_Layer::
+Dense_Missing_Layer()
+    : use_dense_missing(true)
+{
+}
+
+Dense_Missing_Layer::
+Dense_Missing_Layer(bool use_dense_missing,
+                    size_t inputs, size_t outputs,
+                    Transfer_Function_Type transfer,
+                    Thread_Context & context,
+                    float limit)
+    : Base(inputs, outputs, transfer),
+      use_dense_missing(use_dense_missing),
+      missing_activations(inputs, distribution<LFloat>(outputs))
+{
+    if (limit == -1.0)
+        limit = 1.0 / sqrt(inputs);
+    random_fill(limit, context);
+}
+
+Dense_Missing_Layer::
+Dense_Missing_Layer(bool use_dense_missing,
+                    size_t inputs, size_t outputs,
+                    Transfer_Function_Type transfer)
+    : Base(inputs, outputs, transfer),
+      use_dense_missing(use_dense_missing),
+      missing_activations(inputs, distribution<LFloat>(outputs))
+{
+}
+
+void
+Dense_Missing_Layer::
+preprocess(const float * input,
+           float * preprocessed) const
+{
+    if (!use_dense_missing) Base::preprocess(input, preprocessed);
+    else std::copy(input, input + inputs(), preprocessed);
+}
+
+void
+Dense_Missing_Layer::
+preprocess(const double * input,
+           double * preprocessed) const
+{
+    if (!use_dense_missing) Base::preprocess(input, preprocessed);
+    else std::copy(input, input + inputs(), preprocessed);
+}
+
+void
+Dense_Missing_Layer::
+activation(const float * preprocessed,
+           float * activation) const
+{
+    if (!use_dense_missing) {
+        Base::activation(preprocessed, activation);
+        return;
+    }
+
+    int ni = inputs(), no = outputs();
+    double accum[no];  // Accumulate in double precision to improve rounding
+    std::copy(bias.begin(), bias.end(), accum);
+
+    for (unsigned i = 0;  i < ni;  ++i) {
+        const LFloat * w;
+        double input;
+        if (isnan(preprocessed[i])) {
+            input = 1.0;
+            w = &missing_activations[i][0];
+        }
+        else {
+            input = preprocessed[i];
+            w = &weights[i][0];
+        }
+
+        SIMD::vec_add(accum, input, w, accum, no);
+    }
+    
+    std::copy(accum, accum + no, activation);
+}
+
+void
+Dense_Missing_Layer::
+activation(const double * preprocessed,
+           double * activation) const
+{
+    if (!use_dense_missing) {
+        Base::activation(preprocessed, activation);
+        return;
+    }
+
+    int ni = inputs(), no = outputs();
+    double accum[no];  // Accumulate in double precision to improve rounding
+    std::copy(bias.begin(), bias.end(), accum);
+
+    for (unsigned i = 0;  i < ni;  ++i) {
+        const LFloat * w;
+        double input;
+        if (isnan(preprocessed[i])) {
+            input = 1.0;
+            w = &missing_activations[i][0];
+        }
+        else {
+            input = preprocessed[i];
+            w = &weights[i][0];
+        }
+
+        SIMD::vec_add(accum, input, w, accum, no);
+    }
+    
+    std::copy(accum, accum + no, activation);
+}
+
+void
+Dense_Missing_Layer::
+random_fill(float limit, Thread_Context & context)
+{
+    Base::random_fill(limit, context);
+
+    for (unsigned i = 0;  i < inputs();  ++i) {
+        for (unsigned o = 0;  o < outputs();  ++o)
+            missing_activations[i][o]
+                = limit * (context.random01() * 2.0f - 1.0f);
+    }
+}
+
+void
+Dense_Missing_Layer::
+zero_fill()
+{
+    Base::zero_fill();
+    for (unsigned i = 0;  i < inputs();  ++i)
+        missing_activations[i].fill(0.0);
+}
+
+size_t
+Dense_Missing_Layer::
+parameter_count() const
+{
+    size_t result = Base::parameter_count();
+
+    if (use_dense_missing)
+        result += inputs() * (outputs() - 1);
+
+    return result;
+}
+
+void
+Dense_Missing_Layer::
+serialize(DB::Store_Writer & store) const
+{
+    Base::serialize(store);
+    store << use_dense_missing;
+    if (use_dense_missing)
+        store << missing_activations;
+}
+
+void
+Dense_Missing_Layer::
+reconstitute(DB::Store_Reader & store)
+{
+    Base::reconstitute(store);
+    store >> use_dense_missing;
+    if (use_dense_missing)
+        store >> missing_activations;
+}
+
+std::string
+Dense_Missing_Layer::
+print() const
+{
+    string result = Base::print();
+
+    size_t ni = inputs(), no = outputs();
+
+    result += "  missing activations: \n";
+    for (unsigned i = 0;  i < ni;  ++i) {
+        result += "    [ ";
+        for (unsigned j = 0;  j < no;  ++j)
+            result += format("%8.4f", missing_activations[i][j]);
+        result += " ]\n";
+    }
+    return result;
+}
+
+template<typename X>
+bool equivalent(const X & x1, const X & x2)
+{
+    return x1 == x2;
+}
+
+template<typename X, class U>
+bool equivalent(const distribution<X, U> & x1,
+                const distribution<X, U> & x2)
+{
+    if (x1.size() != x2.size()) return false;
+    for (unsigned i = 0;  i < x1.size();  ++i)
+        if (!equivalent(x1[i], x2[i])) return false;
+    return true;
+}
+
+template<typename X>
+bool equivalent(const std::vector<X> & x1, const std::vector<X> & x2)
+{
+    if (x1.size() != x2.size()) return false;
+    for (unsigned i = 0;  i < x1.size();  ++i)
+        if (!equivalent(x1[i], x2[i])) return false;
+    return true;
+}
+
+bool
+Dense_Missing_Layer::
+operator == (const Dense_Missing_Layer & other) const
+{
+    return (Base::operator == (other)
+            && use_dense_missing == other.use_dense_missing
+            && missing_activations.size() == other.missing_activations.size()
+            && equivalent(missing_activations, other.missing_activations));
+}
 
 
 } // namespace ML

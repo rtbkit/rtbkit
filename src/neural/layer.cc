@@ -26,7 +26,9 @@ namespace ML {
 */
 
 Layer::
-Layer()
+Layer(const std::string & name,
+      size_t inputs, size_t outputs)
+    : name_(name), inputs_(inputs), outputs_(outputs)
 {
 }
 
