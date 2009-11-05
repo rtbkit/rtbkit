@@ -80,7 +80,7 @@ public:
         Default implementation returns outputs().
     */
 
-    virtual void fprop_temporary_space_required() const = 0;
+    virtual size_t fprop_temporary_space_required() const = 0;
 
     /** These functions perform a forward propagation.  They also save whatever
         information is necessary to perform an efficient backprop at a later

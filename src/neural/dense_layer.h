@@ -90,28 +90,6 @@ struct Dense_Layer : public Layer {
     using Layer::apply;
 
 
-#if 0
-    /*************************************************************************/
-    /* PREPROCESS                                                            */
-    /*************************************************************************/
-
-    /** Performs pre-processing of the input including any shift and scaling
-        factors, potential decorrelation and the replacement of any missing
-        values with their replacements.
-
-        Default implementation does nothing.
-    */
-
-    virtual void preprocess(const float * input,
-                            float * preprocessed) const;
-
-    virtual void preprocess(const double * input,
-                            double * preprocessed) const;
-
-    distribution<float> preprocess(const distribution<float> & input) const;
-    distribution<double> preprocess(const distribution<double> & input) const;
-
-
     /*************************************************************************/
     /* ACTIVATION                                                            */
     /*************************************************************************/
@@ -126,7 +104,6 @@ struct Dense_Layer : public Layer {
 
     distribution<float> activation(const distribution<float> & input) const;
     distribution<double> activation(const distribution<double> & input) const;
-#endif
 
 
     /*************************************************************************/
@@ -140,7 +117,7 @@ struct Dense_Layer : public Layer {
         Default implementation returns outputs().
     */
 
-    virtual void fprop_temporary_space_required() const;
+    virtual size_t fprop_temporary_space_required() const;
 
     /** These functions perform a forward propagation.  They also save whatever
         information is necessary to perform an efficient backprop at a later

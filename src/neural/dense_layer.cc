@@ -37,8 +37,8 @@ template<typename Float>
 Dense_Layer<Float>::
 Dense_Layer(const std::string & name,
             size_t inputs, size_t units,
-            Missing_Values missing_values,
-            Transfer_Function_Type transfer_function)
+            Transfer_Function_Type transfer_function,
+            Missing_Values missing_values)
     : Layer(name, inputs, units),
       weights(boost::extents[inputs][units]), bias(units),
       missing_replacements(inputs)
@@ -66,10 +66,13 @@ Dense_Layer(const std::string & name,
 }
 
 template<typename Float>
-void
+boost::shared_ptr<Parameters>
 Dense_Layer<Float>::
-parameters(Parameters & params)
+parameters()
 {
+    boost::shared_ptr<Parameter_Ref> pparams(new Parameter_Ref());
+    Parameter_Ref & params = *pparams;
+
     params
         .add("weights", weights)
         .add("bias", bias);
@@ -87,6 +90,8 @@ parameters(Parameters & params)
     default:
         throw Exception("Dense_Layer::parameters(): none there");
     }
+
+    return pparams;
 }
 
 template<typename Float>
@@ -217,10 +222,8 @@ apply(const float * input,
       float * output) const
 {
     int ni = inputs(), no = outputs();
-    float pre[ni];
-    preprocess(input, pre);
     float act[no];
-    activation(pre, act);
+    activation(input, act);
     transfer(act, output);
 }
 
@@ -231,71 +234,48 @@ apply(const double * input,
       double * output) const
 {
     int ni = inputs(), no = outputs();
-    double pre[ni];
-    preprocess(input, pre);
     double act[no];
-    activation(pre, act);
+    activation(input, act);
     transfer(act, output);
 }
 
-template<typename Float>
-distribution<float>
-Dense_Layer<Float>::
-preprocess(const distribution<float> & input) const
-{
-    int ni = inputs();
-    distribution<float> pre(ni);
-    preprocess(&input[0], &pre[0]);
-    return pre;
-}
 
-template<typename Float>
-distribution<double>
-Dense_Layer<Float>::
-preprocess(const distribution<double> & input) const
-{
-    int ni = inputs();
-    distribution<double> pre(ni);
-    preprocess(&input[0], &pre[0]);
-    return pre;
-}
-
-template<typename Float>
 void
 Dense_Layer<Float>::
-preprocess(const float * input,
+activation(const float * preprocessed,
            float * activation) const
 {
-    int ni = inputs();
-
     for (unsigned i = 0;  i < ni;  ++i)
         activation[i] = isnan(input[i]) ? missing_replacements[i] : input[i];
-}
 
-template<typename Float>
-void
-Dense_Layer<Float>::
-preprocess(const double * input,
-           double * activation) const
-{
-    int ni = inputs();
-
-    for (unsigned i = 0;  i < ni;  ++i)
-        activation[i] = isnan(input[i]) ? missing_replacements[i] : input[i];
-}
-
-template<typename Float>
-void
-Dense_Layer<Float>::
-activation(const float * pre,
-           float * activation) const
-{
     int ni = inputs(), no = outputs();
     double accum[no];  // Accumulate in double precision to improve rounding
     std::copy(bias.begin(), bias.end(), accum);
 
-    for (unsigned i = 0;  i < ni;  ++i)
-        SIMD::vec_add(accum, pre[i], &weights[i][0], accum, no);
+    for (unsigned i = 0;  i < ni;  ++i) {
+        const LFloat * w;
+        double input;
+        if (!isnan(preprocessed[i])) {
+            input = preprocessed[i];
+            w = &weights[i][0];
+        }
+        else {
+            switch (missing_values) {
+            case MV_NONE:
+                throw Exception("missing value with MV_NONE");
+            case MV_ZERO:
+                input = 0.0;  w = &weights[i][0];  break;
+            case MV_INPUT:
+                input = missing_replacements[i];  w = &weights[i][0];  break;
+            case MV_DENSE:
+                input = 1.0;  w = &missing_activations[i][0];  break;
+            default:
+                throw Exception("unknown missing values");
+            }
+        }
+
+        SIMD::vec_add(accum, input, w, accum, no);
+    }
     
     std::copy(accum, accum + no, activation);
 }
@@ -303,14 +283,42 @@ activation(const float * pre,
 template<typename Float>
 void
 Dense_Layer<Float>::
-activation(const double * pre,
+activation(const double * preprocessed,
            double * activation) const
 {
+    if (!use_dense_missing) {
+        Base::activation(preprocessed, activation);
+        return;
+    }
+
     int ni = inputs(), no = outputs();
-    double accum[no];
+    double accum[no];  // Accumulate in double precision to improve rounding
     std::copy(bias.begin(), bias.end(), accum);
-    for (unsigned i = 0;  i < ni;  ++i)
-        SIMD::vec_add(accum, pre[i], &weights[i][0], accum, no);
+
+    for (unsigned i = 0;  i < ni;  ++i) {
+        const LFloat * w;
+        double input;
+        if (!isnan(preprocessed[i])) {
+            input = preprocessed[i];
+            w = &weights[i][0];
+        }
+        else {
+            switch (missing_values) {
+            case MV_NONE:
+                throw Exception("missing value with MV_NONE");
+            case MV_ZERO:
+                input = 0.0;  w = &weights[i][0];  break;
+            case MV_INPUT:
+                input = missing_replacements[i];  w = &weights[i][0];  break;
+            case MV_DENSE:
+                input = 1.0;  w = &missing_activations[i][0];  break;
+            default:
+                throw Exception("unknown missing values");
+            }
+        }
+
+        SIMD::vec_add(accum, input, w, accum, no);
+    }
     
     std::copy(accum, accum + no, activation);
 }
@@ -335,275 +343,6 @@ activation(const distribution<double> & preprocessed) const
     distribution<double> output(no);
     activation(&preprocessed[0], &output[0]);
     return output;
-}
-
-template<typename Float>
-template<typename FloatIn>
-void
-Dense_Layer<Float>::
-transfer(const FloatIn * activation, FloatIn * outputs, int nvals,
-         Transfer_Function_Type transfer_function)
-{
-    switch (transfer_function) {
-    case TF_IDENTITY:
-        std::copy(activation, activation + nvals, outputs);
-        return;
-        
-    case TF_LOGSIG:
-        for (unsigned i = 0;  i < nvals;  ++i) {
-            // See https://bugzilla.redhat.com/show_bug.cgi?id=521190
-            // for why we use double version of exp
-            outputs[i] = 1.0 / (1.0 + exp((double)-activation[i]));
-        }
-        break;
-        
-    case TF_TANH:
-        for (unsigned i = 0;  i < nvals;  ++i)
-            outputs[i] = tanh(activation[i]);
-        break;
-        
-    case TF_LOGSOFTMAX: {
-        double total = 0.0;
-        
-        for (unsigned i = 0;  i < nvals;  ++i) {
-            // See https://bugzilla.redhat.com/show_bug.cgi?id=521190
-            // for why we use double version of exp
-            total += (outputs[i] = exp((double)activation[i]));
-        }
-
-        double factor = 1.0 / total;
-
-        for (unsigned i = 0;  i < nvals;  ++i)
-            outputs[i] *= factor;
-
-        break;
-    }
-
-    default:
-        throw Exception("Dense_Layer<Float>::transfer(): invalid transfer_function");
-    }
-}
-
-template<typename Float>
-void
-Dense_Layer<Float>::
-transfer(const float * activation, float * outputs) const
-{
-    transfer(activation, outputs, this->outputs(), transfer_function);
-}
-
-template<typename Float>
-void
-Dense_Layer<Float>::
-transfer(const double * activation, double * outputs) const
-{
-    transfer(activation, outputs, this->outputs(), transfer_function);
-}
-
-template<typename Float>
-distribution<float>
-Dense_Layer<Float>::
-transfer(const distribution<float> & activation) const
-{
-    int no = outputs();
-    distribution<float> output(no);
-    transfer(&activation[0], &output[0]);
-    return output;
-}
-
-template<typename Float>
-distribution<double>
-Dense_Layer<Float>::
-transfer(const distribution<double> & activation) const
-{
-    int no = outputs();
-    distribution<double> output(no);
-    transfer(&activation[0], &output[0]);
-    return output;
-}
-
-template<class Float>
-template<typename FloatIn>
-void
-Dense_Layer<Float>::
-derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
-           Transfer_Function_Type transfer_function)
-{
-    switch (transfer_function) {
-
-    case TF_IDENTITY:
-        std::fill(deriv, deriv + nvals, 1.0);
-        break;
-        
-    case TF_LOGSIG:
-        for (unsigned i = 0;  i < nvals;  ++i)
-            deriv[i] = outputs[i] * (1.0 - outputs[i]);
-        break;
-        
-    case TF_TANH:
-        for (unsigned i = 0;  i < nvals;  ++i)
-            deriv[i] = 1.0 - (outputs[i] * outputs[i]);
-        break;
-
-    case TF_LOGSOFTMAX:
-        for (unsigned i = 0;  i < nvals;  ++i)
-            deriv[i] = 1.0 / outputs[i];
-        break;
-        
-    default:
-        throw Exception("Dense_Layer<Float>::transfer(): invalid transfer_function");
-    }
-}
-
-template<typename Float>
-distribution<float>
-Dense_Layer<Float>::
-derivative(const distribution<float> & outputs) const
-{
-    if (outputs.size() != this->outputs())
-        throw Exception("derivative(): wrong size");
-    int no = this->outputs();
-    distribution<float> result(no);
-    derivative(&outputs[0], &result[0], no, transfer_function);
-    return result;
-}
-
-template<typename Float>
-distribution<double>
-Dense_Layer<Float>::
-derivative(const distribution<double> & outputs) const
-{
-    if (outputs.size() != this->outputs())
-        throw Exception("derivative(): wrong size");
-    int no = this->outputs();
-    distribution<double> result(no);
-    derivative(&outputs[0], &result[0], no, transfer_function);
-    return result;
-}
-
-template<typename Float>
-void
-Dense_Layer<Float>::
-derivative(const float * outputs,
-           float * derivatives) const
-{
-    int no = this->outputs();
-    derivative(outputs, derivatives, no, transfer_function);
-}
-
-template<typename Float>
-void
-Dense_Layer<Float>::
-derivative(const double * outputs,
-           double * derivatives) const
-{
-    int no = this->outputs();
-    derivative(outputs, derivatives, no, transfer_function);
-}
-
-template<class Float>
-template<typename FloatIn>
-void
-Dense_Layer<Float>::
-second_derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
-                  Transfer_Function_Type transfer_function)
-{
-    switch (transfer_function) {
-
-    case TF_IDENTITY:
-        std::fill(deriv, deriv + nvals, 0.0);
-        break;
-        
-    case TF_TANH:
-        for (unsigned i = 0;  i < nvals;  ++i)
-            deriv[i] = -2.0 * outputs[i] * (1.0 - (outputs[i] * outputs[i]));
-        break;
-
-#if 0
-    case TF_LOGSIG:
-        for (unsigned i = 0;  i < nvals;  ++i)
-            deriv[i] = ...;
-        break;
-        
-    case TF_LOGSOFTMAX:
-        for (unsigned i = 0;  i < nvals;  ++i)
-            deriv[i] = ...;
-        break;
-#endif
-        
-    default:
-        throw Exception("Dense_Layer<Float>::transfer(): second derivative not implemented "
-                        "for this transfer_function "
-                        + ML::print(transfer_function));
-    }
-}
-
-template<typename Float>
-distribution<float>
-Dense_Layer<Float>::
-second_derivative(const distribution<float> & outputs) const
-{
-    if (outputs.size() != this->outputs())
-        throw Exception("second_derivative(): wrong size");
-    int no = this->outputs();
-    distribution<float> result(no);
-    second_derivative(&outputs[0], &result[0], no, transfer_function);
-    return result;
-}
-
-template<typename Float>
-distribution<double>
-Dense_Layer<Float>::
-second_derivative(const distribution<double> & outputs) const
-{
-    if (outputs.size() != this->outputs())
-        throw Exception("second_derivative(): wrong size");
-    int no = this->outputs();
-    distribution<double> result(no);
-    second_derivative(&outputs[0], &result[0], no, transfer_function);
-    return result;
-}
-
-template<typename Float>
-void
-Dense_Layer<Float>::
-second_derivative(const float * outputs,
-                  float * second_derivatives) const
-{
-    int no = this->outputs();
-    second_derivative(outputs, second_derivatives, no, transfer_function);
-}
-
-template<typename Float>
-void
-Dense_Layer<Float>::
-second_derivative(const double * outputs,
-                  double * second_derivatives) const
-{
-    int no = this->outputs();
-    second_derivative(outputs, second_derivatives, no, transfer_function);
-}
-
-template<typename Float>
-void
-Dense_Layer<Float>::
-deltas(const float * outputs, const float * errors, float * deltas) const
-{
-    derivative(outputs, deltas);
-    int no = this->outputs();
-    for (unsigned i = 0;  i < no;  ++i)
-        deltas[i] *= errors[i];
-}
-
-template<typename Float>
-void
-Dense_Layer<Float>::
-deltas(const double * outputs, const double * errors, double * deltas) const
-{
-    derivative(outputs, deltas);
-    int no = this->outputs();
-    for (unsigned i = 0;  i < no;  ++i)
-        deltas[i] *= errors[i];
 }
 
 template<typename Float>
@@ -737,118 +476,6 @@ template class Dense_Layer<double>;
 /* DENSE_MISSING_LAYER                                                       */
 /*****************************************************************************/
 
-Dense_Missing_Layer::
-Dense_Missing_Layer()
-    : use_dense_missing(true)
-{
-}
-
-Dense_Missing_Layer::
-Dense_Missing_Layer(bool use_dense_missing,
-                    size_t inputs, size_t outputs,
-                    Transfer_Function_Type transfer,
-                    Thread_Context & context,
-                    float limit)
-    : Base(inputs, outputs, transfer),
-      use_dense_missing(use_dense_missing),
-      missing_activations(inputs, distribution<LFloat>(outputs))
-{
-    if (limit == -1.0)
-        limit = 1.0 / sqrt(inputs);
-    random_fill(limit, context);
-}
-
-Dense_Missing_Layer::
-Dense_Missing_Layer(bool use_dense_missing,
-                    size_t inputs, size_t outputs,
-                    Transfer_Function_Type transfer)
-    : Base(inputs, outputs, transfer),
-      use_dense_missing(use_dense_missing),
-      missing_activations(inputs, distribution<LFloat>(outputs))
-{
-}
-
-void
-Dense_Missing_Layer::
-preprocess(const float * input,
-           float * preprocessed) const
-{
-    if (!use_dense_missing) Base::preprocess(input, preprocessed);
-    else std::copy(input, input + inputs(), preprocessed);
-}
-
-void
-Dense_Missing_Layer::
-preprocess(const double * input,
-           double * preprocessed) const
-{
-    if (!use_dense_missing) Base::preprocess(input, preprocessed);
-    else std::copy(input, input + inputs(), preprocessed);
-}
-
-void
-Dense_Missing_Layer::
-activation(const float * preprocessed,
-           float * activation) const
-{
-    if (!use_dense_missing) {
-        Base::activation(preprocessed, activation);
-        return;
-    }
-
-    int ni = inputs(), no = outputs();
-    double accum[no];  // Accumulate in double precision to improve rounding
-    std::copy(bias.begin(), bias.end(), accum);
-
-    for (unsigned i = 0;  i < ni;  ++i) {
-        const LFloat * w;
-        double input;
-        if (isnan(preprocessed[i])) {
-            input = 1.0;
-            w = &missing_activations[i][0];
-        }
-        else {
-            input = preprocessed[i];
-            w = &weights[i][0];
-        }
-
-        SIMD::vec_add(accum, input, w, accum, no);
-    }
-    
-    std::copy(accum, accum + no, activation);
-}
-
-void
-Dense_Missing_Layer::
-activation(const double * preprocessed,
-           double * activation) const
-{
-    if (!use_dense_missing) {
-        Base::activation(preprocessed, activation);
-        return;
-    }
-
-    int ni = inputs(), no = outputs();
-    double accum[no];  // Accumulate in double precision to improve rounding
-    std::copy(bias.begin(), bias.end(), accum);
-
-    for (unsigned i = 0;  i < ni;  ++i) {
-        const LFloat * w;
-        double input;
-        if (isnan(preprocessed[i])) {
-            input = 1.0;
-            w = &missing_activations[i][0];
-        }
-        else {
-            input = preprocessed[i];
-            w = &weights[i][0];
-        }
-
-        SIMD::vec_add(accum, input, w, accum, no);
-    }
-    
-    std::copy(accum, accum + no, activation);
-}
 
 void
 Dense_Missing_Layer::

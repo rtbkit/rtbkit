@@ -10,6 +10,31 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* RANGE_TYPE                                                                */
+/*****************************************************************************/
+
+enum Range_Type {
+    RT_PROB,    ///< A probability: from zero to one
+    RT_PM_ONE,  ///< From -1 to +1
+    RT_PM_INF,  ///< From -infinity to plus infinity
+    RT_OTHER    ///< Something else
+};
+
+
+/*****************************************************************************/
+/* RANGE                                                                     */
+/*****************************************************************************/
+
+struct Range {
+    float min;  ///< Minimum value it can take on
+    float max;  ///< Maximum value it can take on
+    float neutral;  ///< A "neutral" value for the range
+    bool min_asymptotic;
+    bool max_asymptotic;
+    Range_Type type;
+};
+
 
 /*****************************************************************************/
 /* TRANSFER_FUNCTION                                                         */
@@ -31,6 +56,8 @@ struct Transfer_Function {
                          int nvals,
                          Transfer_Function_Type transfer_function);
         
+    virtual Range range() const;
+
 
     void transfer(const float * activation, float * outputs) const;
     void transfer(const double * activation, double * outputs) const;
@@ -88,6 +115,14 @@ struct Transfer_Function {
     virtual void second_derivative(const double * outputs,
                                    double * second_derivatives) const;
 };
+
+
+/*****************************************************************************/
+/* FACTORY                                                                   */
+/*****************************************************************************/
+
+boost::shared_ptr<Transfer_Function>
+create_transfer_function(const Transfer_Function_Type & function);
 
 
 } // namespace ML

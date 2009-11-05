@@ -125,7 +125,14 @@ struct Parameters {
 
     void operator *= (double value);
 
+    virtual void update(const Parameters & other, double learning_rate);
+
 protected:
+    Parameters();
+    Parameters(const Parameters & other);
+
+    Parameters & operator = (const Parameters & other);
+
     void swap(Parameters & other) const;
 
     std::hash_map<std::string, int> by_name;
@@ -134,18 +141,29 @@ protected:
 
 
 /*****************************************************************************/
-/* PARAMETER_STORAGE                                                         */
+/* PARAMETER_REF                                                             */
+/*****************************************************************************/
+
+/** Parameters that are stored somewhere else but referenced here. */
+
+template<class Float>
+struct Parameter_Ref : public Parameters {
+};
+
+
+/*****************************************************************************/
+/* PARAMETER_COPY                                                            */
 /*****************************************************************************/
 
 /** Storage of a value for each parameter, in the given type. */
 
 template<class Float>
-struct Parameter_Storage : public Parameters {
-    Parameter_Storage();
+struct Parameter_Copy : public Parameters {
+    Parameter_Copy();
 
-    Parameter_Storage(const Parameters & other);
+    Parameter_Copy(const Parameters & other);
 
-    Parameter_Storage(const Layer & layer);
+    Parameter_Copy(const Layer & layer);
 
 protected:
     // The actual values, stored contiguously for efficiency.

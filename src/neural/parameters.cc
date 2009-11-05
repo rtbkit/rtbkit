@@ -15,6 +15,7 @@ Parameters::
 add(Parameter_Value * param)
 {
     bool inserted = by_name.insert(make_pair(param->name(), param)).second;
+
     if (!inserted) {
         delete param;
         throw Exception("param with name "

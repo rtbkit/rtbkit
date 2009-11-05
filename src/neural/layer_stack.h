@@ -80,7 +80,7 @@ struct Layer_Stack : public Layer {
         Default implementation returns outputs().
     */
 
-    virtual void fprop_temporary_space_required() const;
+    virtual size_t fprop_temporary_space_required() const;
 
     /** These functions perform a forward propagation.  They also save whatever
         information is necessary to perform an efficient backprop at a later
