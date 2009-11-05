@@ -17,7 +17,7 @@ namespace ML {
 
 template<class LayerT> class Layer_Stack;
 
-
+#if 0
 /*****************************************************************************/
 /* TWOWAY_LAYER_UPDATES                                                      */
 /*****************************************************************************/
@@ -58,6 +58,7 @@ struct Twoway_Layer_Updates {
     distribution<double> iscales;
     distribution<double> hscales;
 };
+#endif
 
 
 /*****************************************************************************/

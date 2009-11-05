@@ -9,7 +9,8 @@ LIBNEURAL_SOURCES := \
 	dense_layer.cc \
 	perceptron_generator.cc \
 	parameters.cc \
-	transfer_function.cc
+	transfer_function.cc \
+	layer_stack.cc
 
 LIBNEURAL_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt boosting
 

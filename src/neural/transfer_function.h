@@ -8,7 +8,13 @@
 #ifndef __jml__neural__transfer_function_h__
 #define __jml__neural__transfer_function_h__
 
+#include "perceptron_defs.h"
+#include "stats/distribution.h"
+#include "db/persistent_fwd.h"
+#include <boost/shared_ptr.hpp>
+
 namespace ML {
+
 
 /*****************************************************************************/
 /* RANGE_TYPE                                                                */
@@ -41,7 +47,7 @@ struct Range {
 /*****************************************************************************/
 
 struct Transfer_Function {
-    virtual ~Transfer_Function();
+    virtual ~Transfer_Function() {}
 
 
     /*************************************************************************/
@@ -73,8 +79,7 @@ struct Transfer_Function {
         normally want to go from -0.8 to 0.8, to leave a bit of space for
         expansion.
     */
-    static std::pair<float, float>
-    targets(float maximum, Transfer_Function_Type transfer_function);
+    virtual std::pair<float, float> targets(float maximum) const;
 
     
     /*************************************************************************/
@@ -114,6 +119,13 @@ struct Transfer_Function {
                                    float * second_derivatives) const;
     virtual void second_derivative(const double * outputs,
                                    double * second_derivatives) const;
+
+    void poly_serialize(ML::DB::Store_Writer & store) const;
+
+    virtual std::string print() const;
+
+    static boost::shared_ptr<Transfer_Function>
+    poly_reconstitute(ML::DB::Store_Reader & store);
 };
 
 
@@ -123,6 +135,9 @@ struct Transfer_Function {
 
 boost::shared_ptr<Transfer_Function>
 create_transfer_function(const Transfer_Function_Type & function);
+
+boost::shared_ptr<Transfer_Function>
+create_transfer_function(const std::string & name);
 
 
 } // namespace ML

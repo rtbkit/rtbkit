@@ -9,10 +9,24 @@
 
 namespace ML {
 
-template<typename Float>
+/*****************************************************************************/
+/* RANGE_TYPE                                                                */
+/*****************************************************************************/
+
+
+/*****************************************************************************/
+/* RANGE                                                                     */
+/*****************************************************************************/
+
+
+/*****************************************************************************/
+/* TRANSFER_FUNCTION                                                         */
+/*****************************************************************************/
+
+
 template<typename FloatIn>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 transfer(const FloatIn * activation, FloatIn * outputs, int nvals,
          Transfer_Function_Type transfer_function)
 {
@@ -52,29 +66,26 @@ transfer(const FloatIn * activation, FloatIn * outputs, int nvals,
     }
 
     default:
-        throw Exception("Dense_Layer<Float>::transfer(): invalid transfer_function");
+        throw Exception("Tranfer_Function::transfer(): invalid transfer_function");
     }
 }
 
-template<typename Float>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 transfer(const float * activation, float * outputs) const
 {
     transfer(activation, outputs, this->outputs(), transfer_function);
 }
 
-template<typename Float>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 transfer(const double * activation, double * outputs) const
 {
     transfer(activation, outputs, this->outputs(), transfer_function);
 }
 
-template<typename Float>
 distribution<float>
-Dense_Layer<Float>::
+Tranfer_Function::
 transfer(const distribution<float> & activation) const
 {
     int no = outputs();
@@ -83,9 +94,8 @@ transfer(const distribution<float> & activation) const
     return output;
 }
 
-template<typename Float>
 distribution<double>
-Dense_Layer<Float>::
+Tranfer_Function::
 transfer(const distribution<double> & activation) const
 {
     int no = outputs();
@@ -97,7 +107,7 @@ transfer(const distribution<double> & activation) const
 template<class Float>
 template<typename FloatIn>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
            Transfer_Function_Type transfer_function)
 {
@@ -123,13 +133,12 @@ derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
         break;
         
     default:
-        throw Exception("Dense_Layer<Float>::transfer(): invalid transfer_function");
+        throw Exception("Tranfer_Function::transfer(): invalid transfer_function");
     }
 }
 
-template<typename Float>
 distribution<float>
-Dense_Layer<Float>::
+Tranfer_Function::
 derivative(const distribution<float> & outputs) const
 {
     if (outputs.size() != this->outputs())
@@ -140,9 +149,8 @@ derivative(const distribution<float> & outputs) const
     return result;
 }
 
-template<typename Float>
 distribution<double>
-Dense_Layer<Float>::
+Tranfer_Function::
 derivative(const distribution<double> & outputs) const
 {
     if (outputs.size() != this->outputs())
@@ -153,9 +161,8 @@ derivative(const distribution<double> & outputs) const
     return result;
 }
 
-template<typename Float>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 derivative(const float * outputs,
            float * derivatives) const
 {
@@ -163,9 +170,8 @@ derivative(const float * outputs,
     derivative(outputs, derivatives, no, transfer_function);
 }
 
-template<typename Float>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 derivative(const double * outputs,
            double * derivatives) const
 {
@@ -176,7 +182,7 @@ derivative(const double * outputs,
 template<class Float>
 template<typename FloatIn>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 second_derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
                   Transfer_Function_Type transfer_function)
 {
@@ -204,15 +210,14 @@ second_derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
 #endif
         
     default:
-        throw Exception("Dense_Layer<Float>::transfer(): second derivative not implemented "
+        throw Exception("Tranfer_Function::transfer(): second derivative not implemented "
                         "for this transfer_function "
                         + ML::print(transfer_function));
     }
 }
 
-template<typename Float>
 distribution<float>
-Dense_Layer<Float>::
+Tranfer_Function::
 second_derivative(const distribution<float> & outputs) const
 {
     if (outputs.size() != this->outputs())
@@ -223,9 +228,8 @@ second_derivative(const distribution<float> & outputs) const
     return result;
 }
 
-template<typename Float>
 distribution<double>
-Dense_Layer<Float>::
+Tranfer_Function::
 second_derivative(const distribution<double> & outputs) const
 {
     if (outputs.size() != this->outputs())
@@ -236,9 +240,8 @@ second_derivative(const distribution<double> & outputs) const
     return result;
 }
 
-template<typename Float>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 second_derivative(const float * outputs,
                   float * second_derivatives) const
 {
@@ -246,9 +249,8 @@ second_derivative(const float * outputs,
     second_derivative(outputs, second_derivatives, no, transfer_function);
 }
 
-template<typename Float>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 second_derivative(const double * outputs,
                   double * second_derivatives) const
 {
@@ -256,9 +258,8 @@ second_derivative(const double * outputs,
     second_derivative(outputs, second_derivatives, no, transfer_function);
 }
 
-template<typename Float>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 deltas(const float * outputs, const float * errors, float * deltas) const
 {
     derivative(outputs, deltas);
@@ -267,9 +268,8 @@ deltas(const float * outputs, const float * errors, float * deltas) const
         deltas[i] *= errors[i];
 }
 
-template<typename Float>
 void
-Dense_Layer<Float>::
+Tranfer_Function::
 deltas(const double * outputs, const double * errors, double * deltas) const
 {
     derivative(outputs, deltas);
@@ -278,6 +278,52 @@ deltas(const double * outputs, const double * errors, double * deltas) const
         deltas[i] *= errors[i];
 }
 
+std::pair<float, float>
+Tranfer_Function::
+targets(float maximum, Transfer_Function_Type transfer_function)
+{
+    switch (transfer_function) {
+    case TF_TANH:
+    case TF_IDENTITY: return std::make_pair(-maximum, maximum);
+    case TF_LOGSOFTMAX:
+    case TF_LOGSIG: return std::make_pair(0.0f, maximum);
+    default:
+        throw Exception("Layer::targets(): invalid transfer_function");
+    }
+}
+
+void
+Transfer_Function::
+poly_serialize(ML::DB::Store_Writer & store) const
+{
+}
+
+std::string
+Transfer_Function::
+print() const
+{
+}
+
+boost::shared_ptr<Transfer_Function>
+Transfer_Function::
+poly_reconstitute(ML::DB::Store_Reader & store)
+{
+}
+
+
+/*****************************************************************************/
+/* FACTORY                                                                   */
+/*****************************************************************************/
+
+boost::shared_ptr<Transfer_Function>
+create_transfer_function(const Transfer_Function_Type & function)
+{
+}
+
+boost::shared_ptr<Transfer_Function>
+create_transfer_function(const std::string & name)
+{
+}
 
 
 } // namespace ML

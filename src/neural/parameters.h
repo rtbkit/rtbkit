@@ -20,6 +20,24 @@
 
 namespace ML {
 
+
+/*****************************************************************************/
+/* LOCKING_POLICY                                                            */
+/*****************************************************************************/
+
+/** Describes how the locking is performed on the object when multiple threads
+    can update.  They have different tradeoffs for thread occupancy versus
+    efficiency.
+
+    In a single threaded context, no locking is needed.
+*/
+enum Locking_Policy {
+    LP_NONE,    ///< No locking (single threaded)
+    LP_ATOMIC,  ///< Use atomic instructions
+    LP_COARSE,  ///< Use one (coarse grained) lock
+    LP_FINE     ///< Use fine grained locking per row (spinlock)
+};
+
 class Layer;
 
 struct Parameter_Value : boost::noncopyable {
@@ -146,7 +164,6 @@ protected:
 
 /** Parameters that are stored somewhere else but referenced here. */
 
-template<class Float>
 struct Parameter_Ref : public Parameters {
 };
 

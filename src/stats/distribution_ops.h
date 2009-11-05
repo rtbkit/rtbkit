@@ -31,7 +31,6 @@
 #include <cmath>
 
 namespace ML {
-namespace Stats {
 
 template<typename F, class Underlying>
 distribution<F, Underlying> bound(const distribution<F, Underlying> & dist, F min, F max)
@@ -51,6 +50,8 @@ distribution<F, Underlying> log(const distribution<F, Underlying> & dist)
     return result;
 }
 
+using ::log;
+
 template<typename F, class Underlying>
 distribution<F, Underlying> abs(const distribution<F, Underlying> & dist)
 {
@@ -59,6 +60,8 @@ distribution<F, Underlying> abs(const distribution<F, Underlying> & dist)
         result[i] = std::abs(dist[i]);
     return result;
 }
+
+using ::abs;
 
 template<typename F, class Underlying>
 distribution<F, Underlying> sqr(const distribution<F, Underlying> & dist)
@@ -78,6 +81,8 @@ distribution<F, Underlying> sqrt(const distribution<F, Underlying> & dist)
     return result;
 }
 
+using ::sqrt;
+
 template<typename F, class Underlying>
 distribution<F, Underlying> tanh(const distribution<F, Underlying> & dist)
 {
@@ -87,6 +92,8 @@ distribution<F, Underlying> tanh(const distribution<F, Underlying> & dist)
     return result;
 }
 
+using ::tanh;
+
 template<typename F, class Underlying>
 distribution<F, Underlying> round(const distribution<F, Underlying> & dist)
 {
@@ -95,6 +102,8 @@ distribution<F, Underlying> round(const distribution<F, Underlying> & dist)
         result[i] = ML::round(dist[i]);
     return result;
 }
+
+using ::round;
 
 template<typename F, class Underlying>
 distribution<F, Underlying> exp(const distribution<F, Underlying> & dist, F exponent);
@@ -130,6 +139,8 @@ distribution<F, Underlying> max(const distribution<F, Underlying> & dist1,
     return result;
 }
 
+using std::max;
+
 template<typename F, class Underlying>
 distribution<F, Underlying> min(const distribution<F, Underlying> & dist, F val)
 {
@@ -151,6 +162,8 @@ distribution<F, Underlying> min(const distribution<F, Underlying> & dist1,
         result[i] = std::min(dist1[i], dist2[i]);
     return result;
 }
+
+using std::min;
 
 template<typename F, class Underlying>
 distribution<F, Underlying> xdiv(const distribution<F, Underlying> & dist,
@@ -194,7 +207,8 @@ distribution<bool> isnan(const distribution<F, Underlying> & dist)
     return result;
 }
 
-} // namespace Stats
+using ::isnan;
+
 } // namespace ML
 
 #endif /* __utils__distribution_ops_h__ */

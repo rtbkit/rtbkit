@@ -28,7 +28,6 @@
 #include "compiler/compiler.h"
 
 namespace ML {
-namespace Stats {
 
 template<>
 JML_ALWAYS_INLINE float
@@ -154,7 +153,6 @@ operator * (const distribution<float> & d1,
     return result;
 }
 
-} // namespace Stats
 } // namespace ML
 
 #endif /* __stats__distribution_simd_h__ */

@@ -13,9 +13,11 @@
 #include "boosting/config.h"
 #include "boosting/classifier.h"
 #include "layer.h"
+#include "layer_stack.h"
 #include "utils/pair_utils.h"
 #include <boost/multi_array.hpp>
 #include <boost/shared_ptr.hpp>
+
 
 namespace ML {
 
@@ -76,7 +78,6 @@ public:
         Classifier_Impl::swap(other);
         features.swap(other.features);
         layers.swap(other.layers);
-        std::swap(max_units, other.max_units);
     }
 
     using Classifier_Impl::predict;
@@ -136,10 +137,8 @@ public:
     /* Variables... */
     std::vector<Feature> features;  ///< Features to use as input
     
-    std::vector<boost::shared_ptr<Layer> > layers;  ///< Different layers
+    Layer_Stack<Layer> layers;
     
-    size_t max_units;  ///< Number of units in layer with highest number
-
     void add_layer(const boost::shared_ptr<Layer> & layer);
 
     void clear();

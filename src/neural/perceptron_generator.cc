@@ -629,7 +629,7 @@ decorrelate(const Training_Data & data,
     layer->weights.resize(boost::extents[transform.shape()[0]][transform.shape()[1]]);
     layer->weights = transform;
     layer->bias = distribution<float>(nf, 0.0);  // already have mean removed
-    layer->transfer_function = TF_IDENTITY;
+    layer->transfer_function = create_transfer_function(TF_IDENTITY);
     
     //cerr << "transform = " << transform << endl;
 
@@ -659,6 +659,8 @@ decorrelate(const Training_Data & data,
 
     return decorrelated;
 }
+
+#if 0
 
 namespace {
 
@@ -705,7 +707,7 @@ struct Training_Job_Info {
     }
 
     void fprop(int x,
-               const vector<boost::shared_ptr<Layer> > & layers,
+               const Layer_Stack<Layer> & layers,
                vector<distribution<float> > & layer_outputs) const
     {
         size_t nf = decorrelated.shape()[1];
@@ -753,9 +755,8 @@ struct Training_Job_Info {
     {
         //cerr << "training " << x_start << " to " << x_end << endl;
 
-        const vector<boost::shared_ptr<Layer> > & layers
-            = result.layers;
-        size_t max_units = result.max_units;
+        const Layer_Stack<Layer> & layers = result.layers;
+        size_t max_units = layers.max_width();
 
         vector<distribution<float> > layer_outputs(layers.size());
 
@@ -770,8 +771,8 @@ struct Training_Job_Info {
         vector<float *> sub_bias_updates_ptrs;
     
         for (unsigned l = 0;  l < nl;  ++l) {
-            size_t no = layers[l]->outputs();
-            size_t ni = layers[l]->inputs();
+            size_t no = layers[l].outputs();
+            size_t ni = layers[l].inputs();
             layer_outputs[l].resize(no);
 
             if (!one_thread) {
@@ -801,7 +802,7 @@ struct Training_Job_Info {
 
         double sub_correct = 0.0, sub_total = 0.0;
 
-        size_t no = layers.back()->outputs(); // num outputs
+        size_t no = layers.outputs(); // num outputs
 
         distribution<float> correct(no, inhibit);
 
@@ -1007,7 +1008,7 @@ struct Training_Job_Info {
             layer.deltas(&layer_outputs[l][0], &errors[l][0], &deltas[l][0]);
 
             //cerr << "deltas " << l << " = " << deltas[l] << endl;
-
+            
             if (l > 1) {
                 /* Calculate new errors (for the next layer). */
                 for (unsigned i = 0;  i < ni;  ++i)
@@ -1374,6 +1375,8 @@ struct Training_Job {
 
 } // file scope
 
+#endif
+
 std::pair<double, double>
 Perceptron_Generator::
 train_iteration(Thread_Context & context,
@@ -1384,24 +1387,20 @@ train_iteration(Thread_Context & context,
 {
     PROFILE_FUNCTION(t_train);
 
-    float inhibit, fire;
-    boost::tie(inhibit, fire)
-        = Dense_Layer<float>
-        ::targets(target_value,
-                  dynamic_cast <const Dense_Layer<float > &>
-                       (*result.layers.back())
-                  .transfer_function);
-
     size_t nx = decorrelated.shape()[0];
 
     if (!example_weights.empty() && nx != example_weights.size())
         throw Exception("Perceptron::train_iteration(): error propegating");
 
     vector<boost::shared_ptr<Dense_Layer<float> > > layers;
-    for (unsigned i = 0;  i < result.layers.size();  ++i)
-        layers.push_back(boost::dynamic_pointer_cast<Dense_Layer<float> >
-                         (result.layers[i]));
+    //for (unsigned i = 0;  i < result.layers.size();  ++i)
+    //    layers.push_back(boost::dynamic_pointer_cast<Dense_Layer<float> >
+    //                     (result.layers[i]));
     size_t nl = layers.size();
+
+    float inhibit, fire;
+    boost::tie(inhibit, fire)
+        = layers[0]->targets(target_value);
 
     int our_batch_size = batch_size;
     if (batch_size == 0.0) our_batch_size = nx;
@@ -1478,9 +1477,9 @@ train_iteration(Thread_Context & context,
 
     for (; done_ex < nx;  done_ex += our_batch_size) {
 
-        size_t last_ex = std::min<size_t>(done_ex + our_batch_size, nx);
+        //size_t last_ex = std::min<size_t>(done_ex + our_batch_size, nx);
         
-        int num_in_batch = last_ex - done_ex;
+        //int num_in_batch = last_ex - done_ex;
 
         // Zero everything out
         if (our_batch_size > 1 || use_cuda) {
@@ -1605,7 +1604,8 @@ train_iteration(Thread_Context & context,
 #endif
         }
         else {
-        
+
+#if 0        
             Training_Job_Info info(decorrelated, labels, example_weights,
                                    result,
                                    weight_updates_ptrs, bias_updates_ptrs,
@@ -1658,6 +1658,8 @@ train_iteration(Thread_Context & context,
                 
                 worker.run_until_finished(group);
             }
+#endif
+
         } // CUDA or not CUDA
 
         PROFILE_FUNCTION(t_update);
@@ -1746,7 +1748,8 @@ init(const Training_Data & data,
 
         boost::shared_ptr<Layer>
             layer(new Dense_Layer<float>(format("hidden%d", i),
-                                         nunits, units, activation, context));
+                                         nunits, units, activation,
+                                         MV_NONE, context));
         result.add_layer(layer);
         nunits = units;
     }
@@ -1754,7 +1757,7 @@ init(const Training_Data & data,
     /* Add the output units. */
     boost::shared_ptr<Layer> layer
         (new Dense_Layer<float>("output", nunits, nout, output_activation,
-                                context));
+                                MV_NONE, context));
     result.add_layer(layer);
 
     cerr << "adding output layer with " << nout << " units and activation "

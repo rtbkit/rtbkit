@@ -62,14 +62,13 @@ struct Stats {
 /*****************************************************************************/
 
 Perceptron::Perceptron()
-    : max_units(0)
 {
 }
 
 Perceptron::
 Perceptron(const boost::shared_ptr<const Feature_Space> & feature_space,
                const Feature & predicted)
-    : Classifier_Impl(feature_space, predicted), max_units(0)
+    : Classifier_Impl(feature_space, predicted)
 {
 }
 
@@ -84,8 +83,7 @@ Perceptron::
 Perceptron(const boost::shared_ptr<const Feature_Space> & feature_space,
            const Feature & predicted,
            size_t label_count)
-    : Classifier_Impl(feature_space, predicted, label_count),
-      max_units(0)
+    : Classifier_Impl(feature_space, predicted, label_count)
 {
 }
 
@@ -102,18 +100,13 @@ predict(const Feature_Set & fs) const
 {
     PROFILE_FUNCTION(t_predict);
 
-    float scratch1[max_units], scratch2[max_units];
-    float * input = scratch1;
-    float * output = scratch2;
+    float input[layers.inputs()];
     extract_features(fs, input);
-    layers[0]->apply(input, output);
-    
-    for (unsigned l = 1;  l < layers.size();  ++l) {
-        layers[l]->apply(output, input);
-        std::swap(input, output);
-    }
-    
-    return distribution<float>(output, output + layers.back()->outputs());
+
+    distribution<float> output(layers.outputs());
+    layers.apply(input, &output[0]);
+
+    return output;
 }
 
 namespace {
@@ -144,7 +137,8 @@ struct Accuracy_Job_Info {
     {
         double sub_total = 0.0, sub_rmse = 0.0, sub_correct = 0.0;
 
-        float scratch1[perceptron.max_units], scratch2[perceptron.max_units];
+        float scratch1[perceptron.layers.max_width()],
+            scratch2[perceptron.layers.max_width()];
         float * input = scratch1, * output = scratch2;
 
         size_t nl = perceptron.label_count();
@@ -159,10 +153,10 @@ struct Accuracy_Job_Info {
 
             // Skip the first layer since we've already decorrelated
             // Second layer calculated directly over input
-            perceptron.layers[1]->apply(&decorrelated[x][0], input);
+            perceptron.layers[1].apply(&decorrelated[x][0], input);
 
             for (unsigned l = 2;  l < perceptron.layers.size();  ++l) {
-                perceptron.layers[l]->apply(input, output);
+                perceptron.layers[l].apply(input, output);
                 std::swap(input, output);
             }
 
@@ -254,7 +248,7 @@ std::string Perceptron::print() const
 {
     string result = format("{ Perceptron: %zd layers, %zd inputs, %zd outputs\n",
                            layers.size(), features.size(),
-                           (layers.size() ? layers.back()->outputs() : 0));
+                           layers.outputs());
 
     result += "  features:\n";
     for (unsigned f = 0;  f < features.size();  ++f)
@@ -263,7 +257,7 @@ std::string Perceptron::print() const
     result += "\n";
 
     for (unsigned i = 0;  i < layers.size();  ++i)
-        result += format("  layer %d\n", i) + layers[i]->print();
+        result += format("  layer %d\n", i) + layers[i].print();
 
     result += "}";
 
@@ -306,17 +300,11 @@ parse_architecture(const std::string & arch)
 void Perceptron::add_layer(const boost::shared_ptr<Layer> & layer)
 {
     layer->validate();
-
-    layers.push_back(layer);
-    if (layers.size() == 1 || layer->inputs() > max_units)
-        max_units = layer->inputs();
-    if (layer->outputs() > max_units)
-        max_units = layer->outputs();
+    layers.add(layer);
 }
 
 void Perceptron::clear()
 {
-    max_units = 0;
     layers.clear();
     features.clear();
 }
@@ -325,14 +313,14 @@ size_t Perceptron::parameters() const
 {
     size_t result = 0;
     for (unsigned l = 1;  l < layers.size();  ++l)
-        result += layers[l]->parameter_count();
+        result += layers[l].parameter_count();
     return result;
 }
 
 namespace {
 
 static const std::string PERCEPTRON_MAGIC = "PERCEPTRON";
-static const compact_size_t PERCEPTRON_VERSION = 0;
+static const compact_size_t PERCEPTRON_VERSION = 1;
 
 
 } // file scope
@@ -348,9 +336,7 @@ void Perceptron::serialize(DB::Store_Writer & store) const
         feature_space()->serialize(store, features[i]);
 
     /* Now the layers... */
-    store << compact_size_t(layers.size());
-    for (unsigned i = 0;  i < layers.size();  ++i)
-        layers[i]->serialize(store);
+    layers.serialize(store);
 
     store << string("END PERCEPTRON");
 }
@@ -366,14 +352,14 @@ reconstitute(DB::Store_Reader & store,
     if (magic != PERCEPTRON_MAGIC)
         throw Exception("Attempt to reconstitute \"" + magic
                                 + "\" with perceptrons reconstitutor");
-    if (version > PERCEPTRON_VERSION)
+    if (version != PERCEPTRON_VERSION)
         throw Exception(format("Attemp to reconstitute perceptrons "
                                "version %zd, only <= %zd supported",
                                version.size_,
                                PERCEPTRON_VERSION.size_));
     
     compact_size_t label_count(store);
-
+    
     predicted_ = MISSING_FEATURE;
     feature_space->reconstitute(store, predicted_);
 
@@ -385,18 +371,7 @@ reconstitute(DB::Store_Reader & store,
         feature_space->reconstitute(store, new_me.features[i]);
 
     /* Now the layers... */
-    compact_size_t nlayers(store);
-    new_me.layers.resize(nlayers);
-
-    new_me.max_units = 0;
-    for (unsigned i = 0;  i < nlayers;  ++i) {
-        new_me.layers[i].reset(new Dense_Layer<float>());
-        new_me.layers[i]->reconstitute(store);
-        new_me.max_units = max<int>(new_me.max_units,
-                                    new_me.layers[i]->inputs());
-        new_me.max_units = max<int>(new_me.max_units,
-                                    new_me.layers[i]->outputs());
-    }
+    new_me.layers.reconstitute(store);
 
     string s;
     store >> s;
@@ -430,7 +405,7 @@ decorrelate(const Training_Data & data) const
 
     for (unsigned x = 0;  x < nx;  ++x) {
         extract_features(data[x], &input[0]);
-        layers[0]->apply(input, &result[x][0]);
+        layers[0].apply(input, &result[x][0]);
     }
     
     return result;

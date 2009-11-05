@@ -16,15 +16,20 @@ namespace ML {
 template<class LayerT>
 struct Layer_Stack : public Layer {
 
+    Layer_Stack();
     Layer_Stack(const std::string & name);
 
     template<class OtherLayer>
     Layer_Stack(const Layer_Stack<OtherLayer> & other);
-                
-    
+
+    void swap(Layer_Stack & other);
 
     size_t size() const { return layers_.size(); }
     bool empty() const { return layers_.empty(); }
+
+    void clear();
+
+    size_t max_width() const;
 
     const LayerT & operator [] (int index) const { return *layers_.at(index); }
     LayerT & operator [] (int index) { return *layers_.at(index); }
@@ -130,6 +135,8 @@ struct Layer_Stack : public Layer {
     /** Return the number of parameters (degrees of freedom) for the
         layer. */
     virtual size_t parameter_count() const;
+
+    virtual std::pair<float, float> targets(float maximum) const;
 
     /** Copy the object */
     virtual Layer_Stack * make_copy() const;

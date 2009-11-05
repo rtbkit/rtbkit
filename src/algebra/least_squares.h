@@ -282,7 +282,6 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     // Step 1: SVD
 
     using namespace std;
-    using namespace Stats;
 
     if (A.shape()[0] != b.size())
         throw Exception("incompatible dimensions for least_squares");

@@ -31,6 +31,7 @@
 #include "compact_size_types.h"
 #include <vector>
 #include <boost/array.hpp>
+#include "utils/string_functions.h"
 
 namespace boost {
 

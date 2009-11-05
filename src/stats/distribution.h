@@ -38,8 +38,6 @@
 #include <boost/type_traits/is_same.hpp>
 
 namespace ML {
-namespace Stats {
-
 
 inline void wrong_sizes_exception(const char * op, int size1, int size2)
 {
@@ -425,9 +423,41 @@ operator /= (F2 val)
     throw Exception("distribution<bool> doesn't support operator /=");
 }
 
-} // namespace Stats
+template<typename X>
+bool equivalent(const X & x1, const X & x2)
+{
+    return x1 == x2;
+}
 
-using Stats::distribution;
+template<typename X, class U>
+bool equivalent(const distribution<X, U> & x1,
+                const distribution<X, U> & x2)
+{
+    if (x1.size() != x2.size()) return false;
+    for (unsigned i = 0;  i < x1.size();  ++i)
+        if (!equivalent(x1[i], x2[i])) return false;
+    return true;
+}
+
+template<typename X>
+bool equivalent(const std::vector<X> & x1, const std::vector<X> & x2)
+{
+    if (x1.size() != x2.size()) return false;
+    for (unsigned i = 0;  i < x1.size();  ++i)
+        if (!equivalent(x1[i], x2[i])) return false;
+    return true;
+}
+
+// Override boost test's implementation
+template<typename T, class U, typename T2, typename U2>
+bool equal_impl(const distribution<T, U> & d1,
+           const distribution<T2, U2> & d2)
+{
+    if (d1.size() != d2.size())
+        return false;
+
+    return (d1 == d2).all();
+}
 
 } // namespace ML
 

@@ -23,11 +23,11 @@
 
 using namespace ML;
 using namespace ML::DB;
-using namespace ML::Stats;
 using namespace std;
 
 using boost::unit_test::test_suite;
 
+#if 0
 namespace boost {
 namespace test_tools {
 namespace tt_detail {
@@ -44,22 +44,7 @@ equal_impl(const ML::Stats::distribution<float> & d1,
 } // namespace test_tools
 } // namespace boost
 
-namespace ML {
-namespace Stats {
-
-template<typename T, class U, typename T2, typename U2>
-boost::test_tools::predicate_result
-equal_impl(const distribution<T, U> & d1,
-           const distribution<T2, U2> & d2)
-{
-    if (d1.size() != d2.size())
-        return false;
-
-    return (d1 == d2).all();
-}
-
-} // namespace Stats
-} // namespace ML
+#endif
 
 template<typename X>
 void test_serialize_reconstitute(const X & x)

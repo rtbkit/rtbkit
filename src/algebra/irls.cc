@@ -19,7 +19,6 @@
 #include <boost/version.hpp>
 
 using namespace std;
-using namespace Stats;
 
 // TODO:in which boost version was this added?
 #if (BOOST_VERSION > 103500)

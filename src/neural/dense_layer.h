@@ -182,7 +182,11 @@ struct Dense_Layer : public Layer {
         layer. */
     virtual size_t parameter_count() const;
 
+    virtual std::pair<float, float> targets(float maximum) const;
+
     virtual Dense_Layer * make_copy() const { return new Dense_Layer(*this); }
+
+    virtual Dense_Layer * deep_copy() const { return new Dense_Layer(*this); }
 
     virtual void validate() const;
 

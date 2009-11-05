@@ -157,6 +157,24 @@ public:
 
     virtual Layer * make_copy() const = 0;
 
+    /** Make a copy that is not connected to those underneath. */
+    virtual Layer * deep_copy() const = 0;
+
+    void poly_serialize(ML::DB::Store_Writer & store) const;
+
+    static boost::shared_ptr<Layer>
+    poly_reconstitute(ML::DB::Store_Reader & store);
+
+    /** Given the activation function and the maximum amount of the range
+        that we want to use (eg, 0.8 for asymptotic functions), what are
+        the minimum and maximum values that we want to use.
+
+        For example, tanh goes from -1 to 1, but asymptotically.  We would
+        normally want to go from -0.8 to 0.8, so that we didn't force too
+        hard to get there.
+    */
+    virtual std::pair<float, float> targets(float maximum) const = 0;
+
 protected:
     std::string name_;
     size_t inputs_, outputs_;

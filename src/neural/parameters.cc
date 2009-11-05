@@ -14,7 +14,8 @@ Parameters &
 Parameters::
 add(Parameter_Value * param)
 {
-    bool inserted = by_name.insert(make_pair(param->name(), param)).second;
+    bool inserted
+        = by_name.insert(make_pair(param->name(), params.size())).second;
 
     if (!inserted) {
         delete param;
@@ -23,6 +24,8 @@ add(Parameter_Value * param)
     }
 
     params.push_back(param);
+
+    return *this;
 }
 
 

@@ -69,7 +69,7 @@ struct Logit_Link {
     static Vector forward(Vector mu)
     {
         mu = bound(mu, (Float)0.0001, (Float)0.9999);
-        return Stats::log(mu / ((Float)1.0 - mu));
+        return log(mu / ((Float)1.0 - mu));
     }
 
     static Float inverse(Float eta)
@@ -312,7 +312,7 @@ struct Logarithm_Link {
     static Vector forward(Vector mu)
     {
         mu = bound(mu, (Float)0.001, (Float)INFINITY);
-        return Stats::log(mu);
+        return log(mu);
     }
 
     static Float inverse(Float eta)
