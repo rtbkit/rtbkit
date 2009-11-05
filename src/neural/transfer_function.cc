@@ -26,7 +26,7 @@ namespace ML {
 
 template<typename FloatIn>
 void
-Tranfer_Function::
+Transfer_Function::
 transfer(const FloatIn * activation, FloatIn * outputs, int nvals,
          Transfer_Function_Type transfer_function)
 {
@@ -66,26 +66,26 @@ transfer(const FloatIn * activation, FloatIn * outputs, int nvals,
     }
 
     default:
-        throw Exception("Tranfer_Function::transfer(): invalid transfer_function");
+        throw Exception("Transfer_Function::transfer(): invalid transfer_function");
     }
 }
 
 void
-Tranfer_Function::
+Transfer_Function::
 transfer(const float * activation, float * outputs) const
 {
     transfer(activation, outputs, this->outputs(), transfer_function);
 }
 
 void
-Tranfer_Function::
+Transfer_Function::
 transfer(const double * activation, double * outputs) const
 {
     transfer(activation, outputs, this->outputs(), transfer_function);
 }
 
 distribution<float>
-Tranfer_Function::
+Transfer_Function::
 transfer(const distribution<float> & activation) const
 {
     int no = outputs();
@@ -95,7 +95,7 @@ transfer(const distribution<float> & activation) const
 }
 
 distribution<double>
-Tranfer_Function::
+Transfer_Function::
 transfer(const distribution<double> & activation) const
 {
     int no = outputs();
@@ -107,7 +107,7 @@ transfer(const distribution<double> & activation) const
 template<class Float>
 template<typename FloatIn>
 void
-Tranfer_Function::
+Transfer_Function::
 derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
            Transfer_Function_Type transfer_function)
 {
@@ -133,12 +133,12 @@ derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
         break;
         
     default:
-        throw Exception("Tranfer_Function::transfer(): invalid transfer_function");
+        throw Exception("Transfer_Function::transfer(): invalid transfer_function");
     }
 }
 
 distribution<float>
-Tranfer_Function::
+Transfer_Function::
 derivative(const distribution<float> & outputs) const
 {
     if (outputs.size() != this->outputs())
@@ -150,7 +150,7 @@ derivative(const distribution<float> & outputs) const
 }
 
 distribution<double>
-Tranfer_Function::
+Transfer_Function::
 derivative(const distribution<double> & outputs) const
 {
     if (outputs.size() != this->outputs())
@@ -162,7 +162,7 @@ derivative(const distribution<double> & outputs) const
 }
 
 void
-Tranfer_Function::
+Transfer_Function::
 derivative(const float * outputs,
            float * derivatives) const
 {
@@ -171,7 +171,7 @@ derivative(const float * outputs,
 }
 
 void
-Tranfer_Function::
+Transfer_Function::
 derivative(const double * outputs,
            double * derivatives) const
 {
@@ -182,7 +182,7 @@ derivative(const double * outputs,
 template<class Float>
 template<typename FloatIn>
 void
-Tranfer_Function::
+Transfer_Function::
 second_derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
                   Transfer_Function_Type transfer_function)
 {
@@ -210,14 +210,14 @@ second_derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
 #endif
         
     default:
-        throw Exception("Tranfer_Function::transfer(): second derivative not implemented "
+        throw Exception("Transfer_Function::transfer(): second derivative not implemented "
                         "for this transfer_function "
                         + ML::print(transfer_function));
     }
 }
 
 distribution<float>
-Tranfer_Function::
+Transfer_Function::
 second_derivative(const distribution<float> & outputs) const
 {
     if (outputs.size() != this->outputs())
@@ -229,7 +229,7 @@ second_derivative(const distribution<float> & outputs) const
 }
 
 distribution<double>
-Tranfer_Function::
+Transfer_Function::
 second_derivative(const distribution<double> & outputs) const
 {
     if (outputs.size() != this->outputs())
@@ -241,7 +241,7 @@ second_derivative(const distribution<double> & outputs) const
 }
 
 void
-Tranfer_Function::
+Transfer_Function::
 second_derivative(const float * outputs,
                   float * second_derivatives) const
 {
@@ -250,7 +250,7 @@ second_derivative(const float * outputs,
 }
 
 void
-Tranfer_Function::
+Transfer_Function::
 second_derivative(const double * outputs,
                   double * second_derivatives) const
 {
@@ -259,7 +259,7 @@ second_derivative(const double * outputs,
 }
 
 void
-Tranfer_Function::
+Transfer_Function::
 deltas(const float * outputs, const float * errors, float * deltas) const
 {
     derivative(outputs, deltas);
@@ -269,7 +269,7 @@ deltas(const float * outputs, const float * errors, float * deltas) const
 }
 
 void
-Tranfer_Function::
+Transfer_Function::
 deltas(const double * outputs, const double * errors, double * deltas) const
 {
     derivative(outputs, deltas);
@@ -279,7 +279,7 @@ deltas(const double * outputs, const double * errors, double * deltas) const
 }
 
 std::pair<float, float>
-Tranfer_Function::
+Transfer_Function::
 targets(float maximum, Transfer_Function_Type transfer_function)
 {
     switch (transfer_function) {
