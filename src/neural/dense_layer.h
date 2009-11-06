@@ -161,7 +161,7 @@ struct Dense_Layer : public Layer {
 
 
     /** Add in our parameters to the params object. */
-    virtual boost::shared_ptr<Parameters> parameters();
+    virtual void add_parameters(Parameters_Ref & params);
 
     /** Dump as ASCII.  This will be big. */
     virtual std::string print() const;

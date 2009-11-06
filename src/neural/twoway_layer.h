@@ -135,6 +135,10 @@ struct Twoway_Layer : public Dense_Layer<float> {
     }
 
     bool operator == (const Twoway_Layer & other) const;
+
+    virtual Twoway_Layer * make_copy() const { return new Twoway_Layer(*this); }
+
+    virtual Twoway_Layer * deep_copy() const { return new Twoway_Layer(*this); }
 };
 
 IMPL_SERIALIZE_RECONSTITUTE(Twoway_Layer);

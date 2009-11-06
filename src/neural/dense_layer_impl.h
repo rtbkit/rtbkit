@@ -65,32 +65,27 @@ Dense_Layer(const std::string & name,
 }
 
 template<typename Float>
-boost::shared_ptr<Parameters>
+void
 Dense_Layer<Float>::
-parameters()
+add_parameters(Parameters_Ref & params)
 {
-    boost::shared_ptr<Parameter_Ref> pparams(new Parameter_Ref());
-    Parameter_Ref & params = *pparams;
-
     params
-        .add("weights", weights)
-        .add("bias", bias);
+        .add(0, "weights", weights)
+        .add(1, "bias", bias);
 
     switch (missing_values) {
     case MV_NONE:
     case MV_ZERO:
         break;
     case MV_INPUT:
-        params.add("missing_replacements", missing_replacements);
+        params.add(2, "missing_replacements", missing_replacements);
         break;
     case MV_DENSE:
-        params.add("missing_activations", missing_activations);
+        params.add(3, "missing_activations", missing_activations);
         break;
     default:
         throw Exception("Dense_Layer::parameters(): none there");
     }
-
-    return pparams;
 }
 
 template<typename Float>

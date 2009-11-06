@@ -104,23 +104,27 @@ struct Parameters {
 
     /** Add a vector of values to the parameters */
 
-    Parameters & add(Parameter_Value * param);
+    Parameters & add(int index, Parameter_Value * param);
 
     template<class Float>
     Parameters &
-    add(const std::string & name,
+    add(int index,
+        const std::string & name,
         std::vector<Float> & values)
     {
-        return add(new Vector_Ref<Float>(name, &values[0], values.size()));
+        return add(index,
+                   new Vector_Ref<Float>(name, &values[0], values.size()));
     }
     
     /** Add a matrix of values to the parameters */
     template<class Float>
     Parameters &
-    add(const std::string & name,
+    add(int index,
+        const std::string & name,
         boost::multi_array<Float, 2> & values)
     {
-        return add(new Matrix_Ref<Float>(name, values.data(),
+        return add(index,
+                   new Matrix_Ref<Float>(name, values.data(),
                                          values.shape()[0], values.shape()[1]));
     }
 
@@ -145,6 +149,10 @@ struct Parameters {
 
     virtual void update(const Parameters & other, double learning_rate);
 
+    virtual Parameters & subparams(int index, const std::string & name) = 0;
+    virtual const Parameters &
+    subparams(int index, const std::string & name) const = 0;
+
 protected:
     Parameters();
     Parameters(const Parameters & other);
@@ -164,7 +172,10 @@ protected:
 
 /** Parameters that are stored somewhere else but referenced here. */
 
-struct Parameter_Ref : public Parameters {
+struct Parameters_Ref : public Parameters {
+    virtual Parameters_Ref & subparams(int index, const std::string & name);
+    virtual const Parameters_Ref &
+    subparams(int index, const std::string & name) const;
 };
 
 
@@ -175,12 +186,17 @@ struct Parameter_Ref : public Parameters {
 /** Storage of a value for each parameter, in the given type. */
 
 template<class Float>
-struct Parameter_Copy : public Parameters {
-    Parameter_Copy();
+struct Parameters_Copy : public Parameters {
+    Parameters_Copy();
+    
+    Parameters_Copy(const Parameters & other);
 
-    Parameter_Copy(const Parameters & other);
+    Parameters_Copy(const Layer & layer);
 
-    Parameter_Copy(const Layer & layer);
+    virtual Parameters & subparams(int index, const std::string & name);
+
+    virtual const Parameters &
+    subparams(int index, const std::string & name) const;
 
 protected:
     // The actual values, stored contiguously for efficiency.

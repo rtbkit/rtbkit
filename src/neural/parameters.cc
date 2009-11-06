@@ -12,7 +12,7 @@ namespace ML {
 
 Parameters &
 Parameters::
-add(Parameter_Value * param)
+add(int index, Parameter_Value * param)
 {
     bool inserted
         = by_name.insert(make_pair(param->name(), params.size())).second;

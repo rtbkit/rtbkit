@@ -51,10 +51,11 @@ struct Layer_Stack : public Layer {
         return dynamic_cast<As &>(*layers_.at(index));
     }
 
-    /** Add a layer to the stack.  Checks the preconditions first. */
-    void add(const LayerT * layer);
+    /** Add a layer to the stack.  Checks the preconditions first.  The
+        ownership of the pointer passes to the Layer_Stack object. */
+    void add(LayerT * layer);
 
-    void add(const boost::shared_ptr<LayerT> & layer);
+    void add(boost::shared_ptr<LayerT> layer);
 
 
     /** Dump as ASCII.  This will be big. */
@@ -66,7 +67,8 @@ struct Layer_Stack : public Layer {
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store);
 
-    virtual boost::shared_ptr<Parameters> parameters();
+    /** Add all of our parameters to the given parameters object. */
+    virtual void add_parameters(Parameters_Ref & params);
 
 
     /*************************************************************************/
@@ -151,6 +153,7 @@ struct Layer_Stack : public Layer {
 
 protected:
     std::vector<boost::shared_ptr<LayerT> > layers_;
+    size_t max_width_;
 };
 
 extern template class Layer_Stack<Layer>;

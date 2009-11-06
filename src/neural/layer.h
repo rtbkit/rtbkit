@@ -27,10 +27,21 @@ namespace ML {
 */
 
 class Layer {
-public:
+
+protected:
     Layer(const std::string & name,
           size_t inputs, size_t outputs);
+    
+    Layer(const Layer & other);
 
+    Layer & operator = (const Layer & other);
+    
+    void init(const std::string & name, size_t inputs, size_t outputs);
+
+    void swap(const Layer & other);
+
+public:
+    
     /*************************************************************************/
     /* INFO                                                                  */
     /*************************************************************************/
@@ -43,6 +54,8 @@ public:
 
     size_t inputs() const { return inputs_; }
     size_t outputs() const { return outputs_; }
+
+    std::string name() const { return name_; }
 
     /** Given the activation function and the maximum amount of the range
         that we want to use (eg, 0.8 for asymptotic functions), what are
@@ -65,7 +78,11 @@ public:
 
     /** Return a reference to a parameters object that describes this layer's
         parameters.  It should provide a reference. */
-    virtual boost::shared_ptr<Parameters> parameters() = 0;
+    Parameters_Ref & parameters() { return parameters_; }
+    const Parameters_Ref & parameters() const { return parameters_; }
+
+    /** Add all of our parameters to the given parameters object. */
+    virtual void add_parameters(Parameters_Ref & params) = 0;
 
     /** Return the number of parameters (degrees of freedom) for the
         layer. */
@@ -191,6 +208,9 @@ public:
 protected:
     std::string name_;
     size_t inputs_, outputs_;
+
+    /** Contains a reference to our parameters. */
+    Parameters_Ref parameters_;
 };
 
 inline std::ostream & operator << (std::ostream & stream, const Layer & layer)

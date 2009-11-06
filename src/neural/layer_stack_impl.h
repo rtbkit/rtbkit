@@ -10,6 +10,7 @@
 
 #include "layer_stack.h"
 #include "utils/smart_ptr_utils.h"
+#include "db/persistent.h"
 
 namespace ML {
 
@@ -31,15 +32,15 @@ Layer_Stack(const Layer_Stack<OtherLayer> & other)
 template<class LayerT>
 void
 Layer_Stack<LayerT>::
-add(const LayerT * layer)
+add(LayerT * layer)
 {
-    return add(make_sp(layer));
+    add(make_sp(layer));
 }
 
 template<class LayerT>
 void
 Layer_Stack<LayerT>::
-add(const boost::shared_ptr<LayerT> & layer)
+add(boost::shared_ptr<LayerT> layer)
 {
     if (!layer)
         throw Exception("Layer_Stack::add(): added null layer");
@@ -52,6 +53,10 @@ add(const boost::shared_ptr<LayerT> & layer)
             throw Exception("incompatible layer sizes");
         outputs_ = layer->outputs();
     }
+
+    layers_.push_back(layer);
+    layer->add_parameters(parameters_.subparams(layers_.size() - 1,
+                                                layer->name()));
 }
 
 template<class LayerT>
@@ -84,7 +89,7 @@ serialize(DB::Store_Writer & store) const
     using namespace DB;
 
     store << (char)0 // version
-          << compact_size_t(layers_->size());
+          << compact_size_t(layers_.size());
 
     for (unsigned i = 0;  i < size();  ++i)
         layers_[i]->poly_serialize(store);
@@ -123,10 +128,12 @@ reconstitute(DB::Store_Reader & store)
 }
 
 template<class LayerT>
-boost::shared_ptr<Parameters>
+void
 Layer_Stack<LayerT>::
-parameters()
+add_parameters(Parameters_Ref & params)
 {
+    for (unsigned i = 0;  i < layers_.size();  ++i)
+        layers_[i]->add_parameters(params.subparams(i, layers_[i]->name()));
 }
 
 template<class LayerT>
@@ -134,6 +141,15 @@ void
 Layer_Stack<LayerT>::
 apply(const float * input, float * output) const
 {
+    float tmp1[max_width_], tmp2[max_width_];
+    float * next_output = tmp1, * next_input = tmp2;
+    for (unsigned l = 0;  l < layers_.size();  ++l) {
+        const float * i = (l == 0 ? input : next_input);
+        float * o = (l == layers_.size() - 1 ? next_output : output);
+
+        layers_[l]->apply(i, o);
+        std::swap(next_output, next_input);
+    }
 }
 
 template<class LayerT>
@@ -141,6 +157,15 @@ void
 Layer_Stack<LayerT>::
 apply(const double * input, double * output) const
 {
+    double tmp1[max_width_], tmp2[max_width_];
+    double * next_output = tmp1, * next_input = tmp2;
+    for (unsigned l = 0;  l < layers_.size();  ++l) {
+        const double * i = (l == 0 ? input : next_input);
+        double * o = (l == layers_.size() - 1 ? next_output : output);
+
+        layers_[l]->apply(i, o);
+        std::swap(next_output, next_input);
+    }
 }
 
 template<class LayerT>
@@ -160,6 +185,25 @@ Layer_Stack<LayerT>::
 fprop(const distribution<float> & inputs,
       float * temp_space, size_t temp_space_size) const
 {
+    distribution<float> prev_outputs = inputs;
+
+    float * temp_space_start = temp_space;
+    float * temp_space_end = temp_space_start + temp_space_size;
+
+    for (unsigned i = 0;  i < size();  ++i) {
+        int layer_temp_space_size
+            = layers_[i]->fprop_temporary_space_required();
+
+        prev_outputs = layers_[i]->fprop(prev_outputs, temp_space,
+                                         layer_temp_space_size);
+        
+        temp_space += layer_temp_space_size;
+        if (temp_space > temp_space_end
+            || (i == size() - 1 && temp_space != temp_space_end))
+            throw Exception("temp space out of sync");
+    }
+
+    return prev_outputs;
 }
 
 template<class LayerT>
@@ -170,11 +214,8 @@ fprop(const distribution<double> & inputs,
 {
     distribution<double> prev_outputs = inputs;
 
-    size_t temp_space_required = layers_[i]->fprop_temporary_space_required();
-
-    double temp_space_start[temp_space_required];
-    double * temp_space = temp_space_start;
-    double * temp_space_end = temp_space_start + temp_space_required;
+    double * temp_space_start = temp_space;
+    double * temp_space_end = temp_space_start + temp_space_size;
 
     for (unsigned i = 0;  i < size();  ++i) {
         int layer_temp_space_size
@@ -208,12 +249,13 @@ template<class LayerT>
 void
 Layer_Stack<LayerT>::
 bprop(const distribution<double> & output_errors_in,
-      double * temp_space_start, size_t temp_space_size,
+      double * temp_space, size_t temp_space_size,
       Parameters & gradient,
       distribution<double> & input_errors,
       double example_weight,
       bool calculate_input_errors) const
 {
+    double * temp_space_start = temp_space;
     double * temp_space_end = temp_space_start + temp_space_size;
     double * curr_temp_space = temp_space_end;
 
@@ -230,7 +272,8 @@ bprop(const distribution<double> & output_errors_in,
         distribution<double> new_output_errors;
 
         layers_[i]->bprop(output_errors, temp_space, layer_temp_space_size,
-                          gradient.submodel(i), new_output_errors,
+                          gradient.subparams(i, layers_[i]->name()),
+                          new_output_errors,
                           example_weight,
                           (calculate_input_errors || i > 0));
 
@@ -283,7 +326,8 @@ Layer_Stack<LayerT> *
 Layer_Stack<LayerT>::
 deep_copy() const
 {
-    std::auto_ptr<Layer_Stack<LayerT> > result(new Layer_Stack<LayerT>(name()));
+    std::auto_ptr<Layer_Stack<LayerT> > result
+        (new Layer_Stack<LayerT>(this->name()));
     for (unsigned i = 0;  i < size();  ++i)
         result->add(layers_[i]->deep_copy());
     return result.release();
