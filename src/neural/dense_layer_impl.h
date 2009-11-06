@@ -14,6 +14,7 @@
 #include "algebra/matrix_ops.h"
 #include "arch/simd_vector.h"
 #include "utils/string_functions.h"
+#include "boosting/registry.h"
 
 namespace ML {
 
@@ -136,7 +137,7 @@ print() const
 template<typename Float>
 std::string
 Dense_Layer<Float>::
-type() const
+class_id() const
 {
     return "Dense_Layer<" + demangle(typeid(Float).name()) + ">";
 }
@@ -233,7 +234,7 @@ apply(const float * input,
     int no = outputs();
     float act[no];
     activation(input, act);
-    transfer_function->transfer(act, output);
+    transfer_function->transfer(act, output, no);
 }
 
 template<typename Float>
@@ -245,7 +246,7 @@ apply(const double * input,
     int no = outputs();
     double act[no];
     activation(input, act);
-    transfer_function->transfer(act, output);
+    transfer_function->transfer(act, output, no);
 }
 
 template<typename Float>
@@ -502,6 +503,19 @@ operator == (const Dense_Layer & other) const
             && (missing_replacements == other.missing_replacements).all()
             && missing_activations == other.missing_activations);
 }
+
+template<typename Float>
+struct Dense_Layer<Float>::RegisterMe {
+    RegisterMe()
+    {
+        Register_Factory<Layer, Dense_Layer<Float> >
+            STF_REGISTER(Dense_Layer<Float>().class_id());
+    }
+};
+
+template<typename Float>
+typename Dense_Layer<Float>::RegisterMe
+Dense_Layer<Float>::register_me;
 
 } // namespace ML
 

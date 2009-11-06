@@ -20,8 +20,8 @@ Layer_Stack(const std::string & name)
 {
 }
 
-template<class OtherLayer>
 template<class LayerT>
+template<class OtherLayer>
 Layer_Stack<LayerT>::
 Layer_Stack(const Layer_Stack<OtherLayer> & other)
     : Layer(other.name(), 0, 0)
@@ -41,6 +41,17 @@ void
 Layer_Stack<LayerT>::
 add(const boost::shared_ptr<LayerT> & layer)
 {
+    if (!layer)
+        throw Exception("Layer_Stack::add(): added null layer");
+    if (empty()) {
+        this->inputs_ = layer->inputs();
+        this->outputs_ = layer->outputs();
+    }
+    else {
+        if (layer->inputs() != outputs())
+            throw Exception("incompatible layer sizes");
+        outputs_ = layer->outputs();
+    }
 }
 
 template<class LayerT>
@@ -48,13 +59,21 @@ std::string
 Layer_Stack<LayerT>::
 print() const
 {
+    std::string result = format("Layer_Stack: name \"%s\", %zd layers",
+                                this->name().c_str(), size());
+    for (unsigned i = 0;  i < size();  ++i)
+        result += format("layer %d\n", i) + layers_[i]->print();
+    return result;
 }
     
 template<class LayerT>
 std::string
 Layer_Stack<LayerT>::
-type() const
+class_id() const
 {
+    // All layer stacks serialize and reconstitute as the base; they can be
+    // converted after reconstitution.
+    return "Layer_Stack";
 }
 
 template<class LayerT>
@@ -62,6 +81,15 @@ void
 Layer_Stack<LayerT>::
 serialize(DB::Store_Writer & store) const
 {
+    using namespace DB;
+
+    store << (char)0 // version
+          << compact_size_t(layers_->size());
+
+    for (unsigned i = 0;  i < size();  ++i)
+        layers_[i]->poly_serialize(store);
+
+    store << compact_size_t(1849202);
 }
 
 template<class LayerT>
@@ -69,6 +97,29 @@ void
 Layer_Stack<LayerT>::
 reconstitute(DB::Store_Reader & store)
 {
+    using namespace DB;
+
+    char version;
+    store >> version;
+    if (version != 0)
+        throw Exception("Layer_Stack::reconstitute(): invalid version");
+
+    compact_size_t sz(store);
+    layers_.resize(sz);
+
+    for (unsigned i = 0;  i < sz;  ++i) {
+        boost::shared_ptr<Layer> layer
+            = Layer::poly_reconstitute(store);
+        boost::shared_ptr<LayerT> cast
+            = boost::dynamic_pointer_cast<LayerT>(layer);
+        if (!cast)
+            throw Exception("Layer_Stack::reconstitute(): couldn't convert");
+        layers_[i] = cast;
+    }
+
+    compact_size_t canary(store);
+    if (canary != 1849202)
+        throw Exception("Layer_Stack::reconstitute(): invalid canary");
 }
 
 template<class LayerT>

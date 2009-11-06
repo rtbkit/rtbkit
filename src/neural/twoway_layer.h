@@ -17,49 +17,6 @@ namespace ML {
 
 template<class LayerT> class Layer_Stack;
 
-#if 0
-/*****************************************************************************/
-/* TWOWAY_LAYER_UPDATES                                                      */
-/*****************************************************************************/
-
-struct Twoway_Layer;
-
-struct Twoway_Layer_Updates {
-
-    Twoway_Layer_Updates();
-
-    Twoway_Layer_Updates(bool train_generative,
-                         const Twoway_Layer & layer);
-
-    Twoway_Layer_Updates(bool use_dense_missing,
-                         bool train_generative,
-                         int inputs, int outputs);
-
-    void zero_fill();
-
-    void init(bool train_generative,
-              const Twoway_Layer & layer);
-
-    void init(bool use_dense_missing, bool train_generative,
-              int inputs, int outputs);
-
-    int inputs() const { return weights.shape()[0]; }
-    int outputs() const { return weights.shape()[1]; }
-
-    Twoway_Layer_Updates & operator += (const Twoway_Layer_Updates & other);
-
-    bool use_dense_missing;
-    bool train_generative;
-    boost::multi_array<double, 2> weights;
-    distribution<double> bias;
-    distribution<double> missing_replacements;
-    std::vector<distribution<double> > missing_activations;
-    distribution<double> ibias;
-    distribution<double> iscales;
-    distribution<double> hscales;
-};
-#endif
-
 
 /*****************************************************************************/
 /* TWOWAY_LAYER                                                              */
@@ -113,7 +70,7 @@ struct Twoway_Layer : public Dense_Layer<float> {
     distribution<double> iderivative(const distribution<double> & input) const;
     distribution<float> iderivative(const distribution<float> & input) const;
 
-    void update(const Twoway_Layer_Updates & updates, double learning_rate);
+    void update(const Parameters & updates, double learning_rate);
 
     virtual void random_fill(float limit, Thread_Context & context);
 
@@ -131,7 +88,7 @@ struct Twoway_Layer : public Dense_Layer<float> {
                           const distribution<double> & output_deltas,
                           const distribution<double> & inputs,
                           distribution<double> & input_deltas,
-                          Twoway_Layer_Updates & updates) const;
+                          Parameters & updates) const;
 
     /** Inverse direction backpropagation of the given example.  Again, the
         gradient will be acculmulated in the output.  Fills in the errors for
@@ -140,7 +97,7 @@ struct Twoway_Layer : public Dense_Layer<float> {
                            const distribution<double> & output_deltas,
                            const distribution<double> & inputs,
                            distribution<double> & input_deltas,
-                           Twoway_Layer_Updates & updates) const;
+                           Parameters & updates) const;
 
     /** Trains a single iteration on the given data with the selected
         parameters.  Returns a moving estimate of the RMSE on the

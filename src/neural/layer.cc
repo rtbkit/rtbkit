@@ -9,6 +9,7 @@
 #include "arch/demangle.h"
 #include "algebra/matrix_ops.h"
 #include "arch/simd_vector.h"
+#include "boosting/registry.h"
 
 
 using namespace std;
@@ -30,6 +31,20 @@ Layer(const std::string & name,
       size_t inputs, size_t outputs)
     : name_(name), inputs_(inputs), outputs_(outputs)
 {
+}
+
+void
+Layer::
+poly_serialize(ML::DB::Store_Writer & store) const
+{
+    Registry<Layer>::singleton().serialize(store, this);
+}
+
+boost::shared_ptr<Layer>
+Layer::
+poly_reconstitute(ML::DB::Store_Reader & store)
+{
+    return Registry<Layer>::singleton().reconstitute(store);
 }
 
 distribution<float>
@@ -84,4 +99,3 @@ validate() const
 }
 
 } // namespace ML
-

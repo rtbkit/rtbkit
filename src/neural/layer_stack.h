@@ -13,6 +13,11 @@
 
 namespace ML {
 
+
+/*****************************************************************************/
+/* LAYER_STACK                                                               */
+/*****************************************************************************/
+
 template<class LayerT>
 struct Layer_Stack : public Layer {
 
@@ -56,7 +61,7 @@ struct Layer_Stack : public Layer {
     virtual std::string print() const;
     
     /** Return the name of the type */
-    virtual std::string type() const;
+    virtual std::string class_id() const;
 
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store);

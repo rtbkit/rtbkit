@@ -6,6 +6,14 @@
 */
 
 #include "transfer_function.h"
+#include <cmath>
+#include "db/persistent.h"
+#include "boosting/registry.h"
+#include "utils/smart_ptr_utils.h"
+
+
+using namespace ML::DB;
+using namespace std;
 
 namespace ML {
 
@@ -23,10 +31,89 @@ namespace ML {
 /* TRANSFER_FUNCTION                                                         */
 /*****************************************************************************/
 
+void
+Transfer_Function::
+poly_serialize(DB::Store_Writer & store) const
+{
+    Registry<Transfer_Function>::singleton().serialize(store, this);
+}
+
+boost::shared_ptr<Transfer_Function>
+Transfer_Function::
+poly_reconstitute(DB::Store_Reader & store)
+{
+    return Registry<Transfer_Function>::singleton().reconstitute(store);
+}
+
+distribution<float>
+Transfer_Function::
+transfer(const distribution<float> & activation) const
+{
+    int no = activation.size();
+    distribution<float> output(no);
+    transfer(&activation[0], &output[0], no);
+    return output;
+}
+
+distribution<double>
+Transfer_Function::
+transfer(const distribution<double> & activation) const
+{
+    int no = activation.size();
+    distribution<double> output(no);
+    transfer(&activation[0], &output[0], no);
+    return output;
+}
+
+distribution<float>
+Transfer_Function::
+derivative(const distribution<float> & outputs) const
+{
+    int no = outputs.size();
+    distribution<float> result(no);
+    derivative(&outputs[0], &result[0], no);
+    return result;
+}
+
+distribution<double>
+Transfer_Function::
+derivative(const distribution<double> & outputs) const
+{
+    int no = outputs.size();
+    distribution<double> result(no);
+    derivative(&outputs[0], &result[0], no);
+    return result;
+}
+
+distribution<float>
+Transfer_Function::
+second_derivative(const distribution<float> & outputs) const
+{
+    int no = outputs.size();
+    distribution<float> result(no);
+    second_derivative(&outputs[0], &result[0], no);
+    return result;
+}
+
+distribution<double>
+Transfer_Function::
+second_derivative(const distribution<double> & outputs) const
+{
+    int no = outputs.size();
+    distribution<double> result(no);
+    second_derivative(&outputs[0], &result[0], no);
+    return result;
+}
+
+
+/*****************************************************************************/
+/* STANDARD_TRANSFER_FUNCTION                                                */
+/*****************************************************************************/
+
 
 template<typename FloatIn>
 void
-Transfer_Function::
+Standard_Transfer_Function::
 transfer(const FloatIn * activation, FloatIn * outputs, int nvals,
          Transfer_Function_Type transfer_function)
 {
@@ -66,48 +153,27 @@ transfer(const FloatIn * activation, FloatIn * outputs, int nvals,
     }
 
     default:
-        throw Exception("Transfer_Function::transfer(): invalid transfer_function");
+        throw Exception("Standard_Transfer_Function::transfer(): invalid transfer_function");
     }
 }
 
 void
-Transfer_Function::
-transfer(const float * activation, float * outputs) const
+Standard_Transfer_Function::
+transfer(const float * activation, float * outputs, size_t n) const
 {
-    transfer(activation, outputs, this->outputs(), transfer_function);
+    transfer(activation, outputs, n, transfer_function);
 }
 
 void
-Transfer_Function::
-transfer(const double * activation, double * outputs) const
+Standard_Transfer_Function::
+transfer(const double * activation, double * outputs, size_t n) const
 {
-    transfer(activation, outputs, this->outputs(), transfer_function);
+    transfer(activation, outputs, n, transfer_function);
 }
 
-distribution<float>
-Transfer_Function::
-transfer(const distribution<float> & activation) const
-{
-    int no = outputs();
-    distribution<float> output(no);
-    transfer(&activation[0], &output[0]);
-    return output;
-}
-
-distribution<double>
-Transfer_Function::
-transfer(const distribution<double> & activation) const
-{
-    int no = outputs();
-    distribution<double> output(no);
-    transfer(&activation[0], &output[0]);
-    return output;
-}
-
-template<class Float>
 template<typename FloatIn>
 void
-Transfer_Function::
+Standard_Transfer_Function::
 derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
            Transfer_Function_Type transfer_function)
 {
@@ -133,56 +199,27 @@ derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
         break;
         
     default:
-        throw Exception("Transfer_Function::transfer(): invalid transfer_function");
+        throw Exception("Standard_Transfer_Function::transfer(): invalid transfer_function");
     }
 }
 
-distribution<float>
-Transfer_Function::
-derivative(const distribution<float> & outputs) const
+void
+Standard_Transfer_Function::
+derivative(const float * outputs, float * derivatives, size_t n) const
 {
-    if (outputs.size() != this->outputs())
-        throw Exception("derivative(): wrong size");
-    int no = this->outputs();
-    distribution<float> result(no);
-    derivative(&outputs[0], &result[0], no, transfer_function);
-    return result;
-}
-
-distribution<double>
-Transfer_Function::
-derivative(const distribution<double> & outputs) const
-{
-    if (outputs.size() != this->outputs())
-        throw Exception("derivative(): wrong size");
-    int no = this->outputs();
-    distribution<double> result(no);
-    derivative(&outputs[0], &result[0], no, transfer_function);
-    return result;
+    derivative(outputs, derivatives, n, transfer_function);
 }
 
 void
-Transfer_Function::
-derivative(const float * outputs,
-           float * derivatives) const
+Standard_Transfer_Function::
+derivative(const double * outputs, double * derivatives, size_t n) const
 {
-    int no = this->outputs();
-    derivative(outputs, derivatives, no, transfer_function);
+    derivative(outputs, derivatives, n, transfer_function);
 }
 
-void
-Transfer_Function::
-derivative(const double * outputs,
-           double * derivatives) const
-{
-    int no = this->outputs();
-    derivative(outputs, derivatives, no, transfer_function);
-}
-
-template<class Float>
 template<typename FloatIn>
 void
-Transfer_Function::
+Standard_Transfer_Function::
 second_derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
                   Transfer_Function_Type transfer_function)
 {
@@ -210,77 +247,31 @@ second_derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
 #endif
         
     default:
-        throw Exception("Transfer_Function::transfer(): second derivative not implemented "
+        throw Exception("Standard_Transfer_Function::transfer(): second derivative not implemented "
                         "for this transfer_function "
                         + ML::print(transfer_function));
     }
 }
 
-distribution<float>
-Transfer_Function::
-second_derivative(const distribution<float> & outputs) const
+void
+Standard_Transfer_Function::
+second_derivative(const float * outputs, float * second_derivatives,
+                  size_t n) const
 {
-    if (outputs.size() != this->outputs())
-        throw Exception("second_derivative(): wrong size");
-    int no = this->outputs();
-    distribution<float> result(no);
-    second_derivative(&outputs[0], &result[0], no, transfer_function);
-    return result;
-}
-
-distribution<double>
-Transfer_Function::
-second_derivative(const distribution<double> & outputs) const
-{
-    if (outputs.size() != this->outputs())
-        throw Exception("second_derivative(): wrong size");
-    int no = this->outputs();
-    distribution<double> result(no);
-    second_derivative(&outputs[0], &result[0], no, transfer_function);
-    return result;
+    second_derivative(outputs, second_derivatives, n, transfer_function);
 }
 
 void
-Transfer_Function::
-second_derivative(const float * outputs,
-                  float * second_derivatives) const
+Standard_Transfer_Function::
+second_derivative(const double * outputs, double * second_derivatives,
+                  size_t n) const
 {
-    int no = this->outputs();
-    second_derivative(outputs, second_derivatives, no, transfer_function);
-}
-
-void
-Transfer_Function::
-second_derivative(const double * outputs,
-                  double * second_derivatives) const
-{
-    int no = this->outputs();
-    second_derivative(outputs, second_derivatives, no, transfer_function);
-}
-
-void
-Transfer_Function::
-deltas(const float * outputs, const float * errors, float * deltas) const
-{
-    derivative(outputs, deltas);
-    int no = this->outputs();
-    for (unsigned i = 0;  i < no;  ++i)
-        deltas[i] *= errors[i];
-}
-
-void
-Transfer_Function::
-deltas(const double * outputs, const double * errors, double * deltas) const
-{
-    derivative(outputs, deltas);
-    int no = this->outputs();
-    for (unsigned i = 0;  i < no;  ++i)
-        deltas[i] *= errors[i];
+    second_derivative(outputs, second_derivatives, n, transfer_function);
 }
 
 std::pair<float, float>
-Transfer_Function::
-targets(float maximum, Transfer_Function_Type transfer_function)
+Standard_Transfer_Function::
+targets(float maximum) const
 {
     switch (transfer_function) {
     case TF_TANH:
@@ -292,23 +283,20 @@ targets(float maximum, Transfer_Function_Type transfer_function)
     }
 }
 
-void
-Transfer_Function::
-poly_serialize(ML::DB::Store_Writer & store) const
-{
-}
-
 std::string
-Transfer_Function::
+Standard_Transfer_Function::
 print() const
 {
+    return ML::print(transfer_function);
 }
 
-boost::shared_ptr<Transfer_Function>
-Transfer_Function::
-poly_reconstitute(ML::DB::Store_Reader & store)
-{
-}
+namespace {
+
+Register_Factory<Transfer_Function, Standard_Transfer_Function>
+    STF_REGISTER("Standard");
+
+} // file scope
+
 
 
 /*****************************************************************************/
@@ -318,11 +306,13 @@ poly_reconstitute(ML::DB::Store_Reader & store)
 boost::shared_ptr<Transfer_Function>
 create_transfer_function(const Transfer_Function_Type & function)
 {
+    return make_sp(new Standard_Transfer_Function(function));
 }
 
 boost::shared_ptr<Transfer_Function>
 create_transfer_function(const std::string & name)
 {
+    throw Exception("create_transfer_function(name): not implemented");
 }
 
 

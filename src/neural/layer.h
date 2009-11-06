@@ -31,18 +31,68 @@ public:
     Layer(const std::string & name,
           size_t inputs, size_t outputs);
 
+    /*************************************************************************/
+    /* INFO                                                                  */
+    /*************************************************************************/
+
     /** Dump as ASCII.  This will be big. */
     virtual std::string print() const = 0;
     
     /** Return the name of the type */
-    virtual std::string type() const = 0;
+    virtual std::string class_id() const = 0;
 
-    virtual void serialize(DB::Store_Writer & store) const = 0;
-    virtual void reconstitute(DB::Store_Reader & store) = 0;
+    size_t inputs() const { return inputs_; }
+    size_t outputs() const { return outputs_; }
+
+    /** Given the activation function and the maximum amount of the range
+        that we want to use (eg, 0.8 for asymptotic functions), what are
+        the minimum and maximum values that we want to use.
+
+        For example, tanh goes from -1 to 1, but asymptotically.  We would
+        normally want to go from -0.8 to 0.8, so that we didn't force too
+        hard to get there.
+    */
+    virtual std::pair<float, float> targets(float maximum) const = 0;
+
+    /** Check that all parameters are reasonable and invariants are met.
+        Will throw an exception if there is a problem. */
+    virtual void validate() const;
+
+
+    /*************************************************************************/
+    /* PARAMETERS                                                            */
+    /*************************************************************************/
 
     /** Return a reference to a parameters object that describes this layer's
         parameters.  It should provide a reference. */
     virtual boost::shared_ptr<Parameters> parameters() = 0;
+
+    /** Return the number of parameters (degrees of freedom) for the
+        layer. */
+    virtual size_t parameter_count() const = 0;
+
+    /** Fill with random weights. */
+    virtual void random_fill(float limit, Thread_Context & context) = 0;
+
+    virtual void zero_fill() = 0;
+
+    
+    /*************************************************************************/
+    /* SERIALIZATION                                                         */
+    /*************************************************************************/
+
+    virtual void serialize(DB::Store_Writer & store) const = 0;
+    virtual void reconstitute(DB::Store_Reader & store) = 0;
+
+    virtual Layer * make_copy() const = 0;
+
+    /** Make a copy that is not connected to those underneath. */
+    virtual Layer * deep_copy() const = 0;
+
+    void poly_serialize(ML::DB::Store_Writer & store) const;
+
+    static boost::shared_ptr<Layer>
+    poly_reconstitute(ML::DB::Store_Reader & store);
 
 
     /*************************************************************************/
@@ -96,8 +146,7 @@ public:
     virtual distribution<double>
     fprop(const distribution<double> & inputs,
           double * temp_space, size_t temp_space_size) const = 0;
-    
-               
+
 
     /*************************************************************************/
     /* BPROP                                                                 */
@@ -134,46 +183,10 @@ public:
 
     /** Does this implement bbprop? */
     virtual bool has_bbprop() const = 0;
-
+ 
     /* (todo) */
 #endif
 
-
-    /** Fill with random weights. */
-    virtual void random_fill(float limit, Thread_Context & context) = 0;
-
-    virtual void zero_fill() = 0;
-
-    /** Return the number of parameters (degrees of freedom) for the
-        layer. */
-    virtual size_t parameter_count() const = 0;
-
-    size_t inputs() const { return inputs_; }
-    size_t outputs() const { return outputs_; }
-
-    /** Check that all parameters are reasonable and invariants are met.
-        Will throw an exception if there is a problem. */
-    virtual void validate() const;
-
-    virtual Layer * make_copy() const = 0;
-
-    /** Make a copy that is not connected to those underneath. */
-    virtual Layer * deep_copy() const = 0;
-
-    void poly_serialize(ML::DB::Store_Writer & store) const;
-
-    static boost::shared_ptr<Layer>
-    poly_reconstitute(ML::DB::Store_Reader & store);
-
-    /** Given the activation function and the maximum amount of the range
-        that we want to use (eg, 0.8 for asymptotic functions), what are
-        the minimum and maximum values that we want to use.
-
-        For example, tanh goes from -1 to 1, but asymptotically.  We would
-        normally want to go from -0.8 to 0.8, so that we didn't force too
-        hard to get there.
-    */
-    virtual std::pair<float, float> targets(float maximum) const = 0;
 
 protected:
     std::string name_;

@@ -167,7 +167,7 @@ struct Dense_Layer : public Layer {
     virtual std::string print() const;
     
     /** Return the name of the type */
-    virtual std::string type() const;
+    virtual std::string class_id() const;
 
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store);
@@ -192,6 +192,10 @@ struct Dense_Layer : public Layer {
 
     // For testing purposes
     bool operator == (const Dense_Layer & other) const;
+
+private:
+    struct RegisterMe;
+    static RegisterMe register_me;
 };
 
 JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(typename Float, Dense_Layer<Float>);
