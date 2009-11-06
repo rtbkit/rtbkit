@@ -29,6 +29,8 @@ namespace ML {
 class Layer {
 
 protected:
+    struct NotOuterClass {};
+
     Layer(const std::string & name,
           size_t inputs, size_t outputs);
     
@@ -38,7 +40,7 @@ protected:
     
     void init(const std::string & name, size_t inputs, size_t outputs);
 
-    void swap(const Layer & other);
+    void swap(Layer & other);
 
 public:
     
@@ -80,6 +82,15 @@ public:
         parameters.  It should provide a reference. */
     Parameters_Ref & parameters() { return parameters_; }
     const Parameters_Ref & parameters() const { return parameters_; }
+
+    /** Update the parameters.  This should be called on the object whenever
+        anything happens that means that the parameters change at all (even
+        if they are just freed and re-allocated).
+
+        It will clear the current parameters and call add_parameters() on
+        them.
+    */
+    void update_parameters();
 
     /** Add all of our parameters to the given parameters object. */
     virtual void add_parameters(Parameters_Ref & params) = 0;

@@ -31,6 +31,46 @@ Layer(const std::string & name,
       size_t inputs, size_t outputs)
     : name_(name), inputs_(inputs), outputs_(outputs)
 {
+    // Parameters need to be set up in the constructor of the derived class
+}
+
+Layer::
+Layer(const Layer & other)
+    : name_(other.name_), inputs_(other.inputs_), outputs_(other.outputs_)
+{
+    // We don't copy the parameters; they need to be added in the constructor
+    // of the derived class
+}
+
+Layer &
+Layer::
+operator = (const Layer & other)
+{
+    if (&other == this) return *this;
+    name_ = other.name_;
+    inputs_ = other.inputs_;
+    outputs_ = other.outputs_;
+
+    return *this;
+}
+
+void
+Layer::
+init(const std::string & name, size_t inputs, size_t outputs)
+{
+    name_ = name;
+    inputs_ = inputs;
+    outputs_ = outputs;
+    parameters_.clear();
+}
+
+void
+Layer::
+swap(Layer & other)
+{
+    std::swap(name_, other.name_);
+    std::swap(inputs_, other.inputs_);
+    std::swap(outputs_, other.outputs_);
 }
 
 void

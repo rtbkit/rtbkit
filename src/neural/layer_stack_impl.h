@@ -14,6 +14,19 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* LAYER_STACK                                                               */
+/*****************************************************************************/
+
+
+template<class LayerT>
+Layer_Stack<LayerT>::
+Layer_Stack()
+    : Layer("", 0, 0)
+{
+}
+
+
 template<class LayerT>
 Layer_Stack<LayerT>::
 Layer_Stack(const std::string & name)
@@ -26,6 +39,25 @@ template<class OtherLayer>
 Layer_Stack<LayerT>::
 Layer_Stack(const Layer_Stack<OtherLayer> & other)
     : Layer(other.name(), 0, 0)
+{
+}
+
+template<class LayerT>
+Layer_Stack<LayerT> &
+Layer_Stack<LayerT>::
+operator = (const Layer_Stack & other)
+{
+    Layer::operator = (other);
+    layers_ = other.layers_;
+    //if (typeid(*this) == typeid(Layer_Stack<LayerT>))
+    //    add_parameters();
+    return *this;
+}
+
+template<class LayerT>
+void
+Layer_Stack<LayerT>::
+swap(Layer_Stack & other)
 {
 }
 
@@ -311,6 +343,16 @@ parameter_count() const
     for (unsigned i = 0;  i < size();  ++i)
         result += layers_[i]->parameter_count();
     return result;
+}
+
+template<class LayerT>
+std::pair<float, float>
+Layer_Stack<LayerT>::
+targets(float maximum) const
+{
+    if (empty())
+        throw Exception("targets(): doesn't work for empty stack");
+    return layers_.back()->targets(maximum);
 }
 
 template<class LayerT>

@@ -7,7 +7,6 @@
 
 #include "layer_stack.h"
 #include "dense_layer.h"
-#include "twoway_layer.h"
 #include "layer_stack_impl.h"
 #include "boosting/registry.h"
 
@@ -16,7 +15,6 @@ namespace ML {
 template class Layer_Stack<Layer>;
 template class Layer_Stack<Dense_Layer<float> >;
 template class Layer_Stack<Dense_Layer<double> >;
-template class Layer_Stack<Twoway_Layer>;
 
 namespace {
 

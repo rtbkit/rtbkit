@@ -23,9 +23,12 @@ struct Layer_Stack : public Layer {
 
     Layer_Stack();
     Layer_Stack(const std::string & name);
+    Layer_Stack(const Layer_Stack & other);
 
     template<class OtherLayer>
     Layer_Stack(const Layer_Stack<OtherLayer> & other);
+
+    Layer_Stack & operator = (const Layer_Stack & other);
 
     void swap(Layer_Stack & other);
 
@@ -34,7 +37,7 @@ struct Layer_Stack : public Layer {
 
     void clear();
 
-    size_t max_width() const;
+    size_t max_width() const { return max_width_; }
 
     const LayerT & operator [] (int index) const { return *layers_.at(index); }
     LayerT & operator [] (int index) { return *layers_.at(index); }

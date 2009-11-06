@@ -481,6 +481,14 @@ parameter_count() const
 }
 
 template<typename Float>
+std::pair<float, float>
+Dense_Layer<Float>::
+targets(float maximum) const
+{
+    return transfer_function->targets(maximum);
+}
+
+template<typename Float>
 bool
 Dense_Layer<Float>::
 operator == (const Dense_Layer & other) const

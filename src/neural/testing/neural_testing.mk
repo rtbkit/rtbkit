@@ -2,4 +2,5 @@
 # Jeremy Barnes, 2 November 2009
 # Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
 
+$(eval $(call test,parameters_test,neural,boost))
 $(eval $(call test,dense_layer_test,neural,boost))

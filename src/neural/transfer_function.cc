@@ -110,6 +110,66 @@ second_derivative(const distribution<double> & outputs) const
 /* STANDARD_TRANSFER_FUNCTION                                                */
 /*****************************************************************************/
 
+Standard_Transfer_Function::
+Standard_Transfer_Function(Transfer_Function_Type transfer_function)
+    : transfer_function(transfer_function)
+{
+}
+
+std::string
+Standard_Transfer_Function::
+print() const
+{
+    return ML::print(transfer_function);
+}
+
+Range
+Standard_Transfer_Function::
+range() const
+{
+    throw Exception("Standard_Transfer_Function::range(): not implemented");
+}
+
+std::pair<float, float>
+Standard_Transfer_Function::
+targets(float maximum) const
+{
+    switch (transfer_function) {
+    case TF_TANH:
+    case TF_IDENTITY: return std::make_pair(-maximum, maximum);
+    case TF_LOGSOFTMAX:
+    case TF_LOGSIG: return std::make_pair(0.0f, maximum);
+    default:
+        throw Exception("Layer::targets(): invalid transfer_function");
+    }
+}
+
+void
+Standard_Transfer_Function::
+serialize(DB::Store_Writer & store) const
+{
+    store << (char)0 // version
+          << transfer_function;
+}
+
+void
+Standard_Transfer_Function::
+reconstitute(DB::Store_Reader & store)
+{
+    char version;
+    store >> version;
+    if (version != 0)
+        throw Exception("Standard_Transfer_Function::reconstitute(): "
+                        "unknown version");
+    store >> transfer_function;
+}
+
+std::string
+Standard_Transfer_Function::
+class_id() const
+{
+    return "Standard";
+}
 
 template<typename FloatIn>
 void
@@ -267,27 +327,6 @@ second_derivative(const double * outputs, double * second_derivatives,
                   size_t n) const
 {
     second_derivative(outputs, second_derivatives, n, transfer_function);
-}
-
-std::pair<float, float>
-Standard_Transfer_Function::
-targets(float maximum) const
-{
-    switch (transfer_function) {
-    case TF_TANH:
-    case TF_IDENTITY: return std::make_pair(-maximum, maximum);
-    case TF_LOGSOFTMAX:
-    case TF_LOGSIG: return std::make_pair(0.0f, maximum);
-    default:
-        throw Exception("Layer::targets(): invalid transfer_function");
-    }
-}
-
-std::string
-Standard_Transfer_Function::
-print() const
-{
-    return ML::print(transfer_function);
 }
 
 namespace {
