@@ -452,7 +452,10 @@ bprop(const distribution<float> & output_errors,
                             missing_replacements[i] * example_weight);
             
             gradient.vector(2, "missing_replacements")
-                .update(&weights[i][0], dbias, example_weight);
+                .update_element(i,
+                                (example_weight
+                                 * SIMD::vec_dotprod_dp(&weights[i][0], dbias,
+                                                        no)));
         }
     }
 }

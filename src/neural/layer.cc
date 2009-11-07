@@ -75,6 +75,14 @@ swap(Layer & other)
 
 void
 Layer::
+update_parameters()
+{
+    parameters_.clear();
+    add_parameters(parameters_);
+}
+
+void
+Layer::
 poly_serialize(ML::DB::Store_Writer & store) const
 {
     Registry<Layer>::singleton().serialize(store, this);

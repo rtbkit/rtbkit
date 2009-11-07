@@ -95,6 +95,50 @@ swap(Parameter_Value & other)
 /* PARAMETERS                                                                */
 /*****************************************************************************/
 
+Vector_Parameter &
+Parameters::
+vector(int index, const std::string & name)
+{
+    if (index < 0 || index >= params.size())
+        throw Exception("invalid index");
+    if (params[index].name() != name)
+        throw Exception("wrong name");
+    return params[index].vector();
+}
+
+const Vector_Parameter &
+Parameters::
+vector(int index, const std::string & name) const
+{
+    if (index < 0 || index >= params.size())
+        throw Exception("invalid index");
+    if (params[index].name() != name)
+        throw Exception("wrong name");
+    return params[index].vector();
+}
+
+Matrix_Parameter &
+Parameters::
+matrix(int index, const std::string & name)
+{
+    if (index < 0 || index >= params.size())
+        throw Exception("invalid index");
+    if (params[index].name() != name)
+        throw Exception("wrong name");
+    return params[index].matrix();
+}
+
+const Matrix_Parameter &
+Parameters::
+matrix(int index, const std::string & name) const
+{
+    if (index < 0 || index >= params.size())
+        throw Exception("invalid index");
+    if (params[index].name() != name)
+        throw Exception("wrong name");
+    return params[index].matrix();
+}
+
 float *
 Parameters::
 copy_to(float * where, float * limit) const

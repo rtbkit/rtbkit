@@ -40,6 +40,15 @@ Layer_Stack<LayerT>::
 Layer_Stack(const Layer_Stack<OtherLayer> & other)
     : Layer(other.name(), 0, 0)
 {
+    throw Exception("not finished");
+}
+
+template<class LayerT>
+Layer_Stack<LayerT>::
+Layer_Stack(const Layer_Stack & other)
+    : Layer(other.name(), 0, 0)
+{
+    throw Exception("not finished");
 }
 
 template<class LayerT>
@@ -51,6 +60,7 @@ operator = (const Layer_Stack & other)
     layers_ = other.layers_;
     //if (typeid(*this) == typeid(Layer_Stack<LayerT>))
     //    add_parameters();
+    throw Exception("not finished");
     return *this;
 }
 
@@ -59,6 +69,7 @@ void
 Layer_Stack<LayerT>::
 swap(Layer_Stack & other)
 {
+    throw Exception("not implemented");
 }
 
 template<class LayerT>
@@ -89,6 +100,16 @@ add(boost::shared_ptr<LayerT> layer)
     layers_.push_back(layer);
     layer->add_parameters(parameters_.subparams(layers_.size() - 1,
                                                 layer->name()));
+}
+
+template<class LayerT>
+void
+Layer_Stack<LayerT>::
+clear()
+{
+    layers_.clear();
+    inputs_ = outputs_ = 0;
+    update_parameters();
 }
 
 template<class LayerT>

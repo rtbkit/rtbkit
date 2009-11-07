@@ -16,7 +16,7 @@
 #include "boosting/thread_context.h"
 #include "db/persistent_fwd.h"
 #include "stats/distribution.h"
-
+#include "arch/simd_vector.h"
 
 namespace ML {
 
@@ -99,14 +99,22 @@ struct Vector_Parameter : public Parameter_Value {
     {
     }
 
+    // Update: y += kx
+    virtual void update(const float * x, float k) = 0;
+    virtual void update(const double * x, double k) = 0;
 
+    void update(const distribution<float> & dist, float k);
+    void update(const distribution<double> & dist, double k);
+
+    virtual void update_element(int element, float update_by) = 0;
+    virtual void update_element(int element, double update_by) = 0;
 };
 
 template<typename Underlying>
 struct Vector_RefT : public Vector_Parameter {
 
     Vector_RefT(const std::string & name,
-               const Underlying * array, size_t size)
+                Underlying * array, size_t size)
         : Vector_Parameter(name), array_(array), size_(size)
     {
     }
@@ -147,9 +155,33 @@ struct Vector_RefT : public Vector_Parameter {
             throw Exception("Vector_Ref::compatible_ref(): wrong size");
         return new Vector_RefT<double>(name(), first, size_);
     }
+
+    virtual void update(const float * x, float k)
+    {
+        SIMD::vec_add(array_, k, x, array_, size_);
+    }
+
+    virtual void update(const double * x, double k)
+    {
+        SIMD::vec_add(array_, k, x, array_, size_);
+    }
+
+    virtual void update_element(int element, float update_by)
+    {
+        if (element < 0 || element >= size_)
+            throw Exception("update_element(): out of range");
+        array_[element] += update_by;
+    }
+
+    virtual void update_element(int element, double update_by)
+    {
+        if (element < 0 || element >= size_)
+            throw Exception("update_element(): out of range");
+        array_[element] += update_by;
+    }
     
 protected:
-    const Underlying * array_;
+    Underlying * array_;
     size_t size_;
 };
 
@@ -159,14 +191,18 @@ struct Matrix_Parameter : public Parameter_Value {
     {
     }
 
+    virtual void update_row(int row, const float * x, float k = 1.0) = 0;
+    virtual void update_row(int row, const double * x, double k = 1.0) = 0;
 
+    void update_row(int row, const distribution<float> & x, float k);
+    void update_row(int row, const distribution<double> & x, float k);
 };
 
 template<typename Underlying>
 struct Matrix_RefT : public Matrix_Parameter {
 
     Matrix_RefT(const std::string & name,
-                const Underlying * array, size_t size1, size_t size2)
+                Underlying * array, size_t size1, size_t size2)
         : Matrix_Parameter(name),
           array_(array), size1_(size1), size2_(size2)
     {
@@ -212,9 +248,25 @@ struct Matrix_RefT : public Matrix_Parameter {
             throw Exception("Matrix_Ref::compatible_ref(): wrong size");
         return new Matrix_RefT<double>(name(), first, size1_, size2_);
     }
+
+    virtual void update_row(int row, const float * x, float k = 1.0)
+    {
+        if (row < 0 || row >= size1_)
+            throw Exception("update_row: invalid row");
+        SIMD::vec_add(array_ + (size1_ * row), k, x,
+                      array_ + (size1_ * row), size2_);
+    }
+
+    virtual void update_row(int row, const double * x, double k = 1.0)
+    {
+        if (row < 0 || row >= size1_)
+            throw Exception("update_row: invalid row");
+        SIMD::vec_add(array_ + (size1_ * row), k, x,
+                      array_ + (size1_ * row), size2_);
+    }
     
 protected:
-    const Underlying * array_;
+    Underlying * array_;
     size_t size1_, size2_;
 };
 
