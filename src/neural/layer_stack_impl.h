@@ -162,7 +162,7 @@ reconstitute(DB::Store_Reader & store)
 template<class LayerT>
 void
 Layer_Stack<LayerT>::
-add_parameters(Parameters_Ref & params)
+add_parameters(Parameters & params)
 {
     for (unsigned i = 0;  i < layers_.size();  ++i)
         layers_[i]->add_parameters(params.subparams(i, layers_[i]->name()));

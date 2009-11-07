@@ -93,7 +93,7 @@ public:
     void update_parameters();
 
     /** Add all of our parameters to the given parameters object. */
-    virtual void add_parameters(Parameters_Ref & params) = 0;
+    virtual void add_parameters(Parameters & params) = 0;
 
     /** Return the number of parameters (degrees of freedom) for the
         layer. */

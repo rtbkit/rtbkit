@@ -7,7 +7,8 @@
 
 #include "parameters.h"
 #include "parameters_impl.h"
-
+#include "arch/demangle.h"
+#include <typeinfo>
 
 namespace ML {
 
@@ -32,6 +33,61 @@ compatible_copy(double * first, double * last) const
     auto_ptr<Parameter_Value> result(compatible_ref(first, last));
     copy_to(first, last);
     return result.release();
+}
+
+Parameters &
+Parameter_Value::
+parameters()
+{
+    throw Exception("attempt to obtain parameters from Parameter_Value of "
+                    "class " + demangle(typeid(*this).name()));
+}
+
+const Parameters &
+Parameter_Value::
+parameters() const
+{
+    throw Exception("attempt to obtain parameters from Parameter_Value of "
+                    "class " + demangle(typeid(*this).name()));
+}
+
+Vector_Parameter &
+Parameter_Value::
+vector()
+{
+    throw Exception("attempt to obtain vector from Parameter_Value of "
+                    "class " + demangle(typeid(*this).name()));
+}
+
+const Vector_Parameter &
+Parameter_Value::
+vector() const
+{
+    throw Exception("attempt to obtain vector from Parameter_Value of "
+                    "class " + demangle(typeid(*this).name()));
+}
+
+Matrix_Parameter &
+Parameter_Value::
+matrix()
+{
+    throw Exception("attempt to obtain matrix from Parameter_Value of "
+                    "class " + demangle(typeid(*this).name()));
+}
+
+const Matrix_Parameter &
+Parameter_Value::
+matrix() const
+{
+    throw Exception("attempt to obtain matrix from Parameter_Value of "
+                    "class " + demangle(typeid(*this).name()));
+}
+
+void
+Parameter_Value::
+swap(Parameter_Value & other)
+{
+    name_.swap(other.name_);
 }
 
 
@@ -276,12 +332,18 @@ Parameters &
 Parameters::
 subparams(int index, const std::string & name)
 {
+    if (index < 0 || index >= params.size())
+        throw Exception("Parameters::subparams(): invalid parameters");
+    return params[index].parameters();
 }
 
 const Parameters &
 Parameters::
 subparams(int index, const std::string & name) const
 {
+    if (index < 0 || index >= params.size())
+        throw Exception("Parameters::subparams(): invalid parameters");
+    return params[index].parameters();
 }
 
 void
@@ -291,12 +353,14 @@ add_subparams(int index, Layer & layer)
 }
     
 Parameters::
-Parameters()
+Parameters(const std::string & name)
+    : Parameter_Value(name)
 {
 }
 
 Parameters::
 Parameters(const Parameters & other)
+    : Parameter_Value(other.name())
 {
 }
 
@@ -309,33 +373,39 @@ operator = (const Parameters & other)
 
 void
 Parameters::
-swap(Parameters & other) const
+swap(Parameters & other)
 {
+    Parameter_Value::swap(other);
+    params.swap(other.params);
 }
 
 void
 Parameters::
 clear()
 {
+    params.clear();
 }
 
 
 /*****************************************************************************/
-/* PARAMETER_REF                                                             */
+/* PARAMETERS_REF                                                            */
 /*****************************************************************************/
 
-Parameters_Ref & subparams(int index, const std::string & name)
+Parameters_Ref::
+Parameters_Ref()
+    : Parameters("")
 {
 }
 
-const Parameters_Ref &
-subparams(int index, const std::string & name) const
+Parameters_Ref::
+Parameters_Ref(const std::string & name)
+    : Parameters(name)
 {
 }
 
 
 /*****************************************************************************/
-/* PARAMETER_COPY                                                            */
+/* PARAMETERS_COPY                                                           */
 /*****************************************************************************/
 
 template class Parameters_Copy<float>;

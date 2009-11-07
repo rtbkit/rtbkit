@@ -21,17 +21,19 @@ namespace ML {
 template<class Float>
 Parameters_Copy<Float>::
 Parameters_Copy()
+    : Parameters("")
 {
 }
 
 template<class Float>
 Parameters_Copy<Float>::
 Parameters_Copy(const Parameters_Copy & other)
+    : Parameters(other.name())
 {
     values.resize(other.parameter_count());
 
     // Copy all of the parameters in, creating the structure as we go
-    Float * start = &values[0], * end = start + values.size();
+    Float * start = &values[0], * finish = start + values.size();
 
     // Copy the structure over
     int i = 0;
@@ -39,10 +41,10 @@ Parameters_Copy(const Parameters_Copy & other)
              it = other.params.begin(),
              end = other.params.end();
          it != end;  ++it, ++i) {
-        add(i, it->compatible_copy(start, end));
+        add(i, it->compatible_copy(start, finish));
     }
 
-    if (start != end)
+    if (start != finish)
         throw Exception("parameters_copy(): wrong length");
 }
 
@@ -57,11 +59,12 @@ operator = (const Parameters_Copy & other)
 template<class Float>
 Parameters_Copy<Float>::
 Parameters_Copy(const Parameters & other)
+    : Parameters(other.name())
 {
     values.resize(other.parameter_count());
 
     // Copy all of the parameters in, creating the structure as we go
-    Float * start = &values[0], * end = start + values.size();
+    Float * start = &values[0], * finish = start + values.size();
 
     // Copy the structure over
     int i = 0;
@@ -69,16 +72,17 @@ Parameters_Copy(const Parameters & other)
              it = other.params.begin(),
              end = other.params.end();
          it != end;  ++it, ++i) {
-        add(i, it->compatible_copy(start, end));
+        add(i, it->compatible_copy(start, finish));
     }
 
-    if (start != end)
+    if (start != finish)
         throw Exception("parameters_copy(): wrong length");
 }
 
 template<class Float>
 Parameters_Copy<Float>::
 Parameters_Copy(const Layer & layer)
+    : Parameters(layer.name())
 {
     const Parameters_Ref & params
         = layer.parameters();

@@ -71,7 +71,7 @@ struct Layer_Stack : public Layer {
     virtual void reconstitute(DB::Store_Reader & store);
 
     /** Add all of our parameters to the given parameters object. */
-    virtual void add_parameters(Parameters_Ref & params);
+    virtual void add_parameters(Parameters & params);
 
 
     /*************************************************************************/

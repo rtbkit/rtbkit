@@ -445,43 +445,6 @@ backprop_example(const distribution<double> & outputs,
                  distribution<double> & input_deltas,
                  Twoway_Layer_Updates & updates) const
 {
-    distribution<double> dbias = derivative(outputs) * output_deltas;
-
-    updates.bias += dbias;
-    
-    int ni = this->inputs(), no = this->outputs();
-
-    input_deltas.resize(ni);
-
-    for (unsigned i = 0;  i < ni;  ++i) {
-        bool was_missing = isnan(inputs[i]);
-        input_deltas[i] = 0;
-        
-        if (!was_missing) {
-            SIMD::vec_add(&updates.weights[i][0], inputs[i],
-                          &dbias[0], &updates.weights[i][0], no);
-            input_deltas[i]
-                = SIMD::vec_dotprod_dp(&weights[i][0],
-                                       &dbias[0], no);
-        }
-        else if (use_dense_missing) {
-            SIMD::vec_add(&updates.missing_activations[i][0],
-                          &dbias[0],
-                          &updates.missing_activations[i][0], no);
-        }
-        else {
-            // Missing
-
-            // Update the weights
-            SIMD::vec_add(&updates.weights[i][0], missing_replacements[i],
-                          &dbias[0], &updates.weights[i][0], no);
-            
-            // Update the missing replacement
-            updates.missing_activations[i]
-                += SIMD::vec_dotprod_dp(&weights[i][0],
-                                        &dbias[0], no);
-        }
-    }
 }
 
 template<typename Float>

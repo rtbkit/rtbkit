@@ -67,7 +67,7 @@ Dense_Layer(const std::string & name,
 template<typename Float>
 void
 Dense_Layer<Float>::
-add_parameters(Parameters_Ref & params)
+add_parameters(Parameters & params)
 {
     params
         .add(0, "weights", weights)
@@ -81,7 +81,7 @@ add_parameters(Parameters_Ref & params)
         params.add(2, "missing_replacements", missing_replacements);
         break;
     case MV_DENSE:
-        params.add(3, "missing_activations", missing_activations);
+        params.add(2, "missing_activations", missing_activations);
         break;
     default:
         throw Exception("Dense_Layer::parameters(): none there");
@@ -348,6 +348,125 @@ activation(const distribution<double> & preprocessed) const
     distribution<double> output(no);
     activation(&preprocessed[0], &output[0]);
     return output;
+}
+
+template<typename Float>
+size_t
+Dense_Layer<Float>::
+fprop_temporary_space_required() const
+{
+    // We just need the outputs...
+    return inputs() + outputs();
+}
+
+template<typename Float>
+distribution<float>
+Dense_Layer<Float>::
+fprop(const distribution<float> & inputs,
+      float * temp_space, size_t temp_space_size) const
+{
+    int ni = this->inputs(), no = this->outputs();
+
+    if (temp_space_size != ni + no)
+        throw Exception("Dense_Layer::fprop(): wrong size");
+    distribution<float> result = apply(inputs);
+    std::copy(inputs.begin(), inputs.end(), temp_space);
+    std::copy(result.begin(), result.end(), temp_space + ni);
+    return result;
+}
+
+template<typename Float>
+distribution<double>
+Dense_Layer<Float>::
+fprop(const distribution<double> & inputs,
+      double * temp_space, size_t temp_space_size) const
+{
+    int ni = this->inputs(), no = this->outputs();
+
+    if (temp_space_size != ni + no)
+        throw Exception("Dense_Layer::fprop(): wrong size");
+    distribution<double> result = apply(inputs);
+    std::copy(inputs.begin(), inputs.end(), temp_space);
+    std::copy(result.begin(), result.end(), temp_space + ni);
+    return result;
+}
+
+template<typename Float>
+void
+Dense_Layer<Float>::
+bprop(const distribution<float> & output_errors,
+      float * temp_space, size_t temp_space_size,
+      Parameters & gradient,
+      distribution<float> & input_errors,
+      double example_weight,
+      bool calc_input_errors) const
+{
+    if (temp_space_size != outputs())
+        throw Exception("Dense_Layer::bprop(): wrong temp size");
+
+    int ni = this->inputs(), no = this->outputs();
+
+    const float * inputs = temp_space;
+    const float * outputs = temp_space + ni;
+
+    // Differentiate the output function
+    float derivs[no];
+    transfer_function->derivative(outputs, derivs, no);
+
+    // Bias updates are simply derivs in multiplied by transfer deriv
+    float dbias[no];
+    SIMD::vec_prod(derivs, &output_errors[0], dbias, no);
+
+    gradient.vector(0, "bias").update(dbias, example_weight);
+
+    if (calc_input_errors) input_errors.resize(ni);
+
+    for (unsigned i = 0;  i < ni;  ++i) {
+        bool was_missing = isnan(inputs[i]);
+        if (calc_input_errors) input_errors[i] = 0;
+        
+        if (!was_missing) {
+            gradient.matrix(1, "weights")
+                .update_row(i, dbias, inputs[i] * example_weight);
+
+            if (calc_input_errors)
+                input_errors[i]
+                    = SIMD::vec_dotprod_dp(&weights[i][0],
+                                           &dbias[0], no);
+        }
+        else if (missing_values == MV_NONE)
+            throw Exception("MV_NONE but missing value");
+        else if (missing_values == MV_ZERO) {
+            // No update as everything is multiplied by zero
+        }
+        else if (missing_values == MV_DENSE) {
+            gradient.matrix(2, "missing_activations")
+                .update_row(i, dbias, example_weight);
+        }
+        else if (missing_values == MV_INPUT) {
+            // Missing
+
+            // Update the weights
+            gradient.matrix(1, "weights")
+                .update_row(i, dbias,
+                            missing_replacements[i] * example_weight);
+            
+            gradient.vector(2, "missing_replacements")
+                .update(&weights[i][0], dbias, example_weight);
+        }
+    }
+}
+
+template<typename Float>
+void
+Dense_Layer<Float>::
+bprop(const distribution<double> & output_errors,
+      double * temp_space, size_t temp_space_size,
+      Parameters & gradient,
+      distribution<double> & input_errors,
+      double example_weight,
+      bool calculate_input_errors) const
+{
 }
 
 namespace {

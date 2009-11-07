@@ -20,8 +20,11 @@
 
 namespace ML {
 
-class Layer;
 
+class Layer;
+class Parameters;
+class Vector_Parameter;
+class Matrix_Parameter;
 
 
 /*****************************************************************************/
@@ -76,16 +79,35 @@ struct Parameter_Value : boost::noncopyable {
 
     std::string name() const { return name_; }
 
+    virtual Parameters & parameters();
+    virtual const Parameters & parameters() const;
+
+    virtual Vector_Parameter & vector();
+    virtual const Vector_Parameter & vector() const;
+
+    virtual Matrix_Parameter & matrix();
+    virtual const Matrix_Parameter & matrix() const;
+
 protected:
     std::string name_;
+    void swap(Parameter_Value & other);
+};
+
+struct Vector_Parameter : public Parameter_Value {
+    Vector_Parameter(const std::string & name)
+        : Parameter_Value(name)
+    {
+    }
+
+
 };
 
 template<typename Underlying>
-struct Vector_Ref : public Parameter_Value {
+struct Vector_RefT : public Vector_Parameter {
 
-    Vector_Ref(const std::string & name,
+    Vector_RefT(const std::string & name,
                const Underlying * array, size_t size)
-        : Parameter_Value(name), array_(array), size_(size)
+        : Vector_Parameter(name), array_(array), size_(size)
     {
     }
 
@@ -115,7 +137,7 @@ struct Vector_Ref : public Parameter_Value {
     {
         if (first + size_ != last)
             throw Exception("Vector_Ref::compatible_ref(): wrong size");
-        return new Vector_Ref<float>(name(), first, size_);
+        return new Vector_RefT<float>(name(), first, size_);
     }
 
     virtual Parameter_Value *
@@ -123,7 +145,7 @@ struct Vector_Ref : public Parameter_Value {
     {
         if (first + size_ != last)
             throw Exception("Vector_Ref::compatible_ref(): wrong size");
-        return new Vector_Ref<double>(name(), first, size_);
+        return new Vector_RefT<double>(name(), first, size_);
     }
     
 protected:
@@ -131,12 +153,21 @@ protected:
     size_t size_;
 };
 
-template<typename Underlying>
-struct Matrix_Ref : public Parameter_Value {
+struct Matrix_Parameter : public Parameter_Value {
+    Matrix_Parameter(const std::string & name)
+        : Parameter_Value(name)
+    {
+    }
 
-    Matrix_Ref(const std::string & name,
-               const Underlying * array, size_t size1, size_t size2)
-        : Parameter_Value(name),
+
+};
+
+template<typename Underlying>
+struct Matrix_RefT : public Matrix_Parameter {
+
+    Matrix_RefT(const std::string & name,
+                const Underlying * array, size_t size1, size_t size2)
+        : Matrix_Parameter(name),
           array_(array), size1_(size1), size2_(size2)
     {
     }
@@ -170,7 +201,7 @@ struct Matrix_Ref : public Parameter_Value {
         size_t n = parameter_count();
         if (first + n != last)
             throw Exception("Matrix_Ref::compatible_ref(): wrong size");
-        return new Matrix_Ref<float>(name(), first, size1_, size2_);
+        return new Matrix_RefT<float>(name(), first, size1_, size2_);
     }
 
     virtual Parameter_Value *
@@ -179,7 +210,7 @@ struct Matrix_Ref : public Parameter_Value {
         size_t n = parameter_count();
         if (first + n != last)
             throw Exception("Matrix_Ref::compatible_ref(): wrong size");
-        return new Matrix_Ref<double>(name(), first, size1_, size2_);
+        return new Matrix_RefT<double>(name(), first, size1_, size2_);
     }
     
 protected:
@@ -205,7 +236,7 @@ struct Parameters : public Parameter_Value {
         std::vector<Float> & values)
     {
         return add(index,
-                   new Vector_Ref<Float>(name, &values[0], values.size()));
+                   new Vector_RefT<Float>(name, &values[0], values.size()));
     }
     
     /** Add a matrix of values to the parameters */
@@ -216,8 +247,9 @@ struct Parameters : public Parameter_Value {
         boost::multi_array<Float, 2> & values)
     {
         return add(index,
-                   new Matrix_Ref<Float>(name, values.data(),
-                                         values.shape()[0], values.shape()[1]));
+                   new Matrix_RefT<Float>(name, values.data(),
+                                          values.shape()[0],
+                                          values.shape()[1]));
     }
 
     size_t parameter_count() const;
@@ -249,6 +281,18 @@ struct Parameters : public Parameter_Value {
 
     virtual void add_subparams(int index, Layer & layer);
 
+    Vector_Parameter & vector(int index, const std::string & name);
+    const Vector_Parameter &
+    vector(int index, const std::string & name) const;
+    using Parameter_Value::vector;
+
+
+    Matrix_Parameter & matrix(int index, const std::string & name);
+    const Matrix_Parameter &
+    matrix(int index, const std::string & name) const;
+    using Parameter_Value::matrix;
+
+
     /** Concrete copy_to implementations */
     virtual float * copy_to(float * where, float * limit) const;
     virtual double * copy_to(double * where, double * limit) const;
@@ -267,6 +311,9 @@ struct Parameters : public Parameter_Value {
     compatible_copy(float * first, float * last) const;
     virtual Parameters *
     compatible_copy(double * first, double * last) const;
+
+    virtual Parameters & parameters() { return *this; }
+    virtual const Parameters & parameters() const { return *this; }
 
     /** Remove all parameter references from this object.  Doesn't actually
         modify any of the parameter values. */
@@ -287,7 +334,7 @@ protected:
 
     Parameters & operator = (const Parameters & other);
 
-    void swap(Parameters & other) const;
+    void swap(Parameters & other);
 
     std::hash_map<std::string, int> by_name;
     typedef boost::ptr_vector<Parameter_Value> Params;
@@ -304,9 +351,8 @@ protected:
 /** Parameters that are stored somewhere else but referenced here. */
 
 struct Parameters_Ref : public Parameters {
-    virtual Parameters_Ref & subparams(int index, const std::string & name);
-    virtual const Parameters_Ref &
-    subparams(int index, const std::string & name) const;
+    Parameters_Ref();
+    Parameters_Ref(const std::string & name);
 };
 
 
