@@ -494,8 +494,16 @@ Parameters &
 Parameters::
 subparams(int index, const std::string & name)
 {
-    if (index < 0 || index >= params.size())
+    if (index < 0 || index > params.size()) {
+        cerr << "index = " << index << endl;
+        cerr << "name = " << name << endl;
+        cerr << "params.size() = " << params.size() << endl;
         throw Exception("Parameters::subparams(): invalid parameters");
+    }
+    if (index == params.size()) {
+        params.push_back(new Parameters_Ref(name));
+    }
+
     return params[index].parameters();
 }
 
@@ -503,8 +511,12 @@ const Parameters &
 Parameters::
 subparams(int index, const std::string & name) const
 {
-    if (index < 0 || index >= params.size())
+    if (index < 0 || index >= params.size()) {
+        cerr << "index = " << index << endl;
+        cerr << "name = " << name << endl;
+        cerr << "params.size() = " << params.size() << endl;
         throw Exception("Parameters::subparams(): invalid parameters");
+    }
     return params[index].parameters();
 }
 

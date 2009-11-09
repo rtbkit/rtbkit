@@ -22,6 +22,12 @@ namespace ML {
 /* LAYER_STACK                                                               */
 /*****************************************************************************/
 
+/** This class is a stack of layers connected in a simple fashion: each
+    layer takes as its input the output of the previous layer.
+
+    Another class will be written for more complicated arrangements.
+*/
+
 template<class LayerT>
 struct Layer_Stack : public Layer {
 

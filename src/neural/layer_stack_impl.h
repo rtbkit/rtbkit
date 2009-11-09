@@ -39,7 +39,8 @@ Layer_Stack<LayerT>::
 Layer_Stack(const Layer_Stack & other)
     : Layer(other.name(), 0, 0)
 {
-    throw Exception("not finished");
+    for (unsigned i = 0;  i < other.size();  ++i)
+        add(other.layers_[i]);
 }
 
 template<class LayerT>
@@ -47,11 +48,8 @@ Layer_Stack<LayerT> &
 Layer_Stack<LayerT>::
 operator = (const Layer_Stack & other)
 {
-    Layer::operator = (other);
-    layers_ = other.layers_;
-    //if (typeid(*this) == typeid(Layer_Stack<LayerT>))
-    //    add_parameters();
-    throw Exception("not finished");
+    Layer_Stack new_me(other);
+    swap(new_me);
     return *this;
 }
 
@@ -60,7 +58,9 @@ void
 Layer_Stack<LayerT>::
 swap(Layer_Stack & other)
 {
-    throw Exception("not implemented");
+    Layer::swap(other);
+    std::swap(max_width_, other.max_width_);
+    layers_.swap(other.layers_);
 }
 
 template<class LayerT>
@@ -133,7 +133,8 @@ serialize(DB::Store_Writer & store) const
 {
     using namespace DB;
 
-    store << (char)0 // version
+    store << (char)1 // version
+          << name()
           << compact_size_t(layers_.size());
 
     for (unsigned i = 0;  i < size();  ++i)
@@ -151,11 +152,15 @@ reconstitute(DB::Store_Reader & store)
 
     char version;
     store >> version;
-    if (version != 0)
+    if (version != 1)
         throw Exception("Layer_Stack::reconstitute(): invalid version");
 
+    store >> name_;
+
+    clear();
+
     compact_size_t sz(store);
-    layers_.resize(sz);
+    layers_.reserve(sz);
 
     for (unsigned i = 0;  i < sz;  ++i) {
         boost::shared_ptr<Layer> layer
@@ -164,12 +169,15 @@ reconstitute(DB::Store_Reader & store)
             = boost::dynamic_pointer_cast<LayerT>(layer);
         if (!cast)
             throw Exception("Layer_Stack::reconstitute(): couldn't convert");
-        layers_[i] = cast;
+        add(cast);
     }
 
     compact_size_t canary(store);
     if (canary != 1849202)
         throw Exception("Layer_Stack::reconstitute(): invalid canary");
+
+    validate();
+    update_parameters();
 }
 
 template<class LayerT>
@@ -393,6 +401,13 @@ bool
 Layer_Stack<LayerT>::
 equal_impl(const Layer & other) const
 {
+    using namespace std;
+    cerr << "equal_impl: typeid(*this).name() = "
+         << typeid(*this).name()
+         << " typeid(other).name() "
+         << typeid(other).name()
+         << endl;
+
     if (typeid(*this) != typeid(other)) return false;
     const Layer_Stack & cast
         = reinterpret_cast<const Layer_Stack &>(other);
@@ -404,12 +419,28 @@ bool
 Layer_Stack<LayerT>::
 operator == (const Layer_Stack & other) const
 {
+    using namespace std;
+    cerr << "operator ==" << endl;
+    cerr << "typeid(*this).name() = "
+         << typeid(*this).name()
+         << " typeid(other).name() "
+         << typeid(other).name()
+         << endl;
+
+    cerr << "inputs_ = " << inputs_ << endl;
+    cerr << "other.inputs_ = " << other.inputs_ << endl;
+    cerr << "outputs_ = " << outputs_ << endl;
+    cerr << "other.outputs_ = " << other.outputs_ << endl;
+
     if (!Layer::operator == (other)) return false;
+    cerr << "layers same" << endl;
     if (size() != other.size()) return false;
+    cerr << "size same" << endl;
     for (unsigned i = 0;  i < size();  ++i) {
         if (layers_[i] == other.layers_[i]) continue;
         if (layers_[i] && other.layers_[i]
             && (layers_[i]->equal(*other.layers_[i]))) continue;
+        cerr << "layer " << i << " not equal" << endl;
         return false;
     }
     return true;

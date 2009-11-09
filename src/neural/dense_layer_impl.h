@@ -298,6 +298,8 @@ reconstitute(DB::Store_Reader & store)
         transfer_function = Transfer_Function::poly_reconstitute(store);
 
         validate();
+        
+        update_parameters();
     }
 }
 

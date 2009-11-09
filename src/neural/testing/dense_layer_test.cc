@@ -250,6 +250,33 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
 
     Parameters_Copy<double> layer_params2(layer);
     BOOST_CHECK((params.values == layer_params2.values).all());
+
+    // Check that on serialize and reconstitute, the params get properly
+    // updated.
+    {
+        ostringstream stream_out;
+        {
+            DB::Store_Writer writer(stream_out);
+            writer << layer;
+        }
+        
+        istringstream stream_in(stream_out.str());
+        DB::Store_Reader reader(stream_in);
+        Dense_Layer<float> layer4;
+        reader >> layer4;
+
+        Parameters_Copy<float> params4(layer4.parameters());
+        distribution<float> & param_dist4 = params4.values;
+
+        BOOST_REQUIRE_EQUAL(param_dist4.size(), 3);
+        BOOST_CHECK_EQUAL(param_dist4.at(0), 0.5);  // weight 0
+        BOOST_CHECK_EQUAL(param_dist4.at(1), 2.0);  // weight 1
+        BOOST_CHECK_EQUAL(param_dist4.at(2), 1.0);  // bias
+
+        layer4.weights[0][0] = 5.0;
+        params4 = layer4.parameters();
+        BOOST_CHECK_EQUAL(param_dist4[0], 5.0);
+    }
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer1 )
