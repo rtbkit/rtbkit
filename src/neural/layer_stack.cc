@@ -200,18 +200,6 @@ reconstitute(ML::DB::Store_Reader & store)
         (*this)[i].reconstitute(store);
 }
 
-void
-DNAE_Stack::
-update(const DNAE_Stack_Updates & updates, double learning_rate)
-{
-    if (updates.size() != size())
-        throw Exception("DNAE_Stack::update(): updates have the wrong size");
-
-    for (unsigned i = 0;  i < size();  ++i)
-        (*this)[i].update(updates[i], learning_rate);
-}
-
-
 #endif
 
 } // namespace ML

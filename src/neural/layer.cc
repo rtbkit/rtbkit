@@ -85,6 +85,16 @@ operator == (const Layer & other) const
         && outputs_ == other.outputs_;
 }
 
+bool
+Layer::
+equal(const Layer & other) const
+{
+    if (&other == this) return true;
+    if (typeid(*this) != typeid(other)) return false;
+    
+    return equal_impl(other);
+}
+
 void
 Layer::
 update_parameters()

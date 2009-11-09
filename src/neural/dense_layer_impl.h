@@ -791,6 +791,16 @@ targets(float maximum) const
 template<typename Float>
 bool
 Dense_Layer<Float>::
+equal_impl(const Layer & other) const
+{
+    const Dense_Layer<Float> & cast
+        = dynamic_cast<const Dense_Layer<Float> &>(other);
+    return operator == (cast);
+}
+
+template<typename Float>
+bool
+Dense_Layer<Float>::
 operator == (const Dense_Layer & other) const
 {
 #if 0

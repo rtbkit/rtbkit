@@ -10,6 +10,10 @@
 #define __jml__neural__layer_stack_h__
 
 #include "layer.h"
+#include <boost/utility/enable_if.hpp>
+#include <boost/type_traits/is_base_of.hpp>
+#include "arch/demangle.h"
+
 
 namespace ML {
 
@@ -26,7 +30,12 @@ struct Layer_Stack : public Layer {
     Layer_Stack(const Layer_Stack & other);
 
     template<class OtherLayer>
-    Layer_Stack(const Layer_Stack<OtherLayer> & other);
+    Layer_Stack(const Layer_Stack<OtherLayer> & other)
+        : Layer(other.name(), 0, 0)
+    {
+        for (unsigned i = 0;  i < other.size();  ++i)
+            add_cast(other.layers_[i]);
+    }
 
     Layer_Stack & operator = (const Layer_Stack & other);
 
@@ -60,7 +69,32 @@ struct Layer_Stack : public Layer {
 
     void add(boost::shared_ptr<LayerT> layer);
 
-
+    /** Add a layer to the stack, performing the necessary upcast. */
+    template<typename LayerT2>
+    typename boost::disable_if<boost::is_base_of<LayerT, LayerT2>, void>::type
+    add_cast(boost::shared_ptr<LayerT2> layer)
+    {
+        if (!layer)
+            throw Exception("no layer");
+        boost::shared_ptr<LayerT> cast
+            = boost::dynamic_pointer_cast<LayerT>(layer);
+        if (!cast)
+            throw Exception("Layer_Stack::add_cast(): type "
+                            + demangle(typeid(*layer).name())
+                            + " can't be upcast to "
+                            + demangle(typeid(LayerT).name()));
+        add(cast);
+    }
+    
+    /** Add a layer to the stack.  No cast is necessary, as the type is
+        derived. */
+    template<typename LayerT2>
+    typename boost::enable_if<boost::is_base_of<LayerT, LayerT2>, void>::type
+    add_cast(boost::shared_ptr<LayerT2> layer)
+    {
+        add(layer);
+    }
+    
     /** Dump as ASCII.  This will be big. */
     virtual std::string print() const;
     
@@ -154,12 +188,23 @@ struct Layer_Stack : public Layer {
     /** Copy the object, making a deep copy of all of the underlying objects */
     virtual Layer_Stack * deep_copy() const;
 
+    virtual bool equal_impl(const Layer & other) const;
+
+    bool operator == (const Layer_Stack & other) const;
+    bool operator != (const Layer_Stack & other) const
+    {
+        return ! operator == (other);
+    }
+
 protected:
     std::vector<boost::shared_ptr<LayerT> > layers_;
     size_t max_width_;
+    template<class LayerT2> friend class Layer_Stack;
 };
 
 extern template class Layer_Stack<Layer>;
+
+JML_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(class LayerT, Layer_Stack<LayerT>);
 
 
 } // namespace ML

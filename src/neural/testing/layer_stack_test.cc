@@ -24,29 +24,58 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
-BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0a )
+
+BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_layer_stack )
 {
     Thread_Context context;
     int ni = 2, no = 4;
+
     Dense_Layer<float> layer("test", ni, no, TF_TANH, MV_ZERO, context);
+ 
+    Layer_Stack<Dense_Layer<float> > layers;
+    layers.add(make_unowned_sp(layer));
+
+    BOOST_CHECK_EQUAL(layer.inputs(), layers.inputs());
+    BOOST_CHECK_EQUAL(layer.outputs(), layers.outputs());
+    BOOST_CHECK_EQUAL(layer.name(), layers.name());
 
     // Test equality operator
-    BOOST_CHECK_EQUAL(layer, layer);
+    BOOST_CHECK_EQUAL(layers, layers);
+    BOOST_CHECK(!layers.equal(layer));
 
-    Dense_Layer<float> layer2 = layer;
-    BOOST_CHECK_EQUAL(layer, layer2);
-    
-    layer2.weights[0][0] -= 1.0;
-    BOOST_CHECK(layer != layer2);
+    BOOST_CHECK_NO_THROW(layers.validate());
 
-    BOOST_CHECK_EQUAL(layer.weights.shape()[0], ni);
-    BOOST_CHECK_EQUAL(layer.weights.shape()[1], no);
-    BOOST_CHECK_EQUAL(layer.bias.size(), no);
-    BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 0);
-    BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 0);
+    // Check we can't add a null layer
+    BOOST_CHECK_THROW(layers.add(0), Exception);
+
+    BOOST_CHECK_NO_THROW(layers.validate());
+
+    // Check conversion
+    test_serialize_reconstitute(layers);
+    test_poly_serialize_reconstitute<Layer>(layers);
+
+    Layer_Stack<Layer> layers2 = layers;
+    BOOST_CHECK_EQUAL(layers.size(), layers2.size());
+    BOOST_CHECK_EQUAL(layers.name(), layers2.name());
     
-    test_serialize_reconstitute(layer);
+    BOOST_CHECK_NO_THROW(layers2.validate());
+
+    test_serialize_reconstitute(layers2);
+    test_poly_serialize_reconstitute<Layer>(layers2);
+    
+    Layer_Stack<Layer> layers3;
+    BOOST_CHECK_EQUAL(layers3.size(), 0);
+    BOOST_CHECK_EQUAL(layers3.inputs(), 0);
+    BOOST_CHECK_EQUAL(layers3.outputs(), 0);
+
+    // Convert back
+    Layer_Stack<Dense_Layer<float> > layers4;
+    layers4 = layers2;
+
+    BOOST_CHECK_EQUAL(layers4, layers);
 }
+
+#if 0
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0b )
 {
@@ -58,6 +87,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0b )
     BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 20);
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 0);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0c )
@@ -70,6 +100,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0c )
     BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 0);
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 800);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0d )
@@ -82,6 +113,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0d )
     BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 0);
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 0);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_dense_layer_none )
@@ -205,6 +237,48 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
                                   gradient2.values.end(),
                                   gradient_times_2.begin(),
                                   gradient_times_2.end());
+
+    // Check that the result of numerical differentiation is the same as the
+    // output of the bprop routine.  It should be, since we have a linear
+    // loss function.
+
+#if 0
+    // First, check the input gradients
+    for (unsigned i = 0;  i < 2;  ++i) {
+        distribution<float> inputs2 = inputs;
+        inputs2[i] += 1.0;
+
+        distribution<float> outputs2 = layer.apply(inputs2);
+
+        BOOST_CHECK_EQUAL(outputs2[0], output[0]...);
+    }
+#endif
+
+
+    // Check that subtracting the parameters from each other returns a zero
+    // parameter vector
+    layer3.parameters().update(layer3.parameters(), -1.0);
+
+    Parameters_Copy<float> layer3_params(layer3);
+    BOOST_CHECK_EQUAL(layer3_params.values.total(), 0.0);
+
+    BOOST_CHECK_EQUAL(layer3.weights[0][0], 0.0);
+    BOOST_CHECK_EQUAL(layer3.weights[1][0], 0.0);
+    BOOST_CHECK_EQUAL(layer3.bias[0], 0.0);
+
+    layer3.parameters().set(layer.parameters());
+    BOOST_CHECK_EQUAL(layer, layer3);
+
+    layer3.zero_fill();
+    layer3.parameters().update(layer.parameters(), 1.0);
+    BOOST_CHECK_EQUAL(layer, layer3);
+
+    layer3.zero_fill();
+    layer3.parameters().set(params);
+    BOOST_CHECK_EQUAL(layer, layer3);
+
+    Parameters_Copy<double> layer_params2(layer);
+    BOOST_CHECK((params.values == layer_params2.values).all());
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer1 )
@@ -212,6 +286,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer1 )
     Thread_Context context;
     Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_ZERO, context);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer2 )
@@ -219,6 +294,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer2 )
     Thread_Context context;
     Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_INPUT, context);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer3 )
@@ -226,6 +302,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer3 )
     Thread_Context context;
     Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_DENSE, context);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer_double )
@@ -233,5 +310,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer_double )
     Thread_Context context;
     Dense_Layer<double> layer("test", 200, 400, TF_TANH, MV_DENSE, context);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
+#endif

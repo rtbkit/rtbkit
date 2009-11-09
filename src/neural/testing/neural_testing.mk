@@ -4,3 +4,4 @@
 
 $(eval $(call test,parameters_test,neural,boost))
 $(eval $(call test,dense_layer_test,neural,boost))
+$(eval $(call test,layer_stack_test,neural,boost))

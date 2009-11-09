@@ -45,6 +45,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0a )
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 0);
     
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0b )
@@ -57,6 +58,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0b )
     BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 20);
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 0);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0c )
@@ -69,6 +71,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0c )
     BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 0);
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 800);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0d )
@@ -81,6 +84,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0d )
     BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 0);
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 0);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_dense_layer_none )
@@ -253,6 +257,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer1 )
     Thread_Context context;
     Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_ZERO, context);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer2 )
@@ -260,6 +265,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer2 )
     Thread_Context context;
     Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_INPUT, context);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer3 )
@@ -267,6 +273,7 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer3 )
     Thread_Context context;
     Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_DENSE, context);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer_double )
@@ -274,5 +281,5 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer_double )
     Thread_Context context;
     Dense_Layer<double> layer("test", 200, 400, TF_TANH, MV_DENSE, context);
     test_serialize_reconstitute(layer);
+    test_poly_serialize_reconstitute<Layer>(layer);
 }
-

@@ -75,6 +75,13 @@ public:
         Will throw an exception if there is a problem. */
     virtual void validate() const;
 
+    /** Check if the two are equal (replacing one by the other would have no
+        effect).  This function checks that the types of the two objects are
+        the same and then calls equal_impl(). */
+    bool equal(const Layer & other) const;
+
+    virtual bool equal_impl(const Layer & other) const = 0;
+
 
     /*************************************************************************/
     /* PARAMETERS                                                            */

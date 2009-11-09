@@ -35,15 +35,6 @@ Layer_Stack(const std::string & name)
 }
 
 template<class LayerT>
-template<class OtherLayer>
-Layer_Stack<LayerT>::
-Layer_Stack(const Layer_Stack<OtherLayer> & other)
-    : Layer(other.name(), 0, 0)
-{
-    throw Exception("not finished");
-}
-
-template<class LayerT>
 Layer_Stack<LayerT>::
 Layer_Stack(const Layer_Stack & other)
     : Layer(other.name(), 0, 0)
@@ -87,6 +78,7 @@ add(boost::shared_ptr<LayerT> layer)
 {
     if (!layer)
         throw Exception("Layer_Stack::add(): added null layer");
+
     if (empty()) {
         this->inputs_ = layer->inputs();
         this->outputs_ = layer->outputs();
@@ -394,6 +386,33 @@ deep_copy() const
     for (unsigned i = 0;  i < size();  ++i)
         result->add(layers_[i]->deep_copy());
     return result.release();
+}
+
+template<class LayerT>
+bool
+Layer_Stack<LayerT>::
+equal_impl(const Layer & other) const
+{
+    if (typeid(*this) != typeid(other)) return false;
+    const Layer_Stack & cast
+        = reinterpret_cast<const Layer_Stack &>(other);
+    return operator == (cast);
+}
+
+template<class LayerT>
+bool
+Layer_Stack<LayerT>::
+operator == (const Layer_Stack & other) const
+{
+    if (!Layer::operator == (other)) return false;
+    if (size() != other.size()) return false;
+    for (unsigned i = 0;  i < size();  ++i) {
+        if (layers_[i] == other.layers_[i]) continue;
+        if (layers_[i] && other.layers_[i]
+            && (layers_[i]->equal(*other.layers_[i]))) continue;
+        return false;
+    }
+    return true;
 }
 
 } // namespace ML

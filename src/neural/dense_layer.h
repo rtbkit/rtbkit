@@ -196,6 +196,8 @@ struct Dense_Layer : public Layer {
 
     virtual void validate() const;
 
+    virtual bool equal_impl(const Layer & other) const;
+
     // For testing purposes
     bool operator == (const Dense_Layer & other) const;
     bool operator != (const Dense_Layer & other) const
