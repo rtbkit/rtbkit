@@ -111,6 +111,9 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
     layer.bias[0] = 1.0;
     BOOST_CHECK_EQUAL(layer.apply(input)[0], -0.5);
 
+    // Check that there are parameters
+    BOOST_CHECK_EQUAL(layer.parameters().parameter_count(), 3);
+
     // Check the info
     BOOST_CHECK_EQUAL(layer.inputs(), 2);
     BOOST_CHECK_EQUAL(layer.outputs(), 1);
@@ -119,11 +122,14 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
     // Check the copy constructor
     Dense_Layer<float> layer2 = layer;
     BOOST_CHECK_EQUAL(layer2, layer);
+    BOOST_CHECK_EQUAL(layer2.parameters().parameter_count(), 3);
 
     // Check the assignment operator
     Dense_Layer<float> layer3;
+    BOOST_CHECK(layer3 != layer);
     layer3 = layer;
     BOOST_CHECK_EQUAL(layer3, layer);
+    BOOST_CHECK_EQUAL(layer3.parameters().parameter_count(), 3);
 
     // Make sure that the assignment operator didn't keep a reference
     layer3.weights[0][0] = 5.0;

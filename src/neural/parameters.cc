@@ -10,6 +10,10 @@
 #include "arch/demangle.h"
 #include <typeinfo>
 
+
+using namespace std;
+
+
 namespace ML {
 
 
@@ -155,7 +159,7 @@ matrix(int index, const std::string & name) const
     return params[index].matrix();
 }
 
-float *
+void
 Parameters::
 copy_to(float * where, float * limit) const
 {
@@ -168,13 +172,20 @@ copy_to(float * where, float * limit) const
              it = params.begin(),
              end = params.end();
          it != end;  ++it) {
-        current = it->copy_to(current, limit);
+
+        if (current > limit)
+            throw Exception("Parameters::copy_to(): out of sync");
+
+        float * cend = current + it->parameter_count();
+        it->copy_to(current, cend);
+        current = cend;
     }
 
-    return current;
+    if (current != limit)
+        throw Exception("Parameters::copy_to(): out of sync at end");
 }
 
-double *
+void
 Parameters::
 copy_to(double * where, double * limit) const
 {
@@ -187,10 +198,17 @@ copy_to(double * where, double * limit) const
              it = params.begin(),
              end = params.end();
          it != end;  ++it) {
-        current = it->copy_to(current, limit);
+
+        if (current > limit)
+            throw Exception("Parameters::copy_to(): out of sync");
+
+        double * cend = current + it->parameter_count();
+        it->copy_to(current, cend);
+        current = cend;
     }
 
-    return current;
+    if (current != limit)
+        throw Exception("Parameters::copy_to(): out of sync at end");
 }
 
 Parameters *
@@ -383,39 +401,11 @@ parameter_count() const
 
 void
 Parameters::
-fill(float value)
+fill(double value)
 {
-}
-
-void
-Parameters::
-random_fill(float limit, Thread_Context & context)
-{
-}
-    
-void
-Parameters::
-operator -= (const Parameters & other)
-{
-}
-
-void
-Parameters::
-operator += (const Parameters & other)
-{
-}
-
-double
-Parameters::
-two_norm() const
-{
-    return 0.0;
-}
-
-void
-Parameters::
-operator *= (double value)
-{
+    for (Params::iterator it = params.begin(), end = params.end();
+         it != end;  ++it)
+        it->fill(value);
 }
 
 void
@@ -494,8 +484,12 @@ set(const Parameter_Value & other)
     if (!cast)
         throw Exception("Parameters::set(): other object is not Parameters");
 
-    if (params.size() != cast->params.size())
+    if (params.size() != cast->params.size()) {
+        cerr << "name() = " << name() << endl;
+        cerr << "params.size() = " << params.size() << endl;
+        cerr << "cast->params.size() = " << cast->params.size() << endl;
         throw Exception("Parameters::set(): differing sizes");
+    }
 
     // Iterate through the two parameters
     Params::iterator

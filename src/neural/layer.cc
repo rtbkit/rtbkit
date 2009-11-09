@@ -153,6 +153,8 @@ void
 Layer::
 validate() const
 {
+    if (name_ == "")
+        throw Exception("Layer has empty name");
     // Default does none
 }
 

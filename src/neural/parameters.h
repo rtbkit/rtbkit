@@ -59,8 +59,8 @@ struct Parameter_Value : boost::noncopyable {
 
     virtual size_t parameter_count() const = 0;
 
-    virtual float * copy_to(float * where, float * limit) const = 0;
-    virtual double * copy_to(double * where, double * limit) const = 0;
+    virtual void copy_to(float * where, float * limit) const = 0;
+    virtual void copy_to(double * where, double * limit) const = 0;
     
     /** Create a compatible parameters object, that refers to the data range
         given, not the current range.  The given range is not modified.  */
@@ -79,6 +79,9 @@ struct Parameter_Value : boost::noncopyable {
 
     /** Set our values from another set of values */
     virtual void set(const Parameter_Value & other) = 0;
+
+    /** Fill with the given value */
+    virtual void fill(double value) = 0;
 
     std::string name() const { return name_; }
 
@@ -187,17 +190,7 @@ struct Parameters : public Parameter_Value {
         new version. */
     void reconstitute(DB::Store_Reader & store);
 
-    void fill(float value);
-
-    void random_fill(float limit, Thread_Context & context);
-    
-    void operator -= (const Parameters & other);
-
-    void operator += (const Parameters & other);
-
-    double two_norm() const;
-
-    void operator *= (double value);
+    virtual void fill(double value);
 
     virtual void update(const Parameters & other, double learning_rate);
 
@@ -220,8 +213,8 @@ struct Parameters : public Parameter_Value {
 
 
     /** Concrete copy_to implementations */
-    virtual float * copy_to(float * where, float * limit) const;
-    virtual double * copy_to(double * where, double * limit) const;
+    virtual void copy_to(float * where, float * limit) const;
+    virtual void copy_to(double * where, double * limit) const;
 
     /** Create a compatible parameters object, that refers to the data range
         given, not the current range.  The given range is not modified.  */
@@ -247,15 +240,6 @@ struct Parameters : public Parameter_Value {
 
     /** Set these parameters from another parameters object. */
     virtual void set(const Parameter_Value & other);
-
-#if 0
-    template<typename FloatTo>
-    FloatTo * copy_to(FloatTo * where, FloatTo * limit) const
-    {
-        // We have to implement in terms of float or double copy_to
-
-    }
-#endif    
 
 protected:
     Parameters(const std::string & name);
@@ -306,11 +290,13 @@ struct Parameters_Copy : public Parameters {
     void swap(Parameters_Copy & other);
 
     /** Concrete copy_to implementations */
-    virtual float * copy_to(float * where, float * limit) const;
-    virtual double * copy_to(double * where, double * limit) const;
+    virtual void copy_to(float * where, float * limit) const;
+    virtual void copy_to(double * where, double * limit) const;
 
     /** Set these parameters from another parameters object. */
     virtual void set(const Parameter_Value & other);
+
+    virtual void fill(double value);
 
     // The actual values, stored contiguously for efficiency.  The client
     // should not resize them.

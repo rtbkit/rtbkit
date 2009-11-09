@@ -659,6 +659,8 @@ void
 Dense_Layer<Float>::
 validate() const
 {
+    Layer::validate();
+    
     if (weights.shape()[1] != bias.size())
         throw Exception("perceptron layer has bad shape");
 

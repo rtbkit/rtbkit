@@ -32,20 +32,18 @@ struct Vector_RefT : public Vector_Parameter {
         return size_;
     }
 
-    virtual float * copy_to(float * where, float * limit) const
+    virtual void copy_to(float * where, float * limit) const
     {
-        if (limit - where > size_)
+        if (limit - where != size_)
             throw Exception("copy_to(): wrong size array");
         std::copy(array_, array_ + size_, where);
-        return where + size_;
     }
 
-    virtual double * copy_to(double * where, double * limit) const
+    virtual void copy_to(double * where, double * limit) const
     {
-        if (limit - where > size_)
+        if (limit - where != size_)
             throw Exception("copy_to(): wrong size array");
         std::copy(array_, array_ + size_, where);
-        return where + size_;
     }
 
     virtual Parameter_Value *
@@ -78,9 +76,12 @@ struct Vector_RefT : public Vector_Parameter {
     {
         if (name() != other.name())
             throw Exception("VectorRefT::set(): objects have different names");
-        Underlying * result = other.copy_to(array_, array_ + size_);
-        if (result != array_ + size_)
-            throw Exception("VectorRefT::set(): didn't set all");
+        other.copy_to(array_, array_ + size_);
+    }
+
+    virtual void fill(double value)
+    {
+        std::fill(array_, array_ + size_, value);
     }
 
     virtual void update_element(int element, float update_by)
@@ -125,22 +126,20 @@ struct Matrix_RefT : public Matrix_Parameter {
         return size1_ * size2_;
     }
 
-    virtual float * copy_to(float * where, float * limit) const
+    virtual void copy_to(float * where, float * limit) const
     {
         size_t n = parameter_count();
-        if (limit - where > n)
+        if (limit - where != n)
             throw Exception("copy_to(): wrong size matrix");
         std::copy(array_, array_ + n, where);
-        return where + n;
     }
 
-    virtual double * copy_to(double * where, double * limit) const
+    virtual void copy_to(double * where, double * limit) const
     {
         size_t n = parameter_count();
-        if (limit - where > n)
+        if (limit - where != n)
             throw Exception("copy_to(): wrong size matrix");
         std::copy(array_, array_ + n, where);
-        return where + n;
     }
 
     virtual void set(const Parameter_Value & other)
@@ -148,9 +147,12 @@ struct Matrix_RefT : public Matrix_Parameter {
         if (name() != other.name())
             throw Exception("MatrixRefT::set(): objects have different names");
         size_t n = parameter_count();
-        Underlying * result = other.copy_to(array_, array_ + n);
-        if (result != array_ + n)
-            throw Exception("MatrixRefT::set(): didn't set all");
+        other.copy_to(array_, array_ + n);
+    }
+
+    virtual void fill(double value)
+    {
+        std::fill(array_, array_ + size1_ * size2_, value);
     }
 
     virtual Parameter_Value *
@@ -246,10 +248,11 @@ Parameters_Copy<Float>::
 Parameters_Copy(const Parameters_Copy & other)
     : Parameters(other.name())
 {
-    values.resize(other.parameter_count());
+    values = other.values;
 
     // Copy all of the parameters in, creating the structure as we go
-    Float * start = &values[0], * finish = start + values.size();
+    Float * start = &values[0], * finish = start + values.size(),
+        * current = start;
 
     // Copy the structure over
     int i = 0;
@@ -257,10 +260,13 @@ Parameters_Copy(const Parameters_Copy & other)
              it = other.params.begin(),
              end = other.params.end();
          it != end;  ++it, ++i) {
-        add(i, it->compatible_copy(start, finish));
+        size_t n = it->parameter_count();
+
+        add(i, it->compatible_copy(current, current + n));
+        current += n;
     }
 
-    if (start != finish)
+    if (current != finish)
         throw Exception("parameters_copy(): wrong length");
 }
 
@@ -280,7 +286,8 @@ Parameters_Copy(const Parameters & other)
     values.resize(other.parameter_count());
 
     // Copy all of the parameters in, creating the structure as we go
-    Float * start = &values[0], * finish = start + values.size();
+    Float * start = &values[0], * finish = start + values.size(),
+        * current = start;
 
     // Copy the structure over
     int i = 0;
@@ -288,10 +295,13 @@ Parameters_Copy(const Parameters & other)
              it = other.params.begin(),
              end = other.params.end();
          it != end;  ++it, ++i) {
-        add(i, it->compatible_copy(start, finish));
+        size_t n = it->parameter_count();
+
+        add(i, it->compatible_copy(current, current + n));
+        current += n;
     }
 
-    if (start != finish)
+    if (current != finish)
         throw Exception("parameters_copy(): wrong length");
 }
 
@@ -315,25 +325,23 @@ swap(Parameters_Copy & other)
 }
 
 template<class Float>
-float *
+void
 Parameters_Copy<Float>::
 copy_to(float * where, float * limit) const
 {
-    if (limit - where < values.size())
-        throw Exception("Parameters_Copy::copy_to(): not enough space");
+    if (limit - where != values.size())
+        throw Exception("Parameters_Copy::copy_to(): wrong sized space");
     std::copy(values.begin(), values.end(), where);
-    return where + values.size();
 }
 
 template<class Float>
-double *
+void
 Parameters_Copy<Float>::
 copy_to(double * where, double * limit) const
 {
-    if (limit - where < values.size())
-        throw Exception("Parameters_Copy::copy_to(): not enough space");
+    if (limit - where != values.size())
+        throw Exception("Parameters_Copy::copy_to(): wrong sized space");
     std::copy(values.begin(), values.end(), where);
-    return where + values.size();
 }
 
 template<class Float>
@@ -380,6 +388,14 @@ set(const Parameter_Value & other)
 
     // Otherwise, do it structurally
     Parameters::set(other);
+}
+
+template<class Float>
+void
+Parameters_Copy<Float>::
+fill(double value)
+{
+    values.fill(value);
 }
 
 } // namespace ML
