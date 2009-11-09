@@ -92,6 +92,22 @@ swap(Parameter_Value & other)
 
 
 /*****************************************************************************/
+/* VECTOR_REFT                                                               */
+/*****************************************************************************/
+
+template struct Vector_RefT<float>;
+template struct Vector_RefT<double>;
+
+
+/*****************************************************************************/
+/* MATRIX_REFT                                                               */
+/*****************************************************************************/
+
+template struct Matrix_RefT<float>;
+template struct Matrix_RefT<double>;
+
+
+/*****************************************************************************/
 /* PARAMETERS                                                                */
 /*****************************************************************************/
 
@@ -301,6 +317,42 @@ add(int index, Parameter_Value * param)
     params.push_back(param);
 
     return *this;
+}
+
+Parameters &
+Parameters::
+add(int index,
+    const std::string & name,
+    std::vector<float> & values)
+{
+    return add<float>(index, name, values);
+}
+
+Parameters &
+Parameters::
+add(int index,
+    const std::string & name,
+    std::vector<double> & values)
+{
+    return add<double>(index, name, values);
+}
+
+Parameters &
+Parameters::
+add(int index,
+    const std::string & name,
+    boost::multi_array<float, 2> & values)
+{
+    return add<float>(index, name, values);
+}
+
+Parameters &
+Parameters::
+add(int index,
+    const std::string & name,
+    boost::multi_array<double, 2> & values)
+{
+    return add<double>(index, name, values);
 }
 
 void

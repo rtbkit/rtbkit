@@ -60,6 +60,8 @@ Dense_Layer(const std::string & name,
     this->transfer_function = create_transfer_function(transfer_function);
 
     zero_fill();
+
+    update_parameters();
 }
 
 template<typename Float>
@@ -93,6 +95,8 @@ Dense_Layer(const std::string & name,
     if (limit == -1.0)
         limit = 1.0 / sqrt(inputs);
     random_fill(limit, thread_context);
+
+    update_parameters();
 }
 
 #if 0
@@ -109,6 +113,7 @@ Dense_Layer(const Dense_Layer & other)
                           [other.missing_activations.shape()[0]]
                           [other.missing_activations.shape()[1]])
 {
+    update_parameters();
 }
 #else
 
@@ -123,6 +128,7 @@ Dense_Layer(const Dense_Layer & other)
       missing_replacements(other.missing_replacements),
       missing_activations(other.missing_activations)
 {
+    update_parameters();
 }
 #endif
 
