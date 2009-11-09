@@ -430,6 +430,36 @@ clear()
     params.clear();
 }
 
+void
+Parameters::
+set(const Parameter_Value & other)
+{
+    if (name() != other.name())
+        throw Exception("Parameters::set(): objects have different names");
+
+    const Parameters * cast
+        = dynamic_cast<const Parameters *>(&other);
+    if (!cast)
+        throw Exception("Parameters::set(): other object is not Parameters");
+
+    if (params.size() != cast->params.size())
+        throw Exception("Parameters::set(): differing sizes");
+
+    // Iterate through the two parameters
+    Params::iterator
+        it = params.begin(),
+        iend = params.end();
+    Params::const_iterator
+        jt = cast->params.begin(),
+        jend = cast->params.end();
+
+    for (; it != iend && jt != jend;  ++it, ++jt) {
+        if (it->name() != jt->name())
+            throw Exception("Parameters::set(): differing names");
+        it->set(*jt);
+    }
+}
+
 
 /*****************************************************************************/
 /* PARAMETERS_REF                                                            */

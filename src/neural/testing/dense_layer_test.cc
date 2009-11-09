@@ -125,6 +125,69 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
     layer3 = layer;
     BOOST_CHECK_EQUAL(layer3, layer);
 
+    // Make sure that the assignment operator didn't keep a reference
+    layer3.weights[0][0] = 5.0;
+    BOOST_CHECK_EQUAL(layer.weights[0][0], 0.5);
+    BOOST_CHECK_EQUAL(layer3.weights[0][0], 5.0);
+    layer3.weights[0][0] = 0.5;
+    BOOST_CHECK_EQUAL(layer, layer3);
+
+    // Check fprop (that it gives the same result as apply)
+    distribution<float> applied
+        = layer.apply(input);
+
+    size_t temp_space_size = layer.fprop_temporary_space_required();
+
+    float temp_space[temp_space_size];
+
+    distribution<float> fproped
+        = layer.fprop(input, temp_space, temp_space_size);
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(applied.begin(), applied.end(),
+                                  fproped.begin(), fproped.end());
+
+    // Check parameters
+    Parameters_Copy<float> params(layer.parameters());
+    distribution<float> & param_dist = params.values;
+
+    BOOST_CHECK_EQUAL(param_dist.size(), 3);
+    BOOST_CHECK_EQUAL(param_dist.at(0), 0.5);  // weight 0
+    BOOST_CHECK_EQUAL(param_dist.at(1), 2.0);  // weight 1
+    BOOST_CHECK_EQUAL(param_dist.at(2), 1.0);  // bias
+
+    Thread_Context context;
+    layer3.random_fill(-1.0, context);
+
+    BOOST_CHECK(layer != layer3);
+
+    layer3.parameters().set(params);
+    
+    BOOST_CHECK_EQUAL(layer, layer3);
+
+    // Check backprop
+    distribution<float> output_errors(1, 1.0);
+    distribution<float> input_errors;
+    Parameters_Copy<float> gradient(layer.parameters());
+    gradient.fill(0.0);
+    layer.bprop(output_errors, temp_space, temp_space_size,
+                gradient, input_errors, 1.0, true /* calculate_input_errors */);
+
+    BOOST_CHECK_EQUAL(input_errors.size(), layer.inputs());
+
+    cerr << "input_errors = " << input_errors << endl;
+
+    // Check that example_weight scales the gradient
+    Parameters_Copy<float> gradient2(layer.parameters());
+    gradient2.fill(0.0);
+    layer.bprop(output_errors, temp_space, temp_space_size,
+                gradient, input_errors, 2.0, true /* calculate_input_errors */);
+    
+    distribution<float> gradient_times_2 = gradient.values * 2.0;
+    
+    BOOST_CHECK_EQUAL_COLLECTIONS(gradient2.values.begin(),
+                                  gradient2.values.end(),
+                                  gradient_times_2.begin(),
+                                  gradient_times_2.end());
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer1 )

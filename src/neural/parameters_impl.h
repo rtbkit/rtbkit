@@ -120,6 +120,52 @@ copy_to(double * where, double * limit) const
     return where + values.size();
 }
 
+template<class Float>
+void
+Parameters_Copy<Float>::
+set(const Parameter_Value & other)
+{
+    // Try to do it via a vector operation if possible
+    {
+        const Parameters_Copy<Float> * cast
+            = dynamic_cast<const Parameters_Copy<Float> *>(&other);
+        if (cast) {
+            if (cast->values.size() != values.size())
+                throw Exception("Parameters_Copy::set(): incompatible");
+            std::copy(cast->values.begin(), cast->values.end(),
+                      values.begin());
+            return;
+        }
+    }
+
+    {
+        const Parameters_Copy<float> * cast
+            = dynamic_cast<const Parameters_Copy<float> *>(&other);
+        if (cast) {
+            if (cast->values.size() != values.size())
+                throw Exception("Parameters_Copy::set(): incompatible");
+            std::copy(cast->values.begin(), cast->values.end(),
+                      values.begin());
+            return;
+        }
+    }
+
+    {
+        const Parameters_Copy<double> * cast
+            = dynamic_cast<const Parameters_Copy<double> *>(&other);
+        if (cast) {
+            if (cast->values.size() != values.size())
+                throw Exception("Parameters_Copy::set(): incompatible");
+            std::copy(cast->values.begin(), cast->values.end(),
+                      values.begin());
+            return;
+        }
+    }
+
+    // Otherwise, do it structurally
+    Parameters::set(other);
+}
+
 } // namespace ML
 
 
