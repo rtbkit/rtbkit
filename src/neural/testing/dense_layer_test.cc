@@ -243,6 +243,9 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
     layer3.zero_fill();
     layer3.parameters().set(params);
     BOOST_CHECK_EQUAL(layer, layer3);
+
+    Parameters_Copy<double> layer_params2(layer);
+    BOOST_CHECK((params.values == layer_params2.values).all());
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer1 )
