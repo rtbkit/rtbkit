@@ -29,14 +29,15 @@ namespace ML {
 Layer::
 Layer(const std::string & name,
       size_t inputs, size_t outputs)
-    : name_(name), inputs_(inputs), outputs_(outputs)
+    : name_(name), inputs_(inputs), outputs_(outputs), parameters_(name)
 {
     // Parameters need to be set up in the constructor of the derived class
 }
 
 Layer::
 Layer(const Layer & other)
-    : name_(other.name_), inputs_(other.inputs_), outputs_(other.outputs_)
+    : name_(other.name_), inputs_(other.inputs_), outputs_(other.outputs_),
+      parameters_(other.name_)
 {
     // We don't copy the parameters; they need to be added in the constructor
     // of the derived class
@@ -62,6 +63,7 @@ init(const std::string & name, size_t inputs, size_t outputs)
     inputs_ = inputs;
     outputs_ = outputs;
     parameters_.clear();
+    parameters_.set_name(name);
 }
 
 void

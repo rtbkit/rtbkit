@@ -8,6 +8,7 @@
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
+#undef NDEBUG
 
 #include <boost/test/unit_test.hpp>
 #include <boost/multi_array.hpp>
@@ -86,7 +87,7 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
 {
     Dense_Layer<float> layer("test", 2, 1, TF_IDENTITY, MV_NONE);
     layer.weights[0][0] = 0.5;
-    layer.weights[0][1] = 2.0;
+    layer.weights[1][0] = 2.0;
     layer.bias[0] = 0.0;
 
     distribution<float> input
@@ -179,6 +180,8 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
                 gradient, input_errors, 1.0, true /* calculate_input_errors */);
 
     BOOST_CHECK_EQUAL(input_errors.size(), layer.inputs());
+    BOOST_CHECK_EQUAL(input_errors[0], layer.weights[0][0]);
+    BOOST_CHECK_EQUAL(input_errors[1], layer.weights[1][0]);
 
     cerr << "input_errors = " << input_errors << endl;
 
@@ -186,7 +189,11 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
     Parameters_Copy<float> gradient2(layer.parameters());
     gradient2.fill(0.0);
     layer.bprop(output_errors, temp_space, temp_space_size,
-                gradient, input_errors, 2.0, true /* calculate_input_errors */);
+                gradient2, input_errors, 2.0,
+                true /* calculate_input_errors */);
+
+    cerr << "gradient.values = " << gradient.values << endl;
+    cerr << "gradient2.values = " << gradient2.values << endl;
     
     distribution<float> gradient_times_2 = gradient.values * 2.0;
     

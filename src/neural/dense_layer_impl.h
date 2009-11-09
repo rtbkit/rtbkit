@@ -501,10 +501,10 @@ bprop(const distribution<float> & output_errors,
       double example_weight,
       bool calc_input_errors) const
 {
-    if (temp_space_size != outputs())
-        throw Exception("Dense_Layer::bprop(): wrong temp size");
-
     int ni = this->inputs(), no = this->outputs();
+
+    if (temp_space_size != ni + no)
+        throw Exception("Dense_Layer::bprop(): wrong temp size");
 
     const float * inputs = temp_space;
     const float * outputs = temp_space + ni;
@@ -515,6 +515,75 @@ bprop(const distribution<float> & output_errors,
 
     // Bias updates are simply derivs in multiplied by transfer deriv
     float dbias[no];
+    SIMD::vec_prod(derivs, &output_errors[0], dbias, no);
+
+    gradient.vector(1, "bias").update(dbias, example_weight);
+
+    if (calc_input_errors) input_errors.resize(ni);
+
+    for (unsigned i = 0;  i < ni;  ++i) {
+        bool was_missing = isnan(inputs[i]);
+        if (calc_input_errors) input_errors[i] = 0;
+        
+        if (!was_missing) {
+            gradient.matrix(0, "weights")
+                .update_row(i, dbias, inputs[i] * example_weight);
+
+            if (calc_input_errors)
+                input_errors[i]
+                    = SIMD::vec_dotprod_dp(&weights[i][0],
+                                           &dbias[0], no);
+        }
+        else if (missing_values == MV_NONE)
+            throw Exception("MV_NONE but missing value");
+        else if (missing_values == MV_ZERO) {
+            // No update as everything is multiplied by zero
+        }
+        else if (missing_values == MV_DENSE) {
+            gradient.matrix(2, "missing_activations")
+                .update_row(i, dbias, example_weight);
+        }
+        else if (missing_values == MV_INPUT) {
+            // Missing
+
+            // Update the weights
+            gradient.matrix(0, "weights")
+                .update_row(i, dbias,
+                            missing_replacements[i] * example_weight);
+            
+            gradient.vector(2, "missing_replacements")
+                .update_element(i,
+                                (example_weight
+                                 * SIMD::vec_dotprod_dp(&weights[i][0], dbias,
+                                                        no)));
+        }
+    }
+}
+
+template<typename Float>
+void
+Dense_Layer<Float>::
+bprop(const distribution<double> & output_errors,
+      double * temp_space, size_t temp_space_size,
+      Parameters & gradient,
+      distribution<double> & input_errors,
+      double example_weight,
+      bool calc_input_errors) const
+{
+    if (temp_space_size != outputs())
+        throw Exception("Dense_Layer::bprop(): wrong temp size");
+
+    int ni = this->inputs(), no = this->outputs();
+
+    const double * inputs = temp_space;
+    const double * outputs = temp_space + ni;
+
+    // Differentiate the output function
+    double derivs[no];
+    transfer_function->derivative(outputs, derivs, no);
+
+    // Bias updates are simply derivs in multiplied by transfer deriv
+    double dbias[no];
     SIMD::vec_prod(derivs, &output_errors[0], dbias, no);
 
     gradient.vector(0, "bias").update(dbias, example_weight);
@@ -558,18 +627,6 @@ bprop(const distribution<float> & output_errors,
                                                         no)));
         }
     }
-}
-
-template<typename Float>
-void
-Dense_Layer<Float>::
-bprop(const distribution<double> & output_errors,
-      double * temp_space, size_t temp_space_size,
-      Parameters & gradient,
-      distribution<double> & input_errors,
-      double example_weight,
-      bool calculate_input_errors) const
-{
 }
 
 namespace {
@@ -660,6 +717,9 @@ Dense_Layer<Float>::
 validate() const
 {
     Layer::validate();
+
+    if (!transfer_function)
+        throw Exception("transfer function not implemented");
     
     if (weights.shape()[1] != bias.size())
         throw Exception("perceptron layer has bad shape");
@@ -755,8 +815,9 @@ operator == (const Dense_Layer & other) const
 #if 1
     using namespace std;
 
-    if (!transfer_function->equal(*other.transfer_function))
-        cerr << "transfer function" << endl;
+    if (transfer_function && other.transfer_function)
+        if (!transfer_function->equal(*other.transfer_function))
+            cerr << "transfer function" << endl;
     if (missing_values != other.missing_values)
         cerr << "missing values" << endl;
     if (inputs() != other.inputs())
@@ -773,16 +834,20 @@ operator == (const Dense_Layer & other) const
         cerr << "bias size" << endl;
     if (weights != other.weights)
         cerr << "weights" << endl;
-    if (!(bias == other.bias).all())
+    if ((bias.size() != other.bias.size())
+        || !(bias == other.bias).all())
         cerr << "bias" << endl;
-    if (!(missing_replacements == other.missing_replacements).all())
+    if ((missing_replacements.size() != other.missing_replacements.size())
+        || !(missing_replacements == other.missing_replacements).all())
         cerr << "missing replacements" << endl;
     if (missing_activations != other.missing_activations)
         cerr << "missing activations" << endl;
 #endif
 
     return (Layer::operator == (other)
-            && transfer_function->equal(*other.transfer_function)
+            && ((transfer_function && other.transfer_function
+                 && transfer_function->equal(*other.transfer_function))
+                || (transfer_function == other.transfer_function))
             && missing_values == other.missing_values
             && weights.shape()[0] == other.weights.shape()[0]
             && weights.shape()[1] == other.weights.shape()[1]

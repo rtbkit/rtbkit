@@ -94,6 +94,13 @@ swap(Parameter_Value & other)
     name_.swap(other.name_);
 }
 
+void
+Parameter_Value::
+set_name(const std::string & name)
+{
+    name_ = name;
+}
+
 
 /*****************************************************************************/
 /* VECTOR_REFT                                                               */
@@ -121,8 +128,12 @@ vector(int index, const std::string & name)
 {
     if (index < 0 || index >= params.size())
         throw Exception("invalid index");
-    if (params[index].name() != name)
+    if (params[index].name() != name) {
+        cerr << "index = " << index << " parent = " << this->name()
+             << " param name = " << params[index].name() << " wanted = "
+             << name << endl;
         throw Exception("wrong name");
+    }
     return params[index].vector();
 }
 
@@ -432,12 +443,6 @@ subparams(int index, const std::string & name) const
     return params[index].parameters();
 }
 
-void
-Parameters::
-add_subparams(int index, Layer & layer)
-{
-}
-    
 Parameters::
 Parameters(const std::string & name)
     : Parameter_Value(name)
@@ -448,12 +453,21 @@ Parameters::
 Parameters(const Parameters & other)
     : Parameter_Value(other.name())
 {
+    int i = 0;
+    for (Params::const_iterator
+             it = other.params.begin(),
+             end = other.params.end();
+         it != end;  ++it, ++i) {
+        add(i, it->make_copy());
+    }
 }
 
 Parameters &
 Parameters::
 operator = (const Parameters & other)
 {
+    Parameters new_me(other);
+    swap(new_me);
     return *this;
 }
 
@@ -470,6 +484,13 @@ Parameters::
 clear()
 {
     params.clear();
+}
+
+Parameters *
+Parameters::
+make_copy() const
+{
+    return new Parameters(*this);
 }
 
 void
@@ -521,6 +542,13 @@ Parameters_Ref::
 Parameters_Ref(const std::string & name)
     : Parameters(name)
 {
+}
+
+Parameters_Ref *
+Parameters_Ref::
+make_copy() const
+{
+    return new Parameters_Ref(*this);
 }
 
 

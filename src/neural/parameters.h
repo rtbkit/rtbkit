@@ -49,7 +49,7 @@ enum Locking_Policy {
 /* PARAMETER_VALUE                                                           */
 /*****************************************************************************/
 
-struct Parameter_Value : boost::noncopyable {
+struct Parameter_Value {
     Parameter_Value(const std::string & name)
         : name_(name)
     {
@@ -94,6 +94,12 @@ struct Parameter_Value : boost::noncopyable {
     virtual Matrix_Parameter & matrix();
     virtual const Matrix_Parameter & matrix() const;
 
+    virtual Parameter_Value * make_copy() const = 0;
+
+    // Change the name.  This might confuse the parent; should mostly be
+    // used as part of the implementation.
+    virtual void set_name(const std::string & name);
+
 protected:
     std::string name_;
     void swap(Parameter_Value & other);
@@ -119,6 +125,9 @@ struct Vector_Parameter : public Parameter_Value {
 
     virtual void update_element(int element, float update_by) = 0;
     virtual void update_element(int element, double update_by) = 0;
+
+    virtual Vector_Parameter & vector() { return *this; }
+    virtual const Vector_Parameter & vector() const { return *this; }
 };
 
 
@@ -137,6 +146,9 @@ struct Matrix_Parameter : public Parameter_Value {
 
     void update_row(int row, const distribution<float> & x, float k);
     void update_row(int row, const distribution<double> & x, float k);
+
+    virtual Matrix_Parameter & matrix() { return *this; }
+    virtual const Matrix_Parameter & matrix() const { return *this; }
 };
 
 
@@ -198,8 +210,6 @@ struct Parameters : public Parameter_Value {
     virtual const Parameters &
     subparams(int index, const std::string & name) const;
 
-    virtual void add_subparams(int index, Layer & layer);
-
     Vector_Parameter & vector(int index, const std::string & name);
     const Vector_Parameter &
     vector(int index, const std::string & name) const;
@@ -234,6 +244,8 @@ struct Parameters : public Parameter_Value {
     virtual Parameters & parameters() { return *this; }
     virtual const Parameters & parameters() const { return *this; }
 
+    Parameters * make_copy() const;
+
     /** Remove all parameter references from this object.  Doesn't actually
         modify any of the parameter values. */
     void clear();
@@ -266,6 +278,8 @@ protected:
 struct Parameters_Ref : public Parameters {
     Parameters_Ref();
     Parameters_Ref(const std::string & name);
+
+    virtual Parameters_Ref * make_copy() const;
 };
 
 
@@ -288,6 +302,8 @@ struct Parameters_Copy : public Parameters {
     Parameters_Copy(const Layer & layer);
 
     void swap(Parameters_Copy & other);
+
+    virtual Parameters_Copy * make_copy() const;
 
     /** Concrete copy_to implementations */
     virtual void copy_to(float * where, float * limit) const;

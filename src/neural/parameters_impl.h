@@ -97,6 +97,11 @@ struct Vector_RefT : public Vector_Parameter {
             throw Exception("update_element(): out of range");
         array_[element] += update_by;
     }
+
+    virtual Vector_RefT * make_copy() const
+    {
+        return new Vector_RefT(*this);
+    }
     
 protected:
     Underlying * array_;
@@ -194,6 +199,11 @@ struct Matrix_RefT : public Matrix_Parameter {
                       array_ + (size1_ * row), size2_);
     }
     
+    virtual Matrix_RefT * make_copy() const
+    {
+        return new Matrix_RefT(*this);
+    }
+
 protected:
     Underlying * array_;
     size_t size1_, size2_;
@@ -262,7 +272,7 @@ Parameters_Copy(const Parameters_Copy & other)
          it != end;  ++it, ++i) {
         size_t n = it->parameter_count();
 
-        add(i, it->compatible_copy(current, current + n));
+        add(i, it->compatible_ref(current, current + n));
         current += n;
     }
 
@@ -275,6 +285,8 @@ Parameters_Copy<Float> &
 Parameters_Copy<Float>::
 operator = (const Parameters_Copy & other)
 {
+    Parameters_Copy new_me(other);
+    swap(new_me);
     return *this;
 }
 
@@ -312,7 +324,27 @@ Parameters_Copy(const Layer & layer)
 {
     const Parameters_Ref & params
         = layer.parameters();
+
     values.resize(params.parameter_count());
+
+    // Copy all of the parameters in, creating the structure as we go
+    Float * start = &values[0], * finish = start + values.size(),
+        * current = start;
+
+    // Copy the structure over
+    int i = 0;
+    for (Params::const_iterator
+             it = params.params.begin(),
+             end = params.params.end();
+         it != end;  ++it, ++i) {
+        size_t n = it->parameter_count();
+
+        add(i, it->compatible_copy(current, current + n));
+        current += n;
+    }
+
+    if (current != finish)
+        throw Exception("parameters_copy(): wrong length");
 }
 
 template<class Float>
@@ -396,6 +428,14 @@ Parameters_Copy<Float>::
 fill(double value)
 {
     values.fill(value);
+}
+
+template<class Float>
+Parameters_Copy<Float> *
+Parameters_Copy<Float>::
+make_copy() const
+{
+    return new Parameters_Copy(*this);
 }
 
 } // namespace ML
