@@ -42,6 +42,8 @@ protected:
 
     void swap(Layer & other);
 
+    bool operator == (const Layer & other) const;
+
 public:
     
     /*************************************************************************/

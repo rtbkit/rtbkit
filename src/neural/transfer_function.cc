@@ -171,6 +171,18 @@ class_id() const
     return "Standard";
 }
 
+bool
+Standard_Transfer_Function::
+equal(const Transfer_Function & other) const
+{
+    const Standard_Transfer_Function * other_cast
+        = dynamic_cast<const Standard_Transfer_Function *>(&other);
+    if (!other_cast)
+        return false;  // not a standard transfer function...
+
+    return transfer_function == other_cast->transfer_function;
+}
+
 template<typename FloatIn>
 void
 Standard_Transfer_Function::

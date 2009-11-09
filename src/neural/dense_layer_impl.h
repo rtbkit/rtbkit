@@ -15,6 +15,7 @@
 #include "arch/simd_vector.h"
 #include "utils/string_functions.h"
 #include "boosting/registry.h"
+#include "utils/multi_array_utils.h"
 
 namespace ML {
 
@@ -39,10 +40,25 @@ Dense_Layer(const std::string & name,
             Transfer_Function_Type transfer_function,
             Missing_Values missing_values)
     : Layer(name, inputs, units),
-      weights(boost::extents[inputs][units]), bias(units),
-      missing_replacements(inputs)
+      missing_values(missing_values),
+      weights(boost::extents[inputs][units]), bias(units)
 {
+    switch (missing_values) {
+    case MV_NONE:
+    case MV_ZERO:
+        break;
+    case MV_INPUT:
+        missing_replacements.resize(inputs);
+        break;
+    case MV_DENSE:
+        missing_activations.resize(boost::extents[inputs][units]);
+        break;
+    default:
+        throw Exception("Dense_Layer: invalid missing values");
+    }
+        
     this->transfer_function = create_transfer_function(transfer_function);
+
     zero_fill();
 }
 
@@ -55,13 +71,84 @@ Dense_Layer(const std::string & name,
             Thread_Context & thread_context,
             float limit)
     : Layer(name, inputs, units),
-      weights(boost::extents[inputs][units]), bias(units),
-      missing_replacements(inputs)
+      missing_values(missing_values),
+      weights(boost::extents[inputs][units]), bias(units)
 {
+    switch (missing_values) {
+    case MV_NONE:
+    case MV_ZERO:
+        break;
+    case MV_INPUT:
+        missing_replacements.resize(inputs);
+        break;
+    case MV_DENSE:
+        missing_activations.resize(boost::extents[inputs][units]);
+        break;
+    default:
+        throw Exception("Dense_Layer: invalid missing values");
+    }
+
     this->transfer_function = create_transfer_function(transfer_function);
+
     if (limit == -1.0)
         limit = 1.0 / sqrt(inputs);
     random_fill(limit, thread_context);
+}
+
+#if 0
+template<typename Float>
+Dense_Layer<Float>::
+Dense_Layer(const Dense_Layer & other)
+    : Layer(other),
+      transfer_function(other.transfer_function),
+      missing_values(other.missing_values),
+      weights(boost::extents[other.inputs()][other.outputs()]),
+      bias(other.bias),
+      missing_replacements(other.missing_replacements),
+      missing_activations(boost::extents
+                          [other.missing_activations.shape()[0]]
+                          [other.missing_activations.shape()[1]])
+{
+}
+#else
+
+template<typename Float>
+Dense_Layer<Float>::
+Dense_Layer(const Dense_Layer & other)
+    : Layer(other),
+      transfer_function(other.transfer_function),
+      missing_values(other.missing_values),
+      weights(other.weights),
+      bias(other.bias),
+      missing_replacements(other.missing_replacements),
+      missing_activations(other.missing_activations)
+{
+}
+#endif
+
+template<typename Float>
+Dense_Layer<Float> &
+Dense_Layer<Float>::
+operator = (const Dense_Layer & other)
+{
+    if (&other == this) return *this;
+    Dense_Layer new_me(other);
+    swap(new_me);
+    return *this;
+}
+
+template<typename Float>
+void
+Dense_Layer<Float>::
+swap(Dense_Layer & other)
+{
+    Layer::swap(other);
+    transfer_function.swap(other.transfer_function);
+    std::swap(missing_values, other.missing_values);
+    boost::swap(weights, other.weights);
+    bias.swap(other.bias);
+    missing_replacements.swap(other.missing_replacements);
+    boost::swap(missing_activations, other.missing_activations);
 }
 
 template<typename Float>
@@ -95,8 +182,10 @@ print() const
 {
     size_t ni = inputs(), no = outputs();
     std::string result
-        = format("{ layer: %zd inputs, %zd neurons, function %s\n",
-                 inputs(), outputs(), transfer_function->print().c_str());
+        = format("{ layer: %zd inputs, %zd neurons, function %s, missing %s\n",
+                 inputs(), outputs(), transfer_function->print().c_str(),
+                 ML::print(missing_values).c_str());
+
     result += "  weights: \n";
     for (unsigned i = 0;  i < ni;  ++i) {
         result += "    [ ";
@@ -104,25 +193,28 @@ print() const
             result += format("%8.4f", weights[i][j]);
         result += " ]\n";
     }
+
     result += "  bias: \n    [ ";
     for (unsigned j = 0;  j < no;  ++j)
         result += format("%8.4f", bias[j]);
     result += " ]\n";
     
-    result += "  missing replacements: \n    [ ";
-    for (unsigned j = 0;  j < no;  ++j)
-        result += format("%8.4f", missing_replacements[j]);
-    result += " ]\n";
-
-    result += "  missing activations: \n";
-    for (unsigned i = 0;  i < ni;  ++i) {
-        result += "    [ ";
+    if (missing_values == MV_INPUT) {
+        result += "  missing replacements: \n    [ ";
         for (unsigned j = 0;  j < no;  ++j)
-            result += format("%8.4f", missing_activations[i][j]);
+            result += format("%8.4f", missing_replacements[j]);
         result += " ]\n";
     }
-    return result;
 
+    if (missing_values == MV_DENSE) {
+        result += "  missing activations: \n";
+        for (unsigned i = 0;  i < ni;  ++i) {
+            result += "    [ ";
+            for (unsigned j = 0;  j < no;  ++j)
+                result += format("%8.4f", missing_activations[i][j]);
+            result += " ]\n";
+        }
+    }
     
     result += "}\n";
     
@@ -152,6 +244,7 @@ serialize(DB::Store_Writer & store) const
     store << weights;
     store << bias;
     store << missing_replacements;
+    store << missing_activations;
     transfer_function->poly_serialize(store);
 }
 
@@ -212,7 +305,8 @@ reconstitute(DB::Store_Reader & store)
         inputs_ = ni;
         outputs_ = no;
         
-        store >> missing_values >> weights >> bias >> missing_replacements;
+        store >> missing_values >> weights >> bias >> missing_replacements
+              >> missing_activations;
 
         transfer_function = Transfer_Function::poly_reconstitute(store);
 
@@ -560,7 +654,7 @@ Dense_Layer<Float>::
 validate() const
 {
     if (weights.shape()[1] != bias.size())
-        throw Exception("perceptron laye has bad shape");
+        throw Exception("perceptron layer has bad shape");
 
     int ni = weights.shape()[0], no = weights.shape()[1];
     
@@ -585,12 +679,47 @@ validate() const
         if (!finite(bias[o]))
             throw Exception("perceptron layer has non-finite bias");
 
-    if (ni != missing_replacements.size())
-        throw Exception("missing replacements sized wrong");
+    switch (missing_values) {
+    case MV_ZERO:
+    case MV_NONE:
+        if (missing_replacements.size() != 0)
+            throw Exception("missing replacements should be empty");
+        if (missing_activations.num_elements() != 0)
+            throw Exception("missing activations should be empty");
+        break;
+    case MV_INPUT:
+        if (ni != missing_replacements.size())
+            throw Exception("missing replacements sized wrong");
+        for (unsigned i = 0;  i < missing_replacements.size();  ++i)
+            if (!finite(missing_replacements[i]))
+                throw Exception("perceptron layer has non-finite missing "
+                                "replacement");
+        if (missing_activations.num_elements() != 0)
+            throw Exception("missing activations should be empty");
+        break;
 
-    for (unsigned i = 0;  i < missing_replacements.size();  ++i)
-        if (!finite(missing_replacements[i]))
-            throw Exception("perceptron layer has non-finite missing replacement");
+    case MV_DENSE:
+        if (missing_replacements.size() != 0)
+            throw Exception("missing replacements should be empty");
+        if (missing_activations.shape()[0] != ni
+            || missing_activations.shape()[1] != no) {
+            using namespace std;
+            cerr << "ni = " << ni << " ni2 = " << missing_activations.shape()[0]
+                 << endl;
+            cerr << "no = " << no << " no2 = " << missing_activations.shape()[1]
+                 << endl;
+            throw Exception("missing activations has wrong size");
+        }
+        for (const Float * p = missing_activations.data(),
+                 * pe = missing_activations.data()
+                 + missing_activations.num_elements();
+             p != pe;  ++p)
+            if (isnan(*p))
+                throw Exception("missing_activations is not finite");
+        break;
+    default:
+        throw Exception("unknown missing_values");
+    }
 }
 
 template<typename Float>
@@ -615,10 +744,38 @@ bool
 Dense_Layer<Float>::
 operator == (const Dense_Layer & other) const
 {
-    return (transfer_function == other.transfer_function
+#if 1
+    using namespace std;
+
+    if (!transfer_function->equal(*other.transfer_function))
+        cerr << "transfer function" << endl;
+    if (missing_values != other.missing_values)
+        cerr << "missing values" << endl;
+    if (inputs() != other.inputs())
+        cerr << "inputs" << endl;
+    if (outputs() != other.outputs())
+        cerr << "outputs" << endl;
+    if (weights.shape()[0] != other.weights.shape()[0])
+        cerr << "weights shape 0" << endl;
+    if (weights.shape()[1] != other.weights.shape()[1])
+        cerr << "weights shape 1" << endl;
+    if (missing_replacements.size() != other.missing_replacements.size())
+        cerr << "missing replacements size" << endl;
+    if (bias.size() != other.bias.size())
+        cerr << "bias size" << endl;
+    if (weights != other.weights)
+        cerr << "weights" << endl;
+    if (!(bias == other.bias).all())
+        cerr << "bias" << endl;
+    if (!(missing_replacements == other.missing_replacements).all())
+        cerr << "missing replacements" << endl;
+    if (missing_activations != other.missing_activations)
+        cerr << "missing activations" << endl;
+#endif
+
+    return (Layer::operator == (other)
+            && transfer_function->equal(*other.transfer_function)
             && missing_values == other.missing_values
-            && inputs() == other.inputs()
-            && outputs() == other.outputs()
             && weights.shape()[0] == other.weights.shape()[0]
             && weights.shape()[1] == other.weights.shape()[1]
             && missing_replacements.size() == other.missing_replacements.size()

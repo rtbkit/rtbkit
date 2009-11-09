@@ -85,6 +85,17 @@ struct Transfer_Function {
     */
     virtual std::pair<float, float> targets(float maximum) const = 0;
 
+    virtual bool equal(const Transfer_Function & other) const = 0;
+
+    bool operator == (const Transfer_Function & other) const
+    {
+        return equal(other);
+    }
+
+    bool operator != (const Transfer_Function & other) const
+    {
+        return ! operator == (other);
+    }
 
     /*************************************************************************/
     /* SERIALIZATION                                                         */
@@ -198,6 +209,9 @@ struct Standard_Transfer_Function : public Transfer_Function {
     virtual void reconstitute(DB::Store_Reader & store);
 
     virtual std::string class_id() const;
+
+    virtual bool equal(const Transfer_Function & other) const;
+
 
     /*************************************************************************/
     /* TRANSFER                                                              */

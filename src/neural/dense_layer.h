@@ -60,6 +60,12 @@ struct Dense_Layer : public Layer {
                 Thread_Context & thread_context,
                 float limit = -1.0);
 
+    Dense_Layer(const Dense_Layer & other);
+
+    Dense_Layer & operator = (const Dense_Layer & other);
+
+    void swap(Dense_Layer & other);
+
     /// Transfer function for the output
     boost::shared_ptr<const Transfer_Function> transfer_function;
 
@@ -192,6 +198,10 @@ struct Dense_Layer : public Layer {
 
     // For testing purposes
     bool operator == (const Dense_Layer & other) const;
+    bool operator != (const Dense_Layer & other) const
+    {
+        return ! operator == (other);
+    }
 
 private:
     struct RegisterMe;

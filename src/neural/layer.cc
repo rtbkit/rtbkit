@@ -71,6 +71,16 @@ swap(Layer & other)
     std::swap(name_, other.name_);
     std::swap(inputs_, other.inputs_);
     std::swap(outputs_, other.outputs_);
+    std::swap(parameters_, other.parameters_);
+}
+
+bool
+Layer::
+operator == (const Layer & other) const
+{
+    return name_ == other.name_
+        && inputs_ == other.inputs_
+        && outputs_ == other.outputs_;
 }
 
 void
