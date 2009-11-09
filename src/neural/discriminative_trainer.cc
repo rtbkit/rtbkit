@@ -6,72 +6,101 @@
 */
 
 #include "discriminative_trainer.h"
+#include "boosting/worker_task.h"
+#include "utils/guard.h"
+#include <boost/progress.hpp>
+#include <boost/tuple/tuple.hpp>
+#include "arch/threads.h"
+#include <boost/bind.hpp>
+#include "arch/timers.h"
+#include "stats/auc.h"
+
+using namespace std;
+
 
 namespace ML {
 
 
+/*****************************************************************************/
+/* DISCRIMINATIVE_TRAINER                                                    */
+/*****************************************************************************/
+
 pair<double, double>
 Discriminative_Trainer::
-train_discrim_example(const distribution<float> & data,
-                      float label,
-                      Discriminative_Trainer_Updates & updates) const
+train_example(const distribution<float> & data,
+              float label,
+              Parameters_Copy<double> & updates) const
 {
-    /* fprop */
-
-    vector<distribution<double> > outputs(size() + 1);
-    outputs[0] = data;
-
-    for (unsigned i = 0;  i < size();  ++i)
-        outputs[i + 1] = (*this)[i].apply(outputs[i]);
-
-    /* errors */
-    distribution<double> errors = (label - outputs.back());
-    double error = errors.dotprod(errors);
-    distribution<double> derrors = -2.0 * errors;
-    distribution<double> new_derrors;
-
-    /* bprop */
-    for (int i = size() - 1;  i >= 0;  --i) {
-        (*this)[i].backprop_example(outputs[i + 1],
-                                    derrors,
-                                    outputs[i],
-                                    new_derrors,
-                                    updates[i]);
-        derrors.swap(new_derrors);
-    }
-
-    return make_pair(sqrt(error), outputs.back()[0]);
+    distribution<float> label2(1, label);
+    return train_example(data, label2, updates);
 }
 
-struct Train_Discrim_Examples_Job {
+pair<double, double>
+Discriminative_Trainer::
+train_example(const distribution<float> & data,
+              const distribution<float> & label,
+              Parameters_Copy<double> & updates) const
+{
+    /* fprop */
+    
+    size_t temp_space_required
+        = layer->fprop_temporary_space_required();
 
-    const Discriminative_Trainer & stack;
+    float temp_space[temp_space_required];
+
+    distribution<float> outputs
+        = layer->fprop(data, temp_space, temp_space_required);
+
+    /* error */
+
+    distribution<float> errors = (label - outputs);
+    double error = errors.dotprod(errors);
+
+    // TODO: get the loss function to do this...
+    distribution<float> derrors = -2.0 * errors;
+
+    distribution<float> input_derrors;
+
+    /* bprop */
+    layer->bprop(derrors,
+                 temp_space, temp_space_required,
+                 updates,
+                 input_derrors, 1.0, false /* calculate_input_errors */);
+
+    return make_pair(sqrt(error), outputs[0]);
+}
+
+namespace {
+
+struct Train_Examples_Job {
+
+    const Discriminative_Trainer & trainer;
     const std::vector<distribution<float> > & data;
     const std::vector<float> & labels;
     Thread_Context & thread_context;
     const vector<int> & examples;
     int first;
     int last;
-    Discriminative_Trainer_Updates & updates;
+    Parameters_Copy<double> & updates;
     vector<float> & outputs;
     double & total_rmse;
     Lock & updates_lock;
     boost::progress_display * progress;
     int verbosity;
 
-    Train_Discrim_Examples_Job(const Discriminative_Trainer & stack,
-                               const std::vector<distribution<float> > & data,
-                               const std::vector<float> & labels,
-                               Thread_Context & thread_context,
-                               const vector<int> & examples,
-                               int first, int last,
-                               Discriminative_Trainer_Updates & updates,
-                               vector<float> & outputs,
-                               double & total_rmse,
-                               Lock & updates_lock,
-                               boost::progress_display * progress,
-                               int verbosity)
-        : stack(stack), data(data), labels(labels),
+    Train_Examples_Job(const Discriminative_Trainer & trainer,
+                       const std::vector<distribution<float> > & data,
+                       const std::vector<float> & labels,
+                       Thread_Context & thread_context,
+                       const vector<int> & examples,
+                       int first, int last,
+                       Parameters_Copy<double> & updates,
+                       vector<float> & outputs,
+                       double & total_rmse,
+                       Lock & updates_lock,
+                       boost::progress_display * progress,
+                       int verbosity)
+        : trainer(trainer), data(data), labels(labels),
           thread_context(thread_context), examples(examples),
           first(first), last(last), updates(updates), outputs(outputs),
           total_rmse(total_rmse), updates_lock(updates_lock),
@@ -81,7 +110,7 @@ struct Train_Discrim_Examples_Job {
 
     void operator () ()
     {
-        Discriminative_Trainer_Updates local_updates(stack);
+        Parameters_Copy<double> local_updates(*trainer.layer);
 
         double total_rmse_local = 0.0;
 
@@ -92,36 +121,38 @@ struct Train_Discrim_Examples_Job {
             double output;
 
             boost::tie(rmse_contribution, output)
-                = stack.train_discrim_example(data[x],
-                                              labels[x],
-                                              local_updates);
-
+                = trainer.train_example(data[x],
+                                      labels[x],
+                                      local_updates);
+            
             outputs[ix] = output;
             total_rmse_local += rmse_contribution;
         }
 
         Guard guard(updates_lock);
         total_rmse += total_rmse_local;
-        updates += local_updates;
+        updates.values += local_updates.values;
         if (progress) progress += (last - first);
     }
 };
 
+} // file scope
+
 std::pair<double, double>
 Discriminative_Trainer::
-train_discrim_iter(const std::vector<distribution<float> > & data,
-                   const std::vector<float> & labels,
-                   Thread_Context & thread_context,
-                   int minibatch_size, float learning_rate,
-                   int verbosity,
-                   float sample_proportion,
-                   bool randomize_order)
+train_iter(const std::vector<distribution<float> > & data,
+           const std::vector<float> & labels,
+           Thread_Context & thread_context,
+           int minibatch_size, float learning_rate,
+           int verbosity,
+           float sample_proportion,
+           bool randomize_order) const
 {
     Worker_Task & worker = thread_context.worker();
 
     int nx = data.size();
 
-    int microbatch_size = minibatch_size / (num_cpus() * 4);
+    int microbatch_size = minibatch_size / (num_threads() * 4);
             
     Lock update_lock;
 
@@ -141,7 +172,7 @@ train_discrim_iter(const std::vector<distribution<float> > & data,
     int nx2 = examples.size();
 
     double total_mse = 0.0;
-    Model_Output outputs;
+    distribution<float> outputs;
     outputs.resize(nx2);    
 
     std::auto_ptr<boost::progress_display> progress;
@@ -149,7 +180,7 @@ train_discrim_iter(const std::vector<distribution<float> > & data,
 
     for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
                 
-        Discriminative_Trainer_Updates updates(*this);
+        Parameters_Copy<double> updates(*layer);
                 
         // Now, submit it as jobs to the worker task to be done
         // multithreaded
@@ -169,7 +200,7 @@ train_discrim_iter(const std::vector<distribution<float> > & data,
             for (unsigned x2 = x;  x2 < nx2 && x2 < x + minibatch_size;
                  x2 += microbatch_size) {
                         
-                Train_Discrim_Examples_Job
+                Train_Examples_Job
                     job(*this,
                         data,
                         labels,
@@ -195,7 +226,7 @@ train_discrim_iter(const std::vector<distribution<float> > & data,
 
         //cerr << "applying minibatch updates" << endl;
         
-        update(updates, learning_rate);
+        layer->parameters().update(updates, learning_rate);
     }
 
     // TODO: calculate AUC score
@@ -203,19 +234,19 @@ train_discrim_iter(const std::vector<distribution<float> > & data,
     for (unsigned i = 0;  i < nx2;  ++i)
         test_labels.push_back(labels[examples[i]]);
 
-    double auc = outputs.calc_auc(test_labels);
+    double auc = calc_auc(outputs, test_labels);
 
     return make_pair(sqrt(total_mse / nx2), auc);
 }
 
 std::pair<double, double>
 Discriminative_Trainer::
-train_discrim(const std::vector<distribution<float> > & training_data,
-              const std::vector<float> & training_labels,
-              const std::vector<distribution<float> > & testing_data,
-              const std::vector<float> & testing_labels,
-              const Configuration & config,
-              ML::Thread_Context & thread_context)
+train(const std::vector<distribution<float> > & training_data,
+      const std::vector<float> & training_labels,
+      const std::vector<distribution<float> > & testing_data,
+      const std::vector<float> & testing_labels,
+      const Configuration & config,
+      ML::Thread_Context & thread_context) const
 {
     double learning_rate = 0.75;
     int minibatch_size = 512;
@@ -268,11 +299,11 @@ train_discrim(const std::vector<distribution<float> > & training_data,
 
         double train_error_rmse, train_error_auc;
         boost::tie(train_error_rmse, train_error_auc)
-            = train_discrim_iter(training_data, training_labels,
-                                 thread_context,
-                                 minibatch_size, learning_rate,
-                                 verbosity, sample_proportion,
-                                 randomize_order);
+            = train_iter(training_data, training_labels,
+                         thread_context,
+                         minibatch_size, learning_rate,
+                         verbosity, sample_proportion,
+                         randomize_order);
         
         if (verbosity >= 3) {
             cerr << "error of iteration: rmse " << train_error_rmse
@@ -294,8 +325,8 @@ train_discrim(const std::vector<distribution<float> > & training_data,
                      << endl;
 
             boost::tie(test_error_rmse, test_error_auc)
-                = test_discrim(testing_data, testing_labels,
-                               thread_context, verbosity);
+                = test(testing_data, testing_labels,
+                       thread_context, verbosity);
             
             if (verbosity >= 3) {
                 cerr << "testing error of iteration: rmse "
@@ -315,9 +346,11 @@ train_discrim(const std::vector<distribution<float> > & training_data,
     return make_pair(0.0, 0.0);
 }
 
-struct Test_Discrim_Job {
+namespace {
 
-    const Discriminative_Trainer & stack;
+struct Test_Examples_Job {
+
+    const Discriminative_Trainer & trainer;
     const vector<distribution<float> > & data;
     const vector<float> & labels;
     int first;
@@ -329,17 +362,17 @@ struct Test_Discrim_Job {
     boost::progress_display * progress;
     int verbosity;
 
-    Test_Discrim_Job(const Discriminative_Trainer & stack,
-                     const vector<distribution<float> > & data,
-                     const vector<float> & labels,
-                     int first, int last,
-                     const Thread_Context & context,
-                     Lock & update_lock,
-                     double & error_rmse,
-                     vector<float> & outputs,
-                     boost::progress_display * progress,
-                     int verbosity)
-        : stack(stack), data(data), labels(labels),
+    Test_Examples_Job(const Discriminative_Trainer & trainer,
+                      const vector<distribution<float> > & data,
+                      const vector<float> & labels,
+                      int first, int last,
+                      const Thread_Context & context,
+                      Lock & update_lock,
+                      double & error_rmse,
+                      vector<float> & outputs,
+                      boost::progress_display * progress,
+                      int verbosity)
+        : trainer(trainer), data(data), labels(labels),
           first(first), last(last),
           context(context),
           update_lock(update_lock),
@@ -354,7 +387,7 @@ struct Test_Discrim_Job {
 
         for (unsigned x = first;  x < last;  ++x) {
             distribution<float> output
-                = stack.apply(data[x]);
+                = trainer.layer->apply(data[x]);
 
             outputs[x] = output[0];
             local_error_rmse += pow(labels[x] - output[0], 2);
@@ -366,12 +399,14 @@ struct Test_Discrim_Job {
     }
 };
 
+} // file scope
+
 pair<double, double>
 Discriminative_Trainer::
-test_discrim(const std::vector<distribution<float> > & data,
-             const std::vector<float> & labels,
-             ML::Thread_Context & thread_context,
-             int verbosity)
+test(const std::vector<distribution<float> > & data,
+     const std::vector<float> & labels,
+     ML::Thread_Context & thread_context,
+     int verbosity) const
 {
     Lock update_lock;
     double mse_total = 0.0;
@@ -383,7 +418,7 @@ test_discrim(const std::vector<distribution<float> > & data,
 
     Worker_Task & worker = thread_context.worker();
 
-    Model_Output outputs;
+    distribution<float> outputs;
     outputs.resize(nx);
             
     // Now, submit it as jobs to the worker task to be done
@@ -401,17 +436,17 @@ test_discrim(const std::vector<distribution<float> > & data,
                                      group));
         
         // 20 jobs per CPU
-        int batch_size = nx / (num_cpus() * 20);
+        int batch_size = nx / (num_threads() * 20);
         
         for (unsigned x = 0; x < nx;  x += batch_size) {
             
-            Test_Discrim_Job job(*this, data, labels,
-                                 x, min<int>(x + batch_size, nx),
-                                 thread_context,
-                                 update_lock,
-                                 mse_total, outputs,
-                                 progress.get(),
-                                 verbosity);
+            Test_Examples_Job job(*this, data, labels,
+                                  x, min<int>(x + batch_size, nx),
+                                  thread_context,
+                                  update_lock,
+                                  mse_total, outputs,
+                                  progress.get(),
+                                  verbosity);
             
             // Send it to a thread to be processed
             worker.add(job, "test discrim job", group);
@@ -421,10 +456,7 @@ test_discrim(const std::vector<distribution<float> > & data,
     worker.run_until_finished(group);
     
     return make_pair(sqrt(mse_total / nx),
-                     outputs.calc_auc
-                     (distribution<float>(labels.begin(), labels.end())));
+                     calc_auc(outputs, labels));
 }
-
-
 
 } // namespace ML

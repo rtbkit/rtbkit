@@ -10,9 +10,10 @@ LIBNEURAL_SOURCES := \
 	perceptron_generator.cc \
 	parameters.cc \
 	transfer_function.cc \
-	layer_stack.cc
+	layer_stack.cc \
+	discriminative_trainer.cc
 
-LIBNEURAL_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt boosting
+LIBNEURAL_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt boosting stats
 
 $(eval $(call library,neural,$(LIBNEURAL_SOURCES),$(LIBNEURAL_LINK)))
 

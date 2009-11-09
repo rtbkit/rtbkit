@@ -8,6 +8,8 @@
 #ifndef __jml__neural__loss_function_h__
 #define __jml__neural__loss_function_h__
 
+#include "stats/distribution.h"
+
 namespace ML {
 
 
@@ -90,6 +92,13 @@ struct MSE_Loss {
     dloss(const distribution<double> & input,
           const distribution<double> & target) const;
 };
+
+
+/*****************************************************************************/
+/* FACTORY                                                                   */
+/*****************************************************************************/
+
+// ...
 
 } // namespace ML
 
