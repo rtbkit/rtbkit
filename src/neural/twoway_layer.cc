@@ -6,7 +6,7 @@
 */
 
 #include "twoway_layer.h"
-
+#include "layer_stack_impl.h"
 
 namespace ML {
 
@@ -461,6 +461,8 @@ add_noise(const distribution<Float> & inputs,
     
     return result;
 }
+
+template class Layer_Stack<Twoway_Layer>;
 
 #if 0
 pair<double, double>

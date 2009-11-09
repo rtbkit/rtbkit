@@ -46,6 +46,55 @@ struct Vector_RefT : public Vector_Parameter {
         std::copy(array_, array_ + size_, where);
     }
 
+    virtual void
+    update(const Parameter_Value & other, double learning_rate)
+    {
+        const Vector_Parameter & vp = other.vector();
+
+        // Try to do it via a vector operation if possible
+        {
+            const Vector_RefT<Underlying> * cast
+                = dynamic_cast<const Vector_RefT<Underlying> *>(&vp);
+            if (cast) {
+                if (cast->size_ != size_)
+                    throw Exception("Parameters_Copy::set(): incompatible");
+                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                              size_);
+                return;
+            }
+        }
+
+        {
+            const Vector_RefT<float> * cast
+                = dynamic_cast<const Vector_RefT<float> *>(&vp);
+            if (cast) {
+                if (cast->size_ != size_)
+                    throw Exception("Parameters_Copy::set(): incompatible");
+                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                              size_);
+                return;
+            }
+        }
+
+        {
+            const Vector_RefT<double> * cast
+                = dynamic_cast<const Vector_RefT<double> *>(&vp);
+            if (cast) {
+                if (cast->size_ != size_)
+                    throw Exception("Parameters_Copy::set(): incompatible");
+                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                              size_);
+                return;
+            }
+        }
+    
+        // Otherwise, do it via a copy through a known type (here, double)
+        double tmp[size_];
+        vp.copy_to(tmp, tmp + size_);
+        
+        SIMD::vec_add(array_, learning_rate, tmp, array_, size_);
+    }
+
     virtual Parameter_Value *
     compatible_ref(float * first, float * last) const
     {
@@ -106,6 +155,7 @@ struct Vector_RefT : public Vector_Parameter {
 protected:
     Underlying * array_;
     size_t size_;
+    template<typename U> friend class Vector_RefT;
 };
 
 extern template struct Vector_RefT<float>;
@@ -160,6 +210,57 @@ struct Matrix_RefT : public Matrix_Parameter {
         std::fill(array_, array_ + size1_ * size2_, value);
     }
 
+    virtual void
+    update(const Parameter_Value & other, double learning_rate)
+    {
+        size_t n = size1_ * size2_;
+
+        const Matrix_Parameter & mp = other.matrix();
+
+        // Try to do it via a vector operation if possible
+        {
+            const Matrix_RefT<Underlying> * cast
+                = dynamic_cast<const Matrix_RefT<Underlying> *>(&mp);
+            if (cast) {
+                if ((size1_ != cast->size1_) || (size2_ != cast->size2_))
+                    throw Exception("Parameters_Copy::set(): incompatible");
+                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                              n);
+                return;
+            }
+        }
+
+        {
+            const Matrix_RefT<float> * cast
+                = dynamic_cast<const Matrix_RefT<float> *>(&mp);
+            if (cast) {
+                if ((size1_ != cast->size1_) || (size2_ != cast->size2_))
+                    throw Exception("Parameters_Copy::set(): incompatible");
+                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                              n);
+                return;
+            }
+        }
+
+        {
+            const Matrix_RefT<double> * cast
+                = dynamic_cast<const Matrix_RefT<double> *>(&mp);
+            if (cast) {
+                if ((size1_ != cast->size1_) || (size2_ != cast->size2_))
+                    throw Exception("Parameters_Copy::set(): incompatible");
+                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                              n);
+                return;
+            }
+        }
+    
+        // Otherwise, do it via a copy through a known type (here, double)
+        double tmp[n];
+        mp.copy_to(tmp, tmp + n);
+        
+        SIMD::vec_add(array_, learning_rate, tmp, array_, n);
+    }
+
     virtual Parameter_Value *
     compatible_ref(float * first, float * last) const
     {
@@ -207,6 +308,7 @@ struct Matrix_RefT : public Matrix_Parameter {
 protected:
     Underlying * array_;
     size_t size1_, size2_;
+    template<typename U> friend class Matrix_RefT;
 };
 
 extern template struct Matrix_RefT<float>;
@@ -428,6 +530,52 @@ Parameters_Copy<Float>::
 fill(double value)
 {
     values.fill(value);
+}
+
+template<class Float>
+void
+Parameters_Copy<Float>::
+update(const Parameter_Value & other, double learning_rate)
+{
+    // Try to do it via a vector operation if possible
+    {
+        const Parameters_Copy<Float> * cast
+            = dynamic_cast<const Parameters_Copy<Float> *>(&other);
+        if (cast) {
+            if (cast->values.size() != values.size())
+                throw Exception("Parameters_Copy::set(): incompatible");
+            SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
+                          &values[0], values.size());
+            return;
+        }
+    }
+
+    {
+        const Parameters_Copy<float> * cast
+            = dynamic_cast<const Parameters_Copy<float> *>(&other);
+        if (cast) {
+            if (cast->values.size() != values.size())
+                throw Exception("Parameters_Copy::set(): incompatible");
+            SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
+                          &values[0], values.size());
+            return;
+        }
+    }
+
+    {
+        const Parameters_Copy<double> * cast
+            = dynamic_cast<const Parameters_Copy<double> *>(&other);
+        if (cast) {
+            if (cast->values.size() != values.size())
+                throw Exception("Parameters_Copy::set(): incompatible");
+            SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
+                          &values[0], values.size());
+            return;
+        }
+    }
+
+    // Otherwise, do it structurally
+    Parameters::update(other, learning_rate);
 }
 
 template<class Float>

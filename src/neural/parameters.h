@@ -83,6 +83,8 @@ struct Parameter_Value {
     /** Fill with the given value */
     virtual void fill(double value) = 0;
 
+    virtual void update(const Parameter_Value & other, double learning_rate) = 0;
+
     std::string name() const { return name_; }
 
     virtual Parameters & parameters();
@@ -122,6 +124,8 @@ struct Vector_Parameter : public Parameter_Value {
 
     void update(const distribution<float> & dist, float k);
     void update(const distribution<double> & dist, double k);
+
+    using Parameter_Value::update;
 
     virtual void update_element(int element, float update_by) = 0;
     virtual void update_element(int element, double update_by) = 0;
@@ -204,7 +208,7 @@ struct Parameters : public Parameter_Value {
 
     virtual void fill(double value);
 
-    virtual void update(const Parameters & other, double learning_rate);
+    virtual void update(const Parameter_Value & other, double learning_rate);
 
     virtual Parameters & subparams(int index, const std::string & name);
     virtual const Parameters &
@@ -314,8 +318,12 @@ struct Parameters_Copy : public Parameters {
 
     virtual void fill(double value);
 
+    /** For all of our parameters, apply param += learning_rate * other.param */
+    virtual void update(const Parameter_Value & other, double learning_rate);
+
     // The actual values, stored contiguously for efficiency.  The client
-    // should not resize them.
+    // should not resize them, but is free to access them as an anonymous
+    // parameter vector.
     distribution<Float> values;
 };
 

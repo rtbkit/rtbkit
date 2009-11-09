@@ -99,24 +99,6 @@ Dense_Layer(const std::string & name,
     update_parameters();
 }
 
-#if 0
-template<typename Float>
-Dense_Layer<Float>::
-Dense_Layer(const Dense_Layer & other)
-    : Layer(other),
-      transfer_function(other.transfer_function),
-      missing_values(other.missing_values),
-      weights(boost::extents[other.inputs()][other.outputs()]),
-      bias(other.bias),
-      missing_replacements(other.missing_replacements),
-      missing_activations(boost::extents
-                          [other.missing_activations.shape()[0]]
-                          [other.missing_activations.shape()[1]])
-{
-    update_parameters();
-}
-#else
-
 template<typename Float>
 Dense_Layer<Float>::
 Dense_Layer(const Dense_Layer & other)
@@ -130,7 +112,6 @@ Dense_Layer(const Dense_Layer & other)
 {
     update_parameters();
 }
-#endif
 
 template<typename Float>
 Dense_Layer<Float> &
@@ -812,7 +793,7 @@ bool
 Dense_Layer<Float>::
 operator == (const Dense_Layer & other) const
 {
-#if 1
+#if 0
     using namespace std;
 
     if (transfer_function && other.transfer_function)

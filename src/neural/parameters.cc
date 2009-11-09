@@ -101,6 +101,43 @@ set_name(const std::string & name)
     name_ = name;
 }
 
+/*****************************************************************************/
+/* VECTOR_PARAMETER                                                          */
+/*****************************************************************************/
+
+void
+Vector_Parameter::
+update(const distribution<float> & dist, float k)
+{
+    throw Exception("not implemented");
+}
+
+void
+Vector_Parameter::
+update(const distribution<double> & dist, double k)
+{
+    throw Exception("not implemented");
+}
+
+
+/*****************************************************************************/
+/* MATRIX_PARAMETER                                                          */
+/*****************************************************************************/
+
+void
+Matrix_Parameter::
+update_row(int row, const distribution<float> & x, float k)
+{
+    throw Exception("not implemented");
+}
+
+void
+Matrix_Parameter::
+update_row(int row, const distribution<double> & x, float k)
+{
+    throw Exception("not implemented");
+}
+
 
 /*****************************************************************************/
 /* VECTOR_REFT                                                               */
@@ -421,8 +458,36 @@ fill(double value)
 
 void
 Parameters::
-update(const Parameters & other, double learning_rate)
+update(const Parameter_Value & other, double learning_rate)
 {
+    if (name() != other.name())
+        throw Exception("Parameters::update(): objects have different names");
+
+    const Parameters * cast
+        = dynamic_cast<const Parameters *>(&other);
+    if (!cast)
+        throw Exception("Parameters::update(): other object is not Parameters");
+
+    if (params.size() != cast->params.size()) {
+        cerr << "name() = " << name() << endl;
+        cerr << "params.size() = " << params.size() << endl;
+        cerr << "cast->params.size() = " << cast->params.size() << endl;
+        throw Exception("Parameters::update(): differing sizes");
+    }
+
+    // Iterate through the two parameters
+    Params::iterator
+        it = params.begin(),
+        iend = params.end();
+    Params::const_iterator
+        jt = cast->params.begin(),
+        jend = cast->params.end();
+
+    for (; it != iend && jt != jend;  ++it, ++jt) {
+        if (it->name() != jt->name())
+            throw Exception("Parameters::update(): differing names");
+        it->update(*jt, learning_rate);
+    }
 }
 
 Parameters &

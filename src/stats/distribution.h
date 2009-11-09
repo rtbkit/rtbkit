@@ -94,6 +94,12 @@ public:
         std::fill(this->begin(), this->end(), val);
     }
 
+    template<class Other>
+    void extend(const Other & other)
+    {
+        this->insert(this->end(), other.begin(), other.end());
+    }
+
     distribution
     operator - () const
     {

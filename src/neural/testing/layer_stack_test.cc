@@ -1,8 +1,8 @@
-/* dense_layer_test.cc
-   Jeremy Barnes, 28 October 2009
+/* layer_stack_test.cc
+   Jeremy Barnes, 9 November2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
 
-   Unit tests for the dense layer class.
+   Unit tests for the layer stack class.
 */
 
 
@@ -13,6 +13,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/multi_array.hpp>
 #include "neural/dense_layer.h"
+#include "neural/layer_stack.h"
 #include "utils/testing/serialize_reconstitute_include.h"
 #include <boost/assign/list_of.hpp>
 #include <limits>
@@ -204,45 +205,6 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
                                   gradient2.values.end(),
                                   gradient_times_2.begin(),
                                   gradient_times_2.end());
-
-    // Check that the result of numerical differentiation is the same as the
-    // output of the bprop routine.  It should be, since we have a linear
-    // loss function.
-
-#if 0
-    // First, check the input gradients
-    for (unsigned i = 0;  i < 2;  ++i) {
-        distribution<float> inputs2 = inputs;
-        inputs2[i] += 1.0;
-
-        distribution<float> outputs2 = layer.apply(inputs2);
-
-        BOOST_CHECK_EQUAL(outputs2[0], output[0]...);
-    }
-#endif
-
-
-    // Check that subtracting the parameters from each other returns a zero
-    // parameter vector
-    layer3.parameters().update(layer3.parameters(), -1.0);
-
-    Parameters_Copy<float> layer3_params(layer3);
-    BOOST_CHECK_EQUAL(layer3_params.values.total(), 0.0);
-
-    BOOST_CHECK_EQUAL(layer3.weights[0][0], 0.0);
-    BOOST_CHECK_EQUAL(layer3.weights[1][0], 0.0);
-    BOOST_CHECK_EQUAL(layer3.bias[0], 0.0);
-
-    layer3.parameters().set(layer.parameters());
-    BOOST_CHECK_EQUAL(layer, layer3);
-
-    layer3.zero_fill();
-    layer3.parameters().update(layer.parameters(), 1.0);
-    BOOST_CHECK_EQUAL(layer, layer3);
-
-    layer3.zero_fill();
-    layer3.parameters().set(params);
-    BOOST_CHECK_EQUAL(layer, layer3);
 }
 
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer1 )
