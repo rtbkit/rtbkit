@@ -108,6 +108,9 @@ struct Dense_Layer : public Layer {
     virtual void activation(const double * input,
                             double * activation) const;
 
+    template<class F>
+    void activation(const F * input, F * activation) const;
+    
     distribution<float> activation(const distribution<float> & input) const;
     distribution<double> activation(const distribution<double> & input) const;
 
@@ -116,55 +119,48 @@ struct Dense_Layer : public Layer {
     /* FPROP                                                                 */
     /*************************************************************************/
 
-    /** Return the amount of space necessary to save temporary results for the
-        forward prop.  There will be an array of the given precision (double
-        or single) provided.
-
-        Default implementation returns outputs().
-    */
-
     virtual size_t fprop_temporary_space_required() const;
 
-    /** These functions perform a forward propagation.  They also save whatever
-        information is necessary to perform an efficient backprop at a later
-        period in time.
+    virtual void
+    fprop(const float * inputs,
+          float * temp_space, size_t temp_space_size,
+          float * outputs) const;
 
-        Default implementation calls apply() and saves the outputs only in the
-        temporary space.
-    */
-    virtual distribution<float>
-    fprop(const distribution<float> & inputs,
-          float * temp_space, size_t temp_space_size) const;
+    /** \copydoc fprop */
+    virtual void
+    fprop(const double * inputs,
+          double * temp_space, size_t temp_space_size,
+          double * outputs) const;
 
-    virtual distribution<double>
-    fprop(const distribution<double> & inputs,
-          double * temp_space, size_t temp_space_size) const;
-    
-               
 
     /*************************************************************************/
     /* BPROP                                                                 */
     /*************************************************************************/
 
-    /** Perform a back propagation.  Given the derivative of the error with
-        respect to each of the errors, they compute the gradient of the
-        parameter space.
-    */
-
-    virtual void bprop(const distribution<float> & output_errors,
-                       float * temp_space, size_t temp_space_size,
+    virtual void bprop(const float * inputs,
+                       const float * outputs,
+                       const float * temp_space, size_t temp_space_size,
+                       const float * output_errors,
+                       float * input_errors,
                        Parameters & gradient,
-                       distribution<float> & input_errors,
-                       double example_weight,
-                       bool calculate_input_errors) const;
+                       double example_weight) const;
 
-    virtual void bprop(const distribution<double> & output_errors,
-                       double * temp_space, size_t temp_space_size,
+    virtual void bprop(const double * inputs,
+                       const double * outputs,
+                       const double * temp_space, size_t temp_space_size,
+                       const double * output_errors,
+                       double * input_errors,
                        Parameters & gradient,
-                       distribution<double> & input_errors,
-                       double example_weight,
-                       bool calculate_input_errors) const;
+                       double example_weight) const;
 
+    template<typename F>
+    void bprop(const F * inputs,
+               const F * outputs,
+               const F * temp_space, size_t temp_space_size,
+               const F * output_errors,
+               F * input_errors,
+               Parameters & gradient,
+               double example_weight) const;
 
     /** Add in our parameters to the params object. */
     virtual void add_parameters(Parameters & params);

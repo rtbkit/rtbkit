@@ -47,9 +47,11 @@ train_example(const distribution<float> & data,
         = layer->fprop_temporary_space_required();
 
     float temp_space[temp_space_required];
+    
+    int no = layer->outputs();
 
-    distribution<float> outputs
-        = layer->fprop(data, temp_space, temp_space_required);
+    distribution<float> outputs(no);
+    layer->fprop(&data[0], temp_space, temp_space_required, &outputs[0]);
 
     /* error */
 
@@ -59,13 +61,14 @@ train_example(const distribution<float> & data,
     // TODO: get the loss function to do this...
     distribution<float> derrors = -2.0 * errors;
 
-    distribution<float> input_derrors;
-
     /* bprop */
-    layer->bprop(derrors,
+    layer->bprop(&data[0],
+                 &outputs[0],
                  temp_space, temp_space_required,
+                 &derrors[0],
+                 0 /* don't calculate input errors */,
                  updates,
-                 input_derrors, 1.0, false /* calculate_input_errors */);
+                 1.0 /* example_weight */);
 
     return make_pair(sqrt(error), outputs[0]);
 }

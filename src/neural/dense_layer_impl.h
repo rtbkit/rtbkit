@@ -328,20 +328,21 @@ apply(const double * input,
 }
 
 template<typename Float>
+template<class F>
 void
 Dense_Layer<Float>::
-activation(const float * preprocessed,
-           float * activation) const
+activation(const F * inputs, F * activations) const
 {
-    int ni = inputs(), no = outputs();
-    double accum[no];  // Accumulate in double precision to improve rounding
+    int ni = this->inputs(), no = this->outputs();
+    double accum[no];  // Accumulate in double precision to improve rounding,
+                       // even if we're using floats
     std::copy(bias.begin(), bias.end(), accum);
 
     for (unsigned i = 0;  i < ni;  ++i) {
         const Float * w;
         double input;
-        if (!isnan(preprocessed[i])) {
-            input = preprocessed[i];
+        if (!isnan(inputs[i])) {
+            input = inputs[i];
             w = &weights[i][0];
         }
         else {
@@ -366,70 +367,46 @@ activation(const float * preprocessed,
         SIMD::vec_add(accum, input, w, accum, no);
     }
     
-    std::copy(accum, accum + no, activation);
+    std::copy(accum, accum + no, activations);
 }
 
 template<typename Float>
 void
 Dense_Layer<Float>::
-activation(const double * preprocessed,
-           double * activation) const
+activation(const float * inputs,
+           float * activations) const
 {
-    int ni = inputs(), no = outputs();
-    double accum[no];  // Accumulate in double precision to improve rounding
-    std::copy(bias.begin(), bias.end(), accum);
+    activation<float>(inputs, activations);
+}
 
-    for (unsigned i = 0;  i < ni;  ++i) {
-        const Float * w;
-        double input;
-        if (!isnan(preprocessed[i])) {
-            input = preprocessed[i];
-            w = &weights[i][0];
-        }
-        else {
-            switch (missing_values) {
-            case MV_NONE:
-                throw Exception("missing value with MV_NONE");
-
-            case MV_ZERO:
-                input = 0.0;  w = &weights[i][0];  break;
-
-            case MV_INPUT:
-                input = missing_replacements[i];  w = &weights[i][0];  break;
-
-            case MV_DENSE:
-                input = 1.0;  w = &missing_activations[i][0];  break;
-
-            default:
-                throw Exception("unknown missing values");
-            }
-        }
-
-        SIMD::vec_add(accum, input, w, accum, no);
-    }
-    
-    std::copy(accum, accum + no, activation);
+template<typename Float>
+void
+Dense_Layer<Float>::
+activation(const double * inputs,
+           double * activations) const
+{
+    activation<double>(inputs, activations);
 }
 
 template<typename Float>
 distribution<float>
 Dense_Layer<Float>::
-activation(const distribution<float> & preprocessed) const
+activation(const distribution<float> & inputs) const
 {
     int no = outputs();
     distribution<float> output(no);
-    activation(&preprocessed[0], &output[0]);
+    activation(&inputs[0], &output[0]);
     return output;
 }
 
 template<typename Float>
 distribution<double>
 Dense_Layer<Float>::
-activation(const distribution<double> & preprocessed) const
+activation(const distribution<double> & inputs) const
 {
     int no = outputs();
     distribution<double> output(no);
-    activation(&preprocessed[0], &output[0]);
+    activation(&inputs[0], &output[0]);
     return output;
 }
 
@@ -438,81 +415,73 @@ size_t
 Dense_Layer<Float>::
 fprop_temporary_space_required() const
 {
-    // We just need the outputs...
-    return inputs() + outputs();
-}
-
-template<typename Float>
-distribution<float>
-Dense_Layer<Float>::
-fprop(const distribution<float> & inputs,
-      float * temp_space, size_t temp_space_size) const
-{
-    int ni = this->inputs(), no = this->outputs();
-
-    if (temp_space_size != ni + no)
-        throw Exception("Dense_Layer::fprop(): wrong size");
-    distribution<float> result = apply(inputs);
-    std::copy(inputs.begin(), inputs.end(), temp_space);
-    std::copy(result.begin(), result.end(), temp_space + ni);
-    return result;
-}
-
-template<typename Float>
-distribution<double>
-Dense_Layer<Float>::
-fprop(const distribution<double> & inputs,
-      double * temp_space, size_t temp_space_size) const
-{
-    int ni = this->inputs(), no = this->outputs();
-
-    if (temp_space_size != ni + no)
-        throw Exception("Dense_Layer::fprop(): wrong size");
-    distribution<double> result = apply(inputs);
-    std::copy(inputs.begin(), inputs.end(), temp_space);
-    std::copy(result.begin(), result.end(), temp_space + ni);
-    return result;
+    // We don't need anything apart from the input and the output
+    // TODO: let the transfer function decide...
+    return 0;
 }
 
 template<typename Float>
 void
 Dense_Layer<Float>::
-bprop(const distribution<float> & output_errors,
+fprop(const float * inputs,
       float * temp_space, size_t temp_space_size,
+      float * outputs) const
+{
+    if (temp_space_size != 0)
+        throw Exception("Dense_Layer::fprop(): wrong temp space size");
+
+    apply(inputs, outputs);
+}
+
+template<typename Float>
+void
+Dense_Layer<Float>::
+fprop(const double * inputs,
+      double * temp_space, size_t temp_space_size,
+      double * outputs) const
+{
+    if (temp_space_size != 0)
+        throw Exception("Dense_Layer::fprop(): wrong temp space size");
+
+    apply(inputs, outputs);
+}
+
+template<typename Float>
+template<typename F>
+void
+Dense_Layer<Float>::
+bprop(const F * inputs,
+      const F * outputs,
+      const F * temp_space, size_t temp_space_size,
+      const F * output_errors,
+      F * input_errors,
       Parameters & gradient,
-      distribution<float> & input_errors,
-      double example_weight,
-      bool calc_input_errors) const
+      double example_weight) const
 {
     int ni = this->inputs(), no = this->outputs();
 
-    if (temp_space_size != ni + no)
+    if (temp_space_size != 0)
         throw Exception("Dense_Layer::bprop(): wrong temp size");
-
-    const float * inputs = temp_space;
-    const float * outputs = temp_space + ni;
-
+    
     // Differentiate the output function
-    float derivs[no];
+    F derivs[no];
     transfer_function->derivative(outputs, derivs, no);
 
     // Bias updates are simply derivs in multiplied by transfer deriv
-    float dbias[no];
+    F dbias[no];
     SIMD::vec_prod(derivs, &output_errors[0], dbias, no);
 
     gradient.vector(1, "bias").update(dbias, example_weight);
 
-    if (calc_input_errors) input_errors.resize(ni);
-
     for (unsigned i = 0;  i < ni;  ++i) {
         bool was_missing = isnan(inputs[i]);
-        if (calc_input_errors) input_errors[i] = 0;
+        if (input_errors) input_errors[i] = 0.0;
         
         if (!was_missing) {
             gradient.matrix(0, "weights")
                 .update_row(i, dbias, inputs[i] * example_weight);
 
-            if (calc_input_errors)
+            if (input_errors)
                 input_errors[i]
                     = SIMD::vec_dotprod_dp(&weights[i][0],
                                            &dbias[0], no);
@@ -546,70 +515,31 @@ bprop(const distribution<float> & output_errors,
 template<typename Float>
 void
 Dense_Layer<Float>::
-bprop(const distribution<double> & output_errors,
-      double * temp_space, size_t temp_space_size,
+bprop(const float * inputs,
+      const float * outputs,
+      const float * temp_space, size_t temp_space_size,
+      const float * output_errors,
+      float * input_errors,
       Parameters & gradient,
-      distribution<double> & input_errors,
-      double example_weight,
-      bool calc_input_errors) const
+      double example_weight) const
 {
-    if (temp_space_size != outputs())
-        throw Exception("Dense_Layer::bprop(): wrong temp size");
+    bprop<float>(inputs, outputs, temp_space, temp_space_size, output_errors,
+                 input_errors, gradient, example_weight);
+}
 
-    int ni = this->inputs(), no = this->outputs();
-
-    const double * inputs = temp_space;
-    const double * outputs = temp_space + ni;
-
-    // Differentiate the output function
-    double derivs[no];
-    transfer_function->derivative(outputs, derivs, no);
-
-    // Bias updates are simply derivs in multiplied by transfer deriv
-    double dbias[no];
-    SIMD::vec_prod(derivs, &output_errors[0], dbias, no);
-
-    gradient.vector(0, "bias").update(dbias, example_weight);
-
-    if (calc_input_errors) input_errors.resize(ni);
-
-    for (unsigned i = 0;  i < ni;  ++i) {
-        bool was_missing = isnan(inputs[i]);
-        if (calc_input_errors) input_errors[i] = 0;
-        
-        if (!was_missing) {
-            gradient.matrix(1, "weights")
-                .update_row(i, dbias, inputs[i] * example_weight);
-
-            if (calc_input_errors)
-                input_errors[i]
-                    = SIMD::vec_dotprod_dp(&weights[i][0],
-                                           &dbias[0], no);
-        }
-        else if (missing_values == MV_NONE)
-            throw Exception("MV_NONE but missing value");
-        else if (missing_values == MV_ZERO) {
-            // No update as everything is multiplied by zero
-        }
-        else if (missing_values == MV_DENSE) {
-            gradient.matrix(2, "missing_activations")
-                .update_row(i, dbias, example_weight);
-        }
-        else if (missing_values == MV_INPUT) {
-            // Missing
-
-            // Update the weights
-            gradient.matrix(1, "weights")
-                .update_row(i, dbias,
-                            missing_replacements[i] * example_weight);
-            
-            gradient.vector(2, "missing_replacements")
-                .update_element(i,
-                                (example_weight
-                                 * SIMD::vec_dotprod_dp(&weights[i][0], dbias,
-                                                        no)));
-        }
-    }
+template<typename Float>
+void
+Dense_Layer<Float>::
+bprop(const double * inputs,
+      const double * outputs,
+      const double * temp_space, size_t temp_space_size,
+      const double * output_errors,
+      double * input_errors,
+      Parameters & gradient,
+      double example_weight) const
+{
+    bprop<double>(inputs, outputs, temp_space, temp_space_size, output_errors,
+                  input_errors, gradient, example_weight);
 }
 
 namespace {

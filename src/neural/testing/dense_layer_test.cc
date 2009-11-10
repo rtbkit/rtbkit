@@ -151,8 +151,8 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
 
     float temp_space[temp_space_size];
 
-    distribution<float> fproped
-        = layer.fprop(input, temp_space, temp_space_size);
+    distribution<float> fproped(layer.outputs());
+    layer.fprop(&input[0], temp_space, temp_space_size, &fproped[0]);
 
     BOOST_CHECK_EQUAL_COLLECTIONS(applied.begin(), applied.end(),
                                   fproped.begin(), fproped.end());
@@ -177,11 +177,12 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
 
     // Check backprop
     distribution<float> output_errors(1, 1.0);
-    distribution<float> input_errors;
+    distribution<float> input_errors(layer.inputs());
     Parameters_Copy<float> gradient(layer.parameters());
     gradient.fill(0.0);
-    layer.bprop(output_errors, temp_space, temp_space_size,
-                gradient, input_errors, 1.0, true /* calculate_input_errors */);
+
+    layer.bprop(&input[0], &fproped[0], temp_space, temp_space_size,
+                &output_errors[0], &input_errors[0], gradient, 1.0);
 
     BOOST_CHECK_EQUAL(input_errors.size(), layer.inputs());
 
@@ -195,9 +196,8 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
     // Check that example_weight scales the gradient
     Parameters_Copy<float> gradient2(layer.parameters());
     gradient2.fill(0.0);
-    layer.bprop(output_errors, temp_space, temp_space_size,
-                gradient2, input_errors, 2.0,
-                true /* calculate_input_errors */);
+    layer.bprop(&input[0], &fproped[0], temp_space, temp_space_size,
+                &output_errors[0], &input_errors[0], gradient2, 2.0);
 
     //cerr << "gradient.values = " << gradient.values << endl;
     //cerr << "gradient2.values = " << gradient2.values << endl;

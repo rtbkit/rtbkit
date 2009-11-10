@@ -28,7 +28,6 @@
 
 
 using namespace std;
-using namespace Stats;
 
 namespace ML {
 

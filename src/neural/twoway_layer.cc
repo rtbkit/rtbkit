@@ -91,6 +91,13 @@ Twoway_Layer::
 ifprop(const distribution<float> & inputs,
        float * temp_space, size_t temp_space_size) const
 {
+    int ni = this->inputs(), no = this->outputs();
+    if (temp_space_size() != ni + no)
+        throw Exception("wrong temp space size");
+    distribution<float> outputs = iapply(inputs);
+    std::copy(inputs.begin(), inputs.end(), temp_space);
+    std::copy(outputs.begin(), outputs.end(), temp_space + ni);
+    return outputs;
 }
 
 distribution<double>
@@ -98,6 +105,13 @@ Twoway_Layer::
 ifprop(const distribution<double> & inputs,
        double * temp_space, size_t temp_space_size) const
 {
+    int ni = this->inputs(), no = this->outputs();
+    if (temp_space_size() != ni + no)
+        throw Exception("wrong temp space size");
+    distribution<double> outputs = iapply(inputs);
+    std::copy(inputs.begin(), inputs.end(), temp_space);
+    std::copy(outputs.begin(), outputs.end(), temp_space + ni);
+    return outputs;
 }
 
 void
@@ -148,6 +162,9 @@ Twoway_Layer::
 rfprop(const distribution<float> & inputs,
        float * temp_space, size_t temp_space_size) const
 {
+    int ni = this->inputs(), no = this->outputs();
+    distribution<float> outputs = apply(inputs);
+    distribution<float> inputs = ...;
 }
 
 distribution<double>
@@ -164,6 +181,9 @@ rbprop(const distribution<float> & output_errors,
        Parameters & gradient,
        double example_weight) const
 {
+    // Backpropagate the information all the way from the input to the
+    // reconstructed input.  We assume that fprop has already been called.
+
 }
 
 void

@@ -19,9 +19,7 @@
 
 
 using namespace std;
-using namespace DB;
-using namespace Stats;
-
+using namespace ML::DB;
 
 
 namespace ML {

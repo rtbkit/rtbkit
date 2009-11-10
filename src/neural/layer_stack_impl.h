@@ -14,6 +14,7 @@
 
 namespace ML {
 
+
 /*****************************************************************************/
 /* LAYER_STACK                                                               */
 /*****************************************************************************/
@@ -22,7 +23,7 @@ namespace ML {
 template<class LayerT>
 Layer_Stack<LayerT>::
 Layer_Stack()
-    : Layer("", 0, 0)
+    : Layer("", 0, 0), max_width_(0), max_internal_width_(0)
 {
 }
 
@@ -30,14 +31,14 @@ Layer_Stack()
 template<class LayerT>
 Layer_Stack<LayerT>::
 Layer_Stack(const std::string & name)
-    : Layer(name, 0, 0)
+    : Layer(name, 0, 0), max_width_(0), max_internal_width_(0)
 {
 }
 
 template<class LayerT>
 Layer_Stack<LayerT>::
 Layer_Stack(const Layer_Stack & other)
-    : Layer(other.name(), 0, 0)
+    : Layer(other.name(), 0, 0), max_width_(0), max_internal_width_(0)
 {
     for (unsigned i = 0;  i < other.size();  ++i)
         add(other.layers_[i]);
@@ -46,7 +47,7 @@ Layer_Stack(const Layer_Stack & other)
 template<class LayerT>
 Layer_Stack<LayerT>::
 Layer_Stack(const Layer_Stack & other, Deep_Copy_Tag)
-    : Layer(other.name(), 0, 0)
+    : Layer(other.name(), 0, 0), max_width_(0), max_internal_width_(0)
 {
     for (unsigned i = 0;  i < other.size();  ++i)
         add(other.layers_[i]->deep_copy());
@@ -101,6 +102,17 @@ add(boost::shared_ptr<LayerT> layer)
     layers_.push_back(layer);
     layer->add_parameters(parameters_.subparams(layers_.size() - 1,
                                                 layer->name()));
+    max_width_ = std::max(max_width_, layer->max_width());
+
+    if (size() > 1) {
+        max_internal_width_ = 0;
+        for (unsigned i = 0;  i < size();  ++i) {
+            size_t sz = (i == 0 ? layers_[i]->outputs()
+                         : (i == size() - 1 ? layers_[i]->inputs()
+                            : layers_[i]->max_width()));
+            max_internal_width_ = std::max(max_internal_width_, sz);
+        }
+    }
 }
 
 template<class LayerT>
@@ -110,6 +122,8 @@ clear()
 {
     layers_.clear();
     inputs_ = outputs_ = 0;
+    max_width_ = 0;
+    max_internal_width_ = 0;
     update_parameters();
 }
 
@@ -235,115 +249,160 @@ size_t
 Layer_Stack<LayerT>::
 fprop_temporary_space_required() const
 {
+    // We need: inputs of all layers except the first,
+    // temporary space of all layers in between.
+    //
+    // +-----------+-------+-------------+--------+---...
+    // |   l0 tmp  | l0 out|  l1 tmp     |  l1 out| l2 tmp
+    // +-----------+-------+-------------+--------+---...
+
     size_t result = 0;
-    for (unsigned i = 0;  i < size();  ++i)
+
+    for (unsigned i = 0;  i < size();  ++i) {
+        if (i != 0) result += layers_[i]->inputs();
         result += layers_[i]->fprop_temporary_space_required();
+    }
+
     return result;
 }
 
 template<class LayerT>
-distribution<float>
+template<class F>
+void
 Layer_Stack<LayerT>::
-fprop(const distribution<float> & inputs,
-      float * temp_space, size_t temp_space_size) const
+fprop(const F * inputs,
+      F * temp_space, size_t temp_space_size,
+      F * outputs) const
 {
-    distribution<float> prev_outputs = inputs;
+    F * temp_space_start = temp_space;
+    F * temp_space_end = temp_space_start + temp_space_size;
 
-    float * temp_space_start = temp_space;
-    float * temp_space_end = temp_space_start + temp_space_size;
+    const F * curr_inputs = inputs;
 
     for (unsigned i = 0;  i < size();  ++i) {
         int layer_temp_space_size
             = layers_[i]->fprop_temporary_space_required();
 
-        prev_outputs = layers_[i]->fprop(prev_outputs, temp_space,
-                                         layer_temp_space_size);
+        F * curr_outputs
+            = (i == size() - 1
+               ? outputs
+               : temp_space + layer_temp_space_size);
         
+        layers_[i]->fprop(curr_inputs, temp_space, layer_temp_space_size,
+                          curr_outputs);
+
+        curr_inputs = curr_outputs;
+
         temp_space += layer_temp_space_size;
+        if (i != size() - 1) temp_space += layers_[i]->outputs();
+
         if (temp_space > temp_space_end
             || (i == size() - 1 && temp_space != temp_space_end))
             throw Exception("temp space out of sync");
     }
-
-    return prev_outputs;
 }
 
-template<class LayerT>
-distribution<double>
-Layer_Stack<LayerT>::
-fprop(const distribution<double> & inputs,
-      double * temp_space, size_t temp_space_size) const
-{
-    distribution<double> prev_outputs = inputs;
-
-    double * temp_space_start = temp_space;
-    double * temp_space_end = temp_space_start + temp_space_size;
-
-    for (unsigned i = 0;  i < size();  ++i) {
-        int layer_temp_space_size
-            = layers_[i]->fprop_temporary_space_required();
-
-        prev_outputs = layers_[i]->fprop(prev_outputs, temp_space,
-                                         layer_temp_space_size);
-        
-        temp_space += layer_temp_space_size;
-        if (temp_space > temp_space_end
-            || (i == size() - 1 && temp_space != temp_space_end))
-            throw Exception("temp space out of sync");
-    }
-
-    return prev_outputs;
-}
-    
 template<class LayerT>
 void
 Layer_Stack<LayerT>::
-bprop(const distribution<float> & output_errors,
+fprop(const float * inputs,
       float * temp_space, size_t temp_space_size,
-      Parameters & gradient,
-      distribution<float> & input_errors,
-      double example_weight,
-      bool calculate_input_errors) const
+      float * outputs) const
 {
+    return fprop<float>(inputs, temp_space, temp_space_size, outputs);
 }
 
 template<class LayerT>
 void
 Layer_Stack<LayerT>::
-bprop(const distribution<double> & output_errors_in,
+fprop(const double * inputs,
       double * temp_space, size_t temp_space_size,
-      Parameters & gradient,
-      distribution<double> & input_errors,
-      double example_weight,
-      bool calculate_input_errors) const
+      double * outputs) const
 {
-    double * temp_space_start = temp_space;
-    double * temp_space_end = temp_space_start + temp_space_size;
-    double * curr_temp_space = temp_space_end;
+    return fprop<double>(inputs, temp_space, temp_space_size, outputs);
+}
 
-    distribution<double> output_errors = output_errors_in;
+template<class LayerT>
+template<typename F>
+void
+Layer_Stack<LayerT>::
+bprop(const F * inputs,
+      const F * outputs,
+      const F * temp_space, size_t temp_space_size,
+      const F * output_errors,
+      F * input_errors,
+      Parameters & gradient,
+      double example_weight) const
+{
+    const F * temp_space_start = temp_space;
+    const F * temp_space_end = temp_space_start + temp_space_size;
+    const F * curr_temp_space = temp_space_end;
+
+    const F * curr_outputs = outputs;
+
+    // Storage for the errors kept between the layers
+    F error_storage[max_internal_width()];
 
     for (int i = size() - 1;  i >= 0;  --i) {
         int layer_temp_space_size
             = layers_[i]->fprop_temporary_space_required();
+
         curr_temp_space -= layer_temp_space_size;
+
+        const F * curr_inputs
+            = (i == 0 ? inputs : curr_temp_space - layers_[i]->inputs());
+
+        const F * curr_output_errors
+            = (i == size() - 1 ? output_errors : error_storage);
+
+        F * curr_input_errors
+            = (i == 0 ? input_errors : error_storage);
+
+        layers_[i]->bprop(curr_inputs, curr_outputs, curr_temp_space,
+                          layer_temp_space_size, curr_output_errors,
+                          curr_input_errors,
+                          gradient.subparams(i, layers_[i]->name()),
+                          example_weight);
 
         if (curr_temp_space < temp_space_start)
             throw Exception("Layer temp space was out of sync");
-        
-        distribution<double> new_output_errors;
 
-        layers_[i]->bprop(output_errors, temp_space, layer_temp_space_size,
-                          gradient.subparams(i, layers_[i]->name()),
-                          new_output_errors,
-                          example_weight,
-                          (calculate_input_errors || i > 0));
-
-        output_errors.swap(new_output_errors);
+        curr_outputs = curr_inputs;
+        if (i != 0) curr_temp_space -= layers_[i]->inputs();
     }
 
     if (curr_temp_space != temp_space_start)
         throw Exception("Layer_Stack::bprop(): out of sync");
+}
+
+template<class LayerT>
+void
+Layer_Stack<LayerT>::
+bprop(const float * inputs,
+      const float * outputs,
+      const float * temp_space, size_t temp_space_size,
+      const float * output_errors,
+      float * input_errors,
+      Parameters & gradient,
+      double example_weight) const
+{
+    bprop<float>(inputs, outputs, temp_space, temp_space_size,
+                 output_errors, input_errors, gradient, example_weight);
+}
+
+template<class LayerT>
+void
+Layer_Stack<LayerT>::
+bprop(const double * inputs,
+      const double * outputs,
+      const double * temp_space, size_t temp_space_size,
+      const double * output_errors,
+      double * input_errors,
+      Parameters & gradient,
+      double example_weight) const
+{
+    bprop<double>(inputs, outputs, temp_space, temp_space_size,
+                  output_errors, input_errors, gradient, example_weight);
 }
 
 template<class LayerT>
@@ -428,6 +487,7 @@ bool
 Layer_Stack<LayerT>::
 operator == (const Layer_Stack & other) const
 {
+#if 0
     using namespace std;
     cerr << "operator ==" << endl;
     cerr << "typeid(*this).name() = "
@@ -440,16 +500,16 @@ operator == (const Layer_Stack & other) const
     cerr << "other.inputs_ = " << other.inputs_ << endl;
     cerr << "outputs_ = " << outputs_ << endl;
     cerr << "other.outputs_ = " << other.outputs_ << endl;
-
+#endif
     if (!Layer::operator == (other)) return false;
-    cerr << "layers same" << endl;
+    //cerr << "layers same" << endl;
     if (size() != other.size()) return false;
-    cerr << "size same" << endl;
+    //cerr << "size same" << endl;
     for (unsigned i = 0;  i < size();  ++i) {
         if (layers_[i] == other.layers_[i]) continue;
         if (layers_[i] && other.layers_[i]
             && (layers_[i]->equal(*other.layers_[i]))) continue;
-        cerr << "layer " << i << " not equal" << endl;
+        //cerr << "layer " << i << " not equal" << endl;
         return false;
     }
     return true;

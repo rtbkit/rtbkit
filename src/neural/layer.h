@@ -29,8 +29,8 @@ namespace ML {
 class Layer {
 
 protected:
-    struct NotOuterClass {};
-
+    /** Constructor to be called from a subclass.  Initializes the standard
+        members. */
     Layer(const std::string & name,
           size_t inputs, size_t outputs);
     
@@ -50,6 +50,12 @@ public:
     /* INFO                                                                  */
     /*************************************************************************/
 
+    /** \name Information
+        These functions provide information about the layer.
+        
+        @{
+    */
+
     /** Dump as ASCII.  This will be big. */
     virtual std::string print() const = 0;
     
@@ -58,6 +64,8 @@ public:
 
     size_t inputs() const { return inputs_; }
     size_t outputs() const { return outputs_; }
+
+    size_t max_width() const { return std::max(inputs_, outputs_); }
 
     std::string name() const { return name_; }
 
@@ -82,23 +90,19 @@ public:
 
     virtual bool equal_impl(const Layer & other) const = 0;
 
-#if 0
-    /** Returns true if the layer is reversible.  A reversible layer has
-        both a forward and a reverse direction that allows the input to
-        be reconstructed from the output (as well as allowing the output
-        to be calculated from the input).  Used for auto-encoders, etc.
+    ///@}
 
-        Default implementation returns false; must be overridden for those
-        that support it.
-    */
-    virtual bool reversible() const;
-
-    /** Returns the layer in the reverse direction. */
-#endif
 
     /*************************************************************************/
     /* PARAMETERS                                                            */
     /*************************************************************************/
+
+    /** \name Parameters
+
+        Provides information about parameters of the layer.
+
+        @{
+    */
 
     /** Return a reference to a parameters object that describes this layer's
         parameters.  It should provide a reference. */
@@ -126,6 +130,7 @@ public:
 
     virtual void zero_fill() = 0;
 
+    ///@}
     
     /*************************************************************************/
     /* SERIALIZATION                                                         */
@@ -149,10 +154,14 @@ public:
     /* APPLY                                                                 */
     /*************************************************************************/
 
-    /* These functions take an input and return the output.  Note that,
-       although they perform the same function as a fprop, they don't
-       attempt to save information that is necessary for the bprop later, and
-       so are more efficient.
+    /** \name Apply
+
+        These functions take an input and return the output.  Note that,
+        although they perform the same function as a fprop, they don't
+        attempt to save information that is necessary for the bprop later, and
+        so are more efficient.
+
+        @{
     */
 
     /** Apply the layer to the input and return an output. */
@@ -165,62 +174,171 @@ public:
     void apply(const distribution<double> & input,
                distribution<double> & output) const;
 
+    /** Apply the layer to the input and return an output.  Note that the
+        values are implicitly */
     virtual void apply(const float * input, float * output) const = 0;
     virtual void apply(const double * input, double * output) const = 0;
+
+    ///@}
 
 
     /*************************************************************************/
     /* FPROP                                                                 */
     /*************************************************************************/
 
+    /** \name Forward Propagation
+
+        These methods are used to implement the forward propagation pass of
+        the training.  The forward propagation is very similar to the apply()
+        function: given the inputs, it will calculate the outputs of the
+        current layer.  However, unlike apply(), these functions can store
+        information that is useful to the backpropagation.
+
+        The main difference with apply() is that temporary space is available.
+        This temporary space serves two functions: it records the outputs of
+        previous layers (when propagating through multiple layers) and it
+        allows intermediate results to be kept (for example, some transfer
+        functions are much faster to differentiate if their activation
+        values are stored).
+
+        Looking at the specifics of the input to the function, we have:
+
+        <pre>
+               +---------+----------------+-------------+
+               | inputs  |  temp space    | outputs     |
+               +---------+----------------+-------------+
+               ^         ^                ^             ^
+               |         |                |             |
+               t - i     t                t + s         t + s + o
+        </pre>
+        
+        where t is the temp_space pointer, s is the temp space size requested
+        in fprop_temporary_space_size(), i is the number of inputs and o is
+        the number of outputs.  (Note that all sizes are given in elements
+        (float or double), not in bytes).
+
+        The goal of the fprop function is to read the inputs (which are
+        already filled in) and write the outputs to the correct place, whilst
+        filling in the temp space.
+
+        For functions that don't need anything but the inputs and outputs to
+        be stored (this is true for most of them), they can return a
+        fprop_temporary_space_required() of zero.
+
+        @{
+    */
+
     /** Return the amount of space necessary to save temporary results for the
         forward prop.  There will be an array of the given precision (double
         or single) provided.
 
-        Default implementation returns outputs().
+        The default implementation (if not overridden) returns 0.
     */
-
     virtual size_t fprop_temporary_space_required() const = 0;
 
     /** These functions perform a forward propagation.  They also save whatever
         information is necessary to perform an efficient backprop at a later
         period in time.
 
-        Default implementation calls apply() and saves the outputs only in the
-        temporary space.
-    */
-    virtual distribution<float>
-    fprop(const distribution<float> & inputs,
-          float * temp_space, size_t temp_space_size) const = 0;
+        Default implementation calls apply() and assumes a temporary space
+        size of zero.
 
-    virtual distribution<double>
-    fprop(const distribution<double> & inputs,
-          double * temp_space, size_t temp_space_size) const = 0;
+        \param inputs      Pointer to the start of an array of inputs()
+                           elements providing the input values.
+
+        \param temp_space  Pointer to the start of an array of
+                           temp_space_size uninitialized
+                           elements providing temporary space to store the
+                           information necessary to perform a bprop() later.
+
+        \param temp_space_size  The size of the temp_space array, which
+                           matches the output of the
+                           fprop_temporary_space_required() function.
+
+        \param outputs     Pointer to the start of an array of outputs()
+                           uninitialized elements in which the output values
+                           will be stored.
+    */
+    virtual void
+    fprop(const float * inputs,
+          float * temp_space, size_t temp_space_size,
+          float * outputs) const = 0;
+
+    /** \copydoc fprop */
+    virtual void
+    fprop(const double * inputs,
+          double * temp_space, size_t temp_space_size,
+          double * outputs) const = 0;
+
+    ///@}
 
 
     /*************************************************************************/
     /* BPROP                                                                 */
     /*************************************************************************/
 
+    /** \name Backward Propagation
+
+        These functions calculate the gradient of an error function with
+        respect to each parameter, in order to perform gradient descent.
+
+        @{
+    */
+
     /** Perform a back propagation.  Given the derivative of the error with
         respect to each of the errors, they compute the gradient of the
         parameter space.
+
+        \param inputs     An array of inputs() elements with the inputs to this
+                          layer when the fprop() was performed.
+        \param outputs    An array of outputs() elements with the outputs of
+                          this layer as calculated by fprop().
+        \param temp_space An array of temp_space_size elements that was filled
+                          in by fprop() with any extra information necessary to
+                          perform the bprop().
+        \param temp_space_size The number of elements in temp_space(), which
+                          should match fprop_temporary_space_required().
+        \param output_errors An array of outputs() elements with the derivative
+                          of the error function with respect to each of the
+                          outputs of this layer.  These are the errors to be
+                          backpropagated through.
+        \param input_errors An array of inputs() elements.  The derivative of
+                          the error function with respect to each of the
+                          inputs to the layer should be calculated and put
+                          into this array.  <b>NOTE</b> that this array could be
+                          null, in which case no input errors should be
+                          calculated.
+        \param gradient   The parameters array to be updated.  Each parameter
+                          should have example_weight * dE/dparam added to it,
+                          where dE/dparam is the derivative of the error with
+                          respect to each parameter.
+        \param example_weight The weight of this example.  The dE/dparam
+                          value will be multiplied by this value before it
+                          is added to the gradient.
+
+        <b>NOTE</b>: this function should be able to work where input_errors and
+        output_errors point to the same range of memory.  If the calculation
+        of input_errors uses output_errors, then a copy of input_errors needs
+        to be made so that they are available during this calculation.
     */
 
-    virtual void bprop(const distribution<float> & output_errors,
-                       float * temp_space, size_t temp_space_size,
+    virtual void bprop(const float * inputs,
+                       const float * outputs,
+                       const float * temp_space, size_t temp_space_size,
+                       const float * output_errors,
+                       float * input_errors,
                        Parameters & gradient,
-                       distribution<float> & input_errors,
-                       double example_weight,
-                       bool calculate_input_errors) const = 0;
+                       double example_weight) const = 0;
 
-    virtual void bprop(const distribution<double> & output_errors,
-                       double * temp_space, size_t temp_space_size,
+    /** \copydoc bprop */
+    virtual void bprop(const double * inputs,
+                       const double * outputs,
+                       const double * temp_space, size_t temp_space_size,
+                       const double * output_errors,
+                       double * input_errors,
                        Parameters & gradient,
-                       distribution<double> & input_errors,
-                       double example_weight,
-                       bool calculate_input_errors) const = 0;
-
+                       double example_weight) const = 0;
+    ///@}
 
 #if 0
     /*************************************************************************/

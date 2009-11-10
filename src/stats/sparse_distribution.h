@@ -30,7 +30,6 @@
 #include <ostream>
 
 namespace ML {
-namespace Stats {
 
 template<typename Index, typename Float,
          typename Base = std::map<Index, Float> >
@@ -162,11 +161,6 @@ SCALAR_DIST_OP(||);
 template<typename I, typename F>
 std::ostream &
 operator << (std::ostream & stream, const sparse_distribution<I, F> & dist);
-
-
-} // namespace Stats
-
-using Stats::sparse_distribution;
 
 } // namespace ML
 

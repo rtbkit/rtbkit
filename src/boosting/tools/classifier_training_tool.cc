@@ -51,7 +51,6 @@
 using namespace std;
 
 using namespace ML;
-using namespace Stats;
 
 int main(int argc, char ** argv)
 try
@@ -460,10 +459,10 @@ try
     
     if (repeat_trials > 1) {
         for (unsigned j = 0;  j < accum_acc.size();  ++j) {
-            float mean = Stats::mean(accum_acc[j].begin(), accum_acc[j].end());
+            float mean = ML::mean(accum_acc[j].begin(), accum_acc[j].end());
             float std_dev
-                = Stats::std_dev(accum_acc[j].begin(), accum_acc[j].end(),
-                                 mean);
+                = ML::std_dev(accum_acc[j].begin(), accum_acc[j].end(),
+                              mean);
             cerr << "testing set " << j << ": " << repeat_trials
                  << " trials accuracy: mean "
                  << mean * 100.0 << "% std " << std_dev * 100.0 << "%."

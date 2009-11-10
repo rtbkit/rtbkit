@@ -23,8 +23,7 @@
 
 
 using namespace std;
-using namespace Stats;
-using namespace DB;
+using namespace ML::DB;
 
 using std::sqrt;
 

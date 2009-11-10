@@ -12,7 +12,9 @@ LIBNEURAL_SOURCES := \
 	transfer_function.cc \
 	layer_stack.cc \
 	discriminative_trainer.cc \
-	twoway_layer.cc
+
+
+#	twoway_layer.cc
 
 LIBNEURAL_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt boosting stats
 

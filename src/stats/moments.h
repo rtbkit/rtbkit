@@ -27,8 +27,6 @@
 #include <cmath>
 
 namespace ML {
-namespace Stats {
-
 
 template<class Iterator>
 double mean(Iterator first, Iterator last)
@@ -66,7 +64,6 @@ double std_dev(Iterator first, Iterator last, double mean)
     return std::sqrt(total / (double)(count - 1));
 }
 
-} // namespace Stats
 } // namespace ML
 
 

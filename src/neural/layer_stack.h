@@ -47,7 +47,7 @@ struct Layer_Stack : public Layer {
 
     template<class OtherLayer>
     Layer_Stack(const Layer_Stack<OtherLayer> & other)
-        : Layer(other.name(), 0, 0)
+        : Layer(other.name(), 0, 0), max_width_(0), max_internal_width_(0)
     {
         for (unsigned i = 0;  i < other.size();  ++i)
             add_cast(other.layers_[i]);
@@ -56,7 +56,7 @@ struct Layer_Stack : public Layer {
     template<class OtherLayer>
     Layer_Stack(const Layer_Stack<OtherLayer> & other,
                 Deep_Copy_Tag)
-        : Layer(other.name(), 0, 0)
+        : Layer(other.name(), 0, 0), max_width_(0), max_internal_width_(0)
     {
         for (unsigned i = 0;  i < other.size();  ++i)
             add_cast(other.layers_[i]->deep_copy());
@@ -72,6 +72,7 @@ struct Layer_Stack : public Layer {
     void clear();
 
     size_t max_width() const { return max_width_; }
+    size_t max_internal_width() const { return max_internal_width_; }
 
     const LayerT & operator [] (int index) const { return *layers_.at(index); }
     LayerT & operator [] (int index) { return *layers_.at(index); }
@@ -156,61 +157,62 @@ struct Layer_Stack : public Layer {
 
     virtual size_t fprop_temporary_space_required() const;
 
-    /** These functions perform a forward propagation.  They also save whatever
-        information is necessary to perform an efficient backprop at a later
-        period in time.
+    template<typename F>
+    void fprop(const F * inputs,
+               F * temp_space, size_t temp_space_size,
+               F * outputs) const;
 
-        Default implementation calls apply() and saves the outputs only in the
-        temporary space.
-    */
-    virtual distribution<float>
-    fprop(const distribution<float> & inputs,
-          float * temp_space, size_t temp_space_size) const;
+    virtual void
+    fprop(const float * inputs,
+          float * temp_space, size_t temp_space_size,
+          float * outputs) const;
 
-    virtual distribution<double>
-    fprop(const distribution<double> & inputs,
-          double * temp_space, size_t temp_space_size) const;
-    
+    virtual void
+    fprop(const double * inputs,
+          double * temp_space, size_t temp_space_size,
+          double * outputs) const;
+
                
 
     /*************************************************************************/
     /* BPROP                                                                 */
     /*************************************************************************/
 
-    /** Perform a back propagation.  Given the derivative of the error with
-        respect to each of the errors, they compute the gradient of the
-        parameter space.
-    */
+    template<typename F>
+    void bprop(const F * inputs,
+               const F * outputs,
+               const F * temp_space, size_t temp_space_size,
+               const F * output_errors,
+               F * input_errors,
+               Parameters & gradient,
+               double example_weight) const;
 
-    virtual void bprop(const distribution<float> & output_errors,
-                       float * temp_space, size_t temp_space_size,
+    virtual void bprop(const float * inputs,
+                       const float * outputs,
+                       const float * temp_space, size_t temp_space_size,
+                       const float * output_errors,
+                       float * input_errors,
                        Parameters & gradient,
-                       distribution<float> & input_errors,
-                       double example_weight,
-                       bool calculate_input_errors) const;
+                       double example_weight) const;
 
-    virtual void bprop(const distribution<double> & output_errors,
-                       double * temp_space, size_t temp_space_size,
+    virtual void bprop(const double * inputs,
+                       const double * outputs,
+                       const double * temp_space, size_t temp_space_size,
+                       const double * output_errors,
+                       double * input_errors,
                        Parameters & gradient,
-                       distribution<double> & input_errors,
-                       double example_weight,
-                       bool calculate_input_errors) const;
+                       double example_weight) const;
 
-    /** Fill with random weights. */
     virtual void random_fill(float limit, Thread_Context & context);
 
     virtual void zero_fill();
 
-    /** Return the number of parameters (degrees of freedom) for the
-        layer. */
     virtual size_t parameter_count() const;
 
     virtual std::pair<float, float> targets(float maximum) const;
 
-    /** Copy the object */
     virtual Layer_Stack * make_copy() const;
 
-    /** Copy the object, making a deep copy of all of the underlying objects */
     virtual Layer_Stack * deep_copy() const;
 
     virtual bool equal_impl(const Layer & other) const;
@@ -222,8 +224,14 @@ struct Layer_Stack : public Layer {
     }
 
 protected:
+    /// The actual layers
     std::vector<boost::shared_ptr<LayerT> > layers_;
+
+    /// Maximum width over the entire stack
     size_t max_width_;
+
+    /// Maximum width, excluding the input and the output
+    size_t max_internal_width_;
     template<class LayerT2> friend class Layer_Stack;
 };
 

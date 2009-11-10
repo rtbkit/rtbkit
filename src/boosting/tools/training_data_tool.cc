@@ -34,7 +34,6 @@
 using namespace std;
 
 using namespace ML;
-using namespace Stats;
 
 /** Return the iterator before.  Requires a bidirectional iterator. */
 template<class Iterator>
@@ -139,8 +138,8 @@ struct Variable_Stats {
         }
 
         /* Scan through and calculate the mean and standard deviation. */
-        mean = Stats::mean(data.begin(), data.end());
-        stddev = Stats::std_dev(data.begin(), data.end(), mean);
+        mean = ML::mean(data.begin(), data.end());
+        stddev = std_dev(data.begin(), data.end(), mean);
     }
 
     /** Calculate from a vector of values. */
