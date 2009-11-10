@@ -411,6 +411,11 @@ Parameters_Copy(const Parameters & other)
          it != end;  ++it, ++i) {
         size_t n = it->parameter_count();
 
+        using namespace std;
+        cerr << "adding " << i << " with name " << it->name()
+             << " and " << n << " values out of "
+             << values.size() << endl;
+
         add(i, it->compatible_copy(current, current + n));
         current += n;
     }

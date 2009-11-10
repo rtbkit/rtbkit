@@ -175,8 +175,12 @@ reconstitute(DB::Store_Reader & store)
 
     char version;
     store >> version;
-    if (version != 1)
+    if (version != 1) {
+        using namespace std;
+        cerr << "version = " << (int)version << endl;
+        cerr << "store.offset() = " << store.offset() << endl;
         throw Exception("Layer_Stack::reconstitute(): invalid version");
+    }
 
     store >> name_;
 
@@ -213,19 +217,27 @@ add_parameters(Parameters & params)
 }
 
 template<class LayerT>
+template<typename F>
+void
+Layer_Stack<LayerT>::
+apply(const F * input, F * output) const
+{
+    F tmp[max_internal_width_];
+
+    for (unsigned l = 0;  l < layers_.size();  ++l) {
+        const F * i = (l == 0 ? input : tmp);
+        F * o = (l == layers_.size() - 1 ? output : tmp);
+
+        layers_[l]->apply(i, o);
+    }
+}
+
+template<class LayerT>
 void
 Layer_Stack<LayerT>::
 apply(const float * input, float * output) const
 {
-    float tmp1[max_width_], tmp2[max_width_];
-    float * next_output = tmp1, * next_input = tmp2;
-    for (unsigned l = 0;  l < layers_.size();  ++l) {
-        const float * i = (l == 0 ? input : next_input);
-        float * o = (l == layers_.size() - 1 ? next_output : output);
-
-        layers_[l]->apply(i, o);
-        std::swap(next_output, next_input);
-    }
+    apply<float>(input, output);
 }
 
 template<class LayerT>
@@ -233,15 +245,7 @@ void
 Layer_Stack<LayerT>::
 apply(const double * input, double * output) const
 {
-    double tmp1[max_width_], tmp2[max_width_];
-    double * next_output = tmp1, * next_input = tmp2;
-    for (unsigned l = 0;  l < layers_.size();  ++l) {
-        const double * i = (l == 0 ? input : next_input);
-        double * o = (l == layers_.size() - 1 ? next_output : output);
-
-        layers_[l]->apply(i, o);
-        std::swap(next_output, next_input);
-    }
+    apply<double>(input, output);
 }
 
 template<class LayerT>

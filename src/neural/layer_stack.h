@@ -71,7 +71,7 @@ struct Layer_Stack : public Layer {
 
     void clear();
 
-    size_t max_width() const { return max_width_; }
+    virtual size_t max_width() const { return max_width_; }
     size_t max_internal_width() const { return max_internal_width_; }
 
     const LayerT & operator [] (int index) const { return *layers_.at(index); }
@@ -137,6 +137,9 @@ struct Layer_Stack : public Layer {
     /*************************************************************************/
     /* APPLY                                                                 */
     /*************************************************************************/
+
+    template<typename F>
+    void apply(const F * input, F * output) const;
 
     virtual void apply(const float * input, float * output) const;
     virtual void apply(const double * input, double * output) const;

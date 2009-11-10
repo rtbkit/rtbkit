@@ -207,14 +207,15 @@ matrix(int index, const std::string & name) const
     return params[index].matrix();
 }
 
+template<typename F>
 void
 Parameters::
-copy_to(float * where, float * limit) const
+copy_to(F * where, F * limit) const
 {
     if (where > limit)
         throw Exception("Parameters::copy_to(): passed limit");
 
-    float * current = where;
+    F * current = where;
 
     for (Params::const_iterator
              it = params.begin(),
@@ -224,49 +225,38 @@ copy_to(float * where, float * limit) const
         if (current > limit)
             throw Exception("Parameters::copy_to(): out of sync");
 
-        float * cend = current + it->parameter_count();
+        F * cend = current + it->parameter_count();
         it->copy_to(current, cend);
         current = cend;
     }
-
+    
     if (current != limit)
         throw Exception("Parameters::copy_to(): out of sync at end");
+}
+
+void
+Parameters::
+copy_to(float * where, float * limit) const
+{
+    copy_to<float>(where, limit);
 }
 
 void
 Parameters::
 copy_to(double * where, double * limit) const
 {
-    if (where > limit)
-        throw Exception("Parameters::copy_to(): passed limit");
-
-    double * current = where;
-
-    for (Params::const_iterator
-             it = params.begin(),
-             end = params.end();
-         it != end;  ++it) {
-
-        if (current > limit)
-            throw Exception("Parameters::copy_to(): out of sync");
-
-        double * cend = current + it->parameter_count();
-        it->copy_to(current, cend);
-        current = cend;
-    }
-
-    if (current != limit)
-        throw Exception("Parameters::copy_to(): out of sync at end");
+    copy_to<double>(where, limit);
 }
 
+template<typename F>
 Parameters *
 Parameters::
-compatible_ref(float * first, float * last) const
+compatible_ref(F * first, F * last) const
 {
     if (last > first)
         throw Exception("Parameters::compatible_ref(): range oob");
 
-    auto_ptr<Parameters_Ref> result(new Parameters_Ref());
+    auto_ptr<Parameters_Ref> result(new Parameters_Ref(name()));
 
     int i = 0;
     for (Params::const_iterator
@@ -288,27 +278,54 @@ compatible_ref(float * first, float * last) const
 
 Parameters *
 Parameters::
+compatible_ref(float * first, float * last) const
+{
+    return compatible_ref<float>(first, last);
+}
+
+Parameters *
+Parameters::
 compatible_ref(double * first, double * last) const
 {
-    if (last > first)
-        throw Exception("Parameters::compatible_ref(): range oob");
+    return compatible_ref<double>(first, last);
+}
 
-    auto_ptr<Parameters_Ref> result(new Parameters_Ref());
+template<typename F>
+Parameters *
+Parameters::
+compatible_copy(F * first, F * last) const
+{
+    if (first > last) {
+        cerr << "name() = " << name() << endl;
+        cerr << "type = " << demangle(typeid(*this).name()) << endl;
+        cerr << "first = " << first << endl;
+        cerr << "last = " << last << endl;
+        cerr << "last - first = " << last - first << endl;
+        throw Exception("Parameters::compatible_copy(): range oob");
+    }
+
+    auto_ptr<Parameters_Ref> result(new Parameters_Ref(name()));
 
     int i = 0;
     for (Params::const_iterator
              it = params.begin(),
              end = params.end();
          it != end;  ++it) {
+
+        cerr << "  adding " << it->name() << " with " << it->parameter_count()
+             << endl;
+
         size_t np = it->parameter_count();
         if (first + np > last)
-            throw Exception("Parameters::compatible_ref(): bad size");
+            throw Exception("Parameters::compatible_copy(): bad size");
 
-        result->add(i, it->compatible_ref(first, first + np));
+        result->add(i, it->compatible_copy(first, first + np));
+
+        first += np;
     }
 
     if (last != first)
-        throw Exception("Parameters::compatible_ref(): bad size");
+        throw Exception("Parameters::compatible_copy(): bad size");
     
     return result.release();
 }
@@ -317,54 +334,14 @@ Parameters *
 Parameters::
 compatible_copy(float * first, float * last) const
 {
-    if (last > first)
-        throw Exception("Parameters::compatible_copy(): range oob");
-
-    auto_ptr<Parameters_Ref> result(new Parameters_Ref());
-
-    int i = 0;
-    for (Params::const_iterator
-             it = params.begin(),
-             end = params.end();
-         it != end;  ++it) {
-        size_t np = it->parameter_count();
-        if (first + np > last)
-            throw Exception("Parameters::compatible_copy(): bad size");
-
-        result->add(i, it->compatible_copy(first, first + np));
-    }
-
-    if (last != first)
-        throw Exception("Parameters::compatible_copy(): bad size");
-    
-    return result.release();
+    return compatible_copy<float>(first, last);
 }
 
 Parameters *
 Parameters::
 compatible_copy(double * first, double * last) const
 {
-    if (last > first)
-        throw Exception("Parameters::compatible_copy(): range oob");
-
-    auto_ptr<Parameters_Ref> result(new Parameters_Ref());
-
-    int i = 0;
-    for (Params::const_iterator
-             it = params.begin(),
-             end = params.end();
-         it != end;  ++it) {
-        size_t np = it->parameter_count();
-        if (first + np > last)
-            throw Exception("Parameters::compatible_copy(): bad size");
-
-        result->add(i, it->compatible_copy(first, first + np));
-    }
-
-    if (last != first)
-        throw Exception("Parameters::compatible_copy(): bad size");
-    
-    return result.release();
+    return compatible_copy<double>(first, last);
 }
 
 Parameters &
@@ -598,8 +575,11 @@ set(const Parameter_Value & other)
         jend = cast->params.end();
 
     for (; it != iend && jt != jend;  ++it, ++jt) {
-        if (it->name() != jt->name())
+        if (it->name() != jt->name()) {
+            cerr << "it->name() = " << it->name() << endl;
+            cerr << "jt->name() = " << jt->name() << endl;
             throw Exception("Parameters::set(): differing names");
+        }
         it->set(*jt);
     }
 }

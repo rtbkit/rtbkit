@@ -82,8 +82,23 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
     layer.weights[1][0] = 2.0;
     layer.bias[0] = 0.0;
 
+    Dense_Layer<float> identity("test2", 1, 1, TF_IDENTITY, MV_NONE);
+    identity.weights[0][0] = 1.0;
+    identity.bias[0] = 0.0;
+
     Layer_Stack<Dense_Layer<float> > layers("test_layer");
+    BOOST_CHECK_EQUAL(layers.max_width(), 0);
+    BOOST_CHECK_EQUAL(layers.max_internal_width(), 0);
     layers.add(make_unowned_sp(layer));
+    BOOST_CHECK_EQUAL(layers.max_width(), 2);
+    BOOST_CHECK_EQUAL(layers.max_internal_width(), 0);
+
+    Layer_Stack<Dense_Layer<float> > layersb(layers, Deep_Copy_Tag());
+    BOOST_CHECK_EQUAL(layersb.max_width(), 2);
+    BOOST_CHECK_EQUAL(layersb.max_internal_width(), 0);
+    layersb.add(make_unowned_sp(identity));
+    BOOST_CHECK_EQUAL(layersb.max_width(), 2);
+    BOOST_CHECK_EQUAL(layersb.max_internal_width(), 1);
 
     distribution<float> input
         = boost::assign::list_of<float>(1.0)(-1.0);
@@ -91,21 +106,30 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
     // Check that the basic functions work
     BOOST_REQUIRE_EQUAL(layers.apply(input).size(), 1);
     BOOST_CHECK_EQUAL(layers.apply(input)[0], -1.5);
+    BOOST_REQUIRE_EQUAL(layersb.apply(input).size(), 1);
+    BOOST_CHECK_EQUAL(layersb.apply(input)[0], -1.5);
 
     // Check the missing values throw an exception
     input[0] = numeric_limits<float>::quiet_NaN();
     BOOST_CHECK_THROW(layers.apply(input), ML::Exception);
+    BOOST_CHECK_THROW(layersb.apply(input), ML::Exception);
 
     // Check that the wrong size throws an exception
     input.push_back(2.0);
     input[0] = 1.0;
     BOOST_CHECK_THROW(layers.apply(input), ML::Exception);
+    BOOST_CHECK_THROW(layersb.apply(input), ML::Exception);
 
     input.pop_back();
 
     // Check that the bias works
     layer.bias[0] = 1.0;
     BOOST_CHECK_EQUAL(layers.apply(input)[0], -0.5);
+
+    // Check that the parameter wasn't kept
+    BOOST_CHECK_EQUAL(layersb.apply(input)[0], -1.5);
+
+    layer.bias[0] = 0.0;
 
     // Check that there are parameters
     BOOST_CHECK_EQUAL(layers.parameters().parameter_count(), 3);
@@ -115,10 +139,15 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
     BOOST_CHECK_EQUAL(layers.outputs(), 1);
     BOOST_CHECK_EQUAL(layers.name(), "test_layer");
 
+    BOOST_CHECK_EQUAL(layersb.inputs(), 2);
+    BOOST_CHECK_EQUAL(layersb.outputs(), 1);
+    BOOST_CHECK_EQUAL(layersb.name(), "test_layer");
+
     // Check the copy constructor
     Layer_Stack<Dense_Layer<float> > layers2 = layers;
     BOOST_CHECK_EQUAL(layers2, layers);
     BOOST_CHECK_EQUAL(layers2.parameters().parameter_count(), 3);
+    BOOST_CHECK_EQUAL(layersb.parameters().parameter_count(), 5);
 
     // Check the assignment operator
     Layer_Stack<Dense_Layer<float> > layers3;
@@ -150,27 +179,49 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
     BOOST_CHECK_EQUAL(layer, layer3);
 
     // Check fprop (that it gives the same result as apply)
-    distribution<float> applied
-        = layers.apply(input);
+    distribution<float> applied = layers.apply(input);
 
     size_t temp_space_size = layers.fprop_temporary_space_required();
 
-    float temp_space[temp_space_size];
+    float temp_space[temp_space_size + 2];
+    temp_space[0] = 123456.789f;
+    temp_space[temp_space_size + 1] = 9876.54321f;
 
     distribution<float> fproped(layer.outputs());
-    layers.fprop(&input[0], temp_space, temp_space_size, &fproped[0]);
+    layers.fprop(&input[0], temp_space + 1, temp_space_size, &fproped[0]);
 
+    // Check for overwrite of temp space
+    BOOST_CHECK_EQUAL(temp_space[0], 123456.789f);
+    BOOST_CHECK_EQUAL(temp_space[temp_space_size + 1],  9876.54321f);
+    
     BOOST_CHECK_EQUAL_COLLECTIONS(applied.begin(), applied.end(),
                                   fproped.begin(), fproped.end());
 
+    distribution<float> appliedb = layersb.apply(input);
+    BOOST_CHECK_EQUAL_COLLECTIONS(applied.begin(), applied.end(),
+                                  appliedb.begin(), appliedb.end());
+    
+
+    size_t temp_space_sizeb = layersb.fprop_temporary_space_required();
+
+    float temp_spaceb[temp_space_sizeb];
+
+    distribution<float> fpropedb(layersb.outputs());
+    layersb.fprop(&input[0], temp_spaceb, temp_space_sizeb, &fpropedb[0]);
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(appliedb.begin(), appliedb.end(),
+                                  fpropedb.begin(), fpropedb.end());
+
     // Check parameters
+    BOOST_CHECK_EQUAL(layers.parameter_count(), 3);
+
     Parameters_Copy<float> params(layers.parameters());
     distribution<float> & param_dist = params.values;
 
     BOOST_CHECK_EQUAL(param_dist.size(), 3);
     BOOST_CHECK_EQUAL(param_dist.at(0), 0.5);  // weight 0
     BOOST_CHECK_EQUAL(param_dist.at(1), 2.0);  // weight 1
-    BOOST_CHECK_EQUAL(param_dist.at(2), 1.0);  // bias
+    BOOST_CHECK_EQUAL(param_dist.at(2), 0.0);  // bias
 
     Thread_Context context;
     layers3.random_fill(-1.0, context);
@@ -183,10 +234,10 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
 
     // Check backprop
     distribution<float> output_errors(1, 1.0);
-    distribution<float> input_errors;
+    distribution<float> input_errors(input.size());
     Parameters_Copy<float> gradient(layers.parameters());
     gradient.fill(0.0);
-    layers.bprop(&input[0], &fproped[0], temp_space, temp_space_size,
+    layers.bprop(&input[0], &fproped[0], temp_space + 1, temp_space_size,
                  &output_errors[0], &input_errors[0], gradient, 1.0);
 
     BOOST_CHECK_EQUAL(input_errors.size(), layers.inputs());
@@ -201,7 +252,7 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
     // Check that example_weight scales the gradient
     Parameters_Copy<float> gradient2(layers.parameters());
     gradient2.fill(0.0);
-    layers.bprop(&input[0], &fproped[0], temp_space, temp_space_size,
+    layers.bprop(&input[0], &fproped[0], temp_space + 1, temp_space_size,
                  &output_errors[0], &input_errors[0], gradient2, 2.0);
 
     //cerr << "gradient.values = " << gradient.values << endl;
@@ -262,13 +313,14 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
         ostringstream stream_out;
         {
             DB::Store_Writer writer(stream_out);
-            writer << layer;
+            writer << layers;
         }
         
         istringstream stream_in(stream_out.str());
         DB::Store_Reader reader(stream_in);
         Layer_Stack<Dense_Layer<float> > layers4;
-        reader >> layers4;
+
+        BOOST_CHECK_NO_THROW(reader >> layers4);
 
         Parameters_Copy<float> params4(layers4.parameters());
         distribution<float> & param_dist4 = params4.values;
@@ -276,7 +328,7 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
         BOOST_REQUIRE_EQUAL(param_dist4.size(), 3);
         BOOST_CHECK_EQUAL(param_dist4.at(0), 0.5);  // weight 0
         BOOST_CHECK_EQUAL(param_dist4.at(1), 2.0);  // weight 1
-        BOOST_CHECK_EQUAL(param_dist4.at(2), 1.0);  // bias
+        BOOST_CHECK_EQUAL(param_dist4.at(2), 0.0);  // bias
 
         Dense_Layer<float> & layer4
             = dynamic_cast<Dense_Layer<float> &>(layers4[0]);

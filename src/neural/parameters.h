@@ -62,6 +62,7 @@ struct Parameter_Value {
     virtual void copy_to(float * where, float * limit) const = 0;
     virtual void copy_to(double * where, double * limit) const = 0;
     
+
     /** Create a compatible parameters object, that refers to the data range
         given, not the current range.  The given range is not modified.  */
     virtual Parameter_Value *
@@ -227,11 +228,18 @@ struct Parameters : public Parameter_Value {
 
 
     /** Concrete copy_to implementations */
+    template<typename F>
+    void copy_to(F * where, F * limit) const;
+
     virtual void copy_to(float * where, float * limit) const;
     virtual void copy_to(double * where, double * limit) const;
 
     /** Create a compatible parameters object, that refers to the data range
         given, not the current range.  The given range is not modified.  */
+    template<typename F>
+    Parameters *
+    compatible_ref(F * first, F * last) const;
+
     virtual Parameters *
     compatible_ref(float * first, float * last) const;
     virtual Parameters *
@@ -240,8 +248,13 @@ struct Parameters : public Parameter_Value {
     /** Create a compatible parameters object, that refers to the data range
         given, not the current range.  The given range is initialized with
         the current values via copy_to.  */
+    template<typename F>
+    Parameters *
+    compatible_copy(F * first, F * last) const;
+
     virtual Parameters *
     compatible_copy(float * first, float * last) const;
+
     virtual Parameters *
     compatible_copy(double * first, double * last) const;
 

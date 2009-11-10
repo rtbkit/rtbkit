@@ -65,7 +65,7 @@ public:
     size_t inputs() const { return inputs_; }
     size_t outputs() const { return outputs_; }
 
-    size_t max_width() const { return std::max(inputs_, outputs_); }
+    virtual size_t max_width() const { return std::max(inputs_, outputs_); }
 
     std::string name() const { return name_; }
 
@@ -136,18 +136,46 @@ public:
     /* SERIALIZATION                                                         */
     /*************************************************************************/
 
+    /** \name Serialization
+        
+        These functions are associated with serializing and reconstituting
+        the object into a binary format, as well as manipulating them
+        polymorphically.
+        
+        @{
+    */
+
+    /** Serialize the type-specific internal data into the store, but no
+        information about the type itself. */
     virtual void serialize(DB::Store_Writer & store) const = 0;
+
+    /** Reconstitute the type-specific internal data from the store. */
     virtual void reconstitute(DB::Store_Reader & store) = 0;
 
+    /** Make a copy of the object.  If it is a layer that references other
+        objects (such as through shared pointers), then the references will
+        also be held by the new object.  Use deep_copy() if this is not
+        desired.
+    */
     virtual Layer * make_copy() const = 0;
 
     /** Make a copy that is not connected to those underneath. */
     virtual Layer * deep_copy() const = 0;
 
+    /** Serialize the object to the given store, as well as its type
+        information.  The object thus serialized can be reconstituted with
+        poly_reconstitute(); the reconstitute() method will fail as it
+        does not expect the type information to be there. */
     void poly_serialize(ML::DB::Store_Writer & store) const;
 
+    /** Reconstitute an object from the given store, returning a shared
+        pointer to it.  This is the counterpart to poly_serialize(); calling
+        this method on a store where an object was only serialize()d will
+        fail. */
     static boost::shared_ptr<Layer>
     poly_reconstitute(ML::DB::Store_Reader & store);
+
+    // @)
 
 
     /*************************************************************************/
@@ -174,9 +202,19 @@ public:
     void apply(const distribution<double> & input,
                distribution<double> & output) const;
 
-    /** Apply the layer to the input and return an output.  Note that the
-        values are implicitly */
+    /** Apply the layer to the input and put the result in the output
+        array.
+
+        \param input   Array (of size inputs()) of input values
+        \param output  Array (of size outputs()) of output values
+
+        <b>NOTE</b> that input and output <b>may be the same array</b>.  The
+        routine should function correctly even if this is the case, by
+        copying input into a temporary buffer before using it if it overlaps
+        with output and this affects the calculation. */
     virtual void apply(const float * input, float * output) const = 0;
+
+    /** \copydoc apply */
     virtual void apply(const double * input, double * output) const = 0;
 
     ///@}
