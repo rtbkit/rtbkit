@@ -44,6 +44,15 @@ Layer_Stack(const Layer_Stack & other)
 }
 
 template<class LayerT>
+Layer_Stack<LayerT>::
+Layer_Stack(const Layer_Stack & other, Deep_Copy_Tag)
+    : Layer(other.name(), 0, 0)
+{
+    for (unsigned i = 0;  i < other.size();  ++i)
+        add(other.layers_[i]->deep_copy());
+}
+
+template<class LayerT>
 Layer_Stack<LayerT> &
 Layer_Stack<LayerT>::
 operator = (const Layer_Stack & other)

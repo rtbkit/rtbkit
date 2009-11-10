@@ -17,6 +17,9 @@
 
 namespace ML {
 
+/// Tag structure to force a deep copy
+struct Deep_Copy_Tag {
+};
 
 /*****************************************************************************/
 /* LAYER_STACK                                                               */
@@ -25,6 +28,11 @@ namespace ML {
 /** This class is a stack of layers connected in a simple fashion: each
     layer takes as its input the output of the previous layer.
 
+    NOTE: this class does *not* own its layers; it merely keeps a reference
+    to them.  If you copy the class using the default operators, the new
+    copy will refer to the same layer objects.  If you need to perform a
+    deep copy, you should use one of the methods associated with it.
+    
     Another class will be written for more complicated arrangements.
 */
 
@@ -35,12 +43,23 @@ struct Layer_Stack : public Layer {
     Layer_Stack(const std::string & name);
     Layer_Stack(const Layer_Stack & other);
 
+    Layer_Stack(const Layer_Stack & other, Deep_Copy_Tag);
+
     template<class OtherLayer>
     Layer_Stack(const Layer_Stack<OtherLayer> & other)
         : Layer(other.name(), 0, 0)
     {
         for (unsigned i = 0;  i < other.size();  ++i)
             add_cast(other.layers_[i]);
+    }
+
+    template<class OtherLayer>
+    Layer_Stack(const Layer_Stack<OtherLayer> & other,
+                Deep_Copy_Tag)
+        : Layer(other.name(), 0, 0)
+    {
+        for (unsigned i = 0;  i < other.size();  ++i)
+            add_cast(other.layers_[i]->deep_copy());
     }
 
     Layer_Stack & operator = (const Layer_Stack & other);
