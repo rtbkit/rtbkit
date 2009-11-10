@@ -18,6 +18,7 @@ namespace ML {
 template<class LayerT> class Layer_Stack;
 
 
+
 /*****************************************************************************/
 /* TWOWAY_LAYER                                                              */
 /*****************************************************************************/
@@ -25,6 +26,19 @@ template<class LayerT> class Layer_Stack;
 /** A perceptron layer that has both a forward and a reverse direction.  It's
     both a discriminative model (in the forward direction) and a generative
     model (in the reverse direction).
+
+    This layer shares the transfer function and activation weights between
+    the forward and reverse directions.  However, there are some adjstments
+    made:
+
+    forward:   o = f( Wi + b )
+    backwards: i = f( d WT o e + c )
+
+    WT is W transpose.  c is a bias vector with separate weights.  d and e
+    are diagonal scaling matrices on the left and right of WT; they can
+    compensate for W having have non-unitary singular values.
+
+    Note that in the inverse direction, no missing values are accepted.
 */
 
 struct Twoway_Layer : public Dense_Layer<float> {
@@ -44,7 +58,9 @@ struct Twoway_Layer : public Dense_Layer<float> {
                  Transfer_Function_Type transfer,
                  Missing_Values missing_values);
 
-    virtual boost::shared_ptr<Parameters> parameters();
+    /*************************************************************************/
+    /* INVERSE DIRECTION                                                     */
+    /*************************************************************************/
 
     /// Bias for the reverse direction
     distribution<float> ibias;
@@ -53,92 +69,138 @@ struct Twoway_Layer : public Dense_Layer<float> {
     distribution<float> iscales;
     distribution<float> hscales;
 
-    distribution<double> iapply(const distribution<double> & output) const;
-    distribution<float> iapply(const distribution<float> & output) const;
 
-    distribution<double> ipreprocess(const distribution<double> & output) const;
-    distribution<float> ipreprocess(const distribution<float> & output) const;
+    virtual distribution<double>
+    iapply(const distribution<double> & output) const;
+    virtual distribution<float>
+    iapply(const distribution<float> & output) const;
 
-    distribution<double> iactivation(const distribution<double> & output) const;
-    distribution<float> iactivation(const distribution<float> & output) const;
+    /** Return the amount of space necessary to save temporary results for the
+        forward prop.  There will be an array of the given precision (double
+        or single) provided.
 
-    distribution<double>
-    itransfer(const distribution<double> & activation) const;
-    distribution<float>
-    itransfer(const distribution<float> & activation) const;
+        Default implementation returns outputs().
+    */
 
-    distribution<double> iderivative(const distribution<double> & input) const;
-    distribution<float> iderivative(const distribution<float> & input) const;
+    virtual size_t ifprop_temporary_space_required() const;
 
-    void update(const Parameters & updates, double learning_rate);
+    /** These functions perform a forward propagation.  They also save whatever
+        information is necessary to perform an efficient backprop at a later
+        period in time.
+
+        Default implementation calls apply() and saves the outputs only in the
+        temporary space.
+    */
+    virtual distribution<float>
+    ifprop(const distribution<float> & inputs,
+           float * temp_space, size_t temp_space_size) const;
+
+    virtual distribution<double>
+    ifprop(const distribution<double> & inputs,
+           double * temp_space, size_t temp_space_size) const;
+    
+    /** Perform a back propagation.  Given the derivative of the error with
+        respect to each of the errors, they compute the gradient of the
+        parameter space.
+    */
+
+    virtual void ibprop(const distribution<float> & output_errors,
+                        float * temp_space, size_t temp_space_size,
+                        Parameters & gradient,
+                        distribution<float> & input_errors,
+                        double example_weight,
+                        bool calculate_input_errors) const;
+
+    virtual void ibprop(const distribution<double> & output_errors,
+                        double * temp_space, size_t temp_space_size,
+                        Parameters & gradient,
+                        distribution<double> & input_errors,
+                        double example_weight,
+                        bool calculate_input_errors) const;
+
+
+    /*************************************************************************/
+    /* RECONSTRUCTION                                                        */
+    /*************************************************************************/
+
+    virtual distribution<float>
+    reconstruct(const distribution<float> & input) const;
+    virtual distribution<double>
+    reconstruct(const distribution<double> & input) const;
+
+    /** Return the amount of space necessary to save temporary results for the
+        forward reconstruction.  There will be an array of the given precision
+        (double or single) provided.
+    */
+
+    virtual size_t rfprop_temporary_space_required() const;
+    
+    /** These functions perform a forward reconstruction.  They also save
+        whatever information is necessary to perform an efficient backprop
+        of the reconstruction error at a later period in time.
+
+        Returns the reconstructed input.
+    */
+    virtual distribution<float>
+    rfprop(const distribution<float> & inputs,
+           float * temp_space, size_t temp_space_size) const;
+
+    virtual distribution<double>
+    rfprop(const distribution<double> & inputs,
+           double * temp_space, size_t temp_space_size) const;
+
+    /** Perform a back propagation.  Given the derivative of the error with
+        respect to each of the errors, they compute the gradient of the
+        parameter space.
+    */
+
+    virtual void rbprop(const distribution<float> & output_errors,
+                        float * temp_space, size_t temp_space_size,
+                        Parameters & gradient,
+                        double example_weight) const;
+
+    virtual void rbprop(const distribution<double> & output_errors,
+                        double * temp_space, size_t temp_space_size,
+                        Parameters & gradient,
+                        double example_weight) const;
+
+
+
+    /** Dump as ASCII.  This will be big. */
+    virtual std::string print() const;
+    
+    /** Return the name of the type */
+    virtual std::string class_id() const;
+
+    /** Check that all parameters are reasonable and invariants are met.
+        Will throw an exception if there is a problem. */
+    virtual void validate() const;
+
+    virtual bool equal_impl(const Layer & other) const;
+
+    /** Add all of our parameters to the given parameters object. */
+    virtual void add_parameters(Parameters & params);
+
+    /** Return the number of parameters (degrees of freedom) for the
+        layer. */
+    virtual size_t parameter_count() const;
+
+    virtual void serialize(DB::Store_Writer & store) const;
+    virtual void reconstitute(DB::Store_Reader & store);
 
     virtual void random_fill(float limit, Thread_Context & context);
 
     virtual void zero_fill();
 
-    virtual void serialize(DB::Store_Writer & store) const;
-    virtual void reconstitute(DB::Store_Reader & store);
-
-    /** Dump as ASCII.  This will be big. */
-    virtual std::string print() const;
-    
-    /** Backpropagate the given example.  The gradient will be acculmulated in
-        the output.  Fills in the errors for the next stage at input_errors. */
-    void backprop_example(const distribution<double> & outputs,
-                          const distribution<double> & output_deltas,
-                          const distribution<double> & inputs,
-                          distribution<double> & input_deltas,
-                          Parameters & updates) const;
-
-    /** Inverse direction backpropagation of the given example.  Again, the
-        gradient will be acculmulated in the output.  Fills in the errors for
-        the next stage at input_errors. */
-    void ibackprop_example(const distribution<double> & outputs,
-                           const distribution<double> & output_deltas,
-                           const distribution<double> & inputs,
-                           distribution<double> & input_deltas,
-                           Parameters & updates) const;
-
-    /** Trains a single iteration on the given data with the selected
-        parameters.  Returns a moving estimate of the RMSE on the
-        training set. */
-    std::pair<double, double>
-    train_iter(const std::vector<distribution<float> > & data,
-               float prob_cleared,
-               Thread_Context & thread_context,
-               int minibatch_size, float learning_rate,
-               int verbosity,
-               float sample_proportion,
-               bool randomize_order);
-
-    /** Tests on the given dataset, returning the exact and noisy RMSE.  If
-        data_out is non-empty, then it will also fill it in with the
-        hidden representations for each of the inputs (with no noise added).
-        This information can be used to train the next layer. */
-    std::pair<double, double>
-    test_and_update(const std::vector<distribution<float> > & data_in,
-                    std::vector<distribution<float> > & data_out,
-                    float prob_cleared,
-                    Thread_Context & thread_context,
-                    int verbosity) const;
-
-    /** Tests on the given dataset, returning the exact and noisy RMSE. */
-    std::pair<double, double>
-    test(const std::vector<distribution<float> > & data,
-         float prob_cleared,
-         Thread_Context & thread_context,
-         int verbosity) const
-    {
-        std::vector<distribution<float> > dummy;
-        return test_and_update(data, dummy, prob_cleared, thread_context,
-                               verbosity);
-    }
-
-    bool operator == (const Twoway_Layer & other) const;
-
     virtual Twoway_Layer * make_copy() const { return new Twoway_Layer(*this); }
 
     virtual Twoway_Layer * deep_copy() const { return new Twoway_Layer(*this); }
+
+    bool operator == (const Twoway_Layer & other) const;
+    bool operator != (const Twoway_Layer & other) const
+    {
+        return ! operator == (other);
+    }
 };
 
 IMPL_SERIALIZE_RECONSTITUTE(Twoway_Layer);

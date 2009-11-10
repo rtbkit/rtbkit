@@ -82,6 +82,19 @@ public:
 
     virtual bool equal_impl(const Layer & other) const = 0;
 
+#if 0
+    /** Returns true if the layer is reversible.  A reversible layer has
+        both a forward and a reverse direction that allows the input to
+        be reconstructed from the output (as well as allowing the output
+        to be calculated from the input).  Used for auto-encoders, etc.
+
+        Default implementation returns false; must be overridden for those
+        that support it.
+    */
+    virtual bool reversible() const;
+
+    /** Returns the layer in the reverse direction. */
+#endif
 
     /*************************************************************************/
     /* PARAMETERS                                                            */

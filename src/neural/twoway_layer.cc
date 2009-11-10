@@ -7,144 +7,16 @@
 
 #include "twoway_layer.h"
 #include "layer_stack_impl.h"
+#include "utils/check_not_nan.h"
+#include "boosting/registry.h"
+#include "algebra/matrix_ops.h"
+#include "stats/distribution_ops.h"
+
+
+using namespace std;
+
 
 namespace ML {
-
-
-/*****************************************************************************/
-/* TWOWAY_LAYER_UPDATES                                                      */
-/*****************************************************************************/
-
-Twoway_Layer_Updates::
-Twoway_Layer_Updates()
-{
-    init(false, false, 0, 0);
-}
-
-Twoway_Layer_Updates::
-Twoway_Layer_Updates(bool train_generative,
-                     const Twoway_Layer & layer)
-{
-    init(train_generative, layer);
-}
-
-Twoway_Layer_Updates::
-Twoway_Layer_Updates(bool use_dense_missing,
-                     bool train_generative,
-                     int inputs, int outputs)
-{
-    init(use_dense_missing, train_generative, inputs, outputs);
-}
-
-void
-Twoway_Layer_Updates::
-zero_fill()
-{
-    std::fill(weights.data(), weights.data() + weights.num_elements(),
-              0.0);
-    bias.fill(0.0);
-    missing_replacements.fill(0.0);
-    if (use_dense_missing)
-        for (unsigned i = 0;  i < missing_activations.size();  ++i)
-            missing_activations[i].fill(0.0);
-    ibias.fill(0.0);
-    iscales.fill(0.0);
-    hscales.fill(0.0);
-}
-
-void
-Twoway_Layer_Updates::
-init(bool train_generative,
-     const Twoway_Layer & layer)
-{
-    init(layer.use_dense_missing, train_generative,
-         layer.inputs(), layer.outputs());
-}
-
-void
-Twoway_Layer_Updates::
-init(bool use_dense_missing, bool train_generative,
-     int inputs, int outputs)
-{
-    this->use_dense_missing = use_dense_missing;
-    this->train_generative = train_generative;
-    
-    weights.resize(boost::extents[inputs][outputs]);
-    bias.resize(outputs);
-    missing_replacements.resize(inputs);
-    
-    if (use_dense_missing)
-        missing_activations.resize(inputs, distribution<double>(outputs));
-    
-    ibias.resize(inputs);
-    iscales.resize(inputs);
-    hscales.resize(outputs);
-    
-    zero_fill();
-}
-
-Twoway_Layer_Updates &
-Twoway_Layer_Updates::
-operator += (const Twoway_Layer_Updates & other)
-{
-    int ni = inputs();
-    int no = outputs();
-    
-    //cerr << "ni = " << ni << " no = " << no << endl;
-    
-    if (ni != other.inputs() || no != other.outputs()
-        || use_dense_missing != other.use_dense_missing)
-        throw Exception("incompatible update objects");
-    
-    ibias += other.ibias;
-    bias += other.bias;
-    iscales += other.iscales;
-    hscales += other.hscales;
-    
-    CHECK_NO_NAN(ibias);
-    CHECK_NO_NAN(other.ibias);
-    CHECK_NO_NAN(bias);
-    CHECK_NO_NAN(other.bias);
-    CHECK_NO_NAN(iscales);
-    CHECK_NO_NAN(other.iscales);
-    CHECK_NO_NAN(hscales);
-    CHECK_NO_NAN(other.hscales);
-    
-    for (unsigned i = 0;  i < ni;  ++i) {
-        SIMD::vec_add(&weights[i][0],
-                      &other.weights[i][0],
-                      &weights[i][0], no);
-        CHECK_NO_NAN_RANGE(&other.weights[i][0], &other.weights[i][0] + no);
-        CHECK_NO_NAN_RANGE(&weights[i][0], &weights[i][0] + no);
-    }
-    
-    if (use_dense_missing) {
-        if (missing_activations.size() != ni
-            || other.missing_activations.size() != ni) {
-            throw Exception("wrong missing activation size");
-        }
-        
-        for (unsigned i = 0;  i < ni;  ++i) {
-            if (missing_activations[i].size() != no
-                || other.missing_activations[i].size() != no)
-                throw Exception("wrong inner missing activation size");
-            
-            const distribution<double> & me JML_UNUSED
-                = missing_activations[i];
-            CHECK_NO_NAN(me);
-            const distribution<double> & them JML_UNUSED
-                = missing_activations[i];
-            CHECK_NO_NAN(them);
-            
-            SIMD::vec_add(&missing_activations[i][0],
-                          &other.missing_activations[i][0],
-                          &missing_activations[i][0], no);
-        }
-    }
-    else missing_replacements += other.missing_replacements;
-    
-    return *this;
-}
 
 
 /*****************************************************************************/
@@ -157,37 +29,41 @@ Twoway_Layer()
 }
 
 Twoway_Layer::
-Twoway_Layer(bool use_dense_missing,
+Twoway_Layer(const std::string & name,
              size_t inputs, size_t outputs,
              Transfer_Function_Type transfer,
+             Missing_Values missing_values,
              Thread_Context & context,
              float limit)
-    : Base(use_dense_missing, inputs, outputs, transfer), ibias(inputs),
-      iscales(inputs), hscales(outputs)
+    : Base(name, inputs, outputs, transfer, missing_values),
+      ibias(inputs), iscales(inputs), hscales(outputs)
 {
     if (limit == -1.0)
         limit = 1.0 / sqrt(inputs);
     random_fill(limit, context);
+    update_parameters();
 }
 
 Twoway_Layer::
-Twoway_Layer(bool use_dense_missing,
+Twoway_Layer(const std::string & name,
              size_t inputs, size_t outputs,
-             Transfer_Function_Type transfer)
-    : Base(use_dense_missing, inputs, outputs, transfer), ibias(inputs),
-      iscales(inputs), hscales(outputs)
+             Transfer_Function_Type transfer,
+             Missing_Values missing_values)
+    : Base(name, inputs, outputs, transfer, missing_values),
+      ibias(inputs), iscales(inputs), hscales(outputs)
 {
+    update_parameters();
 }
 
 distribution<double>
 Twoway_Layer::
 iapply(const distribution<double> & output) const
 {
-    CHECK_NO_NAN(output);
+    CHECK_NOT_NAN(output);
     distribution<double> activation
         = multiply_r<double>(weights, (hscales * output)) * iscales;
     activation += ibias;
-    transfer(&activation[0], &activation[0], inputs(), transfer_function);
+    transfer_function->transfer(&activation[0], &activation[0], inputs());
     return activation;
 }
 
@@ -195,181 +71,108 @@ distribution<float>
 Twoway_Layer::
 iapply(const distribution<float> & output) const
 {
-    CHECK_NO_NAN(output);
+    CHECK_NOT_NAN(output);
     distribution<float> activation
         = multiply_r<float>(weights, (hscales * output)) * iscales;
     activation += ibias;
-    transfer(&activation[0], &activation[0], inputs(), transfer_function);
+    transfer_function->transfer(&activation[0], &activation[0], inputs());
     return activation;
 }
 
-distribution<double>
+size_t
 Twoway_Layer::
-ipreprocess(const distribution<double> & input) const
+ifprop_temporary_space_required() const
 {
-    return input;
+    return inputs() + outputs();
 }
 
 distribution<float>
 Twoway_Layer::
-ipreprocess(const distribution<float> & input) const
+ifprop(const distribution<float> & inputs,
+       float * temp_space, size_t temp_space_size) const
 {
-    return input;
 }
 
 distribution<double>
 Twoway_Layer::
-iactivation(const distribution<double> & output) const
+ifprop(const distribution<double> & inputs,
+       double * temp_space, size_t temp_space_size) const
 {
-    CHECK_NO_NAN(output);
-    distribution<double> activation
-        = multiply_r<double>(weights, (hscales * output)) * iscales;
-    activation += ibias;
-    return activation;
+}
+
+void
+Twoway_Layer::
+ibprop(const distribution<float> & output_errors,
+       float * temp_space, size_t temp_space_size,
+       Parameters & gradient,
+       distribution<float> & input_errors,
+       double example_weight,
+       bool calculate_input_errors) const
+{
+}
+
+void
+Twoway_Layer::
+ibprop(const distribution<double> & output_errors,
+       double * temp_space, size_t temp_space_size,
+       Parameters & gradient,
+       distribution<double> & input_errors,
+       double example_weight,
+       bool calculate_input_errors) const
+{
 }
 
 distribution<float>
 Twoway_Layer::
-iactivation(const distribution<float> & output) const
+reconstruct(const distribution<float> & input) const
 {
-    CHECK_NO_NAN(output);
-    distribution<float> activation
-        = multiply_r<float>(weights, (hscales * output)) * iscales;
-    activation += ibias;
-    return activation;
+    return iapply(apply(input));
 }
 
 distribution<double>
 Twoway_Layer::
-itransfer(const distribution<double> & activation) const
+reconstruct(const distribution<double> & input) const
 {
-    CHECK_NO_NAN(activation);
-    int ni = inputs();
-    if (activation.size() != ni)
-        throw Exception("invalid sizes in itransfer");
-    distribution<double> result(ni);
-    transfer(&activation[0], &result[0], ni, transfer_function);
-    return activation;
+    return iapply(apply(input));
+}
+
+size_t
+Twoway_Layer::
+rfprop_temporary_space_required() const
+{
+    return 2 * inputs() + outputs();
 }
 
 distribution<float>
 Twoway_Layer::
-itransfer(const distribution<float> & activation) const
+rfprop(const distribution<float> & inputs,
+       float * temp_space, size_t temp_space_size) const
 {
-    CHECK_NO_NAN(activation);
-    int ni = inputs();
-    if (activation.size() != ni)
-        throw Exception("invalid sizes in itransfer");
-    distribution<float> result(ni);
-    transfer(&activation[0], &result[0], ni, transfer_function);
-    return activation;
 }
 
 distribution<double>
 Twoway_Layer::
-iderivative(const distribution<double> & input) const
+rfprop(const distribution<double> & inputs,
+       double * temp_space, size_t temp_space_size) const
 {
-    CHECK_NO_NAN(input);
-    if (input.size() != this->inputs())
-        throw Exception("iderivative(): wrong size");
-    int ni = this->inputs();
-    distribution<double> result(ni);
-    derivative(&input[0], &result[0], ni, transfer_function);
-    return result;
-}
-
-distribution<float>
-Twoway_Layer::
-iderivative(const distribution<float> & input) const
-{
-    CHECK_NO_NAN(input);
-    if (input.size() != this->inputs())
-        throw Exception("iderivative(): wrong size");
-    int ni = this->inputs();
-    distribution<float> result(ni);
-    derivative(&input[0], &result[0], ni, transfer_function);
-    return result;
 }
 
 void
 Twoway_Layer::
-update(const Twoway_Layer_Updates & updates, double learning_rate)
+rbprop(const distribution<float> & output_errors,
+       float * temp_space, size_t temp_space_size,
+       Parameters & gradient,
+       double example_weight) const
 {
-    //cerr << "------------ BEFORE -------------" << endl;
-    //cerr << print();
-
-    int ni = inputs();
-    int no = outputs();
-    
-    //cerr << "updates.ibias = " << updates.ibias << endl;
-
-    if (use_dense_missing != updates.use_dense_missing)
-        throw Exception("use_dense_missing mismatch");
-
-    ibias -= learning_rate * updates.ibias;
-    bias -= learning_rate * updates.bias;
-    iscales -= learning_rate * updates.iscales;
-    hscales -= learning_rate * updates.hscales;
-
-    for (unsigned i = 0;  i < ni;  ++i)
-        SIMD::vec_add(&weights[i][0], -learning_rate,
-                      &updates.weights[i][0],
-                      &weights[i][0], no);
-
-    if (use_dense_missing) {
-        for (unsigned i = 0;  i < ni;  ++i)
-            SIMD::vec_add(&missing_activations[i][0],
-                          -learning_rate,
-                          &updates.missing_activations[i][0],
-                          &missing_activations[i][0], no);
-    }
-    else 
-        missing_replacements
-            -= learning_rate * updates.missing_replacements;
-
-    //cerr << "------------ AFTER -------------" << endl;
-    //cerr << print();
 }
 
 void
 Twoway_Layer::
-random_fill(float limit, Thread_Context & context)
+rbprop(const distribution<double> & output_errors,
+       double * temp_space, size_t temp_space_size,
+       Parameters & gradient,
+       double example_weight) const
 {
-    Base::random_fill(limit, context);
-    for (unsigned i = 0;  i < ibias.size();  ++i) {
-        ibias[i] = limit * (context.random01() * 2.0f - 1.0f);
-        iscales[i] = context.random01();
-    }
-    for (unsigned i = 0;  i < outputs();  ++i)
-        hscales[i] = context.random01();
-    iscales.fill(1.0);
-    hscales.fill(1.0);
-}
-
-void
-Twoway_Layer::
-zero_fill()
-{
-    Base::zero_fill();
-    ibias.fill(0.0);
-    iscales.fill(0.0);
-    hscales.fill(0.0);
-}
-
-void
-Twoway_Layer::
-serialize(DB::Store_Writer & store) const
-{
-    Base::serialize(store);
-    store << ibias << iscales << hscales;
-}
-
-void
-Twoway_Layer::
-reconstitute(DB::Store_Reader & store)
-{
-    Base::reconstitute(store);
-    store >> ibias >> iscales >> hscales;
 }
 
 std::string
@@ -398,6 +201,104 @@ print() const
     return result;
 }
 
+std::string
+Twoway_Layer::
+class_id() const
+{
+    return "Twoway_Layer";
+}
+
+void
+Twoway_Layer::
+validate() const
+{
+    Base::validate();
+    if (isnan(ibias).any())
+        throw Exception("nan in ibias");
+    if (isnan(iscales).any())
+        throw Exception("nan in iscales");
+    if (isnan(hscales).any())
+        throw Exception("nan in hscales");
+}
+
+bool
+Twoway_Layer::
+equal_impl(const Layer & other) const
+{
+    const Twoway_Layer & cast
+        = dynamic_cast<const Twoway_Layer &>(other);
+    return operator == (cast);
+}
+
+void
+Twoway_Layer::
+add_parameters(Parameters & params)
+{
+    Base::add_parameters(params);
+    size_t np = params.size();
+    params
+        .add(no + 0, "ibias", ibias)
+        .add(no + 1, "iscales", iscales)
+        .add(no + 2, "oscales", oscales);
+}
+
+size_t
+Twoway_Layer::
+parameter_count() const
+{
+    return Base::parameter_count() + 2 * inputs() + outputs();
+}
+
+void
+Twoway_Layer::
+serialize(DB::Store_Writer & store) const
+{
+    store << (char)1;  // version
+    Base::serialize(store);
+    store << ibias << iscales << hscales;
+}
+
+void
+Twoway_Layer::
+reconstitute(DB::Store_Reader & store)
+{
+    char version;
+    store >> version;
+
+    if (version != 1)
+        throw Exception("Twoway_Layer::reconstitute(): invalid version");
+    Base::reconstitute(store);
+    store >> ibias >> iscales >> hscales;
+
+    validate();
+    update_parameters();
+}
+
+void
+Twoway_Layer::
+random_fill(float limit, Thread_Context & context)
+{
+    Base::random_fill(limit, context);
+    for (unsigned i = 0;  i < ibias.size();  ++i) {
+        ibias[i] = limit * (context.random01() * 2.0f - 1.0f);
+        iscales[i] = context.random01();
+    }
+    for (unsigned i = 0;  i < outputs();  ++i)
+        hscales[i] = context.random01();
+    iscales.fill(1.0);
+    hscales.fill(1.0);
+}
+
+void
+Twoway_Layer::
+zero_fill()
+{
+    Base::zero_fill();
+    ibias.fill(0.0);
+    iscales.fill(0.0);
+    hscales.fill(0.0);
+}
+
 bool
 Twoway_Layer::
 operator == (const Twoway_Layer & other) const
@@ -408,6 +309,14 @@ operator == (const Twoway_Layer & other) const
         && equivalent(hscales, other.hscales);
 }
 
+namespace {
+
+Register_Factory<Layer, Twoway_Layer>
+TWOWAY_REGISTER("Twoway_Layer");
+
+} // file scope
+
+#if 0
 
 // Float type to use for calculations
 typedef double CFloat;
@@ -437,31 +346,6 @@ ibackprop_example(const distribution<double> & outputs,
 #endif
 }
 
-void
-Twoway_Layer::
-backprop_example(const distribution<double> & outputs,
-                 const distribution<double> & output_deltas,
-                 const distribution<double> & inputs,
-                 distribution<double> & input_deltas,
-                 Twoway_Layer_Updates & updates) const
-{
-}
-
-template<typename Float>
-distribution<Float>
-add_noise(const distribution<Float> & inputs,
-          Thread_Context & context,
-          float prob_cleared)
-{
-    distribution<Float> result = inputs;
-
-    for (unsigned i = 0;  i < inputs.size();  ++i)
-        if (context.random01() < prob_cleared)
-            result[i] = NaN;
-    
-    return result;
-}
-
 template class Layer_Stack<Twoway_Layer>;
 
 #if 0
@@ -482,7 +366,7 @@ train_example2(const Twoway_Layer & layer,
     // Present this input
     distribution<CFloat> model_input(data.at(example_num));
 
-    CHECK_NO_NAN(model_input);
+    CHECK_NOT_NAN(model_input);
     
     if (model_input.size() != ni) {
         cerr << "model_input.size() = " << model_input.size() << endl;
@@ -504,13 +388,13 @@ train_example2(const Twoway_Layer & layer,
     distribution<CFloat> hidden_rep
         = layer.apply(noisy_input);
 
-    CHECK_NO_NAN(hidden_rep);
+    CHECK_NOT_NAN(hidden_rep);
             
     // Reconstruct the input
     distribution<CFloat> denoised_input
         = layer.iapply(hidden_rep);
 
-    CHECK_NO_NAN(denoised_input);
+    CHECK_NOT_NAN(denoised_input);
             
     // Error signal
     distribution<CFloat> diff
@@ -534,7 +418,7 @@ train_example2(const Twoway_Layer & layer,
                        hidden_rep_deltas,
                        updates);
 
-    CHECK_NO_NAN(hidden_rep_deltas);
+    CHECK_NOT_NAN(hidden_rep_deltas);
 
     // And the other one
     distribution<CFloat> noisy_input_deltas;
@@ -547,6 +431,8 @@ train_example2(const Twoway_Layer & layer,
     return make_pair(error_exact, error);
 }
 #endif
+
+#if 0
 
 pair<double, double>
 train_example(const Twoway_Layer & layer,
@@ -567,7 +453,7 @@ train_example(const Twoway_Layer & layer,
     // Present this input
     distribution<CFloat> model_input(data.at(example_num));
 
-    CHECK_NO_NAN(model_input);
+    CHECK_NOT_NAN(model_input);
     
     if (model_input.size() != ni) {
         cerr << "model_input.size() = " << model_input.size() << endl;
@@ -597,19 +483,19 @@ train_example(const Twoway_Layer & layer,
     //cerr << "noisy_pre = " << noisy_pre << " hidden_act = "
     //     << hidden_act << endl;
 
-    CHECK_NO_NAN(hidden_act);
+    CHECK_NOT_NAN(hidden_act);
             
     // Apply the layer
     distribution<CFloat> hidden_rep
         = layer.transfer(hidden_act);
 
-    CHECK_NO_NAN(hidden_rep);
+    CHECK_NOT_NAN(hidden_rep);
             
     // Reconstruct the input
     distribution<CFloat> denoised_input
         = layer.iapply(hidden_rep);
 
-    CHECK_NO_NAN(denoised_input);
+    CHECK_NOT_NAN(denoised_input);
             
     // Error signal
     distribution<CFloat> diff
@@ -706,7 +592,7 @@ train_example(const Twoway_Layer & layer,
     if (!need_lock)
         updates.ibias += c_updates;
 
-    CHECK_NO_NAN(c_updates);
+    CHECK_NOT_NAN(c_updates);
 
 #if 0
     Twoway_Layer layer2 = layer;
@@ -754,7 +640,7 @@ train_example(const Twoway_Layer & layer,
     distribution<CFloat> d_updates(ni);
     d_updates = multiply_r<CFloat>(W, hidden_rep_e) * c_updates;
 
-    CHECK_NO_NAN(d_updates);
+    CHECK_NOT_NAN(d_updates);
 
     if (!need_lock)
         updates.iscales += d_updates;
@@ -807,7 +693,7 @@ train_example(const Twoway_Layer & layer,
     if (!need_lock)
         updates.hscales += e_updates;
 
-    CHECK_NO_NAN(e_updates);
+    CHECK_NOT_NAN(e_updates);
 
 #if 0
     Twoway_Layer layer2 = layer;
@@ -890,11 +776,11 @@ train_example(const Twoway_Layer & layer,
 #endif
     
 
-    CHECK_NO_NAN(hidden_deriv);
+    CHECK_NOT_NAN(hidden_deriv);
 
     distribution<CFloat> b_updates = cupdates_d_W * hidden_deriv * e;
 
-    CHECK_NO_NAN(b_updates);
+    CHECK_NOT_NAN(b_updates);
 
     if (!need_lock)
         updates.bias += b_updates;
@@ -977,7 +863,7 @@ train_example(const Twoway_Layer & layer,
                            no);
             
             if (!need_lock) {
-                CHECK_NO_NAN_RANGE(&W_updates_row[0], &W_updates_row[0] + no);
+                CHECK_NOT_NAN_RANGE(&W_updates_row[0], &W_updates_row[0] + no);
                 SIMD::vec_add(&updates.weights[i][0], W_updates_row,
                               &updates.weights[i][0], no);
             }
@@ -1215,351 +1101,8 @@ train_example(const Twoway_Layer & layer,
     return make_pair(error_exact, error);
 }
 
-struct Train_Examples_Job {
+#endif
 
-    const Twoway_Layer & layer;
-    const vector<distribution<float> > & data;
-    int first;
-    int last;
-    const vector<int> & examples;
-    float prob_cleared;
-    const Thread_Context & context;
-    int random_seed;
-    Twoway_Layer_Updates & updates;
-    Lock & update_lock;
-    double & error_exact;
-    double & error_noisy;
-    boost::progress_display * progress;
-    int verbosity;
-
-    Train_Examples_Job(const Twoway_Layer & layer,
-                       const vector<distribution<float> > & data,
-                       int first, int last,
-                       const vector<int> & examples,
-                       float prob_cleared,
-                       const Thread_Context & context,
-                       int random_seed,
-                       Twoway_Layer_Updates & updates,
-                       Lock & update_lock,
-                       double & error_exact,
-                       double & error_noisy,
-                       boost::progress_display * progress,
-                       int verbosity)
-        : layer(layer), data(data), first(first), last(last),
-          examples(examples), prob_cleared(prob_cleared),
-          context(context), random_seed(random_seed), updates(updates),
-          update_lock(update_lock),
-          error_exact(error_exact), error_noisy(error_noisy),
-          progress(progress), verbosity(verbosity)
-    {
-    }
-
-    void operator () ()
-    {
-        Thread_Context thread_context(context);
-        thread_context.seed(random_seed);
-        
-        double total_error_exact = 0.0, total_error_noisy = 0.0;
-
-        Twoway_Layer_Updates local_updates(true /* train_generative */, layer);
-
-        for (unsigned x = first;  x < last;  ++x) {
-
-            double eex, eno;
-            boost::tie(eex, eno)
-                = train_example(layer, data, x,
-                                prob_cleared, thread_context,
-                                local_updates, update_lock,
-                                false /* need_lock */,
-                                verbosity);
-
-            total_error_exact += eex;
-            total_error_noisy += eno;
-        }
-
-        Guard guard(update_lock);
-
-        //cerr << "applying local updates" << endl;
-        updates += local_updates;
-
-        error_exact += total_error_exact;
-        error_noisy += total_error_noisy;
-        
-
-        if (progress && verbosity >= 3)
-            (*progress) += (last - first);
-    }
-};
-
-std::pair<double, double>
-Twoway_Layer::
-train_iter(const vector<distribution<float> > & data,
-           float prob_cleared,
-           Thread_Context & thread_context,
-           int minibatch_size, float learning_rate,
-           int verbosity,
-           float sample_proportion,
-           bool randomize_order)
-{
-    Worker_Task & worker = thread_context.worker();
-
-    int nx = data.size();
-    int ni JML_UNUSED = inputs();
-    int no JML_UNUSED = outputs();
-
-    int microbatch_size = minibatch_size / (num_cpus() * 4);
-            
-    Lock update_lock;
-
-    double total_mse_exact = 0.0, total_mse_noisy = 0.0;
-    
-    vector<int> examples;
-    for (unsigned x = 0;  x < nx;  ++x) {
-        // Randomly exclude some samples
-        if (thread_context.random01() >= sample_proportion)
-            continue;
-        examples.push_back(x);
-    }
-    
-    if (randomize_order) {
-        Thread_Context::RNG_Type rng = thread_context.rng();
-        std::random_shuffle(examples.begin(), examples.end(), rng);
-    }
-    
-    int nx2 = examples.size();
-
-    std::auto_ptr<boost::progress_display> progress;
-    if (verbosity >= 3) progress.reset(new boost::progress_display(nx2, cerr));
-
-    for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
-                
-        Twoway_Layer_Updates updates(true /* train_generative */, *this);
-                
-        // Now, submit it as jobs to the worker task to be done
-        // multithreaded
-        int group;
-        {
-            int parent = -1;  // no parent group
-            group = worker.get_group(NO_JOB, "dump user results task",
-                                     parent);
-                    
-            // Make sure the group gets unlocked once we've populated
-            // everything
-            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                         boost::ref(worker),
-                                         group));
-                    
-                    
-            for (unsigned x2 = x;  x2 < nx2 && x2 < x + minibatch_size;
-                 x2 += microbatch_size) {
-                        
-                Train_Examples_Job job(*this,
-                                       data,
-                                       x2,
-                                       min<int>(nx2,
-                                                min(x + minibatch_size,
-                                                    x2 + microbatch_size)),
-                                       examples,
-                                       prob_cleared,
-                                       thread_context,
-                                       thread_context.random(),
-                                       updates,
-                                       update_lock,
-                                       total_mse_exact,
-                                       total_mse_noisy,
-                                       progress.get(),
-                                       verbosity);
-                // Send it to a thread to be processed
-                worker.add(job, "blend job", group);
-            }
-        }
-                
-        worker.run_until_finished(group);
-
-        //cerr << "applying minibatch updates" << endl;
-        
-        update(updates, learning_rate);
-    }
-
-    return make_pair(sqrt(total_mse_exact / nx2), sqrt(total_mse_noisy / nx2));
-}
-
-struct Test_Examples_Job {
-
-    const Twoway_Layer & layer;
-    const vector<distribution<float> > & data_in;
-    vector<distribution<float> > & data_out;
-    int first;
-    int last;
-    float prob_cleared;
-    const Thread_Context & context;
-    int random_seed;
-    Lock & update_lock;
-    double & error_exact;
-    double & error_noisy;
-    boost::progress_display * progress;
-    int verbosity;
-
-    Test_Examples_Job(const Twoway_Layer & layer,
-                      const vector<distribution<float> > & data_in,
-                      vector<distribution<float> > & data_out,
-                      int first, int last,
-                      float prob_cleared,
-                      const Thread_Context & context,
-                      int random_seed,
-                      Lock & update_lock,
-                      double & error_exact,
-                      double & error_noisy,
-                      boost::progress_display * progress,
-                      int verbosity)
-        : layer(layer), data_in(data_in), data_out(data_out),
-          first(first), last(last),
-          prob_cleared(prob_cleared),
-          context(context), random_seed(random_seed),
-          update_lock(update_lock),
-          error_exact(error_exact), error_noisy(error_noisy),
-          progress(progress), verbosity(verbosity)
-    {
-    }
-
-    void operator () ()
-    {
-        Thread_Context thread_context(context);
-        thread_context.seed(random_seed);
-
-        double test_error_exact = 0.0, test_error_noisy = 0.0;
-
-        for (unsigned x = first;  x < last;  ++x) {
-            int ni JML_UNUSED = layer.inputs();
-            int no JML_UNUSED = layer.outputs();
-
-            // Present this input
-            distribution<CFloat> model_input(data_in[x]);
-            
-            distribution<bool> was_cleared;
-
-            // Add noise
-            distribution<CFloat> noisy_input
-                = add_noise(model_input, thread_context, prob_cleared);
-            
-            // Apply the layer
-            distribution<CFloat> hidden_rep
-                = layer.apply(noisy_input);
-            
-            // Reconstruct the input
-            distribution<CFloat> denoised_input
-                = layer.iapply(hidden_rep);
-            
-            // Error signal
-            distribution<CFloat> diff
-                = model_input - denoised_input;
-    
-            // Overall error
-            double error = pow(diff.two_norm(), 2);
-
-            test_error_noisy += error;
-
-
-            // Apply the layer
-            distribution<CFloat> hidden_rep2
-                = layer.apply(model_input);
-
-            if (!data_out.empty())
-                data_out.at(x) = hidden_rep2.cast<float>();
-            
-            // Reconstruct the input
-            distribution<CFloat> reconstructed_input
-                = layer.iapply(hidden_rep2);
-            
-            // Error signal
-            distribution<CFloat> diff2
-                = model_input - reconstructed_input;
-    
-            // Overall error
-            double error2 = pow(diff2.two_norm(), 2);
-    
-            test_error_exact += error2;
-
-            if (x < 5 && false) {
-                Guard guard(update_lock);
-                cerr << "ex " << x << " error " << error2 << endl;
-                cerr << "    input " << model_input << endl;
-                //cerr << "    act   " << layer.activation(model_input) << endl;
-                cerr << "    rep   " << hidden_rep2 << endl;
-                //cerr << "    act2  " << layer.iactivation(hidden_rep2) << endl;
-                cerr << "    ibias " << layer.ibias << endl;
-                cerr << "    out   " << reconstructed_input << endl;
-                cerr << "    diff  " << diff2 << endl;
-                cerr << endl;
-            }
-        }
-
-        Guard guard(update_lock);
-        error_exact += test_error_exact;
-        error_noisy += test_error_noisy;
-        if (progress && verbosity >= 3)
-            (*progress) += (last - first);
-    }
-};
-
-pair<double, double>
-Twoway_Layer::
-test_and_update(const vector<distribution<float> > & data_in,
-                vector<distribution<float> > & data_out,
-                float prob_cleared,
-                Thread_Context & thread_context,
-                int verbosity) const
-{
-    Lock update_lock;
-    double error_exact = 0.0;
-    double error_noisy = 0.0;
-
-    int nx = data_in.size();
-
-    std::auto_ptr<boost::progress_display> progress;
-    if (verbosity >= 3) progress.reset(new boost::progress_display(nx, cerr));
-
-    Worker_Task & worker = thread_context.worker();
-            
-    // Now, submit it as jobs to the worker task to be done
-    // multithreaded
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB, "dump user results task",
-                                 parent);
-        
-        // Make sure the group gets unlocked once we've populated
-        // everything
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
-                                     group));
-        
-        // 20 jobs per CPU
-        int batch_size = nx / (num_cpus() * 20);
-        
-        for (unsigned x = 0; x < nx;  x += batch_size) {
-            
-            Test_Examples_Job job(*this, data_in, data_out,
-                                  x, min<int>(x + batch_size, nx),
-                                  prob_cleared,
-                                  thread_context,
-                                  thread_context.random(),
-                                  update_lock,
-                                  error_exact, error_noisy,
-                                  progress.get(),
-                                  verbosity);
-            
-            // Send it to a thread to be processed
-            worker.add(job, "blend job", group);
-        }
-    }
-
-    worker.run_until_finished(group);
-
-    return make_pair(sqrt(error_exact / nx),
-                     sqrt(error_noisy / nx));
-}
-
+#endif
 
 } // namespace ML

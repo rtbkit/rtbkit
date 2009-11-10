@@ -9,6 +9,366 @@
 
 namespace ML {
 
+template<typename Float>
+distribution<Float>
+add_noise(const distribution<Float> & inputs,
+          Thread_Context & context,
+          float prob_cleared)
+{
+    distribution<Float> result = inputs;
+
+    for (unsigned i = 0;  i < inputs.size();  ++i)
+        if (context.random01() < prob_cleared)
+            result[i] = NaN;
+    
+    return result;
+}
+
+struct Train_Examples_Job {
+
+    const Twoway_Layer & layer;
+    const vector<distribution<float> > & data;
+    int first;
+    int last;
+    const vector<int> & examples;
+    float prob_cleared;
+    const Thread_Context & context;
+    int random_seed;
+    Twoway_Layer_Updates & updates;
+    Lock & update_lock;
+    double & error_exact;
+    double & error_noisy;
+    boost::progress_display * progress;
+    int verbosity;
+
+    Train_Examples_Job(const Twoway_Layer & layer,
+                       const vector<distribution<float> > & data,
+                       int first, int last,
+                       const vector<int> & examples,
+                       float prob_cleared,
+                       const Thread_Context & context,
+                       int random_seed,
+                       Twoway_Layer_Updates & updates,
+                       Lock & update_lock,
+                       double & error_exact,
+                       double & error_noisy,
+                       boost::progress_display * progress,
+                       int verbosity)
+        : layer(layer), data(data), first(first), last(last),
+          examples(examples), prob_cleared(prob_cleared),
+          context(context), random_seed(random_seed), updates(updates),
+          update_lock(update_lock),
+          error_exact(error_exact), error_noisy(error_noisy),
+          progress(progress), verbosity(verbosity)
+    {
+    }
+
+    void operator () ()
+    {
+        Thread_Context thread_context(context);
+        thread_context.seed(random_seed);
+        
+        double total_error_exact = 0.0, total_error_noisy = 0.0;
+
+        Twoway_Layer_Updates local_updates(true /* train_generative */, layer);
+
+        for (unsigned x = first;  x < last;  ++x) {
+
+            double eex, eno;
+            boost::tie(eex, eno)
+                = train_example(layer, data, x,
+                                prob_cleared, thread_context,
+                                local_updates, update_lock,
+                                false /* need_lock */,
+                                verbosity);
+
+            total_error_exact += eex;
+            total_error_noisy += eno;
+        }
+
+        Guard guard(update_lock);
+
+        //cerr << "applying local updates" << endl;
+        updates += local_updates;
+
+        error_exact += total_error_exact;
+        error_noisy += total_error_noisy;
+        
+
+        if (progress && verbosity >= 3)
+            (*progress) += (last - first);
+    }
+};
+
+std::pair<double, double>
+Twoway_Layer::
+train_iter(const vector<distribution<float> > & data,
+           float prob_cleared,
+           Thread_Context & thread_context,
+           int minibatch_size, float learning_rate,
+           int verbosity,
+           float sample_proportion,
+           bool randomize_order)
+{
+    Worker_Task & worker = thread_context.worker();
+
+    int nx = data.size();
+    int ni JML_UNUSED = inputs();
+    int no JML_UNUSED = outputs();
+
+    int microbatch_size = minibatch_size / (num_cpus() * 4);
+            
+    Lock update_lock;
+
+    double total_mse_exact = 0.0, total_mse_noisy = 0.0;
+    
+    vector<int> examples;
+    for (unsigned x = 0;  x < nx;  ++x) {
+        // Randomly exclude some samples
+        if (thread_context.random01() >= sample_proportion)
+            continue;
+        examples.push_back(x);
+    }
+    
+    if (randomize_order) {
+        Thread_Context::RNG_Type rng = thread_context.rng();
+        std::random_shuffle(examples.begin(), examples.end(), rng);
+    }
+    
+    int nx2 = examples.size();
+
+    std::auto_ptr<boost::progress_display> progress;
+    if (verbosity >= 3) progress.reset(new boost::progress_display(nx2, cerr));
+
+    for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
+                
+        Twoway_Layer_Updates updates(true /* train_generative */, *this);
+                
+        // Now, submit it as jobs to the worker task to be done
+        // multithreaded
+        int group;
+        {
+            int parent = -1;  // no parent group
+            group = worker.get_group(NO_JOB, "dump user results task",
+                                     parent);
+                    
+            // Make sure the group gets unlocked once we've populated
+            // everything
+            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                         boost::ref(worker),
+                                         group));
+                    
+                    
+            for (unsigned x2 = x;  x2 < nx2 && x2 < x + minibatch_size;
+                 x2 += microbatch_size) {
+                        
+                Train_Examples_Job job(*this,
+                                       data,
+                                       x2,
+                                       min<int>(nx2,
+                                                min(x + minibatch_size,
+                                                    x2 + microbatch_size)),
+                                       examples,
+                                       prob_cleared,
+                                       thread_context,
+                                       thread_context.random(),
+                                       updates,
+                                       update_lock,
+                                       total_mse_exact,
+                                       total_mse_noisy,
+                                       progress.get(),
+                                       verbosity);
+                // Send it to a thread to be processed
+                worker.add(job, "blend job", group);
+            }
+        }
+                
+        worker.run_until_finished(group);
+
+        //cerr << "applying minibatch updates" << endl;
+        
+        update(updates, learning_rate);
+    }
+
+    return make_pair(sqrt(total_mse_exact / nx2), sqrt(total_mse_noisy / nx2));
+}
+
+struct Test_Examples_Job {
+
+    const Twoway_Layer & layer;
+    const vector<distribution<float> > & data_in;
+    vector<distribution<float> > & data_out;
+    int first;
+    int last;
+    float prob_cleared;
+    const Thread_Context & context;
+    int random_seed;
+    Lock & update_lock;
+    double & error_exact;
+    double & error_noisy;
+    boost::progress_display * progress;
+    int verbosity;
+
+    Test_Examples_Job(const Twoway_Layer & layer,
+                      const vector<distribution<float> > & data_in,
+                      vector<distribution<float> > & data_out,
+                      int first, int last,
+                      float prob_cleared,
+                      const Thread_Context & context,
+                      int random_seed,
+                      Lock & update_lock,
+                      double & error_exact,
+                      double & error_noisy,
+                      boost::progress_display * progress,
+                      int verbosity)
+        : layer(layer), data_in(data_in), data_out(data_out),
+          first(first), last(last),
+          prob_cleared(prob_cleared),
+          context(context), random_seed(random_seed),
+          update_lock(update_lock),
+          error_exact(error_exact), error_noisy(error_noisy),
+          progress(progress), verbosity(verbosity)
+    {
+    }
+
+    void operator () ()
+    {
+        Thread_Context thread_context(context);
+        thread_context.seed(random_seed);
+
+        double test_error_exact = 0.0, test_error_noisy = 0.0;
+
+        for (unsigned x = first;  x < last;  ++x) {
+            int ni JML_UNUSED = layer.inputs();
+            int no JML_UNUSED = layer.outputs();
+
+            // Present this input
+            distribution<CFloat> model_input(data_in[x]);
+            
+            distribution<bool> was_cleared;
+
+            // Add noise
+            distribution<CFloat> noisy_input
+                = add_noise(model_input, thread_context, prob_cleared);
+            
+            // Apply the layer
+            distribution<CFloat> hidden_rep
+                = layer.apply(noisy_input);
+            
+            // Reconstruct the input
+            distribution<CFloat> denoised_input
+                = layer.iapply(hidden_rep);
+            
+            // Error signal
+            distribution<CFloat> diff
+                = model_input - denoised_input;
+    
+            // Overall error
+            double error = pow(diff.two_norm(), 2);
+
+            test_error_noisy += error;
+
+
+            // Apply the layer
+            distribution<CFloat> hidden_rep2
+                = layer.apply(model_input);
+
+            if (!data_out.empty())
+                data_out.at(x) = hidden_rep2.cast<float>();
+            
+            // Reconstruct the input
+            distribution<CFloat> reconstructed_input
+                = layer.iapply(hidden_rep2);
+            
+            // Error signal
+            distribution<CFloat> diff2
+                = model_input - reconstructed_input;
+    
+            // Overall error
+            double error2 = pow(diff2.two_norm(), 2);
+    
+            test_error_exact += error2;
+
+            if (x < 5 && false) {
+                Guard guard(update_lock);
+                cerr << "ex " << x << " error " << error2 << endl;
+                cerr << "    input " << model_input << endl;
+                //cerr << "    act   " << layer.activation(model_input) << endl;
+                cerr << "    rep   " << hidden_rep2 << endl;
+                //cerr << "    act2  " << layer.iactivation(hidden_rep2) << endl;
+                cerr << "    ibias " << layer.ibias << endl;
+                cerr << "    out   " << reconstructed_input << endl;
+                cerr << "    diff  " << diff2 << endl;
+                cerr << endl;
+            }
+        }
+
+        Guard guard(update_lock);
+        error_exact += test_error_exact;
+        error_noisy += test_error_noisy;
+        if (progress && verbosity >= 3)
+            (*progress) += (last - first);
+    }
+};
+
+pair<double, double>
+Twoway_Layer::
+test_and_update(const vector<distribution<float> > & data_in,
+                vector<distribution<float> > & data_out,
+                float prob_cleared,
+                Thread_Context & thread_context,
+                int verbosity) const
+{
+    Lock update_lock;
+    double error_exact = 0.0;
+    double error_noisy = 0.0;
+
+    int nx = data_in.size();
+
+    std::auto_ptr<boost::progress_display> progress;
+    if (verbosity >= 3) progress.reset(new boost::progress_display(nx, cerr));
+
+    Worker_Task & worker = thread_context.worker();
+            
+    // Now, submit it as jobs to the worker task to be done
+    // multithreaded
+    int group;
+    {
+        int parent = -1;  // no parent group
+        group = worker.get_group(NO_JOB, "dump user results task",
+                                 parent);
+        
+        // Make sure the group gets unlocked once we've populated
+        // everything
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
+                                     group));
+        
+        // 20 jobs per CPU
+        int batch_size = nx / (num_cpus() * 20);
+        
+        for (unsigned x = 0; x < nx;  x += batch_size) {
+            
+            Test_Examples_Job job(*this, data_in, data_out,
+                                  x, min<int>(x + batch_size, nx),
+                                  prob_cleared,
+                                  thread_context,
+                                  thread_context.random(),
+                                  update_lock,
+                                  error_exact, error_noisy,
+                                  progress.get(),
+                                  verbosity);
+            
+            // Send it to a thread to be processed
+            worker.add(job, "blend job", group);
+        }
+    }
+
+    worker.run_until_finished(group);
+
+    return make_pair(sqrt(error_exact / nx),
+                     sqrt(error_noisy / nx));
+}
 
 
 struct Test_Stack_Job {
