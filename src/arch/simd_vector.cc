@@ -890,6 +890,58 @@ void vec_prod(const double * x, const double * y, double * r, size_t n)
     for (;  i < n;  ++i) r[i] = x[i] * y[i];
 }
 
+void vec_prod(const double * x, const float * y, double * r, size_t n)
+{
+    unsigned i = 0;
+
+    if (true) {
+        for (; i + 8 <= n;  i += 8) {
+            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
+            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
+
+            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            yy0        *= xx0;
+            __builtin_ia32_storeupd(r + i + 0, yy0);
+
+            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            yy1        *= xx1;
+            __builtin_ia32_storeupd(r + i + 2, yy1);
+
+            v4sf yyyy23 = __builtin_ia32_loadups(y + i + 4);
+            v2df yy2    = __builtin_ia32_cvtps2pd(yyyy23);
+            yyyy23      = __builtin_ia32_shufps(yyyy23, yyyy23, 14);
+            v2df yy3    = __builtin_ia32_cvtps2pd(yyyy23);
+
+            v2df xx2    = __builtin_ia32_loadupd(x + i + 4);
+            yy2        *= xx2;
+            __builtin_ia32_storeupd(r + i + 4, yy2);
+
+            v2df xx3    = __builtin_ia32_loadupd(x + i + 6);
+            yy3        *= xx3;
+            __builtin_ia32_storeupd(r + i + 6, yy3);
+        }
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
+            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
+
+            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            yy0        *= xx0;
+            __builtin_ia32_storeupd(r + i + 0, yy0);
+
+            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            yy1        *= xx1;
+            __builtin_ia32_storeupd(r + i + 2, yy1);
+        }
+    }
+
+    for (;  i < n;  ++i) r[i] = x[i] * y[i];
+}
+
 void vec_k1_x_plus_k2_y_z(double k1, const double * x,
                           double k2, const double * y, const double * z,
                           double * r, size_t n)

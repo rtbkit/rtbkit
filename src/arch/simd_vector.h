@@ -82,6 +82,8 @@ double vec_dotprod_dp(const float * x, const double * y, size_t n)
     return vec_dotprod_dp(y, x, n);
 }
 
+void vec_prod(const double * x, const float * y, double * r, size_t n);
+
 void vec_add(const double * x, const float * y, double * r, size_t n);
 
 

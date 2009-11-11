@@ -145,21 +145,9 @@ add_parameters(Parameters & params)
 {
     params
         .add(0, "weights", weights)
-        .add(1, "bias", bias);
-
-    switch (missing_values) {
-    case MV_NONE:
-    case MV_ZERO:
-        break;
-    case MV_INPUT:
-        params.add(2, "missing_replacements", missing_replacements);
-        break;
-    case MV_DENSE:
-        params.add(2, "missing_activations", missing_activations);
-        break;
-    default:
-        throw Exception("Dense_Layer::parameters(): none there");
-    }
+        .add(1, "bias", bias)
+        .add(2, "missing_replacements", missing_replacements)
+        .add(3, "missing_activations", missing_activations);
 }
 
 template<typename Float>
@@ -492,7 +480,7 @@ bprop(const F * inputs,
             // No update as everything is multiplied by zero
         }
         else if (missing_values == MV_DENSE) {
-            gradient.matrix(2, "missing_activations")
+            gradient.matrix(3, "missing_activations")
                 .update_row(i, dbias, example_weight);
         }
         else if (missing_values == MV_INPUT) {

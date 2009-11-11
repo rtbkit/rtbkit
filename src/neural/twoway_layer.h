@@ -67,8 +67,10 @@ struct Twoway_Layer : public Dense_Layer<float> {
 
     /// Scaling factors for the reverse direction
     distribution<float> iscales;
-    distribution<float> hscales;
-
+    distribution<float> oscales;
+    
+    template<typename F>
+    distribution<F> iapply(const distribution<F> & output) const;
 
     virtual distribution<double>
     iapply(const distribution<double> & output) const;
@@ -91,16 +93,22 @@ struct Twoway_Layer : public Dense_Layer<float> {
         Default implementation calls apply() and saves the outputs only in the
         temporary space.
     */
+    template<typename F>
+    void
+    ifprop(const F * inputs,
+           F * temp_space, size_t temp_space_size,
+           F * outputs) const;
+
     virtual void
-    ifprop(const float * inputs,
+    ifprop(const float * outputs,
            float * temp_space, size_t temp_space_size,
-           float * outputs) const;
+           float * inputs) const;
 
     /** \copydoc ifprop */
     virtual void
-    ifprop(const double * inputs,
+    ifprop(const double * outputs,
            double * temp_space, size_t temp_space_size,
-           double * outputs) const;
+           double * inputs) const;
 
     
     /** Perform a back propagation.  Given the derivative of the error with
@@ -108,23 +116,32 @@ struct Twoway_Layer : public Dense_Layer<float> {
         parameter space.
     */
 
-    virtual void ibprop(const float * inputs,
-                        const float * outputs,
+    template<typename F>
+    void ibprop(const F * outputs,
+                const F * inputs,
+                const F * temp_space, size_t temp_space_size,
+                const F * input_errors,
+                F * output_errors,
+                Parameters & gradient,
+                double example_weight) const;
+
+    virtual void ibprop(const float * outputs,
+                        const float * inputs,
                         const float * temp_space, size_t temp_space_size,
-                        const float * output_errors,
-                        float * input_errors,
+                        const float * input_errors,
+                        float * output_errors,
                         Parameters & gradient,
                         double example_weight) const;
     
     /** \copydoc ibprop */
-    virtual void ibprop(const double * inputs,
-                        const double * outputs,
+    virtual void ibprop(const double * outputs,
+                        const double * inputs,
                         const double * temp_space, size_t temp_space_size,
-                        const double * output_errors,
-                        double * input_errors,
+                        const double * input_errors,
+                        double * output_errors,
                         Parameters & gradient,
                         double example_weight) const;
-
+    
 
     /*************************************************************************/
     /* RECONSTRUCTION                                                        */
@@ -148,37 +165,52 @@ struct Twoway_Layer : public Dense_Layer<float> {
 
         Returns the reconstructed input.
     */
+    template<typename F>
+    void
+    rfprop(const F * inputs,
+           F * temp_space, size_t temp_space_size,
+           F * reconstruction) const;
+
+    /** \copydoc rfprop */
     virtual void
     rfprop(const float * inputs,
            float * temp_space, size_t temp_space_size,
-           float * outputs) const;
+           float * reconstruction) const;
 
-    /** \copydoc fprop */
+    /** \copydoc rfprop */
     virtual void
     rfprop(const double * inputs,
            double * temp_space, size_t temp_space_size,
-           double * outputs) const;
+           double * reconstruction) const;
     
     /** Perform a back propagation.  Given the derivative of the error with
         respect to each of the errors, they compute the gradient of the
         parameter space.
     */
+    template<typename F>
+    void rbprop(const F * inputs,
+                const F * reconstruction,
+                const F * temp_space,
+                size_t temp_space_size,
+                const F * reconstruction_errors,
+                Parameters & gradient,
+                double example_weight) const;
+    
+    /** \copydoc rbprop */
     virtual void rbprop(const float * inputs,
-                        const float * outputs,
+                        const float * reconstruction,
                         const float * temp_space,
                         size_t temp_space_size,
-                        const float * output_errors,
-                        float * input_errors,
+                        const float * reconstruction_errors,
                         Parameters & gradient,
                         double example_weight) const;
     
-    /** \copydoc bprop */
+    /** \copydoc rbprop */
     virtual void rbprop(const double * inputs,
-                        const double * outputs,
+                        const double * reconstruction,
                         const double * temp_space,
                         size_t temp_space_size,
-                        const double * output_errors,
-                        double * input_errors,
+                        const double * reconstruction_errors,
                         Parameters & gradient,
                         double example_weight) const;
 

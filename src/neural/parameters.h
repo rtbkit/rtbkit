@@ -215,6 +215,8 @@ struct Parameters : public Parameter_Value {
     virtual const Parameters &
     subparams(int index, const std::string & name) const;
 
+    size_t subparam_count() const { return params.size(); }
+
     Vector_Parameter & vector(int index, const std::string & name);
     const Vector_Parameter &
     vector(int index, const std::string & name) const;
