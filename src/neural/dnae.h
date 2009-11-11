@@ -11,6 +11,7 @@
 
 #include "twoway_layer.h"
 #include "layer_stack.h"
+#include "auto_encoder_stack.h"
 #include "stats/distribution.h"
 #include <vector>
 
@@ -27,6 +28,19 @@ struct Configuration;
 
 struct DNAE_Trainer {
 
+    /** Trains a single iteration on the given data with the selected
+        parameters.  Returns a moving estimate of the RMSE on the
+        training set. */
+    std::pair<double, double>
+    train_iter(Auto_Encoder_Stack & stack,
+               const std::vector<distribution<float> > & data,
+               float prob_cleared,
+               Thread_Context & thread_context,
+               int minibatch_size, float learning_rate,
+               int verbosity,
+               float sample_proportion,
+               bool randomize_order);
+
     void
     train(Auto_Encoder_Stack & stack,
           const std::vector<distribution<float> > & training_data,
@@ -42,17 +56,6 @@ struct DNAE_Trainer {
          Thread_Context & thread_context,
          int verbosity);
 
-    /** Trains a single iteration on the given data with the selected
-        parameters.  Returns a moving estimate of the RMSE on the
-        training set. */
-    std::pair<double, double>
-    train_iter(const std::vector<distribution<float> > & data,
-               float prob_cleared,
-               Thread_Context & thread_context,
-               int minibatch_size, float learning_rate,
-               int verbosity,
-               float sample_proportion,
-               bool randomize_order);
 
     /** Tests on the given dataset, returning the exact and noisy RMSE.  If
         data_out is non-empty, then it will also fill it in with the
