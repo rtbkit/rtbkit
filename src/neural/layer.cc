@@ -171,7 +171,7 @@ apply(const distribution<double> & input,
 
 distribution<float>
 Layer::
-fprop(distribution<float> & inputs,
+fprop(const distribution<float> & inputs,
       float * temp_space,
       size_t temp_space_size) const
 {
@@ -183,7 +183,7 @@ fprop(distribution<float> & inputs,
 
 distribution<double>
 Layer::
-fprop(distribution<double> & inputs,
+fprop(const distribution<double> & inputs,
       double * temp_space,
       size_t temp_space_size) const
 {

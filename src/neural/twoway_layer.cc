@@ -484,6 +484,9 @@ TWOWAY_REGISTER("Twoway_Layer");
 
 } // file scope
 
+template class Layer_Stack<Twoway_Layer>;
+
+
 #if 0
 
 // Float type to use for calculations
@@ -513,8 +516,6 @@ ibackprop_example(const distribution<double> & outputs,
     input_deltas = weights * dbias;
 #endif
 }
-
-template class Layer_Stack<Twoway_Layer>;
 
 #if 0
 pair<double, double>

@@ -333,13 +333,13 @@ public:
                            will be stored.
     */
     distribution<float>
-    fprop(distribution<float> & inputs,
+    fprop(const distribution<float> & inputs,
           float * temp_space,
           size_t temp_space_size) const;
     
     /** /copydoc fprop */
     distribution<double>
-    fprop(distribution<double> & inputs,
+    fprop(const distribution<double> & inputs,
           double * temp_space,
           size_t temp_space_size) const;
 

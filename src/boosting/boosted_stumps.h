@@ -191,7 +191,7 @@ public:
         takes a series of pointers to boosted stumps objects and a weights
         object, and combines them together.
 
-        \example
+        \code
         // Break an enormous dataset into 10 parts and train each individually,
         // then combine them to get a final answer.
 
@@ -211,7 +211,7 @@ public:
 
         Boosted_Stumps combined
             = Boosted_Stumps::combine(ptrs, weights);
-        \endexample
+        \endcode
     */
     template<class StumpPtrVec>
     static Boosted_Stumps combine(const StumpPtrVec stumps,

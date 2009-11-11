@@ -160,6 +160,8 @@ struct Layer_Stack : public Layer {
 
     virtual size_t fprop_temporary_space_required() const;
 
+    using Layer::fprop;
+
     template<typename F>
     void fprop(const F * inputs,
                F * temp_space, size_t temp_space_size,
@@ -180,6 +182,8 @@ struct Layer_Stack : public Layer {
     /*************************************************************************/
     /* BPROP                                                                 */
     /*************************************************************************/
+
+    using Layer::bprop;
 
     template<typename F>
     void bprop(const F * inputs,

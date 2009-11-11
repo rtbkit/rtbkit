@@ -121,6 +121,8 @@ struct Dense_Layer : public Layer {
 
     virtual size_t fprop_temporary_space_required() const;
 
+    using Layer::fprop;
+
     virtual void
     fprop(const float * inputs,
           float * temp_space, size_t temp_space_size,
@@ -137,6 +139,8 @@ struct Dense_Layer : public Layer {
     /* BPROP                                                                 */
     /*************************************************************************/
 
+    using Layer::bprop;
+    
     virtual void bprop(const float * inputs,
                        const float * outputs,
                        const float * temp_space, size_t temp_space_size,
