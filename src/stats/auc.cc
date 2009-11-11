@@ -21,7 +21,7 @@ double do_calc_auc(std::vector<AUC_Entry> & entries)
 
     for (unsigned i = 0;  i < entries.size();  ++i) {
         if (entries[i].weight == 0.0) continue;
-        if (entries[i].target == -1) ++num_neg;
+        if (entries[i].target == false) ++num_neg;
         else ++num_pos;
     }
 
@@ -37,7 +37,7 @@ double do_calc_auc(std::vector<AUC_Entry> & entries)
 
     for (unsigned i = 0;  i < entries.size();  ++i) {
         if (entries[i].weight > 0.0) {
-            if (entries[i].target == -1) ++total_neg;
+            if (entries[i].target == false) ++total_neg;
             else ++total_pos;
         }
         
