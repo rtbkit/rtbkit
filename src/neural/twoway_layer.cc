@@ -35,7 +35,8 @@ Twoway_Layer(const std::string & name,
              Missing_Values missing_values,
              Thread_Context & context,
              float limit)
-    : Base(name, inputs, outputs, transfer, missing_values),
+    : Auto_Encoder(name, inputs, outputs),
+      forward(name, inputs, outputs, transfer, missing_values),
       ibias(inputs), iscales(inputs), oscales(outputs)
 {
     if (limit == -1.0)
@@ -49,37 +50,120 @@ Twoway_Layer(const std::string & name,
              size_t inputs, size_t outputs,
              Transfer_Function_Type transfer,
              Missing_Values missing_values)
-    : Base(name, inputs, outputs, transfer, missing_values),
+    : Auto_Encoder(name, inputs, outputs),
+      forward(name, inputs, outputs, transfer, missing_values),
       ibias(inputs), iscales(inputs), oscales(outputs)
 {
     update_parameters();
 }
 
+std::pair<float, float>
+Twoway_Layer::
+targets(float maximum) const
+{
+    return forward.targets(maximum);
+}
+
+void
+Twoway_Layer::
+apply(const float * input, float * output) const
+{
+    forward.apply(input, output);
+}
+
+void
+Twoway_Layer::
+apply(const double * input, double * output) const
+{
+    forward.apply(input, output);
+}
+
+size_t
+Twoway_Layer::
+fprop_temporary_space_required() const
+{
+    return forward.fprop_temporary_space_required();
+}
+
+void
+Twoway_Layer::
+fprop(const float * inputs,
+      float * temp_space, size_t temp_space_size,
+      float * outputs) const
+{
+    forward.fprop(inputs, temp_space, temp_space_size, outputs);
+}
+
+void
+Twoway_Layer::
+fprop(const double * inputs,
+      double * temp_space, size_t temp_space_size,
+      double * outputs) const
+{
+    forward.fprop(inputs, temp_space, temp_space_size, outputs);
+}
+
+void
+Twoway_Layer::
+bprop(const float * inputs,
+      const float * outputs,
+      const float * temp_space, size_t temp_space_size,
+      const float * output_errors,
+      float * input_errors,
+      Parameters & gradient,
+      double example_weight) const
+{
+    forward.bprop(inputs, outputs, temp_space, temp_space_size,
+                  output_errors, input_errors, gradient, example_weight);
+}
+
+void
+Twoway_Layer::
+bprop(const double * inputs,
+      const double * outputs,
+      const double * temp_space, size_t temp_space_size,
+      const double * output_errors,
+      double * input_errors,
+      Parameters & gradient,
+      double example_weight) const
+{
+    forward.bprop(inputs, outputs, temp_space, temp_space_size,
+                  output_errors, input_errors, gradient, example_weight);
+}
+
 template<typename F>
-distribution<F>
+void
 Twoway_Layer::
-iapply(const distribution<F> & output) const
+iapply(const F * outputs, F * inputs) const
 {
-    CHECK_NOT_NAN(output);
-    distribution<F> activation
-        = multiply_r<F>(weights, (oscales * output)) * iscales;
-    activation += ibias;
-    transfer_function->transfer(&activation[0], &activation[0], inputs());
-    return activation;
+    int no = this->outputs(), ni = this->inputs();
+
+    F scaled_outputs[this->outputs()];
+    for (unsigned o = 0;  o < no;  ++o)
+        scaled_outputs[o] = oscales[o] * outputs[o];
+
+    F activations[this->inputs()];
+    for (unsigned i = 0;  i < ni;  ++i)
+        activations[i]
+            = ibias[i]
+            + iscales[i]
+            * SIMD::vec_dotprod_dp(&forward.weights[i][0], scaled_outputs, no);
+
+    forward.transfer_function->transfer(activations, inputs, ni);
 }
 
-distribution<float>
+void
 Twoway_Layer::
-iapply(const distribution<float> & output) const
+iapply(const float * outputs, float * inputs) const
 {
-    return iapply<float>(output);
+    iapply<float>(outputs, inputs);
 }
 
-distribution<double>
+void
 Twoway_Layer::
-iapply(const distribution<double> & output) const
+iapply(const double * outputs, double * inputs) const
 {
-    return iapply<double>(output);
+    iapply<double>(outputs, inputs);
 }
 
 size_t
@@ -99,12 +183,7 @@ ifprop(const F * outputs,
     if (temp_space_size != 0)
         throw Exception("temp_space_size is zero");
 
-    CHECK_NOT_NAN(output);
-    distribution<F> outputs_dist(outputs, outputs + this->outputs());
-    distribution<F> activation
-        = multiply_r<F>(weights, (oscales * outputs_dist)) * iscales;
-    activation += ibias;
-    transfer_function->transfer(&activation[0], inputs, this->inputs());
+    iapply(outputs, inputs);
 }
 
 void
@@ -143,12 +222,12 @@ ibprop(const F * outputs,
     
     // Differentiate the output function
     F derivs[ni];
-    transfer_function->derivative(inputs, derivs, ni);
+    forward.transfer_function->derivative(inputs, derivs, ni);
 
     // Bias updates are simply derivs in multiplied by transfer deriv
     F dbias[ni];
     SIMD::vec_prod(derivs, &input_errors[0], dbias, no);
-
+    
     gradient.vector(4, "ibias").update(dbias, example_weight);
 
     F outputs_scaled[no];
@@ -168,9 +247,11 @@ ibprop(const F * outputs,
 
     for (unsigned i = 0;  i < ni;  ++i) {
         double total = 0.0;
+
+        // TODO: SIMD
         for (unsigned o = 0;  o < no;  ++o) {
-            total += weights[i][o] * outputs_scaled[o];
-            oscales_updates[o] += weights[i][o] * dbias[i] * iscales[i];
+            total += forward.weights[i][o] * outputs_scaled[o];
+            oscales_updates[o] += forward.weights[i][o] * dbias[i] * iscales[i];
         }
         iscales_updates[i] = total * dbias[i];
     }
@@ -207,148 +288,11 @@ ibprop(const double * outputs,
                   input_errors, output_errors, gradient, example_weight);
 }
 
-
-distribution<float>
-Twoway_Layer::
-reconstruct(const distribution<float> & input) const
-{
-    return iapply(apply(input));
-}
-
-distribution<double>
-Twoway_Layer::
-reconstruct(const distribution<double> & input) const
-{
-    return iapply(apply(input));
-}
-
-size_t
-Twoway_Layer::
-rfprop_temporary_space_required() const
-{
-    // We need to save the hidden outputs, plus whatever is needed for the
-    // fprop in the two directions.
-    return outputs()
-        + fprop_temporary_space_required()
-        + ifprop_temporary_space_required();
-}
-
-template<typename F>
-void
-Twoway_Layer::
-rfprop(const F * inputs,
-       F * temp_space, size_t temp_space_size,
-       F * reconstruction) const
-{
-    // Temporary space:
-    // 
-    // +-----------+-------------+---------------+
-    // |  fprop    | outputs     |   ifprop      |
-    // +-----------+-------------+---------------+
-    // |<- fspace->|<-   no    ->|<-  ifspace  ->|
-
-    size_t fspace = fprop_temporary_space_required();
-    size_t ifspace = ifprop_temporary_space_required();
-
-    if (temp_space_size != this->outputs() + fspace + ifspace)
-        throw Exception("wrong temporary space size");
-
-    F * outputs = temp_space + fspace;
-    F * itemp_space = outputs + this->outputs();
-
-    fprop(inputs, temp_space, fspace, outputs);
-    ifprop(outputs, itemp_space, ifspace, reconstruction);
-}
-
-void
-Twoway_Layer::
-rfprop(const float * inputs,
-       float * temp_space, size_t temp_space_size,
-       float * reconstruction) const
-{
-    return rfprop<float>(inputs, temp_space, temp_space_size, reconstruction);
-}
-
-void
-Twoway_Layer::
-rfprop(const double * inputs,
-       double * temp_space, size_t temp_space_size,
-       double * reconstruction) const
-{
-    return rfprop<double>(inputs, temp_space, temp_space_size, reconstruction);
-}
-
-
-template<typename F>
-void
-Twoway_Layer::
-rbprop(const F * inputs,
-       const F * reconstruction,
-       const F * temp_space,
-       size_t temp_space_size,
-       const F * reconstruction_errors,
-       Parameters & gradient,
-       double example_weight) const
-{
-    // Temporary space:
-    // 
-    // +-----------+-------------+---------------+
-    // |  fprop    | outputs     |   ifprop      |
-    // +-----------+-------------+---------------+
-    // |<- fspace->|<-   no    ->|<-  ifspace  ->|
-
-    size_t fspace = fprop_temporary_space_required();
-    size_t ifspace = ifprop_temporary_space_required();
-
-    if (temp_space_size != this->outputs() + fspace + ifspace)
-        throw Exception("wrong temporary space size");
-
-    const F * outputs = temp_space + fspace;
-    const F * itemp_space = outputs + this->outputs();
-
-    // output error gradients
-    F output_errors[this->outputs()];
-
-    ibprop(outputs, reconstruction, itemp_space, ifspace,
-           reconstruction_errors, output_errors, gradient, example_weight);
-    
-    bprop(inputs, outputs, temp_space, fspace, output_errors, 0,
-          gradient, example_weight);
-}
-    
-void
-Twoway_Layer::
-rbprop(const float * inputs,
-       const float * reconstruction,
-       const float * temp_space,
-       size_t temp_space_size,
-       const float * reconstruction_errors,
-       Parameters & gradient,
-       double example_weight) const
-{
-    return rbprop<float>(inputs, reconstruction, temp_space, temp_space_size,
-                         reconstruction_errors, gradient, example_weight);
-}
-    
-void
-Twoway_Layer::
-rbprop(const double * inputs,
-       const double * reconstruction,
-       const double * temp_space,
-       size_t temp_space_size,
-       const double * reconstruction_errors,
-       Parameters & gradient,
-       double example_weight) const
-{
-    return rbprop<double>(inputs, reconstruction, temp_space, temp_space_size,
-                          reconstruction_errors, gradient, example_weight);
-}
-
 std::string
 Twoway_Layer::
 print() const
 {
-    string result = Base::print();
+    string result = forward.print();
 
     size_t ni = inputs(), no = outputs();
 
@@ -382,6 +326,7 @@ Twoway_Layer::
 validate() const
 {
     Base::validate();
+    forward.validate();
     if (isnan(ibias).any())
         throw Exception("nan in ibias");
     if (isnan(iscales).any())
@@ -403,7 +348,7 @@ void
 Twoway_Layer::
 add_parameters(Parameters & params)
 {
-    Base::add_parameters(params);
+    forward.add_parameters(params);
     params
         .add(4, "ibias", ibias)
         .add(5, "iscales", iscales)
@@ -414,7 +359,7 @@ size_t
 Twoway_Layer::
 parameter_count() const
 {
-    return Base::parameter_count() + 2 * inputs() + outputs();
+    return forward.parameter_count() + 2 * inputs() + outputs();
 }
 
 void
@@ -422,7 +367,7 @@ Twoway_Layer::
 serialize(DB::Store_Writer & store) const
 {
     store << (char)1;  // version
-    Base::serialize(store);
+    forward.serialize(store);
     store << ibias << iscales << oscales;
 }
 
@@ -435,7 +380,7 @@ reconstitute(DB::Store_Reader & store)
 
     if (version != 1)
         throw Exception("Twoway_Layer::reconstitute(): invalid version");
-    Base::reconstitute(store);
+    forward.reconstitute(store);
     store >> ibias >> iscales >> oscales;
 
     validate();
@@ -446,7 +391,8 @@ void
 Twoway_Layer::
 random_fill(float limit, Thread_Context & context)
 {
-    Base::random_fill(limit, context);
+
+    forward.random_fill(limit, context);
     for (unsigned i = 0;  i < ibias.size();  ++i) {
         ibias[i] = limit * (context.random01() * 2.0f - 1.0f);
         iscales[i] = context.random01();
@@ -461,7 +407,7 @@ void
 Twoway_Layer::
 zero_fill()
 {
-    Base::zero_fill();
+    forward.zero_fill();
     ibias.fill(0.0);
     iscales.fill(0.0);
     oscales.fill(0.0);
@@ -471,7 +417,7 @@ bool
 Twoway_Layer::
 operator == (const Twoway_Layer & other) const
 {
-    if (!Base::operator == (other)) return false;
+    if (forward != other.forward) return false;
     return equivalent(ibias, other.ibias)
         && equivalent(iscales, other.iscales)
         && equivalent(oscales, other.oscales);

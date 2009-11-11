@@ -18,6 +18,9 @@
 namespace ML {
 
 
+struct Configuration;
+
+
 /*****************************************************************************/
 /* DNAE_TRAINER                                                              */
 /*****************************************************************************/
@@ -25,7 +28,7 @@ namespace ML {
 struct DNAE_Trainer {
 
     void
-    train(Layer_Stack<Twoway_Layer> & stack,
+    train(Auto_Encoder_Stack & stack,
           const std::vector<distribution<float> > & training_data,
           const std::vector<distribution<float> > & testing_data,
           const Configuration & config,
@@ -33,7 +36,7 @@ struct DNAE_Trainer {
     
     
     std::pair<double, double>
-    test(Layer_Stack<Twoway_Layer> & stack,
+    test(const Auto_Encoder_Stack & stack,
          const std::vector<distribution<float> > & data,
          float prob_cleared,
          Thread_Context & thread_context,

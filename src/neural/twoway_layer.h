@@ -11,12 +11,9 @@
 
 #include "dense_layer.h"
 #include "layer_stack.h"
-
+#include "auto_encoder.h"
 
 namespace ML {
-
-template<class LayerT> class Layer_Stack;
-
 
 
 /*****************************************************************************/
@@ -41,8 +38,9 @@ template<class LayerT> class Layer_Stack;
     Note that in the inverse direction, no missing values are accepted.
 */
 
-struct Twoway_Layer : public Dense_Layer<float> {
-    typedef Dense_Layer<float> Base;
+struct Twoway_Layer : public Auto_Encoder {
+    typedef Auto_Encoder Base;
+    typedef Dense_Layer<float> Forward;
 
     Twoway_Layer();
 
@@ -58,6 +56,59 @@ struct Twoway_Layer : public Dense_Layer<float> {
                  Transfer_Function_Type transfer,
                  Missing_Values missing_values);
 
+    virtual std::pair<float, float> targets(float maximum) const;
+
+
+    /*************************************************************************/
+    /* FORWARD DIRECTION                                                     */
+    /*************************************************************************/
+
+    /// Layer for the forward direction
+    Forward forward;
+
+    /** All of these methods simply forward to the ones in the forward
+        layer. */
+
+    using Layer::apply;
+
+    virtual void apply(const float * input, float * output) const;
+    virtual void apply(const double * input, double * output) const;
+
+
+    virtual size_t fprop_temporary_space_required() const;
+
+    using Layer::fprop;
+
+    virtual void
+    fprop(const float * inputs,
+          float * temp_space, size_t temp_space_size,
+          float * outputs) const;
+
+    virtual void
+    fprop(const double * inputs,
+          double * temp_space, size_t temp_space_size,
+          double * outputs) const;
+
+    using Layer::bprop;
+    
+    virtual void bprop(const float * inputs,
+                       const float * outputs,
+                       const float * temp_space, size_t temp_space_size,
+                       const float * output_errors,
+                       float * input_errors,
+                       Parameters & gradient,
+                       double example_weight) const;
+
+    virtual void bprop(const double * inputs,
+                       const double * outputs,
+                       const double * temp_space, size_t temp_space_size,
+                       const double * output_errors,
+                       double * input_errors,
+                       Parameters & gradient,
+                       double example_weight) const;
+    
+
+
     /*************************************************************************/
     /* INVERSE DIRECTION                                                     */
     /*************************************************************************/
@@ -69,13 +120,14 @@ struct Twoway_Layer : public Dense_Layer<float> {
     distribution<float> iscales;
     distribution<float> oscales;
     
-    template<typename F>
-    distribution<F> iapply(const distribution<F> & output) const;
+    using Auto_Encoder::iapply;
 
-    virtual distribution<double>
-    iapply(const distribution<double> & output) const;
-    virtual distribution<float>
-    iapply(const distribution<float> & output) const;
+    template<typename F>
+    void iapply(const F * outputs, F * inputs) const;
+
+    virtual void iapply(const float * outputs, float * inputs) const;
+    virtual void iapply(const double * outputs, double * inputs) const;
+
 
     /** Return the amount of space necessary to save temporary results for the
         forward prop.  There will be an array of the given precision (double
@@ -103,6 +155,8 @@ struct Twoway_Layer : public Dense_Layer<float> {
     ifprop(const float * outputs,
            float * temp_space, size_t temp_space_size,
            float * inputs) const;
+
+    using Auto_Encoder::ifprop;
 
     /** \copydoc ifprop */
     virtual void
@@ -142,77 +196,7 @@ struct Twoway_Layer : public Dense_Layer<float> {
                         Parameters & gradient,
                         double example_weight) const;
     
-
-    /*************************************************************************/
-    /* RECONSTRUCTION                                                        */
-    /*************************************************************************/
-
-    virtual distribution<float>
-    reconstruct(const distribution<float> & input) const;
-    virtual distribution<double>
-    reconstruct(const distribution<double> & input) const;
-
-    /** Return the amount of space necessary to save temporary results for the
-        forward reconstruction.  There will be an array of the given precision
-        (double or single) provided.
-    */
-
-    virtual size_t rfprop_temporary_space_required() const;
-    
-    /** These functions perform a forward reconstruction.  They also save
-        whatever information is necessary to perform an efficient backprop
-        of the reconstruction error at a later period in time.
-
-        Returns the reconstructed input.
-    */
-    template<typename F>
-    void
-    rfprop(const F * inputs,
-           F * temp_space, size_t temp_space_size,
-           F * reconstruction) const;
-
-    /** \copydoc rfprop */
-    virtual void
-    rfprop(const float * inputs,
-           float * temp_space, size_t temp_space_size,
-           float * reconstruction) const;
-
-    /** \copydoc rfprop */
-    virtual void
-    rfprop(const double * inputs,
-           double * temp_space, size_t temp_space_size,
-           double * reconstruction) const;
-    
-    /** Perform a back propagation.  Given the derivative of the error with
-        respect to each of the errors, they compute the gradient of the
-        parameter space.
-    */
-    template<typename F>
-    void rbprop(const F * inputs,
-                const F * reconstruction,
-                const F * temp_space,
-                size_t temp_space_size,
-                const F * reconstruction_errors,
-                Parameters & gradient,
-                double example_weight) const;
-    
-    /** \copydoc rbprop */
-    virtual void rbprop(const float * inputs,
-                        const float * reconstruction,
-                        const float * temp_space,
-                        size_t temp_space_size,
-                        const float * reconstruction_errors,
-                        Parameters & gradient,
-                        double example_weight) const;
-    
-    /** \copydoc rbprop */
-    virtual void rbprop(const double * inputs,
-                        const double * reconstruction,
-                        const double * temp_space,
-                        size_t temp_space_size,
-                        const double * reconstruction_errors,
-                        Parameters & gradient,
-                        double example_weight) const;
+    using Auto_Encoder::ibprop;
 
     /** Dump as ASCII.  This will be big. */
     virtual std::string print() const;

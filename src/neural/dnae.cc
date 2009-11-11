@@ -6,8 +6,25 @@
 */
 
 #include "dnae.h"
+#include <boost/progress.hpp>
+#include "boosting/worker_task.h"
+#include <boost/tuple/tuple.hpp>
+#include "arch/threads.h"
+#include "utils/guard.h"
+#include "utils/configuration.h"
+#include <boost/assign/list_of.hpp>
+#include "arch/timers.h"
+#include <boost/bind.hpp>
+#include "auto_encoder_stack.h"
+
+
+using namespace std;
+
 
 namespace ML {
+
+typedef double CFloat;
+typedef float LFloat;
 
 template<typename Float>
 distribution<Float>
@@ -19,7 +36,7 @@ add_noise(const distribution<Float> & inputs,
 
     for (unsigned i = 0;  i < inputs.size();  ++i)
         if (context.random01() < prob_cleared)
-            result[i] = NaN;
+            result[i] = std::numeric_limits<float>::quiet_NaN();
     
     return result;
 }
@@ -34,7 +51,7 @@ struct Train_Examples_Job {
     float prob_cleared;
     const Thread_Context & context;
     int random_seed;
-    Twoway_Layer_Updates & updates;
+    Parameters_Copy<double> & updates;
     Lock & update_lock;
     double & error_exact;
     double & error_noisy;
@@ -48,7 +65,7 @@ struct Train_Examples_Job {
                        float prob_cleared,
                        const Thread_Context & context,
                        int random_seed,
-                       Twoway_Layer_Updates & updates,
+                       Parameters_Copy<double> & updates,
                        Lock & update_lock,
                        double & error_exact,
                        double & error_noisy,
@@ -70,7 +87,7 @@ struct Train_Examples_Job {
         
         double total_error_exact = 0.0, total_error_noisy = 0.0;
 
-        Twoway_Layer_Updates local_updates(true /* train_generative */, layer);
+        Parameters_Copy<double> local_updates(layer);
 
         for (unsigned x = first;  x < last;  ++x) {
 
@@ -142,7 +159,7 @@ train_iter(const vector<distribution<float> > & data,
 
     for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
                 
-        Twoway_Layer_Updates updates(true /* train_generative */, *this);
+        Parameters_Copy<double> updates(layer);
                 
         // Now, submit it as jobs to the worker task to be done
         // multithreaded
@@ -373,7 +390,7 @@ test_and_update(const vector<distribution<float> > & data_in,
 
 struct Test_Stack_Job {
 
-    const DNAE_Stack & stack;
+    const Auto_Encoder_Stack & stack;
     const vector<distribution<float> > & data;
     int first;
     int last;
@@ -386,7 +403,7 @@ struct Test_Stack_Job {
     boost::progress_display * progress;
     int verbosity;
 
-    Test_Stack_Job(const DNAE_Stack & stack,
+    Test_Stack_Job(const Auto_Encoder_Stack & stack,
                    const vector<distribution<float> > & data,
                    int first, int last,
                    float prob_cleared,
@@ -525,11 +542,11 @@ test_dnae(const LayerStackT<Twoway_Layer> & layers,
 }
 
 void
-train_dnae(Layer_Stack<Twoway_Layer> & stack,
-           const std::vector<distribution<float> > & training_data,
-           const std::vector<distribution<float> > & testing_data,
-           const Configuration & config,
-           Thread_Context & thread_context)
+train(Auto_Encoder_Stack & stack,
+      const std::vector<distribution<float> > & training_data,
+      const std::vector<distribution<float> > & testing_data,
+      const Configuration & config,
+      Thread_Context & thread_context)
 {
     double learning_rate = 0.75;
     int minibatch_size = 512;
