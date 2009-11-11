@@ -50,7 +50,7 @@ Layer_Stack(const Layer_Stack & other, Deep_Copy_Tag)
     : Layer(other.name(), 0, 0), max_width_(0), max_internal_width_(0)
 {
     for (unsigned i = 0;  i < other.size();  ++i)
-        add(other.layers_[i]->deep_copy());
+        add_cast(make_sp(other.layers_[i]->deep_copy()));
 }
 
 template<class LayerT>
@@ -464,7 +464,7 @@ deep_copy() const
     std::auto_ptr<Layer_Stack<LayerT> > result
         (new Layer_Stack<LayerT>(this->name()));
     for (unsigned i = 0;  i < size();  ++i)
-        result->add(layers_[i]->deep_copy());
+        result->add_cast(make_sp(layers_[i]->deep_copy()));
     return result.release();
 }
 

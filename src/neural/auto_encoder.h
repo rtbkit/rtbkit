@@ -26,6 +26,9 @@ struct Auto_Encoder : public Layer {
     Auto_Encoder();
     Auto_Encoder(const std::string & name, int inputs, int outputs);
 
+    virtual Auto_Encoder * make_copy() const = 0;
+    virtual Auto_Encoder * deep_copy() const = 0;
+
 
     /*************************************************************************/
     /* INVERSE DIRECTION                                                     */
