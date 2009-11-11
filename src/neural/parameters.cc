@@ -253,8 +253,14 @@ Parameters *
 Parameters::
 compatible_ref(F * first, F * last) const
 {
-    if (last > first)
+    if (first > last) {
+        cerr << "name() = " << name() << endl;
+        cerr << "type = " << demangle(typeid(*this).name()) << endl;
+        cerr << "first = " << first << endl;
+        cerr << "last = " << last << endl;
+        cerr << "last - first = " << last - first << endl;
         throw Exception("Parameters::compatible_ref(): range oob");
+    }
 
     auto_ptr<Parameters_Ref> result(new Parameters_Ref(name()));
 
@@ -268,6 +274,8 @@ compatible_ref(F * first, F * last) const
             throw Exception("Parameters::compatible_ref(): bad size");
 
         result->add(i, it->compatible_ref(first, first + np));
+
+        first += np;
     }
 
     if (last != first)
