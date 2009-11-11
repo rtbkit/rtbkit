@@ -308,6 +308,41 @@ public:
           double * temp_space, size_t temp_space_size,
           double * outputs) const = 0;
 
+    /** More user-friendly version of fprop.  Performs a forward propagation.
+        Also saves whatever information is necessary to perform an efficient
+        backprop at a later period in time.  The sizes of all inputs are
+        checked to make sure that they inputs are correct.
+
+        Implemented by checking parameters and then calling the virutal
+        fprop().
+
+        \param inputs      Vector of inputs()elements providing the input
+                           values.
+
+        \param temp_space  Pointer to the start of an array of
+                           temp_space_size uninitialized
+                           elements providing temporary space to store the
+                           information necessary to perform a bprop() later.
+
+        \param temp_space_size  The size of the temp_space array, which
+                           matches the output of the
+                           fprop_temporary_space_required() function.
+
+        \returns           Array of outputs() uninitialized elements in which
+                           the output values
+                           will be stored.
+    */
+    distribution<float>
+    fprop(distribution<float> & inputs,
+          float * temp_space,
+          size_t temp_space_size) const;
+    
+    /** /copydoc fprop */
+    distribution<double>
+    fprop(distribution<double> & inputs,
+          double * temp_space,
+          size_t temp_space_size) const;
+
     ///@}
 
 
@@ -376,6 +411,69 @@ public:
                        double * input_errors,
                        Parameters & gradient,
                        double example_weight) const = 0;
+
+
+    /** Perform a back propagation, user friendly version.
+        Given the derivative of the error with
+        respect to each of the errors, computes the gradient of the
+        parameter space.
+
+        Checks each of the input parameters to make sure it's the right size
+        and doesn't contain invalid parameters.
+
+        \param inputs     An array of inputs() elements with the inputs to this
+                          layer when the fprop() was performed.
+        \param outputs    An array of outputs() elements with the outputs of
+                          this layer as calculated by fprop().
+        \param temp_space An array of temp_space_size elements that was filled
+                          in by fprop() with any extra information necessary to
+                          perform the bprop().
+        \param temp_space_size The number of elements in temp_space(), which
+                          should match fprop_temporary_space_required().
+        \param output_errors An array of outputs() elements with the derivative
+                          of the error function with respect to each of the
+                          outputs of this layer.  These are the errors to be
+                          backpropagated through.
+        \param gradient   The parameters array to be updated.  Each parameter
+                          should have example_weight * dE/dparam added to it,
+                          where dE/dparam is the derivative of the error with
+                          respect to each parameter.
+        \param example_weight The weight of this example.  The dE/dparam
+                          value will be multiplied by this value before it
+                          is added to the gradient.
+
+        \returns           An array of inputs() elements.  The derivative of
+                          the error function with respect to each of the
+                          inputs to the layer is calculated and put
+                          into this array.
+    */
+    distribution<float>
+    bprop(const distribution<float> & inputs,
+          const distribution<float> & outputs,
+          const float * temp_space, size_t temp_space_size,
+          const distribution<float> & output_errors,
+          Parameters & gradient,
+          double example_weight) const;
+
+    /** \copydoc bprop */
+    distribution<double>
+    bprop(const distribution<double> & inputs,
+          const distribution<double> & outputs,
+          const double * temp_space, size_t temp_space_size,
+          const distribution<double> & output_errors,
+          Parameters & gradient,
+          double example_weight) const;
+
+    /** \copydoc bprop */
+    template<typename F>
+    distribution<F>
+    bprop(const distribution<F> & inputs,
+          const distribution<F> & outputs,
+          const F * temp_space, size_t temp_space_size,
+          const distribution<F> & output_errors,
+          Parameters & gradient,
+          double example_weight) const;
+
     ///@}
 
 #if 0

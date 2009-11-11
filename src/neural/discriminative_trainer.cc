@@ -237,7 +237,7 @@ train_iter(const std::vector<distribution<float> > & data,
     for (unsigned i = 0;  i < nx2;  ++i)
         test_labels.push_back(labels[examples[i]]);
 
-    double auc = calc_auc(outputs, test_labels);
+    double auc = calc_auc(outputs, test_labels, -1.0, 1.0);
 
     return make_pair(sqrt(total_mse / nx2), auc);
 }
@@ -459,7 +459,7 @@ test(const std::vector<distribution<float> > & data,
     worker.run_until_finished(group);
     
     return make_pair(sqrt(mse_total / nx),
-                     calc_auc(outputs, labels));
+                     calc_auc(outputs, labels, -1.0, 1.0));
 }
 
 } // namespace ML

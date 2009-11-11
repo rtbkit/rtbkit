@@ -25,37 +25,19 @@ namespace ML {
 struct DNAE_Trainer {
 
     void
-    train_dnae(Layer_Stack<Twoway_Layer> & stack,
-               const std::vector<distribution<float> > & training_data,
-               const std::vector<distribution<float> > & testing_data,
-               const Configuration & config,
-               Thread_Context & thread_context);
+    train(Layer_Stack<Twoway_Layer> & stack,
+          const std::vector<distribution<float> > & training_data,
+          const std::vector<distribution<float> > & testing_data,
+          const Configuration & config,
+          Thread_Context & thread_context);
     
     
     std::pair<double, double>
-    test_dnae(Layer_Stack<Twoway_Layer> & stack,
-              const std::vector<distribution<float> > & data,
-              float prob_cleared,
-              Thread_Context & thread_context,
-              int verbosity);
-
-    
-    /** Backpropagate the given example.  The gradient will be acculmulated in
-        the output.  Fills in the errors for the next stage at input_errors. */
-    void backprop_example(const distribution<double> & outputs,
-                          const distribution<double> & output_deltas,
-                          const distribution<double> & inputs,
-                          distribution<double> & input_deltas,
-                          Parameters & updates) const;
-    
-    /** Inverse direction backpropagation of the given example.  Again, the
-        gradient will be acculmulated in the output.  Fills in the errors for
-        the next stage at input_errors. */
-    void ibackprop_example(const distribution<double> & outputs,
-                           const distribution<double> & output_deltas,
-                           const distribution<double> & inputs,
-                           distribution<double> & input_deltas,
-                           Parameters & updates) const;
+    test(Layer_Stack<Twoway_Layer> & stack,
+         const std::vector<distribution<float> > & data,
+         float prob_cleared,
+         Thread_Context & thread_context,
+         int verbosity);
 
     /** Trains a single iteration on the given data with the selected
         parameters.  Returns a moving estimate of the RMSE on the
