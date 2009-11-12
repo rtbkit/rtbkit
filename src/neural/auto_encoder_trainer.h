@@ -44,6 +44,9 @@ struct Auto_Encoder_Trainer {
     int niter;
     int test_every;
 
+
+    /** Add noise to the distribution, according to the noise parameters that
+        have been set above. */
     template<typename Float>
     distribution<Float>
     add_noise(const distribution<Float> & inputs,
@@ -53,7 +56,8 @@ struct Auto_Encoder_Trainer {
     std::pair<double, double>
     train_example(const Auto_Encoder & encoder,
                   const distribution<float> & example,
-                  Parameters & updates) const;
+                  Parameters & updates,
+                  Thread_Context & context) const;
 
     /** Trains a single iteration on the given data with the selected
         parameters.  Returns a moving estimate of the RMSE on the
@@ -79,8 +83,8 @@ struct Auto_Encoder_Trainer {
     
     std::pair<double, double>
     test(const Auto_Encoder & encoder,
-         const std::vector<distribution<float> > & data);
-
+         const std::vector<distribution<float> > & data,
+         Thread_Context & context);
 
     /** Tests on the given dataset, returning the exact and noisy RMSE.  If
         data_out is non-empty, then it will also fill it in with the

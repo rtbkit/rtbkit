@@ -53,8 +53,15 @@ void
 Auto_Encoder_Trainer::
 configure(const std::string & name, const Configuration & config)
 {
+    config.get(prob_cleared, "prob_cleared");
+    config.get(learning_rate, "learning_rate");
+    config.get(minibatch_size, "minibatch_size");
+    config.get(niter, "niter");
+    config.get(verbosity, "verbosity");
+    config.get(randomize_order, "randomize_order");
+    config.get(sample_proportion, "sample_proportion");
+    config.get(test_every, "test_every");
 }
-
 
 template<typename Float>
 distribution<Float>
@@ -75,9 +82,10 @@ std::pair<double, double>
 Auto_Encoder_Trainer::
 train_example(const Auto_Encoder & encoder,
               const distribution<float> & inputs,
-              Parameters & updates) const
+              Parameters & updates,
+              Thread_Context & context) const
 {
-    distribution<float> noisy_input = add_noise(input, context);
+    distribution<float> noisy_inputs = add_noise(inputs, context);
 
     size_t temp_space_size = encoder.rfprop_temporary_space_required();
 
@@ -108,11 +116,11 @@ train_example(const Auto_Encoder & encoder,
     // Calculate the exact error as well
     distribution<float> exact_error;
 
-    if (!equivalent(noisy_input, input)) {
+    if (!equivalent(noisy_inputs, inputs)) {
         distribution<float> exact_reconstruction
-            = encoder.reconstruct(input);
+            = encoder.reconstruct(inputs);
         
-        exact_error = inputs - reconstruction;
+        exact_error = inputs - exact_reconstruction;
     }
     else exact_error = error;
 
@@ -123,12 +131,12 @@ namespace {
 
 struct Train_Examples_Job {
 
+    const Auto_Encoder_Trainer & trainer;
     const Auto_Encoder & layer;
     const vector<distribution<float> > & data;
     int first;
     int last;
     const vector<int> & examples;
-    float prob_cleared;
     const Thread_Context & context;
     int random_seed;
     Parameters_Copy<double> & updates;
@@ -136,27 +144,26 @@ struct Train_Examples_Job {
     double & error_exact;
     double & error_noisy;
     boost::progress_display * progress;
-    int verbosity;
 
-    Train_Examples_Job(const Auto_Encoder & layer,
+    Train_Examples_Job(const Auto_Encoder_Trainer & trainer,
+                       const Auto_Encoder & layer,
                        const vector<distribution<float> > & data,
                        int first, int last,
                        const vector<int> & examples,
-                       float prob_cleared,
                        const Thread_Context & context,
                        int random_seed,
                        Parameters_Copy<double> & updates,
                        Lock & update_lock,
                        double & error_exact,
                        double & error_noisy,
-                       boost::progress_display * progress,
-                       int verbosity)
-        : layer(layer), data(data), first(first), last(last),
-          examples(examples), prob_cleared(prob_cleared),
+                       boost::progress_display * progress)
+        : trainer(trainer),
+          layer(layer), data(data), first(first), last(last),
+          examples(examples),
           context(context), random_seed(random_seed), updates(updates),
           update_lock(update_lock),
           error_exact(error_exact), error_noisy(error_noisy),
-          progress(progress), verbosity(verbosity)
+          progress(progress)
     {
     }
 
@@ -173,11 +180,9 @@ struct Train_Examples_Job {
 
             double eex, eno;
             boost::tie(eex, eno)
-                = train_example(layer, data, x,
-                                prob_cleared, thread_context,
-                                local_updates, update_lock,
-                                false /* need_lock */,
-                                verbosity);
+                = trainer.train_example(layer, data[x],
+                                        local_updates,
+                                        thread_context);
 
             total_error_exact += eex;
             total_error_noisy += eno;
@@ -191,8 +196,7 @@ struct Train_Examples_Job {
         error_exact += total_error_exact;
         error_noisy += total_error_noisy;
         
-
-        if (progress && verbosity >= 3)
+        if (progress)
             (*progress) += (last - first);
     }
 };
@@ -208,8 +212,8 @@ train_iter(Auto_Encoder & encoder,
     Worker_Task & worker = thread_context.worker();
 
     int nx = data.size();
-    int ni JML_UNUSED = inputs();
-    int no JML_UNUSED = outputs();
+    int ni JML_UNUSED = encoder.inputs();
+    int no JML_UNUSED = encoder.outputs();
 
     int microbatch_size = minibatch_size / (num_threads() * 4);
             
@@ -237,7 +241,7 @@ train_iter(Auto_Encoder & encoder,
 
     for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
                 
-        Parameters_Copy<double> updates(layer);
+        Parameters_Copy<double> updates(encoder.parameters());
                 
         // Now, submit it as jobs to the worker task to be done
         // multithreaded
@@ -258,21 +262,21 @@ train_iter(Auto_Encoder & encoder,
                  x2 += microbatch_size) {
                         
                 Train_Examples_Job job(*this,
+                                       encoder,
                                        data,
                                        x2,
                                        min<int>(nx2,
                                                 min(x + minibatch_size,
                                                     x2 + microbatch_size)),
                                        examples,
-                                       prob_cleared,
                                        thread_context,
                                        thread_context.random(),
                                        updates,
                                        update_lock,
                                        total_mse_exact,
                                        total_mse_noisy,
-                                       progress.get(),
-                                       verbosity);
+                                       progress.get());
+
                 // Send it to a thread to be processed
                 worker.add(job, "blend job", group);
             }
@@ -282,7 +286,7 @@ train_iter(Auto_Encoder & encoder,
 
         //cerr << "applying minibatch updates" << endl;
         
-        update(updates, learning_rate);
+        encoder.parameters().update(updates, learning_rate);
     }
 
     return make_pair(sqrt(total_mse_exact / nx2), sqrt(total_mse_noisy / nx2));
@@ -295,58 +299,76 @@ train(Auto_Encoder & encoder,
       const std::vector<distribution<float> > & testing_data,
       Thread_Context & thread_context)
 {
+    int nx = training_data.size();
+    int nxt = testing_data.size();
+
+    if (verbosity == 2)
+        cerr << "iter  ---- train ----  ---- test -----\n"
+             << "        exact   noisy    exact   noisy\n";
+    
+    for (unsigned iter = 0;  iter < niter;  ++iter) {
+        if (verbosity >= 3)
+            cerr << "iter " << iter << " training on " << nx << " examples"
+                 << endl;
+        else if (verbosity >= 2)
+            cerr << format("%4d", iter) << flush;
+        Timer timer;
+        
+        double train_error_exact, train_error_noisy;
+        boost::tie(train_error_exact, train_error_noisy)
+            = train_iter(encoder, training_data, thread_context);
+        
+        if (verbosity >= 3) {
+            cerr << "rmse of iteration: exact " << train_error_exact
+                 << " noisy " << train_error_noisy << endl;
+            if (verbosity >= 3) cerr << timer.elapsed() << endl;
+        }
+        else if (verbosity == 2)
+            cerr << format("  %7.5f %7.5f",
+                           train_error_exact, train_error_noisy)
+                 << flush;
+        
+        if (iter % test_every == (test_every - 1)
+            || iter == niter - 1) {
+            timer.restart();
+            double test_error_exact = 0.0, test_error_noisy = 0.0;
+            
+            if (verbosity >= 3)
+                cerr << "testing on " << nxt << " examples"
+                     << endl;
+            
+            boost::tie(test_error_exact, test_error_noisy)
+                = test(encoder, testing_data, thread_context);
+            
+            if (verbosity >= 3) {
+                cerr << "testing rmse of iteration: exact "
+                     << test_error_exact << " noisy " << test_error_noisy
+                     << endl;
+                cerr << timer.elapsed() << endl;
+            }
+            else if (verbosity == 2)
+                cerr << format("  %7.5f %7.5f",
+                               test_error_exact, test_error_noisy);
+        }
+        
+        if (verbosity == 2) cerr << endl;
+    }
 }
 
 void
 Auto_Encoder_Trainer::
 train_stack(Auto_Encoder_Stack & stack,
-                 const std::vector<distribution<float> > & training_data,
-                 const std::vector<distribution<float> > & testing_data,
-                 Thread_Context & thread_context)
+            const std::vector<distribution<float> > & training_data,
+            const std::vector<distribution<float> > & testing_data,
+            Thread_Context & thread_context)
 {
-    double learning_rate = 0.75;
-    int minibatch_size = 512;
-    int niter = 50;
-
-    /// Probability that each input is cleared
-    float prob_cleared = 0.10;
-
-    int verbosity = 2;
-
-    Transfer_Function_Type transfer_function = TF_TANH;
-
-    bool init_with_svd = false;
-    bool use_dense_missing = true;
-
-    bool randomize_order = true;
-
-    float sample_proportion = 0.8;
-
-    int test_every = 1;
-
-    vector<int> layer_sizes
-        = boost::assign::list_of<int>(250)(150)(100)(50);
-    
-    config.get(prob_cleared, "prob_cleared");
-    config.get(learning_rate, "learning_rate");
-    config.get(minibatch_size, "minibatch_size");
-    config.get(niter, "niter");
-    config.get(verbosity, "verbosity");
-    config.get(transfer_function, "transfer_function");
-    config.get(init_with_svd, "init_with_svd");
-    config.get(use_dense_missing, "use_dense_missing");
-    config.get(layer_sizes, "layer_sizes");
-    config.get(randomize_order, "randomize_order");
-    config.get(sample_proportion, "sample_proportion");
-    config.get(test_every, "test_every");
-
     int nx = training_data.size();
     int nxt = testing_data.size();
 
     if (nx == 0)
         throw Exception("can't train on no data");
 
-    int nlayers = layer_sizes.size();
+    int nlayers = stack.size();
 
     vector<distribution<float> > layer_train = training_data;
     vector<distribution<float> > layer_test = testing_data;
@@ -357,31 +379,25 @@ train_stack(Auto_Encoder_Stack & stack,
     // Compensate for the example proportion
     learning_rate /= sample_proportion;
 
+    Auto_Encoder_Stack test_stack("test");
+
     for (unsigned layer_num = 0;  layer_num < nlayers;  ++layer_num) {
         cerr << endl << endl << endl << "--------- LAYER " << layer_num
              << " ---------" << endl << endl;
 
+        Auto_Encoder & layer = stack[layer_num];
+
         vector<distribution<float> > next_layer_train, next_layer_test;
 
-        int ni
-            = layer_num == 0
-            ? training_data[0].size()
-            : layer_sizes[layer_num - 1];
+        int ni = layer.inputs();
 
         if (ni != layer_train[0].size())
             throw Exception("ni is wrong");
 
-        int nh = layer_sizes[layer_num];
+        train(layer, layer_train, layer_test, thread_context);
 
-        Twoway_Layer layer(use_dense_missing, ni, nh, transfer_function,
-                           thread_context);
-
-        if (ni == nh && false) {
-            //layer.zero_fill();
-            for (unsigned i = 0;  i < ni;  ++i) {
-                layer.weights[i][i] += 1.0;
-            }
-        }
+        next_layer_train.resize(nx);
+        next_layer_test.resize(nxt);
 
         // Calculate the inputs to the next layer
         
@@ -390,10 +406,9 @@ train_stack(Auto_Encoder_Stack & stack,
                  << nx << " examples" << endl;
         double train_error_exact = 0.0, train_error_noisy = 0.0;
         boost::tie(train_error_exact, train_error_noisy)
-            = layer.test_and_update(layer_train, next_layer_train,
-                                    prob_cleared, thread_context,
-                                    verbosity);
-
+            = test_and_update(layer, layer_train, next_layer_train,
+                              thread_context);
+        
         if (verbosity >= 2)
             cerr << "training rmse of layer: exact "
                  << train_error_exact << " noisy " << train_error_noisy
@@ -404,115 +419,8 @@ train_stack(Auto_Encoder_Stack & stack,
                  << nxt << " examples" << endl;
         double test_error_exact = 0.0, test_error_noisy = 0.0;
         boost::tie(test_error_exact, test_error_noisy)
-            = layer.test_and_update(layer_test, next_layer_test,
-                                    prob_cleared, thread_context,
-                                    verbosity);
-
-#if 0
-        push_back(layer);
-
-        // Test the layer stack
-        if (verbosity >= 3)
-            cerr << "calculating whole stack testing performance on "
-                 << nxt << " examples" << endl;
-        boost::tie(test_error_exact, test_error_noisy)
-            = test(testing_data, prob_cleared, thread_context, verbosity);
-        
-        if (verbosity >= 2)
-            cerr << "testing rmse of stack: exact "
-                 << test_error_exact << " noisy " << test_error_noisy
-                 << endl;
-        
-        if (verbosity >= 2)
-            cerr << "testing rmse of layer: exact "
-                 << test_error_exact << " noisy " << test_error_noisy
-                 << endl;
-
-        pop_back();
-#endif
-
-        if (verbosity == 2)
-            cerr << "iter  ---- train ----  ---- test -----\n"
-                 << "        exact   noisy    exact   noisy\n";
-
-        for (unsigned iter = 0;  iter < niter;  ++iter) {
-            if (verbosity >= 3)
-                cerr << "iter " << iter << " training on " << nx << " examples"
-                     << endl;
-            else if (verbosity >= 2)
-                cerr << format("%4d", iter) << flush;
-            Timer timer;
-
-            double train_error_exact, train_error_noisy;
-            boost::tie(train_error_exact, train_error_noisy)
-                = layer.train_iter(layer_train, prob_cleared, thread_context,
-                                   minibatch_size, learning_rate,
-                                   verbosity, sample_proportion,
-                                   randomize_order);
-
-            if (verbosity >= 3) {
-                cerr << "rmse of iteration: exact " << train_error_exact
-                     << " noisy " << train_error_noisy << endl;
-                if (verbosity >= 3) cerr << timer.elapsed() << endl;
-            }
-            else if (verbosity == 2)
-                cerr << format("  %7.5f %7.5f",
-                               train_error_exact, train_error_noisy)
-                     << flush;
-
-            if (iter % test_every == (test_every - 1)
-                || iter == niter - 1) {
-                timer.restart();
-                double test_error_exact = 0.0, test_error_noisy = 0.0;
-                
-                if (verbosity >= 3)
-                    cerr << "testing on " << nxt << " examples"
-                         << endl;
-                boost::tie(test_error_exact, test_error_noisy)
-                    = layer.test(layer_test, prob_cleared, thread_context,
-                                 verbosity);
-                
-                if (verbosity >= 3) {
-                    cerr << "testing rmse of iteration: exact "
-                         << test_error_exact << " noisy " << test_error_noisy
-                         << endl;
-                    cerr << timer.elapsed() << endl;
-                }
-                else if (verbosity == 2)
-                    cerr << format("  %7.5f %7.5f",
-                                   test_error_exact, test_error_noisy);
-            }
-
-            if (verbosity == 2) cerr << endl;
-        }
-
-        next_layer_train.resize(nx);
-        next_layer_test.resize(nxt);
-
-        // Calculate the inputs to the next layer
-        
-        if (verbosity >= 3)
-            cerr << "calculating next layer training inputs on "
-                 << nx << " examples" << endl;
-        //double train_error_exact = 0.0, train_error_noisy = 0.0;
-        boost::tie(train_error_exact, train_error_noisy)
-            = layer.test_and_update(layer_train, next_layer_train,
-                                    prob_cleared, thread_context,
-                                    verbosity);
-
-        if (verbosity >= 2)
-            cerr << "training rmse of layer: exact "
-                 << train_error_exact << " noisy " << train_error_noisy
-                 << endl;
-        
-        if (verbosity >= 3)
-            cerr << "calculating next layer testing inputs on "
-                 << nxt << " examples" << endl;
-        //double test_error_exact = 0.0, test_error_noisy = 0.0;
-        boost::tie(test_error_exact, test_error_noisy)
-            = layer.test_and_update(layer_test, next_layer_test,
-                                    prob_cleared, thread_context,
-                                    verbosity);
+            = test_and_update(layer, layer_test, next_layer_test,
+                              thread_context);
         
         if (verbosity >= 2)
             cerr << "testing rmse of layer: exact "
@@ -522,19 +430,22 @@ train_stack(Auto_Encoder_Stack & stack,
         layer_train.swap(next_layer_train);
         layer_test.swap(next_layer_test);
 
-        push_back(layer);
+        // Add it so that we can test up to here
+        test_stack.add(make_unowned_sp(layer));
 
         // Test the layer stack
         if (verbosity >= 3)
             cerr << "calculating whole stack testing performance on "
                  << nxt << " examples" << endl;
-        boost::tie(test_error_exact, test_error_noisy)
-            = test_dnae(testing_data, prob_cleared, thread_context, verbosity);
         
-        if (verbosity >= 2)
+        if (verbosity >= 1) {
+            boost::tie(test_error_exact, test_error_noisy)
+                = test(stack, testing_data, thread_context);
+
             cerr << "testing rmse of stack: exact "
                  << test_error_exact << " noisy " << test_error_noisy
                  << endl;
+        }
     }
 }
 
@@ -543,39 +454,36 @@ namespace {
 
 struct Test_Examples_Job {
 
+    const Auto_Encoder_Trainer & trainer;
     const Auto_Encoder & layer;
     const vector<distribution<float> > & data_in;
     vector<distribution<float> > & data_out;
     int first;
     int last;
-    float prob_cleared;
     const Thread_Context & context;
     int random_seed;
     Lock & update_lock;
     double & error_exact;
     double & error_noisy;
     boost::progress_display * progress;
-    int verbosity;
 
-    Test_Examples_Job(const Auto_Encoder & layer,
+    Test_Examples_Job(const Auto_Encoder_Trainer & trainer,
+                      const Auto_Encoder & layer,
                       const vector<distribution<float> > & data_in,
                       vector<distribution<float> > & data_out,
                       int first, int last,
-                      float prob_cleared,
                       const Thread_Context & context,
                       int random_seed,
                       Lock & update_lock,
                       double & error_exact,
                       double & error_noisy,
-                      boost::progress_display * progress,
-                      int verbosity)
-        : layer(layer), data_in(data_in), data_out(data_out),
+                      boost::progress_display * progress)
+        : trainer(trainer), layer(layer), data_in(data_in), data_out(data_out),
           first(first), last(last),
-          prob_cleared(prob_cleared),
           context(context), random_seed(random_seed),
           update_lock(update_lock),
           error_exact(error_exact), error_noisy(error_noisy),
-          progress(progress), verbosity(verbosity)
+          progress(progress)
     {
     }
 
@@ -597,7 +505,7 @@ struct Test_Examples_Job {
 
             // Add noise
             distribution<float> noisy_input
-                = add_noise(model_input, thread_context, prob_cleared);
+                = trainer.add_noise(model_input, thread_context);
             
             // Apply the layer
             distribution<float> hidden_rep
@@ -636,25 +544,12 @@ struct Test_Examples_Job {
             double error2 = pow(diff2.two_norm(), 2);
     
             test_error_exact += error2;
-
-            if (x < 5 && false) {
-                Guard guard(update_lock);
-                cerr << "ex " << x << " error " << error2 << endl;
-                cerr << "    input " << model_input << endl;
-                //cerr << "    act   " << layer.activation(model_input) << endl;
-                cerr << "    rep   " << hidden_rep2 << endl;
-                //cerr << "    act2  " << layer.iactivation(hidden_rep2) << endl;
-                cerr << "    ibias " << layer.ibias << endl;
-                cerr << "    out   " << reconstructed_input << endl;
-                cerr << "    diff  " << diff2 << endl;
-                cerr << endl;
-            }
         }
 
         Guard guard(update_lock);
         error_exact += test_error_exact;
         error_noisy += test_error_noisy;
-        if (progress && verbosity >= 3)
+        if (progress)
             (*progress) += (last - first);
     }
 };
@@ -664,7 +559,8 @@ struct Test_Examples_Job {
 std::pair<double, double>
 Auto_Encoder_Trainer::
 test(const Auto_Encoder & encoder,
-     const std::vector<distribution<float> > & data)
+     const std::vector<distribution<float> > & data,
+     Thread_Context & thread_context)
 {
     Lock update_lock;
     double error_exact = 0.0;
@@ -676,6 +572,9 @@ test(const Auto_Encoder & encoder,
     if (verbosity >= 3) progress.reset(new boost::progress_display(nx, cerr));
 
     Worker_Task & worker = thread_context.worker();
+
+    // If this is empty, then no data is written out
+    vector<distribution<float> > dummy_data_out;
             
     // Now, submit it as jobs to the worker task to be done
     // multithreaded
@@ -695,16 +594,14 @@ test(const Auto_Encoder & encoder,
         int batch_size = nx / (num_threads() * 20);
         
         for (unsigned x = 0; x < nx;  x += batch_size) {
-            
-            Test_Examples_Job job(*this, data,
+
+            Test_Examples_Job job(*this, encoder, data, dummy_data_out,
                                   x, min<int>(x + batch_size, nx),
-                                  prob_cleared,
                                   thread_context,
                                   thread_context.random(),
                                   update_lock,
                                   error_exact, error_noisy,
-                                  progress.get(),
-                                  verbosity);
+                                  progress.get());
             
             // Send it to a thread to be processed
             worker.add(job, "test examples job", group);
@@ -754,15 +651,13 @@ test_and_update(const Auto_Encoder & encoder,
         
         for (unsigned x = 0; x < nx;  x += batch_size) {
             
-            Test_Examples_Job job(*this, data_in, data_out,
+            Test_Examples_Job job(*this, encoder, data_in, data_out,
                                   x, min<int>(x + batch_size, nx),
-                                  prob_cleared,
                                   thread_context,
                                   thread_context.random(),
                                   update_lock,
                                   error_exact, error_noisy,
-                                  progress.get(),
-                                  verbosity);
+                                  progress.get());
             
             // Send it to a thread to be processed
             worker.add(job, "blend job", group);
@@ -779,6 +674,20 @@ test_and_update(const Auto_Encoder & encoder,
 
 
 #if 0
+
+    config.get(prob_cleared, "prob_cleared");
+    config.get(learning_rate, "learning_rate");
+    config.get(minibatch_size, "minibatch_size");
+    config.get(niter, "niter");
+    config.get(verbosity, "verbosity");
+    config.get(transfer_function, "transfer_function");
+    config.get(init_with_svd, "init_with_svd");
+    config.get(use_dense_missing, "use_dense_missing");
+    config.get(layer_sizes, "layer_sizes");
+    config.get(randomize_order, "randomize_order");
+    config.get(sample_proportion, "sample_proportion");
+    config.get(test_every, "test_every");
+
 
 #if 0
             cerr << "weights: " << endl;
@@ -874,6 +783,63 @@ test_and_update(const Auto_Encoder & encoder,
         //layer.bias.fill(0.01);
         //layer.weights[0][0] = -0.3;
 
+        Twoway_Layer layer(use_dense_missing, ni, nh, transfer_function,
+                           thread_context);
+
+        if (ni == nh && false) {
+            //layer.zero_fill();
+            for (unsigned i = 0;  i < ni;  ++i) {
+                layer.weights[i][i] += 1.0;
+            }
+        }
+
+        // Calculate the inputs to the next layer
+        
+        if (verbosity >= 3)
+            cerr << "calculating next layer training inputs on "
+                 << nx << " examples" << endl;
+        double train_error_exact = 0.0, train_error_noisy = 0.0;
+        boost::tie(train_error_exact, train_error_noisy)
+            = layer.test_and_update(layer_train, next_layer_train,
+                                    prob_cleared, thread_context,
+                                    verbosity);
+
+        if (verbosity >= 2)
+            cerr << "training rmse of layer: exact "
+                 << train_error_exact << " noisy " << train_error_noisy
+                 << endl;
+        
+        if (verbosity >= 3)
+            cerr << "calculating next layer testing inputs on "
+                 << nxt << " examples" << endl;
+        double test_error_exact = 0.0, test_error_noisy = 0.0;
+        boost::tie(test_error_exact, test_error_noisy)
+            = layer.test_and_update(layer_test, next_layer_test,
+                                    prob_cleared, thread_context,
+                                    verbosity);
+
+#if 0
+        push_back(layer);
+
+        // Test the layer stack
+        if (verbosity >= 3)
+            cerr << "calculating whole stack testing performance on "
+                 << nxt << " examples" << endl;
+        boost::tie(test_error_exact, test_error_noisy)
+            = test(testing_data, prob_cleared, thread_context, verbosity);
+        
+        if (verbosity >= 2)
+            cerr << "testing rmse of stack: exact "
+                 << test_error_exact << " noisy " << test_error_noisy
+                 << endl;
+        
+        if (verbosity >= 2)
+            cerr << "testing rmse of layer: exact "
+                 << test_error_exact << " noisy " << test_error_noisy
+                 << endl;
+
+        pop_back();
+#endif
 
 
 #endif
