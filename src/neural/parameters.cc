@@ -320,8 +320,8 @@ compatible_copy(F * first, F * last) const
              end = params.end();
          it != end;  ++it) {
 
-        cerr << "  adding " << it->name() << " with " << it->parameter_count()
-             << endl;
+        //cerr << "  adding " << it->name() << " with " << it->parameter_count()
+        //     << endl;
 
         size_t np = it->parameter_count();
         if (first + np > last)

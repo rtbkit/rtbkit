@@ -288,16 +288,16 @@ struct Matrix_RefT : public Matrix_Parameter {
     {
         if (row < 0 || row >= size1_)
             throw Exception("update_row: invalid row");
-        SIMD::vec_add(array_ + (size1_ * row), k, x,
-                      array_ + (size1_ * row), size2_);
+        SIMD::vec_add(array_ + (size2_ * row), k, x,
+                      array_ + (size2_ * row), size2_);
     }
 
     virtual void update_row(int row, const double * x, double k = 1.0)
     {
         if (row < 0 || row >= size1_)
             throw Exception("update_row: invalid row");
-        SIMD::vec_add(array_ + (size1_ * row), k, x,
-                      array_ + (size1_ * row), size2_);
+        SIMD::vec_add(array_ + (size2_ * row), k, x,
+                      array_ + (size2_ * row), size2_);
     }
     
     virtual Matrix_RefT * make_copy() const
@@ -349,18 +349,14 @@ add(int index,
 /*****************************************************************************/
 
 template<class Float>
+void
 Parameters_Copy<Float>::
-Parameters_Copy()
-    : Parameters("")
+init(const Parameters & other,
+     bool copy)
 {
-}
-
-template<class Float>
-Parameters_Copy<Float>::
-Parameters_Copy(const Parameters_Copy & other)
-    : Parameters(other.name())
-{
-    values = other.values;
+    if (values.size() != other.parameter_count())
+        throw Exception("Parameters_Copy::init(): values wasn't sized "
+                        "properly");
 
     // Copy all of the parameters in, creating the structure as we go
     Float * start = &values[0], * finish = start + values.size(),
@@ -374,12 +370,39 @@ Parameters_Copy(const Parameters_Copy & other)
          it != end;  ++it, ++i) {
         size_t n = it->parameter_count();
 
-        add(i, it->compatible_ref(current, current + n));
+        if (copy) add(i, it->compatible_copy(current, current + n));
+        else add(i, it->compatible_ref(current, current + n));
+
         current += n;
     }
 
     if (current != finish)
         throw Exception("parameters_copy(): wrong length");
+}
+
+template<class Float>
+Parameters_Copy<Float>::
+Parameters_Copy()
+    : Parameters("")
+{
+}
+
+template<class Float>
+Parameters_Copy<Float>::
+Parameters_Copy(const Parameters_Copy & other)
+    : Parameters(other.name())
+{
+    values = other.values;
+    init(other, false /* copy */);
+}
+
+template<class Float>
+Parameters_Copy<Float>::
+Parameters_Copy(const Parameters_Copy & other, double fill_with)
+    : Parameters(other.name())
+{
+    values.resize(other.values.size(), fill_with);
+    init(other, false /* copy */);
 }
 
 template<class Float>
@@ -398,30 +421,16 @@ Parameters_Copy(const Parameters & other)
     : Parameters(other.name())
 {
     values.resize(other.parameter_count());
+    init(other, true /* copy */);
+}
 
-    // Copy all of the parameters in, creating the structure as we go
-    Float * start = &values[0], * finish = start + values.size(),
-        * current = start;
-
-    // Copy the structure over
-    int i = 0;
-    for (Params::const_iterator
-             it = other.params.begin(),
-             end = other.params.end();
-         it != end;  ++it, ++i) {
-        size_t n = it->parameter_count();
-
-        using namespace std;
-        cerr << "adding " << i << " with name " << it->name()
-             << " and " << n << " values out of "
-             << values.size() << endl;
-
-        add(i, it->compatible_copy(current, current + n));
-        current += n;
-    }
-
-    if (current != finish)
-        throw Exception("parameters_copy(): wrong length");
+template<class Float>
+Parameters_Copy<Float>::
+Parameters_Copy(const Parameters & other, double fill_with)
+    : Parameters(other.name())
+{
+    values.resize(other.parameter_count(), fill_with);
+    init(other, false /* copy */);
 }
 
 template<class Float>
@@ -429,29 +438,17 @@ Parameters_Copy<Float>::
 Parameters_Copy(const Layer & layer)
     : Parameters(layer.name())
 {
-    const Parameters_Ref & params
-        = layer.parameters();
+    values.resize(layer.parameters().parameter_count());
+    init(layer.parameters(), true /* copy */);
+}
 
-    values.resize(params.parameter_count());
-
-    // Copy all of the parameters in, creating the structure as we go
-    Float * start = &values[0], * finish = start + values.size(),
-        * current = start;
-
-    // Copy the structure over
-    int i = 0;
-    for (Params::const_iterator
-             it = params.params.begin(),
-             end = params.params.end();
-         it != end;  ++it, ++i) {
-        size_t n = it->parameter_count();
-
-        add(i, it->compatible_copy(current, current + n));
-        current += n;
-    }
-
-    if (current != finish)
-        throw Exception("parameters_copy(): wrong length");
+template<class Float>
+Parameters_Copy<Float>::
+Parameters_Copy(const Layer & layer, double fill_with)
+    : Parameters(layer.name())
+{
+    values.resize(layer.parameters().parameter_count(), fill_with);
+    init(layer.parameters(), false /* copy */);
 }
 
 template<class Float>

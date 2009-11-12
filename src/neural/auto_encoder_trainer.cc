@@ -17,6 +17,7 @@
 #include "arch/timers.h"
 #include <boost/bind.hpp>
 #include "auto_encoder_stack.h"
+#include "utils/check_not_nan.h"
 
 
 using namespace std;
@@ -110,8 +111,6 @@ train_example(const Auto_Encoder & encoder,
                    temp_space, temp_space_size,
                    &derror[0], updates, 1.0);
 
-    // Return the MSE
-
     // Calculate the exact error as well
     distribution<float> exact_error;
 
@@ -173,7 +172,7 @@ struct Train_Examples_Job {
         
         double total_error_exact = 0.0, total_error_noisy = 0.0;
 
-        Parameters_Copy<double> local_updates(layer);
+        Parameters_Copy<double> local_updates(layer, 0.0);
 
         for (unsigned x = first;  x < last;  ++x) {
 
@@ -240,7 +239,7 @@ train_iter(Auto_Encoder & encoder,
 
     for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
                 
-        Parameters_Copy<double> updates(encoder.parameters());
+        Parameters_Copy<double> updates(encoder.parameters(), 0.0);
                 
         // Now, submit it as jobs to the worker task to be done
         // multithreaded

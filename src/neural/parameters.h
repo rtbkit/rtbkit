@@ -313,12 +313,15 @@ struct Parameters_Copy : public Parameters {
     Parameters_Copy();
     
     Parameters_Copy(const Parameters & other);
-
     Parameters_Copy(const Parameters_Copy & other);
+
+    Parameters_Copy(const Parameters & other, double fill_with);
+    Parameters_Copy(const Parameters_Copy & other, double fill_with);
 
     Parameters_Copy & operator = (const Parameters_Copy & other);
 
     Parameters_Copy(const Layer & layer);
+    Parameters_Copy(const Layer & layer, double fill_with);
 
     void swap(Parameters_Copy & other);
 
@@ -340,6 +343,13 @@ struct Parameters_Copy : public Parameters {
     // should not resize them, but is free to access them as an anonymous
     // parameter vector.
     distribution<Float> values;
+
+private:
+    /** Initialize from the other parameters, into a set of values which
+        should already be the right size.  If copy is true, the parameter
+        values from other will be copied into values; otherwise values is
+        left untouched. */
+    void init(const Parameters & other, bool copy);
 };
 
 

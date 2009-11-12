@@ -138,11 +138,11 @@ iapply(const F * outputs, F * inputs) const
 {
     int no = this->outputs(), ni = this->inputs();
 
-    F scaled_outputs[this->outputs()];
+    F scaled_outputs[no];
     for (unsigned o = 0;  o < no;  ++o)
         scaled_outputs[o] = oscales[o] * outputs[o];
 
-    F activations[this->inputs()];
+    F activations[ni];
     for (unsigned i = 0;  i < ni;  ++i)
         activations[i]
             = ibias[i]
@@ -226,7 +226,7 @@ ibprop(const F * outputs,
 
     // Bias updates are simply derivs in multiplied by transfer deriv
     F dbias[ni];
-    SIMD::vec_prod(derivs, &input_errors[0], dbias, no);
+    SIMD::vec_prod(derivs, input_errors, dbias, ni);
     
     gradient.vector(4, "ibias").update(dbias, example_weight);
 
@@ -246,14 +246,20 @@ ibprop(const F * outputs,
         oscales_updates[o] = 0.0;
 
     for (unsigned i = 0;  i < ni;  ++i) {
+        iscales_updates[i]
+            = dbias[i]
+            * SIMD::vec_dotprod_dp(&forward.weights[i][0],
+                                   outputs_scaled, no);
+        SIMD::vec_add(oscales_updates, dbias[i] * iscales[i],
+                      &forward.weights[i][0], oscales_updates, no);
+#if 0
         double total = 0.0;
-
-        // TODO: SIMD
         for (unsigned o = 0;  o < no;  ++o) {
             total += forward.weights[i][o] * outputs_scaled[o];
             oscales_updates[o] += forward.weights[i][o] * dbias[i] * iscales[i];
         }
         iscales_updates[i] = total * dbias[i];
+#endif
     }
 
     gradient.vector(5, "iscales").update(iscales_updates, example_weight);
