@@ -15,6 +15,7 @@
 #include <boost/multi_array.hpp>
 #include "neural/dense_layer.h"
 #include "utils/testing/serialize_reconstitute_include.h"
+#include "utils/check_not_nan.h"
 #include <boost/assign/list_of.hpp>
 #include <limits>
 
@@ -436,6 +437,12 @@ BOOST_AUTO_TEST_CASE( test_single_precision_accuracy )
                                   ffinput_errors.end());
 }
 
+template<typename F>
+F sign(F val)
+{
+    return (val >= 0 ? 1.0 : -1.0);
+}
+
 template<class Float, class Layer, class Float2>
 void bprop_test(Layer & layer, const distribution<Float2> & input_,
                 double epsilon, double tolerance)
@@ -512,28 +519,43 @@ void bprop_test(Layer & layer, const distribution<Float2> & input_,
                       temp_space, temp_space_size,
                       output_errors, gradient, 1.0);
 
-    double baseline_error = baseline_output.total();
-
     // For each parameter, calculate numerically the gradient and test
     // against the analytical version
     int np = params.values.size();
 
     for (unsigned i = 0;  i < np;  ++i) {
-        Parameters_Copy<Float> new_params = params;
 
-        double old_value = new_params.values[i];
-        new_params.values[i] += epsilon;
-        double real_epsilon = new_params.values[i] - old_value;
+        // Get a value of epsilon that registers
+        double real_epsilon = 0.0;
+        for (double epsilon_to_try = epsilon;
+             real_epsilon == 0.0;
+             epsilon_to_try *= 10.0) {
+
+            Parameters_Copy<Float> new_params = params;
+
+            double old_value = new_params.values[i];
+
+            double new_value1 = new_params.values[i] * 1.001;
+            double new_value2
+                = sign(new_params.values[i])
+                * (abs(new_params.values[i]) + epsilon_to_try);
+
+            new_params.values[i] = (abs(new_value1) > abs(new_value2)
+                                    ? new_value1 : new_value2);
+
+            layer.parameters().set(new_params);
+            
+            Parameters_Copy<Float> set_params(layer);
+
+            real_epsilon = set_params.values[i] - old_value;
+        }
 
         if (real_epsilon == 0.0)
-            throw Exception("epsilon was too low");
-
-        layer.parameters().set(new_params);
+            throw Exception("real_epsilon is zero");
 
         // Put values here to make sure that the space is used
         std::fill(temp_space, temp_space + temp_space_size,
                   numeric_limits<float>::quiet_NaN());
-        
 
         // Perform a new fprop to see the change in the error
         distribution<Float> new_output
@@ -548,10 +570,18 @@ void bprop_test(Layer & layer, const distribution<Float2> & input_,
         for (unsigned j = 0;  j < temp_space_size;  ++j)
             BOOST_CHECK(!isnan(temp_space[j]));
 
-        double delta = new_output.total() - baseline_error;
+        double delta = (new_output - baseline_output).total();
 
         double this_gradient = delta / real_epsilon;
         double calc_gradient = gradient.values[i];
+
+#if 0
+        cerr << "differences = " << (new_output - baseline_output)
+             << " delta = " << delta << " epsilon = " << epsilon
+             << " real_epsilon = " << real_epsilon << " this_gradient "
+             << this_gradient << " calc_gradient " << calc_gradient
+             << endl;
+#endif
 
         BOOST_CHECK_CLOSE(this_gradient, calc_gradient, tolerance);
     }
@@ -563,6 +593,8 @@ void bprop_test(Layer & layer, const distribution<Float2> & input_,
 
     for (unsigned i = 0;  i < ni;  ++i) {
         distribution<Float> input2 = input;
+
+        if (isnan(input2[i])) continue;  // can't take deriv
 
         double old_value = input2[i];
         input2[i] += epsilon;
@@ -589,7 +621,7 @@ void bprop_test(Layer & layer, const distribution<Float2> & input_,
         for (unsigned j = 0;  j < temp_space_size;  ++j)
             BOOST_CHECK(!isnan(temp_space[j]));
 
-        double delta = new_output.total() - baseline_error;
+        double delta = (new_output - baseline_output).total();
 
         double this_gradient = delta / real_epsilon;
         double calc_gradient = input_errors[i];
@@ -605,7 +637,7 @@ double get_tolerance(float)
 
 double get_tolerance(double)
 {
-    return 0.01;
+    return 0.001;
 }
 
 double get_epsilon(float)
@@ -638,7 +670,7 @@ void bprop_test(Layer & layer, Thread_Context & context)
     bprop_test<Float>(layer, input, get_epsilon(Float()), get_tolerance(Float()));
 }
 
-BOOST_AUTO_TEST_CASE( test_bprop_identity_double_double_none )
+BOOST_AUTO_TEST_CASE( test_bprop_identity_double_none )
 {
     Thread_Context context;
     Dense_Layer<double> layer("test", 20, 40, TF_IDENTITY, MV_NONE, context);
@@ -646,19 +678,51 @@ BOOST_AUTO_TEST_CASE( test_bprop_identity_double_double_none )
     bprop_test<double>(layer, context);
 }
 
-BOOST_AUTO_TEST_CASE( test_bprop_identity_double_float_none )
-{
-    Thread_Context context;
-    Dense_Layer<double> layer("test", 20, 40, TF_IDENTITY, MV_NONE, context);
-
-    bprop_test<float>(layer, context);
-}
-
-BOOST_AUTO_TEST_CASE( test_bprop_identity_none )
+BOOST_AUTO_TEST_CASE( test_bprop_identity_float_none )
 {
     Thread_Context context;
     Dense_Layer<float> layer("test", 20, 40, TF_IDENTITY, MV_NONE, context);
 
     bprop_test<double>(layer, context);
-    //bprop_test<float>(layer, context);
 }
+
+BOOST_AUTO_TEST_CASE( test_bprop_identity_float_zero )
+{
+    Thread_Context context;
+    Dense_Layer<float> layer("test", 20, 40, TF_IDENTITY, MV_ZERO, context);
+
+    bprop_test<double>(layer, context);
+}
+
+BOOST_AUTO_TEST_CASE( test_bprop_identity_double_zero )
+{
+    Thread_Context context;
+    Dense_Layer<double> layer("test", 20, 40, TF_IDENTITY, MV_ZERO, context);
+
+    bprop_test<double>(layer, context);
+}
+
+BOOST_AUTO_TEST_CASE( test_bprop_identity_float_input )
+{
+    Thread_Context context;
+    Dense_Layer<float> layer("test", 20, 40, TF_IDENTITY, MV_INPUT, context);
+
+    bprop_test<double>(layer, context);
+}
+
+BOOST_AUTO_TEST_CASE( test_bprop_identity_float_dense )
+{
+    Thread_Context context;
+    Dense_Layer<float> layer("test", 20, 40, TF_IDENTITY, MV_DENSE, context);
+
+    bprop_test<double>(layer, context);
+}
+
+BOOST_AUTO_TEST_CASE( test_bprop_identity_double_dense )
+{
+    Thread_Context context;
+    Dense_Layer<double> layer("test", 20, 40, TF_IDENTITY, MV_DENSE, context);
+
+    bprop_test<double>(layer, context);
+}
+
