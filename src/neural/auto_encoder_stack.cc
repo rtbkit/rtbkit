@@ -403,6 +403,13 @@ targets(float maximum) const
     return layers_.targets(maximum);
 }
 
+bool
+Auto_Encoder_Stack::
+supports_missing_inputs() const
+{
+    return layers_.supports_missing_inputs();
+}
+
 Auto_Encoder_Stack *
 Auto_Encoder_Stack::
 make_copy() const

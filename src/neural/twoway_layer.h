@@ -56,9 +56,6 @@ struct Twoway_Layer : public Auto_Encoder {
                  Transfer_Function_Type transfer,
                  Missing_Values missing_values);
 
-    virtual std::pair<float, float> targets(float maximum) const;
-
-
     /*************************************************************************/
     /* FORWARD DIRECTION                                                     */
     /*************************************************************************/
@@ -68,6 +65,10 @@ struct Twoway_Layer : public Auto_Encoder {
 
     /** All of these methods simply forward to the ones in the forward
         layer. */
+
+    virtual std::pair<float, float> targets(float maximum) const;
+
+    virtual bool supports_missing_inputs() const;
 
     using Layer::apply;
 

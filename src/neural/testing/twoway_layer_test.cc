@@ -16,6 +16,8 @@
 #include "utils/testing/serialize_reconstitute_include.h"
 #include <boost/assign/list_of.hpp>
 #include <limits>
+#include "bprop_test.h"
+
 
 using namespace ML;
 using namespace ML::DB;
@@ -23,38 +25,36 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
-BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_twoway_layer )
-{
-    Twoway_Layer layer;
-}
-
-#if 0
 BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0a )
 {
     Thread_Context context;
     int ni = 2, no = 4;
-    Dense_Layer<float> layer("test", ni, no, TF_TANH, MV_ZERO, context);
+    Twoway_Layer layer("test", ni, no, TF_TANH, MV_ZERO, context);
 
     // Test equality operator
     BOOST_CHECK_EQUAL(layer, layer);
 
-    Dense_Layer<float> layer2 = layer;
+    Twoway_Layer layer2 = layer;
     BOOST_CHECK_EQUAL(layer, layer2);
     
-    layer2.weights[0][0] -= 1.0;
+    layer2.forward.weights[0][0] -= 1.0;
     BOOST_CHECK(layer != layer2);
 
-    BOOST_CHECK_EQUAL(layer.weights.shape()[0], ni);
-    BOOST_CHECK_EQUAL(layer.weights.shape()[1], no);
-    BOOST_CHECK_EQUAL(layer.bias.size(), no);
-    BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 0);
-    BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 0);
+    BOOST_CHECK_EQUAL(layer.forward.weights.shape()[0], ni);
+    BOOST_CHECK_EQUAL(layer.forward.weights.shape()[1], no);
+    BOOST_CHECK_EQUAL(layer.forward.bias.size(), no);
+    BOOST_CHECK_EQUAL(layer.forward.missing_replacements.size(), 0);
+    BOOST_CHECK_EQUAL(layer.forward.missing_activations.num_elements(), 0);
+    BOOST_CHECK_EQUAL(layer.ibias.size(), ni);
+    BOOST_CHECK_EQUAL(layer.iscales.size(), ni);
+    BOOST_CHECK_EQUAL(layer.oscales.size(), no);
     
     test_serialize_reconstitute(layer);
     test_poly_serialize_reconstitute<Layer>(layer);
 }
 
 
+#if 0
 BOOST_AUTO_TEST_CASE( test_dense_layer_none )
 {
     Dense_Layer<float> layer("test", 2, 1, TF_IDENTITY, MV_NONE);
@@ -247,3 +247,4 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
     }
 }
 #endif
+

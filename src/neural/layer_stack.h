@@ -88,6 +88,8 @@ struct Layer_Stack : public Layer {
     virtual size_t max_width() const { return max_width_; }
     size_t max_internal_width() const { return max_internal_width_; }
 
+    virtual bool supports_missing_inputs() const;
+
     const LayerT & operator [] (int index) const { return *layers_.at(index); }
     LayerT & operator [] (int index) { return *layers_.at(index); }
 

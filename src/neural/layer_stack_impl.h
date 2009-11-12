@@ -111,6 +111,15 @@ add(LayerT * layer)
 }
 
 template<class LayerT>
+bool
+Layer_Stack<LayerT>::
+supports_missing_inputs() const
+{
+    if (empty()) return false;
+    return layers_[0]->supports_missing_inputs();
+}
+
+template<class LayerT>
 void
 Layer_Stack<LayerT>::
 add(boost::shared_ptr<LayerT> layer)

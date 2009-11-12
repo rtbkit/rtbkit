@@ -65,6 +65,13 @@ targets(float maximum) const
     return forward.targets(maximum);
 }
 
+bool
+Twoway_Layer::
+supports_missing_inputs() const
+{
+    return forward.supports_missing_inputs();
+}
+
 void
 Twoway_Layer::
 apply(const float * input, float * output) const
@@ -388,6 +395,7 @@ Twoway_Layer::
 serialize(DB::Store_Writer & store) const
 {
     store << (char)1;  // version
+    store << name_;
     forward.serialize(store);
     store << ibias << iscales << oscales;
 }
@@ -401,6 +409,8 @@ reconstitute(DB::Store_Reader & store)
 
     if (version != 1)
         throw Exception("Twoway_Layer::reconstitute(): invalid version");
+
+    store >> name_;
     forward.reconstitute(store);
     store >> ibias >> iscales >> oscales;
 

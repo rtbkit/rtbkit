@@ -17,6 +17,7 @@
 #include "utils/testing/serialize_reconstitute_include.h"
 #include <boost/assign/list_of.hpp>
 #include <limits>
+#include "bprop_test.h"
 
 using namespace ML;
 using namespace ML::DB;
@@ -339,38 +340,54 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
     }
 }
 
-#if 0
-
-BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer1 )
+BOOST_AUTO_TEST_CASE( test_bprop_one_layer )
 {
     Thread_Context context;
-    Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_ZERO, context);
-    test_serialize_reconstitute(layer);
-    test_poly_serialize_reconstitute<Layer>(layer);
+    Dense_Layer<double> layer("test", 5, 10, TF_IDENTITY, MV_NONE, context);
+
+    Layer_Stack<Dense_Layer<double> > layers("test_layers");
+    layers.add(make_unowned_sp(layer));
+
+    bprop_test<double>(layers, context);
 }
 
-BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer2 )
+BOOST_AUTO_TEST_CASE( test_bprop_two_layers )
 {
     Thread_Context context;
-    Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_INPUT, context);
-    test_serialize_reconstitute(layer);
-    test_poly_serialize_reconstitute<Layer>(layer);
+    Dense_Layer<double> layer1("test1", 5, 10, TF_IDENTITY, MV_NONE, context);
+    Dense_Layer<double> layer2("test2", 10, 20, TF_IDENTITY, MV_NONE, context);
+
+    Layer_Stack<Dense_Layer<double> > layers("test_layers");
+    layers.add(make_unowned_sp(layer1));
+    layers.add(make_unowned_sp(layer2));
+
+    bprop_test<double>(layers, context);
 }
 
-BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer3 )
+BOOST_AUTO_TEST_CASE( test_bprop_two_nonlinear_layers )
 {
     Thread_Context context;
-    Dense_Layer<float> layer("test", 200, 400, TF_TANH, MV_DENSE, context);
-    test_serialize_reconstitute(layer);
-    test_poly_serialize_reconstitute<Layer>(layer);
+    Dense_Layer<double> layer1("test1", 5, 10, TF_TANH, MV_NONE, context);
+    Dense_Layer<double> layer2("test2", 10, 20, TF_TANH, MV_NONE, context);
+
+    Layer_Stack<Dense_Layer<double> > layers("test_layers");
+    layers.add(make_unowned_sp(layer1));
+    layers.add(make_unowned_sp(layer2));
+
+    bprop_test<double>(layers, context, 0.05);
 }
 
-BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer_double )
+BOOST_AUTO_TEST_CASE( test_bprop_three_nonlinear_layers )
 {
     Thread_Context context;
-    Dense_Layer<double> layer("test", 200, 400, TF_TANH, MV_DENSE, context);
-    test_serialize_reconstitute(layer);
-    test_poly_serialize_reconstitute<Layer>(layer);
-}
+    Dense_Layer<double> layer1("test1", 5, 10, TF_TANH, MV_DENSE, context);
+    Dense_Layer<double> layer2("test2", 10, 20, TF_TANH, MV_NONE, context);
+    Dense_Layer<double> layer3("test3", 20, 5, TF_TANH, MV_NONE,  context);
 
-#endif
+    Layer_Stack<Dense_Layer<double> > layers("test_layers");
+    layers.add(make_unowned_sp(layer1));
+    layers.add(make_unowned_sp(layer2));
+    layers.add(make_unowned_sp(layer3));
+
+    bprop_test<double>(layers, context, 0.05);
+}

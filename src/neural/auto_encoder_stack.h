@@ -240,6 +240,8 @@ struct Auto_Encoder_Stack : public Auto_Encoder {
 
     virtual std::pair<float, float> targets(float maximum) const;
 
+    virtual bool supports_missing_inputs() const;
+
     virtual Auto_Encoder_Stack * make_copy() const;
 
     virtual Auto_Encoder_Stack * deep_copy() const;
