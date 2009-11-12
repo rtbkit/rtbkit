@@ -5,13 +5,14 @@
    Two-way neural network layer.
 */
 
+#undef NDEBUG
+
 #include "twoway_layer.h"
 #include "layer_stack_impl.h"
 #include "utils/check_not_nan.h"
 #include "boosting/registry.h"
 #include "algebra/matrix_ops.h"
 #include "stats/distribution_ops.h"
-
 
 using namespace std;
 
@@ -219,19 +220,29 @@ ibprop(const F * outputs,
 
     if (temp_space_size != 0)
         throw Exception("Dense_Layer::bprop(): wrong temp size");
+
+    CHECK_NOT_NAN_N(outputs, no);
+    CHECK_NOT_NAN_N(inputs, ni);
+    CHECK_NOT_NAN_N(input_errors, ni);
     
     // Differentiate the output function
     F derivs[ni];
     forward.transfer_function->derivative(inputs, derivs, ni);
 
+    CHECK_NOT_NAN_N((F *)derivs, ni);
+
     // Bias updates are simply derivs in multiplied by transfer deriv
     F dbias[ni];
     SIMD::vec_prod(derivs, input_errors, dbias, ni);
+
+    CHECK_NOT_NAN_N((F *)dbias, ni);
     
     gradient.vector(4, "ibias").update(dbias, example_weight);
 
     F outputs_scaled[no];
     SIMD::vec_prod(outputs, &oscales[0], outputs_scaled, no);
+
+    CHECK_NOT_NAN_N((F *)outputs_scaled, no);
 
     // Update weights
     for (unsigned i = 0;  i < ni;  ++i)
@@ -264,6 +275,10 @@ ibprop(const F * outputs,
 
     gradient.vector(5, "iscales").update(iscales_updates, example_weight);
     gradient.vector(6, "oscales").update(oscales_updates, example_weight);
+
+
+    if (output_errors)
+        SIMD::vec_prod(&oscales[0], &oscales_updates[0], output_errors, no);
 }
 
 void
