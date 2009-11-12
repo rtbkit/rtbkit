@@ -14,6 +14,32 @@
 namespace ML {
 
 
+namespace {
+
+template<typename F>
+bool need_update(const F * vals, size_t size)
+{
+#if 1 // check the whole range for NaN
+    bool result = false;
+    for (unsigned i = 0;  i < size;  ++i) {
+        if (isnan(vals[i]))
+            throw Exception("updating with range containing NaN");
+        if (vals[i] != 0.0)
+            result = true;
+    }
+    return result;
+#else // check for NaN until we find a single non-zero value
+    for (unsigned i = 0;  i < size;  ++i) {
+        if (isnan(vals[i]))
+            throw Exception("updating with range containing NaN");
+        if (vals[i] != 0.0) return true;
+    }
+#endif
+}
+
+} // file scope
+
+
 /*****************************************************************************/
 /* VECTOR_REFT                                                               */
 /*****************************************************************************/
@@ -58,8 +84,10 @@ struct Vector_RefT : public Vector_Parameter {
             if (cast) {
                 if (cast->size_ != size_)
                     throw Exception("Parameters_Copy::set(): incompatible");
-                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
-                              size_);
+
+                if (need_update(cast->array_, size_))
+                    SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                                  size_);
                 return;
             }
         }
@@ -70,8 +98,10 @@ struct Vector_RefT : public Vector_Parameter {
             if (cast) {
                 if (cast->size_ != size_)
                     throw Exception("Parameters_Copy::set(): incompatible");
-                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
-                              size_);
+
+                if (need_update(cast->array_, size_))
+                    SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                                  size_);
                 return;
             }
         }
@@ -82,8 +112,10 @@ struct Vector_RefT : public Vector_Parameter {
             if (cast) {
                 if (cast->size_ != size_)
                     throw Exception("Parameters_Copy::set(): incompatible");
-                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
-                              size_);
+
+                if (need_update(cast->array_, size_))
+                    SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                                  size_);
                 return;
             }
         }
@@ -92,7 +124,8 @@ struct Vector_RefT : public Vector_Parameter {
         double tmp[size_];
         vp.copy_to(tmp, tmp + size_);
         
-        SIMD::vec_add(array_, learning_rate, tmp, array_, size_);
+        if (need_update(tmp, size_))
+            SIMD::vec_add(array_, learning_rate, tmp, array_, size_);
     }
 
     virtual Parameter_Value *
@@ -113,12 +146,14 @@ struct Vector_RefT : public Vector_Parameter {
 
     virtual void update(const float * x, float k)
     {
-        SIMD::vec_add(array_, k, x, array_, size_);
+        if (need_update(x, k))
+            SIMD::vec_add(array_, k, x, array_, size_);
     }
 
     virtual void update(const double * x, double k)
     {
-        SIMD::vec_add(array_, k, x, array_, size_);
+        if (need_update(x, k))
+            SIMD::vec_add(array_, k, x, array_, size_);
     }
 
     virtual void set(const Parameter_Value & other)
@@ -224,8 +259,9 @@ struct Matrix_RefT : public Matrix_Parameter {
             if (cast) {
                 if ((size1_ != cast->size1_) || (size2_ != cast->size2_))
                     throw Exception("Parameters_Copy::set(): incompatible");
-                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
-                              n);
+                if (need_update(cast->array_, n))
+                    SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                                  n);
                 return;
             }
         }
@@ -236,8 +272,9 @@ struct Matrix_RefT : public Matrix_Parameter {
             if (cast) {
                 if ((size1_ != cast->size1_) || (size2_ != cast->size2_))
                     throw Exception("Parameters_Copy::set(): incompatible");
-                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
-                              n);
+                if (need_update(cast->array_, n))
+                    SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                                  n);
                 return;
             }
         }
@@ -248,8 +285,9 @@ struct Matrix_RefT : public Matrix_Parameter {
             if (cast) {
                 if ((size1_ != cast->size1_) || (size2_ != cast->size2_))
                     throw Exception("Parameters_Copy::set(): incompatible");
-                SIMD::vec_add(array_, learning_rate, cast->array_, array_,
-                              n);
+                if (need_update(cast->array_, n))
+                    SIMD::vec_add(array_, learning_rate, cast->array_, array_,
+                                  n);
                 return;
             }
         }
@@ -258,7 +296,8 @@ struct Matrix_RefT : public Matrix_Parameter {
         double tmp[n];
         mp.copy_to(tmp, tmp + n);
         
-        SIMD::vec_add(array_, learning_rate, tmp, array_, n);
+        if (need_update(tmp, n))
+            SIMD::vec_add(array_, learning_rate, tmp, array_, n);
     }
 
     virtual Parameter_Value *
@@ -288,16 +327,18 @@ struct Matrix_RefT : public Matrix_Parameter {
     {
         if (row < 0 || row >= size1_)
             throw Exception("update_row: invalid row");
-        SIMD::vec_add(array_ + (size2_ * row), k, x,
-                      array_ + (size2_ * row), size2_);
+        if (need_update(x, size2_))
+            SIMD::vec_add(array_ + (size2_ * row), k, x,
+                          array_ + (size2_ * row), size2_);
     }
 
     virtual void update_row(int row, const double * x, double k = 1.0)
     {
         if (row < 0 || row >= size1_)
             throw Exception("update_row: invalid row");
-        SIMD::vec_add(array_ + (size2_ * row), k, x,
-                      array_ + (size2_ * row), size2_);
+        if (need_update(x, size2_))
+            SIMD::vec_add(array_ + (size2_ * row), k, x,
+                          array_ + (size2_ * row), size2_);
     }
     
     virtual Matrix_RefT * make_copy() const
@@ -546,8 +587,9 @@ update(const Parameter_Value & other, double learning_rate)
         if (cast) {
             if (cast->values.size() != values.size())
                 throw Exception("Parameters_Copy::set(): incompatible");
-            SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
-                          &values[0], values.size());
+            if (need_update(&values[0], values.size()))
+                SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
+                              &values[0], values.size());
             return;
         }
     }
@@ -558,8 +600,9 @@ update(const Parameter_Value & other, double learning_rate)
         if (cast) {
             if (cast->values.size() != values.size())
                 throw Exception("Parameters_Copy::set(): incompatible");
-            SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
-                          &values[0], values.size());
+            if (need_update(&values[0], values.size()))
+                SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
+                              &values[0], values.size());
             return;
         }
     }
@@ -570,8 +613,9 @@ update(const Parameter_Value & other, double learning_rate)
         if (cast) {
             if (cast->values.size() != values.size())
                 throw Exception("Parameters_Copy::set(): incompatible");
-            SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
-                          &values[0], values.size());
+            if (need_update(&values[0], values.size()))
+                SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
+                              &values[0], values.size());
             return;
         }
     }
