@@ -162,6 +162,52 @@ void vec_prod(const float * x, const float * y, float * r, size_t n)
     }
 }
 
+void vec_prod(const float * x, const double * y, float * r, size_t n)
+{
+    unsigned i = 0;
+
+#if 0 // TODO: do
+    if (false) ;
+    else {
+        //cerr << "unoptimized" << endl;
+        
+        for (; i + 16 <= n;  i += 16) {
+            v2df yy0a  = __builtin_ia32_loadupd(y + i + 0);
+            v2df yy0b  = __builtin_ia32_loadupd(y + i + 2);
+            v4sf yyyy0 = __builtin_ia32_cvtpd2ps(yy0a);
+
+
+
+            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
+            yyyy0 *= xxxx0;
+            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            __builtin_ia32_storeups(r + i + 0, yyyy0);
+            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
+            yyyy1 *= xxxx1;
+            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            __builtin_ia32_storeups(r + i + 4, yyyy1);
+            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
+            yyyy2 *= xxxx2;
+            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            __builtin_ia32_storeups(r + i + 8, yyyy2);
+            yyyy3 *= xxxx3;
+            __builtin_ia32_storeups(r + i + 12, yyyy3);
+        }
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
+            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            yyyy0 *= xxxx0;
+            __builtin_ia32_storeups(r + i + 0, yyyy0);
+        }
+        
+    }
+#endif
+
+    for (; i < n;  ++i) r[i] = x[i] * y[i];
+}
+
 void vec_add(const float * x, float k, const float * y, float * r, size_t n)
 {
     v4sf kkkk = vec_splat(k);
