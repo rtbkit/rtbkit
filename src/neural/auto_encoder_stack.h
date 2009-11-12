@@ -175,6 +175,9 @@ struct Auto_Encoder_Stack : public Auto_Encoder {
     /* INVERSE DIRECTION                                                     */
     /*************************************************************************/
 
+    virtual std::pair<float, float> itargets(float maximum) const;
+    virtual bool supports_missing_outputs() const;
+
     virtual void iapply(const float * input, float * output) const;
     virtual void iapply(const double * input, double * output) const;
 

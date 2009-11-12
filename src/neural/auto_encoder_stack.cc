@@ -182,6 +182,24 @@ bprop(const double * inputs,
                   output_errors, input_errors, gradient, example_weight);
 }
 
+std::pair<float, float>
+Auto_Encoder_Stack::
+itargets(float maximum) const
+{
+    if (layers_.empty())
+        throw Exception("itargets(): no layers");
+    return layers_.back().itargets(maximum);
+}
+
+bool
+Auto_Encoder_Stack::
+supports_missing_outputs() const
+{
+    if (layers_.empty())
+        throw Exception("itargets(): no layers");
+    return layers_.back().supports_missing_outputs();
+}
+
 void
 Auto_Encoder_Stack::
 iapply(const float * output, float * input) const

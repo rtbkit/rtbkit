@@ -13,6 +13,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/multi_array.hpp>
 #include "neural/twoway_layer.h"
+#include "neural/reverse_layer_adaptor.h"
 #include "utils/testing/serialize_reconstitute_include.h"
 #include <boost/assign/list_of.hpp>
 #include <limits>
@@ -233,12 +234,38 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
     }
 }
 
+template<class Float, class Layer>
+void bprop_test_backward(Layer & layerfwd, Thread_Context & context, double tolerance = -1.0)
+{
+    Reverse_Layer_Adaptor layer(make_unowned_sp(layerfwd));
+
+    int ni = layer.inputs(), no = layer.outputs();
+
+    BOOST_REQUIRE(ni > 0);
+    BOOST_REQUIRE(no > 0);
+
+    distribution<Float> input(ni);
+    for (unsigned i = 0;  i < ni;  ++i)
+        input[i] = 0.5 - context.random01();
+
+    if (layer.supports_missing_inputs()) {
+        for (unsigned i = 0;  i < ni;  i += 2)
+            input[i] = numeric_limits<float>::quiet_NaN();
+    }
+
+    if (tolerance == -1.0)
+        tolerance = get_tolerance(Float());
+
+    bprop_test<Float>(layer, input, get_epsilon(Float()), tolerance);
+}
+
 BOOST_AUTO_TEST_CASE( test_bprop_identity_double_none )
 {
     Thread_Context context;
     Twoway_Layer layer("test", 20, 40, TF_IDENTITY, MV_NONE, context);
 
     bprop_test<double>(layer, context);
+    bprop_test_backward<double>(layer, context);
 }
 
 BOOST_AUTO_TEST_CASE( test_bprop_tanh_double_none )

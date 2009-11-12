@@ -167,6 +167,20 @@ bprop(const double * inputs,
                   output_errors, input_errors, gradient, example_weight);
 }
 
+std::pair<float, float>
+Twoway_Layer::
+itargets(float maximum) const
+{
+    return forward.transfer_function->targets(maximum);
+}
+
+bool
+Twoway_Layer::
+supports_missing_outputs() const
+{
+    return false;
+}
+
 template<typename F>
 void
 Twoway_Layer::

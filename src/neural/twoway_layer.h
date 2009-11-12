@@ -127,6 +127,13 @@ struct Twoway_Layer : public Auto_Encoder {
     /// Scaling factors for the reverse direction
     distribution<float> iscales;
     distribution<float> oscales;
+
+    virtual std::pair<float, float> itargets(float maximum) const;
+
+    /** When running in the inverse direction, are missing outputs (NaN values)
+        supported? */
+        
+    virtual bool supports_missing_outputs() const;
     
     using Auto_Encoder::iapply;
 

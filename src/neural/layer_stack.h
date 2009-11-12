@@ -93,6 +93,9 @@ struct Layer_Stack : public Layer {
     const LayerT & operator [] (int index) const { return *layers_.at(index); }
     LayerT & operator [] (int index) { return *layers_.at(index); }
 
+    LayerT & back() { return operator [] (size() - 1); }
+    const LayerT & back() const { return operator [] (size() - 1); }
+
     template<typename As>
     const As & get_as(int index) const
     {

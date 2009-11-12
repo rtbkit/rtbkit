@@ -49,6 +49,21 @@ struct Auto_Encoder : public Layer {
         @{
     */
 
+    /** Given the activation function and the maximum amount of the range
+        that we want to use (eg, 0.8 for asymptotic functions), what are
+        the minimum and maximum values that we want to use.
+
+        For example, tanh goes from -1 to 1, but asymptotically.  We would
+        normally want to go from -0.8 to 0.8, so that we didn't force too
+        hard to get there.
+    */
+    virtual std::pair<float, float> itargets(float maximum) const = 0;
+
+    /** When running in the inverse direction, are missing outputs (NaN values)
+        supported? */
+        
+    virtual bool supports_missing_outputs() const = 0;
+
     virtual void iapply(const float * input, float * output) const = 0;
     virtual void iapply(const double * input, double * output) const = 0;
 
