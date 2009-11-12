@@ -21,6 +21,9 @@ namespace ML {
 struct Deep_Copy_Tag {
 };
 
+struct Auto_Encoder_Stack;
+
+
 /*****************************************************************************/
 /* LAYER_STACK                                                               */
 /*****************************************************************************/
@@ -42,8 +45,9 @@ struct Layer_Stack : public Layer {
     Layer_Stack();
     Layer_Stack(const std::string & name);
     Layer_Stack(const Layer_Stack & other);
-
     Layer_Stack(const Layer_Stack & other, Deep_Copy_Tag);
+    Layer_Stack(const Auto_Encoder_Stack & other);
+    Layer_Stack(const Auto_Encoder_Stack & other, Deep_Copy_Tag);
 
     template<class OtherLayer>
     Layer_Stack(const Layer_Stack<OtherLayer> & other)
@@ -63,6 +67,16 @@ struct Layer_Stack : public Layer {
     }
 
     Layer_Stack & operator = (const Layer_Stack & other);
+    Layer_Stack & operator = (const Auto_Encoder_Stack & other);
+
+    template<class OtherLayer>
+    Layer_Stack &
+    operator = (const Layer_Stack<OtherLayer> & other)
+    {
+        Layer_Stack new_me(other);
+        swap(new_me);
+        return *this;
+    }
 
     void swap(Layer_Stack & other);
 

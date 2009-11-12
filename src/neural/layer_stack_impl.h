@@ -11,6 +11,7 @@
 #include "layer_stack.h"
 #include "utils/smart_ptr_utils.h"
 #include "db/persistent.h"
+#include "auto_encoder_stack.h"
 
 namespace ML {
 
@@ -54,9 +55,37 @@ Layer_Stack(const Layer_Stack & other, Deep_Copy_Tag)
 }
 
 template<class LayerT>
+Layer_Stack<LayerT>::
+Layer_Stack(const Auto_Encoder_Stack & other)
+    : Layer(other.name(), 0, 0), max_width_(0), max_internal_width_(0)
+{
+    for (unsigned i = 0;  i < other.size();  ++i)
+        add_cast(other.layers_.layers_[i]);
+}
+
+template<class LayerT>
+Layer_Stack<LayerT>::
+Layer_Stack(const Auto_Encoder_Stack & other, Deep_Copy_Tag)
+    : Layer(other.name(), 0, 0), max_width_(0), max_internal_width_(0)
+{
+    for (unsigned i = 0;  i < other.size();  ++i)
+        add_cast(make_sp(other.layers_[i].deep_copy()));
+}
+
+template<class LayerT>
 Layer_Stack<LayerT> &
 Layer_Stack<LayerT>::
 operator = (const Layer_Stack & other)
+{
+    Layer_Stack new_me(other);
+    swap(new_me);
+    return *this;
+}
+
+template<class LayerT>
+Layer_Stack<LayerT> &
+Layer_Stack<LayerT>::
+operator = (const Auto_Encoder_Stack & other)
 {
     Layer_Stack new_me(other);
     swap(new_me);

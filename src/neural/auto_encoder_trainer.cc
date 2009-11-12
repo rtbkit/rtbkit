@@ -14,7 +14,6 @@
 #include <boost/tuple/tuple.hpp>
 #include "utils/guard.h"
 #include "utils/configuration.h"
-#include <boost/assign/list_of.hpp>
 #include "arch/timers.h"
 #include <boost/bind.hpp>
 #include "auto_encoder_stack.h"

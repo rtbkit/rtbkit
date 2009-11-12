@@ -50,6 +50,8 @@ struct Auto_Encoder_Stack : public Auto_Encoder {
 
     void swap(Auto_Encoder_Stack & other);
 
+    operator const Layer_Stack<Auto_Encoder> & () const { return layers_; }
+
     size_t size() const { return layers_.size(); }
     bool empty() const { return layers_.empty(); }
 
