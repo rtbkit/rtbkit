@@ -445,8 +445,11 @@ void
 Parameters::
 update(const Parameter_Value & other, double learning_rate)
 {
-    if (name() != other.name())
+    if (name() != other.name()) {
+        cerr << "name() = " << name() << endl;
+        cerr << "other.name() = " << other.name() << endl;
         throw Exception("Parameters::update(): objects have different names");
+    }
 
     const Parameters * cast
         = dynamic_cast<const Parameters *>(&other);
@@ -559,8 +562,11 @@ void
 Parameters::
 set(const Parameter_Value & other)
 {
-    if (name() != other.name())
+    if (name() != other.name()) {
+        cerr << "name() = " << name() << endl;
+        cerr << "other.name() = " << other.name() << endl;
         throw Exception("Parameters::set(): objects have different names");
+    }
 
     const Parameters * cast
         = dynamic_cast<const Parameters *>(&other);

@@ -58,6 +58,34 @@ Twoway_Layer(const std::string & name,
     update_parameters();
 }
 
+Twoway_Layer::
+Twoway_Layer(const Twoway_Layer & other)
+    : Auto_Encoder(other), forward(other.forward), ibias(other.ibias),
+      iscales(other.iscales), oscales(other.oscales)
+{
+    update_parameters();
+}
+
+Twoway_Layer &
+Twoway_Layer::
+operator = (const Twoway_Layer & other)
+{
+    Twoway_Layer new_me(other);
+    swap(new_me);
+    return *this;
+}
+
+void
+Twoway_Layer::
+swap(Twoway_Layer & other)
+{
+    Auto_Encoder::swap(other);
+    forward.swap(other.forward);
+    ibias.swap(other.ibias);
+    iscales.swap(other.iscales);
+    oscales.swap(other.oscales);
+}
+
 std::pair<float, float>
 Twoway_Layer::
 targets(float maximum) const

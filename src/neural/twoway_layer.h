@@ -56,6 +56,13 @@ struct Twoway_Layer : public Auto_Encoder {
                  Transfer_Function_Type transfer,
                  Missing_Values missing_values);
 
+    Twoway_Layer(const Twoway_Layer & other);
+
+    Twoway_Layer & operator = (const Twoway_Layer & other);
+
+    void swap(Twoway_Layer & other);
+
+
     /*************************************************************************/
     /* FORWARD DIRECTION                                                     */
     /*************************************************************************/
