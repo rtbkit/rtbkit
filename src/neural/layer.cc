@@ -79,6 +79,13 @@ swap(Layer & other)
 
 bool
 Layer::
+supports_missing_inputs() const
+{
+    return false;
+}
+
+bool
+Layer::
 operator == (const Layer & other) const
 {
     return name_ == other.name_

@@ -339,6 +339,7 @@ activation(const F * inputs, F * activations) const
                 throw Exception("missing value with MV_NONE");
 
             case MV_ZERO:
+                continue;  // no need to calculate, since weight is zero
                 input = 0.0;  w = &weights[i][0];  break;
 
             case MV_INPUT:
@@ -698,6 +699,14 @@ parameter_count() const
 {
     return weights.num_elements() + bias.size() + missing_replacements.size()
         + missing_activations.num_elements();
+}
+
+template<typename Float>
+bool
+Dense_Layer<Float>::
+supports_missing_inputs() const
+{
+    return (missing_values != MV_NONE);
 }
 
 template<typename Float>

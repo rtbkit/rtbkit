@@ -11,6 +11,7 @@
 #undef NDEBUG
 
 #include <boost/test/unit_test.hpp>
+#include <boost/test/floating_point_comparison.hpp>
 #include <boost/multi_array.hpp>
 #include "neural/dense_layer.h"
 #include "utils/testing/serialize_reconstitute_include.h"
@@ -309,4 +310,355 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer_double )
     Dense_Layer<double> layer("test", 200, 400, TF_TANH, MV_DENSE, context);
     test_serialize_reconstitute(layer);
     test_poly_serialize_reconstitute<Layer>(layer);
+}
+
+BOOST_AUTO_TEST_CASE( test_single_precision_accuracy )
+{
+    Thread_Context context;
+    Dense_Layer<double> layerd("test", 20, 40, TF_IDENTITY, MV_NONE, context);
+    Dense_Layer<float> layerf("test", 20, 40, TF_IDENTITY, MV_NONE);
+
+    // Get the parameters as floats, then copy them into the two so that
+    // they are equivalent.
+    Parameters_Copy<float> params(layerd);
+    layerd.parameters().set(params);
+    layerf.parameters().set(params);
+
+    int ni = layerd.inputs(), no = layerd.outputs();
+
+    BOOST_REQUIRE(ni > 0);
+    BOOST_REQUIRE(no > 0);
+
+    distribution<float> inputf(ni);
+    for (unsigned i = 0;  i < ni;  ++i)
+        inputf[i] = 0.5 - context.random01();
+
+    distribution<double> inputd(inputf);
+
+    // Check the result of apply
+    // Do in both single and double precision.  The result should be
+    // identical, since we accumulate in double precision and all of the
+    // stored values are equivalent between float and double
+    distribution<float> resultdd = layerd.apply(inputd).cast<float>();
+    distribution<float> resultdf = layerd.apply(inputf);
+    distribution<float> resultfd = layerf.apply(inputd).cast<float>();
+    distribution<float> resultff = layerf.apply(inputf);
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(resultdd.begin(), resultdd.end(),
+                                  resultdf.begin(), resultdf.end());
+    BOOST_CHECK_EQUAL_COLLECTIONS(resultdd.begin(), resultdd.end(),
+                                  resultfd.begin(), resultfd.end());
+    BOOST_CHECK_EQUAL_COLLECTIONS(resultdd.begin(), resultdd.end(),
+                                  resultff.begin(), resultff.end());
+
+
+    // Check the results of the fprop in a similar way
+    size_t temp_space_size = layerd.fprop_temporary_space_required();
+    double ddtemp_space[temp_space_size];
+    float  dftemp_space[temp_space_size];
+    double fdtemp_space[temp_space_size];
+    float  fftemp_space[temp_space_size];
+
+    resultdd = layerd.fprop(inputd, ddtemp_space, temp_space_size)
+                   .cast<float>();
+    resultdf = layerd.fprop(inputf, dftemp_space, temp_space_size);
+    resultfd = layerf.fprop(inputd, fdtemp_space, temp_space_size)
+                   .cast<float>();
+    resultff = layerf.fprop(inputf, fftemp_space, temp_space_size);
+
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(resultdd.begin(), resultdd.end(),
+                                  resultdf.begin(), resultdf.end());
+    BOOST_CHECK_EQUAL_COLLECTIONS(resultdd.begin(), resultdd.end(),
+                                  resultfd.begin(), resultfd.end());
+    BOOST_CHECK_EQUAL_COLLECTIONS(resultdd.begin(), resultdd.end(),
+                                  resultff.begin(), resultff.end());
+
+
+    // Now for the bprop
+    distribution<double> doutput_errors(no, 1.0);
+    distribution<float> foutput_errors(no, 1.0);
+
+    Parameters_Copy<float> ddgradient(params, 0.0);
+    Parameters_Copy<float> dfgradient(params, 0.0);
+    Parameters_Copy<float> fdgradient(params, 0.0);
+    Parameters_Copy<float> ffgradient(params, 0.0);
+    
+    distribution<float> ddinput_errors
+        = layerd.bprop(inputd, resultdd.cast<double>(),
+                       ddtemp_space, temp_space_size,
+                       doutput_errors, ddgradient, 1.0).cast<float>();
+    
+    distribution<float> dfinput_errors
+        = layerd.bprop(inputf, resultdf,
+                       dftemp_space, temp_space_size,
+                       foutput_errors, dfgradient, 1.0);
+    
+    BOOST_CHECK_EQUAL_COLLECTIONS(ddgradient.values.begin(),
+                                  ddgradient.values.end(),
+                                  dfgradient.values.begin(),
+                                  dfgradient.values.end());
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(ddinput_errors.begin(),
+                                  ddinput_errors.end(),
+                                  dfinput_errors.begin(),
+                                  dfinput_errors.end());
+
+    distribution<float> fdinput_errors
+        = layerf.bprop(inputd, resultdd.cast<double>(),
+                       fdtemp_space, temp_space_size,
+                       doutput_errors, fdgradient, 1.0).cast<float>();
+    
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(ddgradient.values.begin(),
+                                  ddgradient.values.end(),
+                                  fdgradient.values.begin(),
+                                  fdgradient.values.end());
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(ddinput_errors.begin(),
+                                  ddinput_errors.end(),
+                                  fdinput_errors.begin(),
+                                  fdinput_errors.end());
+    
+    distribution<float> ffinput_errors
+        = layerf.bprop(inputf, resultdf,
+                       dftemp_space, temp_space_size,
+                       foutput_errors, ffgradient, 1.0);
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(ddgradient.values.begin(),
+                                  ddgradient.values.end(),
+                                  ffgradient.values.begin(),
+                                  ffgradient.values.end());
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(ddinput_errors.begin(),
+                                  ddinput_errors.end(),
+                                  ffinput_errors.begin(),
+                                  ffinput_errors.end());
+}
+
+template<class Float, class Layer, class Float2>
+void bprop_test(Layer & layer, const distribution<Float2> & input_,
+                double epsilon, double tolerance)
+{
+    // If we set the derror/doutput to 1 for one output and to zero for the
+    // rest, then the error calculated should equal the change in that output
+    // per unit change in the parameter.  We can use this to test all of the
+    // parameters.
+
+    int ni = layer.inputs(), no = layer.outputs();
+
+    BOOST_REQUIRE_EQUAL(input_.size(), ni);
+    BOOST_REQUIRE(ni > 0);
+    BOOST_REQUIRE(no > 0);
+
+    // Create a random input vector
+
+    distribution<Float> input(input_);
+
+    size_t temp_space_size = layer.fprop_temporary_space_required();
+    Float temp_space_storage[temp_space_size + 2];
+    temp_space_storage[0] = 0.123456;
+    temp_space_storage[temp_space_size + 1] = 0.8765432;
+
+    Float * temp_space = temp_space_storage + 1;
+
+    // Put values here to make sure that the space is used
+    std::fill(temp_space, temp_space + temp_space_size,
+              numeric_limits<float>::quiet_NaN());
+
+
+    // Get the original parameters
+    const Parameters_Copy<Float> params(layer);
+
+    // Set them from the copied values
+    layer.parameters().set(params);
+
+    // Perform the original fprop and bprop to get the baseline
+    distribution<Float> baseline_output
+        = layer.fprop(input, temp_space, temp_space_size);
+    
+    // Make sure that the temp space was used but not the guard values at
+    // either end
+    BOOST_CHECK_EQUAL(temp_space_storage[0],
+                      (Float)0.123456);
+    BOOST_CHECK_EQUAL(temp_space_storage[temp_space_size + 1],
+                      (Float)0.8765432);
+    for (unsigned i = 0;  i < temp_space_size;  ++i)
+        BOOST_CHECK(!isnan(temp_space[i]));
+    
+
+    // Check that there is zero gradient if the error gradients are all zero
+    distribution<Float> output_errors(no);
+
+    Parameters_Copy<Float> gradient(layer, 0.0);
+    BOOST_CHECK((gradient.values == 0.0).all());
+
+    distribution<Float> input_errors
+        = layer.bprop(input, baseline_output,
+                      temp_space, temp_space_size,
+                      output_errors, gradient, 1.0);
+
+    BOOST_CHECK((input_errors == 0.0).all());
+    BOOST_CHECK((gradient.values == 0.0).all());
+
+    // We take our output error to be the sum of the outputs, which makes the
+    // derror/doutput 1 for all of the outputs
+    output_errors.fill(1.0);
+    
+    gradient.values.fill(0.0);
+
+    input_errors
+        = layer.bprop(input, baseline_output,
+                      temp_space, temp_space_size,
+                      output_errors, gradient, 1.0);
+
+    double baseline_error = baseline_output.total();
+
+    // For each parameter, calculate numerically the gradient and test
+    // against the analytical version
+    int np = params.values.size();
+
+    for (unsigned i = 0;  i < np;  ++i) {
+        Parameters_Copy<Float> new_params = params;
+
+        double old_value = new_params.values[i];
+        new_params.values[i] += epsilon;
+        double real_epsilon = new_params.values[i] - old_value;
+
+        if (real_epsilon == 0.0)
+            throw Exception("epsilon was too low");
+
+        layer.parameters().set(new_params);
+
+        // Put values here to make sure that the space is used
+        std::fill(temp_space, temp_space + temp_space_size,
+                  numeric_limits<float>::quiet_NaN());
+        
+
+        // Perform a new fprop to see the change in the error
+        distribution<Float> new_output
+            = layer.fprop(input, temp_space, temp_space_size);
+        
+        // Make sure that the temp space was used but not the guard values at
+        // either end
+        BOOST_CHECK_EQUAL(temp_space_storage[0],
+                          (Float)0.123456);
+        BOOST_CHECK_EQUAL(temp_space_storage[temp_space_size + 1],
+                          (Float)0.8765432);
+        for (unsigned j = 0;  j < temp_space_size;  ++j)
+            BOOST_CHECK(!isnan(temp_space[j]));
+
+        double delta = new_output.total() - baseline_error;
+
+        double this_gradient = delta / real_epsilon;
+        double calc_gradient = gradient.values[i];
+
+        BOOST_CHECK_CLOSE(this_gradient, calc_gradient, tolerance);
+    }
+
+    // Do the same for the input parameters, in order to check the propagation
+    // of the gradients
+
+    layer.parameters().set(params);
+
+    for (unsigned i = 0;  i < ni;  ++i) {
+        distribution<Float> input2 = input;
+
+        double old_value = input2[i];
+        input2[i] += epsilon;
+        double real_epsilon = input2[i] - old_value;
+
+        if (real_epsilon == 0.0)
+            throw Exception("epsilon was too low");
+
+
+        // Put values here to make sure that the space is used
+        std::fill(temp_space, temp_space + temp_space_size,
+                  numeric_limits<float>::quiet_NaN());
+
+        // Perform a new fprop to see the change in the error
+        distribution<Float> new_output
+            = layer.fprop(input2, temp_space, temp_space_size);
+        
+        // Make sure that the temp space was used but not the guard values at
+        // either end
+        BOOST_CHECK_EQUAL(temp_space_storage[0],
+                          (Float)0.123456);
+        BOOST_CHECK_EQUAL(temp_space_storage[temp_space_size + 1],
+                          (Float)0.8765432);
+        for (unsigned j = 0;  j < temp_space_size;  ++j)
+            BOOST_CHECK(!isnan(temp_space[j]));
+
+        double delta = new_output.total() - baseline_error;
+
+        double this_gradient = delta / real_epsilon;
+        double calc_gradient = input_errors[i];
+        
+        BOOST_CHECK_CLOSE(this_gradient, calc_gradient, tolerance);
+    }
+}
+
+double get_tolerance(float)
+{
+    return 0.1;
+}
+
+double get_tolerance(double)
+{
+    return 0.01;
+}
+
+double get_epsilon(float)
+{
+    return 1e-5;
+}
+
+double get_epsilon(double)
+{
+    return 1e-9;
+}
+
+template<class Float, class Layer>
+void bprop_test(Layer & layer, Thread_Context & context)
+{
+    int ni = layer.inputs(), no = layer.outputs();
+
+    BOOST_REQUIRE(ni > 0);
+    BOOST_REQUIRE(no > 0);
+
+    distribution<Float> input(ni);
+    for (unsigned i = 0;  i < ni;  ++i)
+        input[i] = 0.5 - context.random01();
+
+    if (layer.supports_missing_inputs()) {
+        for (unsigned i = 0;  i < ni;  i += 2)
+            input[i] = numeric_limits<float>::quiet_NaN();
+    }
+
+    bprop_test<Float>(layer, input, get_epsilon(Float()), get_tolerance(Float()));
+}
+
+BOOST_AUTO_TEST_CASE( test_bprop_identity_double_double_none )
+{
+    Thread_Context context;
+    Dense_Layer<double> layer("test", 20, 40, TF_IDENTITY, MV_NONE, context);
+
+    bprop_test<double>(layer, context);
+}
+
+BOOST_AUTO_TEST_CASE( test_bprop_identity_double_float_none )
+{
+    Thread_Context context;
+    Dense_Layer<double> layer("test", 20, 40, TF_IDENTITY, MV_NONE, context);
+
+    bprop_test<float>(layer, context);
+}
+
+BOOST_AUTO_TEST_CASE( test_bprop_identity_none )
+{
+    Thread_Context context;
+    Dense_Layer<float> layer("test", 20, 40, TF_IDENTITY, MV_NONE, context);
+
+    bprop_test<double>(layer, context);
+    //bprop_test<float>(layer, context);
 }

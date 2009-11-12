@@ -90,6 +90,12 @@ public:
 
     virtual bool equal_impl(const Layer & other) const = 0;
 
+    /** Does this layer support missing values (NaN) in its inputs?
+
+        Default implementation returns false.
+    */
+    virtual bool supports_missing_inputs() const;
+
     ///@}
 
 

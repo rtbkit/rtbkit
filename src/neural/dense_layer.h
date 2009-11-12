@@ -190,6 +190,8 @@ struct Dense_Layer : public Layer {
 
     virtual std::pair<float, float> targets(float maximum) const;
 
+    virtual bool supports_missing_inputs() const;
+
     virtual Dense_Layer * make_copy() const { return new Dense_Layer(*this); }
 
     virtual Dense_Layer * deep_copy() const { return new Dense_Layer(*this); }
