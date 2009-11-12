@@ -5,9 +5,15 @@
    Implementation of a stack of auto-encoders.
 */
 
+#undef NDEBUG
+
 #include "auto_encoder_stack.h"
 #include "boosting/registry.h"
 #include "layer_stack_impl.h"
+#include "utils/check_not_nan.h"
+
+
+using namespace std;
 
 
 namespace ML {
@@ -318,6 +324,12 @@ ibprop(const F * outputs,
        Parameters & gradient,
        double example_weight) const
 {
+    int ni = this->inputs(), no = this->outputs();
+
+    CHECK_NOT_NAN_N(outputs, no);
+    CHECK_NOT_NAN_N(inputs, ni);
+    CHECK_NOT_NAN_N(input_errors, ni);
+    
     const F * temp_space_start = temp_space;
     const F * temp_space_end = temp_space_start + temp_space_size;
     const F * curr_temp_space = temp_space_end;
@@ -340,15 +352,17 @@ ibprop(const F * outputs,
 
         const F * curr_input_errors
             = (i == 0 ? input_errors : error_storage);
-
+        
         F * curr_output_errors
             = (i == size() - 1 ? output_errors : error_storage);
 
+        //cerr << "i = " << i << endl;
+
         layers_[i].ibprop(curr_outputs, curr_inputs, curr_temp_space,
-                           layer_temp_space_size, curr_input_errors,
-                           curr_output_errors,
-                           gradient.subparams(i, layers_[i].name()),
-                           example_weight);
+                          layer_temp_space_size, curr_input_errors,
+                          curr_output_errors,
+                          gradient.subparams(i, layers_[i].name()),
+                          example_weight);
 
         if (curr_temp_space < temp_space_start)
             throw Exception("Layer temp space was out of sync");
