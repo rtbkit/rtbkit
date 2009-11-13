@@ -154,6 +154,7 @@ rbprop(const F * inputs,
        const F * temp_space,
        size_t temp_space_size,
        const F * reconstruction_errors,
+       F * input_errors_out,
        Parameters & gradient,
        double example_weight) const
 {
@@ -179,7 +180,7 @@ rbprop(const F * inputs,
     ibprop(outputs, reconstruction, itemp_space, ifspace,
            reconstruction_errors, output_errors, gradient, example_weight);
     
-    bprop(inputs, outputs, temp_space, fspace, output_errors, 0,
+    bprop(inputs, outputs, temp_space, fspace, output_errors, input_errors_out,
           gradient, example_weight);
 }
     
@@ -190,11 +191,13 @@ rbprop(const float * inputs,
        const float * temp_space,
        size_t temp_space_size,
        const float * reconstruction_errors,
+       float * input_errors_out,
        Parameters & gradient,
        double example_weight) const
 {
     return rbprop<float>(inputs, reconstruction, temp_space, temp_space_size,
-                         reconstruction_errors, gradient, example_weight);
+                         reconstruction_errors, input_errors_out,
+                         gradient, example_weight);
 }
     
 void
@@ -204,11 +207,13 @@ rbprop(const double * inputs,
        const double * temp_space,
        size_t temp_space_size,
        const double * reconstruction_errors,
+       double * input_errors_out,
        Parameters & gradient,
        double example_weight) const
 {
     return rbprop<double>(inputs, reconstruction, temp_space, temp_space_size,
-                          reconstruction_errors, gradient, example_weight);
+                          reconstruction_errors, input_errors_out,
+                          gradient, example_weight);
 }
 
 } // namespace ML

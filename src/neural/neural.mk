@@ -16,7 +16,8 @@ LIBNEURAL_SOURCES := \
 	auto_encoder_stack.cc \
 	twoway_layer.cc \
 	auto_encoder_trainer.cc \
-	reverse_layer_adaptor.cc
+	reverse_layer_adaptor.cc \
+	reconstruct_layer_adaptor.cc
 
 LIBNEURAL_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt boosting stats
 

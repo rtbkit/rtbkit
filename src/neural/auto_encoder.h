@@ -212,6 +212,7 @@ struct Auto_Encoder : public Layer {
                         const float * temp_space,
                         size_t temp_space_size,
                         const float * reconstruction_errors,
+                        float * input_errors_out,
                         Parameters & gradient,
                         double example_weight) const;
     
@@ -221,6 +222,7 @@ struct Auto_Encoder : public Layer {
                         const double * temp_space,
                         size_t temp_space_size,
                         const double * reconstruction_errors,
+                        double * input_errors_out,
                         Parameters & gradient,
                         double example_weight) const;
 
@@ -230,6 +232,7 @@ struct Auto_Encoder : public Layer {
                 const F * temp_space,
                 size_t temp_space_size,
                 const F * reconstruction_errors,
+                F * input_errors_out,
                 Parameters & gradient,
                 double example_weight) const;
 

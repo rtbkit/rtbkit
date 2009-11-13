@@ -109,7 +109,7 @@ train_example(const Auto_Encoder & encoder,
 
     encoder.rbprop(&inputs[0], &reconstruction[0],
                    temp_space, temp_space_size,
-                   &derror[0], updates, 1.0);
+                   &derror[0], 0 /* input_errors_out */, updates, 1.0);
 
     // Calculate the exact error as well
     distribution<float> exact_error;

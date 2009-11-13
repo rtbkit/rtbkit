@@ -68,7 +68,7 @@ std::string
 Reverse_Layer_Adaptor::
 class_id() const
 {
-    return "Reversed_Auto_Encoder";
+    return "Reverse_Layer_Adaptor";
 }
 
 size_t
