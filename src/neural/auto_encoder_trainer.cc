@@ -47,6 +47,8 @@ defaults()
     randomize_order = true;
     sample_proportion = 0.8;
     test_every = 1;
+    prob_any_noise = 0.5;
+    stack_backprop_iter = 0;
 }
 
 void
@@ -61,6 +63,8 @@ configure(const std::string & name, const Configuration & config)
     config.get(randomize_order, "randomize_order");
     config.get(sample_proportion, "sample_proportion");
     config.get(test_every, "test_every");
+    config.get(prob_any_noise, "prob_any_noise");
+    config.get(stack_backprop_iter, "stack_backprop_iter");
 }
 
 template<typename Float>
@@ -70,6 +74,9 @@ add_noise(const distribution<Float> & inputs,
           Thread_Context & context) const
 {
     distribution<Float> result = inputs;
+
+    if (prob_any_noise == 0.0
+        || context.random01() > prob_any_noise) return result;
 
     for (unsigned i = 0;  i < inputs.size();  ++i)
         if (context.random01() < prob_cleared)
@@ -205,7 +212,8 @@ std::pair<double, double>
 Auto_Encoder_Trainer::
 train_iter(Auto_Encoder & encoder,
            const std::vector<distribution<float> > & data,
-           Thread_Context & thread_context)
+           Thread_Context & thread_context,
+           double learning_rate)
 {
     Worker_Task & worker = thread_context.worker();
 
@@ -284,7 +292,7 @@ train_iter(Auto_Encoder & encoder,
 
         //cerr << "applying minibatch updates" << endl;
         
-        encoder.parameters().update(updates, learning_rate);
+        encoder.parameters().update(updates, -learning_rate / minibatch_size);
     }
 
     return make_pair(sqrt(total_mse_exact / nx2), sqrt(total_mse_noisy / nx2));
@@ -297,6 +305,8 @@ train(Auto_Encoder & encoder,
       const std::vector<distribution<float> > & testing_data,
       Thread_Context & thread_context)
 {
+    double learning_rate = this->learning_rate;
+    
     int nx = training_data.size();
     int nxt = testing_data.size();
 
@@ -305,6 +315,14 @@ train(Auto_Encoder & encoder,
              << "        exact   noisy    exact   noisy\n";
     
     for (unsigned iter = 0;  iter < niter;  ++iter) {
+
+        if (iter % 5 == 0) {
+            learning_rate
+                = calc_learning_rate(encoder, training_data, thread_context);
+            cerr << "optimal learning rate calculated was " << learning_rate
+                 << endl;
+        }
+
         if (verbosity >= 3)
             cerr << "iter " << iter << " training on " << nx << " examples"
                  << endl;
@@ -314,7 +332,8 @@ train(Auto_Encoder & encoder,
         
         double train_error_exact, train_error_noisy;
         boost::tie(train_error_exact, train_error_noisy)
-            = train_iter(encoder, training_data, thread_context);
+            = train_iter(encoder, training_data, thread_context,
+                         learning_rate);
         
         if (verbosity >= 3) {
             cerr << "rmse of iteration: exact " << train_error_exact
@@ -351,6 +370,87 @@ train(Auto_Encoder & encoder,
         
         if (verbosity == 2) cerr << endl;
     }
+}
+
+double
+Auto_Encoder_Trainer::
+calc_learning_rate(const Auto_Encoder & layer,
+                   const std::vector<distribution<float> > & training_data,
+                   Thread_Context & thread_context)
+{
+    // 1.  Pick an initial eigenvector estimate at random
+    
+    Parameters_Copy<double> eig(layer);
+    for (unsigned i = 0;  i < eig.values.size();  ++i)
+        eig.values[i] = 1 / sqrt(eig.values.size());
+
+    // Get a mutable version so that we can modify its parameters
+    auto_ptr<Auto_Encoder> modified(layer.deep_copy());
+    
+    // Current set of parameters
+    Parameters_Copy<double> params(*modified);
+
+    // Temporary space for the fprop/bprop
+    size_t temp_space_size = layer.rfprop_temporary_space_required();
+    float temp_space[temp_space_size];
+
+    double alpha = 0.0001;
+    double gamma = 0.05;
+
+    for (unsigned i = 0;  i < 500;  ++i) {
+        if (i == 100) gamma = 0.01;
+        if (i == 300) gamma = 0.005;
+
+        //cerr << "i = " << i << " two_norm = " << eig.values.two_norm()
+        //     << endl;
+
+        int example_num = min<int>(training_data.size() - 1,
+                                   thread_context.random01()
+                                   * training_data.size());
+
+        const distribution<float> & exact_input = training_data[example_num];
+        distribution<float> noisy_input
+            = add_noise(exact_input, thread_context);
+        
+        distribution<float> reconstructed(layer.inputs());
+
+        Parameters_Copy<double> gradient1(eig, 0.0);
+
+        layer.rfprop(&noisy_input[0], temp_space, temp_space_size,
+                     &reconstructed[0]);
+
+        distribution<float> errors = -2.0 * (exact_input - reconstructed);
+        
+        layer.rbprop(&noisy_input[0], &reconstructed[0],
+                     temp_space, temp_space_size, &errors[0], 0,
+                     gradient1, 1.0);
+
+        Parameters_Copy<double> new_params = params;
+        new_params.values += alpha / eig.values.two_norm() * eig.values;
+
+        modified->parameters().set(new_params);
+
+        modified->rfprop(&noisy_input[0], temp_space, temp_space_size,
+                         &reconstructed[0]);
+        
+        errors = -2.0 * (exact_input - reconstructed);
+
+        Parameters_Copy<double> gradient2(eig, 0.0);
+        
+        modified->rbprop(&noisy_input[0], &reconstructed[0],
+                         temp_space, temp_space_size, &errors[0], 0,
+                         gradient2, 1.0);
+        
+        distribution<double> dgradient = gradient2.values - gradient1.values;
+        dgradient *= (gamma / alpha);
+
+        eig.values = (1.0 - gamma) * eig.values + dgradient;
+
+        distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
+        //cerr << "values = " << values << endl;
+    }
+
+    return 1.0 / eig.values.two_norm();
 }
 
 void
@@ -397,6 +497,30 @@ train_stack(Auto_Encoder_Stack & stack,
         next_layer_train.resize(nx);
         next_layer_test.resize(nxt);
 
+        // Add it to the testing stack so that we can test up to here
+        test_stack.add(make_unowned_sp(layer));
+
+        if ((true || stack_backprop_iter > 0) && layer_num != 0) {
+
+            // Test the layer stack
+            if (verbosity >= 3)
+                cerr << "calculating whole stack testing performance on "
+                     << nxt << " examples" << endl;
+            
+            if (verbosity >= 1) {
+                double test_error_exact = 0.0, test_error_noisy = 0.0;
+                boost::tie(test_error_exact, test_error_noisy)
+                    = test(test_stack, testing_data, thread_context);
+                
+                cerr << "testing rmse of stack: exact "
+                     << test_error_exact << " noisy " << test_error_noisy
+                     << endl;
+                
+                cerr << endl << endl << "training whole stack backprop" << endl;
+                train(test_stack, training_data, testing_data, thread_context);
+            }
+        }
+
         // Calculate the inputs to the next layer
         
         if (verbosity >= 3)
@@ -428,9 +552,6 @@ train_stack(Auto_Encoder_Stack & stack,
         layer_train.swap(next_layer_train);
         layer_test.swap(next_layer_test);
 
-        // Add it so that we can test up to here
-        test_stack.add(make_unowned_sp(layer));
-
         // Test the layer stack
         if (verbosity >= 3)
             cerr << "calculating whole stack testing performance on "
@@ -438,7 +559,7 @@ train_stack(Auto_Encoder_Stack & stack,
         
         if (verbosity >= 1) {
             boost::tie(test_error_exact, test_error_noisy)
-                = test(stack, testing_data, thread_context);
+                = test(test_stack, testing_data, thread_context);
 
             cerr << "testing rmse of stack: exact "
                  << test_error_exact << " noisy " << test_error_noisy

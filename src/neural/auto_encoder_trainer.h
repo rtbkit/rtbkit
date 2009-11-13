@@ -43,6 +43,8 @@ struct Auto_Encoder_Trainer {
     bool randomize_order;
     int niter;
     int test_every;
+    float prob_any_noise;
+    int stack_backprop_iter;
 
 
     /** Add noise to the distribution, according to the noise parameters that
@@ -65,7 +67,15 @@ struct Auto_Encoder_Trainer {
     std::pair<double, double>
     train_iter(Auto_Encoder & encoder,
                const std::vector<distribution<float> > & data,
-               Thread_Context & thread_context);
+               Thread_Context & thread_context,
+               double learning_rate);
+
+    /** Calculate the optimal learning rate for the given training data */
+    double
+    calc_learning_rate(const Auto_Encoder & layer,
+                       const std::vector<distribution<float> > & training_data,
+                       Thread_Context & thread_context);
+
 
     void
     train(Auto_Encoder & encoder,
