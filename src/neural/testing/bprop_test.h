@@ -157,6 +157,12 @@ void bprop_test(Layer & layer, const distribution<Float2> & input_,
              << endl;
 #endif
 
+        if (abs(this_gradient - calc_gradient)
+            / std::max(abs(this_gradient), abs(calc_gradient))
+            > tolerance / 100.0)
+            cerr << "error is on parameter " << i << " "
+                 << params.parameter_info(i) << endl;
+
         BOOST_CHECK_CLOSE(this_gradient, calc_gradient, tolerance);
     }
 
@@ -200,6 +206,11 @@ void bprop_test(Layer & layer, const distribution<Float2> & input_,
         double this_gradient = delta / real_epsilon;
         double calc_gradient = input_errors[i];
         
+        if (abs(this_gradient - calc_gradient)
+            / std::max(abs(this_gradient), abs(calc_gradient))
+            > tolerance / 100.0)
+            cerr << "error is input error " << i << endl;
+
         BOOST_CHECK_CLOSE(this_gradient, calc_gradient, tolerance);
     }
 }

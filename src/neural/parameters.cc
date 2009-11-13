@@ -598,6 +598,21 @@ set(const Parameter_Value & other)
     }
 }
 
+std::string
+Parameters::
+parameter_info(int index) const
+{
+    if (index < 0 || index >= parameter_count())
+        throw Exception("parameter_info(): invalid index");
+
+    for (Params::const_iterator it = params.begin(), end = params.end();
+         it != end;  index -= it->parameter_count(),  ++it)
+        if (index < it->parameter_count())
+            return name() + "." + it->parameter_info(index);
+
+    throw Exception("parameter_info(): out of sync");
+}
+
 
 /*****************************************************************************/
 /* PARAMETERS_REF                                                            */

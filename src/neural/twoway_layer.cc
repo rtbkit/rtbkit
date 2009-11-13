@@ -322,12 +322,14 @@ ibprop(const F * outputs,
 #endif
     }
 
-    gradient.vector(5, "iscales").update(iscales_updates, example_weight);
-    gradient.vector(6, "oscales").update(oscales_updates, example_weight);
-
-
     if (output_errors)
         SIMD::vec_prod(&oscales[0], &oscales_updates[0], output_errors, no);
+
+    for (unsigned o = 0;  o < no;  ++o)
+        oscales_updates[o] *= outputs[o];
+
+    gradient.vector(5, "iscales").update(iscales_updates, example_weight);
+    gradient.vector(6, "oscales").update(oscales_updates, example_weight);
 }
 
 void

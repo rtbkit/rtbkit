@@ -186,6 +186,14 @@ struct Vector_RefT : public Vector_Parameter {
     {
         return new Vector_RefT(*this);
     }
+
+    virtual std::string parameter_info(int index) const
+    {
+        if (index < 0 || index >= size_)
+            throw Exception("size was wrong");
+        return format("%s (vector) element %d",
+                      name().c_str(), index);
+    }
     
 protected:
     Underlying * array_;
@@ -344,6 +352,14 @@ struct Matrix_RefT : public Matrix_Parameter {
     virtual Matrix_RefT * make_copy() const
     {
         return new Matrix_RefT(*this);
+    }
+
+    virtual std::string parameter_info(int index) const
+    {
+        if (index < 0 || index >= size1_ * size2_)
+            throw Exception("size was wrong");
+        return format("%s (matrix) row %d column %d",
+                      name().c_str(), index / size1_, index % size1_);
     }
 
 protected:

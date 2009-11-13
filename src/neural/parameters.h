@@ -103,6 +103,9 @@ struct Parameter_Value {
     // used as part of the implementation.
     virtual void set_name(const std::string & name);
 
+    /** Describe what the parameter is (name, type, etc) */
+    virtual std::string parameter_info(int index) const = 0;
+
 protected:
     std::string name_;
     void swap(Parameter_Value & other);
@@ -271,6 +274,9 @@ struct Parameters : public Parameter_Value {
 
     /** Set these parameters from another parameters object. */
     virtual void set(const Parameter_Value & other);
+
+    /** Describe what the parameter is (name, type, etc) */
+    virtual std::string parameter_info(int index) const;
 
 protected:
     Parameters(const std::string & name);
