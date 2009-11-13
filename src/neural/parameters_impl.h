@@ -19,7 +19,7 @@ namespace {
 template<typename F>
 bool need_update(const F * vals, size_t size)
 {
-#if 1 // check the whole range for NaN
+#if 0 // check the whole range for NaN
     bool result = false;
     for (unsigned i = 0;  i < size;  ++i) {
         if (isnan(vals[i]))
@@ -34,6 +34,7 @@ bool need_update(const F * vals, size_t size)
             throw Exception("updating with range containing NaN");
         if (vals[i] != 0.0) return true;
     }
+    return false;
 #endif
 }
 
