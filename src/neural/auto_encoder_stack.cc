@@ -41,12 +41,14 @@ Auto_Encoder_Stack(const Auto_Encoder_Stack & other, Deep_Copy_Tag)
     : Auto_Encoder(other),
       layers_(other.layers_, Deep_Copy_Tag())
 {
+    update_parameters();
 }
 
 void
 Auto_Encoder_Stack::
 swap(Auto_Encoder_Stack & other)
 {
+    Auto_Encoder::swap(other);
     layers_.swap(other.layers_);
 }
 
@@ -55,6 +57,7 @@ Auto_Encoder_Stack::
 clear()
 {
     layers_.clear();
+    update_parameters();
 }
 
 void
