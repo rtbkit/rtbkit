@@ -36,6 +36,9 @@ void vec_scale(const float * x, float factor, float * r, size_t n);
 void vec_add(const float * x, const float * y, float * r, size_t n);
 void vec_add(const float * x, float k, const float * y, float * r, size_t n);
 
+// r = x + k y^2
+void vec_add_sqr(const float * x, float k, const float * y, float * r, size_t n);
+
 // r = x + k y
 void vec_add(const float * x, const float * k, const float * y, float * r,
              size_t n);
@@ -56,6 +59,10 @@ void vec_scale(const double * x, double factor, double * r, size_t n);
 void vec_add(const double * x, const double * y, double * r, size_t n);
 void vec_add(const double * x, double k, const double * y, double * r,
              size_t n);
+
+// r = x + k y^2
+void vec_add_sqr(const double * x, double k, const double * y, double * r,
+                 size_t n);
 // r = x + k y
 void vec_add(const double * x, const double * k, const double * y, double * r,
              size_t n);
@@ -75,6 +82,8 @@ double vec_sum(const double * x, size_t n);
 
 /* Mixed versions */
 void vec_add(const float * x, float k, const double * y, float * r, size_t n);
+void vec_add_sqr(const float * x, float k, const double * y, float * r, size_t n);
+
 double vec_dotprod_dp(const double * x, const float * y, size_t n);
 JML_ALWAYS_INLINE
 double vec_dotprod_dp(const float * x, const double * y, size_t n)
@@ -98,6 +107,9 @@ double vec_dotprod_dp(const float * x, const float * y, size_t n);
 double vec_sum_dp(const float * x, size_t n);
 void vec_add(const double * x, double k, const float * y, double * r,
              size_t n);
+
+void vec_add_sqr(const double * x, double k, const float * y, double * r,
+                 size_t n);
 
 inline double vec_sum_dp(const double * x, size_t n)
 {

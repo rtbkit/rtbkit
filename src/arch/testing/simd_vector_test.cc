@@ -9,8 +9,10 @@
 #define BOOST_TEST_DYN_LINK
 
 #include "arch/simd_vector.h"
+#include "arch/demangle.h"
 
 #include <boost/test/unit_test.hpp>
+#include <boost/test/floating_point_comparison.hpp>
 #include <vector>
 #include <set>
 #include <iostream>
@@ -374,4 +376,55 @@ BOOST_AUTO_TEST_CASE(vec_accum_prod3_test)
     vec_accum_prod3_test_case<double>(12);
     vec_accum_prod3_test_case<double>(16);
     vec_accum_prod3_test_case<double>(123);
+}
+
+template<typename Float1, typename Float2>
+void vec_add_sqr_test_case(int nvals)
+{
+    cerr << "testing vec_add_sqr nvals " << nvals << " float1 "
+         << demangle(typeid(Float1).name())
+         << " float2 " << demangle(typeid(Float2).name())
+         << endl;
+
+    Float1 x[nvals], r[nvals], r2[nvals];
+    Float2 y[nvals];
+
+    Float1 k = 3.0;
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        y[i] = rand() / 16384.0;
+        r2[i] = x[i] + k * (y[i] * y[i]);
+    }
+
+    SIMD::vec_add_sqr(x, k, y, r, nvals);
+
+    for (unsigned i = 0;  i < nvals;  ++i) {
+        if (r[i] != r2[i]) ;
+            
+        BOOST_CHECK_EQUAL(r[i], r2[i]);
+    }
+}
+
+template<typename Float1, typename Float2>
+void vec_add_sqr_test_cases()
+{
+    vec_add_sqr_test_case<Float1, Float2>(1);
+    vec_add_sqr_test_case<Float1, Float2>(2);
+    vec_add_sqr_test_case<Float1, Float2>(3);
+    vec_add_sqr_test_case<Float1, Float2>(4);
+    vec_add_sqr_test_case<Float1, Float2>(5);
+    vec_add_sqr_test_case<Float1, Float2>(8);
+    vec_add_sqr_test_case<Float1, Float2>(9);
+    vec_add_sqr_test_case<Float1, Float2>(12);
+    vec_add_sqr_test_case<Float1, Float2>(16);
+    vec_add_sqr_test_case<Float1, Float2>(123);
+}
+
+BOOST_AUTO_TEST_CASE( vec_add_sqr_test )
+{
+    //vec_add_sqr_test_cases<float, float>();
+    //vec_add_sqr_test_cases<float, double>();
+    vec_add_sqr_test_cases<double, float>();
+    //vec_add_sqr_test_cases<double, double>();
 }
