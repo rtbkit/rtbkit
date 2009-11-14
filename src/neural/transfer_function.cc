@@ -306,12 +306,12 @@ second_derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
             deriv[i] = -2.0 * outputs[i] * (1.0 - (outputs[i] * outputs[i]));
         break;
 
-#if 0
     case TF_LOGSIG:
         for (unsigned i = 0;  i < nvals;  ++i)
-            deriv[i] = ...;
+            deriv[i] = outputs[i] * (1 - outputs[i]) * (1 - 2 * outputs[i]);
         break;
-        
+      
+#if 0  
     case TF_LOGSOFTMAX:
         for (unsigned i = 0;  i < nvals;  ++i)
             deriv[i] = ...;
