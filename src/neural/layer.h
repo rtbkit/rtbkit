@@ -491,11 +491,28 @@ public:
         to determine an individual learning rate for each of the parameters.
     */
 
-    /** Does this implement bbprop? */
-    virtual bool has_bbprop() const = 0;
+    /** Second order derivatives.  Given the same information as the backprop
+        function, calculate the second derivative of the error with respect
+        to each parameter and the second derivative with respect to the
+        outputs to propagate further. */
+
+    virtual void bbprop(const float * inputs,
+                        const float * outputs,
+                        const float * temp_space, size_t temp_space_size,
+                        const float * output_errors,
+                        const float * d2output_errors,
+                        float * d2input_errors,
+                        Parameters & dgradient,
+                        double example_weight) const = 0;
  
-    /* (todo) */
-#endif
+    virtual void bbprop(const double * inputs,
+                        const double * outputs,
+                        const double * temp_space, size_t temp_space_size,
+                        const double * output_errors,
+                        double * input_errors,
+                        Parameters & gradient,
+                        double example_weight) const = 0;
+ #endif
 
 
 protected:

@@ -166,6 +166,22 @@ struct Dense_Layer : public Layer {
                Parameters & gradient,
                double example_weight) const;
 
+
+    template<typename F>
+    void bbprop(const F * inputs,
+                const F * outputs,
+                const F * temp_space, size_t temp_space_size,
+                const F * output_errors,
+                F * input_errors,
+                F * dinput_errors,
+                Parameters & gradient,
+                Parameters * dgradient,
+                double example_weight) const;
+    
+    
+
+
+
     /** Add in our parameters to the params object. */
     virtual void add_parameters(Parameters & params);
 

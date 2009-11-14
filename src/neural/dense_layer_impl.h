@@ -531,6 +531,86 @@ bprop(const double * inputs,
                   input_errors, gradient, example_weight);
 }
 
+template<typename Float>
+template<typename F>
+void
+Dense_Layer<Float>::
+bbprop(const F * inputs,
+       const F * outputs,
+       const F * temp_space, size_t temp_space_size,
+       const F * output_errors,
+       F * input_errors,
+       F * dinput_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    int ni = this->inputs(), no = this->outputs();
+
+    if (temp_space_size != 0)
+        throw Exception("Dense_Layer::bprop(): wrong temp size");
+    
+    // Differentiate the output function
+    F derivs[no];
+    transfer_function->derivative(outputs, derivs, no);
+
+    // Approximation to the second derivative of the output errors
+    F dderivs[no];
+    for (unsigned o = 0;  o < no;  ++o)
+        dderivs[o] = doutput_errors[o] * sqr(derivs[o]);
+
+    // These are the bias errors...
+    dgradient->vector(1, "bias").update(dderivs, example_weight);
+
+    
+
+    // Bias updates are simply derivs in multiplied by transfer deriv
+    F dbias[no];
+    SIMD::vec_prod(derivs, &output_errors[0], dbias, no);
+
+    gradient.vector(1, "bias").update(dbias, example_weight);
+
+    for (unsigned i = 0;  i < ni;  ++i) {
+        bool was_missing = isnan(inputs[i]);
+        if (input_errors) input_errors[i] = 0.0;
+        
+        if (!was_missing) {
+            gradient.matrix(0, "weights")
+                .update_row(i, dbias, inputs[i] * example_weight);
+
+            if (input_errors)
+                input_errors[i]
+                    = SIMD::vec_dotprod_dp(&weights[i][0],
+                                           &dbias[0], no);
+        }
+        else if (missing_values == MV_NONE)
+            throw Exception("MV_NONE but missing value");
+        else if (missing_values == MV_ZERO) {
+            // No update as everything is multiplied by zero
+        }
+        else if (missing_values == MV_DENSE) {
+            gradient.matrix(3, "missing_activations")
+                .update_row(i, dbias, example_weight);
+        }
+        else if (missing_values == MV_INPUT) {
+            // Missing
+
+            // Update the weights
+            gradient.matrix(0, "weights")
+                .update_row(i, dbias,
+                            missing_replacements[i] * example_weight);
+            
+            gradient.vector(2, "missing_replacements")
+                .update_element(i,
+                                (example_weight
+                                 * SIMD::vec_dotprod_dp(&weights[i][0], dbias,
+                                                        no)));
+        }
+    }
+    
+}
+    
+
 namespace {
 
 template<typename Float>
