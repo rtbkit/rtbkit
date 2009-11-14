@@ -47,7 +47,10 @@ void vec_prod(const float * x, const float * y, float * r, size_t n);
 float vec_dotprod(const float * x, const float * y, size_t n);
 void vec_minus(const float * x, const float * y, float * r, size_t n);
 double vec_accum_prod3(const float * x, const float * y, const float * z,
-                      size_t n);
+                       size_t n);
+
+double vec_accum_prod3(const float * x, const float * y, const double * z,
+                       size_t n);
 
 // set r = k1 x + k2 y z
 void vec_k1_x_plus_k2_y_z(float k1, const float * x,
@@ -71,7 +74,9 @@ void vec_prod(const double * x, const double * y, double * r, size_t n);
 double vec_dotprod(const double * x, const double * y, size_t n);
 void vec_minus(const double * x, const double * y, double * r, size_t n);
 double vec_accum_prod3(const double * x, const double * y, const double * z,
-                      size_t n);
+                       size_t n);
+double vec_accum_prod3(const double * x, const double * y, const float * z,
+                       size_t n);
 
 // set r = k1 x + k2 y z
 void vec_k1_x_plus_k2_y_z(double k1, const double * x,

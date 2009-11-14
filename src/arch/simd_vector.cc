@@ -584,7 +584,44 @@ double vec_accum_prod3(const float * x, const float * y, const float * z,
         res = results[0] + results[1];
     }
         
+    for (;  i < n;  ++i) res += x[i] * y[i] * z[i];
+    return res;
+}
 
+double vec_accum_prod3(const float * x, const float * y, const double * z,
+                       size_t n)
+{
+    double res = 0.0;
+    unsigned i = 0;
+
+    if (true) {
+        v2df rr = vec_splat(0.0);
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
+            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            yyyy0 *= xxxx0;
+
+            v2df zz0a  = __builtin_ia32_loadupd(z + i + 0);
+            v2df zz0b  = __builtin_ia32_loadupd(z + i + 2);
+
+            v2df dd0a = __builtin_ia32_cvtps2pd(yyyy0);
+            yyyy0 = __builtin_ia32_shufps(yyyy0, yyyy0, 14);
+            v2df dd0b = __builtin_ia32_cvtps2pd(yyyy0);
+
+            dd0a     *= zz0a;
+            dd0b     *= zz0b;
+
+            rr += dd0a;
+            rr += dd0b;
+        }
+
+        double results[2];
+        *(v2df *)results = rr;
+
+        res = results[0] + results[1];
+    }
+        
     for (;  i < n;  ++i) res += x[i] * y[i] * z[i];
     return res;
 }
@@ -640,6 +677,46 @@ double vec_accum_prod3(const double * x, const double * y, const double * z,
             yy0 *= xx0;
             yy0 *= zz0;
             rr += yy0;
+        }
+
+        double results[2];
+        *(v2df *)results = rr;
+
+        result = results[0] + results[1];
+    }
+
+    for (; i < n;  ++i) result += x[i] * y[i] * z[i];
+
+    return result;
+}
+
+double vec_accum_prod3(const double * x, const double * y, const float * z,
+                      size_t n)
+{
+    unsigned i = 0;
+    double result = 0.0;
+
+    if (true) {
+        v2df rr = vec_splat(0.0);
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf zzzz01 = __builtin_ia32_loadups(z + i + 0);
+            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
+            v2df zz0 = __builtin_ia32_cvtps2pd(zzzz01);
+            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+
+            yy0 *= xx0;
+            yy0 *= zz0;
+            rr += yy0;
+
+            zzzz01 = __builtin_ia32_shufps(zzzz01, zzzz01, 14);
+            v2df zz1 = __builtin_ia32_cvtps2pd(zzzz01);
+            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
+            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+
+            yy1 *= xx1;
+            yy1 *= zz1;
+            rr += yy1;
         }
 
         double results[2];

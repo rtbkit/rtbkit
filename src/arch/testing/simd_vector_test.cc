@@ -327,10 +327,16 @@ BOOST_AUTO_TEST_CASE(vec_dotprod_test)
     vec_dotprod_dp_mixed_test_case(123);
 }
 
-template<typename T>
+template<typename T1, typename T2>
 void vec_accum_prod3_test_case(int nvals)
 {
-    T x[nvals], y[nvals], z[nvals];
+    cerr << "testing vec_accum_prod3 nvals " << nvals << " T1 "
+         << demangle(typeid(T1).name())
+         << " T2 " << demangle(typeid(T2).name())
+         << endl;
+
+    T1 x[nvals], y[nvals];
+    T2 z[nvals];
     double r = 0.0, r2;
 
     for (unsigned i = 0; i < nvals;  ++i) {
@@ -342,7 +348,7 @@ void vec_accum_prod3_test_case(int nvals)
     
     r2 = SIMD::vec_accum_prod3(x, y, z, nvals);
 
-    T eps = get_eps(T());
+    T1 eps = get_eps(T1());
     if (fabs(r - r2) / max(fabs(r), fabs(r2)) >= eps) {
         cerr << "difference = " << (abs(r - r2) / max(abs(r), abs(r2)))
              << endl;
@@ -351,31 +357,27 @@ void vec_accum_prod3_test_case(int nvals)
     BOOST_CHECK(fabs(r - r2) / max(fabs(r), fabs(r2)) < eps);
 }
 
+template<typename Float1, typename Float2>
+void vec_accum_prod3_test_cases()
+{
+    vec_accum_prod3_test_case<Float1, Float2>(1);
+    vec_accum_prod3_test_case<Float1, Float2>(2);
+    vec_accum_prod3_test_case<Float1, Float2>(3);
+    vec_accum_prod3_test_case<Float1, Float2>(4);
+    vec_accum_prod3_test_case<Float1, Float2>(5);
+    vec_accum_prod3_test_case<Float1, Float2>(8);
+    vec_accum_prod3_test_case<Float1, Float2>(9);
+    vec_accum_prod3_test_case<Float1, Float2>(12);
+    vec_accum_prod3_test_case<Float1, Float2>(16);
+    vec_accum_prod3_test_case<Float1, Float2>(123);
+}
+
 BOOST_AUTO_TEST_CASE(vec_accum_prod3_test)
 {
-    cerr << "float" << endl;
-    vec_accum_prod3_test_case<float>(1);
-    vec_accum_prod3_test_case<float>(2);
-    vec_accum_prod3_test_case<float>(3);
-    vec_accum_prod3_test_case<float>(4);
-    vec_accum_prod3_test_case<float>(5);
-    vec_accum_prod3_test_case<float>(8);
-    vec_accum_prod3_test_case<float>(9);
-    vec_accum_prod3_test_case<float>(12);
-    vec_accum_prod3_test_case<float>(16);
-    vec_accum_prod3_test_case<float>(123);
-
-    cerr << "double" << endl;
-    vec_accum_prod3_test_case<double>(1);
-    vec_accum_prod3_test_case<double>(2);
-    vec_accum_prod3_test_case<double>(3);
-    vec_accum_prod3_test_case<double>(4);
-    vec_accum_prod3_test_case<double>(5);
-    vec_accum_prod3_test_case<double>(8);
-    vec_accum_prod3_test_case<double>(9);
-    vec_accum_prod3_test_case<double>(12);
-    vec_accum_prod3_test_case<double>(16);
-    vec_accum_prod3_test_case<double>(123);
+    vec_accum_prod3_test_cases<float, float>();
+    vec_accum_prod3_test_cases<float, double>();
+    vec_accum_prod3_test_cases<double, float>();
+    vec_accum_prod3_test_cases<double, double>();
 }
 
 template<typename Float1, typename Float2>
@@ -423,8 +425,8 @@ void vec_add_sqr_test_cases()
 
 BOOST_AUTO_TEST_CASE( vec_add_sqr_test )
 {
-    //vec_add_sqr_test_cases<float, float>();
-    //vec_add_sqr_test_cases<float, double>();
+    vec_add_sqr_test_cases<float, float>();
+    vec_add_sqr_test_cases<float, double>();
     vec_add_sqr_test_cases<double, float>();
-    //vec_add_sqr_test_cases<double, double>();
+    vec_add_sqr_test_cases<double, double>();
 }
