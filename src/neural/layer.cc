@@ -245,6 +245,115 @@ bprop(const distribution<double> & inputs,
                          output_errors, gradient, example_weight);
 }
 
+namespace {
+
+template<typename F>
+F sqr(F val)
+{
+    return val * val;
+}
+
+} // file scope
+
+template<typename F>
+void
+Layer::
+bbprop(const F * inputs,
+       const F * outputs,
+       const F * temp_space, size_t temp_space_size,
+       const F * output_errors,
+       const F * d2output_errors,
+       F * input_errors,
+       F * d2input_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    int ni = this->inputs(), no = this->outputs();
+
+    // 1.  Perform the real bprop to calculate the bprop parameters
+    bprop(inputs, outputs, temp_space, temp_space_size, output_errors,
+          input_errors, gradient, example_weight);
+
+    if (dgradient == 0 && d2input_errors == 0) return;
+    
+    // 2.  We need to call bprop() outputs() times, once for each of the
+    // parameters, in order to get the derivative of each ouput with
+    // respect to each parameter
+
+    Parameters_Copy<double> gradient_k(*this, 0.0);
+
+    F output_select[no];
+    std::fill(output_select, output_select + no,  0.0);
+
+    distribution<F> input_errors_k(ni);
+    distribution<double> d2input_errors_accum(ni);
+
+    for (unsigned o = 0;  o < no;  output_select[o] = 0.0, ++o) {
+
+        if (d2output_errors[o] == 0.0) continue;
+        
+        gradient_k.values.fill(0.0);
+
+        output_select[o] = 1.0;
+
+        bprop(inputs, outputs, temp_space, temp_space_size, output_select,
+              &input_errors_k[0], gradient_k, 1.0);
+        
+        // See LeCun et al
+        // d2E/dwi2 ~= sum(k) d2E/do_k2 (do_k/dwi)^2
+        
+        if (dgradient)
+            dgradient->update_sqr(gradient_k,
+                                  d2output_errors[o] * example_weight);
+
+        if (d2input_errors)
+            d2input_errors_accum += d2output_errors[o] * sqr(input_errors_k);
+    }
+
+    if (d2input_errors)
+        std::copy(d2input_errors_accum.begin(), d2input_errors_accum.end(),
+                  d2input_errors);
+}
+
+void
+Layer::
+bbprop(const float * inputs,
+       const float * outputs,
+       const float * temp_space, size_t temp_space_size,
+       const float * output_errors,
+       const float * d2output_errors,
+       float * input_errors,
+       float * d2input_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    return bbprop<float>(inputs, outputs, temp_space, temp_space_size,
+                         output_errors, d2output_errors, input_errors,
+                         d2input_errors, gradient, dgradient,
+                         example_weight);
+}
+ 
+void
+Layer::
+bbprop(const double * inputs,
+       const double * outputs,
+       const double * temp_space, size_t temp_space_size,
+       const double * output_errors,
+       const double * d2output_errors,
+       double * input_errors,
+       double * d2input_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    return bbprop<double>(inputs, outputs, temp_space, temp_space_size,
+                          output_errors, d2output_errors, input_errors,
+                          d2input_errors, gradient, dgradient,
+                          example_weight);
+}
+
 void
 Layer::
 validate() const

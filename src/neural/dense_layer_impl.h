@@ -16,6 +16,9 @@
 #include "utils/string_functions.h"
 #include "boosting/registry.h"
 #include "utils/multi_array_utils.h"
+#include "stats/distribution_ops.h"
+#include "stats/distribution_simd.h"
+
 
 namespace ML {
 
@@ -531,6 +534,16 @@ bprop(const double * inputs,
                   input_errors, gradient, example_weight);
 }
 
+namespace {
+
+template<typename F>
+F sqr(F val)
+{
+    return val * val;
+}
+
+} // file scope
+
 template<typename Float>
 template<typename F>
 void
@@ -539,8 +552,9 @@ bbprop(const F * inputs,
        const F * outputs,
        const F * temp_space, size_t temp_space_size,
        const F * output_errors,
+       const F * d2output_errors,
        F * input_errors,
-       F * dinput_errors,
+       F * d2input_errors,
        Parameters & gradient,
        Parameters * dgradient,
        double example_weight) const
@@ -554,27 +568,35 @@ bbprop(const F * inputs,
     F derivs[no];
     transfer_function->derivative(outputs, derivs, no);
 
-    // Approximation to the second derivative of the output errors
-    F dderivs[no];
-    for (unsigned o = 0;  o < no;  ++o)
-        dderivs[o] = doutput_errors[o] * sqr(derivs[o]);
+    F ddbias[no];
+    if (dgradient || d2input_errors) {
+#if 0
+        // Approximation to the second derivative of the output errors
+        for (unsigned o = 0;  o < no;  ++o)
+            ddbias[o] = doutput_errors[o] * sqr(derivs[o]);
+#else
+        // Second derivative of the output errors
+        transfer_function->second_derivative(outputs, ddbias, no);
+        for (unsigned o = 0;  o < no;  ++o)
+            ddbias[o] *= d2output_errors[o];
+#endif
 
-    // These are the bias errors...
-    dgradient->vector(1, "bias").update(dderivs, example_weight);
-
-    
+        // These are the bias errors...
+        dgradient->vector(1, "bias").update(ddbias, example_weight);
+    }
 
     // Bias updates are simply derivs in multiplied by transfer deriv
     F dbias[no];
     SIMD::vec_prod(derivs, &output_errors[0], dbias, no);
-
     gradient.vector(1, "bias").update(dbias, example_weight);
 
     for (unsigned i = 0;  i < ni;  ++i) {
         bool was_missing = isnan(inputs[i]);
         if (input_errors) input_errors[i] = 0.0;
-        
+
         if (!was_missing) {
+            if (inputs[i] == 0.0) continue;
+
             gradient.matrix(0, "weights")
                 .update_row(i, dbias, inputs[i] * example_weight);
 
@@ -582,6 +604,18 @@ bbprop(const F * inputs,
                 input_errors[i]
                     = SIMD::vec_dotprod_dp(&weights[i][0],
                                            &dbias[0], no);
+            
+            if (dgradient)
+                dgradient->matrix(0,"weights")
+                    .update_row(i, ddbias,
+                                inputs[i] * inputs[i] * example_weight);
+
+            if (d2input_errors)
+                d2input_errors[i]
+                    = SIMD::vec_accum_prod3(&weights[i][0],
+                                            &weights[i][0],
+                                            ddbias,
+                                            no);
         }
         else if (missing_values == MV_NONE)
             throw Exception("MV_NONE but missing value");
@@ -591,6 +625,9 @@ bbprop(const F * inputs,
         else if (missing_values == MV_DENSE) {
             gradient.matrix(3, "missing_activations")
                 .update_row(i, dbias, example_weight);
+            if (dgradient)
+                dgradient->matrix(3, "missing_activations")
+                    .update_row(i, ddbias, example_weight);
         }
         else if (missing_values == MV_INPUT) {
             // Missing
@@ -605,11 +642,63 @@ bbprop(const F * inputs,
                                 (example_weight
                                  * SIMD::vec_dotprod_dp(&weights[i][0], dbias,
                                                         no)));
+
+            if (dgradient) {
+                dgradient->matrix(0, "weights")
+                    .update_row(i, ddbias,
+                                sqr(missing_replacements[i]) * example_weight);
+
+                dgradient->vector(2, "missing_replacements")
+                    .update_element(i,
+                                    (example_weight
+                                     * SIMD::vec_accum_prod3(&weights[i][0],
+                                                             &weights[i][0],
+                                                             ddbias,
+                                                             no)));
+            }
         }
     }
-    
 }
-    
+
+template<typename Float>
+void
+Dense_Layer<Float>::
+bbprop(const float * inputs,
+       const float * outputs,
+       const float * temp_space, size_t temp_space_size,
+       const float * output_errors,
+       const float * d2output_errors,
+       float * input_errors,
+       float * d2input_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    return bbprop<float>(inputs, outputs, temp_space, temp_space_size,
+                         output_errors, d2output_errors, input_errors,
+                         d2input_errors, gradient, dgradient,
+                         example_weight);
+}
+ 
+template<typename Float>
+void
+Dense_Layer<Float>::
+bbprop(const double * inputs,
+       const double * outputs,
+       const double * temp_space, size_t temp_space_size,
+       const double * output_errors,
+       const double * d2output_errors,
+       double * input_errors,
+       double * d2input_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    return bbprop<double>(inputs, outputs, temp_space, temp_space_size,
+                          output_errors, d2output_errors, input_errors,
+                          d2input_errors, gradient, dgradient,
+                          example_weight);
+}
 
 namespace {
 

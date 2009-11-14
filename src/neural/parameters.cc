@@ -478,6 +478,43 @@ update(const Parameter_Value & other, double learning_rate)
     }
 }
 
+void
+Parameters::
+update_sqr(const Parameter_Value & other, double learning_rate)
+{
+    if (name() != other.name()) {
+        cerr << "name() = " << name() << endl;
+        cerr << "other.name() = " << other.name() << endl;
+        throw Exception("Parameters::update(): objects have different names");
+    }
+
+    const Parameters * cast
+        = dynamic_cast<const Parameters *>(&other);
+    if (!cast)
+        throw Exception("Parameters::update(): other object is not Parameters");
+
+    if (params.size() != cast->params.size()) {
+        cerr << "name() = " << name() << endl;
+        cerr << "params.size() = " << params.size() << endl;
+        cerr << "cast->params.size() = " << cast->params.size() << endl;
+        throw Exception("Parameters::update(): differing sizes");
+    }
+
+    // Iterate through the two parameters
+    Params::iterator
+        it = params.begin(),
+        iend = params.end();
+    Params::const_iterator
+        jt = cast->params.begin(),
+        jend = cast->params.end();
+
+    for (; it != iend && jt != jend;  ++it, ++jt) {
+        if (it->name() != jt->name())
+            throw Exception("Parameters::update(): differing names");
+        it->update_sqr(*jt, learning_rate);
+    }
+}
+
 Parameters &
 Parameters::
 subparams(int index, const std::string & name)

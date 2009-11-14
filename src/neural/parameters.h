@@ -85,6 +85,8 @@ struct Parameter_Value {
     virtual void fill(double value) = 0;
 
     virtual void update(const Parameter_Value & other, double learning_rate) = 0;
+    virtual void update_sqr(const Parameter_Value & other,
+                            double learning_rate) = 0;
 
     std::string name() const { return name_; }
 
@@ -126,8 +128,17 @@ struct Vector_Parameter : public Parameter_Value {
     virtual void update(const float * x, float k) = 0;
     virtual void update(const double * x, double k) = 0;
 
+    // Update: y += k x^2 (useful for 2nd derivs)
+    virtual void update_sqr(const float * x, float k) = 0;
+    virtual void update_sqr(const double * x, double k) = 0;
+
     void update(const distribution<float> & dist, float k);
     void update(const distribution<double> & dist, double k);
+
+    using Parameter_Value::update_sqr;
+
+    void update_sqr(const distribution<float> & dist, float k);
+    void update_sqr(const distribution<double> & dist, double k);
 
     using Parameter_Value::update;
 
@@ -152,8 +163,14 @@ struct Matrix_Parameter : public Parameter_Value {
     virtual void update_row(int row, const float * x, float k = 1.0) = 0;
     virtual void update_row(int row, const double * x, double k = 1.0) = 0;
 
+    virtual void update_row_sqr(int row, const float * x, float k = 1.0) = 0;
+    virtual void update_row_sqr(int row, const double * x, double k = 1.0) = 0;
+
     void update_row(int row, const distribution<float> & x, float k);
     void update_row(int row, const distribution<double> & x, float k);
+
+    void update_row_sqr(int row, const distribution<float> & x, float k);
+    void update_row_sqr(int row, const distribution<double> & x, float k);
 
     virtual Matrix_Parameter & matrix() { return *this; }
     virtual const Matrix_Parameter & matrix() const { return *this; }
@@ -213,6 +230,8 @@ struct Parameters : public Parameter_Value {
     virtual void fill(double value);
 
     virtual void update(const Parameter_Value & other, double learning_rate);
+    virtual void update_sqr(const Parameter_Value & other,
+                            double learning_rate);
 
     virtual Parameters & subparams(int index, const std::string & name);
     virtual const Parameters &
@@ -344,6 +363,8 @@ struct Parameters_Copy : public Parameters {
 
     /** For all of our parameters, apply param += learning_rate * other.param */
     virtual void update(const Parameter_Value & other, double learning_rate);
+    virtual void update_sqr(const Parameter_Value & other,
+                            double learning_rate);
 
     // The actual values, stored contiguously for efficiency.  The client
     // should not resize them, but is free to access them as an anonymous

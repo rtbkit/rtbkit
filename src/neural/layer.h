@@ -452,6 +452,9 @@ public:
                           the error function with respect to each of the
                           inputs to the layer is calculated and put
                           into this array.
+
+        <b>Note to implementors:</b> This method will forward to the bbprop
+        method if this method is not implemented.
     */
     distribution<float>
     bprop(const distribution<float> & inputs,
@@ -480,39 +483,106 @@ public:
           Parameters & gradient,
           double example_weight) const;
 
-    ///@}
-
-#if 0
-    /*************************************************************************/
-    /* BBPROP                                                                */
-    /*************************************************************************/
-
-    /** Second derivative of the parameters with respect to the errors.  Used
-        to determine an individual learning rate for each of the parameters.
-    */
-
     /** Second order derivatives.  Given the same information as the backprop
-        function, calculate the second derivative of the error with respect
-        to each parameter and the second derivative with respect to the
-        outputs to propagate further. */
+        function, calculate the first derivative of the error with respect
+        to each parameter <b>and</b> approximate the second derivatives
+        (the diagonal entries of the Hessian matrix).
+
+        The interface is an extension of the interface for the bprop()
+        method.
+
+        \param inputs     An array of inputs() elements with the inputs to this
+                          layer when the fprop() was performed.
+        \param outputs    An array of outputs() elements with the outputs of
+                          this layer as calculated by fprop().
+        \param temp_space An array of temp_space_size elements that was filled
+                          in by fprop() with any extra information necessary to
+                          perform the bprop().
+        \param temp_space_size The number of elements in temp_space(), which
+                          should match fprop_temporary_space_required().
+        \param output_errors An array of outputs() elements with the derivative
+                          of the error function with respect to each of the
+                          outputs of this layer.  These are the errors to be
+                          backpropagated through.
+        \param d2output_errors An array of outputs() elements with the second
+                          derivatives of the error function with respect to
+                          each of the outputs of the layers.  These are the
+                          second derivatives to be backpropagated through.
+        \param input_errors An array of inputs() elements.  The derivative of
+                          the error function with respect to each of the
+                          inputs to the layer should be calculated and put
+                          into this array.  <b>NOTE</b> that this array could be
+                          null, in which case no input errors should be
+                          calculated.
+        \param input_errors An array of inputs() elements.  The second 
+                          derivative of the error function with respect to
+                          each of the inputs to the layer should be calculated
+                          and put into this array.  <b>NOTE</b> that this
+                          pointer could be  null, in which case no input
+                          second derivatives should be calculated.
+        \param gradient   The gradient parameters array to be updated.  Each
+                          parameter
+                          should have example_weight * dE/dparam added to it,
+                          where dE/dparam is the derivative of the error with
+                          respect to each parameter.
+        \param dgradient  A pointer to an array containing the current
+                          estimate of the average second derivative of the
+                          error with respect to each parameter.
+                          <b>NOTE</b> that this pointer could be null, in
+                          which case no second derivative of the parameters
+                          shold be calculated.
+        \param example_weight The weight of this example.  The dE/dparam
+                          value will be multiplied by this value before it
+                          is added to the gradient.
+
+        <b>Note to implementors</b>: The default implementation does the
+        following:
+        1.  If the dgradient parameter is empty (which means that the
+            second derivatives are not needed), then the method will be
+            forwarded to the bprop() method;
+        2.  Otherwise, it will approximate the result using the
+            approx_bbprop() method, which calculates the Jacobian using
+            bprop() and uses the Newton approximation that the
+            Hessian is the square of the Jacobian matrix.  Note that this
+            will result in extremely long runtimes, as the number of
+            backprops is \f$ n_p^2 \f$.
+    */
 
     virtual void bbprop(const float * inputs,
                         const float * outputs,
                         const float * temp_space, size_t temp_space_size,
                         const float * output_errors,
                         const float * d2output_errors,
+                        float * input_errors,
                         float * d2input_errors,
-                        Parameters & dgradient,
-                        double example_weight) const = 0;
+                        Parameters & gradient,
+                        Parameters * dgradient,
+                        double example_weight) const;
  
     virtual void bbprop(const double * inputs,
                         const double * outputs,
                         const double * temp_space, size_t temp_space_size,
                         const double * output_errors,
+                        const double * d2output_errors,
                         double * input_errors,
+                        double * d2input_errors,
                         Parameters & gradient,
-                        double example_weight) const = 0;
- #endif
+                        Parameters * dgradient,
+                        double example_weight) const;
+
+    template<typename F>
+    void bbprop(const F * inputs,
+                const F * outputs,
+                const F * temp_space, size_t temp_space_size,
+                const F * output_errors,
+                const F * d2output_errors,
+                F * input_errors,
+                F * d2input_errors,
+                Parameters & gradient,
+                Parameters * dgradient,
+                double example_weight) const;    
+ 
+    ///@}
 
 
 protected:

@@ -129,6 +129,62 @@ struct Vector_RefT : public Vector_Parameter {
             SIMD::vec_add(array_, learning_rate, tmp, array_, size_);
     }
 
+    virtual void
+    update_sqr(const Parameter_Value & other, double learning_rate)
+    {
+        const Vector_Parameter & vp = other.vector();
+
+        // Try to do it via a vector operation if possible
+        {
+            const Vector_RefT<Underlying> * cast
+                = dynamic_cast<const Vector_RefT<Underlying> *>(&vp);
+            if (cast) {
+                if (cast->size_ != size_)
+                    throw Exception("Parameters_Copy::set(): incompatible");
+
+                if (need_update(cast->array_, size_))
+                    SIMD::vec_add_sqr(array_, learning_rate, cast->array_,
+                                      array_, size_);
+                return;
+            }
+        }
+
+        {
+            const Vector_RefT<float> * cast
+                = dynamic_cast<const Vector_RefT<float> *>(&vp);
+            if (cast) {
+                if (cast->size_ != size_)
+                    throw Exception("Parameters_Copy::set(): incompatible");
+
+                if (need_update(cast->array_, size_))
+                    SIMD::vec_add_sqr(array_, learning_rate, cast->array_,
+                                      array_, size_);
+                return;
+            }
+        }
+
+        {
+            const Vector_RefT<double> * cast
+                = dynamic_cast<const Vector_RefT<double> *>(&vp);
+            if (cast) {
+                if (cast->size_ != size_)
+                    throw Exception("Parameters_Copy::set(): incompatible");
+
+                if (need_update(cast->array_, size_))
+                    SIMD::vec_add_sqr(array_, learning_rate, cast->array_,
+                                      array_, size_);
+                return;
+            }
+        }
+    
+        // Otherwise, do it via a copy through a known type (here, double)
+        double tmp[size_];
+        vp.copy_to(tmp, tmp + size_);
+        
+        if (need_update(tmp, size_))
+            SIMD::vec_add_sqr(array_, learning_rate, tmp, array_, size_);
+    }
+
     virtual Parameter_Value *
     compatible_ref(float * first, float * last) const
     {
@@ -155,6 +211,18 @@ struct Vector_RefT : public Vector_Parameter {
     {
         if (need_update(x, k))
             SIMD::vec_add(array_, k, x, array_, size_);
+    }
+
+    virtual void update_sqr(const float * x, float k)
+    {
+        if (need_update(x, k))
+            SIMD::vec_add_sqr(array_, k, x, array_, size_);
+    }
+
+    virtual void update_sqr(const double * x, double k)
+    {
+        if (need_update(x, k))
+            SIMD::vec_add_sqr(array_, k, x, array_, size_);
     }
 
     virtual void set(const Parameter_Value & other)
@@ -309,6 +377,61 @@ struct Matrix_RefT : public Matrix_Parameter {
             SIMD::vec_add(array_, learning_rate, tmp, array_, n);
     }
 
+    virtual void
+    update_sqr(const Parameter_Value & other, double learning_rate)
+    {
+        size_t n = size1_ * size2_;
+
+        const Matrix_Parameter & mp = other.matrix();
+
+        // Try to do it via a vector operation if possible
+        {
+            const Matrix_RefT<Underlying> * cast
+                = dynamic_cast<const Matrix_RefT<Underlying> *>(&mp);
+            if (cast) {
+                if ((size1_ != cast->size1_) || (size2_ != cast->size2_))
+                    throw Exception("Parameters_Copy::set(): incompatible");
+                if (need_update(cast->array_, n))
+                    SIMD::vec_add_sqr(array_, learning_rate, cast->array_,
+                                      array_, n);
+                return;
+            }
+        }
+
+        {
+            const Matrix_RefT<float> * cast
+                = dynamic_cast<const Matrix_RefT<float> *>(&mp);
+            if (cast) {
+                if ((size1_ != cast->size1_) || (size2_ != cast->size2_))
+                    throw Exception("Parameters_Copy::set(): incompatible");
+                if (need_update(cast->array_, n))
+                    SIMD::vec_add_sqr(array_, learning_rate, cast->array_,
+                                      array_, n);
+                return;
+            }
+        }
+
+        {
+            const Matrix_RefT<double> * cast
+                = dynamic_cast<const Matrix_RefT<double> *>(&mp);
+            if (cast) {
+                if ((size1_ != cast->size1_) || (size2_ != cast->size2_))
+                    throw Exception("Parameters_Copy::set(): incompatible");
+                if (need_update(cast->array_, n))
+                    SIMD::vec_add_sqr(array_, learning_rate, cast->array_,
+                                      array_, n);
+                return;
+            }
+        }
+    
+        // Otherwise, do it via a copy through a known type (here, double)
+        double tmp[n];
+        mp.copy_to(tmp, tmp + n);
+        
+        if (need_update(tmp, n))
+            SIMD::vec_add_sqr(array_, learning_rate, tmp, array_, n);
+    }
+
     virtual Parameter_Value *
     compatible_ref(float * first, float * last) const
     {
@@ -348,6 +471,24 @@ struct Matrix_RefT : public Matrix_Parameter {
         if (need_update(x, size2_))
             SIMD::vec_add(array_ + (size2_ * row), k, x,
                           array_ + (size2_ * row), size2_);
+    }
+    
+    virtual void update_row_sqr(int row, const float * x, float k = 1.0)
+    {
+        if (row < 0 || row >= size1_)
+            throw Exception("update_row: invalid row");
+        if (need_update(x, size2_))
+            SIMD::vec_add_sqr(array_ + (size2_ * row), k, x,
+                              array_ + (size2_ * row), size2_);
+    }
+
+    virtual void update_row_sqr(int row, const double * x, double k = 1.0)
+    {
+        if (row < 0 || row >= size1_)
+            throw Exception("update_row: invalid row");
+        if (need_update(x, size2_))
+            SIMD::vec_add_sqr(array_ + (size2_ * row), k, x,
+                              array_ + (size2_ * row), size2_);
     }
     
     virtual Matrix_RefT * make_copy() const
@@ -639,6 +780,55 @@ update(const Parameter_Value & other, double learning_rate)
 
     // Otherwise, do it structurally
     Parameters::update(other, learning_rate);
+}
+
+template<class Float>
+void
+Parameters_Copy<Float>::
+update_sqr(const Parameter_Value & other, double learning_rate)
+{
+    // Try to do it via a vector operation if possible
+    {
+        const Parameters_Copy<Float> * cast
+            = dynamic_cast<const Parameters_Copy<Float> *>(&other);
+        if (cast) {
+            if (cast->values.size() != values.size())
+                throw Exception("Parameters_Copy::set(): incompatible");
+            if (need_update(&values[0], values.size()))
+                SIMD::vec_add_sqr(&values[0], learning_rate, &cast->values[0],
+                                  &values[0], values.size());
+            return;
+        }
+    }
+
+    {
+        const Parameters_Copy<float> * cast
+            = dynamic_cast<const Parameters_Copy<float> *>(&other);
+        if (cast) {
+            if (cast->values.size() != values.size())
+                throw Exception("Parameters_Copy::set(): incompatible");
+            if (need_update(&values[0], values.size()))
+                SIMD::vec_add_sqr(&values[0], learning_rate, &cast->values[0],
+                                  &values[0], values.size());
+            return;
+        }
+    }
+
+    {
+        const Parameters_Copy<double> * cast
+            = dynamic_cast<const Parameters_Copy<double> *>(&other);
+        if (cast) {
+            if (cast->values.size() != values.size())
+                throw Exception("Parameters_Copy::set(): incompatible");
+            if (need_update(&values[0], values.size()))
+                SIMD::vec_add_sqr(&values[0], learning_rate, &cast->values[0],
+                                  &values[0], values.size());
+            return;
+        }
+    }
+
+    // Otherwise, do it structurally
+    Parameters::update_sqr(other, learning_rate);
 }
 
 template<class Float>
