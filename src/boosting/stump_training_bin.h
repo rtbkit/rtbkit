@@ -1,15 +1,15 @@
-/** stump_training_bin.h                                           -*- C++ -*-
-    Jeremy Barnes, 20 February 2004
-    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-    $Source$
-
-    We can use this one when:
-    1.  There are 2 labels;
-    2.  The weights for each label for each example are equal;
-    3.  There is exactly one correct answer for each label;
-    4.  Each feature occurs exactly 0 or 1 times for each example.
-    
-    It is quite a lot faster, as these assumptions knock off a lot of work.
+/* stump_training_bin.h                                           -*- C++ -*-
+   Jeremy Barnes, 20 February 2004
+   Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
+   $Source$
+   
+   We can use this one when:
+   1.  There are 2 labels;
+   2.  The weights for each label for each example are equal;
+   3.  There is exactly one correct answer for each label;
+   4.  Each feature occurs exactly 0 or 1 times for each example.
+   
+   It is quite a lot faster, as these assumptions knock off a lot of work.
 */
 
 #ifndef __boosting__stump_training_bin_h__
