@@ -520,16 +520,17 @@ bbprop(const F * inputs,
 
     F ddbias[no];
     if (dgradient || d2input_errors) {
-#if 0
         // Approximation to the second derivative of the output errors
         for (unsigned o = 0;  o < no;  ++o)
-            ddbias[o] = doutput_errors[o] * sqr(derivs[o]);
-#else
+            ddbias[o] = d2output_errors[o] * sqr(derivs[o]);
+
+#if 1 // improve the approximation using the second derivative
+        F ddtransfer[no];
         // Second derivative of the output errors
-        transfer_function->second_derivative(outputs, ddbias, no);
+        transfer_function->second_derivative(outputs, ddtransfer, no);
         for (unsigned o = 0;  o < no;  ++o)
-            ddbias[o] *= d2output_errors[o];
-#endif
+            ddbias[o] += outputs[o] * ddtransfer[o] * d2output_errors[o];
+#endif // improve the approximation
 
         // These are the bias errors...
         dgradient->vector(1, "bias").update(ddbias, example_weight);

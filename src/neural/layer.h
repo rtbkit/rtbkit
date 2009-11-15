@@ -571,16 +571,16 @@ public:
                         double example_weight) const;
 
     template<typename F>
-    void bbprop(const F * inputs,
-                const F * outputs,
-                const F * temp_space, size_t temp_space_size,
-                const F * output_errors,
-                const F * d2output_errors,
-                F * input_errors,
-                F * d2input_errors,
-                Parameters & gradient,
-                Parameters * dgradient,
-                double example_weight) const;    
+    void bbprop_jacobian(const F * inputs,
+                         const F * outputs,
+                         const F * temp_space, size_t temp_space_size,
+                         const F * output_errors,
+                         const F * d2output_errors,
+                         F * input_errors,
+                         F * d2input_errors,
+                         Parameters & gradient,
+                         Parameters * dgradient,
+                         double example_weight) const; 
  
     ///@}
 
