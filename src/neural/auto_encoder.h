@@ -42,13 +42,6 @@ struct Auto_Encoder : public Layer {
         @{
     */
 
-    /** \name Inverse Apply
-
-        The backwards counterpart of the apply() method.
-
-        @{
-    */
-
     /** Given the activation function and the maximum amount of the range
         that we want to use (eg, 0.8 for asymptotic functions), what are
         the minimum and maximum values that we want to use.
@@ -64,6 +57,7 @@ struct Auto_Encoder : public Layer {
         
     virtual bool supports_missing_outputs() const = 0;
 
+    /** The backwards counterpart of the apply() function. */
     virtual void iapply(const float * input, float * output) const = 0;
     virtual void iapply(const double * input, double * output) const = 0;
 
@@ -72,20 +66,10 @@ struct Auto_Encoder : public Layer {
     distribution<float>
     iapply(const distribution<float> & output) const;
 
-    /** @}
-
-        \name Inverse Forward Propagation
-
-        The inverse counterpart of the fprop() method.
-
-        @{
-    */
-    
     /** Return the amount of space necessary to save temporary results for the
         inverse forward prop.  There will be an array of the given precision
         (double or single) provided.
     */
-
     virtual size_t ifprop_temporary_space_required() const = 0;
 
     /** These functions perform an inverse forward propagation.  They also
@@ -105,17 +89,8 @@ struct Auto_Encoder : public Layer {
            double * temp_space, size_t temp_space_size,
            double * inputs) const = 0;
 
-
-    /** @}
-        
-        \name Inverse Back Propagation
-
-        The inverse counterpart of the bprop() function.
-
-        @{
-    */
-    
-    /** Perform a back propagation.  Given the derivative of the error with
+    /** Perform an inverse back propagation.  Given the derivative of the
+        error with
         respect to each of the errors, they compute the gradient of the
         parameter space.
     */
@@ -135,7 +110,41 @@ struct Auto_Encoder : public Layer {
                         double * output_errors,
                         Parameters & gradient,
                         double example_weight) const = 0;
-    /// @}
+
+    virtual void ibbprop(const float * outputs,
+                         const float * inputs,
+                         const float * temp_space, size_t temp_space_size,
+                         const float * input_errors,
+                         const float * d2input_errors,
+                         float * output_errors,
+                         float * d2output_errors,
+                         Parameters & gradient,
+                         Parameters * dgradient,
+                         double example_weight) const;
+ 
+    virtual void ibbprop(const double * outputs,
+                         const double * inputs,
+                         const double * temp_space, size_t temp_space_size,
+                         const double * input_errors,
+                         const double * d2input_errors,
+                         double * output_errors,
+                         double * d2output_errors,
+                         Parameters & gradient,
+                         Parameters * dgradient,
+                         double example_weight) const;
+ 
+    template<typename F>
+    void ibbprop_jacobian(const F * outputs,
+                          const F * inputs,
+                          const F * temp_space, size_t temp_space_size,
+                          const F * input_errors,
+                          const F * d2input_errors,
+                          F * output_errors,
+                          F * d2output_errors,
+                          Parameters & gradient,
+                          Parameters * dgradient,
+                          double example_weight) const;
+    
     /// @}
 
 
@@ -160,10 +169,6 @@ struct Auto_Encoder : public Layer {
 
     distribution<double>
     reconstruct(const distribution<double> & input) const;
-
-    /** \name Reconstruction Forward Propagation
-        @{
-    */
 
     /** Return the amount of space necessary to save temporary results for the
         forward reconstruction.  There will be an array of the given precision
@@ -196,13 +201,6 @@ struct Auto_Encoder : public Layer {
            F * temp_space, size_t temp_space_size,
            F * reconstruction) const;
     
-    /** @}
-
-        \name Reconstruction Backward Propagation
-
-        @{
-    */
-
     /** Perform a back propagation.  Given the derivative of the error with
         respect to each of the errors, they compute the gradient of the
         parameter space.
@@ -236,7 +234,40 @@ struct Auto_Encoder : public Layer {
                 Parameters & gradient,
                 double example_weight) const;
 
-    /// @}
+    virtual void rbbprop(const float * inputs,
+                         const float * reconstruction,
+                         const float * temp_space, size_t temp_space_size,
+                         const float * reconstruction_errors,
+                         const float * d2reconstruction_errors,
+                         float * input_errors,
+                         float * d2input_errors,
+                         Parameters & gradient,
+                         Parameters * dgradient,
+                         double example_weight) const;
+ 
+    virtual void rbbprop(const double * inputs,
+                         const double * reconstruction,
+                         const double * temp_space, size_t temp_space_size,
+                         const double * reconstruction_errors,
+                         const double * d2reconstruction_errors,
+                         double * input_errors,
+                         double * d2input_errors,
+                         Parameters & gradient,
+                         Parameters * dgradient,
+                         double example_weight) const;
+
+    template<typename F>
+    void rbbprop(const F * inputs,
+                 const F * reconstruction,
+                 const F * temp_space, size_t temp_space_size,
+                 const F * reconstruction_errors,
+                 const F * d2reconstruction_errors,
+                 F * input_errors,
+                 F * d2input_errors,
+                 Parameters & gradient,
+                 Parameters * dgradient,
+                 double example_weight) const;
+    
     /// @}
 };
 

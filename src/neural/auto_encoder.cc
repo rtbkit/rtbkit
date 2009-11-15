@@ -6,6 +6,7 @@
 */
 
 #include "auto_encoder.h"
+#include "reverse_layer_adaptor.h"
 
 
 namespace ML {
@@ -47,6 +48,65 @@ iapply(const distribution<float> & outputs) const
     distribution<float> inputs(this->inputs());
     iapply(&outputs[0], &inputs[0]);
     return inputs;
+}
+
+void
+Auto_Encoder::
+ibbprop(const float * outputs,
+        const float * inputs,
+        const float * temp_space, size_t temp_space_size,
+        const float * input_errors,
+        const float * d2input_errors,
+        float * output_errors,
+        float * d2output_errors,
+        Parameters & gradient,
+        Parameters * dgradient,
+        double example_weight) const
+{
+    ibbprop_jacobian(outputs, inputs, temp_space, temp_space_size,
+                     input_errors, d2input_errors, output_errors,
+                     d2output_errors, gradient, dgradient, example_weight);
+}
+ 
+void
+Auto_Encoder::
+ibbprop(const double * outputs,
+        const double * inputs,
+        const double * temp_space, size_t temp_space_size,
+        const double * input_errors,
+        const double * d2input_errors,
+        double * output_errors,
+        double * d2output_errors,
+        Parameters & gradient,
+        Parameters * dgradient,
+        double example_weight) const
+{
+    ibbprop_jacobian(outputs, inputs, temp_space, temp_space_size,
+                     input_errors, d2input_errors, output_errors,
+                     d2output_errors, gradient, dgradient, example_weight);
+}
+ 
+template<typename F>
+void
+Auto_Encoder::
+ibbprop_jacobian(const F * outputs,
+                 const F * inputs,
+                 const F * temp_space, size_t temp_space_size,
+                 const F * input_errors,
+                 const F * d2input_errors,
+                 F * output_errors,
+                 F * d2output_errors,
+                 Parameters & gradient,
+                 Parameters * dgradient,
+                 double example_weight) const
+{
+    // We reverse ourself and call the layer version
+    // TODO: undo hack here; make layer adaptor know about constness
+    Reverse_Layer_Adaptor adaptor(make_unowned_sp(const_cast<Auto_Encoder &>(*this)));
+    adaptor.bbprop_jacobian(outputs, inputs, temp_space, temp_space_size,
+                            input_errors, d2input_errors, output_errors,
+                            d2output_errors, gradient, dgradient,
+                            example_weight);
 }
 
 void
@@ -145,7 +205,6 @@ rfprop(const double * inputs,
     return rfprop<double>(inputs, temp_space, temp_space_size, reconstruction);
 }
 
-
 template<typename F>
 void
 Auto_Encoder::
@@ -216,4 +275,89 @@ rbprop(const double * inputs,
                           gradient, example_weight);
 }
 
+void
+Auto_Encoder::
+rbbprop(const float * inputs,
+        const float * reconstruction,
+        const float * temp_space, size_t temp_space_size,
+        const float * reconstruction_errors,
+        const float * d2reconstruction_errors,
+        float * input_errors,
+        float * d2input_errors,
+        Parameters & gradient,
+        Parameters * dgradient,
+        double example_weight) const
+{
+    rbbprop<float>(inputs, reconstruction, temp_space, temp_space_size,
+                   reconstruction_errors, d2reconstruction_errors,
+                   input_errors, d2input_errors, gradient, dgradient,
+                   example_weight);
+}
+ 
+void
+Auto_Encoder::
+rbbprop(const double * inputs,
+        const double * reconstruction,
+        const double * temp_space, size_t temp_space_size,
+        const double * reconstruction_errors,
+        const double * d2reconstruction_errors,
+        double * input_errors,
+        double * d2input_errors,
+        Parameters & gradient,
+        Parameters * dgradient,
+        double example_weight) const
+{
+    rbbprop<double>(inputs, reconstruction, temp_space, temp_space_size,
+                    reconstruction_errors, d2reconstruction_errors,
+                    input_errors, d2input_errors, gradient, dgradient,
+                    example_weight);
+}
+
+template<typename F>
+void
+Auto_Encoder::
+rbbprop(const F * inputs,
+        const F * reconstruction,
+        const F * temp_space, size_t temp_space_size,
+        const F * reconstruction_errors,
+        const F * dreconstruction_errors,
+        F * input_errors,
+        F * dinput_errors,
+        Parameters & gradient,
+        Parameters * dgradient,
+        double example_weight) const
+{
+    if (dinput_errors == 0 && dgradient == 0)
+        return rbprop(inputs, reconstruction, temp_space, temp_space_size,
+                      reconstruction_errors, input_errors, gradient,
+                      example_weight);
+
+    // Temporary space:
+    // 
+    // +-----------+-------------+---------------+
+    // |  fprop    | outputs     |   ifprop      |
+    // +-----------+-------------+---------------+
+    // |<- fspace->|<-   no    ->|<-  ifspace  ->|
+
+    size_t fspace = fprop_temporary_space_required();
+    size_t ifspace = ifprop_temporary_space_required();
+
+    if (temp_space_size != this->outputs() + fspace + ifspace)
+        throw Exception("wrong temporary space size");
+
+    const F * outputs = temp_space + fspace;
+    const F * itemp_space = outputs + this->outputs();
+
+    // output error gradients
+    F output_errors[this->outputs()];
+    F doutput_errors[this->outputs()];
+
+    ibbprop(outputs, reconstruction, itemp_space, ifspace,
+            reconstruction_errors, dreconstruction_errors,
+            output_errors, doutput_errors, gradient, dgradient, example_weight);
+    
+    bbprop(inputs, outputs, temp_space, fspace, output_errors, doutput_errors,
+           input_errors, dinput_errors, gradient, dgradient, example_weight);
+}
+    
 } // namespace ML
