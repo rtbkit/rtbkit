@@ -42,6 +42,15 @@ void vec_add_sqr(const float * x, float k, const float * y, float * r, size_t n)
 // r = x + k y
 void vec_add(const float * x, const float * k, const float * y, float * r,
              size_t n);
+void vec_add(const float * x, const double * k, const double * y, float * r,
+             size_t n);
+void vec_add(const float * x, const float * k, const double * y, float * r,
+             size_t n);
+inline void vec_add(const float * x, const double * k, const float * y,
+                    float * r, size_t n)
+{
+    vec_add(x, y, k, r, n);
+}
 
 void vec_prod(const float * x, const float * y, float * r, size_t n);
 float vec_dotprod(const float * x, const float * y, size_t n);
@@ -69,6 +78,15 @@ void vec_add_sqr(const double * x, double k, const double * y, double * r,
 // r = x + k y
 void vec_add(const double * x, const double * k, const double * y, double * r,
              size_t n);
+void vec_add(const double * x, const float * k, const float * y, double * r,
+             size_t n);
+void vec_add(const double * x, const float * k, const double * y, double * r,
+             size_t n);
+inline void vec_add(const double * x, const double * k, const float * y,
+                    double * r, size_t n)
+{
+    return vec_add(x, y, k, r, n);
+}
 
 void vec_prod(const double * x, const double * y, double * r, size_t n);
 double vec_dotprod(const double * x, const double * y, size_t n);

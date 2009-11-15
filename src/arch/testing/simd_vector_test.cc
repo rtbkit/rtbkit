@@ -430,3 +430,63 @@ BOOST_AUTO_TEST_CASE( vec_add_sqr_test )
     vec_add_sqr_test_cases<double, float>();
     vec_add_sqr_test_cases<double, double>();
 }
+
+template<typename Float1, typename Float2, typename Float3>
+void vec_add_3array_test_case(int nvals)
+{
+    cerr << "testing vec_add_sqr nvals " << nvals << " float1 "
+         << demangle(typeid(Float1).name())
+         << " float2 " << demangle(typeid(Float2).name())
+         << " float3 " << demangle(typeid(Float3).name())
+         << endl;
+
+    Float1 x[nvals], r[nvals], r2[nvals];
+    Float2 y[nvals];
+    Float3 k[nvals];
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        y[i] = rand() / 16384.0;
+        k[i] = rand() / 16384.0;
+        r2[i] = x[i] + k[i] * y[i];
+    }
+
+    SIMD::vec_add(x, k, y, r, nvals);
+
+    for (unsigned i = 0;  i < nvals;  ++i) {
+        if (r[i] != r2[i]) cerr << "difference on element " << i << " of "
+                                << nvals << endl;;
+            
+        BOOST_CHECK_EQUAL(r[i], r2[i]);
+    }
+}
+
+template<typename Float1, typename Float2, typename Float3>
+void vec_add_3array_test_cases()
+{
+    vec_add_3array_test_case<Float1, Float2, Float3>(1);
+    vec_add_3array_test_case<Float1, Float2, Float3>(2);
+    vec_add_3array_test_case<Float1, Float2, Float3>(3);
+    vec_add_3array_test_case<Float1, Float2, Float3>(4);
+    vec_add_3array_test_case<Float1, Float2, Float3>(5);
+    vec_add_3array_test_case<Float1, Float2, Float3>(8);
+    vec_add_3array_test_case<Float1, Float2, Float3>(9);
+    vec_add_3array_test_case<Float1, Float2, Float3>(12);
+    vec_add_3array_test_case<Float1, Float2, Float3>(15);
+    vec_add_3array_test_case<Float1, Float2, Float3>(16);
+    vec_add_3array_test_case<Float1, Float2, Float3>(17);
+    vec_add_3array_test_case<Float1, Float2, Float3>(123);
+}
+
+BOOST_AUTO_TEST_CASE( vec_add_3array_test )
+{
+    vec_add_3array_test_cases<float, float, float>();
+    vec_add_3array_test_cases<float, double, float>();
+    vec_add_3array_test_cases<double, float, float>();
+    vec_add_3array_test_cases<double, double, float>();
+    vec_add_3array_test_cases<float, float, double>();
+    vec_add_3array_test_cases<float, double, double>();
+    vec_add_3array_test_cases<double, float, double>();
+    vec_add_3array_test_cases<double, double, double>();
+}
+
