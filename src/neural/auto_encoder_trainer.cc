@@ -446,9 +446,12 @@ calc_learning_rate(const Auto_Encoder & layer,
 
         eig.values = (1.0 - gamma) * eig.values + dgradient;
 
-        distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
+        //distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
         //cerr << "values = " << values << endl;
     }
+
+    distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
+    cerr << "values = " << values << endl;
 
     return 1.0 / eig.values.two_norm();
 }
