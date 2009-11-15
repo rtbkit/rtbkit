@@ -480,6 +480,67 @@ update(const Parameter_Value & other, double learning_rate)
 
 void
 Parameters::
+update(const Parameter_Value & other, const Parameter_Value & learning_rate)
+{
+    if (name() != other.name()) {
+        cerr << "name() = " << name() << endl;
+        cerr << "other.name() = " << other.name() << endl;
+        throw Exception("Parameters::update(): objects have different names");
+    }
+
+    if (name() != learning_rate.name()) {
+        cerr << "name() = " << name() << endl;
+        cerr << "learning_rate.name() = " << learning_rate.name() << endl;
+        throw Exception("Parameters::update(): learning rates have different "
+                        "names");
+    }
+
+    const Parameters * cast1
+        = dynamic_cast<const Parameters *>(&other);
+    if (!cast1)
+        throw Exception("Parameters::update(): other object is not Parameters");
+
+    if (params.size() != cast1->params.size()) {
+        cerr << "name() = " << name() << endl;
+        cerr << "params.size() = " << params.size() << endl;
+        cerr << "cast1->params.size() = " << cast1->params.size() << endl;
+        throw Exception("Parameters::update(): differing sizes");
+    }
+
+    const Parameters * cast2
+        = dynamic_cast<const Parameters *>(&learning_rate);
+    if (!cast2)
+        throw Exception("Parameters::update(): learning_rate object is not "
+                        "Parameters");
+
+    if (params.size() != cast2->params.size()) {
+        cerr << "name() = " << name() << endl;
+        cerr << "params.size() = " << params.size() << endl;
+        cerr << "cast2->params.size() = " << cast2->params.size() << endl;
+        throw Exception("Parameters::update(): differing sizes");
+    }
+
+    // Iterate through the two parameters
+    Params::iterator
+        it = params.begin(),
+        iend = params.end();
+    Params::const_iterator
+        jt = cast1->params.begin(),
+        jend = cast1->params.end(),
+        lt = cast2->params.begin(),
+        lend = cast2->params.end();
+
+    for (; it != iend && jt != jend && lt != lend;  ++it, ++jt, ++lt) {
+        if (it->name() != jt->name())
+            throw Exception("Parameters::update(): differing names");
+        if (it->name() != lt->name())
+            throw Exception("Parameters::update(): differing names for lr");
+        it->update(*jt, *lt);
+    }
+}
+
+void
+Parameters::
 update_sqr(const Parameter_Value & other, double learning_rate)
 {
     if (name() != other.name()) {

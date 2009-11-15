@@ -59,6 +59,11 @@ struct Vector_RefT : public Vector_Parameter {
         return size_;
     }
 
+    virtual size_t size() const
+    {
+        return size_;
+    }
+
     virtual void copy_to(float * where, float * limit) const
     {
         if (limit - where != size_)
@@ -127,6 +132,29 @@ struct Vector_RefT : public Vector_Parameter {
         
         if (need_update(tmp, size_))
             SIMD::vec_add(array_, learning_rate, tmp, array_, size_);
+    }
+
+    virtual void
+    update(const Parameter_Value & other,
+           const Parameter_Value & learning_rate)
+    {
+        const Vector_Parameter & v_other = other.vector();
+        const Vector_Parameter & v_learning_rate = learning_rate.vector();
+
+        if (name() != v_other.name() || size_ != v_other.size())
+            throw Exception("update with incompatible object");
+
+        if (name() != v_learning_rate.name() || size_ != v_learning_rate.size())
+            throw Exception("update with incompatible learning_rate");
+
+        double tmp1[size_];
+        v_other.copy_to(tmp1, tmp1 + size_);
+        
+        double tmp2[size_];
+        v_learning_rate.copy_to(tmp2, tmp2 + size_);
+
+        if (need_update(tmp1, size_))
+            SIMD::vec_add(array_, tmp1, tmp2, array_, size_);
     }
 
     virtual void
@@ -293,6 +321,9 @@ struct Matrix_RefT : public Matrix_Parameter {
         return size1_ * size2_;
     }
 
+    virtual size_t size1() const { return size1_; }
+    virtual size_t size2() const { return size2_; }
+
     virtual void copy_to(float * where, float * limit) const
     {
         size_t n = parameter_count();
@@ -375,6 +406,32 @@ struct Matrix_RefT : public Matrix_Parameter {
         
         if (need_update(tmp, n))
             SIMD::vec_add(array_, learning_rate, tmp, array_, n);
+    }
+
+    virtual void
+    update(const Parameter_Value & other,
+           const Parameter_Value & learning_rate)
+    {
+        size_t n = size1_ * size2_;
+
+        const Matrix_Parameter & m_other = other.matrix();
+        const Matrix_Parameter & m_learning_rate = learning_rate.matrix();
+
+        if (m_other.size1() != size1_ || m_other.size2() != size2_)
+            throw Exception("Matrix_Parameter::update(): incompatible sizes");
+
+        if (m_learning_rate.size1() != size1_
+            || m_learning_rate.size2() != size2_)
+            throw Exception("Matrix_Parameter::update(): incompatible sizes");
+
+        double tmp1[n];
+        m_other.copy_to(tmp1, tmp1 + n);
+        
+        double tmp2[n];
+        m_learning_rate.copy_to(tmp2, tmp2 + n);
+
+        if (need_update(tmp1, n))
+            SIMD::vec_add(array_, tmp1, tmp2, array_, n);
     }
 
     virtual void
@@ -777,6 +834,50 @@ update(const Parameter_Value & other, double learning_rate)
             return;
         }
     }
+
+    // Otherwise, do it structurally
+    Parameters::update(other, learning_rate);
+}
+
+template<typename Float1, typename Float2, typename Float>
+bool try_update(Parameters_Copy<Float> & params,
+                const Parameter_Value & other,
+                const Parameter_Value & learning_rate)
+{
+    size_t nvals = params.values.size();
+
+    if (const Parameters_Copy<Float1> * cast
+        = dynamic_cast<const Parameters_Copy<Float1> *>(&other)) {
+        if (const Parameters_Copy<Float2> * cast2
+            = dynamic_cast<const Parameters_Copy<Float2> *>(&learning_rate)) {
+            if (cast->values.size() != nvals)
+                throw Exception("Parameters_Copy::update(): incompatible");
+            if (cast2->values.size() != nvals)
+                throw Exception("Parameters_Copy::update(): incompatible lr");
+            if (need_update(&cast->values[0], nvals))
+                SIMD::vec_add(&params.values[0], &cast2->values[0],
+                              &cast->values[0], &params.values[0], nvals);
+            return true;
+        }
+    }
+    return false;
+}
+
+template<class Float>
+void
+Parameters_Copy<Float>::
+update(const Parameter_Value & other,
+       const Parameter_Value & learning_rate)
+{
+    if (name() != other.name()
+        || name() != learning_rate.name())
+        throw Exception("Parameters_Copy::update(): incompatible names");
+
+    // Try to do it via a vector operation if possible
+    if (try_update<double, double>(*this, other, learning_rate)) return;
+    if (try_update<float, double>(*this, other, learning_rate)) return;
+    if (try_update<double, float>(*this, other, learning_rate)) return;
+    if (try_update<float, float>(*this, other, learning_rate)) return;
 
     // Otherwise, do it structurally
     Parameters::update(other, learning_rate);

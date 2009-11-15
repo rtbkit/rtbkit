@@ -84,7 +84,11 @@ struct Parameter_Value {
     /** Fill with the given value */
     virtual void fill(double value) = 0;
 
-    virtual void update(const Parameter_Value & other, double learning_rate) = 0;
+    virtual void update(const Parameter_Value & other,
+                        double learning_rate) = 0;
+    virtual void update(const Parameter_Value & other,
+                        const Parameter_Value & learning_rate) = 0;
+
     virtual void update_sqr(const Parameter_Value & other,
                             double learning_rate) = 0;
 
@@ -147,6 +151,8 @@ struct Vector_Parameter : public Parameter_Value {
 
     virtual Vector_Parameter & vector() { return *this; }
     virtual const Vector_Parameter & vector() const { return *this; }
+
+    virtual size_t size() const = 0;
 };
 
 
@@ -174,6 +180,9 @@ struct Matrix_Parameter : public Parameter_Value {
 
     virtual Matrix_Parameter & matrix() { return *this; }
     virtual const Matrix_Parameter & matrix() const { return *this; }
+
+    virtual size_t size1() const = 0;
+    virtual size_t size2() const = 0;
 };
 
 
@@ -230,6 +239,8 @@ struct Parameters : public Parameter_Value {
     virtual void fill(double value);
 
     virtual void update(const Parameter_Value & other, double learning_rate);
+    virtual void update(const Parameter_Value & other,
+                        const Parameter_Value & learning_rate);
     virtual void update_sqr(const Parameter_Value & other,
                             double learning_rate);
 
@@ -363,6 +374,8 @@ struct Parameters_Copy : public Parameters {
 
     /** For all of our parameters, apply param += learning_rate * other.param */
     virtual void update(const Parameter_Value & other, double learning_rate);
+    virtual void update(const Parameter_Value & other,
+                        const Parameter_Value & learning_rate);
     virtual void update_sqr(const Parameter_Value & other,
                             double learning_rate);
 
