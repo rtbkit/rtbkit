@@ -289,12 +289,12 @@ bbprop_jacobian(const F * inputs,
     distribution<F> input_errors_k(ni);
     distribution<double> d2input_errors_accum(ni);
 
-    cerr << "inputs  = " << distribution<float>(inputs, inputs + no) << endl;
-    cerr << "outputs = " << distribution<float>(outputs, outputs + no) << endl;
-    cerr << "output_errors = " << distribution<float>(output_errors, output_errors + no) << endl;
-    cerr << "d2output_errors = " << distribution<float>(d2output_errors, d2output_errors + no) << endl;
+    //cerr << "inputs  = " << distribution<float>(inputs, inputs + no) << endl;
+    //cerr << "outputs = " << distribution<float>(outputs, outputs + no) << endl;
+    //cerr << "output_errors = " << distribution<float>(output_errors, output_errors + no) << endl;
+    //cerr << "d2output_errors = " << distribution<float>(d2output_errors, d2output_errors + no) << endl;
 
-    cerr << "layer = " << this->print() << endl;
+    //cerr << "layer = " << this->print() << endl;
 
     for (unsigned o = 0;  o < no;  output_select[o] = 0.0, ++o) {
 
@@ -307,22 +307,21 @@ bbprop_jacobian(const F * inputs,
         bprop(inputs, outputs, temp_space, temp_space_size, output_select,
               &input_errors_k[0], gradient_k, 1.0);
         
-        cerr << "input_errors_k = " << input_errors_k << endl;
-
-        cerr << "gradient_k = " << gradient_k.values << endl;
+        //cerr << "input_errors_k = " << input_errors_k << endl;
+        //cerr << "gradient_k = " << gradient_k.values << endl;
 
         // See LeCun et al
         // d2E/dwi2 ~= sum(k) d2E/do_k2 (do_k/dwi)^2
         
-        cerr << "k = " << d2output_errors[o] * example_weight << endl;
-
+        //cerr << "k = " << d2output_errors[o] * example_weight << endl;
+        
         if (dgradient)
             dgradient->update_sqr(gradient_k,
                                   d2output_errors[o] * example_weight);
 
         Parameters_Copy<double> dgcopy(*dgradient);
-        cerr << "dgradient->values = " << dgcopy.values << endl;
-
+        //cerr << "dgradient->values = " << dgcopy.values << endl;
+        
         if (d2input_errors)
             d2input_errors_accum += d2output_errors[o] * sqr(input_errors_k);
     }

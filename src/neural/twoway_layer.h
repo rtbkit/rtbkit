@@ -114,8 +114,31 @@ struct Twoway_Layer : public Auto_Encoder {
                        double * input_errors,
                        Parameters & gradient,
                        double example_weight) const;
-    
 
+    using Layer::bbprop;
+
+    virtual void bbprop(const float * inputs,
+                        const float * outputs,
+                        const float * temp_space, size_t temp_space_size,
+                        const float * output_errors,
+                        const float * d2output_errors,
+                        float * input_errors,
+                        float * d2input_errors,
+                        Parameters & gradient,
+                        Parameters * dgradient,
+                        double example_weight) const;
+ 
+    virtual void bbprop(const double * inputs,
+                        const double * outputs,
+                        const double * temp_space, size_t temp_space_size,
+                        const double * output_errors,
+                        const double * d2output_errors,
+                        double * input_errors,
+                        double * d2input_errors,
+                        Parameters & gradient,
+                        Parameters * dgradient,
+                        double example_weight) const;
+    
 
     /*************************************************************************/
     /* INVERSE DIRECTION                                                     */

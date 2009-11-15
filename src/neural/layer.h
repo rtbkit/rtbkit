@@ -537,15 +537,18 @@ public:
 
         <b>Note to implementors</b>: The default implementation does the
         following:
-        1.  If the dgradient parameter is empty (which means that the
+
+        <ol>
+        <li>  If the dgradient parameter is empty (which means that the
             second derivatives are not needed), then the method will be
             forwarded to the bprop() method;
-        2.  Otherwise, it will approximate the result using the
-            approx_bbprop() method, which calculates the Jacobian using
+        <li>  Otherwise, it will approximate the result using the
+            bbprop_jacobian() method, which calculates the Jacobian using
             bprop() and uses the Newton approximation that the
             Hessian is the square of the Jacobian matrix.  Note that this
-            will result in extremely long runtimes, as the number of
-            backprops is \f$ n_p^2 \f$.
+            will result in extremely long runtimes, as a backprop is performed
+            for <emph>every output</emph> of the layer.
+        </ol>
     */
 
     virtual void bbprop(const float * inputs,
@@ -570,6 +573,12 @@ public:
                         Parameters * dgradient,
                         double example_weight) const;
 
+    /** Perform a backpropagation, and calculate the diagonal of the Hessian
+        matrix using the square Jacobian approximation, as well as the
+        error second derivatives to backpropagate to the next layer.
+
+        \see bbprop
+    */
     template<typename F>
     void bbprop_jacobian(const F * inputs,
                          const F * outputs,
