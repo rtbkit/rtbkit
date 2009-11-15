@@ -257,6 +257,42 @@ bprop(const double * inputs,
 
 void
 Reverse_Layer_Adaptor::
+bbprop(const float * inputs,
+       const float * outputs,
+       const float * temp_space, size_t temp_space_size,
+       const float * output_errors,
+       const float * d2output_errors,
+       float * input_errors,
+       float * d2input_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    ae_->ibbprop(inputs, outputs, temp_space, temp_space_size,
+                 output_errors, d2output_errors, input_errors, d2input_errors,
+                 gradient, dgradient, example_weight);
+}
+
+void
+Reverse_Layer_Adaptor::
+bbprop(const double * inputs,
+       const double * outputs,
+       const double * temp_space, size_t temp_space_size,
+       const double * output_errors,
+       const double * d2output_errors,
+       double * input_errors,
+       double * d2input_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    ae_->ibbprop(inputs, outputs, temp_space, temp_space_size,
+                 output_errors, d2output_errors, input_errors, d2input_errors,
+                 gradient, dgradient, example_weight);
+}
+
+void
+Reverse_Layer_Adaptor::
 iapply(const float * outputs, float * inputs) const
 {
     ae_->apply(outputs, inputs);
@@ -320,6 +356,42 @@ ibprop(const double * outputs,
 {
     ae_->bprop(outputs, inputs, temp_space, temp_space_size, input_errors,
                output_errors, gradient, example_weight);
+}
+
+void
+Reverse_Layer_Adaptor::
+ibbprop(const float * outputs,
+        const float * inputs,
+        const float * temp_space, size_t temp_space_size,
+        const float * input_errors,
+        const float * d2input_errors,
+        float * output_errors,
+        float * d2output_errors,
+        Parameters & gradient,
+        Parameters * dgradient,
+        double example_weight) const
+{
+    ae_->bbprop(outputs, inputs, temp_space, temp_space_size,
+                input_errors, d2input_errors, output_errors, d2output_errors,
+                gradient, dgradient, example_weight);
+}
+
+void
+Reverse_Layer_Adaptor::
+ibbprop(const double * outputs,
+        const double * inputs,
+        const double * temp_space, size_t temp_space_size,
+        const double * input_errors,
+        const double * d2input_errors,
+        double * output_errors,
+        double * d2output_errors,
+        Parameters & gradient,
+        Parameters * dgradient,
+        double example_weight) const
+{
+    ae_->bbprop(outputs, inputs, temp_space, temp_space_size,
+                input_errors, d2input_errors, output_errors, d2output_errors,
+                gradient, dgradient, example_weight);
 }
 
 #if 0 // default versions from Auto_Encoder are OK

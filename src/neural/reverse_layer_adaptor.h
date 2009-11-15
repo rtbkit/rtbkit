@@ -128,6 +128,28 @@ struct Reverse_Layer_Adaptor : public Auto_Encoder {
 
     using Auto_Encoder::bprop;
 
+    virtual void bbprop(const float * inputs,
+                        const float * outputs,
+                        const float * temp_space, size_t temp_space_size,
+                        const float * output_errors,
+                        const float * d2output_errors,
+                        float * input_errors,
+                        float * d2input_errors,
+                        Parameters & gradient,
+                        Parameters * dgradient,
+                        double example_weight) const;
+ 
+    virtual void bbprop(const double * inputs,
+                        const double * outputs,
+                        const double * temp_space, size_t temp_space_size,
+                        const double * output_errors,
+                        const double * d2output_errors,
+                        double * input_errors,
+                        double * d2input_errors,
+                        Parameters & gradient,
+                        Parameters * dgradient,
+                        double example_weight) const;
+
 
     /*************************************************************************/
     /* INVERSE DIRECTION                                                     */
@@ -168,6 +190,28 @@ struct Reverse_Layer_Adaptor : public Auto_Encoder {
                         double * output_errors,
                         Parameters & gradient,
                         double example_weight) const;
+
+    virtual void ibbprop(const float * outputs,
+                         const float * inputs,
+                         const float * temp_space, size_t temp_space_size,
+                         const float * input_errors,
+                         const float * d2input_errors,
+                         float * output_errors,
+                         float * d2output_errors,
+                         Parameters & gradient,
+                         Parameters * dgradient,
+                         double example_weight) const;
+ 
+    virtual void ibbprop(const double * outputs,
+                         const double * inputs,
+                         const double * temp_space, size_t temp_space_size,
+                         const double * input_errors,
+                         const double * d2input_errors,
+                         double * output_errors,
+                         double * d2output_errors,
+                         Parameters & gradient,
+                         Parameters * dgradient,
+                         double example_weight) const;
 
 
     /*************************************************************************/

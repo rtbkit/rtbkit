@@ -7,7 +7,7 @@
 
 #include "auto_encoder.h"
 #include "reverse_layer_adaptor.h"
-
+#include "reconstruct_layer_adaptor.h"
 
 namespace ML {
 
@@ -327,10 +327,22 @@ rbbprop(const F * inputs,
         Parameters * dgradient,
         double example_weight) const
 {
+
+
     if (dinput_errors == 0 && dgradient == 0)
         return rbprop(inputs, reconstruction, temp_space, temp_space_size,
                       reconstruction_errors, input_errors, gradient,
                       example_weight);
+
+#if 0
+    Reconstruct_Layer_Adaptor adaptor(make_unowned_sp(const_cast<Auto_Encoder & >(*this)));
+
+    return adaptor.bbprop(inputs, reconstruction, temp_space, temp_space_size,
+                          reconstruction_errors, dreconstruction_errors,
+                          input_errors, dinput_errors,
+                          gradient, dgradient, example_weight);
+#endif
+        
 
     // Temporary space:
     // 

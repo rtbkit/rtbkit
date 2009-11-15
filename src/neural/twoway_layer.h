@@ -236,6 +236,40 @@ struct Twoway_Layer : public Auto_Encoder {
     
     using Auto_Encoder::ibprop;
 
+    virtual void ibbprop(const float * outputs,
+                         const float * inputs,
+                         const float * temp_space, size_t temp_space_size,
+                         const float * input_errors,
+                         const float * d2input_errors,
+                         float * output_errors,
+                         float * d2output_errors,
+                         Parameters & gradient,
+                         Parameters * dgradient,
+                         double example_weight) const;
+ 
+    virtual void ibbprop(const double * outputs,
+                         const double * inputs,
+                         const double * temp_space, size_t temp_space_size,
+                         const double * input_errors,
+                         const double * d2input_errors,
+                         double * output_errors,
+                         double * d2output_errors,
+                         Parameters & gradient,
+                         Parameters * dgradient,
+                         double example_weight) const;
+
+    template<typename F>
+    void ibbprop(const F * outputs,
+                 const F * inputs,
+                 const F * temp_space, size_t temp_space_size,
+                 const F * input_errors,
+                 const F * d2input_errors,
+                 F * output_errors,
+                 F * d2output_errors,
+                 Parameters & gradient,
+                 Parameters * dgradient,
+                 double example_weight) const;
+
     /** Dump as ASCII.  This will be big. */
     virtual std::string print() const;
     

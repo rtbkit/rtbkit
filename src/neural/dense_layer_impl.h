@@ -524,7 +524,7 @@ bbprop(const F * inputs,
         for (unsigned o = 0;  o < no;  ++o)
             ddbias[o] = d2output_errors[o] * sqr(derivs[o]);
 
-#if 1 // improve the approximation using the second derivative
+#if 0 // improve the approximation using the second derivative
         F ddtransfer[no];
         // Second derivative of the output errors
         transfer_function->second_derivative(outputs, ddtransfer, no);

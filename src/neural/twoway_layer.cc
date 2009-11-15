@@ -398,6 +398,299 @@ ibprop(const double * outputs,
                   input_errors, output_errors, gradient, example_weight);
 }
 
+void
+Twoway_Layer::
+ibbprop(const float * outputs,
+        const float * inputs,
+        const float * temp_space, size_t temp_space_size,
+        const float * input_errors,
+        const float * d2input_errors,
+        float * output_errors,
+        float * d2output_errors,
+        Parameters & gradient,
+        Parameters * dgradient,
+        double example_weight) const
+{
+    ibbprop<float>(outputs, inputs, temp_space, temp_space_size,
+                   input_errors, d2input_errors, output_errors,
+                   d2output_errors, gradient, dgradient, example_weight);
+}
+ 
+void
+Twoway_Layer::
+ibbprop(const double * outputs,
+        const double * inputs,
+        const double * temp_space, size_t temp_space_size,
+        const double * input_errors,
+        const double * d2input_errors,
+        double * output_errors,
+        double * d2output_errors,
+        Parameters & gradient,
+        Parameters * dgradient,
+        double example_weight) const
+{
+    ibbprop<double>(outputs, inputs, temp_space, temp_space_size,
+                    input_errors, d2input_errors, output_errors,
+                    d2output_errors, gradient, dgradient, example_weight);
+}
+
+#if 0 // for reference; to be deleted
+template<typename Float>
+template<typename F>
+void
+Dense_Layer<Float>::
+bbprop(const F * inputs,
+       const F * outputs,
+       const F * temp_space, size_t temp_space_size,
+       const F * output_errors,
+       const F * d2output_errors,
+       F * input_errors,
+       F * d2input_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    int ni = this->inputs(), no = this->outputs();
+
+    if (temp_space_size != 0)
+        throw Exception("Dense_Layer::bprop(): wrong temp size");
+    
+    // Differentiate the output function
+    F derivs[no];
+    transfer_function->derivative(outputs, derivs, no);
+
+    F ddbias[no];
+    if (dgradient || d2input_errors) {
+        // Approximation to the second derivative of the output errors
+        for (unsigned o = 0;  o < no;  ++o)
+            ddbias[o] = d2output_errors[o] * sqr(derivs[o]);
+
+#if 1 // improve the approximation using the second derivative
+        F ddtransfer[no];
+        // Second derivative of the output errors
+        transfer_function->second_derivative(outputs, ddtransfer, no);
+        for (unsigned o = 0;  o < no;  ++o)
+            ddbias[o] += outputs[o] * ddtransfer[o] * d2output_errors[o];
+#endif // improve the approximation
+
+        // These are the bias errors...
+        dgradient->vector(1, "bias").update(ddbias, example_weight);
+    }
+
+    // Bias updates are simply derivs in multiplied by transfer deriv
+    F dbias[no];
+    SIMD::vec_prod(derivs, &output_errors[0], dbias, no);
+    gradient.vector(1, "bias").update(dbias, example_weight);
+
+    for (unsigned i = 0;  i < ni;  ++i) {
+        bool was_missing = isnan(inputs[i]);
+        if (input_errors) input_errors[i] = 0.0;
+
+        if (!was_missing) {
+            if (inputs[i] == 0.0) continue;
+
+            gradient.matrix(0, "weights")
+                .update_row(i, dbias, inputs[i] * example_weight);
+
+            if (input_errors)
+                input_errors[i]
+                    = SIMD::vec_dotprod_dp(&weights[i][0],
+                                           &dbias[0], no);
+            
+            if (dgradient)
+                dgradient->matrix(0,"weights")
+                    .update_row(i, ddbias,
+                                inputs[i] * inputs[i] * example_weight);
+
+            if (d2input_errors)
+                d2input_errors[i]
+                    = SIMD::vec_accum_prod3(&weights[i][0],
+                                            &weights[i][0],
+                                            ddbias,
+                                            no);
+        }
+        else if (missing_values == MV_NONE)
+            throw Exception("MV_NONE but missing value");
+        else if (missing_values == MV_ZERO) {
+            // No update as everything is multiplied by zero
+        }
+        else if (missing_values == MV_DENSE) {
+            gradient.matrix(3, "missing_activations")
+                .update_row(i, dbias, example_weight);
+            if (dgradient)
+                dgradient->matrix(3, "missing_activations")
+                    .update_row(i, ddbias, example_weight);
+        }
+        else if (missing_values == MV_INPUT) {
+            // Missing
+
+            // Update the weights
+            gradient.matrix(0, "weights")
+                .update_row(i, dbias,
+                            missing_replacements[i] * example_weight);
+            
+            gradient.vector(2, "missing_replacements")
+                .update_element(i,
+                                (example_weight
+                                 * SIMD::vec_dotprod_dp(&weights[i][0], dbias,
+                                                        no)));
+
+            if (dgradient) {
+                dgradient->matrix(0, "weights")
+                    .update_row(i, ddbias,
+                                sqr(missing_replacements[i]) * example_weight);
+
+                dgradient->vector(2, "missing_replacements")
+                    .update_element(i,
+                                    (example_weight
+                                     * SIMD::vec_accum_prod3(&weights[i][0],
+                                                             &weights[i][0],
+                                                             ddbias,
+                                                             no)));
+            }
+        }
+    }
+}
+#endif // for reference
+
+namespace {
+
+template<typename F>
+F sqr(F val)
+{
+    return val * val;
+}
+
+} // file scope
+
+template<typename F>
+void
+Twoway_Layer::
+ibbprop(const F * outputs,
+        const F * inputs,
+        const F * temp_space, size_t temp_space_size,
+        const F * input_errors,
+        const F * d2input_errors,
+        F * output_errors,
+        F * d2output_errors,
+        Parameters & gradient,
+        Parameters * dgradient,
+        double example_weight) const
+{
+    int ni = this->inputs(), no = this->outputs();
+
+    if (temp_space_size != 0)
+        throw Exception("Dense_Layer::bprop(): wrong temp size");
+
+    CHECK_NOT_NAN_N(outputs, no);
+    CHECK_NOT_NAN_N(inputs, ni);
+    CHECK_NOT_NAN_N(input_errors, ni);
+    
+    // Differentiate the output function
+    F derivs[ni];
+    forward.transfer_function->derivative(inputs, derivs, ni);
+
+    CHECK_NOT_NAN_N((F *)derivs, ni);
+
+    // Bias updates are simply derivs in multiplied by transfer deriv
+    F dbias[ni];
+    SIMD::vec_prod(derivs, input_errors, dbias, ni);
+
+    CHECK_NOT_NAN_N((F *)dbias, ni);
+    
+    gradient.vector(4, "ibias").update(dbias, example_weight);
+
+    F ddbias[ni];
+    if (dgradient || d2output_errors) {
+        // Approximation to the second derivative of the input errors
+        for (unsigned i = 0;  i < ni;  ++i)
+            ddbias[i] = d2input_errors[i] * sqr(derivs[i]);
+
+#if 0 // improve the approximation using the second derivative
+        F ddtransfer[ni];
+        // Second derivative of the output errors
+        forward.transfer_function->second_derivative(inputs, ddtransfer, ni);
+        for (unsigned i = 0;  i < ni;  ++i)
+            ddbias[i] += inputs[i] * ddtransfer[i] * d2input_errors[i];
+#endif // improve the approximation
+
+        // These are the bias errors...
+        dgradient->vector(4, "ibias").update(ddbias, example_weight);
+    }
+
+    F outputs_scaled[no];
+    SIMD::vec_prod(outputs, &oscales[0], outputs_scaled, no);
+
+    CHECK_NOT_NAN_N((F *)outputs_scaled, no);
+
+    F iscales_updates[ni];
+    for (unsigned i = 0;  i < ni;  ++i) {
+        iscales_updates[i]
+            = dbias[i]
+            * SIMD::vec_dotprod_dp(&forward.weights[i][0],
+                                   outputs_scaled, no);
+    }
+
+    F iscales_dupdates[ni];
+    for (unsigned i = 0;  i < ni;  ++i)
+        iscales_dupdates[i] = sqr(iscales_updates[i] / dbias[i]) * ddbias[i];
+    
+    if (dgradient)
+        dgradient->vector(5, "iscales")
+            .update(iscales_dupdates, example_weight);
+
+    // Update weights
+    for (unsigned i = 0;  i < ni;  ++i) {
+        gradient.matrix(0, "weights")
+            .update_row(i, outputs_scaled,
+                        dbias[i] * iscales[i] * example_weight);
+
+        if (dgradient)
+            dgradient->matrix(0, "weights")
+                .update_row_sqr(i, outputs_scaled,
+                                iscales[i] * iscales[i] * ddbias[i]);
+    }
+
+    // Update iscales and oscales
+    double oscales_updates[no];
+    for (unsigned o = 0;  o < no;  ++o)
+        oscales_updates[o] = 0.0;
+
+    for (unsigned i = 0;  i < ni;  ++i) {
+        SIMD::vec_add(oscales_updates, dbias[i] * iscales[i],
+                      &forward.weights[i][0], oscales_updates, no);
+    }
+
+    double oscales_dupdates[no];
+    for (unsigned o = 0;  o < no;  ++o)
+        oscales_dupdates[o] = 0.0;
+    for (unsigned i = 0;  i < ni;  ++i) {
+        SIMD::vec_add_sqr(oscales_dupdates, ddbias[i] * iscales[i] * iscales[i],
+                          &forward.weights[i][0], oscales_dupdates, no);
+    }
+
+    if (d2output_errors) {
+        for (unsigned o = 0;  o < no;  ++o)
+            d2output_errors[o] = oscales_dupdates[o] * oscales[o] * oscales[o];
+    }
+
+    if (dgradient) {
+        for (unsigned o = 0;  o < no;  ++o)
+            oscales_dupdates[o] *= 1.0;
+        dgradient->vector(6, "oscales")
+            .update(oscales_dupdates, example_weight);
+    }
+
+    if (output_errors)
+        SIMD::vec_prod(&oscales[0], &oscales_updates[0], output_errors, no);
+
+    for (unsigned o = 0;  o < no;  ++o)
+        oscales_updates[o] *= outputs[o];
+
+    gradient.vector(5, "iscales").update(iscales_updates, example_weight);
+    gradient.vector(6, "oscales").update(oscales_updates, example_weight);
+}
+
 std::string
 Twoway_Layer::
 print() const
@@ -504,16 +797,16 @@ void
 Twoway_Layer::
 random_fill(float limit, Thread_Context & context)
 {
-
     forward.random_fill(limit, context);
     for (unsigned i = 0;  i < ibias.size();  ++i) {
         ibias[i] = limit * (context.random01() * 2.0f - 1.0f);
         iscales[i] = context.random01();
     }
     for (unsigned i = 0;  i < outputs();  ++i)
-        oscales[i] = context.random01();
-    iscales.fill(1.0);
-    oscales.fill(1.0);
+        oscales[i] = 0.5 + context.random01();
+
+    for (unsigned i = 0;  i < inputs();  ++i)
+        iscales[i] = 0.5 + context.random01();
 }
 
 void

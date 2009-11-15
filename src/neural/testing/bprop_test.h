@@ -348,6 +348,7 @@ void bbprop_test(Layer & layer, Thread_Context & context,
     BOOST_REQUIRE(ni > 0);
     BOOST_REQUIRE(no > 0);
 
+
     // Get the original parameters
     const Parameters_Copy<Float> params(layer);
 
@@ -389,7 +390,7 @@ void bbprop_test(Layer & layer, Thread_Context & context,
 
     Parameters_Copy<Float> dgradienth(layer, 0.0);
 
-    double delta = 1e-5;
+    double delta = 1;//1e-5;
 
     for (unsigned i = 0;  i < np;  ++i) {
 
@@ -421,9 +422,17 @@ void bbprop_test(Layer & layer, Thread_Context & context,
         if (real_delta == 0.0)
             throw Exception("real_delta is zero");
 
+        if (i == 0)
+            cerr << "layer = " << layer << endl;
+
         // Perform a new fprop
         distribution<Float> new_output
             = layer.fprop(input, temp_space, temp_space_size);
+
+        if (i == 0) {
+            cerr << "old output = " << output << endl;
+            cerr << "new_output = " << new_output << endl;
+        }
 
         // New error
         distribution<Float> new_derrors
@@ -437,6 +446,11 @@ void bbprop_test(Layer & layer, Thread_Context & context,
                     &new_derrors[0],
                     0, gradient_eps,
                     1.0);
+
+        if (i == 0)
+            cerr << "dgradient = "
+                 << (gradient_eps.values - gradient0.values) / real_delta
+                 << endl;
 
         // The value of the hessian is (gradient_eps - gradient0)/delta
         double epsilon = (gradient_eps.values[i] - gradient0.values[i])
@@ -540,6 +554,19 @@ void bbprop_test(Layer & layer, Thread_Context & context,
                  &input_derrors2[0],
                  gradient2, &dgradient2,
                  1.0);
+
+    // The values calculated by bprop and bbprop should be identical, or
+    // there is a problem.  Gradient1 is calculated direcly by bprop.
+    BOOST_CHECK_EQUAL_COLLECTIONS(gradient1.values.begin(),
+                                  gradient1.values.end(),
+                                  gradient2.values.begin(),
+                                  gradient2.values.end());
+
+    // So should the input errors
+    BOOST_CHECK_EQUAL_COLLECTIONS(input_errors1.begin(),
+                                  input_errors1.end(),
+                                  input_errors2.begin(),
+                                  input_errors2.end());
 
     cerr << "gradient1 = " << gradient1.values << endl;
     cerr << "gradient2 = " << gradient2.values << endl;
