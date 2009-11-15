@@ -203,25 +203,25 @@ struct Vector_RefT : public Vector_Parameter {
 
     virtual void update(const float * x, float k)
     {
-        if (need_update(x, k))
+        if (k != 0.0 && need_update(x, size_))
             SIMD::vec_add(array_, k, x, array_, size_);
     }
 
     virtual void update(const double * x, double k)
     {
-        if (need_update(x, k))
+        if (k != 0.0 && need_update(x, size_))
             SIMD::vec_add(array_, k, x, array_, size_);
     }
 
     virtual void update_sqr(const float * x, float k)
     {
-        if (need_update(x, k))
+        if (k != 0.0 && need_update(x, size_))
             SIMD::vec_add_sqr(array_, k, x, array_, size_);
     }
 
     virtual void update_sqr(const double * x, double k)
     {
-        if (need_update(x, k))
+        if (k != 0.0 && need_update(x, size_))
             SIMD::vec_add_sqr(array_, k, x, array_, size_);
     }
 
@@ -459,7 +459,7 @@ struct Matrix_RefT : public Matrix_Parameter {
     {
         if (row < 0 || row >= size1_)
             throw Exception("update_row: invalid row");
-        if (need_update(x, size2_))
+        if (k != 0.0 && need_update(x, size2_))
             SIMD::vec_add(array_ + (size2_ * row), k, x,
                           array_ + (size2_ * row), size2_);
     }
@@ -468,7 +468,7 @@ struct Matrix_RefT : public Matrix_Parameter {
     {
         if (row < 0 || row >= size1_)
             throw Exception("update_row: invalid row");
-        if (need_update(x, size2_))
+        if (k != 0.0 && need_update(x, size2_))
             SIMD::vec_add(array_ + (size2_ * row), k, x,
                           array_ + (size2_ * row), size2_);
     }
@@ -477,7 +477,7 @@ struct Matrix_RefT : public Matrix_Parameter {
     {
         if (row < 0 || row >= size1_)
             throw Exception("update_row: invalid row");
-        if (need_update(x, size2_))
+        if (k != 0.0 && need_update(x, size2_))
             SIMD::vec_add_sqr(array_ + (size2_ * row), k, x,
                               array_ + (size2_ * row), size2_);
     }
@@ -486,7 +486,7 @@ struct Matrix_RefT : public Matrix_Parameter {
     {
         if (row < 0 || row >= size1_)
             throw Exception("update_row: invalid row");
-        if (need_update(x, size2_))
+        if (k != 0.0 && need_update(x, size2_))
             SIMD::vec_add_sqr(array_ + (size2_ * row), k, x,
                               array_ + (size2_ * row), size2_);
     }
@@ -745,7 +745,7 @@ update(const Parameter_Value & other, double learning_rate)
         if (cast) {
             if (cast->values.size() != values.size())
                 throw Exception("Parameters_Copy::set(): incompatible");
-            if (need_update(&values[0], values.size()))
+            if (need_update(&cast->values[0], values.size()))
                 SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
                               &values[0], values.size());
             return;
@@ -758,7 +758,7 @@ update(const Parameter_Value & other, double learning_rate)
         if (cast) {
             if (cast->values.size() != values.size())
                 throw Exception("Parameters_Copy::set(): incompatible");
-            if (need_update(&values[0], values.size()))
+            if (need_update(&cast->values[0], values.size()))
                 SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
                               &values[0], values.size());
             return;
@@ -771,7 +771,7 @@ update(const Parameter_Value & other, double learning_rate)
         if (cast) {
             if (cast->values.size() != values.size())
                 throw Exception("Parameters_Copy::set(): incompatible");
-            if (need_update(&values[0], values.size()))
+            if (need_update(&cast->values[0], values.size()))
                 SIMD::vec_add(&values[0], learning_rate, &cast->values[0],
                               &values[0], values.size());
             return;
@@ -794,7 +794,7 @@ update_sqr(const Parameter_Value & other, double learning_rate)
         if (cast) {
             if (cast->values.size() != values.size())
                 throw Exception("Parameters_Copy::set(): incompatible");
-            if (need_update(&values[0], values.size()))
+            if (need_update(&cast->values[0], values.size()))
                 SIMD::vec_add_sqr(&values[0], learning_rate, &cast->values[0],
                                   &values[0], values.size());
             return;
@@ -807,7 +807,7 @@ update_sqr(const Parameter_Value & other, double learning_rate)
         if (cast) {
             if (cast->values.size() != values.size())
                 throw Exception("Parameters_Copy::set(): incompatible");
-            if (need_update(&values[0], values.size()))
+            if (need_update(&cast->values[0], values.size()))
                 SIMD::vec_add_sqr(&values[0], learning_rate, &cast->values[0],
                                   &values[0], values.size());
             return;
@@ -820,7 +820,7 @@ update_sqr(const Parameter_Value & other, double learning_rate)
         if (cast) {
             if (cast->values.size() != values.size())
                 throw Exception("Parameters_Copy::set(): incompatible");
-            if (need_update(&values[0], values.size()))
+            if (need_update(&cast->values[0], values.size()))
                 SIMD::vec_add_sqr(&values[0], learning_rate, &cast->values[0],
                                   &values[0], values.size());
             return;
