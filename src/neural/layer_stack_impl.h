@@ -448,6 +448,117 @@ bprop(const double * inputs,
 }
 
 template<class LayerT>
+template<typename F>
+void
+Layer_Stack<LayerT>::
+bbprop(const F * inputs,
+       const F * outputs,
+       const F * temp_space, size_t temp_space_size,
+       const F * output_errors,
+       const F * doutput_errors,
+       F * input_errors,
+       F * dinput_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    if (dinput_errors == 0 && dgradient == 0)
+        return bprop(inputs, outputs, temp_space, temp_space_size,
+                     output_errors, input_errors, gradient, example_weight);
+    
+    const F * temp_space_start = temp_space;
+    const F * temp_space_end = temp_space_start + temp_space_size;
+    const F * curr_temp_space = temp_space_end;
+
+    const F * curr_outputs = outputs;
+
+    // Storage for the errors kept between the layers
+    F error_storage[max_internal_width()];
+    F derror_storage[max_internal_width()];
+
+    for (int i = size() - 1;  i >= 0;  --i) {
+        int layer_temp_space_size
+            = layers_[i]->fprop_temporary_space_required();
+
+        curr_temp_space -= layer_temp_space_size;
+
+        const F * curr_inputs
+            = (i == 0 ? inputs : curr_temp_space - layers_[i]->inputs());
+
+        const F * curr_output_errors
+            = (i == size() - 1 ? output_errors : error_storage);
+
+        const F * curr_doutput_errors
+            = (i == size() - 1 ? doutput_errors : derror_storage);
+
+        F * curr_input_errors
+            = (i == 0 ? input_errors : error_storage);
+        F * curr_dinput_errors
+            = (i == 0 ? dinput_errors : derror_storage);
+
+        Parameters * current_dgradient
+            = (dgradient ? &dgradient->subparams(i, layers_[i]->name()) : 0);
+
+        layers_[i]->bbprop(curr_inputs, curr_outputs, curr_temp_space,
+                           layer_temp_space_size,
+                           curr_output_errors,
+                           curr_doutput_errors,
+                           curr_input_errors,
+                           curr_dinput_errors,
+                           gradient.subparams(i, layers_[i]->name()),
+                           current_dgradient,
+                           example_weight);
+
+        if (curr_temp_space < temp_space_start)
+            throw Exception("Layer temp space was out of sync");
+
+        curr_outputs = curr_inputs;
+        if (i != 0) curr_temp_space -= layers_[i]->inputs();
+    }
+
+    if (curr_temp_space != temp_space_start)
+        throw Exception("Layer_Stack::bprop(): out of sync");
+}
+ 
+template<class LayerT>
+void
+Layer_Stack<LayerT>::
+bbprop(const float * inputs,
+       const float * outputs,
+       const float * temp_space, size_t temp_space_size,
+       const float * output_errors,
+       const float * d2output_errors,
+       float * input_errors,
+       float * d2input_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    bbprop<float>(inputs, outputs, temp_space, temp_space_size,
+                  output_errors, d2output_errors, input_errors,
+                  d2input_errors, gradient, dgradient, example_weight);
+}
+ 
+template<class LayerT>
+void
+Layer_Stack<LayerT>::
+bbprop(const double * inputs,
+       const double * outputs,
+       const double * temp_space, size_t temp_space_size,
+       const double * output_errors,
+       const double * d2output_errors,
+       double * input_errors,
+       double * d2input_errors,
+       Parameters & gradient,
+       Parameters * dgradient,
+       double example_weight) const
+{
+    bbprop<double>(inputs, outputs, temp_space, temp_space_size,
+                   output_errors, d2output_errors, input_errors,
+                   d2input_errors, gradient, dgradient, example_weight);
+}
+
+template<class LayerT>
 void
 Layer_Stack<LayerT>::
 random_fill(float limit, Thread_Context & context)
