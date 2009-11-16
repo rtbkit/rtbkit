@@ -356,7 +356,7 @@ BOOST_AUTO_TEST_CASE( test_bbprop_identity_double_none )
     cerr << endl << endl << "*** TESTING BBPROP RECONSTRUCTION" << endl;
     // We have to leave a big error margin due to numerical issues in the
     // (long) calculation
-    //bbprop_test_reconstruct<double>(layer, context, 3.0);
+    bbprop_test_reconstruct<double>(layer, context, 3.0);
 }
 #endif
 

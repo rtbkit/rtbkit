@@ -676,7 +676,7 @@ ibbprop(const F * outputs,
 
     if (dgradient) {
         for (unsigned o = 0;  o < no;  ++o)
-            oscales_dupdates[o] *= 1.0;
+            oscales_dupdates[o] *= outputs[o] * outputs[o];
         dgradient->vector(6, "oscales")
             .update(oscales_dupdates, example_weight);
     }
