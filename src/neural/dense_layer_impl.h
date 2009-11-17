@@ -524,7 +524,7 @@ bbprop(const F * inputs,
         for (unsigned o = 0;  o < no;  ++o)
             ddbias[o] = d2output_errors[o] * sqr(derivs[o]);
 
-#if 0 // improve the approximation using the second derivative
+#if 1 // improve the approximation using the second derivative
         F ddtransfer[no];
         // Second derivative of the output errors
         transfer_function->second_derivative(outputs, ddtransfer, no);
@@ -541,6 +541,11 @@ bbprop(const F * inputs,
     SIMD::vec_prod(derivs, &output_errors[0], dbias, no);
     gradient.vector(1, "bias").update(dbias, example_weight);
 
+    Matrix_Parameter & dweights = gradient.matrix(0, "weights");
+    Matrix_Parameter * ddweights = 0;
+    if (dgradient)
+        ddweights = &dgradient->matrix(0, "weights");
+
     for (unsigned i = 0;  i < ni;  ++i) {
         bool was_missing = isnan(inputs[i]);
         if (input_errors) input_errors[i] = 0.0;
@@ -548,19 +553,17 @@ bbprop(const F * inputs,
         if (!was_missing) {
             if (inputs[i] == 0.0) continue;
 
-            gradient.matrix(0, "weights")
-                .update_row(i, dbias, inputs[i] * example_weight);
+            dweights.update_row(i, dbias, inputs[i] * example_weight);
 
             if (input_errors)
                 input_errors[i]
                     = SIMD::vec_dotprod_dp(&weights[i][0],
                                            &dbias[0], no);
             
-            if (dgradient)
-                dgradient->matrix(0,"weights")
-                    .update_row(i, ddbias,
-                                inputs[i] * inputs[i] * example_weight);
-
+            if (ddweights)
+                ddweights->update_row(i, ddbias,
+                                      inputs[i] * inputs[i] * example_weight);
+            
             if (d2input_errors)
                 d2input_errors[i]
                     = SIMD::vec_accum_prod3(&weights[i][0],
