@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
     layer3.parameters().set(layer.parameters());
     BOOST_CHECK_EQUAL(layer, layer3);
 
-    layer3.zero_fill();
+    layer3.parameters().fill(0.0);
     layer3.parameters().update(layer.parameters(), 1.0);
     BOOST_CHECK_EQUAL(layer, layer3);
 
@@ -360,7 +360,7 @@ BOOST_AUTO_TEST_CASE( test_bbprop_identity_double_none )
 }
 #endif
 
-#if 0
+#if 1
 BOOST_AUTO_TEST_CASE( test_bbprop_tanh_double_none )
 {
     Thread_Context context;

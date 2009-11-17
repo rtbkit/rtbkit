@@ -815,8 +815,8 @@ zero_fill()
 {
     forward.zero_fill();
     ibias.fill(0.0);
-    iscales.fill(0.0);
-    oscales.fill(0.0);
+    iscales.fill(1.0);
+    oscales.fill(1.0);
 }
 
 bool
