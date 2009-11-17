@@ -49,6 +49,7 @@ defaults()
     test_every = 1;
     prob_any_noise = 0.5;
     stack_backprop_iter = 0;
+    individual_learning_rates = false;
 }
 
 void
@@ -65,6 +66,7 @@ configure(const std::string & name, const Configuration & config)
     config.get(test_every, "test_every");
     config.get(prob_any_noise, "prob_any_noise");
     config.get(stack_backprop_iter, "stack_backprop_iter");
+    config.get(individual_learning_rates, "individual_learning_rates");
 }
 
 template<typename Float>
@@ -213,7 +215,7 @@ Auto_Encoder_Trainer::
 train_iter(Auto_Encoder & encoder,
            const std::vector<distribution<float> > & data,
            Thread_Context & thread_context,
-           double learning_rate)
+           double learning_rate) const
 {
     Worker_Task & worker = thread_context.worker();
 
@@ -298,12 +300,104 @@ train_iter(Auto_Encoder & encoder,
     return make_pair(sqrt(total_mse_exact / nx2), sqrt(total_mse_noisy / nx2));
 }
 
+std::pair<double, double>
+Auto_Encoder_Trainer::
+train_iter(Auto_Encoder & encoder,
+           const std::vector<distribution<float> > & data,
+           Thread_Context & thread_context,
+           const Parameters_Copy<float> & learning_rates) const
+{
+    Worker_Task & worker = thread_context.worker();
+
+    int nx = data.size();
+    int ni JML_UNUSED = encoder.inputs();
+    int no JML_UNUSED = encoder.outputs();
+
+    int microbatch_size = minibatch_size / (num_threads() * 4);
+            
+    Lock update_lock;
+
+    double total_mse_exact = 0.0, total_mse_noisy = 0.0;
+    
+    vector<int> examples;
+    for (unsigned x = 0;  x < nx;  ++x) {
+        // Randomly exclude some samples
+        if (thread_context.random01() >= sample_proportion)
+            continue;
+        examples.push_back(x);
+    }
+    
+    if (randomize_order) {
+        Thread_Context::RNG_Type rng = thread_context.rng();
+        std::random_shuffle(examples.begin(), examples.end(), rng);
+    }
+    
+    int nx2 = examples.size();
+
+    std::auto_ptr<boost::progress_display> progress;
+    if (verbosity >= 3) progress.reset(new boost::progress_display(nx2, cerr));
+
+    for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
+                
+        Parameters_Copy<double> updates(encoder.parameters(), 0.0);
+                
+        // Now, submit it as jobs to the worker task to be done
+        // multithreaded
+        int group;
+        {
+            int parent = -1;  // no parent group
+            group = worker.get_group(NO_JOB, "dump user results task",
+                                     parent);
+                    
+            // Make sure the group gets unlocked once we've populated
+            // everything
+            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                         boost::ref(worker),
+                                         group));
+                    
+                    
+            for (unsigned x2 = x;  x2 < nx2 && x2 < x + minibatch_size;
+                 x2 += microbatch_size) {
+                        
+                Train_Examples_Job job(*this,
+                                       encoder,
+                                       data,
+                                       x2,
+                                       min<int>(nx2,
+                                                min(x + minibatch_size,
+                                                    x2 + microbatch_size)),
+                                       examples,
+                                       thread_context,
+                                       thread_context.random(),
+                                       updates,
+                                       update_lock,
+                                       total_mse_exact,
+                                       total_mse_noisy,
+                                       progress.get());
+
+                // Send it to a thread to be processed
+                worker.add(job, "blend job", group);
+            }
+        }
+                
+        worker.run_until_finished(group);
+
+        //cerr << "applying minibatch updates" << endl;
+        
+        updates.values *= -1.0 / minibatch_size;
+
+        encoder.parameters().update(updates, learning_rates);
+    }
+
+    return make_pair(sqrt(total_mse_exact / nx2), sqrt(total_mse_noisy / nx2));
+}
+
 void
 Auto_Encoder_Trainer::
 train(Auto_Encoder & encoder,
       const std::vector<distribution<float> > & training_data,
       const std::vector<distribution<float> > & testing_data,
-      Thread_Context & thread_context)
+      Thread_Context & thread_context) const
 {
     double learning_rate = this->learning_rate;
     
@@ -314,13 +408,19 @@ train(Auto_Encoder & encoder,
         cerr << "iter  ---- train ----  ---- test -----\n"
              << "        exact   noisy    exact   noisy\n";
     
+    Parameters_Copy<float> learning_rates;
+
     for (unsigned iter = 0;  iter < niter;  ++iter) {
 
-        if (iter % 5 == 0) {
+        if (iter % 5 == 0 && !individual_learning_rates) {
             learning_rate
                 = calc_learning_rate(encoder, training_data, thread_context);
             cerr << "optimal learning rate calculated was " << learning_rate
                  << endl;
+        }
+        else if (iter % 5 == 0 && individual_learning_rates) {
+            learning_rates
+                = calc_learning_rates(encoder, training_data, thread_context);
         }
 
         if (verbosity >= 3)
@@ -331,9 +431,15 @@ train(Auto_Encoder & encoder,
         Timer timer;
         
         double train_error_exact, train_error_noisy;
-        boost::tie(train_error_exact, train_error_noisy)
-            = train_iter(encoder, training_data, thread_context,
-                         learning_rate);
+
+        if (!individual_learning_rates)
+            boost::tie(train_error_exact, train_error_noisy)
+                = train_iter(encoder, training_data, thread_context,
+                             learning_rate);
+        else 
+            boost::tie(train_error_exact, train_error_noisy)
+                = train_iter(encoder, training_data, thread_context,
+                             learning_rates);
         
         if (verbosity >= 3) {
             cerr << "rmse of iteration: exact " << train_error_exact
@@ -376,7 +482,7 @@ double
 Auto_Encoder_Trainer::
 calc_learning_rate(const Auto_Encoder & layer,
                    const std::vector<distribution<float> > & training_data,
-                   Thread_Context & thread_context)
+                   Thread_Context & thread_context) const
 {
     // 1.  Pick an initial eigenvector estimate at random
     
@@ -456,12 +562,130 @@ calc_learning_rate(const Auto_Encoder & layer,
     return 1.0 / eig.values.two_norm();
 }
 
+Parameters_Copy<float>
+Auto_Encoder_Trainer::
+calc_learning_rates(const Auto_Encoder & layer,
+                    const std::vector<distribution<float> > & training_data,
+                    Thread_Context & thread_context) const
+{
+    // Where we store the average hessian
+    Parameters_Copy<double> avg_hessian_diag(layer, 0.0);
+
+    // 1.  Pick an initial eigenvector estimate at random
+    
+    Parameters_Copy<double> eig(layer);
+    for (unsigned i = 0;  i < eig.values.size();  ++i)
+        eig.values[i] = 1 / sqrt(eig.values.size());
+
+    // Get a mutable version so that we can modify its parameters
+    auto_ptr<Auto_Encoder> modified(layer.deep_copy());
+    
+    // Current set of parameters
+    Parameters_Copy<double> params(*modified);
+
+    // Temporary space for the fprop/bprop
+    size_t temp_space_size = layer.rfprop_temporary_space_required();
+    float temp_space[temp_space_size];
+
+    double alpha = 0.0001;
+    double gamma = 0.05;
+
+    for (unsigned i = 0;  i < 500;  ++i) {
+        if (i == 100) gamma = 0.01;
+        if (i == 300) gamma = 0.005;
+
+        //cerr << "i = " << i << " two_norm = " << eig.values.two_norm()
+        //     << endl;
+
+        int example_num = min<int>(training_data.size() - 1,
+                                   thread_context.random01()
+                                   * training_data.size());
+
+        const distribution<float> & exact_input = training_data[example_num];
+        distribution<float> noisy_input
+            = add_noise(exact_input, thread_context);
+        
+        distribution<float> reconstructed(layer.inputs());
+
+        Parameters_Copy<double> gradient1(eig, 0.0);
+
+        layer.rfprop(&noisy_input[0], temp_space, temp_space_size,
+                     &reconstructed[0]);
+
+        distribution<float> errors = 2.0 * (reconstructed - exact_input);
+        
+        distribution<float> derrors(layer.inputs(), 2.0);
+        
+        layer.rbbprop(&noisy_input[0], &reconstructed[0],
+                      temp_space, temp_space_size, &errors[0],
+                      &derrors[0], 0, 0,
+                      gradient1, &avg_hessian_diag, 1.0);
+        
+        Parameters_Copy<double> new_params = params;
+        new_params.values += alpha / eig.values.two_norm() * eig.values;
+
+        modified->parameters().set(new_params);
+
+        modified->rfprop(&noisy_input[0], temp_space, temp_space_size,
+                         &reconstructed[0]);
+        
+        errors = -2.0 * (exact_input - reconstructed);
+
+        Parameters_Copy<double> gradient2(eig, 0.0);
+        
+        modified->rbprop(&noisy_input[0], &reconstructed[0],
+                         temp_space, temp_space_size, &errors[0], 0,
+                         gradient2, 1.0);
+        
+        distribution<double> dgradient = gradient2.values - gradient1.values;
+        dgradient *= (gamma / alpha);
+
+        eig.values = (1.0 - gamma) * eig.values + dgradient;
+
+        //distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
+        //cerr << "values = " << values << endl;
+    }
+
+    distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
+    cerr << "values = " << values << endl;
+
+    distribution<float> ahd_values(avg_hessian_diag.values.begin(),
+                                   avg_hessian_diag.values.begin() + 20);
+    ahd_values /= 500;
+    cerr << "avg_hessian_diag = " << ahd_values << endl;
+
+    double base_rate = 1.0 / eig.values.two_norm();
+    Parameters_Copy<float> result(params, 0.0);
+
+    // Limit our updates to 10 times faster than the base rate
+    double mu = 1.0;//0.001;
+    
+    result.values = base_rate / ((avg_hessian_diag.values / 500) + mu);
+
+    double avg_result = result.values.mean();
+
+    cerr << "avg_result = " << avg_result << endl;
+
+    cerr << "base_rate = " << base_rate << endl;
+
+    cerr << "result.values = "
+         << distribution<float>(result.values.begin(),
+                                result.values.begin() + 20)
+         << endl;
+
+    result.values *= 2.0 * base_rate / avg_result;
+
+    //result.values.fill(base_rate);
+
+    return result;
+}
+
 void
 Auto_Encoder_Trainer::
 train_stack(Auto_Encoder_Stack & stack,
             const std::vector<distribution<float> > & training_data,
             const std::vector<distribution<float> > & testing_data,
-            Thread_Context & thread_context)
+            Thread_Context & thread_context) const
 {
     int nx = training_data.size();
     int nxt = testing_data.size();
@@ -475,7 +699,7 @@ train_stack(Auto_Encoder_Stack & stack,
     vector<distribution<float> > layer_test = testing_data;
 
     // Learning rate is per-example
-    learning_rate /= nx;
+    double learning_rate = this->learning_rate / nx;
 
     // Compensate for the example proportion
     learning_rate /= sample_proportion;
@@ -677,64 +901,6 @@ struct Test_Examples_Job {
 };
 
 } // file scope
-
-std::pair<double, double>
-Auto_Encoder_Trainer::
-test(const Auto_Encoder & encoder,
-     const std::vector<distribution<float> > & data,
-     Thread_Context & thread_context)
-{
-    Lock update_lock;
-    double error_exact = 0.0;
-    double error_noisy = 0.0;
-
-    int nx = data.size();
-
-    std::auto_ptr<boost::progress_display> progress;
-    if (verbosity >= 3) progress.reset(new boost::progress_display(nx, cerr));
-
-    Worker_Task & worker = thread_context.worker();
-
-    // If this is empty, then no data is written out
-    vector<distribution<float> > dummy_data_out;
-            
-    // Now, submit it as jobs to the worker task to be done
-    // multithreaded
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB, "dump user results task",
-                                 parent);
-        
-        // Make sure the group gets unlocked once we've populated
-        // everything
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
-                                     group));
-        
-        // 20 jobs per CPU
-        int batch_size = nx / (num_threads() * 20);
-        
-        for (unsigned x = 0; x < nx;  x += batch_size) {
-
-            Test_Examples_Job job(*this, encoder, data, dummy_data_out,
-                                  x, min<int>(x + batch_size, nx),
-                                  thread_context,
-                                  thread_context.random(),
-                                  update_lock,
-                                  error_exact, error_noisy,
-                                  progress.get());
-            
-            // Send it to a thread to be processed
-            worker.add(job, "test examples job", group);
-        }
-    }
-    
-    worker.run_until_finished(group);
-    
-    return make_pair(sqrt(error_exact / nx),
-                     sqrt(error_noisy / nx));
-}
 
 std::pair<double, double>
 Auto_Encoder_Trainer::

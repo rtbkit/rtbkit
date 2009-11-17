@@ -45,7 +45,7 @@ struct Auto_Encoder_Trainer {
     int test_every;
     float prob_any_noise;
     int stack_backprop_iter;
-
+    bool individual_learning_rates;
 
     /** Add noise to the distribution, according to the noise parameters that
         have been set above. */
@@ -68,33 +68,38 @@ struct Auto_Encoder_Trainer {
     train_iter(Auto_Encoder & encoder,
                const std::vector<distribution<float> > & data,
                Thread_Context & thread_context,
-               double learning_rate);
+               double learning_rate) const;
+
+    /** Trains an iteration with individual learning rates */
+    std::pair<double, double>
+    train_iter(Auto_Encoder & encoder,
+               const std::vector<distribution<float> > & data,
+               Thread_Context & thread_context,
+               const Parameters_Copy<float> & learning_rates) const;
 
     /** Calculate the optimal learning rate for the given training data */
     double
     calc_learning_rate(const Auto_Encoder & layer,
                        const std::vector<distribution<float> > & training_data,
-                       Thread_Context & thread_context);
+                       Thread_Context & thread_context) const;
 
+    Parameters_Copy<float>
+    calc_learning_rates(const Auto_Encoder & layer,
+                        const std::vector<distribution<float> > & training_data,
+                        Thread_Context & thread_context) const;
 
     void
     train(Auto_Encoder & encoder,
           const std::vector<distribution<float> > & training_data,
           const std::vector<distribution<float> > & testing_data,
-          Thread_Context & thread_context);
+          Thread_Context & thread_context) const;
     
     /** Trains an auto-encoder stack in a greedy manner by training one layer
         at a time. */
     void train_stack(Auto_Encoder_Stack & stack,
                      const std::vector<distribution<float> > & training_data,
                      const std::vector<distribution<float> > & testing_data,
-                     Thread_Context & thread_context);
-
-    
-    std::pair<double, double>
-    test(const Auto_Encoder & encoder,
-         const std::vector<distribution<float> > & data,
-         Thread_Context & context);
+                     Thread_Context & thread_context) const;
 
     /** Tests on the given dataset, returning the exact and noisy RMSE.  If
         data_out is non-empty, then it will also fill it in with the

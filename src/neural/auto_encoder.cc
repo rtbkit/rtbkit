@@ -337,6 +337,11 @@ rbbprop(const F * inputs,
 #if 0
     Reconstruct_Layer_Adaptor adaptor(make_unowned_sp(const_cast<Auto_Encoder & >(*this)));
 
+    return adaptor.bbprop_jacobian(inputs, reconstruction, temp_space, temp_space_size,
+                          reconstruction_errors, dreconstruction_errors,
+                          input_errors, dinput_errors,
+                          gradient, dgradient, example_weight);
+
     return adaptor.bbprop(inputs, reconstruction, temp_space, temp_space_size,
                           reconstruction_errors, dreconstruction_errors,
                           input_errors, dinput_errors,
