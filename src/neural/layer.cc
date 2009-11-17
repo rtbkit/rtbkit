@@ -278,7 +278,7 @@ bbprop_jacobian(const F * inputs,
     if (dgradient == 0 && d2input_errors == 0) return;
     
     // 2.  We need to call bprop() outputs() times, once for each of the
-    // parameters, in order to get the derivative of each ouput with
+    // parameters, in order to get the derivative of each output with
     // respect to each parameter
 
     Parameters_Copy<double> gradient_k(*this, 0.0);
