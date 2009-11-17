@@ -46,6 +46,8 @@ struct Auto_Encoder_Trainer {
     float prob_any_noise;
     int stack_backprop_iter;
     bool individual_learning_rates;
+    float weight_decay_l1;
+    float weight_decay_l2;
 
     /** Add noise to the distribution, according to the noise parameters that
         have been set above. */

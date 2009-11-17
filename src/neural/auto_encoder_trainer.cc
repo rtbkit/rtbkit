@@ -18,6 +18,7 @@
 #include <boost/bind.hpp>
 #include "auto_encoder_stack.h"
 #include "utils/check_not_nan.h"
+#include "stats/distribution_ops.h"
 
 
 using namespace std;
@@ -50,6 +51,8 @@ defaults()
     prob_any_noise = 0.5;
     stack_backprop_iter = 0;
     individual_learning_rates = false;
+    weight_decay_l1 = 0.0;
+    weight_decay_l2 = 0.0;
 }
 
 void
@@ -67,6 +70,8 @@ configure(const std::string & name, const Configuration & config)
     config.get(prob_any_noise, "prob_any_noise");
     config.get(stack_backprop_iter, "stack_backprop_iter");
     config.get(individual_learning_rates, "individual_learning_rates");
+    config.get(weight_decay_l1, "weight_decay_l1");
+    config.get(weight_decay_l2, "weight_decay_l2");
 }
 
 template<typename Float>
@@ -291,6 +296,13 @@ train_iter(Auto_Encoder & encoder,
         }
                 
         worker.run_until_finished(group);
+
+        // If we have weight decay, include that in the parameter updates
+        // * l1 weight decay: we move each parameter towards zero by the
+        //   same amount;
+        // * l2 weight decay: we move each parameter towards zero by an
+        //   amount proportional to the value of the parameter
+        // ...
 
         //cerr << "applying minibatch updates" << endl;
         
@@ -658,9 +670,9 @@ calc_learning_rates(const Auto_Encoder & layer,
     Parameters_Copy<float> result(params, 0.0);
 
     // Limit our updates to 10 times faster than the base rate
-    double mu = 1.0;//0.001;
+    double mu = 0.1;
     
-    result.values = base_rate / ((avg_hessian_diag.values / 500) + mu);
+    result.values = base_rate / ((abs(avg_hessian_diag.values) / 500) + mu);
 
     double avg_result = result.values.mean();
 
