@@ -21,7 +21,7 @@ std::string print(Transfer_Function_Type act)
     case TF_TANH:     return "TANH";
     case TF_TANHS:    return "TANHS";
     case TF_IDENTITY: return "IDENTITY";
-    case TF_LOGSOFTMAX: return "LOGSOFTMAX";
+    case TF_SOFTMAX: return "SOFTMAX";
     case TF_NONSTANDARD: return "NONSTANDARD";
 
     default: return format("Transfer_Function_Type(%d)", act);
@@ -59,7 +59,7 @@ OPT[Enum_Info<ML::Transfer_Function_Type>::NUM] = {
     { "tanh",        ML::TF_TANH     },
     { "tanhs",       ML::TF_TANHS    },
     { "identity",    ML::TF_IDENTITY },
-    { "logsoftmax",  ML::TF_LOGSOFTMAX },
+    { "softmax",     ML::TF_SOFTMAX },
     { "nonstandard", ML::TF_NONSTANDARD }
 };
 

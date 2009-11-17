@@ -137,7 +137,8 @@ targets(float maximum) const
     switch (transfer_function) {
     case TF_TANH:
     case TF_IDENTITY: return std::make_pair(-maximum, maximum);
-    case TF_LOGSOFTMAX:
+    case TF_TANHS: return make_pair(-1.0, 1.0);
+    case TF_SOFTMAX:
     case TF_LOGSIG: return std::make_pair(0.0f, maximum);
     default:
         throw Exception("Layer::targets(): invalid transfer_function");
@@ -207,7 +208,12 @@ transfer(const FloatIn * activation, FloatIn * outputs, int nvals,
             outputs[i] = tanh(activation[i]);
         break;
         
-    case TF_LOGSOFTMAX: {
+    case TF_TANHS:
+        for (unsigned i = 0;  i < nvals;  ++i)
+            outputs[i] = 1.7159 * tanh(0.66666666666666666666 * activation[i]);
+        break;
+        
+    case TF_SOFTMAX: {
         double total = 0.0;
         
         for (unsigned i = 0;  i < nvals;  ++i) {
@@ -265,7 +271,13 @@ derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
             deriv[i] = 1.0 - (outputs[i] * outputs[i]);
         break;
 
-    case TF_LOGSOFTMAX:
+    case TF_TANHS:
+        for (unsigned i = 0;  i < nvals;  ++i)
+            deriv[i] = 1.7159 * 0.6666666666666
+                * (1.0 - (outputs[i] * outputs[i]));
+        break;
+
+    case TF_SOFTMAX:
         for (unsigned i = 0;  i < nvals;  ++i)
             deriv[i] = 1.0 / outputs[i];
         break;
@@ -306,13 +318,19 @@ second_derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
             deriv[i] = -2.0 * outputs[i] * (1.0 - (outputs[i] * outputs[i]));
         break;
 
+    case TF_TANHS:
+        for (unsigned i = 0;  i < nvals;  ++i)
+            deriv[i] = 1.7159 * 0.6666666666666 * 0.6666666666666
+                * -2.0 * outputs[i] * (1.0 - (outputs[i] * outputs[i]));
+        break;
+
     case TF_LOGSIG:
         for (unsigned i = 0;  i < nvals;  ++i)
             deriv[i] = outputs[i] * (1 - outputs[i]) * (1 - 2 * outputs[i]);
         break;
       
 #if 0  
-    case TF_LOGSOFTMAX:
+    case TF_SOFTMAX:
         for (unsigned i = 0;  i < nvals;  ++i)
             deriv[i] = ...;
         break;

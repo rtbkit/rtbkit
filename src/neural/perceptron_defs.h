@@ -16,11 +16,11 @@ namespace ML {
     
 /** Transfer function for a neural network layer */
 enum Transfer_Function_Type {
-    TF_LOGSIG,    ///< Log of sigmoid
-    TF_TANH,      
-    TF_TANHS,
-    TF_IDENTITY,
-    TF_LOGSOFTMAX,
+    TF_LOGSIG,      ///< Log of sigmoid
+    TF_TANH,        ///< tanh function
+    TF_TANHS,       ///< 1.7159 tanh(2/3x)
+    TF_IDENTITY,    ///< Identity function
+    TF_SOFTMAX,     ///< Pseudo-probabilistic
     TF_NONSTANDARD
 };
 
