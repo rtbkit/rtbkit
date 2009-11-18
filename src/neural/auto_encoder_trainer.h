@@ -94,7 +94,8 @@ struct Auto_Encoder_Trainer {
     train(Auto_Encoder & encoder,
           const std::vector<distribution<float> > & training_data,
           const std::vector<distribution<float> > & testing_data,
-          Thread_Context & thread_context) const;
+          Thread_Context & thread_context,
+          int niter = -1) const;
     
     /** Trains an auto-encoder stack in a greedy manner by training one layer
         at a time. */

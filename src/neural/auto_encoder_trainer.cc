@@ -409,8 +409,11 @@ Auto_Encoder_Trainer::
 train(Auto_Encoder & encoder,
       const std::vector<distribution<float> > & training_data,
       const std::vector<distribution<float> > & testing_data,
-      Thread_Context & thread_context) const
+      Thread_Context & thread_context,
+      int niter) const
 {
+    if (niter == -1) niter = this->niter;
+
     double learning_rate = this->learning_rate;
     
     int nx = training_data.size();
@@ -496,6 +499,9 @@ calc_learning_rate(const Auto_Encoder & layer,
                    const std::vector<distribution<float> > & training_data,
                    Thread_Context & thread_context) const
 {
+    // See http://videolectures.net/eml07_lecun_wia/ and the slides at
+    // http://carbon.videolectures.net/2007/pascal/eml07_whistler/lecun_yann/eml07_lecun_wia_01.pdf especially slide 48.
+
     // 1.  Pick an initial eigenvector estimate at random
     
     Parameters_Copy<double> eig(layer);
@@ -731,7 +737,7 @@ train_stack(Auto_Encoder_Stack & stack,
         if (ni != layer_train[0].size())
             throw Exception("ni is wrong");
 
-        train(layer, layer_train, layer_test, thread_context);
+        train(layer, layer_train, layer_test, thread_context, niter);
 
         next_layer_train.resize(nx);
         next_layer_test.resize(nxt);
@@ -739,7 +745,7 @@ train_stack(Auto_Encoder_Stack & stack,
         // Add it to the testing stack so that we can test up to here
         test_stack.add(make_unowned_sp(layer));
 
-        if ((true || stack_backprop_iter > 0) && layer_num != 0) {
+        if (stack_backprop_iter > 0 && layer_num != 0) {
 
             // Test the layer stack
             if (verbosity >= 3)
@@ -756,7 +762,8 @@ train_stack(Auto_Encoder_Stack & stack,
                      << endl;
                 
                 cerr << endl << endl << "training whole stack backprop" << endl;
-                train(test_stack, training_data, testing_data, thread_context);
+                train(test_stack, training_data, testing_data, thread_context,
+                      stack_backprop_iter);
             }
         }
 
