@@ -129,8 +129,11 @@ distribution<float>
 Layer::
 apply(const distribution<float> & input) const
 {
-    if (input.size() != inputs())
+    if (input.size() != inputs()) {
+        cerr << "input.size() = " << input.size() << endl;
+        cerr << "inputs() = " << inputs() << endl;
         throw Exception("Layer::apply(): invalid number of inputs");
+    }
     distribution<float> result(outputs());
     apply(&input[0], &result[0]);
     return result;
@@ -140,8 +143,11 @@ distribution<double>
 Layer::
 apply(const distribution<double> & input) const
 {
-    if (input.size() != inputs())
+    if (input.size() != inputs()) {
+        cerr << "input.size() = " << input.size() << endl;
+        cerr << "inputs() = " << inputs() << endl;
         throw Exception("Layer::apply(): invalid number of inputs");
+    }
     distribution<double> result(outputs());
     apply(&input[0], &result[0]);
     return result;
@@ -152,8 +158,11 @@ Layer::
 apply(const distribution<float> & input,
       distribution<float> & output) const
 {
-    if (input.size() != inputs())
+    if (input.size() != inputs()) {
+        cerr << "input.size() = " << input.size() << endl;
+        cerr << "inputs() = " << inputs() << endl;
         throw Exception("Layer::apply(): invalid number of inputs");
+    }
     output.resize(outputs());
     apply(&input[0], &output[0]);
 }
@@ -163,8 +172,11 @@ Layer::
 apply(const distribution<double> & input,
       distribution<double> & output) const
 {
-    if (input.size() != inputs())
+    if (input.size() != inputs()) {
+        cerr << "input.size() = " << input.size() << endl;
+        cerr << "inputs() = " << inputs() << endl;
         throw Exception("Layer::apply(): invalid number of inputs");
+    }
     output.resize(outputs());
     apply(&input[0], &output[0]);
 }
@@ -373,8 +385,8 @@ void
 Layer::
 validate() const
 {
-    if (name_ == "")
-        throw Exception("Layer has empty name");
+    //if (name_ == "")
+    //    throw Exception("Layer has empty name");
     // Default does none
 }
 
