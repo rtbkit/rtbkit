@@ -787,6 +787,7 @@ reconstitute(DB::Store_Reader & store)
 
     store >> name_;
     forward.reconstitute(store);
+    Layer::init(name_, forward.inputs(), forward.outputs());
     store >> ibias >> iscales >> oscales;
 
     validate();
