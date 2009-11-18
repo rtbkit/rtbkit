@@ -99,6 +99,7 @@ swap(Layer_Stack & other)
 {
     Layer::swap(other);
     std::swap(max_width_, other.max_width_);
+    std::swap(max_internal_width_, other.max_internal_width_);
     layers_.swap(other.layers_);
 }
 
@@ -383,13 +384,17 @@ bprop(const F * inputs,
     const F * curr_outputs = outputs;
 
     // Storage for the errors kept between the layers
-    F error_storage[max_internal_width()];
+    F error_storage[max_internal_width() + 1];
+    error_storage[max_internal_width()] = F(0.1234567);
 
     for (int i = size() - 1;  i >= 0;  --i) {
         int layer_temp_space_size
             = layers_[i]->fprop_temporary_space_required();
 
         curr_temp_space -= layer_temp_space_size;
+
+        if (curr_temp_space < temp_space_start)
+            throw Exception("Layer temp space was out of sync");
 
         const F * curr_inputs
             = (i == 0 ? inputs : curr_temp_space - layers_[i]->inputs());
@@ -406,8 +411,10 @@ bprop(const F * inputs,
                           gradient.subparams(i, layers_[i]->name()),
                           example_weight);
 
-        if (curr_temp_space < temp_space_start)
-            throw Exception("Layer temp space was out of sync");
+        // Make sure that we didn't write outside of where we should have
+        if (error_storage[max_internal_width()] != F(0.1234567))
+            throw Exception("Layer_Stack::bprop(): layer bprop wrote too "
+                            "far");
 
         curr_outputs = curr_inputs;
         if (i != 0) curr_temp_space -= layers_[i]->inputs();

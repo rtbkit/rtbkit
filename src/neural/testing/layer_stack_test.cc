@@ -101,6 +101,12 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
     BOOST_CHECK_EQUAL(layersb.max_width(), 2);
     BOOST_CHECK_EQUAL(layersb.max_internal_width(), 1);
 
+    Layer_Stack<Dense_Layer<float> > layersc;
+    layersc = layersb;
+    BOOST_CHECK_EQUAL(layersc.max_width(), 2);
+    BOOST_CHECK_EQUAL(layersc.max_internal_width(), 1);
+    BOOST_CHECK_EQUAL(layersb, layersc);
+
     distribution<float> input
         = boost::assign::list_of<float>(1.0)(-1.0);
 
@@ -337,6 +343,9 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
         layer4.weights[0][0] = 5.0;
         params4 = layers4.parameters();
         BOOST_CHECK_EQUAL(param_dist4[0], 5.0);
+
+        BOOST_CHECK_EQUAL(layers.max_internal_width(), layers4.max_internal_width());
+        BOOST_CHECK_EQUAL(layers.max_width(), layers4.max_width());
     }
 }
 
