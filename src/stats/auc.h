@@ -10,6 +10,7 @@
 
 #include <vector>
 #include "arch/exception.h"
+#include <iostream>
 
 namespace ML {
 
@@ -47,8 +48,13 @@ calc_auc(const std::vector<Float1> & outputs,
         bool target;
         if (targets[i] == neg_val) target = false;
         else if (targets[i] == pos_val) target = true;
-        else throw Exception("calc_auc(): "
-                             "target value wasn't neg or pos value");
+        else {
+            using namespace std;
+            cerr << "i = " << i << " of " << outputs.size() << endl;
+            cerr << "targets[i] = " << targets[i] << " not weighted" << endl;
+            throw Exception("calc_auc(): "
+                            "target value wasn't neg or pos value");
+        }
         entries.push_back(AUC_Entry(outputs[i], target));
     }
     
@@ -73,8 +79,13 @@ calc_auc(const std::vector<Float1> & outputs,
         bool target;
         if (targets[i] == neg_val) target = false;
         else if (targets[i] == pos_val) target = true;
-        else throw Exception("calc_auc(): "
-                             "target value wasn't neg or pos value");
+        else {
+            using namespace std;
+            cerr << "i = " << i << " of " << outputs.size() << endl;
+            cerr << "targets[i] = " << targets[i] << " weighted" << endl;
+            throw Exception("calc_auc(): "
+                              "target value wasn't neg or pos value");
+        }
 
         entries.push_back(AUC_Entry(outputs[i], target, weights[i]));
     }
