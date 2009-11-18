@@ -108,7 +108,14 @@ reconstitute(DB::Store_Reader & store)
     store >> version;
     if (version != 1)
         throw Exception("Auto_Encoder_Stack::reconstitute(): invalid version");
+
     store >> layers_;
+
+    //cerr << "reconstituted auto encoder stack; layers_.inputs() = "
+    //     << layers_.inputs() << endl;
+
+    Layer::init(name(), layers_.inputs(), layers_.outputs());
+    update_parameters();
 }
 
 void
