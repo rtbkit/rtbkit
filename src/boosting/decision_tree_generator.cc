@@ -217,8 +217,9 @@ namespace {
 template<class W, class Z, class Tracer = No_Trace>
 struct Tree_Accum {
 
-    Tree_Accum(const Feature_Space & fs, const Tracer & tracer = Tracer())
-        : tracer(tracer), best_w(2),
+    Tree_Accum(const Feature_Space & fs, int nl,
+               const Tracer & tracer = Tracer())
+        : tracer(tracer), best_w(nl),
           best_arg(numeric_limits<float>::quiet_NaN()),
           best_z(1.0),
           best_feature(MISSING_FEATURE), fs(fs)
@@ -792,7 +793,7 @@ train_recursive(Thread_Context & context,
         typedef Tree_Accum<W, Z, Stream_Tracer> Accum;
         typedef Stump_Trainer<W, Z> Trainer;
         
-        Accum accum(*model.feature_space(), trace);
+        Accum accum(*model.feature_space(), nl, trace);
         Trainer trainer;
     
         trainer.test_all
@@ -809,7 +810,7 @@ train_recursive(Thread_Context & context,
         typedef Tree_Accum<W, Z, Stream_Tracer> Accum;
         typedef Stump_Trainer<W, Z> Trainer;
         
-        Accum accum(*model.feature_space(), trace);
+        Accum accum(*model.feature_space(), nl, trace);
         Trainer trainer;
     
         trainer.test_all
@@ -1009,7 +1010,7 @@ train_recursive_regression(Thread_Context & context,
     //typedef Tree_Accum<W, Z> Accum;
     typedef Stump_Trainer<W, Z> Trainer;
     
-    Accum accum(*model.feature_space(), trace);
+    Accum accum(*model.feature_space(), nl, trace);
     Trainer trainer;
     
     vector<Feature> features = features_;

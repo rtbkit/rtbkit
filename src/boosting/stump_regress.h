@@ -45,7 +45,13 @@ struct W_regress {
 
     std::string print() const
     {
-        return "W_regress";
+        return format("W_regress: wt     wx     wx^2\n"
+                      "FALSE:     %8.5f  %8.5f %8.5f\n"
+                      "TRUE:      %8.5f  %8.5f %8.5f\n"
+                      "MISSING:   %8.5f  %8.5f %8.5f\n",
+                      wt[0], dist[0], sqr[0],
+                      wt[1], dist[1], sqr[1],
+                      wt[2], dist[2], sqr[2]);
     }
     
     size_t nl() const { return 1; }
@@ -108,9 +114,39 @@ struct W_regress {
         wt[to] += w;
     }
 
+    /** Transfer the contents of the true bucket of w from our "from" bucket
+        to our "to" bucket.  Normally, this will be used with from=true and
+        to=false in order to test with buckets as a condition gradually
+        becomes false.
+
+        As an example:
+        
+        me before:     wt        wx     wx^2
+        FALSE:      0.00000   0.00000  0.00000
+        TRUE:       0.99999   0.32684  0.42452
+        MISSING:    0.00000   0.00000  0.00000
+
+        w being transferred from true to false:
+        W_regress:     wt        wx     wx^2
+        FALSE:      0.00000   0.00000  0.00000
+        TRUE:       0.00437  -0.00255  0.00300
+        MISSING:    0.00000   0.00000  0.00000
+        
+        me after: 
+        W_regress:     wt        wx     wx^2
+        FALSE:      0.00437  -0.00255  0.00300
+        TRUE:       0.99563   0.32939  0.42151
+        MISSING:    0.00000   0.00000  0.00000
+    */
+
     void transfer(int from, int to, const W_regress & w)
     {
-        throw Exception("W_regress::transfer() not implemented");
+        dist[from] -= w.dist[true];
+        dist[to] += w.dist[true];
+        sqr[from] -= w.sqr[true];
+        sqr[to] += w.sqr[true];
+        wt[from] -= w.wt[true];
+        wt[to] += w.wt[true];
     }
     
     /** This function ensures that the values in the MISSING bucket are all
