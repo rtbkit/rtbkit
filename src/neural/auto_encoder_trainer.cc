@@ -441,11 +441,23 @@ train(Auto_Encoder & encoder,
             cerr << format("%4d", iter) << flush;
 
         if (iter % 5 == 0 && !individual_learning_rates) {
-            //learning_rate
-            //    = calc_learning_rate(encoder, training_data, thread_context);
+#if 0
+            learning_rate
+                = calc_learning_rate(encoder, training_data, thread_context);
             //cerr << "optimal learning rate calculated was " << learning_rate
             //     << endl;
-            learning_rate = 0.75 / (nx * sample_proportion);
+
+            learning_rate /= 3.0 * nx * sample_proportion;
+
+            cerr << "calculated learning rate: " << learning_rate
+                 << " heuristic learning rate: "
+                 << (0.75 / (nx * sample_proportion))
+                 << " ratio "
+                 << (learning_rate / (0.75 / (nx * sample_proportion)))
+                 << endl;
+#endif
+
+            learning_rate = this->learning_rate / (nx * sample_proportion);
         }
         else if (iter % 5 == 0 && individual_learning_rates) {
             learning_rates
