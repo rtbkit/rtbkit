@@ -109,14 +109,18 @@ void
 Vector_Parameter::
 update(const distribution<float> & dist, float k)
 {
-    throw Exception("not implemented");
+    if (dist.size() != size())
+        throw Exception("Vector_Parameter::update(): wrong size");
+    update(&dist[0], k);
 }
 
 void
 Vector_Parameter::
 update(const distribution<double> & dist, double k)
 {
-    throw Exception("not implemented");
+    if (dist.size() != size())
+        throw Exception("Vector_Parameter::update(): wrong size");
+    update(&dist[0], k);
 }
 
 
@@ -128,14 +132,18 @@ void
 Matrix_Parameter::
 update_row(int row, const distribution<float> & x, float k)
 {
-    throw Exception("not implemented");
+    if (x.size() != size2())
+        throw Exception("Matrix_Parameter::update(): wrong size");
+    update_row(row, &x[0], k);
 }
 
 void
 Matrix_Parameter::
 update_row(int row, const distribution<double> & x, float k)
 {
-    throw Exception("not implemented");
+    if (x.size() != size2())
+        throw Exception("Vector_Parameter::update(): wrong size");
+    update_row(row, &x[0], k);
 }
 
 
