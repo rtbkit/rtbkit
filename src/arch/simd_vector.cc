@@ -224,6 +224,12 @@ void vec_prod(const float * x, const double * y, float * r, size_t n)
     for (; i < n;  ++i) r[i] = x[i] * y[i];
 }
 
+void vec_prod(const double * x, const double * y, float * r, size_t n)
+{
+    unsigned i = 0;
+    for (; i < n;  ++i) r[i] = x[i] * y[i];
+}
+
 void vec_add(const float * x, float k, const float * y, float * r, size_t n)
 {
     v4sf kkkk = vec_splat(k);

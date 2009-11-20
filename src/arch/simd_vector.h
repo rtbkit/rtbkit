@@ -122,6 +122,8 @@ JML_ALWAYS_INLINE void vec_prod(const float * x, const double * y, double * r, s
 
 void vec_prod(const float * x, const double * y, float * r, size_t n);
 
+void vec_prod(const double * x, const double * y, float * r, size_t n);
+
 void vec_add(const double * x, const float * y, double * r, size_t n);
 
 
