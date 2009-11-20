@@ -40,7 +40,8 @@ namespace ML {
 
 struct Twoway_Layer : public Auto_Encoder {
     typedef Auto_Encoder Base;
-    typedef Dense_Layer<float> Forward;
+    typedef float Float;
+    typedef Dense_Layer<Float> Forward;
 
     Twoway_Layer();
 
@@ -145,11 +146,11 @@ struct Twoway_Layer : public Auto_Encoder {
     /*************************************************************************/
 
     /// Bias for the reverse direction
-    distribution<float> ibias;
+    distribution<Float> ibias;
 
     /// Scaling factors for the reverse direction
-    distribution<float> iscales;
-    distribution<float> oscales;
+    distribution<Float> iscales;
+    distribution<Float> oscales;
 
     virtual std::pair<float, float> itargets(float maximum) const;
 
@@ -269,6 +270,39 @@ struct Twoway_Layer : public Auto_Encoder {
                  Parameters & gradient,
                  Parameters * dgradient,
                  double example_weight) const;
+
+    /** Perform a back propagation.  Given the derivative of the error with
+        respect to each of the errors, they compute the gradient of the
+        parameter space.
+    */
+    virtual void rbprop(const float * inputs,
+                        const float * reconstruction,
+                        const float * temp_space,
+                        size_t temp_space_size,
+                        const float * reconstruction_errors,
+                        float * input_errors_out,
+                        Parameters & gradient,
+                        double example_weight) const;
+    
+    /** \copydoc rbprop */
+    virtual void rbprop(const double * inputs,
+                        const double * reconstruction,
+                        const double * temp_space,
+                        size_t temp_space_size,
+                        const double * reconstruction_errors,
+                        double * input_errors_out,
+                        Parameters & gradient,
+                        double example_weight) const;
+
+    template<typename F>
+    void rbprop(const F * inputs,
+                const F * reconstruction,
+                const F * temp_space,
+                size_t temp_space_size,
+                const F * reconstruction_errors,
+                F * input_errors_out,
+                Parameters & gradient,
+                double example_weight) const;
 
     /** Dump as ASCII.  This will be big. */
     virtual std::string print() const;

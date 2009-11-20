@@ -691,6 +691,244 @@ ibbprop(const F * outputs,
     gradient.vector(6, "oscales").update(oscales_updates, example_weight);
 }
 
+namespace {
+
+void calc_W_updates(double k1, const double * x, double k2, const double * y,
+                    const double * z, double * r, size_t n)
+{
+    return SIMD::vec_k1_x_plus_k2_y_z(k1, x, k2, y, z, r, n);
+}
+ 
+void calc_W_updates(float k1, const float * x, float k2, const float * y,
+                    const float * z, float * r, size_t n)
+{
+    return SIMD::vec_k1_x_plus_k2_y_z(k1, x, k2, y, z, r, n);
+}
+
+} // file scope
+
+template<typename F>
+void
+Twoway_Layer::
+rbprop(const F * inputs,
+       const F * reconstruction,
+       const F * temp_space,
+       size_t temp_space_size,
+       const F * reconstruction_errors,
+       F * input_errors_out,
+       Parameters & gradient,
+       double example_weight) const
+{
+    // Temporary space:
+    // 
+    // +-----------+-------------+---------------+
+    // |  fprop    | outputs     |   ifprop      |
+    // +-----------+-------------+---------------+
+    // |<- fspace->|<-   no    ->|<-  ifspace  ->|
+
+    size_t fspace = fprop_temporary_space_required();
+    size_t ifspace = ifprop_temporary_space_required();
+
+    if (temp_space_size != this->outputs() + fspace + ifspace)
+        throw Exception("wrong temporary space size");
+
+    const F * outputs = temp_space + fspace;
+
+    typedef Twoway_Layer::Float LFloat;
+
+    int ni JML_UNUSED = this->inputs();
+    int no JML_UNUSED = this->outputs();
+
+    distribution<F> noisy_input(inputs, inputs + ni);
+
+    // Apply the layer
+    distribution<F> hidden_rep(outputs, outputs + no);
+
+    CHECK_NOT_NAN(hidden_rep);
+            
+    // Reconstruct the input
+    distribution<F> denoised_input(reconstruction, reconstruction + ni);
+
+    CHECK_NOT_NAN(denoised_input);
+            
+    // Error signal
+    distribution<F> diff(reconstruction_errors, reconstruction_errors + ni);
+    
+    const boost::multi_array<LFloat, 2> & W = forward.weights;
+
+    const distribution<LFloat> & b JML_UNUSED = forward.bias;
+    const distribution<LFloat> & c JML_UNUSED = ibias;
+    const distribution<LFloat> & d JML_UNUSED = iscales;
+    const distribution<LFloat> & e JML_UNUSED = oscales;
+
+    distribution<F> c_updates
+        = diff * forward.transfer_function->derivative(denoised_input);
+
+    CHECK_NOT_NAN(c_updates);
+
+    gradient.vector(4, "ibias").update(c_updates, example_weight);
+
+    distribution<F> hidden_rep_e
+        = hidden_rep * e;
+
+    distribution<F> d_updates(ni);
+    d_updates = multiply_r<F>(W, hidden_rep_e) * c_updates;
+
+    CHECK_NOT_NAN(d_updates);
+
+    gradient.vector(5, "iscales").update(d_updates, example_weight);
+
+    distribution<F> cupdates_d_W
+        = multiply_r<F>((c_updates * d), W);
+    
+    distribution<F> e_updates = cupdates_d_W * hidden_rep;
+
+    gradient.vector(6, "oscales").update(e_updates, example_weight);
+
+
+    CHECK_NOT_NAN(e_updates);
+
+    distribution<F> hidden_deriv
+        = forward.transfer_function->derivative(hidden_rep);
+
+    CHECK_NOT_NAN(hidden_deriv);
+
+    distribution<F> b_updates = cupdates_d_W * hidden_deriv * e;
+
+    CHECK_NOT_NAN(b_updates);
+
+    gradient.vector(1, "bias").update(b_updates, example_weight);
+
+    distribution<double> factor_totals_accum(no);
+
+    for (unsigned i = 0;  i < ni;  ++i)
+        SIMD::vec_add(&factor_totals_accum[0], c_updates[i] * d[i], &W[i][0],
+                      &factor_totals_accum[0], no);
+
+    distribution<F> factor_totals
+        = factor_totals_accum.cast<F>() * e;
+
+    boost::multi_array<F, 2> W_updates;
+    vector<distribution<double> > missing_act_updates;
+
+    distribution<double> hidden_rep_ed(hidden_rep_e);
+
+    for (unsigned i = 0;  i < ni;  ++i) {
+
+        if (!isnan(noisy_input[i])) {
+            
+            F W_updates_row[no];
+            
+            // We use the W value for both the input and the output, so we
+            // need to accumulate it's total effect on the derivative
+            calc_W_updates(c_updates[i] * d[i],
+                           &hidden_rep_e[0],
+                           
+                           noisy_input[i],
+                           &factor_totals[0],
+                           &hidden_deriv[0],
+                           W_updates_row,
+                           no);
+            
+            CHECK_NOT_NAN_RANGE(&W_updates_row[0], &W_updates_row[0] + no);
+
+            gradient.matrix(0, "weights")
+                .update_row(i, W_updates_row, example_weight);
+        }
+        else if (forward.missing_values == MV_NONE)
+            throw Exception("MV_NONE but missing value");
+        else if (forward.missing_values == MV_ZERO) {
+            gradient.matrix(0, "weights")
+                .update_row(i, hidden_rep_e,
+                            c_updates[i] * d[i] * example_weight);
+        }
+        else if (forward.missing_values == MV_DENSE) {
+            // The weight updates are simpler, but we also have to calculate
+            // the missing activation updates
+            
+            // W value only used on the way out; simpler calculation
+            
+            gradient.matrix(0, "weights")
+                .update_row(i, hidden_rep_e,
+                            c_updates[i] * d[i] * example_weight);
+
+            distribution<F> mau_updates
+                = factor_totals * hidden_deriv;
+
+            gradient.matrix(3, "missing_activations")
+                .update_row(i, mau_updates, example_weight);
+        }
+        else if (forward.missing_values == MV_INPUT) {
+
+            F W_updates_row[no];
+            
+            // We use the W value for both the input and the output, so we
+            // need to accumulate it's total effect on the derivative
+            calc_W_updates(c_updates[i] * d[i],
+                           &hidden_rep_e[0],
+                           
+                           forward.missing_replacements[i],
+                           &factor_totals[0],
+                           &hidden_deriv[0],
+                           W_updates_row,
+                           no);
+            
+            CHECK_NOT_NAN_RANGE(&W_updates_row[0], &W_updates_row[0] + no);
+
+            gradient.matrix(0, "weights")
+                .update_row(i, W_updates_row, example_weight);
+        }
+        else throw Exception("unknown updates");
+    }
+
+    distribution<F> cleared_value_updates(ni);
+    cleared_value_updates = isnan(noisy_input) * (W * b_updates);
+        
+    if (forward.missing_values == MV_INPUT) {
+        gradient.vector(2, "missing_replacements")
+            .update(cleared_value_updates, example_weight);
+    }
+
+
+    if (input_errors_out) {
+        distribution<F> input_updates(W * b_updates);
+        std::copy(input_updates.begin(), input_updates.end(),
+                  input_errors_out);
+    }
+}
+    
+void
+Twoway_Layer::
+rbprop(const float * inputs,
+       const float * reconstruction,
+       const float * temp_space,
+       size_t temp_space_size,
+       const float * reconstruction_errors,
+       float * input_errors_out,
+       Parameters & gradient,
+       double example_weight) const
+{
+    return rbprop<float>(inputs, reconstruction, temp_space, temp_space_size,
+                         reconstruction_errors, input_errors_out,
+                         gradient, example_weight);
+}
+    
+void
+Twoway_Layer::
+rbprop(const double * inputs,
+       const double * reconstruction,
+       const double * temp_space,
+       size_t temp_space_size,
+       const double * reconstruction_errors,
+       double * input_errors_out,
+       Parameters & gradient,
+       double example_weight) const
+{
+    return rbprop<double>(inputs, reconstruction, temp_space, temp_space_size,
+                          reconstruction_errors, input_errors_out,
+                          gradient, example_weight);
+}
+
 std::string
 Twoway_Layer::
 print() const
@@ -798,16 +1036,28 @@ void
 Twoway_Layer::
 random_fill(float limit, Thread_Context & context)
 {
+    cerr << "Twoway_Layer::random_fill(): limit = " << limit
+         << " ni = " << inputs() << " no = " << outputs()
+         << endl;
+
     forward.random_fill(limit, context);
-    for (unsigned i = 0;  i < ibias.size();  ++i) {
+    for (unsigned i = 0;  i < ibias.size();  ++i)
         ibias[i] = limit * (context.random01() * 2.0f - 1.0f);
-        iscales[i] = context.random01();
-    }
+
     for (unsigned i = 0;  i < outputs();  ++i)
         oscales[i] = 0.5 + context.random01();
 
     for (unsigned i = 0;  i < inputs();  ++i)
         iscales[i] = 0.5 + context.random01();
+
+    iscales.fill(1.0);
+    oscales.fill(1.0);
+
+    if (forward.missing_values == MV_DENSE) {
+        for (unsigned i = 0;  i < inputs();  ++i)
+            for (unsigned o = 0;  o < outputs();  ++o)
+                forward.missing_activations[i][o] = limit * limit * (context.random01() * 2.0f - 1.0f);
+    }
 }
 
 void
@@ -838,793 +1088,5 @@ TWOWAY_REGISTER("Twoway_Layer");
 } // file scope
 
 template class Layer_Stack<Twoway_Layer>;
-
-
-#if 0
-
-// Float type to use for calculations
-typedef double CFloat;
-
-void
-Twoway_Layer::
-ibackprop_example(const distribution<double> & outputs,
-                  const distribution<double> & output_deltas,
-                  const distribution<double> & inputs,
-                  distribution<double> & input_deltas,
-                  Twoway_Layer_Updates & updates) const
-{
-#if 0
-    distribution<double> dibias = iderivative(outputs) * output_deltas;
-
-    updates.ibias += dibias;
-
-    // The inputs can't be missing in this direction
-
-    int ni = this->inputs(), no = this->outputs();
-
-    for (unsigned i = 0;  i < ni;  ++i)
-        SIMD::vec_add(&updates.weights[i][0], inputs[i], &dbias[0],
-                      &updates.weights[i][0], no);
-
-    input_deltas = weights * dbias;
-#endif
-}
-
-#if 0
-pair<double, double>
-train_example2(const Twoway_Layer & layer,
-               const vector<distribution<float> > & data,
-               int example_num,
-               float max_prob_cleared,
-               Thread_Context & thread_context,
-               Twoway_Layer_Updates & updates,
-               Lock & update_lock,
-               bool need_lock,
-               int verbosity)
-{
-    int ni JML_UNUSED = layer.inputs();
-    int no JML_UNUSED = layer.outputs();
-
-    // Present this input
-    distribution<CFloat> model_input(data.at(example_num));
-
-    CHECK_NOT_NAN(model_input);
-    
-    if (model_input.size() != ni) {
-        cerr << "model_input.size() = " << model_input.size() << endl;
-        cerr << "ni = " << ni << endl;
-        throw Exception("wrong sizes");
-    }
-
-    float prob_cleared = max_prob_cleared;
-
-    distribution<CFloat> noisy_input;
-
-    // Every second example we add with zero noise so that we don't end up
-    // losing the ability to reconstruct the non-noisy input
-    if (thread_context.random01() < 0.5)
-        noisy_input = add_noise(model_input, thread_context, prob_cleared);
-    else noisy_input = model_input;
-
-    // Apply the layer
-    distribution<CFloat> hidden_rep
-        = layer.apply(noisy_input);
-
-    CHECK_NOT_NAN(hidden_rep);
-            
-    // Reconstruct the input
-    distribution<CFloat> denoised_input
-        = layer.iapply(hidden_rep);
-
-    CHECK_NOT_NAN(denoised_input);
-            
-    // Error signal
-    distribution<CFloat> diff
-        = model_input - denoised_input;
-    
-    // Overall error
-    double error = pow(diff.two_norm(), 2);
-    
-
-    double error_exact = pow((model_input - layer.iapply(layer.apply(model_input))).two_norm(), 2);
-
-    distribution<CFloat> denoised_input_deltas = -2 * diff;
-
-    distribution<CFloat> hidden_rep_deltas;
-
-    // Now we backprop in the two directions
-    distribution<CFloat> hidden_rep_deltas;
-    ibackprop_examples(denoised_input,
-                       denoised_input_deltas,
-                       hidden_rep,
-                       hidden_rep_deltas,
-                       updates);
-
-    CHECK_NOT_NAN(hidden_rep_deltas);
-
-    // And the other one
-    distribution<CFloat> noisy_input_deltas;
-    backprop_example(hidden_rep,
-                     hidden_rep_deltas,
-                     noisy_input,
-                     noisy_input_deltas,
-                     updates);
-
-    return make_pair(error_exact, error);
-}
-#endif
-
-#if 0
-
-pair<double, double>
-train_example(const Twoway_Layer & layer,
-              const vector<distribution<float> > & data,
-              int example_num,
-              float max_prob_cleared,
-              Thread_Context & thread_context,
-              Twoway_Layer_Updates & updates,
-              Lock & update_lock,
-              bool need_lock,
-              int verbosity)
-{
-    //cerr << "training example " << example_num << endl;
-
-    int ni JML_UNUSED = layer.inputs();
-    int no JML_UNUSED = layer.outputs();
-
-    // Present this input
-    distribution<CFloat> model_input(data.at(example_num));
-
-    CHECK_NOT_NAN(model_input);
-    
-    if (model_input.size() != ni) {
-        cerr << "model_input.size() = " << model_input.size() << endl;
-        cerr << "ni = " << ni << endl;
-        throw Exception("wrong sizes");
-    }
-
-    // Add noise up to the threshold
-    // We don't add a uniform amount as this causes a bias in things like the
-    // total.
-    //float prob_cleared = thread_context.random01() * max_prob_cleared;
-    //float prob_cleared = thread_context.random01() < 0.5 ? max_prob_cleared : 0.0;
-    float prob_cleared = max_prob_cleared;
-
-    distribution<CFloat> noisy_input;
-
-    if (thread_context.random01() < 0.5)
-        noisy_input = add_noise(model_input, thread_context, prob_cleared);
-    else noisy_input = model_input;
-
-    distribution<CFloat> noisy_pre
-        = layer.preprocess(noisy_input);
-
-    distribution<CFloat> hidden_act
-        = layer.activation(noisy_pre);
-
-    //cerr << "noisy_pre = " << noisy_pre << " hidden_act = "
-    //     << hidden_act << endl;
-
-    CHECK_NOT_NAN(hidden_act);
-            
-    // Apply the layer
-    distribution<CFloat> hidden_rep
-        = layer.transfer(hidden_act);
-
-    CHECK_NOT_NAN(hidden_rep);
-            
-    // Reconstruct the input
-    distribution<CFloat> denoised_input
-        = layer.iapply(hidden_rep);
-
-    CHECK_NOT_NAN(denoised_input);
-            
-    // Error signal
-    distribution<CFloat> diff
-        = model_input - denoised_input;
-    
-    // Overall error
-    double error = pow(diff.two_norm(), 2);
-    
-
-    double error_exact = pow((model_input - layer.iapply(layer.apply(model_input))).two_norm(), 2);
-
-    if (example_num < 10 && false) {
-        cerr << " ex " << example_num << endl;
-        cerr << "  input: " << distribution<float>(model_input.begin(),
-                                                   model_input.begin() + 10)
-             << endl;
-        cerr << "  noisy input: " << distribution<float>(noisy_input.begin(),
-                                                         noisy_input.begin() + 10)
-             << endl;
-        cerr << "  output: " << distribution<float>(denoised_input.begin(),
-                                                    denoised_input.begin() + 10)
-             << endl;
-        cerr << "  diff: " << distribution<float>(diff.begin(),
-                                                  diff.begin() + 10)
-             << endl;
-        cerr << "error: " << error << endl;
-        cerr << endl;
-        
-    }
-        
-    // NOTE: OUT OF DATE, NEEDS CORRECTIONS
-    // Now we solve for the gradient direction for the two biases as
-    // well as for the weights matrix
-    //
-    // If f() is the activation function for the forward direction and
-    // g() is the activation function for the reverse direction, we can
-    // write
-    //
-    // h = f(Wi1 + b)
-    //
-    // where i1 is the (noisy) inputs, h is the hidden unit outputs, W
-    // is the weight matrix and b is the forward bias vector.  Going
-    // back again, we then take
-    // 
-    // i2 = g(W*h + c) = g(W*f(Wi + b) + c)
-    //
-    // where i2 is the denoised approximation of the true input weights
-    // (i) and W* is W transposed.
-    //
-    // Using the MSE, we get
-    //
-    // e = sqr(||i2 - i||) = sum(sqr(i2 - i))
-    //
-    // where e is the MSE.
-    //
-    // Differentiating with respect to i2, we get
-    //
-    // de/di2 = 2(i2 - i)
-    //
-    // Finally, we want to know the gradient direction for each of the
-    // parameters W, b and c.  Taking c first, we get
-    //
-    // de/dc = de/di2 di2/dc
-    //       = 2 (i2 - i) g'(i2)
-    //
-    // As for b, we get
-    //
-    // de/db = de/di2 di2/db
-    //       = 2 (i2 - i) g'(i2) W* f'(Wi + b)
-    //
-    // And for W:
-    //
-    // de/dW = de/di2 di2/dW
-    //       = 2 (i2 - i) g'(i2) [ h + W* f'(Wi + b) i ]
-    //
-    // Since we want to minimise the reconstruction error, we use the
-    // negative of the gradient.
-    // END OUT OF DATE
-
-    // NOTE: here, the activation function for the input and the output
-    // are the same.
-        
-    const boost::multi_array<LFloat, 2> & W
-        = layer.weights;
-
-    const distribution<LFloat> & b JML_UNUSED = layer.bias;
-    const distribution<LFloat> & c JML_UNUSED = layer.ibias;
-    const distribution<LFloat> & d JML_UNUSED = layer.iscales;
-    const distribution<LFloat> & e JML_UNUSED = layer.oscales;
-
-    distribution<CFloat> c_updates
-        = -2 * diff * layer.iderivative(denoised_input);
-
-    if (!need_lock)
-        updates.ibias += c_updates;
-
-    CHECK_NOT_NAN(c_updates);
-
-#if 0
-    Twoway_Layer layer2 = layer;
-
-    // Calculate numerically the c updates
-    for (unsigned i = 0;  i < ni;  ++i) {
-
-        float epsilon = 1e-8;
-        double old = layer2.ibias[i];
-        layer2.ibias[i] += epsilon;
-
-        // Apply the layer
-        distribution<CFloat> hidden_rep2
-            = layer2.apply(noisy_input);
-        
-        distribution<CFloat> denoised_input2
-            = layer2.iapply(hidden_rep2);
-
-        // Error signal
-        distribution<CFloat> diff2
-            = model_input - denoised_input2;
-            
-        // Overall error
-        double error2 = pow(diff2.two_norm(), 2);
-
-        double delta = error2 - error;
-
-        double deriv  = c_updates[i];
-        double deriv2 = xdiv(delta, epsilon);
-
-        cerr << format("%3d %7.4f %9.5f %9.5f %9.5f %8.5f\n",
-                       i,
-                       100.0 * xdiv(abs(deriv - deriv2),
-                                    max(abs(deriv), abs(deriv2))),
-                       abs(deriv - deriv2),
-                       deriv, deriv2, noisy_input[i]);
-
-        layer2.ibias[i] = old;
-    }
-#endif
-
-    distribution<CFloat> hidden_rep_e
-        = hidden_rep * e;
-
-    distribution<CFloat> d_updates(ni);
-    d_updates = multiply_r<CFloat>(W, hidden_rep_e) * c_updates;
-
-    CHECK_NOT_NAN(d_updates);
-
-    if (!need_lock)
-        updates.iscales += d_updates;
-
-#if 0
-    Twoway_Layer layer2 = layer;
-
-    // Calculate numerically the c updates
-    for (unsigned i = 0;  i < ni;  ++i) {
-
-        float epsilon = 1e-8;
-        double old = layer2.iscales[i];
-        layer2.iscales[i] += epsilon;
-
-        // Apply the layer
-        distribution<CFloat> hidden_rep2
-            = layer2.apply(noisy_input);
-        
-        distribution<CFloat> denoised_input2
-            = layer2.iapply(hidden_rep2);
-
-        // Error signal
-        distribution<CFloat> diff2
-            = model_input - denoised_input2;
-            
-        // Overall error
-        double error2 = pow(diff2.two_norm(), 2);
-
-        double delta = error2 - error;
-
-        double deriv  = d_updates[i];
-        double deriv2 = xdiv(delta, epsilon);
-
-        cerr << format("%3d %7.4f %9.5f %9.5f %9.5f %8.5f\n",
-                       i,
-                       100.0 * xdiv(abs(deriv - deriv2),
-                                    max(abs(deriv), abs(deriv2))),
-                       abs(deriv - deriv2),
-                       deriv, deriv2, noisy_input[i]);
-
-        layer2.iscales[i] = old;
-    }
-#endif
-
-    distribution<CFloat> cupdates_d_W
-        = multiply_r<CFloat>((c_updates * d), W);
-    
-    distribution<CFloat> e_updates = cupdates_d_W * hidden_rep;
-
-    if (!need_lock)
-        updates.oscales += e_updates;
-
-    CHECK_NOT_NAN(e_updates);
-
-#if 0
-    Twoway_Layer layer2 = layer;
-
-    // Calculate numerically the c updates
-    for (unsigned i = 0;  i < no;  ++i) {
-
-        float epsilon = 1e-8;
-        double old = layer2.oscales[i];
-        layer2.oscales[i] += epsilon;
-
-        // Apply the layer
-        distribution<CFloat> hidden_rep2
-            = layer2.apply(noisy_input);
-        
-        distribution<CFloat> denoised_input2
-            = layer2.iapply(hidden_rep2);
-
-        // Error signal
-        distribution<CFloat> diff2
-            = model_input - denoised_input2;
-            
-        // Overall error
-        double error2 = pow(diff2.two_norm(), 2);
-
-        double delta = error2 - error;
-
-        double deriv  = e_updates[i];
-        double deriv2 = xdiv(delta, epsilon);
-
-        cerr << format("%3d %7.4f %9.5f %9.5f %9.5f %8.5f\n",
-                       i,
-                       100.0 * xdiv(abs(deriv - deriv2),
-                                    max(abs(deriv), abs(deriv2))),
-                       abs(deriv - deriv2),
-                       deriv, deriv2, noisy_input[i]);
-
-        layer2.oscales[i] = old;
-    }
-#endif
-
-    distribution<CFloat> hidden_deriv
-        = layer.derivative(hidden_rep);
-
-    // Check hidden_deriv numerically
-#if 0
-    distribution<CFloat> hidden_act2 = hidden_act;
-
-    //cerr << "hidden_act = " << hidden_act << endl;
-    //cerr << "hidden_deriv = " << hidden_deriv << endl;
-
-    // Calculate numerically the c updates
-    for (unsigned i = 0;  i < no;  ++i) {
-
-        float epsilon = 1e-8;
-        double old = hidden_act2[i];
-        hidden_act2[i] += epsilon;
-
-        // Apply the layer
-        distribution<CFloat> hidden_rep2
-            = layer.transfer(hidden_act2);
-        
-        // Error signal
-
-        // Overall error
-        double delta = hidden_rep2[i] - hidden_rep[i];
-
-        double deriv  = hidden_deriv[i];
-        double deriv2 = xdiv(delta, epsilon);
-
-        cerr << format("%3d %7.4f %9.5f %9.5f %9.5f %8.5f\n",
-                       i,
-                       100.0 * xdiv(abs(deriv - deriv2),
-                                    max(abs(deriv), abs(deriv2))),
-                       abs(deriv - deriv2),
-                       deriv, deriv2, hidden_act[i]);
-
-        hidden_act2[i] = old;
-    }
-#endif
-    
-
-    CHECK_NOT_NAN(hidden_deriv);
-
-    distribution<CFloat> b_updates = cupdates_d_W * hidden_deriv * e;
-
-    CHECK_NOT_NAN(b_updates);
-
-    if (!need_lock)
-        updates.bias += b_updates;
-
-#if 0
-    Twoway_Layer layer2 = layer;
-
-    // Calculate numerically the c updates
-    for (unsigned i = 0;  i < no;  ++i) {
-
-        float epsilon = 1e-8;
-        double old = layer2.bias[i];
-        layer2.bias[i] += epsilon;
-
-        // Apply the layer
-        distribution<CFloat> hidden_rep2
-            = layer2.apply(noisy_input);
-        
-        distribution<CFloat> denoised_input2
-            = layer2.iapply(hidden_rep2);
-
-        // Error signal
-        distribution<CFloat> diff2
-            = model_input - denoised_input2;
-            
-        // Overall error
-        double error2 = pow(diff2.two_norm(), 2);
-
-        double delta = error2 - error;
-
-        double deriv  = b_updates[i];
-        double deriv2 = xdiv(delta, epsilon);
-
-        cerr << format("%3d %7.4f %9.5f %9.5f %9.5f %8.5f\n",
-                       i,
-                       100.0 * xdiv(abs(deriv - deriv2),
-                                    max(abs(deriv), abs(deriv2))),
-                       abs(deriv - deriv2),
-                       deriv, deriv2, noisy_input[i]);
-
-        layer2.bias[i] = old;
-    }
-#endif
-
-    distribution<double> factor_totals_accum(no);
-
-    for (unsigned i = 0;  i < ni;  ++i)
-        SIMD::vec_add(&factor_totals_accum[0], c_updates[i] * d[i], &W[i][0],
-                      &factor_totals_accum[0], no);
-
-    distribution<CFloat> factor_totals
-        = factor_totals_accum.cast<CFloat>() * e;
-
-    boost::multi_array<CFloat, 2> W_updates;
-    vector<distribution<double> > missing_act_updates;
-
-    distribution<double> hidden_rep_ed(hidden_rep_e);
-
-    if (need_lock) {
-        W_updates.resize(boost::extents[ni][no]);
-        missing_act_updates.resize(ni, distribution<double>(no));
-    }
-
-    for (unsigned i = 0;  i < ni;  ++i) {
-
-        if (!layer.use_dense_missing
-            || !isnan(noisy_input[i])) {
-            
-            CFloat W_updates_row[no];
-            
-            // We use the W value for both the input and the output, so we
-            // need to accumulate it's total effect on the derivative
-            calc_W_updates(c_updates[i] * d[i],
-                           &hidden_rep_e[0],
-                           
-                           model_input[i],
-                           &factor_totals[0],
-                           &hidden_deriv[0],
-                           (need_lock ? &W_updates[i][0] : W_updates_row),
-                           no);
-            
-            if (!need_lock) {
-                CHECK_NOT_NAN_RANGE(&W_updates_row[0], &W_updates_row[0] + no);
-                SIMD::vec_add(&updates.weights[i][0], W_updates_row,
-                              &updates.weights[i][0], no);
-            }
-        }
-        else {
-            // The weight updates are simpler, but we also have to calculate
-            // the missing activation updates
-
-            // W value only used on the way out; simpler calculation
-
-            if (need_lock)
-                SIMD::vec_add(&W_updates[i][0], c_updates[i] * d[i],
-                              &hidden_rep_e[0], &W_updates[i][0], no);
-            else
-                SIMD::vec_add(&updates.weights[i][0], c_updates[i] * d[i],
-                              &hidden_rep_e[0], &updates.weights[i][0], no);
-
-            distribution<CFloat> mau_updates
-                = factor_totals * hidden_deriv;
-
-            if (need_lock) {
-                // Missing values were used on the way in
-                missing_act_updates[i] = mau_updates;
-            }
-            else {
-                SIMD::vec_add(&updates.missing_activations[i][0],
-                              &mau_updates[0],
-                              &updates.missing_activations[i][0],
-                              no);
-            }
-        }
-    }
-       
-    
-#if 0  // test numerically
-    Twoway_Layer layer2 = layer;
-
-    for (unsigned i = 0;  i < ni;  ++i) {
-
-        for (unsigned j = 0;  j < no;  ++j) {
-            double epsilon = 1e-8;
-
-            double old_W = layer2.weights[i][j];
-            layer2.weights[i][j] += epsilon;
-
-            // Apply the layer
-            distribution<CFloat> hidden_rep2
-                = layer2.apply(noisy_input);
-
-            distribution<CFloat> denoised_input2
-                = layer2.iapply(hidden_rep2);
-            
-            // Error signal
-            distribution<CFloat> diff2
-                = model_input - denoised_input2;
-                    
-            //cerr << "diff = " << diff << endl;
-            //cerr << "diff2 = " << diff2 << endl;
-                    
-            // Overall error
-            double error2 = pow(diff2.two_norm(), 2);
-                    
-            double delta = error2 - error;
-
-            double deriv2 = xdiv(delta, epsilon);
-
-            double deriv = W_updates[i][j];
-
-            cerr << format("%3d %3d %7.4f %9.5f %9.5f %9.5f %8.5f\n",
-                           i, j,
-                           100.0 * xdiv(abs(deriv - deriv2),
-                                        max(abs(deriv), abs(deriv2))),
-                           abs(deriv - deriv2),
-                           deriv, deriv2, noisy_input[i]);
-
-            //cerr << "error = " << error << " error2 = " << error2
-            //     << " delta = " << delta
-            //    << " deriv " << W_updates[i][j]
-            //     << " deriv2 " << deriv2 << endl;
-
-
-            layer2.weights[i][j] = old_W;
-        }
-    }
-#endif  // if one/zero
-
-#if 0  // test numerically the missing activations
-    Twoway_Layer layer2 = layer;
-
-    for (unsigned i = 0;  i < ni;  ++i) {
-        if (!isnan(noisy_input[i])) continue;  // will be zero
-
-        for (unsigned j = 0;  j < no;  ++j) {
-            double epsilon = 1e-8;
-
-            double old_W = layer2.missing_activations[i][j];
-            layer2.missing_activations[i][j] += epsilon;
-
-            // Apply the layer
-            distribution<CFloat> hidden_rep2
-                = layer2.apply(noisy_input);
-
-            distribution<CFloat> denoised_input2
-                = layer2.iapply(hidden_rep2);
-            
-            // Error signal
-            distribution<CFloat> diff2
-                = model_input - denoised_input2;
-                    
-            //cerr << "diff = " << diff << endl;
-            //cerr << "diff2 = " << diff2 << endl;
-                    
-            // Overall error
-            double error2 = pow(diff2.two_norm(), 2);
-                    
-            double delta = error2 - error;
-
-            double deriv2 = xdiv(delta, epsilon);
-
-            double deriv = missing_act_updates[i][j];
-
-            cerr << format("%3d %3d %7.4f %9.5f %9.5f %9.5f %8.5f\n",
-                           i, j,
-                           100.0 * xdiv(abs(deriv - deriv2),
-                                        max(abs(deriv), abs(deriv2))),
-                           abs(deriv - deriv2),
-                           deriv, deriv2, noisy_input[i]);
-
-            layer2.missing_activations[i][j] = old_W;
-        }
-    }
-#endif  // if one/zero
-
-    distribution<double> cleared_value_updates(ni);
-    
-    if (!layer.use_dense_missing) {
-        cleared_value_updates = isnan(noisy_input) * W * b_updates;
-
-        if (!need_lock)
-            updates.missing_replacements += cleared_value_updates;
-    }
-
-#if 0  // test numerically
-    for (unsigned i = 0;  i < ni;  ++i) {
-        double epsilon = 1e-6;
-
-        distribution<CFloat> noisy_pre2 = noisy_pre;
-        noisy_pre2[i] += epsilon;
-
-        // Apply the layer
-        distribution<CFloat> hidden_act2
-            = layer.activation(noisy_pre2);
-
-        distribution<CFloat> hidden_rep2
-            = layer.transfer(hidden_act2);
-                    
-        distribution<CFloat> denoised_input2
-            = layer.iapply(hidden_rep2);
-                    
-        // Error signal
-        distribution<CFloat> diff2
-            = model_input - denoised_input2;
-                    
-        // Overall error
-        double error2 = pow(diff2.two_norm(), 2);
-                    
-        double delta = error2 - error;
-
-        double deriv2 = xdiv(delta, epsilon);
-
-        cerr << "error = " << error << " error2 = " << error2
-             << " delta = " << delta
-             << " deriv " << cleared_value_updates[i]
-             << " deriv2 " << deriv2 << endl;
-    }
-#endif // test numerically
-
-#if 0
-    cerr << "cleared_value_updates.size() = " << cleared_value_updates.size()
-         << endl;
-    cerr << "ni = " << ni << endl;
-    cerr << "b_updates.size() = " << b_updates.size() << endl;
-#endif
-
-    if (need_lock && true) {  // faster, despite the lock
-        Guard guard(update_lock);
-        
-        for (unsigned i = 0;  i < ni;  ++i)
-            if (isnan(noisy_input[i]))
-                updates.missing_replacements[i] += cleared_value_updates[i];
-
-#if 0
-        cerr << "b_updates = " << b_updates << endl;
-        cerr << "c_updates = " << c_updates << endl;
-        cerr << "d_updates = " << d_updates << endl;
-        cerr << "e_updates = " << e_updates << endl;
-        cerr << "W_updates = " << W_updates << endl;
-#endif
-        
-        updates.bias += b_updates;
-        updates.ibias += c_updates;
-        updates.iscales += d_updates;
-        updates.oscales += e_updates;
-        
-        for (unsigned i = 0;  i < ni;  ++i) {
-            SIMD::vec_add(&updates.weights[i][0],
-                          &W_updates[i][0],
-                          &updates.weights[i][0], no);
-            
-            if (layer.use_dense_missing && isnan(noisy_input[i]))
-                updates.missing_activations[i] += missing_act_updates[i];
-        }
-    }
-    else if (need_lock) {
-        for (unsigned i = 0;  i < ni;  ++i)
-            if (isnan(noisy_input[i]))
-                atomic_accumulate(updates.missing_replacements[i],
-                                  cleared_value_updates[i]);
-
-        atomic_accumulate(&updates.bias[0], &b_updates[0], no);
-        atomic_accumulate(&updates.ibias[0], &c_updates[0], ni);
-        atomic_accumulate(&updates.iscales[0], &d_updates[0], ni);
-        atomic_accumulate(&updates.oscales[0], &e_updates[0], no);
-        
-        for (unsigned i = 0;  i < ni;  ++i) {
-            atomic_accumulate(&updates.weights[i][0], &W_updates[i][0], no);
-
-            if (layer.use_dense_missing && isnan(noisy_input[i]))
-                atomic_accumulate(&updates.missing_activations[i][0],
-                                  &missing_act_updates[i][0],
-                                  no);
-        }
-    }
-
-    return make_pair(error_exact, error);
-}
-
-#endif
-
-#endif
 
 } // namespace ML
