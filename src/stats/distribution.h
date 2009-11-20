@@ -370,6 +370,16 @@ DIST_SCALAR_COMPARE_OP(<);
 DIST_SCALAR_COMPARE_OP(>=);
 DIST_SCALAR_COMPARE_OP(<=);
 
+template<class F, class Underlying>
+distribution<bool>
+operator ! (const distribution<F, Underlying> & d)
+{
+    distribution<bool> result(d.size());
+    for (unsigned i = 0;  i < d.size();  ++i)
+        result[i] = !d[i];
+    return result;
+}
+
 template<typename F, class Underlying>
 std::ostream &
 operator << (std::ostream & stream, const distribution<F, Underlying> & dist)
