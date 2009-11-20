@@ -53,6 +53,7 @@ defaults()
     individual_learning_rates = false;
     weight_decay_l1 = 0.0;
     weight_decay_l2 = 0.0;
+    dump_testing_output = 0;
 }
 
 void
@@ -72,18 +73,21 @@ configure(const std::string & name, const Configuration & config)
     config.get(individual_learning_rates, "individual_learning_rates");
     config.get(weight_decay_l1, "weight_decay_l1");
     config.get(weight_decay_l2, "weight_decay_l2");
+    config.get(dump_testing_output, "dump_testing_output");
 }
 
 template<typename Float>
 distribution<Float>
 Auto_Encoder_Trainer::
 add_noise(const distribution<Float> & inputs,
-          Thread_Context & context) const
+          Thread_Context & context,
+          bool force_noise) const
 {
     distribution<Float> result = inputs;
 
-    if (prob_any_noise == 0.0
-        || context.random01() > prob_any_noise) return result;
+    if (!force_noise
+        && (prob_any_noise == 0.0
+            || context.random01() > prob_any_noise)) return result;
 
     for (unsigned i = 0;  i < inputs.size();  ++i)
         if (context.random01() < prob_cleared)
@@ -95,17 +99,23 @@ add_noise(const distribution<Float> & inputs,
 std::pair<double, double>
 Auto_Encoder_Trainer::
 train_example(const Auto_Encoder & encoder,
-              const distribution<float> & inputs,
+              const distribution<float> & inputs_,
               Parameters & updates,
               Thread_Context & context) const
 {
-    distribution<float> noisy_inputs = add_noise(inputs, context);
+    // What precision do we do the calculations in?
+    typedef double Float;
+
+    distribution<Float> inputs(inputs_);
+
+    distribution<Float> noisy_inputs
+        = add_noise(inputs, context, false /* force_noise */);
 
     size_t temp_space_size = encoder.rfprop_temporary_space_required();
 
-    float temp_space[temp_space_size];
+    Float temp_space[temp_space_size];
 
-    distribution<float> reconstruction(inputs.size());
+    distribution<Float> reconstruction(inputs.size());
 
     // Forward propagate (calculate the reconstruction from the noisy
     // input)
@@ -116,8 +126,8 @@ train_example(const Auto_Encoder & encoder,
     // Calculate the error (difference between the reconstruction and the
     // input) and the error gradient
 
-    distribution<float> error = inputs - reconstruction;
-    distribution<float> derror = -2.0 * error;
+    distribution<Float> error = inputs - reconstruction;
+    distribution<Float> derror = -2.0 * error;
 
     // Backpropagate the error gradient through the parameters
 
@@ -126,10 +136,10 @@ train_example(const Auto_Encoder & encoder,
                    &derror[0], 0 /* input_errors_out */, updates, 1.0);
 
     // Calculate the exact error as well
-    distribution<float> exact_error;
+    distribution<Float> exact_error;
 
     if (!equivalent(noisy_inputs, inputs)) {
-        distribution<float> exact_reconstruction
+        distribution<Float> exact_reconstruction
             = encoder.reconstruct(inputs);
         
         exact_error = inputs - exact_reconstruction;
@@ -306,7 +316,7 @@ train_iter(Auto_Encoder & encoder,
 
         //cerr << "applying minibatch updates" << endl;
         
-        encoder.parameters().update(updates, -learning_rate / minibatch_size);
+        encoder.parameters().update(updates, -learning_rate);
     }
 
     return make_pair(sqrt(total_mse_exact / nx2), sqrt(total_mse_noisy / nx2));
@@ -420,18 +430,22 @@ train(Auto_Encoder & encoder,
     int nxt = testing_data.size();
 
     if (verbosity == 2)
-        cerr << "iter  ---- train ----  ---- test -----\n"
-             << "        exact   noisy    exact   noisy\n";
+        cerr << "iter      lr  -- inst train--  ---- train ----  ---- test -----\n"
+             << "----  ------    exact   noisy    exact   noisy    exact   noisy\n";
     
     Parameters_Copy<float> learning_rates;
 
     for (unsigned iter = 0;  iter < niter;  ++iter) {
 
+        if (verbosity >= 2)
+            cerr << format("%4d", iter) << flush;
+
         if (iter % 5 == 0 && !individual_learning_rates) {
-            learning_rate
-                = calc_learning_rate(encoder, training_data, thread_context);
-            cerr << "optimal learning rate calculated was " << learning_rate
-                 << endl;
+            //learning_rate
+            //    = calc_learning_rate(encoder, training_data, thread_context);
+            //cerr << "optimal learning rate calculated was " << learning_rate
+            //     << endl;
+            learning_rate = 0.75 / (nx * sample_proportion);
         }
         else if (iter % 5 == 0 && individual_learning_rates) {
             learning_rates
@@ -442,7 +456,7 @@ train(Auto_Encoder & encoder,
             cerr << "iter " << iter << " training on " << nx << " examples"
                  << endl;
         else if (verbosity >= 2)
-            cerr << format("%4d", iter) << flush;
+            cerr << format("  %6.4f", learning_rate) << flush;
         Timer timer;
         
         double train_error_exact, train_error_noisy;
@@ -469,6 +483,26 @@ train(Auto_Encoder & encoder,
         if (iter % test_every == (test_every - 1)
             || iter == niter - 1) {
             timer.restart();
+
+            double train_error_exact = 0.0, train_error_noisy = 0.0;
+            
+            if (verbosity >= 3)
+                cerr << "testing on " << nxt << " examples"
+                     << endl;
+            
+            boost::tie(train_error_exact, train_error_noisy)
+                = test(encoder, training_data, thread_context);
+            
+            if (verbosity >= 3) {
+                cerr << "training rmse of iteration: exact "
+                     << train_error_exact << " noisy " << train_error_noisy
+                     << endl;
+                cerr << timer.elapsed() << endl;
+            }
+            else if (verbosity == 2)
+                cerr << format("  %7.5f %7.5f",
+                               train_error_exact, train_error_noisy);
+
             double test_error_exact = 0.0, test_error_noisy = 0.0;
             
             if (verbosity >= 3)
@@ -534,7 +568,7 @@ calc_learning_rate(const Auto_Encoder & layer,
 
         const distribution<float> & exact_input = training_data[example_num];
         distribution<float> noisy_input
-            = add_noise(exact_input, thread_context);
+            = add_noise(exact_input, thread_context, false /* force_noise */);
         
         distribution<float> reconstructed(layer.inputs());
 
@@ -568,14 +602,14 @@ calc_learning_rate(const Auto_Encoder & layer,
         distribution<double> dgradient = gradient2.values - gradient1.values;
         dgradient *= (gamma / alpha);
 
-        eig.values = (1.0 - gamma) * eig.values + dgradient;
+        eig.values = (1.0 - gamma) * eig.values + gamma * dgradient;
 
         //distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
         //cerr << "values = " << values << endl;
     }
 
-    distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
-    cerr << "values = " << values << endl;
+    //distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
+    //cerr << "values = " << values << endl;
 
     return 1.0 / eig.values.two_norm();
 }
@@ -621,7 +655,7 @@ calc_learning_rates(const Auto_Encoder & layer,
 
         const distribution<float> & exact_input = training_data[example_num];
         distribution<float> noisy_input
-            = add_noise(exact_input, thread_context);
+            = add_noise(exact_input, thread_context, false /* force_noise */);
         
         distribution<float> reconstructed(layer.inputs());
 
@@ -664,8 +698,8 @@ calc_learning_rates(const Auto_Encoder & layer,
         //cerr << "values = " << values << endl;
     }
 
-    distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
-    cerr << "values = " << values << endl;
+    //distribution<float> values(eig.values.begin(), eig.values.begin() + 20);
+    //cerr << "values = " << values << endl;
 
     distribution<float> ahd_values(avg_hessian_diag.values.begin(),
                                    avg_hessian_diag.values.begin() + 20);
@@ -817,6 +851,15 @@ train_stack(Auto_Encoder_Stack & stack,
 
 namespace {
 
+std::string print_dist(const distribution<float> & dist)
+{
+    string result;
+    for (unsigned i = 0;  i < min<int>(dist.size(), 12);  ++i)
+        result += format("%6.3f ", dist[i]);
+    if (dist.size() > 20) result += "...";
+    return result;
+}
+
 struct Test_Examples_Job {
 
     const Auto_Encoder_Trainer & trainer;
@@ -870,7 +913,8 @@ struct Test_Examples_Job {
 
             // Add noise
             distribution<float> noisy_input
-                = trainer.add_noise(model_input, thread_context);
+                = trainer.add_noise(model_input, thread_context,
+                                    true /* force_noise */);
             
             // Apply the layer
             distribution<float> hidden_rep
@@ -907,6 +951,21 @@ struct Test_Examples_Job {
     
             // Overall error
             double error2 = pow(diff2.two_norm(), 2);
+
+            if (x < trainer.dump_testing_output) {
+                cerr << endl
+                     << "example " << x << ": error exact " << error2
+                     << " noisy " << error << endl
+                     << "  input: " << print_dist(model_input) << endl
+                     << "  output:" << print_dist(reconstructed_input) << endl
+                     << "  diff:  " << print_dist(diff2) << endl;
+                if (isnan(noisy_input).any()) {
+                    cerr << "  noisy: " << print_dist(noisy_input) << endl
+                         << "  dnoisd:" << print_dist(denoised_input) << endl
+                         << "  diff:  " << print_dist(diff)
+                         << endl;
+                }
+            }
     
             test_error_exact += error2;
         }
@@ -982,21 +1041,6 @@ test_and_update(const Auto_Encoder & encoder,
 
 #if 0
 
-    config.get(prob_cleared, "prob_cleared");
-    config.get(learning_rate, "learning_rate");
-    config.get(minibatch_size, "minibatch_size");
-    config.get(niter, "niter");
-    config.get(verbosity, "verbosity");
-    config.get(transfer_function, "transfer_function");
-    config.get(init_with_svd, "init_with_svd");
-    config.get(use_dense_missing, "use_dense_missing");
-    config.get(layer_sizes, "layer_sizes");
-    config.get(randomize_order, "randomize_order");
-    config.get(sample_proportion, "sample_proportion");
-    config.get(test_every, "test_every");
-
-
-#if 0
             cerr << "weights: " << endl;
             for (unsigned i = 0;  i < 10;  ++i) {
                 for (unsigned j = 0;  j < 10;  ++j) {
@@ -1023,7 +1067,6 @@ test_and_update(const Auto_Encoder & encoder,
             cerr << "max = " << max_abs_weight << " avg = "
                  << avg_abs_weight << " rms avg = " << rms_avg_weight
                  << endl;
-#endif
 
             //cerr << "iscales: " << layer.iscales << endl;
             //cerr << "hscales: " << layer.hscales << endl;
@@ -1085,68 +1128,6 @@ test_and_update(const Auto_Encoder & encoder,
                 //layer.hscales = init.singular_values_order;
             }
         }
-
-        //layer.zero_fill();
-        //layer.bias.fill(0.01);
-        //layer.weights[0][0] = -0.3;
-
-        Twoway_Layer layer(use_dense_missing, ni, nh, transfer_function,
-                           thread_context);
-
-        if (ni == nh && false) {
-            //layer.zero_fill();
-            for (unsigned i = 0;  i < ni;  ++i) {
-                layer.weights[i][i] += 1.0;
-            }
-        }
-
-        // Calculate the inputs to the next layer
-        
-        if (verbosity >= 3)
-            cerr << "calculating next layer training inputs on "
-                 << nx << " examples" << endl;
-        double train_error_exact = 0.0, train_error_noisy = 0.0;
-        boost::tie(train_error_exact, train_error_noisy)
-            = layer.test_and_update(layer_train, next_layer_train,
-                                    prob_cleared, thread_context,
-                                    verbosity);
-
-        if (verbosity >= 2)
-            cerr << "training rmse of layer: exact "
-                 << train_error_exact << " noisy " << train_error_noisy
-                 << endl;
-        
-        if (verbosity >= 3)
-            cerr << "calculating next layer testing inputs on "
-                 << nxt << " examples" << endl;
-        double test_error_exact = 0.0, test_error_noisy = 0.0;
-        boost::tie(test_error_exact, test_error_noisy)
-            = layer.test_and_update(layer_test, next_layer_test,
-                                    prob_cleared, thread_context,
-                                    verbosity);
-
-#if 0
-        push_back(layer);
-
-        // Test the layer stack
-        if (verbosity >= 3)
-            cerr << "calculating whole stack testing performance on "
-                 << nxt << " examples" << endl;
-        boost::tie(test_error_exact, test_error_noisy)
-            = test(testing_data, prob_cleared, thread_context, verbosity);
-        
-        if (verbosity >= 2)
-            cerr << "testing rmse of stack: exact "
-                 << test_error_exact << " noisy " << test_error_noisy
-                 << endl;
-        
-        if (verbosity >= 2)
-            cerr << "testing rmse of layer: exact "
-                 << test_error_exact << " noisy " << test_error_noisy
-                 << endl;
-
-        pop_back();
-#endif
 
 
 #endif

@@ -48,13 +48,15 @@ struct Auto_Encoder_Trainer {
     bool individual_learning_rates;
     float weight_decay_l1;
     float weight_decay_l2;
+    int dump_testing_output;
 
     /** Add noise to the distribution, according to the noise parameters that
         have been set above. */
     template<typename Float>
     distribution<Float>
     add_noise(const distribution<Float> & inputs,
-              Thread_Context & context) const;
+              Thread_Context & context,
+              bool force_noise) const;
 
     /** Train on a single example, updating the parameters. */
     std::pair<double, double>
