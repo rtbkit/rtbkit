@@ -277,6 +277,10 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
                  const distribution<Float> & b,
                  float lambda)
 {
+    using namespace std;
+    //cerr << "ridge_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
+    //<< " b = " << b.size() << endl;
+
     //boost::timer t;
 
     // Step 1: SVD
@@ -430,6 +434,11 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         double total_mse_biased = 0.0, total_mse_unbiased = 0.0;
         for (unsigned j = 0;  j < m;  ++j) {
 
+            if (j < 10 && false)
+                cerr << "j = " << j << " b[j] = " << b[j]
+                     << " predictions[j] = " << predictions[j]
+                     << endl;
+
             double resid = b[j] - predictions[j];
 
             // Adjust for the bias cause by training on this example.  This is
@@ -452,7 +461,15 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         //    cerr << "rmse_biased: x = " << x << endl;
         //}
         
-        if (total_mse_unbiased < best_error) {
+#if 0
+        cerr << "m = " << m << endl;
+        cerr << "total_mse_biased   = " << total_mse_biased << endl;
+        cerr << "total_mse_unbiased = " << total_mse_unbiased << endl;
+        cerr << "best_error = " << best_error << endl;
+        cerr << "x = " << x << endl;
+#endif
+
+        if (total_mse_unbiased < best_error || i == 0) {
             x_best = x;
             best_lambda = current_lambda;
             best_error = total_mse_unbiased;
@@ -667,6 +684,8 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 
         //cerr << "fit_weights: " << t.elapsed() << endl;
 
+        //cerr << "fit_weights = " << fit_weights << endl;
+
         /* Set up the reweighted least squares problem. */
         Vector z           = eta - offset + (y - mu) * deta_dmu;
         //cerr << "z: " << t.elapsed() << endl;
@@ -690,6 +709,11 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         //cerr << "least squares: " << t.elapsed() << endl;
 
         /* Re-estimate eta and mu based on refined estimate. */
+        //cerr << "b.size() = " << b.size() << endl;
+        //cerr << "x.shape()[0] = " << x.shape()[0]
+        //     << " x.shape()[1] = " << x.shape()[1]
+        //     << endl;
+
         eta                = (b * x) + offset;
         for (unsigned i = 0;  i < eta.size();  ++i)
             if (!std::isfinite(eta[i]))
