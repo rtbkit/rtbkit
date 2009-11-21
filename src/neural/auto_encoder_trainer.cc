@@ -131,7 +131,7 @@ train_example(const Auto_Encoder & encoder,
 
     // Backpropagate the error gradient through the parameters
 
-    encoder.rbprop(&inputs[0], &reconstruction[0],
+    encoder.rbprop(&noisy_inputs[0], &reconstruction[0],
                    temp_space, temp_space_size,
                    &derror[0], 0 /* input_errors_out */, updates, 1.0);
 
@@ -146,7 +146,7 @@ train_example(const Auto_Encoder & encoder,
     }
     else exact_error = error;
 
-    return make_pair(error.dotprod(error), exact_error.dotprod(exact_error));
+    return make_pair(exact_error.dotprod(exact_error), error.dotprod(error));
 }
 
 namespace {
@@ -458,6 +458,9 @@ train(Auto_Encoder & encoder,
 #endif
 
             learning_rate = this->learning_rate / (nx * sample_proportion);
+
+            //cerr << "learning_rate = " << learning_rate << " nx = " << nx
+            //     << endl;
         }
         else if (iter % 5 == 0 && individual_learning_rates) {
             learning_rates
