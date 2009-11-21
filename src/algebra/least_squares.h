@@ -118,8 +118,12 @@ least_squares(const boost::multi_array<Float, 2> & A, const distribution<Float> 
 
     //boost::timer t;
 
-    if (A.shape()[0] != b.size())
+    if (A.shape()[0] != b.size()) {
+        cerr << "A.shape()[0] = " << A.shape()[0] << endl;
+        cerr << "A.shape()[1] = " << A.shape()[1] << endl;
+        cerr << "b.size() = " << b.size() << endl;
         throw Exception("incompatible dimensions for least_squares");
+    }
 
     using namespace LAPack;
     
@@ -279,8 +283,10 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
 {
     using namespace std;
     //cerr << "ridge_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
-    //<< " b = " << b.size() << endl;
+    //     << " b = " << b.size() << endl;
 
+    //cerr << "b = " << b << endl;
+    //cerr << "A = " << A << endl;
     //boost::timer t;
 
     // Step 1: SVD
@@ -327,6 +333,9 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
 
     if (debug)
         cerr << "GK = " << endl << GK << endl;
+
+    //cerr << "GK.shape()[0] = " << GK.shape()[0] << endl;
+    //cerr << "GK.shape()[1] = " << GK.shape()[1] << endl;
 
     // Add in the ridge
     for (unsigned i = 0;  i < minmn;  ++i)
@@ -378,7 +387,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     double best_error = 1000000;
 
     for (unsigned i = 0; current_lambda >= 1e-14;  ++i, current_lambda /= 10.0) {
-        
+        //cerr << "i = " << i << " current_lambda = " << current_lambda << endl;
         // Adjust the singular values for the new lambda
         distribution<Float> my_singular = singular_values;
         my_singular += (current_lambda - lambda);
@@ -404,7 +413,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         boost::multi_array<Float, 2> A_pinv
             = (m < n ? GK_pinv * A : A * GK_pinv);
 
-        if (debug)
+        if (debug && false)
             cerr << "A_pinv = " << endl << A_pinv << endl;
 
         x = b * A_pinv;
@@ -421,14 +430,22 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         //boost::multi_array<Float, 2> A_A_pinv
         //    = A * transpose(A_pinv);
 
+#if 0
         boost::multi_array<Float, 2> A_A_pinv
             = multiply_transposed(A, A_pinv);
 
-        //cerr << "A_A_pinv: " << A_A_pinv.shape()[0] << "x"
-        //     << A_A_pinv.shape()[1] << endl;
+        cerr << "A_A_pinv: " << A_A_pinv.shape()[0] << "x"
+             << A_A_pinv.shape()[1] << " m = " << m << endl;
 
-        if (debug)
+        if (debug && false)
             cerr << "A_A_pinv = " << endl << A_A_pinv << endl;
+#else
+        // We only need the diagonal of A * A_pinv
+
+        distribution<Float> A_A_pinv_diag(m);
+        for (unsigned j = 0;  j < m;  ++j)
+            A_A_pinv_diag[j] = SIMD::vec_dotprod_dp(&A[j][0], &A_pinv[j][0], n);
+#endif
 
         // Now figure out the performance
         double total_mse_biased = 0.0, total_mse_unbiased = 0.0;
@@ -444,7 +461,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
             // Adjust for the bias cause by training on this example.  This is
             // A * pinv(A), which is A * 
 
-            double factor = 1.0 - A_A_pinv[j][j];
+            double factor = 1.0 - A_A_pinv_diag[j];
 
             double resid_unbiased = resid / factor;
 
