@@ -45,13 +45,19 @@ struct W_regress {
 
     std::string print() const
     {
-        return format("W_regress: wt     wx     wx^2\n"
-                      "FALSE:     %8.5f  %8.5f %8.5f\n"
-                      "TRUE:      %8.5f  %8.5f %8.5f\n"
-                      "MISSING:   %8.5f  %8.5f %8.5f\n",
-                      wt[0], dist[0], sqr[0],
-                      wt[1], dist[1], sqr[1],
-                      wt[2], dist[2], sqr[2]);
+        double z[3];
+        for (unsigned i = 0;  i < 3;  ++i) {
+            if (wt[i] < 1e-20) z[i] = 0.0;
+            else z[i] = sqr[i] - (dist[i] * dist[i]) / wt[i];
+        }
+        
+        return format("W_regress: wt     wx     wx^2   z\n"
+                      "FALSE:     %8.5f  %8.5f %8.5f %8.5f\n"
+                      "TRUE:      %8.5f  %8.5f %8.5f %8.5f\n"
+                      "MISSING:   %8.5f  %8.5f %8.5f %8.5f\n",
+                      wt[0], dist[0], sqr[0], z[0],
+                      wt[1], dist[1], sqr[1], z[1],
+                      wt[2], dist[2], sqr[2], z[2]);
     }
     
     size_t nl() const { return 1; }
@@ -82,6 +88,10 @@ struct W_regress {
     {
         float f = correct_label.value();
         float w = *it * weight;
+
+        if (w < 0.0)
+            throw Exception("negative weight");
+
         float fw = f * w;
         float ffw = f * fw;
         dist[bucket] += fw;
@@ -104,6 +114,11 @@ struct W_regress {
     {
         float f = correct_label.value();
         float w = *it * weight;
+
+        if (w < 0.0)
+            throw Exception("negative weight 2");
+
+
         float fw = f * w;
         float ffw = f * fw;
         dist[from] -= fw;
@@ -154,9 +169,13 @@ struct W_regress {
         when accumulating. */
     void clip(int bucket)
     {
-        dist[bucket] = std::max(dist[bucket], 0.0);
+        // should never be clipped as it's allowed to be below zero...
+        //dist[bucket] = std::max(dist[bucket], 0.0);
         sqr[bucket] = std::max(sqr[bucket], 0.0);
         wt[bucket] = std::max(wt[bucket], 0.0);
+
+        if (wt[bucket] == 0.0 || sqr[bucket] == 0.0)
+            wt[bucket] = sqr[bucket] = dist[bucket] = 0.0;
     }
 
     /** Swap the weight between the given two buckets. */

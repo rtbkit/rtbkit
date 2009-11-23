@@ -572,6 +572,10 @@ struct Stump_Trainer {
                        advance);
         }
         
+        //using namespace std;
+        //cerr << "default w: " << endl
+        //     << result.print() << endl;
+
         return result;
     }
 
@@ -1039,7 +1043,7 @@ struct Stump_Trainer {
         using namespace std;
 
         bool debug = false;
-        //debug = (feature.type() == 22);
+        //debug = (feature.type() == 6);
 
         Joint_Index index
             = data.index().joint(predicted, feature, BY_EXAMPLE,
@@ -1116,12 +1120,26 @@ struct Stump_Trainer {
 
         /* Go through the buckets and select the best one. */
         for (int i = 0;  i < nb - 1;  ++i) {
+
+            if (debug) {
+                cerr << "before: " << endl << w.print() << endl;
+                cerr << "bucket contents: " << endl
+                     << buckets[i].print() << endl;
+            }
             /* Transfer the whole bucket. */
             w.transfer(true, false, buckets[i]);
+
+            if (debug) {
+                cerr << "after: " << endl << w.print() << endl;
+            }
 
             /* Fix up any rounding errors that took it below zero. */
             w.clip(true);
             
+            if (debug) {
+                cerr << "after clip: " << endl << w.print() << endl;
+            }
+
             /* Add this split point. */
             float arg = index.bucket_vals()[i];
             float new_Z = results.add(feature, w, arg, missing);
