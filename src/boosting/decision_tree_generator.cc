@@ -272,6 +272,9 @@ struct Tree_Accum {
                 << ") z " << z << "  " << fs.print(feature)
                 << (z < best_z ? " ****" : "")
                 << endl;
+
+        if (tracer || print_feat)
+            tracer("tree accum", 4) << w.print() << endl;
         
         if (z < best_z) {
             Guard guard(lock);
@@ -407,13 +410,13 @@ fillin_leaf(Tree::Leaf & leaf,
     }
 }
 
-Tree::Leaf * 
-new_leaf_regression(Tree & tree,
-                    const Training_Data & data,
-                    const Feature & predicted,
-                    const vector<float> & weights,
-                    const distribution<float> & in_class,
-                    float examples = -1.0)
+void
+fillin_leaf_regression(Tree::Leaf & leaf,
+                       const Training_Data & data,
+                       const Feature & predicted,
+                       const vector<float> & weights,
+                       const distribution<float> & in_class,
+                       float examples = -1.0)
 {
     /* Calculate the weighted mean over the examples in this class. */
     int nx = data.example_count();
@@ -434,9 +437,8 @@ new_leaf_regression(Tree & tree,
 
     if (examples == -1.0) examples = in_class.total();
 
-    Tree::Leaf * result = tree.new_leaf(dist, examples);
-    
-    return result;
+    leaf.pred = dist;
+    leaf.examples = examples;
 }
 
 template<class Weights>
@@ -948,6 +950,9 @@ train_recursive_regression(Thread_Context & context,
 {
     size_t nx = data.example_count();
 
+    Tree::Leaf leaf;
+    fillin_leaf_regression(leaf, data, model.predicted(), weights, in_class);
+
     const vector<Label> & labels = data.index().labels(model.predicted());
 
     /* Check for all of the labels in the class having the same value. */
@@ -964,18 +969,19 @@ train_recursive_regression(Thread_Context & context,
             }
         }
 
-        if (all_same)
-            return new_leaf_regression(tree, data, model.predicted(), weights,
-                                       in_class);
+        if (all_same) {
+            Tree::Leaf * result = tree.new_leaf();
+            *result = leaf;
+            return result;
+        }
     }
-    
+        
     double total_weight = in_class.total();
 
     if (depth == max_depth || total_weight < 1.0) {
-        //cerr << "depth = " << depth << " total_weight = " << total_weight
-        //     << "; returning" << endl;
-        return new_leaf_regression(tree, data, model.predicted(), weights,
-                                   in_class);
+        Tree::Leaf * result = tree.new_leaf();
+        *result = leaf;
+        return result;
     }
     
     int num_non_zero = std::count_if(in_class.begin(), in_class.end(),
@@ -1028,9 +1034,9 @@ train_recursive_regression(Thread_Context & context,
     //cerr << "w = " << endl << accum.best_w.print() << endl;
 
     if (accum.best_z == 0.0) {
-        // No impurity at all
-        return new_leaf_regression(tree, data, model.predicted(), weights,
-                                   in_class);
+        Tree::Leaf * result = tree.new_leaf();
+        *result = leaf;
+        return result;
     }
 
     distribution<float> class_true;
@@ -1055,34 +1061,21 @@ train_recursive_regression(Thread_Context & context,
     Tree::Node * node = tree.new_node();
     node->split = accum.split();
     node->z = accum.z();    node->examples = total_weight;
-    
+    node->examples = total_weight;
+    node->pred = leaf.pred;
 
-    if (total_true > 0.0)
-        node->child_true
-            = train_recursive_regression(context, data, weights, features,
-                                         class_true, depth + 1, max_depth,
-                                         tree);
-    else node->child_true
-             = new_leaf_regression(tree, data, model.predicted(), weights,
-                                   in_class, 0.0);
-    
-    if (total_false > 0.0)
-        node->child_false
-            = train_recursive_regression(context, data, weights, features,
-                                         class_false, depth + 1, max_depth,
-                                         tree); 
-    else node->child_false
-             = new_leaf_regression(tree, data, model.predicted(), weights,
-                                   in_class, 0.0);
-    
-    if (total_missing > 0.0)
-        node->child_missing
-            = train_recursive_regression(context, data, weights, features,
-                                         class_missing, depth + 1, max_depth,
-                                         tree);
-    else node->child_missing
-             = new_leaf_regression(tree, data, model.predicted(), weights,
-                                   in_class, 0.0);
+    node->child_true
+        = train_recursive_regression(context, data, weights, features,
+                                     class_true, depth + 1, max_depth,
+                                     tree);
+    node->child_false
+        = train_recursive_regression(context, data, weights, features,
+                                     class_false, depth + 1, max_depth,
+                                     tree); 
+    node->child_missing
+        = train_recursive_regression(context, data, weights, features,
+                                     class_missing, depth + 1, max_depth,
+                                     tree);
     
     return node;
 }
