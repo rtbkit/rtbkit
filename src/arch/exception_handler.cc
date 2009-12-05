@@ -9,7 +9,7 @@
 #include <cxxabi.h>
 #include "backtrace.h"
 #include "compiler/compiler.h"
-
+#include "utils/environment.h"
 
 using namespace std;
 
@@ -18,10 +18,34 @@ namespace ML {
 
 void (*exception_tracer) (void *, const std::type_info *) JML_WEAK_FN = 0;
 
+Env_Option<bool> TRACE_EXCEPTIONS("JML_TRACE_EXCEPTIONS", true);
+
+__thread bool trace_exceptions = false;
+__thread bool trace_exceptions_initialized = false;
+
+void set_trace_exceptions(bool trace)
+{
+    trace_exceptions = trace;
+    trace_exceptions_initialized = true;
+}
+
+bool get_trace_exceptions()
+{
+    if (!trace_exceptions_initialized) {
+        trace_exceptions = TRACE_EXCEPTIONS;
+        trace_exceptions_initialized = true;
+    }
+    
+    return trace_exceptions;
+}
+
+
 /** We install this handler for when an exception is thrown. */
 
 void trace_exception(void * object, const std::type_info * tinfo)
 {
+    if (!trace_exceptions) return;
+
     cerr << endl;
     cerr << "----------------- Exception thrown ------------------------"
          << endl;
