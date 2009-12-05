@@ -205,6 +205,11 @@ public:
         return this->total() / this->size();
     }
 
+    double std() const
+    {
+        return (*this - mean()).two_norm() / sqrt(this->size());
+    }
+
     int count() const
     {
         return std::count_if(this->begin(), this->end(),
