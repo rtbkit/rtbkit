@@ -11,20 +11,188 @@
 #define __jml__utils__circular_buffer_h__
 
 #include <vector>
+#include "arch/exception.h"
+#include <boost/iterator/iterator_facade.hpp>
+#include <iostream> // debug
 
 namespace ML {
 
-template<typename T, class Underlying = std::vector<T>, bool Safe=false>
+using namespace std; // debug
+
+template<typename T, class CircularBuffer>
+struct Circular_Buffer_Iterator
+    : public boost::iterator_facade<Circular_Buffer_Iterator<T, CircularBuffer>,
+                                    T,
+                                    boost::random_access_traversal_tag> {
+    CircularBuffer * buffer;
+    int index;
+    bool wrapped;
+    
+    typedef boost::iterator_facade<Circular_Buffer_Iterator<T, CircularBuffer>,
+                                   T,
+                                   boost::random_access_traversal_tag> Base;
+
+public:
+    typedef T & reference;
+    typedef int difference_type;
+    
+    Circular_Buffer_Iterator()
+        : buffer(0), index(0), wrapped(false)
+    {
+    }
+    
+    Circular_Buffer_Iterator(CircularBuffer * buffer, int idx, bool wrapped)
+        : buffer(buffer), index(idx), wrapped(wrapped)
+    {
+    }
+    
+    template<typename T2, class CircularBuffer2>
+    difference_type
+    operator - (const Circular_Buffer_Iterator<T2, CircularBuffer2>
+                    & other) const
+    {
+            return distance_to(other);
+    }
+    
+    template<typename T2, class CircularBuffer2>
+    bool operator == (const Circular_Buffer_Iterator<T2, CircularBuffer2>
+                          & other) const
+    {
+        return equal(other);
+    }
+    
+    template<typename T2, class CircularBuffer2>
+    bool operator != (const Circular_Buffer_Iterator<T2, CircularBuffer2>
+                          & other) const
+    {
+        return ! operator == (other);
+    }
+    
+    using Base::operator -;
+    
+    std::string print() const
+    {
+        return format("Circular_Buffer_Iterator: buffer %p (start %d size %d capacity %d) index %d wrapped %d",
+                      buffer,
+                      (buffer ? buffer->start_ : 0),
+                      (buffer ? buffer->size_ : 0),
+                      (buffer ? buffer->capacity_ : 0),
+                      index, wrapped);
+    }
+    
+private:
+    friend class boost::iterator_core_access;
+    
+    template<typename T2, class CircularBuffer2> friend class Iterator;
+    
+    template<typename T2, class CircularBuffer2>
+    bool equal(const Circular_Buffer_Iterator<T2, CircularBuffer2>
+                   & other) const
+    {
+        if (buffer != other.buffer)
+            throw Exception("wrong buffer");
+        return index == other.index && wrapped == other.wrapped;
+    }
+    
+    T & dereference() const
+    {
+        if (!buffer)
+            throw Exception("defererencing null iterator");
+        return buffer->vals_[index] ;
+        }
+    
+    void increment()
+    {
+        ++index;
+        if (index == buffer->capacity_) {
+            index = 0;
+            wrapped = true;
+        }
+    }
+    
+    void decrement()
+    {
+        if (index == buffer->start_ && !wrapped)
+            throw Exception("decrementing off the end");
+
+        //cerr << "decrement: " << print() << endl;
+
+        --index;
+        if (index < 0) {
+            wrapped = false;
+            index += buffer->capacity_;
+        }
+
+        //cerr << "after decrement: " << print() << endl;
+    }
+    
+    void advance(int nelements)
+    {
+        //cerr << "advance: before " << print() << endl;
+        //cerr << "nelements = " << nelements << endl;
+
+        index += nelements;
+        if (index >= buffer->capacity_) {
+            index -= buffer->capacity_;
+            wrapped = true;
+        }
+        if (index < 0) {
+            index += buffer->capacity_;
+            wrapped = false;
+        }
+
+        //err << "advance: after " << print() << endl;
+    }
+    
+    template<typename T2, class CircularBuffer2>
+    int distance_to(const Circular_Buffer_Iterator<T2, CircularBuffer2>
+                        & other) const
+    {
+        if (buffer != other.buffer)
+            throw Exception("other buffer wrong");
+
+        //cerr << "distance_to:" << endl;
+        //cerr << " this:   " << print() << endl;
+        //cerr << " other:  " << other.print() << endl;
+        
+        // What is the distance from the start to this element?
+        int dstart1 = index - buffer->start_;
+        if (wrapped) dstart1 += buffer->capacity_;
+
+        int dstart2 = other.index - buffer->start_;
+        if (other.wrapped) dstart2 += buffer->capacity_;
+
+        //cerr << " dist1:  " << dstart1 << endl;
+        //cerr << " dist2:  " << dstart2 << endl;
+        //cerr << " result: " << dstart1 - dstart2 << endl;
+
+        return dstart1 - dstart2;
+    }
+};
+
+
+template<typename T, bool Safe = false>
 struct Circular_Buffer {
     Circular_Buffer(int initial_capacity = 0)
-        : start_(0)
+        : vals_(0), start_(0), size_(0), capacity_(0)
     {
         if (initial_capacity != 0) reserve(initial_capacity);
     }
 
-    Circular_Buffer(const Circular_Buffer & other)
-        : start_(0), vals_(other.begin(), other.end())
+    void swap(Circular_Buffer & other)
     {
+        std::swap(vals_, other.vals_);
+        std::swap(start_, other.start_);
+        std::swap(size_, other.size_);
+        std::swap(capacity_, other.capacity_);
+    }
+
+    Circular_Buffer(const Circular_Buffer & other)
+        : vals_(0), start_(0), size_(0), capacity_(0)
+    {
+        reserve(other.size());
+        for (unsigned i = 0;  i < other.size();  ++i)
+            push_back(other[i]);
     }
 
     Circular_Buffer & operator = (const Circular_Buffer & other)
@@ -34,50 +202,22 @@ struct Circular_Buffer {
         return *this;
     }
 
-    void swap(Circular_Buffer & other)
+    ~Circular_Buffer()
     {
-        vals_.swap(other.vals_);
-        std::swap(start_, other.start_);
+        destroy();
     }
 
-    bool empty() const { return vals_.empty(); }
-    size_t size() const { return vals_.size(); }
-    size_t capacity() const { return vals_.capacity(); }
-    
-    void clear()
-    {
-        vals_.clear();
-        start_ = 0;
-    }
-
-    const T & operator [](int index) const
-    {
-        if (index < 0) index += size();
-        if (Safe) {
-            if (size_ == 0)
-                throw Exception("Circular_Buffer: empty array");
-            if (index < -size_ || index >= size_)
-                throw Exception("Circular_Buffer: invalid size");
-        }
-        return vals_[index];
-    }
-
-    T & operator [](int index)
-    {
-        const Circular_Buffer * cthis = this;
-        return const_cast<T &>(cthis->operator [] (index));
-    }
+    bool empty() const { return size_ == 0; }
+    size_t size() const { return size_; }
+    size_t capacity() const { return capacity_; }
 
     void reserve(int new_capacity)
     {
-        if (vals.capacity() >= new_capacity) return;
+        //cerr << "reserve: capacity = " << capacity_ << " new_capacity = "
+        //     << new_capacity << endl;
 
-        new_capacity = std::max(vals.capacity() * 2, new_capacity);
-
-        Vals new_vals;
-        new_vals.reserve(new_capacity);
-        new_vals.insert(new_vals.end(), ...);
-
+        if (new_capacity <= capacity_) return;
+        new_capacity = std::max(capacity_ * 2, new_capacity);
 
         T * new_vals = new T[new_capacity];
         memset(new_vals, 0xaa, sizeof(T) * new_capacity);
@@ -100,6 +240,60 @@ struct Circular_Buffer {
 
         vals_ = new_vals;
         capacity_ = new_capacity;
+    }
+
+    void resize(size_t new_size, const T & el = T())
+    {
+        while (new_size < size_)
+            pop_back();
+        while (new_size > size_)
+            push_back(el);
+    }
+
+    void destroy()
+    {
+        delete[] vals_;
+        vals_ = 0;
+        start_ = size_ = capacity_ = 0;
+    }
+
+    void clear(int start = 0)
+    {
+        size_ = 0;
+        start_ = start;
+        if (start < 0 || start > capacity_ || (start == capacity_ && capacity_))
+            throw Exception("invalid start");
+        memset(vals_, 0xaa, sizeof(T) * capacity_);
+    }
+
+    const T & operator [](int index) const
+    {
+        if (size_ == 0)
+            throw Exception("Circular_Buffer: empty array");
+        if (index < -size_ || index >= size_)
+            throw Exception("Circular_Buffer: invalid size");
+        return *element_at(index);
+    }
+
+    T & operator [](int index)
+    {
+        const Circular_Buffer * cthis = this;
+        return const_cast<T &>(cthis->operator [] (index));
+    }
+
+    const T & at(int index) const
+    {
+        if (size_ == 0)
+            throw Exception("Circular_Buffer: empty array");
+        if (index < -size_ || index >= size_)
+            throw Exception("Circular_Buffer: invalid size");
+        return *element_at(index);
+    }
+
+    T & at(int index)
+    {
+        const Circular_Buffer * cthis = this;
+        return const_cast<T &>(cthis->operator [] (index));
     }
 
     const T & front() const
@@ -134,7 +328,7 @@ struct Circular_Buffer {
     {
         if (size_ == capacity_) reserve(std::max(1, capacity_ * 2));
         ++size_;
-        *element_at(size_) = val;
+        *element_at(size_ - 1) = val;
     }
 
     void push_front(const T & val)
@@ -206,11 +400,53 @@ struct Circular_Buffer {
         }
     }
 
+    typedef Circular_Buffer_Iterator<T, Circular_Buffer> iterator;
+    typedef Circular_Buffer_Iterator<const T, const Circular_Buffer>
+        const_iterator;
+
+    iterator begin()
+    {
+        return iterator(this, start_, capacity_ == 0 /* wrapped */);
+    }
+
+    iterator end()
+    {
+        return begin() + size_;
+    }
+    
+    const_iterator begin() const
+    {
+        return const_iterator(this, start_, capacity_ == 0 /* wrapped */);
+    }
+
+    const_iterator end() const
+    {
+        return begin() + size_;
+    }
+    
 private:
+    template<typename T2, class CB> friend class Circular_Buffer_Iterator;
+
     T * vals_;
     int start_;
     int size_;
     int capacity_;
+
+    void validate() const
+    {
+        if (!vals_ && capacity_ != 0)
+            throw Exception("null vals but capacity");
+        if (start_ < 0)
+            throw Exception("negative start");
+        if (size_ < 0)
+            throw Exception("negative size");
+        if (capacity_ < 0)
+            throw Exception("negaive capacity");
+        if (size_ > capacity)
+            throw Exception("capacity too high");
+        if (start_ > size_ || (start_ == size_ && size_ != 0))
+            throw Exception("start too far");
+    }
 
     T * element_at(int index)
     {
@@ -246,6 +482,42 @@ private:
         return vals_ + offset;
     }
 };
+
+template<typename T, bool S>
+bool
+operator == (const Circular_Buffer<T, S> & cb1,
+             const Circular_Buffer<T, S> & cb2)
+{
+    return cb1.size() == cb2.size()
+        && std::equal(cb1.begin(), cb1.end(), cb2.begin());
+}
+
+template<typename T, bool S>
+bool
+operator < (const Circular_Buffer<T, S> & cb1,
+            const Circular_Buffer<T, S> & cb2)
+{
+    return std::lexicographical_compare(cb1.begin(), cb1.end(),
+                                        cb2.begin(), cb2.end());
+}
+
+template<typename T, bool S>
+std::ostream & operator << (std::ostream & stream,
+                            const Circular_Buffer<T, S> & buf)
+{
+    stream << "[";
+    for (unsigned i = 0;  i < buf.size();  ++i)
+        stream << " " << buf[i];
+    return stream << " ]";
+}
+
+template<typename T, class CB>
+std::ostream &
+operator << (std::ostream & stream,
+             const Circular_Buffer_Iterator<T, CB> & it)
+{
+    return stream << it.print();
+}
 
 
 } // namespace ML
