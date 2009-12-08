@@ -474,7 +474,58 @@ struct Circular_Buffer {
     {
         return begin() + size_;
     }
-    
+
+#if 0
+    template<typename OtherIt>
+    void insert(iterator where, OtherIt first, OtherIt last)
+    {
+        int n = std::distance(first, last);
+        if (n < 0)
+            throw Exception("invalid range to insert");
+        int offset = (where - begin());
+        if (offset < 0 || offset > size_)
+            throw Exception("insert(): invalid offset");
+        if (size_ + n > capacity_)
+            reserve(size_ + n);
+
+        // iterator may have been invalidated by the reserve; we can't use it
+        
+        // Two choices: a) we move elements after to the end;
+        // b) we move elements before to the start
+        int nbefore = offset;
+        int nafter = size_ - offset;
+        if (nafter < nbefore) {
+            // push everything after the insert back
+            // Initialize new elements
+            for (unsigned i = 0;  i < n;  ++i)
+                new (element_at(size_ + i)) T();
+
+            // we move those after to the end
+            for (int i = size_;  i > offset;  --i)
+                *element_at(i + n) = *element_at(i);
+            
+            // Copy the new ones in
+            for (unsigned i = 0;  i < n;  ++i)
+                *element_at(offset + i) = *first++;
+            
+            if (first != last)
+                throw Exception("invalid iterators");
+        }
+        else {
+            // push everything before the insert forwards
+        }
+    }
+
+    void erase(iterator first, iterator last)
+    {
+        if (first.buffer != this || second.buffer != this)
+            throw Exception("erase with invalid iterator range");
+        
+        int offset = (where - begin());
+        int n = last - first;
+    }
+#endif    
+
 private:
     template<typename T2, class CB> friend class Circular_Buffer_Iterator;
 
