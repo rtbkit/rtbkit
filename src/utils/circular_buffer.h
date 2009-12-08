@@ -171,7 +171,8 @@ private:
 };
 
 
-template<typename T, bool Safe = false>
+template<typename T, bool Safe = false,
+         class Allocator = std::allocator<T> >
 struct Circular_Buffer {
     Circular_Buffer(int initial_capacity = 0)
         : vals_(0), start_(0), size_(0), capacity_(0)
@@ -219,27 +220,60 @@ struct Circular_Buffer {
         if (new_capacity <= capacity_) return;
         new_capacity = std::max(capacity_ * 2, new_capacity);
 
-        T * new_vals = new T[new_capacity];
-        memset(new_vals, 0xaa, sizeof(T) * new_capacity);
-
         int nfirst_half = std::min(capacity_ - start_, size_);
         int nsecond_half = std::max(0, size_ - nfirst_half);
+
+        T * new_vals = allocator.allocate(new_capacity);
 
         //cerr << "start_ = " << start_ << " size_ = " << size_ << endl;
         //cerr << "nfirst_half = " << nfirst_half << endl;
         //cerr << "nsecond_half = " << nsecond_half << endl;
 
-        std::copy(vals_ + start_, vals_ + start_ + nfirst_half,
-                  new_vals);
-        std::copy(vals_ + start_ - nsecond_half, vals_ + start_,
-                  new_vals + nfirst_half);
+        // TODO: exception safety if constructors throw
 
-        memset(vals_, 0xaa, sizeof(T) * capacity_);
+        unsigned i;
+        try {
+            for (i = 0;  i < nfirst_half;  ++i)
+                new (new_vals + i) T(vals_[start_ + i]);
+        } catch (...) {
+            for (i -= 1; i >= 0;  --i) {
+                try {
+                    new_vals[i].~T();
+                } catch (...) {}
+            }
+            try {
+                allocator.deallocate(new_vals, new_capacity);
+            } catch (...) {}
+            throw;
+        }
 
-        delete[] vals_;
+        try {
+            for (unsigned i = 0;  i < nsecond_half;  ++i)
+                new (new_vals + nfirst_half + i) T(vals_[i]);
+        } catch (...) {
+            for (i -= 1; i >= 0;  --i) {
+                try {
+                    new_vals[i + nfirst_half].~T();
+                } catch (...) {}
+            }
+            for (unsigned i = 0;  i < nfirst_half;  ++i) {
+                try {
+                    vals_[start_ + i].~T();
+                } catch (...) {}
+            }
+            try {
+                allocator.deallocate(new_vals, new_capacity);
+            } catch (...) {}
+            throw;
+        }
+
+        size_t sz = size_;
+
+        destroy();
 
         vals_ = new_vals;
         capacity_ = new_capacity;
+        size_ = sz;
     }
 
     void resize(size_t new_size, const T & el = T())
@@ -252,18 +286,36 @@ struct Circular_Buffer {
 
     void destroy()
     {
-        delete[] vals_;
+        clear();
+        allocator.deallocate(vals_, capacity_);
+
         vals_ = 0;
-        start_ = size_ = capacity_ = 0;
+        capacity_ = 0;
     }
 
     void clear(int start = 0)
     {
-        size_ = 0;
-        start_ = start;
         if (start < 0 || start > capacity_ || (start == capacity_ && capacity_))
             throw Exception("invalid start");
-        memset(vals_, 0xaa, sizeof(T) * capacity_);
+
+        int nfirst_half = std::min(capacity_ - start_, size_);
+        int nsecond_half = std::max(0, size_ - nfirst_half);
+
+        // Those after start and before capacity
+        for (unsigned i = 0;  i < nfirst_half;  ++i) {
+            try {
+                vals_[start_ + i].~T();
+            } catch (...) {}
+        }
+        // Those from 0 to the end
+        for (unsigned i = 0;  i < nsecond_half;  ++i) {
+            try {
+                vals_[i].~T();
+            } catch (...) {}
+        }            
+        
+        size_ = 0;
+        start_ = start;
     }
 
     const T & operator [](int index) const
@@ -271,7 +323,7 @@ struct Circular_Buffer {
         if (size_ == 0)
             throw Exception("Circular_Buffer: empty array");
         if (index < -size_ || index >= size_)
-            throw Exception("Circular_Buffer: invalid size");
+            throw Exception("Circular_Buffer: invalid index");
         return *element_at(index);
     }
 
@@ -286,7 +338,7 @@ struct Circular_Buffer {
         if (size_ == 0)
             throw Exception("Circular_Buffer: empty array");
         if (index < -size_ || index >= size_)
-            throw Exception("Circular_Buffer: invalid size");
+            throw Exception("Circular_Buffer: invalid index");
         return *element_at(index);
     }
 
@@ -328,13 +380,13 @@ struct Circular_Buffer {
     {
         if (size_ == capacity_) reserve(std::max(1, capacity_ * 2));
         ++size_;
-        *element_at(size_ - 1) = val;
+        new (element_at(size_ - 1)) T(val);
     }
 
     void push_front(const T & val)
     {
         if (size_ == capacity_) reserve(std::max(1, capacity_ * 2));
-        *element_at(-1) = val;
+        new (element_at(-1)) T(val);
         if (start_ == 0) start_ = capacity_ - 1;
         else --start_;
     }
@@ -343,7 +395,7 @@ struct Circular_Buffer {
     {
         if (empty())
             throw Exception("pop_back with empty circular array");
-        memset(element_at(size_ - 1), 0xaa, sizeof(T));
+        element_at(-1)->~T();
         --size_;
     }
 
@@ -351,7 +403,7 @@ struct Circular_Buffer {
     {
         if (empty())
             throw Exception("pop_front with empty circular array");
-        memset(vals_ + start_, 0xaa, sizeof(T));
+        element_at(0)->~T();
         ++start_;
         --size_;
 
@@ -390,13 +442,12 @@ struct Circular_Buffer {
             int num_to_do = size_ - el - 1;
             std::copy(vals_ + offset + 1, vals_ + offset + 1 + num_to_do,
                       vals_ + offset);
-            --size_;
+            pop_back();
         }
         else {
             for (int i = offset;  i > 0;  --i)
                 vals_[i] = vals_[i - 1];
-            --size_;
-            ++start_;
+            pop_front();
         }
     }
 
@@ -481,29 +532,35 @@ private:
 
         return vals_ + offset;
     }
+
+    static Allocator allocator;
 };
 
-template<typename T, bool S>
+template<typename T, bool S, class Allocator>
+Allocator
+Circular_Buffer<T, S, Allocator>::allocator;
+
+template<typename T, bool S, class A>
 bool
-operator == (const Circular_Buffer<T, S> & cb1,
-             const Circular_Buffer<T, S> & cb2)
+operator == (const Circular_Buffer<T, S, A> & cb1,
+             const Circular_Buffer<T, S, A> & cb2)
 {
     return cb1.size() == cb2.size()
         && std::equal(cb1.begin(), cb1.end(), cb2.begin());
 }
 
-template<typename T, bool S>
+template<typename T, bool S, class A>
 bool
-operator < (const Circular_Buffer<T, S> & cb1,
-            const Circular_Buffer<T, S> & cb2)
+operator < (const Circular_Buffer<T, S, A> & cb1,
+            const Circular_Buffer<T, S, A> & cb2)
 {
     return std::lexicographical_compare(cb1.begin(), cb1.end(),
                                         cb2.begin(), cb2.end());
 }
 
-template<typename T, bool S>
+template<typename T, bool S, class A>
 std::ostream & operator << (std::ostream & stream,
-                            const Circular_Buffer<T, S> & buf)
+                            const Circular_Buffer<T, S, A> & buf)
 {
     stream << "[";
     for (unsigned i = 0;  i < buf.size();  ++i)

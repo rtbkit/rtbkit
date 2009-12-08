@@ -15,6 +15,7 @@
 #include <iostream>
 #include <boost/tuple/tuple.hpp>
 #include "arch/exception_handler.h"
+#include "arch/demangle.h"
 #include <set>
 
 using namespace ML;
@@ -174,7 +175,7 @@ BOOST_AUTO_TEST_CASE( circular_buffer_offset_tests )
     }
 }
 
-#if 0
+#if 1
 
 size_t constructed = 0, destroyed = 0;
 
@@ -249,6 +250,8 @@ struct Obj {
 template<class Vector>
 void check_basic_ops_type(Vector & vec)
 {
+    cerr << "checking " << demangle(typeid(Vector).name()) << endl;
+
     vec.clear();
     BOOST_CHECK_EQUAL(vec.size(), 0);
 
@@ -281,7 +284,10 @@ void check_basic_ops_type(Vector & vec)
     BOOST_CHECK_EQUAL(vec.front(), 1);
     BOOST_CHECK_EQUAL(vec.back(), 4);
 
-    BOOST_CHECK_THROW(vec.at(4), std::exception);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(vec.at(4), std::exception);
+    }
 
     vec.pop_back();
     BOOST_CHECK_EQUAL(vec.size(), 3);
@@ -300,6 +306,8 @@ void check_basic_ops_type(Vector & vec)
 
     vec.pop_back();
     BOOST_CHECK_EQUAL(vec.size(), 0);
+
+    cerr << "destroying..." << endl;
 }
 
 BOOST_AUTO_TEST_CASE( check_basic_ops )
