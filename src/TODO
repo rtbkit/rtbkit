@@ -59,6 +59,29 @@ Decision Trees
 * Unit test for values with no floating point numbers between them
 * Unit test that the split point agrees with the training
 * Test and fix up regression
+* Detect when, in a lower part of the tree, that there is no more weight to transfer (because all weights are at zero as the upper part of the tree cut this off) and stop transferring weight when this happens:
+
+added split 0.4148 with 0 missing and score 0.144743
+before: 
+W_regress: wt     wx     wx^2   z
+FALSE:      0.50403   0.03679  0.14743  0.14474
+TRUE:       0.00000   0.00000  0.00000  0.00000
+MISSING:    0.00000   0.00000  0.00000  0.00000
+
+bucket contents: 
+W_regress: wt     wx     wx^2   z
+FALSE:      0.00000   0.00000  0.00000  0.00000
+TRUE:       0.00000   0.00000  0.00000  0.00000
+MISSING:    0.00000   0.00000  0.00000  0.00000
+
+after: 
+W_regress: wt     wx     wx^2   z
+FALSE:      0.50403   0.03679  0.14743  0.14474
+TRUE:       0.00000   0.00000  0.00000  0.00000
+MISSING:    0.00000   0.00000  0.00000  0.00000
+
+Default_w is the same as W_regress.
+
 
 Stumps
 * Use a spinlock for the accum function with multiple threads
@@ -94,6 +117,7 @@ Algorithms
 Speedup
 * Port splitting core to CUDA
 * Port splitting core to CAL
+* Port splitting core to OpenCL
 
 Bugs
 * Figure out why it doesn't matter what direction the LESS relation is in split.h (similar results seem to be obtained anyway) (DONE).  Because the split is run to generate the classes, so they are always compatible.
@@ -114,7 +138,7 @@ Bagging
 * Use thread-reproducible RNG for bags (DONE)
 * Use group-aware sampling scheme
 * Use weighted sampling
-* Handle run away threading
+* Handle run away threading (DONE)
 
 Perceptrons
 * Get a handle on the domain and range of classifiers and treat automatically
@@ -135,3 +159,7 @@ Other
 
 Worker_Task
 * Reduce lock contention (use lock-free algorithms; divide work ahead of time; etc)
+
+Ridge Regression
+* Allow weighted ridge regression directly (currently, you have to use IRLS if the weights aren't uniform) and modify in GLZ classifier
+
