@@ -13,6 +13,7 @@
 #include "training_index.h"
 #include "weighted_training.h"
 #include "utils/smart_ptr_utils.h"
+#include "algebra/matrix_ops.h"
 
 
 using namespace std;
@@ -107,6 +108,7 @@ generate(Thread_Context & context,
     
     if (verbosity > 2) {
         cerr << endl << "Learned GLZ function: " << endl;
+        cerr << "link: " << current.link << endl;
         int nl = current.feature_space()->info(predicted).value_count();
         cerr << "feature                                 ";
         if (nl == 2 && false)
@@ -169,6 +171,14 @@ train_weighted(const Training_Data & data,
     size_t nv = result.features.size();      // Number of variables
     if (add_bias) ++nv;
 
+    distribution<double> total_weight(nx);
+    for (unsigned x = 0;  x < nx;  ++x) {
+        for (unsigned l = 0;  l < weights.shape()[1];  ++l)
+            total_weight[x] += weights[x][l];
+    }
+
+    size_t nx2 = (total_weight != 0.0).count();
+
     //cerr << "nx = " << nx << " nv = " << nv << " nx * nv = " << nx * nv
     //     << endl;
 
@@ -177,198 +187,145 @@ train_weighted(const Training_Data & data,
     /* Get the labels by example. */
     const vector<Label> & labels = data.index().labels(predicted);
     
-    if ((unsigned long)nv * (unsigned long)nx <= 100000000 || true) {
-        // Use double precision, we have enough memory (<= 1GB)
-        // NOTE: always on due to issues with convergence
-        boost::multi_array<double, 2> dense_data(boost::extents[nv][nx]);  // training data, dense
+    // Use double precision, we have enough memory (<= 1GB)
+    // NOTE: always on due to issues with convergence
+    boost::multi_array<double, 2> dense_data(boost::extents[nv][nx2]);  // training data, dense
         
-        distribution<double> model(nx, 0.0);  // to initialise weights, correct
-        vector<distribution<double> > w(nl, model);       // weights for each label
-        vector<distribution<double> > correct(nl, model); // correct values
+    distribution<double> model(nx2, 0.0);  // to initialise weights, correct
+    vector<distribution<double> > w(nl, model);       // weights for each label
+    vector<distribution<double> > correct(nl, model); // correct values
         
-        for (unsigned x = 0;  x < nx;  ++x) {
-            distribution<float> decoded = result.decode(data[x]);
-            if (add_bias) decoded.push_back(1.0);
+    int x2 = 0;
+    for (unsigned x = 0;  x < nx;  ++x) {
+        if (total_weight[x] == 0.0) continue;
+
+        distribution<float> decoded = result.decode(data[x]);
+        if (add_bias) decoded.push_back(1.0);
             
-            //cerr << "x = " << x << "  decoded = " << decoded << endl;
+        //cerr << "x = " << x << "  decoded = " << decoded << endl;
             
-            /* Record the values of the variables. */
-            assert(decoded.size() == nv);
-            for (unsigned v = 0;  v < decoded.size();  ++v) {
-                if (!isfinite(decoded[v])) decoded[v] = 0.0;
-                dense_data[v][x] = decoded[v];
-            }
+        /* Record the values of the variables. */
+        assert(decoded.size() == nv);
+        for (unsigned v = 0;  v < decoded.size();  ++v) {
+            if (!isfinite(decoded[v])) decoded[v] = 0.0;
+            dense_data[v][x2] = decoded[v];
+        }
             
-            /* Record the correct label. */
-            if (regression_problem) {
-                correct[0][x] = labels[x].value();
-                w[0][x] = weights[x][0];
-            }
-            else if (nl == 2 && weights.shape()[1] == 1) {
-                correct[0][x] = (double)(labels[x] == 0);
-                correct[1][x] = (double)(labels[x] == 1);
-                w[0][x] = weights[x][0];
-            }
-            else {
-                for (unsigned l = 0;  l < nl;  ++l) {
-                    correct[l][x] = (double)(labels[x] == l);
-                    w[l][x] = weights[x][l];
-                }
+        /* Record the correct label. */
+        if (regression_problem) {
+            correct[0][x2] = labels[x].value();
+            w[0][x2] = weights[x][0];
+        }
+        else if (nl == 2 && weights.shape()[1] == 1) {
+            correct[0][x2] = (double)(labels[x] == 0);
+            correct[1][x2] = (double)(labels[x] == 1);
+            w[0][x2] = weights[x][0];
+        }
+        else {
+            for (unsigned l = 0;  l < nl;  ++l) {
+                correct[l][x2] = (double)(labels[x] == l);
+                w[l][x2] = weights[x][l];
             }
         }
-        
-        /* Remove linearly dependent columns. */
-        vector<int> dest = remove_dependent(dense_data);
-        
-        if (add_bias && dest.back() == -1)
-            throw Exception("bias column disappeared");
 
-        int nvr = dense_data.shape()[0];
-
-        distribution<double> means(nvr), stds(nvr, 1.0);
-
-        /* Scale */
-        for (unsigned v = 0;  v < nvr && normalize;  ++v) {
-            double total = 0.0;
-
-            for (unsigned x = 0;  x < nx;  ++x)
-                total += dense_data[v][x];
-
-            double mean = total / nx;
-
-            double std_total = 0.0;
-            for (unsigned x = 0;  x < nx;  ++x)
-                std_total
-                    += (dense_data[v][x] - mean)
-                    *  (dense_data[v][x] - mean);
-            
-            double std = sqrt(std_total / nx);
-
-            if (std == 0.0 && mean == 1.0) {
-                // bias column
-                std = 1.0;
-                mean = 0.0;
-            }
-            else if (std == 0.0)
-                std = 1.0;
-            
-            double std_recip = 1.0 / std;
-
-            for (unsigned x = 0;  x < nx;  ++x)
-                dense_data[v][x] = (dense_data[v][x] - mean) * std_recip;
-
-            means[v] = mean;
-            stds[v] = std;
-        }
-
-        int nlr = nl;
-        if (nl == 2) nlr = 1;
-        
-        /* Perform a GLZ for each label. */
-        result.weights.clear();
-        double extra_bias = 0.0;
-        for (unsigned l = 0;  l < nlr;  ++l) {
-            //cerr << "l = " << l << "  correct[l] = " << correct[l]
-            //     << " w = " << w[l] << endl;
-            
-            Ridge_Regressor regressor(1e-5);
-
-            distribution<double> trained
-                = run_irls(correct[l], dense_data, w[l], link_function,
-                           regressor);
-            
-            trained /= stds;
-            extra_bias = - (trained.dotprod(means));
-
-            distribution<float> param(nv);
-            for (unsigned v = 0;  v < nv;  ++v)
-                if (dest[v] != -1) param[v] = trained[dest[v]];
-
-            if (extra_bias != 0.0) {
-                if (!add_bias)
-                    throw Exception("extra bias but nowhere to put it");
-                param.back() += extra_bias;
-            }
-        
-            //cerr << "l = " << l <<"  param = " << param << endl;
-            
-            result.weights
-                .push_back(distribution<float>(param.begin(), param.end()));
-        }
-        
-        if (nl == 2) {
-            // weights for second label are the mirror of those of the first
-            // label
-            result.weights.push_back(-1.0F * result.weights.front());
-        }
+        ++x2;
     }
-    else {
-        // Use single precision to avoid memory problems
-        // (NOTE: disabled; it is too unstable with single precision)
-        boost::multi_array<float, 2> dense_data(boost::extents[nv][nx]);  // training data, dense
+
+    if (x2 != nx2)
+        throw Exception("x2 not nx2");
         
-        distribution<float> model(nx, 0.0);  // to initialise weights, correct
-        vector<distribution<float> > w(nl, model);       // weights for each label
-        vector<distribution<float> > correct(nl, model); // correct values
+    /* Remove linearly dependent columns. */
+    vector<int> dest = remove_dependent(dense_data);
         
-        for (unsigned x = 0;  x < nx;  ++x) {
-            distribution<float> decoded = result.decode(data[x]);
-            if (add_bias) decoded.push_back(1.0);
+    if (add_bias && dest.back() == -1)
+        throw Exception("bias column disappeared");
+
+    int nvr = dense_data.shape()[0];
+
+    distribution<double> means(nvr), stds(nvr, 1.0);
+
+    /* Scale */
+    for (unsigned v = 0;  v < nvr && normalize;  ++v) {
+        double total = 0.0;
+
+        for (unsigned x = 0;  x < nx2;  ++x)
+            total += dense_data[v][x];
+
+        double mean = total / nx2;
+
+        double std_total = 0.0;
+        for (unsigned x = 0;  x < nx2;  ++x)
+            std_total
+                += (dense_data[v][x] - mean)
+                *  (dense_data[v][x] - mean);
             
-            //cerr << "x = " << x << "  decoded = " << decoded << endl;
+        double std = sqrt(std_total / nx2);
+
+        if (std == 0.0 && mean == 1.0) {
+            // bias column
+            std = 1.0;
+            mean = 0.0;
+        }
+        else if (std == 0.0)
+            std = 1.0;
             
-            /* Record the values of the variables. */
-            assert(decoded.size() == nv);
-            for (unsigned v = 0;  v < decoded.size();  ++v) {
-                if (!isfinite(decoded[v])) decoded[v] = 0.0;
-                dense_data[v][x] = decoded[v];
-            }
+        double std_recip = 1.0 / std;
+
+        for (unsigned x = 0;  x < nx2;  ++x)
+            dense_data[v][x] = (dense_data[v][x] - mean) * std_recip;
+
+        means[v] = mean;
+        stds[v] = std;
+    }
+
+    int nlr = nl;
+    if (nl == 2) nlr = 1;
+        
+    /* Perform a GLZ for each label. */
+    result.weights.clear();
+    double extra_bias = 0.0;
+    for (unsigned l = 0;  l < nlr;  ++l) {
+        //cerr << "l = " << l << "  correct[l] = " << correct[l]
+        //     << " w = " << w[l] << endl;
             
-            /* Record the correct label. */
-            if (regression_problem) {
-                correct[0][x] = labels[x].value();
-                w[0][x] = weights[x][0];
-            }
-            else {
-                for (unsigned l = 0;  l < nl;  ++l) {
-                    correct[l][x] = (float)(labels[x] == l);
-                    w[l][x] = weights[x][l];
-                }
-            }
+        Ridge_Regressor regressor(1e-5);
+
+        distribution<double> trained;
+        if (link_function != LINEAR || w[l].min() != w[l].max()) {
+            cerr << "link_function = " << link_function << endl;
+            cerr << "w[l].min() = " << w[l].min() << endl;
+            cerr << "w[l].max() = " << w[l].max() << endl;
+            trained = run_irls(correct[l], dense_data, w[l], link_function,
+                               regressor);
+        }
+        else {
+            cerr << "using fast calc" << endl;
+            trained = regressor.calc(transpose(dense_data), correct[l]);
+        }
+            
+        trained /= stds;
+        extra_bias = - (trained.dotprod(means));
+
+        distribution<float> param(nv);
+        for (unsigned v = 0;  v < nv;  ++v)
+            if (dest[v] != -1) param[v] = trained[dest[v]];
+
+        if (extra_bias != 0.0) {
+            if (!add_bias)
+                throw Exception("extra bias but nowhere to put it");
+            param.back() += extra_bias;
         }
         
-        /* Remove linearly dependent columns. */
-        vector<int> dest = remove_dependent(dense_data);
-        
-        boost::timer t;
-        
-        int nlr = nl;
-        if (nl == 2) nlr = 1;
-        
-        /* Perform a GLZ for each label. */
-        result.weights.clear();
-        for (unsigned l = 0;  l < nlr;  ++l) {
-            //cerr << "l = " << l << "  correct[l] = " << correct[l]
-            //     << " w = " << w[l] << endl;
-            distribution<float> trained
-                = run_irls(correct[l], dense_data, w[l], link_function);
+        //cerr << "l = " << l <<"  param = " << param << endl;
             
-            distribution<float> param(nv);
-            for (unsigned v = 0;  v < nv;  ++v)
-                if (dest[v] != -1) param[v] = trained[dest[v]];
-            
+        result.weights
+            .push_back(distribution<float>(param.begin(), param.end()));
+    }
         
-            //cerr << "l = " << l <<"  param = " << param << endl;
-            
-            result.weights
-                .push_back(distribution<float>(param.begin(), param.end()));
-        }
-        
-        if (nl == 2) {
-            // weights for second label are the mirror of those of the first
-            // label
-            result.weights.push_back(-1.0F * result.weights.front());
-        }
+    if (nl == 2) {
+        // weights for second label are the mirror of those of the first
+        // label
+        result.weights.push_back(-1.0F * result.weights.front());
     }
 
     //cerr << "glz_classifier: irls time " << t.elapsed() << "s" << endl;
