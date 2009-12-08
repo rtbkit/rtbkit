@@ -211,6 +211,7 @@ struct Circular_Buffer {
     bool empty() const { return size_ == 0; }
     size_t size() const { return size_; }
     size_t capacity() const { return capacity_; }
+    size_t start() const { return start_; }
 
     void reserve(int new_capacity)
     {
@@ -438,6 +439,7 @@ struct Circular_Buffer {
             pop_back();
         }
         else if (offset < start_) {
+            //cerr << "slide from back" << endl;
             // slide everything 
             int num_to_do = size_ - el - 1;
             std::copy(vals_ + offset + 1, vals_ + offset + 1 + num_to_do,
@@ -445,8 +447,13 @@ struct Circular_Buffer {
             pop_back();
         }
         else {
-            for (int i = offset;  i > 0;  --i)
+            //cerr << "slide from front" << endl;
+            for (int i = offset;  i > start_;  --i) {
+                //cerr << "setting element " << i << " old value "
+                //     << vals_[i] << " from element " << i - 1
+                //     << " old value " << vals_[i - 1] << endl;
                 vals_[i] = vals_[i - 1];
+            }
             pop_front();
         }
     }

@@ -89,6 +89,28 @@ void circular_buffer_offset_test(Circular_Buffer<int> & buf)
         BOOST_CHECK_THROW(buf[-3], Exception);
         BOOST_CHECK_THROW(buf[2], Exception);
     }
+
+    buf.push_back(3);
+    buf.push_back(4);
+    buf.push_back(5);
+    buf.push_back(6);
+
+    BOOST_CHECK_EQUAL(buf.size(), 6);
+    BOOST_CHECK_EQUAL(buf[0], 1);
+    BOOST_CHECK_EQUAL(buf[1], 2);
+    BOOST_CHECK_EQUAL(buf[2], 3);
+    BOOST_CHECK_EQUAL(buf[3], 4);
+    BOOST_CHECK_EQUAL(buf[4], 5);
+    BOOST_CHECK_EQUAL(buf[5], 6);
+    
+    buf.erase_element(1);
+
+    BOOST_CHECK_EQUAL(buf.size(), 5);
+    BOOST_CHECK_EQUAL(buf[0], 1);
+    BOOST_CHECK_EQUAL(buf[1], 3);
+    BOOST_CHECK_EQUAL(buf[2], 4);
+    BOOST_CHECK_EQUAL(buf[3], 5);
+    BOOST_CHECK_EQUAL(buf[4], 6);
 }
 
 BOOST_AUTO_TEST_CASE( circular_buffer_test )
@@ -306,8 +328,6 @@ void check_basic_ops_type(Vector & vec)
 
     vec.pop_back();
     BOOST_CHECK_EQUAL(vec.size(), 0);
-
-    cerr << "destroying..." << endl;
 }
 
 BOOST_AUTO_TEST_CASE( check_basic_ops )
@@ -582,3 +602,7 @@ BOOST_AUTO_TEST_CASE( check_resize )
     BOOST_CHECK_EQUAL(constructed, destroyed);
 }
 #endif
+
+BOOST_AUTO_TEST_CASE(check_delete_element)
+{
+}
