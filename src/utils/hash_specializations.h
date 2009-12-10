@@ -53,6 +53,15 @@ template<>
 struct hash<float> : public ML::float_hasher {
 };
 
+template<typename T>
+struct hash<T *> {
+    size_t operator () (const T * ptr) const
+    {
+        return 18446744073709551557ULL * reinterpret_cast<size_t>(ptr);
+    }
+
+};
+
 } // namespace HASH_NS
 
 
