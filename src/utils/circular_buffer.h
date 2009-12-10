@@ -17,8 +17,6 @@
 
 namespace ML {
 
-using namespace std; // debug
-
 template<typename T, class CircularBuffer>
 struct Circular_Buffer_Iterator
     : public boost::iterator_facade<Circular_Buffer_Iterator<T, CircularBuffer>,
@@ -582,9 +580,10 @@ private:
         //cerr << "element_at: index " << index << " start_ " << start_
         //     << " capacity_ " << capacity_ << " size_ " << size_;
 
-        if (index < 0) index += size_;
+        index += size_ * (index < 0);
 
-        int offset = (start_ + index) % capacity_;
+        int offset = (start_ + index);
+        offset -= capacity_ * (offset >= capacity_);
 
         //cerr << "  offset " << offset << endl;
 
