@@ -17,6 +17,7 @@
 #include "arch/exception_handler.h"
 #include "arch/demangle.h"
 #include <set>
+#include "live_counting_obj.h"
 
 using namespace ML;
 using namespace std;
@@ -198,76 +199,6 @@ BOOST_AUTO_TEST_CASE( circular_buffer_offset_tests )
 }
 
 #if 1
-
-size_t constructed = 0, destroyed = 0;
-
-int GOOD = 0xfeedbac4;
-int BAD  = 0xdeadbeef;
-
-struct Obj {
-    Obj()
-        : val(0)
-    {
-        //cerr << "default construct at " << this << endl;
-        ++constructed;
-        magic = GOOD;
-    }
-
-    Obj(int val)
-        : val(val)
-    {
-        //cerr << "value construct at " << this << endl;
-        ++constructed;
-        magic = GOOD;
-    }
-
-   ~Obj()
-    {
-        //cerr << "destroying at " << this << endl;
-        ++destroyed;
-        if (magic == BAD)
-            throw Exception("object destroyed twice");
-
-        if (magic != GOOD)
-            throw Exception("object never initialized in destructor");
-
-        magic = BAD;
-    }
-
-    Obj(const Obj & other)
-        : val(other.val)
-    {
-        //cerr << "copy construct at " << this << endl;
-        ++constructed;
-        magic = GOOD;
-    }
-
-    Obj & operator = (int val)
-    {
-        if (magic == BAD)
-            throw Exception("assigned to destroyed object");
-
-        if (magic != GOOD)
-            throw Exception("assigned to object never initialized in assign");
-
-        this->val = val;
-        return *this;
-    }
-
-    int val;
-    int magic;
-
-    operator int () const
-    {
-        if (magic == BAD)
-            throw Exception("read destroyed object");
-
-        if (magic != GOOD)
-            throw Exception("read from uninitialized object");
-
-        return val;
-    }
-};
 
 template<class Vector>
 void check_basic_ops_type(Vector & vec)
