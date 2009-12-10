@@ -92,4 +92,15 @@ pair_merger(const Iterator1 & it1, const Iterator2 & it2)
 
 } // namespace ML
 
+namespace std {
+
+template<typename T1, typename T2>
+std::ostream & operator << (std::ostream & stream,
+                            const std::pair<T1, T2> & p)
+{
+    return stream << "(" << p.first << "," << p.second << ")";
+}
+
+} // namespace std
+
 #endif /* __utils__pair_utils_h__ */
