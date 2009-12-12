@@ -30,6 +30,7 @@ struct Circular_Buffer_Iterator
                                    T,
                                    boost::random_access_traversal_tag> Base;
 
+    enum { safe = CircularBuffer::safe };
 public:
     typedef T & reference;
     typedef int difference_type;
@@ -87,30 +88,30 @@ private:
     bool equal(const Circular_Buffer_Iterator<T2, CircularBuffer2>
                    & other) const
     {
-        if (buffer != other.buffer)
+        if (safe && buffer != other.buffer)
             throw Exception("wrong buffer");
         return index == other.index && wrapped == other.wrapped;
     }
     
     T & dereference() const
     {
-        if (!buffer)
+        if (safe && !buffer)
             throw Exception("defererencing null iterator");
         return buffer->vals_[index] ;
-        }
+    }
     
     void increment()
     {
         ++index;
-        if (index == buffer->capacity_) {
-            index = 0;
-            wrapped = true;
-        }
+        bool wrap = (index >= buffer->capacity_);
+        index *= (!wrap);
+        wrapped = wrapped || wrap;
+        return;
     }
     
     void decrement()
     {
-        if (index == buffer->start_ && !wrapped)
+        if (safe && index == buffer->start_ && !wrapped)
             throw Exception("decrementing off the end");
 
         //cerr << "decrement: " << print() << endl;
@@ -130,25 +131,19 @@ private:
         //cerr << "nelements = " << nelements << endl;
 
         index += nelements;
-        if (index >= buffer->capacity_) {
-            index -= buffer->capacity_;
-            wrapped = true;
-        }
-        if (index < 0) {
-            index += buffer->capacity_;
-            wrapped = false;
-        }
-
-        //err << "advance: after " << print() << endl;
+        bool wrap1 = index >= buffer->capacity_;
+        bool wrap2 = index < 0;
+        index += (wrap2 - wrap1) * buffer->capacity_;
+        wrapped = (wrapped || wrap1) && !wrap2;
     }
     
     template<typename T2, class CircularBuffer2>
     int distance_to(const Circular_Buffer_Iterator<T2, CircularBuffer2>
                         & other) const
     {
-        if (buffer != other.buffer)
+        if (safe && buffer != other.buffer)
             throw Exception("other buffer wrong");
-
+        
         //cerr << "distance_to:" << endl;
         //cerr << " this:   " << print() << endl;
         //cerr << " other:  " << other.print() << endl;
@@ -172,6 +167,8 @@ private:
 template<typename T, bool Safe = false,
          class Allocator = std::allocator<T> >
 struct Circular_Buffer {
+    enum { safe = Safe };
+
     Circular_Buffer(int initial_capacity = 0)
         : vals_(0), start_(0), size_(0), capacity_(0)
     {
@@ -419,41 +416,10 @@ struct Circular_Buffer {
             throw Exception("erase_element(): invalid value");
         if (el < 0) el += size_;
 
-        if (capacity_ == 0)
-            throw Exception("empty circular buffer");
+        int offset = (start_ + el);
+        offset -= capacity_ * (offset >= capacity_);
 
-        int offset = (start_ + el) % capacity_;
-
-        //cerr << "offset = " << offset << " start_ = " << start_
-        //     << " size_ = " << size_ << " capacity_ = " << capacity_
-        //     << endl;
-
-        // TODO: could be done more efficiently
-
-        if (el == 0) {
-            pop_front();
-        }
-        else if (el == size() - 1) {
-            pop_back();
-        }
-        else if (offset < start_) {
-            //cerr << "slide from back" << endl;
-            // slide everything 
-            int num_to_do = size_ - el - 1;
-            std::copy(vals_ + offset + 1, vals_ + offset + 1 + num_to_do,
-                      vals_ + offset);
-            pop_back();
-        }
-        else {
-            //cerr << "slide from front" << endl;
-            for (int i = offset;  i > start_;  --i) {
-                //cerr << "setting element " << i << " old value "
-                //     << vals_[i] << " from element " << i - 1
-                //     << " old value " << vals_[i - 1] << endl;
-                vals_[i] = vals_[i - 1];
-            }
-            pop_front();
-        }
+        erase_element_at(offset);
     }
 
     typedef Circular_Buffer_Iterator<T, Circular_Buffer> iterator;
@@ -478,6 +444,11 @@ struct Circular_Buffer {
     const_iterator end() const
     {
         return begin() + size_;
+    }
+
+    void erase(const iterator & it)
+    {
+        erase_element_at(it.index);
     }
 
 #if 0
@@ -565,7 +536,8 @@ private:
 
         if (index < 0) index += size_;
 
-        int offset = (start_ + index) % capacity_;
+        int offset = (start_ + index);
+        offset -= capacity_ * (offset >= capacity_);
 
         //cerr << "  offset " << offset << endl;
 
@@ -588,6 +560,39 @@ private:
         //cerr << "  offset " << offset << endl;
 
         return vals_ + offset;
+    }
+
+    void erase_element_at(unsigned offset)
+    {
+        // TODO: could be done more efficiently
+
+        if (offset == start_) {
+            pop_front();
+        }
+        else if (offset == start_ + size_ - 1
+                 || offset == start_ + size_ - capacity_ - 1) {
+            pop_back();
+        }
+        else if (offset < start_) {
+            // Move all of the wrapped elements after this one back
+            //cerr << "slide from back" << endl;
+            // slide everything
+            int last_element = start_ + size_;
+            last_element -= capacity_ * (last_element >= capacity_);
+            std::copy(vals_ + offset + 1, vals_ + last_element,
+                      vals_ + offset);
+            pop_back();
+        }
+        else {
+            //cerr << "slide from front" << endl;
+            for (int i = offset;  i > start_;  --i) {
+                //cerr << "setting element " << i << " old value "
+                //     << vals_[i] << " from element " << i - 1
+                //     << " old value " << vals_[i - 1] << endl;
+                vals_[i] = vals_[i - 1];
+            }
+            pop_front();
+        }
     }
 
     static Allocator allocator;
