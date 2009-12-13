@@ -13,6 +13,7 @@
 #include "format.h"
 #include <string>
 #include <cerrno>
+#include "exception.h"
 
 namespace ML {
 
