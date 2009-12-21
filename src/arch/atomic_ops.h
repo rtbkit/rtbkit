@@ -9,6 +9,8 @@
 #define __arch__atomic_ops_h__
 
 #include "cmp_xchg.h"
+#include "compiler/compiler.h"
+
 
 namespace ML {
 
@@ -29,6 +31,22 @@ void atomic_accumulate(Val1 * old, const Val2 * increment, int n)
         atomic_accumulate(old[i], increment[i]);
 }
 
+template<typename Val>
+void atomic_add(Val & val, Val amount)
+{
+    
+}
+
+JML_ALWAYS_INLINE void memory_barrier()
+{
+    // GCC < 4.4 doesn't do this properly
+    // See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=36793
+#if 0
+    __sync_synchronize();
+#else
+    asm ( "mfence; \n" );
+#endif
+}
 
 } // file scope
 
