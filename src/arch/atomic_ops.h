@@ -31,10 +31,13 @@ void atomic_accumulate(Val1 * old, const Val2 * increment, int n)
         atomic_accumulate(old[i], increment[i]);
 }
 
-template<typename Val>
-void atomic_add(Val & val, Val amount)
+template<typename Val1, typename Val2>
+void atomic_add(Val1 & val, const Val2 & amount)
 {
-    
+    asm ("lock add %[amount], %[val]\n\t"
+         : [val] "=m" (val)
+         : [amount] "r" (amount)
+         : "cc");
 }
 
 JML_ALWAYS_INLINE void memory_barrier()
@@ -44,7 +47,7 @@ JML_ALWAYS_INLINE void memory_barrier()
 #if 0
     __sync_synchronize();
 #else
-    asm ( "mfence; \n" );
+    asm volatile ( "mfence; \n" );
 #endif
 }
 
