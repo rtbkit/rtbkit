@@ -202,7 +202,7 @@ redo:
 LINK_$(1)_COMMAND2 := $$(subst $(BIN)/$$(tmpLIBNAME).so,$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
 
 $$(LIB_$(1)_SO):	$(BIN)/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
-	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo "[SO] $$(tmpLIBNAME).so")
+	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo "[SO] $(if $(4),$(4),lib$(1)).so")
 	@$$(LINK_$(1)_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
 
 LIB_$(1)_DEPS := $(BIN)/$$(tmpLIBNAME).so
