@@ -25,6 +25,8 @@ __thread bool trace_exceptions_initialized = false;
 
 void set_trace_exceptions(bool trace)
 {
+    //cerr << "set_trace_exceptions to " << trace << " at " << &trace_exceptions
+    //     << endl;
     trace_exceptions = trace;
     trace_exceptions_initialized = true;
 }
@@ -32,10 +34,15 @@ void set_trace_exceptions(bool trace)
 bool get_trace_exceptions()
 {
     if (!trace_exceptions_initialized) {
-        trace_exceptions = TRACE_EXCEPTIONS;
+        //cerr << "trace_exceptions initialized to = "
+        //     << trace_exceptions << " at " << &trace_exceptions << endl;
+        set_trace_exceptions(TRACE_EXCEPTIONS);
         trace_exceptions_initialized = true;
     }
     
+    //cerr << "get_trace_exceptions returned " << trace_exceptions
+    //     << " at " << &trace_exceptions << endl;
+
     return trace_exceptions;
 }
 
@@ -44,7 +51,10 @@ bool get_trace_exceptions()
 
 void trace_exception(void * object, const std::type_info * tinfo)
 {
-    if (!trace_exceptions) return;
+    //cerr << "trace_exception: trace_exceptions = " << get_trace_exceptions()
+    //     << " at " << &trace_exceptions << endl;
+
+    if (!get_trace_exceptions()) return;
 
     cerr << endl;
     cerr << "----------------- Exception thrown ------------------------"
@@ -91,6 +101,7 @@ namespace {
 struct Install_Handler {
     Install_Handler()
     {
+        //cerr << "installing exception tracer" << endl;
         exception_tracer = trace_exception;
     }
     ~Install_Handler()

@@ -54,6 +54,8 @@ struct Init {
 
     Init()
     {
+        //cerr << "exception hook init" << endl;
+
         if (done_init) return;
 
         /* Find the __cxa_throw function from libstdc++.so.  This is the
@@ -102,8 +104,16 @@ __cxa_throw (void *thrown_object, std::type_info *tinfo,
 {
     using namespace ML;
 
+    //cerr << "exception was thrown" << endl;
+    //cerr << "exception_tracer = " << exception_tracer << endl;
+    
     /** If we have installed an exception tracing hook, we follow it here. */
-    if (exception_tracer) exception_tracer(thrown_object, tinfo);
+    if (exception_tracer) {
+        //cerr << "calling exception tracer at " << &exception_tracer
+        //     << endl;
+        exception_tracer(thrown_object, tinfo);
+        //cerr << "finished calling exception handler" << endl;
+    }
 
     if (!done_init) {
         Init();

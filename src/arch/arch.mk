@@ -19,6 +19,7 @@ $(eval $(call add_sources,exception_hook.cc))
 LIBARCH_LINK :=	ACE
 
 $(eval $(call library,arch,$(LIBARCH_SOURCES),$(LIBARCH_LINK)))
+$(eval $(call library,exception_hook,exception_hook.cc))
 
 ifeq ($(CUDA_ENABLED),1)
 

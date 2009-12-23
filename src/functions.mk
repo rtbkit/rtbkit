@@ -232,10 +232,10 @@ $(1)_OBJFILES:=$$(foreach file,$$(addsuffix .lo,$$(basename $$($(1)_PROGFILES:%=
 #$$(warning $(1)_OBJFILES = $$($(1)_OBJFILES))
 #$$(warning $(1)_PROGFILES = "$$($(1)_PROGFILES)")
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) -o $(BIN)/$(1) $$(BUILD_arch/exception_hook.lo_OBJ) -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES) $$(CXXEXEPOSTFLAGS)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) -o $(BIN)/$(1) -lexception_hook -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES) $$(CXXEXEPOSTFLAGS)
 
 
-$(BIN)/$(1):	$(BIN)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(BUILD_arch/exception_hook.lo_OBJ)
+$(BIN)/$(1):	$(BIN)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(BUILD_arch/exception_hook.lo_OBJ),$$(BIN)/libexception_hook.so)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "[BIN] $(1)")
 	@$$(LINK_$(1)_COMMAND)
 
@@ -258,9 +258,9 @@ $$(eval $$(call add_sources,$(1).cc))
 
 $(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).lo_OBJ)
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) -o $(TESTS)/$(1) $$(BUILD_arch/exception_hook.lo_OBJ) -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES) $(if $(findstring $(3),boost), -lboost_unit_test_framework-mt)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES) $(if $(findstring $(3),boost), -lboost_unit_test_framework-mt)
 
-$(TESTS)/$(1):	$(TESTS)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(BUILD_arch/exception_hook.lo_OBJ)
+$(TESTS)/$(1):	$(TESTS)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(BUILD_arch/exception_hook.lo_OBJ),$$(BIN)/libexception_hook.so)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "[BIN] $(1)")
 	@$$(LINK_$(1)_COMMAND)
 
