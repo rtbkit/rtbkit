@@ -28,8 +28,9 @@ Hbeta(const distribution<Float> & D, Float beta = 1.0)
     return make_pair(H, P);
 }
 
-/** Given a matrix that gives the vector space embedding of a number of
-    points, convert to a matrix that gives the square of the distance between
+/** Given a matrix that gives the a number of points in a vector space of
+    dimension d (ie, a number of points with coordinates of d dimensions),
+    convert to a matrix that gives the square of the distance between
     each of the points.
 
     \params:
@@ -67,6 +68,48 @@ vectors_to_distances(boost::multi_array<float, 2> & X)
     return D;
 }
 
+/** Given a matrix of distances, normalize them */
+
+/** Calculate the beta for a single point. */
+void binary_search_perplexity()
+{
+#if 0
+        # Compute the Gaussian kernel and entropy for the current precision
+        betamin = -Math.inf; 
+        betamax =  Math.inf;
+        Di = D[i, Math.concatenate((Math.r_[0:i], Math.r_[i+1:n]))];
+        (H, thisP) = Hbeta(Di, beta[i]);
+            
+        # Evaluate whether the perplexity is within tolerance
+        Hdiff = H - logU;
+        tries = 0;
+        while Math.abs(Hdiff) > tol and tries < 50:
+                
+            # If not, increase or decrease precision
+            if Hdiff > 0:
+                betamin = beta[i];
+                if betamax == Math.inf or betamax == -Math.inf:
+                    beta[i] = beta[i] * 2;
+                else:
+                    beta[i] = (beta[i] + betamax) / 2;
+            else:
+                betamax = beta[i];
+                if betamin == Math.inf or betamin == -Math.inf:
+                    beta[i] = beta[i] / 2;
+                else:
+                    beta[i] = (beta[i] + betamin) / 2;
+            
+            # Recompute the values
+            (H, thisP) = Hbeta(Di, beta[i]);
+            Hdiff = H - logU;
+            tries = tries + 1;
+            
+        # Set the final row of P
+        P[i, Math.concatenate((Math.r_[0:i], Math.r_[i+1:n]))] = thisP;
+#endif
+}
+
+
 /* Given a matrix of distances, convert to probabilities */
 boost::multi_array<float, 2>
 distances_to_probabilities(boost::multi_array<float, 2> & D,
@@ -86,21 +129,20 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
     for (unsigned i = 0;  i < n;  ++i) {
         if (i % 500 == 0)
             cerr << "P-values for point " << i << " of " << n << endl;
+        
+        double betamin = -INFINITY, betamax = INFINITY;
+        
+        distribution<float> D_row;
+        
+        for (unsigned iter = 0;  iter != 50 && abs(H - logU) >= tolerance;
+             ++iter) {
+        }
     }
-
-
+    
+    
 #if 0
-    D = Math.add(Math.add(-2 * Math.dot(X, X.T), sum_X).T, sum_X);
-    P = Math.zeros((n, n));
-    beta = Math.ones((n, 1));
-    logU = Math.log(perplexity);
-
     # Loop over all datapoints
     for i in range(n):
-    
-        # Print progress
-        if i % 500 == 0:
-            print "Computing P-values for point ", i, " of ", n, "..."
     
         # Compute the Gaussian kernel and entropy for the current precision
         betamin = -Math.inf; 
@@ -144,95 +186,24 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
 }
 
 
-#if 0
-
-def x2p(X = Math.array([]), tol = 1e-5, perplexity = 30.0):
-    """Performs a binary search to get P-values in such a way that each conditional Gaussian has the same perplexity."""
-
-    # Initialize some variables
-    print "Computing pairwise distances..."
-    (n, d) = X.shape;
-    sum_X = Math.sum(Math.square(X), 1);
-    D = Math.add(Math.add(-2 * Math.dot(X, X.T), sum_X).T, sum_X);
-    P = Math.zeros((n, n));
-    beta = Math.ones((n, 1));
-    logU = Math.log(perplexity);
     
-    # Loop over all datapoints
-    for i in range(n):
-    
-        # Print progress
-        if i % 500 == 0:
-            print "Computing P-values for point ", i, " of ", n, "..."
-    
-        # Compute the Gaussian kernel and entropy for the current precision
-        betamin = -Math.inf; 
-        betamax =  Math.inf;
-        Di = D[i, Math.concatenate((Math.r_[0:i], Math.r_[i+1:n]))];
-        (H, thisP) = Hbeta(Di, beta[i]);
-            
-        # Evaluate whether the perplexity is within tolerance
-        Hdiff = H - logU;
-        tries = 0;
-        while Math.abs(Hdiff) > tol and tries < 50:
-                
-            # If not, increase or decrease precision
-            if Hdiff > 0:
-                betamin = beta[i];
-                if betamax == Math.inf or betamax == -Math.inf:
-                    beta[i] = beta[i] * 2;
-                else:
-                    beta[i] = (beta[i] + betamax) / 2;
-            else:
-                betamax = beta[i];
-                if betamin == Math.inf or betamin == -Math.inf:
-                    beta[i] = beta[i] / 2;
-                else:
-                    beta[i] = (beta[i] + betamin) / 2;
-            
-            # Recompute the values
-            (H, thisP) = Hbeta(Di, beta[i]);
-            Hdiff = H - logU;
-            tries = tries + 1;
-            
-        # Set the final row of P
-        P[i, Math.concatenate((Math.r_[0:i], Math.r_[i+1:n]))] = thisP;
-    
-    # Return final P-matrix
-    print "Mean value of sigma: ", Math.mean(Math.sqrt(1 / beta))
-    return P;
-
-#endif
-
-
 boost::multi_array<float, 2>
-tsne(const boost::multi_array<float, 2> & array,
-     int num_dims = 2,
-     double perplexity = 30.0)
+tsne(const boost::multi_array<float, 2> & probs,
+     int num_dims = 2)
 {
-    boost::multi_array<float, 2> result;
-    return result;
+    int n = probs.shape()[0];
+    if (n != probs.shape()[1])
+        throw Exception("probabilities were the wrong shape");
 
+    boost::multi_array<float, 2> Y(boost::extents[n][d]);
+    return result;
 }
+
 #if 0
 def tsne(X = Math.array([]), no_dims = 2, initial_dims = 50, perplexity = 30.0, use_pca=True):
     //Runs t-SNE on the dataset in the NxD array X to reduce its dimensionality to no_dims dimensions.
     //The syntaxis of the function is Y = tsne.tsne(X, no_dims, perplexity), where X is an NxD NumPy array.
     # Check inputs
-    if X.dtype != "float64":
-        print "Error: array X should have type float64.";
-        return -1;
-    if no_dims.__class__ != "<type 'int'>":
-        print "Error: number of dimensions should be an integer.";
-        return -1;
-    
-    # Initialize variables
-    if use_pca:
-        X = pca(X, initial_dims);
-    (n, d) = X.shape;
-
-    print n
-    print d
 
     max_iter = 1000;
     initial_momentum = 0.5;
