@@ -27,7 +27,7 @@ else
 include $(JML_TOP)/functions.mk
 include $(JML_TOP)/rules.mk
 
-$(eval $(call include_sub_makes,math arch utils db algebra stats judy boosting python neural))
+$(eval $(call include_sub_makes,math arch utils db algebra stats judy boosting python neural tsne))
 
 $(shell echo GOALS := $(MAKECMDGOALS) > .target.mk)
 endif
