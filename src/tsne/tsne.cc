@@ -11,17 +11,21 @@
 #include "stats/distribution_simd.h"
 #include "algebra/matrix_ops.h"
 #include "arch/simd_vector.h"
+#include <boost/tuple/tuple.hpp>
 
 using namespace std;
 
 namespace ML {
 
-/* Compute the perplexity and the P for a given value of beta */
+/** Compute the perplexity and the P for a given value of beta.
+    TODO: pre-compute the exp(D) values to remove exp from this loop*/
 template<typename Float>
 std::pair<double, distribution<Float> >
-Hbeta(const distribution<Float> & D, Float beta = 1.0)
+perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
+                    int i = -1)
 {
-    distribution<Float> P = exp(D * beta);
+    distribution<Float> P = exp(D * Float(beta));
+    if (i != -1) P[i] = 0;
     double tot = P.total();
     double H = log(tot) + beta * D.dotprod(P) / tot;
     P /= tot;
@@ -70,45 +74,52 @@ vectors_to_distances(boost::multi_array<float, 2> & X)
 
 /** Given a matrix of distances, normalize them */
 
-/** Calculate the beta for a single point. */
-void binary_search_perplexity()
-{
-#if 0
-        # Compute the Gaussian kernel and entropy for the current precision
-        betamin = -Math.inf; 
-        betamax =  Math.inf;
-        Di = D[i, Math.concatenate((Math.r_[0:i], Math.r_[i+1:n]))];
-        (H, thisP) = Hbeta(Di, beta[i]);
-            
-        # Evaluate whether the perplexity is within tolerance
-        Hdiff = H - logU;
-        tries = 0;
-        while Math.abs(Hdiff) > tol and tries < 50:
-                
-            # If not, increase or decrease precision
-            if Hdiff > 0:
-                betamin = beta[i];
-                if betamax == Math.inf or betamax == -Math.inf:
-                    beta[i] = beta[i] * 2;
-                else:
-                    beta[i] = (beta[i] + betamax) / 2;
-            else:
-                betamax = beta[i];
-                if betamin == Math.inf or betamin == -Math.inf:
-                    beta[i] = beta[i] / 2;
-                else:
-                    beta[i] = (beta[i] + betamin) / 2;
-            
-            # Recompute the values
-            (H, thisP) = Hbeta(Di, beta[i]);
-            Hdiff = H - logU;
-            tries = tries + 1;
-            
-        # Set the final row of P
-        P[i, Math.concatenate((Math.r_[0:i], Math.r_[i+1:n]))] = thisP;
-#endif
-}
+/** Calculate the beta for a single point.
+    
+    \param Di     The i-th row of the D matrix, for which we want to calculate
+                  the probabilities.
+    \param i      Which row number it is.
 
+    \returns      The i-th row of the P matrix, which has the distances in D
+                  converted to probabilities with the given perplexity.
+ */
+std::pair<distribution<float>, double>
+binary_search_perplexity(const distribution<float> & Di,
+                         double required_perplexity,
+                         int i,
+                         double tolerance = 1e-5)
+{
+    double betamin = -INFINITY, betamax = INFINITY;
+    double beta = 1.0;
+
+    distribution<float> P;
+    double log_perplexity;
+    double log_required_perplexity = log(required_perplexity);
+
+    boost::tie(log_perplexity, P) = perplexity_and_prob(Di, beta, i);
+
+    for (unsigned iter = 0;
+         iter < 50 && abs(log_perplexity - log_required_perplexity) > tolerance;
+         ++iter) {
+
+        if (log_perplexity > log_required_perplexity) {
+            betamin = beta;
+            if (!isfinite(betamax))
+                beta *= 2;
+            else beta = (beta + betamax) * 0.5;
+        }
+        else {
+            betamax = beta;
+            if (!isfinite(betamin))
+                beta /= 2;
+            else beta = (beta + betamax) * 0.5;
+        }
+        
+        boost::tie(log_perplexity, P) = perplexity_and_prob(Di, beta);
+    }
+
+    return make_pair(P, beta);
+}
 
 /* Given a matrix of distances, convert to probabilities */
 boost::multi_array<float, 2>
@@ -130,62 +141,23 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
         if (i % 500 == 0)
             cerr << "P-values for point " << i << " of " << n << endl;
         
-        double betamin = -INFINITY, betamax = INFINITY;
+        distribution<float> D_row(&D[i][0], &D[i][0] + n);
+        distribution<float> P_row;
+        boost::tie(P_row, beta[i])
+            = binary_search_perplexity(D_row, perplexity, i, tolerance);
+
+        if (P_row.size() != n)
+            throw Exception("P_row has the wrong size");
+        if (P_row[n] != 0.0)
+            throw Exception("P_row diagonal entry was not zero");
         
-        distribution<float> D_row;
-        
-        for (unsigned iter = 0;  iter != 50 && abs(H - logU) >= tolerance;
-             ++iter) {
-        }
+        std::copy(P_row.begin(), P_row.end(), &P[i][0]);
     }
-    
-    
-#if 0
-    # Loop over all datapoints
-    for i in range(n):
-    
-        # Compute the Gaussian kernel and entropy for the current precision
-        betamin = -Math.inf; 
-        betamax =  Math.inf;
-        Di = D[i, Math.concatenate((Math.r_[0:i], Math.r_[i+1:n]))];
-        (H, thisP) = Hbeta(Di, beta[i]);
-            
-        # Evaluate whether the perplexity is within tolerance
-        Hdiff = H - logU;
-        tries = 0;
-        while Math.abs(Hdiff) > tol and tries < 50:
-                
-            # If not, increase or decrease precision
-            if Hdiff > 0:
-                betamin = beta[i];
-                if betamax == Math.inf or betamax == -Math.inf:
-                    beta[i] = beta[i] * 2;
-                else:
-                    beta[i] = (beta[i] + betamax) / 2;
-            else:
-                betamax = beta[i];
-                if betamin == Math.inf or betamin == -Math.inf:
-                    beta[i] = beta[i] / 2;
-                else:
-                    beta[i] = (beta[i] + betamin) / 2;
-            
-            # Recompute the values
-            (H, thisP) = Hbeta(Di, beta[i]);
-            Hdiff = H - logU;
-            tries = tries + 1;
-            
-        # Set the final row of P
-        P[i, Math.concatenate((Math.r_[0:i], Math.r_[i+1:n]))] = thisP;
-    
-    # Return final P-matrix
-    print "Mean value of sigma: ", Math.mean(Math.sqrt(1 / beta))
-    return P;
-#endif    
+
+    cerr << "mean sigma is " << sqrt(1.0 / beta).mean() << endl;
 
     return P;
 }
-
-
     
 boost::multi_array<float, 2>
 tsne(const boost::multi_array<float, 2> & probs,
@@ -195,8 +167,10 @@ tsne(const boost::multi_array<float, 2> & probs,
     if (n != probs.shape()[1])
         throw Exception("probabilities were the wrong shape");
 
+    int d = num_dims;
+
     boost::multi_array<float, 2> Y(boost::extents[n][d]);
-    return result;
+    return Y;
 }
 
 #if 0
