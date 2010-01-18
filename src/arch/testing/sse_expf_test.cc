@@ -46,6 +46,19 @@ float extract_scalar(v4sf i)
     return vals[0];
 }
 
+double extract_scalar(v2df i)
+{
+    double vals[2];
+    *((v2df *)vals) = i;
+    if (isnan(vals[0])) {
+        BOOST_CHECK(isnan(vals[1]));
+    }
+    else {
+        BOOST_CHECK_EQUAL(vals[0], vals[1]);
+    }
+    return vals[0];
+}
+
 #define test_floor_value(input) \
 { \
     float in2 = float(input); \
@@ -174,6 +187,68 @@ BOOST_AUTO_TEST_CASE( test_expf )
     }
 }
 
+#define test_exp_value(input)                                          \
+    {                                                                   \
+        double in2 = double(input);                                       \
+        double output1 = exp(in2);                                      \
+        double output2 = extract_scalar(sse2_exp(vec_splat(in2)));      \
+        if (isnan(output1)) {                                           \
+            if (!isnan(output2)) {                                      \
+                cerr << "input = " << in2 << " output1 = " << output1 << " output2 = " << output2 \
+                 << endl;                                               \
+            }                                                           \
+            BOOST_CHECK(isnan(output2));                                \
+        }                                                               \
+        else if (output1 != output2) {                                  \
+            int i1 = reinterpret_as_int(output1);                       \
+            int i2 = reinterpret_as_int(output2);                       \
+            if (abs(i1 - i2) > 1) {                                     \
+                cerr << format("%12.8f: %14.9f != %14.9f: %08x !- %08x (%4d ulps)\n", \
+                               in2, output1, output2, i1, i2, (i1 - i2)); \
+                BOOST_CHECK_EQUAL(exp(double(input)), output2);         \
+            }                                                           \
+        }                                                               \
+    }
+
+BOOST_AUTO_TEST_CASE( test_exp )
+{
+    test_exp_value(0.0);
+    test_exp_value(1.0);
+    test_exp_value(2.0);
+    test_exp_value(3.0);
+    test_exp_value(-0.0);
+    test_exp_value(-1.0);
+    test_exp_value(-2.0);
+    test_exp_value(-3.0);
+
+    test_exp_value(-10.0);
+    test_exp_value(-20.0);
+    test_exp_value(-30.0);
+    test_exp_value(-50.0);
+    test_exp_value(-100.0);
+    test_exp_value(-1000.0);
+
+    test_exp_value(10.0);
+    test_exp_value(20.0);
+    test_exp_value(30.0);
+    test_exp_value(50.0);
+    test_exp_value(100.0);
+    test_exp_value(1000.0);
+
+    test_exp_value(NaN);
+    test_exp_value(-NaN);
+    test_exp_value(INFINITY);
+    test_exp_value(-INFINITY);
+
+#if 0
+    int nvals = 65536;
+    for (int i = 0;  i < nvals;  ++i) {
+        double f = 105.0 * (2 * i - nvals) / (1.0 * nvals);
+        test_exp_value(f);
+    }
+#endif
+}
+
 namespace {
 
 // TODO: use clock_gettime
@@ -241,6 +316,24 @@ double sse2_expf_array(float * vals, int nvals)
     return (after - before);
 }
 
+double sse2_exp_array(float * vals_, int nvals)
+{
+    double vals[nvals];
+    std::copy(vals_, vals_ + nvals, vals);
+
+    sched_yield();
+    size_t before = ticks();
+
+    int nvecs = nvals / 2;
+    v2df * vvals = (v2df *)vals;
+    
+    for (unsigned i = 0;  i < nvecs;  ++i)
+        vvals[i] = sse2_exp(vvals[i]);
+
+    size_t after = ticks();
+    return (after - before);
+}
+
 typedef double (*profile_function) (float *, int);
 
 void profile_expf(int nvals, const std::string & desc,
@@ -281,4 +374,5 @@ BOOST_AUTO_TEST_CASE( profile_expf_test )
     profile_expf(NVALS, "builtin", &builtin_expf_array);
     profile_expf(NVALS, "builtin double", &builtin_exp_array);
     profile_expf(NVALS, "sse2 discrete", &sse2_expf_array);
+    profile_expf(NVALS, "sse2 discrete double", &sse2_exp_array);
 }

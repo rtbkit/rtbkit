@@ -49,7 +49,6 @@ inline v4sf pass_nan(v4sf input, v4sf result)
     return result;
 }
 
-
 inline v4sf sse2_trunc_unsafe(v4sf x)
 {
     return __builtin_ia32_cvtdq2ps(__builtin_ia32_cvttps2dq(x));
@@ -214,70 +213,152 @@ inline v4sf sse2_expf(v4sf x)
 
     return pass_nan(x, sse2_expf_unsafe(x));
 }
-        
 
-#if 0
+static double P[] = {
+ 1.26177193074810590878E-4,
+ 3.02994407707441961300E-2,
+ 9.99999999999999999910E-1,
+};
+static double Q[] = {
+ 3.00198505138664455042E-6,
+ 2.52448340349684104192E-3,
+ 2.27265548208155028766E-1,
+ 2.00000000000000000009E0,
+};
+static double C1 = 6.93145751953125E-1;
+static double C2 = 1.42860682030941723212E-6;
+
+double LOG2E  =  1.4426950408889634073599;     /* 1/log(2) */
+
+#ifdef DENORMAL
+double MAXLOG =  7.09782712893383996732E2;     /* log(MAXNUM) */
+double MINLOG = -7.451332191019412076235E2;     /* log(2**-1075) */
+#else
+double MAXLOG =  7.08396418532264106224E2;     /* log 2**1022 */
+double MINLOG = -7.08396418532264106224E2;     /* log 2**-1022 */
+#endif
+
+inline void unpack(v2df val, double * where)
+{
+    (*(v2df *)where) = val;
+}
+
+inline v2df pack(double * where)
+{
+    return *(v2df *)where;
+}
+
+inline v2df polevl( v2df x, double * coef, int N )
+{
+    double * p = coef;
+    v2df ans = vec_splat(*p++);
+    int i = N;
+
+    do ans = ans * x + vec_splat(*p++);
+    while (--i);
+
+    return ans;
+}
+
+inline v2df pass_nan(v2df input, v2df result)
+{
+    v2df mask_nan = (v2df)__builtin_ia32_cmpunordpd(input, input);
+    input = __builtin_ia32_andpd(mask_nan, input);
+    result = __builtin_ia32_andnpd(mask_nan, result);
+    result = __builtin_ia32_orpd(result, input);
+    return result;
+}
+
+inline v4sf pow2_unsafe(v4si n)
+{
+    n += vec_splat(127);
+    v4si res = __builtin_ia32_pslldi128(n, 23);
+    return (v4sf) res;
+}
+
+inline v2df ldexp(v2df x, v4si n)
+{
+    // ldexp: return x * 2^n (only the first 2 entries of n are used)
+    // works by adding n to the exponent
+
+    return x * __builtin_ia32_cvtps2pd(pow2_unsafe(n));
+}
+
+inline v2df sse2_floor_unsafe(v2df x)
+{
+    return __builtin_ia32_cvtdq2pd(__builtin_ia32_cvtpd2dq(x));
+}
 
 inline v2df sse2_floor(v2df x)
 {
-    return __builtin_ia32_cvtdq2pd(__builtin_ia32_cvttpd2dq(x));
+    return pass_nan(x, sse2_floor_unsafe(x));
+}
+
+inline int out_of_range_mask(v2df input, v2df min_val, v2df max_val)
+{
+    v2df mask_too_low  = (v2df)__builtin_ia32_cmpltpd(input, min_val);
+    v2df mask_too_high = (v2df)__builtin_ia32_cmpgtpd(input, max_val);
+
+    return __builtin_ia32_movmskpd(__builtin_ia32_orpd(mask_too_low,
+                                                       mask_too_high));
+}
+
+inline int out_of_range_mask(v2df input, double min_val, double max_val)
+{
+    return out_of_range_mask(input, vec_splat(min_val), vec_splat(max_val));
+}
+
+inline v2df sse2_exp_unsafe(v2df x)
+{
+    /* Express e**x = e**g 2**n
+     *   = e**g e**( n loge(2) )
+     *   = e**( g + n loge(2) )
+     */
+
+    /* floor() truncates toward -infinity. */
+    v2df px = sse2_floor_unsafe( vec_splat(LOG2E) * x + vec_splat(0.5) );
+    v4si n = __builtin_ia32_cvtpd2dq(px);
+    x -= px * vec_splat(C1);
+    x -= px * vec_splat(C2);
+    
+    /* rational approximation for exponential
+     * of the fractional part:
+     * e**x = 1 + 2x P(x**2)/( Q(x**2) - P(x**2) )
+     */
+    v2df xx = x * x;
+    px = x * polevl( xx, P, 2 );
+    x =  px/( polevl( xx, Q, 3 ) - px );
+    x = vec_splat(1.0) + (x + x);
+    
+    /* multiply by power of 2 */
+    x = ldexp( x, n );
+    return(x);
 }
 
 inline v2df sse2_exp(v2df x)
 {
-    v2df tmp = _mm_setzero_pd(), fx;
-    v4si emm0;
-    v2df one = float_1;
+    int mask = 0;
 
-    x = _mm_min_ps(x, float_exp_hi);
-    x = _mm_max_ps(x, float_exp_lo);
+    // For out of range results, we have to use the other values
+    if (JML_UNLIKELY(mask = out_of_range_mask(x, MINLOG, MAXLOG))) {
 
-    /* express exp(x) as exp(g + n*log(2)) */
-    fx = x * float_cephes_LOG2EF;
-    fx = fx + float_0p5;
+        v2df unsafe_result = vec_splat(0.0);
+        if (mask != 3)
+            unsafe_result = sse2_exp_unsafe(x);
+        double xin[2];
+        unpack(x, xin);
 
-    /* how to perform a floorf with SSE: just below */
-    tmp  = sse2_floor(fx);
+        double xout[2];
+        unpack(unsafe_result, xout);
+        
+        if (mask & 1) xout[0] = exp(xin[0]);
+        if (mask & 2) xout[1] = exp(xin[1]);
 
-    /* if greater, substract 1 */
-    v2df mask = _mm_cmpgt_ps(tmp, fx);    
-    mask = _mm_and_ps(mask, one);
-    fx = _mm_sub_ps(tmp, mask);
+        return pass_nan(x, pack(xout));
+    }
 
-    tmp = fx * float_cephes_exp_C1;
-    v2df z = fx * float_cephes_exp_C2;
-    x = x - tmp;
-    x = x - z;
-
-    z = x * x;
-  
-    v2df y = float_cephes_exp_p0;
-    y = y * x;
-    y = y + float_cephes_exp_p1;
-    y = y * x;
-    y = y + float_cephes_exp_p2;
-    y = y * x;
-    y = y + float_cephes_exp_p3;
-    y = y * x;
-    y = y + float_cephes_exp_p4;
-    y = y * x;
-    y = y + float_cephes_exp_p5;
-    y = y * z;
-    y = y + x;
-    y = y + one;
-
-    /* build 2^n */
-    emm0 = (v4si)_mm_cvttps_epi32(fx);
-    emm0 = emm0 + _pi32_0x7f;
-    emm0 = (v4si)_mm_slli_epi32((v2di)emm0, 23);
-    v2df pow2n = _mm_castsi128_ps((v2di)emm0);
-
-    y = y * pow2n;
-
-    return y;
+    return pass_nan(x, sse2_exp_unsafe(x));
 }
-
-#endif
 
 } // namespace SIMD
 } // namespace ML
