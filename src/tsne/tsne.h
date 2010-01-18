@@ -21,6 +21,14 @@
 
 namespace ML {
 
+std::pair<double, distribution<float> >
+perplexity_and_prob(const distribution<float> & D, double beta = 1.0,
+                    int i = -1);
+
+std::pair<double, distribution<double> >
+perplexity_and_prob(const distribution<double> & D, double beta = 1.0,
+                    int i = -1);
+
 boost::multi_array<float, 2>
 vectors_to_distances(boost::multi_array<float, 2> & X);
 

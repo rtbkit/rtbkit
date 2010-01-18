@@ -24,12 +24,26 @@ std::pair<double, distribution<Float> >
 perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
                     int i = -1)
 {
-    distribution<Float> P = exp(D * Float(beta));
+    distribution<Float> P = exp(-D * Float(beta));
     if (i != -1) P[i] = 0;
     double tot = P.total();
     double H = log(tot) + beta * D.dotprod(P) / tot;
     P /= tot;
     return make_pair(H, P);
+}
+
+std::pair<double, distribution<float> >
+perplexity_and_prob(const distribution<float> & D, double beta,
+                    int i)
+{
+    return perplexity_and_prob<float>(D, beta, i);
+}
+
+std::pair<double, distribution<double> >
+perplexity_and_prob(const distribution<double> & D, double beta,
+                    int i)
+{
+    return perplexity_and_prob<double>(D, beta, i);
 }
 
 /** Given a matrix that gives the a number of points in a vector space of
