@@ -153,6 +153,22 @@ operator * (const distribution<float> & d1,
     return result;
 }
 
+template<class Underlying>
+distribution<float, Underlying> exp(const distribution<float, Underlying> & dist)
+{
+    distribution<float, Underlying> result(dist.size());
+    SIMD::vec_exp(&dist[0], &result[0], dist.size());
+    return result;
+}
+
+template<class Underlying>
+distribution<double, Underlying> exp(const distribution<double, Underlying> & dist)
+{
+    distribution<double, Underlying> result(dist.size());
+    SIMD::vec_exp(&dist[0], &result[0], dist.size());
+    return result;
+}
+
 } // namespace ML
 
 #endif /* __stats__distribution_simd_h__ */
