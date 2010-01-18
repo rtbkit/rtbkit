@@ -21,7 +21,7 @@
 #include "arch/tick_counter.h"
 #include "utils/string_functions.h"
 #include <sys/time.h>
-
+#include "utils/floating_point.h"
 
 using namespace ML;
 using namespace std;
@@ -33,17 +33,28 @@ float extract_scalar(v4sf i)
 {
     float vals[4];
     *((v4sf *)vals) = i;
-    BOOST_CHECK_EQUAL(vals[0], vals[1]);
-    BOOST_CHECK_EQUAL(vals[0], vals[2]);
-    BOOST_CHECK_EQUAL(vals[0], vals[3]);
+    if (isnan(vals[0])) {
+        BOOST_CHECK(isnan(vals[1]));
+        BOOST_CHECK(isnan(vals[2]));
+        BOOST_CHECK(isnan(vals[3]));
+    }
+    else {
+        BOOST_CHECK_EQUAL(vals[0], vals[1]);
+        BOOST_CHECK_EQUAL(vals[0], vals[2]);
+        BOOST_CHECK_EQUAL(vals[0], vals[3]);
+    }
     return vals[0];
 }
 
 #define test_floor_value(input) \
 { \
-    BOOST_CHECK_EQUAL(floorf(float(input)),                          \
-                      extract_scalar(sse2_floor(vec_splat(float(input))))); \
-} \
+    float in2 = float(input); \
+    float output1 = floorf(in2); \
+    float output2 = extract_scalar(sse2_floor(vec_splat(in2))); \
+    if (isnan(output1)) \
+        BOOST_CHECK(isnan(output2));            \
+    else BOOST_CHECK_EQUAL(floorf(float(input)), output2);      \
+}
 
 static const float NaN = std::numeric_limits<float>::quiet_NaN();
 
@@ -51,10 +62,6 @@ BOOST_AUTO_TEST_CASE( floor_test )
 {
     test_floor_value(0.0);
     test_floor_value(-0.0);
-    test_floor_value(NaN);
-    test_floor_value(-NaN);
-    test_floor_value(INFINITY);
-    test_floor_value(-INFINITY);
     test_floor_value(1.0);
     test_floor_value(2.0);
     test_floor_value(2.5);
@@ -65,14 +72,70 @@ BOOST_AUTO_TEST_CASE( floor_test )
     test_floor_value(-1.0);
     test_floor_value(-1.01);
     test_floor_value(2.5);
+
+#if 0
+    test_floor_value(NaN);
+    test_floor_value(-NaN);
+    test_floor_value(INFINITY);
+    test_floor_value(-INFINITY);
+#endif
 }
 
-#define test_expf_value(input) \
+#define test_trunc_value(input) \
 { \
-    BOOST_CHECK_EQUAL(expf(float(input)),                          \
-                      extract_scalar(sse2_expf(vec_splat(float(input))))); \
-} \
+    float in2 = float(input); \
+    float output1 = truncf(in2); \
+    float output2 = extract_scalar(sse2_trunc(vec_splat(in2))); \
+    if (isnan(output1)) \
+        BOOST_CHECK(isnan(output2));            \
+    else BOOST_CHECK_EQUAL(truncf(float(input)), output2);      \
+}
 
+BOOST_AUTO_TEST_CASE( trunc_test )
+{
+    test_trunc_value(0.0);
+    test_trunc_value(-0.0);
+    test_trunc_value(1.0);
+    test_trunc_value(2.0);
+    test_trunc_value(2.5);
+    test_trunc_value(-0.49);
+    test_trunc_value(-0.5);
+    test_trunc_value(-0.51);
+    test_trunc_value(-0.99);
+    test_trunc_value(-1.0);
+    test_trunc_value(-1.01);
+    test_trunc_value(2.5);
+
+#if 0
+    test_trunc_value(NaN);
+    test_trunc_value(-NaN);
+    test_trunc_value(INFINITY);
+    test_trunc_value(-INFINITY);
+#endif
+}
+
+#define test_expf_value(input)                                          \
+    {                                                                   \
+        float in2 = float(input);                                       \
+        float output1 = expf(in2);                                      \
+        float output2 = extract_scalar(sse2_expf(vec_splat(in2)));      \
+        if (isnan(output1)) {                                           \
+            if (!isnan(output2)) {                                      \
+                cerr << "input = " << in2 << " output1 = " << output1 << " output2 = " << output2 \
+                 << endl;                                               \
+            }                                                           \
+            BOOST_CHECK(isnan(output2));                                \
+        }                                                               \
+        else if (output1 != output2) {                                  \
+            int i1 = reinterpret_as_int(output1);                       \
+            int i2 = reinterpret_as_int(output2);                       \
+            if (abs(i1 - i2) > 1) {                                     \
+                cerr << format("%12.8f: %14.9f != %14.9f: %08x !- %08x (%4d ulps)\n", \
+                               in2, output1, output2, i1, i2, (i1 - i2)); \
+                BOOST_CHECK_EQUAL(expf(float(input)), output2);         \
+            }                                                           \
+        }                                                               \
+    }
 
 BOOST_AUTO_TEST_CASE( test_expf )
 {
@@ -103,6 +166,12 @@ BOOST_AUTO_TEST_CASE( test_expf )
     test_expf_value(-NaN);
     test_expf_value(INFINITY);
     test_expf_value(-INFINITY);
+
+    int nvals = 65536;
+    for (int i = 0;  i < nvals;  ++i) {
+        float f = 105.0 * (2 * i - nvals) / (1.0 * nvals);
+        test_expf_value(f);
+    }
 }
 
 namespace {
@@ -182,13 +251,14 @@ void profile_expf(int nvals, const std::string & desc,
 
     // First, warm it up
     float vals[nvals];
-    for (unsigned i = 0;  i < nvals;  ++i)
+    for (int i = 0;  i < nvals;  ++i)
         vals[i] = 10.0 * (2 * i - nvals) / (1.0 * nvals);
+
     function(vals, nvals);
     
     vector<double> timings(20);
     for (unsigned trial = 0;  trial < 20;  ++trial) {
-        for (unsigned i = 0;  i < nvals;  ++i)
+        for (int i = 0;  i < nvals;  ++i)
             vals[i] = 10.0 * (2 * i - nvals) / (1.0 * nvals);
         timings[trial] = function(vals, nvals);
     }

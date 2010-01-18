@@ -34,136 +34,250 @@
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #include "sse2.h"
+#include <cmath>
 
 namespace ML {
 namespace SIMD {
 
+inline v4sf pass_nan(v4sf input, v4sf result)
+{
+    v4sf mask_nan = (v4sf)__builtin_ia32_cmpunordps(input, input);
+    input = __builtin_ia32_andps(mask_nan, input);
+    result = __builtin_ia32_andnps(mask_nan, result);
+    result = __builtin_ia32_orps(result, input);
 
-#define _PS_CONST(Name, Val) \
-    static const v4sf _ps_##Name = vec_splat(Val)
-
-
-#if 0
-/* declare some SSE constants -- why can't I figure a better way to do that? */
-#define _PS_CONST(Name, Val)                                            \
-  static const ALIGN16_BEG float _ps_##Name[4] ALIGN16_END = { Val, Val, Val, Val }
-#define _PI32_CONST(Name, Val)                                            \
-  static const ALIGN16_BEG int _pi32_##Name[4] ALIGN16_END = { Val, Val, Val, Val }
-#define _PS_CONST_TYPE(Name, Type, Val)                                 \
-  static const ALIGN16_BEG Type _ps_##Name[4] ALIGN16_END = { Val, Val, Val, Val }
-#endif
+    return result;
+}
 
 
-
-_PS_CONST(1  , 1.0f);
-_PS_CONST(0p5, 0.5f);
-static const v4si _pi32_0x7f = vec_splat(0x7f);
-
-#if 0
-/* the smallest non denormalized float number */
-_PS_CONST_TYPE(min_norm_pos, int, 0x00800000);
-_PS_CONST_TYPE(mant_mask, int, 0x7f800000);
-_PS_CONST_TYPE(inv_mant_mask, int, ~0x7f800000);
-
-_PS_CONST_TYPE(sign_mask, int, 0x80000000);
-_PS_CONST_TYPE(inv_sign_mask, int, ~0x80000000);
-
-_PI32_CONST(1, 1);
-_PI32_CONST(inv1, ~1);
-_PI32_CONST(2, 2);
-_PI32_CONST(4, 4);
-
-_PS_CONST(cephes_SQRTHF, 0.707106781186547524);
-_PS_CONST(cephes_log_p0, 7.0376836292E-2);
-_PS_CONST(cephes_log_p1, - 1.1514610310E-1);
-_PS_CONST(cephes_log_p2, 1.1676998740E-1);
-_PS_CONST(cephes_log_p3, - 1.2420140846E-1);
-_PS_CONST(cephes_log_p4, + 1.4249322787E-1);
-_PS_CONST(cephes_log_p5, - 1.6668057665E-1);
-_PS_CONST(cephes_log_p6, + 2.0000714765E-1);
-_PS_CONST(cephes_log_p7, - 2.4999993993E-1);
-_PS_CONST(cephes_log_p8, + 3.3333331174E-1);
-_PS_CONST(cephes_log_q1, -2.12194440e-4);
-_PS_CONST(cephes_log_q2, 0.693359375);
-
-#endif
-
-
-
-
-_PS_CONST(exp_hi,	88.3762626647949f);
-_PS_CONST(exp_lo,	-88.3762626647949f);
-
-_PS_CONST(cephes_LOG2EF, 1.44269504088896341f);
-_PS_CONST(cephes_exp_C1, 0.693359375f);
-_PS_CONST(cephes_exp_C2, -2.12194440e-4f);
-
-_PS_CONST(cephes_exp_p0, 1.9875691500E-4f);
-_PS_CONST(cephes_exp_p1, 1.3981999507E-3f);
-_PS_CONST(cephes_exp_p2, 8.3334519073E-3f);
-_PS_CONST(cephes_exp_p3, 4.1665795894E-2f);
-_PS_CONST(cephes_exp_p4, 1.6666665459E-1f);
-_PS_CONST(cephes_exp_p5, 5.0000001201E-1f);
-
-inline v4sf sse2_floor(v4sf x)
+inline v4sf sse2_trunc_unsafe(v4sf x)
 {
     return __builtin_ia32_cvtdq2ps(__builtin_ia32_cvttps2dq(x));
 }
 
-inline v4sf sse2_expf(v4sf x)
+inline v4sf sse2_floor_unsafe(v4sf x)
 {
-  v4sf tmp = _mm_setzero_ps(), fx;
-  v4si emm0;
-  v4sf one = _ps_1;
-
-  x = _mm_min_ps(x, _ps_exp_hi);
-  x = _mm_max_ps(x, _ps_exp_lo);
-
-  /* express exp(x) as exp(g + n*log(2)) */
-  fx = x * _ps_cephes_LOG2EF;
-  fx = fx + _ps_0p5;
-
-  /* how to perform a floorf with SSE: just below */
-  tmp  = sse2_floor(fx);
-
-  /* if greater, substract 1 */
-  v4sf mask = _mm_cmpgt_ps(tmp, fx);    
-  mask = _mm_and_ps(mask, one);
-  fx = _mm_sub_ps(tmp, mask);
-
-  tmp = fx * _ps_cephes_exp_C1;
-  v4sf z = fx * _ps_cephes_exp_C2;
-  x = x - tmp;
-  x = x - z;
-
-  z = x * x;
-  
-  v4sf y = _ps_cephes_exp_p0;
-  y = y * x;
-  y = y + _ps_cephes_exp_p1;
-  y = y * x;
-  y = y + _ps_cephes_exp_p2;
-  y = y * x;
-  y = y + _ps_cephes_exp_p3;
-  y = y * x;
-  y = y + _ps_cephes_exp_p4;
-  y = y * x;
-  y = y + _ps_cephes_exp_p5;
-  y = y * z;
-  y = y + x;
-  y = y + one;
-
-  /* build 2^n */
-  emm0 = (v4si)_mm_cvttps_epi32(fx);
-  emm0 = emm0 + _pi32_0x7f;
-  emm0 = (v4si)_mm_slli_epi32((v2di)emm0, 23);
-  v4sf pow2n = _mm_castsi128_ps((v2di)emm0);
-
-  y = y * pow2n;
-
-  return y;
+    return __builtin_ia32_cvtdq2ps(__builtin_ia32_cvtps2dq(x));
 }
 
+inline v4sf sse2_floor(v4sf x)
+{
+    return pass_nan(x, sse2_floor_unsafe(x));
+}
+
+inline v4sf sse2_trunc(v4sf x)
+{
+    return pass_nan(x, sse2_trunc_unsafe(x));
+}
+
+
+static const v4sf float_1             = vec_splat(1.0f);
+static const v4sf float_0p5           = vec_splat(0.5f);
+static const v4si int_0x7f            = vec_splat(0x7f);
+
+
+static const v4sf float_exp_hi        = vec_splat(88.3762626647949f);
+static const v4sf float_exp_lo        = vec_splat(-88.3762626647949f);
+
+static const v4sf float_cephes_LOG2EF = vec_splat(1.44269504088896341f);
+static const v4sf float_cephes_exp_C1 = vec_splat(0.693359375f);
+static const v4sf float_cephes_exp_C2 = vec_splat(-2.12194440e-4f);
+
+static const v4sf float_cephes_exp_p0 = vec_splat(1.9875691500E-4f);
+static const v4sf float_cephes_exp_p1 = vec_splat(1.3981999507E-3f);
+static const v4sf float_cephes_exp_p2 = vec_splat(8.3334519073E-3f);
+static const v4sf float_cephes_exp_p3 = vec_splat(4.1665795894E-2f);
+static const v4sf float_cephes_exp_p4 = vec_splat(1.6666665459E-1f);
+static const v4sf float_cephes_exp_p5 = vec_splat(5.0000001201E-1f);
+
+//static const float MAXLOGF = 88.72283905206835f;
+//static const float MINLOGF = -103.278929903431851103f; /* log(2^-149) */
+
+static const float MAXLOGF = 88.3762626647949f;
+static const float MINLOGF = -87.5;
+
+static const v4sf float_cephes_MAXLOGF = vec_splat(MAXLOGF);
+static const v4sf float_cephes_MINLOGF = vec_splat(MINLOGF);
+
+/* TODO: problems to fix up some day:
+   1.  If we remove the clamping to float_exp_lo, then we get some crazy
+       values (eg, -4e38 for an input of -100.0).
+   2.  The floor function doesn't do the same thing as cephes.
+*/
+
+inline v4sf sse2_expf_unsafe(v4sf x)
+{
+    v4sf tmp = _mm_setzero_ps(), fx;
+    v4si emm0;
+    v4sf one = float_1;
+
+    //x = _mm_min_ps(x, float_exp_hi);
+    x = _mm_max_ps(x, float_exp_lo);
+
+    /* express exp(x) as exp(g + n*log(2)) */
+    fx = x * float_cephes_LOG2EF;
+    fx = fx + float_0p5;
+
+    /* how to perform a floorf with SSE: just below */
+    tmp  = sse2_floor_unsafe(fx);
+
+    /* if greater, subtract 1 */
+    v4sf mask = _mm_cmpgt_ps(tmp, fx);    
+    mask = _mm_and_ps(mask, one);
+    fx = _mm_sub_ps(tmp, mask);
+
+    tmp = fx * float_cephes_exp_C1;
+    v4sf z = fx * float_cephes_exp_C2;
+    x = x - tmp;
+    x = x - z;
+
+    z = x * x;
+  
+    v4sf y = float_cephes_exp_p0;
+    y = y * x;
+    y = y + float_cephes_exp_p1;
+    y = y * x;
+    y = y + float_cephes_exp_p2;
+    y = y * x;
+    y = y + float_cephes_exp_p3;
+    y = y * x;
+    y = y + float_cephes_exp_p4;
+    y = y * x;
+    y = y + float_cephes_exp_p5;
+    y = y * z;
+    y = y + x;
+    y = y + one;
+
+    /* build 2^n */
+    emm0 = (v4si)_mm_cvttps_epi32(fx);
+    emm0 = emm0 + int_0x7f;
+    emm0 = (v4si)_mm_slli_epi32((v2di)emm0, 23);
+    v4sf pow2n = _mm_castsi128_ps((v2di)emm0);
+
+    y = y * pow2n;
+
+    return y;
+}
+
+inline int out_of_range_mask(v4sf input, v4sf min_val, v4sf max_val)
+{
+    v4sf mask_too_low  = (v4sf)__builtin_ia32_cmpltps(input, min_val);
+    v4sf mask_too_high = (v4sf)__builtin_ia32_cmpgtps(input, max_val);
+
+    return __builtin_ia32_movmskps(__builtin_ia32_orps(mask_too_low,
+                                                       mask_too_high));
+}
+
+inline int out_of_range_mask(v4sf input, float min_val, float max_val)
+{
+    v4sf mask_too_low  = (v4sf)__builtin_ia32_cmpltps(input, vec_splat(min_val));
+    v4sf mask_too_high = (v4sf)__builtin_ia32_cmpgtps(input, vec_splat(max_val));
+
+    return __builtin_ia32_movmskps(__builtin_ia32_orps(mask_too_low,
+                                                       mask_too_high));
+}
+
+inline void unpack(v4sf val, float * where)
+{
+    (*(v4sf *)where) = val;
+}
+
+inline v4sf pack(float * where)
+{
+    return *(v4sf *)where;
+}
+
+inline v4sf sse2_expf(v4sf x)
+{
+    int mask = 0;
+
+    // For out of range results, we have to use the other values
+    if (JML_UNLIKELY(mask = out_of_range_mask(x, MINLOGF, MAXLOGF))) {
+        using namespace std;
+        //cerr << "mask = " << mask << " x = " << x << endl;
+
+        v4sf unsafe_result = vec_splat(0.0f);
+        if (mask != 15)
+            unsafe_result = sse2_expf_unsafe(x);
+        float xin[4];
+        unpack(x, xin);
+
+        float xout[4];
+        unpack(unsafe_result, xout);
+        
+        for (unsigned i = 0;  i < 4;  ++i)
+            if (mask & (1 << i))
+                xout[i] = expf(xin[i]);
+
+        return pass_nan(x, pack(xout));
+    }
+
+    return pass_nan(x, sse2_expf_unsafe(x));
+}
+        
+
+#if 0
+
+inline v2df sse2_floor(v2df x)
+{
+    return __builtin_ia32_cvtdq2pd(__builtin_ia32_cvttpd2dq(x));
+}
+
+inline v2df sse2_exp(v2df x)
+{
+    v2df tmp = _mm_setzero_pd(), fx;
+    v4si emm0;
+    v2df one = float_1;
+
+    x = _mm_min_ps(x, float_exp_hi);
+    x = _mm_max_ps(x, float_exp_lo);
+
+    /* express exp(x) as exp(g + n*log(2)) */
+    fx = x * float_cephes_LOG2EF;
+    fx = fx + float_0p5;
+
+    /* how to perform a floorf with SSE: just below */
+    tmp  = sse2_floor(fx);
+
+    /* if greater, substract 1 */
+    v2df mask = _mm_cmpgt_ps(tmp, fx);    
+    mask = _mm_and_ps(mask, one);
+    fx = _mm_sub_ps(tmp, mask);
+
+    tmp = fx * float_cephes_exp_C1;
+    v2df z = fx * float_cephes_exp_C2;
+    x = x - tmp;
+    x = x - z;
+
+    z = x * x;
+  
+    v2df y = float_cephes_exp_p0;
+    y = y * x;
+    y = y + float_cephes_exp_p1;
+    y = y * x;
+    y = y + float_cephes_exp_p2;
+    y = y * x;
+    y = y + float_cephes_exp_p3;
+    y = y * x;
+    y = y + float_cephes_exp_p4;
+    y = y * x;
+    y = y + float_cephes_exp_p5;
+    y = y * z;
+    y = y + x;
+    y = y + one;
+
+    /* build 2^n */
+    emm0 = (v4si)_mm_cvttps_epi32(fx);
+    emm0 = emm0 + _pi32_0x7f;
+    emm0 = (v4si)_mm_slli_epi32((v2di)emm0, 23);
+    v2df pow2n = _mm_castsi128_ps((v2di)emm0);
+
+    y = y * pow2n;
+
+    return y;
+}
+
+#endif
 
 } // namespace SIMD
 } // namespace ML
