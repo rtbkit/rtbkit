@@ -45,7 +45,7 @@ extern double ticks_per_second;
 extern double seconds_per_tick;
 
 double calc_ticks_overhead();
-double calc_ticks_per_second();
+double calc_ticks_per_second(double seconds_to_measure = 0.01);
 
 } // namespace ML
 

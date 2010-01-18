@@ -8,6 +8,7 @@
 #include "tick_counter.h"
 #include "math/xdiv.h"
 #include <iostream>
+#include <sys/time.h>
 
 using namespace std;
 
@@ -64,9 +65,38 @@ double calc_ticks_overhead()
     return result;
 }
 
-double calc_ticks_per_second()
+namespace {
+
+// TODO: use clock_gettime
+double elapsed_since(const timeval & tv_start)
 {
-    return 0.0;
+    struct timeval tv_end;
+    gettimeofday(&tv_end, 0);
+
+    double start_sec = tv_start.tv_sec + (tv_start.tv_usec / 1000000.0);
+    double end_sec = tv_end.tv_sec + (tv_end.tv_usec / 1000000.0);
+
+    return (end_sec - start_sec);
+}
+
+} // file scope
+
+double calc_ticks_per_second(double to_elapse)
+{
+    sched_yield();
+
+    struct timeval tv;
+    gettimeofday(&tv, 0);
+    
+    size_t before = ticks();
+
+    double elapsed = 0.0;
+
+    while ((elapsed = elapsed_since(tv)) < to_elapse) ;
+
+    size_t after = ticks();
+
+    return (after - before) / elapsed;
 }
 
 namespace {
