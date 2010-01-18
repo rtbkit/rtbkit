@@ -32,6 +32,20 @@ perplexity_and_prob(const distribution<double> & D, double beta = 1.0,
 boost::multi_array<float, 2>
 vectors_to_distances(boost::multi_array<float, 2> & X);
 
+boost::multi_array<float, 2>
+distances_to_probabilities(boost::multi_array<float, 2> & D,
+                           double tolerance = 1e-5,
+                           double perplexity = 30.0);
+
+/** Perform a principal component analysis.  This routine will reduce a
+    (n x d) matrix to a (n x e) matrix, where e < d (and is possibly far less).
+    The num_dims parameter gives the preferred value of e; it is possible that
+    the routine will return a smaller value of e than this (where the rank of
+    X is lower than the requested e value).
+*/
+boost::multi_array<float, 2>
+pca(boost::multi_array<float, 2> & coords, int num_dims = 50);
+
 
 } // namespace ML
 

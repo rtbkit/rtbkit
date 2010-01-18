@@ -12,6 +12,8 @@
 #include "algebra/matrix_ops.h"
 #include "arch/simd_vector.h"
 #include <boost/tuple/tuple.hpp>
+#include "algebra/lapack.h"
+#include <cmath>
 
 using namespace std;
 
@@ -24,11 +26,28 @@ std::pair<double, distribution<Float> >
 perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
                     int i = -1)
 {
-    distribution<Float> P = exp(-D * Float(beta));
+    distribution<double> Dd(D);
+    distribution<double> P = exp(-Dd * beta);
     if (i != -1) P[i] = 0;
     double tot = P.total();
+
+    if (!isfinite(tot) || tot == 0) {
+        cerr << "beta = " << beta << endl;
+        cerr << "D = " << D << endl;
+        throw Exception("non-finite total for perplexity");
+    }
+
     double H = log(tot) + beta * D.dotprod(P) / tot;
     P /= tot;
+
+    if (!isfinite(P.total())) {
+        cerr << "beta = " << beta << endl;
+        cerr << "D = " << D << endl;
+        cerr << "tot = " << tot << endl;
+        throw Exception("non-finite total for perplexity");
+    }
+
+
     return make_pair(H, P);
 }
 
@@ -112,9 +131,22 @@ binary_search_perplexity(const distribution<float> & Di,
 
     boost::tie(log_perplexity, P) = perplexity_and_prob(Di, beta, i);
 
-    for (unsigned iter = 0;
-         iter < 50 && abs(log_perplexity - log_required_perplexity) > tolerance;
-         ++iter) {
+    bool verbose = false;
+
+    if (verbose)
+        cerr << "iter currperp targperp     diff toleranc   betamin     beta  betamax" << endl;
+    
+    for (unsigned iter = 0;  iter != 50;  ++iter) {
+        if (verbose) 
+            cerr << format("%4d %8.4f %8.4f %8.4f %8.4f  %8.4f %8.4f %8.4f\n",
+                           iter,
+                           log_perplexity, log_required_perplexity,
+                           fabs(log_perplexity - log_required_perplexity),
+                           tolerance,
+                           betamin, beta, betamax);
+        
+        if (fabs(log_perplexity - log_required_perplexity) < tolerance)
+            break;
 
         if (log_perplexity > log_required_perplexity) {
             betamin = beta;
@@ -126,10 +158,10 @@ binary_search_perplexity(const distribution<float> & Di,
             betamax = beta;
             if (!isfinite(betamin))
                 beta /= 2;
-            else beta = (beta + betamax) * 0.5;
+            else beta = (beta + betamin) * 0.5;
         }
         
-        boost::tie(log_perplexity, P) = perplexity_and_prob(Di, beta);
+        boost::tie(log_perplexity, P) = perplexity_and_prob(Di, beta, i);
     }
 
     return make_pair(P, beta);
@@ -138,8 +170,8 @@ binary_search_perplexity(const distribution<float> & Di,
 /* Given a matrix of distances, convert to probabilities */
 boost::multi_array<float, 2>
 distances_to_probabilities(boost::multi_array<float, 2> & D,
-                           double tolerance = 1e-5,
-                           double perplexity = 30.0)
+                           double tolerance,
+                           double perplexity)
 {
     int n = D.shape()[0];
     if (D.shape()[1] != n)
@@ -149,10 +181,9 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
 
     distribution<float> beta(n, 1.0);
 
-    //double logU = log(perplexity);
-
     for (unsigned i = 0;  i < n;  ++i) {
-        if (i % 500 == 0)
+        //cerr << "i = " << i << endl;
+        if (i % 50 == 0)
             cerr << "P-values for point " << i << " of " << n << endl;
         
         distribution<float> D_row(&D[i][0], &D[i][0] + n);
@@ -162,8 +193,14 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
 
         if (P_row.size() != n)
             throw Exception("P_row has the wrong size");
-        if (P_row[n] != 0.0)
+        if (P_row[i] != 0.0) {
+            cerr << "i = " << i << endl;
+            //cerr << "D_row = " << D_row << endl;
+            //cerr << "P_row = " << P_row << endl;
+            cerr << "P_row.total() = " << P_row.total() << endl;
+            cerr << "P_row[i] = " << P_row[i] << endl;
             throw Exception("P_row diagonal entry was not zero");
+        }
         
         std::copy(P_row.begin(), P_row.end(), &P[i][0]);
     }
@@ -172,7 +209,46 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
 
     return P;
 }
+
+boost::multi_array<float, 2>
+pca(boost::multi_array<float, 2> & coords, int num_dims)
+{
+    // TODO: normalize the input coordinates (especially if it seems to be
+    // ill conditioned)
+
+    int nx = coords.shape()[0];
+    int nd = coords.shape()[1];
+
+    int nvalues = std::min(nd, nx);
+
+    int ndr = std::min(nvalues, num_dims);
+
+    if (ndr < num_dims)
+        throw Exception("svd_reduction: num_dims not low enough");
+        
+    distribution<float> svalues(nvalues);
+    boost::multi_array<float, 2> lvectorsT(boost::extents[nvalues][nd]);
+    boost::multi_array<float, 2> rvectors(boost::extents[nx][nvalues]);
+
+    int res = LAPack::gesdd("S", nd, nx,
+                            coords.data(), nd,
+                            &svalues[0],
+                            &lvectorsT[0][0], nd,
+                            &rvectors[0][0], nvalues);
     
+    // If some vectors are singular, ignore them
+    // TODO: do...
+        
+    if (res != 0)
+        throw Exception("gesdd returned non-zero");
+        
+    boost::multi_array<float, 2> result(boost::extents[nx][ndr]);
+    for (unsigned i = 0;  i < nx;  ++i)
+        std::copy(&rvectors[i][0], &rvectors[i][0] + ndr, &result[i][0]);
+
+    return result;
+}
+
 boost::multi_array<float, 2>
 tsne(const boost::multi_array<float, 2> & probs,
      int num_dims = 2)

@@ -18,6 +18,8 @@
 #include <limits>
 #include <boost/test/floating_point_comparison.hpp>
 #include <iostream>
+#include "utils/parse_context.h"
+#include "utils/filter_streams.h"
 
 using namespace ML;
 using namespace std;
@@ -165,4 +167,39 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability )
 
 BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
 {
+    filter_istream stream("tsne/testing/mnist2500_X_min.txt.gz");
+    Parse_Context context("tsne/testing/mnist2500_X_min.txt.gz", stream);
+
+    int nd = 784;
+    int nx = 2500;
+
+    boost::multi_array<float, 2> data(boost::extents[nx][nd]);
+
+    cerr << "loading...";
+    for (unsigned i = 0;  i < nx;  ++i) {
+        for (unsigned j = 0;  j < nd;  ++j) {
+            float f = context.expect_float();
+            data[i][j] = f;
+            context.expect_whitespace();
+        }
+
+        context.expect_eol();
+    }
+    cerr << "done." << endl;
+
+    // Step 1: perform a dimensionality reduction via a SVD on the data
+    //cerr << "performing SVD...";
+    //boost::multi_array<float, 2> data_reduced
+    //    = pca(data, 50);
+    //cerr << "done." << endl;
+
+    cerr << "converting to distances...";
+    boost::multi_array<float, 2> distances
+        = vectors_to_distances(data);
+    cerr << "done." << endl;
+
+    cerr << "converting to probabilities...";
+    boost::multi_array<float, 2> probabilities JML_UNUSED
+        = distances_to_probabilities(distances);
+    cerr << "done." << endl;
 }
