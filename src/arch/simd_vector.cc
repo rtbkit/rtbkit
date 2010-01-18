@@ -24,6 +24,8 @@
 #include "simd_vector.h"
 #include "compiler/compiler.h"
 #include <iostream>
+#include <cmath>
+#include "sse2.h"
 
 using namespace std;
 
@@ -32,43 +34,12 @@ namespace ML {
 namespace SIMD {
 namespace Generic {
 
-typedef float v4sf __attribute__((__vector_size__(16)));
-
-JML_ALWAYS_INLINE v4sf vec_splat(float val)
-{
-    v4sf result = {val, val, val, val};
-
-    return result;
-}
-
-typedef double v2df __attribute__((__vector_size__(16)));
-
-JML_ALWAYS_INLINE v2df vec_splat(double val)
-{
-    v2df result = {val, val};
-    return result;
-}
-
 template<typename X>
 int ptr_align(const X * p) 
 {
     return size_t(p) & 15;
 } JML_PURE_FN
 
-
-JML_ALWAYS_INLINE v4sf vec_d2f(v2df low, v2df high)
-{
-    v4sf rr0a  = __builtin_ia32_cvtpd2ps(low);
-    v4sf rr0b  = __builtin_ia32_cvtpd2ps(high);
-    return __builtin_ia32_shufps(rr0a, rr0b, 0x44);
-}
-
-JML_ALWAYS_INLINE void vec_f2d(v4sf ffff, v2df & low, v2df & high)
-{
-    low  = __builtin_ia32_cvtps2pd(ffff);
-    ffff = __builtin_ia32_shufps(ffff, ffff, 14);
-    high = __builtin_ia32_cvtps2pd(ffff);
-}
 
 void vec_scale(const float * x, float k, float * r, size_t n)
 {
@@ -1506,6 +1477,44 @@ void vec_add(const double * x, const float * k, const double * y, double * r,
     for (; i < n;  ++i) r[i] = x[i] + k[i] * y[i];
 }
 
+// See https://bugzilla.redhat.com/show_bug.cgi?id=521190
+// for why we use double version of exp
+
+void vec_exp(const float * x, float * r, size_t n)
+{
+    unsigned i = 0;
+    for (; i < n;  ++i) r[i] = exp((double)x[i]);
+}
+
+void vec_exp(const float * x, float k, float * r, size_t n)
+{
+    unsigned i = 0;
+    for (; i < n;  ++i) r[i] = exp((double)(k * x[i]));
+}
+
+void vec_exp(const float * x, double * r, size_t n)
+{
+    unsigned i = 0;
+    for (; i < n;  ++i) r[i] = exp((double)x[i]);
+}
+
+void vec_exp(const float * x, double k, double * r, size_t n)
+{
+    unsigned i = 0;
+    for (; i < n;  ++i) r[i] = exp((double)(k * x[i]));
+}
+
+void vec_exp(const double * x, double * r, size_t n)
+{
+    unsigned i = 0;
+    for (; i < n;  ++i) r[i] = exp((double)x[i]);
+}
+
+void vec_exp(const double * x, double k, double * r, size_t n)
+{
+    unsigned i = 0;
+    for (; i < n;  ++i) r[i] = exp((double)(k * x[i]));
+}
 
 } // namespace Generic
 

@@ -5,9 +5,91 @@
    Wrappers around SSE functions.
 */
 
-#ifndef __arch__sse_h__
-#define __arch__sse_h__
+#ifndef __arch__sse2_h__
+#define __arch__sse2_h__
 
-#define USE_SIMD_SSE2 0
+#include "compiler/compiler.h"
+#include <iostream>
 
-#endif /* __arch__sse_h__ */
+#define USE_SIMD_SSE2 1
+
+namespace ML {
+namespace SIMD {
+
+typedef float v4sf __attribute__((__vector_size__(16)));
+
+JML_ALWAYS_INLINE v4sf vec_splat(float val)
+{
+    v4sf result = {val, val, val, val};
+
+    return result;
+}
+
+inline std::ostream & operator << (std::ostream & stream, const v4sf & val)
+{
+    float vals[4];
+    *((v4sf *)vals) = val;
+    return stream << "{ " << vals[0] << ", " << vals[1] << ", " << vals[2]
+                  << ", " << vals[3] << " }";
+}
+
+typedef double v2df __attribute__((__vector_size__(16)));
+
+JML_ALWAYS_INLINE v2df vec_splat(double val)
+{
+    v2df result = {val, val};
+    return result;
+}
+
+JML_ALWAYS_INLINE v4sf vec_d2f(v2df low, v2df high)
+{
+    v4sf rr0a  = __builtin_ia32_cvtpd2ps(low);
+    v4sf rr0b  = __builtin_ia32_cvtpd2ps(high);
+    return __builtin_ia32_shufps(rr0a, rr0b, 0x44);
+}
+
+JML_ALWAYS_INLINE void vec_f2d(v4sf ffff, v2df & low, v2df & high)
+{
+    low  = __builtin_ia32_cvtps2pd(ffff);
+    ffff = __builtin_ia32_shufps(ffff, ffff, 14);
+    high = __builtin_ia32_cvtps2pd(ffff);
+}
+
+inline std::ostream & operator << (std::ostream & stream, const v2df & val)
+{
+    double vals[2];
+    *((v2df *)vals) = val;
+    return stream << "{ " << vals[0] << ", " << vals[1] << " }";
+}
+
+typedef int v4si __attribute__((__vector_size__(16)));
+
+JML_ALWAYS_INLINE v4si vec_splat(int val)
+{
+    v4si result = {val, val, val, val};
+    return result;
+}
+
+inline std::ostream & operator << (std::ostream & stream, const v4si & val)
+{
+    int vals[4];
+    *((v4si *)vals) = val;
+    return stream << "{ " << vals[0] << ", " << vals[1] << ", " << vals[2]
+                  << ", " << vals[3] << " }";
+}
+
+typedef long long int v2di __attribute__((__vector_size__(16)));
+
+inline std::ostream & operator << (std::ostream & stream, const v2di & val)
+{
+    long long int vals[2];
+    *((v2di *)vals) = val;
+    return stream << "{ " << vals[0] << ", " << vals[1] << " }";
+}
+
+
+} // namespace SIMD
+} // namespace ML
+
+
+#endif /* __arch__sse2_h__ */

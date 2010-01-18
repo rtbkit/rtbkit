@@ -490,3 +490,52 @@ BOOST_AUTO_TEST_CASE( vec_add_3array_test )
     vec_add_3array_test_cases<double, double, double>();
 }
 
+template<typename Float, typename Precision>
+void vec_exp_test_case(int nvals)
+{
+    cerr << "testing vec_exp " << nvals << " float "
+         << demangle(typeid(Float).name())
+         << " precision " << demangle(typeid(Precision).name())
+         << endl;
+
+    Float x[nvals];
+    Precision r[nvals], r2[nvals];
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0 / 1024.0;
+        r2[i] = exp(Precision(x[i]));
+    }
+
+    SIMD::vec_exp(x, r, nvals);
+
+    for (unsigned i = 0;  i < nvals;  ++i) {
+        if (r[i] != r2[i]) cerr << "difference on element " << i << " of "
+                                << nvals << endl;;
+            
+        BOOST_CHECK_EQUAL(r[i], r2[i]);
+    }
+}
+
+template<typename Float, typename Precision>
+void vec_exp_test_cases()
+{
+    vec_exp_test_case<Float, Precision>(1);
+    vec_exp_test_case<Float, Precision>(2);
+    vec_exp_test_case<Float, Precision>(3);
+    vec_exp_test_case<Float, Precision>(4);
+    vec_exp_test_case<Float, Precision>(5);
+    vec_exp_test_case<Float, Precision>(8);
+    vec_exp_test_case<Float, Precision>(9);
+    vec_exp_test_case<Float, Precision>(12);
+    vec_exp_test_case<Float, Precision>(15);
+    vec_exp_test_case<Float, Precision>(16);
+    vec_exp_test_case<Float, Precision>(17);
+    vec_exp_test_case<Float, Precision>(123);
+}
+
+BOOST_AUTO_TEST_CASE( vec_exp_test )
+{
+    vec_exp_test_cases<float, float>();
+    vec_exp_test_cases<float, double>();
+    vec_exp_test_cases<double, double>();
+}

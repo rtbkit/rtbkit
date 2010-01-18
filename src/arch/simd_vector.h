@@ -146,6 +146,15 @@ inline double vec_dotprod_dp(const double * x, const double * y, size_t n)
     return vec_dotprod(x, y, n);
 }
 
+// Exponential.  The versions with a k parameter return exp(kx).  The type of
+// the result controls the precision in which the calculation is performed.
+void vec_exp(const float * x, float * r, size_t n);
+void vec_exp(const float * x, float k, float * r, size_t n);
+void vec_exp(const float * x, double * r, size_t n);
+void vec_exp(const float * x, double k, double * r, size_t n);
+void vec_exp(const double * x, double * r, size_t n);
+void vec_exp(const double * x, double k, double * r, size_t n);
+
 } // namespace Generic
 
 #if JML_USE_SSE1
