@@ -14,6 +14,10 @@
 #include <boost/tuple/tuple.hpp>
 #include "algebra/lapack.h"
 #include <cmath>
+#include <boost/random/normal_distribution.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/variate_generator.hpp>
+#include "boosting/worker_task.h"
 
 using namespace std;
 
@@ -259,7 +263,31 @@ tsne(const boost::multi_array<float, 2> & probs,
 
     int d = num_dims;
 
+#if 0
+    int max_iter = 1000;
+    double initial_momentum = 0.5;
+    double final_momentum = 0.8;
+    double eta = 500;
+    double min_gain = 0.01;
+#endif
+
+    boost::mt19937 rng;
+    boost::normal_distribution<float> norm;
+
+    boost::variate_generator<boost::mt19937,
+                             boost::normal_distribution<float> >
+        randn(rng, norm);
+    
     boost::multi_array<float, 2> Y(boost::extents[n][d]);
+    for (unsigned i = 0;  i < n;  ++i)
+        for (unsigned j = 0;  j < d;  ++j)
+            Y[i][j] = randn();
+
+    boost::multi_array<float, 2> dY(boost::extents[n][d]);
+    boost::multi_array<float, 2> iY(boost::extents[n][d]);
+    boost::multi_array<float, 2> gains(boost::extents[n][d]);
+
+
     return Y;
 }
 
