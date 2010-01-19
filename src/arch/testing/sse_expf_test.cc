@@ -65,6 +65,46 @@ BOOST_AUTO_TEST_CASE( ldexp_test )
     BOOST_CHECK_EQUAL(ldexp(1.0, 1), extract_scalar(ldexp(vec_splat(1.0), vec_splat(1))));
 }
 
+void test_functions(double val)
+{
+    cerr << format("%5.2f  %5.2f  %5.2f %5.2f %5.2f %5.2f %5.2f %5.2f\n",
+                   val,
+                   floor(val + 0.5),
+                   round(val),
+                   trunc(val),
+                   floor(val),
+                   ceil(val),
+                   rint(val),
+                   double(int(val)));
+}
+
+BOOST_AUTO_TEST_CASE( value_test )
+{
+    cerr << "  val   func  round trunc floor  ceil  rint  conv" << endl;
+    test_functions(0.0);
+    cerr << endl;
+    test_functions(0.1);
+    test_functions(0.49);
+    test_functions(0.50);
+    test_functions(0.51);
+    test_functions(0.99);
+    test_functions(1.00);
+    test_functions(1.01);
+    test_functions(1.50);
+    test_functions(1.51);
+    cerr << endl;
+    test_functions(-0.1);
+    test_functions(-0.49);
+    test_functions(-0.50);
+    test_functions(-0.51);
+    test_functions(-0.99);
+    test_functions(-1.00);
+    test_functions(-1.01);
+    test_functions(-1.50);
+    test_functions(-1.51);
+    cerr << endl;
+}
+
 #define test_floor_value(input) \
 { \
     float in2 = float(input); \

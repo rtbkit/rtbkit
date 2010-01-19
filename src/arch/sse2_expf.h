@@ -81,7 +81,16 @@ inline v4sf sse2_trunc_unsafe(v4sf x)
 
 inline v4sf sse2_floor_unsafe(v4sf x)
 {
-    return __builtin_ia32_cvtdq2ps(__builtin_ia32_cvtps2dq(x));
+    // See http://www.masm32.com/board/index.php?topic=9515.0
+    // movaps       xmm0,   [float_value]  xmm0 = floatval
+    // cvttps2dq    xmm1,   xmm0           xmm0 = floatval, xmm1 = trunc(floatval)
+    // psrld        xmm0,   31             xmm0 = sign(floatval)
+    // psubd        xmm1,   xmm0           xmm1 = int(floor(floatval))
+    // cvtsq2ps     xmm0,   xmm1           xmm0 = floor(floatval)
+
+    v4si tr   = __builtin_ia32_cvttps2dq(x);
+    v4si sign = __builtin_ia32_psrldi128(tr, 31);
+    return __builtin_ia32_cvtdq2ps(tr - sign);
 }
 
 inline v4sf sse2_floor(v4sf x)
@@ -338,13 +347,10 @@ inline v4sf pow2f_unsafe(v4si n)
 
 inline v2df pow2_unsafe(v4si n)
 {
-    using namespace std;
     v2di result = { 0, 0 };
     n += vec_splat(1023);
     result = (v2di)__builtin_ia32_unpcklps((v4sf)result, (v4sf)n);
-    //cerr << "result = " << result << endl;
     result = __builtin_ia32_psllqi128(result, 20);
-    //cerr << "result = " << result;
     return (v2df)result;
 }
 
@@ -365,81 +371,10 @@ inline v2df ldexp_old(v2df x, v4si n)
 inline v2df ldexp(v2df x, v4si n)
 {
     // ldexp: return x * 2^n (only the first 2 entries of n are used)
-    // works by adding n to the exponent
-
-    using namespace std;
-    //cerr << "pow2_unsafe(" << n << ") = " << pow2_unsafe(n) << endl;
+    // works by constructing 2^n and adding n
 
     return x * pow2_unsafe(n);
 }
-
-#if 0
-
-#define EXPMSK 0x800f
-#define MEXP 0x7ff
-#define NBITS 53
-double MAXNUM =  1.79769313486231570815E308;    /* 2**1024*(1-MACHEP) */
-
-double ldexp ( double x, int pw2)
-{
-    union
-    {
-	double y;
-	unsigned short sh[4];
-    } u;
-    short *q;
-    int e;
-
-    u.y = x;
-
-    // ASSUME LITTLE ENDIAN
-    q = (short *)&u.sh[3];
-
-    while( (e = (*q & 0x7ff0) >> 4) == 0 ) {
-        if( u.y == 0.0 ) {
-            return( 0.0 );
-        }
-        /* Input is denormal. */
-	if( pw2 > 0 ) {
-            u.y *= 2.0;
-            pw2 -= 1;
-        }
-	if( pw2 < 0 ) {
-            if( pw2 < -53 )
-                return(0.0);
-            u.y /= 2.0;
-            pw2 += 1;
-        }
-	if( pw2 == 0 )
-            return(u.y);
-    }
-
-    e += pw2;
-
-    /* Handle overflow */
-    if( e >= MEXP )
-        return( 2.0*MAXNUM );
-    
-    /* Handle denormalized results */
-    if( e < 1 ) {
-	if( e < -53 )
-            return(0.0);
-	*q &= 0x800f;
-	*q |= 0x10;
-	/* For denormals, significant bits may be lost even
-	   when dividing by 2.  Construct 2^-(1-e) so the result
-	   is obtained with only one multiplication.  */
-	u.y *= ldexp(1.0, e-1);
-	return(u.y);
-    }
-    else {
-	*q &= 0x800f;
-	*q |= (e & 0x7ff) << 4;
-	return(u.y);
-    }
-}
-
-#endif
 
 inline v2df sse2_floor_unsafe2(v2df x)
 {
@@ -477,18 +412,65 @@ inline int out_of_range_mask(v2df input, double min_val, double max_val)
     return out_of_range_mask(input, vec_splat(min_val), vec_splat(max_val));
 }
 
-#define CHECK_EQUAL(array, var, type, n)                                \
-    {                                                                   \
-        type vals[n];                                                   \
-        unpack(var, vals);                                              \
-        for (unsigned i = 0;  i < n;  ++i) {                            \
-            if (vals[i] != array[i])                                    \
-                cerr << __FILE__ << ":" << __LINE__ << ": value " << i  \
-                     << ": difference: "                                \
-                     << vals[i] << " != " << array[i] << endl;          \
-        }                                                               \
-    }
-
+/*							exp.c
+ *
+ *	Exponential function
+ *
+ *
+ *
+ * SYNOPSIS:
+ *
+ * double x, y, exp();
+ *
+ * y = exp( x );
+ *
+ *
+ *
+ * DESCRIPTION:
+ *
+ * Returns e (2.71828...) raised to the x power.
+ *
+ * Range reduction is accomplished by separating the argument
+ * into an integer k and fraction f such that
+ *
+ *     x    k  f
+ *    e  = 2  e.
+ *
+ * A Pade' form  1 + 2x P(x**2)/( Q(x**2) - P(x**2) )
+ * of degree 2/3 is used to approximate exp(f) in the basic
+ * interval [-0.5, 0.5].
+ *
+ *
+ * ACCURACY:
+ *
+ *                      Relative error:
+ * arithmetic   domain     # trials      peak         rms
+ *    DEC       +- 88       50000       2.8e-17     7.0e-18
+ *    IEEE      +- 708      40000       2.0e-16     5.6e-17
+ *
+ *
+ * Error amplification in the exponential function can be
+ * a serious matter.  The error propagation involves
+ * exp( X(1+delta) ) = exp(X) ( 1 + X*delta + ... ),
+ * which shows that a 1 lsb error in representing X produces
+ * a relative error of X times 1 lsb in the function.
+ * While the routine gives an accurate result for arguments
+ * that are exactly represented by a double precision
+ * computer number, the result contains amplified roundoff
+ * error for large arguments not exactly represented.
+ *
+ *
+ * ERROR MESSAGES:
+ *
+ *   message         condition      value returned
+ * exp underflow    x < MINLOG         0.0
+ * exp overflow     x > MAXLOG         INFINITY
+ *
+ */
+/*
+Cephes Math Library Release 2.8:  June, 2000
+Copyright 1984, 1995, 2000 by Stephen L. Moshier
+*/
 
 inline v2df sse2_exp_unsafe(v2df x)
 {
@@ -496,45 +478,13 @@ inline v2df sse2_exp_unsafe(v2df x)
      *   = e**g e**( n loge(2) )
      *   = e**( g + n loge(2) )
      */
-
-    using namespace std;
-
-    double x_[2];
-    unpack(x, x_);
-
-    CHECK_EQUAL(x_, x, double, 2);
-
     /* floor() truncates toward -infinity. */
     v2df px = sse2_floor_unsafe( vec_splat(LOG2E) * x + vec_splat(0.5) );
 
-
-    double px_[2];
-    for (unsigned i = 0;  i < 2;  ++i)
-        px_[i] = floor(LOG2E * x_[i] + 0.5);
-
-    CHECK_EQUAL(px_, px, double, 2);
-
     v4si n = __builtin_ia32_cvtpd2dq(px);
 
-    int n_[4] = {0, 0, 0, 0};
-    for (unsigned i = 0;  i < 2;  ++i)
-        n_[i] = px_[i];
-    
-    CHECK_EQUAL(n_, n, int, 4);
-
     x -= px * vec_splat(C1);
-    
-    for (unsigned i = 0;  i < 2;  ++i)
-        x_[i] -= px_[i] * C1;
-    
-    CHECK_EQUAL(x_, x, double, 2);
-
     x -= px * vec_splat(C2);
-
-    for (unsigned i = 0;  i < 2;  ++i)
-        x_[i] -= px_[i] * C2;
-    
-    CHECK_EQUAL(x_, x, double, 2);
 
     /* rational approximation for exponential
      * of the fractional part:
@@ -542,50 +492,12 @@ inline v2df sse2_exp_unsafe(v2df x)
      */
     v2df xx = x * x;
 
-    double xx_[2];
-    for (unsigned i = 0;  i < 2;  ++i)
-        xx_[i] = x_[i] * x_[i];
-
-    CHECK_EQUAL(xx_, xx, double, 2);
-
     px = x * polevl( xx, P, 2 );
-
-    for (unsigned i = 0;  i < 2;  ++i)
-        px_[i] = x_[i] * polevl(xx_[i], P, 2);
-
-    CHECK_EQUAL(px_, px, double, 2);
-
     x =  px/( polevl( xx, Q, 3 ) - px );
-
-    for (unsigned i = 0;  i < 2;  ++i)
-        x_[i] = px_[i] / (polevl(xx_[i], Q, 3) - px_[i]);
-
-    CHECK_EQUAL(x_, x, double, 2);
-
     x = vec_splat(1.0) + (x + x);
 
-    for (unsigned i = 0;  i < 2;  ++i)
-        x_[i] = 1.0 + 2.0 * x_[i];
-
-    CHECK_EQUAL(x_, x, double, 2);
-    
     /* multiply by power of 2 */
     x = ldexp( x, n );
-
-    double x2[2];
-    unpack(x, x2);
-
-    for (unsigned i = 0;  i < 2;  ++i) {
-        double oldx = x_[i];
-        x_[i] = ::ldexp(x_[i], n_[i]);
-        if (x_[i] != x2[i])
-            cerr << "error in ldexp: n = " << n_[i] << " x input = "
-                 << oldx << " x_ = " << x_[i]
-                 << " x = " << x2[i] << endl;
-    }
-
-    CHECK_EQUAL(x_, x, double, 2);
-
     return x;
 }
 
