@@ -59,6 +59,12 @@ double extract_scalar(v2df i)
     return vals[0];
 }
 
+BOOST_AUTO_TEST_CASE( ldexp_test )
+{
+    BOOST_CHECK_EQUAL(ldexp(1.0, 0), extract_scalar(ldexp(vec_splat(1.0), vec_splat(0))));
+    BOOST_CHECK_EQUAL(ldexp(1.0, 1), extract_scalar(ldexp(vec_splat(1.0), vec_splat(1))));
+}
+
 #define test_floor_value(input) \
 { \
     float in2 = float(input); \
@@ -67,6 +73,14 @@ double extract_scalar(v2df i)
     if (isnan(output1)) \
         BOOST_CHECK(isnan(output2));            \
     else BOOST_CHECK_EQUAL(floorf(float(input)), output2);      \
+} \
+{ \
+    double in2 = double(input); \
+    double output1 = floorf(in2); \
+    double output2 = extract_scalar(sse2_floor(vec_splat(in2))); \
+    if (isnan(output1)) \
+        BOOST_CHECK(isnan(output2));            \
+    else BOOST_CHECK_EQUAL(floorf(double(input)), output2);      \
 }
 
 static const float NaN = std::numeric_limits<float>::quiet_NaN();
@@ -85,13 +99,10 @@ BOOST_AUTO_TEST_CASE( floor_test )
     test_floor_value(-1.0);
     test_floor_value(-1.01);
     test_floor_value(2.5);
-
-#if 0
     test_floor_value(NaN);
     test_floor_value(-NaN);
     test_floor_value(INFINITY);
     test_floor_value(-INFINITY);
-#endif
 }
 
 #define test_trunc_value(input) \
@@ -118,13 +129,10 @@ BOOST_AUTO_TEST_CASE( trunc_test )
     test_trunc_value(-1.0);
     test_trunc_value(-1.01);
     test_trunc_value(2.5);
-
-#if 0
     test_trunc_value(NaN);
     test_trunc_value(-NaN);
     test_trunc_value(INFINITY);
     test_trunc_value(-INFINITY);
-#endif
 }
 
 #define test_expf_value(input)                                          \
@@ -143,7 +151,7 @@ BOOST_AUTO_TEST_CASE( trunc_test )
             int i1 = reinterpret_as_int(output1);                       \
             int i2 = reinterpret_as_int(output2);                       \
             if (abs(i1 - i2) > 1) {                                     \
-                cerr << format("%12.8f: %14.9f != %14.9f: %08x !- %08x (%4d ulps)\n", \
+                cerr << format("%12.8f: %14.9f != %14.9f: %08x != %08x (%4d ulps)\n", \
                                in2, output1, output2, i1, i2, (i1 - i2)); \
                 BOOST_CHECK_EQUAL(expf(float(input)), output2);         \
             }                                                           \
@@ -203,7 +211,7 @@ BOOST_AUTO_TEST_CASE( test_expf )
             int i1 = reinterpret_as_int(output1);                       \
             int i2 = reinterpret_as_int(output2);                       \
             if (abs(i1 - i2) > 1) {                                     \
-                cerr << format("%12.8f: %14.9f != %14.9f: %08x !- %08x (%4d ulps)\n", \
+                cerr << format("%12.8f: %14.9f != %14.9f: %08x != %08x (%4d ulps)\n", \
                                in2, output1, output2, i1, i2, (i1 - i2)); \
                 BOOST_CHECK_EQUAL(exp(double(input)), output2);         \
             }                                                           \
@@ -240,11 +248,89 @@ BOOST_AUTO_TEST_CASE( test_exp )
     test_exp_value(INFINITY);
     test_exp_value(-INFINITY);
 
-#if 0
+    // Test over the whole range
     int nvals = 65536;
     for (int i = 0;  i < nvals;  ++i) {
-        double f = 105.0 * (2 * i - nvals) / (1.0 * nvals);
+        double f = 1000.0 * (2 * i - nvals) / (1.0 * nvals);
         test_exp_value(f);
+    }
+
+    // Test more closely over (-10, 10)
+    for (int i = 0;  i < nvals;  ++i) {
+        double f = 10.0 * (2 * i - nvals) / (1.0 * nvals);
+        test_exp_value(f);
+    }
+}
+
+inline double pow2(int input)
+{
+    return pow(2.0, double(input));
+}
+
+#define test_pow2_value(input)                                          \
+    {                                                                   \
+        double output1 = pow2(input);                                      \
+        double output2 = extract_scalar(sse2_pow2(vec_splat(input)));      \
+        if (isnan(output1)) {                                           \
+            if (!isnan(output2)) {                                      \
+                cerr << "input = " << input << " output1 = " << output1 << " output2 = " << output2 \
+                 << endl;                                               \
+            }                                                           \
+            BOOST_CHECK(isnan(output2));                                \
+        }                                                               \
+        else if (output1 != output2) {                                  \
+            int i1 = reinterpret_as_int(output1);                       \
+            int i2 = reinterpret_as_int(output2);                       \
+            if (abs(i1 - i2) > 1) {                                     \
+                cerr << format("%12.8f: %14.9f != %14.9f: %08x != %08x (%4d ulps)\n", \
+                               input, output1, output2, i1, i2, (i1 - i2)); \
+                BOOST_CHECK_EQUAL(pow2(double(input)), output2);         \
+            }                                                           \
+        }                                                               \
+    }
+
+BOOST_AUTO_TEST_CASE( test_pow2 )
+{
+    test_pow2_value(0);
+    test_pow2_value(1);
+    test_pow2_value(2);
+    test_pow2_value(3);
+    test_pow2_value(-0);
+    test_pow2_value(-1);
+    test_pow2_value(-2);
+    test_pow2_value(-3);
+
+    test_pow2_value(-10);
+    test_pow2_value(-20);
+    test_pow2_value(-30);
+    test_pow2_value(-50);
+    test_pow2_value(-100);
+    test_pow2_value(-1000);
+
+    test_pow2_value(10);
+    test_pow2_value(20);
+    test_pow2_value(30);
+    test_pow2_value(50);
+    test_pow2_value(100);
+    test_pow2_value(1000);
+
+#if 0
+    test_pow2_value(NaN);
+    test_pow2_value(-NaN);
+    test_pow2_value(INFINITY);
+    test_pow2_value(-INFINITY);
+
+    // Test over the whole range
+    int nvals = 65536;
+    for (int i = 0;  i < nvals;  ++i) {
+        double f = 1000.0 * (2 * i - nvals) / (1.0 * nvals);
+        test_pow2_value(f);
+    }
+
+    // Test more closely over (-10, 10)
+    for (int i = 0;  i < nvals;  ++i) {
+        double f = 10.0 * (2 * i - nvals) / (1.0 * nvals);
+        test_pow2_value(f);
     }
 #endif
 }
