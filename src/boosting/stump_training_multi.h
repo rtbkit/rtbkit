@@ -16,6 +16,9 @@
 #include "arch/sse2.h"
 #include "algebra/multi_array_utils.h"
 
+#undef USE_SIMD_SSE2
+#define USE_SIMD_SSE2 0
+
 namespace ML {
 
 
