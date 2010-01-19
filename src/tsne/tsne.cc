@@ -26,8 +26,8 @@ std::pair<double, distribution<Float> >
 perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
                     int i = -1)
 {
-    distribution<double> Dd(D);
-    distribution<double> P = exp(-Dd * beta);
+    distribution<double> P(D.size());
+    SIMD::vec_exp(&D[0], -beta, &P[0], D.size());
     if (i != -1) P[i] = 0;
     double tot = P.total();
 
@@ -183,7 +183,7 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
 
     for (unsigned i = 0;  i < n;  ++i) {
         //cerr << "i = " << i << endl;
-        if (i % 50 == 0)
+        if (i % 250 == 0)
             cerr << "P-values for point " << i << " of " << n << endl;
         
         distribution<float> D_row(&D[i][0], &D[i][0] + n);

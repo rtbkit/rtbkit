@@ -22,6 +22,7 @@
 
 #include "exception.h"
 #include "simd_vector.h"
+#include "sse2_expf.h"
 #include "compiler/compiler.h"
 #include <iostream>
 #include <cmath>
@@ -1501,6 +1502,23 @@ void vec_exp(const float * x, double * r, size_t n)
 void vec_exp(const float * x, double k, double * r, size_t n)
 {
     unsigned i = 0;
+
+    if (true) {
+        v2df kk = vec_splat(k);
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v2df xx0a, xx0b;
+            vec_f2d(xxxx0, xx0a, xx0b);
+
+            v2df rr0a = sse2_exp(kk * xx0a);
+            v2df rr0b = sse2_exp(kk * xx0b);
+
+            __builtin_ia32_storeupd(r + i + 0, rr0a);
+            __builtin_ia32_storeupd(r + i + 2, rr0b);
+        }
+    }
+
     for (; i < n;  ++i) r[i] = exp((double)(k * x[i]));
 }
 
