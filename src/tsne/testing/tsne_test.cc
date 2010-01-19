@@ -161,8 +161,75 @@ BOOST_AUTO_TEST_CASE( test_perplexity_and_prob1 )
     //cerr << "resH = " << resH << endl;
 }
 
-BOOST_AUTO_TEST_CASE( test_distance_to_probability )
+BOOST_AUTO_TEST_CASE( test_small )
 {
+    filter_istream stream("tsne/testing/mnist2500_X_min.txt.gz");
+    Parse_Context context("tsne/testing/mnist2500_X_min.txt.gz", stream);
+
+    int nd = 784;
+    int nx = 100;
+
+    boost::multi_array<float, 2> data(boost::extents[nx][nd]);
+
+    cerr << "loading " << nx << " examples...";
+    for (unsigned i = 0;  i < nx;  ++i) {
+        for (unsigned j = 0;  j < nd;  ++j) {
+            float f = context.expect_float();
+            data[i][j] = f;
+            context.expect_whitespace();
+        }
+
+        context.expect_eol();
+    }
+    cerr << "done." << endl;
+
+    cerr << "converting to distances...";
+    boost::multi_array<float, 2> distances
+        = vectors_to_distances(data);
+    cerr << "done." << endl;
+
+    cerr << "converting to probabilities...";
+    boost::multi_array<float, 2> probabilities
+        = distances_to_probabilities(distances,
+                                     1e-5 /* tolerance */,
+                                     20.0 /* perplexity */);
+    cerr << "done." << endl;
+
+    // Obtained from the tsne.py program with bugs fixed
+    float expected[100] = {
+        0.00000000e+00, 2.68792541e-03, 2.43188624e-05, 2.30939754e-03,
+        2.03611574e-04, 7.98121656e-04, 6.19396925e-03, 4.13000407e-02,
+        4.23811520e-03, 6.85725943e-04, 6.03596575e-02, 2.62362954e-05,
+        1.83916599e-03, 5.06189988e-04, 4.57227155e-03, 1.25841718e-03,
+        1.46468136e-03, 9.76617696e-03, 3.37516482e-03, 5.32170173e-03,
+        2.14410978e-06, 5.89158388e-04, 1.98417596e-03, 1.35763772e-03,
+        4.57227155e-03, 3.73659924e-04, 1.58016490e-03, 3.54839505e-02,
+        3.73659924e-04, 4.34905636e-04, 9.28939884e-04, 8.61049963e-04,
+        1.46468136e-03, 4.23811520e-03, 8.39085226e-03, 1.25841718e-03,
+        9.05243326e-03, 6.85725943e-04, 1.74937915e-04, 3.12849689e-03,
+        5.74129401e-03, 3.54839505e-02, 2.49148316e-03, 1.42731844e-02,
+        4.57227155e-03, 6.35610880e-04, 2.49148316e-03, 2.14061932e-03,
+        2.61935846e-02, 2.55254059e-01, 7.77762173e-03, 1.74937915e-04,
+        2.55670272e-04, 8.61049963e-04, 2.55670272e-04, 2.89985626e-03,
+        1.22831552e-05, 1.35763772e-03, 2.75828725e-04, 1.25841718e-03,
+        2.49554573e-06, 6.35610880e-04, 1.79225024e-02, 8.19014090e-05,
+        8.83589672e-05, 3.05366244e-05, 2.30939754e-03, 5.32170173e-03,
+        1.79517266e-05, 1.25841718e-03, 4.13000407e-02, 4.34905636e-04,
+        4.23811520e-03, 5.46100794e-04, 1.19503351e-01, 1.25841718e-03,
+        4.69195992e-04, 3.12849689e-03, 2.89985626e-03, 8.61049963e-04,
+        6.35610880e-04, 9.76617696e-03, 2.03611574e-04, 3.46351652e-04,
+        1.16644800e-03, 2.61935846e-02, 1.39317661e-04, 7.39792353e-04,
+        3.29443000e-05, 1.19698211e-04, 4.03121330e-04, 3.73659924e-04,
+        5.46100794e-04, 2.14061932e-03, 2.61935846e-02, 4.93277462e-03,
+        2.49148316e-03, 3.28906690e-02, 9.51704912e-02, 4.93277462e-03 };
+
+    double tolerance = 1e-5;
+
+    for (unsigned i = 0;  i < 100;  ++i)
+        BOOST_CHECK_CLOSE(probabilities[0][i], expected[i], tolerance);
+
+    boost::multi_array<float, 2> reduction JML_UNUSED
+        = tsne(probabilities, 2);
 }
 
 BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
@@ -175,7 +242,7 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
 
     boost::multi_array<float, 2> data(boost::extents[nx][nd]);
 
-    cerr << "loading...";
+    cerr << "loading " << nx << " examples...";
     for (unsigned i = 0;  i < nx;  ++i) {
         for (unsigned j = 0;  j < nd;  ++j) {
             float f = context.expect_float();

@@ -155,6 +155,19 @@ void vec_exp(const float * x, double k, double * r, size_t n);
 void vec_exp(const double * x, double * r, size_t n);
 void vec_exp(const double * x, double k, double * r, size_t n);
 
+// Maximum
+void vec_max(const float * x, const float * y, float * r, size_t n);
+void vec_max(const float * x, float y, float * r, size_t n);
+void vec_max(const double * x, const double * y, double * r, size_t n);
+void vec_max(const double * x, double y, double * r, size_t n);
+
+// Minimum
+void vec_min(const float * x, const float * y, float * r, size_t n);
+void vec_min(const float * x, float y, float * r, size_t n);
+void vec_min(const double * x, const double * y, double * r, size_t n);
+void vec_min(const double * x, double y, double * r, size_t n);
+
+
 } // namespace Generic
 
 #if JML_USE_SSE1

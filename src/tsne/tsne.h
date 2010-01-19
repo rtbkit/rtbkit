@@ -46,6 +46,10 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
 boost::multi_array<float, 2>
 pca(boost::multi_array<float, 2> & coords, int num_dims = 50);
 
+boost::multi_array<float, 2>
+tsne(const boost::multi_array<float, 2> & probs,
+     int num_dims = 2);
+
 
 } // namespace ML
 

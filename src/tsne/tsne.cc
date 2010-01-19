@@ -255,21 +255,13 @@ pca(boost::multi_array<float, 2> & coords, int num_dims)
 
 boost::multi_array<float, 2>
 tsne(const boost::multi_array<float, 2> & probs,
-     int num_dims = 2)
+     int num_dims)
 {
     int n = probs.shape()[0];
     if (n != probs.shape()[1])
         throw Exception("probabilities were the wrong shape");
 
     int d = num_dims;
-
-#if 0
-    int max_iter = 1000;
-    double initial_momentum = 0.5;
-    double final_momentum = 0.8;
-    double eta = 500;
-    double min_gain = 0.01;
-#endif
 
     boost::mt19937 rng;
     boost::normal_distribution<float> norm;
@@ -283,10 +275,115 @@ tsne(const boost::multi_array<float, 2> & probs,
         for (unsigned j = 0;  j < d;  ++j)
             Y[i][j] = randn();
 
+#if 1 // pseudo-random, for testing (matches the Python version)
+    for (unsigned i = 0;  i < n;  ++i)
+        for (unsigned j = 0;  j < d;  ++j)
+            Y[i][j] = (((((i * 18446744073709551557ULL) + j) * 18446744073709551557ULL) % 4099) / 1050.0) - 2.0;
+#endif // pseudo-random
+
+    for (unsigned i = 0;  i < 10;  ++i)
+        cerr << "Y[" << i << "] = "
+             << distribution<float>(&Y[i][0], &Y[i][0] + d)
+             << endl;
+
     boost::multi_array<float, 2> dY(boost::extents[n][d]);
     boost::multi_array<float, 2> iY(boost::extents[n][d]);
     boost::multi_array<float, 2> gains(boost::extents[n][d]);
 
+    // Symmetrize and probabilize P
+    boost::multi_array<float, 2> P = probs + transpose(probs);
+
+    // TODO: symmetric so only need to total the diagonal
+    double sumP = 0.0;
+    for (unsigned i = 0;  i < n;  ++i)
+        sumP += SIMD::vec_sum_dp(&P[i][0], n);
+    
+    cerr << "sumP = " << sumP << endl;
+
+    // Factor that P should be multiplied by in all calculations
+    // We boost it by 4 in early iterations to force the clusters to be
+    // spread apart
+    //double pfactor = 4.0 / sumP;
+
+    // TODO: do we need this?   P = Math.maximum(P, 1e-12);
+    for (unsigned i = 0;  i < n;  ++i)
+        for (unsigned j = 0;  j < d;  ++j)
+            P[i][j] = std::max(P[i][j], 1e-12f);
+
+
+    int max_iter = 1;
+#if 0
+    int max_iter = 1000;
+    double initial_momentum = 0.5;
+    double final_momentum = 0.8;
+    double eta = 500;
+    double min_gain = 0.01;
+#endif
+
+    for (int iter = 0;  iter < max_iter;  ++iter) {
+
+        // Pairwise affinities
+        distribution<float> sum_Y(n);
+
+        for (unsigned i = 0;  i < n;  ++i) {
+            // No vectorization as d is normally very small
+
+            double total = 0.0;  // accum in double precision for accuracy
+            for (unsigned j = 0;  j < d;  ++j)
+                total += Y[i][j] * Y[i][j];
+            sum_Y[i] = total;
+        }
+        
+        cerr << "sum_Y = " << sum_Y << endl;
+
+        boost::multi_array<float, 2> YYT
+            = multiply_transposed(Y, Y);
+
+        cerr << "YYT.shape()[0] = " << YYT.shape()[0] << endl;
+        cerr << "YYT.shape()[1] = " << YYT.shape()[1] << endl;
+
+        boost::multi_array<float, 2> num(boost::extents[n][n]);
+
+        for (unsigned i = 0;  i < n;  ++i)
+            for (unsigned j = 0;  j < n;  ++j)
+                num[i][j] = 1.0 / (1.0 + -2 * YYT[i][j]txxx);
+        
+        
+#if 0
+        # Compute pairwise affinities
+        sum_Y = Math.sum(Math.square(Y), 1);        
+        num = 1 / (1 + Math.add(Math.add(-2 * Math.dot(Y, Y.T), sum_Y).T, sum_Y));
+        num[range(n), range(n)] = 0;
+        Q = num / Math.sum(num);
+        Q = Math.maximum(Q, 1e-12);
+        
+        # Compute gradient
+        PQ = P - Q;
+        for i in range(n):
+            dY[i,:] = Math.sum(Math.tile(PQ[:,i] * num[:,i], (no_dims, 1)).T * (Y[i,:] - Y), 0);
+            
+        # Perform the update
+        if iter < 20:
+            momentum = initial_momentum
+        else:
+            momentum = final_momentum
+        gains = (gains + 0.2) * ((dY > 0) != (iY > 0)) + (gains * 0.8) * ((dY > 0) == (iY > 0));
+        gains[gains < min_gain] = min_gain;
+        iY = momentum * iY - eta * (gains * dY);
+        Y = Y + iY;
+        Y = Y - Math.tile(Math.mean(Y, 0), (n, 1));
+        
+        # Compute current value of cost function
+        if (iter + 1) % 10 == 0:
+            C = Math.sum(P * Math.log(P / Q));
+            print "Iteration ", (iter + 1), ": error is ", C
+            
+        # Stop lying about P-values
+        if iter == 100:
+            P = P / 4;
+#endif
+
+    }
 
     return Y;
 }
