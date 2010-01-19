@@ -38,7 +38,7 @@ perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
     }
 
     double H = log(tot) + beta * D.dotprod(P) / tot;
-    P /= tot;
+    P *= 1.0 / tot;
 
     if (!isfinite(P.total())) {
         cerr << "beta = " << beta << endl;
