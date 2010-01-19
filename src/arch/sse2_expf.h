@@ -82,24 +82,13 @@ inline v4sf sse2_trunc_unsafe(v4sf x)
 
 inline v4sf sse2_floor_unsafe(v4sf x)
 {
-    using namespace std;
-    cerr << "x = " << x << endl;
     v4si tr       = __builtin_ia32_cvttps2dq(x);
-    cerr << "tr = " << tr << endl;
     v4si neg      = __builtin_ia32_cmpltps(x, vec_splat(0.0f));
-    cerr << "neg = " << neg << endl;
-    v4sf negfix   = __builtin_ia32_andps((v4sf)neg, vec_splat(1.0f));
-    cerr << "negfix = " << negfix << endl;
     v4sf res      = __builtin_ia32_cvtdq2ps(tr);
-    cerr << "res = " << res << endl;
     v4si exact    = __builtin_ia32_cmpeqps(res, x);
-    cerr << "exact = " << exact << endl;
     v4sf fixmask  = __builtin_ia32_andnps((v4sf)exact, (v4sf)neg);
-    cerr << "fixmask = " << fixmask << endl;
     v4sf fix      = __builtin_ia32_andps(fixmask, vec_splat(1.0f));
-    cerr << "fix = " << fix << endl;
     res -= fix; 
-    cerr << "res = " << res << endl;
     return res;
 }
 
@@ -406,7 +395,14 @@ inline v2df ldexp(v2df x, v4si n)
 
 inline v2df sse2_floor_unsafe(v2df x)
 {
-    return __builtin_ia32_cvtdq2pd(__builtin_ia32_cvtpd2dq(x));
+    v4si tr       = __builtin_ia32_cvttpd2dq(x);
+    v2di neg      = __builtin_ia32_cmpltpd(x, vec_splat(0.0));
+    v2df res      = __builtin_ia32_cvtdq2pd(tr);
+    v2df fix1     = __builtin_ia32_andpd((v2df)neg, vec_splat(1.0));
+    v2di exact    = __builtin_ia32_cmpeqpd(res, x);
+    v2df fix      = __builtin_ia32_andnpd((v2df)exact, (v2df)fix1);
+    res -= fix; 
+    return res;
 }
 
 inline v2df sse2_floor_unsafe3(v2df x)
@@ -437,7 +433,7 @@ inline v2df sse2_floor_unsafe4(v2df x)
 
 inline v2df sse2_floor(v2df x)
 {
-    return pass_nan(x, sse2_floor_unsafe(x));
+    return pass_nan_inf_zero(x, sse2_floor_unsafe(x));
 }
 
 inline int out_of_range_mask(v2df input, v2df min_val, v2df max_val)
