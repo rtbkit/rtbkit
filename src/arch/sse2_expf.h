@@ -79,19 +79,47 @@ inline v4sf sse2_trunc_unsafe(v4sf x)
     return __builtin_ia32_cvtdq2ps(__builtin_ia32_cvttps2dq(x));
 }
 
+
 inline v4sf sse2_floor_unsafe(v4sf x)
 {
-    // See http://www.masm32.com/board/index.php?topic=9515.0
-    // movaps       xmm0,   [float_value]  xmm0 = floatval
-    // cvttps2dq    xmm1,   xmm0           xmm0 = floatval, xmm1 = trunc(floatval)
-    // psrld        xmm0,   31             xmm0 = sign(floatval)
-    // psubd        xmm1,   xmm0           xmm1 = int(floor(floatval))
-    // cvtsq2ps     xmm0,   xmm1           xmm0 = floor(floatval)
-
-    v4si tr   = __builtin_ia32_cvttps2dq(x);
-    v4si sign = __builtin_ia32_psrldi128(tr, 31);
-    return __builtin_ia32_cvtdq2ps(tr - sign);
+    using namespace std;
+    cerr << "x = " << x << endl;
+    v4si tr       = __builtin_ia32_cvttps2dq(x);
+    cerr << "tr = " << tr << endl;
+    v4si neg      = __builtin_ia32_cmpltps(x, vec_splat(0.0f));
+    cerr << "neg = " << neg << endl;
+    v4sf negfix   = __builtin_ia32_andps((v4sf)neg, vec_splat(1.0f));
+    cerr << "negfix = " << negfix << endl;
+    v4sf res      = __builtin_ia32_cvtdq2ps(tr);
+    cerr << "res = " << res << endl;
+    v4si exact    = __builtin_ia32_cmpeqps(res, x);
+    cerr << "exact = " << exact << endl;
+    v4sf fixmask  = __builtin_ia32_andnps((v4sf)exact, (v4sf)neg);
+    cerr << "fixmask = " << fixmask << endl;
+    v4sf fix      = __builtin_ia32_andps(fixmask, vec_splat(1.0f));
+    cerr << "fix = " << fix << endl;
+    res -= fix; 
+    cerr << "res = " << res << endl;
+    return res;
 }
+
+
+#if 0
+    static const vFloat twoTo23 = (vFloat){ 0x1.0p23f, 0x1.0p23f, 0x1.0p23f, 0x1.0p23f };
+    vFloat b = (vFloat) _mm_srli_epi32( _mm_slli_epi32( (vUInt32) v, 1 ), 1 ); //fabs(v)
+    vFloat d = _mm_sub_ps( _mm_add_ps( _mm_add_ps( _mm_sub_ps( v, twoTo23 ), twoTo23 ), twoTo23 ), twoTo23 ); //the meat of floor
+    vFloat largeMaskE = (vFloat) _mm_cmpgt_ps( b, twoTo23 ); //-1 if v >= 2**23
+    vFloat g = (vFloat) _mm_cmplt_ps( v, d ); //check for possible off by one error
+    vFloat h = _mm_cvtepi32_ps( (vUInt32) g ); //convert positive check result to -1.0, negative to 0.0
+    vFloat t = _mm_add_ps( d, h ); //add in the error if there is one
+
+    //Select between output result and input value based on v >= 2**23
+    v = _mm_and_ps( v, largeMaskE );
+    t = _mm_andnot_ps( largeMaskE, t );
+
+    return _mm_or_ps( t, v );
+#endif
+
 
 inline v4sf sse2_floor(v4sf x)
 {
@@ -376,12 +404,12 @@ inline v2df ldexp(v2df x, v4si n)
     return x * pow2_unsafe(n);
 }
 
-inline v2df sse2_floor_unsafe2(v2df x)
+inline v2df sse2_floor_unsafe(v2df x)
 {
     return __builtin_ia32_cvtdq2pd(__builtin_ia32_cvtpd2dq(x));
 }
 
-inline v2df sse2_floor_unsafe(v2df x)
+inline v2df sse2_floor_unsafe3(v2df x)
 {
     double vals[2];
     unpack(x, vals);
@@ -390,8 +418,22 @@ inline v2df sse2_floor_unsafe(v2df x)
     vals[1] = floor(vals[1]);
 
     return pack(vals);
-    //return __builtin_ia32_cvtdq2pd(__builtin_ia32_cvtpd2dq(x));
 }
+
+#if 0
+inline v2df sse2_floor_unsafe4(v2df x)
+{
+    using namespace std;
+    cerr << "x = " << x << endl;
+    v4si tr   = __builtin_ia32_cvttpd2dq(x);
+    cerr << "tr = " << tr << endl;
+    v4si sign = __builtin_ia32_psrldi128((v4si)x, 31);
+    cerr << "sign = " << sign << endl;
+    v4si res  = tr - sign;
+    cerr << "res = " << res << endl;
+    return __builtin_ia32_cvtdq2ps(res);
+}
+#endif
 
 inline v2df sse2_floor(v2df x)
 {
