@@ -253,6 +253,10 @@ multiply_transposed(const boost::multi_array<Float1, 2> & A,
 }
 
 
+/*****************************************************************************/
+/* MATRIX ADDITION                                                           */
+/*****************************************************************************/
+
 template<typename FloatR, typename Float1, typename Float2>
 boost::multi_array<FloatR, 2>
 add_r(const boost::multi_array<Float1, 2> & A,
@@ -286,6 +290,48 @@ operator + (const boost::multi_array<Float1, 2> & A,
             const boost::multi_array<Float2, 2> & B)
 {
     return add_r
+        <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
+        (A, B);
+}
+
+
+/*****************************************************************************/
+/* MATRIX SUBTRACTION                                                        */
+/*****************************************************************************/
+
+template<typename FloatR, typename Float1, typename Float2>
+boost::multi_array<FloatR, 2>
+subtract_r(const boost::multi_array<Float1, 2> & A,
+           const boost::multi_array<Float2, 2> & B)
+{
+    if (A.shape()[0] != B.shape()[0]
+        || A.shape()[1] != B.shape()[1])
+        throw ML::Exception("Incompatible matrix sizes");
+    
+    boost::multi_array<FloatR, 2> X(boost::extents[A.shape()[0]][A.shape()[1]]);
+
+    for (unsigned i = 0;  i < A.shape()[0];  ++i)
+        SIMD::vec_minus(&A[i][0], &B[i][0], &X[i][0], A.shape()[1]);
+    
+    return X;
+}
+
+template<typename Float1, typename Float2>
+boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
+subtract(const boost::multi_array<Float1, 2> & A,
+    const boost::multi_array<Float2, 2> & B)
+{
+    return subtract_r
+        <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
+        (A, B);
+}
+
+template<typename Float1, typename Float2>
+boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
+operator - (const boost::multi_array<Float1, 2> & A,
+            const boost::multi_array<Float2, 2> & B)
+{
+    return subtract_r
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
         (A, B);
 }

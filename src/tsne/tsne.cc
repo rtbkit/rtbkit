@@ -253,6 +253,11 @@ pca(boost::multi_array<float, 2> & coords, int num_dims)
     return result;
 }
 
+inline int sign(float x)
+{
+    return -1 * (x < 0);
+}
+
 boost::multi_array<float, 2>
 tsne(const boost::multi_array<float, 2> & probs,
      int num_dims)
@@ -303,28 +308,45 @@ tsne(const boost::multi_array<float, 2> & probs,
     // Factor that P should be multiplied by in all calculations
     // We boost it by 4 in early iterations to force the clusters to be
     // spread apart
-    //double pfactor = 4.0 / sumP;
+    float pfactor = 4.0 / sumP;
 
     // TODO: do we need this?   P = Math.maximum(P, 1e-12);
     for (unsigned i = 0;  i < n;  ++i)
         for (unsigned j = 0;  j < d;  ++j)
-            P[i][j] = std::max(P[i][j], 1e-12f);
+            P[i][j] = std::max(pfactor * P[i][j], 1e-12f);
 
 
-    int max_iter = 1;
-#if 0
-    int max_iter = 1000;
-    double initial_momentum = 0.5;
-    double final_momentum = 0.8;
-    double eta = 500;
-    double min_gain = 0.01;
-#endif
+    int max_iter = 200;
+    float initial_momentum = 0.5;
+    float final_momentum = 0.8;
+    float eta = 500;
+    float min_gain = 0.01;
+
+    cerr << "n = " << n << endl;
 
     for (int iter = 0;  iter < max_iter;  ++iter) {
 
-        // Pairwise affinities
-        distribution<float> sum_Y(n);
+        /*********************************************************************/
+        // Pairwise affinities Qij
+        // Implements formula 4 in (Van der Maaten and Hinton, 2008)
+        // q_{ij} = d_{ij} / sum_{k,l, k != l} d_{kl}
+        // where d_{ij} = 1 / (1 + ||y_i - y_j||^2)
 
+        // again, ||y_i - y_j||^2 
+        //     = sum_d ( y_id - y_jd )^2
+        //     = sum_d ( y_id^2 + y_jd^2 - 2 y_id y_jd)
+        //     = sum_d ( y_id^2) + sum_d(y_jd^2) - 2 sum_d(y_id y_jd)
+        //     = ||y_i||^2 + ||y_j||^2 - 2 sum_d(y_id y_jd)
+
+        // TODO: these will all be symmetric; we could save lots of work by
+        // using diagonal matrices.
+
+        // Y * Y^T: element (i, j) = sum_d(y_id y_jd)
+        boost::multi_array<float, 2> YYT
+            = multiply_transposed(Y, Y);
+
+        // sum_Y: element i = ||y_i||^2
+        distribution<float> sum_Y(n);
         for (unsigned i = 0;  i < n;  ++i) {
             // No vectorization as d is normally very small
 
@@ -336,53 +358,133 @@ tsne(const boost::multi_array<float, 2> & probs,
         
         cerr << "sum_Y = " << sum_Y << endl;
 
-        boost::multi_array<float, 2> YYT
-            = multiply_transposed(Y, Y);
+        // D matrix: d_{ij} = 1 / (1 + ||y_i - y_j||^2)
+        double d_total_offdiag = 0.0;
+        boost::multi_array<float, 2> D(boost::extents[n][n]);
+        for (unsigned i = 0;  i < n;  ++i) {
+            for (unsigned j = 0;  j < n;  ++j) {
+                D[i][j] = 1.0f / (1.0f + sum_Y[i] + sum_Y[j] -2.0f * YYT[i][j]);
+                d_total_offdiag += D[i][j] * (i != j);
+            }
+        }
 
-        cerr << "YYT.shape()[0] = " << YYT.shape()[0] << endl;
-        cerr << "YYT.shape()[1] = " << YYT.shape()[1] << endl;
+        for (unsigned i = 0;  i < 1;  ++i)
+            cerr << "D[" << i << "] = "
+                 << distribution<float>(&D[i][0], &D[i][0] + n)
+                 << endl;
+        
+        cerr << "d_total_offdiag = " << d_total_offdiag << endl;
 
-        boost::multi_array<float, 2> num(boost::extents[n][n]);
-
+        // Q matrix: q_{i,j} = d_{ij} / sum_{k != l} d_{kl}
+        boost::multi_array<float, 2> Q(boost::extents[n][n]);
+        float qfactor = 1.0 / d_total_offdiag;
         for (unsigned i = 0;  i < n;  ++i)
             for (unsigned j = 0;  j < n;  ++j)
-                num[i][j] = 1.0 / (1.0 + -2 * YYT[i][j]txxx);
+                Q[i][j] = std::max(1e-12f, D[i][j] * qfactor);
+
+        for (unsigned i = 0;  i < 1;  ++i)
+            cerr << "Q[" << i << "] = "
+                 << distribution<float>(&Q[i][0], &Q[i][0] + n)
+                 << endl;
+
         
         
+        /*********************************************************************/
+        // Gradient
+        // Implements formula 5 in (Van der Maaten and Hinton, 2008)
+        // dC/dy_i = 4 * sum_j ( (p_ij - q_ij)(y_i - y_j)d_ij )
+        // NOTE: this gives different results from the reference implementation;
+        // can't for the moment figure out why
+
 #if 0
-        # Compute pairwise affinities
-        sum_Y = Math.sum(Math.square(Y), 1);        
-        num = 1 / (1 + Math.add(Math.add(-2 * Math.dot(Y, Y.T), sum_Y).T, sum_Y));
-        num[range(n), range(n)] = 0;
-        Q = num / Math.sum(num);
-        Q = Math.maximum(Q, 1e-12);
-        
+        % Compute the gradients
+        stiffnesses = 4 * (P - Q) .* num;
+        for i=1:n
+            y_grads(i,:) = sum(bsxfun(@times, bsxfun(@minus, ydata(i,:), ydata), stiffnesses(:,i)), 1);
+        end
+
+#endif
+
+#if 0
         # Compute gradient
         PQ = P - Q;
         for i in range(n):
             dY[i,:] = Math.sum(Math.tile(PQ[:,i] * num[:,i], (no_dims, 1)).T * (Y[i,:] - Y), 0);
-            
-        # Perform the update
-        if iter < 20:
-            momentum = initial_momentum
-        else:
-            momentum = final_momentum
-        gains = (gains + 0.2) * ((dY > 0) != (iY > 0)) + (gains * 0.8) * ((dY > 0) == (iY > 0));
-        gains[gains < min_gain] = min_gain;
-        iY = momentum * iY - eta * (gains * dY);
-        Y = Y + iY;
-        Y = Y - Math.tile(Math.mean(Y, 0), (n, 1));
-        
-        # Compute current value of cost function
-        if (iter + 1) % 10 == 0:
-            C = Math.sum(P * Math.log(P / Q));
-            print "Iteration ", (iter + 1), ": error is ", C
-            
-        # Stop lying about P-values
-        if iter == 100:
-            P = P / 4;
 #endif
 
+
+        boost::multi_array<float, 2> PmQ = P - Q;
+
+        for (unsigned i = 0;  i < 2;  ++i)
+            cerr << "PmQ[" << i << "] = "
+                 << distribution<float>(&PmQ[i][0], &PmQ[i][0] + n)
+                 << endl;
+
+        boost::multi_array<double, 2> dY(boost::extents[n][d]);
+
+        for (unsigned i = 0;  i < n;  ++i) {
+            for (unsigned j = 0;  j < n;  ++j) {
+                if (i == j) continue;
+                float factor = 4.0f * PmQ[i][j] * D[i][j];
+                for (unsigned k = 0;  k < d;  ++k)
+                    dY[i][k] += factor * (Y[i][k] - Y[j][k]);
+            }
+        }
+
+        for (unsigned i = 0;  i < 10;  ++i)
+            cerr << "dY[" << i << "] = "
+                 << distribution<float>(&dY[i][0], &dY[i][0] + d)
+                 << endl;
+
+        float momentum = (iter < 20 ? initial_momentum : final_momentum);
+
+        // Implement scheme in Jacobs, 1988.  If we go in the same direction as
+        // last time, we increase the learning speed of the parameter a bit.
+        // If on the other hand the direction changes, we reduce exponentially
+        // the rate.
+
+        for (unsigned i = 0;  i < n;  ++i) {
+            // We use != here as we gradients in dY are the negatives of what
+            // we want.
+            for (unsigned j = 0;  j < d;  ++j) {
+                if (sign(dY[i][j] != sign(iY[i][j])))
+                    gains[i][j] = gains[i][j] + 0.2f;  // TODO: ?????? + or *
+                else gains[i][j] = gains[i][j] * 0.8f;
+                gains[i][j] = std::max(min_gain, gains[i][j]);
+            }
+        }
+        
+        for (unsigned i = 0;  i < n;  ++i)
+            for (unsigned j = 0;  j < d;  ++j)
+                iY[i][j] = momentum * iY[i][j] - (eta * gains[i][j] * dY[i][j]);
+
+        Y = Y + iY;
+
+        // Recenter Y values about the origin
+        double Y_means[d];
+        std::fill(Y_means, Y_means + d, 0.0);
+        for (unsigned i = 0;  i < n;  ++i)
+            for (unsigned j = 0;  j < d;  ++j)
+                Y_means[j] += Y[i][j];
+
+
+        for (unsigned i = 0;  i < n;  ++i)
+            for (unsigned j = 0;  j < d;  ++j)
+                Y[i][j] -= Y_means[j];
+
+        double cost = 0.0;
+        for (unsigned i = 0;  i < n;  ++i)
+            for (unsigned j = 0;  j < d;  ++j)
+                cost += P[i][j] * logf(P[i][j] / Q[i][j]);
+        
+        cerr << "cost = " << cost << endl;
+
+        // Stop lying about P values if we're finished
+        if (iter == 100) {
+            for (unsigned i = 0;  i < n;  ++i)
+                for (unsigned j = 0;  j < n;  ++j)
+                    P[i][j] *= 0.25f;
+        }
     }
 
     return Y;
