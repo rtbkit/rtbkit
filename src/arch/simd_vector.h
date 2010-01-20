@@ -167,6 +167,16 @@ void vec_min(const float * x, float y, float * r, size_t n);
 void vec_min(const double * x, const double * y, double * r, size_t n);
 void vec_min(const double * x, double y, double * r, size_t n);
 
+// Square of the two norm (sum x_i^2)
+// Equivalent to vec_dotprod(x, x, n)
+float vec_twonorm_sqr(const float * x, size_t n);
+double vec_twonorm_sqr_dp(const float * x, size_t n);
+double vec_twonorm_sqr(const double * x, size_t n);
+inline double vec_twonorm_sqr_dp(const double * x, size_t n)
+{
+    return vec_twonorm_sqr(x, n);
+}
+
 
 } // namespace Generic
 

@@ -229,16 +229,36 @@ boost::multi_array<FloatR, 2>
 multiply_transposed(const boost::multi_array<Float1, 2> & A,
                     const boost::multi_array<Float2, 2> & BT)
 {
+    int As0 = A.shape()[0];
+    int Bs0 = BT.shape()[0];
+    int As1 = A.shape()[1];
+
     if (A.shape()[1] != BT.shape()[1])
         throw ML::Exception("Incompatible matrix sizes");
 
-    boost::multi_array<FloatR, 2> X
-        (boost::extents[A.shape()[0]][BT.shape()[0]]);
-    for (unsigned j = 0;  j < BT.shape()[0];  ++j) {
-        for (unsigned i = 0;  i < A.shape()[0];  ++i)
-            X[i][j] = SIMD::vec_dotprod_dp(&A[i][0], &BT[j][0], A.shape()[1]);
+    boost::multi_array<FloatR, 2> X(boost::extents[As0][Bs0]);
+    for (unsigned j = 0;  j < Bs0;  ++j) {
+        for (unsigned i = 0;  i < As0;  ++i)
+            X[i][j] = SIMD::vec_dotprod_dp(&A[i][0], &BT[j][0], As1);
     }
 
+    return X;
+}
+
+// Multiply A * transpose(A)
+template<typename FloatR, typename Float>
+boost::multi_array<FloatR, 2>
+multiply_transposed(const boost::multi_array<Float, 2> & A)
+{
+    int As0 = A.shape()[0];
+    int As1 = A.shape()[1];
+
+    boost::multi_array<FloatR, 2> X(boost::extents[As0][As0]);
+    for (unsigned j = 0;  j < As0;  ++j) {
+        for (unsigned i = 0;  i < As0;  ++i)
+            X[i][j] = SIMD::vec_dotprod_dp(&A[i][0], &A[j][0], As1);
+    }
+    
     return X;
 }
 
@@ -247,6 +267,10 @@ boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
 multiply_transposed(const boost::multi_array<Float1, 2> & A,
                     const boost::multi_array<Float2, 2> & B)
 {
+    // Special case for A * A^T
+    if (&A == &B)
+        return multiply_transposed<Float1>(A);
+
     return multiply_transposed
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
         (A, B);

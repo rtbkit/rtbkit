@@ -1534,6 +1534,33 @@ void vec_exp(const double * x, double k, double * r, size_t n)
     for (; i < n;  ++i) r[i] = exp((double)(k * x[i]));
 }
 
+float vec_twonorm_sqr(const float * x, size_t n)
+{
+    unsigned i = 0;
+    float result = 0.0;
+    for (; i < n;  ++i) result += x[i] * x[i];
+    return result;
+}
+
+double vec_twonorm_sqr_dp(const float * x, size_t n)
+{
+    unsigned i = 0;
+    double result = 0.0;
+    for (; i < n;  ++i) {
+        double xd = x[i];
+        result += xd * xd;
+    }
+    return result;
+}
+
+double vec_twonorm_sqr(const double * x, size_t n)
+{
+    unsigned i = 0;
+    float result = 0.0;
+    for (; i < n;  ++i) result += x[i] * x[i];
+    return result;
+}
+
 } // namespace Generic
 
 } // namespace SIMD
