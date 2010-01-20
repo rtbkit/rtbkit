@@ -269,4 +269,7 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
     boost::multi_array<float, 2> probabilities JML_UNUSED
         = distances_to_probabilities(distances);
     cerr << "done." << endl;
+
+    boost::multi_array<float, 2> reduction JML_UNUSED
+        = tsne(probabilities, 2);
 }

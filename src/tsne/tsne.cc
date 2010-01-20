@@ -322,7 +322,7 @@ tsne(const boost::multi_array<float, 2> & probs,
     //         << endl;
 
 
-    int max_iter = 200;
+    int max_iter = 1000;
     float initial_momentum = 0.5;
     float final_momentum = 0.8;
     float eta = 500;
@@ -402,25 +402,6 @@ tsne(const boost::multi_array<float, 2> & probs,
         // Gradient
         // Implements formula 5 in (Van der Maaten and Hinton, 2008)
         // dC/dy_i = 4 * sum_j ( (p_ij - q_ij)(y_i - y_j)d_ij )
-        // NOTE: this gives different results from the reference implementation;
-        // can't for the moment figure out why
-
-#if 0
-        % Compute the gradients
-        stiffnesses = 4 * (P - Q) .* num;
-        for i=1:n
-            y_grads(i,:) = sum(bsxfun(@times, bsxfun(@minus, ydata(i,:), ydata), stiffnesses(:,i)), 1);
-        end
-
-#endif
-
-#if 0
-        # Compute gradient
-        PQ = P - Q;
-        for i in range(n):
-            dY[i,:] = Math.sum(Math.tile(PQ[:,i] * num[:,i], (no_dims, 1)).T * (Y[i,:] - Y), 0);
-#endif
-
 
         boost::multi_array<float, 2> PmQ = P - Q;
 
@@ -432,61 +413,18 @@ tsne(const boost::multi_array<float, 2> & probs,
         boost::multi_array<float, 2> dY(boost::extents[n][d]);
 
         for (unsigned i = 0;  i < n;  ++i) {
-
-#if 0
-            cerr << "i = " << i << endl;
-
-            distribution<float> PQnum(n);
-            for (unsigned j = 0;  j < n;  ++j) {
-                if (i == j) continue;
-                PQnum[j] += PmQ[j][i] * D[j][i];
-            }
-
-            cerr << "PQnum = " << PQnum << endl;
-
-            boost::multi_array<float, 2> YmY = Y;
-            for (unsigned j = 0;  j < n;  ++j)
-                for (unsigned k = 0;  k < d;  ++k)
-                    YmY[j][k] = Y[i][k] - YmY[j][k];
-
-            for (unsigned j = 0;  j < 10;  ++j)
-                cerr << "YmY[" << j << "] = "
-                     << distribution<float>(&YmY[j][0], &YmY[j][0] + d)
-                     << endl;
-
-            boost::multi_array<float, 2> YmY_times_PQnum_tT
-                (boost::extents[n][d]);
-            for (unsigned j = 0;  j < n;  ++j) {
-                for (unsigned k = 0;  k < d;  ++k) {
-                    YmY_times_PQnum_tT[j][k] += YmY[j][k] * PQnum[j];
-                    dY[i][k] += 4 * YmY_times_PQnum_tT[j][k];
-                }
-            }
-
-            for (unsigned j = 0;  j < 10;  ++j)
-                cerr << "YmY_times_PQnum_tT[" << j << "] = "
-                     << distribution<float>(&YmY_times_PQnum_tT[j][0],
-                                            &YmY_times_PQnum_tT[j][0] + d)
-                     << endl;
-
-            cerr << "final values "
-                 << distribution<float>(&dY[i][0], &dY[i][0] + d)
-                 << endl;
-
-#else
             for (unsigned j = 0;  j < n;  ++j) {
                 if (i == j) continue;
                 float factor = 4.0f * PmQ[j][i] * D[j][i];
                 for (unsigned k = 0;  k < d;  ++k)
                     dY[i][k] += factor * (Y[i][k] - Y[j][k]);
             }
-#endif
         }
 
-        for (unsigned i = 0;  i < 10;  ++i)
-            cerr << "dY[" << i << "] = "
-                 << distribution<float>(&dY[i][0], &dY[i][0] + d)
-                 << endl;
+        //for (unsigned i = 0;  i < 10;  ++i)
+        //    cerr << "dY[" << i << "] = "
+        //         << distribution<float>(&dY[i][0], &dY[i][0] + d)
+        //         << endl;
 
         float momentum = (iter < 20 ? initial_momentum : final_momentum);
 
@@ -499,11 +437,11 @@ tsne(const boost::multi_array<float, 2> & probs,
             // We use != here as we gradients in dY are the negatives of what
             // we want.
             for (unsigned j = 0;  j < d;  ++j) {
-                if (i < 10) 
-                    cerr << "i = " << i << " j = " << j << " dY = " << dY[i][j]
-                         << " iY " << iY[i][j] << " sign(dY) "
-                         << sign(dY[i][j]) << " sign(iY)" << sign(iY[i][j])
-                         << endl;
+                //if (i < 10) 
+                //    cerr << "i = " << i << " j = " << j << " dY = " << dY[i][j]
+                //         << " iY " << iY[i][j] << " sign(dY) "
+                //         << sign(dY[i][j]) << " sign(iY)" << sign(iY[i][j])
+                //         << endl;
                 if (dY[i][j] * iY[i][j] < 0.0f)
                     gains[i][j] = gains[i][j] + 0.2f;
                 else gains[i][j] = gains[i][j] * 0.8f;
@@ -511,26 +449,26 @@ tsne(const boost::multi_array<float, 2> & probs,
             }
         }
 
-        for (unsigned i = 0;  i < 10;  ++i)
-            cerr << "gains[" << i << "] = "
-                 << distribution<float>(&gains[i][0], &gains[i][0] + d)
-                 << endl;
+        //for (unsigned i = 0;  i < 10;  ++i)
+        //    cerr << "gains[" << i << "] = "
+        //         << distribution<float>(&gains[i][0], &gains[i][0] + d)
+        //         << endl;
         
         for (unsigned i = 0;  i < n;  ++i)
             for (unsigned j = 0;  j < d;  ++j)
                 iY[i][j] = momentum * iY[i][j] - (eta * gains[i][j] * dY[i][j]);
 
-        for (unsigned i = 0;  i < 10;  ++i)
-            cerr << "iY[" << i << "] = "
-                 << distribution<float>(&iY[i][0], &iY[i][0] + d)
-                 << endl;
+        //for (unsigned i = 0;  i < 10;  ++i)
+        //    cerr << "iY[" << i << "] = "
+        //         << distribution<float>(&iY[i][0], &iY[i][0] + d)
+        //         << endl;
 
         Y = Y + iY;
 
-        for (unsigned i = 0;  i < 10;  ++i)
-            cerr << "Y[" << i << "] = "
-                 << distribution<float>(&Y[i][0], &Y[i][0] + d)
-                 << endl;
+        //for (unsigned i = 0;  i < 10;  ++i)
+        //    cerr << "Y[" << i << "] = "
+        //         << distribution<float>(&Y[i][0], &Y[i][0] + d)
+        //         << endl;
 
 
         // Recenter Y values about the origin
@@ -547,10 +485,10 @@ tsne(const boost::multi_array<float, 2> & probs,
             for (unsigned j = 0;  j < d;  ++j)
                 Y[i][j] -= Y_means[j] * n_recip;
 
-        for (unsigned i = 0;  i < 10;  ++i)
-            cerr << "centered Y[" << i << "] = "
-                 << distribution<float>(&Y[i][0], &Y[i][0] + d)
-                 << endl;
+        //for (unsigned i = 0;  i < 10;  ++i)
+        //    cerr << "centered Y[" << i << "] = "
+        //         << distribution<float>(&Y[i][0], &Y[i][0] + d)
+        //         << endl;
 
         double cost = 0.0;
         for (unsigned i = 0;  i < n;  ++i) {
@@ -563,7 +501,7 @@ tsne(const boost::multi_array<float, 2> & probs,
             }
         }
         
-        cerr << "cost = " << cost << endl;
+        cerr << "iteration " << iter << " cost = " << cost << endl;
 
         // Stop lying about P values if we're finished
         if (iter == 100) {
