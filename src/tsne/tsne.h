@@ -29,8 +29,58 @@ std::pair<double, distribution<double> >
 perplexity_and_prob(const distribution<double> & D, double beta = 1.0,
                     int i = -1);
 
-boost::multi_array<float, 2>
-vectors_to_distances(boost::multi_array<float, 2> & X);
+/** Given a matrix that gives the a number of points in a vector space of
+    dimension d (ie, a number of points with coordinates of d dimensions),
+    convert to a matrix that gives the square of the distance between
+    each of the points.
+
+                     2
+    D   = ||X  - X || 
+     ij      i    j
+
+    \params:
+    X    a (n x d) matrix, where n is the number of points and d is the
+         number of coordinates that each point has
+    D    a (n x n) matrix that will be filled in with the distance between
+         any of the two points.  Note that by definition the diagonal is
+         zero and the matrix is symmetric.
+    fill_upper  if true, then the entire matrix D will be filled in.
+                Otherwise, just the part below the diagonal will be filled
+                in.
+
+    \returns:
+
+    2 * the sum of the elements in the matrix D below the diagonal.
+*/
+double
+vectors_to_distances(const boost::multi_array<float, 2> & X,
+                     boost::multi_array<float, 2> & D,
+                     bool fill_upper = true);
+
+double
+vectors_to_distances(const boost::multi_array<double, 2> & X,
+                     boost::multi_array<double, 2> & D,
+                     bool fill_upper = true);
+
+inline boost::multi_array<float, 2>
+vectors_to_distances(boost::multi_array<float, 2> & X,
+                     bool fill_upper = true)
+{
+    int n = X.shape()[0];
+    boost::multi_array<float, 2> result(boost::extents[n][n]);
+    vectors_to_distances(X, result, fill_upper);
+    return result;
+}
+
+inline boost::multi_array<double, 2>
+vectors_to_distances(boost::multi_array<double, 2> & X,
+                     bool fill_upper = true)
+{
+    int n = X.shape()[0];
+    boost::multi_array<double, 2> result(boost::extents[n][n]);
+    vectors_to_distances(X, result, fill_upper);
+    return result;
+}
 
 boost::multi_array<float, 2>
 distances_to_probabilities(boost::multi_array<float, 2> & D,

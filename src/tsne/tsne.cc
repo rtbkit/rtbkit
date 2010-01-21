@@ -71,44 +71,61 @@ perplexity_and_prob(const distribution<double> & D, double beta,
     return perplexity_and_prob<double>(D, beta, i);
 }
 
-/** Given a matrix that gives the a number of points in a vector space of
-    dimension d (ie, a number of points with coordinates of d dimensions),
-    convert to a matrix that gives the square of the distance between
-    each of the points.
-
-    \params:
-    X    a (n x d) matrix, where n is the number of points and d is the
-         number of coordinates that each point has
-
-    \returns:
-    A (n x n) matrix giving the distance between each two points
-*/
-boost::multi_array<float, 2>
-vectors_to_distances(boost::multi_array<float, 2> & X)
+template<typename Float>
+double
+vectors_to_distances(const boost::multi_array<Float, 2> & X,
+                     boost::multi_array<Float, 2> & D,
+                     bool fill_upper = true)
 {
-    // Note that (xi - yi)^2 = xi^2 - 2 xi yi + yi^2
-    // sum_i (xi - yi)^2 = sum_i(xi^2 - 2xi yi + yi^2)
-    //                   = sum_i(xi^2) + sum_i(yi^2) - 2sum_i(xiyi)
-    // where i goes over the d dimensions
-
+    // again, ||y_i - y_j||^2 
+    //     = sum_d ( y_id - y_jd )^2
+    //     = sum_d ( y_id^2 + y_jd^2 - 2 y_id y_jd)
+    //     = sum_d ( y_id^2) + sum_d(y_jd^2) - 2 sum_d(y_id y_jd)
+    //     = ||y_i||^2 + ||y_j||^2 - 2 sum_d(y_id y_jd)
+    
     int n = X.shape()[0];
+
+    if (D.shape()[0] != n || D.shape()[1] != n)
+        throw Exception("D matrix should be square with (n x n) shape");
+    
     int d = X.shape()[1];
 
-    distribution<float> sum_X(n);
+    distribution<Float> sum_X(n);
     for (unsigned i = 0;  i < n;  ++i)
         sum_X[i] = SIMD::vec_dotprod_dp(&X[i][0], &X[i][0], d);
     
     // TODO: don't use this temporary; calculate as needed
-    boost::multi_array<float, 2> XXT = multiply_transposed(X, X);
+    boost::multi_array<Float, 2> XXT
+        = multiply_transposed<Float>(X);
 
-    boost::multi_array<float, 2> D(boost::extents[n][n]);
+    double total = 0.0;
+
     for (unsigned i = 0;  i < n;  ++i) {
-        for (unsigned j = i;  j < n;  ++j) {
-            D[i][j] = D[j][i] = sum_X[i] + sum_X[j] - 2 * XXT[i][j];
+        D[i][i] = 0.0f;
+        for (unsigned j = 0;  j < i;  ++j) {
+            Float val = sum_X[i] + sum_X[j] - 2.0f * XXT[i][j];
+            D[i][j] = D[j][i] = val;
+            total += val;
         }
     }
             
-    return D;
+    return total;
+}
+
+double
+vectors_to_distances(const boost::multi_array<float, 2> & X,
+                     boost::multi_array<float, 2> & D,
+                     bool fill_upper)
+{
+    return vectors_to_distances<float>(X, D, fill_upper);
+}
+
+double
+vectors_to_distances(const boost::multi_array<double, 2> & X,
+                     boost::multi_array<double, 2> & D,
+                     bool fill_upper)
+{
+    return vectors_to_distances<double>(X, D, fill_upper);
 }
 
 /** Given a matrix of distances, normalize them */
@@ -319,7 +336,7 @@ tsne(const boost::multi_array<float, 2> & probs,
     boost::multi_array<float, 2> Y(boost::extents[n][d]);
     for (unsigned i = 0;  i < n;  ++i)
         for (unsigned j = 0;  j < d;  ++j)
-            Y[i][j] = randn();
+            Y[i][j] = 0.0001 * randn();
 
 #if 0 // pseudo-random, for testing (matches the Python version)
     for (unsigned i = 0;  i < n;  ++i)

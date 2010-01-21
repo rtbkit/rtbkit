@@ -224,6 +224,26 @@ operator * (const boost::multi_array<Float1, 2> & A,
         (A, B);
 }
 
+/*****************************************************************************/
+/* MULTIPLY_TRANSPOSED                                                       */
+/*****************************************************************************/
+
+// Multiply A * transpose(A)
+template<typename FloatR, typename Float>
+boost::multi_array<FloatR, 2>
+multiply_transposed(const boost::multi_array<Float, 2> & A)
+{
+    int As0 = A.shape()[0];
+    int As1 = A.shape()[1];
+
+    boost::multi_array<FloatR, 2> X(boost::extents[As0][As0]);
+    for (unsigned i = 0;  i < As0;  ++i) 
+        for (unsigned j = 0;  j <= i;  ++j)
+            X[i][j] = X[j][i] = SIMD::vec_dotprod_dp(&A[i][0], &A[j][0], As1);
+    
+    return X;
+}
+
 template<typename FloatR, typename Float1, typename Float2>
 boost::multi_array<FloatR, 2>
 multiply_transposed(const boost::multi_array<Float1, 2> & A,
@@ -245,22 +265,6 @@ multiply_transposed(const boost::multi_array<Float1, 2> & A,
     return X;
 }
 
-// Multiply A * transpose(A)
-template<typename FloatR, typename Float>
-boost::multi_array<FloatR, 2>
-multiply_transposed(const boost::multi_array<Float, 2> & A)
-{
-    int As0 = A.shape()[0];
-    int As1 = A.shape()[1];
-
-    boost::multi_array<FloatR, 2> X(boost::extents[As0][As0]);
-    for (unsigned i = 0;  i < As0;  ++i) 
-        for (unsigned j = 0;  j <= i;  ++j)
-            X[i][j] = X[j][i] = SIMD::vec_dotprod_dp(&A[i][0], &A[j][0], As1);
-    
-    return X;
-}
-
 template<typename Float1, typename Float2>
 boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
 multiply_transposed(const boost::multi_array<Float1, 2> & A,
@@ -268,13 +272,12 @@ multiply_transposed(const boost::multi_array<Float1, 2> & A,
 {
     // Special case for A * A^T
     if (&A == &B)
-        return multiply_transposed<Float1>(A);
+        return multiply_transposed<typename float_traits<Float1, Float2>::return_type>(A);
 
     return multiply_transposed
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
         (A, B);
 }
-
 
 /*****************************************************************************/
 /* MATRIX ADDITION                                                           */
