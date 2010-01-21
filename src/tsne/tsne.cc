@@ -105,17 +105,39 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
             sum_X[i] = SIMD::vec_dotprod_dp(&X[i][0], &X[i][0], d);
     }
     
-    // TODO: don't use this temporary; calculate as needed
-    boost::multi_array<Float, 2> XXT
-        = multiply_transposed<Float>(X);
-
     double total = 0.0;
 
-    for (unsigned i = 0;  i < n;  ++i) {
-        D[i][i] = 0.0f;
-        for (unsigned j = 0;  j < i;  ++j) {
-            Float val = sum_X[i] + sum_X[j] - 2.0f * XXT[i][j];
-            D[i][j] = D[j][i] = val;
+    if (d == 2) {
+        for (unsigned i = 0;  i < n;  ++i) {
+            D[i][i] = 0.0f;
+            for (unsigned j = 0;  j < i;  ++j) {
+                float XXT = (X[i][0] * X[j][0]) + (X[i][1]) * (X[j][1]);
+                Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
+                D[i][j] = D[j][i] = val;
+            }
+        }
+    }
+    else if (d < 8) {
+        for (unsigned i = 0;  i < n;  ++i) {
+            D[i][i] = 0.0f;
+            for (unsigned j = 0;  j < i;  ++j) {
+                double XXT = 0.0;  // accum in double precision for accuracy
+                for (unsigned k = 0;  k < d;  ++k)
+                    XXT += X[i][k] * X[j][k];
+
+                Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
+                D[i][j] = D[j][i] = val;
+            }
+        }
+    }
+    else {
+        for (unsigned i = 0;  i < n;  ++i) {
+            D[i][i] = 0.0f;
+            for (unsigned j = 0;  j < i;  ++j) {
+                float XXT = SIMD::vec_dotprod_dp(&X[i][0], &X[j][0], d);
+                Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
+                D[i][j] = D[j][i] = val;
+            }
         }
     }
             
