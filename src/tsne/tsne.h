@@ -46,9 +46,28 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
 boost::multi_array<float, 2>
 pca(boost::multi_array<float, 2> & coords, int num_dims = 50);
 
+struct TSNE_Params {
+    
+    TSNE_Params()
+        : max_iter(1000),
+          initial_momentum(0.5),
+          final_momentum(0.8),
+          eta(500),
+          min_gain(0.01)
+    {
+    }
+
+    int max_iter;
+    float initial_momentum;
+    float final_momentum;
+    float eta;
+    float min_gain;
+};
+
 boost::multi_array<float, 2>
 tsne(const boost::multi_array<float, 2> & probs,
-     int num_dims = 2);
+     int num_dims = 2,
+     const TSNE_Params & params = TSNE_Params());
 
 
 } // namespace ML

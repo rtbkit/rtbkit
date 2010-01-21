@@ -255,14 +255,10 @@ pca(boost::multi_array<float, 2> & coords, int num_dims)
     return result;
 }
 
-inline int sign(float x)
-{
-    return -1 * (x < 0);
-}
-
 boost::multi_array<float, 2>
 tsne(const boost::multi_array<float, 2> & probs,
-     int num_dims)
+     int num_dims,
+     const TSNE_Params & params)
 {
     int n = probs.shape()[0];
     if (n != probs.shape()[1])
@@ -293,7 +289,6 @@ tsne(const boost::multi_array<float, 2> & probs,
     //         << distribution<float>(&Y[i][0], &Y[i][0] + d)
     //         << endl;
 
-    boost::multi_array<float, 2> dY(boost::extents[n][d]);
     boost::multi_array<float, 2> iY(boost::extents[n][d]);
     boost::multi_array<float, 2> gains(boost::extents[n][d]);
     std::fill(gains.data(), gains.data() + gains.num_elements(), 1.0f);
@@ -324,15 +319,9 @@ tsne(const boost::multi_array<float, 2> & probs,
     //         << endl;
 
 
-    int max_iter = 1000;
-    float initial_momentum = 0.5;
-    float final_momentum = 0.8;
-    float eta = 500;
-    float min_gain = 0.01;
-
     //cerr << "n = " << n << endl;
 
-    for (int iter = 0;  iter < max_iter;  ++iter) {
+    for (int iter = 0;  iter < params.max_iter;  ++iter) {
         Timer timer;
 
         /*********************************************************************/
@@ -441,7 +430,9 @@ tsne(const boost::multi_array<float, 2> & probs,
         //         << distribution<float>(&dY[i][0], &dY[i][0] + d)
         //         << endl;
 
-        float momentum = (iter < 20 ? initial_momentum : final_momentum);
+        float momentum = (iter < 20
+                          ? params.initial_momentum
+                          : params.final_momentum);
 
         // Implement scheme in Jacobs, 1988.  If we go in the same direction as
         // last time, we increase the learning speed of the parameter a bit.
@@ -452,15 +443,10 @@ tsne(const boost::multi_array<float, 2> & probs,
             // We use != here as we gradients in dY are the negatives of what
             // we want.
             for (unsigned j = 0;  j < d;  ++j) {
-                //if (i < 10) 
-                //    cerr << "i = " << i << " j = " << j << " dY = " << dY[i][j]
-                //         << " iY " << iY[i][j] << " sign(dY) "
-                //         << sign(dY[i][j]) << " sign(iY)" << sign(iY[i][j])
-                //         << endl;
                 if (dY[i][j] * iY[i][j] < 0.0f)
                     gains[i][j] = gains[i][j] + 0.2f;
                 else gains[i][j] = gains[i][j] * 0.8f;
-                gains[i][j] = std::max(min_gain, gains[i][j]);
+                gains[i][j] = std::max(params.min_gain, gains[i][j]);
             }
         }
 
@@ -471,7 +457,7 @@ tsne(const boost::multi_array<float, 2> & probs,
         
         for (unsigned i = 0;  i < n;  ++i)
             for (unsigned j = 0;  j < d;  ++j)
-                iY[i][j] = momentum * iY[i][j] - (eta * gains[i][j] * dY[i][j]);
+                iY[i][j] = momentum * iY[i][j] - (params.eta * gains[i][j] * dY[i][j]);
 
         //for (unsigned i = 0;  i < 10;  ++i)
         //    cerr << "iY[" << i << "] = "
