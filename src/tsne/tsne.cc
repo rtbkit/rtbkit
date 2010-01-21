@@ -532,6 +532,8 @@ tsne(const boost::multi_array<float, 2> & probs,
 
     boost::multi_array<float, 2> D(boost::extents[n][n]);
     boost::multi_array<float, 2> Q(boost::extents[n][n]);
+    boost::multi_array<float, 2> dY(boost::extents[n][d]);
+
 
     for (int iter = 0;  iter < params.max_iter;  ++iter) {
 
@@ -580,20 +582,12 @@ tsne(const boost::multi_array<float, 2> & probs,
         // Implements formula 5 in (Van der Maaten and Hinton, 2008)
         // dC/dy_i = 4 * sum_j ( (p_ij - q_ij)(y_i - y_j)d_ij )
 
-        boost::multi_array<float, 2> PmQ = P - Q;
-
-        //for (unsigned i = 0;  i < 3;  ++i)
-        //    cerr << "PmQ[" << i << "] = "
-        //         << distribution<float>(&PmQ[i][0], &PmQ[i][0] + n)
-        //         << endl;
-
-        boost::multi_array<float, 2> dY(boost::extents[n][d]);
+        std::fill(dY.data(), dY.data() + dY.num_elements(), 0.0f);
 
         if (d == 2) {
             for (unsigned j = 0;  j < n;  ++j) {
                 for (unsigned i = 0;  i < n;  ++i) {
-                    if (i == j) continue;
-                    float factor = 4.0f * PmQ[j][i] * D[j][i];
+                    float factor = 4.0f * (P[j][i] - Q[j][i]) * D[j][i];
                     dY[i][0] += factor * (Y[i][0] - Y[j][0]);
                     dY[i][1] += factor * (Y[i][1] - Y[j][1]);
                 }
@@ -603,7 +597,7 @@ tsne(const boost::multi_array<float, 2> & probs,
             for (unsigned j = 0;  j < n;  ++j) {
                 for (unsigned i = 0;  i < n;  ++i) {
                     if (i == j) continue;
-                    float factor = 4.0f * PmQ[j][i] * D[j][i];
+                    float factor = 4.0f * (P[j][i] - Q[j][i]) * D[j][i];
                     for (unsigned k = 0;  k < d;  ++k)
                         dY[i][k] += factor * (Y[i][k] - Y[j][k]);
                 }
