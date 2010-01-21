@@ -114,8 +114,11 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
             for (unsigned j = 0;  j < i;  ++j) {
                 float XXT = (X[i][0] * X[j][0]) + (X[i][1]) * (X[j][1]);
                 Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
-                D[i][j] = D[j][i] = val;
+                D[i][j] = val;
             }
+            if (fill_upper)
+                for (unsigned j = 0;  j < i;  ++j)
+                    D[j][i] = D[i][j];
         }
     }
     else if (d < 8) {
@@ -127,8 +130,11 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
                     XXT += X[i][k] * X[j][k];
 
                 Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
-                D[i][j] = D[j][i] = val;
+                D[i][j] = val;
             }
+            if (fill_upper)
+                for (unsigned j = 0;  j < i;  ++j)
+                    D[j][i] = D[i][j];
         }
     }
     else {
@@ -137,8 +143,11 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
             for (unsigned j = 0;  j < i;  ++j) {
                 float XXT = SIMD::vec_dotprod_dp(&X[i][0], &X[j][0], d);
                 Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
-                D[i][j] = D[j][i] = val;
+                D[i][j] = val;
             }
+            if (fill_upper)
+                for (unsigned j = 0;  j < i;  ++j)
+                    D[j][i] = D[i][j];
         }
     }
             
@@ -386,6 +395,40 @@ double calc_D_row(float * Di, int n)
     return total;
 }
 
+void calc_Q_row(float * Qi, float qfactor, const float * Di, float minval,
+                int n)
+{
+    unsigned i = 0;
+
+    if (false) ;
+    else if (n >= 8) {
+        using namespace SIMD;
+
+        v4sf mmmm = vec_splat(minval);
+        v4sf ffff = vec_splat(qfactor);
+
+#if 0
+        for (; i + 16 <= n;  i += 16) {
+            v4sf qqqq0 = __builtin_ia32_loadups(Di + i + 0);
+            qqqq0      = qqqq0 * ffff;
+            qqqq0      = __builtin_ia32_maxps(qqqq0, mmmm);
+            __builtin_ia32_storeups(Qi + i + 0, qqqq0);
+        }
+#endif
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf qqqq0 = __builtin_ia32_loadups(Di + i + 0);
+            qqqq0      = qqqq0 * ffff;
+            qqqq0      = __builtin_ia32_maxps(qqqq0, mmmm);
+            __builtin_ia32_storeups(Qi + i + 0, qqqq0);
+        }
+    }
+
+    for (; i < n;  ++i)
+        Qi[i] = std::max(1e-12f, Di[i] * qfactor);
+}
+            
+
 namespace {
 
 double t_v2d = 0.0, t_D = 0.0, t_Q = 0.0, t_dY = 0.0, t_update = 0.0;
@@ -474,6 +517,9 @@ tsne(const boost::multi_array<float, 2> & probs,
 
     Timer timer;
 
+    boost::multi_array<float, 2> D(boost::extents[n][n]);
+    boost::multi_array<float, 2> Q(boost::extents[n][n]);
+
     for (int iter = 0;  iter < params.max_iter;  ++iter) {
 
         boost::timer t;
@@ -487,8 +533,7 @@ tsne(const boost::multi_array<float, 2> & probs,
         // TODO: these will all be symmetric; we could save lots of work by
         // using upper/lower diagonal matrices.
 
-        boost::multi_array<float, 2> D(boost::extents[n][n]);
-        vectors_to_distances(Y, D);
+        vectors_to_distances(Y, D, false /* fill_upper */);
 
         t_v2d += t.elapsed();  t.restart();
 
@@ -496,8 +541,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
         for (unsigned i = 0;  i < n;  ++i) {
             d_total_offdiag += 2.0 * calc_D_row(&D[i][0], i);
-
-            D[i][i] = 0.0;
+            D[i][i] = 0.0f;
             
             for (unsigned j = 0;  j < i;  ++j)
                 D[j][i] = D[i][j];
@@ -506,19 +550,15 @@ tsne(const boost::multi_array<float, 2> & probs,
         t_D += t.elapsed();  t.restart();
 
         // Q matrix: q_{i,j} = d_{ij} / sum_{k != l} d_{kl}
-        boost::multi_array<float, 2> Q(boost::extents[n][n]);
         float qfactor = 1.0 / d_total_offdiag;
-        for (unsigned i = 0;  i < n;  ++i)
-            for (unsigned j = 0;  j < n;  ++j)
-                Q[i][j] = std::max(1e-12f, D[i][j] * qfactor);
+        for (unsigned i = 0;  i < n;  ++i) {
+            Q[i][i] = 1e-12f;
+            calc_Q_row(&Q[i][0], qfactor, &D[i][0], 1e-12, i);
+            for (unsigned j = 0;  j < i;  ++j)
+                Q[j][i] = Q[i][j];
+        }
 
         t_Q += t.elapsed();  t.restart();
-
-        //for (unsigned i = 0;  i < 3;  ++i)
-        //    cerr << "Q[" << i << "] = "
-        //         << distribution<float>(&Q[i][0], &Q[i][0] + n)
-        //         << endl;
-        //cerr << endl;
 
         
         
