@@ -255,6 +255,49 @@ pca(boost::multi_array<float, 2> & coords, int num_dims)
     return result;
 }
 
+double
+kl(const float * p, const float * q, size_t n)
+{
+    double result = 0.0;
+    for (unsigned i = 0;  i < n;  ++i)
+        result += p[i] * logf(p[i] / q[i]);
+    return result;
+}
+
+double
+calc_D_row(float * Di, float sum_Yi, const float * sum_Y, const float * YYTi,
+           int i)
+{
+    double result = 0.0;
+    for (unsigned j = 0;  j < i;  ++j) {
+        Di[j] = 1.0f / (1.0f + sum_Y[i] + sum_Y[j] -2.0f * YYTi[j]);
+        result += Di[j];
+    }
+
+    return result;
+}
+
+namespace {
+
+double t_YYT = 0.0, t_D = 0.0, t_Q = 0.0, t_dY = 0.0, t_update = 0.0;
+double t_sumY = 0.0, t_recenter = 0.0, t_cost = 0.0;
+struct AtEnd {
+    ~AtEnd()
+    {
+        cerr << "tsne core profile:" << endl;
+        cerr << "  YYT:        " << t_YYT << endl;
+        cerr << "  sumY:       " << t_sumY << endl;
+        cerr << "  D:          " << t_D << endl;
+        cerr << "  Q:          " << t_Q << endl;
+        cerr << "  dY:         " << t_dY << endl;
+        cerr << "  update:     " << t_update << endl;
+        cerr << "  recenter:   " << t_recenter << endl;
+        cerr << "  cost:       " << t_cost << endl;
+    }
+} atend;
+
+} // file scope
+
 boost::multi_array<float, 2>
 tsne(const boost::multi_array<float, 2> & probs,
      int num_dims,
@@ -321,8 +364,11 @@ tsne(const boost::multi_array<float, 2> & probs,
 
     //cerr << "n = " << n << endl;
 
+    Timer timer;
+
     for (int iter = 0;  iter < params.max_iter;  ++iter) {
-        Timer timer;
+
+        boost::timer t;
 
         /*********************************************************************/
         // Pairwise affinities Qij
@@ -337,11 +383,12 @@ tsne(const boost::multi_array<float, 2> & probs,
         //     = ||y_i||^2 + ||y_j||^2 - 2 sum_d(y_id y_jd)
 
         // TODO: these will all be symmetric; we could save lots of work by
-        // using diagonal matrices.
+        // using upper/lower diagonal matrices.
 
         // Y * Y^T: element (i, j) = sum_d(y_id y_jd)
-        boost::multi_array<float, 2> YYT
-            = multiply_transposed(Y, Y);
+        boost::multi_array<float, 2> YYT = multiply_transposed(Y, Y);
+
+        t_YYT += t.elapsed();  t.restart();
 
         // sum_Y: element i = ||y_i||^2
         distribution<float> sum_Y(n);
@@ -353,19 +400,24 @@ tsne(const boost::multi_array<float, 2> & probs,
                 total += Y[i][j] * Y[i][j];
             sum_Y[i] = total;
         }
+
+        t_sumY += t.elapsed();  t.restart();
         
         //cerr << "sum_Y = " << sum_Y << endl;
 
         // D matrix: d_{ij} = 1 / (1 + ||y_i - y_j||^2)
         double d_total_offdiag = 0.0;
         boost::multi_array<float, 2> D(boost::extents[n][n]);
+
         for (unsigned i = 0;  i < n;  ++i) {
-            for (unsigned j = 0;  j < n;  ++j) {
-                D[i][j] = 1.0f / (1.0f + sum_Y[i] + sum_Y[j] -2.0f * YYT[i][j]);
-                if (i == j) D[i][j] = 0.0;
-                d_total_offdiag += D[i][j] * (i != j);
-            }
+            d_total_offdiag
+                += 2.0f * calc_D_row(&D[i][0], sum_Y[i], &sum_Y[0], &YYT[i][0], i);
+            D[i][i] = 0.0;
+            for (unsigned j = 0;  j < i;  ++j)
+                D[j][i] = D[i][j];
         }
+
+        t_D += t.elapsed();  t.restart();
 
         //for (unsigned i = 0;  i < 3;  ++i)
         //    cerr << "D[" << i << "] = "
@@ -381,6 +433,8 @@ tsne(const boost::multi_array<float, 2> & probs,
         for (unsigned i = 0;  i < n;  ++i)
             for (unsigned j = 0;  j < n;  ++j)
                 Q[i][j] = std::max(1e-12f, D[i][j] * qfactor);
+
+        t_Q += t.elapsed();  t.restart();
 
         //for (unsigned i = 0;  i < 3;  ++i)
         //    cerr << "Q[" << i << "] = "
@@ -424,6 +478,8 @@ tsne(const boost::multi_array<float, 2> & probs,
                 }
             }
         }
+
+        t_dY += t.elapsed();  t.restart();
 
         //for (unsigned i = 0;  i < 10;  ++i)
         //    cerr << "dY[" << i << "] = "
@@ -471,6 +527,8 @@ tsne(const boost::multi_array<float, 2> & probs,
         //         << distribution<float>(&Y[i][0], &Y[i][0] + d)
         //         << endl;
 
+        t_update += t.elapsed();  t.restart();
+
 
         // Recenter Y values about the origin
         double Y_means[d];
@@ -486,24 +544,22 @@ tsne(const boost::multi_array<float, 2> & probs,
             for (unsigned j = 0;  j < d;  ++j)
                 Y[i][j] -= Y_means[j] * n_recip;
 
+        t_recenter += t.elapsed();  t.restart();
+
         //for (unsigned i = 0;  i < 10;  ++i)
         //    cerr << "centered Y[" << i << "] = "
         //         << distribution<float>(&Y[i][0], &Y[i][0] + d)
         //         << endl;
 
-        double cost = 0.0;
-        for (unsigned i = 0;  i < n;  ++i) {
-            for (unsigned j = 0;  j < n;  ++j) {
-                double mycost = P[i][j] * logf(P[i][j] / Q[i][j]);
-                cost += mycost;
-                //if (i < 10)
-                //    cerr << "i = " << i << " j = " << j << " mycost = "
-                //         << mycost << endl;
-            }
+        if ((iter + 1) % 20 == 0 || iter == params.max_iter - 1) {
+            double cost = kl(P.data(), Q.data(), P.num_elements());
+            cerr << "iteration " << (iter + 1)
+                 << " cost = " << cost << " elapsed "
+                 << timer.elapsed() << endl;
+            timer.restart();
         }
         
-        cerr << "iteration " << iter << " cost = " << cost << " elapsed "
-             << timer.elapsed() << endl;
+        t_cost += t.elapsed();  t.restart();
 
         // Stop lying about P values if we're finished
         if (iter == 100) {

@@ -254,10 +254,9 @@ multiply_transposed(const boost::multi_array<Float, 2> & A)
     int As1 = A.shape()[1];
 
     boost::multi_array<FloatR, 2> X(boost::extents[As0][As0]);
-    for (unsigned j = 0;  j < As0;  ++j) {
-        for (unsigned i = 0;  i < As0;  ++i)
-            X[i][j] = SIMD::vec_dotprod_dp(&A[i][0], &A[j][0], As1);
-    }
+    for (unsigned i = 0;  i < As0;  ++i) 
+        for (unsigned j = 0;  j <= i;  ++j)
+            X[i][j] = X[j][i] = SIMD::vec_dotprod_dp(&A[i][0], &A[j][0], As1);
     
     return X;
 }
