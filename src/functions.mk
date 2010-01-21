@@ -277,6 +277,70 @@ $(TESTS)/$(1).passed:	$(TESTS)/$(1)
 $(1):	$(TESTS)/$(1)
 	$(TESTS)/$(1)
 
+.PHONY: $(1)
+
 test:	$(TESTS)/$(1).passed
 
 endef
+
+# python test case
+
+# $(1) name of the test
+# $(2) python modules on which it depends
+# $(3) test style.  Currently unused.
+
+ifeq ($(PYTHON_ENABLED),1)
+
+define pytest
+$$(if $(trace),$$(warning called pytest "$(1)" "$(2)" "$(3)"))
+
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(PYTHON) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
+
+$(TESTS)/$(1).passed:	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
+	@$$(TEST_$(1)_COMMAND)
+
+$(1):	$(CWD)/$(1).py
+	$(PYTHON) $(CWD)/$(1).py
+
+.PHONY: $(1)
+
+test:	$(TESTS)/$(1).passed
+
+endef
+
+# $(1): name of python file
+# $(2): name of directory to go in
+
+define install_python_file
+
+$$(if $(trace),$$(warning called install_python_file "$(1)" "$(2)"))
+
+$(BIN)/$(2)/$(1):	$(CWD)/$(1) $(BIN)/$(2)/.dir_exists
+	$$(if $(verbose_build),@echo "cp $$< $$@",@echo "[PYTHON INSTALL] $(2)/$(1)")
+	cp $$< $$@~
+	@mv $$@~ $$@
+
+#$$(w arning building $(BIN)/$(2)/$(1))
+
+endef
+
+# $(1): name of python module
+# $(2): list of python source files to copy
+# $(3): libraries it depends upon
+
+define python_module
+$$(if $(trace),$$(warning called python_module "$(1)" "$(2)" "$(3)"))
+
+$$(foreach file,$(2),$$(eval $$(call install_python_file,$$(file),$(1))))
+
+PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(BIN)/$(1)/$$(file)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
+
+#$$(w arning PYTHON_$(1)_DEPS=$$(PYTHON_$(1)_DEPS))
+
+python_modules: $$(PYTHON_$(1)_DEPS)
+
+all:	python_modules
+endef
+
+endif

@@ -1,2 +1,2 @@
 $(eval $(call test,tsne_test,tsne,boost))
-$(eval $(call test,tsne_test.py,tsne_python,python))
+$(eval $(call pytest,tsne_python_test,tsne))

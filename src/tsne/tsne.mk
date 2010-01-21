@@ -21,6 +21,8 @@ TSNE_PYTHON_LINK := tsne
 
 $(eval $(call library,tsne_python,$(TSNE_PYTHON_SOURCES),$(TSNE_PYTHON_LINK),_tsne))
 
+$(eval $(call python_module,tsne,__init__.py tsne.py,tsne_python))
+
 endif # PYTHON_ENABLED
 
 $(eval $(call include_sub_make,tsne_testing,testing))

@@ -13,6 +13,8 @@ PYTHON_ENABLED ?= 1
 ifeq ($(PYTHON_ENABLED),1)
 
 PYTHON_INCLUDE_PATH ?= /usr/include/python2.6/
+PYTHON ?= python2.6
+PYTHONPATH ?= $(BIN)
 
 endif
 

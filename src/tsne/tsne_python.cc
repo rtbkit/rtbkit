@@ -24,14 +24,27 @@ tsne_vectors_to_distances(PyObject *self, PyObject *args)
 {
     PyObject * in_array;
 
-    int args_ok = PyArg_ParseTuple(args, "O!", &PyArray_Type, &in_array);
+    //int args_ok = PyArg_ParseTuple(args, "O!", &PyArray_Type, &in_array);
+    int args_ok = PyArg_ParseTuple(args, "O", &in_array);
     if (!args_ok)
         return NULL;
 
+    cerr << "in_array = " << in_array << endl;
+    cerr << "ndim = " << PyArray_NDIM(in_array) << endl;
+    cerr << "dim0 = " << PyArray_DIM(in_array, 0) << endl;
+    cerr << "dim1 = " << PyArray_DIM(in_array, 1) << endl;
+    cerr << "dtype = " << PyArray_TYPE(in_array) << endl;
+    cerr << "itemsize = " << PyArray_ITEMSIZE(in_array) << endl;
+
     /* Convert the argument to a float array. */
     PyObject * input_as_float32
-        = PyArray_ContiguousFromAny(in_array, PyArray_FLOAT32, 2, 2);
+        = PyArray_FromAny(in_array,
+                          PyArray_DescrFromType(NPY_FLOAT32),
+                          2, 2,
+                          NPY_C_CONTIGUOUS | NPY_FORCECAST | NPY_ALIGNED,
+                          0);
     if (!input_as_float32) {
+        return NULL;
         cerr << "don't know what to do if PyArray_ContiguousFromAny fails"
              << endl;
         abort();
@@ -48,7 +61,7 @@ tsne_vectors_to_distances(PyObject *self, PyObject *args)
     PyObject * result_array
         = PyArray_SimpleNew(2 /* num dims */,
                             npy_shape,
-                            PyArray_FLOAT32);
+                            NPY_FLOAT);
     if (!result_array)
         return NULL;
 
@@ -82,8 +95,9 @@ tsne_vectors_to_distances(PyObject *self, PyObject *args)
              << endl;
         abort();
     }
-
     Py_END_ALLOW_THREADS;
+
+    // TODO: dec reference?
 
     return result_array;
 }
@@ -118,9 +132,13 @@ static PyMethodDef TsneMethods[] = {
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
+extern "C" {
+
 PyMODINIT_FUNC
-inittsne(void)
+init_tsne(void)
 {
+    import_array();
+
     PyObject *m;
 
     m = Py_InitModule("_tsne", TsneMethods);
@@ -134,3 +152,4 @@ inittsne(void)
 #endif
 }
 
+} // extern "C"

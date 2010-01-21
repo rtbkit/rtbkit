@@ -5,7 +5,7 @@
 # Makefile for the python wrappers for jml
 
 ifeq ($(PYTHON_ENABLED),1)
-ifeq (1,0)
+ifeq (1,0) # disabled for now; pretty much a failed experiment
 
 PYTHON_SOURCES := \
         jml_wrap_python.i
@@ -21,5 +21,5 @@ OPTIONS_python/jml_wrap_python_wrap.cxx := -Wno-uninitialized
 
 $(eval $(call library,_jml,$(PYTHON_SOURCES),$(PYTHON_LINK),_jml))
 
-endif
+endif # disabled for now
 endif
