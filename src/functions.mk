@@ -254,6 +254,8 @@ endef
 define test
 $$(if $(trace),$$(warning called test "$(1)" "$(2)" "$(3)"))
 
+$$(if $(3),,$$(error test $(1) needs to define a test style))
+
 $$(eval $$(call add_sources,$(1).cc))
 
 $(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).lo_OBJ)
