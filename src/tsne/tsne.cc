@@ -116,7 +116,6 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
         for (unsigned j = 0;  j < i;  ++j) {
             Float val = sum_X[i] + sum_X[j] - 2.0f * XXT[i][j];
             D[i][j] = D[j][i] = val;
-            total += val;
         }
     }
             
@@ -406,52 +405,26 @@ tsne(const boost::multi_array<float, 2> & probs,
         // TODO: these will all be symmetric; we could save lots of work by
         // using upper/lower diagonal matrices.
 
-#if 0
         boost::multi_array<float, 2> D(boost::extents[n][n]);
-        double d_total_offdiag = vectors_to_distances(Y, D);
+        vectors_to_distances(Y, D);
 
         t_v2d += t.elapsed();  t.restart();
 
+        double d_total_offdiag = 0.0;
+
         for (unsigned i = 0;  i < n;  ++i) {
-            for (unsigned j = 0;  j < i;  ++j)
+            for (unsigned j = 0;  j < i;  ++j) {
                 D[i][j] = 1.0f / (1.0f + D[i][j]);
+                d_total_offdiag += 2.0f * D[i][j];
+            }
 
             D[i][i] = 0.0;
-
+            
             for (unsigned j = 0;  j < i;  ++j)
                 D[j][i] = D[i][j];
         }
 
         t_D += t.elapsed();  t.restart();
-#else
-        // Y * Y^T: element (i, j) = sum_d(y_id y_jd)
-        boost::multi_array<float, 2> YYT = multiply_transposed(Y, Y);
-
-        // sum_Y: element i = ||y_i||^2
-        distribution<float> sum_Y(n);
-        for (unsigned i = 0;  i < n;  ++i) {
-            // No vectorization as d is normally very small
-
-            double total = 0.0;  // accum in double precision for accuracy
-            for (unsigned j = 0;  j < d;  ++j)
-                total += Y[i][j] * Y[i][j];
-            sum_Y[i] = total;
-        }
-
-        // D matrix: d_{ij} = 1 / (1 + ||y_i - y_j||^2)
-        double d_total_offdiag = 0.0;
-        boost::multi_array<float, 2> D(boost::extents[n][n]);
- 
-        for (unsigned i = 0;  i < n;  ++i) {
-            d_total_offdiag
-                += 2.0f * calc_D_row(&D[i][0], sum_Y[i], &sum_Y[0], &YYT[i][0], i);
-            D[i][i] = 0.0;
-            for (unsigned j = 0;  j < i;  ++j)
-                D[j][i] = D[i][j];
-        }
-
-#endif
-
 #if 0
         for (unsigned i = 0;  i < 3;  ++i)
             cerr << "D[" << i << "] = "
@@ -461,6 +434,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
         cerr << "d_total_offdiag = " << d_total_offdiag << endl;
 #endif
+
 
         // Q matrix: q_{i,j} = d_{ij} / sum_{k != l} d_{kl}
         boost::multi_array<float, 2> Q(boost::extents[n][n]);
