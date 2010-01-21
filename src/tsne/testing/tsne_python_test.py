@@ -62,8 +62,9 @@ def test_tsne():
     X = digits[range(nrows), ...]
     L = labels[range(nrows), ...]
 
-    Y = tsne.tsne(X, 2, 50, 20.0, use_pca=False);
-    Plot.scatter(Y[:,0], Y[:,1], 20, L);
+    Y = tsne.tsne(X, 2, 50, 20.0, use_pca=True, max_iter=1000)
+    #Y = tsne.tsne(X, 2, 50, 20.0, use_pca=False)
+    Plot.scatter(Y[:,0], Y[:,1], 20, L)
     Plot.legend(loc='lower left')
     Plot.show()
 

@@ -278,7 +278,7 @@ tsne(const boost::multi_array<float, 2> & probs,
         for (unsigned j = 0;  j < d;  ++j)
             Y[i][j] = randn();
 
-#if 1 // pseudo-random, for testing (matches the Python version)
+#if 0 // pseudo-random, for testing (matches the Python version)
     for (unsigned i = 0;  i < n;  ++i)
         for (unsigned j = 0;  j < d;  ++j)
             Y[i][j] = (((((i * 18446744073709551557ULL) + j) * 18446744073709551557ULL) % 4099) / 1050.0) - 2.0;

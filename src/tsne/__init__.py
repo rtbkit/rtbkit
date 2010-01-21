@@ -11,6 +11,9 @@ def tsne_core(array, num_dims=2, **kwargs):
 
 def pca(X, no_dims = 50):
     """Runs PCA on the NxD array X in order to reduce its dimensionality to no_dims dimensions."""
+    
+    import numpy as Math
+
     print "Preprocessing the data using PCA..."
     (n, d) = X.shape;
     X = X - Math.tile(Math.mean(X, 0), (n, 1));
@@ -34,5 +37,7 @@ def tsne(X, num_dims = 2, initial_dims = 50, perplexity = 30.0, use_pca=True,
     D = vectors_to_distances(X)
 
     P = distances_to_probabilities(D, perplexity=perplexity)
+
+    print kwargs
 
     return tsne_core(P, num_dims, **kwargs)

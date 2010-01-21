@@ -289,7 +289,7 @@ tsne_tsne(PyObject *self, PyObject *args, PyObject * kwds)
     int num_dims = 2;
 
     static const char * const kwlist[] =
-        { "max_iter", "initial_momentum", "final_momentum",
+        { "array", "num_dims", "max_iter", "initial_momentum", "final_momentum",
           "eta", "min_gain", NULL };
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds,
