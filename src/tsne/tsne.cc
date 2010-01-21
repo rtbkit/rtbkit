@@ -407,14 +407,27 @@ void calc_Q_row(float * Qi, float qfactor, const float * Di, float minval,
         v4sf mmmm = vec_splat(minval);
         v4sf ffff = vec_splat(qfactor);
 
-#if 0
         for (; i + 16 <= n;  i += 16) {
             v4sf qqqq0 = __builtin_ia32_loadups(Di + i + 0);
             qqqq0      = qqqq0 * ffff;
             qqqq0      = __builtin_ia32_maxps(qqqq0, mmmm);
             __builtin_ia32_storeups(Qi + i + 0, qqqq0);
+
+            v4sf qqqq1 = __builtin_ia32_loadups(Di + i + 4);
+            qqqq1      = qqqq1 * ffff;
+            qqqq1      = __builtin_ia32_maxps(qqqq1, mmmm);
+            __builtin_ia32_storeups(Qi + i + 4, qqqq1);
+
+            v4sf qqqq2 = __builtin_ia32_loadups(Di + i + 8);
+            qqqq2      = qqqq2 * ffff;
+            qqqq2      = __builtin_ia32_maxps(qqqq2, mmmm);
+            __builtin_ia32_storeups(Qi + i + 8, qqqq2);
+
+            v4sf qqqq3 = __builtin_ia32_loadups(Di + i + 12);
+            qqqq3      = qqqq3 * ffff;
+            qqqq3      = __builtin_ia32_maxps(qqqq3, mmmm);
+            __builtin_ia32_storeups(Qi + i + 12, qqqq3);
         }
-#endif
 
         for (; i + 4 <= n;  i += 4) {
             v4sf qqqq0 = __builtin_ia32_loadups(Di + i + 0);
