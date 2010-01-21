@@ -445,6 +445,9 @@ tsne(const boost::multi_array<float, 2> & probs,
         for (unsigned i = 0;  i < n;  ++i) {
             d_total_offdiag
                 += 2.0f * calc_D_row(&D[i][0], sum_Y[i], &sum_Y[0], &YYT[i][0], i);
+            D[i][i] = 0.0;
+            for (unsigned j = 0;  j < i;  ++j)
+                D[j][i] = D[i][j];
         }
 
 #endif
