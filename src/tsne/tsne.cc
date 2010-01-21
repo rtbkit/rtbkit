@@ -20,6 +20,7 @@
 #include "boosting/worker_task.h"
 #include <boost/timer.hpp>
 #include "arch/timers.h"
+#include "arch/sse2.h"
 
 using namespace std;
 
@@ -313,17 +314,76 @@ kl(const float * p, const float * q, size_t n)
     return result;
 }
 
-double
-calc_D_row(float * Di, float sum_Yi, const float * sum_Y, const float * YYTi,
-           int i)
+double calc_D_row(float * Di, int n)
 {
-    double result = 0.0;
-    for (unsigned j = 0;  j < i;  ++j) {
-        Di[j] = 1.0f / (1.0f + sum_Y[i] + sum_Y[j] -2.0f * YYTi[j]);
-        result += Di[j];
+    unsigned i = 0;
+
+    double total = 0.0;
+
+    if (false) ;
+    else if (n >= 8) {
+        using namespace SIMD;
+
+        v2df rr = vec_splat(0.0);
+        
+        v4sf one = vec_splat(1.0f);
+
+        for (; i + 16 <= n;  i += 16) {
+            v4sf xxxx0 = __builtin_ia32_loadups(Di + i + 0);
+            v4sf xxxx1 = __builtin_ia32_loadups(Di + i + 4);
+            xxxx0      = xxxx0 + one;
+            xxxx1      = xxxx1 + one;
+            xxxx0      = one / xxxx0;
+            v4sf xxxx2 = __builtin_ia32_loadups(Di + i + 8);
+            xxxx1      = one / xxxx1;
+            __builtin_ia32_storeups(Di + i + 0, xxxx0);
+            xxxx2      = xxxx2 + one;
+            v2df xx0a, xx0b;  vec_f2d(xxxx0, xx0a, xx0b);
+            __builtin_ia32_storeups(Di + i + 4, xxxx1);
+            xx0a       = xx0a + xx0b;
+            rr         = rr + xx0a;
+            v4sf xxxx3 = __builtin_ia32_loadups(Di + i + 12);
+            v2df xx1a, xx1b;  vec_f2d(xxxx1, xx1a, xx1b);
+            xxxx2      = one / xxxx2;
+            xx1a       = xx1a + xx1b;
+            __builtin_ia32_storeups(Di + i + 8, xxxx2);
+            rr         = rr + xx1a;
+            v2df xx2a, xx2b;  vec_f2d(xxxx2, xx2a, xx2b);
+            xxxx3      = xxxx3 + one;
+            xx2a       = xx2a + xx2b;
+            xxxx3      = one / xxxx3;
+            rr         = rr + xx2a;
+            v2df xx3a, xx3b;  vec_f2d(xxxx3, xx3a, xx3b);
+            __builtin_ia32_storeups(Di + i + 12, xxxx3);
+            xx3a       = xx3a + xx3b;
+            rr         = rr + xx3a;
+        }
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf xxxx0 = __builtin_ia32_loadups(Di + i + 0);
+            xxxx0      = xxxx0 + one;
+            xxxx0      = one / xxxx0;
+            __builtin_ia32_storeups(Di + i + 0, xxxx0);
+
+            v2df xx0a, xx0b;
+            vec_f2d(xxxx0, xx0a, xx0b);
+
+            rr      = rr + xx0a;
+            rr      = rr + xx0b;
+        }
+
+        double results[2];
+        *(v2df *)results = rr;
+
+        total = (results[0] + results[1]);
+    }
+    
+    for (;  i < n;  ++i) {
+        Di[i] = 1.0f / (1.0f + Di[i]);
+        total += Di[i];
     }
 
-    return result;
+    return total;
 }
 
 namespace {
@@ -435,10 +495,7 @@ tsne(const boost::multi_array<float, 2> & probs,
         double d_total_offdiag = 0.0;
 
         for (unsigned i = 0;  i < n;  ++i) {
-            for (unsigned j = 0;  j < i;  ++j) {
-                D[i][j] = 1.0f / (1.0f + D[i][j]);
-                d_total_offdiag += 2.0f * D[i][j];
-            }
+            d_total_offdiag += 2.0 * calc_D_row(&D[i][0], i);
 
             D[i][i] = 0.0;
             
@@ -447,16 +504,6 @@ tsne(const boost::multi_array<float, 2> & probs,
         }
 
         t_D += t.elapsed();  t.restart();
-#if 0
-        for (unsigned i = 0;  i < 3;  ++i)
-            cerr << "D[" << i << "] = "
-                 << distribution<float>(&D[i][0], &D[i][0] + n)
-                 << endl;
-        cerr << endl;
-
-        cerr << "d_total_offdiag = " << d_total_offdiag << endl;
-#endif
-
 
         // Q matrix: q_{i,j} = d_{ij} / sum_{k != l} d_{kl}
         boost::multi_array<float, 2> Q(boost::extents[n][n]);
