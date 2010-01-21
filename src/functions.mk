@@ -300,7 +300,7 @@ $(TESTS)/$(1).passed:	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
 	@$$(TEST_$(1)_COMMAND)
 
-$(1):	$(CWD)/$(1).py
+$(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
 	$(PYTHON) $(CWD)/$(1).py
 
 .PHONY: $(1)
