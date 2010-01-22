@@ -522,14 +522,16 @@ namespace {
 
 double t_v2d = 0.0, t_D = 0.0, t_dY = 0.0, t_update = 0.0;
 double t_recenter = 0.0, t_cost = 0.0, t_PmQxD = 0.0, t_clu = 0.0;
+double t_Q_stiffness = 0.0;
 struct AtEnd {
     ~AtEnd()
     {
         cerr << "tsne core profile:" << endl;
         cerr << "  v2d:        " << t_v2d << endl;
-        cerr << "  D:          " << t_D << endl;
-        cerr << "  (P-Q)D      " << t_PmQxD << endl;
-        cerr << "  clu         " << t_clu << endl;
+        cerr << "  Q_stiffness:" << t_Q_stiffness << endl;
+        cerr << "    D         " << t_D << endl;
+        cerr << "    (P-Q)D    " << t_PmQxD << endl;
+        cerr << "    clu       " << t_clu << endl;
         cerr << "  dY:         " << t_dY << endl;
         cerr << "  update:     " << t_update << endl;
         cerr << "  recenter:   " << t_recenter << endl;
@@ -538,6 +540,181 @@ struct AtEnd {
 } atend;
 
 } // file scope
+
+
+void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
+                        const boost::multi_array<float, 2> & Y,
+                        const boost::multi_array<float, 2> & PmQxD)
+{
+    // Gradient
+    // Implements formula 5 in (Van der Maaten and Hinton, 2008)
+    // dC/dy_i = 4 * sum_j ( (p_ij - q_ij)(y_i - y_j)d_ij )
+
+    
+    int n = Y.shape()[0];
+    int d = Y.shape()[1];
+    
+    if (dY.shape()[0] != n || dY.shape()[1] != d)
+        throw Exception("dY matrix has wrong shape");
+
+    if (PmQxD.shape()[0] != n || PmQxD.shape()[1] != n)
+        throw Exception("PmQxD matrix has wrong shape");
+
+    if (d == 2) {
+        unsigned i = 0;
+        
+        enum { b = 4 };
+        
+        for (;  i + b <= n;  i += b) {
+            float totals[b][2];
+            for (unsigned ii = 0;  ii < b;  ++ii)
+                totals[ii][0] = totals[ii][1] = 0.0f;
+            
+            for (unsigned j = 0;  j < n;  ++j) {
+                float Yj0 = Y[j][0];
+                float Yj1 = Y[j][1];
+                
+                for (unsigned ii = 0;  ii < b;  ++ii) {
+                    float factor = 4.0f * PmQxD[i + ii][j];
+                    totals[ii][0] += factor * (Y[i + ii][0] - Yj0);
+                    totals[ii][1] += factor * (Y[i + ii][1] - Yj1);
+                }
+            }
+            
+            for (unsigned ii = 0;  ii < b;  ++ii) {
+                dY[i + ii][0] = totals[ii][0];
+                dY[i + ii][1] = totals[ii][1];
+            }
+        }
+        
+        for (; i < n;  ++i) {
+            
+            //calc_dY_row(&dY[i][0], &PmQxD[i][0], Y, i, n);
+            
+            float total0 = 0.0f, total1 = 0.0f;
+            for (unsigned j = 0;  j < n;  ++j) {
+                float factor = 4.0f * PmQxD[i][j];
+                total0 += factor * (Y[i][0] - Y[j][0]);
+                total1 += factor * (Y[i][1] - Y[j][1]);
+            }
+            
+            dY[i][0] = total0;
+            dY[i][1] = total1;
+        }
+    }
+    else {
+        // TODO: optimize better than this...
+        std::fill(dY.data(), dY.data() + dY.num_elements(), 0.0f);
+        
+        for (unsigned j = 0;  j < n;  ++j) {
+            for (unsigned i = 0;  i < n;  ++i) {
+                if (i == j) continue;
+                float factor = 4.0f * PmQxD[j][i];
+                for (unsigned k = 0;  k < d;  ++k)
+                    dY[i][k] += factor * (Y[i][k] - Y[j][k]);
+            }
+        }
+    }
+}
+
+void tsne_calc_Q_stiffness(boost::multi_array<float, 2> & Q,
+                           boost::multi_array<float, 2> & PmQxD,
+                           boost::multi_array<float, 2> & D,
+                           const boost::multi_array<float, 2> & P,
+                           float min_prob)
+{
+    boost::timer t;
+
+    int n = Q.shape()[0];
+    if (Q.shape()[1] != n)
+        throw Exception("Q has wrong shape");
+
+    if (PmQxD.shape()[0] != n || PmQxD.shape()[1] != n)
+        throw Exception("PmQxD has wrong shape");
+
+    if (D.shape()[0] != n || D.shape()[1] != n)
+        throw Exception("D has wrong shape");
+
+    if (P.shape()[0] != n || P.shape()[1] != n)
+        throw Exception("P has wrong shape");
+
+    double d_total_offdiag = 0.0;
+
+    for (unsigned i = 0;  i < n;  ++i) {
+        d_total_offdiag += 2.0 * calc_D_row(&D[i][0], i);
+        D[i][i] = 0.0f;
+    }
+    
+    t_D += t.elapsed();  t.restart();
+    
+    // Q matrix: q_{i,j} = d_{ij} / sum_{k != l} d_{kl}
+    float qfactor = 1.0 / d_total_offdiag;
+    for (unsigned i = 0;  i < n;  ++i) {
+        Q[i][i] = min_prob;
+        calc_Q_row(&Q[i][0], qfactor, &D[i][0], min_prob, i);
+        calc_PmQxD_row(&PmQxD[i][0], &P[i][0], &Q[i][0], &D[i][0], i);
+    }
+    
+    t_PmQxD += t.elapsed();  t.restart();
+    
+    copy_lower_to_upper(PmQxD);
+    
+    t_clu += t.elapsed();  t.restart();
+}
+
+void tsne_update(boost::multi_array<float, 2> & Y,
+                 boost::multi_array<float, 2> & dY,
+                 boost::multi_array<float, 2> & iY,
+                 boost::multi_array<float, 2> & gains,
+                 bool first_iter,
+                 float momentum,
+                 float eta,
+                 float min_gain)
+{
+    int n = Y.shape()[0];
+    int d = Y.shape()[1];
+
+    // Implement scheme in Jacobs, 1988.  If we go in the same direction as
+    // last time, we increase the learning speed of the parameter a bit.
+    // If on the other hand the direction changes, we reduce exponentially
+    // the rate.
+    
+    for (unsigned i = 0;  !first_iter && i < n;  ++i) {
+        // We use != here as we gradients in dY are the negatives of what
+        // we want.
+        for (unsigned j = 0;  j < d;  ++j) {
+            if (dY[i][j] * iY[i][j] < 0.0f)
+                gains[i][j] = gains[i][j] + 0.2f;
+            else gains[i][j] = gains[i][j] * 0.8f;
+            gains[i][j] = std::max(min_gain, gains[i][j]);
+        }
+    }
+
+    for (unsigned i = 0;  i < n;  ++i)
+        for (unsigned j = 0;  j < d;  ++j)
+            iY[i][j] = momentum * iY[i][j] - (eta * gains[i][j] * dY[i][j]);
+    Y = Y + iY;
+}
+    
+template<typename Float>
+void recenter_about_origin(boost::multi_array<Float, 2> & Y)
+{
+    int n = Y.shape()[0];
+    int d = Y.shape()[1];
+
+    // Recenter Y values about the origin
+    double Y_means[d];
+    std::fill(Y_means, Y_means + d, 0.0);
+    for (unsigned i = 0;  i < n;  ++i)
+        for (unsigned j = 0;  j < d;  ++j)
+            Y_means[j] += Y[i][j];
+    
+    Float n_recip = 1.0f / n;
+    
+    for (unsigned i = 0;  i < n;  ++i)
+        for (unsigned j = 0;  j < d;  ++j)
+            Y[i][j] -= Y_means[j] * n_recip;
+}
 
 boost::multi_array<float, 2>
 tsne(const boost::multi_array<float, 2> & probs,
@@ -630,163 +807,44 @@ tsne(const boost::multi_array<float, 2> & probs,
 
         t_v2d += t.elapsed();  t.restart();
 
-        double d_total_offdiag = 0.0;
+        tsne_calc_Q_stiffness(Q, PmQxD, D, P, params.min_prob);
 
-        for (unsigned i = 0;  i < n;  ++i) {
-            d_total_offdiag += 2.0 * calc_D_row(&D[i][0], i);
-            D[i][i] = 0.0f;
-            
-        }
+        t_Q_stiffness += t.elapsed();  t.restart();
 
-        t_D += t.elapsed();  t.restart();
-
-        // Q matrix: q_{i,j} = d_{ij} / sum_{k != l} d_{kl}
-        float qfactor = 1.0 / d_total_offdiag;
-        for (unsigned i = 0;  i < n;  ++i) {
-            Q[i][i] = 1e-12f;
-            calc_Q_row(&Q[i][0], qfactor, &D[i][0], 1e-12, i);
-            calc_PmQxD_row(&PmQxD[i][0], &P[i][0], &Q[i][0], &D[i][0], i);
-        }
-
-        t_PmQxD += t.elapsed();  t.restart();
-
-        copy_lower_to_upper(PmQxD);
-
-        t_clu += t.elapsed();  t.restart();
-        
         
         /*********************************************************************/
         // Gradient
         // Implements formula 5 in (Van der Maaten and Hinton, 2008)
         // dC/dy_i = 4 * sum_j ( (p_ij - q_ij)(y_i - y_j)d_ij )
 
-        if (d == 2) {
-            unsigned i = 0;
-            
-            enum { b = 4 };
-
-            for (;  i + b <= n;  i += b) {
-                float totals[b][2];
-                for (unsigned ii = 0;  ii < b;  ++ii)
-                    totals[ii][0] = totals[ii][1] = 0.0f;
-
-                for (unsigned j = 0;  j < n;  ++j) {
-                    float Yj0 = Y[j][0];
-                    float Yj1 = Y[j][1];
-
-                    for (unsigned ii = 0;  ii < b;  ++ii) {
-                        float factor = 4.0f * PmQxD[i + ii][j];
-                        totals[ii][0] += factor * (Y[i + ii][0] - Yj0);
-                        totals[ii][1] += factor * (Y[i + ii][1] - Yj1);
-                    }
-                }
-
-                for (unsigned ii = 0;  ii < b;  ++ii) {
-                    dY[i + ii][0] = totals[ii][0];
-                    dY[i + ii][1] = totals[ii][1];
-                }
-            }
-
-            for (; i < n;  ++i) {
-
-                //calc_dY_row(&dY[i][0], &PmQxD[i][0], Y, i, n);
-
-                float total0 = 0.0f, total1 = 0.0f;
-                for (unsigned j = 0;  j < n;  ++j) {
-                    float factor = 4.0f * PmQxD[i][j];
-                    total0 += factor * (Y[i][0] - Y[j][0]);
-                    total1 += factor * (Y[i][1] - Y[j][1]);
-                }
-
-                dY[i][0] = total0;
-                dY[i][1] = total1;
-            }
-        }
-        else {
-            // TODO: optimize better than this...
-            std::fill(dY.data(), dY.data() + dY.num_elements(), 0.0f);
-
-            for (unsigned j = 0;  j < n;  ++j) {
-                for (unsigned i = 0;  i < n;  ++i) {
-                    if (i == j) continue;
-                    float factor = 4.0f * (P[j][i] - Q[j][i]) * D[j][i];
-                    for (unsigned k = 0;  k < d;  ++k)
-                        dY[i][k] += factor * (Y[i][k] - Y[j][k]);
-                }
-            }
-        }
+        tsne_calc_gradient(dY, Y, PmQxD);
 
         t_dY += t.elapsed();  t.restart();
 
-        //for (unsigned i = 0;  i < 10;  ++i)
-        //    cerr << "dY[" << i << "] = "
-        //         << distribution<float>(&dY[i][0], &dY[i][0] + d)
-        //         << endl;
+
+        /*********************************************************************/
+        // Update
 
         float momentum = (iter < 20
                           ? params.initial_momentum
                           : params.final_momentum);
 
-        // Implement scheme in Jacobs, 1988.  If we go in the same direction as
-        // last time, we increase the learning speed of the parameter a bit.
-        // If on the other hand the direction changes, we reduce exponentially
-        // the rate.
-
-        for (unsigned i = 0;  iter > 0 && i < n;  ++i) {
-            // We use != here as we gradients in dY are the negatives of what
-            // we want.
-            for (unsigned j = 0;  j < d;  ++j) {
-                if (dY[i][j] * iY[i][j] < 0.0f)
-                    gains[i][j] = gains[i][j] + 0.2f;
-                else gains[i][j] = gains[i][j] * 0.8f;
-                gains[i][j] = std::max(params.min_gain, gains[i][j]);
-            }
-        }
-
-        //for (unsigned i = 0;  i < 10;  ++i)
-        //    cerr << "gains[" << i << "] = "
-        //         << distribution<float>(&gains[i][0], &gains[i][0] + d)
-        //         << endl;
-        
-        for (unsigned i = 0;  i < n;  ++i)
-            for (unsigned j = 0;  j < d;  ++j)
-                iY[i][j] = momentum * iY[i][j] - (params.eta * gains[i][j] * dY[i][j]);
-
-        //for (unsigned i = 0;  i < 10;  ++i)
-        //    cerr << "iY[" << i << "] = "
-        //         << distribution<float>(&iY[i][0], &iY[i][0] + d)
-        //         << endl;
-
-        Y = Y + iY;
-
-        //for (unsigned i = 0;  i < 10;  ++i)
-        //    cerr << "Y[" << i << "] = "
-        //         << distribution<float>(&Y[i][0], &Y[i][0] + d)
-        //         << endl;
+        tsne_update(Y, dY, iY, gains, iter == 0, momentum, params.eta,
+                    params.min_gain);
 
         t_update += t.elapsed();  t.restart();
 
 
-        // Recenter Y values about the origin
-        double Y_means[d];
-        std::fill(Y_means, Y_means + d, 0.0);
-        for (unsigned i = 0;  i < n;  ++i)
-            for (unsigned j = 0;  j < d;  ++j)
-                Y_means[j] += Y[i][j];
+        /*********************************************************************/
+        // Recenter about the origin
 
-
-        float n_recip = 1.0f / n;
-
-        for (unsigned i = 0;  i < n;  ++i)
-            for (unsigned j = 0;  j < d;  ++j)
-                Y[i][j] -= Y_means[j] * n_recip;
+        recenter_about_origin(Y);
 
         t_recenter += t.elapsed();  t.restart();
 
-        //for (unsigned i = 0;  i < 10;  ++i)
-        //    cerr << "centered Y[" << i << "] = "
-        //         << distribution<float>(&Y[i][0], &Y[i][0] + d)
-        //         << endl;
+
+        /*********************************************************************/
+        // Calculate cost
 
         if ((iter + 1) % 20 == 0 || iter == params.max_iter - 1) {
             double cost = 0.0;

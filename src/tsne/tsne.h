@@ -103,15 +103,17 @@ struct TSNE_Params {
           initial_momentum(0.5),
           final_momentum(0.8),
           eta(500),
-          min_gain(0.01)
+          min_gain(0.01),
+          min_prob(1e-12)
     {
     }
 
     int max_iter;
-    float initial_momentum;
-    float final_momentum;
-    float eta;
-    float min_gain;
+    double initial_momentum;
+    double final_momentum;
+    double eta;
+    double min_gain;
+    double min_prob;
 };
 
 boost::multi_array<float, 2>

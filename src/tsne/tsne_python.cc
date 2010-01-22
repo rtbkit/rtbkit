@@ -290,17 +290,18 @@ tsne_tsne(PyObject *self, PyObject *args, PyObject * kwds)
 
     static const char * const kwlist[] =
         { "array", "num_dims", "max_iter", "initial_momentum", "final_momentum",
-          "eta", "min_gain", NULL };
+          "eta", "min_gain", "min_prob", NULL };
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds,
-                                     "O!|iidddd", (char **)kwlist,
+                                     "O!|iiddddd", (char **)kwlist,
                                      &PyArray_Type, &in_array,
                                      &num_dims,
                                      &params.max_iter,
                                      &params.initial_momentum,
                                      &params.final_momentum,
                                      &params.eta,
-                                     &params.min_gain))
+                                     &params.min_gain,
+                                     &params.min_prob))
         return NULL;
 
     /* Convert the input array to a float array. */
