@@ -10,7 +10,7 @@
 #define __boosting__stump_training_parallel_h__
 
 
-#include "worker_task.h"
+#include "utils/worker_task.h"
 #include "utils/guard.h"
 #include <boost/bind.hpp>
 

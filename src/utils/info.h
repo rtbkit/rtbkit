@@ -25,24 +25,13 @@
 
 #include <string>
 #include "compiler/compiler.h"
+#include "arch/cpu_info.h"
 
 namespace ML {
 
 /** A compact string giving context about the current program. */
 
 std::string all_info();
-
-/** Returns the number of CPU cores installed in the system. */
-
-extern int num_cpus_result;
-
-void init_num_cpus();
-
-JML_ALWAYS_INLINE int num_cpus()
-{
-    if (JML_UNLIKELY(!num_cpus_result)) init_num_cpus();
-    return num_cpus_result;
-}
 
 /** Return the username of the current user. */
 

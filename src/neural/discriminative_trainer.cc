@@ -6,7 +6,7 @@
 */
 
 #include "discriminative_trainer.h"
-#include "boosting/worker_task.h"
+#include "utils/worker_task.h"
 #include "utils/guard.h"
 #include <boost/progress.hpp>
 #include <boost/tuple/tuple.hpp>

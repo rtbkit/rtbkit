@@ -12,7 +12,7 @@
 #include "ace/OS.h"
 #include "evaluation.h"
 #include "config_impl.h"
-#include "worker_task.h"
+#include "utils/worker_task.h"
 #include "utils/guard.h"
 #include "dense_features.h"
 #include "utils/smart_ptr_utils.h"

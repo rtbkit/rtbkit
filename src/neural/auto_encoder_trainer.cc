@@ -10,7 +10,7 @@
 #include "arch/threads.h"
 
 #include <boost/progress.hpp>
-#include "boosting/worker_task.h"
+#include "utils/worker_task.h"
 #include <boost/tuple/tuple.hpp>
 #include "utils/guard.h"
 #include "utils/configuration.h"

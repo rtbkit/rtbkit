@@ -9,7 +9,7 @@
 #ifndef __boosting__boosting_core_parallel_h__
 #define __boosting__boosting_core_parallel_h__
 
-#include "worker_task.h"
+#include "utils/worker_task.h"
 #include "utils/guard.h"
 #include <boost/bind.hpp>
 #include "utils/smart_ptr_utils.h"

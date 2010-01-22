@@ -23,7 +23,7 @@
 #include <stdint.h>
 #include <iostream>
 
-#include "boosting/worker_task.h"
+#include "utils/worker_task.h"
 #include "boosting/training_data.h"
 #include "boosting/dense_features.h"
 #include "boosting/feature_info.h"

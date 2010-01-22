@@ -25,7 +25,7 @@
 #include "arch/simd_vector.h"
 #include "algebra/lapack.h"
 #include "boosting/config_impl.h"
-#include "boosting/worker_task.h"
+#include "utils/worker_task.h"
 #include "utils/guard.h"
 #include <boost/bind.hpp>
 #include "arch/backtrace.h"

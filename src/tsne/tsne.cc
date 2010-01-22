@@ -17,7 +17,7 @@
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/variate_generator.hpp>
-#include "boosting/worker_task.h"
+#include "utils/worker_task.h"
 #include <boost/timer.hpp>
 #include "arch/timers.h"
 #include "arch/sse2.h"

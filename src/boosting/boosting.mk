@@ -34,7 +34,6 @@ LIBBOOSTING_SOURCES := \
         bagging_generator.cc \
         boosting_generator.cc \
         naive_bayes_generator.cc \
-        worker_task.cc \
         decision_tree_generator.cc \
         feature_transformer.cc \
         glz_classifier_generator.cc \
@@ -54,7 +53,7 @@ LIBBOOSTING_SOURCES := \
 	feature.cc \
 	bit_compressed_index.cc
 
-LIBBOOSTING_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt
+LIBBOOSTING_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt worker_task
 
 #$(eval $(call set_compile_option,perceptron_generator.cc perceptron.cc,-ffast-math))
 

@@ -20,7 +20,7 @@
 #include "boosting/config_impl.h"
 #include "utils/environment.h"
 #include "utils/profile.h"
-#include "boosting/worker_task.h"
+#include "utils/worker_task.h"
 #include "utils/guard.h"
 #include "boosting/evaluation.h"
 #include <boost/scoped_ptr.hpp>

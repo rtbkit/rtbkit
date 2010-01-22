@@ -21,7 +21,7 @@
 #include "boosting_training.h"
 #include "config_impl.h"
 #include "binary_symmetric.h"
-#include "worker_task.h"
+#include "utils/worker_task.h"
 #include "utils/guard.h"
 #include <iostream>
 #include <boost/bind.hpp>

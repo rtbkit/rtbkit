@@ -9,7 +9,6 @@
 #ifndef __boosting__worker_task_h__
 #define __boosting__worker_task_h__
 
-#include "config.h"
 #include <boost/function.hpp>
 #include "ace/Synch.h"
 #include "ace/Token.h"

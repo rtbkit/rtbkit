@@ -20,7 +20,7 @@
 #include "boosting_core_parallel.h"
 #include "config_impl.h"
 #include "binary_symmetric.h"
-#include "worker_task.h"
+#include "utils/worker_task.h"
 #include "utils/guard.h"
 #include <boost/scoped_ptr.hpp>
 
