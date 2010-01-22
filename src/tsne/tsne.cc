@@ -451,31 +451,48 @@ void warmup_cache_all_levels(const float * mem, size_t n)
         total += mem[n];
 }
 
+inline void store_non_temporal(float & addr, float val)
+{
+    __asm__ ("movnti %[val], %[mem]\n\t"
+             : [mem] "=m" (addr)
+             : [val] "r" (val));
+}
+
+bool aligned(void * ptr, int bits)
+{
+    size_t x = reinterpret_cast<size_t>(ptr);
+    return ((x & ((1 << bits) - 1)) == 0);
+}
+
 void streaming_copy_from_strided(float * output, const float * input,
                                  size_t stride, size_t n)
 {
     unsigned i = 0;
 
-#if 0
-    // TODO: use movntps.  We first need to execute a single loop until
-    // the output is aligned.
-    for (; i < n && !aligned(output + i, 16);  ++i) {
-    }
+#if 1
+    for (; i < n && !aligned(output + i, 4);  ++i)
+        store_non_temporal(*(output + i), input[i * stride]);
 
-    for (; i + 4 <= n;  n += 4) {
+    for (; i + 4 <= n;  i += 4) {
         using namespace SIMD;
+        const float * addr = input + i * stride;
+
+        // TODO: do something smarter
+        //v4sf v0 = __builtin_ia32_loaduss(addr + stride * 0);
+        //v4sf v1 = __builtin_ia32_loaduss(addr + stride * 1);
+        //v4sf v2 = __builtin_ia32_loaduss(addr + stride * 2);
+        //v4sf v3 = __builtin_ia32_loaduss(addr + stride * 3);
+
+        v4sf v = { addr[stride * 0], addr[stride * 1], addr[stride * 2],
+                   addr[stride * 3] };
+
+        __builtin_ia32_movntps(output + i, v);
     }
 #endif
     
 
-    for (; i < n;  ++i) {
-        using namespace SIMD;
-        float f = input[i * stride];
-
-        __asm__ ("movnti %[val], %[mem]\n\t"
-                 : [mem] "=m" (*(output + i))
-                 : [val] "r" (f));
-    }
+    for (; i < n;  ++i)
+        store_non_temporal(*(output + i), input[i * stride]);
 }
 
 // Copy a chunk of a matrix transposed to another place
@@ -486,7 +503,7 @@ void copy_transposed(boost::multi_array<float, 2> & A,
     size_t mem = (i1 - i0) * (j1 - j0) * sizeof(float);
 
     // Fits in memory (with some allowance for loss): copy directly
-    if (mem * 7 / 3 < l1_cache_size) {
+    if (mem * 4 / 3 < l1_cache_size) {
         // 1.  Prefetch everything we need to access with non-unit stride
         //     in cache in order
         for (unsigned i = i0;  i < i1;  ++i)
@@ -512,7 +529,8 @@ void copy_transposed(boost::multi_array<float, 2> & A,
 }
 
 // Copy everything above the diagonal below the diagonal of the given part
-// of the matrix
+// of the matrix.  We do it by divide-and-conquer, sub-dividing the problem
+// until we get something small enough to fit in the cache.
 void copy_lower_to_upper(boost::multi_array<float, 2> & A,
                          int i0, int i1)
 {
@@ -523,18 +541,16 @@ void copy_lower_to_upper(boost::multi_array<float, 2> & A,
     size_t mem = (i1 - i0) * (j1 - j0) * sizeof(float) / 2;
 
     // Fits in memory (with some allowance for loss): copy directly
-    if (mem * 7 / 3 < l1_cache_size) {
+    if (mem * 4 / 3 < l1_cache_size) {
         // 1.  Prefetch everything in cache in order
-        float total JML_UNUSED = 0.0;
         for (unsigned i = i0;  i < i1;  ++i)
-            for (unsigned j = j0;  j < i;  j += 4) // for prefetching
-                total += A[i][j];
+            warmup_cache_all_levels(&A[i][j0], i - j0);
 
         // 2.  Do the work
-        for (unsigned i = i0;  i < i1;  ++i)
-            for (unsigned j = i;  j < j1;  ++j)
-                // TODO: streaming store (avoid cache pollution)
-                A[i][j] = A[j][i];
+        for (unsigned j = i0;  j < j1;  ++j)
+            streaming_copy_from_strided(&A[j][j], &A[j][j], A.strides()[0],
+                                        j1 - j);
+
 
         return;
     }
