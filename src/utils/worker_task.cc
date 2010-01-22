@@ -50,7 +50,7 @@ Worker_Task & Worker_Task::instance(int thr)
 }
 
 Worker_Task::Worker_Task(int threads)
-    : jobs_sem(0), finished_sem(1), state_change_sem(0),
+    : jobs_sem(0), finished_sem(1), state_change_sem(0), shutdown_sem(0),
       next_group(0), next_job(0), num_queued(0),
       num_running(0), force_finished(false)
 {
@@ -75,11 +75,20 @@ Worker_Task::Worker_Task(int threads)
 
 Worker_Task::~Worker_Task()
 {
+    force_finished = true;
+
+    // Wake up all tasks by providing jobs
+    for (unsigned i = 0;  i < threads_;  ++i)
+        jobs_sem.release();
+
     /* TODO: finish all tasks */
     if (jobs.size() || groups.size())
         cerr << "at the end, there were " << jobs.size()
              << " jobs outstanding and "
              << groups.size() << " groups outstanding" << endl;
+
+    for (unsigned i = 0;  i < threads_;  ++i)
+        shutdown_sem.acquire();
 }
 
 Worker_Task::Id
@@ -126,7 +135,7 @@ void Worker_Task::unlock_group(int group)
     if (!groups.count(group))
         throw Exception("Worker_Task::unlock_group(): group info has none");
     groups[group].locked = false;
-    check_finished(group);
+    check_finished_ul(group);
 
     notify_state_changed();
 }
@@ -209,6 +218,9 @@ int Worker_Task::svc()
     while (!force_finished) {
         
         Job_Info info = get_job();
+
+        if (force_finished) break;
+
         try {
             //cerr << "thread " << ACE_OS::thr_self() << " is running job "
             //     << info.id << " (" << info.info << ")" << endl;
@@ -243,6 +255,8 @@ int Worker_Task::svc()
             finish_job(info);
         }
     }
+
+    shutdown_sem.release();
     
     return 0;
 }
@@ -558,6 +572,8 @@ Worker_Task::Job_Info Worker_Task::get_job_impl(int group)
     //cerr << "thread " << ACE_OS::thr_self()
     //     << " is getting a job in group " << group
     //     << endl;
+    if (force_finished) return Job_Info();
+
 
     Guard guard(lock);
 
@@ -638,7 +654,7 @@ void Worker_Task::finish_job(const Job_Info & info)
             throw Exception("Worker_Task::finish_job(): "
                             "group has negative running count");
         
-        check_finished(group);
+        check_finished_ul(group);
     }
     
     if (num_queued + num_running == 0) finished_sem.release();
@@ -672,7 +688,7 @@ void Worker_Task::remove_job(const Jobs::iterator & it)
             throw Exception("Worker_Task::finish_job(): "
                             "group has negative outstanding count");
         
-        check_finished(group);
+        check_finished_ul(group);
     }
 
     jobs.erase(it);
@@ -685,7 +701,11 @@ void Worker_Task::remove_job(const Jobs::iterator & it)
 bool Worker_Task::check_finished(Id group)
 {
     Guard guard(lock);
-    
+    return check_finished_ul(group);
+}
+
+bool Worker_Task::check_finished_ul(Id group)
+{
     if (!groups.count(group))
         throw Exception("Worker_Task::finish_job(): invalid group number");
     

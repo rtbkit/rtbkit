@@ -124,10 +124,6 @@ public:
     
     void clear_all();
 
-    /** Suspend the given group, making sure that no further jobs can ever
-        run. */
-    void suspend_gropu(Id group_id);
-
     /** Return the number of jobs currently waiting. */
     int queued() const;
 
@@ -226,6 +222,9 @@ private:
 
     void notify_state_changed();
 
+    // Check_finished, bit without the lock held
+    bool check_finished_ul(Id group);
+
     /** Is the given job in the group?  Searches up the parent hierarchy. */
     bool in_group(const Job_Info & info, int group);
 
@@ -237,10 +236,10 @@ private:
     */
     void force_finish_group(Group_Info & group_info, int group);
 
-    typedef ACE_Token Lock;
+    typedef ACE_Mutex Lock;
     typedef ACE_Guard<Lock> Guard;
 
-    ACE_Semaphore jobs_sem, finished_sem, state_change_sem;
+    ACE_Semaphore jobs_sem, finished_sem, state_change_sem, shutdown_sem;
 
     /** Jobs we are running. */
     Jobs jobs;
