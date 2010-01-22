@@ -77,39 +77,66 @@ perplexity_and_prob(const distribution<double> & D, double beta,
 }
 
 template<typename Float>
-struct V2D_Job_2 {
+struct V2D_Job {
     const boost::multi_array<Float, 2> & X;
     boost::multi_array<Float, 2> & D;
     const Float * sum_X;
     int i0, i1;
     
-    V2D_Job_2(const boost::multi_array<Float, 2> & X,
-              boost::multi_array<Float, 2> & D,
-              const Float * sum_X,
-              int i0, int i1)
+    V2D_Job(const boost::multi_array<Float, 2> & X,
+            boost::multi_array<Float, 2> & D,
+            const Float * sum_X,
+            int i0, int i1)
         : X(X), D(D), sum_X(sum_X), i0(i0), i1(i1)
     {
     }
 
     void operator () ()
     {
-        for (unsigned i = i0;  i < i1;  ++i) {
-            D[i][i] = 0.0f;
-
-            for (unsigned j = 0;  j < i;  ++j) {
-                float XXT = (X[i][0] * X[j][0]) + (X[i][1]) * (X[j][1]);
-                Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
-                D[i][j] = val;
+        int d = X.shape()[1];
+        
+        if (d == 2) {
+            for (unsigned i = i0;  i < i1;  ++i) {
+                D[i][i] = 0.0f;
+                
+                for (unsigned j = 0;  j < i;  ++j) {
+                    float XXT = (X[i][0] * X[j][0]) + (X[i][1]) * (X[j][1]);
+                    Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
+                    D[i][j] = val;
+                }
+            }
+        }
+        else if (d < 8) {
+            for (unsigned i = i0;  i < i1;  ++i) {
+                D[i][i] = 0.0f;
+                for (unsigned j = 0;  j < i;  ++j) {
+                    double XXT = 0.0;  // accum in double precision for accuracy
+                    for (unsigned k = 0;  k < d;  ++k)
+                        XXT += X[i][k] * X[j][k];
+                    
+                    Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
+                    D[i][j] = val;
+                }
+            }
+        }
+        else {
+            for (unsigned i = i0;  i < i1;  ++i) {
+                D[i][i] = 0.0f;
+                for (unsigned j = 0;  j < i;  ++j) {
+                    float XXT = SIMD::vec_dotprod_dp(&X[i][0], &X[j][0], d);
+                    Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
+                    D[i][j] = val;
+                }
             }
         }
     }
 };
 
 template<typename Float>
-double
+void
 vectors_to_distances(const boost::multi_array<Float, 2> & X,
                      boost::multi_array<Float, 2> & D,
-                     bool fill_upper = true)
+                     bool fill_upper)
 {
     // again, ||y_i - y_j||^2 
     //     = sum_d ( y_id - y_jd )^2
@@ -139,76 +166,34 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
             sum_X[i] = SIMD::vec_dotprod_dp(&X[i][0], &X[i][0], d);
     }
     
-    double total = 0.0;
-
     Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
 
-    if (d == 2) {
-
-#if 1
-        int group;
-        {
-            int parent = -1;  // no parent group
-            group = worker.get_group(NO_JOB, "", parent);
-            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                         boost::ref(worker),
-                                         group));
+    int group;
+    {
+        int parent = -1;  // no parent group
+        group = worker.get_group(NO_JOB, "", parent);
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
+                                     group));
         
-            int chunk_size = 50;
-
-            for (unsigned i = 0;  i < n;  i += chunk_size) {
-                int i0 = i;
-                int i1 = min(i0 + chunk_size, n);
-
-                worker.add(V2D_Job_2<Float>(X, D, &sum_X[0], i0, i1),
-                           "", group);
-            }
-        }
-
-        worker.run_until_finished(group);
-
-#else
-        for (unsigned i = 0;  i < n;  ++i) {
-            D[i][i] = 0.0f;
-            for (unsigned j = 0;  j < i;  ++j) {
-                float XXT = (X[i][0] * X[j][0]) + (X[i][1]) * (X[j][1]);
-                Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
-                D[i][j] = val;
-            }
-        }
-#endif
-    }
-    else if (d < 8) {
-        for (unsigned i = 0;  i < n;  ++i) {
-            D[i][i] = 0.0f;
-            for (unsigned j = 0;  j < i;  ++j) {
-                double XXT = 0.0;  // accum in double precision for accuracy
-                for (unsigned k = 0;  k < d;  ++k)
-                    XXT += X[i][k] * X[j][k];
-
-                Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
-                D[i][j] = val;
-            }
+        int chunk_size = 50;
+        
+        for (unsigned i = 0;  i < n;  i += chunk_size) {
+            int i0 = i;
+            int i1 = min(i0 + chunk_size, n);
+            
+            worker.add(V2D_Job<Float>(X, D, &sum_X[0], i0, i1),
+                       "", group);
         }
     }
-    else {
-        for (unsigned i = 0;  i < n;  ++i) {
-            D[i][i] = 0.0f;
-            for (unsigned j = 0;  j < i;  ++j) {
-                float XXT = SIMD::vec_dotprod_dp(&X[i][0], &X[j][0], d);
-                Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
-                D[i][j] = val;
-            }
-        }
-    }
+    
+    worker.run_until_finished(group);
 
     if (fill_upper)
         copy_lower_to_upper(D);
-    
-    return total;
 }
 
-double
+void
 vectors_to_distances(const boost::multi_array<float, 2> & X,
                      boost::multi_array<float, 2> & D,
                      bool fill_upper)
@@ -216,7 +201,7 @@ vectors_to_distances(const boost::multi_array<float, 2> & X,
     return vectors_to_distances<float>(X, D, fill_upper);
 }
 
-double
+void
 vectors_to_distances(const boost::multi_array<double, 2> & X,
                      boost::multi_array<double, 2> & D,
                      bool fill_upper)
@@ -224,7 +209,6 @@ vectors_to_distances(const boost::multi_array<double, 2> & X,
     return vectors_to_distances<double>(X, D, fill_upper);
 }
 
-/** Given a matrix of distances, normalize them */
 
 /** Calculate the beta for a single point.
     

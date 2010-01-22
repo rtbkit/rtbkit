@@ -43,21 +43,17 @@ perplexity_and_prob(const distribution<double> & D, double beta = 1.0,
          number of coordinates that each point has
     D    a (n x n) matrix that will be filled in with the distance between
          any of the two points.  Note that by definition the diagonal is
-         zero and the matrix is symmetric.
-    fill_upper  if true, then the entire matrix D will be filled in.
-                Otherwise, just the part below the diagonal will be filled
-                in.
-
-    \returns:
-
-    2 * the sum of the elements in the matrix D below the diagonal.
+         zero and the matrix is symmetric; as a result only the lower
+         diagonal needs to be filled in.
+    fill_upper if set, the lower diagonal will be copied into the upper
+               diagonal so that the entire matrix is filled in.
 */
-double
+void
 vectors_to_distances(const boost::multi_array<float, 2> & X,
                      boost::multi_array<float, 2> & D,
                      bool fill_upper = true);
 
-double
+void
 vectors_to_distances(const boost::multi_array<double, 2> & X,
                      boost::multi_array<double, 2> & D,
                      bool fill_upper = true);
