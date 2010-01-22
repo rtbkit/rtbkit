@@ -260,7 +260,7 @@ $$(eval $$(call add_sources,$(1).cc))
 
 $(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).lo_OBJ)
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES) $(if $(findstring $(3),boost), -lboost_unit_test_framework-mt)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES) $(if $(findstring boost,$(3)), -lboost_unit_test_framework-mt)
 
 $(TESTS)/$(1):	$(TESTS)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(BUILD_arch/exception_hook.lo_OBJ),$$(BIN)/libexception_hook.so)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "[BIN] $(1)")
@@ -268,14 +268,14 @@ $(TESTS)/$(1):	$(TESTS)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LI
 
 tests:	$(TESTS)/$(1)
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(if $(findstring timed,$(3)),/usr/bin/time )$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
 
 $(TESTS)/$(1).passed:	$(TESTS)/$(1)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
 	@$$(TEST_$(1)_COMMAND)
 
 $(1):	$(TESTS)/$(1)
-	$(TESTS)/$(1)
+	$(if $(findstring timed,$(3)),/usr/bin/time )$(TESTS)/$(1)
 
 .PHONY: $(1)
 

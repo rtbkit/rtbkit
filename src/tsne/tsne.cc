@@ -542,81 +542,6 @@ struct AtEnd {
 } // file scope
 
 
-void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
-                        const boost::multi_array<float, 2> & Y,
-                        const boost::multi_array<float, 2> & PmQxD)
-{
-    // Gradient
-    // Implements formula 5 in (Van der Maaten and Hinton, 2008)
-    // dC/dy_i = 4 * sum_j ( (p_ij - q_ij)(y_i - y_j)d_ij )
-
-    
-    int n = Y.shape()[0];
-    int d = Y.shape()[1];
-    
-    if (dY.shape()[0] != n || dY.shape()[1] != d)
-        throw Exception("dY matrix has wrong shape");
-
-    if (PmQxD.shape()[0] != n || PmQxD.shape()[1] != n)
-        throw Exception("PmQxD matrix has wrong shape");
-
-    if (d == 2) {
-        unsigned i = 0;
-        
-        enum { b = 4 };
-        
-        for (;  i + b <= n;  i += b) {
-            float totals[b][2];
-            for (unsigned ii = 0;  ii < b;  ++ii)
-                totals[ii][0] = totals[ii][1] = 0.0f;
-            
-            for (unsigned j = 0;  j < n;  ++j) {
-                float Yj0 = Y[j][0];
-                float Yj1 = Y[j][1];
-                
-                for (unsigned ii = 0;  ii < b;  ++ii) {
-                    float factor = 4.0f * PmQxD[i + ii][j];
-                    totals[ii][0] += factor * (Y[i + ii][0] - Yj0);
-                    totals[ii][1] += factor * (Y[i + ii][1] - Yj1);
-                }
-            }
-            
-            for (unsigned ii = 0;  ii < b;  ++ii) {
-                dY[i + ii][0] = totals[ii][0];
-                dY[i + ii][1] = totals[ii][1];
-            }
-        }
-        
-        for (; i < n;  ++i) {
-            
-            //calc_dY_row(&dY[i][0], &PmQxD[i][0], Y, i, n);
-            
-            float total0 = 0.0f, total1 = 0.0f;
-            for (unsigned j = 0;  j < n;  ++j) {
-                float factor = 4.0f * PmQxD[i][j];
-                total0 += factor * (Y[i][0] - Y[j][0]);
-                total1 += factor * (Y[i][1] - Y[j][1]);
-            }
-            
-            dY[i][0] = total0;
-            dY[i][1] = total1;
-        }
-    }
-    else {
-        // TODO: optimize better than this...
-        std::fill(dY.data(), dY.data() + dY.num_elements(), 0.0f);
-        
-        for (unsigned j = 0;  j < n;  ++j) {
-            for (unsigned i = 0;  i < n;  ++i) {
-                if (i == j) continue;
-                float factor = 4.0f * PmQxD[j][i];
-                for (unsigned k = 0;  k < d;  ++k)
-                    dY[i][k] += factor * (Y[i][k] - Y[j][k]);
-            }
-        }
-    }
-}
-
 void tsne_calc_Q_stiffness(boost::multi_array<float, 2> & Q,
                            boost::multi_array<float, 2> & PmQxD,
                            boost::multi_array<float, 2> & D,
@@ -660,6 +585,117 @@ void tsne_calc_Q_stiffness(boost::multi_array<float, 2> & Q,
     copy_lower_to_upper(PmQxD);
     
     t_clu += t.elapsed();  t.restart();
+}
+
+inline void
+calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
+                const boost::multi_array<float, 2> & PmQxD,
+                const boost::multi_array<float, 2> & Y,
+                int i, int n)
+{
+#if 0
+    v4sf totals1 = vec_splat(0.0f), totals2 = totals1;
+    v4sf four = vec_splat(4.0f);
+
+    for (unsigned j = 0;  j + 4 < n;  j += 4) {
+        //v4sf ffff = { PmQxD[i + 0][j], PmQxD[i + 1][j],
+        //              PmQxD[i + 2][j], PmQxD[i + 3][j] };
+        // TODO: expand inplace
+
+        v4sf ffff1 = { PmQxD[i + 0][j], PmQxD[i + 0][j],
+                       PmQxD[i + 1][j], PmQxD[i + 1][j] };
+        v4sf ffff2 = { PmQxD[i + 2][j], PmQxD[i + 2][j],
+                       PmQxD[i + 3][j], PmQxD[i + 3][j] };
+
+        ffff1 = ffff1 * four;
+        ffff2 = ffff2 * four;
+        
+        // Load the elements
+    }   
+
+        
+#else
+    enum { b = 4 };
+
+    float totals[b][2];
+    for (unsigned ii = 0;  ii < b;  ++ii)
+        totals[ii][0] = totals[ii][1] = 0.0f;
+            
+    for (unsigned j = 0;  j < n;  ++j) {
+        float Yj0 = Y[j][0];
+        float Yj1 = Y[j][1];
+        
+        for (unsigned ii = 0;  ii < b;  ++ii) {
+            float factor = 4.0f * PmQxD[i + ii][j];
+            totals[ii][0] += factor * (Y[i + ii][0] - Yj0);
+            totals[ii][1] += factor * (Y[i + ii][1] - Yj1);
+        }
+    }
+    
+    for (unsigned ii = 0;  ii < b;  ++ii) {
+        dY[i + ii][0] = totals[ii][0];
+        dY[i + ii][1] = totals[ii][1];
+    }
+#endif
+}
+
+inline void
+calc_dY_row_2d(float * dYi, const float * PmQxDi,
+               const boost::multi_array<float, 2> & Y,
+               int i,
+               int n)
+{
+    float total0 = 0.0f, total1 = 0.0f;
+    for (unsigned j = 0;  j < n;  ++j) {
+        float factor = 4.0f * PmQxDi[j];
+        total0 += factor * (Y[i][0] - Y[j][0]);
+        total1 += factor * (Y[i][1] - Y[j][1]);
+    }
+    
+    dYi[0] = total0;
+    dYi[1] = total1;
+}
+
+void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
+                        const boost::multi_array<float, 2> & Y,
+                        const boost::multi_array<float, 2> & PmQxD)
+{
+    // Gradient
+    // Implements formula 5 in (Van der Maaten and Hinton, 2008)
+    // dC/dy_i = 4 * sum_j ( (p_ij - q_ij)(y_i - y_j)d_ij )
+
+    
+    int n = Y.shape()[0];
+    int d = Y.shape()[1];
+    
+    if (dY.shape()[0] != n || dY.shape()[1] != d)
+        throw Exception("dY matrix has wrong shape");
+
+    if (PmQxD.shape()[0] != n || PmQxD.shape()[1] != n)
+        throw Exception("PmQxD matrix has wrong shape");
+
+    if (d == 2) {
+        unsigned i = 0;
+        
+        for (;  i + 4 <= n;  i += 4)
+            calc_dY_rows_2d(dY, PmQxD, Y, i, n);
+        
+        for (; i < n;  ++i)
+            calc_dY_row_2d(&dY[i][0], &PmQxD[i][0], Y, i, n);
+    }
+    else {
+        // TODO: optimize better than this...
+        std::fill(dY.data(), dY.data() + dY.num_elements(), 0.0f);
+        
+        for (unsigned j = 0;  j < n;  ++j) {
+            for (unsigned i = 0;  i < n;  ++i) {
+                if (i == j) continue;
+                float factor = 4.0f * PmQxD[j][i];
+                for (unsigned k = 0;  k < d;  ++k)
+                    dY[i][k] += factor * (Y[i][k] - Y[j][k]);
+            }
+        }
+    }
 }
 
 void tsne_update(boost::multi_array<float, 2> & Y,
