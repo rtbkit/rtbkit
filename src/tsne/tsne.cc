@@ -593,27 +593,41 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
                 const boost::multi_array<float, 2> & Y,
                 int i, int n)
 {
-#if 0
-    v4sf totals1 = vec_splat(0.0f), totals2 = totals1;
+#if 1
+    using namespace SIMD;
+
+    v4sf totals01 = vec_splat(0.0f), totals23 = totals01;
     v4sf four = vec_splat(4.0f);
 
-    for (unsigned j = 0;  j + 4 < n;  j += 4) {
+    for (unsigned j = 0;  j < n;  ++j) {
         //v4sf ffff = { PmQxD[i + 0][j], PmQxD[i + 1][j],
         //              PmQxD[i + 2][j], PmQxD[i + 3][j] };
         // TODO: expand inplace
 
-        v4sf ffff1 = { PmQxD[i + 0][j], PmQxD[i + 0][j],
+        v4sf ffff01 = { PmQxD[i + 0][j], PmQxD[i + 0][j],
                        PmQxD[i + 1][j], PmQxD[i + 1][j] };
-        v4sf ffff2 = { PmQxD[i + 2][j], PmQxD[i + 2][j],
+        v4sf ffff23 = { PmQxD[i + 2][j], PmQxD[i + 2][j],
                        PmQxD[i + 3][j], PmQxD[i + 3][j] };
 
-        ffff1 = ffff1 * four;
-        ffff2 = ffff2 * four;
-        
-        // Load the elements
-    }   
+        // TODO: load once and shuffle into position
+        v4sf yjyj   = { Y[j][0], Y[j][1], Y[j][0], Y[j][1] };
 
+        ffff01 = ffff01 * four;
+        ffff23 = ffff23 * four;
         
+        v4sf yi01   = __builtin_ia32_loadups(&Y[i][0]);
+        v4sf yi23   = __builtin_ia32_loadups(&Y[i + 2][0]);
+
+        v4sf xxxx01 = ffff01 * (yi01 - yjyj);
+        v4sf xxxx23 = ffff23 * (yi23 - yjyj);
+        
+        totals01 += xxxx01;
+        totals23 += xxxx23;
+    }
+
+    __builtin_ia32_storeups(&dY[i][0], totals01);
+    __builtin_ia32_storeups(&dY[i + 2][0], totals23);
+
 #else
     enum { b = 4 };
 
