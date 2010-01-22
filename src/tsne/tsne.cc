@@ -22,6 +22,9 @@
 #include "arch/timers.h"
 #include "arch/sse2.h"
 #include "arch/cache.h"
+#include "utils/guard.h"
+#include <boost/bind.hpp>
+
 
 using namespace std;
 
@@ -74,6 +77,35 @@ perplexity_and_prob(const distribution<double> & D, double beta,
 }
 
 template<typename Float>
+struct V2D_Job_2 {
+    const boost::multi_array<Float, 2> & X;
+    boost::multi_array<Float, 2> & D;
+    const Float * sum_X;
+    int i0, i1;
+    
+    V2D_Job_2(const boost::multi_array<Float, 2> & X,
+              boost::multi_array<Float, 2> & D,
+              const Float * sum_X,
+              int i0, int i1)
+        : X(X), D(D), sum_X(sum_X), i0(i0), i1(i1)
+    {
+    }
+
+    void operator () ()
+    {
+        for (unsigned i = i0;  i < i1;  ++i) {
+            D[i][i] = 0.0f;
+
+            for (unsigned j = 0;  j < i;  ++j) {
+                float XXT = (X[i][0] * X[j][0]) + (X[i][1]) * (X[j][1]);
+                Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
+                D[i][j] = val;
+            }
+        }
+    }
+};
+
+template<typename Float>
 double
 vectors_to_distances(const boost::multi_array<Float, 2> & X,
                      boost::multi_array<Float, 2> & D,
@@ -109,7 +141,33 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
     
     double total = 0.0;
 
+    Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+
     if (d == 2) {
+
+#if 1
+        int group;
+        {
+            int parent = -1;  // no parent group
+            group = worker.get_group(NO_JOB, "", parent);
+            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                         boost::ref(worker),
+                                         group));
+        
+            int chunk_size = 50;
+
+            for (unsigned i = 0;  i < n;  i += chunk_size) {
+                int i0 = i;
+                int i1 = min(i0 + chunk_size, n);
+
+                worker.add(V2D_Job_2<Float>(X, D, &sum_X[0], i0, i1),
+                           "", group);
+            }
+        }
+
+        worker.run_until_finished(group);
+
+#else
         for (unsigned i = 0;  i < n;  ++i) {
             D[i][i] = 0.0f;
             for (unsigned j = 0;  j < i;  ++j) {
@@ -118,6 +176,7 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
                 D[i][j] = val;
             }
         }
+#endif
     }
     else if (d < 8) {
         for (unsigned i = 0;  i < n;  ++i) {
@@ -602,9 +661,36 @@ tsne(const boost::multi_array<float, 2> & probs,
         // dC/dy_i = 4 * sum_j ( (p_ij - q_ij)(y_i - y_j)d_ij )
 
         if (d == 2) {
-            for (unsigned i = 0;  i < n;  ++i) {
+            unsigned i = 0;
+            
+            enum { b = 4 };
 
-#if 1
+            for (;  i + b <= n;  i += b) {
+                float totals[b][2];
+                for (unsigned ii = 0;  ii < b;  ++ii)
+                    totals[ii][0] = totals[ii][1] = 0.0f;
+
+                for (unsigned j = 0;  j < n;  ++j) {
+                    float Yj0 = Y[j][0];
+                    float Yj1 = Y[j][1];
+
+                    for (unsigned ii = 0;  ii < b;  ++ii) {
+                        float factor = 4.0f * PmQxD[i + ii][j];
+                        totals[ii][0] += factor * (Y[i + ii][0] - Yj0);
+                        totals[ii][1] += factor * (Y[i + ii][1] - Yj1);
+                    }
+                }
+
+                for (unsigned ii = 0;  ii < b;  ++ii) {
+                    dY[i + ii][0] = totals[ii][0];
+                    dY[i + ii][1] = totals[ii][1];
+                }
+            }
+
+            for (; i < n;  ++i) {
+
+                //calc_dY_row(&dY[i][0], &PmQxD[i][0], Y, i, n);
+
                 float total0 = 0.0f, total1 = 0.0f;
                 for (unsigned j = 0;  j < n;  ++j) {
                     float factor = 4.0f * PmQxD[i][j];
@@ -614,22 +700,6 @@ tsne(const boost::multi_array<float, 2> & probs,
 
                 dY[i][0] = total0;
                 dY[i][1] = total1;
-#else
-                float total0 = 0.0f, total1 = 0.0f;
-                for (unsigned j = 0;  j < i;  ++j) {
-                    float factor = 4.0f * (P[i][j] - Q[i][j]) * D[i][j];
-                    total0 += factor * (Y[i][0] - Y[j][0]);
-                    total1 += factor * (Y[i][1] - Y[j][1]);
-                }
-
-                for (unsigned j = i;  j < n;  ++j) {
-                    float factor = 4.0f * (P[j][i] - Q[j][i]) * D[j][i];
-                    total0 += factor * (Y[i][0] - Y[j][0]);
-                    total1 += factor * (Y[i][1] - Y[j][1]);
-                }
-                dY[i][0] = total0;
-                dY[i][1] = total1;
-#endif
             }
         }
         else {

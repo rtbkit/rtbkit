@@ -5,7 +5,9 @@
 LIBTSNE_SOURCES := \
         tsne.cc \
 
-LIBTSNE_LINK :=	utils algebra arch boost_thread-mt stats
+# TODO: boosting is only there for the worker task; we should split it off
+# and get rid of it
+LIBTSNE_LINK :=	utils algebra arch boost_thread-mt stats boosting
 
 $(eval $(call library,tsne,$(LIBTSNE_SOURCES),$(LIBTSNE_LINK)))
 
