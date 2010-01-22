@@ -445,7 +445,7 @@ void calc_Q_row(float * Qi, float qfactor, const float * Di, float minval,
 namespace {
 
 double t_v2d = 0.0, t_D = 0.0, t_Q = 0.0, t_dY = 0.0, t_update = 0.0;
-double t_recenter = 0.0, t_cost = 0.0;
+double t_recenter = 0.0, t_cost = 0.0, t_PmQxD = 0.0;
 struct AtEnd {
     ~AtEnd()
     {
@@ -453,6 +453,7 @@ struct AtEnd {
         cerr << "  v2d:        " << t_v2d << endl;
         cerr << "  D:          " << t_D << endl;
         cerr << "  Q:          " << t_Q << endl;
+        cerr << "  (P-Q)D      " << t_PmQxD << endl;
         cerr << "  dY:         " << t_dY << endl;
         cerr << "  update:     " << t_update << endl;
         cerr << "  recenter:   " << t_recenter << endl;
@@ -532,6 +533,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
     boost::multi_array<float, 2> D(boost::extents[n][n]);
     boost::multi_array<float, 2> Q(boost::extents[n][n]);
+    boost::multi_array<float, 2> PmQxD(boost::extents[n][n]);
     boost::multi_array<float, 2> dY(boost::extents[n][d]);
 
 
@@ -558,8 +560,6 @@ tsne(const boost::multi_array<float, 2> & probs,
             d_total_offdiag += 2.0 * calc_D_row(&D[i][0], i);
             D[i][i] = 0.0f;
             
-            for (unsigned j = 0;  j < i;  ++j)
-                D[j][i] = D[i][j];
         }
 
         t_D += t.elapsed();  t.restart();
@@ -569,11 +569,16 @@ tsne(const boost::multi_array<float, 2> & probs,
         for (unsigned i = 0;  i < n;  ++i) {
             Q[i][i] = 1e-12f;
             calc_Q_row(&Q[i][0], qfactor, &D[i][0], 1e-12, i);
-            for (unsigned j = 0;  j < i;  ++j)
-                Q[j][i] = Q[i][j];
         }
 
         t_Q += t.elapsed();  t.restart();
+        
+        for (unsigned i = 0;  i < n;  ++i) {
+            for (unsigned j = 0;  j < i;  ++j)
+                PmQxD[i][j] = PmQxD[j][i] = (P[i][j] - Q[i][j]) * D[i][j];
+        }
+
+        t_PmQxD += t.elapsed();  t.restart();
 
         
         
@@ -588,7 +593,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 #if 1
                 float total0 = 0.0f, total1 = 0.0f;
                 for (unsigned j = 0;  j < n;  ++j) {
-                    float factor = 4.0f * (P[i][j] - Q[i][j]) * D[i][j];
+                    float factor = 4.0f * PmQxD[i][j];
                     total0 += factor * (Y[i][0] - Y[j][0]);
                     total1 += factor * (Y[i][1] - Y[j][1]);
                 }
