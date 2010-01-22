@@ -582,18 +582,41 @@ tsne(const boost::multi_array<float, 2> & probs,
         // Implements formula 5 in (Van der Maaten and Hinton, 2008)
         // dC/dy_i = 4 * sum_j ( (p_ij - q_ij)(y_i - y_j)d_ij )
 
-        std::fill(dY.data(), dY.data() + dY.num_elements(), 0.0f);
-
         if (d == 2) {
-            for (unsigned j = 0;  j < n;  ++j) {
-                for (unsigned i = 0;  i < n;  ++i) {
-                    float factor = 4.0f * (P[j][i] - Q[j][i]) * D[j][i];
-                    dY[i][0] += factor * (Y[i][0] - Y[j][0]);
-                    dY[i][1] += factor * (Y[i][1] - Y[j][1]);
+            for (unsigned i = 0;  i < n;  ++i) {
+
+#if 1
+                float total0 = 0.0f, total1 = 0.0f;
+                for (unsigned j = 0;  j < n;  ++j) {
+                    float factor = 4.0f * (P[i][j] - Q[i][j]) * D[i][j];
+                    total0 += factor * (Y[i][0] - Y[j][0]);
+                    total1 += factor * (Y[i][1] - Y[j][1]);
                 }
+
+                dY[i][0] = total0;
+                dY[i][1] = total1;
+#else
+                float total0 = 0.0f, total1 = 0.0f;
+                for (unsigned j = 0;  j < i;  ++j) {
+                    float factor = 4.0f * (P[i][j] - Q[i][j]) * D[i][j];
+                    total0 += factor * (Y[i][0] - Y[j][0]);
+                    total1 += factor * (Y[i][1] - Y[j][1]);
+                }
+
+                for (unsigned j = i;  j < n;  ++j) {
+                    float factor = 4.0f * (P[j][i] - Q[j][i]) * D[j][i];
+                    total0 += factor * (Y[i][0] - Y[j][0]);
+                    total1 += factor * (Y[i][1] - Y[j][1]);
+                }
+                dY[i][0] = total0;
+                dY[i][1] = total1;
+#endif
             }
         }
         else {
+            // TODO: optimize better than this...
+            std::fill(dY.data(), dY.data() + dY.num_elements(), 0.0f);
+
             for (unsigned j = 0;  j < n;  ++j) {
                 for (unsigned i = 0;  i < n;  ++i) {
                     if (i == j) continue;
@@ -677,7 +700,10 @@ tsne(const boost::multi_array<float, 2> & probs,
         //         << endl;
 
         if ((iter + 1) % 20 == 0 || iter == params.max_iter - 1) {
-            double cost = kl(P.data(), Q.data(), P.num_elements());
+            double cost = 0.0;
+            for (unsigned i = 0;  i < n;  ++i) {
+                cost += 2.0 * kl(&P[i][0], &Q[i][0], i);
+            }
             cerr << "iteration " << (iter + 1)
                  << " cost = " << cost << " elapsed "
                  << timer.elapsed() << endl;

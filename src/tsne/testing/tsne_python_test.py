@@ -57,7 +57,7 @@ def test_tsne():
 
     nrows = digits.shape[0];
     # Smaller number of labels for debugging...
-    nrows = 500
+    nrows = 2500
 
     X = digits[range(nrows), ...]
     L = labels[range(nrows), ...]
