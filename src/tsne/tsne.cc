@@ -440,12 +440,141 @@ void calc_Q_row(float * Qi, float qfactor, const float * Di, float minval,
     for (; i < n;  ++i)
         Qi[i] = std::max(1e-12f, Di[i] * qfactor);
 }
+
+static const size_t l1_cache_size = 32 * 1024;
+
+
+void warmup_cache_all_levels(const float * mem, size_t n)
+{
+    float total JML_UNUSED = 0.0;
+    for (unsigned i = 0;  i < n + 4;  i += 4)
+        total += mem[n];
+}
+
+void streaming_copy_from_strided(float * output, const float * input,
+                                 size_t stride, size_t n)
+{
+    unsigned i = 0;
+
+#if 0
+    // TODO: use movntps.  We first need to execute a single loop until
+    // the output is aligned.
+    for (; i < n && !aligned(output + i, 16);  ++i) {
+    }
+
+    for (; i + 4 <= n;  n += 4) {
+        using namespace SIMD;
+    }
+#endif
+    
+
+    for (; i < n;  ++i) {
+        using namespace SIMD;
+        float f = input[i * stride];
+
+        __asm__ ("movnti %[val], %[mem]\n\t"
+                 : [mem] "=m" (*(output + i))
+                 : [val] "r" (f));
+    }
+}
+
+// Copy a chunk of a matrix transposed to another place
+void copy_transposed(boost::multi_array<float, 2> & A,
+                     int i0, int i1, int j0, int j1)
+{
+    // How much cache will be needed to hold the input data?
+    size_t mem = (i1 - i0) * (j1 - j0) * sizeof(float);
+
+    // Fits in memory (with some allowance for loss): copy directly
+    if (mem * 7 / 3 < l1_cache_size) {
+        // 1.  Prefetch everything we need to access with non-unit stride
+        //     in cache in order
+        for (unsigned i = i0;  i < i1;  ++i)
+            warmup_cache_all_levels(&A[i][j0], j1 - j0);
+
+        // 2.  Do the work
+        for (unsigned j = j0;  j < j1;  ++j)
+            streaming_copy_from_strided(&A[j][i0], &A[i0][j], A.strides()[0],
+                                        i1 - i0);
+        return;
+    }
+
+    // Otherwise, we recurse
+    int spliti = (i0 + i1) / 2;
+    int splitj = (j0 + j1) / 2;
+
+    // TODO: try to ensure a power of 2
+
+    copy_transposed(A, i0, spliti, j0, splitj);
+    copy_transposed(A, i0, spliti, splitj, j1);
+    copy_transposed(A, spliti, i1, j0, splitj);
+    copy_transposed(A, spliti, i1, splitj, j1);
+}
+
+// Copy everything above the diagonal below the diagonal of the given part
+// of the matrix
+void copy_lower_to_upper(boost::multi_array<float, 2> & A,
+                         int i0, int i1)
+{
+    int j0 = i0;
+    int j1 = i1;
+
+    // How much cache will be needed to hold the input data?
+    size_t mem = (i1 - i0) * (j1 - j0) * sizeof(float) / 2;
+
+    // Fits in memory (with some allowance for loss): copy directly
+    if (mem * 7 / 3 < l1_cache_size) {
+        // 1.  Prefetch everything in cache in order
+        float total JML_UNUSED = 0.0;
+        for (unsigned i = i0;  i < i1;  ++i)
+            for (unsigned j = j0;  j < i;  j += 4) // for prefetching
+                total += A[i][j];
+
+        // 2.  Do the work
+        for (unsigned i = i0;  i < i1;  ++i)
+            for (unsigned j = i;  j < j1;  ++j)
+                // TODO: streaming store (avoid cache pollution)
+                A[i][j] = A[j][i];
+
+        return;
+    }
+
+    // Otherwise, we recurse
+    int split = (i0 + i1) / 2;
+    // TODO: try to ensure a power of 2
+
+    /* i0+
+         |\
+         | \
+         |  \
+         |   \
+       s +----\
+         |    |\
+         |    | \
+         |    |  \
+       i1+----+---+
+        i0    s   i1
+    */
+
+    copy_lower_to_upper(A, i0, split);
+    copy_lower_to_upper(A, split, i1);
+    copy_transposed(A, split, i1, j0, split);
+}
+
+void copy_lower_to_upper(boost::multi_array<float, 2> & A)
+{
+    int n = A.shape()[0];
+    if (n != A.shape()[1])
+        throw Exception("copy_upper_to_lower: matrix is not square");
+
+    copy_lower_to_upper(A, 0, n);
+}
             
 
 namespace {
 
 double t_v2d = 0.0, t_D = 0.0, t_Q = 0.0, t_dY = 0.0, t_update = 0.0;
-double t_recenter = 0.0, t_cost = 0.0, t_PmQxD = 0.0;
+double t_recenter = 0.0, t_cost = 0.0, t_PmQxD = 0.0, t_clu = 0.0;
 struct AtEnd {
     ~AtEnd()
     {
@@ -454,6 +583,7 @@ struct AtEnd {
         cerr << "  D:          " << t_D << endl;
         cerr << "  Q:          " << t_Q << endl;
         cerr << "  (P-Q)D      " << t_PmQxD << endl;
+        cerr << "  clu         " << t_clu << endl;
         cerr << "  dY:         " << t_dY << endl;
         cerr << "  update:     " << t_update << endl;
         cerr << "  recenter:   " << t_recenter << endl;
@@ -575,11 +705,14 @@ tsne(const boost::multi_array<float, 2> & probs,
         
         for (unsigned i = 0;  i < n;  ++i) {
             for (unsigned j = 0;  j < i;  ++j)
-                PmQxD[i][j] = PmQxD[j][i] = (P[i][j] - Q[i][j]) * D[i][j];
+                PmQxD[i][j] = (P[i][j] - Q[i][j]) * D[i][j];
         }
 
         t_PmQxD += t.elapsed();  t.restart();
 
+        copy_lower_to_upper(PmQxD);
+
+        t_clu += t.elapsed();  t.restart();
         
         
         /*********************************************************************/

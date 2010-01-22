@@ -2,7 +2,7 @@
    Jeremy Barnes, 25 February 2008
    Copyright (c) 2008 Jeremy Barnes.  All rights reserved.
 
-   Test of the decision tree class.
+   Test of the least squares class.
 */
 
 #define BOOST_TEST_MAIN
