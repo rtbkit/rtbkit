@@ -773,31 +773,14 @@ tsne(const boost::multi_array<float, 2> & probs,
         for (unsigned j = 0;  j < d;  ++j)
             Y[i][j] = 0.0001 * randn();
 
-#if 0 // pseudo-random, for testing (matches the Python version)
-    for (unsigned i = 0;  i < n;  ++i)
-        for (unsigned j = 0;  j < d;  ++j)
-            Y[i][j] = (((((i * 18446744073709551557ULL) + j) * 18446744073709551557ULL) % 4099) / 1050.0) - 2.0;
-#endif // pseudo-random
-
-    //for (unsigned i = 0;  i < 10;  ++i)
-    //    cerr << "Y[" << i << "] = "
-    //         << distribution<float>(&Y[i][0], &Y[i][0] + d)
-    //         << endl;
-
-    boost::multi_array<float, 2> iY(boost::extents[n][d]);
-    boost::multi_array<float, 2> gains(boost::extents[n][d]);
-    std::fill(gains.data(), gains.data() + gains.num_elements(), 1.0f);
-
     // Symmetrize and probabilize P
     boost::multi_array<float, 2> P = probs + transpose(probs);
 
-    // TODO: symmetric so only need to total the diagonal
+    // TODO: symmetric so only need to total the upper diagonal
     double sumP = 0.0;
     for (unsigned i = 0;  i < n;  ++i)
-        sumP += SIMD::vec_sum_dp(&P[i][0], n);
+        sumP += 2.0 * SIMD::vec_sum_dp(&P[i][0], i);
     
-    //cerr << "sumP = " << sumP << endl;
-
     // Factor that P should be multiplied by in all calculations
     // We boost it by 4 in early iterations to force the clusters to be
     // spread apart
@@ -808,20 +791,26 @@ tsne(const boost::multi_array<float, 2> & probs,
         for (unsigned j = 0;  j < n;  ++j)
             P[i][j] = std::max((i != j) * pfactor * P[i][j], 1e-12f);
 
-    //for (unsigned i = 0;  i < 10;  ++i)
-    //    cerr << "P[" << i << "] = "
-    //         << distribution<float>(&P[i][0], &P[i][0] + n)
-    //         << endl;
-
-
-    //cerr << "n = " << n << endl;
-
     Timer timer;
 
+    // Pseudo-distance array for reduced space
     boost::multi_array<float, 2> D(boost::extents[n][n]);
+
+    // Probabilitiy density array
     boost::multi_array<float, 2> Q(boost::extents[n][n]);
+
+    // Stiffness array
     boost::multi_array<float, 2> PmQxD(boost::extents[n][n]);
+
+    // Y delta
     boost::multi_array<float, 2> dY(boost::extents[n][d]);
+
+    // Last change in Y; so that we can see if we're going in the same dir
+    boost::multi_array<float, 2> iY(boost::extents[n][d]);
+
+    // Per-variable factors to multiply the gradient by to improve convergence
+    boost::multi_array<float, 2> gains(boost::extents[n][d]);
+    std::fill(gains.data(), gains.data() + gains.num_elements(), 1.0f);
 
 
     for (int iter = 0;  iter < params.max_iter;  ++iter) {
