@@ -1,0 +1,190 @@
+laptop, no changes:
+
+tsne core profile:
+  v2d:        20.81
+  Q_stiffness:57.53
+    D         11.43
+    (P-Q)D    27.17
+    clu       18.93
+  dY:         16.26
+  update:     0.17
+  recenter:   0.12
+  cost:       7.26
+109.05user 0.53system 1:49.48elapsed 100%CPU (0avgtext+0avgdata 0maxresident)k
+
+laptop, with different L1 cache size:
+
+ (not necessary; it has a 32kb cache)
+
+tsne_test:
+
+tsne core profile:
+  v2d:        21.56
+  Q_stiffness:39.86
+    D         6.66
+    (P-Q)D    17.63
+    clu       15.57
+  dY:         17.15
+  update:     0.13
+  recenter:   0.05
+  cost:       7.3
+93.59user 0.49system 1:26.73elapsed 108%CPU (0avgtext+0avgdata 0maxresident)k
+
+spread out to vectorize v2d:
+
+tsne core profile:
+  v2d:        25.56
+  Q_stiffness:40.06
+    D         6.54
+    (P-Q)D    17.62
+    clu       15.89
+  dY:         16.6
+  update:     0.19
+  recenter:   0.02
+  cost:       7.15
+96.79user 0.33system 1:25.79elapsed 113%CPU (0avgtext+0avgdata 0maxresident)k
+
+parallelize dY:
+
+*** No errors detected
+tsne core profile:
+  v2d:        25.4
+  Q_stiffness:39.82
+    D         6.6
+    (P-Q)D    17.72
+    clu       15.48
+  dY:         17.26
+  update:     0.19
+  recenter:   0.06
+  cost:       7.28
+97.19user 0.44system 1:18.43elapsed 124%CPU (0avgtext+0avgdata 0maxresident)k
+
+Reversed order of v2d loop so long jobs at start:
+
+*** No errors detected
+tsne core profile:
+  v2d:        25.87
+  Q_stiffness:39.25
+    D         6.27
+    (P-Q)D    17.58
+    clu       15.38
+  dY:         17.41
+  update:     0.18
+  recenter:   0.06
+  cost:       7.31
+97.43user 0.41system 1:17.03elapsed 127%CPU (0avgtext+0avgdata 0maxresident)k
+
+Multithreaded everything except CLU:
+
+*** No errors detected
+tsne core profile:
+  v2d:        26.38
+  Q_stiffness:58.94
+    D         12.02
+    (P-Q)D    31.8
+    clu       15.11
+  dY:         17.28
+  update:     0.17
+  recenter:   0.07
+  cost:       7.21
+117.20user 0.47system 1:15.79elapsed 155%CPU (0avgtext+0avgdata 0maxresident)k
+
+It seems that the Q and stiffness calculations are memory bandwidth limited.
+We can probably do something about that by not keeping both D and Q (as one is just the other with a multiple).
+
+
+Multithreaded everything:
+*** No errors detected
+tsne core profile:
+  v2d:        41.4
+  Q_stiffness:58.8
+    D         11.89
+    (P-Q)D    31.58
+    clu       15.32
+  dY:         17.31
+  update:     0.26
+  recenter:   0.04
+  cost:       7.31
+132.60user 0.48system 1:22.83elapsed 160%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+46015minor)pagefaults 0swaps
+
+
+One thread only:
+
+*** No errors detected
+tsne core profile:
+  v2d:        40.12
+  Q_stiffness:40.27
+    D         6.97
+    (P-Q)D    17.65
+    clu       15.64
+  dY:         16.59
+  update:     0.17
+  recenter:   0.05
+  cost:       7.36
+112.11user 0.24system 1:52.50elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+45989minor)pagefaults 0swaps
+
+One thread only, v2d doesn't do it twice:
+
+*** No errors detected
+tsne core profile:
+  v2d:        16.68
+  Q_stiffness:40.34
+    D         7.02
+    (P-Q)D    17.86
+    clu       15.45
+  dY:         16.6
+  update:     0.22
+  recenter:   0.04
+  cost:       7.35
+88.69user 0.20system 1:29.47elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k
+
+
+Two threads on laptop:
+
+*** No errors detected
+tsne core profile:
+  v2d:        16.64
+  Q_stiffness:58.07
+    D         12.1
+    (P-Q)D    31.71
+    clu       14.26
+  dY:         16.16
+  update:     0.17
+  recenter:   0.07
+  cost:       6.81
+104.93user 0.44system 1:06.36elapsed 158%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+46038minor)pagefaults 0swaps
+
+Calculate cost at same time as stiffness:
+
+*** No errors detected
+tsne core profile:
+  v2d:        17.6
+  Q_stiffness:66.11
+    D         12.45
+    (P-Q)D    38.47
+    clu       15.19
+  dY:         17.3
+  update:     0.19
+  recenter:   0.04
+  cost:       0
+108.74user 0.49system 1:05.44elapsed 166%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+46037minor)pagefaults 0swaps
+
+Only one temporary array (Q and PmQxD gone):
+
+*** No errors detected
+tsne core profile:
+  v2d:        17.63
+  stiffness:50.79
+    D         12.26
+    (P-Q)D    23.23
+    clu       15.28
+  dY:         17.29
+  update:     0.13
+  recenter:   0.08
+  cost:       0.01
+93.34user 0.48system 0:58.42elapsed 160%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+33814minor)pagefaults 0swaps
