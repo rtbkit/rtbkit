@@ -96,7 +96,8 @@ struct V2D_Job {
         int d = X.shape()[1];
         
         if (d == 2) {
-            for (unsigned i = i0;  i + 4 <= i1;  i += 4) {
+            unsigned i = i0;
+            for (;  i + 4 <= i1;  i += 4) {
                 D[i + 0][i + 0] = 0.0f;
                 D[i + 1][i + 1] = 0.0f;
                 D[i + 2][i + 2] = 0.0f;
@@ -123,7 +124,7 @@ struct V2D_Job {
                     }
                 }
             }
-            for (unsigned i = i0;  i < i1;  ++i) {
+            for (;  i < i1;  ++i) {
                 D[i][i] = 0.0f;
                 
                 for (unsigned j = 0;  j < i;  ++j) {
