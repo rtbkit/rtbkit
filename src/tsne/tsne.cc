@@ -298,6 +298,59 @@ binary_search_perplexity(const distribution<float> & Di,
     return make_pair(P, beta);
 }
 
+struct Distance_To_Probabilities_Job {
+
+    boost::multi_array<float, 2> & D;
+    double tolerance;
+    double perplexity;
+    boost::multi_array<float, 2> & P;
+    distribution<float> & beta;
+    int i0;
+    int i1;
+
+    Distance_To_Probabilities_Job(boost::multi_array<float, 2> & D,
+                                  double tolerance,
+                                  double perplexity,
+                                  boost::multi_array<float, 2> & P,
+                                  distribution<float> & beta,
+                                  int i0,
+                                  int i1)
+        : D(D), tolerance(tolerance), perplexity(perplexity),
+          P(P), beta(beta), i0(i0), i1(i1)
+    {
+    }
+
+    void operator () ()
+    {
+        int n = D.shape()[0];
+
+        for (unsigned i = i0;  i < i1;  ++i) {
+            //cerr << "i = " << i << endl;
+            //if (i % 250 == 0)
+            //    cerr << "P-values for point " << i << " of " << n << endl;
+            
+            distribution<float> D_row(&D[i][0], &D[i][0] + n);
+            distribution<float> P_row;
+            boost::tie(P_row, beta[i])
+                = binary_search_perplexity(D_row, perplexity, i, tolerance);
+            
+            if (P_row.size() != n)
+                throw Exception("P_row has the wrong size");
+            if (P_row[i] != 0.0) {
+                cerr << "i = " << i << endl;
+                //cerr << "D_row = " << D_row << endl;
+                //cerr << "P_row = " << P_row << endl;
+                cerr << "P_row.total() = " << P_row.total() << endl;
+                cerr << "P_row[i] = " << P_row[i] << endl;
+                throw Exception("P_row diagonal entry was not zero");
+            }
+            
+            std::copy(P_row.begin(), P_row.end(), &P[i][0]);
+        }
+    }
+};
+
+
 /* Given a matrix of distances, convert to probabilities */
 boost::multi_array<float, 2>
 distances_to_probabilities(boost::multi_array<float, 2> & D,
@@ -309,32 +362,31 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
         throw Exception("D is not square");
 
     boost::multi_array<float, 2> P(boost::extents[n][n]);
-
     distribution<float> beta(n, 1.0);
 
-    for (unsigned i = 0;  i < n;  ++i) {
-        //cerr << "i = " << i << endl;
-        if (i % 250 == 0)
-            cerr << "P-values for point " << i << " of " << n << endl;
-        
-        distribution<float> D_row(&D[i][0], &D[i][0] + n);
-        distribution<float> P_row;
-        boost::tie(P_row, beta[i])
-            = binary_search_perplexity(D_row, perplexity, i, tolerance);
+    Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
 
-        if (P_row.size() != n)
-            throw Exception("P_row has the wrong size");
-        if (P_row[i] != 0.0) {
-            cerr << "i = " << i << endl;
-            //cerr << "D_row = " << D_row << endl;
-            //cerr << "P_row = " << P_row << endl;
-            cerr << "P_row.total() = " << P_row.total() << endl;
-            cerr << "P_row[i] = " << P_row[i] << endl;
-            throw Exception("P_row diagonal entry was not zero");
-        }
+    int group;
+    {
+        int parent = -1;  // no parent group
+        group = worker.get_group(NO_JOB, "", parent);
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
+                                     group));
         
-        std::copy(P_row.begin(), P_row.end(), &P[i][0]);
+        int chunk_size = 64;
+        
+        for (int i = 0;  i < n;  i += chunk_size) {
+            int i0 = i;
+            int i1 = min(n, i + chunk_size);
+            
+            worker.add(Distance_To_Probabilities_Job
+                       (D, tolerance, perplexity, P, beta, i0, i1),
+                       "", group);
+        }
     }
+
+    worker.run_until_finished(group);
 
     cerr << "mean sigma is " << sqrt(1.0 / beta).mean() << endl;
 
@@ -553,6 +605,61 @@ struct AtEnd {
 
 } // file scope
 
+struct Calc_D_Job {
+
+    boost::multi_array<float, 2> & D;
+    int i0;
+    int i1;
+    double * d_totals;
+
+    Calc_D_Job(boost::multi_array<float, 2> & D,
+               int i0,
+               int i1,
+               double * d_totals)
+        : D(D), i0(i0), i1(i1), d_totals(d_totals)
+    {
+    }
+
+    void operator () ()
+    {
+        for (unsigned i = i0;  i < i1;  ++i) {
+            d_totals[i] = 2.0 * calc_D_row(&D[i][0], i);
+            D[i][i] = 0.0f;
+        }
+    }
+};
+
+struct Calc_Q_Stiffness_Job {
+
+    boost::multi_array<float, 2> & Q;
+    boost::multi_array<float, 2> & PmQxD;
+    boost::multi_array<float, 2> & D;
+    const boost::multi_array<float, 2> & P;
+    float min_prob;
+    float qfactor;
+    int i0, i1;
+
+    Calc_Q_Stiffness_Job(boost::multi_array<float, 2> & Q,
+                         boost::multi_array<float, 2> & PmQxD,
+                         boost::multi_array<float, 2> & D,
+                         const boost::multi_array<float, 2> & P,
+                         float min_prob,
+                         float qfactor,
+                         int i0, int i1)
+        : Q(Q), PmQxD(PmQxD), D(D), P(P), min_prob(min_prob),
+          qfactor(qfactor), i0(i0), i1(i1)
+    {
+    }
+
+    void operator () ()
+    {
+        for (unsigned i = i0;  i < i1;  ++i) {
+            Q[i][i] = min_prob;
+            calc_Q_row(&Q[i][0], qfactor, &D[i][0], min_prob, i);
+            calc_PmQxD_row(&PmQxD[i][0], &P[i][0], &Q[i][0], &D[i][0], i);
+        }
+    }
+};
 
 void tsne_calc_Q_stiffness(boost::multi_array<float, 2> & Q,
                            boost::multi_array<float, 2> & PmQxD,
@@ -575,23 +682,59 @@ void tsne_calc_Q_stiffness(boost::multi_array<float, 2> & Q,
     if (P.shape()[0] != n || P.shape()[1] != n)
         throw Exception("P has wrong shape");
 
-    double d_total_offdiag = 0.0;
+    double d_totals[n];
 
-    for (unsigned i = 0;  i < n;  ++i) {
-        d_total_offdiag += 2.0 * calc_D_row(&D[i][0], i);
-        D[i][i] = 0.0f;
+    Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+
+    int group;
+    {
+        int parent = -1;  // no parent group
+        group = worker.get_group(NO_JOB, "", parent);
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
+                                     group));
+        
+        int chunk_size = 64;
+        
+        for (int i = n;  i > 0;  i -= chunk_size) {
+            int i0 = max(0, i - chunk_size);
+            int i1 = i;
+            
+            worker.add(Calc_D_Job(D, i0, i1, d_totals),
+                       "", group);
+        }
     }
     
+    worker.run_until_finished(group);
+
+    double d_total_offdiag = SIMD::vec_sum(d_totals, n);
+
     t_D += t.elapsed();  t.restart();
     
     // Q matrix: q_{i,j} = d_{ij} / sum_{k != l} d_{kl}
     float qfactor = 1.0 / d_total_offdiag;
-    for (unsigned i = 0;  i < n;  ++i) {
-        Q[i][i] = min_prob;
-        calc_Q_row(&Q[i][0], qfactor, &D[i][0], min_prob, i);
-        calc_PmQxD_row(&PmQxD[i][0], &P[i][0], &Q[i][0], &D[i][0], i);
+
+    {
+        int parent = -1;  // no parent group
+        group = worker.get_group(NO_JOB, "", parent);
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
+                                     group));
+        
+        int chunk_size = 64;
+        
+        for (int i = n;  i > 0;  i -= chunk_size) {
+            int i0 = max(0, i - chunk_size);
+            int i1 = i;
+            
+            worker.add(Calc_Q_Stiffness_Job(Q, PmQxD, D, P, min_prob,
+                                            qfactor, i0, i1),
+                       "", group);
+        }
     }
-    
+
+    worker.run_until_finished(group);
+
     t_PmQxD += t.elapsed();  t.restart();
     
     copy_lower_to_upper(PmQxD);
