@@ -96,11 +96,38 @@ struct V2D_Job {
         int d = X.shape()[1];
         
         if (d == 2) {
+            for (unsigned i = i0;  i + 4 <= i1;  i += 4) {
+                D[i + 0][i + 0] = 0.0f;
+                D[i + 1][i + 1] = 0.0f;
+                D[i + 2][i + 2] = 0.0f;
+                D[i + 3][i + 3] = 0.0f;
+                
+                for (unsigned j = 0;  j < i;  ++j) {
+                    for (unsigned ii = 0;  ii < 4;  ++ii) {
+                        Float XXT
+                            = (X[i + ii][0] * X[j][0])
+                            + (X[i + ii][1] * X[j][1]);
+                        Float val = sum_X[i + ii] + sum_X[j] - 2.0f * XXT;
+                        D[i + ii][j] = val;
+                    }
+                }
+                
+                // finish off the diagonal
+                for (unsigned ii = 0;  ii < 4;  ++ii) {
+                    for (unsigned j = i;  j < i + ii;  ++j) {
+                        Float XXT
+                            = (X[i + ii][0] * X[j][0])
+                            + (X[i + ii][1] * X[j][1]);
+                        Float val = sum_X[i + ii] + sum_X[j] - 2.0f * XXT;
+                        D[i + ii][j] = val;
+                    }
+                }
+            }
             for (unsigned i = i0;  i < i1;  ++i) {
                 D[i][i] = 0.0f;
                 
                 for (unsigned j = 0;  j < i;  ++j) {
-                    float XXT = (X[i][0] * X[j][0]) + (X[i][1]) * (X[j][1]);
+                    Float XXT = (X[i][0] * X[j][0]) + (X[i][1]) * (X[j][1]);
                     Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
                     D[i][j] = val;
                 }
@@ -110,7 +137,7 @@ struct V2D_Job {
             for (unsigned i = i0;  i < i1;  ++i) {
                 D[i][i] = 0.0f;
                 for (unsigned j = 0;  j < i;  ++j) {
-                    double XXT = 0.0;  // accum in double precision for accuracy
+                    float XXT = 0.0;
                     for (unsigned k = 0;  k < d;  ++k)
                         XXT += X[i][k] * X[j][k];
                     
@@ -123,7 +150,8 @@ struct V2D_Job {
             for (unsigned i = i0;  i < i1;  ++i) {
                 D[i][i] = 0.0f;
                 for (unsigned j = 0;  j < i;  ++j) {
-                    float XXT = SIMD::vec_dotprod_dp(&X[i][0], &X[j][0], d);
+                    // accum in double precision for accuracy
+                    Float XXT = SIMD::vec_dotprod_dp(&X[i][0], &X[j][0], d);
                     Float val = sum_X[i] + sum_X[j] - 2.0f * XXT;
                     D[i][j] = val;
                 }
@@ -176,11 +204,11 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
                                      boost::ref(worker),
                                      group));
         
-        int chunk_size = 50;
+        int chunk_size = 64;
         
-        for (unsigned i = 0;  i < n;  i += chunk_size) {
-            int i0 = i;
-            int i1 = min(i0 + chunk_size, n);
+        for (int i = n;  i > 0;  i -= chunk_size) {
+            int i0 = max(0, i - chunk_size);
+            int i1 = i;
             
             worker.add(V2D_Job<Float>(X, D, &sum_X[0], i0, i1),
                        "", group);
@@ -589,9 +617,9 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
         // TODO: expand inplace
 
         v4sf ffff01 = { PmQxD[i + 0][j], PmQxD[i + 0][j],
-                       PmQxD[i + 1][j], PmQxD[i + 1][j] };
+                        PmQxD[i + 1][j], PmQxD[i + 1][j] };
         v4sf ffff23 = { PmQxD[i + 2][j], PmQxD[i + 2][j],
-                       PmQxD[i + 3][j], PmQxD[i + 3][j] };
+                        PmQxD[i + 3][j], PmQxD[i + 3][j] };
 
         // TODO: load once and shuffle into position
         v4sf yjyj   = { Y[j][0], Y[j][1], Y[j][0], Y[j][1] };
@@ -654,6 +682,57 @@ calc_dY_row_2d(float * dYi, const float * PmQxDi,
     dYi[1] = total1;
 }
 
+
+struct Calc_Gradient_Job {
+    boost::multi_array<float, 2> & dY;
+    const boost::multi_array<float, 2> & Y;
+    const boost::multi_array<float, 2> & PmQxD;
+    int i0, i1;
+
+    Calc_Gradient_Job(boost::multi_array<float, 2> & dY,
+                      const boost::multi_array<float, 2> & Y,
+                      const boost::multi_array<float, 2> & PmQxD,
+                      int i0,
+                      int i1)
+        : dY(dY),
+          Y(Y),
+          PmQxD(PmQxD),
+          i0(i0),
+          i1(i1)
+    {
+    }
+    
+    void operator () ()
+    {
+        int n = Y.shape()[0];
+        int d = Y.shape()[1];
+
+        if (d == 2) {
+            unsigned i = i0;
+        
+            for (;  i + 4 <= i1;  i += 4)
+                calc_dY_rows_2d(dY, PmQxD, Y, i, n);
+            
+            for (; i < i1;  ++i1)
+                calc_dY_row_2d(&dY[i][0], &PmQxD[i][0], Y, i, n);
+        }
+        else {
+            // TODO: optimize better than this...
+            std::fill(dY.data(), dY.data() + dY.num_elements(), 0.0f);
+            
+            for (unsigned i = 0;  i < n;  ++i) {
+                for (unsigned j = 0;  j < n;  ++j) {
+                    if (i == j) continue;
+                    float factor = 4.0f * PmQxD[i][j];
+                    for (unsigned k = 0;  k < d;  ++k)
+                        dY[j][k] += factor * (Y[j][k] - Y[i][k]);
+                }
+            }
+        }
+    }
+};
+
+
 void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
                         const boost::multi_array<float, 2> & Y,
                         const boost::multi_array<float, 2> & PmQxD)
@@ -672,28 +751,28 @@ void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
     if (PmQxD.shape()[0] != n || PmQxD.shape()[1] != n)
         throw Exception("PmQxD matrix has wrong shape");
 
-    if (d == 2) {
-        unsigned i = 0;
+    Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+
+    int group;
+    {
+        int parent = -1;  // no parent group
+        group = worker.get_group(NO_JOB, "", parent);
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
+                                     group));
         
-        for (;  i + 4 <= n;  i += 4)
-            calc_dY_rows_2d(dY, PmQxD, Y, i, n);
+        int chunk_size = 64;
         
-        for (; i < n;  ++i)
-            calc_dY_row_2d(&dY[i][0], &PmQxD[i][0], Y, i, n);
-    }
-    else {
-        // TODO: optimize better than this...
-        std::fill(dY.data(), dY.data() + dY.num_elements(), 0.0f);
-        
-        for (unsigned j = 0;  j < n;  ++j) {
-            for (unsigned i = 0;  i < n;  ++i) {
-                if (i == j) continue;
-                float factor = 4.0f * PmQxD[j][i];
-                for (unsigned k = 0;  k < d;  ++k)
-                    dY[i][k] += factor * (Y[i][k] - Y[j][k]);
-            }
+        for (unsigned i = 0;  i < n;  i += chunk_size) {
+            int i0 = i;
+            int i1 = min(i0 + chunk_size, n);
+            
+            worker.add(Calc_Gradient_Job(dY, Y, PmQxD, i0, i1),
+                       "", group);
         }
     }
+    
+    worker.run_until_finished(group);
 }
 
 void tsne_update(boost::multi_array<float, 2> & Y,
