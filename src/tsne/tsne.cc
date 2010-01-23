@@ -456,7 +456,13 @@ double calc_D_row(float * Di, int n)
         
         v4sf one = vec_splat(1.0f);
 
+        __builtin_prefetch(Di + i + 0, 1, 3);
+        __builtin_prefetch(Di + i + 16, 1, 3);
+        __builtin_prefetch(Di + i + 32, 1, 3);
+
         for (; i + 16 <= n;  i += 16) {
+            __builtin_prefetch(Di + i + 48, 1, 3);
+
             v4sf xxxx0 = __builtin_ia32_loadups(Di + i + 0);
             v4sf xxxx1 = __builtin_ia32_loadups(Di + i + 4);
             xxxx0      = xxxx0 + one;
@@ -630,7 +636,7 @@ struct Calc_D_Job {
     }
 };
 
-struct Calc_Q_Stiffness_Job {
+struct Calc_Q_Stiffness_Cost_Job {
 
     boost::multi_array<float, 2> & Q;
     boost::multi_array<float, 2> & PmQxD;
@@ -638,17 +644,19 @@ struct Calc_Q_Stiffness_Job {
     const boost::multi_array<float, 2> & P;
     float min_prob;
     float qfactor;
+    double * costs;
     int i0, i1;
 
-    Calc_Q_Stiffness_Job(boost::multi_array<float, 2> & Q,
-                         boost::multi_array<float, 2> & PmQxD,
-                         boost::multi_array<float, 2> & D,
-                         const boost::multi_array<float, 2> & P,
-                         float min_prob,
-                         float qfactor,
-                         int i0, int i1)
+    Calc_Q_Stiffness_Cost_Job(boost::multi_array<float, 2> & Q,
+                              boost::multi_array<float, 2> & PmQxD,
+                              boost::multi_array<float, 2> & D,
+                              const boost::multi_array<float, 2> & P,
+                              float min_prob,
+                              float qfactor,
+                              double * costs,
+                              int i0, int i1)
         : Q(Q), PmQxD(PmQxD), D(D), P(P), min_prob(min_prob),
-          qfactor(qfactor), i0(i0), i1(i1)
+          qfactor(qfactor), costs(costs), i0(i0), i1(i1)
     {
     }
 
@@ -657,16 +665,18 @@ struct Calc_Q_Stiffness_Job {
         for (unsigned i = i0;  i < i1;  ++i) {
             Q[i][i] = min_prob;
             calc_Q_row(&Q[i][0], qfactor, &D[i][0], min_prob, i);
+            if (costs) costs[i] = 2.0 * kl(&P[i][0], &Q[i][0], i);
             calc_PmQxD_row(&PmQxD[i][0], &P[i][0], &Q[i][0], &D[i][0], i);
         }
     }
 };
 
-void tsne_calc_Q_stiffness(boost::multi_array<float, 2> & Q,
-                           boost::multi_array<float, 2> & PmQxD,
-                           boost::multi_array<float, 2> & D,
-                           const boost::multi_array<float, 2> & P,
-                           float min_prob)
+double tsne_calc_Q_stiffness(boost::multi_array<float, 2> & Q,
+                             boost::multi_array<float, 2> & PmQxD,
+                             boost::multi_array<float, 2> & D,
+                             const boost::multi_array<float, 2> & P,
+                             float min_prob,
+                             bool calc_cost)
 {
     boost::timer t;
 
@@ -712,6 +722,9 @@ void tsne_calc_Q_stiffness(boost::multi_array<float, 2> & Q,
 
     t_D += t.elapsed();  t.restart();
     
+    // Cost accumulated for each row
+    double row_costs[n];
+
     // Q matrix: q_{i,j} = d_{ij} / sum_{k != l} d_{kl}
     float qfactor = 1.0 / d_total_offdiag;
 
@@ -728,19 +741,25 @@ void tsne_calc_Q_stiffness(boost::multi_array<float, 2> & Q,
             int i0 = max(0, i - chunk_size);
             int i1 = i;
             
-            worker.add(Calc_Q_Stiffness_Job(Q, PmQxD, D, P, min_prob,
-                                            qfactor, i0, i1),
+            worker.add(Calc_Q_Stiffness_Cost_Job
+                       (Q, PmQxD, D, P, min_prob, qfactor,
+                        (calc_cost ? row_costs : (double *)0), i0, i1),
                        "", group);
         }
     }
 
     worker.run_until_finished(group);
 
+    double cost = 0.0;
+    if (calc_cost) cost = SIMD::vec_sum(row_costs, n);
+
     t_PmQxD += t.elapsed();  t.restart();
     
     copy_lower_to_upper(PmQxD);
     
     t_clu += t.elapsed();  t.restart();
+
+    return cost;
 }
 
 inline void
@@ -1016,7 +1035,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
     Timer timer;
 
-    // Pseudo-distance array for reduced space
+    // Pseudo-distance array for reduced space.  Q = D * qfactor
     boost::multi_array<float, 2> D(boost::extents[n][n]);
 
     // Probabilitiy density array
@@ -1052,8 +1071,12 @@ tsne(const boost::multi_array<float, 2> & probs,
         vectors_to_distances(Y, D, false /* fill_upper */);
 
         t_v2d += t.elapsed();  t.restart();
+        
+        // Do we calculate the cost?
+        bool calc_cost = (iter + 1) % 20 == 0 || iter == params.max_iter - 1;
 
-        tsne_calc_Q_stiffness(Q, PmQxD, D, P, params.min_prob);
+        double cost = tsne_calc_Q_stiffness(Q, PmQxD, D, P, params.min_prob,
+                                            calc_cost);
 
         t_Q_stiffness += t.elapsed();  t.restart();
 
@@ -1093,10 +1116,6 @@ tsne(const boost::multi_array<float, 2> & probs,
         // Calculate cost
 
         if ((iter + 1) % 20 == 0 || iter == params.max_iter - 1) {
-            double cost = 0.0;
-            for (unsigned i = 0;  i < n;  ++i) {
-                cost += 2.0 * kl(&P[i][0], &Q[i][0], i);
-            }
             cerr << "iteration " << (iter + 1)
                  << " cost = " << cost << " elapsed "
                  << timer.elapsed() << endl;
