@@ -433,15 +433,6 @@ pca(boost::multi_array<float, 2> & coords, int num_dims)
     return result;
 }
 
-double
-kl(const float * p, const float * q, size_t n)
-{
-    double result = 0.0;
-    for (unsigned i = 0;  i < n;  ++i)
-        result += p[i] * logf(p[i] / q[i]);
-    return result;
-}
-
 double calc_D_row(float * Di, int n)
 {
     unsigned i = 0;
@@ -520,75 +511,6 @@ double calc_D_row(float * Di, int n)
     return total;
 }
 
-void calc_Q_row(float * Qi, float qfactor, const float * Di, float minval,
-                int n)
-{
-    unsigned i = 0;
-
-    if (false) ;
-    else if (n >= 8) {
-        using namespace SIMD;
-
-        v4sf mmmm = vec_splat(minval);
-        v4sf ffff = vec_splat(qfactor);
-
-        for (; i + 16 <= n;  i += 16) {
-            v4sf qqqq0 = __builtin_ia32_loadups(Di + i + 0);
-            qqqq0      = qqqq0 * ffff;
-            qqqq0      = __builtin_ia32_maxps(qqqq0, mmmm);
-            __builtin_ia32_storeups(Qi + i + 0, qqqq0);
-
-            v4sf qqqq1 = __builtin_ia32_loadups(Di + i + 4);
-            qqqq1      = qqqq1 * ffff;
-            qqqq1      = __builtin_ia32_maxps(qqqq1, mmmm);
-            __builtin_ia32_storeups(Qi + i + 4, qqqq1);
-
-            v4sf qqqq2 = __builtin_ia32_loadups(Di + i + 8);
-            qqqq2      = qqqq2 * ffff;
-            qqqq2      = __builtin_ia32_maxps(qqqq2, mmmm);
-            __builtin_ia32_storeups(Qi + i + 8, qqqq2);
-
-            v4sf qqqq3 = __builtin_ia32_loadups(Di + i + 12);
-            qqqq3      = qqqq3 * ffff;
-            qqqq3      = __builtin_ia32_maxps(qqqq3, mmmm);
-            __builtin_ia32_storeups(Qi + i + 12, qqqq3);
-        }
-
-        for (; i + 4 <= n;  i += 4) {
-            v4sf qqqq0 = __builtin_ia32_loadups(Di + i + 0);
-            qqqq0      = qqqq0 * ffff;
-            qqqq0      = __builtin_ia32_maxps(qqqq0, mmmm);
-            __builtin_ia32_storeups(Qi + i + 0, qqqq0);
-        }
-    }
-
-    for (; i < n;  ++i)
-        Qi[i] = std::max(1e-12f, Di[i] * qfactor);
-}
-
-JML_ALWAYS_INLINE
-void calc_PmQxD_row(float * PmQxDi, const float * Pi, const float * Qi,
-                    const float * Di, int n)
-{
-    unsigned i = 0;
-
-    if (false) ;
-    else if (n >= 8) {
-        using namespace SIMD;
-
-        for (; i + 4 <= n;  i += 4) {
-            v4sf pppp0 = __builtin_ia32_loadups(Pi + i + 0);
-            v4sf qqqq0 = __builtin_ia32_loadups(Qi + i + 0);
-            v4sf dddd0 = __builtin_ia32_loadups(Di + i + 0);
-            v4sf rrrr0 = (pppp0 - qqqq0) * dddd0;
-            __builtin_ia32_storeups(PmQxDi + i + 0, rrrr0);
-        }
-    }
-
-    for (; i < n;  ++i)
-        PmQxDi[i] = (Pi[i] - Qi[i]) * Di[i];
-}
-
 namespace {
 
 double t_v2d = 0.0, t_D = 0.0, t_dY = 0.0, t_update = 0.0;
@@ -636,13 +558,64 @@ struct Calc_D_Job {
     }
 };
 
+SIMD::v4sf sse2_logf(SIMD::v4sf val)
+{
+    using namespace SIMD;
+    float f[4];
+    *(v4sf *)f = val;
+
+    f[0] = logf(f[0]);
+    f[1] = logf(f[1]);
+    f[2] = logf(f[2]);
+    f[3] = logf(f[3]);
+
+    return *(v4sf *)f;
+}
 
 double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
                           float min_prob, int n, bool calc_costs)
 {
     double cost = 0.0;
 
-    for (unsigned i = 0;  i < n;  ++i) {
+    unsigned i = 0;
+
+    if (false) ;
+    else if (true) {
+        using namespace SIMD;
+
+        v4sf mmmm = vec_splat(min_prob);
+        v4sf ffff = vec_splat(qfactor);
+
+        v2df total = vec_splat(0.0);
+
+        for (; i + 4 <= n;  i += 4) {
+
+            v4sf dddd0 = __builtin_ia32_loadups(Di + i + 0);
+            v4sf pppp0 = __builtin_ia32_loadups(Pi + i + 0);
+            v4sf qqqq0 = __builtin_ia32_maxps(mmmm, dddd0 * ffff);
+            v4sf ssss0 = (pppp0 - qqqq0) * dddd0;
+            __builtin_ia32_storeups(Di + i + 0, ssss0);
+            if (JML_LIKELY(!calc_costs)) continue;
+
+            v4sf pqpq0  = pppp0 / qqqq0;
+            v4sf lpq0   = sse2_logf(pqpq0);
+            v4sf cccc0  = pppp0 * lpq0;
+            cccc0 = cccc0 + cccc0;
+
+            v2df cc0a, cc0b;
+            vec_f2d(cccc0, cc0a, cc0b);
+
+            total   = total + cc0a;
+            total   = total + cc0b;
+        }
+
+        double results[2];
+        *(v2df *)results = total;
+        
+        cost = results[0] + results[1];
+    }
+
+    for (;  i < n;  ++i) {
         float d = Di[i];
         float p = Pi[i];
         float q = std::max(min_prob, d * qfactor);
