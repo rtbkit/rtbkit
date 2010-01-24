@@ -88,6 +88,37 @@ inline std::ostream & operator << (std::ostream & stream, const v2di & val)
 }
 
 
+inline void unpack(v2df val, double * where)
+{
+    (*(v2df *)where) = val;
+}
+
+inline v2df pack(double * where)
+{
+    return *(v2df *)where;
+}
+
+inline void unpack(v4sf val, float * where)
+{
+    (*(v4sf *)where) = val;
+}
+
+inline v4sf pack(float * where)
+{
+    return *(v4sf *)where;
+}
+
+inline void unpack(v4si val, int * where)
+{
+    (*(v4si *)where) = val;
+}
+
+inline v4si pack(int * where)
+{
+    return *(v4si *)where;
+}
+
+
 } // namespace SIMD
 } // namespace ML
 
