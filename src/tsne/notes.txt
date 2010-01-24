@@ -178,7 +178,7 @@ Only one temporary array (Q and PmQxD gone):
 *** No errors detected
 tsne core profile:
   v2d:        17.63
-  stiffness:50.79
+  stiffness:  50.79
     D         12.26
     (P-Q)D    23.23
     clu       15.28
@@ -188,3 +188,19 @@ tsne core profile:
   cost:       0.01
 93.34user 0.48system 0:58.42elapsed 160%CPU (0avgtext+0avgdata 0maxresident)k
 0inputs+0outputs (0major+33814minor)pagefaults 0swaps
+
+Log using sse:
+
+*** No errors detected
+tsne core profile:
+  v2d:        14.59
+  stiffness:  43.85
+    D         12.43
+    (P-Q)D    17.39
+    clu       14.03
+  dY:         16.38
+  update:     0.16
+  recenter:   0.09
+  cost:       0
+82.19user 0.35system 0:50.23elapsed 164%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+33828minor)pagefaults 0swaps

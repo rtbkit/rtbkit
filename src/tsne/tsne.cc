@@ -21,6 +21,7 @@
 #include <boost/timer.hpp>
 #include "arch/timers.h"
 #include "arch/sse2.h"
+#include "arch/sse2_log.h"
 #include "arch/cache.h"
 #include "utils/guard.h"
 #include <boost/bind.hpp>
@@ -558,20 +559,6 @@ struct Calc_D_Job {
     }
 };
 
-SIMD::v4sf sse2_logf(SIMD::v4sf val)
-{
-    using namespace SIMD;
-    float f[4];
-    *(v4sf *)f = val;
-
-    f[0] = logf(f[0]);
-    f[1] = logf(f[1]);
-    f[2] = logf(f[2]);
-    f[3] = logf(f[3]);
-
-    return *(v4sf *)f;
-}
-
 double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
                           float min_prob, int n, bool calc_costs)
 {
@@ -598,7 +585,7 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
             if (JML_LIKELY(!calc_costs)) continue;
 
             v4sf pqpq0  = pppp0 / qqqq0;
-            v4sf lpq0   = sse2_logf(pqpq0);
+            v4sf lpq0   = sse2_logf_unsafe(pqpq0);
             v4sf cccc0  = pppp0 * lpq0;
             cccc0 = cccc0 + cccc0;
 
