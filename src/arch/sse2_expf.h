@@ -209,7 +209,7 @@ inline v4sf sse2_expf_unsafe(v4sf x)
     return y;
 }
 
-inline int out_of_range_mask(v4sf input, v4sf min_val, v4sf max_val)
+inline int out_of_range_mask_cc(v4sf input, v4sf min_val, v4sf max_val)
 {
     v4sf mask_too_low  = (v4sf)__builtin_ia32_cmpltps(input, min_val);
     v4sf mask_too_high = (v4sf)__builtin_ia32_cmpgtps(input, max_val);
@@ -218,13 +218,32 @@ inline int out_of_range_mask(v4sf input, v4sf min_val, v4sf max_val)
                                                        mask_too_high));
 }
 
-inline int out_of_range_mask(v4sf input, float min_val, float max_val)
+inline int out_of_range_mask_cc(v4sf input, float min_val, float max_val)
 {
-    v4sf mask_too_low  = (v4sf)__builtin_ia32_cmpltps(input, vec_splat(min_val));
-    v4sf mask_too_high = (v4sf)__builtin_ia32_cmpgtps(input, vec_splat(max_val));
+    return out_of_range_mask_cc(input, vec_splat(min_val), vec_splat(max_val));
+}
 
-    return __builtin_ia32_movmskps(__builtin_ia32_orps(mask_too_low,
-                                                       mask_too_high));
+inline int out_of_range_mask_oo(v4sf input, v4sf min_val, v4sf max_val)
+{
+    v4sf mask_too_low  = (v4sf)__builtin_ia32_cmpleps(input, min_val);
+    v4sf mask_too_high = (v4sf)__builtin_ia32_cmpgeps(input, max_val);
+
+    v4sf mask_or = __builtin_ia32_orps(mask_too_low, mask_too_high);
+
+    int result = __builtin_ia32_movmskps(mask_or);
+
+    using namespace std;
+    cerr << "input = " << input << " min_val = " << min_val
+         << " max_val = " << max_val << " too_low = "
+         << mask_too_low << " too_high = " << mask_too_high
+         << " mask_or " << mask_or << " result " << result << endl;
+
+    return result;
+}
+
+inline int out_of_range_mask_oo(v4sf input, float min_val, float max_val)
+{
+    return out_of_range_mask_oo(input, vec_splat(min_val), vec_splat(max_val));
 }
 
 inline void unpack(v4sf val, float * where)
@@ -252,7 +271,7 @@ inline v4sf sse2_expf(v4sf x)
     int mask = 0;
 
     // For out of range results, we have to use the other values
-    if (JML_UNLIKELY(mask = out_of_range_mask(x, MINLOGF, MAXLOGF))) {
+    if (JML_UNLIKELY(mask = out_of_range_mask_cc(x, MINLOGF, MAXLOGF))) {
         using namespace std;
         //cerr << "mask = " << mask << " x = " << x << endl;
 
@@ -436,7 +455,7 @@ inline v2df sse2_floor(v2df x)
     return pass_nan_inf_zero(x, sse2_floor_unsafe(x));
 }
 
-inline int out_of_range_mask(v2df input, v2df min_val, v2df max_val)
+inline int out_of_range_mask_cc(v2df input, v2df min_val, v2df max_val)
 {
     v2df mask_too_low  = (v2df)__builtin_ia32_cmpltpd(input, min_val);
     v2df mask_too_high = (v2df)__builtin_ia32_cmpgtpd(input, max_val);
@@ -445,9 +464,23 @@ inline int out_of_range_mask(v2df input, v2df min_val, v2df max_val)
                                                        mask_too_high));
 }
 
-inline int out_of_range_mask(v2df input, double min_val, double max_val)
+inline int out_of_range_mask_cc(v2df input, double min_val, double max_val)
 {
-    return out_of_range_mask(input, vec_splat(min_val), vec_splat(max_val));
+    return out_of_range_mask_cc(input, vec_splat(min_val), vec_splat(max_val));
+}
+
+inline int out_of_range_mask_oo(v2df input, v2df min_val, v2df max_val)
+{
+    v2df mask_too_low  = (v2df)__builtin_ia32_cmplepd(input, min_val);
+    v2df mask_too_high = (v2df)__builtin_ia32_cmpgepd(input, max_val);
+
+    return __builtin_ia32_movmskpd(__builtin_ia32_orpd(mask_too_low,
+                                                       mask_too_high));
+}
+
+inline int out_of_range_mask_oo(v2df input, double min_val, double max_val)
+{
+    return out_of_range_mask_oo(input, vec_splat(min_val), vec_splat(max_val));
 }
 
 /*							exp.c
@@ -544,7 +577,7 @@ inline v2df sse2_exp(v2df x)
     int mask = 0;
 
     // For out of range results, we have to use the other values
-    if (JML_UNLIKELY(mask = out_of_range_mask(x, MINLOG, MAXLOG))) {
+    if (JML_UNLIKELY(mask = out_of_range_mask_cc(x, MINLOG, MAXLOG))) {
         //using namespace std;
         //cerr << "mask = " << mask << " x = " << x << endl;
 
