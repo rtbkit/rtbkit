@@ -204,3 +204,85 @@ tsne core profile:
   cost:       0
 82.19user 0.35system 0:50.23elapsed 164%CPU (0avgtext+0avgdata 0maxresident)k
 0inputs+0outputs (0major+33828minor)pagefaults 0swaps
+
+Before all improvements (desktop):
+
+*** No errors detected
+tsne core profile:
+  v2d:        26.46
+  Q_stiffness:19.06
+    D         4.38
+    (P-Q)D    7.62
+    clu       7.06
+  dY:         11.96
+  update:     0.17
+  recenter:   0.08
+  cost:       5.2
+68.04user 0.28system 0:43.96elapsed 155%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+46044minor)pagefaults 0swaps
+
+
+After all improvements (desktop, 8 threads):
+
+*** No errors detected
+tsne core profile:
+  v2d:        20.68
+  stiffness:  35.61
+    D         9.84
+    (P-Q)D    18.92
+    clu       6.85
+  dY:         21.28
+  update:     0.16
+  recenter:   0.05
+  cost:       0.01
+83.56user 0.78system 0:18.43elapsed 457%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+38709minor)pagefaults 0swaps
+
+
+After all improvements (desktop, 4 threads):
+
+*** No errors detected
+tsne core profile:
+  v2d:        10.89
+  stiffness:  23.09
+    D         5.86
+    (P-Q)D    10.38
+    clu       6.85
+  dY:         11.53
+  update:     0.1
+  recenter:   0.01
+  cost:       0
+49.84user 0.32system 0:18.33elapsed 273%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+36517minor)pagefaults 0swaps
+
+After all improvements (desktop, 2 threads):
+
+*** No errors detected
+tsne core profile:
+  v2d:        11.14
+  stiffness:  17.86
+    D         4.58
+    (P-Q)D    6.47
+    clu       6.79
+  dY:         11.4
+  update:     0.08
+  recenter:   0.06
+  cost:       0
+44.88user 0.22system 0:26.48elapsed 170%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+33813minor)pagefaults 0swaps
+
+After all improvements (desktop, 1 thread):
+
+*** No errors detected
+tsne core profile:
+  v2d:        10.99
+  stiffness:  16.32
+    D         4.35
+    (P-Q)D    5.22
+    clu       6.74
+  dY:         11.13
+  update:     0.16
+  recenter:   0.05
+  cost:       0
+43.05user 0.15system 0:43.24elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+33772minor)pagefaults 0swaps
