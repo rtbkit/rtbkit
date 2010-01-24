@@ -9,6 +9,7 @@
 #define __jml__arch__sse2_misc_h__
 
 #include "sse2.h"
+#include <cmath>
 
 namespace ML {
 namespace SIMD {

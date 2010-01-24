@@ -8,8 +8,13 @@
 #ifndef __jml__arch__sse2_log_h__
 #define __jml__arch__sse2_log_h__
 
-namespace ML {
+#include "sse2.h"
+#include "sse2_poly.h"
+#include "sse2_math.h"
+#include "sse2_misc.h"
 
+namespace ML {
+namespace SIMD {
 
 /*****************************************************************************/
 /* SINGLE PRECISION LOG                                                      */
@@ -71,8 +76,7 @@ Direct inquiries to 30 Frost Street, Cambridge, MA 02140
  * rms relative error: 2.7e-8
  */
 
-float MINLOGF = -103.278929903431851103f; /* log(2^-149) */
-float SQRTHF = 0.707106781186547524f;
+static const float SQRTHF = 0.707106781186547524f;
 
 // Doesn't handle NaN, exp, inf, zeros or negative numbers
 
@@ -156,6 +160,7 @@ v2df sse2_log(v2df val)
     return *(v2df *)f;
 }
 
+} // namespace SIMD
 } // namespace ML
 
 #endif /* __jml__arch__sse2_log_h__ */

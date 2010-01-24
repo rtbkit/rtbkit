@@ -9,6 +9,7 @@
 #define __jml__arch__sse2_poly_h__
 
 namespace ML {
+namespace SIMD {
 
 inline v4sf polevl( v4sf x, float * coef, int N )
 {
@@ -72,6 +73,7 @@ inline double polevl( double x, double * coef, int N )
 }
 
 
+} // namespace SIMD
 } // namespace ML
 
 #endif /* __jml__arch__sse2_poly_h__ */

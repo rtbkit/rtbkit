@@ -177,6 +177,8 @@ inline double vec_twonorm_sqr_dp(const double * x, size_t n)
     return vec_twonorm_sqr(x, n);
 }
 
+// KL divergence: kl = sum(p * log(p / q))
+double vec_kl(const float * p, const float * q, size_t n);
 
 } // namespace Generic
 

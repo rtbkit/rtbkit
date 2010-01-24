@@ -34,6 +34,9 @@
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #include "sse2.h"
+#include "sse2_math.h"
+#include "sse2_misc.h"
+#include "sse2_poly.h"
 #include <cmath>
 
 namespace ML {

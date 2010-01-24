@@ -8,7 +8,8 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "arch/sse2_expf.h"
+#include "arch/sse2_exp.h"
+#include "arch/sse2_log.h"
 #include "arch/demangle.h"
 #include "utils/vector_utils.h"
 

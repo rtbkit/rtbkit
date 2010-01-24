@@ -22,11 +22,12 @@
 
 #include "exception.h"
 #include "simd_vector.h"
-#include "sse2_expf.h"
 #include "compiler/compiler.h"
 #include <iostream>
 #include <cmath>
 #include "sse2.h"
+#include "sse2_exp.h"
+#include "sse2_log.h"
 
 using namespace std;
 
@@ -1559,6 +1560,40 @@ double vec_twonorm_sqr(const double * x, size_t n)
     float result = 0.0;
     for (; i < n;  ++i) result += x[i] * x[i];
     return result;
+}
+
+double vec_kl(const float * p, const float * q, size_t n)
+{
+    unsigned i = 0;
+
+    double total = 0.0;
+
+    if (true) {
+        v2df ttotal = vec_splat(0.0);
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf pppp0 = __builtin_ia32_loadups(p + i + 0);
+            v4sf qqqq0 = __builtin_ia32_loadups(q + i + 0);
+                 qqqq0 = pppp0 / qqqq0;
+                 qqqq0 = sse2_logf(qqqq0);
+            v4sf klkl0 = qqqq0 * pppp0;
+
+            v2df kl0a, kl0b;
+            vec_f2d(klkl0, kl0a, kl0b);
+
+            ttotal += kl0a;
+            ttotal += kl0b;
+        }
+
+        double results[2];
+        *(v2df *)results = ttotal;
+        
+        total = results[0] + results[1];
+    }
+
+    for (; i < n;  ++i) total += p[i] * logf(p[i] / q[i]);
+
+    return total;
 }
 
 } // namespace Generic

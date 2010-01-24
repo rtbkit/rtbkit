@@ -8,8 +8,11 @@
 #ifndef __jml__arch__sse2_math_h__
 #define __jml__arch__sse2_math_h__
 
-namespace ML {
+#include "sse2.h"
+#include "sse2_misc.h"
 
+namespace ML {
+namespace SIMD {
 
 inline v4sf pow2f_unsafe(v4si n)
 {
@@ -157,6 +160,7 @@ inline v4sf sse2_trunc(v4sf x)
 }
 
 
+} // namespace SIMD
 } // namespace ML
 
 #endif /* __jml__arch__sse2_math_h__ */
