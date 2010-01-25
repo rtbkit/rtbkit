@@ -836,7 +836,16 @@ struct Calc_Gradient_Job {
         int n = Y.shape()[0];
         int d = Y.shape()[1];
 
-        if (true) {
+        if (d == 2) {
+            unsigned i = i0;
+            
+            for (;  i + 4 <= i1;  i += 4)
+                calc_dY_rows_2d(dY, PmQxD, Y, i, n);
+            
+            for (; i < i1;  ++i1)
+                calc_dY_row_2d(&dY[i][0], &PmQxD[i][0], Y, i, n);
+        }
+        else {
             for (unsigned i = i0;  i < i1;  ++i) {
                 for (unsigned k = 0;  k < d;  ++k) {
                     float Yik = Y[i][k];
@@ -847,28 +856,6 @@ struct Calc_Gradient_Job {
                         total += factor * (Yik - Yjk);
                     }
                     dY[i][k] = total;
-                }
-            }
-        }
-        else if (d == 2) {
-            unsigned i = i0;
-        
-            for (;  i + 4 <= i1;  i += 4)
-                calc_dY_rows_2d(dY, PmQxD, Y, i, n);
-            
-            for (; i < i1;  ++i1)
-                calc_dY_row_2d(&dY[i][0], &PmQxD[i][0], Y, i, n);
-        }
-        else {
-            // TODO: optimize better than this...
-            std::fill(dY.data(), dY.data() + dY.num_elements(), 0.0f);
-            
-            for (unsigned i = 0;  i < n;  ++i) {
-                for (unsigned j = 0;  j < n;  ++j) {
-                    if (i == j) continue;
-                    float factor = 4.0f * PmQxD[i][j];
-                    for (unsigned k = 0;  k < d;  ++k)
-                        dY[j][k] += factor * (Y[j][k] - Y[i][k]);
                 }
             }
         }
@@ -975,7 +962,8 @@ void recenter_about_origin(boost::multi_array<Float, 2> & Y)
 boost::multi_array<float, 2>
 tsne(const boost::multi_array<float, 2> & probs,
      int num_dims,
-     const TSNE_Params & params)
+     const TSNE_Params & params,
+     const TSNE_Callback & callback)
 {
     int n = probs.shape()[0];
     if (n != probs.shape()[1])
@@ -1034,7 +1022,9 @@ tsne(const boost::multi_array<float, 2> & probs,
     boost::multi_array<float, 2> gains(boost::extents[n][d]);
     std::fill(gains.data(), gains.data() + gains.num_elements(), 1.0f);
 
-
+    if (callback
+        && !callback(-1, INFINITY, "init")) return Y;
+    
     for (int iter = 0;  iter < params.max_iter;  ++iter) {
 
         boost::timer t;
@@ -1052,6 +1042,9 @@ tsne(const boost::multi_array<float, 2> & probs,
 
         t_v2d += t.elapsed();  t.restart();
         
+        if (callback
+            && !callback(iter, INFINITY, "v2d")) return Y;
+
         // Do we calculate the cost?
         bool calc_cost = (iter + 1) % 20 == 0 || iter == params.max_iter - 1;
 

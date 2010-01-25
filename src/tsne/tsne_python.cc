@@ -14,6 +14,8 @@
 #include "arch/demangle.h"
 #include <cxxabi.h>
 #include <typeinfo>
+#include <boost/bind.hpp>
+
 
 using namespace std;
 using namespace ML;
@@ -62,12 +64,24 @@ struct PyRef {
     }
 };
 
+struct Interrupt_Exception : public Exception {
+    Interrupt_Exception()
+        : Exception("Keyboard Interrupt")
+    {
+    }
+};
+
 typedef PyRef<PyObject> PyObjectRef;
 typedef PyRef<PyArrayObject> PyArrayRef;
 
 PyObject * to_python_exception(const std::type_info * exc_type,
                                const char * what = 0)
 {
+    if (*exc_type == typeid(Interrupt_Exception)) {
+        PyErr_SetString(PyExc_KeyboardInterrupt, "JML processing interrupted");
+        return NULL;
+    }
+
     std::string message;
     if (what)
         message = format("JML Exception of type %s caught: %s",
@@ -103,9 +117,17 @@ enum BlockOp {
     BLOCK
 };
 
+volatile int num_signals_received = 0;
+
+void handle_sigint(int action)
+{
+    PyErr_SetInterrupt();
+    ++num_signals_received;
+}
+
 struct PyThreads {
     PyThreads(BlockOp op = UNBLOCK)
-        : _save(0)
+        : _save(0), old_sigint(0)
     {
         if (op == UNBLOCK)
             unblock();
@@ -118,6 +140,8 @@ struct PyThreads {
     }
 
     PyThreadState *_save;
+    PyOS_sighandler_t old_sigint;
+    int signals_before;
 
     void unblock()
     {
@@ -126,7 +150,9 @@ struct PyThreads {
                  << endl;
             abort();
         }
-            
+        
+        old_sigint = PyOS_setsig(SIGINT, handle_sigint);
+        signals_before = num_signals_received;
         Py_UNBLOCK_THREADS;
     }
 
@@ -139,8 +165,13 @@ struct PyThreads {
         }
             
         Py_BLOCK_THREADS;
+        PyOS_setsig(SIGINT, old_sigint);
     }
 
+    bool interrupted()
+    {
+        return num_signals_received > signals_before;
+    }
 };
 
 static PyObject *
@@ -280,6 +311,11 @@ tsne_distances_to_probabilities(PyObject *self, PyObject *args)
     return result_array.release<PyObject>();
 }
 
+bool tsne_callback(int signals_before, int, float, const char *)
+{
+    return signals_before == num_signals_received;
+}
+
 static PyObject *
 tsne_tsne(PyObject *self, PyObject *args, PyObject * kwds)
 {
@@ -344,20 +380,26 @@ tsne_tsne(PyObject *self, PyObject *args, PyObject * kwds)
         input_as_float32.release();
 
         boost::multi_array<float, 2> result
-            = tsne(array, num_dims, params);
+            = tsne(array, num_dims, params,
+                   boost::bind(tsne_callback,
+                               threads.signals_before,
+                               _1, _2, _3));
         
+        if (threads.interrupted())
+            throw Interrupt_Exception();
+
         if (result.shape()[0] != n || result.shape()[1] != num_dims)
             throw Exception("wrong shapes");
-
+        
         float * data_out = (float *)PyArray_DATA(result_array);
-
+        
         std::copy(result.data(), result.data() + n * num_dims, data_out);
     } catch (const std::exception & exc) {
         return to_python_exception(exc);
     } catch (...) {
         return to_python_exception();
     }
-    
+
     return result_array.release<PyObject>();
 }
 

@@ -17,7 +17,7 @@
 
 #include "stats/distribution.h"
 #include <boost/multi_array.hpp>
-
+#include <boost/function.hpp>
 
 namespace ML {
 
@@ -112,10 +112,22 @@ struct TSNE_Params {
     double min_prob;
 };
 
+// Function that will be used as a callback to provide progress to a calling
+// process.  Arguments are:
+// - int: iteration number
+// - float: cost when last measured
+// - const char *: phase name (of this iteration)
+// - TSNE_Params &: parameters (may be modified)
+// The return should be true to keep going, or false to stop (the most recent
+// Y will then be returned).
+typedef boost::function<bool (int, float, const char *)>
+TSNE_Callback;
+
 boost::multi_array<float, 2>
 tsne(const boost::multi_array<float, 2> & probs,
      int num_dims = 2,
-     const TSNE_Params & params = TSNE_Params());
+     const TSNE_Params & params = TSNE_Params(),
+     const TSNE_Callback & callback = TSNE_Callback());
 
 
 } // namespace ML
