@@ -842,7 +842,7 @@ struct Calc_Gradient_Job {
             for (;  i + 4 <= i1;  i += 4)
                 calc_dY_rows_2d(dY, PmQxD, Y, i, n);
             
-            for (; i < i1;  ++i1)
+            for (; i < i1;  ++i)
                 calc_dY_row_2d(&dY[i][0], &PmQxD[i][0], Y, i, n);
         }
         else {
