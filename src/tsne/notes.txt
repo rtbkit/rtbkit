@@ -286,3 +286,56 @@ tsne core profile:
   cost:       0
 43.05user 0.15system 0:43.24elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k
 0inputs+0outputs (0major+33772minor)pagefaults 0swaps
+
+---------------------
+
+tsne_test: 8 threads no changes
+
+*** No errors detected
+tsne core profile:
+  v2d:        20.8
+  stiffness:36.59
+    D         10.69
+    (P-Q)D    19.11
+    clu       6.78
+  dY:         21.82
+  update:     0.12
+  recenter:   0.04
+  cost:       0.01
+85.23user 0.91system 0:18.88elapsed 456%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+40601minor)pagefaults 0swaps
+
+tsne_test: 8 threads remove gradient by 4:
+
+*** No errors detected
+tsne core profile:
+  v2d:        24.71
+  stiffness:37.15
+    D         10.53
+    (P-Q)D    19.79
+    clu       6.81
+  dY:         116.19
+  update:     0.06
+  recenter:   0.08
+  cost:       0
+183.90user 0.80system 0:31.44elapsed 587%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+38474minor)pagefaults 0swaps
+
+Generic loop, k outside:
+
+*** No errors detected
+tsne core profile:
+  v2d:        23.99
+  stiffness:36.51
+    D         11.33
+    (P-Q)D    18.48
+    clu       6.69
+  dY:         51.56
+  update:     0.1
+  recenter:   0.02
+  cost:       0
+118.05user 0.86system 0:23.72elapsed 501%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+36299minor)pagefaults 0swaps
+
+Generic loop, i outside:
+
