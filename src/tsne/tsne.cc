@@ -837,8 +837,8 @@ struct Calc_Gradient_Job {
         int d = Y.shape()[1];
 
         if (true) {
-            for (unsigned k = 0;  k < d;  ++k) {
-                for (unsigned i = i0;  i < i1;  ++i) {
+            for (unsigned i = i0;  i < i1;  ++i) {
+                for (unsigned k = 0;  k < d;  ++k) {
                     float total = 0.0;
                     for (unsigned j = 0;  j < n;  ++j) {
                         float factor = 4.0f * PmQxD[i][j];

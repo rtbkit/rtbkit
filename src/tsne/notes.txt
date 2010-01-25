@@ -339,3 +339,17 @@ tsne core profile:
 
 Generic loop, i outside:
 
+*** No errors detected
+tsne core profile:
+  v2d:        24.56
+  stiffness:37.28
+    D         11.08
+    (P-Q)D    19.33
+    clu       6.87
+  dY:         51.4
+  update:     0.13
+  recenter:   0.06
+  cost:       0
+119.62user 0.82system 0:23.17elapsed 519%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+40067minor)pagefaults 0swaps
+
