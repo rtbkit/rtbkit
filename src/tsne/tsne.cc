@@ -839,10 +839,12 @@ struct Calc_Gradient_Job {
         if (true) {
             for (unsigned i = i0;  i < i1;  ++i) {
                 for (unsigned k = 0;  k < d;  ++k) {
+                    float Yik = Y[i][k];
                     float total = 0.0;
                     for (unsigned j = 0;  j < n;  ++j) {
                         float factor = 4.0f * PmQxD[i][j];
-                        total += factor * (Y[i][k] - Y[j][k]);
+                        float Yjk = Y[j][k];
+                        total += factor * (Yik - Yjk);
                     }
                     dY[i][k] = total;
                 }
