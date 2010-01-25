@@ -57,7 +57,7 @@ def test_tsne():
 
     nrows = digits.shape[0];
     # Smaller number of labels for debugging...
-    nrows = 2500
+    nrows = 250
 
     X = digits[range(nrows), ...]
     L = labels[range(nrows), ...]
@@ -66,10 +66,10 @@ def test_tsne():
     #Y = tsne.tsne(X, 2, 50, 20.0, use_pca=False)
     Plot.scatter(Y[:,0], Y[:,1], 20, L)
     Plot.legend(loc='lower left')
-    Plot.show()
+    #Plot.show()
 
 
 test_tsne()
 
-sys.exit(1)
+#sys.exit(1)
 

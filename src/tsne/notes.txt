@@ -353,3 +353,34 @@ tsne core profile:
 119.62user 0.82system 0:23.17elapsed 519%CPU (0avgtext+0avgdata 0maxresident)k
 0inputs+0outputs (0major+40067minor)pagefaults 0swaps
 
+
+---------------------
+
+Speed comparisons
+
+My version, 8 virtual CPUs (4 real CPUS):
+
+87.90user 1.14system 0:24.08elapsed 369%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+24outputs (0major+109213minor)pagefaults 0swaps
+
+
+My version, 1 CPU:
+
+54.92user 0.21system 0:55.36elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+24outputs (0major+93625minor)pagefaults 0swaps
+
+
+Binary version from website:
+
+194.18user 0.65system 3:18.64elapsed 98%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+30808outputs (0major+392276minor)pagefaults 0swaps
+
+
+Pure python version from website (with my improvements)
+
+904.43user 154.01system 17:38.47elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+24outputs (0major+111837341minor)pagefaults 0swaps
+
+
+Note that all 3 results include about 10 seconds of single threaded overhead (loading data, SVD, etc)
+
