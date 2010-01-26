@@ -218,6 +218,8 @@ perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
         cerr << "beta = " << beta << endl;
         cerr << "D = " << D << endl;
         cerr << "tot = " << tot << endl;
+        cerr << "i = " << i << endl;
+        cerr << "P = " << P << endl;
         throw Exception("non-finite total for perplexity");
     }
 
@@ -228,6 +230,7 @@ perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
         cerr << "beta = " << beta << endl;
         cerr << "D = " << D << endl;
         cerr << "tot = " << tot << endl;
+        cerr << "i = " << i << endl;
         throw Exception("non-finite total for perplexity");
     }
 
@@ -274,7 +277,7 @@ binary_search_perplexity(const distribution<float> & Di,
 
     boost::tie(log_perplexity, P) = perplexity_and_prob(Di, beta, i);
 
-    bool verbose = true;
+    bool verbose = false;
 
     if (verbose)
         cerr << "iter currperp targperp     diff toleranc   betamin     beta  betamax" << endl;
@@ -345,8 +348,18 @@ struct Distance_To_Probabilities_Job {
             
             distribution<float> D_row(&D[i][0], &D[i][0] + n);
             distribution<float> P_row;
-            boost::tie(P_row, beta[i])
-                = binary_search_perplexity(D_row, perplexity, i, tolerance);
+
+            try {
+                boost::tie(P_row, beta[i])
+                    = binary_search_perplexity(D_row, perplexity, i, tolerance);
+            } catch (const std::exception & exc) {
+                P_row = D_row;
+                P_row[i] = 1000000;
+                P_row = (P_row == P_row.min());
+                std::fill(P_row.begin(), P_row.end(), 1.0);
+                P_row[i] = 0.0;
+                P_row.normalize();
+            }
             
             if (P_row.size() != n)
                 throw Exception("P_row has the wrong size");
@@ -1015,7 +1028,7 @@ tsne(const boost::multi_array<float, 2> & probs,
     boost::multi_array<float, 2> Y(boost::extents[n][d]);
     for (unsigned i = 0;  i < n;  ++i)
         for (unsigned j = 0;  j < d;  ++j)
-            Y[i][j] = 0.0001 * randn();
+            Y[i][j] = 0.01 * randn();
 
     // Symmetrize and probabilize P
     boost::multi_array<float, 2> P = probs + transpose(probs);
