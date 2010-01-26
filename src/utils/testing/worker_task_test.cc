@@ -31,6 +31,7 @@
 #include "utils/vector_utils.h"
 #include "arch/timers.h"
 #include "utils/guard.h"
+#include "arch/exception_handler.h"
 
 using namespace ML;
 using namespace std;
@@ -41,7 +42,8 @@ void null_job()
 {
 }
 
-void test_overhead_job(int nthreads, int ntasks, bool verbose = true)
+void test_overhead_job(int nthreads, int ntasks, bool verbose = true,
+                       void (&job) () = null_job)
 {
     Worker_Task worker(nthreads - 1);
     
@@ -59,7 +61,7 @@ void test_overhead_job(int nthreads, int ntasks, bool verbose = true)
                                      group));
         
         for (unsigned i = 0;  i < ntasks;  ++i)
-            worker.add(null_job, "", group);
+            worker.add(job, "", group);
     }
     
     worker.run_until_finished(group);
@@ -86,3 +88,21 @@ BOOST_AUTO_TEST_CASE( test_overhead )
     test_overhead_job(8, njobs);
     test_overhead_job(16, njobs);
 }
+
+void exception_job()
+{
+    throw Exception("there was an exception");
+}
+
+BOOST_AUTO_TEST_CASE( test_exception )
+{
+    int njobs = 1000;
+    set_trace_exceptions(false);
+    for (unsigned i = 0;  i < 100;  ++i) {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(test_overhead_job(4, njobs, false /* verbose */,
+                                            exception_job),
+                          std::exception);
+    }
+}
+

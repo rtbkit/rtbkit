@@ -249,7 +249,7 @@ int Worker_Task::svc()
                 Group_Info & group_info = groups[info.group];
                 group_info.error = true;
                 group_info.error_message = exc.what();
-                cancel_group(group_info, info.group);
+                cancel_group_ul(group_info, info.group);
             }
 
             finish_job(info);
@@ -337,36 +337,39 @@ void
 Worker_Task::
 cancel_group(Group_Info & group_info, int group)
 {
+    Guard guard(lock);
+    cancel_group_ul(group_info, group);
+}
+
+void
+Worker_Task::
+cancel_group_ul(Group_Info & group_info, int group)
+{
     //cerr << "thread " << ACE_OS::thr_self() << " cancel_group() "
     //     << group_info.info << endl;
     
     /* We clean up the group by scanning through its list of tasks, removing
        those that haven't run yet, and calling all of the handlers. */
-    
-    {
-        Guard guard(lock);
+    Jobs::iterator it = jobs.begin();
         
-        Jobs::iterator it = jobs.begin();
+    /* Iterate through this group's jobs. */
         
-        /* Iterate through this group's jobs. */
-        
-        while (it != group_info.group_job) {
+    while (it != group_info.group_job) {
 
-            while (it != group_info.group_job
-                   && (it->id == -1 || !in_group(*it, group))) ++it;
+        while (it != group_info.group_job
+               && (it->id == -1 || !in_group(*it, group))) ++it;
             
-            if (it == group_info.group_job) break;
+        if (it == group_info.group_job) break;
             
-            /* Remove this job. */
-            //cerr << "removing job " << it->id << " (" << it->info
-            //     << ")" << endl;
+        /* Remove this job. */
+        //cerr << "removing job " << it->id << " (" << it->info
+        //     << ")" << endl;
 
             
-            Jobs::iterator next = it;
-            ++next;
-            remove_job(it);
-            it = next;
-        }
+        Jobs::iterator next = it;
+        ++next;
+        remove_job_ul(it);
+        it = next;
     }
     
     //cerr << "finished clearing jobs for group " << group << endl;
@@ -511,7 +514,7 @@ run_until_finished(int group, bool unlock)
                     Group_Info & group_info = groups[info.group];
                     group_info.error = true;
                     group_info.error_message = exc.what();
-                    cancel_group(group_info, info.group);
+                    cancel_group_ul(group_info, info.group);
                 }
 
                 finish_job(info);
@@ -662,9 +665,10 @@ void Worker_Task::finish_job(const Job_Info & info)
     notify_state_changed();
 }
 
-void Worker_Task::remove_job(const Jobs::iterator & it)
+void
+Worker_Task::
+remove_job_ul(const Jobs::iterator & it)
 {
-    Guard guard(lock);
     --num_queued;
     
     if (jobs_sem.tryacquire() == -1) {

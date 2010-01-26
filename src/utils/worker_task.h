@@ -214,7 +214,7 @@ private:
     
     void finish_job(const Job_Info & info);
 
-    void remove_job(const Jobs::iterator & it);
+    void remove_job_ul(const Jobs::iterator & it);
 
     void add_state_semaphore(ACE_Semaphore & sem);
 
@@ -230,6 +230,10 @@ private:
 
     /** Removes all queued jobs in the group.  Running jobs are left alone. */
     void cancel_group(Group_Info & group_info, int group);
+
+    /** Removes all queued jobs in the group.  Running jobs are left alone. 
+        Lock must already be held. */
+    void cancel_group_ul(Group_Info & group_info, int group);
 
     /** Removes all queued jobs in the group, and waits for running jobs to
         finish.

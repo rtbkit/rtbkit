@@ -31,52 +31,6 @@ using namespace std;
 
 namespace ML {
 
-/** Compute the perplexity and the P for a given value of beta.
-    TODO: pre-compute the exp(D) values to remove exp from this loop*/
-template<typename Float>
-std::pair<double, distribution<Float> >
-perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
-                    int i = -1)
-{
-    distribution<double> P(D.size());
-    SIMD::vec_exp(&D[0], -beta, &P[0], D.size());
-    if (i != -1) P[i] = 0;
-    double tot = P.total();
-
-    if (!isfinite(tot) || tot == 0) {
-        cerr << "beta = " << beta << endl;
-        cerr << "D = " << D << endl;
-        throw Exception("non-finite total for perplexity");
-    }
-
-    double H = log(tot) + beta * D.dotprod(P) / tot;
-    P *= 1.0 / tot;
-
-    if (!isfinite(P.total())) {
-        cerr << "beta = " << beta << endl;
-        cerr << "D = " << D << endl;
-        cerr << "tot = " << tot << endl;
-        throw Exception("non-finite total for perplexity");
-    }
-
-
-    return make_pair(H, P);
-}
-
-std::pair<double, distribution<float> >
-perplexity_and_prob(const distribution<float> & D, double beta,
-                    int i)
-{
-    return perplexity_and_prob<float>(D, beta, i);
-}
-
-std::pair<double, distribution<double> >
-perplexity_and_prob(const distribution<double> & D, double beta,
-                    int i)
-{
-    return perplexity_and_prob<double>(D, beta, i);
-}
-
 template<typename Float>
 struct V2D_Job {
     const boost::multi_array<Float, 2> & X;
@@ -239,6 +193,62 @@ vectors_to_distances(const boost::multi_array<double, 2> & X,
     return vectors_to_distances<double>(X, D, fill_upper);
 }
 
+template<typename Float>
+double
+perplexity(const distribution<Float> & p)
+{
+    double total = 0.0;
+    for (unsigned i = 0;  i < p.size();  ++i)
+        if (p[i] != 0.0) total -= p[i] * log(p[i]);
+    return exp(total);
+}
+
+/** Compute the perplexity and the P for a given value of beta. */
+template<typename Float>
+std::pair<double, distribution<Float> >
+perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
+                    int i = -1)
+{
+    distribution<double> P(D.size());
+    SIMD::vec_exp(&D[0], -beta, &P[0], D.size());
+    if (i != -1) P[i] = 0;
+    double tot = P.total();
+
+    if (!isfinite(tot) || tot == 0) {
+        cerr << "beta = " << beta << endl;
+        cerr << "D = " << D << endl;
+        cerr << "tot = " << tot << endl;
+        throw Exception("non-finite total for perplexity");
+    }
+
+    double H = log(tot) + beta * D.dotprod(P) / tot;
+    P *= 1.0 / tot;
+
+    if (!isfinite(P.total())) {
+        cerr << "beta = " << beta << endl;
+        cerr << "D = " << D << endl;
+        cerr << "tot = " << tot << endl;
+        throw Exception("non-finite total for perplexity");
+    }
+
+
+    return make_pair(H, P);
+}
+
+std::pair<double, distribution<float> >
+perplexity_and_prob(const distribution<float> & D, double beta,
+                    int i)
+{
+    return perplexity_and_prob<float>(D, beta, i);
+}
+
+std::pair<double, distribution<double> >
+perplexity_and_prob(const distribution<double> & D, double beta,
+                    int i)
+{
+    return perplexity_and_prob<double>(D, beta, i);
+}
+
 
 /** Calculate the beta for a single point.
     
@@ -264,7 +274,7 @@ binary_search_perplexity(const distribution<float> & Di,
 
     boost::tie(log_perplexity, P) = perplexity_and_prob(Di, beta, i);
 
-    bool verbose = false;
+    bool verbose = true;
 
     if (verbose)
         cerr << "iter currperp targperp     diff toleranc   betamin     beta  betamax" << endl;
@@ -324,6 +334,8 @@ struct Distance_To_Probabilities_Job {
 
     void operator () ()
     {
+        cerr << "started from " << i0 << " to " << i1 << endl;
+
         int n = D.shape()[0];
 
         for (unsigned i = i0;  i < i1;  ++i) {
@@ -346,9 +358,11 @@ struct Distance_To_Probabilities_Job {
                 cerr << "P_row[i] = " << P_row[i] << endl;
                 throw Exception("P_row diagonal entry was not zero");
             }
-            
+
             std::copy(P_row.begin(), P_row.end(), &P[i][0]);
         }
+
+        cerr << "finished from " << i0 << " to " << i1 << endl;
     }
 };
 
@@ -977,7 +991,27 @@ tsne(const boost::multi_array<float, 2> & probs,
     boost::variate_generator<boost::mt19937,
                              boost::normal_distribution<float> >
         randn(rng, norm);
+
+    double min_perp = INFINITY;
+    double max_perp = 0.0;
+    double total_perp = 0.0;
+    double total_log_perp = 0.0;
+
+    for (unsigned i = 0;  i < n;  ++i) {
+        distribution<float> P_row(&probs[i][0], &probs[i][0] + n);
+        double perp = perplexity(P_row);
+        min_perp = std::min(min_perp, perp);
+        max_perp = std::max(max_perp, perp);
+        total_perp += perp;
+        total_log_perp += log(perp);
+    }
     
+    cerr << "input perplexity: min " << min_perp
+         << " max: " << max_perp << " average: " << total_perp / n
+         << " avg log: " << total_log_perp / n
+         << " total log: " << total_log_perp << endl;
+        
+
     boost::multi_array<float, 2> Y(boost::extents[n][d]);
     for (unsigned i = 0;  i < n;  ++i)
         for (unsigned j = 0;  j < d;  ++j)
@@ -1046,9 +1080,12 @@ tsne(const boost::multi_array<float, 2> & probs,
             && !callback(iter, INFINITY, "v2d")) return Y;
 
         // Do we calculate the cost?
-        bool calc_cost = (iter + 1) % 20 == 0 || iter == params.max_iter - 1;
+        bool calc_cost = (iter + 1) % 100 == 0 || iter == params.max_iter - 1;
 
         double cost = tsne_calc_stiffness(D, P, params.min_prob, calc_cost);
+
+        if (callback
+            && !callback(iter, INFINITY, "stiffness")) return Y;
 
         t_stiffness += t.elapsed();  t.restart();
 
@@ -1065,6 +1102,9 @@ tsne(const boost::multi_array<float, 2> & probs,
 
         t_dY += t.elapsed();  t.restart();
 
+        if (callback
+            && !callback(iter, INFINITY, "gradient")) return Y;
+
 
         /*********************************************************************/
         // Update
@@ -1076,6 +1116,9 @@ tsne(const boost::multi_array<float, 2> & probs,
         tsne_update(Y, dY, iY, gains, iter == 0, momentum, params.eta,
                     params.min_gain);
 
+        if (callback
+            && !callback(iter, INFINITY, "update")) return Y;
+
         t_update += t.elapsed();  t.restart();
 
 
@@ -1084,15 +1127,18 @@ tsne(const boost::multi_array<float, 2> & probs,
 
         recenter_about_origin(Y);
 
+        if (callback
+            && !callback(iter, INFINITY, "recenter")) return Y;
+
         t_recenter += t.elapsed();  t.restart();
 
 
         /*********************************************************************/
         // Calculate cost
 
-        if ((iter + 1) % 20 == 0 || iter == params.max_iter - 1) {
-            cerr << "iteration " << (iter + 1)
-                 << " cost = " << cost << " elapsed "
+        if ((iter + 1) % 100 == 0 || iter == params.max_iter - 1) {
+            cerr << format("iteration %4d cost %6.3f  ",
+                           iter + 1, cost)
                  << timer.elapsed() << endl;
             timer.restart();
         }
