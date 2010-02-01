@@ -27,9 +27,45 @@ namespace ML {
 
 typedef boost::function<void ()> Job;
 
+/** The ACE semaphores are not useful, as two tryacquire operations performed
+    in parallel with 2 free semaphores (eg, enough for both to acquire the
+    semaphore) can cause only one to succeed.  This is because the tryacquire
+    operation performs a tryacquire on the semaphore's mutex, which just
+    protects the internal state, and doesn't retry afterwards.
+
+    We create this class here with a useful tryacquire behaviour.
+
+    TODO: this is suboptimal due to the calls to gettimeofday(); we should
+    use something that directly implements semaphores using the pthread
+    primitives, or attempt to re-write the ACE implementation.
+*/
+struct Semaphore : public ACE_Semaphore {
+    Semaphore(int initial_count = 1)
+        : ACE_Semaphore(initial_count)
+    {
+    }
+
+    int acquire()
+    {
+        return ACE_Semaphore::acquire();
+    }
+
+    int tryacquire()
+    {
+        ACE_Time_Value tv = ACE_OS::gettimeofday();
+        int result = ACE_Semaphore::acquire(tv);
+        if (result == 0) return result;
+        return -1;
+    }
+
+    int release()
+    {
+        return ACE_Semaphore::release();
+    }
+};
 
 struct Release_Sem {
-    Release_Sem(ACE_Semaphore & sem)
+    Release_Sem(Semaphore & sem)
         : sem(&sem)
     {
     }
@@ -39,7 +75,7 @@ struct Release_Sem {
         sem->release();
     }
 
-    ACE_Semaphore * sem;
+    Semaphore * sem;
 };
 
 extern const Job NO_JOB;
@@ -143,7 +179,7 @@ public:
         If any of the jobs throw an exception, then another exception will
         be thrown from the given job.
     */
-    void run_until_released(ACE_Semaphore & sem, int group = -1);
+    void run_until_released(Semaphore & sem, int group = -1);
 
     /** Lend the calling thread to the worker task until the given group
         has finished.
@@ -216,9 +252,9 @@ private:
 
     void remove_job_ul(const Jobs::iterator & it);
 
-    void add_state_semaphore(ACE_Semaphore & sem);
+    void add_state_semaphore(Semaphore & sem);
 
-    void remove_state_semaphore(ACE_Semaphore & sem);
+    void remove_state_semaphore(Semaphore & sem);
 
     void notify_state_changed();
 
@@ -243,7 +279,7 @@ private:
     typedef ACE_Mutex Lock;
     typedef ACE_Guard<Lock> Guard;
 
-    ACE_Semaphore jobs_sem, finished_sem, state_change_sem, shutdown_sem;
+    Semaphore jobs_sem, finished_sem, state_change_sem, shutdown_sem;
 
     /** Jobs we are running. */
     Jobs jobs;
@@ -257,9 +293,9 @@ private:
     std::map<Id, Group_Info> groups;
 
     /** Semaphores that get released on each state change. */
-    std::set<ACE_Semaphore *> state_semaphores;
+    std::set<Semaphore *> state_semaphores;
 
-    bool force_finished;
+    volatile bool force_finished;
 
     /* Dump everything to cerr; for debugging */
     void dump() const;

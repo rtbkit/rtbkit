@@ -264,12 +264,12 @@ int Worker_Task::svc()
 void Worker_Task::notify_state_changed()
 {
     // must be called with the lock held
-    for (set<ACE_Semaphore *>::const_iterator it = state_semaphores.begin();
+    for (set<Semaphore *>::const_iterator it = state_semaphores.begin();
          it != state_semaphores.end();  ++it)
         (*it)->release();
 }
 
-void Worker_Task::add_state_semaphore(ACE_Semaphore & sem)
+void Worker_Task::add_state_semaphore(Semaphore & sem)
 {
     Guard guard(lock);
     if (state_semaphores.count(&sem))
@@ -277,7 +277,7 @@ void Worker_Task::add_state_semaphore(ACE_Semaphore & sem)
     state_semaphores.insert(&sem);
 }
 
-void Worker_Task::remove_state_semaphore(ACE_Semaphore & sem)
+void Worker_Task::remove_state_semaphore(Semaphore & sem)
 {
     Guard guard(lock);
     if (!state_semaphores.count(&sem))
@@ -285,12 +285,12 @@ void Worker_Task::remove_state_semaphore(ACE_Semaphore & sem)
     state_semaphores.erase(&sem);
 }
 
-void Worker_Task::run_until_released(ACE_Semaphore & sem, int group)
+void Worker_Task::run_until_released(Semaphore & sem, int group)
 {
     /* We check at every change in state for either a) the semaphore
        being free or b) a job being available. */
 
-    ACE_Semaphore state_semaphore(0);
+    Semaphore state_semaphore(0);
     add_state_semaphore(state_semaphore);
 
     /* Make sure we remove this semaphore at the end. */
@@ -383,7 +383,7 @@ force_finish_group(Group_Info & group_info, int group)
 
     /* Wait until everything has stopped running in this group. */
 
-    ACE_Semaphore state_semaphore(0);
+    Semaphore state_semaphore(0);
     add_state_semaphore(state_semaphore);
 
     /* Make sure we remove this semaphore at the end. */
@@ -433,7 +433,7 @@ run_until_finished(int group, bool unlock)
     Group_Info & group_info = group_it->second;
 
     /* Create a semaphore so that we get notified of state changes. */
-    ACE_Semaphore state_semaphore(0);
+    Semaphore state_semaphore(0);
     add_state_semaphore(state_semaphore);
     
     /* Make sure we remove this semaphore at the end. */
@@ -672,8 +672,12 @@ remove_job_ul(const Jobs::iterator & it)
     --num_queued;
     
     if (jobs_sem.tryacquire() == -1) {
+        cerr << "errno = " << errno << endl;
+        cerr << "error = " << strerror(errno) << endl;
         cerr << "Worker_Task::remove_job(): couldn't acquire the job "
              << "semaphore" << endl;
+        cerr << "force_finished = " << force_finished << endl;
+        dump();
         abort();
     }
 
