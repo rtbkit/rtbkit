@@ -52,9 +52,12 @@ struct Semaphore : public ACE_Semaphore {
 
     int tryacquire()
     {
+        return ACE_Semaphore::tryacquire();
+
         ACE_Time_Value tv = ACE_OS::gettimeofday();
         int result = ACE_Semaphore::acquire(tv);
         if (result == 0) return result;
+        if (result == -1 && errno == ETIME) return 0;
         return -1;
     }
 

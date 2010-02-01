@@ -5,13 +5,6 @@
    Test for the worker task code.
 */
 
-/* decision_tree_xor_test.cc
-   Jeremy Barnes, 25 February 2008
-   Copyright (c) 2008 Jeremy Barnes.  All rights reserved.
-
-   Test of the decision tree class.
-*/
-
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
@@ -32,11 +25,70 @@
 #include "arch/timers.h"
 #include "utils/guard.h"
 #include "arch/exception_handler.h"
+#include "arch/atomic_ops.h"
+#include "arch/demangle.h"
 
 using namespace ML;
 using namespace std;
 
 using boost::unit_test::test_suite;
+
+// With a semaphore created with a count of nthreads, there should never be a
+// case where tryacquire() fails.
+template<class Semaphore>
+void test_semaphore_thread(Semaphore & sem, boost::barrier & barrier,
+                           int & errors, int niter)
+{
+    barrier.wait();
+    
+    int my_errors = 0;
+
+    for (unsigned i = 0;  i < niter;  ++i) {
+        int res = sem.tryacquire();
+        if (res == -1)
+            ++my_errors;
+        else sem.release();
+    }
+
+    atomic_add(errors, my_errors);
+}
+
+template<class Semaphore>
+void test_semaphore(int nthreads, int niter)
+{
+    cerr << "testing type " << demangle(typeid(Semaphore).name())
+         << " with " << nthreads << " threads and " << niter << " iter"
+         << endl;
+    boost::barrier barrier(nthreads);
+    int errors = 0;
+    Semaphore sem(nthreads);
+
+    boost::thread_group tg;
+    for (unsigned i = 0;  i < nthreads;  ++i)
+        tg.create_thread(boost::bind(test_semaphore_thread<Semaphore>,
+                                     boost::ref(sem),
+                                     boost::ref(barrier),
+                                     boost::ref(errors),
+                                     niter));
+    
+    tg.join_all();
+
+    BOOST_CHECK_EQUAL(errors, 0);
+}
+
+BOOST_AUTO_TEST_CASE(test_ace_semaphore)
+{
+    test_semaphore<ACE_Semaphore>(1, 1000000);
+    test_semaphore<ACE_Semaphore>(10, 100000);
+    test_semaphore<ACE_Semaphore>(100, 10000);
+}
+
+BOOST_AUTO_TEST_CASE(test_our_semaphore)
+{
+    test_semaphore<Semaphore>(1, 1000000);
+    test_semaphore<Semaphore>(10, 100000);
+    test_semaphore<Semaphore>(100, 10000);
+}
 
 void null_job()
 {
