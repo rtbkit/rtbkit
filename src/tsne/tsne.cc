@@ -25,7 +25,7 @@
 #include "arch/cache.h"
 #include "utils/guard.h"
 #include <boost/bind.hpp>
-
+#include "utils/environment.h"
 
 using namespace std;
 
@@ -215,11 +215,13 @@ perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
     double tot = P.total();
 
     if (!isfinite(tot) || tot == 0) {
+#if 0
         cerr << "beta = " << beta << endl;
         cerr << "D = " << D << endl;
         cerr << "tot = " << tot << endl;
         cerr << "i = " << i << endl;
         cerr << "P = " << P << endl;
+#endif
         throw Exception("non-finite total for perplexity");
     }
 
@@ -227,10 +229,12 @@ perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
     P *= 1.0 / tot;
 
     if (!isfinite(P.total())) {
+#if 0
         cerr << "beta = " << beta << endl;
         cerr << "D = " << D << endl;
         cerr << "tot = " << tot << endl;
         cerr << "i = " << i << endl;
+#endif
         throw Exception("non-finite total for perplexity");
     }
 
@@ -337,8 +341,6 @@ struct Distance_To_Probabilities_Job {
 
     void operator () ()
     {
-        cerr << "started from " << i0 << " to " << i1 << endl;
-
         int n = D.shape()[0];
 
         for (unsigned i = i0;  i < i1;  ++i) {
@@ -374,8 +376,6 @@ struct Distance_To_Probabilities_Job {
 
             std::copy(P_row.begin(), P_row.end(), &P[i][0]);
         }
-
-        cerr << "finished from " << i0 << " to " << i1 << endl;
     }
 };
 
@@ -541,12 +541,16 @@ double calc_D_row(float * Di, int n)
 
 namespace {
 
+Env_Option<bool> PROFILE_TSNE("PROFILE_TSNE", false);
+
 double t_v2d = 0.0, t_D = 0.0, t_dY = 0.0, t_update = 0.0;
 double t_recenter = 0.0, t_cost = 0.0, t_PmQxD = 0.0, t_clu = 0.0;
 double t_stiffness = 0.0;
 struct AtEnd {
     ~AtEnd()
     {
+        if (!PROFILE_TSNE) return;
+
         cerr << "tsne core profile:" << endl;
         cerr << "  v2d:        " << t_v2d << endl;
         cerr << "  stiffness:" << t_stiffness << endl;
