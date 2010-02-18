@@ -6,7 +6,7 @@
 */
 
 #include <Python.h>
-#include "jml/numpy/arrayobject.h"
+#include <numpy/arrayobject.h>
 #include "tsne.h"
 #include <iostream>
 #include "jml/arch/exception.h"

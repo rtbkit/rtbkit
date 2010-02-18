@@ -31,7 +31,7 @@
 #include "string_functions.h"
 #include "jml/arch/exception.h"
 #include <iostream>
-#include "jml/boost/weak_ptr.hpp"
+#include <boost/weak_ptr.hpp>
 #include <map>
 
 

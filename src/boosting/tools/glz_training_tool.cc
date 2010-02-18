@@ -33,8 +33,8 @@
 #include "jml/boosting/null_decoder.h"
 #include "jml/utils/vector_utils.h"
 #include "jml/utils/command_line.h"
-#include "jml/boost/progress.hpp"
-#include "jml/boost/timer.hpp"
+#include <boost/progress.hpp>
+#include <boost/timer.hpp>
 #include "jml/stats/moments.h"
 #include "datasets.h"
 

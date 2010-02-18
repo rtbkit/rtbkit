@@ -24,7 +24,7 @@
 #define __utils__smart_ptr_utils_h__
 
 
-#include "jml/boost/shared_ptr.hpp"
+#include <boost/shared_ptr.hpp>
 
 
 namespace ML {

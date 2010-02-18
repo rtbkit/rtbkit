@@ -44,12 +44,12 @@
 #include "jml/stats/distribution.h"
 #include "jml/stats/sparse_distribution.h"
 #include "jml/math/selection.h"
-#include "jml/boost/progress.hpp"
-#include "jml/boost/timer.hpp"
+#include <boost/progress.hpp>
+#include <boost/timer.hpp>
 #include "jml/stats/glz.h"
 #include "jml/sections/sink_stream.h"
 #include "jml/utils/metrics.h"
-#include "jml/boost/regex.hpp"
+#include <boost/regex.hpp>
 #include "jml/stats/moments.h"
 
 #include <iterator>
