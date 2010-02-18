@@ -10,7 +10,7 @@
 
 #include "cmp_xchg.h"
 #include "jml/compiler/compiler.h"
-
+#include <algorithm>
 
 namespace ML {
 
@@ -38,6 +38,18 @@ void atomic_add(Val1 & val, const Val2 & amount)
          : [val] "=m" (val)
          : [amount] "r" (amount)
          : "cc");
+}
+
+// Maximum that works atomically.  It's safe against any kind of change
+// in old_val.
+template<typename Val1, typename Val2>
+void atomic_max(Val1 & val1, const Val2 & val2)
+{
+    Val1 old_val = val1, new_val;
+    do {
+        new_val = std::max<Val1>(old_val, val2);
+        if (new_val == old_val) return;
+    } while (!JML_LIKELY(cmp_xchg(val1, old_val, new_val)));
 }
 
 JML_ALWAYS_INLINE void memory_barrier()

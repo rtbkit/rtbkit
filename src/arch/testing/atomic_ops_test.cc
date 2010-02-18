@@ -56,8 +56,8 @@ BOOST_AUTO_TEST_CASE( test1 )
 }
 
 template<class X>
-struct test2_thread {
-    test2_thread(boost::barrier & barrier, X & val, int iter, int tnum)
+struct test_atomic_add2_thread {
+    test_atomic_add2_thread(boost::barrier & barrier, X & val, int iter, int tnum)
         : barrier(barrier), val(val), iter(iter), tnum(tnum)
     {
     }
@@ -83,7 +83,7 @@ struct test2_thread {
 };
 
 template<class X>
-void test2_type()
+void test_atomic_add2_type()
 {
     cerr << "testing type " << demangle(typeid(X).name()) << endl;
     int nthreads = 8, iter = 1000000;
@@ -91,17 +91,72 @@ void test2_type()
     X val = 0;
     boost::thread_group tg;
     for (unsigned i = 0;  i < nthreads;  ++i)
-        tg.create_thread(test2_thread<X>(barrier, val, iter, i));
+        tg.create_thread(test_atomic_add2_thread<X>(barrier, val, iter, i));
 
     tg.join_all();
 
     BOOST_CHECK_EQUAL(val, (iter * nthreads) & (X)-1);
 }
 
-BOOST_AUTO_TEST_CASE( test2 )
+BOOST_AUTO_TEST_CASE( test_atomic_add2 )
 {
-    test2_type<uint8_t>();
-    test2_type<uint16_t>();
-    test2_type<uint32_t>();
-    test2_type<uint64_t>();
+    cerr << "atomic add" << endl;
+    test_atomic_add2_type<uint8_t>();
+    test_atomic_add2_type<uint16_t>();
+    test_atomic_add2_type<uint32_t>();
+    test_atomic_add2_type<uint64_t>();
+}
+
+template<class X>
+struct test_atomic_max_thread {
+    test_atomic_max_thread(boost::barrier & barrier, X & val, int iter,
+                           int tnum, size_t & num_errors)
+        : barrier(barrier), val(val), iter(iter), tnum(tnum),
+          num_errors(num_errors)
+    {
+    }
+
+    boost::barrier & barrier;
+    X & val;
+    int iter;
+    int tnum;
+    size_t num_errors;
+
+    void operator () ()
+    {
+        for (unsigned i = 0;  i < iter;  ++i) {
+            atomic_max(val, i);
+            if (val < i)
+                atomic_add(num_errors, 1);
+        }
+    }
+};
+
+template<class X>
+void test_atomic_max_type()
+{
+    cerr << "testing type " << demangle(typeid(X).name()) << endl;
+    int nthreads = 8, iter = 1000000;
+    X iter2 = (X)-1;
+    if (iter2 < iter) iter = iter2;
+    boost::barrier barrier(nthreads);
+    X val = 0;
+    boost::thread_group tg;
+    size_t num_errors = 0;
+    for (unsigned i = 0;  i < nthreads;  ++i)
+        tg.create_thread(test_atomic_max_thread<X>(barrier, val, iter, i,
+                                                   num_errors));
+
+    tg.join_all();
+
+    BOOST_CHECK_EQUAL(num_errors, 0);
+}
+
+BOOST_AUTO_TEST_CASE( test_atomic_max )
+{
+    cerr << "atomic max" << endl;
+    test_atomic_max_type<uint8_t>();
+    test_atomic_max_type<uint16_t>();
+    test_atomic_max_type<uint32_t>();
+    test_atomic_max_type<uint64_t>();
 }
