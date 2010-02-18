@@ -12,7 +12,7 @@
 #include "layer.h"
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_base_of.hpp>
-#include "arch/demangle.h"
+#include "jml/arch/demangle.h"
 
 
 namespace ML {

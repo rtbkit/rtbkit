@@ -8,7 +8,7 @@
 #ifndef __jml__neural__loss_function_h__
 #define __jml__neural__loss_function_h__
 
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 
 namespace ML {
 

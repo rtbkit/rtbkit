@@ -7,7 +7,7 @@
 
 #include "classifier_generator.h"
 #include "registry.h"
-#include "utils/filter_streams.h"
+#include "jml/utils/filter_streams.h"
 
 
 using namespace std;

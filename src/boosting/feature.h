@@ -9,7 +9,7 @@
 #define __boosting__feature_h__
 
 #include <ostream>
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 

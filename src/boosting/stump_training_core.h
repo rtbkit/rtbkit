@@ -15,13 +15,13 @@
 #include <boost/multi_array.hpp>
 #include "training_data.h"
 #include "feature_set.h"
-#include "arch/exception.h"
-#include "utils/vector_utils.h"
-#include "utils/pair_utils.h"
+#include "jml/arch/exception.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/utils/pair_utils.h"
 #include "stump.h"
 #include "stump_training.h"
 #include "training_index.h"
-#include "utils/guard.h"
+#include "jml/utils/guard.h"
 #include <boost/bind.hpp>
 #include "thread_context.h"
 

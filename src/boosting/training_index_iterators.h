@@ -8,13 +8,13 @@
 #ifndef __boosting__training_index_iterator_h__
 #define __boosting__training_index_iterator_h__
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 #include <vector>
 #include <cmath>
 
 #include <string>
-#include "db/persistent_fwd.h"
-#include "arch/exception.h"
+#include "jml/db/persistent_fwd.h"
+#include "jml/arch/exception.h"
 
 namespace ML {
 

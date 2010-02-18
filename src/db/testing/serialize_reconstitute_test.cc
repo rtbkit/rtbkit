@@ -8,17 +8,17 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "utils/parse_context.h"
-#include "utils/file_functions.h"
-#include "utils/guard.h"
-#include "db/persistent.h"
-#include "db/compact_size_types.h"
+#include "jml/utils/parse_context.h"
+#include "jml/utils/file_functions.h"
+#include "jml/utils/guard.h"
+#include "jml/db/persistent.h"
+#include "jml/db/compact_size_types.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <sstream>
 #include <boost/multi_array.hpp>
-#include "algebra/matrix_ops.h"
-#include "stats/distribution.h"
+#include "jml/algebra/matrix_ops.h"
+#include "jml/stats/distribution.h"
 
 
 using namespace ML;

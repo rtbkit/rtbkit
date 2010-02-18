@@ -23,7 +23,7 @@
 #ifndef __boosting__boosted_stumps_core_h__
 #define __boosting__boosted_stumps_core_h__
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 #include "training_data.h"
 #include "training_index.h"
 #include "stump.h"

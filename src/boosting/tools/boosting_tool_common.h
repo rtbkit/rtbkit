@@ -9,7 +9,7 @@
 #ifndef __boosting_tool_common_h__
 #define __boosting_tool_common_h__
 
-#include "stats/sparse_distribution.h"
+#include "jml/stats/sparse_distribution.h"
 #include <vector>
 #include <string>
 #include <boost/shared_ptr.hpp>

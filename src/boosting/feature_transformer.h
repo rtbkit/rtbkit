@@ -7,8 +7,8 @@
 */
 
 #include "feature_set.h"
-#include "utils/unnamed_bool.h"
-#include "utils/smart_ptr_utils.h"
+#include "jml/utils/unnamed_bool.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 
 namespace ML {

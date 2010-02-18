@@ -13,12 +13,12 @@
 #include "feature_set.h"
 #include "feature_space.h"
 #include <boost/shared_ptr.hpp>
-#include "stats/sparse_distribution.h"
+#include "jml/stats/sparse_distribution.h"
 #include <map>
 #include <cmath>
-#include "arch/math.h"
-#include "utils/floating_point.h"
-#include "arch/threads.h"
+#include "jml/arch/math.h"
+#include "jml/utils/floating_point.h"
+#include "jml/arch/threads.h"
 
 
 namespace ML {

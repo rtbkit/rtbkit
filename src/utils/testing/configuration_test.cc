@@ -8,10 +8,10 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "utils/configuration.h"
-#include "utils/enum_info.h"
+#include "jml/utils/configuration.h"
+#include "jml/utils/enum_info.h"
 #include <boost/test/unit_test.hpp>
-#include "utils/vector_utils.h"
+#include "jml/utils/vector_utils.h"
 
 using namespace ML;
 using namespace std;

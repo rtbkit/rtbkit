@@ -13,7 +13,7 @@
 #include "feature_set.h"
 #include "training_data.h"
 #include <map>
-#include "utils/hash_map.h"
+#include "jml/utils/hash_map.h"
 #include <string>
 
 

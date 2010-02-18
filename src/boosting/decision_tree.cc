@@ -11,7 +11,7 @@
 #include <boost/progress.hpp>
 #include <boost/timer.hpp>
 #include <functional>
-#include "utils/vector_utils.h"
+#include "jml/utils/vector_utils.h"
 #include "config_impl.h"
 
 

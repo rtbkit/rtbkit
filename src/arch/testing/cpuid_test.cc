@@ -8,7 +8,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "arch/cpuid.h"
+#include "jml/arch/cpuid.h"
 
 #include <boost/test/unit_test.hpp>
 #include <vector>

@@ -22,7 +22,7 @@
 
 #include "exception.h"
 #include "simd_vector.h"
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 #include <iostream>
 #include <cmath>
 #include "sse2.h"

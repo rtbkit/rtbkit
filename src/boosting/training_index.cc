@@ -11,10 +11,10 @@
 #include "feature_map.h"
 #include "feature_space.h"
 #include "training_data.h"
-#include "utils/sgi_numeric.h"
-#include "utils/vector_utils.h"
+#include "jml/utils/sgi_numeric.h"
+#include "jml/utils/vector_utils.h"
 #include <boost/timer.hpp>
-#include "utils/string_functions.h"
+#include "jml/utils/string_functions.h"
 
 
 using namespace std;

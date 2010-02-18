@@ -9,8 +9,8 @@
 #include "config_impl.h"
 #include "feature_set.h"
 #include "training_data.h"
-#include "utils/parse_context.h"
-#include "arch/demangle.h"
+#include "jml/utils/parse_context.h"
+#include "jml/arch/demangle.h"
 #include "registry.h"
 #include <typeinfo>
 #include <string>

@@ -8,8 +8,8 @@
 #ifndef __arch__bit_range_ops_h__
 #define __arch__bit_range_ops_h__
 
-#include "arch/arch.h"
-#include "compiler/compiler.h"
+#include "jml/arch/arch.h"
+#include "jml/compiler/compiler.h"
 #include <cstddef>
 #include <stdint.h>
 #include <algorithm>

@@ -24,7 +24,7 @@
 #define __arch__simd_vector_h__
 
 #include "simd.h"
-#include "arch/arch.h"
+#include "jml/arch/arch.h"
 
 namespace ML {
 

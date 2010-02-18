@@ -10,7 +10,7 @@
 #define __boosting__perceptron_generator_h__
 
 
-#include "boosting/early_stopping_generator.h"
+#include "jml/boosting/early_stopping_generator.h"
 #include "perceptron.h"
 
 

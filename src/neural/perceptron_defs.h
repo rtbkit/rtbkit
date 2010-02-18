@@ -9,8 +9,8 @@
 #define __jml__perceptron_defs_h__
 
 
-#include "utils/enum_info.h"
-#include "db/persistent_fwd.h"
+#include "jml/utils/enum_info.h"
+#include "jml/db/persistent_fwd.h"
 
 namespace ML {
     

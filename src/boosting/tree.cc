@@ -7,7 +7,7 @@
 */
 
 #include "tree.h"
-#include "db/persistent.h"
+#include "jml/db/persistent.h"
 #include "feature_space.h"
 #include "config_impl.h"
 

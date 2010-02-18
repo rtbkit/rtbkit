@@ -10,9 +10,9 @@
 */
 
 #include "stump_testing.h"
-#include "boosting/training_data.h"
-#include "boosting/sparse_features.h"
-#include "boosting/stump.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/sparse_features.h"
+#include "jml/boosting/stump.h"
 
 
 

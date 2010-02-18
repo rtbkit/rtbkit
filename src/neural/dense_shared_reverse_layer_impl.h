@@ -9,13 +9,13 @@
 #define __jml__neural__dense_shared_reverse_layer_impl_h__
 
 #include "dense_shared_reverse_layer.h"
-#include "db/persistent.h"
-#include "arch/demangle.h"
-#include "algebra/matrix_ops.h"
-#include "arch/simd_vector.h"
-#include "utils/string_functions.h"
-#include "boosting/registry.h"
-#include "utils/multi_array_utils.h"
+#include "jml/db/persistent.h"
+#include "jml/arch/demangle.h"
+#include "jml/algebra/matrix_ops.h"
+#include "jml/arch/simd_vector.h"
+#include "jml/utils/string_functions.h"
+#include "jml/boosting/registry.h"
+#include "jml/utils/multi_array_utils.h"
 
 namespace ML {
 

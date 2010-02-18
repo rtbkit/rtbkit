@@ -12,7 +12,7 @@
 
 
 #include "boosted_stumps.h"
-#include "utils/sgi_algorithm.h"
+#include "jml/utils/sgi_algorithm.h"
 #include <iostream>
 
 

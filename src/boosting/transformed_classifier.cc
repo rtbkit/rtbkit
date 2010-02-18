@@ -7,7 +7,7 @@
 */
 
 #include "transformed_classifier.h"
-#include "db/persistent.h"
+#include "jml/db/persistent.h"
 #include "classifier_persist_impl.h"
 #include "config_impl.h"
 

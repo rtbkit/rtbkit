@@ -11,13 +11,13 @@
 
 
 #include "config.h"
-#include "db/persistent.h"
+#include "jml/db/persistent.h"
 #include "feature_set.h"
 #include "feature_info.h"
-#include "utils/hash_map.h"
+#include "jml/utils/hash_map.h"
 #include <boost/shared_ptr.hpp>
-#include "stats/sparse_distribution.h"
-#include "utils/sorted_vector.h"
+#include "jml/stats/sparse_distribution.h"
+#include "jml/utils/sorted_vector.h"
 #include "training_index_iterators.h"
 
 namespace ML {

@@ -8,14 +8,14 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "utils/lightweight_hash.h"
-#include "utils/string_functions.h"
+#include "jml/utils/lightweight_hash.h"
+#include "jml/utils/string_functions.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <iostream>
 #include <boost/tuple/tuple.hpp>
-#include "arch/exception_handler.h"
-#include "arch/demangle.h"
+#include "jml/arch/exception_handler.h"
+#include "jml/arch/demangle.h"
 #include <set>
 #include "live_counting_obj.h"
 

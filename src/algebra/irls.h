@@ -9,12 +9,12 @@
 #ifndef __boosting__irls_h__
 #define __boosting__irls_h__
 
-#include "boosting/config.h"
+#include "jml/boosting/config.h"
 #include <vector>
 #include <boost/multi_array.hpp>
-#include "stats/distribution.h"
-#include "db/persistent.h"
-#include "utils/enum_info.h"
+#include "jml/stats/distribution.h"
+#include "jml/db/persistent.h"
+#include "jml/utils/enum_info.h"
 #include <boost/function.hpp>
 
 namespace ML {

@@ -8,10 +8,10 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "arch/sse2_exp.h"
-#include "arch/sse2_log.h"
-#include "arch/demangle.h"
-#include "utils/vector_utils.h"
+#include "jml/arch/sse2_exp.h"
+#include "jml/arch/sse2_log.h"
+#include "jml/arch/demangle.h"
+#include "jml/utils/vector_utils.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
@@ -19,10 +19,10 @@
 #include <set>
 #include <iostream>
 #include <cmath>
-#include "arch/tick_counter.h"
-#include "utils/string_functions.h"
+#include "jml/arch/tick_counter.h"
+#include "jml/utils/string_functions.h"
 #include <sys/time.h>
-#include "utils/floating_point.h"
+#include "jml/utils/floating_point.h"
 
 using namespace ML;
 using namespace std;

@@ -16,12 +16,12 @@
 #include <stdint.h>
 #include <iostream>
 
-#include "boosting/decision_tree_generator.h"
-#include "boosting/training_data.h"
-#include "boosting/dense_features.h"
-#include "boosting/feature_info.h"
-#include "utils/smart_ptr_utils.h"
-#include "utils/vector_utils.h"
+#include "jml/boosting/decision_tree_generator.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/boosting/feature_info.h"
+#include "jml/utils/smart_ptr_utils.h"
+#include "jml/utils/vector_utils.h"
 
 using namespace ML;
 using namespace std;

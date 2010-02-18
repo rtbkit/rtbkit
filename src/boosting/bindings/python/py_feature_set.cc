@@ -21,7 +21,7 @@
 */
 
 #include <boost/python.hpp>
-#include "boosting/feature_set.h"
+#include "jml/boosting/feature_set.h"
 
 using namespace boost::python;
 using namespace ML;

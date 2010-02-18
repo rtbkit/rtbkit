@@ -7,7 +7,7 @@
 */
 
 #include "null_decoder.h"
-#include "db/persistent.h"
+#include "jml/db/persistent.h"
 #include "registry.h"
 #include "config_impl.h"
 

@@ -8,9 +8,9 @@
 %module jml 
 
 %{
-#include "boosting/feature_space.h"
-#include "boosting/dense_features.h"
-#include "stats/distribution.h"
+#include "jml/boosting/feature_space.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/stats/distribution.h"
 
 // Avoid compilation errors due to SWIG being confused by the using statement
 // in distribution.h

@@ -12,9 +12,9 @@
 #define __boosting__decoder_h__
 
 #include "config.h"
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 #include <string>
-#include "db/persistent.h"
+#include "jml/db/persistent.h"
 #include "classifier.h"
 
 

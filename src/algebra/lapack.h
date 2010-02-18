@@ -10,7 +10,7 @@
 #define __boosting__lapack_h__
 
 #include <boost/multi_array.hpp>
-#include "boosting/config.h"
+#include "jml/boosting/config.h"
 #include <numeric>
 
 

@@ -12,7 +12,7 @@
 #include "classifier.h"
 #include "feature_set.h"
 #include <boost/multi_array.hpp>
-#include "utils/enum_info.h"
+#include "jml/utils/enum_info.h"
 #include "split.h"
 
 namespace ML {

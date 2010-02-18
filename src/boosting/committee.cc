@@ -8,8 +8,8 @@
 
 #include "committee.h"
 #include <memory>
-#include "utils/string_functions.h"
-#include "db/persistent.h"
+#include "jml/utils/string_functions.h"
+#include "jml/db/persistent.h"
 #include "config_impl.h"
 #include "classifier_persist_impl.h"
 #include <set>

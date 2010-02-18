@@ -6,7 +6,7 @@
    Test of the sparse feature space.
 */
 
-#include "boosting/sparse_features.h"
+#include "jml/boosting/sparse_features.h"
 
 using namespace std;
 using namespace ML;

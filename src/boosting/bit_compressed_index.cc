@@ -6,9 +6,9 @@
 */
 
 #include "bit_compressed_index.h"
-#include "arch/bitops.h"
-#include "arch/bit_range_ops.h"
-#include "math/xdiv.h"
+#include "jml/arch/bitops.h"
+#include "jml/arch/bit_range_ops.h"
+#include "jml/math/xdiv.h"
 #include <iostream>
 
 

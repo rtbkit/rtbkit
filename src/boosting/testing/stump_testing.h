@@ -6,7 +6,7 @@
    Routines to allow testing of the stump code.
 */
 
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 
 
 

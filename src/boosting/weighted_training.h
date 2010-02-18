@@ -14,7 +14,7 @@
 #include <map>
 #include <vector>
 #include <string>
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 
 

@@ -7,7 +7,7 @@
 
 #include "configuration.h"
 #include "parse_context.h"
-#include "utils/string_functions.h"
+#include "jml/utils/string_functions.h"
 
 
 using namespace std;

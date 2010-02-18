@@ -8,10 +8,10 @@
 
 #include "weighted_training.h"
 #include "training_data.h"
-#include "utils/parse_context.h"
+#include "jml/utils/parse_context.h"
 #include "training_index.h"
-#include "utils/floating_point.h"
-#include "math/xdiv.h"
+#include "jml/utils/floating_point.h"
+#include "jml/math/xdiv.h"
 
 
 using namespace std;

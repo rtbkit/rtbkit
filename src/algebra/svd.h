@@ -10,7 +10,7 @@
 #define __algebra__svd_h__
 
 
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 #include <boost/tuple/tuple.hpp>
 

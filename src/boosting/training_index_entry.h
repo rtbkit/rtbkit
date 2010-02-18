@@ -13,8 +13,8 @@
 #include "config.h"
 #include "training_index.h"
 #include "feature_map.h"
-#include "arch/threads.h"
-#include "math/xdiv.h"
+#include "jml/arch/threads.h"
+#include "jml/math/xdiv.h"
 #include <boost/utility.hpp>
 
 

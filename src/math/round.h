@@ -10,7 +10,7 @@
 
 #include <cmath>
 #include <math.h>
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 

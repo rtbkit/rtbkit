@@ -12,15 +12,15 @@
 
 #include "feature_set.h"
 #include "training_data.h"
-#include "stats/distribution.h"
-#include "arch/demangle.h"
-//#include "utils/compact_vector.h"
+#include "jml/stats/distribution.h"
+#include "jml/arch/demangle.h"
+//#include "jml/utils/compact_vector.h"
 #include <map>
 #include <boost/any.hpp>
 #include <boost/multi_array.hpp>
 #include <boost/function.hpp>
 #include <string>
-#include "utils/unnamed_bool.h"
+#include "jml/utils/unnamed_bool.h"
 
 namespace ML {
 

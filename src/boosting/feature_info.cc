@@ -10,9 +10,9 @@
 #include "training_data.h"
 #include "training_index.h"
 #include "registry.h"
-#include "utils/parse_context.h"
-#include "utils/vector_utils.h"
-#include "utils/smart_ptr_utils.h"
+#include "jml/utils/parse_context.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 
 using namespace std;

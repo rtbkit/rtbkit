@@ -16,8 +16,8 @@
 
 #include <limits>
 #include <vector>
-#include "arch/exception.h"
-#include "compiler/compiler.h"
+#include "jml/arch/exception.h"
+#include "jml/compiler/compiler.h"
 #include <ostream>
 #include <iterator>
 #include <algorithm>

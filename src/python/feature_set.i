@@ -7,7 +7,7 @@
 
 %module jml 
 %{
-#include "boosting/feature_set.h"
+#include "jml/boosting/feature_set.h"
 %}
 
 %include "std_vector.i"

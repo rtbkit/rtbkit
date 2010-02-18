@@ -7,8 +7,8 @@
 */
 
 #include "early_stopping_generator.h"
-#include "arch/demangle.h"
-#include "utils/sgi_numeric.h"
+#include "jml/arch/demangle.h"
+#include "jml/utils/sgi_numeric.h"
 
 
 using namespace std;

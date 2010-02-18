@@ -26,7 +26,7 @@
 #define __db__serialization_order_h__
 
 #include <stdint.h>
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 namespace DB {

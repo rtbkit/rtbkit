@@ -10,7 +10,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include <iostream>
-#include "stats/rmse.h"
+#include "jml/stats/rmse.h"
 #include <boost/assign/list_of.hpp>
 
 using namespace ML;

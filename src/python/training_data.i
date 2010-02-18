@@ -7,7 +7,7 @@
 
 %module jml 
 %{
-#include "boosting/training_data.h"
+#include "jml/boosting/training_data.h"
 %}
 
 %include "std_vector.i"

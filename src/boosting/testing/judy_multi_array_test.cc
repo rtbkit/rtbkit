@@ -6,9 +6,9 @@
    Test of the Judy multi array class.
 */
 
-#include "boosting/judy_multi_array.h"
-#include "utils/minivec.h"
-#include "utils/string_functions.h"
+#include "jml/boosting/judy_multi_array.h"
+#include "jml/utils/minivec.h"
+#include "jml/utils/string_functions.h"
 #include <iostream>
 #include <vector>
 #include <map>

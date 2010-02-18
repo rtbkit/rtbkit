@@ -10,7 +10,7 @@
 #define __boosting__evaluation_h__
 
 #include "config.h"
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 #include "feature_set.h"
 #include <algorithm>
 #include <boost/multi_array.hpp>

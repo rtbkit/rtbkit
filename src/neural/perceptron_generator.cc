@@ -7,28 +7,28 @@
 */
 
 #include "perceptron_generator.h"
-#include "boosting/registry.h"
+#include "jml/boosting/registry.h"
 #include <boost/timer.hpp>
 #include <boost/progress.hpp>
-#include "boosting/training_index.h"
-#include "stats/distribution_simd.h"
-#include "arch/simd_vector.h"
-#include "algebra/lapack.h"
-#include "algebra/matrix_ops.h"
-#include "algebra/irls.h"
+#include "jml/boosting/training_index.h"
+#include "jml/stats/distribution_simd.h"
+#include "jml/arch/simd_vector.h"
+#include "jml/algebra/lapack.h"
+#include "jml/algebra/matrix_ops.h"
+#include "jml/algebra/irls.h"
 #include <iomanip>
-#include "boosting/config_impl.h"
-#include "utils/environment.h"
-#include "utils/profile.h"
-#include "utils/worker_task.h"
-#include "utils/guard.h"
-#include "boosting/evaluation.h"
+#include "jml/boosting/config_impl.h"
+#include "jml/utils/environment.h"
+#include "jml/utils/profile.h"
+#include "jml/utils/worker_task.h"
+#include "jml/utils/guard.h"
+#include "jml/boosting/evaluation.h"
 #include <boost/scoped_ptr.hpp>
 #include <boost/bind.hpp>
-#include "utils/smart_ptr_utils.h"
-#include "utils/vector_utils.h"
-#include "utils/pair_utils.h"
-#include "neural/dense_layer.h"
+#include "jml/utils/smart_ptr_utils.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/utils/pair_utils.h"
+#include "jml/neural/dense_layer.h"
 
 #if (JML_USE_CUDA == 1)
 #include "backprop_cuda.h"

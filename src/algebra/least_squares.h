@@ -9,17 +9,17 @@
 #ifndef __algebra__least_squares_h__
 #define __algebra__least_squares_h__
 
-#include "stats/distribution.h"
-#include "stats/distribution_simd.h"
+#include "jml/stats/distribution.h"
+#include "jml/stats/distribution_simd.h"
 #include <boost/multi_array.hpp>
-#include "arch/exception.h"
-#include "algebra/matrix_ops.h"
+#include "jml/arch/exception.h"
+#include "jml/algebra/matrix_ops.h"
 #include "svd.h"
 #include <boost/timer.hpp>
 #include "lapack.h"
 #include <cmath>
-#include "utils/string_functions.h"
-#include "arch/simd_vector.h"
+#include "jml/utils/string_functions.h"
+#include "jml/arch/simd_vector.h"
 
 
 namespace ML {

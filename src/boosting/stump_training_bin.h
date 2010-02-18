@@ -16,11 +16,11 @@
 #define __boosting__stump_training_bin_h__
 
 #include "config.h"
-#include "compiler/compiler.h"
-#include "arch/exception.h"
+#include "jml/compiler/compiler.h"
+#include "jml/arch/exception.h"
 
-#include "arch/tick_counter.h"
-#include "arch/format.h"
+#include "jml/arch/tick_counter.h"
+#include "jml/arch/format.h"
 #include <cstddef>
 
 #include <string>

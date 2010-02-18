@@ -6,13 +6,13 @@
    Test of a judy array.
 */
 
-#include "boosting/judy_array.h"
+#include "jml/boosting/judy_array.h"
 #include <iostream>
-#include "utils/string_functions.h"
+#include "jml/utils/string_functions.h"
 #include <vector>
 #include <map>
 #include <algorithm>
-#include "utils/hash_map.h"
+#include "jml/utils/hash_map.h"
 #include <boost/timer.hpp>
 
 

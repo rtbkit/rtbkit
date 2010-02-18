@@ -9,8 +9,8 @@
 #define __jml__neural__transfer_function_h__
 
 #include "perceptron_defs.h"
-#include "stats/distribution.h"
-#include "db/persistent_fwd.h"
+#include "jml/stats/distribution.h"
+#include "jml/db/persistent_fwd.h"
 #include <boost/shared_ptr.hpp>
 
 namespace ML {

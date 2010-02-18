@@ -23,7 +23,7 @@
 #ifndef __math__bound_h__
 #define __math__bound_h__
 
-#include "utils/float_traits.h"
+#include "jml/utils/float_traits.h"
 
 namespace ML {
 

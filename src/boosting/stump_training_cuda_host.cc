@@ -5,8 +5,8 @@
 */
 
 #include "stump_training_cuda.h"
-#include "arch/bit_range_ops.h"
-#include "arch/tick_counter.h"
+#include "jml/arch/bit_range_ops.h"
+#include "jml/arch/tick_counter.h"
 
 typedef ML::CUDA::Test_Buckets_Binsym::Float Float;
 typedef ML::CUDA::Test_Buckets_Binsym::TwoBuckets TwoBuckets;

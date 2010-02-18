@@ -9,7 +9,7 @@
 #define __arch__atomic_ops_h__
 
 #include "cmp_xchg.h"
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 
 
 namespace ML {

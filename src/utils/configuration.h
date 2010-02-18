@@ -28,9 +28,9 @@
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include <boost/lexical_cast.hpp>
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 #include <iostream>
-#include "utils/string_functions.h"
+#include "jml/utils/string_functions.h"
 #include "enum_info.h"
 
 

@@ -13,7 +13,7 @@
 
 #include <string>
 #include <vector>
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 #include "stump_training.h"
 #include "training_data.h"

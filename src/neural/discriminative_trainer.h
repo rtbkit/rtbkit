@@ -11,7 +11,7 @@
 
 #include "loss_function.h"
 #include "layer.h"
-#include "utils/configuration.h"
+#include "jml/utils/configuration.h"
 
 namespace ML {
 

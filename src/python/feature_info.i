@@ -7,7 +7,7 @@
 
 %module jml 
 %{
-#include "boosting/feature_info.h"
+#include "jml/boosting/feature_info.h"
 %}
 
 %include "std_string.i"

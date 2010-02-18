@@ -23,15 +23,15 @@
 #ifndef __algebra__matrix_ops_h__
 #define __algebra__matrix_ops_h__
 
-#include "stats/distribution.h"
-#include "arch/exception.h"
+#include "jml/stats/distribution.h"
+#include "jml/arch/exception.h"
 #include <boost/multi_array.hpp>
 #include <iostream>
-#include "utils/float_traits.h"
-#include "compiler/compiler.h"
-#include "arch/simd_vector.h"
-#include "utils/string_functions.h"
-#include "arch/cache.h"
+#include "jml/utils/float_traits.h"
+#include "jml/compiler/compiler.h"
+#include "jml/arch/simd_vector.h"
+#include "jml/utils/string_functions.h"
+#include "jml/arch/cache.h"
 
 namespace boost {
 

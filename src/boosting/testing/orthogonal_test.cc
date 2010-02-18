@@ -7,9 +7,9 @@
 */
 
 #include <iostream>
-#include "boosting/config_impl.h"
+#include "jml/boosting/config_impl.h"
 #include <boost/multi_array.hpp>
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 
 using namespace std;
 

@@ -21,10 +21,10 @@
 #include "stump_accum.h"
 #include "stump_regress.h"
 #include "binary_symmetric.h"
-#include "utils/environment.h"
-#include "utils/info.h"
-#include "arch/tick_counter.h"
-#include "utils/smart_ptr_utils.h"
+#include "jml/utils/environment.h"
+#include "jml/utils/info.h"
+#include "jml/arch/tick_counter.h"
+#include "jml/utils/smart_ptr_utils.h"
 #include <boost/bind.hpp>
 
 using namespace std;

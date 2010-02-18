@@ -7,7 +7,7 @@
    the testing programs to work.
 */
 
-#include "arch/threads.h"
+#include "jml/arch/threads.h"
 
 namespace ML {
 

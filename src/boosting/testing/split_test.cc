@@ -17,12 +17,12 @@
 #include <iostream>
 #include <limits>
 
-#include "boosting/split.h"
-#include "boosting/feature_set.h"
-#include "boosting/dense_features.h"
-#include "boosting/feature_info.h"
-#include "utils/smart_ptr_utils.h"
-#include "utils/vector_utils.h"
+#include "jml/boosting/split.h"
+#include "jml/boosting/feature_set.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/boosting/feature_info.h"
+#include "jml/utils/smart_ptr_utils.h"
+#include "jml/utils/vector_utils.h"
 //#include <boost/math/>
 
 using namespace ML;

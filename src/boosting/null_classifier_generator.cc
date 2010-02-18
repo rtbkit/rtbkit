@@ -8,7 +8,7 @@
 
 #include "null_classifier_generator.h"
 #include "registry.h"
-#include "utils/smart_ptr_utils.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 
 using namespace std;

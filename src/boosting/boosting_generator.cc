@@ -13,15 +13,15 @@
 #include "training_index.h"
 #include "weighted_training.h"
 #include "committee.h"
-#include "utils/sgi_numeric.h"
+#include "jml/utils/sgi_numeric.h"
 #include "boosting_training.h"
-#include "arch/simd_vector.h"
+#include "jml/arch/simd_vector.h"
 #include "boosting_core.h"
 #include "boosting_core_parallel.h"
 #include "config_impl.h"
 #include "binary_symmetric.h"
-#include "utils/worker_task.h"
-#include "utils/guard.h"
+#include "jml/utils/worker_task.h"
+#include "jml/utils/guard.h"
 #include <boost/scoped_ptr.hpp>
 
 

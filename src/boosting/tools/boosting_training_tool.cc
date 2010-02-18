@@ -6,23 +6,23 @@
    Tool to use to train boosting with.
 */
 
-#include "boosting/boosted_stumps.h"
-#include "boosting/training_data.h"
-#include "boosting/dense_features.h"
-#include "boosting/sparse_features.h"
-#include "boosting/probabilizer.h"
-#include "boosting/decoded_classifier.h"
-#include "boosting/boosting_tool_common.h"
-#include "boosting/weighted_training.h"
-#include "boosting/training_index.h"
-#include "boosting/boosted_stumps_generator.h"
-#include "utils/vector_utils.h"
-#include "utils/command_line.h"
+#include "jml/boosting/boosted_stumps.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/boosting/sparse_features.h"
+#include "jml/boosting/probabilizer.h"
+#include "jml/boosting/decoded_classifier.h"
+#include "jml/boosting/boosting_tool_common.h"
+#include "jml/boosting/weighted_training.h"
+#include "jml/boosting/training_index.h"
+#include "jml/boosting/boosted_stumps_generator.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/utils/command_line.h"
 #include <boost/progress.hpp>
 #include <boost/timer.hpp>
-#include "stats/moments.h"
+#include "jml/stats/moments.h"
 #include "datasets.h"
-#include "utils/info.h"
+#include "jml/utils/info.h"
 
 #include <iterator>
 #include <iostream>

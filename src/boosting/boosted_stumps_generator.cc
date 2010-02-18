@@ -12,14 +12,14 @@
 #include <boost/progress.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
-#include "arch/simd_vector.h"
+#include "jml/arch/simd_vector.h"
 #include "boosted_stumps_impl.h"
 #include "boosting_core.h"
 #include "boosting_core_parallel.h"
 #include "stump_predict.h"
 #include "binary_symmetric.h"
-#include "arch/tick_counter.h"
-#include "utils/smart_ptr_utils.h"
+#include "jml/arch/tick_counter.h"
+#include "jml/utils/smart_ptr_utils.h"
 #include <boost/scoped_ptr.hpp>
 #include "stump_predict.h"
 

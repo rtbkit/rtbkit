@@ -8,11 +8,11 @@
 #ifndef __jml__utils__lightweight_hash_h__
 #define __jml__utils__lightweight_hash_h__
 
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 #include <boost/iterator/iterator_facade.hpp>
 #include <iostream> // debug
-#include "utils/hash_specializations.h"
-#include "utils/string_functions.h"
+#include "jml/utils/hash_specializations.h"
+#include "jml/utils/string_functions.h"
 #include <string>
 
 namespace ML {

@@ -24,11 +24,11 @@
 #ifndef __boosting__thread_context_h__
 #define __boosting__thread_context_h__
 
-#include "utils/worker_task.h"
+#include "jml/utils/worker_task.h"
 #include <boost/random/mersenne_twister.hpp>
-#include "utils/smart_ptr_utils.h"
+#include "jml/utils/smart_ptr_utils.h"
 #include <boost/random/uniform_int.hpp>
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 
 namespace ML {
 

@@ -8,8 +8,8 @@
 #ifndef __boosting__fixed_point_accum_h__
 #define __boosting__fixed_point_accum_h__
 
-#include "compiler/compiler.h"
-#include "utils/float_traits.h"
+#include "jml/compiler/compiler.h"
+#include "jml/utils/float_traits.h"
 
 namespace ML {
 

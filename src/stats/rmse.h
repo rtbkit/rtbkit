@@ -8,8 +8,8 @@
 #ifndef __jml__stats__rmse_h__
 #define __jml__stats__rmse_h__
 
-#include "stats/distribution.h"
-#include "stats/distribution_ops.h"
+#include "jml/stats/distribution.h"
+#include "jml/stats/distribution_ops.h"
 
 namespace ML {
 

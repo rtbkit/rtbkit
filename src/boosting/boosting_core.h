@@ -11,7 +11,7 @@
 #define __boosting__boosting_core_h__
 
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 #include "training_data.h"
 #include "stump.h"
 #include "training_index.h"

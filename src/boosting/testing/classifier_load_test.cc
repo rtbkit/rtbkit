@@ -6,7 +6,7 @@
    Test that the classifiers can be loaded properly.
 */
 
-#include "boosting/classifier.h"
+#include "jml/boosting/classifier.h"
 #include <iostream>
 
 using namespace std;

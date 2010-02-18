@@ -9,10 +9,10 @@
 #ifndef __boosting__boosting_core_parallel_h__
 #define __boosting__boosting_core_parallel_h__
 
-#include "utils/worker_task.h"
-#include "utils/guard.h"
+#include "jml/utils/worker_task.h"
+#include "jml/utils/guard.h"
 #include <boost/bind.hpp>
-#include "utils/smart_ptr_utils.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 
 namespace ML {

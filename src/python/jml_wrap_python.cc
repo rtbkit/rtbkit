@@ -5,7 +5,7 @@
 */
 
 #include "jml_wrap_python.h"
-//#include "boosting/classifier.h"
+//#include "jml/boosting/classifier.h"
 
 Classifier::
 Classifier()

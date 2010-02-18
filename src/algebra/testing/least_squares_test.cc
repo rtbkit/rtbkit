@@ -17,8 +17,8 @@
 #include <stdint.h>
 #include <iostream>
 
-#include "algebra/least_squares.h"
-#include "algebra/matrix_ops.h"
+#include "jml/algebra/least_squares.h"
+#include "jml/algebra/matrix_ops.h"
 
 using namespace ML;
 using namespace std;

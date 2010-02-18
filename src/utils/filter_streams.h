@@ -25,7 +25,7 @@
 
 #include <iostream>
 #include <fstream>
-#include "boost/scoped_ptr.hpp"
+#include "jml/boost/scoped_ptr.hpp"
 
 
 namespace ML {

@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include <string>
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 

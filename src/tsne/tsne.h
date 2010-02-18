@@ -15,7 +15,7 @@
 #ifndef __jml__tsne__tsne_h__
 #define __jml__tsne__tsne_h__
 
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 #include <boost/function.hpp>
 

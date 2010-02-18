@@ -6,12 +6,12 @@
 */
 
 #include "boosting_training.h"
-#include "math/xdiv.h"
-#include "arch/simd_vector.h"
-#include "utils/floating_point.h"
-#include "utils/vector_utils.h"
+#include "jml/math/xdiv.h"
+#include "jml/arch/simd_vector.h"
+#include "jml/utils/floating_point.h"
+#include "jml/utils/vector_utils.h"
 #include "boosting_core.h"
-#include "utils/smart_ptr_utils.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 
 using namespace std;

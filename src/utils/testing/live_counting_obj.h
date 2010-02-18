@@ -9,7 +9,7 @@
 #ifndef __jml__utils_testing__live_counting_obj_h__
 #define __jml__utils_testing__live_counting_obj_h__
 
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 
 namespace ML {
 

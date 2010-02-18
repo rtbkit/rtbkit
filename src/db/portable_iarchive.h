@@ -26,12 +26,12 @@
 #include <algorithm>
 #include <boost/shared_ptr.hpp>
 #include "serialization_order.h"
-#include "utils/floating_point.h"
-#include "arch/exception.h"
+#include "jml/utils/floating_point.h"
+#include "jml/arch/exception.h"
 #include "compact_size_types.h"
 #include <vector>
 #include <boost/array.hpp>
-#include "utils/string_functions.h"
+#include "jml/utils/string_functions.h"
 
 namespace boost {
 

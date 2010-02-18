@@ -13,13 +13,13 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/multi_array.hpp>
 #include <boost/tuple/tuple.hpp>
-#include "tsne/tsne.h"
+#include "jml/tsne/tsne.h"
 #include <boost/assign/list_of.hpp>
 #include <limits>
 #include <boost/test/floating_point_comparison.hpp>
 #include <iostream>
-#include "utils/parse_context.h"
-#include "utils/filter_streams.h"
+#include "jml/utils/parse_context.h"
+#include "jml/utils/filter_streams.h"
 
 using namespace ML;
 using namespace std;

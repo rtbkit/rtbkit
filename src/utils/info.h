@@ -24,8 +24,8 @@
 #define __utils__info_h__
 
 #include <string>
-#include "compiler/compiler.h"
-#include "arch/cpu_info.h"
+#include "jml/compiler/compiler.h"
+#include "jml/arch/cpu_info.h"
 
 namespace ML {
 

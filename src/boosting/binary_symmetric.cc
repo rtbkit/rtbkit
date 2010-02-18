@@ -9,7 +9,7 @@
 #include "binary_symmetric.h"
 #include "training_data.h"
 #include "training_index.h"
-#include "algebra/multi_array_utils.h"
+#include "jml/algebra/multi_array_utils.h"
 
 
 using namespace std;

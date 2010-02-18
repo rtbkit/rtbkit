@@ -8,21 +8,21 @@
 
 #include "boosted_stumps.h"
 #include "classifier_persist_impl.h"
-#include "math/xdiv.h"
-#include "arch/simd_vector.h"
+#include "jml/math/xdiv.h"
+#include "jml/arch/simd_vector.h"
 #include "boosted_stumps_impl.h"
 #include "stump_predict.h"
-#include "utils/environment.h"
+#include "jml/utils/environment.h"
 #include <boost/timer.hpp>
 #include <boost/progress.hpp>
-#include "utils/floating_point.h"
-#include "utils/vector_utils.h"
+#include "jml/utils/floating_point.h"
+#include "jml/utils/vector_utils.h"
 #include "boosting_core.h"
 #include "boosting_training.h"
 #include "config_impl.h"
 #include "binary_symmetric.h"
-#include "utils/worker_task.h"
-#include "utils/guard.h"
+#include "jml/utils/worker_task.h"
+#include "jml/utils/guard.h"
 #include <iostream>
 #include <boost/bind.hpp>
 

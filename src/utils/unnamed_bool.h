@@ -24,7 +24,7 @@
 #ifndef __utils__unnamed_bool_h__
 #define __utils__unnamed_bool_h__
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 

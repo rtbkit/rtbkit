@@ -10,9 +10,9 @@
 #define __boosting__judy_array_h__
 
 #include "config.h"
-#include "judy/Judy.h"
+#include "jml/judy/Judy.h"
 #include <utility>
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 #include <iostream>
 #include <boost/type_traits.hpp>
 #include "memusage.h"

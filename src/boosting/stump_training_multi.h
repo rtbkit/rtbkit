@@ -11,10 +11,10 @@
 #define __boosting__stump_training_multi_h__
 
 #include "stump_training.h"
-#include "arch/simd_vector.h"
-#include "arch/sse.h"
-#include "arch/sse2.h"
-#include "algebra/multi_array_utils.h"
+#include "jml/arch/simd_vector.h"
+#include "jml/arch/sse.h"
+#include "jml/arch/sse2.h"
+#include "jml/algebra/multi_array_utils.h"
 
 #undef USE_SIMD_SSE2
 #define USE_SIMD_SSE2 0

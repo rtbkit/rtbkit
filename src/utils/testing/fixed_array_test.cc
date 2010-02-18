@@ -24,9 +24,9 @@
 #define BOOST_TEST_DYN_LINK
 
 #define BOOST_AUTO_TEST_MAIN
-#include "boost/test/auto_unit_test.hpp"
+#include "jml/boost/test/auto_unit_test.hpp"
 
-#include "utils/fixed_array.h"
+#include "jml/utils/fixed_array.h"
 
 using namespace ML;
 

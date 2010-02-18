@@ -7,7 +7,7 @@
 
 %module jml 
 %{
-#include "boosting/classifier.h"
+#include "jml/boosting/classifier.h"
 %}
 
 namespace ML {

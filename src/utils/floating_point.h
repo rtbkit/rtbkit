@@ -24,7 +24,7 @@
 #define __utils__floating_point_h__
 
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 #include <limits>
 
 namespace ML {

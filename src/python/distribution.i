@@ -7,7 +7,7 @@
 
 %module jml 
 %{
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 %}
 
 %include "std_vector.i"

@@ -8,10 +8,10 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "arch/atomic_ops.h"
-#include "arch/demangle.h"
-#include "arch/exception.h"
-#include "arch/tick_counter.h"
+#include "jml/arch/atomic_ops.h"
+#include "jml/arch/demangle.h"
+#include "jml/arch/exception.h"
+#include "jml/arch/tick_counter.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>

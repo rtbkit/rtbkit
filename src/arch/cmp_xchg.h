@@ -9,8 +9,8 @@
 #define __arch__cmp_xchg_h__
 
 #include <stdint.h>
-#include "compiler/compiler.h"
-#include "arch/arch.h"
+#include "jml/compiler/compiler.h"
+#include "jml/arch/arch.h"
 
 namespace ML {
 

@@ -23,7 +23,7 @@
 #ifndef __arch__math_builtins_h__
 #define __arch__math_builtins_h__
 
-#include "arch/arch.h"
+#include "jml/arch/arch.h"
 #include <math.h>
 
 namespace ML {

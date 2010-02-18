@@ -6,26 +6,26 @@
 */
 
 #include "tsne.h"
-#include "stats/distribution.h"
-#include "stats/distribution_ops.h"
-#include "stats/distribution_simd.h"
-#include "algebra/matrix_ops.h"
-#include "arch/simd_vector.h"
+#include "jml/stats/distribution.h"
+#include "jml/stats/distribution_ops.h"
+#include "jml/stats/distribution_simd.h"
+#include "jml/algebra/matrix_ops.h"
+#include "jml/arch/simd_vector.h"
 #include <boost/tuple/tuple.hpp>
-#include "algebra/lapack.h"
+#include "jml/algebra/lapack.h"
 #include <cmath>
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/variate_generator.hpp>
-#include "utils/worker_task.h"
+#include "jml/utils/worker_task.h"
 #include <boost/timer.hpp>
-#include "arch/timers.h"
-#include "arch/sse2.h"
-#include "arch/sse2_log.h"
-#include "arch/cache.h"
-#include "utils/guard.h"
+#include "jml/arch/timers.h"
+#include "jml/arch/sse2.h"
+#include "jml/arch/sse2_log.h"
+#include "jml/arch/cache.h"
+#include "jml/utils/guard.h"
 #include <boost/bind.hpp>
-#include "utils/environment.h"
+#include "jml/utils/environment.h"
 
 using namespace std;
 

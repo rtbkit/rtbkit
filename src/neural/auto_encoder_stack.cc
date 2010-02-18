@@ -8,9 +8,9 @@
 #undef NDEBUG
 
 #include "auto_encoder_stack.h"
-#include "boosting/registry.h"
+#include "jml/boosting/registry.h"
 #include "layer_stack_impl.h"
-#include "utils/check_not_nan.h"
+#include "jml/utils/check_not_nan.h"
 
 
 using namespace std;

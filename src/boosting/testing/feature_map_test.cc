@@ -6,13 +6,13 @@
    Test of various implementations of the Feature_Map class.
 */
 
-#include "boosting/feature_map.h"
-#include "utils/string_functions.h"
+#include "jml/boosting/feature_map.h"
+#include "jml/utils/string_functions.h"
 #include <iostream>
 #include <vector>
 #include <map>
 #include <boost/timer.hpp>
-#include "utils/hash_map.h"
+#include "jml/utils/hash_map.h"
 
 using namespace std;
 using namespace ML;

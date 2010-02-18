@@ -14,8 +14,8 @@
 
 #include <cmath>
 #include <utility>
-#include "stats/distribution.h"
-#include "stats/distribution_ops.h"
+#include "jml/stats/distribution.h"
+#include "jml/stats/distribution_ops.h"
 #include <boost/multi_array.hpp>
 #include "irls.h"
 #include "least_squares.h"

@@ -12,7 +12,7 @@
 #include "config.h"
 #include "feature_set.h"
 #include <boost/pool/object_pool.hpp>
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 #include "split.h"
 
 namespace ML {

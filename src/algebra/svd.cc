@@ -10,9 +10,9 @@
 
 #include "svd.h"
 #include "eigenvalues.h"
-#include "stats/distribution.h"
-#include "stats/distribution_simd.h"
-#include "arch/exception.h"
+#include "jml/stats/distribution.h"
+#include "jml/stats/distribution_simd.h"
+#include "jml/arch/exception.h"
 #include <boost/timer.hpp>
 #include <iostream>
 

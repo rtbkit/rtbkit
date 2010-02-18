@@ -7,9 +7,9 @@
    training tool.
 */
 
-#include "boosting/classifier.h"
-#include "utils/command_line.h"
-#include "utils/file_functions.h"
+#include "jml/boosting/classifier.h"
+#include "jml/utils/command_line.h"
+#include "jml/utils/file_functions.h"
 
 #include <iterator>
 #include <iostream>

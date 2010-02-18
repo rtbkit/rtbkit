@@ -20,17 +20,17 @@
 #include <iostream>
 #include <limits>
 
-#include "boosting/training_index.h"
-#include "boosting/split.h"
-#include "boosting/feature_set.h"
-#include "boosting/dense_features.h"
-#include "boosting/feature_info.h"
-#include "boosting/stump_training_core.h"
-#include "boosting/stump_training_bin.h"
-#include "boosting/stump_training_cuda.h"
-#include "utils/smart_ptr_utils.h"
-#include "utils/vector_utils.h"
-#include "arch/timers.h"
+#include "jml/boosting/training_index.h"
+#include "jml/boosting/split.h"
+#include "jml/boosting/feature_set.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/boosting/feature_info.h"
+#include "jml/boosting/stump_training_core.h"
+#include "jml/boosting/stump_training_bin.h"
+#include "jml/boosting/stump_training_cuda.h"
+#include "jml/utils/smart_ptr_utils.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/arch/timers.h"
 
 using namespace ML;
 using namespace std;

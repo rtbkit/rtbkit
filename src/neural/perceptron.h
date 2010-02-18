@@ -10,11 +10,11 @@
 #define __boosting__perceptron_h__
 
 
-#include "boosting/config.h"
-#include "boosting/classifier.h"
+#include "jml/boosting/config.h"
+#include "jml/boosting/classifier.h"
 #include "layer.h"
 #include "layer_stack.h"
-#include "utils/pair_utils.h"
+#include "jml/utils/pair_utils.h"
 #include <boost/multi_array.hpp>
 #include <boost/shared_ptr.hpp>
 

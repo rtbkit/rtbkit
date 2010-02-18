@@ -7,14 +7,14 @@
 */
 
 #include "datasets.h"
-#include "utils/parse_context.h"
-#include "utils/file_functions.h"
-#include "utils/filter_streams.h"
-#include "boosting/sparse_features.h"
-#include "boosting/dense_features.h"
-#include "boosting/feature_transformer.h"
+#include "jml/utils/parse_context.h"
+#include "jml/utils/file_functions.h"
+#include "jml/utils/filter_streams.h"
+#include "jml/boosting/sparse_features.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/boosting/feature_transformer.h"
 #include <boost/timer.hpp>
-#include "boosting/feature_set_filter.h"
+#include "jml/boosting/feature_set_filter.h"
 
 using namespace std;
 

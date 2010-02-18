@@ -12,8 +12,8 @@
 
 #include <boost/test/unit_test.hpp>
 #include <boost/multi_array.hpp>
-#include "neural/dense_layer.h"
-#include "utils/testing/serialize_reconstitute_include.h"
+#include "jml/neural/dense_layer.h"
+#include "jml/utils/testing/serialize_reconstitute_include.h"
 #include <boost/assign/list_of.hpp>
 #include <limits>
 

@@ -12,13 +12,13 @@
 #include "config.h"
 #include <string>
 #include <vector>
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 #include <numeric>
 #include "stump.h"
-#include "algebra/multi_array_utils.h"
-#include "math/xdiv.h"
+#include "jml/algebra/multi_array_utils.h"
+#include "jml/math/xdiv.h"
 #include "split.h"
 #include "fixed_point_accum.h"
 

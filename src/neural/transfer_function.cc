@@ -7,9 +7,9 @@
 
 #include "transfer_function.h"
 #include <cmath>
-#include "db/persistent.h"
-#include "boosting/registry.h"
-#include "utils/smart_ptr_utils.h"
+#include "jml/db/persistent.h"
+#include "jml/boosting/registry.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 
 using namespace ML::DB;

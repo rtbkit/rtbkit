@@ -10,13 +10,13 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <errno.h>
-#include "arch/exception.h"
-#include "arch/cpuid.h"
+#include "jml/arch/exception.h"
+#include "jml/arch/cpuid.h"
 #include <fstream>
 #include <iostream>
 #include <sys/time.h>
 #include <time.h>
-#include "arch/cpu_info.h"
+#include "jml/arch/cpu_info.h"
 
 using namespace std;
 

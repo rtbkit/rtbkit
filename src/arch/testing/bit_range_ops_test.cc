@@ -10,9 +10,9 @@
 
 #include <iostream>
 
-#include "arch/bit_range_ops.h"
-#include "arch/demangle.h"
-#include "arch/tick_counter.h"
+#include "jml/arch/bit_range_ops.h"
+#include "jml/arch/demangle.h"
+#include "jml/arch/tick_counter.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/auto_unit_test.hpp>

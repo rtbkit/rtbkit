@@ -9,15 +9,15 @@
 #include "config_impl.h"
 #include "training_data.h"
 #include "training_index.h"
-#include "utils/file_functions.h"
-#include "utils/pair_utils.h"
-#include "utils/filter_streams.h"
-#include "utils/vector_utils.h"
-#include "utils/sgi_numeric.h"
+#include "jml/utils/file_functions.h"
+#include "jml/utils/pair_utils.h"
+#include "jml/utils/filter_streams.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/utils/sgi_numeric.h"
 #include <boost/progress.hpp>
-#include "db/persistent.h"
-#include "utils/hash_map.h"
-#include "arch/demangle.h"
+#include "jml/db/persistent.h"
+#include "jml/utils/hash_map.h"
+#include "jml/arch/demangle.h"
 
 
 using namespace std;

@@ -8,7 +8,7 @@
 #include "layer_stack.h"
 #include "dense_layer.h"
 #include "layer_stack_impl.h"
-#include "boosting/registry.h"
+#include "jml/boosting/registry.h"
 
 namespace ML {
 

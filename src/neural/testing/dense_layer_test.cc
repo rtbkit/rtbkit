@@ -13,9 +13,9 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
 #include <boost/multi_array.hpp>
-#include "neural/dense_layer.h"
-#include "utils/testing/serialize_reconstitute_include.h"
-#include "utils/check_not_nan.h"
+#include "jml/neural/dense_layer.h"
+#include "jml/utils/testing/serialize_reconstitute_include.h"
+#include "jml/utils/check_not_nan.h"
 #include <boost/assign/list_of.hpp>
 #include <limits>
 #include "bprop_test.h"

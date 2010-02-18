@@ -23,8 +23,8 @@
 #ifndef __math__xdiv_h__
 #define __math__xdiv_h__
 
-#include "utils/float_traits.h"
-#include "compiler/compiler.h"
+#include "jml/utils/float_traits.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 

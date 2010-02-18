@@ -11,11 +11,11 @@
 
 #include "classifier.h"
 #include "stump.h"
-#include "utils/enum_info.h"
-#include "utils/floating_point.h"
+#include "jml/utils/enum_info.h"
+#include "jml/utils/floating_point.h"
 #include "config.h"
 #include <boost/iterator/transform_iterator.hpp>
-#include "utils/sgi_numeric.h"
+#include "jml/utils/sgi_numeric.h"
 
 namespace ML {
 

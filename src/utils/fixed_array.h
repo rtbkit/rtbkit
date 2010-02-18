@@ -25,10 +25,10 @@
 #define __utils__fixed_array_h__
 
 
-#include "boost/multi_array.hpp"
-#include "boost/type_traits.hpp"
-#include "utils/multi_array_utils.h"
-#include "boost/function.hpp"
+#include "jml/boost/multi_array.hpp"
+#include "jml/boost/type_traits.hpp"
+#include "jml/utils/multi_array_utils.h"
+#include "jml/boost/function.hpp"
 #include <numeric>
 
 

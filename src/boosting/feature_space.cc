@@ -7,8 +7,8 @@
 */
 
 #include "feature_space.h"
-#include "utils/parse_context.h"
-#include "db/persistent.h"
+#include "jml/utils/parse_context.h"
+#include "jml/db/persistent.h"
 #include "registry.h"
 #include "training_data.h"
 #include <boost/lexical_cast.hpp>

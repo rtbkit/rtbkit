@@ -9,10 +9,10 @@
 
 #include "twoway_layer.h"
 #include "layer_stack_impl.h"
-#include "utils/check_not_nan.h"
-#include "boosting/registry.h"
-#include "algebra/matrix_ops.h"
-#include "stats/distribution_ops.h"
+#include "jml/utils/check_not_nan.h"
+#include "jml/boosting/registry.h"
+#include "jml/algebra/matrix_ops.h"
+#include "jml/stats/distribution_ops.h"
 
 using namespace std;
 

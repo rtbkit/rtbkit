@@ -8,9 +8,9 @@
 #ifndef __arch__tick_counter_h__
 #define __arch__tick_counter_h__
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 #include <stdint.h>
-#include "arch/arch.h"
+#include "jml/arch/arch.h"
 
 namespace ML {
 

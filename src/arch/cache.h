@@ -9,7 +9,7 @@
 #define __jml__arch__cache_h__
 
 #include "sse2.h"
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 

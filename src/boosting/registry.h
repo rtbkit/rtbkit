@@ -11,10 +11,10 @@
 #define __boosting__registry_h__
 
 
-#include "db/persistent.h"
-#include "db/nested_archive.h"
-#include "utils/hash_map.h"
-#include "arch/demangle.h"
+#include "jml/db/persistent.h"
+#include "jml/db/nested_archive.h"
+#include "jml/utils/hash_map.h"
+#include "jml/arch/demangle.h"
 #include <iostream>
 
 

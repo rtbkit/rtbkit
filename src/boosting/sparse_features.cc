@@ -8,8 +8,8 @@
 
 #include "sparse_features.h"
 #include "registry.h"
-#include "utils/parse_context.h"
-#include "utils/file_functions.h"
+#include "jml/utils/parse_context.h"
+#include "jml/utils/file_functions.h"
 #include <boost/utility.hpp>
 #include "config_impl.h"
 

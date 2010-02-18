@@ -6,25 +6,25 @@
    Implementation of our common code for the boosting tools.
 */
 
-#include "boosting/config_impl.h"
+#include "jml/boosting/config_impl.h"
 #include "boosting_tool_common.h"
-#include "utils/file_functions.h"
-#include "utils/parse_context.h"
-#include "boosting/training_data.h"
-#include "boosting/classifier.h"
-#include "boosting/probabilizer.h"
-#include "utils/vector_utils.h"
+#include "jml/utils/file_functions.h"
+#include "jml/utils/parse_context.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/classifier.h"
+#include "jml/boosting/probabilizer.h"
+#include "jml/utils/vector_utils.h"
 #include <boost/timer.hpp>
 #include <boost/regex.hpp>
-#include "boosting/null_classifier.h"
-#include "boosting/null_feature_space.h"
-#include "boosting/evaluation.h"
-#include "boosting/feature_info.h"
-#include "boosting/training_index.h"
-#include "boosting/data_aliases.h"
-#include "boosting/weighted_training.h"
-#include "math/xdiv.h"
-#include "stats/distribution_ops.h"
+#include "jml/boosting/null_classifier.h"
+#include "jml/boosting/null_feature_space.h"
+#include "jml/boosting/evaluation.h"
+#include "jml/boosting/feature_info.h"
+#include "jml/boosting/training_index.h"
+#include "jml/boosting/data_aliases.h"
+#include "jml/boosting/weighted_training.h"
+#include "jml/math/xdiv.h"
+#include "jml/stats/distribution_ops.h"
 
 
 using namespace std;

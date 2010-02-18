@@ -6,8 +6,8 @@
    Tests feature identification for boosting.
 */
 
-#include "boosting/training_data.h"
-#include "boosting/sparse_features.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/sparse_features.h"
 
 using namespace ML;
 

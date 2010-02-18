@@ -8,7 +8,7 @@
 #ifndef __boosting__dual_float_accum_h__
 #define __boosting__dual_float_accum_h__
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 

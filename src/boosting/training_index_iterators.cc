@@ -6,9 +6,9 @@
 */
 
 #include "training_index_iterators.h"
-#include "db/persistent.h"
+#include "jml/db/persistent.h"
 #include <iostream>
-#include "utils/string_functions.h"
+#include "jml/utils/string_functions.h"
 
 using namespace std;
 

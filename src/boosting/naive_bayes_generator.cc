@@ -14,8 +14,8 @@
 #include "weighted_training.h"
 #include "stump_training.h"
 #include "stump_training_core.h"
-#include "stats/distribution_ops.h"
-#include "utils/smart_ptr_utils.h"
+#include "jml/stats/distribution_ops.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 
 using namespace std;

@@ -20,32 +20,32 @@
    Tool to train an arbitrary classifier.
 */
 
-#include "boosting/classifier_generator.h"
-#include "boosting/training_data.h"
-#include "boosting/dense_features.h"
-#include "boosting/sparse_features.h"
-#include "boosting/probabilizer.h"
-#include "boosting/decoded_classifier.h"
+#include "jml/boosting/classifier_generator.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/boosting/sparse_features.h"
+#include "jml/boosting/probabilizer.h"
+#include "jml/boosting/decoded_classifier.h"
 #include "boosting_tool_common.h"
-#include "boosting/weighted_training.h"
-#include "boosting/training_index.h"
-#include "boosting/transform_list.h"
-#include "utils/vector_utils.h"
+#include "jml/boosting/weighted_training.h"
+#include "jml/boosting/training_index.h"
+#include "jml/boosting/transform_list.h"
+#include "jml/utils/vector_utils.h"
 #include <boost/progress.hpp>
 #include <boost/timer.hpp>
-#include "stats/moments.h"
+#include "jml/stats/moments.h"
 #include "datasets.h"
-#include "utils/info.h"
+#include "jml/utils/info.h"
 
 #include <iterator>
 #include <iostream>
 #include <set>
 
-#include "boost/program_options/cmdline.hpp"
-#include "boost/program_options/options_description.hpp"
-#include "boost/program_options/positional_options.hpp"
-#include "boost/program_options/parsers.hpp"
-#include "boost/program_options/variables_map.hpp"
+#include "jml/boost/program_options/cmdline.hpp"
+#include "jml/boost/program_options/options_description.hpp"
+#include "jml/boost/program_options/positional_options.hpp"
+#include "jml/boost/program_options/parsers.hpp"
+#include "jml/boost/program_options/variables_map.hpp"
 
 
 using namespace std;

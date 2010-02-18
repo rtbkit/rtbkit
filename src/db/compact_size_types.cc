@@ -21,8 +21,8 @@
 */
 
 #include "compact_size_types.h"
-#include "compiler/compiler.h"
-#include "arch/bitops.h"
+#include "jml/compiler/compiler.h"
+#include "jml/arch/bitops.h"
 #include "persistent.h"
 #include <stdint.h>
 #include <iomanip>

@@ -6,12 +6,12 @@
 */
 
 #include <Python.h>
-#include "numpy/arrayobject.h"
+#include "jml/numpy/arrayobject.h"
 #include "tsne.h"
 #include <iostream>
-#include "arch/exception.h"
-#include "utils/unnamed_bool.h"
-#include "arch/demangle.h"
+#include "jml/arch/exception.h"
+#include "jml/utils/unnamed_bool.h"
+#include "jml/arch/demangle.h"
 #include <cxxabi.h>
 #include <typeinfo>
 #include <boost/bind.hpp>

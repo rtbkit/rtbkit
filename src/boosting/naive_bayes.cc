@@ -8,13 +8,13 @@
 
 #include "naive_bayes.h"
 #include "classifier_persist_impl.h"
-#include "arch/simd_vector.h"
-#include "stats/distribution_ops.h"
+#include "jml/arch/simd_vector.h"
+#include "jml/stats/distribution_ops.h"
 #include "stump_training.h"
-#include "utils/vector_utils.h"
+#include "jml/utils/vector_utils.h"
 #include "config_impl.h"
-#include "algebra/multi_array_utils.h"
-#include "utils/pair_utils.h"
+#include "jml/algebra/multi_array_utils.h"
+#include "jml/utils/pair_utils.h"
 
 
 using namespace std;

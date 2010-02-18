@@ -21,8 +21,8 @@
 */
 
 #include <boost/python.hpp>
-#include "boosting/training_data.h"
-#include "boosting/training_index.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/training_index.h"
 
 using namespace boost::python;
 using namespace ML;

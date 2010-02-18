@@ -7,7 +7,7 @@
 */
 
 #include "feature_transformer.h"
-#include "db/persistent.h"
+#include "jml/db/persistent.h"
 #include "config_impl.h"
 #include "registry.h"
 

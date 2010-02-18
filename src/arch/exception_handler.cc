@@ -8,8 +8,8 @@
 #include "demangle.h"
 #include <cxxabi.h>
 #include "backtrace.h"
-#include "compiler/compiler.h"
-#include "utils/environment.h"
+#include "jml/compiler/compiler.h"
+#include "jml/utils/environment.h"
 
 using namespace std;
 

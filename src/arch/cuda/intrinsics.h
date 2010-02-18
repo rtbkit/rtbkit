@@ -8,7 +8,7 @@
 #ifndef __jml__compiler__cuda_intrinsics_h__
 #define __jml__compiler__cuda_intrinsics_h__
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 
 #if (! defined(JML_COMPILER_NVCC) ) || (! JML_COMPILER_NVCC)
 # error "This file should only be included for CUDA"

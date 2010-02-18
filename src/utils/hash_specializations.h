@@ -27,7 +27,7 @@
 #define _BACKWARD_BACKWARD_WARNING_H 1
 #include <ext/hash_map>
 #include <string>
-#include "utils/floating_point.h"
+#include "jml/utils/floating_point.h"
 
 
 #define JML_HASH_NS __gnu_cxx

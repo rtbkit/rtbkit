@@ -6,7 +6,7 @@
 */
 
 #include "tick_counter.h"
-#include "math/xdiv.h"
+#include "jml/math/xdiv.h"
 #include <iostream>
 #include <sys/time.h>
 

@@ -8,9 +8,9 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "utils/parse_context.h"
-#include "utils/file_functions.h"
-#include "utils/guard.h"
+#include "jml/utils/parse_context.h"
+#include "jml/utils/file_functions.h"
+#include "jml/utils/guard.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <sstream>

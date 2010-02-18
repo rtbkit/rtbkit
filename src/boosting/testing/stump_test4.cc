@@ -10,13 +10,13 @@
    0 iszero:1
 */
 
-#include "boosting/stump_training.h"
-#include "boosting/stump_training_core.h"
-#include "boosting/stump_training_bin.h"
+#include "jml/boosting/stump_training.h"
+#include "jml/boosting/stump_training_core.h"
+#include "jml/boosting/stump_training_bin.h"
 #include "stump_testing.h"
-#include "boosting/training_data.h"
-#include "boosting/dense_features.h"
-#include "boosting/sparse_features.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/boosting/sparse_features.h"
 
 using namespace ML;
 using namespace std;

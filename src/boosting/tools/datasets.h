@@ -10,11 +10,11 @@
 #ifndef __boosting_tools__datasets_h__
 #define __boosting_tools__datasets_h__
 
-#include "boosting/config.h"
+#include "jml/boosting/config.h"
 #include <vector>
-#include "boosting/training_data.h"
-#include "boosting/feature_space.h"
-#include "stats/distribution.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/feature_space.h"
+#include "jml/stats/distribution.h"
 
 
 namespace ML {

@@ -6,19 +6,19 @@
 */
 
 #include "auto_encoder_trainer.h"
-#include "utils/configuration.h"
-#include "arch/threads.h"
+#include "jml/utils/configuration.h"
+#include "jml/arch/threads.h"
 
 #include <boost/progress.hpp>
-#include "utils/worker_task.h"
+#include "jml/utils/worker_task.h"
 #include <boost/tuple/tuple.hpp>
-#include "utils/guard.h"
-#include "utils/configuration.h"
-#include "arch/timers.h"
+#include "jml/utils/guard.h"
+#include "jml/utils/configuration.h"
+#include "jml/arch/timers.h"
 #include <boost/bind.hpp>
 #include "auto_encoder_stack.h"
-#include "utils/check_not_nan.h"
-#include "stats/distribution_ops.h"
+#include "jml/utils/check_not_nan.h"
+#include "jml/stats/distribution_ops.h"
 
 
 using namespace std;

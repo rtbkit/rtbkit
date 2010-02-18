@@ -16,7 +16,7 @@
 #include "stump_training.h"
 #include "stump_training_bin.h"
 #include "stump_regress.h"
-#include "utils/smart_ptr_utils.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>

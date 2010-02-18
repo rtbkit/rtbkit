@@ -8,14 +8,14 @@
    and the non-optimised versions.
 */
 
-#include "boosting/stump_training.h"
-#include "boosting/stump_training_core.h"
-#include "boosting/stump_training_bin.h"
+#include "jml/boosting/stump_training.h"
+#include "jml/boosting/stump_training_core.h"
+#include "jml/boosting/stump_training_bin.h"
 #include "stump_testing.h"
-#include "boosting/training_data.h"
-#include "boosting/dense_features.h"
-#include "boosting/sparse_features.h"
-#include "boosting/stump_accum.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/boosting/sparse_features.h"
+#include "jml/boosting/stump_accum.h"
 
 
 using namespace ML;

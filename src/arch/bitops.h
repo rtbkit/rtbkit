@@ -23,7 +23,7 @@
 #ifndef __arch__bitops_h__
 #define __arch__bitops_h__
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 #include <stdint.h>
 #include <cassert>
 

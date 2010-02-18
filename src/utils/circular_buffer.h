@@ -11,7 +11,7 @@
 #define __jml__utils__circular_buffer_h__
 
 #include <vector>
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 #include <boost/iterator/iterator_facade.hpp>
 #include <iostream> // debug
 

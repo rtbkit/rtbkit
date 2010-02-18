@@ -12,8 +12,8 @@
 #include <boost/progress.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
-#include "utils/smart_ptr_utils.h"
-#include "algebra/matrix_ops.h"
+#include "jml/utils/smart_ptr_utils.h"
+#include "jml/algebra/matrix_ops.h"
 
 
 using namespace std;

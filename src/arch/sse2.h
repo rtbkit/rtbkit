@@ -8,7 +8,7 @@
 #ifndef __arch__sse2_h__
 #define __arch__sse2_h__
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 #include <iostream>
 
 #define USE_SIMD_SSE2 1

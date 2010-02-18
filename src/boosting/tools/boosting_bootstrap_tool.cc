@@ -7,21 +7,21 @@
    training tool.
 */
 
-#include "boosting/training_data.h"
-#include "boosting/dense_features.h"
-#include "boosting/sparse_features.h"
-#include "boosting/classifier.h"
-#include "utils/command_line.h"
-#include "utils/file_functions.h"
-#include "utils/filter_streams.h"
-#include "utils/parse_context.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/boosting/sparse_features.h"
+#include "jml/boosting/classifier.h"
+#include "jml/utils/command_line.h"
+#include "jml/utils/file_functions.h"
+#include "jml/utils/filter_streams.h"
+#include "jml/utils/parse_context.h"
 #include <boost/multi_array.hpp>
-#include "utils/sgi_numeric.h"
-#include "utils/vector_utils.h"
-#include "stats/distribution.h"
-#include "stats/sparse_distribution.h"
-#include "sections/sink_stream.h"
-#include "stats/distribution_ops.h"
+#include "jml/utils/sgi_numeric.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/stats/distribution.h"
+#include "jml/stats/sparse_distribution.h"
+#include "jml/sections/sink_stream.h"
+#include "jml/stats/distribution_ops.h"
 
 #include <iterator>
 #include <iostream>

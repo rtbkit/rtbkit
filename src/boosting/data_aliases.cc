@@ -9,7 +9,7 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
-#include "utils/sgi_numeric.h"
+#include "jml/utils/sgi_numeric.h"
 
 
 using namespace std;

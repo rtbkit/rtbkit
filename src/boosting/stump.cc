@@ -10,17 +10,17 @@
 #include "classifier_persist_impl.h"
 #include "training_data.h"
 #include <algorithm>
-#include "utils/sgi_algorithm.h"
+#include "jml/utils/sgi_algorithm.h"
 #include <boost/progress.hpp>
-#include "utils/smart_ptr_utils.h"
-#include "utils/pair_utils.h"
-#include "utils/vector_utils.h"
+#include "jml/utils/smart_ptr_utils.h"
+#include "jml/utils/pair_utils.h"
+#include "jml/utils/vector_utils.h"
 #include <iomanip>
-#include "utils/environment.h"
+#include "jml/utils/environment.h"
 #include "config_impl.h"
 #include "boosted_stumps.h"
-#include "stats/distribution_ops.h"
-#include "utils/profile.h"
+#include "jml/stats/distribution_ops.h"
+#include "jml/utils/profile.h"
 
 using namespace std;
 using namespace DB;

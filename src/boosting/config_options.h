@@ -15,8 +15,8 @@
 #include <vector>
 #include <boost/shared_ptr.hpp>
 #include <boost/lexical_cast.hpp>
-#include "utils/configuration.h"
-#include "utils/enum_info.h"
+#include "jml/utils/configuration.h"
+#include "jml/utils/enum_info.h"
 #include "registry.h"
 
 

@@ -8,27 +8,27 @@
 */
 
 #include "perceptron.h"
-#include "boosting/classifier_persist_impl.h"
-#include "utils/profile.h"
-#include "utils/environment.h"
-#include "algebra/matrix_ops.h"
-#include "boosting/training_index.h"
-#include "algebra/irls.h"
-#include "utils/vector_utils.h"
+#include "jml/boosting/classifier_persist_impl.h"
+#include "jml/utils/profile.h"
+#include "jml/utils/environment.h"
+#include "jml/algebra/matrix_ops.h"
+#include "jml/boosting/training_index.h"
+#include "jml/algebra/irls.h"
+#include "jml/utils/vector_utils.h"
 #include <iomanip>
 #include <boost/random/lagged_fibonacci.hpp>
 #include <boost/random/uniform_01.hpp>
-#include "utils/parse_context.h"
-#include "stats/distribution_simd.h"
-#include "stats/distribution_ops.h"
-#include "boosting/evaluation.h"
-#include "arch/simd_vector.h"
-#include "algebra/lapack.h"
-#include "boosting/config_impl.h"
-#include "utils/worker_task.h"
-#include "utils/guard.h"
+#include "jml/utils/parse_context.h"
+#include "jml/stats/distribution_simd.h"
+#include "jml/stats/distribution_ops.h"
+#include "jml/boosting/evaluation.h"
+#include "jml/arch/simd_vector.h"
+#include "jml/algebra/lapack.h"
+#include "jml/boosting/config_impl.h"
+#include "jml/utils/worker_task.h"
+#include "jml/utils/guard.h"
 #include <boost/bind.hpp>
-#include "arch/backtrace.h"
+#include "jml/arch/backtrace.h"
 #include "dense_layer.h"
 
 using namespace std;

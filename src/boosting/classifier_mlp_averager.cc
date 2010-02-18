@@ -8,11 +8,11 @@
 
 #include "config.h"
 #include "classifier_mlp_averager.h"
-#include "utils/file_functions.h"
+#include "jml/utils/file_functions.h"
 #include "dense_features.h"
 #include "mlp_averager.h"
-#include "mlp_average/mlp_averager.h"
-#include "arch/exception.h"
+#include "jml/mlp_average/mlp_averager.h"
+#include "jml/arch/exception.h"
 
 
 using namespace std;

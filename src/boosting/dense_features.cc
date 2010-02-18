@@ -7,16 +7,16 @@
 
 #include "config_impl.h"
 #include "dense_features.h"
-#include "utils/string_functions.h"
-#include "utils/pair_utils.h"
+#include "jml/utils/string_functions.h"
+#include "jml/utils/pair_utils.h"
 #include "registry.h"
 #include <boost/timer.hpp>
-#include "utils/fast_float_parsing.h"
+#include "jml/utils/fast_float_parsing.h"
 #include <boost/timer.hpp>
-#include "utils/file_functions.h"
-#include "utils/vector_utils.h"
-#include "utils/filter_streams.h"
-#include "utils/smart_ptr_utils.h"
+#include "jml/utils/file_functions.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/utils/filter_streams.h"
+#include "jml/utils/smart_ptr_utils.h"
 #include <boost/tuple/tuple.hpp>
 #include "stdint.h"
 

@@ -6,14 +6,14 @@
 */
 
 #include "discriminative_trainer.h"
-#include "utils/worker_task.h"
-#include "utils/guard.h"
+#include "jml/utils/worker_task.h"
+#include "jml/utils/guard.h"
 #include <boost/progress.hpp>
 #include <boost/tuple/tuple.hpp>
-#include "arch/threads.h"
+#include "jml/arch/threads.h"
 #include <boost/bind.hpp>
-#include "arch/timers.h"
-#include "stats/auc.h"
+#include "jml/arch/timers.h"
+#include "jml/stats/auc.h"
 
 using namespace std;
 

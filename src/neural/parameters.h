@@ -12,11 +12,11 @@
 #include <vector>
 #include <boost/multi_array.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
-#include "utils/hash_map.h"
-#include "boosting/thread_context.h"
-#include "db/persistent_fwd.h"
-#include "stats/distribution.h"
-#include "arch/simd_vector.h"
+#include "jml/utils/hash_map.h"
+#include "jml/boosting/thread_context.h"
+#include "jml/db/persistent_fwd.h"
+#include "jml/stats/distribution.h"
+#include "jml/arch/simd_vector.h"
 
 namespace ML {
 

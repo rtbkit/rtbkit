@@ -8,8 +8,8 @@
 #ifndef __cuda__device_data_h__
 #define __cuda__device_data_h__
 
-#include "compiler/compiler.h"
-#include "arch/demangle.h"
+#include "jml/compiler/compiler.h"
+#include "jml/arch/demangle.h"
 #include <typeinfo>
 
 #if (! defined(JML_COMPILER_NVCC) ) || (! JML_COMPILER_NVCC)

@@ -23,11 +23,11 @@
 #ifndef __utils__pair_utils_h__
 #define __utils__pair_utils_h__
 
-#include "utils/boost_fixes.h"
+#include "jml/utils/boost_fixes.h"
 #include <boost/type_traits.hpp>
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/iterator/zip_iterator.hpp>
-#include "utils/sgi_functional.h"
+#include "jml/utils/sgi_functional.h"
 #include <utility>
 
 namespace ML {

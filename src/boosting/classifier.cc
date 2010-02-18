@@ -7,16 +7,16 @@
 
 #include "classifier.h"
 #include "classifier_persist_impl.h"
-#include "arch/threads.h"
-#include "utils/file_functions.h"
-#include "ace/OS.h"
+#include "jml/arch/threads.h"
+#include "jml/utils/file_functions.h"
+#include "jml/ace/OS.h"
 #include "evaluation.h"
 #include "config_impl.h"
-#include "utils/worker_task.h"
-#include "utils/guard.h"
+#include "jml/utils/worker_task.h"
+#include "jml/utils/guard.h"
 #include "dense_features.h"
-#include "utils/smart_ptr_utils.h"
-#include "utils/vector_utils.h"
+#include "jml/utils/smart_ptr_utils.h"
+#include "jml/utils/vector_utils.h"
 #include <boost/bind.hpp>
 #include <boost/thread/tss.hpp>
 

@@ -21,7 +21,7 @@
 */
 
 #include <boost/python.hpp>
-#include "boosting/classifier.h"
+#include "jml/boosting/classifier.h"
 using namespace boost::python;
 using namespace ML;
 

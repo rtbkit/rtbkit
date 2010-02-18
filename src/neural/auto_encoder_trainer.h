@@ -11,7 +11,7 @@
 
 #include "auto_encoder.h"
 #include "auto_encoder_stack.h"
-#include "stats/distribution.h"
+#include "jml/stats/distribution.h"
 #include <vector>
 
 

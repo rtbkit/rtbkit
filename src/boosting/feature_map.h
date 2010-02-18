@@ -13,8 +13,8 @@
 
 
 #include "judy_multi_array.h"
-#include "boosting/feature_set.h"
-#include "utils/hash_map.h"
+#include "jml/boosting/feature_set.h"
+#include "jml/utils/hash_map.h"
 
 
 namespace ML {

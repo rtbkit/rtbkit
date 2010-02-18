@@ -9,13 +9,13 @@
 #include "irls.h"
 #include "glz.h"
 #include <boost/timer.hpp>
-#include "stats/distribution_simd.h"
-#include "utils/vector_utils.h"
-#include "boosting/config_impl.h"
-#include "arch/simd_vector.h"
+#include "jml/stats/distribution_simd.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/boosting/config_impl.h"
+#include "jml/arch/simd_vector.h"
 #include "multi_array_utils.h"
-#include "boosting/config_impl.h"
-#include "utils/string_functions.h"
+#include "jml/boosting/config_impl.h"
+#include "jml/utils/string_functions.h"
 #include <boost/version.hpp>
 
 using namespace std;

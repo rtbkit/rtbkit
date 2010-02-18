@@ -10,12 +10,12 @@
 #include "classifier_persist_impl.h"
 #include "null_feature_space.h"
 #include "dense_features.h"
-#include "algebra/irls.h"
+#include "jml/algebra/irls.h"
 #include <boost/timer.hpp>
 #include "training_index.h"
 #include "config_impl.h"
 #include <limits>
-#include "utils/vector_utils.h"
+#include "jml/utils/vector_utils.h"
 
 
 using namespace std;

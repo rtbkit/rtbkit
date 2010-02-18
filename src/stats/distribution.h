@@ -24,14 +24,14 @@
 #define __stats__distribution_h__
 
 #include <vector>
-#include "utils/float_traits.h"
-#include "arch/integer.h"
-#include "arch/exception.h"
+#include "jml/utils/float_traits.h"
+#include "jml/arch/integer.h"
+#include "jml/arch/exception.h"
 #include <numeric>
 #include <limits>
 #include <algorithm>
 #include <ostream>
-#include "utils/string_functions.h"
+#include "jml/utils/string_functions.h"
 
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_convertible.hpp>

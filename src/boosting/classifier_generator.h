@@ -14,7 +14,7 @@
 #include "config_options.h"
 #include "feature_space.h"
 #include "training_data.h"
-#include "utils/configuration.h"
+#include "jml/utils/configuration.h"
 #include "classifier.h"
 #include "thread_context.h"
 

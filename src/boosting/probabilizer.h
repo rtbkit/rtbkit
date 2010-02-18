@@ -9,11 +9,11 @@
 #define __boosting__probabilizer_h__
 
 
-#include "db/persistent.h"
-#include "stats/distribution.h"
+#include "jml/db/persistent.h"
+#include "jml/stats/distribution.h"
 #include "decoder.h"
 #include <boost/multi_array.hpp>
-#include "algebra/irls.h"
+#include "jml/algebra/irls.h"
 
 
 namespace ML {

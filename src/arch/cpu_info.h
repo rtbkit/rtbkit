@@ -8,7 +8,7 @@
 #ifndef __jml__arch__cpu_info_h__
 #define __jml__arch__cpu_info_h__
 
-#include "compiler/compiler.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 

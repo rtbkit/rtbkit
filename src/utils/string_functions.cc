@@ -23,7 +23,7 @@
 #include "string_functions.h"
 #include <stdarg.h>
 #include <stdio.h>
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 #include <sys/errno.h>
 #include <stdlib.h>
 

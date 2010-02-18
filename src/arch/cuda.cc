@@ -11,7 +11,7 @@
 #include <cuda_runtime_api.h>
 #include <iostream>
 #include "format.h"
-#include "utils/environment.h"
+#include "jml/utils/environment.h"
 
 using namespace std;
 

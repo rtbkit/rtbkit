@@ -13,14 +13,14 @@
 #include "training_index.h"
 #include "weighted_training.h"
 #include "committee.h"
-#include "utils/sgi_numeric.h"
+#include "jml/utils/sgi_numeric.h"
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>
 #include <boost/random/variate_generator.hpp>
-#include "utils/worker_task.h"
-#include "utils/guard.h"
+#include "jml/utils/worker_task.h"
+#include "jml/utils/guard.h"
 #include <boost/bind.hpp>
-#include "utils/smart_ptr_utils.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 
 using namespace std;

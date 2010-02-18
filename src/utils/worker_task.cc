@@ -6,16 +6,16 @@
    Task to perform work.
 */
 
-#include "utils/worker_task.h"
-#include "arch/exception.h"
-#include "utils/string_functions.h"
+#include "jml/utils/worker_task.h"
+#include "jml/arch/exception.h"
+#include "jml/utils/string_functions.h"
 #include <iostream>
 #include <boost/utility.hpp>
-#include "utils/environment.h"
-#include "utils/guard.h"
+#include "jml/utils/environment.h"
+#include "jml/utils/guard.h"
 #include <ace/OS.h>
 #include <boost/bind.hpp>
-#include "arch/cpu_info.h"
+#include "jml/arch/cpu_info.h"
 
 
 using namespace std;

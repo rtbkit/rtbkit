@@ -10,8 +10,8 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
-#include "neural/parameters.h"
-#include "utils/testing/serialize_reconstitute_include.h"
+#include "jml/neural/parameters.h"
+#include "jml/utils/testing/serialize_reconstitute_include.h"
 
 
 using namespace ML;

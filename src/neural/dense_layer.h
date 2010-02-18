@@ -10,7 +10,7 @@
 
 #include "layer.h"
 #include "transfer_function.h"
-#include "utils/enum_info.h"
+#include "jml/utils/enum_info.h"
 #include "layer_stack.h"
 
 

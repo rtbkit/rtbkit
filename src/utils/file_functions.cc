@@ -29,9 +29,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include "string_functions.h"
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 #include <iostream>
-#include "boost/weak_ptr.hpp"
+#include "jml/boost/weak_ptr.hpp"
 #include <map>
 
 

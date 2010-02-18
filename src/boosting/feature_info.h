@@ -13,10 +13,10 @@
 #include "config.h"
 #include <vector>
 #include <string>
-#include "db/persistent.h"
+#include "jml/db/persistent.h"
 #include "feature_set.h"
-#include "utils/hash_map.h"
-#include "arch/threads.h"
+#include "jml/utils/hash_map.h"
+#include "jml/arch/threads.h"
 
 namespace ML {
 

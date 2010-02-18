@@ -7,12 +7,12 @@
 */
 
 #include "training_index_entry.h"
-#include "utils/sgi_numeric.h"
-#include "utils/vector_utils.h"
+#include "jml/utils/sgi_numeric.h"
+#include "jml/utils/vector_utils.h"
 #include "feature_info.h"
 #include "feature_space.h"
-#include "utils/floating_point.h"
-#include "utils/pair_utils.h"
+#include "jml/utils/floating_point.h"
+#include "jml/utils/pair_utils.h"
 #include <boost/timer.hpp>
 
 

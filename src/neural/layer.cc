@@ -5,12 +5,12 @@
 */
 
 #include "layer.h"
-#include "db/persistent.h"
-#include "arch/demangle.h"
-#include "algebra/matrix_ops.h"
-#include "arch/simd_vector.h"
-#include "boosting/registry.h"
-#include "utils/string_functions.h"
+#include "jml/db/persistent.h"
+#include "jml/arch/demangle.h"
+#include "jml/algebra/matrix_ops.h"
+#include "jml/arch/simd_vector.h"
+#include "jml/boosting/registry.h"
+#include "jml/utils/string_functions.h"
 
 
 using namespace std;

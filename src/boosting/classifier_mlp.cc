@@ -8,11 +8,11 @@
 
 #include "config.h"
 #include "classifier_mlp.h"
-#include "utils/file_functions.h"
+#include "jml/utils/file_functions.h"
 #include "dense_features.h"
 #include "mlp.h"
-#include "mlp/mlp.h"
-#include "arch/exception.h"
+#include "jml/mlp/mlp.h"
+#include "jml/arch/exception.h"
 
 
 using namespace std;

@@ -6,17 +6,17 @@
    A tool to analyze training data sets.
 */
 
-#include "boosting/training_data.h"
-#include "boosting/training_index.h"
-#include "boosting/dense_features.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/training_index.h"
+#include "jml/boosting/dense_features.h"
 #include "boosting_tool_common.h"
-#include "utils/file_functions.h"
-#include "utils/parse_context.h"
-#include "stats/moments.h"
-#include "utils/pair_utils.h"
-#include "stats/sparse_distribution.h"
-#include "utils/vector_utils.h"
-#include "utils/floating_point.h"
+#include "jml/utils/file_functions.h"
+#include "jml/utils/parse_context.h"
+#include "jml/stats/moments.h"
+#include "jml/utils/pair_utils.h"
+#include "jml/stats/sparse_distribution.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/utils/floating_point.h"
 
 #include <iterator>
 #include <iostream>
@@ -25,11 +25,11 @@
 
 #include <boost/math/distributions/normal.hpp>
 
-#include "boost/program_options/cmdline.hpp"
-#include "boost/program_options/options_description.hpp"
-#include "boost/program_options/positional_options.hpp"
-#include "boost/program_options/parsers.hpp"
-#include "boost/program_options/variables_map.hpp"
+#include "jml/boost/program_options/cmdline.hpp"
+#include "jml/boost/program_options/options_description.hpp"
+#include "jml/boost/program_options/positional_options.hpp"
+#include "jml/boost/program_options/parsers.hpp"
+#include "jml/boost/program_options/variables_map.hpp"
 
 using namespace std;
 

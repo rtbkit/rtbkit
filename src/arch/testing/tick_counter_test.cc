@@ -8,7 +8,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "arch/tick_counter.h"
+#include "jml/arch/tick_counter.h"
 
 #include <boost/test/unit_test.hpp>
 #include <iostream>

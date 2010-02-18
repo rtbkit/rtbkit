@@ -24,8 +24,8 @@
 #define __stats__distribution_simd_h__
 
 #include "distribution.h"
-#include "arch/simd_vector.h"
-#include "compiler/compiler.h"
+#include "jml/arch/simd_vector.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 

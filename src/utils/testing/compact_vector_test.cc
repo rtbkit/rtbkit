@@ -9,16 +9,16 @@
 #define BOOST_TEST_DYN_LINK
 
 
-#include "utils/filter_streams.h"
-#include "utils/compact_vector.h"
-#include "arch/exception.h"
-#include "arch/arch.h"
+#include "jml/utils/filter_streams.h"
+#include "jml/utils/compact_vector.h"
+#include "jml/arch/exception.h"
+#include "jml/arch/arch.h"
 
 #include <boost/test/unit_test.hpp>
-#include "utils/vector_utils.h"
-#include "utils/pair_utils.h"
-#include "utils/file_functions.h"
-#include "utils/string_functions.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/utils/pair_utils.h"
+#include "jml/utils/file_functions.h"
+#include "jml/utils/string_functions.h"
 #include <iostream>
 #include <sstream>
 

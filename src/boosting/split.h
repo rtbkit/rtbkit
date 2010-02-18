@@ -9,11 +9,11 @@
 #define __boosting__split_h__
 
 #include "split_fwd.h"
-#include "utils/less.h"
+#include "jml/utils/less.h"
 #include "feature.h"
-#include "db/persistent_fwd.h"
+#include "jml/db/persistent_fwd.h"
 #include <cmath>
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 #include <iostream>
 
 namespace ML {

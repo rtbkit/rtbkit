@@ -20,7 +20,7 @@
    Functions to deal with the environment.
 */
 
-#include "utils/environment.h"
+#include "jml/utils/environment.h"
 #include <iostream>
 
 using namespace std;

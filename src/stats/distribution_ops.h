@@ -24,10 +24,10 @@
 #define __utils__distribution_ops_h__
 
 #include "distribution.h"
-#include "math/bound.h"
-#include "math/round.h"
-#include "math/xdiv.h"
-#include "arch/math_builtins.h"
+#include "jml/math/bound.h"
+#include "jml/math/round.h"
+#include "jml/math/xdiv.h"
+#include "jml/arch/math_builtins.h"
 #include <cmath>
 
 namespace ML {

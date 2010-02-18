@@ -23,7 +23,7 @@
 #ifndef __utils__multi_array_utils_h__
 #define __utils__multi_array_utils_h__
 
-#include "boost/multi_array.hpp"
+#include "jml/boost/multi_array.hpp"
 #include <algorithm>
 
 namespace boost {

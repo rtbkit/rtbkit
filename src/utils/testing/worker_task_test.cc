@@ -16,17 +16,17 @@
 #include <stdint.h>
 #include <iostream>
 
-#include "utils/worker_task.h"
-#include "boosting/training_data.h"
-#include "boosting/dense_features.h"
-#include "boosting/feature_info.h"
-#include "utils/smart_ptr_utils.h"
-#include "utils/vector_utils.h"
-#include "arch/timers.h"
-#include "utils/guard.h"
-#include "arch/exception_handler.h"
-#include "arch/atomic_ops.h"
-#include "arch/demangle.h"
+#include "jml/utils/worker_task.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/dense_features.h"
+#include "jml/boosting/feature_info.h"
+#include "jml/utils/smart_ptr_utils.h"
+#include "jml/utils/vector_utils.h"
+#include "jml/arch/timers.h"
+#include "jml/utils/guard.h"
+#include "jml/arch/exception_handler.h"
+#include "jml/arch/atomic_ops.h"
+#include "jml/arch/demangle.h"
 
 using namespace ML;
 using namespace std;

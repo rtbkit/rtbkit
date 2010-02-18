@@ -9,7 +9,7 @@
 #define __jml__stats__auc_h__
 
 #include <vector>
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 #include <iostream>
 
 namespace ML {

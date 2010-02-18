@@ -8,8 +8,8 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "utils/info.h"
-#include "utils/environment.h"
+#include "jml/utils/info.h"
+#include "jml/utils/environment.h"
 
 #include <boost/test/unit_test.hpp>
 #include <iostream>

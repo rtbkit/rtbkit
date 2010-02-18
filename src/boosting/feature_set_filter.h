@@ -10,7 +10,7 @@
 
 #include "dense_features.h"
 #include "feature_set.h"
-#include "utils/parse_context.h"
+#include "jml/utils/parse_context.h"
 
 namespace ML {
 

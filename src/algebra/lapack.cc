@@ -10,8 +10,8 @@
 #include <vector>
 #include <boost/scoped_array.hpp>
 #include <cmath>
-#include "arch/threads.h"
-#include "arch/exception.h"
+#include "jml/arch/threads.h"
+#include "jml/arch/exception.h"
 #include <iostream>
 
 

@@ -10,8 +10,8 @@
 #define __boosting__stump_training_parallel_h__
 
 
-#include "utils/worker_task.h"
-#include "utils/guard.h"
+#include "jml/utils/worker_task.h"
+#include "jml/utils/guard.h"
 #include <boost/bind.hpp>
 
 namespace ML {

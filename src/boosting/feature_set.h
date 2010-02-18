@@ -14,15 +14,15 @@
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
 #include <boost/tuple/tuple_io.hpp>
-#include "db/persistent.h"
-#include "stats/distribution.h"
+#include "jml/db/persistent.h"
+#include "jml/stats/distribution.h"
 #include <vector>
-#include "utils/floating_point.h"
-#include "utils/string_functions.h"
-#include "utils/sgi_algorithm.h"
-#include "utils/hash_specializations.h"
+#include "jml/utils/floating_point.h"
+#include "jml/utils/string_functions.h"
+#include "jml/utils/sgi_algorithm.h"
+#include "jml/utils/hash_specializations.h"
 #include <cmath>
-#include "utils/parse_context.h"
+#include "jml/utils/parse_context.h"
 #include "feature.h"
 
 namespace ML {

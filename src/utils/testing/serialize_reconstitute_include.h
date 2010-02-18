@@ -8,10 +8,10 @@
 #ifndef __jml__utils__testing__serialize_reconstitute_include_h__
 #define __jml__utils__testing__serialize_reconstitute_include_h__
 
-#include "db/persistent.h"
-#include "db/compact_size_types.h"
+#include "jml/db/persistent.h"
+#include "jml/db/compact_size_types.h"
 #include <boost/test/unit_test.hpp>
-#include "arch/demangle.h"
+#include "jml/arch/demangle.h"
 
 using namespace ML;
 using namespace ML::DB;

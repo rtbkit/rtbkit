@@ -6,12 +6,12 @@
    Test of the boosted stumps over a given dataset.  It runs various iterations
    over various datasets, all the time checking that the invariants hold.
 */
-#include "boosting/stump_training.h"
-#include "boosting/stump_training_core.h"
-#include "boosting/stump_training_bin.h"
+#include "jml/boosting/stump_training.h"
+#include "jml/boosting/stump_training_core.h"
+#include "jml/boosting/stump_training_bin.h"
 #include "stump_testing.h"
-#include "boosting/training_data.h"
-#include "boosting/dense_features.h"
+#include "jml/boosting/training_data.h"
+#include "jml/boosting/dense_features.h"
 
 
 using namespace ML;

@@ -7,8 +7,8 @@
 
 #include "perceptron_defs.h"
 #include <iostream>
-#include "utils/string_functions.h"
-#include "db/persistent.h"
+#include "jml/utils/string_functions.h"
+#include "jml/db/persistent.h"
 
 using namespace std;
 

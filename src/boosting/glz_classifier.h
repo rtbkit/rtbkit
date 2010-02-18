@@ -10,8 +10,8 @@
 #ifndef __boosting__glz_classifier_h__
 #define __boosting__glz_classifier_h__
 
-#include "boosting/classifier.h"
-#include "algebra/irls.h"
+#include "jml/boosting/classifier.h"
+#include "jml/algebra/irls.h"
 
 
 namespace ML {

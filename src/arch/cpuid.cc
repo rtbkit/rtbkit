@@ -7,7 +7,7 @@
 
 #include "simd.h"
 #include <boost/tuple/tuple.hpp>
-#include "arch/exception.h"
+#include "jml/arch/exception.h"
 #include <iostream>
 #include <iomanip>
 

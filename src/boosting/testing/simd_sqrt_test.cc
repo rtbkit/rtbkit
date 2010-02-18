@@ -6,12 +6,12 @@
    Test of square root functionality and accuracy using SIMD instructions.
 */
 
-#include "boosting/config_impl.h"
-#include "arch/sse.h"
+#include "jml/boosting/config_impl.h"
+#include "jml/arch/sse.h"
 #include <boost/timer.hpp>
 #include <vector>
 #include <cmath>
-#include "arch/tick_counter.h"
+#include "jml/arch/tick_counter.h"
 
 
 using namespace std;
