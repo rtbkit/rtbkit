@@ -108,6 +108,8 @@ X * page_start(X * value)
     return (X *)v;
 }
 
+void dump_maps(std::ostream & stream = std::cerr);
+
 
 } // namespace ML
 

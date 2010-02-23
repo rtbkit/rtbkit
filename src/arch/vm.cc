@@ -16,7 +16,7 @@
 #include <errno.h>
 
 #include <boost/bind.hpp>
-
+#include <fstream>
 
 
 using namespace std;
@@ -121,6 +121,23 @@ std::vector<Page_Info> page_info(const void * addr, int npages)
     }
 
     return result;
+}
+
+void dump_maps()
+{
+    std::ifstream stream("/proc/self/maps");
+
+    cerr << string(60, '=') << endl;
+    cerr << "maps" << endl;
+
+    while (stream) {
+        string s;
+        std::getline(stream, s);
+        cerr << s << endl;
+    }
+
+    cerr << string(60, '=') << endl;
+    cerr << endl << endl;
 }
 
 } // namespace ML
