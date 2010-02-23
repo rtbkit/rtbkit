@@ -25,8 +25,8 @@ using namespace std;
 namespace ML {
 
 std::string
-Page_Info::
-print_mapping() const
+Pagemap_Entry::
+print() const
 {
     if (present)
         return format("P%c %09x s%5d", (swapped ? 'S' : '.'),
@@ -34,6 +34,13 @@ print_mapping() const
     else if (swapped)
         return format(".S %02d/%06x s%5d", (int)swap_type, (int)swap_offset);
     else return "..                 ";
+}
+
+std::string
+Page_Info::
+print_mapping() const
+{
+    return Pagemap_Entry::print();
 }
 
 std::string

@@ -18,23 +18,10 @@ namespace ML {
 
 enum { page_size = 4096 };
 
-
-struct Page_Info {
-    Page_Info()
-        : mapping(0), count(0), flags(0)
+struct Pagemap_Entry {
+    Pagemap_Entry(uint64_t mapping = 0)
+        : mapping(mapping)
     {
-    }
-
-    // Note that this just looks at the pfn.  The other flags might change
-    // even if it's at the same place.
-    bool operator == (const Page_Info & other) const
-    {
-        return pfn == other.pfn;
-    }
-
-    bool operator != (const Page_Info & other) const
-    {
-        return ! operator == (other);
     }
 
     union {
@@ -56,7 +43,29 @@ struct Page_Info {
         uint64_t mapping;
     };
 
-    std::string print_mapping() const;
+    std::string print() const;
+};
+
+
+struct Page_Info : Pagemap_Entry {
+    Page_Info()
+        : count(0), flags(0)
+    {
+    }
+
+    // Note that this just looks at the pfn.  The other flags might change
+    // even if it's at the same place.
+    bool operator == (const Page_Info & other) const
+    {
+        return pfn == other.pfn;
+    }
+
+    bool operator != (const Page_Info & other) const
+    {
+        return ! operator == (other);
+    }
+
+    inline std::string print_mapping() const;
 
     uint64_t count;
 
