@@ -11,7 +11,7 @@
 #include "jml/arch/cmp_xchg.h"
 #include "jml/arch/demangle.h"
 #include "jml/arch/cpuid.h"
-#include "jml/arch/exception.h"
+#include "jml/arch/format.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>
@@ -27,41 +27,6 @@ using namespace ML;
 using namespace std;
 
 using boost::unit_test::test_suite;
-
-std::string vformat(const char * fmt, va_list ap)
-{
-    char * mem;
-    string result;
-    int res = vasprintf(&mem, fmt, ap);
-    if (res < 0)
-        throw Exception(errno, "vasprintf", "format()");
-
-    try {
-        result = mem;
-        free(mem);
-        return result;
-    }
-    catch (...) {
-        free(mem);
-        throw;
-    }
-}
-
-// Need to include here, since we can't use the utils lib (due to makefile order)
-std::string format(const char * fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-    try {
-        string result = vformat(fmt, ap);
-        va_end(ap);
-        return result;
-    }
-    catch (...) {
-        va_end(ap);
-        throw;
-    }
-}
 
 struct uint128_t {
     uint128_t(uint64_t l = 0, uint64_t h = 0)

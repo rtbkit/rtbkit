@@ -10,7 +10,8 @@ LIBARCH_SOURCES := \
 	exception_handler.cc \
 	gpgpu.cc \
 	environment_static.cc \
-	cpu_info.cc
+	cpu_info.cc \
+	vm.cc
 
 $(eval $(call set_single_compile_option,simd_vector.cc,-funsafe-loop-optimizations -Wunsafe-loop-optimizations))
 
