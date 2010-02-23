@@ -123,21 +123,46 @@ std::vector<Page_Info> page_info(const void * addr, int npages)
     return result;
 }
 
-void dump_maps()
+void dump_page_info(const void * start, const void * end,
+                    std::ostream & stream)
+{
+    const char * p1 = (const char *)start;
+    const char * p2 = (const char *)end;
+    size_t dist = p2 - p1;
+    size_t pages = dist / page_size;
+    size_t rem   = dist % page_size;
+    if (rem > 0) ++pages;
+
+    if (pages > 10000)
+        throw Exception("dump_page_info: too many pages");
+
+    vector<Page_Info> info = page_info(start, pages);
+
+    if (info.size() != pages)
+        throw Exception("no pages");
+
+    const char * p = page_start(p1);
+    for (unsigned i = 0;  i < pages;  ++i, p += page_size) {
+        stream << format("%04x %012p ", i, p)
+               << info[i] << endl;
+    }
+}
+
+void dump_maps(std::ostream & out)
 {
     std::ifstream stream("/proc/self/maps");
 
-    cerr << string(60, '=') << endl;
-    cerr << "maps" << endl;
+    out << string(60, '=') << endl;
+    out << "maps" << endl;
 
     while (stream) {
         string s;
         std::getline(stream, s);
-        cerr << s << endl;
+        out << s << endl;
     }
 
-    cerr << string(60, '=') << endl;
-    cerr << endl << endl;
+    out << string(60, '=') << endl;
+    out << endl << endl;
 }
 
 } // namespace ML
