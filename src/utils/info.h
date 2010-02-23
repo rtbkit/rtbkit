@@ -41,6 +41,9 @@ int userid();
 
 std::string userid_to_username(int userid);
 
+/** Returns the number of file descriptors that the process has open. */
+size_t num_open_files();
+
 } // namespace ML
 
 #endif /* __utils__info_h__ */

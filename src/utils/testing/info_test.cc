@@ -14,6 +14,10 @@
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 using namespace ML;
 using namespace std;
@@ -27,4 +31,27 @@ BOOST_AUTO_TEST_CASE( test1 )
                       Environment::instance()["USER"]);
     BOOST_CHECK(num_cpus() > 0 && num_cpus() < 1024);
     cerr << "num_cpus = " << num_cpus() << endl;
+}
+
+BOOST_AUTO_TEST_CASE( test_num_open_files )
+{
+    int base = num_open_files();
+
+    BOOST_CHECK(base > 3);
+
+    int fd = open("/dev/null", O_RDONLY);
+
+    BOOST_CHECK_EQUAL(num_open_files(), base + 1);
+
+    int fd2 = open("/dev/zero", O_RDONLY);
+
+    BOOST_CHECK_EQUAL(num_open_files(), base + 2);
+
+    close(fd2);
+
+    BOOST_CHECK_EQUAL(num_open_files(), base + 1);
+
+    close(fd);
+
+    BOOST_CHECK_EQUAL(num_open_files(), base);
 }

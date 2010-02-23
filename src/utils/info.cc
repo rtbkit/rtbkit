@@ -17,6 +17,9 @@
 #include <sys/time.h>
 #include <time.h>
 #include "jml/arch/cpu_info.h"
+#include "jml/utils/guard.h"
+#include <boost/bind.hpp>
+#include <dirent.h>
 
 using namespace std;
 
@@ -80,6 +83,28 @@ std::string now()
 std::string all_info()
 {
     return now() + " " + username() + " " + hostname();
+}
+
+size_t num_open_files()
+{
+    DIR * dfd = opendir("/proc/self/fd");
+    if (dfd == 0)
+        throw Exception("num_open_files(): opendir(): "
+                        + string(strerror(errno)));
+
+    Call_Guard closedir_dfd(boost::bind(closedir, dfd));
+
+    size_t result = 0;
+    
+    dirent entry;
+    for (dirent * current = &entry;  current;  ++result) {
+        int res = readdir_r(dfd, &entry, &current);
+        if (res != 0)
+            throw Exception("num_open_files(): readdir_r: "
+                            + string(strerror(errno)));
+    }
+
+    return result;
 }
 
 } // namespace ML
