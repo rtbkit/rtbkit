@@ -31,7 +31,7 @@ namespace ML {
 class Exception : public std::exception {
 public:
     Exception(const std::string & msg);
-    Exception(const std::string & msg, const char * function);
+    Exception(const char * msg, ...);
     Exception(int errnum, const std::string & msg, const char * function = 0);
     virtual ~Exception() throw();
     

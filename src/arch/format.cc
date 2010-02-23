@@ -65,7 +65,7 @@ std::string vformat(const char * fmt, va_list ap)
     string result;
     int res = vasprintf(&mem, fmt, ap);
     if (res < 0)
-        throw Exception(errno, "vasprintf", "format()");
+        throw Exception(errno, "format()", "vasprintf");
 
     try {
         result = mem;

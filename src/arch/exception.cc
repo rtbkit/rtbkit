@@ -21,6 +21,7 @@
 */
 
 #include "exception.h"
+#include "format.h"
 #include <string.h>
 
 using namespace std;
@@ -32,6 +33,21 @@ Exception::Exception(const std::string & msg)
     : message(msg)
 {
     message.c_str();  // make sure we have a null terminator
+}
+
+Exception::Exception(const char * msg, ...)
+{
+    va_list ap;
+    va_start(ap, msg);
+    try {
+        message = vformat(msg, ap);
+        message.c_str();
+        va_end(ap);
+    }
+    catch (...) {
+        va_end(ap);
+        throw;
+    }
 }
 
 Exception::
