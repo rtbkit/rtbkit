@@ -148,6 +148,44 @@ void dump_page_info(const void * start, const void * end,
     }
 }
 
+std::vector<unsigned char> page_flags(const void * addr, int npages)
+{
+    int pm_fd = open("/proc/self/pagemap", O_RDONLY);
+    if (pm_fd == -1)
+        throw Exception("open pagemap; " + string(strerror(errno)));
+    Call_Guard close_pm_fd(boost::bind(::close, pm_fd));
+
+    size_t page_num = (size_t)addr / 4096;
+
+    int res = lseek(pm_fd, page_num * 8, SEEK_SET);
+    if (res == -1)
+        throw Exception("page_info(): lseek: " + string(strerror(errno)));
+
+    vector<unsigned char> result;
+    result.reserve(npages);
+
+    Page_Info info;
+
+    uint64_t buf[1024];
+
+    for (unsigned i = 0;  i < npages;  i += 1024) {
+        int n = min<size_t>(1024, npages - i);
+
+        int res = read(pm_fd, buf, 8 * n);
+
+        if (res != 8 * n)
+            throw Exception("read pm_fd");
+     
+        for (unsigned j = 0;  j < n;  ++j) {
+            info.mapping = buf[j];
+            result.push_back(info.present);
+        }
+    }
+
+    return result;
+    
+}
+
 void dump_maps(std::ostream & out)
 {
     std::ifstream stream("/proc/self/maps");

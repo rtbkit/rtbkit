@@ -100,9 +100,18 @@ operator << (std::ostream & stream, const Page_Info & info)
 
 std::vector<Page_Info> page_info(const void * addr, int npages);
 
+std::vector<unsigned char> page_flags(const void * addr, int npages);
+
 // Dump the page info for all of the pages in the range
 void dump_page_info(const void * start, const void * end,
                     std::ostream & stream = std::cerr);
+
+inline void dump_page_info(const void * start, size_t sz,
+                           std::ostream & stream = std::cerr)
+{
+    const char * end = (const char *)start + sz;
+    return dump_page_info(start, end, stream);
+}
 
 template<typename X>
 X * page_start(X * value)
