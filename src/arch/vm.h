@@ -173,7 +173,10 @@ void dump_maps(std::ostream & stream = std::cerr);
 /** An object that can maintain information about virtual memory mappings
     for a given virtual memory range.
 
-    Requires Linux with /proc/self/pagemaps support.
+    Requires Linux with /proc/self/pagemaps support.  This was added in
+    Linux 2.6.25.
+
+    See http://www.mjmwired.net/kernel/Documentation/vm/pagemap.txt
 */
 
 struct Pagemap_Reader {
