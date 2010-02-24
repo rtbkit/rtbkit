@@ -24,6 +24,18 @@ struct Pagemap_Entry {
     {
     }
 
+    // Note that this just looks at the pfn.  The other flags might change
+    // even if it's at the same place.
+    bool operator == (const Pagemap_Entry & other) const
+    {
+        return pfn == other.pfn;
+    }
+
+    bool operator != (const Pagemap_Entry & other) const
+    {
+        return ! operator == (other);
+    }
+
     union {
         struct {
             uint64_t pfn:55;
