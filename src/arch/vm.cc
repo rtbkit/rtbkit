@@ -210,6 +210,137 @@ void dump_maps(std::ostream & out)
     out << endl << endl;
 }
 
+/*****************************************************************************/
+/* PAGEMAP_READER                                                            */
+/*****************************************************************************/
+
+Pagemap_Reader::
+Pagemap_Reader(const char * mem, size_t bytes,
+               Pagemap_Entry * entries, int fd)
+    : fd(fd), mem(mem), entries(entries),
+      delete_entries(entries == 0), close_fd(fd == -1)
+{
+    npages = to_page_num(mem + bytes) - to_page_num(mem);
+    cerr << "mem = " << (const void *)mem << endl;
+    cerr << "mem + bytes = " << (const void *)(mem + bytes) << endl;
+    cerr << "page1 = " << to_page_num(mem + bytes) << endl;
+    cerr << "page2 = " << to_page_num(mem) << endl;
+    cerr << "bytes = " << bytes << endl;
+    cerr << "npages = " << npages << endl;
+
+    if (close_fd)
+        this->fd = open("/proc/self/pagemap", O_RDONLY);
+    if (this->fd == -1)
+        throw Exception(errno, "Pagemap_Reader()",
+                        "open(\"proc/self/pagemap\", O_RDONLY)");
+    Call_Guard do_close_fd(boost::bind(close, this->fd));
+    if (!close_fd)
+        do_close_fd.clear();
+
+    if (delete_entries)
+        this->entries = new Pagemap_Entry[npages];
+
+    try {
+        update();
+    } catch (...) {
+        delete[] entries;
+        throw;
+    }
+
+    do_close_fd.clear();
+}
+
+Pagemap_Reader::
+~Pagemap_Reader()
+{
+    if (delete_entries)
+        delete[] entries;
+
+    if (close_fd && fd != -1) {
+        int res = close(fd);
+        if (res == -1)
+            cerr << "~Pagemap_Reader(): close on fd: " << strerror(errno)
+                 << endl;
+    }
+
+    entries = 0;
+}
+
+size_t
+Pagemap_Reader::
+update(ssize_t first_page, ssize_t last_page)
+{
+    if (last_page == -1)
+        last_page = npages;
+
+    if (first_page < 0 || last_page > npages || last_page < first_page)
+        throw Exception("Pagemap_Reader::update(): pages out of range");
+
+    // Where do we seek to in the pagemap file?
+        
+    // Counts the number of modified page map entries
+    size_t result = 0;
+
+    size_t CHUNK = 1024;  // pages at a time
+
+    // Buffer to read them into
+    Pagemap_Entry buf[CHUNK];
+
+    size_t base_page_num = to_page_num(mem);
+
+    cerr << "update: first_page = " << first_page
+         << " last_page = " << last_page << endl;
+
+    // Update a chunk at a time
+    for (size_t page = first_page;  page < last_page;  /* no inc */) {
+        size_t limit = std::min<size_t>(page + CHUNK, last_page);
+        
+        cerr << "page = " << page << " last_page = " << last_page
+             << " limit = " << limit << endl;
+
+        // Where to seek in the pagemap file?
+        off_t seek_pos = (base_page_num + page) * sizeof(Pagemap_Entry);
+        
+        cerr << "seek_pos = " << seek_pos << " base_page_num = "
+             << base_page_num << endl;
+
+        ssize_t res = pread(fd, buf,
+                            (limit - page) * sizeof(Pagemap_Entry),
+                            seek_pos);
+        if (res == -1)
+            throw Exception(errno, "Pagemap_Reader::update()", "pread");
+        if (res <= 0)
+            throw Exception("Pagemap_Reader::update(): nothing read "
+                            "from pagemap file");
+        
+        cerr << "res = " << res << endl;
+
+        res /= sizeof(Pagemap_Entry);  // convert bytes to objects
+
+        cerr << "read " << res << " objects" << endl;
+
+        for (unsigned i = 0;  i < res;  ++i) {
+            result += this->entries[page + i] != buf[i];
+            this->entries[page + i] = buf[i];
+        }
+        
+        page += res;
+    }
+    
+    return result;
+}
+
+void
+Pagemap_Reader::
+dump(std::ostream & stream) const
+{
+    const char * p = mem;
+    for (unsigned i = 0;  i < npages;  ++i, p += page_size)
+        stream << format("%04x %012p ", i, p)
+               << entries[i] << endl;
+}
+
+
 } // namespace ML
 
 

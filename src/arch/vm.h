@@ -11,12 +11,18 @@
 #include <stdint.h>
 #include <iostream>
 #include <vector>
-
+#include "jml/arch/exception.h"
 
 namespace ML {
 
 
-enum { page_size = 4096 };
+enum {
+    page_shift       = 12,
+    page_size        = 1 << page_shift,
+    page_offset_mask = page_size - 1
+};
+
+static const size_t page_num_mask = ~(size_t)page_offset_mask;
 
 struct Pagemap_Entry {
     Pagemap_Entry(uint64_t mapping = 0)
@@ -58,6 +64,11 @@ struct Pagemap_Entry {
     std::string print() const;
 };
 
+inline std::ostream &
+operator << (std::ostream & stream, const Pagemap_Entry & entry)
+{
+    return stream << entry.print();
+}
 
 struct Page_Info : Pagemap_Entry {
     Page_Info()
@@ -108,7 +119,7 @@ struct Page_Info : Pagemap_Entry {
         };
         uint64_t flags;
     };
-
+    
     std::string print_flags() const;
     std::string print() const;
 };
@@ -137,13 +148,108 @@ inline void dump_page_info(const void * start, size_t sz,
 template<typename X>
 X * page_start(X * value)
 {
-    size_t v = (size_t)value;
-    v = v & ~((size_t)(page_size - 1));
+    size_t v = (size_t)value & page_num_mask;
     return (X *)v;
+}
+
+template<typename X>
+size_t to_page_num(const X * ptr)
+{
+    return (size_t)ptr >> page_shift;
+}
+
+inline ssize_t to_page_num(ssize_t val)
+{
+    return val >> page_shift;
 }
 
 void dump_maps(std::ostream & stream = std::cerr);
 
+
+/*****************************************************************************/
+/* PAGEMAP_READER                                                            */
+/*****************************************************************************/
+
+/** An object that can maintain information about virtual memory mappings
+    for a given virtual memory range.
+
+    Requires Linux with /proc/self/pagemaps support.
+*/
+
+struct Pagemap_Reader {
+    // Set up and read the pagemap file for the given memory region.  If
+    // entries is passed in, that will be used as the temporary buffer.
+    // If fd is passed in, then that must be an open file pointing to the
+    // /proc/<pid>/pagemap file of the process that we are interested in.
+    Pagemap_Reader(const char * mem, size_t bytes,
+                   Pagemap_Entry * entries = 0, int fd = -1);
+    
+    ~Pagemap_Reader();
+    
+    // Re-read the entries for the given address range in case they have
+    // changed.  Returns the number of pages that have changed.
+    template<typename X>
+    size_t update(const X * addr, size_t bytes_to_update)
+    {
+        return update((const char *)addr, (const char *)addr + bytes_to_update);
+    }
+    
+    template<typename X>
+    size_t update(const X * addr, const X * end)
+    {
+        if (addr == end) return 0;
+        size_t base = to_page_num(this->mem);
+        size_t first_page = to_page_num(addr) - base;
+        size_t last_page  = to_page_num(end)  - base;
+        if (end != page_start(end)) ++last_page;
+        return update(first_page, last_page);
+    }
+
+    size_t update(ssize_t first_page = 0, ssize_t last_page = -1);
+
+    // Return the entry for the given address
+    template<typename X>
+    const Pagemap_Entry & operator [] (const X * addr) const
+    {
+        size_t base = to_page_num(this->mem);
+        size_t page = to_page_num(addr) - base;
+
+        return operator [] (page);
+    }
+
+    // Return the entry given an index from zero to npages
+    const Pagemap_Entry & operator [] (size_t page_index) const
+    {
+        if (page_index >= npages)
+            throw Exception("Pagemap_Reader::operator [](): bad page index");
+        return entries[page_index];
+    }
+
+    size_t num_pages() const { return npages; }
+
+    const void * mem_start() const { return mem; }
+    const void * mem_end() const { return mem + npages * page_size; }
+
+    const Pagemap_Entry * begin() const { return entries; }
+    const Pagemap_Entry * end() const { return entries + npages; }
+
+    void dump(std::ostream & stream) const;
+
+private:
+    int fd;
+    const char * mem;
+    size_t npages;
+    Pagemap_Entry * entries;
+    bool delete_entries;
+    bool close_fd;
+};
+
+inline std::ostream &
+operator << (std::ostream & stream, const Pagemap_Reader & reader)
+{
+    reader.dump(stream);
+    return stream;
+}
 
 } // namespace ML
 
