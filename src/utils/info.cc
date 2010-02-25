@@ -20,6 +20,8 @@
 #include "jml/utils/guard.h"
 #include <boost/bind.hpp>
 #include <dirent.h>
+#include "jml/arch/format.h"
+
 
 using namespace std;
 
@@ -105,6 +107,35 @@ size_t num_open_files()
     }
 
     return result;
+}
+
+std::string fd_to_filename(int fd)
+{
+    if (fd == -1)
+        throw Exception("fd_to_filename(): invalid filename");
+
+    size_t buffer_size = 256;
+
+    string fn = format("/proc/self/fd/%d", fd);
+
+    for (;;) {
+        char buf[buffer_size];
+        ssize_t ret = readlink(fn.c_str(), buf, buffer_size);
+        if (ret == -1 && errno == -ENOENT)
+            throw Exception("fd_to_filename(): fd is unknown");
+        if (ret == -1)
+            throw Exception(errno, "fd_to_filename", "readlink()");
+
+        if (ret == buffer_size) {
+            if (buffer_size > 1024)
+                throw Exception("filename too long");
+            buffer_size *= 2;
+            continue;
+        }
+
+        buf[ret] = 0;
+        return buf;
+    }
 }
 
 } // namespace ML
