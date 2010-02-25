@@ -230,6 +230,7 @@ Pagemap_Reader(const char * mem, size_t bytes,
     cerr << "page2 = " << to_page_num(mem) << endl;
     cerr << "bytes = " << bytes << endl;
     cerr << "npages = " << npages << endl;
+    cerr << "pagemap_reader: fd = " << fd << endl;
 #endif
 
     if (close_fd)
@@ -249,9 +250,10 @@ Pagemap_Reader(const char * mem, size_t bytes,
         throw;
     }
 
-    cerr << "pagemap_reader init " << this 
-         << ": entries = " << entries << " this->entries = "
-         << this->entries << " delete_entries = " << delete_entries << endl;
+    //cerr << "pagemap_reader init " << this 
+    //     << ": entries = " << entries << " this->entries = "
+    //     << this->entries << " delete_entries = " << delete_entries
+    //     << " fd = " << this->fd << endl;
 
     do_close_fd.clear();
 }
@@ -259,9 +261,9 @@ Pagemap_Reader(const char * mem, size_t bytes,
 Pagemap_Reader::
 ~Pagemap_Reader()
 {
-    cerr << "pagemap_reader exit " << this 
-         << ": entries = " << entries << " this->entries = "
-         << this->entries << " delete_entries = " << delete_entries << endl;
+    //cerr << "pagemap_reader exit " << this 
+    //     << ": entries = " << entries << " this->entries = "
+    //     << this->entries << " delete_entries = " << delete_entries << endl;
 
     if (delete_entries)
         delete[] entries;
@@ -306,14 +308,14 @@ update(ssize_t first_page, ssize_t last_page)
         size_t limit = std::min<size_t>(page + CHUNK, last_page);
         size_t todo = limit - page;
 
-        cerr << "page = " << page << " last_page = " << last_page
-             << " limit = " << limit << " todo " << todo << endl;
+        //cerr << "page = " << page << " last_page = " << last_page
+        //     << " limit = " << limit << " todo " << todo << endl;
 
         // Where to seek in the pagemap file?
         off_t seek_pos = (base_page_num + page) * sizeof(Pagemap_Entry);
         
-        cerr << "seek_pos = " << seek_pos << " base_page_num = "
-             << base_page_num << endl;
+        //cerr << "seek_pos = " << seek_pos << " base_page_num = "
+        //     << base_page_num << endl;
 
         ssize_t res = pread(fd, buf,
                             todo * sizeof(Pagemap_Entry),
