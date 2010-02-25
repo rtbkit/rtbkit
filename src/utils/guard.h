@@ -30,8 +30,8 @@ struct Call_Guard {
     typedef boost::function<void ()> Fn;
 
 
-    Call_Guard(const Fn & fn)
-        : fn(fn)
+    Call_Guard(const Fn & fn, bool condition = true)
+        : fn(condition ? fn : Fn())
     {
     }
 
