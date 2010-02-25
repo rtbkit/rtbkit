@@ -153,6 +153,12 @@ X * page_start(X * value)
 }
 
 template<typename X>
+bool is_page_aligned(const X * p)
+{
+    return ((size_t)p & page_offset_mask) == 0;
+}
+
+template<typename X>
 size_t to_page_num(const X * ptr)
 {
     return (size_t)ptr >> page_shift;

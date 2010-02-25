@@ -221,12 +221,15 @@ Pagemap_Reader(const char * mem, size_t bytes,
       delete_entries(entries == 0), close_fd(fd == -1)
 {
     npages = to_page_num(mem + bytes) - to_page_num(mem);
+
+#if 0
     cerr << "mem = " << (const void *)mem << endl;
     cerr << "mem + bytes = " << (const void *)(mem + bytes) << endl;
     cerr << "page1 = " << to_page_num(mem + bytes) << endl;
     cerr << "page2 = " << to_page_num(mem) << endl;
     cerr << "bytes = " << bytes << endl;
     cerr << "npages = " << npages << endl;
+#endif
 
     if (close_fd)
         this->fd = open("/proc/self/pagemap", O_RDONLY);
@@ -288,21 +291,21 @@ update(ssize_t first_page, ssize_t last_page)
 
     size_t base_page_num = to_page_num(mem);
 
-    cerr << "update: first_page = " << first_page
-         << " last_page = " << last_page << endl;
+    //cerr << "update: first_page = " << first_page
+    //     << " last_page = " << last_page << endl;
 
     // Update a chunk at a time
     for (size_t page = first_page;  page < last_page;  /* no inc */) {
         size_t limit = std::min<size_t>(page + CHUNK, last_page);
         
-        cerr << "page = " << page << " last_page = " << last_page
-             << " limit = " << limit << endl;
+        //cerr << "page = " << page << " last_page = " << last_page
+        //     << " limit = " << limit << endl;
 
         // Where to seek in the pagemap file?
         off_t seek_pos = (base_page_num + page) * sizeof(Pagemap_Entry);
         
-        cerr << "seek_pos = " << seek_pos << " base_page_num = "
-             << base_page_num << endl;
+        //cerr << "seek_pos = " << seek_pos << " base_page_num = "
+        //     << base_page_num << endl;
 
         ssize_t res = pread(fd, buf,
                             (limit - page) * sizeof(Pagemap_Entry),
@@ -313,11 +316,11 @@ update(ssize_t first_page, ssize_t last_page)
             throw Exception("Pagemap_Reader::update(): nothing read "
                             "from pagemap file");
         
-        cerr << "res = " << res << endl;
+        //cerr << "res = " << res << endl;
 
         res /= sizeof(Pagemap_Entry);  // convert bytes to objects
 
-        cerr << "read " << res << " objects" << endl;
+        //cerr << "read " << res << " objects" << endl;
 
         for (unsigned i = 0;  i < res;  ++i) {
             result += this->entries[page + i] != buf[i];
