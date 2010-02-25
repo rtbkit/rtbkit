@@ -11,7 +11,9 @@ LIBARCH_SOURCES := \
 	gpgpu.cc \
 	environment_static.cc \
 	cpu_info.cc \
-	vm.cc
+	vm.cc \
+	info.cc \
+
 
 $(eval $(call set_single_compile_option,simd_vector.cc,-funsafe-loop-optimizations -Wunsafe-loop-optimizations))
 

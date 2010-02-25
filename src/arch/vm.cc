@@ -9,6 +9,7 @@
 #include "jml/arch/format.h"
 #include "jml/arch/exception.h"
 #include "jml/utils/guard.h"
+#include "jml/utils/info.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -244,9 +245,13 @@ Pagemap_Reader(const char * mem, size_t bytes,
     try {
         update();
     } catch (...) {
-        delete[] entries;
+        if (delete_entries) delete[] entries;
         throw;
     }
+
+    cerr << "pagemap_reader init " << this 
+         << ": entries = " << entries << " this->entries = "
+         << this->entries << " delete_entries = " << delete_entries << endl;
 
     do_close_fd.clear();
 }
@@ -254,6 +259,10 @@ Pagemap_Reader(const char * mem, size_t bytes,
 Pagemap_Reader::
 ~Pagemap_Reader()
 {
+    cerr << "pagemap_reader exit " << this 
+         << ": entries = " << entries << " this->entries = "
+         << this->entries << " delete_entries = " << delete_entries << endl;
+
     if (delete_entries)
         delete[] entries;
 
@@ -295,19 +304,26 @@ update(ssize_t first_page, ssize_t last_page)
     // Update a chunk at a time
     for (size_t page = first_page;  page < last_page;  /* no inc */) {
         size_t limit = std::min<size_t>(page + CHUNK, last_page);
-        
-        //cerr << "page = " << page << " last_page = " << last_page
-        //     << " limit = " << limit << endl;
+        size_t todo = limit - page;
+
+        cerr << "page = " << page << " last_page = " << last_page
+             << " limit = " << limit << " todo " << todo << endl;
 
         // Where to seek in the pagemap file?
         off_t seek_pos = (base_page_num + page) * sizeof(Pagemap_Entry);
         
-        //cerr << "seek_pos = " << seek_pos << " base_page_num = "
-        //     << base_page_num << endl;
+        cerr << "seek_pos = " << seek_pos << " base_page_num = "
+             << base_page_num << endl;
 
         ssize_t res = pread(fd, buf,
-                            (limit - page) * sizeof(Pagemap_Entry),
+                            todo * sizeof(Pagemap_Entry),
                             seek_pos);
+
+        if (res <= 0) {
+            cerr << "fd: " << fd << " filename: " << fd_to_filename(fd)
+                 << endl;
+        }
+
         if (res == -1)
             throw Exception(errno, "Pagemap_Reader::update()", "pread");
         if (res <= 0)
