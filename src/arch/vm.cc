@@ -87,8 +87,8 @@ std::vector<Page_Info> page_info(const void * addr, int npages)
 
     // These will call guard with an fd of -1 if the files weren't open, which
     // won't hurt us
-    Call_Guard close_pf_fd(boost::bind(::close, pf_fd));
-    Call_Guard close_pc_fd(boost::bind(::close, pc_fd));
+    Call_Guard close_pf_fd(boost::bind(::close, pf_fd), pf_fd != -1);
+    Call_Guard close_pc_fd(boost::bind(::close, pc_fd), pc_fd != -1);
 
     size_t page_num = (size_t)addr / 4096;
 
@@ -236,9 +236,7 @@ Pagemap_Reader(const char * mem, size_t bytes,
     if (this->fd == -1)
         throw Exception(errno, "Pagemap_Reader()",
                         "open(\"proc/self/pagemap\", O_RDONLY)");
-    Call_Guard do_close_fd(boost::bind(close, this->fd));
-    if (!close_fd)
-        do_close_fd.clear();
+    Call_Guard do_close_fd(boost::bind(close, this->fd), close_fd);
 
     if (delete_entries)
         this->entries = new Pagemap_Entry[npages];
