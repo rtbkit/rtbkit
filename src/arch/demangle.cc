@@ -54,5 +54,10 @@ std::string demangle(const std::string & name)
     return result;
 }
 
+std::string demangle(const std::type_info & type)
+{
+    return demangle(type.name());
+}
+
 } // namespace ML
 

@@ -25,11 +25,24 @@
 
 
 #include <string>
-
+#include <typeinfo>
 
 namespace ML {
 
 std::string demangle(const std::string & name);
+std::string demangle(const std::type_info & type);
+
+template<typename T>
+std::string type_name(const T & val)
+{
+    return demangle(typeid(val));
+}
+
+template<typename T>
+std::string type_name()
+{
+    return demangle(typeid(T));
+}
 
 } // namespace ML
 
