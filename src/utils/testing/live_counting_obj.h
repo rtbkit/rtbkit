@@ -68,6 +68,22 @@ struct Obj {
         return *this;
     }
 
+    bool operator == (int val) const
+    {
+        if (magic == BAD)
+            throw Exception("assigned to destroyed object");
+        
+        if (magic != GOOD)
+            throw Exception("assigned to object never initialized in assign");
+        
+        return this->val == val;
+    }
+
+    bool operator != (int val) const
+    {
+        return ! operator == (val);
+    }
+
     int val;
     int magic;
 
@@ -82,6 +98,11 @@ struct Obj {
         return val;
     }
 };
+
+std::ostream & operator << (std::ostream & stream, const Obj & obj)
+{
+    return stream << obj.val;
+}
 
 } // namespace ML
 
