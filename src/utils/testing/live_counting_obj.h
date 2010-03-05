@@ -10,10 +10,11 @@
 #define __jml__utils_testing__live_counting_obj_h__
 
 #include "jml/arch/exception.h"
+#include "jml/arch/atomic_ops.h"
 
 namespace ML {
 
-size_t constructed = 0, destroyed = 0;
+volatile size_t constructed = 0, destroyed = 0;
 
 int GOOD = 0xfeedbac4;
 int BAD  = 0xdeadbeef;
@@ -23,7 +24,7 @@ struct Obj {
         : val(0)
     {
         //cerr << "default construct at " << this << endl;
-        ++constructed;
+        atomic_add(constructed, 1);
         magic = GOOD;
     }
 
@@ -31,14 +32,14 @@ struct Obj {
         : val(val)
     {
         //cerr << "value construct at " << this << endl;
-        ++constructed;
+        atomic_add(constructed, 1);
         magic = GOOD;
     }
 
    ~Obj()
     {
         //cerr << "destroying at " << this << endl;
-        ++destroyed;
+        atomic_add(destroyed, 1);
         if (magic == BAD)
             throw Exception("object destroyed twice");
 
@@ -52,7 +53,7 @@ struct Obj {
         : val(other.val)
     {
         //cerr << "copy construct at " << this << endl;
-        ++constructed;
+        atomic_add(constructed, 1);
         magic = GOOD;
     }
 
@@ -65,6 +66,32 @@ struct Obj {
             throw Exception("assigned to object never initialized in assign");
 
         this->val = val;
+        return *this;
+    }
+
+    Obj & operator += (int amt)
+    {
+        if (magic == BAD)
+            throw Exception("assigned to destroyed object");
+
+        if (magic != GOOD)
+            throw Exception("assigned to object never initialized in assign");
+
+        val += amt;
+
+        return *this;
+    }
+
+    Obj & operator -= (int amt)
+    {
+        if (magic == BAD)
+            throw Exception("assigned to destroyed object");
+
+        if (magic != GOOD)
+            throw Exception("assigned to object never initialized in assign");
+
+        val -= amt;
+
         return *this;
     }
 
