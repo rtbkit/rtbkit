@@ -65,3 +65,23 @@ BOOST_AUTO_TEST_CASE(test1)
 
     BOOST_CHECK_EQUAL(++++h.begin(), h.end());
 }
+
+// TODO: use live counting object to check that everything works OK
+
+struct Entry {
+    void * p1;
+    void * p2;
+    void * p3;
+    bool val;
+};
+
+std::ostream & operator << (std::ostream & stream, Entry entry)
+{
+    return stream << "Entry";
+}
+
+BOOST_AUTO_TEST_CASE(test2)
+{
+    Lightweight_Hash<void *, Entry> h;
+    BOOST_CHECK_THROW(h[(void *)0].p1, ML::Exception);
+}

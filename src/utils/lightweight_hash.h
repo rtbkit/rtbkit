@@ -303,6 +303,9 @@ private:
 
     int find_bucket(size_t hash, const Key & key) const
     {
+        if (!key)
+            throw Exception("searching for or inserting guard value");
+
         if (capacity_ == 0) return -1;
         int bucket = hash % capacity_;
         bool wrapped = false;
@@ -341,6 +344,9 @@ private:
     int insert_new(int bucket, const Key & key, size_t hashed,
                    const Value & val)
     {
+        if (!key)
+            throw Exception("searching for or inserting guard value");
+
         if (size_ >= 3 * capacity_ / 4) {
             // expand
             reserve(std::max(4, capacity_ * 2));
