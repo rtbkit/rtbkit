@@ -26,6 +26,7 @@ $$(CWD_NAME)_SRC :=	$(SRC)/$$(CWD)
 $$(CWD_NAME)_OBJ :=	$(OBJ)/$$(CWD)
 #$$(warning stack contains $(__gmsl_stack_DIRS))
 CWD:=$$(call pop,DIRS)
+CURRENT_TEST_TARGET := 
 endef
 
 # add a c++ source file
@@ -250,6 +251,7 @@ endef
 # $(1) name of the test
 # $(2) libraries to link with
 # $(3) test style.  boost = boost test framework
+# $(4) testing targets to add it to
 
 define test
 $$(if $(trace),$$(warning called test "$(1)" "$(2)" "$(3)"))
@@ -279,7 +281,7 @@ $(1):	$(TESTS)/$(1)
 
 .PHONY: $(1)
 
-test:	$(TESTS)/$(1).passed
+test $(CURRENT_TEST_TARGETS) $(4):	$(TESTS)/$(1).passed
 
 endef
 
@@ -305,7 +307,7 @@ $(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
 
 .PHONY: $(1)
 
-test:	$(TESTS)/$(1).passed
+test $(CURRENT_TEST_TARGETS) $(4):	$(TESTS)/$(1).passed
 
 endef
 
