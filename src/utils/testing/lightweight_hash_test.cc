@@ -7,6 +7,7 @@
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
+#undef NDEBUG
 
 #include "jml/utils/lightweight_hash.h"
 #include "jml/utils/string_functions.h"
@@ -84,4 +85,33 @@ BOOST_AUTO_TEST_CASE(test2)
 {
     Lightweight_Hash<void *, Entry> h;
     BOOST_CHECK_THROW(h[(void *)0].p1, ML::Exception);
+}
+
+BOOST_AUTO_TEST_CASE(test3)
+{
+    int nobj = 100;
+
+    vector<void *> objects;
+        
+    for (unsigned j = 0;  j < nobj;  ++j)
+        objects.push_back(malloc(50));
+
+    Lightweight_Hash<void *, Entry> h;
+    
+    for (unsigned i = 0;  i < nobj;  ++i) {
+        h[objects[i]].val = true;
+    }
+
+    h.destroy();
+
+    for (unsigned i = 0;  i < nobj;  ++i) {
+        BOOST_CHECK(h.find(objects[i]) == h.end());
+        h[objects[i]].val = true;
+        BOOST_CHECK_EQUAL(h.size(), i + 1);
+    }
+
+    BOOST_CHECK_EQUAL(h.size(), nobj);
+
+    for (unsigned j = 0;  j < nobj;  ++j)
+        free(objects[j]);
 }

@@ -14,6 +14,7 @@
 #include "jml/utils/hash_specializations.h"
 #include "jml/utils/string_functions.h"
 #include <string>
+#include <cassert>
 
 namespace ML {
 
@@ -55,6 +56,7 @@ private:
     // Index in hash of current entry.  It is allowed to point to any
     // valid bucket of the underlying hash, OR to one-past-the-end of the
     // capacity, which means at the end.
+public:
     Hash * hash;
     int index;
 
@@ -85,19 +87,24 @@ private:
         if (index == hash->capacity_)
             throw Exception("increment past the end");
         ++index;
-        advance_to_valid();
+        if (index != hash->capacity_) advance_to_valid();
     }
     
     void decrement()
     {
+        if (index == 0)
+            throw Exception("decrement past the start");
         --index;
-        backup_to_valid();
+        if (index != 0) backup_to_valid();
     }
 
     void advance_to_valid()
     {
-        if (index < 0 || index >= hash->capacity_)
+        if (index < 0 || index >= hash->capacity_) {
+            hash->dump(std::cerr);
+            std::cerr << "index = " << index << std::endl;
             throw Exception("advance_to_valid: already at end");
+        }
 
         // Scan through until we find a valid bucket
         while (index < hash->capacity_ && !hash->vals_[index].first)
@@ -156,8 +163,23 @@ struct Lightweight_Hash {
         for (unsigned i = 0;  i < capacity_;  ++i)
             new (&vals_[i].first) Key(0);
 
-        for (; first != last;  ++first)
+#if 0
+        using namespace std;
+
+        cerr << "first.index = " << first.index << endl;
+        cerr << "last.index = " << last.index << endl;
+        cerr << "first.hash->size() = " << first.hash->size() << endl;
+        cerr << "first.hash->capacity() = " << first.hash->capacity() << endl;
+        cerr << "capacity = " << capacity << endl;
+        //cerr << "distance = " << std::distance(first, last) << endl;
+#endif
+        for (; first != last;  ++first) {
+            //cerr << "first.index = " << first.index << " last.index = "
+            //     << last.index << endl;
             insert(*first);
+        }
+
+        //cerr << "finished inserting" << endl;
     }
 
     Lightweight_Hash(const Lightweight_Hash & other)
@@ -250,24 +272,36 @@ struct Lightweight_Hash {
     {
         size_t hashed = Hash()(key);
         int bucket = find_bucket(hashed, key);
-        if (bucket == -1) return end();
-        else return iterator(this, bucket);
+        if (bucket == -1 || !vals_[bucket].first) return end();
+        if (vals_[bucket].first != key) {
+            using namespace std;
+            dump(cerr);
+            cerr << "bucket = " << bucket << endl;
+            cerr << "hashed = " << hashed << endl;
+            cerr << "key = " << key << endl;
+            cerr << "vals_[bucket].first = " << vals_[bucket].first << endl;
+            throw Exception("find_bucket didn't return correct key");
+        }
+        assert(vals_[bucket].first == key);
+        return iterator(this, bucket);
     }
 
     const_iterator find(const Key & key) const
     {
         size_t hashed = Hash()(key);
         int bucket = find_bucket(hashed, key);
-        if (bucket == -1) return end();
-        else return const_iterator(this, bucket);
+        if (bucket == -1 || !vals_[bucket].first) return end();
+        assert(vals_[bucket].first == key);
+        return const_iterator(this, bucket);
     }
 
     Value & operator [] (const Key & key)
     {
         size_t hashed = Hash()(key);
         int bucket = find_bucket(hashed, key);
-        if (bucket == -1 || vals_[bucket].first != key)
+        if (bucket == -1 || !vals_[bucket].first)
             bucket = insert_new(bucket, key, hashed, Value());
+        assert(vals_[bucket].first == key);
         return vals_[bucket].second;
     }
 
@@ -276,8 +310,10 @@ struct Lightweight_Hash {
     {
         size_t hashed = Hash()(val.first);
         int bucket = find_bucket(hashed, val.first);
-        if (bucket != -1 && vals_[bucket].first == val.first)
+        if (bucket != -1 && vals_[bucket].first) {
+            assert(vals_[bucket].first == val.first);
             return make_pair(iterator(this, bucket), false);
+        }
         bucket = insert_new(bucket, val.first, hashed, val.second);
         return make_pair(iterator(this, bucket), true);
     }
@@ -333,7 +369,9 @@ private:
         stream << "Lightweight_Hash: size " << size_ << " capacity "
                << capacity_ << endl;
         for (unsigned i = 0;  i < capacity_;  ++i) {
-            stream << "  bucket " << i << ": key " << vals_[i].first;
+            stream << "  bucket " << i << ": hash "
+                   << (Hash()(vals_[i].first) % capacity_)
+                   << " key " << vals_[i].first;
             if (vals_[i].first)
                 stream << " value " << vals_[i].second;
             stream << endl;
@@ -351,7 +389,7 @@ private:
             // expand
             reserve(std::max(4, capacity_ * 2));
             bucket = find_bucket(hashed, key);
-            if (bucket == -1 || vals_[bucket].first == key)
+            if (bucket == -1 || vals_[bucket].first)
                 throw Exception("logic error: bucket appeared after reserve");
         }
 
