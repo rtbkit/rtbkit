@@ -11,7 +11,7 @@
 #include "jml/utils/hash_map.h"
 #include "jml/arch/exception.h"
 #include "jml/arch/format.h"
-
+#include <string.h>
 
 namespace ML {
 

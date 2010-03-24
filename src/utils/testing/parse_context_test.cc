@@ -11,6 +11,8 @@
 #include "jml/utils/parse_context.h"
 #include "jml/utils/file_functions.h"
 #include "jml/utils/guard.h"
+#include "jml/utils/filter_streams.h"
+#include "jml/utils/vector_utils.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <sstream>
@@ -236,4 +238,211 @@ BOOST_AUTO_TEST_CASE( test6 )
 
     f = context.expect_float();
     BOOST_CHECK_EQUAL(f, 2.0f);
+}
+
+BOOST_AUTO_TEST_CASE( test_big_chunk_size )
+{
+    size_t NCHARS = 1024 * 1024 * 16;
+
+    string s(NCHARS, 0);
+
+    BOOST_CHECK_EQUAL(s.size(), NCHARS);
+
+    for (unsigned i = 0;  i < NCHARS;  ++i)
+        s[i] = i % 256;
+    
+    istringstream stream(s);
+
+    Parse_Context context("test file", stream);
+    
+    // 1G, can't possibly fit on stack
+    context.set_chunk_size(1024 * 1024 * 1024);
+
+    int n = 0;
+    while (context) {
+        if (s[n] != *context++) {
+            cerr << "error at position " << n << endl;
+            break;
+        }
+        ++n;
+    }
+
+    BOOST_CHECK_EQUAL(n, NCHARS);
+
+    BOOST_CHECK_EQUAL(context.get_offset(), s.size());
+}
+
+BOOST_AUTO_TEST_CASE( test_chunking_stream1 )
+{
+    // Make some random records in a string
+    string s = "33 nan nan 1 nan nan 2 -nan +nan";
+
+    int chunk_sizes[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                          31, 61, 63, 1024 * 1024 * 16 };
+    
+    int nchunk_sizes = sizeof(chunk_sizes) / sizeof(chunk_sizes[0]);
+
+    for (unsigned i = 0;  i < nchunk_sizes;  ++i) {
+        istringstream stream(s);
+
+        Parse_Context context("test file", stream, 1, 1, 1);
+        
+        context.set_chunk_size(chunk_sizes[i]);
+
+        float f = context.expect_float();
+        float f2 = 33;
+        context.expect_whitespace();
+        
+        BOOST_CHECK_EQUAL(f, f2);
+        
+        f = context.expect_float();
+        BOOST_CHECK(isnanf(f));
+        context.expect_whitespace();
+        
+        f = context.expect_float();
+        BOOST_CHECK(isnanf(f));
+        context.expect_whitespace();
+        
+        f = context.expect_float();
+        BOOST_CHECK_EQUAL(f, 1.0f);
+        context.expect_whitespace();
+        
+        f = context.expect_float();
+        BOOST_CHECK(isnanf(f));
+        context.expect_whitespace();
+        
+        f = context.expect_float();
+        BOOST_CHECK(isnanf(f));
+        context.expect_whitespace();
+        
+        f = context.expect_float();
+        BOOST_CHECK_EQUAL(f, 2.0f);
+        context.expect_whitespace();
+
+        f = context.expect_float();
+        BOOST_CHECK(isnanf(f));
+        context.expect_whitespace();
+        
+        f = context.expect_float();
+        BOOST_CHECK(isnanf(f));
+        
+        BOOST_CHECK(context.eof());
+    }
+}
+
+std::string expect_csv_field(Parse_Context & context)
+{
+    bool quoted = false;
+    std::string result;
+    while (context) {
+        //if (context.get_line() == 9723)
+        //    cerr << "*context = " << *context << " quoted = " << quoted
+        //         << " result = " << result << endl;
+        
+        if (quoted) {
+            if (context.match_literal("\"\"")) {
+                result += "\"";
+                continue;
+            }
+            if (context.match_literal('\"')) {
+                if (!context || context.match_literal(',')
+                    || *context == '\n' || *context == '\r')
+                    return result;
+
+#if 0
+                cerr << "(bool)context = " << (bool)context << endl;
+                cerr << "*context = " << *context << endl;
+                cerr << "result = " << result << endl;
+
+                for (unsigned i = 0; i < 20;  ++i)
+                    cerr << *context++;
+#endif
+
+                context.exception_fmt("invalid end of line: %d %c", (int)*context, *context);
+            }
+        }
+        else {
+            if (context.match_literal('\"')) {
+                if (result == "") {
+                    quoted = true;
+                    continue;
+                }
+                else context.exception("non-quoted string with embedded quote");
+            }
+            else if (context.match_literal(','))
+                return result;
+            else if (*context == '\n')
+                return result;
+            
+        }
+        result += *context++;
+    }
+
+    if (quoted)
+        context.exception("file finished inside quote");
+
+    return result;
+}
+
+std::vector<std::string> expect_csv_row(Parse_Context & context)
+{
+    context.skip_whitespace();
+
+    vector<string> result;
+
+    while (context && !context.match_eol()) {
+        result.push_back(expect_csv_field(context));
+        //cerr << "read " << result.back() << endl;
+    }
+
+    return result;
+}
+
+void test_csv_data_size(int chunk_size, vector<vector<string> > & reference)
+{
+    string input_file = "utils/testing/parse_context_test_data.csv.gz";
+
+    filter_istream stream(input_file);
+    Parse_Context context(input_file, stream);
+
+    context.set_chunk_size(chunk_size);
+
+    bool is_reference = reference.empty();
+
+    try {
+        for (int i = 0;  context;  ++i) {
+            vector<string> row = expect_csv_row(context);
+            if (is_reference)
+                reference.push_back(row);
+            else {
+                if (reference.at(i) != row) {
+                    cerr << "error on row " << i << endl;
+                    BOOST_CHECK_EQUAL(reference.at(i), row);
+                }
+            }
+        }
+    } catch (...) {
+        if (is_reference) reference.clear();
+        throw;
+    }
+
+    cerr << "succeeded in reading " << reference.size()
+         << " rows with chunk_size " << chunk_size << endl;
+
+    BOOST_CHECK_EQUAL(reference.size(), 10000);
+}
+
+BOOST_AUTO_TEST_CASE( test_csv_data )
+{
+    int chunk_sizes[] = { 1024 * 1024 * 16,
+                          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                          31, 61, 63, 65531 };
+    
+    int nchunk_sizes = sizeof(chunk_sizes) / sizeof(chunk_sizes[0]);
+    
+    vector<vector<string> > reference;
+
+    for (unsigned i = 0;  i < nchunk_sizes;  ++i) {
+        BOOST_CHECK_NO_THROW(test_csv_data_size(chunk_sizes[i], reference));
+    }
 }

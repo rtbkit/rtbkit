@@ -16,6 +16,7 @@
 #include "fast_float_parsing.h"
 #include "jml/utils/file_functions.h"
 #include <cassert>
+#include <boost/scoped_array.hpp>
 
 
 using namespace std;
@@ -381,7 +382,18 @@ read_new_buffer()
     if (stream_->bad() || stream_->fail())
         exception("stream is bad/has failed 1");
     
-    char tmpbuf[chunk_size_];
+    static const size_t MAX_STACK_CHUNK_SIZE = 65536;
+
+    //char tmpbuf_stack[chunk_size_];
+    char tmpbuf_stack[std::min(chunk_size_, MAX_STACK_CHUNK_SIZE)];
+    char * tmpbuf = tmpbuf_stack;
+    boost::scoped_array<char> tmpbuf_dynamic;
+
+    if (chunk_size_ > MAX_STACK_CHUNK_SIZE) {
+        tmpbuf_dynamic.reset(new char[chunk_size_]);
+        tmpbuf = tmpbuf_dynamic.get();
+    }
+    
     stream_->read(tmpbuf, chunk_size_);
     size_t read = stream_->gcount();
 
@@ -406,6 +418,15 @@ read_new_buffer()
     memcpy(const_cast<char *>(buffers_.back().pos), tmpbuf, read);
 
     return result;
+}
+
+void
+Parse_Context::
+set_chunk_size(size_t size)
+{
+    if (size == 0)
+        throw Exception("Parse_Context::chunk_size(): invalid chunk size");
+    chunk_size_ = size;
 }
 
 } // namespace ML
