@@ -91,6 +91,16 @@ struct Parse_Context {
         a stream. */
     void set_chunk_size(size_t size);
 
+    /** Get the chunk size. */
+    size_t get_chunk_size() const { return chunk_size_; }
+
+    /** How many characters are available to read ahead from? */
+    size_t readahead_available() const;
+
+    /** How many characters are buffered in total, both before and after
+        the current character? */
+    size_t total_buffered() const;
+
     /** Increment.  Note that it always sets up the buffer such that more
         characters are available. */
     Parse_Context & operator ++ ()

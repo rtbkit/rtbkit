@@ -446,3 +446,48 @@ BOOST_AUTO_TEST_CASE( test_csv_data )
         BOOST_CHECK_NO_THROW(test_csv_data_size(chunk_sizes[i], reference));
     }
 }
+
+BOOST_AUTO_TEST_CASE( test_token )
+{
+    string s = "aaabac";
+    istringstream stream(s);
+    Parse_Context context("test", stream, 1, 1, 1 /* chunk size */);
+    
+    BOOST_CHECK_EQUAL(context.readahead_available(), 1);
+    BOOST_CHECK_EQUAL(context.total_buffered(), 1);
+    BOOST_CHECK_EQUAL(*context, 'a');
+    BOOST_CHECK_EQUAL(context.get_offset(), 0);
+
+    {
+        Parse_Context::Revert_Token token(context);
+
+        BOOST_CHECK_EQUAL(*context, 'a');
+        BOOST_CHECK_EQUAL(context.total_buffered(), 1);
+        BOOST_CHECK_EQUAL(context.get_offset(), 0);
+        ++context;
+        BOOST_CHECK_EQUAL(*context, 'a');
+        BOOST_CHECK_EQUAL(context.total_buffered(), 2);
+        BOOST_CHECK_EQUAL(context.get_offset(), 1);
+        ++context;
+        BOOST_CHECK_EQUAL(*context, 'a');
+        BOOST_CHECK_EQUAL(context.total_buffered(), 3);
+        BOOST_CHECK_EQUAL(context.get_offset(), 2);
+        ++context;
+        BOOST_CHECK_EQUAL(*context, 'b');
+        BOOST_CHECK_EQUAL(context.total_buffered(), 4);
+        BOOST_CHECK_EQUAL(context.get_offset(), 3);
+        ++context;
+        BOOST_CHECK_EQUAL(*context, 'a');
+        BOOST_CHECK_EQUAL(context.total_buffered(), 5);
+        BOOST_CHECK_EQUAL(context.get_offset(), 4);
+        ++context;
+        BOOST_CHECK_EQUAL(*context, 'c');
+        BOOST_CHECK_EQUAL(context.total_buffered(), 6);
+        BOOST_CHECK_EQUAL(context.get_offset(), 5);
+    }
+
+    BOOST_CHECK_EQUAL(context.get_offset(), 0);
+    BOOST_CHECK_EQUAL(*context, 'a');
+    BOOST_CHECK_EQUAL(context.readahead_available(), 6);
+    BOOST_CHECK_EQUAL(context.total_buffered(), 6);
+}

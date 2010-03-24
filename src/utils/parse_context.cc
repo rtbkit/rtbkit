@@ -337,7 +337,7 @@ goto_ofs(uint64_t ofs, size_t line, size_t col)
 
     int i = 0;
     /* TODO: be more efficient... */
-    for (std::list<Buffer>::const_iterator it = buffers_.begin();
+    for (std::list<Buffer>::iterator it = buffers_.begin();
          it != buffers_.end();  ++it, ++i) {
         //cerr << "buffer " << i << " of " << buffers_.size() << ": ofs "
         //     << it->ofs << " size " << it->size << endl;
@@ -345,6 +345,7 @@ goto_ofs(uint64_t ofs, size_t line, size_t col)
             /* In here. */
             cur_ = it->pos + (ofs - it->ofs);
             ebuf_ = it->pos + it->size;
+            current_ = it;
             return;
         }
     }
@@ -427,6 +428,39 @@ set_chunk_size(size_t size)
     if (size == 0)
         throw Exception("Parse_Context::chunk_size(): invalid chunk size");
     chunk_size_ = size;
+}
+
+size_t
+Parse_Context::
+readahead_available() const
+{
+    if (eof()) return 0;
+    size_t in_current_buffer = ebuf_ - cur_;
+
+    size_t in_future_buffers = 0;
+    for (std::list<Buffer>::const_iterator it = boost::next(current_),
+             end = buffers_.end();
+         it != end;  ++it) {
+        in_future_buffers += it->size;
+    }
+
+    return in_current_buffer + in_future_buffers;
+}
+
+size_t
+Parse_Context::
+total_buffered() const
+{
+    if (eof()) return 0;
+
+    size_t result = 0;
+    for (std::list<Buffer>::const_iterator it = buffers_.begin(),
+             end = buffers_.end();
+         it != end;  ++it) {
+        result += it->size;
+    }
+
+    return result;
 }
 
 } // namespace ML
