@@ -320,7 +320,12 @@ struct Parse_Context {
     bool match_eol(bool eof_is_eol = true)
     {
         if (eof_is_eol && eof()) return true;  // EOF is considered EOL
-        if (*cur_ == '\n') { operator ++ ();  return true; }
+        if (*cur_ == '\n') {
+            operator ++ ();
+            if (*cur_ == '\r')
+                operator ++ ();
+            return true;
+        }
         if (*cur_ != '\r') return false;
 
         // deal with DOS line endings
