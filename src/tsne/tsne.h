@@ -38,7 +38,7 @@ perplexity_and_prob(const distribution<double> & D, double beta = 1.0,
     D   = ||X  - X || 
      ij      i    j
 
-    \params:
+    params:
     X    a (n x d) matrix, where n is the number of points and d is the
          number of coordinates that each point has
     D    a (n x n) matrix that will be filled in with the distance between

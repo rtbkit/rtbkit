@@ -25,6 +25,10 @@ std::string expect_csv_field(Parse_Context & context, bool & another);
 std::vector<std::string>
 expect_csv_row(Parse_Context & context, int length = -1);
 
+/** Convert the string to a CSV representation, escaping everything that
+    needs to be escaped. */
+std::string csv_escape(const std::string & s);
+
 } // namespace ML
 
 
