@@ -180,7 +180,6 @@ optimized_predict_impl(int label,
     return do_predict_impl(label, features_c, &feature_indexes[0]);
 }
 
-JML_ALWAYS_INLINE
 float
 GLZ_Classifier::
 decode_value(float feat_val, const Feature_Spec & spec) const
@@ -194,16 +193,17 @@ decode_value(float feat_val, const Feature_Spec & spec) const
         case Feature_Spec::VALUE_IF_PRESENT:
         case Feature_Spec::PRESENCE:
             feat_val = 0.0;
+            break;
         default:
             throw Exception("invalid feature spec type");
         }
     }
+    else if (JML_UNLIKELY(spec.type == Feature_Spec::PRESENCE))
+        feat_val = 1.0;
     else if (JML_UNLIKELY(!isfinite(feat_val)))
         throw Exception("GLZ_Classifier: feature "
                         + feature_space()->print(spec.feature)
                         + " is not finite");
-    else if (JML_UNLIKELY(spec.type == Feature_Spec::PRESENCE))
-        feat_val = 1.0;
 
     return feat_val;
 }

@@ -182,8 +182,25 @@ train_weighted(const Training_Data & data,
     for (unsigned i = 0;  i < unfiltered.size();  ++i) {
         if (unfiltered[i] == model.predicted())
             continue;  // don't use the label to predict itself
-        if (data.index().exactly_one(unfiltered[i]))
-            result.features.push_back(unfiltered[i]);
+
+        GLZ_Classifier::Feature_Spec spec(unfiltered[i]);
+
+        // Can't use a feature that has multiple occurrences
+        if (!data.index().only_one(unfiltered[i])) continue;
+
+        if (data.index().exactly_one(unfiltered[i])) {
+            // Feature that's always there but constant has no information
+            if (data.index().constant(unfiltered[i])) continue;
+            result.features.push_back(spec);
+        }
+        else {
+            if (!data.index().constant(unfiltered[i])) {
+                spec.type = GLZ_Classifier::Feature_Spec::VALUE_IF_PRESENT;
+                result.features.push_back(spec);
+            }
+            spec.type = GLZ_Classifier::Feature_Spec::PRESENCE;
+            result.features.push_back(spec);
+        }
     }
     
     size_t nl = result.label_count();        // Number of labels

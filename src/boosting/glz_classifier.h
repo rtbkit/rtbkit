@@ -132,7 +132,9 @@ public:
                            const float * features,
                            const Optimization_Info & info) const;
 
+#ifndef JML_TESTING_GLZ_CLASSIFIER
 protected:
+#endif
     // These actually do the prediction.  They will dereference the features
     // vector in the order given by indexes; if indexes is null then they
     // will do it in unit order
