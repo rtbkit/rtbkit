@@ -35,7 +35,7 @@ static const char * config_options = "\
 verbosity=3\n\
 ";
 
-int nfv = 10;
+int nfv = 1000;
 
 
 BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
@@ -157,6 +157,11 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
     cerr << "accuracy = " << accuracy << endl;
 
     BOOST_CHECK_EQUAL(accuracy, 1);
+
+    // Check that we can optimize
+    Optimization_Info info = classifier->optimize(fs.features());
+
+    BOOST_CHECK(info);
 }
 
 BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
@@ -222,6 +227,11 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
     cerr << "accuracy = " << accuracy << endl;
 
     BOOST_CHECK_EQUAL(accuracy, 1);
+
+    // Check that we can optimize
+    Optimization_Info info = classifier->optimize(fs.features());
+
+    BOOST_CHECK(info);
 }
 
 #define do_decode(val, type)                           \
