@@ -111,16 +111,17 @@ vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
 
         for (int j = i - 1;  j >= 0;  --j) {
             r[j][i] = v[i].dotprod(v[j]);
-            v[j] -= r[j][i] * v[i];
+            //v[j] -= r[j][i] * v[i];
+            SIMD::vec_add(&v[j][0], -r[j][i], &v[i][0], &v[j][0], nj);
 
             // Check that v[i] and v[j] are now orthogonal
-            double error = v[i].dotprod(v[j]);
-            if (error > tolerance)
-                cerr << "tolerance: v[i] and v[j] aren't orthogonal"
-                     << endl;
+            //double error = v[i].dotprod(v[j]);
+            //if (error > tolerance)
+            //    cerr << "tolerance: v[i] and v[j] aren't orthogonal"
+            //         << endl;
 
-            //SIMD::vec_add(&v[j][0], -r[j][i], &v[i][0], &v[j][0], nj);
-            z[j] -= r[j][i] * z[i];
+            //z[j] -= r[j][i] * z[i];
+            SIMD::vec_add(&z[j][0], -r[j][i], &z[i][0], &z[j][0], ni);
         }
 
         // Check that we can 
