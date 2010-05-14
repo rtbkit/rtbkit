@@ -32,7 +32,58 @@ static const char * config_options = "\
 trace=0\n\
 ";
 
-BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded1 )
+BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_binary )
+{
+    /* Create the dataset */
+
+    Dense_Feature_Space fs;
+    fs.add_feature("LABEL", Feature_Info(BOOLEAN, false, true));
+    fs.add_feature("feature1", REAL);
+    fs.add_feature("feature2", REAL);
+    fs.add_feature("feature3", REAL);
+
+    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+
+    Training_Data data(fsp);
+    
+    int nfv = 10000;
+
+    for (unsigned i = 0;  i < nfv;  ++i) {
+        distribution<float> features;
+        features.push_back(i % 2);
+        features.push_back(i);
+        features.push_back(i);
+        features.push_back(i);
+
+        //features.push_back(random());
+        //features.push_back(random());
+        //features.push_back(random());
+
+        boost::shared_ptr<Feature_Set> fset
+            = fs.encode(features);
+
+        data.add_example(fset);
+    }
+
+    /* Create the decision tree generator */
+    Configuration config;
+    config.parse_string(config_options, "inbuilt config file");
+
+    Decision_Tree_Generator generator;
+    generator.configure(config);
+    generator.init(fsp, fs.features()[0]);
+
+    distribution<float> training_weights(nfv, 1);
+
+    vector<Feature> features = fs.features();
+    features.erase(features.begin(), features.begin() + 1);
+
+    Thread_Context context;
+
+    generator.generate(context, data, training_weights, features);
+}
+
+BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_regression )
 {
     /* Create the dataset */
 

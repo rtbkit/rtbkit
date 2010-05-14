@@ -182,6 +182,9 @@ train_weighted(Thread_Context & context,
     else filtered_features.insert(filtered_features.end(),
                                   features.begin(), features.end());
 
+    if (max_depth == -1)
+        max_depth = 50;
+
     if (regression_problem) {
         vector<float> weights_vec(data.example_count());
         for (unsigned x = 0;  x < weights_vec.size();  ++x)
@@ -679,6 +682,11 @@ train_recursive(Thread_Context & context,
                 int depth, int max_depth,
                 Tree & tree) const
 {
+    bool debug = false;
+    
+    if (depth > 100 && max_depth == -1)
+        throw Exception("Decision_Tree_Generator::train_recursive(): "
+                        "depth of 100 reached");
 #if 0
     if (depth == 0) {
         cerr << "train_recursive: 10 first weights ";
@@ -841,12 +849,11 @@ train_recursive(Thread_Context & context,
                         "no feature was learned");
     }
 
-#if 0    
-    cerr << " decision tree training: best is "
-         << feature_space->print(feature)
-         << " at value " << split_val << endl;
-    cerr << "z = " << best_z << endl;
-#endif
+    if (debug) {
+        cerr << " decision tree training: best split is "
+             << split.print(*feature_space) << endl;
+        cerr << "z = " << best_z << endl;
+    }
 
     if (best_z == 0.0) {
         // No impurity at all
@@ -870,16 +877,16 @@ train_recursive(Thread_Context & context,
                   total_true, total_false, total_missing,
                   validate);
 
-#if 0
-    //cerr << timer.elapsed() << "s split" << endl;
-
-    cerr << " totals: true " << total_true << " false " << total_false
-         << " missing " << total_missing << endl;
-
-    cerr << " totals2: true " << class_true.total()
-         << " false " << class_false.total()
-         << " missing " << class_missing.total() << endl;
-#endif
+    if (debug) {
+        //cerr << timer.elapsed() << "s split" << endl;
+        
+        cerr << " totals: true " << total_true << " false " << total_false
+             << " missing " << total_missing << endl;
+        
+        cerr << " totals2: true " << class_true.total()
+             << " false " << class_false.total()
+             << " missing " << class_missing.total() << endl;
+    }
 
     Tree::Node * node = tree.new_node();
     node->split = split;
@@ -909,32 +916,6 @@ train_recursive(Thread_Context & context,
         context.worker().run_until_finished(group_to_wait_for);
     }
 
-#if 0
-    if (total_true > 0.0)
-        node->child_true
-            = train_recursive(context, data, weights, advance, features,
-                              class_true,
-                              depth + 1, max_depth, tree);
-    else node->child_true = new_leaf(tree, data, model.predicted(), weights,
-                                     advance, in_class, update_alg, 0.0);
-
-    if (total_false > 0.0)
-        node->child_false
-            = train_recursive(context, data, weights, advance, features,
-                              class_false,
-                              depth + 1, max_depth, tree); 
-    else node->child_false = new_leaf(tree, data, model.predicted(), weights,
-                                      advance, in_class, update_alg, 0.0);
-
-    if (total_missing > 0.0)
-        node->child_missing
-            = train_recursive(context, data, weights, advance, features,
-                              class_missing,
-                              depth + 1, max_depth, tree);
-    else node->child_missing = new_leaf(tree, data, model.predicted(), weights,
-                                        advance, in_class, update_alg, 0.0);
-#endif
-    
     return node;
 }
 
@@ -948,6 +929,10 @@ train_recursive_regression(Thread_Context & context,
                            int depth, int max_depth,
                            Tree & tree) const
 {
+    if (depth > 100 && max_depth == -1)
+        throw Exception("Decision_Tree_Generator::train_recursive_regression(): "
+                        "depth of 100 reached");
+
     size_t nx = data.example_count();
 
     Tree::Leaf leaf;
