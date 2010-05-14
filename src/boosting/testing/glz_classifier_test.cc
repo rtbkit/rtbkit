@@ -87,6 +87,72 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
     BOOST_CHECK_EQUAL(accuracy, 1);
 }
 
+BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
+{
+    /* In this test, feature1a and feature1b contain the information about
+       the label between them.  Exactly one of them is always present. */
+    
+    /* Create the dataset */
+
+    Dense_Feature_Space fs;
+    fs.add_feature("LABEL", Feature_Info(BOOLEAN, false, true));
+    fs.add_feature("feature1a", REAL);
+    fs.add_feature("feature1b", REAL);
+    fs.add_feature("feature2",  REAL);
+
+    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+
+    Training_Data data(fsp);
+    
+    int nfv = 10000;
+
+    float NaN = std::numeric_limits<float>::quiet_NaN();
+
+    for (unsigned i = 0;  i < nfv;  ++i) {
+        distribution<float> features;
+
+        features.push_back(i % 3  == 0);
+        if (i % 2 == 0) {
+            features.push_back(i % 3  == 0);
+            features.push_back(NaN);
+        }
+        else {
+            features.push_back(NaN);
+            features.push_back(i % 3  == 0);
+        }
+        features.push_back(i % 5  == 0);
+
+        boost::shared_ptr<Feature_Set> fset
+            = fs.encode(features);
+
+        data.add_example(fset);
+    }
+
+    /* Create the decision tree generator */
+    Configuration config;
+    config.parse_string(config_options, "inbuilt config file");
+
+    GLZ_Classifier_Generator generator;
+    generator.configure(config);
+    generator.init(fsp, fs.features()[0]);
+
+    distribution<float> training_weights(nfv, 1);
+
+    vector<Feature> features = fs.features();
+    features.erase(features.begin(), features.begin() + 1);
+
+    Thread_Context context;
+
+    boost::shared_ptr<Classifier_Impl> classifier
+        = generator.generate(context, data, training_weights, features);
+
+    float accuracy JML_UNUSED = classifier->accuracy(data).first;
+
+    cerr << "accuracy = " << accuracy << endl;
+
+    BOOST_CHECK_EQUAL(accuracy, 1);
+}
+
 #if 0
 
 BOOST_AUTO_TEST_CASE( test_glz_classifier_missing_features )
