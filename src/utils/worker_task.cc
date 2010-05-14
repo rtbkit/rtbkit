@@ -580,6 +580,16 @@ Worker_Task::Job_Info Worker_Task::get_job_impl(int group)
 
     Guard guard(lock);
 
+    return get_job_impl_ul(group);
+}
+
+Worker_Task::Job_Info Worker_Task::get_job_impl_ul(int group)
+{
+    //cerr << "thread " << ACE_OS::thr_self()
+    //     << " is getting a job in group " << group
+    //     << endl;
+    if (force_finished) return Job_Info();
+
     Jobs::iterator it;
 
     if (group == -1) {
@@ -601,10 +611,10 @@ Worker_Task::Job_Info Worker_Task::get_job_impl(int group)
             //throw Exception("iterator not found in group");
             cerr << "coldn't find group " << group << " in  list"
                  << endl;
-            return get_job_impl(-1);
+            return get_job_impl_ul(-1);
         }
         else if (group_it->second.error)
-            return get_job_impl(-1);  // group has an error; we don't do it
+            return get_job_impl_ul(-1);  // group has an error; we don't do it
         else it = jobs.begin();
         
         /* Try to find one whose id isn't -1 but which is in the group
@@ -616,7 +626,7 @@ Worker_Task::Job_Info Worker_Task::get_job_impl(int group)
         /* If we didn't find one in our group, we select any job at all
            so that we make some progress. */
         if (it == group_it->second.group_job || !in_group(*it, group))
-            return get_job_impl(-1);
+            return get_job_impl_ul(-1);
     }
     
     Job_Info result = *it;

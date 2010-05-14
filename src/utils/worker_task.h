@@ -251,6 +251,10 @@ private:
         be acquired. */
     Job_Info get_job_impl(int group);
     
+    /** Unlocked implementation of the get_job methods.  Requires that the
+        jobs_sem be acquired and that the lock already be held. */
+    Job_Info get_job_impl_ul(int group);
+    
     void finish_job(const Job_Info & info);
 
     void remove_job_ul(const Jobs::iterator & it);
