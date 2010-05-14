@@ -153,16 +153,18 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
     BOOST_CHECK_EQUAL(accuracy, 1);
 }
 
-#if 0
-
-BOOST_AUTO_TEST_CASE( test_glz_classifier_missing_features )
+BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
 {
+    /* In this test, feature1a and feature1b contain the information about
+       the label: if one of them is missing, the label is 1. */
+    
     /* Create the dataset */
 
     Dense_Feature_Space fs;
     fs.add_feature("LABEL", Feature_Info(BOOLEAN, false, true));
-    fs.add_feature("feature1", REAL);
-    fs.add_feature("feature2", REAL);
+    fs.add_feature("feature1a", REAL);
+    fs.add_feature("feature1b", REAL);
+    fs.add_feature("feature2",  REAL);
 
     boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
 
@@ -174,8 +176,23 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing_features )
 
     for (unsigned i = 0;  i < nfv;  ++i) {
         distribution<float> features;
-        features.push_back(i % 15 == 0);
+
         features.push_back(i % 3  == 0);
+
+        if (i % 3 == 0) {
+            if (i % 2 == 0) {
+                features.push_back(i % 3  == 0);
+                features.push_back(NaN);
+            }
+            else {
+                features.push_back(NaN);
+                features.push_back(i % 3  == 0);
+            }
+        }
+        else {
+            features.push_back(i % 3  == 0);
+            features.push_back(i % 3  == 0);
+        }
         features.push_back(i % 5  == 0);
 
         boost::shared_ptr<Feature_Set> fset
@@ -188,7 +205,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing_features )
     Configuration config;
     config.parse_string(config_options, "inbuilt config file");
 
-    Decision_Tree_Generator generator;
+    GLZ_Classifier_Generator generator;
     generator.configure(config);
     generator.init(fsp, fs.features()[0]);
 
@@ -199,7 +216,12 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing_features )
 
     Thread_Context context;
 
-    generator.generate(context, data, training_weights, features);
-}
+    boost::shared_ptr<Classifier_Impl> classifier
+        = generator.generate(context, data, training_weights, features);
 
-#endif
+    float accuracy JML_UNUSED = classifier->accuracy(data).first;
+
+    cerr << "accuracy = " << accuracy << endl;
+
+    BOOST_CHECK_EQUAL(accuracy, 1);
+}
