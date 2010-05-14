@@ -54,8 +54,31 @@ public:
         one for each of the features. */
     std::vector<distribution<float> > weights;
 
+    struct Feature_Spec {
+        enum Type {
+            VALUE,              ///< Copies the value directly
+            VALUE_IF_PRESENT,   ///< Copies value if present, or zero otherwise
+            PRESENCE            ///< True if present, false otherwise
+            // TODO: add a different boolean for each category in categorical
+        };
+
+        Feature_Spec()
+            : type(VALUE)
+        {
+        }
+
+        Feature_Spec(const Feature & feature,
+                    Type type = VALUE)
+            : feature(feature), type(type)
+        {
+        }
+
+        Feature feature;
+        Type type;
+    };
+
     /** The features which correspond to our variables. */
-    std::vector<Feature> features;
+    std::vector<Feature_Spec> features;
 
     /** The link function we are using. */
     Link_Function link;
@@ -133,6 +156,8 @@ protected:
     do_accum(const float * features_c,
              const int * indexes,
              int label) const;
+
+    float decode_value(float feat_val, const Feature_Spec & spec) const;
 
 public:
     virtual Explanation explain(const Feature_Set & feature_set,

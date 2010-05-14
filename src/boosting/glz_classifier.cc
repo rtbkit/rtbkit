@@ -16,7 +16,7 @@
 #include "config_impl.h"
 #include <limits>
 #include "jml/utils/vector_utils.h"
-
+#include "jml/compiler/compiler.h"
 
 using namespace std;
 using namespace ML::DB;
@@ -69,13 +69,37 @@ decode(const Feature_Set & feature_set) const
     
     for (unsigned i = 0;  i < features.size();  ++i) {
         Feature_Set::const_iterator first, last;
-        boost::tie(first, last) = feature_set.find(features[i]);
-        if (last - first != 1)
-            throw Exception("GLZ_Classifier::decode() feature "
-                            + feature_space_->print(features[i])
-                            + " occurred " + ostream_format(last - first)
-                            + " times; exactly 1 required");
-        result[i] = (*first).second;
+        boost::tie(first, last) = feature_set.find(features[i].feature);
+
+        switch (features[i].type) {
+        case Feature_Spec::VALUE_IF_PRESENT:
+            if (first == last || isnan((*first).second)) {
+                result[i] = 0.0;
+                break;
+            }
+            // fall through
+
+        case Feature_Spec::VALUE:
+            if (last - first != 1)
+                throw Exception("GLZ_Classifier::decode() feature "
+                                + feature_space_->print(features[i].feature)
+                                + " occurred " + ostream_format(last - first)
+                                + " times; exactly 1 required");
+            if (isnan((*first).second))
+                throw Exception("GLZ_Classifier::decode() feature "
+                                + feature_space_->print(features[i].feature)
+                                + " was missing");
+                
+            result[i] = (*first).second;
+            break;
+
+        case Feature_Spec::PRESENCE:
+            result[i] = (first != last && !isnan((*first).second));
+            break;
+
+        default:
+            throw Exception("GLZ_Classifier::decode(): invalid type");
+        }
     }
     
     return result;
@@ -120,7 +144,7 @@ optimize_impl(Optimization_Info & info)
     // Fill in the feature order
     for (unsigned i = 0;  i < features.size();  ++i) {
         map<Feature, int>::const_iterator it
-            = info.feature_to_optimized_index.find(features[i]);
+            = info.feature_to_optimized_index.find(features[i].feature);
         if (it == info.feature_to_optimized_index.end())
             throw Exception("GLZ_Classifier::optimize(): feature not found");
         feature_indexes.push_back(it->second);
@@ -156,6 +180,34 @@ optimized_predict_impl(int label,
     return do_predict_impl(label, features_c, &feature_indexes[0]);
 }
 
+JML_ALWAYS_INLINE
+float
+GLZ_Classifier::
+decode_value(float feat_val, const Feature_Spec & spec) const
+{
+    if (JML_UNLIKELY(isnan(feat_val))) {
+        switch (spec.type) {
+        case Feature_Spec::VALUE:
+            throw Exception("GLZ_Classifier: feature "
+                            + feature_space()->print(spec.feature)
+                            + " is missing");
+        case Feature_Spec::VALUE_IF_PRESENT:
+        case Feature_Spec::PRESENCE:
+            feat_val = 0.0;
+        default:
+            throw Exception("invalid feature spec type");
+        }
+    }
+    else if (JML_UNLIKELY(!isfinite(feat_val)))
+        throw Exception("GLZ_Classifier: feature "
+                        + feature_space()->print(spec.feature)
+                        + " is not finite");
+    else if (JML_UNLIKELY(spec.type == Feature_Spec::PRESENCE))
+        feat_val = 1.0;
+
+    return feat_val;
+}
+
 double
 GLZ_Classifier::
 do_accum(const float * features_c,
@@ -166,12 +218,7 @@ do_accum(const float * features_c,
     
     for (unsigned j = 0;  j < features.size();  ++j) {
         int idx = (indexes ? indexes[j] : j);
-        float feat_val = features_c[idx];
-        if (!isfinite(feat_val))
-            throw Exception("GLZ_Classifier: feature "
-                            + feature_space()->print(features[j])
-                            + " is not finite");
-        
+        float feat_val = decode_value(features_c[idx], features[j]);
         accum +=  feat_val * weights[label][j];
     }
 
@@ -222,7 +269,10 @@ do_predict_impl(int label,
 
 std::vector<ML::Feature> GLZ_Classifier::all_features() const
 {
-    return features;
+    vector<ML::Feature> result(features.size());
+    for (unsigned i = 0;  i < result.size();  ++i)
+        result[i] = features[i].feature;
+    return result;
 }
 
 Output_Encoding
@@ -242,13 +292,9 @@ explain(const Feature_Set & feature_set,
     Explanation result(feature_set, *feature_space(), label);
 
     for (unsigned j = 0;  j < features.size();  ++j) {
-        float feat_val = feature_set[features[j]];
-        if (!isfinite(feat_val))
-            throw Exception("GLZ_Classifier: feature "
-                            + feature_space()->print(features[j])
-                            + " is not finite");
-        
-        result.feature_weights[features[j]]
+        float feat_val = decode_value(feature_set[features[j].feature],
+                                      features[j]);
+        result.feature_weights[features[j].feature]
             += weight * weights[label][j] * feat_val;
     }
     
@@ -271,7 +317,7 @@ std::string GLZ_Classifier::summary() const
 namespace {
 
 static const std::string GLZ_CLASSIFIER_MAGIC = "GLZ_CLASSIFIER";
-static const compact_size_t GLZ_CLASSIFIER_VERSION = 2;
+static const compact_size_t GLZ_CLASSIFIER_VERSION = 3;
 
 } // file scope
 
@@ -286,8 +332,10 @@ void GLZ_Classifier::serialize(DB::Store_Writer & store) const
     feature_space()->serialize(store, predicted_);
     store << (int)add_bias << weights << link;
     store << compact_size_t(features.size());
-    for (unsigned i = 0;  i < features.size();  ++i)
-        feature_space_->serialize(store, features[i]);
+    for (unsigned i = 0;  i < features.size();  ++i) {
+        feature_space_->serialize(store, features[i].feature);
+        store << (char)features[i].type;
+    }
     store << compact_size_t(0x12345);
 }
 
@@ -319,9 +367,18 @@ reconstitute(DB::Store_Reader & store)
     
     compact_size_t nf(store);
     features.resize(nf);
-    for (unsigned i = 0;  i < features.size();  ++i)
-        feature_space_->reconstitute(store, features[i]);
-    
+
+    if (version < 3) {
+        for (unsigned i = 0;  i < features.size();  ++i)
+            feature_space_->reconstitute(store, features[i].feature);
+    }
+    else {
+        for (unsigned i = 0;  i < features.size();  ++i) {
+            feature_space_->reconstitute(store, features[i].feature);
+            char c;  store >> c;
+            features[i].type = Feature_Spec::Type(c);
+        }
+    }
     compact_size_t guard(store);
     if (guard != 0x12345)
         throw Exception("GLZ_Classifier::reconstitute(): bad guard value");

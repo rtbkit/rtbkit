@@ -110,7 +110,7 @@ generate(Thread_Context & context,
         cerr << endl << "Learned GLZ function: " << endl;
         cerr << "link: " << current.link << endl;
         int nl = current.feature_space()->info(predicted).value_count();
-        cerr << "feature                                 ";
+        cerr << "feature                                    ";
         if (nl == 2 && false)
             cerr << "       label1";
             else
@@ -120,10 +120,31 @@ generate(Thread_Context & context,
 
         for (unsigned i = 0;  i < current.features.size() + current.add_bias;
              ++i) {
-            string feat;
-            if (i == current.features.size()) feat = "BIAS";
-            else feat = current.feature_space()->print(current.features[i]);
-            cerr << format("%-40s", feat.c_str());
+
+            if (i == current.features.size()) {
+                cerr << format("%-40s", "BIAS");
+            }
+            else {
+                string feat
+                    = current.feature_space()
+                    ->print(current.features[i].feature);
+                cerr << format("%-36s", feat.c_str());
+                
+                switch (current.features[i].type) {
+                case GLZ_Classifier::Feature_Spec::VALUE:
+                    cerr << " VAL";
+                    break;
+                case GLZ_Classifier::Feature_Spec::VALUE_IF_PRESENT:
+                    cerr << " VIP";
+                    break;
+                case GLZ_Classifier::Feature_Spec::PRESENCE:
+                    cerr << " PRS";
+                    break;
+                default:
+                    throw Exception("invalid type");
+                }
+            }
+            
             if (nl == 2 && false)
                 cerr << format("%13f", current.weights[1][i]);
             else
