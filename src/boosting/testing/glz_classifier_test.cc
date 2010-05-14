@@ -35,8 +35,13 @@ static const char * config_options = "\
 verbosity=3\n\
 ";
 
+int nfv = 10;
+
+
 BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
 {
+    cerr << endl << endl << endl << "test test" << endl;
+
     /* Create the dataset */
 
     Dense_Feature_Space fs;
@@ -48,8 +53,6 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
 
     Training_Data data(fsp);
     
-    int nfv = 10000;
-
     //float NaN = std::numeric_limits<float>::quiet_NaN();
 
     for (unsigned i = 0;  i < nfv;  ++i) {
@@ -92,6 +95,8 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
 
 BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
 {
+    cerr << endl << endl << endl << "missing1" << endl;
+
     /* In this test, feature1a and feature1b contain the information about
        the label between them.  Exactly one of them is always present. */
     
@@ -107,8 +112,6 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
 
     Training_Data data(fsp);
     
-    int nfv = 10000;
-
     float NaN = std::numeric_limits<float>::quiet_NaN();
 
     for (unsigned i = 0;  i < nfv;  ++i) {
@@ -158,6 +161,9 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
 
 BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
 {
+    cerr << endl << endl << endl << "missing2" << endl;
+
+
     /* In this test, feature1 contains the information about
        the label: if it's missing, the label is 1. */
     
@@ -172,8 +178,6 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
 
     Training_Data data(fsp);
     
-    int nfv = 10000;
-
     float NaN = std::numeric_limits<float>::quiet_NaN();
 
     for (unsigned i = 0;  i < nfv;  ++i) {

@@ -63,9 +63,11 @@ GLZ_Classifier::~GLZ_Classifier()
 
 distribution<float>
 GLZ_Classifier::
-decode(const Feature_Set & feature_set) const
+extract(const Feature_Set & feature_set) const
 {
     distribution<float> result(features.size());
+
+    float NaN = std::numeric_limits<float>::quiet_NaN();
     
     for (unsigned i = 0;  i < features.size();  ++i) {
         Feature_Set::const_iterator first, last;
@@ -74,7 +76,7 @@ decode(const Feature_Set & feature_set) const
         switch (features[i].type) {
         case Feature_Spec::VALUE_IF_PRESENT:
             if (first == last || isnan((*first).second)) {
-                result[i] = 0.0;
+                result[i] = NaN;
                 break;
             }
             // fall through
@@ -94,9 +96,13 @@ decode(const Feature_Set & feature_set) const
             break;
 
         case Feature_Spec::PRESENCE:
-            result[i] = (first != last && !isnan((*first).second));
+            if (first == last || isnan((*first).second)) {
+                result[i] = NaN;
+                break;
+            }
+            result[i] = (*first).second;
             break;
-
+            
         default:
             throw Exception("GLZ_Classifier::decode(): invalid type");
         }
@@ -105,10 +111,22 @@ decode(const Feature_Set & feature_set) const
     return result;
 }
 
+distribution<float>
+GLZ_Classifier::
+decode(const Feature_Set & feature_set) const
+{
+    distribution<float> result = extract(feature_set);
+    for (unsigned i = 0;  i < result.size();  ++i) {
+        result[i] = decode_value(result[i], features[i]);
+    }
+
+    return result;
+}
+
 Label_Dist
 GLZ_Classifier::predict(const Feature_Set & features) const
 {
-    distribution<float> features_c = decode(features);
+    distribution<float> features_c = extract(features);
     Label_Dist result = predict(features_c);
     return result;
 }

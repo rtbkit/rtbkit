@@ -84,6 +84,9 @@ public:
     Link_Function link;
 
     /** Turn a feature set into a dense vector. */
+    distribution<float> extract(const Feature_Set & features) const;
+
+    /** Turn a feature set into a decoded dense vector */
     distribution<float> decode(const Feature_Set & features) const;
 
     using Classifier_Impl::predict;
