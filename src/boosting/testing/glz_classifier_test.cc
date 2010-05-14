@@ -158,6 +158,8 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
 
     BOOST_CHECK_EQUAL(accuracy, 1);
 
+    BOOST_CHECK_EQUAL(classifier->all_features(), features);
+
     // Check that we can optimize
     Optimization_Info info = classifier->optimize(fs.features());
 

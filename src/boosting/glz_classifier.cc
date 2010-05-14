@@ -285,11 +285,14 @@ do_predict_impl(int label,
 }
 
 
-std::vector<ML::Feature> GLZ_Classifier::all_features() const
+std::vector<ML::Feature>
+GLZ_Classifier::
+all_features() const
 {
-    vector<ML::Feature> result(features.size());
-    for (unsigned i = 0;  i < result.size();  ++i)
-        result[i] = features[i].feature;
+    vector<ML::Feature> result;
+    for (unsigned i = 0;  i < features.size();  ++i)
+        if (i == 0 || features[i].feature != result.back())
+            result.push_back(features[i].feature);
     return result;
 }
 
