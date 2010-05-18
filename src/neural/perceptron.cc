@@ -87,6 +87,22 @@ Perceptron(const boost::shared_ptr<const Feature_Space> & feature_space,
 {
 }
 
+Perceptron::
+Perceptron(const Perceptron & other)
+    : Classifier_Impl(other), features(other.features),
+      layers(other.layers, Deep_Copy_Tag()), output(other.output)
+{
+}
+
+Perceptron &
+Perceptron::
+operator = (const Perceptron & other)
+{
+    Perceptron new_me(other);
+    swap(new_me);
+    return *this;
+}
+
 float
 Perceptron::
 predict(int label, const Feature_Set & features) const
@@ -106,145 +122,12 @@ predict(const Feature_Set & fs) const
     distribution<float> output(layers.outputs());
     layers.apply(input, &output[0]);
 
-    return output;
+    return this->output.decode(output);
 }
 
-namespace {
-
-struct Accuracy_Job_Info {
-    const boost::multi_array<float, 2> & decorrelated;
-    const std::vector<Label> & labels;
-    const distribution<float> & example_weights;
-    const Perceptron & perceptron;
-
-    Lock lock;
-    double & correct;
-    double & rmse;
-    double & total;
-
-    Accuracy_Job_Info(const boost::multi_array<float, 2> & decorrelated,
-                      const std::vector<Label> & labels,
-                      const distribution<float> & example_weights,
-                      const Perceptron & perceptron,
-                      double & correct, double & rmse, double & total)
-        : decorrelated(decorrelated), labels(labels),
-          example_weights(example_weights), perceptron(perceptron),
-          correct(correct), rmse(rmse), total(total)
-    {
-    }
-
-    void calc(int x_start, int x_end)
-    {
-        double sub_total = 0.0, sub_rmse = 0.0, sub_correct = 0.0;
-
-        float scratch1[perceptron.layers.max_width()],
-            scratch2[perceptron.layers.max_width()];
-        float * input = scratch1, * output = scratch2;
-
-        size_t nl = perceptron.label_count();
-
-        bool regression_problem
-            = perceptron.feature_space()->info(perceptron.predicted()).type()
-            == REAL;
-
-        for (unsigned x = x_start;  x < x_end;  ++x) {
-            float w = (example_weights.empty() ? 1.0 : example_weights[x]);
-            if (w == 0.0) continue;
-
-            // Skip the first layer since we've already decorrelated
-            // Second layer calculated directly over input
-            perceptron.layers[1].apply(&decorrelated[x][0], input);
-
-            for (unsigned l = 2;  l < perceptron.layers.size();  ++l) {
-                perceptron.layers[l].apply(input, output);
-                std::swap(input, output);
-            }
-
-            if (regression_problem) {
-                double error = input[0] - labels[x].value();
-                sub_correct += w * fabs(error);
-                sub_rmse    += w * error * error;
-                sub_total   += w;
-            }
-            else {
-                Correctness c = correctness(input, input + nl, labels[x]);
-                sub_correct += w * c.possible * c.correct;
-                sub_rmse    += w * c.possible * c.margin * c.margin;
-                sub_total   += w * c.possible;
-            }
-        }
-
-        Guard guard(lock);
-        correct += sub_correct;
-        rmse += sub_rmse;
-        total += sub_total;
-    }
-};
-
-struct Accuracy_Job {
-    Accuracy_Job(Accuracy_Job_Info & info,
-                 int x_start, int x_end)
-        : info(info), x_start(x_start), x_end(x_end)
-    {
-    }
-
-    Accuracy_Job_Info & info;
-    int x_start, x_end;
-    
-    void operator () () const
-    {
-        info.calc(x_start, x_end);
-    }
-};
-
-} // file scope
-
-std::pair<float, float>
+std::string
 Perceptron::
-accuracy(const boost::multi_array<float, 2> & decorrelated,
-         const std::vector<Label> & labels,
-         const distribution<float> & example_weights) const
-{
-    PROFILE_FUNCTION(t_accuracy);
-
-    double correct = 0.0;
-    double rmse = 0.0;
-    double total = 0.0;
-
-    unsigned nx = decorrelated.shape()[0];
-
-    Accuracy_Job_Info info(decorrelated, labels, example_weights, *this,
-                           correct, rmse, total);
-    static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
-    
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB,
-                                 format("Perceptron::accuracy() under %d", parent),
-                                 parent);
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
-                                     group));
-        
-        int nx_per_job = 512;
-
-        /* Do 2048 examples per job. */
-        for (unsigned x = 0;  x < nx;  x += nx_per_job) {
-            int end = std::min(x + nx_per_job, nx);
-            worker.add(Accuracy_Job(info, x, end),
-                       format("Perceptron::accuracy() %d-%d under %d",
-                              x, end, group),
-                       group);
-        }
-    }
-    
-    worker.run_until_finished(group);
-    
-    return make_pair(correct / total, sqrt(rmse / total));
-}
-
-std::string Perceptron::print() const
+print() const
 {
     string result = format("{ Perceptron: %zd layers, %zd inputs, %zd outputs\n",
                            layers.size(), features.size(),
@@ -264,7 +147,9 @@ std::string Perceptron::print() const
     return result;
 }
 
-std::vector<ML::Feature> Perceptron::all_features() const
+std::vector<ML::Feature>
+Perceptron::
+all_features() const
 {
     return features;
 }

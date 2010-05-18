@@ -82,6 +82,10 @@ public:
         output.swap(other.output);
     }
 
+    // Implement copying explicitly to use the deep copies
+    Perceptron(const Perceptron & other);
+    Perceptron & operator = (const Perceptron & other);
+
     using Classifier_Impl::predict;
 
     /** Predict the score for a single class. */
@@ -90,20 +94,9 @@ public:
     /** Predict the score for all classes. */
     virtual distribution<float> predict(const Feature_Set & features) const;
 
-    /** Calculate the accuracy.  This method takes a set of decorrelated
-        samples.  The accuracy can be calculated much faster in this case
-        as there is no need to decorrelate nor extract the features. */
-    std::pair<float, float>
-    accuracy(const boost::multi_array<float, 2> & decorrelated,
-             const std::vector<Label> & labels,
-             const distribution<float> & example_weights
-                   = UNIFORM_WEIGHTS) const;
-
     /** Apply the first layer to a dataset to decorrelate it. */
     boost::multi_array<float, 2> decorrelate(const Training_Data & data) const;
         
-    using Classifier_Impl::accuracy;
-
     virtual std::string print() const;
 
     virtual std::vector<Feature> all_features() const;

@@ -84,6 +84,14 @@ supports_missing_inputs() const
     return false;
 }
 
+const Transfer_Function &
+Layer::
+transfer() const
+{
+    throw Exception("layer " + type_name(*this)
+                    + " doesn't have a transfer function");
+}
+
 bool
 Layer::
 operator == (const Layer & other) const

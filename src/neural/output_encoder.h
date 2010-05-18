@@ -27,9 +27,15 @@ struct Output_Encoder {
 
     Output_Encoder();
 
-    Output_Encoder(const Feature_Info & label_info);
+    /** Initialize based upon the label feature, the transfer function and
+        the number of outputs of the last layer, and the target value (which
+        gives the asymptotes).  If target_value is -1.0, then a default
+        value appropriate for the layer is used.
+    */
 
-    void init(const Feature_Info & label_info);
+    void configure(const Feature_Info & label_info,
+                   const Layer & layer,
+                   float target_value = -1.0);
 
     void configure(const Configuration & config,
                    const Layer & layer);
@@ -45,8 +51,11 @@ struct Output_Encoder {
 
     distribution<float> target(const Label & label) const;
 
-    distribution<float> decode(const distribution<float> & encoded);
+    inline float decode_value(float encoded) const;
 
+    distribution<float> decode(const distribution<float> & encoded) const;
+
+    /** For a classification problem, calculates the AUC metric. */
     double calc_auc(const std::vector<float> & outputs,
                     const std::vector<Label> & labels) const;
 

@@ -33,12 +33,15 @@ using boost::unit_test::test_suite;
 
 static const char * config_options = "\
     type=perceptron\n\
-    arch=5    # 5 hidden units\n\
+    arch=1\n\
+    # 5 hidden units\n                          \
     verbosity=3\n\
     max_iter=100\n\
     learning_rate=0.01\n\
     batch_size=10\n\
     verbosity=3\n\
+    decorrelate=0\n\
+    normalize=0\n\
 ";
 
 int nfv = 1000;

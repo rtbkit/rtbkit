@@ -1,7 +1,6 @@
 /* perceptron_generator.cc
    Jeremy Barnes, 15 March 2006
    Copyright (c) 2006 Jeremy Barnes  All rights reserved.
-   $Source$
 
    Generator for perceptrons.
 */
@@ -213,6 +212,7 @@ generate(Thread_Context & context,
     else val_decorrelated = current.decorrelate(validation_set);
 
     size_t nx = decorrelated.shape()[0];
+    size_t nxv = val_decorrelated.shape()[0];
     size_t nf = decorrelated.shape()[1];
 
     log("perceptron_generator", 1)
@@ -236,21 +236,74 @@ generate(Thread_Context & context,
     double last_best_acc = 0.0;
     double last_best_rmse = 0.0;
 
+    int our_batch_size = batch_size;
+    if (batch_size == 0.0) our_batch_size = nx;
+    else if (batch_size < 1.0) our_batch_size = nx * batch_size;
+
+    /* If we specified a negative learning rate, that means that we wanted it
+       to be absolute (and so not depend upon the size of the dataset).  In
+       order to get this behaviour, we need to multipy by the number of
+       examples in the dataset, since it is implicitly multiplied by the
+       example weight (on average 1/num examples in training set) as part of
+       the training, and we want to counteract this effect).
+    */
+    float learning_rate = this->learning_rate;
+    if (learning_rate < 0.0) {
+        learning_rate
+            *= -1.0 * training_ex_weights.size() / training_ex_weights.total();
+    }
+
+    // Create a layer stack without the decorrelation layer to be trained
+    Layer_Stack<Layer> train_stack;
+    for (unsigned i = 1;  i < current.layers.size();  ++i)
+        train_stack.add(current.layers.share(i));
+    
+    Discriminative_Trainer trainer;
+    trainer.layer = &train_stack;
+
+    bool randomize = false;
+    float sample_proportion = 1.0;
+
+    vector<const float *> examples(nx);
+    for (unsigned i = 0;  i < nx;  ++i)
+        examples[i] = &decorrelated[i][0];
+
+    vector<const float *> val_examples(nxv);
+    for (unsigned i = 0;  i < nxv;  ++i)
+        val_examples[i] = &val_decorrelated[i][0];
+    
+    Output_Encoder & output_encoder = current.output;
+    output_encoder.configure(model.feature_space()->info(model.predicted()),
+                             train_stack, target_value);
+
+
     for (unsigned i = 0;  i < max_iter;  ++i) {
 
-        boost::tie(train_acc, train_rmse)
-            = train_iteration(context, decorrelated, labels,
-                              training_ex_weights,
-                              current);
-        
+        cerr << "mode = " << output_encoder.mode << " value_true = " << output_encoder.value_true
+             << " value_false = " << output_encoder.value_false << " num_inputs = "
+             << output_encoder.num_inputs << " num_outputs = " << output_encoder.num_outputs
+             << endl;
+
+        {
+            PROFILE_FUNCTION(t_train);
+            
+            boost::tie(train_acc, train_rmse)
+                = trainer.train_iter(examples, labels, training_ex_weights,
+                                     output_encoder,
+                                     context, batch_size, learning_rate,
+                                     verbosity, sample_proportion, randomize);
+        }
+
         if (validate_is_train) {
             validate_acc = train_acc;
             validate_rmse = train_rmse;
         }
-        else boost::tie(validate_acc, validate_rmse)
-                 = current.accuracy(val_decorrelated, val_labels,
-                                    validate_ex_weights);
-        
+        else {
+            boost::tie(validate_acc, validate_rmse)
+                = trainer.test(val_examples, val_labels, validate_ex_weights,
+                               output_encoder, context, verbosity);
+        }
+
         last_best_acc = best_acc;
         last_best_rmse = best_rmse;
 
@@ -640,70 +693,6 @@ decorrelate(const Training_Data & data,
     return decorrelated;
 }
 
-std::pair<double, double>
-Perceptron_Generator::
-train_iteration(Thread_Context & context,
-                const boost::multi_array<float, 2> & decorrelated,
-                const std::vector<Label> & labels,
-                const distribution<float> & example_weights,
-                Perceptron & result) const
-{
-    PROFILE_FUNCTION(t_train);
-
-    size_t nx = decorrelated.shape()[0];
-
-    if (!example_weights.empty() && nx != example_weights.size())
-        throw Exception("Perceptron::train_iteration(): error propegating");
-
-    //float inhibit, fire;
-    //boost::tie(inhibit, fire) = layers[0]->targets(target_value);
-
-    int our_batch_size = batch_size;
-    if (batch_size == 0.0) our_batch_size = nx;
-    else if (batch_size < 1.0) our_batch_size = nx * batch_size;
-
-    //cerr << "batch size of " << our_batch_size << " examples" << endl;
-    
-    /* If we specified a negative learning rate, that means that we wanted it
-       to be absolute (and so not depend upon the size of the dataset).  In
-       order to get this behaviour, we need to multipy by the number of
-       examples in the dataset, since it is implicitly multiplied by the
-       example weight (on average 1/num examples in training set) as part of
-       the training, and we want to counteract this effect).
-    */
-    float learning_rate = this->learning_rate;
-    if (learning_rate < 0.0) {
-        learning_rate *= -1.0 * example_weights.size() / example_weights.total();
-        //cerr << "learning_rate: " << learning_rate << endl;
-    }
-
-    // Create a layer stack without the decorrelation
-    Layer_Stack<Layer> train_stack;
-    for (unsigned i = 1;  i < result.layers.size();  ++i)
-        train_stack.add(result.layers.share(i));
-    
-    Discriminative_Trainer trainer;
-    trainer.layer = &train_stack;
-
-    bool randomize = false;
-    float sample_proportion = 1.0;
-
-    vector<const float *> examples(nx);
-    for (unsigned i = 0;  i < nx;  ++i)
-        examples[i] = &decorrelated[i][0];
-
-    Output_Encoder output_encoder;
-
-    double auc, rmse;
-    boost::tie(auc, rmse)
-        = trainer.train_iter(examples, labels, example_weights,
-                             output_encoder,
-                             context, batch_size, learning_rate,
-                             verbosity, sample_proportion, randomize);
-
-    return make_pair(auc, rmse);
-}
-
 boost::multi_array<float, 2>
 Perceptron_Generator::
 init(const Training_Data & data,
@@ -729,7 +718,7 @@ init(const Training_Data & data,
          << " linear units" << endl;
 
     /* Add hidden layers with the specified sizes */
-    for (unsigned i = 0;  i < architecture.size();  ++i) {
+    for (unsigned i = 0;  i < architecture.size() && false;  ++i) {
         int units = architecture[i];
         if (units == -1) units = result.features.size();
 

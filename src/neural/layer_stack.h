@@ -90,6 +90,8 @@ struct Layer_Stack : public Layer {
 
     virtual bool supports_missing_inputs() const;
 
+    virtual const Transfer_Function & transfer() const;
+
     const LayerT & operator [] (int index) const { return *layers_.at(index); }
     LayerT & operator [] (int index) { return *layers_.at(index); }
 

@@ -7,6 +7,10 @@
 #include "output_encoder.h"
 #include "jml/db/persistent.h"
 
+
+using namespace std;
+
+
 namespace ML {
 
 BYTE_PERSISTENT_ENUM_IMPL(Output_Encoder::Mode);
@@ -21,22 +25,63 @@ Output_Encoder()
 {
 }
 
-Output_Encoder::
-Output_Encoder(const Feature_Info & label_info)
-{
-    init(label_info);
-}
-
 void
 Output_Encoder::
-init(const Feature_Info & label_info)
+configure(const Feature_Info & label_info,
+          const Layer & layer,
+          float target_value)
 {
+    Range range = layer.transfer().range();
+
+    cerr << "range: min = " << range.min
+         << " max = " << range.max
+         << " neutral = " << range.neutral
+         << " min_asymptotic = " << range.min_asymptotic
+         << " max_asymptotic = " << range.max_asymptotic
+         << " type = " << range.type
+         << endl;
+
+    if (target_value == -1.0) {
+        if (range.min_asymptotic || range.max_asymptotic)
+            target_value = 0.9;
+        else target_value = 1.0;
+    }
+
+
+    switch (label_info.type()) {
+
+    case BOOLEAN:
+        value_true = target_value * range.max;
+        value_false = target_value * range.min;
+        num_inputs = layer.outputs();
+        num_outputs = layer.outputs();
+
+        if (layer.outputs() == 1)
+            mode = BINARY;
+        else if (layer.outputs() == 2)
+            mode = MULTICLASS;
+        else throw Exception("invalid number of outputs");
+
+        break;
+
+    case CATEGORICAL:
+
+    case REAL:
+    default:
+        throw Exception("unusable output encoding");
+    }
+
+    cerr << "mode = " << mode << " value_true = " << value_true
+         << " value_false = " << value_false << " num_inputs = "
+         << num_inputs << " num_outputs = " << num_outputs
+         << endl;
 }
 
 void
 Output_Encoder::
 configure(const Configuration & config, const Layer & layer)
 {
+    throw Exception("Output_Encoder::configure(): not done yet");
 }
 
 void
@@ -79,11 +124,44 @@ target(const Label & label) const
     return result;
 }
 
+float
+Output_Encoder::
+decode_value(float encoded) const
+{
+    float result
+        = std::min(1.0f,
+                   std::max(0.0f,
+                            (encoded - value_false)
+                            / (value_true - value_false)));
+    return result;
+}
+
 distribution<float>
 Output_Encoder::
-decode(const distribution<float> & encoded)
+decode(const distribution<float> & encoded) const
 {
-    distribution<float> result;
+    distribution<float> result(num_outputs);
+
+    switch (mode) {
+    case REGRESSION:
+        result = encoded;
+        break;
+            
+    case BINARY:
+        result[0] = decode_value(encoded[0]);
+        result[1] = 1.0 - result[0];
+        break;
+
+    case MULTICLASS:
+        for (unsigned i = 0;  i < num_outputs;  ++i)
+            result[i] = decode_value(encoded[i]);
+        cerr << "input " << encoded << " output " << result << endl;
+        break;
+            
+    default:
+        throw Exception("invalid output encoder class");
+    }
+
     return result;
 }
 

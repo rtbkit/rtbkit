@@ -11,6 +11,8 @@
 #include "jml/boosting/registry.h"
 #include "jml/utils/smart_ptr_utils.h"
 
+#include <boost/static_assert.hpp>
+
 
 using namespace ML::DB;
 using namespace std;
@@ -127,7 +129,23 @@ Range
 Standard_Transfer_Function::
 range() const
 {
-    throw Exception("Standard_Transfer_Function::range(): not implemented");
+    static Range ranges[5] = {
+        { -INFINITY, INFINITY, 0.0, false, false, RT_PM_INF },  /* TF_LOGSIG */
+        { -1.0,      1.0,      0.0, true,  true,  RT_PM_ONE },  /* TF_TANH */
+        { -1.7159,   1.7159,   0.0, true,  true,  RT_OTHER  },  /* TF_TANHS */
+        { -INFINITY, INFINITY, 0.0, false, false, RT_PM_INF }, /* TF_IDENTITY */
+        { 0.0,       1.0,      0.5, true,  true,  RT_PROB   }  /* TF_SOFTMAX */};
+
+    BOOST_STATIC_ASSERT(TF_LOGSIG   == 0);
+    BOOST_STATIC_ASSERT(TF_TANH     == 1);
+    BOOST_STATIC_ASSERT(TF_TANHS    == 2);
+    BOOST_STATIC_ASSERT(TF_IDENTITY == 3);
+    BOOST_STATIC_ASSERT(TF_SOFTMAX  == 4);
+    
+    if (transfer_function <= TF_SOFTMAX)
+        return ranges[transfer_function];
+    
+    throw Exception("Standard_Transfer_Function::range(): non-standard");
 }
 
 std::pair<float, float>

@@ -69,6 +69,8 @@ struct Dense_Layer : public Layer {
     /// Transfer function for the output
     boost::shared_ptr<const Transfer_Function> transfer_function;
 
+    virtual const Transfer_Function & transfer() const;
+
     /// How to treat missing values in the input
     Missing_Values missing_values;
         

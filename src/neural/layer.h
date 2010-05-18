@@ -13,7 +13,7 @@
 #include "jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 #include "parameters.h"
-
+#include "transfer_function.h"
 
 namespace ML {
 
@@ -95,6 +95,12 @@ public:
         Default implementation returns false.
     */
     virtual bool supports_missing_inputs() const;
+
+    /** The transfer function for this layer.  If there isn't one (because
+        it's reversed, etc) it will throw an exception.  Default throws an
+        exception.
+    */
+    virtual const Transfer_Function & transfer() const;
 
     ///@}
 

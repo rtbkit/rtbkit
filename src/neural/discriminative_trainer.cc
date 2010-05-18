@@ -85,21 +85,38 @@ train_example(const float * data,
 
     /* error */
 
-    distribution<float> errors = (distribution<float>(label, label + no)
-                                  - outputs);
+
+    distribution<float> labelv(label, label + no);
+
+    distribution<float> errors = (labelv - outputs);
     double error = errors.dotprod(errors);
 
-    // TODO: get the loss function to do this...
-    distribution<float> derrors = -2.0 * errors;
+    if (weight != 0.0) {
+        // TODO: get the loss function to do this...
+        distribution<float> derrors = -2.0 * errors;
 
-    /* bprop */
-    layer->bprop(&data[0],
-                 &outputs[0],
-                 temp_space, temp_space_required,
-                 &derrors[0],
-                 0 /* don't calculate input errors */,
-                 updates,
-                 weight);
+        /* bprop */
+        layer->bprop(&data[0],
+                     &outputs[0],
+                     temp_space, temp_space_required,
+                     &derrors[0],
+                     0 /* don't calculate input errors */,
+                     updates,
+                     weight);
+    }
+
+    if (false) {
+        distribution<float> in(data, data + layer->inputs());
+        cerr << "in " << in << endl;
+        cerr << "outputs " << outputs << endl;
+        cerr << "labelv " << labelv << endl;
+        cerr << "errors " << errors << endl;
+        
+        Parameters_Copy<float> params = layer->parameters();
+
+        cerr << "params " << params.values << endl;
+        cerr << "updates " << updates.values << endl;
+    }
 
     return make_pair(sqrt(error), outputs[0]);
 }
@@ -150,8 +167,11 @@ struct Train_Examples_Job {
     void operator () ()
     {
         Parameters_Copy<double> local_updates(*trainer.layer);
+        local_updates.fill(0.0);
 
         double total_rmse_local = 0.0;
+
+        //cerr << "training from " << first << " to " << last << endl;
 
         for (unsigned ix = first; ix < last;  ++ix) {
             int x = examples[ix];
@@ -163,6 +183,8 @@ struct Train_Examples_Job {
             if (weights.size())
                 weight = weights.at(x);
 
+            //cerr << "x " << x << " weight " << weight << endl;
+
             boost::tie(rmse_contribution, output)
                 = trainer.train_example(data[x],
                                         labels[x],
@@ -173,6 +195,8 @@ struct Train_Examples_Job {
             outputs[ix] = output;
             total_rmse_local += rmse_contribution;
         }
+
+        //cerr << "local_updates.values = " << local_updates.values << endl;
 
         Guard guard(updates_lock);
         total_rmse += total_rmse_local;
@@ -296,9 +320,12 @@ train_iter(const std::vector<const float *> & data,
         
         worker.run_until_finished(group);
 
+        //cerr << "finished minibatch: updates = " << updates.values
+        //     << " learning_rate = " << learning_rate << endl;
+
         //cerr << "applying minibatch updates" << endl;
         
-        layer->parameters().update(updates, learning_rate);
+        layer->parameters().update(updates, -learning_rate);
     }
 
     // TODO: calculate AUC score

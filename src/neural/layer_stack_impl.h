@@ -120,6 +120,17 @@ supports_missing_inputs() const
     return layers_[0]->supports_missing_inputs();
 }
 
+
+template<class LayerT>
+const Transfer_Function &
+Layer_Stack<LayerT>::
+transfer() const
+{
+    if (empty())
+        throw Exception("no transfer function");
+    return back().transfer();
+}
+
 template<class LayerT>
 void
 Layer_Stack<LayerT>::

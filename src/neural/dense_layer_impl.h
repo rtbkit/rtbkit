@@ -142,6 +142,14 @@ swap(Dense_Layer & other)
 }
 
 template<typename Float>
+const Transfer_Function &
+Dense_Layer<Float>::
+transfer() const
+{
+    return *transfer_function;
+}
+
+template<typename Float>
 void
 Dense_Layer<Float>::
 add_parameters(Parameters & params)

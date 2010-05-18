@@ -98,16 +98,6 @@ public:
         already trained. */
     boost::multi_array<float, 2>
     decorrelate(const Training_Data & data) const;
-        
-    /** Trains a single iteration.  Returns the accuracy over the training
-        corpus of the previous iteration.
-    */
-    std::pair<double, double>
-    train_iteration(Thread_Context & context,
-                    const boost::multi_array<float, 2> & decorrelated,
-                    const std::vector<Label> & labels,
-                    const distribution<float> & example_weights,
-                    Perceptron & result) const;
 };
 
 
