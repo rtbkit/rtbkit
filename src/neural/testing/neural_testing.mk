@@ -7,4 +7,5 @@ $(eval $(call test,dense_layer_test,neural,boost))
 $(eval $(call test,layer_stack_test,neural,boost))
 $(eval $(call test,discriminative_trainer_test,neural,boost))
 $(eval $(call test,twoway_layer_test,neural,boost))
+$(eval $(call test,perceptron_test,neural,boost))
 

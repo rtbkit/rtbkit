@@ -49,7 +49,7 @@ public:
              const Training_Data & training_data,
              const distribution<float> & ex_weights,
              const std::vector<Feature> & features,
-             int recursion) const;
+             int recursion = 0) const;
     
     float validate_split;
 };

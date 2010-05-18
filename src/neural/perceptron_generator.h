@@ -55,7 +55,7 @@ public:
              const Training_Data & validation_data,
              const distribution<float> & training_weights,
              const distribution<float> & validation_weights,
-             const std::vector<Feature> & features, int) const;
+             const std::vector<Feature> & features, int = 0) const;
 
     unsigned max_iter;
     unsigned min_iter;

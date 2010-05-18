@@ -811,7 +811,7 @@ validate() const
                 throw Exception("missing_activations is not finite");
         break;
     default:
-        throw Exception("unknown missing_values");
+        throw Exception("unknown missing_values " + ML::print(missing_values));
     }
 }
 

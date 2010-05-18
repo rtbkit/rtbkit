@@ -625,11 +625,12 @@ decorrelate(const Training_Data & data,
          = (x * A) - (mean * A);
     */
 
-    boost::shared_ptr<Dense_Layer<float> > layer(new Dense_Layer<float>());
+    boost::shared_ptr<Dense_Layer<float> > layer
+        (new Dense_Layer<float>("decorrelation", nf, nf, TF_IDENTITY,
+                                MV_NONE));
     layer->weights.resize(boost::extents[transform.shape()[0]][transform.shape()[1]]);
     layer->weights = transform;
     layer->bias = distribution<float>(nf, 0.0);  // already have mean removed
-    layer->transfer_function = create_transfer_function(TF_IDENTITY);
     
     //cerr << "transform = " << transform << endl;
 

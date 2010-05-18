@@ -133,8 +133,18 @@ add(boost::shared_ptr<LayerT> layer)
         this->outputs_ = layer->outputs();
     }
     else {
-        if (layer->inputs() != outputs())
+        if (layer->inputs() != outputs()) {
+            using namespace std;
+            for (unsigned i = 0;  i < layers_.size();  ++i) {
+                cerr << "layer " << i << ": inputs " << layers_[i]->inputs()
+                     << " outputs " << layers_[i]->outputs() << " " << endl;
+            }
+            cerr << "inputs() = " << inputs() << " outputs " << outputs()
+                 << endl;
+            cerr << "layer->inputs() = " << layer->inputs()
+                 << " outputs = " << layer->outputs() << endl;
             throw Exception("incompatible layer sizes");
+        }
         outputs_ = layer->outputs();
     }
 
