@@ -46,7 +46,7 @@ inline void wrong_sizes_exception(const char * op, int size1, int size2)
 }
 
 
-template<typename F, class Underlying= std::vector<F> >
+template<typename F, class Underlying = std::vector<F> >
 class distribution : public Underlying {
     typedef Underlying parent;
 public:
@@ -54,6 +54,13 @@ public:
 
     explicit distribution(size_t size, F val = F())
         : parent(size, val)
+    {
+    }
+
+    template<class Underlying2>
+    explicit distribution(const Underlying2 & underlying,
+                          const typename Underlying2::const_iterator * it = 0)
+        : parent(underlying.begin(), underlying.end())
     {
     }
 
