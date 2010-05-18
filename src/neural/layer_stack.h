@@ -108,6 +108,11 @@ struct Layer_Stack : public Layer {
         return dynamic_cast<As &>(*layers_.at(index));
     }
 
+    boost::shared_ptr<LayerT> share(int index)
+    {
+        return layers_.at(index);
+    }
+
     /** Add a layer to the stack.  Checks the preconditions first.  The
         ownership of the pointer passes to the Layer_Stack object. */
     void add(LayerT * layer);

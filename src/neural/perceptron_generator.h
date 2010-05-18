@@ -64,22 +64,13 @@ public:
     bool do_decorrelate;
     bool do_normalize;
     float batch_size;
-    bool use_cuda;
-    int training_mode;
-    int training_algo;
-    int min_examples_per_job;
-    int max_examples_per_job;
-    bool use_textures;
     float target_value;
-    bool order_of_sensitivity;
 
     std::string arch_str;
 
     /* Once init has been called, we clone our potential models from this
        one. */
     Perceptron model;
-
-
 
     boost::multi_array<float, 2>
     init(const Training_Data & data,
