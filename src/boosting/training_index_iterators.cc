@@ -14,20 +14,6 @@ using namespace std;
 
 namespace ML {
 
-/*****************************************************************************/
-/* LABEL                                                                     */
-/*****************************************************************************/
-
-void Label::serialize(DB::Store_Writer & store) const
-{
-    store << label_;
-}
-
-void Label::reconstitute(DB::Store_Reader & store)
-{
-    store >> label_;
-}
-
 
 /*****************************************************************************/
 /* JOINT_INDEX                                                               */
