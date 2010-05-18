@@ -196,8 +196,6 @@ struct Train_Examples_Job {
             total_rmse_local += rmse_contribution;
         }
 
-        //cerr << "local_updates.values = " << local_updates.values << endl;
-
         Guard guard(updates_lock);
         total_rmse += total_rmse_local;
         updates.values += local_updates.values;
@@ -275,7 +273,8 @@ train_iter(const std::vector<const float *> & data,
     for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
                 
         Parameters_Copy<double> updates(*layer);
-                
+        updates.fill(0.0);
+
         // Now, submit it as jobs to the worker task to be done
         // multithreaded
         int group;
@@ -325,7 +324,14 @@ train_iter(const std::vector<const float *> & data,
 
         //cerr << "applying minibatch updates" << endl;
         
+        cerr << "updates.values = " << updates.values << endl;
+        cerr << "learning_rate = " << learning_rate << endl;
+
         layer->parameters().update(updates, -learning_rate);
+
+        cerr << "final value = "
+             << Parameters_Copy<double>(layer->parameters()).values
+             << endl;
     }
 
     // TODO: calculate AUC score

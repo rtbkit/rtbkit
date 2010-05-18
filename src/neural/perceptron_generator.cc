@@ -279,6 +279,8 @@ generate(Thread_Context & context,
 
     for (unsigned i = 0;  i < max_iter;  ++i) {
 
+        cerr << "params = " << Parameters_Copy<float>(train_stack.parameters()).values << endl;
+
         cerr << "mode = " << output_encoder.mode << " value_true = " << output_encoder.value_true
              << " value_false = " << output_encoder.value_false << " num_inputs = "
              << output_encoder.num_inputs << " num_outputs = " << output_encoder.num_outputs

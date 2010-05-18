@@ -37,7 +37,7 @@ static const char * config_options = "\
     # 5 hidden units\n                          \
     verbosity=3\n\
     max_iter=100\n\
-    learning_rate=0.01\n\
+    learning_rate=1\n\
     batch_size=10\n\
     verbosity=3\n\
     decorrelate=0\n\
