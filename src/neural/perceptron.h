@@ -14,6 +14,7 @@
 #include "jml/boosting/classifier.h"
 #include "layer.h"
 #include "layer_stack.h"
+#include "output_encoder.h"
 #include "jml/utils/pair_utils.h"
 #include <boost/multi_array.hpp>
 #include <boost/shared_ptr.hpp>
@@ -78,6 +79,7 @@ public:
         Classifier_Impl::swap(other);
         features.swap(other.features);
         layers.swap(other.layers);
+        output.swap(other.output);
     }
 
     using Classifier_Impl::predict;
@@ -138,6 +140,8 @@ public:
     std::vector<Feature> features;  ///< Features to use as input
     
     Layer_Stack<Layer> layers;
+
+    Output_Encoder output;
     
     void add_layer(const boost::shared_ptr<Layer> & layer);
 

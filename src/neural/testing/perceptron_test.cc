@@ -44,7 +44,7 @@ static const char * config_options = "\
 int nfv = 1000;
 
 
-BOOST_AUTO_TEST_CASE( test_perceptron_test )
+BOOST_AUTO_TEST_CASE( test_perceptron_classification )
 {
     cerr << endl << endl << endl << "test test" << endl;
 
@@ -98,6 +98,8 @@ BOOST_AUTO_TEST_CASE( test_perceptron_test )
 
     BOOST_CHECK_EQUAL(accuracy, 1);
 }
+
+#if 0
 
 BOOST_AUTO_TEST_CASE( test_perceptron_missing )
 {
@@ -241,6 +243,8 @@ BOOST_AUTO_TEST_CASE( test_perceptron_missing2 )
 
     BOOST_CHECK(info);
 }
+
+#endif
 
 #if 0
 

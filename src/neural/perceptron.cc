@@ -320,7 +320,7 @@ size_t Perceptron::parameters() const
 namespace {
 
 static const std::string PERCEPTRON_MAGIC = "PERCEPTRON";
-static const compact_size_t PERCEPTRON_VERSION = 1;
+static const compact_size_t PERCEPTRON_VERSION = 2;
 
 
 } // file scope
@@ -337,11 +337,13 @@ void Perceptron::serialize(DB::Store_Writer & store) const
 
     /* Now the layers... */
     layers.serialize(store);
+    output.serialize(store);
 
     store << string("END PERCEPTRON");
 }
 
-void Perceptron::
+void
+Perceptron::
 reconstitute(DB::Store_Reader & store,
              const boost::shared_ptr<const Feature_Space> & feature_space)
 {
@@ -372,6 +374,7 @@ reconstitute(DB::Store_Reader & store,
 
     /* Now the layers... */
     new_me.layers.reconstitute(store);
+    new_me.output.reconstitute(store);
 
     string s;
     store >> s;

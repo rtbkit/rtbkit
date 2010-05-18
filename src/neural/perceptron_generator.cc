@@ -688,9 +688,16 @@ train_iteration(Thread_Context & context,
     bool randomize = false;
     float sample_proportion = 1.0;
 
+    vector<const float *> examples(nx);
+    for (unsigned i = 0;  i < nx;  ++i)
+        examples[i] = &decorrelated[i][0];
+
+    Output_Encoder output_encoder;
+
     double auc, rmse;
     boost::tie(auc, rmse)
-        = trainer.train_iter(decorrelated, labels, example_weights,
+        = trainer.train_iter(examples, labels, example_weights,
+                             output_encoder,
                              context, batch_size, learning_rate,
                              verbosity, sample_proportion, randomize);
 

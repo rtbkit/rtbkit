@@ -28,18 +28,48 @@ namespace ML {
 pair<double, double>
 Discriminative_Trainer::
 train_example(const distribution<float> & data,
-              float label,
-              Parameters_Copy<double> & updates) const
+              Label label,
+              Parameters_Copy<double> & updates,
+              const Output_Encoder & encoder,
+              float weight) const
 {
-    distribution<float> label2(1, label);
-    return train_example(data, label2, updates);
+    distribution<float> label_dist = encoder.target(label);
+    return train_example(&data[0], &label_dist[0], updates, weight);
+}
+
+pair<double, double>
+Discriminative_Trainer::
+train_example(const float * data,
+              Label label,
+              Parameters_Copy<double> & updates,
+              const Output_Encoder & encoder,
+              float weight) const
+{
+    distribution<float> label_dist = encoder.target(label);
+    return train_example(data, &label_dist[0], updates, weight);
 }
 
 pair<double, double>
 Discriminative_Trainer::
 train_example(const distribution<float> & data,
               const distribution<float> & label,
-              Parameters_Copy<double> & updates) const
+              Parameters_Copy<double> & updates,
+              float weight) const
+{
+    if (data.size() != layer->inputs())
+        throw Exception("data had wrong length");
+    if (label.size() != layer->outputs())
+        throw Exception("layer had wrong length");
+    
+    return train_example(&data[0], &label[0], updates, weight);
+}
+
+pair<double, double>
+Discriminative_Trainer::
+train_example(const float * data,
+              const float * label,
+              Parameters_Copy<double> & updates,
+              float weight) const
 {
     /* fprop */
     
@@ -55,7 +85,8 @@ train_example(const distribution<float> & data,
 
     /* error */
 
-    distribution<float> errors = (label - outputs);
+    distribution<float> errors = (distribution<float>(label, label + no)
+                                  - outputs);
     double error = errors.dotprod(errors);
 
     // TODO: get the loss function to do this...
@@ -68,7 +99,7 @@ train_example(const distribution<float> & data,
                  &derrors[0],
                  0 /* don't calculate input errors */,
                  updates,
-                 1.0 /* example_weight */);
+                 weight);
 
     return make_pair(sqrt(error), outputs[0]);
 }
@@ -78,8 +109,10 @@ namespace {
 struct Train_Examples_Job {
 
     const Discriminative_Trainer & trainer;
-    const std::vector<distribution<float> > & data;
-    const std::vector<float> & labels;
+    const std::vector<const float *> & data;
+    const std::vector<Label> & labels;
+    const std::vector<float> & weights;
+    const Output_Encoder & output_encoder;
     Thread_Context & thread_context;
     const vector<int> & examples;
     int first;
@@ -92,8 +125,10 @@ struct Train_Examples_Job {
     int verbosity;
 
     Train_Examples_Job(const Discriminative_Trainer & trainer,
-                       const std::vector<distribution<float> > & data,
-                       const std::vector<float> & labels,
+                       const std::vector<const float *> & data,
+                       const std::vector<Label> & labels,
+                       const std::vector<float> & weights,
+                       const Output_Encoder & output_encoder,
                        Thread_Context & thread_context,
                        const vector<int> & examples,
                        int first, int last,
@@ -103,7 +138,8 @@ struct Train_Examples_Job {
                        Lock & updates_lock,
                        boost::progress_display * progress,
                        int verbosity)
-        : trainer(trainer), data(data), labels(labels),
+        : trainer(trainer), data(data), labels(labels), weights(weights),
+          output_encoder(output_encoder),
           thread_context(thread_context), examples(examples),
           first(first), last(last), updates(updates), outputs(outputs),
           total_rmse(total_rmse), updates_lock(updates_lock),
@@ -123,10 +159,16 @@ struct Train_Examples_Job {
             double rmse_contribution;
             double output;
 
+            float weight = 1.0;
+            if (weights.size())
+                weight = weights.at(x);
+
             boost::tie(rmse_contribution, output)
                 = trainer.train_example(data[x],
-                                      labels[x],
-                                      local_updates);
+                                        labels[x],
+                                        local_updates,
+                                        output_encoder,
+                                        weight);
             
             outputs[ix] = output;
             total_rmse_local += rmse_contribution;
@@ -144,7 +186,32 @@ struct Train_Examples_Job {
 std::pair<double, double>
 Discriminative_Trainer::
 train_iter(const std::vector<distribution<float> > & data,
-           const std::vector<float> & labels,
+           const std::vector<Label> & labels,
+           const std::vector<float> & weights,
+           const Output_Encoder & output_encoder,
+           Thread_Context & thread_context,
+           int minibatch_size,
+           float learning_rate,
+           int verbosity,
+           float sample_proportion,
+           bool randomize_order) const
+{
+    vector<const float *> data2(data.size());
+    for (unsigned i = 0;  i < data.size();  ++i)
+        data2[i] = &data[i][0];
+
+    return train_iter(data2, labels, weights,
+                      output_encoder, thread_context, minibatch_size,
+                      learning_rate, verbosity, sample_proportion,
+                      randomize_order);
+}
+
+std::pair<double, double>
+Discriminative_Trainer::
+train_iter(const std::vector<const float *> & data,
+           const std::vector<Label> & labels,
+           const std::vector<float> & weights,
+           const Output_Encoder & output_encoder,
            Thread_Context & thread_context,
            int minibatch_size, float learning_rate,
            int verbosity,
@@ -155,7 +222,7 @@ train_iter(const std::vector<distribution<float> > & data,
 
     int nx = data.size();
 
-    int microbatch_size = minibatch_size / (num_threads() * 4);
+    int microbatch_size = std::max(minibatch_size / (num_threads() * 4), 1);
             
     Lock update_lock;
 
@@ -202,11 +269,13 @@ train_iter(const std::vector<distribution<float> > & data,
                     
             for (unsigned x2 = x;  x2 < nx2 && x2 < x + minibatch_size;
                  x2 += microbatch_size) {
-                        
+                
                 Train_Examples_Job
                     job(*this,
                         data,
                         labels,
+                        weights,
+                        output_encoder,
                         thread_context,
                         examples,
                         x2,
@@ -237,7 +306,9 @@ train_iter(const std::vector<distribution<float> > & data,
     for (unsigned i = 0;  i < nx2;  ++i)
         test_labels.push_back(labels[examples[i]]);
 
-    double auc = calc_auc(outputs, test_labels, -1.0, 1.0);
+    float neg = 0.0, pos = 1.0;
+
+    double auc = calc_auc(outputs, test_labels, neg, pos);
 
     return make_pair(sqrt(total_mse / nx2), auc);
 }
@@ -245,9 +316,11 @@ train_iter(const std::vector<distribution<float> > & data,
 std::pair<double, double>
 Discriminative_Trainer::
 train(const std::vector<distribution<float> > & training_data,
-      const std::vector<float> & training_labels,
+      const std::vector<Label> & training_labels,
+      const std::vector<float> & training_weights,
       const std::vector<distribution<float> > & testing_data,
-      const std::vector<float> & testing_labels,
+      const std::vector<Label> & testing_labels,
+      const std::vector<float> & testing_weights,
       const Configuration & config,
       ML::Thread_Context & thread_context) const
 {
@@ -256,17 +329,17 @@ train(const std::vector<distribution<float> > & training_data,
     int niter = 50;
     int verbosity = 2;
 
-    Transfer_Function_Type transfer_function = TF_TANH;
-
     bool randomize_order = true;
     float sample_proportion = 0.8;
     int test_every = 1;
+
+    Output_Encoder output_encoder;
+    output_encoder.configure(config, *layer);
 
     config.get(learning_rate, "learning_rate");
     config.get(minibatch_size, "minibatch_size");
     config.get(niter, "niter");
     config.get(verbosity, "verbosity");
-    config.get(transfer_function, "transfer_function");
     config.get(randomize_order, "randomize_order");
     config.get(sample_proportion, "sample_proportion");
     config.get(test_every, "test_every");
@@ -302,8 +375,8 @@ train(const std::vector<distribution<float> > & training_data,
 
         double train_error_rmse, train_error_auc;
         boost::tie(train_error_rmse, train_error_auc)
-            = train_iter(training_data, training_labels,
-                         thread_context,
+            = train_iter(training_data, training_labels, training_weights,
+                         output_encoder, thread_context,
                          minibatch_size, learning_rate,
                          verbosity, sample_proportion,
                          randomize_order);
@@ -328,8 +401,8 @@ train(const std::vector<distribution<float> > & training_data,
                      << endl;
 
             boost::tie(test_error_rmse, test_error_auc)
-                = test(testing_data, testing_labels,
-                       thread_context, verbosity);
+                = test(testing_data, testing_labels, testing_weights,
+                       output_encoder, thread_context, verbosity);
             
             if (verbosity >= 3) {
                 cerr << "testing error of iteration: rmse "
@@ -354,8 +427,10 @@ namespace {
 struct Test_Examples_Job {
 
     const Discriminative_Trainer & trainer;
-    const vector<distribution<float> > & data;
-    const vector<float> & labels;
+    const vector<const float *> & data;
+    const vector<Label> & labels;
+    const vector<float> & weights;
+    const Output_Encoder & output_encoder;
     int first;
     int last;
     const Thread_Context & context;
@@ -366,8 +441,10 @@ struct Test_Examples_Job {
     int verbosity;
 
     Test_Examples_Job(const Discriminative_Trainer & trainer,
-                      const vector<distribution<float> > & data,
-                      const vector<float> & labels,
+                      const vector<const float *> & data,
+                      const vector<Label> & labels,
+                      const vector<float> & weights,
+                      const Output_Encoder & output_encoder,
                       int first, int last,
                       const Thread_Context & context,
                       Lock & update_lock,
@@ -375,7 +452,8 @@ struct Test_Examples_Job {
                       vector<float> & outputs,
                       boost::progress_display * progress,
                       int verbosity)
-        : trainer(trainer), data(data), labels(labels),
+        : trainer(trainer), data(data), labels(labels), weights(weights),
+          output_encoder(output_encoder),
           first(first), last(last),
           context(context),
           update_lock(update_lock),
@@ -389,9 +467,9 @@ struct Test_Examples_Job {
         double local_error_rmse = 0.0;
 
         for (unsigned x = first;  x < last;  ++x) {
-            distribution<float> output
-                = trainer.layer->apply(data[x]);
-
+            distribution<float> output(trainer.layer->outputs());
+            trainer.layer->apply(data[x], &output[0]);
+            
             outputs[x] = output[0];
             local_error_rmse += pow(labels[x] - output[0], 2);
         }
@@ -407,7 +485,25 @@ struct Test_Examples_Job {
 pair<double, double>
 Discriminative_Trainer::
 test(const std::vector<distribution<float> > & data,
-     const std::vector<float> & labels,
+     const std::vector<Label> & labels,
+     const std::vector<float> & weights,
+     const Output_Encoder & output_encoder,
+     ML::Thread_Context & thread_context,
+     int verbosity) const
+{
+    vector<const float *> data2(data.size());
+    for (unsigned i = 0;  i < data.size();  ++i)
+        data2[i] = &data[i][0];
+    return test(data2, labels, weights, output_encoder,
+                thread_context, verbosity);
+}
+
+pair<double, double>
+Discriminative_Trainer::
+test(const std::vector<const float *> & data,
+     const std::vector<Label> & labels,
+     const std::vector<float> & weights,
+     const Output_Encoder & output_encoder,
      ML::Thread_Context & thread_context,
      int verbosity) const
 {
@@ -443,7 +539,8 @@ test(const std::vector<distribution<float> > & data,
         
         for (unsigned x = 0; x < nx;  x += batch_size) {
             
-            Test_Examples_Job job(*this, data, labels,
+            Test_Examples_Job job(*this, data, labels, weights,
+                                  output_encoder,
                                   x, min<int>(x + batch_size, nx),
                                   thread_context,
                                   update_lock,
@@ -459,7 +556,7 @@ test(const std::vector<distribution<float> > & data,
     worker.run_until_finished(group);
     
     return make_pair(sqrt(mse_total / nx),
-                     calc_auc(outputs, labels, -1.0, 1.0));
+                     output_encoder.calc_auc(outputs, labels));
 }
 
 } // namespace ML

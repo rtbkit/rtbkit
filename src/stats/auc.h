@@ -53,7 +53,8 @@ calc_auc(const std::vector<Float1> & outputs,
             cerr << "i = " << i << " of " << outputs.size() << endl;
             cerr << "targets[i] = " << targets[i] << " not weighted" << endl;
             throw Exception("calc_auc(): "
-                            "target value wasn't neg or pos value");
+                            "target value %f wasn't neg %f or pos %f value",
+                            targets[i], neg_val, pos_val);
         }
         entries.push_back(AUC_Entry(outputs[i], target));
     }
