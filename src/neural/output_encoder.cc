@@ -155,7 +155,7 @@ decode(const distribution<float> & encoded) const
     case MULTICLASS:
         for (unsigned i = 0;  i < num_outputs;  ++i)
             result[i] = decode_value(encoded[i]);
-        cerr << "input " << encoded << " output " << result << endl;
+        //cerr << "input " << encoded << " output " << result << endl;
         break;
             
     default:

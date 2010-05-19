@@ -324,14 +324,14 @@ train_iter(const std::vector<const float *> & data,
 
         //cerr << "applying minibatch updates" << endl;
         
-        cerr << "updates.values = " << updates.values << endl;
-        cerr << "learning_rate = " << learning_rate << endl;
+        //cerr << "updates.values = " << updates.values << endl;
+        //cerr << "learning_rate = " << learning_rate << endl;
 
         layer->parameters().update(updates, -learning_rate);
 
-        cerr << "final value = "
-             << Parameters_Copy<double>(layer->parameters()).values
-             << endl;
+        //cerr << "final value = "
+        //     << Parameters_Copy<double>(layer->parameters()).values
+        //     << endl;
     }
 
     // TODO: calculate AUC score
