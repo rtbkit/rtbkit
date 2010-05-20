@@ -81,6 +81,36 @@ BOOST_AUTO_TEST_CASE( test_null )
 }
 
 template<typename Float>
+void do_test_uniform()
+{
+    boost::multi_array<Float, 2> array(boost::extents[2][2]);
+    array[0][0] = array[0][1] = array[1][0] = array[1][1] = 1.0;
+
+    BOOST_CHECK_EQUAL(array.shape()[0], 2);
+    BOOST_CHECK_EQUAL(array.shape()[1], 2);
+
+    debug_remove_dependent = &cerr;
+    vector<int> result = remove_dependent(array);
+    debug_remove_dependent = 0;
+
+    BOOST_CHECK_EQUAL(array.shape()[0], 1);
+    BOOST_CHECK_EQUAL(array.shape()[1], 2);
+
+    BOOST_CHECK_EQUAL(array[0][0], 1.0);
+    BOOST_CHECK_EQUAL(array[0][1], 1.0);
+
+    BOOST_REQUIRE_EQUAL(result.size(), 2);
+    BOOST_CHECK_EQUAL(result[0],  -1);
+    BOOST_CHECK_EQUAL(result[1],   0);
+}
+
+BOOST_AUTO_TEST_CASE( test_uniform )
+{
+    do_test_uniform<double>();
+    do_test_uniform<float>();
+}
+
+template<typename Float>
 void do_test_dependent()
 {
     boost::multi_array<Float, 2> array(boost::extents[3][2]);

@@ -136,7 +136,7 @@ vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
     }
 
     if (debug_remove_dependent) {
-        cerr << "finrowsshed remove_dependent" << endl;
+        cerr << "finished remove_dependent" << endl;
         for (unsigned i = 0;  i < nrows;  ++i) {
             cerr << "i = " << i << " nrows = " << nrows << " r[i][i] = "
                  << r[i][i] << " v[i] = " << v[i] << " z[i] = "
