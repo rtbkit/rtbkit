@@ -20,7 +20,7 @@
 namespace ML {
 
 
-/** Implementation of the removal of the linearly dependent columns.
+/** Implementation of the removal of the linearly dependent rows.
     In addition to the permutation vector, it also provides a vector
     for each column giving the linear combination of other columns that
     give that column.
@@ -31,16 +31,16 @@ remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
                       std::vector<distribution<FloatCalc> > & y,
                       double tolerance = 1e-5);
 
-/** Removes any linearly dependent columns from the matrix X.  Returns a
-    vector with the same number of columns as x originally had, indicating
-    where each column has moved to in the new matrix, or -1 if the column
+/** Removes any linearly dependent rows from the matrix X.  Returns a
+    vector with the same number of rows as x originally had, indicating
+    where each row has moved to in the new matrix, or -1 if the column
     was removed.
 */
 std::vector<int> remove_dependent(boost::multi_array<double, 2> & x);
 
-/** Removes any linearly dependent columns from the matrix X.  Returns a
-    vector with the same number of columns as x originally had, indicating
-    where each column has moved to in the new matrix, or -1 if the column
+/** Removes any linearly dependent rows from the matrix X.  Returns a
+    vector with the same number of rows as x originally had, indicating
+    where each row has moved to in the new matrix, or -1 if the column
     was removed.
 */
 std::vector<int> remove_dependent(boost::multi_array<float, 2> & x);

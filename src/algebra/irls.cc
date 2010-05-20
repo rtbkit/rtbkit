@@ -61,32 +61,40 @@ double erfinv(double y)
 
 namespace ML {
 
+__thread std::ostream * debug_remove_dependent = 0;
+
 template<class FloatIn, class FloatCalc>
 vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
                                   std::vector<distribution<FloatCalc> > & y,
                                   double tolerance)
 {
     boost::timer t;
-    size_t ni = x.shape()[0], nj = x.shape()[1];
+    size_t nrows = x.shape()[0], ncols = x.shape()[1];
     /* Perform an orthogonalization to determine which variables are
        linearly dependent.  This procedure uses the Modified Gram-Schmidt
        process.
     */
 
-    vector<distribution<FloatCalc> > v(ni);  // orthonormal basis vectors
-    //distribution<Float> r(ni); // to detect dependent vectors
-    vector<distribution<FloatCalc> > r(ni, distribution<FloatCalc>(ni, 0.0));
+    vector<distribution<FloatCalc> > v(nrows);  // orthonormal basis vectors
+    //distribution<Float> r(nrows); // to detect dependent vectors
+    vector<distribution<FloatCalc> > r(nrows, distribution<FloatCalc>(nrows, 0.0));
 
     // matrix such that v[i] = sum j ( x[j] z[i][j] )
-    vector<distribution<FloatCalc> > z(ni, distribution<FloatCalc>(ni, 0.0));
+    vector<distribution<FloatCalc> > z(nrows, distribution<FloatCalc>(nrows, 0.0));
 
-    for (unsigned i = 0;  i < ni;  ++i) {
-        v[i] = distribution<FloatCalc>(&x[i][0], &x[i][0] + nj);
+    for (unsigned i = 0;  i < nrows;  ++i) {
+        v[i] = distribution<FloatCalc>(&x[i][0], &x[i][0] + ncols);
         z[i][i] = 1.0;   // because v[i] = x[i]
     }
 
-    for (int i = ni - 1;  i >= 0;  --i) {
+    for (int i = nrows - 1;  i >= 0;  --i) {
         r[i][i] = v[i].two_norm();
+
+        if (debug_remove_dependent) {
+            cerr << "i = " << i << " nrows = " << nrows << " r[i][i] = "
+                 << r[i][i] << " v[i] = " << v[i] << " z[i] = "
+                 << z[i] << endl;
+        }
 
         if (r[i][i] < tolerance) {
             z[i][i] = 0.0;
@@ -99,100 +107,114 @@ vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
         
 
         // Check that our v is orthogonal to all other vs
-        for (int i2 = ni - 1;  i2 > i;  --i2) {
-            double error = v[i2].dotprod(v[i]);
-            if (error > tolerance) {
-                cerr << "error: between " << i << " and " << i2 << ": "
-                     << error << endl;
+        if (debug_remove_dependent) {
+            bool any_errors = false;
+            for (int i2 = nrows - 1;  i2 > i;  --i2) {
+                double error = v[i2].dotprod(v[i]);
+                if (error > tolerance) {
+                    cerr << "error: between " << i << " and " << i2 << ": "
+                         << error << endl;
+                    any_errors = true;
+                }
             }
+            if (any_errors)
+                throw Exception("remove_dependent: not independent");
         }
-
-        // TODO: re-vectorize
 
         for (int j = i - 1;  j >= 0;  --j) {
             r[j][i] = v[i].dotprod(v[j]);
-            //v[j] -= r[j][i] * v[i];
-            SIMD::vec_add(&v[j][0], -r[j][i], &v[i][0], &v[j][0], nj);
+            SIMD::vec_add(&v[j][0], -r[j][i], &v[i][0], &v[j][0], ncols);
+            SIMD::vec_add(&z[j][0], -r[j][i], &z[i][0], &z[j][0], nrows);
+
 
             // Check that v[i] and v[j] are now orthogonal
-            //double error = v[i].dotprod(v[j]);
-            //if (error > tolerance)
-            //    cerr << "tolerance: v[i] and v[j] aren't orthogonal"
-            //         << endl;
-
-            //z[j] -= r[j][i] * z[i];
-            SIMD::vec_add(&z[j][0], -r[j][i], &z[i][0], &z[j][0], ni);
+            double error = v[i].dotprod(v[j]);
+            if (error > tolerance)
+                cerr << "tolerance: v[i] and v[j] aren't orthogonal"
+                     << endl;
         }
-
-        // Check that we can 
     }
 
+    if (debug_remove_dependent) {
+        cerr << "finrowsshed remove_dependent" << endl;
+        for (unsigned i = 0;  i < nrows;  ++i) {
+            cerr << "i = " << i << " nrows = " << nrows << " r[i][i] = "
+                 << r[i][i] << " v[i] = " << v[i] << " z[i] = "
+                 << z[i] << endl;
+        }
+    }
+    
     //cerr << "done gram schmidt" << endl;
 
-    //for (unsigned i = 0;  i < ni;  ++i) {
+    //for (unsigned i = 0;  i < nrows;  ++i) {
     //    cerr << "r[" << i << "] = " << r[i][i] << "  ";
     //}
     //cerr << endl;
 
-    //for (unsigned i = 0;  i < ni;  ++i) {
+    //for (unsigned i = 0;  i < nrows;  ++i) {
     //    cerr << "z[" << i << "] = " << z[i] << endl;
     //}
     
     /* Keep track of what is nonsingular, and where they come from. */
     vector<int> source;
-    vector<int> dest(ni, -1);  // -1 indicates it was left out
-    for (unsigned i = 0;  i < ni;  ++i) {
+    vector<int> dest(nrows, -1);  // -1 indicates it was left out
+    for (unsigned i = 0;  i < nrows;  ++i) {
         if (r[i][i] >= tolerance) {
             /* Nonsingular. */
             dest[i] = source.size();
             source.push_back(i);
         }
         else {
-            //cerr << "column " << i << " is dependent; r vector is "
-            //     << r[i] << endl;
-            //cerr << "column " << i << " is dependent; basis vector is "
-            //     << v[i] << endl;
+            if (debug_remove_dependent) {
+                cerr << "column " << i << " is dependent; r " << r[i]
+                     << " v " << v[i] << endl;
+            }
         }
     }
 
+    if (debug_remove_dependent) {
+        cerr << "source = " << source << endl;
+        cerr << "dest   = " << dest << endl;
+    }
+
     y.clear();
-    for (unsigned i = 0;  i < ni;  ++i) {
-        distribution<FloatCalc> this_y(ni, 0.0);
-        for (unsigned j = 0;  j < ni;  ++j)
+    for (unsigned i = 0;  i < nrows;  ++i) {
+        distribution<FloatCalc> this_y(nrows, 0.0);
+        for (unsigned j = 0;  j < nrows;  ++j)
             this_y += r[i][j] * z[j];
         //cerr << "y[" << i << "] = " << this_y << endl;
         y.push_back(this_y);
     }
 
-    //cerr << "done y" << endl;
+    cerr << "done y" << endl;
 
-    unsigned ni2 = source.size();
+    unsigned nrows2 = source.size();
 
-    //cerr << "ni = " << ni << " ni2 = " << ni2 << endl; 
+    cerr << "nrows = " << nrows << " nrows2 = " << nrows2 << endl; 
         
-    if (ni2 < ni) {
+    if (nrows2 < nrows) {
         /* We have removed some columns, so we need to rearrange our
            matrix. */
-        boost::multi_array<FloatIn, 2> x2(boost::extents[ni2][nj]);
-        for (unsigned i = 0;  i < ni2;  ++i)
-            for (unsigned j = 0;  j < nj;  ++j)
+        boost::multi_array<FloatIn, 2> x2(boost::extents[nrows2][ncols]);
+        for (unsigned i = 0;  i < nrows2;  ++i)
+            for (unsigned j = 0;  j < ncols;  ++j)
                 x2[i][j] = x[source[i]][j];
         
         swap_multi_arrays(x, x2);
 
         /* Same for the y matrix.  We remove columns which are dependent. */
-        vector<distribution<FloatCalc> > y2(ni, distribution<FloatCalc>(ni2, 0.0));
-        for (unsigned i = 0;  i < ni;  ++i)
-            for (unsigned j = 0;  j < ni2;  ++j)
+        vector<distribution<FloatCalc> > y2(nrows, distribution<FloatCalc>(nrows2, 0.0));
+        for (unsigned i = 0;  i < nrows;  ++i)
+            for (unsigned j = 0;  j < nrows2;  ++j)
                 y2[i][j] = y[i][source[j]];
         y.swap(y2);
     }
 
-    //cerr << "remove_dependent: " << ni << "x" << nj << ": " 
-    //     << t.elapsed() << "s" << endl;
+    cerr << "remove_dependent: " << nrows << "x" << ncols << ": " 
+         << t.elapsed() << "s" << endl;
     //cerr << "dest = " << dest << endl;
 
-    //for (unsigned i = 0;  i < ni;  ++i) {
+    //for (unsigned i = 0;  i < nrows;  ++i) {
     //    cerr << "y[" << i << "] = " << y[i] << endl;
     //}
 

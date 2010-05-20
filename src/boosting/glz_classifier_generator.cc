@@ -274,7 +274,7 @@ train_weighted(const Training_Data & data,
         
     /* Remove linearly dependent columns. */
     vector<int> dest = remove_dependent(dense_data);
-        
+    
     if (add_bias && dest.back() == -1)
         throw Exception("bias column disappeared");
 
