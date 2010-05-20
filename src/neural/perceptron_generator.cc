@@ -720,7 +720,7 @@ init(const Training_Data & data,
          << " linear units" << endl;
 
     /* Add hidden layers with the specified sizes */
-    for (unsigned i = 0;  i < architecture.size() && false;  ++i) {
+    for (unsigned i = 0;  i < architecture.size();  ++i) {
         int units = architecture[i];
         if (units == -1) units = result.features.size();
 

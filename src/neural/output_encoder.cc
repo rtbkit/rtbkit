@@ -64,9 +64,17 @@ configure(const Feature_Info & label_info,
 
         break;
 
+    case REAL:
+        if (layer.outputs() != 1)
+            throw Exception("regression with more than one output");
+        value_true = value_false = std::numeric_limits<float>::quiet_NaN();
+        mode = REGRESSION;
+        num_inputs = num_outputs = 1;
+        break;
+
     case CATEGORICAL:
 
-    case REAL:
+
     default:
         throw Exception("unusable output encoding");
     }
