@@ -256,6 +256,22 @@ double apply_link_inverse(double val, Link_Function func);
 double erf(double);
 double erfinv(double);
 
+
+distribution<float>
+perform_irls(const distribution<float> & correct,
+             const boost::multi_array<float, 2> & outputs,
+             const distribution<float> & w,
+             Link_Function link_function,
+             bool ridge_regression = true);
+
+distribution<double>
+perform_irls(const distribution<double> & correct,
+             const boost::multi_array<double, 2> & outputs,
+             const distribution<double> & w,
+             Link_Function link_function,
+             bool ridge_regression = true);
+
+
 } // namespace ML
 
 

@@ -54,6 +54,10 @@ public:
         one for each of the features. */
     std::vector<distribution<float> > weights;
 
+    /** Importance.  Same as weights, but gives only the amount by which the
+        un-normalized parameter was weighted. */
+    std::vector<distribution<float> > importances;
+
     struct Feature_Spec {
         enum Type {
             VALUE,              ///< Copies the value directly

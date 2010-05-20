@@ -14,6 +14,7 @@
 #include "weighted_training.h"
 #include "jml/utils/smart_ptr_utils.h"
 #include "jml/algebra/matrix_ops.h"
+#include "jml/algebra/lapack.h"
 
 
 using namespace std;
@@ -46,6 +47,7 @@ configure(const Configuration & config)
     config.find(do_decode, "decode");
     config.find(link_function, "link_function");
     config.find(normalize, "normalize");
+    config.find(ridge_regression, "ridge_regression");
 }
 
 void
@@ -57,6 +59,7 @@ defaults()
     add_bias = true;
     do_decode = true;
     normalize = true;
+    ridge_regression = true;
 }
 
 Config_Options
@@ -159,6 +162,10 @@ generate(Thread_Context & context,
     
     return make_sp(current.make_copy());
 }
+
+
+extern __thread std::ostream * debug_remove_dependent;
+extern __thread bool check_remove_dependent;
 
 float
 GLZ_Classifier_Generator::
@@ -271,19 +278,11 @@ train_weighted(const Training_Data & data,
 
     if (x2 != nx2)
         throw Exception("x2 not nx2");
-        
-    /* Remove linearly dependent columns. */
-    vector<int> dest = remove_dependent(dense_data);
-    
-    if (add_bias && dest.back() == -1)
-        throw Exception("bias column disappeared");
 
-    int nvr = dense_data.shape()[0];
-
-    distribution<double> means(nvr), stds(nvr, 1.0);
+    distribution<double> means(nv), stds(nv, 1.0);
 
     /* Scale */
-    for (unsigned v = 0;  v < nvr && normalize;  ++v) {
+    for (unsigned v = 0;  v < nv && normalize;  ++v) {
         double total = 0.0;
 
         for (unsigned x = 0;  x < nx2;  ++x)
@@ -326,38 +325,22 @@ train_weighted(const Training_Data & data,
         //cerr << "l = " << l << "  correct[l] = " << correct[l]
         //     << " w = " << w[l] << endl;
             
-        Ridge_Regressor regressor(1e-5);
+        distribution<double> trained
+            = perform_irls(correct[l], dense_data, w[l], link_function,
+                           ridge_regression);
 
-        distribution<double> trained;
-        if (link_function != LINEAR || w[l].min() != w[l].max()) {
-            cerr << "link_function = " << link_function << endl;
-            cerr << "w[l].min() = " << w[l].min() << endl;
-            cerr << "w[l].max() = " << w[l].max() << endl;
-            trained = run_irls(correct[l], dense_data, w[l], link_function,
-                               regressor);
-        }
-        else {
-            cerr << "using fast calc" << endl;
-            trained = regressor.calc(transpose(dense_data), correct[l]);
-        }
-            
         trained /= stds;
         extra_bias = - (trained.dotprod(means));
-
-        distribution<float> param(nv);
-        for (unsigned v = 0;  v < nv;  ++v)
-            if (dest[v] != -1) param[v] = trained[dest[v]];
 
         if (extra_bias != 0.0) {
             if (!add_bias)
                 throw Exception("extra bias but nowhere to put it");
-            param.back() += extra_bias;
+            trained.back() += extra_bias;
         }
         
         //cerr << "l = " << l <<"  param = " << param << endl;
             
-        result.weights
-            .push_back(distribution<float>(param.begin(), param.end()));
+        result.weights.push_back(trained.cast<float>());
     }
         
     if (nl == 2) {
