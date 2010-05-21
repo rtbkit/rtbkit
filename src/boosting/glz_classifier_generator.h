@@ -56,26 +56,21 @@ public:
              const std::vector<Feature> & features,
              float & Z,
              int) const;
-#if 0
-    generate(Thread_Context & context,
-             const Training_Data & training_data,
-             const distribution<float> & weights,
-             const std::vector<Feature> & features,
-             int) const;
-#endif
 
     bool add_bias;
     bool do_decode;
     bool normalize;
     bool ridge_regression;
     Link_Function link_function;
+    float feature_proportion;
 
     /* Once init has been called, we clone our potential models from this
        one. */
     GLZ_Classifier model;
 
 
-    float train_weighted(const Training_Data & data,
+    float train_weighted(Thread_Context & thread_context,
+                         const Training_Data & data,
                          const boost::multi_array<float, 2> & weights,
                          const std::vector<Feature> & features,
                          GLZ_Classifier & result) const;

@@ -48,6 +48,7 @@ configure(const Configuration & config)
     config.find(link_function, "link_function");
     config.find(normalize, "normalize");
     config.find(ridge_regression, "ridge_regression");
+    config.find(feature_proportion, "feature_proportion");
 }
 
 void
@@ -60,6 +61,7 @@ defaults()
     do_decode = true;
     normalize = true;
     ridge_regression = true;
+    feature_proportion = 1.0;
 }
 
 Config_Options
@@ -88,7 +90,7 @@ init(boost::shared_ptr<const Feature_Space> fs, Feature predicted)
 
 boost::shared_ptr<Classifier_Impl>
 GLZ_Classifier_Generator::
-generate(Thread_Context & context,
+generate(Thread_Context & thread_context,
          const Training_Data & training_data,
          const boost::multi_array<float, 2> & weights,
          const std::vector<Feature> & features,
@@ -101,13 +103,7 @@ generate(Thread_Context & context,
 
     GLZ_Classifier current(model);
     
-    //for (unsigned i = 0;  i < 20;  ++i)
-    //    cerr << "weights[" << i << "][0] = " << weights[i][0] << endl;
-
-    //boost::multi_array<float, 2> weights
-    //    = expand_weights(training_data, weights_, predicted);
-
-    train_weighted(training_data, weights, features, current);
+    train_weighted(thread_context, training_data, weights, features, current);
     
     if (verbosity > 2) {
         cerr << endl << "Learned GLZ function: " << endl;
@@ -163,13 +159,10 @@ generate(Thread_Context & context,
     return make_sp(current.make_copy());
 }
 
-
-extern __thread std::ostream * debug_remove_dependent;
-extern __thread bool check_remove_dependent;
-
 float
 GLZ_Classifier_Generator::
-train_weighted(const Training_Data & data,
+train_weighted(Thread_Context & thread_context,
+               const Training_Data & data,
                const boost::multi_array<float, 2> & weights,
                const std::vector<Feature> & unfiltered,
                GLZ_Classifier & result) const
@@ -189,6 +182,11 @@ train_weighted(const Training_Data & data,
     for (unsigned i = 0;  i < unfiltered.size();  ++i) {
         if (unfiltered[i] == model.predicted())
             continue;  // don't use the label to predict itself
+
+        // If we don't want to use all features then take a random subset
+        if (feature_proportion < 1.0
+            && thread_context.random01() > feature_proportion)
+            continue;
 
         GLZ_Classifier::Feature_Spec spec(unfiltered[i]);
 
