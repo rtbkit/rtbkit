@@ -17,13 +17,14 @@ struct Parse_Context;
 
 /** Expect a CSV field from the given parse context.  Another will be set
     to true if there is still another field in the CSV row. */
-std::string expect_csv_field(Parse_Context & context, bool & another);
+std::string expect_csv_field(Parse_Context & context, bool & another,
+                             char separator = ',');
 
 
 /** Expect a row of CSV from the given parse context.  If length is not -1,
     then the extact number of fields required is given in that parameter. */
 std::vector<std::string>
-expect_csv_row(Parse_Context & context, int length = -1);
+expect_csv_row(Parse_Context & context, int length = -1, char separator = ',');
 
 /** Convert the string to a CSV representation, escaping everything that
     needs to be escaped. */
