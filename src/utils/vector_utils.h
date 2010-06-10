@@ -44,6 +44,21 @@ void sort_on_second_ascending(std::vector<T, Alloc> & vec)
     std::sort(vec.begin(), vec.end(), sort_second_asc());
 }
 
+struct stable_sort_second_asc {
+    template<class P>
+    bool operator () (const P & p1, const P & p2) const
+    {
+        return p1.second < p2.second
+            || (p1.second == p2.second && p1.first < p2.first);
+    }
+};
+
+template<typename T, class Alloc>
+void stable_sort_on_second_ascending(std::vector<T, Alloc> & vec)
+{
+    std::sort(vec.begin(), vec.end(), stable_sort_second_asc());
+}
+
 struct sort_second_desc {
     template<class P>
     bool operator () (const P & p1, const P & p2) const
@@ -56,6 +71,21 @@ template<typename T, class Alloc>
 void sort_on_second_descending(std::vector<T, Alloc> & vec)
 {
     std::sort(vec.begin(), vec.end(), sort_second_desc());
+}
+
+struct stable_sort_second_desc {
+    template<class P>
+    bool operator () (const P & p1, const P & p2) const
+    {
+        return p1.second > p2.second
+            || (p1.second == p2.second && p1.first < p2.first);
+    }
+};
+
+template<typename T, class Alloc>
+void stable_sort_on_second_descending(std::vector<T, Alloc> & vec)
+{
+    std::sort(vec.begin(), vec.end(), stable_sort_second_desc());
 }
 
 struct sort_first_asc {
