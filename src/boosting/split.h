@@ -15,6 +15,7 @@
 #include <cmath>
 #include "jml/arch/exception.h"
 #include <iostream>
+#include <stdint.h>
 
 namespace ML {
 

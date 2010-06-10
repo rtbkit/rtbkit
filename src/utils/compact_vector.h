@@ -21,6 +21,7 @@
 #include <ostream>
 #include <iterator>
 #include <algorithm>
+#include <stdint.h>
 
 namespace ML {
 

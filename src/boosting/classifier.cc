@@ -928,7 +928,7 @@ Classifier::Classifier(const Classifier & other)
 {
 }
 
-Classifier::Classifier &
+Classifier &
 Classifier::operator = (const Classifier & other)
 {
     if (other.impl) impl.reset(other.impl->make_copy());

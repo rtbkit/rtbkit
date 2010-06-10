@@ -13,6 +13,7 @@
 #include <cmath>
 
 #include <string>
+#include <stdint.h>
 #include "jml/db/persistent_fwd.h"
 #include "jml/arch/exception.h"
 #include "label.h"

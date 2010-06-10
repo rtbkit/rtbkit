@@ -24,7 +24,7 @@
 #include "exception.h"
 #include <stdlib.h>
 #include <errno.h>
-
+#include <stdio.h>
 
 using namespace std;
 

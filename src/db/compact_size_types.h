@@ -26,7 +26,7 @@
 
 #include "persistent_fwd.h"
 #include <iostream>
-
+#include <stdint.h>
 
 namespace ML {
 namespace DB {

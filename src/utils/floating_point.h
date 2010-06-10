@@ -26,6 +26,7 @@
 
 #include "jml/compiler/compiler.h"
 #include <limits>
+#include <stdint.h>
 
 namespace ML {
 

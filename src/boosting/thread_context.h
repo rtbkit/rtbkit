@@ -28,6 +28,7 @@
 #include <boost/random/mersenne_twister.hpp>
 #include "jml/utils/smart_ptr_utils.h"
 #include <boost/random/uniform_int.hpp>
+#include <boost/random/uniform_01.hpp>
 #include "jml/arch/exception.h"
 
 namespace ML {

@@ -27,6 +27,7 @@
 #include <boost/type_traits.hpp>
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/iterator/zip_iterator.hpp>
+#include <boost/iterator/iterator_facade.hpp>
 #include "jml/utils/sgi_functional.h"
 #include <utility>
 
@@ -65,13 +66,14 @@ second_extractor(const Iterator & it)
 /* PAIR_MERGER                                                               */
 /*****************************************************************************/
 
+#if 0
+
 template<class X, class Y>
 struct tuple_to_pair {
 
     typedef std::pair<X, Y> result_type;
 
-    std::pair<X, Y>
-    operator () (const boost::tuple<X, Y> & t) const
+    result_type operator () (const boost::tuple<X, Y> & t) const
     {
         return std::make_pair(t.template get<0>(), t.template get<1>());
     }
@@ -89,6 +91,54 @@ pair_merger(const Iterator1 & it1, const Iterator2 & it2)
                        typename Iterator2::value_type> >
             (boost::make_zip_iterator(boost::make_tuple(it1, it2)));
 }
+
+#else
+
+template<typename It1, typename It2>
+struct Pair_Merger
+    : public boost::iterator_facade<Pair_Merger<It1, It2>,
+                                    std::pair<typename std::iterator_traits<It1>::value_type,
+                                              typename std::iterator_traits<It2>::value_type>,
+                                    boost::forward_traversal_tag> {
+    Pair_Merger()
+    {
+    }
+    
+    Pair_Merger(const It1 & it1, const It2 & it2)
+        : it1(it1), it2(it2)
+    {
+    }
+
+    It1 it1;
+    It2 it2;
+
+    std::pair<typename std::iterator_traits<It1>::value_type,
+              typename std::iterator_traits<It2>::value_type>
+    operator * () const
+    {
+        return std::make_pair(*it1, *it2);
+    }
+
+    bool equal(const Pair_Merger & other) const
+    {
+        return it1 == other.it1 && it2 == other.it2;
+    }
+
+    void increment()
+    {
+        ++it1;
+        ++it2;
+    }
+};
+
+template<typename It1, typename It2>
+Pair_Merger<It1, It2>
+pair_merger(const It1 & it1, const It2 & it2)
+{
+    return Pair_Merger<It1, It2>(it1, it2);
+}
+
+#endif
 
 } // namespace ML
 

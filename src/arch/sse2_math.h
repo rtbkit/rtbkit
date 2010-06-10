@@ -98,10 +98,10 @@ v4sf sse2_frexpf( v4sf x, v4si & exp)
 inline v2df sse2_floor_unsafe(v2df x)
 {
     v4si tr       = __builtin_ia32_cvttpd2dq(x);
-    v2di neg      = __builtin_ia32_cmpltpd(x, vec_splat(0.0));
+    v2di neg      = (v2di)__builtin_ia32_cmpltpd(x, vec_splat(0.0));
     v2df res      = __builtin_ia32_cvtdq2pd(tr);
     v2df fix1     = __builtin_ia32_andpd((v2df)neg, vec_splat(1.0));
-    v2di exact    = __builtin_ia32_cmpeqpd(res, x);
+    v2di exact    = (v2di)__builtin_ia32_cmpeqpd(res, x);
     v2df fix      = __builtin_ia32_andnpd((v2df)exact, (v2df)fix1);
     res -= fix; 
     return res;
@@ -122,9 +122,9 @@ inline v4sf sse2_trunc_unsafe(v4sf x)
 inline v4sf sse2_floor_unsafe(v4sf x)
 {
     v4si tr       = __builtin_ia32_cvttps2dq(x);
-    v4si neg      = __builtin_ia32_cmpltps(x, vec_splat(0.0f));
+    v4si neg      = (v4si)__builtin_ia32_cmpltps(x, vec_splat(0.0f));
     v4sf res      = __builtin_ia32_cvtdq2ps(tr);
-    v4si exact    = __builtin_ia32_cmpeqps(res, x);
+    v4si exact    = (v4si)__builtin_ia32_cmpeqps(res, x);
     v4sf fixmask  = __builtin_ia32_andnps((v4sf)exact, (v4sf)neg);
     v4sf fix      = __builtin_ia32_andps(fixmask, vec_splat(1.0f));
     res -= fix; 
