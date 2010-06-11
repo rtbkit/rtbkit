@@ -53,13 +53,16 @@ cpuid(uint32_t request, uint32_t ecx = 0)
     asm volatile
         (
 #if defined(__i686__)         
+         "sub  $0x40,  %%esp\n\t"
          "push %%ebx\n\t"
          "push %%edx\n\t"
 #else
+         "sub  $0x40,  %%rsp\n\t"
          "push %%rbx\n\t"
          "push %%rdx\n\t"
 #endif
          "cpuid\n\t"
+
          "mov  %%eax,  0(%[addr])\n\t"
          "mov  %%ebx,  4(%[addr])\n\t"
          "mov  %%ecx,  8(%[addr])\n\t"
@@ -67,12 +70,15 @@ cpuid(uint32_t request, uint32_t ecx = 0)
 #if defined(__i686__)         
          "pop  %%edx\n\t"
          "pop  %%ebx\n\t"
+         "add  $0x40,   %%esp\n\t"
 #else
          "pop  %%rdx\n\t"
          "pop  %%rbx\n\t"
+         "add  $0x40,   %%rsp\n\t"
 #endif
-         : 
-         : "a" (request), "c" (ecx), [addr] "S" (&result)
+         : "+a" (request), "+c" (ecx)
+         : [addr] "S" (&result)
+         : "cc", "memory"
          );
     return result;
 }
