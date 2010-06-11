@@ -18,6 +18,7 @@
 #include <boost/assign/list_of.hpp>
 #include <limits>
 #include "bprop_test.h"
+#include "jml/arch/exception_handler.h"
 
 using namespace ML;
 using namespace ML::DB;
@@ -46,7 +47,10 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_layer_stack )
     BOOST_CHECK_NO_THROW(layers.validate());
 
     // Check we can't add a null layer
-    BOOST_CHECK_THROW(layers.add(0), Exception);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(layers.add(0), Exception);
+    }
 
     BOOST_CHECK_NO_THROW(layers.validate());
 
@@ -118,14 +122,21 @@ BOOST_AUTO_TEST_CASE( test_one_dense_layer_stack )
 
     // Check the missing values throw an exception
     input[0] = numeric_limits<float>::quiet_NaN();
-    BOOST_CHECK_THROW(layers.apply(input), ML::Exception);
-    BOOST_CHECK_THROW(layersb.apply(input), ML::Exception);
-
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(layers.apply(input), ML::Exception);
+        BOOST_CHECK_THROW(layersb.apply(input), ML::Exception);
+    }
+        
     // Check that the wrong size throws an exception
     input.push_back(2.0);
     input[0] = 1.0;
-    BOOST_CHECK_THROW(layers.apply(input), ML::Exception);
-    BOOST_CHECK_THROW(layersb.apply(input), ML::Exception);
+
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(layers.apply(input), ML::Exception);
+        BOOST_CHECK_THROW(layersb.apply(input), ML::Exception);
+    }
 
     input.pop_back();
 
@@ -398,5 +409,5 @@ BOOST_AUTO_TEST_CASE( test_bprop_three_nonlinear_layers )
     layers.add(make_unowned_sp(layer2));
     layers.add(make_unowned_sp(layer3));
 
-    bprop_test<double>(layers, context, 0.05);
+    bprop_test<double>(layers, context, 0.1);
 }

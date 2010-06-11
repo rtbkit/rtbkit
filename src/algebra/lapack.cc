@@ -172,8 +172,6 @@ bool lapack_version_3_2_or_later()
 
     slarfp_(&n, &alpha, &x, &incx, &tau);
 
-    cerr << "tau = " << tau << endl;
-
     // If the dummy slarfp function ran, it will return 1.0, which means that
     // we are using a version of lapack 3.1 or lower.  If the lapack
     // 3.2 version ran, it will return 0.0.
@@ -191,8 +189,6 @@ struct Init {
     {
         need_lock = !lapack_version_3_2_or_later();
         
-        cerr << "need_lock = " << need_lock << endl;
-
         // ilaenv isn't thread safe (it can return different results if it's
         // called for the first time twice from two different threads; see
         // http://icl.cs.utk.edu/lapack-forum/archives/lapack/msg00342.html

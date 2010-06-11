@@ -17,6 +17,7 @@
 #include <boost/assign/list_of.hpp>
 #include <limits>
 #include "bprop_test.h"
+#include "jml/arch/exception_handler.h"
 
 
 using namespace ML;
@@ -76,12 +77,18 @@ BOOST_AUTO_TEST_CASE( test_dense_layer_none )
 
     // Check the missing values throw an exception
     input[0] = numeric_limits<float>::quiet_NaN();
-    BOOST_CHECK_THROW(layer.apply(input), ML::Exception);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(layer.apply(input), ML::Exception);
+    }
 
     // Check that the wrong size throws an exception
     input.push_back(2.0);
     input[0] = 1.0;
-    BOOST_CHECK_THROW(layer.apply(input), ML::Exception);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(layer.apply(input), ML::Exception);
+    }
 
     input.pop_back();
 
@@ -245,6 +252,10 @@ BOOST_AUTO_TEST_CASE( test_bprop_identity_double_none )
 
     // We have to leave a big error margin due to numerical issues in the
     // (long) calculation
+    // A better test would allow higher error magnitudes when the gradients
+    // were small.  We should also, at some stage, do a sensitivity
+    // analysis to figure out how to improve the numerical stability of the
+    // algorithms.
     bprop_test_reconstruct<double>(layer, context, 5.0);
 }
 
