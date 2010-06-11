@@ -60,7 +60,7 @@ endef
 # add a fortran source file
 define add_fortran_source
 $(if $(trace),$$(warning called add_fortran_source "$(1)" "$(2)"))
-BUILD_$(CWD)/$(2).lo_COMMAND:=$(FC) $(FFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $(SRC)/$(CWD)/$(1) -MP -MMD
+BUILD_$(CWD)/$(2).lo_COMMAND:=$(FC) $(FFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $(SRC)/$(CWD)/$(1)
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
 
 BUILD_$(CWD)/$(2).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).lo_COMMAND))
@@ -74,8 +74,6 @@ $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "[FORTRAN] $(CWD)/$(1)")
 	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
 
-
--include $(OBJ)/$(CWD)/$(2).d
 endef
 
 define add_cuda_source

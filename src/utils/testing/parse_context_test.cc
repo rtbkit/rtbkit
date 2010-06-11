@@ -13,6 +13,7 @@
 #include "jml/utils/guard.h"
 #include "jml/utils/filter_streams.h"
 #include "jml/utils/vector_utils.h"
+#include "jml/arch/exception_handler.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <sstream>
@@ -74,7 +75,10 @@ void run_test1(Parse_Context & context)
     BOOST_CHECK(context.match_literal('s'));
     BOOST_CHECK(context.match_eol());
     BOOST_CHECK(context.eof());
-    BOOST_CHECK_THROW(*context, ML::Exception);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(*context, ML::Exception);
+    }
     BOOST_CHECK_EQUAL(context.get_offset(), strlen(test1_str));
 }
 
@@ -102,7 +106,7 @@ BOOST_AUTO_TEST_CASE( test2 )
     Call_Guard guard;
     {
         ofstream stream(tmp_filename.c_str());
-        guard.set(boost::bind(&delete_file, "parse_context_test_file"));
+        guard.set(boost::bind(&delete_file, tmp_filename));
         stream << test1_str;
     }
 
