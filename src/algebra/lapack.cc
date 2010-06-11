@@ -145,24 +145,11 @@ extern "C" {
                 const int * ldb, const double * beta, double * c, const int * ldc,
                 int * info);
 
-    /* Dummy (weak) implementation */
-    static void slarfp_dummy(const int * n, float * alpha, float * X, const int * incx,
-                      float * tau)
-    {
-        if (*n != -234)
-            throw ML::Exception("wrong version of slarfp called; this weak "
-                                "version should have been overridden");
-        
-        *tau = 1.0;
-    }
-
     /* Elementary reflector.  Used to detect version 3.2 of the LAPACK.  Most
        important thing is that if n < 0, it will return zero in tau. */
     void slarfp_(const int * n, float * alpha, float * X, const int * incx,
-                 float * tau) __attribute__ ((__weak__, __alias__ ("slarfp_dummy")));
-
-
-}
+                 float * tau);
+} // extern "C"
 
 namespace ML {
 namespace LAPack {
@@ -185,6 +172,8 @@ bool lapack_version_3_2_or_later()
 
     slarfp_(&n, &alpha, &x, &incx, &tau);
 
+    cerr << "tau = " << tau << endl;
+
     // If the dummy slarfp function ran, it will return 1.0, which means that
     // we are using a version of lapack 3.1 or lower.  If the lapack
     // 3.2 version ran, it will return 0.0.
@@ -202,6 +191,8 @@ struct Init {
     {
         need_lock = !lapack_version_3_2_or_later();
         
+        cerr << "need_lock = " << need_lock << endl;
+
         // ilaenv isn't thread safe (it can return different results if it's
         // called for the first time twice from two different threads; see
         // http://icl.cs.utk.edu/lapack-forum/archives/lapack/msg00342.html
