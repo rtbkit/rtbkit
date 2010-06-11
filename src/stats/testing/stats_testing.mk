@@ -4,6 +4,6 @@
 #
 # Testing for stats functionality.
 
-$(eval $(call test,auc_test,stats,boost))
-$(eval $(call test,rmse_test,stats,boost))
+$(eval $(call test,auc_test,stats arch,boost))
+$(eval $(call test,rmse_test,stats arch,boost))
 

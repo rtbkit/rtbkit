@@ -49,7 +49,7 @@ struct Regs {
 Regs
 cpuid(uint32_t request, uint32_t ecx = 0)
 {
-    Regs result;
+    Regs result = {0, 0, 0, 0};
     asm volatile
         (
 #if defined(__i686__)         

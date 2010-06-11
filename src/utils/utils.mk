@@ -12,7 +12,7 @@ LIBUTILS_LINK :=	ACE arch boost_iostreams-mt
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 
 LIBWORKER_TASK_SOURCES := worker_task.cc
-LIBWORKER_TASK_LINK    := ACE arch
+LIBWORKER_TASK_LINK    := ACE arch pthread
 
 $(eval $(call library,worker_task,$(LIBWORKER_TASK_SOURCES),$(LIBWORKER_TASK_LINK)))
 
