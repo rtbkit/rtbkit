@@ -17,6 +17,7 @@
 #include <errno.h>
 
 #include <boost/bind.hpp>
+#include <boost/crc.hpp>
 #include <fstream>
 
 
@@ -30,10 +31,11 @@ Pagemap_Entry::
 print() const
 {
     if (present)
-        return format("P%c %09x s%5d", (swapped ? 'S' : '.'),
+        return format("P%c %09x s 2^%-5d", (swapped ? 'S' : '.'),
                       pfn, (int)shift);
     else if (swapped)
-        return format(".S %02d/%06x s%5d", (int)swap_type, (int)swap_offset);
+        return format(".S %02d/%06x s 2^%-5d", (int)swap_type,
+                      (int)swap_offset);
     else return "..                 ";
 }
 
@@ -151,6 +153,8 @@ void dump_page_info(const void * start, const void * end,
 
     const char * p = page_start(p1);
     for (unsigned i = 0;  i < pages;  ++i, p += page_size) {
+        
+
         stream << format("%04x %012p ", i, p)
                << info[i] << endl;
     }
@@ -354,9 +358,21 @@ Pagemap_Reader::
 dump(std::ostream & stream) const
 {
     const char * p = mem;
-    for (unsigned i = 0;  i < npages;  ++i, p += page_size)
+    for (unsigned i = 0;  i < npages;  ++i, p += page_size) {
+        boost::crc_32_type calc_crc;
+
+        uint32_t crc = 0;
+        if (entries[i].present && !entries[i].swapped) {
+            calc_crc.process_bytes(p, page_size);
+            crc = calc_crc.checksum();
+        }
+
         stream << format("%04x %012p ", i, p)
-               << entries[i] << endl;
+               << entries[i];
+        if (entries[i].present && !entries[i].swapped)
+            stream << format("%08x", crc);
+        stream << endl;
+    }
 }
 
 

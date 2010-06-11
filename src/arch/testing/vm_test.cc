@@ -11,6 +11,7 @@
 #include "jml/arch/vm.h"
 #include "jml/arch/exception.h"
 #include "jml/utils/vector_utils.h"
+#include "jml/arch/exception_handler.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
@@ -99,9 +100,12 @@ BOOST_AUTO_TEST_CASE( test_pagemap_reader )
         BOOST_CHECK_EQUAL(reader[(int)0].present, false);
         BOOST_CHECK_EQUAL(reader[9].present, false);
         
-        BOOST_CHECK_THROW(reader[10], ML::Exception);
-        BOOST_CHECK_THROW(reader[memory - 1], ML::Exception);
-        BOOST_CHECK_THROW(reader[memory + npages * page_size], ML::Exception);
+        {
+            JML_TRACE_EXCEPTIONS(false);
+            BOOST_CHECK_THROW(reader[10], ML::Exception);
+            BOOST_CHECK_THROW(reader[memory - 1], ML::Exception);
+            BOOST_CHECK_THROW(reader[memory + npages * page_size], ML::Exception);
+        }
         
         BOOST_CHECK_EQUAL(reader[memory].present, false);
         BOOST_CHECK_EQUAL(reader[memory + npages * page_size - 1].present, false);
@@ -132,18 +136,27 @@ BOOST_AUTO_TEST_CASE( test_pagemap_reader )
 
         BOOST_CHECK_EQUAL(memory[page_size * 5], 0);
         BOOST_CHECK_EQUAL(memory[page_size * 6], 0);
-        
+
         BOOST_CHECK_EQUAL(reader.update(memory + page_size * 6 - 1,
                                         memory + page_size * 6 + 1), 2);
+
+        // Mapped zeroed pages may be shared by recent versions of the kernel;
+        // here we look for that
+        bool shared_zeroed_pages = reader[5].pfn == reader[6].pfn;
 
         cerr << reader << endl;
 
         BOOST_CHECK(reader[1].present);
-        BOOST_CHECK(reader[1] != reader[2]);
+
+        if (shared_zeroed_pages)
+            BOOST_CHECK(reader[1] == reader[2]);
+        else BOOST_CHECK(reader[1] != reader[2]);
 
         memory[page_size * 2] = 'x';
 
-        BOOST_CHECK_EQUAL(reader.update(memory + page_size * 2, 1), 0);
+        if (shared_zeroed_pages)
+            BOOST_CHECK_EQUAL(reader.update(memory + page_size * 2, 1), 1);
+        else BOOST_CHECK_EQUAL(reader.update(memory + page_size * 2, 1), 0);
         
         cerr << reader << endl;
 
