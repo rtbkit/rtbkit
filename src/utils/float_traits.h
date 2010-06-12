@@ -23,23 +23,25 @@
 #ifndef __utils__float_traits_h__
 #define __utils__float_traits_h__
 
+#include "jml/compiler/compiler.h"
+
 namespace ML {
 
 template<typename F1, typename F2>
 struct float_traits {
-    typedef typeof(F1() + F2()) return_type;
-    typedef typeof(F1() / F2(1)) fraction_type;
+    typedef jml_typeof(F1() + F2()) return_type;
+    typedef jml_typeof(F1() / F2(1)) fraction_type;
 };
 
 template <typename F>
 struct float_traits<F, F> {
     typedef F return_type;
-    typedef typeof(F() / F(1)) fraction_type;
+    typedef jml_typeof(F() / F(1)) fraction_type;
 };
 
 template<typename F1, typename F2, typename F3>
 struct float_traits3 {
-    typedef typeof(*((F1*)(0)) + (*((F2*)(0))) + (*((F3*)(0)))) return_type;
+    typedef jml_typeof(*((F1*)(0)) + (*((F2*)(0))) + (*((F3*)(0)))) return_type;
 };
 
 template <typename F>

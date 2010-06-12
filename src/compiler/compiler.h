@@ -37,6 +37,11 @@
 #define JML_LIKELY(x) __builtin_expect((x), true)
 #define JML_UNLIKELY(x) __builtin_expect((x), false)
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#  define jml_typeof(x) decltype(x)
+#else
+#  define jml_typeof(x) typeof(x)
+#endif
 
 #ifdef JML_COMPILER_NVCC
 # define JML_COMPUTE_METHOD __device__ __host__

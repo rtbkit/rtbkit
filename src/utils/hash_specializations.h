@@ -29,8 +29,10 @@
 #include <string>
 #include "jml/utils/floating_point.h"
 
-
 #define JML_HASH_NS __gnu_cxx
+
+
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
 
 namespace std {
 
@@ -38,7 +40,9 @@ using JML_HASH_NS::hash;
 
 } // namespace std
 
-namespace JML_HASH_NS {
+#endif
+
+namespace __gnu_cxx {
 
 template<>
 struct hash<std::string> {
@@ -53,16 +57,33 @@ template<>
 struct hash<float> : public ML::float_hasher {
 };
 
+inline size_t chain_hash(size_t h1, size_t h2 = 0)
+{
+    return 18446744073709551557ULL * h1 + h2;
+}
+
 template<typename T>
 struct hash<T *> {
     size_t operator () (const T * ptr) const
     {
-        return 18446744073709551557ULL * reinterpret_cast<size_t>(ptr);
+        return chain_hash(reinterpret_cast<size_t>(ptr));
     }
-
 };
 
-} // namespace HASH_NS
+template<typename X, typename Y>
+struct hash<std::pair<X, Y> > {
+
+    hash<X> hash1;
+    hash<Y> hash2;
+
+    size_t operator () (const std::pair<X, Y> & p)
+    {
+        return chain_hash(hash1(p.first),
+                          chain_hash(hash2(p.second)));
+    }
+};
+
+} // namespace JML_HASH_NS
 
 
 #endif /* __utils__hash_specializations_h__ */
