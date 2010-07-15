@@ -23,11 +23,13 @@ $$(if $(trace),$$(warning called nodejs_test "$(1)" "$(2)" "$(3)"))
 
 TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && NODE_PATH=$(NODE_PATH) $(NODE) $(CWD)/$(1).js > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
 
-$(TESTS)/$(1).passed:	$(CWD)/$(1).js $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS))
+TEST_$(1)_DEPS := $$(foreach lib,$(2),$$(warning lib $$(lib) deps $$(LIB_$$(lib)_DEPS))$$(if $$(LIB_$$(lib)_DEPS),$$(LIB_$$(lib)_DEPS),$$(error variable LIB_$$(lib)_DEPS for library $(lib) in test $(1) is empty)))
+
+$(TESTS)/$(1).passed:	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
 	@$$(TEST_$(1)_COMMAND)
 
-$(1):	$(CWD)/$(1).js $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
+$(1):	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
 	NODE_PATH=$(NODE_PATH) $(NODE) $(CWD)/$(1).js
 
 .PHONY: $(1)
