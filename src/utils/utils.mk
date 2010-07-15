@@ -5,7 +5,8 @@ LIBUTILS_SOURCES := \
         string_functions.cc \
         parse_context.cc \
 	configuration.cc \
-	csv.cc
+	csv.cc \
+	exc_assert.cc
 
 LIBUTILS_LINK :=	ACE arch boost_iostreams-mt
 
