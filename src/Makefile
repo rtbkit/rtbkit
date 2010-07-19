@@ -26,6 +26,8 @@ else
 
 include $(JML_TOP)/functions.mk
 include $(JML_TOP)/rules.mk
+include $(JML_TOP)/python.mk
+include $(JML_TOP)/node.mk
 
 $(eval $(call include_sub_makes,math arch utils db algebra stats judy boosting python neural tsne))
 

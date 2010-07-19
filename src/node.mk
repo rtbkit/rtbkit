@@ -34,7 +34,7 @@ $(1):	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
 
 .PHONY: $(1)
 
-test $(CURRENT_TEST_TARGETS) $(4):	$(TESTS)/$(1).passed
+test $(CURRENT_TEST_TARGETS) $(4) $$(CURRENT)_test:	$(TESTS)/$(1).passed
 
 endef
 

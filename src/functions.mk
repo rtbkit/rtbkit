@@ -21,12 +21,16 @@ DIRNAME:=$(if $(2),$(2),$(1))
 MAKEFILE:=$(if $(3),$(3),$(1).mk)
 $$(call push,DIRS,$$(call peek,DIRS)$$(if $$(call peek,DIRS),/,)$$(DIRNAME))
 CWD:=$$(call peek,DIRS)
+$$(call push,MKPATH,$(1))
+CURRENT:=$$(subst _testing,,$(1))
+#CURRENT_TEST_TARGETS:=$$(if $$(findstring,xtestingx,$(1)),$$(CURRENT_TEST_TARGETS),$$(CURRENT_TEST_TARGETS $(1)_test))
 include $$(if $$(CWD),$$(CWD)/,)/$$(MAKEFILE)
 $$(CWD_NAME)_SRC :=	$(SRC)/$$(CWD)
 $$(CWD_NAME)_OBJ :=	$(OBJ)/$$(CWD)
 #$$(warning stack contains $(__gmsl_stack_DIRS))
 CWD:=$$(call pop,DIRS)
-CURRENT_TEST_TARGET := 
+CURRENT:=$$(call pop,MKPATH)
+CURRENT_TEST_TARGETS := 
 endef
 
 # add a c++ source file
@@ -97,32 +101,6 @@ $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 
 
 -include $(OBJ)/$(CWD)/$(2).d
-endef
-
-# add a swig wrapper source file
-# $(1): filename of source file
-# $(2): basename of the filename
-define add_swig_source
-$(if $(trace),$$(warning called add_swig_source "$(1)" "$(2)"))
-
-BUILD_$(OBJ)/$(CWD)/$(2)_wrap.cxx_COMMAND := swig -python -c++  -MMD -MF $(OBJ)/$(CWD)/$(2).d -MT "$(OBJ)/$(CWD)/$(2)_wrap.cxx $(OBJ)/$(CWD)/$(2).lo" -o $(OBJ)/$(CWD)/$(2)_wrap.cxx~ $(SRC)/$(CWD)/$(1)
-
-# Call swig to generate the source file
-$(OBJ)/$(CWD)/$(2)_wrap.cxx:	$(SRC)/$(CWD)/$(1)
-	@mkdir -p $(OBJ)/$(CWD)
-	$$(if $(verbose_build),@echo $$(BUILD_$(OBJ)/$(CWD)/$(2)_wrap.cxx_COMMAND),@echo "[SWIG python] $(CWD)/$(1)")
-	@$$(BUILD_$(OBJ)/$(CWD)/$(2)_wrap.cxx_COMMAND)
-	@mv $$@~ $$@
-
-# We use the add_c++_source to do most of the work, then simply point
-# to the file
-$$(eval $$(call add_c++_source,$(2)_wrap.cxx,$(2)_wrap,$(OBJ),-I$(PYTHON_INCLUDE_PATH)))
-
-# Point to the object file produced by the previous macro
-BUILD_$(CWD)/$(2).lo_OBJ  := $$(BUILD_$(CWD)/$(2)_wrap.lo_OBJ)
-
--include $(OBJ)/$(CWD)/$(2).d
-
 endef
 
 # Set up the map to map an extension to the name of a function to call
@@ -274,6 +252,7 @@ $(TESTS)/$(1):	$(TESTS)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LI
 	@$$(LINK_$(1)_COMMAND)
 
 tests:	$(TESTS)/$(1)
+$$(CURRENT)_tests: $(TESTS)/$(1)
 
 TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(if $(findstring timed,$(3)),/usr/bin/time )$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
 
@@ -286,68 +265,11 @@ $(1):	$(TESTS)/$(1)
 
 .PHONY: $(1)
 
-test $(CURRENT_TEST_TARGETS) $(4):	$(TESTS)/$(1).passed
+#$$(warning $(1) $$(CURRENT))
+
+test $(CURRENT_TEST_TARGETS) $(4) $$(CURRENT)_test:	$(TESTS)/$(1).passed
 
 endef
 
-# python test case
 
-# $(1) name of the test
-# $(2) python modules on which it depends
-# $(3) test style.  Currently unused.
-
-ifeq ($(PYTHON_ENABLED),1)
-
-define pytest
-$$(if $(trace),$$(warning called pytest "$(1)" "$(2)" "$(3)"))
-
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(PYTHON) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
-
-$(TESTS)/$(1).passed:	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
-	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
-	@$$(TEST_$(1)_COMMAND)
-
-$(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
-	$(PYTHON) $(CWD)/$(1).py
-
-.PHONY: $(1)
-
-test $(CURRENT_TEST_TARGETS) $(4):	$(TESTS)/$(1).passed
-
-endef
-
-# $(1): name of python file
-# $(2): name of directory to go in
-
-define install_python_file
-
-$$(if $(trace),$$(warning called install_python_file "$(1)" "$(2)"))
-
-$(BIN)/$(2)/$(1):	$(CWD)/$(1) $(BIN)/$(2)/.dir_exists
-	$$(if $(verbose_build),@echo "cp $$< $$@",@echo "[PYTHON INSTALL] $(2)/$(1)")
-	cp $$< $$@~
-	@mv $$@~ $$@
-
-#$$(w arning building $(BIN)/$(2)/$(1))
-
-endef
-
-# $(1): name of python module
-# $(2): list of python source files to copy
-# $(3): libraries it depends upon
-
-define python_module
-$$(if $(trace),$$(warning called python_module "$(1)" "$(2)" "$(3)"))
-
-$$(foreach file,$(2),$$(eval $$(call install_python_file,$$(file),$(1))))
-
-PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(BIN)/$(1)/$$(file)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
-
-#$$(w arning PYTHON_$(1)_DEPS=$$(PYTHON_$(1)_DEPS))
-
-python_modules: $$(PYTHON_$(1)_DEPS)
-
-all:	python_modules
-endef
-
-endif
+compile: programs libraries tests
