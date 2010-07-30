@@ -230,6 +230,12 @@ $(1): $(BIN)/$(1)
 
 endef
 
+# Build the command for a test
+# $(1): the name of the test
+# $(2): the command to run
+BUILD_TEST_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(2) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
+
+
 # add a test case
 # $(1) name of the test
 # $(2) libraries to link with
