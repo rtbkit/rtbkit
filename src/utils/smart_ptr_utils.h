@@ -25,7 +25,7 @@
 
 
 #include <boost/shared_ptr.hpp>
-
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 
@@ -46,6 +46,15 @@ boost::shared_ptr<T> make_unowned_sp(T & val)
 {
     return boost::shared_ptr<T>(&val, Dont_Delete());
 }
+
+extern const struct Null_SP {
+    template<typename T>
+    JML_ALWAYS_INLINE operator boost::shared_ptr<T>()
+    {
+        return boost::shared_ptr<T>();
+    }
+
+} NULL_SP;
 
 } // namespace ML
 
