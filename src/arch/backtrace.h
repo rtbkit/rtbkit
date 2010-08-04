@@ -22,8 +22,13 @@
 
 #include <iostream>
 
+#ifndef __jml__arch__backtrace_h__
+#define __jml__arch__backtrace_h__
+
 namespace ML {
 
 void backtrace(std::ostream & stream = std::cerr, int num_to_skip = 1);
 
 } // namespace ML
+
+#endif /* __jml__arch__backtrace_h__ */
