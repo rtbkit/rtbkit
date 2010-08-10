@@ -11,6 +11,8 @@ NODE_PATH := $(if $(NODE_PATH),$(NODE_PATH):)$(BIN)
 
 define nodejs_addon
 $$(eval $$(call library,$(1),$(2),$(3),$(1),.node,[NODEJS]))
+
+nodejs_addons: $$(LIB_$(1)_DEPS)
 endef
 
 # node test case
