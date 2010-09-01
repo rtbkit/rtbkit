@@ -46,7 +46,7 @@ $(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
 
 .PHONY: $(1)
 
-test $(CURRENT_TEST_TARGETS) $(4) $$(CURRENT)_test python_test:	$(TESTS)/$(1).passed
+$(if $(findstring manual,$(3)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $(4) python_test:	$(TESTS)/$(1).passed
 
 endef
 
