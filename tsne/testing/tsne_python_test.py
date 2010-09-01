@@ -1,9 +1,10 @@
 import numpy
 import pylab as Plot
 import sys
+from os import getenv
 
 # WARNING: security risk; don't do this for anything that might be installed
-sys.path.append('../build/x86_64/bin')
+sys.path.append(getenv("BIN"))
 
 import tsne
 
@@ -18,8 +19,8 @@ else:
 
 from gzip import GzipFile
 
-digits = numpy.loadtxt(GzipFile("tsne/testing/mnist2500_X_min.txt.gz"));
-labels = numpy.loadtxt(GzipFile("tsne/testing/mnist2500_labels_min.txt.gz"));
+digits = numpy.loadtxt(GzipFile(getenv("JML_TOP") + "/tsne/testing/mnist2500_X_min.txt.gz"));
+labels = numpy.loadtxt(GzipFile(getenv("JML_TOP") + "/tsne/testing/mnist2500_labels_min.txt.gz"));
 
 
 def test_vectors_to_distances():

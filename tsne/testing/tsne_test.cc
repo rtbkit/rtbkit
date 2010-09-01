@@ -20,6 +20,7 @@
 #include <iostream>
 #include "jml/utils/parse_context.h"
 #include "jml/utils/filter_streams.h"
+#include "jml/utils/environment.h"
 
 using namespace ML;
 using namespace std;
@@ -163,8 +164,11 @@ BOOST_AUTO_TEST_CASE( test_perplexity_and_prob1 )
 
 BOOST_AUTO_TEST_CASE( test_small )
 {
-    filter_istream stream("tsne/testing/mnist2500_X_min.txt.gz");
-    Parse_Context context("tsne/testing/mnist2500_X_min.txt.gz", stream);
+    string input_file = Environment::instance()["JML_TOP"]
+        + "/tsne/testing/mnist2500_X_min.txt.gz";
+
+    filter_istream stream(input_file);
+    Parse_Context context(input_file, stream);
 
     int nd = 784;
     int nx = 100;
@@ -234,8 +238,11 @@ BOOST_AUTO_TEST_CASE( test_small )
 
 BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
 {
-    filter_istream stream("tsne/testing/mnist2500_X_min.txt.gz");
-    Parse_Context context("tsne/testing/mnist2500_X_min.txt.gz", stream);
+    string input_file = Environment::instance()["JML_TOP"]
+        + "/tsne/testing/mnist2500_X_min.txt.gz";
+
+    filter_istream stream(input_file);
+    Parse_Context context(input_file, stream);
 
     int nd = 784;
     int nx = 2500;

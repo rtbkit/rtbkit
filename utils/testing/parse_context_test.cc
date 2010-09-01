@@ -14,6 +14,8 @@
 #include "jml/utils/filter_streams.h"
 #include "jml/utils/vector_utils.h"
 #include "jml/arch/exception_handler.h"
+#include "jml/utils/environment.h"
+#include "jml/utils/csv.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <sstream>
@@ -334,77 +336,12 @@ BOOST_AUTO_TEST_CASE( test_chunking_stream1 )
     }
 }
 
-std::string expect_csv_field(Parse_Context & context)
-{
-    bool quoted = false;
-    std::string result;
-    while (context) {
-        //if (context.get_line() == 9723)
-        //    cerr << "*context = " << *context << " quoted = " << quoted
-        //         << " result = " << result << endl;
-        
-        if (quoted) {
-            if (context.match_literal("\"\"")) {
-                result += "\"";
-                continue;
-            }
-            if (context.match_literal('\"')) {
-                if (!context || context.match_literal(',')
-                    || *context == '\n' || *context == '\r')
-                    return result;
-
-#if 0
-                cerr << "(bool)context = " << (bool)context << endl;
-                cerr << "*context = " << *context << endl;
-                cerr << "result = " << result << endl;
-
-                for (unsigned i = 0; i < 20;  ++i)
-                    cerr << *context++;
-#endif
-
-                context.exception_fmt("invalid end of line: %d %c", (int)*context, *context);
-            }
-        }
-        else {
-            if (context.match_literal('\"')) {
-                if (result == "") {
-                    quoted = true;
-                    continue;
-                }
-                else context.exception("non-quoted string with embedded quote");
-            }
-            else if (context.match_literal(','))
-                return result;
-            else if (*context == '\n')
-                return result;
-            
-        }
-        result += *context++;
-    }
-
-    if (quoted)
-        context.exception("file finished inside quote");
-
-    return result;
-}
-
-std::vector<std::string> expect_csv_row(Parse_Context & context)
-{
-    context.skip_whitespace();
-
-    vector<string> result;
-
-    while (context && !context.match_eol()) {
-        result.push_back(expect_csv_field(context));
-        //cerr << "read " << result.back() << endl;
-    }
-
-    return result;
-}
-
 void test_csv_data_size(int chunk_size, vector<vector<string> > & reference)
 {
-    string input_file = "utils/testing/parse_context_test_data.csv.gz";
+    string input_file = Environment::instance()["JML_TOP"]
+        + "/utils/testing/parse_context_test_data.csv.gz";
+
+    cerr << "input_file = " << input_file << endl;
 
     filter_istream stream(input_file);
     Parse_Context context(input_file, stream);

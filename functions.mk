@@ -273,7 +273,7 @@ $(1):	$(TESTS)/$(1)
 
 #$$(warning $(1) $$(CURRENT))
 
-test $(CURRENT_TEST_TARGETS) $(4) $$(CURRENT)_test:	$(TESTS)/$(1).passed
+$(if $(findstring manual,$(3)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $(4):	$(TESTS)/$(1).passed
 
 endef
 
