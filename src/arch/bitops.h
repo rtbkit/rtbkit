@@ -167,9 +167,9 @@ struct highest_bit_switch<8> {
 };
 
 template<class T>
-int highest_bit(T arg)
+int highest_bit(T arg, int none_set = -1)
 {
-    return highest_bit_switch<sizeof(T)>()(arg);
+    return highest_bit_switch<sizeof(T)>()(arg, none_set);
 }
 
 } // namespace ML
