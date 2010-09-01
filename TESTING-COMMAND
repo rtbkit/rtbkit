@@ -1,1 +1,0 @@
-../build/x86_64/bin/classifier_training_tool xor.txt xor.txt xor.txt type=decision_tree verbosity=4 max_depth=3 trace=1
