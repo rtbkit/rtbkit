@@ -12,7 +12,7 @@
 build
 .target.mk
 datasets
-src/local.mk
+local.mk
 TESTING-COMMAND*
-src/.target.mk
-src/doxygen/
+.target.mk
+doxygen/
