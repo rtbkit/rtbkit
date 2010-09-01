@@ -20,6 +20,8 @@ endef
 # $(1) name of the test (the javascript file that contains the test case)
 # $(2) node.js modules on which it depends
 # $(3) options to the node executable
+# $(4) test name
+# $(5) test options
 
 define nodejs_test
 $$(if $(trace),$$(warning called nodejs_test "$(1)" "$(2)" "$(3)"))
@@ -37,7 +39,7 @@ $(1):	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
 
 .PHONY: $(1)
 
-test $(CURRENT_TEST_TARGETS) $(4) $$(CURRENT)_test:	$(TESTS)/$(1).passed
+$(if $(findstring manual,$(5)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $(4):	$(TESTS)/$(1).passed
 
 endef
 
