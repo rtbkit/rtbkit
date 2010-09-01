@@ -16,6 +16,10 @@ PWD     := $(shell pwd)
 
 JML_TOP := .
 
+export BUILD
+export BIN
+export JML_TOP
+
 include $(JML_TOP)/arch/$(ARCH).mk
 
 ifeq ($(MAKECMDGOALS),failed)
