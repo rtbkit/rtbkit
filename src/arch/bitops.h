@@ -37,7 +37,8 @@ struct highest_bit_switch;
 template<>
 struct highest_bit_switch<1> {
     template<class T>
-    JML_ALWAYS_INLINE int operator () (T arg, int none_set = -1) const
+    JML_ALWAYS_INLINE JML_PURE_FN
+    int operator () (T arg, int none_set = -1) const
     {
         //return arg ? (sizeof(unsigned) * 8) - __builtin_clz(arg) - 1 : none_set;
 #if (defined(__i386__) || defined(__amd64__)) && ! JML_COMPILER_NVCC
@@ -67,7 +68,8 @@ struct highest_bit_switch<1> {
 template<>
 struct highest_bit_switch<2> {
     template<class T>
-    JML_ALWAYS_INLINE int operator () (T arg, int none_set = -1) const
+    JML_ALWAYS_INLINE JML_PURE_FN
+    int operator () (T arg, int none_set = -1) const
     {
         //return arg ? (sizeof(unsigned) * 8) - __builtin_clz(arg) - 1 : none_set;
 #if (defined(__i386__) || defined(__amd64__)) && ! JML_COMPILER_NVCC
@@ -98,7 +100,8 @@ struct highest_bit_switch<2> {
 template<>
 struct highest_bit_switch<4> {
     template<class T>
-    JML_ALWAYS_INLINE int operator () (T arg, int none_set = -1) const
+    JML_ALWAYS_INLINE JML_PURE_FN
+    int operator () (T arg, int none_set = -1) const
     {
         //return arg ? (sizeof(unsigned) * 8) - __builtin_clz(arg) - 1 : none_set;
 #if (defined(__i386__) || defined(__amd64__)) && ! JML_COMPILER_NVCC
@@ -130,7 +133,8 @@ struct highest_bit_switch<4> {
 template<>
 struct highest_bit_switch<8> {
     template<class T>
-    JML_ALWAYS_INLINE int operator () (T arg, int none_set = -1) const
+    JML_ALWAYS_INLINE JML_PURE_FN
+    int operator () (T arg, int none_set = -1) const
     {
 #if defined(__amd64__) && ! JML_COMPILER_NVCC
         uint64_t in2 = arg;
@@ -167,7 +171,7 @@ struct highest_bit_switch<8> {
 };
 
 template<class T>
-int highest_bit(T arg, int none_set = -1)
+JML_PURE_FN int highest_bit(T arg, int none_set = -1)
 {
     return highest_bit_switch<sizeof(T)>()(arg, none_set);
 }
