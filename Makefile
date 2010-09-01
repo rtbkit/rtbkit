@@ -6,7 +6,7 @@
 default: all
 .PHONY: default
 
-BUILD 	?= ../build
+BUILD 	?= ./build
 ARCH 	?= $(shell uname -m)
 OBJ 	:= $(BUILD)/$(ARCH)/obj
 BIN 	:= $(BUILD)/$(ARCH)/bin
@@ -29,7 +29,7 @@ include $(JML_TOP)/rules.mk
 include $(JML_TOP)/python.mk
 include $(JML_TOP)/node.mk
 
-$(eval $(call include_sub_makes,math arch utils db algebra stats judy boosting python neural tsne))
+include $(JML_TOP)/jml.mk
 
 $(shell echo GOALS := $(MAKECMDGOALS) > .target.mk)
 endif
