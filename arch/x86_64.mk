@@ -5,7 +5,11 @@ CXXLIBRARYFLAGS = -shared $(CXXLINKFLAGS) -lpthread
 CXXEXEFLAGS =$(if $(MEMORY_ALLOC_LIBRARY),-l$(MEMORY_ALLOC_LIBRARY)) $(CXXLINKFLAGS) -lpthread
 CXXDEBUGFLAGS := -O0 -g -UBOOST_DISABLE_ASSERTS -UNDEBUG
 
-FC ?= gfortran
+CC ?= gcc
+CFLAGS ?= -I.. -pipe -Wall -Werror -Wno-sign-compare -O3 -fPIC -m64 -g -DNDEBUG -fno-omit-frame-pointer
+CDEDEBUGFLAGS := -O0 -g -UNDEBUG
+
+FC := gfortran
 FFLAGS := -I. -fPIC
 
 PYTHON_ENABLED ?= 1
