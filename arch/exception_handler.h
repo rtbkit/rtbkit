@@ -34,6 +34,6 @@ struct Set_Trace_Exceptions {
 } // namespace ML
 
 #define JML_TRACE_EXCEPTIONS(value) \
-Set_Trace_Exceptions trace_exc__(value);
+ML::Set_Trace_Exceptions trace_exc__(value);
 
 #endif /* __jml__arch__exception_handler_h__ */
