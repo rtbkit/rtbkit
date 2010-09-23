@@ -15,6 +15,7 @@ SRC 	:= .
 PWD     := $(shell pwd)
 
 JML_TOP := .
+INCLUDE := -I.
 
 export BUILD
 export BIN
