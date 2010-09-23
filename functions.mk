@@ -256,6 +256,9 @@ $$(foreach target,$(4) programs,$$(eval $$(target): $(BIN)/$(1)))
 $(1): $(BIN)/$(1)
 .PHONY:	$(1)
 
+run_$(1): $(BIN)/$(1)
+	$(BIN)/$(1) $($(1)_ARGS)
+
 endef
 
 # Build the command for a test
