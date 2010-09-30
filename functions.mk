@@ -4,6 +4,16 @@ dollars=$$
 
 SHELL := /bin/bash
 
+ifeq ($(TERM),xterm)
+
+ESC :=
+
+COLOR_GREEN :=$(ESC)[32m
+COLOR_RED :=$(ESC)[31m
+COLOR_RESET := $(ESC)[0m
+
+endif
+
 # Command to hash the name of a command.
 hash_command = $(wordlist 1,1,$(shell echo $(strip $(1)) | md5sum))
 
@@ -291,11 +301,12 @@ $(TESTS)/$(1):	$(TESTS)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LI
 tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(if $(findstring timed,$(3)),/usr/bin/time )$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(if $(findstring timed,$(3)),/usr/bin/time )$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 $(TESTS)/$(1).passed:	$(TESTS)/$(1)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
 	@$$(TEST_$(1)_COMMAND)
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "           $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
 
 $(1):	$(TESTS)/$(1)
 	$(if $(findstring timed,$(3)),/usr/bin/time )$(TESTS)/$(1)
