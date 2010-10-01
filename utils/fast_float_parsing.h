@@ -106,8 +106,6 @@ inline bool match_float(Float & result, Parse_Context & c)
         if (endptr != buf + nchars)
             throw Exception("wrong endptr");
 
-        cerr << "parsed = " << parsed << endl;
-
         result = parsed;
     }
 

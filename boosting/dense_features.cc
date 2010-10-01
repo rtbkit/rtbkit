@@ -1104,7 +1104,7 @@ init(const std::vector<Data_Source> & data_sources,
                     }
                     else if (!categorical[v]) {
                         /* immutable; float must parse */
-                        dataset[row][v] = expect_float(context);
+                        dataset[row][v] = expect_float<float>(context);
                     }
                     
                     if (categorical[v]) {
