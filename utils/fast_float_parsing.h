@@ -26,11 +26,12 @@
 
 #include "jml/utils/parse_context.h"
 #include <limits>
-
+#include <errno.h>
 
 namespace ML {
 
-inline bool match_float(float & result, Parse_Context & c)
+template<typename Float>
+inline bool match_float(Float & result, Parse_Context & c)
 {
     Parse_Context::Revert_Token tok(c);
 
@@ -47,7 +48,7 @@ inline bool match_float(float & result, Parse_Context & c)
         if (!c.match_literal("an"))
             return false;
         tok.ignore();
-        result = sign * std::numeric_limits<float>::quiet_NaN();
+        result = sign * std::numeric_limits<Float>::quiet_NaN();
         return true;
     }
     else if (*c == 'i') {
@@ -83,6 +84,33 @@ inline bool match_float(float & result, Parse_Context & c)
 
     if (!digits) return false;
 
+    if (digits > 3 && false) {
+        // we need to parse using strtod
+        size_t ofs = c.get_offset();
+
+        // Go back
+        tok.apply();
+
+        size_t ofs0 = c.get_offset();
+        size_t nchars = ofs - ofs0;
+        
+        char buf[nchars + 1];
+
+        for (unsigned i = 0;  i < nchars;  ++i)
+            buf[i] = *c++;
+        buf[nchars] = 0;
+
+        char * endptr;
+        double parsed = strtod(buf, &endptr);
+
+        if (endptr != buf + nchars)
+            throw Exception("wrong endptr");
+
+        cerr << "parsed = " << parsed << endl;
+
+        result = parsed;
+    }
+
     tok.ignore();  // we are returning true; ignore the token
     
     if (den == 0.0) result = sign * num;
@@ -91,10 +119,11 @@ inline bool match_float(float & result, Parse_Context & c)
     return true;
 }
 
-inline float expect_float(Parse_Context & c,
-                          const char * error = "expected float")
+template<typename Float>
+inline Float expect_float(Parse_Context & c,
+                          const char * error = "expected real number")
 {
-    float result;
+    Float result;
     if (!match_float(result, c))
         c.exception(error);
     return result;

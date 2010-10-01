@@ -223,7 +223,29 @@ Parse_Context::
 expect_float(float min, float max, const char * error)
 {
     float val;
-    if (!match_float(val, min, max)) exception(error);
+    if (!match_float(val, min, max))
+        exception(error);
+    return val;
+}
+
+bool
+Parse_Context::
+match_double(double & val, double min, double max)
+{
+    Revert_Token t(*this);
+    if (!ML::match_float(val, *this)) return false;
+    if (val < min || val > max) return false;
+    t.ignore();
+    return true;
+}
+
+double
+Parse_Context::
+expect_double(double min, double max, const char * error)
+{
+    double val;
+    if (!match_double(val, min, max))
+        exception(error);
     return val;
 }
 

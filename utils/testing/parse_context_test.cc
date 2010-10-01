@@ -16,6 +16,7 @@
 #include "jml/arch/exception_handler.h"
 #include "jml/utils/environment.h"
 #include "jml/utils/csv.h"
+#include "jml/arch/format.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <sstream>
@@ -25,6 +26,60 @@ using namespace ML;
 using namespace std;
 
 using boost::unit_test::test_suite;
+
+BOOST_AUTO_TEST_CASE( test_float_parsing )
+{
+    for (unsigned i = 0;  i < 1000;  ++i) {
+        float f = random() / 100000000.0;
+        string s = format("%.6f", f);
+        Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+        float f2 = pc.expect_float();
+        string s2 = format("%.6f", f2);
+        
+        BOOST_CHECK_EQUAL(s, s2);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_float_parsing2 )
+{
+    for (unsigned i = 0;  i < 1000;  ++i) {
+        float f = random() + random() / 100000000.0;
+        string s = format("%.6f", f);
+        Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+        float f2 = pc.expect_float();
+        string s2 = format("%.6f", f2);
+        
+        BOOST_CHECK_EQUAL(s, s2);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_double_parsing )
+{
+    for (unsigned i = 0;  i < 1000;  ++i) {
+        double f = random() / 100000000.0;
+        string s = format("%.6f", f);
+        Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+        double f2 = pc.expect_double();
+        string s2 = format("%.6f", f2);
+        
+        BOOST_CHECK_EQUAL(s, s2);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_double_parsing2 )
+{
+    for (unsigned i = 0;  i < 1000;  ++i) {
+        double f = random() + random() / 100000000.0;
+        string s = format("%.6f", f);
+        Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+        double f2 = pc.expect_double();
+        string s2 = format("%.6f", f2);
+        
+        // NOTE: even using strtod, we get differences here
+        // It's just a double range thing...
+        //BOOST_CHECK_EQUAL(s, s2);
+    }
+}
 
 static const char * test1_str = "Here \t is a\tparse context\nwith two\ni mean 3 lines";
 

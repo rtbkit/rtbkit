@@ -264,10 +264,18 @@ struct Parse_Context {
     int expect_unsigned(unsigned min = 0, unsigned max = INT_MAX,
                         const char * error = "expected unsigned");
     
+    /** Matches a floating point value in the given range. */
     bool match_float(float & val, float min = -INFINITY, float max = INFINITY);
     
     float expect_float(float min = -INFINITY, float max = INFINITY,
                        const char * error = "expected float");
+    
+    /** Matches a floating point value in the given range. */
+    bool match_double(double & val,
+                      double min = -INFINITY, double max = INFINITY);
+    
+    double expect_double(double min = -INFINITY, double max = INFINITY,
+                         const char * error = "expected double");
     
     bool match_whitespace()
     {
