@@ -36,6 +36,7 @@
 #define JML_WEAK_FN __attribute__((__weak__))
 #define JML_LIKELY(x) __builtin_expect((x), true)
 #define JML_UNLIKELY(x) __builtin_expect((x), false)
+#define JML_DEPRECATED __attribute__((__deprecated__))
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
 #  define jml_typeof(x) decltype(x)
