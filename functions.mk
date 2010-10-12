@@ -271,16 +271,23 @@ run_$(1): $(BIN)/$(1)
 
 endef
 
+# Options to go before a testing command for a test
+# $(1): the options
+TEST_PRE_OPTIONS_ = $(w arning TEST_PRE_OPTIONS $(1))$(if $(findstring timed,$(1)),/usr/bin/time )$(if $(findstring valgrind,$(1)),$(VALGRIND) $(VALGRINDFLAGS) )
+
+TEST_PRE_OPTIONS = $(w arning TEST_PRE_OPTIONS $(1) returned $(c all TEST_PRE_OPTIONS_,$(1)))$(call TEST_PRE_OPTIONS_,$(1))
+
 # Build the command for a test
 # $(1): the name of the test
 # $(2): the command to run
-BUILD_TEST_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(2) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
+# $(3): the test options
+BUILD_TEST_COMMAND = rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(call TEST_PRE_OPTIONS,$(3))$(2) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
 
 
 # add a test case
 # $(1) name of the test
 # $(2) libraries to link with
-# $(3) test style.  boost = boost test framework
+# $(3) test style.  boost = boost test framework, and options: manual, valgrind
 # $(4) testing targets to add it to
 
 define test
@@ -301,7 +308,7 @@ $(TESTS)/$(1):	$(TESTS)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LI
 tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(if $(findstring timed,$(3)),/usr/bin/time )$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 $(TESTS)/$(1).passed:	$(TESTS)/$(1)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
@@ -309,7 +316,7 @@ $(TESTS)/$(1).passed:	$(TESTS)/$(1)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "           $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
 
 $(1):	$(TESTS)/$(1)
-	$(if $(findstring timed,$(3)),/usr/bin/time )$(TESTS)/$(1)
+	$(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1)
 
 .PHONY: $(1)
 

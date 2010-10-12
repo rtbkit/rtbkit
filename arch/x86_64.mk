@@ -14,6 +14,9 @@ FFLAGS := -I. -fPIC
 
 PYTHON_ENABLED ?= 1
 
+VALGRIND ?= valgrind
+VALGRINDFLAGS ?= --error-exitcode=1 --leak-check=full
+
 ifeq ($(PYTHON_ENABLED),1)
 
 PYTHON_INCLUDE_PATH ?= /usr/include/python2.6/
