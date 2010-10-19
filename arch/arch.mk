@@ -13,7 +13,7 @@ LIBARCH_SOURCES := \
 	cpu_info.cc \
 	vm.cc \
 	info.cc \
-
+	rtti_utils.cc
 
 $(eval $(call set_single_compile_option,simd_vector.cc,-funsafe-loop-optimizations -Wunsafe-loop-optimizations))
 
