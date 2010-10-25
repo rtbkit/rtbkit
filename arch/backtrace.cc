@@ -20,12 +20,12 @@
    Interface to a bactrace function.
 */
 
+#include "backtrace.h"
 #include <iostream>
 #include <execinfo.h>
 #include <stdlib.h>
 #include "demangle.h"
 #include "format.h"
-
 // Include the GNU extentions necessary for this functionality
 //#define _GNU_SOURCE
 //#define __USE_GNU 1
@@ -40,34 +40,100 @@ namespace ML {
 
 void backtrace(std::ostream & stream, int num_to_skip)
 {
+    vector<BacktraceFrame> result = backtrace(num_to_skip);
+
+    for (unsigned i = 0;  i < result.size();  ++i)
+        stream << format("%02d", i) << " " << result[i].print() << endl;
+}
+
+/** The information in a backtrace frame. */
+BacktraceFrame::
+BacktraceFrame(int num, const void * frame)
+{
+    init(num, frame);
+}
+
+void
+BacktraceFrame::
+init(int num, const void * frame)
+{
+    address = frame;
+    number = num;
+
+    Dl_info info;
+    int ret = 0;
+    if (frame) ret = dladdr( frame, &info);
+
+    if (ret == 0) {
+        function = object = "";
+        function_start = object_start = 0;
+        return;
+    }
+
+    if (info.dli_sname) {
+        function = demangle(info.dli_sname);
+        function_start = info.dli_saddr;
+    }
+    else {
+        function = "";
+        function_start = 0;
+    }
+    if (info.dli_fname) {
+        object = info.dli_fname;
+        object_start = info.dli_fbase;
+    }
+    else {
+        object = "";
+        object_start = 0;
+    }
+}
+
+static ssize_t ptr_offset(const void * from, const void * to)
+{
+    return (const char *)to - (const char *)from;
+}
+
+std::string
+BacktraceFrame::
+print() const
+{
+    string result = format("0x%8xp", address);
+
+    if (function_start)
+        result += format(" at %s + 0x%xzi", function.c_str(),
+                         ptr_offset(function_start, address));
+    if (object_start)
+        result += format(" in %s + 0x%xzi", object.c_str(),
+                         ptr_offset(object_start, address));
+    return result;
+}
+
+std::string
+BacktraceFrame::
+print_for_trace() const
+{
+    if (!address)
+        return "(uninitialized)";
+    else if (function != "")
+        return function;
+    else if (object != "")
+        return "in " + object;
+    else return format("0x%8xp", address);
+}
+
+std::vector<BacktraceFrame> backtrace(int num_to_skip)
+{
     /* Obtain a backtrace and print it to stdout. */
     void *array[200];
     
     size_t size = ::backtrace (array, 200);
  
-    for (unsigned i = num_to_skip;  i < size;  ++i) {
-        stream << format("%4d: %016p ", i - num_to_skip, array[i]);
+    vector<BacktraceFrame> result;
 
-        Dl_info info;
-        int ret = dladdr( array[i], &info);
-        if (ret == 0) {
-            stream << " (unknown)" << endl;
-            continue;
-        }
-
-        if (info.dli_sname) {
-            stream << demangle(info.dli_sname)
-                   << format(" + 0x%x", (const char *)array[i]
-                                   - (const char *)info.dli_saddr);
-        }
-        if (info.dli_fname) {
-            stream << format(" in %s + 0x%x", info.dli_fname,
-                             (const char *)array[i]
-                             - (const char *)info.dli_fbase)
-                   << endl;
-        }
-        else stream << "unknown" << endl;
-    }
+    for (unsigned i = num_to_skip;  i < size;  ++i)
+        result.push_back(BacktraceFrame(i, array[i]));
+    
+    return result;
 }
 
 } // namespace ML

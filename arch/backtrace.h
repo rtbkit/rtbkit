@@ -21,13 +21,43 @@
 */
 
 #include <iostream>
+#include <vector>
 
 #ifndef __jml__arch__backtrace_h__
 #define __jml__arch__backtrace_h__
 
 namespace ML {
 
+/** Dump a backtrace to the given stream, skipping the given number of
+    frames from the top of the trace.
+*/
 void backtrace(std::ostream & stream = std::cerr, int num_to_skip = 1);
+
+/** The information in a backtrace frame. */
+struct BacktraceFrame {
+
+    BacktraceFrame(int number = -1, const void * frame = 0);
+
+    void init(int number, const void * frame);
+
+    int number;
+    const void * address;
+    std::string function;
+    const void * function_start;
+    std::string object;
+    const void * object_start;
+
+    /** Return a string with all the information. */
+    std::string print() const;
+
+    /** Return a string with the specific information for this trace. */
+    std::string print_for_trace() const;
+};
+
+/** Dump a backtrace into a vector of strings, skipping the given number of
+    frames from the top of the trace.
+*/
+std::vector<BacktraceFrame> backtrace(int num_to_skip);
 
 } // namespace ML
 
