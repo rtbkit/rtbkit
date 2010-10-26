@@ -19,11 +19,13 @@ $(eval $(call set_single_compile_option,simd_vector.cc,-funsafe-loop-optimizatio
 
 $(eval $(call add_sources,$(LIBARCH_SOURCES)))
 $(eval $(call add_sources,exception_hook.cc))
+$(eval $(call add_sources,node_exception_tracing.cc))
 
 LIBARCH_LINK :=	ACE
 
 $(eval $(call library,arch,$(LIBARCH_SOURCES),$(LIBARCH_LINK)))
 $(eval $(call library,exception_hook,exception_hook.cc))
+$(eval $(call library,node_exception_tracing,node_exception_tracing.cc))
 
 ifeq ($(CUDA_ENABLED),1)
 

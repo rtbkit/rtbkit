@@ -1,6 +1,6 @@
 ifeq ($(NODEJS_ENABLED),1)
 
-NODE ?= node
+NODE ?= LD_PRELOAD=$(BIN)/libexception_hook.so node
 VOWS ?= /usr/local/bin/vows
 NODE_PATH := $(if $(NODE_PATH),$(NODE_PATH):)$(BIN)
 
@@ -10,7 +10,7 @@ NODE_PATH := $(if $(NODE_PATH),$(NODE_PATH):)$(BIN)
 # $(3): libraries to link with
 
 define nodejs_addon
-$$(eval $$(call library,$(1),$(2),$(3),$(1),.node,[NODEJS]))
+$$(eval $$(call library,$(1),$(2),node_exception_tracing $(3),$(1),.node,[NODEJS]))
 
 nodejs_addons: $$(LIB_$(1)_DEPS)
 endef

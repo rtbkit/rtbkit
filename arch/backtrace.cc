@@ -136,4 +136,17 @@ std::vector<BacktraceFrame> backtrace(int num_to_skip)
     return result;
 }
 
+std::vector<BacktraceFrame>
+backtrace(const BacktraceInfo & info,
+          int num_to_skip)
+{
+    /* Obtain a backtrace and print it to stdout. */
+    vector<BacktraceFrame> result;
+
+    for (unsigned i = num_to_skip;  i < info.size;  ++i)
+        result.push_back(BacktraceFrame(i, info.frames[i]));
+    
+    return result;
+}
+
 } // namespace ML

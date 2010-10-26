@@ -28,6 +28,25 @@
 
 namespace ML {
 
+/** Basic backtrace information */
+struct BacktraceInfo {
+    BacktraceInfo()
+    {
+        frames = new void * [50];
+    }
+
+    ~BacktraceInfo()
+    {
+        delete[] frames;
+    }
+
+    const std::type_info * type;
+    std::string message;
+    void ** frames;
+    size_t size;
+};
+
+
 /** Dump a backtrace to the given stream, skipping the given number of
     frames from the top of the trace.
 */
@@ -58,6 +77,9 @@ struct BacktraceFrame {
     frames from the top of the trace.
 */
 std::vector<BacktraceFrame> backtrace(int num_to_skip);
+
+std::vector<BacktraceFrame>
+backtrace(const BacktraceInfo & info, int num_to_skip);
 
 } // namespace ML
 
