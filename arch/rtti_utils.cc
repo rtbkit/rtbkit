@@ -20,8 +20,8 @@ bool is_convertible(const std::type_info & from_type,
 {
     const char * adj_ptr = (const char *)obj;
     bool result = to_type.__do_catch(&from_type, (void **)&adj_ptr, 0);
-    if (result)
-        cerr << "offset = " << (adj_ptr - (const char *)obj) << endl;
+    //if (result)
+    //    cerr << "offset = " << (adj_ptr - (const char *)obj) << endl;
     return result;
 }
 

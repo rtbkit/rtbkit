@@ -43,7 +43,7 @@ void backtrace(std::ostream & stream, int num_to_skip)
     vector<BacktraceFrame> result = backtrace(num_to_skip);
 
     for (unsigned i = 0;  i < result.size();  ++i)
-        stream << format("%02d", i) << " " << result[i].print() << endl;
+        stream << format("%02d: ", i) << result[i].print() << endl;
 }
 
 /** The information in a backtrace frame. */
@@ -97,13 +97,13 @@ std::string
 BacktraceFrame::
 print() const
 {
-    string result = format("0x%8xp", address);
+    string result = format("0x%08p", address);
 
     if (function_start)
-        result += format(" at %s + 0x%xzi", function.c_str(),
+        result += format(" at %s + 0x%zx", function.c_str(),
                          ptr_offset(function_start, address));
     if (object_start)
-        result += format(" in %s + 0x%xzi", object.c_str(),
+        result += format(" in %s + 0x%zx", object.c_str(),
                          ptr_offset(object_start, address));
     return result;
 }
@@ -118,7 +118,7 @@ print_for_trace() const
         return function;
     else if (object != "")
         return "in " + object;
-    else return format("0x%8xp", address);
+    else return format("0x%08p", address);
 }
 
 std::vector<BacktraceFrame> backtrace(int num_to_skip)
