@@ -3,6 +3,8 @@ ifeq ($(NODEJS_ENABLED),1)
 NODE ?= LD_PRELOAD=$(BIN)/libexception_hook.so node
 VOWS ?= /usr/local/bin/vows
 NODE_PATH := $(if $(NODE_PATH),$(NODE_PATH):)$(BIN)
+NODE_TEST_DEPS ?= $(BIN)/libnode_exception_tracing.so
+VOWS_TEST_DEPS ?= $(NODE_TEST_DEPS)
 
 # add a node.js addon
 # $(1): name of the addon
@@ -30,7 +32,7 @@ TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail &&
 
 TEST_$(1)_DEPS := $$(foreach lib,$(2),$$(if $$(LIB_$$(lib)_DEPS),$$(LIB_$$(lib)_DEPS),$$(error variable LIB_$$(lib)_DEPS for library $(lib) in test $(1) is empty)))
 
-$(TESTS)/$(1).passed:	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
+$(TESTS)/$(1).passed:	$(CWD)/$(1).js $$(TEST_$(1)_DEPS) $(NODE_TEST_DEPS)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
 	@$$(TEST_$(1)_COMMAND)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "           $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
@@ -59,7 +61,7 @@ TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail &&
 
 TEST_$(1)_DEPS := $$(foreach lib,$(2),$$(if $$(LIB_$$(lib)_DEPS),$$(LIB_$$(lib)_DEPS),$$(error variable LIB_$$(lib)_DEPS for library $(lib) in test $(1) is empty)))
 
-$(TESTS)/$(1).passed:	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
+$(TESTS)/$(1).passed:	$(CWD)/$(1).js $$(TEST_$(1)_DEPS) $(VOWS_TEST_DEPS)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
 	@$$(TEST_$(1)_COMMAND)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "           $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
