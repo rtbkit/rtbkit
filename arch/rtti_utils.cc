@@ -14,15 +14,15 @@ using namespace std;
 
 namespace ML {
 
-bool is_convertible(const std::type_info & from_type,
-                    const std::type_info & to_type,
-                    const void * obj)
+const void * is_convertible(const std::type_info & from_type,
+                            const std::type_info & to_type,
+                            const void * obj)
 {
     const char * adj_ptr = (const char *)obj;
     bool result = to_type.__do_catch(&from_type, (void **)&adj_ptr, 0);
     //if (result)
     //    cerr << "offset = " << (adj_ptr - (const char *)obj) << endl;
-    return result;
+    return result ? adj_ptr : 0;
 }
 
 } // namespace ML

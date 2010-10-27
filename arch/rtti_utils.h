@@ -13,19 +13,23 @@
 
 namespace ML {
 
-bool is_convertible(const std::type_info & from_type,
-                    const std::type_info & to_type,
-                    const void * obj);
+/** Convert the given object pointed to by obj (with a type info node of
+    from_type) to the given type (to_type).  If it's convertible, then the
+    adjusted pointer is returned, otherwise a null pointer.
+*/
+const void * is_convertible(const std::type_info & from_type,
+                            const std::type_info & to_type,
+                            const void * obj);
 
 template<typename FromT>
-bool is_convertible(const FromT & from_obj,
-                    const std::type_info & to_type)
+const void * is_convertible(const FromT & from_obj,
+                            const std::type_info & to_type)
 {
     return is_convertible(typeid(from_obj), to_type, &from_obj);
 }
 
 template<typename ToT, typename FromT>
-bool is_convertible(const FromT & from_obj)
+const void * is_convertible(const FromT & from_obj)
 {
     return is_convertible(typeid(from_obj), typeid(ToT), &from_obj);
 }
