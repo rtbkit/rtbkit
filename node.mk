@@ -3,7 +3,7 @@ ifeq ($(NODEJS_ENABLED),1)
 NODE ?= LD_PRELOAD=$(BIN)/libexception_hook.so node
 VOWS ?= /usr/local/bin/vows
 NODE_PATH := $(if $(NODE_PATH),$(NODE_PATH):)$(BIN)
-NODE_TEST_DEPS ?= $(BIN)/libnode_exception_tracing.so
+NODE_TEST_DEPS ?= $(BIN)/libexception_hook.so
 VOWS_TEST_DEPS ?= $(NODE_TEST_DEPS)
 
 # add a node.js addon
@@ -43,6 +43,34 @@ $(1):	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
 .PHONY: $(1)
 
 $(if $(findstring manual,$(5)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $(4):	$(TESTS)/$(1).passed
+
+endef
+
+
+# $(1) name of the program (the javascript file that contains the main file) without the .js
+# $(2) node.js modules on which it depends
+# $(3) options to the node executable
+
+define nodejs_program
+
+NODE_PROGRAM_$(1)_DEPS := $$(foreach lib,$(2),$$(if $$(LIB_$$(lib)_DEPS),$$(LIB_$$(lib)_DEPS),$$(error variable LIB_$$(lib)_DEPS for library $(lib) in test $(1) is empty)))
+
+$(BIN)/$(1):	$(CWD)/$(1).js $(NODE_TEST_DEPS)
+	@echo "[NODEJS] $(1)"
+	@echo "#!/usr/bin/env bash" > $$@~
+	@echo -n "//usr/bin/env NODE_PATH=$(NODE_PATH) $(NODE) " >> $$@~
+	@echo -n $$$$ >> $$@~
+	@echo -n '0 "' >> $$@~
+	@echo -n $$$$ >> $$@~
+	@echo '@"; exit' >> $$@~
+	@cat $(CWD)/$(1).js >> $$@~
+	@chmod +x $$@~
+	@mv $$@~ $$@
+
+run_$(1):	$(BIN)/$(1)
+	$(BIN)/$(1)
+
+nodejs_programs: $(BIN)/$(1)
 
 endef
 
