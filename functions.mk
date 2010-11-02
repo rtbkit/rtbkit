@@ -143,6 +143,7 @@ endef
 
 # Set up the map to map an extension to the name of a function to call
 $(call set,EXT_FUNCTIONS,.cc,add_c++_source)
+$(call set,EXT_FUNCTIONS,.cpp,add_c++_source)
 $(call set,EXT_FUNCTIONS,.c,add_c_source)
 $(call set,EXT_FUNCTIONS,.f,add_fortran_source)
 $(call set,EXT_FUNCTIONS,.cu,add_cuda_source)
