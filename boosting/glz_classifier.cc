@@ -68,10 +68,30 @@ extract(const Feature_Set & feature_set) const
     distribution<float> result(features.size());
 
     float NaN = std::numeric_limits<float>::quiet_NaN();
+
+    Feature_Set::const_iterator
+        prev_last = feature_set.begin(),
+        fend = feature_set.end();
     
     for (unsigned i = 0;  i < features.size();  ++i) {
+        const Feature & to_find = features[i].feature;
+
         Feature_Set::const_iterator first, last;
-        boost::tie(first, last) = feature_set.find(features[i].feature);
+
+        // Optimization: assume that the features are there in the same order
+        // as we wanted to access them, so that we can simply step through
+        // rather than having to search for them each time.
+        if (prev_last != fend && prev_last.feature() == to_find) {
+            last = first = prev_last;
+            do {
+                ++last;
+            } while (last != fend && last.feature() == to_find);
+        }
+        else {
+            boost::tie(first, last) = feature_set.find(features[i].feature);
+        }
+
+        prev_last = last;
 
         switch (features[i].type) {
         case Feature_Spec::VALUE_IF_PRESENT:
