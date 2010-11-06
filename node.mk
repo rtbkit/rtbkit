@@ -7,6 +7,8 @@ NODE_PATH := $(if $(NODE_PATH),$(NODE_PATH):)$(BIN)
 NODE_TEST_DEPS ?= $(BIN)/libexception_hook.so
 VOWS_TEST_DEPS ?= $(NODE_TEST_DEPS)
 
+all compile:	nodejs_programs
+
 # add a node.js addon
 # $(1): name of the addon
 # $(2): source files to include in the addon
@@ -71,7 +73,7 @@ $(BIN)/$(1):	$(CWD)/$(1).js $$(NODE_PROGRAM_$(1)_DEPS) $(NODE_TEST_DEPS)
 run_$(1):	$(BIN)/$(1)
 	$(BIN)/$(1)
 
-nodejs_programs: $(BIN)/$(1)
+nodejs_programs programs $(1): $(BIN)/$(1)
 
 endef
 
