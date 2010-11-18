@@ -20,9 +20,9 @@ $$(eval $$(call library,$(1)_node_impl,$(2),node_exception_tracing $(3) $$(forea
 
 nodejs_addons: $$(LIB_$(1)_node_impl_DEPS) $$(BIN)/$(1).node
 
-$$(BIN)/$(1).node: $$(LIB_$(1)_node_impl_SO) $$(foreach addon,$(4),$$(BIN)/$$(addon).node) 
-	$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) -o $$@~ $$(LIB_$(1)_node_impl_SO)
-	mv $$@~ $$@
+$$(BIN)/$(1).node: $$(LIB_$(1)_node_impl_SO) $$(BIN)/lib$(1)_node_impl.so $$(foreach addon,$(4),$$(BIN)/$$(addon).node) 
+	@$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) -o $$@~ $$(BIN)/lib$(1)_node_impl.so
+	@mv $$@~ $$@
 
 endef
 
