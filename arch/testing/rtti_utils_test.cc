@@ -132,4 +132,33 @@ BOOST_AUTO_TEST_CASE( test_is_convertible )
     BOOST_CHECK(is_convertible<T5>(T9()));
     BOOST_CHECK(is_convertible<T2>(T9()));
     BOOST_CHECK(is_convertible<T1>(T9()));
+
+    {
+        T2 obj;
+        T1 * volatile p = &obj;
+
+        BOOST_CHECK(is_convertible<T2>(*p));
+    }
+
+    {
+        T3 obj;
+        T1 * volatile p = &obj;
+
+        BOOST_CHECK_EQUAL(is_convertible<T3>(*p), &obj);
+        BOOST_CHECK_EQUAL(is_convertible<T2>(*p), &obj);
+    }
+
+    {
+        T7 obj;
+        T1 * volatile p = &obj;
+
+        cerr << "p = " << p << endl;
+        cerr << "&obj = " << &obj << endl;
+
+        BOOST_CHECK_EQUAL(is_convertible<T3>(*p), dynamic_cast<T3 *>(p));
+        BOOST_CHECK_EQUAL(is_convertible<T5>(*p), dynamic_cast<T5 *>(p));
+        BOOST_CHECK_EQUAL(is_convertible<T6>(*p), dynamic_cast<T6 *>(p));
+        BOOST_CHECK_EQUAL(is_convertible<T7>(*p), dynamic_cast<T7 *>(p));
+    }
 }
+
