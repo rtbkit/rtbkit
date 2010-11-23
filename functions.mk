@@ -14,6 +14,16 @@ COLOR_RESET := $(ESC)[0m
 
 endif
 
+ifeq ($(TERM),rxvt)
+
+ESC :=
+
+COLOR_GREEN :=$(ESC)[32m
+COLOR_RED :=$(ESC)[31m
+COLOR_RESET := $(ESC)[0m
+
+endif
+
 # Command to hash the name of a command.
 hash_command = $(wordlist 1,1,$(shell echo $(strip $(1)) | md5sum))
 
