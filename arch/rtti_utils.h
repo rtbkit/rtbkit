@@ -25,13 +25,15 @@ template<typename FromT>
 const void * is_convertible(const FromT & from_obj,
                             const std::type_info & to_type)
 {
-    return is_convertible(typeid(from_obj), to_type, &from_obj);
+    return is_convertible(typeid(FromT), to_type, &from_obj);
+    //return is_convertible(typeid(from_obj), to_type, &from_obj);
 }
 
 template<typename ToT, typename FromT>
 const void * is_convertible(const FromT & from_obj)
 {
-    return is_convertible(typeid(from_obj), typeid(ToT), &from_obj);
+    return is_convertible(typeid(FromT), typeid(ToT), &from_obj);
+    //return is_convertible(typeid(from_obj), typeid(ToT), &from_obj);
 }
 
 } // namespace ML

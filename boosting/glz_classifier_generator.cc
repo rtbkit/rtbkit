@@ -15,7 +15,7 @@
 #include "jml/utils/smart_ptr_utils.h"
 #include "jml/algebra/matrix_ops.h"
 #include "jml/algebra/lapack.h"
-
+#include "jml/arch/timers.h"
 
 using namespace std;
 
@@ -225,7 +225,7 @@ train_weighted(Thread_Context & thread_context,
     //cerr << "nx = " << nx << " nv = " << nv << " nx * nv = " << nx * nv
     //     << endl;
 
-    boost::timer t;
+    Timer t;
 
     /* Get the labels by example. */
     const vector<Label> & labels = data.index().labels(predicted);
@@ -237,6 +237,9 @@ train_weighted(Thread_Context & thread_context,
     distribution<double> model(nx2, 0.0);  // to initialise weights, correct
     vector<distribution<double> > w(nl, model);       // weights for each label
     vector<distribution<double> > correct(nl, model); // correct values
+
+    cerr << "setup: " << t.elapsed() << endl;
+    t.restart();
         
     int x2 = 0;
     for (unsigned x = 0;  x < nx;  ++x) {
@@ -277,6 +280,9 @@ train_weighted(Thread_Context & thread_context,
     if (x2 != nx2)
         throw Exception("x2 not nx2");
 
+    cerr << "marshalling: " << t.elapsed() << endl;
+    t.restart();
+
     distribution<double> means(nv), stds(nv, 1.0);
 
     /* Scale */
@@ -313,6 +319,9 @@ train_weighted(Thread_Context & thread_context,
         stds[v] = std;
     }
 
+    cerr << "normalization: " << t.elapsed() << endl;
+    t.restart();
+
     int nlr = nl;
     if (nl == 2) nlr = 1;
         
@@ -340,6 +349,9 @@ train_weighted(Thread_Context & thread_context,
             
         result.weights.push_back(trained.cast<float>());
     }
+
+    cerr << "irls: " << t.elapsed() << endl;
+    t.restart();
         
     if (nl == 2) {
         // weights for second label are the mirror of those of the first
