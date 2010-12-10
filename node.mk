@@ -9,6 +9,17 @@ VOWS_TEST_DEPS ?= $(NODE_TEST_DEPS)
 
 all compile:	nodejs_programs
 
+# Dependencies for a single node addon
+# $(1): name of the addon
+# $(2): target being built (for error message)
+node_addon_deps1 = $(if $(NODE_$(1)_DEPS),$(NODE_$(1)_DEPS),$(error no deps for node library $(1) building $(2)))
+
+# Dependencies for a list of node addons
+# $(1): list of addons
+# $(2): target being built (for error message)
+node_addon_deps = $(foreach addon,$(1),$(call node_addon_deps1,$(addon),$(2)))
+
+
 # add a node.js addon
 # $(1): name of the addon
 # $(2): source files to include in the addon
@@ -20,7 +31,27 @@ $$(eval $$(call library,$(1)_node_impl,$(2),node_exception_tracing $(3) $$(forea
 
 nodejs_addons: $$(LIB_$(1)_node_impl_DEPS) $$(BIN)/$(1).node
 
-$$(BIN)/$(1).node: $$(LIB_$(1)_node_impl_SO) $$(BIN)/lib$(1)_node_impl.so $$(foreach addon,$(4),$$(BIN)/$$(addon).node) 
+NODE_$(1)_DEPS := $$(BIN)/$(1).node $$(call node_addon_deps,$(4))
+NODE_$(1)_LINK := $$(BIN)/$(1).node
+
+$$(BIN)/$(1).node: $$(LIB_$(1)_node_impl_SO) $$(BIN)/lib$(1)_node_impl.so $$(call node_addon_deps,$(4))
+	@$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) -o $$@~ $$(BIN)/lib$(1)_node_impl.so
+	@mv $$@~ $$@
+
+endef
+
+# add a node.js library (like an addon, but in native code)
+# $(1): name of the library
+# $(2): source files (javascript) to include in the addon
+# $(3): other node.js addons to link with this one
+
+define nodejs_library
+
+NODE_$(1)_DEPS := $$(foreach file,$$(2),$$(BIN)/$(1)/$$(file))
+
+nodejs_libraries: $$(NODE_$(1)_DEPS)
+
+$$(BIN)/$(1).node: $$(LIB_$(1)_node_impl_SO) $$(BIN)/lib$(1)_node_impl.so $$(foreach addon,$(4),$$(if $$(NODE_$$(addon)_DEPS),$$(NODE_$$(addon)_DEPS),$$(error no deps for node library $$(addon) building addon $(1))))
 	@$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) -o $$@~ $$(BIN)/lib$(1)_node_impl.so
 	@mv $$@~ $$@
 
