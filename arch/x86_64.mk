@@ -9,8 +9,8 @@ CC ?= gcc
 CFLAGS ?= $(INCLUDE) -pipe -Wall -Werror -Wno-sign-compare -O3 -fPIC -m64 -g -DNDEBUG -fno-omit-frame-pointer
 CDEDEBUGFLAGS := -O0 -g -UNDEBUG
 
-FC := gfortran
-FFLAGS := -I. -fPIC
+FC ?= gfortran
+FFLAGS ?= -I. -fPIC
 
 PYTHON_ENABLED ?= 1
 
