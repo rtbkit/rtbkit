@@ -109,7 +109,7 @@ $(BIN)/$(1):	$(CWD)/$(1).js $$(NODE_PROGRAM_$(1)_DEPS) $(NODE_TEST_DEPS)
 	@mv $$@~ $$@
 
 run_$(1):	$(BIN)/$(1)
-	$(BIN)/$(1)
+	$(BIN)/$(1)  $($(1)_ARGS)
 
 nodejs_programs programs $(1): $(BIN)/$(1)
 
