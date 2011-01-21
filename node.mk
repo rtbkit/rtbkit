@@ -40,19 +40,27 @@ $$(BIN)/$(1).node: $$(LIB_$(1)_node_impl_SO) $$(BIN)/lib$(1)_node_impl.so $$(cal
 
 endef
 
+
+# functions for installing JS files from .js or .coffee
+install_js_from.js = @cp $(1) $(2)
+install_js_from.coffee = @coffee --print --compile $(1) > $(2)
+
+
 # add a node.js module
 # $(1): name of the module
-# $(2): main source file (javascript) to include in the addon
+# $(2): filename (.js or .coffee)
 # $(3): other node.js addons to link with this one
 
 define nodejs_module
 
 NODE_$(1)_DEPS := $(BIN)/$(1).js $$(call node_addon_deps,$(3))
 
-nodejs_libraries: $(BIN)/$(1).js
+nodejs_libraries $(1): $(BIN)/$(1).js
 
 $(BIN)/$(1).js: $(CWD)/$(2)
-	cp $$< $$@~
+	@echo "[NODEJS_MODULE] $(1)"
+	$$(if $$(install_js_from$(suffix $(2))),,$$(error js suffix $(suffix $(2)) unknown))
+	$$(call install_js_from$(suffix $(2)), $$<, $$@~)
 	@mv $$@~ $$@
 
 endef
@@ -86,25 +94,30 @@ $(if $(findstring manual,$(5)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $
 
 endef
 
+# functions for installing JS files from .js or .coffee
+append_js_from.js = @cat $(1) >> $(2)
+append_js_from.coffee = @coffee --print --compile $(1) >> $(2)
 
-# $(1) name of the program (the javascript file that contains the main file) without the .js
-# $(2) node.js modules on which it depends
-# $(3) options to the node executable
+# $(1) name of the program
+# $(2) filename (.js or .coffee)
+# $(3) node.js modules on which it depends
 
 define nodejs_program
 
 
-NODE_PROGRAM_$(1)_DEPS := $$(call node_addon_deps,$(2),$(1))
+NODE_PROGRAM_$(1)_DEPS := $$(call node_addon_deps,$(3),$(1))
 
-$(BIN)/$(1):	$(CWD)/$(1).js $$(NODE_PROGRAM_$(1)_DEPS) $(NODE_TEST_DEPS)
-	@echo "[NODEJS] $(1)"
+$(BIN)/$(1):	$(CWD)/$(2) $$(NODE_PROGRAM_$(1)_DEPS) $(NODE_TEST_DEPS)
+	@echo "[NODEJS_PROGRAM] $(1)"
 	@echo "#!/usr/bin/env bash" > $$@~
 	@echo -n "//usr/bin/env NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) " >> $$@~
 	@echo -n $$$$ >> $$@~
 	@echo -n '0 "' >> $$@~
 	@echo -n $$$$ >> $$@~
 	@echo '@"; exit' >> $$@~
-	@cat $(CWD)/$(1).js >> $$@~
+	$$(if $$(append_js_from$(suffix $(2))),,$$(error js suffix $(suffix $(2)) unknown))
+	$$(call append_js_from$(suffix $(2)), $(CWD)/$(2), $$@~)
+	
 	@chmod +x $$@~
 	@mv $$@~ $$@
 
