@@ -59,6 +59,10 @@ struct Timer {
                       (ticks() - ticks_) / 1000000.0,
                       wall_time() - wall_);
     }
+
+    double elapsed_cpu() const { return cpu_time() - cpu_; }
+    double elapsed_ticks() const { return ticks() - ticks_; }
+    double elapsed_wall() const { return wall_time() - wall_; }
 };
 
 } // namespace ML
