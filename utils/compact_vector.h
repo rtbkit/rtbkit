@@ -369,21 +369,21 @@ public:
     }
     
 private:
-    struct {
-        Size size_: 8 * sizeof(Size) - 1;
-        Size is_internal_ : 1;
-    } JML_PACKED;
-
     union {
         struct {
             char internal_[sizeof(Data) * Internal];
         } JML_PACKED itl;
         struct {
-            Size capacity_;
             Pointer pointer_;
+            Size capacity_;
         } JML_PACKED ext;
     };
     
+    struct {
+        Size size_: 8 * sizeof(Size) - 1;
+        Size is_internal_ : 1;
+    } JML_PACKED;
+
     bool is_internal() const { return is_internal_; }
     Data * internal() { return (Data *)(itl.internal_); }
     const Data * internal() const { return (Data *)(itl.internal_); }
