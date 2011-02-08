@@ -510,6 +510,15 @@ operator == (const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator
 template<class Data, size_t Internal, class Size, bool Safe,
          class Pointer, class Allocator>
 bool
+operator != (const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv1,
+             const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv2)
+{
+    return ! operator == (cv1, cv2);
+}
+
+template<class Data, size_t Internal, class Size, bool Safe,
+         class Pointer, class Allocator>
+bool
 operator < (const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv1,
              const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv2)
 {
