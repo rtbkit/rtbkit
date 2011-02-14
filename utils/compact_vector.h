@@ -26,7 +26,7 @@
 namespace ML {
 
 template<typename Data,
-         size_t Internal = 0,
+         size_t Internal_ = 0,
          typename Size = uint32_t,
          bool Safe = true,
          typename Pointer = Data *,
@@ -40,6 +40,7 @@ public:
     typedef Data value_type;
     typedef Data & reference;
     typedef const Data & const_reference;
+    enum { Internal = Internal_ };
     
     compact_vector()
         : size_(0), is_internal_(true)
