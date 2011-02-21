@@ -9,7 +9,7 @@
 	@mkdir -p $(dir $@)
 	@touch $@
 
-all: test programs libraries
+all: test programs libraries compile tests
 
-.PHONY: all test programs libraries
+.PHONY: all test programs libraries compile tests
 
