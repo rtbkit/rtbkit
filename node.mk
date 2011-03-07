@@ -7,7 +7,7 @@ NODE_PATH := $(if $(NODE_PATH),$(NODE_PATH):)$(BIN)
 NODE_TEST_DEPS ?= $(BIN)/libexception_hook.so
 VOWS_TEST_DEPS ?= $(NODE_TEST_DEPS)
 
-all compile:	nodejs_programs
+all compile:	nodejs_programs nodejs_addons
 
 # Dependencies for a single node addon
 # $(1): name of the addon
@@ -117,7 +117,6 @@ $(BIN)/$(1):	$(CWD)/$(2) $$(NODE_PROGRAM_$(1)_DEPS) $(NODE_TEST_DEPS)
 	@echo '@"; exit' >> $$@~
 	$$(if $$(append_js_from$(suffix $(2))),,$$(error js suffix $(suffix $(2)) unknown))
 	$$(call append_js_from$(suffix $(2)), $(CWD)/$(2), $$@~)
-	
 	@chmod +x $$@~
 	@mv $$@~ $$@
 
