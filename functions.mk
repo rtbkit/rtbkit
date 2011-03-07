@@ -333,7 +333,7 @@ $(1):	$(TESTS)/$(1)
 
 #$$(warning $(1) $$(CURRENT))
 
-$(if $(findstring manual,$(3)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $(4):	$(TESTS)/$(1).passed
+$(if $(findstring manual,$(3)),manual,test) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4):	$(TESTS)/$(1).passed
 
 endef
 
