@@ -23,18 +23,9 @@ export JML_TOP
 
 include $(JML_TOP)/arch/$(ARCH).mk
 
-ifeq ($(MAKECMDGOALS),failed)
-include .target.mk
-failed:
-	+make $(FAILED) $(GOALS)
-else
-
 include $(JML_TOP)/functions.mk
 include $(JML_TOP)/rules.mk
 include $(JML_TOP)/python.mk
 include $(JML_TOP)/node.mk
 
 include $(JML_TOP)/jml.mk
-
-$(shell echo GOALS := $(MAKECMDGOALS) > .target.mk)
-endif
