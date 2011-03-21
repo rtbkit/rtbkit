@@ -1,8 +1,9 @@
 CXX ?= g++
-CXXFLAGS ?= $(INCLUDE) -pipe -Wall -Werror -Wno-sign-compare -Woverloaded-virtual -O3 -fPIC -m64 -g -DBOOST_DISABLE_ASSERTS -DNDEBUG -fno-omit-frame-pointer
-CXXLINKFLAGS = -L$(BIN)  -Wl,--rpath,$(BIN) -Wl,--rpath,$(PWD)/$(BIN) -rdynamic
+CXXFLAGS ?= $(INCLUDE) -pipe -Wall -Werror -Wno-sign-compare -Woverloaded-virtual -O3 -fPIC -m64 -g -DBOOST_DISABLE_ASSERTS -DNDEBUG -fno-omit-frame-pointer -I$(LOCAL_INCLUDE_DIR)
+CXXLINKFLAGS = -L$(BIN)  -Wl,--rpath,$(BIN) -Wl,--rpath,$(PWD)/$(BIN) -rdynamic $(foreach DIR,$(LOCAL_LIB_DIR),-L$(DIR) -Wl,--rpath,$(DIR))
 CXXLIBRARYFLAGS = -shared $(CXXLINKFLAGS) -lpthread
-CXXEXEFLAGS =$(if $(MEMORY_ALLOC_LIBRARY),-l$(MEMORY_ALLOC_LIBRARY)) $(CXXLINKFLAGS) -lpthread
+CXXEXEFLAGS =$(CXXLINKFLAGS) -lpthread
+CXXEXEPOSTFLAGS := $(if $(MEMORY_ALLOC_LIBRARY),-l$(MEMORY_ALLOC_LIBRARY))
 CXXDEBUGFLAGS := -O0 -g -UBOOST_DISABLE_ASSERTS -UNDEBUG
 
 CC ?= gcc
