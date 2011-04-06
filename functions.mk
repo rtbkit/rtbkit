@@ -60,6 +60,7 @@ endef
 # $(4): extra compiler options
 
 define add_c++_source
+ifneq ($(PREMAKE),1)
 
 $$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
 
@@ -79,6 +80,7 @@ $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
 -include $(OBJ)/$(CWD)/$(2).d
+endif
 endef
 
 # add a c source file
@@ -88,6 +90,7 @@ endef
 # $(4): extra compiler options
 
 define add_c_source
+ifneq ($(PREMAKE),1)
 
 $$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
 
@@ -107,10 +110,12 @@ $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
 -include $(OBJ)/$(CWD)/$(2).d
+endif
 endef
 
 # add a fortran source file
 define add_fortran_source
+ifneq ($(PREMAKE),1)
 $(if $(trace),$$(warning called add_fortran_source "$(1)" "$(2)"))
 BUILD_$(CWD)/$(2).lo_COMMAND:=$(FC) $(FFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $(SRC)/$(CWD)/$(1)
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
@@ -125,10 +130,11 @@ $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "[FORTRAN] $(CWD)/$(1)")
 	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
-
+endif
 endef
 
 define add_cuda_source
+ifneq ($(PREMAKE),1)
 $(if $(trace),$$(warning called add_cuda_source "$(1)" "$(2)"))
 $(OBJ)/$(CWD)/$(2).d: $(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	($(NVCC) $(NVCCFLAGS) -D__CUDACC__ -M $$< | awk 'NR == 1 { print "$$(BUILD_$(CWD)/$(2).lo_OBJ)", "$$@", ":", $$$$3, "\\"; next; } /usr/ { next; } /\/ \\$$$$/ { next; } { files[$$$$1] = 1; print; } END { print("\n"); for (file in files) { printf("%s: \n\n", file); } }') > $$@~
@@ -149,6 +155,7 @@ $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 
 
 -include $(OBJ)/$(CWD)/$(2).d
+endif
 endef
 
 # Set up the map to map an extension to the name of a function to call
@@ -163,20 +170,24 @@ $(call set,EXT_FUNCTIONS,.i,add_swig_source)
 # $(1): filename
 # $(2): suffix of the filename
 define add_source
+ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called add_source "$(1)" "$(2)"))
 $$(if $$(ADDED_SOURCE_$(CWD)_$(1)),,\
     $$(if $$(call defined,EXT_FUNCTIONS,$(2)),\
 	$$(eval $$(call $$(call get,EXT_FUNCTIONS,$(2)),$(1),$$(basename $(1))))\
 	    $$(eval ADDED_SOURCE_$(CWD)_$(1):=$(true)),\
 	$$(error Extension "$(2)" is not known adding source file $(1))))
+endif
 endef
 
 
 # add a list of source files
 # $(1): list of filenames
 define add_sources
+ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called add_sources "$(1)"))
 $$(foreach file,$$(strip $(1)),$$(eval $$(call add_source,$$(file),$$(suffix $$(file)))))
+endif
 endef
 
 # set compile options for a single source file
@@ -203,6 +214,7 @@ endef
 # $(6): build name; default SO
 
 define library
+ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called library "$(1)" "$(2)" "$(3)"))
 $$(eval $$(call add_sources,$(2)))
 
@@ -237,7 +249,7 @@ $$(LIB_$(1)_SO):	$(BIN)/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB
 LIB_$(1)_DEPS := $(BIN)/$$(tmpLIBNAME)$$(so)
 
 libraries: $(BIN)/$$(tmpLIBNAME)$$(so)
-
+endif
 endef
 
 
@@ -248,6 +260,7 @@ endef
 #       $(1).cc assumed
 # $(4): list of targets to add this program to
 define program
+ifneq ($(PREMAKE),1)
 $$(if $(trace4),$$(warning called program "$(1)" "$(2)" "$(3)"))
 
 $(1)_PROGFILES:=$$(if $(3),$(3),$(1:%=%.cc))
@@ -276,6 +289,7 @@ $(1): $(BIN)/$(1)
 run_$(1): $(BIN)/$(1)
 	$(BIN)/$(1) $($(1)_ARGS)
 
+endif
 endef
 
 # Options to go before a testing command for a test
@@ -298,6 +312,7 @@ BUILD_TEST_COMMAND = rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail &&
 # $(4) testing targets to add it to
 
 define test
+ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called test "$(1)" "$(2)" "$(3)"))
 
 $$(if $(3),,$$(error test $(1) needs to define a test style))
@@ -331,7 +346,7 @@ $(1):	$(TESTS)/$(1)
 #$$(warning $(1) $$(CURRENT))
 
 $(if $(findstring manual,$(3)),manual,test) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4):	$(TESTS)/$(1).passed
-
+endif
 endef
 
 

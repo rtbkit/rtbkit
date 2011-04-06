@@ -12,7 +12,7 @@ all compile:	nodejs_programs nodejs_addons
 # Dependencies for a single node addon
 # $(1): name of the addon
 # $(2): target being built (for error message)
-node_addon_deps1 = $(if $(NODE_$(1)_DEPS),$(NODE_$(1)_DEPS),$(error no deps for node library $(1) building $(2)))
+node_addon_deps1 = $(if $(findstring x1sx,x$(PREMAKE)x),$(NODE_$(1)_DEPS),$(if $(NODE_$(1)_DEPS),$(NODE_$(1)_DEPS),$(error no deps for node library $(1) building $(2) premake $(PREMAKE))))
 
 # Dependencies for a list of node addons
 # $(1): list of addons
@@ -29,14 +29,18 @@ node_addon_deps = $(foreach addon,$(1),$(call node_addon_deps1,$(addon),$(2)))
 define nodejs_addon
 $$(eval $$(call library,$(1)_node_impl,$(2),node_exception_tracing $(3) $$(foreach lib,$(4),$$(lib)_node_impl),,.so,[NODEJS]))
 
-nodejs_addons: $$(LIB_$(1)_node_impl_DEPS) $$(BIN)/$(1).node
-
 NODE_$(1)_DEPS := $$(BIN)/$(1).node $$(call node_addon_deps,$(4))
+
+ifneq ($$(PREMAKE),1)
+
 NODE_$(1)_LINK := $$(BIN)/$(1).node
+
+nodejs_addons: $$(LIB_$(1)_node_impl_DEPS) $$(BIN)/$(1).node
 
 $$(BIN)/$(1).node: $$(LIB_$(1)_node_impl_SO) $$(BIN)/lib$(1)_node_impl.so $$(call node_addon_deps,$(4))
 	@$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) -o $$@~ $$(BIN)/lib$(1)_node_impl.so
 	@mv $$@~ $$@
+endif
 
 endef
 
@@ -55,6 +59,8 @@ define nodejs_module
 
 NODE_$(1)_DEPS := $(BIN)/$(1).js $$(call node_addon_deps,$(3))
 
+ifneq ($$(PREMAKE),1)
+
 nodejs_libraries $(1): $(BIN)/$(1).js
 
 $(BIN)/$(1).js: $(CWD)/$(2)
@@ -62,6 +68,8 @@ $(BIN)/$(1).js: $(CWD)/$(2)
 	$$(if $$(install_js_from$(suffix $(2))),,$$(error js suffix $(suffix $(2)) unknown))
 	$$(call install_js_from$(suffix $(2)), $$<, $$@~)
 	@mv $$@~ $$@
+
+endif
 
 endef
 
@@ -76,9 +84,11 @@ endef
 define nodejs_test
 $$(if $(trace),$$(warning called nodejs_test "$(1)" "$(2)" "$(3)" "$(4)" "$(5)"))
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) $(3) $(CWD)/$(1).js > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
-
 TEST_$(1)_DEPS := $$(call node_addon_deps,$(2),$(1))
+
+ifneq ($$(PREMAKE),1)
+
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) $(3) $(CWD)/$(1).js > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 $(TESTS)/$(1).passed:	$(CWD)/$(1).js $$(TEST_$(1)_DEPS) $(NODE_TEST_DEPS)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
@@ -91,6 +101,7 @@ $(1):	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
 .PHONY: $(1)
 
 $(if $(findstring manual,$(5)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $(4):	$(TESTS)/$(1).passed
+endif
 
 endef
 
@@ -104,10 +115,8 @@ append_js_from.coffee = @coffee --print --compile $(1) >> $(2)
 
 define nodejs_program
 
-
-NODE_PROGRAM_$(1)_DEPS := $$(call node_addon_deps,$(3),$(1))
-
-$(BIN)/$(1):	$(CWD)/$(2) $$(NODE_PROGRAM_$(1)_DEPS) $(NODE_TEST_DEPS)
+ifneq ($$(PREMAKE),1)
+$(BIN)/$(1):	$(CWD)/$(2) $$(call node_addon_deps,$(3),$(1)) $(NODE_TEST_DEPS)
 	@echo "[NODEJS_PROGRAM] $(1)"
 	@echo "#!/usr/bin/env bash" > $$@~
 	@echo -n "//usr/bin/env NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) " >> $$@~
@@ -124,6 +133,7 @@ run_$(1):	$(BIN)/$(1)
 	$(BIN)/$(1)  $($(1)_ARGS)
 
 nodejs_programs programs $(1): $(BIN)/$(1)
+endif
 
 endef
 
@@ -138,9 +148,11 @@ endef
 define vowsjs_test
 $$(if $(trace),$$(warning called nodejs_test "$(1)" "$(2)" "$(3)"))
 
+TEST_$(1)_DEPS := $$(call node_addon_deps,$(2),$(1))
+
+ifneq ($$(PREMAKE),1)
 TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) $(3) $(VOWS) $(CWD)/$(1).js > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
-TEST_$(1)_DEPS := $$(call node_addon_deps,$(2),$(1))
 
 #$$(w arning TEST_$(1)_DEPS := $$(TEST_$(1)_DEPS))
 
@@ -155,6 +167,7 @@ $(1):	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
 .PHONY: $(1)
 
 $(if $(findstring manual,$(5)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $(4):	$(TESTS)/$(1).passed
+endif
 
 endef
 
