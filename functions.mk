@@ -32,7 +32,7 @@ SPACE := $(NOTHING) $(NOTHING)
 
 hash_command2 = $(wordlist 1,1,$(shell echo $(strip $(1)) | md5sum))
 
-hash_command1 = $(eval HASH:=$(call hash_command2,$(1)))$(shell echo $(1)_hash:=$(HASH) >> .make_hash_cache)$(eval $(1)_hash:=$(HASH))$(warning cache hash miss $(1))
+hash_command1 = $(eval HASH:=$(call hash_command2,$(1)))$(shell echo $(1)_hash:=$(HASH) >> .make_hash_cache)$(eval $(1)_hash:=$(HASH))
 
 command_key = $(subst =,_,$(subst $(SPACE),_,$(strip $(1))))
 
