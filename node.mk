@@ -12,7 +12,7 @@ all compile:	nodejs_programs nodejs_addons
 # Dependencies for a single node addon
 # $(1): name of the addon
 # $(2): target being built (for error message)
-node_addon_deps1 = $(if $(findstring x1sx,x$(PREMAKE)x),$(NODE_$(1)_DEPS),$(if $(NODE_$(1)_DEPS),$(NODE_$(1)_DEPS),$(error no deps for node library $(1) building $(2) premake $(PREMAKE))))
+node_addon_deps1 = $(if $(findstring x1x,x$(PREMAKE)x),$(NODE_$(1)_DEPS),$(if $(NODE_$(1)_DEPS),$(NODE_$(1)_DEPS),$(error no deps for node library $(1) building $(2) premake $(PREMAKE))))
 
 # Dependencies for a list of node addons
 # $(1): list of addons
