@@ -13,7 +13,6 @@
 #include <boost/utility.hpp>
 #include "jml/utils/environment.h"
 #include "jml/utils/guard.h"
-#include <ace/OS.h>
 #include <boost/bind.hpp>
 #include "jml/arch/cpu_info.h"
 
