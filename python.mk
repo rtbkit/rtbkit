@@ -63,7 +63,7 @@ $$(if $(trace),$$(warning called install_python_file "$(1)" "$(2)"))
 
 $(BIN)/$(2)/$(1):	$(CWD)/$(1) $(BIN)/$(2)/.dir_exists
 	$$(if $(verbose_build),@echo "cp $$< $$@",@echo "[PYTHON INSTALL] $(2)/$(1)")
-	cp $$< $$@~
+	@cp $$< $$@~
 	@mv $$@~ $$@
 
 #$$(w arning building $(BIN)/$(2)/$(1))
