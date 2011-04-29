@@ -65,6 +65,12 @@ struct Timer {
     double elapsed_wall() const { return wall_time() - wall_; }
 };
 
+inline int64_t timeDiff(const timeval & tv1, const timeval & tv2)
+{
+    return 1000000 * ((int64_t)tv2.tv_sec - (int64_t)tv1.tv_sec)
+        + (int64_t)tv2.tv_usec - (int64_t)tv1.tv_usec;
+}
+
 } // namespace ML
 
 #endif
