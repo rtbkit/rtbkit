@@ -160,3 +160,15 @@ BOOST_AUTO_TEST_CASE( test_atomic_max )
     test_atomic_max_type<uint32_t>();
     test_atomic_max_type<uint64_t>();
 }
+
+BOOST_AUTO_TEST_CASE( test_atomic_set_bits )
+{
+    cerr << "atomic set bits" << endl;
+
+    int i = 0;
+    BOOST_CHECK_EQUAL(i, 0);
+    atomic_set_bits(i, 1);
+    BOOST_CHECK_EQUAL(i, 1);
+    atomic_clear_bits(i, 1);
+    BOOST_CHECK_EQUAL(i, 0);
+}
