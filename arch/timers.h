@@ -15,6 +15,8 @@
 #include <cerrno>
 #include <string.h>
 #include "exception.h"
+#include <sys/select.h>
+
 
 namespace ML {
 
@@ -69,6 +71,20 @@ inline int64_t timeDiff(const timeval & tv1, const timeval & tv2)
 {
     return 1000000 * ((int64_t)tv2.tv_sec - (int64_t)tv1.tv_sec)
         + (int64_t)tv2.tv_usec - (int64_t)tv1.tv_usec;
+}
+
+inline void sleep(double sleepTime)
+{
+    long secs = sleepTime;
+    long usec = (sleepTime - secs) * 1000000;
+    struct timeval timeout = { secs, usec };
+    for (;;) {
+        int res = select(0, 0, 0, 0, &timeout);
+        if (res == -1 && errno == EINTR) continue;
+        else if (res == -1)
+            throw Exception("error sleeping: %s", errno);
+        else break;
+    }
 }
 
 } // namespace ML
