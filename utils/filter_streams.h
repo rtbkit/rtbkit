@@ -39,6 +39,8 @@ public:
     void open(const std::string & file,
               std::ios_base::openmode mode = std::ios_base::out);
 
+    void close();
+
 private:
     boost::scoped_ptr<std::ostream> stream;
 };
@@ -51,6 +53,8 @@ public:
 
     void open(const std::string & file,
               std::ios_base::openmode mode = std::ios_base::in);
+
+    void close();
 
 private:
     boost::scoped_ptr<std::istream> stream;

@@ -91,6 +91,14 @@ open(const std::string & file_, std::ios_base::openmode mode)
     //stream.reset(new ofstream(file.c_str(), mode));
 }
 
+void
+filter_ostream::
+close()
+{
+    rdbuf(0);
+    //stream->close();
+}
+
 
 /*****************************************************************************/
 /* FILTER_ISTREAM                                                            */
@@ -134,6 +142,14 @@ open(const std::string & file_, std::ios_base::openmode mode)
     
     stream.reset(new_stream.release());
     rdbuf(stream->rdbuf());
+}
+
+void
+filter_istream::
+close()
+{
+    rdbuf(0);
+    //stream->close();
 }
 
 } // namespace ML
