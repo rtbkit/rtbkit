@@ -55,6 +55,14 @@ const compact_size_t compact_const(unsigned val)
    11111111      8    2^56  2^64-1
 */
 
+int compact_encode_length(unsigned long long val)
+{
+    int highest = highest_bit(val);
+    int idx = highest / 7;
+    int len = idx + 1;
+    return len;
+}
+
 void encode_compact(Store_Writer & store, unsigned long long val)
 {
     char buf[9];
@@ -86,7 +94,31 @@ void encode_compact(Store_Writer & store, unsigned long long val)
     //    throw Exception("offsets are wrong");
 }
 
-int compact_length(char firstChar)
+void encode_compact(char * & first, char * last, unsigned long long val)
+{
+    /* Length depends upon highest bit / 7 */
+    int highest = highest_bit(val);
+    int idx = highest / 7;
+    int len = idx + 1;
+
+    if (first + len > last)
+        throw ML::Exception("not enough space to encode compact_size_t");
+
+    /* Pack it into the back bytes. */
+    for (int i = len-1;  i >= 0;  --i) {
+        //cerr << "i = " << i << endl;
+        first[i] = val & 0xff;
+        val >>= 8;
+    }
+
+    /* Add the indicator to the first byte. */
+    uint32_t indicator = ~((1 << (8-idx)) - 1);
+    first[0] |= indicator;
+
+    first += len;
+}
+
+int compact_decode_length(char firstChar)
 {
     uint8_t marker = firstChar;
     // no bits set=-1, so len=9 as reqd
@@ -100,7 +132,7 @@ unsigned long long decode_compact(Store_Reader & store)
        and finding the first 1 bit in the result. */
     store.must_have(1);
 
-    int len = compact_length(*store);
+    int len = compact_decode_length(*store);
 
     //cerr << "marker = " << int(marker) << endl;
     //cerr << "len = " << len << endl;
@@ -141,7 +173,7 @@ unsigned long long decode_compact(const char * & first, const char * last)
     if (first >= last)
         throw Exception("not enough bytes to decode compact_size_t");
         
-    int len = compact_length(*first);
+    int len = compact_decode_length(*first);
     if (first + len > last)
         throw Exception("not enough bytes to decode compact_size_t");
 

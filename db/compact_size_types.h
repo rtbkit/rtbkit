@@ -32,12 +32,17 @@ namespace ML {
 namespace DB {
 
 
+/** Return the number of characters necessary to save the given
+    size value, given its actual value. */
+int compact_encode_length(unsigned long long val);
+
 void encode_compact(Store_Writer & store, unsigned long long val);
+void encode_compact(char * & first, char * last, unsigned long long val);
 
 /** Return the number of characters that need to be available in order to
     read the entire compact_size_t, given the first character.
 */
-int compact_length(char firstChar);
+int compact_decode_length(char firstChar);
 
 unsigned long long decode_compact(Store_Reader & store);
 unsigned long long decode_compact(const char * & first, const char * last);
