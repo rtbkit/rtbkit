@@ -11,6 +11,8 @@
 #include <boost/thread/thread.hpp>
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
+#include <iostream>
+#include <signal.h>
 
 namespace ML {
 

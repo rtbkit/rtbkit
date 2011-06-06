@@ -9,6 +9,8 @@
 #define __jml_testing__fd_exhauster_h__
 
 #include <boost/test/unit_test.hpp>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 namespace ML {
 
