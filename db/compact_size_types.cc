@@ -86,14 +86,21 @@ void encode_compact(Store_Writer & store, unsigned long long val)
     //    throw Exception("offsets are wrong");
 }
 
+int compact_length(char firstChar)
+{
+    uint8_t marker = firstChar;
+    // no bits set=-1, so len=9 as reqd
+    int len = 8 - highest_bit((char)~marker);
+    return len;
+}
+
 unsigned long long decode_compact(Store_Reader & store)
 {
     /* Find the first zero bit in the marker.  We do this by bit flipping
        and finding the first 1 bit in the result. */
     store.must_have(1);
 
-    unsigned char marker = *store;
-    int len = 8 - highest_bit((char)~marker);// no bits set=-1, so len=9 as reqd
+    int len = compact_length(*store);
 
     //cerr << "marker = " << int(marker) << endl;
     //cerr << "len = " << len << endl;
@@ -123,6 +130,42 @@ unsigned long long decode_compact(Store_Reader & store)
 
     /* Skip the data.  Makes sure we are in sync even if we throw. */
     store.skip(len);
+
+    return result;
+}
+
+unsigned long long decode_compact(const char * & first, const char * last)
+{
+    /* Find the first zero bit in the marker.  We do this by bit flipping
+       and finding the first 1 bit in the result. */
+    if (first >= last)
+        throw Exception("not enough bytes to decode compact_size_t");
+        
+    int len = compact_length(*first);
+    if (first + len > last)
+        throw Exception("not enough bytes to decode compact_size_t");
+
+    /* Construct our value from the bytes. */
+    unsigned long long result = 0;
+    for (int i = 0;  i < len;  ++i) {
+        int val = first[i];
+        if (val < 0) val += 256;
+
+        result <<= 8;
+        result |= val; 
+        //cerr << "i " << i << " result " << result << endl;
+    }
+
+    /* Filter off the top bits, which told us the length. */
+    if (len == 9) ;
+    else {
+        int bits = len * 7;
+        //cerr << "bits = " << bits << endl;
+        result &= ((1ULL << bits)-1);
+        //cerr << "result = " << result << endl;
+    }
+
+    first += len;
 
     return result;
 }
