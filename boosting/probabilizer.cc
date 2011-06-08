@@ -210,7 +210,8 @@ train_sparse(const std::vector<distribution<double> > & data,
     /* Perform the GLZ. */
     distribution<double> param(3, 0.0);
 
-    return run_irls(correct, outputs, weights, link);
+    Ridge_Regressor regressor;
+    return run_irls(correct, outputs, weights, link, regressor);
 }
 
 void GLZ_Probabilizer::
@@ -391,6 +392,14 @@ train_mode2(const boost::multi_array<double, 2> & outputs,
 
 #if 0
     for (unsigned x = 0;  x < std::min<size_t>(nx, 10);  ++x) {
+        for (unsigned l = 0;  l < ol;  ++l)
+            cerr << format("%10f ", outputs[l][x]);
+        cerr << " : ";
+
+        for (unsigned l = 0;  l < nl;  ++l)
+            cerr << format("%3f ", correct[l][x]);
+
+        cerr << "  -->  ";
         for (unsigned l = 0;  l < nl;  ++l)
             cerr << format("%10f ", independent[l][x]);
         cerr << endl;
@@ -415,7 +424,29 @@ train_mode2(const boost::multi_array<double, 2> & outputs,
 #if 0
     cerr << "skip = " << skip << endl;
     cerr << "nlu = " << nlu << endl;
+    cerr << "weights.min() = " << weights.min()
+         << " weights.max() = " << weights.max()
+         << " weights.total() = " << weights.total()
+         << endl;
 #endif
+
+    // In the case that one output is always less than another, we'll have a problem with
+    // the max column being identical to the higher output.  In this case, we end up
+    // trying to skip all of the columns.
+    //
+    // Solutions to this are:
+    // 1.  Using ridge regression;
+    // 2.  if all labels are skipped, then skip the input instead
+
+    bool ridge = true;   // can't think of where we wouldn't want it...
+    
+    if (nlu == 0) {
+        nlu = nl;
+        for (unsigned i = 0;  i < nlu;  ++i)
+            skip[i] = false;
+        ridge = true;
+    }
+    
 
     // very underparamerized version, to avoid overfitting
     // We learn a single GLZ, with the data as all of the labels together.
@@ -452,8 +483,18 @@ train_mode2(const boost::multi_array<double, 2> & outputs,
     }
         
     /* Perform the GLZ. */
-    distribution<double> param = run_irls(correct2, outputs2, w, link);
+
+    distribution<double> param;
+    if (ridge) {
+        Ridge_Regressor regressor;
+        param = run_irls(correct2, outputs2, w, link, regressor);
+    }
+    else {
+        param = run_irls(correct2, outputs2, w, link);
+    }
     
+    //cerr << "param = " << param << endl;
+
     /* Constuct it from the results. */
     *this = construct_sparse(param, nl, link);
     if (debug)
@@ -703,6 +744,8 @@ train(const Training_Data & training_data,
 
     //cerr << "before training: link = " << link << endl;
     //cerr << "mode = " << mode << endl;
+    //cerr << "nl = " << nl << " regression_problem = " << regression_problem
+    //     << endl;
 
     if (regression_problem) {
         switch (mode) {
