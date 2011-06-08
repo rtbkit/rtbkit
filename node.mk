@@ -171,4 +171,41 @@ endif
 
 endef
 
+# vows test case for node written in coffeescript
+
+# $(1) name of the test (the javascript file that contains the test case)
+# $(2) node.js modules on which it depends
+# $(3) options to the vows executable
+# $(4) test target
+# $(5) test options (eg, manual)
+
+define vowscoffee_test
+$$(if $(trace),$$(warning called nodejs_test "$(1)" "$(2)" "$(3)"))
+
+TEST_$(1)_DEPS := $$(call node_addon_deps,$(2),$(1))
+
+ifneq ($$(PREMAKE),1)
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) $(3) $(VOWS) $(TESTS)/$(1).js > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+
+
+#$$(w arning TEST_$(1)_DEPS := $$(TEST_$(1)_DEPS))
+
+$(TESTS)/$(1).passed:	$(TESTS)/$(1).js $$(TEST_$(1)_DEPS) $(VOWS_TEST_DEPS)
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
+	@$$(TEST_$(1)_COMMAND)
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "           $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
+
+$(1):	$(TESTS)/$(1).js $$(TEST_$(1)_DEPS)
+	NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) $(3) $(VOWS) $(TESTS)/$(1).js
+
+$(TESTS)/$(1).js: $(CWD)/$(1).coffee
+	$$(call install_js_from.coffee, $(CWD)/$(1).coffee, $(TESTS)/$(1).js)
+
+.PHONY: $(1)
+
+$(if $(findstring manual,$(5)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $(4):	$(TESTS)/$(1).passed
+endif
+
+endef
+
 endif
