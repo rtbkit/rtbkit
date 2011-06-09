@@ -47,6 +47,12 @@ boost::shared_ptr<T> make_unowned_sp(T & val)
     return boost::shared_ptr<T>(&val, Dont_Delete());
 }
 
+template<class T>
+boost::shared_ptr<const T> make_unowned_sp(const T & val)
+{
+    return boost::shared_ptr<const T>(&val, Dont_Delete());
+}
+
 extern const struct Null_SP {
     template<typename T>
     JML_ALWAYS_INLINE operator boost::shared_ptr<T>() const
