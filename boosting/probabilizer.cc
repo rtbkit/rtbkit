@@ -375,45 +375,46 @@ train_mode2(const boost::multi_array<double, 2> & outputs,
     size_t ol = outputs.shape()[0];
     size_t nx = outputs.shape()[1];
 
+    //debug = true;
+
     /* Are there any linearly dependent columns in the outputs?  If so, we
        don't try to include them. */
     boost::multi_array<double, 2> independent = outputs;
 
-#if 0
-    for (unsigned l = 0;  l < nl;  ++l)
+    if (debug) {
+        for (unsigned l = 0;  l < nl;  ++l)
         for (unsigned x = 0;  x < nx;  ++x)
             independent[l][x] = outputs[l][x];
-    
-    cerr << "training mode 2" << endl;
-#endif
+        
+        cerr << "training mode 2" << endl;
+    }
 
     vector<distribution<double> > reconstruct;
     vector<int> removed = remove_dependent_impl(independent, reconstruct);
 
-#if 0
-    for (unsigned x = 0;  x < std::min<size_t>(nx, 10);  ++x) {
-        for (unsigned l = 0;  l < ol;  ++l)
-            cerr << format("%10f ", outputs[l][x]);
-        cerr << " : ";
+    if (debug) {
+        for (unsigned x = 0;  x < std::min<size_t>(nx, 10);  ++x) {
+            for (unsigned l = 0;  l < ol;  ++l)
+                cerr << format("%10f ", outputs[l][x]);
+            cerr << " : ";
+            
+            for (unsigned l = 0;  l < nl;  ++l)
+                cerr << format("%3f ", correct[l][x]);
+            
+            cerr << "  -->  ";
+            for (unsigned l = 0;  l < nl;  ++l)
+                cerr << format("%10f ", independent[l][x]);
+            cerr << endl;
+        }
 
-        for (unsigned l = 0;  l < nl;  ++l)
-            cerr << format("%3f ", correct[l][x]);
-
-        cerr << "  -->  ";
-        for (unsigned l = 0;  l < nl;  ++l)
-            cerr << format("%10f ", independent[l][x]);
-        cerr << endl;
+        cerr << "removed = " << removed << endl;
+        for (unsigned i = 0;  i < reconstruct.size();  ++i)
+            cerr << "reconstruct[" << i << "] = " << reconstruct[i] << endl;
+        
+        cerr << outputs.shape()[0] << "x" << outputs.shape()[1]
+             << " matrix" << endl;
     }
-#endif
-
-#if 0
-    cerr << "removed = " << removed << endl;
-    for (unsigned i = 0;  i < reconstruct.size();  ++i)
-        cerr << "reconstruct[" << i << "] = " << reconstruct[i] << endl;
-
-    cerr << outputs.shape()[0] << "x" << outputs.shape()[1] << " matrix" << endl;
-#endif
-
+    
     distribution<bool> skip(removed.size());
     int nlu = 0;  // nl unskipped
     for (unsigned l = 0;  l < nl;  ++l) {
@@ -421,18 +422,19 @@ train_mode2(const boost::multi_array<double, 2> & outputs,
         if (!skip[l]) ++nlu;
     }
 
-#if 0
-    cerr << "skip = " << skip << endl;
-    cerr << "nlu = " << nlu << endl;
-    cerr << "weights.min() = " << weights.min()
-         << " weights.max() = " << weights.max()
-         << " weights.total() = " << weights.total()
-         << endl;
-#endif
+    if (debug) {
+        cerr << "skip = " << skip << endl;
+        cerr << "nlu = " << nlu << endl;
+        cerr << "weights.min() = " << weights.min()
+             << " weights.max() = " << weights.max()
+             << " weights.total() = " << weights.total()
+             << endl;
+        cerr << "num_correct = " << num_correct << endl;
+    }
 
-    // In the case that one output is always less than another, we'll have a problem with
-    // the max column being identical to the higher output.  In this case, we end up
-    // trying to skip all of the columns.
+    // In the case that one output is always less than another, we'll have
+    // a problem with the max column being identical to the higher output.
+    // In this case, we end up trying to skip all of the columns.
     //
     // Solutions to this are:
     // 1.  Using ridge regression;
@@ -493,7 +495,8 @@ train_mode2(const boost::multi_array<double, 2> & outputs,
         param = run_irls(correct2, outputs2, w, link);
     }
     
-    //cerr << "param = " << param << endl;
+    if (debug)
+        cerr << "param = " << param << endl;
 
     /* Constuct it from the results. */
     *this = construct_sparse(param, nl, link);
