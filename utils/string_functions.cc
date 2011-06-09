@@ -107,4 +107,14 @@ std::string lowercase(const std::string & str)
     return result;
 }
 
+bool removeIfEndsWith(std::string & str, const std::string & ending)
+{
+    if (str.rfind(ending) == str.size() - ending.length()) {
+        str = string(str, 0, str.size() - ending.length());
+        return true;
+    }
+    
+    return false;
+}
+
 } // namespace ML
