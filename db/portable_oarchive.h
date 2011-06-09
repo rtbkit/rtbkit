@@ -225,6 +225,13 @@ public:
             throw Exception("Error writing to stream");
     }
 
+    /** Warning: doesn't do byte order conversions or anything like that. */
+    template<typename T>
+    void save_binary(const T & val)
+    {
+        save_binary(&val, sizeof(T));
+    }
+
     size_t offset() const { return offset_; }
 
 private:
