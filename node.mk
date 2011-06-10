@@ -7,7 +7,7 @@ NODE_PATH := $(if $(NODE_PATH),$(NODE_PATH):)$(BIN)
 NODE_TEST_DEPS ?= $(BIN)/libexception_hook.so
 VOWS_TEST_DEPS ?= $(NODE_TEST_DEPS)
 
-all compile:	nodejs_programs nodejs_addons
+all compile:	nodejs_programs nodejs_addons nodejs_libraries
 
 # Dependencies for a single node addon
 # $(1): name of the addon
@@ -63,7 +63,7 @@ ifneq ($$(PREMAKE),1)
 
 nodejs_libraries $(1): $(BIN)/$(1).js
 
-$(BIN)/$(1).js: $(CWD)/$(2)
+$(BIN)/$(1).js: $(CWD)/$(2) $$(call node_addon_deps,$(3))
 	@echo "[NODEJS_MODULE] $(1)"
 	$$(if $$(install_js_from$(suffix $(2))),,$$(error js suffix $(suffix $(2)) unknown))
 	$$(call install_js_from$(suffix $(2)), $$<, $$@~)
