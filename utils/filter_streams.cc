@@ -26,6 +26,8 @@
 #include <boost/iostreams/filter/bzip2.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/device/file.hpp>
+#include "jml/arch/exception.h"
+#include <errno.h>
 
 
 using namespace std;
@@ -137,9 +139,13 @@ open(const std::string & file_, std::ios_base::openmode mode)
         new_stream->push(std::cin);
     }
     else {
-        new_stream->push(file_source(file.c_str(), mode));
+        file_source source(file.c_str(), mode);
+        if (!source.is_open())
+            throw Exception("stream open failed for file %s: %s",
+                            file_.c_str(), strerror(errno));
+        new_stream->push(source);
     }
-    
+
     stream.reset(new_stream.release());
     rdbuf(stream->rdbuf());
 }
