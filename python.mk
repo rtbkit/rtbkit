@@ -93,5 +93,32 @@ all compile:	python_modules
 endif
 endef
 
+# $(1): name of python program
+# $(2): python source file to copy
+# $(3): python modules it depends upon
+
+define python_program
+ifneq ($(PREMAKE),1)
+$$(if $(trace),$$(warning called python_program "$(1)" "$(2)" "$(3)"))
+
+PYTHON_$(1)_DEPS := $(BIN)/$(1) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
+
+run_$(1):	$(BIN)/$(1)
+	$(BIN)/$(1)  $($(1)_ARGS)
+	
+$(BIN)/$(1): $(CWD)/$(2) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
+	@echo "[PYTHON_PROGRAM] $(1)"
+	@cp $$< $$@~
+	@chmod +x $$@~
+	@mv $$@~ $$@
+
+#$$(w arning PYTHON_$(1)_DEPS=$$(PYTHON_$(1)_DEPS))
+
+python_programs: $$(PYTHON_$(1)_DEPS)
+
+all compile:	python_programs
+endif
+endef
+
 
 endif
