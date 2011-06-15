@@ -27,19 +27,24 @@
 #include <fstream>
 #include <boost/scoped_ptr.hpp>
 
-
 namespace ML {
 
 class filter_ostream : public std::ostream {
 public:
     filter_ostream();
-    filter_ostream(const std::string & file, std::ios_base::openmode mode
-                   = std::ios_base::out);
+    filter_ostream(const std::string & file,
+                   std::ios_base::openmode mode = std::ios_base::out);
+    filter_ostream(int fd,
+                   std::ios_base::openmode mode = std::ios_base::out);
 
     void open(const std::string & file,
               std::ios_base::openmode mode = std::ios_base::out);
+    void open(int fd,
+              std::ios_base::openmode mode = std::ios_base::out);
 
     void close();
+
+    std::string status() const;
 
 private:
     boost::scoped_ptr<std::ostream> stream;

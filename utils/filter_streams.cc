@@ -26,7 +26,9 @@
 #include <boost/iostreams/filter/bzip2.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/device/file_descriptor.hpp>
 #include "jml/arch/exception.h"
+#include "jml/arch/format.h"
 #include <errno.h>
 
 
@@ -50,6 +52,13 @@ filter_ostream(const std::string & file, std::ios_base::openmode mode)
     : ostream(std::cout.rdbuf())
 {
     open(file, mode);
+}
+
+filter_ostream::
+filter_ostream(int fd, std::ios_base::openmode mode)
+    : ostream(std::cout.rdbuf())
+{
+    open(fd, mode);
 }
 
 namespace {
@@ -93,12 +102,38 @@ open(const std::string & file_, std::ios_base::openmode mode)
     //stream.reset(new ofstream(file.c_str(), mode));
 }
 
+void filter_ostream::
+open(int fd, std::ios_base::openmode mode)
+{
+    using namespace boost::iostreams;
+    
+    auto_ptr<filtering_ostream> new_stream
+        (new filtering_ostream());
+
+    new_stream->push(file_descriptor_sink(fd));
+    stream.reset(new_stream.release());
+    rdbuf(stream->rdbuf());
+
+    //stream.reset(new ofstream(file.c_str(), mode));
+}
+
 void
 filter_ostream::
 close()
 {
     rdbuf(0);
     //stream->close();
+}
+
+std::string
+filter_ostream::
+status() const
+{
+    if (*this) return "good";
+    else return format("%s%s%s",
+                       fail() ? " fail" : "",
+                       bad() ? " bad" : "",
+                       eof() ? " eof" : "");
 }
 
 
