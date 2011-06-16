@@ -32,11 +32,12 @@ endef
 
 # $(1) name of the test
 # $(2) python modules on which it depends
-# $(3) test style.  Currently unused.
+# $(3) test options (e.g. manual)
+# $(4) test targets
 
 define pytest
 ifneq ($(PREMAKE),1)
-$$(if $(trace),$$(warning called pytest "$(1)" "$(2)" "$(3)"))
+$$(if $(trace),$$(warning called pytest "$(1)" "$(2)" "$(3)" "$(4)"))
 
 TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(PYTHON) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(1) FAILED" && cat $(TESTS)/$(1).failed && false))
 
@@ -49,7 +50,7 @@ $(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
 
 .PHONY: $(1)
 
-$(if $(findstring manual,$(3)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $(4) python_test:	$(TESTS)/$(1).passed
+$(if $(findstring manual,$(3)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4) python_test:	$(TESTS)/$(1).passed
 endif
 endef
 
