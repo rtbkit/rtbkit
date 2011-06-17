@@ -187,6 +187,20 @@ public:
         return feature_space_;
     }
 
+    /** Returns the feature space, dynamic cast as specified. */
+    template<class Target_FS>
+    boost::shared_ptr<const Target_FS> feature_space() const
+    {
+        boost::shared_ptr<const Target_FS> result
+            = boost::dynamic_pointer_cast<const Target_FS>(feature_space());
+        if (!result)
+            throw Exception("Couldn't cast feature space of type "
+                            + demangle(typeid(*feature_space()).name())
+                            + " to "
+                            + demangle(typeid(Target_FS).name()));
+        return result;
+    }
+    
     /** Change the feature space.  This method should be used with caution,
         as it is quite possible that there will have been initialisation done
         assuming the old feature space.
