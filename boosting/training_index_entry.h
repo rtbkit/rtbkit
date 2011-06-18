@@ -34,6 +34,9 @@ struct Dataset_Index::Index_Entry {
 
     Lock lock;  // for when we store things that aren't there
 
+    bool used;  ///< True if we use this entry
+    bool initialized;
+
     Feature feature;
     boost::shared_ptr<const Feature_Space> feature_space;
 
@@ -53,6 +56,9 @@ struct Dataset_Index::Index_Entry {
     /** Print a string containing the information above. */
     std::string print_info() const;
     
+    /** Check that this feature is used before we access it. */
+    void check_used() const;
+
     /// If true, was found once or more in every examp.
     bool dense() const
     {
@@ -157,7 +163,7 @@ struct Dataset_Index::Index_Entry {
         example_count and sparse fields are used to improve memory management.
     */
     void insert(float value, unsigned example, unsigned example_count,
-                bool sparse);
+                bool sparse, const Feature_Set & fset);
 
     /** Copy the data structures to allow unused space on the end of vectors
         to be reclaimed. */

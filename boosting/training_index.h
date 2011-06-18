@@ -63,7 +63,16 @@ public:
         sets one time.  The rest of the indexes (which are more expensive)
         are created on demand from this information.
     */
-    void init(const Training_Data & data);
+    void init(const Training_Data & data,
+              const std::vector<Feature> & features
+                  = std::vector<Feature>());
+
+    /** Initialise the index from a dataset, but only for the given features.
+        An attempt to access any other feature will fail.
+    */
+    void init(const Training_Data & data,
+              const Feature & label,
+              const std::vector<Feature> & features);
 
     /** The type of the frequency distribution. */
     typedef sparse_distribution<float, float,

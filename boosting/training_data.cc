@@ -296,8 +296,19 @@ fixup_grouping_features(const std::vector<Feature> & group_features,
 void Training_Data::
 preindex(const Feature & label, const std::vector<Feature> & features)
 {
-    return;
-    throw Exception("STUB", __PRETTY_FUNCTION__);
+    Guard guard(index_lock);
+    if (!guard.locked()) {
+        throw Exception("guard not locked: %s", strerror(errno));
+    }
+    if (index_)
+        throw Exception("preindex: already has index");
+
+    //boost::timer timer;
+    index_.reset(new Dataset_Index());
+    index_->init(*this, label, features);
+    dirty_ = false;
+    //cerr << "preindex(): " << timer.elapsed() << "s for "
+    //     << example_count() << " examples" << endl;
 }
 
 void Training_Data::preindex(const Feature & label)
@@ -455,13 +466,17 @@ Training_Data * Training_Data::make_type() const
 const Dataset_Index & Training_Data::generate_index() const
 {
     Guard guard(index_lock);
+    if (!guard.locked()) {
+        throw Exception("guard not locked: %s", strerror(errno));
+    }
     if (!dirty_ && index_) return *index_;
 
     //boost::timer timer;
     index_.reset(new Dataset_Index());
     index_->init(*this);
     dirty_ = false;
-    //cerr << "generate_index(): " << timer.elapsed() << "s" << endl;
+    //cerr << "generate_index(): " << timer.elapsed() << "s for "
+    //     << example_count() << " examples" << endl;
     return *index_;
 }
 

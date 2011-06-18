@@ -169,8 +169,8 @@ public:
     const Data & operator [] (const Feature & feature) const
     {
         static const Data NONE;
-        const_iterator it = find(feature);
-        if (it == end())
+        const_iterator it = this->find(feature);
+        if (it == this->end())
             return NONE;
         else return it->second;
     }

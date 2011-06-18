@@ -15,6 +15,8 @@
 #include "jml/utils/vector_utils.h"
 #include <boost/timer.hpp>
 #include "jml/utils/string_functions.h"
+#include "jml/arch/demangle.h"
+#include <set>
 
 
 using namespace std;
@@ -35,7 +37,10 @@ struct Dataset_Index::Itl {
     std::vector<Feature> all_features;
 };
 
-void Dataset_Index::init(const Training_Data & data)
+void
+Dataset_Index::
+init(const Training_Data & data,
+     const std::vector<Feature> & features_)
 {
     //boost::timer t;
 
@@ -52,6 +57,8 @@ void Dataset_Index::init(const Training_Data & data)
     vector<Index_Entry *> entries;
     vector<Feature> features;
 
+    std::set<Feature> keep_features(features_.begin(), features_.end());
+    
     for (unsigned x = 0;  x < nx;  ++x) {
         //cerr << "x = " << x << " of " << nx << endl;
         const Feature_Set & fs = data[x];
@@ -59,12 +66,17 @@ void Dataset_Index::init(const Training_Data & data)
             for (Feature_Set::const_iterator it = fs.begin();
                  it != fs.end();  ++it) {
                 const Feature & feat = it.feature();
-                features.push_back(feat);
-                entries.push_back(&itl->index[feat]);
+                
+                itl->index[feat].used = keep_features.empty() || keep_features.count(feat);
                 itl->index[feat].feature = feat;
                 itl->index[feat].feature_space = itl->feature_space;
+                itl->index[feat].initialized = true;
+                features.push_back(feat);
+                entries.push_back(&itl->index[feat]);
             }
         }
+        
+        //std::set<Feature> doneFeatures;
 
         int i = 0;
         for (Feature_Set::const_iterator it = fs.begin();
@@ -72,17 +84,46 @@ void Dataset_Index::init(const Training_Data & data)
             const Feature & feat = it.feature();
             float val = it.value();
 
+#if 0 // debugging sort() problem               
+            if (doneFeatures.count(feat)) {
+                //sleep(1);
+
+                std::set<Feature> doneFeatures2;
+                for (Feature_Set::const_iterator it = fs.begin();
+                     it != fs.end();  ++it) {
+                    const Feature & feat = it.feature();
+                    if (doneFeatures2.count(feat))
+                        throw Exception("doubled up twice on feature " + itl->feature_space->print(feat)
+                                        + " on " + type_name(fs));  // debug
+                    doneFeatures2.insert(feat);
+                }
+
+                throw Exception("doubled up temporarily feature " + itl->feature_space->print(feat)
+                                + " on " + type_name(fs));  // debug
+            }
+            doneFeatures.insert(feat);
+#endif
+
             /* Save a map lookup for the common case of always the same
                features or always the same ones at the start. */
-            if (i < features.size() && features[i] == feat)
-                entries[i]->insert(val, x, nx, sparse);
-            else itl->index[feat].insert(val, x, nx, sparse);
+            if (i < features.size() && features[i] == feat) {
+                if (entries[i]->used)
+                    entries[i]->insert(val, x, nx, sparse, fs);
+            }
+            else {
+                Index_Entry & entry = itl->index[feat];
+                if (!entry.initialized) {
+                    entry.initialized = true;
+                    entry.used = (keep_features.empty() || keep_features.count(feat));
+                    entry.feature = feat;
+                    entry.feature_space = itl->feature_space;
+                }
+                if (entry.used)
+                    entry.insert(val, x, nx, sparse, fs);
+            }
         }
     }
-
-    //cerr << "scan examples: " << t.elapsed() << "s" << endl;
-    //t.restart();
-
+    
     itl->all_features.clear();
     itl->all_features.reserve(itl->index.size());
 
@@ -90,12 +131,13 @@ void Dataset_Index::init(const Training_Data & data)
     for (Itl::index_type::iterator it = itl->index.begin();
          it != itl->index.end();  ++it) {
         Feature feature = it.key();
+        itl->all_features.push_back(feature);
+        if (!it->used) continue;
 
         //cerr << "finalizing feature " << itl->feature_space->print(feature)
         //     << endl;
 
         it->finalize(data.example_count(), feature, itl->feature_space);
-        itl->all_features.push_back(feature);
 
         //cerr << "  " << it->print_info() << endl;
         //cerr << "  examples = " << it->examples.size() << endl;
@@ -107,6 +149,22 @@ void Dataset_Index::init(const Training_Data & data)
     //cerr << "finalize features: " << t.elapsed() << "s" << endl;
 
     //cerr << "Dataset_Index::init(): " << format("%6.2fs", t.elapsed()) << endl;
+}
+
+
+void
+Dataset_Index::
+init(const Training_Data & data,
+     const Feature & label,
+     const std::vector<Feature> & features)
+{
+    vector<Feature> features2 = features;
+    if (std::find(features.begin(), features.end(), label) == features.end())
+        features2.push_back(label);
+    init(data, features2);
+
+    // Generate labels
+    itl->index[label].get_labels();
 }
 
 const std::vector<Feature> & Dataset_Index::all_features() const

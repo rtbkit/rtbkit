@@ -27,7 +27,8 @@ namespace ML {
 
 Dataset_Index::Index_Entry::
 Index_Entry()
-    : example_count(0), seen(0), found_in(0), missing_from(0), found_twice(0),
+    : used(false), initialized(false),
+      example_count(0), seen(0), found_in(0), missing_from(0), found_twice(0),
       zeros(0), ones(0),
       non_integral(0), max_value(-INFINITY), min_value(INFINITY),
       last_example((unsigned)-1), in_this_ex(0),
@@ -42,16 +43,28 @@ Index_Entry()
 string Dataset_Index::Index_Entry::
 print_info() const
 {
+    check_used();
     return format("ex_cnt: %d  seen: %d  found: %d  missing: %d  >1: %d  0: %d "
                   "1: %d  non-int: %d  min: %f  max: %f dense: %d exactly_one: %d",
                   example_count, seen, found_in, missing_from, found_twice,
                   zeros, ones, non_integral, min_value, max_value,
                   dense(), exactly_one());
 }
-    
-void Dataset_Index::Index_Entry::
-insert(float value, unsigned example, unsigned example_count, bool sparse)
+
+void
+Dataset_Index::Index_Entry::
+check_used() const
 {
+    if (!used)
+        throw Exception("attempt to access unused feature %s",
+                        feature_space->print(feature).c_str());
+}
+   
+void Dataset_Index::Index_Entry::
+insert(float value, unsigned example, unsigned example_count, bool sparse,
+       const Feature_Set & fs)
+{
+    check_used();
     if (isnanf(value)) return;
 
     if (!sparse && values.empty())
@@ -74,7 +87,23 @@ insert(float value, unsigned example, unsigned example_count, bool sparse)
     }
     else in_this_ex += 1;
 
-    if (in_this_ex == 2) found_twice += 1;
+    if (in_this_ex == 2) {
+#if 0 // debugging sort problem
+        cerr << "feature " + feature_space->print(feature) + " was found twice"
+             << " on example " << example << " last_example " << last_example
+             << " of " << example_count << " with value "
+             << value << endl;
+        cerr << "fs = " << feature_space->print(fs) << endl;
+
+        for (Feature_Set::const_iterator it = fs.begin(), end = fs.end();  it != end;
+             ++it) {
+            cerr << it.feature() << " " << feature_space->print(it.feature()) << " -> "
+                 << feature_space->print(it.feature(), it.value()) << endl;
+        }
+        throw Exception("feature " + feature_space->print(feature) + " was found twice");
+#endif // debugging sort problem
+        found_twice += 1;
+    }
     if (value == 0.0) zeros += 1;
     if (value == 1.0) ones += 1;
     if (round(value) != value) non_integral += 1;
@@ -121,6 +150,7 @@ void Dataset_Index::Index_Entry::
 finalize(unsigned example_count, const Feature & feature,
          boost::shared_ptr<const Feature_Space> feature_space)
 {
+    check_used();
     //boost::timer t;
 
     this->feature = feature;
@@ -193,6 +223,7 @@ const vector<float> &
 Dataset_Index::Index_Entry::
 get_values(Sort_By sort_by)
 {
+    check_used();
     if (sort_by == BY_EXAMPLE) return values;
     else if (sort_by == BY_VALUE) {
         if (has_values_sorted) return values_sorted;
@@ -213,6 +244,7 @@ const vector<unsigned> &
 Dataset_Index::Index_Entry::
 get_examples(Sort_By sort_by)
 {
+    check_used();
     if (sort_by == BY_EXAMPLE) return examples;
 
     else if (sort_by == BY_VALUE) {
@@ -258,6 +290,7 @@ const vector<unsigned> &
 Dataset_Index::Index_Entry::
 get_counts(Sort_By sort_by)
 {
+    check_used();
     if (only_one()) return counts;  // one per example; no problem
 
     bool debug = false;
@@ -387,6 +420,7 @@ const vector<float> &
 Dataset_Index::Index_Entry::
 get_divisors(Sort_By sort_by)
 {
+    check_used();
     /* We calculate these directly from the counts. */
     if (sort_by == BY_EXAMPLE) {
         if (has_divisors) return divisors;
@@ -454,6 +488,7 @@ const Dataset_Index::Freqs &
 Dataset_Index::Index_Entry::
 get_freqs()
 {
+    check_used();
     if (has_freqs) return freqs;
 
     vector<pair<float, float> > freqs2;
@@ -539,6 +574,7 @@ const Dataset_Index::Category_Freqs &
 Dataset_Index::Index_Entry::
 get_category_freqs(size_t num_categories)
 {
+    check_used();
     if (has_category_freqs) {
         if (num_categories != category_freqs.size())
             throw Exception("get_category_freqs(): feature has changed number of "
@@ -573,6 +609,7 @@ const vector<Label> &
 Dataset_Index::Index_Entry::
 get_labels()
 {
+    check_used();
     if (!feature_space && example_count != 0)
         throw Exception("get_labels(): no feature space");
     
@@ -583,6 +620,7 @@ get_labels()
     /* No labels?  create them */
 
     if (!exactly_one()) {
+        cerr << print_info() << endl;
         throw Exception("get_labels(): currently label must have exactly "
                         "one feature per example for feature "
                         + feature_space->print(feature) + ": "
@@ -622,6 +660,7 @@ Dataset_Index::Index_Entry::
 get_mapped_labels(const vector<Label> & labels, const Feature & target,
                   Sort_By sort_by)
 {
+    check_used();
     //cerr << "examples.size() = " << examples.size() << endl;
     //cerr << "labels.size() = " << labels.size() << endl;
     //cerr << "example_count = " << example_count << endl;
@@ -661,6 +700,7 @@ get_mapped_labels(const vector<Label> & labels, const Feature & target,
 void Dataset_Index::Index_Entry::
 bucket_dist_full(vector<float> & result)
 {
+    check_used();
     bool debug = false;
 
     const Freqs & freqs = get_freqs();
@@ -688,6 +728,7 @@ bucket_dist_full(vector<float> & result)
 void Dataset_Index::Index_Entry::
 bucket_dist_reduced(vector<float> & result, size_t num_buckets)
 {
+    check_used();
     bool debug = false;
     //debug = (feature.type() == 22);
 
@@ -811,6 +852,7 @@ const Dataset_Index::Index_Entry::Bucket_Info &
 Dataset_Index::Index_Entry::
 create_buckets(size_t num_buckets)
 {
+    check_used();
     Guard guard(lock);
 
     //cerr << "create_buckets(" << num_buckets << ")" << endl;
@@ -858,6 +900,7 @@ const Dataset_Index::Index_Entry::Bucket_Info &
 Dataset_Index::Index_Entry::
 buckets(size_t num_buckets)
 {
+    check_used();
     /* If there are more buckets than distinct values, then we use the
        number of distinct values as the number of buckets.
     */
