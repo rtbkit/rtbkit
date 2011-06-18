@@ -291,9 +291,31 @@ optimize(const std::vector<Feature> & features)
         }
     }
 
-    if (num_done != result.to_features.size())
+    if (num_done != result.to_features.size()) {
+        vector<Feature> sorted1 = result.to_features;
+        vector<Feature> sorted2;
+
+        for (unsigned i = 0;  i < features.size();  ++i) {
+            if (feature_map.count(features[i]))
+                sorted2.push_back(features[i]);
+        }
+
+        std::sort(sorted1.begin(), sorted1.end());
+        std::sort(sorted2.begin(), sorted2.end());
+        
+        vector<Feature> missing;
+        std::set_difference(sorted1.begin(), sorted1.end(),
+                            sorted2.begin(), sorted2.end(),
+                            back_inserter(missing));
+
+        std::string message;
+        for (unsigned i = 0;  i < missing.size();  ++i) {
+            if (i != 0) message += " ";
+            message += feature_space()->print(missing[i]);
+        }
         throw Exception("optimize(): didn't find all features needed for "
-                        "classifier");
+                        "classifier: %s", message.c_str());
+    }
 
     result.initialized = true;
 
