@@ -9,7 +9,10 @@
 #ifndef __boosting__worker_task_h__
 #define __boosting__worker_task_h__
 
+#include "jml/utils/guard.h"
+#include "jml/arch/format.h"
 #include <boost/function.hpp>
+#include <boost/bind.hpp>
 #include <ace/Synch.h>
 #include <ace/Token.h>
 #include <ace/Task.h>
@@ -142,6 +145,28 @@ public:
 
     /** Unlock the group so that it can be removed. */
     void unlock_group(int group);
+
+    /** Run a set of jobs in multiple threads. */
+    template<typename It, typename Fn>
+    void do_group(It first, It last, Fn doWork, int parent = -1,
+                 std::string groupName = "", std::string jobName = "")
+    {
+        int group;
+        {
+            int parent = -1;  // no parent group
+            group = get_group(NO_JOB, groupName, parent);
+            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                         this,
+                                         group));
+            
+            for (int i = 0; first != last;  ++first, ++i)
+                add(boost::bind<void>(doWork, first),
+                    jobName + ML::format("%d", i),
+                    group);
+        }
+
+        run_until_finished(group);
+    }
 
 private:
     /** Add a job that belongs to the given group.  Jobs which are scheduled into
