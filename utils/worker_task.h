@@ -333,6 +333,21 @@ private:
     void dump() const;
 };
 
+/** Run a set of jobs in multiple threads.  The iterator will be iterated
+    through the range and the doWork function will be called with each
+    value of the iterator in a different thread.
+*/
+template<typename It, typename Fn>
+void run_in_parallel(It first, It last, Fn doWork, int parent = -1,
+                     std::string groupName = "", std::string jobName = "")
+{
+    Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+    worker.do_group(first, last, doWork, parent, groupName, jobName);
+}
+
+
 } // namespace ML
+
+
 
 #endif /* __boosting__worker_task_h__ */
