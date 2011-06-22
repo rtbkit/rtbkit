@@ -313,4 +313,19 @@ operator << (std::ostream & stream, const Configuration::Accessor & acc)
     return stream << acc.operator std::string();
 }
 
+std::vector<std::string>
+Configuration::
+allKeys() const
+{
+    vector<string> result;
+
+    for (Data::Entries::const_iterator
+             it = data_->entries.begin(),
+             end = data_->entries.end();
+         it != end;  ++it)
+        result.push_back(it->first);
+
+    return result;
+}
+
 } // namespace ML
