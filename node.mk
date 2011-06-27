@@ -1,6 +1,7 @@
 ifeq ($(NODEJS_ENABLED),1)
 
-NODE ?= node
+NODE ?= $(if $(NODE_DEBUG),node_g,node)
+NODE_V8_LIB ?= $(if $(NODE_DEBUG),node-v8_g,node-v8)
 NODE_PRELOAD ?= LD_PRELOAD=$(BIN)/libexception_hook.so
 VOWS ?= /usr/local/bin/vows
 NODE_PATH := $(if $(NODE_PATH),$(NODE_PATH):)$(BIN)
