@@ -183,7 +183,7 @@ public:
     float split_val() const { return split_val_; }
     Op op() const { return (Op)op_; }
 
-    std::string print(const Feature_Space & fs) const;
+    std::string print(const Feature_Space & fs, int branch = true) const;
 
     void serialize(DB::Store_Writer & store,
                    const Feature_Space & fs) const;

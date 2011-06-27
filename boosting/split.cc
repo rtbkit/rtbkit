@@ -71,18 +71,47 @@ optimize(const Optimization_Info & info)
 
 std::string
 Split::
-print(const Feature_Space & fs) const
+print(const Feature_Space & fs, int branch) const
 {
     string feat_name = fs.print(feature_);
-    string val = fs.print(feature_, split_val_);
-    
-    switch (op_) {
-    case EQUAL:       return feat_name + " = " + val;
-    case LESS:        return feat_name + " < " + val;
-    case NOT_MISSING: return feat_name + " not missing";
-    default:
-        throw Exception("split::print(): invalid op");
+    Feature_Type type = fs.info(feature_).type();
+
+    if (type == BOOLEAN) {
+        if (op_ != LESS || split_val_ != 0.5)
+            throw Exception("unknown boolean branch");
+        switch (branch) {
+        case true: return "!" + feat_name;
+        case false: return feat_name;
+        case MISSING: return feat_name + " missing";
+        default:
+            throw Exception("bad branch");
+        }
     }
+
+    string val = fs.print(feature_, split_val_);
+
+    switch (branch) {
+    case true:
+        switch (op_) {
+        case EQUAL:       return feat_name + " = " + val;
+        case LESS:        return feat_name + " < " + val;
+        case NOT_MISSING: return feat_name + " not missing";
+        default:
+            throw Exception("split::print(): invalid op");
+        };
+    case false:
+        switch (op_) {
+        case EQUAL:       return feat_name + " != " + val;
+        case LESS:        return feat_name + " >= " + val;
+        case NOT_MISSING: return feat_name + " missing";
+        default:
+            throw Exception("split::print(): invalid op");
+        };
+    case MISSING:
+        return feat_name + " missing";
+    default:
+        throw Exception("invalid branch name");
+    };
 }
 
 void

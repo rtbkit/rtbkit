@@ -308,18 +308,25 @@ print_recursive(int level, const Tree::Ptr & ptr,
         float z_adj = n.z / cov;
         result += spaces 
             + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%)\n",
-                     n.split.print(*feature_space()).c_str(),
+                     n.split.print(*feature_space(), false).c_str(),
                      z_adj, n.examples, cov * 100.0);
-        result += spaces + "  true: \n";
-        result += print_recursive(level + 1, n.child_true, total_weight);
-        result += spaces + "  false: \n";
         result += print_recursive(level + 1, n.child_false, total_weight);
-        result += spaces + "  missing: \n";
-        result += print_recursive(level + 1, n.child_missing, total_weight);
+        result += spaces 
+            + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%)\n",
+                     n.split.print(*feature_space(), true).c_str(),
+                     z_adj, n.examples, cov * 100.0);
+        result += print_recursive(level + 1, n.child_true, total_weight);
+        if (n.child_missing && n.child_missing.examples() > 0) {
+            result += spaces 
+                + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%)\n",
+                         n.split.print(*feature_space(), MISSING).c_str(),
+                         z_adj, n.examples, cov * 100.0);
+            result += print_recursive(level + 1, n.child_missing, total_weight);
+        }
         return result;
     }
     else if (ptr.leaf()) {
-        string result = spaces + "leaf: ";
+        string result = spaces + "leaf: label ";
         Tree::Leaf & l = *ptr.leaf();
         const distribution<float> & dist = l.pred;
         for (unsigned i = 0;  i < dist.size();  ++i)
@@ -328,7 +335,7 @@ print_recursive(int level, const Tree::Ptr & ptr,
         result += format(" (weight = %.2f, cov = %.2f%%)\n",
                          l.examples, cov * 100.0);
         
-        return result + "\n";
+        return result;
     }
     else return spaces + "NULL";
 }
