@@ -81,7 +81,7 @@ print(const Feature_Space & fs, int branch) const
             throw Exception("unknown boolean branch");
         switch (branch) {
         case true: return "!" + feat_name;
-        case false: return feat_name;
+        case false: return " " + feat_name;
         case MISSING: return feat_name + " missing";
         default:
             throw Exception("bad branch");
@@ -93,8 +93,8 @@ print(const Feature_Space & fs, int branch) const
     switch (branch) {
     case true:
         switch (op_) {
-        case EQUAL:       return feat_name + " = " + val;
-        case LESS:        return feat_name + " < " + val;
+        case EQUAL:       return feat_name + "  = " + val;
+        case LESS:        return feat_name + "  < " + val;
         case NOT_MISSING: return feat_name + " not missing";
         default:
             throw Exception("split::print(): invalid op");

@@ -295,6 +295,67 @@ predict_recursive_impl(const GetFeatures & get_features,
                                weights[MISSING]);
 }
 
+namespace {
+
+std::string
+printLabels(const distribution<float> & dist)
+{
+    string result = "";
+    for (unsigned i = 0;  i < dist.size();  ++i)
+        if (dist[i] != 0.0) result += format(" %d/%.3f", i, dist[i]);
+    return result;
+}
+
+std::string
+printLabels(const Tree::Ptr & ptr)
+{
+    return printLabels(ptr.pred());
+}
+
+
+} // file scope
+
+std::string
+Decision_Tree::
+print() const
+{
+    string result = "Decision Tree: ";
+    float total_weight = tree.root.examples();
+    if (tree.root.node()) total_weight = tree.root.examples();
+    result = format("Decision Tree: (weight = %.2f, cov = %.2f%%) ",
+                    total_weight, 100.0);
+    result += printLabels(tree.root) + "\n";
+    result += print_recursive(0, tree.root, total_weight);
+    return result;
+}
+
+std::string
+Decision_Tree::
+summary() const
+{
+    if (!tree.root)
+        return "NULL";
+    
+    float total_weight = 0.0;
+    if (tree.root.node()) total_weight = tree.root.node()->examples;
+    
+    if (tree.root.node()) {
+        Tree::Node & n = *tree.root.node();
+        float cov = n.examples / total_weight;
+        float z_adj = n.z / cov;
+        return "Root: " + n.split.print(*feature_space())
+            + format(" (z = %.4f)", z_adj);
+    }
+    else {
+        string result = "leaf: ";
+        Tree::Leaf & l = *tree.root.leaf();
+        const distribution<float> & dist = l.pred;
+        for (unsigned i = 0;  i < dist.size();  ++i)
+            if (dist[i] != 0.0) result += format(" %d/%.3f", i, dist[i]);
+        return result;
+    }
+}
+
 string
 Decision_Tree::
 print_recursive(int level, const Tree::Ptr & ptr,
@@ -304,37 +365,50 @@ print_recursive(int level, const Tree::Ptr & ptr,
     if (ptr.node()) {
         Tree::Node & n = *ptr.node();
         string result;
-        float cov = n.examples / total_weight;
-        float z_adj = n.z / cov;
-        result += spaces 
-            + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%)\n",
-                     n.split.print(*feature_space(), false).c_str(),
-                     z_adj, n.examples, cov * 100.0);
-        result += print_recursive(level + 1, n.child_false, total_weight);
-        result += spaces 
-            + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%)\n",
-                     n.split.print(*feature_space(), true).c_str(),
-                     z_adj, n.examples, cov * 100.0);
-        result += print_recursive(level + 1, n.child_true, total_weight);
-        if (n.child_missing && n.child_missing.examples() > 0) {
+        float z_cov = n.examples / total_weight;
+        float z_adj = n.z / z_cov;
+
+        if (n.child_false && n.child_false.examples() > 0) {
+            float cov = n.child_false.examples() / total_weight;
             result += spaces 
-                + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%)\n",
+                + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%) ",
+                         n.split.print(*feature_space(), false).c_str(),
+                         z_adj, n.child_false.examples(), cov * 100.0);
+            result += printLabels(n.child_false) + "\n";
+            result += print_recursive(level + 1, n.child_false, total_weight);
+        }
+
+        if (n.child_true && n.child_true.examples() > 0) {
+            float cov = n.child_true.examples() / total_weight;
+            result += spaces 
+                + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%) ",
+                         n.split.print(*feature_space(), true).c_str(),
+                         z_adj, n.child_true.examples(), cov * 100.0);
+            result += printLabels(n.child_true) + "\n";
+            result += print_recursive(level + 1, n.child_true, total_weight);
+        }
+
+        if (n.child_missing && n.child_missing.examples() > 0) {
+            float cov = n.child_missing.examples() / total_weight;
+            result += spaces 
+                + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%) ",
                          n.split.print(*feature_space(), MISSING).c_str(),
-                         z_adj, n.examples, cov * 100.0);
+                         z_adj, n.child_missing.examples(), cov * 100.0);
+            result += printLabels(n.child_missing) + "\n";
             result += print_recursive(level + 1, n.child_missing, total_weight);
         }
         return result;
     }
     else if (ptr.leaf()) {
-        string result = spaces + "leaf: label ";
+        return "";
+        string result = spaces + "leaf ";
         Tree::Leaf & l = *ptr.leaf();
         const distribution<float> & dist = l.pred;
-        for (unsigned i = 0;  i < dist.size();  ++i)
-            if (dist[i] != 0.0) result += format(" %d/%.3f", i, dist[i]);
         float cov = l.examples / total_weight;
-        result += format(" (weight = %.2f, cov = %.2f%%)\n",
+        result += format(" (weight = %.2f, cov = %.2f%%) ",
                          l.examples, cov * 100.0);
-        
+        result += printLabels(dist);
+        result += "\n";
         return result;
     }
     else return spaces + "NULL";
@@ -408,44 +482,6 @@ explain_recursive(Explanation & explanation,
     if (weights[MISSING] > 0.0)
         explain_recursive(explanation, weight * weights[MISSING],
                           node.child_missing, &node);
-}
-
-std::string
-Decision_Tree::
-print() const
-{
-    string result = "Decision tree:\n";
-    float total_weight = 0.0;
-    if (tree.root.node()) total_weight = tree.root.node()->examples;
-    result += print_recursive(0, tree.root, total_weight);
-    return result;
-}
-
-std::string
-Decision_Tree::
-summary() const
-{
-    if (!tree.root)
-        return "NULL";
-    
-    float total_weight = 0.0;
-    if (tree.root.node()) total_weight = tree.root.node()->examples;
-    
-    if (tree.root.node()) {
-        Tree::Node & n = *tree.root.node();
-        float cov = n.examples / total_weight;
-        float z_adj = n.z / cov;
-        return "Root: " + n.split.print(*feature_space())
-            + format(" (z = %.4f)", z_adj);
-    }
-    else {
-        string result = "leaf: ";
-        Tree::Leaf & l = *tree.root.leaf();
-        const distribution<float> & dist = l.pred;
-        for (unsigned i = 0;  i < dist.size();  ++i)
-            if (dist[i] != 0.0) result += format(" %d/%.3f", i, dist[i]);
-        return result;
-    }
 }
 
 namespace {
