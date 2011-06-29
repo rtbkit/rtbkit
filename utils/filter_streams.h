@@ -33,14 +33,22 @@ class filter_ostream : public std::ostream {
 public:
     filter_ostream();
     filter_ostream(const std::string & file,
-                   std::ios_base::openmode mode = std::ios_base::out);
+                   std::ios_base::openmode mode = std::ios_base::out,
+                   const std::string & compression = "",
+                   int level = -1);
     filter_ostream(int fd,
-                   std::ios_base::openmode mode = std::ios_base::out);
+                   std::ios_base::openmode mode = std::ios_base::out,
+                   const std::string & compression = "",
+                   int level = -1);
 
     void open(const std::string & file,
-              std::ios_base::openmode mode = std::ios_base::out);
+              std::ios_base::openmode mode = std::ios_base::out,
+              const std::string & compression = "",
+              int level = -1);
     void open(int fd,
-              std::ios_base::openmode mode = std::ios_base::out);
+              std::ios_base::openmode mode = std::ios_base::out,
+              const std::string & compression = "",
+              int level = -1);
 
     void close();
 
