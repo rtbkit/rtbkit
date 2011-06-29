@@ -101,7 +101,7 @@ $(1):	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
 
 .PHONY: $(1)
 
-$(if $(findstring manual,$(5)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4):	$(TESTS)/$(1).passed
+$(if $(findstring manual,$(5)),manual,test $(if $(findstring noauto,$(5)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4):	$(TESTS)/$(1).passed
 endif
 
 endef
@@ -167,7 +167,7 @@ $(1):	$(CWD)/$(1).js $$(TEST_$(1)_DEPS)
 
 .PHONY: $(1)
 
-$(if $(findstring manual,$(5)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4):	$(TESTS)/$(1).passed
+$(if $(findstring manual,$(5)),manual,test $(if $(findstring noauto,$(5)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4):	$(TESTS)/$(1).passed
 endif
 
 endef
@@ -204,7 +204,7 @@ $(TESTS)/$(1).js: $(CWD)/$(1).coffee
 
 .PHONY: $(1)
 
-$(if $(findstring manual,$(5)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4):	$(TESTS)/$(1).passed
+$(if $(findstring manual,$(5)),manual,test $(if $(findstring noauto,$(5)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4):	$(TESTS)/$(1).passed
 endif
 
 endef
