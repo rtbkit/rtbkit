@@ -17,6 +17,7 @@
 #include "exception.h"
 #include <sys/select.h>
 #include "atomic_ops.h"
+#include "jml/math/xdiv.h"
 
 
 namespace ML {
@@ -96,7 +97,7 @@ struct Duty_Cycle_Timer {
 
         double duty_cycle() const
         {
-            return 1.0 * nsAwake / (nsAsleep * nsAwake);
+            return xdiv<double>(nsAwake, nsAsleep + nsAwake);
         }
     };
     
