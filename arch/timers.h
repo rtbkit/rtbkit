@@ -16,6 +16,7 @@
 #include <string.h>
 #include "exception.h"
 #include <sys/select.h>
+#include "atomic_ops.h"
 
 
 namespace ML {
@@ -86,6 +87,54 @@ inline void sleep(double sleepTime)
         else break;
     }
 }
+
+
+struct Duty_Cycle_Timer {
+
+    struct Stats {
+        uint64_t nsAsleep, nsAwake, numWakeups;
+
+        double duty_cycle() const
+        {
+            return 1.0 * nsAwake / (nsAsleep * nsAwake);
+        }
+    };
+    
+    Duty_Cycle_Timer()
+    {
+        gettimeofday(&afterSleep, 0);
+    }
+
+    void clear()
+    {
+        gettimeofday(&afterSleep, 0);
+        current.nsAsleep = current.nsAwake = current.numWakeups = 0;
+    }
+
+    void notifyBeforeSleep()
+    {
+        gettimeofday(&beforeSleep, 0);
+        atomic_add(current.nsAwake, timeDiff(afterSleep, beforeSleep));
+    }
+
+    void notifyAfterSleep()
+    {
+        gettimeofday(&afterSleep, 0);
+        atomic_add(current.nsAsleep, timeDiff(beforeSleep, afterSleep));
+        atomic_add(current.numWakeups, 1);
+    }
+
+    Stats stats() const
+    {
+        return current;
+    }
+    
+    Stats current;
+
+    // TODO: keep history
+
+    struct timeval beforeSleep, afterSleep;
+};
 
 } // namespace ML
 
