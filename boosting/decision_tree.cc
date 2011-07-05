@@ -484,6 +484,46 @@ explain_recursive(Explanation & explanation,
                           node.child_missing, &node);
 }
 
+void
+Decision_Tree::
+to_rules_recursive(Disjunction<Tree::Leaf> & result,
+                   std::vector<Predicate> & path,
+                   const Tree::Ptr & ptr)
+{
+    if (ptr.examples() == 0.0) return;
+
+    if (ptr.node()) {
+        const Tree::Node & node = *ptr.node();
+        
+        {
+            Predicate myPred(node.split, false);
+            path.push_back(myPred);
+            to_rules_recursive(result, path, node.child_false);
+            path.pop_back();
+        }
+
+        {
+            Predicate myPred(node.split, true);
+            path.push_back(myPred);
+            to_rules_recursive(result, path, node.child_true);
+            path.pop_back();
+        }
+
+        {
+            Predicate myPred(node.split, MISSING);
+            path.push_back(myPred);
+            to_rules_recursive(result, path, node.child_missing);
+            path.pop_back();
+        }
+    }
+    else if (ptr.leaf()) {
+        Conjunction<Tree::Leaf> c;
+        c.predicates = path;
+        c.outcome = *ptr.leaf();
+        result.predicates.push_back(c);
+    }
+}
+
 namespace {
 
 void all_features_recursive(const Tree::Ptr & ptr,

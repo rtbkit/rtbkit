@@ -13,6 +13,7 @@
 #include "feature_set.h"
 #include <boost/pool/object_pool.hpp>
 #include "tree.h"
+#include "boolean_expression.h"
 
 
 namespace ML {
@@ -113,6 +114,10 @@ public:
                            double weight,
                            const Tree::Ptr & ptr,
                            const Tree::Node * parent) const;
+
+    void to_rules_recursive(Disjunction<Tree::Leaf> & result,
+                            std::vector<Predicate> & path,
+                            const Tree::Ptr & ptr);
 
     virtual std::string print() const;
 
