@@ -115,9 +115,13 @@ public:
                            const Tree::Ptr & ptr,
                            const Tree::Node * parent) const;
 
+    /** Convert the decision tree to a disjuction of conjunctions form
+        of boolean rules. */
+    virtual Disjunction<Tree::Leaf> to_rules() const;
+
     void to_rules_recursive(Disjunction<Tree::Leaf> & result,
                             std::vector<Predicate> & path,
-                            const Tree::Ptr & ptr);
+                            const Tree::Ptr & ptr) const;
 
     virtual std::string print() const;
 

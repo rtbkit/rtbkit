@@ -36,7 +36,7 @@ struct Predicate : public Split {
     }
 };
 
-// Conjunction, AKA and
+// Conjunction, AKA "and"
 template<typename Outcome>
 struct Conjunction {
     std::vector<Predicate> predicates;
@@ -59,11 +59,11 @@ struct Conjunction {
     }
 };
 
-// Disjunction, AKA or
+// Disjunction, AKA "or"
 template<typename Outcome>
 struct Disjunction {
     std::vector<Conjunction<Outcome> > predicates;
-    boost::shared_ptr<Feature_Space> feature_space;
+    boost::shared_ptr<const Feature_Space> feature_space;
 
     /** Transform into a new kind of outcome, possibly pruning expressions
         as we go. */

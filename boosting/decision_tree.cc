@@ -13,6 +13,7 @@
 #include <functional>
 #include "jml/utils/vector_utils.h"
 #include "config_impl.h"
+#include "jml/utils/exc_assert.h"
 
 
 using namespace std;
@@ -484,11 +485,26 @@ explain_recursive(Explanation & explanation,
                           node.child_missing, &node);
 }
 
+Disjunction<Tree::Leaf>
+Decision_Tree::
+to_rules() const
+{
+    Disjunction<Tree::Leaf> result;
+    result.feature_space = feature_space();
+    std::vector<Predicate> path;
+
+    to_rules_recursive(result, path, tree.root);
+
+    ExcAssert(path.empty());
+
+    return result;
+}
+
 void
 Decision_Tree::
 to_rules_recursive(Disjunction<Tree::Leaf> & result,
                    std::vector<Predicate> & path,
-                   const Tree::Ptr & ptr)
+                   const Tree::Ptr & ptr) const
 {
     if (ptr.examples() == 0.0) return;
 

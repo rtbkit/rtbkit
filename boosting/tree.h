@@ -46,6 +46,7 @@ struct Tree {
         Ptr(Leaf * leaf) : is_node_(false) { ptr_.leaf = leaf; }
         Node * node() const { if (!is_node_) return 0;  return ptr_.node; }
         Leaf * leaf() const { if (!is_node_) return ptr_.leaf;  return 0; }
+
         float examples() const
         {
             if (!ptr_.base) return 0;
