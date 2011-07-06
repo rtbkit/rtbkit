@@ -86,18 +86,22 @@ struct Disjunction {
     /** Transform into a new kind of outcome, possibly pruning expressions
         as we go. */
     template<typename NewOutcome>
-    Disjunction
+    Disjunction<NewOutcome>
     transform(const boost::function<bool (Outcome outcome,
-                                       NewOutcome & noutcome)> & fn)
+                                          NewOutcome & noutcome)> & fn)
         const
     {
         Disjunction<NewOutcome> result;
+        result.feature_space = feature_space;
 
         for (unsigned i = 0;  i < predicates.size();  ++i) {
-            Conjunction<NewOutcome> newConj;
-            if (fn(predicates[i], newConj.outcome)) {
-                newConj.predicates = predicates[i].predicates;
-                result.push_back(newConj);
+            NewOutcome newOutcome;
+            if (fn(predicates[i]->outcome, newOutcome)) {
+                boost::shared_ptr<Conjunction<NewOutcome> >
+                    newConj(new Conjunction<NewOutcome>());
+                newConj->outcome = newOutcome;
+                newConj->predicates = predicates[i]->predicates;
+                result.predicates.push_back(newConj);
             }
         }
 
