@@ -269,4 +269,16 @@ reconstitute(DB::Store_Reader & store, const Feature_Space & fs)
         throw Exception("Bad end Tree marker " + s);
 }
 
+std::string
+printLabels(const distribution<float> & dist);
+
+std::string print_outcome(const ML::Tree::Leaf & outcome)
+{
+    string result;
+    const distribution<float> & dist = outcome.pred;
+    result += format(" (weight = %.2f) ", outcome.examples);
+    result += printLabels(dist);
+    return result;
+}
+
 } // namespace ML

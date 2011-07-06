@@ -14,6 +14,7 @@
 #include "jml/utils/vector_utils.h"
 #include "config_impl.h"
 #include "jml/utils/exc_assert.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 
 using namespace std;
@@ -296,8 +297,6 @@ predict_recursive_impl(const GetFeatures & get_features,
                                weights[MISSING]);
 }
 
-namespace {
-
 std::string
 printLabels(const distribution<float> & dist)
 {
@@ -312,9 +311,6 @@ printLabels(const Tree::Ptr & ptr)
 {
     return printLabels(ptr.pred());
 }
-
-
-} // file scope
 
 std::string
 Decision_Tree::
@@ -491,7 +487,7 @@ to_rules() const
 {
     Disjunction<Tree::Leaf> result;
     result.feature_space = feature_space();
-    std::vector<Predicate> path;
+    std::vector<boost::shared_ptr<Predicate> > path;
 
     to_rules_recursive(result, path, tree.root);
 
@@ -503,7 +499,7 @@ to_rules() const
 void
 Decision_Tree::
 to_rules_recursive(Disjunction<Tree::Leaf> & result,
-                   std::vector<Predicate> & path,
+                   std::vector<boost::shared_ptr<Predicate> > & path,
                    const Tree::Ptr & ptr) const
 {
     if (ptr.examples() == 0.0) return;
@@ -512,30 +508,28 @@ to_rules_recursive(Disjunction<Tree::Leaf> & result,
         const Tree::Node & node = *ptr.node();
         
         {
-            Predicate myPred(node.split, false);
-            path.push_back(myPred);
+            path.push_back(make_sp(new Predicate(node.split, false)));
             to_rules_recursive(result, path, node.child_false);
             path.pop_back();
         }
 
         {
-            Predicate myPred(node.split, true);
-            path.push_back(myPred);
+            path.push_back(make_sp(new Predicate(node.split, true)));
             to_rules_recursive(result, path, node.child_true);
             path.pop_back();
         }
 
         {
-            Predicate myPred(node.split, MISSING);
-            path.push_back(myPred);
+            path.push_back(make_sp(new Predicate(node.split, MISSING)));
             to_rules_recursive(result, path, node.child_missing);
             path.pop_back();
         }
     }
     else if (ptr.leaf()) {
-        Conjunction<Tree::Leaf> c;
-        c.predicates = path;
-        c.outcome = *ptr.leaf();
+        boost::shared_ptr<Conjunction<Tree::Leaf> > c
+            (new Conjunction<Tree::Leaf>());
+        c->predicates = path;
+        c->outcome = *ptr.leaf();
         result.predicates.push_back(c);
     }
 }

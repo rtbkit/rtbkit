@@ -120,7 +120,7 @@ public:
     virtual Disjunction<Tree::Leaf> to_rules() const;
 
     void to_rules_recursive(Disjunction<Tree::Leaf> & result,
-                            std::vector<Predicate> & path,
+                            std::vector<boost::shared_ptr<Predicate> > & path,
                             const Tree::Ptr & ptr) const;
 
     virtual std::string print() const;

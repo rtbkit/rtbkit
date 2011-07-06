@@ -36,10 +36,16 @@ struct Predicate : public Split {
     }
 };
 
+inline std::string print_outcome(bool outcome)
+{
+    if (outcome) return "true";
+    else return "false";
+}
+
 // Conjunction, AKA "and"
 template<typename Outcome>
 struct Conjunction {
-    std::vector<Predicate> predicates;
+    std::vector<boost::shared_ptr<Predicate> > predicates;
     Outcome outcome;
 
     std::string print(const Feature_Space & fs) const
@@ -48,8 +54,8 @@ struct Conjunction {
         if (predicates.size() > 0) {
             result = "(";
             for (unsigned i = 0;  i < predicates.size();  ++i) {
-                if (i != 0) result += " OR ";
-                result += predicates[i].print(fs);
+                if (i != 0) result += " AND ";
+                result += predicates[i]->print(fs);
             }
             result += "): ";
         }
@@ -62,8 +68,20 @@ struct Conjunction {
 // Disjunction, AKA "or"
 template<typename Outcome>
 struct Disjunction {
-    std::vector<Conjunction<Outcome> > predicates;
+    std::vector<boost::shared_ptr<Conjunction<Outcome> > > predicates;
     boost::shared_ptr<const Feature_Space> feature_space;
+
+    std::string
+    print() const
+    {
+        std::string result = "(   ";
+        for (unsigned i = 0;  i < predicates.size();  ++i) {
+            if (i != 0)
+                result += "\n OR ";
+            result += predicates[i]->print(*feature_space);
+        }
+        return result;
+    }
 
     /** Transform into a new kind of outcome, possibly pruning expressions
         as we go. */

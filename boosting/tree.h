@@ -157,7 +157,7 @@ private:
     void clear_recursive(Tree::Ptr & root);
 };
 
-
+std::string print_outcome(const ML::Tree::Leaf & outcome);
 
 
 } // namespace ML
