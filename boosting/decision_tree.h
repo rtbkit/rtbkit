@@ -112,6 +112,7 @@ public:
 
     void explain_recursive(Explanation & explanation,
                            const Feature_Set & fset,
+                           int label,
                            double weight,
                            const Tree::Ptr & ptr,
                            const Tree::Node * parent) const;

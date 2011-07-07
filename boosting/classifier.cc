@@ -19,6 +19,7 @@
 #include <boost/bind.hpp>
 #include <boost/thread/tss.hpp>
 #include "jml/utils/exc_assert.h"
+#include "jml/math/xdiv.h"
 
 
 using namespace std;
@@ -101,8 +102,8 @@ get_optimized_index(const Feature & feature) const
 
 Explanation::
 Explanation(boost::shared_ptr<const Feature_Space> fspace,
-            int label)
-    : value(0.0), bias(0.0), fspace(fspace), label(label)
+            double weight)
+    : bias(0.0), weight(weight), fspace(fspace)
 {
     ExcAssert(fspace);
 }
@@ -116,6 +117,10 @@ add(const Explanation & other, double weight)
              end = other.feature_weights.end();
          it != end;  ++it)
         feature_weights[it->first] += weight * it->second;
+
+    bias += weight * other.bias;
+
+    this->weight += other.weight;
 }
 
 struct Sort_On_Abs_Second {
@@ -128,7 +133,7 @@ struct Sort_On_Abs_Second {
 
 std::string
 Explanation::
-print(int nfeatures, const Feature_Set & fset) const
+explain(int nfeatures, const Feature_Set & fset, int label) const
 {
     // Rank the features
     vector<pair<Feature, float> > ranked(feature_weights.begin(),
@@ -159,6 +164,53 @@ print(int nfeatures, const Feature_Set & fset) const
                      total);
 
     return result;
+}
+
+std::string
+Explanation::
+explain(int nfeatures) const
+{
+    // Rank the features
+    vector<pair<Feature, float> > ranked(feature_weights.begin(),
+                                         feature_weights.end());
+
+    std::sort(ranked.begin(), ranked.end(),
+              Sort_On_Abs_Second());
+    
+    std::string result;
+    if (bias != 0.0)
+        result += format("%12.6f BIAS\n",
+                         bias);
+    for (unsigned i = 0;  i < ranked.size() && i < nfeatures;  ++i) {
+        const Feature & feature = ranked[i].first;
+        float score = ranked[i].second;
+        result += format("%12.6f %s\n",
+                         score,
+                         fspace->print(feature).c_str());
+    }
+
+    double total = bias;
+    for (unsigned i = 0;  i < ranked.size();  ++i)
+        total += ranked[i].second;
+    
+
+    result += format("%12.6f TOTAL\n",
+                     total);
+    
+    return result;
+}
+
+void
+Explanation::
+normalize()
+{
+    for (Feature_Weights::iterator it = feature_weights.begin(),
+             end = feature_weights.end();
+         it != end;  ++it)
+        it->second = xdiv(it->second, weight);
+
+    bias = xdiv(bias, weight);
+    weight = xdiv(weight, weight);
 }
 
 

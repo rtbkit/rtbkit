@@ -106,20 +106,30 @@ struct Optimization_Info {
 
 struct Explanation {
     Explanation(boost::shared_ptr<const Feature_Space> fspace,
-                int label);
+                double weight);
 
+    /** Add the weights from another explanation. */
     void add(const Explanation & other, double weight = 1.0);
 
-    std::string print(int nfeatures,
-                      const Feature_Set & fset) const;
+    /** Explain how a single prediction was made. */
+    std::string explain(int nfeatures,
+                        const Feature_Set & fset,
+                        int label) const;
+    
+    /** Explain how the whole set of predictions were made. */
+    std::string explain(int nfeatures = -1) const;
+    
+    /** Divide all of the feature weights by the weight so that the effect
+        of feature set size is removed.
+    */
+    void normalize();
 
-    double value;
     double bias;
+    double weight;
 
     typedef std::map<Feature, double> Feature_Weights;
     Feature_Weights feature_weights;
     boost::shared_ptr<const Feature_Space> fspace;
-    int label;
 };
 
 
