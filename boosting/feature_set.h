@@ -186,6 +186,11 @@ public:
         return get_data(false).get<4>();
     }
 
+    std::pair<Feature, float> at(int index) const
+    {
+        return operator [] (index);
+    }
+
     std::pair<Feature, float> operator [] (int index) const
     {
         return *(begin() + index);
