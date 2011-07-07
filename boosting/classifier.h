@@ -105,21 +105,20 @@ struct Optimization_Info {
     the prediction. */
 
 struct Explanation {
-    Explanation(const Feature_Set & fset,
-                const Feature_Space & fspace,
+    Explanation(boost::shared_ptr<const Feature_Space> fspace,
                 int label);
 
     void add(const Explanation & other, double weight = 1.0);
 
-    std::string print(int nfeatures = 10) const;
+    std::string print(int nfeatures,
+                      const Feature_Set & fset) const;
 
     double value;
     double bias;
 
     typedef std::map<Feature, double> Feature_Weights;
     Feature_Weights feature_weights;
-    const Feature_Set * fset;
-    const Feature_Space * fspace;
+    boost::shared_ptr<const Feature_Space> fspace;
     int label;
 };
 

@@ -417,9 +417,9 @@ explain(const Feature_Set & feature_set,
         int label,
         double weight) const
 {
-    Explanation result(feature_set, *feature_space(), label); 
+    Explanation result(feature_space(), label); 
 
-    explain_recursive(result, weight, tree.root, 0);
+    explain_recursive(result, feature_set, weight, tree.root, 0);
 
     return result;
 }
@@ -427,11 +427,12 @@ explain(const Feature_Set & feature_set,
 void
 Decision_Tree::
 explain_recursive(Explanation & explanation,
+                  const Feature_Set & feature_set,
                   double weight,
                   const Tree::Ptr & ptr,
                   const Tree::Node * parent) const
 {
-    StandardGetFeatures get_features(*explanation.fset);
+    StandardGetFeatures get_features(feature_set);
     int nl = label_count();
     int label = explanation.label;
 
@@ -469,15 +470,15 @@ explain_recursive(Explanation & explanation,
     
     /* Go down all of the edges that we need to for this example. */
     if (weights[true] > 0.0)
-        explain_recursive(explanation, weight * weights[true],
+        explain_recursive(explanation, feature_set, weight * weights[true],
                           node.child_true, &node);
 
     if (weights[false] > 0.0)
-        explain_recursive(explanation, weight * weights[false],
+        explain_recursive(explanation, feature_set, weight * weights[false],
                           node.child_false, &node);
 
     if (weights[MISSING] > 0.0)
-        explain_recursive(explanation, weight * weights[MISSING],
+        explain_recursive(explanation, feature_set, weight * weights[MISSING],
                           node.child_missing, &node);
 }
 

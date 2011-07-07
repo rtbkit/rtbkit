@@ -18,6 +18,7 @@
 #include "jml/utils/vector_utils.h"
 #include <boost/bind.hpp>
 #include <boost/thread/tss.hpp>
+#include "jml/utils/exc_assert.h"
 
 
 using namespace std;
@@ -99,11 +100,11 @@ get_optimized_index(const Feature & feature) const
 /*****************************************************************************/
 
 Explanation::
-Explanation(const Feature_Set & fset,
-            const Feature_Space & fspace,
+Explanation(boost::shared_ptr<const Feature_Space> fspace,
             int label)
-    : value(0.0), bias(0.0), fset(&fset), fspace(&fspace), label(label)
+    : value(0.0), bias(0.0), fspace(fspace), label(label)
 {
+    ExcAssert(fspace);
 }
 
 void
@@ -127,7 +128,7 @@ struct Sort_On_Abs_Second {
 
 std::string
 Explanation::
-print(int nfeatures) const
+print(int nfeatures, const Feature_Set & fset) const
 {
     // Rank the features
     vector<pair<Feature, float> > ranked(feature_weights.begin(),
@@ -145,7 +146,7 @@ print(int nfeatures) const
         float score = ranked[i].second;
         result += format("%12.6f %-20s %s\n",
                          score,
-                         fspace->print(feature, (*fset)[feature]).c_str(),
+                         fspace->print(feature, (fset)[feature]).c_str(),
                          fspace->print(feature).c_str());
     }
 

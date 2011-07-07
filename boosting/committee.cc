@@ -178,7 +178,7 @@ explain(const Feature_Set & feature_set,
         int label,
         double weight) const
 {
-    Explanation result(feature_set, *feature_space(), label);
+    Explanation result(feature_space(), label);
 
     for (unsigned i = 0;  i < classifiers.size();  ++i) {
         if (weights[i] == 0.0) continue;

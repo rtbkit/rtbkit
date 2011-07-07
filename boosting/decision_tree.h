@@ -111,6 +111,7 @@ public:
                                 double weight = 1.0) const;
 
     void explain_recursive(Explanation & explanation,
+                           const Feature_Set & fset,
                            double weight,
                            const Tree::Ptr & ptr,
                            const Tree::Node * parent) const;
