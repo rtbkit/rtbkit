@@ -78,7 +78,9 @@ print(const Feature_Space & fs, int branch) const
 
     if (type == BOOLEAN) {
         if (op_ != LESS || split_val_ != 0.5)
-            throw Exception("unknown boolean branch");
+            throw Exception("unknown boolean branch: op %s, split_val %f, "
+                            "branch %d",
+                            ML::print((Op)op_).c_str(), split_val_, branch);
         switch (branch) {
         case true: return "!" + feat_name;
         case false: return " " + feat_name;
