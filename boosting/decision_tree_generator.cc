@@ -217,6 +217,8 @@ train_weighted(Thread_Context & context,
 
 namespace {
 
+/** Structure in which we hold the results of the line search over potential
+    split points. */
 template<class W, class Z, class Tracer = No_Trace>
 struct Tree_Accum {
 
@@ -265,6 +267,25 @@ struct Tree_Accum {
     /** Method that gets called when we have found a potential split point. */
     float add_z(const Feature & feature, const W & w, float arg, float z)
     {
+        if (false) {
+        // Check that the dataset was split evenly enough, ie that at least
+        // 10% of the data is in one bucket
+
+            double w_true = w(0,true,0) + w(0,true,1);
+            double w_false = w(0,false,0) + w(0,false,1);
+            double w_missing = w(0,MISSING,0) + w(0,MISSING,1);
+            double w_total = (w_true + w_false + w_missing);
+            w_true /= w_total;  w_false /= w_total;  w_missing /= w_total;
+            double threshold = 0.2;
+
+            int n = (w_true > threshold)
+                + (w_false > threshold)
+                + (w_missing > threshold);
+            
+            if (n < 2) { z += (1 - z) * 0.9; };
+        }
+
+
         bool print_feat = false;
         //print_feat = fs.print(feature) == "language_cosine";
         if (tracer || print_feat)
