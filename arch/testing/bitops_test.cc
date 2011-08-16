@@ -39,13 +39,28 @@ void test1_type()
     BOOST_CHECK_EQUAL(highest_bit((X)64),       6);
     BOOST_CHECK_EQUAL(highest_bit((X)255),      7);
 
+    BOOST_CHECK_EQUAL(lowest_bit((X)0),       -1);
+    BOOST_CHECK_EQUAL(lowest_bit((X)1),        0);
+    BOOST_CHECK_EQUAL(lowest_bit((X)2),        1);
+    BOOST_CHECK_EQUAL(lowest_bit((X)3),        0);
+    BOOST_CHECK_EQUAL(lowest_bit((X)-1),       0);
+    BOOST_CHECK_EQUAL(lowest_bit((X)63),       0);
+    BOOST_CHECK_EQUAL(lowest_bit((X)64),       6);
+    BOOST_CHECK_EQUAL(lowest_bit((X)255),      0);
+    BOOST_CHECK_EQUAL(lowest_bit((X)128),      7);
+
     if (sizeof(X) == 1) return;
     BOOST_CHECK_EQUAL(highest_bit((X)256),      8);
+    BOOST_CHECK_EQUAL(lowest_bit((X)256),      8);
 
     if (sizeof(X) == 2) return;
     BOOST_CHECK_EQUAL(highest_bit((X)131071),  16);
     BOOST_CHECK_EQUAL(highest_bit((X)131072),  17);
     BOOST_CHECK_EQUAL(highest_bit((X)131073),  17);
+
+    BOOST_CHECK_EQUAL(lowest_bit((X)131071),  0);
+    BOOST_CHECK_EQUAL(lowest_bit((X)131072),  17);
+    BOOST_CHECK_EQUAL(lowest_bit((X)131073),  0);
 }
 
 BOOST_AUTO_TEST_CASE( test1 )
