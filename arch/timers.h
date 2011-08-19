@@ -93,36 +93,66 @@ inline void sleep(double sleepTime)
 struct Duty_Cycle_Timer {
 
     struct Stats {
-        uint64_t nsAsleep, nsAwake, numWakeups;
+        uint64_t usAsleep, usAwake;
+        uint64_t numWakeups;
 
         double duty_cycle() const
         {
-            return xdiv<double>(nsAwake, nsAsleep + nsAwake);
+            return xdiv<double>(usAwake, usAsleep + usAwake);
         }
     };
+
+    enum Timer_Source {
+        TS_TSC,   ///< Get from the timestamp counter (fast)
+        TS_RTC    ///< Get from the real time clock (accurate)
+    };
     
-    Duty_Cycle_Timer()
+    Duty_Cycle_Timer(Timer_Source source = TS_TSC)
+        : source(source)
     {
-        gettimeofday(&afterSleep, 0);
+        clear();
+        afterSleep = getTime();
     }
 
     void clear()
     {
-        gettimeofday(&afterSleep, 0);
-        current.nsAsleep = current.nsAwake = current.numWakeups = 0;
+        afterSleep = getTime();
+        current.usAsleep = current.usAwake = current.numWakeups = 0;
     }
 
     void notifyBeforeSleep()
     {
-        gettimeofday(&beforeSleep, 0);
-        atomic_add(current.nsAwake, timeDiff(afterSleep, beforeSleep));
+        beforeSleep = getTime();
+        uint64_t useconds = (beforeSleep - afterSleep) * 1000000;
+#if 0
+        using namespace std;
+        cerr << "sleeping at " << beforeSleep << " after "
+             << (beforeSleep - afterSleep)
+             << " (" << useconds << "us)" << endl;
+#endif
+        atomic_add(current.usAwake, useconds);
     }
 
     void notifyAfterSleep()
     {
-        gettimeofday(&afterSleep, 0);
-        atomic_add(current.nsAsleep, timeDiff(beforeSleep, afterSleep));
+        afterSleep = getTime();
+        uint64_t useconds = (afterSleep - beforeSleep) * 1000000;
+#if 0
+        using namespace std;
+        cerr << "awake at " << beforeSleep << " after "
+             << (afterSleep - beforeSleep)
+             << " (" << useconds << "us)" << endl;
+        cerr << "seconds_per_tick = " << seconds_per_tick << endl;
+#endif
+        atomic_add(current.usAsleep, useconds);
         atomic_add(current.numWakeups, 1);
+    }
+
+    double getTime()
+    {
+        if (source == TS_TSC)
+            return ticks() * seconds_per_tick;
+        else return wall_time();
     }
 
     Stats stats() const
@@ -131,10 +161,9 @@ struct Duty_Cycle_Timer {
     }
     
     Stats current;
+    Timer_Source source;
 
-    // TODO: keep history
-
-    struct timeval beforeSleep, afterSleep;
+    double beforeSleep, afterSleep;
 };
 
 } // namespace ML
