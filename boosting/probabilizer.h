@@ -144,7 +144,7 @@ public:
     /** The link function to apply to the output. */
     Link_Function link;
 
-private:
+    //private: // public for testing
     /** Training function for mode 0.  This learns a probabilizer over all
         outputs for all variables (very dense).  It requires a lot of
         training data, but is able to account for the relationship between

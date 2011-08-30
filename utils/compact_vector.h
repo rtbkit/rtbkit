@@ -26,7 +26,7 @@
 namespace ML {
 
 template<typename Data,
-         size_t Internal = 0,
+         size_t Internal_ = 0,
          typename Size = uint32_t,
          bool Safe = true,
          typename Pointer = Data *,
@@ -40,6 +40,7 @@ public:
     typedef Data value_type;
     typedef Data & reference;
     typedef const Data & const_reference;
+    enum { Internal = Internal_ };
     
     compact_vector()
         : size_(0), is_internal_(true)
@@ -369,21 +370,21 @@ public:
     }
     
 private:
-    struct {
-        Size size_: 8 * sizeof(Size) - 1;
-        Size is_internal_ : 1;
-    } JML_PACKED;
-
     union {
         struct {
             char internal_[sizeof(Data) * Internal];
         } JML_PACKED itl;
         struct {
-            Size capacity_;
             Pointer pointer_;
+            Size capacity_;
         } JML_PACKED ext;
     };
     
+    struct {
+        Size size_: 8 * sizeof(Size) - 1;
+        Size is_internal_ : 1;
+    } JML_PACKED;
+
     bool is_internal() const { return is_internal_; }
     Data * internal() { return (Data *)(itl.internal_); }
     const Data * internal() const { return (Data *)(itl.internal_); }
@@ -505,6 +506,15 @@ operator == (const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator
 {
     return cv1.size() == cv2.size()
         && std::equal(cv1.begin(), cv1.end(), cv2.begin());
+}
+
+template<class Data, size_t Internal, class Size, bool Safe,
+         class Pointer, class Allocator>
+bool
+operator != (const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv1,
+             const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv2)
+{
+    return ! operator == (cv1, cv2);
 }
 
 template<class Data, size_t Internal, class Size, bool Safe,

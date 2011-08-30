@@ -111,6 +111,8 @@ public:
     void exception_for_key(const std::string & full_key,
                            const std::string & message) const;
 
+    std::vector<std::string> allKeys() const;
+
     void parse_value(bool & val, const std::string & str,
                      const std::string & full_key) const
     {

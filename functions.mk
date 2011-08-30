@@ -24,8 +24,19 @@ COLOR_RESET := $(ESC)[0m
 
 endif
 
+-include .make_hash_cache
+
 # Command to hash the name of a command.
-hash_command = $(wordlist 1,1,$(shell echo $(strip $(1)) | md5sum))
+NOTHING :=
+SPACE := $(NOTHING) $(NOTHING)
+
+hash_command2 = $(wordlist 1,1,$(shell echo $(strip $(1)) | md5sum))
+
+hash_command1 = $(eval HASH:=$(call hash_command2,$(1)))$(shell echo $(1)_hash:=$(HASH) >> .make_hash_cache)$(eval $(1)_hash:=$(HASH))
+
+command_key = $(subst =,_,$(subst $(SPACE),_,$(strip $(1))))
+
+hash_command = $(eval KEY=$(call command_key,$(1)))$(if $($(KEY)_hash),,$(call hash_command1,$(KEY)))$(if $($(KEY)_hash),,$(error hash_command1 didnt set variable $(KEY)_hash))$($(KEY)_hash)
 
 # arg 1: names
 define include_sub_makes
@@ -60,6 +71,7 @@ endef
 # $(4): extra compiler options
 
 define add_c++_source
+ifneq ($(PREMAKE),1)
 
 $$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
 
@@ -75,10 +87,11 @@ BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/
 $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "[C++] $(CWD)/$(1)")
-	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
+	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
 -include $(OBJ)/$(CWD)/$(2).d
+endif
 endef
 
 # add a c source file
@@ -88,6 +101,7 @@ endef
 # $(4): extra compiler options
 
 define add_c_source
+ifneq ($(PREMAKE),1)
 
 $$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
 
@@ -103,14 +117,16 @@ BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/
 $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "[C] $(CWD)/$(1)")
-	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
+	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
 -include $(OBJ)/$(CWD)/$(2).d
+endif
 endef
 
 # add a fortran source file
 define add_fortran_source
+ifneq ($(PREMAKE),1)
 $(if $(trace),$$(warning called add_fortran_source "$(1)" "$(2)"))
 BUILD_$(CWD)/$(2).lo_COMMAND:=$(FC) $(FFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $(SRC)/$(CWD)/$(1)
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
@@ -124,11 +140,12 @@ BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/
 $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "[FORTRAN] $(CWD)/$(1)")
-	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
-
+	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
+endif
 endef
 
 define add_cuda_source
+ifneq ($(PREMAKE),1)
 $(if $(trace),$$(warning called add_cuda_source "$(1)" "$(2)"))
 $(OBJ)/$(CWD)/$(2).d: $(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	($(NVCC) $(NVCCFLAGS) -D__CUDACC__ -M $$< | awk 'NR == 1 { print "$$(BUILD_$(CWD)/$(2).lo_OBJ)", "$$@", ":", $$$$3, "\\"; next; } /usr/ { next; } /\/ \\$$$$/ { next; } { files[$$$$1] = 1; print; } END { print("\n"); for (file in files) { printf("%s: \n\n", file); } }') > $$@~
@@ -145,10 +162,11 @@ BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/
 
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "[CUDA] $(CWD)/$(1)")
-	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
+	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
 
 
 -include $(OBJ)/$(CWD)/$(2).d
+endif
 endef
 
 # Set up the map to map an extension to the name of a function to call
@@ -163,20 +181,24 @@ $(call set,EXT_FUNCTIONS,.i,add_swig_source)
 # $(1): filename
 # $(2): suffix of the filename
 define add_source
+ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called add_source "$(1)" "$(2)"))
 $$(if $$(ADDED_SOURCE_$(CWD)_$(1)),,\
     $$(if $$(call defined,EXT_FUNCTIONS,$(2)),\
 	$$(eval $$(call $$(call get,EXT_FUNCTIONS,$(2)),$(1),$$(basename $(1))))\
 	    $$(eval ADDED_SOURCE_$(CWD)_$(1):=$(true)),\
 	$$(error Extension "$(2)" is not known adding source file $(1))))
+endif
 endef
 
 
 # add a list of source files
 # $(1): list of filenames
 define add_sources
+ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called add_sources "$(1)"))
 $$(foreach file,$$(strip $(1)),$$(eval $$(call add_source,$$(file),$$(suffix $$(file)))))
+endif
 endef
 
 # set compile options for a single source file
@@ -203,6 +225,7 @@ endef
 # $(6): build name; default SO
 
 define library
+ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called library "$(1)" "$(2)" "$(3)"))
 $$(eval $$(call add_sources,$(2)))
 
@@ -222,13 +245,9 @@ LIB_$(1)_CURRENT_VERSION := $$(shell cat $(BIN)/$$(tmpLIBNAME)$$(so).version 2>/
 
 # We need the library so names to stay the same, so we copy the correct one
 # into our version
-$(BIN)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) $$(if $$(findstring $$(LINK_$(1)_HASH),$$(LIB_$(1)_CURRENT_VERSION)),,redo)
-	$$(if $$(findstring,redo,$$^),$$(warning $(1) version mismatch (relink required): current $$(LIB_$(1)_CURRENT_VERSION) required: $$(LINK_$(1)_HASH)))
+$(BIN)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) 
 	@cp $$< $$@
 	@echo $$(LINK_$(1)_HASH) > $$@.version
-
-redo:
-.PHONY: redo
 
 LINK_$(1)_COMMAND2 := $$(subst $(BIN)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
 
@@ -236,12 +255,12 @@ LIB_$(1)_FILENAME := $$(tmpLIBNAME)$$(so)
 
 $$(LIB_$(1)_SO):	$(BIN)/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo $$(LIB_$(1)_BUILD_NAME) $$(LIB_$(1)_FILENAME))
-	@$$(LINK_$(1)_COMMAND2) || (echo "FAILED += $$@" >> .target.mk && false)
+	@$$(LINK_$(1)_COMMAND2)
 
 LIB_$(1)_DEPS := $(BIN)/$$(tmpLIBNAME)$$(so)
 
 libraries: $(BIN)/$$(tmpLIBNAME)$$(so)
-
+endif
 endef
 
 
@@ -252,6 +271,7 @@ endef
 #       $(1).cc assumed
 # $(4): list of targets to add this program to
 define program
+ifneq ($(PREMAKE),1)
 $$(if $(trace4),$$(warning called program "$(1)" "$(2)" "$(3)"))
 
 $(1)_PROGFILES:=$$(if $(3),$(3),$(1:%=%.cc))
@@ -280,6 +300,7 @@ $(1): $(BIN)/$(1)
 run_$(1): $(BIN)/$(1)
 	$(BIN)/$(1) $($(1)_ARGS)
 
+endif
 endef
 
 # Options to go before a testing command for a test
@@ -302,6 +323,7 @@ BUILD_TEST_COMMAND = rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail &&
 # $(4) testing targets to add it to
 
 define test
+ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called test "$(1)" "$(2)" "$(3)"))
 
 $$(if $(3),,$$(error test $(1) needs to define a test style))
@@ -310,7 +332,8 @@ $$(eval $$(call add_sources,$(1).cc))
 
 $(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).lo_OBJ)
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) -o $(TESTS)/$(1) -lexception_hook $(MALLOC_LIBRARY) -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES) $(if $(findstring boost,$(3)), -lboost_unit_test_framework-mt)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) -o $(TESTS)/$(1) -lexception_hook $(MALLOC_LIBRARY) -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES) $(if $(findstring boost,$(3)), -lboost_unit_test_framework-mt) $$(CXXEXEPOSTFLAGS)
+
 
 $(TESTS)/$(1):	$(TESTS)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(BIN)/libexception_hook.so)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "[BIN] $(1)")
@@ -333,8 +356,8 @@ $(1):	$(TESTS)/$(1)
 
 #$$(warning $(1) $$(CURRENT))
 
-$(if $(findstring manual,$(3)),,test $(CURRENT_TEST_TARGETS) $$(CURRENT)_test) $(4):	$(TESTS)/$(1).passed
-
+$(if $(findstring manual,$(3)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4):	$(TESTS)/$(1).passed
+endif
 endef
 
 

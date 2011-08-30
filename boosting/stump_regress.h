@@ -38,6 +38,8 @@ struct W_regress {
             dist[i] = sqr[i] = wt[i] = 0.0;
     }
 
+    double operator () (int, int, int) const { return 0.0; }
+
     void swap(W_regress & other)
     {
         std::swap(*this, other);

@@ -15,6 +15,7 @@
 #include "jml/utils/string_functions.h"
 #include <string>
 #include <cassert>
+#include <functional>
 
 namespace ML {
 

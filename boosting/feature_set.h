@@ -186,6 +186,11 @@ public:
         return get_data(false).get<4>();
     }
 
+    std::pair<Feature, float> at(int index) const
+    {
+        return operator [] (index);
+    }
+
     std::pair<Feature, float> operator [] (int index) const
     {
         return *(begin() + index);
@@ -323,14 +328,14 @@ public:
 
 class Mutable_Feature_Set : public Feature_Set {
 public:
-    Mutable_Feature_Set() : is_sorted(true) {}
+    Mutable_Feature_Set() : is_sorted(true), locked(false) {}
 
     /** Construct from a range of pair<Feature, float>. */
     template<class InputIterator>
     Mutable_Feature_Set(const InputIterator & first,
                         const InputIterator & last)
         : features(first, last),
-          is_sorted(false)//is_sorted(std::is_sorted(first, last))
+          is_sorted(false), locked(false)//is_sorted(std::is_sorted(first, last))
     {
         do_sort();
     }
@@ -362,6 +367,7 @@ public:
     typedef std::vector<std::pair<Feature, float> > features_type;
     mutable features_type features;
     mutable bool is_sorted;
+    bool locked;
 
     /** Add the given feature onto the end.  Will need to be sorted once the
         values are all done. */
@@ -373,11 +379,13 @@ public:
 
     void reserve(size_t num)
     {
+        if (locked) throw Exception("mutating locked feature set");
         features.reserve(num);
     }
 
     void clear()
     {
+        if (locked) throw Exception("mutating locked feature set");
         features.clear();
         is_sorted = true;
     }

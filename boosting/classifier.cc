@@ -9,7 +9,6 @@
 #include "classifier_persist_impl.h"
 #include "jml/arch/threads.h"
 #include "jml/utils/file_functions.h"
-#include <ace/OS.h>
 #include "evaluation.h"
 #include "config_impl.h"
 #include "jml/utils/worker_task.h"
@@ -19,6 +18,8 @@
 #include "jml/utils/vector_utils.h"
 #include <boost/bind.hpp>
 #include <boost/thread/tss.hpp>
+#include "jml/utils/exc_assert.h"
+#include "jml/math/xdiv.h"
 
 
 using namespace std;
@@ -100,11 +101,11 @@ get_optimized_index(const Feature & feature) const
 /*****************************************************************************/
 
 Explanation::
-Explanation(const Feature_Set & fset,
-            const Feature_Space & fspace,
-            int label)
-    : value(0.0), bias(0.0), fset(&fset), fspace(&fspace), label(label)
+Explanation(boost::shared_ptr<const Feature_Space> fspace,
+            double weight)
+    : bias(0.0), weight(weight), fspace(fspace)
 {
+    ExcAssert(fspace);
 }
 
 void
@@ -116,6 +117,10 @@ add(const Explanation & other, double weight)
              end = other.feature_weights.end();
          it != end;  ++it)
         feature_weights[it->first] += weight * it->second;
+
+    bias += weight * other.bias;
+
+    this->weight += other.weight;
 }
 
 struct Sort_On_Abs_Second {
@@ -128,7 +133,7 @@ struct Sort_On_Abs_Second {
 
 std::string
 Explanation::
-print(int nfeatures) const
+explain(int nfeatures, const Feature_Set & fset, int label) const
 {
     // Rank the features
     vector<pair<Feature, float> > ranked(feature_weights.begin(),
@@ -146,7 +151,7 @@ print(int nfeatures) const
         float score = ranked[i].second;
         result += format("%12.6f %-20s %s\n",
                          score,
-                         fspace->print(feature, (*fset)[feature]).c_str(),
+                         fspace->print(feature, (fset)[feature]).c_str(),
                          fspace->print(feature).c_str());
     }
 
@@ -159,6 +164,53 @@ print(int nfeatures) const
                      total);
 
     return result;
+}
+
+std::string
+Explanation::
+explain(int nfeatures) const
+{
+    // Rank the features
+    vector<pair<Feature, float> > ranked(feature_weights.begin(),
+                                         feature_weights.end());
+
+    std::sort(ranked.begin(), ranked.end(),
+              Sort_On_Abs_Second());
+    
+    std::string result;
+    if (bias != 0.0)
+        result += format("%12.6f BIAS\n",
+                         bias);
+    for (unsigned i = 0;  i < ranked.size() && i < nfeatures;  ++i) {
+        const Feature & feature = ranked[i].first;
+        float score = ranked[i].second;
+        result += format("%12.6f %s\n",
+                         score,
+                         fspace->print(feature).c_str());
+    }
+
+    double total = bias;
+    for (unsigned i = 0;  i < ranked.size();  ++i)
+        total += ranked[i].second;
+    
+
+    result += format("%12.6f TOTAL\n",
+                     total);
+    
+    return result;
+}
+
+void
+Explanation::
+normalize()
+{
+    for (Feature_Weights::iterator it = feature_weights.begin(),
+             end = feature_weights.end();
+         it != end;  ++it)
+        it->second = xdiv(it->second, weight);
+
+    bias = xdiv(bias, weight);
+    weight = xdiv(weight, weight);
 }
 
 
@@ -292,9 +344,31 @@ optimize(const std::vector<Feature> & features)
         }
     }
 
-    if (num_done != result.to_features.size())
+    if (num_done != result.to_features.size()) {
+        vector<Feature> sorted1 = result.to_features;
+        vector<Feature> sorted2;
+
+        for (unsigned i = 0;  i < features.size();  ++i) {
+            if (feature_map.count(features[i]))
+                sorted2.push_back(features[i]);
+        }
+
+        std::sort(sorted1.begin(), sorted1.end());
+        std::sort(sorted2.begin(), sorted2.end());
+        
+        vector<Feature> missing;
+        std::set_difference(sorted1.begin(), sorted1.end(),
+                            sorted2.begin(), sorted2.end(),
+                            back_inserter(missing));
+
+        std::string message;
+        for (unsigned i = 0;  i < missing.size();  ++i) {
+            if (i != 0) message += " ";
+            message += feature_space()->print(missing[i]);
+        }
         throw Exception("optimize(): didn't find all features needed for "
-                        "classifier");
+                        "classifier: %s", message.c_str());
+    }
 
     result.initialized = true;
 

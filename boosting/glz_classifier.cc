@@ -330,7 +330,7 @@ explain(const Feature_Set & feature_set,
         int label,
         double weight) const
 {
-    Explanation result(feature_set, *feature_space(), label);
+    Explanation result(feature_space(), weight);
 
     for (unsigned j = 0;  j < features.size();  ++j) {
         float feat_val = decode_value(feature_set[features[j].feature],

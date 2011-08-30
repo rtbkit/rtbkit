@@ -65,17 +65,17 @@ reconstitute(DB::Store_Reader & store, const Feature_Space & fs,
 
 
 /*****************************************************************************/
-/* TREE::LEAF                                                                */
+/* TREE::BASE                                                                */
 /*****************************************************************************/
 
-void Tree::Leaf::
+void Tree::Base::
 serialize(DB::Store_Writer & store) const
 {
     store << compact_size_t(1);  // version
     store << pred << examples;
 }
 
-void Tree::Leaf::
+void Tree::Base::
 reconstitute(DB::Store_Reader & store)
 {
     compact_size_t version(store);
@@ -84,7 +84,7 @@ reconstitute(DB::Store_Reader & store)
         store >> pred >> examples;
         break;
     default:
-        throw Exception("Attempt to reconstitute decision tree leaf of unknown "
+        throw Exception("Attempt to reconstitute decision tree base of unknown "
                         "version " + ostream_format(version.size_));
     }
 }
@@ -267,6 +267,18 @@ reconstitute(DB::Store_Reader & store, const Feature_Space & fs)
     store >> s;
     if (s != "END_TREE")
         throw Exception("Bad end Tree marker " + s);
+}
+
+std::string
+printLabels(const distribution<float> & dist);
+
+std::string print_outcome(const ML::Tree::Leaf & outcome)
+{
+    string result;
+    const distribution<float> & dist = outcome.pred;
+    result += format(" (weight = %.2f) ", outcome.examples);
+    result += printLabels(dist);
+    return result;
 }
 
 } // namespace ML

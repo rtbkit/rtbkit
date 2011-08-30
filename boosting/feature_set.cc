@@ -57,12 +57,15 @@ void Mutable_Feature_Set::sort()
 
 void Mutable_Feature_Set::do_sort() const
 {
+    if (is_sorted) return;
+    if (locked) throw Exception("mutating locked feature set");
     std::sort(features.begin(), features.end(), compare_feature());
     is_sorted = true;
 }
 
 void Mutable_Feature_Set::add(const Feature & feat, float val)
 {
+    if (locked) throw Exception("mutating locked feature set");
     features.push_back(std::make_pair(feat, val));
     if (features.size() == 1) is_sorted = true;
     else if (is_sorted && compare_feature()(features[features.size() - 2],
@@ -74,6 +77,7 @@ void Mutable_Feature_Set::add(const Feature & feat, float val)
 void Mutable_Feature_Set::
 replace(const Feature & feat, float val)
 {
+    if (locked) throw Exception("mutating locked feature set");
     if (is_sorted) {
         /* Can do this more sensibly, and keep it sorted... */
         features_type::iterator it

@@ -233,15 +233,18 @@ multiply_r(const ML::distribution<Float2> & b,
 
     ML::distribution<FloatR> result(A.shape()[1], 0.0);
 #if 1 // more accurate
-    double accum[A.shape()[1]];
-    for (unsigned j = 0;  j < A.shape()[1];  ++j)
-        accum[j] = 0.0;
+    std::vector<double> accum(A.shape()[1], 0.0);
+    using namespace std;
+    //cerr << "A.shape()[1] = " << A.shape()[1] << endl;
+    //cerr << "accum = " << accum << endl;
+    //for (unsigned j = 0;  j < A.shape()[1];  ++j)
+    //    accum[j] = 0.0;
     for (unsigned i = 0;  i < A.shape()[0];  ++i) {
         //for (unsigned j = 0;  j < A.shape()[1];  ++j)
         //    result[j] += b[i] * A[i][j];
-        SIMD::vec_add(accum, b[i], &A[i][0], accum, A.shape()[1]);
+        SIMD::vec_add(&accum[0], b[i], &A[i][0], &accum[0], A.shape()[1]);
     }
-    std::copy(accum, accum + A.shape()[1], result.begin());
+    std::copy(accum.begin(), accum.end(), result.begin());
 #else
     for (unsigned i = 0;  i < A.shape()[0];  ++i)
         SIMD::vec_add(&result[0], b[i], &A[i][0], &result[0], A.shape()[1]);

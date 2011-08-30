@@ -26,6 +26,11 @@
 #include <boost/iostreams/filter/bzip2.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/device/file_descriptor.hpp>
+#include "jml/arch/exception.h"
+#include "jml/arch/format.h"
+#include <errno.h>
+#include "lzma.h"
 
 
 using namespace std;
@@ -44,10 +49,19 @@ filter_ostream::filter_ostream()
 }
 
 filter_ostream::
-filter_ostream(const std::string & file, std::ios_base::openmode mode)
+filter_ostream(const std::string & file, std::ios_base::openmode mode,
+               const std::string & compression, int level)
     : ostream(std::cout.rdbuf())
 {
-    open(file, mode);
+    open(file, mode, compression, level);
+}
+
+filter_ostream::
+filter_ostream(int fd, std::ios_base::openmode mode,
+               const std::string & compression, int level)
+    : ostream(std::cout.rdbuf())
+{
+    open(fd, mode);
 }
 
 namespace {
@@ -62,7 +76,8 @@ bool ends_with(const std::string & str, const std::string & what)
 } // file scope
 
 void filter_ostream::
-open(const std::string & file_, std::ios_base::openmode mode)
+open(const std::string & file_, std::ios_base::openmode mode,
+     const std::string & compression, int level)
 {
     using namespace boost::iostreams;
 
@@ -72,11 +87,29 @@ open(const std::string & file_, std::ios_base::openmode mode)
     auto_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
 
-    bool gzip = (ends_with(file, ".gz") || ends_with(file, ".gz~"));
-    bool bzip2 = (ends_with(file, ".bz2") || ends_with(file, ".bz2~"));
-
-    if (gzip) new_stream->push(gzip_compressor());
-    if (bzip2) new_stream->push(bzip2_compressor());
+    if (compression == "gz" || compression == "gzip"
+        || (compression == ""
+            && (ends_with(file, ".gz") || ends_with(file, ".gz~")))) {
+        if (level == -1)
+            new_stream->push(gzip_compressor());
+        else new_stream->push(gzip_compressor(level));
+    }
+    else if (compression == "bz2" || compression == "bzip2"
+        || (compression == ""
+            && (ends_with(file, ".bz2") || ends_with(file, ".bz2~")))) {
+        if (level == -1)
+            new_stream->push(bzip2_compressor());
+        else new_stream->push(bzip2_compressor(level));
+    }
+    else if (compression == "lzma" || compression == "xz"
+        || (compression == ""
+            && (ends_with(file, ".xz") || ends_with(file, ".xz~")))) {
+        if (level == -1)
+            new_stream->push(lzma_compressor());
+        else new_stream->push(lzma_compressor(level));
+    }
+    else if (compression != "" && compression != "none")
+        throw ML::Exception("unknown filter compression " + compression);
     
     if (file == "-") {
         new_stream->push(std::cout);
@@ -89,6 +122,59 @@ open(const std::string & file_, std::ios_base::openmode mode)
     rdbuf(stream->rdbuf());
 
     //stream.reset(new ofstream(file.c_str(), mode));
+}
+
+void filter_ostream::
+open(int fd, std::ios_base::openmode mode,
+     const std::string & compression, int level)
+{
+    using namespace boost::iostreams;
+    
+    auto_ptr<filtering_ostream> new_stream
+        (new filtering_ostream());
+
+    if (compression == "gz" || compression == "gzip") {
+        if (level == -1)
+            new_stream->push(gzip_compressor());
+        else new_stream->push(gzip_compressor(level));
+    }
+    else if (compression == "bz2" || compression == "bzip2") {
+        if (level == -1)
+            new_stream->push(bzip2_compressor());
+        else new_stream->push(bzip2_compressor(level));
+    }
+    else if (compression == "lzma" || compression == "xz") {
+        if (level == -1)
+            new_stream->push(lzma_compressor());
+        else new_stream->push(lzma_compressor(level));
+    }
+    else if (compression != "" && compression != "none")
+        throw ML::Exception("unknown filter compression " + compression);
+    
+    new_stream->push(file_descriptor_sink(fd));
+    stream.reset(new_stream.release());
+    rdbuf(stream->rdbuf());
+    
+    //stream.reset(new ofstream(file.c_str(), mode));
+}
+
+void
+filter_ostream::
+close()
+{
+    rdbuf(0);
+    //stream->close();
+}
+
+std::string
+filter_ostream::
+status() const
+{
+    if (*this) return "good";
+    else return format("%s%s%s",
+                       fail() ? " fail" : "",
+                       bad() ? " bad" : "",
+                       eof() ? " eof" : "");
 }
 
 
@@ -121,19 +207,33 @@ open(const std::string & file_, std::ios_base::openmode mode)
 
     bool gzip = (ends_with(file, ".gz") || ends_with(file, ".gz~"));
     bool bzip2 = (ends_with(file, ".bz2") || ends_with(file, ".bz2~"));
+    bool lzma  = (ends_with(file, ".xz") || ends_with(file, ".xz~"));
 
     if (gzip) new_stream->push(gzip_decompressor());
     if (bzip2) new_stream->push(bzip2_decompressor());
+    if (lzma) new_stream->push(lzma_decompressor());
 
     if (file == "-") {
         new_stream->push(std::cin);
     }
     else {
-        new_stream->push(file_source(file.c_str(), mode));
+        file_source source(file.c_str(), mode);
+        if (!source.is_open())
+            throw Exception("stream open failed for file %s: %s",
+                            file_.c_str(), strerror(errno));
+        new_stream->push(source);
     }
-    
+
     stream.reset(new_stream.release());
     rdbuf(stream->rdbuf());
+}
+
+void
+filter_istream::
+close()
+{
+    rdbuf(0);
+    //stream->close();
 }
 
 } // namespace ML

@@ -7,7 +7,7 @@
 
 #include "csv.h"
 #include "parse_context.h"
-
+#include "jml/arch/format.h"
 
 using namespace std;
 
@@ -32,7 +32,7 @@ std::string expect_csv_field(Parse_Context & context, bool & another,
                 continue;
             }
             if (context.match_literal('\"')) {
-                if (!*context == separator)
+                if (*context == separator)
                     another = true;
                 if (!context || context.match_literal(separator)
                     || *context == '\n' || *context == '\r')
@@ -85,12 +85,12 @@ expect_csv_row(Parse_Context & context, int length, char separator)
     bool another = false;
     while (another || (context && !context.match_eol())) {
         result.push_back(expect_csv_field(context, another, separator));
-        //cerr << "read " << result.back() << endl;
+        //cerr << "read " << result.back() << " another = " << another << endl;
     }
 
     if (length != -1 && result.size() != length)
-        throw Exception("Wrong CSV length: expected %d, got %zd", length,
-                        result.size());
+        context.exception(format("Wrong CSV length: expected %d, got %zd",
+                                 length, result.size()));
     
     return result;
 }

@@ -13,7 +13,6 @@
 #include <boost/utility.hpp>
 #include "jml/utils/environment.h"
 #include "jml/utils/guard.h"
-#include <ace/OS.h>
 #include <boost/bind.hpp>
 #include "jml/arch/cpu_info.h"
 
@@ -63,7 +62,7 @@ Worker_Task::Worker_Task(int threads)
 
     /* Create our threads */
     if (threads > 0) {
-        int res = activate(THR_DETACHED | THR_NEW_LWP, threads);
+        int res = activate(THR_JOINABLE | THR_NEW_LWP, threads);
         
         //cerr << "res from activate = " << res << endl;
         
@@ -75,6 +74,7 @@ Worker_Task::Worker_Task(int threads)
 
 Worker_Task::~Worker_Task()
 {
+    //cerr << "stopping worker task" << endl;
     force_finished = true;
 
     // Wake up all tasks by providing jobs
@@ -89,6 +89,12 @@ Worker_Task::~Worker_Task()
 
     for (unsigned i = 0;  i < threads_;  ++i)
         shutdown_sem.acquire();
+
+    int res = wait();
+    if (res == -1)
+        throw Exception("wait returned error %s", strerror(errno));
+    
+    //cerr << "finished stopping worker task" << endl;
 }
 
 Worker_Task::Id

@@ -35,6 +35,7 @@ struct Tree {
 
     void clear();
 
+    struct Base;
     struct Node;
     struct Leaf;
 
@@ -45,6 +46,20 @@ struct Tree {
         Ptr(Leaf * leaf) : is_node_(false) { ptr_.leaf = leaf; }
         Node * node() const { if (!is_node_) return 0;  return ptr_.node; }
         Leaf * leaf() const { if (!is_node_) return ptr_.leaf;  return 0; }
+
+        float examples() const
+        {
+            if (!ptr_.base) return 0;
+            else return ptr_.base->examples;
+        }
+
+        const distribution<float> & pred() const
+        {
+            static const distribution<float> none;
+            if (!ptr_.base) return none;
+            return ptr_.base->pred;
+        }
+
         operator bool () const { return ptr_.node; }
             
         void serialize(DB::Store_Writer & store,
@@ -55,16 +70,17 @@ struct Tree {
     private:
         bool is_node_;
         union {
+            Base * base;
             Node * node;
             Leaf * leaf;
         } ptr_;
     };
 
-    /** Leaf node.  Contains a prediction for each class. */
-    struct Leaf {
-        Leaf() {}
-        Leaf(const distribution<float> & pred, float examples)
+    struct Base {
+        Base() {}
+        Base(const distribution<float> & pred, float examples)
             : pred(pred), examples(examples) {}
+
         distribution<float> pred;  ///< Probs for class, means for regress
         float examples;    ///< Num examples at this point
 
@@ -75,12 +91,19 @@ struct Tree {
         size_t memusage() const;
     };
 
+    /** Leaf node.  Contains a prediction for each class. */
+    struct Leaf : public Base {
+        Leaf() {}
+        Leaf(const distribution<float> & pred, float examples)
+            : Base(pred, examples)
+        {
+        }
+    };
+
     /** Node.  Contains child pointers and a test. */
-    struct Node {
+    struct Node : public Base {
         Split split;       ///< Value to split on
         float z;           ///< Z score for this split
-        float examples;    ///< Num examples at this point
-        distribution<float> pred;  ///< Prediction if it was pruned here
         Ptr child_true;    ///< Result if true
         Ptr child_false;   ///< Result if false
         Ptr child_missing; ///< Result if missing
@@ -134,7 +157,7 @@ private:
     void clear_recursive(Tree::Ptr & root);
 };
 
-
+std::string print_outcome(const ML::Tree::Leaf & outcome);
 
 
 } // namespace ML

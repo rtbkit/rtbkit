@@ -34,9 +34,29 @@ void atomic_accumulate(Val1 * old, const Val2 * increment, int n)
 template<typename Val1, typename Val2>
 void atomic_add(Val1 & val, const Val2 & amount)
 {
-    asm ("lock add %[amount], %[val]\n\t"
+    asm volatile ("lock add %[amount], %[val]\n\t"
          : [val] "=m" (val)
          : [amount] "r" (amount)
+         : "cc");
+}
+
+template<typename Val1, typename Val2>
+void atomic_set_bits(Val1 & val, Val2 amount)
+{
+    Val1 bits = amount;
+    asm volatile ("lock or %[bits], %[val]\n\t"
+         : [val] "=m" (val)
+         : [bits] "r" (bits)
+         : "cc");
+}
+
+template<typename Val1, typename Val2>
+void atomic_clear_bits(Val1 & val, Val2 amount)
+{
+    Val1 bits = ~amount;
+    asm volatile ("lock and %[bits], %[val]\n\t"
+         : [val] "=m" (val)
+         : [bits] "r" (bits)
          : "cc");
 }
 

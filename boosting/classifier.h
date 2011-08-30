@@ -105,22 +105,31 @@ struct Optimization_Info {
     the prediction. */
 
 struct Explanation {
-    Explanation(const Feature_Set & fset,
-                const Feature_Space & fspace,
-                int label);
+    Explanation(boost::shared_ptr<const Feature_Space> fspace,
+                double weight);
 
+    /** Add the weights from another explanation. */
     void add(const Explanation & other, double weight = 1.0);
 
-    std::string print(int nfeatures = 10) const;
+    /** Explain how a single prediction was made. */
+    std::string explain(int nfeatures,
+                        const Feature_Set & fset,
+                        int label) const;
+    
+    /** Explain how the whole set of predictions were made. */
+    std::string explain(int nfeatures = -1) const;
+    
+    /** Divide all of the feature weights by the weight so that the effect
+        of feature set size is removed.
+    */
+    void normalize();
 
-    double value;
     double bias;
+    double weight;
 
     typedef std::map<Feature, double> Feature_Weights;
     Feature_Weights feature_weights;
-    const Feature_Set * fset;
-    const Feature_Space * fspace;
-    int label;
+    boost::shared_ptr<const Feature_Space> fspace;
 };
 
 
@@ -187,6 +196,20 @@ public:
         return feature_space_;
     }
 
+    /** Returns the feature space, dynamic cast as specified. */
+    template<class Target_FS>
+    boost::shared_ptr<const Target_FS> feature_space() const
+    {
+        boost::shared_ptr<const Target_FS> result
+            = boost::dynamic_pointer_cast<const Target_FS>(feature_space());
+        if (!result)
+            throw Exception("Couldn't cast feature space of type "
+                            + demangle(typeid(*feature_space()).name())
+                            + " to "
+                            + demangle(typeid(Target_FS).name()));
+        return result;
+    }
+    
     /** Change the feature space.  This method should be used with caution,
         as it is quite possible that there will have been initialisation done
         assuming the old feature space.

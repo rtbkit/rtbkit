@@ -2,3 +2,4 @@
 build
 $~
 *~
+.make_hash_cache

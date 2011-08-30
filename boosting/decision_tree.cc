@@ -13,6 +13,8 @@
 #include <functional>
 #include "jml/utils/vector_utils.h"
 #include "config_impl.h"
+#include "jml/utils/exc_assert.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 
 using namespace std;
@@ -295,6 +297,62 @@ predict_recursive_impl(const GetFeatures & get_features,
                                weights[MISSING]);
 }
 
+std::string
+printLabels(const distribution<float> & dist)
+{
+    string result = "";
+    for (unsigned i = 0;  i < dist.size();  ++i)
+        if (dist[i] != 0.0) result += format(" %d/%.3f", i, dist[i]);
+    return result;
+}
+
+std::string
+printLabels(const Tree::Ptr & ptr)
+{
+    return printLabels(ptr.pred());
+}
+
+std::string
+Decision_Tree::
+print() const
+{
+    string result = "Decision Tree: ";
+    float total_weight = tree.root.examples();
+    if (tree.root.node()) total_weight = tree.root.examples();
+    result = format("Decision Tree: (weight = %.2f, cov = %.2f%%) ",
+                    total_weight, 100.0);
+    result += printLabels(tree.root) + "\n";
+    result += print_recursive(0, tree.root, total_weight);
+    return result;
+}
+
+std::string
+Decision_Tree::
+summary() const
+{
+    if (!tree.root)
+        return "NULL";
+    
+    float total_weight = 0.0;
+    if (tree.root.node()) total_weight = tree.root.node()->examples;
+    
+    if (tree.root.node()) {
+        Tree::Node & n = *tree.root.node();
+        float cov = n.examples / total_weight;
+        float z_adj = n.z / cov;
+        return "Root: " + n.split.print(*feature_space())
+            + format(" (z = %.4f)", z_adj);
+    }
+    else {
+        string result = "leaf: ";
+        Tree::Leaf & l = *tree.root.leaf();
+        const distribution<float> & dist = l.pred;
+        for (unsigned i = 0;  i < dist.size();  ++i)
+            if (dist[i] != 0.0) result += format(" %d/%.3f", i, dist[i]);
+        return result;
+    }
+}
+
 string
 Decision_Tree::
 print_recursive(int level, const Tree::Ptr & ptr,
@@ -304,31 +362,51 @@ print_recursive(int level, const Tree::Ptr & ptr,
     if (ptr.node()) {
         Tree::Node & n = *ptr.node();
         string result;
-        float cov = n.examples / total_weight;
-        float z_adj = n.z / cov;
-        result += spaces 
-            + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%)\n",
-                     n.split.print(*feature_space()).c_str(),
-                     z_adj, n.examples, cov * 100.0);
-        result += spaces + "  true: \n";
-        result += print_recursive(level + 1, n.child_true, total_weight);
-        result += spaces + "  false: \n";
-        result += print_recursive(level + 1, n.child_false, total_weight);
-        result += spaces + "  missing: \n";
-        result += print_recursive(level + 1, n.child_missing, total_weight);
+        float z_cov = n.examples / total_weight;
+        float z_adj = n.z / z_cov;
+
+        if (n.child_false && n.child_false.examples() > 0) {
+            float cov = n.child_false.examples() / total_weight;
+            result += spaces 
+                + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%) ",
+                         n.split.print(*feature_space(), false).c_str(),
+                         z_adj, n.child_false.examples(), cov * 100.0);
+            result += printLabels(n.child_false) + "\n";
+            result += print_recursive(level + 1, n.child_false, total_weight);
+        }
+
+        if (n.child_true && n.child_true.examples() > 0) {
+            float cov = n.child_true.examples() / total_weight;
+            result += spaces 
+                + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%) ",
+                         n.split.print(*feature_space(), true).c_str(),
+                         z_adj, n.child_true.examples(), cov * 100.0);
+            result += printLabels(n.child_true) + "\n";
+            result += print_recursive(level + 1, n.child_true, total_weight);
+        }
+
+        if (n.child_missing && n.child_missing.examples() > 0) {
+            float cov = n.child_missing.examples() / total_weight;
+            result += spaces 
+                + format(" %s (z = %.4f, weight = %.2f, cov = %.2f%%) ",
+                         n.split.print(*feature_space(), MISSING).c_str(),
+                         z_adj, n.child_missing.examples(), cov * 100.0);
+            result += printLabels(n.child_missing) + "\n";
+            result += print_recursive(level + 1, n.child_missing, total_weight);
+        }
         return result;
     }
     else if (ptr.leaf()) {
-        string result = spaces + "leaf: ";
+        return "";
+        string result = spaces + "leaf ";
         Tree::Leaf & l = *ptr.leaf();
         const distribution<float> & dist = l.pred;
-        for (unsigned i = 0;  i < dist.size();  ++i)
-            if (dist[i] != 0.0) result += format(" %d/%.3f", i, dist[i]);
         float cov = l.examples / total_weight;
-        result += format(" (weight = %.2f, cov = %.2f%%)\n",
+        result += format(" (weight = %.2f, cov = %.2f%%) ",
                          l.examples, cov * 100.0);
-        
-        return result + "\n";
+        result += printLabels(dist);
+        result += "\n";
+        return result;
     }
     else return spaces + "NULL";
 }
@@ -339,9 +417,9 @@ explain(const Feature_Set & feature_set,
         int label,
         double weight) const
 {
-    Explanation result(feature_set, *feature_space(), label); 
+    Explanation result(feature_space(), weight); 
 
-    explain_recursive(result, weight, tree.root, 0);
+    explain_recursive(result, feature_set, label, weight, tree.root, 0);
 
     return result;
 }
@@ -349,13 +427,14 @@ explain(const Feature_Set & feature_set,
 void
 Decision_Tree::
 explain_recursive(Explanation & explanation,
+                  const Feature_Set & feature_set,
+                  int label,
                   double weight,
                   const Tree::Ptr & ptr,
                   const Tree::Node * parent) const
 {
-    StandardGetFeatures get_features(*explanation.fset);
+    StandardGetFeatures get_features(feature_set);
     int nl = label_count();
-    int label = explanation.label;
 
     if (label < 0 || label >= nl)
         throw Exception("Decision_Tree::explain(): no label");
@@ -391,53 +470,71 @@ explain_recursive(Explanation & explanation,
     
     /* Go down all of the edges that we need to for this example. */
     if (weights[true] > 0.0)
-        explain_recursive(explanation, weight * weights[true],
+        explain_recursive(explanation, feature_set, label,
+                          weight * weights[true],
                           node.child_true, &node);
 
     if (weights[false] > 0.0)
-        explain_recursive(explanation, weight * weights[false],
+        explain_recursive(explanation, feature_set, label,
+                          weight * weights[false],
                           node.child_false, &node);
 
     if (weights[MISSING] > 0.0)
-        explain_recursive(explanation, weight * weights[MISSING],
+        explain_recursive(explanation, feature_set, label,
+                          weight * weights[MISSING],
                           node.child_missing, &node);
 }
 
-std::string
+Disjunction<Tree::Leaf>
 Decision_Tree::
-print() const
+to_rules() const
 {
-    string result = "Decision tree:\n";
-    float total_weight = 0.0;
-    if (tree.root.node()) total_weight = tree.root.node()->examples;
-    result += print_recursive(0, tree.root, total_weight);
+    Disjunction<Tree::Leaf> result;
+    result.feature_space = feature_space();
+    std::vector<boost::shared_ptr<Predicate> > path;
+
+    to_rules_recursive(result, path, tree.root);
+
+    ExcAssert(path.empty());
+
     return result;
 }
 
-std::string
+void
 Decision_Tree::
-summary() const
+to_rules_recursive(Disjunction<Tree::Leaf> & result,
+                   std::vector<boost::shared_ptr<Predicate> > & path,
+                   const Tree::Ptr & ptr) const
 {
-    if (!tree.root)
-        return "NULL";
-    
-    float total_weight = 0.0;
-    if (tree.root.node()) total_weight = tree.root.node()->examples;
-    
-    if (tree.root.node()) {
-        Tree::Node & n = *tree.root.node();
-        float cov = n.examples / total_weight;
-        float z_adj = n.z / cov;
-        return "Root: " + n.split.print(*feature_space())
-            + format(" (z = %.4f)", z_adj);
+    if (ptr.examples() == 0.0) return;
+
+    if (ptr.node()) {
+        const Tree::Node & node = *ptr.node();
+        
+        {
+            path.push_back(make_sp(new Predicate(node.split, false)));
+            to_rules_recursive(result, path, node.child_false);
+            path.pop_back();
+        }
+
+        {
+            path.push_back(make_sp(new Predicate(node.split, true)));
+            to_rules_recursive(result, path, node.child_true);
+            path.pop_back();
+        }
+
+        {
+            path.push_back(make_sp(new Predicate(node.split, MISSING)));
+            to_rules_recursive(result, path, node.child_missing);
+            path.pop_back();
+        }
     }
-    else {
-        string result = "leaf: ";
-        Tree::Leaf & l = *tree.root.leaf();
-        const distribution<float> & dist = l.pred;
-        for (unsigned i = 0;  i < dist.size();  ++i)
-            if (dist[i] != 0.0) result += format(" %d/%.3f", i, dist[i]);
-        return result;
+    else if (ptr.leaf()) {
+        boost::shared_ptr<Conjunction<Tree::Leaf> > c
+            (new Conjunction<Tree::Leaf>());
+        c->predicates = path;
+        c->outcome = *ptr.leaf();
+        result.predicates.push_back(c);
     }
 }
 

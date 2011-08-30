@@ -309,6 +309,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     boost::multi_array<Float, 2> GK(boost::extents[minmn][minmn]);
 
     bool debug = false;
+    //debug = true;
     
     //cerr << "m = " << m << " n = " << n << endl;
 

@@ -121,6 +121,8 @@ template<typename Data>
 JML_ALWAYS_INLINE JML_COMPUTE_METHOD
 Data extract_bit_range(const Data * p, size_t bit, shift_t bits)
 {
+    if (bits == 0) return 0;
+
     Data result = p[0];
 
     enum { DBITS = sizeof(Data) * 8 };
@@ -131,8 +133,9 @@ Data extract_bit_range(const Data * p, size_t bit, shift_t bits)
     }
     else result >>= bit;
 
-    result *= Data(bits != 0);  // bits == 0: should return 0; mask doesn't work
+    if (bits == DBITS) return result;
 
+    result *= Data(bits != 0);  // bits == 0: should return 0; mask doesn't work
     return result & ((Data(1) << bits) - 1);
 }
 
@@ -143,12 +146,9 @@ Data extract_bit_range(Data p0, Data p1, size_t bit, shift_t bits)
 {
     if (JML_UNLIKELY(bits == 0)) return 0;
 
-    Data result
-        = (shrd(p0, p1, bit) // extract
-           * Data(bits != 0)) // zero if bits == 0
-        & ((Data(1) << bits) - 1); // mask
-    
-    return result;
+    Data result = shrd(p0, p1, bit); // extract
+    if (bits == sizeof(Data) * 8) return result;
+    return result & ((Data(1) << bits) - 1); // mask
 }
 
 /** Set the given range of bits in out to the given value.  Note that val
@@ -462,7 +462,24 @@ struct Bit_Writer {
 
     void write(Data val, int bits)
     {
+        //using namespace std;
+        //cerr << "write: val = " << val << " bits = " << bits << endl;
+        //cerr << "data[0] = " << data[0] << " data[1] = "
+        //     << data[1] << endl;
         set_bit_range(data, val, bit_ofs, bits);
+        //cerr << "after: data[0] = " << data[0] << " data[1] = "
+        //     << data[1] << endl;
+
+        //Data readBack = extract_bit_range(data, bit_ofs, bits);
+        //if (readBack != val) {
+        //    cerr << "val = " << val << " readBack = "
+        //         << readBack << endl;
+        //    cerr << "bit_ofs = " << bit_ofs << endl;
+        //    cerr << "bits = " << bits << endl;
+        //    throw Exception("didn't read back what was written");
+        //}
+
+
         bit_ofs += bits;
         data += (bit_ofs / (sizeof(Data) * 8));
         bit_ofs %= sizeof(Data) * 8;
