@@ -62,6 +62,6 @@ BOOST_AUTO_TEST_CASE( test_fd_to_filename )
     int fd = open("/dev/null", O_RDONLY);
     BOOST_CHECK_EQUAL(fd_to_filename(fd), "/dev/null");
 
-    BOOST_CHECK_THROW(fd_to_filename(5), ML::Exception);
+    BOOST_CHECK_THROW(fd_to_filename(500), ML::Exception);
     BOOST_CHECK_THROW(fd_to_filename(-1), ML::Exception);
 }
