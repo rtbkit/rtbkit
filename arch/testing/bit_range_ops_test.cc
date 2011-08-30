@@ -260,4 +260,36 @@ BOOST_AUTO_TEST_CASE( test_set_bit_range )
     do_test_sbr<uint64_t>();
 }
 
+BOOST_AUTO_TEST_CASE( test_64_bit_set_extract )
+{
+    {
+        uint64_t data[2] = { 0, 0 };
+        
+        Bit_Writer<uint64_t> writer(data);
+        writer.write(1ULL << 63, 64);
+        writer.write(-1ULL, 64);
+        
+        BOOST_CHECK_EQUAL(data[0], 1ULL << 63);
+        BOOST_CHECK_EQUAL(data[1], -1);
+
+        Bit_Extractor<uint64_t> extractor(data);
+        BOOST_CHECK_EQUAL(extractor.extract<uint64_t>(64), 1ULL << 63);
+        BOOST_CHECK_EQUAL(extractor.extract<uint64_t>(64), -1);
+    }
+
+    {
+        uint64_t data[3] = { 0, 0, 0 };
+        
+        Bit_Writer<uint64_t> writer(data);
+        writer.write(1, 3);
+        writer.write(1ULL << 63, 64);
+        writer.write(-1ULL, 64);
+        
+        Bit_Extractor<uint64_t> extractor(data);
+        BOOST_CHECK_EQUAL(extractor.extract<uint64_t>(3), 1);
+        BOOST_CHECK_EQUAL(extractor.extract<uint64_t>(64), 1ULL << 63);
+        BOOST_CHECK_EQUAL(extractor.extract<uint64_t>(64), -1);
+    }
+}
+
 // Check that accessing as bytes is same as another type
