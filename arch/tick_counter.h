@@ -11,6 +11,7 @@
 #include "jml/compiler/compiler.h"
 #include <stdint.h>
 #include "jml/arch/arch.h"
+//#include <iostream>
 
 namespace ML {
 
@@ -23,11 +24,14 @@ JML_ALWAYS_INLINE uint64_t ticks()
     asm volatile ("rdtsc\n\t" : "=A" (result));
     return result;
 # else
-    uint64_t result;
-    asm volatile ("rdtsc                  \n\t"
+    uint64_t result, procid;
+    asm volatile ("rdtscp                 \n\t"
                   "shl     $32, %%rdx     \n\t"
                   "or      %%rdx, %%rax   \n\t"
-                  : "=a" (result) : : "%rdx" );
+                  : "=a" (result), "=c" (procid) : : "%rdx" );
+
+    //std::cerr << "procid = " << procid << std::endl;
+
     return result;
 # endif // 32/64 bits
 #else // non-intel
