@@ -25,7 +25,7 @@ JML_ALWAYS_INLINE uint64_t ticks()
     return result;
 # else
     uint64_t result, procid;
-    asm volatile ("rdtscp                 \n\t"
+    asm volatile ("rdtsc                  \n\t"
                   "shl     $32, %%rdx     \n\t"
                   "or      %%rdx, %%rax   \n\t"
                   : "=a" (result), "=c" (procid) : : "%rdx" );
