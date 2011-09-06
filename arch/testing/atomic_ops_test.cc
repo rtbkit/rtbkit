@@ -71,7 +71,7 @@ struct test_atomic_add2_thread {
     {
         //cerr << "thread " << tnum << " waiting" << endl;
 
-        //barrier.wait();
+        barrier.wait();
         
         //cerr << "started thread" << tnum << endl;
         
@@ -90,6 +90,7 @@ void test_atomic_add2_type()
     boost::barrier barrier(nthreads);
     X val = 0;
     boost::thread_group tg;
+
     for (unsigned i = 0;  i < nthreads;  ++i)
         tg.create_thread(test_atomic_add2_thread<X>(barrier, val, iter, i));
 

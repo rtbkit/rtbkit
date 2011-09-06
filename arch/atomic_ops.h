@@ -34,9 +34,10 @@ void atomic_accumulate(Val1 * old, const Val2 * increment, int n)
 template<typename Val1, typename Val2>
 void atomic_add(Val1 & val, const Val2 & amount)
 {
+    Val1 amt = amount;
     asm volatile ("lock add %[amount], %[val]\n\t"
          : [val] "=m" (val)
-         : [amount] "r" (amount)
+                  : [amount] "r" (amt)
          : "cc");
 }
 
