@@ -5,7 +5,7 @@
 LIBTSNE_SOURCES := \
         tsne.cc \
 
-LIBTSNE_LINK :=	utils algebra arch boost_thread-mt stats worker_task
+LIBTSNE_LINK :=	utils algebra arch boost_thread stats worker_task
 
 $(eval $(call library,tsne,$(LIBTSNE_SOURCES),$(LIBTSNE_LINK)))
 

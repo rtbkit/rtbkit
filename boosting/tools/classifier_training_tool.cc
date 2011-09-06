@@ -117,7 +117,7 @@ try
               "feature with name REGEX is optional [REGEX|@FILE]" )
             ( "sparse-data,S", value<bool>(&data_is_sparse)->default_value(true),
               "dataset is in sparse format" )
-            ( "min-feature-count,c", value<int>(&min_feature_count),
+            ( "min-feature-count", value<int>(&min_feature_count),
               "don't consider features seen < NUM times [NUM]" )
             ( "remove-aliased,A", value<bool>(&remove_aliased)->default_value(true),
               "remove aliased training rows from the training data" )

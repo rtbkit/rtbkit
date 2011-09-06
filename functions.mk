@@ -332,7 +332,7 @@ $$(eval $$(call add_sources,$(1).cc))
 
 $(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).lo_OBJ)
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) -o $(TESTS)/$(1) -lexception_hook $(MALLOC_LIBRARY) -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES) $(if $(findstring boost,$(3)), -lboost_unit_test_framework-mt) $$(CXXEXEPOSTFLAGS)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) -o $(TESTS)/$(1) -lexception_hook $(MALLOC_LIBRARY) -ldl $$(foreach lib,$(2), -l$$(lib)) $$($(1)_OBJFILES) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(CXXEXEPOSTFLAGS)
 
 
 $(TESTS)/$(1):	$(TESTS)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(BIN)/libexception_hook.so)

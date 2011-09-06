@@ -54,7 +54,7 @@ LIBBOOSTING_SOURCES := \
 	bit_compressed_index.cc \
 	label.cc
 
-LIBBOOSTING_LINK :=	utils db algebra arch judy ACE boost_regex-mt boost_thread-mt worker_task
+LIBBOOSTING_LINK :=	utils db algebra arch judy ACE boost_regex boost_thread worker_task
 
 #$(eval $(call set_compile_option,perceptron_generator.cc perceptron.cc,-ffast-math))
 

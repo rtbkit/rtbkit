@@ -27,6 +27,7 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
+#include <boost/version.hpp>
 #include "jml/arch/exception.h"
 #include "jml/arch/format.h"
 #include <errno.h>
@@ -151,7 +152,12 @@ open(int fd, std::ios_base::openmode mode,
     else if (compression != "" && compression != "none")
         throw ML::Exception("unknown filter compression " + compression);
     
+#if (BOOST_VERSION < 104100)
     new_stream->push(file_descriptor_sink(fd));
+#else
+    new_stream->push(file_descriptor_sink(fd,
+                                          boost::iostreams::never_close_handle));
+#endif
     stream.reset(new_stream.release());
     rdbuf(stream->rdbuf());
     

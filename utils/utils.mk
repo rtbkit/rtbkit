@@ -10,7 +10,7 @@ LIBUTILS_SOURCES := \
 	hex_dump.cc \
 	lzma.cc
 
-LIBUTILS_LINK :=	ACE arch boost_iostreams-mt lzma
+LIBUTILS_LINK :=	ACE arch boost_iostreams lzma
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 

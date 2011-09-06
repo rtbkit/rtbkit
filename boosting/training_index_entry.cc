@@ -14,7 +14,7 @@
 #include "jml/utils/floating_point.h"
 #include "jml/utils/pair_utils.h"
 #include <boost/timer.hpp>
-
+#include "jml/utils/exc_assert.h"
 
 using namespace std;
 
@@ -160,7 +160,7 @@ finalize(unsigned example_count, const Feature & feature,
     if (values.capacity() != values.size()) values = vector<float>(values);
 
     if (dense() && exactly_one()) {
-        assert(examples.empty());
+        ExcAssert(examples.empty());
     }
     else {
         /* If the feature occurred densely at the start but then stopped, we
@@ -266,7 +266,7 @@ get_examples(Sort_By sort_by)
         
         if (values_sorted.size()) {
             /* Should be the same whether pre-calculated or not. */
-            assert(std::equal(values_sorted.begin(),
+            ExcAssert(std::equal(values_sorted.begin(),
                               values_sorted.end(),
                               first_extractor(pairs.begin())));
         }
@@ -331,7 +331,7 @@ get_counts(Sort_By sort_by)
         for (unsigned j = 0;  j < count;  ++j)
             new_counts.push_back(count);
         
-        assert(new_counts.size() == examples.size());
+        ExcAssert(new_counts.size() == examples.size());
         
         if (debug)
             cerr << "counts = " << counts << endl;
@@ -629,7 +629,7 @@ get_labels()
     
     Feature_Info info = feature_space->info(feature);
         
-    assert(values.size() == example_count);
+    ExcAssert(values.size() == example_count);
 
     //cerr << "values = " << values << endl;
 
@@ -687,7 +687,7 @@ get_mapped_labels(const vector<Label> & labels, const Feature & target,
     /* Get the examples to map. */
     const vector<unsigned> & examples = get_examples(sort_by);
     
-    assert(!examples.empty());
+    ExcAssert(!examples.empty());
 
     result = vector<Label>(examples.size());
 
