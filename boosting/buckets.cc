@@ -1,7 +1,8 @@
 /* buckets.cc
    Jeremy Barnes, 12 September 2011
-   Copyright (c) 2011 Recoset.  All rights reserved.
+   Copyright (c) 2011 Jeremy Barnes.  All rights reserved.
 
+   Refactored out buckets code.
 */
 
 #include "buckets.h"
