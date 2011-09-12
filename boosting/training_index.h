@@ -16,9 +16,8 @@
 #include "feature_info.h"
 #include "jml/utils/hash_map.h"
 #include <boost/shared_ptr.hpp>
-#include "jml/stats/sparse_distribution.h"
-#include "jml/utils/sorted_vector.h"
 #include "training_index_iterators.h"
+#include "buckets.h"
 
 namespace ML {
 

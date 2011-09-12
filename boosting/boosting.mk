@@ -52,7 +52,8 @@ LIBBOOSTING_SOURCES := \
 	training_index_iterators.cc \
 	feature.cc \
 	bit_compressed_index.cc \
-	label.cc
+	label.cc \
+	buckets.cc
 
 LIBBOOSTING_LINK :=	utils db algebra arch judy ACE boost_regex boost_thread worker_task
 

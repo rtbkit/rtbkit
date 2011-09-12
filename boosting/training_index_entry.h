@@ -144,14 +144,7 @@ struct Dataset_Index::Index_Entry {
     /** Ditto, but sorted by example. */
     Feature_Map<Mapped_Labels_Entry> mapped_labels_sorted;
 
-    /** Structure describing the set of buckets for one value. */
-    struct Bucket_Info {
-        bool initialized;
-        vector<uint16_t> buckets; ///< Bucket numbers, sorted by example
-        vector<float> splits;     ///< Split points between the buckets
-    };
-
-    /** Buckets */
+    /** Buckets, one entry for each total number of buckets (cached). */
     map<unsigned, Bucket_Info> bucket_info;
 
 
@@ -257,19 +250,6 @@ struct Dataset_Index::Index_Entry {
            buckets closer together, and outliers tend to be clustered together
            (rather than be in buckets all by themselves).
     */
-
-
-    /** Create a distribution of bucket split points where we have few enough
-        values that each element can go in its own bucket.  This usually occurs
-        with categorical and boolean features.
-    */
-    void bucket_dist_full(vector<float> & result);
-
-    /** Create a distribution of bucket split points where we don't have
-        enough values, and thus we need to put elements together in the
-        buckets.  This primarily occurs with real valued features.
-    */
-    void bucket_dist_reduced(vector<float> & result, size_t num_buckets);
 
     const Bucket_Info & create_buckets(size_t num_buckets);
 

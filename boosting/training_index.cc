@@ -243,7 +243,7 @@ joint(const Feature & target, const Feature & independent,
     }
 
     if (want_buckets) {
-        const Index_Entry::Bucket_Info & bucket_info
+        const Bucket_Info & bucket_info
             = itl->index[independent].buckets(num_buckets);
         buckets = &bucket_info.buckets[0];
         bucket_splits = &bucket_info.splits;
@@ -328,7 +328,7 @@ dist(const Feature & feature, Sort_By sort_by, unsigned content,
         return Joint_Index(values, buckets, labels, examples, counts, divisors,
                            0, bucket_splits);
     if (want_buckets) {
-        const Index_Entry::Bucket_Info & bucket_info
+        const Bucket_Info & bucket_info
             = itl->index[feature].buckets(num_buckets);
         buckets = &bucket_info.buckets[0];
         bucket_splits = &bucket_info.splits;
