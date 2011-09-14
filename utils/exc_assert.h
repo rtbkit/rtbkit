@@ -37,12 +37,12 @@ struct Assertion_Failure: public Exception {
 
 /// Assert that the two values are equal.  They must not have any side
 /// effects as they may be evaluated more than once.
-#define ExcAssertEqual(value1, value2) \
+#define ExcAssertOp(op, value1, value2)                                 \
     do {                                                                \
-        if ((value1) != (value2)) {                                     \
+        if (!((value1) op (value2))) {                                  \
             std::string v1 = boost::lexical_cast<std::string>(value1);  \
             std::string v2 = boost::lexical_cast<std::string>(value2);  \
-            std::string msg = ML::format("%s != %s [%s != %s]",         \
+            std::string msg = ML::format("!(%s " #op " %s) [!(%s " #op " %s)]", \
                                          #value1, #value2,              \
                                          v1.c_str(), v2.c_str());       \
             throw ML::Assertion_Failure(msg.c_str(), __PRETTY_FUNCTION__, \
@@ -52,18 +52,19 @@ struct Assertion_Failure: public Exception {
 
 /// Assert that the two values are equal.  They must not have any side
 /// effects as they may be evaluated more than once.
+#define ExcAssertEqual(value1, value2) \
+    ExcAssertOp(==, value1, value2)
+
+/// Assert that the two values are equal.  They must not have any side
+/// effects as they may be evaluated more than once.
 #define ExcAssertNotEqual(value1, value2) \
-    do {                                                                \
-        if ((value1) == (value2)) {                                     \
-            std::string v1 = boost::lexical_cast<std::string>(value1);  \
-            std::string v2 = boost::lexical_cast<std::string>(value2);  \
-            std::string msg = ML::format("%s == %s [%s == %s]",         \
-                                         #value1, #value2,              \
-                                         v1.c_str(), v2.c_str());       \
-            throw ML::Assertion_Failure(msg.c_str(), __PRETTY_FUNCTION__, \
-                                        __FILE__, __LINE__);            \
-        } \
-    } while (0)
+    ExcAssertOp(!=, value1, value2)
+
+#define ExcAssertLessEqual(value1, value2) \
+    ExcAssertOp(<=, value1, value2)
+
+#define ExcAssertGreaterEqual(value1, value2) \
+    ExcAssertOp(>=, value1, value2)
 
 
 
