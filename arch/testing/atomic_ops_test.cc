@@ -173,3 +173,15 @@ BOOST_AUTO_TEST_CASE( test_atomic_set_bits )
     atomic_clear_bits(i, 1);
     BOOST_CHECK_EQUAL(i, 0);
 }
+
+BOOST_AUTO_TEST_CASE( test_atomic_test_and_set )
+{
+    cerr << "atomic test and set" << endl;
+
+    int i = 0;
+    BOOST_CHECK_EQUAL(i, 0);
+    BOOST_CHECK_EQUAL(atomic_test_and_set(i, 1), 0);
+    BOOST_CHECK_EQUAL(i, 2);
+    BOOST_CHECK_EQUAL(atomic_test_and_clear(i, 1), 1);
+    BOOST_CHECK_EQUAL(i, 0);
+}

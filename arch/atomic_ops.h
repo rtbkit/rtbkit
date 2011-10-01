@@ -61,6 +61,32 @@ void atomic_clear_bits(Val1 & val, Val2 amount)
          : "cc");
 }
 
+template<typename Val1>
+uint32_t atomic_test_and_set(Val1 & val, uint8_t bitNum)
+{
+    uint32_t result = 0;
+    asm volatile
+        ("lock bts %[bitnum], %[val]\n\t"
+         "adc      $0, %[result]\n\t"
+         : [val] "=m,m" (val), [result] "+r,r" (result)
+         : [bitnum] "J,c" ((uint8_t)bitNum)
+         : "cc");
+    return result;
+}
+
+template<typename Val1>
+bool atomic_test_and_clear(Val1 & val, uint8_t bitNum)
+{
+    uint32_t result = 0;
+    asm volatile
+        ("lock btr %[bitnum], %[val]\n\t"
+         "adc      $0, %[result]\n\t"
+         : [val] "=m,m" (val), [result] "+r,r" (result)
+         : [bitnum] "J,c" ((uint8_t)bitNum)
+         : "cc");
+    return result;
+}
+
 // Maximum that works atomically.  It's safe against any kind of change
 // in old_val.
 template<typename Val1, typename Val2>
