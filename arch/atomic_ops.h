@@ -36,7 +36,7 @@ void atomic_add(Val1 & val, const Val2 & amount)
 {
     Val1 amt = amount;
     asm volatile ("lock add %[amount], %[val]\n\t"
-         : [val] "=m" (val)
+         : [val] "+m" (val)
                   : [amount] "r" (amt)
          : "cc");
 }
@@ -46,7 +46,7 @@ void atomic_set_bits(Val1 & val, Val2 amount)
 {
     Val1 bits = amount;
     asm volatile ("lock or %[bits], %[val]\n\t"
-         : [val] "=m" (val)
+         : [val] "+m" (val)
          : [bits] "r" (bits)
          : "cc");
 }
@@ -56,33 +56,33 @@ void atomic_clear_bits(Val1 & val, Val2 amount)
 {
     Val1 bits = ~amount;
     asm volatile ("lock and %[bits], %[val]\n\t"
-         : [val] "=m" (val)
+         : [val] "+m" (val)
          : [bits] "r" (bits)
          : "cc");
 }
 
 template<typename Val1>
-uint32_t atomic_test_and_set(Val1 & val, uint8_t bitNum)
+uint32_t atomic_test_and_set(Val1 & val, uint32_t bitNum)
 {
     uint32_t result = 0;
     asm volatile
         ("lock bts %[bitnum], %[val]\n\t"
          "adc      $0, %[result]\n\t"
-         : [val] "=m,m" (val), [result] "+r,r" (result)
-         : [bitnum] "J,c" ((uint8_t)bitNum)
+         : [val] "+m,m" (val), [result] "+r,r" (result)
+         : [bitnum] "J,c" ((uint32_t)bitNum)
          : "cc");
     return result;
 }
 
 template<typename Val1>
-bool atomic_test_and_clear(Val1 & val, uint8_t bitNum)
+bool atomic_test_and_clear(Val1 & val, uint32_t bitNum)
 {
     uint32_t result = 0;
     asm volatile
         ("lock btr %[bitnum], %[val]\n\t"
          "adc      $0, %[result]\n\t"
-         : [val] "=m,m" (val), [result] "+r,r" (result)
-         : [bitnum] "J,c" ((uint8_t)bitNum)
+         : [val] "+m,m" (val), [result] "+r,r" (result)
+         : [bitnum] "J,c" ((uint32_t)bitNum)
          : "cc");
     return result;
 }

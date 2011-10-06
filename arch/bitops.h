@@ -173,8 +173,17 @@ struct highest_bit_switch<8> {
 template<class T>
 JML_PURE_FN int highest_bit(T arg, int none_set = -1)
 {
+    // This funky code allows for GCC to calculate the result directly where
+    // it knows that the arguments are all constants
+    if (__builtin_constant_p(arg) && __builtin_constant_p(none_set)
+        && arg >= 0) {
+        return arg
+            ? sizeof(unsigned long long) * 8 - __builtin_clzll(arg) - 1
+            : none_set;
+    }
     return highest_bit_switch<sizeof(T)>()(arg, none_set);
 }
+
 
 /*****************************************************************************/
 /* LOWEST BIT                                                                */
@@ -322,7 +331,42 @@ struct lowest_bit_switch<8> {
 template<class T>
 JML_PURE_FN int lowest_bit(T arg, int none_set = -1)
 {
+    // This funky code allows for GCC to calculate the result directly where
+    // it knows that the arguments are all constants
+    if (__builtin_constant_p(arg) && __builtin_constant_p(none_set)
+        && arg >= 0) {
+        return arg
+            ? __builtin_ctzll(arg)
+            : none_set;
+    }
+
     return lowest_bit_switch<sizeof(T)>()(arg, none_set);
+}
+
+template<class T>
+JML_PURE_FN int num_bits_set(T arg)
+{
+    return __builtin_popcount(arg);
+}
+
+JML_PURE_FN JML_ALWAYS_INLINE int num_bits_set(unsigned long arg)
+{
+    return __builtin_popcountl(arg);
+}
+
+JML_PURE_FN JML_ALWAYS_INLINE int num_bits_set(signed long arg)
+{
+    return __builtin_popcountl(arg);
+}
+
+JML_PURE_FN JML_ALWAYS_INLINE int num_bits_set(unsigned long long arg)
+{
+    return __builtin_popcountll(arg);
+}
+
+JML_PURE_FN JML_ALWAYS_INLINE int num_bits_set(signed long long arg)
+{
+    return __builtin_popcountll(arg);
 }
 
 } // namespace ML
