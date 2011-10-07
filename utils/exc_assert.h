@@ -63,8 +63,14 @@ struct Assertion_Failure: public Exception {
 #define ExcAssertLessEqual(value1, value2) \
     ExcAssertOp(<=, value1, value2)
 
+#define ExcAssertLess(value1, value2) \
+    ExcAssertOp(<, value1, value2)
+
 #define ExcAssertGreaterEqual(value1, value2) \
     ExcAssertOp(>=, value1, value2)
+
+#define ExcAssertGreater(value1, value2) \
+    ExcAssertOp(>, value1, value2)
 
 
 
