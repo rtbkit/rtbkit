@@ -39,6 +39,19 @@ const compact_size_t compact_const(unsigned val)
     return compact_size_t(val);
 }
 
+void serialize_compact_size(Store_Writer & store, unsigned long long size)
+{
+    compact_size_t sz(size);
+    sz.serialize(store);
+}
+
+unsigned long long
+reconstitute_compact_size(Store_Reader & store)
+{
+    return compact_size_t(store);
+}
+
+
 /*****************************************************************************/
 /* UNSIGNED VERSIONS                                                         */
 /*****************************************************************************/

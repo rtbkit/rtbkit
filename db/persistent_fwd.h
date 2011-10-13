@@ -136,6 +136,11 @@ operator >> (::ML::DB::Store_Reader & store, type & val) \
     return store; \
 }
 
+void serialize_compact_size(Store_Writer & store, unsigned long long size);
+
+unsigned long long
+reconstitute_compact_size(Store_Reader & store);
+
 
 } // namespace DB
 } // namespace ML

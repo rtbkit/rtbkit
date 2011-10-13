@@ -51,6 +51,11 @@ void encode_signed_compact(Store_Reader & store, signed long long val);
 
 signed long long decode_signed_compact(Store_Reader & store);
 
+void serialize_compact_size(Store_Writer & store, unsigned long long size);
+
+unsigned long long
+reconstitute_compact_size(Store_Reader & store);
+
 
 /*****************************************************************************/
 /* COMPACT_SIZE_T                                                            */
