@@ -81,6 +81,24 @@ BOOST_AUTO_TEST_CASE( test_double_parsing2 )
     }
 }
 
+void test_long_long(long long value)
+{
+    string s = format("%lld", value);
+    Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+    long long value2 = pc.expect_long_long(value);
+    BOOST_CHECK_EQUAL(value, value2);
+}
+
+BOOST_AUTO_TEST_CASE( test_long_long_parsing )
+{
+    test_long_long(0);
+    test_long_long(1);
+    test_long_long(-1);
+    test_long_long(-9219216340478909303LL);
+    test_long_long(LONG_LONG_MIN);
+    test_long_long(LONG_LONG_MAX);
+}
+
 static const char * test1_str = "Here \t is a\tparse context\nwith two\ni mean 3 lines";
 
 void run_test1(Parse_Context & context)

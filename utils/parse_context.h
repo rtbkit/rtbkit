@@ -263,6 +263,15 @@ struct Parse_Context {
     
     int expect_unsigned(unsigned min = 0, unsigned max = INT_MAX,
                         const char * error = "expected unsigned");
+
+    bool match_long_long(long long & val,
+                         long long min = LONG_LONG_MIN,
+                         long long max = LONG_LONG_MAX);
+    
+    long long
+    expect_long_long(long long min = -LONG_LONG_MAX,
+                     long long max = LONG_LONG_MAX,
+                     const char * error = "expected long long integer");
     
     /** Matches a floating point value in the given range. */
     bool match_float(float & val, float min = -INFINITY, float max = INFINITY);
