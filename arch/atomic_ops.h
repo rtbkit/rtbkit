@@ -41,6 +41,106 @@ void atomic_add(Val1 & val, const Val2 & amount)
          : "cc");
 }
 
+template<int Width>
+struct IncDecSwitch {
+};
+
+template<>
+struct IncDecSwitch<1> {
+    template<typename Val1>
+    static void atomic_inc(Val1 & val)
+    {
+        asm volatile ("lock incb %[val]\n\t"
+                      : [val] "+m" (val)
+                      :
+                      : "cc");
+    }
+
+    template<typename Val1>
+    static void atomic_dec(Val1 & val)
+    {
+        asm volatile ("lock decb %[val]\n\t"
+                      : [val] "+m" (val)
+                      :
+                      : "cc");
+    }
+};
+
+template<>
+struct IncDecSwitch<2> {
+    template<typename Val1>
+    static void atomic_inc(Val1 & val)
+    {
+        asm volatile ("lock incs %[val]\n\t"
+                      : [val] "+m" (val)
+                      :
+                      : "cc");
+    }
+
+    template<typename Val1>
+    static void atomic_dec(Val1 & val)
+    {
+        asm volatile ("lock decs %[val]\n\t"
+                      : [val] "+m" (val)
+                      :
+                      : "cc");
+    }
+};
+
+template<>
+struct IncDecSwitch<4> {
+    template<typename Val1>
+    static void atomic_inc(Val1 & val)
+    {
+        asm volatile ("lock incl %[val]\n\t"
+                      : [val] "+m" (val)
+                      :
+                      : "cc");
+    }
+
+    template<typename Val1>
+    static void atomic_dec(Val1 & val)
+    {
+        asm volatile ("lock decl %[val]\n\t"
+                      : [val] "+m" (val)
+                      :
+                      : "cc");
+    }
+};
+
+template<>
+struct IncDecSwitch<8> {
+    template<typename Val1>
+    static void atomic_inc(Val1 & val)
+    {
+        asm volatile ("lock incq %[val]\n\t"
+                      : [val] "+m" (val)
+                      :
+                      : "cc");
+    }
+
+    template<typename Val1>
+    static void atomic_dec(Val1 & val)
+    {
+        asm volatile ("lock decq %[val]\n\t"
+                      : [val] "+m" (val)
+                      :
+                      : "cc");
+    }
+};
+
+template<typename Val1>
+void atomic_inc(Val1 & val)
+{
+    IncDecSwitch<sizeof(Val1)>::atomic_inc(val);
+}
+
+template<typename Val1>
+void atomic_dec(Val1 & val)
+{
+    IncDecSwitch<sizeof(Val1)>::atomic_dec(val);
+}
+
 template<typename Val1, typename Val2>
 void atomic_set_bits(Val1 & val, Val2 amount)
 {
