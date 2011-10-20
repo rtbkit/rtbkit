@@ -369,6 +369,144 @@ JML_PURE_FN JML_ALWAYS_INLINE int num_bits_set(signed long long arg)
     return __builtin_popcountll(arg);
 }
 
+template<int Width>
+struct RotateSwitch {
+};
+
+template<>
+struct RotateSwitch<1> {
+    template<typename Val>
+    JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+    static Val rotate_right(Val val, uint32_t bits)
+    {
+        __asm__("rorb   %[bits], %[val] \n\t"
+                : [val] "+r,r" (val)
+                : [bits] "J,c" ((uint8_t)bits)
+                : "cc"
+                );
+        return val;
+    }
+
+    template<typename Val>
+    JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+    static Val rotate_left(Val val, uint32_t bits)
+    {
+        __asm__("rolb   %[bits], %[val] \n\t"
+                : [val] "+r,r" (val)
+                : [bits] "J,c" ((uint8_t)bits)
+                : "cc"
+                );
+        return val;
+    }
+};
+
+template<>
+struct RotateSwitch<2> {
+    template<typename Val>
+    JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+    static Val rotate_right(Val val, uint32_t bits)
+    {
+        __asm__("rorw   %[bits], %[val] \n\t"
+                : [val] "+r,r" (val)
+                : [bits] "J,c" ((uint8_t)bits)
+                : "cc"
+                );
+        return val;
+    }
+
+    template<typename Val>
+    JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+    static Val rotate_left(Val val, uint32_t bits)
+    {
+        __asm__("rolw   %[bits], %[val] \n\t"
+                : [val] "+r,r" (val)
+                : [bits] "J,c" ((uint8_t)bits)
+                : "cc"
+                );
+        return val;
+    }
+};
+
+template<>
+struct RotateSwitch<4> {
+    template<typename Val>
+    JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+    static Val rotate_right(Val val, uint32_t bits)
+    {
+        __asm__("rorl   %[bits], %[val] \n\t"
+                : [val] "+r,r" (val)
+                : [bits] "J,c" ((uint8_t)bits)
+                : "cc"
+                );
+        return val;
+    }
+
+    template<typename Val>
+    JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+    static Val rotate_left(Val val, uint32_t bits)
+    {
+        __asm__("roll   %[bits], %[val] \n\t"
+                : [val] "+r,r" (val)
+                : [bits] "J,c" ((uint8_t)bits)
+                : "cc"
+                );
+        return val;
+    }
+};
+
+template<>
+struct RotateSwitch<8> {
+    template<typename Val>
+    JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+    static Val rotate_right(Val val, uint32_t bits)
+    {
+        __asm__("rorq   %[bits], %[val] \n\t"
+                : [val] "+r,r" (val)
+                : [bits] "J,c" ((uint8_t)bits)
+                : "cc"
+                );
+        return val;
+    }
+
+    template<typename Val>
+    JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+    static Val rotate_left(Val val, uint32_t bits)
+    {
+        __asm__("rolq   %[bits], %[val] \n\t"
+                : [val] "+r,r" (val)
+                : [bits] "J,c" ((uint8_t)bits)
+                : "cc"
+                );
+        return val;
+    }
+};
+
+template<typename Val>
+JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+Val rotate_right(Val val, uint32_t bits)
+{
+    // This funky code allows for GCC to calculate the result directly where
+    // it knows that the arguments are all constants
+    if (__builtin_constant_p(val) && __builtin_constant_p(bits)
+        && val >= 0 && bits <= sizeof(Val) * 8) {
+        return (val >> bits) | (val << (sizeof(Val) * 8 - bits));
+    }
+    return RotateSwitch<sizeof(Val)>::rotate_right(val, bits);
+}
+
+template<typename Val>
+JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
+Val rotate_left(Val val, uint32_t bits)
+{
+    // This funky code allows for GCC to calculate the result directly where
+    // it knows that the arguments are all constants
+    if (__builtin_constant_p(val) && __builtin_constant_p(bits)
+        && val >= 0 && bits <= sizeof(Val) * 8) {
+        return (val << bits) | (val >> (sizeof(Val) * 8 - bits));
+    }
+    return RotateSwitch<sizeof(Val)>::rotate_left(val, bits);
+}
+
 } // namespace ML
 
 #endif /* __arch__bitops_h__ */
