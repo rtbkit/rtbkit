@@ -159,7 +159,7 @@ struct cmp_xchg_switch<16> {
         const uint64_t * pnew = reinterpret_cast<const uint64_t *>(&new_val);
 
         uint8_t result;
-        asm volatile ("lock cmpxchg8b  %[val]\n\t"
+        asm volatile ("lock cmpxchg16b  %[val]\n\t"
                       "     setz       %[result]\n\t"
                       : "+a" (pold[0]), "+d" (pold[1]), [result] "=c" (result)
                       : [val] "m" (val), "b" (pnew[0]), "c" (pnew[1])
@@ -175,7 +175,7 @@ struct cmp_xchg_switch<16> {
         const uint64_t * pnew = reinterpret_cast<const uint64_t *>(&new_val);
 
         uint8_t result;
-        asm volatile ("lock cmpxchg8b  %[val]\n\t"
+        asm volatile ("lock cmpxchg16b  %[val]\n\t"
                       "     setz       %[result]\n\t"
                       : "+a" (pold[0]), "+d" (pold[1]), [result] "=c" (result)
                       : [val] "m" (val), "b" (pnew[0]), "c" (pnew[1])

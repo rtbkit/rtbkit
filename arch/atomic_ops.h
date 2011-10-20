@@ -187,6 +187,19 @@ bool atomic_test_and_clear(Val1 & val, uint32_t bitNum)
     return result;
 }
 
+template<typename Val1>
+bool atomic_test_and_toggle(Val1 & val, uint32_t bitNum)
+{
+    uint32_t result = 0;
+    asm volatile
+        ("lock btc %[bitnum], %[val]\n\t"
+         "adc      $0, %[result]\n\t"
+         : [val] "+m,m" (val), [result] "+r,r" (result)
+         : [bitnum] "J,c" ((uint32_t)bitNum)
+         : "cc");
+    return result;
+}
+
 // Maximum that works atomically.  It's safe against any kind of change
 // in old_val.
 template<typename Val1, typename Val2>
