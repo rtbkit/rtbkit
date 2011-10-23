@@ -212,6 +212,18 @@ void atomic_max(Val1 & val1, const Val2 & val2)
     } while (!JML_LIKELY(cmp_xchg(val1, old_val, new_val)));
 }
 
+// Maximum that works atomically.  It's safe against any kind of change
+// in old_val.
+template<typename Val1, typename Val2>
+void atomic_min(Val1 & val1, const Val2 & val2)
+{
+    Val1 old_val = val1, new_val;
+    do {
+        new_val = std::min<Val1>(old_val, val2);
+        if (new_val == old_val) return;
+    } while (!JML_LIKELY(cmp_xchg(val1, old_val, new_val)));
+}
+
 JML_ALWAYS_INLINE void memory_barrier()
 {
     // GCC < 4.4 doesn't do this properly
