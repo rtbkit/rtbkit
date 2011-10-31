@@ -43,6 +43,8 @@ std::vector<std::string> split(const std::string & str, char c = ' ');
 
 std::string lowercase(const std::string & str);
 
+std::string remove_trailing_whitespace(const std::string & str);
+
 /** If the given string ends with the ending, then remove that ending from the
     string and return true.  Otherwise return false.
 */

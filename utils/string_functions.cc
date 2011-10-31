@@ -107,6 +107,20 @@ std::string lowercase(const std::string & str)
     return result;
 }
 
+std::string remove_trailing_whitespace(const std::string & str)
+{
+    int startOfSpace = -1;
+    for (unsigned i = 0;  i < str.length();  ++i) {
+        if (isspace(str[i])) {
+            if (startOfSpace == -1) startOfSpace = i;
+        }
+        else startOfSpace = -1;
+    }
+
+    if (startOfSpace == -1) return str;
+    return string(str, 0, startOfSpace);
+}
+
 bool removeIfEndsWith(std::string & str, const std::string & ending)
 {
     if (str.rfind(ending) == str.size() - ending.length()) {

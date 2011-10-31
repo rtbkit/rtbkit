@@ -76,6 +76,9 @@ print(const Feature_Space & fs, int branch) const
     string feat_name = fs.print(feature_);
     Feature_Type type = fs.info(feature_).type();
 
+    //cerr << "feature " << feat_name << " type " << type << " branch "
+    //     << branch << endl;
+
     if (type == BOOLEAN) {
         if (op_ != LESS || split_val_ != 0.5)
             throw Exception("unknown boolean branch: op %s, split_val %f, "
