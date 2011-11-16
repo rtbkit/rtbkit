@@ -14,6 +14,16 @@ struct Spinlock {
     {
     }
 
+    void lock()
+    {
+        acquire();
+    }
+
+    void unlock()
+    {
+        release();
+    }
+
     int acquire()
     {
         for (int tries = 0; true;  ++tries) {

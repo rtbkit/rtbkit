@@ -84,6 +84,9 @@ struct Thread_Specific {
     mutable boost::thread_specific_ptr<Deleter> deleter;
 };
 
+template<typename Contained, typename Tag>
+__thread Contained * Thread_Specific<Contained, Tag>::ptr_ = 0;
+
 } // namespace ML
 
 
