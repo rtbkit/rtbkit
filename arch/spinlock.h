@@ -24,6 +24,11 @@ struct Spinlock {
         release();
     }
 
+    bool locked() const
+    {
+        return value;
+    }
+
     int acquire()
     {
         for (int tries = 0; true;  ++tries) {
