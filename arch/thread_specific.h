@@ -46,7 +46,7 @@ struct Thread_Specific {
         ptr_ = createFn();
         if (!ptr_)
             throw Exception("bad pointer");
-        assert(!deleter);
+        assert(!deleter.get());
         deleter.reset(new Deleter(ptr_));
     }
 
