@@ -328,7 +328,12 @@ struct Bit_Buffer {
 
     Data extract(int bits)
     {
-        Data result = extract_bit_range(data.curr(), data.next(), bit_ofs,
+        Data result;
+        if (bit_ofs + bits < 8 * sizeof(Data))
+            // TODO: simplify
+            result = extract_bit_range(data.curr(), Data(0), bit_ofs, bits);
+        else
+            result = extract_bit_range(data.curr(), data.next(), bit_ofs,
                                         bits);
         advance(bits);
         return result;
