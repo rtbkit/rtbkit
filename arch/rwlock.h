@@ -20,8 +20,18 @@ namespace ML {
 struct RWLock {
     RWLock()
     {
-        int res = pthread_rwlock_init(&rwlock, 0);
+        pthread_rwlockattr_t lockattr;
+        int res = pthread_rwlockattr_init(&lockattr);
         check_err(res);
+        pthread_rwlockattr_setkind_np(&lockattr,
+                                      PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+        check_err(res);
+
+        res = pthread_rwlock_init(&rwlock, &lockattr);
+        check_err(res);
+
+        //res = pthread_rwlockattr_destroy(&lockattr); 
+        //check_err(res);
     }
     
     ~RWLock()
