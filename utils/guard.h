@@ -21,6 +21,7 @@
 #ifndef __utils__guard_h__
 #define __utils__guard_h__
 
+#include "jml/compiler/compiler.h"
 #include <boost/function.hpp>
 
 namespace ML {
@@ -28,7 +29,6 @@ namespace ML {
 struct Call_Guard {
     
     typedef boost::function<void ()> Fn;
-
 
     Call_Guard(const Fn & fn, bool condition = true)
         : fn(condition ? fn : Fn())
@@ -39,6 +39,22 @@ struct Call_Guard {
     {
     }
     
+#if JML_HAS_RVALUE_REFERENCES
+    Call_Guard(Call_Guard && other)
+        : fn(other.fn)
+    {
+        other.clear();
+    }
+
+    Call_Guard & operator = (Call_Guard && other)
+    {
+        if (fn) fn();
+        fn = other.fn;
+        other.clear();
+        return *this;
+    }
+#endif
+
     ~Call_Guard()
     {
         if (fn) fn();
@@ -49,7 +65,19 @@ struct Call_Guard {
     void set(const Fn & fn) { this->fn = fn; }
 
     boost::function<void ()> fn;
+
+private:
+    Call_Guard(const Call_Guard & other);
+    void operator = (const Call_Guard & other);
 };
+
+#if JML_HAS_RVALUE_REFERENCES
+template<typename Fn>
+Call_Guard call_guard(Fn fn, bool condition = true)
+{
+    return Call_Guard(fn, condition);
+}
+#endif
 
 
 } // namespace ML

@@ -41,6 +41,7 @@
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
 #  define jml_typeof(x) decltype(x)
+#  define JML_HAS_RVALUE_REFERENCES 1
 #else
 #  define jml_typeof(x) typeof(x)
 #endif
