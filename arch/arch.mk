@@ -21,7 +21,7 @@ $(eval $(call add_sources,$(LIBARCH_SOURCES)))
 $(eval $(call add_sources,exception_hook.cc))
 $(eval $(call add_sources,node_exception_tracing.cc))
 
-LIBARCH_LINK :=	ACE
+LIBARCH_LINK :=	ACE dl
 
 $(eval $(call library,arch,$(LIBARCH_SOURCES),$(LIBARCH_LINK)))
 $(eval $(call library,exception_hook,exception_hook.cc,dl))
