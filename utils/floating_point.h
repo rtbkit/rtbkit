@@ -90,7 +90,7 @@ struct safe_less {
 };
 
 struct float_hasher {
-    JML_ALWAYS_INLINE size_t operator () (float val) const
+    JML_ALWAYS_INLINE int operator () (float val) const
     {
         return reinterpret_as_int(val);
     }
@@ -106,19 +106,19 @@ struct fp_traits<float>
     : public std::numeric_limits<float> {
     /** Maximum argument to exp() that doesn't result in an infinity.  Found
         using exp_test program in boosting/testing. */
-    static const float max_exp_arg = 88.7228;
+    static const float max_exp_arg;
 };
 
 template<>
 struct fp_traits<double>
     : public std::numeric_limits<double> {
-    static const double max_exp_arg = 709.782712893384;
+    static const double max_exp_arg;
 };
 
 template<>
 struct fp_traits<long double>
     : public std::numeric_limits<long double> {
-    static const long double max_exp_arg = 11356.523406294143;
+    static const long double max_exp_arg;
 };
 
 } // namespace ML
