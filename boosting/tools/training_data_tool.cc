@@ -119,10 +119,10 @@ struct Variable_Stats {
         /* Scan through and find the median and mode. */
         size_t pos = 0;
         size_t mode_count = 0;
-        double prev = NAN;
+        //double prev = NAN;
         vector<double> data;
         for (counts_type::const_iterator it = counts.begin();
-             it != counts.end();  ++it, prev = it->first) {
+             it != counts.end();  ++it) {
             double val = it->first;
             size_t count = it->second;
 

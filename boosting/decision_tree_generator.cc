@@ -126,9 +126,9 @@ generate(Thread_Context & context,
          float & Z,
          int recursion) const
 {
-    boost::timer timer;
+    //boost::timer timer;
 
-    Feature predicted = model.predicted();
+    //Feature predicted = model.predicted();
 
     Decision_Tree current
         = train_weighted(context, training_set, weights, features, max_depth);
