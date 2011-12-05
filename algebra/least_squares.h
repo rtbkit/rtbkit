@@ -384,7 +384,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     // validation
 
     double current_lambda = 10.0;
-    double best_lambda = -1000;
+    //double best_lambda = -1000;
     double best_error = 1000000;
 
     for (unsigned i = 0; current_lambda >= 1e-14;  ++i, current_lambda /= 10.0) {
@@ -489,7 +489,7 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
 
         if (total_mse_unbiased < best_error || i == 0) {
             x_best = x;
-            best_lambda = current_lambda;
+            //best_lambda = current_lambda;
             best_error = total_mse_unbiased;
         }
     }

@@ -100,6 +100,10 @@ struct Regressor {
 };
 
 struct Least_Squares_Regressor : Regressor {
+    Least_Squares_Regressor()
+    {
+    }
+
     virtual ~Least_Squares_Regressor();
 
     virtual distribution<float>
