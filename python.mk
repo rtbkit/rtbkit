@@ -42,7 +42,7 @@ $$(if $(trace),$$(warning called pytest "$(1)" "$(2)" "$(3)" "$(4)"))
 TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(PYTHON) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && false))
 
 $(TESTS)/$(1).passed:	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
-	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "[TESTCASE] $(1)")
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "$(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
 	@$$(TEST_$(1)_COMMAND)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "           $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
 
@@ -64,7 +64,7 @@ ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called install_python_file "$(1)" "$(2)"))
 
 $(BIN)/$(2)/$(1):	$(CWD)/$(1) $(BIN)/$(2)/.dir_exists
-	$$(if $(verbose_build),@echo "cp $$< $$@",@echo "[PYTHON INSTALL] $(2)/$(1)")
+	$$(if $(verbose_build),@echo "cp $$< $$@",@echo "$(COLOR_YELLOW)[PYTHON INSTALL]$(COLOR_RESET) $(2)/$(1)")
 	@cp $$< $$@~
 	@mv $$@~ $$@
 
@@ -109,7 +109,7 @@ run_$(1):	$(BIN)/$(1)
 	$(BIN)/$(1)  $($(1)_ARGS)
 	
 $(BIN)/$(1): $(CWD)/$(2) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
-	@echo "[PYTHON_PROGRAM] $(1)"
+	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"
 	@cp $$< $$@~
 	@chmod +x $$@~
 	@mv $$@~ $$@
