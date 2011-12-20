@@ -94,7 +94,7 @@ BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/
 
 $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists $$(dir $$(OBJ)/$(CWD)/$(2))/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "$(COLOR_CYAN)[C++]$(COLOR_RESET) $(CWD)/$(1)")
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "           $(COLOR_CYAN)[C++]$(COLOR_RESET) $(CWD)/$(1)")
 	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
@@ -124,7 +124,7 @@ BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/
 
 $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "$(COLOR_CYAN)[C]$(COLOR_RESET) $(CWD)/$(1)")
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "             $(COLOR_CYAN)[C]$(COLOR_RESET) $(CWD)/$(1)")
 	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
@@ -147,7 +147,7 @@ BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/
 
 $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "$(COLOR_CYAN)[FORTRAN]$(COLOR_RESET) $(CWD)/$(1)")
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "       $(COLOR_CYAN)[FORTRAN]$(COLOR_RESET) $(CWD)/$(1)")
 	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
 endif
 endef
@@ -240,7 +240,7 @@ $$(eval $$(call add_sources,$(2)))
 $$(eval tmpLIBNAME := $(if $(4),$(4),lib$(1)))
 $$(eval so := $(if $(5),$(5),.so))
 
-LIB_$(1)_BUILD_NAME := $(if $(6),$(6),"$(COLOR_YELLOW)[SO]$(COLOR_RESET)")
+LIB_$(1)_BUILD_NAME := $(if $(6),$(6),"            $(COLOR_YELLOW)[SO]$(COLOR_RESET)")
 
 OBJFILES_$(1):=$$(foreach file,$(addsuffix .lo,$(basename $(2:%=$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
 
@@ -297,7 +297,7 @@ LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $
 
 
 $(BIN)/$(1):	$(BIN)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(BIN)/libexception_hook.so)
-	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "$(COLOR_BLUE)[BIN]$(COLOR_RESET) $(1)")
+	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET) $(1)")
 	@$$(LINK_$(1)_COMMAND)
 
 $$(foreach target,$(4) programs,$$(eval $$(target): $(BIN)/$(1)))
@@ -344,18 +344,18 @@ LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $
 
 
 $(TESTS)/$(1):	$(TESTS)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(BIN)/libexception_hook.so)
-	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "$(COLOR_BLUE)[BIN]$(COLOR_RESET) $(1)")
+	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET) $(1)")
 	@$$(LINK_$(1)_COMMAND)
 
 tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "           $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 $(TESTS)/$(1).passed:	$(TESTS)/$(1)
-	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "$(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
 	@$$(TEST_$(1)_COMMAND)
-	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "           $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
 
 $(1):	$(TESTS)/$(1)
 	$(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1)
