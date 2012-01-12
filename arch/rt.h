@@ -12,6 +12,9 @@
 
 namespace ML {
 
+
+bool makeThreadRealTime(unsigned long long handle, int priority);
+
 /** Make the given boost::thread into a realtime thread with the given
     priority (from zero upwards).  This will put it into the round-robin
     real time scheduling class for the given priority level.
@@ -21,7 +24,11 @@ namespace ML {
 
     Returns whether or not the call succeeded.
 */
-bool makeThreadRealTime(boost::thread & thread, int priority);
+
+inline bool makeThreadRealTime(boost::thread & thread, int priority)
+{
+    return makeThreadRealTime(thread.native_handle(), priority);
+}
 
 } // namespace ML
 
