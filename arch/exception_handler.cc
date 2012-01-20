@@ -23,6 +23,16 @@ Env_Option<bool> TRACE_EXCEPTIONS("JML_TRACE_EXCEPTIONS", true);
 __thread bool trace_exceptions = false;
 __thread bool trace_exceptions_initialized = false;
 
+void set_default_trace_exceptions(bool val)
+{
+    TRACE_EXCEPTIONS.set(val);
+}
+
+bool get_default_trace_exceptions()
+{
+    return TRACE_EXCEPTIONS;
+}
+
 void set_trace_exceptions(bool trace)
 {
     //cerr << "set_trace_exceptions to " << trace << " at " << &trace_exceptions

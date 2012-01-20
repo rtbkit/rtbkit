@@ -87,6 +87,12 @@ public:
 
     bool specified() const { return specified_; }
 
+    void set(T t, bool specified = true)
+    {
+        t_ = t;
+        specified_ = specified;
+    }
+
 private:
     T t_;
     bool specified_;

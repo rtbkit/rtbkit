@@ -10,6 +10,11 @@
 
 namespace ML {
 
+/// Set the default value of tracing exceptions.  New threads will be
+/// initialized to this value.
+void set_default_trace_exceptions(bool trace);
+bool get_default_trace_exceptions();
+
 /// Set whether or not we are tracing exceptions for this thread.
 void set_trace_exceptions(bool trace);
 bool get_trace_exceptions();
