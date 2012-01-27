@@ -10,6 +10,12 @@ VOWS_TEST_DEPS ?= $(NODE_TEST_DEPS)
 
 all compile:	nodejs_programs nodejs_addons nodejs_libraries
 
+$(BIN)/node_runner: $(BIN)/.dir_exists
+	@echo '#!/bin/bash' > $@~
+	@echo 'exec /usr/bin/env NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) "$$@"' >> $@~
+	@chmod +x $@~
+	@mv $@~ $@
+
 # Dependencies for a single node addon
 # $(1): name of the addon
 # $(2): target being built (for error message)
@@ -117,14 +123,9 @@ append_js_from.coffee = @coffee --print --compile $(1) >> $(2)
 define nodejs_program
 
 ifneq ($$(PREMAKE),1)
-$(BIN)/$(1):	$(CWD)/$(2) $$(call node_addon_deps,$(3),$(1)) $(NODE_TEST_DEPS)
+$(BIN)/$(1):	$(BIN)/node_runner $(CWD)/$(2) $$(call node_addon_deps,$(3),$(1)) $(NODE_TEST_DEPS)
 	@echo "$(COLOR_BLUE)[NODEJS_PROGRAM]$(COLOR_RESET) $(1)"
-	@echo "#!/usr/bin/env bash" > $$@~
-	@echo -n "//usr/bin/env NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) " >> $$@~
-	@echo -n $$$$ >> $$@~
-	@echo -n '0 "' >> $$@~
-	@echo -n $$$$ >> $$@~
-	@echo '@"; exit' >> $$@~
+	@echo "#!/bin/bash $(BIN)/node_runner" > $$@~
 	$$(if $$(append_js_from$(suffix $(2))),,$$(error js suffix $(suffix $(2)) unknown))
 	$$(call append_js_from$(suffix $(2)), $(CWD)/$(2), $$@~)
 	@chmod +x $$@~
