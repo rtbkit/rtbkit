@@ -28,6 +28,14 @@ inline long futex_wait(int & futex, int oldValue)
 {
     return sys_futex(&futex, FUTEX_WAIT, oldValue, 0, 0, 0);
 }
+ 
+inline long futex_wait(int & futex, int oldValue, double waitTime)
+{
+    struct timespec timeout;
+    timeout.tv_sec = waitTime;
+    timeout.tv_nsec = (waitTime - timeout.tv_sec) * 1000000000.0;
+    return sys_futex(&futex, FUTEX_WAIT, oldValue, &timeout, 0, 0);
+}
 
 inline void futex_unlock(void * futex)
 {
