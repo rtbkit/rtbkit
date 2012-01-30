@@ -25,6 +25,7 @@
 
 #include <string>
 #include <exception>
+#include "stdarg.h"
 
 namespace ML {
 
@@ -32,6 +33,7 @@ class Exception : public std::exception {
 public:
     Exception(const std::string & msg);
     Exception(const char * msg, ...);
+    Exception(const char * msg, va_list ap);
     Exception(int errnum, const std::string & msg, const char * function = 0);
     virtual ~Exception() throw();
     
