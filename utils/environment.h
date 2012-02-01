@@ -85,6 +85,8 @@ public:
 
     operator T () const { return t_; }
 
+    T get() const { return t_; }
+
     bool specified() const { return specified_; }
 
     void set(T t, bool specified = true)
