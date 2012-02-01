@@ -9,7 +9,8 @@ LIBUTILS_SOURCES := \
 	exc_assert.cc \
 	hex_dump.cc \
 	lzma.cc \
-	floating_point.cc
+	floating_point.cc \
+	json_parsing.cc
 
 LIBUTILS_LINK :=	ACE arch boost_iostreams lzma
 
