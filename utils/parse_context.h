@@ -104,7 +104,7 @@ struct Parse_Context {
 
     /** Increment.  Note that it always sets up the buffer such that more
         characters are available. */
-    Parse_Context & operator ++ ()
+    JML_ALWAYS_INLINE Parse_Context & operator ++ ()
     {
         if (eof()) exception("unexpected EOF");
 
@@ -330,7 +330,7 @@ struct Parse_Context {
 
     /** Query if we are at the end of file.  This occurs when we can't find
         any more characters. */
-    bool eof() const
+    JML_ALWAYS_INLINE bool eof() const
     { 
         //using namespace std;
         //cerr << "eof: cur_ = " << (void *)cur_ << "ebuf_ = " << (void *)ebuf_
