@@ -104,7 +104,7 @@ struct Parse_Context {
 
     /** Increment.  Note that it always sets up the buffer such that more
         characters are available. */
-    Parse_Context & operator ++ ()
+    JML_ALWAYS_INLINE Parse_Context & operator ++ ()
     {
         if (eof()) exception("unexpected EOF");
 
@@ -315,6 +315,88 @@ struct Parse_Context {
         if (!match_whitespace()) exception("expected whitespace");
     }
 
+    bool match_numeric(signed int & i)
+    {
+        return match_int(i);
+    }
+
+    bool match_numeric(unsigned int & i)
+    {
+        return match_unsigned(i);
+    }
+
+    template<typename MatchAs, typename T>
+    bool match_numeric_as(T & i)
+    {
+        Revert_Token token(*this);
+        MatchAs r;
+        if (!match_numeric(r)) return false;
+        i = r;
+        if (i != r)
+            exception("type did not fit in range");
+        token.ignore();
+        return true;
+    }
+
+    bool match_numeric(short signed int & i)
+    {
+        return match_numeric_as<int>(i);
+    }
+
+    bool match_numeric(short unsigned int & i)
+    {
+        return match_numeric_as<unsigned>(i);
+    }
+
+    bool match_numeric(signed char & i)
+    {
+        return match_numeric_as<int>(i);
+    }
+
+    bool match_numeric(unsigned char & i)
+    {
+        return match_numeric_as<unsigned int>(i);
+    }
+
+    bool match_numeric(signed long & i)
+    {
+        return match_numeric_as<signed long long>(i);
+    }
+
+    bool match_numeric(unsigned long & i)
+    {
+        return match_numeric_as<unsigned long long>(i);
+    }
+
+    bool match_numeric(signed long long & i)
+    {
+        return match_long_long(i);
+    }
+
+    bool match_numeric(unsigned long long & i)
+    {
+        return match_unsigned_long_long(i);
+    }
+
+    bool match_numeric(float & f)
+    {
+        return match_float(f);
+    }
+
+    bool match_numeric(double & f)
+    {
+        return match_double(f);
+    }
+
+    template<typename T>
+    T expect_numeric(const char * error = "expected numeric value of type %s")
+    {
+        T result;
+        if (!match_numeric(result))
+            throw ML::Exception(error, typeid(T).name());
+        return result;
+    }
+
     /** Return a message giving filename:line:col */
     std::string where() const;
     
@@ -330,7 +412,7 @@ struct Parse_Context {
 
     /** Query if we are at the end of file.  This occurs when we can't find
         any more characters. */
-    bool eof() const
+    JML_ALWAYS_INLINE bool eof() const
     { 
         //using namespace std;
         //cerr << "eof: cur_ = " << (void *)cur_ << "ebuf_ = " << (void *)ebuf_

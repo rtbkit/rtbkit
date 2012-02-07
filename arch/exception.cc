@@ -50,6 +50,12 @@ Exception::Exception(const char * msg, ...)
     }
 }
 
+Exception::Exception(const char * msg, va_list ap)
+{
+    message = vformat(msg, ap);
+    message.c_str();
+}
+
 Exception::
 Exception(int errnum, const std::string & msg, const char * function)
 {

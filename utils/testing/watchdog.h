@@ -52,7 +52,7 @@ struct Watchdog {
              boost::function<void ()> timeoutFunction = abortProcess)
         : finished(false), seconds(seconds), timeoutFunction(timeoutFunction)
     {
-        return;
+        //return;
         tg.create_thread(boost::bind(&Watchdog::runThread,
                                      this));
     }
