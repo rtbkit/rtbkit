@@ -25,6 +25,7 @@
 
 #include "jml/utils/unnamed_bool.h"
 #include "jml/arch/exception.h"
+#include "jml/compiler/compiler.h"
 #include <cmath>
 #include <string>
 #include <iostream>
@@ -400,11 +401,11 @@ struct Parse_Context {
     /** Return a message giving filename:line:col */
     std::string where() const;
     
-    void exception(const std::string & message) const;
+    void exception(const std::string & message) const JML_NORETURN;
 
-    void exception(const char * message) const;
+    void exception(const char * message) const JML_NORETURN;
 
-    void exception_fmt(const char * message, ...) const;
+    void exception_fmt(const char * message, ...) const JML_NORETURN;
     
     size_t get_offset() const { return ofs_; }
     size_t get_line() const { return line_; }
