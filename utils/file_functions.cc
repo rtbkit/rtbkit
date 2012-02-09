@@ -33,6 +33,7 @@
 #include <iostream>
 #include <boost/weak_ptr.hpp>
 #include <map>
+#include <grp.h>
 
 
 using namespace std;
@@ -113,6 +114,47 @@ void delete_file(const std::string & filename)
     int res = unlink(filename.c_str());
     if (res != 0)
         throw Exception(errno, "couldn't delete file " + filename, "unlink");
+}
+
+void set_permissions(std::string filename,
+                     const std::string & perms,
+                     const std::string & group)
+{
+    if (filename.find("ipc://") == 0)
+        filename = string(filename, 6);
+
+    char * endptr;
+    if (perms != "") {
+        int mode = strtol(perms.c_str(), &endptr, 8);
+        if (*endptr != '\0')
+            throw Exception(errno, "parsing permission modes %s",
+                            perms.c_str());
+        
+        cerr << "setting permissions of " << filename << " to " << perms
+             << "(" << mode << ")" << endl;
+
+        int res = chmod(filename.c_str(), mode);
+        if (res == -1)
+            throw Exception(errno, "chmod on %s in setPermissions");
+    }
+
+    if (group != "") {
+        int groupNum = strtol(group.c_str(), &endptr, 10);
+        if (*endptr != '\0') {
+            struct group * gr = getgrnam(group.c_str());
+            if (gr == 0)
+                throw Exception(errno, "finding group \"%s\"", group.c_str());
+            groupNum = gr->gr_gid;
+        }
+        
+        cerr << "setting group of " << filename << " to " << groupNum
+             << " for group " << group << endl;
+        
+        int res = chown(filename.c_str(), -1, groupNum);
+
+        if (res == -1)
+            throw Exception(errno, "chown in setPermissions");
+    }
 }
 
 /** Helper class to specify and clean up a memory mapped region. */

@@ -46,6 +46,10 @@ inode_type get_inode(int fd);
 
 void delete_file(const std::string & filename);
 
+void set_permissions(std::string filename,
+                     const std::string & perms,
+                     const std::string & group);
+
 
 /*****************************************************************************/
 /* FILE_READ_BUFFER                                                          */
