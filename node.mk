@@ -54,7 +54,7 @@ endef
 
 # functions for installing JS files from .js or .coffee
 install_js_from.js = @cp $(1) $(2)
-install_js_from.coffee = @coffee --print --compile $(1) > $(2)
+install_js_from.coffee = @$(COFFEE) --print --compile $(1) > $(2)
 
 
 # add a node.js module
@@ -114,7 +114,7 @@ endef
 
 # functions for installing JS files from .js or .coffee
 append_js_from.js = @cat $(1) >> $(2)
-append_js_from.coffee = @coffee --print --compile $(1) >> $(2)
+append_js_from.coffee = @$(COFFEE) --print --compile $(1) >> $(2)
 
 # $(1) name of the program
 # $(2) filename (.js or .coffee)

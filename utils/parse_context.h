@@ -25,6 +25,7 @@
 
 #include "jml/utils/unnamed_bool.h"
 #include "jml/arch/exception.h"
+#include "jml/compiler/compiler.h"
 #include <cmath>
 #include <string>
 #include <iostream>
@@ -315,14 +316,96 @@ struct Parse_Context {
         if (!match_whitespace()) exception("expected whitespace");
     }
 
+    bool match_numeric(signed int & i)
+    {
+        return match_int(i);
+    }
+
+    bool match_numeric(unsigned int & i)
+    {
+        return match_unsigned(i);
+    }
+
+    template<typename MatchAs, typename T>
+    bool match_numeric_as(T & i)
+    {
+        Revert_Token token(*this);
+        MatchAs r;
+        if (!match_numeric(r)) return false;
+        i = r;
+        if (i != r)
+            exception("type did not fit in range");
+        token.ignore();
+        return true;
+    }
+
+    bool match_numeric(short signed int & i)
+    {
+        return match_numeric_as<int>(i);
+    }
+
+    bool match_numeric(short unsigned int & i)
+    {
+        return match_numeric_as<unsigned>(i);
+    }
+
+    bool match_numeric(signed char & i)
+    {
+        return match_numeric_as<int>(i);
+    }
+
+    bool match_numeric(unsigned char & i)
+    {
+        return match_numeric_as<unsigned int>(i);
+    }
+
+    bool match_numeric(signed long & i)
+    {
+        return match_numeric_as<signed long long>(i);
+    }
+
+    bool match_numeric(unsigned long & i)
+    {
+        return match_numeric_as<unsigned long long>(i);
+    }
+
+    bool match_numeric(signed long long & i)
+    {
+        return match_long_long(i);
+    }
+
+    bool match_numeric(unsigned long long & i)
+    {
+        return match_unsigned_long_long(i);
+    }
+
+    bool match_numeric(float & f)
+    {
+        return match_float(f);
+    }
+
+    bool match_numeric(double & f)
+    {
+        return match_double(f);
+    }
+
+    template<typename T>
+    T expect_numeric(const char * error = "expected numeric value of type %s")
+    {
+        T result;
+        if (!match_numeric(result))
+            throw ML::Exception(error, typeid(T).name());
+        return result;
+    }
+
     /** Return a message giving filename:line:col */
     std::string where() const;
     
-    void exception(const std::string & message) const;
+    void exception(const std::string & message) const JML_NORETURN;
 
-    void exception(const char * message) const;
+    void exception(const char * message) const JML_NORETURN;
 
-    void exception_fmt(const char * message, ...) const;
+    void exception_fmt(const char * message, ...) const JML_NORETURN;
     
     size_t get_offset() const { return ofs_; }
     size_t get_line() const { return line_; }

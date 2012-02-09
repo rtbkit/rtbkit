@@ -505,3 +505,23 @@ BOOST_AUTO_TEST_CASE( test_token )
     BOOST_CHECK_EQUAL(context.readahead_available(), 6);
     BOOST_CHECK_EQUAL(context.total_buffered(), 6);
 }
+
+BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing1)
+{
+    string s = "3eabd3c2-825c-11e0-a4a8-0026b937c890";
+    Parse_Context c1(s, s.c_str(), s.c_str() + s.length());
+    double d = -1.0;
+    BOOST_CHECK(c1.match_double(d));
+    BOOST_CHECK_EQUAL(d, 3.0);
+    BOOST_CHECK_EQUAL(*c1, 'e');
+}
+
+BOOST_AUTO_TEST_CASE(test_dodgy_float_parsing2)
+{
+    string s = "Englewood";
+    Parse_Context c1(s, s.c_str(), s.c_str() + s.length());
+    double d = -1.0;
+    BOOST_CHECK(!c1.match_double(d));
+    BOOST_CHECK_EQUAL(d, -1.0);
+    BOOST_CHECK_EQUAL(*c1, 'E');
+}

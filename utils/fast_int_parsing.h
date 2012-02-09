@@ -110,7 +110,8 @@ inline bool match_long_long(long long int & result, Parse_Context & c)
     long long unsigned mag;
     if (!match_unsigned_long_long(mag, c)) return false;
 
-    result = mag * sign;
+    result = (long long)mag;
+    result *= sign;
 
     tok.ignore();
     return true;
