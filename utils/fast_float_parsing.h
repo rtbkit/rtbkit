@@ -71,11 +71,15 @@ inline bool match_float(Float & result, Parse_Context & c)
             if (den != 0.0) break;
             else den = 1.0;
         }
-        else if ((*c == 'e' || *c == 'E')) {
+        else if (digits && (*c == 'e' || *c == 'E')) {
+            Parse_Context::Revert_Token token(c);
             ++c;
             if (c.match_literal('+'));
-            int expi = c.expect_int();
-            sign *= exp10(expi);
+            int expi;
+            if (c.match_int(expi)) {
+                sign *= exp10(expi);
+                token.ignore();
+            }
             break;
         }
         else break;
