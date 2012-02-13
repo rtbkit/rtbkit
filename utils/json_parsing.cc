@@ -48,8 +48,53 @@ jsonEscape(const std::string & str)
     return result;
 }
 
-std::string
-expectJsonString(Parse_Context & context)
+bool matchJsonString(Parse_Context & context, std::string & str)
+{
+    Parse_Context::Revert_Token token(context);
+
+    context.skip_whitespace();
+    if (!context.match_literal('"')) return false;
+
+    std::string result;
+
+    while (!context.match_literal('"')) {
+        if (context.eof()) return false;
+        int c = *context++;
+        //if (c < 0 || c >= 127)
+        //    context.exception("invalid JSON string character");
+        if (c != '\\') {
+            result.push_back(c);
+            continue;
+        }
+        c = *context++;
+        switch (c) {
+        case 't': result.push_back('\t');  break;
+        case 'n': result.push_back('\n');  break;
+        case 'r': result.push_back('\r');  break;
+        case 'f': result.push_back('\f');  break;
+        case '/': result.push_back('/');   break;
+        case '\\':result.push_back('\\');  break;
+        case '"': result.push_back('"');   break;
+        case 'u': {
+            int code = context.expect_int();
+            if (code<0 || code>255)
+            {
+                return false;
+            }
+            result.push_back(code);
+            break;
+        }
+        default:
+            return false;
+        }
+    }
+
+    token.ignore();
+    str = result;
+    return true;
+}
+
+std::string expectJsonString(Parse_Context & context)
 {
     context.skip_whitespace();
     context.expect_literal('"');
@@ -148,6 +193,41 @@ expectJsonObject(Parse_Context & context,
 
     context.skip_whitespace();
     context.expect_literal('}');
+}
+
+bool
+matchJsonObject(Parse_Context & context,
+                boost::function<bool (std::string, Parse_Context &)> onEntry)
+{
+    context.skip_whitespace();
+
+    if (context.match_literal("null"))
+        return true;
+
+    if (!context.match_literal('{')) return false;
+    context.skip_whitespace();
+    if (context.match_literal('}')) return true;
+
+    for (;;) {
+        context.skip_whitespace();
+
+        string key = expectJsonString(context);
+
+        context.skip_whitespace();
+        if (!context.match_literal(':')) return false;
+        context.skip_whitespace();
+
+        if (!onEntry(key, context)) return false;
+
+        context.skip_whitespace();
+
+        if (!context.match_literal(',')) break;
+    }
+
+    context.skip_whitespace();
+    if (!context.match_literal('}')) return false;
+
+    return true;
 }
 
 } // namespace ML
