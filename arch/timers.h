@@ -81,10 +81,12 @@ inline void sleep(double sleepTime)
     long usec = (sleepTime - secs) * 1000000;
     struct timeval timeout = { secs, usec };
     for (;;) {
+        if (timeout.tv_sec < 0 || timeout.tv_usec < 0) break;
         int res = select(0, 0, 0, 0, &timeout);
         if (res == -1 && errno == EINTR) continue;
         else if (res == -1)
-            throw Exception("error sleeping: %s", errno);
+            throw Exception("error sleeping: %s, secs %ld, usec %ld",
+                            strerror(errno), timeout.tv_sec, timeout.tv_usec);
         else break;
     }
 }
