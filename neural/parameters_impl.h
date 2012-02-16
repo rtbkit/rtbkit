@@ -557,7 +557,7 @@ struct Matrix_RefT : public Matrix_Parameter {
     {
         if (index < 0 || index >= size1_ * size2_)
             throw Exception("size was wrong");
-        return format("%s (matrix) row %d column %d",
+        return format("%s (matrix) row %ld column %ld",
                       name().c_str(), index / size1_, index % size1_);
     }
 

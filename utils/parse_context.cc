@@ -299,7 +299,7 @@ std::string
 Parse_Context::
 where() const
 {
-    return filename_ + format(":%d:%d", line_, col_);
+    return filename_ + format(":%zd:%zd", line_, col_);
 }
 
 void

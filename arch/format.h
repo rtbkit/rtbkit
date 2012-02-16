@@ -25,12 +25,13 @@
 
 #include <string>
 #include "stdarg.h"
+#include "jml/compiler/compiler.h"
 
 namespace ML {
 
-std::string format(const char * fmt, ...);
+std::string format(const char * fmt, ...) JML_FORMAT_STRING(1, 2);
 
-std::string vformat(const char * fmt, va_list ap);
+std::string vformat(const char * fmt, va_list ap) JML_FORMAT_STRING(1, 0);
 
 } // namespace ML
 

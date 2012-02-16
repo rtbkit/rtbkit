@@ -38,6 +38,7 @@
 #define JML_UNLIKELY(x) __builtin_expect((x), false)
 #define JML_DEPRECATED __attribute__((__deprecated__))
 #define JML_ALIGNED(x) __attribute__((__aligned__(x)))
+#define JML_FORMAT_STRING(arg1, arg2) __attribute__((__format__ (printf, arg1, arg2)))
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
 #  define jml_typeof(x) decltype(x)

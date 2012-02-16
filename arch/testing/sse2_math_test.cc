@@ -320,7 +320,7 @@ inline double pow2(int input)
     return pow(2.0, double(input));
 }
 
-#define test_pow2_value(input)                                          \
+#define test_pow2_value(input)                                         \
     {                                                                   \
         double output1 = pow2(input);                                      \
         double output2 = extract_scalar(sse2_pow2(vec_splat(input)));      \
@@ -336,7 +336,7 @@ inline double pow2(int input)
             int i2 = reinterpret_as_int(output2);                       \
             if (abs(i1 - i2) > 1) {                                     \
                 cerr << format("%12.8f: %14.9f != %14.9f: %08x != %08x (%4d ulps)\n", \
-                               input, output1, output2, i1, i2, (i1 - i2)); \
+                               (double)input, output1, output2, i1, i2, (i1 - i2)); \
                 BOOST_CHECK_EQUAL(pow2(double(input)), output2);         \
             }                                                           \
         }                                                               \

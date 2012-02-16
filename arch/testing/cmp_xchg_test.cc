@@ -100,7 +100,8 @@ uint128_t operator & (const X & x, const uint128_t & val)
 
 std::ostream & operator << (std::ostream & stream, const uint128_t & val)
 {
-    return stream << format("0x%016llx%016llx", val.h, val.l);
+    return stream << format("0x%016llx%016llx",
+                            (long long)val.h, (long long)val.l);
 }
 
 template<class X>

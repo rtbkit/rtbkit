@@ -31,11 +31,11 @@ Pagemap_Entry::
 print() const
 {
     if (present)
-        return format("P%c %09x s 2^%-5d", (swapped ? 'S' : '.'),
+        return format("P%c %09lx s 2^%-5d", (swapped ? 'S' : '.'),
                       pfn, (int)shift);
     else if (swapped)
         return format(".S %02d/%06x s 2^%-5d", (int)swap_type,
-                      (int)swap_offset);
+                      (int)swap_offset, (int)shift);
     else return "..                 ";
 }
 
@@ -60,7 +60,7 @@ print_flags() const
         else result += '.';
     }
     
-    result += format(" %06x", flags);
+    result += format(" %06llx", (long long)flags);
     
     return result;
 }
@@ -71,7 +71,7 @@ print() const
 {
     string result = print_mapping();
     if (pfn != 0 && (count != 0 || flags != 0))
-        result = result + format("  c:%6d ", count)
+        result = result + format("  c:%6lld ", (long long)count)
             + print_flags();
     return result;
 }
@@ -155,7 +155,7 @@ void dump_page_info(const void * start, const void * end,
     for (unsigned i = 0;  i < pages;  ++i, p += page_size) {
         
 
-        stream << format("%04x %012p ", i, p)
+        stream << format("%04x %12p ", i, p)
                << info[i] << endl;
     }
 }
@@ -367,7 +367,7 @@ dump(std::ostream & stream) const
             crc = calc_crc.checksum();
         }
 
-        stream << format("%04x %012p ", i, p)
+        stream << format("%04x %12p ", i, p)
                << entries[i];
         if (entries[i].present && !entries[i].swapped)
             stream << format("%08x", crc);

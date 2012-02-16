@@ -97,7 +97,7 @@ std::string
 BacktraceFrame::
 print() const
 {
-    string result = format("0x%08p", address);
+    string result = format("0x%8p", address);
 
     if (function_start)
         result += format(" at %s + 0x%zx", function.c_str(),
@@ -118,7 +118,7 @@ print_for_trace() const
         return function;
     else if (object != "")
         return "in " + object;
-    else return format("0x%08p", address);
+    else return format("0x%8p", address);
 }
 
 std::vector<BacktraceFrame> backtrace(int num_to_skip)

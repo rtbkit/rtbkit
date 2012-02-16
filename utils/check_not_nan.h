@@ -13,9 +13,9 @@
     { for (unsigned __i = 0;  __i < __x.size();  ++__i) { if (isnan(__x[__i])) throw Exception(format("element %d of %s is Nan in %s %s:%d", __i, #__x, __PRETTY_FUNCTION__, __FILE__, __LINE__)); } }
 
 #  define CHECK_NOT_NAN_RANGE(__begin, __end)           \
-    { for (typeof(__begin) __it = __begin;  __it != __end;  ++__it) { if (isnan(*__it)) throw Exception(format("element %d of range %s-%s is Nan in %s %s:%d", std::distance(__begin, __it), #__begin, #__end, __PRETTY_FUNCTION__, __FILE__, __LINE__)); } }
+    { for (typeof(__begin) __it = __begin;  __it != __end;  ++__it) { if (isnan(*__it)) throw Exception(format("element %zd of range %s-%s is Nan in %s %s:%d", (size_t)std::distance(__begin, __it), #__begin, #__end, __PRETTY_FUNCTION__, __FILE__, __LINE__)); } }
 #  define CHECK_NOT_NAN_N(__begin, __n) \
-    { for (typeof(__begin) __it = __begin;  __it != __begin + __n;  ++__it) { if (isnan(*__it)) throw Exception(format("element %d of range %s-%s is Nan in %s %s:%d", std::distance(__begin, __it), #__begin, #__n, __PRETTY_FUNCTION__, __FILE__, __LINE__)); } }
+    { for (typeof(__begin) __it = __begin;  __it != __begin + __n;  ++__it) { if (isnan(*__it)) throw Exception(format("element %zd of range %s-%s is Nan in %s %s:%d", (size_t)std::distance(__begin, __it), #__begin, #__n, __PRETTY_FUNCTION__, __FILE__, __LINE__)); } }
 #else
 #  define CHECK_NOT_NAN(x)
 #  define CHECK_NOT_NAN_RANGE(begin, end)
