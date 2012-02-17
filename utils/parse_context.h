@@ -60,6 +60,9 @@ struct Parse_Context {
     Parse_Context(const std::string & filename, const char * start,
                   const char * finish, unsigned line = 1, unsigned col = 1);
 
+    Parse_Context(const std::string & filename, const char * start,
+                  size_t length, unsigned line = 1, unsigned col = 1);
+
     /** Initialize from a File_Read_Buffer. */
     explicit Parse_Context(const File_Read_Buffer & buf);
 

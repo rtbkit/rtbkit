@@ -43,6 +43,19 @@ Parse_Context(const std::string & filename, const char * start,
 }
 
 Parse_Context::
+Parse_Context(const std::string & filename, const char * start,
+              size_t length, unsigned line, unsigned col)
+    : stream_(0), chunk_size_(0), first_token_(0), last_token_(0),
+      filename_(filename), cur_(start), ebuf_(start + length),
+      line_(line), col_(col), ofs_(0)
+{
+    current_ = buffers_.insert(buffers_.end(),
+                               Buffer(0, start, length, false));
+
+    //cerr << "current buffer has " << current_->size << " chars" << endl;
+}
+
+Parse_Context::
 Parse_Context(const std::string & filename)
     : stream_(0), chunk_size_(0), first_token_(0), last_token_(0),
       filename_(filename),
