@@ -422,7 +422,8 @@ goto_ofs(uint64_t ofs, size_t line, size_t col)
          it != buffers_.end();  ++it, ++i) {
         //cerr << "buffer " << i << " of " << buffers_.size() << ": ofs "
         //     << it->ofs << " size " << it->size << endl;
-        if (ofs < it->ofs + it->size) {
+        if (ofs < it->ofs + it->size
+            || (ofs == 0 && it->ofs + it->size == 0)) {
             /* In here. */
             cur_ = it->pos + (ofs - it->ofs);
             ebuf_ = it->pos + it->size;
@@ -431,7 +432,7 @@ goto_ofs(uint64_t ofs, size_t line, size_t col)
         }
     }
 
-    throw Exception("Parse_Context::goto_ofs(): couldn't find position");
+    exception_fmt("Parse_Context::goto_ofs(): couldn't find position %zd (l%zdc%zd)", ofs, line, col);
 }
 
 void
