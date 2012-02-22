@@ -48,14 +48,14 @@ void backtrace(std::ostream & stream, int num_to_skip)
 
 /** The information in a backtrace frame. */
 BacktraceFrame::
-BacktraceFrame(int num, const void * frame)
+BacktraceFrame(int num, const void * frame, const std::string & symbol)
 {
-    init(num, frame);
+    init(num, frame, symbol);
 }
 
 void
 BacktraceFrame::
-init(int num, const void * frame)
+init(int num, const void * frame, const std::string & symbol)
 {
     address = frame;
     number = num;
@@ -86,6 +86,7 @@ init(int num, const void * frame)
         object = "";
         object_start = 0;
     }
+    this->symbol = symbol;
 }
 
 static ssize_t ptr_offset(const void * from, const void * to)
@@ -105,6 +106,9 @@ print() const
     if (object_start)
         result += format(" in %s + 0x%zx", object.c_str(),
                          ptr_offset(object_start, address));
+    if (symbol != "")
+        result += symbol;
+    
     return result;
 }
 
@@ -127,11 +131,19 @@ std::vector<BacktraceFrame> backtrace(int num_to_skip)
     void *array[200];
     
     size_t size = ::backtrace (array, 200);
- 
+
+    char ** symbols = ::backtrace_symbols (array, size);
+
     vector<BacktraceFrame> result;
 
-    for (unsigned i = num_to_skip;  i < size;  ++i)
-        result.push_back(BacktraceFrame(i, array[i]));
+    if (symbols) {
+        for (unsigned i = num_to_skip;  i < size;  ++i)
+            result.push_back(BacktraceFrame(i, array[i], symbols[i]));
+    }
+    else {
+        for (unsigned i = num_to_skip;  i < size;  ++i)
+            result.push_back(BacktraceFrame(i, array[i]));
+    }
     
     return result;
 }

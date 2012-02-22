@@ -55,9 +55,10 @@ void backtrace(std::ostream & stream = std::cerr, int num_to_skip = 1);
 /** The information in a backtrace frame. */
 struct BacktraceFrame {
 
-    BacktraceFrame(int number = -1, const void * frame = 0);
+    BacktraceFrame(int number = -1, const void * frame = 0,
+                   const std::string & symbol = "");
 
-    void init(int number, const void * frame);
+    void init(int number, const void * frame, const std::string & symbol = "");
 
     int number;
     const void * address;
@@ -65,6 +66,7 @@ struct BacktraceFrame {
     const void * function_start;
     std::string object;
     const void * object_start;
+    std::string symbol;
 
     /** Return a string with all the information. */
     std::string print() const;
