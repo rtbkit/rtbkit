@@ -99,39 +99,55 @@ std::string expectJsonString(Parse_Context & context)
     context.skip_whitespace();
     context.expect_literal('"');
 
-    std::string result;
+    char internalBuffer[4096];
 
+    char * buffer = internalBuffer;
+    size_t bufferSize = 4096;
+    size_t pos = 0;
+
+    // Try multiple times to make it fit
     while (!context.match_literal('"')) {
         int c = *context++;
         //if (c < 0 || c >= 127)
         //    context.exception("invalid JSON string character");
-        if (c != '\\') {
-            result.push_back(c);
-            continue;
-        }
-        c = *context++;
-        switch (c) {
-        case 't': result.push_back('\t');  break;
-        case 'n': result.push_back('\n');  break;
-        case 'r': result.push_back('\r');  break;
-        case 'f': result.push_back('\f');  break;
-        case '/': result.push_back('/');   break;
-        case '\\':result.push_back('\\');  break;
-        case '"': result.push_back('"');   break;
-        case 'u': {
-            int code = context.expect_int();
-            if (code<0 || code>255)
-            {
-                context.exception(format("non 8bit char %d", code));
+        if (c == '\\') {
+            c = *context++;
+            switch (c) {
+            case 't': c = '\t';  break;
+            case 'n': c = '\n';  break;
+            case 'r': c = '\r';  break;
+            case 'f': c = '\f';  break;
+            case '/': c = '/';   break;
+            case '\\':c = '\\';  break;
+            case '"': c = '"';   break;
+            case 'u': {
+                int code = context.expect_int();
+                if (code<0 || code>255) {
+                    context.exception(format("non 8bit char %d", code));
+                }
+                c = code;
+                break;
             }
-            result.push_back(code);
-            break;
+            default:
+                context.exception("invalid escaped char");
+            }
         }
-        default:
-            context.exception("invalid escaped char");
+        if (pos == bufferSize) {
+            size_t newBufferSize = bufferSize * 8;
+            char * newBuffer = new char[newBufferSize];
+            std::copy(buffer, buffer + bufferSize, newBuffer);
+            if (buffer != internalBuffer)
+                delete[] buffer;
+            buffer = newBuffer;
+            bufferSize = newBufferSize;
         }
+        buffer[pos++] = c;
     }
 
+    string result(buffer, buffer + pos);
+    if (buffer != internalBuffer)
+        delete[] buffer;
+    
     return result;
 }
 

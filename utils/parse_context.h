@@ -199,8 +199,6 @@ struct Parse_Context {
     template<class FoundEnd>
     bool match_text(std::string & text, const FoundEnd & found)
     {
-        text.clear();
-
 #if 0 // buggy        
         /* We do each buffer separately, to avoid overhead. */
         while (!eof()) {
@@ -220,12 +218,32 @@ struct Parse_Context {
             operator ++ ();  // get the new buffer
         }
 #else
-        while (!eof() && !found(operator *())) {
-            text += operator * ();
+        char internalBuffer[4096];
+        
+        char * buffer = internalBuffer;
+        size_t bufferSize = 4096;
+        size_t pos = 0;
+        char c;
+        
+        while (!eof() && !found(c = operator *())) {
+            if (pos == bufferSize) {
+                size_t newBufferSize = bufferSize * 8;
+                char * newBuffer = new char[newBufferSize];
+                std::copy(buffer, buffer + bufferSize, newBuffer);
+                if (buffer != internalBuffer)
+                    delete[] buffer;
+                buffer = newBuffer;
+                bufferSize = newBufferSize;
+            }
+            buffer[pos++] = c;
             operator ++();
         }
+
+        text = std::string(buffer, buffer + pos);
+        if (buffer != internalBuffer)
+            delete[] buffer;
 #endif
-        
+
         return true;
     }
     
