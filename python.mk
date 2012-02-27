@@ -1,5 +1,12 @@
 ifeq ($(PYTHON_ENABLED),1)
 
+PYTHON_VERSION ?= $(shell $(JML_TOP)/arch/detect_python.sh)
+
+PYTHON_INCLUDE_PATH ?= /usr/include/python$(PYTHON_VERSION)/
+PYTHON ?= python$(PYTHON_VERSION)
+PYTHONPATH ?= $(BIN)
+
+
 # add a swig wrapper source file
 # $(1): filename of source file
 # $(2): basename of the filename
@@ -107,7 +114,7 @@ PYTHON_$(1)_DEPS := $(BIN)/$(1) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 
 run_$(1):	$(BIN)/$(1)
 	$(BIN)/$(1)  $($(1)_ARGS)
-	
+
 $(BIN)/$(1): $(CWD)/$(2) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"
 	@cp $$< $$@~
