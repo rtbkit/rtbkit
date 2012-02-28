@@ -1,0 +1,85 @@
+/* exc_check.h                                                    -*- C++ -*-
+   Rémi Attab, 24 Febuary 2012
+   Copyright (c) 2012 Recoset.  All rights reserved.
+
+   Quick and easy way to throw an exception on a failed condition.
+*/
+
+
+#ifndef __jml__utils__exc_check_h__
+#define __jml__utils__exc_check_h__
+
+#include "jml/arch/exception.h"
+#include "jml/arch/format.h"
+#include <boost/lexical_cast.hpp>
+
+namespace ML {
+
+struct Check_Failure: public Exception {
+    Check_Failure(const std::string & msg);
+    Check_Failure(const char * msg, ...);
+    Check_Failure(const char * assertion,
+                  const char * function,
+                  const char * file,
+                  int line);
+};
+
+} // namespace ML
+
+/// Throws a formatted exception if the condition is false.
+#define ExcCheckImpl(condition, message, exc_type)                      \
+    do {                                                                \
+        if (!(condition)) {                                             \
+            std::string msg = ML::format("%s: %s", message, #condition); \
+            throw exc_type(msg.c_str(), __PRETTY_FUNCTION__,            \
+                    __FILE__, __LINE__);                                \
+        }                                                               \
+    } while (0)
+
+/// Check that the two values meet the operand.  
+/// They must not have any side effects as they may be evaluated more than once.
+#define ExcCheckOpImpl(op, value1, value2, message, exc_type)           \
+    do {                                                                \
+        if (!((value1) op (value2))) {                                  \
+            std::string v1 = boost::lexical_cast<std::string>(value1);  \
+            std::string v2 = boost::lexical_cast<std::string>(value2);  \
+            std::string msg = ML::format(                               \
+                    "%s: !(%s " #op " %s) [!(%s " #op " %s)]",          \
+                    message, #value1, #value2, v1.c_str(), v2.c_str()); \
+            throw exc_type(msg.c_str(), __PRETTY_FUNCTION__,            \
+                                        __FILE__, __LINE__);            \
+        }                                                               \
+    } while (0)
+
+
+/// Simple forwarders with the right exception type.
+#define ExcCheck(condition, message)                    \
+    ExcCheckImpl(condition, message, ML::Check_Failure)
+
+#define ExcCheckOp(op, value1, value2, message)                         \
+    ExcCheckOpImpl(op, value1, value2, message, ML::Check_Failure)
+
+
+
+/// see ExcCheckOpImpl for more details
+#define ExcCheckEqual(value1, value2, message)  \
+    ExcCheckOp(==, value1, value2, message)
+
+#define ExcCheckNotEqual(value1, value2, message)       \
+    ExcCheckOp(!=, value1, value2, message)
+
+#define ExcCheckLessEqual(value1, value2, message)      \
+    ExcCheckOp(<=, value1, value2, message)
+
+#define ExcCheckLess(value1, value2, message)   \
+    ExcCheckOp(<, value1, value2, message)
+
+#define ExcCheckGreaterEqual(value1, value2, message)   \
+    ExcCheckOp(>=, value1, value2, message)
+
+#define ExcCheckGreater(value1, value2, message)        \
+    ExcCheckOp(>, value1, value2, message)
+
+
+
+#endif /* __jml__utils__exc_check_h__ */

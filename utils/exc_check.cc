@@ -1,34 +1,34 @@
-/* exc_assert.cc
+/* exc_check.cc
    Jeremy Barnes, 15 July 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
    Copyright (c) 2010 Recoset Inc.  All rights reserved.
 
 */
 
-#include "exc_assert.h"
+#include "exc_check.h"
 #include "jml/arch/format.h"
 
 namespace ML {
 
-Assertion_Failure::
-Assertion_Failure(const std::string & msg)
+Check_Failure::
+Check_Failure(const std::string & msg)
     : Exception(msg)
 {
 }
 
-Assertion_Failure::
-Assertion_Failure(const char * msg, ...)
+Check_Failure::
+Check_Failure(const char * msg, ...)
     : Exception(msg)
 {
 }
 
-Assertion_Failure::
-Assertion_Failure(const char * assertion,
+Check_Failure::
+Check_Failure(const char * assertion,
                   const char * function,
                   const char * file,
                   int line)
-    : Exception(format("assertion failure: %s at %s:%d in %s",
-                    assertion, file, line, function))
+    : Exception(format("%s at %s:%d in %s",
+                       assertion, file, line, function))
 {
 }
 

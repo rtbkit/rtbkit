@@ -6,6 +6,7 @@ LIBUTILS_SOURCES := \
         parse_context.cc \
 	configuration.cc \
 	csv.cc \
+	exc_check.cc \
 	exc_assert.cc \
 	hex_dump.cc \
 	lzma.cc \
