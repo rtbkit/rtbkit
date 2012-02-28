@@ -97,6 +97,7 @@ void do_test_shrd()
     BOOST_CHECK_EQUAL(do_shrd<T>(1, 0, 1), 0);
     BOOST_CHECK_EQUAL(do_shrd<T>(1, 0, TBITS - 1), 0);
 
+
     // Result is undefined; don't check
     //BOOST_CHECK_EQUAL(do_shrd<T>(1, 0, TBITS), 0);
     //BOOST_CHECK_EQUAL(do_shrd<T>(1, 0, TBITS * 2), 0);
@@ -194,18 +195,18 @@ void test_set_extract(T * data, T value, int bit, int bits)
     
     T old_value = extract_bit_range(data, bit, bits);
 
-    set_bit_range(data, value, bit, bits);
+    set_bit_range(data[0], data[1], value, bit, bits);
 
     T new_value = extract_bit_range(data, bit, bits);
 
     BOOST_CHECK_EQUAL(value, new_value);
 
-    set_bit_range(data, old_value, bit, bits);
+    set_bit_range(data[0], data[1], old_value, bit, bits);
     
     BOOST_CHECK_EQUAL(data[0], old_data[0]);
     BOOST_CHECK_EQUAL(data[1], old_data[1]);
     
-    set_bit_range(data, value, bit, bits);
+    set_bit_range(data[0], data[1], value, bit, bits);
 
     T new_value2 = extract_bit_range(data, bit, bits);
 
@@ -289,6 +290,38 @@ BOOST_AUTO_TEST_CASE( test_64_bit_set_extract )
         BOOST_CHECK_EQUAL(extractor.extract<uint64_t>(3), 1);
         BOOST_CHECK_EQUAL(extractor.extract<uint64_t>(64), 1ULL << 63);
         BOOST_CHECK_EQUAL(extractor.extract<uint64_t>(64), -1);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_64_bit_set_rextract )
+{
+    {
+        uint64_t data[2] = { 0, 0 };
+
+        Bit_Writer<uint64_t> writer(data);
+        writer.rwrite(-1ULL, 64);
+        writer.rwrite(1ULL << 63, 64);
+
+        BOOST_CHECK_EQUAL(data[0], -1);
+        BOOST_CHECK_EQUAL(data[1], 1ULL << 63);
+
+        Bit_Buffer<uint64_t> extractor(data);
+        BOOST_CHECK_EQUAL(extractor.rextract(64), -1);
+        BOOST_CHECK_EQUAL(extractor.rextract(64), 1ULL << 63);
+    }
+
+    {
+        uint64_t data[3] = { 0, 0, 0 };
+
+        Bit_Writer<uint64_t> writer(data);
+        writer.rwrite(1, 3);
+        writer.rwrite(1ULL << 63, 64);
+        writer.rwrite(-1ULL, 64);
+
+        Bit_Buffer<uint64_t> extractor(data);
+        BOOST_CHECK_EQUAL(extractor.rextract(3), 1);
+        BOOST_CHECK_EQUAL(extractor.rextract(64), 1ULL << 63);
+        BOOST_CHECK_EQUAL(extractor.rextract(64), -1);
     }
 }
 

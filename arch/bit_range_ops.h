@@ -174,7 +174,7 @@ Data set_bits(Data in, Data val, shift_t bit, shift_t bits)
 }
 
 template<typename Data>
-void set_bit_range(Data * p, Data val, shift_t bit, shift_t bits)
+void set_bit_range(Data& p0, Data& p1, Data val, shift_t bit, shift_t bits)
 {
     if (JML_UNLIKELY(bits == 0)) return;
 
@@ -195,8 +195,8 @@ void set_bit_range(Data * p, Data val, shift_t bit, shift_t bits)
          << endl;
 #endif
 
-    p[0] = set_bits<Data>(p[0], val, bit, bits0);
-    if (bits1) p[1] = set_bits<Data>(p[1], val >> bits0, 0, bits1);
+    p0 = set_bits<Data>(p0, val, bit, bits0);
+    if (bits1) p1 = set_bits<Data>(p1, val >> bits0, 0, bits1);
 }
 
 
@@ -326,6 +326,7 @@ struct Bit_Buffer {
     {
     }
 
+    /// Extracts bits starting from the least-significant bits of the buffer.
     Data extract(int bits)
     {
         Data result;
@@ -336,6 +337,27 @@ struct Bit_Buffer {
             result = extract_bit_range(data.curr(), data.next(), bit_ofs,
                                         bits);
         advance(bits);
+        return result;
+    }
+
+    /// Extracts bits starting from the most-significant bits of the buffer.
+    Data rextract(int bits)
+    {
+        enum { DBITS = 8 * sizeof(Data) };
+
+        Data result;
+        if (bit_ofs + bits <= DBITS) {
+            shift_t shift = DBITS - (bit_ofs + bits);
+            result = extract_bit_range(data.curr(), Data(0), shift, bits);
+        }
+        else {
+            shift_t shift = (DBITS * 2) - (bit_ofs + bits);
+            result = extract_bit_range(
+                    data.next(), data.curr(), shift, bits);
+        }
+
+        advance(bits);
+
         return result;
     }
 
@@ -465,13 +487,14 @@ struct Bit_Writer {
     {
     }
 
+    /// Writes bits starting from the least-significant bits of the buffer.
     void write(Data val, int bits)
     {
         //using namespace std;
         //cerr << "write: val = " << val << " bits = " << bits << endl;
         //cerr << "data[0] = " << data[0] << " data[1] = "
         //     << data[1] << endl;
-        set_bit_range(data, val, bit_ofs, bits);
+        set_bit_range(data[0], data[1], val, bit_ofs, bits);
         //cerr << "after: data[0] = " << data[0] << " data[1] = "
         //     << data[1] << endl;
 
@@ -484,12 +507,34 @@ struct Bit_Writer {
         //    throw Exception("didn't read back what was written");
         //}
 
+        skip(bits);
+    }
 
+    /// Writes bits starting from the most-significant bits of the buffer.
+    void rwrite(Data val, int bits)
+    {
+        enum { DBITS = sizeof(Data) * 8 };
+
+        if (bits + bit_ofs < DBITS) {
+            shift_t shift = DBITS - (bit_ofs + bits);
+            data[0] = set_bits(data[0], val, shift, bits);
+        }
+        else {
+            shift_t shift = (DBITS * 2) - (bit_ofs + bits);
+            set_bit_range(data[1], data[0], val, shift, bits);
+        }
+
+        skip(bits);
+    }
+
+    void skip(int bits) {
         bit_ofs += bits;
         data += (bit_ofs / (sizeof(Data) * 8));
         bit_ofs %= sizeof(Data) * 8;
     }
 
+
+private:
     Data * data;
     int bit_ofs;
 };
