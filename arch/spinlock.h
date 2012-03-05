@@ -29,6 +29,18 @@ struct Spinlock {
         return value;
     }
 
+    int try_acquire()
+    {
+        if (__sync_bool_compare_and_swap(&value, 0, 1))
+            return 0;
+        return -1;
+    }
+    
+    bool try_lock()
+    {
+        return try_acquire() == 0;
+    }
+
     int acquire()
     {
         for (int tries = 0; true;  ++tries) {
