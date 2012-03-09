@@ -159,7 +159,7 @@ JML_ALWAYS_INLINE JML_PURE_FN
 Data set_bits(Data in, Data val, shift_t bit, shift_t bits)
 {
     // Create a mask with the bits to modify
-    Data mask = (Data(1) << bits) - 1;
+    Data mask = bits >= 64 ? -1 : (Data(1) << bits) - 1;
     mask <<= bit;
     val  <<= bit;
 
