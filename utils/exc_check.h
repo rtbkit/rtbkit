@@ -12,6 +12,7 @@
 #include "jml/arch/exception.h"
 #include "jml/arch/format.h"
 #include <boost/lexical_cast.hpp>
+#include <errno.h>
 
 namespace ML {
 
@@ -51,6 +52,17 @@ struct Check_Failure: public Exception {
         }                                                               \
     } while (0)
 
+/// Throws a formatted exception if the condition is false.
+#define ExcCheckErrnoImpl(condition, message, exc_type)                 \
+    do {                                                                \
+        if (!(condition)) {                                             \
+            std::string msg = ML::format("%s: %s(%d)",                  \
+                    message, strerror(errno), errno);                   \
+            throw exc_type(msg.c_str(), __PRETTY_FUNCTION__,            \
+                    __FILE__, __LINE__);                                \
+        }                                                               \
+    } while (0)
+
 
 /// Simple forwarders with the right exception type.
 #define ExcCheck(condition, message)                    \
@@ -59,6 +71,8 @@ struct Check_Failure: public Exception {
 #define ExcCheckOp(op, value1, value2, message)                         \
     ExcCheckOpImpl(op, value1, value2, message, ML::Check_Failure)
 
+#define ExcCheckErrno(condition, message)       \
+    ExcCheckErrnoImpl(condition, message, ML::Check_Failure)
 
 
 /// see ExcCheckOpImpl for more details

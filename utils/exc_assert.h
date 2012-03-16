@@ -34,6 +34,8 @@ struct Assertion_Failure: public Exception {
 #define ExcAssertOp(op, value1, value2)         \
     ExcCheckOpImpl(op, value1, value2, "Assert failure", ML::Assertion_Failure)
 
+#define ExcAssertErrno(condition)               \
+    ExcCheckErrnoImpl(condition, "Assert failure", ML::Assertion_Failure)
 
 /// see ExcCheckOpImpl for more details
 #define ExcAssertEqual(value1, value2)          \
