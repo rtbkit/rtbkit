@@ -261,7 +261,7 @@ public:
         return result + nelements;
     }
 
-    void insert(iterator pos, size_type n, const Data & x)
+    iterator insert(iterator pos, size_type n, const Data & x)
     {
         iterator result = start_insert(pos, n);
 
