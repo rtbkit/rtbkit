@@ -180,6 +180,14 @@ struct Binary_Input::Stream_Source
     size_t buf_size;
 };
 
+struct Binary_Input::No_Source
+    : public Binary_Input::Source {
+    virtual size_t more(Binary_Input & input, size_t amount)
+    {
+        return 0;
+    }
+};
+
 Binary_Input::Binary_Input()
     : offset_(0), pos_(0), end_(0)
 {
@@ -201,6 +209,12 @@ Binary_Input::Binary_Input(std::istream & stream)
     : offset_(0), pos_(0), end_(0)
 {
     open(stream);
+}
+
+Binary_Input::Binary_Input(const char * c, size_t sz)
+    : offset_(0), pos_(0), end_(0)
+{
+    open(c, sz);
 }
 
 void Binary_Input::open(const File_Read_Buffer & buf)
@@ -225,6 +239,14 @@ void Binary_Input::open(std::istream & stream)
     pos_ = end_ = 0;
     source.reset(new Stream_Source(stream));
     source->more(*this, 0);
+}
+
+void Binary_Input::open(const char * c, size_t sz)
+{
+    offset_ = 0;
+    pos_ = c;
+    end_ = c + sz;
+    source.reset(new No_Source());
 }
 
 void Binary_Input::make_avail(size_t min_avail)
@@ -266,6 +288,11 @@ portable_bin_iarchive::portable_bin_iarchive(const std::string & filename)
 
 portable_bin_iarchive::portable_bin_iarchive(std::istream & stream)
     : Binary_Input(stream)
+{
+}
+
+portable_bin_iarchive::portable_bin_iarchive(const char * c, size_t sz)
+    : Binary_Input(c, sz)
 {
 }
 

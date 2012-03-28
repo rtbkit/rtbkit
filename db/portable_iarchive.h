@@ -58,10 +58,12 @@ public:
     Binary_Input(const File_Read_Buffer & buf);
     Binary_Input(const std::string & filename);
     Binary_Input(std::istream & stream);
+    Binary_Input(const char * c, size_t len);
 
     void open(const File_Read_Buffer & buf);
     void open(const std::string & filename);
     void open(std::istream & stream);
+    void open(const char * c, size_t len);
 
     size_t avail() const { return end_ - pos_; }
 
@@ -112,6 +114,7 @@ private:
     struct Source;
     struct Buffer_Source;
     struct Stream_Source;
+    struct No_Source;
     boost::shared_ptr<Source> source;
 };
 
@@ -127,6 +130,7 @@ public:
     portable_bin_iarchive(const File_Read_Buffer & buf);
     portable_bin_iarchive(const std::string & filename);
     portable_bin_iarchive(std::istream & stream);
+    portable_bin_iarchive(const char * c, size_t sz);
 
     void load(unsigned char & x)
     {
