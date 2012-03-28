@@ -33,6 +33,7 @@
 #include <boost/type_traits.hpp>
 #include <boost/utility.hpp>
 #include <vector>
+#include <map>
 #include <string.h>
 
 namespace boost {
@@ -193,6 +194,17 @@ public:
         size.serialize(*this);
         for (unsigned i = 0;  i < vec.size();  ++i)
             *this << vec[i];
+    }
+
+    template<class K, class V, class L, class A>
+    void save(const std::map<K, V, L, A> & m)
+    {
+        compact_size_t size(m.size());
+        size.serialize(*this);
+        for (typename std::map<K, V, L, A>::const_iterator
+                 it = m.begin(), end = m.end();
+             it != end;  ++it)
+            *this << it->first << it->second;
     }
 
     template<typename T, std::size_t NumDims, typename TPtr>

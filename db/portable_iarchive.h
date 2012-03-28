@@ -30,6 +30,7 @@
 #include "jml/arch/exception.h"
 #include "compact_size_types.h"
 #include <vector>
+#include <map>
 #include <boost/array.hpp>
 #include "jml/utils/string_functions.h"
 
@@ -257,6 +258,22 @@ public:
             v.push_back(t);
         }
         vec.swap(v);
+    }
+
+    template<class K, class V, class L, class A>
+    void load(std::map<K, V, L, A> & res)
+    {
+        compact_size_t sz(*this);
+
+        std::map<K, V, L, A> m;
+        for (unsigned i = 0;  i < sz;  ++i) {
+            K k;
+            *this >> k;
+            V v;
+            *this >> v;
+            m.insert(std::make_pair(k, v));
+        }
+        res.swap(m);
     }
 
     template<typename T, std::size_t NumDims, class Allocator>
