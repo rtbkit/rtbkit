@@ -306,6 +306,16 @@ struct Lightweight_Hash {
         return vals_[bucket].second;
     }
 
+    Value & lookupOrInsert(const Key & key, Value ifMissing = Value())
+    {
+        size_t hashed = Hash()(key);
+        int bucket = find_bucket(hashed, key);
+        if (bucket == -1 || !vals_[bucket].first)
+            bucket = insert_new(bucket, key, hashed, ifMissing);
+        assert(vals_[bucket].first == key);
+        return vals_[bucket].second;
+    }
+
     std::pair<iterator, bool>
     insert(const std::pair<Key, Value> & val)
     {
