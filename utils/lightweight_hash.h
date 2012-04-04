@@ -39,7 +39,7 @@ public:
         : hash(hash), index(index)
     {
         if (index != hash->capacity_)
-            advance_to_valid();
+            this->index = hash->advance_to_valid(index);
     }
 
     template<typename K2, typename V2, typename H2, typename CB2>
@@ -78,8 +78,12 @@ public:
             throw Exception("dereferencing null iterator");
         if (index < 0 || index > hash->capacity_)
             throw Exception("dereferencing invalid iterator");
-        if (!hash->vals_[index].first)
+        if (!hash->vals_[index].first) {
+            using namespace std;
+            cerr << "index = " << index << endl;
+            hash->dump(cerr);
             throw Exception("dereferencing invalid iterator bucket");
+        }
         return hash->dereference(index);
     }
     
@@ -88,7 +92,7 @@ public:
         if (index == hash->capacity_)
             throw Exception("increment past the end");
         ++index;
-        if (index != hash->capacity_) advance_to_valid();
+        if (index != hash->capacity_) index = hash->advance_to_valid(index);
     }
     
     void decrement()
@@ -96,33 +100,7 @@ public:
         if (index == 0)
             throw Exception("decrement past the start");
         --index;
-        if (index != 0) backup_to_valid();
-    }
-
-    void advance_to_valid()
-    {
-        if (index < 0 || index >= hash->capacity_) {
-            hash->dump(std::cerr);
-            std::cerr << "index = " << index << std::endl;
-            throw Exception("advance_to_valid: already at end");
-        }
-
-        // Scan through until we find a valid bucket
-        while (index < hash->capacity_ && !hash->vals_[index].first)
-            ++index;
-    }
-
-    void backup_to_valid()
-    {
-        if (index < 0 || index >= hash->capacity_)
-            throw Exception("backup_to_valid: already outside range");
-        
-        // Scan through until we find a valid bucket
-        while (index >= 0 && !hash->vals_[index].first)
-            --index;
-        
-        if (index < 0)
-            throw Exception("backup_to_valid: none found");
+        if (index != 0) index = hash->backup_to_valid(index);
     }
 
     template<typename K2, typename V2, typename H2, typename CB2>
@@ -137,8 +115,7 @@ operator << (std::ostream & stream,
     return stream << it.print();
 }
 
-template<class Key, class Hash, class Bucket,
-         class Allocator = std::allocator<Bucket> >
+template<class Key, class Hash, class Bucket, class Ops, class Allocator>
 struct Lightweight_Hash_Base {
 
     Lightweight_Hash_Base()
@@ -171,12 +148,234 @@ struct Lightweight_Hash_Base {
         vals_ = allocator.allocate(capacity_);
 
         for (unsigned i = 0;  i < capacity_;  ++i)
-            initEmptyBucket(vals_ + i);
+            Ops::initEmptyBucket(vals_ + i);
 
         for (unsigned i = 0;  i < other.capacity_;  ++i)
-            if (bucketIsFull(other.vals_ + i))
+            if (Ops::bucketIsFull(other.vals_ + i))
                 must_insert(other.vals_[i]);
     }
+
+    Lightweight_Hash_Base(const Lightweight_Hash_Base & other)
+        : vals_(0), size_(other.size_), capacity_(other.capacity_)
+    {
+        if (capacity_ == 0) return;
+
+        vals_ = allocator.allocate(capacity_);
+
+        // TODO: exception cleanup?
+
+        for (unsigned i = 0;  i < capacity_;  ++i) {
+            if (Ops::bucketIsFull(other.vals_ + i))
+                Ops::initBucket(vals_ + i, other.vals_[i]);
+            else Ops::initEmptyBucket(vals_ + 1);
+        }
+    }
+
+    ~Lightweight_Hash_Base()
+    {
+        destroy();
+    }
+
+    Lightweight_Hash_Base & operator = (const Lightweight_Hash_Base & other)
+    {
+        Lightweight_Hash_Base new_me(other);
+        swap(new_me);
+        return *this;
+    }
+
+    void swap(Lightweight_Hash_Base & other)
+    {
+        std::swap(vals_, other.vals_);
+        std::swap(size_, other.size_);
+        std::swap(capacity_, other.capacity_);
+    }
+
+    size_t size() const { return size_; }
+    bool empty() const { return size_ == 0; }
+    size_t capacity() const { return capacity_; }
+
+    void clear()
+    {
+        // Run destructors
+        for (unsigned i = 0;  i < capacity_;  ++i) {
+            if (Ops::bucketIsFull(vals_ + i)) {
+                try {
+                    emptyBucket(vals_ + i);
+                } catch (...) {}
+            }
+        }
+
+        size_ = 0;
+    }
+
+    void destroy()
+    {
+        // Run destructors
+        for (unsigned i = 0;  i < capacity_;  ++i) {
+            try {
+                Ops::destroyBucket(vals_ + i);
+            } catch (...) {}
+        }
+        
+        // Destroy the underlying memory
+        try {
+            allocator.deallocate(vals_, capacity_);
+        } catch (...) {}
+        vals_ = 0;
+        size_ = 0;
+        capacity_ = 0;
+    }
+
+    void reserve(size_t new_capacity)
+    {
+        if (new_capacity <= capacity_) return;
+
+        if (new_capacity < capacity_ * 2)
+            new_capacity = capacity_ * 2;
+
+        Lightweight_Hash_Base new_me(*this, new_capacity);
+        swap(new_me);
+    }
+
+protected:
+    Bucket * vals_;
+    int size_;
+    int capacity_;
+
+    std::pair<int, bool>
+    find_or_insert(const Bucket & toInsert)
+    {
+        Key key = Ops::getKey(toInsert);
+        size_t hashed = Hash()(key);
+        int bucket = find_bucket(hashed, key);
+        if (bucket != -1 && Ops::bucketIsFull(vals_ + bucket))
+            return std::make_pair(bucket, false);
+        return std::make_pair(insert_new(bucket, toInsert, hashed), true);
+    }
+
+    int must_insert(const Bucket & toInsert)
+    {
+        Key key = Ops::getKey(toInsert);
+        size_t hashed = Hash()(key);
+        int bucket = find_bucket(hashed, key);
+        if (bucket != -1 && Ops::bucketIsFull(vals_ + bucket))
+            throw ML::Exception("must_insert of value already there");
+        return insert_new(bucket, toInsert, hashed);
+    }
+
+    int find_bucket(size_t hash, const Key & key) const
+    {
+        if (Ops::isGuardValue(key))
+            throw Exception("searching for or inserting guard value");
+
+        if (capacity_ == 0) return -1;
+        int bucket = hash % capacity_;
+        bool wrapped = false;
+        int i;
+        for (i = bucket;  Ops::bucketIsFull(vals_ + i) && (i != bucket || !wrapped);
+             /* no inc */) {
+            if (Ops::bucketHasKey(vals_ + i, key)) return i;
+            ++i;
+            if (i == capacity_) { i = 0;  wrapped = true; }
+        }
+
+        if (!Ops::bucketIsFull(vals_ + i)) return i;
+
+        // No bucket found; will need to be expanded
+        if (size_ != capacity_) {
+            dump(std::cerr);
+            throw Exception("find_bucket: inconsistency");
+        }
+        return -1;
+    }
+
+    int find_full_bucket(size_t hash, const Key & key) const
+    {
+        int bucket = find_bucket(hash, key);
+        if (bucket == -1 || !Ops::bucketIsFull(vals_ + bucket)) return -1;
+        if (!Ops::bucketHasKey(vals_ + bucket, key)) {
+#if 0
+            using namespace std;
+            dump(cerr);
+            cerr << "bucket = " << bucket << endl;
+            cerr << "hashed = " << hashed << endl;
+            cerr << "key = " << key << endl;
+            cerr << "vals_[bucket].first = " << vals_[bucket].first << endl;
+#endif
+            throw Exception("find_full_bucket didn't return correct key");
+        }
+        
+        return bucket;
+    }
+
+    int insert_new(int bucket, const Bucket & toInsert, size_t hashed)
+    {
+        Key key = Ops::getKey(toInsert);
+        if (Ops::isGuardValue(key))
+            throw Exception("searching for or inserting guard value");
+        
+        if (size_ >= 3 * capacity_ / 4) {
+            // expand
+            reserve(std::max(4, capacity_ * 2));
+            bucket = find_bucket(hashed, key);
+            if (bucket == -1 || Ops::bucketIsFull(vals_ + bucket))
+                throw Exception("logic error: bucket appeared after reserve");
+        }
+
+        Ops::fillBucket(vals_ + bucket, toInsert);
+        ++size_;
+
+        return bucket;
+    }
+
+    void dump(std::ostream & stream) const
+    {
+        using namespace std;
+        stream << "Lightweight_Hash: size " << size_ << " capacity "
+               << capacity_ << endl;
+        for (unsigned i = 0;  i < capacity_;  ++i) {
+            stream << "  bucket " << i << ": hash "
+                   << (Hash()(vals_[i].first) % capacity_)
+                   << " bucket " << vals_[i] << endl;
+        }
+    }
+
+    int advance_to_valid(int index) const
+    {
+        if (index < 0 || index >= capacity_) {
+            dump(std::cerr);
+            std::cerr << "index = " << index << std::endl;
+            throw Exception("advance_to_valid: already at end");
+        }
+
+        // Scan through until we find a valid bucket
+        while (index < capacity_ && !vals_[index].first)
+            ++index;
+
+        return index;
+    }
+
+    int backup_to_valid(int index) const
+    {
+        if (index < 0 || index >= capacity_)
+            throw Exception("backup_to_valid: already outside range");
+        
+        // Scan through until we find a valid bucket
+        while (index >= 0 && !vals_[index].first)
+            --index;
+        
+        if (index < 0)
+            throw Exception("backup_to_valid: none found");
+
+        return index;
+    }
+
+    static Allocator allocator;
+};
+
+template<typename Key, typename Value>
+struct PairOps {
+    typedef std::pair<Key, Value> Bucket;
 
     static void initEmptyBucket(Bucket * bucket)
     {
@@ -219,209 +418,23 @@ struct Lightweight_Hash_Base {
         return bucket->first == key;
     }
 
-    Key getKey(const Bucket & bucket)
+    static Key getKey(const Bucket & bucket)
     {
         return bucket.first;
     }
-
-    Lightweight_Hash_Base(const Lightweight_Hash_Base & other)
-        : vals_(0), size_(other.size_), capacity_(other.capacity_)
-    {
-        if (capacity_ == 0) return;
-
-        vals_ = allocator.allocate(capacity_);
-
-        // TODO: exception cleanup?
-
-        for (unsigned i = 0;  i < capacity_;  ++i) {
-            if (bucketIsFull(other.vals_ + i))
-                initBucket(vals_ + i, other.vals_[i]);
-            else initEmptyBucket(vals_ + 1);
-        }
-    }
-
-    ~Lightweight_Hash_Base()
-    {
-        destroy();
-    }
-
-    Lightweight_Hash_Base & operator = (const Lightweight_Hash_Base & other)
-    {
-        Lightweight_Hash_Base new_me(other);
-        swap(new_me);
-        return *this;
-    }
-
-    void swap(Lightweight_Hash_Base & other)
-    {
-        std::swap(vals_, other.vals_);
-        std::swap(size_, other.size_);
-        std::swap(capacity_, other.capacity_);
-    }
-
-    size_t size() const { return size_; }
-    bool empty() const { return size_ == 0; }
-    size_t capacity() const { return capacity_; }
-
-    void clear()
-    {
-        // Run destructors
-        for (unsigned i = 0;  i < capacity_;  ++i) {
-            if (bucketIsFull(vals_ + i)) {
-                try {
-                    emptyBucket(vals_ + i);
-                } catch (...) {}
-            }
-        }
-
-        size_ = 0;
-    }
-
-    void destroy()
-    {
-        // Run destructors
-        for (unsigned i = 0;  i < capacity_;  ++i) {
-            try {
-                destroyBucket(vals_ + i);
-            } catch (...) {}
-        }
-        
-        // Destroy the underlying memory
-        try {
-            allocator.deallocate(vals_, capacity_);
-        } catch (...) {}
-        vals_ = 0;
-        size_ = 0;
-        capacity_ = 0;
-    }
-
-    void reserve(size_t new_capacity)
-    {
-        if (new_capacity <= capacity_) return;
-
-        if (new_capacity < capacity_ * 2)
-            new_capacity = capacity_ * 2;
-
-        Lightweight_Hash_Base new_me(*this, new_capacity);
-        swap(new_me);
-    }
-
-protected:
-    Bucket * vals_;
-    int size_;
-    int capacity_;
-
-    std::pair<int, bool>
-    find_or_insert(const Bucket & toInsert)
-    {
-        Key key = getKey(toInsert);
-        size_t hashed = Hash()(key);
-        int bucket = find_bucket(hashed, key);
-        if (bucket != -1 && bucketIsFull(vals_ + bucket))
-            return std::make_pair(bucket, false);
-        return std::make_pair(insert_new(bucket, toInsert, hashed), true);
-    }
-
-    int must_insert(const Bucket & toInsert)
-    {
-        Key key = getKey(toInsert);
-        size_t hashed = Hash()(key);
-        int bucket = find_bucket(hashed, key);
-        if (bucket != -1 && bucketIsFull(vals_ + bucket))
-            throw ML::Exception("must_insert of value already there");
-        return insert_new(bucket, toInsert, hashed);
-    }
-
-    int find_bucket(size_t hash, const Key & key) const
-    {
-        if (isGuardValue(key))
-            throw Exception("searching for or inserting guard value");
-
-        if (capacity_ == 0) return -1;
-        int bucket = hash % capacity_;
-        bool wrapped = false;
-        int i;
-        for (i = bucket;  bucketIsFull(vals_ + i) && (i != bucket || !wrapped);
-             /* no inc */) {
-            if (bucketHasKey(vals_ + i, key)) return i;
-            ++i;
-            if (i == capacity_) { i = 0;  wrapped = true; }
-        }
-
-        if (!bucketIsFull(vals_ + i)) return i;
-
-        // No bucket found; will need to be expanded
-        if (size_ != capacity_) {
-            dump(std::cerr);
-            throw Exception("find_bucket: inconsistency");
-        }
-        return -1;
-    }
-
-    int find_full_bucket(size_t hash, const Key & key) const
-    {
-        int bucket = find_bucket(hash, key);
-        if (bucket == -1 || !bucketIsFull(vals_ + bucket)) return -1;
-        if (!bucketHasKey(vals_ + bucket, key)) {
-#if 0
-            using namespace std;
-            dump(cerr);
-            cerr << "bucket = " << bucket << endl;
-            cerr << "hashed = " << hashed << endl;
-            cerr << "key = " << key << endl;
-            cerr << "vals_[bucket].first = " << vals_[bucket].first << endl;
-#endif
-            throw Exception("find_full_bucket didn't return correct key");
-        }
-        
-        return bucket;
-    }
-
-    int insert_new(int bucket, const Bucket & toInsert, size_t hashed)
-    {
-        Key key = getKey(toInsert);
-        if (isGuardValue(key))
-            throw Exception("searching for or inserting guard value");
-        
-        if (size_ >= 3 * capacity_ / 4) {
-            // expand
-            reserve(std::max(4, capacity_ * 2));
-            bucket = find_bucket(hashed, key);
-            if (bucket == -1 || bucketIsFull(vals_ + bucket))
-                throw Exception("logic error: bucket appeared after reserve");
-        }
-
-        fillBucket(vals_ + bucket, toInsert);
-        ++size_;
-
-        return bucket;
-    }
-
-    void dump(std::ostream & stream) const
-    {
-        using namespace std;
-        stream << "Lightweight_Hash: size " << size_ << " capacity "
-               << capacity_ << endl;
-        for (unsigned i = 0;  i < capacity_;  ++i) {
-            stream << "  bucket " << i << ": hash "
-                   << (Hash()(vals_[i].first) % capacity_)
-                   << " bucket " << vals_[i] << endl;
-        }
-    }
-
-    static Allocator allocator;
 };
 
-template<typename Key, class Hash, class Bucket, class Allocator>
-Allocator Lightweight_Hash_Base<Key, Hash, Bucket, Allocator>::
+template<typename Key, class Hash, class Bucket, class Ops, class Allocator>
+Allocator Lightweight_Hash_Base<Key, Hash, Bucket, Ops, Allocator>::
 allocator;
 
 template<typename Key, typename Value, class Hash = std::hash<Key>,
          class Bucket = std::pair<Key, Value>,
          class ConstKeyBucket = std::pair<const Key, Value>,
+         class Ops = PairOps<Key, Value>,
          class Allocator = std::allocator<Bucket> >
 struct Lightweight_Hash
-    : public Lightweight_Hash_Base<Key, Hash, Bucket, Allocator> {
+    : public Lightweight_Hash_Base<Key, Hash, Bucket, Ops, Allocator> {
 
     typedef Lightweight_Hash_Iterator<Key, const Value, const Lightweight_Hash,
                                       const Bucket>
@@ -429,7 +442,7 @@ struct Lightweight_Hash
     typedef Lightweight_Hash_Iterator<Key, Value, Lightweight_Hash,
                                       ConstKeyBucket> iterator;
 
-    typedef Lightweight_Hash_Base<Key, Hash, Bucket, Allocator> Base;
+    typedef Lightweight_Hash_Base<Key, Hash, Bucket, Ops, Allocator> Base;
 
     Lightweight_Hash()
     {
@@ -549,15 +562,7 @@ private:
             stream << endl;
         }
     }
-
-    static Allocator allocator;
 };
-
-template<typename Key, typename Value, class Hash,
-         class Bucket, class ConstKeyBucket, class Allocator>
-Allocator
-Lightweight_Hash<Key, Value, Hash, Bucket, ConstKeyBucket, Allocator>::
-allocator;
 
 
 } // file scope
