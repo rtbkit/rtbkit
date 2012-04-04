@@ -19,14 +19,14 @@
 
 namespace ML {
 
-template<typename Key, typename Value, class Hash>
+template<typename Key, typename Value, class Hash, class ConstKeyBucket>
 class Lightweight_Hash_Iterator
-    : public boost::iterator_facade<Lightweight_Hash_Iterator<Key, Value, Hash>,
-                                    std::pair<const Key, Value>,
+    : public boost::iterator_facade<Lightweight_Hash_Iterator<Key, Value, Hash, ConstKeyBucket>,
+                                    ConstKeyBucket,
                                     boost::bidirectional_traversal_tag> {
 
-    typedef boost::iterator_facade<Lightweight_Hash_Iterator<Key, Value, Hash>,
-                                   std::pair<const Key, Value>,
+    typedef boost::iterator_facade<Lightweight_Hash_Iterator<Key, Value, Hash, ConstKeyBucket>,
+                                   ConstKeyBucket,
                                    boost::bidirectional_traversal_tag> Base;
 public:    
     Lightweight_Hash_Iterator()
@@ -41,8 +41,8 @@ public:
             advance_to_valid();
     }
 
-    template<typename K2, typename V2, typename H2>
-    Lightweight_Hash_Iterator(const Lightweight_Hash_Iterator<K2, V2, H2> & other)
+    template<typename K2, typename V2, typename H2, typename CB2>
+    Lightweight_Hash_Iterator(const Lightweight_Hash_Iterator<K2, V2, H2, CB2> & other)
         : hash(other.hash), index(other.index)
     {
     }
@@ -63,15 +63,15 @@ public:
 
     friend class boost::iterator_core_access;
     
-    template<typename K2, typename V2, typename H2>
-    bool equal(const Lightweight_Hash_Iterator<K2, V2, H2> & other) const
+    template<typename K2, typename V2, typename H2, typename CB2>
+    bool equal(const Lightweight_Hash_Iterator<K2, V2, H2, CB2> & other) const
     {
         if (hash != other.hash)
             throw Exception("comparing incompatible iterators");
         return index == other.index;
     }
     
-    std::pair<const Key, Value> & dereference() const
+    ConstKeyBucket & dereference() const
     {
         if (!hash)
             throw Exception("dereferencing null iterator");
@@ -79,8 +79,7 @@ public:
             throw Exception("dereferencing invalid iterator");
         if (!hash->vals_[index].first)
             throw Exception("dereferencing invalid iterator bucket");
-        
-        return reinterpret_cast<std::pair<const Key, Value> &>(hash->vals_[index]);
+        return hash->dereference(index);
     }
     
     void increment()
@@ -125,25 +124,29 @@ public:
             throw Exception("backup_to_valid: none found");
     }
 
-    template<typename K2, typename V2, typename H2>
+    template<typename K2, typename V2, typename H2, typename CB2>
     friend class Lightweight_Hash_Iterator;
 };
 
-template<typename Key, typename Value, class Hash>
+template<typename Key, typename Value, class Hash, class CB>
 std::ostream &
 operator << (std::ostream & stream,
-             const Lightweight_Hash_Iterator<Key, Value, Hash> & it)
+             const Lightweight_Hash_Iterator<Key, Value, Hash, CB> & it)
 {
     return stream << it.print();
 }
 
 template<typename Key, typename Value, class Hash = std::hash<Key>,
-         class Allocator = std::allocator<std::pair<Key, Value> > >
+         class Bucket = std::pair<Key, Value>,
+         class ConstKeyBucket = std::pair<const Key, Value>,
+         class Allocator = std::allocator<Bucket> >
 struct Lightweight_Hash {
 
-    typedef Lightweight_Hash_Iterator<Key, const Value, const Lightweight_Hash>
+    typedef Lightweight_Hash_Iterator<Key, const Value, const Lightweight_Hash,
+                                      const Bucket>
     const_iterator;
-    typedef Lightweight_Hash_Iterator<Key, Value, Lightweight_Hash> iterator;
+    typedef Lightweight_Hash_Iterator<Key, Value, Lightweight_Hash,
+                                      ConstKeyBucket> iterator;
 
     Lightweight_Hash()
         : vals_(0), size_(0), capacity_(0)
@@ -194,7 +197,7 @@ struct Lightweight_Hash {
 
         for (unsigned i = 0;  i < capacity_;  ++i) {
             if (other.vals_[i].first)
-                new (vals_ + i) std::pair<Key, Value>(other.vals_[i]);
+                new (vals_ + i) Bucket(other.vals_[i]);
             else new (&vals_[i].first) Key(0);
         }
     }
@@ -341,12 +344,22 @@ struct Lightweight_Hash {
     }
 
 private:
-    template<typename K, typename V, class H>
+    template<typename K, typename V, class H, class CB>
     friend class Lightweight_Hash_Iterator;
 
-    std::pair<Key, Value> * vals_;
+    Bucket * vals_;
     int size_;
     int capacity_;
+
+    ConstKeyBucket & dereference(int bucket)
+    {
+        return reinterpret_cast<ConstKeyBucket &>(vals_[bucket]);
+    }
+
+    const Bucket & dereference(int bucket) const
+    {
+        return vals_[bucket];
+    }
 
     int find_bucket(size_t hash, const Key & key) const
     {
@@ -414,9 +427,11 @@ private:
     static Allocator allocator;
 };
 
-template<typename Key, typename Value, class Hash, class Allocator>
+template<typename Key, typename Value, class Hash,
+         class Bucket, class ConstKeyBucket, class Allocator>
 Allocator
-Lightweight_Hash<Key, Value, Hash, Allocator>::allocator;
+Lightweight_Hash<Key, Value, Hash, Bucket, ConstKeyBucket, Allocator>::
+allocator;
 
 
 } // file scope
