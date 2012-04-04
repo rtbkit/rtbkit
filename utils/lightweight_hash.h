@@ -20,6 +20,11 @@
 
 namespace ML {
 
+
+/*****************************************************************************/
+/* LIGHTWEIGHT HASH ITERATOR                                                 */
+/*****************************************************************************/
+
 template<typename Key, typename Value, class Hash, class ConstKeyBucket>
 class Lightweight_Hash_Iterator
     : public boost::iterator_facade<Lightweight_Hash_Iterator<Key, Value, Hash, ConstKeyBucket>,
@@ -76,14 +81,6 @@ public:
     {
         if (!hash)
             throw Exception("dereferencing null iterator");
-        if (index < 0 || index > hash->capacity_)
-            throw Exception("dereferencing invalid iterator");
-        if (!hash->vals_[index].first) {
-            using namespace std;
-            cerr << "index = " << index << endl;
-            hash->dump(cerr);
-            throw Exception("dereferencing invalid iterator bucket");
-        }
         return hash->dereference(index);
     }
     
@@ -115,6 +112,11 @@ operator << (std::ostream & stream,
     return stream << it.print();
 }
 
+
+/*****************************************************************************/
+/* LIGHTWEIGHT HASH BASE                                                     */
+/*****************************************************************************/
+
 template<class Key, class Hash, class Bucket, class Ops, class Allocator>
 struct Lightweight_Hash_Base {
 
@@ -135,7 +137,7 @@ struct Lightweight_Hash_Base {
         vals_ = allocator.allocate(capacity_);
 
         for (unsigned i = 0;  i < capacity_;  ++i)
-            initEmptyBucket(vals_ + i);
+            Ops::initEmptyBucket(vals_ + i);
 
         for (; first != last;  ++first)
             insert(*first);
@@ -167,7 +169,7 @@ struct Lightweight_Hash_Base {
         for (unsigned i = 0;  i < capacity_;  ++i) {
             if (Ops::bucketIsFull(other.vals_ + i))
                 Ops::initBucket(vals_ + i, other.vals_[i]);
-            else Ops::initEmptyBucket(vals_ + 1);
+            else Ops::initEmptyBucket(vals_ + i);
         }
     }
 
@@ -200,7 +202,7 @@ struct Lightweight_Hash_Base {
         for (unsigned i = 0;  i < capacity_;  ++i) {
             if (Ops::bucketIsFull(vals_ + i)) {
                 try {
-                    emptyBucket(vals_ + i);
+                    Ops::emptyBucket(vals_ + i);
                 } catch (...) {}
             }
         }
@@ -235,6 +237,18 @@ struct Lightweight_Hash_Base {
 
         Lightweight_Hash_Base new_me(*this, new_capacity);
         swap(new_me);
+    }
+
+    void dump(std::ostream & stream) const
+    {
+        using namespace std;
+        stream << "Lightweight_Hash: size " << size_ << " capacity "
+               << capacity_ << endl;
+        for (unsigned i = 0;  i < capacity_;  ++i) {
+            stream << "  bucket " << i << ": hash "
+                   << (Hash()(Ops::getKey(vals_[i])) % capacity_)
+                   << " bucket " << vals_[i] << endl;
+        }
     }
 
 protected:
@@ -328,18 +342,6 @@ protected:
         return bucket;
     }
 
-    void dump(std::ostream & stream) const
-    {
-        using namespace std;
-        stream << "Lightweight_Hash: size " << size_ << " capacity "
-               << capacity_ << endl;
-        for (unsigned i = 0;  i < capacity_;  ++i) {
-            stream << "  bucket " << i << ": hash "
-                   << (Hash()(vals_[i].first) % capacity_)
-                   << " bucket " << vals_[i] << endl;
-        }
-    }
-
     int advance_to_valid(int index) const
     {
         if (index < 0 || index >= capacity_) {
@@ -349,7 +351,7 @@ protected:
         }
 
         // Scan through until we find a valid bucket
-        while (index < capacity_ && !vals_[index].first)
+        while (index < capacity_ && !Ops::bucketIsFull(vals_ + index))
             ++index;
 
         return index;
@@ -361,7 +363,7 @@ protected:
             throw Exception("backup_to_valid: already outside range");
         
         // Scan through until we find a valid bucket
-        while (index >= 0 && !vals_[index].first)
+        while (index >= 0 && !Ops::bucketIsFull(vals_ + index))
             --index;
         
         if (index < 0)
@@ -370,8 +372,26 @@ protected:
         return index;
     }
 
+    const Bucket & dereference(int bucket) const
+    {
+        if (bucket < 0 || bucket > capacity_)
+            throw Exception("dereferencing invalid iterator");
+        if (!Ops::bucketIsFull(vals_ + bucket)) {
+            using namespace std;
+            cerr << "bucket = " << bucket << endl;
+            dump(cerr);
+            throw Exception("dereferencing invalid iterator bucket");
+        }
+        return this->vals_[bucket];
+    }
+
     static Allocator allocator;
 };
+
+
+/*****************************************************************************/
+/* LIGHTWEIGHT HASH MAP                                                      */
+/*****************************************************************************/
 
 template<typename Key, typename Value>
 struct PairOps {
@@ -459,10 +479,6 @@ struct Lightweight_Hash
     {
     }
 
-    ~Lightweight_Hash()
-    {
-    }
-
     Lightweight_Hash & operator = (const Lightweight_Hash & other)
     {
         Lightweight_Hash new_me(other);
@@ -538,14 +554,18 @@ private:
     template<typename K, typename V, class H, class CB>
     friend class Lightweight_Hash_Iterator;
 
+    using Base::dereference;
     ConstKeyBucket & dereference(int bucket)
     {
+        if (bucket < 0 || bucket > this->capacity_)
+            throw Exception("dereferencing invalid iterator");
+        if (!this->vals_[bucket].first) {
+            using namespace std;
+            cerr << "bucket = " << bucket << endl;
+            dump(cerr);
+            throw Exception("dereferencing invalid iterator bucket");
+        }
         return reinterpret_cast<ConstKeyBucket &>(this->vals_[bucket]);
-    }
-
-    const Bucket & dereference(int bucket) const
-    {
-        return this->vals_[bucket];
     }
 
     void dump(std::ostream & stream) const
@@ -562,6 +582,148 @@ private:
             stream << endl;
         }
     }
+};
+
+
+/*****************************************************************************/
+/* LIGHTWEIGHT HASH SET                                                      */
+/*****************************************************************************/
+
+template<typename Key, Key guard = (Key)-1>
+struct ScalarOps {
+    typedef Key Bucket;
+
+    static void initEmptyBucket(Bucket * bucket)
+    {
+        new (bucket) Bucket(guard);
+    }
+
+    static void initBucket(Bucket * bucket, const Bucket & value)
+    {
+        new (bucket) Bucket(value);
+    }
+
+    static void fillBucket(Bucket * bucket, const Bucket & value)
+    {
+        *bucket = value;
+    }
+    
+    static void emptyBucket(Bucket * bucket)
+    {
+        bucket->~Bucket();
+        initEmptyBucket(bucket);
+    }
+
+    static void destroyBucket(Bucket * bucket)
+    {
+        bucket->~Bucket();
+    }
+    
+    static bool bucketIsFull(Bucket * bucket)
+    {
+        return *bucket != guard;
+    }
+
+    static bool isGuardValue(Key key)
+    {
+        return key == guard;
+    }
+
+    static bool bucketHasKey(Bucket * bucket, Key key)
+    {
+        return *bucket == key;
+    }
+
+    static Key getKey(const Bucket & bucket)
+    {
+        return bucket;
+    }
+};
+
+template<typename Key, class Hash = std::hash<Key>,
+         class Bucket = Key,
+         class Ops = ScalarOps<Key>,
+         class Allocator = std::allocator<Bucket> >
+struct Lightweight_Hash_Set
+    : public Lightweight_Hash_Base<Key, Hash, Bucket, Ops, Allocator> {
+
+    typedef Lightweight_Hash_Iterator<Key, const Key, const Lightweight_Hash_Set,
+                                      const Bucket>
+    const_iterator;
+    typedef const_iterator iterator;
+
+    typedef Lightweight_Hash_Base<Key, Hash, Bucket, Ops, Allocator> Base;
+
+    Lightweight_Hash_Set()
+    {
+    }
+
+    template<class Iterator>
+    Lightweight_Hash_Set(Iterator first, Iterator last, size_t capacity = 0)
+        : Base(first, last, capacity)
+    {
+    }
+
+    Lightweight_Hash_Set(const Lightweight_Hash_Set & other)
+        : Base(other)
+    {
+    }
+
+    Lightweight_Hash_Set & operator = (const Lightweight_Hash_Set & other)
+    {
+        Lightweight_Hash_Set new_me(other);
+        swap(new_me);
+        return *this;
+    }
+
+    void swap(Lightweight_Hash_Set & other)
+    {
+        Base::swap(other);
+    }
+
+    using Base::size;
+    using Base::empty;
+    using Base::capacity;
+    using Base::clear;
+
+    const_iterator begin() const
+    {
+        if (empty()) return end();
+        return const_iterator(this, 0);
+    }
+
+    const_iterator end() const
+    {
+        return const_iterator(this, this->capacity_);
+    }
+
+    const_iterator find(const Key & key) const
+    {
+        size_t hashed = Hash()(key);
+        int bucket = this->find_full_bucket(hashed, key);
+        if (bucket == -1) return end();
+        return const_iterator(this, bucket);
+    }
+
+    std::pair<const_iterator, bool>
+    insert(const Key & val)
+    {
+        std::pair<int, bool> r = this->find_or_insert(val);
+        return make_pair(const_iterator(this, r.first), r.second);
+    }
+
+    bool count(const Key & key) const
+    {
+        size_t hashed = Hash()(key);
+        int bucket = this->find_full_bucket(hashed, key);
+        return bucket != -1;
+    }
+
+    using Base::reserve;
+
+private:
+    template<typename K, typename V, class H, class CB>
+    friend class Lightweight_Hash_Iterator;
 };
 
 

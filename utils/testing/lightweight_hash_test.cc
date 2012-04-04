@@ -115,3 +115,46 @@ BOOST_AUTO_TEST_CASE(test3)
     for (unsigned j = 0;  j < nobj;  ++j)
         free(objects[j]);
 }
+
+BOOST_AUTO_TEST_CASE(test_set)
+{
+
+    int nobj = 100;
+
+    vector<int> objects;
+        
+    for (unsigned j = 0;  j < nobj;  ++j)
+        objects.push_back(random());
+
+    Lightweight_Hash_Set<int> s;
+
+    BOOST_CHECK_EQUAL(s.size(), 0);
+
+    for (unsigned i = 0;  i < nobj;  ++i) {
+        BOOST_CHECK_EQUAL(s.count(objects[i]), 0);
+        s.insert(objects[i]);
+        BOOST_CHECK_EQUAL(s.size(), i + 1);
+        BOOST_CHECK_EQUAL(s.count(objects[i]), 1);
+    }
+
+    vector<int> obj2(s.begin(), s.end());
+    std::sort(objects.begin(), objects.end());
+    std::sort(obj2.begin(), obj2.end());
+    
+    BOOST_CHECK_EQUAL_COLLECTIONS(objects.begin(), objects.end(),
+                                  obj2.begin(), obj2.end());
+
+    cerr << "before copy" << endl;
+    s.dump(cerr);
+
+    Lightweight_Hash_Set<int> s2 = s;
+
+    cerr << "after copy" << endl;
+    s2.dump(cerr);
+
+    vector<int> obj3(s2.begin(), s2.end());
+    std::sort(obj3.begin(), obj3.end());
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(objects.begin(), objects.end(),
+                                  obj3.begin(), obj3.end());
+}
