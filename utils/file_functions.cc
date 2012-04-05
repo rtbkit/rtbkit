@@ -34,6 +34,7 @@
 #include <boost/weak_ptr.hpp>
 #include <map>
 #include <grp.h>
+#include <exception>
 
 
 using namespace std;
@@ -156,6 +157,91 @@ void set_permissions(std::string filename,
             throw Exception(errno, "chown in setPermissions");
     }
 }
+
+std::string print(FileType type)
+{
+    switch (type) {
+    case FT_FILE: return "FILE";
+    case FT_DIR:  return "DIR";
+    case FT_DIR_INACCESSIBLE: return "DIR_INACCESSIBLE";
+    case FT_FILE_INACCESSIBLE: return "FILE_INACCESSIBLE";
+    default:
+        return ML::format("FileType(%d)", type);
+    }
+}
+
+std::ostream &
+operator << (std::ostream & stream, const FileType & type)
+{
+    return stream << print(type);
+}
+
+struct ScanFilesData;
+
+static __thread ScanFilesData * scanFilesThreadData = 0;
+
+struct ScanFilesData {
+    ScanFilesData(const OnFileFound & onFileFound,
+                  int maxDepth)
+        : onFileFound(onFileFound),
+          maxDepth(maxDepth)
+    {
+    }
+    
+    OnFileFound onFileFound;
+    int maxDepth;
+    std::exception_ptr thrown;
+
+    static int onFile (const char *fpath, const struct stat *sb,
+                       int typeflag, struct FTW *ftwbuf)
+    {
+        ScanFilesData * d = scanFilesThreadData;
+        try {
+            if (d->maxDepth != -1 && ftwbuf->level > d->maxDepth)
+                return FTW_SKIP_SIBLINGS;
+            string dir(fpath, fpath + ftwbuf->base);
+            string basename(fpath + ftwbuf->base);
+
+            FileAction action = d->onFileFound(dir, basename, *sb,
+                                               (FileType)typeflag,
+                                               ftwbuf->level);
+            return action;
+        } catch (...) {
+            d->thrown = std::current_exception();
+            return FTW_STOP;
+        }
+    }
+}; 
+
+void scanFiles(const std::string & path,
+               OnFileFound onFileFound,
+               int maxDepth)
+{
+    ScanFilesData data(onFileFound, maxDepth);
+
+    scanFilesThreadData = &data;
+
+    int res = nftw(path.c_str(),
+                   &ScanFilesData::onFile, 
+                   maxDepth == -1 ? 100 : maxDepth + 1,
+                   FTW_ACTIONRETVAL);
+
+    if (scanFilesThreadData->thrown) {
+        auto exc = scanFilesThreadData->thrown;
+        scanFilesThreadData = 0;
+        rethrow_exception(exc);
+    }
+
+    scanFilesThreadData = 0;
+
+    if (res == -1)
+        throw ML::Exception(errno, "ftw");
+}
+
+
+/*****************************************************************************/
+/* FILE_READ_BUFFER                                                          */
+/*****************************************************************************/
 
 /** Helper class to specify and clean up a memory mapped region. */
 class File_Read_Buffer::MMap_Region

@@ -24,8 +24,10 @@
 #define __utils__file_functions_h__
 
 #include <boost/shared_ptr.hpp>
+#include <boost/function.hpp>
 #include <string>
 #include <stdint.h>
+#include <ftw.h>
 
 namespace ML {
 
@@ -49,6 +51,36 @@ void delete_file(const std::string & filename);
 void set_permissions(std::string filename,
                      const std::string & perms,
                      const std::string & group);
+
+
+enum FileAction {
+    FA_CONTINUE = FTW_CONTINUE,
+    FA_SKIP_SIBLINGS = FTW_SKIP_SIBLINGS,
+    FA_SKIP_SUBTREE = FTW_SKIP_SUBTREE,
+    FA_STOP = FTW_STOP
+};
+
+enum FileType {
+    FT_FILE = FTW_F,
+    FT_DIR  = FTW_D,
+    FT_DIR_INACCESSIBLE = FTW_DNR,
+    FT_FILE_INACCESSIBLE = FTW_NS
+};
+
+std::string print(FileType type);
+
+std::ostream & operator << (std::ostream & stream, const FileType & type);
+
+typedef boost::function<FileAction (std::string dir,
+                                    std::string basename,
+                                    const struct stat & stats,
+                                    FileType type,
+                                    int depth)>
+    OnFileFound;
+
+void scanFiles(const std::string & path,
+               OnFileFound onFileFound,
+               int maxDepth = -1);
 
 
 /*****************************************************************************/
