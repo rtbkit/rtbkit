@@ -34,10 +34,10 @@ float extract_scalar(v4sf i)
 {
     float vals[4];
     *((v4sf *)vals) = i;
-    if (isnan(vals[0])) {
-        BOOST_CHECK(isnan(vals[1]));
-        BOOST_CHECK(isnan(vals[2]));
-        BOOST_CHECK(isnan(vals[3]));
+    if (std::isnan(vals[0])) {
+        BOOST_CHECK(std::isnan(vals[1]));
+        BOOST_CHECK(std::isnan(vals[2]));
+        BOOST_CHECK(std::isnan(vals[3]));
     }
     else {
         BOOST_CHECK_EQUAL(vals[0], vals[1]);
@@ -61,8 +61,8 @@ double extract_scalar(v2df i)
 {
     double vals[2];
     *((v2df *)vals) = i;
-    if (isnan(vals[0])) {
-        BOOST_CHECK(isnan(vals[1]));
+    if (std::isnan(vals[0])) {
+        BOOST_CHECK(std::isnan(vals[1]));
     }
     else {
         BOOST_CHECK_EQUAL(vals[0], vals[1]);
@@ -121,16 +121,16 @@ BOOST_AUTO_TEST_CASE( value_test )
     float in2 = float(input); \
     float output1 = floorf(in2); \
     float output2 = extract_scalar(sse2_floor(vec_splat(in2))); \
-    if (isnan(output1)) \
-        BOOST_CHECK(isnan(output2));            \
+    if (std::isnan(output1)) \
+        BOOST_CHECK(std::isnan(output2));            \
     else BOOST_CHECK_EQUAL(floorf(float(input)), output2);      \
 } \
 { \
     double in2 = double(input); \
     double output1 = floorf(in2); \
     double output2 = extract_scalar(sse2_floor(vec_splat(in2))); \
-    if (isnan(output1)) \
-        BOOST_CHECK(isnan(output2));            \
+    if (std::isnan(output1)) \
+        BOOST_CHECK(std::isnan(output2));            \
     else BOOST_CHECK_EQUAL(floorf(double(input)), output2);      \
 }
 
@@ -161,8 +161,8 @@ BOOST_AUTO_TEST_CASE( floor_test )
     float in2 = float(input); \
     float output1 = truncf(in2); \
     float output2 = extract_scalar(sse2_trunc(vec_splat(in2))); \
-    if (isnan(output1)) \
-        BOOST_CHECK(isnan(output2));            \
+    if (std::isnan(output1)) \
+        BOOST_CHECK(std::isnan(output2));            \
     else BOOST_CHECK_EQUAL(truncf(float(input)), output2);      \
 }
 
@@ -191,12 +191,12 @@ BOOST_AUTO_TEST_CASE( trunc_test )
         float in2 = float(input);                                       \
         float output1 = expf(in2);                                      \
         float output2 = extract_scalar(sse2_expf(vec_splat(in2)));      \
-        if (isnan(output1)) {                                           \
-            if (!isnan(output2)) {                                      \
+        if (std::isnan(output1)) {                                           \
+            if (!std::isnan(output2)) {                                      \
                 cerr << "input = " << in2 << " output1 = " << output1 << " output2 = " << output2 \
                  << endl;                                               \
             }                                                           \
-            BOOST_CHECK(isnan(output2));                                \
+            BOOST_CHECK(std::isnan(output2));                                \
         }                                                               \
         else if (output1 != output2) {                                  \
             int i1 = reinterpret_as_int(output1);                       \
@@ -251,12 +251,12 @@ BOOST_AUTO_TEST_CASE( test_expf )
         double in2 = double(input);                                       \
         double output1 = exp(in2);                                      \
         double output2 = extract_scalar(sse2_exp(vec_splat(in2)));      \
-        if (isnan(output1)) {                                           \
-            if (!isnan(output2)) {                                      \
+        if (std::isnan(output1)) {                                           \
+            if (!std::isnan(output2)) {                                      \
                 cerr << "input = " << in2 << " output1 = " << output1 << " output2 = " << output2 \
                  << endl;                                               \
             }                                                           \
-            BOOST_CHECK(isnan(output2));                                \
+            BOOST_CHECK(std::isnan(output2));                                \
         }                                                               \
         else if (output1 != output2) {                                  \
             int i1 = reinterpret_as_int(output1);                       \
@@ -324,12 +324,12 @@ inline double pow2(int input)
     {                                                                   \
         double output1 = pow2(input);                                      \
         double output2 = extract_scalar(sse2_pow2(vec_splat(input)));      \
-        if (isnan(output1)) {                                           \
-            if (!isnan(output2)) {                                      \
+        if (std::isnan(output1)) {                                           \
+            if (!std::isnan(output2)) {                                      \
                 cerr << "input = " << input << " output1 = " << output1 << " output2 = " << output2 \
                  << endl;                                               \
             }                                                           \
-            BOOST_CHECK(isnan(output2));                                \
+            BOOST_CHECK(std::isnan(output2));                                \
         }                                                               \
         else if (output1 != output2) {                                  \
             int i1 = reinterpret_as_int(output1);                       \
@@ -527,12 +527,12 @@ BOOST_AUTO_TEST_CASE( profile_expf_test )
         v4si eexp2;                                                     \
         float output2 = extract_scalar(sse2_frexpf(vec_splat(in2), eexp2)); \
         exp2 = extract_scalar(eexp2);                                   \
-        if (isnan(output1)) {                                           \
-            if (!isnan(output2)) {                                      \
+        if (std::isnan(output1)) {                                           \
+            if (!std::isnan(output2)) {                                      \
                 cerr << "input = " << in2 << " output1 = " << output1 << " output2 = " << output2 \
                  << endl;                                               \
             }                                                           \
-            BOOST_CHECK(isnan(output2));                                \
+            BOOST_CHECK(std::isnan(output2));                                \
         }                                                               \
         else if (output1 != output2) {                                  \
             int i1 = reinterpret_as_int(output1);                       \
@@ -595,12 +595,12 @@ BOOST_AUTO_TEST_CASE( test_frexpf )
         float in2 = float(input);                                       \
         float output1 = logf(in2);                                      \
         float output2 = extract_scalar(sse2_logf(vec_splat(in2)));      \
-        if (isnan(output1)) {                                           \
-            if (!isnan(output2)) {                                      \
+        if (std::isnan(output1)) {                                           \
+            if (!std::isnan(output2)) {                                      \
                 cerr << "input = " << in2 << " output1 = " << output1 << " output2 = " << output2 \
                  << endl;                                               \
             }                                                           \
-            BOOST_CHECK(isnan(output2));                                \
+            BOOST_CHECK(std::isnan(output2));                                \
         }                                                               \
         else if (output1 != output2) {                                  \
             int i1 = reinterpret_as_int(output1);                       \

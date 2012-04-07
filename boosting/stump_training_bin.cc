@@ -8,9 +8,11 @@
 
 namespace ML {
 
+#if 0
 const double Z_binsym::worst;
 const double Z_binsym::none;
 const double Z_binsym::perfect;
+#endif
 
 } // namespace ML
 

@@ -756,9 +756,9 @@ inline double accum_sum_sqrt_prod(const double * p1, const double * p2, int n)
 /* Function object to calculate Z for the non-trueonly case. */
 template<class Float>
 struct Z_multi {
-    static const Float worst   = 1.0;  // worst possible Z value
-    static const Float none    = 2.0;  // flag to indicate couldn't calculate
-    static const Float perfect = 0.0;  // best possible Z value
+    static constexpr Float worst   = 1.0;  // worst possible Z value
+    static constexpr Float none    = 2.0;  // flag to indicate couldn't calculate
+    static constexpr Float perfect = 0.0;  // best possible Z value
 
     /* Return the constant missing part. */
     Float missing(const W_multi<Float> & w, bool optional) const

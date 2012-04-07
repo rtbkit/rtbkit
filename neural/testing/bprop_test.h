@@ -71,7 +71,7 @@ void bprop_test(Layer & layer, const distribution<Float2> & input_,
     BOOST_CHECK_EQUAL(temp_space_storage[temp_space_size + 1],
                       (Float)0.8765432);
     for (unsigned i = 0;  i < temp_space_size;  ++i)
-        BOOST_CHECK(!isnan(temp_space[i]));
+        BOOST_CHECK(!std::isnan(temp_space[i]));
     
 
     // Check that there is zero gradient if the error gradients are all zero
@@ -148,7 +148,7 @@ void bprop_test(Layer & layer, const distribution<Float2> & input_,
         BOOST_CHECK_EQUAL(temp_space_storage[temp_space_size + 1],
                           (Float)0.8765432);
         for (unsigned j = 0;  j < temp_space_size;  ++j)
-            BOOST_CHECK(!isnan(temp_space[j]));
+            BOOST_CHECK(!std::isnan(temp_space[j]));
 
         double delta = (new_output - baseline_output).total();
 
@@ -180,7 +180,7 @@ void bprop_test(Layer & layer, const distribution<Float2> & input_,
     for (unsigned i = 0;  i < ni;  ++i) {
         distribution<Float> input2 = input;
 
-        if (isnan(input2[i])) continue;  // can't take deriv
+        if (std::isnan(input2[i])) continue;  // can't take deriv
 
         double old_value = input2[i];
         input2[i] += epsilon;
@@ -205,7 +205,7 @@ void bprop_test(Layer & layer, const distribution<Float2> & input_,
         BOOST_CHECK_EQUAL(temp_space_storage[temp_space_size + 1],
                           (Float)0.8765432);
         for (unsigned j = 0;  j < temp_space_size;  ++j)
-            BOOST_CHECK(!isnan(temp_space[j]));
+            BOOST_CHECK(!std::isnan(temp_space[j]));
 
         double delta = (new_output - baseline_output).total();
 

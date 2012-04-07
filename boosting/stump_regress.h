@@ -209,9 +209,9 @@ struct W_regress {
 
 /* Function object to calculate Z for the non-trueonly case. */
 struct Z_regress {
-    static const double worst   = 1e100;  // worst possible Z value
-    static const double none    = -1.0;  // flag to indicate couldn't calculate
-    static const double perfect = 0.0;  // best possible Z value
+    static constexpr double worst   = 1e100;  // worst possible Z value
+    static constexpr double none    = -1.0;  // flag to indicate couldn't calculate
+    static constexpr double perfect = 0.0;  // best possible Z value
 
     static bool equal(double z1, double z2)
     {

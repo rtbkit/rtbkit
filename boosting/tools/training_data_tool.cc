@@ -194,7 +194,7 @@ struct Variable_Stats {
         double last_value = 0.0;
         for (unsigned i = 0;  i < values.size();  ++i) {
             double value = values[i];
-            if (isnan(value)) ++missing;
+            if (std::isnan(value)) ++missing;
             else if (!isfinite(value)) ++denorm;
             else if (i != 0 && last_value == value) {
                 assert(!pairs.empty());

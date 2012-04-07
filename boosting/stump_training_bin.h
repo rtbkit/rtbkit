@@ -195,9 +195,9 @@ typedef W_binsymT<FixedPointAccum64> W_binsym;
 
 struct Z_binsym {
 
-    static const double worst = 1.0;
-    static const double none = 2.0;
-    static const double perfect = 0.0;  // best possible Z value
+    static constexpr double worst = 1.0;
+    static constexpr double none = 2.0;
+    static constexpr double perfect = 0.0;  // best possible Z value
 
     template<class W>
     JML_ALWAYS_INLINE

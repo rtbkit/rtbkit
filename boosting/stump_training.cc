@@ -10,6 +10,7 @@
 
 namespace ML {
 
+#if 0
 const double Z_normal::worst;
 const double Z_normal::none;
 const double Z_normal::perfect;
@@ -20,6 +21,7 @@ template<>
 const double Z_multi<double>::none;//    = 2.0;  // flag to indicate couldn't calculate
 template<>
 const double Z_multi<double>::perfect;// = 0.0;  // best possible Z value
+#endif
 
 } // namespace ML
 

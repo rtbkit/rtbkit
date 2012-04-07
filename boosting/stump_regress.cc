@@ -9,9 +9,11 @@
 
 namespace ML {
 
+#if 0
 const double Z_regress::worst;
 const double Z_regress::none;
 const double Z_regress::perfect;
+#endif
 
 } // namespace ML
 

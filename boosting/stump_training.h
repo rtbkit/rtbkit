@@ -237,9 +237,9 @@ typedef W_normalT<FixedPointAccum64> W_normal;
 
 /* Function object to calculate Z for the non-trueonly case. */
 struct Z_normal {
-    static const double worst   = 1.0;  // worst possible Z value
-    static const double none    = 2.0;  // flag to indicate couldn't calculate
-    static const double perfect = 0.0;  // best possible Z value
+    static constexpr double worst   = 1.0;  // worst possible Z value
+    static constexpr double none    = 2.0;  // flag to indicate couldn't calculate
+    static constexpr double perfect = 0.0;  // best possible Z value
 
     /* Return the constant missing part. */
     template<class W>
@@ -310,9 +310,9 @@ struct Z_normal {
 
 /* Function object to calculate Z for the non-trueonly case. */
 struct Z_conf {
-    static const double worst   = 1.0;  // worst possible Z value
-    static const double none    = 2.0;  // flag to indicate couldn't calculate
-    static const double perfect = 0.0;  // best possible Z value
+    static constexpr double worst   = 1.0;  // worst possible Z value
+    static constexpr double none    = 2.0;  // flag to indicate couldn't calculate
+    static constexpr double perfect = 0.0;  // best possible Z value
 
     /* Return the constant missing part. */
     template<class W>

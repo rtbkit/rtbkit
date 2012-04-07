@@ -19,10 +19,10 @@ namespace ML {
 struct FixedPointAccum32Unsigned {
     unsigned rep;
 
-    static const float VAL_2_REP = 1ULL << 32;
-    static const float REP_2_VAL = 1.0f / (1ULL << 32);
-    static const float ADD_TO_ROUND = 1.0f / (1ULL << 33);
-    static const unsigned MAX_REP = (unsigned)-1;
+    static constexpr float VAL_2_REP = 1ULL << 32;
+    static constexpr float REP_2_VAL = 1.0f / (1ULL << 32);
+    static constexpr float ADD_TO_ROUND = 1.0f / (1ULL << 33);
+    static constexpr unsigned MAX_REP = (unsigned)-1;
 
     FixedPointAccum32Unsigned()
         : rep(0)
@@ -56,9 +56,9 @@ struct FixedPointAccum32Unsigned {
 struct FixedPointAccum32 {
     int rep;
 
-    static const float VAL_2_REP = 1ULL << 31;
-    static const float REP_2_VAL = 1.0f / (1ULL << 31);
-    static const float ADD_TO_ROUND = 0.5f / (1ULL << 31);
+    static constexpr float VAL_2_REP = 1ULL << 31;
+    static constexpr float REP_2_VAL = 1.0f / (1ULL << 31);
+    static constexpr float ADD_TO_ROUND = 0.5f / (1ULL << 31);
 
     FixedPointAccum32()
         : rep(0)
@@ -120,11 +120,11 @@ struct FixedPointAccum64 {
     __host__ __device__ unsigned h() const { return hl >> 32; }
     __host__ __device__ unsigned l() const { return hl; }
 #endif // JML_COMPILER_NVCC
-    static const float VAL_2_HL = 1.0f * (1ULL << 63);
-    static const float HL_2_VAL = 1.0f / (1ULL << 63);
-    static const float VAL_2_H = (1ULL << 31);
-    static const float H_2_VAL = 1.0f / (1ULL << 31);
-    static const float ADD_TO_ROUND = 0.5f / (1ULL << 63);
+    static constexpr float VAL_2_HL = 1.0f * (1ULL << 63);
+    static constexpr float HL_2_VAL = 1.0f / (1ULL << 63);
+    static constexpr float VAL_2_H = (1ULL << 31);
+    static constexpr float H_2_VAL = 1.0f / (1ULL << 31);
+    static constexpr float ADD_TO_ROUND = 0.5f / (1ULL << 63);
     
     FixedPointAccum64()
         : hl(0)
