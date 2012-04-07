@@ -184,13 +184,15 @@ struct ScanFilesData {
     ScanFilesData(const OnFileFound & onFileFound,
                   int maxDepth)
         : onFileFound(onFileFound),
-          maxDepth(maxDepth)
+          maxDepth(maxDepth),
+          isThrown(false)
     {
     }
     
     OnFileFound onFileFound;
     int maxDepth;
     std::exception_ptr thrown;
+    bool isThrown;
 
     static int onFile (const char *fpath, const struct stat *sb,
                        int typeflag, struct FTW *ftwbuf)
@@ -208,6 +210,7 @@ struct ScanFilesData {
             return action;
         } catch (...) {
             d->thrown = std::current_exception();
+            d->isThrown = true;
             return FTW_STOP;
         }
     }
@@ -226,7 +229,7 @@ void scanFiles(const std::string & path,
                    maxDepth == -1 ? 100 : maxDepth + 1,
                    FTW_ACTIONRETVAL);
 
-    if (scanFilesThreadData->thrown) {
+    if (scanFilesThreadData->isThrown) {
         auto exc = scanFilesThreadData->thrown;
         scanFilesThreadData = 0;
         rethrow_exception(exc);
