@@ -224,6 +224,17 @@ void atomic_min(Val1 & val1, const Val2 & val2)
     } while (!JML_LIKELY(cmp_xchg(val1, old_val, new_val)));
 }
 
+template<typename X>
+JML_ALWAYS_INLINE X atomic_xchg(X & val, X new_val)
+{
+    asm volatile ("xchg %[new_val], %[val]\n\t"
+                  : [new_val] "+a" (new_val), [val] "+m" (val)
+                  :
+                  : "cc", "memory");
+    return new_val;
+}
+
+
 JML_ALWAYS_INLINE void memory_barrier()
 {
     // GCC < 4.4 doesn't do this properly
