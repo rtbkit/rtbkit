@@ -453,6 +453,7 @@ struct Parse_Context {
         if (eof_is_eol && eof()) return true;  // EOF is considered EOL
         if (*cur_ == '\n') {
             operator ++ ();
+            if (eof_is_eol && eof()) return true;  // EOF is considered EOL
             if (*cur_ == '\r')
                 operator ++ ();
             return true;
