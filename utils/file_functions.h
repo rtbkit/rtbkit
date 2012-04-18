@@ -52,6 +52,8 @@ void set_permissions(std::string filename,
                      const std::string & perms,
                      const std::string & group);
 
+/** Call fdatasync on the file. */
+void syncFile(const std::string & filename);
 
 enum FileAction {
     FA_CONTINUE = FTW_CONTINUE,

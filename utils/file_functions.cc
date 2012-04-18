@@ -35,6 +35,7 @@
 #include <map>
 #include <grp.h>
 #include <exception>
+#include "guard.h"
 
 
 using namespace std;
@@ -239,6 +240,18 @@ void scanFiles(const std::string & path,
 
     if (res == -1)
         throw ML::Exception(errno, "ftw");
+}
+
+/** Call fdatasync on the file. */
+void syncFile(const std::string & filename)
+{
+    int fd = ::open(filename.c_str(), O_RDONLY);
+    if (fd == -1)
+        throw ML::Exception(errno, "syncFile for " + filename);
+    ML::Call_Guard guard([=] () { close(fd); });
+    int res = fdatasync(fd);
+    if (res == -1)
+        throw ML::Exception(errno, "fdatasync for " + filename);
 }
 
 
