@@ -117,7 +117,7 @@ operator << (std::ostream & stream,
 /* LIGHTWEIGHT HASH BASE                                                     */
 /*****************************************************************************/
 
-template<class Key, class Hash, class Bucket, class Ops, class Allocator>
+template<class Key, class Bucket, class Ops, class Allocator>
 struct Lightweight_Hash_Base {
 
     Lightweight_Hash_Base()
@@ -246,7 +246,7 @@ struct Lightweight_Hash_Base {
                << capacity_ << endl;
         for (unsigned i = 0;  i < capacity_;  ++i) {
             stream << "  bucket " << i << ": hash "
-                   << (Hash()(Ops::getKey(vals_[i])) % capacity_)
+                   << Ops::hashKey(vals_[i], capacity_)
                    << " bucket " << vals_[i] << endl;
         }
     }
@@ -260,30 +260,28 @@ protected:
     find_or_insert(const Bucket & toInsert)
     {
         Key key = Ops::getKey(toInsert);
-        size_t hashed = Hash()(key);
-        int bucket = find_bucket(hashed, key);
+        int bucket = find_bucket(key);
         if (bucket != -1 && Ops::bucketIsFull(vals_ + bucket))
             return std::make_pair(bucket, false);
-        return std::make_pair(insert_new(bucket, toInsert, hashed), true);
+        return std::make_pair(insert_new(bucket, toInsert), true);
     }
 
     int must_insert(const Bucket & toInsert)
     {
         Key key = Ops::getKey(toInsert);
-        size_t hashed = Hash()(key);
-        int bucket = find_bucket(hashed, key);
+        int bucket = find_bucket(key);
         if (bucket != -1 && Ops::bucketIsFull(vals_ + bucket))
             throw ML::Exception("must_insert of value already there");
-        return insert_new(bucket, toInsert, hashed);
+        return insert_new(bucket, toInsert);
     }
 
-    int find_bucket(size_t hash, const Key & key) const
+    int find_bucket(const Key & key) const
     {
         if (Ops::isGuardValue(key))
             throw Exception("searching for or inserting guard value");
 
         if (capacity_ == 0) return -1;
-        int bucket = hash % capacity_;
+        int bucket = Ops::hashKey(key, capacity_);
         bool wrapped = false;
         int i;
         for (i = bucket;  Ops::bucketIsFull(vals_ + i) && (i != bucket || !wrapped);
@@ -303,9 +301,9 @@ protected:
         return -1;
     }
 
-    int find_full_bucket(size_t hash, const Key & key) const
+    int find_full_bucket(const Key & key) const
     {
-        int bucket = find_bucket(hash, key);
+        int bucket = find_bucket(key);
         if (bucket == -1 || !Ops::bucketIsFull(vals_ + bucket)) return -1;
         if (!Ops::bucketHasKey(vals_ + bucket, key)) {
 #if 0
@@ -322,7 +320,7 @@ protected:
         return bucket;
     }
 
-    int insert_new(int bucket, const Bucket & toInsert, size_t hashed)
+    int insert_new(int bucket, const Bucket & toInsert)
     {
         Key key = Ops::getKey(toInsert);
         if (Ops::isGuardValue(key))
@@ -331,7 +329,7 @@ protected:
         if (size_ >= 3 * capacity_ / 4) {
             // expand
             reserve(std::max(4, capacity_ * 2));
-            bucket = find_bucket(hashed, key);
+            bucket = find_bucket(key);
             if (bucket == -1 || Ops::bucketIsFull(vals_ + bucket))
                 throw Exception("logic error: bucket appeared after reserve");
         }
@@ -393,7 +391,7 @@ protected:
 /* LIGHTWEIGHT HASH MAP                                                      */
 /*****************************************************************************/
 
-template<typename Key, typename Value>
+template<typename Key, typename Value, typename Hash>
 struct PairOps {
     typedef std::pair<Key, Value> Bucket;
 
@@ -423,38 +421,48 @@ struct PairOps {
         bucket->~Bucket();
     }
     
-    static bool bucketIsFull(Bucket * bucket)
+    static bool bucketIsFull(Bucket * bucket) JML_PURE_FN
     {
         return bucket->first;
     }
 
-    static bool isGuardValue(Key key)
+    static bool isGuardValue(Key key) JML_CONST_FN
     {
         return key == 0;
     }
 
-    static bool bucketHasKey(Bucket * bucket, Key key)
+    static bool bucketHasKey(Bucket * bucket, Key key) JML_PURE_FN
     {
         return bucket->first == key;
     }
 
-    static Key getKey(const Bucket & bucket)
+    static Key getKey(Bucket bucket) JML_CONST_FN
     {
         return bucket.first;
     }
-};
 
-template<typename Key, class Hash, class Bucket, class Ops, class Allocator>
-Allocator Lightweight_Hash_Base<Key, Hash, Bucket, Ops, Allocator>::
+    static size_t hashKey(Bucket bucket, int capacity) JML_CONST_FN
+    {
+        return hashKey(getKey(bucket), capacity);
+    }
+
+    static size_t hashKey(Key key, int capacity) JML_CONST_FN
+    {
+        return Hash()(key) % capacity;
+    }
+ };
+
+template<typename Key, class Bucket, class Ops, class Allocator>
+Allocator Lightweight_Hash_Base<Key, Bucket, Ops, Allocator>::
 allocator;
 
 template<typename Key, typename Value, class Hash = std::hash<Key>,
          class Bucket = std::pair<Key, Value>,
          class ConstKeyBucket = std::pair<const Key, Value>,
-         class Ops = PairOps<Key, Value>,
+         class Ops = PairOps<Key, Value, Hash>,
          class Allocator = std::allocator<Bucket> >
 struct Lightweight_Hash
-    : public Lightweight_Hash_Base<Key, Hash, Bucket, Ops, Allocator> {
+    : public Lightweight_Hash_Base<Key, Bucket, Ops, Allocator> {
 
     typedef Lightweight_Hash_Iterator<Key, const Value, const Lightweight_Hash,
                                       const Bucket>
@@ -462,7 +470,7 @@ struct Lightweight_Hash
     typedef Lightweight_Hash_Iterator<Key, Value, Lightweight_Hash,
                                       ConstKeyBucket> iterator;
 
-    typedef Lightweight_Hash_Base<Key, Hash, Bucket, Ops, Allocator> Base;
+    typedef Lightweight_Hash_Base<Key, Bucket, Ops, Allocator> Base;
 
     Lightweight_Hash()
     {
@@ -520,16 +528,14 @@ struct Lightweight_Hash
 
     iterator find(const Key & key)
     {
-        size_t hashed = Hash()(key);
-        int bucket = find_full_bucket(hashed, key);
+        int bucket = find_full_bucket(key);
         if (bucket == -1) return end();
         return iterator(this, bucket);
     }
 
     const_iterator find(const Key & key) const
     {
-        size_t hashed = Hash()(key);
-        int bucket = find_full_bucket(hashed, key);
+        int bucket = find_full_bucket(key);
         if (bucket == -1) return end();
         return const_iterator(this, bucket);
     }
@@ -589,7 +595,7 @@ private:
 /* LIGHTWEIGHT HASH SET                                                      */
 /*****************************************************************************/
 
-template<typename Key, Key guard = (Key)-1>
+template<typename Key, typename Hash, Key guard = (Key)-1>
 struct ScalarOps {
     typedef Key Bucket;
 
@@ -638,21 +644,26 @@ struct ScalarOps {
     {
         return bucket;
     }
+
+    static size_t hashKey(Key key, int capacity)
+    {
+        return Hash()(key) % capacity;
+    }
 };
 
 template<typename Key, class Hash = std::hash<Key>,
          class Bucket = Key,
-         class Ops = ScalarOps<Key>,
+         class Ops = ScalarOps<Key, Hash>,
          class Allocator = std::allocator<Bucket> >
 struct Lightweight_Hash_Set
-    : public Lightweight_Hash_Base<Key, Hash, Bucket, Ops, Allocator> {
+    : public Lightweight_Hash_Base<Key, Bucket, Ops, Allocator> {
 
     typedef Lightweight_Hash_Iterator<Key, const Key, const Lightweight_Hash_Set,
                                       const Bucket>
     const_iterator;
     typedef const_iterator iterator;
 
-    typedef Lightweight_Hash_Base<Key, Hash, Bucket, Ops, Allocator> Base;
+    typedef Lightweight_Hash_Base<Key, Bucket, Ops, Allocator> Base;
 
     Lightweight_Hash_Set()
     {
@@ -699,8 +710,7 @@ struct Lightweight_Hash_Set
 
     const_iterator find(const Key & key) const
     {
-        size_t hashed = Hash()(key);
-        int bucket = this->find_full_bucket(hashed, key);
+        int bucket = this->find_full_bucket(key);
         if (bucket == -1) return end();
         return const_iterator(this, bucket);
     }
@@ -714,8 +724,7 @@ struct Lightweight_Hash_Set
 
     bool count(const Key & key) const
     {
-        size_t hashed = Hash()(key);
-        int bucket = this->find_full_bucket(hashed, key);
+        int bucket = this->find_full_bucket(key);
         return bucket != -1;
     }
 
