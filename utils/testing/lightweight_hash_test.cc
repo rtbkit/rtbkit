@@ -124,11 +124,12 @@ BOOST_AUTO_TEST_CASE(test3_log)
         
     for (unsigned j = 0;  j < nobj;  ++j)
         objects.push_back(malloc(50));
-
-    Lightweight_Hash<void *, Entry, std::hash<void *>,
+    
+    Lightweight_Hash<void *, Entry,
+                     std::pair<void *, Entry>,
                      std::pair<const void *, Entry>,
-                     PairOps<void *, Entry, std::hash<void *> >,
-                     LogMemStorage<std::pair<const void *, Entry> > > h;
+                     PairOps<void *, Entry>,
+                     LogMemStorage<std::pair<void *, Entry> > > h;
     
     for (unsigned i = 0;  i < nobj;  ++i) {
         h[objects[i]].val = true;
