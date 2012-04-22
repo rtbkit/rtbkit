@@ -653,6 +653,13 @@ struct PairOps {
     {
         return Hash()(key) % capacity;
     }
+
+    static size_t hashKey(Key key, int capacity,
+                          const LogMemStorage<Bucket> & storage)
+    {
+        uint64_t mask = (1ULL << ((storage.bits_ - 1))) - 1;
+        return key & mask;
+    }
  };
 
 template<typename Key,
@@ -660,7 +667,7 @@ template<typename Key,
          class Bucket = std::pair<Key, Value>,
          class ConstKeyBucket = std::pair<const Key, Value>,
          class Ops = PairOps<Key, Value>,
-         class Storage = MemStorage<Bucket> >
+         class Storage = LogMemStorage<Bucket> >
 struct Lightweight_Hash
     : public Lightweight_Hash_Base<Key, Bucket, Ops, Storage> {
 
@@ -851,12 +858,19 @@ struct ScalarOps {
     {
         return Hash()(key) % capacity;
     }
+
+    static size_t hashKey(Key key, int capacity,
+                          const LogMemStorage<Bucket> & storage)
+    {
+        uint64_t mask = (1ULL << ((storage.bits_ - 1))) - 1;
+        return key & mask;
+    }
 };
 
 template<typename Key, class Hash = std::hash<Key>,
          class Bucket = Key,
          class Ops = ScalarOps<Key, Hash>,
-         class Storage = MemStorage<Bucket> >
+         class Storage = LogMemStorage<Bucket> >
 struct Lightweight_Hash_Set
     : public Lightweight_Hash_Base<Key, Bucket, Ops, Storage> {
 
