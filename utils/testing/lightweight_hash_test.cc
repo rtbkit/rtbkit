@@ -116,6 +116,38 @@ BOOST_AUTO_TEST_CASE(test3)
         free(objects[j]);
 }
 
+BOOST_AUTO_TEST_CASE(test3_log)
+{
+    int nobj = 100;
+
+    vector<void *> objects;
+        
+    for (unsigned j = 0;  j < nobj;  ++j)
+        objects.push_back(malloc(50));
+
+    Lightweight_Hash<void *, Entry, std::hash<void *>,
+                     std::pair<const void *, Entry>,
+                     PairOps<void *, Entry, std::hash<void *> >,
+                     LogMemStorage<std::pair<const void *, Entry> > > h;
+    
+    for (unsigned i = 0;  i < nobj;  ++i) {
+        h[objects[i]].val = true;
+    }
+
+    h.destroy();
+
+    for (unsigned i = 0;  i < nobj;  ++i) {
+        BOOST_CHECK(h.find(objects[i]) == h.end());
+        h[objects[i]].val = true;
+        BOOST_CHECK_EQUAL(h.size(), i + 1);
+    }
+
+    BOOST_CHECK_EQUAL(h.size(), nobj);
+
+    for (unsigned j = 0;  j < nobj;  ++j)
+        free(objects[j]);
+}
+
 BOOST_AUTO_TEST_CASE(test_set)
 {
 
