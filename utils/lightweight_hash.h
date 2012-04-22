@@ -658,7 +658,7 @@ struct PairOps {
                           const LogMemStorage<Bucket> & storage)
     {
         uint64_t mask = (1ULL << ((storage.bits_ - 1))) - 1;
-        return key & mask;
+        return Hash()(key) & mask;
     }
  };
 
@@ -863,7 +863,7 @@ struct ScalarOps {
                           const LogMemStorage<Bucket> & storage)
     {
         uint64_t mask = (1ULL << ((storage.bits_ - 1))) - 1;
-        return key & mask;
+        return Hash()(key) & mask;
     }
 };
 
