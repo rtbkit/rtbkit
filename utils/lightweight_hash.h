@@ -414,6 +414,12 @@ struct Lightweight_Hash_Base {
         size_ = 0;
     }
 
+    bool count(const Key & key) const
+    {
+        int bucket = this->find_full_bucket(key);
+        return bucket != -1;
+    }
+
     void destroy()
     {
         size_t cp = capacity();
@@ -944,12 +950,7 @@ struct Lightweight_Hash_Set
         return make_pair(const_iterator(this, r.first), r.second);
     }
 
-    bool count(const Key & key) const
-    {
-        int bucket = this->find_full_bucket(key);
-        return bucket != -1;
-    }
-
+    using Base::count;
     using Base::reserve;
 
 private:
