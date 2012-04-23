@@ -16,6 +16,7 @@
 
 #include <boost/thread.hpp>
 #include "exception.h"
+#include "jml/utils/exc_assert.h"
 
 namespace ML {
 
@@ -86,6 +87,89 @@ struct Thread_Specific {
 
 template<typename Contained, typename Tag>
 __thread Contained * Thread_Specific<Contained, Tag>::ptr_ = 0;
+
+
+/*****************************************************************************/
+/* THREAD SPECIFIC INSTANCE INFO                                             */
+/*****************************************************************************/
+
+/** This structure allows information to be stored per instance of a variable
+    per thread.  To do so, include this structure somewhere in the
+    class that you want to associate the info with.
+*/
+template<typename T, typename Tag>
+struct ThreadSpecificInstanceInfo {
+
+    struct PerThreadInfo {
+        PerThreadInfo()
+        {
+            threadNum = __sync_fetch_and_add(&totalNumThreads, 1);
+        }
+
+        ~PerThreadInfo()
+        {
+            // TODO: release the thread number so it doesn't grow indefinitely
+        }
+
+        int threadNum;
+        static int totalNumThreads;
+
+        std::vector<T> info;
+
+        T * get(int index)
+        {
+            ExcAssertGreaterEqual(index, 0);
+            if (info.size() <= index)
+                info.resize(index + 1);
+            return &info[index];
+        }
+    };
+
+    ThreadSpecificInstanceInfo()
+        : index(__sync_fetch_and_add(&currentIndex, 1))
+    {
+    }
+
+    int index;
+    static Thread_Specific<PerThreadInfo> staticInfo;
+    static int currentIndex;
+
+    static PerThreadInfo * getThisThread()
+    {
+        return staticInfo.get();
+    }
+
+    T * get(PerThreadInfo * & info) const
+    {
+        if (!info) info = staticInfo.get();
+        return info->get(index);
+    }
+
+    T * get(PerThreadInfo * const & info) const
+    {
+        return info->get(index);
+    }
+
+    /** Return the data for this thread for this instance of the class. */
+    T * get() const
+    {
+        PerThreadInfo info = staticInfo.get();
+        return info->get(index);
+    }
+};
+
+template<typename T, typename Tag>
+Thread_Specific<typename ThreadSpecificInstanceInfo<T, Tag>::PerThreadInfo>
+ThreadSpecificInstanceInfo<T, Tag>::staticInfo;
+
+template<typename T, typename Tag>
+int
+ThreadSpecificInstanceInfo<T, Tag>::currentIndex = 0;
+
+template<typename T, typename Tag>
+int
+ThreadSpecificInstanceInfo<T, Tag>::PerThreadInfo::
+totalNumThreads = 0;
 
 } // namespace ML
 
