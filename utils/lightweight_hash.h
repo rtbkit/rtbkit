@@ -267,9 +267,13 @@ struct LogMemStorage {
     {
         if (vals_)
             throw ML::Exception("can't double initialize storage");
+        
+        if (newCapacity == 0) return;
 
-        bits_ = ML::highest_bit(newCapacity, -1) + 1;
+        bits_ = ML::highest_bit((newCapacity - 1), -1) + 2;
         vals_ = allocator.allocate(capacity());
+
+        ExcAssertGreaterEqual(capacity(), newCapacity);
     }
 
     void destroy()
@@ -362,6 +366,8 @@ struct Lightweight_Hash_Base {
         : storage_(other.capacity()), size_(other.size_)
     {
         if (capacity() == 0) return;
+
+        ExcAssertEqual(capacity(), other.capacity());
 
         for (unsigned i = 0;  i < capacity();  ++i) {
             if (Ops::bucketIsFull(other.storage_[i]))
