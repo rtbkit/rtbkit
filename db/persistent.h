@@ -48,6 +48,28 @@ operator >> (Store_Reader & store, X & x)
     return store;
 }
 
+template<typename T,
+         typename X = decltype(((T *)0)->serialize(*(ML::DB::Store_Writer *)0))>
+std::string
+serializeToString(const T & t, X * = 0)
+{
+    std::ostringstream stream;
+    ML::DB::Store_Writer writer(stream);
+    t.serialize(writer);
+    return stream.str();
+}
+
+
+template<typename T>
+T reconstituteFromString(const std::string & str)
+{
+    std::istringstream stream(str);
+    ML::DB::Store_Reader store(stream);
+    T result;
+    result.reconstitute(store);
+    return result;
+}
+
 
 } // namespace DB
 } // namespace ML

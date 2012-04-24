@@ -34,6 +34,7 @@
 #include <boost/utility.hpp>
 #include <vector>
 #include <map>
+#include <set>
 #include <string.h>
 
 namespace boost {
@@ -205,6 +206,17 @@ public:
                  it = m.begin(), end = m.end();
              it != end;  ++it)
             *this << it->first << it->second;
+    }
+
+    template<class V, class L, class A>
+    void save(const std::set<V, L, A> & m)
+    {
+        compact_size_t size(m.size());
+        size.serialize(*this);
+        for (typename std::set<V, L, A>::const_iterator
+                 it = m.begin(), end = m.end();
+             it != end;  ++it)
+            *this << *it;
     }
 
     template<typename T, std::size_t NumDims, typename TPtr>

@@ -31,6 +31,7 @@
 #include "compact_size_types.h"
 #include <vector>
 #include <map>
+#include <set>
 #include <boost/array.hpp>
 #include "jml/utils/string_functions.h"
 
@@ -272,6 +273,20 @@ public:
             V v;
             *this >> v;
             m.insert(std::make_pair(k, v));
+        }
+        res.swap(m);
+    }
+
+    template<class V, class L, class A>
+    void load(std::set<V, L, A> & res)
+    {
+        compact_size_t sz(*this);
+
+        std::set<V, L, A> m;
+        for (unsigned i = 0;  i < sz;  ++i) {
+            V v;
+            *this >> v;
+            m.insert(v);
         }
         res.swap(m);
     }
