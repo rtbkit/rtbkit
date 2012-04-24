@@ -153,7 +153,7 @@ std::string expectJsonString(Parse_Context & context)
 
 void
 expectJsonArray(Parse_Context & context,
-                boost::function<void (int, Parse_Context &)> onEntry)
+                std::function<void (int, Parse_Context &)> onEntry)
 {
     context.skip_whitespace();
 
@@ -180,7 +180,7 @@ expectJsonArray(Parse_Context & context,
 
 void
 expectJsonObject(Parse_Context & context,
-                 boost::function<void (std::string, Parse_Context &)> onEntry)
+                 std::function<void (std::string, Parse_Context &)> onEntry)
 {
     context.skip_whitespace();
 
@@ -213,7 +213,7 @@ expectJsonObject(Parse_Context & context,
 
 bool
 matchJsonObject(Parse_Context & context,
-                boost::function<bool (std::string, Parse_Context &)> onEntry)
+                std::function<bool (std::string, Parse_Context &)> onEntry)
 {
     context.skip_whitespace();
 

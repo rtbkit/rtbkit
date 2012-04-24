@@ -105,30 +105,30 @@ void test_compress_decompress(const std::string & input_file,
 
 
     // Test 1: compress using filter stream
-    Call_Guard guard1(boost::bind(&::unlink, cmp1.c_str()));
+    Call_Guard guard1(std::bind(&::unlink, cmp1.c_str()));
     compress_using_stream(input_file, cmp1);
 
     // Test 2: compress using tool
-    Call_Guard guard2(boost::bind(&::unlink, cmp2.c_str()));
+    Call_Guard guard2(std::bind(&::unlink, cmp2.c_str()));
     compress_using_tool(input_file, cmp2, zip_command);
 
     // Test 3: decompress stream file using tool (sanity check)
-    Call_Guard guard3(boost::bind(&::unlink, dec1.c_str()));
+    Call_Guard guard3(std::bind(&::unlink, dec1.c_str()));
     decompress_using_tool(cmp1, dec1, unzip_command);
     assert_files_identical(input_file, dec1);
 
     // Test 4: decompress tool file using stream
-    Call_Guard guard4(boost::bind(&::unlink, dec2.c_str()));
+    Call_Guard guard4(std::bind(&::unlink, dec2.c_str()));
     decompress_using_stream(cmp2, dec2);
     assert_files_identical(input_file, dec2);
     
     // Test 5: decompress stream file using stream
-    Call_Guard guard5(boost::bind(&::unlink, dec3.c_str()));
+    Call_Guard guard5(std::bind(&::unlink, dec3.c_str()));
     decompress_using_stream(cmp1, dec3);
     assert_files_identical(input_file, dec3);
     
     // Test 6: decompress tool file using tool (sanity)
-    Call_Guard guard6(boost::bind(&::unlink, dec4.c_str()));
+    Call_Guard guard6(std::bind(&::unlink, dec4.c_str()));
     decompress_using_tool(cmp2, dec4, unzip_command);
     assert_files_identical(input_file, dec4);
 }

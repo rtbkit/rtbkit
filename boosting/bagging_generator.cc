@@ -265,8 +265,8 @@ generate(Thread_Context & context,
                                         context.group()),
                                  context.group());
         //cerr << "bagging: group = " << group << endl;
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
+        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                     std::ref(worker),
                                      group));
         for (unsigned i = 0;  i < num_bags;  ++i)
             worker.add(Bag_Job(info, contexts[i], i, verbosity),

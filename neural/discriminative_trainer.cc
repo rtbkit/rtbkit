@@ -285,8 +285,8 @@ train_iter(const std::vector<const float *> & data,
                     
             // Make sure the group gets unlocked once we've populated
             // everything
-            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                         boost::ref(worker),
+            Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                         std::ref(worker),
                                          group));
                     
                     
@@ -563,8 +563,8 @@ test(const std::vector<const float *> & data,
         
         // Make sure the group gets unlocked once we've populated
         // everything
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
+        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                     std::ref(worker),
                                      group));
         
         // 20 jobs per CPU

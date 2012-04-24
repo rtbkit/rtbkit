@@ -20,7 +20,7 @@ struct Watchdog {
     bool finished;
     double seconds;
     boost::thread_group tg;
-    boost::function<void ()> timeoutFunction;
+    std::function<void ()> timeoutFunction;
     
     static void abortProcess()
     {
@@ -49,11 +49,11 @@ struct Watchdog {
         of seconds.
     */
     Watchdog(double seconds = 2.0,
-             boost::function<void ()> timeoutFunction = abortProcess)
+             std::function<void ()> timeoutFunction = abortProcess)
         : finished(false), seconds(seconds), timeoutFunction(timeoutFunction)
     {
         //return;
-        tg.create_thread(boost::bind(&Watchdog::runThread,
+        tg.create_thread(std::bind(&Watchdog::runThread,
                                      this));
     }
 

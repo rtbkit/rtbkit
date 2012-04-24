@@ -156,8 +156,8 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
     {
         int parent = -1;  // no parent group
         group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
+        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                     std::ref(worker),
                                      group));
         
         int chunk_size = 64;
@@ -399,8 +399,8 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
     {
         int parent = -1;  // no parent group
         group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
+        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                     std::ref(worker),
                                      group));
         
         int chunk_size = 64;
@@ -698,8 +698,8 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
     {
         int parent = -1;  // no parent group
         group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
+        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                     std::ref(worker),
                                      group));
         
         int chunk_size = 64;
@@ -728,8 +728,8 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
     {
         int parent = -1;  // no parent group
         group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
+        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                     std::ref(worker),
                                      group));
         
         int chunk_size = 64;
@@ -918,8 +918,8 @@ void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
     {
         int parent = -1;  // no parent group
         group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
+        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                     std::ref(worker),
                                      group));
         
         int chunk_size = 64;

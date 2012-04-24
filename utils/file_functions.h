@@ -73,7 +73,7 @@ std::string print(FileType type);
 
 std::ostream & operator << (std::ostream & stream, const FileType & type);
 
-typedef boost::function<FileAction (std::string dir,
+typedef std::function<FileAction (std::string dir,
                                     std::string basename,
                                     const struct stat & stats,
                                     FileType type,

@@ -28,7 +28,7 @@ namespace ML {
 
 struct Call_Guard {
     
-    typedef boost::function<void ()> Fn;
+    typedef std::function<void ()> Fn;
 
     Call_Guard(const Fn & fn, bool condition = true)
         : fn(condition ? fn : Fn())
@@ -64,7 +64,7 @@ struct Call_Guard {
 
     void set(const Fn & fn) { this->fn = fn; }
 
-    boost::function<void ()> fn;
+    std::function<void ()> fn;
 
 private:
     Call_Guard(const Call_Guard & other);

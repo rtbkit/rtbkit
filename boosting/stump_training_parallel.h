@@ -83,7 +83,7 @@ struct Stump_Trainer_Parallel
         const Examples & examples;
         Results & results;
         const Stump_Trainer_Parallel & trainer;
-        boost::function<void ()> next;
+        std::function<void ()> next;
         W default_w;
         boost::shared_ptr<std::vector<std::pair<int, float> > > feature_scores_ptr;
         int group;
@@ -108,7 +108,7 @@ struct Stump_Trainer_Parallel
                      const Examples & examples,
                      Results & results,
                      const Stump_Trainer_Parallel & trainer,
-                     boost::function<void ()> next,
+                     std::function<void ()> next,
                      int parent = -1)
             : features(features), data(data), predicted(predicted),
               weights(weights), examples(examples), results(results),
@@ -138,8 +138,8 @@ struct Stump_Trainer_Parallel
             /* Get our task group. */
             group = trainer.worker.get_group
                 (*this, format("Stump Test_All_Job under %d", parent), parent);
-            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                         boost::ref(trainer.worker),
+            Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                         std::ref(trainer.worker),
                                          group));
             
             for (unsigned i = 0;  i < features.size();  ++i) {

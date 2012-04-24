@@ -28,7 +28,7 @@ namespace ML {
     elsewhere.
 */
 
-typedef boost::function<void ()> Job;
+typedef std::function<void ()> Job;
 
 /** The ACE semaphores are not useful, as two tryacquire operations performed
     in parallel with 2 free semaphores (eg, enough for both to acquire the
@@ -155,12 +155,12 @@ public:
         {
             int parent = -1;  // no parent group
             group = get_group(NO_JOB, groupName, parent);
-            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+            Call_Guard guard(std::bind(&Worker_Task::unlock_group,
                                          this,
                                          group));
             
             for (int i = 0; first != last;  ++first, ++i)
-                add(boost::bind<void>(doWork, first),
+                add(std::bind<void>(doWork, first),
                     jobName + ML::format("%d", i),
                     group);
         }

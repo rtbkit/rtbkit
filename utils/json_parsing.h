@@ -27,15 +27,15 @@ bool matchJsonString(Parse_Context & context, std::string & str);
 
 void
 expectJsonArray(Parse_Context & context,
-                boost::function<void (int, Parse_Context &)> onEntry);
+                std::function<void (int, Parse_Context &)> onEntry);
 
 void
 expectJsonObject(Parse_Context & context,
-                 boost::function<void (std::string, Parse_Context &)> onEntry);
+                 std::function<void (std::string, Parse_Context &)> onEntry);
 
 bool
 matchJsonObject(Parse_Context & context,
-                boost::function<bool (std::string, Parse_Context &)> onEntry);
+                std::function<bool (std::string, Parse_Context &)> onEntry);
 
 
 #ifdef CPPTL_JSON_H_INCLUDED

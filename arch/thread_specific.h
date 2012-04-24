@@ -33,12 +33,12 @@ struct Thread_Specific {
     {
     }
 
-    Thread_Specific(boost::function<Contained * ()> createFn)
+    Thread_Specific(std::function<Contained * ()> createFn)
         : createFn(createFn)
     {
     }
 
-    boost::function<Contained * ()> createFn;
+    std::function<Contained * ()> createFn;
 
     static __thread Contained * ptr_;
 

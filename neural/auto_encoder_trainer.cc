@@ -276,8 +276,8 @@ train_iter(Auto_Encoder & encoder,
                     
             // Make sure the group gets unlocked once we've populated
             // everything
-            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                         boost::ref(worker),
+            Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                         std::ref(worker),
                                          group));
                     
                     
@@ -373,8 +373,8 @@ train_iter(Auto_Encoder & encoder,
                     
             // Make sure the group gets unlocked once we've populated
             // everything
-            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                         boost::ref(worker),
+            Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                         std::ref(worker),
                                          group));
                     
                     
@@ -1023,8 +1023,8 @@ test_and_update(const Auto_Encoder & encoder,
         
         // Make sure the group gets unlocked once we've populated
         // everything
-        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
-                                     boost::ref(worker),
+        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+                                     std::ref(worker),
                                      group));
         
         // 20 jobs per CPU

@@ -381,7 +381,7 @@ tsne_tsne(PyObject *self, PyObject *args, PyObject * kwds)
 
         boost::multi_array<float, 2> result
             = tsne(array, num_dims, params,
-                   boost::bind(tsne_callback,
+                   std::bind(tsne_callback,
                                threads.signals_before,
                                _1, _2, _3));
         
