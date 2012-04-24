@@ -36,7 +36,7 @@ size_t num_open_files()
         throw Exception("num_open_files(): opendir(): "
                         + string(strerror(errno)));
 
-    Call_Guard closedir_dfd(std::bind(closedir, dfd));
+    Call_Guard closedir_dfd(boost::bind(closedir, dfd));
 
     size_t result = 0;
     

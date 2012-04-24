@@ -300,8 +300,8 @@ void Worker_Task::run_until_released(Semaphore & sem, int group)
     add_state_semaphore(state_semaphore);
 
     /* Make sure we remove this semaphore at the end. */
-    Call_Guard guard(std::bind(&Worker_Task::remove_state_semaphore,
-                                 this, std::ref(state_semaphore)));
+    Call_Guard guard(boost::bind(&Worker_Task::remove_state_semaphore,
+                                 this, boost::ref(state_semaphore)));
     
     while (sem.tryacquire() == -1) {
 
@@ -393,8 +393,8 @@ force_finish_group(Group_Info & group_info, int group)
     add_state_semaphore(state_semaphore);
 
     /* Make sure we remove this semaphore at the end. */
-    Call_Guard guard(std::bind(&Worker_Task::remove_state_semaphore,
-                                 this, std::ref(state_semaphore)));
+    Call_Guard guard(boost::bind(&Worker_Task::remove_state_semaphore,
+                                 this, boost::ref(state_semaphore)));
     
     while (group_info.jobs_running > 0)
         state_semaphore.acquire();
@@ -429,7 +429,7 @@ run_until_finished(int group, bool unlock)
 
     /* The group is locked for now; make sure it will be unlocked at the
        end. */
-    Call_Guard unlock_guard(std::bind(&Worker_Task::unlock_group,
+    Call_Guard unlock_guard(boost::bind(&Worker_Task::unlock_group,
                                         this, group));
     
     /* Since the group is locked, this object must remain in memory here
@@ -443,8 +443,8 @@ run_until_finished(int group, bool unlock)
     add_state_semaphore(state_semaphore);
     
     /* Make sure we remove this semaphore at the end. */
-    Call_Guard state_guard(std::bind(&Worker_Task::remove_state_semaphore,
-                                       this, std::ref(state_semaphore)));
+    Call_Guard state_guard(boost::bind(&Worker_Task::remove_state_semaphore,
+                                       this, boost::ref(state_semaphore)));
     
     for (;;) {
         //cerr << "thread " << ACE_OS::thr_self() << " is waiting for group "

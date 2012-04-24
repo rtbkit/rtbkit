@@ -81,7 +81,7 @@ std::vector<Page_Info> page_info(const void * addr, int npages)
     int pm_fd = open("/proc/self/pagemap", O_RDONLY);
     if (pm_fd == -1)
         throw Exception("open pagemap; " + string(strerror(errno)));
-    Call_Guard close_pm_fd(std::bind(::close, pm_fd));
+    Call_Guard close_pm_fd(boost::bind(::close, pm_fd));
 
     // Both of these might fail as these two files require special priviledges
     // to read
@@ -90,8 +90,8 @@ std::vector<Page_Info> page_info(const void * addr, int npages)
 
     // These will call guard with an fd of -1 if the files weren't open, which
     // won't hurt us
-    Call_Guard close_pf_fd(std::bind(::close, pf_fd), pf_fd != -1);
-    Call_Guard close_pc_fd(std::bind(::close, pc_fd), pc_fd != -1);
+    Call_Guard close_pf_fd(boost::bind(::close, pf_fd), pf_fd != -1);
+    Call_Guard close_pc_fd(boost::bind(::close, pc_fd), pc_fd != -1);
 
     size_t page_num = (size_t)addr / 4096;
 
@@ -165,7 +165,7 @@ std::vector<unsigned char> page_flags(const void * addr, int npages)
     int pm_fd = open("/proc/self/pagemap", O_RDONLY);
     if (pm_fd == -1)
         throw Exception("open pagemap; " + string(strerror(errno)));
-    Call_Guard close_pm_fd(std::bind(::close, pm_fd));
+    Call_Guard close_pm_fd(boost::bind(::close, pm_fd));
 
     size_t page_num = (size_t)addr / 4096;
 
@@ -242,7 +242,7 @@ Pagemap_Reader(const char * mem, size_t bytes,
     if (this->fd == -1)
         throw Exception(errno, "Pagemap_Reader()",
                         "open(\"proc/self/pagemap\", O_RDONLY)");
-    Call_Guard do_close_fd(std::bind(close, this->fd), close_fd);
+    Call_Guard do_close_fd(boost::bind(close, this->fd), close_fd);
 
     if (delete_entries)
         this->entries = new Pagemap_Entry[npages];

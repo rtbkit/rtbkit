@@ -428,8 +428,8 @@ accuracy(const Training_Data & data,
         group = worker.get_group(NO_JOB,
                                  format("Boosted_Stumps::accuracy under %d", parent),
                                  parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
                                      group));
         
         unsigned job_ex = 2048 / scores.shape()[1];

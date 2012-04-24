@@ -181,7 +181,7 @@ BOOST_AUTO_TEST_CASE( test2 )
     Call_Guard guard;
     {
         ofstream stream(tmp_filename.c_str());
-        guard.set(std::bind(&delete_file, tmp_filename));
+        guard.set(boost::bind(&delete_file, tmp_filename));
         stream << test1_str;
     }
 

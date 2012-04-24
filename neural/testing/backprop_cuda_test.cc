@@ -99,7 +99,7 @@ void run_test(const uint16_t * buckets,
         context.tester = &tester;
         
         if (on_device) context();
-        else tg.create_thread(std::ref(context));
+        else tg.create_thread(boost::ref(context));
     }
 
     if (!on_device) tg.join_all();

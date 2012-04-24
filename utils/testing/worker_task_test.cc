@@ -65,10 +65,10 @@ void test_semaphore(int nthreads, int niter)
 
     boost::thread_group tg;
     for (unsigned i = 0;  i < nthreads;  ++i)
-        tg.create_thread(std::bind(test_semaphore_thread<Semaphore>,
-                                     std::ref(sem),
-                                     std::ref(barrier),
-                                     std::ref(errors),
+        tg.create_thread(boost::bind(test_semaphore_thread<Semaphore>,
+                                     boost::ref(sem),
+                                     boost::ref(barrier),
+                                     boost::ref(errors),
                                      niter));
     
     tg.join_all();
@@ -108,8 +108,8 @@ void test_overhead_job(int nthreads, int ntasks, bool verbose = true,
     {
         int parent = -1;  // no parent group
         group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
                                      group));
         
         for (unsigned i = 0;  i < ntasks;  ++i)

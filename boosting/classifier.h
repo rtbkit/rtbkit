@@ -361,7 +361,7 @@ public:
         for each example number (from 0 to data.example_count() - 1) pointing
         to a vector of floats giving the number of labels.
     */
-    typedef std::function<void (int example_num, const float * predictions)>
+    typedef boost::function<void (int example_num, const float * predictions)>
         Predict_All_Output_Func;
     virtual void predict(const Training_Data & data,
                          Predict_All_Output_Func output,
@@ -372,7 +372,7 @@ public:
         function will be called once for each example number (from 0 to
         data.example_count() - 1) with the value of the prediction.
     */
-    typedef std::function<void (int example_num, float prediction)>
+    typedef boost::function<void (int example_num, float prediction)>
         Predict_One_Output_Func;
     virtual void predict(const Training_Data & data,
                          int label,

@@ -163,7 +163,7 @@ struct Register_CAL {
                 continue;
             }
             
-            Call_Guard guard(std::bind(&calDeviceClose, device));
+            Call_Guard guard(boost::bind(&calDeviceClose, device));
             
             CALdevicestatus status;
             status.struct_size = sizeof(CALdevicestatus);

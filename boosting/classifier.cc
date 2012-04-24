@@ -671,8 +671,8 @@ accuracy(const Training_Data & data,
         group = worker.get_group(NO_JOB,
                                  format("accuracy group under %d", parent),
                                  parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
                                      group));
         
         /* Do 1024 examples per job. */
@@ -752,13 +752,13 @@ predict(const Training_Data & data,
         group = worker.get_group(NO_JOB,
                                  format("predict group under %d", parent),
                                  parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
                                      group));
         
         /* Do 1024 examples per job. */
         for (unsigned x = 0;  x < data.example_count();  x += 1024)
-            worker.add(std::bind(Predict_Job(x,
+            worker.add(boost::bind(Predict_Job(x,
                                                std::min(x + 1024, nx),
                                                *this,
                                                opt_info,
@@ -788,13 +788,13 @@ predict(const Training_Data & data,
         group = worker.get_group(NO_JOB,
                                  format("predict group under %d", parent),
                                  parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
+        Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                     boost::ref(worker),
                                      group));
         
         /* Do 1024 examples per job. */
         for (unsigned x = 0;  x < data.example_count();  x += 1024)
-            worker.add(std::bind(Predict_Job(x,
+            worker.add(boost::bind(Predict_Job(x,
                                                std::min(x + 1024, nx),
                                                *this,
                                                opt_info,

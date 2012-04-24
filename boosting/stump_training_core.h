@@ -341,8 +341,8 @@ struct Stump_Trainer {
                                      format("test all group"),
                                      context.group());
         {
-            Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                         std::ref(worker),
+            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+                                         boost::ref(worker),
                                          group));
             
             for (unsigned i = 0;  i < features.size();  ++i)
