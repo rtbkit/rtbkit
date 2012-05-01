@@ -515,7 +515,7 @@ struct Bit_Writer {
     {
         enum { DBITS = sizeof(Data) * 8 };
 
-        if (bits + bit_ofs < DBITS) {
+        if (bits + bit_ofs <= DBITS) {
             shift_t shift = DBITS - (bit_ofs + bits);
             data[0] = set_bits(data[0], val, shift, bits);
         }
