@@ -329,6 +329,8 @@ struct Bit_Buffer {
     /// Extracts bits starting from the least-significant bits of the buffer.
     Data extract(int bits)
     {
+        if (JML_UNLIKELY(bits <= 0)) return Data(0);
+
         Data result;
         if (bit_ofs + bits < 8 * sizeof(Data))
             // TODO: simplify
@@ -343,6 +345,8 @@ struct Bit_Buffer {
     /// Extracts bits starting from the most-significant bits of the buffer.
     Data rextract(int bits)
     {
+        if (JML_UNLIKELY(bits <= 0)) return Data(0);
+
         enum { DBITS = 8 * sizeof(Data) };
 
         Data result;
@@ -490,6 +494,8 @@ struct Bit_Writer {
     /// Writes bits starting from the least-significant bits of the buffer.
     void write(Data val, int bits)
     {
+        if (JML_UNLIKELY(bits <= 0)) return;
+
         //using namespace std;
         //cerr << "write: val = " << val << " bits = " << bits << endl;
         //cerr << "data[0] = " << data[0] << " data[1] = "
@@ -513,6 +519,8 @@ struct Bit_Writer {
     /// Writes bits starting from the most-significant bits of the buffer.
     void rwrite(Data val, int bits)
     {
+        if (JML_UNLIKELY(bits <= 0)) return;
+
         enum { DBITS = sizeof(Data) * 8 };
 
         if (bits + bit_ofs <= DBITS) {
