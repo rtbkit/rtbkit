@@ -177,7 +177,7 @@ public:
             wrong_sizes_exception("dotprod", this->size(), other.size());
         double result = 0.0;
         for (unsigned i = 0;  i < this->size();  ++i)
-            result += (*this)[i] * other[i];
+            result += double((*this)[i]) * double(other[i]);
         return result;
     }
 
@@ -188,7 +188,7 @@ public:
             wrong_sizes_exception("dotprod", this->size(), other.size());
         double result = 0.0;
         for (unsigned i = 0;  i < this->size();  ++i)
-            result += (*this)[i] * other[i];
+            result += double((*this)[i]) * double(other[i]);
         return result;
     }
 
