@@ -13,6 +13,8 @@
 #include <cstddef>
 #include <stdint.h>
 #include <algorithm>
+#include <boost/iterator/iterator_facade.hpp>
+
 
 namespace ML {
 
@@ -546,6 +548,55 @@ private:
     Data * data;
     int bit_ofs;
 };
+
+template<typename Value, typename Array = Value>
+struct BitArrayIterator
+    : public boost::iterator_facade<BitArrayIterator<Value, Array>,
+                                    Value,
+                                    boost::random_access_traversal_tag,
+                                    Value> {
+    BitArrayIterator(const Array * data, int numBits, int index)
+        : data(data), numBits(numBits), index(index)
+    {
+    }
+
+    const Array * data;
+    int numBits;
+    int index;
+
+    Value dereference() const
+    {
+        ML::Bit_Extractor<Array> extractor(data);
+        extractor.advance(index * numBits);
+        return extractor.template extract<Value>(numBits);
+    }
+
+    bool equal(const BitArrayIterator & other) const
+    {
+        return data == other.data && index == other.index;
+    }
+
+    void increment()
+    {
+        ++index;
+    }
+
+    void decrement()
+    {
+        --index;
+    }
+
+    void advance(int n)
+    {
+        index += n;
+    }
+
+    ssize_t distance_to(const BitArrayIterator & other) const
+    {
+        return other.index - index;
+    }
+};
+
 
 } // namespace ML
 
