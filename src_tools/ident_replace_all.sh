@@ -12,7 +12,7 @@ REPLACEMENT=$2
 DIR="."
 if [ $# -eq 3 ];
     then
-    dir=$3
+    DIR=$3
 fi
 
 FILES=`find $DIR -name "*.cc" -or -name "*.h" -or -name "*.i" | xargs grep -l "$REGEX"`
