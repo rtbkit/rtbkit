@@ -260,7 +260,7 @@ struct LogMemStorage {
 
     size_t capacity() const JML_PURE_FN
     {
-        return bits_ ? 1ULL << (bits_ - 1) : 0;
+        return size_t(bits_ != 0) * 1ULL << (bits_ - 1);
     }
     
     void reserve(size_t newCapacity)
@@ -487,8 +487,10 @@ protected:
         if (Ops::isGuardValue(key))
             throw Exception("searching for or inserting guard value");
 
-        if (capacity() == 0) return -1;
-        int bucket = Ops::hashKey(key, capacity(), storage_);
+        size_t cap = capacity();
+
+        if (cap == 0) return -1;
+        int bucket = Ops::hashKey(key, cap, storage_);
 
         //using namespace std;
         //cerr << "find_bucket: key " << key << " bucket " << bucket
@@ -502,13 +504,13 @@ protected:
              /* no inc */) {
             if (Ops::bucketHasKey(storage_[i], key)) return i;
             ++i;
-            if (i == capacity()) { i = 0;  wrapped = true; }
+            if (i == cap) { i = 0;  wrapped = true; }
         }
 
         if (!Ops::bucketIsFull(storage_[i])) return i;
 
         // No bucket found; will need to be expanded
-        if (size_ != capacity()) {
+        if (size_ != cap) {
             dump(std::cerr);
             throw Exception("find_bucket: inconsistency");
         }
@@ -562,8 +564,10 @@ protected:
             throw Exception("advance_to_valid: already at end");
         }
 
+        size_t cap = capacity();
+
         // Scan through until we find a valid bucket
-        while (index < capacity() && !Ops::bucketIsFull(storage_[index]))
+        while (index < cap && !Ops::bucketIsFull(storage_[index]))
             ++index;
 
         return index;
