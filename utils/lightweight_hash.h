@@ -16,6 +16,7 @@
 #include "jml/utils/pair_utils.h"
 #include "jml/utils/exc_assert.h"
 #include "jml/arch/bitops.h"
+#include "jml/arch/atomic_ops.h"
 #include <string>
 #include <cassert>
 #include <functional>
@@ -260,7 +261,7 @@ struct LogMemStorage {
 
     size_t capacity() const JML_PURE_FN
     {
-        return size_t(bits_ != 0) * 1ULL << (bits_ - 1);
+        return size_t(bits_ != 0) * (1ULL << (bits_ - 1));
     }
     
     void reserve(size_t newCapacity)
@@ -482,6 +483,11 @@ protected:
         return insert_new(bucket, toInsert);
     }
 
+public:
+    //static uint64_t numCalls, numHops;
+
+protected:
+    //__attribute__((__noinline__))
     int find_bucket(const Key & key) const
     {
         if (Ops::isGuardValue(key))
@@ -499,15 +505,24 @@ protected:
 
         bool wrapped = false;
         int i;
+        //int hops = 0;
         for (i = bucket;
              Ops::bucketIsFull(storage_[i]) && (i != bucket || !wrapped);
-             /* no inc */) {
-            if (Ops::bucketHasKey(storage_[i], key)) return i;
+             /* no inc */ /*++hops*/) {
+            if (Ops::bucketHasKey(storage_[i], key)) {
+                //ML::atomic_inc(numCalls);
+                //ML::atomic_add(numHops, hops);
+                return i;
+            }
             ++i;
             if (i == cap) { i = 0;  wrapped = true; }
         }
 
-        if (!Ops::bucketIsFull(storage_[i])) return i;
+        if (!Ops::bucketIsFull(storage_[i])) {
+            //ML::atomic_inc(numCalls);
+            //ML::atomic_add(numHops, hops);
+            return i;
+        }
 
         // No bucket found; will need to be expanded
         if (size_ != cap) {
@@ -536,7 +551,8 @@ protected:
         return bucket;
     }
 
-    int insert_new(int bucket, const Bucket & toInsert)
+    //__attribute__((__noinline__))
+    int insert_new(int bucket, const Bucket & toInsert) 
     {
         Key key = Ops::getKey(toInsert);
         if (Ops::isGuardValue(key))
@@ -601,6 +617,13 @@ protected:
         return this->storage_[bucket];
     }
 };
+
+#if 0
+template<class Key, class Bucket, class Ops, class Storage>
+uint64_t Lightweight_Hash_Base<Key, Bucket, Ops, Storage>::numCalls = 0;
+template<class Key, class Bucket, class Ops, class Storage>
+uint64_t Lightweight_Hash_Base<Key, Bucket, Ops, Storage>::numHops = 0;
+#endif
 
 
 /*****************************************************************************/
