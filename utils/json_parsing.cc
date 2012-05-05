@@ -18,6 +18,11 @@ namespace ML {
 /* JSON UTILITIES                                                            */
 /*****************************************************************************/
 
+void skipJsonWhitespace(Parse_Context & context)
+{
+    while (context.match_whitespace() || context.match_eol());
+}
+
 std::string
 jsonEscape(const std::string & str)
 {
@@ -52,7 +57,7 @@ bool matchJsonString(Parse_Context & context, std::string & str)
 {
     Parse_Context::Revert_Token token(context);
 
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
     if (!context.match_literal('"')) return false;
 
     std::string result;
@@ -96,7 +101,7 @@ bool matchJsonString(Parse_Context & context, std::string & str)
 
 std::string expectJsonString(Parse_Context & context)
 {
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
     context.expect_literal('"');
 
     char internalBuffer[4096];
@@ -155,26 +160,26 @@ void
 expectJsonArray(Parse_Context & context,
                 boost::function<void (int, Parse_Context &)> onEntry)
 {
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
 
     if (context.match_literal("null"))
         return;
 
     context.expect_literal('[');
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
     if (context.match_literal(']')) return;
 
     for (int i = 0;  ; ++i) {
-        context.skip_whitespace();
+        skipJsonWhitespace(context);
 
         onEntry(i, context);
 
-        context.skip_whitespace();
+        skipJsonWhitespace(context);
 
         if (!context.match_literal(',')) break;
     }
 
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
     context.expect_literal(']');
 }
 
@@ -182,32 +187,36 @@ void
 expectJsonObject(Parse_Context & context,
                  boost::function<void (std::string, Parse_Context &)> onEntry)
 {
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
 
     if (context.match_literal("null"))
         return;
 
     context.expect_literal('{');
-    context.skip_whitespace();
+
+    skipJsonWhitespace(context);
+
     if (context.match_literal('}')) return;
 
     for (;;) {
-        context.skip_whitespace();
+        skipJsonWhitespace(context);
 
         string key = expectJsonString(context);
 
-        context.skip_whitespace();
+        skipJsonWhitespace(context);
+
         context.expect_literal(':');
-        context.skip_whitespace();
+
+        skipJsonWhitespace(context);
 
         onEntry(key, context);
 
-        context.skip_whitespace();
+        skipJsonWhitespace(context);
 
         if (!context.match_literal(',')) break;
     }
 
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
     context.expect_literal('}');
 }
 
@@ -215,32 +224,32 @@ bool
 matchJsonObject(Parse_Context & context,
                 boost::function<bool (std::string, Parse_Context &)> onEntry)
 {
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
 
     if (context.match_literal("null"))
         return true;
 
     if (!context.match_literal('{')) return false;
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
     if (context.match_literal('}')) return true;
 
     for (;;) {
-        context.skip_whitespace();
+        skipJsonWhitespace(context);
 
         string key = expectJsonString(context);
 
-        context.skip_whitespace();
+        skipJsonWhitespace(context);
         if (!context.match_literal(':')) return false;
-        context.skip_whitespace();
+        skipJsonWhitespace(context);
 
         if (!onEntry(key, context)) return false;
 
-        context.skip_whitespace();
+        skipJsonWhitespace(context);
 
         if (!context.match_literal(',')) break;
     }
 
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
     if (!context.match_literal('}')) return false;
 
     return true;
