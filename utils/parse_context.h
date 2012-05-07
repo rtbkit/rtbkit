@@ -157,9 +157,9 @@ struct Parse_Context {
     }
     
     /** Expect a literal character.  Throws if the character is not matched. */
-    void expect_literal(char c, const char * error = "expected '%c'")
+    void expect_literal(char c, const char * error = "expected '%c', got '%c'")
     {
-        if (!match_literal(c)) exception_fmt(error, c);
+        if (!match_literal(c)) exception_fmt(error, c, (eof() ? '\0' : *cur_));
     }
     
     /** Match a literal string.  Returns true if it was matched and false if
