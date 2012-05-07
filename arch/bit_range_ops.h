@@ -555,7 +555,7 @@ struct BitArrayIterator
                                     Value,
                                     boost::random_access_traversal_tag,
                                     Value> {
-    BitArrayIterator(const Array * data, int numBits, int index)
+    BitArrayIterator(const Array * data = 0, int numBits = -1, int index = -1)
         : data(data), numBits(numBits), index(index)
     {
     }
