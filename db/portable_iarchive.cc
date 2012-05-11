@@ -22,6 +22,8 @@
 
 #include "portable_iarchive.h"
 #include "jml/utils/file_functions.h"
+#include "jml/utils/filter_streams.h"
+#include <boost/scoped_ptr.hpp>
 #include <iostream>
 #include <algorithm>
 
@@ -84,6 +86,11 @@ struct Binary_Input::Stream_Source
 
     Stream_Source(std::istream & stream)
         : stream(stream), buf_start(0), buf_size(0)
+    {
+    }
+
+    Stream_Source(std::istream * stream)
+        : stream(*stream), buf_start(0), buf_size(0), owned_stream(stream)
     {
     }
 
@@ -178,6 +185,8 @@ struct Binary_Input::Stream_Source
 
     char * buf_start;
     size_t buf_size;
+
+    boost::scoped_ptr<std::istream> owned_stream;
 };
 
 struct Binary_Input::No_Source
@@ -225,8 +234,24 @@ void Binary_Input::open(const File_Read_Buffer & buf)
     source->more(*this, 0);
 }
 
+bool endsWith(const std::string & str, const std::string & val)
+{
+    return val.size() <= str.size()
+        && str.rfind(val) == str.size() - val.size();
+}
+
 void Binary_Input::open(const std::string & filename)
 {
+    if (endsWith(filename, ".gz")
+        || endsWith(filename, ".bz2")
+        || endsWith(filename, ".xz")) {
+        source.reset(new Stream_Source(new filter_istream(filename)));
+        offset_ = 0;
+        pos_ = end_ = 0;
+        source->more(*this, 0);
+        return;
+    }
+
     offset_ = 0;
     pos_ = end_ = 0;
     source.reset(new Buffer_Source(filename));
