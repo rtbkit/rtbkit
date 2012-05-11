@@ -23,7 +23,15 @@ namespace ML {
 
 std::string jsonEscape(const std::string & str);
 
+/*
+ * If non-ascii characters are found an exception is thrown
+ */
 std::string expectJsonStringAscii(Parse_Context & context);
+/*
+ * if non-ascii characters are found we replace them by an ascii character that is supplied
+ */
+std::string expectJsonStringAsciiPermissive(Parse_Context & context, char c);
+
 bool matchJsonString(Parse_Context & context, std::string & str);
 
 void
