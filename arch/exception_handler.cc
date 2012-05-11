@@ -4,6 +4,7 @@
 
 */
 
+#include "exception.h"
 #include "exception_hook.h"
 #include "demangle.h"
 #include <cxxabi.h>
@@ -57,6 +58,40 @@ bool get_trace_exceptions()
 }
 
 
+static const std::exception *
+to_std_exception(void* object, const std::type_info * tinfo)
+{
+    /* Check if its a class.  If not, we can't see if it's a std::exception.
+       The abi::__class_type_info is the base class of all types of type
+       info for types that are classes (of which std::exception is one).
+    */
+    const abi::__class_type_info * ctinfo
+        = dynamic_cast<const abi::__class_type_info *>(tinfo);
+
+    if (!ctinfo) return 0;
+
+    /* The thing thrown was an object.  Now, check if it is derived from
+    std::exception. */
+    const std::type_info * etinfo = &typeid(std::exception);
+
+    /* See if the exception could catch this.  This is the mechanism
+    used internally by the compiler in catch {} blocks to see if
+    the exception matches the catch type.
+
+    In the case of success, the object will be adjusted to point to
+    the start of the std::exception object.
+    */
+    void * obj_ptr = object;
+    bool can_catch = etinfo->__do_catch(tinfo, &obj_ptr, 0);
+
+    if (!can_catch) return 0;
+
+    /* obj_ptr points to a std::exception; extract it and get the
+    exception message.
+    */
+    return (const std::exception *)obj_ptr;
+}
+
 /** We install this handler for when an exception is thrown. */
 
 void trace_exception(void * object, const std::type_info * tinfo)
@@ -66,41 +101,16 @@ void trace_exception(void * object, const std::type_info * tinfo)
 
     if (!get_trace_exceptions()) return;
 
+    const std::exception * exc = to_std_exception(object, tinfo);
+
+    // We don't want these exceptions to be printed out.
+    if (dynamic_cast<const ML::SilentException *>(exc)) return;
+
     cerr << endl;
     cerr << "----------------- Exception thrown ------------------------"
          << endl;
-    std::cerr << "type:   " << demangle(tinfo->name()) << endl;
-
-    /* Check if its a class.  If not, we can't see if it's a std::exception.
-       The abi::__class_type_info is the base class of all types of type
-       info for types that are classes (of which std::exception is one).
-    */
-    const abi::__class_type_info * ctinfo
-        = dynamic_cast<const abi::__class_type_info *>(tinfo);
-
-    if (ctinfo) {
-        /* The thing thrown was an object.  Now, check if it is derived from
-           std::exception. */
-        const std::type_info * etinfo = &typeid(std::exception);
-
-        /* See if the exception could catch this.  This is the mechanism
-           used internally by the compiler in catch {} blocks to see if
-           the exception matches the catch type.
-
-           In the case of success, the object will be adjusted to point to
-           the start of the std::exception object.
-        */
-        void * obj_ptr = object;
-        bool can_catch = etinfo->__do_catch(tinfo, &obj_ptr, 0);
-
-        if (can_catch) {
-            /* obj_ptr points to a std::exception; extract it and get the
-               exception message.
-            */
-            const std::exception * exc = (const std::exception *)obj_ptr;
-            cerr << "what:   " << exc->what() << endl;
-        }
-    }
+    cerr << "type:   " << demangle(tinfo->name()) << endl;
+    if (exc) cerr << "what:   " << exc->what() << endl;
 
     cerr << "stack:" << endl;
     backtrace(cerr, 3);

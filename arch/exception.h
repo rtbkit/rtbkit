@@ -44,6 +44,13 @@ private:
 };
 
 
+/** Exceptions derived from this type will be ignored by the exception handler.
+    Effectively, this means that, when thrown, the exception will not be dumped
+    to the console.
+*/
+class SilentException : public virtual std::exception {};
+
+
 } // namespace ML
 
 
