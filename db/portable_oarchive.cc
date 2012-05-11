@@ -22,8 +22,8 @@
 
 
 #include "portable_oarchive.h"
-#include <fstream>
 #include "nested_archive.h"
+#include "jml/utils/filter_streams.h"
 
 using namespace std;
 
@@ -42,7 +42,7 @@ portable_bin_oarchive::portable_bin_oarchive()
 }
 
 portable_bin_oarchive::portable_bin_oarchive(const std::string & filename)
-    : stream(new std::ofstream(filename.c_str())), owned_stream(stream),
+    : stream(new filter_ostream(filename)), owned_stream(stream),
       offset_(0)
 {
 }
@@ -54,7 +54,7 @@ portable_bin_oarchive::portable_bin_oarchive(std::ostream & stream)
 
 void portable_bin_oarchive::open(const std::string & filename)
 {
-    stream = new std::ofstream(filename.c_str());
+    stream = new filter_ostream(filename.c_str());
     owned_stream.reset(stream);
     offset_ = 0;
 }

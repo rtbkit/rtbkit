@@ -245,7 +245,7 @@ public:
             throw Exception("Writing to unopened portable_bin_oarchive");
         stream->write((char *)address, size);
         offset_ += size;
-        if (!(*stream))
+        if (!stream)
             throw Exception("Error writing to stream");
     }
 

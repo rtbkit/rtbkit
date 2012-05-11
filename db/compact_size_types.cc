@@ -23,6 +23,7 @@
 #include "compact_size_types.h"
 #include "jml/compiler/compiler.h"
 #include "jml/arch/bitops.h"
+#include "jml/utils/exc_assert.h"
 #include "persistent.h"
 #include <stdint.h>
 #include <iomanip>
@@ -82,8 +83,11 @@ void encode_compact(Store_Writer & store, unsigned long long val)
 
     /* Length depends upon highest bit / 7 */
     int highest = highest_bit(val);
-    int idx = highest / 7;
+
+    int idx = std::min(highest / 7, 8);
     int len = idx + 1;
+
+    ExcAssertLessEqual(len, 9);
 
     //cerr << "val = " << val << " highest = " << highest << " len = "
     //     << len << endl;
@@ -98,6 +102,8 @@ void encode_compact(Store_Writer & store, unsigned long long val)
     /* Add the indicator to the first byte. */
     uint32_t indicator = ~((1 << (8-idx)) - 1);
     buf[0] |= indicator;
+
+    //cerr << "indicator = " << format("%08x", indicator) << endl;
     
     //size_t offset = store.offset();
     store.save_binary(buf, len);
