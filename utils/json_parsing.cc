@@ -113,7 +113,29 @@ std::string expectJsonStringAsciiPermissive(Parse_Context & context, char sub)
     // Try multiple times to make it fit
     while (!context.match_literal('"')) {
         int c = *context++;
-        if (c < 0 || c >= 127)
+        if (c == '\\') {
+            c = *context++;
+            switch (c) {
+            case 't': c = '\t';  break;
+            case 'n': c = '\n';  break;
+            case 'r': c = '\r';  break;
+            case 'f': c = '\f';  break;
+            case '/': c = '/';   break;
+            case '\\':c = '\\';  break;
+            case '"': c = '"';   break;
+            case 'u': {
+                int code = context.expect_int();
+                if (code<0 || code>255) {
+                    context.exception(format("non 8bit char %d", code));
+                }
+                c = code;
+                break;
+            }
+            default:
+                context.exception("invalid escaped char");
+            }
+        }
+        if (c < ' ' || c >= 127)
             c = sub;
         if (pos == bufferSize) {
             size_t newBufferSize = bufferSize * 8;
@@ -148,6 +170,28 @@ std::string expectJsonStringAscii(Parse_Context & context)
     // Try multiple times to make it fit
     while (!context.match_literal('"')) {
         int c = *context++;
+        if (c == '\\') {
+            c = *context++;
+            switch (c) {
+            case 't': c = '\t';  break;
+            case 'n': c = '\n';  break;
+            case 'r': c = '\r';  break;
+            case 'f': c = '\f';  break;
+            case '/': c = '/';   break;
+            case '\\':c = '\\';  break;
+            case '"': c = '"';   break;
+            case 'u': {
+                int code = context.expect_int();
+                if (code<0 || code>255) {
+                    context.exception(format("non 8bit char %d", code));
+                }
+                c = code;
+                break;
+            }
+            default:
+                context.exception("invalid escaped char");
+            }
+        }
         if (c < 0 || c >= 127)
            context.exception("invalid JSON ASCII string character");
         if (pos == bufferSize) {
