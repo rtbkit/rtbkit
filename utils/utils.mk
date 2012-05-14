@@ -14,7 +14,7 @@ LIBUTILS_SOURCES := \
 	json_parsing.cc \
 	rng.cc
 
-LIBUTILS_LINK :=	ACE arch boost_iostreams lzma
+LIBUTILS_LINK :=	ACE arch boost_iostreams lzma boost_thread
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 
