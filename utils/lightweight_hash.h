@@ -345,7 +345,7 @@ struct Lightweight_Hash_Base {
             Ops::initEmptyBucket(storage_ + i);
 
         for (; first != last;  ++first)
-            insert(*first);
+            find_or_insert(*first);
     }
 
     Lightweight_Hash_Base(const Lightweight_Hash_Base & other,
@@ -975,6 +975,15 @@ struct Lightweight_Hash_Set
     {
         std::pair<int, bool> r = this->find_or_insert(val);
         return make_pair(const_iterator(this, r.first), r.second);
+    }
+
+    template<typename Iterator>
+    size_t insert(Iterator first, Iterator last)
+    {
+        size_t result = 0;
+        for (; first != last;  ++first)
+            result += insert(*first).second;
+        return result;
     }
 
     using Base::count;
