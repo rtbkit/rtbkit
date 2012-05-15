@@ -139,6 +139,20 @@ distribution<F, Underlying> max(const distribution<F, Underlying> & dist1,
     return result;
 }
 
+template<typename F1, typename F2, class Underlying1, class Underlying2>
+distribution<decltype(F1() + F2())>
+max(const distribution<F1, Underlying1> & dist1,
+    const distribution<F2, Underlying2> & dist2)
+{
+    if (dist1.size() != dist2.size())
+        wrong_sizes_exception("max", dist1.size(), dist2.size());
+
+    distribution<decltype(F1() + F2())> result(dist1.size());
+    for (unsigned i = 0;  i < dist1.size();  ++i)
+        result[i] = std::max<decltype(F1() + F2())>(dist1[i], dist2[i]);
+    return result;
+}
+
 using std::max;
 
 template<typename F, class Underlying>
@@ -160,6 +174,20 @@ distribution<F, Underlying> min(const distribution<F, Underlying> & dist1,
     distribution<F, Underlying> result(dist1.size());
     for (unsigned i = 0;  i < dist1.size();  ++i)
         result[i] = std::min(dist1[i], dist2[i]);
+    return result;
+}
+
+template<typename F1, typename F2, class Underlying1, class Underlying2>
+distribution<decltype(F1() + F2())>
+min(const distribution<F1, Underlying1> & dist1,
+    const distribution<F2, Underlying2> & dist2)
+{
+    if (dist1.size() != dist2.size())
+        wrong_sizes_exception("min", dist1.size(), dist2.size());
+
+    distribution<decltype(F1() + F2())> result(dist1.size());
+    for (unsigned i = 0;  i < dist1.size();  ++i)
+        result[i] = std::min<decltype(F1() + F2())>(dist1[i], dist2[i]);
     return result;
 }
 
