@@ -20,7 +20,8 @@ namespace ML {
 
 void skipJsonWhitespace(Parse_Context & context)
 {
-    while (context.match_whitespace() || context.match_eol());
+    while (!context.eof()
+           && (context.match_whitespace() || context.match_eol()));
 }
 
 std::string
