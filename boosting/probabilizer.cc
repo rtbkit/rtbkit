@@ -695,7 +695,7 @@ train(const Training_Data & training_data,
                                "but %zd weights", nx, weights.size()));
     
     if (nx == 0 && mode != 3)
-        throw Exception(format("GLZ_Probabilizer::train(): passed 0 examples"));
+        throw Exception("GLZ_Probabilizer::train(): passed 0 examples");
 
     /* In order to train this, we make a vector of the output of the
        classifier for each variable. */

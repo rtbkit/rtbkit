@@ -44,7 +44,7 @@ struct va_ender {
     va_list & ap;
 };
 
-std::string format(const char * fmt, ...)
+std::string formatImpl(const char * fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
