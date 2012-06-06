@@ -48,6 +48,15 @@ matchJsonObject(Parse_Context & context,
 
 void skipJsonWhitespace(Parse_Context & context);
 
+inline bool expectJsonBool(Parse_Context & context)
+{
+    if (context.match_literal("true"))
+        return true;
+    else if (context.match_literal("false"))
+        return false;
+    context.exception("expected bool (true or false)");
+}
+
 #ifdef CPPTL_JSON_H_INCLUDED
 
 inline Json::Value

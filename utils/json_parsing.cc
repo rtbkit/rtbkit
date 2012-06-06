@@ -126,9 +126,6 @@ std::string expectJsonStringAsciiPermissive(Parse_Context & context, char sub)
             case '"': c = '"';   break;
             case 'u': {
                 int code = context.expect_int();
-                if (code<0 || code>255) {
-                    context.exception(format("non 8bit char %d", code));
-                }
                 c = code;
                 break;
             }
