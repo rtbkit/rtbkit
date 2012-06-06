@@ -43,6 +43,8 @@ inline bool match_float(Float & result, Parse_Context & c)
     if (c.match_literal('+')) ;
     else if (c.match_literal('-')) sign = -1.0;
 
+    if (c.eof()) return false;
+
     if (*c == 'n') {
         ++c;
         if (!c.match_literal("an"))
