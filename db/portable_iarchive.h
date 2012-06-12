@@ -85,7 +85,7 @@ public:
 
     void skip(size_t amount)
     {
-        if (amount >= avail())
+        if (amount > avail())
             make_avail(amount);
 
         if (avail() < amount)
