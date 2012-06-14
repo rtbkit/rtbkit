@@ -377,12 +377,25 @@ struct Lightweight_Hash_Base {
         }
     }
 
+    Lightweight_Hash_Base(Lightweight_Hash_Base && other)
+        : storage_(other.storage_), size_(other.size_)
+    {
+        other.size_ = 0;
+    }
+
     ~Lightweight_Hash_Base()
     {
         destroy();
     }
 
     Lightweight_Hash_Base & operator = (const Lightweight_Hash_Base & other)
+    {
+        Lightweight_Hash_Base new_me(other);
+        swap(new_me);
+        return *this;
+    }
+
+    Lightweight_Hash_Base & operator = (Lightweight_Hash_Base && other)
     {
         Lightweight_Hash_Base new_me(other);
         swap(new_me);
@@ -733,7 +746,19 @@ struct Lightweight_Hash
     {
     }
 
+    Lightweight_Hash(Lightweight_Hash && other)
+        : Base(other)
+    {
+    }
+
     Lightweight_Hash & operator = (const Lightweight_Hash & other)
+    {
+        Lightweight_Hash new_me(other);
+        swap(new_me);
+        return *this;
+    }
+
+    Lightweight_Hash & operator = (Lightweight_Hash && other)
     {
         Lightweight_Hash new_me(other);
         swap(new_me);
@@ -935,7 +960,19 @@ struct Lightweight_Hash_Set
     {
     }
 
+    Lightweight_Hash_Set(Lightweight_Hash_Set && other)
+        : Base(other)
+    {
+    }
+
     Lightweight_Hash_Set & operator = (const Lightweight_Hash_Set & other)
+    {
+        Lightweight_Hash_Set new_me(other);
+        swap(new_me);
+        return *this;
+    }
+
+    Lightweight_Hash_Set & operator = (Lightweight_Hash_Set && other)
     {
         Lightweight_Hash_Set new_me(other);
         swap(new_me);
