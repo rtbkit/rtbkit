@@ -867,9 +867,11 @@ private:
 /* LIGHTWEIGHT HASH SET                                                      */
 /*****************************************************************************/
 
-template<typename Key, typename Hash, Key guard = (Key)-1>
+template<typename Key, typename Hash>
 struct ScalarOps {
     typedef Key Bucket;
+
+    static const Key guard;
 
     static void initEmptyBucket(Bucket * bucket)
     {
@@ -930,6 +932,10 @@ struct ScalarOps {
         return Hash()(key) & mask;
     }
 };
+
+template<typename Key, typename Hash>
+const Key
+ScalarOps<Key, Hash>::guard(-1);
 
 template<typename Key, class Hash = std::hash<Key>,
          class Bucket = Key,
