@@ -473,6 +473,11 @@ struct Lightweight_Hash_Base {
         }
     }
 
+    bool needs_expansion() const
+    {
+        return (size_ >= 3 * capacity() / 4);
+    }
+
 protected:
     Storage storage_;
     int size_;
@@ -571,7 +576,7 @@ protected:
         if (Ops::isGuardValue(key))
             throw Exception("searching for or inserting guard value");
         
-        if (size_ >= 3 * capacity() / 4) {
+        if (needs_expansion()) {
             // expand
             reserve(std::max<size_t>(4, capacity() * 2));
             bucket = find_bucket(key);
@@ -658,7 +663,10 @@ struct PairOps {
 
     static void fillBucket(Bucket * bucket, const Bucket & value)
     {
-        *bucket = value;
+        bucket->second = value.second;
+        ML::memory_barrier();
+        bucket->first = value.first;
+        //*bucket = value;
     }
     
     static void emptyBucket(Bucket * bucket)
