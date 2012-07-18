@@ -248,8 +248,8 @@ public:
             wrong_sizes_exception("max_max", this->size(), maxValues.size());
         for (unsigned i = 0;  i < this->size();  ++i) {
             F val = this->operator [] (i);
-            minValues[i] = std::min(minValues[i], val);
-            maxValues[i] = std::max(maxValues[i], val);
+            minValues[i] = std::min<F1>(minValues[i], val);
+            maxValues[i] = std::max<F2>(maxValues[i], val);
         }
     }
 

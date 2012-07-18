@@ -171,6 +171,18 @@ operator *= (distribution<double> & d,
 
 template<>
 template<>
+inline distribution<double> &
+distribution<double>::
+operator += (const distribution<float> & d)
+{
+    if (this->size() != d.size())
+        wrong_sizes_exception("+= simd", this->size(), size());
+    SIMD::vec_add(&(*this)[0], 1.0, &d[0], &(*this)[0], d.size());
+    return *this;
+}
+
+template<>
+template<>
 inline void
 distribution<float>::
 min_max(distribution<float> & minValues,
