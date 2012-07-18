@@ -180,6 +180,9 @@ inline double vec_twonorm_sqr_dp(const double * x, size_t n)
 // KL divergence: kl = sum(p * log(p / q))
 double vec_kl(const float * p, const float * q, size_t n);
 
+// Simultaneous min and max
+void vec_min_max_el(const float * x, float * mins, float * maxs, size_t n);
+
 } // namespace Generic
 
 #if JML_USE_SSE1

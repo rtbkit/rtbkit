@@ -237,6 +237,22 @@ public:
                 : *std::min_element(this->begin(), this->end()));
     }
 
+    template<typename F1, class Underlying1,
+             typename F2, class Underlying2>
+    void min_max(distribution<F1, Underlying1> & minValues,
+                 distribution<F2, Underlying2> & maxValues) const
+    {
+        if (this->size() != minValues.size())
+            wrong_sizes_exception("min_max", this->size(), minValues.size());
+        if (this->size() != maxValues.size())
+            wrong_sizes_exception("max_max", this->size(), maxValues.size());
+        for (unsigned i = 0;  i < this->size();  ++i) {
+            F val = this->operator [] (i);
+            minValues[i] = std::min(minValues[i], val);
+            maxValues[i] = std::max(maxValues[i], val);
+        }
+    }
+
     /* Only valid for bools.  Are all of them true? */
     bool all() const
     {

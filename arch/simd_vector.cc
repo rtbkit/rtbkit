@@ -352,9 +352,36 @@ float vec_dotprod(const float * x, const float * y, size_t n)
     return res;
 }
 
-void vec_scale(const double * x, double factor, double * r, size_t n)
+void vec_scale(const double * x, double k, double * r, size_t n)
 {
-    for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] * factor;
+    v2df kk = vec_splat(k);
+    unsigned i = 0;
+
+    if (false) ;
+    else {
+        for (; i + 8 <= n;  i += 8) {
+            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            xx0 *= kk;
+            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            __builtin_ia32_storeupd(r + i + 0, xx0);
+            xx1 *= kk;
+            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
+            __builtin_ia32_storeupd(r + i + 2, xx1);
+            xx2 *= kk;
+            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
+            __builtin_ia32_storeupd(r + i + 4, xx2);
+            xx3 *= kk;
+            __builtin_ia32_storeupd(r + i + 6, xx3);
+        }
+    
+        for (; i + 2 <= n;  i += 2) {
+            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            xx0 *= kk;
+            __builtin_ia32_storeupd(r + i + 0, xx0);
+        }
+    }
+    
+    for (; i < n;  ++i) r[i] = k * x[i];
 }
 
 void vec_add(const double * x, double k, const double * y, double * r,
@@ -1594,6 +1621,29 @@ double vec_kl(const float * p, const float * q, size_t n)
     for (; i < n;  ++i) total += p[i] * logf(p[i] / q[i]);
 
     return total;
+}
+
+void vec_min_max_el(const float * x, float * mins, float * maxs, size_t n)
+{
+    unsigned i = 0;
+
+    if (false) ;
+    else {
+        for (; i + 4 <= n;  i += 4) {
+            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf iiii0 = __builtin_ia32_loadups(mins + i + 0);
+            v4sf aaaa0 = __builtin_ia32_loadups(maxs + i + 0);
+            iiii0      = __builtin_ia32_minps(iiii0, xxxx0);
+            aaaa0      = __builtin_ia32_maxps(aaaa0, xxxx0);
+            __builtin_ia32_storeups(mins + i + 0, iiii0);
+            __builtin_ia32_storeups(maxs + i + 0, aaaa0);
+        }
+    }
+
+    for (; i < n;  ++i) {
+        mins[i] = std::min(mins[i], x[i]);
+        maxs[i] = std::max(maxs[i], x[i]);
+    }
 }
 
 } // namespace Generic

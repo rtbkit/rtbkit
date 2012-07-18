@@ -128,7 +128,7 @@ distribution<F, Underlying> max(const distribution<F, Underlying> & dist, F val)
 
 template<typename F, class Underlying>
 distribution<F, Underlying> max(const distribution<F, Underlying> & dist1,
-                    const distribution<F, Underlying> & dist2)
+                                const distribution<F, Underlying> & dist2)
 {
     if (dist1.size() != dist2.size())
         wrong_sizes_exception("max", dist1.size(), dist2.size());
@@ -156,7 +156,8 @@ max(const distribution<F1, Underlying1> & dist1,
 using std::max;
 
 template<typename F, class Underlying>
-distribution<F, Underlying> min(const distribution<F, Underlying> & dist, F val)
+distribution<F, Underlying>
+min(const distribution<F, Underlying> & dist, F val)
 {
     distribution<F, Underlying> result(dist.size());
     for (unsigned i = 0;  i < dist.size();  ++i)
@@ -166,7 +167,7 @@ distribution<F, Underlying> min(const distribution<F, Underlying> & dist, F val)
 
 template<typename F, class Underlying>
 distribution<F, Underlying> min(const distribution<F, Underlying> & dist1,
-                    const distribution<F, Underlying> & dist2)
+                                const distribution<F, Underlying> & dist2)
 {
     if (dist1.size() != dist2.size())
         wrong_sizes_exception("min", dist1.size(), dist2.size());
