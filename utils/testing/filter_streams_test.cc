@@ -19,6 +19,7 @@
 #include <vector>
 #include <stdint.h>
 #include <iostream>
+#include <fcntl.h>
 
 #include "jml/utils/guard.h"
 #include "jml/arch/exception_handler.h"
@@ -160,5 +161,25 @@ BOOST_AUTO_TEST_CASE( test_open_failure )
         BOOST_CHECK_THROW(stream.open("/no/file/is/here"), std::exception);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here.gz"), std::exception);
         BOOST_CHECK_THROW(stream.open("/no/file/is/here.gz"), std::exception);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_write_failure )
+{
+    int fd = open("/dev/null", O_RDWR, 0);
+
+    cerr << "fd = " << fd << endl;
+
+    filter_ostream stream(fd);
+
+    stream << "hello" << std::endl;
+
+    close(fd);
+
+    cerr <<" done close" << endl;
+
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(stream << "hello again" << std::endl, std::exception);
     }
 }

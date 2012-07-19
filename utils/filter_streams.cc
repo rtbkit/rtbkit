@@ -212,6 +212,8 @@ open(const std::string & file_, std::ios_base::openmode mode)
 {
     using namespace boost::iostreams;
 
+    exceptions(ios::badbit);
+
     string file = file_;
     if (file == "") file = "/dev/null";
     
