@@ -319,14 +319,13 @@ public:
     }
 };
 
-/** Helper class to specify and clean up a region in a memory buffer.  The
-    file is copied in beforehand.
-*/
-
+/** Region that comes from a memory block. */
 class File_Read_Buffer::Mem_Region : public File_Read_Buffer::Region {
 public:
-    Mem_Region(int fd)
+    Mem_Region(const char * start, size_t size)
     {
+        this->start = start;
+        this->size = size;
     }
 
     virtual ~Mem_Region()
@@ -357,6 +356,12 @@ File_Read_Buffer::File_Read_Buffer(int fd)
     open(fd);
 }
 
+File_Read_Buffer::File_Read_Buffer(const char * start, size_t length,
+                                   const std::string & filename)
+{
+    open(start, length, filename);
+}
+
 File_Read_Buffer::File_Read_Buffer(const File_Read_Buffer & other)
     : filename_(other.filename_), region(other.region)
 {
@@ -385,7 +390,14 @@ void File_Read_Buffer::open(int fd)
     region = MMap_Region::get(fd);
     filename_ = get_name_from_fd(fd);
 }
-    
+
+void File_Read_Buffer::open(const char * start, size_t length,
+                            const std::string & filename)
+{
+    region.reset(new Mem_Region(start, length));
+    filename_ = filename;
+}
+
 void File_Read_Buffer::close()
 {
     region.reset();
