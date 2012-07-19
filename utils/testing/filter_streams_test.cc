@@ -10,6 +10,7 @@
 
 #include "jml/utils/filter_streams.h"
 #include "jml/arch/exception.h"
+#include "jml/arch/exception_handler.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>
@@ -151,3 +152,13 @@ BOOST_AUTO_TEST_CASE( test_compress_decompress_xz )
     test_compress_decompress(input_file, "xz", "xz", "xz -d");
 }
 
+BOOST_AUTO_TEST_CASE( test_open_failure )
+{
+    filter_ostream stream;
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(stream.open("/no/file/is/here"), std::exception);
+        BOOST_CHECK_THROW(stream.open("/no/file/is/here.gz"), std::exception);
+        BOOST_CHECK_THROW(stream.open("/no/file/is/here.gz"), std::exception);
+    }
+}

@@ -80,6 +80,8 @@ void filter_ostream::
 open(const std::string & file_, std::ios_base::openmode mode,
      const std::string & compression, int level)
 {
+    exceptions(ios::badbit | ios::failbit);
+
     using namespace boost::iostreams;
 
     string file = file_;
@@ -116,7 +118,10 @@ open(const std::string & file_, std::ios_base::openmode mode,
         new_stream->push(std::cout);
     }
     else {
-        new_stream->push(file_sink(file.c_str(), mode));
+        file_sink sink(file.c_str(), mode);
+        if (!sink.is_open())
+            throw Exception("couldn't open file " + file);
+        new_stream->push(sink);
     }
 
     stream.reset(new_stream.release());
@@ -129,6 +134,8 @@ void filter_ostream::
 open(int fd, std::ios_base::openmode mode,
      const std::string & compression, int level)
 {
+    exceptions(ios::badbit | ios::failbit);
+
     using namespace boost::iostreams;
     
     auto_ptr<filtering_ostream> new_stream
@@ -160,7 +167,7 @@ open(int fd, std::ios_base::openmode mode,
 #endif
     stream.reset(new_stream.release());
     rdbuf(stream->rdbuf());
-    
+
     //stream.reset(new ofstream(file.c_str(), mode));
 }
 
