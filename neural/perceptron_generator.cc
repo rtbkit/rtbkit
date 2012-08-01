@@ -234,7 +234,7 @@ generate(Thread_Context & context,
         = validation_set.index().labels(predicted);
 
     double last_best_acc = 0.0;
-    double last_best_rmse = 0.0;
+    double last_best_rmse JML_UNUSED = 0.0;
 
     int our_batch_size = batch_size;
     if (batch_size == 0.0) our_batch_size = nx;
@@ -292,7 +292,7 @@ generate(Thread_Context & context,
             boost::tie(train_acc, train_rmse)
                 = trainer.train_iter(examples, labels, training_ex_weights,
                                      output_encoder,
-                                     context, batch_size, learning_rate,
+                                     context, our_batch_size, learning_rate,
                                      verbosity, sample_proportion, randomize);
         }
 
