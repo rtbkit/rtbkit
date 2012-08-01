@@ -1,5 +1,5 @@
 CXX ?= g++
-CXXFLAGS ?= $(INCLUDE) -pipe -Wall -Werror -Wno-sign-compare -Woverloaded-virtual -fPIC -m64 -ggdb -fno-omit-frame-pointer -I$(LOCAL_INCLUDE_DIR)
+CXXFLAGS ?= $(INCLUDE) -pipe -Wall -Werror -Wno-sign-compare -Woverloaded-virtual -fPIC -m64 -ggdb -fno-omit-frame-pointer $(if $(LOCAL_INCLUDE_DIR),-I$(LOCAL_INCLUDE_DIR)) -std=c++0x -Wno-deprecated-declarations
 CXXLINKFLAGS = -L$(BIN)  -Wl,--rpath,$(BIN) -Wl,--rpath,$(PWD)/$(BIN) -rdynamic $(foreach DIR,$(LOCAL_LIB_DIR),-L$(DIR) -Wl,--rpath,$(DIR))
 CXXLIBRARYFLAGS = -shared $(CXXLINKFLAGS) -lpthread
 CXXEXEFLAGS =$(CXXLINKFLAGS) -lpthread
