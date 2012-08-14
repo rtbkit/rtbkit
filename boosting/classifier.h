@@ -105,6 +105,10 @@ struct Optimization_Info {
     the prediction. */
 
 struct Explanation {
+    Explanation()
+    {
+    }
+
     Explanation(boost::shared_ptr<const Feature_Space> fspace,
                 double weight);
 
