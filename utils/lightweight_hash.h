@@ -963,6 +963,11 @@ struct Lightweight_Hash_Set
     {
     }
 
+    Lightweight_Hash_Set(const std::initializer_list<Key> & init)
+        : Base(init.begin(), init.end(), init.size())
+    {
+    }
+
     template<class Iterator>
     Lightweight_Hash_Set(Iterator first, Iterator last, size_t capacity = 0)
         : Base(first, last, capacity)
