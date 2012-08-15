@@ -194,6 +194,9 @@ public:
     /** Check that everything is OK; throws an exception if not */
     void validate() const;
 
+    /** Ditto but has access to the feature space. */
+    void validate(const Feature_Space & fs) const;
+
 private:
     Feature feature_;      ///< Feature to obtain
     float   split_val_;    ///< Value to test against; **must not be NaN**
