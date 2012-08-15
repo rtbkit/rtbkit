@@ -113,7 +113,7 @@ $$(if $(trace),$$(warning called python_program "$(1)" "$(2)" "$(3)"))
 PYTHON_$(1)_DEPS := $(BIN)/$(1) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 
 run_$(1):	$(BIN)/$(1)
-	$(BIN)/$(1)  $($(1)_ARGS)
+	$(PYTHON) $(BIN)/$(1)  $($(1)_ARGS)
 
 $(BIN)/$(1): $(CWD)/$(2) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"
