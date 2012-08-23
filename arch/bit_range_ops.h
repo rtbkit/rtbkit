@@ -543,10 +543,14 @@ struct Bit_Writer {
         bit_ofs %= sizeof(Data) * 8;
     }
 
+    size_t current_offset(Data * start)
+    {
+        return (data - start) * sizeof(Data) * 8 + bit_ofs;
+    }
 
 private:
     Data * data;
-    int bit_ofs;
+    size_t bit_ofs;
 };
 
 template<typename Value, typename Array = Value>
