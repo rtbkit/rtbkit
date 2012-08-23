@@ -64,6 +64,12 @@ public:
         init(first, last, std::distance(first, last));
     }
 
+    compact_vector(size_t initialSize, const Data & element = Data())
+        : size_(0), is_internal_(true)
+    {
+        resize(initialSize, element);
+    }
+
     ~compact_vector()
     {
         clear();
@@ -389,6 +395,9 @@ public:
     {
         return std::numeric_limits<Size>::max();
     }
+
+    Data * unsafe_raw_data() { return data(); }
+    const Data * unsafe_raw_data() const { return data(); }
     
 private:
     union {
