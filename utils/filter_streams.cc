@@ -31,6 +31,8 @@
 #include "jml/arch/exception.h"
 #include "jml/arch/format.h"
 #include <errno.h>
+#include <thread>
+#include <unordered_map>
 #include "lzma.h"
 
 
@@ -39,6 +41,22 @@ using namespace std;
 
 namespace ML {
 
+const UriHandlerFunction &
+getUriHandler(const std::string & scheme);
+
+std::pair<std::string, std::string>
+getScheme(const std::string & uri)
+{
+    string::size_type pos = uri.find("://");
+    if (pos == string::npos) {
+        return make_pair("file", uri);
+    }
+
+    string scheme(uri, 0, pos);
+    string resource(uri, pos + 3);
+
+    return make_pair(scheme, resource);
+}
 
 /*****************************************************************************/
 /* FILTER_OSTREAM                                                            */
@@ -46,6 +64,14 @@ namespace ML {
 
 filter_ostream::filter_ostream()
     : ostream(std::cout.rdbuf())
+{
+}
+
+filter_ostream::
+filter_ostream(filter_ostream && other) noexcept
+    : ostream(other.rdbuf()),
+    stream(std::move(other.stream)),
+    sink(std::move(other.sink))
 {
 }
 
@@ -74,87 +100,91 @@ bool ends_with(const std::string & str, const std::string & what)
         && result == str.size() - what.size();
 }
 
-} // file scope
-
-void filter_ostream::
-open(const std::string & file_, std::ios_base::openmode mode,
-     const std::string & compression, int level)
+void addCompression(boost::iostreams::filtering_ostream & stream,
+                    const std::string & resource,
+                    const std::string & compression,
+                    int compressionLevel)
 {
     using namespace boost::iostreams;
 
-    string file = file_;
-    if (file == "") file = "/dev/null";
-
-    auto_ptr<filtering_ostream> new_stream
-        (new filtering_ostream());
-
     if (compression == "gz" || compression == "gzip"
         || (compression == ""
-            && (ends_with(file, ".gz") || ends_with(file, ".gz~")))) {
-        if (level == -1)
-            new_stream->push(gzip_compressor());
-        else new_stream->push(gzip_compressor(level));
+            && (ends_with(resource, ".gz") || ends_with(resource, ".gz~")))) {
+        if (compressionLevel == -1)
+            stream.push(gzip_compressor());
+        else stream.push(gzip_compressor(compressionLevel));
     }
     else if (compression == "bz2" || compression == "bzip2"
         || (compression == ""
-            && (ends_with(file, ".bz2") || ends_with(file, ".bz2~")))) {
-        if (level == -1)
-            new_stream->push(bzip2_compressor());
-        else new_stream->push(bzip2_compressor(level));
+            && (ends_with(resource, ".bz2") || ends_with(resource, ".bz2~")))) {
+        if (compressionLevel == -1)
+            stream.push(bzip2_compressor());
+        else stream.push(bzip2_compressor(compressionLevel));
     }
     else if (compression == "lzma" || compression == "xz"
         || (compression == ""
-            && (ends_with(file, ".xz") || ends_with(file, ".xz~")))) {
-        if (level == -1)
-            new_stream->push(lzma_compressor());
-        else new_stream->push(lzma_compressor(level));
+            && (ends_with(resource, ".xz") || ends_with(resource, ".xz~")))) {
+        if (compressionLevel == -1)
+            stream.push(lzma_compressor());
+        else stream.push(lzma_compressor(compressionLevel));
     }
     else if (compression != "" && compression != "none")
         throw ML::Exception("unknown filter compression " + compression);
     
-    if (file == "-") {
-        new_stream->push(std::cout);
-    }
-    else {
-        file_sink sink(file.c_str(), mode);
-        if (!sink.is_open())
-            throw Exception("couldn't open file " + file);
-        new_stream->push(sink);
-    }
+}
 
-    stream.reset(new_stream.release());
-    rdbuf(stream->rdbuf());
+} // file scope
+
+void
+filter_ostream::
+open(const std::string & uri, std::ios_base::openmode mode,
+     const std::string & compression, int compressionLevel)
+{
+    using namespace boost::iostreams;
+
+    string scheme, resource;
+    std::tie(scheme, resource) = getScheme(uri);
+
+    cerr << "opening scheme " << scheme << " resource " << resource
+         << endl;
+
+    const auto & handler = getUriHandler(scheme);
+    std::streambuf * buf;
+    bool weOwnBuf;
+    std::tie(buf, weOwnBuf) = handler(scheme, resource, mode);
+
+    cerr << "buf = " << (void *)buf << endl;
+    cerr << "weOwnBuf = " << weOwnBuf << endl;
+
+    std::unique_ptr<std::streambuf> sink;
+    //if (weOwnBuf)
+    //    sink.reset(buf);
+
+    auto_ptr<filtering_ostream> new_stream
+        (new filtering_ostream());
+
+    addCompression(*new_stream, resource, compression, compressionLevel);
+
+    new_stream->push(*buf);
+
+    this->stream = std::move(new_stream);
+    this->sink = std::move(sink);
+    rdbuf(this->stream->rdbuf());
 
     exceptions(ios::badbit | ios::failbit);
 }
 
 void filter_ostream::
 open(int fd, std::ios_base::openmode mode,
-     const std::string & compression, int level)
+     const std::string & compression, int compressionLevel)
 {
     using namespace boost::iostreams;
     
     auto_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
 
-    if (compression == "gz" || compression == "gzip") {
-        if (level == -1)
-            new_stream->push(gzip_compressor());
-        else new_stream->push(gzip_compressor(level));
-    }
-    else if (compression == "bz2" || compression == "bzip2") {
-        if (level == -1)
-            new_stream->push(bzip2_compressor());
-        else new_stream->push(bzip2_compressor(level));
-    }
-    else if (compression == "lzma" || compression == "xz") {
-        if (level == -1)
-            new_stream->push(lzma_compressor());
-        else new_stream->push(lzma_compressor(level));
-    }
-    else if (compression != "" && compression != "none")
-        throw ML::Exception("unknown filter compression " + compression);
-    
+    addCompression(*new_stream, "", compression, compressionLevel);
+
 #if (BOOST_VERSION < 104100)
     new_stream->push(file_descriptor_sink(fd));
 #else
@@ -162,6 +192,7 @@ open(int fd, std::ios_base::openmode mode,
                                           boost::iostreams::never_close_handle));
 #endif
     stream.reset(new_stream.release());
+    sink.reset();
     rdbuf(stream->rdbuf());
 
     exceptions(ios::badbit | ios::failbit);
@@ -171,6 +202,8 @@ void
 filter_ostream::
 close()
 {
+    stream.reset();
+    sink.reset();
     rdbuf(0);
     //stream->close();
 }
@@ -197,14 +230,25 @@ filter_istream::filter_istream()
 }
 
 filter_istream::
-filter_istream(const std::string & file, std::ios_base::openmode mode)
+filter_istream(const std::string & file, std::ios_base::openmode mode,
+               const std::string & compression)
     : istream(std::cin.rdbuf())
 {
-    open(file, mode);
+    open(file, mode, compression);
+}
+
+filter_istream::
+filter_istream(filter_istream && other) noexcept
+    : istream(other.rdbuf()),
+    stream(std::move(other.stream)),
+    sink(std::move(other.sink))
+{
 }
 
 void filter_istream::
-open(const std::string & file_, std::ios_base::openmode mode)
+open(const std::string & file_,
+     std::ios_base::openmode mode,
+     const std::string & compression)
 {
     using namespace boost::iostreams;
 
@@ -243,8 +287,90 @@ void
 filter_istream::
 close()
 {
+    stream.reset();
+    sink.reset();
     rdbuf(0);
     //stream->close();
 }
+
+
+/*****************************************************************************/
+/* REGISTRATION                                                              */
+/*****************************************************************************/
+
+namespace {
+
+std::mutex uriHandlersLock;
+std::unordered_map<std::string, UriHandlerFunction> uriHandlers;
+
+} // file scope
+
+void registerUriHandler(const std::string & scheme,
+                        const UriHandlerFunction & handler)
+{
+    if (!handler)
+        throw ML::Exception("registerUriHandler: null handler passed");
+
+    std::unique_lock<std::mutex> guard(uriHandlersLock);
+    auto it = uriHandlers.find(scheme);
+    if (it != uriHandlers.end())
+        throw ML::Exception("already have a Uri handler registered for scheme "
+                            + scheme);
+    uriHandlers[scheme] = handler;
+}
+
+const UriHandlerFunction &
+getUriHandler(const std::string & scheme)
+{
+    std::unique_lock<std::mutex> guard(uriHandlersLock);
+    auto it = uriHandlers.find(scheme);
+    if (it == uriHandlers.end())
+        throw ML::Exception("Uri handler not found for scheme " + scheme);
+    return it->second;
+}
+
+struct RegisterFileHandler {
+    static std::pair<std::streambuf *, bool>
+    getFileHandler(const std::string & scheme,
+                   std::string resource,
+                   std::ios_base::open_mode mode)
+    {
+        if (resource == "")
+            resource = "/dev/null";
+
+        if (mode == ios::in) {
+            if (resource == "-")
+                return make_pair(cin.rdbuf(), false);
+            unique_ptr<std::filebuf> buf(new std::filebuf);
+            buf->open(resource, ios_base::openmode(mode));
+
+            if (!buf->is_open())
+                throw ML::Exception("couldn't open file %s: %s",
+                                    resource.c_str(), strerror(errno));
+
+            return make_pair(buf.release(), true);
+        }
+        else if (mode == ios::out) {
+            if (resource == "-")
+                return make_pair(cout.rdbuf(), false);
+
+            unique_ptr<std::filebuf> buf(new std::filebuf);
+            buf->open(resource, ios_base::openmode(mode));
+
+            if (!buf->is_open())
+                throw ML::Exception("couldn't open file %s: %s",
+                                    resource.c_str(), strerror(errno));
+
+            return make_pair(buf.release(), true);
+        }
+        else throw ML::Exception("no way to create file handler for non in/out");
+    }
+
+    RegisterFileHandler()
+    {
+        registerUriHandler("file", getFileHandler);
+    }
+
+} registerFileHandler;
 
 } // namespace ML
