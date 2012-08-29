@@ -50,6 +50,8 @@ std::string remove_trailing_whitespace(const std::string & str);
 */
 bool removeIfEndsWith(std::string & str, const std::string & ending);
 
+bool endsWith(const std::string & haystack, const std::string & needle);
+
 } // namespace ML
 
 

@@ -131,4 +131,11 @@ bool removeIfEndsWith(std::string & str, const std::string & ending)
     return false;
 }
 
+bool endsWith(const std::string & haystack, const std::string & needle)
+{
+    string::size_type result = haystack.rfind(needle);
+    return result != string::npos
+        && result == haystack.size() - needle.size();
+}
+
 } // namespace ML
