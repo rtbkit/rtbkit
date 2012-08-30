@@ -55,6 +55,8 @@ public:
 
     filter_ostream(filter_ostream && other) noexcept;
 
+    ~filter_ostream();
+
     void open(const std::string & uri,
               std::ios_base::openmode mode = std::ios_base::out,
               const std::string & compression = "",

@@ -91,6 +91,12 @@ filter_ostream(int fd, std::ios_base::openmode mode,
     open(fd, mode);
 }
 
+filter_ostream::
+~filter_ostream()
+{
+    close();
+}
+
 namespace {
 
 bool ends_with(const std::string & str, const std::string & what)
@@ -145,20 +151,20 @@ open(const std::string & uri, std::ios_base::openmode mode,
     string scheme, resource;
     std::tie(scheme, resource) = getScheme(uri);
 
-    cerr << "opening scheme " << scheme << " resource " << resource
-         << endl;
+    //cerr << "opening scheme " << scheme << " resource " << resource
+    //     << endl;
 
     const auto & handler = getUriHandler(scheme);
     std::streambuf * buf;
     bool weOwnBuf;
     std::tie(buf, weOwnBuf) = handler(scheme, resource, mode);
 
-    cerr << "buf = " << (void *)buf << endl;
-    cerr << "weOwnBuf = " << weOwnBuf << endl;
+    //cerr << "buf = " << (void *)buf << endl;
+    //cerr << "weOwnBuf = " << weOwnBuf << endl;
 
     std::unique_ptr<std::streambuf> sink;
-    //if (weOwnBuf)
-    //    sink.reset(buf);
+    if (weOwnBuf)
+        sink.reset(buf);
 
     auto_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
@@ -202,6 +208,9 @@ void
 filter_ostream::
 close()
 {
+    boost::iostreams::flush(*stream);
+    boost::iostreams::close(*stream);
+    exceptions(ios::goodbit);
     stream.reset();
     sink.reset();
     rdbuf(0);
