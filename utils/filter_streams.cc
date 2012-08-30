@@ -254,8 +254,14 @@ filter_istream(filter_istream && other) noexcept
 {
 }
 
+filter_istream::
+~filter_istream()
+{
+    close();
+}
+
 void filter_istream::
-open(const std::string & file_,
+open(const std::string & uri,
      std::ios_base::openmode mode,
      const std::string & compression)
 {
@@ -263,43 +269,55 @@ open(const std::string & file_,
 
     exceptions(ios::badbit);
 
-    string file = file_;
-    if (file == "") file = "/dev/null";
+    string scheme, resource;
+    std::tie(scheme, resource) = getScheme(uri);
+
+    const auto & handler = getUriHandler(scheme);
+    std::streambuf * buf;
+    bool weOwnBuf;
+    std::tie(buf, weOwnBuf) = handler(scheme, resource, mode);
+
+    std::unique_ptr<std::streambuf> sink;
+    if (weOwnBuf)
+        sink.reset(buf);
     
     auto_ptr<filtering_istream> new_stream
         (new filtering_istream());
 
-    bool gzip = (ends_with(file, ".gz") || ends_with(file, ".gz~"));
-    bool bzip2 = (ends_with(file, ".bz2") || ends_with(file, ".bz2~"));
-    bool lzma  = (ends_with(file, ".xz") || ends_with(file, ".xz~"));
+    bool gzip = (compression == "gz" || compression == "gzip"
+                 || (compression == ""
+                     && (ends_with(resource, ".gz")
+                         || ends_with(resource, ".gz~"))));
+    bool bzip2 = (compression == "bz2" || compression == "bzip2"
+                 || (compression == ""
+                     && (ends_with(resource, ".bz2")
+                         || ends_with(resource, ".bz2~"))));
+    bool lzma = (compression == "xz" || compression == "lzma"
+                 || (compression == ""
+                     && (ends_with(resource, ".xz")
+                         || ends_with(resource, ".xz~"))));
 
     if (gzip) new_stream->push(gzip_decompressor());
     if (bzip2) new_stream->push(bzip2_decompressor());
     if (lzma) new_stream->push(lzma_decompressor());
 
-    if (file == "-") {
-        new_stream->push(std::cin);
-    }
-    else {
-        file_source source(file.c_str(), mode);
-        if (!source.is_open())
-            throw Exception("stream open failed for file %s: %s",
-                            file_.c_str(), strerror(errno));
-        new_stream->push(source);
-    }
+    new_stream->push(*buf);
 
-    stream.reset(new_stream.release());
-    rdbuf(stream->rdbuf());
+    this->stream = std::move(new_stream);
+    this->sink = std::move(sink);
+    rdbuf(this->stream->rdbuf());
 }
 
 void
 filter_istream::
 close()
 {
+    boost::iostreams::flush(*stream);
+    boost::iostreams::close(*stream);
+    exceptions(ios::goodbit);
     stream.reset();
     sink.reset();
     rdbuf(0);
-    //stream->close();
 }
 
 

@@ -89,6 +89,8 @@ public:
 
     filter_istream(filter_istream && other) noexcept;
 
+    ~filter_istream();
+
     void open(const std::string & uri,
               std::ios_base::openmode mode = std::ios_base::in,
               const std::string & comparession = "");
