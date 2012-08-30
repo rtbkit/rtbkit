@@ -19,7 +19,7 @@
 
 
 #define NO_SMART_PTRS 0
-
+#undef VERSION
 
 namespace ML {
 
