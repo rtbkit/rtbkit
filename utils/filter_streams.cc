@@ -208,8 +208,10 @@ void
 filter_ostream::
 close()
 {
-    boost::iostreams::flush(*stream);
-    boost::iostreams::close(*stream);
+    if (stream) {
+        boost::iostreams::flush(*stream);
+        boost::iostreams::close(*stream);
+    }
     exceptions(ios::goodbit);
     stream.reset();
     sink.reset();
@@ -312,8 +314,10 @@ void
 filter_istream::
 close()
 {
-    boost::iostreams::flush(*stream);
-    boost::iostreams::close(*stream);
+    if (stream) {
+        boost::iostreams::flush(*stream);
+        boost::iostreams::close(*stream);
+    }
     exceptions(ios::goodbit);
     stream.reset();
     sink.reset();
