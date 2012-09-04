@@ -97,6 +97,21 @@ filter_ostream::
     close();
 }
 
+filter_ostream &
+filter_ostream::
+operator = (filter_ostream && other)
+{
+    exceptions(ios::goodbit);
+    stream = std::move(other.stream);
+    sink = std::move(other.sink);
+    rdbuf(other.rdbuf());
+    exceptions(other.exceptions());
+    other.exceptions(ios::goodbit);
+    other.rdbuf(0);
+
+    return *this;
+}
+
 namespace {
 
 bool ends_with(const std::string & str, const std::string & what)

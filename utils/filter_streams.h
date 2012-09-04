@@ -55,6 +55,8 @@ public:
 
     filter_ostream(filter_ostream && other) noexcept;
 
+    filter_ostream & operator = (filter_ostream && other);
+
     ~filter_ostream();
 
     void open(const std::string & uri,
@@ -88,6 +90,8 @@ public:
                    const std::string & compression = "");
 
     filter_istream(filter_istream && other) noexcept;
+
+    filter_istream & operator = (filter_istream && other);
 
     ~filter_istream();
 
