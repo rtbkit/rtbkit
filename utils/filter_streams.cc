@@ -277,6 +277,21 @@ filter_istream::
     close();
 }
 
+filter_istream &
+filter_istream::
+operator = (filter_istream && other)
+{
+    exceptions(ios::goodbit);
+    stream = std::move(other.stream);
+    sink = std::move(other.sink);
+    rdbuf(other.rdbuf());
+    exceptions(other.exceptions());
+    other.exceptions(ios::goodbit);
+    other.rdbuf(0);
+
+    return *this;
+}
+
 void filter_istream::
 open(const std::string & uri,
      std::ios_base::openmode mode,
