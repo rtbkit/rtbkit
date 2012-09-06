@@ -181,7 +181,7 @@ open(const std::string & uri, std::ios_base::openmode mode,
     if (weOwnBuf)
         sink.reset(buf);
 
-    auto_ptr<filtering_ostream> new_stream
+    unique_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
 
     addCompression(*new_stream, resource, compression, compressionLevel);
@@ -201,7 +201,7 @@ open(int fd, std::ios_base::openmode mode,
 {
     using namespace boost::iostreams;
     
-    auto_ptr<filtering_ostream> new_stream
+    unique_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
 
     addCompression(*new_stream, "", compression, compressionLevel);
@@ -313,7 +313,7 @@ open(const std::string & uri,
     if (weOwnBuf)
         sink.reset(buf);
     
-    auto_ptr<filtering_istream> new_stream
+    unique_ptr<filtering_istream> new_stream
         (new filtering_istream());
 
     bool gzip = (compression == "gz" || compression == "gzip"
