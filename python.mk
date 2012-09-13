@@ -5,7 +5,10 @@ PYTHON_VERSION ?= $(shell $(JML_BUILD)/detect_python.sh)
 PYTHON_INCLUDE_PATH ?= /usr/include/python$(PYTHON_VERSION)/
 PYTHON ?= python$(PYTHON_VERSION)
 PYTHONPATH ?= $(BIN)
+PIP ?= pip
 
+python_dependencies: python_requirements.txt
+	$(PIP) install -r python_requirements.txt
 
 # add a swig wrapper source file
 # $(1): filename of source file

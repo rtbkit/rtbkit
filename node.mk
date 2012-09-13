@@ -1,6 +1,7 @@
 ifeq ($(NODEJS_ENABLED),1)
 
 NODE ?= $(if $(NODE_DEBUG),node_g,node)
+NPM ?= npm
 NODE_V8_LIB ?= $(if $(NODE_DEBUG),node-v8_g,node-v8)
 NODE_PRELOAD ?= LD_PRELOAD=$(BIN)/libexception_hook.so
 VOWS ?= /usr/local/bin/vows
@@ -9,6 +10,9 @@ NODE_TEST_DEPS ?= $(BIN)/libexception_hook.so
 VOWS_TEST_DEPS ?= $(NODE_TEST_DEPS)
 
 all compile:	nodejs_programs nodejs_addons nodejs_libraries
+
+nodejs_dependencies: package.json
+	$(NPM) install .
 
 $(BIN)/node_runner: $(BIN)/.dir_exists
 	@echo '#!/bin/bash' > $@~
