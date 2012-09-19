@@ -276,6 +276,28 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         return true;
     }
 
+    bool tryPop(Request & result, double maxWaitTime)
+    {
+        {
+            // Wait until write position != read position, ie not full
+            for (;;) {
+                if (writePosition == readPosition) {
+                    if (ML::futex_wait(writePosition, readPosition, maxWaitTime) == -1
+                        && errno == ETIMEDOUT)
+                        return false;
+                }
+                else break;
+            }
+            
+            result = ring[readPosition];
+            ring[readPosition] = Request();
+            readPosition = (readPosition + 1) % bufferSize;
+        }
+        ML::futex_wake(readPosition);
+
+        return true;
+    }
+
     bool couldPop() const
     {
         return writePosition != readPosition;
