@@ -76,8 +76,8 @@ void do_test1()
 
     BOOST_REQUIRE_EQUAL(x.size(), 4);
     BOOST_CHECK_CLOSE(x2[0], (Float)0.0034078, tol);
-    BOOST_CHECK_CLOSE(x2[1], (Float)0.0000000, tol);
-    BOOST_CHECK_CLOSE(x2[2], (Float)0.0000000, tol);
+    BOOST_CHECK_LT(fabs(x2[1]), 1e-6);
+    BOOST_CHECK_LT(fabs(x2[2]), 1e-6);
     BOOST_CHECK_CLOSE(x2[3], (Float)0.0000003, tol);
 }
 
