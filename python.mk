@@ -51,7 +51,7 @@ $$(if $(trace),$$(warning called python_test "$(1)" "$(2)" "$(3)" "$(4)"))
 
 TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(PYTHON) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && false))
 
-$(TESTS)/$(1).passed:	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
+$(TESTS)/$(1).passed:	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),pymod_$$(pymod))
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
 	@$$(TEST_$(1)_COMMAND)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
@@ -99,6 +99,8 @@ PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(BIN)/$(1)/$$(file)) $$(foreach lib,$(
 
 #$$(w arning PYTHON_$(1)_DEPS=$$(PYTHON_$(1)_DEPS))
 
+pymod_$(1): $$(PYTHON_$(1)_DEPS)
+
 python_modules: $$(PYTHON_$(1)_DEPS)
 
 all compile:	python_modules
@@ -118,13 +120,15 @@ PYTHON_$(1)_DEPS := $(BIN)/$(1) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 run_$(1):	$(BIN)/$(1)
 	$(PYTHON) $(BIN)/$(1)  $($(1)_ARGS)
 
-$(BIN)/$(1): $(CWD)/$(2) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
+$(BIN)/$(1): $(CWD)/$(2) $(BIN)/.dir_exists $$(foreach pymod,$(3),pymod_$$(pymod)) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"
 	@cp $$< $$@~
 	@chmod +x $$@~
 	@mv $$@~ $$@
 
 #$$(w arning PYTHON_$(1)_DEPS=$$(PYTHON_$(1)_DEPS))
+
+$(1): $(BIN)/$(1)
 
 python_programs: $$(PYTHON_$(1)_DEPS)
 
