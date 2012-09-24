@@ -74,7 +74,7 @@ ifneq ($$(PREMAKE),1)
 
 nodejs_libraries $(1): $(BIN)/$(1).js
 
-$(BIN)/$(1).js: $(CWD)/$(2) $$(call node_addon_deps,$(3))
+$(BIN)/$(1).js: $(CWD)/$(2) $$(call node_addon_deps,$(3)) $(BIN)/.dir_exists
 	@echo " $(COLOR_YELLOW)[NODEJS_MODULE]$(COLOR_RESET) $(1)"
 	$$(if $$(install_js_from$(suffix $(2))),,$$(error js suffix $(suffix $(2)) unknown))
 	$$(call install_js_from$(suffix $(2)), $$<, $$@~)
@@ -231,7 +231,7 @@ TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail &&
 
 #$$(w arning TEST_$(1)_DEPS := $$(TEST_$(1)_DEPS))
 
-$(TESTS)/$(1).passed:	$(TESTS)/$(1).js $$(TEST_$(1)_DEPS) $(VOWS_TEST_DEPS)
+$(TESTS)/$(1).passed:	$(TESTS)/$(1).js $$(TEST_$(1)_DEPS) $(VOWS_TEST_DEPS) $(TESTS)/.dir_exists
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
 	@$$(TEST_$(1)_COMMAND)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
