@@ -12,6 +12,7 @@
 #include <vector>
 #include "jml/arch/futex.h"
 #include "jml/arch/spinlock.h"
+#include <thread>
 
 namespace ML {
 
@@ -55,9 +56,9 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
     {
     }
 
-    typedef boost::timed_mutex Mutex;
+    typedef std::timed_mutex Mutex;
     mutable Mutex readMutex;  // todo: we don't need this... get rid of it
-    typedef boost::unique_lock<Mutex> Guard;
+    typedef std::unique_lock<Mutex> Guard;
 
     void push(const Request & request)
     {
@@ -157,7 +158,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
         {
             // todo... can get rid of this one...
             Guard guard(readMutex,
-                        boost::posix_time::microseconds(maxWaitTime * 1000000));
+                        std::chrono::microseconds(maxWaitTime * 1000000));
             if (!guard)
                 return false;
 
@@ -181,7 +182,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
     {
         {
             // todo... can get rid of this one...
-            Guard guard(readMutex, boost::try_to_lock_t());
+            Guard guard(readMutex, std::try_to_lock_t());
             if (!guard)
                 return false;
 
@@ -221,7 +222,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
 
     typedef ML::Spinlock Mutex;
     mutable Mutex mutex; // todo: get rid of...
-    typedef boost::unique_lock<Mutex> Guard;
+    typedef std::unique_lock<Mutex> Guard;
     
     void push(const Request & request)
     {
