@@ -158,7 +158,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
         {
             // todo... can get rid of this one...
             Guard guard(readMutex,
-                        std::chrono::microseconds(maxWaitTime * 1000000));
+                        std::chrono::microseconds(uint64_t(maxWaitTime * 1000000)));
             if (!guard)
                 return false;
 
