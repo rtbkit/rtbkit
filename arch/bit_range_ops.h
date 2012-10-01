@@ -272,7 +272,7 @@ struct Simple_Mem_Buffer {
     
     void operator += (int offset) { data += offset; }
 
-private:
+    //private:
     const Data * data;  // always aligned to 2 * alignof(Data)
 };
 
@@ -306,7 +306,7 @@ struct Buffered_Mem_Buffer {
         b1 = data[1];
     }
 
-private:
+    //private:
     const Data * data;  // always aligned to 2 * alignof(Data)
     Data b0, b1;
 };
@@ -372,6 +372,11 @@ struct Bit_Buffer {
         bit_ofs += bits;
         data += (bit_ofs / (sizeof(Data) * 8));
         bit_ofs %= sizeof(Data) * 8;
+    }
+
+    size_t current_offset(const Data * start)
+    {
+        return (data.data - start) * sizeof(Data) * 8 + bit_ofs;
     }
 
 private:
@@ -475,6 +480,11 @@ struct Bit_Extractor {
     template<typename T, class OutputIterator>
     OutputIterator extract(int num_bits, size_t num_objects,
                            OutputIterator where);
+
+    size_t current_offset(const Data * start)
+    {
+        return buf.current_offset(start);
+    }
 
 private:
     Buffer buf;
