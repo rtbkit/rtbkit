@@ -4,16 +4,25 @@ import re
 import sys
 import traceback
 
+
+#------------------------------------------------------------------------------#
+# OUTPUT                                                                       #
+#------------------------------------------------------------------------------#
+
 verbose = False
 strict = False
-quiet = False
+quiet = True
+
+class Ext:
+    SO = ".so"
+    NODEJS = ".nodejs"
+    EXE = ".exe"
+
+def print_vertex(src, dest):
+    print "  %s -> %s;" % (src, dest)
 
 def print_header(graph_name):
     print "digraph %s {" % graph_name
-
-def print_vertex(src, dest):
-    for d in dest:
-        print "  %s -> %s;" % (src, d)
 
 def print_dbg(msg):
     if verbose: print "// " + msg
@@ -29,8 +38,10 @@ def print_err(err, msg):
 def print_footer():
     print "}"
 
-# Variable map used for macro expansion
-var_map = {}
+
+#------------------------------------------------------------------------------#
+# LEXER                                                                        #
+#------------------------------------------------------------------------------#
 
 class Token:
     START_BLOCK = 10
@@ -104,10 +115,13 @@ def peek_token(line):
 
 
 def token_value(tok):
-    """
-    Returns the value associated with a token.
-    """
     return tok[1]
+
+def accept(tok, expected):
+    return tok[0] == expected
+
+def expect(tok, expected):
+    assert accept(tok, expected)
 
 
 def next_line(stream):
@@ -141,7 +155,7 @@ def next_line(stream):
         result += line
         break
 
-    if len(line) == 0:
+    if len(result) == 0:
         print_dbg("\tEOF")
         return None
 
@@ -149,12 +163,141 @@ def next_line(stream):
     return result
 
 
-def accept(tok, expected):
-    return tok[0] == expected
+#------------------------------------------------------------------------------#
+# FUNCTION PARSER                                                              #
+#------------------------------------------------------------------------------#
+# Parsers defined here have to be registerd in the func_map map so that the
+# generic parser can find it.
 
-def expect(tok, expected):
-    assert accept(tok, expected)
+def parse_func_library(line):
+    """
+    Parses the library function params and adds the relevant dependencies.
+    """
+    print_dbg("\tlibrary: " + line)
 
+    params, line = parse_func_params(line)
+    assert len(params) >= 1
+    assert len(params[0]) == 1
+
+    libname = params[0][0] + Ext.SO
+
+    deps = params[2] if len(params) >= 3 else []
+    for dep in deps:
+        print_vertex(libname, dep + Ext.SO)
+
+    return line
+
+def parse_func_sub_make(line):
+    """
+    Parses the include_submake function and recursively parses the makefiles it
+    points to.
+    """
+    print_dbg("\tsub_make: " + line)
+
+    params, line = parse_func_params(line)
+    assert len(params) > 0
+
+    if len(params) == 1:
+        for makefile in params[0]:
+            parse_makefile(makefile, makefile + ".mk")
+
+    elif len(params) == 2:
+        assert len(params[0]) == 1
+        assert len(params[1]) == 1
+        parse_makefile(params[1][0], params[0][0] + ".mk")
+
+    else:
+        assert len(params[2]) == 1
+        filename = params[2][0]
+        folder = params[1][0] if len(params[1]) > 0 else params[0][0]
+        parse_makefile(folder, filename)
+
+    return line
+
+def parse_func_nodejs_addon(line):
+    """
+    Parses for the nodejs addon params and adds the relevant dependencies
+    """
+    print_dbg("\tnodejs_addon: " + line)
+
+    params, line = parse_func_params(line)
+    assert len(params) > 0
+
+    assert len(params[0]) == 1
+    addon = params[0][0] + Ext.NODEJS
+
+    if len(params) > 1:
+        sources = params[1]
+
+    if len(params) > 2:
+        for lib in params[2]:
+            print_vertex(addon, lib + Ext.SO)
+
+    if len(params) > 3:
+        for libjs in params[2]:
+            print_vertex(addon, libjs + Ext.NODEJS)
+
+    return line
+
+def parse_func_program(line):
+    """
+    Parser for the nodejs addon params.
+    """
+    print_dbg("\tnodejs_addon: " + line)
+
+    params, line = parse_func_params(line)
+    assert len(params) > 0
+
+    assert len(params[0]) == 1
+    program = params[0][0] + Ext.EXE
+
+    if len(params) > 1:
+        for lib in params[1]:
+            print_vertex(program, lib + Ext.SO)
+
+    return line
+
+
+# Maps function names to its parser
+func_map = {
+    "include_sub_makes" : parse_func_sub_make,
+    "include_sub_make"  : parse_func_sub_make,
+    "library"           : parse_func_library,
+    "program"           : parse_func_program,
+    "nodejs_addon"      : parse_func_nodejs_addon,
+}
+
+
+#------------------------------------------------------------------------------#
+# GENERIC PARSER                                                               #
+#------------------------------------------------------------------------------#
+
+# Variable map used for macro expansion
+var_map = {}
+
+def parse_var_decl(var, line):
+    """
+    Parse the declaration of a variable and add it to the var_map.
+    """
+    global var_map
+
+    tok, line = next_token(line)
+
+    if accept(tok, Token.EQUAL):
+        var_map[var] = line
+        print_dbg("\tvar: %s = %s" %(var, var_map[var]))
+        return ""
+
+    elif accept(tok, Token.PLUS_EQUAL):
+        if var in var_map:
+            var_map[var] += line
+        else:
+            var_map[var] = line
+
+        print_dbg("\tvar: %s = %s" %(var, var_map[var]))
+        return ""
+
+    assert False
 
 def parse_arg_list(line):
     """
@@ -193,30 +336,6 @@ def parse_arg_list(line):
     return args, line
 
 
-def parse_var_decl(var, line):
-    """
-    Parse the declaration of a variable and add it to the var_map.
-    """
-    tok, line = next_token(line)
-
-    if accept(tok, Token.EQUAL):
-        var_map[var] = line
-        print_dbg("\tvar: %s = %s" %(var, var_map[var]))
-        return ""
-
-    elif accept(tok, Token.PLUS_EQUAL):
-        if var in var_map:
-            var_map[var] += line
-        else:
-            var_map[var] = line
-
-        print_dbg("\tvar: %s = %s" %(var, var_map[var]))
-        return ""
-
-
-    assert False
-
-
 def parse_func_params(line):
     """
     Parses a list of function parameters sperated by commas.
@@ -236,51 +355,6 @@ def parse_func_params(line):
 
     return params, line
 
-
-def parse_func_library(line):
-    """
-    Function that constructs a .so file from a set of files and dependencies
-    which we need to add to the dependency graph.
-    """
-    print_dbg("\tlibrary: " + line)
-
-    params, line = parse_func_params(line)
-    assert len(params) >= 1
-    assert len(params[0]) == 1
-
-    libname = params[0][0] + ".so"
-    deps = params[2] if len(params) >= 3 else []
-
-    print_vertex(libname, deps)
-    return line
-
-def parse_func_sub_make(line):
-    """
-    This function includes a given makefile into the current makefile so we need
-    to invoke parse_file on the target makefile.
-    """
-    print_dbg("\tsub_make: " + line)
-
-    params, line = parse_func_params(line)
-    assert len(params) > 0
-
-    if len(params) == 1:
-        for makefile in params[0]:
-            parse_makefile(makefile, makefile + ".mk")
-
-    elif len(params) == 2:
-        assert len(params[0]) == 1
-        assert len(params[1]) == 1
-        parse_makefile(params[1][0], params[0][0] + ".mk")
-
-    else:
-        assert len(params[2]) == 1
-        filename = params[2][0]
-        folder = params[1][0] if len(params[1]) > 0 else params[0][0]
-        parse_makefile(folder, filename)
-
-    return line
-
 def parse_func_default(line):
     """
     Function which don't have special handlers are parsed here.
@@ -288,12 +362,6 @@ def parse_func_default(line):
     print_dbg("\tdefault_func: " + line)
     params, line = parse_func_params(line)
     return line
-
-func_map = {
-    "include_sub_makes":parse_func_sub_make,
-    "include_sub_make":parse_func_sub_make,
-    "library":parse_func_library
-}
 
 def parse_function(line):
     """
@@ -330,13 +398,24 @@ keywords = ['include', '-include', 'export', 'ifeq', 'endif']
 # Keeps track of the current folder.
 folder_stack = []
 
+# Keeps track of where we've been.
+visited_files = set([])
+
 def parse_makefile(folder, filename):
     """
     Iterates over a file parsingall the var declaration and eval function valls.
     """
+    global folder_stack
+    global visited_files
 
     folder_stack.append(folder)
     path = '/'.join(folder_stack) + "/" + filename
+
+    if path in visited_files:
+        print_dbg("been-there-done-that: " + path)
+        return
+
+    visited_files = visited_files | set([path])
     print_info("FILE: " + path)
 
     with open(path, 'r') as f:
@@ -370,6 +449,10 @@ def parse_makefile(folder, filename):
 
     folder_stack.pop()
 
+
+#------------------------------------------------------------------------------#
+# MAIN                                                                         #
+#------------------------------------------------------------------------------#
 
 print_header("dependency-graph")
 
