@@ -14,16 +14,19 @@ strict = False
 quiet = True
 
 class Ext:
-    SO = ".so"
+    SO     = ".so"
     NODEJS = ".nodejs"
-    EXE = ".exe"
-    MK = ".mk"
+    EXE    = ".exe"
+    MK     = ".mk"
 
 def print_vertex(src, dest):
-    print "  %s -> %s;" % (src, dest)
+    print "  \"%s\" -> \"%s\";" % (src, dest)
 
-def print_header(graph_name):
-    print "digraph %s {" % graph_name
+def print_header():
+    print "digraph {"
+
+def print_footer():
+    print "}"
 
 def print_dbg(msg):
     if verbose: print "// " + msg
@@ -35,9 +38,6 @@ def print_err(err, msg):
     if not quiet:
         errstr = "(%s)" % err if err else ""
         print "// ERROR%s: %s" % (errstr, msg)
-
-def print_footer():
-    print "}"
 
 
 #------------------------------------------------------------------------------#
@@ -427,11 +427,11 @@ def parse_makefile(folder, filename):
     folder_stack.append(folder)
     path = '/'.join(folder_stack) + "/" + filename
 
-    if filename in visited_files:
+    if path in visited_files:
         print_dbg("been-there-done-that: " + path)
         return
 
-    visited_files = visited_files | set([filename])
+    visited_files = visited_files | set([path])
     print_info("FILE: " + path)
 
     old_file = current_file
@@ -474,7 +474,7 @@ def parse_makefile(folder, filename):
 # MAIN                                                                         #
 #------------------------------------------------------------------------------#
 
-print_header("dependency-graph")
+print_header()
 
 if len(sys.argv) == 1:
     parse_makefile(".", "Makefile")
