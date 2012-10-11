@@ -17,6 +17,7 @@ class Ext:
     SO = ".so"
     NODEJS = ".nodejs"
     EXE = ".exe"
+    MK = ".mk"
 
 def print_vertex(src, dest):
     print "  %s -> %s;" % (src, dest)
@@ -185,6 +186,8 @@ def parse_func_library(line):
     for dep in deps:
         print_vertex(libname, dep + Ext.SO)
 
+    print_vertex(get_current_file(), libname)
+
     return line
 
 def parse_func_sub_make(line):
@@ -197,20 +200,25 @@ def parse_func_sub_make(line):
     params, line = parse_func_params(line)
     assert len(params) > 0
 
+    def recurse(folder, makefile):
+            print_vertex(get_current_file(), makefile)
+            parse_makefile(folder, makefile)
+
     if len(params) == 1:
         for makefile in params[0]:
-            parse_makefile(makefile, makefile + ".mk")
+            recurse(makefile, makefile + Ext.MK)
 
     elif len(params) == 2:
         assert len(params[0]) == 1
         assert len(params[1]) == 1
-        parse_makefile(params[1][0], params[0][0] + ".mk")
+        print_vertex(get_current_file(), makefile + Ext.MK)
+        recurse(params[1][0], params[0][0] + Ext.MK)
 
     else:
         assert len(params[2]) == 1
         filename = params[2][0]
         folder = params[1][0] if len(params[1]) > 0 else params[0][0]
-        parse_makefile(folder, filename)
+        recurse(folder, filename)
 
     return line
 
@@ -392,8 +400,12 @@ def parse_function(line):
 
     return line
 
-# make keywords that can show up at the begining of a line
-keywords = ['include', '-include', 'export', 'ifeq', 'endif']
+# Contains the current file being parsed. Used to track the mk files
+# dependencies.
+current_file = ""
+def get_current_file():
+    global current_file
+    return current_file
 
 # Keeps track of the current folder.
 folder_stack = []
@@ -401,12 +413,16 @@ folder_stack = []
 # Keeps track of where we've been.
 visited_files = set([])
 
+# make keywords that can show up at the begining of a line
+keywords = ['include', '-include', 'export', 'ifeq', 'endif']
+
 def parse_makefile(folder, filename):
     """
     Iterates over a file parsingall the var declaration and eval function valls.
     """
     global folder_stack
     global visited_files
+    global current_file
 
     folder_stack.append(folder)
     path = '/'.join(folder_stack) + "/" + filename
@@ -417,6 +433,9 @@ def parse_makefile(folder, filename):
 
     visited_files = visited_files | set([path])
     print_info("FILE: " + path)
+
+    old_file = current_file
+    current_file = filename
 
     with open(path, 'r') as f:
         line = next_line(f)
@@ -448,6 +467,7 @@ def parse_makefile(folder, filename):
             line = next_line(f)
 
     folder_stack.pop()
+    current_file = old_file
 
 
 #------------------------------------------------------------------------------#
