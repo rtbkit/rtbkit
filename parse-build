@@ -427,11 +427,11 @@ def parse_makefile(folder, filename):
     folder_stack.append(folder)
     path = '/'.join(folder_stack) + "/" + filename
 
-    if path in visited_files:
+    if filename in visited_files:
         print_dbg("been-there-done-that: " + path)
         return
 
-    visited_files = visited_files | set([path])
+    visited_files = visited_files | set([filename])
     print_info("FILE: " + path)
 
     old_file = current_file
