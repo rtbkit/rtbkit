@@ -5,7 +5,8 @@ import sys
 import traceback
 
 verbose = False
-strict = True
+strict = False
+quiet = False
 
 def print_header(graph_name):
     print "digraph %s {" % graph_name
@@ -15,11 +16,15 @@ def print_vertex(src, dest):
         print "  %s -> %s;" % (src, d)
 
 def print_dbg(msg):
-    if verbose:
-        print "// " + msg
+    if verbose: print "// " + msg
 
-def print_err(msg):
-    print "// " + msg
+def print_info(msg):
+    if not quiet: print "// " + msg
+
+def print_err(err, msg):
+    if not quiet:
+        errstr = "(%s)" % err if err else ""
+        print "// ERROR%s: %s" % (errstr, msg)
 
 def print_footer():
     print "}"
@@ -31,7 +36,6 @@ class Token:
     START_BLOCK = 10
     END_BLOCK   = 11
 
-    VAR_NAME    = 21
     EQUAL       = 22
     FILE_SEP    = 23
     PLUS_EQUAL  = 24
@@ -73,13 +77,7 @@ def next_token_impl(line):
         print_dbg(dbg + "PLUS_EQUAL")
         return [Token.PLUS_EQUAL], line[2:]
 
-    m = re.match("([A-Z_]+)", line)
-    if m:
-        var = m.group(1)
-        print_dbg(dbg + "VAR(%s)" % var)
-        return [Token.VAR_NAME, var], line[len(var):]
-
-    m = re.match("([\w_\./-]+)", line)
+    m = re.match("([\w_\./\-+]+)", line)
     if m:
         word = m.group(1)
         print_dbg(dbg + "WORD(%s)" % word)
@@ -118,18 +116,37 @@ def next_line(stream):
     be striped of leading and trailing white spaces. We also ensure that a line
     broken up by the \ character will be returned as a single line.
     """
-    line = stream.readline()
-    if len(line) == 0: return None
+    result = ""
+    while True:
+        line = stream.readline()
+        if len(line) == 0: break
 
-    line = strip_line(line)
-    if len(line) == 0: return next_line(stream)
+        line = strip_line(line)
 
-    if line[-1] == "\\":
-        line = strip_line(line[:-1]) + " " + next_line(stream)
+        # Continue on empty line only if we don't have anything. This is a
+        # workaround for having a trailing slash at the end of a variable
+        # definition.
+        if len(line) == 0:
+            if len(result) == 0: continue
+            else: break
 
-    print_dbg("\tline: " + line)
+        if len(result) > 0:
+            result += " "
 
-    return line
+        # read the next line if we have a trailing slash.
+        if line[-1] == "\\":
+            result += strip_line(line[:-1])
+            continue
+
+        result += line
+        break
+
+    if len(line) == 0:
+        print_dbg("\tEOF")
+        return None
+
+    print_dbg("\tline: " + result)
+    return result
 
 
 def accept(tok, expected):
@@ -149,7 +166,7 @@ def parse_arg_list(line):
     print_dbg("\targ_list")
 
     while tok:
-        if accept(tok, Token.WORD) or accept(tok, Token.VAR_NAME):
+        if accept(tok, Token.WORD):
             tok, line = next_token(line)
             args.append(token_value(tok))
 
@@ -162,8 +179,11 @@ def parse_arg_list(line):
             tok, line = next_token(line)
             expect(tok, Token.END_BLOCK)
 
-            line = var_map[var] + line
-            print_dbg("\tmap: %s -> %s" % (var, var_map[var]))
+            if var in var_map:
+                line = var_map[var] + line
+                print_dbg("\tmap: %s -> %s" % (var, var_map[var]))
+            else:
+                print_dbg("unknown: " + var)
 
         else:
             break
@@ -254,9 +274,10 @@ def parse_func_sub_make(line):
         parse_makefile(params[1][0], params[0][0] + ".mk")
 
     else:
-        assert len(params[1]) == 1
         assert len(params[2]) == 1
-        parse_makefile(params[1][0], params[2][0])
+        filename = params[2][0]
+        folder = params[1][0] if len(params[1]) > 0 else params[0][0]
+        parse_makefile(folder, filename)
 
     return line
 
@@ -303,6 +324,9 @@ def parse_function(line):
 
     return line
 
+# make keywords that can show up at the begining of a line
+keywords = ['include', '-include', 'export', 'ifeq', 'endif']
+
 # Keeps track of the current folder.
 folder_stack = []
 
@@ -313,16 +337,19 @@ def parse_makefile(folder, filename):
 
     folder_stack.append(folder)
     path = '/'.join(folder_stack) + "/" + filename
-    print_dbg("FILE: " + path)
+    print_info("FILE: " + path)
 
     with open(path, 'r') as f:
         line = next_line(f)
+
         while line:
             try:
                 tok, line = next_token(line)
 
-                if accept(tok, Token.VAR_NAME):
-                    line = parse_var_decl(token_value(tok), line)
+                if accept(tok, Token.WORD):
+                    word = token_value(tok)
+                    if word not in keywords:
+                        line = parse_var_decl(word, line)
 
                 elif accept(tok, Token.START_BLOCK):
                     tok, line = next_token(line)
@@ -333,10 +360,11 @@ def parse_makefile(folder, filename):
                         line = parse_function(line)
                         tok, line = next_token(line)
                         expect(tok, Token.END_BLOCK)
+
             except Exception as ex:
-                if verbose:
-                    print traceback.format_exc()
-                print_err("Error(%s) %s: %s" % (str(ex), path, line))
+                print_err(str(ex), "%s: %s" % (path, line))
+                if verbose: print traceback.format_exc()
+                if strict: raise ex
 
             line = next_line(f)
 
@@ -347,7 +375,9 @@ print_header("dependency-graph")
 
 if len(sys.argv) == 1:
     parse_makefile(".", "Makefile")
-else:
+elif len(sys.argv) == 2:
     parse_makefile(sys.argv[1], "Makefile")
+else:
+    parse_makefile(sys.argv[1], sys.argv[2])
 
 print_footer()
