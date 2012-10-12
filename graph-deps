@@ -170,26 +170,6 @@ def next_line(stream):
 # Parsers defined here have to be registerd in the func_map map so that the
 # generic parser can find it.
 
-def parse_func_library(line):
-    """
-    Parses the library function params and adds the relevant dependencies.
-    """
-    print_dbg("\tlibrary: " + line)
-
-    params, line = parse_func_params(line)
-    assert len(params) >= 1
-    assert len(params[0]) == 1
-
-    libname = params[0][0] + Ext.SO
-
-    deps = params[2] if len(params) >= 3 else []
-    for dep in deps:
-        print_vertex(libname, dep + Ext.SO)
-
-    print_vertex(get_current_file(), libname)
-
-    return line
-
 def parse_func_sub_make(line):
     """
     Parses the include_submake function and recursively parses the makefiles it
@@ -211,7 +191,6 @@ def parse_func_sub_make(line):
     elif len(params) == 2:
         assert len(params[0]) == 1
         assert len(params[1]) == 1
-        print_vertex(get_current_file(), makefile + Ext.MK)
         recurse(params[1][0], params[0][0] + Ext.MK)
 
     else:
@@ -219,6 +198,25 @@ def parse_func_sub_make(line):
         filename = params[2][0]
         folder = params[1][0] if len(params[1]) > 0 else params[0][0]
         recurse(folder, filename)
+
+    return line
+
+def parse_func_library(line):
+    """
+    Parses the library function params and adds the relevant dependencies.
+    """
+    print_dbg("\tlibrary: " + line)
+
+    params, line = parse_func_params(line)
+    assert len(params) >= 1
+    assert len(params[0]) == 1
+
+    libname = params[0][0] + Ext.SO
+    print_vertex(get_current_file(), libname)
+
+    deps = params[2] if len(params) >= 3 else []
+    for dep in deps:
+        print_vertex(libname, dep + Ext.SO)
 
     return line
 
@@ -233,6 +231,7 @@ def parse_func_nodejs_addon(line):
 
     assert len(params[0]) == 1
     addon = params[0][0] + Ext.NODEJS
+    print_vertex(get_current_file(), addon)
 
     if len(params) > 1:
         sources = params[1]
@@ -258,6 +257,7 @@ def parse_func_program(line):
 
     assert len(params[0]) == 1
     program = params[0][0] + Ext.EXE
+    print_vertex(get_current_file(), program)
 
     if len(params) > 1:
         for lib in params[1]:
