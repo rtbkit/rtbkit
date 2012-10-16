@@ -377,12 +377,25 @@ struct Lightweight_Hash_Base {
         }
     }
 
+    Lightweight_Hash_Base(Lightweight_Hash_Base && other)
+        : storage_(other.storage_), size_(other.size_)
+    {
+        other.size_ = 0;
+    }
+
     ~Lightweight_Hash_Base()
     {
         destroy();
     }
 
     Lightweight_Hash_Base & operator = (const Lightweight_Hash_Base & other)
+    {
+        Lightweight_Hash_Base new_me(other);
+        swap(new_me);
+        return *this;
+    }
+
+    Lightweight_Hash_Base & operator = (Lightweight_Hash_Base && other)
     {
         Lightweight_Hash_Base new_me(other);
         swap(new_me);
@@ -458,6 +471,11 @@ struct Lightweight_Hash_Base {
                    << Ops::hashKey(storage_[i], capacity(), storage_)
                    << " bucket " << storage_[i] << endl;
         }
+    }
+
+    bool needs_expansion() const
+    {
+        return (size_ >= 3 * capacity() / 4);
     }
 
 protected:
@@ -558,7 +576,7 @@ protected:
         if (Ops::isGuardValue(key))
             throw Exception("searching for or inserting guard value");
         
-        if (size_ >= 3 * capacity() / 4) {
+        if (needs_expansion()) {
             // expand
             reserve(std::max<size_t>(4, capacity() * 2));
             bucket = find_bucket(key);
@@ -645,7 +663,10 @@ struct PairOps {
 
     static void fillBucket(Bucket * bucket, const Bucket & value)
     {
-        *bucket = value;
+        bucket->second = value.second;
+        ML::memory_barrier();
+        bucket->first = value.first;
+        //*bucket = value;
     }
     
     static void emptyBucket(Bucket * bucket)
@@ -733,7 +754,19 @@ struct Lightweight_Hash
     {
     }
 
+    Lightweight_Hash(Lightweight_Hash && other)
+        : Base(other)
+    {
+    }
+
     Lightweight_Hash & operator = (const Lightweight_Hash & other)
+    {
+        Lightweight_Hash new_me(other);
+        swap(new_me);
+        return *this;
+    }
+
+    Lightweight_Hash & operator = (Lightweight_Hash && other)
     {
         Lightweight_Hash new_me(other);
         swap(new_me);
@@ -842,9 +875,11 @@ private:
 /* LIGHTWEIGHT HASH SET                                                      */
 /*****************************************************************************/
 
-template<typename Key, typename Hash, Key guard = (Key)-1>
+template<typename Key, typename Hash>
 struct ScalarOps {
     typedef Key Bucket;
+
+    static const Key guard;
 
     static void initEmptyBucket(Bucket * bucket)
     {
@@ -906,6 +941,10 @@ struct ScalarOps {
     }
 };
 
+template<typename Key, typename Hash>
+const Key
+ScalarOps<Key, Hash>::guard(-1);
+
 template<typename Key, class Hash = std::hash<Key>,
          class Bucket = Key,
          class Ops = ScalarOps<Key, Hash>,
@@ -924,6 +963,11 @@ struct Lightweight_Hash_Set
     {
     }
 
+    Lightweight_Hash_Set(const std::initializer_list<Key> & init)
+        : Base(init.begin(), init.end(), init.size())
+    {
+    }
+
     template<class Iterator>
     Lightweight_Hash_Set(Iterator first, Iterator last, size_t capacity = 0)
         : Base(first, last, capacity)
@@ -935,7 +979,19 @@ struct Lightweight_Hash_Set
     {
     }
 
+    Lightweight_Hash_Set(Lightweight_Hash_Set && other)
+        : Base(other)
+    {
+    }
+
     Lightweight_Hash_Set & operator = (const Lightweight_Hash_Set & other)
+    {
+        Lightweight_Hash_Set new_me(other);
+        swap(new_me);
+        return *this;
+    }
+
+    Lightweight_Hash_Set & operator = (Lightweight_Hash_Set && other)
     {
         Lightweight_Hash_Set new_me(other);
         swap(new_me);

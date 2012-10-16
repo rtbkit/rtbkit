@@ -37,6 +37,8 @@ std::string all_info();
 
 std::string username();
 
+std::string hostname();
+
 int userid();
 
 std::string userid_to_username(int userid);

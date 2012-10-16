@@ -43,7 +43,7 @@ Split(const Feature & feature, float split_val, const Feature_Space & fs)
         Feature_Info info = fs.info(feature);
         op_ = get_op_from_feature(info);
     }
-    validate();
+    validate(fs);
 }
 
 void
@@ -166,6 +166,29 @@ validate() const
         using namespace std;
         cerr << "split_val_ = " << split_val_ << endl;
         cerr << "feature_ = " << feature_ << endl;
+        cerr << "op_ = " << op_ << endl;
+        throw Exception("non-finite split val");
+    }
+}
+
+void
+Split::
+validate(const Feature_Space & fs) const
+{
+    if (isnanf(split_val_)) {
+        using namespace std;
+        cerr << "split_val_ = " << split_val_ << endl;
+        cerr << "feature_ = " << feature_ << endl;
+        cerr << "feature name = " << fs.print(feature_) << endl;
+        cerr << "op_ = " << op_ << endl;
+        throw Exception("bad split val");
+    }
+    
+    if (!finite(split_val_)) {
+        using namespace std;
+        cerr << "split_val_ = " << split_val_ << endl;
+        cerr << "feature_ = " << feature_ << endl;
+        cerr << "feature name = " << fs.print(feature_) << endl;
         cerr << "op_ = " << op_ << endl;
         throw Exception("non-finite split val");
     }

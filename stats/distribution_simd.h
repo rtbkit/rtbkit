@@ -153,6 +153,49 @@ operator * (const distribution<float> & d1,
     return result;
 }
 
+inline distribution<float> &
+operator *= (distribution<float> & d,
+             float factor)
+{
+    SIMD::vec_scale(&d[0], factor, &d[0], d.size());
+    return d;
+}
+
+inline distribution<double> &
+operator *= (distribution<double> & d,
+             double factor)
+{
+    SIMD::vec_scale(&d[0], factor, &d[0], d.size());
+    return d;
+}
+
+template<>
+template<>
+inline distribution<double> &
+distribution<double>::
+operator += (const distribution<float> & d)
+{
+    if (this->size() != d.size())
+        wrong_sizes_exception("+= simd", this->size(), size());
+    SIMD::vec_add(&(*this)[0], 1.0, &d[0], &(*this)[0], d.size());
+    return *this;
+}
+
+template<>
+template<>
+inline void
+distribution<float>::
+min_max(distribution<float> & minValues,
+        distribution<float> & maxValues) const
+{
+    if (this->size() != minValues.size())
+        wrong_sizes_exception("min_max", this->size(), minValues.size());
+    if (this->size() != maxValues.size())
+        wrong_sizes_exception("max_max", this->size(), maxValues.size());
+    SIMD::vec_min_max_el(&(*this)[0], &minValues[0], &maxValues[0],
+                         this->size());
+}
+
 template<class Underlying>
 distribution<float, Underlying> exp(const distribution<float, Underlying> & dist)
 {

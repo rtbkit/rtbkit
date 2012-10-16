@@ -25,23 +25,41 @@
 
 #include <iostream>
 #include <fstream>
-#include <boost/scoped_ptr.hpp>
+#include <memory>
 
 namespace ML {
+
+
+/*****************************************************************************/
+/* FILTER OSTREAM                                                            */
+/*****************************************************************************/
+
+/** Ostream class that has the following features:
+    - It has move semantics so can be passed by reference
+    - It can add filters to compress / decompress
+    - It can hook into other filesystems (eg s3, ...) based upon an
+      extensible API.
+*/
 
 class filter_ostream : public std::ostream {
 public:
     filter_ostream();
-    filter_ostream(const std::string & file,
+    filter_ostream(const std::string & uri,
                    std::ios_base::openmode mode = std::ios_base::out,
                    const std::string & compression = "",
-                   int level = -1);
+                   int compressionLevel = -1);
     filter_ostream(int fd,
                    std::ios_base::openmode mode = std::ios_base::out,
                    const std::string & compression = "",
-                   int level = -1);
+                   int compressionLevel = -1);
 
-    void open(const std::string & file,
+    filter_ostream(filter_ostream && other) noexcept;
+
+    filter_ostream & operator = (filter_ostream && other);
+
+    ~filter_ostream();
+
+    void open(const std::string & uri,
               std::ios_base::openmode mode = std::ios_base::out,
               const std::string & compression = "",
               int level = -1);
@@ -55,23 +73,53 @@ public:
     std::string status() const;
 
 private:
-    boost::scoped_ptr<std::ostream> stream;
+    std::unique_ptr<std::ostream> stream;
+    std::unique_ptr<std::streambuf> sink;
 };
+
+
+/*****************************************************************************/
+/* FILTER ISTREAM                                                            */
+/*****************************************************************************/
 
 class filter_istream : public std::istream {
 public:
     filter_istream();
-    filter_istream(const std::string & file, std::ios_base::openmode mode
-                   = std::ios_base::in);
+    filter_istream(const std::string & uri,
+                   std::ios_base::openmode mode = std::ios_base::in,
+                   const std::string & compression = "");
 
-    void open(const std::string & file,
-              std::ios_base::openmode mode = std::ios_base::in);
+    filter_istream(filter_istream && other) noexcept;
+
+    filter_istream & operator = (filter_istream && other);
+
+    ~filter_istream();
+
+    void open(const std::string & uri,
+              std::ios_base::openmode mode = std::ios_base::in,
+              const std::string & comparession = "");
 
     void close();
 
 private:
-    boost::scoped_ptr<std::istream> stream;
+    std::unique_ptr<std::istream> stream;
+    std::unique_ptr<std::streambuf> sink;
 };
+
+
+/*****************************************************************************/
+/* REGISTRY                                                                  */
+/*****************************************************************************/
+
+typedef std::function<std::pair<std::streambuf *, bool>
+                      (const std::string & scheme,
+                       const std::string & resource,
+                       std::ios_base::openmode mode)>
+UriHandlerFunction;
+
+void registerUriHandler(const std::string & scheme,
+                        const UriHandlerFunction & handler);
+
 
 } // namespace ML
 

@@ -153,7 +153,7 @@ struct ThreadSpecificInstanceInfo {
     /** Return the data for this thread for this instance of the class. */
     T * get() const
     {
-        PerThreadInfo info = staticInfo.get();
+        PerThreadInfo * info = staticInfo.get();
         return info->get(index);
     }
 };

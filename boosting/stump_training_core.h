@@ -338,7 +338,7 @@ struct Stump_Trainer {
         Worker_Task & worker = context.worker();
 
         int group = worker.get_group(NO_JOB,
-                                     format("test all group"),
+                                     "test all group",
                                      context.group());
         {
             Call_Guard guard(boost::bind(&Worker_Task::unlock_group,

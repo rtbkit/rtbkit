@@ -163,7 +163,7 @@ add(const Job & job, const Job & error, const std::string & job_info, Id group)
         Group_Info & group_info = groups[group];
         ++group_info.jobs_outstanding;
         
-        Jobs::iterator it = jobs.insert(group_info.group_job, info);
+        /* Jobs::iterator it = */ jobs.insert(group_info.group_job, info);
     }
     else jobs.push_back(info);
     

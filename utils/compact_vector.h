@@ -19,6 +19,7 @@
 #include "jml/arch/exception.h"
 #include "jml/compiler/compiler.h"
 #include "jml/db/persistent_fwd.h"
+#include "jml/utils/move.h"
 #include <ostream>
 #include <iterator>
 #include <algorithm>
@@ -63,6 +64,12 @@ public:
         init(first, last, std::distance(first, last));
     }
 
+    compact_vector(size_t initialSize, const Data & element = Data())
+        : size_(0), is_internal_(true)
+    {
+        resize(initialSize, element);
+    }
+
     ~compact_vector()
     {
         clear();
@@ -73,8 +80,33 @@ public:
     {
         init(other.begin(), other.end(), other.size());
     }
+
+    compact_vector(compact_vector && other)
+        : size_(other.size_), is_internal_(other.is_internal_)
+    {
+        if (other.is_internal_) {
+            uninitialized_move_and_destroy(other.internal(),
+                                           other.internal() + other.size_,
+                                           internal());
+        }
+        else {
+            ext.pointer_ = other.ext.pointer_;
+            ext.capacity_ = other.ext.capacity_;
+            other.ext.pointer_ = 0;
+            other.ext.capacity_ = 0;
+            other.size_ = 0;
+            other.is_internal_ = 0;
+        }
+    }
     
     compact_vector & operator = (const compact_vector & other)
+    {
+        compact_vector new_me(other);
+        swap(new_me);
+        return *this;
+    }
+
+    compact_vector & operator = (compact_vector && other)
     {
         compact_vector new_me(other);
         swap(new_me);
@@ -137,14 +169,8 @@ public:
         other.is_internal_ = true;
 
         // Initialize and copy the internal elements for the other one
-        for (size_type i = 0;  i < size();  ++i) {
-
-            // NOTE: if the default constructor or the swap or the destructor
-            // throws, we will have an invalid object.
-            new (other.internal() + i) Data();
-            std::swap(other.internal()[i], internal()[i]);
-            internal()[i].~Data();
-        }
+        uninitialized_move_and_destroy(internal(), internal() + size_,
+                                       other.internal());
         
         is_internal_ = false;
         swap_size(other);
@@ -369,6 +395,9 @@ public:
     {
         return std::numeric_limits<Size>::max();
     }
+
+    Data * unsafe_raw_data() { return data(); }
+    const Data * unsafe_raw_data() const { return data(); }
     
 private:
     union {

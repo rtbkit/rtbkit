@@ -29,7 +29,30 @@
 
 namespace ML {
 
-std::string format(const char * fmt, ...) JML_FORMAT_STRING(1, 2);
+// This machinery allows us to use a std::string with %s via c++11
+template<typename T>
+JML_ALWAYS_INLINE T forwardForPrintf(T t)
+{
+    return t;
+}
+
+JML_ALWAYS_INLINE const char * forwardForPrintf(const std::string & s)
+{
+    return s.c_str();
+}
+
+template<typename... Args>
+JML_ALWAYS_INLINE std::string format(const char * fmt, Args... args)
+{
+    return formatImpl(fmt, forwardForPrintf(args)...);
+}
+
+inline std::string format(const char * fmt)
+{
+    return fmt;
+}
+
+std::string formatImpl(const char * fmt, ...) JML_FORMAT_STRING(1, 2);
 
 std::string vformat(const char * fmt, va_list ap) JML_FORMAT_STRING(1, 0);
 

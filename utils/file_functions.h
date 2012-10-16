@@ -100,9 +100,16 @@ public:
     File_Read_Buffer(const std::string & filename);
     File_Read_Buffer(int fd);
     File_Read_Buffer(const File_Read_Buffer & other);
+    File_Read_Buffer(const char * start, size_t length,
+                     const std::string & fileName = "anonymous memory",
+                     boost::function<void ()> onDone = boost::function<void ()>());
 
     void open(const std::string & filename);
     void open(int fd);
+
+    void open(const char * start, size_t length,
+              const std::string & filename = "anonymous memory",
+              boost::function<void ()> onDone = boost::function<void ()>());
     
     void close();
 

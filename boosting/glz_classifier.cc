@@ -225,9 +225,12 @@ decode_value(float feat_val, const Feature_Spec & spec) const
     if (JML_UNLIKELY(isnan(feat_val))) {
         switch (spec.type) {
         case Feature_Spec::VALUE:
+            feat_val = 0.0;
+#if 0
             throw Exception("GLZ_Classifier: feature "
                             + feature_space()->print(spec.feature)
                             + " is missing");
+#endif
         case Feature_Spec::VALUE_IF_PRESENT:
         case Feature_Spec::PRESENCE:
             feat_val = 0.0;
