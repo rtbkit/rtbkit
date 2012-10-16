@@ -45,9 +45,9 @@ inline bool match_float(Float & result, Parse_Context & c)
 
     if (c.eof()) return false;
 
-    if (*c == 'n') {
+    if (*c == 'n' || *c == 'N') {
         ++c;
-        if (!c.match_literal("an"))
+        if (!c.match_literal("an") && !c.match_literal("aN"))
             return false;
         tok.ignore();
         result = sign * std::numeric_limits<Float>::quiet_NaN();
