@@ -248,7 +248,9 @@ std::string expect_category_name(Parse_Context & context)
     std::string result;
     
     bool after_slash = false;
-    while (after_slash || (context && !isspace(*context) && *context != ',')) {
+    while (after_slash || (context && !isspace(*context)
+                           && *context != ','
+                           && *context != '/')) {
         if (after_slash) {
             result += *context++;
             after_slash = false;
@@ -642,7 +644,8 @@ string escape_categorical_info(const std::string & value)
 {
     string result;
     for (unsigned i = 0;  i < value.size();  ++i) {
-        if (isspace(value[i]) || value[i] == ',' || value[i] == '\\')
+        if (isspace(value[i])
+            || value[i] == ',' || value[i] == '/' || value[i] == '\\')
             result += '\\';
         result += value[i];
     }
