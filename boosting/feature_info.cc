@@ -675,7 +675,9 @@ std::string Fixed_Categorical_Info::print(int value) const
     if (value < 0 || value >= print_.size()) {
         cerr << "value = " << value << endl;
         cerr << "size  = " << print_.size() << endl;
-        throw Exception("Fixed_Categorical_Info::print(): out of range");
+        //throw Exception("Fixed_Categorical_Info::print(): out of range");
+        cout << "Fixed_Categorical_Info::print(): out of range" << endl;
+        return "";
         //return format("invalid(%d, size %zd)", value, print_.size());
     }
 
