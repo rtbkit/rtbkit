@@ -15,7 +15,7 @@ LIBUTILS_SOURCES := \
 	rng.cc \
 	hash.cc
 
-LIBUTILS_LINK :=	ACE arch boost_iostreams lzma boost_thread
+LIBUTILS_LINK :=	ACE arch boost_iostreams lzma boost_thread cryptopp
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 
