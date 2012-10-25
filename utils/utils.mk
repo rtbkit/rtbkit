@@ -12,7 +12,8 @@ LIBUTILS_SOURCES := \
 	lzma.cc \
 	floating_point.cc \
 	json_parsing.cc \
-	rng.cc
+	rng.cc \
+	hash.cc
 
 LIBUTILS_LINK :=	ACE arch boost_iostreams lzma boost_thread
 
