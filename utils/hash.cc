@@ -4,7 +4,7 @@
 
 */
 
-#include "md5.h"
+#include "hash.h"
 #include "string_functions.h"
 #include <boost/algorithm/string.hpp>
 
