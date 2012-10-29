@@ -249,13 +249,17 @@ LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) 
 LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
 LIB_$(1)_SO   := $(BIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
 
-LIB_$(1)_CURRENT_VERSION := $$(shell cat $(BIN)/$$(tmpLIBNAME)$$(so).version 2>/dev/null)
+include $(BIN)/$$(tmpLIBNAME)$$(so).version.mk
+
+$(BIN)/$$(tmpLIBNAME)$$(so).version.mk:
+	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@
+
 
 # We need the library so names to stay the same, so we copy the correct one
 # into our version
 $(BIN)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) 
 	@cp $$< $$@
-	@echo $$(LINK_$(1)_HASH) > $$@.version
+	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@.version.mk
 
 LINK_$(1)_COMMAND2 := $$(subst $(BIN)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
 

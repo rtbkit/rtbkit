@@ -1,6 +1,7 @@
 ifeq ($(PYTHON_ENABLED),1)
 
-PYTHON_VERSION ?= $(shell $(JML_BUILD)/detect_python.sh)
+PYTHON_VERSION_DETECTED := $(shell $(JML_BUILD)/detect_python.sh)
+PYTHON_VERSION ?= PYTHON_VERSION_DETECTED
 
 PYTHON_INCLUDE_PATH ?= /usr/include/python$(PYTHON_VERSION)/
 PYTHON ?= python$(PYTHON_VERSION)
