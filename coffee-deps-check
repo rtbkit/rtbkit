@@ -71,7 +71,11 @@ def check_deps(path, graph, module, requires):
     Checks the given set of requires against a edges defined in the dependency
     graph.
     """
-    module = module + builddeps.Ext.NODEJS
+    if module + builddeps.Ext.NODEJS in graph.edges:
+        module = module + builddeps.Ext.NODEJS
+
+    elif module + builddeps.Ext.NODEJS_TEST in graph.edges:
+        module = module + builddeps.Ext.NODEJS_TEST
 
     if False:
         print "MODULE: ", module
