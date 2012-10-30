@@ -38,7 +38,7 @@ def git_files():
     Returns all the .coffee file that are about to be committed.
     """
     process = subprocess.Popen(
-        ["git", "diff", "--cached", "--name-only", "-z"],
+        ["git", "diff", "--cached", "--name-only"],
         stdout = subprocess.PIPE,
         stderr = subprocess.PIPE)
 
@@ -135,5 +135,7 @@ else:
         line = line[:len(line) -1]
         error = check_script(line) or error
 
+if error != 0:
+    print "ERROR: Add the missing coffee script dependencies and try again."
 
 sys.exit(error)

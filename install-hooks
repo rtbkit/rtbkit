@@ -1,0 +1,69 @@
+#! /usr/bin/python
+#------------------------------------------------------------------------------#
+# install-hooks
+# by Remi Attab on 30-10-2012
+#
+# Installs useful hooks into a git repo that allows for extra build related
+# checks prior to a commit. Note that a hook will be installed for the repo as
+# well as for every submodules and every submodules of submodules.
+#
+#------------------------------------------------------------------------------#
+
+import sys
+import os
+import stat
+
+
+def find_dotgit(folder):
+    """
+    Finds the .git folder regardless of where we are in the folder tree.
+    """
+    if os.path.isdir(os.path.join(folder, ".git")):
+        return folder
+    return find_dotgit(os.path.dirname(folder))
+
+def install_hook(path, rel_path):
+    """
+    Creates or appends to the pre-commit hook a call to our scripts. Note that
+    rel_path is required to find the checked out jml-build folder from a given
+    submodule.
+    """
+    path = os.path.join(path, "hooks")
+    if not os.path.isdir(path):
+        os.mkdir(path)
+
+    path = os.path.join(path, "pre-commit")
+    exists = os.path.isfile(path)
+
+    print "INSTALL: (%s, %s)" % (path, exists)
+
+    with open(path, "a+") as hook:
+        if not exists:
+            hook.write("#! /bin/bash\n")
+
+        hook.write(rel_path + "/jml-build/coffee-deps-check\n")
+
+    if not exists:
+        os.chmod(path, 0766)
+
+def process_modules(path, rel_path):
+    """
+    Installs a the hook into the current module and recurses into each submodule
+    of the current module.
+    """
+    print "VISIT: (%s, %s)" % (path, rel_path)
+
+    install_hook(path, rel_path)
+
+    module_dir = os.path.join(path, "modules")
+    if not os.path.isdir(module_dir):
+        return
+
+    rel_path = os.path.join(rel_path, "..")
+    for module in os.listdir(module_dir):
+        process_modules(os.path.join(module_dir, module), rel_path)
+
+
+path = os.path.join(find_dotgit(os.getcwd()), ".git")
+process_modules(path, ".")
+
