@@ -1,0 +1,531 @@
+#! /usr/bin/python
+
+import re
+import sys
+import traceback
+
+
+#------------------------------------------------------------------------------#
+# DEBUG                                                                        #
+#------------------------------------------------------------------------------#
+
+verbose = False
+strict = False
+quiet = True
+
+def print_dbg(msg):
+    global verbose
+    if verbose: print "// " + msg
+
+def print_info(msg):
+    global quiet
+    if not quiet: print "// " + msg
+
+def print_err(err, msg):
+    global quiet
+    if not quiet:
+        errstr = "(%s)" % err if err else ""
+        print "// ERROR%s: %s" % (errstr, msg)
+
+
+#------------------------------------------------------------------------------#
+# GRAPH                                                                        #
+#------------------------------------------------------------------------------#
+
+class Ext:
+    SO     = ".so"
+    EXE    = ".exe"
+    MK     = ".mk"
+    NODEJS = ".nodejs"
+
+class Graph:
+    def __init__(self):
+        self.edges = {}
+
+    def add_vertex(self, src, dest):
+        print_dbg("%s -> %s" % (src, dest))
+        if not src in self.edges: self.edges[src] = [dest]
+        else: self.edges[src].append(dest)
+
+
+#------------------------------------------------------------------------------#
+# LEXER                                                                        #
+#------------------------------------------------------------------------------#
+
+class Token:
+    START_BLOCK = 10
+    END_BLOCK   = 11
+
+    EQUAL       = 22
+    FILE_SEP    = 23
+    PLUS_EQUAL  = 24
+
+    WORD        = 31
+    ARG_SEP     = 32
+
+
+def strip_line(line):
+    return line.strip(" \t\n")
+
+
+def next_token_impl(line):
+    """
+    Very simple lexer for our parser that returns the <token, updated line>
+    tuple. The token is a list composed of a member of the Token class and
+    followed by a series of values associated with the token.
+    """
+
+    dbg = "\t\ttoken: %s -> " % line
+
+    if line[0] == ",":
+        print_dbg(dbg + "SEP")
+        return [Token.ARG_SEP], line[1:]
+
+    if line[0:2] == "$(":
+        print_dbg(dbg + "START")
+        return [Token.START_BLOCK], line[2:]
+
+    if line[0] == ")":
+        print_dbg(dbg + "END")
+        return [Token.END_BLOCK], line[1:]
+
+    if line[0:2] == ":=" or line[0:2] == "?=":
+        print_dbg(dbg + "EQUAL")
+        return [Token.EQUAL], line[2:]
+
+    if line[0:2] == "+=":
+        print_dbg(dbg + "PLUS_EQUAL")
+        return [Token.PLUS_EQUAL], line[2:]
+
+    m = re.match("([\w_\./\-+]+)", line)
+    if m:
+        word = m.group(1)
+        print_dbg(dbg + "WORD(%s)" % word)
+        return [Token.WORD, word], line[len(word):]
+
+    return [None], ""
+
+
+def next_token(line):
+    """
+    Simple wrapper for our lexer that ensures that all returned strings are
+    properly stripped of white spaces.
+    """
+    tok, line = next_token_impl(line)
+    return tok, strip_line(line)
+
+
+def peek_token(line):
+    """
+    Returns the next token without removing it from line
+    """
+    tok, line = next_token_impl(line)
+    return tok
+
+
+def token_value(tok):
+    return tok[1]
+
+def accept(tok, expected):
+    return tok[0] == expected
+
+def expect(tok, expected):
+    assert accept(tok, expected)
+
+
+def next_line(stream):
+    """
+    Returns the next line that needs parsing. The returned line is guaranteed to
+    be striped of leading and trailing white spaces. We also ensure that a line
+    broken up by the \ character will be returned as a single line.
+    """
+    result = ""
+    while True:
+        line = stream.readline()
+        if len(line) == 0: break
+
+        line = strip_line(line)
+
+        # Continue on empty line only if we don't have anything. This is a
+        # workaround for having a trailing slash at the end of a variable
+        # definition.
+        if len(line) == 0:
+            if len(result) == 0: continue
+            else: break
+
+        if len(result) > 0:
+            result += " "
+
+        # read the next line if we have a trailing slash.
+        if line[-1] == "\\":
+            result += strip_line(line[:-1])
+            continue
+
+        result += line
+        break
+
+    if len(result) == 0:
+        print_dbg("\tEOF")
+        return None
+
+    print_dbg("\tline: " + result)
+    return result
+
+
+
+#------------------------------------------------------------------------------#
+# PARSER                                                                       #
+#------------------------------------------------------------------------------#
+
+class Parser:
+
+    def __init__(self):
+
+        # Contains the current file being parsed. Used to track the mk files
+        # dependencies.
+        self.current_file = ""
+
+        # Maps function names to its parser
+        self.func_map = {
+            "include_sub_makes" : self.parse_func_sub_make,
+            "include_sub_make"  : self.parse_func_sub_make,
+            "library"           : self.parse_func_library,
+            "program"           : self.parse_func_program,
+            "nodejs_addon"      : self.parse_func_nodejs_addon,
+            "nodejs_module"     : self.parse_func_nodejs_module,
+            "nodejs_program"    : self.parse_func_nodejs_module,
+            }
+
+        # Variable map used for macro expansion
+        self.var_map = {}
+
+        # Keeps track of the current folder.
+        self.folder_stack = []
+
+        # Keeps track of where we've been.
+        self.visited_files = set([])
+
+        # make keywords that can show up at the begining of a line
+        self.keywords = ['include', '-include', 'export', 'ifeq', 'endif']
+
+        # Dependency graph
+        self.graph = Graph()
+
+
+
+    # FUNCTION PARSER
+    #--------------------------------------------------------------------------#
+    # Parsers defined here have to be registerd in the func_map map so that the
+    # generic parser can find it.
+
+    def parse_func_sub_make(self, line):
+        """
+        Parses the include_submake function and recursively parses the makefiles
+        it points to.
+        """
+        print_dbg("\tsub_make: " + line)
+
+        params, line = self.parse_func_params(line)
+        assert len(params) > 0
+
+        def recurse(folder, makefile):
+            self.graph.add_vertex(self.current_file, makefile)
+            self.parse_makefile(folder, makefile)
+
+        if len(params) == 1:
+            for makefile in params[0]:
+                recurse(makefile, makefile + Ext.MK)
+
+        elif len(params) == 2:
+            assert len(params[0]) == 1
+            assert len(params[1]) == 1
+            recurse(params[1][0], params[0][0] + Ext.MK)
+
+        else:
+            assert len(params[2]) == 1
+            filename = params[2][0]
+            folder = params[1][0] if len(params[1]) > 0 else params[0][0]
+            recurse(folder, filename)
+
+        return line
+
+
+    def parse_func_library(self, line):
+        """
+        Parses the library function params and adds the relevant dependencies.
+        """
+        print_dbg("\tlibrary: " + line)
+
+        params, line = self.parse_func_params(line)
+        assert len(params) >= 1
+        assert len(params[0]) == 1
+
+        libname = params[0][0] + Ext.SO
+        self.graph.add_vertex(self.current_file, libname)
+
+        deps = params[2] if len(params) >= 3 else []
+        for dep in deps:
+            self.graph.add_vertex(libname, dep + Ext.SO)
+
+        return line
+
+
+    def parse_func_nodejs_addon(self, line):
+        """
+        Parses for the nodejs addon params and adds the relevant dependencies
+        """
+        print_dbg("\tnodejs_addon: " + line)
+
+        params, line = self.parse_func_params(line)
+        assert len(params) > 0
+
+        assert len(params[0]) == 1
+        addon = params[0][0] + Ext.NODEJS
+        self.graph.add_vertex(self.current_file, addon)
+
+        if len(params) > 1:
+            sources = params[1]
+
+        if len(params) > 2:
+            for lib in params[2]:
+                self.graph.add_vertex(addon, lib + Ext.SO)
+
+        if len(params) > 3:
+            for libjs in params[2]:
+                self.graph.add_vertex(addon, libjs + Ext.NODEJS)
+
+        return line
+
+
+    def parse_func_nodejs_module(self, line):
+        """
+        Parses for the nodejs module params and adds the relevant dependencies
+        """
+        print_dbg("\tnodejs_module: " + line)
+
+        params, line = self.parse_func_params(line)
+        assert len(params) > 0
+
+        assert len(params[0]) == 1
+        module = params[0][0] + Ext.NODEJS
+        self.graph.add_vertex(self.current_file, module)
+
+        if len(params) > 1:
+            assert len(params[1]) == 1
+            sources = params[1][0]
+
+        if len(params) > 2:
+            for lib in params[2]:
+                self.graph.add_vertex(module, lib + Ext.NODEJS)
+
+        return line
+
+
+    def parse_func_program(self, line):
+        """
+        Parser for the nodejs addon params.
+        """
+        print_dbg("\tnodejs_addon: " + line)
+
+        params, line = self.parse_func_params(line)
+        assert len(params) > 0
+
+        assert len(params[0]) == 1
+        program = params[0][0] + Ext.EXE
+        self.graph.add_vertex(self.current_file, program)
+
+        if len(params) > 1:
+            for lib in params[1]:
+                self.graph.add_vertex(program, lib + Ext.SO)
+
+        return line
+
+
+    # GENERIC PARSER
+    #--------------------------------------------------------------------------#
+
+    def parse_var_decl(self, var, line):
+        """
+        Parse the declaration of a variable and add it to the var_map.
+        """
+        tok, line = next_token(line)
+
+        if accept(tok, Token.EQUAL):
+            self.var_map[var] = line
+            print_dbg("\tvar: %s = %s" %(var, self.var_map[var]))
+            return ""
+
+        elif accept(tok, Token.PLUS_EQUAL):
+            if var in self.var_map:
+                self.var_map[var] += line
+            else:
+                self.var_map[var] = line
+
+            print_dbg("\tvar: %s = %s" %(var, self.var_map[var]))
+            return ""
+
+        assert False
+
+
+    def parse_arg_list(self, line):
+        """
+        Parse a list of arguments seperated by spaces.
+        """
+        tok = peek_token(line)
+        args = []
+
+        print_dbg("\targ_list")
+
+        while tok:
+            if accept(tok, Token.WORD):
+                tok, line = next_token(line)
+                args.append(token_value(tok))
+
+            elif accept(tok, Token.START_BLOCK):
+                tok, line = next_token(line)
+
+                tok, line = next_token(line)
+                var = token_value(tok)
+
+                tok, line = next_token(line)
+                expect(tok, Token.END_BLOCK)
+
+                if var in self.var_map:
+                    line = self.var_map[var] + line
+                    print_dbg("\tmap: %s -> %s" % (var, self.var_map[var]))
+                else:
+                    print_dbg("unknown: " + var)
+
+            else:
+                break
+
+            tok = peek_token(line)
+
+        return args, line
+
+
+    def parse_func_params(self, line):
+        """
+        Parses a list of function parameters sperated by commas.
+        """
+        params = []
+
+        while True:
+            # If the next token isn't a comma then stop.
+            if not accept(peek_token(line), Token.ARG_SEP):
+                break
+            tok, line = next_token(line)
+
+            expect(tok, Token.ARG_SEP)
+            args, line = self.parse_arg_list(line)
+
+            params.append(args)
+
+        return params, line
+
+
+    def parse_func_default(self, line):
+        """
+        Function which don't have special handlers are parsed here.
+        """
+        print_dbg("\tdefault_func: " + line)
+        params, line = self.parse_func_params(line)
+        return line
+
+
+    def parse_function(self, line):
+        """
+        Parses the common parts of the function and dispatches the params
+        parsing to a sub parser depending on the function name.
+        """
+        print_dbg("\tfunction: " + line)
+
+        tok, line = next_token(line)
+        expect(tok, Token.START_BLOCK)
+
+        tok, line = next_token(line)
+        expect(tok, Token.WORD)
+        assert token_value(tok) == "call"
+
+        tok, line = next_token(line)
+        expect(tok, Token.WORD)
+
+        # Dispatch to the appropriate function parser
+        func = token_value(tok)
+        if func in self.func_map:
+            line = self.func_map[func](line)
+        else:
+            line = self.parse_func_default(line)
+
+        tok, line = next_token(line)
+        expect(tok, Token.END_BLOCK)
+
+        return line
+
+
+    def parse_makefile(self, folder, filename):
+        """
+        Iterates over a file parsingall the var declaration and eval function
+        vals.
+        """
+
+        self.folder_stack.append(folder)
+        path = '/'.join(self.folder_stack) + "/" + filename
+
+        if path in self.visited_files:
+            print_dbg("been-there-done-that: " + path)
+            return
+
+        self.visited_files = self.visited_files | set([path])
+        print_info("FILE: " + path)
+
+        old_file = self.current_file
+        self.current_file = filename
+
+        with open(path, 'r') as f:
+            line = next_line(f)
+
+            while line:
+                try:
+                    tok, line = next_token(line)
+
+                    if accept(tok, Token.WORD):
+                        word = token_value(tok)
+                        if word not in self.keywords:
+                            line = self.parse_var_decl(word, line)
+
+                    elif accept(tok, Token.START_BLOCK):
+                        tok, line = next_token(line)
+                        expect(tok, Token.WORD)
+
+                        # We don't bother with any non-eval function calls.
+                        if token_value(tok) == "eval":
+                            line = self.parse_function(line)
+                            tok, line = next_token(line)
+                            expect(tok, Token.END_BLOCK)
+
+                except Exception as ex:
+                    print_err(str(ex), "%s: %s" % (path, line))
+                    if verbose: print traceback.format_exc()
+                    if strict: raise ex
+
+                line = next_line(f)
+
+        self.folder_stack.pop()
+        self.current_file = old_file
+
+
+#------------------------------------------------------------------------------#
+# PUBLIC INTERFACE                                                             #
+#------------------------------------------------------------------------------#
+
+def parse_makefile(makefile = "Makefile", folder = "."):
+    """
+    Parses a given makefile and returns a graph object which declares the
+    dependencies.
+    """
+
+    parser = Parser()
+    parser.parse_makefile(folder, makefile)
+    return parser.graph
+
