@@ -1,4 +1,15 @@
 #! /usr/bin/python
+#------------------------------------------------------------------------------#
+# graph-deps
+# by Remi Attab on 29-10-2012
+#
+# Generates a dot file of the dependencies in the build system.
+#
+# Syntax: graph-deps [folder [makefile]]
+#
+# The graph is dumped in stdout and it can be easily filtered using grep -v.
+#
+#------------------------------------------------------------------------------#
 
 import sys
 import builddeps

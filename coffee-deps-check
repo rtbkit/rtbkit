@@ -1,9 +1,37 @@
 #! /usr/bin/python
+#------------------------------------------------------------------------------#
+# coffee-deps-check
+# by Remi Attab on 30-10-2012
+#
+# Checks the require statements in coffee scripts to see if they are also
+# present  in its build dependency.
+#
+# If not arguments are provided then this script acts like a git pre-commit hook
+# and will fetch the list of files to check from git (git diff
+# --cached).
+#
+# To run the script as batch process, just provide a list of coffee scripts as
+# arguments. The script will then check of the coffee scripts in turn.
+#
+#------------------------------------------------------------------------------#
+
 
 import sys
 import re
 import subprocess
 import builddeps
+import os
+
+def find_dotgit(folder):
+    """
+    Finds the parent folder that has a .git folder. Since this script will
+    usually be invoked from within a submodule, the Makefile in the submodule
+    will can't be parsed properly. So we need to find the real one which is
+    located at the root of our git repo.
+    """
+    if os.path.isdir(os.path.join(folder, ".git")):
+        return folder
+    return find_dotgit(os.path.dirname(folder))
 
 def git_files():
     """
@@ -38,7 +66,7 @@ def parse_script(path):
 
     return modules
 
-def check(graph, module, requires):
+def check_deps(path, graph, module, requires):
     """
     Checks the given set of requires against a edges defined in the dependency
     graph.
@@ -51,7 +79,7 @@ def check(graph, module, requires):
         print "EDGES: ", graph.edges[module]
 
     if not module in graph.edges:
-        print "%s: not defined"
+        print "%s: no target defined for %s" % (path, module)
         return 1
 
     deps = []
@@ -66,31 +94,42 @@ def check(graph, module, requires):
     error = 0
     for d in deps:
         if not d in graph.edges[module]:
-            print "%s: missing dependency %s" % (module, d)
+            print "%s: %s missing dependency on %s" % (path, module, d)
             error = 1
 
     for d in graph.edges[module]:
         if not d in deps:
-            print "%s: extra dependency %s" % (module, d)
+            print "%s: %s extra dependency on %s" % (path, module, d)
 
     return error
 
 
+def check_script(path):
+    """
+    Runs the script for a given filename.
+    """
+    if not path.endswith(".coffee"): return
 
-# We pass .. as the folder because we're most likely in a submodule and the
-# jml-build folder is only checked-out for the main repo folder thingy.
-# It's a hack and it's ugly.
-graph = builddeps.parse_makefile("Makefile", "..")
+    requires = parse_script(path)
+
+    script = os.path.split(path)[1]
+    module = script.split(".")[0]
+
+    return check_deps(path, graph, module, requires)
+
+
+build_folder = find_dotgit(os.getcwd())
+graph = builddeps.parse_makefile("Makefile", build_folder)
 error = 0
 
-for line in git_files():
-    line = line[:len(line) -1]
-    if not line.endswith(".coffee"): continue
+if len(sys.argv) > 1:
+    for path in sys.argv[1:]:
+        error = check_script(path) or error
 
-    requires = parse_script(line)
+else:
+    for line in git_files():
+        line = line[:len(line) -1]
+        error = check_script(line) or error
 
-    script = line.split("/")[-1]
-    module = script.split(".")[0]
-    error = error or check(graph, module, requires)
 
 sys.exit(error)

@@ -1,4 +1,21 @@
 #! /usr/bin/python
+#------------------------------------------------------------------------------#
+# builddeps.py
+# by Remi Attab on 29-10-2012
+#
+# Parses the given jml-build Makefile and returns a graph of all (well most)
+# build dependencies for the supported target types.
+#
+# Supported target types are listed within Parser.func_map and is fairly simple
+# to extend.
+#
+# The public interface of this module consists of Ext, Graph and
+# parse_makefile(). The verbose, strict and quiet flags can also be used to
+# change the chattyness of the script on stdout. Nothing else should be
+# accessed.
+#
+#------------------------------------------------------------------------------#
+
 
 import re
 import sys
@@ -42,10 +59,17 @@ class Graph:
     def __init__(self):
         self.edges = {}
 
-    def add_vertex(self, src, dest):
+    def add_vertex(self, src):
+        if src in self.edges: return
+
+        print_dbg("%s -> None" % src)
+        self.edges[src] = []
+
+    def add_edge(self, src, dest):
         print_dbg("%s -> %s" % (src, dest))
-        if not src in self.edges: self.edges[src] = [dest]
-        else: self.edges[src].append(dest)
+
+        self.add_vertex(src)
+        self.edges[src].append(dest)
 
 
 #------------------------------------------------------------------------------#
@@ -229,7 +253,7 @@ class Parser:
         assert len(params) > 0
 
         def recurse(folder, makefile):
-            self.graph.add_vertex(self.current_file, makefile)
+            self.graph.add_edge(self.current_file, makefile)
             self.parse_makefile(folder, makefile)
 
         if len(params) == 1:
@@ -261,11 +285,11 @@ class Parser:
         assert len(params[0]) == 1
 
         libname = params[0][0] + Ext.SO
-        self.graph.add_vertex(self.current_file, libname)
+        self.graph.add_edge(self.current_file, libname)
 
         deps = params[2] if len(params) >= 3 else []
         for dep in deps:
-            self.graph.add_vertex(libname, dep + Ext.SO)
+            self.graph.add_edge(libname, dep + Ext.SO)
 
         return line
 
@@ -281,18 +305,18 @@ class Parser:
 
         assert len(params[0]) == 1
         addon = params[0][0] + Ext.NODEJS
-        self.graph.add_vertex(self.current_file, addon)
+        self.graph.add_edge(self.current_file, addon)
 
         if len(params) > 1:
             sources = params[1]
 
         if len(params) > 2:
             for lib in params[2]:
-                self.graph.add_vertex(addon, lib + Ext.SO)
+                self.graph.add_edge(addon, lib + Ext.SO)
 
         if len(params) > 3:
             for libjs in params[2]:
-                self.graph.add_vertex(addon, libjs + Ext.NODEJS)
+                self.graph.add_edge(addon, libjs + Ext.NODEJS)
 
         return line
 
@@ -308,15 +332,16 @@ class Parser:
 
         assert len(params[0]) == 1
         module = params[0][0] + Ext.NODEJS
-        self.graph.add_vertex(self.current_file, module)
+        self.graph.add_edge(self.current_file, module)
 
         if len(params) > 1:
             assert len(params[1]) == 1
             sources = params[1][0]
 
         if len(params) > 2:
+            self.graph.add_vertex(module)
             for lib in params[2]:
-                self.graph.add_vertex(module, lib + Ext.NODEJS)
+                self.graph.add_edge(module, lib + Ext.NODEJS)
 
         return line
 
@@ -332,11 +357,11 @@ class Parser:
 
         assert len(params[0]) == 1
         program = params[0][0] + Ext.EXE
-        self.graph.add_vertex(self.current_file, program)
+        self.graph.add_edge(self.current_file, program)
 
         if len(params) > 1:
             for lib in params[1]:
-                self.graph.add_vertex(program, lib + Ext.SO)
+                self.graph.add_edge(program, lib + Ext.SO)
 
         return line
 
