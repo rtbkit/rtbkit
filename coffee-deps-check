@@ -1,0 +1,96 @@
+#! /usr/bin/python
+
+import sys
+import re
+import subprocess
+import builddeps
+
+def git_files():
+    """
+    Returns all the .coffee file that are about to be committed.
+    """
+    process = subprocess.Popen(
+        ["git", "diff", "--cached", "--name-only", "-z"],
+        stdout = subprocess.PIPE,
+        stderr = subprocess.PIPE)
+
+    while True:
+        ret = process.poll()
+        line = process.stdout.readline()
+        yield line
+        if ret is not None: return
+
+
+def parse_script(path):
+    """
+    finds all the require statement in a coffeescript file and returns a list of
+    the required modules.
+    """
+    modules = []
+
+    with open(path, 'r') as f:
+        for line in f:
+            m = re.match(r".*\brequire\W+\"(\w+)\"\W*$", line)
+            if not m: continue
+            if re.match(r".*#.*require.*", line): continue
+
+            modules.append(m.group(1))
+
+    return modules
+
+def check(graph, module, requires):
+    """
+    Checks the given set of requires against a edges defined in the dependency
+    graph.
+    """
+    module = module + builddeps.Ext.NODEJS
+
+    if False:
+        print "MODULE: ", module
+        print "REQUIRES: ", requires
+        print "EDGES: ", graph.edges[module]
+
+    if not module in graph.edges:
+        print "%s: not defined"
+        return 1
+
+    deps = []
+    for d in requires:
+        djs = d + builddeps.Ext.NODEJS
+        if djs in graph.edges:
+            deps.append(djs)
+
+    if False:
+        print "DEPS: ", deps
+
+    error = 0
+    for d in deps:
+        if not d in graph.edges[module]:
+            print "%s: missing dependency %s" % (module, d)
+            error = 1
+
+    for d in graph.edges[module]:
+        if not d in deps:
+            print "%s: extra dependency %s" % (module, d)
+
+    return error
+
+
+
+# We pass .. as the folder because we're most likely in a submodule and the
+# jml-build folder is only checked-out for the main repo folder thingy.
+# It's a hack and it's ugly.
+graph = builddeps.parse_makefile("Makefile", "..")
+error = 0
+
+for line in git_files():
+    line = line[:len(line) -1]
+    if not line.endswith(".coffee"): continue
+
+    requires = parse_script(line)
+
+    script = line.split("/")[-1]
+    module = script.split(".")[0]
+    error = error or check(graph, module, requires)
+
+sys.exit(error)
