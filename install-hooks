@@ -22,7 +22,8 @@ def find_dotgit(folder):
         return folder
     return find_dotgit(os.path.dirname(folder))
 
-def install_hook(path, rel_path):
+
+def install_hook(path, rel_path, skip_exists):
     """
     Creates or appends to the pre-commit hook a call to our scripts. Note that
     rel_path is required to find the checked out jml-build folder from a given
@@ -35,7 +36,10 @@ def install_hook(path, rel_path):
     path = os.path.join(path, "pre-commit")
     exists = os.path.isfile(path)
 
-    print "INSTALL: (%s, %s)" % (path, exists)
+    if exists and skip_exists:
+        return
+
+    print "INSTALL: %s" % path
 
     with open(path, "a+") as hook:
         if not exists:
@@ -46,14 +50,13 @@ def install_hook(path, rel_path):
     if not exists:
         os.chmod(path, 0766)
 
-def process_modules(path, rel_path):
+def process_modules(path, rel_path, skip_exists):
     """
     Installs a the hook into the current module and recurses into each submodule
     of the current module.
     """
-    print "VISIT: (%s, %s)" % (path, rel_path)
 
-    install_hook(path, rel_path)
+    install_hook(path, rel_path, skip_exists)
 
     module_dir = os.path.join(path, "modules")
     if not os.path.isdir(module_dir):
@@ -61,9 +64,13 @@ def process_modules(path, rel_path):
 
     rel_path = os.path.join(rel_path, "..")
     for module in os.listdir(module_dir):
-        process_modules(os.path.join(module_dir, module), rel_path)
+        process_modules(os.path.join(module_dir, module), rel_path, skip_exists)
 
+
+skip_exists = True
+if len(sys.argv) > 1:
+    skip_exists = False
 
 path = os.path.join(find_dotgit(os.getcwd()), ".git")
-process_modules(path, ".")
+process_modules(path, ".", skip_exists)
 
