@@ -112,6 +112,9 @@ void
 Explanation::
 add(const Explanation & other, double weight)
 {
+    if (!fspace)
+        fspace = other.fspace;
+
     for (Feature_Weights::const_iterator
              it = other.feature_weights.begin(),
              end = other.feature_weights.end();
