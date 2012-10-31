@@ -58,7 +58,7 @@ def parse_script(path):
 
     with open(path, 'r') as f:
         for line in f:
-            m = re.match(r".*\brequire\W+\"(\w+)\"\W*$", line)
+            m = re.match(r".*\brequire\W*\(?\W*[\"'](\w+)[\"']\)?\W*$", line)
             if not m: continue
             if re.match(r".*#.*require.*", line): continue
 
