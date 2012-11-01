@@ -249,7 +249,7 @@ LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) 
 LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
 LIB_$(1)_SO   := $(BIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
 
-include $(BIN)/$$(tmpLIBNAME)$$(so).version.mk
+-include $(BIN)/$$(tmpLIBNAME)$$(so).version.mk
 
 $(BIN)/$$(tmpLIBNAME)$$(so).version.mk:
 	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@
