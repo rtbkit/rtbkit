@@ -14,6 +14,8 @@ all compile:	nodejs_programs nodejs_addons nodejs_libraries
 nodejs_dependencies: package.json
 	$(NPM) install .
 
+dependencies: nodejs_dependencies
+
 $(BIN)/node_runner: $(BIN)/.dir_exists
 	@echo '#!/bin/bash' > $@~
 	@echo 'exec /usr/bin/env NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) "$$@"' >> $@~

@@ -20,6 +20,8 @@ endif
 python_dependencies: python_requirements.txt
 	$(PIP) install -r python_requirements.txt
 
+dependencies: python_dependencies
+
 # add a swig wrapper source file
 # $(1): filename of source file
 # $(2): basename of the filename
