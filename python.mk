@@ -8,6 +8,15 @@ PYTHON ?= python$(PYTHON_VERSION)
 PYTHONPATH ?= $(BIN)
 PIP ?= pip
 
+ifdef VIRTUALENV
+
+$(VIRTUALENV)/bin/activate:
+	virtualenv $(VIRTUALENV)
+
+python_dependencies: $(VIRTUALENV)/bin/activate
+
+endif
+
 python_dependencies: python_requirements.txt
 	$(PIP) install -r python_requirements.txt
 
