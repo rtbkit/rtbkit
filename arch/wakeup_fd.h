@@ -15,9 +15,9 @@
 namespace ML {
 
 struct Wakeup_Fd {
-    Wakeup_Fd()
+    Wakeup_Fd(int flags = 0)
     {
-        fd_ = eventfd(0, 0);
+        fd_ = eventfd(0, flags);
         if (fd_ == -1)
             throw ML::Exception(errno, "eventfd");
     }
@@ -45,6 +45,26 @@ struct Wakeup_Fd {
         if (res == -1)
             throw ML::Exception(errno, "eventfd read()");
         return val;
+    }
+
+    // Only works if it was constructed with EFD_NONBLOCK
+    bool tryRead(eventfd_t & val)
+    {
+        int res = ::read(fd_, &val, 8);
+        if (res == -1 && errno == EWOULDBLOCK)
+            return false;
+        if (res == -1)
+            throw ML::Exception(errno, "eventfd read()");
+        if (res != sizeof(eventfd_t))
+            throw ML::Exception("eventfd read() returned wrong num bytes");
+        return true;
+    }
+
+    // Only works if it was constructed with EFD_NONBLOCK
+    bool tryRead()
+    {
+        eventfd_t val = 0;
+        return tryRead(val);
     }
 
     int fd_;
