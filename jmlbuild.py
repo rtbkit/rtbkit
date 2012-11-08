@@ -17,6 +17,7 @@
 #------------------------------------------------------------------------------#
 
 
+import os
 import re
 import sys
 import traceback
@@ -59,12 +60,14 @@ class Ext:
 class Graph:
     def __init__(self):
         self.edges = {}
+        self.order = []
 
     def add_vertex(self, src):
         if src in self.edges: return
 
         print_dbg("%s -> None" % src)
         self.edges[src] = []
+        self.order.append(src)
 
     def add_edge(self, src, dest):
         print_dbg("%s -> %s" % (src, dest))
@@ -288,6 +291,7 @@ class Parser:
 
         libname = params[0][0] + Ext.SO
         self.graph.add_edge(self.current_file, libname)
+        self.graph.add_vertex(libname)
 
         deps = params[2] if len(params) >= 3 else []
         for dep in deps:
@@ -308,6 +312,7 @@ class Parser:
         assert len(params[0]) == 1
         addon = params[0][0] + Ext.NODEJS
         self.graph.add_edge(self.current_file, addon)
+        self.graph.add_vertex(addon)
 
         if len(params) > 1:
             sources = params[1]
@@ -335,13 +340,13 @@ class Parser:
         assert len(params[0]) == 1
         module = params[0][0] + Ext.NODEJS
         self.graph.add_edge(self.current_file, module)
+        self.graph.add_vertex(module)
 
         if len(params) > 1:
             assert len(params[1]) == 1
             sources = params[1][0]
 
         if len(params) > 2:
-            self.graph.add_vertex(module)
             for lib in params[2]:
                 self.graph.add_edge(module, lib + Ext.NODEJS)
 
@@ -360,6 +365,7 @@ class Parser:
         assert len(params[0]) == 1
         module = params[0][0] + Ext.NODEJS_TEST
         self.graph.add_edge(self.current_file, module)
+        self.graph.add_vertex(module)
 
         if len(params) > 1:
             self.graph.add_vertex(module)
@@ -381,6 +387,7 @@ class Parser:
         assert len(params[0]) == 1
         program = params[0][0] + Ext.EXE
         self.graph.add_edge(self.current_file, program)
+        self.graph.add_vertex(program)
 
         if len(params) > 1:
             for lib in params[1]:
@@ -576,4 +583,16 @@ def parse_makefile(makefile = "Makefile", folder = "."):
     parser = Parser()
     parser.parse_makefile(folder, makefile)
     return parser.graph
+
+
+def find_dotgit(folder):
+    """
+    Finds the parent folder that has a .git folder. Since this script will
+    usually be invoked from within a submodule, the Makefile in the submodule
+    will can't be parsed properly. So we need to find the real one which is
+    located at the root of our git repo.
+    """
+    if os.path.isdir(os.path.join(folder, ".git")):
+        return folder
+    return find_dotgit(os.path.dirname(folder))
 

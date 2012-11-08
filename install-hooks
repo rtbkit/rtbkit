@@ -12,15 +12,7 @@
 import sys
 import os
 import stat
-
-
-def find_dotgit(folder):
-    """
-    Finds the .git folder regardless of where we are in the folder tree.
-    """
-    if os.path.isdir(os.path.join(folder, ".git")):
-        return folder
-    return find_dotgit(os.path.dirname(folder))
+import jmlbuild
 
 
 def install_hook(path, rel_path, skip_exists):
@@ -71,6 +63,6 @@ skip_exists = True
 if len(sys.argv) > 1:
     skip_exists = False
 
-path = os.path.join(find_dotgit(os.getcwd()), ".git")
+path = os.path.join(jmlbuild.find_dotgit(os.getcwd()), ".git")
 process_modules(path, ".", skip_exists)
 

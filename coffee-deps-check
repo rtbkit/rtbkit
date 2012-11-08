@@ -19,19 +19,8 @@
 import sys
 import re
 import subprocess
-import builddeps
+import jmlbuild
 import os
-
-def find_dotgit(folder):
-    """
-    Finds the parent folder that has a .git folder. Since this script will
-    usually be invoked from within a submodule, the Makefile in the submodule
-    will can't be parsed properly. So we need to find the real one which is
-    located at the root of our git repo.
-    """
-    if os.path.isdir(os.path.join(folder, ".git")):
-        return folder
-    return find_dotgit(os.path.dirname(folder))
 
 def git_files():
     """
@@ -71,11 +60,11 @@ def check_deps(path, graph, module, requires):
     Checks the given set of requires against a edges defined in the dependency
     graph.
     """
-    if module + builddeps.Ext.NODEJS in graph.edges:
-        module = module + builddeps.Ext.NODEJS
+    if module + jmlbuild.Ext.NODEJS in graph.edges:
+        module = module + jmlbuild.Ext.NODEJS
 
-    elif module + builddeps.Ext.NODEJS_TEST in graph.edges:
-        module = module + builddeps.Ext.NODEJS_TEST
+    elif module + jmlbuild.Ext.NODEJS_TEST in graph.edges:
+        module = module + jmlbuild.Ext.NODEJS_TEST
 
     if False:
         print "MODULE: ", module
@@ -88,7 +77,7 @@ def check_deps(path, graph, module, requires):
 
     deps = []
     for d in requires:
-        djs = d + builddeps.Ext.NODEJS
+        djs = d + jmlbuild.Ext.NODEJS
         if djs in graph.edges:
             deps.append(djs)
 
@@ -123,8 +112,8 @@ def check_script(path):
     return check_deps(path, graph, module, requires)
 
 
-build_folder = find_dotgit(os.getcwd())
-graph = builddeps.parse_makefile("Makefile", build_folder)
+build_folder = jmlbuild.find_dotgit(os.getcwd())
+graph = jmlbuild.parse_makefile("Makefile", build_folder)
 error = 0
 
 if len(sys.argv) > 1:

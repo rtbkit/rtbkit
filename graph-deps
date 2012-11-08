@@ -12,15 +12,15 @@
 #------------------------------------------------------------------------------#
 
 import sys
-import builddeps
+import jmlbuild
 
 
 if len(sys.argv) == 1:
-    graph = builddeps.parse_makefile("Makefile")
+    graph = jmlbuild.parse_makefile("Makefile")
 elif len(sys.argv) == 2:
-    graph = builddeps.parse_makefile("Makefile", sys.argv[1])
+    graph = jmlbuild.parse_makefile("Makefile", sys.argv[1])
 else:
-    graph = builddeps.parse_makefile(sys.argv[2], sys.argv[1])
+    graph = jmlbuild.parse_makefile(sys.argv[2], sys.argv[1])
 
 print "digraph {"
 
