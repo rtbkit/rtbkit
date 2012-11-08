@@ -10,6 +10,7 @@
 
 import jmlbuild
 import os
+import sys
 
 build_folder = jmlbuild.find_dotgit(os.getcwd())
 graph = jmlbuild.parse_makefile("Makefile", build_folder)
