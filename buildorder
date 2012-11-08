@@ -1,0 +1,27 @@
+#! /usr/bin/python
+#-------------------------------------------------------------- -*- python -*- #
+# buildorder
+# Remi Attab, 08 Nov 2012
+# Copyright (c) 2012 Datacratic.  All rights reserved.
+#
+# Checks the build ordering of the targets to make sure that a target doesn't
+# depend on something that doesn't exist.
+# ------------------------------------------------------------------------------#
+
+import jmlbuild
+import os
+
+build_folder = jmlbuild.find_dotgit(os.getcwd())
+graph = jmlbuild.parse_makefile("Makefile", build_folder)
+
+built = set([])
+
+for target in graph.order:
+    if target.endswith(jmlbuild.Ext.MK): continue
+    if target == "Makefile": continue
+
+    built = built | set([target])
+    for dep in graph.edges[target]:
+        if (not dep in built) and (dep in graph.edges):
+            print "%s built before dependency %s" % (target, dep)
+
