@@ -15,6 +15,7 @@ build_folder = jmlbuild.find_dotgit(os.getcwd())
 graph = jmlbuild.parse_makefile("Makefile", build_folder)
 
 built = set([])
+error = False
 
 for target in graph.order:
     if target.endswith(jmlbuild.Ext.MK): continue
@@ -22,6 +23,16 @@ for target in graph.order:
 
     built = built | set([target])
     for dep in graph.edges[target]:
+
+        # Dependencies on nodejs stuff is resolved at runtime.
+        if dep.endswith(jmlbuild.Ext.NODEJS): continue
+
         if (not dep in built) and (dep in graph.edges):
+            error = True
             print "%s built before dependency %s" % (target, dep)
+
+if error:
+    print "ERROR: Fix the build ordering and try again."
+
+sys.exit(error)
 
