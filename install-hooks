@@ -16,7 +16,7 @@ import stat
 import jmlbuild
 
 # List of hooks to be installed
-to_install = ["coffee-deps-check", "buildorder"]
+to_install = ["coffee-deps-check", "build-order"]
 
 
 def get_installed_hooks(path):
