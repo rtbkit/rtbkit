@@ -113,6 +113,7 @@ def check_script(path):
     Runs the script for a given filename.
     """
     if not path.endswith(".coffee"): return
+    if not os.path.exists(path): return
 
     requires = parse_script(path)
 
