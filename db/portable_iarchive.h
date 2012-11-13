@@ -291,6 +291,13 @@ public:
         res.swap(m);
     }
 
+    template<typename T1, typename T2>
+    void load(std::pair<T1, T2> & p)
+    {
+        load(p.first);
+        load(p.second);
+    }
+
     template<typename T, std::size_t NumDims, class Allocator>
     void load(boost::multi_array<T, NumDims, Allocator> & arr)
     {
