@@ -237,6 +237,13 @@ public:
             *this << *el;
     }
 
+    template<typename T1, typename T2>
+    void save(const std::pair<T1, T2> & p)
+    {
+        save(p.first);
+        save(p.second);
+    }
+
     void save(const Nested_Writer & writer);
 
     void save_binary(const void * address, size_t size)
