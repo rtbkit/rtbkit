@@ -26,6 +26,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include "jml/compiler/compiler.h"
+#include <memory>
 
 namespace ML {
 
@@ -61,6 +62,26 @@ extern const struct Null_SP {
     }
 
 } NULL_SP;
+
+template<typename T>
+struct Keep_Ref {
+    Keep_Ref(const std::shared_ptr<T> & p)
+        : ref(p)
+    {
+    }
+
+    std::shared_ptr<T> ref;
+
+    template<class X> void operator () (const X & x) const
+    {
+    }
+};
+
+template<class T>
+boost::shared_ptr<T> make_sp(const std::shared_ptr<T> & val)
+{
+    return boost::shared_ptr<T>(val.get(), Keep_Ref<T>(val));
+}
 
 } // namespace ML
 
