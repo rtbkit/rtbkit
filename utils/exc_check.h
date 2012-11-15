@@ -3,12 +3,17 @@
    Copyright (c) 2012 Recoset.  All rights reserved.
 
    Quick and easy way to throw an exception on a failed condition.
+
+   Note that when a check fails, the macro will issue a call to ML::do_abort().
+   This makes the macros more debugger friendly in certain situations.
+
 */
 
 
 #ifndef __jml__utils__exc_check_h__
 #define __jml__utils__exc_check_h__
 
+#include "abort.h"
 #include "jml/arch/exception.h"
 #include "jml/arch/format.h"
 #include <boost/lexical_cast.hpp>
@@ -32,6 +37,7 @@ struct Check_Failure: public Exception {
     do {                                                                \
         if (!(condition)) {                                             \
             std::string msg = ML::format("%s: %s", message, #condition); \
+            ML::do_abort();                                             \
             throw exc_type(msg.c_str(), __PRETTY_FUNCTION__,            \
                     __FILE__, __LINE__);                                \
         }                                                               \
@@ -47,6 +53,7 @@ struct Check_Failure: public Exception {
             std::string msg = ML::format(                               \
                     "%s: !(%s " #op " %s) [!(%s " #op " %s)]",          \
                     message, #value1, #value2, v1.c_str(), v2.c_str()); \
+            ML::do_abort();                                             \
             throw exc_type(msg.c_str(), __PRETTY_FUNCTION__,            \
                                         __FILE__, __LINE__);            \
         }                                                               \
@@ -58,6 +65,7 @@ struct Check_Failure: public Exception {
         if (!(condition)) {                                             \
             std::string msg = ML::format("%s: %s(%d)",                  \
                     message, strerror(errno), errno);                   \
+            ML::do_abort();                                             \
             throw exc_type(msg.c_str(), __PRETTY_FUNCTION__,            \
                     __FILE__, __LINE__);                                \
         }                                                               \
