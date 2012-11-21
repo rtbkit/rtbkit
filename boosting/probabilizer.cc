@@ -20,6 +20,7 @@
 #include <cmath>
 #include <fstream>
 #include "config_impl.h"
+#include "jml/utils/exc_assert.h"
 
 
 using namespace std;
@@ -641,10 +642,15 @@ namespace {
 struct Write_Output {
     boost::multi_array<double, 2> & outputs;
     int nl;
+    bool regression_problem;
 
-    Write_Output(boost::multi_array<double, 2> & outputs, int nl)
-        : outputs(outputs), nl(nl)
+    Write_Output(boost::multi_array<double, 2> & outputs, int nl,
+                 bool regression_problem)
+        : outputs(outputs), nl(nl), regression_problem(regression_problem)
     {
+        if (!regression_problem)
+            ExcAssertEqual(nl + 2, outputs.shape()[0]);
+        else ExcAssertEqual(nl, 1);
     }
 
     void operator () (int example, const float * vals)
@@ -652,15 +658,21 @@ struct Write_Output {
         //cerr << "writing output: example " << example << " vals[0] "
         //     << vals[0] << " nl " << nl << " sz " << outputs.shape()[0]
         //     << "x" << outputs.shape()[1] << endl;
-            
+        ExcAssertLess(example, outputs.shape()[1]);
 
-        float max_output = *vals;
-        for (unsigned l = 0;  l < nl;  ++l) {
-            outputs[l][example] = vals[l];
-            max_output = std::max(max_output, vals[l]);
+        if (!regression_problem) {
+            float max_output = *vals;
+            for (unsigned l = 0;  l < nl;  ++l) {
+                outputs[l][example] = vals[l];
+                max_output = std::max(max_output, vals[l]);
+            }
+            outputs[nl][example]     = max_output;  // maximum output
+            outputs[nl + 1][example] = 1.0;     // bias term
         }
-        outputs[nl][example]     = max_output;  // maximum output
-        outputs[nl + 1][example] = 1.0;     // bias term
+        else {
+            outputs[0][example] = *vals;
+            outputs[1][example] = 1.0;
+        }
     }
 };
 
@@ -713,31 +725,23 @@ train(const Training_Data & training_data,
 
     /* Go through the training examples one by one, and record the
        outputs. */
-    classifier.predict(training_data, Write_Output(outputs, nl), &opt_info);
+    classifier.predict(training_data,
+                       Write_Output(outputs, nl, regression_problem),
+                       &opt_info);
 
     //for (unsigned i = 0;  i < 10;  ++i)
     //    cerr << "outputs[" << 0 << "][" << i << "] = "
     //         << outputs[0][i] << endl;
     
     for (unsigned x = 0;  x < nx;  ++x) {
-        //distribution<float> output
-        //    = classifier.predict(training_data[x]);
-    
         if (regression_problem) {
-            throw Exception("regression problem broken now");
-            //outputs[0][x] = output[0];
-            //outputs[1][x] = 1.0;  // add bias term
             correct[0][x] = labels[x].value();
         }
         else {
             num_correct[labels[x]] += 1;
             for (unsigned l = 0;  l < nl;  ++l) {
-                //outputs[l][x] = output[l];
                 correct[l][x] = (float)(labels[x] == l);
             }
-            
-            //outputs[nl]  [x] = output.max();   // maximum output
-            //outputs[nl+1][x] = 1.0;            // add bias term
         }
     }
 
