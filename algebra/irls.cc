@@ -13,6 +13,7 @@
 #include "jml/utils/vector_utils.h"
 #include "jml/boosting/config_impl.h"
 #include "jml/arch/simd_vector.h"
+#include "jml/arch/timers.h"
 #include "multi_array_utils.h"
 #include "jml/boosting/config_impl.h"
 #include "jml/utils/string_functions.h"
@@ -351,6 +352,14 @@ perform_irls_impl(const distribution<Float> & correct,
     bool verify = false;
     //verify = true;
 
+    Timer timer;
+
+    auto doneTimer = [&] (const std::string & what)
+        {
+            cerr << "  finished " << what << ": " << timer.elapsed() << endl;
+            timer.restart();
+        };
+
     distribution<Float> svalues1
         (std::min(outputs.shape()[0], outputs.shape()[1]) + 1);
 
@@ -369,6 +378,7 @@ perform_irls_impl(const distribution<Float> & correct,
             throw Exception("error in SVD");
 
         cerr << "svalues1 = " << svalues1 << endl;
+        doneTimer("verify");
     }
     
     boost::multi_array<Float, 2> outputs3 = outputs;
@@ -385,6 +395,8 @@ perform_irls_impl(const distribution<Float> & correct,
                             &permutations[0],
                             &tau[0]);
     
+    doneTimer("geqp3");
+
     if (res != 0)
         throw Exception(format("geqp3: error in parameter %d", -res));
 
@@ -418,6 +430,8 @@ perform_irls_impl(const distribution<Float> & correct,
     double svreduced = svalues1[nkeep - 1];
 
     //cerr << "svreduced = " << svreduced << endl;
+
+    doneTimer("reduced");
 
     if (verify && svreduced < 0.001)
         throw Exception("not all linearly dependent columns were removed");
@@ -464,6 +478,8 @@ perform_irls_impl(const distribution<Float> & correct,
         }
     }
 
+    doneTimer("training");
+
     distribution<Float> parameters(nv);
     for (unsigned v = 0;  v < nv;  ++v)
         if (new_loc[v] != -1)
@@ -502,6 +518,8 @@ perform_irls_impl(const distribution<Float> & correct,
                                    outputs_reduced.data(),
                                    outputs_reduced.shape()[1], 
                                    &svalues_reduced[0], 0, 1, 0, 1);
+
+        doneTimer("gesdd");
 
         //cerr << "model = " << model << endl;
         cerr << "trained = " << trained << endl;
