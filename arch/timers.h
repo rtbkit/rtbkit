@@ -43,14 +43,18 @@ inline double wall_time()
 struct Timer {
     double wall_, cpu_;
     unsigned long long ticks_;
-    
-    Timer()
+    bool enabled;
+
+    Timer(bool enable = true)
+        : enabled(enable)
     {
         restart();
     }
     
     void restart()
     {
+        if (!enabled)
+            return;
         wall_ = wall_time();
         cpu_ = cpu_time();
         ticks_ = ticks();
@@ -58,6 +62,8 @@ struct Timer {
 
     std::string elapsed() const
     {
+        if (!enabled)
+            return "disabled";
         return format("elapsed: [%.2fs cpu, %.4f mticks, %.2fs wall]",
                       cpu_time() - cpu_,
                       (ticks() - ticks_) / 1000000.0,

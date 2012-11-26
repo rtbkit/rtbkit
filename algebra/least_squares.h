@@ -16,10 +16,12 @@
 #include "jml/algebra/matrix_ops.h"
 #include "svd.h"
 #include <boost/timer.hpp>
+#include "jml/arch/timers.h"
 #include "lapack.h"
 #include <cmath>
 #include "jml/utils/string_functions.h"
 #include "jml/arch/simd_vector.h"
+#include "jml/utils/worker_task.h"
 
 
 namespace ML {
@@ -236,7 +238,8 @@ template<class Float>
 boost::multi_array<Float, 2>
 diag_mult(const boost::multi_array<Float, 2> & U,
           const distribution<Float> & d,
-          const boost::multi_array<Float, 2> & V)
+          const boost::multi_array<Float, 2> & V,
+          bool parallel)
 {
     size_t m = U.shape()[0], n = V.shape()[1], x = d.size();
 
@@ -245,17 +248,20 @@ diag_mult(const boost::multi_array<Float, 2> & U,
     if (U.shape()[1] != x || V.shape()[0] != x)
         throw Exception("diag_mult(): wrong shape");
 
-    Float Vj_values[x];
-    for (unsigned j = 0;  j < n;  ++j) {
-        for (unsigned k = 0;  k < x;  ++k)
-            Vj_values[k] = V[k][j];
-        for (unsigned i = 0;  i < m;  ++i) {
-            result[i][j] = SIMD::vec_accum_prod3(&U[i][0], &d[0], Vj_values, x);
-            //for (unsigned k = 0;  k < x;  ++k)
-            //    result[i][j] += U[i][k] * d[k] * Vj_values[k];
-        }
-    }
+    auto doColumn = [&] (int j)
+        {
+            Float Vj_values[x];
+            for (unsigned k = 0;  k < x;  ++k)
+                Vj_values[k] = V[k][j];
+            for (unsigned i = 0;  i < m;  ++i) {
+                result[i][j] = SIMD::vec_accum_prod3(&U[i][0], &d[0], Vj_values, x);
+            }
+        };
 
+    if (parallel)
+        run_in_parallel_blocked(0, n, doColumn);
+    else for (unsigned j = 0;  j < n;  ++j) doColumn(j);
+    
     return result;
 }
 
@@ -287,11 +293,21 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
 
     //cerr << "b = " << b << endl;
     //cerr << "A = " << A << endl;
-    //boost::timer t;
+
+    bool debug = false;
+    //debug = true;
+
+    Timer t(debug);
+
+    auto doneStep = [&] (const std::string & where)
+        {
+            if (!debug)
+                return;
+            cerr << where << ": " << t.elapsed() << endl;
+            t.restart();
+        };
 
     // Step 1: SVD
-
-    using namespace std;
 
     if (A.shape()[0] != b.size())
         throw Exception("incompatible dimensions for least_squares");
@@ -308,8 +324,6 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
     // The matrix to decompose is square
     boost::multi_array<Float, 2> GK(boost::extents[minmn][minmn]);
 
-    bool debug = false;
-    //debug = true;
     
     //cerr << "m = " << m << " n = " << n << endl;
 
@@ -331,6 +345,8 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
                 for (unsigned j2 = 0;  j2 < n;  ++j2)
                     GK[j1][j2] += A[i][j1] * A[i][j2];
     }
+
+    doneStep("    square");
 
     if (debug)
         cerr << "GK = " << endl << GK << endl;
@@ -357,6 +373,8 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
                                &VT[0][0], minmn,
                                &U[0][0], minmn);
 
+    doneStep("    gesdd");
+
     if (result != 0)
         throw Exception("gesdd returned non-zero");
 
@@ -378,121 +396,171 @@ ridge_regression(const boost::multi_array<Float, 2> & A,
         //cerr << "errors = " << endl << (GK_test - GK) << endl;
     }
 
-    distribution<Float> x_best;
-
     // Figure out the optimal value of lambda based upon leave-one-out cross
     // validation
 
     double current_lambda = 10.0;
-    //double best_lambda = -1000;
-    double best_error = 1000000;
+
+    struct Iteration {
+        double lambda;
+        double total_mse_unbiased;
+        distribution<Float> x;
+    };
+
+    vector<Iteration> iterations;
 
     for (unsigned i = 0; current_lambda >= 1e-14;  ++i, current_lambda /= 10.0) {
-        //cerr << "i = " << i << " current_lambda = " << current_lambda << endl;
-        // Adjust the singular values for the new lambda
-        distribution<Float> my_singular = singular_values;
-        my_singular += (current_lambda - lambda);
+        Iteration iter;
+        iter.lambda = current_lambda;
+        iterations.push_back(iter);
+    };
 
-        //boost::multi_array<Float, 2> GK_pinv
-        //    = U * diag((Float)1.0 / my_singular) * VT;
-
-        boost::multi_array<Float, 2> GK_pinv
-            = diag_mult(U, (Float)1.0 / my_singular, VT);
-
-        // TODO: reduce GK by removing those basis vectors where the singular
-        // values are too close to lambda
+    auto doIter = [&] (int i)
+        {
+            double current_lambda = iterations[i].lambda;
+            
+            Timer t(debug);
         
-        if (debug && false) {
-            cerr << "GK_pinv = " << endl << GK_pinv
-                 << endl;
-            cerr << "prod = " << endl << (GK * GK_pinv * GK) << endl;
-            cerr << "prod2 = " << endl << (GK_pinv * GK * GK) << endl;
-        }
+            auto doneStep = [&] (const std::string & where)
+            {
+                if (!debug)
+                    return;
+                cerr << "      " << where << ": " << t.elapsed() << endl;
+                t.restart();
+            };
 
-        distribution<Float> x;
+            //cerr << "i = " << i << " current_lambda = " << current_lambda << endl;
+            // Adjust the singular values for the new lambda
+            distribution<Float> my_singular = singular_values;
+            my_singular += (current_lambda - lambda);
 
-        boost::multi_array<Float, 2> A_pinv
+            //boost::multi_array<Float, 2> GK_pinv
+            //    = U * diag((Float)1.0 / my_singular) * VT;
+
+            boost::multi_array<Float, 2> GK_pinv
+            = diag_mult(U, (Float)1.0 / my_singular, VT, false /* parallel */);
+
+            doneStep("diag_mult");
+
+            // TODO: reduce GK by removing those basis vectors where the singular
+            // values are too close to lambda
+        
+            if (debug && false) {
+                cerr << "GK_pinv = " << endl << GK_pinv
+                     << endl;
+                cerr << "prod = " << endl << (GK * GK_pinv * GK) << endl;
+                cerr << "prod2 = " << endl << (GK_pinv * GK * GK) << endl;
+            }
+
+            distribution<Float> & x = iterations[i].x;
+
+            boost::multi_array<Float, 2> A_pinv
             = (m < n ? GK_pinv * A : A * GK_pinv);
 
-        if (debug && false)
-            cerr << "A_pinv = " << endl << A_pinv << endl;
+            doneStep("A_pinv");
 
-        x = b * A_pinv;
+            if (debug && false)
+                cerr << "A_pinv = " << endl << A_pinv << endl;
+
+            x = b * A_pinv;
         
-        if (debug)
-            cerr << "x = " << x << endl;
+            if (debug)
+                cerr << "x = " << x << endl;
 
-        distribution<Float> predictions = A * x;
+            distribution<Float> predictions = A * x;
 
-        //cerr << "A: " << A.shape()[0] << "x" << A.shape()[1] << endl;
-        //cerr << "A_pinv: " << A_pinv.shape()[0] << "x" << A_pinv.shape()[1]
-        //     << endl;
+            //cerr << "A: " << A.shape()[0] << "x" << A.shape()[1] << endl;
+            //cerr << "A_pinv: " << A_pinv.shape()[0] << "x" << A_pinv.shape()[1]
+            //     << endl;
 
-        //boost::multi_array<Float, 2> A_A_pinv
-        //    = A * transpose(A_pinv);
+            //boost::multi_array<Float, 2> A_A_pinv
+            //    = A * transpose(A_pinv);
+
+            doneStep("predictions");
 
 #if 0
-        boost::multi_array<Float, 2> A_A_pinv
+            boost::multi_array<Float, 2> A_A_pinv
             = multiply_transposed(A, A_pinv);
 
-        cerr << "A_A_pinv: " << A_A_pinv.shape()[0] << "x"
-             << A_A_pinv.shape()[1] << " m = " << m << endl;
+            cerr << "A_A_pinv: " << A_A_pinv.shape()[0] << "x"
+            << A_A_pinv.shape()[1] << " m = " << m << endl;
 
-        if (debug && false)
-            cerr << "A_A_pinv = " << endl << A_A_pinv << endl;
+            if (debug && false)
+                cerr << "A_A_pinv = " << endl << A_A_pinv << endl;
 #else
-        // We only need the diagonal of A * A_pinv
+            // We only need the diagonal of A * A_pinv
 
-        distribution<Float> A_A_pinv_diag(m);
-        for (unsigned j = 0;  j < m;  ++j)
-            A_A_pinv_diag[j] = SIMD::vec_dotprod_dp(&A[j][0], &A_pinv[j][0], n);
+            distribution<Float> A_A_pinv_diag(m);
+            for (unsigned j = 0;  j < m;  ++j)
+                A_A_pinv_diag[j] = SIMD::vec_dotprod_dp(&A[j][0], &A_pinv[j][0], n);
 #endif
 
-        // Now figure out the performance
-        double total_mse_biased = 0.0, total_mse_unbiased = 0.0;
-        for (unsigned j = 0;  j < m;  ++j) {
+            doneStep("A_A_pinv");
 
-            if (j < 10 && false)
-                cerr << "j = " << j << " b[j] = " << b[j]
-                     << " predictions[j] = " << predictions[j]
-                     << endl;
+            // Now figure out the performance
+            double total_mse_biased = 0.0, total_mse_unbiased = 0.0;
+            for (unsigned j = 0;  j < m;  ++j) {
 
-            double resid = b[j] - predictions[j];
+                if (j < 10 && false)
+                    cerr << "j = " << j << " b[j] = " << b[j]
+                         << " predictions[j] = " << predictions[j]
+                         << endl;
 
-            // Adjust for the bias cause by training on this example.  This is
-            // A * pinv(A), which is A * 
+                double resid = b[j] - predictions[j];
 
-            double factor = 1.0 - A_A_pinv_diag[j];
+                // Adjust for the bias cause by training on this example.  This is
+                // A * pinv(A), which is A * 
 
-            double resid_unbiased = resid / factor;
+                double factor = 1.0 - A_A_pinv_diag[j];
 
-            total_mse_biased += (1.0 / m) * resid * resid;
-            total_mse_unbiased += (1.0 / m) * resid_unbiased * resid_unbiased;
-        }
+                double resid_unbiased = resid / factor;
 
-        //cerr << "lambda " << current_lambda
-        //     << " rmse_biased = " << sqrt(total_mse_biased)
-        //     << " rmse_unbiased = " << sqrt(total_mse_unbiased)
-        //     << endl;
+                total_mse_biased += (1.0 / m) * resid * resid;
+                total_mse_unbiased += (1.0 / m) * resid_unbiased * resid_unbiased;
+            }
 
-        //if (sqrt(total_mse_biased) > 1.0) {
-        //    cerr << "rmse_biased: x = " << x << endl;
-        //}
+            doneStep("mse");
+
+            //cerr << "lambda " << current_lambda
+            //     << " rmse_biased = " << sqrt(total_mse_biased)
+            //     << " rmse_unbiased = " << sqrt(total_mse_unbiased)
+            //     << endl;
+
+            //if (sqrt(total_mse_biased) > 1.0) {
+            //    cerr << "rmse_biased: x = " << x << endl;
+            //}
         
 #if 0
-        cerr << "m = " << m << endl;
-        cerr << "total_mse_biased   = " << total_mse_biased << endl;
-        cerr << "total_mse_unbiased = " << total_mse_unbiased << endl;
-        cerr << "best_error = " << best_error << endl;
-        cerr << "x = " << x << endl;
+            cerr << "m = " << m << endl;
+            cerr << "total_mse_biased   = " << total_mse_biased << endl;
+            cerr << "total_mse_unbiased = " << total_mse_unbiased << endl;
+            cerr << "best_error = " << best_error << endl;
+            cerr << "x = " << x << endl;
 #endif
+            iterations[i].total_mse_unbiased = total_mse_unbiased;
 
-        if (total_mse_unbiased < best_error || i == 0) {
-            x_best = x;
+        };
+
+    run_in_parallel(0, iterations.size(), doIter);
+
+    //double best_lambda = -1000;
+    double best_error = 1000000;
+    distribution<Float> x_best;
+
+
+    for (unsigned i = 0;  i < iterations.size();  ++i) {
+
+        if (iterations[i].total_mse_unbiased < best_error || i == 0) {
+            x_best = iterations[i].x;
             //best_lambda = current_lambda;
-            best_error = total_mse_unbiased;
+            best_error = iterations[i].total_mse_unbiased;
         }
     }
+
+
+
+
+    doneStep("    lambda");
 
     //cerr << "total: " << t.elapsed() << endl;
 
@@ -536,26 +604,48 @@ diag_mult(const boost::multi_array<Float, 2> & XT,
 
     boost::multi_array<Float, 2> result(boost::extents[nv][nv]);
 
-    int chunk_size = 2048;  // ensure we fit in the cache
-    distribution<Float> Xid(chunk_size);
+    if (false) {
+        int chunk_size = 2048;  // ensure we fit in the cache
+        distribution<Float> Xid(chunk_size);
 
-    int x = 0;
-    while (x < nx) {
-        int nxc = std::min<size_t>(chunk_size, nx - x);
+        int x = 0;
+        while (x < nx) {
+            int nxc = std::min<size_t>(chunk_size, nx - x);
 
-        for (unsigned i = 0;  i < nv;  ++i) {
-            SIMD::vec_prod(&XT[i][x], &d[x], &Xid[0], nxc);
+            for (unsigned i = 0;  i < nv;  ++i) {
+                SIMD::vec_prod(&XT[i][x], &d[x], &Xid[0], nxc);
             
-            for (unsigned j = 0;  j < nv;  ++j) {
-                result[i][j] += SIMD::vec_dotprod_dp(&XT[j][x], &Xid[0], nxc);
-                //result[i][j] += SIMD::vec_accum_prod3(&XT[i][x], &XT[j][x],
-                //                                      &d[x], nxc);
-                //for (unsigned x = 0;  x < nx;  ++x)
-                //result[i][j] += XT[i][x] * XT[j][x] * d[x];
+                for (unsigned j = 0;  j < nv;  ++j) {
+                    result[i][j] += SIMD::vec_dotprod_dp(&XT[j][x], &Xid[0], nxc);
+                    //result[i][j] += SIMD::vec_accum_prod3(&XT[i][x], &XT[j][x],
+                    //                                      &d[x], nxc);
+                    //for (unsigned x = 0;  x < nx;  ++x)
+                    //result[i][j] += XT[i][x] * XT[j][x] * d[x];
+                }
             }
-        }
 
-        x += nxc;
+            x += nxc;
+        }
+    } else {
+        auto doRow = [&] (int i)
+            {
+                int chunk_size = 2048;  // ensure we fit in the cache
+
+                int x = 0;
+                while (x < nx) {
+                    int nxc = std::min<size_t>(chunk_size, nx - x);
+                    distribution<Float> Xid(chunk_size);
+                    SIMD::vec_prod(&XT[i][x], &d[x], &Xid[0], nxc);
+            
+                    for (unsigned j = 0;  j < nv;  ++j) {
+                        result[i][j] += SIMD::vec_dotprod_dp(&XT[j][x], &Xid[0], nxc);
+                    }
+
+                    x += nxc;
+                }
+            };
+        
+        run_in_parallel_blocked(0, nv, doRow);
     }
 
     return result;
@@ -631,6 +721,8 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 {
     using namespace std;
 
+    bool debug = false;
+
     typedef distribution<Float> Vector;
     typedef boost::multi_array<Float, 2> Matrix;
 
@@ -657,13 +749,21 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         if (!std::isfinite(mu[i]))
             throw Exception(format("mu[%d] = %f", i, mu[i]));
 
-    //boost::timer t;
+    Timer t(debug);
     
+    auto doneStep = [&] (const std::string & step)
+        {
+            if (!debug)
+                return;
+            cerr << "  " << step << ": " << t.elapsed();
+            t.restart();
+        };
+
     /* Note: look in the irls.m function of GLMlab to see what we are trying
        to do here.  This is essentially a C++ reimplementation of that
        function.  I don't really know what it is doing. */
     while (abs(rdev - rdev2) > tolerence && iter < max_iter) {
-        //cerr << "iter " << iter << ": " << t.elapsed() << endl;
+        Timer t(debug);
 
         /* Find the new weights for this iteration. */
         Vector deta_dmu    = link.diff(mu);
@@ -674,7 +774,7 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         //if (debug_irls)
         //    (*debug_irls) << "deta_demu: " << deta_dmu << endl;
 
-        //cerr << "diff: " << t.elapsed() << endl;
+        doneStep("diff");
 
         Vector var         = dist.variance(mu);
         for (unsigned i = 0;  i < var.size();  ++i)
@@ -684,7 +784,7 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         //if (debug_irls)
         //    (*debug_irls) << "var: " << deta_dmu << endl;
 
-        //cerr << "variance: " << t.elapsed() << endl;
+        doneStep("variance");
 
         Vector fit_weights = weights / (deta_dmu * deta_dmu * var);
         for (unsigned i = 0;  i < fit_weights.size();  ++i) {
@@ -699,18 +799,17 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 
         //if (debug_irls)
         //    (*debug_irls) << "fit_weights: " << fit_weights << endl;
-
-        //cerr << "fit_weights: " << t.elapsed() << endl;
-
+        
+        doneStep("fit_weights");
+        
         //cerr << "fit_weights = " << fit_weights << endl;
 
         /* Set up the reweighted least squares problem. */
         Vector z           = eta - offset + (y - mu) * deta_dmu;
-        //cerr << "z: " << t.elapsed() << endl;
         Matrix xTwx        = diag_mult(x, fit_weights);
-        //cerr << "xTwx: " << t.elapsed() << endl;
+        doneStep("xTwx");
         Vector xTwz        = diag_mult(x, fit_weights, z);
-        //cerr << "xTwz: " << t.elapsed() << endl;
+        doneStep("xTwz");
 
         //if (debug_irls)
         //    (*debug_irls) << "z: " << z << endl
@@ -724,7 +823,7 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         //if (debug_irls)
         //    (*debug_irls) << "b: " << b << endl;
 
-        //cerr << "least squares: " << t.elapsed() << endl;
+        doneStep("least squares");
 
         /* Re-estimate eta and mu based on refined estimate. */
         //cerr << "b.size() = " << b.size() << endl;
@@ -740,7 +839,7 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         //if (debug_irls)
         //    (*debug_irls) << "eta: " << eta << endl;
 
-        //cerr << "eta: " << t.elapsed() << endl;
+        doneStep("eta");
 
         mu                 = link.inverse(eta);
         for (unsigned i = 0;  i < mu.size();  ++i)
@@ -750,16 +849,19 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         //if (debug_irls)
         //    (*debug_irls) << "me: " << mu << endl;
 
-        //cerr << "mu: " << t.elapsed() << endl;
+        doneStep("mu");
 
         /* Recalculate the residual deviance, and save the last one to check
            for convergence. */
         rdev2              = rdev;
         rdev               = dist.deviance(y, mu, weights);
 
-        //cerr << "deviance: " << t.elapsed() << endl;
+        doneStep("deviance");
 
         ++iter;
+
+        if (debug)
+            cerr << "iter " << iter << ": " << t.elapsed() << endl;
 
         //if (debug_irls) {
         //    *debug_irls << "iter " << iter << " rdev " << rdev
