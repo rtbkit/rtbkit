@@ -263,6 +263,22 @@ public:
         save_binary(&val, sizeof(T));
     }
 
+    // Anything with a serialize() method gets to be serialized
+    template<typename T>
+    void save(const T & obj,
+         decltype(((T *)0)->serialize(*(portable_bin_oarchive *)0)) * = 0)
+    {
+        obj.serialize(*this);
+    }
+
+#if 0
+    template<typename T>
+    void save(const T & obj)
+    {
+        obj.serialize(*this);
+    }
+#endif
+
     size_t offset() const { return offset_; }
 
 private:

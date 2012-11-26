@@ -333,6 +333,22 @@ public:
                   reinterpret_cast<char *>(address));
         skip(size);
     }
+
+    // Anything with a serialize() method gets to be serialized
+    template<typename T>
+    void load(T & obj,
+         decltype(((T *)0)->reconstitute(*(portable_bin_iarchive *)0)) * = 0)
+    {
+        obj.reconstitute(*this);
+    }
+
+#if 0
+    template<typename T>
+    void load(T & obj)
+    {
+        obj.reconstitute(*this);
+    }
+#endif
 };
 
 } // namespace DB
