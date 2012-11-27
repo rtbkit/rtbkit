@@ -13,7 +13,7 @@ LIBALGEBRA_SOURCES := \
 
 $(eval $(call add_sources,$(LIBALGEBRA_SOURCES)))
 
-LIBALGEBRA_LINK :=	utils lapack blas gfortran db lapack_detect ACE
+LIBALGEBRA_LINK :=	utils lapack blas gfortran db lapack_detect ACE worker_task
 
 $(eval $(call library,algebra,$(LIBALGEBRA_SOURCES),$(LIBALGEBRA_LINK)))
 
