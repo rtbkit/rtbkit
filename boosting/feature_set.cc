@@ -237,6 +237,7 @@ std::string expect_feature_name(Parse_Context & c)
             else { result += *c;  after_backslash = false; }
             ++c;
         }
+        c.expect_literal('"', "expected closing quotation mark ('\"')");
     }
     else {
         /* We have a backslash escaped name. */
