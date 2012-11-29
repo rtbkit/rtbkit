@@ -83,6 +83,26 @@ boost::shared_ptr<T> make_sp(const std::shared_ptr<T> & val)
     return boost::shared_ptr<T>(val.get(), Keep_Ref<T>(val));
 }
 
+template<typename T>
+struct Keep_RefB {
+    Keep_RefB(const boost::shared_ptr<T> & p)
+        : ref(p)
+    {
+    }
+
+    boost::shared_ptr<T> ref;
+
+    template<class X> void operator () (const X & x) const
+    {
+    }
+};
+
+template<class T>
+std::shared_ptr<T> make_std_sp(const boost::shared_ptr<T> & val)
+{
+    return std::shared_ptr<T>(val.get(), Keep_RefB<T>(val));
+}
+
 } // namespace ML
 
 #endif /* __utils__smart_ptr_utils_h__ */
