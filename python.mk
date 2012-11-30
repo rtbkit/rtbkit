@@ -108,7 +108,7 @@ $$(if $(trace),$$(warning called python_module "$(1)" "$(2)" "$(3)" "$(4)"))
 
 $$(foreach file,$(2),$$(eval $$(call install_python_file,$$(file),$(1))))
 
-PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(BIN)/$(1)/$$(file)) $$(foreach pymod,$(3),$(BIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS)) 
+PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(BIN)/$(1)/$$(file)) $$(foreach pymod,$(3),$(BIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS)) $$(foreach lib,$(4),$$(LIB_$$(lib)_DEPS)) 
 
 #$$(w arning PYTHON_$(1)_DEPS=$$(PYTHON_$(1)_DEPS))
 
