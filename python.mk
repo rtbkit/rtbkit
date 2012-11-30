@@ -63,7 +63,7 @@ $$(if $(trace),$$(warning called python_test "$(1)" "$(2)" "$(3)" "$(4)"))
 
 TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && PYTHONPATH=$(PYTHONPATH):$(BIN) $(PYTHON) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && false))
 
-$(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(BIN)/pymod_$$(pymod))
+$(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(BIN)/$$(pymod)_pymod)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
 	@$$(TEST_$(1)_COMMAND)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
@@ -99,20 +99,21 @@ endef
 
 # $(1): name of python module
 # $(2): list of python source files to copy
-# $(3): libraries it depends upon
+# $(3): python modules it depends upon
+# $(4): libraries it depends upon
 
 define python_module
 ifneq ($(PREMAKE),1)
-$$(if $(trace),$$(warning called python_module "$(1)" "$(2)" "$(3)"))
+$$(if $(trace),$$(warning called python_module "$(1)" "$(2)" "$(3)" "$(4)"))
 
 $$(foreach file,$(2),$$(eval $$(call install_python_file,$$(file),$(1))))
 
-PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(BIN)/$(1)/$$(file)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
+PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(BIN)/$(1)/$$(file)) $$(foreach pymod,$(3),$(BIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS)) 
 
 #$$(w arning PYTHON_$(1)_DEPS=$$(PYTHON_$(1)_DEPS))
 
-$(BIN)/pymod_$(1): $$(PYTHON_$(1)_DEPS)
-	@touch $(BIN)/pymod_$(1)
+$(BIN)/$(1)_pymod: $$(PYTHON_$(1)_DEPS)
+	@touch $(BIN)/$(1)_pymod
 
 python_modules: $$(PYTHON_$(1)_DEPS)
 
@@ -133,7 +134,7 @@ PYTHON_$(1)_DEPS := $(BIN)/$(1) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 run_$(1):	$(BIN)/$(1)
 	$(PYTHON) $(BIN)/$(1)  $($(1)_ARGS)
 
-$(BIN)/$(1): $(CWD)/$(2) $(BIN)/.dir_exists $$(foreach pymod,$(3),$(BIN)/pymod_$$(pymod)) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
+$(BIN)/$(1): $(CWD)/$(2) $(BIN)/.dir_exists $$(foreach pymod,$(3),$(BIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"
 	@cp $$< $$@~
 	@chmod +x $$@~
