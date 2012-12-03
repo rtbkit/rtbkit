@@ -68,7 +68,7 @@ $(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$
 	@$$(TEST_$(1)_COMMAND)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
 
-$(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS))
+$(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(BIN)/$$(pymod)_pymod)
 	PYTHONPATH=$(PYTHONPATH):$(BIN) $(PYTHON) $(CWD)/$(1).py
 
 .PHONY: $(1)
@@ -148,6 +148,24 @@ python_programs: $$(PYTHON_$(1)_DEPS)
 
 all compile:	python_programs
 endif
+endef
+
+# add a python addon
+# $(1): name of the addon
+# $(2): source files to include in the addon
+# $(3): libraries to link with
+
+define python_addon
+$$(eval $$(call set_compile_option,$(2),-I$$(PYTHON_INCLUDE_PATH)))
+$$(eval $$(call library,$(1),$(2),$(3) boost_python,$(1),,"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
+
+ifneq ($(PREMAKE),1)
+
+$(BIN)/$(1)_pymod: $(BIN)/$(1).so
+	@touch $(BIN)/$(1)_pymod
+
+endif
+
 endef
 
 
