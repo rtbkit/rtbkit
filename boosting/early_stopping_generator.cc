@@ -107,7 +107,7 @@ generate(Thread_Context & context,
         = not_training * example_weights * ex_weights;
 
     if (validate_weights.total() == 0.0)
-        throw Exception("validte weights were empty");
+        throw Exception("validate weights were empty");
 
     validate_weights.normalize();
 
