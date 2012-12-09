@@ -109,6 +109,31 @@ T shrd(T low, T high, shift_t bits)
 
 #endif // JML_INTEL_ISA
 
+
+#if defined( JML_INTEL_ISA ) && ! defined(JML_COMPILER_NVCC) && false
+
+/** Mask off the highest bits of the results, leaving n bits. */
+
+template<typename T>
+JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+T maskLower(T val, shift_t bits)
+{
+    // use SHL instruction
+}
+
+#else
+
+template<typename T>
+JML_ALWAYS_INLINE JML_COMPUTE_METHOD
+T maskLower(T val, shift_t bits)
+{
+    T full = bits < sizeof(T) * 8;
+    T mask = ((full << bits) - 1);
+    return val & mask;
+}
+
+#endif
+
 /** Extract the bits from bit to bit+numBits starting at the pointed to
     address.  There can be a maximum of one word extracted in this way.
 
@@ -146,11 +171,7 @@ template<typename Data>
 JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
 Data extract_bit_range(Data p0, Data p1, size_t bit, shift_t bits)
 {
-    if (JML_UNLIKELY(bits == 0)) return 0;
-
-    Data result = shrd(p0, p1, bit); // extract
-    if (bits == sizeof(Data) * 8) return result;
-    return result & ((Data(1) << bits) - 1); // mask
+    return maskLower(shrd(p0, p1, bit), bits); // extract and mask
 }
 
 /** Set the given range of bits in out to the given value.  Note that val
@@ -344,6 +365,20 @@ struct Bit_Buffer {
         return result;
     }
 
+    /** Extracts bits starting from the least-significant bits of the buffer.
+        The caller guarantees that:
+        1.  The word after the last word in the buffer can be safely read;
+        2.  Bits is not zero.
+
+        This allows further optimizations to be made.
+    */
+    Data extractFast(int bits)
+    {
+        Data result = extract_bit_range(data.curr(), data.next(), bit_ofs, bits);
+        advance(bits);
+        return result;
+    }
+
     /// Extracts bits starting from the most-significant bits of the buffer.
     Data rextract(int bits)
     {
@@ -433,9 +468,23 @@ struct Bit_Extractor {
 
     template<typename T>
     JML_COMPUTE_METHOD
+    T extractFast(int num_bits)
+    {
+        return buf.extractFast(num_bits);
+    }
+
+    template<typename T>
+    JML_COMPUTE_METHOD
     void extract(T & where, int num_bits)
     {
         where = buf.extract(num_bits);
+    }
+
+    template<typename T>
+    JML_COMPUTE_METHOD
+    void extractFast(T & where, int num_bits)
+    {
+        where = buf.extractFast(num_bits);
     }
 
     template<typename T1, typename T2>
