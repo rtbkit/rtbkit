@@ -310,7 +310,7 @@ $(1): $(BIN)/$(1)
 .PHONY:	$(1)
 
 run_$(1): $(BIN)/$(1)
-	$(BIN)/$(1) $($(1)_ARGS)
+	$(PREARGS) $(BIN)/$(1) $($(1)_ARGS) $(ARGS)
 
 endif
 endef
