@@ -12,6 +12,7 @@
 #include "jml/utils/filter_streams.h"
 #include "jml/utils/compact_vector.h"
 #include "jml/arch/exception.h"
+#include "jml/arch/exception_handler.h"
 #include "jml/arch/arch.h"
 
 #include <boost/test/unit_test.hpp>
@@ -155,7 +156,10 @@ void check_basic_ops_type(Vector & vec)
     BOOST_CHECK_EQUAL(vec.front(), 1);
     BOOST_CHECK_EQUAL(vec.back(), 4);
 
-    BOOST_CHECK_THROW(vec.at(4), std::exception);
+    {
+        Set_Trace_Exceptions guard(false);
+        BOOST_CHECK_THROW(vec.at(4), std::exception);
+    }
 
     vec.pop_back();
     BOOST_CHECK_EQUAL(vec.size(), 3);
@@ -232,7 +236,8 @@ void check_insert_erase_type(Vector & vec)
     v2.push_back(9);
     v2.push_back(10);
 
-    vec.insert(vec.begin(), v1.begin(), v1.end());
+    auto it1 = vec.insert(vec.begin(), v1.begin(), v1.end());
+    BOOST_CHECK(it1 == vec.begin());
 
     BOOST_CHECK_EQUAL_COLLECTIONS(vec.begin(), vec.end(), v1.begin(), v1.end());
 
@@ -241,8 +246,11 @@ void check_insert_erase_type(Vector & vec)
     BOOST_CHECK_EQUAL(vec.size(), 0);
     BOOST_CHECK(vec.begin() == vec.end());
 
-    vec.insert(vec.begin(), v1.begin(), v1.end());
-    vec.insert(vec.end(),   v2.begin(), v2.end());
+    auto it2 = vec.insert(vec.begin(), v1.begin(), v1.end());
+    BOOST_CHECK(it2 == vec.begin());
+
+    auto it3 = vec.insert(vec.end(),   v2.begin(), v2.end());
+    BOOST_CHECK(it3 == vec.begin() + v1.size());
 
     BOOST_CHECK_EQUAL_COLLECTIONS(vec.begin(), vec.begin() + 5,
                                   v1.begin(), v1.end());
@@ -258,7 +266,8 @@ void check_insert_erase_type(Vector & vec)
 
     //cerr << "vec 2 = " << vec << endl;
 
-    vec.insert(vec.begin() + 2, v2.begin(), v2.end());
+    auto it4 = vec.insert(vec.begin() + 2, v2.begin(), v2.end());
+    BOOST_CHECK(it4 == vec.begin() + 2);
 
     //cerr << "vec 3 = " << vec << endl;
 

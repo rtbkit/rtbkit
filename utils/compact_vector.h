@@ -284,7 +284,7 @@ public:
         // copy the new elements
         std::copy(f, l, result);
 
-        return result + nelements;
+        return result;
     }
 
     iterator insert(iterator pos, size_type n, const Data & x)
@@ -293,7 +293,7 @@ public:
 
         std::fill(result, result + n, x);
         
-        return result + n;
+        return result;
     }
 
     iterator erase(iterator pos)
