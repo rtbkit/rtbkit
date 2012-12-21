@@ -322,7 +322,7 @@ class Parser:
                 self.graph.add_edge(addon, lib + Ext.SO)
 
         if len(params) > 3:
-            for libjs in params[2]:
+            for libjs in params[3]:
                 self.graph.add_edge(addon, libjs + Ext.NODEJS)
 
         return line
