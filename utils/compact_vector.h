@@ -23,6 +23,8 @@
 #include <ostream>
 #include <iterator>
 #include <algorithm>
+#include <utility>
+#include <initializer_list>
 #include <stdint.h>
 
 namespace ML {
@@ -61,7 +63,13 @@ public:
                    ForwardIterator last)
         : size_(0), is_internal_(true)
     {
-        init(first, last, std::distance(first, last));
+        init_copy(first, last, std::distance(first, last));
+    }
+
+    compact_vector(std::initializer_list<Data> list)
+        : size_(0), is_internal_(true)
+    {
+        init_copy(list.begin(), list.end(), list.size());
     }
 
     compact_vector(size_t initialSize, const Data & element = Data())
@@ -78,7 +86,7 @@ public:
     compact_vector(const compact_vector & other)
         : size_(0), is_internal_(true)
     {
-        init(other.begin(), other.end(), other.size());
+        init_copy(other.begin(), other.end(), other.size());
     }
 
     compact_vector(compact_vector && other)
@@ -207,7 +215,9 @@ public:
         size_t to_alloc = std::max<size_t>(capacity() * 2, new_capacity);
         to_alloc = std::min<size_t>(to_alloc, max_size());
 
-        compact_vector new_me(begin(), end(), to_alloc);
+        compact_vector new_me;
+        // new_me.init_move(begin(), end(), to_alloc);
+        new_me.init_copy(begin(), end(), to_alloc);
         swap(new_me);
     }
 
@@ -228,8 +238,9 @@ public:
         // contract
         if  (!is_internal() && new_size <= Internal) {
             // Need to convert to internal representation
-            compact_vector new_me(begin(), begin() + new_size,
-                                  new_size);
+            compact_vector new_me;
+            // new_me.init_move((begin(), begin() + new_size, new_size);
+            new_me.init_copy(begin(), begin() + new_size, new_size);
             
             swap(new_me);
             return;
@@ -240,14 +251,25 @@ public:
             --size_;
         }
     }
-    
-    void push_back(const Data & d)
+
+    template<typename... Args>
+    void emplace_back(Args&&... args)
     {
         if (size_ >= capacity())
             reserve(size_ * 2);
 
-        new (data() + size_) Data(d);
+        new (data() + size_) Data(std::forward<Args>(args)...);
         ++size_;
+    }
+
+    void push_back(Data&& d)
+    {
+        emplace_back(std::move(d));
+    }
+
+    void push_back(const Data & d)
+    {
+        emplace_back(d);
     }
 
     void pop_back()
@@ -268,9 +290,9 @@ public:
         --size_;
     }
 
-    iterator insert(iterator pos, const Data & x)
+    iterator insert(iterator pos, std::initializer_list<Data> list)
     {
-        return insert(pos, 1, x);
+        return insert(pos, list.begin(), list.end());
     }
 
     template <class ForwardIterator>
@@ -284,7 +306,12 @@ public:
         // copy the new elements
         std::copy(f, l, result);
 
-        return result + nelements;
+        return result;
+    }
+
+    iterator insert(iterator pos, const Data & x)
+    {
+        return insert(pos, 1, x);
     }
 
     iterator insert(iterator pos, size_type n, const Data & x)
@@ -293,7 +320,17 @@ public:
 
         std::fill(result, result + n, x);
         
-        return result + n;
+        return result;
+    }
+
+    template<typename... Args>
+    iterator emplace(iterator pos, Args&&... args)
+    {
+        iterator result = start_insert(pos, 1);
+
+        *result = Data(std::forward<Data>(args)...);
+
+        return result;
     }
 
     iterator erase(iterator pos)
@@ -321,7 +358,9 @@ public:
         if (!is_internal() && new_size <= Internal) {
             /* If we become small enough to be internal, then we need to copy
                to avoid becoming smaller */
-            compact_vector new_me(begin(), first, new_size);
+            compact_vector new_me;
+            // new_me.init_move(begin(), first, new_size);
+            new_me.init_copy(begin(), first, new_size);
             new_me.insert(new_me.end(), last, end());
             swap(new_me);
             return begin() + firstindex;
@@ -383,10 +422,13 @@ public:
         return operator [] (size_ - 1);
     }
 
-    iterator begin() { return iterator(data()); }
-    iterator end()   { return iterator(data() + size_); }
-    const_iterator begin() const { return const_iterator(data()); }
-    const_iterator end()const    { return const_iterator(data() + size_); }
+    iterator begin()              { return iterator(data()); }
+    const_iterator cbegin() const { return const_iterator(data()); }
+    const_iterator begin() const  { return cbegin(); }
+
+    iterator end()              { return iterator(data() + size_); }
+    const_iterator cend() const { return const_iterator(data() + size_); }
+    const_iterator end() const  { return cend(); }
 
     size_type size() const { return size_; }
     bool empty() const { return size_ == 0; }
@@ -427,17 +469,7 @@ private:
             throw Exception("compact_vector: index out of range");
     }
 
-    compact_vector(const_iterator first,
-                   const_iterator last,
-                   size_t to_alloc)
-        : size_(0), is_internal_(true)
-    {
-        init(first, last, to_alloc);
-    }
-
-    template<class InputIterator>
-    void init(InputIterator first, InputIterator last,
-              size_t to_alloc)
+    void init(size_t to_alloc)
     {
         clear();
 
@@ -450,7 +482,13 @@ private:
             ext.capacity_ = to_alloc;
         }
         else is_internal_ = true;
-        
+    }
+
+    template<class InputIterator>
+    void init_copy(InputIterator first, InputIterator last, size_t to_alloc)
+    {
+        init(to_alloc);
+
         Data * p = data();
         
         // Copy the objects across into the uninitialized memory
@@ -460,6 +498,23 @@ private:
             new (p) Data(*first);
         }
     }
+
+#if 0 // Enable once our g++ version supports std::move_if_noexcept
+    template<class InputIterator>
+    void init_move(InputIterator first, InputIterator last, size_t to_alloc)
+    {
+        init(to_alloc);
+
+        Data * p = data();
+
+        // Move the objects across into the uninitialized memory
+        for (; first != last;  ++first, ++p, ++size_) {
+            if (Safe && size_ > to_alloc)
+                throw Exception("compact_vector: internal logic error in init()");
+            new (p) Data(std::move_if_noexcept(*first));
+        }
+    }
+#endif
 
     void swap_size(compact_vector & other)
     {
@@ -515,7 +570,7 @@ private:
 
         // Move elements to the end
         for (int i = size_ - 1;  i >= index + (int)n;  --i)
-            data()[i] = data()[i - n];
+            data()[i] = std::move(data()[i - n]);
 
         return begin() + index;
     }
