@@ -10,7 +10,7 @@
 
 #include <sys/syscall.h>
 #include <linux/futex.h>
-
+#include <limits.h>
 
 namespace ML {
 
