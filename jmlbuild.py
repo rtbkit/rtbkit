@@ -88,6 +88,7 @@ class Token:
     EQUAL       = 22
     FILE_SEP    = 23
     PLUS_EQUAL  = 24
+    COND_EQUAL  = 25
 
     WORD        = 31
     ARG_SEP     = 32
@@ -118,13 +119,17 @@ def next_token_impl(line):
         print_dbg(dbg + "END")
         return [Token.END_BLOCK], line[1:]
 
-    if line[0:2] == ":=" or line[0:2] == "?=":
+    if line[0:2] == ":=":
         print_dbg(dbg + "EQUAL")
         return [Token.EQUAL], line[2:]
 
     if line[0:2] == "+=":
         print_dbg(dbg + "PLUS_EQUAL")
         return [Token.PLUS_EQUAL], line[2:]
+
+    if line[0:2] == "?=":
+        print_dbg(dbg + "COND_EQUAL")
+        return [Token.COND_EQUAL], line[2:]
 
     m = re.match("([\w_\./\-+]+)", line)
     if m:
@@ -416,6 +421,12 @@ class Parser:
             else:
                 self.var_map[var] = line
 
+            print_dbg("\tvar: %s = %s" %(var, self.var_map[var]))
+            return ""
+
+        elif accept(tok, Token.COND_EQUAL):
+            if var not in self.var_map:
+                self.var_map[var] = line
             print_dbg("\tvar: %s = %s" %(var, self.var_map[var]))
             return ""
 
