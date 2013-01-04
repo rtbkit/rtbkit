@@ -19,13 +19,18 @@ built = set([])
 error = False
 
 for target in graph.order:
-    if target.endswith(jmlbuild.Ext.MK): continue
+    # makefiles aren't part of the dependency graph.
     if target == "Makefile": continue
+    if target.endswith(jmlbuild.Ext.MK): continue
+
+    # nodejs modules dependencies are resolved at runtime.
+    if target.endswith(jmlbuild.Ext.NODEJS_TEST): continue
+    if target.endswith(jmlbuild.Ext.NODEJS_MODULE): continue
 
     built = built | set([target])
     for dep in graph.edges[target]:
 
-        # Dependencies on nodejs stuff is resolved at runtime.
+        # nodejs modules dependencies are resolved at runtime.
         if dep.endswith(jmlbuild.Ext.NODEJS_MODULE): continue
 
         if (not dep in built) and (dep in graph.edges):

@@ -375,7 +375,7 @@ class Parser:
         if len(params) > 1:
             self.graph.add_vertex(module)
             for lib in params[1]:
-                self.graph.add_edge(module, lib + Ext.NODEJS_MODULE)
+                self.graph.add_edge(module, lib + Ext.NODEJS_ADDON)
 
         return line
 
