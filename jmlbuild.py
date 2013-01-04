@@ -51,11 +51,12 @@ def print_err(err, msg):
 #------------------------------------------------------------------------------#
 
 class Ext:
-    SO          = ".so"
-    EXE         = ".exe"
-    MK          = ".mk"
-    NODEJS      = ".nodejs"
-    NODEJS_TEST = ".nodejs_test"
+    SO            = ".so"
+    EXE           = ".exe"
+    MK            = ".mk"
+    NODEJS_ADDON  = ".nodejs"
+    NODEJS_MODULE = ".nodejs"
+    NODEJS_TEST   = ".nodejs_test"
 
 class Graph:
     def __init__(self):
@@ -221,7 +222,6 @@ class Parser:
             "program"           : self.parse_func_program,
             "nodejs_addon"      : self.parse_func_nodejs_addon,
             "nodejs_module"     : self.parse_func_nodejs_module,
-            "nodejs_program"    : self.parse_func_nodejs_module,
             "vowscoffee_test"   : self.parse_func_vows_coffee_test
             }
 
@@ -310,7 +310,7 @@ class Parser:
         assert len(params) > 0
 
         assert len(params[0]) == 1
-        addon = params[0][0] + Ext.NODEJS
+        addon = params[0][0] + Ext.NODEJS_ADDON
         self.graph.add_edge(self.current_file, addon)
         self.graph.add_vertex(addon)
 
@@ -323,7 +323,7 @@ class Parser:
 
         if len(params) > 3:
             for libjs in params[2]:
-                self.graph.add_edge(addon, libjs + Ext.NODEJS)
+                self.graph.add_edge(addon, libjs + Ext.NODEJS_ADDON)
 
         return line
 
@@ -338,7 +338,7 @@ class Parser:
         assert len(params) > 0
 
         assert len(params[0]) == 1
-        module = params[0][0] + Ext.NODEJS
+        module = params[0][0] + Ext.NODEJS_MODULE
         self.graph.add_edge(self.current_file, module)
         self.graph.add_vertex(module)
 
@@ -348,7 +348,7 @@ class Parser:
 
         if len(params) > 2:
             for lib in params[2]:
-                self.graph.add_edge(module, lib + Ext.NODEJS)
+                self.graph.add_edge(module, lib + Ext.NODEJS_ADDON)
 
         return line
 
@@ -370,7 +370,7 @@ class Parser:
         if len(params) > 1:
             self.graph.add_vertex(module)
             for lib in params[1]:
-                self.graph.add_edge(module, lib + Ext.NODEJS)
+                self.graph.add_edge(module, lib + Ext.NODEJS_MODULE)
 
         return line
 

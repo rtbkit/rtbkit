@@ -26,7 +26,7 @@ for target in graph.order:
     for dep in graph.edges[target]:
 
         # Dependencies on nodejs stuff is resolved at runtime.
-        if dep.endswith(jmlbuild.Ext.NODEJS): continue
+        if dep.endswith(jmlbuild.Ext.NODEJS_MODULE): continue
 
         if (not dep in built) and (dep in graph.edges):
             error = True
@@ -34,6 +34,8 @@ for target in graph.order:
 
 if error:
     print "ERROR: Fix the build ordering and try again."
+else:
+    print "No build order errors detected."
 
 sys.exit(error)
 

@@ -127,5 +127,7 @@ else:
 
 if error != 0:
     print "ERROR: Add the missing coffee script dependencies and try again."
+else:
+    print "Node missing coffee script dependencies detected."
 
 sys.exit(error)
