@@ -54,8 +54,8 @@ class Ext:
     SO            = ".so"
     EXE           = ".exe"
     MK            = ".mk"
-    NODEJS_ADDON  = ".nodejs"
-    NODEJS_MODULE = ".nodejs"
+    NODEJS_ADDON  = ".nodejs_addon"
+    NODEJS_MODULE = ".nodejs_module"
     NODEJS_TEST   = ".nodejs_test"
 
 class Graph:
