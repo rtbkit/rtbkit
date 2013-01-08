@@ -8,9 +8,11 @@
 #ifndef __jml__arch__futex_h__
 #define __jml__arch__futex_h__
 
+#include <unistd.h>
 #include <sys/syscall.h>
 #include <linux/futex.h>
 #include <limits.h>
+#include <time.h>
 
 namespace ML {
 
