@@ -168,8 +168,8 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
                 if (writePosition == readPosition) return false;
             }
 
-            std::swap(result, ring[readPosition]);
-            //result = std::move(ring[readPosition]);
+            //std::swap(result, ring[readPosition]);
+            result = std::move(ring[readPosition]);
             //ring[readPosition] = Request();
             readPosition = (readPosition + 1) % bufferSize;
         }
@@ -190,8 +190,8 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
             if (writePosition == readPosition)
                 return false;
             
-            std::swap(result, ring[readPosition]);
-            //result = std::move(ring[readPosition]);
+            //std::swap(result, ring[readPosition]);
+            result = std::move(ring[readPosition]);
             //ring[readPosition] = Request();
             readPosition = (readPosition + 1) % bufferSize;
         }
