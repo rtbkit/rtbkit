@@ -4,6 +4,7 @@
 
 */
 
+#include <sys/syscall.h>
 #include "exception.h"
 #include "exception_hook.h"
 #include "demangle.h"
@@ -109,7 +110,8 @@ void trace_exception(void * object, const std::type_info * tinfo)
     cerr << endl;
     cerr << "----------------- Exception thrown ------------------------"
          << endl;
-    cerr << "type:   " << demangle(tinfo->name()) << endl;
+    cerr << "type:   " << demangle(tinfo->name()) << endl
+         << "pid:    " << getpid() << "; tid: " << (long) syscall(SYS_gettid) << endl;
     if (exc) cerr << "what:   " << exc->what() << endl;
 
     cerr << "stack:" << endl;
