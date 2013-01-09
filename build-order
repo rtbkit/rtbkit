@@ -34,8 +34,12 @@ for target in graph.order:
         if dep.endswith(jmlbuild.Ext.NODEJS_MODULE): continue
 
         if (not dep in built) and (dep in graph.edges):
-            error = True
-            print "%s built before dependency %s" % (target, dep)
+            level = "warning"
+            if not target.endswith(jmlbuild.Ext.TEST):
+                error = True
+                level = "error"
+
+            print "%s: %s built before dependency %s" % (level, target, dep)
 
 if error:
     print "ERROR: Fix the build ordering and try again."

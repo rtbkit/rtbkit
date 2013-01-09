@@ -53,6 +53,7 @@ def print_err(err, msg):
 class Ext:
     SO            = ".so"
     EXE           = ".exe"
+    TEST          = ".test"
     MK            = ".mk"
     NODEJS_ADDON  = ".nodejs_addon"
     NODEJS_MODULE = ".nodejs_module"
@@ -225,6 +226,7 @@ class Parser:
             "include_sub_make"  : self.parse_func_sub_make,
             "library"           : self.parse_func_library,
             "program"           : self.parse_func_program,
+            "test"              : self.parse_func_test,
             "nodejs_addon"      : self.parse_func_nodejs_addon,
             "nodejs_module"     : self.parse_func_nodejs_module,
             "vowscoffee_test"   : self.parse_func_vows_coffee_test
@@ -305,6 +307,48 @@ class Parser:
         return line
 
 
+    def parse_func_program(self, line):
+        """
+        Parser for the program target params.
+        """
+        print_dbg("\tprogram: " + line)
+
+        params, line = self.parse_func_params(line)
+        assert len(params) > 0
+
+        assert len(params[0]) == 1
+        program = params[0][0] + Ext.EXE
+        self.graph.add_edge(self.current_file, program)
+        self.graph.add_vertex(program)
+
+        if len(params) > 1:
+            for lib in params[1]:
+                self.graph.add_edge(program, lib + Ext.SO)
+
+        return line
+
+
+    def parse_func_test(self, line):
+        """
+        Parser for the test target params.
+        """
+        print_dbg("\ttest: " + line)
+
+        params, line = self.parse_func_params(line)
+        assert len(params) > 0
+
+        assert len(params[0]) == 1
+        test = params[0][0] + Ext.TEST
+        self.graph.add_edge(self.current_file, test)
+        self.graph.add_vertex(test)
+
+        if len(params) > 1:
+            for lib in params[1]:
+                self.graph.add_edge(test, lib + Ext.SO)
+
+        return line
+
+
     def parse_func_nodejs_addon(self, line):
         """
         Parses for the nodejs addon params and adds the relevant dependencies
@@ -376,27 +420,6 @@ class Parser:
             self.graph.add_vertex(module)
             for lib in params[1]:
                 self.graph.add_edge(module, lib + Ext.NODEJS_ADDON)
-
-        return line
-
-
-    def parse_func_program(self, line):
-        """
-        Parser for the nodejs addon params.
-        """
-        print_dbg("\tnodejs_addon: " + line)
-
-        params, line = self.parse_func_params(line)
-        assert len(params) > 0
-
-        assert len(params[0]) == 1
-        program = params[0][0] + Ext.EXE
-        self.graph.add_edge(self.current_file, program)
-        self.graph.add_vertex(program)
-
-        if len(params) > 1:
-            for lib in params[1]:
-                self.graph.add_edge(program, lib + Ext.SO)
 
         return line
 
