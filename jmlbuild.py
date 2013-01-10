@@ -229,6 +229,7 @@ class Parser:
             "test"              : self.parse_func_test,
             "nodejs_addon"      : self.parse_func_nodejs_addon,
             "nodejs_module"     : self.parse_func_nodejs_module,
+            "nodejs_program"    : self.parse_func_nodejs_module,
             "vowscoffee_test"   : self.parse_func_vows_coffee_test
             }
 
@@ -395,9 +396,16 @@ class Parser:
             assert len(params[1]) == 1
             sources = params[1][0]
 
+        # Both modules and addon can be specified in the same one param. A good
+        # educated guess is that our dependency is built before our library. And
+        # by good I mean laughable notion that a build system would retain some
+        # kind of sane structure...
         if len(params) > 2:
             for lib in params[2]:
-                self.graph.add_edge(module, lib + Ext.NODEJS_ADDON)
+                if lib + Ext.NODEJS_ADDON in self.graph.edges:
+                    self.graph.add_edge(module, lib + Ext.NODEJS_ADDON)
+                else:
+                    self.graph.add_edge(module, lib + Ext.NODEJS_MODULE)
 
         return line
 
@@ -416,10 +424,16 @@ class Parser:
         self.graph.add_edge(self.current_file, module)
         self.graph.add_vertex(module)
 
+        # Both modules and addon can be specified in the same one param. A good
+        # educated guess is that our dependency is built before our library. And
+        # by good I mean laughable notion that a build system would retain some
+        # kind of sane structure...
         if len(params) > 1:
-            self.graph.add_vertex(module)
             for lib in params[1]:
-                self.graph.add_edge(module, lib + Ext.NODEJS_ADDON)
+                if lib + Ext.NODEJS_ADDON in self.graph.edges:
+                    self.graph.add_edge(module, lib + Ext.NODEJS_ADDON)
+                else:
+                    self.graph.add_edge(module, lib + Ext.NODEJS_MODULE)
 
         return line
 
