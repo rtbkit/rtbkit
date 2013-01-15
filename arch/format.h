@@ -41,6 +41,8 @@ JML_ALWAYS_INLINE const char * forwardForPrintf(const std::string & s)
     return s.c_str();
 }
 
+std::string formatImpl(const char * fmt, ...) JML_FORMAT_STRING(1, 2);
+
 template<typename... Args>
 JML_ALWAYS_INLINE std::string format(const char * fmt, Args... args)
 {
@@ -51,8 +53,6 @@ inline std::string format(const char * fmt)
 {
     return fmt;
 }
-
-std::string formatImpl(const char * fmt, ...) JML_FORMAT_STRING(1, 2);
 
 std::string vformat(const char * fmt, va_list ap) JML_FORMAT_STRING(1, 0);
 
