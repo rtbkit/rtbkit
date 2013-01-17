@@ -34,6 +34,7 @@
 #include <boost/utility.hpp>
 #include <vector>
 #include <map>
+#include <unordered_map>
 #include <set>
 #include <string.h>
 
@@ -203,6 +204,17 @@ public:
         compact_size_t size(m.size());
         size.serialize(*this);
         for (typename std::map<K, V, L, A>::const_iterator
+                 it = m.begin(), end = m.end();
+             it != end;  ++it)
+            *this << it->first << it->second;
+    }
+    
+    template<class K, class V, class H, class P, class A>
+    void save(const std::unordered_map<K, V, H, P, A> & m)
+    {
+        compact_size_t size(m.size());
+        size.serialize(*this);
+        for (typename std::unordered_map<K, V, H, P, A>::const_iterator
                  it = m.begin(), end = m.end();
              it != end;  ++it)
             *this << it->first << it->second;
