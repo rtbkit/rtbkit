@@ -12,6 +12,7 @@
 #include <vector>
 #include "jml/arch/futex.h"
 #include "jml/arch/spinlock.h"
+#include <mutex>
 #include <thread>
 
 namespace ML {

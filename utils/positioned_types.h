@@ -83,8 +83,9 @@ struct ExtractArgAtPosition<Current, Index, Head, Rest...> {
     typedef typename ExtractArgAtPosition<Current + 1, Index, Rest...>::type type;
 
     // Recurse to get a later argument
+    template<typename... TRest>
     static type
-    extract(Head arg, Rest... rest)
+    extract(Head arg, TRest&&... rest)
     {
         return ExtractArgAtPosition<Current + 1, Index, Rest...>
             ::extract(std::forward<Rest>(rest)...);

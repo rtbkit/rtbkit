@@ -201,6 +201,16 @@ BOOST_AUTO_TEST_CASE( vec_prod_float_test )
     vec_prod_float_test_case(123);
 }
 
+float get_eps(float)
+{
+    return 1e-7;
+}
+
+double get_eps(double)
+{
+    return 1e-10;
+}
+
 template<typename T>
 void vec_dotprod_test_case(int nvals)
 {
@@ -218,16 +228,6 @@ void vec_dotprod_test_case(int nvals)
 
     T eps = get_eps(T());
     BOOST_CHECK(fabs(r - r2) / max(fabs(r), fabs(r2)) < eps);
-}
-
-float get_eps(float)
-{
-    return 1e-7;
-}
-
-double get_eps(double)
-{
-    return 1e-10;
 }
 
 template<typename T>
