@@ -249,6 +249,10 @@ class Parser:
         self.graph = Graph()
 
 
+    def include(self, folder, makefile):
+        self.graph.add_edge(self.current_file, makefile)
+        self.parse_makefile(folder, makefile)
+
 
     # FUNCTION PARSER
     #--------------------------------------------------------------------------#
@@ -265,24 +269,20 @@ class Parser:
         params, line = self.parse_func_params(line)
         assert len(params) > 0
 
-        def recurse(folder, makefile):
-            self.graph.add_edge(self.current_file, makefile)
-            self.parse_makefile(folder, makefile)
-
         if len(params) == 1:
             for makefile in params[0]:
-                recurse(makefile, makefile + Ext.MK)
+                self.include(makefile, makefile + Ext.MK)
 
         elif len(params) == 2:
             assert len(params[0]) == 1
             assert len(params[1]) == 1
-            recurse(params[1][0], params[0][0] + Ext.MK)
+            self.include(params[1][0], params[0][0] + Ext.MK)
 
         else:
             assert len(params[2]) == 1
             filename = params[2][0]
             folder = params[1][0] if len(params[1]) > 0 else params[0][0]
-            recurse(folder, filename)
+            self.include(folder, filename)
 
         return line
 
@@ -565,6 +565,13 @@ class Parser:
 
         return line
 
+    def parse_include(self, line):
+        m = re.match("([\w_]+\.mk)", line)
+        if not m: return line
+
+        self.include('.', line)
+        return ''
+
 
     def parse_makefile(self, folder, filename):
         """
@@ -594,6 +601,10 @@ class Parser:
 
                     if accept(tok, Token.WORD):
                         word = token_value(tok)
+
+                        if word == "include" or word == "-include":
+                            line = self.parse_include(line)
+
                         if word not in self.keywords:
                             line = self.parse_var_decl(word, line)
 
