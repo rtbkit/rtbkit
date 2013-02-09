@@ -345,7 +345,7 @@ struct Lightweight_Hash_Base {
             Ops::initEmptyBucket(storage_ + i);
 
         for (; first != last;  ++first)
-            find_or_insert(*first);
+            this->find_or_insert(*first);
     }
 
     Lightweight_Hash_Base(const Lightweight_Hash_Base & other,
@@ -821,7 +821,7 @@ struct Lightweight_Hash
 
     Value & operator [] (const Key & key)
     {
-        int bucket = find_or_insert(Bucket(key, Value())).first;
+        int bucket = this->find_or_insert(Bucket(key, Value())).first;
         assert(this->storage_[bucket].first == key);
         return this->storage_[bucket].second;
     }
@@ -829,7 +829,7 @@ struct Lightweight_Hash
     std::pair<iterator, bool>
     insert(const Bucket & val)
     {
-        std::pair<int, bool> r = find_or_insert(val);
+        std::pair<int, bool> r = this->find_or_insert(val);
         return make_pair(iterator(this, r.first), r.second);
     }
 
