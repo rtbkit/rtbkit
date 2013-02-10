@@ -259,18 +259,18 @@ std::ostream & operator << (std::ostream & stream, const compact_size_t & s)
 /*****************************************************************************/
 
 /* byte1      byte2    others  range
-   0 s xxxxxx          0       2^6
-   10 s xxxxx xxxxxxxx 0       2^13
-   110 s xxxx xxxxxxxx 1       2^20
-   1110 s xxx xxxxxxxx 2       2^27
-   11110 s xx xxxxxxxx 3       2^34 (2^31)
-   111110 s x xxxxxxxx 4       2^41 
-   1111110 s  xxxxxxxx 5       2^48
-   11111110   sxxxxxxx 6       2^55
-   11111111   sxxxxxxx 7       2^62
+   0 xxxxxxs          0       2^6
+   10 xxxxxx  xxxxxxxs 0       2^13
+   110 xxxxx  xxxxxxxx 1       2^20
+   1110 xxxx  xxxxxxxx 2       2^27
+   11110 xxx  xxxxxxxx 3       2^34 (2^31)
+   111110 xx  xxxxxxxx 4       2^41 
+   1111110 x  xxxxxxxx 5       2^48
+   11111110   xxxxxxxx 6       2^55
+   11111111   xxxxxxxx 7       2^62
 
-   We convert the signed into an unsigned value that will have the right length
-   and be re-convertible back into the required value.
+   The sign is always the last bit.  When sign is 1, the rest is stored in
+   ones compliement.
 */
 
 // Take the sign bit, put it at the end
