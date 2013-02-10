@@ -267,17 +267,81 @@ std::ostream & operator << (std::ostream & stream, const compact_size_t & s)
    111110 s x xxxxxxxx 4       2^41 
    1111110 s  xxxxxxxx 5       2^48
    11111110   sxxxxxxx 6       2^55
-   11111111   sxxxxxxx 7       2^63
+   11111111   sxxxxxxx 7       2^62
+
+   We convert the signed into an unsigned value that will have the right length
+   and be re-convertible back into the required value.
 */
 
-void encode_signed_compact(Store_Reader & store, signed long long val)
+// Take the sign bit, put it at the end
+unsigned long long encodeSign(signed long long val)
 {
-    throw Exception("not implemented");
+    unsigned long long sign = val < 0;
+    if (sign) val = ~val;
+    return val << 1 | sign;
+}
+
+// Take the sign bit from the end and put it at the front
+signed long long decodeSign(unsigned long long val)
+{
+    int sign = val & 1;
+    val = val >> 1;
+    if (sign)
+        val = ~val;
+    return val;
+}
+
+void encode_signed_compact(Store_Writer & store, signed long long val)
+{
+    return encode_compact(store, encodeSign(val));
+}
+
+void encode_signed_compact(char * & first, char * last, signed long long val)
+{
+    return encode_compact(first, last, encodeSign(val));
 }
 
 signed long long decode_signed_compact(Store_Reader & store)
 {
-    throw Exception("not implemented");
+    unsigned long long val = decode_compact(store);
+    return decodeSign(val);
+}
+
+signed long long decode_signed_compact(const char * & first, const char * last)
+{
+    unsigned long long val = decode_compact(first, last);
+    return decodeSign(val);
+}
+
+/*****************************************************************************/
+/* COMPACT_INT_T                                                            */
+/*****************************************************************************/
+
+compact_int_t::compact_int_t(Store_Reader & store)
+{
+    size_ = decode_signed_compact(store);
+}
+    
+void compact_int_t::serialize(Store_Writer & store) const
+{
+    encode_signed_compact(store, size_);
+}
+
+void compact_int_t::reconstitute(Store_Reader & store)
+{
+    size_ = decode_signed_compact(store);
+}
+
+void compact_int_t::serialize(std::ostream & stream) const
+{
+    Store_Writer writer(stream);
+    serialize(writer);
+}
+
+std::ostream & operator << (std::ostream & stream, const compact_int_t & s)
+{
+    stream << s.size_;
+    return stream;
 }
 
 
