@@ -55,6 +55,9 @@ void set_permissions(std::string filename,
 /** Call fdatasync on the file. */
 void syncFile(const std::string & filename);
 
+/** Does the file exist? */
+bool fileExists(const std::string & filename);
+
 enum FileAction {
     FA_CONTINUE = FTW_CONTINUE,
     FA_SKIP_SIBLINGS = FTW_SKIP_SIBLINGS,

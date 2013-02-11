@@ -118,6 +118,16 @@ void delete_file(const std::string & filename)
         throw Exception(errno, "couldn't delete file " + filename, "unlink");
 }
 
+/** Does the file exist? */
+bool fileExists(const std::string & filename)
+{
+    struct stat stats;
+    int res = stat(filename.c_str(), &stats);
+    if (res == -1)
+        return false;  // no chunks
+    return true;
+}
+
 void set_permissions(std::string filename,
                      const std::string & perms,
                      const std::string & group)
