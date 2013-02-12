@@ -82,7 +82,7 @@ public:
     distribution &
     operator = (const distribution<OtherF, OtherUnderlying> & dist)
     {
-        resize(dist.size());
+        this->resize(dist.size());
         std::copy(dist.begin(), dist.end(), this->begin());
         return *this;
     }
