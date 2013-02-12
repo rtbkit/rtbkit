@@ -118,10 +118,16 @@ struct Explanation {
     /** Explain how a single prediction was made. */
     std::string explain(int nfeatures,
                         const Feature_Set & fset,
-                        int label) const;
+                        int = 0/* ununsed */) const;
     
     /** Explain how the whole set of predictions were made. */
     std::string explain(int nfeatures = -1) const;
+
+    /** Raw explain; the list is a ranked list of (feature, type) pairs.
+        MISSING_FEATURE deals with the bias.
+    */
+    std::vector<std::pair<Feature, float> >
+    explainRaw(int nfeatures = -1, bool includeBias = true) const;
     
     /** Divide all of the feature weights by the weight so that the effect
         of feature set size is removed.

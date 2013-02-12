@@ -136,7 +136,7 @@ struct Sort_On_Abs_Second {
 
 std::string
 Explanation::
-explain(int nfeatures, const Feature_Set & fset, int label) const
+explain(int nfeatures, const Feature_Set & fset, int) const
 {
     // Rank the features
     vector<pair<Feature, float> > ranked(feature_weights.begin(),
@@ -201,6 +201,26 @@ explain(int nfeatures) const
                      total);
     
     return result;
+}
+
+std::vector<std::pair<Feature, float> >
+Explanation::
+explainRaw(int nfeatures, bool includeBias) const
+{
+    // Rank the features
+    vector<pair<Feature, float> > ranked(feature_weights.begin(),
+                                         feature_weights.end());
+
+    std::sort(ranked.begin(), ranked.end(),
+              Sort_On_Abs_Second());
+    
+    if (nfeatures != -1 && ranked.size() > nfeatures)
+        ranked.erase(ranked.begin() + nfeatures, ranked.end());
+    
+    if (bias != 0.0 && includeBias)
+        ranked.insert(ranked.begin(), make_pair(MISSING_FEATURE, bias));
+    
+    return ranked;
 }
 
 void
