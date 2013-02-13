@@ -31,25 +31,25 @@ inline void futex_wake(volatile int & futex, int nToWake = INT_MAX)
     futex_wake(const_cast<int &>(futex), nToWake);
 }
 
-inline long futex_wait(int & futex, int oldValue)
+inline long futex_wait(const int & futex, int oldValue)
 {
-    return sys_futex(&futex, FUTEX_WAIT, oldValue, 0, 0, 0);
+    return sys_futex(&const_cast<int &>(futex), FUTEX_WAIT, oldValue, 0, 0, 0);
 }
  
-inline long futex_wait(volatile int & futex, int oldValue)
+inline long futex_wait(volatile const int & futex, int oldValue)
 {
     return futex_wait(const_cast<int &>(futex), oldValue);
 }
  
-inline long futex_wait(int & futex, int oldValue, double waitTime)
+inline long futex_wait(const int & futex, int oldValue, double waitTime)
 {
     struct timespec timeout;
     timeout.tv_sec = waitTime;
     timeout.tv_nsec = (waitTime - timeout.tv_sec) * 1000000000.0;
-    return sys_futex(&futex, FUTEX_WAIT, oldValue, &timeout, 0, 0);
+    return sys_futex(&const_cast<int &>(futex), FUTEX_WAIT, oldValue, &timeout, 0, 0);
 }
 
-inline long futex_wait(volatile int & futex, int oldValue, double waitTime)
+inline long futex_wait(volatile const int & futex, int oldValue, double waitTime)
 {
     return futex_wait(const_cast<int &>(futex), oldValue, waitTime);
 }
