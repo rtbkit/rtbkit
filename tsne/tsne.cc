@@ -209,7 +209,7 @@ std::pair<double, distribution<Float> >
 perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
                     int i = -1)
 {
-    distribution<double> P(D.size());
+    distribution<Float> P(D.size());
     SIMD::vec_exp(&D[0], -beta, &P[0], D.size());
     if (i != -1) P[i] = 0;
     double tot = P.total();
