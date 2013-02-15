@@ -22,6 +22,9 @@ std::string expect_csv_field(Parse_Context & context, bool & another,
     another = false;
     
     while (context) {
+        //cerr << "at character '" << *context << "' quoted = " << quoted
+        //     << endl;
+
         if (context.get_line() == 9723 && false)
             cerr << "*context = " << *context << " quoted = " << quoted
                  << " result = " << result << endl;
@@ -32,14 +35,14 @@ std::string expect_csv_field(Parse_Context & context, bool & another,
                 continue;
             }
             if (context.match_literal('\"')) {
-                if (*context == separator)
+                if (context && *context == separator)
                     another = true;
                 if (!context || context.match_literal(separator)
                     || *context == '\n' || *context == '\r')
                     return result;
-                cerr << "(bool)context = " << (bool)context << endl;
-                cerr << "*context = " << *context << endl;
-                cerr << "result = " << result << endl;
+                //cerr << "(bool)context = " << (bool)context << endl;
+                //cerr << "*context = " << *context << endl;
+                //cerr << "result = " << result << endl;
 
                 for (unsigned i = 0; i < 20;  ++i)
                     cerr << *context++;
@@ -76,6 +79,8 @@ std::string expect_csv_field(Parse_Context & context, bool & another,
 std::vector<std::string>
 expect_csv_row(Parse_Context & context, int length, char separator)
 {
+    //    cerr << "*** parsing" << endl;
+
     context.skip_whitespace();
 
     vector<string> result;
@@ -92,6 +97,8 @@ expect_csv_row(Parse_Context & context, int length, char separator)
         context.exception(format("Wrong CSV length: expected %d, got %zd",
                                  length, result.size()));
     
+    //cerr << "returning result" << endl;
+
     return result;
 }
 
