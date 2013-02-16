@@ -11,6 +11,9 @@ VOWS_TEST_DEPS ?= $(NODE_TEST_DEPS)
 
 all compile:	nodejs_programs nodejs_addons nodejs_libraries
 
+# Make sure the target exists even if there are no nodejs_program targets.
+nodejs_programs:
+
 nodejs_dependencies: package.json
 	$(NPM) install .
 
