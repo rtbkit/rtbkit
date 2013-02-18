@@ -1,6 +1,6 @@
 /* futex.h                                                         -*- C++ -*-
    Jeremy Barnes, 25 January 2012
-   Copyright (c) 2012 Recoset.  All rights reserved.
+   Copyright (c) 2012 Datacratic.  All rights reserved.
 
    Basic futex function wrappers.
 */

@@ -1,6 +1,6 @@
 /* boolean_expression.h                                            -*- C++ -*-
    Jeremy Barnes, 4 July 2011
-   Copyright (c) 2011 Recoset.  All rights reserved.
+   Copyright (c) 2011 Datacratic.  All rights reserved.
    
    Class to represent and manipulate a boolean expression from a classifier.
 */

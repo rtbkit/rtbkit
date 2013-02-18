@@ -1,6 +1,6 @@
 /* wakeup_fd.h                                                     -*- C++ -*-
    Jeremy Barnes, 23 January 2012
-   Copyright (c) 2012 Recoset.  All rights reserved.
+   Copyright (c) 2012 Datacratic.  All rights reserved.
 
    Simple class that provides an FD that we can use to wake something
    up.  A generalization of the self-pipe trick.
@@ -72,7 +72,7 @@ struct Wakeup_Fd {
 
 
 
-} // namespace Recoset
+} // namespace Datacratic
 
 
 

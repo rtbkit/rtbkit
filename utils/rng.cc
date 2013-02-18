@@ -1,6 +1,6 @@
 /* rng.cc
    Jeremy Barnes, 12 May 2012
-   Copyright (c) 2012 Recoset.  All rights reserved.
+   Copyright (c) 2012 Datacratic.  All rights reserved.
 
 */
 

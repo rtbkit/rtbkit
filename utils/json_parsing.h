@@ -1,6 +1,6 @@
 /* json_parsing.h                                                  -*- C++ -*-
    Jeremy Barnes, 1 February 2012
-   Copyright (c) 2012 Recoset Inc.  All rights reserved.
+   Copyright (c) 2012 Datacratic Inc.  All rights reserved.
 
    Released under the MIT license.
 

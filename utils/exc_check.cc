@@ -1,7 +1,7 @@
 /* exc_check.cc
    Jeremy Barnes, 15 July 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
-   Copyright (c) 2010 Recoset Inc.  All rights reserved.
+   Copyright (c) 2010 Datacratic Inc.  All rights reserved.
 
 */
 

@@ -1,6 +1,6 @@
 /** watchdog.h                                                     -*- C++ -*-
     Jeremy Barnes, 16 May 2011
-    Copyright (c) 2011 Recoset.  All rights reserved.
+    Copyright (c) 2011 Datacratic.  All rights reserved.
 
     Watchdog timer class.
 */

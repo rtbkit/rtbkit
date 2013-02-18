@@ -1,6 +1,6 @@
 /* ring_buffer.h                                                   -*- C++ -*-
    Jeremy Barnes, 25 May 2012
-   Copyright (c) 2012 Recoset.  All rights reserved.
+   Copyright (c) 2012 Datacratic.  All rights reserved.
 
    Ring buffer for when there are one or more producers and one consumer
    chasing each other.

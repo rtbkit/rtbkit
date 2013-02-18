@@ -1,7 +1,7 @@
 /* hex_dump.h                                                      -*- C++ -*-
    Jeremy Barnes, 6 October 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
-   Copyright (c) 2010 Recoset.  All rights reserved.
+   Copyright (c) 2010 Datacratic.  All rights reserved.
 
    Routine to dump memory in hex format.
 */

@@ -1,6 +1,6 @@
 /* buckets.h                                                       -*- C++ -*-
    Jeremy Barnes, 12 September 2011
-   Copyright (c) 2011 Jeremy Barnes and Recoset.  All rights reserved.
+   Copyright (c) 2011 Jeremy Barnes and Datacratic.  All rights reserved.
 
    Bucketing algorithms, extracted.
 */

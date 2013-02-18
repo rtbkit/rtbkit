@@ -1,6 +1,6 @@
 /* json_parsing.cc
    Jeremy Barnes, 1 February 2012
-   Copyright (c) 2012 Recoset.  All rights reserved.
+   Copyright (c) 2012 Datacratic.  All rights reserved.
 
    Released under the MIT license.
 */

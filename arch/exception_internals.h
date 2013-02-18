@@ -1,6 +1,6 @@
 /* exception_internals.h                                           -*- C++ -*-
    Jeremy Barnes, 18 October 2010
-   Copyright (c) 2010 Recoset.  All rights reserved.
+   Copyright (c) 2010 Datacratic.  All rights reserved.
 
    Internals needed to interoperate with the exception handling.  These are
    copied from the libsupc++ sources, but contain no functionality, only

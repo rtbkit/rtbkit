@@ -1,6 +1,6 @@
 /* rt.h                                                            -*- C++ -*-
    Jeremy Barnes, 11 January 2011
-   Copyright (c) 2011 Recoset.  All rights reserved.
+   Copyright (c) 2011 Datacratic.  All rights reserved.
 
    Real-time utilities.
 */

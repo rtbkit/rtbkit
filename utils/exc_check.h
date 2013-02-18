@@ -1,6 +1,6 @@
 /* exc_check.h                                                    -*- C++ -*-
    Rémi Attab, 24 Febuary 2012
-   Copyright (c) 2012 Recoset.  All rights reserved.
+   Copyright (c) 2012 Datacratic.  All rights reserved.
 
    Quick and easy way to throw an exception on a failed condition.
 

@@ -1,6 +1,6 @@
 /* filter_streams_test.cc
    Jeremy Barnes, 29 June 2011
-   Copyright (c) 2011 Recoset.
+   Copyright (c) 2011 Datacratic.
    Copyright (c) 2011 Jeremy Barnes.
 
 */
