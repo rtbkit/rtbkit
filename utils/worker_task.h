@@ -19,6 +19,7 @@
 #include <list>
 #include <map>
 #include <set>
+#include <thread>
 
 
 namespace ML {
@@ -217,6 +218,14 @@ public:
     */
     void run_until_finished(int group, bool unlock = false);
 
+    /** Lend the calling thread to the worker task for a single job in the
+        given group and then return.
+
+        An exception in a group job is handled by throwing an exception from
+        this function.
+    */
+    void lend_thread(int group);
+
     /** ACE_Task_Base methods. */
     virtual int open(void *args = 0);
 
@@ -308,8 +317,8 @@ private:
     */
     void force_finish_group(Group_Info & group_info, int group);
 
-    typedef ACE_Mutex Lock;
-    typedef ACE_Guard<Lock> Guard;
+    typedef std::mutex Lock;
+    typedef std::unique_lock<Lock> Guard;
 
     Semaphore jobs_sem, finished_sem, state_change_sem, shutdown_sem;
 

@@ -534,6 +534,49 @@ run_until_finished(int group, bool unlock)
     }
 }
 
+void
+Worker_Task::
+lend_thread(int group)
+{
+    /* Run a job if we can */
+    Job_Info info;
+    if (try_get_job(info, group)) {
+        try {
+            //cerr << "thread " << ACE_OS::thr_self() << " is running job "
+            //     << info.id << " (" << info.info << ")" << endl;
+            info.job();
+            //cerr << "thread " << ACE_OS::thr_self() << " finished job "
+            //     << info.id << " (" << info.info << ")" << endl;
+            finish_job(info);
+        }
+        catch (const std::exception & exc) {
+            // TODO: make this exception go to the calling process
+            //cerr << "thread " << ACE_OS::thr_self() << " running job "
+            //     << info.id << " (" << info.info << "):" << endl;
+            cerr << "warning: job threw exception: "
+                 << exc.what() << endl;
+            try {
+                if (info.error) info.error();
+            }
+            catch (const std::exception & exc) {
+                cerr << "warning: job error function throw exception: "
+                     << exc.what() << endl;
+            }
+
+            /* Indicate that the job's group had an error. */
+            if (info.group != -1) {
+                Guard guard(lock);
+                Group_Info & group_info = groups[info.group];
+                group_info.error = true;
+                group_info.error_message = exc.what();
+                cancel_group_ul(group_info, info.group);
+            }
+
+            finish_job(info);
+        }
+    }
+}
+
 bool Worker_Task::in_group(const Job_Info & info, int group)
 {
     if (group == -1) return true;
