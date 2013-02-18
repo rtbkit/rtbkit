@@ -148,7 +148,7 @@ insert(float value, unsigned example, unsigned example_count, bool sparse,
 
 void Dataset_Index::Index_Entry::
 finalize(unsigned example_count, const Feature & feature,
-         boost::shared_ptr<const Feature_Space> feature_space)
+         std::shared_ptr<const Feature_Space> feature_space)
 {
     check_used();
     //boost::timer t;

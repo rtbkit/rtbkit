@@ -28,7 +28,7 @@ struct Compare_Example_Data {
     {
     }
 
-    typedef const pair<int, boost::shared_ptr<const ML::Feature_Set> >
+    typedef const pair<int, std::shared_ptr<const ML::Feature_Set> >
           arg_type;
     bool operator() (const arg_type & p1, const arg_type & p2) const
     {
@@ -44,7 +44,7 @@ std::vector<Alias>
 aliases(const ML::Training_Data & dataset, const Feature & predicted)
 {
     //cerr << "aliases" << endl;
-    vector<pair<int, boost::shared_ptr<const ML::Feature_Set> > > sorted;
+    vector<pair<int, std::shared_ptr<const ML::Feature_Set> > > sorted;
     sorted.reserve(dataset.example_count());
     for (unsigned i = 0;  i < dataset.example_count();  ++i)
         sorted.push_back(make_pair(i, dataset.get(i)));

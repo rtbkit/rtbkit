@@ -76,7 +76,7 @@ struct Binary_Input::Buffer_Source
         return input.avail();  // we can never get more after this
     }
 
-    boost::shared_ptr<File_Read_Buffer::Region> region;
+    std::shared_ptr<File_Read_Buffer::Region> region;
 };
 
 struct Binary_Input::Stream_Source

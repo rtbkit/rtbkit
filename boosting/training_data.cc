@@ -38,7 +38,7 @@ Training_Data::Training_Data()
 }
 
 Training_Data::
-Training_Data(boost::shared_ptr<const Feature_Space> feature_space)
+Training_Data(std::shared_ptr<const Feature_Space> feature_space)
     : dirty_(false)
 {
     init(feature_space);
@@ -55,7 +55,7 @@ Training_Data::~Training_Data()
 }
     
 void Training_Data::
-init(boost::shared_ptr<const Feature_Space> feature_space)
+init(std::shared_ptr<const Feature_Space> feature_space)
 {
     feature_space_ = feature_space;
     clear();
@@ -130,7 +130,7 @@ void Training_Data::reconstitute(DB::Store_Reader & store)
         clear();
         compact_size_t size(store);
         for (unsigned i = 0;  i < size;  ++i) {
-            boost::shared_ptr<Feature_Set> ex;
+            std::shared_ptr<Feature_Set> ex;
             feature_space()->reconstitute(store, ex);
             add_example(ex);
         }
@@ -153,9 +153,9 @@ void Training_Data::load(const std::string & filename)
     reconstitute(store);
 }
 
-boost::shared_ptr<Feature_Set> & Training_Data::modify(int example)
+std::shared_ptr<Feature_Set> & Training_Data::modify(int example)
 {
-    boost::shared_ptr<Feature_Set> & fs = data_.at(example);
+    std::shared_ptr<Feature_Set> & fs = data_.at(example);
     dirty_ = true;
     if (!fs.unique())
         fs.reset(fs->make_copy());
@@ -180,7 +180,7 @@ add(const Training_Data & other, bool merge_index)
 }
 
 int Training_Data::
-add_example(const boost::shared_ptr<Feature_Set> & example)
+add_example(const std::shared_ptr<Feature_Set> & example)
 {
     example->sort();
 
@@ -205,7 +205,7 @@ modify_feature(int example_number,
                const Feature & feature,
                float new_val)
 {
-    boost::shared_ptr<Feature_Set> & fs = data_[example_number];
+    std::shared_ptr<Feature_Set> & fs = data_[example_number];
     Mutable_Feature_Set * mut_fs = 0;
     
     float old_val = (*fs)[feature];
@@ -215,7 +215,7 @@ modify_feature(int example_number,
     if (!mut_fs)
         mut_fs = dynamic_cast<Mutable_Feature_Set *>(fs.get());
     if (!mut_fs) {
-        boost::shared_ptr<Mutable_Feature_Set>
+        std::shared_ptr<Mutable_Feature_Set>
             mut(new Mutable_Feature_Set(fs->begin(), fs->end()));
         data_[example_number] = mut;
         mut_fs = mut.get();
@@ -262,7 +262,7 @@ fixup_grouping_features(const std::vector<Feature> & group_features,
 
     /* Get all features that have the grouping feature set. */
     for (unsigned x = 0;  x < data_.size();  ++x) {
-        boost::shared_ptr<Feature_Set> & fs = data_[x];
+        std::shared_ptr<Feature_Set> & fs = data_[x];
 
         //cerr << "example " << x << endl;
 
@@ -323,12 +323,12 @@ void Training_Data::preindex_features()
     throw Exception("STUB", __PRETTY_FUNCTION__);
 }
     
-vector<boost::shared_ptr<Training_Data> >
+vector<std::shared_ptr<Training_Data> >
 Training_Data::
 partition(const std::vector<float> & sizes_, bool random,
           const Feature & group_feature) const
 {
-    vector<boost::shared_ptr<Training_Data> > output(sizes_.size());
+    vector<std::shared_ptr<Training_Data> > output(sizes_.size());
 
     //cerr << "partitioning dataset" << endl;
     //dump(cerr);

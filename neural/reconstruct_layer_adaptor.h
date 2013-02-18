@@ -24,7 +24,7 @@ namespace ML {
 struct Reconstruct_Layer_Adaptor : public Layer {
 
     Reconstruct_Layer_Adaptor();
-    Reconstruct_Layer_Adaptor(boost::shared_ptr<Auto_Encoder>);
+    Reconstruct_Layer_Adaptor(std::shared_ptr<Auto_Encoder>);
 
     Reconstruct_Layer_Adaptor(const Reconstruct_Layer_Adaptor & other);
     Reconstruct_Layer_Adaptor &
@@ -151,7 +151,7 @@ struct Reconstruct_Layer_Adaptor : public Layer {
 
     using Layer::bprop;
 
-    boost::shared_ptr<Auto_Encoder> ae_;
+    std::shared_ptr<Auto_Encoder> ae_;
 };
 
 } // namespace ML

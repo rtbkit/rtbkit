@@ -33,7 +33,7 @@ namespace ML {
 struct Dataset_Index::Itl {
     typedef Feature_Map<Index_Entry> index_type;
     index_type index;
-    boost::shared_ptr<const Feature_Space> feature_space;
+    std::shared_ptr<const Feature_Space> feature_space;
     std::vector<Feature> all_features;
 };
 

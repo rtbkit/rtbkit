@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
     fs.add_feature("feature1", REAL);
     fs.add_feature("feature2", REAL);
 
-    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+    std::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
 
     Training_Data data(fsp);
     
@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
         features.push_back(i % 3  == 0);
         features.push_back(i % 5  == 0);
 
-        boost::shared_ptr<Feature_Set> fset
+        std::shared_ptr<Feature_Set> fset
             = fs.encode(features);
 
         data.add_example(fset);
@@ -83,7 +83,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_test )
 
     Thread_Context context;
 
-    boost::shared_ptr<Classifier_Impl> classifier
+    std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
     float accuracy JML_UNUSED = classifier->accuracy(data).first;
@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
     fs.add_feature("feature1b", REAL);
     fs.add_feature("feature2",  REAL);
 
-    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+    std::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
 
     Training_Data data(fsp);
     
@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
         }
         features.push_back(i % 5  == 0);
 
-        boost::shared_ptr<Feature_Set> fset
+        std::shared_ptr<Feature_Set> fset
             = fs.encode(features);
 
         data.add_example(fset);
@@ -149,7 +149,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing )
 
     Thread_Context context;
 
-    boost::shared_ptr<Classifier_Impl> classifier
+    std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
     float accuracy JML_UNUSED = classifier->accuracy(data).first;
@@ -181,7 +181,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
     fs.add_feature("feature1", REAL);
     fs.add_feature("feature2",  REAL);
 
-    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+    std::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
 
     Training_Data data(fsp);
     
@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
         else features.push_back(NaN);
         features.push_back(i % 5  == 0);
 
-        boost::shared_ptr<Feature_Set> fset
+        std::shared_ptr<Feature_Set> fset
             = fs.encode(features);
         
         data.add_example(fset);
@@ -221,7 +221,7 @@ BOOST_AUTO_TEST_CASE( test_glz_classifier_missing2 )
 
     Thread_Context context;
 
-    boost::shared_ptr<Classifier_Impl> classifier
+    std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
     float accuracy JML_UNUSED = classifier->accuracy(data).first;

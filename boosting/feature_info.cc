@@ -77,7 +77,7 @@ poly_serialize(DB::Store_Writer & store, const Categorical_Info & info)
     Registry<Categorical_Info>::singleton().serialize(store, &info);
 }
 
-boost::shared_ptr<Categorical_Info>
+std::shared_ptr<Categorical_Info>
 Categorical_Info::poly_reconstitute(DB::Store_Reader & store)
 {
     return Registry<Categorical_Info>::singleton().reconstitute(store);
@@ -95,7 +95,7 @@ Feature_Info(Type type, bool optional, bool biased, bool grouping)
 }
 
 Feature_Info::
-Feature_Info(boost::shared_ptr<const Categorical_Info> categorical,
+Feature_Info(std::shared_ptr<const Categorical_Info> categorical,
              bool optional, bool biased, Type type, bool grouping)
     : type_(type), optional_(optional), biased_(biased),
       grouping_(grouping), categorical_(categorical)
@@ -176,11 +176,11 @@ void Feature_Info::reconstitute(DB::Store_Reader & store)
 
         compact_size_t cat_there(store);
         if (cat_there) {
-            boost::shared_ptr<Categorical_Info> ci
+            std::shared_ptr<Categorical_Info> ci
                 = Categorical_Info::poly_reconstitute(store);
             categorical_ = ci;
             mutable_categorical_
-                = boost::dynamic_pointer_cast<Mutable_Categorical_Info>(ci);
+                = std::dynamic_pointer_cast<Mutable_Categorical_Info>(ci);
         }
         else if (type_ == STRING) {
             mutable_categorical_.reset(new Mutable_Categorical_Info());
@@ -200,11 +200,11 @@ void Feature_Info::reconstitute(DB::Store_Reader & store)
         grouping_ = flags.grouping;
 
         if (flags.has_cat) {
-            boost::shared_ptr<Categorical_Info> ci
+            std::shared_ptr<Categorical_Info> ci
                 = Categorical_Info::poly_reconstitute(store);
             categorical_ = ci;
             mutable_categorical_
-                = boost::dynamic_pointer_cast<Mutable_Categorical_Info>(ci);
+                = std::dynamic_pointer_cast<Mutable_Categorical_Info>(ci);
         }
         else if (type_ == STRING) {
             mutable_categorical_.reset(new Mutable_Categorical_Info());
@@ -487,7 +487,7 @@ Mutable_Feature_Info(Type type, bool optional)
 }
 
 Mutable_Feature_Info::
-Mutable_Feature_Info(boost::shared_ptr<Mutable_Categorical_Info> categorical,
+Mutable_Feature_Info(std::shared_ptr<Mutable_Categorical_Info> categorical,
                      bool optional, Type type)
     : Feature_Info(categorical, optional, false, type)
 {
@@ -514,7 +514,7 @@ make_categorical(Type type)
 
 void
 Mutable_Feature_Info::
-set_categorical(boost::shared_ptr<Mutable_Categorical_Info> info,
+set_categorical(std::shared_ptr<Mutable_Categorical_Info> info,
                 Type type)
 {
     mutable_categorical_ = info;
@@ -869,8 +869,8 @@ Register_Factory<Categorical_Info, Fixed_Categorical_Info>
 /*****************************************************************************/
 
 Fixed_Categorical_Mapping::
-Fixed_Categorical_Mapping(boost::shared_ptr<const Categorical_Info> info1,
-                          boost::shared_ptr<const Categorical_Info> info2)
+Fixed_Categorical_Mapping(std::shared_ptr<const Categorical_Info> info1,
+                          std::shared_ptr<const Categorical_Info> info2)
 {
     const Categorical_Info & ci = *info1;
     const Categorical_Info & oci = *info2;

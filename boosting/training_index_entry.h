@@ -38,7 +38,7 @@ struct Dataset_Index::Index_Entry {
     bool initialized;
 
     Feature feature;
-    boost::shared_ptr<const Feature_Space> feature_space;
+    std::shared_ptr<const Feature_Space> feature_space;
 
     unsigned example_count;     ///< Number of examples in the feature set
     unsigned seen;              ///< Number of times this feature seen
@@ -161,7 +161,7 @@ struct Dataset_Index::Index_Entry {
     /** Copy the data structures to allow unused space on the end of vectors
         to be reclaimed. */
     void finalize(unsigned example_count, const Feature & feature,
-                  boost::shared_ptr<const Feature_Space> feature_space);
+                  std::shared_ptr<const Feature_Space> feature_space);
 
 
     /*************************************************************************/

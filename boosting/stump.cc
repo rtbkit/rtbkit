@@ -133,7 +133,7 @@ Stump::Stump()
 {
 }
 
-Stump::Stump(boost::shared_ptr<const Feature_Space> feature_space,
+Stump::Stump(std::shared_ptr<const Feature_Space> feature_space,
              const Feature & predicted)
     : Classifier_Impl(feature_space, predicted),
       encoding(OE_PROB)
@@ -141,7 +141,7 @@ Stump::Stump(boost::shared_ptr<const Feature_Space> feature_space,
 }
 
 Stump::
-Stump(boost::shared_ptr<const Feature_Space> feature_space,
+Stump(std::shared_ptr<const Feature_Space> feature_space,
       const Feature & predicted, size_t label_count)
     : Classifier_Impl(feature_space, predicted, label_count),
       encoding(OE_PROB)
@@ -156,7 +156,7 @@ Stump(const Feature & predicted,
       const distribution<float> & pred_false,
       const distribution<float> & pred_missing,
       Update update,
-      boost::shared_ptr<const Feature_Space> feature_space,
+      std::shared_ptr<const Feature_Space> feature_space,
       float Z)
     : Classifier_Impl(feature_space, predicted, pred_true.size()),
       split(feature, arg,
@@ -173,7 +173,7 @@ Stump(const Feature & predicted,
       const Feature & feature, float arg,
       const distribution<float> & pred_there,
       Update update,
-      boost::shared_ptr<const Feature_Space> feature_space,
+      std::shared_ptr<const Feature_Space> feature_space,
       float Z)
     : Classifier_Impl(feature_space, predicted, pred_there.size()),
       feature(feature), relation(get_relation()), arg(arg), Z(Z),
@@ -339,7 +339,7 @@ reconstitute_lw(DB::Store_Reader & store, const Feature & feature)
 }
 
 Stump::Stump(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & feature_space)
+             const std::shared_ptr<const Feature_Space> & feature_space)
 {
     string magic;
     compact_size_t version;
@@ -391,7 +391,7 @@ Stump::Stump(DB::Store_Reader & store,
 
 void Stump::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & features)
+             const std::shared_ptr<const Feature_Space> & features)
 {
     /* Implement the strong exception guarantee. */
     Stump new_me(store, features);

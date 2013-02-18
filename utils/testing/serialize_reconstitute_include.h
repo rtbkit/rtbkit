@@ -83,7 +83,7 @@ void test_poly_serialize_reconstitute(const X & x)
     istringstream stream_in(stream_out.str());
     
     DB::Store_Reader reader(stream_in);
-    boost::shared_ptr<Base> y;
+    std::shared_ptr<Base> y;
     std::string s;
 
     try {

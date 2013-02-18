@@ -86,7 +86,7 @@ options() const
 
 void
 Bagging_Generator::
-init(boost::shared_ptr<const Feature_Space> fs, Feature predicted)
+init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Classifier_Generator::init(fs, predicted);
     weak_learner->init(fs, predicted);
@@ -98,18 +98,18 @@ struct Bag_Job_Info {
     const Training_Data & training_set;
     const distribution<float> & training_ex_weights;
     const vector<Feature> & features;
-    vector<boost::shared_ptr<Classifier_Impl> > & results;
+    vector<std::shared_ptr<Classifier_Impl> > & results;
     float train_prop;
-    boost::shared_ptr<Classifier_Generator> weak_learner;
+    std::shared_ptr<Classifier_Generator> weak_learner;
     boost::progress_display * progress;
     int num_bags;
     
     Bag_Job_Info(const Training_Data & training_set,
                  const distribution<float> & training_ex_weights,
                  const vector<Feature> & features,
-                 vector<boost::shared_ptr<Classifier_Impl> > & results,
+                 vector<std::shared_ptr<Classifier_Impl> > & results,
                  float train_prop,
-                 boost::shared_ptr<Classifier_Generator> weak_learner,
+                 std::shared_ptr<Classifier_Generator> weak_learner,
                  int num_bags)
         : training_set(training_set), training_ex_weights(training_ex_weights),
           features(features), results(results),
@@ -188,7 +188,7 @@ struct Bag_Job {
 #endif
 
         /* Train me! */
-        boost::shared_ptr<Classifier_Impl> bag
+        std::shared_ptr<Classifier_Impl> bag
             = info.weak_learner
             ->generate(context,
                        info.training_set, info.training_set,
@@ -220,7 +220,7 @@ struct Bag_Job {
 } // file scope
 
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Bagging_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_set,
@@ -248,7 +248,7 @@ generate(Thread_Context & context,
 
     bool local_thread_only = (num_bags > num_threads() * 2);
 
-    vector<boost::shared_ptr<Classifier_Impl> > results(num_bags);
+    vector<std::shared_ptr<Classifier_Impl> > results(num_bags);
     vector<Thread_Context> contexts(num_bags);
     for (unsigned i = 0;  i < num_bags;  ++i)
         contexts[i] = context.child(-1, local_thread_only);

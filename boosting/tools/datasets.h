@@ -63,17 +63,17 @@ public:
     void transform(const Feature_Transformer & transformer);
     
     /** Overall feature space. */
-    boost::shared_ptr<Mutable_Feature_Space> feature_space;
-    boost::shared_ptr<Sparse_Feature_Space> sparse_feature_space;
-    boost::shared_ptr<Dense_Feature_Space> dense_feature_space;
-    std::vector<boost::shared_ptr<Training_Data> > data;
+    std::shared_ptr<Mutable_Feature_Space> feature_space;
+    std::shared_ptr<Sparse_Feature_Space> sparse_feature_space;
+    std::shared_ptr<Dense_Feature_Space> dense_feature_space;
+    std::vector<std::shared_ptr<Training_Data> > data;
     std::vector<Disposition> dispositions;
     
     /* Broken down and split up datasets.  First one is training, second is
        validation, any after that are testing. */
-    boost::shared_ptr<Training_Data> training;
-    boost::shared_ptr<Training_Data> validation;
-    std::vector<boost::shared_ptr<Training_Data> > testing;
+    std::shared_ptr<Training_Data> training;
+    std::shared_ptr<Training_Data> validation;
+    std::vector<std::shared_ptr<Training_Data> > testing;
 
     Feature group_feature;
 

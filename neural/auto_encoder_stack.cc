@@ -71,7 +71,7 @@ add(Auto_Encoder * layer)
 
 void
 Auto_Encoder_Stack::
-add(boost::shared_ptr<Auto_Encoder> layer)
+add(std::shared_ptr<Auto_Encoder> layer)
 {
     layers_.add(layer);
     Layer::init(name(), layers_.inputs(), layers_.outputs());

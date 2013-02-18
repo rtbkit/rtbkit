@@ -86,17 +86,17 @@ struct Auto_Encoder_Stack : public Auto_Encoder {
         ownership of the pointer passes to the Auto_Encoder_Stack object. */
     void add(Auto_Encoder * layer);
 
-    void add(boost::shared_ptr<Auto_Encoder> layer);
+    void add(std::shared_ptr<Auto_Encoder> layer);
 
     /** Add a layer to the stack, performing the necessary upcast. */
     template<typename LayerT2>
     typename boost::disable_if<boost::is_base_of<Auto_Encoder, LayerT2>, void>::type
-    add_cast(boost::shared_ptr<LayerT2> layer)
+    add_cast(std::shared_ptr<LayerT2> layer)
     {
         if (!layer)
             throw Exception("no layer");
-        boost::shared_ptr<Auto_Encoder> cast
-            = boost::dynamic_pointer_cast<Auto_Encoder>(layer);
+        std::shared_ptr<Auto_Encoder> cast
+            = std::dynamic_pointer_cast<Auto_Encoder>(layer);
         if (!cast)
             throw Exception("Auto_Encoder_Stack::add_cast(): type "
                             + demangle(typeid(*layer).name())
@@ -109,7 +109,7 @@ struct Auto_Encoder_Stack : public Auto_Encoder {
         derived. */
     template<typename LayerT2>
     typename boost::enable_if<boost::is_base_of<Auto_Encoder, LayerT2>, void>::type
-    add_cast(boost::shared_ptr<LayerT2> layer)
+    add_cast(std::shared_ptr<LayerT2> layer)
     {
         add(layer);
     }

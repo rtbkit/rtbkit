@@ -54,7 +54,7 @@ options() const
     return result;
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Early_Stopping_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_data,

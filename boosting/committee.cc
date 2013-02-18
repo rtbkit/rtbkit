@@ -34,14 +34,14 @@ Committee()
 
 Committee::
 Committee(DB::Store_Reader & store,
-          const boost::shared_ptr<const Feature_Space> & feature_space)
+          const std::shared_ptr<const Feature_Space> & feature_space)
     : optimized_(false)
 {
     reconstitute(store, feature_space);
 }
 
 Committee::
-Committee(const boost::shared_ptr<const Feature_Space>
+Committee(const std::shared_ptr<const Feature_Space>
              & feature_space,
           const Feature & predicted)
     : Classifier_Impl(feature_space, predicted),
@@ -191,7 +191,7 @@ explain(const Feature_Set & feature_set,
 
 void
 Committee::
-add(boost::shared_ptr<Classifier_Impl> classifier, float weight)
+add(std::shared_ptr<Classifier_Impl> classifier, float weight)
 {
     if (!classifier)
         throw Exception("Committee::add(): attempt to add null classifier");
@@ -265,7 +265,7 @@ serialize(DB::Store_Writer & store) const
 void
 Committee::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & features)
+             const std::shared_ptr<const Feature_Space> & features)
 {
     /* Implement the strong exception guarantee, except for the store. */
     string magic;

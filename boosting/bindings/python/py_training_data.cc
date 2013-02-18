@@ -34,7 +34,7 @@ struct Training_Data_Wrapper : Training_Data, wrapper<Training_Data> {
 
     /* Virtual function partition */
 
-    virtual std::vector<boost::shared_ptr<Training_Data> >
+    virtual std::vector<std::shared_ptr<Training_Data> >
     partition(const std::vector<float> & sizes, bool random = true,
               const Feature & group_feature = MISSING_FEATURE) const
     {
@@ -43,20 +43,20 @@ struct Training_Data_Wrapper : Training_Data, wrapper<Training_Data> {
         return Training_Data::partition(sizes, random, group_feature);
     }
 
-    std::vector<boost::shared_ptr<Training_Data> >
+    std::vector<std::shared_ptr<Training_Data> >
     def_partition(const std::vector<float> & sizes, bool random,
                   const Feature & group_feature) const
     {
         return Training_Data::partition(sizes, random, group_feature);
     }
 
-    std::vector<boost::shared_ptr<Training_Data> >
+    std::vector<std::shared_ptr<Training_Data> >
     partition1(const std::vector<float> & sizes) const
     {
         return partition(sizes);
     }
 
-    std::vector<boost::shared_ptr<Training_Data> >
+    std::vector<std::shared_ptr<Training_Data> >
     partition2(const std::vector<float> & sizes, bool random) const
     {
         return partition2(sizes, random);

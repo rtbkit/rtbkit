@@ -27,22 +27,22 @@ class Transform_List : public Feature_Transformer_Impl {
 public:
     Transform_List();
     Transform_List(DB::Store_Reader & store);
-    Transform_List(boost::shared_ptr<Feature_Space> fs);
+    Transform_List(std::shared_ptr<Feature_Space> fs);
 
     virtual ~Transform_List();
     
     /** Initialize with the given feature space. */
-    void init(boost::shared_ptr<Feature_Space> feature_space);
+    void init(std::shared_ptr<Feature_Space> feature_space);
 
     /** Return the feature space that our features are input into. */
-    virtual boost::shared_ptr<Feature_Space> input_fs() const;
+    virtual std::shared_ptr<Feature_Space> input_fs() const;
 
     /** Return the feature space that our features are output to. */
-    virtual boost::shared_ptr<Feature_Space> output_fs() const;
+    virtual std::shared_ptr<Feature_Space> output_fs() const;
 
     /** Transform the given feature set.  Note that the features will be
         implicitly transformed into the output_fs feature space. */
-    virtual boost::shared_ptr<Mutable_Feature_Set>
+    virtual std::shared_ptr<Mutable_Feature_Set>
     transform(const Feature_Set & features) const;
 
     virtual std::string class_id() const;
@@ -67,8 +67,8 @@ public:
     void parse(const std::string & transform);
 
 private:
-    std::vector<boost::shared_ptr<Feature_Transform> > transforms_;
-    boost::shared_ptr<Feature_Space> feature_space_;
+    std::vector<std::shared_ptr<Feature_Transform> > transforms_;
+    std::shared_ptr<Feature_Space> feature_space_;
 };
 
 

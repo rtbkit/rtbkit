@@ -45,7 +45,7 @@ inline std::string print_outcome(bool outcome)
 // Conjunction, AKA "and"
 template<typename Outcome>
 struct Conjunction {
-    std::vector<boost::shared_ptr<Predicate> > predicates;
+    std::vector<std::shared_ptr<Predicate> > predicates;
     Outcome outcome;
 
     std::string print(const Feature_Space & fs) const
@@ -68,8 +68,8 @@ struct Conjunction {
 // Disjunction, AKA "or"
 template<typename Outcome>
 struct Disjunction {
-    std::vector<boost::shared_ptr<Conjunction<Outcome> > > predicates;
-    boost::shared_ptr<const Feature_Space> feature_space;
+    std::vector<std::shared_ptr<Conjunction<Outcome> > > predicates;
+    std::shared_ptr<const Feature_Space> feature_space;
 
     std::string
     print() const
@@ -97,7 +97,7 @@ struct Disjunction {
         for (unsigned i = 0;  i < predicates.size();  ++i) {
             NewOutcome newOutcome;
             if (fn(predicates[i]->outcome, newOutcome)) {
-                boost::shared_ptr<Conjunction<NewOutcome> >
+                std::shared_ptr<Conjunction<NewOutcome> >
                     newConj(new Conjunction<NewOutcome>());
                 newConj->outcome = newOutcome;
                 newConj->predicates = predicates[i]->predicates;

@@ -62,7 +62,7 @@ public:
     virtual std::string class_id() const;
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store,
-                              const boost::shared_ptr<const Feature_Space>
+                              const std::shared_ptr<const Feature_Space>
                                   & feature_space);
     void reconstitute(DB::Store_Reader & store);
 

@@ -29,7 +29,7 @@ struct Test_Buckets_Binsym {
     struct Plan;     // Implementation is private
     struct Context;  // implementation is private
 
-    boost::shared_ptr<Plan>
+    std::shared_ptr<Plan>
     plan(const uint16_t * buckets,
          const uint32_t * examples, // or 0 if example num == i
          const int32_t * labels,
@@ -41,7 +41,7 @@ struct Test_Buckets_Binsym {
          bool on_device,
          bool compressed) const;
 
-    boost::shared_ptr<Context>
+    std::shared_ptr<Context>
     execute(const Plan & plan,
             TwoBuckets * accum,
             TwoBuckets & w_label) const;

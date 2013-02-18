@@ -40,7 +40,7 @@ poly_serialize(DB::Store_Writer & store) const
     Registry<Transfer_Function>::singleton().serialize(store, this);
 }
 
-boost::shared_ptr<Transfer_Function>
+std::shared_ptr<Transfer_Function>
 Transfer_Function::
 poly_reconstitute(DB::Store_Reader & store)
 {
@@ -390,13 +390,13 @@ Register_Factory<Transfer_Function, Standard_Transfer_Function>
 /* FACTORY                                                                   */
 /*****************************************************************************/
 
-boost::shared_ptr<Transfer_Function>
+std::shared_ptr<Transfer_Function>
 create_transfer_function(const Transfer_Function_Type & function)
 {
     return make_sp(new Standard_Transfer_Function(function));
 }
 
-boost::shared_ptr<Transfer_Function>
+std::shared_ptr<Transfer_Function>
 create_transfer_function(const std::string & name)
 {
     throw Exception("create_transfer_function(name): not implemented");

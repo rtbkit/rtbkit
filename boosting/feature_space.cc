@@ -34,7 +34,7 @@ std::string Feature_Space::print(const Feature & feature) const
 
 std::string Feature_Space::print(const Feature & feature, float value) const
 {
-    boost::shared_ptr<const Categorical_Info> cinfo
+    std::shared_ptr<const Categorical_Info> cinfo
         = info(feature).categorical();
 
     if (round(value) == value && cinfo) return cinfo->print((int)value);
@@ -168,7 +168,7 @@ serialize(DB::Store_Writer & store, const Feature_Set & fs) const
 
 void Feature_Space::
 reconstitute(DB::Store_Reader & store,
-             boost::shared_ptr<Feature_Set> & fs) const
+             std::shared_ptr<Feature_Set> & fs) const
 {
     DB::compact_size_t version;
     store >> version;
@@ -177,7 +177,7 @@ reconstitute(DB::Store_Reader & store,
     case 1: {
         DB::compact_size_t size(store);
 
-        boost::shared_ptr<Mutable_Feature_Set> fs2(new Mutable_Feature_Set());
+        std::shared_ptr<Mutable_Feature_Set> fs2(new Mutable_Feature_Set());
         fs2->features.reserve(size);
         fs2->clear();
 
@@ -211,7 +211,7 @@ void Feature_Space::serialize(DB::Store_Writer & store) const
 
 void Feature_Space::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & fs)
+             const std::shared_ptr<const Feature_Space> & fs)
 {
     // TODO: get to bottom of why we pass the feature space here.
     string id;
@@ -228,11 +228,11 @@ std::string Feature_Space::print() const
     return class_id();
 }
 
-boost::shared_ptr<Training_Data>
+std::shared_ptr<Training_Data>
 Feature_Space::
-training_data(const boost::shared_ptr<const Feature_Space> & fs) const
+training_data(const std::shared_ptr<const Feature_Space> & fs) const
 {
-    return boost::shared_ptr<Training_Data>(new Training_Data(fs));
+    return std::shared_ptr<Training_Data>(new Training_Data(fs));
 }
 
 void
@@ -260,7 +260,7 @@ dense_features() const
 
 DB::Store_Writer &
 operator << (DB::Store_Writer & store,
-             const boost::shared_ptr<Feature_Space> & fs)
+             const std::shared_ptr<Feature_Space> & fs)
 {
     Registry<Feature_Space>::singleton().serialize(store, fs.get());
     return store;
@@ -268,7 +268,7 @@ operator << (DB::Store_Writer & store,
 
 DB::Store_Writer &
 operator << (DB::Store_Writer & store,
-             const boost::shared_ptr<const Feature_Space> & fs)
+             const std::shared_ptr<const Feature_Space> & fs)
 {
     Registry<Feature_Space>::singleton().serialize(store, fs.get());
     return store;
@@ -276,7 +276,7 @@ operator << (DB::Store_Writer & store,
 
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store,
-             boost::shared_ptr<Feature_Space> & fs)
+             std::shared_ptr<Feature_Space> & fs)
 {
     //cerr << "reconstituting feature space..." << endl;
     fs = Registry<Feature_Space>::singleton().reconstitute(store);
@@ -286,7 +286,7 @@ operator >> (DB::Store_Reader & store,
 
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store,
-             boost::shared_ptr<const Feature_Space> & fs)
+             std::shared_ptr<const Feature_Space> & fs)
 {
     //cerr << "reconstituting feature space..." << endl;
     fs = Registry<Feature_Space>::singleton().reconstitute(store);

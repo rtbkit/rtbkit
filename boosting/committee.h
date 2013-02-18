@@ -28,14 +28,14 @@ public:
     Committee();
 
     Committee(DB::Store_Reader & store,
-                   const boost::shared_ptr<const Feature_Space>
+                   const std::shared_ptr<const Feature_Space>
                        & feature_space);
     
-    Committee(const boost::shared_ptr<const Feature_Space>
+    Committee(const std::shared_ptr<const Feature_Space>
                        & feature_space,
                    const Feature & predicted);
 
-    std::vector<boost::shared_ptr<Classifier_Impl> > classifiers;
+    std::vector<std::shared_ptr<Classifier_Impl> > classifiers;
     distribution<float> weights; ///< Weigths of each classifier
     distribution<float> bias;    ///< Bias to add to each label
     Output_Encoding encoding;    ///< What type of output we produce
@@ -50,7 +50,7 @@ public:
         bias.swap(other.bias);
     }
 
-    void add(boost::shared_ptr<Classifier_Impl> classifier, float weight = 1.0);
+    void add(std::shared_ptr<Classifier_Impl> classifier, float weight = 1.0);
     
     using Classifier_Impl::predict;
 
@@ -109,7 +109,7 @@ public:
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void
     reconstitute(DB::Store_Reader & store,
-                 const boost::shared_ptr<const Feature_Space> & features);
+                 const std::shared_ptr<const Feature_Space> & features);
 
     virtual std::string class_id() const { return "COMMITTEE"; }
 

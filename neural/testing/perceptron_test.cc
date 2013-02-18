@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_classification )
     fs.add_feature("feature1", REAL);
     fs.add_feature("feature2", REAL);
 
-    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+    std::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
 
     Training_Data data(fsp);
     
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_classification )
         features.push_back(i % 3  == 0);
         features.push_back(i % 5  == 0);
 
-        boost::shared_ptr<Feature_Set> fset
+        std::shared_ptr<Feature_Set> fset
             = fs.encode(features);
 
         data.add_example(fset);
@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_classification )
 
     Thread_Context context;
 
-    boost::shared_ptr<Classifier_Impl> classifier
+    std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
     float accuracy JML_UNUSED = classifier->accuracy(data).first;
@@ -109,7 +109,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_regression )
     fs.add_feature("feature1", REAL);
     fs.add_feature("feature2", REAL);
 
-    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+    std::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
 
     Training_Data data(fsp);
     
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_regression )
         features.push_back(i % 3  != 0);
         features.push_back(i % 5  != 0);
 
-        boost::shared_ptr<Feature_Set> fset
+        std::shared_ptr<Feature_Set> fset
             = fs.encode(features);
 
         data.add_example(fset);
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_regression )
 
     Thread_Context context;
 
-    boost::shared_ptr<Classifier_Impl> classifier
+    std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
     float accuracy JML_UNUSED = classifier->accuracy(data).first;
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_missing )
     fs.add_feature("feature1b", REAL);
     fs.add_feature("feature2",  REAL);
 
-    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+    std::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
 
     Training_Data data(fsp);
     
@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_missing )
         }
         features.push_back(i % 5  == 0);
 
-        boost::shared_ptr<Feature_Set> fset
+        std::shared_ptr<Feature_Set> fset
             = fs.encode(features);
 
         data.add_example(fset);
@@ -213,7 +213,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_missing )
 
     Thread_Context context;
 
-    boost::shared_ptr<Classifier_Impl> classifier
+    std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
     float accuracy JML_UNUSED = classifier->accuracy(data).first;
@@ -245,7 +245,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_missing2 )
     fs.add_feature("feature1", REAL);
     fs.add_feature("feature2",  REAL);
 
-    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+    std::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
 
     Training_Data data(fsp);
     
@@ -261,7 +261,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_missing2 )
         else features.push_back(NaN);
         features.push_back(i % 5  == 0);
 
-        boost::shared_ptr<Feature_Set> fset
+        std::shared_ptr<Feature_Set> fset
             = fs.encode(features);
         
         data.add_example(fset);
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE( test_perceptron_missing2 )
 
     Thread_Context context;
 
-    boost::shared_ptr<Classifier_Impl> classifier
+    std::shared_ptr<Classifier_Impl> classifier
         = generator.generate(context, data, training_weights, features);
 
     float accuracy JML_UNUSED = classifier->accuracy(data).first;

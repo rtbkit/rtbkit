@@ -20,10 +20,10 @@ using namespace std;
 
 void test(const std::string & dataset)
 {
-    boost::shared_ptr<Sparse_Feature_Space>
+    std::shared_ptr<Sparse_Feature_Space>
         feature_space(new Sparse_Feature_Space());
 
-    boost::shared_ptr<Sparse_Feature_Space>
+    std::shared_ptr<Sparse_Feature_Space>
         feature_space3(new Sparse_Feature_Space());
 
     Sparse_Training_Data data(dataset, feature_space);

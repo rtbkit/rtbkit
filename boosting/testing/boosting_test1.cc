@@ -18,7 +18,7 @@ using namespace std;
 void run_boosting(const Training_Data & training_set, vector<Feature> features)
 {
     unsigned nl = training_set.label_count();
-    boost::shared_ptr<const Feature_Space> fs = training_set.feature_space();
+    std::shared_ptr<const Feature_Space> fs = training_set.feature_space();
     Boosted_Stumps stumps(fs, nl);
     Boosted_Stumps best(fs, nl);
     
@@ -82,7 +82,7 @@ try
     string dataset
         = "algorithms/machine_learning/boosting/datasets/conf-train-2.txt";
     
-    boost::shared_ptr<Sparse_Feature_Space>
+    std::shared_ptr<Sparse_Feature_Space>
         feature_space(new Sparse_Feature_Space());
     Sparse_Training_Data data(dataset, feature_space);
 

@@ -139,7 +139,7 @@ struct Classifier_Impl_Wrapper : Classifier_Impl, wrapper<Classifier_Impl> {
     /* Pure virtual function reconstitute */
 
     virtual void reconstitute(DB::Store_Reader & store,
-                              const boost::shared_ptr<const Feature_Space>
+                              const std::shared_ptr<const Feature_Space>
                                   & feature_space)
     {
         this->get_override("reconstitute")(store, feature_space);
@@ -179,11 +179,11 @@ void export_classifier()
         = &Classifier_Impl::accuracy;
 
     void (Classifier_Impl::* initA)
-        (const boost::shared_ptr<const Feature_Space> &,
+        (const std::shared_ptr<const Feature_Space> &,
          const Feature &)
         = &Classifier_Impl::init;
     void (Classifier_Impl::* initB)
-        (const boost::shared_ptr<const Feature_Space> &,
+        (const std::shared_ptr<const Feature_Space> &,
          const Feature &, size_t)
         = &Classifier_Impl::init;
 

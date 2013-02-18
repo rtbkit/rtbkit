@@ -115,13 +115,13 @@ options() const
 
 void
 Stump_Generator::
-init(boost::shared_ptr<const Feature_Space> fs, Feature predicted)
+init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Classifier_Generator::init(fs, predicted);
     model = Stump(fs, predicted);
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Stump_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_set,
@@ -173,7 +173,7 @@ generate(Thread_Context & context,
     
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Stump_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_set,

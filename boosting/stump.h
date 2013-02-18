@@ -119,7 +119,7 @@ public:
 
     /** Construct it by reconstituting it from a store. */
     Stump(DB::Store_Reader & store,
-          const boost::shared_ptr<const Feature_Space> & feature_space);
+          const std::shared_ptr<const Feature_Space> & feature_space);
     
     /** Construct a rule for a predicate that can be true, false, or not
         have a value due to a missing feature. */
@@ -130,7 +130,7 @@ public:
           const Label_Dist & pred_false,
           const Label_Dist & pred_missing,
           Update update,
-          boost::shared_ptr<const Feature_Space> feature_space,
+          std::shared_ptr<const Feature_Space> feature_space,
           float Z = -INFINITY);
     
     /** Construct a rule for a there/not there classifier. */
@@ -139,15 +139,15 @@ public:
           float arg,
           const Label_Dist & pred_there,
           Update update,
-          boost::shared_ptr<const Feature_Space> feature_space,
+          std::shared_ptr<const Feature_Space> feature_space,
           float Z = -INFINITY);
 
     /** Construct not filled in yet. */
-    Stump(boost::shared_ptr<const Feature_Space> feature_space,
+    Stump(std::shared_ptr<const Feature_Space> feature_space,
           const Feature & predicted);
 
     /** Construct not filled in yet, when label may be unknown. */
-    Stump(boost::shared_ptr<const Feature_Space> feature_space,
+    Stump(std::shared_ptr<const Feature_Space> feature_space,
           const Feature & predicted, size_t label_count);
 
     virtual ~Stump();
@@ -202,7 +202,7 @@ public:
     /** Serialization and reconstitution. */
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store,
-                              const boost::shared_ptr<const Feature_Space>
+                              const std::shared_ptr<const Feature_Space>
                                   & fs);
 
     virtual void serialize_lw(DB::Store_Writer & store) const;

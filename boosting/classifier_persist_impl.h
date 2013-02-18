@@ -29,10 +29,10 @@ class Factory_Base<Classifier_Impl> {
 public:
     virtual ~Factory_Base();
 
-    virtual boost::shared_ptr<Classifier_Impl> create() const = 0;
+    virtual std::shared_ptr<Classifier_Impl> create() const = 0;
 
-    virtual boost::shared_ptr<Classifier_Impl>
-    reconstitute(const boost::shared_ptr<const Feature_Space> & feature_space,
+    virtual std::shared_ptr<Classifier_Impl>
+    reconstitute(const std::shared_ptr<const Feature_Space> & feature_space,
                  DB::Store_Reader & store) const = 0;
 };
 
@@ -41,18 +41,18 @@ class Object_Factory<Classifier_Impl, Derived>
     : public Factory_Base<Classifier_Impl> {
 public:
     virtual ~Object_Factory() {}
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     create() const
     {
-        boost::shared_ptr<Classifier_Impl> result(new Derived());
+        std::shared_ptr<Classifier_Impl> result(new Derived());
         return result;
     }
 
-    virtual boost::shared_ptr<Classifier_Impl>
-    reconstitute(const boost::shared_ptr<const Feature_Space> & feature_space,
+    virtual std::shared_ptr<Classifier_Impl>
+    reconstitute(const std::shared_ptr<const Feature_Space> & feature_space,
                  DB::Store_Reader & store) const
     {
-        boost::shared_ptr<Classifier_Impl> result = create();
+        std::shared_ptr<Classifier_Impl> result = create();
         //cerr << "created: predicted = " << result->predicted() << endl;
         result->reconstitute(store, feature_space);
         //cerr << "reconstituted: predicted = " << result->predicted() << endl;

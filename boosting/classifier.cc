@@ -101,7 +101,7 @@ get_optimized_index(const Feature & feature) const
 /*****************************************************************************/
 
 Explanation::
-Explanation(boost::shared_ptr<const Feature_Space> fspace,
+Explanation(std::shared_ptr<const Feature_Space> fspace,
             double weight)
     : bias(0.0), weight(weight), fspace(fspace)
 {
@@ -283,7 +283,7 @@ size_t check_label_count(const Feature_Space & fs,
 } // file scope
 
 Classifier_Impl::
-Classifier_Impl(const boost::shared_ptr<const Feature_Space> & feature_space,
+Classifier_Impl(const std::shared_ptr<const Feature_Space> & feature_space,
                 const Feature & predicted)
     : feature_space_(feature_space), predicted_(predicted),
       label_count_(get_label_count(*feature_space, predicted))
@@ -291,7 +291,7 @@ Classifier_Impl(const boost::shared_ptr<const Feature_Space> & feature_space,
 }
 
 Classifier_Impl::
-Classifier_Impl(const boost::shared_ptr<const Feature_Space> & feature_space,
+Classifier_Impl(const std::shared_ptr<const Feature_Space> & feature_space,
                 const Feature & predicted,
                 size_t label_count)
     : feature_space_(feature_space), predicted_(predicted),
@@ -300,7 +300,7 @@ Classifier_Impl(const boost::shared_ptr<const Feature_Space> & feature_space,
 }
 
 void Classifier_Impl::
-init(const boost::shared_ptr<const Feature_Space> & feature_space,
+init(const std::shared_ptr<const Feature_Space> & feature_space,
      const Feature & predicted)
 {
     feature_space_ = feature_space;
@@ -309,7 +309,7 @@ init(const boost::shared_ptr<const Feature_Space> & feature_space,
 }
 
 void Classifier_Impl::
-init(const boost::shared_ptr<const Feature_Space> & feature_space,
+init(const std::shared_ptr<const Feature_Space> & feature_space,
      const Feature & predicted,
      size_t label_count)
 {
@@ -842,15 +842,15 @@ explain(const Feature_Set & feature_set,
 }
 
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Classifier_Impl::
 poly_reconstitute(DB::Store_Reader & store,
-                  const boost::shared_ptr<const Feature_Space> & fs)
+                  const std::shared_ptr<const Feature_Space> & fs)
 {
     compact_size_t fs_flag(store);
     //cerr << "fs_flag = " << fs_flag << endl;
     if (fs_flag) {
-        boost::shared_ptr<Feature_Space> fs2;
+        std::shared_ptr<Feature_Space> fs2;
         store >> fs2;  // ignore this one
         return Registry<Classifier_Impl>::singleton().reconstitute(store, fs);
     }
@@ -858,7 +858,7 @@ poly_reconstitute(DB::Store_Reader & store,
         return Registry<Classifier_Impl>::singleton().reconstitute(store, fs);
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Classifier_Impl::poly_reconstitute(DB::Store_Reader & store)
 {
     //cerr << __PRETTY_FUNCTION__ << endl;
@@ -866,8 +866,8 @@ Classifier_Impl::poly_reconstitute(DB::Store_Reader & store)
 
     //cerr << "poly_reconstitute: fs_flag = " << fs_flag << endl;
 
-    boost::shared_ptr<const Feature_Space> fs;
-    boost::shared_ptr<Feature_Space> fs_mutable;
+    std::shared_ptr<const Feature_Space> fs;
+    std::shared_ptr<Feature_Space> fs_mutable;
     if (fs_flag) {
         store >> fs_mutable;
 
@@ -879,7 +879,7 @@ Classifier_Impl::poly_reconstitute(DB::Store_Reader & store)
 
     //cerr << "reconstituting with feature space" << endl;
 
-    boost::shared_ptr<Classifier_Impl> result
+    std::shared_ptr<Classifier_Impl> result
         = Registry<Classifier_Impl>::singleton().reconstitute(store, fs);
 
     //cerr << "result->predicted() = " << result->predicted() << endl;
@@ -934,16 +934,16 @@ summary() const
 namespace {
 
 /* Put one of these objects per thread. */
-boost::thread_specific_ptr<vector<boost::shared_ptr<const Feature_Space> > >
+boost::thread_specific_ptr<vector<std::shared_ptr<const Feature_Space> > >
     fs_stack;
 
 } // file scope
 
 FS_Context::
-FS_Context(const boost::shared_ptr<const Feature_Space> & feature_space)
+FS_Context(const std::shared_ptr<const Feature_Space> & feature_space)
 {
     if (!fs_stack.get())
-        fs_stack.reset(new vector<boost::shared_ptr<const Feature_Space> >());
+        fs_stack.reset(new vector<std::shared_ptr<const Feature_Space> >());
     fs_stack->push_back(feature_space);
 }
 
@@ -956,7 +956,7 @@ FS_Context::~FS_Context()
     fs_stack->pop_back();
 }
 
-const boost::shared_ptr<const Feature_Space> & FS_Context::inner()
+const std::shared_ptr<const Feature_Space> & FS_Context::inner()
 {
     if (!fs_stack.get())
         throw Exception("FS_Context never initialized");
@@ -966,7 +966,7 @@ const boost::shared_ptr<const Feature_Space> & FS_Context::inner()
 
 DB::Store_Writer &
 operator << (DB::Store_Writer & store,
-             const boost::shared_ptr<const Classifier_Impl> & classifier)
+             const std::shared_ptr<const Classifier_Impl> & classifier)
 {
     classifier->poly_serialize(store);
     return store;
@@ -974,7 +974,7 @@ operator << (DB::Store_Writer & store,
 
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store,
-             boost::shared_ptr<Classifier_Impl> & classifier)
+             std::shared_ptr<Classifier_Impl> & classifier)
 {
     Classifier_Impl::poly_reconstitute(store, FS_Context::inner());
     return store;
@@ -989,7 +989,7 @@ Classifier::Classifier()
 {
 }
 
-Classifier::Classifier(const boost::shared_ptr<Classifier_Impl> & impl)
+Classifier::Classifier(const std::shared_ptr<Classifier_Impl> & impl)
     : impl(impl)
 {
 }
@@ -1007,14 +1007,14 @@ Classifier::Classifier(const Classifier_Impl & impl)
 
 Classifier::
 Classifier(const std::string & name,
-           const boost::shared_ptr<const Feature_Space> & feature_space)
+           const std::shared_ptr<const Feature_Space> & feature_space)
 {
     throw Exception("Classifier::Classifier(string, fs): not implemented");
     //impl = Registry<Classifier_Impl>::singleton().create(name, feature_space);
 }
 
 Classifier::
-Classifier(const boost::shared_ptr<const Feature_Space> & feature_space,
+Classifier(const std::shared_ptr<const Feature_Space> & feature_space,
            DB::Store_Reader & store)
 {
     impl = Classifier_Impl::poly_reconstitute(store, feature_space);
@@ -1054,7 +1054,7 @@ void Classifier::load(const std::string & filename)
 }
 
 void Classifier::
-load(const std::string & filename, boost::shared_ptr<const Feature_Space> fs)
+load(const std::string & filename, std::shared_ptr<const Feature_Space> fs)
 {
     Store_Reader store(filename);
     reconstitute(store, fs);

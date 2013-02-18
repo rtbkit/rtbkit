@@ -36,7 +36,7 @@ struct Config_Option {
     std::string doc;    ///< Documentation
 
     ///< If this is a nested option group, this contains their documentation
-    boost::shared_ptr<Config_Options> group;
+    std::shared_ptr<Config_Options> group;
 
     std::string print() const;
 };
@@ -109,7 +109,7 @@ public:
 
     template<class Object>
     Config_Options &
-    subconfig(const std::string & name, const boost::shared_ptr<Object> & obj,
+    subconfig(const std::string & name, const std::shared_ptr<Object> & obj,
               const std::string & doc)
     {
         Config_Option option;

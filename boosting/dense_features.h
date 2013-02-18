@@ -34,7 +34,7 @@ struct Dense_Feature_Mapping {
     std::vector<int> vars;
     bool initialized_;
     int num_vars_expected_;
-    std::vector<boost::shared_ptr<Categorical_Mapping> > categories;
+    std::vector<std::shared_ptr<Categorical_Mapping> > categories;
     bool initialized() const;
     void clear();
 };
@@ -71,13 +71,13 @@ public:
               const std::vector<Mutable_Feature_Info> & feature_info);
 
     /** Encode the given parameter vector into a feature set. */
-    boost::shared_ptr<Mutable_Feature_Set>
+    std::shared_ptr<Mutable_Feature_Set>
     encode(const std::vector<float> & variables) const;
 
     /** Encode the given parameter vector into a feature set for another
         dense feature space.  Takes care of mapping the variables onto each
         other via their variable names. */
-    boost::shared_ptr<Mutable_Feature_Set>
+    std::shared_ptr<Mutable_Feature_Set>
     encode(const std::vector<float> & variables,
            const Dense_Feature_Space & other) const;
 
@@ -104,16 +104,16 @@ public:
 
         Classifier classifier;
         classifier.load("classifier.cls");
-        boost::shared_ptr<const Dense_Feature_Space>
+        std::shared_ptr<const Dense_Feature_Space>
             problem_fs = feature_space();
-        boost::shared_ptr<const Dense_Feature_Space>
+        std::shared_ptr<const Dense_Feature_Space>
             classifier_fs = classifier.feature_space<ML::Dense_Feature_Space>();
 
         classifier_fs->create_mapping(*problem_fs, mapping);
 
         distribution<float> features = ...;
 
-        boost::shared_ptr<Mutable_Feature_Set> encoded
+        std::shared_ptr<Mutable_Feature_Set> encoded
             = classifier_fs->encode(features, *problem_fs, mapping);
 
         float score = classifier.predict(1, *encoded);
@@ -132,7 +132,7 @@ public:
         It is the caller's responsibility to clear the map each time that
         either of the Dense_Feature_Space objects change.
     */
-    boost::shared_ptr<Mutable_Feature_Set>
+    std::shared_ptr<Mutable_Feature_Set>
     encode(const std::vector<float> & variables,
            const Dense_Feature_Space & other, Mapping & mapping) const;
 
@@ -143,7 +143,7 @@ public:
         create_mapping.  Make sure that the parameters are in the right
         order (see create_mapping).
     */
-    boost::shared_ptr<Mutable_Feature_Set>
+    std::shared_ptr<Mutable_Feature_Set>
     encode(const std::vector<float> & variables,
            const Dense_Feature_Space & other, const Mapping & mapping) const;
 
@@ -186,7 +186,7 @@ public:
     virtual void serialize(DB::Store_Writer & store,
                            const Feature_Set & fs) const;
     virtual void reconstitute(DB::Store_Reader & store,
-                              boost::shared_ptr<Feature_Set> & fs) const;
+                              std::shared_ptr<Feature_Set> & fs) const;
 
     /* Methods to deal with the feature space as a whole. */
     virtual Dense_Feature_Space * make_copy() const;
@@ -197,7 +197,7 @@ public:
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store);
     virtual void reconstitute(DB::Store_Reader & store,
-                              const boost::shared_ptr<const Feature_Space>
+                              const std::shared_ptr<const Feature_Space>
                                   & feature_space);
 
     /** Return the total number of variables in the dense feature array. */
@@ -229,7 +229,7 @@ public:
 
     /** Turn the feature info for the given feature into a mutable categorical
         version. */
-    boost::shared_ptr<Mutable_Categorical_Info>
+    std::shared_ptr<Mutable_Categorical_Info>
     make_categorical(Feature feature);
 
     /** Create a new feature with the given name and the given feature info.
@@ -276,14 +276,14 @@ public:
         must already know how to modify the variables.
     */
     Dense_Training_Data(const std::string & filename,
-                        boost::shared_ptr<const Feature_Space> feature_space);
+                        std::shared_ptr<const Feature_Space> feature_space);
 
     /** Initialise from a filename.  This one will modify the feature space
         to make its data also fit the feature space, or throw an exception if
         it cannot.  This is primarily useful when loading a series of
         datasets. */
     Dense_Training_Data(const std::string & filename,
-                        boost::shared_ptr<Dense_Feature_Space> feature_space);
+                        std::shared_ptr<Dense_Feature_Space> feature_space);
 
     virtual ~Dense_Training_Data();
 
@@ -297,24 +297,24 @@ public:
 
     /** Initialise from the data file, using the given feature space. */
     void init(const std::string & filename,
-              boost::shared_ptr<const Feature_Space> feature_space);
+              std::shared_ptr<const Feature_Space> feature_space);
 
     /** Initialise from a filename.  This one will modify the feature space
         to make its data also fit the feature space, or throw an exception if
         it cannot.  This is primarily useful when loading a series of
         datasets. */
     void init(const std::string & filename,
-              boost::shared_ptr<Dense_Feature_Space> feature_space);
+              std::shared_ptr<Dense_Feature_Space> feature_space);
 
     /** Initialise from a set of filenames.  This loads each of the files in
         turn and initialises from the sum of all of the files. */
     void init(const std::vector<std::string> & filenames,
-              boost::shared_ptr<Dense_Feature_Space> feature_space);
+              std::shared_ptr<Dense_Feature_Space> feature_space);
 
     /** Initialize from the text of a training data file */
     void init(const char * data,
               const char * data_end,
-              boost::shared_ptr<Dense_Feature_Space> feature_space);
+              std::shared_ptr<Dense_Feature_Space> feature_space);
 
 private:
     struct Data_Source;
@@ -322,7 +322,7 @@ private:
     /** Initialise from a set of filenames.  This loads each of the files in
         turn and initialises from the sum of all of the files. */
     void init(const std::vector<Data_Source> & data_sources,
-              boost::shared_ptr<Dense_Feature_Space> feature_space);
+              std::shared_ptr<Dense_Feature_Space> feature_space);
 
 public:
     /** Polymorphic copy. */
@@ -371,7 +371,7 @@ protected:
 
 class Dense_Feature_Set : public Feature_Set {
 public:
-    Dense_Feature_Set(boost::shared_ptr<const std::vector<Feature> > features,
+    Dense_Feature_Set(std::shared_ptr<const std::vector<Feature> > features,
                       const float * values)
     : features(features), values(values)
     {
@@ -391,7 +391,7 @@ public:
     {
     }
 
-    boost::shared_ptr<const std::vector<Feature> > features;
+    std::shared_ptr<const std::vector<Feature> > features;
     const float * values;
 
     virtual Dense_Feature_Set * make_copy() const;

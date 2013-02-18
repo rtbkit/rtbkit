@@ -24,7 +24,7 @@ namespace ML {
 struct Reverse_Layer_Adaptor : public Auto_Encoder {
 
     Reverse_Layer_Adaptor();
-    Reverse_Layer_Adaptor(boost::shared_ptr<Auto_Encoder>);
+    Reverse_Layer_Adaptor(std::shared_ptr<Auto_Encoder>);
 
     Reverse_Layer_Adaptor(const Reverse_Layer_Adaptor & other);
     Reverse_Layer_Adaptor & operator = (const Reverse_Layer_Adaptor & other);
@@ -251,7 +251,7 @@ struct Reverse_Layer_Adaptor : public Auto_Encoder {
 
 #endif // default versions OK
 
-    boost::shared_ptr<Auto_Encoder> ae_;
+    std::shared_ptr<Auto_Encoder> ae_;
 
 };
 

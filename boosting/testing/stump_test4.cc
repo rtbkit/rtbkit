@@ -28,7 +28,7 @@ void test()
     //    "1 isone:1\n"
     //    "0 iszero:1\n";
     
-    boost::shared_ptr<Sparse_Feature_Space>
+    std::shared_ptr<Sparse_Feature_Space>
         feature_space(new Sparse_Feature_Space());
 
     Sparse_Training_Data data("algorithms/machine_learning/boosting/datasets/"

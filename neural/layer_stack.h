@@ -110,7 +110,7 @@ struct Layer_Stack : public Layer {
         return dynamic_cast<As &>(*layers_.at(index));
     }
 
-    boost::shared_ptr<LayerT> share(int index)
+    std::shared_ptr<LayerT> share(int index)
     {
         return layers_.at(index);
     }
@@ -119,17 +119,17 @@ struct Layer_Stack : public Layer {
         ownership of the pointer passes to the Layer_Stack object. */
     void add(LayerT * layer);
 
-    void add(boost::shared_ptr<LayerT> layer);
+    void add(std::shared_ptr<LayerT> layer);
 
     /** Add a layer to the stack, performing the necessary upcast. */
     template<typename LayerT2>
     typename boost::disable_if<boost::is_base_of<LayerT, LayerT2>, void>::type
-    add_cast(boost::shared_ptr<LayerT2> layer)
+    add_cast(std::shared_ptr<LayerT2> layer)
     {
         if (!layer)
             throw Exception("no layer");
-        boost::shared_ptr<LayerT> cast
-            = boost::dynamic_pointer_cast<LayerT>(layer);
+        std::shared_ptr<LayerT> cast
+            = std::dynamic_pointer_cast<LayerT>(layer);
         if (!cast)
             throw Exception("Layer_Stack::add_cast(): type "
                             + demangle(typeid(*layer).name())
@@ -142,7 +142,7 @@ struct Layer_Stack : public Layer {
         derived. */
     template<typename LayerT2>
     typename boost::enable_if<boost::is_base_of<LayerT, LayerT2>, void>::type
-    add_cast(boost::shared_ptr<LayerT2> layer)
+    add_cast(std::shared_ptr<LayerT2> layer)
     {
         add(layer);
     }
@@ -292,7 +292,7 @@ struct Layer_Stack : public Layer {
 
 protected:
     /// The actual layers
-    std::vector<boost::shared_ptr<LayerT> > layers_;
+    std::vector<std::shared_ptr<LayerT> > layers_;
 
     /// Maximum width over the entire stack
     size_t max_width_;

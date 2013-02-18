@@ -35,8 +35,8 @@ template<class Base>
 class Factory_Base {
 public:
     virtual ~Factory_Base() {}
-    virtual boost::shared_ptr<Base> create() const = 0;
-    virtual boost::shared_ptr<Base>
+    virtual std::shared_ptr<Base> create() const = 0;
+    virtual std::shared_ptr<Base>
     reconstitute(DB::Store_Reader & store) const = 0;
 };
 
@@ -47,14 +47,14 @@ template<class Base, class Derived>
 class Object_Factory : public Factory_Base<Base> {
 public:
     virtual ~Object_Factory() {}
-    virtual boost::shared_ptr<Base> create() const
+    virtual std::shared_ptr<Base> create() const
     {
-        return boost::shared_ptr<Base>(new Derived());
+        return std::shared_ptr<Base>(new Derived());
     }
-    virtual boost::shared_ptr<Base>
+    virtual std::shared_ptr<Base>
     reconstitute(DB::Store_Reader & store) const
     {
-        boost::shared_ptr<Derived> result(new Derived());
+        std::shared_ptr<Derived> result(new Derived());
         result->reconstitute(store);
         return result;
     }
@@ -65,7 +65,7 @@ class Registry {
 public:
 #if !NO_SMART_PTRS
     typedef std::hash_map<std::string,
-                          boost::shared_ptr<Factory_Base<Base> > >
+                          std::shared_ptr<Factory_Base<Base> > >
         entries_type;
 #else
     typedef std::hash_map<std::string, Factory_Base<Base> *>
@@ -130,7 +130,7 @@ public:
         std::cerr << "Known entries in registry: " << entry_list() << std::endl;
     }
 
-    boost::shared_ptr<Base> reconstitute(DB::Store_Reader & store) const
+    std::shared_ptr<Base> reconstitute(DB::Store_Reader & store) const
     {
         std::string key;
         DB::compact_size_t version;
@@ -156,7 +156,7 @@ public:
 
     /* Version that takes one argument. */
     template<class A1>
-    boost::shared_ptr<Base>
+    std::shared_ptr<Base>
     reconstitute(DB::Store_Reader & store, A1 a1) const
     {
         //using namespace std;
@@ -182,12 +182,12 @@ public:
             throw Exception("version too high");
         }
 
-        boost::shared_ptr<Base> result
+        std::shared_ptr<Base> result
             = entries.find(key)->second->reconstitute(a1, store);
         return result;
     }
 
-    boost::shared_ptr<Base> create(const std::string & key) const
+    std::shared_ptr<Base> create(const std::string & key) const
     {
         /* Make sure we know about the object. */
         if (entries.count(key) == 0) {
@@ -218,7 +218,7 @@ public:
     {
         Registry<Base>::singleton().entries[classid]
 #if !NO_SMART_PTRS            
-            = boost::shared_ptr<Factory_>(factory);
+            = std::shared_ptr<Factory_>(factory);
 #else
             = factory;
 #endif        
@@ -231,7 +231,7 @@ public:
         //     << classid << endl;
         Registry<Base>::singleton().entries[classid]
 #if !NO_SMART_PTRS
-        = boost::shared_ptr<Factory_>(new Factory_());
+        = std::shared_ptr<Factory_>(new Factory_());
 #else
          = new Factory_();
 #endif

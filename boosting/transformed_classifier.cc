@@ -45,7 +45,7 @@ Transformed_Classifier::~Transformed_Classifier()
 distribution<float>
 Transformed_Classifier::predict(const Feature_Set & features) const
 {
-    boost::shared_ptr<Feature_Set> tr_features
+    std::shared_ptr<Feature_Set> tr_features
         = transformer_.transform(features);
     distribution<float> result = classifier_.predict(*tr_features);
     return result;
@@ -90,7 +90,7 @@ void Transformed_Classifier::serialize(DB::Store_Writer & store) const
 
 Transformed_Classifier::
 Transformed_Classifier(DB::Store_Reader & store,
-                   const boost::shared_ptr<const Feature_Space> & feature_space)
+                   const std::shared_ptr<const Feature_Space> & feature_space)
 {
     string magic;
     compact_size_t version;
@@ -119,7 +119,7 @@ Transformed_Classifier(DB::Store_Reader & store,
 
 void Transformed_Classifier::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & features)
+             const std::shared_ptr<const Feature_Space> & features)
 {
     /* Implement the strong exception guarantee. */
     Transformed_Classifier new_me(store, features);

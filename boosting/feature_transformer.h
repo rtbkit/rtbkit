@@ -27,14 +27,14 @@ public:
     virtual ~Feature_Transformer_Impl();
     
     /** Return the feature space that our features are input into. */
-    virtual boost::shared_ptr<Feature_Space> input_fs() const = 0;
+    virtual std::shared_ptr<Feature_Space> input_fs() const = 0;
 
     /** Return the feature space that our features are output to. */
-    virtual boost::shared_ptr<Feature_Space> output_fs() const = 0;
+    virtual std::shared_ptr<Feature_Space> output_fs() const = 0;
 
     /** Transform the given feature set.  Note that the features will be
         implicitly transformed into the output_fs feature space. */
-    virtual boost::shared_ptr<Mutable_Feature_Set>
+    virtual std::shared_ptr<Mutable_Feature_Set>
     transform(const Feature_Set & features) const = 0;
 
     /** Tell us which input features are required in order to generate
@@ -52,7 +52,7 @@ public:
 
     void poly_serialize(DB::Store_Writer & store);
 
-    static boost::shared_ptr<Feature_Transformer_Impl>
+    static std::shared_ptr<Feature_Transformer_Impl>
     poly_reconstitute(DB::Store_Reader & store);
 };
 
@@ -67,7 +67,7 @@ class Feature_Transformer {
 public:
     Feature_Transformer();
     Feature_Transformer(DB::Store_Reader & store);
-    Feature_Transformer(boost::shared_ptr<Feature_Transformer_Impl> impl);
+    Feature_Transformer(std::shared_ptr<Feature_Transformer_Impl> impl);
     Feature_Transformer(const Feature_Transformer & other)
     {
         if (other.impl_)
@@ -81,20 +81,20 @@ public:
         return *this;
     }
 
-    void init(boost::shared_ptr<Feature_Transformer_Impl> impl)
+    void init(std::shared_ptr<Feature_Transformer_Impl> impl)
     {
         impl_ = impl;
     }
 
-    boost::shared_ptr<Feature_Space> input_fs() const
+    std::shared_ptr<Feature_Space> input_fs() const
     {
-        if (!impl_) return boost::shared_ptr<Feature_Space>();
+        if (!impl_) return std::shared_ptr<Feature_Space>();
         else return impl_->input_fs();
     }
 
-    boost::shared_ptr<Feature_Space> output_fs() const
+    std::shared_ptr<Feature_Space> output_fs() const
     {
-        if (!impl_) return boost::shared_ptr<Feature_Space>();
+        if (!impl_) return std::shared_ptr<Feature_Space>();
         else return impl_->output_fs();
     }
 
@@ -106,7 +106,7 @@ public:
         impl_.swap(other.impl_);
     }
 
-    boost::shared_ptr<Mutable_Feature_Set>
+    std::shared_ptr<Mutable_Feature_Set>
     transform(const Feature_Set & features) const
     {
         if (impl_)
@@ -126,9 +126,9 @@ public:
     }
 
     /** Operator bool, which tells us if there is any implementation or not. */
-    JML_IMPLEMENT_OPERATOR_BOOL(impl_);
+    JML_IMPLEMENT_OPERATOR_BOOL(!!impl_);
 private:
-    boost::shared_ptr<Feature_Transformer_Impl> impl_;
+    std::shared_ptr<Feature_Transformer_Impl> impl_;
 };
 
 DB::Store_Writer &

@@ -31,9 +31,9 @@
 namespace ML {
 
 template<class T>
-boost::shared_ptr<T> make_sp(T * val)
+std::shared_ptr<T> make_sp(T * val)
 {
-    return boost::shared_ptr<T>(val);
+    return std::shared_ptr<T>(val);
 }
 
 template<class T>
@@ -49,15 +49,15 @@ struct Dont_Delete {
 };
 
 template<class T>
-boost::shared_ptr<T> make_unowned_sp(T & val)
+std::shared_ptr<T> make_unowned_sp(T & val)
 {
-    return boost::shared_ptr<T>(&val, Dont_Delete());
+    return std::shared_ptr<T>(&val, Dont_Delete());
 }
 
 template<class T>
-boost::shared_ptr<const T> make_unowned_sp(const T & val)
+std::shared_ptr<const T> make_unowned_sp(const T & val)
 {
-    return boost::shared_ptr<const T>(&val, Dont_Delete());
+    return std::shared_ptr<const T>(&val, Dont_Delete());
 }
 
 template<class T>
@@ -74,12 +74,21 @@ std::shared_ptr<const T> make_unowned_std_sp(const T & val)
 
 extern const struct Null_SP {
     template<typename T>
-    JML_ALWAYS_INLINE operator boost::shared_ptr<T>() const
+    JML_ALWAYS_INLINE operator std::shared_ptr<T>() const
     {
-        return boost::shared_ptr<T>();
+        return std::shared_ptr<T>();
     }
 
 } NULL_SP;
+
+extern const struct Null_STD_SP {
+    template<typename T>
+    JML_ALWAYS_INLINE operator std::shared_ptr<T>() const
+    {
+        return std::shared_ptr<T>();
+    }
+
+} NULL_STD_SP;
 
 template<typename T>
 struct Keep_Ref {
@@ -96,19 +105,19 @@ struct Keep_Ref {
 };
 
 template<class T>
-boost::shared_ptr<T> make_sp(const std::shared_ptr<T> & val)
+std::shared_ptr<T> make_sp(const std::shared_ptr<T> & val)
 {
-    return boost::shared_ptr<T>(val.get(), Keep_Ref<T>(val));
+    return std::shared_ptr<T>(val.get(), Keep_Ref<T>(val));
 }
 
 template<typename T>
 struct Keep_RefB {
-    Keep_RefB(const boost::shared_ptr<T> & p)
+    Keep_RefB(const std::shared_ptr<T> & p)
         : ref(p)
     {
     }
 
-    boost::shared_ptr<T> ref;
+    std::shared_ptr<T> ref;
 
     template<class X> void operator () (const X & x) const
     {
@@ -116,7 +125,7 @@ struct Keep_RefB {
 };
 
 template<class T>
-std::shared_ptr<T> make_std_sp(const boost::shared_ptr<T> & val)
+std::shared_ptr<T> make_std_sp(const std::shared_ptr<T> & val)
 {
     return std::shared_ptr<T>(val.get(), Keep_RefB<T>(val));
 }

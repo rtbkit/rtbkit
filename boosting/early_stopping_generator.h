@@ -44,7 +44,7 @@ public:
         Splits it up into a training and a validation set, and then
         calls the expanded generate method.
     */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
              const distribution<float> & ex_weights,

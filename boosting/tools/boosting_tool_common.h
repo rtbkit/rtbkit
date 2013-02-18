@@ -61,7 +61,7 @@ void remove_aliased_examples(Training_Data & data, const Feature & predicted,
 
 /** Get a list of features and an index, from the full specifications. */
 void do_features(const Training_Data & data,
-                 boost::shared_ptr<Mutable_Feature_Space> feature_space,
+                 std::shared_ptr<Mutable_Feature_Space> feature_space,
                  const std::string & predicted_name,
                  std::vector<std::string> ignore_features,
                  std::vector<std::string> optional_features,
@@ -75,14 +75,14 @@ void do_features(const Training_Data & data,
 /** Output a null classifier for the given label count. */
 void write_null_classifier(const std::string & filename,
                            const Feature & predicted,
-                           boost::shared_ptr<const Feature_Space> feature_space,
+                           std::shared_ptr<const Feature_Space> feature_space,
                            int verbosity);
 
 /** Print stats about a dense dataset. */
 void print_data_stats(const Training_Data & data);
 
 void print_weight_spec(const std::vector<Weight_Spec> & weight_spec,
-                       boost::shared_ptr<Feature_Space> feature_space);
+                       std::shared_ptr<Feature_Space> feature_space);
 
 } // namespace ML
 

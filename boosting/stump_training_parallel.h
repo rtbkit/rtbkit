@@ -85,7 +85,7 @@ struct Stump_Trainer_Parallel
         const Stump_Trainer_Parallel & trainer;
         boost::function<void ()> next;
         W default_w;
-        boost::shared_ptr<std::vector<std::pair<int, float> > > feature_scores_ptr;
+        std::shared_ptr<std::vector<std::pair<int, float> > > feature_scores_ptr;
         int group;
 
         Test_All_Job(const Test_All_Job & other)

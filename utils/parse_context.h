@@ -712,7 +712,7 @@ private:
     size_t col_;              ///< Column number at current position
     uint64_t ofs_;            ///< Offset of current position (chars since 0)
 
-    boost::shared_ptr<const File_Read_Buffer> buf;
+    std::shared_ptr<const File_Read_Buffer> buf;
 };
 
 } // namespace ML

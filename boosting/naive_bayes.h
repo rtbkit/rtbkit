@@ -62,10 +62,10 @@ public:
 
     /** Construct it by reconstituting it from a store. */
     Naive_Bayes(DB::Store_Reader & store,
-                const boost::shared_ptr<const Feature_Space> & feature_space);
+                const std::shared_ptr<const Feature_Space> & feature_space);
     
     /** Construct not filled in yet. */
-    Naive_Bayes(boost::shared_ptr<const Feature_Space> feature_space,
+    Naive_Bayes(std::shared_ptr<const Feature_Space> feature_space,
                 const Feature & predicted);
 
     virtual ~Naive_Bayes();
@@ -113,7 +113,7 @@ public:
 
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store,
-                              const boost::shared_ptr<const Feature_Space>
+                              const std::shared_ptr<const Feature_Space>
                                   & feature_space);
     
     virtual std::string class_id() const;

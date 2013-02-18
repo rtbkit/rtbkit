@@ -82,7 +82,7 @@ Boosted_Stumps::Boosted_Stumps()
 }
 
 Boosted_Stumps::
-Boosted_Stumps(const boost::shared_ptr<const Feature_Space> & feature_space,
+Boosted_Stumps(const std::shared_ptr<const Feature_Space> & feature_space,
                const Feature & predicted)
     : Classifier_Impl(feature_space, predicted)
 {
@@ -91,13 +91,13 @@ Boosted_Stumps(const boost::shared_ptr<const Feature_Space> & feature_space,
 
 Boosted_Stumps::
 Boosted_Stumps(DB::Store_Reader & reader,
-               const boost::shared_ptr<const Feature_Space> & feature_space)
+               const std::shared_ptr<const Feature_Space> & feature_space)
 {
     this->reconstitute(reader, feature_space);
 }
 
 Boosted_Stumps::
-Boosted_Stumps(const boost::shared_ptr<const Feature_Space> & feature_space,
+Boosted_Stumps(const std::shared_ptr<const Feature_Space> & feature_space,
                const Feature & predicted,
                size_t label_count)
     : Classifier_Impl(feature_space, predicted, label_count)
@@ -598,7 +598,7 @@ void Boosted_Stumps::serialize(DB::Store_Writer & store) const
 
 void Boosted_Stumps::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & features)
+             const std::shared_ptr<const Feature_Space> & features)
 {
     /* Implement the strong exception guarantee, except for the store. */
     string magic;

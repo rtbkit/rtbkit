@@ -45,13 +45,13 @@ public:
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
-    virtual void init(boost::shared_ptr<const Feature_Space> fs,
+    virtual void init(std::shared_ptr<const Feature_Space> fs,
                       Feature predicted);
 
     using Weight_Updating_Generator::generate;
 
     /** Generate a classifier from one training set. */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
              const Training_Data & validation_data,
@@ -69,7 +69,7 @@ public:
                     const std::vector<Feature> & features) const;
 
     /** Generate a classifier, with a given weights array as input. */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate_and_update(Thread_Context & context,
                         const Training_Data & training_data,
                         boost::multi_array<float, 2> & weights,

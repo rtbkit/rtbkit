@@ -43,13 +43,13 @@ public:
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
-    virtual void init(boost::shared_ptr<const Feature_Space> fs,
+    virtual void init(std::shared_ptr<const Feature_Space> fs,
                       Feature predicted);
 
     using Weight_Updating_Generator::generate;
 
     /** Generate a classifier from one training set. */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
              const Training_Data & validation_data,
@@ -58,13 +58,13 @@ public:
              const std::vector<Feature> & features, int) const;
 
     /** Generate a classifier, with a given weights array as input. */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate_and_update(Thread_Context & context,
                         const Training_Data & training_data,
                         boost::multi_array<float, 2> & weights,
                         const std::vector<Feature> & features) const;
 
-    boost::shared_ptr<Classifier_Generator> weak_learner;
+    std::shared_ptr<Classifier_Generator> weak_learner;
 
     unsigned max_iter;
     unsigned min_iter;
@@ -74,7 +74,7 @@ public:
     int short_circuit_window;
     bool trace_training_acc;
 
-    boost::shared_ptr<Classifier_Impl>
+    std::shared_ptr<Classifier_Impl>
     train_iteration(Thread_Context & context,
                     const Training_Data & data,
                     boost::multi_array<float, 2> & weights,
@@ -82,7 +82,7 @@ public:
                     float & Z,
                     Optimization_Info & opt_info) const;
 
-    boost::shared_ptr<Classifier_Impl>
+    std::shared_ptr<Classifier_Impl>
     train_iteration(Thread_Context & context,
                     const Training_Data & data,
                     boost::multi_array<float, 2> & weights,

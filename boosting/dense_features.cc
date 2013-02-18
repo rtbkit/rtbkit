@@ -101,14 +101,14 @@ init(const vector<string> & feature_names,
         features_.push_back(Feature(i));
 }
 
-boost::shared_ptr<Mutable_Feature_Set>
+std::shared_ptr<Mutable_Feature_Set>
 Dense_Feature_Space::encode(const std::vector<float> & variables) const
 {
     if (variables.size() != info_array.size())
         throw Exception
             (format("Dense_Feature_Space::encode(): expected %zd variables, "
                     "got %zd", info_array.size(), variables.size()));
-    boost::shared_ptr<Mutable_Feature_Set> result
+    std::shared_ptr<Mutable_Feature_Set> result
         (new Mutable_Feature_Set(pair_merger(features_.begin(),
                                              variables.begin()),
                                  pair_merger(features_.end(),
@@ -117,7 +117,7 @@ Dense_Feature_Space::encode(const std::vector<float> & variables) const
     return result;
 }
 
-boost::shared_ptr<Mutable_Feature_Set>
+std::shared_ptr<Mutable_Feature_Set>
 Dense_Feature_Space::
 encode(const std::vector<float> & variables,
        const Dense_Feature_Space & other) const
@@ -235,7 +235,7 @@ create_mapping(const Dense_Feature_Space & other,
     mapping.initialized_ = true;
 }
 
-boost::shared_ptr<Mutable_Feature_Set>
+std::shared_ptr<Mutable_Feature_Set>
 Dense_Feature_Space::
 encode(const std::vector<float> & variables,
        const Dense_Feature_Space & other,
@@ -247,7 +247,7 @@ encode(const std::vector<float> & variables,
     return encode(variables, other, (const Mapping &)mapping);
 }
     
-boost::shared_ptr<Mutable_Feature_Set>
+std::shared_ptr<Mutable_Feature_Set>
 Dense_Feature_Space::
 encode(const std::vector<float> & variables,
        const Dense_Feature_Space & other,
@@ -503,7 +503,7 @@ serialize(DB::Store_Writer & store, const Feature_Set & fs) const
 }
 
 void Dense_Feature_Space::
-reconstitute(DB::Store_Reader & store, boost::shared_ptr<Feature_Set> & fs) const
+reconstitute(DB::Store_Reader & store, std::shared_ptr<Feature_Set> & fs) const
 {
     compact_size_t version(store);
 
@@ -630,7 +630,7 @@ add(const Dense_Feature_Space & other_fs,
                     other_fs.info_array[i]);
 }
 
-boost::shared_ptr<Mutable_Categorical_Info>
+std::shared_ptr<Mutable_Categorical_Info>
 Dense_Feature_Space::
 make_categorical(Feature feature)
 {
@@ -655,7 +655,7 @@ void Dense_Feature_Space::serialize(DB::Store_Writer & store) const
 
 void Dense_Feature_Space::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & feature_space)
+             const std::shared_ptr<const Feature_Space> & feature_space)
 {
     //cerr << "dense_feature_space reconstitution" << endl;
     string type;
@@ -732,7 +732,7 @@ Dense_Training_Data(const std::string & filename)
 
 Dense_Training_Data::
 Dense_Training_Data(const std::string & filename,
-                    boost::shared_ptr<Dense_Feature_Space> feature_space)
+                    std::shared_ptr<Dense_Feature_Space> feature_space)
 {
     init(filename, feature_space);
 }
@@ -828,14 +828,14 @@ add_data()
     int nx = dataset.shape()[0];
 
     /* Feature vector */
-    boost::shared_ptr<vector<Feature> >
+    std::shared_ptr<vector<Feature> >
         feature_vec(new vector<Feature>(nv));
     for (unsigned j = 0;  j < nv;  ++j)
         (*feature_vec)[j] = Feature(j);
     
     /* Add data */
     for (unsigned x = 0;  x < nx;  ++x) {
-        boost::shared_ptr<Dense_Feature_Set> features
+        std::shared_ptr<Dense_Feature_Set> features
             (new Dense_Feature_Set(feature_vec, &dataset[x][0]));
         //cerr << "got row " << feature_space()->print(*features) << endl;
         add_example(features);
@@ -845,7 +845,7 @@ add_data()
 void Dense_Training_Data::
 init(const std::string & filename)
 {
-    boost::shared_ptr<Dense_Feature_Space> fs(new Dense_Feature_Space());
+    std::shared_ptr<Dense_Feature_Space> fs(new Dense_Feature_Space());
     init(filename, fs);
 }
 
@@ -853,14 +853,14 @@ void
 Dense_Training_Data::
 init(const char * data, const char * data_end)
 {
-    boost::shared_ptr<Dense_Feature_Space> fs(new Dense_Feature_Space());
+    std::shared_ptr<Dense_Feature_Space> fs(new Dense_Feature_Space());
     init(data, data_end, fs);
 }
 
 void
 Dense_Training_Data::
 init(const std::string & filename,
-     boost::shared_ptr<Dense_Feature_Space> feature_space)
+     std::shared_ptr<Dense_Feature_Space> feature_space)
 {
     vector<string> filenames(1, filename);
     init(filenames, feature_space);
@@ -877,7 +877,7 @@ struct Dense_Training_Data::Data_Source {
     std::string filename;
     const char * data;
     const char * data_end;
-    mutable boost::shared_ptr<filter_istream> stream;
+    mutable std::shared_ptr<filter_istream> stream;
 
     Parse_Context get_context() const
     {
@@ -893,7 +893,7 @@ struct Dense_Training_Data::Data_Source {
 void
 Dense_Training_Data::
 init(const std::vector<std::string> & filenames,
-     boost::shared_ptr<Dense_Feature_Space> feature_space)
+     std::shared_ptr<Dense_Feature_Space> feature_space)
 {
     vector<Data_Source> data_sources;
     for (unsigned i = 0;  i < filenames.size();  ++i)
@@ -904,7 +904,7 @@ init(const std::vector<std::string> & filenames,
 void
 Dense_Training_Data::
 init(const char * data, const char * data_end,
-     boost::shared_ptr<Dense_Feature_Space> feature_space)
+     std::shared_ptr<Dense_Feature_Space> feature_space)
 {
     vector<Data_Source> data_sources;
     data_sources.push_back(Data_Source("inline data", data, data_end));
@@ -914,7 +914,7 @@ init(const char * data, const char * data_end,
 void
 Dense_Training_Data::
 init(const std::vector<Data_Source> & data_sources,
-     boost::shared_ptr<Dense_Feature_Space> feature_space)
+     std::shared_ptr<Dense_Feature_Space> feature_space)
 {
     Training_Data::init(feature_space);
 
@@ -1043,7 +1043,7 @@ init(const std::vector<Data_Source> & data_sources,
     //cerr << "first_nonempty = " << first_nonempty << endl;
 
     /* Find if any are already known to be categorical. */
-    vector<boost::shared_ptr<Mutable_Categorical_Info> >
+    vector<std::shared_ptr<Mutable_Categorical_Info> >
         categorical(var_count);
     
     for (unsigned v = 0;  v < var_count;  ++v)

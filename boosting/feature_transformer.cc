@@ -34,7 +34,7 @@ poly_serialize(DB::Store_Writer & store)
     Registry<Feature_Transformer_Impl>::singleton().serialize(store, this);
 }
 
-boost::shared_ptr<Feature_Transformer_Impl>
+std::shared_ptr<Feature_Transformer_Impl>
 Feature_Transformer_Impl::
 poly_reconstitute(DB::Store_Reader & store)
 {

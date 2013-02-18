@@ -27,7 +27,7 @@ Reconstruct_Layer_Adaptor()
 }
 
 Reconstruct_Layer_Adaptor::
-Reconstruct_Layer_Adaptor(boost::shared_ptr<Auto_Encoder> enc)
+Reconstruct_Layer_Adaptor(std::shared_ptr<Auto_Encoder> enc)
     : Layer(enc->name(), enc->inputs(), enc->inputs()), ae_(enc)
 {
     update_parameters();
@@ -154,7 +154,7 @@ reconstitute(DB::Store_Reader & store)
     if (version != 1)
         throw Exception("Reconstruct_Layer_Adaptor::reconstitute(): "
                         "unknown version");
-    ae_ = boost::dynamic_pointer_cast<Auto_Encoder>(poly_reconstitute(store));
+    ae_ = std::dynamic_pointer_cast<Auto_Encoder>(poly_reconstitute(store));
     if (!ae_)
         throw Exception("Reconstruct_Layer_Adaptor::reconstiute(): "
                         "couldn't reconstitute contained object");

@@ -288,8 +288,8 @@ try
         throw Exception("error: need to specify at least one data set");
 
     /* Variables for holding our datasets and feature spaces. */
-    vector<boost::shared_ptr<Dense_Training_Data> > data(dataset_files.size());
-    vector<boost::shared_ptr<Dense_Feature_Space> > fs(dataset_files.size());
+    vector<std::shared_ptr<Dense_Training_Data> > data(dataset_files.size());
+    vector<std::shared_ptr<Dense_Feature_Space> > fs(dataset_files.size());
     vector<Feature> predicted(dataset_files.size(), MISSING_FEATURE);
 
     vector<string> feature_names;

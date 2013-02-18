@@ -149,7 +149,7 @@ split(float training_split, float validation_split, float testing_split,
 
     /* Get all datasets with an unknown disposition, which we then split
        up automatically. */
-    vector<boost::shared_ptr<Training_Data> > unknowns;
+    vector<std::shared_ptr<Training_Data> > unknowns;
 
     for (unsigned i = 0;  i < data.size();  ++i) {
         switch (dispositions[i]) {
@@ -199,7 +199,7 @@ split(float training_split, float validation_split, float testing_split,
 
         cerr << "splits = " << splits << endl;
 
-        vector<boost::shared_ptr<Training_Data> > train_val_test
+        vector<std::shared_ptr<Training_Data> > train_val_test
             = unknowns[0]->partition(splits, randomize_order, group_feature);
         
         training = train_val_test[0];
@@ -231,7 +231,7 @@ split(float training_split, float validation_split, float testing_split,
         Feature_Set_Filter filter;
         filter.parse(testing_filter, *dense_feature_space);
 
-        boost::shared_ptr<Training_Data> new_data
+        std::shared_ptr<Training_Data> new_data
             (new Training_Data(dense_feature_space));
 
         for (unsigned i = 0;  i < testing.size();  ++i) {
@@ -271,7 +271,7 @@ Datasets::
 reshuffle()
 {
     bool randomize_partition = true;
-    vector<boost::shared_ptr<Training_Data> > train_val_test
+    vector<std::shared_ptr<Training_Data> > train_val_test
         = data[0]->partition(splits, randomize_partition, group_feature);
     
     training   = train_val_test[0];
@@ -341,7 +341,7 @@ detect_sparseness(const std::string & filename)
 }
 
 void
-transform_dataset(boost::shared_ptr<Training_Data> training,
+transform_dataset(std::shared_ptr<Training_Data> training,
                   const Feature_Transformer & transformer)
 {
     if (!training) return;

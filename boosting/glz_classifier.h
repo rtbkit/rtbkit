@@ -29,11 +29,11 @@ public:
 
     /** Construct for the given feature space, to classify into the given
         number of labels. */
-    GLZ_Classifier(const boost::shared_ptr<const Feature_Space> & fs,
+    GLZ_Classifier(const std::shared_ptr<const Feature_Space> & fs,
                    const Feature & predicted);
 
     GLZ_Classifier(DB::Store_Reader & store,
-                   const boost::shared_ptr<const Feature_Space> & fs);
+                   const std::shared_ptr<const Feature_Space> & fs);
 
     /** Reconstitute without a feature space.  For when we are using the
         non Feature_Set predict method, which doesn't need features to ever
@@ -186,7 +186,7 @@ public:
     /** Serialization and reconstitution. */
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store,
-                              const boost::shared_ptr<const Feature_Space>
+                              const std::shared_ptr<const Feature_Space>
                                   & feature_space);
 
     /** Reconstitute without a feature space.  For when we are using the

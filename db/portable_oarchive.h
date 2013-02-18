@@ -295,7 +295,7 @@ public:
 
 private:
     std::ostream * stream;
-    boost::shared_ptr<std::ostream> owned_stream;
+    std::shared_ptr<std::ostream> owned_stream;
     size_t offset_;
 };
 

@@ -152,20 +152,20 @@ try
     else throw Exception("No training data, therefore no labels");
 
     /* Raw data. */
-    boost::shared_ptr<Feature_Space> feature_space;
-    vector<boost::shared_ptr<Training_Data> > data(extra.size());
+    std::shared_ptr<Feature_Space> feature_space;
+    vector<std::shared_ptr<Training_Data> > data(extra.size());
 
     /* Broken down and split up datasets.  First one is training, second is
        validation, any after that are testing. */
-    vector<boost::shared_ptr<Training_Data> > testing;
+    vector<std::shared_ptr<Training_Data> > testing;
 
     /* Variables for when we are sparse. */
-    boost::shared_ptr<Sparse_Feature_Space> sparse_feature_space;
-    vector<boost::shared_ptr<Sparse_Training_Data> > sparse_data(extra.size());
+    std::shared_ptr<Sparse_Feature_Space> sparse_feature_space;
+    vector<std::shared_ptr<Sparse_Training_Data> > sparse_data(extra.size());
 
     /* Variables for when we are dense. */
-    boost::shared_ptr<Dense_Feature_Space> dense_feature_space;
-    vector<boost::shared_ptr<Dense_Training_Data> > dense_data(extra.size());
+    std::shared_ptr<Dense_Feature_Space> dense_feature_space;
+    vector<std::shared_ptr<Dense_Training_Data> > dense_data(extra.size());
 
     /* Set up the feature space. */
     if (data_is_sparse) {

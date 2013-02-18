@@ -212,7 +212,7 @@ public:
 
 private:
     struct Data;
-    boost::shared_ptr<Data> data_;
+    std::shared_ptr<Data> data_;
     std::string prefix_;
     bool writeable_;
 

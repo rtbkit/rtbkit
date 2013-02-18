@@ -38,7 +38,7 @@ class Training_Data {
 public:
     Training_Data();
     Training_Data(const Training_Data & other);
-    Training_Data(boost::shared_ptr<const Feature_Space> feature_space);
+    Training_Data(std::shared_ptr<const Feature_Space> feature_space);
     virtual ~Training_Data();
 
     Training_Data & operator = (const Training_Data & other)
@@ -50,7 +50,7 @@ public:
     }
     
     /** Initialise with the given feature space and number of labels. */
-    void init(boost::shared_ptr<const Feature_Space> feature_space);
+    void init(std::shared_ptr<const Feature_Space> feature_space);
     
     /** Clear the training data completely. */
     void clear();
@@ -69,7 +69,7 @@ public:
     bool empty() const { return example_count() == 0; }
     
     /** What is the feature space? */
-    boost::shared_ptr<const Feature_Space> feature_space() const
+    std::shared_ptr<const Feature_Space> feature_space() const
     {
         return feature_space_;
     }
@@ -105,7 +105,7 @@ public:
     
     /** Access the pointer to a given example data.  Used when we need to
         get a new reference to the data. */
-    boost::shared_ptr<const Feature_Set> get(int example) const
+    std::shared_ptr<const Feature_Set> get(int example) const
     {
         return data_.at(example);
     }
@@ -113,7 +113,7 @@ public:
     /** Access the pointer to a given example data.  Used when we need to
         get a new reference to the data to share between two datasets.
     */
-    boost::shared_ptr<Feature_Set> share(int example) const
+    std::shared_ptr<Feature_Set> share(int example) const
     {
         return data_.at(example);
     }
@@ -121,7 +121,7 @@ public:
     /** Access the pointer to a given example data.  Used when we want to
         modify the data.  It causes all indexes to be released.
     */
-    boost::shared_ptr<Feature_Set> & modify(int example);
+    std::shared_ptr<Feature_Set> & modify(int example);
 
     /** Partition this into a set of disjoint training data objects, with
         relative amounts given by the vector of sizes.
@@ -137,7 +137,7 @@ public:
                             containing the data.
         \pre                All elements of sizes are >= 0 and not Inf or NaN
     */
-    virtual std::vector<boost::shared_ptr<Training_Data> >
+    virtual std::vector<std::shared_ptr<Training_Data> >
     partition(const std::vector<float> & sizes, bool random = true,
               const Feature & group_feature = MISSING_FEATURE) const;
 
@@ -153,7 +153,7 @@ public:
 
         Returns the example number of this example.
     */
-    int add_example(const boost::shared_ptr<Feature_Set> & example);
+    int add_example(const std::shared_ptr<Feature_Set> & example);
 
     /** Fix up any grouping features.  We ensure that they are strictly
         increasing.  Makes sure that they all exceed the given offset. */
@@ -215,13 +215,13 @@ public:
 
 protected:
     /** Data for all our examples. */
-    typedef std::vector<boost::shared_ptr<Feature_Set> > data_type;
+    typedef std::vector<std::shared_ptr<Feature_Set> > data_type;
     data_type data_;
 
     mutable Lock index_lock;
-    mutable boost::shared_ptr<Dataset_Index> index_;
+    mutable std::shared_ptr<Dataset_Index> index_;
 
-    boost::shared_ptr<const Feature_Space> feature_space_;
+    std::shared_ptr<const Feature_Space> feature_space_;
 
     /** Are the indexes dirty?  Occurs when we could have mutated one of the
         entries...

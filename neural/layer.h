@@ -184,7 +184,7 @@ public:
         pointer to it.  This is the counterpart to poly_serialize(); calling
         this method on a store where an object was only serialize()d will
         fail. */
-    static boost::shared_ptr<Layer>
+    static std::shared_ptr<Layer>
     poly_reconstitute(ML::DB::Store_Reader & store);
 
     // @)

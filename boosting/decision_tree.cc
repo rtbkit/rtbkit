@@ -36,14 +36,14 @@ Decision_Tree::Decision_Tree()
 
 Decision_Tree::
 Decision_Tree(DB::Store_Reader & store,
-              const boost::shared_ptr<const Feature_Space> & fs)
+              const std::shared_ptr<const Feature_Space> & fs)
     : optimized_(false)
 {
     throw Exception("Decision_Tree constructor(reconst): not implemented");
 }
     
 Decision_Tree::
-Decision_Tree(boost::shared_ptr<const Feature_Space> feature_space,
+Decision_Tree(std::shared_ptr<const Feature_Space> feature_space,
               const Feature & predicted)
     : Classifier_Impl(feature_space, predicted),
       encoding(OE_PROB),
@@ -491,7 +491,7 @@ to_rules() const
 {
     Disjunction<Tree::Leaf> result;
     result.feature_space = feature_space();
-    std::vector<boost::shared_ptr<Predicate> > path;
+    std::vector<std::shared_ptr<Predicate> > path;
 
     to_rules_recursive(result, path, tree.root);
 
@@ -503,7 +503,7 @@ to_rules() const
 void
 Decision_Tree::
 to_rules_recursive(Disjunction<Tree::Leaf> & result,
-                   std::vector<boost::shared_ptr<Predicate> > & path,
+                   std::vector<std::shared_ptr<Predicate> > & path,
                    const Tree::Ptr & ptr) const
 {
     if (ptr.examples() == 0.0) return;
@@ -530,7 +530,7 @@ to_rules_recursive(Disjunction<Tree::Leaf> & result,
         }
     }
     else if (ptr.leaf()) {
-        boost::shared_ptr<Conjunction<Tree::Leaf> > c
+        std::shared_ptr<Conjunction<Tree::Leaf> > c
             (new Conjunction<Tree::Leaf>());
         c->predicates = path;
         c->outcome = *ptr.leaf();
@@ -588,7 +588,7 @@ serialize(DB::Store_Writer & store) const
 void
 Decision_Tree::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & feature_space)
+             const std::shared_ptr<const Feature_Space> & feature_space)
 {
     string id;
     store >> id;

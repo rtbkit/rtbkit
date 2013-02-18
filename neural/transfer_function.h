@@ -109,7 +109,7 @@ struct Transfer_Function {
     /** Read the type information from the store, create an object of the
         correct type and reconstitute its data members from the store.  This
         is the companion function to poly_serialize. */
-    static boost::shared_ptr<Transfer_Function>
+    static std::shared_ptr<Transfer_Function>
     poly_reconstitute(DB::Store_Reader & store);
 
     /** Serialize the data for this type. */
@@ -273,10 +273,10 @@ struct Standard_Transfer_Function : public Transfer_Function {
 /* FACTORY                                                                   */
 /*****************************************************************************/
 
-boost::shared_ptr<Transfer_Function>
+std::shared_ptr<Transfer_Function>
 create_transfer_function(const Transfer_Function_Type & function);
 
-boost::shared_ptr<Transfer_Function>
+std::shared_ptr<Transfer_Function>
 create_transfer_function(const std::string & name);
 
 

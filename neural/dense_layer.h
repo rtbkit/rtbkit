@@ -67,7 +67,7 @@ struct Dense_Layer : public Layer {
     void swap(Dense_Layer & other);
 
     /// Transfer function for the output
-    boost::shared_ptr<const Transfer_Function> transfer_function;
+    std::shared_ptr<const Transfer_Function> transfer_function;
 
     virtual const Transfer_Function & transfer() const;
 

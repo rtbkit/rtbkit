@@ -230,7 +230,7 @@ try
         config[(trainer_name == "" ? string("type") : trainer_name + ".type")]
             = trainer_type;
 
-    boost::shared_ptr<Classifier_Generator> generator
+    std::shared_ptr<Classifier_Generator> generator
         = get_trainer(trainer_name, config);
 
     if (help_config) {
@@ -249,7 +249,7 @@ try
     Datasets datasets;
     datasets.init(dataset_params, verbosity, profile);
 
-    boost::shared_ptr<Mutable_Feature_Space> feature_space
+    std::shared_ptr<Mutable_Feature_Space> feature_space
         = datasets.feature_space;
 
     vector<Feature> features;
@@ -325,7 +325,7 @@ try
         
     Feature_Transformer transformer;
     if (!transformations.empty()) {
-        boost::shared_ptr<Transform_List> transforms
+        std::shared_ptr<Transform_List> transforms
             (new Transform_List(datasets.feature_space));
         transforms->parse(transformations);
         transformer.init(transforms);
@@ -373,7 +373,7 @@ try
         distribution<float> validate_ex_weights
             = apply_weight_spec(*datasets.validation, trained_weight_spec);
         
-        boost::shared_ptr<Classifier_Impl> current
+        std::shared_ptr<Classifier_Impl> current
             = generator->generate(context,
                                   *datasets.training, *datasets.validation,
                                   training_ex_weights, validate_ex_weights,
@@ -393,7 +393,7 @@ try
         Optimization_Info opt_info
             = current->optimize(feature_space->dense_features());
 
-        boost::shared_ptr<const Training_Data> prob_set
+        std::shared_ptr<const Training_Data> prob_set
             = (probabilize_data == 0 ? datasets.training : datasets.validation);
         
         distribution<float> pr_weights(prob_set->example_count(), 1.0);

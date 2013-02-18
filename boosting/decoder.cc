@@ -43,7 +43,7 @@ Decoder::Decoder(const Decoder_Impl & impl)
 {
 }
 
-Decoder::Decoder(const boost::shared_ptr<Decoder_Impl> & impl)
+Decoder::Decoder(const std::shared_ptr<Decoder_Impl> & impl)
     : impl_(impl)
 {
 }

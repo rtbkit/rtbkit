@@ -46,12 +46,12 @@ public:
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
-    virtual void init(boost::shared_ptr<const Feature_Space> fs,
+    virtual void init(std::shared_ptr<const Feature_Space> fs,
                       Feature predicted);
 
     /** Generate a classifier from two training sets.  Default will
         call the next method with uniform weights. */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
              const Training_Data & validation_data,
@@ -62,7 +62,7 @@ public:
         by example.  Default will call the next method with the training
         data only.
     */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
              const Training_Data & validation_data,
@@ -75,7 +75,7 @@ public:
         by example.  Default expands the weights and calls the other
         generate method.  Note that either this method or the one
         after it must be overridden. */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
              const distribution<float> & weights,
@@ -92,7 +92,7 @@ public:
         the classifier is.  Those that don't calulate it should set it
         to 0.0.
     */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
              const boost::multi_array<float, 2> & weights,
@@ -118,7 +118,7 @@ public:
     bool validate;
 
     /** Feature space we are using. */
-    boost::shared_ptr<const Feature_Space> feature_space;
+    std::shared_ptr<const Feature_Space> feature_space;
 
     /** Feature we are predicting. */
     Feature predicted;
@@ -133,7 +133,7 @@ public:
 /*****************************************************************************/
 
 /** Generate a trainer for the classifier with the given name. */
-boost::shared_ptr<Classifier_Generator>
+std::shared_ptr<Classifier_Generator>
 get_trainer(const std::string & name, const Configuration & config);
 
 template<class Base> class Factory_Base;
@@ -143,7 +143,7 @@ template<>
 class Factory_Base<Classifier_Generator> {
 public:
     virtual ~Factory_Base() {}
-    virtual boost::shared_ptr<Classifier_Generator> create() const = 0;
+    virtual std::shared_ptr<Classifier_Generator> create() const = 0;
 };
 
 template<class Derived>
@@ -151,9 +151,9 @@ class Object_Factory<Classifier_Generator, Derived>
     : public Factory_Base<Classifier_Generator> {
 public:
     virtual ~Object_Factory() {}
-    virtual boost::shared_ptr<Classifier_Generator> create() const
+    virtual std::shared_ptr<Classifier_Generator> create() const
     {
-        return boost::shared_ptr<Classifier_Generator>(new Derived());
+        return std::shared_ptr<Classifier_Generator>(new Derived());
     }
 };
 

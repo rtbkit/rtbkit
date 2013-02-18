@@ -99,13 +99,13 @@ options() const
 
 void
 Boosting_Generator::
-init(boost::shared_ptr<const Feature_Space> fs, Feature predicted)
+init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Classifier_Generator::init(fs, predicted);
     weak_learner->init(fs, predicted);
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Boosting_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_set,
@@ -157,7 +157,7 @@ generate(Thread_Context & context,
         cerr << "val   Z    Classifier" << endl;
     }
     
-    vector<boost::shared_ptr<Classifier_Impl> > classifiers;
+    vector<std::shared_ptr<Classifier_Impl> > classifiers;
 
     double validate_acc = 0.0;
     double train_acc = 0.0;
@@ -168,7 +168,7 @@ generate(Thread_Context & context,
 
         float Z;
 
-        boost::shared_ptr<Classifier_Impl> weak_classifier;
+        std::shared_ptr<Classifier_Impl> weak_classifier;
         Optimization_Info opt_info;
 
         if (validate_is_train || trace_training_acc)
@@ -272,7 +272,7 @@ generate(Thread_Context & context,
     if (profile)
         cerr << "training time: " << timer.elapsed() << "s" << endl;
     
-    boost::shared_ptr<Committee>
+    std::shared_ptr<Committee>
         result(new Committee(feature_space, predicted));
     
     for (int i = 0;  i <= best_iter;  ++i)
@@ -281,7 +281,7 @@ generate(Thread_Context & context,
     return result;
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Boosting_Generator::
 generate_and_update(Thread_Context & context,
                     const Training_Data & training_set,
@@ -317,7 +317,7 @@ generate_and_update(Thread_Context & context,
     if (verbosity > 2)
         cerr << "  it   train     Z    Classifier" << endl;
     
-    vector<boost::shared_ptr<Classifier_Impl> > classifiers;
+    vector<std::shared_ptr<Classifier_Impl> > classifiers;
 
     double train_acc = 0.0;
 
@@ -329,7 +329,7 @@ generate_and_update(Thread_Context & context,
 
         Optimization_Info opt_info;
 
-        boost::shared_ptr<Classifier_Impl> weak_classifier
+        std::shared_ptr<Classifier_Impl> weak_classifier
             = train_iteration(context, training_set, weights, features,
                               training_output, training_ex_weights,
                               train_acc, Z, opt_info);
@@ -362,7 +362,7 @@ generate_and_update(Thread_Context & context,
     if (profile)
         cerr << "training time: " << timer.elapsed() << "s" << endl;
     
-    boost::shared_ptr<Committee>
+    std::shared_ptr<Committee>
         result(new Committee(feature_space, predicted));
     
     for (int i = 0;  i <= best_iter;  ++i)
@@ -371,7 +371,7 @@ generate_and_update(Thread_Context & context,
     return result;
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Boosting_Generator::
 train_iteration(Thread_Context & context,
                 const Training_Data & data,
@@ -388,7 +388,7 @@ train_iteration(Thread_Context & context,
     Z = 0.0;
     
     /* Find the best stump */
-    boost::shared_ptr<Classifier_Impl> weak_classifier
+    std::shared_ptr<Classifier_Impl> weak_classifier
         = weak_learner->generate(context, data, weights, features, Z);
     
     const Feature_Space & fs = *data.feature_space();
@@ -492,7 +492,7 @@ train_iteration(Thread_Context & context,
    all in one pass (which saves on execution time as less memory is used).
 */
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Boosting_Generator::
 train_iteration(Thread_Context & context,
                 const Training_Data & data,
@@ -513,7 +513,7 @@ train_iteration(Thread_Context & context,
     Z = 0.0;
     
     /* Find the best weak learner */
-    boost::shared_ptr<Classifier_Impl> weak_classifier
+    std::shared_ptr<Classifier_Impl> weak_classifier
         = weak_learner->generate(context, data, weights, features, Z);
 
     const Feature_Space & fs = *data.feature_space();

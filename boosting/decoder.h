@@ -55,11 +55,11 @@ protected:
 
 DB::Store_Writer &
 operator << (DB::Store_Writer & store,
-             const boost::shared_ptr<const Decoder_Impl> & prob_ptr);
+             const std::shared_ptr<const Decoder_Impl> & prob_ptr);
 
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store,
-             boost::shared_ptr<Decoder_Impl> & prob_ptr);
+             std::shared_ptr<Decoder_Impl> & prob_ptr);
 
 
 /*****************************************************************************/
@@ -74,7 +74,7 @@ public:
     Decoder();
     Decoder(DB::Store_Reader & store);
     explicit Decoder(const Decoder_Impl & impl);
-    Decoder(const boost::shared_ptr<Decoder_Impl> & impl);
+    Decoder(const std::shared_ptr<Decoder_Impl> & impl);
     Decoder(const Decoder & other);
     Decoder & operator = (const Decoder & other);
 
@@ -83,7 +83,7 @@ public:
         impl_.swap(other.impl_);
     }
 
-    operator bool () const { return impl_; }
+    operator bool () const { return !!impl_; }
 
     distribution<float> apply(const distribution<float> & input) const
     {
@@ -112,7 +112,7 @@ public:
     const Decoder_Impl & impl() const { return *impl_; }
 
 private:
-    boost::shared_ptr<Decoder_Impl> impl_;
+    std::shared_ptr<Decoder_Impl> impl_;
 };
 
 DB::Store_Writer &

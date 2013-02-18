@@ -60,7 +60,7 @@ public:
     virtual std::string class_id() const;
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store,
-                              const boost::shared_ptr<const Feature_Space>
+                              const std::shared_ptr<const Feature_Space>
                                   & feature_space);
     virtual void reconstitute(DB::Store_Reader & store);
 
@@ -133,7 +133,7 @@ public:
 
     /** Initialise from a filename, using the given feature space. */
     Sparse_Training_Data(const std::string & filename,
-                         const boost::shared_ptr<Sparse_Feature_Space> & fs);
+                         const std::shared_ptr<Sparse_Feature_Space> & fs);
 
     virtual ~Sparse_Training_Data();
 
@@ -145,12 +145,12 @@ public:
     /** Initialise from a data file.  The given feature space will be used,
         and modified as the dataset is read. */
     void init(const std::string & filename,
-              boost::shared_ptr<Sparse_Feature_Space> fs);
+              std::shared_ptr<Sparse_Feature_Space> fs);
 
     /** Initialise from a set of data files.  The given feature space will be
         used, and modified as the dataset is read. */
     void init(const std::vector<std::string> & filename,
-              boost::shared_ptr<Sparse_Feature_Space> fs);
+              std::shared_ptr<Sparse_Feature_Space> fs);
 
     /** Polymorphic copy. */
     virtual Sparse_Training_Data * make_copy() const;
@@ -164,7 +164,7 @@ private:
                         Sparse_Feature_Space & feature_space,
                         bool & guessed_wrong);
 
-    boost::shared_ptr<Sparse_Feature_Space> sparse_fs;
+    std::shared_ptr<Sparse_Feature_Space> sparse_fs;
 };
 
 

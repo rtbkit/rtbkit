@@ -66,7 +66,7 @@ Perceptron::Perceptron()
 }
 
 Perceptron::
-Perceptron(const boost::shared_ptr<const Feature_Space> & feature_space,
+Perceptron(const std::shared_ptr<const Feature_Space> & feature_space,
                const Feature & predicted)
     : Classifier_Impl(feature_space, predicted)
 {
@@ -74,13 +74,13 @@ Perceptron(const boost::shared_ptr<const Feature_Space> & feature_space,
 
 Perceptron::
 Perceptron(DB::Store_Reader & reader,
-           const boost::shared_ptr<const Feature_Space> & feature_space)
+           const std::shared_ptr<const Feature_Space> & feature_space)
 {
     this->reconstitute(reader, feature_space);
 }
 
 Perceptron::
-Perceptron(const boost::shared_ptr<const Feature_Space> & feature_space,
+Perceptron(const std::shared_ptr<const Feature_Space> & feature_space,
            const Feature & predicted,
            size_t label_count)
     : Classifier_Impl(feature_space, predicted, label_count)
@@ -182,7 +182,7 @@ parse_architecture(const std::string & arch)
     return result;
 }
 
-void Perceptron::add_layer(const boost::shared_ptr<Layer> & layer)
+void Perceptron::add_layer(const std::shared_ptr<Layer> & layer)
 {
     layer->validate();
     layers.add(layer);
@@ -230,7 +230,7 @@ void Perceptron::serialize(DB::Store_Writer & store) const
 void
 Perceptron::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & feature_space)
+             const std::shared_ptr<const Feature_Space> & feature_space)
 {
     /* Implement the strong exception guarantee, except for the store. */
     string magic;

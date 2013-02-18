@@ -33,7 +33,7 @@ Naive_Bayes::Naive_Bayes()
 }
 
 Naive_Bayes::
-Naive_Bayes(boost::shared_ptr<const Feature_Space> feature_space,
+Naive_Bayes(std::shared_ptr<const Feature_Space> feature_space,
             const Feature & feature)
     : Classifier_Impl(feature_space, feature)
 {
@@ -370,7 +370,7 @@ void Naive_Bayes::serialize(DB::Store_Writer & store) const
 
 Naive_Bayes::
 Naive_Bayes(DB::Store_Reader & store,
-            const boost::shared_ptr<const Feature_Space> & feature_space)
+            const std::shared_ptr<const Feature_Space> & feature_space)
 {
     string magic;
     compact_size_t version;
@@ -437,7 +437,7 @@ Naive_Bayes(DB::Store_Reader & store,
 
 void Naive_Bayes::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & features)
+             const std::shared_ptr<const Feature_Space> & features)
 {
     /* Implement the strong exception guarantee. */
     Naive_Bayes new_me(store, features);

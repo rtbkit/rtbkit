@@ -330,7 +330,7 @@ void trace_output(const Classifier & current, const Training_Data & data,
 }
 
 void do_features(const Training_Data & data,
-                 boost::shared_ptr<const Feature_Space> feature_space,
+                 std::shared_ptr<const Feature_Space> feature_space,
                  std::vector<Feature> & features,
                  std::map<std::string, Feature> & feature_index)
 {
@@ -425,19 +425,19 @@ try
         exit(1);
     }
 
-    vector<boost::shared_ptr<Training_Data> > data(extra.size());
+    vector<std::shared_ptr<Training_Data> > data(extra.size());
     ssize_t var_count = -1;
     
-    boost::shared_ptr<Dense_Feature_Space> dense_feature_space;
-    boost::shared_ptr<Sparse_Feature_Space> sparse_feature_space;
-    boost::shared_ptr<Mutable_Feature_Space> feature_space;
+    std::shared_ptr<Dense_Feature_Space> dense_feature_space;
+    std::shared_ptr<Sparse_Feature_Space> sparse_feature_space;
+    std::shared_ptr<Mutable_Feature_Space> feature_space;
 
     if (sparse_data) {
         sparse_feature_space.reset(new Sparse_Feature_Space());
         feature_space = sparse_feature_space;
 
         for (unsigned i = 0;  i < extra.size();  ++i) {
-            boost::shared_ptr<Sparse_Training_Data> dataset
+            std::shared_ptr<Sparse_Training_Data> dataset
                 (new Sparse_Training_Data());
             dataset->init(extra[i], sparse_feature_space);
             data[i] = dataset;
@@ -453,7 +453,7 @@ try
         feature_space = dense_feature_space; 
         
         for (unsigned i = 0;  i < extra.size();  ++i) {
-            boost::shared_ptr<Dense_Training_Data> dataset
+            std::shared_ptr<Dense_Training_Data> dataset
                 (new Dense_Training_Data());
             dataset->init(extra[i], dense_feature_space);
             data[i] = dataset;

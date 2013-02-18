@@ -246,7 +246,7 @@ try
     Datasets datasets;
     datasets.init(extra, verbosity, profile);
 
-    boost::shared_ptr<Feature_Space> feature_space = datasets.feature_space;
+    std::shared_ptr<Feature_Space> feature_space = datasets.feature_space;
 
     vector<Feature> features;
     map<string, Feature> feature_index;
@@ -417,7 +417,7 @@ try
         if (probabilize_data < 0 || probabilize_data > 1)
             throw Exception("probabilize-data must be 0 or 1 (currently "
                             + ostream_format(probabilize_data) + ")");
-        boost::shared_ptr<const Training_Data> prob_set
+        std::shared_ptr<const Training_Data> prob_set
             = (probabilize_data == 0 ? datasets.training : datasets.validation);
         
         distribution<float> pr_weights(prob_set->example_count(), 1.0);

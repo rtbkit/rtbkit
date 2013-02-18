@@ -28,14 +28,14 @@ Null_Classifier::Null_Classifier()
 }
 
 Null_Classifier::
-Null_Classifier(const boost::shared_ptr<const Feature_Space> & fs,
+Null_Classifier(const std::shared_ptr<const Feature_Space> & fs,
                 const Feature & predicted)
     : Classifier_Impl(fs, predicted)
 {
 }
 
 Null_Classifier::
-Null_Classifier(const boost::shared_ptr<const Feature_Space> & fs,
+Null_Classifier(const std::shared_ptr<const Feature_Space> & fs,
                 const Feature & predicted,
                 size_t label_count)
     : Classifier_Impl(fs, predicted, label_count)
@@ -93,7 +93,7 @@ void Null_Classifier::serialize(DB::Store_Writer & store) const
 
 Null_Classifier::
 Null_Classifier(DB::Store_Reader & store,
-                const boost::shared_ptr<const Feature_Space> & feature_space)
+                const std::shared_ptr<const Feature_Space> & feature_space)
 {
     string magic;
     compact_size_t version;
@@ -117,7 +117,7 @@ Null_Classifier(DB::Store_Reader & store,
 
 void Null_Classifier::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & features)
+             const std::shared_ptr<const Feature_Space> & features)
 {
     /* Implement the strong exception guarantee. */
     Null_Classifier new_me(store, features);

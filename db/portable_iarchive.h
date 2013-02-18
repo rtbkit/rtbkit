@@ -118,7 +118,7 @@ private:
     struct Buffer_Source;
     struct Stream_Source;
     struct No_Source;
-    boost::shared_ptr<Source> source;
+    std::shared_ptr<Source> source;
 };
 
 

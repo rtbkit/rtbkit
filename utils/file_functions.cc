@@ -295,7 +295,7 @@ class File_Read_Buffer::MMap_Region
 
     MMap_Region & operator = (const MMap_Region & other);
 
-    typedef std::map<inode_type, boost::weak_ptr<MMap_Region> > cache_type;
+    typedef std::map<inode_type, std::weak_ptr<MMap_Region> > cache_type;
 
     static cache_type & cache()
     {
@@ -304,12 +304,12 @@ class File_Read_Buffer::MMap_Region
     }
 
 public:
-    static boost::shared_ptr<MMap_Region> get(int fd)
+    static std::shared_ptr<MMap_Region> get(int fd)
     {
         inode_type inode = get_inode(fd);
-        boost::weak_ptr<MMap_Region> & ptr = cache()[inode];
+        std::weak_ptr<MMap_Region> & ptr = cache()[inode];
 
-        boost::shared_ptr<MMap_Region> result;
+        std::shared_ptr<MMap_Region> result;
         result = ptr.lock();
         
         if (!result) {

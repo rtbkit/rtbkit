@@ -481,7 +481,7 @@ struct Stump_Trainer {
         /* Don't predict the label with the label! */
         if (feature == predicted) return Z::worst;
 
-        boost::shared_ptr<const Feature_Space> fs = data.feature_space();
+        std::shared_ptr<const Feature_Space> fs = data.feature_space();
 
         if (tracer)
             tracer("stump training", 1)

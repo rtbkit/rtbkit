@@ -109,7 +109,7 @@ struct Explanation {
     {
     }
 
-    Explanation(boost::shared_ptr<const Feature_Space> fspace,
+    Explanation(std::shared_ptr<const Feature_Space> fspace,
                 double weight);
 
     /** Add the weights from another explanation. */
@@ -139,7 +139,7 @@ struct Explanation {
 
     typedef std::map<Feature, double> Feature_Weights;
     Feature_Weights feature_weights;
-    boost::shared_ptr<const Feature_Space> fspace;
+    std::shared_ptr<const Feature_Space> fspace;
 };
 
 
@@ -201,17 +201,17 @@ public:
         overridden to change the behaviour; the correct feature space will
         have to be passed in at construction.
     */
-    boost::shared_ptr<const Feature_Space> feature_space() const
+    std::shared_ptr<const Feature_Space> feature_space() const
     {
         return feature_space_;
     }
 
     /** Returns the feature space, dynamic cast as specified. */
     template<class Target_FS>
-    boost::shared_ptr<const Target_FS> feature_space() const
+    std::shared_ptr<const Target_FS> feature_space() const
     {
-        boost::shared_ptr<const Target_FS> result
-            = boost::dynamic_pointer_cast<const Target_FS>(feature_space());
+        std::shared_ptr<const Target_FS> result
+            = std::dynamic_pointer_cast<const Target_FS>(feature_space());
         if (!result)
             throw Exception("Couldn't cast feature space of type "
                             + demangle(typeid(*feature_space()).name())
@@ -226,7 +226,7 @@ public:
 
         \param new_feature_space  the new feature space to use
     */
-    void set_feature_space(const boost::shared_ptr<const Feature_Space> &
+    void set_feature_space(const std::shared_ptr<const Feature_Space> &
                                new_feature_space)
     {
         feature_space_ = new_feature_space;
@@ -451,12 +451,12 @@ public:
         reconstitution operator since the feature space needs to be passed
         in to it.
     */
-    static boost::shared_ptr<Classifier_Impl>
+    static std::shared_ptr<Classifier_Impl>
     poly_reconstitute(DB::Store_Reader & store,
-                      const boost::shared_ptr<const Feature_Space> & features);
+                      const std::shared_ptr<const Feature_Space> & features);
 
     /** Perform polymorphic reconstitution, including the feature space. */
-    static boost::shared_ptr<Classifier_Impl>
+    static std::shared_ptr<Classifier_Impl>
     poly_reconstitute(DB::Store_Reader & store);
 
     /** Perform polymorphic serialization.  This is different to the virtual
@@ -473,7 +473,7 @@ public:
     /** Serialization and reconstitution. */
     virtual void serialize(DB::Store_Writer & store) const = 0;
     virtual void reconstitute(DB::Store_Reader & store,
-                              const boost::shared_ptr<const Feature_Space>
+                              const std::shared_ptr<const Feature_Space>
                                   & feature_space) = 0;
     
     /** Allow polymorphic copying. */
@@ -504,7 +504,7 @@ protected:
         \param predicted         the feature that the classifier is trying
                                  to predict.
     */
-    Classifier_Impl(const boost::shared_ptr<const Feature_Space> & fs,
+    Classifier_Impl(const std::shared_ptr<const Feature_Space> & fs,
                     const Feature & predicted);
 
     /** Construct for the given feature space, to classify into the given
@@ -518,17 +518,17 @@ protected:
         \param label_count       the number of labels (classes) that the
                                  classifier will predict into.
     */
-    Classifier_Impl(const boost::shared_ptr<const Feature_Space> & fs,
+    Classifier_Impl(const std::shared_ptr<const Feature_Space> & fs,
                     const Feature & predicted, size_t label_count);
 
     /** Two-stage initialisation.  Fills in the feature space and the label
         count. */
-    void init(const boost::shared_ptr<const Feature_Space> & feature_space,
+    void init(const std::shared_ptr<const Feature_Space> & feature_space,
               const Feature & predicted);
 
     /** Two-stage initialisation.  Fills in the feature space and the label
         count. */
-    void init(const boost::shared_ptr<const Feature_Space> & feature_space,
+    void init(const std::shared_ptr<const Feature_Space> & feature_space,
               const Feature & predicted, size_t label_count);
 
     /** Swap the class with another one.  This method is protected as it is
@@ -549,7 +549,7 @@ protected:
 protected:
     /** The feature space to use.  Be careful when changing it that something
         doesn't already depend upon the other value. */
-    boost::shared_ptr<const Feature_Space> feature_space_;
+    std::shared_ptr<const Feature_Space> feature_space_;
 
     /** The feature that we are trying to predict. */
     Feature predicted_;
@@ -566,19 +566,19 @@ protected:
 
 class FS_Context {
 public:
-    FS_Context(const boost::shared_ptr<const Feature_Space> & feature_space);
+    FS_Context(const std::shared_ptr<const Feature_Space> & feature_space);
     ~FS_Context();
     
-    static const boost::shared_ptr<const Feature_Space> & inner();
+    static const std::shared_ptr<const Feature_Space> & inner();
 };
 
 DB::Store_Writer &
 operator << (DB::Store_Writer & store,
-             const boost::shared_ptr<const Classifier_Impl> & classifier);
+             const std::shared_ptr<const Classifier_Impl> & classifier);
 
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store,
-             boost::shared_ptr<Classifier_Impl> & classifier);
+             std::shared_ptr<Classifier_Impl> & classifier);
 
 
 /*****************************************************************************/
@@ -592,7 +592,7 @@ public:
     Classifier();
 
     /** Construct from given implementation. */
-    Classifier(const boost::shared_ptr<Classifier_Impl> & impl);
+    Classifier(const std::shared_ptr<Classifier_Impl> & impl);
 
     /** Construct from implementation pointer. */
     Classifier(Classifier_Impl * impl, bool take_copy = false);
@@ -602,19 +602,19 @@ public:
 
     /** Construct by instantiating a new object of the given type. */
     template<class Impl>
-    Classifier(const boost::shared_ptr<const Feature_Space> & feature_space)
+    Classifier(const std::shared_ptr<const Feature_Space> & feature_space)
         : impl(new Impl(feature_space)) {}
 
     /** Allow the existence to be queried. */
-    operator bool () const { return impl; }
+    operator bool () const { return !!impl; }
 
     /** Construct by instantiating a new object of the given registered
         name. */
     Classifier(const std::string & name,
-               const boost::shared_ptr<const Feature_Space> & feature_space);
+               const std::shared_ptr<const Feature_Space> & feature_space);
 
     /** Construct by reconstitution. */
-    Classifier(const boost::shared_ptr<const Feature_Space> & feature_space,
+    Classifier(const std::shared_ptr<const Feature_Space> & feature_space,
                DB::Store_Reader & store);
 
     /** Copy constructor. */
@@ -637,17 +637,17 @@ public:
     }
     
     /** Returns the feature space. */
-    boost::shared_ptr<const Feature_Space> feature_space() const
+    std::shared_ptr<const Feature_Space> feature_space() const
     {
         return impl->feature_space();
     }
     
     /** Returns the feature space, dynamic cast as specified. */
     template<class Target_FS>
-    boost::shared_ptr<const Target_FS> feature_space() const
+    std::shared_ptr<const Target_FS> feature_space() const
     {
-        boost::shared_ptr<const Target_FS> result
-            = boost::dynamic_pointer_cast<const Target_FS>(feature_space());
+        std::shared_ptr<const Target_FS> result
+            = std::dynamic_pointer_cast<const Target_FS>(feature_space());
         if (!result)
             throw Exception("Couldn't cast feature space of type "
                             + demangle(typeid(*feature_space()).name())
@@ -710,7 +710,7 @@ public:
 
     /** Reconstitute into the given feature space. */
     void reconstitute(DB::Store_Reader & store,
-                      const boost::shared_ptr<const Feature_Space>
+                      const std::shared_ptr<const Feature_Space>
                               & feature_space)
     {
         impl = Classifier_Impl::poly_reconstitute(store, feature_space);
@@ -736,10 +736,10 @@ public:
 
     void load(const std::string & filename);
     void load(const std::string & filename,
-              boost::shared_ptr<const Feature_Space> fs);
+              std::shared_ptr<const Feature_Space> fs);
     void save(const std::string & filename, bool write_fs = true) const;
 
-    boost::shared_ptr<Classifier_Impl> impl;
+    std::shared_ptr<Classifier_Impl> impl;
 };
 
 

@@ -126,7 +126,7 @@ poly_serialize(ML::DB::Store_Writer & store) const
     Registry<Layer>::singleton().serialize(store, this);
 }
 
-boost::shared_ptr<Layer>
+std::shared_ptr<Layer>
 Layer::
 poly_reconstitute(ML::DB::Store_Reader & store)
 {

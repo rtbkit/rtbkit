@@ -208,7 +208,7 @@ try
     Datasets datasets;
     datasets.init(extra, verbosity, profile);
 
-    boost::shared_ptr<Feature_Space> feature_space = datasets.feature_space;
+    std::shared_ptr<Feature_Space> feature_space = datasets.feature_space;
 
     vector<Feature> features;
     map<string, Feature> feature_index;

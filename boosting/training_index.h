@@ -171,7 +171,7 @@ public:
 private:
     struct Itl;
     struct Index_Entry;
-    boost::shared_ptr<Itl> itl;
+    std::shared_ptr<Itl> itl;
 };
 
 

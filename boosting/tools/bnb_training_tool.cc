@@ -126,7 +126,7 @@ run_boosting(const Training_Data & training_set,
 {
     boost::timer timer;
     unsigned nl = training_set.label_count();
-    boost::shared_ptr<const Feature_Space> feature_space
+    std::shared_ptr<const Feature_Space> feature_space
         = training_set.feature_space();
 
     Boosted_Stumps stumps(feature_space, nl);
@@ -673,7 +673,7 @@ try
     Datasets datasets;
     datasets.init(extra, verbosity, profile);
 
-    boost::shared_ptr<Feature_Space> feature_space = datasets.feature_space;
+    std::shared_ptr<Feature_Space> feature_space = datasets.feature_space;
 
     vector<Feature> features;
     map<string, Feature> feature_index;
@@ -773,7 +773,7 @@ try
         if (probabilize_data < 0 || probabilize_data > 1)
             throw Exception("probabilize-data must be 0 or 1 (currently "
                             + ostream_format(probabilize_data) + ")");
-        boost::shared_ptr<const Training_Data> prob_set
+        std::shared_ptr<const Training_Data> prob_set
             = (probabilize_data == 0 ? training : validation);
         
         distribution<float> pr_weights(prob_set->example_count(), 1.0);

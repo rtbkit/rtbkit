@@ -83,13 +83,13 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
     };
     
     struct Update_Job {
-        Update_Job(boost::shared_ptr<Job_Info> info, int n_begin,
+        Update_Job(std::shared_ptr<Job_Info> info, int n_begin,
                    int n_end)
             : info(info), n_begin(n_begin), n_end(n_end)
         {
         }
 
-        boost::shared_ptr<Job_Info> info;
+        std::shared_ptr<Job_Info> info;
         int n_begin, n_end;
         
         void operator () ()
@@ -109,7 +109,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
                       Job next, int parent = -1)
     {
         /* Create the job info. */
-        boost::shared_ptr<Job_Info> info
+        std::shared_ptr<Job_Info> info
             = make_sp(new Job_Info(stump, opt_info,
                                    cl_weight, weights, data, total,
                                    *this));
@@ -190,13 +190,13 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
     };
     
     struct Update_Job_Classifier {
-        Update_Job_Classifier(boost::shared_ptr<Job_Info_Classifier> info,
+        Update_Job_Classifier(std::shared_ptr<Job_Info_Classifier> info,
                               int n_begin, int n_end)
             : info(info), n_begin(n_begin), n_end(n_end)
         {
         }
 
-        boost::shared_ptr<Job_Info_Classifier> info;
+        std::shared_ptr<Job_Info_Classifier> info;
         int n_begin, n_end;
         
         void operator () ()
@@ -216,7 +216,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
                       Job next, int parent = -1)
     {
         /* Create the job info. */
-        boost::shared_ptr<Job_Info_Classifier> info
+        std::shared_ptr<Job_Info_Classifier> info
             = make_sp(new Job_Info_Classifier
                       (classifier, opt_info, cl_weight, weights, data,
                        total, *this));
@@ -330,13 +330,13 @@ struct Update_Scores_Parallel
     };
     
     struct Update_Job {
-        Update_Job(boost::shared_ptr<Job_Info> info, int n_begin,
+        Update_Job(std::shared_ptr<Job_Info> info, int n_begin,
                    int n_end)
             : info(info), n_begin(n_begin), n_end(n_end)
         {
         }
 
-        boost::shared_ptr<Job_Info> info;
+        std::shared_ptr<Job_Info> info;
         int n_begin, n_end;
         
         void operator () ()
@@ -357,7 +357,7 @@ struct Update_Scores_Parallel
                       Job next, int parent = -1)
     {
         /* Create the job info. */
-        boost::shared_ptr<Job_Info> info
+        std::shared_ptr<Job_Info> info
             = make_sp(new Job_Info(stump, opt_info, cl_weight, output, data,
                                    example_weights, correct,
                                    *this));
@@ -439,13 +439,13 @@ struct Update_Scores_Parallel
     };
     
     struct Update_Job_Classifier {
-        Update_Job_Classifier(boost::shared_ptr<Job_Info_Classifier> info,
+        Update_Job_Classifier(std::shared_ptr<Job_Info_Classifier> info,
                               int n_begin, int n_end)
             : info(info), n_begin(n_begin), n_end(n_end)
         {
         }
 
-        boost::shared_ptr<Job_Info_Classifier> info;
+        std::shared_ptr<Job_Info_Classifier> info;
         int n_begin, n_end;
         
         void operator () ()
@@ -466,7 +466,7 @@ struct Update_Scores_Parallel
                       Job next, int parent = -1)
     {
         /* Create the job info. */
-        boost::shared_ptr<Job_Info_Classifier> info
+        std::shared_ptr<Job_Info_Classifier> info
             = make_sp(new Job_Info_Classifier
                       (classifier, opt_info, cl_weight, output, data,
                        example_weights, correct, *this));
@@ -605,13 +605,13 @@ struct Update_Weights_And_Scores_Parallel
     };
     
     struct Update_Job {
-        Update_Job(boost::shared_ptr<Job_Info> info, int n_begin,
+        Update_Job(std::shared_ptr<Job_Info> info, int n_begin,
                    int n_end)
             : info(info), n_begin(n_begin), n_end(n_end)
         {
         }
         
-        boost::shared_ptr<Job_Info> info;
+        std::shared_ptr<Job_Info> info;
         int n_begin, n_end;
         
         void operator () ()
@@ -634,7 +634,7 @@ struct Update_Weights_And_Scores_Parallel
                       Job next, int parent = -1)
     {
         /* Create the job info. */
-        boost::shared_ptr<Job_Info> info
+        std::shared_ptr<Job_Info> info
             = make_sp(new Job_Info(stump, opt_info,
                                    cl_weight, weights, output, data,
                                    example_weights, correct, total,
@@ -720,13 +720,13 @@ struct Update_Weights_And_Scores_Parallel
     };
     
     struct Update_Job_Classifier {
-        Update_Job_Classifier(boost::shared_ptr<Job_Info_Classifier> info, int n_begin,
+        Update_Job_Classifier(std::shared_ptr<Job_Info_Classifier> info, int n_begin,
                    int n_end)
             : info(info), n_begin(n_begin), n_end(n_end)
         {
         }
         
-        boost::shared_ptr<Job_Info_Classifier> info;
+        std::shared_ptr<Job_Info_Classifier> info;
         int n_begin, n_end;
         
         void operator () ()
@@ -749,7 +749,7 @@ struct Update_Weights_And_Scores_Parallel
                       Job next, int parent = -1)
     {
         /* Create the job info. */
-        boost::shared_ptr<Job_Info_Classifier> info
+        std::shared_ptr<Job_Info_Classifier> info
             = make_sp(new Job_Info_Classifier
                       (classifier, opt_info, cl_weight, weights, output, data,
                        example_weights, correct, total, *this));

@@ -22,7 +22,7 @@ try
             = "algorithms/machine_learning/boosting/datasets/presence-train-1.txt";
         
         /* Variables for when we are sparse. */
-        boost::shared_ptr<Sparse_Feature_Space>
+        std::shared_ptr<Sparse_Feature_Space>
             feature_space(new Sparse_Feature_Space());
         Sparse_Training_Data data(dataset, feature_space);
         
@@ -40,7 +40,7 @@ try
             = "algorithms/machine_learning/boosting/datasets/presence-3.txt";
         
         /* Variables for when we are sparse. */
-        boost::shared_ptr<Sparse_Feature_Space>
+        std::shared_ptr<Sparse_Feature_Space>
             feature_space(new Sparse_Feature_Space());
         Sparse_Training_Data data(dataset, feature_space);
         

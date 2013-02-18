@@ -26,9 +26,9 @@ namespace ML {
 class Null_Classifier : public Classifier_Impl {
 public:
     Null_Classifier();
-    Null_Classifier(const boost::shared_ptr<const Feature_Space> & fs,
+    Null_Classifier(const std::shared_ptr<const Feature_Space> & fs,
                     const Feature & predicted);
-    Null_Classifier(const boost::shared_ptr<const Feature_Space> & fs,
+    Null_Classifier(const std::shared_ptr<const Feature_Space> & fs,
                     const Feature & predicted, size_t label_count);
 
     virtual ~Null_Classifier();
@@ -50,10 +50,10 @@ public:
     /** Serialization and reconstitution. */
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void reconstitute(DB::Store_Reader & store,
-                              const boost::shared_ptr<const Feature_Space>
+                              const std::shared_ptr<const Feature_Space>
                                   & feature_space);
     Null_Classifier(DB::Store_Reader & store,
-                    const boost::shared_ptr<const Feature_Space> & fs);
+                    const std::shared_ptr<const Feature_Space> & fs);
 
     /** Allow polymorphic copying. */
     virtual Null_Classifier * make_copy() const;

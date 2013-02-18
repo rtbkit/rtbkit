@@ -94,7 +94,7 @@ void Null_Feature_Space::serialize(DB::Store_Writer & store) const
 
 void Null_Feature_Space::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & feature_space)
+             const std::shared_ptr<const Feature_Space> & feature_space)
 {
     /* Don't read anything. */
 }

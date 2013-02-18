@@ -604,7 +604,7 @@ void remove_aliased_examples(Training_Data & data, const Feature & predicted,
 }
 
 void do_features(const Training_Data & data,
-                 boost::shared_ptr<Mutable_Feature_Space> feature_space,
+                 std::shared_ptr<Mutable_Feature_Space> feature_space,
                  const string & predicted_name,
                  vector<string> ignore_features,
                  vector<string> optional_features,
@@ -831,7 +831,7 @@ void do_features(const Training_Data & data,
 
 void write_null_classifier(const std::string & filename,
                            const Feature & predicted,
-                           boost::shared_ptr<const Feature_Space> feature_space,
+                           std::shared_ptr<const Feature_Space> feature_space,
                            int verbosity)
 {
     if (verbosity > 0)
@@ -852,7 +852,7 @@ void print_data_stats(const Training_Data & data)
 }
 
 void print_weight_spec(const std::vector<Weight_Spec> & weight_spec,
-                       boost::shared_ptr<Feature_Space> feature_space)
+                       std::shared_ptr<Feature_Space> feature_space)
 {
     for (unsigned i = 0;  i < weight_spec.size();  ++i) {
         const Feature & feature = weight_spec[i].feature;

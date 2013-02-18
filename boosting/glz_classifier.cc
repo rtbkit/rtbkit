@@ -35,7 +35,7 @@ GLZ_Classifier::GLZ_Classifier()
 }
 
 GLZ_Classifier::
-GLZ_Classifier(const boost::shared_ptr<const Feature_Space> & fs,
+GLZ_Classifier(const std::shared_ptr<const Feature_Space> & fs,
                const Feature & predicted)
     : Classifier_Impl(fs, predicted), add_bias(true), link(LOGIT),
       optimized_(false)
@@ -44,7 +44,7 @@ GLZ_Classifier(const boost::shared_ptr<const Feature_Space> & fs,
 
 GLZ_Classifier::
 GLZ_Classifier(DB::Store_Reader & store,
-               const boost::shared_ptr<const Feature_Space> & fs)
+               const std::shared_ptr<const Feature_Space> & fs)
 {
     reconstitute(store, fs);
 }
@@ -53,7 +53,7 @@ GLZ_Classifier::
 GLZ_Classifier(DB::Store_Reader & store)
 {
     reconstitute(store);
-    set_feature_space(boost::shared_ptr<const Feature_Space>
+    set_feature_space(std::shared_ptr<const Feature_Space>
                       (new Null_Feature_Space()));
 }
 
@@ -434,7 +434,7 @@ reconstitute(DB::Store_Reader & store)
 
 void GLZ_Classifier::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & fs)
+             const std::shared_ptr<const Feature_Space> & fs)
 {
     feature_space_ = fs;
     reconstitute(store);

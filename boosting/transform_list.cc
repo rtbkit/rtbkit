@@ -29,7 +29,7 @@ Transform_List(DB::Store_Reader & store)
 }
 
 Transform_List::
-Transform_List(boost::shared_ptr<Feature_Space> fs)
+Transform_List(std::shared_ptr<Feature_Space> fs)
     : feature_space_(fs)
 {
 }
@@ -39,21 +39,21 @@ Transform_List::
 {
 }
 
-boost::shared_ptr<Feature_Space>
+std::shared_ptr<Feature_Space>
 Transform_List::
 input_fs() const
 {
     return feature_space_;
 }
 
-boost::shared_ptr<Feature_Space>
+std::shared_ptr<Feature_Space>
 Transform_List::
 output_fs() const
 {
     return feature_space_;
 }
 
-boost::shared_ptr<Mutable_Feature_Set>
+std::shared_ptr<Mutable_Feature_Set>
 Transform_List::
 transform(const Feature_Set & features) const
 {

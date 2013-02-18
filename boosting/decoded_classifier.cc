@@ -161,7 +161,7 @@ void Decoded_Classifier::serialize(DB::Store_Writer & store) const
 
 Decoded_Classifier::
 Decoded_Classifier(DB::Store_Reader & store,
-                   const boost::shared_ptr<const Feature_Space> & feature_space)
+                   const std::shared_ptr<const Feature_Space> & feature_space)
 {
     //cerr << "decoded_classifier reconstitute" << endl;
     //cerr << "feature_space.get() = " << feature_space.get() << endl;
@@ -205,7 +205,7 @@ Decoded_Classifier(DB::Store_Reader & store,
 
 void Decoded_Classifier::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & features)
+             const std::shared_ptr<const Feature_Space> & features)
 {
     /* Implement the strong exception guarantee. */
     Decoded_Classifier new_me(store, features);

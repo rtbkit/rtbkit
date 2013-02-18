@@ -67,7 +67,7 @@ run_boosting(const Training_Data & data,
 
 Boosted_Stumps
 run_bagging(const Training_Data & data,
-            boost::shared_ptr<const Training_Data> test,
+            std::shared_ptr<const Training_Data> test,
             const Feature & predicted,
             unsigned bags,
             unsigned max_iter, unsigned min_iter, int verbosity,
@@ -337,7 +337,7 @@ try
     Datasets datasets;
     datasets.init(extra, verbosity, profile);
 
-    boost::shared_ptr<Mutable_Feature_Space> feature_space = datasets.feature_space;
+    std::shared_ptr<Mutable_Feature_Space> feature_space = datasets.feature_space;
 
     vector<Feature> features;
     map<string, Feature> feature_index;
@@ -445,7 +445,7 @@ try
         if (probabilize_data < 0 || probabilize_data > 1)
             throw Exception("probabilize-data must be 0 or 1 (currently "
                             + ostream_format(probabilize_data) + ")");
-        boost::shared_ptr<const Training_Data> prob_set
+        std::shared_ptr<const Training_Data> prob_set
             = (probabilize_data == 0 ? datasets.training : validation);
         
         boost::multi_array<float, 2> weights

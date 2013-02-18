@@ -43,13 +43,13 @@ public:
 
     /** Initialize the generator, given the feature space to be used for
         generation. */
-    virtual void init(boost::shared_ptr<const Feature_Space> fs,
+    virtual void init(std::shared_ptr<const Feature_Space> fs,
                       Feature predicted);
 
     using Classifier_Generator::generate;
 
     /** Generate a classifier from one training set. */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
              const Training_Data & validation_data,
@@ -58,7 +58,7 @@ public:
              const std::vector<Feature> & features, int recursion) const;
 
     /** Generate a classifier for boosting. */
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
              const boost::multi_array<float, 2> & weights,

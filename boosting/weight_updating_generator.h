@@ -26,7 +26,7 @@ class Weight_Updating_Generator : public Early_Stopping_Generator {
 public:
     virtual ~Weight_Updating_Generator() {}
 
-    virtual boost::shared_ptr<Classifier_Impl>
+    virtual std::shared_ptr<Classifier_Impl>
     generate_and_update(Thread_Context & context,
                         const Training_Data & training_data,
                         boost::multi_array<float, 2> & weights,

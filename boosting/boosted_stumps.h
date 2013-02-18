@@ -35,10 +35,10 @@ public:
     Boosted_Stumps();
 
     Boosted_Stumps(DB::Store_Reader & store,
-                   const boost::shared_ptr<const Feature_Space>
+                   const std::shared_ptr<const Feature_Space>
                        & feature_space);
     
-    Boosted_Stumps(const boost::shared_ptr<const Feature_Space>
+    Boosted_Stumps(const std::shared_ptr<const Feature_Space>
                        & feature_space,
                    const Feature & predicted);
 
@@ -199,7 +199,7 @@ public:
 
         distribution<float> weights(10, 0.1);
         bool randomize = true;
-        vector<boost::shared_ptr<Training_Data> > chunks
+        vector<std::shared_ptr<Training_Data> > chunks
             = huge_data.partition(weights, randomize);
 
         vector<Boosted_Stumps> stumps(10);
@@ -241,7 +241,7 @@ public:
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void
     reconstitute(DB::Store_Reader & store,
-                 const boost::shared_ptr<const Feature_Space> & features);
+                 const std::shared_ptr<const Feature_Space> & features);
 
     virtual std::string class_id() const { return "BOOSTED_STUMPS"; }
 
@@ -254,7 +254,7 @@ public:
     
 private:
     /** For reconstituting old classifiers only */
-    Boosted_Stumps(const boost::shared_ptr<const Feature_Space>
+    Boosted_Stumps(const std::shared_ptr<const Feature_Space>
                        & feature_space,
                    const Feature & predicted,
                    size_t label_count);

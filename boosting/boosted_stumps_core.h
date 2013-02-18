@@ -264,7 +264,7 @@ struct Update_Weights {
         /* Get data for the feature for each of our stumps. */
         std::vector<const Training_Data::Feature_Data *>
             feature_data(stumps.size());
-        std::vector<boost::shared_ptr<const example_data_type> >
+        std::vector<std::shared_ptr<const example_data_type> >
             sorted(stumps.size());
         std::vector<example_data_type::const_iterator> ex_start(stumps.size());
         std::vector<example_data_type::const_iterator> ex_end(stumps.size());

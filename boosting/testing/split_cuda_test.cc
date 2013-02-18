@@ -46,8 +46,8 @@ struct Test_Context {
     const CUDA::Test_Buckets_Binsym * tester;
     boost::shared_array<TwoBuckets> accum;
     boost::shared_array<TwoBuckets> w_totals;
-    boost::shared_ptr<CUDA::Test_Buckets_Binsym::Plan> plan;
-    boost::shared_ptr<CUDA::Test_Buckets_Binsym::Context> context;
+    std::shared_ptr<CUDA::Test_Buckets_Binsym::Plan> plan;
+    std::shared_ptr<CUDA::Test_Buckets_Binsym::Context> context;
 
     // Host-based thread
     void operator () ()
@@ -73,7 +73,7 @@ void run_test(const uint16_t * buckets,
 
     Timer t;
 
-    boost::shared_ptr<CUDA::Test_Buckets_Binsym::Plan> plan
+    std::shared_ptr<CUDA::Test_Buckets_Binsym::Plan> plan
         = tester.plan(buckets,
                       examples,
                       labels ,

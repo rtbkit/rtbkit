@@ -24,9 +24,9 @@ using namespace std;
 
 void test_dense(const string & dataset)
 {
-    boost::shared_ptr<Dense_Feature_Space> feature_space
+    std::shared_ptr<Dense_Feature_Space> feature_space
         (new Dense_Feature_Space());
-    boost::shared_ptr<Dense_Training_Data> data;
+    std::shared_ptr<Dense_Training_Data> data;
 
     data.reset(new Dense_Training_Data(dataset, feature_space, 2));
     cerr << endl;
@@ -89,7 +89,7 @@ void test_dense(const string & dataset)
 
 void test_sparse(const string & dataset)
 {
-    boost::shared_ptr<Sparse_Feature_Space>
+    std::shared_ptr<Sparse_Feature_Space>
         feature_space(new Sparse_Feature_Space());
 
     Sparse_Training_Data data(dataset, feature_space);

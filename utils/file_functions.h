@@ -131,7 +131,7 @@ public:
     };
 
     std::string filename_;
-    boost::shared_ptr<Region> region;
+    std::shared_ptr<Region> region;
 
     class MMap_Region;
     class Mem_Region;

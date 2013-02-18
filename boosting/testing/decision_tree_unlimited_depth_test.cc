@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_binary )
     fs.add_feature("feature2", REAL);
     fs.add_feature("feature3", REAL);
 
-    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+    std::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
 
     Training_Data data(fsp);
     
@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_binary )
         //features.push_back(random());
         //features.push_back(random());
 
-        boost::shared_ptr<Feature_Set> fset
+        std::shared_ptr<Feature_Set> fset
             = fs.encode(features);
 
         data.add_example(fset);
@@ -93,7 +93,7 @@ BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_regression )
     fs.add_feature("feature2", REAL);
     fs.add_feature("feature3", REAL);
 
-    boost::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
+    std::shared_ptr<Dense_Feature_Space> fsp(make_unowned_sp(fs));
 
     Training_Data data(fsp);
     
@@ -110,7 +110,7 @@ BOOST_AUTO_TEST_CASE( test_decision_tree_multithreaded_regression )
         //features.push_back(random());
         //features.push_back(random());
 
-        boost::shared_ptr<Feature_Set> fset
+        std::shared_ptr<Feature_Set> fset
             = fs.encode(features);
 
         data.add_example(fset);

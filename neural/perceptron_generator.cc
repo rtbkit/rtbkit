@@ -148,13 +148,13 @@ options() const
 
 void
 Perceptron_Generator::
-init(boost::shared_ptr<const Feature_Space> fs, Feature predicted)
+init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Early_Stopping_Generator::init(fs, predicted);
     model = Perceptron(fs, predicted);
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Perceptron_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_set,
@@ -659,7 +659,7 @@ decorrelate(const Training_Data & data,
          = (x * A) - (mean * A);
     */
 
-    boost::shared_ptr<Dense_Layer<float> > layer
+    std::shared_ptr<Dense_Layer<float> > layer
         (new Dense_Layer<float>("decorrelation", nf, nf, TF_IDENTITY,
                                 MV_NONE));
     layer->weights.resize(boost::extents[transform.shape()[0]][transform.shape()[1]]);
@@ -728,7 +728,7 @@ init(const Training_Data & data,
              << units << " units and activation function "
              << activation << endl;
 
-        boost::shared_ptr<Layer>
+        std::shared_ptr<Layer>
             layer(new Dense_Layer<float>(format("hidden%d", i),
                                          nunits, units, activation,
                                          MV_NONE, context));
@@ -737,7 +737,7 @@ init(const Training_Data & data,
     }
     
     /* Add the output units. */
-    boost::shared_ptr<Layer> layer
+    std::shared_ptr<Layer> layer
         (new Dense_Layer<float>("output", nunits, nout, output_activation,
                                 MV_NONE, context));
     result.add_layer(layer);

@@ -119,9 +119,9 @@ try
     cerr << "loading dataset... ";
     string dataset
         = "algorithms/machine_learning/boosting/datasets/lso-conf.txt";
-    boost::shared_ptr<Dense_Feature_Space> feature_space
+    std::shared_ptr<Dense_Feature_Space> feature_space
         (new Dense_Feature_Space());
-    boost::shared_ptr<Dense_Training_Data> data;
+    std::shared_ptr<Dense_Training_Data> data;
 
     data.reset(new Dense_Training_Data(dataset, feature_space, 2));
     cerr << endl;

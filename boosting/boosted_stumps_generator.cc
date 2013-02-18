@@ -123,14 +123,14 @@ options() const
 
 void
 Boosted_Stumps_Generator::
-init(boost::shared_ptr<const Feature_Space> fs, Feature predicted)
+init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     Classifier_Generator::init(fs, predicted);
     model = Boosted_Stumps(fs, predicted);
     weak_learner.init(fs, predicted);
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Boosted_Stumps_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_set,
@@ -365,7 +365,7 @@ generate_stumps(Thread_Context & context,
     return best;
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Boosted_Stumps_Generator::
 generate_and_update(Thread_Context & context,
                     const Training_Data & training_set,
@@ -473,7 +473,7 @@ generate_and_update(Thread_Context & context,
     if (profile)
         cerr << "training time: " << timer.elapsed() << "s" << endl;
     
-    boost::shared_ptr<Boosted_Stumps>
+    std::shared_ptr<Boosted_Stumps>
         result(new Boosted_Stumps(stumps));
     
     return result;

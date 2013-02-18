@@ -28,7 +28,7 @@ struct Backprop {
 
     /** Plan how to run it on the GPU and transfer all of the data to the
         GPU. */
-    boost::shared_ptr<Plan>
+    std::shared_ptr<Plan>
     plan(int num_layers,
          const int * architecture,
          const float * const * weights,
@@ -44,7 +44,7 @@ struct Backprop {
     /** Execute a planned batch of updates on the GPU.  The set of feature
         vectors to train over and their associated weights, as well as the
         arrays to accumulate the updates in, are provided. */
-    boost::shared_ptr<Context>
+    std::shared_ptr<Context>
     execute(const Plan & plan,
             const float * feature_vectors,
             int num_feature_vectors,

@@ -67,9 +67,9 @@ public:
     Perceptron();
 
     Perceptron(DB::Store_Reader & store,
-               const boost::shared_ptr<const Feature_Space> & feature_space);
+               const std::shared_ptr<const Feature_Space> & feature_space);
     
-    Perceptron(const boost::shared_ptr<const Feature_Space> & feature_space,
+    Perceptron(const std::shared_ptr<const Feature_Space> & feature_space,
                const Feature & predicted);
 
     /** Swap two Perceptron objects.  Guaranteed not to throw an
@@ -107,7 +107,7 @@ public:
     virtual void serialize(DB::Store_Writer & store) const;
     virtual void
     reconstitute(DB::Store_Reader & store,
-                 const boost::shared_ptr<const Feature_Space> & features);
+                 const std::shared_ptr<const Feature_Space> & features);
 
     virtual std::string class_id() const { return "PERCEPTRON"; }
     
@@ -136,7 +136,7 @@ public:
 
     Output_Encoder output;
     
-    void add_layer(const boost::shared_ptr<Layer> & layer);
+    void add_layer(const std::shared_ptr<Layer> & layer);
 
     void clear();
 
@@ -165,7 +165,7 @@ public:
 
 private:
     /** For reconstituting old classifiers only */
-    Perceptron(const boost::shared_ptr<const Feature_Space>
+    Perceptron(const std::shared_ptr<const Feature_Space>
                    & feature_space,
                const Feature & predicted,
                size_t label_count);

@@ -72,7 +72,7 @@ struct Categorical_Info {
                                const Categorical_Info & info);
 
     /** Reconstitute polymorphically a Categorical_Info from a store. */
-    static boost::shared_ptr<Categorical_Info>
+    static std::shared_ptr<Categorical_Info>
     poly_reconstitute(DB::Store_Reader & store);
 };
 
@@ -112,7 +112,7 @@ public:
                  bool grouping = false);
 
     /** Initialise for a categorical feature info. */
-    Feature_Info(boost::shared_ptr<const Categorical_Info> categorical,
+    Feature_Info(std::shared_ptr<const Categorical_Info> categorical,
                  bool optional = false, bool biased = false,
                  Type type = CATEGORICAL, bool grouping = false);
     
@@ -133,7 +133,7 @@ public:
 
     Type type() const { return (Type)type_; }
 
-    boost::shared_ptr<const Categorical_Info> categorical() const
+    std::shared_ptr<const Categorical_Info> categorical() const
     {
         return categorical_;
     }
@@ -174,10 +174,10 @@ protected:
 
     /** Contains the pointer to the categorical information, for those features
         that are categorical. */
-    boost::shared_ptr<const Categorical_Info> categorical_;
+    std::shared_ptr<const Categorical_Info> categorical_;
 
     /** Mutable version of the same.  Not required to be non-null. */
-    boost::shared_ptr<Mutable_Categorical_Info> mutable_categorical_;
+    std::shared_ptr<Mutable_Categorical_Info> mutable_categorical_;
 };
 
 
@@ -228,7 +228,7 @@ struct Mutable_Feature_Info : public Feature_Info {
     Mutable_Feature_Info(Type type = REAL, bool optional = false);
 
     /** Initialise for a categorical feature info. */
-    Mutable_Feature_Info(boost::shared_ptr<Mutable_Categorical_Info> categorical,
+    Mutable_Feature_Info(std::shared_ptr<Mutable_Categorical_Info> categorical,
                          bool optional = false,
                          Type type = CATEGORICAL /* or STRING */);
 
@@ -238,14 +238,14 @@ struct Mutable_Feature_Info : public Feature_Info {
     void make_categorical(Type type = CATEGORICAL);
 
     /** Set the categorical info. */
-    void set_categorical(boost::shared_ptr<Mutable_Categorical_Info> info,
+    void set_categorical(std::shared_ptr<Mutable_Categorical_Info> info,
                          Type type = CATEGORICAL);
 
     /** Set the categorical info. */
     void set_categorical(Mutable_Categorical_Info * info,
                          Type type = CATEGORICAL);
     
-    boost::shared_ptr<Mutable_Categorical_Info> mutable_categorical() const
+    std::shared_ptr<Mutable_Categorical_Info> mutable_categorical() const
     {
         if (categorical_ != mutable_categorical_)
             throw Exception("Mutable_Feature_Info::categorical(): out of sync");
@@ -386,8 +386,8 @@ public:
 
 class Fixed_Categorical_Mapping : public Categorical_Mapping {
 public:
-    Fixed_Categorical_Mapping(boost::shared_ptr<const Categorical_Info> info1,
-                                boost::shared_ptr<const Categorical_Info> info2);
+    Fixed_Categorical_Mapping(std::shared_ptr<const Categorical_Info> info1,
+                                std::shared_ptr<const Categorical_Info> info2);
 
     virtual ~Fixed_Categorical_Mapping();
 

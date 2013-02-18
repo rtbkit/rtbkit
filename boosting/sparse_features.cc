@@ -127,7 +127,7 @@ void Sparse_Feature_Space::serialize(DB::Store_Writer & store) const
 
 void Sparse_Feature_Space::
 reconstitute(DB::Store_Reader & store,
-             const boost::shared_ptr<const Feature_Space> & feature_space)
+             const std::shared_ptr<const Feature_Space> & feature_space)
 {
     string type;
     compact_size_t version;
@@ -213,7 +213,7 @@ Sparse_Training_Data(const std::string & filename)
 
 Sparse_Training_Data::
 Sparse_Training_Data(const std::string & filename,
-                     const boost::shared_ptr<Sparse_Feature_Space> & fs)
+                     const std::shared_ptr<Sparse_Feature_Space> & fs)
 {
     init(filename, fs);
 }
@@ -241,7 +241,7 @@ expect_feature(Parse_Context & c, Mutable_Feature_Set & features,
     Mutable_Feature_Info & info
         = feature_space.info_array[num];
 
-    bool categorical = info.categorical();
+    bool categorical = !!info.categorical();
 
     if (categorical && (!c || *c != ':')) {
         /* A categorical feature can't have a missing label. */
@@ -323,7 +323,7 @@ bool match_label(Parse_Context & c, Mutable_Feature_Set & features,
 
 void Sparse_Training_Data::
 init(const std::string & filename,
-     boost::shared_ptr<Sparse_Feature_Space> feature_space)
+     std::shared_ptr<Sparse_Feature_Space> feature_space)
 {
     vector<string> filenames(1, filename);
     init(filenames, feature_space);
@@ -331,7 +331,7 @@ init(const std::string & filename,
 
 void Sparse_Training_Data::
 init(const std::vector<std::string> & filenames,
-     boost::shared_ptr<Sparse_Feature_Space> feature_space)
+     std::shared_ptr<Sparse_Feature_Space> feature_space)
 {
     //cerr << "sparse data init from file" << endl;
 
@@ -361,7 +361,7 @@ init(const std::vector<std::string> & filenames,
             c.skip_line();
             
             while (c) {
-                boost::shared_ptr<Mutable_Feature_Set>
+                std::shared_ptr<Mutable_Feature_Set>
                     features(new Mutable_Feature_Set());
                 
                 try {
@@ -409,7 +409,7 @@ void Sparse_Training_Data::
 init(const std::string & filename)
 {
     init(filename,
-         boost::shared_ptr<Sparse_Feature_Space>(new Sparse_Feature_Space()));
+         std::shared_ptr<Sparse_Feature_Space>(new Sparse_Feature_Space()));
 }
 
 Sparse_Training_Data * Sparse_Training_Data::make_copy() const

@@ -23,7 +23,7 @@ try
     int label_count = 49;
 
     /* Variables for when we are sparse. */
-    boost::shared_ptr<Sparse_Feature_Space>
+    std::shared_ptr<Sparse_Feature_Space>
         feature_space(new Sparse_Feature_Space());
     Sparse_Training_Data data1(dataset1, feature_space, label_count);
     Sparse_Training_Data data2(dataset2, feature_space, label_count);

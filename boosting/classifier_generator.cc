@@ -27,7 +27,7 @@ Classifier_Generator::
 
 void
 Classifier_Generator::
-init(boost::shared_ptr<const Feature_Space> fs, Feature predicted)
+init(std::shared_ptr<const Feature_Space> fs, Feature predicted)
 {
     this->feature_space = fs;
     this->predicted = predicted;
@@ -66,7 +66,7 @@ options() const
     return result;
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Classifier_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_data,
@@ -84,7 +84,7 @@ generate(Thread_Context & context,
                     validation_weights, features, recursion + 1);
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Classifier_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_data,
@@ -102,7 +102,7 @@ generate(Thread_Context & context,
                     recursion + 1);
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Classifier_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_data,
@@ -146,7 +146,7 @@ generate(Thread_Context & context,
                     recursion + 1);
 }
 
-boost::shared_ptr<Classifier_Impl>
+std::shared_ptr<Classifier_Impl>
 Classifier_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_data,
@@ -243,7 +243,7 @@ get_type(const std::string & name, const Configuration & config)
     return boost::make_tuple(config[key], name2);
 }
 
-boost::shared_ptr<Classifier_Generator>
+std::shared_ptr<Classifier_Generator>
 get_trainer(const std::string & name, const Configuration & config)
 {
     std::string type, name2;
@@ -256,7 +256,7 @@ get_trainer(const std::string & name, const Configuration & config)
                         + config.prefix());
     }
     
-    boost::shared_ptr<Classifier_Generator> result
+    std::shared_ptr<Classifier_Generator> result
         = Registry<Classifier_Generator>::singleton().create(type);
 
     Configuration config2(config, name, Configuration::PREFIX_APPEND);

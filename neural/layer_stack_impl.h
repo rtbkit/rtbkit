@@ -134,7 +134,7 @@ transfer() const
 template<class LayerT>
 void
 Layer_Stack<LayerT>::
-add(boost::shared_ptr<LayerT> layer)
+add(std::shared_ptr<LayerT> layer)
 {
     if (!layer)
         throw Exception("Layer_Stack::add(): added null layer");
@@ -250,10 +250,10 @@ reconstitute(DB::Store_Reader & store)
     layers_.reserve(sz);
 
     for (unsigned i = 0;  i < sz;  ++i) {
-        boost::shared_ptr<Layer> layer
+        std::shared_ptr<Layer> layer
             = Layer::poly_reconstitute(store);
-        boost::shared_ptr<LayerT> cast
-            = boost::dynamic_pointer_cast<LayerT>(layer);
+        std::shared_ptr<LayerT> cast
+            = std::dynamic_pointer_cast<LayerT>(layer);
         if (!cast)
             throw Exception("Layer_Stack::reconstitute(): couldn't convert");
         add(cast);

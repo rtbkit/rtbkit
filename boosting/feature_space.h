@@ -93,7 +93,7 @@ public:
 
         \code
         Feature feature(1, 2, 3);
-        boost::shared_ptr<Feature_Space> fs = ...;
+        std::shared_ptr<Feature_Space> fs = ...;
 
         ...
 
@@ -144,7 +144,7 @@ public:
 
         \code
         Parse_Context cxt(...);
-        boost::shared_ptr<Feature_Space> fs(...);
+        std::shared_ptr<Feature_Space> fs(...);
 
         vector<Feature> features(1);
         while (fs->parse(cxt, feature.back())) feature.push_back(Feature());
@@ -310,7 +310,7 @@ public:
         Throws an exception on an invalid store or unreconstitutible data.
     */
     virtual void reconstitute(DB::Store_Reader & store,
-                              boost::shared_ptr<Feature_Set> & fs) const;
+                              std::shared_ptr<Feature_Set> & fs) const;
     //@}
 
 
@@ -370,7 +370,7 @@ public:
         An exception should be thrown on an error.
     */
     virtual void reconstitute(DB::Store_Reader & store,
-                            const boost::shared_ptr<const Feature_Space> & fs);
+                            const std::shared_ptr<const Feature_Space> & fs);
     
     /** Return a copy of this feature space.  This needs to be overridden
         by each of the subclassed objects in the following manner:
@@ -407,12 +407,12 @@ public:
 
         \param fs            feature space to give to the training data.  Will
                              normally be the same as *this, but we need to
-                             pass it as a boost::shared_ptr<> so that the
+                             pass it as a std::shared_ptr<> so that the
                              reference counting will work.
 
     */
-    virtual boost::shared_ptr<Training_Data>
-    training_data(const boost::shared_ptr<const Feature_Space> & fs) const;
+    virtual std::shared_ptr<Training_Data>
+    training_data(const std::shared_ptr<const Feature_Space> & fs) const;
 
     /** Freeze the feature space.  This should cause all feature information
         to revert to a fixed form such that it can no longer be modified.
@@ -429,19 +429,19 @@ public:
    convert to the non-const ones. */
 DB::Store_Writer &
 operator << (DB::Store_Writer & store,
-             const boost::shared_ptr<Feature_Space> & fs);
+             const std::shared_ptr<Feature_Space> & fs);
 
 DB::Store_Writer &
 operator << (DB::Store_Writer & store,
-             const boost::shared_ptr<const Feature_Space> & fs);
+             const std::shared_ptr<const Feature_Space> & fs);
 
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store,
-             boost::shared_ptr<Feature_Space> & fs);
+             std::shared_ptr<Feature_Space> & fs);
 
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store,
-             boost::shared_ptr<const Feature_Space> & fs);
+             std::shared_ptr<const Feature_Space> & fs);
 
 
 /*****************************************************************************/
