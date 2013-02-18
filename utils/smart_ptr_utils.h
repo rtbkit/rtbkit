@@ -36,6 +36,12 @@ boost::shared_ptr<T> make_sp(T * val)
     return boost::shared_ptr<T>(val);
 }
 
+template<class T>
+std::shared_ptr<T> make_std_sp(T * val)
+{
+    return std::shared_ptr<T>(val);
+}
+
 struct Dont_Delete {
     template<class X> void operator () (const X & x) const
     {
@@ -52,6 +58,18 @@ template<class T>
 boost::shared_ptr<const T> make_unowned_sp(const T & val)
 {
     return boost::shared_ptr<const T>(&val, Dont_Delete());
+}
+
+template<class T>
+std::shared_ptr<T> make_unowned_std_sp(T & val)
+{
+    return std::shared_ptr<T>(&val, Dont_Delete());
+}
+
+template<class T>
+std::shared_ptr<const T> make_unowned_std_sp(const T & val)
+{
+    return std::shared_ptr<const T>(&val, Dont_Delete());
 }
 
 extern const struct Null_SP {
