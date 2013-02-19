@@ -951,6 +951,10 @@ struct ZmqNamedProxy: public MessageLoop {
     {
         //using namespace std;
         std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
+
+        ExcCheckEqual(connectionState, CONNECTED,
+                "Trying to send on an unconnected socket.");
+
         Datacratic::sendMessage(socket(), std::forward<Args>(args)...);
     }
 
@@ -981,8 +985,6 @@ protected:
 
     enum ConnectionState {
         NOT_CONNECTED,
-        WAITING_SERVICE,
-        WAITING_HEARTBEAT,
         CONNECTED
     } connectionState;
 
