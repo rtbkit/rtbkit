@@ -539,11 +539,15 @@ connect(const std::string & endpointName,
                     continue;  // wrong host scope
             }
 
-            socket().connect(uri.c_str());
+            {
+                std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
+
+                socket().connect(uri.c_str());
+                connectedUri = uri;
+                connectionState = CONNECTED;
+            }
 
             cerr << "connected to " << uri << endl;
-            connectedUri = uri;
-            connectionState = CONNECTED;
             onConnect(uri);
             return false;
         }

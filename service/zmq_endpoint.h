@@ -960,6 +960,8 @@ struct ZmqNamedProxy: public MessageLoop {
 
     void disconnect()
     {
+        std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
+
         if(connectionState == CONNECTED) {
             socket_->disconnect(connectedUri);
             onDisconnect(connectedUri);
