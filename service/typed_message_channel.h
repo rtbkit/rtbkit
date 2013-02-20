@@ -42,6 +42,15 @@ struct TypedMessageSink: public AsyncEventSource {
         wakeup.signal();
     }
 
+    bool tryPush(Message && message)
+    {
+        bool pushed = buf.tryPush(message);
+        if (pushed)
+            wakeup.signal();
+
+        return pushed;
+    }
+
     //protected:
     virtual int selectFd() const
     {
