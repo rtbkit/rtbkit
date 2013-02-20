@@ -115,8 +115,10 @@ push(const RestRequest & request, const OnDone & onDone)
     Operation op;
     op.request = request;
     op.onDone = onDone;
-    operationQueue.push(std::move(op));
-    ML::atomic_inc(numMessagesOutstanding_);
+    if (operationQueue.tryPush(std::move(op)))
+        ML::atomic_inc(numMessagesOutstanding_);
+    else
+        throw ML::Exception("queue is full");
 }
 
 void
@@ -127,14 +129,8 @@ push(const OnDone & onDone,
      const RestParams & params,
      const std::string & payload)
 {
-    Operation op;
-    op.onDone = onDone;
-    op.request.verb = method;
-    op.request.resource = resource;
-    op.request.params = params;
-    op.request.payload = payload;
-    operationQueue.push(std::move(op));
-    ML::atomic_inc(numMessagesOutstanding_);
+    Request request(verb, resource, params, payload);
+    push(request, onDone);
 }
 
 void
