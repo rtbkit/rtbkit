@@ -18,7 +18,7 @@
 #include "soa/service/testing/redis_temporary_server.h"
 #include "testing/generic_exchange_connector.h"
 #include "testing/mock_exchange.h"
-#include "testing/test_agent.h"
+#include "rtbkit/testing/test_agent.h"
 #include <boost/thread.hpp>
 #include <netdb.h>
 #include <memory>
