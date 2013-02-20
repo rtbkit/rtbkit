@@ -302,6 +302,8 @@ namespace zmq
 
         inline ~socket_t ()
         {
+            int linger = 0;
+            setsockopt (ZMQ_LINGER, &linger, sizeof(linger));
             int rc = zmq_close (ptr);
             assert (rc == 0);
             (void)rc;
