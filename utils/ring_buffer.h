@@ -244,6 +244,24 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         ML::futex_wake(writePosition);
     }
 
+    bool tryPush(const Request & request)
+    {
+        Guard guard(mutex);
+
+        // What position would the read position be in if the buffer was
+        // full?  
+        unsigned fullReadPosition = (writePosition + 1) % bufferSize;
+        if (readPosition == fullReadPosition)
+            return false;
+
+        //ring[writePosition] = request;
+        ring[writePosition] = request;
+        writePosition = (writePosition + 1) % bufferSize;
+        ML::futex_wake(writePosition);
+
+        return true;
+    }
+
     Request pop()
     {
         Request result;
