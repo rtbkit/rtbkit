@@ -129,7 +129,7 @@ push(const OnDone & onDone,
      const RestParams & params,
      const std::string & payload)
 {
-    Request request(verb, resource, params, payload);
+    RestRequest request(method, resource, params, payload);
     push(request, onDone);
 }
 
