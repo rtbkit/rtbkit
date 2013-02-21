@@ -968,13 +968,15 @@ struct ZmqNamedProxy: public MessageLoop {
 
     void disconnect()
     {
-        if(connectionState == CONNECTED) {
+        if (connectionState != CONNECTED) return;
+
+        {
             std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
             socket_->disconnect(connectedUri);
-            onDisconnect(connectedUri);
+            connectionState = NOT_CONNECTED;
         }
 
-        connectionState = NOT_CONNECTED;
+        onDisconnect(connectedUri);
     }
 
 
