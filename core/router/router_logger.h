@@ -13,12 +13,14 @@
 
 #include "soa/service/service_base.h"
 #include "soa/service/zmq_named_pub_sub.h"
+#include "rtbkit/core/monitor/monitor_provider.h"
 
 #include "soa/logger/logger.h"
 
 namespace RTBKIT {
 
 struct RouterLogger : public Datacratic::ServiceBase,
+                      public MonitorProvider,
                       public Datacratic::Logger {
     RouterLogger(std::shared_ptr<Datacratic::ServiceProxies> proxies);
     ~RouterLogger();
@@ -31,8 +33,12 @@ struct RouterLogger : public Datacratic::ServiceBase,
     void connectAllServiceProviders(const std::string & serviceClass,
                                     const std::string & epName);
 
-    // Subscribtion object to the named services
+    Json::Value getMonitorIndicators();
+
+    // Subscription object to the named services
     Datacratic::ZmqNamedMultipleSubscriber multipleSubscriber;
+
+    MonitorProviderEndpoint monitorProviderEndpoint;
 };
 
 } // namespace RTKBIT

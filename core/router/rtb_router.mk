@@ -20,7 +20,8 @@ ROUTER_LOGGER_SOURCES := \
 
 ROUTER_LOGGER_LINK := \
 	logger \
-	boost_program_options
+	boost_program_options \
+	monitor
 
 $(eval $(call library,router_logger,$(ROUTER_LOGGER_SOURCES),$(ROUTER_LOGGER_LINK)))
 $(eval $(call program,router_logger_runner,router_logger boost_program_options opstats bid_request))
