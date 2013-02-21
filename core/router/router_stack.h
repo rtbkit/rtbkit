@@ -9,16 +9,14 @@
 
 
 #include "router.h"
-#include "rtbkit/core/post_auction/post_auction_loop.h"
+#include "rtbkit/core/monitor/monitor.h"
 #include "rtbkit/core/banker/master_banker.h"
+#include "rtbkit/core/banker/slave_banker.h"
+#include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
+#include "soa/service/testing/redis_temporary_server.h"
 
 namespace RTBKIT {
-
-struct Banker;
-struct BudgetController;
-struct Accountant;
-
 
 
 /*****************************************************************************/
@@ -28,6 +26,9 @@ struct Accountant;
 /** The Router Stack is a Core Router, a Post Auction Loop and a Banker stuck
     together.  This is mostly used for where we need an integrated component
     (simulations, etc); normally they would be run separately.
+
+    \todo There's a lot of commonalities here between the
+    rtbkit_integration_test's Components class.
 */
 
 struct RouterStack: public ServiceBase {
@@ -189,12 +190,17 @@ struct RouterStack: public ServiceBase {
     
     void topupTransfer(const AccountKey & account, CurrencyPool amount);
 
-    
-    
-
     Router router;
+
+    Redis::RedisTemporaryServer redis;
+    MasterBanker masterBanker;
+    SlaveBudgetController budgetController;
+
     PostAuctionLoop postAuctionLoop;
     AgentConfigurationService config;
+
+    Monitor monitor;
+    MonitorProviderProxy monitorProxy;
 
     bool initialized;
 };

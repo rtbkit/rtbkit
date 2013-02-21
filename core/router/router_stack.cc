@@ -6,7 +6,7 @@
 */
 
 #include "router_stack.h"
-
+#include "rtbkit/core/banker/slave_banker.h"
 
 using namespace std;
 using namespace ML;
@@ -27,8 +27,11 @@ RouterStack(std::shared_ptr<ServiceProxies> services,
     : ServiceBase(serviceName, services),
       router(*this, "router", secondsUntilLossAssumed,
              simulationMode, false /* connect to post auction loop */),
+      masterBanker(services, "masterBanker"),
       postAuctionLoop(*this, "postAuction"),
       config(services, "config"),
+      monitor(services, "monitor"),
+      monitorProxy(getZmqContext(), monitor),
       initialized(false)
 {
 }
@@ -45,14 +48,41 @@ init()
     config.init();
     config.bindTcp();
     config.start();
+
+    masterBanker.init(std::make_shared<RedisBankerPersistence>(redis));
+    masterBanker.bindTcp();
+    masterBanker.start();
+
+    budgetController.init(getServices()->config);
+    budgetController.start();
+
+    auto makeSlaveBanker = [=] (const std::string & name)
+        {
+            auto res = make_shared<SlaveBanker>(
+                    getZmqContext(), getServices()->config, name);
+            res->start();
+            return res;
+        };
+
  
-    getServices()->config->dump(cerr);
+    // getServices()->config->dump(cerr);
 
     postAuctionLoop.init();
+    postAuctionLoop.setBanker(makeSlaveBanker("postAuction"));
     postAuctionLoop.bindTcp();
 
     router.init();
+    router.setBanker(makeSlaveBanker("router"));
     router.bindTcp();
+
+    monitor.init();
+    monitor.bindTcp();
+    monitor.start();
+
+    monitorProxy.init(getServices()->config,
+            {"router", "postAuction", "masterBanker"});
+    monitorProxy.start();
+
 
     initialized = true;
 }
@@ -98,7 +128,11 @@ shutdown()
 {
     router.shutdown();
     postAuctionLoop.shutdown();
+    budgetController.shutdown();
+    masterBanker.shutdown();
     config.shutdown();
+    monitorProxy.shutdown();
+    monitor.shutdown();
 }
 
 size_t
@@ -120,13 +154,12 @@ numNonIdle() const
     return result;
 }
 
-#if 0
 void
 RouterStack::
 addBudget(const AccountKey & account, CurrencyPool amount)
 {
     ExcAssertEqual(account.size(), 1);
-    budgetController->addBudgetSync(account[0], amount);
+    budgetController.addBudgetSync(account[0], amount);
 }
 
 void
@@ -134,15 +167,14 @@ RouterStack::
 setBudget(const AccountKey & account, CurrencyPool amount)
 {
     ExcAssertEqual(account.size(), 1);
-    budgetController->setBudgetSync(account[0], amount);
+    budgetController.setBudgetSync(account[0], amount);
 }
 
 void
 RouterStack::
 topupTransfer(const AccountKey & account, CurrencyPool amount)
 {
-    budgetController->topupTransferSync(account, amount);
+    budgetController.topupTransferSync(account, amount);
 }
-#endif
 
 } // namespace RTBKIT
