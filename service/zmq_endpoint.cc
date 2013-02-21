@@ -87,26 +87,23 @@ processOne()
 
     std::vector<std::string> msg;
 
-    while (true) {
+    /** NOTE: poll() will only work after we've tried (and failed) to
+        pull a message off.
+    */
+    {
+        std::unique_lock<SocketLock> guard;
+        if (socketLock_)
+            guard = std::unique_lock<SocketLock>(*socketLock_);
 
-        /** NOTE: poll() will only work after we've tried (and failed) to
-            pull a message off.
-        */
-        {
-            std::unique_lock<SocketLock> guard;
-            if (socketLock_)
-                guard = std::unique_lock<SocketLock>(*socketLock_);
+        msg = recvAllNonBlocking(socket());
+    }
 
-            msg = recvAllNonBlocking(socket());
-        }
-
-        if (msg.empty()) break;
-
+    if (!msg.empty()) {
         if (debug_)
             cerr << "got message of length " << msg.size() << endl;
         handleMessage(msg);
     }
-        
+
     return poll();
 }
 
