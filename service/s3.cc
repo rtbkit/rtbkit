@@ -330,18 +330,20 @@ performSync() const
             myRequest.setOpt<BoostWriteFunction>(onWriteData);
             myRequest.setOpt<BoostProgressFunction>(onProgress);
             //myRequest.setOpt<Header>(true);
-
             if (params.content.data) {
                 string s(params.content.data, params.content.size);
                 myRequest.setOpt<PostFields>(s);
-                myRequest.setOpt<PostFieldSize>(params.content.size);
-                curlHeaders.push_back(ML::format("Content-Length: %lld",
-                                                 params.content.size));
-                curlHeaders.push_back("Transfer-Encoding:");
-                curlHeaders.push_back("Content-Type:");
-                //myRequest.setOpt<BoostReadFunction>(onData);
             }
-
+            else
+            {
+                string s;
+                myRequest.setOpt<PostFields>(s);
+            }
+            myRequest.setOpt<PostFieldSize>(params.content.size);
+            curlHeaders.push_back(ML::format("Content-Length: %lld",
+                                             params.content.size));
+            curlHeaders.push_back("Transfer-Encoding:");
+            curlHeaders.push_back("Content-Type:");
             myRequest.setOpt<curlpp::options::HttpHeader>(curlHeaders);
 
             myRequest.perform();
@@ -454,7 +456,7 @@ prepare(const RequestParams & request) const
     string sig = signature(request);
     result.auth = "AWS " + accessKeyId + ":" + sig;
 
-    cerr << "result.uri = " << result.uri << endl;
+    //cerr << "result.uri = " << result.uri << endl;
     //cerr << "result.auth = " << result.auth << endl;
 
     return result;
@@ -644,9 +646,6 @@ obtainMultiPartUpload(const std::string & bucket,
     // Contains the resource without the leading slash
     string outputPrefix(resource, 1);
 
-    cerr << "resource = " << resource << endl;
-    cerr << "outputPrefix = " << outputPrefix << endl;
-
     // Check if there is already a multipart upload in progress
     auto inProgress = get(bucket, "/", 8192, "uploads", {},
                           { { "prefix", outputPrefix } })
@@ -753,7 +752,6 @@ finishMultiPartUpload(const std::string & bucket,
                       const std::vector<std::string> & etags) const
 {
     using namespace tinyxml2;
-    cerr << "the bucket is " << bucket << endl;
     // Finally, send back a response to join the parts together
     XMLDocument joinRequest;
     auto r = joinRequest.InsertFirstChild(joinRequest.NewElement("CompleteMultipartUpload"));
@@ -764,9 +762,6 @@ finishMultiPartUpload(const std::string & bucket,
         n->InsertEndChild(joinRequest.NewElement("ETag"))
             ->InsertEndChild(joinRequest.NewText(etags[i].c_str()));
     }
-    cerr << "About to print the join request for bucket name "<< bucket << "<" ; ;
-    joinRequest.Print();
-    cerr << ">" << endl;
     auto joinResponse
         = post(bucket, resource, "uploadId=" + uploadId,
                   {}, {}, joinRequest);
@@ -811,7 +806,6 @@ upload(const char * data,
 {
     if (resource == "" || resource[0] != '/')
         throw ML::Exception("resource should start with a /");
-
     // Contains the resource without the leading slash
     string outputPrefix(resource, 1);
 
@@ -879,7 +873,15 @@ upload(const char * data,
         part.size = min<uint64_t>(partSize, dataSize - offset);
         parts.push_back(part);
     }
-
+    // we are dealing with an empty file
+    if(parts.empty())
+    {
+        MultiPartUploadPart part;
+        part.partNumber = parts.size() + 1;
+        part.startOffset = offset;
+        part.size = min<uint64_t>(partSize, dataSize - offset);
+        parts.push_back(part);
+    }
     //cerr << "total parts = " << parts.size() << endl;
 
     //if (!foundId)
@@ -1007,7 +1009,6 @@ upload(const char * data,
     for (unsigned i = 0;  i < parts.size();  ++i) {
         etags.push_back(parts[i].etag);
     }
-
     string finalEtag = finishMultiPartUpload(bucket, resource, uploadId, etags);
     return finalEtag;
 }
