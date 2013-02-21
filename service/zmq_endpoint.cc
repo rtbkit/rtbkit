@@ -137,17 +137,17 @@ handleSyncMessage(const std::vector<std::string> & message)
 /* ZMQ SOCKET MONITOR                                                        */
 /*****************************************************************************/
 
-static int numMonitors = 0;
+//static int numMonitors = 0;
 
 ZmqSocketMonitor::
 ZmqSocketMonitor(zmq::context_t & context)
-    : monitorEndpoint(new zmq::socket_t(context, ZMQ_PULL)),
+    : monitorEndpoint(new zmq::socket_t(context, ZMQ_PAIR)),
       monitoredSocket(0)
 {
-    cerr << "creating socket monitor at " << this << endl;
-    __sync_fetch_and_add(&numMonitors, 1);
+    //cerr << "creating socket monitor at " << this << endl;
+    //__sync_fetch_and_add(&numMonitors, 1);
 }
-    
+
 void
 ZmqSocketMonitor::
 shutdown()
@@ -155,17 +155,14 @@ shutdown()
     if (!monitorEndpoint)
         return;
 
-    cerr << "shutting down socket monitor at " << this << endl;
-
-    if (connectedUri != "") {
-        // TODO: understand why disconnect() doesn't work
-        monitorEndpoint->tryDisconnect(connectedUri);
-        connectedUri = "";
-    }
+    //cerr << "shutting down socket monitor at " << this << endl;
+    
+    connectedUri.clear();
+    std::unique_lock<Lock> guard(lock);
     monitorEndpoint.reset();
 
-    cerr << __sync_add_and_fetch(&numMonitors, -1) << " monitors still active"
-         << endl;
+    //cerr << __sync_add_and_fetch(&numMonitors, -1) << " monitors still active"
+    //     << endl;
 }
 
 void
@@ -305,7 +302,7 @@ init(std::shared_ptr<ConfigurationService> config,
     this->socketType = socketType;
     this->socket_.reset(new zmq::socket_t(*context_, socketType));
     
-    bool monitorSocket = true;
+    bool monitorSocket = false;
 
     if (monitorSocket) {
         monitor.init(*socket_);
@@ -500,7 +497,7 @@ connect(const std::string & endpointName,
     if (connectionType == NO_CONNECTION)
         connectionType = CONNECT_DIRECT;
 
-    cerr << "Called connect to " << endpointName << endl;
+    cerr << "connecting to " << endpointName << endl;
 
     vector<string> children
         = config->getChildren(endpointName, endpointWatch);
@@ -508,7 +505,7 @@ connect(const std::string & endpointName,
     for (auto c: children) {
         ExcAssertNotEqual(connectionState, CONNECTED);
         string key = endpointName + "/" + c;
-        cerr << "got key " << key << endl;
+        //cerr << "got key " << key << endl;
         Json::Value epConfig = config->getJson(key);
 
         //cerr << "epConfig for " << key << " is " << epConfig
@@ -538,7 +535,6 @@ connect(const std::string & endpointName,
 
             {
                 std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
-
                 socket().connect(uri.c_str());
                 connectedUri = uri;
                 connectionState = CONNECTED;
@@ -570,7 +566,7 @@ connectToServiceClass(const std::string & serviceClass,
     ExcAssertNotEqual(serviceClass, "");
     ExcAssertNotEqual(endpointName, "");
 
-    cerr << "serviceClass = " << serviceClass << endl;
+    //cerr << "serviceClass = " << serviceClass << endl;
 
     this->serviceClass = serviceClass;
     this->endpointName = endpointName;
@@ -590,7 +586,7 @@ connectToServiceClass(const std::string & serviceClass,
 
     for (auto c: children) {
         string key = "serviceClass/" + serviceClass + "/" + c;
-        cerr << "getting " << key << endl;
+        //cerr << "getting " << key << endl;
         Json::Value value = config->getJson(key);
         std::string name = value["serviceName"].asString();
         std::string path = value["servicePath"].asString();
@@ -613,10 +609,11 @@ ZmqNamedProxy::
 onServiceNodeChange(const std::string & path,
                     ConfigurationService::ChangeType change)
 {
-    cerr << "******* CHANGE TO SERVICE NODE " << path << endl;
+    //cerr << "******* CHANGE TO SERVICE NODE " << path << endl;
 
     if (connectionState == CONNECTED)
         return;  // no need to watch anymore
+
     connectToServiceClass(serviceClass, endpointName, CS_ASYNCHRONOUS);
 }
 
@@ -625,13 +622,12 @@ ZmqNamedProxy::
 onEndpointNodeChange(const std::string & path,
                      ConfigurationService::ChangeType change)
 {
-    cerr << "******* CHANGE TO ENDPOINT NODE " << path << endl;
+    //cerr << "******* CHANGE TO ENDPOINT NODE " << path << endl;
 
     if (connectionState == CONNECTED)
         return;  // no need to watch anymore
 
     connect(connectedService, CS_ASYNCHRONOUS);
-    //connectToServiceClass(serviceClass, endpointName, CS_ASYNCHRONOUS);
 }
 
 

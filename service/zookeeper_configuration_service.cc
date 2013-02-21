@@ -54,10 +54,12 @@ watcherFn(zhandle_t *zh, int type, int state, const char *path, void *watcherCtx
 {
     typedef std::shared_ptr<ConfigurationService::Watch::Data> SharedPtr;
     std::unique_ptr<SharedPtr> data(reinterpret_cast<SharedPtr *>(watcherCtx));
+#if 0
     cerr << "type = " << printZookeeperEventType(type)
          << " state = " << printZookeeperState(state)
          << " path = " << path << " context "
          << watcherCtx << " data " << data->get() << endl;
+#endif
 
     ConfigurationService::ChangeType change;
     if (type == ZOO_CREATED_EVENT)

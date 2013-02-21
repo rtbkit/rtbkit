@@ -147,7 +147,7 @@ handleOperation(const Operation & op)
     //cerr << "sending with payload " << op.request.payload
     //     << " and response id " << opId << endl;
 
-    connection.sendMessage(
+    sendMessage(connection.socket(),
             std::to_string(opId),
             op.request.verb,
             op.request.resource,

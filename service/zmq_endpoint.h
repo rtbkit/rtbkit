@@ -16,6 +16,7 @@
 #include "jml/utils/vector_utils.h"
 #include <boost/make_shared.hpp>
 #include "jml/arch/backtrace.h"
+#include "jml/arch/timers.h"
 #include "zmq_utils.h"
 
 namespace Datacratic {
@@ -432,6 +433,9 @@ struct ZmqSocketMonitor : public ZmqBinaryTypedEventSource<zmq_event_t> {
     virtual int handleEvent(const zmq_event_t & event);
 
 private:
+    typedef std::mutex Lock;
+    mutable Lock lock;
+
     /// Uri of socket connected to
     std::string connectedUri;
 
@@ -469,13 +473,14 @@ struct ZmqNamedEndpoint : public NamedEndpoint, public MessageLoop {
     void shutdown()
     {
         MessageLoop::shutdown();
-        monitor.shutdown();
 
         if (socket_) {
             unbindAll();
             socket_.reset();
         }
 
+        //ML::sleep(0.1);
+        monitor.shutdown();
     }
 
     /** Bind into a tcp port.  If the preferred port is not available, it will
@@ -491,8 +496,8 @@ struct ZmqNamedEndpoint : public NamedEndpoint, public MessageLoop {
         if (!socket_)
             throw ML::Exception("need to call ZmqNamedEndpoint::init() before "
                                 "bind");
-        std::unique_lock<Lock> guard(lock);
 
+        std::unique_lock<Lock> guard(lock);
         socket_->bind(address);
         boundAddresses[address];
     }
@@ -869,7 +874,10 @@ struct ZmqNamedProxy: public MessageLoop {
     void shutdown()
     {
         MessageLoop::shutdown();
-        socket_.reset();
+        if(socket_) {
+            std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
+            socket_.reset();
+        }
     }
 
     bool isConnected() const { return connectionState == CONNECTED; }
@@ -960,9 +968,8 @@ struct ZmqNamedProxy: public MessageLoop {
 
     void disconnect()
     {
-        std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
-
         if(connectionState == CONNECTED) {
+            std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
             socket_->disconnect(connectedUri);
             onDisconnect(connectedUri);
         }
@@ -1053,10 +1060,10 @@ struct ZmqNamedClientBusProxy : public ZmqNamedProxy {
 
                 auto now = Date::now();
                 auto end = now.plusSeconds(-timeout);
-                if(lastHeartbeat < end) {
-                    std::cerr << "no heartbeat for " << timeout << "s... should be disconnecting from " << connectedUri << std::endl;
+                //if(lastHeartbeat < end) {
+                    //std::cerr << "no heartbeat for " << timeout << "s... should be disconnecting from " << connectedUri << std::endl;
                     //disconnect();
-                }
+                //}
             };
 
         addPeriodic("ZmqNamedClientBusProxy::doHeartbeat", 1.0, doHeartbeat);
@@ -1280,7 +1287,7 @@ private:
     void onServiceProvidersChanged(const std::string & path)
     {
         using namespace std;
-        cerr << "onServiceProvidersChanged(" << path << ")" << endl;
+        //cerr << "onServiceProvidersChanged(" << path << ")" << endl;
 
         // The list of service providers has changed
 

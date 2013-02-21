@@ -224,7 +224,7 @@ createNode(const std::string & path,
            bool mustSucceed,
            bool createPath)
 {
-    cerr << "createNode for " << path << endl;
+    //cerr << "createNode for " << path << endl;
 
     int flags = 0;
     if (ephemeral)
@@ -250,7 +250,7 @@ createNode(const std::string & path,
             return make_pair(path, false);
         
         if (res == ZNONODE && createPath) {
-            cerr << "createPath for " << path << endl;
+            //cerr << "createPath for " << path << endl;
             this->createPath(path);
             continue;
         }
@@ -422,13 +422,16 @@ eventHandlerFn(zhandle_t * handle,
                const char * path,
                void * context)
 {
-    ZookeeperConnection * connection
-        = reinterpret_cast<ZookeeperConnection *>(context);
+    ZookeeperConnection * connection = reinterpret_cast<ZookeeperConnection *>(context);
+
     using namespace std;
-    cerr << "got event " << printEvent(event)
-         << " state " << printState(state)
-         << " on path " << path << endl;
+    cerr << "got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
     connection->connectMutex.unlock();
+
+    if(state == ZOO_EXPIRED_SESSION_STATE) {
+        cerr << "until we handle proper reconnecting to ZooKeeper, we just die..." << endl;
+        abort();
+    }
 }
 
 } // namespace Datacratic
