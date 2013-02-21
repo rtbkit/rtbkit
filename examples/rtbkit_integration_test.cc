@@ -75,21 +75,33 @@ struct Components
 
     void shutdown()
     {
-        postAuctionLoop.shutdown();
+
         router1.shutdown();
         router2.shutdown();
-        masterBanker.shutdown();
-        agentConfig.shutdown();
-        agent.shutdown();
-        monitor.shutdown();
-        monitorProxy.shutdown();
+        postAuctionLoop.shutdown();
+
         budgetController.shutdown();
+        masterBanker.shutdown();
+
+        agent.shutdown();
+        agentConfig.shutdown();
+
+        monitorProxy.shutdown();
+        monitor.shutdown();
+
         cerr << "done shutdown" << endl;
     }
 
     void init()
     {
         const string agentUri = "tcp://127.0.0.1:1234";
+
+        // Setup a monitor which ensures that any instability in the system will
+        // throttle the bid request stream. In other words, it ensures you won't
+        // go bankrupt.
+        monitor.init();
+        monitor.bindTcp();
+        monitor.start();
 
         // Setup and agent configuration service which is used to notify all
         // interested services of changes to the agent configuration.
@@ -159,15 +171,8 @@ struct Components
             exchangePorts.push_back(port);
         }
 
-        // Setup a monitor which ensures that any instability in the system will
-        // throttle the bid request stream. In other words, it's the component
-        // in charge of not making you bankrupt.
-        monitor.init();
-        monitor.bindTcp();
-        monitor.start();
-
         // The MonitorProxy queries all specified services once per second and
-        // feed the Monitor with the aggregate result
+        // feeds the Monitor with the aggregate result
         monitorProxy.init(proxies->config,
                           {"router1", "router2", "pas1", "masterBanker"});
         monitorProxy.start();
@@ -295,7 +300,6 @@ int main(int argc, char ** argv)
 
 
     int numDone = 0;
-    Date start = Date::now();
 
     // Uses MockExchange to simulates a very basic exchange for the test.
     auto doExchangeThread = [&] (int threadId)
@@ -310,7 +314,7 @@ int main(int argc, char ** argv)
         };
 
 
-    // Start up the exchange thread which should let bid requests flow through
+    // Start up the exchange threads which should let bid requests flow through
     // our stack.
     for (unsigned i = 0;  i < nExchangeThreads;  ++i)
         threads.create_thread(std::bind(doExchangeThread, i));
@@ -326,15 +330,11 @@ int main(int argc, char ** argv)
         ML::sleep(1.0);
     }
 
+    // Test is done; clean up time.
 
-    // Time to start cleaning up.
+    threads.join_all();
+    components.shutdown();
 
-    Date end = Date::now();
-
-    stringstream eventDump;
-    components.proxies->events->dump(eventDump);
-    cerr << eventDump.str();
-
-    exit(0);
+    components.proxies->events->dump(cerr);
 }
 
