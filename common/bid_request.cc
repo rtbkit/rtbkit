@@ -7,20 +7,12 @@
 #include "rtbkit/common/bid_request.h"
 #include "jml/arch/exception.h"
 #include "jml/arch/format.h"
-#include "jml/arch/backtrace.h"
 #include "jml/arch/spinlock.h"
-
-#include "jml/utils/parse_context.h"
-#include "jml/utils/less.h"
-#include "jml/utils/string_functions.h"
 
 #include <dlfcn.h>
 #include <boost/thread/locks.hpp>
 #include <boost/algorithm/string.hpp>
 #include <unordered_map>
-
-#include "jml/db/persistent.h"
-
 
 using namespace std;
 using namespace ML;
