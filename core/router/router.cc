@@ -30,6 +30,7 @@
 #include "rtbkit/core/banker/null_banker.h"
 #include <boost/algorithm/string.hpp>
 #include "rtbkit/core/post_auction/post_auction_loop.h"
+#include "rtbkit/common/port_ranges.h"
 
 
 using namespace std;
@@ -191,8 +192,8 @@ void
 Router::
 bindTcp()
 {
-    shared->logger.bindTcp();
-    agentEndpoint.bindTcp();
+    shared->logger.bindTcp(PortRanges::logs);
+    agentEndpoint.bindTcp(PortRanges::router);
     monitorProviderEndpoint.bindTcp();
 }
 

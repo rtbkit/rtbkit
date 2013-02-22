@@ -41,6 +41,7 @@ struct MonitorProviderEndpoint
 
     void init();
     void shutdown();
+    void bindTcp();
 
     /* this method returns the json body, based on "lastStatus_" when the
      * endpoint is queried */

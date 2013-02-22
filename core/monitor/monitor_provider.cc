@@ -8,9 +8,8 @@
 #include <iostream>
 #include <boost/algorithm/string/trim.hpp>
 #include "soa/service/service_base.h"
-
+#include "rtbkit/common/port_ranges.h"
 #include "monitor_provider.h"
-
 
 using namespace std;
 
@@ -73,6 +72,13 @@ shutdown()
 {
     unregisterServiceProvider(endpointName_, { "monitorProvider" });
     RestServiceEndpoint::shutdown();
+}
+
+void
+MonitorProviderEndpoint::
+bindTcp()
+{
+    RestServiceEndpoint::bindTcp(PortRanges::monitor);
 }
 
 string

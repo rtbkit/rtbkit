@@ -7,6 +7,7 @@
 
 #include "agent_configuration_service.h"
 #include "soa/service/rest_request_binding.h"
+#include "rtbkit/common/port_ranges.h"
 
 using namespace std;
 using namespace ML;
@@ -168,8 +169,8 @@ void
 AgentConfigurationService::
 bindTcp()
 {
-    RestServiceEndpoint::bindTcp();
-    listeners.bindTcp();
+    RestServiceEndpoint::bindTcp(PortRanges::agentConfiguration);
+    listeners.bindTcp(PortRanges::configuration);
     agents.bindTcp();
 }
 

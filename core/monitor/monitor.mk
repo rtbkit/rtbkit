@@ -13,7 +13,7 @@ LIBMONITOR_SOURCES := \
 	monitor_proxy.cc
 
 LIBMONITOR_LINK := \
-	services
+	rtb services
 
 $(eval $(call library,monitor,$(LIBMONITOR_SOURCES),$(LIBMONITOR_LINK)))
 

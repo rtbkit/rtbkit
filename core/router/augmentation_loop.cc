@@ -15,6 +15,7 @@
 #include <iostream>
 #include <boost/make_shared.hpp>
 #include "rtbkit/core/agent_configuration/agent_config.h"
+#include "rtbkit/common/port_ranges.h"
 
 
 using namespace std;
@@ -73,7 +74,7 @@ init()
             handleAugmentorMessage(message);
         };
 
-    toAugmentors.bindTcp();
+    toAugmentors.bindTcp(PortRanges::augmentors);
 
     toAugmentors.onConnection = [=] (const std::string & client)
         {

@@ -12,8 +12,10 @@
 #include "rtbkit/core/router/messages.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/arch/futex.h"
-#include "rtbkit/core/banker/banker.h"
 #include "jml/db/persistent.h"
+#include "rtbkit/core/banker/banker.h"
+#include "rtbkit/common/port_ranges.h"
+
 
 using namespace std;
 using namespace ML;
@@ -528,9 +530,9 @@ void
 PostAuctionLoop::
 bindTcp()
 {
-    shared->logger.bindTcp();
-    endpoint.bindTcp();
-    toAgents.bindTcp();
+    shared->logger.bindTcp(PortRanges::logs);
+    endpoint.bindTcp(PortRanges::postAuctionLoop);
+    toAgents.bindTcp(PortRanges::postAuctionLoopAgents);
     monitorProviderEndpoint.bindTcp();
 }
 

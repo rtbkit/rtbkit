@@ -14,7 +14,8 @@ $(eval $(call library,bid_request,$(LIBBIDREQUEST_SOURCES),$(LIBBIDREQUEST_LINK)
 LIBRTB_SOURCES := \
 	auction.cc \
 	augmentation.cc \
-	account_key.cc
+	account_key.cc \
+    port_ranges.cc
 
 LIBRTB_LINK := \
 	ACE arch utils jsoncpp boost_thread endpoint boost_regex zmq opstats bid_request

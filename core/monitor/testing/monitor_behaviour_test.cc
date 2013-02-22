@@ -43,11 +43,8 @@ BOOST_AUTO_TEST_CASE( test_monitor_provider )
     ServiceBase parentService("parentservice", proxies);
     MonitorProviderEndpoint endpoint(parentService, provider);
     endpoint.init();
+    endpoint.bindTcp();
     endpoint.start();
-
-    auto addr = endpoint.bindTcp();
-    // cerr << "monitor is listening on " << addr.first << ","
-    //      << addr.second << endl;
 
     int rc;
     Json::Value bodyJson;
