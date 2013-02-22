@@ -5,6 +5,8 @@
    Overall integration test for the router stack.
 */
 
+#include "augmentor_ex.h"
+
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
@@ -52,9 +54,9 @@ struct Components
     Monitor monitor;
     MonitorProviderProxy monitorProxy;
     TestAgent agent;
+    FrequencyCapAugmentor augmentor;
 
     // \todo Add a PAL event subscriber.
-    // \todo Add an augmentor.
 
     vector<unique_ptr<GenericExchangeConnector> > exchangeConnectors;
     vector<int> exchangePorts;
@@ -69,13 +71,13 @@ struct Components
           agentConfig(proxies, "agentConfigurationService"),
           monitor(proxies, "monitor"),
           monitorProxy(proxies->zmqContext, monitor),
-          agent(proxies, "agent1")
+          agent(proxies, "agent1"),
+          augmentor(proxies, "frequency-cap-ex")
     {
     }
 
     void shutdown()
     {
-
         router1.shutdown();
         router2.shutdown();
         postAuctionLoop.shutdown();
@@ -84,6 +86,7 @@ struct Components
         masterBanker.shutdown();
 
         agent.shutdown();
+        augmentor.shutdown();
         agentConfig.shutdown();
 
         monitorProxy.shutdown();
@@ -183,7 +186,9 @@ struct Components
         agent.start(agentUri, "test-agent");
         agent.configure();
 
-
+        // Our augmentor which does frequency capping for our agent.
+        augmentor.init();
+        augmentor.start();
     }
 };
 
@@ -191,6 +196,42 @@ struct Components
 /******************************************************************************/
 /* SETUP                                                                      */
 /******************************************************************************/
+
+void setupAgent(TestAgent& agent)
+{
+    // Set our frequency cap to 42. This has two effects: 1) it instructs the
+    // router that we want bid requests destined for our agent to first be
+    // augmented with frequency capping information and 2) it instructs our
+    // augmentor to place the pass-frequency-cap-ex tag on our bid request if
+    // our agent has seen a given user less then 42 times.
+    agent.config.addAugmentation("frequency-cap-ex", Json::Value(42));
+
+    // Instructs the router to only keep bid requests that have this tag. In
+    // other words keep only the bid requests that haven't reached our frequency
+    // cap limit.
+    agent.config.augmentationFilter.include.push_back("pass-frequency-cap-ex");
+
+    // This lambda implements our incredibly sophisticated bidding strategy.
+    agent.onBidRequest = [&] (
+            double timestamp,
+            const Id & id,
+            std::shared_ptr<BidRequest> br,
+            const Json::Value & spots,
+            double timeLeftMs,
+            const Json::Value & augmentations)
+        {
+            Json::Value response;
+            response[0]["creative"] = spots[0]["creatives"][0];
+            response[0]["price"] = 10000;
+            response[0]["priority"] = 1;
+
+            Json::Value metadata;
+            agent.doBid(id, response, metadata);
+
+            ML::atomic_inc(agent.numBidRequests);
+        };
+}
+
 
 /** Transfer a given budget to each router for a given account. */
 void allocateBudget(
@@ -269,25 +310,9 @@ int main(int argc, char ** argv)
     Components components(proxies);
     components.init();
 
-    // This lambda implements our incredibly sophisticated bidding strategy.
-    components.agent.onBidRequest = [&] (
-            double timestamp,
-            const Id & id,
-            std::shared_ptr<BidRequest> br,
-            const Json::Value & spots,
-            double timeLeftMs,
-            const Json::Value & augmentations)
-        {
-            Json::Value response;
-            response[0]["creative"] = spots[0]["creatives"][0];
-            response[0]["price"] = 10000;
-            response[0]["priority"] = 1;
-
-            Json::Value metadata;
-            components.agent.doBid(id, response, metadata);
-
-            ML::atomic_inc(components.agent.numBidRequests);
-        };
+    // Some extra customization for our agent to make it extra special. See
+    // setupAgent for more details.
+    setupAgent(components.agent);
 
     // Setup an initial budgeting for the test.
     allocateBudget(
