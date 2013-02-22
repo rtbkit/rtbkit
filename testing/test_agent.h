@@ -118,13 +118,6 @@ struct TestAgent : public RTBKIT::BiddingAgent {
         haveGotConfig = true;
     }
 
-    void defaultAckHeartbeat(double)
-    {
-        using namespace std;
-        cerr << "ack heartbeat" << endl;
-        ++numHeartbeats;
-    }
-
     void finishBid(int & counter, const RTBKIT::BiddingAgent::BidResultArgs & args)
     {
         __sync_fetch_and_add(&counter, 1);
@@ -199,8 +192,6 @@ struct TestAgent : public RTBKIT::BiddingAgent {
             = boost::bind(&TestAgent::defaultNeedConfig, this, _1);
         onGotConfig
             = boost::bind(&TestAgent::defaultGotConfig, this, _1);
-        onAckHeartbeat
-            = boost::bind(&TestAgent::defaultAckHeartbeat, this, _1);
         onBidRequest
             = boost::bind(&TestAgent::bidNull, this, _1, _2, _3, _4, _5, _6);
         onWin

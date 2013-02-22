@@ -32,10 +32,6 @@ int main() {
         std::cout << "agent got config" << std::endl;
     };
 
-    agent.onAckHeartbeat = [&] (double) {
-        std::cout << "agent got ack heartbeat" << std::endl;
-    };
-
     agent.onBidRequest = [&] (double timestamp, const Id & id, std::shared_ptr<BidRequest> br, const Json::Value & spots, double timeLeftMs,  const Json::Value & aug) {
         std::cout << "agent got bid request " << id << std::endl;
         Json::Value response;

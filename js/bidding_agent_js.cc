@@ -41,7 +41,6 @@ const char* BiddingAgentName = "BiddingAgent";
 
 RegisterJsOps<RTBKIT::BiddingAgent::BidRequestCb> reg_bidRequestCb;
 RegisterJsOps<RTBKIT::BiddingAgent::PingCb> reg_pingCb;
-RegisterJsOps<RTBKIT::BiddingAgent::AckHeartbeatCb> reg_ackHeartbeatCb;
 RegisterJsOps<RTBKIT::BiddingAgent::ErrorCb> reg_errorCb;
 RegisterJsOps<RTBKIT::BiddingAgent::SimpleCb> reg_simpleCb;
 
@@ -261,7 +260,6 @@ struct BiddingAgentJS :
 
         registerAsyncCallback(&RTBKIT::BiddingAgent::onNeedConfig, "onNeedConfig");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onGotConfig, "onGotConfig");
-        registerAsyncCallback(&RTBKIT::BiddingAgent::onAckHeartbeat, "onAckHeartbeat");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onImpression, "onImpression");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onClick, "onClick");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onVisit, "onVisit");

@@ -91,9 +91,6 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
                            const std::vector<std::string> & args);
     typedef boost::function<PingCb> PingCbFn;
 
-    typedef void (AckHeartbeatCb) (double timestamp);
-    typedef boost::function<AckHeartbeatCb> AckHeartbeatCbFn;
-
     typedef void (ErrorCb) (double timestamp,
                             std::string description,
                             std::vector<std::string> originalError);
@@ -149,7 +146,6 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
 
     SimpleCbFn onGotConfig;
     SimpleCbFn onNeedConfig;
-    AckHeartbeatCbFn onAckHeartbeat;
     ErrorCbFn onError;
 
 private:
@@ -202,8 +198,6 @@ private:
             const std::vector<std::string>& msg, ResultCbFn& callback);
     void handleSimple(
             const std::vector<std::string>& msg, SimpleCbFn& callback);
-    void handleAckHeartbeat(
-            const std::vector<std::string>& msg, AckHeartbeatCbFn& callback);
     void handleDelivery(
             const std::vector<std::string>& msg, DeliveryCbFn& callback);
     void handlePing(const std::string & fromRouter,

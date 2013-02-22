@@ -169,8 +169,6 @@ handleRouterMessage(const std::string & fromRouter,
     case 'A':
         if (message[0] == "AUCTION")
             handleBidRequest(fromRouter, message, onBidRequest);
-        else if (message[0] == "ACKHEARTBEAT")
-            handleAckHeartbeat(message, onAckHeartbeat);
         else invalid = true;
         break;
     case 'W':
@@ -196,7 +194,7 @@ handleRouterMessage(const std::string & fromRouter,
         else invalid = true;
         break;
     case 'I':
-        if (message[0] == "INVALIDBID")
+        if (message[0] == "INVALID")
             handleResult(message, onInvalidBid);
         else if (message[0] == "IMPRESSION")
             handleDelivery(message, onImpression);
@@ -432,29 +430,6 @@ handleSimple(const std::vector<std::string>& msg, SimpleCbFn& callback)
         recordHit("error");
         cerr << "error handling simple message " << msg << ": " << exc.what()
              << endl;
-    }
-}
-
-void
-BiddingAgent::
-handleAckHeartbeat(
-        const std::vector<std::string>& msg, AckHeartbeatCbFn& callback)
-{
-    static const std::string fName = "BiddingAgent::handleAckHeartbeat:";
-    ExcCheck(!requiresAllCB || callback, fName + "Null callback for " + msg[0]);
-    if (!callback) return;
-
-    try {
-        checkMessageSize(msg, 2);
-
-        double timestamp = boost::lexical_cast<double>(msg[1]);
-
-        callback(timestamp);
-
-    } catch (const std::exception & exc) {
-        recordHit("error");
-        cerr << "error handling ackcallback message " << msg << ": "
-             << exc.what() << endl;
     }
 }
 
