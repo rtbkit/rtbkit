@@ -32,8 +32,10 @@ struct TypedMessageSink: public AsyncEventSource {
 
     void push(const Message & message)
     {
-        buf.push(message);
-        wakeup.signal();
+        if (buf.tryPush(message))
+            wakeup.signal();
+        else
+            throw ML::Exception("the message queue is full");
     }
 
     void push(Message && message)
