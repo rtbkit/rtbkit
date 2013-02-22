@@ -336,12 +336,10 @@ struct RestServiceEndpoint: public MessageLoop {
         http.  -1 means scan to find one.
     */
     std::pair<std::string, std::string>
-    bindTcp(std::string host = "", int zmqPort = -1, int httpPort = -1)
+    bindTcp(PortRange const & zmqRange = PortRange(), PortRange const & httpRange = PortRange(), std::string host = "")
     {
-        if (zmqPort == -1)
-            zmqPort = 15000;
-        std::string zmqAddr = zmqEndpoint.bindTcp(host, zmqPort);
-        std::string httpAddr = httpEndpoint.bindTcp(host, httpPort);
+        std::string zmqAddr = zmqEndpoint.bindTcp(zmqRange, host);
+        std::string httpAddr = httpEndpoint.bindTcp(httpRange, host);
         return std::make_pair(zmqAddr, httpAddr);
     }
 

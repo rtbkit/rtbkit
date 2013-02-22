@@ -7,7 +7,8 @@
 
 #pragma once
 
-#include "soa/service//endpoint.h"
+#include "soa/service/endpoint.h"
+#include "soa/service/port_range.h"
 #include "jml/arch/wakeup_fd.h"
 
 namespace Datacratic {
@@ -26,7 +27,7 @@ struct Acceptor {
     }
 
     virtual int
-    listen(int port, const std::string & hostname,
+    listen(PortRange const & portRange, const std::string & hostname,
            PassiveEndpoint * endpoint, bool nameLookup, int backlog) = 0;
 
     virtual void closePeer() = 0;
@@ -69,20 +70,20 @@ struct PassiveEndpoint: public EndpointBase {
         If threads is zero, then nothing will actually be done until a
         thread calls useThisThread() to do work.
     */
-    int init(int port = -1, const std::string & hostname = "localhost",
+    int init(PortRange const & portRange = PortRange(), const std::string & hostname = "localhost",
              int threads = 1, bool synchronous = true, bool nameLookup=true,
              int backlog = DEF_BACKLOG);
 
     /** Listen on the given port.  If port is -1, then it should scan
         for a port and return that.  Returns the port number.
     */
-    virtual int listen(int port, const std::string & host,bool nameLookup=true,
+    virtual int listen(PortRange const & portRange, const std::string & host,bool nameLookup=true,
                        int backlog = DEF_BACKLOG)
     {
         if (!acceptor)
             throw ML::Exception("can't listen without acceptor");
 
-        return acceptor->listen(port, host, this, nameLookup, backlog);
+        return acceptor->listen(portRange, host, this, nameLookup, backlog);
     }
 
     virtual void closePeer()
@@ -173,7 +174,7 @@ struct AcceptorT<SocketTransport> : public Acceptor {
     virtual ~AcceptorT();
 
     /** Listen on the given address for connections. */
-    virtual int listen(int port,
+    virtual int listen(PortRange const & portRange,
                        const std::string & hostname,
                        PassiveEndpoint * endpoint,
                        bool nameLookup,

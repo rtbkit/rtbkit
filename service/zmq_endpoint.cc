@@ -380,7 +380,7 @@ init(std::shared_ptr<ConfigurationService> config,
 
 std::string
 ZmqNamedEndpoint::
-bindTcp(std::string host, int preferredPort)
+bindTcp(PortRange const & portRange, std::string host)
 {
     std::unique_lock<Lock> guard(lock);
 
@@ -393,7 +393,7 @@ bindTcp(std::string host, int preferredPort)
     if (host == "")
         host = "*";
 
-    int port = bindAndReturnOpenTcpPort(*socket_, preferredPort, host);
+    int port = bindAndReturnOpenTcpPort(*socket_, portRange, host);
 
     auto getUri = [&] (const std::string & host)
         {

@@ -74,9 +74,9 @@ struct ZmqNamedPublisher: public MessageLoop {
 
     }
 
-    std::string bindTcp(std::string host = "", int preferredPort = 15000)
+    std::string bindTcp(PortRange const & portRange = PortRange(), std::string host = "")
     {
-        return publishEndpoint.bindTcp(host, preferredPort);
+        return publishEndpoint.bindTcp(portRange, host);
     }
 
     void shutdown()

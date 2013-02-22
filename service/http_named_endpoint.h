@@ -47,7 +47,7 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
         auto pos = address.find(':');
         if (pos == string::npos) {
             // No port specification; take any port
-            return bindTcp(address, 12000);
+            return bindTcp(PortRange(12000, 12999), address);
         }
         string hostPart(address, 0, pos);
         string portPart(address, pos + 1);
@@ -57,13 +57,13 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
                                 + address);
 
         if (portPart[portPart.size() - 1] == '+') {
-            return bindTcp(hostPart,
-                           boost::lexical_cast<int>
-                           (string(portPart, 0, portPart.size() - 1)));
+            int port = boost::lexical_cast<int>(string(portPart, 0, portPart.size() - 1));
+            return bindTcp(PortRange(port, port + 999),
+                           hostPart);
         }
         else {
-            return bindTcp(hostPart,
-                           boost::lexical_cast<int>(portPart));
+            return bindTcp(boost::lexical_cast<int>(portPart),
+                           hostPart);
         }
     }
 
@@ -75,7 +75,7 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
     std::string
     bindTcpFixed(std::string host, int port)
     {
-        return bindTcp(host, port);
+        return bindTcp(port, host);
     }
 
     /** Bind into a tcp port.  If the preferred port is not available, it will
@@ -84,7 +84,7 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
         Returns the uri to connect to.
     */
     std::string
-    bindTcp(std::string host = "", int preferredPort = 12000)
+    bindTcp(PortRange const & portRange, std::string host = "")
     {
         using namespace std;
 
@@ -93,7 +93,7 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
             host = "0.0.0.0";
 
         // TODO: really scan ports
-        int port = HttpEndpoint::listen(preferredPort, host, false /* name lookup */);
+        int port = HttpEndpoint::listen(portRange, host, false /* name lookup */);
 
         cerr << "bound tcp for http port " << port << endl;
 
@@ -259,6 +259,10 @@ struct HttpRestProxy {
         {
         }
 
+        int code() const {
+            return code_;
+        }
+
         std::string body() const
         {
             if (code_ < 200 || code_ >= 300)
@@ -355,20 +359,40 @@ struct HttpNamedRestProxy: public HttpRestProxy {
         this->config = config;
     }
 
-    void connect(const std::string & endpointName)
+    bool connectToServiceClass(const std::string & serviceClass,
+                               const std::string & endpointName)
+    {
+        this->serviceClass = serviceClass;
+        this->endpointName = endpointName;
+
+        std::vector<std::string> children
+            = config->getChildren("serviceClass/" + serviceClass);
+
+        for (auto c : children) {
+            std::string key = "serviceClass/" + serviceClass + "/" + c;
+            //cerr << "getting " << key << endl;
+            Json::Value value = config->getJson(key);
+            std::string name = value["serviceName"].asString();
+            std::string path = value["servicePath"].asString();
+
+            //cerr << "name = " << name << " path = " << path << endl;
+            if (connect(path + "/" + endpointName))
+                break;
+        }
+
+        return connected;
+    }
+
+    bool connect(const std::string & endpointName)
     {
         using namespace std;
-        // 1.  Check that the service is up.  The endpoint ain't there if
-        //     the service ain't up.
-
-        // ...
 
         auto onChange = std::bind(&HttpNamedRestProxy::onConfigChange, this,
                                   std::placeholders::_1,
                                   std::placeholders::_2,
                                   std::placeholders::_3);
 
-        bool connected = false;
+        connected = false;
 
         // 2.  Iterate over all of the connection possibilities until we
         //     find one that works.
@@ -407,8 +431,6 @@ struct HttpNamedRestProxy: public HttpRestProxy {
 
                     serviceUri = uri;
 
-                    //socket().connect(uri.c_str());
-                    
                     cerr << "connected to " << uri << endl;
                     connected = true;
 
@@ -423,10 +445,7 @@ struct HttpNamedRestProxy: public HttpRestProxy {
             };
 
         config->forEachEntry(onConnection, endpointName);
-
-        if (!connected)
-            throw ML::Exception("couldn't connect to http endpoint "
-                                + endpointName);
+        return connected;
     }
 
     /** Called back when one of our endpoints either changes or disappears. */
@@ -452,6 +471,10 @@ struct HttpNamedRestProxy: public HttpRestProxy {
 
 private:
     std::shared_ptr<ConfigurationService> config;
+
+    bool connected;
+    std::string serviceClass;
+    std::string endpointName;
 };
 
 } // namespace Datacratic

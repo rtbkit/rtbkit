@@ -37,16 +37,16 @@ PassiveEndpoint::
 
 int
 PassiveEndpoint::
-init(int port, const std::string & hostname, int num_threads, bool synchronous,
+init(PortRange const & portRange, const std::string & hostname, int num_threads, bool synchronous,
      bool nameLookup, int backlog)
 {
     //static const char *fName = "PassiveEndpoint::init:";
     //cerr << fName << this << ":was called for " << hostname << endl;
     spinup(num_threads, synchronous);
 
-    int result = listen(port, hostname, nameLookup, backlog);
+    int port = listen(portRange, hostname, nameLookup, backlog);
     cerr << "listening on hostname " << hostname << " port " << port << endl;
-    return result;
+    return port;
 }
 
 
@@ -68,7 +68,7 @@ AcceptorT<SocketTransport>::
 
 int
 AcceptorT<SocketTransport>::
-listen(int port,
+listen(PortRange const & portRange,
        const std::string & hostname,
        PassiveEndpoint * endpoint,
        bool nameLookup,
@@ -81,12 +81,6 @@ listen(int port,
 
     fd = socket(AF_INET, SOCK_STREAM, 0);
 
-    int min_port = port, max_port = port + 1;
-    if (port == -1) {
-        min_port = 9876;
-        max_port = 10876;
-    }
-
     // Avoid already bound messages for the minute after a server has exited
     int tr = 1;
     int res = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int));
@@ -97,7 +91,7 @@ listen(int port,
         throw Exception("error setsockopt SO_REUSEADDR: %s", strerror(errno));
     }
 
-    for (port = min_port;  port < max_port;  ++port) {
+    int port = portRange.bindPort([&](int port) {
         addr = ACE_INET_Addr(port, hostname.c_str(), AF_INET);
 
         //cerr << "port = " << port
@@ -109,15 +103,14 @@ listen(int port,
         int res = ::bind(fd,
                          reinterpret_cast<sockaddr *>(addr.get_addr()),
                          addr.get_addr_size());
-        if (res == -1 && errno == EADDRINUSE
-            && (min_port != max_port - 1 || port != max_port - 1)) continue;
-        if (res == 0) break;
-        throw Exception("listen: bind returned %s",
-                        strerror(errno));
-    }
+        if (res == -1 && errno != EADDRINUSE)
+            throw Exception("listen: bind returned %s", strerror(errno));
+        return res == 0;
+    });
     
-    if (port == max_port)
+    if (port == -1) {
         throw Exception("couldn't bind to any port");
+    }
 
     // Avoid already bound messages for the minute after a server has exited
     res = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &tr, sizeof(int));

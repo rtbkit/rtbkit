@@ -488,7 +488,7 @@ struct ZmqNamedEndpoint : public NamedEndpoint, public MessageLoop {
 
         Returns the uri to connect to.
     */
-    std::string bindTcp(std::string host = "", int preferredPort = 15000);
+    std::string bindTcp(PortRange const & portRange = PortRange(), std::string host = "");
 
     /** Bind to the given zeromq uri, but don't publish it. */
     void bind(const std::string & address)

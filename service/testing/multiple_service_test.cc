@@ -77,9 +77,9 @@ struct EchoService : public ServiceBase {
         toClients.shutdown();
     }
 
-    std::string bindTcp(const std::string & host = "*")
+    std::string bindTcp()
     {
-        return toClients.bindTcp(host);
+        return toClients.bindTcp();
     }
 
     ZmqNamedClientBus toClients;

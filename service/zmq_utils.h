@@ -7,19 +7,19 @@
 
 #pragma once
 
+#include <unistd.h>
 #include <string>
 #include <iostream>
+#include <cstdio>
+#include <memory>
+#include <boost/utility.hpp>
+#include "soa/service/port_range.h"
 #include "soa/service/zmq.hpp"
 #include "soa/jsoncpp/value.h"
-#include <boost/utility.hpp>
-#include <boost/shared_ptr.hpp>
 #include "soa/types/date.h"
 #include "jml/arch/format.h"
 #include "jml/arch/exception.h"
 #include "jml/compiler/compiler.h"
-#include <memory>
-#include <cstdio>
-#include <unistd.h>
 
 namespace Datacratic {
 
@@ -330,30 +330,24 @@ inline void close(zmq::socket_t & sock)
 }
 
 inline int
-bindAndReturnOpenTcpPort(zmq::socket_t & socket,
-                         int preferredPort,
-                         const std::string & host)
-{
+bindAndReturnOpenTcpPort(zmq::socket_t & socket, PortRange const & portRange, const std::string & host) {
     std::string uri;
-    for (int port = preferredPort;  port < 32767;  ++port) {
+    int port = portRange.bindPort([&](int port) {
         uri = ML::format("tcp://%s:%d", host.c_str(), port);
-        int res = zmq_bind(socket, uri.c_str());
-        if (res == 0)
-            return port;
-    }
-    
-    throw ML::Exception("no open TCP port '%s': %s %s",
-                        uri.c_str(),
-                        zmq_strerror(zmq_errno()),
-                        strerror(errno));
+        return zmq_bind(socket, uri.c_str()) == 0;
+    });
+
+    if(port == -1)
+        throw ML::Exception("no open TCP port '%s': %s %s",
+                            uri.c_str(),
+                            zmq_strerror(zmq_errno()),
+                            strerror(errno));
+    return port;
 }
 
 inline std::string
-bindToOpenTcpPort(zmq::socket_t & socket,
-                  int preferredPort,
-                  const std::string & host)
-{
-    int port = bindAndReturnOpenTcpPort(socket, preferredPort, host);
+bindToOpenTcpPort(zmq::socket_t & socket, PortRange const & portRange, const std::string & host) {
+    int port = bindAndReturnOpenTcpPort(socket, portRange, host);
     return ML::format("tcp://%s:%d", host.c_str(), port);
 }
 

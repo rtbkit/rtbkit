@@ -75,9 +75,9 @@ struct EchoService : public ServiceBase {
         loop.shutdown();
     }
 
-    std::string bindTcp(const std::string & host = "*")
+    std::string bindTcp()
     {
-        return endpoint.bindTcp(host);
+        return endpoint.bindTcp();
     }
 
     std::shared_ptr<zmq::context_t> context;
