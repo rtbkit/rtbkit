@@ -333,13 +333,13 @@ struct RestServiceEndpoint: public MessageLoop {
     }
 
     /** Bind to TCP/IP ports.  There is one for zeromq and one for
-        http.  -1 means scan to find one.
+        http.
     */
     std::pair<std::string, std::string>
     bindTcp(PortRange const & zmqRange = PortRange(), PortRange const & httpRange = PortRange(), std::string host = "")
     {
-        std::string zmqAddr = zmqEndpoint.bindTcp(zmqRange, host);
         std::string httpAddr = httpEndpoint.bindTcp(httpRange, host);
+        std::string zmqAddr = zmqEndpoint.bindTcp(zmqRange, host);
         return std::make_pair(zmqAddr, httpAddr);
     }
 
