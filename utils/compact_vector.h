@@ -102,9 +102,9 @@ public:
             ext.capacity_ = other.ext.capacity_;
             other.ext.pointer_ = 0;
             other.ext.capacity_ = 0;
-            other.size_ = 0;
-            other.is_internal_ = 0;
         }
+        other.size_ = 0;
+        other.is_internal_ = true;
     }
     
     compact_vector & operator = (const compact_vector & other)

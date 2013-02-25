@@ -486,65 +486,83 @@ BOOST_AUTO_TEST_CASE( check_c11_ops )
 
     auto reset = [] { moved = copied = 0; };
 
-    compact_vector<Obj, 6, unsigned> v;
+    {
+        compact_vector<Obj, 6, unsigned> v;
 
-    reset();
-    v.emplace_back(10);
-    BOOST_CHECK_EQUAL(moved, 0);
-    BOOST_CHECK_EQUAL(copied, 0);
-    BOOST_CHECK_EQUAL(v.size(), 1);
-    BOOST_CHECK_EQUAL(v[0], 10);
+        reset();
+        v.emplace_back(10);
+        BOOST_CHECK_EQUAL(moved, 0);
+        BOOST_CHECK_EQUAL(copied, 0);
+        BOOST_CHECK_EQUAL(v.size(), 1);
+        BOOST_CHECK_EQUAL(v[0], 10);
 
-    reset();
-    v.emplace_back(Obj(20));
-    BOOST_CHECK_EQUAL(moved, 1);
-    BOOST_CHECK_EQUAL(copied, 0);
-    BOOST_CHECK_EQUAL(v.size(), 2);
-    BOOST_CHECK_EQUAL(v[0], 10);
-    BOOST_CHECK_EQUAL(v[1], 20);
+        reset();
+        v.emplace_back(Obj(20));
+        BOOST_CHECK_EQUAL(moved, 1);
+        BOOST_CHECK_EQUAL(copied, 0);
+        BOOST_CHECK_EQUAL(v.size(), 2);
+        BOOST_CHECK_EQUAL(v[0], 10);
+        BOOST_CHECK_EQUAL(v[1], 20);
 
-    reset();
-    Obj o1(30);
-    v.emplace_back(o1);
-    BOOST_CHECK_EQUAL(moved, 0);
-    BOOST_CHECK_EQUAL(copied, 1);
-    BOOST_CHECK_EQUAL(v.size(), 3);
-    BOOST_CHECK_EQUAL(v[0], 10);
-    BOOST_CHECK_EQUAL(v[1], 20);
-    BOOST_CHECK_EQUAL(v[2], 30);
+        reset();
+        Obj o1(30);
+        v.emplace_back(o1);
+        BOOST_CHECK_EQUAL(moved, 0);
+        BOOST_CHECK_EQUAL(copied, 1);
+        BOOST_CHECK_EQUAL(v.size(), 3);
+        BOOST_CHECK_EQUAL(v[0], 10);
+        BOOST_CHECK_EQUAL(v[1], 20);
+        BOOST_CHECK_EQUAL(v[2], 30);
 
-    reset();
-    v.emplace(v.begin() + 1, 40);
-    BOOST_CHECK_GT(moved, 0);
-    BOOST_CHECK_EQUAL(copied, 0);
-    BOOST_CHECK_EQUAL(v.size(), 4);
-    BOOST_CHECK_EQUAL(v[0], 10);
-    BOOST_CHECK_EQUAL(v[1], 40);
-    BOOST_CHECK_EQUAL(v[2], 20);
-    BOOST_CHECK_EQUAL(v[3], 30);
+        reset();
+        v.emplace(v.begin() + 1, 40);
+        BOOST_CHECK_GT(moved, 0);
+        BOOST_CHECK_EQUAL(copied, 0);
+        BOOST_CHECK_EQUAL(v.size(), 4);
+        BOOST_CHECK_EQUAL(v[0], 10);
+        BOOST_CHECK_EQUAL(v[1], 40);
+        BOOST_CHECK_EQUAL(v[2], 20);
+        BOOST_CHECK_EQUAL(v[3], 30);
 
-    reset();
-    v.push_back(Obj(50));
-    BOOST_CHECK_EQUAL(moved, 1);
-    BOOST_CHECK_EQUAL(copied, 0);
-    BOOST_CHECK_EQUAL(v.size(), 5);
-    BOOST_CHECK_EQUAL(v[0], 10);
-    BOOST_CHECK_EQUAL(v[1], 40);
-    BOOST_CHECK_EQUAL(v[2], 20);
-    BOOST_CHECK_EQUAL(v[3], 30);
-    BOOST_CHECK_EQUAL(v[4], 50);
+        reset();
+        v.push_back(Obj(50));
+        BOOST_CHECK_EQUAL(moved, 1);
+        BOOST_CHECK_EQUAL(copied, 0);
+        BOOST_CHECK_EQUAL(v.size(), 5);
+        BOOST_CHECK_EQUAL(v[0], 10);
+        BOOST_CHECK_EQUAL(v[1], 40);
+        BOOST_CHECK_EQUAL(v[2], 20);
+        BOOST_CHECK_EQUAL(v[3], 30);
+        BOOST_CHECK_EQUAL(v[4], 50);
 
-    reset();
-    Obj obj(60);
-    v.push_back(obj);
-    BOOST_CHECK_EQUAL(moved, 0);
-    BOOST_CHECK_EQUAL(copied, 1);
-    BOOST_CHECK_EQUAL(v.size(), 6);
-    BOOST_CHECK_EQUAL(v[0], 10);
-    BOOST_CHECK_EQUAL(v[1], 40);
-    BOOST_CHECK_EQUAL(v[2], 20);
-    BOOST_CHECK_EQUAL(v[3], 30);
-    BOOST_CHECK_EQUAL(v[4], 50);
-    BOOST_CHECK_EQUAL(v[5], 60);
+        reset();
+        Obj obj(60);
+        v.push_back(obj);
+        BOOST_CHECK_EQUAL(moved, 0);
+        BOOST_CHECK_EQUAL(copied, 1);
+        BOOST_CHECK_EQUAL(v.size(), 6);
+        BOOST_CHECK_EQUAL(v[0], 10);
+        BOOST_CHECK_EQUAL(v[1], 40);
+        BOOST_CHECK_EQUAL(v[2], 20);
+        BOOST_CHECK_EQUAL(v[3], 30);
+        BOOST_CHECK_EQUAL(v[4], 50);
+        BOOST_CHECK_EQUAL(v[5], 60);
+    }
 
+    BOOST_CHECK_EQUAL(constructed, destroyed);
+
+    {
+        // Check that on move assignment that the moved-from version
+        // is correctly resized
+        compact_vector<Obj, 3, unsigned> v;
+        v.push_back(1);
+        v.push_back(2);
+
+        compact_vector<Obj, 3, unsigned> u(std::move(v));
+
+        BOOST_CHECK_EQUAL(v.size(), 0);
+        BOOST_CHECK_EQUAL(u.size(), 2);
+    }
+
+    BOOST_CHECK_EQUAL(constructed, destroyed);
 }
