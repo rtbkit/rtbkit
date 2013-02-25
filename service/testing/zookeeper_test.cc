@@ -18,38 +18,44 @@
 #include "jml/arch/exception_handler.h"
 #include "jml/arch/timers.h"
 #include "soa/service/zookeeper.h"
+#include "soa/service/testing/zookeeper_temporary_server.h"
 
 #include <sstream>
 #include <iostream>
 #include <fstream>
 
-
 using namespace std;
 using namespace ML;
-
 using namespace Datacratic;
-
-BOOST_AUTO_TEST_CASE( test_zookeeper_cant_connect )
-{
-    ML::set_default_trace_exceptions(false);
-
-    ZookeeperConnection zk;
-    BOOST_CHECK_THROW(zk.connect("localhost:2182", 0.5), std::exception);
-}
-
 
 BOOST_AUTO_TEST_CASE( test_zookeeper )
 {
-    ZookeeperConnection zk;
-    zk.connect("localhost:2181");
+    ML::set_default_trace_exceptions(false);
 
-    string nodeName = zk.createNode("/hello", "mum", false, true).first;
-    cerr << "nodeName = " << nodeName << endl;
+    ZooKeeper::TemporaryServer server;
+    std::string uri = ML::format("localhost:%d", server.getPort());
+
+    std::cerr << "trying to connect to port " << server.getPort() << std::endl;
+    {
+        ZookeeperConnection zk;
+        BOOST_CHECK_THROW(zk.connect(uri, 0.5), std::exception);
+    }
+
+    std::cerr << "starting zookeeper..." << std::endl;
+    server.start();
+
+    std::cerr << "trying to connect to port " << server.getPort() << std::endl;
+    ZookeeperConnection zk;
+    zk.connect(uri);
+
+    std::string nodeName = zk.createNode("/hello", "mum", false, true).first;
+    std::cerr << "nodeName = " << nodeName << endl;
 
     auto children = zk.getChildren("/");
-    cerr << "children = " << children << endl;
+    std::cerr << "children = " << children << endl;
 
-    cerr << zk.getChildren("/zookeeper/quota");
+    std::cerr << zk.getChildren("/zookeeper/quota");
 
     BOOST_CHECK_THROW(children = zk.getChildren("/bonus/man"), std::exception);
 }
+
