@@ -18,8 +18,7 @@ add(const BidRequest & bidRequest,
 {
     Entry entry;
     entry.agent = agent;
-    entry.campaign = config.campaign;
-    entry.strategy = config.strategy;
+    entry.account = config.account;
     entry.site = bidRequest.url.toString();
     entry.expiry = Date::now().plusSeconds(config.blacklistTime);
 
@@ -65,10 +64,8 @@ matches(const BidRequest & bidRequest,
             switch (config.blacklistScope) {
                 case BL_AGENT:
                     return entry.agent == agent;
-                case BL_STRATEGY:
-                    return entry.strategy == config.strategy;
-                case BL_CAMPAIGN:
-                    return entry.campaign == config.campaign;
+                case BL_ACCOUNT:
+                    return entry.account == config.account;
             default:
                 throw ML::Exception("invalid blacklist scope");
             }

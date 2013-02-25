@@ -27,8 +27,7 @@ struct TestAgent : public RTBKIT::BiddingAgent {
     void setDefaultConfig()
     {
         RTBKIT::AgentConfig config;
-        config.strategy = "testStrategy";
-        config.campaign = "testCampaign";
+        config.account = {"testCampaign", "testStrategy"};
         config.maxInFlight = 20000;
         config.creatives.push_back(RTBKIT::Creative::sampleLB);
         config.creatives.push_back(RTBKIT::Creative::sampleWS);

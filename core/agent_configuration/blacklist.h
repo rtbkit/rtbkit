@@ -30,8 +30,7 @@ struct AgentConfig;
 struct BlacklistInfo {
     struct Entry {
         std::string agent;
-        std::string campaign;
-        std::string strategy;
+        AccountKey account;
         std::string site;
         Date expiry;
     };

@@ -135,8 +135,7 @@ enum BlacklistType {
 
 enum BlacklistScope {
     BL_AGENT,      ///< Blacklist for the agent
-    BL_STRATEGY,   ///< Blacklist for all agents on this strategy
-    BL_CAMPAIGN    ///< Blacklist for all campaigns
+    BL_ACCOUNT,    ///< Blacklist for an account
 };
 
 
@@ -180,10 +179,6 @@ struct AgentConfig {
     void fromJson(const Json::Value & json);
 
     Json::Value toJson(bool includeCreatives = true) const;
-
-    std::string campaign; ///< Overall campaign      LEGAGY
-    int64_t campaignId;   ///< ID of the campaign    LEGACY
-    std::string strategy; ///< What we're running    LEGACY
 
     AccountKey account;   ///< Who to bill this to
 

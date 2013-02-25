@@ -13,8 +13,6 @@ int main() {
 
     BiddingAgent agent(proxies);
     AgentConfig config;
-    config.campaign = "testCampaign";
-    config.strategy = "testStrategy";
     config.account = { "testCampaign", "testStrategy" };
     config.maxInFlight = 20000;
     config.minTimeAvailableMs = 0;

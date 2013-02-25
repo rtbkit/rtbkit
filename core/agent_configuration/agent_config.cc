@@ -282,11 +282,11 @@ toJson() const
 
 AgentConfig::
 AgentConfig()
-    : campaignId(-1), test(false), roundRobinWeight(0),
+    : test(false), roundRobinWeight(0),
       bidProbability(1.0), minTimeAvailableMs(5.0),
       maxInFlight(100),
       blacklistType(BL_OFF),
-      blacklistScope(BL_STRATEGY), blacklistTime(15.0),
+      blacklistScope(BL_ACCOUNT), blacklistTime(15.0),
       bidControlType(BC_RELAY), fixedBidCpmInMicros(0),
       winFormat(BRF_FULL),
       lossFormat(BRF_LIGHTWEIGHT),
@@ -446,14 +446,7 @@ createFromJson(const Json::Value & json)
         //cerr << "parsing " << it.memberName() << " with value " << *it << endl;
 
         if (it.memberName() == "account")
-            throw ML::Exception("account field no longer accepted; use strategy");
-        else if (it.memberName() == "campaign"
-                 || it.memberName() == "mandate")
-            newConfig.campaign = it->asString();
-        else if (it.memberName() == "campaignId")
-            newConfig.campaignId = it->asInt();
-        else if (it.memberName() == "strategy")
-            newConfig.strategy = it->asString();
+            newConfig.account = AccountKey::fromJson(*it);
         else if (it.memberName() == "test") {
             newConfig.test = it->asBool();
         }
@@ -579,10 +572,8 @@ createFromJson(const Json::Value & json)
                     string s = ML::lowercase(val.asString());
                     if (s == "agent")
                         newConfig.blacklistScope = BL_AGENT;
-                    else if (s == "strategy")
-                        newConfig.blacklistScope = BL_STRATEGY;
-                    else if (s == "campaign")
-                        newConfig.blacklistScope = BL_CAMPAIGN;
+                    else if (s == "account")
+                        newConfig.blacklistScope = BL_ACCOUNT;
                     else throw Exception("invalid blacklist scope " + s);
                 }
                 else throw Exception("blacklist has invalid key: %s",
@@ -640,20 +631,11 @@ createFromJson(const Json::Value & json)
                              it.memberName().c_str());
     }
 
-    if (newConfig.strategy.empty())
-        throw Exception("each agent must have a strategy specified");
-
-    if (newConfig.campaign.empty())
-        throw Exception("each agent must have a campaign specified");
-
-    // TODO: why do we need both IDs and strings?
-    //if (newConfig.campaignId < 0)
-    //    throw Exception("each agent must have a campaign id specified");
+    if (newConfig.account.empty())
+        throw Exception("each agent must have an account specified");
     
     if (newConfig.creatives.empty())
         throw Exception("can't configure a agent with no creatives");
-
-    newConfig.account = { newConfig.campaign, newConfig.strategy };
 
     return newConfig;
 }
@@ -678,9 +660,7 @@ AgentConfig::
 toJson(bool includeCreatives) const
 {
     Json::Value result;
-    result["campaign"] = campaign;
-    result["campaignId"] = campaignId;
-    result["strategy"] = strategy;
+    result["account"] = account.toJson();
     result["test"] = test;
     if (roundRobinGroup != "") {
         result["roundRobin"]["group"] = roundRobinGroup;
@@ -756,8 +736,7 @@ toJson(bool includeCreatives) const
 
         switch (blacklistScope) {
         case BL_AGENT: bl["scope"] = "AGENT";  break;
-        case BL_CAMPAIGN: bl["scope"] = "CAMPAIGN";  break;
-        case BL_STRATEGY: bl["scope"] = "STRATEGY";  break;
+        case BL_ACCOUNT: bl["scope"] = "ACCOUNT";  break;
         default:
             throw ML::Exception("unknown blacklist scope");
         }

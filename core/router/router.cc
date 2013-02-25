@@ -1622,9 +1622,6 @@ doBid(const std::vector<std::string> & message)
 
     doProfileEvent(3, "inFlight");
 
-    const string &campaign = info.config->campaign;
-    const string &strategy = info.config->strategy;
-
     auto it = inFlight.find(auctionId);
     if (it == inFlight.end()) {
         recordHit("bidError.unknownAuction");
@@ -1814,7 +1811,7 @@ doBid(const std::vector<std::string> & message)
                 + spots[spotIndex].id.toString() + "-"
                 + agent;
 
-            if (!banker->authorizeBid({campaign, strategy}, auctionKey, price)
+            if (!banker->authorizeBid(info.config->account, auctionKey, price)
                 || failBid(budgetErrorRate))
                 {
                     ++info.stats->noBudget;
@@ -1892,7 +1889,7 @@ doBid(const std::vector<std::string> & message)
                 else if (localResult == Auction::INVALID)
                     ++info.stats->invalid;
 
-                banker->cancelBid({campaign, strategy}, auctionKey);
+                banker->cancelBid(info.config->account, auctionKey);
 
                 BidStatus status;
                 switch (localResult) {
@@ -2065,8 +2062,6 @@ doSubmitted(std::shared_ptr<Auction> auction)
             if (!agents.count(response.agent)) continue;
 
             AgentInfo & info = agents[response.agent];
-            const string & campaign = info.config->campaign;
-            const string & strategy = info.config->strategy;
 
             Amount bid_price = response.price.maxPrice;
 
@@ -2079,7 +2074,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
             ML::Call_Guard guard
                 ([&] ()
                  {
-                     banker->cancelBid({campaign, strategy}, auctionKey);
+                     banker->cancelBid(info.config->account, auctionKey);
                  });
 
             // No bid
@@ -2337,8 +2332,8 @@ void
 Router::
 configure(const std::string & agent, const AgentConfig & config)
 {
-    if (config.strategy.empty() || config.campaign.empty())
-        throw ML::Exception("attempt to add campaign/strategy with empty values");
+    if (config.account.empty())
+        throw ML::Exception("attempt to add an account with empty values");
     // TODO: async
 
     auto onDone = [=] (std::exception_ptr exc, ShadowAccount&& ac)
@@ -2348,8 +2343,7 @@ configure(const std::string & agent, const AgentConfig & config)
                 logException(exc, "Banker addAccount");
         };
 
-    banker->addSpendAccount({config.campaign, config.strategy},
-                            USD(0.10), onDone);
+    banker->addSpendAccount(config.account, USD(0.10), onDone);
 }
 
 Json::Value
