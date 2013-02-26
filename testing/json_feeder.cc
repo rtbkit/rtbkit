@@ -31,8 +31,9 @@ struct JsonFeeder {
     JsonFeeder(string uri, string filename,
                bool printRequests, bool printResponses,
                int maxSamples = 1000)
-        : serverUri(uri), jsonStream(filename), printRequests(printRequests),
-          printResponses(printResponses), maxSamples(maxSamples)
+        : serverUri(uri), filename(filename), jsonStream(filename),
+          printRequests(printRequests), printResponses(printResponses),
+          maxSamples(maxSamples)
         {}
 
     void perform()
@@ -45,9 +46,8 @@ struct JsonFeeder {
             getline(jsonStream, current);
 
             if (current == "") {
-                cerr << "current == '' -> leaving after "
-                     << sampleNum << " samples" << endl;
-                break;
+                jsonStream = ML::filter_istream(filename);
+                getline(jsonStream, current);
             }
 
             Easy client;
@@ -90,6 +90,7 @@ struct JsonFeeder {
     }
 
     string serverUri;
+    string filename;
     ML::filter_istream jsonStream;
     bool printRequests;
     bool printResponses;
