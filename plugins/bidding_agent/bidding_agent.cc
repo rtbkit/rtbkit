@@ -55,6 +55,7 @@ BiddingAgent::
 BiddingAgent(std::shared_ptr<ServiceProxies> proxies,
             const std::string & name)
     : ServiceBase(name, proxies),
+      agentName(name + "_" + to_string(getpid())),
       toRouters(getZmqContext()),
       toPostAuctionServices(getZmqContext()),
       toConfigurationAgent(getZmqContext()),
@@ -67,6 +68,7 @@ BiddingAgent::
 BiddingAgent(ServiceBase& parent,
             const std::string & name)
     : ServiceBase(name, parent),
+      agentName(name + "_" + to_string(getpid())),
       toRouters(getZmqContext()),
       toPostAuctionServices(getZmqContext()),
       toConfigurationAgent(getZmqContext()),
@@ -83,10 +85,8 @@ BiddingAgent::
 
 void
 BiddingAgent::
-start(const std::string& clientSocketURI, const std::string& name)
+init()
 {
-    this->agentName = name;
-
     toRouters.messageHandler = std::bind(&BiddingAgent::handleRouterMessage, this,
                                          std::placeholders::_1,
                                          std::placeholders::_2);
@@ -97,29 +97,29 @@ start(const std::string& clientSocketURI, const std::string& name)
             //<< ": " << msg << endl;
             handleRouterMessage(service, msg);
         };
-    toConfigurationAgent.init(getServices()->config, name);
+    toConfigurationAgent.init(getServices()->config, agentName);
     toConfigurationAgent.connectToServiceClass
             ("rtbAgentConfiguration", "agents");
-    toRouters.init(getServices()->config, name);
+    toRouters.init(getServices()->config, agentName);
     toRouters.connectHandler = [=] (const std::string & connectedTo)
         {
             std::stringstream ss;
             ss << "BiddingAgent is connected to router "
                  << connectedTo << endl;
             cerr << ss.str() ;
-            toRouters.sendMessage(connectedTo, "CONFIG", name);
+            toRouters.sendMessage(connectedTo, "CONFIG", agentName);
         };
     toRouters.connectAllServiceProviders("rtbRequestRouter", "agents");
     toRouterChannel.onEvent = [=] (const RouterMessage & msg)
         {
             toRouters.sendMessage(msg.toRouter, msg.type, msg.payload);
         };
-    toPostAuctionServices.init(getServices()->config, name);
+    toPostAuctionServices.init(getServices()->config, agentName);
     toPostAuctionServices.connectHandler = [=] (const std::string & connectedTo)
         {
             cerr << "BiddingAgent is connected to post auction service "
                  << connectedTo << endl;
-            //toPostAuctionServices.sendMessage(connectedTo, "CONFIG", name);
+            //toPostAuctionServices.sendMessage(connectedTo, "CONFIG", agentName);
         };
     toPostAuctionServices.connectAllServiceProviders("rtbPostAuctionService",
                                                      "agents");
@@ -128,9 +128,8 @@ start(const std::string& clientSocketURI, const std::string& name)
     addSource("BiddingAgent::toPostAuctionServices", toPostAuctionServices);
     addSource("BiddingAgent::toConfigurationAgent", toConfigurationAgent);
     addSource("BiddingAgent::toRouterChannel", toRouterChannel);
-    MessageLoop::start();
-    //MessageLoop::debug(true);
-    //toRouters.debug(true);
+
+    MessageLoop::init();
 }
 
 void

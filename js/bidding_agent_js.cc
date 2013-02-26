@@ -246,6 +246,7 @@ struct BiddingAgentJS :
         registerMemberFn(&RTBKIT::BiddingAgent::doBid, "doBid");
         registerMemberFn(&RTBKIT::BiddingAgent::doPong, "doPong");
         registerMemberFn(&RTBKIT::BiddingAgent::doConfig, "doConfig");
+        registerMemberFn(&RTBKIT::BiddingAgent::init, "init");
         registerMemberFn(&RTBKIT::BiddingAgent::start, "start");
         registerMemberFn(&RTBKIT::BiddingAgent::shutdown, "close");
 

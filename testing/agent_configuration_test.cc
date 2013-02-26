@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE( test_agent_configuration )
 
     proxies->config->dump(cerr);
 
-    TestAgent agent(proxies);
+    TestAgent agent(proxies, "bidding_agent");
 
     AgentConfigurationListener listener(proxies->zmqContext);
 
@@ -59,8 +59,9 @@ BOOST_AUTO_TEST_CASE( test_agent_configuration )
     listener.init(proxies->config);
     listener.start();
 
+    agent.agentName = "bidding_agent";
     agent.init();
-    agent.start("tcp://127.0.0.1:1234", "bidding_agent");
+    agent.start();
     agent.configure();
     
     while (numConfigurations == 0)
@@ -97,7 +98,9 @@ BOOST_AUTO_TEST_CASE( test_agent_configuration )
     BOOST_CHECK_EQUAL(currentName, "bidding_agent");
 
     TestAgent agent2(proxies, "bidding_agent2");
-    agent2.start("tcp://127.0.0.1:1234", "bidding_agent2");
+    agent2.agentName = "bidding_agent2";
+    agent2.init();
+    agent2.start();
     agent2.configure();
 
     while (numConfigurations == 2)

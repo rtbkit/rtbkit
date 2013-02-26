@@ -83,7 +83,8 @@ int main() {
 
     commands.insert(std::make_pair("start", [&](std::istream & args) {
         std::string name; args >> name; if(name.empty()) name = "test";
-        agent.start("", name);
+        agent.init();
+        agent.start();
         std::cout << "agent started name=" << name << std::endl;
     }));
 

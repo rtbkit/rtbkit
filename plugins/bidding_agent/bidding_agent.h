@@ -64,15 +64,31 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
     */
     void strictMode(bool strict) { requiresAllCB = strict; }
 
-    void start(const std::string& clientSocketURI, const std::string& name);
+    void init();
     void shutdown();
 
+    /** Send a bid response to the router in answer to a received auction.
+
+        \param id auction id given in the auction callback.
+        \param response a Bids struct converted to json.
+        \param meta A json blob that will be returned as is in the bid result.
+     */
     void doBid(Id id, Json::Value response, Json::Value meta);
+
+
     void doPong(const std::string & fromRouter, Date sent, Date received,
                 const std::vector<std::string> & payload);
+
+    /** Notify the AgentConfigurationService that the configuration of the
+        bidding agent has changed.
+     */
     void doConfig(Json::Value config);
 
-    /** The odd double typedefs is to simplify the JS wrappers. */
+
+    /**************************************************************************/
+    /* CALLBACKS                                                              */
+    /**************************************************************************/
+    // The odd double typedefs is to simplify the JS wrappers.
 
     typedef void (SimpleCb) (double timestamp);
     typedef boost::function<SimpleCb> SimpleCbFn;
@@ -142,14 +158,17 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
 
     PingCbFn onPing;
 
-    DeliveryCbFn onImpression, onClick, onVisit;
+    DeliveryCbFn onImpression;
+    DeliveryCbFn onClick;
+    DeliveryCbFn onVisit;
 
     SimpleCbFn onGotConfig;
     SimpleCbFn onNeedConfig;
     ErrorCbFn onError;
 
-private:
     std::string agentName;
+
+private:
 
     /** Format of a message to a router. */
     struct RouterMessage {

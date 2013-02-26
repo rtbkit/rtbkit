@@ -174,7 +174,8 @@ struct Components
         // Our bidding agent which listens to the bid request stream from all
         // available routers and decide who gets to see your awesome pictures of
         // kittens.
-        agent.start(agentUri, "test-agent");
+        agent.init();
+        agent.start();
         agent.configure();
 
         // Our augmentor which does frequency capping for our agent.
