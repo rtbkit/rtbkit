@@ -125,7 +125,9 @@ checkProviderResponse(const MonitorProviderResponse & response)
                 status = true;
             }
         }
-        catch (const Json::Exception & exc) {
+        catch (...) {
+            cerr << "exception during parsing of (supposedly) json response:"
+                 << response.body << endl;
         }
     }
 
