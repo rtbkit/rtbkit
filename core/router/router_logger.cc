@@ -93,5 +93,5 @@ getMonitorIndicators()
     Json::Value indicators;
     indicators["status"] = status ? "ok" : "failure";
 
-    return status;
+    return indicators;
 }
