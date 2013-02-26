@@ -5,6 +5,7 @@
    Implementation of the configuration service.
 */
 
+#include "jml/utils/string_functions.h"
 #include "agent_configuration_service.h"
 #include "soa/service/rest_request_binding.h"
 #include "rtbkit/common/port_ranges.h"
@@ -42,12 +43,12 @@ init()
 
     agents.onConnection = [=] (const std::string & agent)
         {
-            cerr << "got new agent " << agent << endl;
+            cerr << "got new agent " << hexify_string(agent) << endl;
         };
 
     agents.onDisconnection = [=] (const std::string & agent)
         {
-            cerr << "lost agent " << agent << endl;
+            cerr << "lost agent " << hexify_string(agent) << endl;
             // Broadcast the disconnection to all listeners
             for (auto & l: listenerInfo)
                 listeners.sendMessage(l.first, "CONFIG", agent, "");
@@ -55,7 +56,7 @@ init()
 
     listeners.onConnection = [=] (const std::string & listener)
         {
-            cerr << "got new listener " << listener << endl;
+            cerr << "got new listener " << hexify_string(listener) << endl;
 
             listenerInfo.insert(make_pair(listener, ListenerInfo()));
 
@@ -69,7 +70,7 @@ init()
 
     listeners.onDisconnection = [=] (const std::string & listener)
         {
-            cerr << "lost listener " << listener << endl;
+            cerr << "lost listener " << hexify_string(listener) << endl;
 
             listenerInfo.erase(listener);
         };
