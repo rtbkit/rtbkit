@@ -11,3 +11,5 @@ $(eval $(call test,agent_configuration_test,rtb_router bidding_agent,boost))
 $(eval $(call test,augmentation_list_test,rtb,boost))
 
 $(eval $(call library,integration_test_utils,generic_exchange_connector.cc mock_exchange.cc,rtb_router exchange))
+
+$(eval $(call program,json_feeder,curlpp boost_program_options utils))
