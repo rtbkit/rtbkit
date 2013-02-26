@@ -32,8 +32,8 @@ void
 MonitorProxy::
 shutdown()
 {
-    RestProxy::shutdown();
     sleepUntilIdle();
+    RestProxy::shutdown();
 }
 
 void
