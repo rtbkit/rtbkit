@@ -9,8 +9,8 @@
 #include <boost/program_options/variables_map.hpp>
 #include <boost/make_shared.hpp>
 
-#include <jml/arch/timers.h>
-
+#include "jml/arch/timers.h"
+#include "rtbkit/common/port_ranges.h"
 #include "monitor.h"
 
 using namespace boost::program_options;
@@ -76,7 +76,7 @@ int main(int argc, char ** argv)
 
     Monitor monitor(proxies, "monitor");
     monitor.init();
-    auto addr = monitor.bindTcp();
+    auto addr = monitor.bindTcp(PortRanges::zmq.monitor, PortRanges::http.monitor);
     cerr << "monitor is listening on "
          << addr.first << "," << addr.second << endl;
 

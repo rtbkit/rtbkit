@@ -23,7 +23,8 @@ LIBMONITORSERVICE_SOURCES := \
 
 LIBMONITORSERVICE_LINK := \
 	services \
-	restmultiproxy
+	restmultiproxy \
+    rtb
 
 $(eval $(call library,monitor_service,$(LIBMONITORSERVICE_SOURCES),$(LIBMONITORSERVICE_LINK)))
 

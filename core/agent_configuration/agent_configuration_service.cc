@@ -170,7 +170,7 @@ void
 AgentConfigurationService::
 bindTcp()
 {
-    RestServiceEndpoint::bindTcp(PortRanges::agentConfiguration);
+    RestServiceEndpoint::bindTcp(PortRanges::zmq.agentConfiguration, PortRanges::http.agentConfiguration);
     listeners.bindTcp(PortRanges::configuration);
     agents.bindTcp();
 }

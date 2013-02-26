@@ -78,7 +78,7 @@ void
 MonitorProviderEndpoint::
 bindTcp()
 {
-    RestServiceEndpoint::bindTcp(PortRanges::monitor);
+    RestServiceEndpoint::bindTcp(PortRanges::zmq.monitorProvider, PortRanges::http.monitorProvider);
 }
 
 string

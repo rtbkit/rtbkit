@@ -16,11 +16,19 @@ struct PortRanges
     static Datacratic::PortRange logs;
     static Datacratic::PortRange router;
     static Datacratic::PortRange augmentors;
-    static Datacratic::PortRange agentConfiguration;
     static Datacratic::PortRange configuration;
     static Datacratic::PortRange postAuctionLoop;
     static Datacratic::PortRange postAuctionLoopAgents;
-    static Datacratic::PortRange monitor;
+
+    struct Services {
+        Datacratic::PortRange banker;
+        Datacratic::PortRange agentConfiguration;
+        Datacratic::PortRange monitor;
+        Datacratic::PortRange monitorProvider;
+    };
+
+    static Services zmq;
+    static Services http;
 };
 
 } // namespace RTBKIT

@@ -14,6 +14,7 @@
 #include "master_banker.h"
 #include "soa/service/rest_request_binding.h"
 #include "soa/service/redis.h"
+#include "rtbkit/common/port_ranges.h"
 
 
 using namespace std;
@@ -475,7 +476,7 @@ MasterBanker::
 bindTcp()
 {
     monitorProviderEndpoint.bindTcp();
-    return RestServiceEndpoint::bindTcp();
+    return RestServiceEndpoint::bindTcp(PortRanges::zmq.banker, PortRanges::http.banker);
 }
 
 void
