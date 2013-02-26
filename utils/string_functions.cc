@@ -138,4 +138,22 @@ bool endsWith(const std::string & haystack, const std::string & needle)
         && result == haystack.size() - needle.size();
 }
 
+std::string hexify_string(const std::string & str)
+{
+    size_t i, len(str.size());
+    std::string newString;
+    newString.reserve(len * 3);
+
+    for (i = 0; i < len; i++) {
+        if (str[i] < 32 || str[i] > 127) {
+            newString += format("\\x%.2x", int(str[i] & 0xff));
+        }
+        else {
+            newString += str[i];
+        }
+    }
+
+    return newString;
+}
+
 } // namespace ML

@@ -52,6 +52,9 @@ bool removeIfEndsWith(std::string & str, const std::string & ending);
 
 bool endsWith(const std::string & haystack, const std::string & needle);
 
+/* replace unprintable characters with a hex representation thereof */
+std::string hexify_string(const std::string & str);
+
 } // namespace ML
 
 
