@@ -27,7 +27,7 @@ PortRanges::Services PortRanges::http = {
     { 9985 }, // banker
     { 9986 }, // agentConfiguration
     { 9987 }, // monitor
-    { 10000, 10999 }, // monitorProvider
+    { 11000, 11999 }, // monitorProvider
 };
 
 } // namespace RTBKIT

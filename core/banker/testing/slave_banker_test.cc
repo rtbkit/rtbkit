@@ -18,6 +18,7 @@
 #include "jml/utils/testing/watchdog.h"
 #include <future>
 #include <boost/thread/thread.hpp>
+#include "soa/service/testing/zookeeper_temporary_server.h"
 
 using namespace std;
 using namespace ML;
@@ -28,9 +29,11 @@ using namespace RTBKIT;
 
 BOOST_AUTO_TEST_CASE( test_master_slave_banker )
 {
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
+
     auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper();
-    proxies->config->removePath("");
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     string bankerServiceName = "rtbBanker";
 
@@ -86,9 +89,12 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
        that occurs *before* a banker can make an initial synchronization with
        the master banker.
     */
-    
+
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
+
     auto proxies = std::make_shared<ServiceProxies>();
-    //proxies->useZookeeper();
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     MasterBanker master(proxies);
     master.init(make_shared<NoBankerPersistence>());
@@ -169,7 +175,11 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
 #if 1
 BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
 {
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
+
     auto proxies = std::make_shared<ServiceProxies>();
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     MasterBanker master(proxies);
     master.init(make_shared<NoBankerPersistence>());

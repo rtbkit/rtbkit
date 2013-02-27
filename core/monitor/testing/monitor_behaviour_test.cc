@@ -20,6 +20,7 @@
 
 #include "soa/service/rest_proxy.h"
 #include "soa/service/service_base.h"
+#include "soa/service/testing/zookeeper_temporary_server.h"
 
 #include "rtbkit/core/monitor/monitor.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
@@ -195,10 +196,11 @@ BOOST_AUTO_TEST_CASE( test_monitor_proxy )
 {
     ML::Watchdog watchdog(30.0);
 
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
+
     auto proxies = std::make_shared<ServiceProxies>();
-    string zookeeperAddress = "localhost:2181";
-    string zookeeperPath = "CWD";
-    proxies->useZookeeper(zookeeperAddress, zookeeperPath);
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     Monitor monitor(proxies);
     monitor.init();

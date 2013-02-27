@@ -14,8 +14,8 @@
 #include "jml/arch/format.h"
 
 #include "soa/service/service_base.h"
-
 #include "soa/service/testing/redis_temporary_server.h"
+#include "soa/service/testing/zookeeper_temporary_server.h"
 
 #include "rtbkit/core/banker/master_banker.h"
 #include "rtbkit/core/banker/slave_banker.h"
@@ -45,11 +45,11 @@ RedisReplyFillSetOfStrings(const Redis::Reply & reply,
  * the master banker is not available */
 BOOST_AUTO_TEST_CASE( test_banker_deferred )
 {
-    string zookeeperAddress = "localhost:2181";
-    string zookeeperPath = "CWD";
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
 
     auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper(zookeeperAddress, zookeeperPath);
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     /* spawn slave */
     SlaveBanker slave(proxies->zmqContext);
@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE( test_banker_deferred )
 
     /* spawn master */
     RedisTemporaryServer redis;
-    BankerTemporaryServer master(redis, zookeeperAddress, zookeeperPath);
+    BankerTemporaryServer master(redis, ML::format("localhost:%d", zookeeper.getPort()));
 
     /* wait for the addSpendAccount op to complete */
     while (!done) {
@@ -92,11 +92,11 @@ BOOST_AUTO_TEST_CASE( test_banker_deferred )
  * "legacyImported" account exists */
 BOOST_AUTO_TEST_CASE( test_banker_slave_banker_accounts )
 {
-    string zookeeperAddress = "localhost:2181";
-    string zookeeperPath = "CWD";
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
 
     auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper(zookeeperAddress, zookeeperPath);
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     /* spawn master */
     RedisTemporaryServer redis;
@@ -125,7 +125,7 @@ BOOST_AUTO_TEST_CASE( test_banker_slave_banker_accounts )
     /* instantiate a slave and add a spend account from it */
     {
         /* spawn a master banker server process */
-        BankerTemporaryServer master(redis, zookeeperAddress, zookeeperPath);
+        BankerTemporaryServer master(redis, ML::format("localhost:%d", zookeeper.getPort()));
 
         /* spawn slave */
         SlaveBanker slave(proxies->zmqContext);

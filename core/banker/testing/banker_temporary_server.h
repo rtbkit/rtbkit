@@ -28,7 +28,7 @@ namespace RTBKIT {
 struct BankerTemporaryServer : boost::noncopyable {
     BankerTemporaryServer(const Redis::Address & redisAddress,
                           const std::string & zookeeperUri,
-                          const std::string & zookeeperPath);
+                          const std::string & zookeeperPath = "CWD");
     ~BankerTemporaryServer();
 
     void start();
