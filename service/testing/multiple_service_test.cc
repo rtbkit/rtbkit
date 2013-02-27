@@ -12,6 +12,7 @@
 #include "soa/service/named_endpoint.h"
 #include "soa/service/message_loop.h"
 #include "soa/service/zmq_endpoint.h"
+#include "soa/service/testing/zookeeper_temporary_server.h"
 #include "jml/utils/guard.h"
 #include "jml/arch/exception_handler.h"
 #include "jml/utils/testing/watchdog.h"
@@ -91,8 +92,12 @@ BOOST_AUTO_TEST_CASE( test_early_connection )
         have the connection come up once the service appears.
     */
     cerr << "Testing early connection..." << endl;
+
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
+
     auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper();
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     ZmqNamedClientBusProxy connection(proxies->zmqContext);
     connection.init(proxies->config, "client1");
@@ -139,11 +144,13 @@ BOOST_AUTO_TEST_CASE( test_early_connection )
 #if 1
 BOOST_AUTO_TEST_CASE( test_multiple_services )
 {
-    auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper();
-    proxies->config->removePath("");
-    cerr << "Starting multiple services test " << endl;
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
 
+    auto proxies = std::make_shared<ServiceProxies>();
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
+
+    cerr << "Starting multiple services test " << endl;
 
     ZmqMultipleNamedClientBusProxy connection(proxies->zmqContext);
     connection.init(proxies->config, "client1");

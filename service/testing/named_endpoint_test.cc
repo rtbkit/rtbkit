@@ -22,6 +22,7 @@
 #include "jml/arch/timers.h"
 #include <thread>
 #include "soa/service/zmq_utils.h"
+#include "soa/service/testing/zookeeper_temporary_server.h"
 
 
 using namespace std;
@@ -87,8 +88,11 @@ struct EchoService : public ServiceBase {
 
 BOOST_AUTO_TEST_CASE( test_named_endpoint )
 {
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
+
     auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper();
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     EchoService service(proxies, "echo");
     auto addr = service.bindTcp();

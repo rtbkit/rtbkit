@@ -20,12 +20,8 @@
 #include "soa/service/zookeeper.h"
 #include "soa/service/testing/zookeeper_temporary_server.h"
 
-#include <sstream>
 #include <iostream>
-#include <fstream>
 
-using namespace std;
-using namespace ML;
 using namespace Datacratic;
 
 BOOST_AUTO_TEST_CASE( test_zookeeper )
@@ -35,27 +31,77 @@ BOOST_AUTO_TEST_CASE( test_zookeeper )
     ZooKeeper::TemporaryServer server;
     std::string uri = ML::format("localhost:%d", server.getPort());
 
-    std::cerr << "trying to connect to port " << server.getPort() << std::endl;
-    {
-        ZookeeperConnection zk;
-        BOOST_CHECK_THROW(zk.connect(uri, 0.5), std::exception);
+    std::vector<int> pids;
+
+    int n = 100;
+    for(int i = 0; i != n; ++i) {
+        int pid = fork();
+        if(pid == -1) {
+            throw ML::Exception(errno, "fork");
+        }
+
+        if(pid == 0) {
+            ML::sleep(1);
+            std::cerr << getpid() << " trying to connect to " << uri << std::endl;
+            ZookeeperConnection zk;
+            zk.connect(uri);
+            for(;;) {
+                auto node = zk.readNode("/hello");
+                std::cerr << getpid() << " node=" << node << std::endl;
+                if(node == "world") {
+                    break;
+                }
+
+                ML::sleep(1);
+            }
+
+            zk.createNode(ML::format("/%d", getpid()), "hello", true, false);
+            for(;;) {
+                ML::sleep(1);
+            }
+        }
+        else {
+            pids.push_back(pid);
+        }
     }
 
     std::cerr << "starting zookeeper..." << std::endl;
     server.start();
 
-    std::cerr << "trying to connect to port " << server.getPort() << std::endl;
     ZookeeperConnection zk;
     zk.connect(uri);
 
-    std::string nodeName = zk.createNode("/hello", "mum", false, true).first;
-    std::cerr << "nodeName = " << nodeName << endl;
+    auto node = zk.createNode("/hello", "world", true, false);
+    std::cerr << "nodeName = " << node.first << std::endl;
 
-    auto children = zk.getChildren("/");
-    std::cerr << "children = " << children << endl;
+    signal(SIGCHLD, SIG_DFL);
 
-    std::cerr << zk.getChildren("/zookeeper/quota");
+    for(;;) {
+        auto children = zk.getChildren("/");
+        std::cerr << "children = " << children << std::endl;
 
-    BOOST_CHECK_THROW(children = zk.getChildren("/bonus/man"), std::exception);
+        if(children.size() == 2 + n) {
+            break;
+        }
+
+        ML::sleep(1);
+    }
+
+    for(int i = 0; i != n; ++i) {
+        int pid = pids[i];
+        int res = kill(pid, SIGTERM);
+        if (res == -1) {
+            throw ML::Exception(errno, "cannot kill child process");
+        }
+    }
+
+    for(int i = 0; i != n; ++i) {
+        int pid = pids[i];
+        int status = 0;
+        int res = waitpid(pid, &status, 0);
+        if (res == -1) {
+            throw ML::Exception(errno, "failed to wait for child process to shutdown");
+        }
+    }
 }
 

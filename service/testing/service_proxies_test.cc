@@ -11,6 +11,7 @@
 
 #include "soa/service/service_base.h"
 #include "soa/service/rest_service_endpoint.h"
+#include "soa/service/testing/zookeeper_temporary_server.h"
 
 using namespace std;
 using namespace ML;
@@ -44,11 +45,11 @@ struct MockRestService : public ServiceBase,
 
 BOOST_AUTO_TEST_CASE( test_service_proxies_getServiceClassInstances )
 {
-    string zookeeperAddress = "localhost:2181";
-    string zookeeperPath = "test";
+    ZooKeeper::TemporaryServer server;
+    server.start();
 
     auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper(zookeeperAddress, zookeeperPath);
+    proxies->useZookeeper(ML::format("localhost:%d", server.getPort()));
 
     set<string> expectedUris;
 

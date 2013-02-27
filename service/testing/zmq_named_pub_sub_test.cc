@@ -18,7 +18,7 @@
 #include <thread>
 #include "soa/service/zmq_utils.h"
 #include "soa/service/zmq_named_pub_sub.h"
-
+#include "soa/service/testing/zookeeper_temporary_server.h"
 
 using namespace std;
 using namespace ML;
@@ -26,8 +26,11 @@ using namespace Datacratic;
 
 BOOST_AUTO_TEST_CASE( test_zookeeper_watches )
 {
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
+
     auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper();
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     int numChangesRoot = 0;
     int numChangesLeaf = 0;
@@ -113,8 +116,11 @@ struct Publisher : public ServiceBase, public ZmqNamedPublisher {
 
 BOOST_AUTO_TEST_CASE( test_named_publisher )
 {
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
+
     auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper();
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     ZmqNamedSubscriber subscriber(*proxies->zmqContext);
     subscriber.init(proxies->config);

@@ -30,7 +30,8 @@ struct TemporaryServer : boost::noncopyable
             uniquePath = ML::format("%s/zookeeper-temporary-server-%d", tmpDir.get(), getpid());
         }
 
-        port = 4096 + (getpid() % 16768);
+        static int uid;
+        port = 4096 + (getpid() % 16768) + uid++;
 
         std::cerr << "starting zookeeper temporary server under " << uniquePath << std::endl;
         this->uniquePath = uniquePath;
@@ -115,6 +116,8 @@ private:
         file << "dataDir=" << uniquePath << "/data" << std::endl;
         file << "clientPort=" << port << std::endl;
         file << "dataLogDir=" << uniquePath << std::endl;
+        file << "initLimit=10" << std::endl;
+        file << "syncLimit=5" << std::endl;
         file << "maxClientCnxns=1024" << std::endl;
     }
 
