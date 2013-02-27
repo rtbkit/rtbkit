@@ -301,6 +301,7 @@ init(std::shared_ptr<ConfigurationService> config,
     NamedEndpoint::init(config, endpointName);
     this->socketType = socketType;
     this->socket_.reset(new zmq::socket_t(*context_, socketType));
+    setHwm(*socket_, 65536);
     
     bool monitorSocket = false;
 
@@ -469,6 +470,7 @@ init(std::shared_ptr<ConfigurationService> config,
     socket_.reset(new zmq::socket_t(*context_, socketType));
     if (identity != "")
         setIdentity(*socket_, identity);
+    setHwm(*socket_, 65536);
 
     serviceWatch.init(std::bind(&ZmqNamedProxy::onServiceNodeChange,
                                 this,
