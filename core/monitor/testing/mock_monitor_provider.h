@@ -12,23 +12,30 @@ struct MockMonitorProvider
     : public MonitorProvider
 {
     MockMonitorProvider()
-        : status(false), delay(0)
+        : providerName_("mock-provider"), status_(false), delay_(0)
     {
     }
 
-    Json::Value getMonitorIndicators()
+    std::string getProviderName()
+        const
+    {
+        return providerName_;
+    }
+
+    Json::Value getProviderIndicators()
+        const
     {
         using namespace std;
-        if (delay) {
+        if (delay_) {
             cerr << ML::format("%s: sleeping for %d seconds\n",
                                CURRENT_METHOD(MockMonitorProvider),
-                               delay);
-            ML::sleep(delay);
+                               delay_);
+            ML::sleep(delay_);
         }
 
         Json::Value value(Json::objectValue);
 
-        value["status"] = (status ? "ok" : "failure");
+        value["status"] = (status_ ? "ok" : "failure");
 
         cerr << ML::format("%s: returning %s\n",
                            CURRENT_METHOD(MockMonitorProvider),
@@ -37,8 +44,9 @@ struct MockMonitorProvider
         return value;
     }
 
-    bool status;
-    int delay;
+    std::string providerName_;
+    bool status_;
+    int delay_;
 };
 
 }

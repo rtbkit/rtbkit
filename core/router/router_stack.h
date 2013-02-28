@@ -9,7 +9,7 @@
 
 
 #include "router.h"
-#include "rtbkit/core/monitor/monitor.h"
+#include "rtbkit/core/monitor/monitor_endpoint.h"
 #include "rtbkit/core/banker/master_banker.h"
 #include "rtbkit/core/banker/slave_banker.h"
 #include "rtbkit/core/post_auction/post_auction_loop.h"
@@ -199,8 +199,7 @@ struct RouterStack: public ServiceBase {
     PostAuctionLoop postAuctionLoop;
     AgentConfigurationService config;
 
-    Monitor monitor;
-    MonitorProviderProxy monitorProxy;
+    MonitorEndpoint monitor;
 
     bool initialized;
 };

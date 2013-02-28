@@ -1,16 +1,8 @@
 # RTBKIT monitor makefile
 
-LIBRESTMULTIPROXY_SOURCES := \
-	rest_multi_proxy.cc
-
-LIBRESTMULTIPROXY_LINK := \
-	services
-
-$(eval $(call library,restmultiproxy,$(LIBRESTMULTIPROXY_SOURCES),$(LIBRESTMULTIPROXY_LINK)))
-
 LIBMONITOR_SOURCES := \
-	monitor_provider.cc \
-	monitor_proxy.cc
+	monitor_client.cc \
+	monitor_provider.cc
 
 LIBMONITOR_LINK := \
 	rtb services
@@ -18,13 +10,11 @@ LIBMONITOR_LINK := \
 $(eval $(call library,monitor,$(LIBMONITOR_SOURCES),$(LIBMONITOR_LINK)))
 
 LIBMONITORSERVICE_SOURCES := \
-	monitor.cc \
-	monitor_provider_proxy.cc
+	monitor_endpoint.cc
 
 LIBMONITORSERVICE_LINK := \
 	services \
-	restmultiproxy \
-    rtb
+	rtb
 
 $(eval $(call library,monitor_service,$(LIBMONITORSERVICE_SOURCES),$(LIBMONITORSERVICE_LINK)))
 

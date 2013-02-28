@@ -559,14 +559,15 @@ private:
 
     AgentConfigurationListener configListener;
 
-    /* Reponds to Monitor requests */
-    MonitorProviderEndpoint monitorProviderEndpoint;
+    /* Post service health status to Monitor */
+    MonitorProviderClient monitorProviderClient;
 
     /* MonitorProvider interface */
+    std::string getProviderName() const;
+    Json::Value getProviderIndicators() const;
+
     Date lastWinLoss;
     Date lastImpression;
-
-    Json::Value getMonitorIndicators();
 };
 
 

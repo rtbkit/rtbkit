@@ -437,7 +437,7 @@ PostAuctionLoop(std::shared_ptr<ServiceProxies> proxies,
       router(!!getZmqContext()),
       toAgents(getZmqContext()),
       configListener(getZmqContext()),
-      monitorProviderEndpoint(*this, *this)
+      monitorProviderClient(getZmqContext(), *this)
 {
 }
 
@@ -451,7 +451,7 @@ PostAuctionLoop(ServiceBase & parent,
       router(!!getZmqContext()),
       toAgents(getZmqContext()),
       configListener(getZmqContext()),
-      monitorProviderEndpoint(*this, *this)
+      monitorProviderClient(getZmqContext(), *this)
 {
 }
 
@@ -460,7 +460,7 @@ PostAuctionLoop::
 init()
 {
     initConnections();
-    monitorProviderEndpoint.init();
+    monitorProviderClient.init(getServices()->config);
 }
 
 void
@@ -533,7 +533,6 @@ bindTcp()
     shared->logger.bindTcp(PortRanges::logs);
     endpoint.bindTcp(PortRanges::postAuctionLoop);
     toAgents.bindTcp(PortRanges::postAuctionLoopAgents);
-    monitorProviderEndpoint.bindTcp();
 }
 
 void
@@ -541,7 +540,7 @@ PostAuctionLoop::
 start(std::function<void ()> onStop)
 {
     loop.start(onStop);
-    monitorProviderEndpoint.start();
+    monitorProviderClient.start();
 }
 
 void
@@ -552,7 +551,7 @@ shutdown()
     toAgents.shutdown();
     endpoint.shutdown();
     configListener.shutdown();
-    monitorProviderEndpoint.shutdown();
+    monitorProviderClient.shutdown();
 }
 
 Json::Value
@@ -1858,9 +1857,18 @@ makeBidId(Id auctionId, Id spotId, const std::string & agent)
     return auctionId.toString() + "-" + spotId.toString() + "-" + agent;
 }
 
+std::string
+PostAuctionLoop::
+getProviderName()
+    const
+{
+    return serviceName();
+}
+
 Json::Value
 PostAuctionLoop::
-getMonitorIndicators()
+getProviderIndicators()
+    const
 {
     Json::Value value;
 

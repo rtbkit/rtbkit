@@ -289,13 +289,14 @@ struct MasterBanker
                       const std::string & info);
 
     /* Reponds to Monitor requests */
-    MonitorProviderEndpoint monitorProviderEndpoint;
+    MonitorProviderClient monitorProviderClient;
 
     /* MonitorProvider interface */
+    std::string getProviderName() const;
+    Json::Value getProviderIndicators() const;
+
     Date lastWin;
     Date lastImpression;
-
-    Json::Value getMonitorIndicators();
 };
 
 } // namespace RTBKIT

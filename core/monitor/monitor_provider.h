@@ -10,9 +10,7 @@
 #include <memory>
 
 #include "soa/types/date.h"
-
-#include "soa/service/rest_request_router.h"
-#include "soa/service/rest_service_endpoint.h"
+#include "soa/service/rest_proxy.h"
 
 namespace zmq {
     struct context_t;
@@ -27,39 +25,52 @@ namespace RTBKIT {
 
 struct MonitorProvider
 {
+    /* this method returns the service identifier to use when sending status
+       information to the Monitor */
+    virtual std::string getProviderName() const = 0;
+
     /* this method returns the service status: "true" indicates that all the
        service-specific conditions are fulfilled, "false" otherwise */
-    virtual Json::Value getMonitorIndicators() = 0;
+    virtual Json::Value getProviderIndicators() const = 0;
 };
 
-struct MonitorProviderEndpoint
-    : public ServiceBase, public RestServiceEndpoint
+struct MonitorProviderClient : public RestProxy
 {
-    MonitorProviderEndpoint(ServiceBase & parentService,
-                            MonitorProvider & provider);
-    ~MonitorProviderEndpoint();
+    MonitorProviderClient(const std::shared_ptr<zmq::context_t> & context,
+                          MonitorProvider & provider);
 
-    void init();
+    ~MonitorProviderClient();
+ 
+    void init(std::shared_ptr<ConfigurationService> & config,
+              const std::string & serviceName = "monitor");
+
+    /** shutdown the MessageLoop but make sure all requests have been
+        completed beforehand. */
     void shutdown();
-    void bindTcp();
 
-    /* this method returns the json body, based on "lastStatus_" when the
-     * endpoint is queried */
-    std::string restGetServiceStatus();
+    /** this method is invoked periodically to query the MonitorProvider and
+     * "POST" the result to the Monitor */
+    void postStatus();
 
-    /* this method is executed periodically and set "lastStatus_" to the value
-       returned by MonitorProvider::serviceStatus */
-    void refreshStatus();
+    /** method executed when we receive the response from the Monitor */
+    void onResponseReceived(std::exception_ptr ext,
+                            int responseCode, const std::string & body);
 
-    std::string endpointName_;
-
-    RestRequestRouter router_;
-    Json::Value lastStatus_;
-
+    /** monitored service proxy */
     MonitorProvider & provider_;
 
+    /** monitored service name */
+    std::string restUrlPath_;
+
+    /** bound instance of onResponseReceived */
+    RestProxy::OnDone onDone;
+
+    /** whether a request roundtrip to the Monitor is currently active */
+    bool pendingRequest;
+
+    /** the mutex used when pendingRequest is tested and modified */
     typedef std::unique_lock<std::mutex> Guard;
-    std::mutex lock;
+    mutable std::mutex requestLock;
 };
 
 } // namespace RTBKIT

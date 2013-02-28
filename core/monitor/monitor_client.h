@@ -1,4 +1,4 @@
-/* monitor_proxy.h                                        -*- C++ -*-
+/* monitor_client.h                                        -*- C++ -*-
    Wolfgang Sourdeau, January 2013
    Copyright (c) 2013 Datacratic.  All rights reserved.
 */
@@ -16,21 +16,21 @@ namespace RTBKIT {
 /* This class connects to the Monitor service and queries it periodically to
  * deduce whether the current service (probably the Router) can continue
  * processing its client requests. */
-struct MonitorProxy : public RestProxy
+struct MonitorClient : public RestProxy
 {
-    MonitorProxy(const std::shared_ptr<zmq::context_t> & context,
-                 int checkTimeout = 2)
+    MonitorClient(const std::shared_ptr<zmq::context_t> & context,
+                  int checkTimeout = 2)
         : RestProxy(context),
           pendingRequest(false),
           checkTimeout_(checkTimeout), lastStatus(false),
           testMode(false), testResponse(false)
     {
-        onDone = std::bind(&MonitorProxy::onResponseReceived, this,
+        onDone = std::bind(&MonitorClient::onResponseReceived, this,
                            std::placeholders::_1, std::placeholders::_2,
                            std::placeholders::_3);
     };
 
-    ~MonitorProxy();
+    ~MonitorClient();
  
     void init(std::shared_ptr<ConfigurationService> & config,
               const std::string & serviceName = "monitor");

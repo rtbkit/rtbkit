@@ -1,35 +1,35 @@
-/* monitor_proxy.cc
+/* monitor_client.cc
    Wolfgang Sourdeau, January 2013
    Copyright (c) 2013 Datacratic.  All rights reserved. */
 
 #include <jml/arch/exception_handler.h>
 
-#include "monitor_proxy.h"
+#include "monitor_client.h"
 
 using namespace std;
 
 namespace RTBKIT {
 
-MonitorProxy::
-~MonitorProxy()
+MonitorClient::
+~MonitorClient()
 {
     shutdown();
 }
 
 void
-MonitorProxy::
+MonitorClient::
 init(std::shared_ptr<ConfigurationService> & config,
      const std::string & serviceName)
 {
-    addPeriodic("MonitorProxy::checkStatus", 1.0,
-                std::bind(&MonitorProxy::checkStatus, this),
+    addPeriodic("MonitorClient::checkStatus", 1.0,
+                std::bind(&MonitorClient::checkStatus, this),
                 true);
 
     RestProxy::init(config, serviceName);
 }
 
 void
-MonitorProxy::
+MonitorClient::
 shutdown()
 {
     sleepUntilIdle();
@@ -37,24 +37,24 @@ shutdown()
 }
 
 void
-MonitorProxy::
+MonitorClient::
 checkStatus()
 {
     if (!testMode) {
         Guard(requestLock);
 
         if (pendingRequest) {
-            cerr << "MonitorProxy::checkStatus: last request is still active\n";
+            cerr << "MonitorClient::checkStatus: last request is still active\n";
         }
         else {
             pendingRequest = true;
-            push(onDone, "GET", "/status");
+            push(onDone, "GET", "/v1/status");
         }
     }
 }
 
 void
-MonitorProxy::
+MonitorClient::
 onResponseReceived(exception_ptr ext, int responseCode, const string & body)
 {
     bool newStatus(false);
@@ -77,7 +77,7 @@ onResponseReceived(exception_ptr ext, int responseCode, const string & body)
 }
 
 bool
-MonitorProxy::
+MonitorClient::
 getStatus()
     const
 {

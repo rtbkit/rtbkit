@@ -19,13 +19,13 @@ RouterLogger(std::shared_ptr<ServiceProxies> proxies)
     : ServiceBase("router_logger", proxies),
       Logger(proxies->zmqContext),
       multipleSubscriber(proxies->zmqContext),
-      monitorProviderEndpoint(*this, *this)
+      monitorProviderClient(proxies->zmqContext, *this)
 {}
 
 RouterLogger::
 ~RouterLogger()
 {
-    monitorProviderEndpoint.shutdown();
+    monitorProviderClient.shutdown();
     shutdown();
 }
 
@@ -34,7 +34,7 @@ RouterLogger::
 init(std::shared_ptr<ConfigurationService> config)
 {
     Logger::init();
-    monitorProviderEndpoint.init();
+    monitorProviderClient.init(config);
 
     multipleSubscriber.init(config);
     multipleSubscriber.messageHandler
@@ -57,14 +57,14 @@ start()
 {
     Logger::start();
     multipleSubscriber.start();
-    monitorProviderEndpoint.bindTcp();
-    monitorProviderEndpoint.start();
+    monitorProviderClient.start();
 }
 
 void
 RouterLogger::
 shutdown()
 {
+    monitorProviderClient.shutdown();
     Logger::shutdown();
     multipleSubscriber.shutdown();
 }
@@ -76,9 +76,19 @@ connectAllServiceProviders(const string & serviceClass, const string & epName)
     multipleSubscriber.connectAllServiceProviders(serviceClass, epName);
 }
 
+/** MonitorProvider interface */
+string
+Router::
+getProviderName()
+    const
+{
+    return serviceName();
+}
+
 Json::Value
 RouterLogger::
-getMonitorIndicators()
+getProviderIndicators()
+    const
 {
     bool status(true);
 

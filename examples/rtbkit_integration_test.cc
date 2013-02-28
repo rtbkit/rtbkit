@@ -174,7 +174,7 @@ struct Components
             exchangePorts.push_back(port);
         }
 
-        // The MonitorProxy queries all specified services once per second and
+        // monitorProxy queries all specified services once per second and
         // feeds the Monitor with the aggregate result
         monitorProxy.init(proxies->config,
                           {"router1", "router2", "pas1", "masterBanker"});

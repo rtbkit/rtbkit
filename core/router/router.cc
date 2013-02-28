@@ -83,9 +83,9 @@ Router(ServiceBase & parent,
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
-      monitorProxy(getZmqContext()),
+      monitorClient(getZmqContext()),
       slowModeCount(0),
-      monitorProviderEndpoint(*this, *this)
+      monitorProviderClient(getZmqContext(), *this)
 {
 }
 
@@ -112,9 +112,9 @@ Router(std::shared_ptr<ServiceProxies> services,
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
-      monitorProxy(getZmqContext()),
+      monitorClient(getZmqContext()),
       slowModeCount(0),
-      monitorProviderEndpoint(*this, *this)
+      monitorProviderClient(getZmqContext(), *this)
 {
 }
 
@@ -162,8 +162,8 @@ init()
             submitToPostAuctionService(auction, adSpotId, response);
         };
 
-    monitorProxy.init(getServices()->config);
-    monitorProviderEndpoint.init();
+    monitorClient.init(getServices()->config);
+    monitorProviderClient.init(getServices()->config);
 
     initialized = true;
 }
@@ -194,7 +194,6 @@ bindTcp()
 {
     shared->logger.bindTcp(PortRanges::logs);
     agentEndpoint.bindTcp(PortRanges::router);
-    monitorProviderEndpoint.bindTcp();
 }
 
 void
@@ -270,8 +269,8 @@ start(boost::function<void ()> onStop)
 
     cleanupThread.reset(new boost::thread(auctionDeleter));
 
-    monitorProxy.start();
-    monitorProviderEndpoint.start();
+    monitorClient.start();
+    monitorProviderClient.start();
 }
 
 size_t
@@ -623,8 +622,8 @@ shutdown()
     shared->logger.shutdown();
     banker.reset();
 
-    monitorProxy.shutdown();
-    monitorProviderEndpoint.shutdown();
+    monitorClient.shutdown();
+    monitorProviderClient.shutdown();
 }
 
 void
@@ -2176,7 +2175,7 @@ void
 Router::
 onNewAuction(std::shared_ptr<Auction> auction)
 {
-    if (!monitorProxy.getStatus()) {
+    if (!monitorClient.getStatus()) {
         Date now = Date::now();
 
         if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
@@ -2586,9 +2585,19 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
     }
 }
 
+/** MonitorProvider interface */
+string
+Router::
+getProviderName()
+    const
+{
+    return serviceName();
+}
+
 Json::Value
 Router::
-getMonitorIndicators()
+getProviderIndicators()
+    const
 {
     Json::Value value;
 

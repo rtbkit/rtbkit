@@ -278,7 +278,7 @@ MasterBanker(std::shared_ptr<ServiceProxies> proxies,
     : ServiceBase(serviceName, proxies),
       RestServiceEndpoint(proxies->zmqContext),
       saving(false),
-      monitorProviderEndpoint(*this, *this)
+      monitorProviderClient(proxies->zmqContext, *this)
 {
 }
 
@@ -291,6 +291,7 @@ MasterBanker::
         ML::futex_wait(saving, true);
     }
     unregisterServiceProvider(serviceName(), { "rtbBanker" });
+    monitorProviderClient.shutdown();
 }
 
 void
@@ -460,7 +461,7 @@ init(const shared_ptr<BankerPersistence> & storage)
                        JsonParam<ShadowAccount>("",
                                                 "Representation of the shadow account"));
 
-    monitorProviderEndpoint.init();
+    monitorProviderClient.init(getServices()->config);
 }
 
 void
@@ -468,14 +469,13 @@ MasterBanker::
 start()
 {
     RestServiceEndpoint::start();
-    monitorProviderEndpoint.start();
+    monitorProviderClient.start();
 }
 
 pair<string, string>
 MasterBanker::
 bindTcp()
 {
-    monitorProviderEndpoint.bindTcp();
     return RestServiceEndpoint::bindTcp(PortRanges::zmq.banker, PortRanges::http.banker);
 }
 
@@ -484,7 +484,7 @@ MasterBanker::
 shutdown()
 {
     RestServiceEndpoint::shutdown();
-    monitorProviderEndpoint.shutdown();
+    monitorProviderClient.shutdown();
 }
 
 Json::Value
@@ -606,9 +606,19 @@ bindFixedHttpAddress(const string & uri)
 {
 }
 
+/** MonitorProvider interface */
+string
+MasterBanker::
+getProviderName()
+    const
+{
+    return serviceName();
+}
+
 Json::Value
 MasterBanker::
-getMonitorIndicators()
+getProviderIndicators()
+    const
 {
     Json::Value value;
 

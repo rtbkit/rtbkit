@@ -31,7 +31,6 @@ RouterStack(std::shared_ptr<ServiceProxies> services,
       postAuctionLoop(*this, "postAuction"),
       config(services, "config"),
       monitor(services, "monitor"),
-      monitorProxy(getZmqContext(), monitor),
       initialized(false)
 {
 }
@@ -75,14 +74,9 @@ init()
     router.setBanker(makeSlaveBanker("router"));
     router.bindTcp();
 
-    monitor.init();
+    monitor.init({"router", "postAuction", "masterBanker"});
     monitor.bindTcp();
     monitor.start();
-
-    monitorProxy.init(getServices()->config,
-            {"router", "postAuction", "masterBanker"});
-    monitorProxy.start();
-
 
     initialized = true;
 }
@@ -131,7 +125,6 @@ shutdown()
     budgetController.shutdown();
     masterBanker.shutdown();
     config.shutdown();
-    monitorProxy.shutdown();
     monitor.shutdown();
 }
 

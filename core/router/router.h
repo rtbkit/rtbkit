@@ -29,7 +29,7 @@
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
-#include "rtbkit/core/monitor/monitor_proxy.h"
+#include "rtbkit/core/monitor/monitor_client.h"
 
 namespace RTBKIT {
 
@@ -469,16 +469,17 @@ public:
 
     /* Client connection to the Monitor, determines if we can process bid
        requests */
-    MonitorProxy monitorProxy;
+    MonitorClient monitorClient;
     Date slowModeLastAuction;
     int slowModeCount;
 
     /* MONITOR PROVIDER */
-    /* Reponds to Monitor requests */
-    MonitorProviderEndpoint monitorProviderEndpoint;
+    /* Post service health status to Monitor */
+    MonitorProviderClient monitorProviderClient;
 
     /* MonitorProvider interface */
-    Json::Value getMonitorIndicators();
+    std::string getProviderName() const;
+    Json::Value getProviderIndicators() const;
 };
 
 

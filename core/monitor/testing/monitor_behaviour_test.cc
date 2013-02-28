@@ -18,14 +18,12 @@
 #include "jml/utils/testing/watchdog.h"
 #include "jml/utils/pair_utils.h" // ostream << pair
 
-#include "soa/service/rest_proxy.h"
 #include "soa/service/service_base.h"
 #include "soa/service/testing/zookeeper_temporary_server.h"
 
-#include "rtbkit/core/monitor/monitor.h"
+#include "rtbkit/core/monitor/monitor_client.h"
+#include "rtbkit/core/monitor/monitor_endpoint.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
-#include "rtbkit/core/monitor/monitor_provider_proxy.h"
-#include "rtbkit/core/monitor/monitor_proxy.h"
 
 #include "mock_monitor_provider.h"
 
@@ -33,166 +31,96 @@ using namespace std;
 using namespace Datacratic;
 using namespace RTBKIT;
 
-/* test the response returned by the monitor provider endpoint */
-BOOST_AUTO_TEST_CASE( test_monitor_provider )
-{
-    ML::Watchdog watchdog(20.0);
-    
-    MockMonitorProvider provider;
-
-    auto proxies = std::make_shared<ServiceProxies>();
-    ServiceBase parentService("parentservice", proxies);
-    MonitorProviderEndpoint endpoint(parentService, provider);
-    endpoint.init();
-    endpoint.bindTcp();
-    endpoint.start();
-
-    int rc;
-    Json::Value bodyJson;
-
-    auto doRequestSync = [&] () {
-        int done(false);
-        auto onDone = [&] (std::exception_ptr excPtr,
-                           int newRc, string newBody) {
-            rc = newRc;
-            // cerr << "body: " << newBody << endl;
-            bodyJson = Json::parse(newBody);
-            done = true;
-            ML::futex_wake(done);
-        };
-
-        RestProxy proxy(proxies->zmqContext);
-        auto config = proxies->config;
-        // config->dump(cerr);
-        proxy.init(config, "parentservice/monitor-provider");
-        proxy.start();
-        proxy.push(onDone, "GET", "/status");
-        while (!done) {
-            cerr << "waiting for response" << endl;
-            ML::futex_wait(done, false);
-        }
-    };
-
-    /* initial value is "null" */
-    doRequestSync();
-    BOOST_CHECK_EQUAL(rc, 200);
-    Json::Value testJson = Json::Value();
-    BOOST_CHECK_EQUAL(bodyJson, testJson);
-
-    /* set status to true, "status" value becomes "ok" */
-    provider.status = true;
-    ML::sleep(2);
-    doRequestSync();
-    BOOST_CHECK_EQUAL(rc, 200);
-    testJson = Json::parse("{'status': 'ok'}");
-    BOOST_CHECK_EQUAL(bodyJson, testJson);
-
-    /* set status to false, "status" value becomes "failure" */
-    provider.status = false;
-    ML::sleep(2);
-    doRequestSync();
-    BOOST_CHECK_EQUAL(rc, 200);
-    testJson = Json::parse("{'status': 'failure'}");
-    BOOST_CHECK_EQUAL(bodyJson, testJson);
-}
-
-/* test the Monitor/MonitorProviderProxy pair using 2 mock monitor services */
-BOOST_AUTO_TEST_CASE( test_monitor )
+#if 0
+/* test the MonitorEndpoint/MonitorProviderClient pair
+   using 2 mock monitor providers */
+BOOST_AUTO_TEST_CASE( test_monitor_endpoint )
 {
     ML::Watchdog watchdog(30.0);
 
     auto proxies = std::make_shared<ServiceProxies>();
 
-    Monitor monitor(proxies);
+    MonitorEndpoint endpoint(proxies);
+    endpoint.init({"parentservice1", "parentservice2"});
+    endpoint.bindTcp();
+    endpoint.start();
+    auto waitUpdate = [&] (bool initialStatus) {
+        for (auto & it: endpoint.providersStatus_) {
+            auto & providerStatus = it.second;
+            providerStatus.lastStatus = initialStatus;
+            Date initialCheck = providerStatus.lastCheck;
+            while (providerStatus.lastCheck == initialCheck) {
+                ML::sleep(1);
+            }
+        }
+    };
 
     MockMonitorProvider provider1;
+    provider1.providerName_ = "parentservice1";
     ServiceBase parentService1("parentservice1", proxies);
-    MonitorProviderEndpoint endpoint1(parentService1, provider1);
-    endpoint1.init();
-    endpoint1.start();
-    endpoint1.bindTcp();
+    MonitorProviderClient providerClient1(proxies->zmqContext, provider1);
+    providerClient1.init(proxies->config);
+    providerClient1.start();
 
     MockMonitorProvider provider2;
+    provider2.providerName_ = "parentservice2";
     ServiceBase parentService2("parentservice2", proxies);
-    MonitorProviderEndpoint endpoint2(parentService2, provider2);
-    endpoint2.init();
-    endpoint2.start();
-    endpoint2.bindTcp();
-
-    MonitorProviderProxy proxy(proxies->zmqContext, monitor);
-    proxy.init(proxies->config,
-                {"parentservice1", "parentservice2"});
-    proxy.start();
+    MonitorProviderClient providerClient2(proxies->zmqContext, provider2);
+    providerClient2.init(proxies->config);
+    providerClient2.start();
 
     /* provider1 status is false and provider2's is false
        => proxy status is false */
     cerr << ("test: "
              "provider1 status is false and provider2's is false\n"
              "=> proxy status is false\n");
-    monitor.lastStatus = true;
-    Date initialCheck = monitor.lastCheck;
-    while (monitor.lastCheck == initialCheck) {
-        ML::sleep(3);
-    }
-    BOOST_CHECK_EQUAL(monitor.getMonitorStatus(), false);
+    provider1.status_ = false;
+    provider2.status_ = false;
+    waitUpdate(true);
+    BOOST_CHECK_EQUAL(endpoint.getMonitorStatus(), false);
 
     /* provider1 status is true but provider2's is false
        => proxy status is false */
     cerr << ("test: "
              "provider1 status is true but provider2's is false\n"
              "=> proxy status is false\n");
-    provider1.status = true;
-    monitor.lastStatus = true;
-    initialCheck = monitor.lastCheck;
-    while (monitor.lastCheck == initialCheck) {
-        ML::sleep(3);
-    }
-    BOOST_CHECK_EQUAL(monitor.getMonitorStatus(), false);
+    provider1.status_ = true;
+    waitUpdate(true);
+    BOOST_CHECK_EQUAL(endpoint.getMonitorStatus(), false);
 
     /* provider1 status is true and provider2's is true
        => proxy status is true */
     cerr << ("test: "
              "provider1 status is true and provider2's is true\n"
              "=> proxy status is true\n");
-    provider2.status = true;
-    monitor.lastStatus = false;
-    initialCheck = monitor.lastCheck;
-    while (monitor.lastCheck == initialCheck) {
-        ML::sleep(3);
-    }
-    BOOST_CHECK_EQUAL(monitor.getMonitorStatus(), true);
+    provider2.status_ = true;
+    waitUpdate(false);
+    BOOST_CHECK_EQUAL(endpoint.getMonitorStatus(), true);
 
-    /* all providers answer with a delay of one second
+    /* all providers send updates with a delay of one second
        => proxy status is true */
     cerr << ("test: "
              "all providers answer with a delay of one second\n"
              "=> proxy status is true\n");
-    provider1.delay = 1;
-    provider2.delay = 1;
-    monitor.lastStatus = false;
-    initialCheck = monitor.lastCheck;
-    while (monitor.lastCheck == initialCheck) {
-        ML::sleep(3);
-    }
-    BOOST_CHECK_EQUAL(monitor.getMonitorStatus(), true);
+    provider1.delay_ = 1;
+    provider2.delay_ = 1;
+    waitUpdate(false);
+    BOOST_CHECK_EQUAL(endpoint.getMonitorStatus(), true);
 
-    /* one providers answers with a delay of three seconds
+    /* one providers sends updates with a delay of three seconds
        => proxy status is false */
     cerr << ("test: "
              "one provider answers with a delay of three seconds\n"
              "=> proxy status is false\n");
-    provider2.delay = 3;
-    monitor.lastStatus = true;
-    initialCheck = monitor.lastCheck;
-    while (monitor.lastCheck == initialCheck) {
-        ML::sleep(3);
-    }
-    BOOST_CHECK_EQUAL(monitor.getMonitorStatus(), false);
+    provider2.delay_ = 3;
+    waitUpdate(true);
+    BOOST_CHECK_EQUAL(endpoint.getMonitorStatus(), false);
 }
+#endif
 
-/* test the ability of a MonitorProxy to update itself via http, using a
+/* test the ability of a MonitorClient to update itself via http, using a
  * Monitor endpoint and zookeeper */
-BOOST_AUTO_TEST_CASE( test_monitor_proxy )
+BOOST_AUTO_TEST_CASE( test_monitor_client )
 {
     ML::Watchdog watchdog(30.0);
 
@@ -202,37 +130,37 @@ BOOST_AUTO_TEST_CASE( test_monitor_proxy )
     auto proxies = std::make_shared<ServiceProxies>();
     proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
-    Monitor monitor(proxies);
-    monitor.init();
-    monitor.bindTcp();
-    monitor.start();
+    MonitorEndpoint endpoint(proxies);
+    endpoint.init({"tim"});
+    endpoint.bindTcp();
+    endpoint.start();
     
-    MonitorProxy proxy(proxies->zmqContext);
-    proxy.init(proxies->config);
-    proxy.start();
+    MonitorClient client(proxies->zmqContext);
+    client.init(proxies->config);
+    client.start();
 
     cerr << "test: expect computed status to be TRUE"
          << " after quering the Monitor" << endl;
-    proxy.lastStatus = false;
-    monitor.lastCheck = Date::now();
-    monitor.lastStatus = true;
-    Date initialCheck = proxy.lastCheck;
-    while (proxy.lastCheck == initialCheck) {
+    client.lastStatus = false;
+    endpoint.providersStatus_["tim"].lastCheck = Date::now();
+    endpoint.providersStatus_["tim"].lastStatus = true;
+    Date initialCheck = client.lastCheck;
+    while (client.lastCheck == initialCheck) {
         /* make sure the monitor does not return false */
-        monitor.lastCheck = Date::now();
+        endpoint.providersStatus_["tim"].lastCheck = Date::now();
         ML::sleep(1);
     }
-    BOOST_CHECK_EQUAL(proxy.getStatus(), true);
+    BOOST_CHECK_EQUAL(client.getStatus(), true);
 
     cerr << "test: expect computed status to be FALSE"
          << " after quering the Monitor" << endl;
-    proxy.lastStatus = true;
-    monitor.lastStatus = false;
-    initialCheck = proxy.lastCheck;
-    while (proxy.lastCheck == initialCheck) {
-        /* make sure the monitor does not return false */
-        monitor.lastCheck = Date::now();
+    client.lastStatus = true;
+    endpoint.providersStatus_["tim"].lastStatus = false;
+    initialCheck = client.lastCheck;
+    while (client.lastCheck == initialCheck) {
+        /* make sure the endpoint does not return false */
+        endpoint.providersStatus_["tim"].lastCheck = Date::now();
         ML::sleep(1);
     }
-    BOOST_CHECK_EQUAL(proxy.getStatus(), false);
+    BOOST_CHECK_EQUAL(client.getStatus(), false);
 }

@@ -33,12 +33,14 @@ struct RouterLogger : public Datacratic::ServiceBase,
     void connectAllServiceProviders(const std::string & serviceClass,
                                     const std::string & epName);
 
-    Json::Value getMonitorIndicators();
-
     // Subscription object to the named services
     Datacratic::ZmqNamedMultipleSubscriber multipleSubscriber;
 
-    MonitorProviderEndpoint monitorProviderEndpoint;
+    MonitorProviderClient monitorProviderClient;
+
+    /* MonitorProvider interface */
+    std::string getProviderName() const;
+    Json::Value getProviderIndicators() const;
 };
 
 } // namespace RTKBIT

@@ -11,7 +11,7 @@
 
 #include "jml/arch/timers.h"
 #include "rtbkit/common/port_ranges.h"
-#include "monitor.h"
+#include "monitor_endpoint.h"
 
 using namespace boost::program_options;
 using namespace std;
@@ -70,26 +70,19 @@ int main(int argc, char ** argv)
     }
 
     auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper(zookeeperUri, installation);
+    // proxies->useZookeeper(zookeeperUri, installation);
     if (!carbonUris.empty())
         proxies->logToCarbon(carbonUris, installation + "." + nodeName);
 
-    Monitor monitor(proxies, "monitor");
-    monitor.init();
+    MonitorEndpoint monitor(proxies, "monitor");
+    monitor.init({"router", "postAuction", "masterBanker", "router_logger"});
     auto addr = monitor.bindTcp(PortRanges::zmq.monitor, PortRanges::http.monitor);
     cerr << "monitor is listening on "
          << addr.first << "," << addr.second << endl;
 
-    MonitorProviderProxy proxy(proxies->zmqContext, monitor);
-    proxy.init(proxies->config,
-               {"router", "postAuction", "masterBanker", "router_logger"});
-
-    monitor.start();
-    proxy.start();
-
     proxies->config->dump(cerr);
 
-    for (;;) {
-        ML::sleep(10);
-    }
+    monitor.startSync();
+
+    return 0;
 }
