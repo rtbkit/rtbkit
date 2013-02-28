@@ -444,14 +444,15 @@ goto_ofs(uint64_t ofs, size_t line, size_t col)
     line_ = line;
     col_ = col;
 
-    int i = 0;
+    int i = 0, s = buffers_.size();
     /* TODO: be more efficient... */
     for (std::list<Buffer>::iterator it = buffers_.begin();
          it != buffers_.end();  ++it, ++i) {
         //cerr << "buffer " << i << " of " << buffers_.size() << ": ofs "
         //     << it->ofs << " size " << it->size << endl;
         if (ofs < it->ofs + it->size
-            || (ofs == 0 && it->ofs + it->size == 0)) {
+            || (ofs == 0 && it->ofs + it->size == 0)
+            || (i == s - 1 && ofs == it->ofs + it->size)) {
             /* In here. */
             cur_ = it->pos + (ofs - it->ofs);
             ebuf_ = it->pos + it->size;
