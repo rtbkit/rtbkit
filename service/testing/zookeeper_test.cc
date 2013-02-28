@@ -21,6 +21,7 @@
 #include "soa/service/testing/zookeeper_temporary_server.h"
 
 #include <iostream>
+#include <set>
 #include <sys/prctl.h>
 
 using namespace Datacratic;
@@ -34,6 +35,15 @@ BOOST_AUTO_TEST_CASE( test_zookeeper )
 
     // avoid aborting test when killing a child process
     signal(SIGCHLD, SIG_DFL);
+
+    std::cerr << "starting zookeeper..." << std::endl;
+    server.start();
+
+    ZookeeperConnection zk;
+    zk.connect(uri);
+
+    auto node = zk.createNode("/hello", "world", true, false);
+    std::cerr << "nodeName = " << node.first << std::endl;
 
     int forked = 0;
     int killed = 0;
@@ -119,21 +129,17 @@ BOOST_AUTO_TEST_CASE( test_zookeeper )
         }
     }
 
-    std::cerr << "starting zookeeper..." << std::endl;
-    server.start();
-
-    ZookeeperConnection zk;
-    zk.connect(uri);
-
-    auto node = zk.createNode("/hello", "world", true, false);
-    std::cerr << "nodeName = " << node.first << std::endl;
-
-    for(;;) {
+    bool ok = false;
+    while(!ok) {
         auto children = zk.getChildren("/");
         std::cerr << "children = " << children << std::endl;
 
         if(children.size() == 2 + pids.size()) {
-            break;
+            ok = true;
+            std::set<std::string> keys(children.begin(), children.end());
+            for(int pid : pids) {
+                ok &= keys.count(std::to_string(pid));
+            }
         }
 
         ML::sleep(1);

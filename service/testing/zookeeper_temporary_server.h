@@ -119,7 +119,7 @@ private:
         file << "dataLogDir=" << uniquePath << std::endl;
         file << "initLimit=10" << std::endl;
         file << "syncLimit=5" << std::endl;
-        file << "maxClientCnxns=1024" << std::endl;
+        file << "maxClientCnxns=4096" << std::endl;
     }
 
     void createServer() {
