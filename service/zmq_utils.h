@@ -21,6 +21,12 @@
 #include "jml/arch/exception.h"
 #include "jml/compiler/compiler.h"
 
+#if 1
+#define BLOCK_FLAG 0
+#else
+#define BLOCK_FLAG ZMQ_DONTWAIT
+#endif
+
 namespace Datacratic {
 
 inline void setIdentity(zmq::socket_t & sock, const std::string & identity)
@@ -42,6 +48,13 @@ inline void setHwm(zmq::socket_t & sock, int hwm)
 {
     sock.setsockopt(ZMQ_SNDHWM, &hwm, sizeof(hwm));
     sock.setsockopt(ZMQ_RCVHWM, &hwm, sizeof(hwm));
+}
+
+inline void throwSocketError(const char *data)
+{
+    throw ML::Exception(errno,
+                        "unhandled error (" + std::to_string(errno) + ")",
+                        data);
 }
 
 /** Returns events available on a socket: (input, output). */
@@ -170,41 +183,48 @@ inline zmq::message_t encodeMessage(const Json::Value & j)
     return chomp(j.toString());
 }
 
-inline void sendMesg(zmq::socket_t & sock,
+inline bool sendMesg(zmq::socket_t & sock,
                      const std::string & msg,
                      int options = 0)
 {
     zmq::message_t msg1(msg.size());
     std::copy(msg.begin(), msg.end(), (char *)msg1.data());
-    sock.send(msg1, options);
+    return sock.send(msg1, options);
 }
     
-inline void sendMesg(zmq::socket_t & sock,
+inline bool sendMesg(zmq::socket_t & sock,
                      const char * msg,
                      int options = 0)
 {
     size_t sz = strlen(msg);
     zmq::message_t msg1(sz);
     std::copy(msg, msg + sz, (char *)msg1.data());
-    sock.send(msg1, options);
+    return sock.send(msg1, options);
 }
     
-inline void sendMesg(zmq::socket_t & sock,
+inline bool sendMesg(zmq::socket_t & sock,
                      const void * msg,
                      size_t sz,
                      int options = 0)
 {
     zmq::message_t msg1(sz);
     memcpy(msg1.data(), msg, sz);
-    sock.send(msg1, options);
+    return sock.send(msg1, options);
 }
 
 template<typename T>
-inline void sendMesg(zmq::socket_t & sock,
+inline bool sendMesg(zmq::socket_t & sock,
                      const T & obj,
                      int options = 0)
 {
-    sock.send(encodeMessage(obj), options);
+    return sock.send(encodeMessage(obj), options);
+}
+
+template<typename T>
+bool sendMesg(zmq::socket_t & socket, const std::shared_ptr<T> & val,
+              int flags = 0)
+{
+    return sendMesg(socket, sharedPtrToMessage(val), flags);
 }
 
 inline void sendAll(zmq::socket_t & sock,
@@ -215,8 +235,12 @@ inline void sendAll(zmq::socket_t & sock,
         throw ML::Exception("can't send an empty message vector");
 
     for (unsigned i = 0;  i < message.size() - 1;  ++i)
-        sendMesg(sock, message[i], ZMQ_SNDMORE);
-    sendMesg(sock, message.back(), lastFlags);
+        if (!sendMesg(sock, message[i], ZMQ_SNDMORE | BLOCK_FLAG)) {
+            throwSocketError(__FUNCTION__);
+        }
+    if (!sendMesg(sock, message.back(), lastFlags | BLOCK_FLAG)) {
+        throwSocketError(__FUNCTION__);
+    }
 }
 
 inline void sendAll(zmq::socket_t & sock,
@@ -224,30 +248,30 @@ inline void sendAll(zmq::socket_t & sock,
                     int lastFlags = 0)
 {
     sendAll(sock, std::vector<std::string>(message));
-    return;
-
-    for (auto it = message.begin(), end = message.end();  it != end;  ++it)
-        sendMesg(sock, *it, (it != boost::prior(end) ? ZMQ_SNDMORE : lastFlags));
 }
 
+#if 0
 template<typename T>
-inline void sendMesg(zmq::socket_t & socket,
-                     const std::vector<T> & vals,
-                     int lastFlags)
+inline void sendAll(zmq::socket_t & socket,
+                    const std::vector<T> & vals,
+                    int lastFlags)
 {
     if (vals.empty()) {
         throw ML::Exception("can't send empty vector");
     }
     for (int i = 0;  i < vals.size() - 1;  ++i)
-        sendMesg(socket, vals[i], ZMQ_SNDMORE);
-    sendMesg(socket, vals.back(), lastFlags);
+        sendMesg(socket, vals[i], ZMQ_SNDMORE | BLOCK_FLAG);
+    sendMesg(socket, vals.back(), lastFlags | BLOCK_FLAG);
 }
+#endif
 
 template<typename Arg1>
 void sendMessage(zmq::socket_t & socket,
                  const Arg1 & arg1)
 {
-    sendMesg(socket, arg1, 0);
+    if (!sendMesg(socket, arg1, 0)) {
+        throwSocketError(__FUNCTION__);
+    }
 }
 
 inline void sendMessage(zmq::socket_t & socket,
@@ -261,8 +285,69 @@ void sendMessage(zmq::socket_t & socket,
                  const Arg1 & arg1,
                  Args... args)
 {
-    sendMesg(socket, arg1, ZMQ_SNDMORE);
+    if (!sendMesg(socket, arg1, ZMQ_SNDMORE | BLOCK_FLAG)) {
+        throwSocketError(__FUNCTION__);
+    }
     sendMessage(socket, args...);
+}
+
+/* non-throwing versions, where EAGAIN cases would return false */
+template<typename Arg1>
+bool trySendMessage(zmq::socket_t & socket, const Arg1 & arg1)
+{
+    if (!sendMesg(socket, arg1, 0)) {
+        if (errno == EAGAIN)
+            return false;
+        else
+            throwSocketError(__FUNCTION__);
+    }
+
+    return true;
+}
+
+template<typename Arg1, typename... Args>
+bool trySendMessage(zmq::socket_t & socket, const Arg1 & arg1, Args... args)
+{
+    if (!sendMesg(socket, arg1, ZMQ_SNDMORE | BLOCK_FLAG)) {
+        if (errno == EAGAIN)
+            return false;
+        else
+            throwSocketError(__FUNCTION__);
+    }
+    return trySendMessage(socket, args...);
+}
+
+inline bool trySendAll(zmq::socket_t & sock,
+                       const std::vector<std::string> & message,
+                       int lastFlags = 0)
+{
+    if (message.empty())
+        throw ML::Exception("can't send an empty message vector");
+
+    for (unsigned i = 0; i < message.size() - 1;  ++i) {
+        if (!sendMesg(sock, message[i], ZMQ_SNDMORE | BLOCK_FLAG)) {
+            if (errno == EAGAIN)
+                return false;
+            else
+                throwSocketError(__FUNCTION__);
+        }
+    }
+
+    if (!sendMesg(sock, message.back(), lastFlags | BLOCK_FLAG)) {
+        if (errno == EAGAIN)
+            return false;
+        else
+            throwSocketError(__FUNCTION__);
+    }
+
+    return true;
+}
+
+inline bool trySendAll(zmq::socket_t & sock,
+                        const std::initializer_list<std::string> & message,
+                        int lastFlags = 0)
+{
+    return trySendAll(sock, std::vector<std::string>(message), lastFlags);
 }
 
 /* We take a copy of the shared pointer in a heap-allocated object that
@@ -309,13 +394,6 @@ sharedPtrFromMessage(const std::string & message)
 
     std::auto_ptr<std::shared_ptr<T> > ptrHolder(ptr);
     return *ptr;
-}
-
-template<typename T>
-void sendMesg(zmq::socket_t & socket, const std::shared_ptr<T> & val,
-              int flags = 0)
-{
-    sendMesg(socket, sharedPtrToMessage(val), flags);
 }
 
 template<typename T>
