@@ -21,6 +21,7 @@
 #include "soa/service/testing/zookeeper_temporary_server.h"
 
 #include <iostream>
+#include <sys/prctl.h>
 
 using namespace Datacratic;
 
@@ -31,37 +32,90 @@ BOOST_AUTO_TEST_CASE( test_zookeeper )
     ZooKeeper::TemporaryServer server;
     std::string uri = ML::format("localhost:%d", server.getPort());
 
+    // avoid aborting test when killing a child process
+    signal(SIGCHLD, SIG_DFL);
+
+    int forked = 0;
+    int killed = 0;
+
+    std::vector<int> tasks;
+    tasks.push_back(100);
+    tasks.push_back(-10);
+    tasks.push_back(+10);
+    tasks.push_back(-20);
+    tasks.push_back(+20);
+    tasks.push_back(-50);
+    tasks.push_back(+50);
+
     std::vector<int> pids;
 
-    int n = 100;
-    for(int i = 0; i != n; ++i) {
-        int pid = fork();
-        if(pid == -1) {
-            throw ML::Exception(errno, "fork");
-        }
-
-        if(pid == 0) {
-            ML::sleep(1);
-            std::cerr << getpid() << " trying to connect to " << uri << std::endl;
-            ZookeeperConnection zk;
-            zk.connect(uri);
-            for(;;) {
-                auto node = zk.readNode("/hello");
-                std::cerr << getpid() << " node=" << node << std::endl;
-                if(node == "world") {
-                    break;
+    for(int task : tasks) {
+        if(task > 0) {
+            for(int i = 0; i != task; ++i) {
+                int pid = fork();
+                if(pid == -1) {
+                    throw ML::Exception(errno, "fork");
                 }
 
-                ML::sleep(1);
-            }
+                if(pid == 0) {
+                    pid = getpid();
+                    std::cerr << "process created pid=" << pid << std::endl;
 
-            zk.createNode(ML::format("/%d", getpid()), "hello", true, false);
-            for(;;) {
-                ML::sleep(1);
+                    int res = prctl(PR_SET_PDEATHSIG, SIGHUP);
+                    if(res == -1) {
+                        throw ML::Exception(errno, "prctl failed");
+                    }
+
+                    ML::sleep(1);
+
+                    std::cerr << pid << " trying to connect to " << uri << std::endl;
+                    ZookeeperConnection zk;
+                    zk.connect(uri);
+
+                    for(;;) {
+                        auto node = zk.readNode("/hello");
+                        std::cerr << pid << " node=" << node << std::endl;
+                        if(node == "world") {
+                            break;
+                        }
+
+                        ML::sleep(1);
+                    }
+
+                    zk.createNode(ML::format("/%d", pid), "hello", true, false);
+                    for(;;) {
+                        ML::sleep(1);
+                    }
+                }
+                else {
+                    pids.push_back(pid);
+                    ++forked;
+                }
             }
         }
         else {
-            pids.push_back(pid);
+            for(int i = 0; i != -task; ++i) {
+                int k = rand() % pids.size();
+                int pid = pids[k];
+
+                std::cerr << "killing pid=" << pid << std::endl;
+
+                int res = kill(pid, SIGTERM);
+                if(res == -1) {
+                    throw ML::Exception(errno, "cannot kill child process");
+                }
+
+                int status = 0;
+                res = waitpid(pid, &status, 0);
+                if (res == -1) {
+                    throw ML::Exception(errno, "failed to wait for child process to shutdown");
+                }
+ 
+                std::swap(pids[k], pids.back());
+                pids.pop_back();
+
+                ++killed;
+            }
         }
     }
 
@@ -74,34 +128,38 @@ BOOST_AUTO_TEST_CASE( test_zookeeper )
     auto node = zk.createNode("/hello", "world", true, false);
     std::cerr << "nodeName = " << node.first << std::endl;
 
-    signal(SIGCHLD, SIG_DFL);
-
     for(;;) {
         auto children = zk.getChildren("/");
         std::cerr << "children = " << children << std::endl;
 
-        if(children.size() == 2 + n) {
+        if(children.size() == 2 + pids.size()) {
             break;
         }
 
         ML::sleep(1);
     }
 
-    for(int i = 0; i != n; ++i) {
-        int pid = pids[i];
+    for(int pid : pids) {
         int res = kill(pid, SIGTERM);
         if (res == -1) {
             throw ML::Exception(errno, "cannot kill child process");
         }
+
+        ++killed;
     }
 
-    for(int i = 0; i != n; ++i) {
-        int pid = pids[i];
+    for(int pid : pids) {
         int status = 0;
         int res = waitpid(pid, &status, 0);
         if (res == -1) {
             throw ML::Exception(errno, "failed to wait for child process to shutdown");
         }
     }
+
+    std::cerr << "number of process forked: " << forked << std::endl;
+    std::cerr << "number of process killed: " << killed << std::endl;
+
+    BOOST_CHECK_EQUAL(forked, 180);
+    BOOST_CHECK_EQUAL(killed, 180);
 }
 

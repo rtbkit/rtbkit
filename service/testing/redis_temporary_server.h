@@ -15,6 +15,7 @@
 #include <sys/wait.h>
 #include <sys/un.h>
 #include <sys/socket.h>
+#include <sys/prctl.h>
 #include <signal.h>
 
 namespace Redis {
@@ -91,11 +92,16 @@ struct RedisTemporaryServer : boost::noncopyable {
         if (pid == -1)
             throw ML::Exception(errno, "fork");
         if (pid == 0) {
+            int res = prctl(PR_SET_PDEATHSIG, SIGHUP);
+            if(res == -1) {
+                throw ML::Exception(errno, "prctl failed");
+            }
+
             signal(SIGTERM, SIG_DFL);
             signal(SIGKILL, SIG_DFL);
 
             cerr << "running redis" << endl;
-            int res = execlp("redis-server",
+            res = execlp("redis-server",
                              "redis-server",
                              "--port", "0",
                              "--unixsocket", "./redis-socket",

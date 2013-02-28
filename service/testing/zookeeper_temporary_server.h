@@ -16,6 +16,7 @@
 #include <sys/wait.h>
 #include <sys/un.h>
 #include <sys/socket.h>
+#include <sys/prctl.h>
 #include <signal.h>
 
 namespace ZooKeeper {
@@ -131,6 +132,11 @@ private:
             signal(SIGTERM, SIG_DFL);
             signal(SIGKILL, SIG_DFL);
 
+            int res = prctl(PR_SET_PDEATHSIG, SIGHUP);
+            if(res == -1) {
+                throw ML::Exception(errno, "prctl failed");
+            }
+
             std::string home = getenv("HOME");
             std::string path = home + "/local/bin/zookeeper/bin/zkServer.sh";
             std::string file = uniquePath + "/zoo.cfg";
@@ -141,7 +147,7 @@ private:
 
             std::cerr << "running zookeeper from " << file << std::endl;
 
-            int res = execvpe(path.c_str(), (char **) args, (char **) envp);
+            res = execvpe(path.c_str(), (char **) args, (char **) envp);
             if (res == -1) {
                 throw ML::Exception(errno, "zookeeper failed to start");
             }
