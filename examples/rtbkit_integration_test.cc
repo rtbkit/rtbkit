@@ -13,7 +13,7 @@
 #include "rtbkit/core/banker/master_banker.h"
 #include "rtbkit/core/banker/slave_banker.h"
 #include "jml/utils/rng.h"
-#include "rtbkit/core/monitor/monitor.h"
+#include "rtbkit/core/monitor/monitor_endpoint.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/utils/environment.h"
 #include "jml/arch/timers.h"
@@ -51,8 +51,7 @@ struct Components
     MasterBanker masterBanker;
     SlaveBudgetController budgetController;
     AgentConfigurationService agentConfig;
-    Monitor monitor;
-    MonitorProviderProxy monitorProxy;
+    MonitorEndpoint monitor;
     TestAgent agent;
     FrequencyCapAugmentor augmentor;
 
@@ -70,7 +69,6 @@ struct Components
           masterBanker(proxies, "masterBanker"),
           agentConfig(proxies, "agentConfigurationService"),
           monitor(proxies, "monitor"),
-          monitorProxy(proxies->zmqContext, monitor),
           agent(proxies, "agent1"),
           augmentor(proxies, "frequency-cap-ex")
     {
@@ -89,7 +87,6 @@ struct Components
         augmentor.shutdown();
         agentConfig.shutdown();
 
-        monitorProxy.shutdown();
         monitor.shutdown();
 
         cerr << "done shutdown" << endl;
@@ -102,7 +99,7 @@ struct Components
         // Setup a monitor which ensures that any instability in the system will
         // throttle the bid request stream. In other words, it ensures you won't
         // go bankrupt.
-        monitor.init();
+        monitor.init({"router1", "router2", "pas1", "masterBanker"});
         monitor.bindTcp();
         monitor.start();
 
@@ -173,12 +170,6 @@ struct Components
             int port = connector->init(-1, "localhost", 2 /* threads */);
             exchangePorts.push_back(port);
         }
-
-        // monitorProxy queries all specified services once per second and
-        // feeds the Monitor with the aggregate result
-        monitorProxy.init(proxies->config,
-                          {"router1", "router2", "pas1", "masterBanker"});
-        monitorProxy.start();
 
         // Our bidding agent which listens to the bid request stream from all
         // available routers and decide who gets to see your awesome pictures of
