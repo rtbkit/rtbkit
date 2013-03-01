@@ -89,6 +89,19 @@ start(std::function<void ()> onStop)
     
 void
 MessageLoop::
+startSync(std::function<void ()> onStop)
+{
+    if (numThreadsCreated)
+        throw ML::Exception("already have started message loop");
+
+    ++numThreadsCreated;
+
+    runWorkerThread();
+    if (onStop) onStop();
+}
+    
+void
+MessageLoop::
 shutdown()
 {
     if (shutdown_)
