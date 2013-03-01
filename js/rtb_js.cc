@@ -4,9 +4,12 @@
 
 */
 
-#include "v8.h"
 #include "rtb_js.h"
+#include "currency_js.h"
 #include "soa/js/js_registry.h"
+
+#include "v8.h"
+
 
 using namespace v8;
 using namespace std;
@@ -21,7 +24,10 @@ extern "C" void
 init(Handle<v8::Object> target)
 {
     Datacratic::JS::registry.init(target, rtbModule);
+
+    initCurrencyFunctions(target);
 }
+
 
 } // namespace JS
 } // namespace RTB
