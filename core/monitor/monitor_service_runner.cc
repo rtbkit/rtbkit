@@ -70,7 +70,7 @@ int main(int argc, char ** argv)
     }
 
     auto proxies = std::make_shared<ServiceProxies>();
-    // proxies->useZookeeper(zookeeperUri, installation);
+    proxies->useZookeeper(zookeeperUri, installation);
     if (!carbonUris.empty())
         proxies->logToCarbon(carbonUris, installation + "." + nodeName);
 
