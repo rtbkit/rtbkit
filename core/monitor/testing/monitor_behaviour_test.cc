@@ -31,7 +31,6 @@ using namespace std;
 using namespace Datacratic;
 using namespace RTBKIT;
 
-#if 0
 /* test the MonitorEndpoint/MonitorProviderClient pair
    using 2 mock monitor providers */
 BOOST_AUTO_TEST_CASE( test_monitor_endpoint )
@@ -116,7 +115,6 @@ BOOST_AUTO_TEST_CASE( test_monitor_endpoint )
     waitUpdate(true);
     BOOST_CHECK_EQUAL(endpoint.getMonitorStatus(), false);
 }
-#endif
 
 /* test the ability of a MonitorClient to update itself via http, using a
  * Monitor endpoint and zookeeper */
@@ -134,7 +132,7 @@ BOOST_AUTO_TEST_CASE( test_monitor_client )
     endpoint.init({"tim"});
     endpoint.bindTcp();
     endpoint.start();
-    
+
     MonitorClient client(proxies->zmqContext);
     client.init(proxies->config);
     client.start();
