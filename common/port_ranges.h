@@ -24,7 +24,6 @@ struct PortRanges
         Datacratic::PortRange banker;
         Datacratic::PortRange agentConfiguration;
         Datacratic::PortRange monitor;
-        Datacratic::PortRange monitorProvider;
     };
 
     static Services zmq;

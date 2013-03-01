@@ -20,14 +20,12 @@ PortRanges::Services PortRanges::zmq = {
     { 22000, 22999 }, // banker
     { 23000, 23999 }, // agentConfiguration
     { 24000, 24999 }, // monitor
-    { 25000, 25999 }, // monitorProvider
 };
 
 PortRanges::Services PortRanges::http = {
     { 9985 }, // banker
     { 9986 }, // agentConfiguration
     { 9987 }, // monitor
-    { 11000, 11999 }, // monitorProvider
 };
 
 } // namespace RTBKIT
