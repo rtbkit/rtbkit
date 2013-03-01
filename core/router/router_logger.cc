@@ -78,7 +78,7 @@ connectAllServiceProviders(const string & serviceClass, const string & epName)
 
 /** MonitorProvider interface */
 string
-Router::
+RouterLogger::
 getProviderName()
     const
 {
