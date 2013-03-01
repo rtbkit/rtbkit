@@ -23,7 +23,6 @@ enum class CurrencyCode : std::uint32_t {
     CC_USD = 'U' << 24 | 'S' << 16 | 'D' << 8  | 0      // micro dollars
 };
 
-
 /*****************************************************************************/
 /* AMOUNT                                                                    */
 /*****************************************************************************/
@@ -45,6 +44,7 @@ struct Amount {
 
     bool isZero() const { return value == 0; }
     bool isNonNegative() const { return value >= 0; }
+    bool isNegative() const { return value < 0; }
 
     /** Returns the minimum of the two amounts. */
     Amount limit(const Amount & other) const
@@ -140,10 +140,10 @@ struct Amount {
         return result;
     }
 
-    bool isNegative()
-    {
-        return value < 0;
-    }
+    int64_t toMicro() const    { return value; }
+    double  toUnit() const     { return value / 1000000.0; }
+    double  toCPM() const      { return value * 0.001; }
+    int64_t toMicroCPM() const { return value * 1000; }
 
     static std::string getCurrencyStr(CurrencyCode currencyCode);
     std::string getCurrencyStr() const;
@@ -179,10 +179,7 @@ struct MicroUSD : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
 
-    operator int64_t () const
-    {
-        return value;
-    }
+    operator int64_t () const { return toMicro(); }
 };
 
 struct USD : public Amount {
@@ -198,10 +195,7 @@ struct USD : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
     
-    operator double () const
-    {
-        return value / 1000000.0;
-    }
+    operator double () const { return toUnit(); }
 };
 
 struct USD_CPM : public Amount {
@@ -217,7 +211,7 @@ struct USD_CPM : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
 
-    operator double () const { return value * 0.001; }
+    operator double () const { return toCPM(); }
 };
 
 struct MicroUSD_CPM : public Amount {
@@ -233,12 +227,8 @@ struct MicroUSD_CPM : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
 
-    operator int64_t () const
-    {
-        return value * 1000;
-    }
+    operator int64_t () const { return toMicroCPM(); }
 };
-
 
 /*****************************************************************************/
 /* CURRENCY POOL                                                             */
