@@ -21,7 +21,7 @@
 #include "jml/arch/exception.h"
 #include "jml/compiler/compiler.h"
 
-#if 1
+#if 0
 #define BLOCK_FLAG 0
 #else
 #define BLOCK_FLAG ZMQ_DONTWAIT
