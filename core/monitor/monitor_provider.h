@@ -59,6 +59,9 @@ struct MonitorProviderClient : public RestProxy
     /** monitored service proxy */
     MonitorProvider & provider_;
 
+    /** flag enabling the inhibition of requests to the Monitor service */
+    bool inhibit_;
+
     /** monitored service name */
     std::string restUrlPath_;
 

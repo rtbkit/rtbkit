@@ -21,6 +21,7 @@ MonitorProviderClient(const std::shared_ptr<zmq::context_t> & context,
                       MonitorProvider & provider)
         : RestProxy(context),
           provider_(provider),
+          inhibit_(false),
           pendingRequest(false)
 {
     restUrlPath_ = "/v1/services/" + provider.getProviderName();
@@ -58,16 +59,18 @@ void
 MonitorProviderClient::
 postStatus()
 {
-    Guard(requestLock);
+    if (!inhibit_) {
+        Guard(requestLock);
 
-    if (pendingRequest) {
-        fprintf(stderr, "MonitorProviderClient::checkStatus: last request is"
-                " still active\n");
-    }
-    else {
-        string payload = provider_.getProviderIndicators().toString();
-        pendingRequest = true;
-        push(onDone, "POST", restUrlPath_, RestParams(), payload);
+        if (pendingRequest) {
+            fprintf(stderr, "MonitorProviderClient::checkStatus: last request is"
+                    " still active\n");
+        }
+        else {
+            string payload = provider_.getProviderIndicators().toString();
+            pendingRequest = true;
+            push(onDone, "POST", restUrlPath_, RestParams(), payload);
+        }
     }
 }
 
