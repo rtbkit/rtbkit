@@ -26,7 +26,8 @@ namespace Datacratic {
 struct ZookeeperConnection {
 
     ZookeeperConnection();
-    
+    ~ZookeeperConnection() { close(); }
+
     static std::string printEvent(int eventType);
 
     static std::string printState(int state);
