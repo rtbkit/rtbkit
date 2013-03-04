@@ -335,6 +335,20 @@ handleBidRequest(const std::string & fromRouter,
         double timeLeftMs = boost::lexical_cast<double>(msg[6]);
         Json::Value augmentations = jsonParse(msg[7]);
 
+        Bids bids;
+        bids.reserve(spots.size());
+
+        for (size_t i = 0; i < spots.size(); ++i) {
+            Bid bid;
+
+            bid.spotIndex = spots[i]["spot"].asInt();
+            for (const auto& creative : spots[i]["creatives"])
+                bid.availableCreatives.push_back(creative.asInt());
+
+            bids.push_back(bid);
+        }
+
+
         recordHit("requests");
 
         if (requests.count(id))
@@ -347,7 +361,7 @@ handleBidRequest(const std::string & fromRouter,
             requests[id].fromRouter = fromRouter;
         }
 
-        callback(timestamp, id, br, spots, timeLeftMs, augmentations);
+        callback(timestamp, id, br, bids, timeLeftMs, augmentations);
 
     } catch (const std::exception & exc) {
         recordHit("error");
@@ -494,12 +508,12 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
 
 void
 BiddingAgent::
-doBid (Id id, Json::Value jsonResponse, Json::Value jsonMeta)
+doBid(Id id, const Bids & bids, const Json::Value & jsonMeta)
 {
     try {
         Json::FastWriter jsonWriter;
 
-        string response = jsonWriter.write(jsonResponse);
+        string response = jsonWriter.write(bids.toJson());
         boost::trim(response);
 
         string meta = jsonWriter.write(jsonMeta);
@@ -524,25 +538,24 @@ doBid (Id id, Json::Value jsonResponse, Json::Value jsonMeta)
         }
         else return;
 
-        toRouterChannel.push(RouterMessage(fromRouter, "BID", { id.toString(), response, meta }));
+        toRouterChannel.push(RouterMessage(
+                        fromRouter, "BID", { id.toString(), response, meta }));
 
         /** Gather some stats */
-        for (int i = 0; i < jsonResponse.size(); ++i) {
-            if (jsonResponse[i]["surplus"].asInt() == 0) {
-                recordHit("filtered.total");
-            }
+        for (const Bid& bid : bids) {
+            if (bid.isNullBid()) recordHit("filtered.total");
             else {
                 recordHit("bids");
-                recordLevel(jsonResponse[i]["price"].asInt() / 1000, "bidPrice");
+                recordLevel(bid.price.toMicro(), "bidPrice");
             }
         }
+
     } catch (const std::exception & exc) {
         recordHit("error");
         cerr << "Error submitting bid " << id << " --> "
-             << jsonResponse.toString()
-             << " --> "
-             << jsonMeta.toString()
-             << ": " << exc.what() << endl;
+             << bids.toJson().toString() << " --> "
+             << jsonMeta.toString() << ": "
+             << exc.what() << endl;
     }
 }
 

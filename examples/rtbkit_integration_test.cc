@@ -208,18 +208,18 @@ void setupAgent(TestAgent& agent)
             double timestamp,
             const Id & id,
             std::shared_ptr<BidRequest> br,
-            const Json::Value & spots,
+            Bids bids,
             double timeLeftMs,
             const Json::Value & augmentations)
         {
-            Json::Value response;
-            response[0]["creative"] = spots[0]["creatives"][0];
-            response[0]["price"] = 10000;
-            response[0]["priority"] = 1;
+            ExcAssertGreater(bids.size(), 0);
 
-            Json::Value metadata;
-            agent.doBid(id, response, metadata);
+            Bid& bid = bids[0];
+            ExcAssertGreater(bid.availableCreatives.size(), 0);
 
+            bid.bid(bid.availableCreatives[0], MicroUSD_CPM(10000));
+
+            agent.doBid(id, bids, Json::Value());
             ML::atomic_inc(agent.numBidRequests);
         };
 }

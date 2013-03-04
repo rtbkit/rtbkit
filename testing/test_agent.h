@@ -151,26 +151,24 @@ struct TestAgent : public RTBKIT::BiddingAgent {
     }
 
     void doBid(const Id & id,
-               const Json::Value & response,
+               const Bids & bids,
                const Json::Value & metadata)
     {
-        if (response.size() != 0)
+        if (bids.size() != 0)
             recordBid(id);
-        RTBKIT::BiddingAgent::doBid(id, response, metadata);
+        RTBKIT::BiddingAgent::doBid(id, bids, metadata);
     }
 
     void bidNull(double timestamp,
                  const Id & id,
                  std::shared_ptr<RTBKIT::BidRequest> br,
-                 const Json::Value & spots,
+                 const Bids & bids,
                  double timeLeftMs,
                  const Json::Value & augmentations)
     {
         using namespace std;
         //cerr << "got auction " << id << endl;
-        Json::Value response;
-        Json::Value metadata;
-        doBid(id, response, metadata);
+        doBid(id, bids, Json::Value());
         __sync_fetch_and_add(&numBidRequests, 1);
     }
 

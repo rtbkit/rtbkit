@@ -31,6 +31,7 @@
 #include <boost/algorithm/string.hpp>
 #include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "rtbkit/common/port_ranges.h"
+#include "rtbkit/common/bids.h"
 
 
 using namespace std;
@@ -1690,248 +1691,211 @@ doBid(const std::vector<std::string> & message)
 
     doProfileEvent(6, "bidInfo");
 
-    ML::Parse_Context context(biddata, biddata.c_str(),
-                              biddata.c_str() + biddata.length());
-
     int numPassedBids = 0;
 
-    auto onBidEntry = [&] (int i, ML::Parse_Context & context)
-        {
-            if (i >= bidInfo.spots.size())
-                throw ML::Exception("invalid shape for bids array");
-
-            if (context.match_literal("null") || context.match_literal("{}"))
-                return;  // null bid
-
-            int spotIndex = bidInfo.spots[i].first;
-
-            int creativeNum = -1;
-            double priority = -INFINITY;
-            Amount price;
-
-            auto onBidField = [&] (const std::string & fieldName,
-                                   ML::Parse_Context & context)
-            {
-                if (fieldName.empty())
-                    throw ML::Exception("invalid empty field name");
-
-                if (fieldName[0] == 'c' && fieldName == "creative") {
-                    creativeNum = context.expect_int();
-                }
-                else if (fieldName[0] == 'p' && fieldName == "price") {
-                    price = MicroUSD_CPM(context.expect_double());
-                }
-                else if ((fieldName[0] == 'p' && fieldName == "priority")
-                         || (fieldName[0] == 's' && fieldName == "surplus")) {
-                    priority = context.expect_double();
-                }
-                else {
-                    throw ML::Exception("unknown bid field " + fieldName);
-                }
-            };
-
-            try {
-                expectJsonObject(context, onBidField);
-            } catch (const std::exception & exc) {
-                returnInvalidBid(i, "bidParseError",
-                                 "parsing bid %d of %s",
-                                 i, biddata.c_str(), exc.what());
-                return;
-            }
-
-            doProfileEvent(6, "bidEntryParsing");
-
-            if (creativeNum == -1) {
-                returnInvalidBid(i, "nullCreativeField",
-                                 "creative field is null in response %s",
-                                 biddata.c_str());
-                return;
-            }
-
-            if (creativeNum < 0
-                || creativeNum >= info.config->creatives.size()) {
-                returnInvalidBid(i, "outOfRangeCreative",
-                                 "parsing field 'creative' of %s: creative "
-                                 "number %d out of range 0-%zd",
-                                 biddata.c_str(), creativeNum,
-                                 info.config->creatives.size());
-                return;
-            }
-
-            if (price.isNegative() || price > USD_CPM(200)) {
-                returnInvalidBid(i, "invalidPrice",
-                                 "bid price of %s is outside range of $0-$200 CPM"
-                                 "(%s) parsing bid %s",
-                                 price.toString().c_str(),
-                                 USD_CPM(200).toString().c_str(),
-                                 biddata.c_str());
-                return;
-            }
-
-            const Creative & creative = info.config->creatives.at(creativeNum);
-
-            if (!creative.compatible(spots[spotIndex])) {
-#if 1
-                cerr << "creative not compatible with spot: " << endl;
-                cerr << "auction: " << auctionInfo.auction->requestStr
-                     << endl;
-                cerr << "config: " << info.config->toJson() << endl;
-                cerr << "bid: " << biddata << endl;
-                cerr << "spot: " << spots[i].toJson() << endl;
-                cerr << "spot num: " << spotIndex << endl;
-                cerr << "bid num: " << i << endl;
-                cerr << "creative num: " << creativeNum << endl;
-                cerr << "creative: " << creative.toJson() << endl;
-#endif
-                returnInvalidBid(i, "creativeNotCompatibleWithSpot",
-                                 "creative %s not compatible with spot %s",
-                                 creative.toJson().toString().c_str(),
-                                 spots[spotIndex].toJson().toString().c_str());
-                return;
-            }
-
-            if (!creative.biddable(auctionInfo.auction->request->exchange,
-                                   auctionInfo.auction->request->protocolVersion)) {
-                returnInvalidBid(i, "creativeNotBiddableOnExchange",
-                                 "creative not biddable on exchange/version");
-                return;
-            }
-
-            doProfileEvent(6, "creativeCompatibility");
-
-            // NO bid
-            if (price == 0) {
-                ++numPassedBids;
-                return;
-            }
-
-            string auctionKey
-                = auctionId.toString() + "-"
-                + spots[spotIndex].id.toString() + "-"
-                + agent;
-
-            if (!banker->authorizeBid(info.config->account, auctionKey, price)
-                || failBid(budgetErrorRate))
-                {
-                    ++info.stats->noBudget;
-                    const string& agentAugmentations =
-                        auctionInfo.auction->agentAugmentations[agent];
-
-                    this->sendBidResponse(agent, info, BS_NOBUDGET,
-                                          this->getCurrentTime(),
-                                          "guaranteed", auctionId, 0, Amount(),
-                                          auctionInfo.auction.get(),
-                                          biddata, Json::Value(), meta,
-                                          agentAugmentations);
-                    this->logMessage("NOBUDGET", agent, auctionId,
-                                     biddata, meta);
-                    return;
-                }
-
-            doProfileEvent(6, "banker");
-
-            if (shared->doDebug)
-                this->debugSpot(auctionId, spots[spotIndex].id,
-                                ML::format("BID %s %s %f",
-                                           auctionKey.c_str(),
-                                           price.toString().c_str(),
-                                           (double)priority));
-
-            Auction::Price bidprice(price, priority);
-            Auction::Response response(bidprice,
-                                       creative.tagId,
-                                       info.config->account,
-                                       info.config->test,
-                                       agent,
-                                       biddata,
-                                       meta,
-                                       info.config,
-                                       info.config->visitChannels);
-
-            response.creativeName = creative.name;
-            response.creativeId = creative.id;
-
-            Auction::WinLoss localResult
-            = auctionInfo.auction->setResponse(spotIndex, response);
-
-            doProfileEvent(6, "bidSubmission");
-            ++numValidBids;
-
-            // Possible results:
-            // PENDING: we're currently winning the local auction
-            // LOSS: we lost the local auction
-            // TOOLATE: we bid too late
-            // INVALID: bid was invalid
-
-            string msg = Auction::Response::print(localResult);
-
-            if (shared->doDebug)
-                this->debugSpot(auctionId, spots[spotIndex].id,
-                                ML::format("BID %s %s",
-                                           auctionKey.c_str(), msg.c_str()));
-
-
-            switch (localResult) {
-            case Auction::PENDING: {
-                ++info.stats->bids;
-                info.stats->totalBid += price;
-                break; // response will be sent later once local winning bid known
-            }
-            case Auction::LOSS:
-                ++info.stats->bids;
-                info.stats->totalBid += price;
-                // fall through
-            case Auction::TOOLATE:
-            case Auction::INVALID: {
-                if (localResult == Auction::TOOLATE)
-                    ++info.stats->tooLate;
-                else if (localResult == Auction::INVALID)
-                    ++info.stats->invalid;
-
-                banker->cancelBid(info.config->account, auctionKey);
-
-                BidStatus status;
-                switch (localResult) {
-                case Auction::LOSS:    status = BS_LOSS;     break;
-                case Auction::TOOLATE: status = BS_TOOLATE;  break;
-                case Auction::INVALID: status = BS_INVALID;  break;
-                default:
-                    throw ML::Exception("logic error");
-                }
-
-                const string& agentAugmentations =
-                    auctionInfo.auction->agentAugmentations[agent];
-
-                this->sendBidResponse(agent, info, status,
-                                      this->getCurrentTime(),
-                                      "guaranteed", auctionId, 0, Amount(),
-                                      auctionInfo.auction.get(),
-                                      biddata, Json::Value(), meta,
-                                      agentAugmentations);
-                this->logMessage(msg, agent, auctionId, biddata, meta);
-                return;
-            }
-            case Auction::WIN:
-                this->throwException("doBid.localWinsNotPossible",
-                                     "local wins can't be known until auction has closed");
-
-            default:
-                this->throwException("doBid.unknownBidResult",
-                                     "unknown bid result returned by auction");
-            }
-
-            doProfileEvent(6, "bidResponse");
-        };
-
+    Bids bids;
     try {
-        expectJsonArray(context, onBidEntry);
-    } catch (const std::exception & exc) {
+        bids = Bids::fromJson(biddata);
+    }
+    catch (const std::exception & exc) {
         returnInvalidBid(-1, "bidParseError",
-                         "couldn't parse bid JSON %s: %s", biddata.c_str(),
-                         exc.what());
+                "couldn't parse bid JSON %s: %s", biddata.c_str(), exc.what());
+        return;
     }
 
-    doProfileEvent(7, "parsing");
+    doProfileEvent(6, "parsing");
+
+    ExcCheckEqual(bids.size(), bidInfo.spots.size(),
+            "invalid shape for bids array");
+
+    for (int i = 0; i < bids.size(); ++i) {
+
+        const Bid& bid = bids[i];
+
+        if (bid.isNullBid()) {
+            ++numPassedBids;
+            continue;
+        }
+
+        int spotIndex = bidInfo.spots[i].first;
+
+        if (bid.creativeIndex == -1) {
+            returnInvalidBid(i, "nullCreativeField",
+                    "creative field is null in response %s",
+                    biddata.c_str());
+            continue;
+        }
+
+        if (bid.creativeIndex < 0
+                || bid.creativeIndex >= info.config->creatives.size())
+        {
+            returnInvalidBid(i, "outOfRangeCreative",
+                    "parsing field 'creative' of %s: creative "
+                    "number %d out of range 0-%zd",
+                    biddata.c_str(), bid.creativeIndex,
+                    info.config->creatives.size());
+            continue;
+        }
+
+        if (bid.price.isNegative() || bid.price > USD_CPM(200)) {
+            returnInvalidBid(i, "invalidPrice",
+                    "bid price of %s is outside range of $0-$200 CPM"
+                    "(%s) parsing bid %s",
+                    bid.price.toString().c_str(),
+                    USD_CPM(200).toString().c_str(),
+                    biddata.c_str());
+            continue;
+        }
+
+        const Creative & creative = info.config->creatives.at(bid.creativeIndex);
+
+        if (!creative.compatible(spots[spotIndex])) {
+#if 1
+            cerr << "creative not compatible with spot: " << endl;
+            cerr << "auction: " << auctionInfo.auction->requestStr
+                << endl;
+            cerr << "config: " << info.config->toJson() << endl;
+            cerr << "bid: " << biddata << endl;
+            cerr << "spot: " << spots[i].toJson() << endl;
+            cerr << "spot num: " << spotIndex << endl;
+            cerr << "bid num: " << i << endl;
+            cerr << "creative num: " << bid.creativeIndex << endl;
+            cerr << "creative: " << creative.toJson() << endl;
+#endif
+            returnInvalidBid(i, "creativeNotCompatibleWithSpot",
+                    "creative %s not compatible with spot %s",
+                    creative.toJson().toString().c_str(),
+                    spots[spotIndex].toJson().toString().c_str());
+            continue;
+        }
+
+        if (!creative.biddable(auctionInfo.auction->request->exchange,
+                        auctionInfo.auction->request->protocolVersion)) {
+            returnInvalidBid(i, "creativeNotBiddableOnExchange",
+                    "creative not biddable on exchange/version");
+            continue;
+        }
+
+        doProfileEvent(6, "creativeCompatibility");
+
+        string auctionKey
+            = auctionId.toString() + "-"
+            + spots[spotIndex].id.toString() + "-"
+            + agent;
+
+        if (!banker->authorizeBid(info.config->account, auctionKey, bid.price)
+                || failBid(budgetErrorRate))
+        {
+            ++info.stats->noBudget;
+            const string& agentAugmentations =
+                auctionInfo.auction->agentAugmentations[agent];
+
+            this->sendBidResponse(agent, info, BS_NOBUDGET,
+                    this->getCurrentTime(),
+                    "guaranteed", auctionId, 0, Amount(),
+                    auctionInfo.auction.get(),
+                    biddata, Json::Value(), meta,
+                    agentAugmentations);
+            this->logMessage("NOBUDGET", agent, auctionId,
+                    biddata, meta);
+            continue;
+        }
+
+        doProfileEvent(6, "banker");
+
+        if (shared->doDebug)
+            this->debugSpot(auctionId, spots[spotIndex].id,
+                    ML::format("BID %s %s %f",
+                            auctionKey.c_str(),
+                            bid.price.toString().c_str(),
+                            (double)bid.priority));
+
+        Auction::Price bidprice(bid.price, bid.priority);
+        Auction::Response response(
+                bidprice,
+                creative.tagId,
+                info.config->account,
+                info.config->test,
+                agent,
+                biddata,
+                meta,
+                info.config,
+                info.config->visitChannels);
+
+        response.creativeName = creative.name;
+        response.creativeId = creative.id;
+
+        Auction::WinLoss localResult
+            = auctionInfo.auction->setResponse(spotIndex, response);
+
+        doProfileEvent(6, "bidSubmission");
+        ++numValidBids;
+
+        // Possible results:
+        // PENDING: we're currently winning the local auction
+        // LOSS: we lost the local auction
+        // TOOLATE: we bid too late
+        // INVALID: bid was invalid
+
+        string msg = Auction::Response::print(localResult);
+
+        if (shared->doDebug)
+            this->debugSpot(auctionId, spots[spotIndex].id,
+                    ML::format("BID %s %s",
+                            auctionKey.c_str(), msg.c_str()));
+
+
+        switch (localResult) {
+        case Auction::PENDING: {
+            ++info.stats->bids;
+            info.stats->totalBid += bid.price;
+            break; // response will be sent later once local winning bid known
+        }
+        case Auction::LOSS:
+            ++info.stats->bids;
+            info.stats->totalBid += bid.price;
+            // fall through
+        case Auction::TOOLATE:
+        case Auction::INVALID: {
+            if (localResult == Auction::TOOLATE)
+                ++info.stats->tooLate;
+            else if (localResult == Auction::INVALID)
+                ++info.stats->invalid;
+
+            banker->cancelBid(info.config->account, auctionKey);
+
+            BidStatus status;
+            switch (localResult) {
+            case Auction::LOSS:    status = BS_LOSS;     break;
+            case Auction::TOOLATE: status = BS_TOOLATE;  break;
+            case Auction::INVALID: status = BS_INVALID;  break;
+            default:
+                throw ML::Exception("logic error");
+            }
+
+            const string& agentAugmentations =
+                auctionInfo.auction->agentAugmentations[agent];
+
+            this->sendBidResponse(agent, info, status,
+                    this->getCurrentTime(),
+                    "guaranteed", auctionId, 0, Amount(),
+                    auctionInfo.auction.get(),
+                    biddata, Json::Value(), meta,
+                    agentAugmentations);
+            this->logMessage(msg, agent, auctionId, biddata, meta);
+            continue;
+        }
+        case Auction::WIN:
+            this->throwException("doBid.localWinsNotPossible",
+                    "local wins can't be known until auction has closed");
+
+        default:
+            this->throwException("doBid.unknownBidResult",
+                    "unknown bid result returned by auction");
+        }
+
+        doProfileEvent(6, "bidResponse");
+    }
 
     if (numValidBids > 0) {
         //logMessage("BID", agent, auctionId, biddata, meta);

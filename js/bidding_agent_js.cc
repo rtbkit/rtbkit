@@ -9,6 +9,8 @@
 
 #include "bidding_agent_js.h"
 #include "bid_request_js.h"
+#include "currency_js.h"
+#include "bids_js.h"
 #include "soa/service/js/service_base_js.h"
 #include "soa/service/js/opstats_js.h"
 
@@ -22,11 +24,8 @@
 #include "soa/js/js_registry.h"
 #include "soa/sigslot/slot.h"
 
-
 #include "jml/utils/smart_ptr_utils.h"
 #include "soa/types/js/id_js.h"
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
 
 using namespace std;
 using namespace v8;
@@ -36,13 +35,6 @@ using namespace node;
 namespace Datacratic {
 namespace JS {
 
-
-const char* BiddingAgentName = "BiddingAgent";
-
-RegisterJsOps<RTBKIT::BiddingAgent::BidRequestCb> reg_bidRequestCb;
-RegisterJsOps<RTBKIT::BiddingAgent::PingCb> reg_pingCb;
-RegisterJsOps<RTBKIT::BiddingAgent::ErrorCb> reg_errorCb;
-RegisterJsOps<RTBKIT::BiddingAgent::SimpleCb> reg_simpleCb;
 
 
 /******************************************************************************/
@@ -205,8 +197,15 @@ RegisterJsOps<RTBKIT::BiddingAgent::DeliveryCb> reg_deliveryCb(DeliveryCbOps::op
 
 
 /******************************************************************************/
-/* ROUTER PROXY JS                                                            */
+/* BIDDING AGENT JS                                                           */
 /******************************************************************************/
+
+const char* BiddingAgentName = "BiddingAgent";
+
+RegisterJsOps<RTBKIT::BiddingAgent::BidRequestCb> reg_bidRequestCb;
+RegisterJsOps<RTBKIT::BiddingAgent::PingCb> reg_pingCb;
+RegisterJsOps<RTBKIT::BiddingAgent::ErrorCb> reg_errorCb;
+RegisterJsOps<RTBKIT::BiddingAgent::SimpleCb> reg_simpleCb;
 
 struct BiddingAgentJS :
     public JSWrapped2<

@@ -11,6 +11,7 @@
 
 
 #include "rtbkit/common/auction.h"
+#include "rtbkit/common/bids.h"
 #include "soa/service/zmq.hpp"
 #include "soa/service/carbon_connector.h"
 #include "soa/jsoncpp/json.h"
@@ -34,9 +35,9 @@
 namespace RTBKIT {
 
 
-/*****************************************************************************/
-/* ROUTER PROXY                                                              */
-/*****************************************************************************/
+/******************************************************************************/
+/* BIDDING AGENT                                                              */
+/******************************************************************************/
 
 /** Proxy class that a bidding agent uses to communicate with the rest of the
     system:
@@ -73,7 +74,7 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
         \param response a Bids struct converted to json.
         \param meta A json blob that will be returned as is in the bid result.
      */
-    void doBid(Id id, Json::Value response, Json::Value meta);
+    void doBid(Id id, const Bids& bids, const Json::Value& meta = Json::Value());
 
 
     void doPong(const std::string & fromRouter, Date sent, Date received,
@@ -97,7 +98,7 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
         (double timestamp,
          Id id,
          std::shared_ptr<BidRequest> bidRequest,
-         Json::Value spots,
+         const Bids& bids,
          double timeLeftMs,
          Json::Value augmentations);
     typedef boost::function<BidRequestCb> BidRequestCbFn;

@@ -1,3 +1,11 @@
+/** bidding_agent_console.cc                                 -*- C++ -*-
+    Rémi Attab, 28 Feb 2013
+    Copyright (c) 2013 Datacratic.  All rights reserved.
+
+    Pseudo bidding agent that can be controlled from the console.
+
+*/
+
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/plugins/bidding_agent/bidding_agent.h"
 #include <map>
@@ -22,20 +30,31 @@ int main() {
 
     bool bidding = false;
 
-    agent.onError = [&] (double timestamp, const std::string & error, const std::vector<std::string> & message) {
-        std::cout << "agent got error: " << error << " from message: " << message << std::endl;
+    agent.onError = [&] (
+            double timestamp,
+            const std::string & error,
+            const std::vector<std::string> & message)
+    {
+        std::cout << "agent got error: " << error
+            << " from message: " << message
+            << std::endl;
     };
 
     agent.onGotConfig = [&] (double) {
         std::cout << "agent got config" << std::endl;
     };
 
-    agent.onBidRequest = [&] (double timestamp, const Id & id, std::shared_ptr<BidRequest> br, const Json::Value & spots, double timeLeftMs,  const Json::Value & aug) {
+    agent.onBidRequest = [&] (
+            double timestamp,
+            const Id & id,
+            std::shared_ptr<BidRequest> br,
+            const Bids & bids,
+            double timeLeftMs,
+            const Json::Value & aug)
+    {
         std::cout << "agent got bid request " << id << std::endl;
-        Json::Value response;
-        Json::Value metadata;
-        if(bidding) {
-            agent.doBid(id, response, metadata);
+        if (bidding) {
+            agent.doBid(id, bids, Json::Value());
         }
     };
 
@@ -43,7 +62,12 @@ int main() {
         std::cout << "agent got result " << args.result << std::endl;
     };
 
-    agent.onWin = agent.onLoss = agent.onNoBudget = agent.onTooLate = agent.onInvalidBid = agent.onDroppedBid = onResult;
+    agent.onWin =
+        agent.onLoss =
+        agent.onNoBudget =
+        agent.onTooLate =
+        agent.onInvalidBid =
+        agent.onDroppedBid = onResult;
 
     agent.onTooLate = [&] (const BiddingAgent::BidResultArgs & args) {
         std::cout << "agent got too late" << std::endl;
