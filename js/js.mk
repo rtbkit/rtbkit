@@ -15,6 +15,7 @@ RTBJS_SOURCE := \
 	auction_js.cc \
 	bidding_agent_js.cc \
 	banker_js.cc \
-	currency_js.cc
+	currency_js.cc \
+	bids_js.cc
 
 $(eval $(call nodejs_addon,rtb,$(RTBJS_SOURCE),rtb_router bidding_agent,bid_request services opstats))

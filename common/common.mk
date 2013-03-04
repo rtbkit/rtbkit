@@ -15,6 +15,7 @@ LIBRTB_SOURCES := \
 	auction.cc \
 	augmentation.cc \
 	account_key.cc \
+	bids.cc \
     port_ranges.cc
 
 LIBRTB_LINK := \
