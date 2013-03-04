@@ -29,6 +29,8 @@ struct MonitorEndpoint : public Datacratic::ServiceBase,
 
     Datacratic::RestRequestRouter router;
 
+    void checkServiceIndicators() const;
+
     /* MonitorClient interface */
 
     /** determines whether the system is working properly or not */

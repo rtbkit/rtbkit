@@ -39,6 +39,10 @@ void
 MonitorEndpoint::
 init(const vector<string> & providerNames)
 {
+    addPeriodic("MonitorEndpoint::checkServiceIndicators", 1.0,
+                bind(&MonitorEndpoint::checkServiceIndicators, this),
+                true);
+
     providerNames_ = providerNames;
     registerServiceProvider(serviceName_, { "monitor" });
 
@@ -104,6 +108,28 @@ init(const vector<string> & providerNames)
     }
 }
 
+void
+MonitorEndpoint::
+checkServiceIndicators()
+    const
+{
+    Date now = Date::now();
+
+    for (const auto & it: providersStatus_) {
+        const MonitorProviderStatus & status = it.second;
+        if (!status.lastStatus) {
+            fprintf (stderr, "%s: status of service '%s' is wrong\n",
+                     now.printClassic().c_str(), it.first.c_str());
+        }
+        if (status.lastCheck.plusSeconds((double) checkTimeout_) <= now) {
+            fprintf (stderr,
+                     "%s: status of service '%s' was last updated at %s\n",
+                     now.printClassic().c_str(), it.first.c_str(),
+                     status.lastCheck.printClassic().c_str());
+        }
+    }
+}
+
 bool
 MonitorEndpoint::
 getMonitorStatus()
@@ -116,15 +142,9 @@ getMonitorStatus()
         const MonitorProviderStatus & status = it.second;
         if (!status.lastStatus) {
             monitorStatus = false;
-            fprintf (stderr, "%s: status of service '%s' is wrong\n",
-                     now.printClassic().c_str(), it.first.c_str());
         }
         if (status.lastCheck.plusSeconds((double) checkTimeout_) <= now) {
             monitorStatus = false;
-            fprintf (stderr,
-                     "%s: status of service '%s' was last updated at %s\n",
-                     now.printClassic().c_str(), it.first.c_str(),
-                     status.lastCheck.printClassic().c_str());
         }
     }
 
