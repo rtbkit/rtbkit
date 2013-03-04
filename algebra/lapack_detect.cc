@@ -25,6 +25,5 @@ extern "C" {
     void slarfp_(const int * n, float * alpha, float * X, const int * incx,
                  float * tau) __attribute__ ((__weak__, __alias__ ("slarfp_dummy")));
 
-
 } // extern "C"
 

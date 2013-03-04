@@ -166,11 +166,17 @@ namespace {
 
 bool lapack_version_3_2_or_later()
 {
+    // We assume that these days we are using 3.2 or later.  The slarfp
+    // function appears to have been removed from 3.3 and so this code
+    // no longer has the desired effect.
+    return true;
+
     float tau, alpha, x;
     // 234 is the special value for the slarfp_dummy function above
     int n = -234, incx;
 
     slarfp_(&n, &alpha, &x, &incx, &tau);
+
 
     // If the dummy slarfp function ran, it will return 1.0, which means that
     // we are using a version of lapack 3.1 or lower.  If the lapack
