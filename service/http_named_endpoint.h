@@ -57,14 +57,16 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
                                 + address);
 
         if (portPart[portPart.size() - 1] == '+') {
-            int port = boost::lexical_cast<int>(string(portPart, 0, portPart.size() - 1));
-            return bindTcp(PortRange(port, port + 999),
-                           hostPart);
+            unsigned port = boost::lexical_cast<unsigned>(string(portPart, 0, portPart.size() - 1));
+            if(port < 65536) {
+                unsigned last = port + 999;
+                return bindTcp(PortRange(port, last), hostPart);
+            }
+
+            throw ML::Exception("invalid port " + port);
         }
-        else {
-            return bindTcp(boost::lexical_cast<int>(portPart),
-                           hostPart);
-        }
+
+        return bindTcp(boost::lexical_cast<int>(portPart), hostPart);
     }
 
     /** Bind into a specific tcp port.  If the port is not available, it will
