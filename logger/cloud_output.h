@@ -44,9 +44,13 @@ struct CloudSink : public CompressingOutput::Sink {
 
     /// Uri of cloud we're writing to
     std::string currentUri_;
+    std::string tmpFileDir_;
 
     /// Current stream to the cloud (TM)
     ML::filter_ostream cloudStream;
+    // we write to a temporary file on local disk which we delete when
+    // the corresponding cloud stream is closed.
+    ML::filter_ostream fileStream;
 
     /// File descriptor we're writing to
     //int fd;

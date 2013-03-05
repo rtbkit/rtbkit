@@ -6,12 +6,15 @@
 
 #include "cloud_output.h"
 #include <memory>
+#include <boost/filesystem.hpp>
 
 namespace Datacratic {
 using namespace std;
+namespace fs = boost::filesystem;
+
 CloudSink::
 CloudSink(const std::string & uri, bool append, bool disambiguate):
-currentUri_(uri)
+          currentUri_(uri),tmpFileDir_("./cloudfiles/")
 {
     if (uri != "")
         open(uri, append, disambiguate);
@@ -28,10 +31,18 @@ void
 CloudSink::
 open(const std::string & uri, bool append, bool disambiguate)
 {
-    //cerr << "CloudSink::open was called...." << endl;
     cloudStream.close();
     cloudStream.open(uri, std::ios_base::out |
                           (append ? std::ios_base::app : std::ios::openmode()));
+    // Get the file name from the s3 uri. We want to preserve the path since
+    // if we only get the filename we could overwrite files with the same name
+    // but in a different directory. uri format is s3://
+    fs::path filePath(tmpFileDir_ + uri.substr(5));
+    // Get the path and create the directories
+    fs::create_directories(filePath.parent_path());
+    // create the local file and directory
+    fileStream.open(filePath.string(), std::ios_base::out |
+            (append ? std::ios_base::app : std::ios::openmode()));
 }
 
 void
@@ -39,6 +50,10 @@ CloudSink::
 close()
 {
    cloudStream.close();
+   fileStream.close();
+   fs::path filePath(tmpFileDir_ + currentUri_.substr(5));
+   cerr << "Erasing local file " << filePath.string() << endl;
+   fs::remove(filePath);
 }
 
 size_t
@@ -46,6 +61,7 @@ CloudSink::
 write(const char * data, size_t size)
 {
     //cerr << "CloudSink::write was called " << endl;
+    fileStream.write(data, size);
     cloudStream.write(data, size);
     return size ;
 }
@@ -67,6 +83,7 @@ RotatingCloudOutput::RotatingCloudOutput()
 : RotatingOutputAdaptor(std::bind(&RotatingCloudOutput::createFile,
                                       this,
                                       std::placeholders::_1))
+
 {
 
 }
@@ -102,7 +119,6 @@ createFile(const string & filename)
     {
         if (this->onPreFileOpen)
         {
-            cerr << "we have a onPreFileOpen callback...fn= " << fn << endl;
             this->onPreFileOpen(fn);
         }
     };
