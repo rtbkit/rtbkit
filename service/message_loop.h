@@ -34,7 +34,7 @@ struct MessageLoop : public Epoller {
 
     void start(std::function<void ()> onStop = std::function<void ()>());
 
-    void startSync(std::function<void ()> onStop = std::function<void ()>());
+    void startSync();
     
     //void sleepUntilIdle();
 
