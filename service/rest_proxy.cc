@@ -169,6 +169,9 @@ handleOperation(const Operation & op)
                               + "' is unavailable");
             op.onDone(make_exception_ptr<ML::Exception>(exc_msg), 0, "");
         }
+        int no = __sync_add_and_fetch(&numMessagesOutstanding_, -1);
+        if (no == 0)
+            futex_wake(numMessagesOutstanding_);
     }
 }
 
