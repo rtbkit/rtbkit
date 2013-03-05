@@ -218,5 +218,15 @@ bool getArgs (int argc, char** argv)
         return false;
     }
 
+    if (g_args.installation.empty()) {
+        cerr << "'installation' parameter is required" << endl;
+        return false;
+    }
+
+    if (g_args.nodeName.empty()) {
+        cerr << "'node-name' parameter is required" << endl;
+        return false;
+    }
+
     return true;
 }
