@@ -41,6 +41,55 @@ RedisReplyFillSetOfStrings(const Redis::Reply & reply,
 
 }
 
+#if 0
+/* make sure that requests from the slave banker are properly deferred when
+ * the master banker is not available */
+BOOST_AUTO_TEST_CASE( test_banker_deferred )
+{
+    ZooKeeper::TemporaryServer zookeeper;
+    zookeeper.start();
+
+    auto proxies = std::make_shared<ServiceProxies>();
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
+
+    /* spawn slave */
+    SlaveBanker slave(proxies->zmqContext);
+    slave.init(proxies->config, "slave");
+    slave.start();
+
+    /* invoke addSpendAccount but wait 3 seconds before spawning master */
+    int done(false);
+    auto onSpendAdded = [&] (std::exception_ptr exc, ShadowAccount &&shadowAccount) {
+        cerr << "(slave) onSpendAdded..." << endl;
+        done = true;
+        ML::futex_wake(done);
+    };
+    slave.addSpendAccount({"hello", "world"}, CurrencyPool(), onSpendAdded);
+    ML::sleep(1);
+
+    /* spawn master */
+    RedisTemporaryServer redis;
+    BankerTemporaryServer master(redis, ML::format("localhost:%d", zookeeper.getPort()));
+
+    /* wait for the addSpendAccount op to complete */
+    while (!done) {
+        ML::futex_wait(done, false);
+    }
+
+    /* shut down the master banker now to force a write to redis */
+    master.shutdown();
+
+    /* check that "hello:world" has been saved */
+    auto connection = std::make_shared<AsyncConnection>(redis);
+    Redis::Result result = connection->exec(SMEMBERS("banker:accounts"), 5);
+    BOOST_CHECK(result.ok());
+    const Reply & keysReply = result.reply();
+    unordered_set<string> keys;
+    RedisReplyFillSetOfStrings(keysReply, keys);
+    BOOST_CHECK_EQUAL(keys.count("hello:world"), 1);
+}
+#endif
+
 /* make sure that the slave banker does create a spend account, even when a
  * "legacyImported" account exists */
 BOOST_AUTO_TEST_CASE( test_banker_slave_banker_accounts )
