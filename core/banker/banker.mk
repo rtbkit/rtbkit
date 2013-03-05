@@ -8,7 +8,7 @@ LIBBANKER_SOURCES := \
 	master_banker.cc \
 
 LIBBANKER_LINK := \
-	types zeromq boost_thread logger opstats crypto++ leveldb services redis rtb monitor
+	types services redis monitor
 
 $(eval $(call library,banker,$(LIBBANKER_SOURCES),$(LIBBANKER_LINK)))
 

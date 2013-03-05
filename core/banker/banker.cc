@@ -11,7 +11,6 @@
 #include "jml/utils/exc_assert.h"
 #include "jml/arch/futex.h"
 #include <boost/foreach.hpp>
-#include <boost/make_shared.hpp>
 
 
 using namespace std;

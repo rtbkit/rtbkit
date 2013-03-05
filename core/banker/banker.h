@@ -14,10 +14,8 @@
 #include "soa/jsoncpp/json.h"
 #include "soa/types/date.h"
 #include "jml/arch/spinlock.h"
-#include <boost/thread.hpp>
 #include "jml/arch/exception.h"
 #include "soa/service/service_base.h"
-#include <boost/make_shared.hpp>
 #include <future>
 #include "rtbkit/common/currency.h"
 #include "jml/arch/futex.h"
