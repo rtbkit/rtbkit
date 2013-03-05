@@ -74,6 +74,8 @@ RestProxy::
 init(std::shared_ptr<ConfigurationService> config,
      const std::string & serviceName)
 {
+    serviceName_ = serviceName;
+
     connection.init(config, ZMQ_XREQ);
     connection.connect(serviceName + "/zeromq");
     
@@ -147,19 +149,26 @@ handleOperation(const Operation & op)
     //cerr << "sending with payload " << op.request.payload
     //     << " and response id " << opId << endl;
 
-    sendMessage(connection.socket(),
-            std::to_string(opId),
-            op.request.verb,
-            op.request.resource,
-            op.request.params.toBinary(),
-            op.request.payload);
-    
-    if (opId)
-        outstanding[opId] = op.onDone;
+    if (trySendMessage(connection.socket(),
+                       std::to_string(opId),
+                       op.request.verb,
+                       op.request.resource,
+                       op.request.params.toBinary(),
+                       op.request.payload)) {
+        if (opId)
+            outstanding[opId] = op.onDone;
+        else {
+            int no = __sync_add_and_fetch(&numMessagesOutstanding_, -1);
+            if (no == 0)
+                futex_wake(numMessagesOutstanding_);
+        }
+    }
     else {
-        int no = __sync_add_and_fetch(&numMessagesOutstanding_, -1);
-        if (no == 0)
-            futex_wake(numMessagesOutstanding_);
+        if (op.onDone) {
+            string exc_msg = ("connection to '" + serviceName_
+                              + "' is unavailable");
+            op.onDone(make_exception_ptr<ML::Exception>(exc_msg), 0, "");
+        }
     }
 }
 

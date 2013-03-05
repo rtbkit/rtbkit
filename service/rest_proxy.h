@@ -120,6 +120,7 @@ struct RestProxy: public MessageLoop {
     }
 
 protected:
+    std::string serviceName_;
 
     struct Operation {
         RestRequest request;
