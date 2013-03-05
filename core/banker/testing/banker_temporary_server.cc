@@ -78,6 +78,7 @@ start()
         // cerr << "initializing banker" << endl;
 
         banker->init(make_shared<RedisBankerPersistence>(redis));
+        banker->monitorProviderClient.inhibit_ = true;
 
         // cerr << "binding banker" << endl;
 
