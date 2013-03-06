@@ -276,7 +276,7 @@ struct Launcher
         void script(int & i, std::ostream & file, std::string const & node) {
             for(auto & item : tasks) {
                 auto & name = item.getName();
-                file << "tmux new-window -d -t rtb:" << ++i << " -n '" << name << "' 'ssh " << node << " \"tail -F ./logs/" << name << ".log\"'" << std::endl;
+                file << "tmux new-window -d -t rtb:" << ++i << " -n '" << name << "' 'ssh " << node << " \"tail -F " << root << "/logs/" << name << ".log\"'" << std::endl;
             }
         }
 
@@ -306,6 +306,9 @@ struct Launcher
                 else if(i.memberName() == "name") {
                     result.name = i->asString();
                 }
+                else if(i.memberName() == "root") {
+                    result.root = i->asString();
+                }
                 else {
                     throw ML::Exception("unknown node field '" + i.memberName() + "'");
                 }
@@ -316,6 +319,7 @@ struct Launcher
 
     private:
         std::string name;
+        std::string root;
         std::vector<Task> tasks;
     };
 
@@ -331,10 +335,10 @@ struct Launcher
             return 0;
         }
 
-        void script(std::string const & node) {
-            std::ofstream file("./launch.sh");
+        void script(std::string const & sh, std::string const & node) {
+            std::ofstream file(sh);
             if(!file) {
-                throw ML::Exception("cannot create ./launch.sh script");
+                throw ML::Exception("cannot create " + sh + " script");
             }
 
             file << "#!/bin/bash" << std::endl;
@@ -356,6 +360,9 @@ struct Launcher
             }
 
             file << "tmux attach -t rtb" << std::endl;
+            file.close();
+
+            chmod(sh.c_str(), 0755);
         }
 
         friend std::ostream & operator<<(std::ostream & stream, Sequence & sequence) {
@@ -394,14 +401,18 @@ struct Launcher
 
     struct Service : public MessageLoop
     {
-        void run(Json::Value const & root, std::string const & name) {
+        void run(Json::Value const & root, std::string const & name, std::string const & sh) {
             sequence = Datacratic::Launcher::Sequence::createFromJson(root);
+
+            if(!sh.empty()) {
+                sequence.script(sh, name);
+                return;
+            }
+
             node = sequence.getNode(name);
             if(!node) {
                 throw ML::Exception("cannot find node " + name);
             }
-
-            sequence.script(name);
 
             int res = system("mkdir -p ./logs");
             if(res == -1) {

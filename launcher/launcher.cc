@@ -25,10 +25,12 @@ int main(int argc, char ** argv)
 
     std::string filename;
     std::string node;
+    std::string script;
 
     configuration_options.add_options()
         ("file,F", value(&filename), "Filename of the launch sequence")
-        ("node,N", value(&node), "Name of the current node");
+        ("node,N", value(&node), "Name of the current node")
+        ("script,S", value(&script), "Filename of the launch script sequence to generate");
 
     options_description all_opt;
     all_opt.add(configuration_options);
@@ -53,7 +55,7 @@ int main(int argc, char ** argv)
     }
 
     if(node.empty()) {
-        std::cerr << "current node name is required" << std::endl;
+        std::cerr << "current node is required" << std::endl;
         exit(1);
     }
 
@@ -71,6 +73,6 @@ int main(int argc, char ** argv)
     }
 
     auto & service = Datacratic::Launcher::Service::get();
-    service.run(root, node);
+    service.run(root, node, script);
 }
 
