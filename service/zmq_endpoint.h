@@ -957,22 +957,29 @@ struct ZmqNamedProxy: public MessageLoop {
     template<typename... Args>
     void sendMessage(Args&&... args)
     {
-        //using namespace std;
         std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
 
-        if (connectionState != CONNECTED)
-            std::cerr << "trying to send on an unconnected socket\n";
+        ExcCheckNotEqual(connectionState, NOT_CONNECTED,
+                "sending on an unconnected socket: " + endpointName);
+
+        if (connectionState == CONNECTION_PENDING) {
+            std::cerr << ("dropping message for " + endpointName + "\n");
+            return;
+        }
 
         Datacratic::sendMessage(socket(), std::forward<Args>(args)...);
     }
 
     void disconnect()
     {
-        if (connectionState != CONNECTED) return;
+        if (connectionState == NOT_CONNECTED) return;
 
         {
             std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
-            socket_->disconnect(connectedUri);
+
+            if (connectionState == CONNECTED)
+                socket_->disconnect(connectedUri);
+
             connectionState = NOT_CONNECTED;
         }
 
@@ -995,8 +1002,9 @@ protected:
     } connectionType;
 
     enum ConnectionState {
-        NOT_CONNECTED,
-        CONNECTED
+        NOT_CONNECTED,      // connect() was not called
+        CONNECTION_PENDING, // connect() was called but service is not available
+        CONNECTED           // connect() was called and the socket was connected
     } connectionState;
 
     void onServiceNodeChange(const std::string & path,

@@ -504,6 +504,14 @@ connect(const std::string & endpointName,
     vector<string> children
         = config->getChildren(endpointName, endpointWatch);
 
+    auto setPending = [&]
+        {
+            std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
+
+            if (connectionState == NOT_CONNECTED)
+                connectionState = CONNECTION_PENDING;
+        };
+
     for (auto c: children) {
         ExcAssertNotEqual(connectionState, CONNECTED);
         string key = endpointName + "/" + c;
@@ -544,16 +552,18 @@ connect(const std::string & endpointName,
 
             cerr << "connected to " << uri << endl;
             onConnect(uri);
-            return false;
+            return true;
         }
 
-        return true;
+        setPending();
+        return false;
     }
 
     if (style == CS_MUST_SUCCEED && connectionState != CONNECTED)
         throw ML::Exception("couldn't connect to any services of class "
                             + serviceClass);
 
+    setPending();
     return connectionState == CONNECTED;
 }
 
@@ -580,7 +590,7 @@ connectToServiceClass(const std::string & serviceClass,
         throw ML::Exception("attempt to connect to named service "
                             + endpointName + " without calling init()");
 
-    if (connectionState != NOT_CONNECTED)
+    if (connectionState == CONNECTED)
         throw ML::Exception("attempt to double connect connection");
 
     vector<string> children
@@ -603,6 +613,13 @@ connectToServiceClass(const std::string & serviceClass,
         throw ML::Exception("couldn't connect to any services of class "
                             + serviceClass);
 
+    {
+        std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
+
+        if (connectionState == NOT_CONNECTED)
+            connectionState = CONNECTION_PENDING;
+    }
+
     return connectionState == CONNECTED;
 }
 
@@ -613,7 +630,7 @@ onServiceNodeChange(const std::string & path,
 {
     //cerr << "******* CHANGE TO SERVICE NODE " << path << endl;
 
-    if (connectionState == CONNECTED)
+    if (connectionState != CONNECTION_PENDING)
         return;  // no need to watch anymore
 
     connectToServiceClass(serviceClass, endpointName, CS_ASYNCHRONOUS);
@@ -626,7 +643,7 @@ onEndpointNodeChange(const std::string & path,
 {
     //cerr << "******* CHANGE TO ENDPOINT NODE " << path << endl;
 
-    if (connectionState == CONNECTED)
+    if (connectionState != CONNECTION_PENDING)
         return;  // no need to watch anymore
 
     connect(connectedService, CS_ASYNCHRONOUS);
