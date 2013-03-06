@@ -98,6 +98,8 @@ loadAll(const string & topLevelKey, OnLoadedCallback onLoaded)
         newAccounts->restoreAccount(AccountKey(keys[i]), storageValue);
     }
 
+    // newAccounts->checkBudgetConsistency();
+
     onLoaded(newAccounts, SUCCESS, "");
 }
 

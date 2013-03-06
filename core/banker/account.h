@@ -201,10 +201,12 @@ public:
         return (recycledIn - recycledOut).nonNegative();
     }
 
+    CurrencyPool getBudget() const;
+
     /** Returns the budget what was not transferred from or to other accounts.
      */
 
-    CurrencyPool getRemainingBudget() const;
+    CurrencyPool getNetBudget() const;
 
     /*************************************************************************/
     /* INVARIANTS                                                            */
@@ -627,7 +629,7 @@ struct ShadowAccount {
         masterAccount.checkInvariants();
 
         // net budget: available assuming spent, commitments are zero
-        netBudget = masterAccount.getRemainingBudget();
+        netBudget = masterAccount.getNetBudget();
         available = netBudget + commitmentsRetired
             - commitmentsMade - spent;
 
@@ -705,7 +707,6 @@ struct AccountSummary {
     {
         if (addInSubaccounts)
             subAccounts[name] = child;
-        budget += child.budget;
         inFlight += child.inFlight;
         spent += child.spent;
         lineItems += child.lineItems;
@@ -1081,6 +1082,20 @@ struct Accounts {
         return (outOfSyncAccounts.count(account) > 0);
     }
 
+
+    /** interaccount consistency */
+    /* "Inconsistent" here means that the top account in question has an
+     * inter-account inconsistency with one or more of its subaccounts */
+    void ensureInterAccountConsistency();
+    bool checkInterAccountConsistency(const AccountKey & accountKey) const;
+
+    bool isAccountInconsistent(const AccountKey & account) const
+    {
+        Guard guard(lock);
+        
+        return (inconsistentAccounts.count(account) > 0);
+    }
+
 private:
     friend class ShadowAccounts;
 
@@ -1093,6 +1108,7 @@ private:
 
     typedef std::unordered_set<AccountKey> AccountSet;
     AccountSet outOfSyncAccounts;
+    AccountSet inconsistentAccounts;
 
 public:
     std::vector<AccountKey>
@@ -1235,7 +1251,7 @@ private:
 
         result.account = a;
         result.spent = a.spent;
-        result.budget = a.getRemainingBudget();
+        result.budget = a.getBudget();
         result.lineItems = a.lineItems;
         result.adjustmentLineItems = a.adjustmentLineItems;
         result.allocated = a.allocatedOut - a.allocatedIn;
@@ -1261,7 +1277,7 @@ private:
 
         const Account & a = getAccountImpl(account);
 
-        result.budget = a.getRemainingBudget();
+        result.budget = a.getBudget();
         result.spent = a.spent;
         result.inFlight = a.commitmentsMade - a.commitmentsRetired;
 
@@ -1282,6 +1298,9 @@ private:
         
         return result;
     }
+
+    bool checkInterAccountConsistencyImpl(const AccountKey
+                                          & accountKey) const;
 };
 
 
