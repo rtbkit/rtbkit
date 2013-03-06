@@ -201,9 +201,20 @@ private:
     };
     
     std::map<Id, RequestStatus> requests;
-    std::mutex requestsLock;
+    std::mutex requestsLock; // Protects concurrent writes to requests
 
     bool requiresAllCB;
+
+
+    /** Ensures that we can set the config and send it atomically. Prevents a
+        situation where a call to the toConfigurationAgent's connectHandler
+        callback would overwrite a newer configuration from a concurrent call to
+        doConfig.
+     */
+    std::mutex configLock;
+    std::string config; // The agent's configuration.
+
+    void sendConfig(const std::string& newConfig = "");
 
     void checkMessageSize(const std::vector<std::string>& msg, int expectedSize);
 

@@ -100,6 +100,12 @@ init()
     toConfigurationAgent.init(getServices()->config, agentName);
     toConfigurationAgent.connectToServiceClass
             ("rtbAgentConfiguration", "agents");
+
+    toConfigurationAgent.connectHandler = [&] (const std::string&)
+        {
+            sendConfig();
+        };
+
     toRouters.init(getServices()->config, agentName);
     toRouters.connectHandler = [=] (const std::string & connectedTo)
         {
@@ -611,8 +617,20 @@ doConfig(Json::Value jsonConfig)
 {
     Json::FastWriter jsonWriter;
 
-    string config = jsonWriter.write(jsonConfig);
-    boost::trim(config);
+    std::string newConfig = jsonWriter.write(jsonConfig);
+    boost::trim(newConfig);
+
+    sendConfig(newConfig);
+}
+
+void
+BiddingAgent::
+sendConfig(const std::string& newConfig)
+{
+    std::lock_guard<std::mutex> guard(configLock);
+
+    if (!newConfig.empty()) config = newConfig;
+    if (config.empty()) return;
 
     toConfigurationAgent.sendMessage("CONFIG", agentName, config);
 }
