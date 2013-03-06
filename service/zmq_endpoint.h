@@ -17,6 +17,7 @@
 #include <boost/make_shared.hpp>
 #include "jml/arch/backtrace.h"
 #include "jml/arch/timers.h"
+#include "jml/arch/cmp_xchg.h"
 #include "zmq_utils.h"
 
 namespace Datacratic {
@@ -1312,68 +1313,115 @@ private:
         }
     }
 
+    /** Encapsulates a lock-free state machine that manages the logic of the on
+        config callback. The problem being solved is that the onConnect callback
+        should not call the user's callback while we're holding the connection
+        lock but should do it when the lock is released.
+
+        The lock-free state machine guarantees that no callbacks are lost and
+        that no callbacks will be triggered before a call to release is made.
+        The overhead of this class amounts to at most 2 CAS when the callback is
+        triggered; one if there's no contention.
+
+        Note that this isn't an ideal solution to this problem because we really
+        should get rid of the locks when manipulating these events.
+
+        \todo could be generalized if we need this pattern elsewhere.
+    */
+    struct OnConnectCallback
+    {
+        OnConnectCallback(const ConnectionHandler& fn, std::string name) :
+            fn(fn), name(name), state(DEFER)
+        {}
+
+        /** Should ONLY be called AFTER the lock is released. */
+        void release()
+        {
+            State old = state;
+
+            ExcAssertNotEqual(old, CALL);
+
+            // If the callback wasn't triggered while we were holding the lock
+            // then trigger it the next time we see it.
+            if (old == DEFER && ML::cmp_xchg(state, old, CALL)) return;
+
+            ExcAssertEqual(old, DEFERRED);
+            fn(name);
+        }
+
+        void operator() (std::string)
+        {
+            State old = state;
+            ExcAssertNotEqual(old, DEFERRED);
+
+            // If we're still in the locked section then trigger the callback
+            // when release is called.
+            if (old == DEFER && ML::cmp_xchg(state, old, DEFERRED)) return;
+
+            // We're out of the locked section so just trigger the callback.
+            ExcAssertEqual(old, CALL);
+            fn(name);
+        }
+
+    private:
+
+        ConnectionHandler fn;
+        std::string name;
+
+        enum State {
+            DEFER,    // We're holding the lock so defer an incoming callback.
+            DEFERRED, // We were called while holding the lock.
+            CALL      // We were not called while holding the lock.
+        } state;
+    };
+
     /** Call this to watch for a given service provider. */
     void watchServiceProvider(const std::string & name, const std::string & path)
     {
-        using namespace std;
-
+        // Protects the connections map... I think.
         std::unique_lock<Lock> guard(connectionsLock);
 
-        vector<string> newConnections;
-
         auto & c = connections[name];
-        if (c) {
-            // already connected
-            return;
+
+        // already connected
+        if (c) return;
+
+        try {
+            std::unique_ptr<ZmqNamedClientBusProxy> newClient
+                (new ZmqNamedClientBusProxy(zmqContext));
+            newClient->init(config, identity);
+
+            // The connect call below could trigger this callback while we're
+            // holding the connectionsLock which is a big no-no. This fancy
+            // wrapper ensures that it's only called after we call its release
+            // function.
+            newClient->connectHandler = OnConnectCallback(connectHandler, name);
+
+            newClient->disconnectHandler = [=] (std::string s)
+                {
+                    // TODO: chain in so that we know it's not around any more
+                    this->onDisconnect(s);
+                };
+
+            newClient->connect(path + "/" + endpointName);
+            newClient->messageHandler = [=] (const std::vector<std::string> & msg)
+                {
+                    this->handleMessage(name, msg);
+                };
+            //newClient->debug(true);
+
+            c.reset(newClient.release());
+
+            // Add it to our message loop so that it can process messages
+            addSource("ZmqMultipleNamedClientBusProxy child " + name, *c);
+
+            guard.unlock();
+            c->connectHandler.target<OnConnectCallback>()->release();
+
+        } catch (...) {
+            connections.erase(name);
+            throw;
         }
-        else {
-            try {
-                std::unique_ptr<ZmqNamedClientBusProxy> newClient
-                    (new ZmqNamedClientBusProxy(zmqContext));
-                newClient->init(config, identity);
-
-#if 0 // disabled here due to lock nesting problems... should be fixed
-                newClient->connectHandler = [=] (std::string s)
-                    {
-                        // TODO: chain in so that we know it's now around
-                        this->onConnect(s);
-                    };
-
-                newClient->disconnectHandler = [=] (std::string s)
-                    {
-                        // TODO: chain in so that we know it's not around any more
-                        this->onDisconnect(s);
-                    };
-#endif
-
-                newClient->connect(path + "/" + endpointName);
-                newClient->messageHandler = [=] (const std::vector<std::string> & msg)
-                    {
-                        this->handleMessage(name, msg);
-                    };
-                //newClient->debug(true);
-
-                c.reset(newClient.release());
-
-                // Add it to our message loop so that it can process messages
-                addSource("ZmqMultipleNamedClientBusProxy child " + name, *c);
-
-                newConnections.push_back(name);
-            } catch (...) {
-                connections.erase(name);
-                throw;
-            }
-        }
-
-        guard.unlock();
-#if 1 // patch for lock nesting problems... should be fixed
-        for (auto c: newConnections)
-        {
-            onConnect(c);
-        }
-#endif
-        // cerr << "+++watch service provider returning " << endl;
-
     }
 
 };
