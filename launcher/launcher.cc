@@ -24,11 +24,11 @@ int main(int argc, char ** argv)
     options_description configuration_options("Configuration options");
 
     std::string filename;
-    std::string installation;
+    std::string node;
 
     configuration_options.add_options()
         ("file,F", value(&filename), "Filename of the launch sequence")
-        ("installation,I", value(&installation), "Name of the installation that is running");
+        ("node,N", value(&node), "Name of the current node");
 
     options_description all_opt;
     all_opt.add(configuration_options);
@@ -52,6 +52,11 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
+    if(node.empty()) {
+        std::cerr << "current node name is required" << std::endl;
+        exit(1);
+    }
+
     std::ifstream file(filename);
     if(!file) {
         std::cerr << "failed to open file " << filename << std::endl;
@@ -65,12 +70,7 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
-    auto sequence = Datacratic::Launcher::Sequence::createFromJson(root);
-    auto node = sequence.getNode("dev2.datacratic.com");
-    if(node) {
-        auto & service = Datacratic::Launcher::Service::get();
-        service.setNode(*node);
-        service.run();
-    }
+    auto & service = Datacratic::Launcher::Service::get();
+    service.run(root, node);
 }
 

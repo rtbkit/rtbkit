@@ -8,6 +8,7 @@
 #pragma once
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <sys/prctl.h>
@@ -265,6 +266,20 @@ struct Launcher
             }
         }
 
+        void script(int & i, std::ostream & file) {
+            for(auto & item : tasks) {
+                auto & name = item.getName();
+                file << "tmux new-window -d -t rtb:" << ++i << " -n '" << name << "' 'tail -F ./logs/" << name << ".log'" << std::endl;
+            }
+        }
+
+        void script(int & i, std::ostream & file, std::string const & node) {
+            for(auto & item : tasks) {
+                auto & name = item.getName();
+                file << "tmux new-window -d -t rtb:" << ++i << " -n '" << name << "' 'ssh " << node << " \"tail -F ./logs/" << name << ".log\"'" << std::endl;
+            }
+        }
+
         friend std::ostream & operator<<(std::ostream & stream, Node & node) {
             stream << node.name << std::endl;
             for(int i = 0; i != node.tasks.size(); ++i) {
@@ -306,7 +321,7 @@ struct Launcher
 
     struct Sequence
     {
-        Node const * getNode(std::string const & name) const {
+        Node * getNode(std::string const & name) {
             for(auto & item : nodes) {
                 if(item.getName() == name) {
                     return &item;
@@ -314,6 +329,33 @@ struct Launcher
             }
 
             return 0;
+        }
+
+        void script(std::string const & node) {
+            std::ofstream file("./launch.sh");
+            if(!file) {
+                throw ML::Exception("cannot create ./launch.sh script");
+            }
+
+            file << "#!/bin/bash" << std::endl;
+            file << std::endl;
+            file << "tmux kill-session -t rtb" << std::endl;
+            file << "tmux new-session -d -s rtb './build/x86_64/bin/launcher -N " << node << " launch_sequence.json'" << std::endl;
+            file << "tmux rename-window 'launcher'" << std::endl;
+
+            int i = 0;
+            for(int j = 0; j != nodes.size(); ++j) {
+                auto & item = nodes[j];
+                auto & name = item.getName();
+                if(name == node) {
+                    item.script(i, file);
+                }
+                else {
+                    item.script(i, file, name);
+                }
+            }
+
+            file << "tmux attach -t rtb" << std::endl;
         }
 
         friend std::ostream & operator<<(std::ostream & stream, Sequence & sequence) {
@@ -352,11 +394,15 @@ struct Launcher
 
     struct Service : public MessageLoop
     {
-        void setNode(Node const & value) {
-            node = value;
-        }
+        void run(Json::Value const & root, std::string const & name) {
+            sequence = Datacratic::Launcher::Sequence::createFromJson(root);
+            node = sequence.getNode(name);
+            if(!node) {
+                throw ML::Exception("cannot find node " + name);
+            }
 
-        void run() {
+            sequence.script(name);
+
             int res = system("mkdir -p ./logs");
             if(res == -1) {
                 throw ML::Exception("cannot create ./logs directory");
@@ -369,7 +415,7 @@ struct Launcher
             sa.sa_handler = &Service::sigchld;
             sigaction(SIGCHLD, &sa, 0);
 
-            node.restart();
+            node->restart();
 
             for(;;) {
                 ML::sleep(1.0);
@@ -388,7 +434,7 @@ struct Launcher
         }
 
         void onDeath(int pid) {
-            Task * item = node.findTask(pid);
+            Task * item = node->findTask(pid);
             std::cerr << "crash! " << (item ? item->getName() : "?") << std::endl;
             if(item) {
                 item->restart();
@@ -411,7 +457,10 @@ struct Launcher
         TypedMessageSink<int> events;
 
         // node associated with this service
-        Node node;
+        Node * node;
+
+        // launching sequence
+        Sequence sequence;
     };
 };
 
