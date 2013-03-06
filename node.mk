@@ -242,7 +242,7 @@ $(TESTS)/$(1).passed:	$(TESTS)/$(1).js $$(TEST_$(1)_DEPS) $(VOWS_TEST_DEPS) $(TE
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
 
 $(1):	$(TESTS)/$(1).js $$(TEST_$(1)_DEPS) $(VOWS_TEST_DEPS)
-	NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) $(3) $(VOWS) $(TESTS)/$(1).js
+	NODE_PATH=$(NODE_PATH) $(NODE_PRELOAD) $(NODE) $(3) $(VOWS) $(TESTS)/$(1).js $($(1)_ARGS)
 
 $(TESTS)/$(1).js: $(TESTS)/.dir_exists $(CWD)/$(1).coffee
 	$$(call install_js_from.coffee, $(CWD)/$(1).coffee, $(TESTS)/$(1).js)
