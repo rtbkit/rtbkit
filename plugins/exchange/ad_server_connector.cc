@@ -139,7 +139,7 @@ injectClick(const Id & auctionId,
             const UserIds & ids)
 {
     PostAuctionEvent event;
-    event.type = PAE_IMPRESSION;
+    event.type = PAE_CLICK;
     event.auctionId = auctionId;
     event.adSpotId = adSpotId;
     event.timestamp = timestamp;
