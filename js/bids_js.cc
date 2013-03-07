@@ -58,8 +58,8 @@ struct BidJS : public JSWrapped2<Bid, BidJS, BidName, rtbModule>
     {
         Persistent<FunctionTemplate> t = Register(New);
 
-        registerROProperty(&Bid::spotIndex, "availableCreatives");
-        registerROProperty(&Bid::availableCreatives, "spotIndex");
+        registerROProperty(&Bid::spotIndex, "spotIndex");
+        registerROProperty(&Bid::availableCreatives, "availableCreatives");
         registerROProperty(&Bid::price, "price");
         registerROProperty(&Bid::creativeIndex, "creativeIndex");
         registerROProperty(&Bid::priority, "priority");
@@ -105,14 +105,7 @@ struct BidsJS : public JSWrapped2<Bids, BidsJS, BidsName, rtbModule>
     New(const Arguments& args)
     {
         try {
-            auto obj = make_shared<Bids>();
-
-            // === TEST - DON'T PUSH === //
-            obj->emplace_back();
-            (*obj)[0].availableCreatives.push_back(1);
-            // === TEST - DON'T PUSH === //
-
-            new BidsJS(args.This(), obj);
+            new BidsJS(args.This(), make_shared<Bids>());
             return args.This();
         }
         HANDLE_JS_EXCEPTIONS;
@@ -126,6 +119,7 @@ struct BidsJS : public JSWrapped2<Bids, BidsJS, BidsName, rtbModule>
 
         NODE_SET_PROTOTYPE_METHOD(t, "bid", bid);
 
+        registerROProperty(&Bids::size, "length");
         t->InstanceTemplate()->SetIndexedPropertyHandler(at, 0, check, 0, list);
     }
 
