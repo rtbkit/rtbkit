@@ -567,3 +567,53 @@ BOOST_AUTO_TEST_CASE( test_recycling )
     s = accounts.getAccount({"t", "s"});
     BOOST_CHECK_EQUAL(s.recycledIn, USD(2));
 }
+
+BOOST_AUTO_TEST_CASE( test_getRecycledUp )
+{
+    Accounts accounts;
+    CurrencyPool recycledIn, recycledOut;
+
+    /* setup */
+    accounts.createAccount({"t"}, AT_BUDGET);
+    accounts.setBudget({"t"}, USD(666));
+
+    // s.setAvailable(10)
+    accounts.setAvailable({"t", "s"}, USD(10), AT_BUDGET);
+    accounts.getRecycledUp({"t", "s"}, recycledIn, recycledOut);
+    BOOST_CHECK_EQUAL(recycledIn, USD(0));
+    BOOST_CHECK_EQUAL(recycledOut, USD(0));
+    
+    // s.setAvailable(7)
+    // t.recycledIn == 3 but t.recycledIn(up) == 0
+    // s.recycledOut(up) == 3
+    accounts.setAvailable({"t", "s"}, USD(7), AT_NONE);
+    accounts.getRecycledUp({"t"}, recycledIn, recycledOut);
+    BOOST_CHECK_EQUAL(recycledIn, USD(0));
+    accounts.getRecycledUp({"t", "s"}, recycledIn, recycledOut);
+    BOOST_CHECK_EQUAL(recycledOut, USD(3));
+
+    // s.setAvailable(8)
+    // t.recycledOut == 1 but t.recycledOut(up) == 0
+    // s.recycledIn == 1 and s.recycledIn(up) == 1
+    accounts.setAvailable({"t", "s"}, USD(8), AT_NONE);
+    accounts.getRecycledUp({"t"}, recycledIn, recycledOut);
+    BOOST_CHECK_EQUAL(recycledOut, USD(0));
+    accounts.getRecycledUp({"t", "s"}, recycledIn, recycledOut);
+    BOOST_CHECK_EQUAL(recycledIn, USD(1));
+
+    // sp.setAvailable(5)
+    // sp.recycleX untouched and sp.budgetIncreases increased
+    accounts.setAvailable({"t", "s", "sp"}, USD(5), AT_SPEND);
+    accounts.getRecycledUp({"t", "s", "sp"}, recycledIn, recycledOut);
+    BOOST_CHECK_EQUAL(recycledIn, USD(0));
+    BOOST_CHECK_EQUAL(recycledOut, USD(0));
+
+    // sp.setAvailable(4)
+    // s.recycledIn == 2 but s.recycledIn(up) == 1
+    // sp.recycledOut == 1 and sp.recycledOut(up) == 1
+    accounts.setAvailable({"t", "s", "sp"}, USD(4), AT_NONE);
+    accounts.getRecycledUp({"t", "s"}, recycledIn, recycledOut);
+    BOOST_CHECK_EQUAL(recycledIn, USD(1));
+    accounts.getRecycledUp({"t", "s", "sp"}, recycledIn, recycledOut);
+    BOOST_CHECK_EQUAL(recycledOut, USD(1));
+}

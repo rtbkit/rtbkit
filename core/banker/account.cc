@@ -524,4 +524,26 @@ checkInterAccountConsistencyImpl(const AccountKey & accountKey)
     return !inconsistent;
 }
 
+void
+Accounts::
+getRecycledUp(const AccountKey & accountKey,
+              CurrencyPool & recycledInUp,
+              CurrencyPool & recycledOutUp)
+    const
+{
+    CurrencyPool sumSubRecycledIn, sumSubRecycledOut;
+ 
+    const AccountInfo & account = getAccountImpl(accountKey);
+ 
+    for (const AccountKey & childKey: account.children) {
+        CurrencyPool subRecycledIn, subRecycledOut;
+        getRecycledUp(childKey, subRecycledIn, subRecycledOut);
+        sumSubRecycledIn += subRecycledIn;
+        sumSubRecycledOut += subRecycledOut;
+    }
+ 
+    recycledInUp = account.recycledIn - sumSubRecycledOut;
+    recycledOutUp = account.recycledOut - sumSubRecycledIn;
+}
+ 
 } // namespace RTBKIT

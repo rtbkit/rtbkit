@@ -1096,6 +1096,12 @@ struct Accounts {
         return (inconsistentAccounts.count(account) > 0);
     }
 
+    /* Returns the amounts in recycledIn and recycledOut that were transferred
+     * strictly from and to the parent account. */
+    void getRecycledUp(const AccountKey & accountKey,
+                       CurrencyPool & recycledInUp,
+                       CurrencyPool & recycledOutUp) const;
+
 private:
     friend class ShadowAccounts;
 
