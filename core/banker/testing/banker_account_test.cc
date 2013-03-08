@@ -513,3 +513,57 @@ BOOST_AUTO_TEST_CASE( test_multiple_bidder_threads )
     //BOOST_CHECK_EQUAL(status["available"].
 #endif
 }
+
+BOOST_AUTO_TEST_CASE( test_recycling )
+{
+    Accounts accounts;
+    Account t, s, sp; /* "top", "sub" and "spend" */
+
+    /* setup */
+    accounts.createAccount({"t"}, AT_BUDGET);
+    accounts.setBudget({"t"}, USD(666));
+
+    accounts.setAvailable({"t", "s"}, USD(10), AT_BUDGET);
+
+    // s.setAvailable(10)
+    // -> as.budgetIncrease increased by 10
+    s = accounts.getAccount({"t", "s"});
+    BOOST_CHECK_EQUAL(s.budgetIncreases, USD(10));
+
+    // s.setAvailable(7)
+    // -> t.recycledIn increased by 3 (total: 3)
+    // and s.recycledOut increased by 3 (total: 3)
+    accounts.setAvailable({"t", "s"}, USD(7), AT_NONE);
+    t = accounts.getAccount({"t"});
+    BOOST_CHECK_EQUAL(t.recycledIn, USD(3));
+    s = accounts.getAccount({"t", "s"});
+    BOOST_CHECK_EQUAL(s.recycledOut, USD(3));
+
+    // s.setAvailable(8)
+    // -> t.recycledOut increased by 1 (total: 1)
+    // and s.recycledIn increased by 1 (total: 1)
+    accounts.setAvailable({"t", "s"}, USD(8), AT_NONE);
+    t = accounts.getAccount({"t"});
+    BOOST_CHECK_EQUAL(t.recycledOut, USD(1));
+    s = accounts.getAccount({"t", "s"});
+    BOOST_CHECK_EQUAL(s.recycledIn, USD(1));
+
+    // sp.setAvailable(5)
+    // -> sp.budgetIncrease increased by 5 (total: 5),
+    //    s.allocatedOut increased by 5 (total: 5)
+    accounts.setAvailable({"t", "s", "sp"}, USD(5), AT_SPEND);
+    sp = accounts.getAccount({"t", "s", "sp"});
+    BOOST_CHECK_EQUAL(sp.budgetIncreases, USD(5));
+    s = accounts.getAccount({"t", "s"});
+    BOOST_CHECK_EQUAL(s.allocatedOut, USD(5));
+
+    /* mixup */
+    // sp.setAvailable(4)
+    // -> sp.recycledOut by 1 (total: 1),
+    // s.recycledIn increased by 1 (total: 2)
+    accounts.setAvailable({"t", "s", "sp"}, USD(4), AT_NONE);
+    sp = accounts.getAccount({"t", "s", "sp"});
+    BOOST_CHECK_EQUAL(sp.recycledOut, USD(1));
+    s = accounts.getAccount({"t", "s"});
+    BOOST_CHECK_EQUAL(s.recycledIn, USD(2));
+}
