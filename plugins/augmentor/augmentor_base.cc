@@ -58,14 +58,12 @@ init()
 
     toRouters.connectHandler = [=] (const std::string & newRouter)
         {
-            cerr << "connected to router " << newRouter << endl;
-
             toRouters.sendMessage(newRouter,
                                   "CONFIG",
                                   "1.0",
                                   augmentorName);
 
-            cerr << "done sending message" << endl;
+            recordHit("messages.CONFIG");
         };
 
     toRouters.disconnectHandler = [=] (const std::string & oldRouter)
@@ -126,6 +124,8 @@ respond(const AugmentationRequest & request, const AugmentationList & response)
             request.id.toString(),
             request.augmentor,
             chomp(response.toJson().toString()));
+
+    recordHit("messages.RESPONSE");
 }
 
 void
@@ -135,6 +135,8 @@ handleRouterMessage(const std::string & router,
 {
    try {
         const std::string & type = message.at(0);
+        recordHit("messages." + type);
+
         //cerr << "got augmentor message of type " << type << endl;
         if (type == "CONFIGOK") {
 #if 0
