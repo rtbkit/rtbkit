@@ -10,6 +10,7 @@
 #include "json_parsing.h"
 #include "jml/utils/exc_assert.h"
 #include <boost/algorithm/string.hpp>
+#include <string>
 
 
 namespace Datacratic {
@@ -32,6 +33,7 @@ struct JsonPrintingContext {
     virtual void writeFloat(float f) = 0;
     virtual void writeDouble(double d) = 0;
     virtual void writeString(const std::string & s) = 0;
+    virtual void writeStringUtf8(const Utf8String & s) = 0;
 
     virtual void writeJson(const Json::Value & val) = 0;
     virtual void skip() = 0;
@@ -144,6 +146,8 @@ struct StreamJsonPrintingContext
         stream << '\"' << ML::jsonEscape(s) << '\"';
     }
 
+    virtual void writeStringUtf8(const Utf8String & s);
+
     virtual void writeJson(const Json::Value & val)
     {
         writePrefix();
@@ -218,6 +222,11 @@ struct StructuredJsonPrintingContext
     }
 
     virtual void writeString(const std::string & s)
+    {
+        *current = s;
+    }
+
+    virtual void writeStringUtf8(const Utf8String & s)
     {
         *current = s;
     }

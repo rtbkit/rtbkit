@@ -129,6 +129,7 @@ struct JsonParsingContext {
     virtual bool matchUnsignedLongLong(unsigned long long & val) = 0;
     virtual bool matchLongLong(long long & val) = 0;
     virtual std::string expectStringAscii() = 0;
+    virtual Utf8String expectStringUtf8() = 0;
     virtual Json::Value expectJson() = 0;
     virtual bool isObject() const = 0;
     virtual bool isString() const = 0;
@@ -263,6 +264,8 @@ struct StreamingJsonParsingContext
     {
         return expectJsonStringAscii(*context);
     }
+
+    virtual Utf8String expectStringUtf8();
 
     virtual bool isObject() const
     {

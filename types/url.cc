@@ -63,6 +63,31 @@ Url(const std::string & s_)
 }
 
 Url::
+Url(const Utf8String & s_)
+    : original(s_.rawString())
+{
+    std::string s = original;
+    if (s == "") {
+        url.reset(new GURL(s));
+        return;
+    }
+
+    if (s.find("://") == string::npos) {
+        s = "http://" + s;
+    }
+    url.reset(new GURL(s));
+
+    if (url->possibly_invalid_spec().empty()) {
+        //cerr << "bad parse 1" << endl;
+        url.reset(new GURL("http://" + s));
+        if (url->possibly_invalid_spec().empty()) {
+            //cerr << "bad parse 2" << endl;
+            url.reset(new GURL("http://" + s + "/"));
+        }
+    }
+}
+
+Url::
 ~Url()
 {
 }
@@ -74,6 +99,15 @@ toString() const
     if (valid())
         return canonical();
     return original;
+}
+
+Utf8String
+Url::
+toUtf8String() const
+{
+    if (valid())
+        return Utf8String(canonical());
+    return Utf8String(original);
 }
 
 const char *

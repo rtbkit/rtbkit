@@ -35,6 +35,20 @@ Utf8String::Utf8String(const string & in, bool check)
     }
 }
 
+Utf8String::Utf8String(string && in, bool check)
+    : data_(std::move(in))
+{
+    if (check)
+    {
+        // Check if we find an invalid encoding
+        string::const_iterator end_it = utf8::find_invalid(data_.begin(), data_.end());
+        if (end_it != data_.end())
+        {
+            throw ML::Exception("Invalid sequence within utf-8 string");
+        }
+    }
+}
+
 Utf8String::const_iterator
 Utf8String::begin() const
 {

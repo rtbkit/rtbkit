@@ -19,4 +19,15 @@ LIBTYPES_LINK := \
 
 $(eval $(call set_compile_option,localdate.cc,-DBOOST_TIMEZONES_DIR=\"$(BOOST_TIMEZONES_DIR)\"))
 $(eval $(call library,types,$(LIBTYPES_SOURCES),$(LIBTYPES_LINK)))
+
+LIBVALUE_DESCRIPTION_SOURCES := \
+	json_parsing.cc \
+	json_printing.cc
+
+LIBVALUE_DESCRIPTION_LINK := \
+	types
+
+$(eval $(call library,value_description,$(LIBVALUE_DESCRIPTION_SOURCES),$(LIBVALUE_DESCRIPTION_LINK)))
+
+
 $(eval $(call include_sub_make,types_testing,testing,types_testing.mk))

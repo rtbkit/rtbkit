@@ -10,6 +10,7 @@
 #include <string>
 #include <memory>
 #include "jml/db/persistent_fwd.h"
+#include "string.h"
 
 class GURL;
 
@@ -18,9 +19,12 @@ namespace Datacratic {
 struct Url {
     Url();
     explicit Url(const std::string & s);
+    explicit Url(const Utf8String & s);
     ~Url();
 
-    std::string toString() const;
+    Utf8String toUtf8String() const;
+    std::string toString() const;  // should be Utf8 by default
+
     const char * c_str() const;
 
     bool valid() const;
