@@ -1087,14 +1087,19 @@ struct Accounts {
     /* "Inconsistent" here means that the top account in question has an
      * inter-account inconsistency with one or more of its subaccounts */
     void ensureInterAccountConsistency();
-    bool checkInterAccountConsistency(const AccountKey & accountKey) const;
-
     bool isAccountInconsistent(const AccountKey & account) const
     {
         Guard guard(lock);
         
         return (inconsistentAccounts.count(account) > 0);
     }
+
+    /* Returns whether the budgetIncreases of subaccounts are consistent with
+       the allocatedOut of the top-account, recursively.
+       maxRecusion: -1 = infinity 
+    */
+    bool checkBudgetConsistency(const AccountKey & accountKey,
+                                int maxRecursion = -1) const;
 
     /* Returns the amounts in recycledIn and recycledOut that were transferred
      * strictly from and to the parent account. */
@@ -1305,8 +1310,8 @@ private:
         return result;
     }
 
-    bool checkInterAccountConsistencyImpl(const AccountKey
-                                          & accountKey) const;
+    bool checkBudgetConsistencyImpl(const AccountKey & accountKey,
+                                    int maxRecursion, int currentLevel) const;
 };
 
 

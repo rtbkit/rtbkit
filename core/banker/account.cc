@@ -406,7 +406,7 @@ ensureInterAccountConsistency()
 
     for (const auto & it: accounts) {
         if (it.first.size() == 1
-            && !checkInterAccountConsistencyImpl(it.first)) {
+            && !checkBudgetConsistencyImpl(it.first, -1, 0)) {
             inconsistentAccounts.insert(it.first);
         }
     }
@@ -414,114 +414,43 @@ ensureInterAccountConsistency()
 
 bool
 Accounts::
-checkInterAccountConsistency(const AccountKey & accountKey)
+checkBudgetConsistency(const AccountKey & accountKey, int maxRecursion)
     const
 {
     Guard guard(lock);
 
     ExcAssertEqual(accountKey.size(), 1);
 
-    return checkInterAccountConsistencyImpl(accountKey);
+    return checkBudgetConsistencyImpl(accountKey, maxRecursion, 0);
 }
 
 bool
 Accounts::
-checkInterAccountConsistencyImpl(const AccountKey & accountKey)
+checkBudgetConsistencyImpl(const AccountKey & accountKey, int maxRecursion,
+                           int level)
     const
 {
-    bool inconsistent(false);
     const AccountInfo & account = getAccountImpl(accountKey);
+    CurrencyPool sumBudgetInc;
 
-    if (account.type == AT_BUDGET && account.children.size() > 0) {
-        CurrencyPool sumRecycledIn, sumBudgetInc, sumRecycledOut;
+    for (const AccountKey & childKey: account.children) {
+        const Account & childAccount = getAccountImpl(childKey);
+        sumBudgetInc += childAccount.budgetIncreases;
+    }
 
-        // cerr << indentStr << "testing " << accountKey.toString() << endl;
+    if (account.allocatedOut != sumBudgetInc) {
+        return false;
+    }
 
-        // cerr << "computing sums:" << endl;
+    if (maxRecursion == -1 || level < maxRecursion) {
         for (const AccountKey & childKey: account.children) {
-            const Account & childAccount = getAccountImpl(childKey);
-            // cerr << "  account " << childKey.toString()
-            //      << " " << &childAccount
-            //      << endl;
-            // cerr << "    recycledIn: " << childAccount.recycledIn
-            //      << "    recycledOut: " << childAccount.recycledOut
-            //      << "    budgetIn: " << childAccount.budgetIncreases
-            //      << endl;
-            sumRecycledIn += childAccount.recycledIn;
-            sumBudgetInc += childAccount.budgetIncreases;
-            sumRecycledOut += childAccount.recycledOut;
-        }
-        // cerr << "totals:" << endl
-        //      << "  sumRecycledIn: " << sumRecycledIn
-        //      << "  sumRecycledOut: " << sumRecycledOut
-        //      << "  sumBudgetInc: " << sumBudgetInc
-        //      << endl;
-
-        if (account.recycledOut != sumRecycledIn)
-        {
-            inconsistent = true;
-            cerr << "* failure in " << accountKey.toString() << "\n"
-                 << "- sum(recycledIn) !="
-                 << " recycledOut"
-                 << "\n"
-                 << sumRecycledIn.toString()
-                 << " != "
-                 << account.recycledOut.toString()
-                 << "\n"
-                 << "delta = "
-                 << (sumRecycledIn - account.recycledOut).toString()
-                 << "\n";
-        }
-
-        if (account.recycledIn != sumRecycledOut)
-        {
-            if (!inconsistent) {
-                inconsistent = true;
-                cerr << "* failure in " << accountKey.toString() << "\n";
-            }
-            cerr << "- sum(recycledOut) !="
-                 << " recycledIn"
-                 << "\n"
-                 << sumRecycledOut.toString()
-                 << " != "
-                 << account.recycledIn.toString()
-                 << "\n"
-                 << "delta = "
-                 << (sumRecycledOut - account.recycledIn).toString()
-                 << "\n";
-        }
-
-        if (account.allocatedOut != sumBudgetInc)
-        {
-            if (!inconsistent) {
-                inconsistent = true;
-                cerr << "* failure in " << accountKey.toString() << "\n";
-            }
-            cerr << "- sum(budgetIncreases) !="
-                 << " recycledOut"
-                 << "\n"
-                 << sumBudgetInc.toString()
-                 << " != "
-                 << account.allocatedOut.toString()
-                 << "\n"
-                 << "delta = "
-                 << (sumBudgetInc - account.allocatedOut).toString()
-                 << "\n";
-        }
-
-        if (inconsistent) {
-            const AccountSummary & summary
-                = getAccountSummaryImpl(accountKey, 0, 255);
-            cerr << summary << "\n";
-        }
-
-        for (const AccountKey & childKey: account.children) {
-            inconsistent = (!checkInterAccountConsistencyImpl(childKey)
-                            || inconsistent);
+            if (!checkBudgetConsistencyImpl(childKey,
+                                            maxRecursion, level + 1))
+                return false;
         }
     }
 
-    return !inconsistent;
+    return true;
 }
 
 void
