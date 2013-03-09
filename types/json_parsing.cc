@@ -47,6 +47,8 @@ expectStringUtf8()
                 context->exception("invalid escaped char");
             }
         }
+
+        // We need up to 4 characters to add a new UTF-8 code point
         if (pos >= bufferSize - 4) {
             size_t newBufferSize = bufferSize * 8;
             char * newBuffer = new char[newBufferSize];

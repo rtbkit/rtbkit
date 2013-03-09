@@ -9,6 +9,7 @@
 #include "soa/jsoncpp/json.h"
 #include "jml/utils/json_parsing.h"
 #include "soa/types/id.h"
+#include "soa/types/string.h"
 
 namespace Datacratic {
 
@@ -332,7 +333,138 @@ struct StreamingJsonParsingContext
 };
 
 struct StructuredJsonParsingContext: public JsonParsingContext {
-    Json::Value toParse;
+
+    StructuredJsonParsingContext(const Json::Value & val)
+        : current(&val)
+    {
+    }
+
+    const Json::Value * current;
+
+    virtual void exception(const std::string & message)
+    {
+        throw ML::Exception("At path " + printPath() + ": " + message);
+    }
+    
+    virtual int expectInt()
+    {
+        return current->asInt();
+    }
+
+    virtual float expectFloat()
+    {
+        return current->asDouble();
+    }
+
+    virtual float expectBool()
+    {
+        return current->asBool();
+    }
+
+    virtual bool matchUnsignedLongLong(unsigned long long & val)
+    {
+        if (current->isIntegral()) {
+            val = current->asUInt();
+            return true;
+        }
+        return false;
+    }
+
+    virtual bool matchLongLong(long long & val)
+    {
+        if (current->isIntegral()) {
+            val = current->asInt();
+            return true;
+        }
+        return false;
+    }
+
+    virtual std::string expectStringAscii()
+    {
+        return current->asString();
+    }
+
+    virtual Utf8String expectStringUtf8()
+    {
+        return Utf8String(current->asString());
+    }
+
+    virtual Json::Value expectJson()
+    {
+        return *current;
+    }
+
+    virtual bool isObject() const
+    {
+        return current->type() == Json::objectValue;
+    }
+
+    virtual bool isString() const
+    {
+        return current->type() == Json::stringValue;
+    }
+
+    virtual bool isArray() const
+    {
+        return current->type() == Json::arrayValue;
+    }
+
+    virtual bool isBool() const
+    {
+        return current->type() == Json::booleanValue;
+    }
+
+    virtual void skip()
+    {
+    }
+
+    virtual void forEachMember(std::function<void ()> fn)
+    {
+        if (!isObject())
+            exception("expected an object");
+
+        const Json::Value * oldCurrent = current;
+
+        bool first = true;
+        for (auto it = current->begin(), end = current->end();
+             it != end;  ++it) {
+            if (first)
+                pushPath(it.memberName());
+            else replacePath(it.memberName());
+
+            current = &(*it);
+
+            fn();
+        }
+
+        if (!first)
+            popPath();
+        
+        current = oldCurrent;
+    }
+
+    virtual void forEachElement(std::function<void ()> fn)
+    {
+        if (!isArray())
+            exception("expected an array");
+
+        const Json::Value * oldCurrent = current;
+
+        for (unsigned i = 0;  i < oldCurrent->size();  ++i) {
+            if (i == 0)
+                pushPath(i);
+            else replacePath(i);
+
+            current = &(*oldCurrent)[i];
+
+            fn();
+        }
+
+        if (oldCurrent->size() != 0)
+            popPath();
+        
+        current = oldCurrent;
+    }
 };
 
 
