@@ -562,6 +562,7 @@ onStateLoaded(shared_ptr<Accounts> newAccounts,
               const string & info)
 {
     if (status == BankerPersistence::SUCCESS) {
+        newAccounts->ensureInterAccountConsistency();
         accounts = *newAccounts;
         cerr << __FUNCTION__ <<  ": successfully loaded accounts" << endl;
     }
