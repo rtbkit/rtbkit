@@ -405,9 +405,24 @@ ensureInterAccountConsistency()
     Guard guard(lock);
 
     for (const auto & it: accounts) {
-        if (it.first.size() == 1
-            && !checkBudgetConsistencyImpl(it.first, -1, 0)) {
-            inconsistentAccounts.insert(it.first);
+        if (it.first.size() == 1) {
+            if (!checkBudgetConsistencyImpl(it.first, -1, 0)) {
+                // cerr << "budget of account " << it.first
+                //      << " is not consistent\n";
+                inconsistentAccounts.insert(it.first);
+            }
+            CurrencyPool recycledInUp, recycledOutUp, nullPool;
+            getRecycledUp(it.first, recycledInUp, recycledOutUp);            
+            if (recycledInUp != nullPool) {
+                cerr << "upward recycledIn of account " << it.first
+                     << " is not null: " << recycledInUp
+                     << "\n";
+            }
+            if (recycledOutUp != nullPool) {
+                cerr << "upward recycledOut of account " << it.first
+                     << " is not null: " << recycledOutUp
+                     << "\n";
+            }
         }
     }
 }
@@ -439,6 +454,13 @@ checkBudgetConsistencyImpl(const AccountKey & accountKey, int maxRecursion,
     }
 
     if (account.allocatedOut != sumBudgetInc) {
+        cerr << "budget of account " << accountKey
+             << " is not consistent:\n  "
+             << account.allocatedOut
+             << " != " << sumBudgetInc
+             << " (delta = "
+             << (account.allocatedOut - sumBudgetInc)
+             << ")\n";
         return false;
     }
 
