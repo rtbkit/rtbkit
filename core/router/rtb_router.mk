@@ -3,7 +3,6 @@
 LIBRTB_ROUTER_SOURCES := \
 	augmentation_loop.cc \
 	router.cc \
-	augmentor_events_publisher.cc \
 	router_types.cc \
 	router_base.cc \
 	router_stack.cc

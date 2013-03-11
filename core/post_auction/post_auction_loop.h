@@ -16,7 +16,6 @@
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/zmq_message_router.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
-#include "rtbkit/core/router/augmentor_events_publisher.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
 
