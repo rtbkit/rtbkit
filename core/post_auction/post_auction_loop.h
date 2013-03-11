@@ -6,15 +6,15 @@
 #ifndef __router__post_auction_loop_h__
 #define __router__post_auction_loop_h__
 
-#include "rtbkit/core/router/router_base.h"
+#include "soa/service/service_base.h"
 #include "soa/service/pending_list.h"
 #include <unordered_map>
 #include "soa/service/message_loop.h"
 #include "soa/service/typed_message_channel.h"
-#include <boost/shared_ptr.hpp>
 #include "rtbkit/common/auction.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/zmq_message_router.h"
+#include "soa/service/zmq_named_pub_sub.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
@@ -258,8 +258,7 @@ struct FinishedInfo {
 /* POST AUCTION LOOP                                                         */
 /*****************************************************************************/
 
-struct PostAuctionLoop : public RouterServiceBase,
-                         public MonitorProvider
+struct PostAuctionLoop : public ServiceBase, public MonitorProvider
 {
 
     PostAuctionLoop(ServiceBase & parent,
@@ -283,6 +282,53 @@ struct PostAuctionLoop : public RouterServiceBase,
     }
 
     std::shared_ptr<Banker> banker;
+
+    /* ROUTERSHARED */
+    uint64_t numWins;
+    uint64_t numLosses;
+    uint64_t numImpressions;
+    uint64_t numClicks;
+
+    /* /ROUTERSHARED */
+
+    /* ROUTERBASE */
+    /************************************************************************/
+    /* EXCEPTIONS                                                           */
+    /************************************************************************/
+
+    /** Throw an exception and log the error in Graphite and in the router
+        log file.
+    */
+    void throwException(const std::string & key, const std::string & fmt,
+                        ...) __attribute__((__noreturn__));
+
+    /************************************************************************/
+    /* LOGGING                                                              */
+    /************************************************************************/
+    
+    ZmqNamedPublisher logger;
+
+    /** Log a given message to the given channel. */
+    template<typename... Args>
+    void logMessage(const std::string & channel, Args... args)
+    {
+        using namespace std;
+        //cerr << "********* logging message to " << channel << endl;
+        logger.publish(channel, Date::now().print(5), args...);
+    }
+
+    /** Log a router error. */
+    template<typename... Args>
+    void logRouterError(const std::string & function,
+                        const std::string & exception,
+                        Args... args)
+    {
+        logger.publish("ROUTERERROR", Date::now().print(5),
+                       function, exception, args...);
+        recordHit("error.%s", function);
+    }
+
+    /* /ROUTERBASE */
 
     /// Start listening on ports for connections from agents, routers
     /// and event sources

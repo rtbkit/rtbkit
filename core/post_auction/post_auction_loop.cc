@@ -5,17 +5,18 @@
    Loop for post-auction processing.
 */
 
+#include <string>
 #include "post_auction_loop.h"
 #include <sstream>
 #include <iostream>
 #include <boost/make_shared.hpp>
-#include "rtbkit/core/router/messages.h"
+#include "rtbkit/core/agent_configuration/agent_config.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/arch/futex.h"
 #include "jml/db/persistent.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/common/port_ranges.h"
-
+#include "rtbkit/core/router/messages.h"
 
 using namespace std;
 using namespace ML;
@@ -430,7 +431,8 @@ reconstituteFromString(const std::string & str)
 PostAuctionLoop::
 PostAuctionLoop(std::shared_ptr<ServiceProxies> proxies,
                 const std::string & serviceName)
-    : RouterServiceBase(serviceName, proxies),
+    : ServiceBase(serviceName, proxies),
+      logger(getZmqContext()),
       auctions(65536),
       events(65536),
       endpoint(getZmqContext()),
@@ -444,7 +446,8 @@ PostAuctionLoop(std::shared_ptr<ServiceProxies> proxies,
 PostAuctionLoop::
 PostAuctionLoop(ServiceBase & parent,
                 const std::string & serviceName)
-    : RouterServiceBase(serviceName, parent),
+    : ServiceBase(serviceName, parent),
+      logger(getZmqContext()),
       auctions(16386),
       events(1024),
       endpoint(getZmqContext()),
@@ -470,7 +473,7 @@ initConnections()
     registerServiceProvider(serviceName(), { "rtbPostAuctionService" });
 
     cerr << "post auction logger on " << serviceName() + "/logger" << endl;
-    shared->logger.init(getServices()->config, serviceName() + "/logger");
+    logger.init(getServices()->config, serviceName() + "/logger");
 
     auctions.onEvent = std::bind<void>(&PostAuctionLoop::doAuction, this,
                                        std::placeholders::_1);
@@ -523,14 +526,14 @@ initConnections()
 
     loop.addSource("PostAuctionLoop::toAgents", toAgents);
     loop.addSource("PostAuctionLoop::configListener", configListener);
-    loop.addSource("PostAuctionLoop::logger", shared->logger);
+    loop.addSource("PostAuctionLoop::logger", logger);
 }
 
 void
 PostAuctionLoop::
 bindTcp()
 {
-    shared->logger.bindTcp(PortRanges::logs);
+    logger.bindTcp(PortRanges::logs);
     endpoint.bindTcp(PortRanges::postAuctionLoop);
     toAgents.bindTcp(PortRanges::postAuctionLoopAgents);
 }
@@ -559,6 +562,29 @@ PostAuctionLoop::
 getServiceStatus() const
 {
     return Json::Value();
+}
+
+void
+PostAuctionLoop::
+throwException(const std::string & key, const std::string & fmt, ...)
+{
+    recordHit("error.exception");
+    recordHit("error.exception.%s", key);
+
+    string message;
+    va_list ap;
+    va_start(ap, fmt);
+    try {
+        message = vformat(fmt.c_str(), ap);
+        va_end(ap);
+    }
+    catch (...) {
+        va_end(ap);
+        throw;
+    }
+
+    logRouterError("exception", key, message);
+    throw ML::Exception("Router Exception: " + key + ": " + message);
 }
 
 void
@@ -807,7 +833,7 @@ initStatePersistence(const std::string & path)
             info.fromOldRouter = true;
             newTimeout.addSeconds(0.001);
             timeout = newTimeout;
-            this->debugSpot(key.first, key.second, "RECONST SUBMITTED");
+            // this->debugSpot(key.first, key.second, "RECONST SUBMITTED");
             return true;
         };
 
@@ -851,7 +877,7 @@ initStatePersistence(const std::string & path)
             info.fromOldRouter = true;
             newTimeout.addSeconds(0.001);
             timeout = newTimeout;
-            this->debugSpot(key.first, key.second, "RECONST FINISHED");
+            // this->debugSpot(key.first, key.second, "RECONST FINISHED");
 
             // Index the IDs
             for (auto it = info.uids.begin(), end = info.uids.end();
@@ -913,9 +939,6 @@ void
 PostAuctionLoop::
 checkExpiredAuctions()
 {
-    if (shared->simulationMode_)
-        return;
-
     Date start = Date::now();
 
     {
@@ -939,13 +962,13 @@ checkExpiredAuctions()
                 if (!info.bidRequest) {
                     recordHit("submittedAuctionExpiryWithoutBid");
                     //cerr << "expired with no bid request" << endl;
-                    this->debugSpot(auctionId, adSpotId, "EXPIRED SPOT NO BR", {});
+                    // this->debugSpot(auctionId, adSpotId, "EXPIRED SPOT NO BR", {});
 
-                    this->dumpSpot(auctionId, adSpotId);
+                    // this->dumpSpot(auctionId, adSpotId);
                     return Date();
                 }
 
-                this->debugSpot(auctionId, adSpotId, "EXPIRED SPOT", {});
+                // this->debugSpot(auctionId, adSpotId, "EXPIRED SPOT", {});
 
                 //cerr << "onExpiredSubmitted " << key << endl;
                 try {
@@ -975,7 +998,7 @@ checkExpiredAuctions()
             {
                 recordHit("finishedAuctionExpiry");
 
-                this->debugSpot(key.first, key.second, "EXPIRED FINISHED", {});
+                // this->debugSpot(key.first, key.second, "EXPIRED FINISHED", {});
 
                 // We need to clean up the uid index
                 for (auto it = info.uids.begin(), end = info.uids.end();
@@ -1109,13 +1132,13 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 {
     BidStatus status;
     if (event->type == PAE_WIN) {
-        ML::atomic_inc(shared->numWins);
+        ML::atomic_inc(numWins);
         status = BS_WIN;
         recordHit("processedWin");
     }
     else {
         status = BS_LOSS;
-        ML::atomic_inc(shared->numLosses);
+        ML::atomic_inc(numLosses);
         recordHit("processedLoss");
     }
 
@@ -1138,7 +1161,7 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
     const AccountKey & account = event->account;
     Date bidTimestamp = event->bidTimestamp;
 
-    debugSpot(auctionId, adSpotId, typeStr);
+    // debugSpot(auctionId, adSpotId, typeStr);
 
     auto getTimeGapMs = [&] ()
         {
@@ -1232,7 +1255,7 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 #endif
     if (!submitted.count(key)) {
         double timeGapMs = getTimeGapMs();
-        if (timeGapMs < lossTimeout * 1000 or shared->simulationMode_) {
+        if (timeGapMs < lossTimeout * 1000) {
             recordHit("bidResult.%s.noBidSubmitted", typeStr);
             //cerr << "WIN for active auction: " << meta
             //     << " timeGapMs = " << timeGapMs << endl;
@@ -1348,7 +1371,7 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
         {
             this->logMessage(string("UNMATCHED") + typeStr, why,
                              auctionId.toString(), adSpotId.toString(),
-                             toString(timestamp.secondsSinceEpoch()),
+                             to_string(timestamp.secondsSinceEpoch()),
                              meta);
             if (typeEnum == PAE_CLICK)
                 cerr << "UNMATCHEDCLICK " << auctionId << "-"
@@ -1385,7 +1408,7 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
             }
 
             finishedInfo.setImpression(timestamp, meta.toString());
-            ML::atomic_inc(shared->numImpressions);
+            ML::atomic_inc(numImpressions);
 
             recordHit("delivery.IMPRESSION.account.%s.matched",
                       finishedInfo.bid.account.toString().c_str());
@@ -1404,14 +1427,13 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
             }
 
             finishedInfo.setClick(timestamp, meta.toString());
-            ML::atomic_inc(shared->numClicks);
+            ML::atomic_inc(numClicks);
 
-            if (!shared->simulationMode_)
-                cerr << "CLICK " << auctionId << "-" << adSpotId
-                     << " " << finishedInfo.bid.account
-                     << " " << finishedInfo.bid.agent
-                     << " " << uids.toJson().toString()
-                     << endl;
+            cerr << "CLICK " << auctionId << "-" << adSpotId
+                 << " " << finishedInfo.bid.account
+                 << " " << finishedInfo.bid.agent
+                 << " " << uids.toJson().toString()
+                 << endl;
 
             recordHit("delivery.CLICK.account.%s.matched",
                       finishedInfo.bid.account.toString().c_str());
@@ -1489,10 +1511,10 @@ routePostAuctionEvent(PostAuctionEventType type,
 
             this->sendAgentMessage(entry.name,
                                    typeStr,
-                                   this->getCurrentTime(),
+                                   Date::now(),
                                    finishedInfo.auctionId,
                                    finishedInfo.adSpotId,
-                                   toString(finishedInfo.spotIndex),
+                                   to_string(finishedInfo.spotIndex),
                                    finishedInfo.bidRequestStr,
                                    finishedInfo.bidToJson(),
                                    finishedInfo.winToJson(),
@@ -1560,7 +1582,7 @@ doVisit(const std::shared_ptr<PostAuctionEvent> & event)
         {
             this->recordHit("delivery.VISIT.%s", why);
             this->logMessage("UNMATCHEDVISIT", why,
-                             toString(timestamp.secondsSinceEpoch()),
+                             to_string(timestamp.secondsSinceEpoch()),
                              meta, channels.toJsonStr());
         };
 
@@ -1683,7 +1705,7 @@ doBidResult(const Id & auctionId,
          << submission.bidRequestFormatStr << ">" <<  endl;
 #endif
 
-    debugSpot(auctionId, adSpotId, msg);
+    // debugSpot(auctionId, adSpotId, msg);
 
     if (!adSpotId)
         throw ML::Exception("inserting null entry in finished map");
@@ -1703,8 +1725,10 @@ doBidResult(const Id & auctionId,
 
     const AccountKey & account = response.account;
 
-    if (shared->doDebug)
+#if 0
+    if (doDebug)
         debugSpot(auctionId, adSpotId, "ACCOUNT " + account.toString());
+#endif
 
     Amount bidPrice = response.price.maxPrice;
 
@@ -1758,16 +1782,16 @@ doBidResult(const Id & auctionId,
     else throwException("doBidResult.nonWinLoss", "submitted non win/loss");
     logMessage("MATCHED" + msg,
                auctionId,
-               toString(adspot_num),
+               to_string(adspot_num),
                response.agent,
                account[1],
                winPrice.toString(),
                response.price.maxPrice.toString(),
-               toString(response.price.priority),
+               to_string(response.price.priority),
                submission.bidRequestStr,
                response.bidData,
                response.meta,
-               toString(response.creativeId),
+               to_string(response.creativeId),
                response.creativeName,
                account[0],
                uids.toJsonStr(),
@@ -1779,7 +1803,7 @@ doBidResult(const Id & auctionId,
 
     sendAgentMessage(response.agent, msg, timestamp,
                      confidence, auctionId,
-                     toString(adspot_num),
+                     to_string(adspot_num),
                      winPrice.toString(),
                      submission.bidRequestStr,
                      response.bidData,
