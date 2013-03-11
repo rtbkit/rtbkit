@@ -1084,8 +1084,11 @@ struct Accounts {
 
 
     /** interaccount consistency */
-    /* "Inconsistent" here means that the top account in question has an
-     * inter-account inconsistency with one or more of its subaccounts */
+    /* "Inconsistent" here means that there is a mismatch between the members
+     * used in money transfers for a given Account and the corresponding
+     * members in its subaccounts: allocatedOut and budgetIncreases,
+     * recycledIn and recycedOut, ...
+     */
     void ensureInterAccountConsistency();
     bool isAccountInconsistent(const AccountKey & account) const
     {
