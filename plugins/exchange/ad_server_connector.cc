@@ -158,7 +158,7 @@ injectVisit(Date timestamp,
             const UserIds & ids)
 {
     PostAuctionEvent event;
-    event.type = PAE_IMPRESSION;
+    event.type = PAE_VISIT;
     event.timestamp = timestamp;
     event.channels = channels;
     event.metadata = visitMeta;
