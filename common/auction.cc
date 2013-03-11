@@ -277,6 +277,41 @@ getResponses() const
     return current->responses;
 }
 
+void
+Auction::
+addDataSources(const std::set<std::string> & sources)
+{
+    if (sources.empty()) return;
+
+    Data * current = this->data;
+    unique_ptr<Data> newData(new Data);
+
+    for (;;) {
+
+        std::set<std::string> newSources = current->dataSources;
+        newSources.insert(sources.begin(), sources.end());
+
+        // Nothing new was added, just bail.
+        if (newSources.size() == current->dataSources.size()) return;
+
+        if (!newData) newData.reset(new Data);
+        *newData = *current;
+        std::swap(newData->dataSources, newSources);
+
+        if (!ML::cmp_xchg(this->data, current, newData.get())) continue;
+        newData.release();
+        return;
+    }
+}
+
+const std::set<std::string> &
+Auction::
+getDataSources() const
+{
+    const Data * current = this->data;
+    return current->dataSources;
+}
+
 bool
 Auction::
 finish()

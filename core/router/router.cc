@@ -1708,6 +1708,8 @@ doBid(const std::vector<std::string> & message)
     ExcCheckEqual(bids.size(), bidInfo.spots.size(),
             "invalid shape for bids array");
 
+    auctionInfo.auction->addDataSources(bids.dataSources);
+
     for (int i = 0; i < bids.size(); ++i) {
 
         const Bid& bid = bids[i];

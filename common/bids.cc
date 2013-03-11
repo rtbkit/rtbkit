@@ -18,7 +18,7 @@ namespace RTBKIT {
 
 
 /******************************************************************************/
-/* BIDS                                                                       */
+/* BID                                                                        */
 /******************************************************************************/
 
 void
@@ -54,18 +54,68 @@ toJson() const
     json["creative"] = creativeIndex;
     json["price"] = price.toString();
     json["priority"] = priority;
+    if (!account.empty()) json["account"] = account.toString();
 
     return json;
 }
+
+Bid
+Bid::
+fromJson(ML::Parse_Context& context)
+{
+    Bid bid;
+
+    if (context.match_literal("null") || context.match_literal("{}"))
+        return bid;  // null bid
+
+    auto onBidField = [&] (
+            const std::string& fieldName, ML::Parse_Context& context)
+        {
+            ExcCheck(!fieldName.empty(), "invalid empty field name");
+
+            if (fieldName[0] == 'a' && fieldName == "account")
+                bid.account = AccountKey(expectJsonStringAscii(context));
+
+            else if (fieldName[0] == 'c' && fieldName == "creative")
+                bid.creativeIndex = context.expect_int();
+
+            else if (fieldName[0] == 'p' && fieldName == "price")
+                bid.price = Amount::parse(expectJsonStringAscii(context));
+
+            else if ((fieldName[0] == 'p' && fieldName == "priority")
+                    || (fieldName[0] == 's' && fieldName == "surplus"))
+            {
+                bid.priority = context.expect_double();
+            }
+
+            else throw ML::Exception("unknown bid field " + fieldName);
+        };
+
+    expectJsonObject(context, onBidField);
+
+    return bid;
+}
+
+
+/******************************************************************************/
+/* BIDS                                                                       */
+/******************************************************************************/
 
 Json::Value
 Bids::
 toJson() const
 {
-    Json::Value json(Json::arrayValue);
+    Json::Value json(Json::objectValue);
 
+    auto& bids = json["bids"];
     for (const Bid& bid : *this)
-        json.append(bid.toJson());
+        bids.append(bid.toJson());
+
+    if (!dataSources.empty()) {
+        auto& sources = json["sources"];
+        for (const string& dataSource : dataSources)
+            sources.append(dataSource);
+    }
 
     return json;
 }
@@ -76,42 +126,30 @@ fromJson(const std::string& raw)
 {
     Bids result;
 
-    ML::Parse_Context context(raw, raw.c_str(), raw.c_str() + raw.length());
+    auto onDataSourceEntry = [&] (int, ML::Parse_Context& context)
+        {
+            result.emplace_back(Bid::fromJson(context));
+        };
 
     auto onBidEntry = [&] (int, ML::Parse_Context& context)
         {
-            if (context.match_literal("null") || context.match_literal("{}")) {
-                result.emplace_back();
-                return;  // null bid
-            }
-
-            Bid bid;
-
-            auto onBidField = [&] (
-                    const std::string& fieldName, ML::Parse_Context& context)
-            {
-                ExcCheck(!fieldName.empty(), "invalid empty field name");
-
-                if (fieldName[0] == 'c' && fieldName == "creative")
-                    bid.creativeIndex = context.expect_int();
-
-                else if (fieldName[0] == 'p' && fieldName == "price")
-                    bid.price = Amount::parse(expectJsonStringAscii(context));
-
-                else if ((fieldName[0] == 'p' && fieldName == "priority")
-                        || (fieldName[0] == 's' && fieldName == "surplus"))
-                {
-                    bid.priority = context.expect_double();
-                }
-
-                else throw ML::Exception("unknown bid field " + fieldName);
-            };
-
-            expectJsonObject(context, onBidField);
-            result.push_back(bid);
+            result.dataSources.insert(expectJsonStringAscii(context));
         };
 
-    expectJsonArray(context, onBidEntry);
+    auto onBidsEntry = [&] (const string& fieldName, ML::Parse_Context& context)
+        {
+            ExcCheck(!fieldName.empty(), "invalid empty field name");
+
+            if (fieldName[0] == 'b' && fieldName == "bids")
+                expectJsonArray(context, onDataSourceEntry);
+
+            else if (fieldName[0] == 's' && fieldName == "sources")
+                expectJsonArray(context, onBidEntry);
+        };
+
+    ML::Parse_Context context(raw, raw.c_str(), raw.c_str() + raw.length());
+    expectJsonObject(context, onBidsEntry);
+
     return result;
 }
 

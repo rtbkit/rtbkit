@@ -178,6 +178,14 @@ struct Auction : public std::enable_shared_from_this<Auction> {
     */
     WinLoss setResponse(int spotNum, Response newResponse);
 
+    /** Merges the given data sources used to make the bidding decision with the
+        ones already already present in the auction.
+
+        Thread safe.
+     */
+    void addDataSources(const std::set<std::string> & sources);
+    const std::set<std::string> & getDataSources() const;
+
     /** Return a status that can be used for debugging. */
     std::string status() const;
 
@@ -246,6 +254,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
 
         bool tooLate;
         std::vector<std::vector<Response> > responses;  ///< Losing responses to track
+        std::set<std::string> dataSources; // data sources used to make the bid decissions.
         Data * oldData;  ///< GC list
         std::string error, details;
     };

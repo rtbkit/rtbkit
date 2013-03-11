@@ -63,6 +63,7 @@ struct BidJS : public JSWrapped2<Bid, BidJS, BidName, rtbModule>
         registerROProperty(&Bid::price, "price");
         registerROProperty(&Bid::creativeIndex, "creativeIndex");
         registerROProperty(&Bid::priority, "priority");
+        registerROProperty(&Bid::account, "account");
 
     }
 };
@@ -118,13 +119,14 @@ struct BidsJS : public JSWrapped2<Bids, BidsJS, BidsName, rtbModule>
         Persistent<FunctionTemplate> t = Register(New);
 
         NODE_SET_PROTOTYPE_METHOD(t, "bid", bid);
+        NODE_SET_PROTOTYPE_METHOD(t, "addSource", addSource);
 
         registerROProperty(&Bids::size, "length");
         t->InstanceTemplate()->SetIndexedPropertyHandler(at, 0, check, 0, list);
     }
 
-    /** Ideally this would be in the BidJS function but because bids is an array
-        of objects and not shared_ptr, the Bid object get copied everytime they
+    /** Ideally this would be in the BidJS class but, because bids is an array
+        of objects and not shared_ptr, the Bid objects get copied everytime they
         are accessed which means that any modifications will affect the copy and
         not the original. Annoying.
      */
@@ -140,6 +142,19 @@ struct BidsJS : public JSWrapped2<Bids, BidsJS, BidsName, rtbModule>
             auto obj = getShared(args);
             (*obj)[spot].bid(creativeIndex, price, priority);
 
+            return Handle<Value>();
+        }
+        HANDLE_JS_EXCEPTIONS;
+    }
+
+    /** Again, this should be in BidJS but the copies make this annoyingly hard.
+     */
+    static Handle<Value>
+    addSource(const Arguments& args)
+    {
+        try {
+            string source = getArg<string>(args, 0, "source");
+            getShared(args)->dataSources.insert(source);
             return Handle<Value>();
         }
         HANDLE_JS_EXCEPTIONS;
