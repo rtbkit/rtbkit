@@ -13,6 +13,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/scoped_ptr.hpp>
 #include "jml/utils/filter_streams.h"
+#include "soa/service/zmq_named_pub_sub.h"
 #include "soa/service/socket_per_thread.h"
 #include "soa/service/timeout_map.h"
 #include "soa/service/pending_list.h"
@@ -21,7 +22,6 @@
 #include "soa/gc/gc_lock.h"
 #include "jml/utils/ring_buffer.h"
 #include "jml/arch/wakeup_fd.h"
-#include "router_base.h"
 #include <unordered_set>
 #include <thread>
 #include "rtbkit/plugins/exchange/exchange_connector.h"
@@ -65,6 +65,27 @@ struct AllAgentInfo : public std::vector<AgentInfoEntry> {
     std::unordered_map<AccountKey, std::vector<int> > accountIndex;
 };
 
+/*****************************************************************************/
+/* DEBUG INFO                                                                */
+/*****************************************************************************/
+
+struct AuctionDebugInfo {
+    void addAuctionEvent(Date date, std::string type,
+                         const std::vector<std::string> & args);
+    void addSpotEvent(const Id & spot, Date date, std::string type,
+                      const std::vector<std::string> & args);
+    void dumpAuction() const;
+    void dumpSpot(Id spot) const;
+
+    struct Message {
+        Date timestamp;
+        Id spot;
+        std::string type;
+        std::vector<std::string> args;
+    };
+
+    std::vector<Message> messages;
+};
 
 /*****************************************************************************/
 /* ROUTER                                                                    */
@@ -72,10 +93,9 @@ struct AllAgentInfo : public std::vector<AgentInfoEntry> {
 
 /** An RTB router.  Contains everything needed to run auctions. */
 
-struct Router : public RouterServiceBase,
+struct Router : public ServiceBase,
                 public MonitorProvider
 {
-
     Router(ServiceBase & parent,
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
@@ -339,7 +359,7 @@ public:
         This can be called from any thread.
     */
     std::shared_ptr<AugmentationInfo>
-    preprocessAuction(const std::shared_ptr<Auction> & auction) const;
+    preprocessAuction(const std::shared_ptr<Auction> & auction);
 
     /** Send the auction for augmentation.  Once that is done, doStartBidding
         will be called.
@@ -466,6 +486,117 @@ public:
     bool initialized;
 
     std::vector<std::unique_ptr<ExchangeConnector> > exchanges;
+
+    /*************************************************************************/
+    /* EXCEPTIONS                                                            */
+    /*************************************************************************/
+
+    /** Throw an exception and log the error in Graphite and in the router
+        log file.
+    */
+    void throwException(const std::string & key, const std::string & fmt,
+                        ...) __attribute__((__noreturn__));
+
+
+    /*************************************************************************/
+    /* SYSTEM LOGGING                                                        */
+    /*************************************************************************/
+
+    /** Log a router error. */
+    template<typename... Args>
+    void logRouterError(const std::string & function,
+                        const std::string & exception,
+                        Args... args)
+    {
+        logger.publish("ROUTERERROR", Date::now().print(5),
+                       function, exception, args...);
+        recordHit("error.%s", function);
+    }
+
+
+    /*************************************************************************/
+    /* DATA LOGGING                                                          */
+    /*************************************************************************/
+
+    /** Log a given message to the given channel. */
+    template<typename... Args>
+    void logMessage(const std::string & channel, Args... args)
+    {
+        using namespace std;
+        //cerr << "********* logging message to " << channel << endl;
+        logger.publish(channel, Date::now().print(5), args...);
+    }
+
+    /** Log a given message to the given channel. */
+    template<typename... Args>
+    void logMessageNoTimestamp(const std::string & channel, Args... args)
+    {
+        using namespace std;
+        //cerr << "********* logging message to " << channel << endl;
+        logger.publish(channel, args...);
+    }
+
+    /*************************************************************************/
+    /* DEBUGGING                                                             */
+    /*************************************************************************/
+
+    void debugAuction(const Id & auction, const std::string & type,
+                      const std::vector<std::string> & args
+                      = std::vector<std::string>())
+    {
+        if (JML_LIKELY(!doDebug)) return;
+        debugAuctionImpl(auction, type, args);
+    }
+
+    void debugAuctionImpl(const Id & auction, const std::string & type,
+                          const std::vector<std::string> & args);
+
+    void debugSpot(const Id & auction,
+                   const Id & spot,
+                   const std::string & type,
+                   const std::vector<std::string> & args
+                       = std::vector<std::string>())
+    {
+        if (JML_LIKELY(!doDebug)) return;
+        debugSpotImpl(auction, spot, type, args);
+    }
+
+    void debugSpotImpl(const Id & auction,
+                       const Id & spot,
+                       const std::string & type,
+                       const std::vector<std::string> & args);
+
+    void expireDebugInfo();
+
+    void dumpAuction(const Id & auction) const;
+    void dumpSpot(const Id & auction, const Id & spot) const;
+
+
+    /*************************************************************************/
+    /* TIME                                                                  */
+    /*************************************************************************/
+
+    Date getCurrentTime() const;
+    void setSimulatedTime(Date newTime);
+
+    ZmqNamedPublisher logger;
+
+    /** Debug only */
+    bool doDebug;
+
+    mutable ML::Spinlock debugLock;
+    TimeoutMap<Id, AuctionDebugInfo> debugInfo;
+
+    uint64_t numAuctions;
+    uint64_t numBids;
+    uint64_t numNonEmptyBids;
+    uint64_t numAuctionsWithBid;
+    uint64_t numNoPotentialBidders;
+    uint64_t numNoBidders;
+
+    bool simulationMode_;
+    Date simulatedTime_;
+
 
     /* Client connection to the Monitor, determines if we can process bid
        requests */

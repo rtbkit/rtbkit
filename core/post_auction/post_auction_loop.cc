@@ -15,8 +15,8 @@
 #include "jml/arch/futex.h"
 #include "jml/db/persistent.h"
 #include "rtbkit/core/banker/banker.h"
+#include "rtbkit/common/messages.h"
 #include "rtbkit/common/port_ranges.h"
-#include "rtbkit/core/router/messages.h"
 
 using namespace std;
 using namespace ML;

@@ -4,7 +4,6 @@ LIBRTB_ROUTER_SOURCES := \
 	augmentation_loop.cc \
 	router.cc \
 	router_types.cc \
-	router_base.cc \
 	router_stack.cc
 
 LIBRTB_ROUTER_LINK := \

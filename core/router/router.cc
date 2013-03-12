@@ -25,13 +25,13 @@
 #include "jml/utils/json_parsing.h"
 #include <boost/make_shared.hpp>
 #include "profiler.h"
-#include "messages.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/core/banker/null_banker.h"
 #include <boost/algorithm/string.hpp>
 #include "rtbkit/core/post_auction/post_auction_loop.h"
-#include "rtbkit/common/port_ranges.h"
 #include "rtbkit/common/bids.h"
+#include "rtbkit/common/messages.h"
+#include "rtbkit/common/port_ranges.h"
 
 
 using namespace std;
@@ -57,6 +57,52 @@ toJson() const
     return result;
 }
 
+/*****************************************************************************/
+/* AUCTION DEBUG INFO                                                        */
+/*****************************************************************************/
+
+void
+AuctionDebugInfo::
+addAuctionEvent(Date timestamp, std::string type,
+                const std::vector<std::string> & args)
+{
+    Message message;
+    message.timestamp = timestamp;
+    message.type = type;
+    //message.args = args;
+    messages.push_back(message);
+}
+
+void
+AuctionDebugInfo::
+addSpotEvent(const Id & spot, Date timestamp, std::string type,
+             const std::vector<std::string> & args)
+{
+    Message message;
+    message.spot = spot;
+    message.timestamp = timestamp;
+    message.type = type;
+    //message.args = args;
+    messages.push_back(message);
+}
+
+void
+AuctionDebugInfo::
+dumpAuction() const
+{
+    for (unsigned i = 0;  i < messages.size();  ++i) {
+        auto & m = messages[i];
+        cerr << m.timestamp.print(6) << " " << m.spot << " " << m.type << endl;
+    }
+}
+
+void
+AuctionDebugInfo::
+dumpSpot(Id spot) const
+{
+    dumpAuction();  // TODO
+}
+
 
 /*****************************************************************************/
 /* ROUTER                                                                    */
@@ -68,7 +114,7 @@ Router(ServiceBase & parent,
        double secondsUntilLossAssumed,
        bool simulationMode,
        bool connectPostAuctionLoop)
-    : RouterServiceBase(serviceName, parent),
+    : ServiceBase(serviceName, parent),
       shutdown_(false),
       agentEndpoint(getZmqContext()),
       configBuffer(1024),
@@ -84,6 +130,12 @@ Router(ServiceBase & parent,
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
+      logger(getZmqContext()),
+      doDebug(false),
+      numAuctions(0), numBids(0), numNonEmptyBids(0),
+      numAuctionsWithBid(0), numNoPotentialBidders(0),
+      numNoBidders(0),
+      simulationMode_(false),
       monitorClient(getZmqContext()),
       slowModeCount(0),
       monitorProviderClient(getZmqContext(), *this)
@@ -96,7 +148,7 @@ Router(std::shared_ptr<ServiceProxies> services,
        double secondsUntilLossAssumed,
        bool simulationMode,
        bool connectPostAuctionLoop)
-    : RouterServiceBase(serviceName, services),
+    : ServiceBase(serviceName, services),
       shutdown_(false),
       agentEndpoint(getZmqContext()),
       postAuctionEndpoint(getZmqContext()),
@@ -113,6 +165,12 @@ Router(std::shared_ptr<ServiceProxies> services,
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
+      logger(getZmqContext()),
+      doDebug(false),
+      numAuctions(0), numBids(0), numNonEmptyBids(0),
+      numAuctionsWithBid(0), numNoPotentialBidders(0),
+      numNoBidders(0),
+      simulationMode_(false),
       monitorClient(getZmqContext()),
       slowModeCount(0),
       monitorProviderClient(getZmqContext(), *this)
@@ -131,7 +189,7 @@ init()
 
     augmentationLoop.init();
 
-    shared->logger.init(getServices()->config, serviceName() + "/logger");
+    logger.init(getServices()->config, serviceName() + "/logger");
 
 
     agentEndpoint.init(getServices()->config, serviceName() + "/agents");
@@ -193,7 +251,7 @@ void
 Router::
 bindTcp()
 {
-    shared->logger.bindTcp(PortRanges::logs);
+    logger.bindTcp(PortRanges::logs);
     agentEndpoint.bindTcp(PortRanges::router);
 }
 
@@ -239,7 +297,7 @@ start(boost::function<void ()> onStop)
             if (onStop) onStop();
         };
 
-    shared->logger.start();
+    logger.start();
     augmentationLoop.start();
     runThread.reset(new boost::thread(runfn));
 
@@ -477,7 +535,7 @@ run()
 
         //checkExpiredAuctions();
 
-        if (shared->simulationMode_)
+        if (simulationMode_)
             continue;
 
         double now = ML::wall_time();
@@ -524,7 +582,7 @@ run()
 #else
             earlyAuctionKeepProbability = auctionKeepProbability;
 #endif
-            if (!shared->simulationMode_) {
+            if (!simulationMode_) {
                 setAcceptAuctionProbability(earlyAuctionKeepProbability);
             }
 
@@ -620,7 +678,7 @@ shutdown()
         cleanupThread->join();
     cleanupThread.reset();
 
-    shared->logger.shutdown();
+    logger.shutdown();
     banker.reset();
 
     monitorClient.shutdown();
@@ -876,7 +934,7 @@ checkExpiredAuctions()
 {
     //recentlySubmitted.clear();
 
-    if (shared->simulationMode_)
+    if (simulationMode_)
         return;
 
     Date start = Date::now();
@@ -950,7 +1008,7 @@ checkExpiredAuctions()
         blacklist.doExpiries();
     }
 
-    if (shared->doDebug) {
+    if (doDebug) {
         RouterProfiler profiler(dutyCycleCurrent.nsExpireDebug);
         expireDebugInfo();
     }
@@ -1002,16 +1060,12 @@ doStats(const std::vector<std::string> & message)
 
     addChildServiceStatus(result);
 
-    result["numAuctions"] = shared->numAuctions;
-    result["numBids"] = shared->numBids;
-    result["numNonEmptyBids"] = shared->numNonEmptyBids;
-    result["numAuctionsWithBid"] = shared->numAuctionsWithBid;
-    result["numWins"] = shared->numWins;
-    result["numLosses"] = shared->numLosses;
-    result["numClicks"] = shared->numClicks;
-    result["numImpressions"] = shared->numImpressions;
-    result["numNoBidders"] = shared->numNoBidders;
-    result["numNoPotentialBidders"] = shared->numNoPotentialBidders;
+    result["numAuctions"] = numAuctions;
+    result["numBids"] = numBids;
+    result["numNonEmptyBids"] = numNonEmptyBids;
+    result["numAuctionsWithBid"] = numAuctionsWithBid;
+    result["numNoBidders"] = numNoBidders;
+    result["numNoPotentialBidders"] = numNoPotentialBidders;
 
     //sendMessage(controlEndpoint, message[0], result);
 }
@@ -1058,9 +1112,9 @@ augmentAuction(const std::shared_ptr<AugmentationInfo> & info)
 
 std::shared_ptr<AugmentationInfo>
 Router::
-preprocessAuction(const std::shared_ptr<Auction> & auction) const
+preprocessAuction(const std::shared_ptr<Auction> & auction)
 {
-    ML::atomic_inc(shared->numAuctions);
+    ML::atomic_inc(numAuctions);
 
     Date now = Date::now();
     auction->inPrepro = now;
@@ -1117,21 +1171,21 @@ preprocessAuction(const std::shared_ptr<Auction> & auction) const
 
             ExcAssert(entry.status);
 
-            if (!shared->simulationMode_
+            if (!simulationMode_
                 && (entry.status->lastHeartbeat.secondsSince(now) > 2.0
                     || entry.status->dead)) {
                 doFilterStat("static.003_agentAppearsDead");
                 return;
             }
 
-            if (!shared->simulationMode_
+            if (!simulationMode_
                 && (entry.status->numBidsInFlight >= config.maxInFlight)) {
                 doFilterStat("static.004_earlyTooManyInFlight");
                 return;
             }
 
             /* Check if we have enough time to process it. */
-            if (!shared->simulationMode_
+            if (!simulationMode_
                 && config.minTimeAvailableMs != 0.0
                 && timeLeftMs < config.minTimeAvailableMs)
                 {
@@ -1229,7 +1283,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
 
     try {
         Id auctionId = augInfo->auction->id;
-        if (shared->simulationMode_) {
+        if (simulationMode_) {
             if (inFlight.count(auctionId)) {
                 cerr << "warning: attempt to add auction " << auctionId
                      << " twice in simulation mode" << endl;
@@ -1316,7 +1370,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                 doFilterStat("intoDynamicFilters");
 
                 /* Check if we have too many in flight. */
-                if (!shared->simulationMode_
+                if (!simulationMode_
                     && info.numBidsInFlight() >= info.config->maxInFlight) {
                     ++info.stats->tooManyInFlight;
                     bidder.inFlightProp = PotentialBidder::NULL_PROP;
@@ -1325,7 +1379,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                 }
 
                 /* Check if we have enough time to process it. */
-                if (!shared->simulationMode_
+                if (!simulationMode_
                     && config.minTimeAvailableMs != 0.0
                     && timeLeftMs < config.minTimeAvailableMs) {
 
@@ -1482,7 +1536,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
 
         if (auctionInfo.bidders.empty()) {
             /* No bidders; don't bother with the bid */
-            ML::atomic_inc(shared->numNoBidders);
+            ML::atomic_inc(numNoBidders);
             inFlight.erase(auctionId);
             //cerr << fName << "About to call finish " << endl;
             if (!auction->finish()) {
@@ -1544,7 +1598,7 @@ doBid(const std::vector<std::string> & message)
 
     RouterProfiler profiler(dutyCycleCurrent.nsBid);
 
-    ML::atomic_inc(shared->numBids);
+    ML::atomic_inc(numBids);
 
     if (message.size() < 4 || message.size() > 5) {
         returnErrorResponse(message, "BID message has 3-4 parts");
@@ -1805,7 +1859,7 @@ doBid(const std::vector<std::string> & message)
 
         doProfileEvent(6, "banker");
 
-        if (shared->doDebug)
+        if (doDebug)
             this->debugSpot(auctionId, spots[spotIndex].id,
                     ML::format("BID %s %s %f",
                             auctionKey.c_str(),
@@ -1841,7 +1895,7 @@ doBid(const std::vector<std::string> & message)
 
         string msg = Auction::Response::print(localResult);
 
-        if (shared->doDebug)
+        if (doDebug)
             this->debugSpot(auctionId, spots[spotIndex].id,
                     ML::format("BID %s %s",
                             auctionKey.c_str(), msg.c_str()));
@@ -1901,7 +1955,7 @@ doBid(const std::vector<std::string> & message)
 
     if (numValidBids > 0) {
         //logMessage("BID", agent, auctionId, biddata, meta);
-        ML::atomic_add(shared->numNonEmptyBids, 1);
+        ML::atomic_add(numNonEmptyBids, 1);
     }
     else if (numPassedBids > 0) {
         // Passed on the ... add to the blacklist
@@ -1986,7 +2040,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
     const std::vector<std::vector<Auction::Response> > & allResponses
         = auction->getResponses();
 
-    if (shared->doDebug)
+    if (doDebug)
         debugAuction(auctionId, ML::format("SUBMITTED %d slots",
                                            (int)allResponses.size()),
                      {});
@@ -2003,7 +2057,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
         const std::vector<Auction::Response> & responses
             = allResponses[spotNum];
 
-        if (shared->doDebug)
+        if (doDebug)
             debugSpot(auctionId, spotId,
                       ML::format("has %zd bids", responses.size()));
 
@@ -2077,7 +2131,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
                                "unknown auction local status");
             };
 
-            if (shared->doDebug)
+            if (doDebug)
                 debugSpot(auctionId, spotId,
                           ML::format("%s %s",
                                      msg.c_str(),
@@ -2100,7 +2154,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
         // If we didn't actually submit a bid then nothing else to do
         if (!hasSubmittedBid) continue;
 
-        ML::atomic_add(shared->numAuctionsWithBid, 1);
+        ML::atomic_add(numAuctionsWithBid, 1);
         //cerr << fName << "injecting submitted auction " << endl;
 
         onSubmittedAuction(auction, spotId, responses[0]);
@@ -2180,7 +2234,7 @@ onNewAuction(std::shared_ptr<Auction> auction)
 
     if (info) {
         recordHit("auctionPassedPreprocessing");
-        if (shared->simulationMode_)
+        if (simulationMode_)
         {
             startBiddingBuffer.push(info);
             wakeupMainLoop.signal();
@@ -2192,7 +2246,7 @@ onNewAuction(std::shared_ptr<Auction> auction)
     }
     else {
         recordHit("auctionDropped.noPotentialBidders");
-        ML::atomic_inc(shared->numNoPotentialBidders);
+        ML::atomic_inc(numNoPotentialBidders);
     }
 }
 
@@ -2353,7 +2407,7 @@ void
 Router::
 enterSimulationMode()
 {
-    shared->simulationMode_ = 1;
+    simulationMode_ = 1;
 }
 
 void
@@ -2549,6 +2603,114 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
     if (auction.unique()) {
         auctionGraveyard.tryPush(auction);
     }
+}
+
+void
+Router::
+throwException(const std::string & key, const std::string & fmt, ...)
+{
+    recordHit("error.exception");
+    recordHit("error.exception.%s", key);
+
+    string message;
+    va_list ap;
+    va_start(ap, fmt);
+    try {
+        message = vformat(fmt.c_str(), ap);
+        va_end(ap);
+    }
+    catch (...) {
+        va_end(ap);
+        throw;
+    }
+
+    logRouterError("exception", key, message);
+    throw ML::Exception("Router Exception: " + key + ": " + message);
+}
+
+void
+Router::
+debugAuctionImpl(const Id & auction, const std::string & type,
+                 const std::vector<std::string> & args)
+{
+    Date now = Date::now();
+    boost::unique_lock<ML::Spinlock> guard(debugLock);
+    AuctionDebugInfo & entry
+        = debugInfo.access(auction, now.plusSeconds(30.0));
+
+    entry.addAuctionEvent(now, type, args);
+}
+
+void
+Router::
+debugSpotImpl(const Id & auction, const Id & spot, const std::string & type,
+              const std::vector<std::string> & args)
+{
+    Date now = Date::now();
+    boost::unique_lock<ML::Spinlock> guard(debugLock);
+    AuctionDebugInfo & entry
+        = debugInfo.access(auction, now.plusSeconds(30.0));
+
+    entry.addSpotEvent(spot, now, type, args);
+}
+
+void
+Router::
+expireDebugInfo()
+{
+    boost::unique_lock<ML::Spinlock> guard(debugLock);
+    debugInfo.expire();
+}
+
+void
+Router::
+dumpAuction(const Id & auction) const
+{
+    boost::unique_lock<ML::Spinlock> guard(debugLock);
+    auto it = debugInfo.find(auction);
+    if (it == debugInfo.end()) {
+        //cerr << "*** unknown auction " << auction << " in "
+        //     << debugInfo.size() << endl;
+    }
+    else it->second.dumpAuction();
+}
+
+void
+Router::
+dumpSpot(const Id & auction, const Id & spot) const
+{
+    boost::unique_lock<ML::Spinlock> guard(debugLock);
+    auto it = debugInfo.find(auction);
+    if (it == debugInfo.end()) {
+        //cerr << "*** unknown auction " << auction << " in "
+        //     << debugInfo.size() << endl;
+    }
+    else it->second.dumpSpot(spot);
+}
+
+Date
+Router::
+getCurrentTime() const
+{
+    if (simulationMode_)
+        return simulatedTime_;
+    else return Date::now();
+}
+
+void
+Router::
+setSimulatedTime(Date currentTime)
+{
+    if (!simulationMode_)
+        throw Exception("not in simulation mode");
+
+    if (currentTime < simulatedTime_) {
+        cerr << "warning: simulated time is going backwards from "
+             << simulatedTime_.print(4) << " to "
+             << currentTime.print(4) << endl;
+    }
+
+    simulatedTime_ = currentTime;
 }
 
 /** MonitorProvider interface */
