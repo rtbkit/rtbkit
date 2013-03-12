@@ -99,13 +99,11 @@ struct Router : public ServiceBase,
     Router(ServiceBase & parent,
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
-           bool simulationMode = false,
            bool connectPostAuctionLoop = true);
 
     Router(std::shared_ptr<ServiceProxies> services,
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
-           bool simulationMode = false,
            bool connectPostAuctionLoop = true);
 
     ~Router();
@@ -571,13 +569,7 @@ public:
     void dumpAuction(const Id & auction) const;
     void dumpSpot(const Id & auction, const Id & spot) const;
 
-
-    /*************************************************************************/
-    /* TIME                                                                  */
-    /*************************************************************************/
-
-    Date getCurrentTime() const;
-    void setSimulatedTime(Date newTime);
+    Date getCurrentTime() const { return Date::now(); }
 
     ZmqNamedPublisher logger;
 
@@ -593,10 +585,6 @@ public:
     uint64_t numAuctionsWithBid;
     uint64_t numNoPotentialBidders;
     uint64_t numNoBidders;
-
-    bool simulationMode_;
-    Date simulatedTime_;
-
 
     /* Client connection to the Monitor, determines if we can process bid
        requests */

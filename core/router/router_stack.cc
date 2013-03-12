@@ -22,11 +22,10 @@ namespace RTBKIT {
 RouterStack::
 RouterStack(std::shared_ptr<ServiceProxies> services,
             const std::string & serviceName,
-            double secondsUntilLossAssumed,
-            bool simulationMode)
+            double secondsUntilLossAssumed)
     : ServiceBase(serviceName, services),
       router(*this, "router", secondsUntilLossAssumed,
-             simulationMode, false /* connect to post auction loop */),
+             false /* connect to post auction loop */),
       masterBanker(services, "masterBanker"),
       postAuctionLoop(*this, "postAuction"),
       config(services, "config"),

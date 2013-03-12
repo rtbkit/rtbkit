@@ -112,7 +112,6 @@ Router::
 Router(ServiceBase & parent,
        const std::string & serviceName,
        double secondsUntilLossAssumed,
-       bool simulationMode,
        bool connectPostAuctionLoop)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
@@ -135,7 +134,6 @@ Router(ServiceBase & parent,
       numAuctions(0), numBids(0), numNonEmptyBids(0),
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
-      simulationMode_(false),
       monitorClient(getZmqContext()),
       slowModeCount(0),
       monitorProviderClient(getZmqContext(), *this)
@@ -146,7 +144,6 @@ Router::
 Router(std::shared_ptr<ServiceProxies> services,
        const std::string & serviceName,
        double secondsUntilLossAssumed,
-       bool simulationMode,
        bool connectPostAuctionLoop)
     : ServiceBase(serviceName, services),
       shutdown_(false),
@@ -170,7 +167,6 @@ Router(std::shared_ptr<ServiceProxies> services,
       numAuctions(0), numBids(0), numNonEmptyBids(0),
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
-      simulationMode_(false),
       monitorClient(getZmqContext()),
       slowModeCount(0),
       monitorProviderClient(getZmqContext(), *this)
@@ -535,9 +531,6 @@ run()
 
         //checkExpiredAuctions();
 
-        if (simulationMode_)
-            continue;
-
         double now = ML::wall_time();
         double beforeChecks = getTime();
 
@@ -582,9 +575,7 @@ run()
 #else
             earlyAuctionKeepProbability = auctionKeepProbability;
 #endif
-            if (!simulationMode_) {
-                setAcceptAuctionProbability(earlyAuctionKeepProbability);
-            }
+            setAcceptAuctionProbability(earlyAuctionKeepProbability);
 
             recordEvent("auctionKeepPercentage", ET_LEVEL,
                     auctionKeepProbability * 100.0);
@@ -934,9 +925,6 @@ checkExpiredAuctions()
 {
     //recentlySubmitted.clear();
 
-    if (simulationMode_)
-        return;
-
     Date start = Date::now();
 
     {
@@ -1171,22 +1159,19 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
 
             ExcAssert(entry.status);
 
-            if (!simulationMode_
-                && (entry.status->lastHeartbeat.secondsSince(now) > 2.0
-                    || entry.status->dead)) {
+            if (entry.status->lastHeartbeat.secondsSince(now) > 2.0
+                || entry.status->dead) {
                 doFilterStat("static.003_agentAppearsDead");
                 return;
             }
 
-            if (!simulationMode_
-                && (entry.status->numBidsInFlight >= config.maxInFlight)) {
+            if (entry.status->numBidsInFlight >= config.maxInFlight) {
                 doFilterStat("static.004_earlyTooManyInFlight");
                 return;
             }
 
             /* Check if we have enough time to process it. */
-            if (!simulationMode_
-                && config.minTimeAvailableMs != 0.0
+            if (config.minTimeAvailableMs != 0.0
                 && timeLeftMs < config.minTimeAvailableMs)
                 {
                     ML::atomic_inc(stats.notEnoughTime);
@@ -1283,20 +1268,6 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
 
     try {
         Id auctionId = augInfo->auction->id;
-        if (simulationMode_) {
-            if (inFlight.count(auctionId)) {
-                cerr << "warning: attempt to add auction " << auctionId
-                     << " twice in simulation mode" << endl;
-                return;
-            }
-#if 0
-            if (findAuction(finished, auctionId)) {
-                cerr << "warning: attempt to restart already finished "
-                     << "auction " << auctionId << endl;
-                return;
-            }
-#endif
-        }
 
         if (augmentationLoop.currentlyAugmenting(auctionId)) {
             throwException("doStartBidding.alreadyAugmenting",
@@ -1370,8 +1341,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                 doFilterStat("intoDynamicFilters");
 
                 /* Check if we have too many in flight. */
-                if (!simulationMode_
-                    && info.numBidsInFlight() >= info.config->maxInFlight) {
+                if (info.numBidsInFlight() >= info.config->maxInFlight) {
                     ++info.stats->tooManyInFlight;
                     bidder.inFlightProp = PotentialBidder::NULL_PROP;
                     doFilterStat("dynamic.tooManyInFlight");
@@ -1379,8 +1349,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                 }
 
                 /* Check if we have enough time to process it. */
-                if (!simulationMode_
-                    && config.minTimeAvailableMs != 0.0
+                if (config.minTimeAvailableMs != 0.0
                     && timeLeftMs < config.minTimeAvailableMs) {
 
                     static ML::Spinlock lock;
@@ -2234,15 +2203,7 @@ onNewAuction(std::shared_ptr<Auction> auction)
 
     if (info) {
         recordHit("auctionPassedPreprocessing");
-        if (simulationMode_)
-        {
-            startBiddingBuffer.push(info);
-            wakeupMainLoop.signal();
-        }
-        else
-        {
-            augmentAuction(info);
-        }
+        augmentAuction(info);
     }
     else {
         recordHit("auctionDropped.noPotentialBidders");
@@ -2401,13 +2362,6 @@ getAllAgentInfo() const
     forEachAgent(onAgent);
 
     return result;
-}
-
-void
-Router::
-enterSimulationMode()
-{
-    simulationMode_ = 1;
 }
 
 void
@@ -2686,31 +2640,6 @@ dumpSpot(const Id & auction, const Id & spot) const
         //     << debugInfo.size() << endl;
     }
     else it->second.dumpSpot(spot);
-}
-
-Date
-Router::
-getCurrentTime() const
-{
-    if (simulationMode_)
-        return simulatedTime_;
-    else return Date::now();
-}
-
-void
-Router::
-setSimulatedTime(Date currentTime)
-{
-    if (!simulationMode_)
-        throw Exception("not in simulation mode");
-
-    if (currentTime < simulatedTime_) {
-        cerr << "warning: simulated time is going backwards from "
-             << simulatedTime_.print(4) << " to "
-             << currentTime.print(4) << endl;
-    }
-
-    simulatedTime_ = currentTime;
 }
 
 /** MonitorProvider interface */

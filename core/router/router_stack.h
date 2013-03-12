@@ -35,8 +35,7 @@ struct RouterStack: public ServiceBase {
     
     RouterStack(std::shared_ptr<ServiceProxies> services,
                 const std::string & serviceName = "routerStack",
-                double secondsUntilLossAssumed = 2.0,
-                bool simulationMode = false);
+                double secondsUntilLossAssumed = 2.0);
 
     void init();
     
