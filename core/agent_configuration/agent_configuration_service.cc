@@ -8,7 +8,6 @@
 #include "jml/utils/string_functions.h"
 #include "agent_configuration_service.h"
 #include "soa/service/rest_request_binding.h"
-#include "rtbkit/common/port_ranges.h"
 
 using namespace std;
 using namespace ML;
@@ -170,8 +169,10 @@ void
 AgentConfigurationService::
 bindTcp()
 {
-    RestServiceEndpoint::bindTcp(PortRanges::zmq.agentConfiguration, PortRanges::http.agentConfiguration);
-    listeners.bindTcp(PortRanges::configuration);
+    RestServiceEndpoint::bindTcp(
+            getServices()->ports->getRange("agentConfiguration.zmq"),
+            getServices()->ports->getRange("agentConfiguration.http"));
+    listeners.bindTcp(getServices()->ports->getRange("configuration"));
     agents.bindTcp();
 }
 

@@ -16,7 +16,6 @@
 #include "jml/db/persistent.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/common/messages.h"
-#include "rtbkit/common/port_ranges.h"
 
 using namespace std;
 using namespace ML;
@@ -533,9 +532,9 @@ void
 PostAuctionLoop::
 bindTcp()
 {
-    logger.bindTcp(PortRanges::logs);
-    endpoint.bindTcp(PortRanges::postAuctionLoop);
-    toAgents.bindTcp(PortRanges::postAuctionLoopAgents);
+    logger.bindTcp(getServices()->ports->getRange("logs"));
+    endpoint.bindTcp(getServices()->ports->getRange("postAuctionLoop"));
+    toAgents.bindTcp(getServices()->ports->getRange("postAuctionLoopAgents"));
 }
 
 void

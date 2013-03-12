@@ -31,7 +31,6 @@
 #include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "rtbkit/common/bids.h"
 #include "rtbkit/common/messages.h"
-#include "rtbkit/common/port_ranges.h"
 
 
 using namespace std;
@@ -247,8 +246,8 @@ void
 Router::
 bindTcp()
 {
-    logger.bindTcp(PortRanges::logs);
-    agentEndpoint.bindTcp(PortRanges::router);
+    logger.bindTcp(getServices()->ports->getRange("logs"));
+    agentEndpoint.bindTcp(getServices()->ports->getRange("router"));
 }
 
 void

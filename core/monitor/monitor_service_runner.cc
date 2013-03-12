@@ -10,7 +10,6 @@
 #include <boost/make_shared.hpp>
 
 #include "jml/arch/timers.h"
-#include "rtbkit/common/port_ranges.h"
 #include "monitor_endpoint.h"
 
 using namespace boost::program_options;
@@ -76,7 +75,9 @@ int main(int argc, char ** argv)
 
     MonitorEndpoint monitor(proxies, "monitor");
     monitor.init({"router", "postAuction", "masterBanker", "router_logger"});
-    auto addr = monitor.bindTcp(PortRanges::zmq.monitor, PortRanges::http.monitor);
+    auto addr = monitor.bindTcp(
+            proxies->ports->getRange("monitor.zmq"),
+            proxies->ports->getRange("monitor.http"));
     cerr << "monitor is listening on "
          << addr.first << "," << addr.second << endl;
 

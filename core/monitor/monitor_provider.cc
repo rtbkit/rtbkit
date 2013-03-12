@@ -9,7 +9,6 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <jml/arch/exception_handler.h>
 #include "soa/service/service_base.h"
-#include "rtbkit/common/port_ranges.h"
 #include "monitor_provider.h"
 
 using namespace std;
