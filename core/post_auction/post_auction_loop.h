@@ -319,11 +319,11 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
 
     /** Log a router error. */
     template<typename... Args>
-    void logRouterError(const std::string & function,
-                        const std::string & exception,
-                        Args... args)
+    void logPAError(const std::string & function,
+                    const std::string & exception,
+                    Args... args)
     {
-        logger.publish("ROUTERERROR", Date::now().print(5),
+        logger.publish("PAERROR", Date::now().print(5),
                        function, exception, args...);
         recordHit("error.%s", function);
     }

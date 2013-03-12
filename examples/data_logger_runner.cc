@@ -82,7 +82,7 @@ int main (int argc, char** argv)
 
      logger.addOutput(normalOutput,
                      boost::regex(".*"),
-                     boost::regex("AUCTION|BEHAVIOUR|CLICK|DATA|IMPRESSION|INTERACTION|ROUTERERROR|WIN|MATCHEDLOSS"));
+                     boost::regex("AUCTION|BEHAVIOUR|CLICK|DATA|IMPRESSION|INTERACTION|PAERROR|ROUTERERROR|WIN|MATCHEDLOSS"));
 
     // File output (appended) for router error logs
     std::shared_ptr<RotatingFileOutput> errorOutput
@@ -91,6 +91,7 @@ int main (int argc, char** argv)
     errorOutput->onFileWrite = [&](const string& channel, size_t bytes) {
     };
     logger.addOutput(errorOutput, boost::regex("ROUTERERROR"), boost::regex());
+    logger.addOutput(errorOutput, boost::regex("PAERROR"), boost::regex());
 
     std::shared_ptr<RotatingFileOutput> writeDelivery
         (new RotatingFileOutput());

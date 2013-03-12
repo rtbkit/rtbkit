@@ -583,7 +583,7 @@ throwException(const std::string & key, const std::string & fmt, ...)
         throw;
     }
 
-    logRouterError("exception", key, message);
+    logPAError("exception", key, message);
     throw ML::Exception("Router Exception: " + key + ": " + message);
 }
 
@@ -978,7 +978,7 @@ checkExpiredAuctions()
                 } catch (const std::exception & exc) {
                     cerr << "error handling expired loss auction: " << exc.what()
                     << endl;
-                    this->logRouterError("checkExpiredAuctions.loss", exc.what());
+                    this->logPAError("checkExpiredAuctions.loss", exc.what());
                 }
 
                 return Date();
@@ -1061,8 +1061,8 @@ doAuction(const SubmittedAuctionEvent & event)
 
         // Add to awaiting result list
         if (!agents.count(submission.bid.agent)) {
-            logRouterError("doSubmitted.unknownAgentWonAuction",
-                           "unknown agent won auction");
+            logPAError("doSubmitted.unknownAgentWonAuction",
+                       "unknown agent won auction");
             continue;
         }
         agents[submission.bid.agent].awaitingResult
@@ -1387,8 +1387,8 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
         //cerr << "auction " << auctionId << "-" << adSpotId
         //     << " in flight but got " << type << endl;
         recordHit("delivery.%s.stillInFlight", typeStr);
-        logRouterError(string("doImpressionClick.auctionNotWon") + typeStr,
-                       "message for auction that's not won");
+        logPAError(string("doImpressionClick.auctionNotWon") + typeStr,
+                   "message for auction that's not won");
         recordUnmatched("inFlight");
 
         submissionInfo.earlyImpressionClickEvents.push_back(event);
@@ -1401,8 +1401,8 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
         if (typeEnum == PAE_IMPRESSION) {
             if (finishedInfo.hasImpression()) {
                 recordHit("delivery.%s.duplicate", typeStr);
-                logRouterError(string("doImpressionClick.duplicate") + typeStr,
-                               "message duplicated");
+                logPAError(string("doImpressionClick.duplicate") + typeStr,
+                           "message duplicated");
                 recordUnmatched("duplicate");
                 return;
             }
@@ -1420,8 +1420,8 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
         else if (typeEnum == PAE_CLICK) {
             if (finishedInfo.hasClick()) {
                 recordHit("delivery.CLICK.duplicate");
-                logRouterError(string("doImpressionClick.duplicate") + typeStr,
-                               "message duplicated");
+                logPAError(string("doImpressionClick.duplicate") + typeStr,
+                           "message duplicated");
                 recordUnmatched("duplicate");
                 return;
             }
@@ -1479,8 +1479,8 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
         //cerr << "delivery " << typeStr << ": auction "
         //     << auctionId << "-" << adSpotId << " not found"
         //     << endl;
-        logRouterError(string("doImpressionClick.auctionNotFound") + typeStr,
-                       "auction not found for delivery message");
+        logPAError(string("doImpressionClick.auctionNotFound") + typeStr,
+                   "auction not found for delivery message");
         recordUnmatched("auctionNotFound");
     }
 }
@@ -1529,8 +1529,8 @@ routePostAuctionEvent(PostAuctionEventType type,
 
     if (!sent) {
         recordHit("delivery.%s.orphaned", typeStr);
-        logRouterError(string("doImpressionClick.noListeners") + typeStr,
-                       "nothing listening for account " + account.toString());
+        logPAError(string("doImpressionClick.noListeners") + typeStr,
+                   "nothing listening for account " + account.toString());
     }
     else recordHit("delivery.%s.delivered", typeStr);
 
@@ -1618,8 +1618,8 @@ doVisit(const std::shared_ptr<PostAuctionEvent> & event)
 
             FinishedInfo finishedInfo;
             if (!findAuction(finished, auctionId, adSpotId, finishedInfo)) {
-                logRouterError("doVisit.inconsistentIndex",
-                               "auction in indexed not in finished");
+                logPAError("doVisit.inconsistentIndex",
+                           "auction in indexed not in finished");
                 recordUnmatched("inconsistentIndex");
                 return;
             }
@@ -1716,9 +1716,9 @@ doBidResult(const Id & auctionId,
     int adspot_num = submission.bidRequest->findAdSpotIndex(adSpotId);
 
     if (adspot_num == -1) {
-        logRouterError("doBidResult.adSpotIdNotFound",
-                       "adspot ID ", adSpotId, " not found in auction ",
-                       submission.bidRequestStr);
+        logPAError("doBidResult.adSpotIdNotFound",
+                   "adspot ID ", adSpotId, " not found in auction ",
+                   submission.bidRequestStr);
     }
 
     const Auction::Response & response = submission.bid;
@@ -1742,9 +1742,9 @@ doBidResult(const Id & auctionId,
 
     if (winPrice > bidPrice) {
         //cerr << submission.bidRequestStr << endl;
-        logRouterError("doBidResult.winPriceExceedsBidPrice",
-                       ML::format("win price %s exceeds bid price %s",
-                                  winPrice.toString(),
+        logPAError("doBidResult.winPriceExceedsBidPrice",
+                   ML::format("win price %s exceeds bid price %s",
+                              winPrice.toString(),
                                   bidPrice.toString()));
     }
 
