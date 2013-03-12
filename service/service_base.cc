@@ -11,10 +11,15 @@
 #include "zookeeper_configuration_service.h"
 #include "jml/arch/demangle.h"
 #include "jml/utils/exc_assert.h"
+#include "jml/utils/environment.h"
+#include "jml/utils/file_functions.h"
 #include <unistd.h>
 #include <sys/utsname.h>
 #include <boost/make_shared.hpp>
 #include "zmq.hpp"
+#include "soa/jsoncpp/reader.h"
+#include "soa/jsoncpp/value.h"
+#include <fstream>
 
 using namespace std;
 
@@ -333,12 +338,29 @@ removePath(const std::string & key)
 /* SERVICE PROXIES                                                           */
 /*****************************************************************************/
 
+namespace {
+
+std::string bootstrapConfigPath()
+{
+    ML::Env_Option<string> env("RTBKIT_BOOTSTRAP", "");
+    if (!env.get().empty()) return env.get();
+
+    const string cwdPath = "./bootstrap.json";
+    if (ML::fileExists(cwdPath)) return cwdPath;
+
+    return "";
+}
+
+} // namespace anonymous
+
 ServiceProxies::
 ServiceProxies()
     : events(new NullEventService()),
       config(new InternalConfigurationService()),
+      ports(new DefaultPortRangeService()),
       zmqContext(new zmq::context_t(1 /* num worker threads */))
 {
+    bootstrap(bootstrapConfigPath());
 }
 
 void
@@ -384,6 +406,20 @@ useZookeeper(std::string hostname,
     }
 
     config.reset(new ZookeeperConfigurationService(hostname, prefix));
+}
+
+void
+ServiceProxies::
+usePortRanges(const std::string& path)
+{
+    ports.reset(new JsonPortRangeService(path));
+}
+
+void
+ServiceProxies::
+usePortRanges(const Json::Value& config)
+{
+    ports.reset(new JsonPortRangeService(config));
 }
 
 std::vector<std::string>
@@ -441,6 +477,46 @@ ServiceProxies::getEndpointInstances(std::string const & name,
     }
 
     return result;
+}
+
+void
+ServiceProxies::
+bootstrap(const std::string& path)
+{
+    if (path.empty()) return;
+    ExcCheck(ML::fileExists(path), path + " doesn't exist");
+
+    ifstream stream(path);
+    ExcCheckErrno(stream, "Unable to open the Json port range file.");
+
+    string file;
+    while(stream) {
+        string line;
+        getline(stream, line);
+        file += line + "\n";
+    }
+
+    bootstrap(Json::parse(file));
+}
+
+void
+ServiceProxies::
+bootstrap(const Json::Value& config)
+{
+    vector<string> members = config.getMemberNames();
+
+    for (size_t i = 0; i < members.size(); ++i) {
+        const Json::Value& entry = config[members[i]];
+
+        if (members[i] == "zookeeper")
+            useZookeeper(entry["uri"].asString(), entry["prefix"].asString());
+
+        else if (members[i] == "carbon")
+            logToCarbon(entry["uri"].asString(), entry["prefix"].asString());
+
+        else if (members[i] == "portRanges")
+            usePortRanges(entry);
+    }
 }
 
 /*****************************************************************************/

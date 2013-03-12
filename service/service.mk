@@ -32,6 +32,7 @@ LIBSERVICES_SOURCES := \
 	chunked_http_endpoint.cc \
 	epoller.cc \
 	http_header.cc \
+	port_range_service.cc \
 	service_base.cc \
 	message_loop.cc \
 	named_endpoint.cc \

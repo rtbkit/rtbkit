@@ -7,6 +7,7 @@
 #ifndef __service__service_base_h__
 #define __service__service_base_h__
 
+#include "port_range_service.h"
 #include "soa/service/stats_events.h"
 #include "stdarg.h"
 #include "jml/compiler/compiler.h"
@@ -354,6 +355,7 @@ struct ServiceProxies {
 
     std::shared_ptr<EventService> events;
     std::shared_ptr<ConfigurationService> config;
+    std::shared_ptr<PortRangeService> ports;
 
     /** Zeromq context for communication. */
     std::shared_ptr<zmq::context_t> zmqContext;
@@ -367,6 +369,9 @@ struct ServiceProxies {
     void useZookeeper(std::string hostname = "localhost:2181",
                       std::string prefix = "CWD");
 
+    void usePortRanges(const std::string& path);
+    void usePortRanges(const Json::Value& config);
+
     std::vector<std::string>
     getServiceClassInstances(std::string const & name,
                              std::string const & protocol = "http");
@@ -374,6 +379,10 @@ struct ServiceProxies {
     std::vector<std::string>
     getEndpointInstances(std::string const & name,
                          std::string const & protocol = "http");
+
+    // Bootstrap the proxies services using a json configuration.
+    void bootstrap(const std::string& path);
+    void bootstrap(const Json::Value& config);
 };
 
 
