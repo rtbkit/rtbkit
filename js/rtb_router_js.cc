@@ -71,8 +71,7 @@ struct RTBRouterStackJS
                  (new RTBKIT::RouterStack(std::make_shared<ServiceProxies>(),
                                   getArg(args, 2, "router", "routerName"),
                                   getArg(args, 0, 2.0,
-                                         "secondsUntilLossAssumed"),
-                                  getArg(args, 1, false, "simulationMode"))));
+                                         "secondsUntilLossAssumed"))));
             return args.This();
         } HANDLE_JS_EXCEPTIONS;
     }
@@ -97,9 +96,6 @@ struct RTBRouterStackJS
         NODE_SET_PROTOTYPE_METHOD(t, "numAuctionsInProgress",
                                   numAuctionsInProgress);
         NODE_SET_PROTOTYPE_METHOD(t, "getStats", getStats);
-        NODE_SET_PROTOTYPE_METHOD(t, "enterSimulationMode",
-                                  enterSimulationMode);
-        NODE_SET_PROTOTYPE_METHOD(t, "setSimulatedTime", setSimulatedTime);
 
 #if 0
 
@@ -452,24 +448,6 @@ struct RTBRouterStackJS
         } HANDLE_JS_EXCEPTIONS;
     }
 #endif
-
-    static Handle<v8::Value>
-    enterSimulationMode(const Arguments & args)
-    {
-        try {
-            getShared(args)->router.enterSimulationMode();
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
-    }
-
-    static Handle<v8::Value>
-    setSimulatedTime(const Arguments & args)
-    {
-        try {
-            getShared(args)->router.setSimulatedTime(getArg(args, 0, "currentTime"));
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
-    }
 
 #if 0
     static v8::Handle<v8::Value>

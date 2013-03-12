@@ -208,7 +208,7 @@ struct RouterTester {
         agent.configure();
         future<bool> configFuture = agent.getConfigFuture();
         // Wait till the agent has registered - otherwise injection of bids will fail
-        router.enterSimulationMode();
+        // router.enterSimulationMode();
 
         configFuture.get();
         // Set the budget for the test campaign of $10

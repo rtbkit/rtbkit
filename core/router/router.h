@@ -245,9 +245,6 @@ struct Router : public ServiceBase,
     Json::Value getAccountInfo(const AccountKey & account) const;
     
 
-    /** Enter simulation mode.  No real-time time source is used. */
-    void enterSimulationMode();
-
     /** Multiplier for the bid probability of all agents. */
     void setGlobalBidProbability(double val) { globalBidProbability = val; }
     
