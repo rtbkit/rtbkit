@@ -1,0 +1,48 @@
+// Contains basic configuration options for an rtbkit installation.
+{
+    // Location of the Zookeeper instance which will be used to do service
+    // discovery. If missing, then all will need to be located in the same
+    // process and share a single instance of the ServiceProxies object (useful
+    // for tests).
+    //
+    // An optional key prefix can also be specified to scope the keys that will
+    // be read and written. Note that for a service to be discoverable, it must
+    // share the same prefix as the services doing the lookup.
+    "zookeeper": {
+        "uri": "zookeeper.kittens.org:2181",
+        "prefix": "kittens"
+    },
+
+    // Location of the Carbon instance which will be used to log various
+    // metrics. If missing, then a barebone internal event logger will be
+    // created which can be useful to write tests.
+    //
+    // An optional key prefix can also be specified to scope the keys that will
+    // be read and written.
+    "carbon": {
+        "uri": "carbon.kittens.org.com",
+        "prefix": "kittens"
+    },
+
+    // Port ranges that various services can use to listen for incoming
+    // connections. These can be specified either as a single port or a range of
+    // ports where the last element is exclusive. Note that these port ranges
+    // must not overlap.
+    "portRanges": {
+        "logs":                   [16000, 17000],
+        "router":                 [17000, 18000],
+        "augmentors":             [18000, 19000],
+        "configuration":          [19000, 20000],
+        "postAuctionLoop":        [20000, 21000],
+        "postAuctionLoopAgents":  [21000, 22000],
+
+        "banker.zmq":             [22000, 23000],
+        "banker.http":              9985,
+
+        "agentConfiguration.zmq": [23000, 24000],
+        "agentConfiguration.http":  9986,
+
+        "monitor.zmq":            [24000, 25000],
+        "monitor.http":             9987
+    }
+}
