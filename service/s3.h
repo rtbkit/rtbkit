@@ -485,6 +485,13 @@ struct S3Handle{
     you can open it directly from s3.
 */
 
+class BucketAlreadyRegistered : public ML::Exception{
+    public:
+        BucketAlreadyRegistered(const std::string & bucketName) : 
+                ML::Exception("s3 bucket %s already registered",
+                              bucketName.c_str()){}
+};
+
 void registerS3Bucket(const std::string & bucketName,
                       const std::string & accessKeyId,
                       const std::string & accessKey,

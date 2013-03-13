@@ -2013,9 +2013,9 @@ void registerS3Bucket(const std::string & bucketName,
                       const std::string & serviceUri)
 {
     std::unique_lock<std::mutex> guard(s3BucketsLock);
-    if (s3Buckets.count(bucketName))
-        throw ML::Exception("s3 bucket %s already registered",
-                            bucketName.c_str());
+    if (s3Buckets.count(bucketName)){
+        throw BucketAlreadyRegistered(bucketName);
+    }
 
     S3BucketInfo info;
     info.s3Bucket = bucketName;
@@ -2086,9 +2086,9 @@ void registerS3Buckets(const std::string & accessKeyId,
         {
             //cerr << "got bucket " << bucketName << endl;
 
-            if (s3Buckets.count(bucketName))
-                throw ML::Exception("s3 bucket %s already registered",
-                                    bucketName.c_str());
+            if (s3Buckets.count(bucketName)){
+                throw BucketAlreadyRegistered(bucketName);
+            }
 
             S3BucketInfo info;
             info.s3Bucket = bucketName;
