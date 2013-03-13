@@ -4,6 +4,8 @@
 
 */
 
+#pragma once
+
 #include "soa/service/http_endpoint.h"
 #include "soa/service/stats_events.h"
 
