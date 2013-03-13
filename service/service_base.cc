@@ -511,8 +511,19 @@ bootstrap(const Json::Value& config)
         if (members[i] == "zookeeper")
             useZookeeper(entry["uri"].asString(), entry["prefix"].asString());
 
-        else if (members[i] == "carbon")
-            logToCarbon(entry["uri"].asString(), entry["prefix"].asString());
+        else if (members[i] == "carbon") {
+            std::string prefix = entry["prefix"].asString();
+
+            std::vector<std::string> uris;
+
+            if (entry["uri"].isArray()) {
+                for (size_t j = 0; j < entry["uri"].size(); ++j)
+                    uris.push_back(entry["uri"][j].asString());
+            }
+            else uris.push_back(entry["uri"].asString());
+
+            logToCarbon(uris, prefix);
+        }
 
         else if (members[i] == "portRanges")
             usePortRanges(entry);
