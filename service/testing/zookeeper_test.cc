@@ -20,11 +20,93 @@
 #include "soa/service/zookeeper.h"
 #include "soa/service/testing/zookeeper_temporary_server.h"
 
+#include <thread>
 #include <iostream>
 #include <set>
 #include <sys/prctl.h>
 
 using namespace Datacratic;
+
+BOOST_AUTO_TEST_CASE( test_zookeeper_connection )
+{
+    ML::set_default_trace_exceptions(false);
+
+    ZooKeeper::TemporaryServer server;
+    std::string uri = ML::format("localhost:%d", server.getPort());
+
+    // avoid aborting test when killing a child process
+    signal(SIGCHLD, SIG_DFL);
+
+    std::thread client([=] {
+        ZookeeperConnection zk;
+        std::cerr << "starting client..." << std::endl;
+        zk.connect(uri, 1.0);
+    });
+
+    ML::sleep(5.0);
+
+    std::cerr << "starting zookeeper..." << std::endl;
+    server.start();
+    client.join();
+}
+
+BOOST_AUTO_TEST_CASE( test_zookeeper_crash )
+{
+    ML::set_default_trace_exceptions(false);
+
+    ZooKeeper::TemporaryServer server;
+    std::string uri = ML::format("localhost:%d", server.getPort());
+
+    // avoid aborting test when killing a child process
+    signal(SIGCHLD, SIG_DFL);
+
+    std::cerr << "starting zookeeper..." << std::endl;
+    server.start();
+
+    std::thread client([=] {
+        ZookeeperConnection zk;
+
+        std::cerr << "starting client..." << std::endl;
+        zk.connect(uri);
+
+        for(;;) {
+            auto text = zk.readNode("/hello");
+            if(text == "world") {
+                break;
+            }
+
+            ML::sleep(0.5);
+        }
+    });
+
+    ML::sleep(1.0);
+
+    std::cerr << "crash!" << std::endl;
+    server.shutdown();
+
+    ML::sleep(1.0);
+
+    std::cerr << "restarting zookeeper..." << std::endl;
+    server.start();
+
+    ZookeeperConnection zk;
+    zk.connect(uri);
+    zk.createNode("/hello", "world", true, false);
+
+    zk.readNode("/hello", [](int type, std::string const & path, void * data) {
+        std::cerr << "event type=" << type << " path=" << path << std::endl;
+    }, 0);
+
+    client.join();
+
+    std::cerr << "crash & restart..." << std::endl;
+    server.shutdown();
+    server.start();
+
+    while(zk.readNode("/hello") != "world") {
+        ML::sleep(0.5);
+    }
+}
 
 BOOST_AUTO_TEST_CASE( test_zookeeper )
 {
