@@ -14,6 +14,7 @@
 #include <boost/thread/thread.hpp>
 
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
+#include "soa/service/service_utils.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/futex.h"
@@ -29,50 +30,23 @@ int main(int argc, char ** argv)
 {
     using namespace boost::program_options;
 
-    options_description configuration_options("Configuration options");
+    Datacratic::ServiceProxyArguments args;
 
-    std::string zookeeperUri;
-    std::string installation;
-    std::string nodeName;
-
-    std::vector<std::string> carbonUris;  ///< TODO: zookeeper
-
-    configuration_options.add_options()
-        ("zookeeper-uri,Z", value(&zookeeperUri),
-         "URI of zookeeper to use")
-        ("installation,I", value(&installation),
-         "Name of the installation that is running")
-        ("node-name,N", value(&nodeName),
-         "Name of the node we're running")
-        ("carbon-connection,c", value<vector<string> >(&carbonUris),
-         "URI of connection to carbon daemon");
-
-    options_description all_opt;
-    all_opt
-        .add(configuration_options);
-    all_opt.add_options()
-        ("help,h", "print this message");
+    options_description options = args.makeProgramOptions();
+    options.add_options() ("help,h", "Print this message");
     
     variables_map vm;
-    store(command_line_parser(argc, argv)
-          .options(all_opt)
-          //.positional(p)
-          .run(),
-          vm);
+    store(command_line_parser(argc, argv).options(options) .run(), vm);
     notify(vm);
 
     if (vm.count("help")) {
-        cerr << all_opt << endl;
+        cerr << options << endl;
         exit(1);
     }
 
-    std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
-    proxies->useZookeeper(zookeeperUri, installation);
-    if (!carbonUris.empty())
-        proxies->logToCarbon(carbonUris, installation);
+    auto proxies = args.makeServiceProxies();
 
     AgentConfigurationService config(proxies);
-    
     config.init();
     config.bindTcp();
     config.start();

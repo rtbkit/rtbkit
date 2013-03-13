@@ -11,6 +11,7 @@
 #include <boost/program_options/options_description.hpp>
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/banker/slave_banker.h"
+#include "soa/service/service_utils.h"
 
 namespace RTBKIT {
 
@@ -23,11 +24,7 @@ struct RouterRunner {
 
     RouterRunner();
 
-    std::string zookeeperUri;
-    std::string installation;
-    std::string nodeName;
-
-    std::vector<std::string> carbonUris;  ///< TODO: zookeeper
+    ServiceProxyArguments serviceArgs;
     std::vector<std::string> logUris;  ///< TODO: zookeeper
 
     //std::string routerConfigurationFile;

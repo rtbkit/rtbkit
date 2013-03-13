@@ -10,6 +10,7 @@
 #include "rtbkit/core/banker/slave_banker.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/plugins/bidding_agent/bidding_agent.h"
+#include "soa/service/service_utils.h"
 
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
@@ -48,9 +49,8 @@ struct FixedPriceBiddingAgent :
 
     void init()
     {
-        setConfig();
-
-        // We only want to specify a subset of the callbacks.
+        // We only want to specify a subset of the callbacks so turn the
+        // annoying safety belt off.
         strictMode(false);
 
         onBidRequest = bind(
@@ -68,6 +68,14 @@ struct FixedPriceBiddingAgent :
                 [&] (uint64_t) { this->pace(); });
 
         BiddingAgent::init();
+    }
+
+    void start()
+    {
+        BiddingAgent::start();
+
+        // Build our configuration and tell the world about it.
+        setConfig();
     }
 
     void shutdown()
@@ -144,7 +152,8 @@ struct FixedPriceBiddingAgent :
             bid.bid(availableCreative, USD_CPM(2));
         }
 
-        // A value that will be passed back to us when
+        // A value that will be passed back to us when we receive the result of
+        // our bid.
         Json::Value metadata = 42;
 
         // Send our bid back to the agent.
@@ -181,30 +190,12 @@ struct FixedPriceBiddingAgent :
 
 int main(int argc, char** argv)
 {
-    string zookeeperUri;
-    string zookeeperPrefix;
-
-    string carbonConn;
-    string carbonPrefix;
-
     using namespace boost::program_options;
 
-    options_description options;
-    options.add_options()
-        ("zookeeper-uri,z", value<string>(&zookeeperUri),
-                "URI of the zookeeper instance.")
+    Datacratic::ServiceProxyArguments args;
 
-        ("zookeeper-prefix", value<string>(&zookeeperPrefix),
-                "Path prefix for zookeeper.")
-
-        ("carbon-uri,c", value<string>(&carbonConn),
-                "URI of connection to carbon daemon")
-
-        ("carbon-prefix", value<string>(&carbonPrefix),
-                "Path prefix for the carbon logging")
-
-        ("help,h", "Print this message");
-
+    options_description options = args.makeProgramOptions();
+    options.add_options() ("help,h", "Print this message");
 
     variables_map vm;
     store(command_line_parser(argc, argv).options(options).run(), vm);
@@ -215,14 +206,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    auto proxies = std::make_shared<Datacratic::ServiceProxies>();
-    if (!carbonPrefix.empty())
-        proxies->logToCarbon(carbonConn, carbonPrefix);
-    if (!zookeeperPrefix.empty())
-        proxies->useZookeeper(zookeeperUri, zookeeperPrefix);
-
-
-    RTBKIT::FixedPriceBiddingAgent agent(proxies, "fixed-price-agent-ex");
+    auto serviceProxies = args.makeServiceProxies();
+    RTBKIT::FixedPriceBiddingAgent agent(serviceProxies, "fixed-price-agent-ex");
     agent.init();
     agent.start();
 

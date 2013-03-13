@@ -51,25 +51,17 @@ doOptions(int argc, char ** argv,
     using namespace boost::program_options;
 
     options_description router_options("Router options");
-
     router_options.add_options()
-        ("zookeeper-uri,Z", value(&zookeeperUri),
-         "URI of zookeeper to use")
-        ("installation,I", value(&installation),
-         "Name of the installation that is running")
-        ("node-name,N", value(&nodeName),
-         "Name of the node we're running")
         ("loss-seconds,l", value<float>(&lossSeconds),
          "number of seconds after which a loss is assumed")
         ("log-uri", value<vector<string> >(&logUris),
          "URI to publish logs to")
-        ("carbon-connection,c", value<vector<string> >(&carbonUris),
-         "URI of connection to carbon daemon")
         ("exchange-configuration,x", value<string>(&exchangeConfigurationFile),
          "configuration file with exchange data");
 
     options_description all_opt = opts;
     all_opt
+        .add(serviceArgs.makeProgramOptions())
         .add(router_options);
     all_opt.add_options()
         ("help,h", "print this message");
@@ -86,28 +78,15 @@ doOptions(int argc, char ** argv,
         cerr << all_opt << endl;
         exit(1);
     }
-
-    if (installation.empty()) {
-        cerr << "'installation' parameter is required" << endl;
-        exit(1);
-    }
-
-    if (nodeName.empty()) {
-        cerr << "'node-name' parameter is required" << endl;
-        exit(1);
-    }
 }
 
 void
 RouterRunner::
 init()
 {
+    auto proxies = serviceArgs.makeServiceProxies();
+
     string servicePrefix("router");
-    proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper(zookeeperUri, installation);
-    if (!carbonUris.empty())
-        proxies->logToCarbon(carbonUris, installation + "." + nodeName);
-    
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
                                              proxies->config,
                                              servicePrefix + ".slaveBanker");

@@ -16,6 +16,7 @@
 #include <boost/make_shared.hpp>
 
 #include "rtbkit/core/banker/master_banker.h"
+#include "soa/service/service_utils.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/futex.h"
@@ -31,25 +32,15 @@ int main(int argc, char ** argv)
 {
     using namespace boost::program_options;
 
+    ServiceProxyArguments serviceArgs;
+
     options_description configuration_options("Configuration options");
 
-    std::string zookeeperUri;
-    std::string installation;
-    std::string nodeName;
     std::string redisUri;  ///< TODO: zookeeper
 
-    std::vector<std::string> carbonUris;  ///< TODO: zookeeper
     std::vector<std::string> fixedHttpBindAddresses;
 
     configuration_options.add_options()
-        ("zookeeper-uri,Z", value(&zookeeperUri),
-         "URI of zookeeper to use")
-        ("installation,I", value(&installation),
-         "Name of the installation that is running")
-        ("node-name,N", value(&nodeName),
-         "Name of the node we're running")
-        ("carbon-connection,c", value<vector<string> >(&carbonUris),
-         "URI of connection to carbon daemon")
         ("redis-uri,r", value<string>(&redisUri),
          "URI of connection to redis")
         ("fixed-http-bind-address,a", value(&fixedHttpBindAddresses),
@@ -57,6 +48,7 @@ int main(int argc, char ** argv)
 
     options_description all_opt;
     all_opt
+        .add(serviceArgs.makeProgramOptions())
         .add(configuration_options);
     all_opt.add_options()
         ("help,h", "print this message");
@@ -74,20 +66,7 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
-    if (installation.empty()) {
-        cerr << "'installation' parameter is required" << endl;
-        exit(1);
-    }
-
-    if (nodeName.empty()) {
-        cerr << "'node-name' parameter is required" << endl;
-        exit(1);
-    }
-
-    std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
-    proxies->useZookeeper(zookeeperUri, installation);
-    if (!carbonUris.empty())
-        proxies->logToCarbon(carbonUris, installation + "." + nodeName);
+    auto proxies = serviceArgs.makeServiceProxies();
 
     MasterBanker banker(proxies, "masterBanker");
     std::shared_ptr<Redis::AsyncConnection> redis;

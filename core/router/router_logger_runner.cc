@@ -17,6 +17,7 @@
 #include "rtbkit/common/auction.h"
 #include "jml/arch/timers.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
+#include "soa/service/service_utils.h"
 
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
@@ -45,12 +46,9 @@ using namespace RTBKIT;
 bool getArgs (int argc, char** argv);
 
 static struct {
+    ServiceProxyArguments serviceArgs;
     vector<string> subscribeUris;
     string logDir;
-    vector<string> carbonUris;
-    string zookeeperUri;
-    string installation;
-    string nodeName;
     string rotationInterval;
 } g_args;
 
@@ -61,11 +59,7 @@ int main (int argc, char** argv)
         return -1;
     }
 
-    auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper(g_args.zookeeperUri, g_args.installation);
-    if (!g_args.carbonUris.empty())
-        proxies->logToCarbon(g_args.carbonUris,
-                             g_args.installation + "." + g_args.nodeName);
+    auto proxies = g_args.serviceArgs.makeServiceProxies();
 
     proxies->config->dump(cerr);
     string rotationInterval = g_args.rotationInterval;
@@ -75,8 +69,8 @@ int main (int argc, char** argv)
     RouterLogger logger(proxies);
 
     string myIdentity
-        = g_args.installation + "." 
-        + g_args.nodeName + "."
+        = g_args.serviceArgs.installation + "."
+        + g_args.serviceArgs.nodeName + "."
         + "router_logger";
     
     // Subscribe to any sockets directly that include legacy information that
@@ -186,29 +180,15 @@ bool getArgs (int argc, char** argv)
 
     using namespace boost::program_options;
 
-    options_description loggerOptions("Logger Options");
-    loggerOptions.add_options()
+    options_description allOptions("Logger Options");
+    allOptions.add(g_args.serviceArgs.makeProgramOptions());
+    allOptions.add_options()
         ("subscribe-uri,s", value<vector<string> >(&g_args.subscribeUris),
                 "URI to listen on for events (should be a zmq PUB socket).")
         ("log-dir,d", value<string>(&g_args.logDir),
-                "Directory where the folders should be stored.");
+                "Directory where the folders should be stored.")
+        ("help,h", "Prints this message");
 
-
-    options_description carbonOptions("Carbon Options");
-    carbonOptions.add_options()
-        ("carbon-connection,c", value<vector<string> >(&g_args.carbonUris),
-         "URI of connection to carbon daemon (format: host:port)");
-
-    options_description allOptions;
-    allOptions.add_options()
-        ("zookeeper-uri,Z", value(&g_args.zookeeperUri),
-         "URI of zookeeper to use")
-        ("installation,I", value(&g_args.installation),
-         "Name of the installation that is running")
-        ("node-name,N", value(&g_args.nodeName),
-         "Name of the node we're running");
-    allOptions.add(loggerOptions).add(carbonOptions);
-    allOptions.add_options() ("help,h", "Prints this message");
 
     variables_map vm;
     store(command_line_parser(argc, argv).options(allOptions).run(), vm);
@@ -216,16 +196,6 @@ bool getArgs (int argc, char** argv)
 
     if (vm.count("help")) {
         cerr << allOptions << endl;
-        return false;
-    }
-
-    if (g_args.installation.empty()) {
-        cerr << "'installation' parameter is required" << endl;
-        return false;
-    }
-
-    if (g_args.nodeName.empty()) {
-        cerr << "'node-name' parameter is required" << endl;
         return false;
     }
 

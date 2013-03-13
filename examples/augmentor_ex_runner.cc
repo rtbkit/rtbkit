@@ -7,6 +7,7 @@
 */
 
 #include "augmentor_ex.h"
+#include "soa/service/service_utils.h"
 
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
@@ -27,30 +28,12 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-    string zookeeperUri;
-    string zookeeperPrefix;
-
-    string carbonConn;
-    string carbonPrefix;
-
     using namespace boost::program_options;
 
-    options_description options;
-    options.add_options()
-        ("zookeeper-uri,z", value<string>(&zookeeperUri),
-                "URI of the zookeeper instance.")
+    Datacratic::ServiceProxyArguments args;
 
-        ("zookeeper-prefix", value<string>(&zookeeperPrefix),
-                "Path prefix for zookeeper.")
-
-        ("carbon-uri,c", value<string>(&carbonConn),
-                "URI of connection to carbon daemon")
-
-        ("carbon-prefix", value<string>(&carbonPrefix),
-                "Path prefix for the carbon logging")
-
-        ("help,h", "Print this message");
-
+    options_description options = args.makeProgramOptions();
+    options.add_options() ("help,h", "Print this message");
 
     variables_map vm;
     store(command_line_parser(argc, argv).options(options).run(), vm);
@@ -61,14 +44,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    auto proxies = std::make_shared<Datacratic::ServiceProxies>();
-    if (!carbonPrefix.empty())
-        proxies->logToCarbon(carbonConn, carbonPrefix);
-    if (!zookeeperPrefix.empty())
-        proxies->useZookeeper(zookeeperUri, zookeeperPrefix);
-
-
-    RTBKIT::FrequencyCapAugmentor augmentor(proxies, "frequency-cap-ex");
+    auto serviceProxies = args.makeServiceProxies();
+    RTBKIT::FrequencyCapAugmentor augmentor(serviceProxies, "frequency-cap-ex");
     augmentor.init();
     augmentor.start();
 
