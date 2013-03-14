@@ -13,7 +13,8 @@
 
     // Defines a namespace on top of the installation namespace for carbon to
     // differentiate between different instances of each services. This
-    // parameter is optional.
+    // parameter is optional in which case the node name of the machine will be
+    // used (see uname).
     "node-name": "server42",
 
     // Location of the Zookeeper instance which will be used to do service
