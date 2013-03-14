@@ -64,7 +64,7 @@ LIBCLOUD_SOURCES := \
 	sftp.cc \
 	s3.cc \
 
-LIBCLOUD_LINK := crypto++ curlpp utils arch types tinyxml2 services ssh2
+LIBCLOUD_LINK := crypto++ curlpp utils arch types tinyxml2 services ssh2 boost_filesystem
 
 
 $(eval $(call library,cloud,$(LIBCLOUD_SOURCES),$(LIBCLOUD_LINK)))
