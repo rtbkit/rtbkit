@@ -366,10 +366,6 @@ shutdown()
         logThread.reset();
     }
 #endif
-    if (onStop) {
-        onStop();
-        onStop.clear();
-    }
 
     delete outputs;  outputs = 0;
 

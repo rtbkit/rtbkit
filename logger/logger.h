@@ -256,9 +256,6 @@ private:
     /// Thing we get subscription messages from
     std::vector<std::shared_ptr<zmq::socket_t> > subscriptions;
 
-    /// Thing to run when we stop
-    boost::function<void ()> onStop;
-
     /// Extra flag to make sure that we shutdown
     bool doShutdown;
 
