@@ -458,6 +458,10 @@ struct S3Api {
                           const std::string & uploadId,
                           const std::vector<std::string> & etags) const;
 
+    void uploadRecursive(std::string dirSrc,
+                         std::string bucketDest,
+                         bool includeDir);
+
 };
 
 /** std::istream that connects to s3 and streams a file. */
@@ -514,6 +518,5 @@ std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName);
 
 // Return an URI for either a file or an s3 object
 size_t getUriSize(const std::string & filename);
-
 
 } // namespace Datacratic
