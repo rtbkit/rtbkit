@@ -96,8 +96,7 @@ JsonPortRangeService(const Json::Value& json)
             newRange.last = entry[1].asInt();
         }
         else if (entry.isInt()) {
-            newRange.first = newRange.last = entry.asInt();
-            newRange.last++;
+            newRange = entry.asInt();
         }
         else ExcCheck(false, "Invalid entry type.");
 

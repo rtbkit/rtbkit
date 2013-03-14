@@ -23,14 +23,14 @@ namespace Datacratic {
 
 struct PortRange
 {
-    PortRange() : first(15000), last(15999) {}
+    PortRange() : first(15000), last(16000) {}
 
     PortRange(int port) :
-        first(port), last(port)
+        first(port), last(port + 1)
     {
         if (port == -1) {
             first = 15000;
-            last = 15999;
+            last = 16000;
         }
     }
 
