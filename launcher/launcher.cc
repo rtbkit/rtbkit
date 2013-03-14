@@ -26,11 +26,15 @@ int main(int argc, char ** argv)
     std::string filename;
     std::string node;
     std::string script;
+    bool launch = false;
+    bool master = false;
 
     configuration_options.add_options()
-        ("file,F", value(&filename), "Filename of the launch sequence")
-        ("node,N", value(&node), "Name of the current node")
-        ("script,S", value(&script), "Filename of the launch script sequence to generate");
+        ("file,F", value(&filename), "filename of the launch sequence")
+        ("launch,L", value(&launch)->zero_tokens(), "run the launch monitoring process?")
+        ("master,M", value(&master)->zero_tokens(), "specify that this will be the master node?")
+        ("node,N", value(&node), "name of the current node")
+        ("script,S", value(&script), "filename of the launch script sequence to generate and use");
 
     options_description all_opt;
     all_opt.add(configuration_options);
@@ -73,6 +77,14 @@ int main(int argc, char ** argv)
     }
 
     auto & service = Datacratic::Launcher::Service::get();
-    service.run(root, node, script);
+    service.run(root, node, script, launch, master);
+
+    if(!launch) {
+        int res = system(script.c_str());
+        if(res == -1) {
+            std::cerr << "cannot launch script" << std::endl;
+            exit(1);
+        } 
+    }
 }
 

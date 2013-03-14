@@ -92,6 +92,20 @@ struct Launcher
             return 0;
         }
 
+        void script(int & i, std::ostream & file) {
+            file << "tmux new-window -d -t rtb:" << ++i << " -n '" << name << "' 'tail -F ./logs/" << name << ".log'" << std::endl;
+            for(auto & item : children) {
+                item.script(i, file);
+            }
+        }
+
+        void script(int & i, std::ostream & file, std::string const & node) {
+            file << "tmux new-window -d -t rtb:" << ++i << " -n '" << name << "' 'ssh " << node << " \"tail -F " << root << "/logs/" << name << ".log\"'" << std::endl;
+            for(auto & item : children) {
+                item.script(i, file, node);
+            }
+        }
+
         friend std::ostream & operator<<(std::ostream & stream, Task & task) {
             task.print(stream);
             return stream;
@@ -116,6 +130,9 @@ struct Launcher
                 }
                 else if(i.memberName() == "path") {
                     result.path = i->asString();
+                }
+                else if(i.memberName() == "root") {
+                    result.root = i->asString();
                 }
                 else if(i.memberName() == "log") {
                     result.log = i->asBool();
@@ -198,6 +215,11 @@ struct Launcher
                     redirect();
                 }
 
+                res = chdir(root.c_str());
+                if(res == -1) {
+                    throw ML::Exception(errno, "chdir failed");
+                }
+
                 std::vector<char const *> args = makeArgs();
                 std::vector<char const *> envs = makeEnvs();
 
@@ -238,6 +260,7 @@ struct Launcher
         std::vector<Task> children;
         std::string name;
         std::string path;
+        std::string root;
         std::vector<std::string> arg;
         bool log;
         double delay;
@@ -268,15 +291,13 @@ struct Launcher
 
         void script(int & i, std::ostream & file) {
             for(auto & item : tasks) {
-                auto & name = item.getName();
-                file << "tmux new-window -d -t rtb:" << ++i << " -n '" << name << "' 'tail -F ./logs/" << name << ".log'" << std::endl;
+                item.script(i, file);
             }
         }
 
         void script(int & i, std::ostream & file, std::string const & node) {
             for(auto & item : tasks) {
-                auto & name = item.getName();
-                file << "tmux new-window -d -t rtb:" << ++i << " -n '" << name << "' 'ssh " << node << " \"tail -F " << root << "/logs/" << name << ".log\"'" << std::endl;
+                item.script(i, file, node);
             }
         }
 
@@ -335,7 +356,7 @@ struct Launcher
             return 0;
         }
 
-        void script(std::string const & sh, std::string const & node) {
+        void script(std::string const & sh, std::string const & node, bool master) {
             std::ofstream file(sh);
             if(!file) {
                 throw ML::Exception("cannot create " + sh + " script");
@@ -344,7 +365,7 @@ struct Launcher
             file << "#!/bin/bash" << std::endl;
             file << std::endl;
             file << "tmux kill-session -t rtb" << std::endl;
-            file << "tmux new-session -d -s rtb './build/x86_64/bin/launcher -N " << node << " launch_sequence.json'" << std::endl;
+            file << "tmux new-session -d -s rtb './build/x86_64/bin/launcher --node " << node << " --script " << sh << (master ? " --master" : "") << " --launch" << " launch_sequence.json'" << std::endl;
             file << "tmux rename-window 'launcher'" << std::endl;
 
             int i = 0;
@@ -354,7 +375,7 @@ struct Launcher
                 if(name == node) {
                     item.script(i, file);
                 }
-                else {
+                else if(master) {
                     item.script(i, file, name);
                 }
             }
@@ -401,35 +422,36 @@ struct Launcher
 
     struct Service : public MessageLoop
     {
-        void run(Json::Value const & root, std::string const & name, std::string const & sh) {
+        void run(Json::Value const & root, std::string const & name, std::string const & sh, bool launch, bool master) {
             sequence = Datacratic::Launcher::Sequence::createFromJson(root);
 
             if(!sh.empty()) {
-                sequence.script(sh, name);
-                return;
+                sequence.script(sh, name, master);
             }
 
-            node = sequence.getNode(name);
-            if(!node) {
-                throw ML::Exception("cannot find node " + name);
-            }
+            if(launch) {
+                node = sequence.getNode(name);
+                if(!node) {
+                    throw ML::Exception("cannot find node " + name);
+                }
 
-            int res = system("mkdir -p ./logs");
-            if(res == -1) {
-                throw ML::Exception("cannot create ./logs directory");
-            }
+                int res = system("mkdir -p ./logs");
+                if(res == -1) {
+                    throw ML::Exception("cannot create ./logs directory");
+                }
 
-            start();
+                start();
 
-            struct sigaction sa;
-            memset(&sa, 0, sizeof(sa));
-            sa.sa_handler = &Service::sigchld;
-            sigaction(SIGCHLD, &sa, 0);
+                struct sigaction sa;
+                memset(&sa, 0, sizeof(sa));
+                sa.sa_handler = &Service::sigchld;
+                sigaction(SIGCHLD, &sa, 0);
 
-            node->restart();
+                node->restart();
 
-            for(;;) {
-                ML::sleep(1.0);
+                for(;;) {
+                    ML::sleep(1.0);
+                }
             }
         }
 
