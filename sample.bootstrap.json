@@ -1,28 +1,31 @@
-// Contains basic configuration options for an rtbkit installation.
+// Contains basic configuration options for an rtbkit installation. Can be
+// provided to services by either:
+//
+// - Renaming the file to bootstrap.json and placing in the current working
+//   directory.
+// - Setting the environment variable RTBKIT_BOOTSTRAP to the path of the
+//   bootstrap.json file.
+// - Set the -B or --bootstrap command line argument to the path of the
+//   bootstrap.json file.
 {
+    // Defines a namespace within zookeeper and carbon.
+    "installation": "kittens",
+
+    // Defines a namespace on top of the installation namespace for carbon to
+    // differentiate between different instances of each services. This
+    // parameter is optional.
+    "node-name": "server42",
+
     // Location of the Zookeeper instance which will be used to do service
     // discovery. If missing, then all will need to be located in the same
     // process and share a single instance of the ServiceProxies object (useful
     // for tests).
-    //
-    // An optional key prefix can also be specified to scope the keys that will
-    // be read and written. Note that for a service to be discoverable, it must
-    // share the same prefix as the services doing the lookup.
-    "zookeeper": {
-        "uri": "zookeeper.kittens.org:2181",
-        "prefix": "kittens"
-    },
+    "zookeeper-uri": "zookeeper.kittens.org:2181",
 
-    // Location of the Carbon instance which will be used to log various
+    // Location of the Carbon instances which will be used to log various
     // metrics. If missing, then a barebone internal event logger will be
     // created which can be useful to write tests.
-    //
-    // An optional key prefix can also be specified to scope the keys that will
-    // be read and written.
-    "carbon": {
-        "uri": "carbon.kittens.org.com",
-        "prefix": "kittens"
-    },
+    "carbon-uri": ["carbon1.kittens.org:2003", "carbonA.kittens.org:2003"],
 
     // Port ranges that various services can use to listen for incoming
     // connections. These can be specified either as a single port or a range of
