@@ -432,13 +432,13 @@ PostAuctionLoop(std::shared_ptr<ServiceProxies> proxies,
                 const std::string & serviceName)
     : ServiceBase(serviceName, proxies),
       logger(getZmqContext()),
+      monitorProviderClient(getZmqContext(), *this),
       auctions(65536),
       events(65536),
       endpoint(getZmqContext()),
       router(!!getZmqContext()),
       toAgents(getZmqContext()),
-      configListener(getZmqContext()),
-      monitorProviderClient(getZmqContext(), *this)
+      configListener(getZmqContext())
 {
 }
 
@@ -447,13 +447,13 @@ PostAuctionLoop(ServiceBase & parent,
                 const std::string & serviceName)
     : ServiceBase(serviceName, parent),
       logger(getZmqContext()),
+      monitorProviderClient(getZmqContext(), *this),
       auctions(16386),
       events(1024),
       endpoint(getZmqContext()),
       router(!!getZmqContext()),
       toAgents(getZmqContext()),
-      configListener(getZmqContext()),
-      monitorProviderClient(getZmqContext(), *this)
+      configListener(getZmqContext())
 {
 }
 

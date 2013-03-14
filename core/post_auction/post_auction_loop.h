@@ -458,6 +458,16 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
     */
     void notifyFinishedSpot(const Id & auctionId, const Id & adSpotId);
 
+    /* Post service health status to Monitor */
+    MonitorProviderClient monitorProviderClient;
+
+    /* MonitorProvider interface */
+    std::string getProviderName() const;
+    Json::Value getProviderIndicators() const;
+
+    Date lastWinLoss;
+    Date lastImpression;
+
 private:
     /** Initialize all of our connections, hooking everything in to the
         event loop.
@@ -603,16 +613,6 @@ private:
     static std::string makeBidId(Id auctionId, Id spotId, const std::string & agent);
 
     AgentConfigurationListener configListener;
-
-    /* Post service health status to Monitor */
-    MonitorProviderClient monitorProviderClient;
-
-    /* MonitorProvider interface */
-    std::string getProviderName() const;
-    Json::Value getProviderIndicators() const;
-
-    Date lastWinLoss;
-    Date lastImpression;
 };
 
 
