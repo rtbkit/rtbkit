@@ -3,6 +3,8 @@
    Copyright (c) 2012 Datacratic.  All rights reserved.
 
    Launches the router's logger.
+
+   \todo Move to the example folder, annotate and simplify.
 */
 
 
@@ -25,8 +27,6 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
 #include <boost/regex.hpp>
 #include <vector>
 #include <string>
@@ -43,152 +43,161 @@ using namespace Datacratic;
 using namespace RTBKIT;
 
 
-bool getArgs (int argc, char** argv);
+/******************************************************************************/
+/* ARGUMENTS                                                                  */
+/******************************************************************************/
 
-static struct {
+struct Arguments
+{
     ServiceProxyArguments serviceArgs;
     vector<string> subscribeUris;
     string logDir;
     string rotationInterval;
-} g_args;
+};
 
 
-int main (int argc, char** argv)
+/******************************************************************************/
+/* LOGGER SETUP                                                               */
+/******************************************************************************/
+
+void subscribe(RouterLogger& logger, const Arguments& args)
 {
-    if (!getArgs(argc, argv)) {
-        return -1;
-    }
-
-    auto proxies = g_args.serviceArgs.makeServiceProxies();
-
-    proxies->config->dump(cerr);
-    string rotationInterval = g_args.rotationInterval;
-
-    cerr << "Log Directory: "  << g_args.logDir << endl;
-
-    RouterLogger logger(proxies);
-
     string myIdentity
-        = g_args.serviceArgs.installation + "."
-        + g_args.serviceArgs.nodeName + "."
+        = args.serviceArgs.installation + "."
+        + args.serviceArgs.nodeName + "."
         + "router_logger";
-    
+
     // Subscribe to any sockets directly that include legacy information that
     // should be logged.
-    for (auto u: g_args.subscribeUris) {
+    for (auto u: args.subscribeUris) {
         cerr << "subscribing to fixed URI " << u << endl;
         logger.subscribe(u, vector<string>(), myIdentity);
     }
-    
+
     // Subscribe to all messages
     logger.connectAllServiceProviders("adServer", "logger");
     logger.connectAllServiceProviders("rtbRequestRouter", "logger");
     logger.connectAllServiceProviders("rtbPostAuctionService", "logger");
-
-    // Setup outputs
-
-    auto consoleOutput = std::make_shared<ConsoleStatsOutput>();
-    logger.addOutput(consoleOutput);
-
-    std::shared_ptr<CarbonStatsOutput> carbonOutput
-        (new CarbonStatsOutput(proxies->events, "router_logger"));
-    logger.addOutput(carbonOutput);
-
-    // File output (appended) for normal logs
-    std::shared_ptr<RotatingFileOutput> normalOutput
-        (new RotatingFileOutput());
-    normalOutput->open(g_args.logDir + "/%F/router-%F-%T.log.gz", rotationInterval, "gz");
-    normalOutput->onFileWrite = [&](const string& channel, size_t bytes) {
-        carbonOutput->recordBytesWrittenToFile("router", bytes);
-    };
-    logger.addOutput(normalOutput,
-                     boost::regex(".*"),
-                     boost::regex("AUCTION|BEHAVIOUR|CLICK|DATA|IMPRESSION|INTERACTION|PAERROR|ROUTERERROR|WIN|MATCHEDLOSS"));
-
-    // File output (appended) for router error logs
-    std::shared_ptr<RotatingFileOutput> errorOutput
-        (new RotatingFileOutput());
-    errorOutput->open(g_args.logDir + "/%F/errors-%F-%T.log", rotationInterval);
-    errorOutput->onFileWrite = [&](const string& channel, size_t bytes) {
-        carbonOutput->recordBytesWrittenToFile("error", bytes);
-    };
-    logger.addOutput(errorOutput, boost::regex("ROUTERERROR"), boost::regex());
-    logger.addOutput(errorOutput, boost::regex("PAERROR"), boost::regex());
-
-    std::shared_ptr<RotatingFileOutput> writeDelivery
-        (new RotatingFileOutput());
-    writeDelivery
-        ->open(g_args.logDir + "/%F/delivery-%F-%T.log.gz", rotationInterval, "gz");
-    writeDelivery->onFileWrite = [&](const string& channel, size_t bytes) {
-        carbonOutput->recordBytesWrittenToFile("delivery", bytes);
-    };
-    logger.addOutput(writeDelivery,
-                     boost::regex("CLICK|DATA|IMPRESSION|INTERACTION"));
-
-    // Strategy-level data
-    auto strategyOutput = std::make_shared<MultiOutput>();
-
-    auto createMatchedWinFile = [&] (const std::string & pattern)
-        {
-            auto result = std::make_shared<RotatingFileOutput>();
-            result->open(pattern, rotationInterval);
-            return result;
-        };
-
-    strategyOutput->logTo("MATCHEDWIN", g_args.logDir + "/%F/$(17)/$(5)/$(0)-%T.log.gz",
-                          createMatchedWinFile);
-    strategyOutput->logTo("", g_args.logDir + "/%F/$(10)/$(11)/$(0)-%T.log.gz",
-                          createMatchedWinFile);
-
-    logger.addOutput(strategyOutput, boost::regex("MATCHEDWIN|MATCHEDIMPRESSION|MATCHEDCLICK|MATCHEDVISIT"));
-
-    // Behaviours
-    std::shared_ptr<RotatingFileOutput> behaviourOutput
-        (new RotatingFileOutput());
-    behaviourOutput
-        ->open(g_args.logDir + "/%F/behaviour-%F-%T.log.gz", rotationInterval, "gz");
-    behaviourOutput->onFileWrite = [&](const string& channel, size_t bytes) {
-        carbonOutput->recordBytesWrittenToFile("behaviour", bytes);
-    };
-    logger.addOutput(behaviourOutput, boost::regex("BEHAVIOUR"));
-
-    logger.init(proxies->config);
-    logger.start();
-
-    // Start periodic stats dump.
-    ProcessStats lastStats;
-    while (true) {
-        ML::sleep(10.0);
-
-        ProcessStats curStats;
-        ProcessStats::logToCallback(
-                [&](string name, double value) {
-                    carbonOutput->recordLevel(name, value); },
-                lastStats, curStats, "process");
-        lastStats = curStats;
-
-        consoleOutput->dumpStats();
-    }
 }
 
 
-bool getArgs (int argc, char** argv)
+std::shared_ptr<ConsoleStatsOutput>
+setupOutputs(
+        RouterLogger& logger,
+        shared_ptr<ServiceProxies>& proxies,
+        const Arguments& args)
+{
+    auto consoleOutput = make_shared<ConsoleStatsOutput>();
+    logger.addOutput(consoleOutput);
+
+
+    auto carbonOutput =
+        make_shared<CarbonStatsOutput>(proxies->events, "router_logger");
+    logger.addOutput(carbonOutput);
+
+
+    // File output (appended) for normal logs
+    auto normalOutput = make_shared<RotatingFileOutput>();
+    normalOutput->open(
+            args.logDir + "/%F/router-%F-%T.log.gz",
+            args.rotationInterval,
+            "gz");
+    normalOutput->onFileWrite = [&](const string& channel, size_t bytes)
+        {
+            carbonOutput->recordBytesWrittenToFile("router", bytes);
+        };
+    logger.addOutput(
+            normalOutput,
+            boost::regex(".*"),
+            boost::regex("AUCTION|BEHAVIOUR|CLICK|DATA|IMPRESSION|INTERACTION|PAERROR|ROUTERERROR|WIN|MATCHEDLOSS"));
+
+
+    // File output (appended) for router error logs
+    auto errorOutput = make_shared<RotatingFileOutput>();
+    errorOutput->open(
+            args.logDir + "/%F/errors-%F-%T.log", args.rotationInterval);
+    errorOutput->onFileWrite = [&](const string& channel, size_t bytes)
+        {
+            carbonOutput->recordBytesWrittenToFile("error", bytes);
+        };
+    logger.addOutput(errorOutput, boost::regex("ROUTERERROR"), boost::regex());
+    logger.addOutput(errorOutput, boost::regex("PAERROR"), boost::regex());
+
+
+    auto writeDelivery = make_shared<RotatingFileOutput>();
+    writeDelivery ->open(
+            args.logDir + "/%F/delivery-%F-%T.log.gz",
+            args.rotationInterval,
+            "gz");
+    writeDelivery->onFileWrite = [&](const string& channel, size_t bytes)
+        {
+            carbonOutput->recordBytesWrittenToFile("delivery", bytes);
+        };
+    logger.addOutput(
+            writeDelivery,
+            boost::regex("CLICK|DATA|IMPRESSION|INTERACTION"));
+
+
+    // Strategy-level data
+    auto strategyOutput = make_shared<MultiOutput>();
+
+    auto createMatchedWinFile = [&] (const string & pattern)
+        {
+            auto result = make_shared<RotatingFileOutput>();
+            result->open(pattern, args.rotationInterval);
+            return result;
+        };
+
+    strategyOutput->logTo(
+            "MATCHEDWIN",
+            args.logDir + "/%F/$(17)/$(5)/$(0)-%T.log.gz",
+            createMatchedWinFile);
+    strategyOutput->logTo(
+            "",
+            args.logDir + "/%F/$(10)/$(11)/$(0)-%T.log.gz",
+            createMatchedWinFile);
+
+    logger.addOutput(
+            strategyOutput,
+            boost::regex("MATCHEDWIN|MATCHEDIMPRESSION|MATCHEDCLICK|MATCHEDVISIT"));
+
+
+    // Behaviours
+    auto behaviourOutput = make_shared<RotatingFileOutput>();
+    behaviourOutput ->open(
+            args.logDir + "/%F/behaviour-%F-%T.log.gz",
+            args.rotationInterval,
+            "gz");
+    behaviourOutput->onFileWrite = [&](const string& channel, size_t bytes)
+        {
+            carbonOutput->recordBytesWrittenToFile("behaviour", bytes);
+        };
+    logger.addOutput(behaviourOutput, boost::regex("BEHAVIOUR"));
+
+    return consoleOutput;
+}
+
+
+void parseArguments(int argc, char** argv, Arguments& args)
 {
     // Default values.
-    g_args.logDir = "router_logger";
-    g_args.rotationInterval = "1h";
+    args.logDir = "router_logger";
+    args.rotationInterval = "1h";
 
     using namespace boost::program_options;
 
-    options_description allOptions("Logger Options");
-    allOptions.add(g_args.serviceArgs.makeProgramOptions());
-    allOptions.add_options()
-        ("subscribe-uri,s", value<vector<string> >(&g_args.subscribeUris),
-                "URI to listen on for events (should be a zmq PUB socket).")
-        ("log-dir,d", value<string>(&g_args.logDir),
+    options_description loggerOptions("Logger Options");
+    loggerOptions.add_options()
+        ("subscribe-uri,s", value<vector<string> >(&args.subscribeUris),
+                "URI to listen on for router events.")
+        ("log-dir,d", value<string>(&args.logDir),
                 "Directory where the folders should be stored.")
-        ("help,h", "Prints this message");
+        ("rotation-interval,r", value<string>(&args.rotationInterval),
+                "Interval between each log rotation.");
 
+    options_description allOptions;
+    allOptions.add(loggerOptions).add(args.serviceArgs.makeProgramOptions());
+    allOptions.add_options() ("help,h", "Prints this message");
 
     variables_map vm;
     store(command_line_parser(argc, argv).options(allOptions).run(), vm);
@@ -196,8 +205,46 @@ bool getArgs (int argc, char** argv)
 
     if (vm.count("help")) {
         cerr << allOptions << endl;
-        return false;
+        exit(0);
     }
 
-    return true;
+    cerr << "Log Directory: "  << args.logDir << endl;
+}
+
+
+/******************************************************************************/
+/* MAIN                                                                       */
+/******************************************************************************/
+
+int main (int argc, char** argv)
+{
+    Arguments args;
+    parseArguments(argc, argv, args);
+
+    auto proxies = args.serviceArgs.makeServiceProxies();
+    proxies->config->dump(cerr);
+
+    RouterLogger logger(proxies);
+    subscribe(logger, args);
+    auto consoleOutput = setupOutputs(logger, proxies, args);
+    logger.init(proxies->config);
+    logger.start();
+
+    EventRecorder events("", proxies);
+    auto recordLevel = [&] (const string& name, double value)
+        {
+            events.recordLevel(value, name);
+        };
+
+    // Start periodic stats dump.
+    ProcessStats lastStats;
+    while (true) {
+        ML::sleep(10.0);
+
+        ProcessStats curStats;
+        ProcessStats::logToCallback(recordLevel, lastStats, curStats, "process");
+        lastStats = curStats;
+
+        consoleOutput->dumpStats();
+    }
 }

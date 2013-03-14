@@ -18,7 +18,6 @@ ROUTER_LOGGER_SOURCES := \
 
 ROUTER_LOGGER_LINK := \
 	logger \
-	boost_program_options \
 	monitor
 
 $(eval $(call library,router_logger,$(ROUTER_LOGGER_SOURCES),$(ROUTER_LOGGER_LINK)))
