@@ -503,31 +503,34 @@ void
 ServiceProxies::
 bootstrap(const Json::Value& config)
 {
-    vector<string> members = config.getMemberNames();
+    string install = config["installation"].asString();
+    ExcCheck(!install.empty(), "installation is not specified in bootstrap.json");
 
-    for (size_t i = 0; i < members.size(); ++i) {
-        const Json::Value& entry = config[members[i]];
+    string node = config["node-name"].asString();
 
-        if (members[i] == "zookeeper")
-            useZookeeper(entry["uri"].asString(), entry["prefix"].asString());
+    if (config.isMember("carbon-uri")) {
+        const Json::Value& entry = config["carbon-uri"];
 
-        else if (members[i] == "carbon") {
-            std::string prefix = entry["prefix"].asString();
+        string prefix = install;
+        if (!node.empty()) prefix += "." + node;
 
-            std::vector<std::string> uris;
+        vector<string> uris;
 
-            if (entry["uri"].isArray()) {
-                for (size_t j = 0; j < entry["uri"].size(); ++j)
-                    uris.push_back(entry["uri"][j].asString());
-            }
-            else uris.push_back(entry["uri"].asString());
-
-            logToCarbon(uris, prefix);
+        if (entry.isArray()) {
+            for (size_t j = 0; j < entry.size(); ++j)
+                uris.push_back(entry[j].asString());
         }
+        else uris.push_back(entry.asString());
 
-        else if (members[i] == "portRanges")
-            usePortRanges(entry);
+        logToCarbon(uris, prefix);
     }
+
+
+    if (config.isMember("zookeeper-uri"))
+        useZookeeper(config["zookeeper-uri"].asString(), install);
+
+    if (config.isMember("portRanges"))
+        usePortRanges(config["portRanges"]);
 }
 
 /*****************************************************************************/

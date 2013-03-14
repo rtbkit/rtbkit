@@ -31,20 +31,16 @@ struct ServiceProxyArguments
 
         options_description options(title);
         options.add_options()
-
             ("bootstrap,B", value(&bootstrapPath), "path to bootstrap.json")
 
-            ("zookeeper-uri,Z",
-             value(&zookeeperUri)->required(),
-             "URI of zookeeper to use")
+            ("zookeeper-uri,Z", value(&zookeeperUri), "URI of zookeeper to use")
             ("carbon-connection,c", value<std::vector<std::string> >(&carbonUris),
              "URI of connection to carbon daemon")
 
-            ("installation,I", value(&installation)->required(),
+            ("installation,I", value(&installation),
              "Name of the installation that is running")
-            ("node-name,N", value(&nodeName)->required(),
-             "Name of the node we're running");
-        
+            ("node-name,N", value(&nodeName), "Name of the node we're running");
+
         return options;
     }
 
@@ -55,11 +51,19 @@ struct ServiceProxyArguments
         if (!bootstrapPath.empty())
             services->bootstrap(bootstrapPath);
 
-        if (!zookeeperUri.empty())
+        if (!zookeeperUri.empty()) {
+            ExcCheck(!installation.empty(), "installation is required");
             services->useZookeeper(zookeeperUri, installation);
+        }
 
-        if (!carbonUris.empty())
-            services->logToCarbon(carbonUris, installation + "." + nodeName);
+        if (!carbonUris.empty()) {
+            ExcCheck(!installation.empty(), "installation is required");
+
+            std::string prefix = installation;
+            if (!nodeName.empty()) prefix += "." + nodeName;
+
+            services->logToCarbon(carbonUris, prefix);
+        }
 
         return services;
     }
