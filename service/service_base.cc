@@ -20,6 +20,7 @@
 #include "soa/jsoncpp/reader.h"
 #include "soa/jsoncpp/value.h"
 #include <fstream>
+#include <sys/utsname.h>
 
 using namespace std;
 
@@ -507,13 +508,16 @@ bootstrap(const Json::Value& config)
     ExcCheck(!install.empty(), "installation is not specified in bootstrap.json");
 
     string node = config["node-name"].asString();
+    if (node.empty()) {
+        struct utsname s;
+        int ret = uname(&s);
+        ExcCheckErrno(!ret, "Unable to call uname");
+
+        node = string(s.nodename);
+    }
 
     if (config.isMember("carbon-uri")) {
         const Json::Value& entry = config["carbon-uri"];
-
-        string prefix = install;
-        if (!node.empty()) prefix += "." + node;
-
         vector<string> uris;
 
         if (entry.isArray()) {
@@ -522,7 +526,7 @@ bootstrap(const Json::Value& config)
         }
         else uris.push_back(entry.asString());
 
-        logToCarbon(uris, prefix);
+        logToCarbon(uris, install + "." + node);
     }
 
 

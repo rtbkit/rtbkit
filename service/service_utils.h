@@ -13,6 +13,7 @@
 #include <boost/program_options/options_description.hpp>
 #include <vector>
 #include <string>
+#include <sys/utsname.h>
 
 
 namespace Datacratic {
@@ -59,10 +60,15 @@ struct ServiceProxyArguments
         if (!carbonUris.empty()) {
             ExcCheck(!installation.empty(), "installation is required");
 
-            std::string prefix = installation;
-            if (!nodeName.empty()) prefix += "." + nodeName;
+            if (nodeName.empty()) {
+                struct utsname s;
+                int ret = uname(&s);
+                ExcCheckErrno(!ret, "Unable to call uname");
 
-            services->logToCarbon(carbonUris, prefix);
+                nodeName = std::string(s.nodename);
+            }
+
+            services->logToCarbon(carbonUris, installation + "." + nodeName);
         }
 
         return services;
