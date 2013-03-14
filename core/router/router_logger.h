@@ -9,6 +9,7 @@
 #pragma once
 
 #include <string>
+#include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include "soa/service/service_base.h"
@@ -28,7 +29,7 @@ struct RouterLogger : public Datacratic::ServiceBase,
     void init(std::shared_ptr<Datacratic::ConfigurationService> config);
     void shutdown();
 
-    void start();
+    void start(boost::function<void ()> onStop = boost::function<void ()>());
 
     void connectAllServiceProviders(const std::string & serviceClass,
                                     const std::string & epName);

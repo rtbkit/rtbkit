@@ -53,9 +53,9 @@ init(std::shared_ptr<ConfigurationService> config)
 
 void
 RouterLogger::
-start()
+start(boost::function<void ()> onStop)
 {
-    Logger::start();
+    Logger::start(onStop);
     multipleSubscriber.start();
     monitorProviderClient.start();
 }
