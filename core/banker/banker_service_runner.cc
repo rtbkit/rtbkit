@@ -41,7 +41,7 @@ int main(int argc, char ** argv)
     std::vector<std::string> fixedHttpBindAddresses;
 
     configuration_options.add_options()
-        ("redis-uri,r", value<string>(&redisUri),
+        ("redis-uri,r", value<string>(&redisUri)->required(),
          "URI of connection to redis")
         ("fixed-http-bind-address,a", value(&fixedHttpBindAddresses),
          "Fixed address (host:port or *:port) at which we will always listen");
@@ -70,7 +70,6 @@ int main(int argc, char ** argv)
 
     MasterBanker banker(proxies, "masterBanker");
     std::shared_ptr<Redis::AsyncConnection> redis;
-
 
     if (redisUri != "nopersistence") {
         auto address = Redis::Address(redisUri);
