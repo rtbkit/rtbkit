@@ -34,16 +34,17 @@ struct ServiceProxyArguments
 
             ("bootstrap,B", value(&bootstrapPath), "path to bootstrap.json")
 
-            ("zookeeper-uri,Z", value(&zookeeperUri), "URI of zookeeper to use")
-            ("carbon-connection,c",
-                    value<std::vector<std::string> >(&carbonUris),
-                    "URI of connection to carbon daemon")
+            ("zookeeper-uri,Z",
+             value(&zookeeperUri)->required(),
+             "URI of zookeeper to use")
+            ("carbon-connection,c", value<std::vector<std::string> >(&carbonUris),
+             "URI of connection to carbon daemon")
 
-            ("installation,I", value(&installation),
-                    "Name of the installation that is running")
-            ("node-name,N", value(&nodeName),
-                    "Name of the node we're running");
-
+            ("installation,I", value(&installation)->required(),
+             "Name of the installation that is running")
+            ("node-name,N", value(&nodeName)->required(),
+             "Name of the node we're running");
+        
         return options;
     }
 
