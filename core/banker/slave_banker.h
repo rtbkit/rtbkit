@@ -95,20 +95,20 @@ struct SlaveBanker : public Banker, public RestProxy {
 
     SlaveBanker(std::shared_ptr<zmq::context_t> context,
                 std::shared_ptr<ConfigurationService> config,
-                const std::string & ourNodeName,
+                const std::string & accountSuffix,
                 const std::string & bankerServiceClass = "rtbBanker");
 
     /** Initialize the slave banker.  This will connect it to the master
         banker (that it will discover using the configuration service
         under the bankerServiceName).
 
-        The ourNodeName parameter is used to name spend accounts underneath
+        The accountSuffix parameter is used to name spend accounts underneath
         the given budget accounts (to disambiguate between multiple
         accessors of those accounts).  It must be unique across the entire
         system, but should be consistent from one invocation to another.
     */
     void init(std::shared_ptr<ConfigurationService> config,
-              const std::string & ourNodeName,
+              const std::string & accountSuffix,
               const std::string & serviceClass = "rtbBanker");
 
     /** Notify the banker that we're going to need to be spending some
@@ -206,7 +206,7 @@ private:
     /// Channel to asynchronously keep track of which accounts have been
     /// created and must therefore be synchronized
     TypedMessageSink<AccountKey> createdAccounts;
-    std::string ourNodeName;
+    std::string accountSuffix;
     
     /** Periodically we report spend to the banker.*/
     void reportSpend(uint64_t numTimeoutsExpired);
@@ -242,7 +242,7 @@ private:
     /** Return the name of our copy of a given shadow account */
     std::string getShadowAccountStr(const AccountKey & account) const
     {
-        return account.childKey(ourNodeName).toString();
+        return account.childKey(accountSuffix).toString();
     }
 };
 

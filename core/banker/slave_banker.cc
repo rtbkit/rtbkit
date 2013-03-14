@@ -162,17 +162,17 @@ SlaveBanker(std::shared_ptr<zmq::context_t> context)
 SlaveBanker::
 SlaveBanker(std::shared_ptr<zmq::context_t> context,
             std::shared_ptr<ConfigurationService> config,
-            const std::string & ourNodeName,
+            const std::string & accountSuffix,
             const std::string & bankerServiceName)
     : RestProxy(context), createdAccounts(128)
 {
-    init(config, ourNodeName, bankerServiceName);
+    init(config, accountSuffix, bankerServiceName);
 }
 
 void
 SlaveBanker::
 init(std::shared_ptr<ConfigurationService> config,
-     const std::string & ourNodeName,
+     const std::string & accountSuffix,
      const std::string & bankerServiceName)
 {
     // When our account manager creates an account, it will call this
@@ -211,7 +211,7 @@ init(std::shared_ptr<ConfigurationService> config,
 
     addSource("SlaveBanker::createdAccounts", createdAccounts);
 
-    this->ourNodeName = ourNodeName;
+    this->accountSuffix = accountSuffix;
     
     // Connect to the master banker
     RestProxy::initServiceClass(config, bankerServiceName, "zeromq");
@@ -426,7 +426,7 @@ addSpendAccount(const AccountKey & accountKey,
 						std::placeholders::_2);
 
 		cerr << "********* calling addSpendAccount for " << accountKey
-			 << " for SlaveBanker " << ourNodeName << endl;
+			 << " for SlaveBanker " << accountSuffix << endl;
 
 		push(makeRestResponseJsonDecoder<Account>("addSpendAccount", onDone2),
 			 "POST",
