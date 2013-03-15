@@ -124,6 +124,8 @@ getInterfaces(const std::set<int> & families,
 
     for (ifaddrs * p = addrs;  p;  p = p->ifa_next) {
 
+        if (!p->ifa_addr)
+            continue;
         if (!families.count(p->ifa_addr->sa_family))
             continue;
         if ((p->ifa_flags & flagsRequired) != flagsRequired)
