@@ -5,9 +5,9 @@
 */
 
 #include "soa/service/zookeeper.h"
+#include "jml/arch/timers.h"
 
 using namespace std;
-
 
 namespace Datacratic {
 
@@ -20,8 +20,15 @@ struct Init {
     }
 } init;
 
-} // file scope
+void zk_callback(zhandle_t * ah, int type, int state, const char * path, void * user) {
+    auto cb = reinterpret_cast<ZookeeperConnection::Callback *>(user);
+    if(cb) {
+        cb->unlink();
+        cb->call(type);
+    }
+}
 
+} // file scope
 
 /*****************************************************************************/
 /* ZOOKEEPER CONNECTION                                                      */
@@ -82,23 +89,32 @@ connect(const std::string & host,
 
     if (!connectMutex.try_lock())
         throw ML::Exception("attempting to connect from two threads");
+
+    this->host = host;
+
     ML::Call_Guard guard([&] () { connectMutex.unlock(); });
 
-    handle = zookeeper_init(host.c_str(),
-                            eventHandlerFn,
-                            recvTimeout,
-                            0 /* client id */,
-                            this /* context */,
-                            0 /* flags */);
+    int wait = timeoutInSeconds * 1000;
+    int timeout = wait;
+    int times = 3;
 
-    if (!handle)
-        throw ML::Exception(errno, "connect to Zookeeper at " + host);
+    for(int i = 0; i != times; ++i) {
+        handle = zookeeper_init(host.c_str(), eventHandlerFn, recvTimeout, 0, this, 0);
 
-    if (connectMutex.try_lock_for(std::chrono::microseconds((long)(timeoutInSeconds * 1000000))))
-        return;
+        if (!handle)
+            throw ML::Exception(errno, "failed to initialize ZooKeeper at " + host);
 
-    close();
+        if (connectMutex.try_lock_for(std::chrono::milliseconds(timeout)))
+            return;
+
+        zookeeper_close(handle);
         
+        int ms = wait + (std::rand() % wait);
+        wait *= 2;
+
+        ML::sleep(ms / 1000.0);
+    }
+
     throw ML::Exception("connection to Zookeeper timed out");
 }
 
@@ -106,7 +122,22 @@ void
 ZookeeperConnection::
 reconnect()
 {
-    throw ML::Exception("reconnection needed");
+    if(handle) {
+        zookeeper_close(handle);
+        handle = 0;
+    }
+
+    connect(host);
+
+    for(auto & item : ephemerals) {
+        createNode(item.path, item.value, true, false, true, true);
+    }
+
+    while(callbacks.next != &callbacks) {
+        auto i = callbacks.next;
+        i->unlink();
+        i->call(ZOO_DELETED_EVENT);
+    }
 }
 
 void
@@ -120,6 +151,8 @@ close()
     handle = 0;
     if (res != ZOK)
         cerr << "warning: closing returned error: " << zerror(res) << endl;
+
+    ephemerals.clear();
 }
 
 ZookeeperConnection::CheckResult
@@ -259,6 +292,10 @@ createNode(const std::string & path,
             break;
     }
 
+    if(ephemeral) {
+        ephemerals.insert(Node(path, value));
+    }
+
     return make_pair<string, bool>(pathBuf, true);
 }
 
@@ -277,6 +314,8 @@ deleteNode(const std::string & path, bool throwIfNodeMissing)
             break;
     }
 
+    ephemerals.erase(path);
+
     return true;
 }
 
@@ -294,16 +333,17 @@ fixPath(const std::string & path)
 
 bool
 ZookeeperConnection::
-nodeExists(const std::string & path_, watcher_fn watcher, void * watcherData)
+nodeExists(const std::string & path_, Callback::Type watcher, void * watcherData)
 {
     string path = fixPath(path_);
 
     int retries = 0;
     for (;;) {
-        //cerr << "handle = " << handle << " bufLen = " << bufLen << endl;
 
-        int res = zoo_wexists(handle, path.c_str(), watcher,
-                              watcherData, 0 /* stat */);
+        Callback * cb = getCallback(watcher, path, watcherData);
+
+        int res = zoo_wexists(handle, path.c_str(), zk_callback,
+                              cb, 0 /* stat */);
         if (res == ZNONODE)
             return false;
         if (checkRes(res, retries, "zoo_wexists", path.c_str()) == CR_DONE)
@@ -315,7 +355,7 @@ nodeExists(const std::string & path_, watcher_fn watcher, void * watcherData)
 
 std::string
 ZookeeperConnection::
-readNode(const std::string & path_, watcher_fn watcher, void * watcherData)
+readNode(const std::string & path_, Callback::Type watcher, void * watcherData)
 {
     string path = fixPath(path_);
 
@@ -324,9 +364,10 @@ readNode(const std::string & path_, watcher_fn watcher, void * watcherData)
 
     int retries = 0;
     for (;;bufLen = 16384) {
-        //cerr << "handle = " << handle << " bufLen = " << bufLen << endl;
 
-        int res = zoo_wget(handle, path.c_str(), watcher, watcherData,
+        Callback * cb = getCallback(watcher, path, watcherData);
+
+        int res = zoo_wget(handle, path.c_str(), zk_callback, cb,
                            buf, &bufLen, 0 /* stat */);
         if (res == ZNONODE)
             return "";
@@ -350,12 +391,17 @@ writeNode(const std::string & path, const std::string & value)
         if (checkRes(res, retries, "zoo_set", path.c_str()) == CR_DONE)
             break;
     }
+
+    auto i = ephemerals.find(path);
+    if(ephemerals.end() != i) {
+        i->value = value;
+    }
 }
 
 std::vector<std::string>
 ZookeeperConnection::
 getChildren(const std::string & path_, bool failIfNodeMissing,
-            watcher_fn watcher, void * watcherData)
+            Callback::Type watcher, void * watcherData)
 {
     string path = fixPath(path_);
 
@@ -367,11 +413,10 @@ getChildren(const std::string & path_, bool failIfNodeMissing,
 
     int retries = 0;
     for (;;) {
-        //cerr << "zoo_wget_children for " << path << " with watcher "
-        //     << watcher << endl;
+        Callback * cb = getCallback(watcher, path, watcherData);
 
         int res = zoo_wget_children(handle, path.c_str(),
-                                    watcher, watcherData,
+                                    zk_callback, cb,
                                     &strings);
 
         //cerr << "zoo_wget_children for " << path << " returned "
@@ -385,7 +430,10 @@ getChildren(const std::string & path_, bool failIfNodeMissing,
             // If the node didn't exist then our watch wasn't set... so we
             // set it up here.
             if (watcher) {
-                res = zoo_wexists(handle, path.c_str(), watcher, watcherData, 0);
+
+                Callback * cb = getCallback(watcher, path, watcherData);
+
+                res = zoo_wexists(handle, path.c_str(), zk_callback, cb, 0);
                 //cerr << "wexists handler returned " << res << endl;
 
                 if (res == ZOK) {
@@ -425,7 +473,7 @@ eventHandlerFn(zhandle_t * handle,
     ZookeeperConnection * connection = reinterpret_cast<ZookeeperConnection *>(context);
 
     using namespace std;
-    cerr << "got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
+    //cerr << "got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
     connection->connectMutex.unlock();
 
     if(state == ZOO_EXPIRED_SESSION_STATE) {

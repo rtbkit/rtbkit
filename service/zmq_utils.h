@@ -13,10 +13,10 @@
 #include <cstdio>
 #include <memory>
 #include <boost/utility.hpp>
-#include "soa/service/port_range.h"
 #include "soa/service/zmq.hpp"
 #include "soa/jsoncpp/value.h"
 #include "soa/types/date.h"
+#include "soa/service/port_range_service.h"
 #include "jml/arch/format.h"
 #include "jml/arch/exception.h"
 #include "jml/compiler/compiler.h"

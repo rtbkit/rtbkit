@@ -17,6 +17,7 @@
 #include "jml/arch/timers.h"
 #include "jml/utils/ring_buffer.h"
 #include "jml/utils/hash.h"
+#include "jml/utils/file_functions.h"
 
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include "crypto++/sha.h"
@@ -34,6 +35,8 @@
 #include <exception>
 #include <thread>
 #include <unordered_map>
+
+#include <boost/filesystem.hpp>
 
 
 using namespace std;
@@ -1989,6 +1992,29 @@ forEachBucket(const OnBucket & onBucket) const
     return true;
 }
 
+void
+S3Api::
+uploadRecursive(string dirSrc, string bucketDest, bool includeDir){
+    using namespace boost::filesystem;
+    path targetDir(dirSrc);
+    if(!is_directory(targetDir)){
+        throw ML::Exception("%s is not a directory", dirSrc.c_str());
+    }
+    recursive_directory_iterator it(targetDir), itEnd;
+    int toTrim = includeDir ? 0 : dirSrc.length() + 1;
+    for(; it != itEnd; it ++){
+        if(!is_directory(*it)){
+            string path = it->path().string();
+            ML::File_Read_Buffer frb(path);
+            size_t size = file_size(path);
+            if(toTrim){
+                path = path.substr(toTrim);
+            }
+            upload(frb.start(), size, "s3://" + bucketDest + "/" + path);
+        }
+    }
+}
+
 namespace {
 
 struct S3BucketInfo {
@@ -2013,9 +2039,9 @@ void registerS3Bucket(const std::string & bucketName,
                       const std::string & serviceUri)
 {
     std::unique_lock<std::mutex> guard(s3BucketsLock);
-    if (s3Buckets.count(bucketName))
-        throw ML::Exception("s3 bucket %s already registered",
-                            bucketName.c_str());
+    if (s3Buckets.count(bucketName)){
+        throw BucketAlreadyRegistered(bucketName);
+    }
 
     S3BucketInfo info;
     info.s3Bucket = bucketName;
@@ -2086,9 +2112,9 @@ void registerS3Buckets(const std::string & accessKeyId,
         {
             //cerr << "got bucket " << bucketName << endl;
 
-            if (s3Buckets.count(bucketName))
-                throw ML::Exception("s3 bucket %s already registered",
-                                    bucketName.c_str());
+            if (s3Buckets.count(bucketName)){
+                throw BucketAlreadyRegistered(bucketName);
+            }
 
             S3BucketInfo info;
             info.s3Bucket = bucketName;
@@ -2126,6 +2152,5 @@ size_t getUriSize(const std::string & filename)
         return stats.st_size;
     }
 }
-
 
 } // namespace Datacratic

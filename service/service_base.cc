@@ -11,10 +11,16 @@
 #include "zookeeper_configuration_service.h"
 #include "jml/arch/demangle.h"
 #include "jml/utils/exc_assert.h"
+#include "jml/utils/environment.h"
+#include "jml/utils/file_functions.h"
 #include <unistd.h>
 #include <sys/utsname.h>
 #include <boost/make_shared.hpp>
 #include "zmq.hpp"
+#include "soa/jsoncpp/reader.h"
+#include "soa/jsoncpp/value.h"
+#include <fstream>
+#include <sys/utsname.h>
 
 using namespace std;
 
@@ -333,12 +339,29 @@ removePath(const std::string & key)
 /* SERVICE PROXIES                                                           */
 /*****************************************************************************/
 
+namespace {
+
+std::string bootstrapConfigPath()
+{
+    ML::Env_Option<string> env("RTBKIT_BOOTSTRAP", "");
+    if (!env.get().empty()) return env.get();
+
+    const string cwdPath = "./bootstrap.json";
+    if (ML::fileExists(cwdPath)) return cwdPath;
+
+    return "";
+}
+
+} // namespace anonymous
+
 ServiceProxies::
 ServiceProxies()
     : events(new NullEventService()),
       config(new InternalConfigurationService()),
+      ports(new DefaultPortRangeService()),
       zmqContext(new zmq::context_t(1 /* num worker threads */))
 {
+    bootstrap(bootstrapConfigPath());
 }
 
 void
@@ -384,6 +407,20 @@ useZookeeper(std::string hostname,
     }
 
     config.reset(new ZookeeperConfigurationService(hostname, prefix));
+}
+
+void
+ServiceProxies::
+usePortRanges(const std::string& path)
+{
+    ports.reset(new JsonPortRangeService(path));
+}
+
+void
+ServiceProxies::
+usePortRanges(const Json::Value& config)
+{
+    ports.reset(new JsonPortRangeService(config));
 }
 
 std::vector<std::string>
@@ -441,6 +478,63 @@ ServiceProxies::getEndpointInstances(std::string const & name,
     }
 
     return result;
+}
+
+void
+ServiceProxies::
+bootstrap(const std::string& path)
+{
+    if (path.empty()) return;
+    ExcCheck(ML::fileExists(path), path + " doesn't exist");
+
+    ifstream stream(path);
+    ExcCheckErrno(stream, "Unable to open the Json port range file.");
+
+    string file;
+    while(stream) {
+        string line;
+        getline(stream, line);
+        file += line + "\n";
+    }
+
+    bootstrap(Json::parse(file));
+}
+
+void
+ServiceProxies::
+bootstrap(const Json::Value& config)
+{
+    string install = config["installation"].asString();
+    ExcCheck(!install.empty(), "installation is not specified in bootstrap.json");
+
+    string node = config["node-name"].asString();
+    if (node.empty()) {
+        struct utsname s;
+        int ret = uname(&s);
+        ExcCheckErrno(!ret, "Unable to call uname");
+
+        node = string(s.nodename);
+    }
+
+    if (config.isMember("carbon-uri")) {
+        const Json::Value& entry = config["carbon-uri"];
+        vector<string> uris;
+
+        if (entry.isArray()) {
+            for (size_t j = 0; j < entry.size(); ++j)
+                uris.push_back(entry[j].asString());
+        }
+        else uris.push_back(entry.asString());
+
+        logToCarbon(uris, install + "." + node);
+    }
+
+
+    if (config.isMember("zookeeper-uri"))
+        useZookeeper(config["zookeeper-uri"].asString(), install);
+
+    if (config.isMember("portRanges"))
+        usePortRanges(config["portRanges"]);
 }
 
 /*****************************************************************************/

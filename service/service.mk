@@ -32,6 +32,7 @@ LIBSERVICES_SOURCES := \
 	chunked_http_endpoint.cc \
 	epoller.cc \
 	http_header.cc \
+	port_range_service.cc \
 	service_base.cc \
 	message_loop.cc \
 	named_endpoint.cc \
@@ -63,7 +64,7 @@ LIBCLOUD_SOURCES := \
 	sftp.cc \
 	s3.cc \
 
-LIBCLOUD_LINK := crypto++ curlpp utils arch types tinyxml2 services ssh2
+LIBCLOUD_LINK := crypto++ curlpp utils arch types tinyxml2 services ssh2 boost_filesystem
 
 
 $(eval $(call library,cloud,$(LIBCLOUD_SOURCES),$(LIBCLOUD_LINK)))

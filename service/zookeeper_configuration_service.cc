@@ -50,7 +50,7 @@ std::string printZookeeperState(int state)
 }
 
 void
-watcherFn(zhandle_t *zh, int type, int state, const char *path, void *watcherCtx)
+watcherFn(int type, std::string const & path, void * watcherCtx)
 {
     typedef std::shared_ptr<ConfigurationService::Watch::Data> SharedPtr;
     std::unique_ptr<SharedPtr> data(reinterpret_cast<SharedPtr *>(watcherCtx));
@@ -71,11 +71,13 @@ watcherFn(zhandle_t *zh, int type, int state, const char *path, void *watcherCtx
     if (type == ZOO_CHILD_EVENT)
         change = ConfigurationService::NEW_CHILD;
 
-    if ((*data)->watchReferences > 0)
-        (*data)->onChange(path, change);
+    auto & item = *data;
+    if (item->watchReferences > 0) {
+        item->onChange(path, change);
+    }
 }
 
-watcher_fn
+ZookeeperConnection::Callback::Type
 getWatcherFn(const ConfigurationService::Watch & watch)
 {
     if (!watch)

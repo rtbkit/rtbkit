@@ -8,7 +8,7 @@
 #pragma once
 
 #include "soa/service/endpoint.h"
-#include "soa/service/port_range.h"
+#include "soa/service/port_range_service.h"
 #include "jml/arch/wakeup_fd.h"
 
 namespace Datacratic {

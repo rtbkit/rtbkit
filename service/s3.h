@@ -458,6 +458,10 @@ struct S3Api {
                           const std::string & uploadId,
                           const std::vector<std::string> & etags) const;
 
+    void uploadRecursive(std::string dirSrc,
+                         std::string bucketDest,
+                         bool includeDir);
+
 };
 
 /** std::istream that connects to s3 and streams a file. */
@@ -485,6 +489,13 @@ struct S3Handle{
     you can open it directly from s3.
 */
 
+class BucketAlreadyRegistered : public ML::Exception{
+    public:
+        BucketAlreadyRegistered(const std::string & bucketName) : 
+                ML::Exception("s3 bucket %s already registered",
+                              bucketName.c_str()){}
+};
+
 void registerS3Bucket(const std::string & bucketName,
                       const std::string & accessKeyId,
                       const std::string & accessKey,
@@ -507,6 +518,5 @@ std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName);
 
 // Return an URI for either a file or an s3 object
 size_t getUriSize(const std::string & filename);
-
 
 } // namespace Datacratic
