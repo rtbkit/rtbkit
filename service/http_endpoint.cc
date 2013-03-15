@@ -354,6 +354,8 @@ putResponseOnWire(HttpResponse response,
     responseStr.append("\r\n");
     responseStr.append(response.body);
 
+    //cerr << "sending " << responseStr << endl;
+    
     send(responseStr,
          NEXT_CONTINUE,
          onSendFinished);

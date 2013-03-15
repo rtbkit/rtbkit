@@ -11,6 +11,7 @@
 #include <map>
 #include <iostream>
 #include <vector>
+#include "jml/arch/exception.h"
 
 
 namespace Datacratic {
@@ -73,6 +74,22 @@ struct HttpHeader {
 
     // The rest of the headers are here
     std::map<std::string, std::string> headers;
+
+    std::string getHeader(const std::string & key) const
+    {
+        auto it = headers.find(key);
+        if (it == headers.end())
+            throw ML::Exception("couldn't find header " + key);
+        return it->second;
+    }
+
+    std::string tryGetHeader(const std::string & key) const
+    {
+        auto it = headers.find(key);
+        if (it == headers.end())
+            return "";
+        return it->second;
+    }
 
     // If some portion of the data is known, it's put in here
     std::string knownData;
