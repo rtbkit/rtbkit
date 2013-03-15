@@ -247,6 +247,15 @@ struct StructureDescription
     {
         return StructureDescriptionBase::printJson(val, context);
     }
+
+    virtual const FieldDescription & 
+    getField(const std::string & field) const
+    {
+        auto it = fields.find(field);
+        if (it != fields.end())
+            return it->second;
+        throw ML::Exception("structure has no field " + field);
+    }
 };
 
 template<typename Enum>
