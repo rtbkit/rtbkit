@@ -8,6 +8,7 @@
 #include "jml/utils/parse_context.h"
 #include "jml/utils/string_functions.h"
 #include "jml/db/persistent.h"
+#include "jml/utils/vector_utils.h"
 
 using namespace std;
 using namespace ML;
@@ -265,7 +266,9 @@ parse(const std::string & headerAndData)
 
 std::ostream & operator << (std::ostream & stream, const HttpHeader & header)
 {
-    stream << header.verb << " " << header.resource << "\r\n"
+    stream << header.verb << " " << header.resource
+           << header.queryParams.uriEscaped();
+    stream << "\r\n"
            << "Content-Type: " << header.contentType << "\r\n";
     if (header.isChunked)
         stream << "Transfer-Encoding: chunked\r\n";
