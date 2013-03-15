@@ -84,10 +84,6 @@ handleData(const std::string & data)
     }
     
     if (readState != HEADER) {
-        cerr << "handleData in readState " << readState << endl;
-        cerr << "data = " << data << endl;
-        cerr << "status: " << status() << endl;
-        return;
         throw Exception("invalid read state %d handling data '%s' for %08xp",
                         readState, data.c_str(), this);
     }
