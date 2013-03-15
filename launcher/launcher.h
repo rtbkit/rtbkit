@@ -33,7 +33,7 @@ struct Launcher
 {
     struct Task
     {
-        Task() : pid(-1), log(false), delay(1.0) {
+        Task() : pid(-1), log(false), delay(5.0) {
         }
 
         std::string const & getName() const {
