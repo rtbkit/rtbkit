@@ -9,6 +9,8 @@
 
 #include "soa/jsoncpp/json.h"
 #include <vector>
+#include <map>
+#include <unordered_map>
 #include "jml/utils/exc_assert.h"
 
 namespace Datacratic {
@@ -75,6 +77,55 @@ std::vector<T> jsonDecode(const Json::Value & val, std::vector<T> *)
     res.reserve(val.size());
     for (unsigned i = 0;  i < val.size();  ++i)
         res.push_back(jsonDecode(val[i], (T*)0));
+    return res;
+}
+
+template<typename T>
+Json::Value jsonEncode(const std::map<std::string, T> & m)
+{
+    Json::Value result(Json::objectValue);
+    for (auto & e: m)
+        result[m.first] = jsonEncode(m.second);
+    return result;
+}
+
+template<typename T>
+std::map<std::string, T> jsonDecode(const Json::Value & val, std::map<std::string, T> *)
+{
+    std::map<std::string, T> res;
+    if (val.isNull())
+        return res;
+
+    ExcAssert(val.isObject());
+
+    for (auto it = val.begin(), end = val.end();  it != end;  ++it)
+        res.emplace(it.memberName(), jsonDecode(*it, (T *)0));
+
+    return res;
+}
+
+template<typename T>
+Json::Value jsonEncode(const std::unordered_map<std::string, T> & m)
+{
+    Json::Value result(Json::objectValue);
+    for (auto & e: m)
+        result[m.first] = jsonEncode(m.second);
+    return result;
+}
+
+template<typename T>
+std::unordered_map<std::string, T>
+jsonDecode(const Json::Value & val, std::unordered_map<std::string, T> *)
+{
+    std::unordered_map<std::string, T> res;
+    if (val.isNull())
+        return res;
+
+    ExcAssert(val.isObject());
+
+    for (auto it = val.begin(), end = val.end();  it != end;  ++it)
+        res.insert(std::make_pair(it.memberName(), jsonDecode(*it, (T *)0)));
+
     return res;
 }
 
