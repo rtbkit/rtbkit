@@ -35,7 +35,7 @@ AugmentationLoop(ServiceBase & parent,
     : ServiceBase(name, parent),
       allAugmentors(0),
       idle_(1),
-      inbox(2048),
+      inbox(65536),
       toAugmentors(getZmqContext())
 {
     updateAllAugmentors();
@@ -47,7 +47,7 @@ AugmentationLoop(std::shared_ptr<ServiceProxies> proxies,
     : ServiceBase(name, proxies),
       allAugmentors(0),
       idle_(1),
-      inbox(2048),
+      inbox(65536),
       toAugmentors(getZmqContext())
 {
     updateAllAugmentors();
