@@ -161,6 +161,7 @@ injectVisit(Date timestamp,
     event.type = PAE_VISIT;
     event.timestamp = timestamp;
     event.channels = channels;
+    event.uids = ids;
     event.metadata = visitMeta;
 
     string str = ML::DB::serializeToString(event);
