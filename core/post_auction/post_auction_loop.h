@@ -378,6 +378,7 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
                                 const Id & adSpotId,
                                 std::shared_ptr<BidRequest> bidRequest,
                                 const std::string & bidRequestStr,
+                                const std::string & bidRequestStrFormat,
                                 const JsonHolder & augmentations,
                                 const Auction::Response & bidResponse,
                                 Date lossTimeout);

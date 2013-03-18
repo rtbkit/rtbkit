@@ -1850,6 +1850,7 @@ injectSubmittedAuction(const Id & auctionId,
                        const Id & adSpotId,
                        std::shared_ptr<BidRequest> bidRequest,
                        const std::string & bidRequestStr,
+                       const std::string & bidRequestStrFormat,
                        const JsonHolder & augmentations,
                        const Auction::Response & bidResponse,
                        Date lossTimeout)
@@ -1859,6 +1860,7 @@ injectSubmittedAuction(const Id & auctionId,
     event.adSpotId = adSpotId;
     event.bidRequest = bidRequest;
     event.bidRequestStr = bidRequestStr;
+    event.bidRequestFormatStr = bidRequestStrFormat;
     event.augmentations = augmentations;
     event.bidResponse = bidResponse;
     event.lossTimeout = lossTimeout;
