@@ -102,7 +102,7 @@ setupOutputs(
             args.logDir + "/%F/router-%F-%T.log.gz",
             args.rotationInterval,
             "gz");
-    normalOutput->onFileWrite = [&](const string& channel, size_t bytes)
+    normalOutput->onFileWrite = [=](const string& channel, size_t bytes)
         {
             carbonOutput->recordBytesWrittenToFile("router", bytes);
         };
@@ -116,7 +116,7 @@ setupOutputs(
     auto errorOutput = make_shared<RotatingFileOutput>();
     errorOutput->open(
             args.logDir + "/%F/errors-%F-%T.log", args.rotationInterval);
-    errorOutput->onFileWrite = [&](const string& channel, size_t bytes)
+    errorOutput->onFileWrite = [=](const string& channel, size_t bytes)
         {
             carbonOutput->recordBytesWrittenToFile("error", bytes);
         };
@@ -129,7 +129,7 @@ setupOutputs(
             args.logDir + "/%F/delivery-%F-%T.log.gz",
             args.rotationInterval,
             "gz");
-    writeDelivery->onFileWrite = [&](const string& channel, size_t bytes)
+    writeDelivery->onFileWrite = [=](const string& channel, size_t bytes)
         {
             carbonOutput->recordBytesWrittenToFile("delivery", bytes);
         };
@@ -141,7 +141,7 @@ setupOutputs(
     // Strategy-level data
     auto strategyOutput = make_shared<MultiOutput>();
 
-    auto createMatchedWinFile = [&] (const string & pattern)
+    auto createMatchedWinFile = [=] (const string & pattern)
         {
             auto result = make_shared<RotatingFileOutput>();
             result->open(pattern, args.rotationInterval);
@@ -168,7 +168,7 @@ setupOutputs(
             args.logDir + "/%F/behaviour-%F-%T.log.gz",
             args.rotationInterval,
             "gz");
-    behaviourOutput->onFileWrite = [&](const string& channel, size_t bytes)
+    behaviourOutput->onFileWrite = [=](const string& channel, size_t bytes)
         {
             carbonOutput->recordBytesWrittenToFile("behaviour", bytes);
         };
@@ -225,10 +225,10 @@ int main (int argc, char** argv)
     proxies->config->dump(cerr);
 
     RouterLogger logger(proxies);
-    subscribe(logger, args);
     auto consoleOutput = setupOutputs(logger, proxies, args);
     logger.init(proxies->config);
     logger.start();
+    subscribe(logger, args);
 
     EventRecorder events("", proxies);
     auto recordLevel = [&] (const string& name, double value)
