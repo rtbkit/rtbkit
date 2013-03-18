@@ -130,6 +130,8 @@ makeBidRequest(size_t i)
     bidRequest.language = "en";
     bidRequest.url = Url("http://datacratic.com");
     bidRequest.timestamp = Date::now().secondsSinceEpoch();
+    bidRequest.userIds.add(Id("foo"), ID_EXCHANGE);
+    bidRequest.userIds.add(Id("bar"), ID_PROVIDER);
 
     return bidRequest;
 }
