@@ -468,7 +468,9 @@ struct Launcher
 
         void onDeath(int pid) {
             Task * item = node->findTask(pid);
-            std::cerr << "crash! " << (item ? item->getName() : "?") << std::endl;
+
+            std::time_t now = std::time(0);
+            std::cerr << "crash! " << (item ? item->getName() : "?") << " detected at " << std::asctime(std::localtime(&now)) << std::endl;
             if(item) {
                 item->restart();
             }
