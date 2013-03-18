@@ -24,13 +24,17 @@ namespace RTBKIT {
 /* AUGMENTOR                                                                 */
 /*****************************************************************************/
 
+// Determined via a very scientific method: 2^16 should be enough... right?
+enum { QueueSize = 65536 };
+
 AugmentorBase::
 AugmentorBase(const std::string & augmentorName,
           const std::string & serviceName,
           std::shared_ptr<ServiceProxies> proxies)
     : ServiceBase(serviceName, proxies),
       augmentorName(augmentorName),
-      toRouters(getZmqContext())
+      toRouters(getZmqContext()),
+      responseQueue(QueueSize)
 {
 }
 
@@ -40,7 +44,8 @@ AugmentorBase(const std::string & augmentorName,
           ServiceBase& parent)
     : ServiceBase(serviceName, parent),
       augmentorName(augmentorName),
-      toRouters(getZmqContext())
+      toRouters(getZmqContext()),
+      responseQueue(QueueSize)
 {
 }
 
@@ -54,6 +59,25 @@ void
 AugmentorBase::
 init()
 {
+    responseQueue.onEvent = [=] (const Response& resp)
+        {
+            const AugmentationRequest& request = resp.first;
+            const AugmentationList& response = resp.second;
+
+            toRouters.sendMessage(
+                    request.router,
+                    "RESPONSE",
+                    "1.0",
+                    request.startTime,
+                    request.id.toString(),
+                    request.augmentor,
+                    chomp(response.toJson().toString()));
+
+            recordHit("messages.RESPONSE");
+        };
+
+    addSource("AugmentorBase::responseQueue", responseQueue);
+
     toRouters.init(getServices()->config, serviceName());
 
     toRouters.connectHandler = [=] (const std::string & newRouter)
@@ -116,16 +140,10 @@ void
 AugmentorBase::
 respond(const AugmentationRequest & request, const AugmentationList & response)
 {
-    toRouters.sendMessage(
-            request.router,
-            "RESPONSE",
-            "1.0",
-            request.startTime,
-            request.id.toString(),
-            request.augmentor,
-            chomp(response.toJson().toString()));
+    if (responseQueue.tryPush(make_pair(request, response)))
+        return;
 
-    recordHit("messages.RESPONSE");
+    cerr << "Dropping augmentation response: response queue is full" << endl;
 }
 
 void

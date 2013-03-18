@@ -15,6 +15,7 @@
 #include "soa/service/service_base.h"
 #include "soa/service/zmq_utils.h"
 #include "soa/service/socket_per_thread.h"
+#include "soa/service/typed_message_channel.h"
 #include "jml/arch/futex.h"
 #include "jml/utils/ring_buffer.h"
 #include "soa/service/zmq_endpoint.h"
@@ -91,6 +92,9 @@ private:
     std::string augmentorName; // This can differ from the servicenName!
 
     ZmqMultipleNamedClientBusProxy toRouters;
+
+    typedef std::pair<AugmentationRequest, AugmentationList> Response;
+    TypedMessageSink<Response> responseQueue;
 
     void handleRouterMessage(const std::string & router,
                              const std::vector<std::string> & message);
