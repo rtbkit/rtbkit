@@ -233,6 +233,11 @@ handleRouterMessage(const std::string & fromRouter,
             handleDelivery(message, onClick);
         else invalid = true;
         break;
+    case 'V':
+        if (message[0] == "VISIT")
+            handleDelivery(message, onVisit);
+        else invalid = true;
+        break;
     case 'P':
         if (message[0] == "PING0") {
             //cerr << "ping0: message " << message << endl;
@@ -285,6 +290,7 @@ eventName(const string& name)
 
     if (name == "IMPRESSION") return "impressions";
     if (name == "CLICK") return "clicks";
+    if (name == "VISIT") return "visits";
 
     ExcAssert(false);
     return "unknow";
@@ -480,7 +486,7 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
     if (!callback) return;
 
     try {
-        checkMessageSize(msg, 12);
+        checkMessageSize(msg, 13);
 
         recordHit(eventName(msg[0]));
 
@@ -496,6 +502,7 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
         args.impression = jsonParse(msg[8]);
         args.click = jsonParse(msg[9]);
         args.augmentations = jsonParse(msg[10]);
+        args.visits = jsonParse(msg[11]);
 
         callback(args);
     } catch (const std::exception & exc) {

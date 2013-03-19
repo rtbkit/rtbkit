@@ -108,7 +108,7 @@ serialize(DB::Store_Writer & store) const
     store << version << price.maxPrice << price.priority
           << tagId << account
           << test << agent << bidData << meta << creativeId
-          << creativeName << (int)localStatus;
+          << creativeName << (int)localStatus << visitChannels;
 }
 
 void
@@ -154,7 +154,7 @@ reconstitute(DB::Store_Reader & store)
         store >> price.maxPrice >> price.priority
               >> tagId >> account
               >> test >> agent >> bidData >> meta >> creativeId
-              >> creativeName >> localStatusi;
+              >> creativeName >> localStatusi >> visitChannels;
     }
     else throw ML::Exception("reconstituting wrong version");
     localStatus = (WinLoss)localStatusi;

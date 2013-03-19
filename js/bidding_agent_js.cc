@@ -147,7 +147,7 @@ struct DeliveryCbOps :
             JSValue result;
             {
                 v8::TryCatch tc;
-                v8::Handle<v8::Value> argv[10];
+                v8::Handle<v8::Value> argv[11];
 
                 argv[0] = JS::toJS(args.timestamp);
                 argv[1] = JS::toJS(args.auctionId);
@@ -159,6 +159,7 @@ struct DeliveryCbOps :
                 argv[7] = JS::toJS(args.impression);
                 argv[8] = JS::toJS(args.click);
                 argv[9] = JS::toJS(args.augmentations);
+                argv[10] = JS::toJS(args.visits);
 
                 result = params->fn->Call(params->This, 11, argv);
 
@@ -261,6 +262,7 @@ struct BiddingAgentJS :
         registerAsyncCallback(&RTBKIT::BiddingAgent::onGotConfig, "onGotConfig");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onImpression, "onImpression");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onClick, "onClick");
+        registerAsyncCallback(&RTBKIT::BiddingAgent::onVisit, "onVisit");
 
         registerAsyncCallback(&RTBKIT::BiddingAgent::onError, "onError");
     }

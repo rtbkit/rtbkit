@@ -116,13 +116,15 @@ struct Auction : public std::enable_shared_from_this<Auction> {
                  std::string bidData = "",
                  std::string meta = "null",
                  std::shared_ptr<const void> agentConfig
-                     = std::shared_ptr<const void>())
+                     = std::shared_ptr<const void>(),
+                 const SegmentList& visitChannels = SegmentList())
             : price(price), tagId(tagId),
               account(account),
               test(test), agent(agent),
               bidData(bidData), meta(meta), creativeId(-1),
               localStatus(INVALID),
-              agentConfig(agentConfig)
+              agentConfig(agentConfig),
+              visitChannels(visitChannels)
         {
         }
 
@@ -150,6 +152,10 @@ struct Auction : public std::enable_shared_from_this<Auction> {
             available out of process.
         */
         std::shared_ptr<const void> agentConfig;
+
+        // List of channels for which we subscribe to post impression visit
+        // events.
+        SegmentList visitChannels;
 
         static std::string print(WinLoss wl);
         Json::Value toJson() const;
