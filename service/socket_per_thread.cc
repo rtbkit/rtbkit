@@ -12,6 +12,7 @@
 #include "jml/arch/spinlock.h"
 #include "jml/arch/atomic_ops.h"
 #include "jml/arch/exception.h"
+#include "jml/arch/timers.h"
 #include "jml/utils/exc_assert.h"
 #include "soa/service/zmq_utils.h"
 
@@ -130,6 +131,9 @@ initForThisThread() const
 
     mThis->addThreadEntry(entries.get());
     ML::atomic_inc(numOpen);
+
+    // wait for ZMQ when connecting...
+    ML::sleep(0.1);
 }
     
 void
