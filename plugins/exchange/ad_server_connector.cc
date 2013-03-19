@@ -150,22 +150,4 @@ injectClick(const Id & auctionId,
     toPostAuctionService.sendMessage("CLICK", str);
 }
 
-void
-PostAuctionProxy::
-injectVisit(Date timestamp,
-            const SegmentList & channels,
-            const JsonHolder & visitMeta,
-            const UserIds & ids)
-{
-    PostAuctionEvent event;
-    event.type = PAE_VISIT;
-    event.timestamp = timestamp;
-    event.channels = channels;
-    event.uids = ids;
-    event.metadata = visitMeta;
-
-    string str = ML::DB::serializeToString(event);
-    toPostAuctionService.sendMessage("VISIT", str);
-}
-
 } // namespace RTBKIT
