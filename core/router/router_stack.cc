@@ -91,7 +91,6 @@ submitAuction(const std::shared_ptr<Auction> & auction,
                                            adSpotId,
                                            auction->request,
                                            auction->requestStr,
-                                           auction->requestStrFormat,
                                            agentAugmentations,
                                            response,
                                            auction->lossAssumed);
