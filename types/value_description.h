@@ -366,4 +366,62 @@ struct ValueDescription<std::vector<T> >
     }
 };
 
+
+// Template set for which hasToJson<T>::value is true if and only if it has a function
+// Json::Value T::toJson() const
+template<typename T, typename Enable = void>
+struct hasToJson {
+    enum { value = false };
+};
+
+template<typename T>
+struct hasToJson<T, typename std::enable_if<std::is_convertible<Json::Value, decltype(std::declval<const T>().toJson())>::value>::type> {
+    enum { value = true };
+};
+
+// Template set for which hasFromJson<T>::value is true if and only if it has a function
+// static T T::fromJson(Json::Value)
+template<typename T, typename Enable = void>
+struct hasFromJson {
+    enum { value = false };
+};
+
+template<typename T>
+struct hasFromJson<T, typename std::enable_if<std::is_convertible<T, decltype(T::fromJson(std::declval<Json::Value>()))>::value>::type> {
+    enum { value = true };
+};
+
+// jsonDecode implementation for any type which:
+// 1) has a default description;
+// 2) does NOT have a fromJson() function (there is a simpler overload for this case)
+template<typename T>
+T jsonDecode(const Json::Value & json, T * = 0,
+             decltype(getDefaultDescription((T *)0)) * = 0,
+             typename std::enable_if<!hasFromJson<T>::value>::type * = 0)
+{
+    T result;
+
+    static std::unique_ptr<ValueDescription<void> > desc
+        (getDefaultDescription((T *)0));
+    StructuredJsonParsingContext context(json);
+    desc->parseJson(&result, context);
+    return result;
+}
+
+// jsonEncode implementation for any type which:
+// 1) has a default description;
+// 2) does NOT have a toJson() function (there is a simpler overload for this case)
+template<typename T>
+Json::Value jsonEncode(const T & obj,
+                       decltype(getDefaultDescription((T *)0)) * = 0,
+                       typename std::enable_if<!hasToJson<T>::value>::type * = 0)
+{
+    static std::unique_ptr<ValueDescription<void> > desc
+        (getDefaultDescription((T *)0));
+    StructuredJsonPrintingContext context;
+    desc->printJson(&obj, context);
+    return std::move(context.output);
+}
+
+
 } // namespace Datacratic

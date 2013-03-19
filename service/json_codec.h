@@ -90,7 +90,8 @@ Json::Value jsonEncode(const std::map<std::string, T> & m)
 }
 
 template<typename T>
-std::map<std::string, T> jsonDecode(const Json::Value & val, std::map<std::string, T> *)
+std::map<std::string, T>
+jsonDecode(const Json::Value & val, std::map<std::string, T> *)
 {
     std::map<std::string, T> res;
     if (val.isNull())
@@ -154,5 +155,13 @@ void getParam(const Json::Value & parameters,
         val = jsonDecode(j, &val);
     }
 }
+
+// In place JSON decoding
+template<typename T>
+void jsonDecode(const Json::Value & json, T & val)
+{
+    val = jsonDecode(json, (T *)0);
+}
+
 
 } // namespace Datacratic
