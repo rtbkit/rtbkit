@@ -49,8 +49,7 @@ clearStats()
 Logger::
 Logger()
     : context(std::make_shared<zmq::context_t>(1)),
-      listener(*context, ZMQ_PULL),
-      rawListener(*context, ZMQ_PULL),
+      messages(65536),
       outputs(0),
       messagesSent(0), messagesDone(0)
 {
@@ -60,8 +59,7 @@ Logger()
 Logger::
 Logger(zmq::context_t & contextRef)
     : context(ML::make_unowned_std_sp(contextRef)),
-      listener(*context, ZMQ_PULL),
-      rawListener(*context, ZMQ_PULL),
+      messages(65536),
       outputs(0),
       messagesSent(0), messagesDone(0)
 {
@@ -71,8 +69,7 @@ Logger(zmq::context_t & contextRef)
 Logger::
 Logger(std::shared_ptr<zmq::context_t> & context)
     : context(context),
-      listener(*context, ZMQ_PULL),
-      rawListener(*context, ZMQ_PULL),
+      messages(65536),
       outputs(0),
       messagesSent(0), messagesDone(0)
 {
@@ -91,27 +88,11 @@ init()
 {
     messageLoop.init();
 
-    listener.bind(ML::format("inproc://logger@%p", this).c_str());
-    rawListener.bind(ML::format("inproc://logger@%p-RAW", this).c_str());
-
-    auto handleListenerMessage
-        = [=] (std::vector<zmq::message_t> && message) {
-        this->handleListenerMessage(std::move(message));
+    messages.onEvent = [=](std::vector<std::string> && message) {
+        handleListenerMessage(message);
     };
-    messageLoop.addSource("Logger::listener",
-                          std::make_shared<ZmqBinaryEventSource>
-                          (listener, handleListenerMessage));
 
-    auto handleRawListenerMessage
-        = [=] (std::vector<zmq::message_t> && message) {
-        this->handleRawListenerMessage(std::move(message));
-    };
-    messageLoop.addSource("Logger::rawListener",
-                          std::make_shared<ZmqBinaryEventSource>
-                          (rawListener, handleRawListenerMessage));
-
-    logSocket.init(*context, ZMQ_PUSH,
-                   ML::format("inproc://logger@%p", this));
+    messageLoop.addSource("Logger::messages", messages);
 }
 
 void
@@ -355,17 +336,8 @@ Logger::
 shutdown()
 {
     messageLoop.shutdown();
-    logSocket.shutdown();
 
     doShutdown = true;
-
-#if 0
-    if (logThread) {
-        sendMesg(logSocket(), "SHUTDOWN");
-        logThread->join();
-        logThread.reset();
-    }
-#endif
 
     delete outputs;  outputs = 0;
 
@@ -374,20 +346,17 @@ shutdown()
 
 void
 Logger::
-replay(const std::string & filename, ssize_t maxEvents) const
+replay(const std::string & filename, ssize_t maxEvents)
 {
     if (!outputs) return;
 
     filter_istream stream(filename);
 
-    zmq::socket_t sock(*context, ZMQ_PUSH);
-    sock.connect(ML::format("inproc://logger@%p-RAW", this).c_str());
-
     for (ssize_t i = 0;  stream && (maxEvents == -1 || i < maxEvents);  ++i) {
         string line;
         getline(stream, line);
         atomic_add(messagesSent, 1);
-        sendMesg(sock, line);
+        messages.push({ line });
     }
 
     cerr << "replay: sent " << messagesSent << " done: "
@@ -433,7 +402,7 @@ replayDirect(const std::string & filename, ssize_t maxEvents) const
 
 void
 Logger::
-handleListenerMessage(std::vector<zmq::message_t> && message)
+handleListenerMessage(std::vector<std::string> const & message)
 {
     Outputs * current = outputs;
         
@@ -447,20 +416,20 @@ handleListenerMessage(std::vector<zmq::message_t> && message)
         current->old = 0;
     }
 
-    if (message.size() == 1 && message[0].toString() == "SHUTDOWN")
+    if (message.size() == 1 && message[0] == "SHUTDOWN")
         return;
 
     atomic_add(messagesDone, 1);
 
     if (!current) return;
 
-    string channel = message[0].toString();
+    string const & channel = message[0];
 
     string toLog;
     toLog.reserve(1024);
 
     for (unsigned i = 1;  i < message.size();  ++i) {
-        string strMessage = message[i].toString();
+        string const & strMessage = message[i];
         if (strMessage.find_first_of("\n\t\0\r") != string::npos) {
             cerr << "warning: part " << i << " of message "
                  << channel << " has illegal char: '"
@@ -475,7 +444,7 @@ handleListenerMessage(std::vector<zmq::message_t> && message)
 
 void
 Logger::
-handleRawListenerMessage(std::vector<zmq::message_t> && message)
+handleRawListenerMessage(std::vector<std::string> const & message)
 {
     Outputs * current = outputs;
         
@@ -498,7 +467,7 @@ handleRawListenerMessage(std::vector<zmq::message_t> && message)
         return;
     }
 
-    string rawMessage = message[0].toString();
+    string const & rawMessage = message[0];
 
     if (!current) return;
 

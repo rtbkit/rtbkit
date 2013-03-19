@@ -83,10 +83,8 @@ struct Logger {
     /** Create a logger with its own zeromq context. */
     Logger();
 
-    /** Create a logger using the given zeromq context. */
-    Logger(zmq::context_t & context);
+    Logger(zmq::context_t & contextRef);
 
-    /** Create a logger using the given shared zeromq context. */
     Logger(std::shared_ptr<zmq::context_t> & context);
 
     ~Logger();
@@ -147,9 +145,7 @@ struct Logger {
     template<typename... Args>
     void operator () (const std::string & channel, Args... args)
     {
-        if (!outputs) return;
-        ML::atomic_add(messagesSent, 1);
-        sendMessage(logSocket(), channel, Date::now().print(5), args...);
+        logMessage(channel, args...);
     }
 
     template<typename... Args>
@@ -157,7 +153,7 @@ struct Logger {
     {
         if (!outputs) return;
         ML::atomic_add(messagesSent, 1);
-        sendMessage(logSocket(), channel, Date::now().print(5), args...);
+        messages.push({ channel, Date::now().print(5), args... });
     }
 
     template<typename... Args>
@@ -165,7 +161,7 @@ struct Logger {
     {
         if (!outputs) return;
         ML::atomic_add(messagesSent, 1);
-        sendMessage(logSocket(), channel, args...);
+        messages.push({ channel, args... });
     }
 
     void logMessageNoTimestamp(const std::vector<std::string> & message)
@@ -174,8 +170,9 @@ struct Logger {
 
         if (message.empty())
             throw ML::Exception("can't log empty message");
+
         ML::atomic_add(messagesSent, 1);
-        sendAll(logSocket(), message);
+        messages.push(message);
     }
 
     template<typename GetEl>
@@ -185,15 +182,15 @@ struct Logger {
     {
         if (!outputs) return;
 
-        zmq::socket_t & sock = logSocket();
-        ML::atomic_add(messagesSent, 1);
-        sendMesg(sock, channel, ZMQ_SNDMORE);
-        sendMesg(sock, Date::now().print(5), numElements ? ZMQ_SNDMORE : 0);
+        std::vector<std::string> message;
+        message.push_back(channel);
+        message.push_back(Date::now().print(5));
 
         for (unsigned i = 0;  i < numElements;  ++i) {
-            std::string el = getElement(i);
-            sendMesg(sock, el, i < numElements - 1 ? ZMQ_SNDMORE : 0);
+            message.push_back(getElement(i));
         }
+
+        messages.push(message);
     }
 
     void start(boost::function<void ()> onStop = boost::function<void ()>());
@@ -207,7 +204,7 @@ struct Logger {
 
     /// Replay the events in the given filename through the logger
     void replay(const std::string & filename,
-                ssize_t maxEvents = -1) const;
+                ssize_t maxEvents = -1);
 
     /// Replay directly without going through zmq.  start() cannot have
     /// been called.;
@@ -217,27 +214,19 @@ struct Logger {
     uint64_t numMessagesSent() const { return messagesSent; }
     uint64_t numMessagesDone() const { return messagesDone; }
 
-    void handleListenerMessage(std::vector<zmq::message_t> && message);
-    void handleRawListenerMessage(std::vector<zmq::message_t> && message);
+    void handleListenerMessage(std::vector<std::string> const & message);
+    void handleRawListenerMessage(std::vector<std::string> const & message);
     void handleMessage(std::vector<zmq::message_t> && message);
 
     MessageLoop messageLoop;
 
 private:
-    /// Zeromq context that we use
     std::shared_ptr<zmq::context_t> context;
 
-    /// Listening socket for unformatted messages
-    zmq::socket_t listener;
-
-    /// Listening socket for formatted messages
-    zmq::socket_t rawListener;
-
     std::map<std::string, size_t> stats;
-    
-    /// Socket we write things to.  There's one per thread which allows us
-    /// to write from multiple threads without blocking.
-    SocketPerThread logSocket;
+
+    /// Log entried to add
+    TypedMessageSink<std::vector<std::string>> messages;
 
 #if 0
     /// Thread to do the logging
