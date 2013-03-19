@@ -80,7 +80,6 @@ struct PostAuctionEvent {
     AccountKey account;
     Amount winPrice;
     UserIds uids;
-    SegmentList channels;
     Date bidTimestamp;
 
     void serialize(ML::DB::Store_Writer & store) const;
@@ -221,25 +220,6 @@ struct FinishedInfo {
     Date clickTime;              ///< Time at which click received
     std::string clickMeta;       ///< Metadata from click
     Json::Value clickToJson() const;
-
-    struct Visit {
-        Date visitTime;           ///< Time at which visit received
-        SegmentList channels;     ///< Channel(s) associated with visit
-        std::string meta;         ///< Visit metadata
-
-        Json::Value toJson() const;
-        void serialize(ML::DB::Store_Writer & store) const;
-        void reconstitute(ML::DB::Store_Reader & store);
-    };
-
-    std::vector<Visit> visits;
-
-    /** Add a visit to the visits array. */
-    void addVisit(Date visitTime,
-                  const std::string & visitMeta,
-                  const SegmentList & channels);
-
-    Json::Value visitsToJson() const;
 
     Json::Value toJson() const;
 
@@ -493,9 +473,7 @@ private:
 
     /** Send out a post-auction event to anything that may be listening. */
     bool routePostAuctionEvent(PostAuctionEventType type,
-                               const FinishedInfo & finished,
-                               const SegmentList & channels,
-                               bool filterChannels);
+                               const FinishedInfo & finished);
 
     /** Communicate the result of a bid message to an agent. */
     void doBidResult(const Id & auctionId,

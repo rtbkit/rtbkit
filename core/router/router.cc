@@ -1843,8 +1843,7 @@ doBid(const std::vector<std::string> & message)
                 agent,
                 biddata,
                 meta,
-                info.config,
-                info.config->visitChannels);
+                info.config);
 
         response.creativeName = creative.name;
         response.creativeId = creative.id;

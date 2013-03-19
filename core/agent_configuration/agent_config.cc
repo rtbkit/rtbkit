@@ -580,20 +580,6 @@ createFromJson(const Json::Value & json)
                                      jt.memberName().c_str());
             }
         }
-        else if (it.memberName() == "visits") {
-            for (auto jt = it->begin(), jend = it->end();
-                 jt != jend;  ++jt) {
-                const Json::Value & val = *jt;
-                if (jt.memberName() == "channels") {
-                    newConfig.visitChannels = SegmentList::createFromJson(val);
-                }
-                else if (jt.memberName() == "includeUnmatched") {
-                    newConfig.includeUnmatchedVisits = val.asBool();
-                }
-                else throw Exception("visits has invalid key: %s",
-                                     jt.memberName().c_str());
-            }
-        }
         else if (it.memberName() == "bidControl") {
             for (auto jt = it->begin(), jend = it->end();
                  jt != jend;  ++jt) {
@@ -740,12 +726,6 @@ toJson(bool includeCreatives) const
         default:
             throw ML::Exception("unknown blacklist scope");
         }
-    }
-
-    if (!visitChannels.empty()) {
-        Json::Value & v = result["visits"];
-        v["channels"] = visitChannels.toJson();
-        v["includeUnmatched"] = includeUnmatchedVisits;
     }
 
     if (true) {

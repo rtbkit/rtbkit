@@ -288,14 +288,6 @@ struct AgentConfig {
     /** JSON value that is passed through with each bid. */
     Json::Value providerConfig;
 
-    /** List of channels for which we subscribe to post impression
-        visit events.
-    */
-    SegmentList visitChannels;
-
-    /** Do we include visits not matched to a conversion? */
-    bool includeUnmatchedVisits;
-
     /** Message formats */
     BidResultFormat winFormat, lossFormat, errorFormat;
 

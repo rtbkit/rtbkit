@@ -90,7 +90,7 @@ serialize(ML::DB::Store_Writer & store) const
     unsigned char version = 2;
     store << version << type << auctionId << adSpotId << timestamp
           << metadata << account << winPrice
-          << uids << channels << bidTimestamp;
+          << uids << bidTimestamp;
 }
 
 void
@@ -119,7 +119,7 @@ reconstitute(ML::DB::Store_Reader & store)
     }
     else store >> winPrice;
 
-    store >> uids >> channels >> bidTimestamp;
+    store >> uids >> bidTimestamp;
 }
 
 std::string
@@ -146,8 +146,6 @@ print() const
         addVal(winPrice.toString());
     if (!uids.empty())
         addVal(uids.toString());
-    if (!channels.empty())
-        addVal(channels.toString());
     if (bidTimestamp != Date())
         addVal(bidTimestamp.print(6));
 
@@ -296,34 +294,6 @@ clickToJson() const
     return result;
 }
 
-void
-FinishedInfo::
-addVisit(Date visitTime,
-         const std::string & visitMeta,
-         const SegmentList & channels)
-{
-    Visit visit;
-    visit.visitTime = visitTime;
-    visit.channels = channels;
-    visit.meta = visitMeta;
-    visits.push_back(visit);
-}
-
-Json::Value
-FinishedInfo::
-visitsToJson() const
-{
-    Json::Value result;
-    for (unsigned i = 0;  i < visits.size();  ++i) {
-        Json::Value & v = result[i];
-        const Visit & visit = visits[i];
-        v["timestamp"] = visit.visitTime.secondsSinceEpoch();
-        v["meta"] = visit.meta;
-        v["channels"] = visit.channels.toJson();
-    }
-    return result;
-}
-
 Json::Value
 FinishedInfo::
 toJson() const
@@ -332,27 +302,6 @@ toJson() const
     Json::Value result;
     return result;
 }
-
-void
-FinishedInfo::Visit::
-serialize(DB::Store_Writer & store) const
-{
-    unsigned char version = 1;
-    store << version << visitTime << channels << meta;
-}
-
-void
-FinishedInfo::Visit::
-reconstitute(DB::Store_Reader & store)
-{
-    unsigned char version;
-    store >> version;
-    if (version != 1)
-        throw ML::Exception("invalid version");
-    store >> visitTime >> channels >> meta;
-}
-
-IMPL_SERIALIZE_RECONSTITUTE(FinishedInfo::Visit);
 
 std::string
 FinishedInfo::
@@ -369,8 +318,8 @@ serializeToString() const
            << reportedStatus << winPrice << winMeta
            << impressionTime << impressionMeta
            << clickTime << clickMeta << fromOldRouter
-           << augmentations.toString();
-    writer << visitChannels << uids << visits;
+           << augmentations.toString()
+           << uids;
 
     return stream.str();
 }
@@ -413,7 +362,7 @@ reconstituteFromString(const std::string & str)
     else augmentations.clear();
 
     if (version > 2) {
-        store >> visitChannels >> uids >> visits;
+        store >> uids;
     }
 
     reportedStatus = (BidStatus)istatus;
@@ -1422,9 +1371,7 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
 bool
 PostAuctionLoop::
 routePostAuctionEvent(PostAuctionEventType type,
-                      const FinishedInfo & finishedInfo,
-                      const SegmentList & channels,
-                      bool filterChannels)
+                      const FinishedInfo & finishedInfo)
 {
     // For the moment, send the message to all of the agents that are
     // bidding on this account
@@ -1436,10 +1383,6 @@ routePostAuctionEvent(PostAuctionEventType type,
     auto onMatchingAgent = [&] (const AgentConfigEntry & entry)
         {
             if (!entry.config) return;
-            if (filterChannels) {
-                if (!entry.config->visitChannels.match(channels))
-                    return;
-            }
 
             sent = true;
 
@@ -1455,7 +1398,6 @@ routePostAuctionEvent(PostAuctionEventType type,
                                    finishedInfo.impressionToJson(),
                                    finishedInfo.clickToJson(),
                                    finishedInfo.augmentations,
-                                   finishedInfo.visitsToJson(),
                                    finishedInfo.bidRequestFormatStr /* bidRequestSource */);
         };
 
@@ -1478,7 +1420,6 @@ routePostAuctionEvent(PostAuctionEventType type,
          finishedInfo.winToJson(),
          finishedInfo.impressionToJson(),
          finishedInfo.clickToJson(),
-         finishedInfo.visitsToJson(),
          finishedInfo.bid.account[0],
          finishedInfo.bid.account[1],
          finishedInfo.bid.account.toString(),

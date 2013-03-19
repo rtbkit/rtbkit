@@ -127,7 +127,6 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
         Json::Value impression;
         Json::Value click;
         Json::Value augmentations;
-        Json::Value visits;
     };
 
     typedef void (DeliveryCb) (const DeliveryArgs & args);
@@ -163,7 +162,6 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
 
     DeliveryCbFn onImpression;
     DeliveryCbFn onClick;
-    DeliveryCbFn onVisit;
 
     SimpleCbFn onGotConfig;
     SimpleCbFn onNeedConfig;
