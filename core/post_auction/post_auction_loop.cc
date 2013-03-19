@@ -1865,7 +1865,7 @@ injectSubmittedAuction(const Id & auctionId,
     if (bidRequestStr.size() == 0) {
         throw ML::Exception("invalid bidRequestStr");
     }
-    if (bidRequestFormatStr.size() == 0) {
+    if (bidRequestStr.size() == 0) {
         throw ML::Exception("invalid bidRequestFormatStr");
     }
 
