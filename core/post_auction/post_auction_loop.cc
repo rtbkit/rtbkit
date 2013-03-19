@@ -550,6 +550,7 @@ PostAuctionLoop::
 shutdown()
 {
     loop.shutdown();
+    logger.shutdown();
     toAgents.shutdown();
     endpoint.shutdown();
     configListener.shutdown();
@@ -1158,6 +1159,10 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
     const JsonHolder & meta = event->metadata;
     const UserIds & uids = event->uids;
     const AccountKey & account = event->account;
+    if (account.size() == 0) {
+        throw ML::Exception("invalid account key");
+    }
+
     Date bidTimestamp = event->bidTimestamp;
 
     // debugSpot(auctionId, adSpotId, typeStr);
@@ -1269,8 +1274,8 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
             return;
         }
         else {
-            cerr << "REALLY REALLY LATE WIN event" << *event
-                 << " timeGapMs = " << timeGapMs << endl;
+            cerr << "REALLY REALLY LATE WIN event='" << *event
+                 << "' timeGapMs = " << timeGapMs << endl;
             cerr << "message = " << meta << endl;
             cerr << "bidTimestamp = " << bidTimestamp.print(6) << endl;
             cerr << "now = " << Date::now().print(6) << endl;
@@ -1723,6 +1728,9 @@ doBidResult(const Id & auctionId,
     const Auction::Response & response = submission.bid;
 
     const AccountKey & account = response.account;
+    if (account.size() == 0) {
+        throw ML::Exception("invalid account key");
+    }
 
 #if 0
     if (doDebug)
@@ -1855,6 +1863,13 @@ injectSubmittedAuction(const Id & auctionId,
                        const Auction::Response & bidResponse,
                        Date lossTimeout)
 {
+    if (bidRequestStr.size() == 0) {
+        throw ML::Exception("invalid bidRequestStr");
+    }
+    if (bidRequestFormatStr.size() == 0) {
+        throw ML::Exception("invalid bidRequestFormatStr");
+    }
+
     SubmittedAuctionEvent event;
     event.auctionId = auctionId;
     event.adSpotId = adSpotId;
