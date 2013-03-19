@@ -1,6 +1,5 @@
 #include "v8.h"
 #include "soa/service/s3.h"
-#include "type_system/js/type_handler_js.h"
 #include "soa/js/js_wrapped.h"
 #include "soa/js/js_utils.h"
 #include "soa/js/js_call.h"
