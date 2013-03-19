@@ -54,8 +54,7 @@ enum PostAuctionEventType {
     PAE_WIN,
     PAE_LOSS,
     PAE_IMPRESSION,
-    PAE_CLICK,
-    PAE_VISIT
+    PAE_CLICK
 };
 
 const char * print(PostAuctionEventType type);
@@ -81,7 +80,6 @@ struct PostAuctionEvent {
     AccountKey account;
     Amount winPrice;
     UserIds uids;
-    SegmentList channels;
     Date bidTimestamp;
 
     void serialize(ML::DB::Store_Writer & store) const;
@@ -156,12 +154,6 @@ struct FinishedInfo {
     JsonHolder augmentations;
     std::set<Id> uids;                ///< All UIDs for this user
 
-    /** The set of channels that are associated with this request.  They
-        are copied here from the winning agent's configuration so that
-        we know how to filter and route the visits.
-    */
-    SegmentList visitChannels;
-
     /** Add all of the given UIDs to the set, and for any new IDs call the
         given function.
     */
@@ -225,25 +217,6 @@ struct FinishedInfo {
     Date clickTime;              ///< Time at which click received
     std::string clickMeta;       ///< Metadata from click
     Json::Value clickToJson() const;
-
-    struct Visit {
-        Date visitTime;           ///< Time at which visit received
-        SegmentList channels;     ///< Channel(s) associated with visit
-        std::string meta;         ///< Visit metadata
-
-        Json::Value toJson() const;
-        void serialize(ML::DB::Store_Writer & store) const;
-        void reconstitute(ML::DB::Store_Reader & store);
-    };
-
-    std::vector<Visit> visits;
-
-    /** Add a visit to the visits array. */
-    void addVisit(Date visitTime,
-                  const std::string & visitMeta,
-                  const SegmentList & channels);
-
-    Json::Value visitsToJson() const;
 
     Json::Value toJson() const;
 
@@ -350,11 +323,6 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
         return finished.size();
     }
 
-    size_t numUidsTracked() const
-    {
-        return uidIndex.size();
-    }
-
     /** The post auction loop has state which needs to hang around for a
         long time.  We don't want this state to be lost if the post auction
         loop crashes, so we allow for it to be optionally saved to disk.
@@ -429,17 +397,6 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
                      const JsonHolder & clickMeta,
                      const UserIds & ids);
 
-    /** Inject a VISIT into the router, to be passed onto any agent that is
-        listening for the given visit ID.
-
-        These are routed by matching the segments in the SegmentList
-        for the agent configuration with the segments in this message.
-    */
-    void injectVisit(Date timestamp,
-                     const SegmentList & segments,
-                     const JsonHolder & visitMeta,
-                     const UserIds & ids);
-
     /** Notify the loop that the given auction/spot will never receive
         another message and should be forgotten.  This is mostly for the
         simulation.
@@ -496,9 +453,6 @@ private:
     /** Decode from zeromq nd handle a new impression message that came in. */
     void doClickMessage(const std::vector<std::string> & message);
 
-    /** Decode from zeromq nd handle a new impression message that came in. */
-    void doVisitMessage(const std::vector<std::string> & message);
-
     /** Periodic auction expiry. */
     void checkExpiredAuctions();
 
@@ -514,14 +468,9 @@ private:
     /** We got an impression or click on the control socket */
     void doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event);
 
-    /** We got a visit event on the control socket. */
-    void doVisit(const std::shared_ptr<PostAuctionEvent> & event);
-
     /** Send out a post-auction event to anything that may be listening. */
     bool routePostAuctionEvent(PostAuctionEventType type,
-                               const FinishedInfo & finished,
-                               const SegmentList & channels,
-                               bool filterChannels);
+                               const FinishedInfo & finished);
 
     /** Communicate the result of a bid message to an agent. */
     void doBidResult(const Id & auctionId,
@@ -555,30 +504,6 @@ private:
     */
     typedef PendingList<std::pair<Id, Id>, FinishedInfo> Finished;
     Finished finished;
-
-    /** Map of user IDs to (auction, slot) pairs so that we can match our
-        visits up to the original auctions.
-    */
-    struct UidIndexEntry {
-        Id auctionId;
-        Id adSpotId;
-        Date timestamp;
-    };
-
-    // UserId -> ((auctionId, slotId) -> date)
-    typedef std::unordered_map<Id, std::map<std::pair<Id, Id>, Date> >
-        UidIndex;
-    UidIndex uidIndex;
-
-    /** Add the given User ID to the user ID index.  Calling this function
-        sets things up such that a visit from the given user ID will be
-        associated with the finished auction with the given auction Id and
-        slot ID.
-    */
-    void addToUidIndex(const std::string & uidDomain,
-                       const Id & uid,
-                       const Id & auctionId,
-                       const Id & slotId);
 
     /// This provides the thread we use to actually process with
     MessageLoop loop;

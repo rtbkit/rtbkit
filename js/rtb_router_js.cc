@@ -92,7 +92,6 @@ struct RTBRouterStackJS
         NODE_SET_PROTOTYPE_METHOD(t, "injectLoss", injectLoss);
         NODE_SET_PROTOTYPE_METHOD(t, "injectImpression", injectImpression);
         NODE_SET_PROTOTYPE_METHOD(t, "injectClick", injectClick);
-        NODE_SET_PROTOTYPE_METHOD(t, "injectVisit", injectVisit);
         NODE_SET_PROTOTYPE_METHOD(t, "numAuctionsInProgress",
                                   numAuctionsInProgress);
         NODE_SET_PROTOTYPE_METHOD(t, "getStats", getStats);
@@ -394,22 +393,6 @@ struct RTBRouterStackJS
             return args.This();
         } HANDLE_JS_EXCEPTIONS;
     }
-
-    static Handle<v8::Value>
-    injectVisit(const Arguments & args)
-    {
-        try {
-            Date timestamp
-                = Date::fromSecondsSinceEpoch
-                    (getArg<double>(args, 0, "timestamp"));
-            SegmentList segs = getArg(args, 1, SegmentList(), "segments");
-            Json::Value meta = getArg(args, 2, Json::Value(), "meta");
-            UserIds uids = getArg(args, 3, UserIds(), "userIds");
-            getShared(args)->injectVisit(timestamp, segs, meta, uids);
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
-    }
-
 
     static Handle<v8::Value>
     numAuctionsInProgress(const Arguments & args)
