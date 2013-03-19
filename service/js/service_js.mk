@@ -5,6 +5,7 @@
 # Frequency
 
 $(eval $(call nodejs_addon,opstats,opstats_js.cc,opstats js))
+$(eval $(call nodejs_addon,s3,s3_js.cc,js cloud))
 
 LIBSERVICES_JS_SOURCES := \
 	service_js.cc \
