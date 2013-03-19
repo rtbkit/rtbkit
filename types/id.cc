@@ -10,7 +10,7 @@
 #include "jml/arch/exception.h"
 #include "jml/db/persistent.h"
 #include "jml/utils/exc_assert.h"
-
+#include "soa/jsoncpp/value.h"
 
 using namespace ML;
 using namespace std;
@@ -89,6 +89,19 @@ inline int hexToDec2(int c)
         v = -1;
 
     return v;
+}
+
+Id::
+Id(const Json::Value & val)
+    : type(NONE), val1(0), val2(0)
+{
+    if (val.isInt())
+        *this = Id(val.asInt());
+    else if (val.isUInt())
+        *this = Id(val.asUInt());
+    else if (val.isNull())
+        ;
+    else *this = Id(val.asString());
 }
 
 void
@@ -550,6 +563,22 @@ reconstitute(ML::DB::Store_Reader & store)
     //cerr << "reconstituted " << r << endl;
 
     *this = std::move(r);
+}
+
+Json::Value
+Id::
+toJson() const
+{
+    if (notNull())
+        return toString();
+    else return Json::Value();
+}
+
+Id
+Id::
+fromJson(const Json::Value & val)
+{
+    return Id(val);
 }
 
 } // namespace Datacratic

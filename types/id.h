@@ -14,6 +14,10 @@
 #include "jml/utils/less.h"
 #include "jml/arch/exception.h"
 
+namespace Json {
+struct Value;
+} // namespace Json
+
 namespace Datacratic {
 
 /* 
@@ -84,6 +88,8 @@ struct Id {
     		val1(value),val2(0)
     {
     }
+
+    explicit Id(const Json::Value & val);
 
     // Construct a compound ID from two others
     Id(const Id & underlying1, const Id & underlying2)
@@ -244,6 +250,9 @@ struct Id {
     
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
+
+    Json::Value toJson() const;
+    static Id fromJson(const Json::Value & val);
 } JML_PACKED;
 
 IMPL_SERIALIZE_RECONSTITUTE(Id);
