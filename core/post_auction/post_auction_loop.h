@@ -53,8 +53,11 @@ enum PostAuctionEventType {
     PAE_INVALID,
     PAE_WIN,
     PAE_LOSS,
+    PAE_CAMPAIGN_EVENT
+#if 0
     PAE_IMPRESSION,
     PAE_CLICK
+#endif
 };
 
 const char * print(PostAuctionEventType type);
@@ -73,6 +76,7 @@ struct PostAuctionEvent {
     PostAuctionEvent();
 
     PostAuctionEventType type;
+    std::string label; /* for campaign events */
     Id auctionId;
     Id adSpotId;
     Date timestamp;
@@ -122,7 +126,7 @@ struct SubmissionInfo {
         it after the auction has finished.
     */
     std::vector<std::shared_ptr<PostAuctionEvent> > earlyWinEvents;
-    std::vector<std::shared_ptr<PostAuctionEvent> > earlyImpressionClickEvents;
+    std::vector<std::shared_ptr<PostAuctionEvent> > earlyCampaignEvents;
 
     std::string serializeToString() const;
     void reconstituteFromString(const std::string & str);
@@ -195,6 +199,28 @@ struct FinishedInfo {
     std::string winMeta;         ///< Metadata from win
     Json::Value winToJson() const;
 
+    /* campaign events */
+    bool hasCampaignEvent(const std::string & label) const
+    {
+        return this->eventsTime.count(label) != 0;
+    }
+    void setCampaignEvent(const std::string & label,
+                          Date eventTime,
+                          const std::string & eventMeta)
+    {
+        if (hasCampaignEvent(label))
+            throw ML::Exception("already has event '" + label + "'");
+        this->eventsTime[label] = eventTime;
+        this->eventsMeta[label] = eventMeta;
+    }
+    /* the time at which events were received */
+    std::unordered_map<std::string, Date> eventsTime;
+    /* metadata from the events */
+    std::unordered_map<std::string, std::string> eventsMeta;
+    Json::Value eventsToJson() const;
+    Json::Value eventToJson(const std::string & label) const;
+
+#if 0
     bool hasImpression() const { return impressionTime != Date(); }
     void setImpression(Date impressionTime,
                        const std::string & impressionMeta)
@@ -221,6 +247,7 @@ struct FinishedInfo {
     Date clickTime;              ///< Time at which click received
     std::string clickMeta;       ///< Metadata from click
     Json::Value clickToJson() const;
+#endif
 
     struct Visit {
         Date visitTime;           ///< Time at which visit received
@@ -282,8 +309,11 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
     /* ROUTERSHARED */
     uint64_t numWins;
     uint64_t numLosses;
+    uint64_t numCampaignEvents;
+#if 0
     uint64_t numImpressions;
     uint64_t numClicks;
+#endif
 
     /* /ROUTERSHARED */
 
@@ -396,6 +426,20 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
                     const AccountKey & account,
                     Date bidTimestamp);
 
+    /** Inject a campaign event into the router, to be passed on to the agent
+        that bid on it.
+
+        If the spot ID is empty, then the click will be sent to all agents
+        that had a win on the auction.
+    */
+    void injectCampaignEvent(const std::string & label,
+                             const Id & auctionId,
+                             const Id & adSpotId,
+                             Date timestamp,
+                             const JsonHolder & eventMeta,
+                             const UserIds & ids);
+
+#if 0
     /** Inject an IMPRESSION into the router, to be passed on to the
         agent that bid on it.
 
@@ -419,6 +463,7 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
                      Date timestamp,
                      const JsonHolder & clickMeta,
                      const UserIds & ids);
+#endif
 
     /** Notify the loop that the given auction/spot will never receive
         another message and should be forgotten.  This is mostly for the
@@ -447,7 +492,7 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
     Json::Value getProviderIndicators() const;
 
     Date lastWinLoss;
-    Date lastImpression;
+    Date lastCampaignEvent;
 
 private:
     /** Initialize all of our connections, hooking everything in to the
@@ -470,11 +515,17 @@ private:
     /** Decode from zeromq and handle a new auction that came in. */
     void doLossMessage(const std::vector<std::string> & message);
 
+    /** Decode from zeromq and handle a new campaign event message that came
+     * in. */
+    void doCampaignEventMessage(const std::vector<std::string> & message);
+
+#if 0
     /** Decode from zeromq nd handle a new impression message that came in. */
     void doImpressionMessage(const std::vector<std::string> & message);
 
     /** Decode from zeromq nd handle a new impression message that came in. */
     void doClickMessage(const std::vector<std::string> & message);
+#endif
 
     /** Periodic auction expiry. */
     void checkExpiredAuctions();
@@ -489,10 +540,15 @@ private:
     void doSubmitted(const std::shared_ptr<PostAuctionEvent> & event);
 
     /** We got an impression or click on the control socket */
+    void doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event);
+
+#if 0
+    /** We got an impression or click on the control socket */
     void doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event);
+#endif
 
     /** Send out a post-auction event to anything that may be listening. */
-    bool routePostAuctionEvent(PostAuctionEventType type,
+    bool routePostAuctionEvent(const std::string & label,
                                const FinishedInfo & finished,
                                const SegmentList & channels,
                                bool filterChannels);
@@ -519,10 +575,10 @@ private:
                         SubmissionInfo> Submitted;
     Submitted submitted;
 
-    /** List of auctions we've won and we're waiting for an IMPRESSION
-        or a CLICK message from, or otherwise we're keeping around in case
-        a duplicate WIN or IMPRESSION or CLICK message comes through,
-        or otherwise we're looking for a late WIN message for.
+    /** List of auctions we've won and we're waiting for a campaign event
+        from, or otherwise we're keeping around in case a duplicate WIN or a
+        campaign event message comes through, or otherwise we're looking for a
+        late WIN message for.
 
         We keep this list around for 5 minutes for those that were lost,
         and one hour for those that were won.

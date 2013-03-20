@@ -63,8 +63,11 @@ const char * print(PostAuctionEventType type)
     case PAE_INVALID: return "INVALID";
     case PAE_WIN: return "WIN";
     case PAE_LOSS: return "LOSS";
+    case PAE_CAMPAIGN_EVENT: return "EVENT";
+#if 0
     case PAE_IMPRESSION: return "IMPRESSION";
     case PAE_CLICK: return "CLICK";
+#endif
     default:
         return "UNKNOWN";
     }
@@ -88,7 +91,11 @@ PostAuctionEvent::
 serialize(ML::DB::Store_Writer & store) const
 {
     unsigned char version = 2;
-    store << version << type << auctionId << adSpotId << timestamp
+    store << version << type;
+    if (type == PAE_CAMPAIGN_EVENT) {
+        store << label;
+    }
+    store << auctionId << adSpotId << timestamp
           << metadata << account << winPrice
           << uids << channels << bidTimestamp;
 }
@@ -109,7 +116,11 @@ reconstitute(ML::DB::Store_Reader & store)
         account = { campaign, strategy };
     }
     else {
-        store >> type >> auctionId >> adSpotId >> timestamp
+        store >> type;
+        if (type == PAE_CAMPAIGN_EVENT) {
+            store >> label;
+        }
+        store >> auctionId >> adSpotId >> timestamp
               >> metadata >> account;
     }
     if (version == 0) {
@@ -177,7 +188,7 @@ serializeToString() const
            << bidRequestStrFormat
            << augmentations.toString()
            << earlyWinEvents
-           << earlyImpressionClickEvents;
+           << earlyCampaignEvents;
     bid.serialize(writer);
     return stream.str();
 }
@@ -225,14 +236,14 @@ reconstituteFromString(const std::string & str)
             cerr << "warning: discarding early events from old format"
                  << endl;
         earlyWinEvents.clear();
-        earlyImpressionClickEvents.clear();
+        earlyCampaignEvents.clear();
     }
     else if (version > 3) {
-        store >> earlyWinEvents >> earlyImpressionClickEvents;
+        store >> earlyWinEvents >> earlyCampaignEvents;
     }
     else {
         earlyWinEvents.clear();
-        earlyImpressionClickEvents.clear();
+        earlyCampaignEvents.clear();
     }
     bid.reconstitute(store);
 
@@ -272,17 +283,33 @@ winToJson() const
 
 Json::Value
 FinishedInfo::
-impressionToJson() const
+eventToJson(const string & label)
+const
 {
     Json::Value result;
-    if (!hasImpression()) return result;
+    if (!hasCampaignEvent(label)) return result;
 
-    result["timestamp"] = impressionTime.secondsSinceEpoch();
-    result["meta"] = impressionMeta;
+    result["timestamp"] = eventsTime.at(label).secondsSinceEpoch();
+    result["meta"] = eventsMeta.at(label);
 
     return result;
 }
 
+Json::Value
+FinishedInfo::
+eventsToJson()
+const
+{
+    Json::Value result;
+
+    for (const auto & it: eventsTime) {
+        result[it.first] = eventToJson(it.first);
+    }
+
+    return result;
+}
+
+#if 0
 Json::Value
 FinishedInfo::
 clickToJson() const
@@ -295,6 +322,7 @@ clickToJson() const
 
     return result;
 }
+#endif
 
 void
 FinishedInfo::
@@ -366,9 +394,12 @@ serializeToString() const
            << bidRequestStr << bidTime <<bidRequestStrFormat;
     bid.serialize(writer);
     writer << winTime
-           << reportedStatus << winPrice << winMeta
-           << impressionTime << impressionMeta
-           << clickTime << clickMeta << fromOldRouter
+           << reportedStatus << winPrice << winMeta;
+    writer << eventsTime.size();
+    for (const auto & it: eventsTime) {
+        writer << it.first << it.second << eventsMeta.at(it.first);
+    }
+    writer << fromOldRouter
            << augmentations.toString();
     writer << visitChannels << uids << visits;
 
@@ -401,9 +432,19 @@ reconstituteFromString(const std::string & str)
         winPrice = MicroUSD(winPriceMicros);
     }
     else store >> winPrice;
-    store >> winMeta
-          >> impressionTime >> impressionMeta
-          >> clickTime >> clickMeta >> fromOldRouter;
+    store >> winMeta;
+
+    int nEvents;
+    store >> nEvents;
+    for (int i = 0; i < nEvents; i++) {
+        string eventName;
+        Date eventTime;
+        string eventMeta;
+
+        store >> eventName >> eventsTime >> eventsMeta;
+        this->setCampaignEvent(eventName, eventTime, eventMeta);
+    }
+    store >> fromOldRouter;
 
     if (version > 1) {
         string s;
@@ -493,12 +534,17 @@ initConnections()
     router.bind("LOSS",
                 std::bind(&PostAuctionLoop::doLossMessage, this,
                           std::placeholders::_1));
+    router.bind("EVENT",
+                std::bind(&PostAuctionLoop::doCampaignEventMessage, this,
+                          std::placeholders::_1));
+#if 0
     router.bind("IMPRESSION",
                 std::bind(&PostAuctionLoop::doImpressionMessage, this,
                           std::placeholders::_1));
     router.bind("CLICK",
                 std::bind(&PostAuctionLoop::doClickMessage, this,
                           std::placeholders::_1));
+#endif
 
     // Every second we check for expired auctions
     loop.addPeriodic("PostAuctionLoop::checkExpiredAuctions", 1.0,
@@ -636,6 +682,28 @@ injectLoss(const Id & auctionId,
 
 void
 PostAuctionLoop::
+injectCampaignEvent(const string & label,
+                    const Id & auctionId,
+                    const Id & adSpotId,
+                    Date timestamp,
+                    const JsonHolder & impressionMeta,
+                    const UserIds & uids)
+{
+    auto event = std::make_shared<PostAuctionEvent>();
+    event->type = PAE_CAMPAIGN_EVENT;
+    event->label = label;
+    event->auctionId = auctionId;
+    event->adSpotId = adSpotId;
+    event->timestamp = timestamp;
+    event->metadata = impressionMeta;
+    event->uids = uids;
+
+    events.push(event);
+}
+
+#if 0
+void
+PostAuctionLoop::
 injectImpression(const Id & auctionId,
                  const Id & adSpotId,
                  Date timestamp,
@@ -671,6 +739,7 @@ injectClick(const Id & auctionId,
 
     events.push(event);
 }
+#endif
 
 void
 PostAuctionLoop::
@@ -706,6 +775,17 @@ doLossMessage(const std::vector<std::string> & message)
 
 void
 PostAuctionLoop::
+doCampaignEventMessage(const std::vector<std::string> & message)
+{
+    auto event = std::make_shared<PostAuctionEvent>
+        (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
+    recordHit("messages.EVENT." + event->label);
+    doCampaignEvent(event);
+}
+
+#if 0
+void
+PostAuctionLoop::
 doImpressionMessage(const std::vector<std::string> & message)
 {
     recordHit("messages.IMPRESSION");
@@ -723,6 +803,7 @@ doClickMessage(const std::vector<std::string> & message)
         (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
     doImpressionClick(event);
 }
+#endif
 
 namespace {
 
@@ -1040,10 +1121,15 @@ doEvent(const std::shared_ptr<PostAuctionEvent> & event)
         case PAE_LOSS:
             doWinLoss(event, false);
             break;
+        case PAE_CAMPAIGN_EVENT:
+            doCampaignEvent(event);
+            break;
+#if 0
         case PAE_IMPRESSION:
         case PAE_CLICK:
             doImpressionClick(event);
             break;
+#endif
         default:
             throw Exception("postAuctionLoop.unknownEventType",
                             "unknown event type (%d)", event->type);
@@ -1253,9 +1339,9 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
                 winPrice, timestamp, status,
                 status == BS_WIN ? "guaranteed" : "inferred",
                 meta.toString(), uids);
-    std::for_each(info.earlyImpressionClickEvents.begin(),
-                  info.earlyImpressionClickEvents.end(),
-                  std::bind(&PostAuctionLoop::doImpressionClick, this,
+    std::for_each(info.earlyCampaignEvents.begin(),
+                  info.earlyCampaignEvents.end(),
+                  std::bind(&PostAuctionLoop::doCampaignEvent, this,
                             std::placeholders::_1));
 
     //cerr << "doWinLoss done" << endl;
@@ -1292,6 +1378,117 @@ bool findAuction(PendingList<pair<Id,Id>, Value> & pending,
 
     return true;
 }
+
+void
+PostAuctionLoop::
+doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
+{
+    //RouterProfiler profiler(this, dutyCycleCurrent.nsImpression);
+    //static const char* fName = "PostAuctionLoop::doCampaignEvent:";
+    const string & label = event->label;
+    const Id & auctionId = event->auctionId;
+    Id adSpotId = event->adSpotId;
+    Date timestamp = event->timestamp;
+    const JsonHolder & meta = event->metadata;
+    const UserIds & uids = event->uids;
+
+    SubmissionInfo submissionInfo;
+    FinishedInfo finishedInfo;
+
+    if (event->type != PAE_CAMPAIGN_EVENT) {
+        throw ML::Exception("event type must be PAE_CAMPAIGN_EVENT: "
+                            + string(print(event->type)));
+    }
+
+    lastCampaignEvent = Date::now();
+
+    recordHit("delivery.EVENT.%s.messagesReceived", label);
+
+    //cerr << fName << typeStr << " " << auctionId << "-" << adSpotId << endl;
+    //cerr <<"The number of elements in submitted " << submitted.size() << endl;
+    auto recordUnmatched = [&] (const std::string & why)
+        {
+            this->logMessage(string("UNMATCHED") + label, why,
+                             auctionId.toString(), adSpotId.toString(),
+                             to_string(timestamp.secondsSinceEpoch()),
+                             meta);
+        };
+
+    if (findAuction(submitted, auctionId, adSpotId, submissionInfo)) {
+        // Record the impression or click in the submission info.  This will
+        // then be passed on once the win comes in.
+        //
+        // TODO: for now we just ignore the event; we should eventually
+        // implement what is written above
+        //cerr << "auction " << auctionId << "-" << adSpotId
+        //     << " in flight but got " << type << endl;
+        recordHit("delivery.%s.stillInFlight", label);
+        logPAError(string("doCampaignEvent.auctionNotWon") + label,
+                   "message for auction that's not won");
+        recordUnmatched("inFlight");
+
+        submissionInfo.earlyCampaignEvents.push_back(event);
+
+        submitted.update(make_pair(auctionId, adSpotId), submissionInfo);
+        return;
+    }
+    else if (findAuction(finished, auctionId, adSpotId, finishedInfo)) {
+        // Update the info
+        if (finishedInfo.hasCampaignEvent(label)) {
+            recordHit("delivery.%s.duplicate", label);
+            logPAError(string("doCampaignEvent.duplicate")
+                       + label, "message duplicated");
+            recordUnmatched("duplicate");
+            return;
+        }
+
+        finishedInfo.setCampaignEvent(label, timestamp,
+                                      meta.toString());
+        ML::atomic_inc(numCampaignEvents);
+
+        recordHit("delivery.%s.account.%s.matched",
+                  label,
+                  finishedInfo.bid.account.toString().c_str());
+
+        pair<Id, Id> key(auctionId, adSpotId);
+        //cerr << "key = " << key << endl;
+        if (!key.second)
+            throw ML::Exception("updating null entry in finished map");
+
+        // Add in the user IDs to the index so we can route any visits
+        // properly
+        finishedInfo.addUids(uids);
+
+        finished.update(key, finishedInfo);
+
+        routePostAuctionEvent(label, finishedInfo,
+                              SegmentList(), false /* filterChannels */);
+    }
+    else {
+        /* We get here if we got an IMPRESSION or a CLICK before we got
+           notification that an auction had been submitted.
+
+           Normally this should happen rarely.  However, in some cases
+           (for example a transient failure in the router to post auction
+           loop link which is rectified and allows buffered messages to
+           be replayed) we may still want to match things up.
+
+           What we should do here is to keep these messages around in a
+           buffer (like the early win messages) and replay them when the
+           auction event comes in.
+        */
+
+        recordHit("delivery.%s.auctionNotFound", label);
+        //cerr << "delivery " << typeStr << ": auction "
+        //     << auctionId << "-" << adSpotId << " not found"
+        //     << endl;
+        logPAError(string("doCampaignEvent.auctionNotFound") + label,
+                   "auction not found for delivery message");
+        recordUnmatched("auctionNotFound");
+    }
+}
+
+#if 0
 
 void
 PostAuctionLoop::
@@ -1428,10 +1625,11 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
         recordUnmatched("auctionNotFound");
     }
 }
+#endif
 
 bool
 PostAuctionLoop::
-routePostAuctionEvent(PostAuctionEventType type,
+routePostAuctionEvent(const string & label,
                       const FinishedInfo & finishedInfo,
                       const SegmentList & channels,
                       bool filterChannels)
@@ -1439,8 +1637,6 @@ routePostAuctionEvent(PostAuctionEventType type,
     // For the moment, send the message to all of the agents that are
     // bidding on this account
     const AccountKey & account = finishedInfo.bid.account;
-
-    const char * typeStr = print(type);
 
     bool sent = false;
     auto onMatchingAgent = [&] (const AgentConfigEntry & entry)
@@ -1454,7 +1650,7 @@ routePostAuctionEvent(PostAuctionEventType type,
             sent = true;
 
             this->sendAgentMessage(entry.name,
-                                   typeStr,
+                                   label,
                                    Date::now(),
                                    finishedInfo.auctionId,
                                    finishedInfo.adSpotId,
@@ -1462,8 +1658,7 @@ routePostAuctionEvent(PostAuctionEventType type,
                                    finishedInfo.bidRequestStr,
                                    finishedInfo.bidToJson(),
                                    finishedInfo.winToJson(),
-                                   finishedInfo.impressionToJson(),
-                                   finishedInfo.clickToJson(),
+                                   finishedInfo.eventsToJson(),
                                    finishedInfo.augmentations,
                                    finishedInfo.visitsToJson(),
                                    finishedInfo.bidRequestStrFormat /* bidRequestSource */);
@@ -1472,22 +1667,21 @@ routePostAuctionEvent(PostAuctionEventType type,
     configListener.forEachAccountAgent(account, onMatchingAgent);
 
     if (!sent) {
-        recordHit("delivery.%s.orphaned", typeStr);
-        logPAError(string("doImpressionClick.noListeners") + typeStr,
+        recordHit("delivery.%s.orphaned", label);
+        logPAError(string("doCampaignEvent.noListeners") + label,
                    "nothing listening for account " + account.toString());
     }
-    else recordHit("delivery.%s.delivered", typeStr);
+    else recordHit("delivery.%s.delivered", label);
 
     // TODO: full account
     this->logMessage
-        (string("MATCHED") + typeStr,
+        (string("MATCHED") + label,
          finishedInfo.auctionId,
          finishedInfo.adSpotId,
          finishedInfo.bidRequestStr,
          finishedInfo.bidToJson(),
          finishedInfo.winToJson(),
-         finishedInfo.impressionToJson(),
-         finishedInfo.clickToJson(),
+         finishedInfo.eventsToJson(),
          finishedInfo.visitsToJson(),
          finishedInfo.bid.account[0],
          finishedInfo.bid.account[1],
@@ -1726,17 +1920,14 @@ getProviderIndicators()
     Json::Value value;
 
     /* PA health check:
-       - WINs in the last 10 seconds
-       - IMPRESSIONs in the last 10 seconds */
+       - last campaign event in the last 10 seconds */
     Date now = Date::now();
-    bool status(now < lastWinLoss.plusSeconds(30)
-                && now < lastImpression.plusSeconds(30));
+    bool status(now < lastCampaignEvent.plusSeconds(10));
 
 #if 0
     if (!status)  {
       cerr << "--- WRONGNESS DETECTED:" 
-	   << " wins: " << (now - lastWinLoss)
-	   << ", imps: " << (now - lastImpression)
+	   << " last event: " << (now - lastCampaignEvent)
 	   << endl;
     }
 #endif
