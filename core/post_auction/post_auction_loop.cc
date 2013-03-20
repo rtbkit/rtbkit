@@ -34,7 +34,7 @@ serialize(ML::DB::Store_Writer & store) const
 {
     store << (unsigned char)0
           << auctionId << adSpotId << lossTimeout << augmentations
-          << bidRequestStr << bidResponse << bidRequestFormatStr;
+          << bidRequestStr << bidResponse << bidRequestStrFormat;
 }
 
 void
@@ -47,9 +47,9 @@ reconstitute(ML::DB::Store_Reader & store)
         throw ML::Exception("unknown SubmittedAuctionEvent type");
 
     store >> auctionId >> adSpotId >> lossTimeout >> augmentations
-          >> bidRequestStr >> bidResponse >> bidRequestFormatStr;
+          >> bidRequestStr >> bidResponse >> bidRequestStrFormat;
 
-    bidRequest.reset(BidRequest::parse(bidRequestFormatStr, bidRequestStr));
+    bidRequest.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
 }
 
 
@@ -175,7 +175,7 @@ serializeToString() const
     int version = 5;
     writer << version
            << bidRequestStr
-           << bidRequestFormatStr
+           << bidRequestStrFormat
            << augmentations.toString()
            << earlyWinEvents
            << earlyImpressionClickEvents;
@@ -211,7 +211,7 @@ reconstituteFromString(const std::string & str)
     store >> bidRequestStr;
     if (version == 5)
     {
-        store >> bidRequestFormatStr ;
+        store >> bidRequestStrFormat ;
     }
     if (version > 1) {
         string s;
@@ -238,7 +238,7 @@ reconstituteFromString(const std::string & str)
     bid.reconstitute(store);
 
     if (bidRequestStr != "")
-        bidRequest.reset(BidRequest::parse(bidRequestFormatStr, bidRequestStr));
+        bidRequest.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
     else bidRequest.reset();
 }
 
@@ -364,7 +364,7 @@ serializeToString() const
     int version = 5;
     writer << version
            << auctionTime << auctionId << adSpotId
-           << bidRequestStr << bidTime <<bidRequestFormatStr;
+           << bidRequestStr << bidTime <<bidRequestStrFormat;
     bid.serialize(writer);
     writer << winTime
            << reportedStatus << winPrice << winMeta
@@ -392,7 +392,7 @@ reconstituteFromString(const std::string & str)
     store >> auctionTime >> auctionId >> adSpotId
           >> bidRequestStr >> bidTime;
     if(version == 5)
-        store >> bidRequestFormatStr;
+        store >> bidRequestStrFormat;
     bid.reconstitute(store);
 
     store >> winTime >> istatus;
@@ -419,7 +419,7 @@ reconstituteFromString(const std::string & str)
 
     reportedStatus = (BidStatus)istatus;
 
-    bidRequest.reset(BidRequest::parse(bidRequestFormatStr, bidRequestStr));
+    bidRequest.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
 }
 
 
@@ -1043,7 +1043,7 @@ doAuction(const SubmittedAuctionEvent & event)
         }
 
         submission.bidRequest = std::move(event.bidRequest);
-        submission.bidRequestFormatStr = std::move(event.bidRequestFormatStr);
+        submission.bidRequestStrFormat = std::move(event.bidRequestStrFormat);
         submission.bidRequestStr = std::move(event.bidRequestStr);
         submission.augmentations = std::move(event.augmentations);
         submission.bid = std::move(event.bidResponse);
@@ -1526,7 +1526,7 @@ routePostAuctionEvent(PostAuctionEventType type,
                                    finishedInfo.clickToJson(),
                                    finishedInfo.augmentations,
                                    finishedInfo.visitsToJson(),
-                                   finishedInfo.bidRequestFormatStr /* bidRequestSource */);
+                                   finishedInfo.bidRequestStrFormat /* bidRequestSource */);
         };
 
     configListener.forEachAccountAgent(account, onMatchingAgent);
@@ -1552,7 +1552,7 @@ routePostAuctionEvent(PostAuctionEventType type,
          finishedInfo.bid.account[0],
          finishedInfo.bid.account[1],
          finishedInfo.bid.account.toString(),
-         finishedInfo.bidRequestFormatStr);
+         finishedInfo.bidRequestStrFormat);
 
     return sent;
 }
@@ -1706,7 +1706,7 @@ doBidResult(const Id & auctionId,
          << " submission " << submission.bid.agent << " "
          << submission.bid.price.maxPrice
          << " winPrice " << winPrice << "bid request string format<"
-         << submission.bidRequestFormatStr << ">" <<  endl;
+         << submission.bidRequestStrFormat << ">" <<  endl;
 #endif
 
     // debugSpot(auctionId, adSpotId, msg);
@@ -1806,7 +1806,7 @@ doBidResult(const Id & auctionId,
                account[0],
                adSpotId,
                account.toString(),
-               submission.bidRequestFormatStr);
+               submission.bidRequestStrFormat);
 
     sendAgentMessage(response.agent, msg, timestamp,
                      confidence, auctionId,
@@ -1817,7 +1817,7 @@ doBidResult(const Id & auctionId,
                      "null",
                      response.meta,
                      submission.augmentations,
-                     submission.bidRequestFormatStr
+                     submission.bidRequestStrFormat
                      /* "datacratic" */);
 
     // Finally, place it in the finished queue
@@ -1827,7 +1827,7 @@ doBidResult(const Id & auctionId,
     i.spotIndex = adspot_num;
     i.bidRequest = submission.bidRequest;
     i.bidRequestStr = submission.bidRequestStr;
-    i.bidRequestFormatStr = submission.bidRequestFormatStr ; 
+    i.bidRequestStrFormat = submission.bidRequestStrFormat ; 
     i.bid = response;
     i.reportedStatus = status;
     //i.auctionTime = auction.start;
@@ -1875,7 +1875,7 @@ injectSubmittedAuction(const Id & auctionId,
     event.adSpotId = adSpotId;
     event.bidRequest = bidRequest;
     event.bidRequestStr = bidRequestStr;
-    event.bidRequestFormatStr = bidRequestStrFormat;
+    event.bidRequestStrFormat = bidRequestStrFormat;
     event.augmentations = augmentations;
     event.bidResponse = bidResponse;
     event.lossTimeout = lossTimeout;

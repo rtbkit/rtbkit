@@ -2546,7 +2546,7 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
     event.augmentations = auction->agentAugmentations[bid.agent];
     event.bidRequest = auction->request;
     event.bidRequestStr = auction->requestStr;
-    event.bidRequestFormatStr = auction->requestStrFormat ;
+    event.bidRequestStrFormat = auction->requestStrFormat ;
     event.bidResponse = bid;
 
     string str = ML::DB::serializeToString(event);

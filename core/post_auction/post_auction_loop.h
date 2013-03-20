@@ -38,7 +38,7 @@ struct SubmittedAuctionEvent {
     std::shared_ptr<BidRequest> bidRequest;  ///< Bid request
     std::string bidRequestStr;     ///< Bid request as string on the wire
     Auction::Response bidResponse; ///< Bid response that was sent
-    std::string bidRequestFormatStr;  ///< Format of stringified request(i.e "datacratic")
+    std::string bidRequestStrFormat;  ///< Format of stringified request(i.e "datacratic")
 
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
@@ -111,7 +111,7 @@ struct SubmissionInfo {
 
     std::shared_ptr<BidRequest> bidRequest;
     std::string bidRequestStr;
-    std::string bidRequestFormatStr;
+    std::string bidRequestStrFormat;
     JsonHolder augmentations;
     Auction::Response  bid;               ///< Bid we passed on
     bool fromOldRouter;                   ///< Was reconstituted
@@ -152,7 +152,7 @@ struct FinishedInfo {
     int spotIndex;
     std::shared_ptr<BidRequest> bidRequest;  ///< What we bid on
     std::string bidRequestStr;
-    std::string bidRequestFormatStr;
+    std::string bidRequestStrFormat;
     JsonHolder augmentations;
     std::set<Id> uids;                ///< All UIDs for this user
 
