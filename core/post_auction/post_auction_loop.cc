@@ -594,8 +594,6 @@ injectWin(const Id & auctionId,
           const AccountKey & account,
           Date bidTimestamp)
 {
-    lastWinLoss = Date::now();
-
     auto event = std::make_shared<PostAuctionEvent>();
     event->type = PAE_WIN;
     event->auctionId = auctionId;
@@ -644,8 +642,6 @@ injectImpression(const Id & auctionId,
                  const JsonHolder & impressionMeta,
                  const UserIds & uids)
 {
-    lastImpression = Date::now();
-
     auto event = std::make_shared<PostAuctionEvent>();
     event->type = PAE_IMPRESSION;
     event->auctionId = auctionId;
@@ -692,8 +688,6 @@ void
 PostAuctionLoop::
 doWinMessage(const std::vector<std::string> & message)
 {
-    lastWinLoss = Date::now();
-
     recordHit("messages.WIN");
     auto event = std::make_shared<PostAuctionEvent>
         (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
@@ -704,8 +698,6 @@ void
 PostAuctionLoop::
 doLossMessage(const std::vector<std::string> & message)
 {
-    lastWinLoss = Date::now();
-
     recordHit("messages.LOSS");
     auto event = std::make_shared<PostAuctionEvent>
         (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
@@ -716,8 +708,6 @@ void
 PostAuctionLoop::
 doImpressionMessage(const std::vector<std::string> & message)
 {
-    lastImpression = Date::now();
-
     recordHit("messages.IMPRESSION");
     auto event = std::make_shared<PostAuctionEvent>
         (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
@@ -1070,6 +1060,19 @@ void
 PostAuctionLoop::
 doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 {
+    lastWinLoss = Date::now();
+
+#if 0
+    static Date dbg_ts;
+
+    if (!dbg_ts.secondsSinceEpoch()) dbg_ts = lastWinLoss;
+
+    if (lastWinLoss > dbg_ts.plusSeconds(0.2)) {
+      cerr << "WIN_RECEIVED: " << dbg_ts.printClassic() << endl;
+      dbg_ts = Date::now();
+    }
+#endif
+
     BidStatus status;
     if (event->type == PAE_WIN) {
         ML::atomic_inc(numWins);
@@ -1294,6 +1297,8 @@ void
 PostAuctionLoop::
 doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
 {
+    lastImpression = Date::now();
+
     //RouterProfiler profiler(this, dutyCycleCurrent.nsImpression);
     //static const char* fName = "PostAuctionLoop::doImpressionClick:";
     PostAuctionEventType typeEnum = event->type;
@@ -1724,8 +1729,18 @@ getProviderIndicators()
        - WINs in the last 10 seconds
        - IMPRESSIONs in the last 10 seconds */
     Date now = Date::now();
-    bool status(now < lastWinLoss.plusSeconds(10)
-                && now < lastImpression.plusSeconds(10));
+    bool status(now < lastWinLoss.plusSeconds(30)
+                && now < lastImpression.plusSeconds(30));
+
+#if 0
+    if (!status)  {
+      cerr << "--- WRONGNESS DETECTED:" 
+	   << " wins: " << (now - lastWinLoss)
+	   << ", imps: " << (now - lastImpression)
+	   << endl;
+    }
+#endif
+
     value["status"] = status ? "ok" : "failure";
 
     return value;
