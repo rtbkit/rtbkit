@@ -2179,6 +2179,7 @@ onNewAuction(std::shared_ptr<Auction> auction)
         if (slowModeCount > 100) {
             /* we only let the first 100 auctions take place each second */
             recordHit("monitor.ignoredAuctions");
+            auction->finish();
             return;
         }
     }
