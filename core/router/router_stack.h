@@ -134,21 +134,6 @@ struct RouterStack: public ServiceBase {
                                     clickMeta, uids);
     }
 
-    /** Inject a VISIT into the router, to be passed onto any campaign that
-        has shown an ad to the given user ID.
-
-        These are routed by matching the segments in the SegmentList
-        for the agent configuration with the segments in this message.
-    */
-    void injectVisit(Date timestamp,
-                     const SegmentList & segments,
-                     const JsonHolder & visitMeta,
-                     const UserIds & uids)
-    {
-        postAuctionLoop.injectVisit(timestamp, segments, visitMeta,
-                                    uids);
-    }
-
     /** Notify the router that the given auction/spot will never receive
         another message and should be forgotten.  This is mostly for the
         simulation.
