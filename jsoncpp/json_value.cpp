@@ -194,6 +194,12 @@ Value::CZString::CZString( const CZString &other )
 {
 }
 
+Value::CZString::CZString( CZString &&other )
+    : cstr_(0), index_(noDuplication)
+{
+    swap(other);
+}
+
 Value::CZString::~CZString()
 {
    if ( cstr_  &&  index_ == duplicate )
@@ -212,6 +218,13 @@ Value::CZString::operator =( const CZString &other )
 {
    CZString temp( other );
    swap( temp );
+   return *this;
+}
+
+Value::CZString &
+Value::CZString::operator =( CZString &&other )
+{
+   swap( other );
    return *this;
 }
 

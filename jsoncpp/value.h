@@ -160,8 +160,10 @@ namespace Json {
          CZString( int index );
          CZString( const char *cstr, DuplicationPolicy allocate );
          CZString( const CZString &other );
+         CZString( CZString && other);
          ~CZString();
          CZString &operator =( const CZString &other );
+         CZString &operator =( CZString &&other );
          bool operator<( const CZString &other ) const;
          bool operator==( const CZString &other ) const;
          int index() const;
