@@ -395,7 +395,7 @@ serializeToString() const
     bid.serialize(writer);
     writer << winTime
            << reportedStatus << winPrice << winMeta;
-    writer << eventsTime.size();
+    writer << int(eventsTime.size());
     for (const auto & it: eventsTime) {
         writer << it.first << it.second << eventsMeta.at(it.first);
     }
