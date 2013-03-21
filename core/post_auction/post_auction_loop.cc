@@ -9,7 +9,6 @@
 #include "post_auction_loop.h"
 #include <sstream>
 #include <iostream>
-#include <boost/make_shared.hpp>
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/arch/futex.h"
@@ -277,29 +276,88 @@ winToJson() const
     return result;
 }
 
-Json::Value
+bool
 FinishedInfo::
-eventToJson(const string & label)
-const
+hasCampaignEvent(const std::string & label) const
 {
-    Json::Value result;
-    if (!hasCampaignEvent(label)) return result;
+    for (const CampaignEvent & history: campaignEvents) {
+        if (history.label_ == label) {
+            return true;
+        }
+    }
+    return false;
+}
 
-    result["timestamp"] = eventsTime.at(label).secondsSinceEpoch();
-    result["meta"] = eventsMeta.at(label);
+void
+FinishedInfo::
+setCampaignEvent(const std::string & label,
+                 Date eventTime,
+                 const JsonHolder & eventMeta)
+{
+    if (hasCampaignEvent(label))
+        throw ML::Exception("already has event '" + label + "'");
+    campaignEvents.emplace_back(label, eventTime, eventMeta);
+}
 
-    return result;
+FinishedInfo::CampaignEvent
+FinishedInfo::
+CampaignEvent::
+fromJson(const Json::Value & jsonValue)
+{
+    double timeSeconds(jsonValue["time"].asDouble());
+
+    FinishedInfo::CampaignEvent event(jsonValue["label"].asString(),
+                                      Date::fromSecondsSinceEpoch(timeSeconds),
+                                      jsonValue["meta"]);
+        
+    return event;
 }
 
 Json::Value
 FinishedInfo::
-eventsToJson()
+CampaignEvent::
+toJson() const
+{
+    Json::Value result(Json::ValueType::objectValue);
+
+    result["label"] = label_;
+    result["time"] = time_.secondsSinceEpoch();
+    result["meta"] = meta_.toJson();
+
+    return result;
+}
+
+void
+FinishedInfo::
+CampaignEvent::
+serialize(DB::Store_Writer & writer) const
+{
+    writer << label_ << time_.secondsSinceEpoch();
+    meta_.serialize(writer);
+}
+
+void
+FinishedInfo::
+CampaignEvent::
+reconstitute(DB::Store_Reader & store)
+{
+    double timeSeconds;
+    string metaStr;
+
+    store >> label_ >> timeSeconds;
+    time_ = Date::fromSecondsSinceEpoch(timeSeconds);
+    meta_.reconstitute(store);
+}
+
+Json::Value
+FinishedInfo::
+campaignEventsToJson()
 const
 {
-    Json::Value result;
+    Json::Value result(Json::ValueType::arrayValue);
 
-    for (const auto & it: eventsTime) {
-        result[it.first] = eventToJson(it.first);
+    for (const CampaignEvent & history: campaignEvents) {
+        result.append(history.toJson());
     }
 
     return result;
@@ -369,16 +427,16 @@ serializeToString() const
 {
     ostringstream stream;
     ML::DB::Store_Writer writer(stream);
-    int version = 5;
+    int version = 6;
     writer << version
            << auctionTime << auctionId << adSpotId
            << bidRequestStr << bidTime <<bidRequestStrFormat;
     bid.serialize(writer);
     writer << winTime
            << reportedStatus << winPrice << winMeta;
-    writer << int(eventsTime.size());
-    for (const auto & it: eventsTime) {
-        writer << it.first << it.second << eventsMeta.at(it.first);
+    writer << campaignEvents.size();
+    for (const CampaignEvent & event: campaignEvents) {
+        event.serialize(writer);
     }
     writer << fromOldRouter
            << augmentations.toString();
@@ -395,35 +453,25 @@ reconstituteFromString(const std::string & str)
     ML::DB::Store_Reader store(stream);
     int version, istatus;
     store >> version;
-    if (version > 5)
+    if (version > 6)
         throw ML::Exception("bad version %d", version);
+    if (version < 6)
+        throw ML::Exception("version %d no longer supported", version);
 
     string auctionIdStr, adSpotIdStr;
 
     store >> auctionTime >> auctionId >> adSpotId
           >> bidRequestStr >> bidTime;
-    if(version == 5)
-        store >> bidRequestStrFormat;
     bid.reconstitute(store);
 
-    store >> winTime >> istatus;
-    if (version == 3) {
-        int winPriceMicros;
-        store >> winPriceMicros;
-        winPrice = MicroUSD(winPriceMicros);
-    }
-    else store >> winPrice;
-    store >> winMeta;
+    store >> winTime >> istatus >> winPrice >> winMeta;
 
     int nEvents;
     store >> nEvents;
     for (int i = 0; i < nEvents; i++) {
-        string eventName;
-        Date eventTime;
-        string eventMeta;
-
-        store >> eventName >> eventsTime >> eventsMeta;
-        this->setCampaignEvent(eventName, eventTime, eventMeta);
+        CampaignEvent newEvent;
+        newEvent.reconstitute(store);
+        campaignEvents.emplace_back(newEvent);
     }
     store >> fromOldRouter;
 
@@ -1348,8 +1396,7 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
             return;
         }
 
-        finishedInfo.setCampaignEvent(label, timestamp,
-                                      meta.toString());
+        finishedInfo.setCampaignEvent(label, timestamp, meta);
         ML::atomic_inc(numCampaignEvents);
 
         recordHit("delivery.%s.account.%s.matched",
@@ -1425,7 +1472,7 @@ routePostAuctionEvent(const string & label,
                                    finishedInfo.bidRequestStr,
                                    finishedInfo.bidToJson(),
                                    finishedInfo.winToJson(),
-                                   finishedInfo.eventsToJson(),
+                                   finishedInfo.campaignEventsToJson(),
                                    finishedInfo.augmentations,
                                    finishedInfo.visitsToJson(),
                                    finishedInfo.bidRequestStrFormat /* bidRequestSource */);
@@ -1448,7 +1495,7 @@ routePostAuctionEvent(const string & label,
          finishedInfo.bidRequestStr,
          finishedInfo.bidToJson(),
          finishedInfo.winToJson(),
-         finishedInfo.eventsToJson(),
+         finishedInfo.campaignEventsToJson(),
          finishedInfo.visitsToJson(),
          finishedInfo.bid.account[0],
          finishedInfo.bid.account[1],

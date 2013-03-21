@@ -196,25 +196,33 @@ struct FinishedInfo {
     Json::Value winToJson() const;
 
     /* campaign events */
-    bool hasCampaignEvent(const std::string & label) const
-    {
-        return this->eventsTime.count(label) != 0;
-    }
+    struct CampaignEvent {
+        static CampaignEvent fromJson(const Json::Value & jsonValue);
+
+        CampaignEvent(const std::string & label = "", Date time = Date(),
+                      const JsonHolder & meta = JsonHolder())
+            : label_(label), time_(time), meta_(meta)
+        {}
+
+        Json::Value toJson() const;
+
+        void serialize(ML::DB::Store_Writer & store) const;
+        void reconstitute(ML::DB::Store_Reader & store);
+
+        std::string label_;
+        Date time_;
+        JsonHolder meta_;
+    };
+
+    bool hasCampaignEvent(const std::string & label) const;
     void setCampaignEvent(const std::string & label,
                           Date eventTime,
-                          const std::string & eventMeta)
-    {
-        if (hasCampaignEvent(label))
-            throw ML::Exception("already has event '" + label + "'");
-        this->eventsTime[label] = eventTime;
-        this->eventsMeta[label] = eventMeta;
-    }
-    /* the time at which events were received */
-    std::unordered_map<std::string, Date> eventsTime;
+                          const JsonHolder & eventMeta);
     /* metadata from the events */
-    std::unordered_map<std::string, std::string> eventsMeta;
-    Json::Value eventsToJson() const;
-    Json::Value eventToJson(const std::string & label) const;
+    Json::Value campaignEventsToJson() const;
+
+    /* the history of events common to the auction */
+    std::vector<CampaignEvent> campaignEvents;
 
     struct Visit {
         Date visitTime;           ///< Time at which visit received
