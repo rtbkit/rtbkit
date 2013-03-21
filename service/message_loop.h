@@ -129,6 +129,11 @@ struct MessageLoop : public Epoller {
 
     /** Re-check if anything needs to poll. */
     void checkNeedsPoll();
+
+    /** Total number of seconds that this message loop has spent sleeping.
+        Can be polled regularly to determine the duty cycle of the loop.
+     */
+    double totalSleepSeconds() const { return totalSleepTime; }
     
 private:
     void runWorkerThread();
@@ -167,6 +172,9 @@ private:
 
     /** Do we debug? */
     bool debug_;
+
+    /** Number of secs that the message loop has spent sleeping. */
+    volatile double totalSleepTime;
 
     /** Number of seconds of latency we're allowed to add in order to reduce
         the number of context switches.

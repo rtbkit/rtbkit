@@ -260,6 +260,7 @@ runWorkerThread()
 
         duty.notifyBeforeSleep();
         if (sleepTime > 0) {
+            totalSleepTime += sleepTime;
             ML::sleep(sleepTime);
         }
         duty.notifyAfterSleep();
