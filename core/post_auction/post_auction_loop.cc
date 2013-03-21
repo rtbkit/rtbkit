@@ -321,7 +321,7 @@ toJson() const
     Json::Value result(Json::ValueType::objectValue);
 
     result["label"] = label_;
-    result["time"] = time_.secondsSinceEpoch();
+    result["timestamp"] = time_.secondsSinceEpoch();
     result["meta"] = meta_.toJson();
 
     return result;
