@@ -54,10 +54,6 @@ enum PostAuctionEventType {
     PAE_WIN,
     PAE_LOSS,
     PAE_CAMPAIGN_EVENT
-#if 0
-    PAE_IMPRESSION,
-    PAE_CLICK
-#endif
 };
 
 const char * print(PostAuctionEventType type);
@@ -220,35 +216,6 @@ struct FinishedInfo {
     Json::Value eventsToJson() const;
     Json::Value eventToJson(const std::string & label) const;
 
-#if 0
-    bool hasImpression() const { return impressionTime != Date(); }
-    void setImpression(Date impressionTime,
-                       const std::string & impressionMeta)
-    {
-        if (hasImpression())
-            throw ML::Exception("already has impression");
-        this->impressionTime = impressionTime;
-        this->impressionMeta = impressionMeta;
-    }
-    Date impressionTime;         ///< Time at which impression received
-    std::string impressionMeta;  ///< Metadata from impression
-    Json::Value impressionToJson() const;
-
-    bool hasClick() const { return clickTime != Date(); }
-    void setClick(Date clickTime,
-                  const std::string & clickMeta)
-    {
-        if (hasClick())
-            throw ML::Exception("already has click");
-        this->clickTime = clickTime;
-        this->clickMeta = clickMeta;
-    }
-
-    Date clickTime;              ///< Time at which click received
-    std::string clickMeta;       ///< Metadata from click
-    Json::Value clickToJson() const;
-#endif
-
     struct Visit {
         Date visitTime;           ///< Time at which visit received
         SegmentList channels;     ///< Channel(s) associated with visit
@@ -310,10 +277,6 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
     uint64_t numWins;
     uint64_t numLosses;
     uint64_t numCampaignEvents;
-#if 0
-    uint64_t numImpressions;
-    uint64_t numClicks;
-#endif
 
     /* /ROUTERSHARED */
 
@@ -439,32 +402,6 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
                              const JsonHolder & eventMeta,
                              const UserIds & ids);
 
-#if 0
-    /** Inject an IMPRESSION into the router, to be passed on to the
-        agent that bid on it.
-
-        If the spot ID is empty, then the click will be sent to all
-        agents that had a win on the auction.
-    */
-    void injectImpression(const Id & auctionId,
-                          const Id & adSpotId,
-                          Date timestamp,
-                          const JsonHolder & impressionMeta,
-                          const UserIds & ids);
-
-    /** Inject a CLICK into the router, to be passed on to the agent that
-        bid on it.
-
-        If the spot ID is empty, then the click will be sent to all agents
-        that had a win on the auction.
-    */
-    void injectClick(const Id & auctionId,
-                     const Id & adSpotId,
-                     Date timestamp,
-                     const JsonHolder & clickMeta,
-                     const UserIds & ids);
-#endif
-
     /** Notify the loop that the given auction/spot will never receive
         another message and should be forgotten.  This is mostly for the
         simulation.
@@ -519,14 +456,6 @@ private:
      * in. */
     void doCampaignEventMessage(const std::vector<std::string> & message);
 
-#if 0
-    /** Decode from zeromq nd handle a new impression message that came in. */
-    void doImpressionMessage(const std::vector<std::string> & message);
-
-    /** Decode from zeromq nd handle a new impression message that came in. */
-    void doClickMessage(const std::vector<std::string> & message);
-#endif
-
     /** Periodic auction expiry. */
     void checkExpiredAuctions();
 
@@ -541,11 +470,6 @@ private:
 
     /** We got an impression or click on the control socket */
     void doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event);
-
-#if 0
-    /** We got an impression or click on the control socket */
-    void doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event);
-#endif
 
     /** Send out a post-auction event to anything that may be listening. */
     bool routePostAuctionEvent(const std::string & label,
