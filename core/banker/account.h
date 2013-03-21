@@ -1011,6 +1011,13 @@ struct Accounts {
         return getAccountSummaryImpl(account, 0, maxDepth);
     }
 
+    AccountSimpleSummary getAccountSimpleSummary(const AccountKey & account,
+                                                 int maxDepth = -1) const
+    {
+        Guard guard(lock);
+        return getAccountSimpleSummaryImpl(account, 0, maxDepth);
+    }
+
     AccountSimpleSummaries
     getAccountSimpleSummaries(int maxDepth = -1) const
     {
