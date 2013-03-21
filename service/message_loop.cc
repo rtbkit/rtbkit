@@ -39,7 +39,7 @@ namespace Datacratic {
 
 MessageLoop::
 MessageLoop(int numThreads, double maxAddedLatency)
-    : numThreadsCreated(0)
+    : numThreadsCreated(0), totalSleepTime(0.0)
 {
     init(numThreads, maxAddedLatency);
 }
