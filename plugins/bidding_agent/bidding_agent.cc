@@ -502,14 +502,15 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
 
         Json::Value campaignEvents = jsonParse(msg[8]);
         for (const Json::Value & event: campaignEvents) {
-            if (event.label == "CLICK") {
+            string label = event["label"].asString();
+            if (label == "CLICK") {
                 args.click = event;
             }
-            else if (event.label == "IMPRESSION") {
+            else if (label == "IMPRESSION") {
                 args.impression = event;
             }
             else {
-                cerr << "ignored unhandled campaign event: " << event.label
+                cerr << "ignored unhandled campaign event: " << label
                      << endl;
             }
         }
