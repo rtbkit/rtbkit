@@ -1243,9 +1243,9 @@ private:
             result.addChild(key.back(), childSummary,
                             maxDepth == -1 || depth < maxDepth);
         };
-        result.available = result.budget - result.spent - result.inFlight;
-
         forEachChildAccount(account, doChildAccount);
+
+        result.available = result.budget - result.spent - result.inFlight;
         
         return result;
     }
