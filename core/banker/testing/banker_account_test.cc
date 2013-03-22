@@ -12,6 +12,7 @@
 #include "jml/arch/format.h"
 #include "jml/arch/exception_handler.h"
 #include "jml/utils/guard.h"
+#include "rtbkit/common/account_key.h"
 #include "rtbkit/core/banker/account.h"
 #include "jml/utils/environment.h"
 #include <boost/thread/thread.hpp>
@@ -696,3 +697,102 @@ BOOST_AUTO_TEST_CASE( test_account_simple_summaries )
         }
     }
 }
+
+/* ensure values of account summaries, both normal and simple, matches the
+ * values of the account tree they represent */
+BOOST_AUTO_TEST_CASE( test_account_summary_values )
+{
+    Accounts accounts;
+
+    /* NOTE: the accounts are not particularly consistent with one another */
+    Json::Value jsonValue
+        = Json::parse("{'adjustmentLineItems':{},"
+                      "'adjustmentsIn':{},"
+                      "'adjustmentsOut':{},"
+                      "'allocatedIn':{},"
+                      "'allocatedOut':{'USD/1M':46571708796},"
+                      "'budgetDecreases':{},"
+                      "'budgetIncreases':{'USD/1M':52947000000},"
+                      "'commitmentsMade':{},"
+                      "'commitmentsRetired':{},"
+                      "'lineItems':{},"
+                      "'md':{'objectType':'Account','version':1},"
+                      "'recycledIn':{},"
+                      "'recycledOut':{},"
+                      "'spent':{},"
+                      "'type':'budget'}");
+    accounts.restoreAccount({"top"}, jsonValue);
+    jsonValue = Json::parse("{'adjustmentLineItems':{},"
+                            "'adjustmentsIn':{},"
+                            "'adjustmentsOut':{},"
+                            "'allocatedIn':{},"
+                            "'allocatedOut':{'USD/1M':582053135},"
+                            "'budgetDecreases':{},"
+                            "'budgetIncreases':{'USD/1M':614502770},"
+                            "'commitmentsMade':{},"
+                            "'commitmentsRetired':{},"
+                            "'lineItems':{},"
+                            "'md':{'objectType':'Account','version':1},"
+                            "'recycledIn':{},"
+                            "'recycledOut':{},"
+                            "'spent':{},"
+                            "'type':'budget'}");
+    accounts.restoreAccount({"top", "sub"}, jsonValue);
+    jsonValue = Json::parse("{'adjustmentLineItems':{},"
+                            "'adjustmentsIn':{},"
+                            "'adjustmentsOut':{},"
+                            "'allocatedIn':{},"
+                            "'allocatedOut':{},"
+                            "'budgetDecreases':{},"
+                            "'budgetIncreases':{'USD/1M':582053135},"
+                            "'commitmentsMade':{},"
+                            "'commitmentsRetired':{},"
+                            "'lineItems':{},"
+                            "'md':{'objectType':'Account','version':1},"
+                            "'recycledIn':{},"
+                            "'recycledOut':{},"
+                            "'spent':{'USD/1M':582053135},"
+                            "'type':'spend'}");
+    accounts.restoreAccount({"top", "sub", "spent"}, jsonValue);
+
+    AccountSummary summary = accounts.getAccountSummary({"top"}, 0);
+    Json::Value normalValue = summary.toJson(false);
+    Json::Value expected
+        = Json::parse("{'account':"
+                      " {'adjustmentLineItems':{},"
+                      "  'adjustmentsIn':{},"
+                      "  'adjustmentsOut':{},"
+                      "  'allocatedIn':{},"
+                      "  'allocatedOut': {'USD/1M':46571708796},"
+                      "  'budgetDecreases':{},"
+                      "  'budgetIncreases': {'USD/1M':52947000000},"
+                      "  'commitmentsMade':{},"
+                      "  'commitmentsRetired':{},"
+                      "  'lineItems':{},"
+                      "  'md': {'objectType':'Account','version':1},"
+                      "  'recycledIn':{},"
+                      "  'recycledOut':{},"
+                      "  'spent':{},"
+                      "  'type':'budget'},"
+                      " 'adjustmentLineItems':{},"
+                      " 'adjustments':{},"
+                      " 'allocated': {'USD/1M':46571708796},"
+                      " 'available': {'USD/1M':52364946865},"
+                      " 'budget': {'USD/1M':52947000000},"
+                      " 'inFlight':{},"
+                      " 'lineItems':{},"
+                      " 'md': {'objectType':'AccountSummary',"
+                      "        'version':1},"
+                      " 'spent': {'USD/1M':582053135}}");
+    BOOST_CHECK_EQUAL(normalValue, expected);
+
+    Json::Value simpleValue = summary.toJson(true);
+    expected = Json::parse("{'available': {'USD/1M':52364946865},"
+                           " 'budget': {'USD/1M':52947000000},"
+                           " 'inFlight': {},"
+                           " 'md': {'objectType':'AccountSimpleSummary',"
+                           "        'version':1},"
+                           " 'spent': {'USD/1M':582053135}}");
+    BOOST_CHECK_EQUAL(simpleValue, expected);
+}
+
