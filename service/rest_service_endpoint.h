@@ -305,6 +305,13 @@ struct RestServiceEndpoint: public MessageLoop {
         auto zmqHandler = [=] (std::vector<std::string> && message)
             {
                 using namespace std;
+
+                if (message.size() < 6) {
+                    cerr << "ignored message with invalid number of members:"
+                         << message.size()
+                         << endl;
+                    return;
+                }
                 //cerr << "got REST message at " << this << " " << message << endl;
                 this->doHandleRequest(ConnectionId(message.at(0),
                                                    message.at(1),
