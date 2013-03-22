@@ -731,24 +731,29 @@ struct AccountSummary {
         }
     }
 
-    Json::Value toJson() const
+    Json::Value toJson(bool simplified = false) const
     {
-        Json::Value result(Json::objectValue);
-        result["md"]["objectType"] = "AccountSummary";
+        Json::Value result;
+
+        result["md"]["objectType"]
+            = simplified ? "AccountSimpleSummary" : "AccountSummary";
         result["md"]["version"] = 1;
         result["budget"] = budget.toJson();
-        result["available"] = available.toJson();
-        result["allocated"] = allocated.toJson();
-        result["inFlight"] = inFlight.toJson();
         result["spent"] = spent.toJson();
-        result["adjustments"] = adjustments.toJson();
-        result["lineItems"] = lineItems.toJson();
-        result["adjustmentLineItems"] = adjustmentLineItems.toJson();
-        result["account"] = account.toJson();
+        result["available"] = available.toJson();
+        result["inFlight"] = inFlight.toJson();
+        if (!simplified) {
+            result["allocated"] = allocated.toJson();
+            result["adjustments"] = adjustments.toJson();
+            result["lineItems"] = lineItems.toJson();
+            result["adjustmentLineItems"] = adjustmentLineItems.toJson();
+            result["account"] = account.toJson();
 
-        for (const auto & sa: subAccounts) {
-            result["subAccounts"][sa.first] = sa.second.toJson();
+            for (const auto & sa: subAccounts) {
+                result["subAccounts"][sa.first] = sa.second.toJson();
+            }
         }
+
         return result;
     }
 
@@ -788,43 +793,6 @@ operator << (std::ostream & stream, const AccountSummary & summary)
     summary.dump(stream);
     return stream;
 }
-
-
-
-/*****************************************************************************/
-/* ACCOUNTSIMPLESUMMARY                                                      */
-/*****************************************************************************/
-
-/** This is a simplified summary of an account and all of its sub-accounts,
- * meant as an helper for the REST interface. */
-
-struct AccountSimpleSummary
-{
-    CurrencyPool budget;
-    CurrencyPool spent;
-    CurrencyPool available;
-    CurrencyPool inFlight;
-
-    void dump(std::ostream & stream,
-              int indent = 0,
-              const std::string & name = "toplevel") const;
-    Json::Value toJson() const;
-};
-
-
-/* ACCOUNTSIMPLESUMMARIES */
-struct AccountSimpleSummaries
-    : public std::unordered_map<std::string, AccountSimpleSummary>
-{
-    Json::Value toJson() const
-    {
-        Json::Value summaries;
-        for (auto & it: *this) {
-            summaries[it.first] = it.second.toJson();
-        }
-        return summaries;
-    }
-};
 
 /*****************************************************************************/
 /* ACCOUNTS                                                                  */
@@ -1011,27 +979,25 @@ struct Accounts {
         return getAccountSummaryImpl(account, 0, maxDepth);
     }
 
-    AccountSimpleSummaries
-    getAccountSimpleSummaries(int maxDepth = -1) const
+    Json::Value
+    getAccountSummariesJson(bool simplified = false, int maxDepth = -1)
+        const
     {
         Guard guard(lock);
 
-        AccountSimpleSummaries summaries;
+        Json::Value summaries;
 
-        for (auto & it: accounts) {
+        for (const auto & it: accounts) {
             const AccountKey & key = it.first;
-            if (key.size() == 1) {
-                summaries.insert({key.toString(),
-                            getAccountSimpleSummaryImpl(key, 0,
-                                                        maxDepth)});
-            }
+            AccountSummary summary = getAccountSummaryImpl(key, 0, maxDepth);
+            summaries[key.toString()] = summary.toJson(simplified);
         }
 
         return summaries;
     }
 
     const Account importSpend(const AccountKey & account,
-                           const CurrencyPool & amount)
+                              const CurrencyPool & amount)
     {
         Guard guard(lock);
         auto & a = getAccountImpl(account);
@@ -1280,35 +1246,6 @@ private:
         result.available = result.budget - result.spent - result.inFlight;
 
         forEachChildAccount(account, doChildAccount);
-        
-        return result;
-    }
-
-    AccountSimpleSummary getAccountSimpleSummaryImpl
-    (const AccountKey & account, int depth, int maxDepth) const
-    {
-        AccountSimpleSummary result;
-
-        const Account & a = getAccountImpl(account);
-
-        result.budget = a.getBudget();
-        result.spent = a.spent;
-        result.inFlight = a.commitmentsMade - a.commitmentsRetired;
-
-        if (depth < maxDepth) {
-            auto doChildAccount = [&] (const AccountKey & key)
-                {
-                    auto childSummary = getAccountSimpleSummaryImpl(key, depth + 1,
-                                                                    maxDepth);
-                    result.budget += childSummary.budget;
-                    result.spent += childSummary.spent;
-                    result.inFlight += childSummary.inFlight;
-                };
-            
-            forEachChildAccount(account, doChildAccount);
-        }
-
-        result.available = result.budget - result.spent - result.inFlight;
         
         return result;
     }
