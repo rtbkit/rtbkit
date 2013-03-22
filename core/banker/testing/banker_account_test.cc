@@ -25,6 +25,7 @@ using namespace ML;
 using namespace Datacratic;
 using namespace RTBKIT;
 
+#if 0
 BOOST_AUTO_TEST_CASE( test_account_set_budget )
 {
     Account account;
@@ -616,4 +617,82 @@ BOOST_AUTO_TEST_CASE( test_getRecycledUp )
     BOOST_CHECK_EQUAL(recycledIn, USD(1));
     accounts.getRecycledUp({"t", "s", "sp"}, recycledIn, recycledOut);
     BOOST_CHECK_EQUAL(recycledOut, USD(1));
+}
+#endif
+
+/* ensure values of simple account summaries matches those in non-simple
+   ones */
+BOOST_AUTO_TEST_CASE( test_account_simple_summaries )
+{
+    Accounts accounts;
+
+    /* NOTE: the accounts are not particularly consistent with one another */
+    Json::Value jsonValue
+        = Json::parse("{'adjustmentLineItems':{},"
+                      "'adjustmentsIn':{},"
+                      "'adjustmentsOut':{},"
+                      "'allocatedIn':{},"
+                      "'allocatedOut':{'USD/1M':46571708796},"
+                      "'budgetDecreases':{},"
+                      "'budgetIncreases':{'USD/1M':52947000000},"
+                      "'commitmentsMade':{},"
+                      "'commitmentsRetired':{},"
+                      "'lineItems':{},"
+                      "'md':{'objectType':'Account','version':1},"
+                      "'recycledIn':{},"
+                      "'recycledOut':{},"
+                      "'spent':{},"
+                      "'type':'budget'}");
+    accounts.restoreAccount({"top"}, jsonValue);
+    jsonValue = Json::parse("{'adjustmentLineItems':{},"
+                            "'adjustmentsIn':{},"
+                            "'adjustmentsOut':{},"
+                            "'allocatedIn':{},"
+                            "'allocatedOut':{'USD/1M':582053135},"
+                            "'budgetDecreases':{},"
+                            "'budgetIncreases':{'USD/1M':614502770},"
+                            "'commitmentsMade':{},"
+                            "'commitmentsRetired':{},"
+                            "'lineItems':{},"
+                            "'md':{'objectType':'Account','version':1},"
+                            "'recycledIn':{},"
+                            "'recycledOut':{},"
+                            "'spent':{},"
+                            "'type':'budget'}");
+    accounts.restoreAccount({"top", "sub"}, jsonValue);
+    jsonValue = Json::parse("{'adjustmentLineItems':{},"
+                            "'adjustmentsIn':{},"
+                            "'adjustmentsOut':{},"
+                            "'allocatedIn':{},"
+                            "'allocatedOut':{},"
+                            "'budgetDecreases':{},"
+                            "'budgetIncreases':{'USD/1M':582053135},"
+                            "'commitmentsMade':{},"
+                            "'commitmentsRetired':{},"
+                            "'lineItems':{},"
+                            "'md':{'objectType':'Account','version':1},"
+                            "'recycledIn':{},"
+                            "'recycledOut':{},"
+                            "'spent':{'USD/1M':582053135},"
+                            "'type':'spend'}");
+    accounts.restoreAccount({"top", "sub", "spent"}, jsonValue);
+
+    vector<string> aNames = { "top", "top:sub", "top:sub:spent" };
+    for (const string & aName: aNames) {
+        AccountSummary accountS
+            = accounts.getAccountSummary(aName);
+        Json::Value summary = accountS.toJson();
+        BOOST_CHECK_EQUAL(summary["md"]["objectType"].asString(),
+                          "AccountSummary");
+        BOOST_CHECK_EQUAL(summary["md"]["version"].asInt(), 1);
+
+        Json::Value simpleSummary = accountS.toJson(true);
+        BOOST_CHECK_EQUAL(simpleSummary["md"]["objectType"].asString(),
+                          "AccountSimpleSummary");
+        BOOST_CHECK_EQUAL(simpleSummary["md"]["version"].asInt(), 1);
+        vector<string> keys = {"budget", "spend", "available", "inFlight"};
+        for (const string & key: keys) {
+            BOOST_CHECK_EQUAL(summary[key], simpleSummary[key]);
+        }
+    }
 }
