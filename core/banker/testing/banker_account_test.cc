@@ -620,27 +620,29 @@ BOOST_AUTO_TEST_CASE( test_getRecycledUp )
 }
 #endif
 
-/* ensure values in AccountSimpleSummary matches those in AccountSummary */
+/* ensure values of simple account summaries matches those in non-simple
+   ones */
 BOOST_AUTO_TEST_CASE( test_account_simple_summaries )
 {
     Accounts accounts;
 
     /* NOTE: the accounts are not particularly consistent with one another */
-    Json::Value jsonValue = Json::parse("{'adjustmentLineItems':{},"
-                                        "'adjustmentsIn':{},"
-                                        "'adjustmentsOut':{},"
-                                        "'allocatedIn':{},"
-                                        "'allocatedOut':{'USD/1M':46571708796},"
-                                        "'budgetDecreases':{},"
-                                        "'budgetIncreases':{'USD/1M':52947000000},"
-                                        "'commitmentsMade':{},"
-                                        "'commitmentsRetired':{},"
-                                        "'lineItems':{},"
-                                        "'md':{'objectType':'Account','version':1},"
-                                        "'recycledIn':{},"
-                                        "'recycledOut':{},"
-                                        "'spent':{},"
-                                        "'type':'budget'}");
+    Json::Value jsonValue
+        = Json::parse("{'adjustmentLineItems':{},"
+                      "'adjustmentsIn':{},"
+                      "'adjustmentsOut':{},"
+                      "'allocatedIn':{},"
+                      "'allocatedOut':{'USD/1M':46571708796},"
+                      "'budgetDecreases':{},"
+                      "'budgetIncreases':{'USD/1M':52947000000},"
+                      "'commitmentsMade':{},"
+                      "'commitmentsRetired':{},"
+                      "'lineItems':{},"
+                      "'md':{'objectType':'Account','version':1},"
+                      "'recycledIn':{},"
+                      "'recycledOut':{},"
+                      "'spent':{},"
+                      "'type':'budget'}");
     accounts.restoreAccount({"top"}, jsonValue);
     jsonValue = Json::parse("{'adjustmentLineItems':{},"
                             "'adjustmentsIn':{},"
@@ -679,12 +681,18 @@ BOOST_AUTO_TEST_CASE( test_account_simple_summaries )
     for (const string & aName: aNames) {
         AccountSummary accountS
             = accounts.getAccountSummary(aName);
-        AccountSimpleSummary accountSS
-            = accounts.getAccountSimpleSummary(aName);
+        Json::Value summary = accountS.toJson();
+        BOOST_CHECK_EQUAL(summary["md"]["objectType"].asString(),
+                          "AccountSummary");
+        BOOST_CHECK_EQUAL(summary["md"]["version"].asInt(), 1);
 
-        BOOST_CHECK_EQUAL(accountS.budget, accountSS.budget);
-        BOOST_CHECK_EQUAL(accountS.spent, accountSS.spent);
-        BOOST_CHECK_EQUAL(accountS.available, accountSS.available);
-        BOOST_CHECK_EQUAL(accountS.inFlight, accountSS.inFlight);
+        Json::Value simpleSummary = accountS.toJson(true);
+        BOOST_CHECK_EQUAL(simpleSummary["md"]["objectType"].asString(),
+                          "AccountSimpleSummary");
+        BOOST_CHECK_EQUAL(simpleSummary["md"]["version"].asInt(), 1);
+        vector<string> keys = {"budget", "spend", "available", "inFlight"};
+        for (const string & key: keys) {
+            BOOST_CHECK_EQUAL(summary[key], simpleSummary[key]);
+        }
     }
 }

@@ -364,37 +364,6 @@ logBidEvents(const Datacratic::EventRecorder & eventRecorder)
 }
 
 /*****************************************************************************/
-/* ACCOUNTSIMPLESUMMARY                                                      */
-/*****************************************************************************/
-
-void
-AccountSimpleSummary::
-dump(ostream & stream, int indent, const std::string & name) const
-{
-    stream << std::string(indent, ' ')
-           << name
-           << " b:" << budget
-           << " s:" << spent
-           << " a:" << available
-           << std::endl;
-}
-
-Json::Value
-AccountSimpleSummary::
-toJson() const
-{
-    Json::Value result(Json::objectValue);
-    result["md"]["objectType"] = "AccountSimpleSummary";
-    result["md"]["version"] = 1;
-    result["budget"] = budget.toJson();
-    result["spent"] = spent.toJson();
-    result["available"] = available.toJson();
-    result["inFlight"] = inFlight.toJson();
-
-    return result;
-}
-
-/*****************************************************************************/
 /* ACCOUNTS                                                                  */
 /*****************************************************************************/
 

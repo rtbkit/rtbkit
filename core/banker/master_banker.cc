@@ -334,13 +334,13 @@ init(const shared_ptr<BankerPersistence> & storage)
     addRouteSyncReturn(versionNode,
                        "/summary",
                        {"GET"},
-                       "Return the summaries of all existing accounts",
+                       "Return the simplified summaries of all existing"
+                       " accounts",
                        "",
-                       [] (const AccountSimpleSummaries & s) {
-                           return s.toJson();
-                       },
-                       &Accounts::getAccountSimpleSummaries,
+                       [] (const Json::Value & a) { return a; },
+                       &Accounts::getAccountSummariesJson,
                        &accounts,
+                       true,
                        RestParamDefault<int>("maxDepth", "maximum depth to traverse", 3));
 
 
