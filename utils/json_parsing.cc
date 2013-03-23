@@ -20,38 +20,73 @@ namespace ML {
 
 void skipJsonWhitespace(Parse_Context & context)
 {
+    // Fast-path for the usual case for not EOF and no whitespace
+    if (JML_LIKELY(!context.eof())) {
+        char c = *context;
+        if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
+            return;
+    }
+
     while (!context.eof()
            && (context.match_whitespace() || context.match_eol()));
 }
 
-std::string
-jsonEscape(const std::string & str)
+char * jsonEscapeCore(const std::string & str, char * p, char * end)
 {
-    std::string result;
-    result.reserve(str.size() * 2);
-
     for (unsigned i = 0;  i < str.size();  ++i) {
+        if (p + 4 >= end)
+            return 0;
+
         char c = str[i];
         if (c >= ' ' && c < 127 && c != '\"' && c != '\\')
-            result.push_back(c);
+            *p++ = c;
         else {
-            result.push_back('\\');
+            *p++ = '\\';
             switch (c) {
-            case '\t': result.push_back('t');  break;
-            case '\n': result.push_back('n');  break;
-            case '\r': result.push_back('r');  break;
-            case '\b': result.push_back('b');  break;
-            case '\f': result.push_back('f');  break;
+            case '\t': *p++ = ('t');  break;
+            case '\n': *p++ = ('n');  break;
+            case '\r': *p++ = ('r');  break;
+            case '\b': *p++ = ('b');  break;
+            case '\f': *p++ = ('f');  break;
             case '/':
             case '\\':
-            case '\"': result.push_back(c);  break;
+            case '\"': *p++ = (c);  break;
             default:
                 throw Exception("invalid character in Json string");
             }
         }
     }
 
-    return result;
+    return p;
+}
+
+std::string
+jsonEscape(const std::string & str)
+{
+    size_t sz = str.size() * 4 + 4;
+    char buf[sz];
+    char * p = buf, * end = buf + sz;
+
+    p = jsonEscapeCore(str, p, end);
+
+    if (!p)
+        throw ML::Exception("To fix: logic error in JSON escaping");
+
+    return string(buf, p);
+}
+
+void jsonEscape(const std::string & str, std::ostream & stream)
+{
+    size_t sz = str.size() * 4 + 4;
+    char buf[sz];
+    char * p = buf, * end = buf + sz;
+
+    p = jsonEscapeCore(str, p, end);
+
+    if (!p)
+        throw ML::Exception("To fix: logic error in JSON escaping");
+
+    stream.write(buf, p - buf);
 }
 
 bool matchJsonString(Parse_Context & context, std::string & str)
@@ -154,6 +189,52 @@ std::string expectJsonStringAsciiPermissive(Parse_Context & context, char sub)
     return result;
 }
 
+ssize_t expectJsonStringAscii(Parse_Context & context, char * buffer, size_t maxLength)
+{
+    skipJsonWhitespace(context);
+    context.expect_literal('"');
+
+    size_t bufferSize = maxLength - 1;
+    size_t pos = 0;
+
+    // Try multiple times to make it fit
+    while (!context.match_literal('"')) {
+        int c = *context++;
+        if (c == '\\') {
+            c = *context++;
+            switch (c) {
+            case 't': c = '\t';  break;
+            case 'n': c = '\n';  break;
+            case 'r': c = '\r';  break;
+            case 'f': c = '\f';  break;
+            case '/': c = '/';   break;
+            case '\\':c = '\\';  break;
+            case '"': c = '"';   break;
+            case 'u': {
+                int code = context.expect_int();
+                if (code<0 || code>255) {
+                    context.exception(format("non 8bit char %d", code));
+                }
+                c = code;
+                break;
+            }
+            default:
+                context.exception("invalid escaped char");
+            }
+        }
+        if (c < 0 || c >= 127)
+           context.exception("invalid JSON ASCII string character");
+        if (pos == bufferSize) {
+            return -1;
+        }
+        buffer[pos++] = c;
+    }
+
+    buffer[pos] = 0; // null terminator
+
+    return pos;
+}
+
 std::string expectJsonStringAscii(Parse_Context & context)
 {
     skipJsonWhitespace(context);
@@ -213,7 +294,7 @@ std::string expectJsonStringAscii(Parse_Context & context)
 
 void
 expectJsonArray(Parse_Context & context,
-                boost::function<void (int, Parse_Context &)> onEntry)
+                const std::function<void (int, Parse_Context &)> & onEntry)
 {
     skipJsonWhitespace(context);
 
@@ -240,7 +321,7 @@ expectJsonArray(Parse_Context & context,
 
 void
 expectJsonObject(Parse_Context & context,
-                 boost::function<void (std::string, Parse_Context &)> onEntry)
+                 const std::function<void (std::string, Parse_Context &)> & onEntry)
 {
     skipJsonWhitespace(context);
 
@@ -275,9 +356,50 @@ expectJsonObject(Parse_Context & context,
     context.expect_literal('}');
 }
 
+void
+expectJsonObjectAscii(Parse_Context & context,
+                      const std::function<void (const char *, Parse_Context &)> & onEntry)
+{
+    skipJsonWhitespace(context);
+
+    if (context.match_literal("null"))
+        return;
+
+    context.expect_literal('{');
+
+    skipJsonWhitespace(context);
+
+    if (context.match_literal('}')) return;
+
+    for (;;) {
+        skipJsonWhitespace(context);
+
+        char keyBuffer[1024];
+
+        ssize_t done = expectJsonStringAscii(context, keyBuffer, 1024);
+        if (done == -1)
+            context.exception("JSON key is too long");
+
+        skipJsonWhitespace(context);
+
+        context.expect_literal(':');
+
+        skipJsonWhitespace(context);
+
+        onEntry(keyBuffer, context);
+
+        skipJsonWhitespace(context);
+
+        if (!context.match_literal(',')) break;
+    }
+
+    skipJsonWhitespace(context);
+    context.expect_literal('}');
+}
+
 bool
 matchJsonObject(Parse_Context & context,
-                boost::function<bool (std::string, Parse_Context &)> onEntry)
+                const std::function<bool (std::string, Parse_Context &)> & onEntry)
 {
     skipJsonWhitespace(context);
 
