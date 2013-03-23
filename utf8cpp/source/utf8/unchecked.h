@@ -61,7 +61,7 @@ namespace utf8
         uint32_t next(octet_iterator& it)
         {
             uint32_t cp = internal::mask8(*it);
-            typename std::iterator_traits<octet_iterator>::difference_type length = utf8::internal::sequence_length(it);
+            int length = utf8::internal::sequence_length(it);
             switch (length) {
                 case 1:
                     break;

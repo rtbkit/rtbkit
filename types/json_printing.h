@@ -34,6 +34,8 @@ struct JsonPrintingContext {
     virtual void writeDouble(double d) = 0;
     virtual void writeString(const std::string & s) = 0;
     virtual void writeStringUtf8(const Utf8String & s) = 0;
+    virtual void writeBool(bool b) = 0;
+    virtual void writeNull() = 0;
 
     virtual void writeJson(const Json::Value & val) = 0;
     virtual void skip() = 0;
@@ -61,17 +63,9 @@ struct StreamJsonPrintingContext
     };
 
     std::vector<PathEntry> path;
-    std::string prefix;
-
-    void writePrefix()
-    {
-        stream << prefix;
-        prefix = "";
-    }
 
     virtual void startObject()
     {
-        writePrefix();
         path.push_back(true /* isObject */);
         stream << "{";
     }
@@ -79,11 +73,13 @@ struct StreamJsonPrintingContext
     virtual void startMember(const std::string & memberName)
     {
         ExcAssert(path.back().isObject);
-        path.back().memberName = memberName;
+        //path.back().memberName = memberName;
         ++path.back().memberNum;
         if (path.back().memberNum != 0)
             stream << ",";
-        prefix = '\"' + ML::jsonEscape(memberName) + "\":";
+        stream << '\"';
+        ML::jsonEscape(memberName, stream);
+        stream << "\":";
     }
 
     virtual void endObject()
@@ -96,7 +92,6 @@ struct StreamJsonPrintingContext
     virtual void startArray(int knownSize = -1)
     {
         path.push_back(false /* isObject */);
-        writePrefix();
         stream << "[";
     }
 
@@ -117,42 +112,48 @@ struct StreamJsonPrintingContext
     
     virtual void skip()
     {
-        if (!prefix.empty())
-            prefix = "";
-        else stream << "null";
+        stream << "null";
+    }
+
+    virtual void writeNull()
+    {
+        stream << "null";
     }
 
     virtual void writeInt(int i)
     {
-        writePrefix();
         stream << i;
     }
 
     virtual void writeFloat(float f)
     {
-        writePrefix();
         stream << f;
     }
 
     virtual void writeDouble(double d)
     {
-        writePrefix();
         stream << d;
     }
 
     virtual void writeString(const std::string & s)
     {
-        writePrefix();
-        stream << '\"' << ML::jsonEscape(s) << '\"';
+        stream << '\"';
+        ML::jsonEscape(s, stream);
+        stream << '\"';
     }
 
     virtual void writeStringUtf8(const Utf8String & s);
 
     virtual void writeJson(const Json::Value & val)
     {
-        writePrefix();
         stream << boost::trim_copy(val.toString());
     }
+
+    virtual void writeBool(bool b)
+    {
+        stream << (b ? "true": "false");
+    }
+
 };
 
 struct StructuredJsonPrintingContext
@@ -206,6 +207,11 @@ struct StructuredJsonPrintingContext
         *current = Json::Value();
     }
 
+    virtual void writeNull()
+    {
+        *current = Json::Value();
+    }
+
     virtual void writeInt(int i)
     {
         *current = i;
@@ -234,6 +240,11 @@ struct StructuredJsonPrintingContext
     virtual void writeJson(const Json::Value & val)
     {
         *current = val;
+    }
+
+    virtual void writeBool(bool b)
+    {
+        *current = b;
     }
 };
 

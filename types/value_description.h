@@ -11,6 +11,7 @@
 #include <memory>
 #include <unordered_map>
 #include "jml/arch/exception.h"
+#include "jml/arch/demangle.h"
 #include "json_parsing.h"
 #include "json_printing.h"
 
@@ -119,14 +120,17 @@ inline const void * addOffset(const void * base, ssize_t offset)
 struct StructureDescriptionBase {
 
     StructureDescriptionBase(const std::type_info * type,
-                             const std::string & typeName = "")
+                             const std::string & typeName = "",
+                             bool nullAccepted = false)
         : type(type),
-          typeName(typeName.empty() ? type->name() : typeName)
+          typeName(typeName.empty() ? ML::demangle(type->name()) : typeName),
+          nullAccepted(nullAccepted)
     {
     }
 
     const std::type_info * const type;
     const std::string typeName;
+    bool nullAccepted;
 
     struct FieldDescription {
         std::string fieldName;
@@ -136,21 +140,54 @@ struct StructureDescriptionBase {
         int fieldNum;
     };
 
-    std::vector<std::string> orderedFields;
+    // Comparison object to allow const char * objects to be looked up
+    // in the map and so for comparisons to be done with no memory
+    // allocations.
+    struct StrCompare {
+        inline bool operator () (const char * s1, const char * s2) const
+        {
+            char c1 = *s1++, c2 = *s2++;
+
+            if (c1 < c2) return true;
+            if (c1 > c2) return false;
+            if (c1 == 0) return false;
+
+            c1 = *s1++; c2 = *s2++;
+            
+            if (c1 < c2) return true;
+            if (c1 > c2) return false;
+            if (c1 == 0) return false;
+
+            return strcmp(s1, s2) < 0;
+        }
+
+    };
+
+    typedef std::map<const char *, FieldDescription, StrCompare> Fields;
+    Fields fields;
+
+    std::vector<std::string> fieldNames;
+
+    std::vector<Fields::const_iterator> orderedFields;
 
     virtual void parseJson(void * output, JsonParsingContext & context) const
     {
+        if (!onEntry(output, context)) return;
+
+        if (nullAccepted && context.isNull()) {
+            context.expectNull();
+            return;
+        }
+        
         if (!context.isObject())
             context.exception("expected structure of type " + typeName);
 
-        onEntry(output, context);
-        
         auto onMember = [&] ()
             {
                 //using namespace std;
                 //cerr << "got field " << context.printPath() << endl;
 
-                auto n = context.fieldName();
+                auto n = context.fieldNamePtr();
                 auto it = fields.find(n);
                 if (it == fields.end()) {
                     context.onUnknownField();
@@ -171,25 +208,21 @@ struct StructureDescriptionBase {
     {
         context.startObject();
 
-        for (auto & f: orderedFields) {
-            auto it = fields.find(f);
-            ExcAssert(it != fields.end());
+        for (const auto & it: orderedFields) {
             auto & fd = it->second;
 
             auto mbr = addOffset(input, fd.offset);
             if (fd.description->isDefault(mbr))
                 continue;
-            context.startMember(f);
+            context.startMember(it->first);
             fd.description->printJson(mbr, context);
         }
         
         context.endObject();
     }
 
-    virtual void onEntry(void * output, JsonParsingContext & context) const = 0;
+    virtual bool onEntry(void * output, JsonParsingContext & context) const = 0;
     virtual void onExit(void * output, JsonParsingContext & context) const = 0;
-
-    std::unordered_map<std::string, FieldDescription> fields;
 };
 
 template<class Struct>
@@ -197,17 +230,28 @@ struct StructureDescription
     :  public ValueDescription<Struct>,
        public StructureDescriptionBase {
 
-    StructureDescription()
-        : StructureDescriptionBase(&typeid(Struct))
+    StructureDescription(bool nullAccepted = false)
+        : StructureDescriptionBase(&typeid(Struct), "", nullAccepted)
     {
     }
 
+    /// Function to be called before parsing; if it returns false parsing stops
+    std::function<bool (Struct *, JsonParsingContext & context)> onEntryHandler;
+
+    /// Function to be called whenever an unknown field is found
     std::function<void (Struct *, JsonParsingContext & context)> onUnknownField;
 
-    virtual void onEntry(void * output, JsonParsingContext & context) const
+    virtual bool onEntry(void * output, JsonParsingContext & context) const
     {
+        if (onEntryHandler) {
+            if (!onEntryHandler((Struct *)output, context))
+                return false;
+        }
+        
         if (onUnknownField)
             context.onUnknownFieldHandlers.push_back([=,&context] () { this->onUnknownField((Struct *)output, context); });
+
+        return true;
     }
     
     virtual void onExit(void * output, JsonParsingContext & context) const
@@ -223,19 +267,63 @@ struct StructureDescription
                   ValueDescription<V> * description
                   = getDefaultDescription((V *)0))
     {
-        if (fields.count(name))
+        if (fields.count(name.c_str()))
             throw ML::Exception("field '" + name + "' added twice");
 
-        FieldDescription & fd = fields[name];
-        fd.fieldName = name;
+        fieldNames.push_back(name);
+        const char * fieldName = fieldNames.back().c_str();
+        
+        auto it = fields.insert
+            (Fields::value_type(fieldName, std::move(FieldDescription())))
+            .first;
+        
+        FieldDescription & fd = it->second;
+        fd.fieldName = fieldName;
         fd.comment = comment;
         fd.description.reset(description);
         Struct * p = nullptr;
         fd.offset = (size_t)&(p->*field);
         fd.fieldNum = fields.size() - 1;
-        orderedFields.push_back(name);
+        orderedFields.push_back(it);
         //using namespace std;
         //cerr << "offset = " << fd.offset << endl;
+    }
+
+    template<typename V>
+    void addParent(ValueDescription<V> * description_
+                   = getDefaultDescription((V *)0))
+    {
+        StructureDescription<V> * desc2
+            = dynamic_cast<StructureDescription<V> *>(description_);
+        if (!desc2) {
+            delete description_;
+            throw ML::Exception("parent description is not a structure");
+        }
+
+        std::unique_ptr<StructureDescription<V> > description(desc2);
+
+        Struct * p = nullptr;
+        V * p2 = static_cast<V *>(p);
+
+        size_t ofs = (size_t)p2;
+
+        for (auto & oit: description->orderedFields) {
+            FieldDescription & ofd = const_cast<FieldDescription &>(oit->second);
+            const std::string & name = ofd.fieldName;
+
+            fieldNames.push_back(name);
+            const char * fieldName = fieldNames.back().c_str();
+
+            auto it = fields.insert(Fields::value_type(fieldName, std::move(FieldDescription()))).first;
+            FieldDescription & fd = it->second;
+            fd.fieldName = fieldName;
+            fd.comment = ofd.comment;
+            fd.description = std::move(ofd.description);
+            
+            fd.offset = ofd.offset + ofs;
+            fd.fieldNum = fields.size() - 1;
+            orderedFields.push_back(it);
+        }
     }
 
     virtual void parseJson(void * val, JsonParsingContext & context) const
@@ -251,7 +339,7 @@ struct StructureDescription
     virtual const FieldDescription & 
     getField(const std::string & field) const
     {
-        auto it = fields.find(field);
+        auto it = fields.find(field.c_str());
         if (it != fields.end())
             return it->second;
         throw ML::Exception("structure has no field " + field);

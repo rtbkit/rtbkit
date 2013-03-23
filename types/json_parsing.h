@@ -28,18 +28,35 @@ JsonParser * createJsonParser(const ValueDescription<void> & desc);
 
 struct JsonPathEntry {
     JsonPathEntry(int index)
-        : index(index), fieldNumber(0)
+        : index(index), keyPtr(0), fieldNumber(0)
     {
     }
     
     JsonPathEntry(std::string key)
-        : index(-1), key(key), fieldNumber(0)
+        : index(-1), key(std::move(key)), keyPtr(this->key.c_str()),
+          fieldNumber(0)
     {
     }
     
+    JsonPathEntry(const char * keyPtr)
+        : index(-1), keyPtr(keyPtr)
+    {
+    }
+
     int index;
     std::string key;
+    const char * keyPtr;
     int fieldNumber;
+
+    std::string fieldName() const
+    {
+        return key.empty() && keyPtr ? keyPtr : key;
+    }
+
+    const char * fieldNamePtr() const
+    {
+        return keyPtr;
+    }
 
 };
 
@@ -49,7 +66,7 @@ struct JsonPath: public std::vector<JsonPathEntry> {
         std::string result;
         for (auto & e: *this) {
             if (e.index == -1)
-                result += "." + e.key;
+                result += "." + e.fieldName();
             else result += '[' + std::to_string(e.index) + ']';
         }
         return result;
@@ -57,12 +74,18 @@ struct JsonPath: public std::vector<JsonPathEntry> {
 
     std::string fieldName() const
     {
-        return this->back().key;
+        return this->back().fieldName();
     }
 
-    void push(const JsonPathEntry & entry)
+    const char * fieldNamePtr() const
     {
-        this->push_back(entry);
+        return this->back().fieldNamePtr();
+    }
+
+    void push(JsonPathEntry entry, int fieldNum = 0)
+    {
+        entry.fieldNumber = fieldNum;
+        this->emplace_back(std::move(entry));
     }
 
     void replace(const JsonPathEntry & entry)
@@ -79,6 +102,10 @@ struct JsonPath: public std::vector<JsonPathEntry> {
 
 };
 
+/*****************************************************************************/
+/* STREAMING JSON PARSING CONTEXT                                            */
+/*****************************************************************************/
+
 struct JsonParsingContext {
 
     JsonPath path;
@@ -94,9 +121,14 @@ struct JsonParsingContext {
         return path.fieldName();
     }
 
-    void pushPath(const JsonPathEntry & entry)
+    const char * fieldNamePtr() const
     {
-        path.push(entry);
+        return path.fieldNamePtr();
+    }
+
+    void pushPath(const JsonPathEntry & entry, int memberNumber = 0)
+    {
+        path.push(entry, memberNumber);
     }
 
     void replacePath(const JsonPathEntry & entry)
@@ -126,26 +158,39 @@ struct JsonParsingContext {
     
     virtual int expectInt() = 0;
     virtual float expectFloat() = 0;
-    virtual float expectBool() = 0;
+    virtual double expectDouble() = 0;
+    virtual bool expectBool() = 0;
     virtual bool matchUnsignedLongLong(unsigned long long & val) = 0;
     virtual bool matchLongLong(long long & val) = 0;
     virtual std::string expectStringAscii() = 0;
     virtual Utf8String expectStringUtf8() = 0;
     virtual Json::Value expectJson() = 0;
+    virtual void expectNull() = 0;
     virtual bool isObject() const = 0;
     virtual bool isString() const = 0;
     virtual bool isArray() const = 0;
     virtual bool isBool() const = 0;
-#if 0
-    virtual bool isNull() const = 0;
     virtual bool isNumber() const = 0;
+    virtual bool isNull() const = 0;
+#if 0
     virtual bool isInt() const = 0;
 #endif
     virtual void skip() = 0;
 
-    virtual void forEachMember(std::function<void ()> fn) = 0;
-    virtual void forEachElement(std::function<void ()> fn) = 0;
+    virtual void forEachMember(const std::function<void ()> & fn) = 0;
+    virtual void forEachElement(const std::function<void ()> & fn) = 0;
 };
+
+
+/*****************************************************************************/
+/* STREAMING JSON PARSING CONTEXT                                            */
+/*****************************************************************************/
+
+/** This object allows you to parse a stream (string, file, std::istream)
+    containing JSON data into an object without performing an intermediate
+    translation into a structured JSON format.  This tends to be a lot
+    faster as far fewer memory allocations are required.
+*/
 
 struct StreamingJsonParsingContext
     : public JsonParsingContext  {
@@ -177,35 +222,46 @@ struct StreamingJsonParsingContext
     std::unique_ptr<ML::Parse_Context> ownedContext;
 
     template<typename Fn>
-    void forEachMember(Fn fn)
+    void forEachMember(const Fn & fn)
     {
-        bool first = true;
+        int memberNum = 0;
 
-        auto onMember = [&] (const std::string & memberName,
+        auto onMember = [&] (const char * memberName,
                              ML::Parse_Context &)
             {
-                if (first)
-                    pushPath(memberName);
-                else replacePath(memberName);
+                // This structure takes care of pushing and popping our
+                // path entry.  It will make sure the member is always
+                // popped no matter what
+                struct PathPusher {
+                    PathPusher(const char * memberName,
+                               int memberNum,
+                               StreamingJsonParsingContext * context)
+                        : context(context)
+                    {
+                        context->pushPath(memberName, memberNum);
+                    }
+
+                    ~PathPusher()
+                    {
+                        context->popPath();
+                    }
+
+                    StreamingJsonParsingContext * const context;
+                } pusher(memberName, memberNum++, this);
 
                 fn();
-
-                first = false;
             };
         
-        expectJsonObject(*context, onMember);
-
-        if (!first)
-            popPath();
+        expectJsonObjectAscii(*context, onMember);
     }
 
-    virtual void forEachMember(std::function<void ()> fn)
+    virtual void forEachMember(const std::function<void ()> & fn)
     {
         return forEachMember<std::function<void ()> >(fn);
     }
 
     template<typename Fn>
-    void forEachElement(Fn fn)
+    void forEachElement(const Fn & fn)
     {
         bool first = true;
 
@@ -226,7 +282,7 @@ struct StreamingJsonParsingContext
             popPath();
     }
 
-    virtual void forEachElement(std::function<void ()> fn)
+    virtual void forEachElement(const std::function<void ()> & fn)
     {
         return forEachElement<std::function<void ()> >(fn);
     }
@@ -246,9 +302,19 @@ struct StreamingJsonParsingContext
         return context->expect_float();
     }
 
-    virtual float expectBool()
+    virtual double expectDouble()
+    {
+        return context->expect_double();
+    }
+
+    virtual bool expectBool()
     {
         return ML::expectJsonBool(*context);
+    }
+
+    virtual void expectNull()
+    {
+        context->expect_literal("null");
     }
 
     virtual bool matchUnsignedLongLong(unsigned long long & val)
@@ -293,29 +359,43 @@ struct StreamingJsonParsingContext
         
     }
 
+    virtual bool isNumber() const
+    {
+        ML::Parse_Context::Revert_Token token(*context);
+        double d;
+        if (context->match_double(d))
+            return true;
+        return false;
+    }
+
+    virtual bool isNull() const
+    {
+        ML::Parse_Context::Revert_Token token(*context);
+        if (context->match_literal("null"))
+            return true;
+        return false;
+    }
+
+#if 0    
+    virtual bool isNumber() const
+    {
+        char c = *(*context);
+        if (c >= '0' && c <= '9')
+            return true;
+        if (c == '.' || c == '+' || c == '-')
+            return true;
+        if (c == 'N' || c == 'I')  // NaN or Inf
+            return true;
+        return false;
+    }
+#endif
+
     virtual void exception(const std::string & message)
     {
         context->exception(message);
     }
 
 #if 0
-    virtual bool isNull() const
-    {
-        Revert_Token token(*context);
-        if (match_literal("null"))
-            return true;
-        return false;
-    }
-
-    virtual bool isNumber() const
-    {
-        Revert_Token token(*context);
-        double d;
-        if (match_double(d))
-            return true;
-        return false;
-    }
-    
     virtual bool isInt() const
     {
         Revert_Token token(*context);
@@ -356,9 +436,20 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
         return current->asDouble();
     }
 
-    virtual float expectBool()
+    virtual double expectDouble()
+    {
+        return current->asDouble();
+    }
+
+    virtual bool expectBool()
     {
         return current->asBool();
+    }
+
+    virtual void expectNull()
+    {
+        if (!current->isNull())
+            exception("expected null value");
     }
 
     virtual bool matchUnsignedLongLong(unsigned long long & val)
@@ -414,11 +505,21 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
         return current->type() == Json::booleanValue;
     }
 
+    virtual bool isNumber() const
+    {
+        return current->isNumeric();
+    }
+
+    virtual bool isNull() const
+    {
+        return current->isNull();
+    }
+
     virtual void skip()
     {
     }
 
-    virtual void forEachMember(std::function<void ()> fn)
+    virtual void forEachMember(const std::function<void ()> & fn)
     {
         if (!isObject())
             exception("expected an object");
@@ -443,7 +544,7 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
         current = oldCurrent;
     }
 
-    virtual void forEachElement(std::function<void ()> fn)
+    virtual void forEachElement(const std::function<void ()> & fn)
     {
         if (!isArray())
             exception("expected an array");

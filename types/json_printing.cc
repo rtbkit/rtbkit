@@ -14,6 +14,7 @@ void
 StreamJsonPrintingContext::
 writeStringUtf8(const Utf8String & s)
 {
+    stream << '\"' << ML::jsonEscape(s.rawString()) << '\"';
 }
 
 
