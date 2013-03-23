@@ -91,19 +91,6 @@ inline int hexToDec2(int c)
     return v;
 }
 
-Id::
-Id(const Json::Value & val)
-    : type(NONE), val1(0), val2(0)
-{
-    if (val.isInt())
-        *this = Id(val.asInt());
-    else if (val.isUInt())
-        *this = Id(val.asUInt());
-    else if (val.isNull())
-        ;
-    else *this = Id(val.asString());
-}
-
 void
 Id::
 parse(const std::string & value, Type type)
@@ -578,7 +565,16 @@ Id
 Id::
 fromJson(const Json::Value & val)
 {
-    return Id(val);
+    if (val.isInt())
+        return Id(val.asInt());
+
+    else if (val.isUInt())
+        return Id(val.asUInt());
+
+    else if (val.isNull())
+        return Id();
+
+    else return Id(val.asString());
 }
 
 } // namespace Datacratic

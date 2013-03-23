@@ -89,7 +89,6 @@ struct Id {
     {
     }
 
-    explicit Id(const Json::Value & val);
 
     // Construct a compound ID from two others
     Id(const Id & underlying1, const Id & underlying2)
