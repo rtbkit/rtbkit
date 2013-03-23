@@ -27,7 +27,33 @@ expectStringUtf8()
 
     // Keep expanding until it fits
     while (!context->match_literal('"')) {
-        int c = *(*context)++;
+        // We need up to 4 characters to add a new UTF-8 code point
+        if (pos >= bufferSize - 4) {
+            size_t newBufferSize = bufferSize * 8;
+            char * newBuffer = new char[newBufferSize];
+            std::copy(buffer, buffer + bufferSize, newBuffer);
+            if (buffer != internalBuffer)
+                delete[] buffer;
+            buffer = newBuffer;
+            bufferSize = newBufferSize;
+        }
+
+        int c = *(*context);
+        
+        //cerr << "c = " << c << " " << (char)c << endl;
+
+        if (c < 0 || c > 127) {
+            // Unicode
+            c = utf8::unchecked::next(*context);
+
+            char * p1 = buffer + pos;
+            char * p2 = p1;
+            pos += utf8::append(c, p2) - p1;
+
+            continue;
+        }
+        ++(*context);
+
         if (c == '\\') {
             c = *(*context)++;
             switch (c) {
@@ -48,16 +74,6 @@ expectStringUtf8()
             }
         }
 
-        // We need up to 4 characters to add a new UTF-8 code point
-        if (pos >= bufferSize - 4) {
-            size_t newBufferSize = bufferSize * 8;
-            char * newBuffer = new char[newBufferSize];
-            std::copy(buffer, buffer + bufferSize, newBuffer);
-            if (buffer != internalBuffer)
-                delete[] buffer;
-            buffer = newBuffer;
-            bufferSize = newBufferSize;
-        }
         if (c < ' ' || c >= 127) {
             char * p1 = buffer + pos;
             char * p2 = p1;
