@@ -7,6 +7,6 @@ LIBRTB_EXCHANGE_SOURCES := \
 	ad_server_connector.cc
 
 LIBRTB_EXCHANGE_LINK := \
-	zeromq boost_thread
+	zeromq boost_thread utils endpoint services rtb post_auction
 
 $(eval $(call library,exchange,$(LIBRTB_EXCHANGE_SOURCES),$(LIBRTB_EXCHANGE_LINK)))
