@@ -15,6 +15,53 @@ namespace RTBKIT {
 
 
 /*****************************************************************************/
+/* CURRENCY CODE                                                             */
+/*****************************************************************************/
+
+std::string toString(CurrencyCode code)
+{
+    if (code == CurrencyCode::CC_NONE)
+        return "NONE";
+    else if (code == CurrencyCode::CC_USD)
+        return "USD";
+    else throw ML::Exception("unknown currency code");
+}
+
+CurrencyCode parseCurrencyCode(const std::string & code)
+{
+    if (code == "USD")
+        return CurrencyCode::CC_USD;
+    else if (code == "NONE")
+        return CurrencyCode::CC_NONE;
+    else throw ML::Exception("unknown currency code");
+}
+
+CurrencyCode jsonDecode(const Json::Value & j, CurrencyCode *)
+{
+    if (j.isNull())
+        return CurrencyCode::CC_NONE;
+    string s = j.asString();
+    if (s.size() > 4)
+        throw ML::Exception("unknown currency code " + s);
+    if (s == "USD")
+        return CurrencyCode::CC_USD;
+    
+    throw ML::Exception("not done: decoding other currency " + s);
+}
+
+Json::Value jsonEncode(CurrencyCode code)
+{
+    switch (code) {
+    case CurrencyCode::CC_NONE:
+        return Json::Value();
+    case CurrencyCode::CC_USD:
+        return Json::Value("USD");
+    default:
+        throw ML::Exception("not done: encoding other currencies");
+    }
+}
+
+/*****************************************************************************/
 /* AMOUNT                                                                    */
 /*****************************************************************************/
 
@@ -55,6 +102,24 @@ toString() const
     if (!*this)
         return "0";
     return to_string(value) + getCurrencyStr();
+}
+
+Amount
+Amount::
+fromJson(const Json::Value & val)
+{
+    if (val.isArray()) {
+        if (val.size() != 2)
+            throw ML::Exception("invalid amount size");
+        return Amount(val[0].asString(), val[1].asInt());
+    }
+    else if (val.isString())
+        return parse(val.asString());
+    else if (val.isNumeric() && val.asDouble() == 0.0)
+        return Amount();
+    else if (val.isNull())
+        return Amount();
+    else throw ML::Exception("unknown amount " + val.toString());
 }
 
 Amount
@@ -369,6 +434,133 @@ reconstitute(ML::DB::Store_Reader & store)
     if (version != 0)
         throw ML::Exception("error reconstituting currency pool");
     store >> entries;
+}
+
+
+/*****************************************************************************/
+/* VALUE DESCRIPTIONS                                                        */
+/*****************************************************************************/
+
+struct LineItemsDescription
+    : public Datacratic::ValueDescription<LineItems> {
+
+    LineItemsDescription()
+    {
+    }
+
+    virtual void parseJsonTyped(LineItems * val,
+                                JsonParsingContext & context) const
+    {
+        *val = std::move(LineItems::fromJson(context.expectJson()));
+    }
+
+    virtual void printJsonTyped(const LineItems * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeJson(val->toJson());
+    }
+
+    virtual bool isDefaultTyped(const LineItems * val) const
+    {
+        return val->empty();
+    }
+};
+
+struct AmountDescription
+    : public Datacratic::ValueDescription<Amount> {
+
+    AmountDescription()
+    {
+    }
+
+    virtual void parseJsonTyped(Amount * val,
+                                JsonParsingContext & context) const
+    {
+        *val = std::move(Amount::fromJson(context.expectJson()));
+    }
+
+    virtual void printJsonTyped(const Amount * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeJson(val->toJson());
+    }
+
+    virtual bool isDefaultTyped(const Amount * val) const
+    {
+        return val->isZero();
+    }
+};
+
+struct CurrencyPoolDescription
+    : public Datacratic::ValueDescription<CurrencyPool> {
+
+    CurrencyPoolDescription()
+    {
+    }
+
+    virtual void parseJsonTyped(CurrencyPool * val,
+                                JsonParsingContext & context) const
+    {
+        *val = std::move(CurrencyPool::fromJson(context.expectJson()));
+    }
+
+    virtual void printJsonTyped(const CurrencyPool * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeJson(val->toJson());
+    }
+
+    virtual bool isDefaultTyped(const CurrencyPool * val) const
+    {
+        return val->empty();
+    }
+};
+
+struct CurrencyCodeDescription
+    : public Datacratic::EnumDescription<CurrencyCode> {
+
+    CurrencyCodeDescription()
+    {
+    }
+
+    virtual void parseJsonTyped(CurrencyCode * val,
+                                JsonParsingContext & context) const
+    {
+        std::string s = context.expectStringAscii();
+        *val = parseCurrencyCode(s);
+    }
+
+    virtual void printJsonTyped(const CurrencyCode * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeString(toString(*val));
+    }
+
+    virtual bool isDefaultTyped(const CurrencyCode * val) const
+    {
+        return false;
+    }
+    
+};
+
+ValueDescription<LineItems> * getDefaultDescription(LineItems *)
+{
+    return new LineItemsDescription();
+}
+
+ValueDescription<CurrencyPool> * getDefaultDescription(CurrencyPool *)
+{
+    return new CurrencyPoolDescription();
+}
+
+ValueDescription<Amount> * getDefaultDescription(Amount *)
+{
+    return new AmountDescription();
+}
+
+ValueDescription<CurrencyCode> * getDefaultDescription(CurrencyCode *)
+{
+    return new CurrencyCodeDescription();
 }
 
 } // namespace RTBKIT

@@ -91,10 +91,12 @@ struct AmountJS :
         registerMemberFn(&Amount::operator>=, "ge");
         registerMemberFn(&Amount::operator==, "equals");
 
+#if 0
         registerMemberFn(&Amount::toMicro, "toMicro");
         registerMemberFn(&Amount::toUnit, "toUnit");
         registerMemberFn(&Amount::toCPM, "toCPM");
         registerMemberFn(&Amount::toMicroCPM, "toMicroCPM");
+#endif
 
         NODE_SET_PROTOTYPE_METHOD(t, "currencyCode", getCurrencyCode);
     }

@@ -13,7 +13,7 @@
 #include "jml/utils/unnamed_bool.h"
 #include "jml/db/persistent.h"
 #include "soa/jsoncpp/json.h"
-
+#include "soa/types/value_description.h"
 
 namespace RTBKIT {
 
@@ -22,6 +22,13 @@ enum class CurrencyCode : std::uint32_t {
     CC_NONE = 'N' << 24 | 'O' << 16 | 'N' << 8 | 'E',
     CC_USD = 'U' << 24 | 'S' << 16 | 'D' << 8  | 0      // micro dollars
 };
+
+std::string toString(CurrencyCode code);
+CurrencyCode parseCurrencyCode(const std::string & code);
+
+CurrencyCode jsonDecode(const Json::Value & j, CurrencyCode * = 0);
+Json::Value jsonEncode(CurrencyCode code);
+
 
 /*****************************************************************************/
 /* AMOUNT                                                                    */
@@ -140,11 +147,6 @@ struct Amount {
         return result;
     }
 
-    int64_t toMicro() const    { return value; }
-    double  toUnit() const     { return value / 1000000.0; }
-    double  toCPM() const      { return value * 0.001; }
-    int64_t toMicroCPM() const { return value * 1000; }
-
     static std::string getCurrencyStr(CurrencyCode currencyCode);
     std::string getCurrencyStr() const;
     static CurrencyCode parseCurrency(const std::string & currency);
@@ -179,7 +181,7 @@ struct MicroUSD : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
 
-    operator int64_t () const { return toMicro(); }
+    operator int64_t () const { return value; }
 };
 
 struct USD : public Amount {
@@ -195,7 +197,7 @@ struct USD : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
     
-    operator double () const { return toUnit(); }
+    operator double () const { return value / 0.000001; }
 };
 
 struct USD_CPM : public Amount {
@@ -211,7 +213,7 @@ struct USD_CPM : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
 
-    operator double () const { return toCPM(); }
+    operator double () const { return value * 0.001; }
 };
 
 struct MicroUSD_CPM : public Amount {
@@ -227,7 +229,7 @@ struct MicroUSD_CPM : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
 
-    operator int64_t () const { return toMicroCPM(); }
+    operator int64_t () const { return value * 1000; }
 };
 
 /*****************************************************************************/
@@ -483,6 +485,20 @@ inline std::ostream & operator << (std::ostream & stream, const LineItems & li)
 
 IMPL_SERIALIZE_RECONSTITUTE(LineItems);
 
+Datacratic::ValueDescription<LineItems> *
+getDefaultDescription(LineItems * = 0);
+
+Datacratic::ValueDescription<CurrencyCode> *
+getDefaultDescription(CurrencyCode * = 0);
+
+Datacratic::ValueDescription<CurrencyPool> *
+getDefaultDescription(CurrencyPool * = 0);
+
+Datacratic::ValueDescription<Amount> *
+getDefaultDescription(Amount * = 0);
+
+
 } // namespace RTBKIT
+
 
 #endif /* __types__currency_h__ */
