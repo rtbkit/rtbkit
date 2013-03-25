@@ -807,14 +807,14 @@ struct Lightweight_Hash
 
     iterator find(const Key & key)
     {
-        int bucket = find_full_bucket(key);
+        int bucket = this->find_full_bucket(key);
         if (bucket == -1) return end();
         return iterator(this, bucket);
     }
 
     const_iterator find(const Key & key) const
     {
-        int bucket = find_full_bucket(key);
+        int bucket = this->find_full_bucket(key);
         if (bucket == -1) return end();
         return const_iterator(this, bucket);
     }
