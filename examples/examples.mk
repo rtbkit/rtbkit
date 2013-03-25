@@ -18,3 +18,6 @@ $(eval $(call program,bidding_agent_ex,bidding_agent rtb_router boost_program_op
 RTBKIT_INTEGRATION_TEST_LINK := \
 	rtb_router bidding_agent integration_test_utils monitor monitor_service augmentor_ex
 $(eval $(call program,rtbkit_integration_test,$(RTBKIT_INTEGRATION_TEST_LINK)))
+
+
+$(eval $(call program,standalone_bidder_ex,augmentor_base rtb bid_request agent_configuration boost_program_options rtb_router exchange))
