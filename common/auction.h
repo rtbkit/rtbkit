@@ -24,6 +24,8 @@
 
 namespace RTBKIT {
 
+struct AgentConfig;
+
 /*****************************************************************************/
 /* AUCTION                                                                   */
 /*****************************************************************************/
@@ -115,16 +117,18 @@ struct Auction : public std::enable_shared_from_this<Auction> {
                  std::string agent = "",
                  std::string bidData = "",
                  std::string meta = "null",
-                 std::shared_ptr<const void> agentConfig
-                     = std::shared_ptr<const void>(),
-                 const SegmentList& visitChannels = SegmentList())
+                 std::shared_ptr<const AgentConfig> agentConfig
+                     = std::shared_ptr<const AgentConfig>(),
+                 const SegmentList& visitChannels = SegmentList(),
+                 int agentCreativeIndex = -1)
             : price(price), tagId(tagId),
               account(account),
               test(test), agent(agent),
               bidData(bidData), meta(meta), creativeId(-1),
               localStatus(INVALID),
               agentConfig(agentConfig),
-              visitChannels(visitChannels)
+              visitChannels(visitChannels),
+              agentCreativeIndex(agentCreativeIndex)
         {
         }
 
@@ -146,16 +150,19 @@ struct Auction : public std::enable_shared_from_this<Auction> {
         // Information about the status of the bid (what happened to it)
         WinLoss localStatus;   ///< What happened in the local auction?
 
-        /** Configuration of the bidder that made the bid
+        /** Configuration of the agent that made the bid
 
-            WARNING: This member will not be serialized and will therefor not be
-            available out of process.
+            WARNING: This member will not be serialized and will therefore not
+            be available out of process.
         */
-        std::shared_ptr<const void> agentConfig;
+        std::shared_ptr<const AgentConfig> agentConfig;
 
         // List of channels for which we subscribe to post impression visit
         // events.
         SegmentList visitChannels;
+
+        /** Creative index in this agentConfig's creatives array. */
+        int agentCreativeIndex;
 
         static std::string print(WinLoss wl);
         Json::Value toJson() const;
