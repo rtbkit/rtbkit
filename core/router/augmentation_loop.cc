@@ -142,6 +142,8 @@ init()
                 }
                 else aug.numInFlight = aug.inFlight.size();
             }
+
+            recordLevel(Date::now().secondsSince(now), "requestTimeMs");
                     
             idle_ = 0;
         };
@@ -570,6 +572,8 @@ doResponse(const std::vector<std::string> & message)
     const std::string & augmentor = message[5];
     const std::string & augmentation = message[6];
 
+    ML::Timer timer;
+
     AugmentationList augmentationList;
     if (augmentation != "" && augmentation != "null") {
         try {
@@ -584,6 +588,8 @@ doResponse(const std::vector<std::string> & message)
             recordEvent(eventName.c_str(), ET_COUNT);
         }
     }
+
+    recordLevel(timer.elapsed_wall(), "responseParseTimeMs");
 
     {
         double timeTakenMs = startTime.secondsUntil(Date::now()) * 1000.0;
