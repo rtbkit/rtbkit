@@ -27,6 +27,14 @@ vector<string> samples = {
     "rtbkit/plugins/bid_request/testing/openrtb_expandable_creative.json",
     "rtbkit/plugins/bid_request/testing/openrtb_mobile.json",
     "rtbkit/plugins/bid_request/testing/openrtb_video.json",
+    "rtbkit/plugins/bid_request/testing/rubicon_banner1.json",
+    "rtbkit/plugins/bid_request/testing/rubicon_banner2.json",
+    "rtbkit/plugins/bid_request/testing/rubicon_banner3.json",
+    "rtbkit/plugins/bid_request/testing/rubicon_banner4.json",
+    "rtbkit/plugins/bid_request/testing/rubicon_desktop.json",
+    "rtbkit/plugins/bid_request/testing/rubicon_mobile_app.json",
+    "rtbkit/plugins/bid_request/testing/rubicon_mobile_web.json",
+    "rtbkit/plugins/bid_request/testing/rubicon_test1.json"
 };
 
 std::string loadFile(const std::string & filename)

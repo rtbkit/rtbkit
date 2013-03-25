@@ -1,0 +1,63 @@
+{
+    "id": "48a6666792dc1ebfb68f8fb16aaa7bb5e6f0cccf",
+    "at": 2,
+    "tmax": 120,
+    "imp": [
+        {
+            "id": "1",
+            "tagid": "30174",
+            "banner": {
+                "w": 300,
+                "h": 250,
+                "pos": 1,
+                "btype": [
+                    3,
+                    4
+                ],
+                "battr": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    8,
+                    9,
+                    14
+                ],
+                "topframe": 1
+            },
+            "iframebuster": [
+                "mm",
+                "pr"
+            ]
+        }
+    ],
+    "site": {
+        "id": "12345",
+        "name": "Example Site",
+        "domain": "example.com",
+        "cat": [
+            "IAB1-1",
+            "IAB1-3"
+        ],
+        "page": "http://www.example.com/foo?bar=1",
+        "publisher": {
+            "id": "67890"
+        }
+    },
+    "device": {
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.4 (KHTML, like Gecko) Chrome/22.0.1229.94 Safari/537.4",
+        "ip": "192.168.1.10",
+        "geo": {
+            "country": "NLD",
+            "region": "NB",
+            "type": 2
+        },
+        "language": "en",
+        "js": 1,
+        "devicetype": 2
+    },
+    "user": {
+        "id": "fe845197532eb8b02a11a1576b12e7957ab7d26f",
+        "buyeruid": "2761F376-7D7A-472A-8392-0735FF36F74C"
+    }
+}

@@ -1,0 +1,57 @@
+{
+    "id": "e72ade0b939f8d83c466c7dfed6bae8f73875400",
+    "at": 2,
+    "tmax": 150,
+    "ext": {
+        "private": 0
+    },
+    "imp": [
+        {
+            "id": "1",
+            "tagid": "1",
+            "banner": {
+                "w": 120,
+                "h": 60,
+                "pos": 3,
+                "battr": [
+                    14,
+                    2
+                ],
+                "topframe": 1
+            },
+            "iframebuster": [
+                "mm",
+                "pr"
+            ]
+        }
+    ],
+    "site": {
+        "id": "55555",
+        "domain": "http: //www.automatethistestplz.com",
+        "cat": [
+            "IAB14"
+        ],
+        "page": "http: //www.automatethistestplz.com/foo?param=bar",
+        "publisher": {
+            "id": "99999"
+        }
+    },
+    "device": {
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.4 (KHTML, like Gecko) Chrome/22.0.1229.94 Safari/537.4",
+        "ip": "127.0.0.1",
+        "language": "en",
+        "devicetype": 2,
+        "js": 1,
+        "geo": {
+            "country": "USA",
+            "region": "CA",
+            "type": 2
+        }
+    },
+    "user": {
+        "id": "586eb6913f95d707911c385df76ade4f1d73161d",
+        "buyeruid": "thklETHlETSLhDSTzLKTH",
+        "tz": -800,
+        "sessiondepth": 1
+    }
+}

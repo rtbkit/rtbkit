@@ -1,0 +1,70 @@
+{
+    "id": "57a9c9d557428456253ff5bdbfbc009954f2f03f",
+    "at": 2,
+    "tmax": 150,
+    "ext": {
+        "private": 0
+    },
+    "imp": [
+        {
+            "id": "1",
+            "tagid": "0",
+            "banner": {
+                "w": 320,
+                "h": 50,
+                "pos": 1,
+                "battr": [
+                    10,
+                    14002,
+                    9,
+                    14005,
+                    14,
+                    1,
+                    3,
+                    2,
+                    8,
+                    13,
+                    14018,
+                    14014,
+                    14019,
+                    5
+                ],
+                "api": [],
+                "topframe": 1
+            },
+            "iframebuster": [
+                "mm",
+                "pr"
+            ]
+        }
+    ],
+    "site": {
+        "id": "90000",
+        "domain": "http://rtb.automatethistestplz.com",
+        "page": "http://66.150.149.26/qa/rst-mob-23-43-qa-ndb.html",
+        "publisher": {
+            "id": "99999"
+        },
+        "ext": {
+            "mopt": 0
+        }
+    },
+    "device": {
+        "ua": "Mozilla/5.0 (Linux; U; Android 2.3.4; en-us; Silk/1.0.22.153_10033210) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1 Silk-Accelerated=true",
+        "ip": "64.60.206.226",
+        "language": "en",
+        "devicetype": 1,
+        "ext": {
+            "res": "800x1092"
+        },
+        "geo": {
+            "country": "USA",
+            "region": "ca"
+        }
+    },
+    "user": {
+        "id": "91955cb0a0c03988e4c8c29b4ac96bc5383f6c10",
+        "tz": -800,
+        "sessiondepth": 1
+    }
+}

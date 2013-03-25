@@ -1,0 +1,82 @@
+{
+    "id": "19511639a3c96823fa4d6f9a577473ec934eba3d",
+    "at": 2,
+    "tmax": 150,
+    "ext": {
+        "private": 0
+    },
+    "imp": [
+        {
+            "id": "1",
+            "tagid": "0",
+            "banner": {
+                "w": 320,
+                "h": 50,
+                "battr": [
+                    10,
+                    14002,
+                    9,
+                    14005,
+                    14,
+                    1,
+                    3,
+                    2,
+                    8,
+                    13,
+                    14018,
+                    14014,
+                    14019,
+                    5
+                ],
+                "api": [
+                    3,
+                    1000
+                ],
+                "topframe": 1
+            },
+            "iframebuster": [
+                "mm",
+                "pr"
+            ]
+        }
+    ],
+    "app": {
+        "id": "90000",
+        "bundle": "com.mobsmith.RFMv2",
+        "ver": "2.2.0",
+        "privacypolicy": 1,
+        "publisher": {
+            "id": "99999"
+        }
+    },
+    "device": {
+        "ua": "Mozilla/5.0 (iPad; CPU OS 5_1_1 like Mac OS X) AppleWebKit/534.46 (KHTML, like Gecko) Mobile/9B206",
+        "ip": "64.60.206.226",
+        "language": "en",
+        "devicetype": 1,
+        "make": "iPad",
+        "model": "iPad",
+        "os": "iPhone OS",
+        "osv": "5.1.1",
+        "dpidmd5": "6def489f84a21c7594f5c56e26301153",
+        "carrier": "Telepacific Communications",
+        "js": 1,
+        "ext": {
+            "storerating": 1,
+            "appstoreid": "wha1"
+        },
+        "geo": {
+            "country": "USA",
+            "region": "ca",
+            "lat": 0,
+            "lon": 0,
+            "type": 3,
+            "latlonconsent": 1
+        }
+    },
+    "user": {
+        "id": "081086c886a3676cb7371e291aae0146741557dc",
+        "tz": -800,
+        "sessiondepth": 1
+    }
+}

@@ -49,8 +49,13 @@ CXX_VERSION?=$(shell g++ --version | head -n1 | sed 's/.* //g')
 
 CFLAGS += -fno-strict-overflow -msse4.2
 
+PKGINCLUDE_PACKAGES = sigc++-2.0 cairomm-1.0
+
+PKGCONFIG_INCLUDE:=$(shell pkg-config --cflags-only-I $(PKGINCLUDE_PACKAGES))
+
+
 THRIFT_INCLUDE?=$(NODE_PREFIX)/include/thrift
-CXXFLAGS += -Wno-deprecated -Wno-uninitialized -Winit-self -fno-omit-frame-pointer -std=c++0x -fno-deduce-init-list -I$(NODE_PREFIX)/include/node -msse3 -I$(THRIFT_INCLUDE) -Ileveldb/include -Wno-unused-but-set-variable -I$(LOCAL_INCLUDE_DIR) -I/usr/local/include -Wno-psabi -D__GXX_EXPERIMENTAL_CXX0X__=1
+CXXFLAGS += -Wno-deprecated -Wno-uninitialized -Winit-self -fno-omit-frame-pointer -std=c++0x -fno-deduce-init-list -I$(NODE_PREFIX)/include/node -msse3 -I$(THRIFT_INCLUDE) -Ileveldb/include -Wno-unused-but-set-variable -I$(LOCAL_INCLUDE_DIR) $(PKGCONFIG_INCLUDE) -Wno-psabi -D__GXX_EXPERIMENTAL_CXX0X__=1
 CXXLINKFLAGS += -Wl,--copy-dt-needed-entries -Wl,--no-as-needed -L/usr/local/lib
 CFLAGS +=  -Wno-unused-but-set-variable
 
