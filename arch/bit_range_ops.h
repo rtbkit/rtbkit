@@ -10,6 +10,7 @@
 
 #include "jml/arch/arch.h"
 #include "jml/compiler/compiler.h"
+#include "jml/arch/format.h"
 #include <cstddef>
 #include <stdint.h>
 #include <algorithm>
@@ -233,7 +234,8 @@ void set_bit_range(Data& p0, Data& p1, Data val, shift_t bit, shift_t bits)
 template<typename T>
 T sign_extend(T raw, int sign_bit)
 {
-    int sign = (raw & (1 << sign_bit)) != 0;
+    using namespace std;
+    T sign = (raw & ((T)1 << sign_bit)) != 0;
     T new_bits = T(-sign) << sign_bit;
     return raw | new_bits;
 }
