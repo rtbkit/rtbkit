@@ -172,17 +172,13 @@ print(unsigned seconds_digits) const
         else return "-Inf";
     }
 
-    boost::posix_time::ptime time
-        = epoch + boost::posix_time::seconds(secondsSinceEpoch_);
-    string result = boost::posix_time::to_simple_string(time);
+    string result = print("%Y-%b-%d %H:%M:%S");
     if (seconds_digits == 0) return result;
 
     double partial_seconds = fractionalSeconds();
-
     string fractional = format("%0.*f", seconds_digits, partial_seconds);
 
     result.append(fractional, 1, -1);
-
     return result;
 }
 

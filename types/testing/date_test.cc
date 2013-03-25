@@ -93,6 +93,16 @@ BOOST_AUTO_TEST_CASE( test_date_parse_roundtrip )
     }
 }
 
+BOOST_AUTO_TEST_CASE( test_stream_print_equality )
+{
+    Date d = Date::fromSecondsSinceEpoch(4516978241);
+
+    std::stringstream ss;
+    ss << d;
+
+    BOOST_CHECK_EQUAL(ss.str(), "2113-Feb-19 20:10:41");
+}
+
 BOOST_AUTO_TEST_CASE( test_ace )
 {
     ACE_Time_Value ace(1, 0);
