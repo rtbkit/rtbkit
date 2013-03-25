@@ -12,6 +12,12 @@
 
 namespace RTBKIT {
 
+ExchangeConnector::CampaignCompatibility::
+CampaignCompatibility(const AgentConfig & config)
+    : creatives(config.creatives.size())
+{
+}
+
 
 /*****************************************************************************/
 /* EXCHANGE CONNECTOR                                                        */
@@ -53,6 +59,26 @@ void
 ExchangeConnector::
 shutdown()
 {
+}
+
+ExchangeConnector::ExchangeCompatibility
+ExchangeConnector::
+getCampaignCompatibility(const AgentConfig & config,
+                         bool includeReasons) const
+{
+    ExchangeCompatibility result;
+    result.setCompatible();
+    return result;
+}
+
+ExchangeConnector::ExchangeCompatibility
+ExchangeConnector::
+getCreativeCompatibility(const Creative & creative,
+                         bool includeReasons) const
+{
+    ExchangeCompatibility result;
+    result.setCompatible();
+    return result;
 }
 
 namespace {

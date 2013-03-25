@@ -162,6 +162,7 @@ doEvent(const char * eventName,
         float value,
         const char * units)
 {
+    //cerr << eventName << " " << value << endl;
     endpoint->recordEvent(eventName, type, value);
 }
 
@@ -177,21 +178,15 @@ HttpAuctionHandler::
 handleHttpPayload(const HttpHeader & header,
                   const std::string & payload)
 {
-    if (header.resource == "/ready") {
-        auto onSendFinished = [=] ()
-            {
-                this->transport().associateWhenHandlerFinished
-                (this->makeNewHandlerShared(), "readyResponse");
-            };
+    // Unknown resource?  Handle it...
+    //cerr << header.verb << " " << header.resource << endl;
+    //cerr << header << endl;
+    //cerr << payload << endl;
+    //cerr << endpoint->auctionVerb << " " << endpoint->auctionResource << endl;
 
-        send("HTTP/1.1 200 OK\r\n"
-             "Content-Type: text/plain\r\n"
-             "Content-Length: 1\r\n"
-             "Connection: Keep-Alive\r\n"
-             "\r\n"
-             "1",
-             NEXT_CONTINUE,
-             onSendFinished);
+    if (header.resource != endpoint->auctionResource
+        || header.verb != endpoint->auctionVerb) {
+        endpoint->handleUnknownRequest(*this, header, payload);
         return;
     }
 
@@ -257,6 +252,10 @@ handleHttpPayload(const HttpHeader & header,
     */
     auto handleAuction = [=] (std::shared_ptr<Auction> auction)
         {
+            //cerr << "HANDLE AUCTION CALLED AFTER "
+            //<< Date::now().secondsSince(auction->start) * 1000
+            //<< "ms" << endl;
+
             if (!auction || auction->isZombie)
                 return;  // Was already externally terminated; this is invalid
 
@@ -277,6 +276,12 @@ handleHttpPayload(const HttpHeader & header,
 
     try {
         auto bidRequest = parseBidRequest(header, payload);
+
+        if (!bidRequest) {
+            cerr << "got no bid request" << endl;
+            // The request was handled; nothing to do
+            return;
+        }
 
         auction.reset(new Auction(handleAuction, bidRequest,
                                   bidRequest->toJsonStr(),
@@ -301,15 +306,15 @@ handleHttpPayload(const HttpHeader & header,
         sendErrorResponse("Error parsing bid request", exc.what());
         return;
     }
-    
+
     doEvent("auctionNetworkLatencyMs",
             ET_OUTCOME,
-            (firstData.secondsSinceEpoch() - auction->request->timestamp) * 1000.0,
+            (firstData.secondsSince(Date::fromSecondsSinceEpoch(auction->request->timestamp))) * 1000.0,
             "ms");
 
     doEvent("auctionTotalStartLatencyMs",
             ET_OUTCOME,
-            (now.secondsSinceEpoch() - auction->request->timestamp) * 1000.0,
+            (now.secondsSince(Date::fromSecondsSinceEpoch(auction->request->timestamp))) * 1000.0,
             "ms");
 
     doEvent("auctionStart");
@@ -447,7 +452,7 @@ dropAuction(const std::string & reason)
             }
         };
 
-    putResponseOnWire(endpoint->getDroppedAuctionResponse(*auction, reason),
+    putResponseOnWire(endpoint->getDroppedAuctionResponse(*this, *auction, reason),
                       onSendFinished);
 }
 
@@ -456,7 +461,7 @@ HttpAuctionHandler::
 sendErrorResponse(const std::string & error,
                   const std::string & details)
 {
-    putResponseOnWire(endpoint->getErrorResponse(*auction, error + ": " + details));
+    putResponseOnWire(endpoint->getErrorResponse(*this, *auction, error + ": " + details));
 }
 
 std::string
@@ -478,7 +483,7 @@ HttpResponse
 HttpAuctionHandler::
 getResponse() const
 {
-    return endpoint->getResponse(*auction);
+    return endpoint->getResponse(*this, this->header, *auction);
 }
 
 std::shared_ptr<BidRequest>
@@ -486,7 +491,7 @@ HttpAuctionHandler::
 parseBidRequest(const HttpHeader & header,
                 const std::string & payload)
 {
-    return endpoint->parseBidRequest(header, payload);
+    return endpoint->parseBidRequest(*this, header, payload);
 }
 
 double
@@ -494,14 +499,14 @@ HttpAuctionHandler::
 getTimeAvailableMs(const HttpHeader & header,
                    const std::string & payload)
 {
-    return endpoint->getTimeAvailableMs(header, payload);
+    return endpoint->getTimeAvailableMs(*this, header, payload);
 }
 
 double
 HttpAuctionHandler::
 getRoundTripTimeMs(const HttpHeader & header)
 {
-    return endpoint->getRoundTripTimeMs(header, *this);
+    return endpoint->getRoundTripTimeMs(*this, header);
 }
 
 } // namespace RTBKIT

@@ -14,6 +14,7 @@
 #include "jml/utils/set_utils.h"
 #include "jml/utils/vector_utils.h"
 #include "jml/arch/timers.h"
+#include "rtbkit/core/router/router.h"
 #include <set>
 
 #include <boost/foreach.hpp>
@@ -32,15 +33,39 @@ namespace RTBKIT {
 
 HttpExchangeConnector::
 HttpExchangeConnector(const std::string & name,
-                      ServiceBase & parent,
-                      OnAuction onNewAuction, OnAuction onAuctionDone)
+                      ServiceBase & parent)
     : ExchangeConnector(name, parent),
-      HttpEndpoint(name),
-      acceptAuctionProbability(1.0),
-      onNewAuction(onNewAuction),
-      onAuctionDone(onAuctionDone),
-      numServingRequest_(0)
+      HttpEndpoint(name)
 {
+    postConstructorInit();
+}
+
+HttpExchangeConnector::
+HttpExchangeConnector(const std::string & name,
+                      std::shared_ptr<ServiceProxies> proxies)
+    : ExchangeConnector(name, proxies),
+      HttpEndpoint(name)
+{
+    postConstructorInit();
+}
+
+void
+HttpExchangeConnector::
+postConstructorInit()
+{
+    numThreads = 8;
+    listenPort = 10001;
+    bindHost = "*";
+    performNameLookup = true;
+    backlog = DEF_BACKLOG;
+    pingTimeUnknownHostsMs = 20;
+
+    numServingRequest_ = 0;
+    acceptAuctionProbability = 1.0;
+
+    onNewAuction  = [=] (std::shared_ptr<Auction> a) { if (router) router->injectAuction(a); };
+    onAuctionDone = [=] (std::shared_ptr<Auction> a) { if (router) router->onAuctionDone(a); };
+    
     // Link up events
     onTransportOpen = [=] (TransportBase *)
         {
@@ -63,8 +88,44 @@ HttpExchangeConnector::
 
 void
 HttpExchangeConnector::
+configure(const Json::Value & parameters)
+{
+    getParam(parameters, numThreads, "numThreads");
+    getParam(parameters, listenPort, "listenPort");
+    getParam(parameters, bindHost, "bindHost");
+    getParam(parameters, performNameLookup, "performNameLookup");
+    getParam(parameters, backlog, "connectionBacklog");
+    getParam(parameters, auctionResource, "auctionResource");
+    getParam(parameters, auctionVerb, "auctionVerb");
+    getParam(parameters, pingTimesByHostMs, "pingTimesByHostMs");
+    getParam(parameters, pingTimeUnknownHostsMs, "pingTimeUnknownHostsMs");
+}
+
+void
+HttpExchangeConnector::
+configureHttp(int numThreads,
+              int listenPort,
+              const std::string & bindHost,
+              bool performNameLookup,
+              int backlog,
+              const std::string & auctionResource,
+              const std::string & auctionVerb)
+{
+    this->numThreads = numThreads;
+    this->listenPort = listenPort;
+    this->bindHost = bindHost;
+    this->performNameLookup = performNameLookup;
+    this->backlog = backlog;
+    this->auctionResource = auctionResource;
+    this->auctionVerb = auctionVerb;
+}
+
+void
+HttpExchangeConnector::
 start()
 {
+    PassiveEndpoint::init(listenPort, bindHost, numThreads, true,
+                          performNameLookup, backlog);
 }
 
 void
@@ -72,6 +133,7 @@ HttpExchangeConnector::
 shutdown()
 {
     HttpEndpoint::shutdown();
+    ExchangeConnector::shutdown();
 }
 
 std::shared_ptr<ConnectionHandler>
@@ -128,7 +190,8 @@ getServiceStatus() const
 
 std::shared_ptr<BidRequest>
 HttpExchangeConnector::
-parseBidRequest(const HttpHeader & header,
+parseBidRequest(HttpAuctionHandler & connection,
+                const HttpHeader & header,
                 const std::string & payload)
 {
     throw ML::Exception("need to override HttpExchangeConnector::parseBidRequest");
@@ -136,7 +199,8 @@ parseBidRequest(const HttpHeader & header,
 
 double
 HttpExchangeConnector::
-getTimeAvailableMs(const HttpHeader & header,
+getTimeAvailableMs(HttpAuctionHandler & connection,
+                   const HttpHeader & header,
                    const std::string & payload)
 {
     throw ML::Exception("need to override HttpExchangeConnector::getTimeAvailableMs");
@@ -144,36 +208,80 @@ getTimeAvailableMs(const HttpHeader & header,
 
 double
 HttpExchangeConnector::
-getRoundTripTimeMs(const HttpHeader & header,
-                   const HttpAuctionHandler & connection)
+getRoundTripTimeMs(HttpAuctionHandler & connection,
+                   const HttpHeader & header)
 {
-    throw ML::Exception("need to override HttpExchangeConnector::getRoundTripTimeMs");
+    string peerName = connection.transport().getPeerName();
+    
+    auto it = pingTimesByHostMs.find(peerName);
+    if (it == pingTimesByHostMs.end())
+        return pingTimeUnknownHostsMs;
+    return it->second;
 }
 
 HttpResponse
 HttpExchangeConnector::
-getResponse(const Auction & auction) const
+getResponse(const HttpAuctionHandler & connection,
+            const HttpHeader & requestHeader,
+            const Auction & auction) const
 {
     throw ML::Exception("need to override HttpExchangeConnector::getResponse");
 }
 
 HttpResponse
 HttpExchangeConnector::
-getDroppedAuctionResponse(const Auction & auction,
+getDroppedAuctionResponse(const HttpAuctionHandler & connection,
+                          const Auction & auction,
                           const std::string & reason) const
 {
     // Default for when dropped auction == no bid
-    return getResponse(auction);
+    return getResponse(connection, connection.header, auction);
 }
 
 HttpResponse
 HttpExchangeConnector::
-getErrorResponse(const Auction & auction,
+getErrorResponse(const HttpAuctionHandler & connection,
+                 const Auction & auction,
                  const std::string & errorMessage) const
 {
     // Default for when error == no bid
-    return getResponse(auction);
+    return getResponse(connection, connection.header, auction);
 }
 
+void
+HttpExchangeConnector::
+handleUnknownRequest(HttpAuctionHandler & connection,
+                     const HttpHeader & header,
+                     const std::string & payload) const
+{
+    // Deal with the "/ready" request
+    
+    if (header.resource == "/ready") {
+        connection.putResponseOnWire(HttpResponse(200, "text/plain", "1"));
+        return;
+    }
+
+    // Otherwise, it's an error
+
+    connection.sendErrorResponse("unknown resource " + header.resource);
+}
+
+ExchangeConnector::ExchangeCompatibility
+HttpExchangeConnector::
+getCampaignCompatibility(const AgentConfig & config,
+                         bool includeReasons) const
+{
+    return ExchangeConnector
+        ::getCampaignCompatibility(config, includeReasons);
+}
+
+ExchangeConnector::ExchangeCompatibility
+HttpExchangeConnector::
+getCreativeCompatibility(const Creative & creative,
+                         bool includeReasons) const
+{
+    return ExchangeConnector
+        ::getCreativeCompatibility(creative, includeReasons);
+}
 
 } // namespace RTBKIT

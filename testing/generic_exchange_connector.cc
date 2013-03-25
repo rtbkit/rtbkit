@@ -24,16 +24,11 @@ namespace RTBKIT {
 
 GenericExchangeConnector::
 GenericExchangeConnector(Router * router, Json::Value config)
-    : HttpExchangeConnector("GenericExchangeConnector", *router,
-                      [=] (std::shared_ptr<Auction> auction)
-                      {
-                          router->injectAuction(auction, 0.1 /* seconds */);
-                      },
-                      [=] (std::shared_ptr<Auction> auctionDone)
-                      {
-                          router->onAuctionDone(auctionDone);
-                      })
+    : HttpExchangeConnector("GenericExchangeConnector", *router)
 {
+    auctionResource = "/auction";
+    auctionVerb = "POST";
+    this->setRouter(router);
 }
 
 GenericExchangeConnector::
@@ -50,34 +45,10 @@ shutdown()
     ExchangeConnector::shutdown();
 }
 
-void
-GenericExchangeConnector::
-configure(const Json::Value & parameters)
-{
-    numThreads = 2;
-    listenPort = 9950;
-    bindHost = "*";
-    performNameLookup = true;
-    backlog = DEF_BACKLOG;
-
-    getParam(parameters, numThreads, "numThreads");
-    getParam(parameters, listenPort, "listenPort");
-    getParam(parameters, bindHost, "bindHost");
-    getParam(parameters, performNameLookup, "performNameLookup");
-    getParam(parameters, backlog, "connectionBacklog");
-}
-
-void
-GenericExchangeConnector::
-start()
-{
-    PassiveEndpoint::init(listenPort, bindHost, numThreads, true,
-                          performNameLookup, backlog);
-}
-
 std::shared_ptr<BidRequest>
 GenericExchangeConnector::
-parseBidRequest(const HttpHeader & header,
+parseBidRequest(HttpAuctionHandler & connection,
+                const HttpHeader & header,
                 const std::string & payload)
 {
     const char * start = payload.c_str();
@@ -92,7 +63,8 @@ parseBidRequest(const HttpHeader & header,
 
 double
 GenericExchangeConnector::
-getTimeAvailableMs(const HttpHeader & header,
+getTimeAvailableMs(HttpAuctionHandler & connection,
+                   const HttpHeader & header,
                    const std::string & payload)
 {
     double timeAvailableMs = 35;
@@ -119,15 +91,17 @@ getTimeAvailableMs(const HttpHeader & header,
 
 double
 GenericExchangeConnector::
-getRoundTripTimeMs(const HttpHeader & header,
-                   const HttpAuctionHandler & connection)
+getRoundTripTimeMs(HttpAuctionHandler & connection,
+                   const HttpHeader & header)
 {
     return 5.0;
 }
 
 HttpResponse
 GenericExchangeConnector::
-getResponse(const Auction & auction) const
+getResponse(const HttpAuctionHandler & connection,
+            const HttpHeader & requestHeader,
+            const Auction & auction) const
 {
     std::string result;
     result.reserve(256);
@@ -135,7 +109,8 @@ getResponse(const Auction & auction) const
     const Auction::Data * current = auction.getCurrentData();
 
     if (current->hasError()) {
-        return getErrorResponse(auction,
+        return getErrorResponse(connection,
+                                auction,
                                 current->error + ": " + current->details);
     }
 
@@ -191,7 +166,8 @@ getResponse(const Auction & auction) const
 
 HttpResponse
 GenericExchangeConnector::
-getDroppedAuctionResponse(const Auction & auction,
+getDroppedAuctionResponse(const HttpAuctionHandler & connection,
+                          const Auction & auction,
                           const std::string & reason) const
 {
     Json::Value response;
@@ -204,7 +180,8 @@ getDroppedAuctionResponse(const Auction & auction,
 
 HttpResponse
 GenericExchangeConnector::
-getErrorResponse(const Auction & auction,
+getErrorResponse(const HttpAuctionHandler & connection,
+                 const Auction & auction,
                  const std::string & errorMessage) const
 {
     Json::Value response;
