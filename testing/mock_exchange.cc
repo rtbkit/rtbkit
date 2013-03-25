@@ -76,10 +76,19 @@ start(size_t numBidRequests)
             recordHit("requests");
 
             while (true) {
+                Date beforeSend = Date::now();
+
                 sendBidRequest(bidRequest);
                 recordHit("sent");
 
                 auto response = recvBid();
+
+                Date afterResponse = Date::now();
+
+                double responseTimeMs = afterResponse.secondsSince(beforeSend) * 1000.0;
+
+                recordOutcome(responseTimeMs, "responseTimeMs");
+
                 if (!response.first) continue;
                 recordHit("bids");
 
@@ -113,14 +122,17 @@ makeBidRequest(size_t i)
 
     FormatSet formats;
     formats.push_back(Format(160,600));
-    AdSpot spot;
-    spot.id = Id(1);
-    spot.formats = formats;
-    bidRequest.spots.push_back(spot);
 
+    AdSpot spot1;
+    spot1.id = Id(1);
+    spot1.formats = formats;
+    bidRequest.spots.emplace_back(std::move(spot1));
+
+    AdSpot spot2;
     formats[0] = Format(300,250);
-    spot.id = Id(2);
-    bidRequest.spots.push_back(spot);
+    spot2.id = Id(2);
+    spot2.formats = formats;
+    bidRequest.spots.emplace_back(std::move(spot2));
 
     bidRequest.location.countryCode = "CA";
     bidRequest.location.regionCode = "QC";
@@ -128,7 +140,7 @@ makeBidRequest(size_t i)
     bidRequest.auctionId = Id(exchangeId * 10000000 + i);
     bidRequest.exchange = "test";
     bidRequest.language = "en";
-    bidRequest.url = Url("http://rtbkit.com");
+    bidRequest.url = Url("http://rtbkit.org");
     bidRequest.timestamp = Date::now();
     bidRequest.userIds.add(Id(std::string("foo")), ID_EXCHANGE);
     bidRequest.userIds.add(Id(std::string("bar")), ID_PROVIDER);
@@ -170,7 +182,7 @@ sendBidRequest(const BidRequest& originalBidRequest)
 {
     string strBidRequest = originalBidRequest.toJsonStr();
     string httpRequest = ML::format(
-            "POST /bidreq HTTP/1.1\r\n"
+            "POST /auction HTTP/1.1\r\n"
             "Content-Length: %zd\r\n"
             "Content-Type: application/json\r\n"
             "\r\n"
