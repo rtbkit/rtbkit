@@ -309,12 +309,12 @@ handleHttpPayload(const HttpHeader & header,
 
     doEvent("auctionNetworkLatencyMs",
             ET_OUTCOME,
-            (firstData.secondsSince(Date::fromSecondsSinceEpoch(auction->request->timestamp))) * 1000.0,
+            (firstData.secondsSince(auction->request->timestamp)) * 1000.0,
             "ms");
 
     doEvent("auctionTotalStartLatencyMs",
             ET_OUTCOME,
-            (now.secondsSince(Date::fromSecondsSinceEpoch(auction->request->timestamp))) * 1000.0,
+            (now.secondsSince(auction->request->timestamp)) * 1000.0,
             "ms");
 
     doEvent("auctionStart");

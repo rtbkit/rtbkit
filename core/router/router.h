@@ -132,6 +132,11 @@ struct Router : public ServiceBase,
     /** Bind a zeroMQ URI to listen for augmentation messages on. */
     void bindAugmentors(const std::string & uri);
 
+    /** Disable the monitor for testing purposes.  In production this could lead
+        to unbounded overspend, so please do really only use it for testing.
+    */
+    void unsafeDisableMonitor();
+
     /** Start the router running in a separate thread.  The given function
         will be called when the thread is stopped. */
     virtual void
@@ -158,8 +163,18 @@ struct Router : public ServiceBase,
     }
 
     /** Register the exchange */
-    void addExchange(std::unique_ptr<ExchangeConnector> && exchange) {
+    void addExchange(ExchangeConnector * exchange)
+    {
         Guard guard(lock);
+        exchange->setRouter(this);
+        exchanges.emplace_back(exchange);
+    }
+
+    /** Register the exchange */
+    void addExchange(std::unique_ptr<ExchangeConnector> && exchange)
+    {
+        Guard guard(lock);
+        exchange->setRouter(this);
         exchanges.emplace_back(std::move(exchange));
     }
 
@@ -244,7 +259,6 @@ struct Router : public ServiceBase,
         account. */
     Json::Value getAccountInfo(const AccountKey & account) const;
     
-
     /** Multiplier for the bid probability of all agents. */
     void setGlobalBidProbability(double val) { globalBidProbability = val; }
     
@@ -408,7 +422,7 @@ public:
     /** Add the given agent (with the given configuration) to the
         configuration structures.
     */
-    void configure(const std::string & agent, const AgentConfig & config);
+    void configure(const std::string & agent, AgentConfig & config);
 
     /** Send the given message to the given bidding agent. */
     template<typename... Args>

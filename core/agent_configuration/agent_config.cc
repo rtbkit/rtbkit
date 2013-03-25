@@ -54,6 +54,8 @@ fromJson(const Json::Value & val)
     if (val.isMember("tagId"))
         tagId = val["tagId"].asInt();
     else tagId = -1;
+
+    providerConfig = val["providerConfig"];
     
     if (tagId == -1)
         throw Exception("no tag ID in creative: " + val.toString());
@@ -80,6 +82,8 @@ toJson() const
         result["locationFilter"] = locationFilter.toJson();
     if (!exchangeFilter.empty())
         result["exchangeFilter"] = exchangeFilter.toJson();
+    if (!providerConfig.isNull())
+        result["providerConfig"] = providerConfig;
     return result;
 }
 
@@ -364,13 +368,12 @@ isDefault() const
 
 bool
 AgentConfig::HourOfWeekFilter::
-isIncluded(double auctionDate) const
+isIncluded(Date date) const
 {
     if (isDefault())
         return true;
-    if (!auctionDate)
+    if (date == Date())
         throw ML::Exception("null auction date with hour of week filter on");
-    Date date = Date::fromSecondsSinceEpoch(auctionDate);
     int hour = date.hourOfWeek();
     return hourBitmap[hour];
 }

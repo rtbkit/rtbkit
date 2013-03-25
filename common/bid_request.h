@@ -20,13 +20,17 @@
 #include "rtbkit/common/segments.h"
 #include <set>
 #include "rtbkit/common/currency.h"
+#include "tags.h"
+#include "openrtb/openrtb.h"
 
 
 namespace RTBKIT {
-    using namespace Datacratic;
+
+using namespace Datacratic;
 
 typedef ML::compact_vector<uint16_t, 5, uint16_t> SmallIntVector;
 typedef ML::compact_vector<uint32_t, 3, uint32_t> IntVector;
+
 
 /*****************************************************************************/
 /* FORMAT                                                                    */
@@ -112,34 +116,44 @@ IMPL_SERIALIZE_RECONSTITUTE(FormatSet);
 
 /** Information about an ad spot that can be bid on. */
 
-struct AdSpot {
-    enum Position {NONE, ABOVE_FOLD, BELOW_FOLD};
-    AdSpot(const Id & id = Id(), int reservePrice = 0);
-        
+struct AdSpot: public OpenRTB::Impression {
+    AdSpot()
+    {
+    }
+
+    AdSpot(OpenRTB::Impression && imp)
+        : OpenRTB::Impression(std::move(imp))
+    {
+    }
+
     void fromJson(const Json::Value & val);
     Json::Value toJson() const;
     std::string toJsonStr() const;
     static AdSpot createFromJson(const Json::Value & json);
-    std::string positionToStr() const ;
-    static Position stringToPosition(const std::string &pos) ;
-    static std::string positionToStr(Position pos);
 
-    Id id;
-    FormatSet formats;
-    int reservePrice;
-
-    Position position;
     std::string format() const;
     std::string firstFormat() const;
 
+    /// Derived set of formats for the creative
+    FormatSet formats;
+
+    /// Fold position (deprecated)
+    OpenRTB::AdPosition position;
+
+    /// Minimum price for the bid request (deprecated)
+    Amount reservePrice;
+
+    /// Tags set on the creative to be filtered by the creative
+    Tags tags;
+
+    /// Filter that filters against the campaign tags
+    TagFilter tagFilter;
+    
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 };
 
 IMPL_SERIALIZE_RECONSTITUTE(AdSpot);
-
-void jsonParse(const Json::Value & value, AdSpot::Position & pos);
-Json::Value jsonPrint(const AdSpot::Position & pos);
 
 
 /*****************************************************************************/
@@ -237,40 +251,93 @@ struct Location {
 IMPL_SERIALIZE_RECONSTITUTE(Location);
 
 
+using OpenRTB::AuctionType;
+
 /*****************************************************************************/
 /* BID REQUEST                                                               */
 /*****************************************************************************/
 
 struct BidRequest {
     BidRequest()
-        : timestamp(0), isTest(false)
+        : auctionType(AuctionType::SECOND_PRICE), timeAvailableMs(0.0),
+          isTest(false) 
     {
     }
 
     Id auctionId;
-    std::string language;
-    std::string protocolVersion;
-    std::string exchange;
-    std::string provider;
-    double timestamp;
+    AuctionType auctionType;
+    double timeAvailableMs;
+    Date timestamp;
     bool isTest;
 
-    Location location;
-    UserIds userIds;
+    std::string protocolVersion;  ///< What protocol version, eg OpenRTB
+    std::string exchange;
+    std::string provider;
+
+    /* The following fields indicate the contents of the OpenRTB bid request
+       that is being processed.
+    */
+
+    /** Information specific to the site that generated the request.  Only
+        one of site or app will be present.
+    */
+    OpenRTB::Optional<OpenRTB::Site> site;
+
+    /** Information specific to the app that generated the request.  Only
+        one of site or app will be present.
+    */
+    OpenRTB::Optional<OpenRTB::App> app;
+
+    /** Information about the device that generated the request. */
+    OpenRTB::Optional<OpenRTB::Device> device;
+
+    /** Information about the user that generated the request. */
+    OpenRTB::Optional<OpenRTB::User> user;
+
+    /** The impressions that are available within the bid request. */
     std::vector<AdSpot> spots;
 
-    Url url;
 
+    /* The following fields are all mirrored from the information in the rest
+       of the bid request.  They provide a way for the bid request parser to
+       indicate the value of commonly used values in such a way that any
+       optimization algorithm can make use of them.
+    */
+       
+    std::string language;   ///< User's language.
+    Location location;      ///< Best available location information
+    Url url;
     std::string ipAddress;
     std::string userAgent;
 
+    /** This field should be used to indicate what User IDs are available
+        in the bid request.  These are normally used by the augmentors to
+        attach first or third party data to the bid request.
+    */
+    UserIds userIds;
+
     SegmentsBySource restrictions;
+
+
+    /** This field indicates the segments that are available in the bid
+        request for the user.
+    */
     SegmentsBySource segments;
     
     Json::Value meta;
-    Json::Value creative;
 
-    /** Amount of extras that will be paid if we win the auction. */
+    /** Extra fields included in the JSON that are unparseable by the bid
+        request parser.  Recorded here so that no information is lost in the
+        round trip.
+    */
+    Json::Value unparseable;
+
+    /** Set of currency codes in which the bid can occur. */
+    std::vector<CurrencyCode> bidCurrency;
+
+    /** Amount of extras that will be paid if we win the auction.  These will
+        be accumulated in the banker against the winning account.
+    */
     LineItems winSurcharges;
 
     /** Return a canonical JSON version of the bid request. */

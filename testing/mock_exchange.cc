@@ -128,8 +128,8 @@ makeBidRequest(size_t i)
     bidRequest.auctionId = Id(exchangeId * 10000000 + i);
     bidRequest.exchange = "test";
     bidRequest.language = "en";
-    bidRequest.url = Url("http://datacratic.com");
-    bidRequest.timestamp = Date::now().secondsSinceEpoch();
+    bidRequest.url = Url("http://rtbkit.com");
+    bidRequest.timestamp = Date::now();
     bidRequest.userIds.add(Id(std::string("foo")), ID_EXCHANGE);
     bidRequest.userIds.add(Id(std::string("bar")), ID_PROVIDER);
 

@@ -7,7 +7,7 @@ LIBBIDREQUEST_SOURCES := \
 	currency.cc \
 
 LIBBIDREQUEST_LINK := \
-	types boost_regex db
+	types boost_regex db openrtb
 
 $(eval $(call library,bid_request,$(LIBBIDREQUEST_SOURCES),$(LIBBIDREQUEST_LINK)))
 

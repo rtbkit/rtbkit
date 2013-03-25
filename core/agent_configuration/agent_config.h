@@ -45,9 +45,34 @@ struct Creative {
     /// To bid with v0.3
     int tagId;
 
-    /// Purely for information
+    /// Purely for information (used internally)
     std::string name;
     int id;
+
+    /// Configuration values; per provider
+    /// eg: OpenRTB, ...
+    Json::Value providerConfig;
+
+    /// List of provider-specific creative data
+    std::map<std::string, std::shared_ptr<void> > providerData;
+
+    template<typename T>
+    const T * getProviderData(const std::string & provider) const
+    {
+        auto it = providerData.find("rubicon");
+        if (it == providerData.end())
+            throw ML::Exception("provider data for " + provider + " not found");
+        if (it->second.get() == nullptr)
+            throw ML::Exception("provider data for " + provider + " is null");
+        
+        return reinterpret_cast<const T *>(it->second.get());
+    }
+
+    /// Tags set on the creative for elibibility filtering
+    Tags tags;
+
+    /// Filter to filter the creative against campaign eligibility
+    TagFilterExpression eligibilityFilter;
 
     IncludeExclude<std::string> languageFilter;
     IncludeExclude<CachedRegex<boost::u32regex, Utf8String> > locationFilter;
@@ -163,6 +188,7 @@ enum BidResultFormat {
 Json::Value toJson(BidResultFormat fmt);
 void fromJson(BidResultFormat & fmt, const Json::Value & j);
 
+
 /*****************************************************************************/
 /* AGENT CONFIG                                                              */
 /*****************************************************************************/
@@ -183,7 +209,7 @@ struct AgentConfig {
     AccountKey account;   ///< Who to bill this to
 
     bool test;            ///< Can't make real bids
-
+    
     std::string roundRobinGroup;
     int roundRobinWeight;
 
@@ -223,7 +249,7 @@ struct AgentConfig {
 
     IncludeExclude<std::string> exchangeFilter;
 
-    IncludeExclude<AdSpot::Position> foldPositionFilter;
+    IncludeExclude<OpenRTB::AdPosition> foldPositionFilter;
 
     SegmentInfo tagFilter;
 
@@ -231,7 +257,7 @@ struct AgentConfig {
 
         HourOfWeekFilter();
 
-        bool isIncluded(double auctionDate) const;
+        bool isIncluded(Date auctionDate) const;
 
         bool isDefault() const;  // true if all hours are 1
 
@@ -287,6 +313,21 @@ struct AgentConfig {
 
     /** JSON value that is passed through with each bid. */
     Json::Value providerConfig;
+
+    /// List of provider-specific creative data
+    std::map<std::string, std::shared_ptr<void> > providerData;
+
+    template<typename T>
+    const T * getProviderData(const std::string & provider) const
+    {
+        auto it = providerData.find("rubicon");
+        if (it == providerData.end())
+            throw ML::Exception("provider data for " + provider + " not found");
+        if (it->second.get() == nullptr)
+            throw ML::Exception("provider data for " + provider + " is null");
+        
+        return reinterpret_cast<const T *>(it->second.get());
+    }
 
     /** List of channels for which we subscribe to post impression
         visit events.

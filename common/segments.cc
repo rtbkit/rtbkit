@@ -179,10 +179,14 @@ createFromJson(const Json::Value & json)
             
             if (val[0].isInt())
                 result.add(val[0].asInt(), weight);
+            else if (val[0].isNumeric())
+                result.add(val[0].asDouble(), weight);
             else result.add(val[0].asString(), weight);
         }
         else if (val.isInt())
             result.add(val.asInt());
+        else if (val.isNumeric())
+            result.add(val.asDouble());
         else result.add(val.asString());
     }
     

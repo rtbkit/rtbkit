@@ -11,6 +11,7 @@
 #include "jml/utils/smart_ptr_utils.h"
 #include "soa/types/js/id_js.h"
 #include "soa/types/js/url_js.h"
+#include "currency_js.h"
 #include <boost/make_shared.hpp>
 #include <boost/algorithm/string/trim.hpp>
 
@@ -843,7 +844,7 @@ struct BidRequestJS
         //                   v8::DontDelete);
         
         // TODO: these should go...
-        registerRWProperty(&BidRequest::creative, "creative", v8::DontDelete);
+        //registerRWProperty(&BidRequest::creative, "creative", v8::DontDelete);
         registerMemberFn(&BidRequest::toJson, "toJSON");
 
         NODE_SET_PROTOTYPE_METHOD(t, "getSegmentsFromSource",
