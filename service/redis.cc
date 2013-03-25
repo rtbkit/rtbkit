@@ -498,7 +498,7 @@ struct AsyncConnection::EventLoop {
             if (connection->earliestTimeout < now)
                 connection->expireTimeouts(now);
 
-            double timeLeft = now.secondsSince(connection->earliestTimeout);
+            double timeLeft = now.secondsUntil(connection->earliestTimeout);
 
             //cerr << "timeLeft = " << timeLeft << endl;
             //cerr << "fds[0].events = " << fds[0].events << endl;
@@ -807,7 +807,7 @@ resultCallback(redisAsyncContext * context, void * reply, void * privData)
             c->timeouts.erase(data->timeoutIterator);
             data->timeoutIterator = c->timeouts.end();
             if (c->timeouts.empty())
-                c->earliestTimeout = Date::negativeInfinity();
+                c->earliestTimeout = Date::positiveInfinity();
             else c->earliestTimeout = c->timeouts.begin()->first;
         }
 
@@ -1037,7 +1037,7 @@ expireTimeouts(Date now)
     timeouts.erase(timeouts.begin(), it);
 
     if (timeouts.empty())
-        earliestTimeout = Date::negativeInfinity();
+        earliestTimeout = Date::positiveInfinity();
     else earliestTimeout = timeouts.begin()->first;
 }
 
