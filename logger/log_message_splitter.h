@@ -8,6 +8,8 @@
 
 #include <string>
 
+#include "jml/arch/exception.h"
+
 namespace Datacratic {
 
 
