@@ -1751,6 +1751,4 @@ getProviderIndicators()
     return value;
 }
 
-
 } // namespace RTBKIT
-
