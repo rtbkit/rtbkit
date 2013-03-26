@@ -616,17 +616,19 @@ void
 AdSpot::
 fromJson(const Json::Value & val)
 {
+    *this = AdSpot();
+
     // Parse openrtb
-    static DefaultDescription<OpenRTB::Impression> desc;
+    static DefaultDescription<AdSpot> desc;
     StructuredJsonParsingContext context(val);
 
     // Rather than barf on unknown fields, for forwards compatibility we put them
     // in the unparseable array via this function
     auto onUnknownField = [&] ()
         {
-            cerr << "got unknown field " << context.path.back().key
+            cerr << "got unknown field " << context.printPath()
             << context.expectJson() << endl;
-
+            
 #if 0
             std::function<Json::Value & (int, Json::Value &)> getEntry
             = [&] (int n, Json::Value & curr) -> Json::Value &
@@ -644,8 +646,9 @@ fromJson(const Json::Value & val)
 
     context.onUnknownFieldHandlers.push_back(onUnknownField);
 
-    desc.parseJson(this, context);
+    desc.parseJsonTyped(this, context);
     
+    return;
 
     try {
         id = Id(val["id"].asString());
@@ -706,7 +709,6 @@ toJson() const
     return std::move(context.output);
 }
 
-#if 0
 std::string formatDims(const SmallIntVector & dims)
 {
     if (dims.size() == 1)
@@ -734,8 +736,6 @@ firstFormat() const
 {
     return formats[0].print();
 }
-
-#endif
 
 AdSpot
 AdSpot::
