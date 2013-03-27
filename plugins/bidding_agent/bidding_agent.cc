@@ -552,7 +552,9 @@ doBid(Id id, const Bids & bids, const Json::Value & jsonMeta)
             if (bid.isNullBid()) recordHit("filtered.total");
             else {
                 recordHit("bids");
-                recordLevel(bid.price.toMicro(), "bidPrice");
+                recordLevel(
+                        bid.price.value,
+                        "bidPrice." + bid.price.getCurrencyStr());
             }
         }
 

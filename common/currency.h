@@ -140,11 +140,6 @@ struct Amount {
         return result;
     }
 
-    int64_t toMicro() const    { return value; }
-    double  toUnit() const     { return value / 1000000.0; }
-    double  toCPM() const      { return value * 0.001; }
-    int64_t toMicroCPM() const { return value * 1000; }
-
     static std::string getCurrencyStr(CurrencyCode currencyCode);
     std::string getCurrencyStr() const;
     static CurrencyCode parseCurrency(const std::string & currency);
@@ -179,7 +174,10 @@ struct MicroUSD : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
 
-    operator int64_t () const { return toMicro(); }
+    operator int64_t () const
+    {
+        return value;
+    }
 };
 
 struct USD : public Amount {
@@ -195,7 +193,10 @@ struct USD : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
     
-    operator double () const { return toUnit(); }
+    operator double () const
+    {
+        return value / 1000000.0;
+    }
 };
 
 struct USD_CPM : public Amount {
@@ -211,7 +212,7 @@ struct USD_CPM : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
 
-    operator double () const { return toCPM(); }
+    operator double () const { return value * 0.001; }
 };
 
 struct MicroUSD_CPM : public Amount {
@@ -227,7 +228,10 @@ struct MicroUSD_CPM : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
 
-    operator int64_t () const { return toMicroCPM(); }
+    operator int64_t () const
+    {
+        return value * 1000;
+    }
 };
 
 /*****************************************************************************/
