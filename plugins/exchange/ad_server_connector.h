@@ -77,32 +77,6 @@ struct PostAuctionProxy {
                              const JsonHolder & impressionMeta,
                              const UserIds & ids);
 
-#if 0
-    /** Inject an IMPRESSION into the router, to be passed on to the
-        agent that bid on it.
-        
-        If the spot ID is empty, then the click will be sent to all
-        agents that had a win on the auction.
-    */
-    void injectImpression(const Id & auctionId,
-                          const Id & adSpotId,
-                          Date timestamp,
-                          const JsonHolder & impressionMeta,
-                          const UserIds & ids);
-    
-    /** Inject a CLICK into the router, to be passed on to the agent that
-        bid on it.
-
-        If the spot ID is empty, then the click will be sent to all agents
-        that had a win on the auction.
-    */
-    void injectClick(const Id & auctionId,
-                     const Id & adSpotId,
-                     Date timestamp,
-                     const JsonHolder & clickMeta,
-                     const UserIds & ids);
-#endif
-
 private:
     // Connection to the post auction loops
     ZmqNamedProxy toPostAuctionService;

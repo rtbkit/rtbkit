@@ -132,46 +132,4 @@ injectCampaignEvent(const string & label,
     toPostAuctionService.sendMessage("EVENT", str);
 }
 
-#if 0
-void
-PostAuctionProxy::
-injectImpression(const Id & auctionId,
-                 const Id & adSpotId,
-                 Date timestamp,
-                 const JsonHolder & impressionMeta,
-                 const UserIds & ids)
-{
-    PostAuctionEvent event;
-    event.type = PAE_IMPRESSION;
-    event.auctionId = auctionId;
-    event.adSpotId = adSpotId;
-    event.timestamp = timestamp;
-    event.uids = ids;
-    event.metadata = impressionMeta;
-
-    string str = ML::DB::serializeToString(event);
-    toPostAuctionService.sendMessage("IMPRESSION", str);
-}
-    
-void
-PostAuctionProxy::
-injectClick(const Id & auctionId,
-            const Id & adSpotId,
-            Date timestamp,
-            const JsonHolder & clickMeta,
-            const UserIds & ids)
-{
-    PostAuctionEvent event;
-    event.type = PAE_CLICK;
-    event.auctionId = auctionId;
-    event.adSpotId = adSpotId;
-    event.timestamp = timestamp;
-    event.uids = ids;
-    event.metadata = clickMeta;
-
-    string str = ML::DB::serializeToString(event);
-    toPostAuctionService.sendMessage("CLICK", str);
-}
-#endif
-
 } // namespace RTBKIT
