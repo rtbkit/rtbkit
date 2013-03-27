@@ -119,40 +119,6 @@ struct RouterStack: public ServiceBase {
                                             timestamp, eventMeta, uids);
     }
 
-#if 0
-    /** Inject an IMPRESSION into the router, to be passed on to the
-        campaign that bid on it.
-        
-        If the spot ID is empty, then the click will be sent to all campaigns
-        that had a win on the auction.
-    */
-    void injectImpression(const Id & auctionId,
-                          const Id & spotId,
-                          Date timestamp,
-                          const JsonHolder & impressionMeta,
-                          const UserIds & uids)
-    {
-        postAuctionLoop.injectImpression(auctionId, spotId, timestamp,
-                                         impressionMeta, uids);
-    }
-    
-    /** Inject a CLICK into the router, to be passed on to the campaign that
-        bid on it.
-
-        If the spot ID is empty, then the click will be sent to all campaigns
-        that had a win on the auction.
-    */
-    void injectClick(const Id & auctionId,
-                     const Id & adSpotId,
-                     Date timestamp,
-                     const JsonHolder & clickMeta,
-                     const UserIds & uids)
-    {
-        postAuctionLoop.injectClick(auctionId, adSpotId, timestamp,
-                                    clickMeta, uids);
-    }
-#endif
-
     /** Notify the router that the given auction/spot will never receive
         another message and should be forgotten.  This is mostly for the
         simulation.
