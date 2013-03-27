@@ -26,7 +26,6 @@ using namespace ML;
 using namespace Datacratic;
 using namespace RTBKIT;
 
-#if 0
 BOOST_AUTO_TEST_CASE( test_account_set_budget )
 {
     Account account;
@@ -619,7 +618,6 @@ BOOST_AUTO_TEST_CASE( test_getRecycledUp )
     accounts.getRecycledUp({"t", "s", "sp"}, recycledIn, recycledOut);
     BOOST_CHECK_EQUAL(recycledOut, USD(1));
 }
-#endif
 
 /* ensure values of simple account summaries matches those in non-simple
    ones */
