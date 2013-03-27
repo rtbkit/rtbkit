@@ -12,6 +12,7 @@
 #include "soa/service/message_loop.h"
 #include "soa/service/typed_message_channel.h"
 #include "rtbkit/common/auction.h"
+#include "rtbkit/common/post_auction_event.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/zmq_message_router.h"
 #include "soa/service/zmq_named_pub_sub.h"
@@ -20,7 +21,6 @@
 #include "rtbkit/core/monitor/monitor_provider.h"
 
 namespace RTBKIT {
-
 
 /*****************************************************************************/
 /* SUBMITTED AUCTION EVENT                                                   */
@@ -43,54 +43,6 @@ struct SubmittedAuctionEvent {
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 };
-
-
-/*****************************************************************************/
-/* POST AUCTION EVENT TYPE                                                   */
-/*****************************************************************************/
-
-enum PostAuctionEventType {
-    PAE_INVALID,
-    PAE_WIN,
-    PAE_LOSS,
-    PAE_CAMPAIGN_EVENT
-};
-
-const char * print(PostAuctionEventType type);
-
-
-/*****************************************************************************/
-/* POST AUCTION EVENT                                                        */
-/*****************************************************************************/
-
-/** Holds an event that was submitted after an auction.  Needs to be
-    possible to serialize/reconstitute as early events that haven't yet
-    been matched may need to be saved until they can be matched up.
-*/
-
-struct PostAuctionEvent {
-    PostAuctionEvent();
-
-    PostAuctionEventType type;
-    std::string label; /* for campaign events */
-    Id auctionId;
-    Id adSpotId;
-    Date timestamp;
-    JsonHolder metadata;
-    AccountKey account;
-    Amount winPrice;
-    UserIds uids;
-    SegmentList channels;
-    Date bidTimestamp;
-
-    void serialize(ML::DB::Store_Writer & store) const;
-    void reconstitute(ML::DB::Store_Reader & store);
-
-    std::string print() const;
-};
-
-std::ostream &
-operator << (std::ostream & stream, const PostAuctionEvent & event);
 
 
 /*****************************************************************************/
