@@ -74,7 +74,7 @@ struct JsonListener : public RestServiceEndpoint {
     void shutdown()
     {
         if (logFile_) {
-            fflush (logFile_);
+            fflush(logFile_);
             fclose(logFile_);
             logFile_ = NULL;
         }
