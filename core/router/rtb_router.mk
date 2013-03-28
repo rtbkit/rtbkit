@@ -7,7 +7,7 @@ LIBRTB_ROUTER_SOURCES := \
 	router_stack.cc
 
 LIBRTB_ROUTER_LINK := \
-	rtb zeromq boost_thread logger opstats crypto++ leveldb gc services redis banker agent_configuration monitor monitor_service post_auction
+	rtb zeromq boost_thread logger opstats crypto++ leveldb gc services redis banker agent_configuration monitor monitor_service
 
 $(eval $(call library,rtb_router,$(LIBRTB_ROUTER_SOURCES),$(LIBRTB_ROUTER_LINK)))
 

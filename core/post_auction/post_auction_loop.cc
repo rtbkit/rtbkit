@@ -14,7 +14,7 @@
 #include "jml/db/persistent.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/common/messages.h"
-#include "rtbkit/common/post_auction_event.h"
+#include "rtbkit/common/auction_events.h"
 
 #include "post_auction_loop.h"
 
@@ -23,35 +23,6 @@ using namespace ML;
 
 
 namespace RTBKIT {
-
-
-/*****************************************************************************/
-/* SUBMITTED AUCTION EVENT                                                   */
-/*****************************************************************************/
-
-void
-SubmittedAuctionEvent::
-serialize(ML::DB::Store_Writer & store) const
-{
-    store << (unsigned char)0
-          << auctionId << adSpotId << lossTimeout << augmentations
-          << bidRequestStr << bidResponse << bidRequestStrFormat;
-}
-
-void
-SubmittedAuctionEvent::
-reconstitute(ML::DB::Store_Reader & store)
-{
-    unsigned char version;
-    store >> version;
-    if (version != 0)
-        throw ML::Exception("unknown SubmittedAuctionEvent type");
-
-    store >> auctionId >> adSpotId >> lossTimeout >> augmentations
-          >> bidRequestStr >> bidResponse >> bidRequestStrFormat;
-
-    bidRequest.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
-}
 
 
 /*****************************************************************************/

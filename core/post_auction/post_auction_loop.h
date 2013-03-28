@@ -12,7 +12,7 @@
 #include "soa/service/message_loop.h"
 #include "soa/service/typed_message_channel.h"
 #include "rtbkit/common/auction.h"
-#include "rtbkit/common/post_auction_event.h"
+#include "rtbkit/common/auction_events.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/zmq_message_router.h"
 #include "soa/service/zmq_named_pub_sub.h"
@@ -21,29 +21,6 @@
 #include "rtbkit/core/monitor/monitor_provider.h"
 
 namespace RTBKIT {
-
-/*****************************************************************************/
-/* SUBMITTED AUCTION EVENT                                                   */
-/*****************************************************************************/
-
-/** When a submitted bid is transferred from the router to the post auction
-    loop, it looks like this.
-*/
-
-struct SubmittedAuctionEvent {
-    Id auctionId;                  ///< ID of the auction
-    Id adSpotId;                   ///< ID of the adspot
-    Date lossTimeout;              ///< Time at which a loss is to be assumed
-    JsonHolder augmentations;      ///< Augmentations active
-    std::shared_ptr<BidRequest> bidRequest;  ///< Bid request
-    std::string bidRequestStr;     ///< Bid request as string on the wire
-    Auction::Response bidResponse; ///< Bid response that was sent
-    std::string bidRequestStrFormat;  ///< Format of stringified request(i.e "datacratic")
-
-    void serialize(ML::DB::Store_Writer & store) const;
-    void reconstitute(ML::DB::Store_Reader & store);
-};
-
 
 /*****************************************************************************/
 /* SUBMISSION INFO                                                           */
