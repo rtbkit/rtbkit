@@ -131,14 +131,14 @@ ConvertCampaignsToAccounts(Campaigns & campaigns, Accounts & accounts)
                 Account budgetAccount = accounts.createBudgetAccount(budgetKey);
                 MicroUSD childTransferred(strategy.transferred_);
 
-                accounts.setAvailable(budgetKey, CurrencyPool(childTransferred), AT_NONE);
+                accounts.setBalance(budgetKey, CurrencyPool(childTransferred), AT_NONE);
 
                 // cerr << "budgetAccount: " << budgetAccount.toJson().toString()
                 //      << endl;
                 AccountKey spendKey = budgetKey.childKey("legacyImported");
                 Account spendAccount = accounts.createSpendAccount(spendKey);
                 MicroUSD childSpent(strategy.spent_);
-                accounts.setAvailable(spendKey, childSpent, AT_NONE);
+                accounts.setBalance(spendKey, childSpent, AT_NONE);
                 accounts.importSpend(spendKey, childSpent);
 
                 // cerr << "spendAccount: " << spendAccount.toJson().toString()
