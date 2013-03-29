@@ -153,7 +153,7 @@ struct SegmentsBySource
 
 IMPL_SERIALIZE_RECONSTITUTE(SegmentsBySource);
 
-Datacratic::ValueDescription<RTBKIT::SegmentsBySource> *
+Datacratic::ValueDescriptionT<RTBKIT::SegmentsBySource> *
 getDefaultDescription(RTBKIT::SegmentsBySource * = 0);
 
 } // namespace RTBKIT

@@ -442,7 +442,7 @@ reconstitute(ML::DB::Store_Reader & store)
 /*****************************************************************************/
 
 struct LineItemsDescription
-    : public Datacratic::ValueDescription<LineItems> {
+    : public Datacratic::ValueDescriptionT<LineItems> {
 
     LineItemsDescription()
     {
@@ -467,7 +467,7 @@ struct LineItemsDescription
 };
 
 struct AmountDescription
-    : public Datacratic::ValueDescription<Amount> {
+    : public Datacratic::ValueDescriptionT<Amount> {
 
     AmountDescription()
     {
@@ -492,7 +492,7 @@ struct AmountDescription
 };
 
 struct CurrencyPoolDescription
-    : public Datacratic::ValueDescription<CurrencyPool> {
+    : public Datacratic::ValueDescriptionT<CurrencyPool> {
 
     CurrencyPoolDescription()
     {
@@ -543,22 +543,22 @@ struct CurrencyCodeDescription
     
 };
 
-ValueDescription<LineItems> * getDefaultDescription(LineItems *)
+ValueDescriptionT<LineItems> * getDefaultDescription(LineItems *)
 {
     return new LineItemsDescription();
 }
 
-ValueDescription<CurrencyPool> * getDefaultDescription(CurrencyPool *)
+ValueDescriptionT<CurrencyPool> * getDefaultDescription(CurrencyPool *)
 {
     return new CurrencyPoolDescription();
 }
 
-ValueDescription<Amount> * getDefaultDescription(Amount *)
+ValueDescriptionT<Amount> * getDefaultDescription(Amount *)
 {
     return new AmountDescription();
 }
 
-ValueDescription<CurrencyCode> * getDefaultDescription(CurrencyCode *)
+ValueDescriptionT<CurrencyCode> * getDefaultDescription(CurrencyCode *)
 {
     return new CurrencyCodeDescription();
 }

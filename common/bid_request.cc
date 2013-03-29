@@ -52,7 +52,7 @@ DefaultDescription()
 }
 
 struct HistoricalPositionDescriptor
-    : public ValueDescription<OpenRTB::AdPosition> {
+    : public ValueDescriptionT<OpenRTB::AdPosition> {
     
     virtual void parseJsonTyped(OpenRTB::AdPosition * val,
                                 JsonParsingContext & context) const
@@ -382,7 +382,7 @@ reconstitute(ML::DB::Store_Reader & store)
 }
 
 struct FormatSetDescription
-    : public ValueDescription<FormatSet> {
+    : public ValueDescriptionT<FormatSet> {
 
     virtual void parseJsonTyped(FormatSet * val,
                                 JsonParsingContext & context) const
@@ -402,7 +402,7 @@ struct FormatSetDescription
     }
 };
 
-ValueDescription<RTBKIT::FormatSet> *
+ValueDescriptionT<RTBKIT::FormatSet> *
 getDefaultDescription(RTBKIT::FormatSet *)
 {
     return new FormatSetDescription();
@@ -825,7 +825,7 @@ reconstitute(ML::DB::Store_Reader & store)
 }
 
 struct UserIdsDescription
-    : public ValueDescription<UserIds> {
+    : public ValueDescriptionT<UserIds> {
 
     virtual void parseJsonTyped(UserIds * val,
                                 JsonParsingContext & context) const
@@ -860,7 +860,7 @@ struct UserIdsDescription
 
 };
 
-ValueDescription<RTBKIT::UserIds> *
+ValueDescriptionT<RTBKIT::UserIds> *
 getDefaultDescription(RTBKIT::UserIds *)
 {
     return new UserIdsDescription();

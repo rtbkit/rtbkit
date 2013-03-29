@@ -534,7 +534,7 @@ reconstitute(ML::DB::Store_Reader & store)
 }
 
 struct SegmentsBySourceValueDescription
-    : public ValueDescription<SegmentsBySource> {
+    : public ValueDescriptionT<SegmentsBySource> {
 
     virtual void parseJsonTyped(SegmentsBySource * val,
                                 JsonParsingContext & context) const
@@ -556,7 +556,7 @@ struct SegmentsBySourceValueDescription
     }
 };
 
-ValueDescription<RTBKIT::SegmentsBySource> *
+ValueDescriptionT<RTBKIT::SegmentsBySource> *
 getDefaultDescription(RTBKIT::SegmentsBySource *)
 {
     return new SegmentsBySourceValueDescription();

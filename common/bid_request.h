@@ -109,7 +109,7 @@ struct FormatSet : public ML::compact_vector<Format, 3, uint16_t> {
 
 IMPL_SERIALIZE_RECONSTITUTE(FormatSet);
 
-ValueDescription<RTBKIT::FormatSet> *
+ValueDescriptionT<RTBKIT::FormatSet> *
 getDefaultDescription(RTBKIT::FormatSet * = 0);
 
 
@@ -218,7 +218,7 @@ struct UserIds : public std::map<std::string, Id> {
 
 IMPL_SERIALIZE_RECONSTITUTE(UserIds);
 
-ValueDescription<RTBKIT::UserIds> *
+ValueDescriptionT<RTBKIT::UserIds> *
 getDefaultDescription(RTBKIT::UserIds * = 0);
 
 

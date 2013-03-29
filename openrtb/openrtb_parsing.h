@@ -17,7 +17,7 @@ namespace Datacratic {
 
 template<>
 struct DefaultDescription<OpenRTB::TaggedBool>
-    : public ValueDescription<OpenRTB::TaggedBool> {
+    : public ValueDescriptionT<OpenRTB::TaggedBool> {
   
     virtual void parseJsonTyped(OpenRTB::TaggedBool * val,
                                 JsonParsingContext & context) const
@@ -42,7 +42,7 @@ struct DefaultDescription<OpenRTB::TaggedBool>
 
 template<int defValue>
 struct DefaultDescription<OpenRTB::TaggedBoolDef<defValue> >
-    : public ValueDescription<OpenRTB::TaggedBoolDef<defValue> > {
+    : public ValueDescriptionT<OpenRTB::TaggedBoolDef<defValue> > {
   
     virtual void parseJsonTyped(OpenRTB::TaggedBoolDef<defValue> * val,
                                 JsonParsingContext & context) const
@@ -67,7 +67,7 @@ struct DefaultDescription<OpenRTB::TaggedBoolDef<defValue> >
 
 template<>
 struct DefaultDescription<OpenRTB::TaggedInt>
-    : public ValueDescription<OpenRTB::TaggedInt> {
+    : public ValueDescriptionT<OpenRTB::TaggedInt> {
 
     virtual void parseJsonTyped(OpenRTB::TaggedInt * val,
                                 JsonParsingContext & context) const
@@ -94,7 +94,7 @@ struct DefaultDescription<OpenRTB::TaggedInt>
 
 template<int defValue>
 struct DefaultDescription<OpenRTB::TaggedIntDef<defValue> >
-    : public ValueDescription<OpenRTB::TaggedIntDef<defValue> > {
+    : public ValueDescriptionT<OpenRTB::TaggedIntDef<defValue> > {
 
     virtual void parseJsonTyped(OpenRTB::TaggedIntDef<defValue> * val,
                                 JsonParsingContext & context) const
@@ -121,7 +121,7 @@ struct DefaultDescription<OpenRTB::TaggedIntDef<defValue> >
 
 template<>
 struct DefaultDescription<OpenRTB::TaggedFloat>
-    : public ValueDescription<OpenRTB::TaggedFloat> {
+    : public ValueDescriptionT<OpenRTB::TaggedFloat> {
 
     virtual void parseJsonTyped(OpenRTB::TaggedFloat * val,
                                 JsonParsingContext & context) const
@@ -143,7 +143,7 @@ struct DefaultDescription<OpenRTB::TaggedFloat>
 
 template<int num, int den>
 struct DefaultDescription<OpenRTB::TaggedFloatDef<num, den> >
-    : public ValueDescription<OpenRTB::TaggedFloatDef<num, den> > {
+    : public ValueDescriptionT<OpenRTB::TaggedFloatDef<num, den> > {
 
     virtual void parseJsonTyped(OpenRTB::TaggedFloatDef<num, den> * val,
                                 JsonParsingContext & context) const
@@ -165,7 +165,7 @@ struct DefaultDescription<OpenRTB::TaggedFloatDef<num, den> >
 
 template<class Enum>
 struct TaggedEnumDescription
-    : public ValueDescription<Enum> {
+    : public ValueDescriptionT<Enum> {
 
     virtual void parseJsonTyped(Enum * val,
                                 JsonParsingContext & context) const
@@ -190,7 +190,7 @@ struct TaggedEnumDescription
 /// single format: "w": 123
 /// multiple formats: "w": [ 123, 456 ]
 struct FormatListDescription
-    : public ValueDescription<OpenRTB::List<int> >,
+    : public ValueDescriptionT<OpenRTB::List<int> >,
       public ListDescriptionBase<int> {
 
     virtual void parseJsonTyped(OpenRTB::List<int> * val,
@@ -226,7 +226,7 @@ struct FormatListDescription
 };
 
 struct CommaSeparatedListDescription
-    : public ValueDescription<std::string> {
+    : public ValueDescriptionT<std::string> {
 
     virtual void parseJsonTyped(std::string * val,
                                 JsonParsingContext & context) const
@@ -264,15 +264,15 @@ struct CommaSeparatedListDescription
 
 template<typename T>
 struct DefaultDescription<OpenRTB::Optional<T> >
-    : public ValueDescription<OpenRTB::Optional<T> > {
+    : public ValueDescriptionT<OpenRTB::Optional<T> > {
 
-    DefaultDescription(ValueDescription<T> * inner
+    DefaultDescription(ValueDescriptionT<T> * inner
                        = getDefaultDescription((T *)0))
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescription<T> > inner;
+    std::unique_ptr<ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(OpenRTB::Optional<T> * val,
                                 JsonParsingContext & context) const
@@ -297,7 +297,7 @@ struct DefaultDescription<OpenRTB::Optional<T> >
 
 template<typename T>
 struct DefaultDescription<OpenRTB::List<T> >
-    : public ValueDescription<OpenRTB::List<T> >,
+    : public ValueDescriptionT<OpenRTB::List<T> >,
       public ListDescriptionBase<T> {
 
     virtual void parseJsonTyped(OpenRTB::List<T> * val,
@@ -320,7 +320,7 @@ struct DefaultDescription<OpenRTB::List<T> >
 
 template<>
 struct DefaultDescription<OpenRTB::ContentCategory>
-    : public ValueDescription<OpenRTB::ContentCategory> {
+    : public ValueDescriptionT<OpenRTB::ContentCategory> {
 
     DefaultDescription()
     {
@@ -341,7 +341,7 @@ struct DefaultDescription<OpenRTB::ContentCategory>
 
 template<>
 struct DefaultDescription<OpenRTB::MimeType>
-    : public ValueDescription<OpenRTB::MimeType> {
+    : public ValueDescriptionT<OpenRTB::MimeType> {
 
     virtual void parseJsonTyped(OpenRTB::MimeType * val,
                                 JsonParsingContext & context) const
