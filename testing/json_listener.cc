@@ -15,6 +15,8 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 
+#include <jml/utils/ring_buffer.h>
+
 #include <soa/service/rest_service_endpoint.h>
 
 
@@ -22,12 +24,18 @@ using namespace std;
 using namespace boost::program_options;
 using namespace Datacratic;
 
+const int BufferSizePower = 4;
+
+const int BufferSize = (1 << BufferSizePower);
+const int BufferMask = BufferSize - 1;
 
 struct JsonListener : public RestServiceEndpoint {
     JsonListener(const std::shared_ptr<zmq::context_t> & context)
         : RestServiceEndpoint(context),
-          logFile_(NULL)
+          logFile_(NULL),
+          history_(10), position_(0)
     {
+        history_.resize(BufferSize);
     }
 
     ~JsonListener()
@@ -50,17 +58,47 @@ struct JsonListener : public RestServiceEndpoint {
                                     + "'", "init");
         }
         RestServiceEndpoint::init(config, endpointName);
+
+        addPeriodic("JsonListener::updatePosition", 1.0,
+                    bind(&JsonListener::updatePosition, this),
+                    true /* single threaded */);
+    }
+
+    void startSync()
+    {
+        startTime_ = Date::now();
+        MessageLoop::startSync();
+    }
+
+    bool isStatsRequest(const RestRequest & req)
+        const
+    {
+        return (req.verb == "GET" && req.resource == "/stats");
+    }
+
+    void updatePosition()
+    {
+        uint32_t newPosition((position_ + 1) & BufferMask);
+        uint32_t & counter_ = history_[newPosition];
+        counter_ = 0;
+        position_ = newPosition;
+        fflush (logFile_);
     }
 
     void doLogRequest(const ConnectionId & conn, const RestRequest & req)
-        const
     {
-        stringstream ss;
+        if (!isStatsRequest(req)) {
+            Guard lock(historyLock);
 
-        ss << req;
+            /* request accounting */
+            uint32_t & counter_ = history_[position_];
+            counter_++;
 
-        fprintf (logFile_, "received request:\n%s\n", ss.str().c_str());
-        fflush (logFile_);
+            stringstream ss;
+            ss << req;
+            fprintf (logFile_, "received request:\n%s\n",
+                     ss.str().c_str());
+        }
     }
 
     void handleRequest(const ConnectionId & conn, const RestRequest & req)
@@ -68,19 +106,45 @@ struct JsonListener : public RestServiceEndpoint {
     {
         Json::Value nothing;
 
-        conn.sendResponse(204, "");
+        if (isStatsRequest(req)) {
+            uint32_t totalReq(0);
+            float meanReqPerSec;
+
+            for (const uint32_t & reqPerSec: history_) {
+                totalReq += reqPerSec;
+            }
+            meanReqPerSec = float(totalReq) / BufferSize;
+
+            string response("total (" + to_string(BufferSize) + " secs):"
+                            + to_string(totalReq) + "\n"
+                            + "mean: " + to_string(meanReqPerSec) + " req./sec\n");
+
+            conn.sendResponse(200, response.c_str(), "text/plain");
+        }
+        else {
+            conn.sendResponse(204, "");
+        }
     }
 
     void shutdown()
     {
         if (logFile_) {
-            fflush (logFile_);
+            fflush(logFile_);
             fclose(logFile_);
             logFile_ = NULL;
         }
     }
 
+    Date startTime_;
+
     std::FILE *logFile_;
+
+    /* request accounting */
+    typedef unique_lock<mutex> Guard;
+    mutable mutex historyLock;
+
+    vector<uint32_t> history_;
+    int position_;
 };
 
 
