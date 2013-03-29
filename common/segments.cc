@@ -11,6 +11,7 @@
 #include "jml/arch/exception.h"
 #include "jml/arch/backtrace.h"
 #include "jml/utils/exc_assert.h"
+#include "soa/types/value_description.h"
 #include "jml/db/persistent.h"
 #include <boost/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
@@ -18,7 +19,7 @@
 using namespace std;
 using namespace ML;
 using namespace ML::DB;
-
+using namespace Datacratic;
 
 namespace RTBKIT {
 
@@ -532,5 +533,34 @@ reconstitute(ML::DB::Store_Reader & store)
     swap(newMe);
 }
 
+struct SegmentsBySourceValueDescription
+    : public ValueDescription<SegmentsBySource> {
+
+    virtual void parseJsonTyped(SegmentsBySource * val,
+                                JsonParsingContext & context) const
+    {
+        Json::Value v = context.expectJson();
+        //cerr << "got segments " << v << endl;
+        *val = std::move(RTBKIT::SegmentsBySource::createFromJson(v));
+    }
+
+    virtual void printJsonTyped(const SegmentsBySource * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeJson(val->toJson());
+    }
+
+    virtual bool isDefaultTyped(const SegmentsBySource * val) const
+    {
+        return val->empty();
+    }
+};
+
+ValueDescription<RTBKIT::SegmentsBySource> *
+getDefaultDescription(RTBKIT::SegmentsBySource *)
+{
+    return new SegmentsBySourceValueDescription();
+}
 
 } // namespace RTBKIT
+

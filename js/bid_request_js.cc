@@ -667,6 +667,129 @@ struct LocationJS
     }
 };
 
+#if 0
+/*****************************************************************************/
+/* IMPRESSION JS                                                             */
+/*****************************************************************************/
+
+const char * ImpressionName = "Impression";
+
+using OpenRTB::Impression;
+
+struct ImpressionJS
+    : public JSWrapped2<Impression, ImpressionJS, ImpressionName,
+                        bidRequestModule> {
+
+        ImpressionJS(v8::Handle<v8::Object> This,
+              const std::shared_ptr<Impression> & as
+                  = std::shared_ptr<Impression>())
+    {
+        HandleScope scope;
+        wrap(This, as);
+    }
+
+    static Handle<v8::Value>
+    New(const Arguments & args)
+    {
+        try {
+            new ImpressionJS(args.This(), ML::make_std_sp(new Impression()));
+            return args.This();
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static void
+    Initialize()
+    {
+        Persistent<FunctionTemplate> t = Register(New);
+
+        DefaultDescription<OpenRTB::Impression> desc;
+#if 0
+        for (auto & f: desc.fields) {
+            const char * name = f.first;
+            
+        tmpl->InstanceTemplate()
+            ->SetAccessor(v8::String::NewSymbol(name),
+                          PropertyGetter<T, Obj, JSWrapped2>::getter,
+                          PropertySetter<T, Obj, JSWrapped2>::setter,
+                          pmToValue(ptr),
+                          v8::DEFAULT,
+                          v8::PropertyAttribute(options));
+            
+        }
+#endif
+
+        registerRWProperty(&Impression::id, "id");
+        registerRWProperty(&Impression::banner, "banner");
+        registerRWProperty(&Impression::video, "video");
+        registerRWProperty(&Impression::displayManager, "displaymanager");
+        registerRWProperty(&Impression::banner, "banner");
+
+
+    Id id;                             ///< Impression ID within BR
+    Optional<Banner> banner;           ///< If it's a banner ad
+    Optional<Video> video;             ///< If it's a video ad
+    string displaymanager;             ///< What renders the ad
+    string displaymanagerver;          ///< What version of that thing
+    TaggedBoolDef<0> instl;            ///< Is it interstitial
+    string tagid;                      ///< ad tag ID for auction
+    TaggedFloatDef<0> bidfloor;        ///< CPM bid floor
+    string bidfloorcur;                ///< Bid floor currency
+    List<string> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
+    Json::Value ext;                   ///< Extended impression attributes
+
+    }
+
+    static v8::Handle<v8::Value>
+    widthsGetter(v8::Local<v8::String> property,
+                  const v8::AccessorInfo & info)
+    {
+        try {
+            const auto & f = getShared(info.This())->formats;
+            vector<int> v2;
+            for (unsigned i = 0;  i < f.size();  ++i)
+                v2.push_back(f[i].width);
+            return JS::toJS(v2);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
+    heightsGetter(v8::Local<v8::String> property,
+                  const v8::AccessorInfo & info)
+    {
+        try {
+            const auto & f = getShared(info.This())->formats;
+            vector<int> v2;
+            for (unsigned i = 0;  i < f.size();  ++i)
+                v2.push_back(f[i].height);
+            return JS::toJS(v2);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+};
+
+void to_js(JS::JSValue & value, const std::shared_ptr<Impression> & as)
+{
+    value = ImpressionJS::toJS(as);
+}
+
+void to_js(JS::JSValue & value, const Impression & as)
+{
+    to_js(value, ML::make_std_sp(new Impression(as)));
+}
+
+std::shared_ptr<Impression>
+from_js(const JSValue & value, std::shared_ptr<Impression> *)
+{
+    return ImpressionJS::fromJS(value);
+}
+
+Impression
+from_js(const JSValue & value, Impression *)
+{
+    return *ImpressionJS::fromJS(value).get();
+}
+#endif
+
 
 /*****************************************************************************/
 /* AD SPOT JS                                                                */
