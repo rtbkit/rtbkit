@@ -43,7 +43,7 @@ topupTransfer(const AccountKey & account,
               const OnBudgetResult & onResult)
 {
     push(budgetResultCallback(onResult),
-         "PUT", "/v1/accounts/" + account.toString() + "/available",
+         "PUT", "/v1/accounts/" + account.toString() + "/balance",
          { { "accountType", "budget"} },
          amount.toJson().toString());
 }
@@ -488,7 +488,7 @@ reauthorizeBudget(uint64_t numTimeoutsExpired)
             request.resource
                 = "/v1/accounts/"
                 + getShadowAccountStr(key)
-                + "/available";
+                + "/balance";
             request.params = { { "accountType", "spend" } };
 
             Json::Value payload = CurrencyPool(USD(0.10)).toJson();
