@@ -772,13 +772,9 @@ BOOST_AUTO_TEST_CASE( test_account_summary_values )
                       "  'recycledOut':{},"
                       "  'spent':{},"
                       "  'type':'budget'},"
-                      " 'adjustmentLineItems':{},"
-                      " 'adjustments':{},"
-                      " 'allocated': {'USD/1M':46571708796},"
                       " 'available': {'USD/1M':52364946865},"
                       " 'budget': {'USD/1M':52947000000},"
                       " 'inFlight':{},"
-                      " 'lineItems':{},"
                       " 'md': {'objectType':'AccountSummary',"
                       "        'version':1},"
                       " 'spent': {'USD/1M':582053135}}");
