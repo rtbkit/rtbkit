@@ -1,4 +1,5 @@
 /* value_description.h                                             -*- C++ -*-
+   Jeremy Barnes, 29 March 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
 
    Code for description and introspection of values and structures.  Used
@@ -14,6 +15,7 @@
 #include "jml/arch/demangle.h"
 #include "json_parsing.h"
 #include "json_printing.h"
+#include "value_description_fwd.h"
 
 namespace Datacratic {
 
@@ -92,9 +94,6 @@ struct ValueDescription : public ValueDescription<void> {
     }
 };
 
-template<typename T, typename Enable = void>
-struct DefaultDescription;
-
 template<typename T>
 ValueDescription<T> * getDefaultDescription(T * = 0,
                                             typename DefaultDescription<T>::defined * = 0)
@@ -116,6 +115,13 @@ inline const void * addOffset(const void * base, ssize_t offset)
     const char * c = reinterpret_cast<const char *>(base);
     return c + offset;
 }
+
+
+/*****************************************************************************/
+/* STRUCTURE DESCRIPTION BASE                                                */
+/*****************************************************************************/
+
+/** Base information for a structure description. */
 
 struct StructureDescriptionBase {
 
