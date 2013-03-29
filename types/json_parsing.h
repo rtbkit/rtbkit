@@ -13,18 +13,8 @@
 
 namespace Datacratic {
 
-template<typename T>
-struct ValueDescription;
-
 struct JsonParsingContext;
-
-struct JsonParser {
-    virtual ~JsonParser();
-    virtual void parse(void * output, JsonParsingContext & context) const = 0;
-};
-
-/** For any value description, build a JSON parser for it. */
-JsonParser * createJsonParser(const ValueDescription<void> & desc);
+struct ValueDescription;
 
 struct JsonPathEntry {
     JsonPathEntry(int index)
@@ -109,7 +99,6 @@ struct JsonPath: public std::vector<JsonPathEntry> {
 struct JsonParsingContext {
 
     JsonPath path;
-    std::vector<JsonParser *> parsers;
 
     std::string printPath() const
     {

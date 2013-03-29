@@ -22,14 +22,7 @@ namespace Datacratic {
 struct JsonParsingContext;
 struct JsonPrintingContext;
 
-template<typename T, typename Context>
-void parseJson(T *, Context &, int);
-
-template<typename T>
-struct ValueDescription;
-
-template<>
-struct ValueDescription<void> {
+struct ValueDescription {
     typedef std::true_type defined;
 
     ValueDescription(const std::type_info * type,
@@ -53,10 +46,10 @@ struct ValueDescription<void> {
 };
 
 template<typename T>
-struct ValueDescription : public ValueDescription<void> {
+struct ValueDescriptionT : public ValueDescription {
 
-    ValueDescription()
-        : ValueDescription<void>(&typeid(T))
+    ValueDescriptionT()
+        : ValueDescription(&typeid(T))
     {
     }
 
@@ -95,7 +88,7 @@ struct ValueDescription : public ValueDescription<void> {
 };
 
 template<typename T>
-ValueDescription<T> * getDefaultDescription(T * = 0,
+ValueDescriptionT<T> * getDefaultDescription(T * = 0,
                                             typename DefaultDescription<T>::defined * = 0)
 {
     return new DefaultDescription<T>();
@@ -141,7 +134,7 @@ struct StructureDescriptionBase {
     struct FieldDescription {
         std::string fieldName;
         std::string comment;
-        std::unique_ptr<ValueDescription<void> > description;
+        std::unique_ptr<ValueDescription > description;
         int offset;
         int fieldNum;
     };
@@ -233,7 +226,7 @@ struct StructureDescriptionBase {
 
 template<class Struct>
 struct StructureDescription
-    :  public ValueDescription<Struct>,
+    :  public ValueDescriptionT<Struct>,
        public StructureDescriptionBase {
 
     StructureDescription(bool nullAccepted = false)
@@ -270,7 +263,7 @@ struct StructureDescription
     void addField(std::string name,
                   V Base::* field,
                   std::string comment,
-                  ValueDescription<V> * description
+                  ValueDescriptionT<V> * description
                   = getDefaultDescription((V *)0))
     {
         if (fields.count(name.c_str()))
@@ -296,7 +289,7 @@ struct StructureDescription
     }
 
     template<typename V>
-    void addParent(ValueDescription<V> * description_
+    void addParent(ValueDescriptionT<V> * description_
                    = getDefaultDescription((V *)0))
     {
         StructureDescription<V> * desc2
@@ -353,7 +346,7 @@ struct StructureDescription
 };
 
 template<typename Enum>
-struct EnumDescription: public ValueDescription<Enum> {
+struct EnumDescription: public ValueDescriptionT<Enum> {
 
     struct Value {
         int value;
@@ -367,12 +360,12 @@ struct EnumDescription: public ValueDescription<Enum> {
 template<typename T>
 struct ListDescriptionBase {
 
-    ListDescriptionBase(ValueDescription<T> * inner = getDefaultDescription((T *)0))
+    ListDescriptionBase(ValueDescriptionT<T> * inner = getDefaultDescription((T *)0))
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescription<T> > inner;
+    std::unique_ptr<ValueDescriptionT<T> > inner;
 
     template<typename List>
     void parseJsonTypedList(List * val, JsonParsingContext & context) const
@@ -407,13 +400,13 @@ struct ListDescriptionBase {
 };
 
 template<typename T>
-struct ValueDescription<std::vector<T> >
-    : public ValueDescription<void>,
+struct ValueDescriptionT<std::vector<T> >
+    : public ValueDescription,
       public ListDescriptionBase<T> {
 
-    ValueDescription(ValueDescription<T> * inner
+    ValueDescriptionT(ValueDescriptionT<T> * inner
                      = getDefaultDescription((T *)0))
-        : ValueDescription<void>(&typeid(std::vector<T>)),
+        : ValueDescription(&typeid(std::vector<T>)),
           ListDescriptionBase<T>(inner)
     {
     }
@@ -495,7 +488,7 @@ T jsonDecode(const Json::Value & json, T * = 0,
 {
     T result;
 
-    static std::unique_ptr<ValueDescription<void> > desc
+    static std::unique_ptr<ValueDescription> desc
         (getDefaultDescription((T *)0));
     StructuredJsonParsingContext context(json);
     desc->parseJson(&result, context);
@@ -510,7 +503,7 @@ Json::Value jsonEncode(const T & obj,
                        decltype(getDefaultDescription((T *)0)) * = 0,
                        typename std::enable_if<!hasToJson<T>::value>::type * = 0)
 {
-    static std::unique_ptr<ValueDescription<void> > desc
+    static std::unique_ptr<ValueDescription> desc
         (getDefaultDescription((T *)0));
     StructuredJsonPrintingContext context;
     desc->printJson(&obj, context);

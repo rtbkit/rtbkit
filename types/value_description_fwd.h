@@ -13,8 +13,10 @@ namespace Datacratic {
 struct JsonParsingContext;
 struct JsonPrintingContext;
 
-template<typename T>
 struct ValueDescription;
+
+template<typename T>
+struct ValueDescriptionT;
 
 template<typename T, typename Enable = void>
 struct DefaultDescription;

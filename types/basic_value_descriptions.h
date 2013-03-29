@@ -19,7 +19,7 @@ namespace Datacratic {
 
 template<>
 struct DefaultDescription<Datacratic::Id>
-    : public ValueDescription<Datacratic::Id> {
+    : public ValueDescriptionT<Datacratic::Id> {
 
     virtual void parseJsonTyped(Datacratic::Id * val,
                                 JsonParsingContext & context) const
@@ -41,7 +41,7 @@ struct DefaultDescription<Datacratic::Id>
 
 template<>
 struct DefaultDescription<std::string>
-    : public ValueDescription<std::string> {
+    : public ValueDescriptionT<std::string> {
 
     virtual void parseJsonTyped(std::string * val,
                                 JsonParsingContext & context) const
@@ -63,7 +63,7 @@ struct DefaultDescription<std::string>
 
 template<>
 struct DefaultDescription<Utf8String>
-    : public ValueDescription<Utf8String> {
+    : public ValueDescriptionT<Utf8String> {
 
     virtual void parseJsonTyped(Utf8String * val,
                                 JsonParsingContext & context) const
@@ -85,7 +85,7 @@ struct DefaultDescription<Utf8String>
 
 template<>
 struct DefaultDescription<Url>
-    : public ValueDescription<Url> {
+    : public ValueDescriptionT<Url> {
 
     virtual void parseJsonTyped(Url * val,
                                 JsonParsingContext & context) const
@@ -107,7 +107,7 @@ struct DefaultDescription<Url>
 
 template<>
 struct DefaultDescription<int>
-    : public ValueDescription<int> {
+    : public ValueDescriptionT<int> {
 
     virtual void parseJsonTyped(int * val,
                                 JsonParsingContext & context) const
@@ -124,7 +124,7 @@ struct DefaultDescription<int>
 
 template<>
 struct DefaultDescription<float>
-    : public ValueDescription<float> {
+    : public ValueDescriptionT<float> {
 
     virtual void parseJsonTyped(float * val,
                                 JsonParsingContext & context) const
@@ -141,20 +141,20 @@ struct DefaultDescription<float>
 
 template<typename T>
 struct DefaultDescription<std::vector<T> >
-    : public ValueDescription<std::vector<T> > {
+    : public ValueDescriptionT<std::vector<T> > {
 };
 
 template<typename T>
 struct DefaultDescription<std::unique_ptr<T> >
-    : public ValueDescription<std::unique_ptr<T> > {
+    : public ValueDescriptionT<std::unique_ptr<T> > {
 
-    DefaultDescription(ValueDescription<T> * inner
+    DefaultDescription(ValueDescriptionT<T> * inner
                        = getDefaultDescription((T *)0))
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescription<T> > inner;
+    std::unique_ptr<ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(std::unique_ptr<T> * val,
                                 JsonParsingContext & context) const
@@ -179,7 +179,7 @@ struct DefaultDescription<std::unique_ptr<T> >
 
 template<>
 struct DefaultDescription<Json::Value>
-    : public ValueDescription<Json::Value> {
+    : public ValueDescriptionT<Json::Value> {
 
     virtual void parseJsonTyped(Json::Value * val,
                                 JsonParsingContext & context) const
@@ -201,7 +201,7 @@ struct DefaultDescription<Json::Value>
 
 template<>
 struct DefaultDescription<bool>
-    : public ValueDescription<bool> {
+    : public ValueDescriptionT<bool> {
 
     virtual void parseJsonTyped(bool * val,
                                 JsonParsingContext & context) const
@@ -223,7 +223,7 @@ struct DefaultDescription<bool>
 
 template<>
 struct DefaultDescription<Date>
-    : public ValueDescription<Date> {
+    : public ValueDescriptionT<Date> {
 
     virtual void parseJsonTyped(Date * val,
                                 JsonParsingContext & context) const
