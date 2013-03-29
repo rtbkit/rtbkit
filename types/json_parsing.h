@@ -103,7 +103,7 @@ struct JsonPath: public std::vector<JsonPathEntry> {
 };
 
 /*****************************************************************************/
-/* STREAMING JSON PARSING CONTEXT                                            */
+/* JSON PARSING CONTEXT                                                      */
 /*****************************************************************************/
 
 struct JsonParsingContext {
@@ -568,6 +568,28 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
     }
 };
 
+
+/*****************************************************************************/
+/* STRING JSON PARSING CONTEXT                                               */
+/*****************************************************************************/
+
+struct StringJsonParsingContext
+    : public StreamingJsonParsingContext  {
+
+    StringJsonParsingContext(std::string str_,
+                             const std::string & filename = "<<internal>>")
+        : str(std::move(str_))
+    {
+        init(filename, str.c_str(), str.c_str() + str.size());
+    }
+
+    std::string str;
+};
+
+
+/*****************************************************************************/
+/* UTILITIES                                                                 */
+/*****************************************************************************/
 
 template<typename Context>
 void parseJson(int * output, Context & context)

@@ -45,11 +45,12 @@ struct StreamJsonPrintingContext
     : public JsonPrintingContext {
 
     StreamJsonPrintingContext(std::ostream & stream)
-        : stream(stream)
+        : stream(stream), writeUtf8(true)
     {
     }
 
     std::ostream & stream;
+    bool writeUtf8;          ///< If true, utf8 chars in binary.  False: escaped ASCII
 
     struct PathEntry {
         PathEntry(bool isObject)

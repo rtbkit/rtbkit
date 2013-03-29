@@ -7,6 +7,10 @@
 
 #include "json_printing.h"
 
+
+using namespace std;
+
+
 namespace Datacratic {
 
 
@@ -19,7 +23,7 @@ writeStringUtf8(const Utf8String & s)
     for (auto it = s.begin(), end = s.end();  it != end;  ++it) {
         int c = *it;
         if (c >= ' ' && c < 127 && c != '\"' && c != '\\')
-            stream << c;
+            stream << (char)c;
         else {
             switch (c) {
             case '\t': stream << "\\t";  break;
@@ -29,10 +33,17 @@ writeStringUtf8(const Utf8String & s)
             case '\f': stream << "\\f";  break;
             case '/':
             case '\\':
-            case '\"': stream << '\\' << c;  break;
+            case '\"': stream << '\\' << (char)c;  break;
             default:
-                ExcAssert(c >= 0 && c < 65536);
-                stream << "\\u" << ML::format("%04x", c);
+                if (writeUtf8) {
+                    char buf[4];
+                    char * p = utf8::unchecked::append(c, buf);
+                    stream.write(buf, p - buf);
+                }
+                else {
+                    ExcAssert(c >= 0 && c < 65536);
+                    stream << ML::format("\\u%04x", (unsigned)c);
+                }
             }
         }
     }

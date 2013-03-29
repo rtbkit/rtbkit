@@ -114,6 +114,21 @@ public:
 
     std::string extractAscii();
 
+    bool operator == (const Utf8String & other) const
+    {
+        return data_ == other.data_;
+    }
+
+    bool operator != (const Utf8String & other) const
+    {
+        return data_ != other.data_;
+    }
+
+    bool operator < (const Utf8String & other) const
+    {
+        return data_ < other.data_;
+    }
+
 private:
     std::string data_; // original utf8-encoded string
 };
