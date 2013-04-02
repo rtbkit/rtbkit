@@ -1,12 +1,12 @@
-/* ad_server_connector.cc
+/* post_auction_proxy.cc
    Jeremy Barnes, 19 December 2012
    Copyright (c) 2012 Datacratic Inc.  All rights reserved.
 
-   Connector for ad server.
+   A class that proxies post auction events to the post auction loop.
 */
 
 
-#include "ad_server_connector.h"
+#include "post_auction_proxy.h"
 #include "rtbkit/core/post_auction/post_auction_loop.h"
 
 using namespace std;

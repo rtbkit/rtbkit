@@ -1,4 +1,4 @@
-/* ad_server_connector.h                                           -*- C++ -*-
+/* post_auction_proxy.h                                            -*- C++ -*-
    Jeremy Barnes, 18 December 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
 
@@ -83,18 +83,6 @@ private:
 
     // later... when we have multiple services
     //ZmqMultipleNamedClientBusProxy toPostAuctionServices;
-};
-
-
-/*****************************************************************************/
-/* AD SERVER CONNECTOR                                                       */
-/*****************************************************************************/
-
-struct AdServerConnector: public PostAuctionProxy {
-    AdServerConnector(std::shared_ptr<zmq::context_t> context)
-        : PostAuctionProxy(context)
-    {
-    }
 };
 
 } // namespace RTBKIT
