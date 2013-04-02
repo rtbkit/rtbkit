@@ -2015,6 +2015,10 @@ uploadRecursive(string dirSrc, string bucketDest, bool includeDir){
     }
 }
 
+void S3Api::setDefaultBandwidthToServiceMbps(double mbps){
+    S3Api::defaultBandwidthToServiceMbps = mbps;
+}
+
 namespace {
 
 struct S3BucketInfo {

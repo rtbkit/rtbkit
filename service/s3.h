@@ -462,6 +462,9 @@ struct S3Api {
                          std::string bucketDest,
                          bool includeDir);
 
+    //easy handle for v8 wrapping
+    void setDefaultBandwidthToServiceMbps(double mpbs);
+
 };
 
 /** std::istream that connects to s3 and streams a file. */
