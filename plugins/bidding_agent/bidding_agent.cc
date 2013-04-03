@@ -486,7 +486,7 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
     if (!callback) return;
 
     try {
-        checkMessageSize(msg, 13);
+        checkMessageSize(msg, 12);
 
         recordHit(eventName(msg[0]));
 
@@ -499,10 +499,24 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
         args.bidRequest.reset(BidRequest::parse(bidRequestSource, msg[5]));
         args.bid = jsonParse(msg[6]);
         args.win = jsonParse(msg[7]);
-        args.impression = jsonParse(msg[8]);
-        args.click = jsonParse(msg[9]);
-        args.augmentations = jsonParse(msg[10]);
-        args.visits = jsonParse(msg[11]);
+
+        Json::Value campaignEvents = jsonParse(msg[8]);
+        for (const Json::Value & event: campaignEvents) {
+            string label = event["label"].asString();
+            if (label == "CLICK") {
+                args.click = event;
+            }
+            else if (label == "IMPRESSION") {
+                args.impression = event;
+            }
+            else {
+                cerr << "ignored unhandled campaign event: " << label
+                     << endl;
+            }
+        }
+
+        args.augmentations = jsonParse(msg[9]);
+        args.visits = jsonParse(msg[10]);
 
         callback(args);
     } catch (const std::exception & exc) {

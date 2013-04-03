@@ -90,9 +90,7 @@ struct RTBRouterStackJS
         NODE_SET_PROTOTYPE_METHOD(t, "injectAuction", injectAuction);
         NODE_SET_PROTOTYPE_METHOD(t, "injectWin", injectWin);
         NODE_SET_PROTOTYPE_METHOD(t, "injectLoss", injectLoss);
-        NODE_SET_PROTOTYPE_METHOD(t, "injectImpression", injectImpression);
-        NODE_SET_PROTOTYPE_METHOD(t, "injectClick", injectClick);
-        NODE_SET_PROTOTYPE_METHOD(t, "injectVisit", injectVisit);
+        NODE_SET_PROTOTYPE_METHOD(t, "injectCampaignEvent", injectCampaignEvent);
         NODE_SET_PROTOTYPE_METHOD(t, "numAuctionsInProgress",
                                   numAuctionsInProgress);
         NODE_SET_PROTOTYPE_METHOD(t, "getStats", getStats);
@@ -362,54 +360,22 @@ struct RTBRouterStackJS
     }
 
     static Handle<v8::Value>
-    injectImpression(const Arguments & args)
+    injectCampaignEvent(const Arguments & args)
     {
         try {
-            Id auctionId = getArg(args, 0, "auctionId");
-            Id adSpot = getArg(args, 1, "adspot");
+            string label = getArg(args, 0, "label");
+            Id auctionId = getArg(args, 1, "auctionId");
+            Id adSpot = getArg(args, 2, "adspot");
             Date timestamp
                 = Date::fromSecondsSinceEpoch
-                    (getArg<double>(args, 2, "timestamp"));
-            Json::Value meta = getArg(args, 3, Json::Value(), "meta");
-            UserIds uids = getArg(args, 4, UserIds(), "userIds");
-            getShared(args)->injectImpression(auctionId, adSpot, timestamp,
-                                              meta, uids);
+                    (getArg<double>(args, 3, "timestamp"));
+            Json::Value meta = getArg(args, 4, Json::Value(), "meta");
+            UserIds uids = getArg(args, 5, UserIds(), "userIds");
+            getShared(args)->injectCampaignEvent(label, auctionId, adSpot,
+                                                 timestamp, meta, uids);
             return args.This();
         } HANDLE_JS_EXCEPTIONS;
     }
-
-    static Handle<v8::Value>
-    injectClick(const Arguments & args)
-    {
-        try {
-            Id auctionId = getArg(args, 0, "auctionId");
-            Id adSpot = getArg(args, 1, "adspot");
-            Date timestamp
-                = Date::fromSecondsSinceEpoch
-                    (getArg<double>(args, 2, "timestamp"));
-            Json::Value meta = getArg(args, 3, Json::Value(), "meta");
-            UserIds uids = getArg(args, 4, UserIds(), "userIds");
-            getShared(args)->injectClick(auctionId, adSpot, timestamp,
-                                         meta, uids);
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
-    }
-
-    static Handle<v8::Value>
-    injectVisit(const Arguments & args)
-    {
-        try {
-            Date timestamp
-                = Date::fromSecondsSinceEpoch
-                    (getArg<double>(args, 0, "timestamp"));
-            SegmentList segs = getArg(args, 1, SegmentList(), "segments");
-            Json::Value meta = getArg(args, 2, Json::Value(), "meta");
-            UserIds uids = getArg(args, 3, UserIds(), "userIds");
-            getShared(args)->injectVisit(timestamp, segs, meta, uids);
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
-    }
-
 
     static Handle<v8::Value>
     numAuctionsInProgress(const Arguments & args)
