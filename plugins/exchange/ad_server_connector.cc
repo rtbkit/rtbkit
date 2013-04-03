@@ -112,14 +112,16 @@ injectLoss(const Id & auctionId,
 
 void
 PostAuctionProxy::
-injectImpression(const Id & auctionId,
-                 const Id & adSpotId,
-                 Date timestamp,
-                 const JsonHolder & impressionMeta,
-                 const UserIds & ids)
+injectCampaignEvent(const string & label,
+                    const Id & auctionId,
+                    const Id & adSpotId,
+                    Date timestamp,
+                    const JsonHolder & impressionMeta,
+                    const UserIds & ids)
 {
     PostAuctionEvent event;
-    event.type = PAE_IMPRESSION;
+    event.type = PAE_CAMPAIGN_EVENT;
+    event.label = label;
     event.auctionId = auctionId;
     event.adSpotId = adSpotId;
     event.timestamp = timestamp;
@@ -127,45 +129,7 @@ injectImpression(const Id & auctionId,
     event.metadata = impressionMeta;
 
     string str = ML::DB::serializeToString(event);
-    toPostAuctionService.sendMessage("IMPRESSION", str);
-}
-    
-void
-PostAuctionProxy::
-injectClick(const Id & auctionId,
-            const Id & adSpotId,
-            Date timestamp,
-            const JsonHolder & clickMeta,
-            const UserIds & ids)
-{
-    PostAuctionEvent event;
-    event.type = PAE_CLICK;
-    event.auctionId = auctionId;
-    event.adSpotId = adSpotId;
-    event.timestamp = timestamp;
-    event.uids = ids;
-    event.metadata = clickMeta;
-
-    string str = ML::DB::serializeToString(event);
-    toPostAuctionService.sendMessage("CLICK", str);
-}
-
-void
-PostAuctionProxy::
-injectVisit(Date timestamp,
-            const SegmentList & channels,
-            const JsonHolder & visitMeta,
-            const UserIds & ids)
-{
-    PostAuctionEvent event;
-    event.type = PAE_VISIT;
-    event.timestamp = timestamp;
-    event.channels = channels;
-    event.uids = ids;
-    event.metadata = visitMeta;
-
-    string str = ML::DB::serializeToString(event);
-    toPostAuctionService.sendMessage("VISIT", str);
+    toPostAuctionService.sendMessage("EVENT", str);
 }
 
 } // namespace RTBKIT

@@ -690,14 +690,9 @@ struct ShadowAccount {
 
 struct AccountSummary {
     CurrencyPool budget;         ///< Total amount we're allowed to spend
-    CurrencyPool allocated;      ///< Sum of sub-account budgets
     CurrencyPool inFlight;       ///< Sum of sub-account inFlights (pending commitments)
     CurrencyPool spent;          ///< Sum of sub-account spend
-    CurrencyPool adjustments;    ///< Sum of spend adjustments
     CurrencyPool available;      ///< Total amount we're allowed to spend
-
-    LineItems lineItems;         ///< Sum of sub-account line items
-    LineItems adjustmentLineItems;  ///< Adjustments broken out
 
     Account account;
 
@@ -709,9 +704,6 @@ struct AccountSummary {
             subAccounts[name] = child;
         inFlight += child.inFlight;
         spent += child.spent;
-        lineItems += child.lineItems;
-        adjustments += child.adjustments;
-        adjustmentLineItems += child.adjustmentLineItems;
     }
 
     void dump(std::ostream & stream,
@@ -723,8 +715,6 @@ struct AccountSummary {
                << " b:" << budget
                << " s:" << spent
                << " i:" << inFlight
-               << " a:" << allocated
-               << " j:" << adjustments
                << std::endl;
         for (const auto & sa: subAccounts) {
             sa.second.dump(stream, indent + 2, sa.first);
@@ -743,12 +733,7 @@ struct AccountSummary {
         result["available"] = available.toJson();
         result["inFlight"] = inFlight.toJson();
         if (!simplified) {
-            result["allocated"] = allocated.toJson();
-            result["adjustments"] = adjustments.toJson();
-            result["lineItems"] = lineItems.toJson();
-            result["adjustmentLineItems"] = adjustmentLineItems.toJson();
             result["account"] = account.toJson();
-
             for (const auto & sa: subAccounts) {
                 result["subAccounts"][sa.first] = sa.second.toJson();
             }
@@ -765,16 +750,11 @@ struct AccountSummary {
         ExcAssertEqual(val["md"]["version"].asInt(), 1);
 
         result.budget = CurrencyPool::fromJson(val["budget"]);
-        result.allocated = CurrencyPool::fromJson(val["allocated"]);
         result.inFlight = CurrencyPool::fromJson(val["inFlight"]);
         result.spent = CurrencyPool::fromJson(val["spent"]);
-        result.adjustments = CurrencyPool::fromJson(val["adjustments"]);
         result.available = CurrencyPool::fromJson(val["available"]);
-        result.lineItems = LineItems::fromJson(val["lineItems"]);
-        result.adjustmentLineItems
-            = LineItems::fromJson(val["adjustmentLineItems"]);
-        result.account = Account::fromJson(val["account"]);
 
+        result.account = Account::fromJson(val["account"]);
         auto & sa = val["subAccounts"];
         for (auto it = sa.begin(), end = sa.end();  it != end;  ++it) {
             result.subAccounts[it.memberName()]
@@ -1232,9 +1212,6 @@ private:
         result.account = a;
         result.spent = a.spent;
         result.budget = a.getBudget();
-        result.lineItems = a.lineItems;
-        result.adjustmentLineItems = a.adjustmentLineItems;
-        result.allocated = a.allocatedOut - a.allocatedIn;
         result.inFlight = a.commitmentsMade - a.commitmentsRetired;
 
         auto doChildAccount = [&] (const AccountKey & key) {
