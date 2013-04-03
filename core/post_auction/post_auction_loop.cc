@@ -65,7 +65,6 @@ const char * print(PostAuctionEventType type)
     case PAE_LOSS: return "LOSS";
     case PAE_IMPRESSION: return "IMPRESSION";
     case PAE_CLICK: return "CLICK";
-    case PAE_VISIT: return "VISIT";
     default:
         return "UNKNOWN";
     }
@@ -500,9 +499,6 @@ initConnections()
     router.bind("CLICK",
                 std::bind(&PostAuctionLoop::doClickMessage, this,
                           std::placeholders::_1));
-    router.bind("VISIT",
-                std::bind(&PostAuctionLoop::doVisitMessage, this,
-                          std::placeholders::_1));
 
     // Every second we check for expired auctions
     loop.addPeriodic("PostAuctionLoop::checkExpiredAuctions", 1.0,
@@ -678,23 +674,6 @@ injectClick(const Id & auctionId,
 
 void
 PostAuctionLoop::
-injectVisit(Date timestamp,
-            const SegmentList & channels,
-            const JsonHolder & visitMeta,
-            const UserIds & uids)
-{
-    auto event = std::make_shared<PostAuctionEvent>();
-    event->type = PAE_VISIT;
-    event->timestamp = timestamp;
-    event->metadata = visitMeta;
-    event->uids = uids;
-    event->channels = channels;
-
-    events.push(event);
-}
-
-void
-PostAuctionLoop::
 doAuctionMessage(const std::vector<std::string> & message)
 {
     recordHit("messages.AUCTION");
@@ -743,16 +722,6 @@ doClickMessage(const std::vector<std::string> & message)
     auto event = std::make_shared<PostAuctionEvent>
         (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
     doImpressionClick(event);
-}
-
-void
-PostAuctionLoop::
-doVisitMessage(const std::vector<std::string> & message)
-{
-    recordHit("messages.VISIT");
-    auto event = std::make_shared<PostAuctionEvent>
-        (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
-    doVisit(event);
 }
 
 namespace {
@@ -869,12 +838,6 @@ initStatePersistence(const std::string & path)
             timeout = newTimeout;
             // this->debugSpot(key.first, key.second, "RECONST FINISHED");
 
-            // Index the IDs
-            for (auto it = info.uids.begin(), end = info.uids.end();
-                 it != end;  ++it) {
-                uidIndex[*it][key] = Date::now();
-            }
-
             return true;
         };
 
@@ -990,15 +953,6 @@ checkExpiredAuctions()
 
                 // this->debugSpot(key.first, key.second, "EXPIRED FINISHED", {});
 
-                // We need to clean up the uid index
-                for (auto it = info.uids.begin(), end = info.uids.end();
-                     it != end;  ++it) {
-                    const Id & uid = *it;
-                    auto & entry = uidIndex[uid];
-                    entry.erase(key);
-                    if (entry.empty())
-                        uidIndex.erase(uid);
-                }
                 return Date();
             };
 
@@ -1090,9 +1044,6 @@ doEvent(const std::shared_ptr<PostAuctionEvent> & event)
         case PAE_CLICK:
             doImpressionClick(event);
             break;
-        case PAE_VISIT:
-            doVisit(event);
-            break;
         default:
             throw Exception("postAuctionLoop.unknownEventType",
                             "unknown event type (%d)", event->type);
@@ -1103,17 +1054,6 @@ doEvent(const std::shared_ptr<PostAuctionEvent> & event)
     }
 
     //cerr << "finished with event " << print(event->type) << endl;
-}
-
-void
-PostAuctionLoop::
-addToUidIndex(const std::string & uidDomain,
-              const Id & uid,
-              const Id & auctionId,
-              const Id & slotId)
-{
-    if (!uid) return;
-    uidIndex[uid][make_pair(auctionId, slotId)] = Date::now();
 }
 
 void
@@ -1456,12 +1396,7 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
 
         // Add in the user IDs to the index so we can route any visits
         // properly
-        finishedInfo.addUids(uids,
-                             [&] (string dom, Id id)
-                             {
-                                 this->addToUidIndex(dom, id, auctionId,
-                                                     adSpotId);
-                             });
+        finishedInfo.addUids(uids);
 
         finished.update(key, finishedInfo);
 
@@ -1560,129 +1495,6 @@ routePostAuctionEvent(PostAuctionEventType type,
          finishedInfo.bidRequestStrFormat);
 
     return sent;
-}
-
-void
-PostAuctionLoop::
-doVisit(const std::shared_ptr<PostAuctionEvent> & event)
-{
-    //RouterProfiler profiler(this, dutyCycleCurrent.nsVisit);
-
-    Date timestamp = event->timestamp;
-    const JsonHolder & meta = event->metadata;
-    const UserIds & uids = event->uids;
-    const SegmentList & channels = event->channels;
-
-    FinishedInfo finishedInfo;
-
-    //cerr << "channels = " << channels << endl;
-
-    recordHit("delivery.VISIT.messagesReceived");
-
-    channels.forEach([&] (int, string ch, float wt)
-                     {
-                         //cerr << "channel " << ch << endl;
-                         this->recordHit("delivery.VISIT.channel.%s.messagesReceived", ch);
-                     });
-
-    //cerr << type << " " << auctionId << "-" << adSpotId << endl;
-
-    auto recordUnmatched = [&] (const std::string & why)
-        {
-            this->recordHit("delivery.VISIT.%s", why);
-            this->logMessage("UNMATCHEDVISIT", why,
-                             to_string(timestamp.secondsSinceEpoch()),
-                             meta, channels.toJsonStr());
-        };
-
-    // Try to find any of the UIDs in the index
-
-    bool foundUser = false;
-
-    for (auto it = uids.begin(), end = uids.end();  it != end;  ++it) {
-        auto uit = uidIndex.find(it->second);
-        if (uit == uidIndex.end()) continue;
-
-        cerr << "visit metadata " << meta << endl;
-        cerr << "UID " << *it << " matched "
-             << uit->second.size() << " users" << endl;
-
-        auto & entries = uit->second;
-
-        foundUser = true;
-
-        // For each auction this UID matches, we notify of the visit
-        for (auto jt = entries.begin(), jend = entries.end();
-             jt != jend;  ++jt) {
-            Id auctionId = jt->first.first;
-            Id adSpotId = jt->first.second;
-
-            cerr << "  auction " << auctionId << " spot " << adSpotId
-                 << endl;
-
-            // Find if we have a finished auction (answer should be yes)
-            std::pair<Id, Id> key(auctionId, adSpotId);
-
-            recordHit("delivery.VISIT.foundMatchingAuction");
-
-            FinishedInfo finishedInfo;
-            if (!findAuction(finished, auctionId, adSpotId, finishedInfo)) {
-                logPAError("doVisit.inconsistentIndex",
-                           "auction in indexed not in finished");
-                recordUnmatched("inconsistentIndex");
-                return;
-            }
-
-            cerr << "  found finished auction for account "
-                 << finishedInfo.bid.account << " with channels "
-                 << finishedInfo.visitChannels << endl;
-
-            // Check for a channel match
-            if (!finishedInfo.visitChannels.match(channels)) {
-                cerr << event->print() << endl;
-                cerr << "channel mismatch: channels =  ";
-                channels.forEach([&] (int, string ch, float wt)
-                                 {
-                                     cerr << " " << ch;
-                                 });
-                cerr << endl;
-                recordUnmatched("channelMismatch");
-                return;
-            }
-
-            recordHit("delivery.VISIT.matched");
-
-            cerr << "matched" << endl;
-
-            channels.forEach([&] (int, string ch, float wt)
-                             {
-                                 this->recordHit("delivery.VISIT.account.%s"
-                                                 ".channel.%s.matched",
-                                                 finishedInfo.bid.account.toString().c_str(),
-                                                 ch);
-                             });
-
-            //cerr << "MATCHED VISIT " << message << endl;
-
-            finishedInfo.addVisit(timestamp,
-                                  meta.toString(),
-                                  channels);
-            finished.update(key, finishedInfo);
-
-            routePostAuctionEvent(PAE_VISIT, finishedInfo, channels,
-                                  true /* filterChannels */);
-        }
-    }
-
-    if (foundUser) {
-        recordHit("delivery.VISIT.foundUser");
-
-        channels.forEach([&] (int, string ch, float wt)
-                         {
-                             this->recordHit("delivery.VISIT.channel.%s"
-                                             ".foundUser", ch);
-                         });
-    }
 }
 
 void
@@ -1842,11 +1654,7 @@ doBidResult(const Id & auctionId,
     // know which visits to route back
     i.visitChannels = response.visitChannels;
 
-    i.addUids(uids,
-              [&] (string dom, Id id)
-              {
-                  this->addToUidIndex(dom, id, auctionId, adSpotId);
-              });
+    i.addUids(uids);
 
     double expiryInterval = 3600;
     if (status == BS_LOSS)

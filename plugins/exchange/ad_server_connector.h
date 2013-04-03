@@ -88,17 +88,6 @@ struct PostAuctionProxy {
                      const JsonHolder & clickMeta,
                      const UserIds & ids);
 
-    /** Inject a VISIT into the router, to be passed onto any agent that is
-        listening for the given visit ID.
-
-        These are routed by matching the segments in the SegmentList
-        for the agent configuration with the segments in this message.
-    */
-    void injectVisit(Date timestamp,
-                     const SegmentList & segments,
-                     const JsonHolder & visitMeta,
-                     const UserIds & ids);
-
 private:
     // Connection to the post auction loops
     ZmqNamedProxy toPostAuctionService;
