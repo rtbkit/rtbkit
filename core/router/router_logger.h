@@ -29,7 +29,7 @@ struct RouterLogger : public Datacratic::ServiceBase,
     void init(std::shared_ptr<Datacratic::ConfigurationService> config);
     void shutdown();
 
-    void start(boost::function<void ()> onStop = boost::function<void ()>());
+    void start(std::function<void ()> onStop = 0);
 
     void connectAllServiceProviders(const std::string & serviceClass,
                                     const std::string & epName);
