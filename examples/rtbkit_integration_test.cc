@@ -12,8 +12,9 @@
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/banker/master_banker.h"
 #include "rtbkit/core/banker/slave_banker.h"
-#include "jml/utils/rng.h"
 #include "rtbkit/core/monitor/monitor_endpoint.h"
+#include "rtbkit/plugins/exchange/post_auction_proxy.h"
+#include "jml/utils/rng.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/utils/environment.h"
 #include "jml/arch/timers.h"
@@ -21,6 +22,8 @@
 #include "testing/generic_exchange_connector.h"
 #include "testing/mock_exchange.h"
 #include "rtbkit/testing/test_agent.h"
+#include "rtbkit/examples/mock_exchange_connector.h"
+#include "rtbkit/examples/mock_ad_server_connector.h"
 #include <boost/thread.hpp>
 #include <netdb.h>
 #include <memory>
@@ -47,6 +50,7 @@ struct Components
 
     RedisTemporaryServer redis;
     Router router1, router2;
+    MockAdServerConnector winStream;
     PostAuctionLoop postAuctionLoop;
     MasterBanker masterBanker;
     SlaveBudgetController budgetController;
@@ -57,7 +61,7 @@ struct Components
 
     // \todo Add a PAL event subscriber.
 
-    vector<unique_ptr<GenericExchangeConnector> > exchangeConnectors;
+    vector<unique_ptr<MockExchangeConnector> > exchangeConnectors;
     vector<int> exchangePorts;
 
 
@@ -65,6 +69,7 @@ struct Components
         : proxies(proxies),
           router1(proxies, "router1"),
           router2(proxies, "router2"),
+          winStream(proxies, "mockStream"),
           postAuctionLoop(proxies, "pas1"),
           masterBanker(proxies, "masterBanker"),
           agentConfig(proxies, "agentConfigurationService"),
@@ -78,6 +83,7 @@ struct Components
     {
         router1.shutdown();
         router2.shutdown();
+        winStream.shutdown();
         postAuctionLoop.shutdown();
 
         budgetController.shutdown();
@@ -143,7 +149,6 @@ struct Components
         // be added to the test) and the bids coming from the agents. Along the
         // way it also applies various filters based on agent configuration
         // while ensuring that all the real-time constraints are respected.
-
         router1.init();
         router1.setBanker(makeSlaveBanker("router1"));
         router1.bindTcp();
@@ -154,28 +159,34 @@ struct Components
         router2.bindTcp();
         router2.start();
 
-
         // Setup an exchange connector for each router which will act as the
         // middle men between the exchange and the router.
 
-        exchangeConnectors.emplace_back(
-                new GenericExchangeConnector(router1, Json::Value()));
+        int ports = 12338;
 
         exchangeConnectors.emplace_back(
-                new GenericExchangeConnector(router2, Json::Value()));
-        
+                new MockExchangeConnector("mock-1", proxies));
 
+        exchangeConnectors.emplace_back(
+                new MockExchangeConnector("mock-2", proxies));
 
         for (auto& connector : exchangeConnectors) {
             connector->enableUntil(Date::positiveInfinity());
 
-            int port = connector->init(-1, "localhost", 2 /* threads */);
+            int port = connector->init(ports, "localhost", 2 /* threads */);
+
             exchangePorts.push_back(port);
+            ++ports;
         }
 
         router1.connectExchange(*exchangeConnectors[0]);
         router2.connectExchange(*exchangeConnectors[1]);
         
+        // Setup an ad server connector that also acts as a midlle men between
+        // the exchange's wins and the post auction loop.
+        winStream.init(12340);
+        winStream.start();
+
         // Our bidding agent which listens to the bid request stream from all
         // available routers and decide who gets to see your awesome pictures of
         // kittens.
@@ -319,33 +330,13 @@ int main(int argc, char ** argv)
             {"testCampaign", "testStrategy"},
             USD(1000));
 
-    boost::thread_group threads;
-
-
-    int numDone = 0;
-
-    // Uses MockExchange to simulates a very basic exchange for the test.
-    auto doExchangeThread = [&] (int threadId)
-        {
-            string exchangeName = string("exchange-") + to_string(threadId);
-
-            MockExchange exchange(proxies, exchangeName);
-            exchange.init(threadId, components.exchangePorts);
-            exchange.start(nBidRequestsPerThread);
-
-            ML::atomic_inc(numDone);
-        };
-
-
     // Start up the exchange threads which should let bid requests flow through
     // our stack.
-    for (unsigned i = 0;  i < nExchangeThreads;  ++i)
-        threads.create_thread(std::bind(doExchangeThread, i));
-
+    MockExchange exchange(proxies, "mock-exchange");
+    exchange.start(nExchangeThreads, nBidRequestsPerThread, 12339, 12340);
 
     // Dump the budget stats while we wait for the test to finish.
-    while (numDone < nExchangeThreads) {
-
+    while (!exchange.isDone()) {
         auto summary = components.budgetController.getAccountSummarySync(
                 {"testCampaign"}, -1);
         cerr <<  summary << endl;
@@ -355,8 +346,6 @@ int main(int argc, char ** argv)
     }
 
     // Test is done; clean up time.
-
-    threads.join_all();
     components.shutdown();
 
     components.proxies->events->dump(cerr);

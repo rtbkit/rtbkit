@@ -46,8 +46,8 @@ struct AccountKey : public AccountKeyBase {
     {
     }
 
-    AccountKey(const std::string & str)
-        : AccountKeyBase(ML::split(str, ':'))
+    AccountKey(const std::string & str, char delimiter = ':')
+        : AccountKeyBase(ML::split(str, delimiter))
     {
       validate();
     }

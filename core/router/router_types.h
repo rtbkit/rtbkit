@@ -96,6 +96,7 @@ struct AgentStatus {
     AgentStatus()
         : dead(false), numBidsInFlight(0)
     {
+        lastHeartbeat = Date::now();
     }
 
     bool dead;
