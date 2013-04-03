@@ -8,6 +8,8 @@
 #ifndef __router__messages_h__
 #define __router__messages_h__
 
+#include "soa/service/zmq.hpp"
+
 #include "rtbkit/common/json_holder.h"
 
 namespace Datacratic {

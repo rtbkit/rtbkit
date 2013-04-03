@@ -23,7 +23,7 @@ clear()
     nsConfig = nsBid = nsAuction = nsWin = nsLoss = nsBidResult = 0;
     nsRemoveInFlightAuction = nsRemoveSubmittedAuction = 0;
     nsEraseLossTimeout = nsEraseAuction = 0;
-    nsTimeout = nsSubmitted = nsImpression = nsClick = nsVisit = 0;
+    nsTimeout = nsSubmitted = nsImpression = nsClick = 0;
     nsStartBidding = 0;
     nsExpireInFlight = nsExpireSubmitted
         = nsExpireFinished = nsExpireBlacklist = nsExpireBanker
@@ -51,7 +51,6 @@ operator += (const DutyCycleEntry & other)
     nsSubmitted += other.nsSubmitted;
     nsImpression += other.nsImpression;
     nsClick += other.nsClick;
-    nsVisit += other.nsVisit;
     throw ML::Exception("not finished");
 }
 
@@ -88,7 +87,6 @@ toJson() const
     doTime("removeInFlightAuction", nsRemoveInFlightAuction);
     doTime("eraseLossTimeout", nsEraseLossTimeout);
     doTime("eraseAuction", nsEraseAuction);
-    doTime("visit", nsVisit);
     doTime("expireInFlight", nsExpireInFlight);
     doTime("expireSubmitted", nsExpireSubmitted);
     doTime("expireFinished", nsExpireFinished);

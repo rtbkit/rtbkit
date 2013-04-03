@@ -6,160 +6,23 @@
 */
 
 #include <string>
-#include "post_auction_loop.h"
 #include <sstream>
 #include <iostream>
-#include <boost/make_shared.hpp>
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/arch/futex.h"
 #include "jml/db/persistent.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/common/messages.h"
+#include "rtbkit/common/auction_events.h"
+
+#include "post_auction_loop.h"
 
 using namespace std;
 using namespace ML;
 
 
 namespace RTBKIT {
-
-
-/*****************************************************************************/
-/* SUBMITTED AUCTION EVENT                                                   */
-/*****************************************************************************/
-
-void
-SubmittedAuctionEvent::
-serialize(ML::DB::Store_Writer & store) const
-{
-    store << (unsigned char)0
-          << auctionId << adSpotId << lossTimeout << augmentations
-          << bidRequestStr << bidResponse << bidRequestStrFormat;
-}
-
-void
-SubmittedAuctionEvent::
-reconstitute(ML::DB::Store_Reader & store)
-{
-    unsigned char version;
-    store >> version;
-    if (version != 0)
-        throw ML::Exception("unknown SubmittedAuctionEvent type");
-
-    store >> auctionId >> adSpotId >> lossTimeout >> augmentations
-          >> bidRequestStr >> bidResponse >> bidRequestStrFormat;
-
-    bidRequest.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
-}
-
-
-/*****************************************************************************/
-/* POST AUCTION EVENT TYPE                                                   */
-/*****************************************************************************/
-
-const char * print(PostAuctionEventType type)
-{
-    switch (type) {
-    case PAE_INVALID: return "INVALID";
-    case PAE_WIN: return "WIN";
-    case PAE_LOSS: return "LOSS";
-    case PAE_IMPRESSION: return "IMPRESSION";
-    case PAE_CLICK: return "CLICK";
-    case PAE_VISIT: return "VISIT";
-    default:
-        return "UNKNOWN";
-    }
-}
-
-COMPACT_PERSISTENT_ENUM_IMPL(PostAuctionEventType);
-
-
-/*****************************************************************************/
-/* POST AUCTION EVENT                                                        */
-/*****************************************************************************/
-
-PostAuctionEvent::
-PostAuctionEvent()
-    : type(PAE_INVALID)
-{
-}
-
-void
-PostAuctionEvent::
-serialize(ML::DB::Store_Writer & store) const
-{
-    unsigned char version = 2;
-    store << version << type << auctionId << adSpotId << timestamp
-          << metadata << account << winPrice
-          << uids << channels << bidTimestamp;
-}
-
-void
-PostAuctionEvent::
-reconstitute(ML::DB::Store_Reader & store)
-{
-    unsigned char version;
-    store >> version;
-    if (version > 2)
-        throw ML::Exception("reconstituting unknown version of "
-                            "PostAuctionEvent");
-    if (version <= 1) {
-        string campaign, strategy;
-        store >> type >> auctionId >> adSpotId >> timestamp
-              >> metadata >> campaign >> strategy;
-        account = { campaign, strategy };
-    }
-    else {
-        store >> type >> auctionId >> adSpotId >> timestamp
-              >> metadata >> account;
-    }
-    if (version == 0) {
-        int winCpmInMillis;
-        store >> winCpmInMillis;
-        winPrice = MicroUSD(winCpmInMillis);
-    }
-    else store >> winPrice;
-
-    store >> uids >> channels >> bidTimestamp;
-}
-
-std::string
-PostAuctionEvent::
-print() const
-{
-    std::string result = RTBKIT::print(type);
-
-    auto addVal = [&] (const std::string & val)
-        {
-            result += '\t' + val;
-        };
-
-    if (auctionId) {
-        addVal(auctionId.toString());
-        addVal(adSpotId.toString());
-    }
-    addVal(timestamp.print(6));
-    if (metadata.isNonNull())
-        addVal(metadata.toString());
-    if (!account.empty())
-        addVal(account.toString());
-    if (type == PAE_WIN)
-        addVal(winPrice.toString());
-    if (!uids.empty())
-        addVal(uids.toString());
-    if (!channels.empty())
-        addVal(channels.toString());
-    if (bidTimestamp != Date())
-        addVal(bidTimestamp.print(6));
-
-    return result;
-}
-
-std::ostream &
-operator << (std::ostream & stream, const PostAuctionEvent & event)
-{
-    return stream << event.print();
-}
 
 
 /*****************************************************************************/
@@ -178,24 +41,9 @@ serializeToString() const
            << bidRequestStrFormat
            << augmentations.toString()
            << earlyWinEvents
-           << earlyImpressionClickEvents;
+           << earlyCampaignEvents;
     bid.serialize(writer);
     return stream.str();
-}
-
-DB::Store_Writer & operator << (DB::Store_Writer & store,
-                                std::shared_ptr<PostAuctionEvent> event)
-{
-    event->serialize(store);
-    return store;
-}
-
-DB::Store_Reader & operator >> (DB::Store_Reader & store,
-                                std::shared_ptr<PostAuctionEvent> & event)
-{
-    event.reset(new PostAuctionEvent());
-    event->reconstitute(store);
-    return store;
 }
 
 void
@@ -226,14 +74,14 @@ reconstituteFromString(const std::string & str)
             cerr << "warning: discarding early events from old format"
                  << endl;
         earlyWinEvents.clear();
-        earlyImpressionClickEvents.clear();
+        earlyCampaignEvents.clear();
     }
     else if (version > 3) {
-        store >> earlyWinEvents >> earlyImpressionClickEvents;
+        store >> earlyWinEvents >> earlyCampaignEvents;
     }
     else {
         earlyWinEvents.clear();
-        earlyImpressionClickEvents.clear();
+        earlyCampaignEvents.clear();
     }
     bid.reconstitute(store);
 
@@ -271,28 +119,89 @@ winToJson() const
     return result;
 }
 
-Json::Value
+bool
 FinishedInfo::
-impressionToJson() const
+hasCampaignEvent(const std::string & label) const
 {
-    Json::Value result;
-    if (!hasImpression()) return result;
+    for (const CampaignEvent & history: campaignEvents) {
+        if (history.label_ == label) {
+            return true;
+        }
+    }
+    return false;
+}
 
-    result["timestamp"] = impressionTime.secondsSinceEpoch();
-    result["meta"] = impressionMeta;
+void
+FinishedInfo::
+setCampaignEvent(const std::string & label,
+                 Date eventTime,
+                 const JsonHolder & eventMeta)
+{
+    if (hasCampaignEvent(label))
+        throw ML::Exception("already has event '" + label + "'");
+    campaignEvents.emplace_back(label, eventTime, eventMeta);
+}
 
-    return result;
+FinishedInfo::CampaignEvent
+FinishedInfo::
+CampaignEvent::
+fromJson(const Json::Value & jsonValue)
+{
+    double timeSeconds(jsonValue["time"].asDouble());
+
+    FinishedInfo::CampaignEvent event(jsonValue["label"].asString(),
+                                      Date::fromSecondsSinceEpoch(timeSeconds),
+                                      jsonValue["meta"]);
+        
+    return event;
 }
 
 Json::Value
 FinishedInfo::
-clickToJson() const
+CampaignEvent::
+toJson() const
 {
-    Json::Value result;
-    if (!hasClick()) return result;
+    Json::Value result(Json::ValueType::objectValue);
 
-    result["timestamp"] = clickTime.secondsSinceEpoch();
-    result["meta"] = clickMeta;
+    result["label"] = label_;
+    result["timestamp"] = time_.secondsSinceEpoch();
+    result["meta"] = meta_.toJson();
+
+    return result;
+}
+
+void
+FinishedInfo::
+CampaignEvent::
+serialize(DB::Store_Writer & writer) const
+{
+    writer << label_ << time_.secondsSinceEpoch();
+    meta_.serialize(writer);
+}
+
+void
+FinishedInfo::
+CampaignEvent::
+reconstitute(DB::Store_Reader & store)
+{
+    double timeSeconds;
+    string metaStr;
+
+    store >> label_ >> timeSeconds;
+    time_ = Date::fromSecondsSinceEpoch(timeSeconds);
+    meta_.reconstitute(store);
+}
+
+Json::Value
+FinishedInfo::
+campaignEventsToJson()
+const
+{
+    Json::Value result(Json::ValueType::arrayValue);
+
+    for (const CampaignEvent & history: campaignEvents) {
+        result.append(history.toJson());
+    }
 
     return result;
 }
@@ -361,15 +270,18 @@ serializeToString() const
 {
     ostringstream stream;
     ML::DB::Store_Writer writer(stream);
-    int version = 5;
+    int version = 6;
     writer << version
            << auctionTime << auctionId << adSpotId
            << bidRequestStr << bidTime <<bidRequestStrFormat;
     bid.serialize(writer);
     writer << winTime
-           << reportedStatus << winPrice << winMeta
-           << impressionTime << impressionMeta
-           << clickTime << clickMeta << fromOldRouter
+           << reportedStatus << winPrice << winMeta;
+    writer << campaignEvents.size();
+    for (const CampaignEvent & event: campaignEvents) {
+        event.serialize(writer);
+    }
+    writer << fromOldRouter
            << augmentations.toString();
     writer << visitChannels << uids << visits;
 
@@ -384,27 +296,27 @@ reconstituteFromString(const std::string & str)
     ML::DB::Store_Reader store(stream);
     int version, istatus;
     store >> version;
-    if (version > 5)
+    if (version > 6)
         throw ML::Exception("bad version %d", version);
+    if (version < 6)
+        throw ML::Exception("version %d no longer supported", version);
 
     string auctionIdStr, adSpotIdStr;
 
     store >> auctionTime >> auctionId >> adSpotId
           >> bidRequestStr >> bidTime;
-    if(version == 5)
-        store >> bidRequestStrFormat;
     bid.reconstitute(store);
 
-    store >> winTime >> istatus;
-    if (version == 3) {
-        int winPriceMicros;
-        store >> winPriceMicros;
-        winPrice = MicroUSD(winPriceMicros);
+    store >> winTime >> istatus >> winPrice >> winMeta;
+
+    int nEvents;
+    store >> nEvents;
+    for (int i = 0; i < nEvents; i++) {
+        CampaignEvent newEvent;
+        newEvent.reconstitute(store);
+        campaignEvents.emplace_back(newEvent);
     }
-    else store >> winPrice;
-    store >> winMeta
-          >> impressionTime >> impressionMeta
-          >> clickTime >> clickMeta >> fromOldRouter;
+    store >> fromOldRouter;
 
     if (version > 1) {
         string s;
@@ -494,14 +406,8 @@ initConnections()
     router.bind("LOSS",
                 std::bind(&PostAuctionLoop::doLossMessage, this,
                           std::placeholders::_1));
-    router.bind("IMPRESSION",
-                std::bind(&PostAuctionLoop::doImpressionMessage, this,
-                          std::placeholders::_1));
-    router.bind("CLICK",
-                std::bind(&PostAuctionLoop::doClickMessage, this,
-                          std::placeholders::_1));
-    router.bind("VISIT",
-                std::bind(&PostAuctionLoop::doVisitMessage, this,
+    router.bind("EVENT",
+                std::bind(&PostAuctionLoop::doCampaignEventMessage, this,
                           std::placeholders::_1));
 
     // Every second we check for expired auctions
@@ -640,14 +546,16 @@ injectLoss(const Id & auctionId,
 
 void
 PostAuctionLoop::
-injectImpression(const Id & auctionId,
-                 const Id & adSpotId,
-                 Date timestamp,
-                 const JsonHolder & impressionMeta,
-                 const UserIds & uids)
+injectCampaignEvent(const string & label,
+                    const Id & auctionId,
+                    const Id & adSpotId,
+                    Date timestamp,
+                    const JsonHolder & impressionMeta,
+                    const UserIds & uids)
 {
     auto event = std::make_shared<PostAuctionEvent>();
-    event->type = PAE_IMPRESSION;
+    event->type = PAE_CAMPAIGN_EVENT;
+    event->label = label;
     event->auctionId = auctionId;
     event->adSpotId = adSpotId;
     event->timestamp = timestamp;
@@ -657,41 +565,6 @@ injectImpression(const Id & auctionId,
     events.push(event);
 }
 
-void
-PostAuctionLoop::
-injectClick(const Id & auctionId,
-            const Id & adSpotId,
-            Date timestamp,
-            const JsonHolder & clickMeta,
-            const UserIds & uids)
-{
-    auto event = std::make_shared<PostAuctionEvent>();
-    event->type = PAE_CLICK;
-    event->auctionId = auctionId;
-    event->adSpotId = adSpotId;
-    event->timestamp = timestamp;
-    event->metadata = clickMeta;
-    event->uids = uids;
-
-    events.push(event);
-}
-
-void
-PostAuctionLoop::
-injectVisit(Date timestamp,
-            const SegmentList & channels,
-            const JsonHolder & visitMeta,
-            const UserIds & uids)
-{
-    auto event = std::make_shared<PostAuctionEvent>();
-    event->type = PAE_VISIT;
-    event->timestamp = timestamp;
-    event->metadata = visitMeta;
-    event->uids = uids;
-    event->channels = channels;
-
-    events.push(event);
-}
 
 void
 PostAuctionLoop::
@@ -727,32 +600,12 @@ doLossMessage(const std::vector<std::string> & message)
 
 void
 PostAuctionLoop::
-doImpressionMessage(const std::vector<std::string> & message)
+doCampaignEventMessage(const std::vector<std::string> & message)
 {
-    recordHit("messages.IMPRESSION");
     auto event = std::make_shared<PostAuctionEvent>
         (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
-    doImpressionClick(event);
-}
-
-void
-PostAuctionLoop::
-doClickMessage(const std::vector<std::string> & message)
-{
-    recordHit("messages.CLICK");
-    auto event = std::make_shared<PostAuctionEvent>
-        (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
-    doImpressionClick(event);
-}
-
-void
-PostAuctionLoop::
-doVisitMessage(const std::vector<std::string> & message)
-{
-    recordHit("messages.VISIT");
-    auto event = std::make_shared<PostAuctionEvent>
-        (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
-    doVisit(event);
+    recordHit("messages.EVENT." + event->label);
+    doCampaignEvent(event);
 }
 
 namespace {
@@ -869,12 +722,6 @@ initStatePersistence(const std::string & path)
             timeout = newTimeout;
             // this->debugSpot(key.first, key.second, "RECONST FINISHED");
 
-            // Index the IDs
-            for (auto it = info.uids.begin(), end = info.uids.end();
-                 it != end;  ++it) {
-                uidIndex[*it][key] = Date::now();
-            }
-
             return true;
         };
 
@@ -990,15 +837,6 @@ checkExpiredAuctions()
 
                 // this->debugSpot(key.first, key.second, "EXPIRED FINISHED", {});
 
-                // We need to clean up the uid index
-                for (auto it = info.uids.begin(), end = info.uids.end();
-                     it != end;  ++it) {
-                    const Id & uid = *it;
-                    auto & entry = uidIndex[uid];
-                    entry.erase(key);
-                    if (entry.empty())
-                        uidIndex.erase(uid);
-                }
                 return Date();
             };
 
@@ -1086,12 +924,8 @@ doEvent(const std::shared_ptr<PostAuctionEvent> & event)
         case PAE_LOSS:
             doWinLoss(event, false);
             break;
-        case PAE_IMPRESSION:
-        case PAE_CLICK:
-            doImpressionClick(event);
-            break;
-        case PAE_VISIT:
-            doVisit(event);
+        case PAE_CAMPAIGN_EVENT:
+            doCampaignEvent(event);
             break;
         default:
             throw Exception("postAuctionLoop.unknownEventType",
@@ -1103,17 +937,6 @@ doEvent(const std::shared_ptr<PostAuctionEvent> & event)
     }
 
     //cerr << "finished with event " << print(event->type) << endl;
-}
-
-void
-PostAuctionLoop::
-addToUidIndex(const std::string & uidDomain,
-              const Id & uid,
-              const Id & auctionId,
-              const Id & slotId)
-{
-    if (!uid) return;
-    uidIndex[uid][make_pair(auctionId, slotId)] = Date::now();
 }
 
 void
@@ -1313,9 +1136,9 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
                 winPrice, timestamp, status,
                 status == BS_WIN ? "guaranteed" : "inferred",
                 meta.toString(), uids);
-    std::for_each(info.earlyImpressionClickEvents.begin(),
-                  info.earlyImpressionClickEvents.end(),
-                  std::bind(&PostAuctionLoop::doImpressionClick, this,
+    std::for_each(info.earlyCampaignEvents.begin(),
+                  info.earlyCampaignEvents.end(),
+                  std::bind(&PostAuctionLoop::doCampaignEvent, this,
                             std::placeholders::_1));
 
     //cerr << "doWinLoss done" << endl;
@@ -1355,14 +1178,11 @@ bool findAuction(PendingList<pair<Id,Id>, Value> & pending,
 
 void
 PostAuctionLoop::
-doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
+doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
 {
-    lastImpression = Date::now();
-
     //RouterProfiler profiler(this, dutyCycleCurrent.nsImpression);
-    //static const char* fName = "PostAuctionLoop::doImpressionClick:";
-    PostAuctionEventType typeEnum = event->type;
-    const char * typeStr = print(event->type);
+    //static const char* fName = "PostAuctionLoop::doCampaignEvent:";
+    const string & label = event->label;
     const Id & auctionId = event->auctionId;
     Id adSpotId = event->adSpotId;
     Date timestamp = event->timestamp;
@@ -1372,19 +1192,23 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
     SubmissionInfo submissionInfo;
     FinishedInfo finishedInfo;
 
-    recordHit("delivery.%s.messagesReceived", typeStr);
+    if (event->type != PAE_CAMPAIGN_EVENT) {
+        throw ML::Exception("event type must be PAE_CAMPAIGN_EVENT: "
+                            + string(print(event->type)));
+    }
+
+    lastCampaignEvent = Date::now();
+
+    recordHit("delivery.EVENT.%s.messagesReceived", label);
 
     //cerr << fName << typeStr << " " << auctionId << "-" << adSpotId << endl;
     //cerr <<"The number of elements in submitted " << submitted.size() << endl;
     auto recordUnmatched = [&] (const std::string & why)
         {
-            this->logMessage(string("UNMATCHED") + typeStr, why,
+            this->logMessage(string("UNMATCHED") + label, why,
                              auctionId.toString(), adSpotId.toString(),
                              to_string(timestamp.secondsSinceEpoch()),
                              meta);
-            if (typeEnum == PAE_CLICK)
-                cerr << "UNMATCHEDCLICK " << auctionId << "-"
-                     << adSpotId << endl;
         };
 
     if (findAuction(submitted, auctionId, adSpotId, submissionInfo)) {
@@ -1395,59 +1219,32 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
         // implement what is written above
         //cerr << "auction " << auctionId << "-" << adSpotId
         //     << " in flight but got " << type << endl;
-        recordHit("delivery.%s.stillInFlight", typeStr);
-        logPAError(string("doImpressionClick.auctionNotWon") + typeStr,
+        recordHit("delivery.%s.stillInFlight", label);
+        logPAError(string("doCampaignEvent.auctionNotWon") + label,
                    "message for auction that's not won");
         recordUnmatched("inFlight");
 
-        submissionInfo.earlyImpressionClickEvents.push_back(event);
+        submissionInfo.earlyCampaignEvents.push_back(event);
 
         submitted.update(make_pair(auctionId, adSpotId), submissionInfo);
         return;
     }
     else if (findAuction(finished, auctionId, adSpotId, finishedInfo)) {
         // Update the info
-        if (typeEnum == PAE_IMPRESSION) {
-            if (finishedInfo.hasImpression()) {
-                recordHit("delivery.%s.duplicate", typeStr);
-                logPAError(string("doImpressionClick.duplicate") + typeStr,
-                           "message duplicated");
-                recordUnmatched("duplicate");
-                return;
-            }
-
-            finishedInfo.setImpression(timestamp, meta.toString());
-            ML::atomic_inc(numImpressions);
-
-            recordHit("delivery.IMPRESSION.account.%s.matched",
-                      finishedInfo.bid.account.toString().c_str());
-
-            //Json::Value impInfo = Json::parse(meta);
-            //cerr <<
-            //cerr << meta << endl;
+        if (finishedInfo.hasCampaignEvent(label)) {
+            recordHit("delivery.%s.duplicate", label);
+            logPAError(string("doCampaignEvent.duplicate")
+                       + label, "message duplicated");
+            recordUnmatched("duplicate");
+            return;
         }
-        else if (typeEnum == PAE_CLICK) {
-            if (finishedInfo.hasClick()) {
-                recordHit("delivery.CLICK.duplicate");
-                logPAError(string("doImpressionClick.duplicate") + typeStr,
-                           "message duplicated");
-                recordUnmatched("duplicate");
-                return;
-            }
 
-            finishedInfo.setClick(timestamp, meta.toString());
-            ML::atomic_inc(numClicks);
+        finishedInfo.setCampaignEvent(label, timestamp, meta);
+        ML::atomic_inc(numCampaignEvents);
 
-            cerr << "CLICK " << auctionId << "-" << adSpotId
-                 << " " << finishedInfo.bid.account
-                 << " " << finishedInfo.bid.agent
-                 << " " << uids.toJson().toString()
-                 << endl;
-
-            recordHit("delivery.CLICK.account.%s.matched",
-                      finishedInfo.bid.account.toString().c_str());
-        }
-        else throw ML::Exception("unknown delivery event");
+        recordHit("delivery.%s.account.%s.matched",
+                  label,
+                  finishedInfo.bid.account.toString().c_str());
 
         pair<Id, Id> key(auctionId, adSpotId);
         //cerr << "key = " << key << endl;
@@ -1456,16 +1253,11 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
 
         // Add in the user IDs to the index so we can route any visits
         // properly
-        finishedInfo.addUids(uids,
-                             [&] (string dom, Id id)
-                             {
-                                 this->addToUidIndex(dom, id, auctionId,
-                                                     adSpotId);
-                             });
+        finishedInfo.addUids(uids);
 
         finished.update(key, finishedInfo);
 
-        routePostAuctionEvent(typeEnum, finishedInfo,
+        routePostAuctionEvent(label, finishedInfo,
                               SegmentList(), false /* filterChannels */);
     }
     else {
@@ -1482,13 +1274,11 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
            auction event comes in.
         */
 
-
-
-        recordHit("delivery.%s.auctionNotFound", typeStr);
+        recordHit("delivery.%s.auctionNotFound", label);
         //cerr << "delivery " << typeStr << ": auction "
         //     << auctionId << "-" << adSpotId << " not found"
         //     << endl;
-        logPAError(string("doImpressionClick.auctionNotFound") + typeStr,
+        logPAError(string("doCampaignEvent.auctionNotFound") + label,
                    "auction not found for delivery message");
         recordUnmatched("auctionNotFound");
     }
@@ -1496,7 +1286,7 @@ doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event)
 
 bool
 PostAuctionLoop::
-routePostAuctionEvent(PostAuctionEventType type,
+routePostAuctionEvent(const string & label,
                       const FinishedInfo & finishedInfo,
                       const SegmentList & channels,
                       bool filterChannels)
@@ -1504,8 +1294,6 @@ routePostAuctionEvent(PostAuctionEventType type,
     // For the moment, send the message to all of the agents that are
     // bidding on this account
     const AccountKey & account = finishedInfo.bid.account;
-
-    const char * typeStr = print(type);
 
     bool sent = false;
     auto onMatchingAgent = [&] (const AgentConfigEntry & entry)
@@ -1519,7 +1307,7 @@ routePostAuctionEvent(PostAuctionEventType type,
             sent = true;
 
             this->sendAgentMessage(entry.name,
-                                   typeStr,
+                                   label,
                                    Date::now(),
                                    finishedInfo.auctionId,
                                    finishedInfo.adSpotId,
@@ -1527,8 +1315,7 @@ routePostAuctionEvent(PostAuctionEventType type,
                                    finishedInfo.bidRequestStr,
                                    finishedInfo.bidToJson(),
                                    finishedInfo.winToJson(),
-                                   finishedInfo.impressionToJson(),
-                                   finishedInfo.clickToJson(),
+                                   finishedInfo.campaignEventsToJson(),
                                    finishedInfo.augmentations,
                                    finishedInfo.visitsToJson(),
                                    finishedInfo.bidRequestStrFormat /* bidRequestSource */);
@@ -1537,22 +1324,21 @@ routePostAuctionEvent(PostAuctionEventType type,
     configListener.forEachAccountAgent(account, onMatchingAgent);
 
     if (!sent) {
-        recordHit("delivery.%s.orphaned", typeStr);
-        logPAError(string("doImpressionClick.noListeners") + typeStr,
+        recordHit("delivery.%s.orphaned", label);
+        logPAError(string("doCampaignEvent.noListeners") + label,
                    "nothing listening for account " + account.toString());
     }
-    else recordHit("delivery.%s.delivered", typeStr);
+    else recordHit("delivery.%s.delivered", label);
 
     // TODO: full account
     this->logMessage
-        (string("MATCHED") + typeStr,
+        (string("MATCHED") + label,
          finishedInfo.auctionId,
          finishedInfo.adSpotId,
          finishedInfo.bidRequestStr,
          finishedInfo.bidToJson(),
          finishedInfo.winToJson(),
-         finishedInfo.impressionToJson(),
-         finishedInfo.clickToJson(),
+         finishedInfo.campaignEventsToJson(),
          finishedInfo.visitsToJson(),
          finishedInfo.bid.account[0],
          finishedInfo.bid.account[1],
@@ -1560,129 +1346,6 @@ routePostAuctionEvent(PostAuctionEventType type,
          finishedInfo.bidRequestStrFormat);
 
     return sent;
-}
-
-void
-PostAuctionLoop::
-doVisit(const std::shared_ptr<PostAuctionEvent> & event)
-{
-    //RouterProfiler profiler(this, dutyCycleCurrent.nsVisit);
-
-    Date timestamp = event->timestamp;
-    const JsonHolder & meta = event->metadata;
-    const UserIds & uids = event->uids;
-    const SegmentList & channels = event->channels;
-
-    FinishedInfo finishedInfo;
-
-    //cerr << "channels = " << channels << endl;
-
-    recordHit("delivery.VISIT.messagesReceived");
-
-    channels.forEach([&] (int, string ch, float wt)
-                     {
-                         //cerr << "channel " << ch << endl;
-                         this->recordHit("delivery.VISIT.channel.%s.messagesReceived", ch);
-                     });
-
-    //cerr << type << " " << auctionId << "-" << adSpotId << endl;
-
-    auto recordUnmatched = [&] (const std::string & why)
-        {
-            this->recordHit("delivery.VISIT.%s", why);
-            this->logMessage("UNMATCHEDVISIT", why,
-                             to_string(timestamp.secondsSinceEpoch()),
-                             meta, channels.toJsonStr());
-        };
-
-    // Try to find any of the UIDs in the index
-
-    bool foundUser = false;
-
-    for (auto it = uids.begin(), end = uids.end();  it != end;  ++it) {
-        auto uit = uidIndex.find(it->second);
-        if (uit == uidIndex.end()) continue;
-
-        cerr << "visit metadata " << meta << endl;
-        cerr << "UID " << *it << " matched "
-             << uit->second.size() << " users" << endl;
-
-        auto & entries = uit->second;
-
-        foundUser = true;
-
-        // For each auction this UID matches, we notify of the visit
-        for (auto jt = entries.begin(), jend = entries.end();
-             jt != jend;  ++jt) {
-            Id auctionId = jt->first.first;
-            Id adSpotId = jt->first.second;
-
-            cerr << "  auction " << auctionId << " spot " << adSpotId
-                 << endl;
-
-            // Find if we have a finished auction (answer should be yes)
-            std::pair<Id, Id> key(auctionId, adSpotId);
-
-            recordHit("delivery.VISIT.foundMatchingAuction");
-
-            FinishedInfo finishedInfo;
-            if (!findAuction(finished, auctionId, adSpotId, finishedInfo)) {
-                logPAError("doVisit.inconsistentIndex",
-                           "auction in indexed not in finished");
-                recordUnmatched("inconsistentIndex");
-                return;
-            }
-
-            cerr << "  found finished auction for account "
-                 << finishedInfo.bid.account << " with channels "
-                 << finishedInfo.visitChannels << endl;
-
-            // Check for a channel match
-            if (!finishedInfo.visitChannels.match(channels)) {
-                cerr << event->print() << endl;
-                cerr << "channel mismatch: channels =  ";
-                channels.forEach([&] (int, string ch, float wt)
-                                 {
-                                     cerr << " " << ch;
-                                 });
-                cerr << endl;
-                recordUnmatched("channelMismatch");
-                return;
-            }
-
-            recordHit("delivery.VISIT.matched");
-
-            cerr << "matched" << endl;
-
-            channels.forEach([&] (int, string ch, float wt)
-                             {
-                                 this->recordHit("delivery.VISIT.account.%s"
-                                                 ".channel.%s.matched",
-                                                 finishedInfo.bid.account.toString().c_str(),
-                                                 ch);
-                             });
-
-            //cerr << "MATCHED VISIT " << message << endl;
-
-            finishedInfo.addVisit(timestamp,
-                                  meta.toString(),
-                                  channels);
-            finished.update(key, finishedInfo);
-
-            routePostAuctionEvent(PAE_VISIT, finishedInfo, channels,
-                                  true /* filterChannels */);
-        }
-    }
-
-    if (foundUser) {
-        recordHit("delivery.VISIT.foundUser");
-
-        channels.forEach([&] (int, string ch, float wt)
-                         {
-                             this->recordHit("delivery.VISIT.channel.%s"
-                                             ".foundUser", ch);
-                         });
-    }
 }
 
 void
@@ -1842,11 +1505,7 @@ doBidResult(const Id & auctionId,
     // know which visits to route back
     i.visitChannels = response.visitChannels;
 
-    i.addUids(uids,
-              [&] (string dom, Id id)
-              {
-                  this->addToUidIndex(dom, id, auctionId, adSpotId);
-              });
+    i.addUids(uids);
 
     double expiryInterval = 3600;
     if (status == BS_LOSS)
@@ -1918,17 +1577,14 @@ getProviderIndicators()
     Json::Value value;
 
     /* PA health check:
-       - WINs in the last 10 seconds
-       - IMPRESSIONs in the last 10 seconds */
+       - last campaign event in the last 10 seconds */
     Date now = Date::now();
-    bool status(now < lastWinLoss.plusSeconds(30)
-                && now < lastImpression.plusSeconds(30));
+    bool status(now < lastCampaignEvent.plusSeconds(10));
 
 #if 0
     if (!status)  {
       cerr << "--- WRONGNESS DETECTED:" 
-	   << " wins: " << (now - lastWinLoss)
-	   << ", imps: " << (now - lastImpression)
+	   << " last event: " << (now - lastCampaignEvent)
 	   << endl;
     }
 #endif
@@ -1938,6 +1594,4 @@ getProviderIndicators()
     return value;
 }
 
-
 } // namespace RTBKIT
-
