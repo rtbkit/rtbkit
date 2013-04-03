@@ -73,8 +73,10 @@ struct AgentConfigurationListener: public MessageLoop {
         configEndpoint.messageHandler
             = [=] (const std::vector<std::string> & message)
             {
-                using namespace std;
-                cerr << "got configuration message " << message << endl;
+                if (message.size() > 1) {
+                    using namespace std;
+                    cerr << "got configuration message " << message[1] << endl;
+                }
                 this->onMessage(message);
             };
         addSource("AgentConfigurationListener::configEndpoint", configEndpoint);
