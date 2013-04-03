@@ -117,7 +117,7 @@ int main (int argc, char** argv)
     strategyOutput->logTo("", logdir + "/%F/$(10)/$(11)/$(0)-%T.log.gz",
                           createMatchedWinFile);
 
-    logger.addOutput(strategyOutput, boost::regex("MATCHEDWIN|MATCHEDIMPRESSION|MATCHEDCLICK|MATCHEDVISIT"));
+    logger.addOutput(strategyOutput, boost::regex("MATCHEDWIN|MATCHEDIMPRESSION|MATCHEDCLICK"));
 
     // Behaviours
     std::shared_ptr<RotatingFileOutput> behaviourOutput
