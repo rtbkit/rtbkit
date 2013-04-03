@@ -21,6 +21,31 @@ namespace Datacratic {
 
 struct JsonParsingContext;
 struct JsonPrintingContext;
+struct JSConverters;
+
+#if 0
+enum ValueKind {
+    INTEGER,
+    FLOAT,
+    BOOLEAN,
+    STRING,
+    OPTIONAL,
+    ARRAY,
+    TUPLE,
+    STRUCT,
+    ANY
+};
+#endif
+
+/*****************************************************************************/
+/* VALUE DESCRIPTION                                                         */
+/*****************************************************************************/
+
+/** Value Description
+
+    This describes the content of a C++ structure and allows it to be
+    manipulated programatically.
+*/
 
 struct ValueDescription {
     typedef std::true_type defined;
@@ -28,7 +53,9 @@ struct ValueDescription {
     ValueDescription(const std::type_info * type,
                      const std::string & typeName = "")
         : type(type),
-          typeName(typeName.empty() ? type->name() : typeName)
+          typeName(typeName.empty() ? type->name() : typeName),
+          jsConverters(nullptr),
+          jsConvertersInitialized(false)
     {
     }
     
@@ -38,13 +65,67 @@ struct ValueDescription {
     virtual void parseJson(void * val, JsonParsingContext & context) const = 0;
     virtual void printJson(const void * val, JsonPrintingContext & context) const = 0;
     virtual bool isDefault(const void * val) const = 0;
+    
+    struct FieldDescription {
+        std::string fieldName;
+        std::string comment;
+        std::unique_ptr<ValueDescription > description;
+        int offset;
+        int fieldNum;
+    };
 
+    virtual const FieldDescription & 
+    getField(const std::string & field) const
+    {
+        throw ML::Exception("type doesn't support fields");
+    }
     // Serialization and reconstitution in the JML (boost serialization)
     // framework
     //virtual void jmlSerialize(const void * val, ML::DB::Store_Writer & store) const = 0;
     //virtual void jmlReconstitute(void * val, ML::DB::Store_Reader & store) const = 0;
+
+    // Storage to cache Javascript converters
+    mutable JSConverters * jsConverters;
+    mutable bool jsConvertersInitialized;
 };
 
+void registerValueDescription(const std::type_info & type,
+                              std::function<ValueDescription * ()>,
+                              bool isDefault);
+
+template<typename T>
+struct RegisterValueDescription {
+    RegisterValueDescription()
+    {
+        registerValueDescription(typeid(T), [] () { return getDefaultDescription((T*)0); });
+    }
+};
+
+template<typename T, typename Impl>
+struct RegisterValueDescriptionI {
+    RegisterValueDescriptionI()
+        : done(false)
+    {
+        registerValueDescription(typeid(T), [] () { return new Impl(); }, true);
+    }
+
+    bool done;
+};
+
+#define REGISTER_VALUE_DESCRIPTION(type)                                \
+    namespace {                                                         \
+    static const RegisterValueDescription<type> registerValueDescription#type; \
+    }
+
+
+/*****************************************************************************/
+/* VALUE DESCRIPTION TEMPLATE                                                */
+/*****************************************************************************/
+
+/** Template class for value description.  This is a type-safe version of a
+    value description.
+*/
+    
 template<typename T>
 struct ValueDescriptionT : public ValueDescription {
 
@@ -88,11 +169,28 @@ struct ValueDescriptionT : public ValueDescription {
 };
 
 template<typename T>
-ValueDescriptionT<T> * getDefaultDescription(T * = 0,
-                                            typename DefaultDescription<T>::defined * = 0)
+ValueDescriptionT<T> *
+getDefaultDescription(T * = 0,
+                      typename DefaultDescription<T>::defined * = 0)
 {
     return new DefaultDescription<T>();
 }
+
+template<typename T, typename Impl = DefaultDescription<T> >
+struct ValueDescriptionI : public ValueDescriptionT<T> {
+
+    static RegisterValueDescriptionI<T, Impl> regme;
+
+    ValueDescriptionI()
+    {
+        regme.done = true;
+    }
+};
+
+template<typename T, typename Impl>
+RegisterValueDescriptionI<T, Impl>
+ValueDescriptionI<T, Impl>::
+regme;
 
 template<class Struct>
 struct StructureDescription;
@@ -131,13 +229,7 @@ struct StructureDescriptionBase {
     const std::string typeName;
     bool nullAccepted;
 
-    struct FieldDescription {
-        std::string fieldName;
-        std::string comment;
-        std::unique_ptr<ValueDescription > description;
-        int offset;
-        int fieldNum;
-    };
+    typedef ValueDescription::FieldDescription FieldDescription;
 
     // Comparison object to allow const char * objects to be looked up
     // in the map and so for comparisons to be done with no memory
@@ -224,9 +316,14 @@ struct StructureDescriptionBase {
     virtual void onExit(void * output, JsonParsingContext & context) const = 0;
 };
 
+
+/*****************************************************************************/
+/* STRUCTURE DESCRIPTION                                                     */
+/*****************************************************************************/
+
 template<class Struct>
 struct StructureDescription
-    :  public ValueDescriptionT<Struct>,
+    :  public ValueDescriptionI<Struct, StructureDescription<Struct> >,
        public StructureDescriptionBase {
 
     StructureDescription(bool nullAccepted = false)
@@ -325,6 +422,15 @@ struct StructureDescription
         }
     }
 
+    virtual const FieldDescription & 
+    getField(const std::string & field) const
+    {
+        auto it = fields.find(field.c_str());
+        if (it != fields.end())
+            return it->second;
+        throw ML::Exception("structure has no field " + field);
+    }
+
     virtual void parseJson(void * val, JsonParsingContext & context) const
     {
         return StructureDescriptionBase::parseJson(val, context);
@@ -333,15 +439,6 @@ struct StructureDescription
     virtual void printJson(const void * val, JsonPrintingContext & context) const
     {
         return StructureDescriptionBase::printJson(val, context);
-    }
-
-    virtual const FieldDescription & 
-    getField(const std::string & field) const
-    {
-        auto it = fields.find(field.c_str());
-        if (it != fields.end())
-            return it->second;
-        throw ML::Exception("structure has no field " + field);
     }
 };
 
@@ -509,6 +606,5 @@ Json::Value jsonEncode(const T & obj,
     desc->printJson(&obj, context);
     return std::move(context.output);
 }
-
 
 } // namespace Datacratic

@@ -15,6 +15,11 @@
 
 namespace Datacratic {
 
+
+/*****************************************************************************/
+/* JSON PRINTING CONTEXT                                                     */
+/*****************************************************************************/
+
 struct JsonPrintingContext {
 
     virtual ~JsonPrintingContext()
@@ -40,6 +45,11 @@ struct JsonPrintingContext {
     virtual void writeJson(const Json::Value & val) = 0;
     virtual void skip() = 0;
 };
+
+
+/*****************************************************************************/
+/* STREAM JSON PRINTING CONTEXT                                              */
+/*****************************************************************************/
 
 struct StreamJsonPrintingContext
     : public JsonPrintingContext {
@@ -156,6 +166,13 @@ struct StreamJsonPrintingContext
     }
 
 };
+
+
+/*****************************************************************************/
+/* STRUCTURED JSON PRINTING CONTEXT                                          */
+/*****************************************************************************/
+
+/** JSON printing context that puts things into a structure. */
 
 struct StructuredJsonPrintingContext
     : public JsonPrintingContext {

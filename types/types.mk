@@ -21,6 +21,7 @@ $(eval $(call set_compile_option,localdate.cc,-DBOOST_TIMEZONES_DIR=\"$(BOOST_TI
 $(eval $(call library,types,$(LIBTYPES_SOURCES),$(LIBTYPES_LINK)))
 
 LIBVALUE_DESCRIPTION_SOURCES := \
+	value_description.cc \
 	json_parsing.cc \
 	json_printing.cc
 

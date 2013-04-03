@@ -21,5 +21,4 @@ struct ValueDescriptionT;
 template<typename T, typename Enable = void>
 struct DefaultDescription;
 
-
 } // namespace Datacratic
