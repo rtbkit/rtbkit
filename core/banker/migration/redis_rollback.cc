@@ -60,11 +60,11 @@ ConvertAccountsToCampaigns(const Accounts & accounts, Campaigns & campaigns)
          back (requires non-const accounts) */
         for (AccountKey & key: accounts.getAccountKeys()) {
             if (key.size() == 2) {
-                accounts.setAvailable(key, accounts.getAvailable(key) + MicroUSD(1234), AT_NONE);
+                accounts.setBalance(key, accounts.getAvailable(key) + MicroUSD(1234), AT_NONE);
                 AccountKey childKey = key.childKey("legacyImported");
                 cerr << "child key: " << childKey << endl;
                 if ((accounts.getAvailable(key) - MicroUSD(123)).isNonNegative()) {
-                    accounts.setAvailable(childKey, MicroUSD(123), AT_NONE);
+                    accounts.setBalance(childKey, MicroUSD(123), AT_NONE);
                     accounts.addSpend(childKey, MicroUSD(12));
                 }
             }
@@ -79,10 +79,14 @@ ConvertAccountsToCampaigns(const Accounts & accounts, Campaigns & campaigns)
             switch (key.size()) {
             case 1: { /* campaign */
                 campaign.key_ = campaignKey;
+                throw ML::Exception("this code is now obsolete due to missing"
+                                    " members in AccountSummary");
+#if 0
                 campaign.transferred_
                     = CurrencyPoolToLongLong(summary.allocated);
                 campaign.available_
                     = CurrencyPoolToLongLong(summary.budget) - campaign.transferred_;
+#endif
                 cerr << "- campaign 'campaigns:" + campaignKey + "' recreated"
                      << endl;
                 break;

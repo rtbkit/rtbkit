@@ -32,28 +32,28 @@ BOOST_AUTO_TEST_CASE( test_account_set_budget )
 
     /* set initial budget */
     account.setBudget(USD(8));
-    BOOST_CHECK_EQUAL(account.available, USD(8));
+    BOOST_CHECK_EQUAL(account.balance, USD(8));
     BOOST_CHECK_EQUAL(account.budgetIncreases, USD(8));
     BOOST_CHECK_EQUAL(account.budgetDecreases, USD(0));
 
     /* adjust budget down:
        1 usd added to adjustmentsOut (deduced from budget) */
     account.setBudget(USD(7));
-    BOOST_CHECK_EQUAL(account.available, USD(7));
+    BOOST_CHECK_EQUAL(account.balance, USD(7));
     BOOST_CHECK_EQUAL(account.budgetIncreases, USD(8));
     BOOST_CHECK_EQUAL(account.budgetDecreases, USD(1));
 
     /* adjust budget up:
        1 usd added to adjustmentsIn to balance with adj.Out */
     account.setBudget(USD(8));
-    BOOST_CHECK_EQUAL(account.available, USD(8));
+    BOOST_CHECK_EQUAL(account.balance, USD(8));
     BOOST_CHECK_EQUAL(account.budgetIncreases, USD(9));
     BOOST_CHECK_EQUAL(account.budgetDecreases, USD(1));
 
     /* adjust budget up:
        3 usd put in budget */
     account.setBudget(USD(13));
-    BOOST_CHECK_EQUAL(account.available, USD(13));
+    BOOST_CHECK_EQUAL(account.balance, USD(13));
     BOOST_CHECK_EQUAL(account.budgetIncreases, USD(14));
     BOOST_CHECK_EQUAL(account.budgetDecreases, USD(1));
 
@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE( test_account_set_budget )
        we cannot go below 10 USD, even though 3 USD are still available
      */
     account.allocatedOut = USD(10);
-    account.available = USD(3);
+    account.balance = USD(3);
     account.checkInvariants();
     {
         auto notrace = Set_Trace_Exceptions(false);
@@ -73,7 +73,7 @@ BOOST_AUTO_TEST_CASE( test_account_set_budget )
     /* we adjust the budget down the the least possible value and ensure that
        "available" is adjusted by taking the "allocatedOut" into account */
     account.setBudget(USD(10));
-    BOOST_CHECK_EQUAL(account.available, USD(0));
+    BOOST_CHECK_EQUAL(account.balance, USD(0));
 }
 
 BOOST_AUTO_TEST_CASE( test_account_tojson )
@@ -117,16 +117,16 @@ BOOST_AUTO_TEST_CASE( test_account_hierarchy )
     ShadowAccount shadowCommitmentAccount;
     ShadowAccount shadowSpendAccount;
 
-    commitmentAccount.setAvailable(budgetAccount, USD(2));
+    commitmentAccount.setBalance(budgetAccount, USD(2));
 
-    BOOST_CHECK_EQUAL(budgetAccount.available, USD(8));
-    BOOST_CHECK_EQUAL(commitmentAccount.available, USD(2));
+    BOOST_CHECK_EQUAL(budgetAccount.balance, USD(8));
+    BOOST_CHECK_EQUAL(commitmentAccount.balance, USD(2));
 
     shadowCommitmentAccount.syncFromMaster(commitmentAccount);
     shadowSpendAccount.syncFromMaster(spendAccount);
 
-    BOOST_CHECK_EQUAL(shadowCommitmentAccount.available, USD(2));
-    BOOST_CHECK_EQUAL(shadowSpendAccount.available, USD(0));
+    BOOST_CHECK_EQUAL(shadowCommitmentAccount.balance, USD(2));
+    BOOST_CHECK_EQUAL(shadowSpendAccount.balance, USD(0));
 
 
     auto doBidding = [&] ()
@@ -167,9 +167,9 @@ BOOST_AUTO_TEST_CASE( test_account_hierarchy )
         cerr << "budget" << budgetAccount << endl;
         cerr << "spend " << spendAccount << endl;
    
-        commitmentAccount.setAvailable(budgetAccount, USD(2));
+        commitmentAccount.setBalance(budgetAccount, USD(2));
         
-        cerr << "after setAvailable" << endl;
+        cerr << "after setBalance" << endl;
         cerr << "budget" << budgetAccount << endl;
         cerr << "spend " << spendAccount << endl;
         cerr << "commitment " << commitmentAccount << endl;
@@ -181,10 +181,10 @@ BOOST_AUTO_TEST_CASE( test_account_hierarchy )
         cerr << "shadow spend" << shadowSpendAccount << endl;
         cerr << "shadow commitment" << shadowCommitmentAccount << endl;
 
-        BOOST_CHECK_EQUAL(commitmentAccount.available, USD(2));
-        BOOST_CHECK_EQUAL(shadowCommitmentAccount.available, USD(2));
-        BOOST_CHECK_EQUAL(spendAccount.available, USD(0));
-        BOOST_CHECK_EQUAL(shadowSpendAccount.available, USD(0));
+        BOOST_CHECK_EQUAL(commitmentAccount.balance, USD(2));
+        BOOST_CHECK_EQUAL(shadowCommitmentAccount.balance, USD(2));
+        BOOST_CHECK_EQUAL(spendAccount.balance, USD(0));
+        BOOST_CHECK_EQUAL(shadowSpendAccount.balance, USD(0));
     }
 }
 
@@ -208,39 +208,39 @@ BOOST_AUTO_TEST_CASE( test_account_recycling )
     accounts.setBudget(campaign, USD(10));
 
     // Make $2 available in the strategy account
-    accounts.setAvailable(strategy, USD(2), AT_NONE);
-    accounts.setAvailable(strategy2, USD(2), AT_NONE);
+    accounts.setBalance(strategy, USD(2), AT_NONE);
+    accounts.setBalance(strategy2, USD(2), AT_NONE);
     
-    BOOST_CHECK_EQUAL(accounts.getAvailable(campaign), USD(6));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(strategy), USD(2));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(strategy2), USD(2));
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(6));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(2));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy2), USD(2));
 
-    accounts.setAvailable(spend, USD(1), AT_NONE);
-    //accounts.setAvailable(spend2, USD(1), AT_NONE);
+    accounts.setBalance(spend, USD(1), AT_NONE);
+    //accounts.setBalance(spend2, USD(1), AT_NONE);
 
-    BOOST_CHECK_EQUAL(accounts.getAvailable(campaign), USD(6));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(strategy), USD(1));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(strategy2), USD(2));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(spend), USD(1));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(spend2), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(6));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(1));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy2), USD(2));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(1));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend2), USD(0));
 
-    accounts.setAvailable(spend, USD(1), AT_NONE);
-    //accounts.setAvailable(spend2, USD(1), AT_NONE);
+    accounts.setBalance(spend, USD(1), AT_NONE);
+    //accounts.setBalance(spend2, USD(1), AT_NONE);
 
-    BOOST_CHECK_EQUAL(accounts.getAvailable(campaign), USD(6));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(strategy), USD(1));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(strategy2), USD(2));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(spend), USD(1));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(spend2), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(6));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(1));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy2), USD(2));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(1));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend2), USD(0));
 
-    accounts.setAvailable(strategy, USD(2), AT_NONE);
-    //accounts.setAvailable(strategy2, USD(2), AT_NONE);
+    accounts.setBalance(strategy, USD(2), AT_NONE);
+    //accounts.setBalance(strategy2, USD(2), AT_NONE);
 
-    BOOST_CHECK_EQUAL(accounts.getAvailable(campaign), USD(5));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(strategy), USD(2));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(strategy2), USD(2));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(spend), USD(1));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(spend2), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(5));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(2));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy2), USD(2));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(1));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend2), USD(0));
 }
 
 BOOST_AUTO_TEST_CASE( test_accounts )
@@ -261,10 +261,10 @@ BOOST_AUTO_TEST_CASE( test_accounts )
     accounts.setBudget(budget, USD(10));
 
     // Make $2 available in the commitment account
-    accounts.setAvailable(commitment, USD(2), AT_SPEND);
+    accounts.setBalance(commitment, USD(2), AT_SPEND);
     
-    BOOST_CHECK_EQUAL(accounts.getAvailable(budget), USD(8));
-    BOOST_CHECK_EQUAL(accounts.getAvailable(commitment), USD(2));
+    BOOST_CHECK_EQUAL(accounts.getBalance(budget), USD(8));
+    BOOST_CHECK_EQUAL(accounts.getBalance(commitment), USD(2));
 
     shadow.activateAccount(commitment);
     shadow.activateAccount(spend);
@@ -324,11 +324,11 @@ BOOST_AUTO_TEST_CASE( test_accounts )
         //cerr << "budget" << budgetAccount << endl;
         //cerr << "spend " << spendAccount << endl;
    
-        accounts.setAvailable(commitment, USD(2), AT_SPEND);
+        accounts.setBalance(commitment, USD(2), AT_SPEND);
         
         accounts.checkInvariants();
 
-        //cerr << "after setAvailable" << endl;
+        //cerr << "after setBalance" << endl;
         //cerr << "budget" << budgetAccount << endl;
         //cerr << "spend " << spendAccount << endl;
         //cerr << "commitment " << commitmentAccount << endl;
@@ -362,7 +362,7 @@ BOOST_AUTO_TEST_CASE( test_multiple_bidder_threads )
     auto runTopupThread = [&] ()
         {
             while (!finished) {
-                master.setAvailable(strategy, USD(0.10), AT_BUDGET);
+                master.setBalance(strategy, USD(0.10), AT_BUDGET);
             }
         };
 
@@ -400,7 +400,7 @@ BOOST_AUTO_TEST_CASE( test_multiple_bidder_threads )
                 // Every little bit, do a sync and a re-up
                 if (done && done % 1000 == 0) {
                     shadow.syncTo(master);
-                    master.setAvailable(account, USD(0.10), AT_NONE);
+                    master.setBalance(account, USD(0.10), AT_NONE);
                     shadow.syncFrom(master);
                     //cerr << "done " << done << " bids" << endl;
                 }
@@ -524,45 +524,45 @@ BOOST_AUTO_TEST_CASE( test_recycling )
     accounts.createAccount({"t"}, AT_BUDGET);
     accounts.setBudget({"t"}, USD(666));
 
-    accounts.setAvailable({"t", "s"}, USD(10), AT_BUDGET);
+    accounts.setBalance({"t", "s"}, USD(10), AT_BUDGET);
 
-    // s.setAvailable(10)
+    // s.setBalance(10)
     // -> as.budgetIncrease increased by 10
     s = accounts.getAccount({"t", "s"});
     BOOST_CHECK_EQUAL(s.budgetIncreases, USD(10));
 
-    // s.setAvailable(7)
+    // s.setBalance(7)
     // -> t.recycledIn increased by 3 (total: 3)
     // and s.recycledOut increased by 3 (total: 3)
-    accounts.setAvailable({"t", "s"}, USD(7), AT_NONE);
+    accounts.setBalance({"t", "s"}, USD(7), AT_NONE);
     t = accounts.getAccount({"t"});
     BOOST_CHECK_EQUAL(t.recycledIn, USD(3));
     s = accounts.getAccount({"t", "s"});
     BOOST_CHECK_EQUAL(s.recycledOut, USD(3));
 
-    // s.setAvailable(8)
+    // s.setBalance(8)
     // -> t.recycledOut increased by 1 (total: 1)
     // and s.recycledIn increased by 1 (total: 1)
-    accounts.setAvailable({"t", "s"}, USD(8), AT_NONE);
+    accounts.setBalance({"t", "s"}, USD(8), AT_NONE);
     t = accounts.getAccount({"t"});
     BOOST_CHECK_EQUAL(t.recycledOut, USD(1));
     s = accounts.getAccount({"t", "s"});
     BOOST_CHECK_EQUAL(s.recycledIn, USD(1));
 
-    // sp.setAvailable(5)
+    // sp.setBalance(5)
     // -> sp.budgetIncrease increased by 5 (total: 5),
     //    s.allocatedOut increased by 5 (total: 5)
-    accounts.setAvailable({"t", "s", "sp"}, USD(5), AT_SPEND);
+    accounts.setBalance({"t", "s", "sp"}, USD(5), AT_SPEND);
     sp = accounts.getAccount({"t", "s", "sp"});
     BOOST_CHECK_EQUAL(sp.budgetIncreases, USD(5));
     s = accounts.getAccount({"t", "s"});
     BOOST_CHECK_EQUAL(s.allocatedOut, USD(5));
 
     /* mixup */
-    // sp.setAvailable(4)
+    // sp.setBalance(4)
     // -> sp.recycledOut by 1 (total: 1),
     // s.recycledIn increased by 1 (total: 2)
-    accounts.setAvailable({"t", "s", "sp"}, USD(4), AT_NONE);
+    accounts.setBalance({"t", "s", "sp"}, USD(4), AT_NONE);
     sp = accounts.getAccount({"t", "s", "sp"});
     BOOST_CHECK_EQUAL(sp.recycledOut, USD(1));
     s = accounts.getAccount({"t", "s"});
@@ -578,41 +578,41 @@ BOOST_AUTO_TEST_CASE( test_getRecycledUp )
     accounts.createAccount({"t"}, AT_BUDGET);
     accounts.setBudget({"t"}, USD(666));
 
-    // s.setAvailable(10)
-    accounts.setAvailable({"t", "s"}, USD(10), AT_BUDGET);
+    // s.setBalance(10)
+    accounts.setBalance({"t", "s"}, USD(10), AT_BUDGET);
     accounts.getRecycledUp({"t", "s"}, recycledIn, recycledOut);
     BOOST_CHECK_EQUAL(recycledIn, USD(0));
     BOOST_CHECK_EQUAL(recycledOut, USD(0));
     
-    // s.setAvailable(7)
+    // s.setBalance(7)
     // t.recycledIn == 3 but t.recycledIn(up) == 0
     // s.recycledOut(up) == 3
-    accounts.setAvailable({"t", "s"}, USD(7), AT_NONE);
+    accounts.setBalance({"t", "s"}, USD(7), AT_NONE);
     accounts.getRecycledUp({"t"}, recycledIn, recycledOut);
     BOOST_CHECK_EQUAL(recycledIn, USD(0));
     accounts.getRecycledUp({"t", "s"}, recycledIn, recycledOut);
     BOOST_CHECK_EQUAL(recycledOut, USD(3));
 
-    // s.setAvailable(8)
+    // s.setBalance(8)
     // t.recycledOut == 1 but t.recycledOut(up) == 0
     // s.recycledIn == 1 and s.recycledIn(up) == 1
-    accounts.setAvailable({"t", "s"}, USD(8), AT_NONE);
+    accounts.setBalance({"t", "s"}, USD(8), AT_NONE);
     accounts.getRecycledUp({"t"}, recycledIn, recycledOut);
     BOOST_CHECK_EQUAL(recycledOut, USD(0));
     accounts.getRecycledUp({"t", "s"}, recycledIn, recycledOut);
     BOOST_CHECK_EQUAL(recycledIn, USD(1));
 
-    // sp.setAvailable(5)
+    // sp.setBalance(5)
     // sp.recycleX untouched and sp.budgetIncreases increased
-    accounts.setAvailable({"t", "s", "sp"}, USD(5), AT_SPEND);
+    accounts.setBalance({"t", "s", "sp"}, USD(5), AT_SPEND);
     accounts.getRecycledUp({"t", "s", "sp"}, recycledIn, recycledOut);
     BOOST_CHECK_EQUAL(recycledIn, USD(0));
     BOOST_CHECK_EQUAL(recycledOut, USD(0));
 
-    // sp.setAvailable(4)
+    // sp.setBalance(4)
     // s.recycledIn == 2 but s.recycledIn(up) == 1
     // sp.recycledOut == 1 and sp.recycledOut(up) == 1
-    accounts.setAvailable({"t", "s", "sp"}, USD(4), AT_NONE);
+    accounts.setBalance({"t", "s", "sp"}, USD(4), AT_NONE);
     accounts.getRecycledUp({"t", "s"}, recycledIn, recycledOut);
     BOOST_CHECK_EQUAL(recycledIn, USD(1));
     accounts.getRecycledUp({"t", "s", "sp"}, recycledIn, recycledOut);
@@ -772,13 +772,9 @@ BOOST_AUTO_TEST_CASE( test_account_summary_values )
                       "  'recycledOut':{},"
                       "  'spent':{},"
                       "  'type':'budget'},"
-                      " 'adjustmentLineItems':{},"
-                      " 'adjustments':{},"
-                      " 'allocated': {'USD/1M':46571708796},"
                       " 'available': {'USD/1M':52364946865},"
                       " 'budget': {'USD/1M':52947000000},"
                       " 'inFlight':{},"
-                      " 'lineItems':{},"
                       " 'md': {'objectType':'AccountSummary',"
                       "        'version':1},"
                       " 'spent': {'USD/1M':582053135}}");
