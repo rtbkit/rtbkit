@@ -12,6 +12,7 @@
 #include "soa/service/message_loop.h"
 #include "soa/service/typed_message_channel.h"
 #include "rtbkit/common/auction.h"
+#include "rtbkit/common/auction_events.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/zmq_message_router.h"
 #include "soa/service/zmq_named_pub_sub.h"
@@ -20,79 +21,6 @@
 #include "rtbkit/core/monitor/monitor_provider.h"
 
 namespace RTBKIT {
-
-
-/*****************************************************************************/
-/* SUBMITTED AUCTION EVENT                                                   */
-/*****************************************************************************/
-
-/** When a submitted bid is transferred from the router to the post auction
-    loop, it looks like this.
-*/
-
-struct SubmittedAuctionEvent {
-    Id auctionId;                  ///< ID of the auction
-    Id adSpotId;                   ///< ID of the adspot
-    Date lossTimeout;              ///< Time at which a loss is to be assumed
-    JsonHolder augmentations;      ///< Augmentations active
-    std::shared_ptr<BidRequest> bidRequest;  ///< Bid request
-    std::string bidRequestStr;     ///< Bid request as string on the wire
-    Auction::Response bidResponse; ///< Bid response that was sent
-    std::string bidRequestStrFormat;  ///< Format of stringified request(i.e "datacratic")
-
-    void serialize(ML::DB::Store_Writer & store) const;
-    void reconstitute(ML::DB::Store_Reader & store);
-};
-
-
-/*****************************************************************************/
-/* POST AUCTION EVENT TYPE                                                   */
-/*****************************************************************************/
-
-enum PostAuctionEventType {
-    PAE_INVALID,
-    PAE_WIN,
-    PAE_LOSS,
-    PAE_IMPRESSION,
-    PAE_CLICK,
-    PAE_VISIT
-};
-
-const char * print(PostAuctionEventType type);
-
-
-/*****************************************************************************/
-/* POST AUCTION EVENT                                                        */
-/*****************************************************************************/
-
-/** Holds an event that was submitted after an auction.  Needs to be
-    possible to serialize/reconstitute as early events that haven't yet
-    been matched may need to be saved until they can be matched up.
-*/
-
-struct PostAuctionEvent {
-    PostAuctionEvent();
-
-    PostAuctionEventType type;
-    Id auctionId;
-    Id adSpotId;
-    Date timestamp;
-    JsonHolder metadata;
-    AccountKey account;
-    Amount winPrice;
-    UserIds uids;
-    SegmentList channels;
-    Date bidTimestamp;
-
-    void serialize(ML::DB::Store_Writer & store) const;
-    void reconstitute(ML::DB::Store_Reader & store);
-
-    std::string print() const;
-};
-
-std::ostream &
-operator << (std::ostream & stream, const PostAuctionEvent & event);
-
 
 /*****************************************************************************/
 /* SUBMISSION INFO                                                           */
@@ -123,7 +51,7 @@ struct SubmissionInfo {
         it after the auction has finished.
     */
     std::vector<std::shared_ptr<PostAuctionEvent> > earlyWinEvents;
-    std::vector<std::shared_ptr<PostAuctionEvent> > earlyImpressionClickEvents;
+    std::vector<std::shared_ptr<PostAuctionEvent> > earlyCampaignEvents;
 
     std::string serializeToString() const;
     void reconstituteFromString(const std::string & str);
@@ -162,18 +90,15 @@ struct FinishedInfo {
     */
     SegmentList visitChannels;
 
-    /** Add all of the given UIDs to the set, and for any new IDs call the
-        given function.
+    /** Add all of the given UIDs to the set.
     */
-    template<typename Fn>
-    void addUids(const UserIds & toAdd, Fn fn)
+    void addUids(const UserIds & toAdd)
     {
         for (auto it = toAdd.begin(), end = toAdd.end();  it != end;  ++it) {
             auto jt = uids.find(it->second);
             if (jt != uids.end())
                 return;
             uids.insert(it->second);
-            fn(it->first, it->second);
         }
     }
 
@@ -199,32 +124,34 @@ struct FinishedInfo {
     std::string winMeta;         ///< Metadata from win
     Json::Value winToJson() const;
 
-    bool hasImpression() const { return impressionTime != Date(); }
-    void setImpression(Date impressionTime,
-                       const std::string & impressionMeta)
-    {
-        if (hasImpression())
-            throw ML::Exception("already has impression");
-        this->impressionTime = impressionTime;
-        this->impressionMeta = impressionMeta;
-    }
-    Date impressionTime;         ///< Time at which impression received
-    std::string impressionMeta;  ///< Metadata from impression
-    Json::Value impressionToJson() const;
+    /* campaign events */
+    struct CampaignEvent {
+        static CampaignEvent fromJson(const Json::Value & jsonValue);
 
-    bool hasClick() const { return clickTime != Date(); }
-    void setClick(Date clickTime,
-                  const std::string & clickMeta)
-    {
-        if (hasClick())
-            throw ML::Exception("already has click");
-        this->clickTime = clickTime;
-        this->clickMeta = clickMeta;
-    }
+        CampaignEvent(const std::string & label = "", Date time = Date(),
+                      const JsonHolder & meta = JsonHolder())
+            : label_(label), time_(time), meta_(meta)
+        {}
 
-    Date clickTime;              ///< Time at which click received
-    std::string clickMeta;       ///< Metadata from click
-    Json::Value clickToJson() const;
+        Json::Value toJson() const;
+
+        void serialize(ML::DB::Store_Writer & store) const;
+        void reconstitute(ML::DB::Store_Reader & store);
+
+        std::string label_;
+        Date time_;
+        JsonHolder meta_;
+    };
+
+    bool hasCampaignEvent(const std::string & label) const;
+    void setCampaignEvent(const std::string & label,
+                          Date eventTime,
+                          const JsonHolder & eventMeta);
+    /* metadata from the events */
+    Json::Value campaignEventsToJson() const;
+
+    /* the history of events common to the auction */
+    std::vector<CampaignEvent> campaignEvents;
 
     struct Visit {
         Date visitTime;           ///< Time at which visit received
@@ -286,8 +213,7 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
     /* ROUTERSHARED */
     uint64_t numWins;
     uint64_t numLosses;
-    uint64_t numImpressions;
-    uint64_t numClicks;
+    uint64_t numCampaignEvents;
 
     /* /ROUTERSHARED */
 
@@ -350,11 +276,6 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
         return finished.size();
     }
 
-    size_t numUidsTracked() const
-    {
-        return uidIndex.size();
-    }
-
     /** The post auction loop has state which needs to hang around for a
         long time.  We don't want this state to be lost if the post auction
         loop crashes, so we allow for it to be optionally saved to disk.
@@ -405,40 +326,18 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
                     const AccountKey & account,
                     Date bidTimestamp);
 
-    /** Inject an IMPRESSION into the router, to be passed on to the
-        agent that bid on it.
-
-        If the spot ID is empty, then the click will be sent to all
-        agents that had a win on the auction.
-    */
-    void injectImpression(const Id & auctionId,
-                          const Id & adSpotId,
-                          Date timestamp,
-                          const JsonHolder & impressionMeta,
-                          const UserIds & ids);
-
-    /** Inject a CLICK into the router, to be passed on to the agent that
-        bid on it.
+    /** Inject a campaign event into the router, to be passed on to the agent
+        that bid on it.
 
         If the spot ID is empty, then the click will be sent to all agents
         that had a win on the auction.
     */
-    void injectClick(const Id & auctionId,
-                     const Id & adSpotId,
-                     Date timestamp,
-                     const JsonHolder & clickMeta,
-                     const UserIds & ids);
-
-    /** Inject a VISIT into the router, to be passed onto any agent that is
-        listening for the given visit ID.
-
-        These are routed by matching the segments in the SegmentList
-        for the agent configuration with the segments in this message.
-    */
-    void injectVisit(Date timestamp,
-                     const SegmentList & segments,
-                     const JsonHolder & visitMeta,
-                     const UserIds & ids);
+    void injectCampaignEvent(const std::string & label,
+                             const Id & auctionId,
+                             const Id & adSpotId,
+                             Date timestamp,
+                             const JsonHolder & eventMeta,
+                             const UserIds & ids);
 
     /** Notify the loop that the given auction/spot will never receive
         another message and should be forgotten.  This is mostly for the
@@ -467,7 +366,7 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
     Json::Value getProviderIndicators() const;
 
     Date lastWinLoss;
-    Date lastImpression;
+    Date lastCampaignEvent;
 
 private:
     /** Initialize all of our connections, hooking everything in to the
@@ -490,14 +389,9 @@ private:
     /** Decode from zeromq and handle a new auction that came in. */
     void doLossMessage(const std::vector<std::string> & message);
 
-    /** Decode from zeromq nd handle a new impression message that came in. */
-    void doImpressionMessage(const std::vector<std::string> & message);
-
-    /** Decode from zeromq nd handle a new impression message that came in. */
-    void doClickMessage(const std::vector<std::string> & message);
-
-    /** Decode from zeromq nd handle a new impression message that came in. */
-    void doVisitMessage(const std::vector<std::string> & message);
+    /** Decode from zeromq and handle a new campaign event message that came
+     * in. */
+    void doCampaignEventMessage(const std::vector<std::string> & message);
 
     /** Periodic auction expiry. */
     void checkExpiredAuctions();
@@ -512,13 +406,10 @@ private:
     void doSubmitted(const std::shared_ptr<PostAuctionEvent> & event);
 
     /** We got an impression or click on the control socket */
-    void doImpressionClick(const std::shared_ptr<PostAuctionEvent> & event);
-
-    /** We got a visit event on the control socket. */
-    void doVisit(const std::shared_ptr<PostAuctionEvent> & event);
+    void doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event);
 
     /** Send out a post-auction event to anything that may be listening. */
-    bool routePostAuctionEvent(PostAuctionEventType type,
+    bool routePostAuctionEvent(const std::string & label,
                                const FinishedInfo & finished,
                                const SegmentList & channels,
                                bool filterChannels);
@@ -545,40 +436,16 @@ private:
                         SubmissionInfo> Submitted;
     Submitted submitted;
 
-    /** List of auctions we've won and we're waiting for an IMPRESSION
-        or a CLICK message from, or otherwise we're keeping around in case
-        a duplicate WIN or IMPRESSION or CLICK message comes through,
-        or otherwise we're looking for a late WIN message for.
+    /** List of auctions we've won and we're waiting for a campaign event
+        from, or otherwise we're keeping around in case a duplicate WIN or a
+        campaign event message comes through, or otherwise we're looking for a
+        late WIN message for.
 
         We keep this list around for 5 minutes for those that were lost,
         and one hour for those that were won.
     */
     typedef PendingList<std::pair<Id, Id>, FinishedInfo> Finished;
     Finished finished;
-
-    /** Map of user IDs to (auction, slot) pairs so that we can match our
-        visits up to the original auctions.
-    */
-    struct UidIndexEntry {
-        Id auctionId;
-        Id adSpotId;
-        Date timestamp;
-    };
-
-    // UserId -> ((auctionId, slotId) -> date)
-    typedef std::unordered_map<Id, std::map<std::pair<Id, Id>, Date> >
-        UidIndex;
-    UidIndex uidIndex;
-
-    /** Add the given User ID to the user ID index.  Calling this function
-        sets things up such that a visit from the given user ID will be
-        associated with the finished auction with the given auction Id and
-        slot ID.
-    */
-    void addToUidIndex(const std::string & uidDomain,
-                       const Id & uid,
-                       const Id & auctionId,
-                       const Id & slotId);
 
     /// This provides the thread we use to actually process with
     MessageLoop loop;
