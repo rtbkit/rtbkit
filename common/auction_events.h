@@ -1,8 +1,8 @@
-/* post_auction_loop.h                                             -*- C++ -*-
+/* auction_events.h                                                -*- C++ -*-
    Jeremy Barnes, 30 May 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
 
-   PostAuctionEvent and related classes
+   PAuctionEvent and related classes
 */
 
 
@@ -13,12 +13,36 @@
 #include "soa/types/id.h"
 
 #include "account_key.h"
+#include "auction.h"
 #include "bid_request.h"
 #include "currency.h"
 #include "json_holder.h"
 
 
 namespace RTBKIT {
+
+/*****************************************************************************/
+/* SUBMITTED AUCTION EVENT                                                   */
+/*****************************************************************************/
+
+/** When a submitted bid is transferred from the router to the post auction
+    loop, it looks like this.
+*/
+
+struct SubmittedAuctionEvent {
+    Id auctionId;                  ///< ID of the auction
+    Id adSpotId;                   ///< ID of the adspot
+    Date lossTimeout;              ///< Time at which a loss is to be assumed
+    JsonHolder augmentations;      ///< Augmentations active
+    std::shared_ptr<BidRequest> bidRequest;  ///< Bid request
+    std::string bidRequestStr;     ///< Bid request as string on the wire
+    Auction::Response bidResponse; ///< Bid response that was sent
+    std::string bidRequestStrFormat;  ///< Format of stringified request(i.e "datacratic")
+
+    void serialize(ML::DB::Store_Writer & store) const;
+    void reconstitute(ML::DB::Store_Reader & store);
+};
+
 
 /*****************************************************************************/
 /* POST AUCTION EVENT TYPE                                                   */

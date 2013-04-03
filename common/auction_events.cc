@@ -2,7 +2,7 @@
    Jeremy Barnes, 31 May 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
 
-   PostAuctionEvent and related classes
+   *AuctionEvent and related classes
 */
 
 
@@ -12,11 +12,40 @@
 
 #include "jml/utils/pair_utils.h"
 
-#include "post_auction_event.h"
+#include "auction_events.h"
 
 using namespace std;
 using namespace ML;
 using namespace RTBKIT;
+
+
+/*****************************************************************************/
+/* SUBMITTED AUCTION EVENT                                                   */
+/*****************************************************************************/
+
+void
+SubmittedAuctionEvent::
+serialize(ML::DB::Store_Writer & store) const
+{
+    store << (unsigned char)0
+          << auctionId << adSpotId << lossTimeout << augmentations
+          << bidRequestStr << bidResponse << bidRequestStrFormat;
+}
+
+void
+SubmittedAuctionEvent::
+reconstitute(ML::DB::Store_Reader & store)
+{
+    unsigned char version;
+    store >> version;
+    if (version != 0)
+        throw ML::Exception("unknown SubmittedAuctionEvent type");
+
+    store >> auctionId >> adSpotId >> lossTimeout >> augmentations
+          >> bidRequestStr >> bidResponse >> bidRequestStrFormat;
+
+    bidRequest.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
+}
 
 
 /*****************************************************************************/

@@ -16,7 +16,7 @@ LIBRTB_SOURCES := \
 	augmentation.cc \
 	account_key.cc \
 	bids.cc \
-	post_auction_event.cc
+	auction_events.cc
 
 LIBRTB_LINK := \
 	ACE arch utils jsoncpp boost_thread endpoint boost_regex zmq opstats bid_request
