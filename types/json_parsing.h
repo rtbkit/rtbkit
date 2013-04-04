@@ -514,21 +514,34 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
             exception("expected an object");
 
         const Json::Value * oldCurrent = current;
+        int memberNum = 0;
 
-        bool first = true;
         for (auto it = current->begin(), end = current->end();
              it != end;  ++it) {
-            if (first)
-                pushPath(it.memberName());
-            else replacePath(it.memberName());
 
+            // This structure takes care of pushing and popping our
+            // path entry.  It will make sure the member is always
+            // popped no matter what
+            struct PathPusher {
+                PathPusher(const std::string & memberName,
+                           int memberNum,
+                           StructuredJsonParsingContext * context)
+                    : context(context)
+                {
+                    context->pushPath(memberName, memberNum);
+                }
+
+                ~PathPusher()
+                {
+                    context->popPath();
+                }
+
+                StructuredJsonParsingContext * const context;
+            } pusher(it.memberName(), memberNum++, this);
+            
             current = &(*it);
-
             fn();
         }
-
-        if (!first)
-            popPath();
         
         current = oldCurrent;
     }

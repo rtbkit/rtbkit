@@ -67,7 +67,7 @@ public:
     virtual ~JSWrappedBase();
 
     template <class T>
-    static inline T * unwrap(v8::Handle<v8::Object> handle)
+    static inline T * unwrap(const v8::Handle<v8::Object> & handle)
     {
         ExcAssert(!handle.IsEmpty());
         ExcAssert(handle->InternalFieldCount() == 2);
@@ -254,6 +254,27 @@ protected:
     
         return res;
     }
+
+    static v8::Persistent<v8::FunctionTemplate>
+    RegisterBase(const char * name,
+                 const char * module,
+                 v8::InvocationCallback constructor,
+                 SetupFunction setup = Setup)
+    {
+        using namespace v8;
+        
+        Persistent<FunctionTemplate> t
+            = v8::Persistent<FunctionTemplate>
+            ::New(FunctionTemplate::New(constructor));
+
+        t->InstanceTemplate()->SetInternalFieldCount(2);
+        t->SetClassName(v8::String::NewSymbol(name));
+
+        registry.get_to_know(name, module, t, setup);
+
+        return t;
+    }
+
     
 private:
     // Called back once an object is garbage collected.
@@ -467,14 +488,10 @@ struct JSWrapped : public JSWrappedBase {
                  SetupFunction setup = Setup)
     {
         using namespace v8;
-        
+
         Persistent<FunctionTemplate> t
-            = v8::Persistent<FunctionTemplate>
-            ::New(FunctionTemplate::New(constructor));
-
-        t->InstanceTemplate()->SetInternalFieldCount(2);
-        t->SetClassName(v8::String::NewSymbol(name));
-
+            = JSWrappedBase::RegisterBase(name, module, constructor, setup);
+        
         // Class methods
         t->Set(String::NewSymbol("objectStats"),
                FunctionTemplate::New(ObjectStats));

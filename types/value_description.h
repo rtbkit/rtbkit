@@ -23,19 +23,27 @@ struct JsonParsingContext;
 struct JsonPrintingContext;
 struct JSConverters;
 
-#if 0
-enum ValueKind {
+enum class ValueKind : int32_t {
+    // Atomic, ie all or none is replaced
+    ATOM,     ///< Generic, atomic type
     INTEGER,
     FLOAT,
     BOOLEAN,
     STRING,
+    ENUM,
+
+    // Non-atomic, ie part of them can be mutated
     OPTIONAL,
     ARRAY,
+    STRUCTURE,
     TUPLE,
-    STRUCT,
+    VARIANT,
+    MAP,
     ANY
 };
-#endif
+
+std::ostream & operator << (std::ostream & stream, ValueKind kind);
+
 
 /*****************************************************************************/
 /* VALUE DESCRIPTION                                                         */
@@ -50,22 +58,70 @@ enum ValueKind {
 struct ValueDescription {
     typedef std::true_type defined;
 
-    ValueDescription(const std::type_info * type,
+    ValueDescription(ValueKind kind,
+                     const std::type_info * type,
                      const std::string & typeName = "")
-        : type(type),
-          typeName(typeName.empty() ? type->name() : typeName),
+        : kind(kind),
+          type(type),
+          typeName(typeName.empty() ? ML::demangle(type->name()) : typeName),
           jsConverters(nullptr),
           jsConvertersInitialized(false)
     {
     }
     
+    ValueKind kind;
     const std::type_info * const type;
     const std::string typeName;
 
     virtual void parseJson(void * val, JsonParsingContext & context) const = 0;
     virtual void printJson(const void * val, JsonPrintingContext & context) const = 0;
     virtual bool isDefault(const void * val) const = 0;
+    virtual void setDefault(void * val) const = 0;
+    virtual void copyValue(const void * from, void * to) const = 0;
+    virtual void moveValue(void * from, void * to) const = 0;
+    virtual void swapValues(void * from, void * to) const = 0;
     
+    virtual void * optionalMakeValue(void * val) const
+    {
+        throw ML::Exception("type is not optional");
+    }
+
+    virtual const void * optionalGetValue(const void * val) const
+    {
+        throw ML::Exception("type is not optional");
+    }
+
+    virtual size_t getArrayLength(void * val) const
+    {
+        throw ML::Exception("type is not an array");
+    }
+
+    virtual void * getArrayElement(void * val, uint32_t element) const
+    {
+        throw ML::Exception("type is not an array");
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    {
+        throw ML::Exception("type is not an array");
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const
+    {
+        throw ML::Exception("type is not an array");
+    }
+    
+    virtual const ValueDescription & contained() const
+    {
+        throw ML::Exception("type does not contain another");
+    }
+
+    // Convert from one type to another, making a copy.
+    // Default will go through a JSON conversion.
+    virtual void convertAndCopy(const void * from,
+                                const ValueDescription & fromDesc,
+                                void * to) const;
+
     struct FieldDescription {
         std::string fieldName;
         std::string comment;
@@ -74,15 +130,28 @@ struct ValueDescription {
         int fieldNum;
     };
 
+    virtual size_t getFieldCount(const void * val) const
+    {
+        throw ML::Exception("type doesn't support fields");
+    }
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & name) const
+    {
+        throw ML::Exception("type doesn't support fields");
+    }
+
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const
+    {
+        throw ML::Exception("type doesn't support fields");
+    }
+
     virtual const FieldDescription & 
     getField(const std::string & field) const
     {
         throw ML::Exception("type doesn't support fields");
     }
-    // Serialization and reconstitution in the JML (boost serialization)
-    // framework
-    //virtual void jmlSerialize(const void * val, ML::DB::Store_Writer & store) const = 0;
-    //virtual void jmlReconstitute(void * val, ML::DB::Store_Reader & store) const = 0;
 
     // Storage to cache Javascript converters
     mutable JSConverters * jsConverters;
@@ -129,8 +198,8 @@ struct RegisterValueDescriptionI {
 template<typename T>
 struct ValueDescriptionT : public ValueDescription {
 
-    ValueDescriptionT()
-        : ValueDescription(&typeid(T))
+    ValueDescriptionT(ValueKind kind = ValueKind::ATOM)
+        : ValueDescription(kind, &typeid(T))
     {
     }
 
@@ -166,6 +235,67 @@ struct ValueDescriptionT : public ValueDescription {
     {
         return false;
     }
+
+    virtual void setDefault(void * val) const
+    {
+        T * val2 = reinterpret_cast<T *>(val);
+        setDefaultTyped(val2);
+    }
+
+    virtual void setDefaultTyped(T * val) const
+    {
+        *val = T();
+    }
+
+    virtual void copyValue(const void * from, void * to) const
+    {
+        auto from2 = reinterpret_cast<const T *>(from);
+        auto to2 = reinterpret_cast<T *>(to);
+        if (from2 == to2)
+            return;
+        *to2 = *from2;
+    }
+
+    virtual void moveValue(void * from, void * to) const
+    {
+        auto from2 = reinterpret_cast<T *>(from);
+        auto to2 = reinterpret_cast<T *>(to);
+        if (from2 == to2)
+            return;
+        *to2 = std::move(*from2);
+    }
+
+    virtual void swapValues(void * from, void * to) const
+    {
+        using std::swap;
+        auto from2 = reinterpret_cast<T *>(from);
+        auto to2 = reinterpret_cast<T *>(to);
+        if (from2 == to2)
+            return;
+        std::swap(*from2, *to2);
+    }
+
+    virtual void * optionalMakeValue(void * val) const
+    {
+        T * val2 = reinterpret_cast<T *>(val);
+        return optionalMakeValueTyped(val2);
+    }
+
+    virtual void * optionalMakeValueTyped(T * val) const
+    {
+        throw ML::Exception("type is not optional");
+    }
+
+    virtual const void * optionalGetValue(const void * val) const
+    {
+        const T * val2 = reinterpret_cast<const T *>(val);
+        return optionalGetValueTyped(val2);
+    }
+
+    virtual const void * optionalGetValueTyped(const T * val) const
+    {
+        throw ML::Exception("type is not optional");
+    }
 };
 
 template<typename T>
@@ -176,20 +306,22 @@ getDefaultDescription(T * = 0,
     return new DefaultDescription<T>();
 }
 
-template<typename T, typename Impl = DefaultDescription<T> >
+template<typename T, ValueKind kind = ValueKind::ATOM,
+         typename Impl = DefaultDescription<T> >
 struct ValueDescriptionI : public ValueDescriptionT<T> {
 
     static RegisterValueDescriptionI<T, Impl> regme;
 
     ValueDescriptionI()
+        : ValueDescriptionT<T>(kind)
     {
         regme.done = true;
     }
 };
 
-template<typename T, typename Impl>
+template<typename T, ValueKind kind, typename Impl>
 RegisterValueDescriptionI<T, Impl>
-ValueDescriptionI<T, Impl>::
+ValueDescriptionI<T, kind, Impl>::
 regme;
 
 template<class Struct>
@@ -323,7 +455,8 @@ struct StructureDescriptionBase {
 
 template<class Struct>
 struct StructureDescription
-    :  public ValueDescriptionI<Struct, StructureDescription<Struct> >,
+    :  public ValueDescriptionI<Struct, ValueKind::STRUCTURE,
+                                StructureDescription<Struct> >,
        public StructureDescriptionBase {
 
     StructureDescription(bool nullAccepted = false)
@@ -422,6 +555,28 @@ struct StructureDescription
         }
     }
 
+    virtual size_t getFieldCount(const void * val) const
+    {
+        return fields.size();
+    }
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & field) const
+    {
+        auto it = fields.find(field.c_str());
+        if (it != fields.end())
+            return &it->second;
+        return nullptr;
+    }
+
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const
+    {
+        for (auto f: orderedFields) {
+            onField(f->second);
+        }
+    }
+
     virtual const FieldDescription & 
     getField(const std::string & field) const
     {
@@ -497,14 +652,13 @@ struct ListDescriptionBase {
 };
 
 template<typename T>
-struct ValueDescriptionT<std::vector<T> >
-    : public ValueDescription,
+struct DefaultDescription<std::vector<T> >
+    : public ValueDescriptionI<std::vector<T>, ValueKind::ARRAY>,
       public ListDescriptionBase<T> {
 
-    ValueDescriptionT(ValueDescriptionT<T> * inner
-                     = getDefaultDescription((T *)0))
-        : ValueDescription(&typeid(std::vector<T>)),
-          ListDescriptionBase<T>(inner)
+    DefaultDescription(ValueDescriptionT<T> * inner
+                      = getDefaultDescription((T *)0))
+        : ListDescriptionBase<T>(inner)
     {
     }
 
@@ -541,12 +695,33 @@ struct ValueDescriptionT<std::vector<T> >
         return val->empty();
     }
 
-    virtual void jmlSerialize(ML::DB::Store_Writer & store) const
+    virtual size_t getArrayLength(void * val) const
     {
+        const std::vector<T> * val2 = reinterpret_cast<const std::vector<T> *>(val);
+        return val2->size();
     }
 
-    virtual void jmlReconstitute(ML::DB::Store_Reader & store) const
+    virtual void * getArrayElement(void * val, uint32_t element) const
     {
+        std::vector<T> * val2 = reinterpret_cast<std::vector<T> *>(val);
+        return &val2->at(element);
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    {
+        const std::vector<T> * val2 = reinterpret_cast<const std::vector<T> *>(val);
+        return &val2->at(element);
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const
+    {
+        std::vector<T> * val2 = reinterpret_cast<std::vector<T> *>(val);
+        val2->resize(newLength);
+    }
+    
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
     }
 };
 

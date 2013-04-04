@@ -402,6 +402,11 @@ std::string from_js(const JSValue & val, std::string *)
 
 Json::Value from_js(const JSValue & val, Json::Value *)
 {
+    if (val.IsEmpty())
+        throw ML::Exception("empty val");
+
+    //cerr << cstr(val) << endl;
+
     if(val->IsObject())
     {
         if(v8::Date::Cast(*val)->IsDate())
@@ -430,7 +435,7 @@ Json::Value from_js(const JSValue & val, Json::Value *)
             {
                 v8::Handle<v8::String> key
                     = prop_names->Get(v8::Uint32::New(i))->ToString();
-                if (!objPtr->Has(key)) continue;
+                if (!objPtr->HasOwnProperty(key)) continue;
                 result[from_js(key, (string *)0)] =
                         from_js(objPtr->Get(key), (Json::Value *)0);
             }

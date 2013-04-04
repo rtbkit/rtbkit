@@ -19,7 +19,7 @@ namespace Datacratic {
 
 template<>
 struct DefaultDescription<Datacratic::Id>
-    : public ValueDescriptionI<Datacratic::Id> {
+    : public ValueDescriptionI<Datacratic::Id, ValueKind::ATOM> {
 
     virtual void parseJsonTyped(Datacratic::Id * val,
                                 JsonParsingContext & context) const
@@ -41,7 +41,7 @@ struct DefaultDescription<Datacratic::Id>
 
 template<>
 struct DefaultDescription<std::string>
-    : public ValueDescriptionI<std::string> {
+    : public ValueDescriptionI<std::string, ValueKind::STRING> {
 
     virtual void parseJsonTyped(std::string * val,
                                 JsonParsingContext & context) const
@@ -63,7 +63,7 @@ struct DefaultDescription<std::string>
 
 template<>
 struct DefaultDescription<Utf8String>
-    : public ValueDescriptionI<Utf8String> {
+    : public ValueDescriptionI<Utf8String, ValueKind::STRING> {
 
     virtual void parseJsonTyped(Utf8String * val,
                                 JsonParsingContext & context) const
@@ -85,7 +85,7 @@ struct DefaultDescription<Utf8String>
 
 template<>
 struct DefaultDescription<Url>
-    : public ValueDescriptionI<Url> {
+    : public ValueDescriptionI<Url, ValueKind::ATOM> {
 
     virtual void parseJsonTyped(Url * val,
                                 JsonParsingContext & context) const
@@ -107,7 +107,7 @@ struct DefaultDescription<Url>
 
 template<>
 struct DefaultDescription<int>
-    : public ValueDescriptionI<int> {
+    : public ValueDescriptionI<int, ValueKind::INTEGER> {
 
     virtual void parseJsonTyped(int * val,
                                 JsonParsingContext & context) const
@@ -124,7 +124,7 @@ struct DefaultDescription<int>
 
 template<>
 struct DefaultDescription<float>
-    : public ValueDescriptionI<float> {
+    : public ValueDescriptionI<float, ValueKind::FLOAT> {
 
     virtual void parseJsonTyped(float * val,
                                 JsonParsingContext & context) const
@@ -139,14 +139,33 @@ struct DefaultDescription<float>
     }
 };
 
+template<>
+struct DefaultDescription<double>
+    : public ValueDescriptionI<double, ValueKind::FLOAT> {
+
+    virtual void parseJsonTyped(double * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectDouble();
+    }
+
+    virtual void printJsonTyped(const double * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeDouble(*val);
+    }
+};
+
+#if 0
 template<typename T>
 struct DefaultDescription<std::vector<T> >
-    : public ValueDescriptionI<std::vector<T> > {
+    : public ValueDescriptionI<std::vector<T>, ValueKind::ARRAY> {
 };
+#endif
 
 template<typename T>
 struct DefaultDescription<std::unique_ptr<T> >
-    : public ValueDescriptionI<std::unique_ptr<T> > {
+    : public ValueDescriptionI<std::unique_ptr<T>, ValueKind::OPTIONAL> {
 
     DefaultDescription(ValueDescriptionT<T> * inner
                        = getDefaultDescription((T *)0))
@@ -179,7 +198,7 @@ struct DefaultDescription<std::unique_ptr<T> >
 
 template<>
 struct DefaultDescription<Json::Value>
-    : public ValueDescriptionI<Json::Value> {
+    : public ValueDescriptionI<Json::Value, ValueKind::ANY> {
 
     virtual void parseJsonTyped(Json::Value * val,
                                 JsonParsingContext & context) const
@@ -201,7 +220,7 @@ struct DefaultDescription<Json::Value>
 
 template<>
 struct DefaultDescription<bool>
-    : public ValueDescriptionI<bool> {
+    : public ValueDescriptionI<bool, ValueKind::BOOLEAN> {
 
     virtual void parseJsonTyped(bool * val,
                                 JsonParsingContext & context) const
@@ -223,7 +242,7 @@ struct DefaultDescription<bool>
 
 template<>
 struct DefaultDescription<Date>
-    : public ValueDescriptionI<Date> {
+    : public ValueDescriptionI<Date, ValueKind::ATOM> {
 
     virtual void parseJsonTyped(Date * val,
                                 JsonParsingContext & context) const
