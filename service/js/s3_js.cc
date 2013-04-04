@@ -5,6 +5,7 @@
 #include "soa/js/js_call.h"
 #include "soa/js/js_registry.h"
 #include "soa/js/js_value.h"
+#include "soa/js/js_wrapped.h"
 
 using namespace v8;
 using namespace std;
@@ -12,6 +13,7 @@ using namespace node;
 
 namespace Datacratic{
 namespace JS{
+
 
 extern const char * const S3ApiModule;
 const char * const S3ApiModule = "s3";
@@ -44,11 +46,10 @@ struct S3ApiJS : public JSWrapped2<S3Api, S3ApiJS, S3ApiName, S3ApiModule>{
     static void Initialize(){
         Persistent<FunctionTemplate> t = Register(New);
         registerMemberFn(&S3Api::downloadToFile, "downloadToFile");
+        registerMemberFn(&S3Api::setDefaultBandwidthToServiceMbps, "setDefaultBandwidthToServiceMbps");
     }
 
-
 };
-
 extern "C" void
 init(Handle<v8::Object> target){
     Datacratic::JS::registry.init(target, S3ApiModule);

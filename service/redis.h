@@ -296,6 +296,7 @@ std::ostream & operator << (std::ostream & stream, const Command & command);
 // Commands ready to be constructed
 
 extern const Command PING;
+extern const Command HDEL;
 extern const Command HGET;
 extern const Command HGETALL;
 extern const Command HMGET;
@@ -315,6 +316,7 @@ extern const Command RANDOMKEY;
 extern const Command DEL;
 extern const Command SADD;
 extern const Command SMEMBERS;
+extern const Command TTL;
 
 
 /*****************************************************************************/
