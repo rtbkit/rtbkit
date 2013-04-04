@@ -99,6 +99,8 @@ DefaultDescription()
     addField<OpenRTB::AdPosition>("position", &AdSpot::position, "Impression fold position",
                                   new HistoricalPositionDescriptor());
     addField("reservePrice", &AdSpot::reservePrice, "Impression reserve price");
+
+    //throw ML::Exception("Need to sync formats with the bid request");
 }
 
 DefaultDescription<BidRequest>::
@@ -623,7 +625,7 @@ Json::Value
 AdSpot::
 toJson() const
 {
-    static DefaultDescription<OpenRTB::Impression> desc;
+    static DefaultDescription<AdSpot> desc;
     StructuredJsonPrintingContext context;
     desc.printJsonTyped(this, context);
     return std::move(context.output);
@@ -1168,7 +1170,7 @@ parse(const std::string & source, const std::string & bidRequest)
 
     auto result = parser(bidRequest);
 
-    if (false) {
+    if (true) {
         cerr << bidRequest << endl;
         StreamJsonPrintingContext context(cerr);
         BidRequestDesc.printJsonTyped(result, context);

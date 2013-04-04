@@ -37,7 +37,7 @@ struct AmountJS :
         Amount,
         AmountJS,
         AmountName,
-        rtbModule>
+        bidRequestModule>
 {
     AmountJS() {}
 
@@ -55,7 +55,7 @@ struct AmountJS :
     {
         try {
             string currency = getArg<string>(args, 1, "NONE", "currency");
-            int64_t value = getArg<int64_t>(args, 2, 0, "currency");
+            int64_t value = getArg<int64_t>(args, 2, 0, "value");
 
             auto obj = std::make_shared<Amount>(currency, value);
             new AmountJS(args.This(), obj);
@@ -72,6 +72,7 @@ struct AmountJS :
         Persistent<FunctionTemplate> t = Register(New);
 
         registerROProperty(&Amount::value, "value");
+        registerROProperty(&Amount::getCurrencyStr, "currencyCode");
 
         registerMemberFn(&Amount::isZero, "isZero");
         registerMemberFn(&Amount::isNonNegative, "isNonNegative");
@@ -80,7 +81,7 @@ struct AmountJS :
         registerMemberFn(&Amount::limit, "limit");
         registerMemberFn(&Amount::currencyIsCompatible, "currencyIsCompatible");
 
-        // Typedef required to disambiguate the
+        // Typedef required to disambiguate the operator -
         typedef Amount (Amount::*SubOpFn)() const;
 
         registerMemberFn((SubOpFn)&Amount::operator-, "sub");
@@ -98,7 +99,9 @@ struct AmountJS :
         registerMemberFn(&Amount::toMicroCPM, "toMicroCPM");
 #endif
 
-        NODE_SET_PROTOTYPE_METHOD(t, "currencyCode", getCurrencyCode);
+        registerMemberFn(&Amount::getCurrencyStr, "currencyCode");
+
+        //NODE_SET_PROTOTYPE_METHOD(t, "currencyCode", getCurrencyCode);
     }
 
     static Handle<Value>

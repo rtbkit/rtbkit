@@ -15,6 +15,8 @@ namespace JS {
 
 using namespace RTBKIT;
 
+extern const char * const bidRequestModule;
+
 void to_js(JS::JSValue & value, const std::shared_ptr<BidRequest> & br);
 
 std::shared_ptr<BidRequest>
@@ -55,6 +57,8 @@ void to_js(JS::JSValue & value, const UserIds & uids);
 
 UserIds 
 from_js(const JSValue & value, UserIds *);
+
+void to_js(JS::JSValue & value, const Format & f);
 
 } // namespace JS
 } // namespace Datacratic
