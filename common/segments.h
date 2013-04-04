@@ -7,6 +7,7 @@
 #include "jml/utils/compact_vector.h"
 #include "jml/db/persistent_fwd.h"
 #include "soa/jsoncpp/json.h"
+#include "soa/types/value_description_fwd.h"
 #include <boost/shared_ptr.hpp>
 #include <map>
 
@@ -152,5 +153,7 @@ struct SegmentsBySource
 
 IMPL_SERIALIZE_RECONSTITUTE(SegmentsBySource);
 
+Datacratic::ValueDescriptionT<RTBKIT::SegmentsBySource> *
+getDefaultDescription(RTBKIT::SegmentsBySource * = 0);
 
 } // namespace RTBKIT

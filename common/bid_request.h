@@ -109,6 +109,10 @@ struct FormatSet : public ML::compact_vector<Format, 3, uint16_t> {
 
 IMPL_SERIALIZE_RECONSTITUTE(FormatSet);
 
+ValueDescriptionT<RTBKIT::FormatSet> *
+getDefaultDescription(RTBKIT::FormatSet * = 0);
+
+
 
 /*****************************************************************************/
 /* AD SPOT                                                                   */
@@ -213,6 +217,10 @@ struct UserIds : public std::map<std::string, Id> {
 };
 
 IMPL_SERIALIZE_RECONSTITUTE(UserIds);
+
+ValueDescriptionT<RTBKIT::UserIds> *
+getDefaultDescription(RTBKIT::UserIds * = 0);
+
 
 
 /*****************************************************************************/
@@ -401,5 +409,37 @@ IMPL_SERIALIZE_RECONSTITUTE(BidRequest);
 
 } // namespace RTBKIT
 
+namespace Datacratic {
+
+template<>
+struct DefaultDescription<RTBKIT::Location>
+    : public StructureDescription<RTBKIT::Location> {
+
+    DefaultDescription();
+};
+
+template<>
+struct DefaultDescription<RTBKIT::Format>
+    : public StructureDescription<RTBKIT::Format> {
+
+    DefaultDescription();
+};
+
+template<>
+struct DefaultDescription<RTBKIT::AdSpot>
+    : public StructureDescription<RTBKIT::AdSpot> {
+
+    DefaultDescription();
+};
+
+template<>
+struct DefaultDescription<RTBKIT::BidRequest>
+    : public StructureDescription<RTBKIT::BidRequest> {
+
+    DefaultDescription();
+};
+
+
+} // namespace Datacratic
 
 #endif /* __rtb__auction_h__ */

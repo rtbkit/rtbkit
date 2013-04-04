@@ -108,45 +108,15 @@ struct RouterStack: public ServiceBase {
         If the spot ID is empty, then the click will be sent to all campaigns
         that had a win on the auction.
     */
-    void injectImpression(const Id & auctionId,
-                          const Id & spotId,
-                          Date timestamp,
-                          const JsonHolder & impressionMeta,
-                          const UserIds & uids)
+    void injectCampaignEvent(const std::string & label,
+                             const Id & auctionId,
+                             const Id & spotId,
+                             Date timestamp,
+                             const JsonHolder & eventMeta,
+                             const UserIds & uids)
     {
-        postAuctionLoop.injectImpression(auctionId, spotId, timestamp,
-                                         impressionMeta, uids);
-    }
-    
-    /** Inject a CLICK into the router, to be passed on to the campaign that
-        bid on it.
-
-        If the spot ID is empty, then the click will be sent to all campaigns
-        that had a win on the auction.
-    */
-    void injectClick(const Id & auctionId,
-                     const Id & adSpotId,
-                     Date timestamp,
-                     const JsonHolder & clickMeta,
-                     const UserIds & uids)
-    {
-        postAuctionLoop.injectClick(auctionId, adSpotId, timestamp,
-                                    clickMeta, uids);
-    }
-
-    /** Inject a VISIT into the router, to be passed onto any campaign that
-        has shown an ad to the given user ID.
-
-        These are routed by matching the segments in the SegmentList
-        for the agent configuration with the segments in this message.
-    */
-    void injectVisit(Date timestamp,
-                     const SegmentList & segments,
-                     const JsonHolder & visitMeta,
-                     const UserIds & uids)
-    {
-        postAuctionLoop.injectVisit(timestamp, segments, visitMeta,
-                                    uids);
+        postAuctionLoop.injectCampaignEvent(label, auctionId, spotId,
+                                            timestamp, eventMeta, uids);
     }
 
     /** Notify the router that the given auction/spot will never receive

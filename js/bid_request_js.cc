@@ -14,18 +14,30 @@
 #include "currency_js.h"
 #include <boost/make_shared.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include "rtbkit/openrtb/openrtb_parsing.h"
+
 
 using namespace std;
 using namespace v8;
 using namespace node;
 
 namespace Datacratic {
+
+struct JSConverters {
+    std::function<void (void *, const JS::JSValue &)> fromJs;
+    std::function<v8::Handle<v8::Value> (const void *, std::shared_ptr<void>)> toJs;
+};
+
 namespace JS {
 
 
-extern const char * const bidRequestModule;
 const char * const bidRequestModule = "bid_request";
 //so we can do require("standalone_demo")
+
+void to_js(JS::JSValue & value, const Format & f)
+{
+    value = JS::toJS(f.print());
+}
 
 
 /*****************************************************************************/
@@ -667,11 +679,663 @@ struct LocationJS
     }
 };
 
+// To/from JS goes via JSON for the moment...
+template<typename Obj, typename Base>
+struct PropertyAccessViaJson {
+    static v8::Handle<v8::Value>
+    getter(v8::Local<v8::String> property,
+           const v8::AccessorInfo & info)
+    {
+        try {
+            const ValueDescription * vd
+                = reinterpret_cast<const ValueDescription *>
+                (v8::External::Unwrap(info.Data()));
+            Obj * o = Base::getShared(info.This());
+            const StructureDescriptionBase::FieldDescription & fd
+                = vd->getField(cstr(property));
+            StructuredJsonPrintingContext context;
+            fd.description->printJson(addOffset(o, fd.offset), context);
+            return JS::toJS(context.output);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static void
+    setter(v8::Local<v8::String> property,
+           v8::Local<v8::Value> value,
+           const v8::AccessorInfo & info)
+    {
+        try {
+            const ValueDescription * vd
+                = reinterpret_cast<const ValueDescription *>
+                (v8::External::Unwrap(info.Data()));
+            Obj * o = Base::getShared(info.This());
+            const StructureDescriptionBase::FieldDescription & fd
+                = vd->getField(cstr(property));
+            Json::Value val = JS::fromJS(JSValue(value));
+            StructuredJsonParsingContext context(val);
+            fd.description->parseJson(addOffset(o, fd.offset), context);
+        } HANDLE_JS_EXCEPTIONS_SETTER;
+    }
+};
+
+#if 0
+struct WrappedStructureJS: public JS::JSWrapped {
+    const ValueDescription * desc;
+};
+#endif
+
+void
+setFromJs(void * field,
+          const JSValue & value,
+          const ValueDescription & desc);
+
+v8::Handle<v8::Value>
+getFromJs(const void * field,
+          const ValueDescription & desc,
+          const std::shared_ptr<void> & owner);
+
+struct WrappedArrayJS: public JSWrappedBase {
+    const ValueDescription * desc;
+    void * value;  // value being read
+
+    static v8::Persistent<v8::FunctionTemplate> tmpl;
+    
+    WrappedArrayJS(v8::Handle<v8::Object> This,
+                   void * value = 0,
+                   std::shared_ptr<void> owner = nullptr)
+    {
+        wrap(This, 64 /* bytes */, typeid(*this));
+        this->value = value;
+        this->owner_ = owner;
+    }
+
+    static Handle<v8::Value>
+    New(const Arguments & args)
+    {
+        try {
+            new WrappedArrayJS(args.This(), nullptr);
+            return args.This();
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static void Initialize()
+    {
+        tmpl = RegisterBase("WrappedArrayJS", "bonus", New);
+        
+        tmpl->InstanceTemplate()
+            ->SetIndexedPropertyHandler(getIndexed, setIndexed, queryIndexed,
+                                        deleteIndexed, listIndexed);
+        
+        tmpl->InstanceTemplate()
+            ->SetAccessor(String::NewSymbol("length"), lengthGetter,
+                          0, v8::Handle<v8::Value>(), DEFAULT,
+                          PropertyAttribute(ReadOnly | DontEnum | DontDelete));
+    }
+
+    static WrappedArrayJS * getWrapper(const v8::Handle<v8::Object> & object)
+    {
+        return unwrap<WrappedArrayJS>(object);
+    }
+
+    static v8::Handle<v8::Value>
+    lengthGetter(v8::Local<v8::String> property,
+                 const AccessorInfo & info)
+    {
+        try {
+            WrappedArrayJS * wrapper = getWrapper(info.This());
+            size_t size = wrapper->desc->getArrayLength(wrapper->value);
+            return JS::toJS(size);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
+    getIndexed(uint32_t index, const v8::AccessorInfo & info)
+    {
+        v8::HandleScope scope;
+        try {
+            WrappedArrayJS * wrapper = getWrapper(info.This());
+            size_t size = wrapper->desc->getArrayLength(wrapper->value);
+            
+            if (index >= size)
+                return v8::Undefined();
+
+            void * element = wrapper->desc->getArrayElement(wrapper->value, index);
+            
+            return scope.Close(getFromJs(element, wrapper->desc->contained(),
+                                         wrapper->owner_));
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
+    setIndexed(uint32_t index,
+               v8::Local<v8::Value> value,
+               const v8::AccessorInfo & info)
+    {
+        try {
+            throw ML::Exception("setIndexed not done yet");
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Integer>
+    queryIndexed(uint32_t index,
+                 const v8::AccessorInfo & info)
+    {
+        WrappedArrayJS * wrapper = getWrapper(info.This());
+        size_t size = wrapper->desc->getArrayLength(wrapper->value);
+
+        if (index < size)
+            return v8::Integer::New(v8::ReadOnly | v8::DontDelete);
+        
+        return NULL_HANDLE;
+    }
+    
+    static v8::Handle<v8::Boolean>
+    deleteIndexed(uint32_t index,
+                  const v8::AccessorInfo & info)
+    {
+        return NULL_HANDLE;
+    }
+
+    static v8::Handle<v8::Array>
+    listIndexed(const v8::AccessorInfo & info)
+    {
+        v8::HandleScope scope;
+
+        WrappedArrayJS * wrapper = getWrapper(info.This());
+        size_t sz = wrapper->desc->getArrayLength(wrapper->value);
+
+        v8::Handle<v8::Array> result(v8::Array::New(sz));
+
+        for (unsigned i = 0;  i < sz;  ++i) {
+            result->Set(v8::Uint32::New(i),
+                        v8::Uint32::New(i));
+        }
+        
+        return scope.Close(result);
+    }
+};
+
+v8::Persistent<v8::FunctionTemplate>
+WrappedArrayJS::
+tmpl;
+
+// Wrap an array of values where elements are got or set in their entirity
+struct WrappedValueArrayJS: public JSWrappedBase {
+    const ValueDescription * desc;
+};
+
+// Wrap an array of fundamental types that can be directly mapped by the
+// Javascript runtime
+struct WrappedFundamentalValueArrayJS: public JSWrappedBase {
+    const ValueDescription * desc;
+};
+
+struct WrappedStructureJS: public JSWrappedBase {
+    const ValueDescription * desc;
+    void * value;  // value being read
+
+    static v8::Persistent<v8::FunctionTemplate> tmpl;
+    
+    WrappedStructureJS(v8::Handle<v8::Object> This,
+                   void * value = 0,
+                   std::shared_ptr<void> owner = nullptr)
+    {
+        wrap(This, 64 /* bytes */, typeid(*this));
+        this->value = value;
+        this->owner_ = owner;
+    }
+
+    static Handle<v8::Value>
+    New(const Arguments & args)
+    {
+        try {
+            new WrappedStructureJS(args.This(), nullptr);
+            return args.This();
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static void Initialize()
+    {
+        tmpl = RegisterBase("WrappedStructureJS", "bonus", New);
+        
+        tmpl->InstanceTemplate()
+            ->SetNamedPropertyHandler(getNamed, setNamed, queryNamed,
+                                      deleteNamed, listNamed);
+    }
+
+    static WrappedStructureJS * getWrapper(const v8::Handle<v8::Object> & object)
+    {
+        return unwrap<WrappedStructureJS>(object);
+    }
+
+    static v8::Handle<v8::Value>
+    getNamed(v8::Local<v8::String> property,
+             const v8::AccessorInfo & info)
+    {
+        try {
+            string name = cstr(property);
+
+            WrappedStructureJS * wrapper = getWrapper(info.This());
+            const ValueDescription::FieldDescription * fd
+                = wrapper->desc->hasField(wrapper->value, name);
+            
+            if (!fd)
+                return NULL_HANDLE;
+
+            return getFromJs(addOffset(wrapper->value, fd->offset),
+                             *fd->description,
+                             wrapper->owner_);
+
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
+    setNamed(v8::Local<v8::String> property,
+             v8::Local<v8::Value> value,
+             const v8::AccessorInfo & info)
+    {
+        try {
+            string name = cstr(property);
+
+            WrappedStructureJS * wrapper = getWrapper(info.This());
+            const ValueDescription::FieldDescription & fd
+                = wrapper->desc->getField(name);
+            
+            setFromJs(addOffset(wrapper->value, fd.offset), value,
+                      *fd.description);
+
+            return v8::Undefined();
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Integer>
+    queryNamed(v8::Local<v8::String> property,
+               const v8::AccessorInfo & info)
+    {
+        string name = cstr(property);
+        WrappedStructureJS * wrapper = getWrapper(info.This());
+        if (!wrapper->desc->hasField(wrapper->value, name))
+            return NULL_HANDLE;
+
+        return v8::Integer::New(DontDelete);
+    }
+
+    static v8::Handle<v8::Boolean>
+    deleteNamed(v8::Local<v8::String> property,
+                const v8::AccessorInfo & info)
+
+    {
+        return v8::False();
+    }
+
+    static v8::Handle<v8::Array>
+    listNamed(const v8::AccessorInfo & info)
+    {
+        try {
+            HandleScope scope;
+            WrappedStructureJS * wrapper = getWrapper(info.This());
+            int numFields = wrapper->desc->getFieldCount(wrapper->value);
+            
+            int i = 0;
+            v8::Handle<v8::Array> result = v8::Array::New(numFields);
+            
+            auto onField = [&] (const ValueDescription::FieldDescription & fd)
+                {
+                    result->Set(v8::Uint32::New(i++), JS::toJS(fd.fieldName));
+                };
+            
+            wrapper->desc->forEachField(wrapper->value, onField);
+
+            return scope.Close(result);
+        } catch (const std::exception & exc) {
+            cerr << "got exception in listNamed" << endl;
+            cerr << exc.what() << endl;
+            cerr << cstr(info.This()) << endl;
+            //backtrace();
+            return NULL_HANDLE;
+        }
+    }
+
+};
+
+v8::Persistent<v8::FunctionTemplate>
+WrappedStructureJS::
+tmpl;
+
+namespace {
+
+struct Init {
+    Init()
+    {
+        registry.introduce("WrappedArrayJS", "bonus", WrappedArrayJS::Initialize);
+        registry.introduce("WrappedStructureJS", "bonus", WrappedStructureJS::Initialize);
+    }
+} init;
+
+} // file scope
+
+void
+initJsConverters(const ValueDescription & desc)
+{
+    if (desc.jsConverters || desc.jsConvertersInitialized)
+        return;
+    
+    std::unique_ptr<JSConverters> converters
+        (new JSConverters);
+
+    // Take a pointer so we bind over the pointer and copy it, not the
+    // description
+    auto descPtr = &desc;
+
+    //cerr << "***** desc.kind = " << desc.kind << " for "
+    //     << desc.typeName << endl;
+
+    // Is it a structure?
+    if (desc.kind == ValueKind::STRUCTURE) {
+        //cerr << "got structure " << desc.typeName << endl;
+
+        // Return structure-based converters
+        converters->fromJs = [=] (void * field, const JSValue & val)
+            {
+                // Is it an object of the correct type?
+
+                if (!val->IsObject()) {
+                    throw ML::Exception("attempt to create structure from non-object "
+                                        + cstr(val));
+                }
+#if 0
+                if (WrappedStructureJS::tmpl->HasInstance(val)) {
+                    // Copy element by element
+                }
+#endif
+
+                // Firstly, clear all of the fields to their default value
+                descPtr->setDefault(field);
+
+                v8::HandleScope scope;
+                auto objPtr = v8::Object::Cast(*val);
+                
+                v8::Local<v8::Array> properties = objPtr->GetOwnPropertyNames();
+
+                for (int i = 0; i < properties->Length(); ++i) {
+                    auto keyVal = properties->Get(i);
+                    string fieldName = cstr(keyVal);
+                    v8::Local<v8::Value> fieldVal = objPtr->Get(keyVal);
+
+                    auto * fd = descPtr->hasField(field, fieldName);
+                    if (!fd) {
+                        Json::Value val = JS::fromJS(fieldVal);
+                        // TODO: some kind of on-unknown-field function
+
+                        cerr << "got unknown JS field " << fieldName << " = "
+                             << val.toString() << endl;
+                        
+                        continue;
+                    }
+
+                    setFromJs(addOffset(field, fd->offset), fieldVal,
+                              *fd->description);
+                }
+            };
+
+        converters->toJs = [=] (const void * field, std::shared_ptr<void> owner)
+            {
+                //cerr << "to JS structure for " << descPtr->typeName << endl;
+
+                // Wrap it in a wrapped array object
+                v8::Local<v8::Object> result
+                    = WrappedStructureJS::tmpl->GetFunction()->NewInstance();
+                auto wrapper = WrappedStructureJS::getWrapper(result);
+                wrapper->value = (void *)field;
+                wrapper->desc = descPtr;
+                wrapper->owner_ = owner;
+
+                return result;
+            };
+    }
+
+    // Is it an array?
+    if (desc.kind == ValueKind::ARRAY) {
+        //cerr << "got array " << desc.typeName << endl;
+
+        const ValueDescription * innerDesc = &descPtr->contained();
+        
+        // Convert each element of the array
+        converters->fromJs = [=] (void * field, const JSValue & val)
+            {
+                //cerr << "from JS array" << endl;
+
+                // Convert the entire lot in the JS into our type
+                if (val->IsNull()) {
+                    descPtr->setArrayLength(field, 0);
+                    return;
+                }
+
+                // Is it an object of the correct type?
+                if (val->IsObject()) {
+                    if (WrappedArrayJS::tmpl->HasInstance(val)) {
+                        //cerr << "Is a wrapped array" << endl;
+                        auto wrapper = WrappedArrayJS::getWrapper(val);
+
+                        // Same type?; do a direct copy
+                        if (wrapper->desc->type == descPtr->type) {
+                            descPtr->copyValue(wrapper->value, field);
+                            return;
+                        }
+
+                        // Otherwise, copy element by element
+                        size_t len = wrapper->desc->getArrayLength(wrapper->value);
+                        
+                        descPtr->setArrayLength(field, len);
+
+                        auto & valContained = wrapper->desc->contained();
+
+                        // Same inner type?
+                        if (innerDesc->type == valContained.type) {
+                            for (unsigned i = 0;  i < len;  ++i) {
+                                innerDesc->copyValue(wrapper->desc->getArrayElement(wrapper->value, i),
+                                                     descPtr->getArrayElement(field, i));
+                            }
+                            return;
+                        }
+
+                        for (unsigned i = 0;  i < len;  ++i) {
+                            for (unsigned i = 0;  i < len;  ++i) {
+                                innerDesc->convertAndCopy
+                                (wrapper->desc->getArrayElement(wrapper->value, i),
+                                 *wrapper->desc,
+                                 descPtr->getArrayElement(field, i));
+                            }
+                        }
+
+                        return;
+
+                        cerr << "descPtr = " << descPtr
+                             << "wrapper->desc = " << wrapper->desc << endl;
+                        cerr << "descPtr = " << descPtr->typeName
+                             << "wrapper->desc = " << wrapper->desc->typeName << endl;
+                        cerr << "field = " << field << " wrapper->value = "
+                             << wrapper->value << endl;
+
+                        // Copy element by element
+                    }
+                }
+
+                if(!val->IsArray()) {
+                    throw ML::Exception("invalid JSValue for array extraction");
+                }
+
+                auto arrPtr = v8::Array::Cast(*val);
+
+                descPtr->setArrayLength(field, arrPtr->Length());
+
+                for(int i=0; i<arrPtr->Length(); ++i) {
+                    auto val = arrPtr->Get(i);
+                    setFromJs(descPtr->getArrayElement(field, i), val, *innerDesc);
+                }
+            };
+
+        converters->toJs = [=] (const void * field, const std::shared_ptr<void> & owner)
+            {
+                //cerr << "to JS array for " << descPtr->typeName << endl;
+
+                // Wrap it in a wrapped array object
+                v8::Local<v8::Object> result
+                    = WrappedArrayJS::tmpl->GetFunction()->NewInstance();
+                auto wrapper = WrappedArrayJS::getWrapper(result);
+                wrapper->value = (void *)field;
+                wrapper->desc = descPtr;
+                wrapper->owner_ = owner;
+
+                return result;
+            };
+    }
+
+    // Is it optional?
+    if (desc.kind == ValueKind::OPTIONAL) {
+        //cerr << "got optional " << desc.typeName << endl;
+
+        const ValueDescription * innerDesc = &descPtr->contained();
+
+        //cerr << "innerDesc = " << innerDesc << endl;
+
+        // Return optional converters
+        converters->fromJs = [=] (void * field, const JSValue & value)
+            {
+                //cerr << "optional value = " << cstr(value) << endl;
+                // If the value is null, then we remove the optional value
+                if (value->IsNull() || value->IsUndefined()) {
+                    descPtr->setDefault(field);
+                    return;
+                }
+
+                //cerr << "*** setting inner value" << endl;
+
+                // Otherwise we get the inner value and set it
+                setFromJs(descPtr->optionalMakeValue(field),
+                          value,
+                          *innerDesc);
+            };
+
+        converters->toJs = [=] (const void * field, std::shared_ptr<void> owner)
+            -> v8::Handle<v8::Value>
+            {
+                // If the value is missing, we return null
+                if (descPtr->isDefault(field))
+                    return v8::Null();
+
+                // Otherwise we return the inner value
+                return getFromJs(descPtr->optionalGetValue(field),
+                                 *innerDesc,
+                                 owner);
+            };
+    }
+
+    //   Does it have any parent classes?
+
+    // Is it an arithmetic type?
+
+    // Default goes through JSON
+    if (!converters->fromJs) {
+        converters->fromJs = [=] (void * field, const JSValue & value)
+            {
+                Json::Value val = JS::fromJS(value);
+                StructuredJsonParsingContext context(val);
+                descPtr->parseJson(field, context);
+            };
+    }
+
+    if (!converters->toJs) {
+        converters->toJs = [=] (const void * field, std::shared_ptr<void>)
+            {
+                StructuredJsonPrintingContext context;
+                descPtr->printJson(field, context);
+                return JS::toJS(context.output);
+            };
+    }
+
+    desc.jsConverters = converters.release();
+    desc.jsConvertersInitialized = true;
+}
+
+void
+setFromJs(void * field,
+          const JSValue & value,
+          const ValueDescription & desc)
+{
+    if (!desc.jsConvertersInitialized) {
+        initJsConverters(desc);
+    }
+
+    desc.jsConverters->fromJs(field, value);
+}
+
+v8::Handle<v8::Value>
+getFromJs(const void * field,
+          const ValueDescription & desc,
+          const std::shared_ptr<void> & owner)
+{
+    if (!desc.jsConvertersInitialized) {
+        initJsConverters(desc);
+    }
+
+    return desc.jsConverters->toJs(field, owner);
+}
+
+
+template<typename Obj, typename Base>
+struct PropertyAccessViaDescription {
+    static v8::Handle<v8::Value>
+    getter(v8::Local<v8::String> property,
+           const v8::AccessorInfo & info)
+    {
+        try {
+            const ValueDescription * vd
+                = reinterpret_cast<const ValueDescription *>
+                (v8::External::Unwrap(info.Data()));
+            auto p = Base::getSharedPtr(info.This());
+            Obj * o = p.get();
+            const StructureDescriptionBase::FieldDescription & fd
+                = vd->getField(cstr(property));
+            return getFromJs(addOffset(o, fd.offset), *fd.description, p);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static void
+    setter(v8::Local<v8::String> property,
+           v8::Local<v8::Value> value,
+           const v8::AccessorInfo & info)
+    {
+        try {
+            const ValueDescription * vd
+                = reinterpret_cast<const ValueDescription *>
+                (v8::External::Unwrap(info.Data()));
+            Obj * o = Base::getShared(info.This());
+            const StructureDescriptionBase::FieldDescription & fd
+                = vd->getField(cstr(property));
+            setFromJs(addOffset(o, fd.offset), value, *fd.description);
+        } HANDLE_JS_EXCEPTIONS_SETTER;
+    }
+};
+
+template<typename Wrapper, typename T>
+void registerFieldFromDescription(const StructureDescription<T> & desc,
+                                  const std::string & fieldName)
+{
+    Wrapper::tmpl->InstanceTemplate()
+        ->SetAccessor(v8::String::NewSymbol(fieldName.c_str()),
+                      PropertyAccessViaDescription<T, Wrapper>::getter,
+                      PropertyAccessViaDescription<T, Wrapper>::setter,
+                      v8::External::Wrap((void *)&desc),
+                      v8::DEFAULT,
+                      v8::PropertyAttribute(v8::DontDelete));
+}
 
 /*****************************************************************************/
 /* AD SPOT JS                                                                */
 /*****************************************************************************/
 
+extern const char * AdSpotName;
 const char * AdSpotName = "AdSpot";
 
 struct AdSpotJS
@@ -700,11 +1364,21 @@ struct AdSpotJS
     {
         Persistent<FunctionTemplate> t = Register(New);
 
+        static DefaultDescription<AdSpot> desc;
+
+        for (auto & f: desc.fields) {
+            const char * name = f.first;
+            registerFieldFromDescription<JSWrapped2>(desc, name);
+        }
+
         registerRWProperty(&AdSpot::id, "id",
-                           v8::ReadOnly | v8::DontDelete);
+                           v8::DontDelete);
         registerRWProperty(&AdSpot::reservePrice, "reservePrice",
+                           v8::DontDelete);
+        registerROProperty(&AdSpot::formats, "formats",
                            v8::ReadOnly | v8::DontDelete);
 
+#if 0
         t->InstanceTemplate()
             ->SetAccessor(String::NewSymbol("width"), widthsGetter,
                           0, v8::Handle<v8::Value>(), DEFAULT,
@@ -713,8 +1387,10 @@ struct AdSpotJS
             ->SetAccessor(String::NewSymbol("height"), heightsGetter,
                           0, v8::Handle<v8::Value>(), DEFAULT,
                           PropertyAttribute(ReadOnly | DontDelete));
+#endif
     }
 
+#if 0
     static v8::Handle<v8::Value>
     widthsGetter(v8::Local<v8::String> property,
                   const v8::AccessorInfo & info)
@@ -740,6 +1416,7 @@ struct AdSpotJS
             return JS::toJS(v2);
         } HANDLE_JS_EXCEPTIONS;
     }
+#endif
 
 };
 
@@ -790,6 +1467,7 @@ struct BidRequestJS
         try {
             if (args.Length() > 0) {
                 if (BidRequestJS::tmpl->HasInstance(args[0])) {
+                    cerr << "copy existing" << endl;
                     // Copy an existing bid request
                     std::shared_ptr<BidRequest> oldBr
                         = JS::fromJS(args[0]);
@@ -800,14 +1478,17 @@ struct BidRequestJS
                 }
                 else if (args[0]->IsString()) {
                     // Parse from a string
+                    cerr << "parse string" << endl;
                     Utf8String request = getArg<Utf8String>(args, 0, "request");
                     string source = getArg<string>(args, 1, "datacratic", "source");
                     new BidRequestJS(args.This(),
                                      ML::make_std_sp(BidRequest::parse(source, request)));
                 }
                 else if (args[0]->IsObject()) {
+                    cerr << "parse object" << endl;
                     // Parse from an object by going through JSON
                     Json::Value json = JS::fromJS(args[0]);
+                    cerr << "JSON = " << json << endl;
                     auto br = std::make_shared<BidRequest>();
                     *br = BidRequest::createFromJson(json);
                     new BidRequestJS(args.This(), br);
@@ -838,7 +1519,13 @@ struct BidRequestJS
                            "protocolVersion", v8::DontDelete);
         registerRWProperty(&BidRequest::exchange, "exchange", v8::DontDelete);
         registerRWProperty(&BidRequest::provider, "provider", v8::DontDelete);
-        registerRWProperty(&BidRequest::spots, "spots", v8::DontDelete);
+
+        static DefaultDescription<BidRequest> desc;
+
+        registerFieldFromDescription<BidRequestJS>(desc, "spots");
+
+
+        //registerRWProperty(&BidRequest::spots, "spots", v8::DontDelete);
         
         //registerRWProperty(&BidRequest::winSurcharge, "winSurchage",
         //                   v8::DontDelete);

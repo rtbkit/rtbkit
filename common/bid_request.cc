@@ -28,131 +28,31 @@ namespace Datacratic {
 
 using namespace RTBKIT;
 
-template<>
-struct DefaultDescription<Location>
-    : public StructureDescription<Location> {
+DefaultDescription<Location>::
+DefaultDescription()
+{
+    this->nullAccepted = true;
+    addField("countryCode", &Location::countryCode,
+             "Country code of location");
+    addField("regionCode", &Location::regionCode,
+             "Region code of location");
+    addField("cityName", &Location::cityName,
+             "City name of location");
+    addField("postalCode", &Location::postalCode,
+             "Postal code of location");
+    addField("dma", &Location::dma,
+             "DMA code of location");
+    addField("timezoneOffsetMinutes", &Location::timezoneOffsetMinutes,
+             "Timezone offset of location in minutes");
+}
 
-    DefaultDescription()
-    {
-        this->nullAccepted = true;
-        addField("countryCode", &Location::countryCode,
-                 "Country code of location");
-        addField("regionCode", &Location::regionCode,
-                 "Region code of location");
-        addField("cityName", &Location::cityName,
-                 "City name of location");
-        addField("postalCode", &Location::postalCode,
-                 "Postal code of location");
-        addField("dma", &Location::dma,
-                 "DMA code of location");
-        addField("timezoneOffsetMinutes", &Location::timezoneOffsetMinutes,
-                 "Timezone offset of location in minutes");
-    }
-};
-
-template<>
-struct DefaultDescription<SegmentsBySource>
-    : public ValueDescription<SegmentsBySource> {
-
-    DefaultDescription()
-    {
-    }
-
-    virtual void parseJsonTyped(SegmentsBySource * val,
-                                JsonParsingContext & context) const
-    {
-        Json::Value v = context.expectJson();
-        //cerr << "got segments " << v << endl;
-        *val = std::move(SegmentsBySource::createFromJson(v));
-    }
-
-    virtual void printJsonTyped(const SegmentsBySource * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeJson(val->toJson());
-    }
-
-    virtual bool isDefaultTyped(const SegmentsBySource * val) const
-    {
-        return val->empty();
-    }
-};
-
-template<>
-struct DefaultDescription<UserIds>
-    : public ValueDescription<UserIds> {
-
-    DefaultDescription()
-    {
-
-    }
-
-    virtual void parseJsonTyped(UserIds * val,
-                                JsonParsingContext & context) const
-    {
-        auto onMember = [&] ()
-            {
-                string key = context.path.fieldName();
-                Id value(context.expectStringAscii());
-                val->add(value, key);
-            };
-        
-        context.forEachMember(onMember);
-    }
-
-    virtual void printJsonTyped(const UserIds * val,
-                                JsonPrintingContext & context) const
-    {
-        context.startObject();
-
-        for (auto & id: *val) {
-            context.startMember(id.first);
-            context.writeString(id.second.toString());
-        }
-
-        context.endObject();
-    }
-
-    virtual bool isDefaultTyped(const UserIds * val) const
-    {
-        return val->empty();
-    }
-
-};
-
-template<>
-struct DefaultDescription<Format>
-    : public StructureDescription<Format> {
-
-    DefaultDescription()
-    {
-    }
-};
-
-template<>
-struct DefaultDescription<FormatSet>
-    : public ValueDescription<FormatSet> {
-
-    virtual void parseJsonTyped(FormatSet * val,
-                                JsonParsingContext & context) const
-    {
-        val->fromJson(context.expectJson());
-    }
-
-    virtual void printJsonTyped(const FormatSet * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeJson(val->toJson());
-    }
-
-    virtual bool isDefaultTyped(const FormatSet * val) const
-    {
-        return val->empty();
-    }
-};
+DefaultDescription<Format>::
+DefaultDescription()
+{
+}
 
 struct HistoricalPositionDescriptor
-    : public ValueDescription<OpenRTB::AdPosition> {
+    : public ValueDescriptionT<OpenRTB::AdPosition> {
     
     virtual void parseJsonTyped(OpenRTB::AdPosition * val,
                                 JsonParsingContext & context) const
@@ -190,80 +90,74 @@ struct HistoricalPositionDescriptor
     }
 };
 
-template<>
-struct DefaultDescription<AdSpot>
-    : public StructureDescription<AdSpot> {
-
-    DefaultDescription()
-    {
-        addParent<OpenRTB::Impression>();
+DefaultDescription<AdSpot>::
+DefaultDescription()
+{
+    addParent<OpenRTB::Impression>();
         
-        addField("formats", &AdSpot::formats, "Impression formats");
-        addField<OpenRTB::AdPosition>("position", &AdSpot::position, "Impression fold position",
-                                      new HistoricalPositionDescriptor());
-        addField("reservePrice", &AdSpot::reservePrice, "Impression reserve price");
-    }
-};
+    addField("formats", &AdSpot::formats, "Impression formats");
+    addField<OpenRTB::AdPosition>("position", &AdSpot::position, "Impression fold position",
+                                  new HistoricalPositionDescriptor());
+    addField("reservePrice", &AdSpot::reservePrice, "Impression reserve price");
 
-template<>
-struct DefaultDescription<BidRequest>
-    : public StructureDescription<BidRequest> {
+    //throw ML::Exception("Need to sync formats with the bid request");
+}
 
-    DefaultDescription()
-    {
-        onUnknownField = [=] (BidRequest * br, JsonParsingContext & context)
-            {
-                //context.skip();
+DefaultDescription<BidRequest>::
+DefaultDescription()
+{
+    onUnknownField = [=] (BidRequest * br, JsonParsingContext & context)
+        {
+            //context.skip();
 
-                cerr << "got unknown field " << context.printPath()
-                << " " << context.expectJson().toString() << endl;
+            cerr << "got unknown field " << context.printPath()
+            << " " << context.expectJson().toString() << endl;
 
 #if 0
-                std::function<Json::Value & (int, Json::Value &)> getEntry
-                = [&] (int n, Json::Value & curr) -> Json::Value &
-                {
-                    if (n == context.path.size())
-                        return curr;
-                    else if (context.path[n].index != -1)
-                        return getEntry(n + 1, curr[context.path[n].index]);
-                    else return getEntry(n + 1, curr[context.path[n].key]);
-                };
-
-                getEntry(0, br->unparseable)
-                = context.expectJson();
-#endif
+            std::function<Json::Value & (int, Json::Value &)> getEntry
+            = [&] (int n, Json::Value & curr) -> Json::Value &
+            {
+                if (n == context.path.size())
+                    return curr;
+                else if (context.path[n].index != -1)
+                    return getEntry(n + 1, curr[context.path[n].index]);
+                else return getEntry(n + 1, curr[context.path[n].key]);
             };
-        addField("id", &BidRequest::auctionId, "Exchange auction ID");
-        addField("timestamp", &BidRequest::timestamp, "Bid request timestamp");
-        addField("isTest", &BidRequest::isTest, "Is bid request a test?");
-        addField("url", &BidRequest::url, "Site URL");
-        addField("ipAddress", &BidRequest::ipAddress, "IP address of user");
-        addField("userAgent", &BidRequest::userAgent, "User agent of device");
-        addField("language", &BidRequest::language, "User language code");
-        addField("protocolVersion", &BidRequest::protocolVersion,
-                 "bid request protocol version");
-        addField("exchange", &BidRequest::exchange, "Original bid request exchagne");
-        addField("provider", &BidRequest::provider, "Bid request provider");
-        addField("winSurcharges", &BidRequest::winSurcharges,
-                 "extra amounts paid on win");
-        addField("meta", &BidRequest::meta,
-                 "extra metadata about the bid request");
-        addField("location", &BidRequest::location,
-                 "location of user");
-        addField("segments", &BidRequest::segments,
-                 "segments active for user");
-        addField("restrictions", &BidRequest::restrictions,
-                 "restrictions active for bid request");
-        addField("userIds", &BidRequest::userIds, "User IDs for this user");
-        addField("spots", &BidRequest::spots, "Ad spots in this request");
-        addField("site", &BidRequest::site, "OpenRTB site object");
-        addField("app", &BidRequest::app, "OpenRTB app object");
-        addField("device", &BidRequest::device, "OpenRTB device object");
-        addField("user", &BidRequest::user, "OpenRTB user object");
-        addField("unparseable", &BidRequest::unparseable, "Unparseable fields are stored here");
-        addField("bidCurrency", &BidRequest::bidCurrency, "Currency we're bidding in");
-    }
-};
+
+            getEntry(0, br->unparseable)
+            = context.expectJson();
+#endif
+        };
+    addField("id", &BidRequest::auctionId, "Exchange auction ID");
+    addField("timestamp", &BidRequest::timestamp, "Bid request timestamp");
+    addField("isTest", &BidRequest::isTest, "Is bid request a test?");
+    addField("url", &BidRequest::url, "Site URL");
+    addField("ipAddress", &BidRequest::ipAddress, "IP address of user");
+    addField("userAgent", &BidRequest::userAgent, "User agent of device");
+    addField("language", &BidRequest::language, "User language code");
+    addField("protocolVersion", &BidRequest::protocolVersion,
+             "bid request protocol version");
+    addField("exchange", &BidRequest::exchange, "Original bid request exchagne");
+    addField("provider", &BidRequest::provider, "Bid request provider");
+    addField("winSurcharges", &BidRequest::winSurcharges,
+             "extra amounts paid on win");
+    addField("meta", &BidRequest::meta,
+             "extra metadata about the bid request");
+    addField("location", &BidRequest::location,
+             "location of user");
+    addField("segments", &BidRequest::segments,
+             "segments active for user");
+    addField("restrictions", &BidRequest::restrictions,
+             "restrictions active for bid request");
+    addField("userIds", &BidRequest::userIds, "User IDs for this user");
+    addField("spots", &BidRequest::spots, "Ad spots in this request");
+    addField("site", &BidRequest::site, "OpenRTB site object");
+    addField("app", &BidRequest::app, "OpenRTB app object");
+    addField("device", &BidRequest::device, "OpenRTB device object");
+    addField("user", &BidRequest::user, "OpenRTB user object");
+    addField("unparseable", &BidRequest::unparseable, "Unparseable fields are stored here");
+    addField("bidCurrency", &BidRequest::bidCurrency, "Currency we're bidding in");
+}
 
 } // namespace Datacratic
 
@@ -489,6 +383,34 @@ reconstitute(ML::DB::Store_Reader & store)
     store >> v;
 }
 
+struct FormatSetDescription
+    : public ValueDescriptionT<FormatSet> {
+
+    virtual void parseJsonTyped(FormatSet * val,
+                                JsonParsingContext & context) const
+    {
+        val->fromJson(context.expectJson());
+    }
+
+    virtual void printJsonTyped(const FormatSet * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeJson(val->toJson());
+    }
+
+    virtual bool isDefaultTyped(const FormatSet * val) const
+    {
+        return val->empty();
+    }
+};
+
+ValueDescriptionT<RTBKIT::FormatSet> *
+getDefaultDescription(RTBKIT::FormatSet *)
+{
+    return new FormatSetDescription();
+}
+
+
 
 /*****************************************************************************/
 /* LOCATION                                                                  */
@@ -616,17 +538,19 @@ void
 AdSpot::
 fromJson(const Json::Value & val)
 {
+    *this = AdSpot();
+
     // Parse openrtb
-    static DefaultDescription<OpenRTB::Impression> desc;
+    static DefaultDescription<AdSpot> desc;
     StructuredJsonParsingContext context(val);
 
     // Rather than barf on unknown fields, for forwards compatibility we put them
     // in the unparseable array via this function
     auto onUnknownField = [&] ()
         {
-            cerr << "got unknown field " << context.path.back().key
+            cerr << "got unknown field " << context.printPath()
             << context.expectJson() << endl;
-
+            
 #if 0
             std::function<Json::Value & (int, Json::Value &)> getEntry
             = [&] (int n, Json::Value & curr) -> Json::Value &
@@ -644,8 +568,9 @@ fromJson(const Json::Value & val)
 
     context.onUnknownFieldHandlers.push_back(onUnknownField);
 
-    desc.parseJson(this, context);
+    desc.parseJsonTyped(this, context);
     
+    return;
 
     try {
         id = Id(val["id"].asString());
@@ -700,13 +625,12 @@ Json::Value
 AdSpot::
 toJson() const
 {
-    static DefaultDescription<OpenRTB::Impression> desc;
+    static DefaultDescription<AdSpot> desc;
     StructuredJsonPrintingContext context;
     desc.printJsonTyped(this, context);
     return std::move(context.output);
 }
 
-#if 0
 std::string formatDims(const SmallIntVector & dims)
 {
     if (dims.size() == 1)
@@ -734,8 +658,6 @@ firstFormat() const
 {
     return formats[0].print();
 }
-
-#endif
 
 AdSpot
 AdSpot::
@@ -902,6 +824,48 @@ reconstitute(ML::DB::Store_Reader & store)
     if (version != 0)
         throw ML::Exception("invalid UserIds version");
     store >> (map<std::string, Id> &)*this;
+}
+
+struct UserIdsDescription
+    : public ValueDescriptionT<UserIds> {
+
+    virtual void parseJsonTyped(UserIds * val,
+                                JsonParsingContext & context) const
+    {
+        auto onMember = [&] ()
+            {
+                string key = context.path.fieldName();
+                Id value(context.expectStringAscii());
+                val->add(value, key);
+            };
+        
+        context.forEachMember(onMember);
+    }
+
+    virtual void printJsonTyped(const UserIds * val,
+                                JsonPrintingContext & context) const
+    {
+        context.startObject();
+
+        for (auto & id: *val) {
+            context.startMember(id.first);
+            context.writeString(id.second.toString());
+        }
+
+        context.endObject();
+    }
+
+    virtual bool isDefaultTyped(const UserIds * val) const
+    {
+        return val->empty();
+    }
+
+};
+
+ValueDescriptionT<RTBKIT::UserIds> *
+getDefaultDescription(RTBKIT::UserIds *)
+{
+    return new UserIdsDescription();
 }
 
 
@@ -1170,8 +1134,7 @@ struct CanonicalParser {
         StreamingJsonParsingContext context;
         context.init("bid request", str.c_str(), str.size());
         auto_ptr<BidRequest> result(new BidRequest());
-        BidRequestDesc.parseJson(result.get(), context);
-
+        BidRequestDesc.parseJsonTyped(result.get(), context);
 
         //cerr << "result->url = " << result->url << endl;
         //cerr << "result->userAgent = " << result->userAgent << endl;
@@ -1202,7 +1165,18 @@ parse(const std::string & source, const std::string & bidRequest)
         return CanonicalParser::parse(bidRequest);
 
     Parser parser = getParser(source);
-    return parser(bidRequest);
+
+    //cerr << "got parser for source " << source << endl;
+
+    auto result = parser(bidRequest);
+
+    if (true) {
+        cerr << bidRequest << endl;
+        StreamJsonPrintingContext context(cerr);
+        BidRequestDesc.printJsonTyped(result, context);
+    }
+
+    return result;
 }
 
 BidRequest *

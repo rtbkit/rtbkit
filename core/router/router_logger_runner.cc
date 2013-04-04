@@ -159,7 +159,7 @@ setupOutputs(
 
     logger.addOutput(
             strategyOutput,
-            boost::regex("MATCHEDWIN|MATCHEDIMPRESSION|MATCHEDCLICK|MATCHEDVISIT"));
+            boost::regex("MATCHEDWIN|MATCHEDIMPRESSION|MATCHEDCLICK"));
 
 
     // Behaviours

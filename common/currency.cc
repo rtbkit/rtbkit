@@ -119,6 +119,18 @@ fromJson(const Json::Value & val)
         return Amount();
     else if (val.isNull())
         return Amount();
+    else if (val.isObject()) {
+        string currencyCode = "NONE";
+        int64_t value = 0;
+        for (auto it = val.begin(), end = val.end();  it != end;  ++it) {
+            if (it.memberName() == "value")
+                value = it->asInt();
+            else if (it.memberName() == "currencyCode")
+                currencyCode = it->asString();
+            else throw ML::Exception("unknown Amount field " + it.memberName());
+        }
+        return Amount(currencyCode, value);
+    }
     else throw ML::Exception("unknown amount " + val.toString());
 }
 
@@ -442,7 +454,7 @@ reconstitute(ML::DB::Store_Reader & store)
 /*****************************************************************************/
 
 struct LineItemsDescription
-    : public Datacratic::ValueDescription<LineItems> {
+    : public Datacratic::ValueDescriptionT<LineItems> {
 
     LineItemsDescription()
     {
@@ -467,7 +479,7 @@ struct LineItemsDescription
 };
 
 struct AmountDescription
-    : public Datacratic::ValueDescription<Amount> {
+    : public Datacratic::ValueDescriptionT<Amount> {
 
     AmountDescription()
     {
@@ -492,7 +504,7 @@ struct AmountDescription
 };
 
 struct CurrencyPoolDescription
-    : public Datacratic::ValueDescription<CurrencyPool> {
+    : public Datacratic::ValueDescriptionT<CurrencyPool> {
 
     CurrencyPoolDescription()
     {
@@ -543,22 +555,22 @@ struct CurrencyCodeDescription
     
 };
 
-ValueDescription<LineItems> * getDefaultDescription(LineItems *)
+ValueDescriptionT<LineItems> * getDefaultDescription(LineItems *)
 {
     return new LineItemsDescription();
 }
 
-ValueDescription<CurrencyPool> * getDefaultDescription(CurrencyPool *)
+ValueDescriptionT<CurrencyPool> * getDefaultDescription(CurrencyPool *)
 {
     return new CurrencyPoolDescription();
 }
 
-ValueDescription<Amount> * getDefaultDescription(Amount *)
+ValueDescriptionT<Amount> * getDefaultDescription(Amount *)
 {
     return new AmountDescription();
 }
 
-ValueDescription<CurrencyCode> * getDefaultDescription(CurrencyCode *)
+ValueDescriptionT<CurrencyCode> * getDefaultDescription(CurrencyCode *)
 {
     return new CurrencyCodeDescription();
 }

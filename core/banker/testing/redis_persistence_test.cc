@@ -102,12 +102,12 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_loadall )
     account1.commitmentsMade = Amount(MicroUSD(10101010));
     account1.adjustmentsOut = Amount(MicroUSD(9999999));
     account1.spent = Amount(MicroUSD(10111213));
-    account1.available = ((account1.budgetIncreases + account1.recycledIn
-                           + account1.allocatedIn + account1.commitmentsRetired
-                           + account1.adjustmentsIn)
-                          - (account1.spent + account1.recycledOut
-                             + account1.allocatedOut + account1.commitmentsMade
-                             + account1.adjustmentsOut));
+    account1.balance = ((account1.budgetIncreases + account1.recycledIn
+                         + account1.allocatedIn + account1.commitmentsRetired
+                         + account1.adjustmentsIn)
+                        - (account1.spent + account1.recycledOut
+                           + account1.allocatedOut + account1.commitmentsMade
+                           + account1.adjustmentsOut));
 
     Json::Value account1Json(account1.toJson());
     connection->exec(SET("banker-account1", account1Json.toString()));
@@ -164,7 +164,7 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence_saveall )
     accounts.createAccount(parentKey, AT_BUDGET);
     accounts.createAccount(childKey, AT_SPEND);
     accounts.setBudget(parentKey, MicroUSD(123456));
-    accounts.setAvailable(childKey, MicroUSD(1234), AT_NONE);
+    accounts.setBalance(childKey, MicroUSD(1234), AT_NONE);
 
     /* 1. we save an account that does not exist yet in the storage */
     storage.saveAll(accounts, OnSavedCallback);

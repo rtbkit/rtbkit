@@ -485,16 +485,16 @@ inline std::ostream & operator << (std::ostream & stream, const LineItems & li)
 
 IMPL_SERIALIZE_RECONSTITUTE(LineItems);
 
-Datacratic::ValueDescription<LineItems> *
+Datacratic::ValueDescriptionT<LineItems> *
 getDefaultDescription(LineItems * = 0);
 
-Datacratic::ValueDescription<CurrencyCode> *
+Datacratic::ValueDescriptionT<CurrencyCode> *
 getDefaultDescription(CurrencyCode * = 0);
 
-Datacratic::ValueDescription<CurrencyPool> *
+Datacratic::ValueDescriptionT<CurrencyPool> *
 getDefaultDescription(CurrencyPool * = 0);
 
-Datacratic::ValueDescription<Amount> *
+Datacratic::ValueDescriptionT<Amount> *
 getDefaultDescription(Amount * = 0);
 
 
