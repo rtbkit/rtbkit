@@ -350,7 +350,6 @@ struct DutyCycleEntry {
     uint64_t nsSubmitted;
     uint64_t nsImpression;
     uint64_t nsClick;
-    uint64_t nsVisit;
     uint64_t nsExpireInFlight;
     uint64_t nsExpireSubmitted;
     uint64_t nsExpireFinished;

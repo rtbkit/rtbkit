@@ -92,7 +92,7 @@ struct Account {
     CurrencyPool adjustmentsOut;  ///< Money transferred out by adjustments
     CurrencyPool spent;           ///< Actually spent
 
-    CurrencyPool available;       ///< Available to be spent
+    CurrencyPool balance;       ///< Balance to be spent
 
     // Extra information tracked, but not used in any calculations
     LineItems lineItems;            ///< Spent line items
@@ -172,7 +172,7 @@ public:
         result.adjustmentsIn = CurrencyPool::fromJson(json["adjustmentsIn"]);
         result.lineItems = LineItems::fromJson(json["lineItems"]);
         result.adjustmentLineItems = LineItems::fromJson(json["adjustmentLineItems"]);
-        result.available = ((result.budgetIncreases
+        result.balance = ((result.budgetIncreases
                              + result.recycledIn
                              + result.commitmentsRetired
                              + result.adjustmentsIn
@@ -182,7 +182,7 @@ public:
                                + result.commitmentsMade
                                + result.spent
                                + result.adjustmentsOut
-                               + result.available
+                               + result.balance
                                + result.allocatedOut));
 
         result.checkInvariants();
@@ -194,7 +194,7 @@ public:
     /* DERIVED QUANTITIES                                                    */
     /*************************************************************************/
 
-    /** Return the amount which is available to be recycled. */
+    /** Return the amount which is balance to be recycled. */
 
     CurrencyPool getRecycledAvail() const
     {
@@ -216,7 +216,7 @@ public:
     {
         try {
 
-            // Everything but available must be positive
+            // Everything but balance must be positive
             ExcAssert(budgetIncreases.isNonNegative());
             ExcAssert(budgetDecreases.isNonNegative());
             ExcAssert(recycledIn.isNonNegative());
@@ -234,7 +234,7 @@ public:
             CurrencyPool credit = (budgetIncreases + recycledIn + commitmentsRetired
                                    + adjustmentsIn + allocatedIn);
             CurrencyPool debit = (budgetDecreases + recycledOut + commitmentsMade + spent
-                                  + adjustmentsOut + available
+                                  + adjustmentsOut + balance
                                   + allocatedOut);
             ExcAssertEqual(credit, debit);
         } catch (...) {
@@ -259,9 +259,9 @@ public:
     */
     CurrencyPool recuperate()
     {
-        auto result = available;
-        recycledOut += available;
-        available.clear();
+        auto result = balance;
+        recycledOut += balance;
+        balance.clear();
 
         checkInvariants();
 
@@ -276,29 +276,29 @@ public:
         ExcAssert(recuperated.isNonNegative());
 
         recycledIn += recuperated;
-        available += recuperated;
+        balance += recuperated;
 
         checkInvariants();
     }
 
-    /** Set the budget to the given amount.  It will adjust the available
+    /** Set the budget to the given amount.  It will adjust the balance
         amount to match the new level.
     */
     void setBudget(const CurrencyPool & newBudget);
 
-    /** Set the available budget to the given level.  This can either
+    /** Set the balance budget to the given level.  This can either
         transfer money out of or into the account.
         
      */
-    CurrencyPool setAvailable(Account & parentAccount,
-                              const CurrencyPool & newAvailable)
+    CurrencyPool setBalance(Account & parentAccount,
+                            const CurrencyPool & newBalance)
     {
-        checkInvariants("entry to setAvailable");
+        checkInvariants("entry to setBalance");
 
         auto before = *this;
         auto parentBefore = parentAccount;
 
-        CurrencyPool requiredTotal = newAvailable - available;
+        CurrencyPool requiredTotal = newBalance - balance;
 
         // Some amount needs to be transferred in, and some amount out
         CurrencyPool requiredIn = requiredTotal.nonNegative();
@@ -307,7 +307,7 @@ public:
         ExcAssert(requiredIn.isNonNegative());
         ExcAssert(requiredOut.isNonNegative());
 
-        CurrencyPool toTransfer = parentAccount.available.limit(requiredIn);
+        CurrencyPool toTransfer = parentAccount.balance.limit(requiredIn);
 
         using namespace std;
 
@@ -320,8 +320,8 @@ public:
         CurrencyPool toRecycled = requiredOut;
 
         if (debug) {
-            cerr << "newAvailable = " << newAvailable << endl;
-            cerr << "available = " << available << endl;
+            cerr << "newBalance = " << newBalance << endl;
+            cerr << "balance = " << balance << endl;
             cerr << "requiredTotal = " << requiredTotal << endl;
             cerr << "requiredIn = " << requiredIn << endl;
             cerr << "requiredOut = " << requiredOut << endl;
@@ -338,24 +338,24 @@ public:
 
         // Take from parent recycled
         parentAccount.recycledOut += fromRecycled;
-        parentAccount.available -= fromRecycled;
+        parentAccount.balance -= fromRecycled;
         recycledIn += fromRecycled;
-        available += fromRecycled;
+        balance += fromRecycled;
         
         // Give back to budget
         parentAccount.allocatedOut += fromBudget;
-        parentAccount.available -= fromBudget;
+        parentAccount.balance -= fromBudget;
         budgetIncreases += fromBudget;
-        available += fromBudget;
+        balance += fromBudget;
 
         // Give to parent recycled
         parentAccount.recycledIn += toRecycled;
-        parentAccount.available += toRecycled;
+        parentAccount.balance += toRecycled;
         recycledOut += toRecycled;
-        available -= toRecycled;
+        balance -= toRecycled;
 
         try {
-            checkInvariants("exiting from setAvailable");
+            checkInvariants("exiting from setBalance");
             parentAccount.checkInvariants("parent check invariants");
         } catch (...) {
             cerr << "before: " << before << endl;
@@ -364,8 +364,8 @@ public:
             cerr << "parent before: " << parentBefore << endl;
             cerr << "parent after:  " << parentAccount << endl;
             
-            cerr << "newAvailable = " << newAvailable << endl;
-            cerr << "available = " << available << endl;
+            cerr << "newBalance = " << newBalance << endl;
+            cerr << "balance = " << balance << endl;
             cerr << "requiredTotal = " << requiredTotal << endl;
             cerr << "requiredIn = " << requiredIn << endl;
             cerr << "requiredOut = " << requiredOut << endl;
@@ -377,7 +377,7 @@ public:
             throw;
         }
 
-        return available;
+        return balance;
     }
 
     /** (migration helper) Register an expense on a AT_SPEND account.
@@ -386,13 +386,13 @@ public:
 
     void recuperateTo(Account & parentAccount)
     {
-        CurrencyPool amount = available.nonNegative();
+        CurrencyPool amount = balance.nonNegative();
 
         recycledOut += amount;
-        available -= amount;
+        balance -= amount;
 
         parentAccount.recycledIn += amount;
-        parentAccount.available += amount;
+        parentAccount.balance += amount;
 
         checkInvariants("recuperateTo");
     }
@@ -421,7 +421,7 @@ struct ShadowAccount {
     CurrencyPool commitmentsMade;
     CurrencyPool spent;
 
-    CurrencyPool available;  /// DERIVED; debit - credit
+    CurrencyPool balance;  /// DERIVED; debit - credit
 
     LineItems lineItems;  ///< Line items for spend
 
@@ -446,7 +446,7 @@ struct ShadowAccount {
             ExcAssert(spent.isNonNegative());
             
             CurrencyPool credit = netBudget + commitmentsRetired;
-            CurrencyPool debit = commitmentsMade + spent + available;
+            CurrencyPool debit = commitmentsMade + spent + balance;
             
             ExcAssertEqual(credit, debit);
         } catch (...) {
@@ -469,7 +469,7 @@ struct ShadowAccount {
         result["commitmentsMade"] = commitmentsMade.toJson();
         result["spent"] = spent.toJson();
         result["lineItems"] = lineItems.toJson();
-        result["available"] = available.toJson();
+        result["balance"] = balance.toJson();
 
         ShadowAccount reparsed = fromJson(result);
         reparsed.checkInvariants();
@@ -492,7 +492,7 @@ struct ShadowAccount {
         result.commitmentsRetired = CurrencyPool::fromJson(val["commitmentsRetired"]);
         result.commitmentsMade = CurrencyPool::fromJson(val["commitmentsMade"]);
         result.spent = CurrencyPool::fromJson(val["spent"]);
-        result.available = CurrencyPool::fromJson(val["available"]);
+        result.balance = CurrencyPool::fromJson(val["balance"]);
         result.lineItems = LineItems::fromJson(val["lineItems"]);
 
         result.checkInvariants();
@@ -517,7 +517,7 @@ struct ShadowAccount {
     {
         checkInvariants();
         Amount amountUnspent = amountAuthorized - amountPaid;
-        available += amountUnspent;
+        balance += amountUnspent;
         commitmentsRetired += amountAuthorized;
         spent += amountPaid;
         this->lineItems += lineItems;
@@ -534,12 +534,12 @@ struct ShadowAccount {
     {
         checkInvariants();
 
-        if (!available.hasAvailable(amount))
-            return false;  // no budget available
+        if (!balance.hasAvailable(amount))
+            return false;  // no budget balance
 
         attachBid(item, amount);
 
-        available -= amount;
+        balance -= amount;
         commitmentsMade += amount;
 
         checkInvariants();
@@ -612,7 +612,7 @@ struct ShadowAccount {
         masterAccount.commitmentsMade = commitmentsMade;
         masterAccount.spent = spent;
 
-        masterAccount.available
+        masterAccount.balance
             += (newCommitmentsRetired - newCommitmentsMade - newSpend);
 
         masterAccount.lineItems = lineItems;
@@ -628,9 +628,9 @@ struct ShadowAccount {
         checkInvariants();
         masterAccount.checkInvariants();
 
-        // net budget: available assuming spent, commitments are zero
+        // net budget: balance assuming spent, commitments are zero
         netBudget = masterAccount.getNetBudget();
-        available = netBudget + commitmentsRetired
+        balance = netBudget + commitmentsRetired
             - commitmentsMade - spent;
 
         checkInvariants();
@@ -653,7 +653,7 @@ struct ShadowAccount {
         checkInvariants();
         masterAccount.checkInvariants();
 
-        // net budget: available assuming spent, commitments are zero
+        // net budget: balance assuming spent, commitments are zero
         netBudget = (masterAccount.budgetIncreases
                      - masterAccount.budgetDecreases
                      + masterAccount.recycledIn
@@ -667,7 +667,7 @@ struct ShadowAccount {
         spent += masterAccount.spent;
         lineItems += masterAccount.lineItems;
 
-        available = netBudget + commitmentsRetired - commitmentsMade - spent;
+        balance = netBudget + commitmentsRetired - commitmentsMade - spent;
 
         checkInvariants();
     }
@@ -690,14 +690,9 @@ struct ShadowAccount {
 
 struct AccountSummary {
     CurrencyPool budget;         ///< Total amount we're allowed to spend
-    CurrencyPool allocated;      ///< Sum of sub-account budgets
     CurrencyPool inFlight;       ///< Sum of sub-account inFlights (pending commitments)
     CurrencyPool spent;          ///< Sum of sub-account spend
-    CurrencyPool adjustments;    ///< Sum of spend adjustments
     CurrencyPool available;      ///< Total amount we're allowed to spend
-
-    LineItems lineItems;         ///< Sum of sub-account line items
-    LineItems adjustmentLineItems;  ///< Adjustments broken out
 
     Account account;
 
@@ -709,9 +704,6 @@ struct AccountSummary {
             subAccounts[name] = child;
         inFlight += child.inFlight;
         spent += child.spent;
-        lineItems += child.lineItems;
-        adjustments += child.adjustments;
-        adjustmentLineItems += child.adjustmentLineItems;
     }
 
     void dump(std::ostream & stream,
@@ -723,8 +715,6 @@ struct AccountSummary {
                << " b:" << budget
                << " s:" << spent
                << " i:" << inFlight
-               << " a:" << allocated
-               << " j:" << adjustments
                << std::endl;
         for (const auto & sa: subAccounts) {
             sa.second.dump(stream, indent + 2, sa.first);
@@ -743,12 +733,7 @@ struct AccountSummary {
         result["available"] = available.toJson();
         result["inFlight"] = inFlight.toJson();
         if (!simplified) {
-            result["allocated"] = allocated.toJson();
-            result["adjustments"] = adjustments.toJson();
-            result["lineItems"] = lineItems.toJson();
-            result["adjustmentLineItems"] = adjustmentLineItems.toJson();
             result["account"] = account.toJson();
-
             for (const auto & sa: subAccounts) {
                 result["subAccounts"][sa.first] = sa.second.toJson();
             }
@@ -765,16 +750,11 @@ struct AccountSummary {
         ExcAssertEqual(val["md"]["version"].asInt(), 1);
 
         result.budget = CurrencyPool::fromJson(val["budget"]);
-        result.allocated = CurrencyPool::fromJson(val["allocated"]);
         result.inFlight = CurrencyPool::fromJson(val["inFlight"]);
         result.spent = CurrencyPool::fromJson(val["spent"]);
-        result.adjustments = CurrencyPool::fromJson(val["adjustments"]);
         result.available = CurrencyPool::fromJson(val["available"]);
-        result.lineItems = LineItems::fromJson(val["lineItems"]);
-        result.adjustmentLineItems
-            = LineItems::fromJson(val["adjustmentLineItems"]);
-        result.account = Account::fromJson(val["account"]);
 
+        result.account = Account::fromJson(val["account"]);
         auto & sa = val["subAccounts"];
         for (auto it = sa.begin(), end = sa.end();  it != end;  ++it) {
             result.subAccounts[it.memberName()]
@@ -846,7 +826,7 @@ struct Accounts {
         newAccount.commitmentsRetired = validAccount.commitmentsRetired;
         newAccount.adjustmentsIn = validAccount.adjustmentsIn;
         newAccount.adjustmentsOut = validAccount.adjustmentsOut;
-        newAccount.available = validAccount.available;
+        newAccount.balance = validAccount.balance;
         newAccount.lineItems = validAccount.lineItems;
         newAccount.adjustmentLineItems = validAccount.adjustmentLineItems;
     }
@@ -915,21 +895,21 @@ struct Accounts {
         return a;
     }
 
-    /** Sets the available budget for the given account to the given amount,
+    /** Sets the balance budget for the given account to the given amount,
         by transferring in from the parent account.
 
         If typeToCreate is not AT_NONE, then the account will be implicitly
         created if it doesn't exist.
     */
-    const Account setAvailable(const AccountKey & account,
-                               CurrencyPool amount,
-                               AccountType typeToCreate)
+    const Account setBalance(const AccountKey & account,
+                             CurrencyPool amount,
+                             AccountType typeToCreate)
     {
         Guard guard(lock);
 
         if (typeToCreate != AT_NONE && !accounts.count(account)) {
             auto & a = ensureAccount(account, typeToCreate);
-            a.setAvailable(getParentAccount(account), amount);
+            a.setBalance(getParentAccount(account), amount);
             return a;
         }
         else {
@@ -939,22 +919,22 @@ struct Accounts {
             using namespace std;
             if (a.type == AT_BUDGET)
                 cerr << Date::now()
-                     << " setAvailable " << account << " " << " from " << a.available
+                     << " setBalance " << account << " " << " from " << a.balance
                      << " to " << amount << endl;
 #endif
 
-            a.setAvailable(getParentAccount(account), amount);
+            a.setBalance(getParentAccount(account), amount);
             return a;
         }
     }
 
-    const CurrencyPool getAvailable(const AccountKey & account) const
+    const CurrencyPool getBalance(const AccountKey & account) const
     {
         Guard guard(lock);
         auto it = accounts.find(account);
         if (it == accounts.end())
             return CurrencyPool();
-        return it->second.available;
+        return it->second.balance;
     }
 
 
@@ -1232,9 +1212,6 @@ private:
         result.account = a;
         result.spent = a.spent;
         result.budget = a.getBudget();
-        result.lineItems = a.lineItems;
-        result.adjustmentLineItems = a.adjustmentLineItems;
-        result.allocated = a.allocatedOut - a.allocatedIn;
         result.inFlight = a.commitmentsMade - a.commitmentsRetired;
 
         auto doChildAccount = [&] (const AccountKey & key) {

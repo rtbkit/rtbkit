@@ -430,16 +430,16 @@ init(const shared_ptr<BankerPersistence> & storage)
                        JsonParam<CurrencyPool>("", "amount to set budget to"));
 
     addRouteSyncReturn(account,
-                       "/available",
+                       "/balance",
                        {"PUT", "POST"},
                        "Transfer budget from the parent such that account's "
-                       "available amount matches the parameter",
+                       "balance amount matches the parameter",
                        "Account: Representation of the modified account",
                        [] (const Account & a) { return a.toJson(); },
-                       &Accounts::setAvailable,
+                       &Accounts::setBalance,
                        &accounts,
                        accountKeyParam,
-                       JsonParam<CurrencyPool>("", "amount to set available to"),
+                       JsonParam<CurrencyPool>("", "amount to set balance to"),
                        RestParamDefault<AccountType>("accountType", "type of account for implicit creation (default no creation)", AT_NONE));
     
     addRouteSyncReturn(account,

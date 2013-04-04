@@ -113,11 +113,11 @@ BOOST_AUTO_TEST_CASE( test_banker_slave_banker_accounts )
 
         master.accounts.createAccount({"top"}, AT_BUDGET);
         master.accounts.setBudget({"top"}, MicroUSD(15729914170));
-        master.accounts.setAvailable({"top", "sub"}, MicroUSD(11005485799),
-                                     AT_BUDGET);
-        master.accounts.setAvailable({"top", "sub", "legacyImported"},
-                                     MicroUSD(10991979974),
-                                     AT_SPEND);
+        master.accounts.setBalance({"top", "sub"}, MicroUSD(11005485799),
+                                   AT_BUDGET);
+        master.accounts.setBalance({"top", "sub", "legacyImported"},
+                                   MicroUSD(10991979974),
+                                   AT_SPEND);
         master.accounts.importSpend({"top", "sub", "legacyImported"},
                                     MicroUSD(10991979974));
         /* save the initial accounts state (the async save is guaranteed to

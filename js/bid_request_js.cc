@@ -1027,12 +1027,12 @@ initJsConverters(const ValueDescription & desc)
     // description
     auto descPtr = &desc;
 
-    cerr << "***** desc.kind = " << desc.kind << " for "
-         << desc.typeName << endl;
+    //cerr << "***** desc.kind = " << desc.kind << " for "
+    //     << desc.typeName << endl;
 
     // Is it a structure?
     if (desc.kind == ValueKind::STRUCTURE) {
-        cerr << "got structure " << desc.typeName << endl;
+        //cerr << "got structure " << desc.typeName << endl;
 
         // Return structure-based converters
         converters->fromJs = [=] (void * field, const JSValue & val)
@@ -1080,7 +1080,7 @@ initJsConverters(const ValueDescription & desc)
 
         converters->toJs = [=] (const void * field, std::shared_ptr<void> owner)
             {
-                cerr << "to JS structure for " << descPtr->typeName << endl;
+                //cerr << "to JS structure for " << descPtr->typeName << endl;
 
                 // Wrap it in a wrapped array object
                 v8::Local<v8::Object> result
@@ -1096,14 +1096,14 @@ initJsConverters(const ValueDescription & desc)
 
     // Is it an array?
     if (desc.kind == ValueKind::ARRAY) {
-        cerr << "got array " << desc.typeName << endl;
+        //cerr << "got array " << desc.typeName << endl;
 
         const ValueDescription * innerDesc = &descPtr->contained();
         
         // Convert each element of the array
         converters->fromJs = [=] (void * field, const JSValue & val)
             {
-                cerr << "from JS array" << endl;
+                //cerr << "from JS array" << endl;
 
                 // Convert the entire lot in the JS into our type
                 if (val->IsNull()) {
@@ -1114,7 +1114,7 @@ initJsConverters(const ValueDescription & desc)
                 // Is it an object of the correct type?
                 if (val->IsObject()) {
                     if (WrappedArrayJS::tmpl->HasInstance(val)) {
-                        cerr << "Is a wrapped array" << endl;
+                        //cerr << "Is a wrapped array" << endl;
                         auto wrapper = WrappedArrayJS::getWrapper(val);
 
                         // Same type?; do a direct copy
@@ -1122,8 +1122,6 @@ initJsConverters(const ValueDescription & desc)
                             descPtr->copyValue(wrapper->value, field);
                             return;
                         }
-
-                        throw ML::Exception("element by element not done yet");
 
                         // Otherwise, copy element by element
                         size_t len = wrapper->desc->getArrayLength(wrapper->value);
@@ -1179,7 +1177,7 @@ initJsConverters(const ValueDescription & desc)
 
         converters->toJs = [=] (const void * field, const std::shared_ptr<void> & owner)
             {
-                cerr << "to JS array for " << descPtr->typeName << endl;
+                //cerr << "to JS array for " << descPtr->typeName << endl;
 
                 // Wrap it in a wrapped array object
                 v8::Local<v8::Object> result
@@ -1195,23 +1193,23 @@ initJsConverters(const ValueDescription & desc)
 
     // Is it optional?
     if (desc.kind == ValueKind::OPTIONAL) {
-        cerr << "got optional " << desc.typeName << endl;
+        //cerr << "got optional " << desc.typeName << endl;
 
         const ValueDescription * innerDesc = &descPtr->contained();
 
-        cerr << "innerDesc = " << innerDesc << endl;
+        //cerr << "innerDesc = " << innerDesc << endl;
 
         // Return optional converters
         converters->fromJs = [=] (void * field, const JSValue & value)
             {
-                cerr << "optional value = " << cstr(value) << endl;
+                //cerr << "optional value = " << cstr(value) << endl;
                 // If the value is null, then we remove the optional value
                 if (value->IsNull() || value->IsUndefined()) {
                     descPtr->setDefault(field);
                     return;
                 }
 
-                cerr << "*** setting inner value" << endl;
+                //cerr << "*** setting inner value" << endl;
 
                 // Otherwise we get the inner value and set it
                 setFromJs(descPtr->optionalMakeValue(field),
@@ -1319,110 +1317,6 @@ struct PropertyAccessViaDescription {
         } HANDLE_JS_EXCEPTIONS_SETTER;
     }
 };
-
-template<typename T>
-struct AutoWrapJS: public JSWrapped<T> {
-    static v8::Persistent<v8::FunctionTemplate> tmpl;
-    static std::string className;
-    static std::string moduleName;
-
-    static Handle<v8::Value>
-    New(const Arguments & args)
-    {
-        try {
-            new AutoWrapJS(args.This(), ML::make_std_sp(new T()));
-            return args.This();
-        } HANDLE_JS_EXCEPTIONS;
-    }
-
-    static void
-    Initialize()
-    {
-        Persistent<FunctionTemplate> t = Register(New);
-    }
-
-    /** Function used by the registry to construct this object from a
-        shared pointer to a base class.  Used by the magic that allows
-        a wrapper to be found by the registry for any derived class of
-        a base.
-
-        Does manipulation of the internals of a shared pointer.  Not for
-        the unwary.
-    */
-    static v8::Local<v8::Object>
-    constructMe(void * smart_ptr, const void * object)
-    {
-        // Change the pointer
-        *(const void **)smart_ptr = object;
-
-        // Cast to the correct type (it's guaranteed to be that)
-        std::shared_ptr<T> & sp
-            = *(std::shared_ptr<T> *)smart_ptr;
-
-        return toJS(sp);
-    }
-
-    static void
-    unwrapMe(const v8::Handle<v8::Value> & wrapper,
-             void * outputPtr,
-             const std::type_info & wrapperType)
-    {
-        /* Check that it is possible to convert our type into the given
-           wrapper type. */
-        
-        throw ML::Exception("unwrapMe");
-    }
-
-    static void check_tmpl()
-    {
-        if (*tmpl) return;
-        std::cerr << "&tmpl = " << &tmpl << " *tmpl = " << *tmpl << std::endl;
-        throw ML::Exception("template for class " + className
-                            + " isn't initialized");
-    }
-
-    static v8::Local<v8::Object>
-    toJS(const std::shared_ptr<T> & shared)
-    {
-        check_tmpl();
-        v8::Local<v8::Object> result = tmpl->GetFunction()->NewInstance();
-        if (result.IsEmpty()) throw JSPassException();
-        setShared(result, shared);
-        return result;
-    }
-
-    static v8::Local<v8::Object>
-    toJS(T & shared, const std::shared_ptr<void> & owner)
-    {
-        check_tmpl();
-        v8::Local<v8::Object> result = tmpl->GetFunction()->NewInstance();
-        if (result.IsEmpty()) throw JSPassException();
-        setShared(result, shared, owner);
-        return result;
-    }
-
-    static std::shared_ptr<T>
-    fromJS(v8::Handle<v8::Object> obj)
-    {
-        return AutoWrapJS::getSharedPtr(obj);
-    }
-
-    static void InitializeMe(const std::string & className,
-                             const std::string & moduleName)
-    {
-        registry.introduce(className, moduleName, Initialize);
-        bool defaultWrapper = true;
-        if (defaultWrapper)
-            registry.isWrapper<T, JSWrapped<T> >(constructMe, unwrapMe);
-    }
-};
-
-template<typename T>
-void autoWrapJs(const std::string & className,
-                const std::string & moduleName)
-{
-    AutoWrapJS<T>::InitializeMe(className, moduleName);
-}
 
 template<typename Wrapper, typename T>
 void registerFieldFromDescription(const StructureDescription<T> & desc,

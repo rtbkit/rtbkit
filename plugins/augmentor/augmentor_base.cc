@@ -105,6 +105,14 @@ init()
     toRouters.connectAllServiceProviders("rtbRouterAugmentation", "augmentors");
 
     addSource("AugmentorBase::toRouters", toRouters);
+
+
+    double lastSleepTime = 0;
+    addPeriodic("AugmentorBase::dutyCycle", 1.0, [=] (uint64_t) mutable {
+                double sleepTime = totalSleepSeconds();
+                recordLevel((sleepTime - lastSleepTime) * 1000.0, "sleepTime");
+                lastSleepTime = sleepTime;
+            });
 }
 
 void

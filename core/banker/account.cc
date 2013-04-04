@@ -58,10 +58,10 @@ setBudget(const CurrencyPool & newBudget)
 
 #if 0
     cerr << "totalBudget: " << totalBudget << endl;
-    cerr << "available: " << available
+    cerr << "balance: " << balance
          << "; extraBudget: " << extraBudget << endl;
 #endif
-    ExcAssert((available + extraBudget).isNonNegative());
+    ExcAssert((balance + extraBudget).isNonNegative());
 
     if (extraBudget.isNonNegative()) {
         budgetIncreases += extraBudget;
@@ -69,7 +69,7 @@ setBudget(const CurrencyPool & newBudget)
     else {
         budgetDecreases -= extraBudget;
     }
-    available += extraBudget;
+    balance += extraBudget;
 
     checkInvariants();
 }
@@ -83,12 +83,12 @@ importSpend(const CurrencyPool & spend)
 
     checkInvariants();
 
-    /* make sure we have enough available to spend */
-    CurrencyPool newAvailable = available - spend;
+    /* make sure we have enough balance to spend */
+    CurrencyPool newBalance = balance - spend;
     /* FIXME: we might choose a different policy than just crashing here */
-    ExcAssert(newAvailable.isNonNegative());
+    ExcAssert(newBalance.isNonNegative());
 
-    available = newAvailable;
+    balance = newBalance;
     spent += spend;
 
     checkInvariants();
@@ -136,7 +136,7 @@ std::ostream & operator << (std::ostream & stream, const Account & account)
     addCurrencies(account.commitmentsMade);
     addCurrencies(account.commitmentsRetired);
     addCurrencies(account.spent);
-    addCurrencies(account.available);
+    addCurrencies(account.balance);
     addCurrencies(account.adjustmentsIn);
     addCurrencies(account.adjustmentsOut);
     addCurrencies(account.allocatedIn);
@@ -195,7 +195,7 @@ std::ostream & operator << (std::ostream & stream, const Account & account)
     printCurrency("  commit ret/made",  account.commitmentsRetired, account.commitmentsMade);
     printCurrency("  adj in/out",       account.adjustmentsIn, account.adjustmentsOut);
     stream << "--------------------------------------------" << endl;
-    printCurrency("  available", account.available, z);
+    printCurrency("  balance", account.balance, z);
     stream << endl;
 
     auto printLineItems = [&] (const std::string & name,
@@ -264,7 +264,7 @@ operator << (std::ostream & stream, const ShadowAccount & account)
     addCurrencies(account.commitmentsMade);
     addCurrencies(account.commitmentsRetired);
     addCurrencies(account.spent);
-    addCurrencies(account.available);
+    addCurrencies(account.balance);
     
     for (const auto & li: account.lineItems.entries)
         addCurrencies(li.second);
@@ -314,7 +314,7 @@ operator << (std::ostream & stream, const ShadowAccount & account)
     printCurrency("  netBudget/spent",     account.netBudget, account.spent);
     printCurrency("  commit ret/made",  account.commitmentsRetired, account.commitmentsMade);
     stream << "--------------------------------------------" << endl;
-    printCurrency("  available", account.available, z);
+    printCurrency("  balance", account.balance, z);
     stream << endl;
 
     auto printLineItems = [&] (const std::string & name,
