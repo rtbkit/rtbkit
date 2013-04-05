@@ -47,7 +47,8 @@ int main(int argc, char ** argv)
 
     auto banker = make_shared<SlaveBanker>(proxies->zmqContext,
                                            proxies->config,
-                                           proxyArgs.nodeName);
+                                           service.serviceName()
+                                           + ".slaveBanker");
     banker->start();
 
     service.init();
