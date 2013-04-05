@@ -100,11 +100,34 @@ read(char *bytes, size_t len, bool peek)
 }
 
 /* FULLPOLLER */
+FullPoller::
+FullPoller()
+    : epollSocket_(-1), shutdown_(false)
+{
+}
+
+FullPoller::
+~FullPoller()
+{
+    shutdown();
+}
+
 void
 FullPoller::
 init()
 {
     epollSocket_ = epoll_create(1);
+}
+
+void
+FullPoller::
+shutdown()
+{
+    shutdown_ = true;
+    if (epollSocket_ == -1) {
+        ::close(epollSocket_);
+        epollSocket_ = -1;
+    }
 }
 
 void
@@ -127,6 +150,9 @@ FullPoller::
 handleEvents()
 {
     for (;;) {
+        if (shutdown_) {
+            return false;
+        }
         epoll_event events[64];
         memset(events, 0, sizeof(events));
 
@@ -160,7 +186,7 @@ poll()
     const
 {
     struct epoll_event ev;
-    return (epoll_wait(epollSocket_, &ev, 1, 0) > 0);
+    return !shutdown_ && (epoll_wait(epollSocket_, &ev, 1, 0) > 0);
 }
 
 /* TCPNAMEDENDPOINT */
@@ -176,6 +202,7 @@ TcpNamedEndpoint()
 TcpNamedEndpoint::
 ~TcpNamedEndpoint()
 {
+    shutdown();
 }
 
 void
@@ -285,16 +312,21 @@ onConnect(int newFd)
 
 void
 TcpNamedEndpoint::
-bindTcp()
+bindTcp(int port)
 {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(9876);
-    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    bind(socket_, (struct sockaddr *)&addr, sizeof(addr));
-    listen(socket_, 1024);
+    if (::bind(socket_, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+        throw ML::Exception(errno, "failure", "bind");
+    }
+    if (::listen(socket_, 1024) == -1) {
+        throw ML::Exception(errno, "failure", "listen");
+    }
+    cerr << "listening\n";
 }
 
 void
@@ -329,7 +361,7 @@ init(shared_ptr<ConfigurationService> config)
 {
     FullPoller::init();
 
-    socket_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    socket_ = socket(AF_INET, SOCK_STREAM, 0);
     // uint32_t nonagle(1);
     // setsockopt(socket_, SOL_TCP, TCP_NODELAY, &nonagle, sizeof(nonagle));
 
@@ -353,15 +385,14 @@ connectTo(string host, int port)
     int rc = connect(socket_,
                      (const struct sockaddr *) &addr, sizeof(addr));
     cerr << "connect rc: " << rc << endl;
-    if (rc == 0)
+    if (rc == 0) {
         state_ = CONNECTED;
+        int flags = fcntl(socket_, F_GETFL);
+        flags |= O_NONBLOCK;
+        fcntl(socket_, F_SETFL, &flags);
+    }
     else if (rc == -1) {
-        if (errno == EINPROGRESS) {
-            state_ = CONNECTED; /* should be CONNECTING */
-        }
-        else {
-            throw ML::Exception(errno, "connection failed", "connectTo");
-        }
+        throw ML::Exception(errno, "connection failed", "connectTo");
     }
     else {
         throw ML::Exception(errno, "unexpected return code");
@@ -411,7 +442,7 @@ handleEvent(epoll_event & event)
 {
     // cerr << "handleEvent: " << event.events << endl;
     if ((event.events & EPOLLIN) == EPOLLIN) {
-        cerr << "proxy pollin\n";
+        // cerr << "proxy pollin\n";
     }
     else if ((event.events & EPOLLOUT) == EPOLLOUT) {
         ssize_t nBytes = sendBuffer.availableForReading();

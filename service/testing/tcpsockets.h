@@ -47,7 +47,11 @@ struct CharRingBuffer {
 };
 
 struct FullPoller: public AsyncEventSource {
+    FullPoller();
+    ~FullPoller();
+
     void init();
+    void shutdown();
 
     void addFd(int fd, void * data = 0);
     
@@ -68,6 +72,7 @@ struct FullPoller: public AsyncEventSource {
     }
     
     int epollSocket_;
+    bool shutdown_;
 };
 
 struct TcpNamedEndpoint : public NamedEndpoint, public FullPoller {
@@ -81,7 +86,7 @@ struct TcpNamedEndpoint : public NamedEndpoint, public FullPoller {
     void shutdown();
 
     void onConnect(int newFd);
-    void bindTcp();
+    void bindTcp(int port);
 
     void onDisconnect(int fd);
 

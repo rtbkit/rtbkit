@@ -94,6 +94,7 @@ BOOST_AUTO_TEST_CASE( test_zmq )
 BOOST_AUTO_TEST_CASE( test_unix_tcp )
 {
     auto proxies = make_shared<ServiceProxies>();
+    MessageLoop mainLoop;
     int recvMsgs(0), sendMsgs(0);
     struct timeval start, end;
 
@@ -110,23 +111,22 @@ BOOST_AUTO_TEST_CASE( test_unix_tcp )
         }
     };
     server.onMessage_ = onServerMessage;
-    server.bindTcp();
+    server.bindTcp(9876);
+    ML::sleep(1);
 
     TcpNamedProxy client;
     client.init(proxies->config);
 
-    MessageLoop mainLoop;
     mainLoop.addSource("server", server);
     mainLoop.addSource("client", client);
+    mainLoop.start();
 
     client.connectTo("127.0.0.1", 9876);
 
-    mainLoop.start();
     cerr << "awaiting connection\n";
     while (!client.isConnected()) {
         ML::sleep(1);
     }
-    ML::sleep(2);
     cerr << "connected and sending\n";
 
     gettimeofday(&start, NULL);
@@ -150,7 +150,5 @@ BOOST_AUTO_TEST_CASE( test_unix_tcp )
         end.tv_usec += 1000000;
     }
     printf ("delta: %d.%.6ld\n", delta_sec, (end.tv_usec - start.tv_usec));
-
-    mainLoop.shutdown();
 }
 #endif
