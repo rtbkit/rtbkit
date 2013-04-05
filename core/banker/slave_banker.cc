@@ -175,6 +175,13 @@ init(std::shared_ptr<ConfigurationService> config,
      const std::string & accountSuffix,
      const std::string & bankerServiceName)
 {
+    if (accountSuffix.empty()) {
+        throw ML::Exception("'accountSuffix' cannot be empty");
+    }
+    if (bankerServiceName.empty()) {
+        throw ML::Exception("'bankerServiceName' cannot be empty");
+    }
+
     // When our account manager creates an account, it will call this
     // function.  We can't do anything from it (because the lock could
     // be held), but we *can* push a message asynchronously to be
