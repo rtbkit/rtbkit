@@ -24,3 +24,6 @@ $(eval $(call test,test_endpoint_accept_speed,endpoint,boost))
 $(eval $(call test,endpoint_closed_connection_test,endpoint,boost))
 $(eval $(call test,http_long_header_test,endpoint,boost noauto))
 $(eval $(call test,service_proxies_test,endpoint,boost))
+
+$(eval $(call library,tcpsockets,tcpsockets.cc,services))
+$(eval $(call test,zmq_tcp_bench,tcpsockets services,boost noauto))
