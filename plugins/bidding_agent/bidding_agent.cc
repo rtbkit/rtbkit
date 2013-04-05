@@ -495,23 +495,25 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
         args.auctionId = Id(msg[2]);
         args.spotId = Id(msg[3]);
         args.spotIndex = boost::lexical_cast<int>(msg[4]);
-        string bidRequestSource = msg[12];
+        string bidRequestSource = msg[11];
         args.bidRequest.reset(BidRequest::parse(bidRequestSource, msg[5]));
         args.bid = jsonParse(msg[6]);
         args.win = jsonParse(msg[7]);
 
         Json::Value campaignEvents = jsonParse(msg[8]);
-        for (const Json::Value & event: campaignEvents) {
-            string label = event["label"].asString();
-            if (label == "CLICK") {
-                args.click = event;
-            }
-            else if (label == "IMPRESSION") {
-                args.impression = event;
-            }
-            else {
-                cerr << "ignored unhandled campaign event: " << label
-                     << endl;
+        if (campaignEvents.isArray()) {
+            for (const Json::Value & event: campaignEvents) {
+                string label = event["label"].asString();
+                if (label == "CLICK") {
+                    args.click = event;
+                }
+                else if (label == "IMPRESSION") {
+                    args.impression = event;
+                }
+                else {
+                    cerr << "ignored unhandled campaign event: " << label
+                         << endl;
+                }
             }
         }
 
