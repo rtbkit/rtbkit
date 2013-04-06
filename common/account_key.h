@@ -19,13 +19,13 @@
 
 namespace RTBKIT {
 
-/** Validate the the given name (campaign or strategy) is valid for our
-    system, that is composed of the following:
+/** Make sure the given campaign/strategy slug is valid for our
+    system. This means the slug must be composed of the following:
     
     - Uppercase or lowercase letters
     - numerals
     - underscores
-    - maximum length of 64 characters
+    - maximum length of 64 characters (or 256?)
     - not null
 */
 void validateSlug(const std::string & slug);
