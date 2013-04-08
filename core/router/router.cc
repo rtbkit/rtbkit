@@ -2720,5 +2720,27 @@ getProviderIndicators()
     return value;
 }
 
+void
+Router::
+startExchange(const std::string & exchangeType,
+              const Json::Value & exchangeConfig)
+{
+    auto exchange = ExchangeConnector::
+        create(exchangeType, *this, exchangeType);
+    exchange->configure(exchangeConfig);
+    exchange->start();
+
+    addExchange(std::move(exchange));
+}
+
+void
+Router::
+startExchange(const Json::Value & exchangeConfig)
+{
+    std::string exchangeType = exchangeConfig["exchangeType"].asString();
+    startExchange(exchangeType, exchangeConfig);
+}
+
+
 
 } // namespace RTBKIT

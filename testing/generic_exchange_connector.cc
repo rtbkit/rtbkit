@@ -23,12 +23,11 @@ namespace RTBKIT {
 /*****************************************************************************/
 
 GenericExchangeConnector::
-GenericExchangeConnector(Router * router, Json::Value config)
-    : HttpExchangeConnector("GenericExchangeConnector", *router)
+GenericExchangeConnector(ServiceBase & owner, Json::Value config)
+    : HttpExchangeConnector("GenericExchangeConnector", owner)
 {
     auctionResource = "/auction";
     auctionVerb = "POST";
-    this->setRouter(router);
 }
 
 GenericExchangeConnector::

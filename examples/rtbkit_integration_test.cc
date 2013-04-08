@@ -159,10 +159,12 @@ struct Components
         // middle men between the exchange and the router.
 
         exchangeConnectors.emplace_back(
-                new GenericExchangeConnector(&router1, Json::Value()));
+                new GenericExchangeConnector(router1, Json::Value()));
 
         exchangeConnectors.emplace_back(
-                new GenericExchangeConnector(&router2, Json::Value()));
+                new GenericExchangeConnector(router2, Json::Value()));
+        
+
 
         for (auto& connector : exchangeConnectors) {
             connector->enableUntil(Date::positiveInfinity());
@@ -171,6 +173,9 @@ struct Components
             exchangePorts.push_back(port);
         }
 
+        router1.connectExchange(*exchangeConnectors[0]);
+        router2.connectExchange(*exchangeConnectors[1]);
+        
         // Our bidding agent which listens to the bid request stream from all
         // available routers and decide who gets to see your awesome pictures of
         // kittens.

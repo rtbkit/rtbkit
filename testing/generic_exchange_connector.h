@@ -8,7 +8,7 @@
 #pragma once
 
 #include "rtbkit/plugins/exchange/http_exchange_connector.h"
-#include "rtbkit/plugins/exchange/exchange_connector.h"
+#include "rtbkit/common/exchange_connector.h"
 
 namespace RTBKIT {
 
@@ -24,7 +24,7 @@ namespace RTBKIT {
 struct GenericExchangeConnector
     : public RTBKIT::HttpExchangeConnector {
     
-    GenericExchangeConnector(RTBKIT::Router * router,
+    GenericExchangeConnector(ServiceBase & owner,
                              Json::Value config);
 
     ~GenericExchangeConnector();

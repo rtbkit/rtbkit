@@ -13,7 +13,6 @@
 
 namespace RTBKIT {
 
-class Router;
 class AgentConfig;
 class Creative;
 
@@ -42,8 +41,16 @@ struct ExchangeConnector: public ServiceBase {
 
     virtual ~ExchangeConnector();
 
-    /** Set the router used by the exchange connector. */
-    void setRouter(Router * router);
+    /** Function that will be called to notify of a new auction. */
+    typedef boost::function<void (std::shared_ptr<Auction> Auction)>
+        OnAuction;
+    
+    /** Callback for a) when there is a new auction, and b) when an auction
+        is finished.
+
+        These are used to hook the exchange connector into the router.
+    */
+    OnAuction onNewAuction, onAuctionDone;
 
 
     /*************************************************************************/
@@ -187,7 +194,7 @@ struct ExchangeConnector: public ServiceBase {
     /*************************************************************************/
 
     /** Type of a callback which is registered as an exchange factory. */
-    typedef std::function<ExchangeConnector * (Router * owner,std::string name)>
+    typedef std::function<ExchangeConnector * (ServiceBase * owner, std::string name)>
         Factory;
     
     /** Register the given exchange factory. */
@@ -196,25 +203,9 @@ struct ExchangeConnector: public ServiceBase {
     /** Create a new exchange connector from a factory. */
     static std::unique_ptr<ExchangeConnector>
     create(const std::string & exchangeType,
-           std::shared_ptr<Router> owner,
+           ServiceBase & owner,
            const std::string & name);
 
-    /** Start up a new exchange and connect it to the router.  The exchange
-        will read its configuration from the given JSON blob.
-    */
-    static void startExchange(std::shared_ptr<Router> router,
-                              const std::string & exchangeType,
-                              const Json::Value & exchangeConfig);
-
-    /** Start up a new exchange and connect it to the router.  The exchange
-        will read its configuration and type from the given JSON blob.
-    */
-    static void startExchange(std::shared_ptr<Router> router,
-                              const Json::Value & exchangeConfig);
-
-protected:
-    /** The router that the exchange is connected to. */
-    Router * router;
 };
 
 

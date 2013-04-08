@@ -1,7 +1,6 @@
 # RTBKIT exchange makefile
 
 LIBRTB_EXCHANGE_SOURCES := \
-	exchange_connector.cc \
 	http_exchange_connector.cc \
 	http_auction_handler.cc \
 	post_auction_proxy.cc

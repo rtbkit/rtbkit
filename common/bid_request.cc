@@ -1170,7 +1170,7 @@ parse(const std::string & source, const std::string & bidRequest)
 
     auto result = parser(bidRequest);
 
-    if (true) {
+    if (false) {
         cerr << bidRequest << endl;
         StreamJsonPrintingContext context(cerr);
         BidRequestDesc.printJsonTyped(result, context);

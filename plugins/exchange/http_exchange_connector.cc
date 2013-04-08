@@ -63,9 +63,6 @@ postConstructorInit()
     numServingRequest_ = 0;
     acceptAuctionProbability = 1.0;
 
-    onNewAuction  = [=] (std::shared_ptr<Auction> a) { if (router) router->injectAuction(a); };
-    onAuctionDone = [=] (std::shared_ptr<Auction> a) { if (router) router->onAuctionDone(a); };
-    
     // Link up events
     onTransportOpen = [=] (TransportBase *)
         {

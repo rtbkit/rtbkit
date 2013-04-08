@@ -14,7 +14,7 @@
 #include "soa/service/stats_events.h"
 #include "rtbkit/common/auction.h"
 #include <limits>
-#include "exchange_connector.h"
+#include "rtbkit/common/exchange_connector.h"
 #include <boost/algorithm/string.hpp>
 
 
@@ -34,10 +34,6 @@ struct HttpExchangeConnector
     : public ExchangeConnector,
       public HttpEndpoint {
 
-    /** Function that will be called to notify of a new auction. */
-    typedef boost::function<void (std::shared_ptr<Auction> Auction)>
-        OnAuction;
-    
     HttpExchangeConnector(const std::string & name,
                           ServiceBase & parent);
 
@@ -233,13 +229,6 @@ protected:
     */
     Date enabledUntil;
     
-    /** Callback for a) when there is a new auction, and b) when an auction
-        is finished.
-
-        These are used to hook the exchange connector into the router.
-    */
-    OnAuction onNewAuction, onAuctionDone;
-
     /** Function to be called back when there is an auction timeout.  It is
         rare that you would want to do anything with this as the router will
         automatically know that an auction has timed out.

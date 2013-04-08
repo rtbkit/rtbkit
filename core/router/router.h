@@ -24,7 +24,7 @@
 #include "jml/arch/wakeup_fd.h"
 #include <unordered_set>
 #include <thread>
-#include "rtbkit/plugins/exchange/exchange_connector.h"
+#include "rtbkit/common/exchange_connector.h"
 #include "rtbkit/core/agent_configuration/blacklist.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
@@ -162,21 +162,42 @@ struct Router : public ServiceBase,
             functor(item);
     }
 
-    /** Register the exchange */
+    /** Connect the exchange connector to the router, but do not make the router
+        know about or own the exchange.
+
+        Used mostly for testing where we want to control the exchange connector
+        objects independently of the router.
+    */
+    void connectExchange(ExchangeConnector & exchange)
+    {
+        exchange.onNewAuction  = [=] (std::shared_ptr<Auction> a) { this->injectAuction(a, secondsUntilLossAssumed_); };
+        exchange.onAuctionDone = [=] (std::shared_ptr<Auction> a) { this->onAuctionDone(a); };
+    }
+
+    /** Register the exchange with the router and make it take ownership of it */
     void addExchange(ExchangeConnector * exchange)
     {
         Guard guard(lock);
-        exchange->setRouter(this);
         exchanges.emplace_back(exchange);
+        connectExchange(*exchange);
     }
-
+    
     /** Register the exchange */
     void addExchange(std::unique_ptr<ExchangeConnector> && exchange)
     {
-        Guard guard(lock);
-        exchange->setRouter(this);
-        exchanges.emplace_back(std::move(exchange));
+        addExchange(exchange.release());
     }
+
+    /** Start up a new exchange and connect it to the router.  The exchange
+        will read its configuration from the given JSON blob.
+    */
+    void startExchange(const std::string & exchangeType,
+                       const Json::Value & exchangeConfig);
+
+    /** Start up a new exchange and connect it to the router.  The exchange
+        will read its configuration and type from the given JSON blob.
+    */
+    void startExchange(const Json::Value & exchangeConfig);
 
     /** Inject an auction into the router.
         auction:   the auction object

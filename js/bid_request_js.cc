@@ -1467,7 +1467,7 @@ struct BidRequestJS
         try {
             if (args.Length() > 0) {
                 if (BidRequestJS::tmpl->HasInstance(args[0])) {
-                    cerr << "copy existing" << endl;
+                    //cerr << "copy existing" << endl;
                     // Copy an existing bid request
                     std::shared_ptr<BidRequest> oldBr
                         = JS::fromJS(args[0]);
@@ -1478,17 +1478,17 @@ struct BidRequestJS
                 }
                 else if (args[0]->IsString()) {
                     // Parse from a string
-                    cerr << "parse string" << endl;
+                    //cerr << "parse string" << endl;
                     Utf8String request = getArg<Utf8String>(args, 0, "request");
                     string source = getArg<string>(args, 1, "datacratic", "source");
                     new BidRequestJS(args.This(),
                                      ML::make_std_sp(BidRequest::parse(source, request)));
                 }
                 else if (args[0]->IsObject()) {
-                    cerr << "parse object" << endl;
+                    //cerr << "parse object" << endl;
                     // Parse from an object by going through JSON
                     Json::Value json = JS::fromJS(args[0]);
-                    cerr << "JSON = " << json << endl;
+                    //cerr << "JSON = " << json << endl;
                     auto br = std::make_shared<BidRequest>();
                     *br = BidRequest::createFromJson(json);
                     new BidRequestJS(args.This(), br);

@@ -70,9 +70,15 @@ Json::Value
 Amount::
 toJson() const
 {
+    if (isZero())
+        return 0;
+
     Json::Value result(Json::arrayValue);
     result[0] = value;
     result[1] = getCurrencyStr();
+
+    //cerr << "Amount toJson() gave " << result.toString() << endl;
+
     return result;
 }
 
@@ -108,10 +114,12 @@ Amount
 Amount::
 fromJson(const Json::Value & val)
 {
+    //cerr << "Amount fromJson " << val.toString() << endl;
+
     if (val.isArray()) {
         if (val.size() != 2)
             throw ML::Exception("invalid amount size");
-        return Amount(val[0].asString(), val[1].asInt());
+        return Amount(val[1].asString(), val[0].asInt());
     }
     else if (val.isString())
         return parse(val.asString());
@@ -489,6 +497,7 @@ struct AmountDescription
                                 JsonParsingContext & context) const
     {
         *val = std::move(Amount::fromJson(context.expectJson()));
+        //cerr << "parsing amount JSON" << *val << endl;
     }
 
     virtual void printJsonTyped(const Amount * val,

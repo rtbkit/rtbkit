@@ -5,10 +5,10 @@
    Exchange connector class.
 */
 
-#include <boost/thread/thread.hpp>
 #include "exchange_connector.h"
 #include "rtbkit/core/router/router.h"
 
+using namespace std;
 
 namespace RTBKIT {
 
@@ -28,6 +28,9 @@ ExchangeConnector(const std::string & name,
                   ServiceBase & parent)
     : ServiceBase(name, parent)
 {
+    onNewAuction  = [=] (std::shared_ptr<Auction> a) {cerr << "WARNING: an auction was lost into the void" << endl; };
+    onAuctionDone = [=] (std::shared_ptr<Auction> a) {};
+    
 }
 
 ExchangeConnector::
@@ -35,18 +38,14 @@ ExchangeConnector(const std::string & name,
                   std::shared_ptr<ServiceProxies> proxies)
     : ServiceBase(name, proxies)
 {
+    onNewAuction  = [=] (std::shared_ptr<Auction> a) {cerr << "WARNING: an auction was lost into the void"; };
+    onAuctionDone = [=] (std::shared_ptr<Auction> a) {};
+    
 }
 
 ExchangeConnector::
 ~ExchangeConnector()
 {
-}
-
-void
-ExchangeConnector::
-setRouter(Router * router)
-{
-    this->router = router;
 }
 
 void
@@ -99,7 +98,7 @@ registerFactory(const std::string & exchange, Factory factory)
 
 std::unique_ptr<ExchangeConnector>
 ExchangeConnector::
-create(const std::string & exchange, std::shared_ptr<Router> router, const std::string & name)
+create(const std::string & exchange, ServiceBase & owner, const std::string & name)
 {
 
     Factory factory;
@@ -112,30 +111,7 @@ create(const std::string & exchange, std::shared_ptr<Router> router, const std::
         factory = it->second;
     }
 
-    return std::unique_ptr<ExchangeConnector>(factory(router.get(), name));
-}
-
-void
-ExchangeConnector::
-startExchange(std::shared_ptr<Router> router,
-              const std::string & exchangeType,
-              const Json::Value & exchangeConfig)
-{
-    auto exchange = ExchangeConnector::
-        create(exchangeType, router, exchangeType);
-    exchange->configure(exchangeConfig);
-    exchange->start();
-
-    router->addExchange(std::move(exchange));
-}
-
-void
-ExchangeConnector::
-startExchange(std::shared_ptr<Router> router,
-              const Json::Value & exchangeConfig)
-{
-    std::string exchangeType = exchangeConfig["exchangeType"].asString();
-    startExchange(router, exchangeType, exchangeConfig);
+    return std::unique_ptr<ExchangeConnector>(factory(&owner, name));
 }
 
 } // namespace RTBKIT

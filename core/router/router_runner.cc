@@ -108,7 +108,7 @@ start()
 
     // Start all exchanges
     for (auto & exchange: exchangeConfig)
-        ExchangeConnector::startExchange(router, exchange);
+        router->startExchange(exchange);
 }
 
 void
