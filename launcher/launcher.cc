@@ -76,8 +76,7 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
-    auto & service = Datacratic::Launcher::Service::get();
-    service.run(root, node, script, launch, master);
+    Datacratic::Launcher::Service::get().run(root, node, filename, script, launch, master);
 
     if(!launch) {
         int res = system(script.c_str());

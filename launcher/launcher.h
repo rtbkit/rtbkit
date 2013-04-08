@@ -356,7 +356,7 @@ struct Launcher
             return 0;
         }
 
-        void script(std::string const & sh, std::string const & node, bool master) {
+        void script(std::string const & filename, std::string const & sh, std::string const & node, bool master) {
             std::ofstream file(sh);
             if(!file) {
                 throw ML::Exception("cannot create " + sh + " script");
@@ -365,7 +365,7 @@ struct Launcher
             file << "#!/bin/bash" << std::endl;
             file << std::endl;
             file << "tmux kill-session -t rtb" << std::endl;
-            file << "tmux new-session -d -s rtb './build/x86_64/bin/launcher --node " << node << " --script " << sh << (master ? " --master" : "") << " --launch" << " launch_sequence.json'" << std::endl;
+            file << "tmux new-session -d -s rtb './build/x86_64/bin/launcher --node " << node << " --script " << sh << (master ? " --master" : "") << " --launch" << " " << filename << "'" << std::endl;
             file << "tmux rename-window 'launcher'" << std::endl;
 
             int i = 0;
@@ -422,11 +422,11 @@ struct Launcher
 
     struct Service : public MessageLoop
     {
-        void run(Json::Value const & root, std::string const & name, std::string const & sh, bool launch, bool master) {
+        void run(Json::Value const & root, std::string const & name, std::string const & filename, std::string const & sh, bool launch, bool master) {
             sequence = Datacratic::Launcher::Sequence::createFromJson(root);
 
             if(!sh.empty()) {
-                sequence.script(sh, name, master);
+                sequence.script(filename, sh, name, master);
             }
 
             if(launch) {
