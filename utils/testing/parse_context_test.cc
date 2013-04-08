@@ -27,6 +27,8 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
+#if 0
+
 BOOST_AUTO_TEST_CASE( test_float_parsing )
 {
     for (unsigned i = 0;  i < 1000;  ++i) {
@@ -66,19 +68,71 @@ BOOST_AUTO_TEST_CASE( test_double_parsing )
     }
 }
 
+#endif
+
 BOOST_AUTO_TEST_CASE( test_double_parsing2 )
 {
-    for (unsigned i = 0;  i < 1000;  ++i) {
+    for (unsigned i = 0;  i < 10;  ++i) {
+        cerr << endl;
+
         double f = random() + random() / 100000000.0;
-        string s = format("%.6f", f);
+
+        string s = format("%.18f", f);
         Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
         double f2 = pc.expect_double();
-        string s2 = format("%.6f", f2);
+        char * end = (char *)(s.c_str() + s.length());
+        double f3 = strtod(s.c_str(), &end);
+        string s2 = format("%.18f", f2);
+        string s3 = format("%.18f", f3);
+
+        auto to_i = [] (double d)
+            {
+                union {
+                    double d;
+                    uint64_t i;
+                } u;
+                u.d = d;
+                return u.i;
+            };
+
+        uint64_t u1 = to_i(f);
+        uint64_t u2 = to_i(f2);
+        uint64_t u3 = to_i(f3);
+        
+        cerr << "f = " << f << " s = " << s << " f2 = "
+             << f2 << " f3 = " << f3 << endl;
+
+        cerr << "u1 = " << ML::format("%016llx\n", u1)
+             << "u2 = " << ML::format("%016llx\n", u2)
+             << "u3 = " << ML::format("%016llx\n", u3);
+
+        // Make sure that strtod can parse it back to the same number
+        BOOST_REQUIRE_EQUAL(f, f3);
+
+        BOOST_CHECK_EQUAL(f, f2);
         
         // NOTE: even using strtod, we get differences here
         // It's just a double range thing...
-        //BOOST_CHECK_EQUAL(s, s2);
+        BOOST_CHECK_EQUAL(s, s2);
+        BOOST_CHECK_EQUAL(f2, f3);
     }
+}
+
+BOOST_AUTO_TEST_CASE( test_double_parsing3 )
+{
+    double f = 1877212.719993526;
+    string s = "1877212.719993526";
+    Parse_Context pc(s, s.c_str(), s.c_str() + s.length());
+    double f2 = pc.expect_double();
+    char * end = (char *)(s.c_str() + s.length());
+    double f3 = strtod(s.c_str(), &end);
+    string s2 = format("%.9f", f2);
+    string s3 = format("%.9f", f3);
+
+    BOOST_CHECK_EQUAL(f, f2);
+    BOOST_CHECK_EQUAL(f, f3);
+    BOOST_CHECK_EQUAL(s, s2);
+    BOOST_CHECK_EQUAL(s, s3);
 }
 
 void test_long_long(long long value)
