@@ -58,7 +58,7 @@ int main() {
         }
     };
 
-    auto onResult = [&] (const BiddingAgent::BidResultArgs & args) {
+    auto onResult = [&] (const BidResult & args) {
         std::cout << "agent got result " << args.result << std::endl;
     };
 
@@ -69,7 +69,7 @@ int main() {
         agent.onInvalidBid =
         agent.onDroppedBid = onResult;
 
-    agent.onTooLate = [&] (const BiddingAgent::BidResultArgs & args) {
+    agent.onTooLate = [&] (const BidResult & args) {
         std::cout << "agent got too late" << std::endl;
     };
 

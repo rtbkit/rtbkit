@@ -27,6 +27,7 @@ using namespace ML;
 
 namespace RTBKIT {
 
+
 /******************************************************************************/
 /* OVERLOADED UTILITIES                                                       */
 /******************************************************************************/
@@ -390,35 +391,14 @@ handleResult(const std::vector<std::string>& msg, ResultCbFn& callback)
         checkMessageSize(msg, 6);
 
         recordHit(eventName(msg[0]));
+        BidResult result = BidResult::parse(msg);
 
-        BidResultArgs args;
-        args.result = msg[0];
-        args.timestamp = boost::lexical_cast<double>(msg[1]);
-        args.confidence = msg[2];
-        args.auctionId = Id(msg[3]);
-        args.spotNum = boost::lexical_cast<int>(msg[4]);
-        args.secondPrice = MicroUSD(Amount::parse(msg[5]));
+        if (result.result == BS_WIN)
+            recordLevel(MicroUSD(result.secondPrice), "winPrice");
 
-        // Lightweight messages stop here
-        if (msg.size() > 6) {
-            checkMessageSize(msg, 12);
-            string bidRequestSource = msg[11];
-            args.request.reset(BidRequest::parse(bidRequestSource, msg[6]));
-            args.ourBid = jsonParse(msg[7]);
-            args.accountInfo = jsonParse(msg[8]);
-            args.metadata = jsonParse(msg[9]);
-            args.augmentations = jsonParse(msg[10]);
-        }
-        else {
-            //args.request.reset(new BidRequest());
-        }
+        callback(result);
 
-        if (args.result == "WIN")
-            recordLevel(args.secondPrice, "winPrice");
-
-        callback(args);
-
-        if (msg[0] == "DROPPEDBID") {
+        if (result.result == BS_DROPPEDBID) {
             lock_guard<mutex> guard (requestsLock);
             requests.erase(Id(msg[3]));
         }

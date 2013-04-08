@@ -1480,13 +1480,11 @@ doBidResult(const Id & auctionId,
                      confidence, auctionId,
                      to_string(adspot_num),
                      winPrice.toString(),
+                     submission.bidRequestStrFormat,
                      submission.bidRequestStr,
                      response.bidData,
-                     "null",
                      response.meta,
-                     submission.augmentations,
-                     submission.bidRequestStrFormat
-                     /* "datacratic" */);
+                     submission.augmentations);
 
     // Finally, place it in the finished queue
     FinishedInfo i;

@@ -34,7 +34,6 @@
 
 namespace RTBKIT {
 
-
 /******************************************************************************/
 /* BIDDING AGENT                                                              */
 /******************************************************************************/
@@ -133,22 +132,7 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
     typedef void (DeliveryCb) (const DeliveryArgs & args);
     typedef boost::function<DeliveryCb> DeliveryCbFn;
 
-    struct BidResultArgs {
-        std::string result;
-        double timestamp;
-        std::string confidence;
-        Id auctionId;
-        int spotNum;
-        int secondPrice;
-        std::shared_ptr<BidRequest> request;
-        Json::Value ourBid;
-        Json::Value accountInfo;
-        Json::Value metadata;
-        Json::Value augmentations;
-        UserIds uids;
-    };
-
-    typedef void (ResultCb) (const BidResultArgs & args);
+    typedef void (ResultCb) (const BidResult & args);
     typedef boost::function<ResultCb> ResultCbFn;
 
     BidRequestCbFn onBidRequest;

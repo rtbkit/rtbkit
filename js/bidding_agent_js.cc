@@ -63,7 +63,7 @@ struct ResultCbOps:
         {
         }
 
-        void operator () (const RTBKIT::BiddingAgent::BidResultArgs & args)
+        void operator () (const RTBKIT::BidResult & args)
         {
             v8::HandleScope scope;
             JSValue result;
@@ -74,14 +74,13 @@ struct ResultCbOps:
                 argv[1] = JS::toJS(args.confidence);
                 argv[2] = JS::toJS(args.auctionId);
                 argv[3] = JS::toJS(args.spotNum);
-                argv[4] = JS::toJS(args.secondPrice);
+                argv[4] = JS::toJS(MicroUSD(args.secondPrice));
                 if (args.request)
                     argv[5] = JS::toJS(args.request);
                 else argv[5] = v8::Null();
                 argv[6] = JS::toJS(args.ourBid);
-                argv[7] = JS::toJS(args.accountInfo);
-                argv[8] = JS::toJS(args.metadata);
-                argv[9] = JS::toJS(args.augmentations);
+                argv[7] = JS::toJS(args.metadata);
+                argv[8] = JS::toJS(args.augmentations);
 
                 result = params->fn->Call(params->This, 10, argv);
 
