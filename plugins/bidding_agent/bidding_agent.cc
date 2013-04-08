@@ -88,16 +88,23 @@ void
 BiddingAgent::
 init()
 {
-    toRouters.messageHandler = std::bind(&BiddingAgent::handleRouterMessage, this,
-                                         std::placeholders::_1,
-                                         std::placeholders::_2);
-    toPostAuctionServices.messageHandler
-        = [=] (const std::string & service, const std::vector<std::string> & msg)
+    auto messageHandler = [=] (
+            const string & service, const vector<string>& msg)
         {
-            //cerr << "got message from post auction service " << service
-            //<< ": " << msg << endl;
-            handleRouterMessage(service, msg);
+            try {
+                handleRouterMessage(service, msg);
+            }
+            catch (const std::exception& ex) {
+                recordHit("error");
+                cerr << "Error handling auction message "
+                    << msg << ": " << ex.what() << endl;
+
+            }
         };
+
+    toRouters.messageHandler = messageHandler;
+
+    toPostAuctionServices.messageHandler = messageHandler;
     toConfigurationAgent.init(getServices()->config, agentName);
     toConfigurationAgent.connectToServiceClass
             ("rtbAgentConfiguration", "agents");
@@ -155,8 +162,6 @@ BiddingAgent::
 handleRouterMessage(const std::string & fromRouter,
                     const std::vector<std::string> & message)
 {
-    //cerr << "got router message " << message << endl;
-
     if (message.empty()) {
         cerr << "invalid empty message received" << endl;
         recordHit("errorEmptyMessage");
@@ -177,16 +182,19 @@ handleRouterMessage(const std::string & fromRouter,
             handleBidRequest(fromRouter, message, onBidRequest);
         else invalid = true;
         break;
+
     case 'W':
         if (message[0] == "WIN")
             handleResult(message, onWin);
         else invalid = true;
         break;
+
     case 'L':
         if (message[0] == "LOSS")
             handleResult(message, onLoss);
         else invalid = true;
         break;
+
     case 'N':
         if (message[0] == "NOBUDGET")
             handleResult(message, onNoBudget);
@@ -194,11 +202,13 @@ handleRouterMessage(const std::string & fromRouter,
             handleSimple(message, onNeedConfig);
         else invalid = true;
         break;
+
     case 'T':
         if (message[0] == "TOOLATE")
             handleResult(message, onTooLate);
         else invalid = true;
         break;
+
     case 'I':
         if (message[0] == "INVALID")
             handleResult(message, onInvalidBid);
@@ -206,39 +216,42 @@ handleRouterMessage(const std::string & fromRouter,
             handleDelivery(message, onImpression);
         else invalid = true;
         break;
+
     case 'D':
         if (message[0] == "DROPPEDBID")
             handleResult(message, onDroppedBid);
         else invalid = true;
         break;
+
     case 'G':
         if (message[0] == "GOTCONFIG")
             handleSimple(message, onGotConfig);
         else invalid = true;
         break;
+
     case 'E':
         if (message[0] == "ERROR")
             handleError(message, onError);
         else invalid = true;
         break;
-    case 'S':
-        if (message[0] == "SHUTDOWN") { /*no-op*/ }
-        else invalid = true;
-        break;
+
     case 'B':
         if (message[0] == "BYEBYE")   { /*no-op*/ }
         else invalid = true;
         break;
+
     case 'C':
         if (message[0] == "CLICK")
             handleDelivery(message, onClick);
         else invalid = true;
         break;
+
     case 'V':
         if (message[0] == "VISIT")
             handleDelivery(message, onVisit);
         else invalid = true;
         break;
+
     case 'P':
         if (message[0] == "PING0") {
             //cerr << "ping0: message " << message << endl;
@@ -268,33 +281,65 @@ handleRouterMessage(const std::string & fromRouter,
         recordHit("errorUnknownMessage");
         cerr << "Unknown message: {";
         for_each(message.begin(), message.end(), [&](const string& m) {
-                cerr << m << ", ";
-            });
+                    cerr << m << ", ";
+                });
         cerr << "}" << endl;
     }
 }
 
 namespace {
 
+/** This is actually for backwards compatibility when we moved the agents from
+    pure (dirty) js to a c++ proxy class for protocol habndlingp.
+*/
 static string
 eventName(const string& name)
 {
-    if (name == "WIN") return "wins";
-    if (name == "LOSS") return "losses";
-    if (name == "NOBUDGET") return "nobudgets";
-    if (name == "TOOLATE") return "toolate";
-    if (name == "INVALIDBID") return "invalidbids";
-    if (name == "DROPPEDBID") return "droppedbids";
-    if (name == "PING1") return "ping";
+    switch(name[0]) {
+    case 'C':
+        if (name == "CLICK") return "clicks";
+        break;
 
-    if (name == "ERROR") return "errors";
+    case 'D':
+        if (name == "DROPPEDBID") return "droppedbids";
+        break;
 
-    if (name == "IMPRESSION") return "impressions";
-    if (name == "CLICK") return "clicks";
-    if (name == "VISIT") return "visits";
+    case 'E':
+        if (name == "ERROR") return "errors";
+        break;
+
+    case 'I':
+        if (name == "INVALIDBID") return "invalidbids";
+        if (name == "IMPRESSION") return "impressions";
+        break;
+
+    case 'L':
+        if (name == "LOSS") return "losses";
+        break;
+
+    case 'N':
+        if (name == "NOBUDGET") return "nobudgets";
+        break;
+
+    case 'P':
+        if (name == "PING1") return "ping";
+        break;
+
+    case 'T':
+        if (name == "TOOLATE") return "toolate";
+        break;
+
+    case 'V':
+        if (name == "VISIT") return "visits";
+        break;
+
+    case 'W':
+        if (name == "WIN") return "wins";
+        break;
+    }
 
     ExcAssert(false);
-    return "unknow";
+    return "unknown";
 }
 
 } // anonymous namespace
@@ -307,15 +352,9 @@ checkMessageSize(const std::vector<std::string>& msg, int expectedSize)
     if (msg.size() >= expectedSize)
         return;
 
-    std::string msgString = "{";
-    for_each(msg.begin(), msg.end(), [&](const std::string& m) {
-                msgString += ", " + m;
-        });
-    msgString += "}";
-
-    recordHit("error");
+    string msgStr = boost::lexical_cast<string>(msg);
     throw ML::Exception("Message of wrong size: size=%d, expected=%d, msg=%s",
-            msg.size(), expectedSize, msgString.c_str());
+            msg.size(), expectedSize, msgStr.c_str());
 }
 
 void
@@ -323,90 +362,70 @@ BiddingAgent::
 handleBidRequest(const std::string & fromRouter,
                  const std::vector<std::string>& msg, BidRequestCbFn& callback)
 {
-    static const string fName = "BiddingAgent::handleBidRequest:";
-    ExcCheck(!requiresAllCB || callback, fName + "Null callback for " + msg[0]);
+    ExcCheck(!requiresAllCB || callback, "Null callback for " + msg[0]);
     if (!callback) return;
 
-    try {
-        checkMessageSize(msg, 8);
+    checkMessageSize(msg, 8);
 
-        double timestamp = boost::lexical_cast<double>(msg[1]);
-        Id id(msg[2]);
+    double timestamp = boost::lexical_cast<double>(msg[1]);
+    Id id(msg[2]);
 
-        string bidRequestSource = msg[3];
+    string bidRequestSource = msg[3];
 
-        std::shared_ptr<BidRequest> br(
-                BidRequest::parse(bidRequestSource, msg[4]));
+    std::shared_ptr<BidRequest> br(
+            BidRequest::parse(bidRequestSource, msg[4]));
 
-        Json::Value spots = jsonParse(msg[5]);
-        double timeLeftMs = boost::lexical_cast<double>(msg[6]);
-        Json::Value augmentations = jsonParse(msg[7]);
+    Json::Value spots = jsonParse(msg[5]);
+    double timeLeftMs = boost::lexical_cast<double>(msg[6]);
+    Json::Value augmentations = jsonParse(msg[7]);
 
-        Bids bids;
-        bids.reserve(spots.size());
+    Bids bids;
+    bids.reserve(spots.size());
 
-        for (size_t i = 0; i < spots.size(); ++i) {
-            Bid bid;
+    for (size_t i = 0; i < spots.size(); ++i) {
+        Bid bid;
 
-            bid.spotIndex = spots[i]["spot"].asInt();
-            for (const auto& creative : spots[i]["creatives"])
-                bid.availableCreatives.push_back(creative.asInt());
+        bid.spotIndex = spots[i]["spot"].asInt();
+        for (const auto& creative : spots[i]["creatives"])
+            bid.availableCreatives.push_back(creative.asInt());
 
-            bids.push_back(bid);
-        }
-
-
-        recordHit("requests");
-
-        if (requests.count(id))
-            throw ML::Exception("seen multiple requests with same ID");
-
-        {
-            lock_guard<mutex> guard (requestsLock);
-
-            requests[id].timestamp = Date::now();
-            requests[id].fromRouter = fromRouter;
-        }
-
-        callback(timestamp, id, br, bids, timeLeftMs, augmentations);
-
-    } catch (const std::exception & exc) {
-        recordHit("error");
-        cerr << "Error handling auction message " << msg << ": " << exc.what()
-             << endl;
+        bids.push_back(bid);
     }
+
+
+    recordHit("requests");
+
+    ExcCheck(!requests.count(id), "seen multiple requests with same ID");
+    {
+        lock_guard<mutex> guard (requestsLock);
+
+        requests[id].timestamp = Date::now();
+        requests[id].fromRouter = fromRouter;
+    }
+
+    callback(timestamp, id, br, bids, timeLeftMs, augmentations);
 }
 
 void
 BiddingAgent::
 handleResult(const std::vector<std::string>& msg, ResultCbFn& callback)
 {
-    //cerr << "handleResult " << msg << endl;
-
-    static const std::string fName = "BiddingAgent::handleResult: ";
-    ExcCheck(!requiresAllCB || callback, fName + "Null callback for " + msg[0]);
+    ExcCheck(!requiresAllCB || callback, "Null callback for " + msg[0]);
     if (!callback) return;
 
-    try {
-        checkMessageSize(msg, 6);
+    checkMessageSize(msg, 6);
 
-        recordHit(eventName(msg[0]));
-        BidResult result = BidResult::parse(msg);
+    recordHit(eventName(msg[0]));
+    BidResult result = BidResult::parse(msg);
 
-        if (result.result == BS_WIN)
-            recordLevel(MicroUSD(result.secondPrice), "winPrice");
+    if (result.result == BS_WIN)
+        recordLevel(MicroUSD(result.secondPrice), "winPrice");
 
-        callback(result);
+    callback(result);
 
-        if (result.result == BS_DROPPEDBID) {
-            lock_guard<mutex> guard (requestsLock);
-            requests.erase(Id(msg[3]));
-        }
-
-    } catch (const std::exception & exc) {
-        recordHit("error");
-        cerr << "Error handling result message " << msg << ": " << exc.what()
-             << endl;
+    if (result.result == BS_DROPPEDBID) {
+        lock_guard<mutex> guard (requestsLock);
+        requests.erase(Id(msg[3]));
     }
 }
 
@@ -414,150 +433,116 @@ void
 BiddingAgent::
 handleSimple(const std::vector<std::string>& msg, SimpleCbFn& callback)
 {
-    static const std::string fName = "BiddingAgent::handleSimple:";
-    ExcCheck(!requiresAllCB || callback, fName + "Null callback for " + msg[0]);
+    ExcCheck(!requiresAllCB || callback, "Null callback for " + msg[0]);
     if (!callback) return;
 
-    try {
-        checkMessageSize(msg, 2);
+    checkMessageSize(msg, 2);
 
-        double timestamp = boost::lexical_cast<double>(msg[1]);
+    double timestamp = boost::lexical_cast<double>(msg[1]);
 
-        callback(timestamp);
-
-    } catch (const std::exception & exc) {
-        recordHit("error");
-        cerr << "error handling simple message " << msg << ": " << exc.what()
-             << endl;
-    }
+    callback(timestamp);
 }
 
 void
 BiddingAgent::
 handleError(const std::vector<std::string>& msg, ErrorCbFn& callback)
 {
-    static const std::string fName = "BiddingAgent::handleError:";
-    ExcCheck(!requiresAllCB || callback, fName + "Null callback for " + msg[0]);
+    ExcCheck(!requiresAllCB || callback, "Null callback for " + msg[0]);
     if (!callback) return;
 
-    try {
-        double timestamp = boost::lexical_cast<double>(msg[1]);
-        string description = msg[2];
+    double timestamp = boost::lexical_cast<double>(msg[1]);
+    string description = msg[2];
 
-        vector<string> originalMessage;
-        copy(msg.begin()+2, msg.end(),
-                back_insert_iterator< vector<string> >(originalMessage));
+    vector<string> originalMessage;
+    copy(msg.begin()+2, msg.end(),
+            back_insert_iterator< vector<string> >(originalMessage));
 
-        callback(timestamp, description, originalMessage);
-
-    } catch (const std::exception & exc) {
-        recordHit("error");
-        cerr << "error handling error message " << msg << ": "
-             << exc.what() << endl;
-    }
+    callback(timestamp, description, originalMessage);
 }
 
 void
 BiddingAgent::
 handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
 {
-    static const std::string fName = "BiddingAgent::handleDelivery:";
-    ExcCheck(!requiresAllCB || callback, fName + "Null callback for " + msg[0]);
+    ExcCheck(!requiresAllCB || callback, "Null callback for " + msg[0]);
     if (!callback) return;
 
-    try {
-        checkMessageSize(msg, 12);
+    checkMessageSize(msg, 12);
 
-        recordHit(eventName(msg[0]));
+    recordHit(eventName(msg[0]));
 
-        DeliveryArgs args;
-        args.timestamp = boost::lexical_cast<double>(msg[1]);
-        args.auctionId = Id(msg[2]);
-        args.spotId = Id(msg[3]);
-        args.spotIndex = boost::lexical_cast<int>(msg[4]);
-        string bidRequestSource = msg[11];
-        args.bidRequest.reset(BidRequest::parse(bidRequestSource, msg[5]));
-        args.bid = jsonParse(msg[6]);
-        args.win = jsonParse(msg[7]);
+    DeliveryArgs args;
+    args.timestamp = boost::lexical_cast<double>(msg[1]);
+    args.auctionId = Id(msg[2]);
+    args.spotId = Id(msg[3]);
+    args.spotIndex = boost::lexical_cast<int>(msg[4]);
+    string bidRequestSource = msg[11];
+    args.bidRequest.reset(BidRequest::parse(bidRequestSource, msg[5]));
+    args.bid = jsonParse(msg[6]);
+    args.win = jsonParse(msg[7]);
 
-        Json::Value campaignEvents = jsonParse(msg[8]);
-        if (campaignEvents.isArray()) {
-            for (const Json::Value & event: campaignEvents) {
-                string label = event["label"].asString();
-                if (label == "CLICK") {
-                    args.click = event;
-                }
-                else if (label == "IMPRESSION") {
-                    args.impression = event;
-                }
-                else {
-                    cerr << "ignored unhandled campaign event: " << label
-                         << endl;
-                }
+    Json::Value campaignEvents = jsonParse(msg[8]);
+    if (campaignEvents.isArray()) {
+        for (const Json::Value & event: campaignEvents) {
+            string label = event["label"].asString();
+            if (label == "CLICK") {
+                args.click = event;
+            }
+            else if (label == "IMPRESSION") {
+                args.impression = event;
+            }
+            else {
+                cerr << "ignored unhandled campaign event: " << label
+                    << endl;
             }
         }
-
-        args.augmentations = jsonParse(msg[9]);
-        args.visits = jsonParse(msg[10]);
-
-        callback(args);
-    } catch (const std::exception & exc) {
-        recordHit("error");
-        cerr << "Error handling delivery message " << msg << ": " << exc.what()
-             << endl;
     }
+
+    args.augmentations = jsonParse(msg[9]);
+    args.visits = jsonParse(msg[10]);
+
+    callback(args);
 }
 
 void
 BiddingAgent::
 doBid(Id id, const Bids & bids, const Json::Value & jsonMeta)
 {
-    try {
-        Json::FastWriter jsonWriter;
+    Json::FastWriter jsonWriter;
 
-        string response = jsonWriter.write(bids.toJson());
-        boost::trim(response);
+    string response = jsonWriter.write(bids.toJson());
+    boost::trim(response);
 
-        string meta = jsonWriter.write(jsonMeta);
-        boost::trim(meta);
+    string meta = jsonWriter.write(jsonMeta);
+    boost::trim(meta);
 
-        Date afterSend = Date::now();
-        Date beforeSend;
-        string fromRouter;
-        {
-            lock_guard<mutex> guard (requestsLock);
+    Date afterSend = Date::now();
+    Date beforeSend;
+    string fromRouter;
+    {
+        lock_guard<mutex> guard (requestsLock);
 
-            auto it = requests.find(id);
-            if (it != requests.end()) {
-                beforeSend = it->second.timestamp;
-                fromRouter = it->second.fromRouter;
-                requests.erase(it);
-            }
+        auto it = requests.find(id);
+        if (it != requests.end()) {
+            beforeSend = it->second.timestamp;
+            fromRouter = it->second.fromRouter;
+            requests.erase(it);
         }
+    }
+    if (fromRouter.empty()) return;
 
-        if (fromRouter != "") {
-            recordLevel((afterSend - beforeSend) * 1000.0, "timeTakenMs");
+    recordLevel((afterSend - beforeSend) * 1000.0, "timeTakenMs");
+
+    toRouterChannel.push(RouterMessage(
+                    fromRouter, "BID", { id.toString(), response, meta }));
+
+    /** Gather some stats */
+    for (const Bid& bid : bids) {
+        if (bid.isNullBid()) recordHit("filtered.total");
+        else {
+            recordHit("bids");
+            recordLevel(bid.price.toMicro(), "bidPrice");
         }
-        else return;
-
-        toRouterChannel.push(RouterMessage(
-                        fromRouter, "BID", { id.toString(), response, meta }));
-
-        /** Gather some stats */
-        for (const Bid& bid : bids) {
-            if (bid.isNullBid()) recordHit("filtered.total");
-            else {
-                recordHit("bids");
-                recordLevel(bid.price.toMicro(), "bidPrice");
-            }
-        }
-
-    } catch (const std::exception & exc) {
-        recordHit("error");
-        cerr << "Error submitting bid " << id << " --> "
-             << bids.toJson().toString() << " --> "
-             << jsonMeta.toString() << ": "
-             << exc.what() << endl;
     }
 }
 
@@ -567,21 +552,15 @@ handlePing(const std::string & fromRouter,
            const std::vector<std::string> & msg,
            PingCbFn& callback)
 {
-    try {
-        recordHit(eventName(msg[0]));
+    recordHit(eventName(msg[0]));
 
-        Date started = Date::parseSecondsSinceEpoch(msg.at(1));
-        vector<string> payload(msg.begin() + 2, msg.end());
+    Date started = Date::parseSecondsSinceEpoch(msg.at(1));
+    vector<string> payload(msg.begin() + 2, msg.end());
 
-        if (callback)
-            callback(fromRouter, started, payload);
-        else
-            doPong(fromRouter, started, Date::now(), payload);
-    } catch (const std::exception & exc) {
-        recordHit("error");
-        cerr << "Error handling ping message " << msg << ": " << exc.what()
-             << endl;
-    }
+    if (callback)
+        callback(fromRouter, started, payload);
+    else
+        doPong(fromRouter, started, Date::now(), payload);
 }
 
 void
@@ -592,19 +571,13 @@ doPong(const std::string & fromRouter, Date sent, Date received,
     //cerr << "doPong with payload " << payload << " sent " << sent
     //     << " received " << received << endl;
 
-    try {
-        vector<string> message = {
-            to_string(sent.secondsSinceEpoch()),
-            to_string(received.secondsSinceEpoch())
-        };
+    vector<string> message = {
+        to_string(sent.secondsSinceEpoch()),
+        to_string(received.secondsSinceEpoch())
+    };
 
-        message.insert(message.end(), payload.begin(), payload.end());
-        toRouterChannel.push(RouterMessage(fromRouter, "PONG1", message));
-    } catch (const std::exception & exc) {
-        recordHit("error");
-        cerr << "Error submitting pong " << payload
-             << ": " << exc.what() << endl;
-    }
+    message.insert(message.end(), payload.begin(), payload.end());
+    toRouterChannel.push(RouterMessage(fromRouter, "PONG1", message));
 }
 
 void
