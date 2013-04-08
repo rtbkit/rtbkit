@@ -717,7 +717,6 @@ toJson(bool includeCreatives) const
     if (!hourOfWeekFilter.isDefault()) {
         result["hourOfWeekFilter"] = hourOfWeekFilter.toJson();
     }
-    result["tagFilter"] = tagFilter.toJson();
 
     if (!foldPositionFilter.empty()) {
         result["foldPositionFilter"] = foldPositionFilter.toJson();
