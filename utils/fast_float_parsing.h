@@ -90,7 +90,6 @@ inline bool match_float(Float & result, Parse_Context & c)
     Parse_Context::Revert_Token tok(c);
 
     unsigned long num = 0;
-    double den = 0.0;
     unsigned long den2 = 0;
     int den2_digits = 0;
     double sign = 1;
@@ -118,8 +117,6 @@ inline bool match_float(Float & result, Parse_Context & c)
         return true;
     }
 
-    bool inOverflow = false;
-
     while (c) {
         //std::cerr << "got character " << *c << " num = " << num
         //          << " den = " << den << " den2 = " << den2
@@ -128,27 +125,16 @@ inline bool match_float(Float & result, Parse_Context & c)
 
         if (isdigit(*c)) {
             int digit = *c - '0';
-            if (digits > 18 /* num >= std::numeric_limits<unsigned long>::max() / 10*/) {
-                if (!inOverflow) {
-                    // Overflow...
-                    //std::cerr << "*** overflow" << std::endl;
-                    //if (digit >= 5)
-                    //    ++num;
-                    inOverflow = true;
-                }
-            }
-            else {
+            if (digits <= 17) {
                 num = 10*num + digit;
-                den *= 0.1;
                 den2 *= 10;
                 ++den2_digits;
             }
             ++digits;
         }
         else if (*c == '.') {
-            if (den != 0.0) break;
+            if (den2 != 0) break;
             else {
-                den = 1.0;
                 den2 = 1;
                 den2_digits = 0;
             }
@@ -170,7 +156,7 @@ inline bool match_float(Float & result, Parse_Context & c)
 
     if (!digits) return false;
 
-    if (digits > 3 && false) {
+    if (digits > 15) {
         // we need to parse using strtod since rounding bites us otherwise
         size_t ofs = c.get_offset();
 
@@ -196,79 +182,11 @@ inline bool match_float(Float & result, Parse_Context & c)
         return true;
     }
 
+
     tok.ignore();  // we are returning true; ignore the token
  
-    if (digits > 15 && false) {
-        // HACK: check one ulp up and down to see which ends up the closest
-        // when converted to a double and then back
-        double base = num;
-
-        union {
-            double d;
-            uint64_t i;
-        } u;
-
-        u.d = base;
-        u.i -= 1;
-        double lower = u.d;
-        u.i += 2;
-        double upper = u.d;
-
-        auto iabs = [] (int64_t val)
-            {
-                return val < 0 ? -val : val;
-            };
-
-#if 0
-        cerr << "num = " << num
-             << " base = " << (uint64_t)base
-             << " lower = " << (uint64_t)lower
-             << " upper = " << (uint64_t)upper
-             << endl;
-#endif
-
-        uint64_t error1 = iabs(num - (uint64_t)base);
-        uint64_t error2 = iabs(num - (uint64_t)lower);
-        uint64_t error3 = iabs(num - (uint64_t)upper);
-
-        cerr << "base  = " << ML::format("%.16f", base) << endl;
-        cerr << "lower = " << ML::format("%.16f", lower) << endl;
-        cerr << "upper = " << ML::format("%.16f", upper) << endl;
-        
-        cerr << "error1 = " << error1 << " error2 = " << error2
-             << " error3 = " << error3 << endl;
-
-        double best = base;
-        uint64_t error = error1;
-
-        if (error2 < error) {
-            best = lower;
-            error = error2;
-        }
-            
-        if (error3 < error) {
-            best = upper;
-            error = error3;
-        }
-
-        if (den == 0.0) result = sign * num;
-        else result = sign * best / den2;
-
-        return true;
-    }
-
-#if 0
-    using namespace std;
-    cerr << "num = " << num << endl;
-    cerr << "num2 = " << (uint64_t)(double)num << endl;
-    cerr << "inum = " << ML::format("%016llx", num) << endl;
-    cerr << "fnum = " << ML::format("%.16f", (double)num) << endl;
-    cerr << "fden = " << ML::format("%.16f", (double)den2) << endl;
-    cerr << "fden = " << ML::format("%.16f", 1.0/den2) << endl;
-#endif   
-
-    if (den == 0.0) result = sign * num;
-    else result = sign * (double)num /* * exp10_int(-den2_digits);*/ / den2;
+    if (den2 == 0) result = sign * num;
+    else result = sign * (double)num / den2;
 
     return true;
 }
