@@ -27,6 +27,8 @@ struct JSValue;
 class Utf8String
 {
 public:
+    static Utf8String fromLatin1(const std::string & lat1Str);
+
     /** Allow default construction of an empty string. */
     Utf8String()
     {

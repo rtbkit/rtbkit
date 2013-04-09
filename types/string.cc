@@ -18,8 +18,26 @@ namespace Datacratic {
 
 
 /*****************************************************************************/
-/* DATE                                                                      */
-/*****************************************************************************/
+/* UTF8STRING                                                                */
+/****************************************************************************/
+
+Utf8String
+Utf8String::fromLatin1(const std::string & lat1Str)
+{
+    size_t bufferSize = lat1Str.size();
+    const char *inBuf = lat1Str.c_str();
+    string utf8Str(bufferSize * 4, '.');
+
+    auto iter = utf8Str.begin();
+    auto start = iter;
+    for (size_t i = 0; i < bufferSize; i++) {
+        uint32_t cp(inBuf[i] & 0xff);
+        iter = utf8::append(cp, iter);
+    }
+    utf8Str.resize(iter-start);
+
+    return Utf8String(utf8Str);
+}
 
 Utf8String::Utf8String(const string & in, bool check)
     : data_(in)
