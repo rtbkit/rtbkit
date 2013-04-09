@@ -46,8 +46,8 @@ char * jsonEscapeCore(const std::string & str, char * p, char * end)
             case '\t': *p++ = ('t');  break;
             case '\n': *p++ = ('n');  break;
             case '\r': *p++ = ('r');  break;
-            case '\b': *p++ = ('b');  break;
             case '\f': *p++ = ('f');  break;
+            case '\b': *p++ = ('b');  break;
             case '/':
             case '\\':
             case '\"': *p++ = (c);  break;
@@ -113,6 +113,7 @@ bool matchJsonString(Parse_Context & context, std::string & str)
         case 'n': result.push_back('\n');  break;
         case 'r': result.push_back('\r');  break;
         case 'f': result.push_back('\f');  break;
+        case 'b': result.push_back('\b');  break;
         case '/': result.push_back('/');   break;
         case '\\':result.push_back('\\');  break;
         case '"': result.push_back('"');   break;
@@ -156,6 +157,7 @@ std::string expectJsonStringAsciiPermissive(Parse_Context & context, char sub)
             case 'n': c = '\n';  break;
             case 'r': c = '\r';  break;
             case 'f': c = '\f';  break;
+            case 'b': c = '\b';  break;
             case '/': c = '/';   break;
             case '\\':c = '\\';  break;
             case '"': c = '"';   break;
@@ -207,6 +209,7 @@ ssize_t expectJsonStringAscii(Parse_Context & context, char * buffer, size_t max
             case 'n': c = '\n';  break;
             case 'r': c = '\r';  break;
             case 'f': c = '\f';  break;
+            case 'b': c = '\b';  break;
             case '/': c = '/';   break;
             case '\\':c = '\\';  break;
             case '"': c = '"';   break;
@@ -256,6 +259,7 @@ std::string expectJsonStringAscii(Parse_Context & context)
             case 'n': c = '\n';  break;
             case 'r': c = '\r';  break;
             case 'f': c = '\f';  break;
+            case 'b': c = '\b';  break;
             case '/': c = '/';   break;
             case '\\':c = '\\';  break;
             case '"': c = '"';   break;
