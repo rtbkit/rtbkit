@@ -660,10 +660,11 @@ do_branch(Tree::Ptr & ptr,
           const vector<Feature> & features,
           const distribution<float> & new_in_class,
           double total_in_class,
-          int new_depth, int max_depth,
+          int new_depth,
+          int max_depth,
           Tree & tree) const
 {
-    if (total_in_class > 1024) {
+    if (total_in_class > 1024 && new_depth < 4) {
         // Worth multithreading... do it
         if (group_to_wait_on == -1) {
             // Create a new group
@@ -827,9 +828,14 @@ train_recursive(Thread_Context & context,
         Accum accum(*model.feature_space(), nl, trace);
         Trainer trainer;
     
-        trainer.test_all
-            (context, features, data, model.predicted(),
-             weights, in_class, accum, -1);
+        if (depth < 2)
+            trainer.test_all
+                (context, features, data, model.predicted(),
+                 weights, in_class, accum, -1);
+        else
+            trainer.test_all
+                (features, data, model.predicted(),
+                 weights, in_class, accum, -1);
 
         split = accum.split();
         best_z = accum.z();
@@ -844,9 +850,15 @@ train_recursive(Thread_Context & context,
         Accum accum(*model.feature_space(), nl, trace);
         Trainer trainer;
     
-        trainer.test_all
-            (context, features, data, model.predicted(),
-             weights, in_class, accum, -1);
+        if (depth < 2)
+            trainer.test_all
+                (context, features, data, model.predicted(),
+                 weights, in_class, accum, -1);
+        else
+            trainer.test_all
+                (features, data, model.predicted(),
+                 weights, in_class, accum, -1);
+            
 
         split = accum.split();
         best_z = accum.z();
