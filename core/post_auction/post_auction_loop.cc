@@ -119,93 +119,6 @@ winToJson() const
     return result;
 }
 
-bool
-FinishedInfo::
-hasCampaignEvent(const std::string & label) const
-{
-    for (const CampaignEvent & history: campaignEvents) {
-        if (history.label_ == label) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void
-FinishedInfo::
-setCampaignEvent(const std::string & label,
-                 Date eventTime,
-                 const JsonHolder & eventMeta)
-{
-    if (hasCampaignEvent(label))
-        throw ML::Exception("already has event '" + label + "'");
-    campaignEvents.emplace_back(label, eventTime, eventMeta);
-}
-
-FinishedInfo::CampaignEvent
-FinishedInfo::
-CampaignEvent::
-fromJson(const Json::Value & jsonValue)
-{
-    double timeSeconds(jsonValue["time"].asDouble());
-
-    FinishedInfo::CampaignEvent event(jsonValue["label"].asString(),
-                                      Date::fromSecondsSinceEpoch(timeSeconds),
-                                      jsonValue["meta"]);
-        
-    return event;
-}
-
-Json::Value
-FinishedInfo::
-CampaignEvent::
-toJson() const
-{
-    Json::Value result(Json::ValueType::objectValue);
-
-    result["label"] = label_;
-    result["timestamp"] = time_.secondsSinceEpoch();
-    result["meta"] = meta_.toJson();
-
-    return result;
-}
-
-void
-FinishedInfo::
-CampaignEvent::
-serialize(DB::Store_Writer & writer) const
-{
-    writer << label_ << time_.secondsSinceEpoch();
-    meta_.serialize(writer);
-}
-
-void
-FinishedInfo::
-CampaignEvent::
-reconstitute(DB::Store_Reader & store)
-{
-    double timeSeconds;
-    string metaStr;
-
-    store >> label_ >> timeSeconds;
-    time_ = Date::fromSecondsSinceEpoch(timeSeconds);
-    meta_.reconstitute(store);
-}
-
-Json::Value
-FinishedInfo::
-campaignEventsToJson()
-const
-{
-    Json::Value result(Json::ValueType::arrayValue);
-
-    for (const CampaignEvent & history: campaignEvents) {
-        result.append(history.toJson());
-    }
-
-    return result;
-}
-
 void
 FinishedInfo::
 addVisit(Date visitTime,
@@ -277,10 +190,7 @@ serializeToString() const
     bid.serialize(writer);
     writer << winTime
            << reportedStatus << winPrice << winMeta;
-    writer << campaignEvents.size();
-    for (const CampaignEvent & event: campaignEvents) {
-        event.serialize(writer);
-    }
+    writer << campaignEvents;
     writer << fromOldRouter
            << augmentations.toString();
     writer << visitChannels << uids << visits;
@@ -308,14 +218,7 @@ reconstituteFromString(const std::string & str)
     bid.reconstitute(store);
 
     store >> winTime >> istatus >> winPrice >> winMeta;
-
-    int nEvents;
-    store >> nEvents;
-    for (int i = 0; i < nEvents; i++) {
-        CampaignEvent newEvent;
-        newEvent.reconstitute(store);
-        campaignEvents.emplace_back(newEvent);
-    }
+    store >> campaignEvents;
     store >> fromOldRouter;
 
     if (version > 1) {
@@ -1231,7 +1134,7 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
     }
     else if (findAuction(finished, auctionId, adSpotId, finishedInfo)) {
         // Update the info
-        if (finishedInfo.hasCampaignEvent(label)) {
+        if (finishedInfo.campaignEvents.hasEvent(label)) {
             recordHit("delivery.%s.duplicate", label);
             logPAError(string("doCampaignEvent.duplicate")
                        + label, "message duplicated");
@@ -1239,7 +1142,7 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
             return;
         }
 
-        finishedInfo.setCampaignEvent(label, timestamp, meta);
+        finishedInfo.campaignEvents.setEvent(label, timestamp, meta);
         ML::atomic_inc(numCampaignEvents);
 
         recordHit("delivery.%s.account.%s.matched",
@@ -1312,13 +1215,13 @@ routePostAuctionEvent(const string & label,
                                    finishedInfo.auctionId,
                                    finishedInfo.adSpotId,
                                    to_string(finishedInfo.spotIndex),
+                                   finishedInfo.bidRequestStrFormat,
                                    finishedInfo.bidRequestStr,
+                                   finishedInfo.augmentations,
                                    finishedInfo.bidToJson(),
                                    finishedInfo.winToJson(),
-                                   finishedInfo.campaignEventsToJson(),
-                                   finishedInfo.augmentations,
-                                   finishedInfo.visitsToJson(),
-                                   finishedInfo.bidRequestStrFormat /* bidRequestSource */);
+                                   finishedInfo.campaignEvents.toJson(),
+                                   finishedInfo.visitsToJson());
         };
 
     configListener.forEachAccountAgent(account, onMatchingAgent);
@@ -1338,7 +1241,7 @@ routePostAuctionEvent(const string & label,
          finishedInfo.bidRequestStr,
          finishedInfo.bidToJson(),
          finishedInfo.winToJson(),
-         finishedInfo.campaignEventsToJson(),
+         finishedInfo.campaignEvents.toJson(),
          finishedInfo.visitsToJson(),
          finishedInfo.bid.account[0],
          finishedInfo.bid.account[1],

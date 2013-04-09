@@ -12,12 +12,12 @@
 
 #include "rtbkit/common/auction.h"
 #include "rtbkit/common/bids.h"
+#include "rtbkit/common/auction_events.h"
 #include "soa/service/zmq.hpp"
 #include "soa/service/carbon_connector.h"
 #include "soa/jsoncpp/json.h"
 #include "soa/types/id.h"
 #include "soa/service/service_base.h"
-#include "jml/arch/spinlock.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/typed_message_channel.h"
 
@@ -114,22 +114,7 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
                             std::vector<std::string> originalError);
     typedef boost::function<ErrorCb> ErrorCbFn;
 
-    // Delivery message
-    struct DeliveryArgs {
-        double timestamp;
-        Id auctionId;
-        Id spotId;
-        int spotIndex;
-        std::shared_ptr<BidRequest> bidRequest;
-        Json::Value bid;
-        Json::Value win;
-        Json::Value impression;
-        Json::Value click;
-        Json::Value augmentations;
-        Json::Value visits;
-    };
-
-    typedef void (DeliveryCb) (const DeliveryArgs & args);
+    typedef void (DeliveryCb) (const DeliveryEvent & args);
     typedef boost::function<DeliveryCb> DeliveryCbFn;
 
     typedef void (ResultCb) (const BidResult & args);

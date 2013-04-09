@@ -469,39 +469,10 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
 
     checkMessageSize(msg, 12);
 
-    recordHit(eventName(msg[0]));
+    DeliveryEvent ev = DeliveryEvent::parse(msg);
+    recordHit(eventName(ev.event));
 
-    DeliveryArgs args;
-    args.timestamp = boost::lexical_cast<double>(msg[1]);
-    args.auctionId = Id(msg[2]);
-    args.spotId = Id(msg[3]);
-    args.spotIndex = boost::lexical_cast<int>(msg[4]);
-    string bidRequestSource = msg[11];
-    args.bidRequest.reset(BidRequest::parse(bidRequestSource, msg[5]));
-    args.bid = jsonParse(msg[6]);
-    args.win = jsonParse(msg[7]);
-
-    Json::Value campaignEvents = jsonParse(msg[8]);
-    if (campaignEvents.isArray()) {
-        for (const Json::Value & event: campaignEvents) {
-            string label = event["label"].asString();
-            if (label == "CLICK") {
-                args.click = event;
-            }
-            else if (label == "IMPRESSION") {
-                args.impression = event;
-            }
-            else {
-                cerr << "ignored unhandled campaign event: " << label
-                    << endl;
-            }
-        }
-    }
-
-    args.augmentations = jsonParse(msg[9]);
-    args.visits = jsonParse(msg[10]);
-
-    callback(args);
+    callback(ev);
 }
 
 void

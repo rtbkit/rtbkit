@@ -140,7 +140,7 @@ struct DeliveryCbOps :
         {
         }
 
-        void operator () (const RTBKIT::BiddingAgent::DeliveryArgs & args)
+        void operator () (const RTBKIT::DeliveryEvent & args)
         {
             v8::HandleScope scope;
             JSValue result;
@@ -153,12 +153,12 @@ struct DeliveryCbOps :
                 argv[2] = JS::toJS(args.spotId);
                 argv[3] = JS::toJS(args.spotIndex);
                 argv[4] = JS::toJS(args.bidRequest);
-                argv[5] = JS::toJS(args.bid);
-                argv[6] = JS::toJS(args.win);
-                argv[7] = JS::toJS(args.impression);
-                argv[8] = JS::toJS(args.click);
+                argv[5] = JS::toJS(args.bid.toJson());
+                argv[6] = JS::toJS(args.win.toJson());
+                argv[7] = JS::toJS(args.impressionToJson());
+                argv[8] = JS::toJS(args.clickToJson());
                 argv[9] = JS::toJS(args.augmentations);
-                argv[10] = JS::toJS(args.visits);
+                argv[10] = JS::toJS(args.visitsToJson());
 
                 result = params->fn->Call(params->This, 11, argv);
 

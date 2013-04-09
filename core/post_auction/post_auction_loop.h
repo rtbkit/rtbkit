@@ -124,34 +124,7 @@ struct FinishedInfo {
     std::string winMeta;         ///< Metadata from win
     Json::Value winToJson() const;
 
-    /* campaign events */
-    struct CampaignEvent {
-        static CampaignEvent fromJson(const Json::Value & jsonValue);
-
-        CampaignEvent(const std::string & label = "", Date time = Date(),
-                      const JsonHolder & meta = JsonHolder())
-            : label_(label), time_(time), meta_(meta)
-        {}
-
-        Json::Value toJson() const;
-
-        void serialize(ML::DB::Store_Writer & store) const;
-        void reconstitute(ML::DB::Store_Reader & store);
-
-        std::string label_;
-        Date time_;
-        JsonHolder meta_;
-    };
-
-    bool hasCampaignEvent(const std::string & label) const;
-    void setCampaignEvent(const std::string & label,
-                          Date eventTime,
-                          const JsonHolder & eventMeta);
-    /* metadata from the events */
-    Json::Value campaignEventsToJson() const;
-
-    /* the history of events common to the auction */
-    std::vector<CampaignEvent> campaignEvents;
+    CampaignEvents campaignEvents;
 
     struct Visit {
         Date visitTime;           ///< Time at which visit received
