@@ -1579,7 +1579,8 @@ getProviderIndicators()
     /* PA health check:
        - last campaign event in the last 10 seconds */
     Date now = Date::now();
-    bool status(now < lastCampaignEvent.plusSeconds(10));
+    bool status(now < lastWinLoss.plusSeconds(10)
+                && now < lastCampaignEvent.plusSeconds(10));
 
 #if 0
     if (!status)  {
