@@ -39,6 +39,11 @@ BOOST_AUTO_TEST_CASE( test_zmq )
     ZmqNamedEndpoint server(proxies->zmqContext);
     server.init(proxies->config, ZMQ_XREP, "server");
     auto onServerMessage = [&] (vector<zmq::message_t> && messages) {
+        const zmq::message_t & msg = messages[1];
+        string message((const char *)msg.data(),
+                       ((const char *)msg.data()) + msg.size());
+        string expected("test" + to_string(recvMsgs));
+        ExcAssertEqual(message, expected);
         recvMsgs++;
         if (recvMsgs == sendMsgs) {
             futex_wake(recvMsgs);
@@ -58,7 +63,7 @@ BOOST_AUTO_TEST_CASE( test_zmq )
 
     cerr << "awaiting connection\n";
     while (!client.isConnected()) {
-        ML::sleep(1);
+        ML::sleep(0.1);
     }
 
     mainLoop.start();
@@ -67,7 +72,7 @@ BOOST_AUTO_TEST_CASE( test_zmq )
     gettimeofday(&start, NULL);
 
     for (int i = 0; i < NbrMsgs; i++) {
-        client.sendMessage("test");
+        client.sendMessage("test" + to_string(sendMsgs));
         sendMsgs++;
     }
 
@@ -102,9 +107,8 @@ BOOST_AUTO_TEST_CASE( test_unix_tcp )
     server.init(proxies->config, "server");
     auto onServerMessage = [&] (const string & message) {
         // cerr << "received tcp message: " << message << endl;
-        // if (message != "test") {
-        //     throw ML::Exception("error");
-        // }
+        string expected("test" + to_string(recvMsgs));
+        ExcAssertEqual(message, expected);
         recvMsgs++;
         if (recvMsgs == sendMsgs) {
             futex_wake(recvMsgs);
@@ -125,17 +129,22 @@ BOOST_AUTO_TEST_CASE( test_unix_tcp )
 
     cerr << "awaiting connection\n";
     while (!client.isConnected()) {
-        ML::sleep(1);
+        ML::sleep(0.1);
     }
     cerr << "connected and sending\n";
 
     gettimeofday(&start, NULL);
 
-    for (int i = 0; i < NbrMsgs; i++) {
-        client.sendMessage("test");
-        sendMsgs++;
+    for (sendMsgs = 0; sendMsgs < NbrMsgs;) {
+        if (client.sendMessage("test" + to_string(sendMsgs))) {
+            sendMsgs++;
+        }
+        // else {
+        //     ML::sleep(0.1);
+        // }
     }
 
+    cerr << "sent " << sendMsgs << " messages\n";
     while (recvMsgs < sendMsgs) {
         // cerr << "awaiting end of messages: " << recvMsgs << "\n";
         ML::futex_wait(recvMsgs, recvMsgs);

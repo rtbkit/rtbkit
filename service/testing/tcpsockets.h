@@ -28,8 +28,8 @@ struct CharRingBuffer {
     size_t bufferSize;
     char *buffer;
     size_t bufferMask;
-    int readPosition;
-    int writePosition;
+    size_t readPosition;
+    size_t writePosition;
 
 #if 0
     typedef boost::lock_guard<ML::Spinlock> Guard;
@@ -39,11 +39,20 @@ struct CharRingBuffer {
     // mutable Lock lock;
 #endif
 
-    ssize_t availableForWriting() const;
-    ssize_t availableForReading() const;
+    size_t availableForWriting() const;
+    size_t availableForReading() const;
 
     void write(const char *newBytes, size_t len);
     void read(char *bytes, size_t len, bool peek = false);
+};
+
+struct CharMessageRingBuffer : public CharRingBuffer {
+    CharMessageRingBuffer(size_t sizePower)
+        : CharRingBuffer(sizePower)
+    {}
+
+    bool writeMessage(const std::string & newMessage);
+    bool readMessage(std::string & message);
 };
 
 struct FullPoller: public AsyncEventSource {
@@ -54,14 +63,17 @@ struct FullPoller: public AsyncEventSource {
     void shutdown();
 
     void addFd(int fd, void * data = 0);
+    void removeFd(int fd);
     
-    virtual bool handleEvent(epoll_event & event) = 0;
+    virtual void handleEvent(epoll_event & event) = 0;
 
-    int handleEvents();
+    void handleEvents();
     virtual bool poll() const;
 
     virtual bool processOne()
     {
+        if (shutdown_)
+            return false;
         handleEvents();
         return poll();
     }
@@ -90,14 +102,14 @@ struct TcpNamedEndpoint : public NamedEndpoint, public FullPoller {
 
     void onDisconnect(int fd);
 
-    bool handleEvent(epoll_event & event);
+    void handleEvent(epoll_event & event);
     void flushMessages();
 
     int socket_;
     MessageHandler onMessage_;
 
-    CharRingBuffer recvBuffer;
-    CharRingBuffer sendBuffer;
+    CharMessageRingBuffer recvBuffer;
+    CharMessageRingBuffer sendBuffer;
 };
 
 struct TcpNamedProxy: public FullPoller {
@@ -116,18 +128,18 @@ struct TcpNamedProxy: public FullPoller {
 
     void connectTo(std::string host, int port);
     bool isConnected() const;
-    void sendMessage(const std::string & message);
+    bool sendMessage(const std::string & message);
 
     void onMessage(std::string && newMessage);
     void onDisconnect(int fd);
 
-    bool handleEvent(epoll_event & event);
+    void handleEvent(epoll_event & event);
 
     int socket_;
     enum ConnectionState state_;
 
-    CharRingBuffer recvBuffer;
-    CharRingBuffer sendBuffer;
+    CharMessageRingBuffer recvBuffer;
+    CharMessageRingBuffer sendBuffer;
 };
 
 } // namespace Datacratic

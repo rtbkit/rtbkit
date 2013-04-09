@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "jml/arch/atomic_ops.h"
+#include "jml/arch/cmp_xchg.h"
 #include "soa/service/rest_service_endpoint.h"
 
 #include "tcpsockets.h"
@@ -17,33 +17,62 @@ using namespace std;
 using namespace Datacratic;
 
 
+const int bufferSizePow = 16;
+const int tcpBufferSizePow = 13;
+
 /* CHARRINGBUFFER */
-ssize_t
+size_t
 CharRingBuffer::
 availableForWriting()
     const
 {
-    ML::memory_barrier();
+    size_t available,
+        myReadPosition(readPosition), myWritePosition(writePosition);
 
-    ssize_t available(readPosition - writePosition);
-    if (writePosition >= readPosition) {
-        available += bufferSize;
+    if (myReadPosition <= myWritePosition) {
+        available = bufferSize;
     }
+    else {
+        available = 0;
+    }
+    available += myReadPosition - myWritePosition - 1;
     
+    if (available >= bufferSize) {
+        cerr << "writing: bufferSize: " << bufferSize
+             << "; readPosition: " << myReadPosition
+             << "; writePosition: " << myWritePosition
+             << "; available: " << available
+             << endl;
+        ExcAssert(available < bufferSize);
+    }
+
     return available;
 }
 
-ssize_t
+size_t
 CharRingBuffer::
 availableForReading()
     const
 {
-    ML::memory_barrier();
+    size_t available,
+        myReadPosition(readPosition), myWritePosition(writePosition);
 
-    ssize_t available(writePosition - readPosition);
-    if (writePosition < readPosition) {
-        available += bufferSize - 1;
+    if (myWritePosition < myReadPosition) {
+        available = bufferSize;
     }
+    else {
+        available = 0;
+    }
+    available += myWritePosition - myReadPosition;
+
+    if (available >= bufferSize) {
+        cerr << "reading: bufferSize: " << bufferSize
+             << "; readPosition: " << myReadPosition
+             << "; writePosition: " << myWritePosition
+             << "; available: " << available
+             << endl;
+    }
+    ExcAssert(available < bufferSize);
     
     return available;
 }
@@ -52,51 +81,102 @@ void
 CharRingBuffer::
 write(const char *newBytes, size_t len)
 {
-    ML::memory_barrier();
-
     size_t maxLen = availableForWriting();
     if (len > maxLen)
         throw ML::Exception("no room left");
 
-    int bytesLeftRight = bufferSize - writePosition;
-    int bytesCopied;
+    size_t myWritePosition(writePosition);
+    size_t bytesLeftRight = bufferSize - myWritePosition;
     if (len > bytesLeftRight) {
-        memcpy(buffer + writePosition, newBytes, bytesLeftRight);
-        len -= bytesLeftRight;
-        bytesCopied = bytesLeftRight;
-        writePosition = 0;
+        memcpy(buffer + myWritePosition, newBytes, bytesLeftRight);
+        memcpy(buffer, newBytes + bytesLeftRight, len - bytesLeftRight);
     }
     else {
-        bytesCopied = 0;
+        memcpy(buffer + myWritePosition, newBytes, len);
     }
-    memcpy(buffer + writePosition, newBytes + bytesCopied, len);
 
-    writePosition = (writePosition + len) & bufferMask;
+    size_t newWritePosition = (myWritePosition + len) & bufferMask;
+    if (!ML::cmp_xchg(writePosition, myWritePosition, newWritePosition)) {
+        throw ML::Exception("write position changed unexpectedly");
+    }
 }
 
 void
 CharRingBuffer::
 read(char *bytes, size_t len, bool peek)
 {
-    ML::memory_barrier();
-
     size_t maxLen = availableForReading();
     if (len > maxLen)
         throw ML::Exception("nothing left to read");
 
-    int bytesLeftRight = bufferSize - readPosition;
+    size_t myReadPosition(readPosition);
+    size_t bytesLeftRight = bufferSize - myReadPosition;
 
     if (len > bytesLeftRight) {
-        memcpy(bytes, buffer + readPosition, bytesLeftRight);
+        memcpy(bytes, buffer + myReadPosition, bytesLeftRight);
         memcpy(bytes + bytesLeftRight, buffer, len - bytesLeftRight);
     }
     else {
-        memcpy(bytes, buffer + readPosition, len);
+        memcpy(bytes, buffer + myReadPosition, len);
     }
 
     if (!peek) {
-        readPosition = (readPosition + len) & bufferMask;
+        size_t newReadPosition = (myReadPosition + len) & bufferMask;
+        if (!ML::cmp_xchg(readPosition, myReadPosition, newReadPosition)) {
+            throw ML::Exception("read position changed unexpectedly");
+        }
     }
+}
+
+/* CHARMESSAGERINGBUFFER */
+bool
+CharMessageRingBuffer::
+writeMessage(const std::string & newMessage)
+{
+    bool rc(true);
+
+    char msgSize = newMessage.size();
+    ssize_t totalSize = msgSize + 1;
+    if (totalSize <= availableForWriting()) {
+        write(&msgSize, 1);
+        write(newMessage.c_str(), msgSize);
+    }
+    else {
+        // cerr << "writeMessage: no buffer room\n";
+        rc = false;
+    }
+
+    return rc;
+}
+
+bool
+CharMessageRingBuffer::
+readMessage(std::string & message)
+{
+    bool rc(true);
+    size_t available = availableForReading();
+
+    if (available > 0) {
+        char msgLenChar;
+        read(&msgLenChar, 1, true);
+        size_t msgLen(msgLenChar);
+        available--;
+        if (msgLen > available) {
+            rc = false;
+        }
+        else {
+            /* first byte will contain size */
+            char buffer[msgLen+1];
+            read(buffer, msgLen + 1);
+            // cerr << "msgLen: " << msgLen << endl;
+            message = string(buffer + 1, msgLen);
+        }
+    }
+    else {
+        rc = false;
+    }
+
+    return rc;
 }
 
 /* FULLPOLLER */
@@ -110,6 +190,7 @@ FullPoller::
 ~FullPoller()
 {
     shutdown();
+    disconnect();
 }
 
 void
@@ -124,7 +205,7 @@ FullPoller::
 shutdown()
 {
     shutdown_ = true;
-    if (epollSocket_ == -1) {
+    if (epollSocket_ != -1) {
         ::close(epollSocket_);
         epollSocket_ = -1;
     }
@@ -145,38 +226,34 @@ addFd(int fd, void *data)
     // cerr << "adding socket " << fd << " to epoll set " << this << "\n";
 }
 
-int
+void
+FullPoller::
+removeFd(int fd)
+{
+    epoll_ctl(epollSocket_, EPOLL_CTL_DEL, fd, NULL);
+}
+
+void
 FullPoller::
 handleEvents()
 {
-    for (;;) {
-        if (shutdown_) {
-            return false;
-        }
-        epoll_event events[64];
-        memset(events, 0, sizeof(events));
+    epoll_event events[64];
+    memset(events, 0, sizeof(events));
 
-        int res = epoll_wait(epollSocket_, events, 64, 0);
-        if (res == 0) return 0;
-
-        // cerr << this << ": events to handle: " << res << endl;
-
-        // sys call interrupt
-        if (res == -1 && errno == EINTR) continue;
-        if (res == -1 && errno == EBADF) {
+    int res = epoll_wait(epollSocket_, events, 64, 0);
+    if (res == -1) {
+        if (errno == EBADF) {
             cerr << "got bad FD" << endl;
-            return -1;
+            return;
         }
-
-        if (res == -1)
+        else if (errno != EINTR)
             throw ML::Exception(errno, "epoll_wait");
-
+    }
+    else {
         for (unsigned i = 0; i < res; i++) {
             // cerr << "handling event on fd: " << events[i].data.fd << endl;
             handleEvent(events[i]);
         }
-
-        return poll();
     }
 }
 
@@ -194,7 +271,7 @@ poll()
 TcpNamedEndpoint::
 TcpNamedEndpoint()
     : NamedEndpoint(), FullPoller(),
-      recvBuffer(20), sendBuffer(20)
+      recvBuffer(bufferSizePow), sendBuffer(bufferSizePow)
 {
     needsPoll = true;
 }
@@ -214,7 +291,11 @@ init(shared_ptr<ConfigurationService> config,
     FullPoller::init();
 
     socket_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-    cerr << "endpoint socket: " << socket_ << endl;
+    // cerr << "endpoint socket: " << socket_ << endl;
+    uint32_t value = 1 << tcpBufferSizePow;
+    setsockopt(socket_, SOL_TCP, SO_SNDBUF, &value, sizeof(value));
+    setsockopt(socket_, SOL_TCP, SO_RCVBUF, &value, sizeof(value));
+
     addFd(socket_);
 }
 
@@ -224,7 +305,7 @@ onDisconnect(int fd)
 {
 }
 
-bool
+void
 TcpNamedEndpoint::
 handleEvent(epoll_event & event)
 {
@@ -239,7 +320,7 @@ handleEvent(epoll_event & event)
             flags |= O_NONBLOCK;
             fcntl(newFd, F_SETFL, &flags);
 #endif
-            cerr << "epoll connected\n";
+            // cerr << "epoll connected\n";
             onConnect(newFd);
         }
         else {
@@ -254,14 +335,16 @@ handleEvent(epoll_event & event)
             // cerr << "reading " << nBytes << " from client socket\n";
             while (nBytes > 0) {
                 char buffer[nBytes];
-                int rc = read(event.data.fd, buffer, nBytes);
+                int rc = ::read(event.data.fd, buffer, nBytes);
                 // cerr << "read returned  " << rc << "\n";
                 if (rc == -1) {
-                    if (errno == EAGAIN || errno == ENOTCONN)
+                    if (errno == EAGAIN)
                         break;
                     cerr << "errno = " << errno << endl;
                     throw ML::Exception(errno, "read", "handleEvent");
                 }
+                if (rc == 0)
+                    break;
                 recvBuffer.write(buffer, rc);
                 nBytes -= rc;
             }
@@ -271,36 +354,17 @@ handleEvent(epoll_event & event)
     else if ((event.events & EPOLLHUP) == EPOLLHUP) {
         onDisconnect(event.data.fd);
     }
-
-    return false; /* unused */
 }
 
 void
 TcpNamedEndpoint::
 flushMessages()
 {
-    /* message handling, should be put in subclass */
-    size_t readLen = recvBuffer.availableForReading();
-    if (readLen == 0) {
-        return;
-    }
-    // cerr << "processing bytes:" << readLen << endl;
-    while (readLen > 0) {
-        char msgLen;
-        recvBuffer.read(&msgLen, 1, true);
-        readLen--;
-        if (msgLen > readLen) {
-            break;
-        }
-        /* first byte will contain size */
-        char buffer[msgLen+1];
-        recvBuffer.read(buffer, 1 + msgLen);
-        readLen -= msgLen;
-
-        string message(buffer + 1, msgLen);
-        // cerr << "onMessage: " << message << endl;
+    string message;
+    while (recvBuffer.readMessage(message)) {
         onMessage_(message);
     }
+    // cerr << "flushMessages done\n";
 }
 
 void
@@ -333,7 +397,8 @@ void
 TcpNamedEndpoint::
 shutdown()
 {
-    if (socket_ > -1) {
+    FullPoller::shutdown();
+    if (socket_ != -1) {
         // shutdown(socket_, SHUT_RDRW);
         ::close(socket_);
         socket_ = -1;
@@ -344,7 +409,7 @@ shutdown()
 TcpNamedProxy::
 TcpNamedProxy()
     : FullPoller(),
-      recvBuffer(20), sendBuffer(20)
+      recvBuffer(bufferSizePow), sendBuffer(bufferSizePow)
 {
     needsPoll = true;
 }
@@ -362,8 +427,11 @@ init(shared_ptr<ConfigurationService> config)
     FullPoller::init();
 
     socket_ = socket(AF_INET, SOCK_STREAM, 0);
-    // uint32_t nonagle(1);
-    // setsockopt(socket_, SOL_TCP, TCP_NODELAY, &nonagle, sizeof(nonagle));
+    // uint32_t value(1);
+    // setsockopt(socket_, SOL_TCP, TCP_NODELAY, &value, sizeof(value));
+    uint32_t value = 1 << tcpBufferSizePow;
+    setsockopt(socket_, SOL_TCP, SO_SNDBUF, &value, sizeof(value));
+    setsockopt(socket_, SOL_TCP, SO_RCVBUF, &value, sizeof(value));
 
     addFd(socket_);
 }
@@ -403,8 +471,10 @@ void
 TcpNamedProxy::
 shutdown()
 {
-    if (socket_ > -1) {
+    FullPoller::shutdown();
+    if (socket_ != -1) {
         // shutdown(socket_, SHUT_RDRW);
+        removeFd(socket_);
         ::close(socket_);
         socket_ = -1;
     }
@@ -418,25 +488,14 @@ isConnected()
     return state_ == CONNECTED;
 }
 
-void
+bool
 TcpNamedProxy::
 sendMessage(const string & message)
 {
-    // cerr << "availableForWriting: " << sendBuffer.availableForWriting() << endl;
-    char msgSize = message.size();
-    ssize_t totalSize = msgSize + 1;
-    if (totalSize <= sendBuffer.availableForWriting()) {
-        sendBuffer.write(&msgSize, 1);
-        sendBuffer.write(message.c_str(), msgSize);
-        
-        // cerr << "written " << totalSize << " bytes\n";
-    }
-    else {
-        cerr << "sendMessage: no buffer room\n";
-    }
+    return sendBuffer.writeMessage(message);
 }
 
-bool
+void
 TcpNamedProxy::
 handleEvent(epoll_event & event)
 {
@@ -445,19 +504,16 @@ handleEvent(epoll_event & event)
         // cerr << "proxy pollin\n";
     }
     else if ((event.events & EPOLLOUT) == EPOLLOUT) {
-        ssize_t nBytes = sendBuffer.availableForReading();
+        int nBytes = sendBuffer.availableForReading();
         if (nBytes > 0) {
             // cerr << "available for reading: " << nBytes << endl;
             char buffer[nBytes];
             sendBuffer.read(buffer, nBytes);
-            int rc = write(socket_, buffer, nBytes);
-            // cerr << "written " << rc << " bytes\n";
+            int rc = ::write(socket_, buffer, nBytes);
             if (rc == -1) {
                 throw ML::Exception(errno, "handleEvent", "write");
             }
-            if (rc != nBytes) {
-                throw ML::Exception("inconsistency");
-            }
+            // ExcAssertEqual(rc, nBytes);
             // nBytes = sendBuffer.availableForReading();
             // cerr << "available for reading after send: " << nBytes << endl;
         }
@@ -465,8 +521,6 @@ handleEvent(epoll_event & event)
     else if ((event.events & EPOLLHUP) == EPOLLHUP) {
         cerr << "proxy pollhup\n";
     }
-
-    return false; /* unused */
 }
 
 void
