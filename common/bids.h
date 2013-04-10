@@ -19,6 +19,29 @@ namespace ML { struct Parse_Context; }
 
 namespace RTBKIT {
 
+/*****************************************************************************/
+/* BID STATUS                                                                */
+/*****************************************************************************/
+
+enum BidStatus {
+    BS_WIN,        ///< Bid was won
+    BS_LOSS,       ///< Bid was lost
+    BS_TOOLATE,    ///< Bid was too late and so not accepted
+    BS_INVALID,    ///< Bid was invalid and so not accepted
+    BS_LOSTBID,    ///< Bid was lost somewhere
+    BS_DROPPEDBID, ///< Bid was dropped as way too late
+    BS_NOBUDGET    ///< No budget
+};
+
+BidStatus bidStatusFromString(const std::string& str);
+
+const char* bidStatusToChar(BidStatus status);
+inline std::string bidStatusToString(BidStatus status)
+{
+    return std::string(bidStatusToChar(status));
+}
+
+
 /******************************************************************************/
 /* BIDS                                                                       */
 /******************************************************************************/
@@ -86,5 +109,32 @@ struct Bids : public ML::compact_vector<Bid, 4>
     Json::Value toJson() const;
     static Bids fromJson(const std::string& raw);
 };
+
+
+/******************************************************************************/
+/* BID RESULT                                                                 */
+/******************************************************************************/
+
+/** Message sent to the agents containing the result of one of their bid. See
+    BidStatus for the various messages that struct could represent.
+ */
+struct BidResult
+{
+    BidStatus result;       ///> Result of our bid
+    double timestamp;       ///> Time at which the event occured
+
+    Id auctionId;           ///> Unique auction id for the original bid
+    int spotNum;            ///> Spot index into the bidRequest.spots or ourBid
+    Amount secondPrice;     ///> Depends on result from router or the exchange
+    std::string confidence; ///> ???
+
+    std::shared_ptr<BidRequest> request; ///> Original request we bid on
+    Bids ourBid;               ///> Original bids that was placed
+    Json::Value metadata;      ///> Metadata that was attached to the bid
+    Json::Value augmentations; ///> Original Augmentations sent with the request
+
+    static BidResult parse(const std::vector<std::string>& msg);
+};
+
 
 } // namespace RTBKIT

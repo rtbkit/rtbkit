@@ -13,27 +13,12 @@
 #include "jml/stats/distribution.h"
 #include <set>
 #include "rtbkit/common/currency.h"
+#include "rtbkit/common/bids.h"
 
 
 namespace RTBKIT {
 
 struct AgentConfig;
-
-
-/*****************************************************************************/
-/* BID STATUS                                                                */
-/*****************************************************************************/
-
-enum BidStatus {
-    BS_WIN,        ///< Bid was won
-    BS_LOSS,       ///< Bid was lost
-    BS_TOOLATE,    ///< Bid was too late and so not accepted
-    BS_INVALID,    ///< Bid was invalid and so not accepted
-    BS_LOSTBID,    ///< Bid was lost somewhere
-    BS_DROPPEDBID, ///< Bid was dropped as way too late
-    BS_NOBUDGET    ///< No budget
-};
-
 
 
 /*****************************************************************************/

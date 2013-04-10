@@ -18,6 +18,58 @@ namespace RTBKIT {
 
 
 /******************************************************************************/
+/* BID STATUS                                                                 */
+/******************************************************************************/
+
+const char* bidStatusToChar(BidStatus status)
+{
+    switch (status) {
+    case BS_WIN:        return "WIN";  break;
+    case BS_LOSS:       return "LOSS";  break;
+    case BS_TOOLATE:    return "TOOLATE";  break;
+    case BS_INVALID:    return "INVALID";  break;
+    case BS_LOSTBID:    return "LOSTBID";  break;
+    case BS_DROPPEDBID: return "DROPPEDBID";  break;
+    case BS_NOBUDGET:   return "NOBUDGET";  break;
+    default:
+        throw ML::Exception("unknown bid status");
+    }
+}
+
+BidStatus bidStatusFromString(const std::string& str)
+{
+    switch (str[0]) {
+    case 'D':
+        if (str == "DROPPEDBID") return BS_DROPPEDBID;
+        break;
+
+    case 'I':
+        if (str == "INVALID") return BS_INVALID;
+        break;
+
+    case 'N':
+        if (str == "NOBUDGET") return BS_NOBUDGET;
+        break;
+
+    case 'L':
+        if (str == "LOSS") return BS_LOSS;
+        if (str == "LOSTBID") return BS_LOSTBID;
+        break;
+
+    case 'T':
+        if (str == "TOOLATE") return BS_TOOLATE;
+        break;
+
+    case 'W':
+        if (str == "WIN") return BS_WIN;
+        break;
+    };
+
+    throw ML::Exception("unknown bid status");
+}
+
+
+/******************************************************************************/
 /* BID                                                                        */
 /******************************************************************************/
 
@@ -152,6 +204,47 @@ fromJson(const std::string& raw)
 
     return result;
 }
+
+
+/******************************************************************************/
+/* BID RESULT                                                                 */
+/******************************************************************************/
+
+BidResult
+BidResult::
+parse(const std::vector<std::string>& msg)
+{
+    BidResult result;
+    ExcCheckGreaterEqual(msg.size(), 6, "Invalid bid result message size");
+
+    result.result = bidStatusFromString(msg[0]);
+    result.timestamp = boost::lexical_cast<double>(msg[1]);
+
+    result.confidence = msg[2];
+    result.auctionId = Id(msg[3]);
+    result.spotNum = boost::lexical_cast<int>(msg[4]);
+    result.secondPrice = Amount::parse(msg[5]);
+
+    // Lightweight messages stop here
+    if (msg.size() <= 6) return result;
+    ExcCheckGreaterEqual(msg.size(), 11, "Invalid long bid result message size");
+
+    string bidRequestSource = msg[6];
+    result.request.reset(BidRequest::parse(bidRequestSource, msg[7]));
+
+    auto jsonParse = [] (const std::string& str)
+        {
+            if (str.empty()) return Json::Value();
+            return Json::parse(str);
+        };
+
+    result.ourBid = Bids::fromJson(msg[8]);
+    result.metadata = jsonParse(msg[9]);
+    result.augmentations = jsonParse(msg[10]);
+
+    return result;
+}
+
 
 
 } // namepsace RTBKIT

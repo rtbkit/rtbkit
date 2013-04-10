@@ -29,6 +29,13 @@ toJson() const
     return result;
 }
 
+Amount
+Amount::
+fromJson(const Json::Value & json)
+{
+    return Amount(json[1].asString(), json[0].asInt());
+}
+
 std::string
 Amount::
 getCurrencyStr(CurrencyCode currencyCode)

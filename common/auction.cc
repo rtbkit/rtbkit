@@ -50,6 +50,20 @@ toJsonStr() const
     return format("{\"maxPrice\":%d,\"priority\":%f}", maxPrice, priority);
 }
 
+Auction::Price
+Auction::Price::
+fromJson(const Json::Value& json)
+{
+    Price result;
+
+    result.maxPrice = Amount::fromJson(json["maxPrice"]);
+    if (json.isMember("priority"))
+        result.priority = json["priority"].asDouble();
+
+    return result;
+}
+
+
 std::string
 Auction::Response::
 print(WinLoss wl)
