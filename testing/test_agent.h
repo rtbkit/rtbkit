@@ -117,7 +117,7 @@ struct TestAgent : public RTBKIT::BiddingAgent {
         haveGotConfig = true;
     }
 
-    void finishBid(int & counter, const RTBKIT::BiddingAgent::BidResultArgs & args)
+    void finishBid(int & counter, const RTBKIT::BidResult & args)
     {
         __sync_fetch_and_add(&counter, 1);
         Guard guard(lock);
@@ -129,23 +129,23 @@ struct TestAgent : public RTBKIT::BiddingAgent {
             ML::futex_wake(numBidsOutstanding);
     }
 
-    void defaultWin(const RTBKIT::BiddingAgent::BidResultArgs & args)
+    void defaultWin(const RTBKIT::BidResult & args)
     {
         finishBid(numWins, args);
         //cerr << args.accountInfo << endl;
     }
                 
-    void defaultLoss(const RTBKIT::BiddingAgent::BidResultArgs & args)
+    void defaultLoss(const RTBKIT::BidResult & args)
     {
         finishBid(numLosses, args);
     }
 
-    void defaultNoBudget(const RTBKIT::BiddingAgent::BidResultArgs & args)
+    void defaultNoBudget(const RTBKIT::BidResult & args)
     {
         finishBid(numNoBudgets, args);
     }
 
-    void defaultTooLate(const RTBKIT::BiddingAgent::BidResultArgs & args)
+    void defaultTooLate(const RTBKIT::BidResult & args)
     {
         finishBid(numTooLates, args);
     }

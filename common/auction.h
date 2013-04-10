@@ -92,6 +92,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
 
         Json::Value toJson() const;
         std::string toJsonStr() const;
+        static Price fromJson(const Json::Value&);
     };
 
     /** Price to bid if you don't want to bid */

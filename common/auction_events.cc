@@ -182,3 +182,414 @@ operator >> (DB::Store_Reader & store, shared_ptr<PostAuctionEvent> & event)
     event->reconstitute(store);
     return store;
 }
+
+
+/******************************************************************************/
+/* CAMPAIGN EVENTS                                                            */
+/******************************************************************************/
+
+CampaignEvent
+CampaignEvent::
+fromJson(const Json::Value & jsonValue)
+{
+    double timeSeconds(jsonValue["time"].asDouble());
+
+    CampaignEvent event(
+            jsonValue["label"].asString(),
+            Date::fromSecondsSinceEpoch(timeSeconds),
+            jsonValue["meta"]);
+
+    return event;
+}
+
+Json::Value
+CampaignEvent::
+toJson() const
+{
+    Json::Value json(Json::ValueType::objectValue);
+
+    json["label"] = label_;
+    json["timestamp"] = time_.secondsSinceEpoch();
+    json["meta"] = meta_.toJson();
+
+    return json;
+}
+
+void
+CampaignEvent::
+serialize(DB::Store_Writer & writer) const
+{
+    writer << label_ << time_.secondsSinceEpoch();
+    meta_.serialize(writer);
+}
+
+void
+CampaignEvent::
+reconstitute(DB::Store_Reader & store)
+{
+    double timeSeconds;
+    string metaStr;
+
+    store >> label_ >> timeSeconds;
+    time_ = Date::fromSecondsSinceEpoch(timeSeconds);
+    meta_.reconstitute(store);
+}
+
+Json::Value
+CampaignEvents::
+toJson() const
+{
+    Json::Value json(Json::ValueType::arrayValue);
+
+    for (const CampaignEvent & history: *this) {
+        json.append(history.toJson());
+    }
+
+    return json;
+}
+
+CampaignEvents
+CampaignEvents::
+fromJson(const Json::Value& json)
+{
+    CampaignEvents events;
+    ExcCheck(json.isArray(), "invalid format for a campaign events object");
+
+    for (size_t i = 0; i < json.size(); ++i)
+        events.push_back(CampaignEvent::fromJson(json[i]));
+
+    return events;
+}
+
+bool
+CampaignEvents::
+hasEvent(const std::string & label) const
+{
+    for (const CampaignEvent & history: *this) {
+        if (history.label_ == label) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void
+CampaignEvents::
+setEvent(const std::string & label,
+                 Date eventTime,
+                 const JsonHolder & eventMeta)
+{
+    if (hasEvent(label))
+        throw ML::Exception("already has event '" + label + "'");
+    emplace_back(label, eventTime, eventMeta);
+}
+
+
+/******************************************************************************/
+/* DELIVERY EVENTS                                                            */
+/******************************************************************************/
+
+
+DeliveryEvent::Bid
+DeliveryEvent::Bid::
+fromJson(const Json::Value& json)
+{
+    Bid bid;
+    if (!json) return bid;
+
+    bid.present = true;
+
+    const auto& members = json.getMemberNames();
+
+    for (const auto& m : members) {
+        const Json::Value& member = json[m];
+        bool invalid = false;
+
+        switch(m[0]) {
+        case 'a':
+            if (m == "agent") bid.agent = member.asString();
+            else if (m == "account") bid.account = AccountKey::fromJson(member);
+            else invalid = true;
+            break;
+
+        case 'b':
+            if (m == "bidData") bid.bids = Bids::fromJson(member.toString());
+            else invalid = true;
+            break;
+
+        case 'c':
+            if (m == "creativeId") bid.creativeId = member.asInt();
+            else if (m == "creativeName") bid.creativeName = member.asString();
+            else invalid = true;
+            break;
+
+        case 'l':
+            if (m == "localStatus") {
+                if (m == "PENDING") bid.localStatus = Auction::PENDING;
+                else if (m == "WIN") bid.localStatus = Auction::WIN;
+                else if (m == "LOSS") bid.localStatus = Auction::LOSS;
+                else if (m == "TOOLATE") bid.localStatus = Auction::TOOLATE;
+                else if (m == "INVALID") bid.localStatus = Auction::INVALID;
+                else throw Exception("invalid localStatus value");
+            }
+            else invalid = true;
+            break;
+
+        case 'm':
+            if (m == "meta") bid.meta = member.asString();
+            else invalid = true;
+            break;
+
+        case 'p':
+            if (m == "price") bid.price = Auction::Price::fromJson(member);
+            else invalid = true;
+            break;
+
+        case 't':
+            if (m == "timestamp")
+                bid.time = Date::fromSecondsSinceEpoch(member.asDouble());
+            else if (m == "test") bid.test = member.asBool();
+            else if (m == "tagId") bid.test = member.asInt();
+            else invalid = true;
+            break;
+
+        default:
+            invalid = true;
+            break;
+        }
+
+        ExcCheck(!invalid, "Unknown member: " + m);
+    }
+
+    return bid;
+}
+
+Json::Value
+DeliveryEvent::Bid::
+toJson() const
+{
+    Json::Value json;
+    if (!present) return json;
+
+    json["timestamp"] = time.secondsSinceEpoch();
+
+    json["price"] = price.toJson();
+    json["test"] = test;
+    json["tagId"] = tagId;
+    json["bidData"] = bids.toJson();
+
+    json["agent"] = agent;
+    json["account"] = account.toJson();
+    json["meta"] = meta;
+
+    json["creativeId"] = creativeId;
+    json["creativeName"] = creativeName;
+
+    json["localStatus"] = Auction::Response::print(localStatus);
+
+    return json;
+}
+
+
+
+DeliveryEvent::Win
+DeliveryEvent::Win::
+fromJson(const Json::Value& json)
+{
+    Win win;
+    if (!json) return win;
+    win.present = true;
+
+    const auto& members = json.getMemberNames();
+
+    for (const auto& m : members) {
+        const Json::Value& member = json[m];
+        bool invalid = false;
+
+        switch(m[0]) {
+        case 'm':
+            if (m == "meta") win.meta = member.asString();
+            else invalid = true;
+            break;
+
+        case 'p':
+            if (m == "winPrice") win.price = Amount::fromJson(member);
+            else invalid = true;
+            break;
+
+        case 't':
+            if (m == "timestamp")
+                win.time = Date::fromSecondsSinceEpoch(member.asDouble());
+            else invalid = true;
+            break;
+
+        case 'r':
+            if (m == "reportedStatus")
+                win.reportedStatus = bidStatusFromString(member.asString());
+            else invalid = true;
+            break;
+
+        default:
+            invalid = true;
+            break;
+        }
+
+        ExcCheck(!invalid, "Unknown member: " + m);
+    }
+
+    return win;
+}
+
+Json::Value
+DeliveryEvent::Win::
+toJson() const
+{
+    Json::Value json;
+    if (!present) return json;
+
+    json["timestamp"] = time.secondsSinceEpoch();
+    json["reportedStatus"] = (reportedStatus == BS_WIN ? "WIN" : "LOSS");
+    json["winPrice"] = price.toJson();
+    json["meta"] = meta;
+
+    return json;
+}
+
+Json::Value
+DeliveryEvent::
+impressionToJson() const
+{
+    Json::Value json;
+
+    for (const CampaignEvent& ev : campaignEvents) {
+        if (ev.label_ != "IMPRESSION") continue;
+        json = ev.toJson();
+        break;
+    }
+
+    return json;
+}
+
+Json::Value
+DeliveryEvent::
+clickToJson() const
+{
+    Json::Value json;
+
+    for (const CampaignEvent& ev : campaignEvents) {
+        if (ev.label_ != "CLICK") continue;
+        json = ev.toJson();
+        break;
+    }
+
+    return json;
+}
+
+DeliveryEvent::Visit
+DeliveryEvent::Visit::
+fromJson(const Json::Value& json)
+{
+    Visit visit;
+    if (!json) return visit;
+
+    const auto& members = json.getMemberNames();
+
+    for (const auto& m : members) {
+        const Json::Value& member = json[m];
+        bool invalid = false;
+
+        switch(m[0]) {
+
+        case 'c':
+            if (m == "channels")
+                visit.channels = SegmentList::createFromJson(member);
+            else invalid = true;
+            break;
+
+        case 'm':
+            if (m == "meta") visit.meta = member.asString();
+            else invalid = true;
+            break;
+
+        case 't':
+            if (m == "timestamp")
+                visit.time = Date::fromSecondsSinceEpoch(member.asDouble());
+            else invalid = true;
+            break;
+
+        default:
+            invalid = true;
+            break;
+        }
+
+        ExcCheck(!invalid, "Unknown member: " + m);
+    }
+
+    return visit;
+}
+
+Json::Value
+DeliveryEvent::Visit::
+toJson() const
+{
+    Json::Value json;
+
+    json["timestamp"] = time.secondsSinceEpoch();
+    json["channels"] = channels.toJson();
+    json["meta"] = meta;
+
+    return json;
+}
+
+
+Json::Value
+DeliveryEvent::
+visitsToJson() const
+{
+    Json::Value json;
+
+    for (const auto& visit : visits)
+        json.append(visit.toJson());
+
+    return json;
+}
+
+
+
+DeliveryEvent
+DeliveryEvent::
+parse(const std::vector<std::string>& msg)
+{
+    DeliveryEvent ev;
+    ExcCheckGreaterEqual(msg.size(), 12, "Invalid message size");
+
+    using boost::lexical_cast;
+
+    ev.event = msg[0];
+    ev.timestamp = Date::fromSecondsSinceEpoch(lexical_cast<double>(msg[1]));
+    ev.auctionId = Id(msg[2]);
+    ev.spotId = Id(msg[3]);
+    ev.spotIndex = lexical_cast<int>(msg[4]);
+
+    string bidRequestSource = msg[5];
+    ev.bidRequest.reset(BidRequest::parse(bidRequestSource, msg[6]));
+
+    ev.augmentations = msg[7];
+
+    auto jsonParse = [] (const string& str)
+        {
+            if (str.empty()) return Json::Value();
+            return Json::parse(str);
+        };
+
+    ev.bid = Bid::fromJson(jsonParse(msg[8]));
+    ev.win = Win::fromJson(jsonParse(msg[9]));
+    ev.campaignEvents = CampaignEvents::fromJson(msg[10]);
+
+    const Json::Value& visits = jsonParse(msg[11]);
+    for (size_t i = 0; i < visits.size(); ++i)
+        ev.visits.push_back(Visit::fromJson(visits[i]));
+
+    return ev;
+}
+
