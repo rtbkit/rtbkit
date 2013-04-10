@@ -101,7 +101,7 @@ configure(const Json::Value & parameters)
 void
 HttpExchangeConnector::
 configureHttp(int numThreads,
-              int listenPort,
+              const PortRange & listenPort,
               const std::string & bindHost,
               bool performNameLookup,
               int backlog,

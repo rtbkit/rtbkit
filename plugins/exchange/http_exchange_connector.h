@@ -62,7 +62,7 @@ struct HttpExchangeConnector
 
     /** Configure just the HTTP part of the server. */
     void configureHttp(int numThreads,
-                       int listenPort,
+                       const PortRange & listenPort,
                        const std::string & bindHost = "*",
                        bool performNameLookup = false,
                        int backlog = DEF_BACKLOG,
@@ -246,7 +246,7 @@ protected:
 
     /// Configuration parameters
     int numThreads;         
-    int listenPort;
+    PortRange listenPort;
     std::string bindHost;
     bool performNameLookup;
     int backlog;
