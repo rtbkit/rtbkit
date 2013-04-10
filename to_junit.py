@@ -1,6 +1,7 @@
 #make test | python junit.py > testresults.xml
 
-import fileinput
+import os, fileinput
+from xml.sax.saxutils import escape
 
 passed = set()
 failed = set()
@@ -14,10 +15,17 @@ for l in fileinput.input():
 print """<?xml version="1.0" encoding="UTF-8" ?>
 <testsuite errors="0" tests="%d" time="0" failures="%d" name="tests">""" % (len(passed)+len(failed), len(failed))
 
-for f in failed: 
+for f in failed:
+
+    failContent = ""
+
+    if os.path.isfile("build/x86_64/tests/%s.failed" % f):
+	with open("build/x86_64/tests/%s.failed" % f, "r") as failFile:
+            failContent = failFile.read()
+
     print """    <testcase time="0" name="%s">
-        <failure type="failure" message="Check log" />
-    </testcase>""" % f
+        <failure type="failure" message="Check log">%s</failure>
+    </testcase>""" % (f, escape(failContent))
 for p in passed: 
     print """    <testcase time="0" name="%s"/>""" % p
 
