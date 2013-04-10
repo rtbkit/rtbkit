@@ -122,7 +122,7 @@ private:
 
 inline void swap(Utf8String & s1, Utf8String & s2)
 {
-    s2.swap(s2);
+    s1.swap(s2);
 }
 
 std::ostream & operator << (std::ostream & stream, const Utf8String & str);
