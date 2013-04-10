@@ -96,9 +96,10 @@ init()
             }
             catch (const std::exception& ex) {
                 recordHit("error");
-                cerr << "Error handling auction message "
-                    << msg << ": " << ex.what() << endl;
-
+                cerr << "Error handling auction message " << ex.what() << endl;
+                for (size_t i = 0; i < msg.size(); ++i) 
+                    cerr << "\t" << i << ": " << msg[i] << endl;
+                cerr << endl;
             }
         };
 

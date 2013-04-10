@@ -313,7 +313,7 @@ fromJson(const Json::Value& json)
             break;
 
         case 'b':
-            if (m == "bidData") bid.bids = Bids::fromJson(member.toString());
+            if (m == "bidData") bid.bids = Bids::fromJson(member.asString());
             else invalid = true;
             break;
 
@@ -325,12 +325,13 @@ fromJson(const Json::Value& json)
 
         case 'l':
             if (m == "localStatus") {
-                if (m == "PENDING") bid.localStatus = Auction::PENDING;
-                else if (m == "WIN") bid.localStatus = Auction::WIN;
-                else if (m == "LOSS") bid.localStatus = Auction::LOSS;
-                else if (m == "TOOLATE") bid.localStatus = Auction::TOOLATE;
-                else if (m == "INVALID") bid.localStatus = Auction::INVALID;
-                else throw Exception("invalid localStatus value");
+                string status = member.asString();
+                if (status == "PENDING") bid.localStatus = Auction::PENDING;
+                else if (status == "WIN") bid.localStatus = Auction::WIN;
+                else if (status == "LOSS") bid.localStatus = Auction::LOSS;
+                else if (status == "TOOLATE") bid.localStatus = Auction::TOOLATE;
+                else if (status == "INVALID") bid.localStatus = Auction::INVALID;
+                else throw Exception("invalid localStatus value: " + status);
             }
             else invalid = true;
             break;
@@ -412,11 +413,6 @@ fromJson(const Json::Value& json)
             else invalid = true;
             break;
 
-        case 'p':
-            if (m == "winPrice") win.price = Amount::fromJson(member);
-            else invalid = true;
-            break;
-
         case 't':
             if (m == "timestamp")
                 win.time = Date::fromSecondsSinceEpoch(member.asDouble());
@@ -426,6 +422,11 @@ fromJson(const Json::Value& json)
         case 'r':
             if (m == "reportedStatus")
                 win.reportedStatus = bidStatusFromString(member.asString());
+            else invalid = true;
+            break;
+
+        case 'w':
+            if (m == "winPrice") win.price = Amount::fromJson(member);
             else invalid = true;
             break;
 
@@ -584,7 +585,7 @@ parse(const std::vector<std::string>& msg)
 
     ev.bid = Bid::fromJson(jsonParse(msg[8]));
     ev.win = Win::fromJson(jsonParse(msg[9]));
-    ev.campaignEvents = CampaignEvents::fromJson(msg[10]);
+    ev.campaignEvents = CampaignEvents::fromJson(jsonParse(msg[10]));
 
     const Json::Value& visits = jsonParse(msg[11]);
     for (size_t i = 0; i < visits.size(); ++i)

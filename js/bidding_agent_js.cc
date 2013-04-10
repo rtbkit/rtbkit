@@ -69,12 +69,12 @@ struct ResultCbOps:
             JSValue result;
             {
                 v8::TryCatch tc;
-                v8::Handle<v8::Value> argv[10];
+                v8::Handle<v8::Value> argv[9];
                 argv[0] = JS::toJS(args.timestamp);
                 argv[1] = JS::toJS(args.confidence);
                 argv[2] = JS::toJS(args.auctionId);
                 argv[3] = JS::toJS(args.spotNum);
-                argv[4] = JS::toJS(MicroUSD(args.secondPrice));
+                argv[4] = JS::toJS(static_cast<int64_t>(MicroUSD(args.secondPrice)));
                 if (args.request)
                     argv[5] = JS::toJS(args.request);
                 else argv[5] = v8::Null();
@@ -82,7 +82,7 @@ struct ResultCbOps:
                 argv[7] = JS::toJS(args.metadata);
                 argv[8] = JS::toJS(args.augmentations);
 
-                result = params->fn->Call(params->This, 10, argv);
+                result = params->fn->Call(params->This, 9, argv);
 
                 if (result.IsEmpty()) {
                     if(tc.HasCaught()) {
