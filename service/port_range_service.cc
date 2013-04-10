@@ -21,6 +21,44 @@ namespace Datacratic {
 
 
 /******************************************************************************/
+/* PORT RANGE                                                                 */
+/******************************************************************************/
+
+Json::Value
+PortRange::
+toJson() const
+{
+    if (last == first + 1)
+        return first;
+
+    Json::Value result;
+    result[0] = "range";
+    result[1] = first;
+    result[2] = last;
+    return result;
+}
+
+PortRange
+PortRange::
+fromJson(const Json::Value & val)
+{
+    if (val.isNull())
+        return PortRange();
+    else if (val.isNumeric())
+        return val.asInt();
+    else if (val.isArray()) {
+        string type = val[0].asString();
+        if (type == "range") {
+            int first = val[1].asInt();
+            int last = val[2].asInt();
+            return PortRange(first, last);
+        }
+    }
+    throw ML::Exception("unknown port range " + val.toString());
+}
+
+
+/******************************************************************************/
 /* UTILS                                                                      */
 /******************************************************************************/
 
