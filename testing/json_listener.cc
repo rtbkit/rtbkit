@@ -94,10 +94,9 @@ struct JsonListener : public RestServiceEndpoint {
             uint32_t & counter_ = history_[position_];
             counter_++;
 
-            stringstream ss;
-            ss << req;
-            fprintf (logFile_, "received request:\n%s\n",
-                     ss.str().c_str());
+            Date now = Date::now();
+            fprintf (logFile_, "%f\n%s\n",
+                     now.secondsSinceEpoch(), req.payload.c_str());
         }
     }
 
