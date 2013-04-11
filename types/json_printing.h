@@ -15,6 +15,11 @@
 
 namespace Datacratic {
 
+
+/*****************************************************************************/
+/* JSON PRINTING CONTEXT                                                     */
+/*****************************************************************************/
+
 struct JsonPrintingContext {
 
     virtual ~JsonPrintingContext()
@@ -41,15 +46,21 @@ struct JsonPrintingContext {
     virtual void skip() = 0;
 };
 
+
+/*****************************************************************************/
+/* STREAM JSON PRINTING CONTEXT                                              */
+/*****************************************************************************/
+
 struct StreamJsonPrintingContext
     : public JsonPrintingContext {
 
     StreamJsonPrintingContext(std::ostream & stream)
-        : stream(stream)
+        : stream(stream), writeUtf8(true)
     {
     }
 
     std::ostream & stream;
+    bool writeUtf8;          ///< If true, utf8 chars in binary.  False: escaped ASCII
 
     struct PathEntry {
         PathEntry(bool isObject)
@@ -155,6 +166,13 @@ struct StreamJsonPrintingContext
     }
 
 };
+
+
+/*****************************************************************************/
+/* STRUCTURED JSON PRINTING CONTEXT                                          */
+/*****************************************************************************/
+
+/** JSON printing context that puts things into a structure. */
 
 struct StructuredJsonPrintingContext
     : public JsonPrintingContext {

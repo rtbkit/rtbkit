@@ -21,6 +21,8 @@ namespace Datacratic {
 /* PORT RANGE                                                                 */
 /******************************************************************************/
 
+/** Encapsulates a range of ports that a service can listen on. */
+
 struct PortRange
 {
     PortRange() : first(15000), last(16000) {}
@@ -49,6 +51,9 @@ struct PortRange
         return -1;
     }
 
+    Json::Value toJson() const;
+    static PortRange fromJson(const Json::Value & val);
+
     int first;
     int last;
 };
@@ -58,12 +63,29 @@ struct PortRange
 /* PORT RANGE SERVICE                                                         */
 /******************************************************************************/
 
+/** Abstract base class for a service from which you can query a port range
+    by name and receive a PortRange object.
+
+    The goal of this class is to split up the port space into chunks, each of
+    which is assigned to a particular kind of service.  When dealing with
+    dynamic service creation, this allows us to avoid the situation where
+    a service goes down and a different kind of service starts listening on
+    its port, confusing anything that was connected and didn't know 
+    immediately about the change.
+*/
+
 struct PortRangeService
 {
     virtual ~PortRangeService() {}
 
+    /** Return the range of ports for the given service name, and return the
+        range.  If name is not found, then depending upon the implementation
+        either a new range of ports will be defined for that service, or an
+        exception will be thrown.
+    */
     virtual PortRange getRange(const std::string& name) = 0;
 
+    /** Dump the port ranges to the given stream. */
     virtual void dump(std::ostream& stream = std::cerr) const {}
 };
 
@@ -72,8 +94,16 @@ struct PortRangeService
 /* DEFAULT PORT RANGE SERVICE                                                 */
 /******************************************************************************/
 
+/** Default implementation of the port range service.  This one will assign
+    a new block of ports each time a new service name is created.
+*/
+
 struct DefaultPortRangeService : public PortRangeService
 {
+    /** Ininialize the default port range service.  The rangeSize
+        parameter tells how big a chunk of ports to assign each
+        time it is asked for one.
+    */
     DefaultPortRangeService(unsigned rangeSize = 100);
 
     virtual PortRange getRange(const std::string& name);
@@ -93,6 +123,10 @@ private:
 /******************************************************************************/
 /* JSON PORT RANGE SERVICE                                                    */
 /******************************************************************************/
+
+/** Implementation of the port range service that gets its mapping by reading
+    a JSON file.
+*/
 
 struct JsonPortRangeService : public PortRangeService
 {

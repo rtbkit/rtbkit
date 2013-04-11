@@ -91,22 +91,27 @@ listen(PortRange const & portRange,
         throw Exception("error setsockopt SO_REUSEADDR: %s", strerror(errno));
     }
 
-    int port = portRange.bindPort([&](int port) {
-        addr = ACE_INET_Addr(port, hostname.c_str(), AF_INET);
+    const char * hostNameToUse
+        = (hostname == "*" ? "0.0.0.0" : hostname.c_str());
 
-        //cerr << "port = " << port
-        //     << " hostname = " << hostname
-        //     << " addr = " << addr.get_host_name() << " "
-        //     << addr.get_host_addr() << " "
-        //     << addr.get_ip_address() << endl;
+    int port = portRange.bindPort
+        ([&](int port)
+         {
+             addr = ACE_INET_Addr(port, hostNameToUse, AF_INET);
 
-        int res = ::bind(fd,
-                         reinterpret_cast<sockaddr *>(addr.get_addr()),
-                         addr.get_addr_size());
-        if (res == -1 && errno != EADDRINUSE)
-            throw Exception("listen: bind returned %s", strerror(errno));
-        return res == 0;
-    });
+             //cerr << "port = " << port
+             //     << " hostname = " << hostname
+             //     << " addr = " << addr.get_host_name() << " "
+             //     << addr.get_host_addr() << " "
+             //     << addr.get_ip_address() << endl;
+
+             int res = ::bind(fd,
+                              reinterpret_cast<sockaddr *>(addr.get_addr()),
+                              addr.get_addr_size());
+             if (res == -1 && errno != EADDRINUSE)
+                 throw Exception("listen: bind returned %s", strerror(errno));
+             return res == 0;
+         });
     
     if (port == -1) {
         throw Exception("couldn't bind to any port");
