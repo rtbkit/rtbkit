@@ -2043,8 +2043,21 @@ void registerS3Bucket(const std::string & bucketName,
                       const std::string & serviceUri)
 {
     std::unique_lock<std::mutex> guard(s3BucketsLock);
-    if (s3Buckets.count(bucketName)){
-        throw BucketAlreadyRegistered(bucketName);
+
+    auto it = s3Buckets.find(bucketName);
+    if(it != s3Buckets.end()){
+        shared_ptr<S3Api> api = it->second.api;
+        //if the info is different, raise an exception, otherwise return
+        if (api->accessKeyId != accessKeyId
+            || api->accessKey != accessKey
+            || api->bandwidthToServiceMbps != bandwidthToServiceMbps
+            || api->defaultProtocol != protocol
+            || api->serviceUri != serviceUri)
+        {
+            throw ML::Exception("Trying to re-register a bucket with different "
+                "parameters");
+        }
+        return;
     }
 
     S3BucketInfo info;
@@ -2115,10 +2128,6 @@ void registerS3Buckets(const std::string & accessKeyId,
     auto onBucket = [&] (const std::string & bucketName)
         {
             //cerr << "got bucket " << bucketName << endl;
-
-            if (s3Buckets.count(bucketName)){
-                throw BucketAlreadyRegistered(bucketName);
-            }
 
             S3BucketInfo info;
             info.s3Bucket = bucketName;
