@@ -247,6 +247,7 @@ struct BiddingAgentJS :
         registerMemberFn(&RTBKIT::BiddingAgent::init, "init");
         registerMemberFn(&RTBKIT::BiddingAgent::start, "start");
         registerMemberFn(&RTBKIT::BiddingAgent::shutdown, "close");
+        registerMemberFn(&RTBKIT::BiddingAgent::strictMode, "strictMode");
 
         registerAsyncCallback(&RTBKIT::BiddingAgent::onBidRequest, "onBidRequest");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onPing, "onPing");
