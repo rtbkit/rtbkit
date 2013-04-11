@@ -25,6 +25,8 @@
 namespace RTBKIT {
 
 struct AgentConfig;
+struct ExchangeConnector;
+
 
 /*****************************************************************************/
 /* AUCTION                                                                   */
@@ -42,7 +44,8 @@ struct Auction : public std::enable_shared_from_this<Auction> {
 
     Auction();
     
-    Auction(HandleAuction handleAuction,
+    Auction(ExchangeConnector * exchangeConnector,
+            HandleAuction handleAuction,
             std::shared_ptr<BidRequest> request,
             const std::string & requestStr,
             const std::string & requestStrFormat,
@@ -224,6 +227,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
     */
     const std::vector<std::vector<Response> > & getResponses() const;
 
+    ExchangeConnector * exchangeConnector; ///< Exchange connector for auction
     HandleAuction handleAuction;   ///< Callback for when auction is finished
 
     struct Data {

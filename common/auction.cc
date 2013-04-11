@@ -162,12 +162,13 @@ reconstitute(DB::Store_Reader & store)
 
 Auction::
 Auction()
-    : isZombie(false), data(new Data())
+    : isZombie(false), exchangeConnector(nullptr), data(new Data())
 {
 }
 
 Auction::
-Auction(HandleAuction handleAuction,
+Auction(ExchangeConnector * exchangeConnector,
+        HandleAuction handleAuction,
         std::shared_ptr<BidRequest> request,
         const std::string & requestStr,
         const std::string & requestStrFormat,
@@ -177,6 +178,7 @@ Auction(HandleAuction handleAuction,
       request(request),
       requestStr(requestStr),
       requestStrFormat(requestStrFormat),
+      exchangeConnector(exchangeConnector),
       handleAuction(handleAuction),
       data(new Data(numSpots()))
 {

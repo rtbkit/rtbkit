@@ -190,6 +190,97 @@ struct ExchangeConnector: public ServiceBase {
 
 
     /*************************************************************************/
+    /* FILTERING                                                             */
+    /*************************************************************************/
+
+    /** This is where the exchange can provide any extra filtering capability
+        of its bid requests that is not exposed through RTBkit.
+
+        This should mostly be used to implement restrictions, for example
+        advertiser domain restrictions that come in with the bid request.
+
+        In general, generic functionality applicable to multiple exchanges
+        should not go here; only functionality specific to a given
+        exchange.
+    */
+
+    /** Pre-filter a bid request according to the exchange's filtering
+        rules.
+
+        This function should return true if the given bidding agent is
+        allowed to bid on the bid request, and false otherwise.  It should
+        do any work that is not expensive.
+
+        In order for a bid request to pass, it will have to pass the
+        bidRequestPreFilter AND bidRequestPostFilter functions.  The only
+        difference between the two is that the pre filter is called early
+        in the filtering pipeline and should not do expensive computation,
+        and the post filter is called later on (when the bid request stream
+        has been further reduced) and can perform expensive computation.
+
+        The default implementation will return true, which implements the
+        policy that all bid requests are compatible with all bidding agents
+        that are compatible with the exchange (see getCampaignCompatibility()
+        above).
+
+        \param request     The bid request being filtered
+        \param config      The agent configuration for the agent being filtered
+        \param info        The contents of the "info" field in the return
+                           value of getCampaignCompatibility().  This can be
+                           used to cache information to make this computation
+                           more efficient.
+
+        \seealso bidRequestPostFilter
+    */
+    virtual bool bidRequestPreFilter(const BidRequest & request,
+                                     const AgentConfig & config,
+                                     const void * info) const;
+
+    /** Post-filter a bid request according to the exchange's filtering
+        rules.
+
+        This function should return true if the given bidding agent is
+        allowed to bid on the bid request, and false otherwise.  It can
+        perform expensive computations.
+
+        In order for a bid request to pass, it will have to pass the
+        bidRequestPreFilter AND bidRequestPostFilter functions.  The only
+        difference between the two is that the pre filter is called early
+        in the filtering pipeline and should not do expensive computation,
+        and the post filter is called later on (when the bid request stream
+        has been further reduced) and can perform expensive computation.
+
+        The default implementation will return true, which implements the
+        policy that all bid requests are compatible with all bidding agents
+        that are compatible with the exchange (see getCampaignCompatibility()
+        above).
+
+        \param request     The bid request being filtered
+        \param config      The agent configuration for the agent being filtered
+        \param info        The contents of the "info" field in the return
+                           value of getCampaignCompatibility().  This can be
+                           used to cache information to make this computation
+                           more efficient.
+
+        \seealso bidRequestPreFilter
+    */
+    virtual bool bidRequestPostFilter(const BidRequest & request,
+                                      const AgentConfig & config,
+                                      const void * info) const;
+
+    /** Filter a creative according to the exchange's filtering rules.
+
+        This function should return true if the given creative is compatible
+        with the given bid request, and false otherwise.
+    */
+    
+    virtual bool bidRequestCreativeFilter(const BidRequest & request,
+                                          const AgentConfig & config,
+                                          const void * info) const;
+
+
+
+    /*************************************************************************/
     /* FACTORY INTERFACE                                                     */
     /*************************************************************************/
 

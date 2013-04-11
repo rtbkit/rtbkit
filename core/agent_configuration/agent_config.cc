@@ -10,6 +10,7 @@
 #include <boost/lexical_cast.hpp>
 #include "rtbkit/common/auction.h"
 #include "rtbkit/core/router/router_types.h"
+#include "rtbkit/common/exchange_connector.h"
 
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include "crypto++/md5.h"
@@ -776,7 +777,8 @@ toJson(bool includeCreatives) const
 
 BiddableSpots
 AgentConfig::
-canBid(const std::vector<AdSpot> & spots,
+canBid(const ExchangeConnector * exchangeConnector,
+       const std::vector<AdSpot> & spots,
        const std::string & exchange,
        const std::string & protocolVersion,
        const std::string & language,
@@ -788,6 +790,9 @@ canBid(const std::vector<AdSpot> & spots,
     // TODO: do a lookup, not an exhaustive scan
     for (unsigned i = 0;  i < spots.size();  ++i) {
         //cerr << "trying spot " << i << endl;
+
+        auto it = providerData;
+        
         
         // Check that the fold position matches
         if (!foldPositionFilter.isIncluded(spots[i].position))
@@ -814,16 +819,50 @@ canBid(const std::vector<AdSpot> & spots,
 
 BiddableSpots
 AgentConfig::
-isBiddableRequest(const BidRequest& request,
+isBiddableRequest(const ExchangeConnector * exchangeConnector,
+                  const BidRequest& request,
                   AgentStats& stats,
                   RequestFilterCache& cache,
                   const FilterStatFn & doFilterStat) const
 {
+    /* First, check that the exchange has blessed this campaign as being
+       biddable.  If not, we don't go any further. */
+    const void * exchangeInfo;
+    std::string exchangeName;
+
+    if (exchangeConnector) {
+        exchangeName = exchangeConnector->exchangeName();
+
+        //cerr << "exchangeName = " << exchangeName
+        //     << " providerData.size() = " << providerData.size()
+        //     << endl;
+
+        auto it = providerData.find(exchangeName);
+        if (it == providerData.end()) {
+            if (doFilterStat)
+                doFilterStat("static.001_exchangeRejectedCampaign");
+            return BiddableSpots();
+        }
+
+        exchangeInfo = it->second.get();
+
+        /* Now we know the exchange connector likes the campaign, we
+           should check that the campaign and bid request are compatible.
+           
+           First we pre-filter
+        */
+        if (!exchangeConnector->bidRequestPreFilter(request, *this, exchangeInfo)) {
+            if (doFilterStat)
+                doFilterStat("static.001_exchangeMismatchBidRequestCampaignPre");
+            return BiddableSpots();
+        }
+    }
 
     /* Find matching creatives for the agent.  This includes fold position
-    filtering.
+       filtering.
     */
     BiddableSpots biddableSpots = canBid(
+            exchangeConnector,
             request.spots,
             request.exchange,
             request.protocolVersion,
@@ -972,6 +1011,16 @@ isBiddableRequest(const BidRequest& request,
         ML::atomic_inc(stats.urlFiltered);
         if (doFilterStat) doFilterStat("static.090_urlFiltered");
         return BiddableSpots();
+    }
+
+    /* Finally, perform any expensive filtering in the exchange connector. */
+    if (exchangeConnector) {
+
+        if (!exchangeConnector->bidRequestPostFilter(request, *this, exchangeInfo)) {
+            if (doFilterStat)
+                doFilterStat("static.099_exchangeMismatchBidRequestCampaignPost");
+            return BiddableSpots();
+        }
     }
 
     return biddableSpots;

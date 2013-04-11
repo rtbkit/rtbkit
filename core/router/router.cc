@@ -725,7 +725,8 @@ injectAuction(Auction::HandleAuction onAuctionFinished,
               double lossTime)
 {
     std::shared_ptr<Auction> auction
-        (new Auction(onAuctionFinished,
+        (new Auction(nullptr,
+                     onAuctionFinished,
                      request,
                      chomp(requestStr),
                      requestStrFormat,
@@ -1148,6 +1149,8 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
 
     AgentConfig::RequestFilterCache cache(*auction->request);
 
+    auto exchangeConnector = auction->exchangeConnector;
+
     auto checkAgent = [&] (const AgentInfoEntry & entry)
         {
             const AgentConfig & config = *entry.config;
@@ -1189,8 +1192,9 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
                 }
 
             BiddableSpots biddableSpots
-            = config.isBiddableRequest(*auction->request, stats,
-                                       cache, doFilterStat);
+                = config.isBiddableRequest(exchangeConnector,
+                                           *auction->request, stats,
+                                           cache, doFilterStat);
             if (biddableSpots.empty())
                 return;
 
@@ -2336,7 +2340,7 @@ configure(const std::string & agent, AgentConfig & config)
     bool includeReasons = true;
 
     // For each exchange, check campaign and creative compatibility
-    auto onExchange = [&] (const std::unique_ptr<ExchangeConnector> & exch)
+    auto onExchange = [&] (const std::shared_ptr<ExchangeConnector> & exch)
         {
             string exchangeName = exch->exchangeName();
 

@@ -80,6 +80,33 @@ getCreativeCompatibility(const Creative & creative,
     return result;
 }
 
+bool
+ExchangeConnector::
+bidRequestPreFilter(const BidRequest & request,
+                    const AgentConfig & config,
+                    const void * info) const
+{
+    return true;
+}
+
+bool
+ExchangeConnector::
+bidRequestPostFilter(const BidRequest & request,
+                     const AgentConfig & config,
+                     const void * info) const
+{
+    return true;
+}
+
+bool
+ExchangeConnector::
+bidRequestCreativeFilter(const BidRequest & request,
+                         const AgentConfig & config,
+                         const void * info) const
+{
+    return true;
+}
+
 namespace {
 typedef std::unordered_map<std::string, ExchangeConnector::Factory> Factories;
 static Factories factories;

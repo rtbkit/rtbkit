@@ -283,7 +283,8 @@ handleHttpPayload(const HttpHeader & header,
             return;
         }
 
-        auction.reset(new Auction(handleAuction, bidRequest,
+        auction.reset(new Auction(endpoint,
+                                  handleAuction, bidRequest,
                                   bidRequest->toJsonStr(),
                                   "datacratic",
                                   firstData, expiry));

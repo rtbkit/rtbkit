@@ -18,8 +18,10 @@
 
 namespace RTBKIT {
 
+
 struct BiddableSpots;
 struct AgentStats;
+struct ExchangeConnector;
 
 
 /*****************************************************************************/
@@ -59,7 +61,7 @@ struct Creative {
     template<typename T>
     const T * getProviderData(const std::string & provider) const
     {
-        auto it = providerData.find("rubicon");
+        auto it = providerData.find(provider);
         if (it == providerData.end())
             throw ML::Exception("provider data for " + provider + " not found");
         if (it->second.get() == nullptr)
@@ -344,7 +346,8 @@ struct AgentConfig {
         agent.
     */
     BiddableSpots
-    canBid(const std::vector<AdSpot> & spots,
+    canBid(const ExchangeConnector * exchangeConnector,
+           const std::vector<AdSpot> & spots,
            const std::string & exchange,
            const std::string & protocolVersion,
            const std::string & language,
@@ -392,11 +395,11 @@ struct AgentConfig {
         incremented.
     */
     BiddableSpots
-    isBiddableRequest(
-            const BidRequest& request,
-            AgentStats& stats,
-            RequestFilterCache& cache,
-            const FilterStatFn & doFilterStat = FilterStatFn()) const;
+    isBiddableRequest(const ExchangeConnector * exchange,
+                      const BidRequest& request,
+                      AgentStats& stats,
+                      RequestFilterCache& cache,
+                      const FilterStatFn & doFilterStat = FilterStatFn()) const;
 };
 
 

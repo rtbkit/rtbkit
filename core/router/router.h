@@ -22,6 +22,7 @@
 #include "soa/gc/gc_lock.h"
 #include "jml/utils/ring_buffer.h"
 #include "jml/arch/wakeup_fd.h"
+#include "jml/utils/smart_ptr_utils.h"
 #include <unordered_set>
 #include <thread>
 #include "rtbkit/common/exchange_connector.h"
@@ -167,6 +168,9 @@ struct Router : public ServiceBase,
 
         Used mostly for testing where we want to control the exchange connector
         objects independently of the router.
+
+        This method should almost never be used, as the given exchange will
+        not participate in validation of bidding agent configuration.
     */
     void connectExchange(ExchangeConnector & exchange)
     {
@@ -178,8 +182,19 @@ struct Router : public ServiceBase,
     void addExchange(ExchangeConnector * exchange)
     {
         Guard guard(lock);
-        exchanges.emplace_back(exchange);
+        exchanges.push_back(std::shared_ptr<ExchangeConnector>(exchange));
         connectExchange(*exchange);
+    }
+
+    /** Register the exchange with the router.  The router will not take
+        ownership of the exchange, which means that it needs to be
+        freed by the calling code after the router has exited.
+    */
+    void addExchange(ExchangeConnector & exchange)
+    {
+        Guard guard(lock);
+        exchanges.emplace_back(ML::make_unowned_std_sp(exchange));
+        connectExchange(exchange);
     }
     
     /** Register the exchange */
@@ -515,7 +530,8 @@ public:
     /** Are we initialized? */
     bool initialized;
 
-    std::vector<std::unique_ptr<ExchangeConnector> > exchanges;
+    /** List of exchanges that are active. */
+    std::vector<std::shared_ptr<ExchangeConnector> > exchanges;
 
     /*************************************************************************/
     /* EXCEPTIONS                                                            */
