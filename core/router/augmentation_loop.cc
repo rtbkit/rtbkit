@@ -238,7 +238,7 @@ void
 AugmentationLoop::
 checkExpiries()
 {
-    cerr << "checking expiries" << endl;
+    //cerr << "checking expiries" << endl;
 
     Guard guard(lock);
 

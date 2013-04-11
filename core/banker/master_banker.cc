@@ -23,6 +23,9 @@ using namespace Redis;
 
 namespace RTBKIT {
 
+using Datacratic::jsonEncode;
+using Datacratic::jsonDecode;
+
 /*****************************************************************************/
 /* REDIS BANKER PERSISTENCE                                                  */
 /*****************************************************************************/

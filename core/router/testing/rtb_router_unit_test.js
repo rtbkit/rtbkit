@@ -45,8 +45,8 @@ var request = {
 router.injectAuction(onAuctionFinished, new BidRequest(JSON.stringify(request), "datacratic"));
 
 var request2 = {
-    "id" : "4d9c7ea2-0000-cce1-0a2a-cd1222793d86",
-    "url":"http://www.sidereel.com/calendar",
+    "id" : "76543210-0000-1234-1234-123456789abc",
+    "url":"http://www.xyzxyz.com/calendar",
     "isTest":false,
     meta: {
         "original_br": {
@@ -58,12 +58,12 @@ var request2 = {
                 "city":"Toronto",
                 "country":"CA",
                 "detected_language":"en",
-                "guid":"23421342umbpqojTJCqf1kqLFzXJ0",
-                "host":"www.sidereel.com",
+                "guid":"12321321321312",
+                "host":"www.xyzxyz.com",
                 "os":"Windows NT 6",
                 "region":"CA-ON",
-                "req_id":"4d9c7ea2-0000-cce1-0a2a-cd1222793d86",
-                "url":"http://www.sidereel.com/calendar",
+                "req_id":"76543210-0000-1234-1234-123456789abc",
+                "url":"http://www.xyzxyz.com/calendar",
                 "verticals": [
                     {"verticalid":358,"weight":0.3334270},
                     {"verticalid":1187,"weight":0.2664740},
@@ -79,10 +79,9 @@ var request2 = {
     },
     "spots":[
         {
-            "height":90,
             "id":"4d9c7ea2-0000-cce1-0a2a-cd1222793d86-0",
-            "reserve_price":0,
-            "width":728
+            "reservePrice":0,
+            banner: {"h":90, "w":728 }
         }
     ],
     "timestamp":1302101665.9640,

@@ -14,13 +14,158 @@
 #include <boost/algorithm/string.hpp>
 #include <unordered_map>
 
+#include "jml/db/persistent.h"
+#include "openrtb/openrtb_parsing.h"
+#include "soa/types/json_printing.h"
+#include "soa/service/json_codec.h"
+
+
 using namespace std;
 using namespace ML;
 using namespace ML::DB;
 
+namespace Datacratic {
+
+using namespace RTBKIT;
+
+DefaultDescription<Location>::
+DefaultDescription()
+{
+    this->nullAccepted = true;
+    addField("countryCode", &Location::countryCode,
+             "Country code of location");
+    addField("regionCode", &Location::regionCode,
+             "Region code of location");
+    addField("cityName", &Location::cityName,
+             "City name of location");
+    addField("postalCode", &Location::postalCode,
+             "Postal code of location");
+    addField("dma", &Location::dma,
+             "DMA code of location");
+    addField("timezoneOffsetMinutes", &Location::timezoneOffsetMinutes,
+             "Timezone offset of location in minutes");
+}
+
+DefaultDescription<Format>::
+DefaultDescription()
+{
+}
+
+struct HistoricalPositionDescriptor
+    : public ValueDescriptionT<OpenRTB::AdPosition> {
+    
+    virtual void parseJsonTyped(OpenRTB::AdPosition * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isString()) {
+            string s = context.expectStringAscii();
+            if (s == "NONE" || s == "none") {
+                val->val = OpenRTB::AdPosition::UNKNOWN;
+            }
+            else if (s == "ABOVE_FOLD" || s == "above") {
+                val->val = OpenRTB::AdPosition::ABOVE;
+            }
+            else if (s == "BELOW_FOLD" || s == "below") {
+                val->val = OpenRTB::AdPosition::BELOW;
+            }
+            else throw ML::Exception("invalid ad position " + s);
+        }
+        else if (context.isNumber()) {
+            int i = context.expectInt();
+            val->val = i;
+        }
+        else throw ML::Exception("can't parse historical ad position " 
+                                 + context.expectJson().toString());
+    }
+
+    virtual void printJsonTyped(const OpenRTB::AdPosition * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(val->val);
+    }
+
+    virtual bool isDefaultTyped(const OpenRTB::AdPosition * val) const
+    {
+        return val->val == -1;
+    }
+};
+
+DefaultDescription<AdSpot>::
+DefaultDescription()
+{
+    addParent<OpenRTB::Impression>();
+        
+    addField("formats", &AdSpot::formats, "Impression formats");
+    addField<OpenRTB::AdPosition>("position", &AdSpot::position, "Impression fold position",
+                                  new HistoricalPositionDescriptor());
+    addField("reservePrice", &AdSpot::reservePrice, "Impression reserve price");
+
+    //throw ML::Exception("Need to sync formats with the bid request");
+}
+
+DefaultDescription<BidRequest>::
+DefaultDescription()
+{
+    onUnknownField = [=] (BidRequest * br, JsonParsingContext & context)
+        {
+            //context.skip();
+
+            cerr << "got unknown field " << context.printPath()
+            << " " << context.expectJson().toString() << endl;
+
+#if 0
+            std::function<Json::Value & (int, Json::Value &)> getEntry
+            = [&] (int n, Json::Value & curr) -> Json::Value &
+            {
+                if (n == context.path.size())
+                    return curr;
+                else if (context.path[n].index != -1)
+                    return getEntry(n + 1, curr[context.path[n].index]);
+                else return getEntry(n + 1, curr[context.path[n].key]);
+            };
+
+            getEntry(0, br->unparseable)
+            = context.expectJson();
+#endif
+        };
+    addField("id", &BidRequest::auctionId, "Exchange auction ID");
+    addField("timestamp", &BidRequest::timestamp, "Bid request timestamp");
+    addField("isTest", &BidRequest::isTest, "Is bid request a test?");
+    addField("url", &BidRequest::url, "Site URL");
+    addField("ipAddress", &BidRequest::ipAddress, "IP address of user");
+    addField("userAgent", &BidRequest::userAgent, "User agent of device");
+    addField("language", &BidRequest::language, "User language code");
+    addField("protocolVersion", &BidRequest::protocolVersion,
+             "bid request protocol version");
+    addField("exchange", &BidRequest::exchange, "Original bid request exchagne");
+    addField("provider", &BidRequest::provider, "Bid request provider");
+    addField("winSurcharges", &BidRequest::winSurcharges,
+             "extra amounts paid on win");
+    addField("meta", &BidRequest::meta,
+             "extra metadata about the bid request");
+    addField("location", &BidRequest::location,
+             "location of user");
+    addField("segments", &BidRequest::segments,
+             "segments active for user");
+    addField("restrictions", &BidRequest::restrictions,
+             "restrictions active for bid request");
+    addField("userIds", &BidRequest::userIds, "User IDs for this user");
+    addField("spots", &BidRequest::spots, "Ad spots in this request");
+    addField("site", &BidRequest::site, "OpenRTB site object");
+    addField("app", &BidRequest::app, "OpenRTB app object");
+    addField("device", &BidRequest::device, "OpenRTB device object");
+    addField("user", &BidRequest::user, "OpenRTB user object");
+    addField("unparseable", &BidRequest::unparseable, "Unparseable fields are stored here");
+    addField("bidCurrency", &BidRequest::bidCurrency, "Currency we're bidding in");
+}
+
+} // namespace Datacratic
+
 
 namespace RTBKIT {
 
+using Datacratic::jsonDecode;
+using Datacratic::jsonEncode;
 
 /*****************************************************************************/
 /* FORMAT                                                                    */
@@ -213,6 +358,16 @@ inline void addIfNotEmpty(Json::Value & obj, const std::string & key,
     obj[key] = url.toString();
 }
 
+inline void addIfNotEmpty(Json::Value & obj, const std::string & key,
+                          const std::vector<CurrencyCode> & curr)
+{
+    if (curr.empty())
+        return;
+
+    for (unsigned i = 0;  i < curr.size();  ++i)
+        obj[key][i] = Amount::getCurrencyStr(curr[i]);
+}
+
 void
 FormatSet::
 serialize(ML::DB::Store_Writer & store) const
@@ -227,6 +382,34 @@ reconstitute(ML::DB::Store_Reader & store)
     ML::compact_vector<Format, 3, uint16_t> & v = *this;
     store >> v;
 }
+
+struct FormatSetDescription
+    : public ValueDescriptionT<FormatSet> {
+
+    virtual void parseJsonTyped(FormatSet * val,
+                                JsonParsingContext & context) const
+    {
+        val->fromJson(context.expectJson());
+    }
+
+    virtual void printJsonTyped(const FormatSet * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeJson(val->toJson());
+    }
+
+    virtual bool isDefaultTyped(const FormatSet * val) const
+    {
+        return val->empty();
+    }
+};
+
+ValueDescriptionT<RTBKIT::FormatSet> *
+getDefaultDescription(RTBKIT::FormatSet *)
+{
+    return new FormatSetDescription();
+}
+
 
 
 /*****************************************************************************/
@@ -319,12 +502,6 @@ reconstitute(ML::DB::Store_Reader & store)
 /* AD SPOT                                                                   */
 /*****************************************************************************/
 
-AdSpot::
-AdSpot(const Id & id, int reservePrice)
-    : id(id), reservePrice(reservePrice), position(Position::NONE)
-{
-}
-
 namespace {
 
 SmallIntVector getDims(const Json::Value & val)
@@ -342,6 +519,7 @@ SmallIntVector getDims(const Json::Value & val)
 
 } // file scope
 
+#if 0
 AdSpot::Position
 AdSpot::stringToPosition(const std::string &pos)
 {
@@ -354,11 +532,46 @@ AdSpot::stringToPosition(const std::string &pos)
     else
         throw ML::Exception(" Unknown value for AdSpot::Position ==>" + pos);
 }
+#endif
 
 void
 AdSpot::
 fromJson(const Json::Value & val)
 {
+    *this = AdSpot();
+
+    // Parse openrtb
+    static DefaultDescription<AdSpot> desc;
+    StructuredJsonParsingContext context(val);
+
+    // Rather than barf on unknown fields, for forwards compatibility we put them
+    // in the unparseable array via this function
+    auto onUnknownField = [&] ()
+        {
+            cerr << "got unknown field " << context.printPath()
+            << context.expectJson() << endl;
+            
+#if 0
+            std::function<Json::Value & (int, Json::Value &)> getEntry
+            = [&] (int n, Json::Value & curr) -> Json::Value &
+            {
+                if (n == context.path.size())
+                    return curr;
+                else if (context.path[n].index != -1)
+                    return getEntry(n + 1, curr[context.path[n].index]);
+                else return getEntry(n + 1, curr[context.path[n].key]);
+            };
+
+            getEntry(0, unparseable[key]) = context.expectJson();
+#endif
+        };
+
+    context.onUnknownFieldHandlers.push_back(onUnknownField);
+
+    desc.parseJsonTyped(this, context);
+    
+    return;
+
     try {
         id = Id(val["id"].asString());
         if (val.isMember("formats")) {
@@ -373,13 +586,37 @@ fromJson(const Json::Value & val)
             for (unsigned i = 0;  i < widths.size();  ++i)
                 formats.push_back(Format(widths[i], heights[i]));
         }
-        reservePrice = val["reservePrice"].asInt();
-        if (val.isMember("position"))
-            position = stringToPosition(val["position"].asString());
+        const Json::Value & rpj = val["reservePrice"];
+        if (rpj.isNumeric()) {
+            reservePrice = USD_CPM(rpj.asDouble());
+        }
+        else if (!rpj.isNull()) {
+            reservePrice = Amount::fromJson(rpj);
+        }
+        if (val.isMember("position")) {
+            auto & pj = val["position"];
+            if (pj.isString()) {
+                string s = pj.asString();
+                if (s == "NONE" || s == "none") {
+                    position.val = OpenRTB::AdPosition::UNKNOWN;
+                }
+                else if (s == "ABOVE_FOLD" || s == "above") {
+                    position.val = OpenRTB::AdPosition::ABOVE;
+                }
+                else if (s == "BELOW_FOLD" || s == "below") {
+                    position.val = OpenRTB::AdPosition::BELOW;
+                }
+            }
+            else if (pj.isIntegral()) {
+                position.val = pj.asInt();
+            }
+            else throw ML::Exception("can't parse position " + val["position"].toString());
+            //position = stringToPosition(val["position"].asString());
+        }
         else
-            position = Position::NONE;
-    } catch (...) {
-        cerr << "parsing AdSpot " << val << endl;
+            position.val = -1;//OpenRTB::AdPosition::UNKNOWN;
+    } catch (const std::exception & exc) {
+        cerr << "parsing AdSpot " << val << ": " << exc.what() << endl;
         throw;
     }
 }
@@ -388,14 +625,10 @@ Json::Value
 AdSpot::
 toJson() const
 {
-    Json::Value result;
-    result["id"] = id.toString();
-    result["formats"] = formats.toJson();
-    //result["width"] = formats.getWidthsJson();
-    //result["height"] = formats.getHeightsJson();
-    result["reservePrice"] = reservePrice;
-    result["position"] = positionToStr();
-    return result;
+    static DefaultDescription<AdSpot> desc;
+    StructuredJsonPrintingContext context;
+    desc.printJsonTyped(this, context);
+    return std::move(context.output);
 }
 
 std::string formatDims(const SmallIntVector & dims)
@@ -435,48 +668,25 @@ createFromJson(const Json::Value & json)
     return result;
 }
 
-std::string
-AdSpot::
-positionToStr() const
-{
-    return positionToStr(position);
-}
-
-std::string
-AdSpot::
-positionToStr(Position position)
-{
-    if (position == Position::ABOVE_FOLD) return "ABOVE_FOLD";
-    if (position == Position::ABOVE_FOLD) return "BELOW_FOLD";
-    return "NONE";
-}
-
-void jsonParse(const Json::Value & value, AdSpot::Position & pos)
-{
-    pos = AdSpot::stringToPosition(value.asString());
-}
-
-Json::Value jsonPrint(const AdSpot::Position & pos)
-{
-    return AdSpot::positionToStr(pos);
-}
-
-COMPACT_PERSISTENT_ENUM_IMPL(AdSpot::Position);
-
 void
 AdSpot::
 serialize(ML::DB::Store_Writer & store) const
 {
-    store << id << formats << compact_size_t(reservePrice) << position;
+    unsigned char version = 2;
+    store << version << toJson().toString();
 }
 
 void
 AdSpot::
 reconstitute(ML::DB::Store_Reader & store)
 {
-    store >> id >> formats;
-    reservePrice = compact_size_t(reservePrice);
-    store >> position;
+    unsigned char version;
+    store >> version;
+    if (version != 2)
+        throw ML::Exception("unknown AdSpot serialization version");
+    string s;
+    store >> s;
+    fromJson(Json::parse(s));
 }
 
 
@@ -616,6 +826,48 @@ reconstitute(ML::DB::Store_Reader & store)
     store >> (map<std::string, Id> &)*this;
 }
 
+struct UserIdsDescription
+    : public ValueDescriptionT<UserIds> {
+
+    virtual void parseJsonTyped(UserIds * val,
+                                JsonParsingContext & context) const
+    {
+        auto onMember = [&] ()
+            {
+                string key = context.path.fieldName();
+                Id value(context.expectStringAscii());
+                val->add(value, key);
+            };
+        
+        context.forEachMember(onMember);
+    }
+
+    virtual void printJsonTyped(const UserIds * val,
+                                JsonPrintingContext & context) const
+    {
+        context.startObject();
+
+        for (auto & id: *val) {
+            context.startMember(id.first);
+            context.writeString(id.second.toString());
+        }
+
+        context.endObject();
+    }
+
+    virtual bool isDefaultTyped(const UserIds * val) const
+    {
+        return val->empty();
+    }
+
+};
+
+ValueDescriptionT<RTBKIT::UserIds> *
+getDefaultDescription(RTBKIT::UserIds *)
+{
+    return new UserIdsDescription();
+}
+
 
 /*****************************************************************************/
 /* BID REQUEST                                                               */
@@ -625,10 +877,17 @@ void
 BidRequest::
 sortAll()
 {
-    for (unsigned i = 0;  i < spots.size();  ++i)
-        spots[i].formats.sort();
     restrictions.sortAll();
     segments.sortAll();
+}
+
+template<typename T>
+void toJsonValue(Json::Value & v, const T & val)
+{
+    static DefaultDescription<T> desc;
+    StructuredJsonPrintingContext printContext;
+    desc.printJson(&val, printContext);
+    v = std::move(printContext.output);
 }
 
 Json::Value
@@ -636,9 +895,9 @@ BidRequest::
 toJson() const
 {
     Json::Value result;
-    result["!!CV"] = "0.1";
+    result["!!CV"] = "RTBKIT-JSON-1.0";
     result["id"] = auctionId.toString();
-    result["timestamp"] = timestamp;
+    result["timestamp"] = timestamp.secondsSinceEpoch();
     addIfNotEmpty(result, "isTest", isTest, false);
     addIfNotEmpty(result, "url", url);
     addIfNotEmpty(result, "ipAddress", ipAddress);
@@ -648,7 +907,19 @@ toJson() const
     addIfNotEmpty(result, "exchange", exchange);
     addIfNotEmpty(result, "provider", provider);
     addIfNotEmpty(result, "meta", meta);
-    addIfNotEmpty(result, "creative", creative);
+    addIfNotEmpty(result, "unparseable", unparseable);
+    if (!bidCurrency.empty())
+        result["bidCurrency"] = jsonEncode(bidCurrency);
+   
+    if (site) {
+        toJsonValue(result["site"], *site);
+    }
+    if (app)
+        toJsonValue(result["app"], *app);
+    if (device)
+        toJsonValue(result["device"], *device);
+    if (user)
+        toJsonValue(result["user"], *user);
 
     if (!winSurcharges.empty())
         result["winSurcharges"] = winSurcharges.toJson();
@@ -656,8 +927,9 @@ toJson() const
     result["location"] = location.toJson();
 
     if (!spots.empty()) {
-        for (unsigned i = 0;  i < spots.size();  ++i)
+        for (unsigned i = 0;  i < spots.size();  ++i) {
             result["spots"][i] = spots[i].toJson();
+        }
     }
 
     if (!segments.empty())
@@ -674,7 +946,48 @@ std::string
 BidRequest::
 toJsonStr() const
 {
-    return boost::trim_copy(toJson().toString());
+    static const DefaultDescription<BidRequest> BidRequestDesc;
+    
+    std::ostringstream stream;
+    StreamJsonPrintingContext context(stream);
+    BidRequestDesc.printJson(this, context);
+    return stream.str();
+
+    //return boost::trim_copy(toJson().toString());
+}
+
+template<typename T>
+void fromJsonOptional(const Json::Value & val,
+                      std::unique_ptr<T> & ptr,
+                      Json::Value & unparseable,
+                      std::string key)
+{
+    static DefaultDescription<T> desc;
+    StructuredJsonParsingContext context(val);
+    std::unique_ptr<T> res(new T());
+
+    // Rather than barf on unknown fields, for forwards compatibility we put them
+    // in the unparseable array via this function
+    auto onUnknownField = [&] ()
+        {
+            std::function<Json::Value & (int, Json::Value &)> getEntry
+            = [&] (int n, Json::Value & curr) -> Json::Value &
+            {
+                if (n == context.path.size())
+                    return curr;
+                else if (context.path[n].index != -1)
+                    return getEntry(n + 1, curr[context.path[n].index]);
+                else return getEntry(n + 1, curr[context.path[n].key]);
+            };
+
+            getEntry(0, unparseable[key]) = context.expectJson();
+        };
+
+    context.onUnknownFieldHandlers.push_back(onUnknownField);
+
+    desc.parseJson(res.get(), context);
+
+    ptr.swap(res);
 }
 
 BidRequest
@@ -685,17 +998,22 @@ createFromJson(const Json::Value & json)
 
     string canonicalVersion;
 
+    //cerr << "parsing " << json << endl;
+
     for (auto it = json.begin(), end = json.end(); it != end;  ++it) {
+
+        //cerr << "got member " << it.memberName() << endl;
+
         if (it.memberName() == "!!CV") {
             canonicalVersion = it->asString();
-            if (canonicalVersion > "0.1")
+            if (canonicalVersion != "0.1" && canonicalVersion != "RTBKIT-JSON-1.0")
                 throw ML::Exception("can't parse BidRequest with CV "
                                     + canonicalVersion);
         }
         else if (it.memberName() == "id")
             result.auctionId.parse(it->asString());
         else if (it.memberName() == "timestamp")
-            result.timestamp = it->asDouble();
+            result.timestamp = Date::fromSecondsSinceEpoch(it->asDouble());
         else if (it.memberName() == "isTest")
             result.isTest = it->asBool();
         else if (it.memberName() == "url")
@@ -719,7 +1037,7 @@ createFromJson(const Json::Value & json)
         else if (it.memberName() == "meta")
             result.meta = *it;
         else if (it.memberName() == "creative")
-            result.creative = *it;
+            result.meta["creative"] = *it;
         else if (it.memberName() == "location")
             result.location = Location::createFromJson(*it);
         else if (it.memberName() == "segments")
@@ -736,9 +1054,26 @@ createFromJson(const Json::Value & json)
                 result.spots.push_back(AdSpot::createFromJson(json[i]));
             }
         }
+        else if (it.memberName() == "site") {
+            fromJsonOptional(*it, result.site, result.unparseable, "site");
+        }
+        else if (it.memberName() == "app") {
+            fromJsonOptional(*it, result.app, result.unparseable, "app");
+        }
+        else if (it.memberName() == "device") {
+            fromJsonOptional(*it, result.device, result.unparseable, "device");
+        }
+        else if (it.memberName() == "user") {
+            fromJsonOptional(*it, result.user, result.unparseable, "user");
+        }
+        else if (it.memberName() == "unparseable")
+            result.unparseable = *it;
+        else if (it.memberName() == "bidCurrency")
+            jsonDecode(*it, result.bidCurrency);
         else throw ML::Exception("unknown canonical bid request field "
                                  + it.memberName());
     }
+
     return result;
 }
 
@@ -784,12 +1119,26 @@ registerParser(const std::string & source, Parser parser)
 
 namespace {
 
+static const DefaultDescription<BidRequest> BidRequestDesc;
+
 struct CanonicalParser {
+    
     static BidRequest * parse(const std::string & str)
     {
-        auto json = Json::parse(str);
+#if 0 // old and slow
+        auto j = Json::parse(str);
+        return new BidRequest(BidRequest::createFromJson(j));
+#endif
+
+        //cerr << "parsing " << str << endl;
+        StreamingJsonParsingContext context;
+        context.init("bid request", str.c_str(), str.size());
         auto_ptr<BidRequest> result(new BidRequest());
-        *result = BidRequest::createFromJson(json);
+        BidRequestDesc.parseJsonTyped(result.get(), context);
+
+        //cerr << "result->url = " << result->url << endl;
+        //cerr << "result->userAgent = " << result->userAgent << endl;
+
         return result.release();
     }
 };
@@ -799,6 +1148,7 @@ struct AtInit {
     {
         BidRequest::registerParser("recoset", CanonicalParser::parse);
         BidRequest::registerParser("datacratic", CanonicalParser::parse);
+        BidRequest::registerParser("rtbkit", CanonicalParser::parse);
     }
 } atInit;
 } // file scope
@@ -815,7 +1165,18 @@ parse(const std::string & source, const std::string & bidRequest)
         return CanonicalParser::parse(bidRequest);
 
     Parser parser = getParser(source);
-    return parser(bidRequest);
+
+    //cerr << "got parser for source " << source << endl;
+
+    auto result = parser(bidRequest);
+
+    if (false) {
+        cerr << bidRequest << endl;
+        StreamJsonPrintingContext context(cerr);
+        BidRequestDesc.printJsonTyped(result, context);
+    }
+
+    return result;
 }
 
 BidRequest *
@@ -910,11 +1271,11 @@ BidRequest::
 serialize(ML::DB::Store_Writer & store) const
 {
     using namespace ML::DB;
-    unsigned char version = 1;
+    unsigned char version = 2;
     store << version << auctionId << language << protocolVersion
           << exchange << provider << timestamp << isTest
           << location << userIds << spots << url << ipAddress << userAgent
-          << restrictions << segments << meta << creative
+          << restrictions << segments << meta
           << winSurcharges;
 }
 
@@ -928,20 +1289,15 @@ reconstitute(ML::DB::Store_Reader & store)
 
     store >> version;
 
-    if (version > 1)
+    if (version != 2)
         throw ML::Exception("problem reconstituting BidRequest: "
                             "invalid version");
 
     store >> auctionId >> language >> protocolVersion
           >> exchange >> provider >> timestamp >> isTest
           >> location >> userIds >> spots >> url >> ipAddress >> userAgent
-          >> restrictions >> segments >> meta >> creative;
-    if (version == 0) {
-        uint64_t winSurchargeMicros = compact_size_t(store);
-        winSurcharges.clear();
-        winSurcharges["surcharge"] += MicroUSD(winSurchargeMicros);
-    }
-    else store >> winSurcharges;
+          >> restrictions >> segments >> meta >> winSurcharges;
 }
 
 } // namespace RTBKIT
+

@@ -7,7 +7,7 @@ LIBBIDREQUEST_SOURCES := \
 	currency.cc \
 
 LIBBIDREQUEST_LINK := \
-	types boost_regex db
+	types boost_regex db openrtb
 
 $(eval $(call library,bid_request,$(LIBBIDREQUEST_SOURCES),$(LIBBIDREQUEST_LINK)))
 
@@ -16,7 +16,9 @@ LIBRTB_SOURCES := \
 	augmentation.cc \
 	account_key.cc \
 	bids.cc \
-	auction_events.cc
+	auction_events.cc \
+	exchange_connector.cc \
+
 
 LIBRTB_LINK := \
 	ACE arch utils jsoncpp boost_thread endpoint boost_regex zmq opstats bid_request

@@ -280,6 +280,7 @@ struct AuctionInfoBase {
 struct BidInfo {
     Date bidTime;
     BiddableSpots spots;
+    std::shared_ptr<const AgentConfig> agentConfig;  //< config active at auction
 };
 
 // Information about an in-flight auction

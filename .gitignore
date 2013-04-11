@@ -17,4 +17,7 @@ tmp
 */#*#
 */.#*
 *.strace
+*.rej
+*.orig
 bootstrap.json
+perf.data

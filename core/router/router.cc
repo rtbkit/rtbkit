@@ -276,6 +276,16 @@ bindAugmentors(const std::string & uri)
 
 void
 Router::
+unsafeDisableMonitor()
+{
+    // TODO: we shouldn't be reaching inside these structures...
+    monitorClient.testMode = true;
+    monitorClient.testResponse = true;
+    monitorProviderClient.inhibit_ = true;
+}
+
+void
+Router::
 start(boost::function<void ()> onStop)
 {
     ExcAssert(initialized);
@@ -637,7 +647,7 @@ run()
 
         if (now - lastTimestamp >= 1.0) {
             banker->logBidEvents(*this);
-            issueTimestamp();
+            //issueTimestamp();
             lastTimestamp = now;
         }
     }
@@ -715,7 +725,8 @@ injectAuction(Auction::HandleAuction onAuctionFinished,
               double lossTime)
 {
     std::shared_ptr<Auction> auction
-        (new Auction(onAuctionFinished,
+        (new Auction(nullptr,
+                     onAuctionFinished,
                      request,
                      chomp(requestStr),
                      requestStrFormat,
@@ -1111,7 +1122,7 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
             = Date::now().plusSeconds(secondsUntilLossAssumed_);
     Date lossTimeout = auction->lossAssumed;
 
-    //cerr << "AUCTION " << auctionId << " " << auction->requestStr << endl;
+    //cerr << "AUCTION " << auction->id << " " << auction->requestStr << endl;
 
     //cerr << "url = " << auction->request->url << endl;
 
@@ -1137,6 +1148,8 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
     bool traceAuction = auction->id.hash() % 10 == 0;
 
     AgentConfig::RequestFilterCache cache(*auction->request);
+
+    auto exchangeConnector = auction->exchangeConnector;
 
     auto checkAgent = [&] (const AgentInfoEntry & entry)
         {
@@ -1179,8 +1192,9 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
                 }
 
             BiddableSpots biddableSpots
-            = config.isBiddableRequest(*auction->request, stats,
-                                       cache, doFilterStat);
+                = config.isBiddableRequest(exchangeConnector,
+                                           *auction->request, stats,
+                                           cache, doFilterStat);
             if (biddableSpots.empty())
                 return;
 
@@ -1316,7 +1330,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                 PotentialBidder & bidder = bidders[i];
                 if (!agents.count(bidder.agent)) continue;
                 AgentInfo & info = agents[bidder.agent];
-                const AgentConfig & config = *info.config;
+                const AgentConfig & config = *bidder.config;
 
                 auto doFilterStat = [&] (const char * reason)
                     {
@@ -1458,18 +1472,18 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
 
             ++info.stats->auctions;
 
-            Augmentation aug = auction->augmentations.filterForAccount(
-                    info.config->account);
+            Augmentation aug
+                = auction->augmentations.filterForAccount(winner.config->account);
             auction->agentAugmentations[agent] = chomp(aug.toJson().toString());
 
             //auctionInfo.activities.push_back("sent to " + agent);
 
             BidInfo bidInfo;
+            bidInfo.agentConfig = winner.config;
             bidInfo.bidTime = Date::now();
             bidInfo.spots = winner.spots;
 
-            auctionInfo.bidders.insert(make_pair(agent, bidInfo));  // create empty bid response
-
+            auctionInfo.bidders.insert(make_pair(agent, std::move(bidInfo)));  // create empty bid response
             if (!info.trackBidInFlight(auctionId, bidInfo.bidTime))
                 throwException("doStartBidding.agentAlreadyBidding",
                                "agent %s is already processing auction %s",
@@ -1655,14 +1669,17 @@ doBid(const std::vector<std::string> & message)
 
     AuctionInfo & auctionInfo = it->second;
 
-    if (!auctionInfo.bidders.count(agent)) {
+    auto biddersIt = auctionInfo.bidders.find(agent);
+    if (biddersIt == auctionInfo.bidders.end()) {
         recordHit("bidError.agentSkippedAuction");
         returnErrorResponse(message,
                             "agent shouldn't bid on this auction");
         return;
     }
 
-    recordHit("accounts.%s.bids", info.config->account.toString('.'));
+    auto & config = *biddersIt->second.agentConfig;
+
+    recordHit("accounts.%s.bids", config.account.toString('.'));
 
     doProfileEvent(5, "auctionInfo");
 
@@ -1677,9 +1694,9 @@ doBid(const std::vector<std::string> & message)
         {
             this->recordHit("bidErrors.%s");
             this->recordHit("accounts.%s.bidErrors.total",
-                            info.config->account.toString('.'));
+                            config.account.toString('.'));
             this->recordHit("accounts.%s.bidErrors.%s",
-                            info.config->account.toString('.'),
+                            config.account.toString('.'),
                             reason);
 
             ++info.stats->invalid;
@@ -1708,8 +1725,8 @@ doBid(const std::vector<std::string> & message)
                  auctionInfo.auction->agentAugmentations[agent]);
         };
 
-    BidInfo bidInfo = auctionInfo.bidders[agent];
-    auctionInfo.bidders.erase(agent);
+    BidInfo bidInfo(std::move(biddersIt->second));
+    auctionInfo.bidders.erase(biddersIt);
 
     doProfileEvent(6, "bidInfo");
 
@@ -1751,13 +1768,13 @@ doBid(const std::vector<std::string> & message)
         }
 
         if (bid.creativeIndex < 0
-                || bid.creativeIndex >= info.config->creatives.size())
+                || bid.creativeIndex >= config.creatives.size())
         {
             returnInvalidBid(i, "outOfRangeCreative",
                     "parsing field 'creative' of %s: creative "
                     "number %d out of range 0-%zd",
                     biddata.c_str(), bid.creativeIndex,
-                    info.config->creatives.size());
+                    config.creatives.size());
             continue;
         }
 
@@ -1771,14 +1788,14 @@ doBid(const std::vector<std::string> & message)
             continue;
         }
 
-        const Creative & creative = info.config->creatives.at(bid.creativeIndex);
+        const Creative & creative = config.creatives.at(bid.creativeIndex);
 
         if (!creative.compatible(spots[spotIndex])) {
 #if 1
             cerr << "creative not compatible with spot: " << endl;
             cerr << "auction: " << auctionInfo.auction->requestStr
                 << endl;
-            cerr << "config: " << info.config->toJson() << endl;
+            cerr << "config: " << config.toJson() << endl;
             cerr << "bid: " << biddata << endl;
             cerr << "spot: " << spots[i].toJson() << endl;
             cerr << "spot num: " << spotIndex << endl;
@@ -1807,7 +1824,7 @@ doBid(const std::vector<std::string> & message)
             + spots[spotIndex].id.toString() + "-"
             + agent;
 
-        if (!banker->authorizeBid(info.config->account, auctionKey, bid.price)
+        if (!banker->authorizeBid(config.account, auctionKey, bid.price)
                 || failBid(budgetErrorRate))
         {
             ++info.stats->noBudget;
@@ -1837,13 +1854,14 @@ doBid(const std::vector<std::string> & message)
         Auction::Response response(
                 bidprice,
                 creative.tagId,
-                info.config->account,
-                info.config->test,
+                config.account,
+                config.test,
                 agent,
                 biddata,
                 meta,
                 info.config,
-                info.config->visitChannels);
+                config.visitChannels,
+                bid.creativeIndex);
 
         response.creativeName = creative.name;
         response.creativeId = creative.id;
@@ -1885,7 +1903,7 @@ doBid(const std::vector<std::string> & message)
             else if (localResult == Auction::INVALID)
                 ++info.stats->invalid;
 
-            banker->cancelBid(info.config->account, auctionKey);
+            banker->cancelBid(config.account, auctionKey);
 
             BidStatus status;
             switch (localResult) {
@@ -1925,7 +1943,7 @@ doBid(const std::vector<std::string> & message)
     }
     else if (numPassedBids > 0) {
         // Passed on the ... add to the blacklist
-        if (info.config->hasBlacklist()) {
+        if (config.hasBlacklist()) {
             const BidRequest & bidRequest = *auctionInfo.auction->request;
             blacklist.add(bidRequest, agent, *info.config);
         }
@@ -1943,7 +1961,7 @@ doBid(const std::vector<std::string> & message)
 
     recordOutcome(1000.0 * bidTime,
                   "accounts.%s.bidResponseTimeMs",
-                  info.config->account.toString('.'));
+                  config.account.toString('.'));
 
     doProfileEvent(9, "postTiming");
 
@@ -2059,7 +2077,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
             ML::Call_Guard guard
                 ([&] ()
                  {
-                     banker->cancelBid(info.config->account, auctionKey);
+                     banker->cancelBid(response.agentConfig->account, auctionKey);
                  });
 
             // No bid
@@ -2181,6 +2199,8 @@ onNewAuction(std::shared_ptr<Auction> auction)
         }
     }
 
+    //cerr << "AUCTION GOT THROUGH" << endl;
+
     //logMessage("AUCTION", auction->id, auction->requestStr);
     const BidRequest & request = *auction->request;
     int numFields = 0;
@@ -2273,6 +2293,7 @@ doConfig(const std::string & agent,
     //const string fName = "Router::doConfig:";
     logMessage("CONFIG", agent, boost::trim_copy(config->toJson().toString()));
 
+    // TODO: no need for this...
     auto newConfig = std::make_shared<AgentConfig>(*config);
     if (newConfig->roundRobinGroup == "")
         newConfig->roundRobinGroup = agent;
@@ -2291,7 +2312,7 @@ doConfig(const std::string & agent,
     string bidRequestFormat = "jsonRaw";
     info.setBidRequestFormat(bidRequestFormat);
 
-    configure(agent, *info.config);
+    configure(agent, *newConfig);
     info.configured = true;
     sendAgentMessage(agent, "GOTCONFIG", getCurrentTime());
 
@@ -2307,15 +2328,53 @@ unconfigure(const std::string & agent, const AgentConfig & config)
 
 void
 Router::
-configure(const std::string & agent, const AgentConfig & config)
+configure(const std::string & agent, AgentConfig & config)
 {
     if (config.account.empty())
         throw ML::Exception("attempt to add an account with empty values");
     // TODO: async
 
+    bool includeReasons = true;
+
+    // For each exchange, check campaign and creative compatibility
+    auto onExchange = [&] (const std::shared_ptr<ExchangeConnector> & exch)
+        {
+            string exchangeName = exch->exchangeName();
+
+            cerr << "scanning campaign with exchange " << exchangeName << endl;
+            ExchangeConnector::ExchangeCompatibility ecomp
+                = exch->getCampaignCompatibility(config, includeReasons);
+            if (!ecomp.isCompatible) {
+                cerr << "campaign not compatible: " << ecomp.reasons << endl;
+                return;
+            }
+
+            int numCompatibleCreatives = 0;
+
+            for (auto & c: config.creatives) {
+                ExchangeConnector::ExchangeCompatibility ccomp
+                    = exch->getCreativeCompatibility(c, includeReasons);
+                if (!ccomp.isCompatible) {
+                    cerr << "creative not compatible: " << ccomp.reasons << endl;
+                    return;
+                }
+                c.providerData[exchangeName] = ccomp.info;
+                ++numCompatibleCreatives;
+            }
+
+            if (numCompatibleCreatives == 0) {
+                cerr << "no compatible creatives" << endl;
+                return;
+            }
+
+            config.providerData[exchangeName] = ecomp.info;
+        };
+
+    forAllExchanges(onExchange);
+
     auto onDone = [=] (std::exception_ptr exc, ShadowAccount&& ac)
         {
-            cerr << "got spend account for " << agent << ac << endl;
+            //cerr << "got spend account for " << agent << ac << endl;
             if (exc)
                 logException(exc, "Banker addAccount");
         };
@@ -2650,6 +2709,28 @@ getProviderIndicators()
 
     return value;
 }
+
+void
+Router::
+startExchange(const std::string & exchangeType,
+              const Json::Value & exchangeConfig)
+{
+    auto exchange = ExchangeConnector::
+        create(exchangeType, *this, exchangeType);
+    exchange->configure(exchangeConfig);
+    exchange->start();
+
+    addExchange(std::move(exchange));
+}
+
+void
+Router::
+startExchange(const Json::Value & exchangeConfig)
+{
+    std::string exchangeType = exchangeConfig["exchangeType"].asString();
+    startExchange(exchangeType, exchangeConfig);
+}
+
 
 
 } // namespace RTBKIT

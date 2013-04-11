@@ -14,7 +14,7 @@
 #include "soa/service/stats_events.h"
 #include "rtbkit/common/auction.h"
 #include <limits>
-#include "exchange_connector.h"
+#include "rtbkit/common/exchange_connector.h"
 #include <boost/algorithm/string.hpp>
 
 
@@ -34,13 +34,12 @@ struct HttpExchangeConnector
     : public ExchangeConnector,
       public HttpEndpoint {
 
-    /** Function that will be called to notify of a new auction. */
-    typedef boost::function<void (std::shared_ptr<Auction> Auction)>
-        OnAuction;
-    
     HttpExchangeConnector(const std::string & name,
-                          ServiceBase & parent,
-                          OnAuction onNewAuction, OnAuction onAuctionDone);
+                          ServiceBase & parent);
+
+    HttpExchangeConnector(const std::string & name,
+                          std::shared_ptr<ServiceProxies> proxies);
+
     ~HttpExchangeConnector();
 
     /** How many connections are serving a request at the moment? */
@@ -59,7 +58,16 @@ struct HttpExchangeConnector
     /** Configure the exchange connector.  The JSON provided is entirely
         interpreted by the exchange connector itself.
     */
-    virtual void configure(const Json::Value & parameters) = 0;
+    virtual void configure(const Json::Value & parameters);
+
+    /** Configure just the HTTP part of the server. */
+    void configureHttp(int numThreads,
+                       const PortRange & listenPort,
+                       const std::string & bindHost = "*",
+                       bool performNameLookup = false,
+                       int backlog = DEF_BACKLOG,
+                       const std::string & auctionResource = "/auctions",
+                       const std::string & auctionVerb = "POST");
 
     /** Start the exchange connector running */
     virtual void start();
@@ -99,9 +107,15 @@ struct HttpExchangeConnector
     /* METHODS TO OVERRIDE FOR A GIVEN EXCHANGE                              */
     /*************************************************************************/
 
+    /** Return the name of the exchange, as it would be written as an
+        identifier.
+    */
+    virtual std::string exchangeName() const = 0;
+
     /** Parse the given payload into a bid request. */
     virtual std::shared_ptr<BidRequest>
-    parseBidRequest(const HttpHeader & header,
+    parseBidRequest(HttpAuctionHandler & connection,
+                    const HttpHeader & header,
                     const std::string & payload);
 
     /** Return the available time for the bid request in milliseconds.  This
@@ -111,7 +125,8 @@ struct HttpExchangeConnector
         Most exchanges include this information in the HTTP headers.
     */
     virtual double
-    getTimeAvailableMs(const HttpHeader & header,
+    getTimeAvailableMs(HttpAuctionHandler & connection,
+                       const HttpHeader & header,
                        const std::string & payload);
 
     /** Return an estimate of how long a round trip with the connected
@@ -124,8 +139,8 @@ struct HttpExchangeConnector
         between a given exchange host and a given bidder.
     */
     virtual double
-    getRoundTripTimeMs(const HttpHeader & header,
-                       const HttpAuctionHandler & connection);
+    getRoundTripTimeMs(HttpAuctionHandler & connection,
+                       const HttpHeader & header);
 
     /** Return the HTTP response for our auction.  Default
         implementation calls getResponse() and stringifies the result.
@@ -136,13 +151,17 @@ struct HttpExchangeConnector
         The first element returned is the HTTP body, the second is the
         content type.
     */
-    virtual HttpResponse getResponse(const Auction & auction) const;
+    virtual HttpResponse
+    getResponse(const HttpAuctionHandler & connection,
+                const HttpHeader & requestHeader,
+                const Auction & auction) const;
 
     /** Return a stringified JSON of the response for when we drop an
         auction.
     */
     virtual HttpResponse
-    getDroppedAuctionResponse(const Auction & auction,
+    getDroppedAuctionResponse(const HttpAuctionHandler & connection,
+                              const Auction & auction,
                               const std::string & reason) const;
 
     /** Return a stringified JSON of the response for our auction.  Default
@@ -155,8 +174,47 @@ struct HttpExchangeConnector
         content type.
     */
     virtual HttpResponse
-    getErrorResponse(const Auction & auction,
+    getErrorResponse(const HttpAuctionHandler & connection,
+                     const Auction & auction,
                      const std::string & errorMessage) const;
+
+    /** Handles a request to a resource other than the auctionResource that
+        is specified in the configuration.  This can be used by exchange
+        connectors to handle things like ready requests.
+
+        This method should always write a response on the connection.
+        
+        Default will return a 404.
+    */
+    virtual void
+    handleUnknownRequest(HttpAuctionHandler & connection,
+                         const HttpHeader & header,
+                         const std::string & payload) const;
+
+    /** Given an agent configuration, return a structure that describes
+        the compatibility of each campaign and creative with the
+        exchange.
+
+        If includeReasons is true, then the reasons structure should be
+        filled in with a list of reasons for which the exchange rejected
+        the creative or campaign.  If includeReasons is false, the reasons
+        should be all empty to save memory allocations.  Note that it
+        doesn't make much sense to have the reasons non-empty for creatives
+        or campaigns that are approved.
+
+        The default implementation assumes that all campaigns and
+        creatives are compatible with the exchange.
+    */
+    virtual ExchangeCompatibility
+    getCampaignCompatibility(const AgentConfig & config,
+                             bool includeReasons) const;
+    
+    /** Tell if a given creative is compatible with the given exchange.
+        See getCampaignCompatibility().
+    */
+    virtual ExchangeCompatibility
+    getCreativeCompatibility(const Creative & creative,
+                             bool includeReasons) const;
 
 protected:
     virtual std::shared_ptr<ConnectionHandler> makeNewHandler();
@@ -171,13 +229,6 @@ protected:
     */
     Date enabledUntil;
     
-    /** Callback for a) when there is a new auction, and b) when an auction
-        is finished.
-
-        These are used to hook the exchange connector into the router.
-    */
-    OnAuction onNewAuction, onAuctionDone;
-
     /** Function to be called back when there is an auction timeout.  It is
         rare that you would want to do anything with this as the router will
         automatically know that an auction has timed out.
@@ -192,6 +243,21 @@ protected:
     HandlerFactory handlerFactory;
 
     int numServingRequest_;  ///< How many connections are serving a request
+
+    /// Configuration parameters
+    int numThreads;         
+    PortRange listenPort;
+    std::string bindHost;
+    bool performNameLookup;
+    int backlog;
+    std::string auctionResource;
+    std::string auctionVerb;
+
+    /// The ping time to known hosts in milliseconds
+    std::unordered_map<std::string, float> pingTimesByHostMs;
+
+    /// The ping time to assume for unknown hosts
+    float pingTimeUnknownHostsMs;
     
 private:
     friend class HttpAuctionHandler;
@@ -200,6 +266,9 @@ private:
     std::set<std::shared_ptr<HttpAuctionHandler> > handlers;
 
     void finishedWithHandler(std::shared_ptr<HttpAuctionHandler> handler);
+
+    /** Common code from all constructors. */
+    void postConstructorInit();
 };
 
 } // namespace RTBKIT

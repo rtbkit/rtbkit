@@ -22,9 +22,10 @@
 #include "soa/gc/gc_lock.h"
 #include "jml/utils/ring_buffer.h"
 #include "jml/arch/wakeup_fd.h"
+#include "jml/utils/smart_ptr_utils.h"
 #include <unordered_set>
 #include <thread>
-#include "rtbkit/plugins/exchange/exchange_connector.h"
+#include "rtbkit/common/exchange_connector.h"
 #include "rtbkit/core/agent_configuration/blacklist.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
@@ -132,6 +133,11 @@ struct Router : public ServiceBase,
     /** Bind a zeroMQ URI to listen for augmentation messages on. */
     void bindAugmentors(const std::string & uri);
 
+    /** Disable the monitor for testing purposes.  In production this could lead
+        to unbounded overspend, so please do really only use it for testing.
+    */
+    void unsafeDisableMonitor();
+
     /** Start the router running in a separate thread.  The given function
         will be called when the thread is stopped. */
     virtual void
@@ -157,11 +163,56 @@ struct Router : public ServiceBase,
             functor(item);
     }
 
-    /** Register the exchange */
-    void addExchange(std::unique_ptr<ExchangeConnector> && exchange) {
-        Guard guard(lock);
-        exchanges.emplace_back(std::move(exchange));
+    /** Connect the exchange connector to the router, but do not make the router
+        know about or own the exchange.
+
+        Used mostly for testing where we want to control the exchange connector
+        objects independently of the router.
+
+        This method should almost never be used, as the given exchange will
+        not participate in validation of bidding agent configuration.
+    */
+    void connectExchange(ExchangeConnector & exchange)
+    {
+        exchange.onNewAuction  = [=] (std::shared_ptr<Auction> a) { this->injectAuction(a, secondsUntilLossAssumed_); };
+        exchange.onAuctionDone = [=] (std::shared_ptr<Auction> a) { this->onAuctionDone(a); };
     }
+
+    /** Register the exchange with the router and make it take ownership of it */
+    void addExchange(ExchangeConnector * exchange)
+    {
+        Guard guard(lock);
+        exchanges.push_back(std::shared_ptr<ExchangeConnector>(exchange));
+        connectExchange(*exchange);
+    }
+
+    /** Register the exchange with the router.  The router will not take
+        ownership of the exchange, which means that it needs to be
+        freed by the calling code after the router has exited.
+    */
+    void addExchange(ExchangeConnector & exchange)
+    {
+        Guard guard(lock);
+        exchanges.emplace_back(ML::make_unowned_std_sp(exchange));
+        connectExchange(exchange);
+    }
+    
+    /** Register the exchange */
+    void addExchange(std::unique_ptr<ExchangeConnector> && exchange)
+    {
+        addExchange(exchange.release());
+    }
+
+    /** Start up a new exchange and connect it to the router.  The exchange
+        will read its configuration from the given JSON blob.
+    */
+    void startExchange(const std::string & exchangeType,
+                       const Json::Value & exchangeConfig);
+
+    /** Start up a new exchange and connect it to the router.  The exchange
+        will read its configuration and type from the given JSON blob.
+    */
+    void startExchange(const Json::Value & exchangeConfig);
 
     /** Inject an auction into the router.
         auction:   the auction object
@@ -244,7 +295,6 @@ struct Router : public ServiceBase,
         account. */
     Json::Value getAccountInfo(const AccountKey & account) const;
     
-
     /** Multiplier for the bid probability of all agents. */
     void setGlobalBidProbability(double val) { globalBidProbability = val; }
     
@@ -408,7 +458,7 @@ public:
     /** Add the given agent (with the given configuration) to the
         configuration structures.
     */
-    void configure(const std::string & agent, const AgentConfig & config);
+    void configure(const std::string & agent, AgentConfig & config);
 
     /** Send the given message to the given bidding agent. */
     template<typename... Args>
@@ -479,7 +529,8 @@ public:
     /** Are we initialized? */
     bool initialized;
 
-    std::vector<std::unique_ptr<ExchangeConnector> > exchanges;
+    /** List of exchanges that are active. */
+    std::vector<std::shared_ptr<ExchangeConnector> > exchanges;
 
     /*************************************************************************/
     /* EXCEPTIONS                                                            */

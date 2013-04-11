@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "rtb_js.h"
+#include "bid_request_js.h"
 #include "rtbkit/common/currency.h"
 #include "soa/js/js_value.h"
 #include "v8.h"

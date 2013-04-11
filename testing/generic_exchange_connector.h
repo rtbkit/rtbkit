@@ -8,7 +8,7 @@
 #pragma once
 
 #include "rtbkit/plugins/exchange/http_exchange_connector.h"
-#include "rtbkit/plugins/exchange/exchange_connector.h"
+#include "rtbkit/common/exchange_connector.h"
 
 namespace RTBKIT {
 
@@ -24,7 +24,7 @@ namespace RTBKIT {
 struct GenericExchangeConnector
     : public RTBKIT::HttpExchangeConnector {
     
-    GenericExchangeConnector(RTBKIT::Router * router,
+    GenericExchangeConnector(ServiceBase & owner,
                              Json::Value config);
 
     ~GenericExchangeConnector();
@@ -37,30 +37,38 @@ struct GenericExchangeConnector
     bool performNameLookup;
     int backlog;
 
-    virtual void configure(const Json::Value & parameters);
-
-    virtual void start();
+    virtual std::string exchangeName() const
+    {
+        return "rtbkit";
+    }
 
     virtual std::shared_ptr<RTBKIT::BidRequest>
-    parseBidRequest(const HttpHeader & header,
+    parseBidRequest(HttpAuctionHandler & connection,
+                    const HttpHeader & header,
                     const std::string & payload);
 
     virtual double
-    getTimeAvailableMs(const HttpHeader & header,
+    getTimeAvailableMs(HttpAuctionHandler & connection,
+                       const HttpHeader & header,
                        const std::string & payload);
 
     virtual double
-    getRoundTripTimeMs(const HttpHeader & header,
-                       const RTBKIT::HttpAuctionHandler & connection);
-
-    virtual HttpResponse getResponse(const RTBKIT::Auction & auction) const;
+    getRoundTripTimeMs(HttpAuctionHandler & connection,
+                       const HttpHeader & header);
 
     virtual HttpResponse
-    getDroppedAuctionResponse(const RTBKIT::Auction & auction,
+    getResponse(const HttpAuctionHandler & connection,
+                const HttpHeader & requestHeader,
+                const RTBKIT::Auction & auction) const;
+
+    virtual HttpResponse
+    getDroppedAuctionResponse(const HttpAuctionHandler & connection,
+                              const RTBKIT::Auction & auction,
                               const std::string & reason) const;
 
     virtual HttpResponse
-    getErrorResponse(const RTBKIT::Auction & auction,
+    getErrorResponse(const HttpAuctionHandler & connection,
+                     const RTBKIT::Auction & auction,
                      const std::string & errorMessage) const;
 
 };

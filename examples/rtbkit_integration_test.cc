@@ -159,10 +159,12 @@ struct Components
         // middle men between the exchange and the router.
 
         exchangeConnectors.emplace_back(
-                new GenericExchangeConnector(&router1, Json::Value()));
+                new GenericExchangeConnector(router1, Json::Value()));
 
         exchangeConnectors.emplace_back(
-                new GenericExchangeConnector(&router2, Json::Value()));
+                new GenericExchangeConnector(router2, Json::Value()));
+        
+
 
         for (auto& connector : exchangeConnectors) {
             connector->enableUntil(Date::positiveInfinity());
@@ -171,6 +173,9 @@ struct Components
             exchangePorts.push_back(port);
         }
 
+        router1.connectExchange(*exchangeConnectors[0]);
+        router2.connectExchange(*exchangeConnectors[1]);
+        
         // Our bidding agent which listens to the bid request stream from all
         // available routers and decide who gets to see your awesome pictures of
         // kittens.
@@ -191,6 +196,8 @@ struct Components
 
 void setupAgent(TestAgent& agent)
 {
+    return;
+
     // Set our frequency cap to 42. This has two effects: 1) it instructs the
     // router that we want bid requests destined for our agent to first be
     // augmented with frequency capping information and 2) it instructs our
@@ -217,7 +224,7 @@ void setupAgent(TestAgent& agent)
             Bid& bid = bids[0];
             ExcAssertGreater(bid.availableCreatives.size(), 0);
 
-            bid.bid(bid.availableCreatives[0], MicroUSD_CPM(10000));
+            bid.bid(bid.availableCreatives[0], USD_CPM(10));
 
             agent.doBid(id, bids, Json::Value());
             ML::atomic_inc(agent.numBidRequests);
@@ -290,11 +297,11 @@ int main(int argc, char ** argv)
     // If we had a zookeeper instance running, we could use it to do service
     // discovery. Since we don't, ServiceProxies will just default to using a
     // local service map.
-    if (false) proxies->useZookeeper("zookeeper.datacratic.com", "stats");
+    if (false) proxies->useZookeeper("zookeeper.rtbkit.org", "stats");
 
     // If we had a carbon instance running, we could use it to log events. Since
     // we don't, ServiceProxies will just default to using a local equivalent.
-    if (false) proxies->logToCarbon("carbon.datacratic.com", "stats");
+    if (false) proxies->logToCarbon("carbon.rtbkit.org", "stats");
 
 
     // Setups up the various component of the RTBKit stack. See Components::init
@@ -311,7 +318,6 @@ int main(int argc, char ** argv)
             components.budgetController,
             {"testCampaign", "testStrategy"},
             USD(1000));
-
 
     boost::thread_group threads;
 
@@ -339,6 +345,7 @@ int main(int argc, char ** argv)
 
     // Dump the budget stats while we wait for the test to finish.
     while (numDone < nExchangeThreads) {
+
         auto summary = components.budgetController.getAccountSummarySync(
                 {"testCampaign"}, -1);
         cerr <<  summary << endl;
