@@ -294,8 +294,7 @@ MasterBanker::
         cerr << "awaiting end of save operation..." << endl;
         ML::futex_wait(saving, true);
     }
-    unregisterServiceProvider(serviceName(), { "rtbBanker" });
-    monitorProviderClient.shutdown();
+    shutdown();
 }
 
 void
@@ -489,6 +488,7 @@ void
 MasterBanker::
 shutdown()
 {
+    unregisterServiceProvider(serviceName(), { "rtbBanker" });
     RestServiceEndpoint::shutdown();
     monitorProviderClient.shutdown();
 }
