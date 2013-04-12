@@ -1,71 +1,107 @@
 /* data_logger.cc
-   Sunil Rottoo, 13 February 2013
-   Copyright (c) 2013 Datacratic.  All rights reserved.
+   Jeremy Barnes, March 2011
+   Wolfgang Sourdeau, February 2013
+   Copyright (c) 2012, 2013 Datacratic.  All rights reserved.
 
-   Simple Class for logging
+   Launches the router's logger.
 */
 
+
 #include "data_logger.h"
-#include "soa/service/service_base.h"
+
 
 using namespace std;
 using namespace Datacratic;
+using namespace RTBKIT;
 
-namespace RTBKIT {
+DataLogger::
+DataLogger(std::shared_ptr<ServiceProxies> proxies)
+    : ServiceBase("data_logger", proxies),
+      Logger(proxies->zmqContext),
+      multipleSubscriber(proxies->zmqContext),
+      monitorProviderClient(proxies->zmqContext, *this)
+{}
 
-DataLogger::DataLogger(std::string zookeeperURI, string installation):
-                zookeeperURI_(zookeeperURI), installation_(installation)
+DataLogger::
+~DataLogger()
 {
-   createProxies(zookeeperURI_, installation_);
-   multipleSubscriber_ = make_shared<ZmqNamedMultipleSubscriber>(proxies_->zmqContext);
-}
-
-DataLogger::~DataLogger()
-{
+    monitorProviderClient.shutdown();
     shutdown();
 }
 
 void
-DataLogger::start()
-{
-    Logger::start();
-    multipleSubscriber_->start();
-}
-
-void
-DataLogger::createProxies(std::string zookeeperURI, std::string installation)
-{
-    proxies_ = std::make_shared<ServiceProxies>();
-    proxies_->useZookeeper(zookeeperURI, installation);
-}
-
-void
-DataLogger::init()
+DataLogger::
+init(std::shared_ptr<ConfigurationService> config)
 {
     Logger::init();
-    multipleSubscriber_->init(proxies_->config);
-    multipleSubscriber_->messageHandler
-            = [&] (vector<zmq::message_t> && msg) {
-            // forward to logger class
-            vector<string> s;
-            s.reserve(msg.size());
-            for (auto & m: msg)
-                s.push_back(m.toString());
-            this->logMessageNoTimestamp(s);
-        };
+    monitorProviderClient.init(config);
 
+    multipleSubscriber.init(config);
+    multipleSubscriber.messageHandler
+        = [&] (vector<zmq::message_t> && msg) {
+        // forward to logger class
+        vector<string> s;
+        s.reserve(msg.size());
+        for (auto & m: msg)
+            s.push_back(m.toString());
+        this->logMessageNoTimestamp(s);
+    };
+
+    //messageLoop.addSource("DataLogger::multipleSubscriber",
+    //                      multipleSubscriber);
 }
+
 void
-DataLogger::connectToAllServices(const std::vector<std::string> &services)
+DataLogger::
+start(std::function<void ()> onStop)
 {
-    for( auto service: services)
-        multipleSubscriber_->connectAllServiceProviders(service, "logger");
+    Logger::start(onStop);
+    multipleSubscriber.start();
+    monitorProviderClient.start();
 }
 
-void DataLogger::shutdown()
+void
+DataLogger::
+shutdown()
 {
+    monitorProviderClient.shutdown();
     Logger::shutdown();
-    multipleSubscriber_->shutdown();
+    multipleSubscriber.shutdown();
 }
 
-} // namespace Datacratic
+void
+DataLogger::
+connectAllServiceProviders(const string & serviceClass, const string & epName)
+{
+    multipleSubscriber.connectAllServiceProviders(serviceClass, epName);
+}
+
+/** MonitorProvider interface */
+string
+DataLogger::
+getProviderName()
+    const
+{
+    return serviceName();
+}
+
+Json::Value
+DataLogger::
+getProviderIndicators()
+    const
+{
+    bool status(true);
+
+    for (const auto & pair: multipleSubscriber.subscribers) {
+        if (pair.second->getConnectionState()
+            == ZmqNamedSocket::ConnectionState::DISCONNECTED) {
+            status = false;
+            break;
+        }
+    }
+
+    Json::Value indicators;
+    indicators["status"] = status ? "ok" : "failure";
+
+    return indicators;
+}

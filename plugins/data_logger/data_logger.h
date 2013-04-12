@@ -1,61 +1,47 @@
-/* data_logger.h                                                        -*- C++ -*-
-   Sunil Rottoo
-   Copyright (c) 2013 Datacratic.  All rights reserved.
+/* data_logger.h                                 -*- C++ -*-
+   Jeremy Barnes, March 2011
+   Wolfgang Sourdeau, February 2013
+   Copyright (c) 2012, 2013 Datacratic.  All rights reserved.
 
+   DataLogger class
 */
+
 #pragma once
 
-#include "soa/logger/logger.h"
+#include <string>
+#include <boost/function.hpp>
+#include <boost/shared_ptr.hpp>
+
 #include "soa/service/service_base.h"
 #include "soa/service/zmq_named_pub_sub.h"
-#include <string>
-#include <vector>
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
+#include "rtbkit/core/monitor/monitor_provider.h"
+
+#include "soa/logger/logger.h"
 
 namespace RTBKIT {
-/******************************************************************************/
-/*  Data Logger                                                               */
-/******************************************************************************/
 
- /**
-  * This is class that can be used to connect to well-known service classes
-  * that are registered to ZooKeeper. Typically all service providers will
-  * register a "logger" endpoint in Zookeeper to which this logger will connect.
-  */
-class DataLogger : public Datacratic::Logger {
-
-public:
-     /*
-      * Create a logger:
-      * zookeeperURI: the URI of the ZooKeeper service we are using
-      * installation: The prefix being used for this installation
-      */
-     DataLogger(std::string zookeeperURI, std::string installation);
+struct DataLogger : public Datacratic::ServiceBase,
+                      public MonitorProvider,
+                      public Datacratic::Logger {
+    DataLogger(std::shared_ptr<Datacratic::ServiceProxies> proxies);
     ~DataLogger();
-    /*
-     * Initialize the logger *
-     */
-    void init();
-    /*
-     * Start the logger
-     */
-    void start() ;
-    /*
-     * Shutdown the logger
-     */
-    void shutdown() ;
-    /*
-     * Connect to all the services specified
-     */
-    void connectToAllServices(const std::vector<std::string> &services);
 
-protected:
-    void createProxies(std::string zookeeperURI, std::string installation);
-    std::string zookeeperURI_;
-    std::string installation_;
-    std::shared_ptr<Datacratic::ServiceProxies> proxies_;
-    std::shared_ptr<Datacratic::ZmqNamedMultipleSubscriber> multipleSubscriber_;
-} ;
+    void init(std::shared_ptr<Datacratic::ConfigurationService> config);
+    void shutdown();
 
-}// namespace RTBKIT
+    void start(std::function<void ()> onStop = 0);
+
+    void connectAllServiceProviders(const std::string & serviceClass,
+                                    const std::string & epName);
+
+    // Subscription object to the named services
+    Datacratic::ZmqNamedMultipleSubscriber multipleSubscriber;
+
+    MonitorProviderClient monitorProviderClient;
+
+    /* MonitorProvider interface */
+    std::string getProviderName() const;
+    Json::Value getProviderIndicators() const;
+};
+
+} // namespace RTKBIT
