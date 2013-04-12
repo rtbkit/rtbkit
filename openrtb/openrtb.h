@@ -57,7 +57,7 @@ struct Optional: public std::unique_ptr<T> {
     Optional(const Optional & other)
     {
         if (other)
-            reset(new T(*other));
+            this->reset(new T(*other));
     }
 
     Optional & operator = (const Optional & other)
