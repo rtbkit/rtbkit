@@ -68,6 +68,8 @@ struct ValueDescription {
           jsConvertersInitialized(false)
     {
     }
+
+    virtual ~ValueDescription() {};
     
     ValueKind kind;
     const std::type_info * const type;
