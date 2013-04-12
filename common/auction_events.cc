@@ -80,6 +80,55 @@ PostAuctionEvent()
 {
 }
 
+
+PostAuctionEvent::
+PostAuctionEvent(Json::Value const & json)
+    : type(PAE_INVALID)
+{
+    for (auto it = json.begin(), end = json.end(); it != end; ++it) {
+        if (it.memberName() == "type")
+            type = (PostAuctionEventType) it->asInt();
+        else if (it.memberName() == "label")
+            label = it->asString();
+        else if (it.memberName() == "auctionId")
+            auctionId.parse(it->asString());
+        else if (it.memberName() == "adSpotId")
+            adSpotId.parse(it->asString());
+        else if (it.memberName() == "timestamp")
+            timestamp = Date::fromSecondsSinceEpoch(it->asDouble());
+        else if (it.memberName() == "account")
+            account = AccountKey::fromJson(*it);
+        else if (it.memberName() == "winPrice")
+            winPrice = Amount::fromJson(*it);
+        else if (it.memberName() == "uids")
+            uids = UserIds::createFromJson(*it);
+        else if (it.memberName() == "channels")
+            channels = SegmentList::createFromJson(*it);
+        else if (it.memberName() == "bidTimestamp")
+            bidTimestamp = Date::fromSecondsSinceEpoch(it->asDouble());
+        else throw ML::Exception("unknown location field " + it.memberName());
+    }
+}
+
+
+Json::Value
+PostAuctionEvent::
+toJson() const
+{
+    Json::Value result;
+    result["type"] = (int) type;
+    result["auctionId"] = auctionId.toString();
+    result["adSpotId"] = adSpotId.toString();
+    result["timestamp"] = timestamp.secondsSinceEpoch();
+    result["account"] = account.toJson();
+    result["winPrice"] = winPrice.toJson();
+    result["uids"] = uids.toJson();
+    result["channels"] = channels.toJson();
+    result["bidTimestamp"] = bidTimestamp.secondsSinceEpoch();
+    return result;
+}
+
+
 void
 PostAuctionEvent::
 serialize(ML::DB::Store_Writer & store) const

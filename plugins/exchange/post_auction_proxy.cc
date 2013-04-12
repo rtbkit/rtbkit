@@ -19,8 +19,8 @@ namespace RTBKIT {
 /*****************************************************************************/
 
 PostAuctionProxy::
-PostAuctionProxy(std::shared_ptr<zmq::context_t> zmqContext)
-    : toPostAuctionService(zmqContext)
+PostAuctionProxy(std::shared_ptr<zmq::context_t> context)
+    : toPostAuctionService(context)
 {
 }
 

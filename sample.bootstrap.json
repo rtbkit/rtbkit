@@ -9,24 +9,24 @@
 //   bootstrap.json file.
 {
     // Defines a namespace within zookeeper and carbon.
-    "installation": "kittens",
+    "installation": "rtb-test",
 
     // Defines a namespace on top of the installation namespace for carbon to
     // differentiate between different instances of each services. This
     // parameter is optional in which case the node name of the machine will be
     // used (see uname).
-    "node-name": "server42",
+    "node-name": "server",
 
     // Location of the Zookeeper instance which will be used to do service
     // discovery. If missing, then all will need to be located in the same
     // process and share a single instance of the ServiceProxies object (useful
     // for tests).
-    "zookeeper-uri": "zookeeper.kittens.org:2181",
+    "zookeeper-uri": "localhost:2181",
 
     // Location of the Carbon instances which will be used to log various
     // metrics. If missing, then a barebone internal event logger will be
     // created which can be useful to write tests.
-    "carbon-uri": ["carbon1.kittens.org:2003", "carbonA.kittens.org:2003"],
+    // "carbon-uri": ["carbon1.kittens.org:2003", "carbonA.kittens.org:2003"],
 
     // Port ranges that various services can use to listen for incoming
     // connections. These can be specified either as a single port or a range of
@@ -47,6 +47,8 @@
         "agentConfiguration.http":  9986,
 
         "monitor.zmq":            [24000, 25000],
-        "monitor.http":             9987
+        "monitor.http":             9987,
+
+        "adServer/logger":        [25000, 26000]
     }
 }

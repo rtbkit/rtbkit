@@ -72,6 +72,7 @@ COMPACT_PERSISTENT_ENUM_DECL(PostAuctionEventType);
 
 struct PostAuctionEvent {
     PostAuctionEvent();
+    PostAuctionEvent(Json::Value const & json);
 
     PostAuctionEventType type;
     std::string label; /* for campaign events */
@@ -84,6 +85,8 @@ struct PostAuctionEvent {
     UserIds uids;
     SegmentList channels;
     Date bidTimestamp;
+
+    Json::Value toJson() const;
 
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);

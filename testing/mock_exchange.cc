@@ -8,7 +8,7 @@
 
 #include "mock_exchange.h"
 
-#include "core/post_auction/post_auction_loop.h"
+#include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "soa/service/http_header.h"
 
 #include <array>
@@ -18,94 +18,52 @@ using namespace ML;
 
 namespace RTBKIT {
 
-
 /******************************************************************************/
 /* MOCK EXCHANGE                                                              */
 /******************************************************************************/
 
 MockExchange::
+MockExchange(Datacratic::ServiceProxyArguments & args, const std::string& name) :
+    ServiceBase(name, args.makeServiceProxies()),
+    running(0) {
+}
+
+
+MockExchange::
 MockExchange(const shared_ptr<ServiceProxies> proxies, const string& name) :
     ServiceBase(name, proxies),
-    rng(random()),
-    toPostAuctionService(getZmqContext()),
-    toRouterAddr(nullptr),
-    toRouterFd(-1)
-{}
+    running(0) {
+}
 
 
 MockExchange::
 ~MockExchange()
 {
-    if (toRouterAddr) freeaddrinfo(toRouterAddr);
-    if (toRouterFd >= 0) close(toRouterFd);
+    threads.join_all();
 }
 
 
 void
 MockExchange::
-init(size_t exchangeId, const vector<int>& ports)
-{
-    this->exchangeId = exchangeId;
-
-    toPostAuctionService.init(getServices()->config, ZMQ_XREQ);
-    toPostAuctionService.connectToServiceClass("rtbPostAuctionService", "events");
-
-    string addr = "127.0.0.1";
-    addrinfo hints = { 0, AF_INET, SOCK_STREAM, 0, 0, 0, 0, 0 };
-    int port = ports[random() % ports.size()];
-
-    // Now we have it as a sockaddr_t. Convert it back to a numeric address
-    int res = getaddrinfo(
-            addr.c_str(), to_string(port).c_str(), &hints, &toRouterAddr);
-
-    ExcCheckErrno(!res, ML::format("addrToIp(%s)", addr.c_str()));
-    ExcCheck(toRouterAddr, "no addresses");
-
-    connect();
-}
-
-
-void
-MockExchange::
-start(size_t numBidRequests)
+start(size_t threadCount, size_t numBidRequests, int bidPort, int winPort)
 {
     try {
-        for (size_t i = 0; i < numBidRequests; ++i) {
+        running = threadCount;
 
-            BidRequest bidRequest = makeBidRequest(i);
-            recordHit("requests");
-
-            while (true) {
-                Date beforeSend = Date::now();
-
-                sendBidRequest(bidRequest);
-                recordHit("sent");
-
-                auto response = recvBid();
-
-                Date afterResponse = Date::now();
-
-                double responseTimeMs = afterResponse.secondsSince(beforeSend) * 1000.0;
-
-                recordOutcome(responseTimeMs, "responseTimeMs");
-
-                if (!response.first) continue;
-                recordHit("bids");
-
-                vector<Bid> bids = response.second;
-
-                for (const Bid& bid : bids) {
-
-                    auto ret = isWin(bidRequest, bid);
-                    if (!ret.first) continue;
-                    sendWin(bidRequest, bid, ret.second);
-                    recordHit("wins");
-
-                    // \todo simulate the other PAL events.
-                }
-                break;
+        auto startWorker = [=](size_t i) {
+            Worker worker(this, i, bidPort, winPort);
+            if(numBidRequests) {
+                worker.run(numBidRequests);
+            }
+            else {
+                worker.run();
             }
 
+            ML::atomic_dec(running);
+        };
+
+        for(size_t i = 0; i != threadCount; ++i) {
+            threads.create_thread(std::bind(startWorker, i));
         }
     }
     catch (const exception& ex) {
@@ -114,77 +72,61 @@ start(size_t numBidRequests)
 }
 
 
-BidRequest
-MockExchange::
-makeBidRequest(size_t i)
+MockExchange::Stream::
+Stream(int port) : addr(0), fd(-1)
 {
-    BidRequest bidRequest;
+    addrinfo hint = { 0, AF_INET, SOCK_STREAM, 0, 0, 0, 0, 0 };
 
-    FormatSet formats;
-    formats.push_back(Format(160,600));
+    int res = getaddrinfo(0, to_string(port).c_str(), &hint, &addr);
+    ExcCheckErrno(!res, "getaddrinfo failed");
 
-    AdSpot spot1;
-    spot1.id = Id(1);
-    spot1.formats = formats;
-    bidRequest.spots.emplace_back(std::move(spot1));
+    if(!addr) {
+        throw ML::Exception("cannot find suitable address");
+    }
 
-    AdSpot spot2;
-    formats[0] = Format(300,250);
-    spot2.id = Id(2);
-    spot2.formats = formats;
-    bidRequest.spots.emplace_back(std::move(spot2));
-
-    bidRequest.location.countryCode = "CA";
-    bidRequest.location.regionCode = "QC";
-    bidRequest.location.cityName = "Montreal";
-    bidRequest.auctionId = Id(exchangeId * 10000000 + i);
-    bidRequest.exchange = "test";
-    bidRequest.language = "en";
-    bidRequest.url = Url("http://rtbkit.org");
-    bidRequest.timestamp = Date::now();
-    bidRequest.userIds.add(Id(std::string("foo")), ID_EXCHANGE);
-    bidRequest.userIds.add(Id(std::string("bar")), ID_PROVIDER);
-
-    return bidRequest;
+    std::cerr << "publishing on port " << port << std::endl;
+    connect();
 }
 
 
-pair<bool, Amount>
-MockExchange::
-isWin(const BidRequest&, const Bid& bid)
+MockExchange::Stream::
+~Stream()
 {
-    if (rng.random01() >= 0.1)
-        return make_pair(false, Amount());
-
-    return make_pair(true, MicroUSD(bid.maxPrice * rng.random01()));
+    if (addr) freeaddrinfo(addr);
+    if (fd >= 0) close(fd);
 }
 
 
 void
-MockExchange::
+MockExchange::Stream::
 connect()
 {
-    if (toRouterFd != -1)
-        close(toRouterFd);
+    if(fd >= 0) close(fd);
 
-    toRouterFd = socket(AF_INET, SOCK_STREAM, 0);
-    ExcCheckErrno(toRouterFd != -1, "couldn't get socket");
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    ExcCheckErrno(fd != -1, "socket failed");
 
-    int res = ::connect(
-            toRouterFd, toRouterAddr->ai_addr, toRouterAddr->ai_addrlen);
-    ExcCheckErrno(!res, "couldn't connect to router");
+    for(;;) {
+        int res = ::connect(fd, addr->ai_addr, addr->ai_addrlen);
+        if(res == 0) {
+            break;
+        }
+
+        ML::sleep(0.1);
+    }
 }
 
 
 void
-MockExchange::
+MockExchange::BidStream::
 sendBidRequest(const BidRequest& originalBidRequest)
 {
     string strBidRequest = originalBidRequest.toJsonStr();
     string httpRequest = ML::format(
-            "POST /auction HTTP/1.1\r\n"
+            "POST /bids HTTP/1.1\r\n"
             "Content-Length: %zd\r\n"
             "Content-Type: application/json\r\n"
+            "Connection: Keep-Alive\r\n"
             "\r\n"
             "%s",
             strBidRequest.size(),
@@ -195,8 +137,13 @@ sendBidRequest(const BidRequest& originalBidRequest)
     const char * end = current + httpRequest.size();
 
     while (current != end) {
-        int res = send(toRouterFd, current, end - current, MSG_NOSIGNAL);
-        ExcCheckErrno(res != -1, "send()");
+        int res = send(fd, current, end - current, MSG_NOSIGNAL);
+        if(res == 0 || res == -1) {
+            connect();
+            current = httpRequest.c_str();
+            continue;
+        }
+
         current += res;
     }
 
@@ -205,8 +152,8 @@ sendBidRequest(const BidRequest& originalBidRequest)
 
 
 auto
-MockExchange::
-parseResponse(const string& rawResponse) -> pair<bool, vector<Bid> >
+MockExchange::BidStream::
+parseResponse(const string& rawResponse) -> pair<bool, vector<Bid>>
 {
     Json::Value payload;
 
@@ -229,7 +176,6 @@ parseResponse(const string& rawResponse) -> pair<bool, vector<Bid> >
 
     ExcAssert(payload.isMember("spots"));
 
-
     vector<Bid> bids;
 
     for (size_t i = 0; i < payload["spots"].size(); ++i) {
@@ -239,15 +185,7 @@ parseResponse(const string& rawResponse) -> pair<bool, vector<Bid> >
 
         bid.adSpotId = Id(spot["id"].asString());
         bid.maxPrice = spot["max_price"].asInt();
-        bid.tagId = spot["tag_id"].toString();
-
-        string passback = spot["passback"].asString();
-        vector<string> passbackFields = split(passback, ',');
-
-        bid.account = AccountKey(passbackFields.at(1));
-        bid.bidTimestamp =
-            Date::parseSecondsSinceEpoch(passbackFields.at(2));
-
+        bid.account = AccountKey(spot["account"].asString(), '.');
         bids.push_back(bid);
     }
 
@@ -256,25 +194,60 @@ parseResponse(const string& rawResponse) -> pair<bool, vector<Bid> >
 
 
 auto
-MockExchange::
-recvBid() -> pair<bool, vector<Bid> >
+MockExchange::BidStream::
+recvBid() -> pair<bool, vector<Bid>>
 {
     array<char, 16384> buffer;
 
-    int res = recv(toRouterFd, buffer.data(), buffer.size(), 0);
+    int res = recv(fd, buffer.data(), buffer.size(), 0);
     if (res == 0 || (res == -1 && errno == ECONNRESET)) {
-        connect();
         return make_pair(false, vector<Bid>());
     }
 
     ExcCheckErrno(res != -1, "recv");
 
+    close(fd);
+    fd = -1;
+
     return parseResponse(string(buffer.data(), res));
 }
 
 
+auto
+MockExchange::BidStream::
+makeBidRequest() -> BidRequest
+{
+    BidRequest bidRequest;
+
+    FormatSet formats;
+    formats.push_back(Format(160,600));
+    AdSpot spot;
+    spot.id = Id(1);
+    spot.formats = formats;
+    bidRequest.spots.push_back(spot);
+
+    formats[0] = Format(300,250);
+    spot.id = Id(2);
+    bidRequest.spots.push_back(spot);
+
+    bidRequest.location.countryCode = "CA";
+    bidRequest.location.regionCode = "QC";
+    bidRequest.location.cityName = "Montreal";
+    bidRequest.auctionId = Id(id * 10000000 + key);
+    bidRequest.exchange = "test";
+    bidRequest.language = "en";
+    bidRequest.url = Url("http://datacratic.com");
+    bidRequest.timestamp = Date::now();
+    bidRequest.userIds.add(Id(std::string("foo")), ID_EXCHANGE);
+    bidRequest.userIds.add(Id(std::string("bar")), ID_PROVIDER);
+    ++key;
+
+    return bidRequest;
+}
+
+
 void
-MockExchange::
+MockExchange::WinStream::
 sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
 {
     PostAuctionEvent event;
@@ -287,8 +260,97 @@ sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
     event.account = bid.account;
     event.bidTimestamp = bid.bidTimestamp;
 
-    string str = ML::DB::serializeToString(event);
-    toPostAuctionService.sendMessage("WIN", str);
+    string str = event.toJson().toString();
+    string httpRequest = ML::format(
+            "POST /win HTTP/1.1\r\n"
+            "Content-Length: %zd\r\n"
+            "Content-Type: application/json\r\n"
+            "Connection: Keep-Alive\r\n"
+            "\r\n"
+            "%s",
+            str.size(),
+            str.c_str());
+
+    const char * current = httpRequest.c_str();
+    const char * end = current + httpRequest.size();
+
+    while (current != end) {
+        int res = send(fd, current, end - current, MSG_NOSIGNAL);
+        if(res == 0 || res == -1) {
+            connect();
+            current = httpRequest.c_str();
+            continue;
+        }
+
+        current += res;
+    }
+
+    close(fd);
+    fd = -1;
+
+    std::cerr << "win sent payload=" << str << std::endl;
+
+    ExcAssertEqual((void *)current, (void *)end);
+}
+
+
+MockExchange::Worker::
+Worker(MockExchange * exchange, size_t id, int bidPort, int winPort) : exchange(exchange), bids(bidPort, id), wins(winPort), rng(random()) {
+}
+
+
+void
+MockExchange::Worker::
+run() {
+    for(;;) {
+        bid();
+    }
+}
+
+
+void
+MockExchange::Worker::
+run(size_t requests) {
+    for(size_t i = 0; i != requests; ++i) {
+        bid();
+    }
+}
+
+
+void
+MockExchange::Worker::bid() {
+    BidRequest bidRequest = bids.makeBidRequest();
+    exchange->recordHit("requests");
+
+    for (;;) {
+        bids.sendBidRequest(bidRequest);
+        exchange->recordHit("sent");
+
+        auto response = bids.recvBid();
+        if (!response.first) continue;
+        exchange->recordHit("bids");
+
+        vector<Bid> bids = response.second;
+
+        for (const Bid& bid : bids) {
+            auto ret = isWin(bidRequest, bid);
+            if (!ret.first) continue;
+            wins.sendWin(bidRequest, bid, ret.second);
+            exchange->recordHit("wins");
+        }
+
+        break;
+    }
+}
+
+
+pair<bool, Amount>
+MockExchange::Worker::isWin(const BidRequest&, const Bid& bid)
+{
+    if (rng.random01() >= 0.1)
+        return make_pair(false, Amount());
+
+    return make_pair(true, MicroUSD(bid.maxPrice * rng.random01()));
 }
 
 

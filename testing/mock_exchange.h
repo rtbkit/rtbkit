@@ -14,6 +14,7 @@
 #include "common/account_key.h"
 #include "common/currency.h"
 #include "common/bid_request.h"
+#include "soa/service/service_utils.h"
 #include "soa/service/service_base.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/types/id.h"
@@ -31,15 +32,18 @@ namespace RTBKIT {
 
 struct MockExchange : public Datacratic::ServiceBase
 {
-    MockExchange(
-            const std::shared_ptr<Datacratic::ServiceProxies> services
-                = std::make_shared<Datacratic::ServiceProxies>(),
-            const std::string& name = "mock-exchange");
+    MockExchange(Datacratic::ServiceProxyArguments & args,
+                 const std::string& name = "mock-exchange");
+    MockExchange(const std::shared_ptr<Datacratic::ServiceProxies> services,
+                 const std::string& name = "mock-exchange");
 
     ~MockExchange();
 
-    void init(size_t exchangeId, const std::vector<int>& ports);
-    void start(size_t numBidRequests);
+    void start(size_t threadCount, size_t numBidRequests, int bidPort, int winPort);
+
+    bool isDone() const {
+        return !running;
+    }
 
 protected:
 
@@ -53,39 +57,56 @@ protected:
         Datacratic::Date bidTimestamp;
     };
 
-    virtual BidRequest makeBidRequest(size_t i);
-
-    virtual std::pair<bool, Amount>
-    isWin(const BidRequest&, const Bid& bid);
-
 private:
+    int running;
 
-    void connect();
+    struct Stream {
+        Stream(int port);
+        ~Stream();
+        void connect();
 
-    void sendBidRequest(const BidRequest& request);
+        addrinfo * addr;
+        int fd;
+    };
 
-    std::pair<bool, std::vector<Bid> >
-    parseResponse(const std::string& rawResponse);
+    struct BidStream : public Stream {
+        BidStream(int port, int id) : Stream(port), id(id * port), key(0) {
+        }
 
-    std::pair<bool, std::vector<Bid> > recvBid();
+        void sendBidRequest(const BidRequest& request);
+        std::pair<bool, std::vector<Bid>> parseResponse(const std::string& rawResponse);
+        std::pair<bool, std::vector<Bid>> recvBid();
 
+        BidRequest makeBidRequest();
 
-    /** In reality, the exchange wouldn't send anything directly to the
-        PAL. That'd be the job of the connector.
-     */
-    void sendWin(
-            const BidRequest& bidRequest,
-            const Bid& bid,
-            const Amount& winPrice);
+        long long id;
+        long long key;
+    };
 
+    struct WinStream : public Stream {
+        WinStream(int port) : Stream(port) {
+        }
 
-    ML::RNG rng;
+        void sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice);
+    };
 
-    ZmqNamedProxy toPostAuctionService;
-    addrinfo* toRouterAddr;
-    int toRouterFd;
+    struct Worker {
+        Worker(MockExchange * exchange, size_t id, int bidPort, int winPort);
 
-    size_t exchangeId;
+        void run();
+        void run(size_t requests);
+        void bid();
+
+        std::pair<bool, Amount> isWin(const BidRequest&, const Bid& bid);
+
+        MockExchange * exchange;
+        BidStream bids;
+        WinStream wins;
+        ML::RNG rng;
+    };
+
+    std::vector<Worker> workers;
+    boost::thread_group threads;
 };
 
 
