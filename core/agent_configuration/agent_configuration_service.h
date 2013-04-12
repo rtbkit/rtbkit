@@ -9,6 +9,8 @@
 #include "soa/service/service_base.h"
 #include "soa/service/rest_request_router.h"
 
+#include "rtbkit/core/monitor/monitor_provider.h"
+
 namespace RTBKIT {
 
 using namespace Datacratic;
@@ -30,7 +32,10 @@ using namespace Datacratic;
     configurations once they are changed.
 */
 
-struct AgentConfigurationService : public RestServiceEndpoint, public ServiceBase {
+struct AgentConfigurationService : public RestServiceEndpoint,
+                                   public ServiceBase,
+                                   public MonitorProvider
+{
 
     AgentConfigurationService(std::shared_ptr<ServiceProxies> services,
                               const std::string & serviceName = "agentConfigurationService");
@@ -97,6 +102,13 @@ struct AgentConfigurationService : public RestServiceEndpoint, public ServiceBas
     };
 
     std::unordered_map<std::string, AgentInfo> agentInfo;
+
+    /* Reponds to Monitor requests */
+    MonitorProviderClient monitorProviderClient;
+
+    /* MonitorProvider interface */
+    std::string getProviderName() const;
+    Json::Value getProviderIndicators() const;
 };
 
 } // namespace RTBKIT

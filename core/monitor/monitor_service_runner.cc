@@ -39,7 +39,8 @@ int main(int argc, char ** argv)
     auto proxies = args.makeServiceProxies();
 
     MonitorEndpoint monitor(proxies, "monitor");
-    monitor.init({"router", "postAuction", "masterBanker", "router_logger"});
+    monitor.init({"router", "postAuction", "masterBanker", "router_logger",
+                "agentConfigurationService"});
     auto addr = monitor.bindTcp(
             proxies->ports->getRange("monitor.zmq"),
             proxies->ports->getRange("monitor.http"));
