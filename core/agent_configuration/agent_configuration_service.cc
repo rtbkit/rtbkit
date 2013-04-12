@@ -25,7 +25,8 @@ AgentConfigurationService(std::shared_ptr<ServiceProxies> services,
     : RestServiceEndpoint(services->zmqContext), 
       ServiceBase(serviceName, services),
       agents(services->zmqContext),
-      listeners(services->zmqContext)
+      listeners(services->zmqContext),
+      monitorProviderClient(services->zmqContext, *this)
 {
 }
 
@@ -229,6 +230,31 @@ void
 AgentConfigurationService::
 handleAgentHeartbeat(const std::string & agent)
 {
+}
+
+/** MonitorProvider interface */
+string
+AgentConfigurationService::
+getProviderName()
+    const
+{
+    return serviceName();
+}
+
+Json::Value
+AgentConfigurationService::
+getProviderIndicators()
+    const
+{
+    Json::Value value;
+
+    /* MB health check:
+       - no error occurred in last save (implying Redis conn is alive) */
+    Date now = Date::now();
+    bool status(true);
+    value["status"] = status ? "ok" : "failure";
+
+    return value;
 }
 
 } // namespace RTBKIT

@@ -8,7 +8,7 @@ LIBAGENT_CONFIGURATION_SOURCES := \
 	agent_configuration_service.cc \
 
 LIBAGENT_CONFIGURATION_LINK := \
-	rtb zeromq boost_thread opstats gc services utils
+	rtb zeromq boost_thread opstats gc services utils monitor
 
 $(eval $(call library,agent_configuration,$(LIBAGENT_CONFIGURATION_SOURCES),$(LIBAGENT_CONFIGURATION_LINK)))
 
