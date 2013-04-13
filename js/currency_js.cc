@@ -57,7 +57,7 @@ struct AmountJS :
             string currency = getArg<string>(args, 1, "NONE", "currency");
             int64_t value = getArg<int64_t>(args, 2, 0, "value");
 
-            cerr << "new amount " << currency << " " << value << endl;
+            //cerr << "new amount " << currency << " " << value << endl;
 
             auto obj = std::make_shared<Amount>(currency, value);
             new AmountJS(args.This(), obj);
