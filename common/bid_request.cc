@@ -109,11 +109,13 @@ DefaultDescription()
     onUnknownField = [=] (BidRequest * br, JsonParsingContext & context)
         {
             //context.skip();
-
-            cerr << "got unknown field " << context.printPath()
-            << " " << context.expectJson().toString() << endl;
-
-#if 0
+            if(context.printPath().find("!!CV") != std::string::npos)
+            {
+               context.skip();
+            }
+            else
+            {
+               cerr << "(default description)got unknown field " << context.printPath() << endl;
             std::function<Json::Value & (int, Json::Value &)> getEntry
             = [&] (int n, Json::Value & curr) -> Json::Value &
             {
@@ -126,7 +128,7 @@ DefaultDescription()
 
             getEntry(0, br->unparseable)
             = context.expectJson();
-#endif
+            }
         };
     addField("id", &BidRequest::auctionId, "Exchange auction ID");
     addField("timestamp", &BidRequest::timestamp, "Bid request timestamp");
@@ -135,8 +137,10 @@ DefaultDescription()
     addField("ipAddress", &BidRequest::ipAddress, "IP address of user");
     addField("userAgent", &BidRequest::userAgent, "User agent of device");
     addField("language", &BidRequest::language, "User language code");
+    cerr << "About to add field protocol version " << endl;
     addField("protocolVersion", &BidRequest::protocolVersion,
              "bid request protocol version");
+    cerr << "...done" << endl;
     addField("exchange", &BidRequest::exchange, "Original bid request exchagne");
     addField("provider", &BidRequest::provider, "Bid request provider");
     addField("winSurcharges", &BidRequest::winSurcharges,
@@ -548,7 +552,7 @@ fromJson(const Json::Value & val)
     // in the unparseable array via this function
     auto onUnknownField = [&] ()
         {
-            cerr << "got unknown field " << context.printPath()
+            cerr << "(adspot)got unknown field " << context.printPath()
             << context.expectJson() << endl;
             
 #if 0
@@ -1162,8 +1166,9 @@ parse(const std::string & source, const std::string & bidRequest)
     }
 
     if (source == "datacratic" || strncmp(bidRequest.c_str(), "{\"!!CV\":", 8) == 0)
+    {
         return CanonicalParser::parse(bidRequest);
-
+    }
     Parser parser = getParser(source);
 
     //cerr << "got parser for source " << source << endl;
