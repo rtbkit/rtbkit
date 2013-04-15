@@ -333,7 +333,7 @@ int main(int argc, char ** argv)
     // Start up the exchange threads which should let bid requests flow through
     // our stack.
     MockExchange exchange(proxies, "mock-exchange");
-    exchange.start(nExchangeThreads, nBidRequestsPerThread, component.exchangePorts, { 12340 });
+    exchange.start(nExchangeThreads, nBidRequestsPerThread, components.exchangePorts, { 12340 });
 
     // Dump the budget stats while we wait for the test to finish.
     while (!exchange.isDone()) {
