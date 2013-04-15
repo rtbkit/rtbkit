@@ -137,10 +137,8 @@ DefaultDescription()
     addField("ipAddress", &BidRequest::ipAddress, "IP address of user");
     addField("userAgent", &BidRequest::userAgent, "User agent of device");
     addField("language", &BidRequest::language, "User language code");
-    cerr << "About to add field protocol version " << endl;
     addField("protocolVersion", &BidRequest::protocolVersion,
              "bid request protocol version");
-    cerr << "...done" << endl;
     addField("exchange", &BidRequest::exchange, "Original bid request exchagne");
     addField("provider", &BidRequest::provider, "Bid request provider");
     addField("winSurcharges", &BidRequest::winSurcharges,
