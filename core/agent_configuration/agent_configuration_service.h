@@ -52,6 +52,7 @@ struct AgentConfigurationService : public RestServiceEndpoint,
     void start()
     {
         RestServiceEndpoint::start();
+        monitorProviderClient.start();
         //listeners.start();
     }
 
@@ -60,6 +61,7 @@ struct AgentConfigurationService : public RestServiceEndpoint,
         RestServiceEndpoint::shutdown();
         agents.shutdown();
         listeners.shutdown();
+        monitorProviderClient.shutdown();
     }
 
     /// Handler for POST /v1/agents/<name>/heartbeat

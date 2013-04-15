@@ -164,6 +164,8 @@ init()
 
     addSource("AgentConfigurationService::agents", agents);
     addSource("AgentConfigurationService::listeners", listeners);
+
+    monitorProviderClient.init(getServices()->config);
 }
 
 void
