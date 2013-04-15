@@ -45,12 +45,12 @@ MockExchange::
 
 void
 MockExchange::
-start(size_t threadCount, size_t numBidRequests, int bidPort, int winPort)
+start(size_t threadCount, size_t numBidRequests, std::vector<int> const & bidPorts, std::vector<int> const & winPorts)
 {
     try {
         running = threadCount;
 
-        auto startWorker = [=](size_t i) {
+        auto startWorker = [=](size_t i, int bidPort, int winPort) {
             Worker worker(this, i, bidPort, winPort);
             if(numBidRequests) {
                 worker.run(numBidRequests);
@@ -62,8 +62,13 @@ start(size_t threadCount, size_t numBidRequests, int bidPort, int winPort)
             ML::atomic_dec(running);
         };
 
+        int bp = 0;
+        int wp = 0;
+
         for(size_t i = 0; i != threadCount; ++i) {
-            threads.create_thread(std::bind(startWorker, i));
+            int bidPort = bidPorts[bp++ % bidPorts.size()];
+            int winPort = winPorts[wp++ % winPorts.size()];
+            threads.create_thread(std::bind(startWorker, i, bidPort, winPort));
         }
     }
     catch (const exception& ex) {
@@ -112,7 +117,7 @@ connect()
             break;
         }
 
-        ML::sleep(0.1);
+        //ML::sleep(0.1);
     }
 }
 

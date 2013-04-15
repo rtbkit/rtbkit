@@ -101,7 +101,7 @@ struct MockAdServerConnector : public Datacratic::ServiceBase
                             Json::Value(),
                             event.uids,
                             event.account,
-                            event.bidTimestamp);
+                            Date::now());
 
             Date now = Date::now();
             publisher.publish("WIN", now.print(3), event.auctionId.toString(), event.winPrice.toString(), "0");

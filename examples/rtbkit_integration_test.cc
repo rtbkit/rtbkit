@@ -179,8 +179,8 @@ struct Components
             ++ports;
         }
 
-        router1.connectExchange(*exchangeConnectors[0]);
-        router2.connectExchange(*exchangeConnectors[1]);
+        router1.addExchange(*exchangeConnectors[0]);
+        router2.addExchange(*exchangeConnectors[1]);
         
         // Setup an ad server connector that also acts as a midlle men between
         // the exchange's wins and the post auction loop.
@@ -333,7 +333,7 @@ int main(int argc, char ** argv)
     // Start up the exchange threads which should let bid requests flow through
     // our stack.
     MockExchange exchange(proxies, "mock-exchange");
-    exchange.start(nExchangeThreads, nBidRequestsPerThread, 12339, 12340);
+    exchange.start(nExchangeThreads, nBidRequestsPerThread, component.exchangePorts, { 12340 });
 
     // Dump the budget stats while we wait for the test to finish.
     while (!exchange.isDone()) {

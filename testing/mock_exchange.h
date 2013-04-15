@@ -39,7 +39,7 @@ struct MockExchange : public Datacratic::ServiceBase
 
     ~MockExchange();
 
-    void start(size_t threadCount, size_t numBidRequests, int bidPort, int winPort);
+    void start(size_t threadCount, size_t numBidRequests, std::vector<int> const & bidPorts, std::vector<int> const & winPorts);
 
     bool isDone() const {
         return !running;

@@ -19,8 +19,8 @@ int main(int argc, char ** argv)
 {
     using namespace boost::program_options;
 
-    int bidPort = 12339;
-    int winPort = 12340;
+    std::vector<int> bidPort = { 12339 };
+    std::vector<int> winPort = { 12340 };
     int thread = 1;
 
     ServiceProxyArguments args;
