@@ -7,18 +7,9 @@
 */
 
 
-#include "soa/service/service_base.h"
-#include "soa/service/carbon_connector.h"
-#include "soa/service/process_stats.h"
-#include "soa/service/service_base.h"
-#include "soa/service/zmq_named_pub_sub.h"
-#include "soa/logger/file_output.h"
-#include "soa/logger/stats_output.h"
-#include "soa/logger/multi_output.h"
-#include "rtbkit/common/auction.h"
-#include "jml/arch/timers.h"
-#include "rtbkit/core/monitor/monitor_provider.h"
 #include "rtbkit/plugins/data_logger/data_logger.h"
+#include "soa/logger/file_output.h"
+#include "soa/logger/multi_output.h"
 #include "soa/service/service_utils.h"
 
 #include <boost/program_options/cmdline.hpp>
@@ -26,14 +17,11 @@
 #include <boost/program_options/positional_options.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
 #include <vector>
 #include <string>
-#include <iostream>
-#include <sstream>
 #include <thread>
-#include <algorithm>
+#include <chrono>
 
 
 using namespace std;
@@ -126,12 +114,11 @@ int main (int argc, char** argv)
         exit(0);
     }
 
-    auto proxies = serviceArgs.makeServiceProxies();
-    proxies->config->dump(cerr);
+    auto serviceProxies = serviceArgs.makeServiceProxies();
 
     // Initialize the logger and it's outputs.
-    DataLogger logger(proxies);
-    logger.init(proxies->config);
+    DataLogger logger(serviceProxies);
+    logger.init();
     setupOutputs(logger, logDir, rotationInterval);
 
     // Subscribe to the message stream coming from the adServer, the router and
@@ -144,7 +131,7 @@ int main (int argc, char** argv)
     logger.start();
 
     // Job done. Time to take a good long nap.
-    while (true) ML::sleep(10.0);
+    while (true) this_thread::sleep_for(chrono::seconds(10));
 
     return 0;
 }

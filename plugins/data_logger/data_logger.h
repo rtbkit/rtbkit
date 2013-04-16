@@ -21,12 +21,12 @@
 namespace RTBKIT {
 
 struct DataLogger : public Datacratic::ServiceBase,
-                      public MonitorProvider,
-                      public Datacratic::Logger {
+                    public MonitorProvider,
+                    public Datacratic::Logger {
     DataLogger(std::shared_ptr<Datacratic::ServiceProxies> proxies);
     ~DataLogger();
 
-    void init(std::shared_ptr<Datacratic::ConfigurationService> config);
+    void init();
     void shutdown();
 
     void start(std::function<void ()> onStop = 0);

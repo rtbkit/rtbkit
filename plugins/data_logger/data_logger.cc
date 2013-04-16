@@ -31,12 +31,12 @@ DataLogger::
 
 void
 DataLogger::
-init(std::shared_ptr<ConfigurationService> config)
+init()
 {
     Logger::init();
-    monitorProviderClient.init(config);
+    monitorProviderClient.init(getServices()->config);
 
-    multipleSubscriber.init(config);
+    multipleSubscriber.init(getServices()->config);
     multipleSubscriber.messageHandler
         = [&] (vector<zmq::message_t> && msg) {
         // forward to logger class
