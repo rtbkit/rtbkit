@@ -45,7 +45,7 @@ PROJECT_BRIEF          = "Open-source framework to create real-time ad bidding s
 # exceed 55 pixels and the maximum width should not exceed 200 pixels.
 # Doxygen will copy the logo to the output directory.
 
-PROJECT_LOGO           =
+PROJECT_LOGO           = dox/logo.png
 
 # The OUTPUT_DIRECTORY tag is used to specify the (relative or absolute)
 # base path where the generated documentation will be put.
@@ -680,7 +680,7 @@ RECURSIVE              = YES
 # Note that relative paths are relative to the directory from which doxygen is
 # run.
 
-EXCLUDE                = jml-build jml tinyxml2 googleurl leveldb build node_modules testing
+EXCLUDE                = jml jml-build tinyxml2 googleurl leveldb build node_modules
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
