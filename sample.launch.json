@@ -25,7 +25,7 @@
                 {
                     "name": "logger",
                     "root": ".",
-                    "path": "build/x86_64/bin/data_logger_runner",
+                    "path": "build/x86_64/bin/data_logger_ex",
                     "arg": [
                         "-B", "sample.bootstrap.json", "--log-dir", "./logs/data/"
                     ],
