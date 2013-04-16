@@ -826,7 +826,7 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
 {
     /* First, check that the exchange has blessed this campaign as being
        biddable.  If not, we don't go any further. */
-    const void * exchangeInfo;
+    const void * exchangeInfo = NULL;
     std::string exchangeName;
 
     if (exchangeConnector) {
