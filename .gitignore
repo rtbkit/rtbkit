@@ -21,3 +21,4 @@ tmp
 *.orig
 bootstrap.json
 perf.data
+dox
