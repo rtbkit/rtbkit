@@ -197,7 +197,7 @@ struct USD : public Amount {
             ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
     }
     
-    operator double () const { return value / 0.000001; }
+    operator double () const { return value * 0.000001; }
 };
 
 struct USD_CPM : public Amount {
