@@ -13,7 +13,6 @@
 #include "rtbkit/core/banker/master_banker.h"
 #include "rtbkit/core/banker/slave_banker.h"
 #include "rtbkit/core/monitor/monitor_endpoint.h"
-#include "rtbkit/plugins/exchange/post_auction_proxy.h"
 #include "jml/utils/rng.h"
 #include "jml/utils/pair_utils.h"
 #include "jml/utils/environment.h"
@@ -69,7 +68,7 @@ struct Components
         : proxies(proxies),
           router1(proxies, "router1"),
           router2(proxies, "router2"),
-          winStream(proxies, "mockStream"),
+          winStream("mockStream", proxies),
           postAuctionLoop(proxies, "pas1"),
           masterBanker(proxies, "masterBanker"),
           agentConfig(proxies, "agentConfigurationService"),
