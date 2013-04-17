@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include "jml/arch/spinlock.h"
 #include "soa/jsoncpp/json.h"
 #include <boost/regex.hpp>
 #include <boost/regex/icu.hpp>
@@ -54,6 +55,9 @@ struct Creative {
     /// Configuration values; per provider
     /// eg: OpenRTB, ...
     Json::Value providerConfig;
+
+    /// lock for the provider data
+    mutable ML::Spinlock lock;
 
     /// List of provider-specific creative data
     std::map<std::string, std::shared_ptr<void> > providerData;
@@ -315,6 +319,9 @@ struct AgentConfig {
 
     /** JSON value that is passed through with each bid. */
     Json::Value providerConfig;
+
+    /// lock for the provider data
+    mutable ML::Spinlock lock;
 
     /// List of provider-specific creative data
     std::map<std::string, std::shared_ptr<void> > providerData;

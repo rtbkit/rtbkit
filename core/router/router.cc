@@ -2358,6 +2358,8 @@ configure(const std::string & agent, AgentConfig & config)
                     cerr << "creative not compatible: " << ccomp.reasons << endl;
                     return;
                 }
+
+                std::lock_guard<ML::Spinlock> guard(c.lock);
                 c.providerData[exchangeName] = ccomp.info;
                 ++numCompatibleCreatives;
             }
@@ -2367,6 +2369,7 @@ configure(const std::string & agent, AgentConfig & config)
                 return;
             }
 
+            std::lock_guard<ML::Spinlock> guard(config.lock);
             config.providerData[exchangeName] = ecomp.info;
         };
 

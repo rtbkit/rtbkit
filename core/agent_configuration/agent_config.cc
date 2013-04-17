@@ -790,9 +790,6 @@ canBid(const ExchangeConnector * exchangeConnector,
     for (unsigned i = 0;  i < spots.size();  ++i) {
         //cerr << "trying spot " << i << endl;
 
-        auto it = providerData;
-        
-        
         // Check that the fold position matches
         if (!foldPositionFilter.isIncluded(spots[i].position))
             continue;
@@ -836,14 +833,17 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
         //     << " providerData.size() = " << providerData.size()
         //     << endl;
 
-        auto it = providerData.find(exchangeName);
-        if (it == providerData.end()) {
-            if (doFilterStat)
-                doFilterStat("static.001_exchangeRejectedCampaign");
-            return BiddableSpots();
-        }
+        {
+            std::lock_guard<ML::Spinlock> guard(lock);
+            auto it = providerData.find(exchangeName);
+            if (it == providerData.end()) {
+                if (doFilterStat)
+                    doFilterStat("static.001_exchangeRejectedCampaign");
+                return BiddableSpots();
+            }
 
-        exchangeInfo = it->second.get();
+            exchangeInfo = it->second.get();
+        }
 
         /* Now we know the exchange connector likes the campaign, we
            should check that the campaign and bid request are compatible.
