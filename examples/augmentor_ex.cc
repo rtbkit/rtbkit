@@ -77,7 +77,7 @@ FrequencyCapAugmentor(
         std::shared_ptr<Datacratic::ServiceProxies> services,
         const string& serviceName,
         const string& augmentorName) :
-    SyncAugmentorBase(augmentorName, serviceName, services),
+    SyncAugmentor(augmentorName, serviceName, services),
     storage(new FrequencyCapStorage()),
     agentConfig(getZmqContext()),
     palEvents(getZmqContext())
@@ -96,7 +96,7 @@ void
 FrequencyCapAugmentor::
 init()
 {
-    SyncAugmentorBase::init(2 /* numThreads */);
+    SyncAugmentor::init(2 /* numThreads */);
 
     /* Manages all the communications with the AgentConfigurationService. */
     agentConfig.init(getServices()->config);

@@ -34,18 +34,18 @@ namespace RTBKIT {
 /** Regroups the various parameters for the augmentation request.
 
     Note that this object must be relatively copy friendly because it must be
-    transfered to worker threads in the MultiThreadedAugmentorBase and the
-    AsyncAugmentorBase.
+    transfered to worker threads in the MultiThreadedAugmentor and the
+    AsyncAugmentor.
  */
 struct AugmentationRequest
 {
     std::string augmentor;                    // Name of the augmentor
-    std::string router;                       // Router to respond to.
-    Id id;                                    // Id of... something...
-    std::shared_ptr<BidRequest> bidRequest; // Bid request to augment
-    std::vector<std::string> agents;          // Agents availble to bid.
-    double timeAvailableMs;                   // Time to respond.
-    Date startTime;                           // Start of the latency timer.
+    std::string router;                       // Router to respond to
+    Id id;                                    // Auction id
+    std::shared_ptr<BidRequest> bidRequest;   // Bid request to augment
+    std::vector<std::string> agents;          // Agents availble to bid
+    double timeAvailableMs;                   // Time to respond
+    Date startTime;                           // Start of the latency timer
 };
 
 
@@ -57,17 +57,17 @@ struct AugmentationRequest
     build on top of this class.
 */
 
-struct AugmentorBase : public ServiceBase, public MessageLoop {
+struct Augmentor : public ServiceBase, public MessageLoop {
 
-    AugmentorBase(const std::string & augmentorName,
+    Augmentor(const std::string & augmentorName,
                   const std::string & serviceName,
                   std::shared_ptr<ServiceProxies> proxies);
 
-    AugmentorBase(const std::string & augmentorName,
+    Augmentor(const std::string & augmentorName,
                   const std::string & serviceName,
                   ServiceBase & parent);
 
-    ~AugmentorBase();
+    ~Augmentor();
 
     void init();
     void start();
@@ -107,17 +107,17 @@ private:
 
 /** Multi-threaded augmentor base class. */
 
-struct MultiThreadedAugmentorBase : public AugmentorBase {
+struct MultiThreadedAugmentor : public Augmentor {
 
-    MultiThreadedAugmentorBase(const std::string & augmentorName,
+    MultiThreadedAugmentor(const std::string & augmentorName,
                                const std::string & serviceName,
                                std::shared_ptr<ServiceProxies> proxies);
 
-    MultiThreadedAugmentorBase(const std::string & augmentorName,
+    MultiThreadedAugmentor(const std::string & augmentorName,
                                const std::string & serviceName,
                                ServiceBase & parent);
 
-    ~MultiThreadedAugmentorBase();
+    ~MultiThreadedAugmentor();
 
     void init(int numThreads);
     void shutdown();
@@ -155,23 +155,23 @@ private:
     function.
 
  */
-struct SyncAugmentorBase : public MultiThreadedAugmentorBase
+struct SyncAugmentor : public MultiThreadedAugmentor
 {
 
-    SyncAugmentorBase(const std::string & augmentorName,
+    SyncAugmentor(const std::string & augmentorName,
                       const std::string& serviceName,
                       std::shared_ptr<ServiceProxies> proxies)
-            : MultiThreadedAugmentorBase(augmentorName, serviceName, proxies)
+            : MultiThreadedAugmentor(augmentorName, serviceName, proxies)
     {
-        doRequest = boost::bind(&SyncAugmentorBase::onRequest, this, _1);
+        doRequest = boost::bind(&SyncAugmentor::onRequest, this, _1);
     }
 
-    SyncAugmentorBase(const std::string & augmentorName,
+    SyncAugmentor(const std::string & augmentorName,
                       const std::string & serviceName,
                       ServiceBase& parent)
-        : MultiThreadedAugmentorBase(augmentorName, serviceName, parent)
+        : MultiThreadedAugmentor(augmentorName, serviceName, parent)
     {
-        doRequest = boost::bind(&SyncAugmentorBase::onRequest, this, _1);
+        doRequest = boost::bind(&SyncAugmentor::onRequest, this, _1);
     }
 
     boost::function<AugmentationList(const AugmentationRequest &) > doRequest;
@@ -203,23 +203,23 @@ protected:
     sendResponse callback provided as a parameter to the doRequest function.
 
  */
-struct AsyncAugmentorBase : public MultiThreadedAugmentorBase
+struct AsyncAugmentor : public MultiThreadedAugmentor
 {
 
-    AsyncAugmentorBase(const std::string & augmentorName,
+    AsyncAugmentor(const std::string & augmentorName,
                        const std::string & serviceName,
                        std::shared_ptr<ServiceProxies> proxies) :
-        MultiThreadedAugmentorBase(augmentorName, serviceName, proxies)
+        MultiThreadedAugmentor(augmentorName, serviceName, proxies)
     {
-        doRequest = boost::bind(&AsyncAugmentorBase::onRequest, this, _1, _2);
+        doRequest = boost::bind(&AsyncAugmentor::onRequest, this, _1, _2);
     }
 
-    AsyncAugmentorBase(const std::string & augmentorName,
+    AsyncAugmentor(const std::string & augmentorName,
                        const std::string & serviceName,
                        ServiceBase& parent) :
-        MultiThreadedAugmentorBase(augmentorName, serviceName, parent)
+        MultiThreadedAugmentor(augmentorName, serviceName, parent)
     {
-        doRequest = boost::bind(&AsyncAugmentorBase::onRequest, this, _1, _2);
+        doRequest = boost::bind(&AsyncAugmentor::onRequest, this, _1, _2);
     }
 
     typedef std::function<void (const AugmentationList &)> SendResponseCB;

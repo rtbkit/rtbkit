@@ -42,7 +42,7 @@ struct AgentConfigEntry;
 
  */
 struct FrequencyCapAugmentor :
-    public RTBKIT::SyncAugmentorBase
+    public RTBKIT::SyncAugmentor
 {
 
     FrequencyCapAugmentor(

@@ -27,8 +27,8 @@ namespace RTBKIT {
 // Determined via a very scientific method: 2^16 should be enough... right?
 enum { QueueSize = 65536 };
 
-AugmentorBase::
-AugmentorBase(const std::string & augmentorName,
+Augmentor::
+Augmentor(const std::string & augmentorName,
           const std::string & serviceName,
           std::shared_ptr<ServiceProxies> proxies)
     : ServiceBase(serviceName, proxies),
@@ -38,8 +38,8 @@ AugmentorBase(const std::string & augmentorName,
 {
 }
 
-AugmentorBase::
-AugmentorBase(const std::string & augmentorName,
+Augmentor::
+Augmentor(const std::string & augmentorName,
           const std::string & serviceName,
           ServiceBase& parent)
     : ServiceBase(serviceName, parent),
@@ -49,14 +49,14 @@ AugmentorBase(const std::string & augmentorName,
 {
 }
 
-AugmentorBase::
-~AugmentorBase()
+Augmentor::
+~Augmentor()
 {
     shutdown();
 }
 
 void
-AugmentorBase::
+Augmentor::
 init()
 {
     responseQueue.onEvent = [=] (const Response& resp)
@@ -76,7 +76,7 @@ init()
             recordHit("messages.RESPONSE");
         };
 
-    addSource("AugmentorBase::responseQueue", responseQueue);
+    addSource("Augmentor::responseQueue", responseQueue);
 
     toRouters.init(getServices()->config, serviceName());
 
@@ -104,11 +104,11 @@ init()
 
     toRouters.connectAllServiceProviders("rtbRouterAugmentation", "augmentors");
 
-    addSource("AugmentorBase::toRouters", toRouters);
+    addSource("Augmentor::toRouters", toRouters);
 
 
     double lastSleepTime = 0;
-    addPeriodic("AugmentorBase::dutyCycle", 1.0, [=] (uint64_t) mutable {
+    addPeriodic("Augmentor::dutyCycle", 1.0, [=] (uint64_t) mutable {
                 double sleepTime = totalSleepSeconds();
                 recordLevel((sleepTime - lastSleepTime) * 1000.0, "sleepTime");
                 lastSleepTime = sleepTime;
@@ -116,14 +116,14 @@ init()
 }
 
 void
-AugmentorBase::
+Augmentor::
 start()
 {
     MessageLoop::start();
 }
 
 void
-AugmentorBase::
+Augmentor::
 shutdown()
 {
     MessageLoop::shutdown();
@@ -131,7 +131,7 @@ shutdown()
 }
 
 void
-AugmentorBase::
+Augmentor::
 configureAndWait()
 {
 #if 0
@@ -145,7 +145,7 @@ configureAndWait()
 }
 
 void
-AugmentorBase::
+Augmentor::
 respond(const AugmentationRequest & request, const AugmentationList & response)
 {
     if (responseQueue.tryPush(make_pair(request, response)))
@@ -155,7 +155,7 @@ respond(const AugmentationRequest & request, const AugmentationList & response)
 }
 
 void
-AugmentorBase::
+Augmentor::
 handleRouterMessage(const std::string & router,
                     const std::vector<std::string> & message)
 {
@@ -218,46 +218,46 @@ handleRouterMessage(const std::string & router,
 /* MULTI THREADED AUGMENTOR                                                   */
 /*****************************************************************************/
 
-MultiThreadedAugmentorBase::
-MultiThreadedAugmentorBase(const std::string & augmentorName,
+MultiThreadedAugmentor::
+MultiThreadedAugmentor(const std::string & augmentorName,
                        const std::string & serviceName,
                        std::shared_ptr<ServiceProxies> proxies)
-    : AugmentorBase(augmentorName, serviceName, proxies),
+    : Augmentor(augmentorName, serviceName, proxies),
       numWithInfo(0),
       ringBuffer(102400)
 {
-    AugmentorBase::onRequest
-        = boost::bind(&MultiThreadedAugmentorBase::pushRequest, this, _1);
+    Augmentor::onRequest
+        = boost::bind(&MultiThreadedAugmentor::pushRequest, this, _1);
     numThreadsCreated = 0;
 }
 
-MultiThreadedAugmentorBase::
-MultiThreadedAugmentorBase(const std::string & augmentorName,
+MultiThreadedAugmentor::
+MultiThreadedAugmentor(const std::string & augmentorName,
                        const std::string & serviceName,
                        ServiceBase& parent)
-    : AugmentorBase(augmentorName, serviceName, parent),
+    : Augmentor(augmentorName, serviceName, parent),
       numWithInfo(0),
       ringBuffer(102400)
 {
-    AugmentorBase::onRequest
-        = boost::bind(&MultiThreadedAugmentorBase::pushRequest, this, _1);
+    Augmentor::onRequest
+        = boost::bind(&MultiThreadedAugmentor::pushRequest, this, _1);
     numThreadsCreated = 0;
 }
 
-MultiThreadedAugmentorBase::
-~MultiThreadedAugmentorBase()
+MultiThreadedAugmentor::
+~MultiThreadedAugmentor()
 {
     shutdown();
 }
 
 void
-MultiThreadedAugmentorBase::
+MultiThreadedAugmentor::
 init(int numThreads)
 {
     if (numThreadsCreated)
         throw ML::Exception("double init of augmentor");
 
-    AugmentorBase::init();
+    Augmentor::init();
 
     shutdown_ = false;
 
@@ -268,7 +268,7 @@ init(int numThreads)
 }
 
 void
-MultiThreadedAugmentorBase::
+MultiThreadedAugmentor::
 shutdown()
 {
     shutdown_ = true;
@@ -282,11 +282,11 @@ shutdown()
 
     numThreadsCreated = 0;
 
-    AugmentorBase::shutdown();
+    Augmentor::shutdown();
 }
 
 void
-MultiThreadedAugmentorBase::
+MultiThreadedAugmentor::
 runWorker()
 {
     while (!shutdown_) {
@@ -303,7 +303,7 @@ runWorker()
 }
 
 void
-MultiThreadedAugmentorBase::
+MultiThreadedAugmentor::
 pushRequest(const AugmentationRequest & request)
 {
     ringBuffer.push(request);
