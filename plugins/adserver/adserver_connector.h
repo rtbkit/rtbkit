@@ -75,9 +75,9 @@ struct AdServerConnector : public Datacratic::ServiceBase {
                               const JsonHolder & impressionMeta,
                               const UserIds & ids);
 
-private:
     Date startTime_;
 
+private:
     // Connection to the post auction loops
     ZmqNamedProxy toPostAuctionService_;
 
