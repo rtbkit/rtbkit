@@ -70,8 +70,6 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
     void strictMode(bool strict) { requiresAllCB = strict; }
 
     void init();
-    // Gets rid of the MessageLoop's default param for the JS wrappers.
-    void start() { MessageLoop::start(); }
     void shutdown();
 
 
