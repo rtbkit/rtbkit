@@ -777,7 +777,7 @@ toJson(bool includeCreatives) const
 BiddableSpots
 AgentConfig::
 canBid(const ExchangeConnector * exchangeConnector,
-       const std::vector<AdSpot> & spots,
+       const std::vector<AdSpot> & imp,
        const std::string & exchange,
        const std::string & protocolVersion,
        const std::string & language,
@@ -787,19 +787,19 @@ canBid(const ExchangeConnector * exchangeConnector,
     BiddableSpots result;
 
     // TODO: do a lookup, not an exhaustive scan
-    for (unsigned i = 0;  i < spots.size();  ++i) {
+    for (unsigned i = 0;  i < imp.size();  ++i) {
         //cerr << "trying spot " << i << endl;
 
         // Check that the fold position matches
-        if (!foldPositionFilter.isIncluded(spots[i].position))
+        if (!foldPositionFilter.isIncluded(imp[i].position))
             continue;
 
         SmallIntVector matching;
         for (unsigned j = 0;  j < creatives.size();  ++j) {
-    //        cerr << "spot: " << spots[i].width << "x" << spots[i].height
+    //        cerr << "spot: " << imp[i].width << "x" << imp[i].height
     //             << " creative: " << creatives[j].width << "x"
     //             << creatives[j].height << endl;
-            if (creatives[j].compatible(spots[i])
+            if (creatives[j].compatible(imp[i])
                 && creatives[j].biddable(exchange, protocolVersion)
                 && creatives[j].exchangeFilter.isIncluded(exchange)
                 && creatives[j].languageFilter.isIncluded(language)
@@ -862,7 +862,7 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
     */
     BiddableSpots biddableSpots = canBid(
             exchangeConnector,
-            request.spots,
+            request.imp,
             request.exchange,
             request.protocolVersion,
             cache.language,
@@ -870,11 +870,11 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
             cache.locationHash,
             cache.locationFilter);
 
-    //cerr << "agent " << it->first << " spots "
+    //cerr << "agent " << it->first << " imp "
     //     << biddableSpots.size() << endl;
 
     if (biddableSpots.empty()) {
-        //cerr << "no biddable spots" << endl;
+        //cerr << "no biddable imp" << endl;
         ML::atomic_inc(stats.noSpots);
         if (doFilterStat) doFilterStat("static.010_noSpots");
         return BiddableSpots();

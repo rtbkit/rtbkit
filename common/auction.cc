@@ -407,7 +407,7 @@ status() const
 {
     Data * current = this->data;
 
-    string result = ML::format("Auction: %d spots", (int)numSpots());
+    string result = ML::format("Auction: %d imp", (int)numSpots());
     if (current->tooLate) result += " tooLate";
     if (!current->error.empty()) result += " error: " + current->error;
 

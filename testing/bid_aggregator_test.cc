@@ -539,7 +539,7 @@ struct WinLossOutput : public LogOutput {
 #if 0
         int spotNum = req->findSpotIndex(spotId);
         
-        std::string format = req->spots[spotNum].format();
+        std::string format = req->imp[spotNum].format();
 #endif
 
         int creativeId JML_UNUSED = boost::lexical_cast<int>(fields[11]);

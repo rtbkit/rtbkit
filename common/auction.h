@@ -211,10 +211,10 @@ struct Auction : public std::enable_shared_from_this<Auction> {
     */
     bool finish();
 
-    /** How many spots in this auction? */
+    /** How many imp in this auction? */
     size_t numSpots() const
     {
-        return request->spots.size();
+        return request->imp.size();
     }
 
     /** Return a JSON representation of the response. */

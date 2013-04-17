@@ -1522,10 +1522,10 @@ struct BidRequestJS
 
         static DefaultDescription<BidRequest> desc;
 
-        registerFieldFromDescription<BidRequestJS>(desc, "spots");
+        registerFieldFromDescription<BidRequestJS>(desc, "imp");
 
 
-        //registerRWProperty(&BidRequest::spots, "spots", v8::DontDelete);
+        //registerRWProperty(&BidRequest::imp, "imp", v8::DontDelete);
         
         //registerRWProperty(&BidRequest::winSurcharge, "winSurchage",
         //                   v8::DontDelete);

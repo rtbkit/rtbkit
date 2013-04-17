@@ -92,7 +92,7 @@ struct Bid
     static Bid fromJson(ML::Parse_Context&);
 };
 
-/** Vector that contains a Bid entry for each spots that are available for
+/** Vector that contains a Bid entry for each imp that are available for
     bidding.
 
     \todo The interface for this could be vastly improved and shared with
@@ -124,7 +124,7 @@ struct BidResult
     double timestamp;       ///> Time at which the event occured
 
     Id auctionId;           ///> Unique auction id for the original bid
-    int spotNum;            ///> Spot index into the bidRequest.spots or ourBid
+    int spotNum;            ///> Spot index into the bidRequest.imp or ourBid
     Amount secondPrice;     ///> Depends on result from router or the exchange
     std::string confidence; ///> ???
 

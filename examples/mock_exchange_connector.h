@@ -76,7 +76,7 @@ struct MockExchangeConnector : public HttpExchangeConnector {
         if (current->hasError())
             return getErrorResponse(handler, auction, current->error + ": " + current->details);
 
-        result = "{\"spots\":[";
+        result = "{\"imp\":[";
 
         bool first = true;
         for (unsigned spotNum = 0; spotNum < current->responses.size(); ++spotNum) {
@@ -88,7 +88,7 @@ struct MockExchangeConnector : public HttpExchangeConnector {
 
             auto & resp = current->winningResponse(spotNum);
             result += ML::format("{\"id\":\"%s\",\"max_price\":%lld,\"account\":\"%s\"}",
-                             ML::jsonEscape(auction.request->spots.at(spotNum).id.toString()).c_str(),
+                             ML::jsonEscape(auction.request->imp.at(spotNum).id.toString()).c_str(),
                              (long long)(MicroUSD_CPM(resp.price.maxPrice)),
                              resp.account.toString('.'));
         }

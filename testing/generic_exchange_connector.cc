@@ -114,7 +114,7 @@ getResponse(const HttpAuctionHandler & connection,
     }
 
     result = "{";
-    result += "\"spots\":[";
+    result += "\"imp\":[";
 
     int numSpotsThere = 0;
     string passback;
@@ -138,7 +138,7 @@ getResponse(const HttpAuctionHandler & connection,
             (resp.agentConfig).get();
 
         result += format("{\"id\":\"%s\",\"max_price\":%d,\"tag_id\":%d,\"passback\":\"%s,%s,%.6f\"",
-                         jsonEscape(auction.request->spots[spotNum].id.toString()).c_str(),
+                         jsonEscape(auction.request->imp[spotNum].id.toString()).c_str(),
                          resp.price.maxPrice,
                          resp.tagId,
                          jsonEscape(resp.account.toString()),
@@ -172,7 +172,7 @@ getDroppedAuctionResponse(const HttpAuctionHandler & connection,
     Json::Value response;
     if (reason != "")
         response["reason"] = "Early drop";
-    response["spots"] = Json::Value(Json::arrayValue);
+    response["imp"] = Json::Value(Json::arrayValue);
     
     return HttpResponse(200, response);
 }

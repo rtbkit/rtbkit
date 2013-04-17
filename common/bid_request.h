@@ -303,7 +303,7 @@ struct BidRequest {
     OpenRTB::Optional<OpenRTB::User> user;
 
     /** The impressions that are available within the bid request. */
-    std::vector<AdSpot> spots;
+    std::vector<AdSpot> imp;
 
 
     /* The following fields are all mirrored from the information in the rest
@@ -364,8 +364,8 @@ struct BidRequest {
     /** Return the spot number with the given ID.  -1 on not found. */
     int findAdSpotIndex(const Id & adSpotId) const
     {
-        for (unsigned i = 0; i < spots.size();  ++i)
-            if (spots[i].id == adSpotId)
+        for (unsigned i = 0; i < imp.size();  ++i)
+            if (imp[i].id == adSpotId)
                 return i;
         return -1;
     }

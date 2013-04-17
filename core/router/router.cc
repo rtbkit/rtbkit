@@ -1134,10 +1134,10 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
 
     const string & exchange = auction->request->exchange;
 
-    /* Parse out the adspots. */
-    const vector<AdSpot> & spots = auction->request->spots;
+    /* Parse out the adimp. */
+    const vector<AdSpot> & imp = auction->request->imp;
 
-    recordCount(spots.size(), "exchange.%s.spots", exchange.c_str());
+    recordCount(imp.size(), "exchange.%s.imp", exchange.c_str());
     recordHit("exchange.%s.requests", exchange.c_str());
 
     // List of possible agents per round robin group
@@ -1206,7 +1206,7 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
 
             PotentialBidder bidder;
             bidder.agent = agentName;
-            bidder.spots = biddableSpots;
+            bidder.imp = biddableSpots;
             bidder.config = entry.config;
             bidder.stats = entry.stats;
 
@@ -1481,7 +1481,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
             BidInfo bidInfo;
             bidInfo.agentConfig = winner.config;
             bidInfo.bidTime = Date::now();
-            bidInfo.spots = winner.spots;
+            bidInfo.imp = winner.imp;
 
             auctionInfo.bidders.insert(make_pair(agent, std::move(bidInfo)));  // create empty bid response
             if (!info.trackBidInFlight(auctionId, bidInfo.bidTime))
@@ -1499,7 +1499,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                              auctionId,
                              info.getBidRequestEncoding(*auction),
                              info.encodeBidRequest(*auction),
-                             winner.spots.toJsonStr(),
+                             winner.imp.toJsonStr(),
                              toString(timeLeftMs),
                              auction->agentAugmentations[agent]);
 
@@ -1685,7 +1685,7 @@ doBid(const std::vector<std::string> & message)
 
     //cerr << "info.inFlight = " << info.inFlight << endl;
 
-    const std::vector<AdSpot> & spots = auctionInfo.auction->request->spots;
+    const std::vector<AdSpot> & imp = auctionInfo.auction->request->imp;
 
     int numValidBids = 0;
 
@@ -1744,7 +1744,7 @@ doBid(const std::vector<std::string> & message)
 
     doProfileEvent(6, "parsing");
 
-    ExcCheckEqual(bids.size(), bidInfo.spots.size(),
+    ExcCheckEqual(bids.size(), bidInfo.imp.size(),
             "invalid shape for bids array");
 
     auctionInfo.auction->addDataSources(bids.dataSources);
@@ -1758,7 +1758,7 @@ doBid(const std::vector<std::string> & message)
             continue;
         }
 
-        int spotIndex = bidInfo.spots[i].first;
+        int spotIndex = bidInfo.imp[i].first;
 
         if (bid.creativeIndex == -1) {
             returnInvalidBid(i, "nullCreativeField",
@@ -1790,14 +1790,14 @@ doBid(const std::vector<std::string> & message)
 
         const Creative & creative = config.creatives.at(bid.creativeIndex);
 
-        if (!creative.compatible(spots[spotIndex])) {
+        if (!creative.compatible(imp[spotIndex])) {
 #if 1
             cerr << "creative not compatible with spot: " << endl;
             cerr << "auction: " << auctionInfo.auction->requestStr
                 << endl;
             cerr << "config: " << config.toJson() << endl;
             cerr << "bid: " << biddata << endl;
-            cerr << "spot: " << spots[i].toJson() << endl;
+            cerr << "spot: " << imp[i].toJson() << endl;
             cerr << "spot num: " << spotIndex << endl;
             cerr << "bid num: " << i << endl;
             cerr << "creative num: " << bid.creativeIndex << endl;
@@ -1806,7 +1806,7 @@ doBid(const std::vector<std::string> & message)
             returnInvalidBid(i, "creativeNotCompatibleWithSpot",
                     "creative %s not compatible with spot %s",
                     creative.toJson().toString().c_str(),
-                    spots[spotIndex].toJson().toString().c_str());
+                    imp[spotIndex].toJson().toString().c_str());
             continue;
         }
 
@@ -1821,7 +1821,7 @@ doBid(const std::vector<std::string> & message)
 
         string auctionKey
             = auctionId.toString() + "-"
-            + spots[spotIndex].id.toString() + "-"
+            + imp[spotIndex].id.toString() + "-"
             + agent;
 
         if (!banker->authorizeBid(config.account, auctionKey, bid.price)
@@ -1844,7 +1844,7 @@ doBid(const std::vector<std::string> & message)
         doProfileEvent(6, "banker");
 
         if (doDebug)
-            this->debugSpot(auctionId, spots[spotIndex].id,
+            this->debugSpot(auctionId, imp[spotIndex].id,
                     ML::format("BID %s %s %f",
                             auctionKey.c_str(),
                             bid.price.toString().c_str(),
@@ -1881,7 +1881,7 @@ doBid(const std::vector<std::string> & message)
         string msg = Auction::Response::print(localResult);
 
         if (doDebug)
-            this->debugSpot(auctionId, spots[spotIndex].id,
+            this->debugSpot(auctionId, imp[spotIndex].id,
                     ML::format("BID %s %s",
                             auctionKey.c_str(), msg.c_str()));
 
@@ -1980,13 +1980,13 @@ doBid(const std::vector<std::string> & message)
     // TODO: clean up if no bids were made?
 #if 0
     // Bids must be the same shape as the bid info or empty
-    if (bidInfo.spots.size() != bids.size() && bids.size() != 0) {
+    if (bidInfo.imp.size() != bids.size() && bids.size() != 0) {
         ++info.stats->bidErrors;
         returnInvalidBid(-1, "wrongBidResponseShape",
-                         "number of spots in bid request doesn't match "
+                         "number of imp in bid request doesn't match "
                          "those in bid: %d vs %d",
-                         bidInfo.spots.size(), bids.size(),
-                         bidInfo.spots.toJson().toString().c_str(),
+                         bidInfo.imp.size(), bids.size(),
+                         bidInfo.imp.toJson().toString().c_str(),
                          biddata.c_str());
 
         if (auctionInfo.bidders.empty()) {
@@ -2030,13 +2030,13 @@ doSubmitted(std::shared_ptr<Auction> auction)
                      {});
 
     //ExcAssertEqual(allResponses.size(),
-    //               auction->bidRequest->spots.size());
-    //cerr << "got a win for auction id " << auctionId << " with num spots:" << allResponses.size() << endl;
-    // Go through the spots one by one
+    //               auction->bidRequest->imp.size());
+    //cerr << "got a win for auction id " << auctionId << " with num imp:" << allResponses.size() << endl;
+    // Go through the imp one by one
     for (unsigned spotNum = 0;  spotNum < allResponses.size();  ++spotNum) {
 
         bool hasSubmittedBid = false;
-        Id spotId = auction->request->spots[spotNum].id;
+        Id spotId = auction->request->imp[spotNum].id;
 
         const std::vector<Auction::Response> & responses
             = allResponses[spotNum];

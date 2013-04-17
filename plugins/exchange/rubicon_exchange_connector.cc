@@ -213,8 +213,8 @@ getResponse(const HttpAuctionHandler & connection,
         
         // Put in the variable parts
         b.cid = Id(resp.agent);
-        b.id = Id(auction.id, auction.request->spots[0].id);
-        b.impid = auction.request->spots[spotNum].id;
+        b.id = Id(auction.id, auction.request->imp[0].id);
+        b.impid = auction.request->imp[spotNum].id;
         b.price.val = USD_CPM(resp.price.maxPrice);
         b.adm = crinfo->adm;
         b.adomain = crinfo->adomain;

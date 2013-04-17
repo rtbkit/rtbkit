@@ -111,7 +111,7 @@ struct TestAgent: public BiddingAgent {
 
     void defaultNoBudget(const BiddingAgent::BidResultArgs & args);
     void defaultBid(double timestamp, const Id & id,
-            std::shared_ptr<BidRequest> br, const Json::Value & spots,
+            std::shared_ptr<BidRequest> br, const Json::Value & imp,
             double timeLeftMs);
 
     void setupCallbacks()
@@ -291,7 +291,7 @@ struct RouterTester {
         request->auctionId = Id(id);
         AdSpot spot1(request->auctionId);
         spot1.formats.push_back(Format(300, 250));
-        request->spots.push_back(spot1);
+        request->imp.push_back(spot1);
         string current = request->toJsonStr();
         std::shared_ptr<Auction> auction(
                 new Auction(handleAuction, request, current, start, expiry,
@@ -451,12 +451,12 @@ void TestAgent::step3Check()
 }
 
 void TestAgent::defaultBid(double timestamp, const Id & id,
-        std::shared_ptr<BidRequest> br, const Json::Value & spots,
+        std::shared_ptr<BidRequest> br, const Json::Value & imp,
         double timeLeftMs)
 {
     Json::Value response;
-    //cerr << "spots = " << spots << endl;
-    response[0u]["creative"] = spots[0u]["creatives"][0u];
+    //cerr << "imp = " << imp << endl;
+    response[0u]["creative"] = imp[0u]["creatives"][0u];
     response[0u]["price"] = bidPrice_; //100000000;
     response[0u]["surplus"] = 1;
 

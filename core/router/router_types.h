@@ -28,7 +28,7 @@ struct AgentConfig;
 typedef ML::compact_vector<std::pair<int, SmallIntVector>, 3, uint32_t >
 BiddableSpotsBase;
 
-/** Information about which adspots are biddable
+/** Information about which adimp are biddable
     List of (adspot index, [creative indexes]) pairs that are compatible with
     this agent.
 */
@@ -240,7 +240,7 @@ struct PotentialBidder {
 
     std::string agent;
     float inFlightProp;
-    BiddableSpots spots;
+    BiddableSpots imp;
     std::shared_ptr<const AgentConfig> config;
     std::shared_ptr<AgentStats> stats;
 
@@ -280,7 +280,7 @@ struct AuctionInfoBase {
 
 struct BidInfo {
     Date bidTime;
-    BiddableSpots spots;
+    BiddableSpots imp;
     std::shared_ptr<const AgentConfig> agentConfig;  //< config active at auction
 };
 

@@ -152,7 +152,7 @@ DefaultDescription()
     addField("restrictions", &BidRequest::restrictions,
              "restrictions active for bid request");
     addField("userIds", &BidRequest::userIds, "User IDs for this user");
-    addField("spots", &BidRequest::spots, "Ad spots in this request");
+    addField("imp", &BidRequest::imp, "Ad imp in this request");
     addField("site", &BidRequest::site, "OpenRTB site object");
     addField("app", &BidRequest::app, "OpenRTB app object");
     addField("device", &BidRequest::device, "OpenRTB device object");
@@ -928,9 +928,9 @@ toJson() const
 
     result["location"] = location.toJson();
 
-    if (!spots.empty()) {
-        for (unsigned i = 0;  i < spots.size();  ++i) {
-            result["spots"][i] = spots[i].toJson();
+    if (!imp.empty()) {
+        for (unsigned i = 0;  i < imp.size();  ++i) {
+            result["imp"][i] = imp[i].toJson();
         }
     }
 
@@ -1048,12 +1048,12 @@ createFromJson(const Json::Value & json)
             result.restrictions = SegmentsBySource::createFromJson(*it);
         else if (it.memberName() == "userIds")
             result.userIds = UserIds::createFromJson(*it);
-        else if (it.memberName() == "spots") {
+        else if (it.memberName() == "imp" || it.memberName() == "imp") {
             const Json::Value & json = *it;
             if (!json.empty() && !json.isArray())
-                throw ML::Exception("spots is not an array");
+                throw ML::Exception("imp is not an array");
             for (unsigned i = 0;  i < json.size();  ++i) {
-                result.spots.push_back(AdSpot::createFromJson(json[i]));
+                result.imp.push_back(AdSpot::createFromJson(json[i]));
             }
         }
         else if (it.memberName() == "site") {
@@ -1277,7 +1277,7 @@ serialize(ML::DB::Store_Writer & store) const
     unsigned char version = 2;
     store << version << auctionId << language << protocolVersion
           << exchange << provider << timestamp << isTest
-          << location << userIds << spots << url << ipAddress << userAgent
+          << location << userIds << imp << url << ipAddress << userAgent
           << restrictions << segments << meta
           << winSurcharges;
 }
@@ -1298,7 +1298,7 @@ reconstitute(ML::DB::Store_Reader & store)
 
     store >> auctionId >> language >> protocolVersion
           >> exchange >> provider >> timestamp >> isTest
-          >> location >> userIds >> spots >> url >> ipAddress >> userAgent
+          >> location >> userIds >> imp >> url >> ipAddress >> userAgent
           >> restrictions >> segments >> meta >> winSurcharges;
 }
 

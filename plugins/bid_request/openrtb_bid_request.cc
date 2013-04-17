@@ -115,12 +115,12 @@ fromOpenRtb(OpenRTB::BidRequest && req,
             }
 #endif
             
-            result->spots.emplace_back(std::move(spot));
+            result->imp.emplace_back(std::move(spot));
 
             
         };
 
-    result->spots.reserve(req.imp.size());
+    result->imp.reserve(req.imp.size());
 
     for (auto & i: req.imp)
         onImpression(std::move(i));

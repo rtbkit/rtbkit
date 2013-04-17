@@ -376,18 +376,18 @@ handleBidRequest(const std::string & fromRouter,
     std::shared_ptr<BidRequest> br(
             BidRequest::parse(bidRequestSource, msg[4]));
 
-    Json::Value spots = jsonParse(msg[5]);
+    Json::Value imp = jsonParse(msg[5]);
     double timeLeftMs = boost::lexical_cast<double>(msg[6]);
     Json::Value augmentations = jsonParse(msg[7]);
 
     Bids bids;
-    bids.reserve(spots.size());
+    bids.reserve(imp.size());
 
-    for (size_t i = 0; i < spots.size(); ++i) {
+    for (size_t i = 0; i < imp.size(); ++i) {
         Bid bid;
 
-        bid.spotIndex = spots[i]["spot"].asInt();
-        for (const auto& creative : spots[i]["creatives"])
+        bid.spotIndex = imp[i]["spot"].asInt();
+        for (const auto& creative : imp[i]["creatives"])
             bid.availableCreatives.push_back(creative.asInt());
 
         bids.push_back(bid);

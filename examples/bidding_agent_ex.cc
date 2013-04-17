@@ -135,14 +135,14 @@ struct FixedPriceBiddingAgent :
 
             // In our example, all our creatives are of the different sizes so
             // there should only ever be one biddable creative. Note that that
-            // the router won't ask for bids on spots that don't have any
+            // the router won't ask for bids on imp that don't have any
             // biddable creatives.
             ExcAssertEqual(bid.availableCreatives.size(), 1);
             int availableCreative = bid.availableCreatives.front();
 
             // We don't really need it here but this is how you can get the
             // AdSpot and Creative object from the indexes.
-            (void) br->spots[bid.spotIndex];
+            (void) br->imp[bid.spotIndex];
             (void) config.creatives[availableCreative];
 
             // Create a 2$ CPM bid with our available creative. Note that by

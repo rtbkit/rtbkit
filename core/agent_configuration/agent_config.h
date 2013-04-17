@@ -354,7 +354,7 @@ struct AgentConfig {
     */
     BiddableSpots
     canBid(const ExchangeConnector * exchangeConnector,
-           const std::vector<AdSpot> & spots,
+           const std::vector<AdSpot> & imp,
            const std::string & exchange,
            const std::string & protocolVersion,
            const std::string & language,
@@ -394,7 +394,7 @@ struct AgentConfig {
 
     typedef std::function<void(const char*)> FilterStatFn;
 
-    /** Returns the biddable spots (see canBid) if the agent can bid on the
+    /** Returns the biddable imp (see canBid) if the agent can bid on the
         given bid request.
 
         Before the function returns false, doFilterStat will be called with the

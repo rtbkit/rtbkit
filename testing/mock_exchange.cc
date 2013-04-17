@@ -179,12 +179,12 @@ parseResponse(const string& rawResponse) -> pair<bool, vector<Bid>>
         return make_pair(false, vector<Bid>());
     }
 
-    ExcAssert(payload.isMember("spots"));
+    ExcAssert(payload.isMember("imp"));
 
     vector<Bid> bids;
 
-    for (size_t i = 0; i < payload["spots"].size(); ++i) {
-        auto& spot = payload["spots"][i];
+    for (size_t i = 0; i < payload["imp"].size(); ++i) {
+        auto& spot = payload["imp"][i];
 
         Bid bid;
 
@@ -229,11 +229,11 @@ makeBidRequest() -> BidRequest
     AdSpot spot;
     spot.id = Id(1);
     spot.formats = formats;
-    bidRequest.spots.push_back(spot);
+    bidRequest.imp.push_back(spot);
 
     formats[0] = Format(300,250);
     spot.id = Id(2);
-    bidRequest.spots.push_back(spot);
+    bidRequest.imp.push_back(spot);
 
     bidRequest.location.countryCode = "CA";
     bidRequest.location.regionCode = "QC";
