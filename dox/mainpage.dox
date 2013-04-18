@@ -1,8 +1,60 @@
 /**
-\mainpage
+\mainpage Automatically generated documentation for RTBKit v0.9
 
-This is the mainpage of the RTBKit wiki.
+\section info General Information
 
-\todo Add links to the various plugins required to get started with RTBKit.
+The latest documentation for RTBkit is still a work in progress, and anyone interested is more than welcome to jump in and help out, or join the conversation in the <a href="https://groups.google.com/a/rtbkit.org/forum/#!forum/discuss">Google Group</a>.
+
+RTBKit is hosted on <a href="https://github.com/rtbkit/rtbkit>GitHub</a>. Pull-requests are encouraged and issues can be reported in the <a href="https://github.com/rtbkit/rtbkit/issues">GitHub Issue Tracker</a>. General documentation can be found in the <a href="">GitHub Wiki</a>.
+
+General questions about RTBkit should find answers on the <a href="http://rtbkit.org">RTBKit website</a>.
+
+\section links Useful Links
+
+\subsection links-agent Bidding Agents
+  - <a href="https://github.com/rtbkit/rtbkit/wiki/How-to-write-a-bidding-agent">How to write a bidding agent</a> tutorial.
+  - Relevant class:
+    - RTBKIT::BiddingAgent
+	- RTBKIT::AgentConfig
+    - RTBKIT::BidRequest
+    - RTBKIT::Bids
+
+\subsection links-aug Augmentors
+  - <a href="https://github.com/rtbkit/rtbkit/wiki/How-to-write-an-augmentor">How to write an augmentor</a> tutorial.
+  - Relevant classes:
+    - RTBKIT::SyncAugmentor
+	- RTBKIT::AsyncAugmentor
+	- RTBKIT::AugmentationRequest
+	- RTBKIT::AugmentationList
+
+ \subsection links-exconn Exchange Connector
+  - <a href="https://github.com/rtbkit/rtbkit/wiki/How-to-write-an-exchange-connector">How to write an exchange connector</a> tutorial.
+  - Relevant classes:
+    - RTBKIT::HttpExchangeConnector
+	- RTBKIT::RubiconExchangeConnector
+	- RTBKIT::MockExchangeConnector
+
+\subsection links-adsrv Ad Server Connector
+  - <a href="https://github.com/rtbkit/rtbkit/wiki/How-to-write-an-ad-server-connector">How to write an ad server connector</a> tutorial.
+  - Relevant classes:
+    - RTBKIT::HttpAdServerConnector
+	- RTBKIT::MockAdServerConnector
+
+\subsection links-logger Data Logger
+  - <a href="https://github.com/rtbkit/rtbkit/wiki/How-to-write-a-data-logger">How to write a data logger</a> tutorial.
+  - Relevant classes:
+	- RTBKIT::DataLogger
+	- Datacratic::Logger
+	- Datacratic::LogOutput
+	- Datacratic::RotatingFileOutput
+	- Datacratic::RotatingCloudOutput
+	- Datacratic::MultiOutput
+	- Datacratic::CallbackOutput
+
+\subsection link-core Other Core Components
+  - RTBKIT::Router
+  - RTBKIT::PostAuctionLoop
+  - RTBKIT::MasterBanker
+  - RTBKIT::AgentConfigurationService
 
 */
