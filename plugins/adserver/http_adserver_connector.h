@@ -23,9 +23,9 @@ namespace RTBKIT {
 
 class HttpAdServerHttpEndpoint;
 
-typedef boost::function<void (const HttpHeader & header,
-                              const Json::Value & json,
-                              const std::string & jsonStr)>
+typedef std::function<void (const HttpHeader & header,
+                            const Json::Value & json,
+                            const std::string & jsonStr)>
     HttpAdServerRequestCb;
 
 struct HttpAdServerConnectionHandler
@@ -60,9 +60,9 @@ struct HttpAdServerHttpEndpoint : public Datacratic::HttpEndpoint {
     int getPort() const;
 
     /* carbon logging */
-    typedef boost::function<void (const char * eventName,
-                                  EventType,
-                                  float)> OnEvent;
+    typedef std::function<void (const char * eventName,
+                                EventType,
+                                float)> OnEvent;
     OnEvent onEvent;
 
     void doEvent(const char * eventName, EventType type = ET_COUNT,
