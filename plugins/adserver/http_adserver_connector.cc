@@ -1,3 +1,9 @@
+/* http_adserver_connector.cc                                       -*- C++ -*-
+   Wolfgang Sourdeau, April 2013
+   Copyright (c) 2013 Datacratic.  All rights reserved.
+*/
+
+
 #include <memory>
 
 #include "http_adserver_connector.h"
@@ -83,7 +89,7 @@ HttpAdServerHttpEndpoint(HttpAdServerHttpEndpoint && otherEndpoint)
 : HttpEndpoint("adserver-ep-" + to_string(otherEndpoint.port_))
 {
     port_ = otherEndpoint.port_;
-    requestCb_ = move(otherEndpoint.requestCb_);
+    requestCb_ = otherEndpoint.requestCb_;
 }
 
 HttpAdServerHttpEndpoint::
