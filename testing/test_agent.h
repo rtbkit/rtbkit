@@ -36,9 +36,14 @@ struct TestAgent : public RTBKIT::BiddingAgent {
         this->config = config;
     }
 
+    void start()
+    {
+        BiddingAgent::start();
+        configure();
+    }
+
     void clear()
     {
-        haveGotConfig = false;
         numHeartbeats = numBidRequests = numErrors = numGotConfig = 0;
         numWins = numLosses = numNoBudgets = numTooLates = 0;
         numBidsOutstanding = 0;
@@ -77,7 +82,6 @@ struct TestAgent : public RTBKIT::BiddingAgent {
         }
     }
 
-    bool haveGotConfig;
     int numHeartbeats;
     int numBidRequests;
     int numErrors;
@@ -101,20 +105,6 @@ struct TestAgent : public RTBKIT::BiddingAgent {
         cerr << "agent got error: " << error << " from message: "
              << message << endl;
         __sync_fetch_and_add(&numErrors, 1);
-    }
-
-    void defaultNeedConfig(double)
-    {
-        using namespace std;
-        cerr << "need config" << endl;
-        configure();
-    }
-
-    void defaultGotConfig(double)
-    {
-        using namespace std;
-        cerr << "got config" << endl;
-        haveGotConfig = true;
     }
 
     void finishBid(int & counter, const RTBKIT::BidResult & args)
@@ -185,10 +175,6 @@ struct TestAgent : public RTBKIT::BiddingAgent {
     {
         onError
             = boost::bind(&TestAgent::defaultError, this, _1, _2, _3);
-        onNeedConfig
-            = boost::bind(&TestAgent::defaultNeedConfig, this, _1);
-        onGotConfig
-            = boost::bind(&TestAgent::defaultGotConfig, this, _1);
         onBidRequest
             = boost::bind(&TestAgent::bidNull, this, _1, _2, _3, _4, _5, _6);
         onWin
@@ -203,7 +189,7 @@ struct TestAgent : public RTBKIT::BiddingAgent {
 
     void configure()
     {
-        doConfig(config.toJson());
+        doConfig(config);
     }
 
 };

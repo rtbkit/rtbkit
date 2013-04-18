@@ -40,10 +40,6 @@ int main() {
             << std::endl;
     };
 
-    agent.onGotConfig = [&] (double) {
-        std::cout << "agent got config" << std::endl;
-    };
-
     agent.onBidRequest = [&] (
             double timestamp,
             const Id & id,
@@ -71,10 +67,6 @@ int main() {
 
     agent.onTooLate = [&] (const BidResult & args) {
         std::cout << "agent got too late" << std::endl;
-    };
-
-    agent.onNeedConfig = [&](double ts) {
-        return config.toJson();
     };
 
     std::map<std::string, std::function<void(std::istream &)>> commands;
@@ -113,9 +105,8 @@ int main() {
     }));
 
     commands.insert(std::make_pair("doconfig", [&](std::istream & args) {
-        auto value = config.toJson();
-        std::cout << "setting config" << std::endl << "value=" << value << std::endl;
-        agent.doConfig(value);
+        std::cout << "setting config" << std::endl << "value=" << config.toJson() << std::endl;
+        agent.doConfig(config);
     }));
 
     commands.insert(std::make_pair("bid", [&](std::istream & args) {

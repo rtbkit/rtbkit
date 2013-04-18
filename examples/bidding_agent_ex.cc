@@ -116,7 +116,7 @@ struct FixedPriceBiddingAgent :
 
         // Tell the world about our config. We can change the configuration of
         // an agent at any time by calling this function.
-        doConfig(config.toJson());
+        doConfig(config);
     }
 
 

@@ -6,6 +6,7 @@
 */
 
 #include "rtbkit/plugins/bidding_agent/bidding_agent.h"
+#include "rtbkit/core/agent_configuration/agent_config.h"
 
 #include "jml/arch/exception.h"
 #include "jml/arch/timers.h"
@@ -97,7 +98,7 @@ init()
             catch (const std::exception& ex) {
                 recordHit("error");
                 cerr << "Error handling auction message " << ex.what() << endl;
-                for (size_t i = 0; i < msg.size(); ++i) 
+                for (size_t i = 0; i < msg.size(); ++i)
                     cerr << "\t" << i << ": " << msg[i] << endl;
                 cerr << endl;
             }
@@ -199,8 +200,7 @@ handleRouterMessage(const std::string & fromRouter,
     case 'N':
         if (message[0] == "NOBUDGET")
             handleResult(message, onNoBudget);
-        else if (message[0] == "NEEDCONFIG")
-            handleSimple(message, onNeedConfig);
+        else if (message[0] == "NEEDCONFIG") sendConfig();
         else invalid = true;
         break;
 
@@ -225,8 +225,7 @@ handleRouterMessage(const std::string & fromRouter,
         break;
 
     case 'G':
-        if (message[0] == "GOTCONFIG")
-            handleSimple(message, onGotConfig);
+        if (message[0] == "GOTCONFIG") { /* no-op */ }
         else invalid = true;
         break;
 
@@ -432,20 +431,6 @@ handleResult(const std::vector<std::string>& msg, ResultCbFn& callback)
 
 void
 BiddingAgent::
-handleSimple(const std::vector<std::string>& msg, SimpleCbFn& callback)
-{
-    ExcCheck(!requiresAllCB || callback, "Null callback for " + msg[0]);
-    if (!callback) return;
-
-    checkMessageSize(msg, 2);
-
-    double timestamp = boost::lexical_cast<double>(msg[1]);
-
-    callback(timestamp);
-}
-
-void
-BiddingAgent::
 handleError(const std::vector<std::string>& msg, ErrorCbFn& callback)
 {
     ExcCheck(!requiresAllCB || callback, "Null callback for " + msg[0]);
@@ -554,7 +539,14 @@ doPong(const std::string & fromRouter, Date sent, Date received,
 
 void
 BiddingAgent::
-doConfig(Json::Value jsonConfig)
+doConfig(const AgentConfig& config)
+{
+    doConfigJson(config.toJson());
+}
+
+void
+BiddingAgent::
+doConfigJson(Json::Value jsonConfig)
 {
     Json::FastWriter jsonWriter;
 

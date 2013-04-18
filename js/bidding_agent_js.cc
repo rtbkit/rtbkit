@@ -204,7 +204,6 @@ const char* BiddingAgentName = "BiddingAgent";
 RegisterJsOps<RTBKIT::BiddingAgent::BidRequestCb> reg_bidRequestCb;
 RegisterJsOps<RTBKIT::BiddingAgent::PingCb> reg_pingCb;
 RegisterJsOps<RTBKIT::BiddingAgent::ErrorCb> reg_errorCb;
-RegisterJsOps<RTBKIT::BiddingAgent::SimpleCb> reg_simpleCb;
 
 struct BiddingAgentJS :
     public JSWrapped2<
@@ -243,14 +242,14 @@ struct BiddingAgentJS :
 
         registerMemberFn(&RTBKIT::BiddingAgent::doBid, "doBid");
         registerMemberFn(&RTBKIT::BiddingAgent::doPong, "doPong");
-        registerMemberFn(&RTBKIT::BiddingAgent::doConfig, "doConfig");
+        registerMemberFn(&RTBKIT::BiddingAgent::doConfigJson, "doConfig");
         registerMemberFn(&RTBKIT::BiddingAgent::init, "init");
         registerMemberFn(&RTBKIT::BiddingAgent::start, "start");
         registerMemberFn(&RTBKIT::BiddingAgent::shutdown, "close");
         registerMemberFn(&RTBKIT::BiddingAgent::strictMode, "strictMode");
 
         registerAsyncCallback(&RTBKIT::BiddingAgent::onBidRequest, "onBidRequest");
-        registerAsyncCallback(&RTBKIT::BiddingAgent::onPing, "onPing");
+
         registerAsyncCallback(&RTBKIT::BiddingAgent::onWin, "onWin");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onLoss, "onLoss");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onNoBudget, "onNoBudget");
@@ -258,12 +257,11 @@ struct BiddingAgentJS :
         registerAsyncCallback(&RTBKIT::BiddingAgent::onInvalidBid, "onInvalidBid");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onDroppedBid, "onDroppedBid");
 
-        registerAsyncCallback(&RTBKIT::BiddingAgent::onNeedConfig, "onNeedConfig");
-        registerAsyncCallback(&RTBKIT::BiddingAgent::onGotConfig, "onGotConfig");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onImpression, "onImpression");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onClick, "onClick");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onVisit, "onVisit");
 
+        registerAsyncCallback(&RTBKIT::BiddingAgent::onPing, "onPing");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onError, "onError");
     }
 };
