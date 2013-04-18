@@ -2087,7 +2087,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
             }
 
             string msg;
-            BidStatus bidStatus;
+            BidStatus bidStatus(BS_INVALID);
 
             switch (status) {
             case Auction::PENDING:
