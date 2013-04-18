@@ -153,6 +153,7 @@ DefaultDescription()
              "restrictions active for bid request");
     addField("userIds", &BidRequest::userIds, "User IDs for this user");
     addField("imp", &BidRequest::imp, "Ad imp in this request");
+    addField("spots", &BidRequest::imp, "Ad imp in this request");
     addField("site", &BidRequest::site, "OpenRTB site object");
     addField("app", &BidRequest::app, "OpenRTB app object");
     addField("device", &BidRequest::device, "OpenRTB device object");
@@ -931,6 +932,7 @@ toJson() const
     if (!imp.empty()) {
         for (unsigned i = 0;  i < imp.size();  ++i) {
             result["imp"][i] = imp[i].toJson();
+            result["spots"][i] = imp[i].toJson();
         }
     }
 
@@ -1048,10 +1050,11 @@ createFromJson(const Json::Value & json)
             result.restrictions = SegmentsBySource::createFromJson(*it);
         else if (it.memberName() == "userIds")
             result.userIds = UserIds::createFromJson(*it);
-        else if (it.memberName() == "imp" || it.memberName() == "imp") {
+        else if (it.memberName() == "imp" || it.memberName() == "spots") {
             const Json::Value & json = *it;
             if (!json.empty() && !json.isArray())
                 throw ML::Exception("imp is not an array");
+            result.imp.clear();
             for (unsigned i = 0;  i < json.size();  ++i) {
                 result.imp.push_back(AdSpot::createFromJson(json[i]));
             }

@@ -1522,6 +1522,8 @@ struct BidRequestJS
 
         static DefaultDescription<BidRequest> desc;
 
+        /// \deprecated spots member is there for backward compatibility
+        registerFieldFromDescription<BidRequestJS>(desc, "spots");
         registerFieldFromDescription<BidRequestJS>(desc, "imp");
 
 
