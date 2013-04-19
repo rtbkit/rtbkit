@@ -479,9 +479,34 @@ struct Launcher
         static void sigchld(int pid) {
             for(;;) {
                 int status = 0;
-                int pid = waitpid(-1, &status, WNOHANG);
-                if(pid == 0 || pid == -1) {
-                    break;
+                pid_t pid = waitpid(-1, &status, WNOHANG);
+                if(pid == 0) {
+	            break;
+                }
+                if (pid == -1) {
+                    if (errno == ECHILD)
+                        break;
+                    else
+                        throw ML::Exception(errno, "launcher", "sigchld");
+                }
+
+                if (WIFSTOPPED(status)) {
+                    std::cerr << "process " << pid
+                              << " stopped by signal " << WSTOPSIG(status)
+                              << " (ignoring)\n";
+                    continue;
+                }
+                else if (WIFCONTINUED(status)) {
+                    std::cerr << "process " << pid << " continued\n";
+                    continue;
+                }
+                else if (WIFEXITED(status)) {
+                    std::cerr << "process " << pid << " exited normally\n";
+                }
+                else if (WIFSIGNALED(status)) {
+                    std::cerr << "process " << pid
+                              << " killed by signal " << WTERMSIG(status)
+                              << std::endl;
                 }
 
                 Service::get().events.push(pid);
