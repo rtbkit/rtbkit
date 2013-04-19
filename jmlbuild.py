@@ -230,7 +230,8 @@ class Parser:
             "nodejs_addon"      : self.parse_func_nodejs_addon,
             "nodejs_module"     : self.parse_func_nodejs_module,
             "nodejs_program"    : self.parse_func_nodejs_module,
-            "vowscoffee_test"   : self.parse_func_vows_coffee_test
+            "vowscoffee_test"   : self.parse_func_nodejs_test,
+            "nodejs_test"       : self.parse_func_nodejs_test
             }
 
         # Variable map used for macro expansion
@@ -410,9 +411,10 @@ class Parser:
         return line
 
 
-    def parse_func_vows_coffee_test(self, line):
+    def parse_func_nodejs_test(self, line):
         """
-        Parses for the nodejs module params and adds the relevant dependencies
+        Parses for the nodejs and vows test params and adds the relevant
+        dependencies.
         """
         print_dbg("\tvowscoffee_test: " + line)
 
