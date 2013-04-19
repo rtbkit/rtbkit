@@ -16,11 +16,27 @@ using namespace std;
 
 extern "C" {
     // Define as a weak symbol to avoid linker errors when linking without libeio
+#   pragma push_macro("eio_custom")
+#   ifdef eio_custom
+#   undef eio_custom
+    __attribute__((__weak__))
+    eio_req * eio_custom(void (*)(eio_req*), int, eio_cb, void*, eio_channel*)
+    {
+        throw ML::Exception("node needs to be linked in to use JS context callbacks");
+    }
+
+    __attribute__((__weak__))
+    uv_loop_t* uv_default_loop(void) {
+        throw ML::Exception("node needs to be linked in to use JS context callbacks");
+    }
+#   else
     __attribute__((__weak__))
     eio_req * eio_custom(void (*)(eio_req*), int, int (*)(eio_req*), void*)
     {
         throw ML::Exception("node needs to be linked in to use JS context callbacks");
     }
+#   endif // eio_custom
+#   pragma pop_macro("eio_custom")
 };
 
 namespace node {
