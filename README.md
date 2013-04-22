@@ -5,4 +5,4 @@ RTBkit is an open-source software package that takes the hard work out of creati
 
 http://rtbkit.org/
 
-[Getting Started](https://github.com/rtbkit/rtbkit-preview/wiki/Getting Started) (Installation and build instructions)
+[Getting Started](https://github.com/rtbkit/rtbkit/wiki/Getting Started) (Installation and build instructions)
