@@ -600,6 +600,15 @@ struct ServiceBase: public EventRecorder {
     }
 
     /*************************************************************************/
+    /* CONFIGURATION SERVICE                                                 */
+    /*************************************************************************/
+
+    std::shared_ptr<ConfigurationService> getConfigurationService() const
+    {
+        return services_->config;
+    }
+
+    /*************************************************************************/
     /* EXCEPTION LOGGING                                                     */
     /*************************************************************************/
 
