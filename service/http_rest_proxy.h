@@ -106,6 +106,17 @@ struct HttpRestProxy {
                        timeout);
     }
 
+    /** Perform a PUT request from end to end. */
+    Response put(const std::string & resource,
+                 const Content & content = Content(),
+                 const RestParams & queryParams = RestParams(),
+                 const RestParams & headers = RestParams(),
+                 int timeout = -1) const
+    {
+        return perform("PUT", resource, content, queryParams, headers,
+                       timeout);
+    }
+
     /** Perform a synchronous GET request from end to end. */
     Response get(const std::string & resource,
                  const RestParams & queryParams = RestParams(),

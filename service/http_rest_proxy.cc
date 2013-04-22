@@ -55,7 +55,7 @@ perform(const std::string & verb,
         std::string uri = serviceUri + resource + queryParams.uriEscaped();
 
         //cerr << "uri = " << uri << endl;
-
+        
         myRequest.setOpt<CustomRequest>(verb);
 
         myRequest.setOpt<curlpp::options::Url>(uri);
