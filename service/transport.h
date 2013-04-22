@@ -185,6 +185,9 @@ public:
         {
             Guard guard(lock);
 
+            //using namespace std;
+            //cerr << Date::now().print(4) << " " << this << " " << act << endl;
+
             if (activities.size() > 200)
                 activities.erase(activities.begin(),
                                  activities.end() - 100);
