@@ -34,6 +34,8 @@ struct HttpRestProxy {
     {
     }
 
+    ~HttpRestProxy();
+
     /** The response of a request.  Has a return code and a body. */
     struct Response {
         Response()

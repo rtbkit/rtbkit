@@ -26,6 +26,13 @@ namespace Datacratic {
 /* HTTP REST PROXY                                                           */
 /*****************************************************************************/
 
+HttpRestProxy::
+~HttpRestProxy()
+{
+    for (auto c: inactive)
+        delete c;
+}
+
 HttpRestProxy::Response
 HttpRestProxy::
 perform(const std::string & verb,
