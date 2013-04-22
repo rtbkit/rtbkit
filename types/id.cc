@@ -263,6 +263,50 @@ parse(const std::string & value, Type type)
         }
     }   
 
+    //cerr << "value.length() = " << value.length()
+    //     << " value = " << value << " type = " << (int)type << endl;
+
+    while ((type == UNKNOWN || type == HEX128LC) && value.length() == 32) {
+        uint64_t high, low;
+
+        const char * p = value.c_str();
+        bool failed = false;
+
+        auto scanRange = [&] (int start, int len) -> unsigned long long
+            {
+                uint64_t val = 0;
+                for (unsigned i = start;  i != start + len;  ++i) {
+                    int c = p[i];
+                    int v = hexToDec(c);
+
+                    //cerr << "c = " << c << " " << p[i] << " v = " << v << endl;
+
+                    if (v == -1) {
+                        failed = true;
+                        return val;
+                    }
+                    val = (val << 4) + v;
+                }
+
+                //cerr << "val = " << val << " failed = " << failed << endl;
+
+                return val;
+            };
+
+        high = scanRange(0, 16);
+        if (failed)
+            break;
+        low = scanRange(16, 16);
+        if (failed)
+            break;
+
+        r.type = HEX128LC;
+        r.val1 = high;
+        r.val2 = low;
+        finish();
+        return;
+    }
+
     // Fall back to string
     r.type = STR;
     r.len = value.size();
@@ -355,6 +399,11 @@ toString() const
             result[15 - i] = b64Encode(v & 63);  v = v >> 6;
         }
         return result;
+    }
+    case HEX128LC: {
+        return ML::format("%016llx%016llx",
+                          (unsigned long long)val1,
+                          (unsigned long long)val2);
     }
     case COMPOUND2:
         return compoundId1().toString() + ":" + compoundId2().toString();
@@ -468,6 +517,10 @@ serialize(ML::DB::Store_Writer & store) const
         store.save_binary(&val1, 8);
         store.save_binary(&val2, 4);
         break;
+    case HEX128LC:
+        store.save_binary(&val1, 8);
+        store.save_binary(&val2, 8);
+        break;
     case STR:
         store << string(str, str + len);
         break;
@@ -522,6 +575,11 @@ reconstitute(ML::DB::Store_Reader & store)
     case BASE64_96: {
         store.load_binary(&r.val1, 8);
         store.load_binary(&r.val2, 4);
+        break;
+    }
+    case HEX128LC: {
+        store.load_binary(&r.val1, 8);
+        store.load_binary(&r.val2, 8);
         break;
     }
     case STR: {
