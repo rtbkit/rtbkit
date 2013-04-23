@@ -175,6 +175,22 @@ open(const std::string & uri, std::ios_base::openmode mode,
     bool weOwnBuf;
     std::tie(buf, weOwnBuf) = handler(scheme, resource, mode);
 
+    return openFromStreambuf(buf, weOwnBuf, resource, compression,
+                             compressionLevel);
+}
+
+void
+filter_ostream::
+openFromStreambuf(std::streambuf * buf,
+                  bool weOwnBuf,
+                  const std::string & resource,
+                  const std::string & compression,
+                  int compressionLevel)
+{
+    // TODO: exception safety for buf
+
+    using namespace boost::iostreams;
+
     //cerr << "buf = " << (void *)buf << endl;
     //cerr << "weOwnBuf = " << weOwnBuf << endl;
 
@@ -293,13 +309,12 @@ operator = (filter_istream && other)
     return *this;
 }
 
-void filter_istream::
+void
+filter_istream::
 open(const std::string & uri,
      std::ios_base::openmode mode,
      const std::string & compression)
 {
-    using namespace boost::iostreams;
-
     exceptions(ios::badbit);
 
     string scheme, resource;
@@ -309,6 +324,19 @@ open(const std::string & uri,
     std::streambuf * buf;
     bool weOwnBuf;
     std::tie(buf, weOwnBuf) = handler(scheme, resource, mode);
+
+}
+
+void
+filter_istream::
+openFromStreambuf(std::streambuf * buf,
+                  bool weOwnBuf,
+                  const std::string & resource,
+                  const std::string & compression)
+{
+    // TODO: exception safety for buf
+
+    using namespace boost::iostreams;
 
     std::unique_ptr<std::streambuf> sink;
     if (weOwnBuf)

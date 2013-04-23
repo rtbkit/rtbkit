@@ -68,6 +68,12 @@ public:
               const std::string & compression = "",
               int level = -1);
 
+    void openFromStreambuf(std::streambuf * buf,
+                           bool weOwnBuf,
+                           const std::string & resource = "",
+                           const std::string & compression = "",
+                           int compressionLevel = -1);
+
     void close();
 
     std::string status() const;
@@ -98,6 +104,11 @@ public:
     void open(const std::string & uri,
               std::ios_base::openmode mode = std::ios_base::in,
               const std::string & comparession = "");
+
+    void openFromStreambuf(std::streambuf * buf,
+                           bool weOwnBuf,
+                           const std::string & resource = "",
+                           const std::string & compression = "");
 
     void close();
 
