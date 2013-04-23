@@ -42,6 +42,9 @@ struct MockAdServerConnector : public HttpAdServerConnector
     void init(int port) {
         auto services = getServices();
 
+        // Initialize our base class
+        HttpAdServerConnector::init(services->config);
+
         // Prepare a simple JSON handler that already parsed the incoming HTTP payload so that it can
         // create the requied post auction object.
         auto handleEvent = [&](const Datacratic::HttpHeader & header,
@@ -50,25 +53,26 @@ struct MockAdServerConnector : public HttpAdServerConnector
             this->handleEvent(PostAuctionEvent(json));
         };
         registerEndpoint(port, handleEvent);
+
+        // Publish the endpoint now that it exists.
+        HttpAdServerConnector::bindTcp();
         
         // And initialize the generic publisher on a predefined range of ports to try avoiding that
         // collision between different kind of service occurs.
         publisher.init(services->config, serviceName() + "/logger");
         publisher.bindTcp(services->ports->getRange("adServer/logger"));
-
-        HttpAdServerConnector::init(services->config);
     }
-
 
     void start() {
         recordLevel(1.0, "up");
+        HttpAdServerConnector::start();
         publisher.start();
     }
 
 
     void shutdown() {
-        publisher.shutdown();
         HttpAdServerConnector::shutdown();
+        publisher.shutdown();
     }
 
 

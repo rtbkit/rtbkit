@@ -145,10 +145,10 @@ struct FixedPriceBiddingAgent :
             (void) br->imp[bid.spotIndex];
             (void) config.creatives[availableCreative];
 
-            // Create a 2$ CPM bid with our available creative. Note that by
-            // default, the bid price is set to 0 which indicates that we don't
-            // wish to bid on the given spot.
-            bid.bid(availableCreative, USD_CPM(2));
+            // Create a 0.0001$ CPM bid with our available creative.
+            // Note that by default, the bid price is set to 0 which indicates
+            // that we don't wish to bid on the given spot.
+            bid.bid(availableCreative, MicroUSD_CPM(10000));
         }
 
         // A value that will be passed back to us when we receive the result of
