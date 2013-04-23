@@ -231,7 +231,7 @@ makeBidRequest() -> BidRequest
     spot.formats = formats;
     bidRequest.imp.push_back(spot);
 
-    formats[0] = Format(300,250);
+    spot.formats[0] = Format(300,250);
     spot.id = Id(2);
     bidRequest.imp.push_back(spot);
 
