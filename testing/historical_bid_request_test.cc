@@ -26,7 +26,7 @@ BOOST_AUTO_TEST_CASE( test_parse_historical_bid_request )
     std::unique_ptr<BidRequest> br(BidRequest::parse("rtbkit", bidRequest));
 
     BOOST_CHECK_EQUAL(br->url.toString(), "http://emedtv.com/search.html?searchString=%E2%80%A2skin");
-    BOOST_CHECK_EQUAL(br->userAgent, "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)");
+    BOOST_CHECK_EQUAL(br->userAgent, Utf8String("Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)"));
     
 }
 
