@@ -2,7 +2,7 @@ LIBBOOSTING_TOOLS_SOURCES := \
         boosting_tool_common.cc \
 	datasets.cc
 
-LIBBOOSTING_TOOLS_LINK :=	utils db arch boost_regex
+LIBBOOSTING_TOOLS_LINK :=	utils db arch boost_regex boosting
 
 $(eval $(call library,boosting_tools,$(LIBBOOSTING_TOOLS_SOURCES),$(LIBBOOSTING_TOOLS_LINK)))
 

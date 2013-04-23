@@ -593,7 +593,7 @@ protected:
     int advance_to_valid(int index) const
     {
         if (index < 0 || index >= capacity()) {
-            dump(std::cerr);
+            //dump(std::cerr);
             std::cerr << "index = " << index << std::endl;
             throw Exception("advance_to_valid: already at end");
         }
@@ -830,7 +830,24 @@ struct Lightweight_Hash
     insert(const Bucket & val)
     {
         std::pair<int, bool> r = this->find_or_insert(val);
-        return make_pair(iterator(this, r.first), r.second);
+        try {
+            return make_pair(iterator(this, r.first), r.second);
+        } catch (...) {
+            using namespace std;
+
+            cerr << "r.first = " << r.first << endl;
+            cerr << "r.second = " << r.second << endl;
+            cerr << "size = " << size() << endl;
+            cerr << "capacity = " << capacity() << endl;
+            cerr << "val = (" << val.first << "," << val.second << ")"
+                 << endl;
+            size_t cap = capacity();
+            auto key = Ops::getKey(val);
+            int bucket = Ops::hashKey(key, cap, this->storage_);
+            cerr << "bucket = " << bucket << endl;
+
+            throw;
+        }
     }
 
     using Base::reserve;

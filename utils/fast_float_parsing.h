@@ -30,13 +30,68 @@
 
 namespace ML {
 
+double binary_exp10 [10] = {
+    10,
+    100,
+    1e4,
+    1e8,
+    1e16,
+    1e32,
+    1e64,
+    1e128,
+    1e256,
+    INFINITY
+};
+
+double binary_exp10_neg [10] = {
+    0.1,
+    0.01,
+    1e-4,
+    1e-8,
+    1e-16,
+    1e-32,
+    1e-64,
+    1e-128,
+    1e-256,
+    0.0
+};
+
+double
+exp10_int(int val)
+{
+    double result = 1.0;
+
+    if (val >= 0) {
+        for (unsigned i = 0;  val;  ++i) {
+            if (i >= 9)
+                return INFINITY;
+            if (val & 1)
+                result *= binary_exp10[i];
+            val >>= 1;
+        }
+    }
+    else {
+        val = -val;
+        for (unsigned i = 0;  val;  ++i) {
+            if (i >= 9)
+                return 0.0;
+            if (val & 1)
+                result *= binary_exp10_neg[i];
+            val >>= 1;
+        }
+    }
+
+    return result;
+}
+
 template<typename Float>
 inline bool match_float(Float & result, Parse_Context & c)
 {
     Parse_Context::Revert_Token tok(c);
 
     unsigned long num = 0;
-    double den = 0.0;
+    unsigned long den2 = 0;
+    int den2_digits = 0;
     double sign = 1;
     int digits = 0;
 
@@ -63,15 +118,26 @@ inline bool match_float(Float & result, Parse_Context & c)
     }
 
     while (c) {
+        //std::cerr << "got character " << *c << " num = " << num
+        //          << " den = " << den << " den2 = " << den2
+        //          << " sign = " << sign
+        //          << " digits = " << digits << std::endl;
+
         if (isdigit(*c)) {
             int digit = *c - '0';
-            num = 10*num + digit;
-            den *= 0.1;
+            if (digits <= 17) {
+                num = 10*num + digit;
+                den2 *= 10;
+                ++den2_digits;
+            }
             ++digits;
         }
         else if (*c == '.') {
-            if (den != 0.0) break;
-            else den = 1.0;
+            if (den2 != 0) break;
+            else {
+                den2 = 1;
+                den2_digits = 0;
+            }
         }
         else if (digits && (*c == 'e' || *c == 'E')) {
             Parse_Context::Revert_Token token(c);
@@ -90,8 +156,8 @@ inline bool match_float(Float & result, Parse_Context & c)
 
     if (!digits) return false;
 
-    if (digits > 3 && false) {
-        // we need to parse using strtod
+    if (digits > 15) {
+        // we need to parse using strtod since rounding bites us otherwise
         size_t ofs = c.get_offset();
 
         // Go back
@@ -113,12 +179,14 @@ inline bool match_float(Float & result, Parse_Context & c)
             throw Exception("wrong endptr");
 
         result = parsed;
+        return true;
     }
 
+
     tok.ignore();  // we are returning true; ignore the token
-    
-    if (den == 0.0) result = sign * num;
-    else result = sign * (double)num * den;
+ 
+    if (den2 == 0) result = sign * num;
+    else result = sign * (double)num / den2;
 
     return true;
 }
