@@ -43,7 +43,8 @@ LIBSERVICES_SOURCES := \
 	http_named_endpoint.cc \
 	rest_proxy.cc \
 	rest_request_router.cc \
-	zookeeper.cc
+	zookeeper.cc \
+	http_rest_proxy.cc \
 
 LIBSERVICES_LINK := opstats curl curlpp boost_regex zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types
 

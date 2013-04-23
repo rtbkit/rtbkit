@@ -27,6 +27,8 @@ struct JSValue;
 class Utf8String
 {
 public:
+    static Utf8String fromLatin1(const std::string & lat1Str);
+
     /** Allow default construction of an empty string. */
     Utf8String()
     {
@@ -114,13 +116,28 @@ public:
 
     std::string extractAscii();
 
+    bool operator == (const Utf8String & other) const
+    {
+        return data_ == other.data_;
+    }
+
+    bool operator != (const Utf8String & other) const
+    {
+        return data_ != other.data_;
+    }
+
+    bool operator < (const Utf8String & other) const
+    {
+        return data_ < other.data_;
+    }
+
 private:
     std::string data_; // original utf8-encoded string
 };
 
 inline void swap(Utf8String & s1, Utf8String & s2)
 {
-    s2.swap(s2);
+    s1.swap(s2);
 }
 
 std::ostream & operator << (std::ostream & stream, const Utf8String & str);

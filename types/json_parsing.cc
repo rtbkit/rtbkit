@@ -65,7 +65,21 @@ expectStringUtf8()
             case '\\':c = '\\';  break;
             case '"': c = '"';   break;
             case 'u': {
-                int code = context->expect_int();
+                int code = 0;
+                for (unsigned i = 0;  i < 4;  ++i) {
+                    int c = *(*context)++;
+                    int digit;
+                    if (c >= '0' && c <= '9')
+                        digit = c - '0';
+                    else if (c >= 'a' && c <= 'f')
+                        digit = c - 'a';
+                    else if (c >= 'A' && c <= 'F')
+                        digit = c - 'A';
+                    else context->exception("invalid hexadecimal in code");
+
+                    code = (code << 4) | digit;
+                }
+                //cerr << "code = " << code << endl;
                 c = code;
                 break;
             }
@@ -88,5 +102,6 @@ expectStringUtf8()
     
     return result;
 }
+
 
 }  // namespace Datacratic

@@ -970,12 +970,14 @@ upload(const char * data,
 
 
             ML::atomic_add(bytesDone, part.size);
+
+#if 0
             double seconds = Date::now().secondsSince(start);
             cerr << "done " << bytesDone / 1024 / 1024 << " MB in "
             << seconds << " s at "
             << bytesDone / 1024.0 / 1024 / seconds
             << " MB/second" << endl;
-
+#endif
             //cerr << putResult.header_ << endl;
 
             string etag = putResult.getHeader("etag");
@@ -1389,7 +1391,15 @@ struct StreamingDownloadSource {
         impl->info = owner->getObjectInfo(bucket, object);
         impl->chunkSize = 1024 * 1024;  // start with 1MB and ramp up
 
-        impl->start();
+        int numThreads = 1;
+        if (impl->info.size > 1024 * 1024)
+            numThreads = 2;
+        if (impl->info.size > 16 * 1024 * 1024)
+            numThreads = 3;
+        if (impl->info.size > 256 * 1024 * 1024)
+            numThreads = 5;
+        
+        impl->start(numThreads);
     }
 
     typedef char char_type;
@@ -1431,20 +1441,21 @@ struct StreamingDownloadSource {
         int readPartReady, readPartDone, writePartNumber, allocPartNumber;
 
 
-        void start()
+        void start(int numThreads)
         {
             readPartOffset = offset = bytesDone = writeOffset
                 = writePartNumber = allocPartNumber = readOffset = 0;
             readPartReady = 0;
             readPartDone = 0;
             startDate = Date::now();
-            for (unsigned i = 0;  i < 5;  ++i)
+            for (unsigned i = 0;  i < numThreads;  ++i)
                 tg.create_thread(boost::bind<void>(&Impl::runThread, this));
         }
 
         void stop()
         {
             shutdown = true;
+            ML::memory_barrier();
             futex_wake(writePartNumber);
             futex_wake(readPartReady);
             futex_wake(readPartDone);
@@ -1527,8 +1538,8 @@ struct StreamingDownloadSource {
                 // Wait until it's my turn to increment the offset
                 while (!shutdown) {
                     int currentWritePart = writePartNumber;
-                    if (currentWritePart == partToDo) break;
-                    ML::futex_wait(writePartNumber, currentWritePart);
+                    if (currentWritePart >= partToDo) break;
+                    ML::futex_wait(writePartNumber, currentWritePart, 0.1);
                 }
                 if (shutdown) return;
 
@@ -1575,7 +1586,7 @@ struct StreamingDownloadSource {
                 while (!shutdown) {
                     int currentReadPart = readPartDone;
                     if (currentReadPart == partToDo) break;
-                    ML::futex_wait(readPartDone, currentReadPart);
+                    ML::futex_wait(readPartDone, currentReadPart, 0.1);
                 }
                 if (shutdown) return;
 
@@ -1583,7 +1594,7 @@ struct StreamingDownloadSource {
 
                 bytesDone += partResult.body_.size();
 
-                double elapsed = Date::now().secondsSince(startDate);
+                //double elapsed = Date::now().secondsSince(startDate);
 
                 // Give my part to the reader
                 readPart = partResult.body();
@@ -1591,13 +1602,16 @@ struct StreamingDownloadSource {
 
                 // Wake up the reader
                 ++readPartReady;
+                ML::memory_barrier();
                 ML::futex_wake(readPartReady);
 
+#if 0
                 cerr << "done " << bytesDone << " at "
                      << bytesDone / elapsed / 1024 / 1024
                      << "MB/second" << endl;
+#endif
             }
-            cerr << "finished thread" << endl;
+            //cerr << "finished thread" << endl;
         }
     };
 
@@ -2015,6 +2029,10 @@ uploadRecursive(string dirSrc, string bucketDest, bool includeDir){
     }
 }
 
+void S3Api::setDefaultBandwidthToServiceMbps(double mbps){
+    S3Api::defaultBandwidthToServiceMbps = mbps;
+}
+
 namespace {
 
 struct S3BucketInfo {
@@ -2039,8 +2057,21 @@ void registerS3Bucket(const std::string & bucketName,
                       const std::string & serviceUri)
 {
     std::unique_lock<std::mutex> guard(s3BucketsLock);
-    if (s3Buckets.count(bucketName)){
-        throw BucketAlreadyRegistered(bucketName);
+
+    auto it = s3Buckets.find(bucketName);
+    if(it != s3Buckets.end()){
+        shared_ptr<S3Api> api = it->second.api;
+        //if the info is different, raise an exception, otherwise return
+        if (api->accessKeyId != accessKeyId
+            || api->accessKey != accessKey
+            || api->bandwidthToServiceMbps != bandwidthToServiceMbps
+            || api->defaultProtocol != protocol
+            || api->serviceUri != serviceUri)
+        {
+            throw ML::Exception("Trying to re-register a bucket with different "
+                "parameters");
+        }
+        return;
     }
 
     S3BucketInfo info;
@@ -2111,10 +2142,6 @@ void registerS3Buckets(const std::string & accessKeyId,
     auto onBucket = [&] (const std::string & bucketName)
         {
             //cerr << "got bucket " << bucketName << endl;
-
-            if (s3Buckets.count(bucketName)){
-                throw BucketAlreadyRegistered(bucketName);
-            }
 
             S3BucketInfo info;
             info.s3Bucket = bucketName;

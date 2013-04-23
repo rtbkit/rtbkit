@@ -8,6 +8,7 @@
 #include "soa/service/http_endpoint.h"
 #include "jml/utils/vector_utils.h"
 #include "named_endpoint.h"
+#include "http_rest_proxy.h"
 #include <boost/make_shared.hpp>
 
 
@@ -246,101 +247,6 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
     {
         return std::make_shared<RestConnectionHandler>(this);
     }
-};
-
-/*****************************************************************************/
-/* HTTP REST PROXY                                                           */
-/*****************************************************************************/
-
-struct HttpRestProxy {
-
-    /** The response of a request.  Has a return code and a body. */
-    struct Response {
-        Response()
-            : code_(0)
-        {
-        }
-
-        int code() const {
-            return code_;
-        }
-
-        std::string body() const
-        {
-            if (code_ < 200 || code_ >= 300)
-                throw ML::Exception("invalid http code returned");
-            return body_;
-        }
-
-        std::string getHeader(const std::string & name) const
-        {
-            auto it = header_.headers.find(name);
-            if (it == header_.headers.end())
-                throw ML::Exception("required header " + name + " not found");
-            return it->second;
-        }
-
-        long code_;
-        std::string body_;
-        HttpHeader header_;
-    };
-
-    struct Content {
-        Content()
-            : data(0), size(0), hasContent(false)
-        {
-        }
-
-        Content(const std::string & str,
-                const std::string & contentType = "")
-            : str(str), data(str.c_str()), size(str.size()),
-              hasContent(true), contentType(contentType)
-        {
-        }
-
-        Content(const char * data, uint64_t size,
-                const std::string & contentType = "",
-                const std::string & contentMd5 = "")
-            : data(data), size(size), hasContent(true),
-              contentType(contentType), contentMd5(contentMd5)
-        {
-        }
-
-        std::string str;
-
-        const char * data;
-        uint64_t size;
-        bool hasContent;
-
-        std::string contentType;
-        std::string contentMd5;
-    };
-
-    struct Request {
-
-        Request()
-        {
-        }
-
-        std::string uri;
-        std::string verb;
-        std::string bucket;
-
-        std::string contentType;
-        Content content;
-
-        RestParams headers;
-        RestParams queryParams;
-    };
-
-    /** Perform a POST request from end to end. */
-    Response post(const std::string & resource,
-                  const Content & content = Content(),
-                  const RestParams & queryParams = RestParams(),
-                  const RestParams & headers = RestParams(),
-                  int timeout = -1) const;
-
-    std::string serviceUri;
 };
 
 

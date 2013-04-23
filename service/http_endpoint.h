@@ -23,7 +23,9 @@ class HttpEndpoint;
 /* HTTP RESPONSE                                                             */
 /*****************************************************************************/
 
-/** Structure used to return an HTTP response. */
+/** Structure used to return an HTTP response.
+    TODO: make use of the the HttpHeader class
+*/
 
 struct HttpResponse {
     HttpResponse(int responseCode,

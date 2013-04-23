@@ -1,4 +1,5 @@
 /* value_description.h                                             -*- C++ -*-
+   Jeremy Barnes, 29 March 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
 
    Code for description and introspection of values and structures.  Used
@@ -14,47 +15,193 @@
 #include "jml/arch/demangle.h"
 #include "json_parsing.h"
 #include "json_printing.h"
+#include "value_description_fwd.h"
 
 namespace Datacratic {
 
 struct JsonParsingContext;
 struct JsonPrintingContext;
+struct JSConverters;
 
-template<typename T, typename Context>
-void parseJson(T *, Context &, int);
+enum class ValueKind : int32_t {
+    // Atomic, ie all or none is replaced
+    ATOM,     ///< Generic, atomic type
+    INTEGER,
+    FLOAT,
+    BOOLEAN,
+    STRING,
+    ENUM,
 
-template<typename T>
-struct ValueDescription;
+    // Non-atomic, ie part of them can be mutated
+    OPTIONAL,
+    ARRAY,
+    STRUCTURE,
+    TUPLE,
+    VARIANT,
+    MAP,
+    ANY
+};
 
-template<>
-struct ValueDescription<void> {
+std::ostream & operator << (std::ostream & stream, ValueKind kind);
+
+
+/*****************************************************************************/
+/* VALUE DESCRIPTION                                                         */
+/*****************************************************************************/
+
+/** Value Description
+
+    This describes the content of a C++ structure and allows it to be
+    manipulated programatically.
+*/
+
+struct ValueDescription {
     typedef std::true_type defined;
 
-    ValueDescription(const std::type_info * type,
+    ValueDescription(ValueKind kind,
+                     const std::type_info * type,
                      const std::string & typeName = "")
-        : type(type),
-          typeName(typeName.empty() ? type->name() : typeName)
+        : kind(kind),
+          type(type),
+          typeName(typeName.empty() ? ML::demangle(type->name()) : typeName),
+          jsConverters(nullptr),
+          jsConvertersInitialized(false)
     {
     }
+
+    virtual ~ValueDescription() {};
     
+    ValueKind kind;
     const std::type_info * const type;
     const std::string typeName;
 
     virtual void parseJson(void * val, JsonParsingContext & context) const = 0;
     virtual void printJson(const void * val, JsonPrintingContext & context) const = 0;
     virtual bool isDefault(const void * val) const = 0;
+    virtual void setDefault(void * val) const = 0;
+    virtual void copyValue(const void * from, void * to) const = 0;
+    virtual void moveValue(void * from, void * to) const = 0;
+    virtual void swapValues(void * from, void * to) const = 0;
+    
+    virtual void * optionalMakeValue(void * val) const
+    {
+        throw ML::Exception("type is not optional");
+    }
 
-    // Serialization and reconstitution in the JML (boost serialization)
-    // framework
-    //virtual void jmlSerialize(const void * val, ML::DB::Store_Writer & store) const = 0;
-    //virtual void jmlReconstitute(void * val, ML::DB::Store_Reader & store) const = 0;
+    virtual const void * optionalGetValue(const void * val) const
+    {
+        throw ML::Exception("type is not optional");
+    }
+
+    virtual size_t getArrayLength(void * val) const
+    {
+        throw ML::Exception("type is not an array");
+    }
+
+    virtual void * getArrayElement(void * val, uint32_t element) const
+    {
+        throw ML::Exception("type is not an array");
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    {
+        throw ML::Exception("type is not an array");
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const
+    {
+        throw ML::Exception("type is not an array");
+    }
+    
+    virtual const ValueDescription & contained() const
+    {
+        throw ML::Exception("type does not contain another");
+    }
+
+    // Convert from one type to another, making a copy.
+    // Default will go through a JSON conversion.
+    virtual void convertAndCopy(const void * from,
+                                const ValueDescription & fromDesc,
+                                void * to) const;
+
+    struct FieldDescription {
+        std::string fieldName;
+        std::string comment;
+        std::unique_ptr<ValueDescription > description;
+        int offset;
+        int fieldNum;
+    };
+
+    virtual size_t getFieldCount(const void * val) const
+    {
+        throw ML::Exception("type doesn't support fields");
+    }
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & name) const
+    {
+        throw ML::Exception("type doesn't support fields");
+    }
+
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const
+    {
+        throw ML::Exception("type doesn't support fields");
+    }
+
+    virtual const FieldDescription & 
+    getField(const std::string & field) const
+    {
+        throw ML::Exception("type doesn't support fields");
+    }
+
+    // Storage to cache Javascript converters
+    mutable JSConverters * jsConverters;
+    mutable bool jsConvertersInitialized;
 };
 
-template<typename T>
-struct ValueDescription : public ValueDescription<void> {
+void registerValueDescription(const std::type_info & type,
+                              std::function<ValueDescription * ()>,
+                              bool isDefault);
 
-    ValueDescription()
-        : ValueDescription<void>(&typeid(T))
+template<typename T>
+struct RegisterValueDescription {
+    RegisterValueDescription()
+    {
+        registerValueDescription(typeid(T), [] () { return getDefaultDescription((T*)0); });
+    }
+};
+
+template<typename T, typename Impl>
+struct RegisterValueDescriptionI {
+    RegisterValueDescriptionI()
+        : done(false)
+    {
+        registerValueDescription(typeid(T), [] () { return new Impl(); }, true);
+    }
+
+    bool done;
+};
+
+#define REGISTER_VALUE_DESCRIPTION(type)                                \
+    namespace {                                                         \
+    static const RegisterValueDescription<type> registerValueDescription#type; \
+    }
+
+
+/*****************************************************************************/
+/* VALUE DESCRIPTION TEMPLATE                                                */
+/*****************************************************************************/
+
+/** Template class for value description.  This is a type-safe version of a
+    value description.
+*/
+    
+template<typename T>
+struct ValueDescriptionT : public ValueDescription {
+
+    ValueDescriptionT(ValueKind kind = ValueKind::ATOM)
+        : ValueDescription(kind, &typeid(T))
     {
     }
 
@@ -90,17 +237,94 @@ struct ValueDescription : public ValueDescription<void> {
     {
         return false;
     }
+
+    virtual void setDefault(void * val) const
+    {
+        T * val2 = reinterpret_cast<T *>(val);
+        setDefaultTyped(val2);
+    }
+
+    virtual void setDefaultTyped(T * val) const
+    {
+        *val = T();
+    }
+
+    virtual void copyValue(const void * from, void * to) const
+    {
+        auto from2 = reinterpret_cast<const T *>(from);
+        auto to2 = reinterpret_cast<T *>(to);
+        if (from2 == to2)
+            return;
+        *to2 = *from2;
+    }
+
+    virtual void moveValue(void * from, void * to) const
+    {
+        auto from2 = reinterpret_cast<T *>(from);
+        auto to2 = reinterpret_cast<T *>(to);
+        if (from2 == to2)
+            return;
+        *to2 = std::move(*from2);
+    }
+
+    virtual void swapValues(void * from, void * to) const
+    {
+        using std::swap;
+        auto from2 = reinterpret_cast<T *>(from);
+        auto to2 = reinterpret_cast<T *>(to);
+        if (from2 == to2)
+            return;
+        std::swap(*from2, *to2);
+    }
+
+    virtual void * optionalMakeValue(void * val) const
+    {
+        T * val2 = reinterpret_cast<T *>(val);
+        return optionalMakeValueTyped(val2);
+    }
+
+    virtual void * optionalMakeValueTyped(T * val) const
+    {
+        throw ML::Exception("type is not optional");
+    }
+
+    virtual const void * optionalGetValue(const void * val) const
+    {
+        const T * val2 = reinterpret_cast<const T *>(val);
+        return optionalGetValueTyped(val2);
+    }
+
+    virtual const void * optionalGetValueTyped(const T * val) const
+    {
+        throw ML::Exception("type is not optional");
+    }
 };
 
-template<typename T, typename Enable = void>
-struct DefaultDescription;
-
 template<typename T>
-ValueDescription<T> * getDefaultDescription(T * = 0,
-                                            typename DefaultDescription<T>::defined * = 0)
+ValueDescriptionT<T> *
+getDefaultDescription(T * = 0,
+                      typename DefaultDescription<T>::defined * = 0)
 {
     return new DefaultDescription<T>();
 }
+
+template<typename T, ValueKind kind = ValueKind::ATOM,
+         typename Impl = DefaultDescription<T> >
+struct ValueDescriptionI : public ValueDescriptionT<T> {
+
+    static RegisterValueDescriptionI<T, Impl> regme;
+
+    ValueDescriptionI()
+        : ValueDescriptionT<T>(kind)
+    {
+        regme.done = true;
+    }
+};
+
+template<typename T, ValueKind kind, typename Impl>
+RegisterValueDescriptionI<T, Impl>
+ValueDescriptionI<T, kind, Impl>::
+regme;
 
 template<class Struct>
 struct StructureDescription;
@@ -117,6 +341,13 @@ inline const void * addOffset(const void * base, ssize_t offset)
     return c + offset;
 }
 
+
+/*****************************************************************************/
+/* STRUCTURE DESCRIPTION BASE                                                */
+/*****************************************************************************/
+
+/** Base information for a structure description. */
+
 struct StructureDescriptionBase {
 
     StructureDescriptionBase(const std::type_info * type,
@@ -132,13 +363,7 @@ struct StructureDescriptionBase {
     const std::string typeName;
     bool nullAccepted;
 
-    struct FieldDescription {
-        std::string fieldName;
-        std::string comment;
-        std::unique_ptr<ValueDescription<void> > description;
-        int offset;
-        int fieldNum;
-    };
+    typedef ValueDescription::FieldDescription FieldDescription;
 
     // Comparison object to allow const char * objects to be looked up
     // in the map and so for comparisons to be done with no memory
@@ -225,9 +450,15 @@ struct StructureDescriptionBase {
     virtual void onExit(void * output, JsonParsingContext & context) const = 0;
 };
 
+
+/*****************************************************************************/
+/* STRUCTURE DESCRIPTION                                                     */
+/*****************************************************************************/
+
 template<class Struct>
 struct StructureDescription
-    :  public ValueDescription<Struct>,
+    :  public ValueDescriptionI<Struct, ValueKind::STRUCTURE,
+                                StructureDescription<Struct> >,
        public StructureDescriptionBase {
 
     StructureDescription(bool nullAccepted = false)
@@ -264,7 +495,7 @@ struct StructureDescription
     void addField(std::string name,
                   V Base::* field,
                   std::string comment,
-                  ValueDescription<V> * description
+                  ValueDescriptionT<V> * description
                   = getDefaultDescription((V *)0))
     {
         if (fields.count(name.c_str()))
@@ -290,7 +521,7 @@ struct StructureDescription
     }
 
     template<typename V>
-    void addParent(ValueDescription<V> * description_
+    void addParent(ValueDescriptionT<V> * description_
                    = getDefaultDescription((V *)0))
     {
         StructureDescription<V> * desc2
@@ -326,14 +557,26 @@ struct StructureDescription
         }
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const
+    virtual size_t getFieldCount(const void * val) const
     {
-        return StructureDescriptionBase::parseJson(val, context);
+        return fields.size();
     }
 
-    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & field) const
     {
-        return StructureDescriptionBase::printJson(val, context);
+        auto it = fields.find(field.c_str());
+        if (it != fields.end())
+            return &it->second;
+        return nullptr;
+    }
+
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const
+    {
+        for (auto f: orderedFields) {
+            onField(f->second);
+        }
     }
 
     virtual const FieldDescription & 
@@ -344,10 +587,20 @@ struct StructureDescription
             return it->second;
         throw ML::Exception("structure has no field " + field);
     }
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const
+    {
+        return StructureDescriptionBase::parseJson(val, context);
+    }
+
+    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    {
+        return StructureDescriptionBase::printJson(val, context);
+    }
 };
 
 template<typename Enum>
-struct EnumDescription: public ValueDescription<Enum> {
+struct EnumDescription: public ValueDescriptionT<Enum> {
 
     struct Value {
         int value;
@@ -361,12 +614,12 @@ struct EnumDescription: public ValueDescription<Enum> {
 template<typename T>
 struct ListDescriptionBase {
 
-    ListDescriptionBase(ValueDescription<T> * inner = getDefaultDescription((T *)0))
+    ListDescriptionBase(ValueDescriptionT<T> * inner = getDefaultDescription((T *)0))
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescription<T> > inner;
+    std::unique_ptr<ValueDescriptionT<T> > inner;
 
     template<typename List>
     void parseJsonTypedList(List * val, JsonParsingContext & context) const
@@ -401,14 +654,13 @@ struct ListDescriptionBase {
 };
 
 template<typename T>
-struct ValueDescription<std::vector<T> >
-    : public ValueDescription<void>,
+struct DefaultDescription<std::vector<T> >
+    : public ValueDescriptionI<std::vector<T>, ValueKind::ARRAY>,
       public ListDescriptionBase<T> {
 
-    ValueDescription(ValueDescription<T> * inner
-                     = getDefaultDescription((T *)0))
-        : ValueDescription<void>(&typeid(std::vector<T>)),
-          ListDescriptionBase<T>(inner)
+    DefaultDescription(ValueDescriptionT<T> * inner
+                      = getDefaultDescription((T *)0))
+        : ListDescriptionBase<T>(inner)
     {
     }
 
@@ -445,12 +697,33 @@ struct ValueDescription<std::vector<T> >
         return val->empty();
     }
 
-    virtual void jmlSerialize(ML::DB::Store_Writer & store) const
+    virtual size_t getArrayLength(void * val) const
     {
+        const std::vector<T> * val2 = reinterpret_cast<const std::vector<T> *>(val);
+        return val2->size();
     }
 
-    virtual void jmlReconstitute(ML::DB::Store_Reader & store) const
+    virtual void * getArrayElement(void * val, uint32_t element) const
     {
+        std::vector<T> * val2 = reinterpret_cast<std::vector<T> *>(val);
+        return &val2->at(element);
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    {
+        const std::vector<T> * val2 = reinterpret_cast<const std::vector<T> *>(val);
+        return &val2->at(element);
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const
+    {
+        std::vector<T> * val2 = reinterpret_cast<std::vector<T> *>(val);
+        val2->resize(newLength);
+    }
+    
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
     }
 };
 
@@ -489,7 +762,7 @@ T jsonDecode(const Json::Value & json, T * = 0,
 {
     T result;
 
-    static std::unique_ptr<ValueDescription<void> > desc
+    static std::unique_ptr<ValueDescription> desc
         (getDefaultDescription((T *)0));
     StructuredJsonParsingContext context(json);
     desc->parseJson(&result, context);
@@ -504,12 +777,11 @@ Json::Value jsonEncode(const T & obj,
                        decltype(getDefaultDescription((T *)0)) * = 0,
                        typename std::enable_if<!hasToJson<T>::value>::type * = 0)
 {
-    static std::unique_ptr<ValueDescription<void> > desc
+    static std::unique_ptr<ValueDescription> desc
         (getDefaultDescription((T *)0));
     StructuredJsonPrintingContext context;
     desc->printJson(&obj, context);
     return std::move(context.output);
 }
-
 
 } // namespace Datacratic

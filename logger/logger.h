@@ -193,7 +193,7 @@ struct Logger {
         messages.push(message);
     }
 
-    void start(boost::function<void ()> onStop = boost::function<void ()>());
+    void start(std::function<void ()> onStop = 0);
 
     void waitUntilFinished();
 

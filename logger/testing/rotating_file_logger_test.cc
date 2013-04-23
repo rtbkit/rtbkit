@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE( test_rotating_file_logger )
     logger.close();
 
     BOOST_CHECK_GT(filesOpened.size(), 3);
-    BOOST_CHECK_LT(filesOpened.size(), 5);
+    BOOST_CHECK_LE(filesOpened.size(), 6);
 
     int totalLines = 0;
 

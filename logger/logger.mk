@@ -24,13 +24,5 @@ LIBLOG_METRICS_LINK := \
 
 $(eval $(call library,log_metrics,$(LIBLOG_METRICS_SOURCES),$(LIBLOG_METRICS_LINK)))
 
-LIBFLUME_ENDPOINT_SOURCES := \
-	flume_constants.cpp flume_types.cpp ThriftFlumeEventServer.cpp \
-	flume_endpoint.cc
-
-LIBFLUME_ENDPOINT_LINK := thrift thriftnb event
-
-$(eval $(call library,flume_endpoint,$(LIBFLUME_ENDPOINT_SOURCES),$(LIBFLUME_ENDPOINT_LINK)))
-
 $(eval $(call include_sub_make,logger_testing,testing,logger_testing.mk))
 

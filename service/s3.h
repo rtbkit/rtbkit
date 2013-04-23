@@ -462,6 +462,9 @@ struct S3Api {
                          std::string bucketDest,
                          bool includeDir);
 
+    //easy handle for v8 wrapping
+    void setDefaultBandwidthToServiceMbps(double mpbs);
+
 };
 
 /** std::istream that connects to s3 and streams a file. */
@@ -488,13 +491,6 @@ struct S3Handle{
 /** S3 support for filter_ostream opens.  Register the bucket name here, and
     you can open it directly from s3.
 */
-
-class BucketAlreadyRegistered : public ML::Exception{
-    public:
-        BucketAlreadyRegistered(const std::string & bucketName) : 
-                ML::Exception("s3 bucket %s already registered",
-                              bucketName.c_str()){}
-};
 
 void registerS3Bucket(const std::string & bucketName,
                       const std::string & accessKeyId,

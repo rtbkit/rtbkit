@@ -13,18 +13,8 @@
 
 namespace Datacratic {
 
-template<typename T>
-struct ValueDescription;
-
 struct JsonParsingContext;
-
-struct JsonParser {
-    virtual ~JsonParser();
-    virtual void parse(void * output, JsonParsingContext & context) const = 0;
-};
-
-/** For any value description, build a JSON parser for it. */
-JsonParser * createJsonParser(const ValueDescription<void> & desc);
+struct ValueDescription;
 
 struct JsonPathEntry {
     JsonPathEntry(int index)
@@ -103,13 +93,12 @@ struct JsonPath: public std::vector<JsonPathEntry> {
 };
 
 /*****************************************************************************/
-/* STREAMING JSON PARSING CONTEXT                                            */
+/* JSON PARSING CONTEXT                                                      */
 /*****************************************************************************/
 
 struct JsonParsingContext {
 
     JsonPath path;
-    std::vector<JsonParser *> parsers;
 
     std::string printPath() const
     {
@@ -525,21 +514,34 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
             exception("expected an object");
 
         const Json::Value * oldCurrent = current;
+        int memberNum = 0;
 
-        bool first = true;
         for (auto it = current->begin(), end = current->end();
              it != end;  ++it) {
-            if (first)
-                pushPath(it.memberName());
-            else replacePath(it.memberName());
 
+            // This structure takes care of pushing and popping our
+            // path entry.  It will make sure the member is always
+            // popped no matter what
+            struct PathPusher {
+                PathPusher(const std::string & memberName,
+                           int memberNum,
+                           StructuredJsonParsingContext * context)
+                    : context(context)
+                {
+                    context->pushPath(memberName, memberNum);
+                }
+
+                ~PathPusher()
+                {
+                    context->popPath();
+                }
+
+                StructuredJsonParsingContext * const context;
+            } pusher(it.memberName(), memberNum++, this);
+            
             current = &(*it);
-
             fn();
         }
-
-        if (!first)
-            popPath();
         
         current = oldCurrent;
     }
@@ -568,6 +570,28 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
     }
 };
 
+
+/*****************************************************************************/
+/* STRING JSON PARSING CONTEXT                                               */
+/*****************************************************************************/
+
+struct StringJsonParsingContext
+    : public StreamingJsonParsingContext  {
+
+    StringJsonParsingContext(std::string str_,
+                             const std::string & filename = "<<internal>>")
+        : str(std::move(str_))
+    {
+        init(filename, str.c_str(), str.c_str() + str.size());
+    }
+
+    std::string str;
+};
+
+
+/*****************************************************************************/
+/* UTILITIES                                                                 */
+/*****************************************************************************/
 
 template<typename Context>
 void parseJson(int * output, Context & context)

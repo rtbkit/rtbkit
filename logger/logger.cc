@@ -297,7 +297,7 @@ clearOutputs()
 
 void
 Logger::
-start(boost::function<void ()> onStop)
+start(std::function<void ()> onStop)
 {
     messagesSent = messagesDone = 0;
     doShutdown = false;

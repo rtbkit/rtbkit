@@ -1,0 +1,59 @@
+{
+   zmq_send
+   Memcheck:Param
+   socketcall.sendto(msg)
+   fun:send
+   fun:_ZN3zmq9mailbox_t4sendERKNS_9command_tE
+   ...
+}
+
+{
+   v8 Initialize Leaking
+   Memcheck:Leak
+   fun:_Znam
+   fun:_ZN2v88internal22ExternalReferenceTable13PopulateTableEv
+   fun:_ZN2v88internal24ExternalReferenceDecoderC1Ev
+   fun:_ZN2v88internal12Deserializer11DeserializeEv
+   fun:_ZN2v88internal2V810InitializeEPNS0_12DeserializerE
+   fun:_ZN2v88internal8Snapshot11DeserializeEPKhi
+   fun:_ZN2v88internal8Snapshot10InitializeEPKc
+   fun:_ZN2v82V810InitializeEv
+   fun:_ZN2v87Context3NewEPNS_22ExtensionConfigurationENS_6HandleINS_14ObjectTemplateEEENS3_INS_5ValueEEE
+   ...
+}
+
+{
+   v8 Debugger Initialize Leaking
+   Memcheck:Leak
+   fun:_Znam
+   fun:_ZN2v88internal19CommandMessageQueueC1Ei
+   fun:_ZN2v88internal26LockingCommandMessageQueueC1EPNS0_6LoggerEi
+   fun:_ZN2v88internal8DebuggerC1EPNS0_7IsolateE
+   fun:_ZN2v88internal7Isolate18InitializeDebuggerEv
+   fun:_ZN2v88internal7Isolate4InitEPNS0_12DeserializerE
+   fun:_ZN2v88internal8Snapshot11DeserializeEPKhi
+   fun:_ZN2v88internal8Snapshot10InitializeEPKc
+   ...
+}
+
+{
+   Node exception throw leak one block
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   fun:_ZNSs9_M_mutateEmmm
+   fun:_ZNSs15_M_replace_safeEmmPKcm
+   fun:_ZN2ML20trace_exception_nodeEPvPKSt9type_info
+   fun:__cxa_throw
+   ...
+}
+
+{
+   tcmalloc trips valgrind
+   Memcheck:Param
+   msync(start)
+   fun:__msync_nocancel
+   obj:/usr/lib/libunwind.so.7.0.0
+   fun:_ULx86_64_step
+   ...
+}

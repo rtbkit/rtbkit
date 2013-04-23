@@ -28,6 +28,7 @@ namespace Redis {
 
 
 const Command PING("PING");
+const Command HDEL("HDEL");
 const Command HGET("HGET");
 const Command HGETALL("HGETALL");
 const Command HMGET("HMGET");
@@ -47,6 +48,7 @@ const Command RANDOMKEY("RANDOMKEY");
 const Command DEL("DEL");
 const Command SADD("SADD");
 const Command SMEMBERS("SMEMBERS");
+const Command TTL("TTL");
 
 /*****************************************************************************/
 /* REPLY                                                                     */
