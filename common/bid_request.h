@@ -312,11 +312,11 @@ struct BidRequest {
        optimization algorithm can make use of them.
     */
        
-    std::string language;   ///< User's language.
+    Utf8String language;   ///< User's language.
     Location location;      ///< Best available location information
     Url url;
     std::string ipAddress;
-    std::string userAgent;
+    Utf8String userAgent;
 
     /** This field should be used to indicate what User IDs are available
         in the bid request.  These are normally used by the augmentors to

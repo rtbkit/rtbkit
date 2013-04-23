@@ -357,7 +357,7 @@ struct AgentConfig {
            const std::vector<AdSpot> & imp,
            const std::string & exchange,
            const std::string & protocolVersion,
-           const std::string & language,
+           const Utf8String & language,
            const Utf8String & location, uint64_t locationHash,
            ML::Lightweight_Hash<uint64_t, int> & locationCache) const;
 
@@ -371,7 +371,7 @@ struct AgentConfig {
             urlHash(hashString(request.url.c_str())),
 
             language(!request.language.empty() ?
-                    request.language : "unspecified"),
+                     request.language : Utf8String("unspecified")),
             languageHash(hashString(request.language)),
 
             location(request.location.fullLocationString()),
@@ -380,7 +380,7 @@ struct AgentConfig {
 
         uint64_t urlHash;
 
-        std::string language;
+        Utf8String language;
         uint64_t languageHash;
 
         Utf8String location;

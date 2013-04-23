@@ -780,7 +780,7 @@ canBid(const ExchangeConnector * exchangeConnector,
        const std::vector<AdSpot> & imp,
        const std::string & exchange,
        const std::string & protocolVersion,
-       const std::string & language,
+       const Utf8String & language,
        const Utf8String & location, uint64_t locationHash,
        ML::Lightweight_Hash<uint64_t, int> & locationCache) const
 {
@@ -802,7 +802,7 @@ canBid(const ExchangeConnector * exchangeConnector,
             if (creatives[j].compatible(imp[i])
                 && creatives[j].biddable(exchange, protocolVersion)
                 && creatives[j].exchangeFilter.isIncluded(exchange)
-                && creatives[j].languageFilter.isIncluded(language)
+                && creatives[j].languageFilter.isIncluded(language.rawString())
                 && creatives[j].locationFilter.isIncluded(location, locationHash, locationCache))
                 matching.push_back(j);
         }
@@ -920,7 +920,7 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
 
     /* Check for language. */
     if (!languageFilter.isIncluded(
-                    cache.language, cache.languageHash, cache.languageFilter))
+            cache.language.rawString(), cache.languageHash, cache.languageFilter))
     {
         ML::atomic_inc(stats.languageFiltered);
         if (doFilterStat) doFilterStat("static.070_languageFiltered");
