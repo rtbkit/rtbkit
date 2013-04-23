@@ -1050,7 +1050,7 @@ struct Geo {
 struct Device {
     ~Device();
     TaggedBool dnt;        ///< If 1 then do not track is on
-    string ua;             ///< User agent of device
+    Utf8String ua;             ///< User agent of device
     string ip;             ///< IP address of device
     Optional<Geo> geo;     ///< Geolocation of device
     string didsha1;        ///< Device ID: SHA1
@@ -1059,7 +1059,7 @@ struct Device {
     string dpidmd5;        ///< Device Platform ID: MD5
     string ipv6;           ///< IPv6 address
     string carrier;        ///< Carrier or ISP (derived from IP address)
-    string language;       ///< Browser language.  ISO 639-1 (alpha-2).
+    Utf8String language;       ///< Browser language.  ISO 639-1 (alpha-2).
     string make;           ///< Device make
     string model;          ///< Device model
     string os;             ///< Device OS
