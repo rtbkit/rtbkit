@@ -11,7 +11,9 @@
 #include <libssh2.h>
 #include <libssh2_sftp.h>
 #include <functional>
-
+#include <memory>
+#include "jml/utils/filter_streams.h"
+#include "jml/arch/exception.h"
 
 namespace Datacratic {
 
@@ -19,6 +21,10 @@ namespace Datacratic {
 /*****************************************************************************/
 /* SOCKET CONNECTION                                                         */
 /*****************************************************************************/
+
+/** Deals with a single socket for an ssh connection.  The libssh2 library
+    leaves socket management to the user.
+*/
 
 struct SocketConnection {
     int sock;
@@ -37,6 +43,10 @@ struct SocketConnection {
 /*****************************************************************************/
 /* SSH CONNECTION                                                            */
 /*****************************************************************************/
+
+/** Deals with a single ssh connection.  This is used to multiplex various
+    other kinds of protocols, once authentication is done.
+*/
 
 struct SshConnection : public SocketConnection {
     LIBSSH2_SESSION *session;
@@ -66,6 +76,8 @@ struct SshConnection : public SocketConnection {
 /*****************************************************************************/
 /* SFTP CONNECTION                                                           */
 /*****************************************************************************/
+
+/** An SFTP connection, built on top of the ssh connection. */
 
 struct SftpConnection : public SshConnection {
     LIBSSH2_SFTP *sftp_session;
@@ -131,11 +143,42 @@ struct SftpConnection : public SshConnection {
     void uploadFile(const char * start,
                     size_t size,
                     const std::string & path);
+    
+    std::unique_ptr<std::streambuf>
+    streamingUploadStreambuf(const std::string & path);
+
+    std::unique_ptr<std::streambuf>
+    streamingDownloadStreambuf(const std::string & path);
+
+    ML::filter_ostream streamingUpload(const std::string & path);
+    ML::filter_istream streamingDownload(const std::string & path);
 
     void close();
 };
 
 
+/** Sftp support for filter_ostream opens.  Register the sftp host here,
+    and you can open it directly from s3 using the sftp:// syntax.
+*/
 
+class HostAlreadyRegistered : public ML::Exception {
+public:
+    HostAlreadyRegistered(const std::string & bucketName) : 
+        ML::Exception("sftp host %s already registered",
+                      bucketName.c_str())
+    {
+    }
+};
+
+void registerSftpHostPassword(const std::string & hostname,
+                              const std::string & username,
+                              const std::string & password,
+                              const std::string & port = "ssh");
+
+void registerSftpHostPublicKey(const std::string & hostname,
+                               const std::string & username,
+                               const std::string & publicKeyFile,
+                               const std::string & privateKeyFile,
+                               const std::string & port = "ssh");
 
 } // namespace Datacratic
