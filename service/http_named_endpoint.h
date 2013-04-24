@@ -207,6 +207,8 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
             return sendResponse(code, body, contentType);
         }
 
+        
+
         void sendResponse(int code,
                           const std::string & body,
                           const std::string & contentType)
@@ -217,6 +219,10 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
                  "sendResponse");
             };
 
+            putResponseOnWire(HttpResponse(code, body, contentType),
+                              onSendFinished);
+
+#if 0
             send(ML::format("HTTP/1.1 %d %s\r\n"
                             "Content-Type: %s\r\n"
                             "Access-Control-Allow-Origin: *\r\n"
@@ -229,8 +235,9 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
                             contentType.c_str(),
                             body.length(),
                             body.c_str()),
-                 NEXT_CONTINUE,
+                 ML::lowercase(header.tryGetHeader("connection") == "keep-alive" ? NEXT_CONTINUE : NEXT_CLOSE),
                  onSendFinished);
+#endif
         }
 
     };

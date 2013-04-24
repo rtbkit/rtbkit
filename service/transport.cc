@@ -584,6 +584,7 @@ TransportBase::
 handleEvents()
 {
     int rc = 0;
+
         
     while (!isZombie() && rc != -1) {
         struct pollfd items[3] = {
@@ -597,7 +598,8 @@ handleEvents()
 #if 0
         cerr << "handleevents for " << getHandle() << " " << status()
              << " got " << res << " events" << " and has async "
-             << hasAsync() << endl;
+             << hasAsync() << " " << Date::now().print(4) << endl;
+        cerr << "flags_ = " << pollFlags(flags_) << endl;
 
         for (unsigned i = 0;  i < 3;  ++i) {
             if (!items[i].revents) continue;

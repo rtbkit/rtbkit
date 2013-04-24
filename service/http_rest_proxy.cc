@@ -14,6 +14,7 @@
 #include <curlpp/Infos.hpp>
 
 
+
 using namespace std;
 using namespace ML;
 
@@ -24,6 +25,13 @@ namespace Datacratic {
 /*****************************************************************************/
 /* HTTP REST PROXY                                                           */
 /*****************************************************************************/
+
+HttpRestProxy::
+~HttpRestProxy()
+{
+    for (auto c: inactive)
+        delete c;
+}
 
 HttpRestProxy::Response
 HttpRestProxy::
@@ -41,7 +49,9 @@ perform(const std::string & verb,
         responseHeaders.clear();
         body.clear();
 
-        curlpp::Easy myRequest;
+        Connection connection = getConnection();
+
+        curlpp::Easy & myRequest = *connection;
 
         using namespace curlpp::options;
         using namespace curlpp::infos;
@@ -63,6 +73,7 @@ perform(const std::string & verb,
         myRequest.setOpt<ErrorBuffer>((char *)0);
         if (timeout != -1)
             myRequest.setOpt<Timeout>(timeout);
+        else myRequest.setOpt<Timeout>(0);
         myRequest.setOpt<NoSignal>(1);
 
         auto onData = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
@@ -88,9 +99,14 @@ perform(const std::string & verb,
 
         bool afterContinue = false;
 
+        //cerr << endl << endl << "*******************" << endl;
+
         auto onHeader = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
             {
                 string headerLine(data, ofs1 * ofs2);
+
+                //cerr << "got header " << headerLine << endl;
+
                 if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
                     afterContinue = true;
                 }
@@ -118,6 +134,10 @@ perform(const std::string & verb,
                                              content.size));
             //curlHeaders.push_back("Transfer-Encoding:");
             curlHeaders.push_back("Content-Type: " + content.contentType);
+        }
+        else {
+            myRequest.setOpt<PostFieldSize>(-1);
+            myRequest.setOpt<PostFields>("");
         }
 
         myRequest.setOpt<curlpp::options::HttpHeader>(curlHeaders);
@@ -150,6 +170,38 @@ perform(const std::string & verb,
         cerr << "body contains " << body.size() << " bytes" << endl;
         throw;
     }
+}
+
+HttpRestProxy::Connection::
+~Connection()
+{
+    if (!conn)
+        return;
+    proxy->doneConnection(conn);
+}
+
+HttpRestProxy::Connection
+HttpRestProxy::
+getConnection() const
+{
+    std::unique_lock<std::mutex> guard(lock);
+
+    if (inactive.empty()) {
+        return Connection(new curlpp::Easy, const_cast<HttpRestProxy *>(this));
+    }
+    else {
+        auto res = inactive.back();
+        inactive.pop_back();
+        return Connection(res, const_cast<HttpRestProxy *>(this));
+    }
+}
+
+void
+HttpRestProxy::
+doneConnection(curlpp::Easy * conn)
+{
+    std::unique_lock<std::mutex> guard(lock);
+    inactive.push_back(conn);
 }
 
 } // namespace Datacratic
