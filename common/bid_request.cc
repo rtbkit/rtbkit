@@ -143,6 +143,8 @@ DefaultDescription()
     addField("provider", &BidRequest::provider, "Bid request provider");
     addField("winSurcharges", &BidRequest::winSurcharges,
              "extra amounts paid on win");
+    addField("winSurchageMicros", &BidRequest::winSurcharges,
+             "extra amounts paid on win");
     addField("meta", &BidRequest::meta,
              "extra metadata about the bid request");
     addField("location", &BidRequest::location,
