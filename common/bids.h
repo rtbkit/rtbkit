@@ -106,6 +106,9 @@ struct Bids : public ML::compact_vector<Bid, 4>
      */
     std::set<std::string> dataSources;
 
+    /** Return the bid object associated with the given spot index. */
+    const Bid& bidForSpot(int spotIndex) const;
+
     Json::Value toJson() const;
     static Bids fromJson(const std::string& raw);
 };

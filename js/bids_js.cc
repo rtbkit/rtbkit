@@ -120,6 +120,7 @@ struct BidsJS : public JSWrapped2<Bids, BidsJS, BidsName, rtbModule>
 
         NODE_SET_PROTOTYPE_METHOD(t, "bid", bid);
         NODE_SET_PROTOTYPE_METHOD(t, "addSource", addSource);
+        registerMemberFn(&RTBKIT::Bids::bidForSpot, "bidForSpot");
 
         registerROProperty(&Bids::size, "length");
         t->InstanceTemplate()->SetIndexedPropertyHandler(at, 0, check, 0, list);

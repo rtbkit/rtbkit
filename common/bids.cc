@@ -106,6 +106,7 @@ toJson() const
     json["creative"] = creativeIndex;
     json["price"] = price.toString();
     json["priority"] = priority;
+    json["spotIndex"] = spotIndex;
     if (!account.empty()) json["account"] = account.toString();
 
     return json;
@@ -125,22 +126,48 @@ fromJson(ML::Parse_Context& context)
         {
             ExcCheck(!fieldName.empty(), "invalid empty field name");
 
-            if (fieldName[0] == 'a' && fieldName == "account")
-                bid.account = AccountKey(expectJsonStringAscii(context));
+            bool foundField = true;
+            switch(fieldName[0]) {
 
-            else if (fieldName[0] == 'c' && fieldName == "creative")
-                bid.creativeIndex = context.expect_int();
+            case 'a':
+                if (fieldName == "account")
+                    bid.account = AccountKey(expectJsonStringAscii(context));
 
-            else if (fieldName[0] == 'p' && fieldName == "price")
-                bid.price = Amount::parse(expectJsonStringAscii(context));
+                else foundField = false;
+                break;
 
-            else if ((fieldName[0] == 'p' && fieldName == "priority")
-                    || (fieldName[0] == 's' && fieldName == "surplus"))
-            {
-                bid.priority = context.expect_double();
+            case 'c':
+                if (fieldName == "creative")
+                    bid.creativeIndex = context.expect_int();
+
+                else foundField = false;
+                break;
+
+            case 'p':
+                if (fieldName == "price")
+                    bid.price = Amount::parse(expectJsonStringAscii(context));
+
+                else if (fieldName == "priority")
+                    bid.priority = context.expect_double();
+
+                else foundField = false;
+                break;
+
+            case 's':
+                if (fieldName == "spotIndex")
+                    bid.spotIndex = context.expect_int();
+
+                // Legacy name for priority
+                else if (fieldName == "surplus")
+                    bid.priority = context.expect_double();
+
+                else foundField = false;
+                break;
+
+            default: foundField = false;
             }
 
-            else throw ML::Exception("unknown bid field " + fieldName);
+            ExcCheck(foundField, "unknown bid field " + fieldName);
         };
 
     expectJsonObject(context, onBidField);
@@ -152,6 +179,18 @@ fromJson(ML::Parse_Context& context)
 /******************************************************************************/
 /* BIDS                                                                       */
 /******************************************************************************/
+
+const Bid&
+Bids::
+bidForSpot(int spotIndex) const
+{
+    for (const Bid& bid : *this) {
+        if (bid.spotIndex == spotIndex) return bid;
+    }
+
+    ExcCheck(false, "Unknown spot index: " + spotIndex);
+}
+
 
 Json::Value
 Bids::
@@ -192,11 +231,26 @@ fromJson(const std::string& raw)
         {
             ExcCheck(!fieldName.empty(), "invalid empty field name");
 
-            if (fieldName[0] == 'b' && fieldName == "bids")
-                expectJsonArray(context, onDataSourceEntry);
+            bool foundField = true;
+            switch (fieldName[0]) {
+            case 'b':
+                if (fieldName == "bids")
+                    expectJsonArray(context, onDataSourceEntry);
 
-            else if (fieldName[0] == 's' && fieldName == "sources")
-                expectJsonArray(context, onBidEntry);
+                else foundField = false;
+                break;
+
+            case 's':
+                if (fieldName == "sources")
+                    expectJsonArray(context, onBidEntry);
+
+                else foundField = false;
+                break;
+
+            default: foundField = false;
+            }
+
+            ExcCheck(foundField, "unknown bids field " + fieldName);
         };
 
     ML::Parse_Context context(raw, raw.c_str(), raw.c_str() + raw.length());
