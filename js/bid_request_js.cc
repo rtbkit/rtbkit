@@ -1581,6 +1581,10 @@ struct BidRequestJS
         /// \deprecated spots member is there for backward compatibility
         registerFieldFromDescription<BidRequestJS>(desc, "spots");
         registerFieldFromDescription<BidRequestJS>(desc, "imp");
+        registerFieldFromDescription<BidRequestJS>(desc, "app");
+        registerFieldFromDescription<BidRequestJS>(desc, "device");
+        registerFieldFromDescription<BidRequestJS>(desc, "user");
+        registerFieldFromDescription<BidRequestJS>(desc, "imp");
 
 
         //registerRWProperty(&BidRequest::imp, "imp", v8::DontDelete);
@@ -1769,7 +1773,6 @@ struct BidRequestJS
                                 + " into location info");
         } HANDLE_JS_EXCEPTIONS_SETTER;
     }
-
 };
 
 std::shared_ptr<BidRequest>
