@@ -408,7 +408,6 @@ downloadTo(const std::string & filename) const
     delete[] buf;
 }
 
-
 /*****************************************************************************/
 /* SFTP CONNECTION                                                           */
 /*****************************************************************************/
@@ -845,6 +844,12 @@ streamingDownloadStreambuf(const std::string & path)
                  (SftpStreamingDownloadSource(this, path),
                   131072));
     return result;
+}
+
+int
+SftpConnection::
+unlink(const string & path){
+    return libssh2_sftp_unlink(sftp_session, path.c_str());
 }
 
 namespace {
