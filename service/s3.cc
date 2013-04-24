@@ -240,7 +240,8 @@ performSync() const
             responseHeaders.clear();
             body.clear();
 
-            curlpp::Easy myRequest;
+            auto connection = owner->proxy.getConnection();
+            curlpp::Easy & myRequest = *connection;
 
             using namespace curlpp::options;
             using namespace curlpp::infos;
@@ -432,6 +433,7 @@ prepare(const RequestParams & request) const
     SignedRequest result;
     result.params = request;
     result.bandwidthToServiceMbps = bandwidthToServiceMbps;
+    result.owner = const_cast<S3Api *>(this);
 
     if (request.resource.find("//") != string::npos)
         throw ML::Exception("attempt to perform s3 request with double slash: "

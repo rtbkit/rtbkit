@@ -156,6 +156,7 @@ private:
     */
     mutable std::vector<curlpp::Easy *> inactive;
 
+public:
     /** Get a connection. */
     struct Connection {
         Connection(curlpp::Easy * conn,

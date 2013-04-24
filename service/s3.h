@@ -14,6 +14,7 @@
 #include "jml/utils/unnamed_bool.h"
 #include "tinyxml2/tinyxml2.h"
 #include "soa/service/http_endpoint.h"
+#include "http_rest_proxy.h"
 #include <memory>
 
 namespace Datacratic {
@@ -190,6 +191,7 @@ struct S3Api {
         std::string auth;
         std::string uri;
         double bandwidthToServiceMbps;
+        S3Api * owner;
 
         /** Perform the request synchronously and return the result. */
         Response performSync() const;
@@ -465,6 +467,8 @@ struct S3Api {
     //easy handle for v8 wrapping
     void setDefaultBandwidthToServiceMbps(double mpbs);
 
+    // Used to pool connections to the S3 service
+    HttpRestProxy proxy;
 };
 
 /** std::istream that connects to s3 and streams a file. */
