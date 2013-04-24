@@ -325,6 +325,7 @@ open(const std::string & uri,
     bool weOwnBuf;
     std::tie(buf, weOwnBuf) = handler(scheme, resource, mode);
 
+    openFromStreambuf(buf, weOwnBuf, resource, compression);
 }
 
 void
