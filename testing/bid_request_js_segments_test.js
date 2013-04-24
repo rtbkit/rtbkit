@@ -1,6 +1,6 @@
-/* rtb_bid_request_test.js
- * Jeremy Barnes, 7 June 2011
- * Copyright (c) 2011 Datacratic.  All rights reserved.
+/* rtb_bid_request_segments_test.js
+ * Wolfgang Sourdeau, April 2013
+ * Copyright (c) 2013 Datacratic.  All rights reserved.
  *
  * Tests for the bid request.
  */
