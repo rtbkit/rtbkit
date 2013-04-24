@@ -7,6 +7,7 @@
 #------------------------------------------------------------------------------#
 
 $(eval $(call vowscoffee_test,bid_request_js_test,bid_request))
+$(eval $(call vowsjs_test,bid_request_js_segments_test,bid_request))
 $(eval $(call test,agent_configuration_test,rtb_router bidding_agent,boost))
 $(eval $(call test,augmentation_list_test,rtb,boost))
 $(eval $(call test,historical_bid_request_test,bid_request,boost))

@@ -351,9 +351,65 @@ struct SegmentsBySourceJS
         Persistent<FunctionTemplate> t = Register(New);
 
         t->InstanceTemplate()
+            ->SetIndexedPropertyHandler(getIndexed, setIndexed, queryIndexed,
+                                        deleteIndexed, listIndexed);
+        t->InstanceTemplate()
             ->SetNamedPropertyHandler(getNamed, setNamed, queryNamed,
                                       deleteNamed, listNamed);
+    }
 
+    static v8::Handle<v8::Value>
+    getIndexed(uint32_t index, const v8::AccessorInfo & info)
+    {
+        try {
+            SegmentsBySource * segs = getShared(info.This());
+
+            string strIdx = to_string(index);
+            return (segs->count(strIdx) > 0
+                    ? JS::toJS(segs->at(strIdx))
+                    : NULL_HANDLE);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
+    setIndexed(uint32_t index,
+               v8::Local<v8::Value> value,
+               const v8::AccessorInfo & info)
+    {
+        try {
+            throw ML::Exception("can't modify segments argument");
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Integer>
+    queryIndexed(uint32_t index,
+                 const v8::AccessorInfo & info)
+    {
+        SegmentsBySource * segs = getShared(info.This());
+
+        string strIdx = to_string(index);
+        return (segs->count(strIdx) > 0
+                ? v8::Integer::New(ReadOnly | DontDelete)
+                : NULL_HANDLE);
+    }
+
+    static v8::Handle<v8::Array>
+    listIndexed(const v8::AccessorInfo & info)
+    {
+        v8::HandleScope scope;
+        SegmentsBySource * segs = getShared(info.This());
+
+        int sz = segs->size();
+        v8::Handle<v8::Array> result(v8::Array::New(sz));
+
+        return scope.Close(result);
+    }
+
+    static v8::Handle<v8::Boolean>
+    deleteIndexed(uint32_t index,
+                  const v8::AccessorInfo & info)
+    {
+        return NULL_HANDLE;
     }
 
     static v8::Handle<v8::Value>
