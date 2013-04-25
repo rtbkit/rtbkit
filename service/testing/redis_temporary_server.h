@@ -24,11 +24,14 @@ struct RedisTemporaryServer : boost::noncopyable {
 
     RedisTemporaryServer(std::string uniquePath = "")
     {
+        static int index;
+        ++index;
+
         using namespace std;
         if (uniquePath == "") {
             ML::Env_Option<std::string> tmpDir("TMP", "./tmp");
-            uniquePath = ML::format("%s/redis-temporary-server-%d",
-                                    tmpDir.get(), getpid());
+            uniquePath = ML::format("%s/redis-temporary-server-%d-%d",
+                                    tmpDir.get(), getpid(), index);
             cerr << "starting redis temporary server under unique path "
                  << uniquePath << endl;
         }
