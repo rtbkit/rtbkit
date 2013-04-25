@@ -1700,6 +1700,40 @@ struct StreamingUploadSource {
         Date startDate;
 
         struct Chunk {
+            Chunk() : data(nullptr)
+            {
+            }
+
+            Chunk(Chunk && other)
+            {
+                this->offset = other.offset;
+                this->size = other.size;
+                this->capacity = other.capacity;
+                this->index = other.index;
+                this->data = other.data;
+
+                other.data = nullptr;
+            }
+
+            Chunk & operator = (Chunk && other) {
+                if (this != &other) {
+                    this->offset = other.offset;
+                    this->size = other.size;
+                    this->capacity = other.capacity;
+                    this->index = other.index;
+                    this->data = other.data;
+
+                    other.data = nullptr;
+                }
+
+                return *this;
+            }
+
+            ~Chunk() {
+                if (this->data) {
+                    delete[] this->data;
+                }
+            }
 
             void init(uint64_t offset, size_t capacity, int index)
             {
@@ -1723,6 +1757,10 @@ struct StreamingUploadSource {
             size_t capacity;
             int index;
             uint64_t offset;
+
+        private:
+            Chunk(const Chunk & other) {}
+            Chunk & operator = (const Chunk & other) { return *this; }
         };
 
         Chunk current;
@@ -1776,7 +1814,7 @@ struct StreamingUploadSource {
         void flush()
         {
             if (current.size == 0) return;
-            chunks.push(current);
+            chunks.push(std::move(current));
             ++chunkIndex;
 
             // Get bigger for bigger files
