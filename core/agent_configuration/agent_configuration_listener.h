@@ -54,6 +54,7 @@ struct AgentConfigurationListener: public MessageLoop {
 
     ~AgentConfigurationListener()
     {
+        delete allAgents;
         shutdown();
     }
 
