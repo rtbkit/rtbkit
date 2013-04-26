@@ -5,6 +5,7 @@
    sftp connection.
 */
 
+#include <boost/iostreams/stream_buffer.hpp>
 #include "soa/service/sftp.h"
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -17,6 +18,10 @@
 #include "jml/arch/format.h"
 #include "soa/types/date.h"
 #include <fstream>
+#include "jml/utils/filter_streams.h"
+#include "jml/utils/exc_assert.h"
+#include <thread>
+#include <unordered_map>
 
 
 using namespace std;
@@ -403,7 +408,6 @@ downloadTo(const std::string & filename) const
     delete[] buf;
 }
 
-
 /*****************************************************************************/
 /* SFTP CONNECTION                                                           */
 /*****************************************************************************/
@@ -567,5 +571,395 @@ uploadFile(const char * start,
  
     libssh2_sftp_close(handle);
 }
+
+
+struct SftpStreamingDownloadSource {
+
+    SftpStreamingDownloadSource(SftpConnection * owner,
+                                std::string path)
+    {
+        impl.reset(new Impl());
+        impl->owner = owner;
+        impl->path = path;
+        impl->start();
+    }
+
+    typedef char char_type;
+    struct category
+        : public boost::iostreams::input /*_seekable*/,
+          public boost::iostreams::device_tag,
+          public boost::iostreams::closable_tag
+    { };
+    
+    struct Impl {
+        Impl()
+            : owner(0), offset(0), handle(0)
+        {
+        }
+
+        ~Impl()
+        {
+            stop();
+        }
+
+        const SftpConnection * owner;
+        std::string path;
+        size_t offset;
+        LIBSSH2_SFTP_HANDLE * handle;
+
+        Date startDate;
+
+        void start()
+        {
+            handle
+                = libssh2_sftp_open_ex(owner->sftp_session, path.c_str(),
+                                       path.length(), LIBSSH2_FXF_READ, 0,
+                                       LIBSSH2_SFTP_OPENFILE);
+            
+            if (!handle) {
+                throw ML::Exception("couldn't open path: "
+                                    + owner->lastError());
+            }
+        }
+
+        void stop()
+        {
+            if (handle) libssh2_sftp_close(handle);
+        }
+
+        std::streamsize read(char_type* s, std::streamsize n)
+        {
+            BOOST_STATIC_ASSERT(sizeof(char_type) == 1);
+
+            ssize_t numRead = libssh2_sftp_read(handle, s, n);
+            if (numRead < 0) {
+                throw ML::Exception("read(): " + owner->lastError());
+            }
+            
+            return numRead;
+        }
+    };
+
+    std::shared_ptr<Impl> impl;
+
+    std::streamsize read(char_type* s, std::streamsize n)
+    {
+        return impl->read(s, n);
+    }
+
+#if 0
+    void seek(std::streamsize where, std::ios_base::seekdir dir)
+    {
+    }
+#endif
+
+    bool is_open() const
+    {
+        return !!impl;
+    }
+
+    void close()
+    {
+        impl.reset();
+    }
+};
+
+
+
+struct SftpStreamingUploadSource {
+
+    SftpStreamingUploadSource(SftpConnection * owner,
+                              const std::string & path)
+    {
+        impl.reset(new Impl());
+        impl->owner = owner;
+        impl->path = path;
+        impl->start();
+    }
+
+    typedef char char_type;
+    struct category
+        : public boost::iostreams::output,
+          public boost::iostreams::device_tag,
+          public boost::iostreams::closable_tag
+    {
+    };
+
+    struct Impl {
+        Impl()
+            : owner(0), handle(0), offset(0), lastPrint(0)
+        {
+        }
+
+        ~Impl()
+        {
+            stop();
+        }
+
+        SftpConnection * owner;
+        LIBSSH2_SFTP_HANDLE * handle;
+        std::string path;
+        
+        size_t offset;
+        size_t lastPrint;
+        Date lastTime;
+
+        Date startDate;
+
+        void start()
+        {
+            /* Request a file via SFTP */ 
+            handle =
+                libssh2_sftp_open(owner->sftp_session, path.c_str(),
+                                  LIBSSH2_FXF_WRITE|LIBSSH2_FXF_CREAT|LIBSSH2_FXF_TRUNC,
+                                  LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
+                                  LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH);
+            
+            if (!handle)
+                throw ML::Exception("couldn't open path: " + owner->lastError());
+
+            startDate = Date::now();
+        }
+        
+        void stop()
+        {
+            if (handle) libssh2_sftp_close(handle);
+        }
+
+        std::streamsize write(const char_type* s, std::streamsize n)
+        {
+            ssize_t done = 0;
+
+            while (done < n) {
+
+                ssize_t rc = libssh2_sftp_write(handle, s + done, n - done);
+            
+                if (rc == -1)
+                    throw ML::Exception("couldn't upload file: " + owner->lastError());
+            
+                offset += rc;
+                done += rc;
+
+                if (offset > lastPrint + 5 * 1024 * 1024) {
+                    Date now = Date::now();
+                
+                    double mb = 1024 * 1024;
+                
+                    double doneMb = offset / mb;
+                    double elapsedOverall = now.secondsSince(startDate);
+                    double mbSecOverall = doneMb / elapsedOverall;
+                    double elapsedSince = now.secondsSince(lastTime);
+                    double mbSecInst = (offset - lastPrint) / mb / elapsedSince;
+                
+                    cerr << ML::format("done %.2fMB at %.2fMB/sec inst and %.2fMB/sec overall",
+                                       doneMb, 
+                                       mbSecInst,
+                                       mbSecOverall)
+                         << endl;
+                
+                
+                    lastPrint = offset;
+                    lastTime = now;
+                }
+            }
+
+            return done;
+        }
+
+        void flush()
+        {
+        }
+
+        void finish()
+        {
+            stop();
+
+            double elapsed = Date::now().secondsSince(startDate);
+
+            cerr << "uploaded " << offset / 1024.0 / 1024.0
+                 << "MB in " << elapsed << "s at "
+                 << offset / 1024.0 / 1024.0 / elapsed
+                 << "MB/s" << endl;
+        }
+    };
+
+    std::shared_ptr<Impl> impl;
+
+    std::streamsize write(const char_type* s, std::streamsize n)
+    {
+        return impl->write(s, n);
+    }
+
+    bool is_open() const
+    {
+        return !!impl;
+    }
+
+    void close()
+    {
+        impl->finish();
+        impl.reset();
+    }
+};
+
+ML::filter_ostream
+SftpConnection::
+streamingUpload(const std::string & path)
+{
+    ML::filter_ostream result;
+    auto sb = streamingUploadStreambuf(path);
+    result.openFromStreambuf(sb.release(), true, path);
+    
+    return result;
+}
+
+std::unique_ptr<std::streambuf>
+SftpConnection::
+streamingUploadStreambuf(const std::string & path)
+{
+    std::unique_ptr<std::streambuf> result;
+    result.reset(new boost::iostreams::stream_buffer<SftpStreamingUploadSource>
+                 (SftpStreamingUploadSource(this, path),
+                  131072));
+    return result;
+}
+
+ML::filter_istream
+SftpConnection::
+streamingDownload(const std::string & path)
+{
+    ML::filter_istream result;
+    auto sb = streamingDownloadStreambuf(path);
+    result.openFromStreambuf(sb.release(), true, path);
+    
+    return result;
+}
+
+std::unique_ptr<std::streambuf>
+SftpConnection::
+streamingDownloadStreambuf(const std::string & path)
+{
+    std::unique_ptr<std::streambuf> result;
+    result.reset(new boost::iostreams::stream_buffer<SftpStreamingDownloadSource>
+                 (SftpStreamingDownloadSource(this, path),
+                  131072));
+    return result;
+}
+
+int
+SftpConnection::
+unlink(const string & path){
+    return libssh2_sftp_unlink(sftp_session, path.c_str());
+}
+
+namespace {
+
+struct SftpHostInfo {
+    std::string sftpHost;
+    std::shared_ptr<SftpConnection> connection;  //< Used to access this uri
+};
+
+std::mutex sftpHostsLock;
+std::unordered_map<std::string, SftpHostInfo> sftpHosts;
+
+} // file scope
+
+/** Sftp support for filter_ostream opens.  Register the host name here, and
+    you can open it directly from sftp.
+*/
+
+void registerSftpHostPassword(const std::string & hostname,
+                              const std::string & username,
+                              const std::string & password,
+                              const std::string & port)
+{
+    std::unique_lock<std::mutex> guard(sftpHostsLock);
+    if (sftpHosts.count(hostname)){
+        throw HostAlreadyRegistered(hostname);
+    }
+
+    SftpHostInfo info;
+    info.sftpHost = hostname;
+    info.connection = std::make_shared<SftpConnection>();
+    info.connection->connectPasswordAuth(hostname, username, password, port);
+    
+    sftpHosts[hostname] = info;
+}
+
+void registerSftpHostPublicKey(const std::string & hostname,
+                               const std::string & username,
+                               const std::string & publicKeyFile,
+                               const std::string & privateKeyFile,
+                               const std::string & port)
+{
+    std::unique_lock<std::mutex> guard(sftpHostsLock);
+    if (sftpHosts.count(hostname)){
+        throw HostAlreadyRegistered(hostname);
+    }
+
+    SftpHostInfo info;
+    info.sftpHost = hostname;
+    info.connection = std::make_shared<SftpConnection>();
+    info.connection->connectPublicKeyAuth(hostname, username,
+                                          publicKeyFile,
+                                          privateKeyFile,
+                                          port);
+    sftpHosts[hostname] = info;
+}
+
+struct RegisterSftpHandler {
+    static std::pair<std::streambuf *, bool>
+    getSftpHandler(const std::string & scheme,
+                   const std::string & resource,
+                   std::ios_base::open_mode mode)
+    {
+        string::size_type pos = resource.find('/');
+        if (pos == string::npos)
+            throw ML::Exception("unable to find sftp host name in resource "
+                                + resource);
+        string host(resource, 0, pos);
+
+        std::shared_ptr<SftpConnection> connection;
+
+        {
+            std::unique_lock<std::mutex> guard(sftpHostsLock);
+            auto it = sftpHosts.find(host);
+            if (it == sftpHosts.end())
+                throw ML::Exception("unregistered sftp host " + host);
+            connection = it->second.connection;
+        }
+
+        ExcAssert(connection);
+
+        if (mode == ios::in) {
+            return make_pair(connection->streamingDownloadStreambuf("sftp://" + resource)
+                             .release(),
+                             true);
+        }
+        else if (mode == ios::out) {
+            return make_pair(connection->streamingUploadStreambuf("sftp://" + resource)
+                             .release(),
+                             true);
+        }
+        else throw ML::Exception("no way to create sftp handler for non in/out");
+    }
+
+    RegisterSftpHandler()
+    {
+        ML::registerUriHandler("sftp", getSftpHandler);
+    }
+
+} registerSftpHandler;
+
+std::shared_ptr<SftpConnection> getSftpConnectionForHost(const std::string & hostname)
+{
+    std::unique_lock<std::mutex> guard(sftpHostsLock);
+    auto it = sftpHosts.find(hostname);
+    if (it == sftpHosts.end())
+        throw ML::Exception("unregistered sftp host " + hostname);
+    return it->second.connection;
+}
+
+
 
 } // namespace Datacratic
