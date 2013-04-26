@@ -1380,6 +1380,13 @@ downloadToFile(const std::string & uri, const std::string & outfile,
     download(uri, onChunk, 0, endOffset);
 }
 
+size_t getTotalSystemMemory()
+{
+    long pages = sysconf(_SC_PHYS_PAGES);
+    long page_size = sysconf(_SC_PAGE_SIZE);
+    return pages * page_size;
+}
+
 struct StreamingDownloadSource {
 
     StreamingDownloadSource(const S3Api * owner,
@@ -1526,10 +1533,17 @@ struct StreamingDownloadSource {
 
         void runThread()
         {
-            // Maximum chunk size is what we can do in 30 seconds
+            // Maximum chunk size is what we can do in 3 seconds
             size_t maxChunkSize
                 = owner->bandwidthToServiceMbps
-                * 15.0 * 1000000;
+                * 3.0 * 1000000;
+
+            size_t sysMemory = getTotalSystemMemory();
+
+            //cerr << "sysMemory = " << sysMemory << endl;
+            // Limit each chunk to 1% of system memory
+            maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
+            //cerr << "maxChunkSize = " << maxChunkSize << endl;
 
             while (!shutdown) {
                 // Go in the lottery to see which part I need to download
@@ -1554,6 +1568,9 @@ struct StreamingDownloadSource {
 
                 if (partToDo && partToDo % 2 == 0 && chunkSize < maxChunkSize)
                     chunkSize *= 2;
+
+                //cerr << "chunkSize = " << chunkSize << " maxChunkSize = "
+                //     << maxChunkSize << endl;
 
                 size_t start = writeOffset;
                 size_t end = std::min<size_t>(writeOffset + chunkSize,
@@ -1608,7 +1625,9 @@ struct StreamingDownloadSource {
                 ML::futex_wake(readPartReady);
 
 #if 0
-                cerr << "done " << bytesDone << " at "
+                double elapsed = Date::now().secondsSince(startDate);
+                cerr << "done " << bytesDone << " of "
+                     << info.size << " at "
                      << bytesDone / elapsed / 1024 / 1024
                      << "MB/second" << endl;
 #endif
