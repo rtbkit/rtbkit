@@ -102,6 +102,8 @@ init()
     agentConfig.init(getServices()->config);
     addSource("FrequencyCapAugmentor::agentConfig", agentConfig);
 
+    palEvents.init(getServices()->config);
+
     /* This lambda will get called when the post auction loop receives a win
        on an auction.
     */
@@ -109,7 +111,7 @@ init()
         {
             RTBKIT::AccountKey account(msg[19].toString());
             RTBKIT::UserIds uids =
-            RTBKIT::UserIds::createFromJson(msg[15].toString());
+                RTBKIT::UserIds::createFromJson(msg[15].toString());
 
             storage->inc(account, uids);
             recordHit("wins");
@@ -117,8 +119,23 @@ init()
 
     palEvents.connectAllServiceProviders(
             "rtbPostAuctionService", "logger", {"MATCHEDWIN"});
+}
 
-    addSource("FrequencyCapAugmentor::palEvents", palEvents);
+void
+FrequencyCapAugmentor::
+start()
+{
+    MessageLoop::start();
+    palEvents.start();
+}
+
+
+void
+FrequencyCapAugmentor::
+shutdown()
+{
+    MessageLoop::shutdown();
+    palEvents.shutdown();
 }
 
 
