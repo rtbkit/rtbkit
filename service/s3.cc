@@ -1670,8 +1670,8 @@ struct StreamingUploadSource {
     typedef char char_type;
     struct category
         : public boost::iostreams::output,
-                        boost::iostreams::device_tag,
-                        boost::iostreams::closable_tag
+          public boost::iostreams::device_tag,
+          public boost::iostreams::closable_tag
     {
     };
 
@@ -1763,7 +1763,7 @@ struct StreamingUploadSource {
             offset += done;
             if (done < n) {
                 flush();
-                done = current.append(s + done, n - done);
+                done += current.append(s + done, n - done);
             }
 
             //cerr << "writing " << n << " characters returned "
