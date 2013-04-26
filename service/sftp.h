@@ -153,6 +153,8 @@ struct SftpConnection : public SshConnection {
     ML::filter_ostream streamingUpload(const std::string & path);
     ML::filter_istream streamingDownload(const std::string & path);
 
+    int unlink(const std::string & path);
+
     void close();
 };
 
