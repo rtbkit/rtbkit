@@ -31,9 +31,11 @@ void
 CloudSink::
 open(const std::string & uri, bool append, bool disambiguate)
 {
+
     cloudStream.close();
     cloudStream.open(uri, std::ios_base::out |
                           (append ? std::ios_base::app : std::ios::openmode()));
+
     // Get the file name from the s3 uri. We want to preserve the path since
     // if we only get the filename we could overwrite files with the same name
     // but in a different directory. uri format is s3://
@@ -60,7 +62,7 @@ size_t
 CloudSink::
 write(const char * data, size_t size)
 {
-    //cerr << "CloudSink::write was called " << endl;
+  //    cerr << "CloudSink::write was called " << endl;
     fileStream.write(data, size);
     cloudStream.write(data, size);
     return size ;
@@ -75,7 +77,7 @@ flush(FileFlushLevel flushLevel)
 std::shared_ptr<CompressingOutput::Sink>
 CloudOutput::createSink(const string & uri, bool append)
 {
-    //cerr << "CloudOutput::createSink was called with uri " << uri << endl;
+    cerr << "CloudOutput::createSink was called with uri " << uri << endl;
     return make_shared<CloudSink>(uri, append);
 }
 

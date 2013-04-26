@@ -81,11 +81,11 @@ struct LogOutput {
 struct Logger {
 
     /** Create a logger with its own zeromq context. */
-    Logger();
+    Logger(size_t bufferSize = 65536);
 
-    Logger(zmq::context_t & contextRef);
+  Logger(zmq::context_t & contextRef, size_t bufferSize = 65536);
 
-    Logger(std::shared_ptr<zmq::context_t> & context);
+  Logger(std::shared_ptr<zmq::context_t> & context, size_t bufferSize = 65536);
 
     ~Logger();
 

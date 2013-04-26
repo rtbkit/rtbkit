@@ -78,7 +78,7 @@ struct CloudSink : public CompressingOutput::Sink {
 struct CloudOutput : public NamedOutput {
 
     CloudOutput(const std::string & uri = "",
-               size_t ringBufferSize = 65536);
+               size_t ringBufferSize = 6553600);
 
     virtual ~CloudOutput();
 

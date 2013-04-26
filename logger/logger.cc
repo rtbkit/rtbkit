@@ -47,9 +47,9 @@ clearStats()
 /*****************************************************************************/
 
 Logger::
-Logger()
+Logger(size_t bufferSize)
     : context(std::make_shared<zmq::context_t>(1)),
-      messages(65536),
+      messages(bufferSize),
       outputs(0),
       messagesSent(0), messagesDone(0)
 {
@@ -57,9 +57,9 @@ Logger()
 }
 
 Logger::
-Logger(zmq::context_t & contextRef)
+Logger(zmq::context_t & contextRef, size_t bufferSize)
     : context(ML::make_unowned_std_sp(contextRef)),
-      messages(65536),
+      messages(bufferSize),
       outputs(0),
       messagesSent(0), messagesDone(0)
 {
@@ -67,9 +67,9 @@ Logger(zmq::context_t & contextRef)
 }
 
 Logger::
-Logger(std::shared_ptr<zmq::context_t> & context)
+Logger(std::shared_ptr<zmq::context_t> & context, size_t bufferSize)
     : context(context),
-      messages(65536),
+      messages(bufferSize),
       outputs(0),
       messagesSent(0), messagesDone(0)
 {
