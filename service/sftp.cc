@@ -5,6 +5,7 @@
    sftp connection.
 */
 
+#include <mutex>
 #include <boost/iostreams/stream_buffer.hpp>
 #include "soa/service/sftp.h"
 #include <sys/types.h>
