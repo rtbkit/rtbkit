@@ -108,6 +108,16 @@ init(const vector<string> & providerNames)
     }
 }
 
+std::pair<std::string, std::string>
+MonitorEndpoint::
+bindTcp(const std::string& host)
+{
+    return RestServiceEndpoint::bindTcp(
+            getServices()->ports->getRange("monitor.zmq"),
+            getServices()->ports->getRange("monitor.http"),
+            host);
+}
+
 void
 MonitorEndpoint::
 checkServiceIndicators()

@@ -27,6 +27,9 @@ struct MonitorEndpoint : public Datacratic::ServiceBase,
 
     void init(const std::vector<std::string> & providerNames);
 
+    std::pair<std::string, std::string>
+    bindTcp(const std::string& host = "");
+
     Datacratic::RestRequestRouter router;
 
     void checkServiceIndicators() const;
