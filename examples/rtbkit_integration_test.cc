@@ -104,7 +104,8 @@ struct Components
         // Setup a monitor which ensures that any instability in the system will
         // throttle the bid request stream. In other words, it ensures you won't
         // go bankrupt.
-        monitor.init({"router1", "router2", "pas1", "masterBanker"});
+        monitor.init({"router1", "router2", "pas1", "masterBanker",
+                        "agentConfigurationService"});
         monitor.bindTcp();
         monitor.start();
 
@@ -206,8 +207,6 @@ struct Components
 
 void setupAgent(TestAgent& agent)
 {
-    return;
-
     // Set our frequency cap to 42. This has two effects: 1) it instructs the
     // router that we want bid requests destined for our agent to first be
     // augmented with frequency capping information and 2) it instructs our
@@ -219,6 +218,9 @@ void setupAgent(TestAgent& agent)
     // other words keep only the bid requests that haven't reached our frequency
     // cap limit.
     agent.config.augmentationFilter.include.push_back("pass-frequency-cap-ex");
+
+    // Notify the world about our config change.
+    agent.doConfig(agent.config);
 
     // This lambda implements our incredibly sophisticated bidding strategy.
     agent.onBidRequest = [&] (
@@ -299,7 +301,7 @@ int main(int argc, char ** argv)
     // Controls the length of the test.
     enum {
         nExchangeThreads = 10,
-        nBidRequestsPerThread = 200
+        nBidRequestsPerThread = 2000
     };
 
     auto proxies = std::make_shared<ServiceProxies>();
