@@ -497,13 +497,13 @@ createFromJson(const Json::Value & json)
         else if (it.memberName() == "bidProbability") {
             newConfig.bidProbability = it->asDouble();
             if (newConfig.bidProbability < 0 || newConfig.bidProbability > 1.0)
-                throw Exception("bidProbability %f not beween 0 and 1",
+                throw Exception("bidProbability %f not between 0 and 1",
                                 newConfig.bidProbability);
         }
         else if (it.memberName() == "minTimeAvailableMs") {
             newConfig.minTimeAvailableMs = it->asDouble();
             if (newConfig.minTimeAvailableMs < 0)
-                throw Exception("minTimeAvailableMs %f not beween 0 and 1",
+                throw Exception("minTimeAvailableMs %f should be not less than 0",
                                 newConfig.minTimeAvailableMs);
         }
         else if (it.memberName() == "maxInFlight") {
