@@ -2262,7 +2262,7 @@ void registerDefaultBuckets()
 
             vector<string> fields = ML::split(line, '\t');
 
-            /cerr << "fields = " << fields << endl;
+            //cerr << "fields = " << fields << endl;
 
             if (fields[0] != "s3")
                 continue;
