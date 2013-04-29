@@ -24,9 +24,9 @@ struct DataLogger : public Datacratic::ServiceBase,
                     public MonitorProvider,
                     public Datacratic::Logger {
   DataLogger(const std::string & serviceName, 
-	     std::shared_ptr<Datacratic::ServiceProxies> proxies,
+             std::shared_ptr<Datacratic::ServiceProxies> proxies,
              bool monitor = true,
-	     size_t bufferSize = 65536);
+             size_t bufferSize = 65536);
     ~DataLogger();
 
     void init();
