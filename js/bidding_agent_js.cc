@@ -239,14 +239,13 @@ struct BiddingAgentJS :
 
     static v8::Handle<v8::Value> start(const v8::Arguments & args) {
         try {
-            auto loop = ev_default_loop(0);
-            ev_ref(loop);
+            ev_ref(ev_default_loop());
 
             auto wrapper = getWrapper(args);
             wrapper->ref();
 
             wrapper->getWrappedObject()->start([=] () {
-                ev_unref(loop);
+                ev_unref(ev_default_loop());
                 wrapper->unref();
             });
 
