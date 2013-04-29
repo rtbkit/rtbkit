@@ -77,7 +77,7 @@ flush(FileFlushLevel flushLevel)
 std::shared_ptr<CompressingOutput::Sink>
 CloudOutput::createSink(const string & uri, bool append)
 {
-    cerr << "CloudOutput::createSink was called with uri " << uri << endl;
+    //    cerr << "CloudOutput::createSink was called with uri " << uri << endl;
     return make_shared<CloudSink>(uri, append);
 }
 
