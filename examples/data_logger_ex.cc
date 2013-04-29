@@ -117,7 +117,7 @@ int main (int argc, char** argv)
     auto serviceProxies = serviceArgs.makeServiceProxies();
 
     // Initialize the logger and it's outputs.
-    DataLogger logger(serviceProxies);
+    DataLogger logger("data_logger", serviceProxies);
     logger.init();
     setupOutputs(logger, logDir, rotationInterval);
 

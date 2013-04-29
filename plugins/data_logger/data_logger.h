@@ -23,7 +23,10 @@ namespace RTBKIT {
 struct DataLogger : public Datacratic::ServiceBase,
                     public MonitorProvider,
                     public Datacratic::Logger {
-    DataLogger(std::shared_ptr<Datacratic::ServiceProxies> proxies);
+  DataLogger(const std::string & serviceName, 
+	     std::shared_ptr<Datacratic::ServiceProxies> proxies,
+             bool monitor = true,
+	     size_t bufferSize = 65536);
     ~DataLogger();
 
     void init();
@@ -42,6 +45,9 @@ struct DataLogger : public Datacratic::ServiceBase,
     /* MonitorProvider interface */
     std::string getProviderName() const;
     Json::Value getProviderIndicators() const;
+
+    bool monitor_;
+
 };
 
 } // namespace RTKBIT
