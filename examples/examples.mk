@@ -17,7 +17,7 @@ $(eval $(call program,router_ex,adserver_connector exchange router_runner boost_
 RTBKIT_INTEGRATION_TEST_LINK := \
 	rtb_router bidding_agent integration_test_utils monitor monitor_service augmentor_ex adserver_connector
 
-$(eval $(call program,rtbkit_integration_test,$(RTBKIT_INTEGRATION_TEST_LINK)))
+$(eval $(call test,rtbkit_integration_test,$(RTBKIT_INTEGRATION_TEST_LINK),boost))
 
 
 $(eval $(call program,standalone_bidder_ex,augmentor_base rtb bid_request agent_configuration boost_program_options rtb_router adserver_connector exchange))

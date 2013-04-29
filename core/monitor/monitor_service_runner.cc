@@ -41,9 +41,7 @@ int main(int argc, char ** argv)
     MonitorEndpoint monitor(proxies, "monitor");
     monitor.init({"router", "postAuction", "masterBanker", "data_logger",
                 "agentConfigurationService"});
-    auto addr = monitor.bindTcp(
-            proxies->ports->getRange("monitor.zmq"),
-            proxies->ports->getRange("monitor.http"));
+    auto addr = monitor.bindTcp();
     cerr << "monitor is listening on "
          << addr.first << "," << addr.second << endl;
 

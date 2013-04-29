@@ -51,6 +51,8 @@ struct FrequencyCapAugmentor :
             const std::string& augmentorName = "frequency-cap-ex");
 
     void init();
+    void start();
+    void shutdown();
 
 private:
 
