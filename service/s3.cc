@@ -1705,6 +1705,7 @@ struct StreamingUploadSource {
             }
 
             Chunk(Chunk && other)
+                noexcept
             {
                 this->offset = other.offset;
                 this->size = other.size;
@@ -1715,21 +1716,22 @@ struct StreamingUploadSource {
                 other.data = nullptr;
             }
 
-            Chunk & operator = (Chunk && other) {
-                if (this != &other) {
-                    this->offset = other.offset;
-                    this->size = other.size;
-                    this->capacity = other.capacity;
-                    this->index = other.index;
-                    this->data = other.data;
-
-                    other.data = nullptr;
-                }
+            Chunk & operator = (Chunk && other)
+                noexcept
+            {
+                this->offset = other.offset;
+                this->size = other.size;
+                this->capacity = other.capacity;
+                this->index = other.index;
+                this->data = other.data;
+                other.data = nullptr;
 
                 return *this;
             }
 
-            ~Chunk() {
+            ~Chunk()
+                noexcept
+            {
                 if (this->data) {
                     delete[] this->data;
                 }
