@@ -111,7 +111,7 @@ init()
         {
             RTBKIT::AccountKey account(msg[19].toString());
             RTBKIT::UserIds uids =
-                RTBKIT::UserIds::createFromJson(msg[15].toString());
+                RTBKIT::UserIds::createFromString(msg[15].toString());
 
             storage->inc(account, uids);
             recordHit("wins");
