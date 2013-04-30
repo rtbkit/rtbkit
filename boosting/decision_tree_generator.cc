@@ -853,7 +853,7 @@ train_recursive(Thread_Context & context,
     }
 
     if (split.feature() == MISSING_FEATURE) {
-
+/*
         cerr << "in_class = " << in_class << endl;
         cerr << "weights = " << endl;
         for (unsigned i = 0;  i < weights.size();  ++i)
@@ -861,7 +861,8 @@ train_recursive(Thread_Context & context,
         cerr << "example count = " << data.example_count() << endl;
         cerr << "class_weights = " << class_weights << endl;
         cerr << "total_weight = " << total_weight << endl;
-        
+ */       
+        cerr << "warning : didn't print a sometimes awfully long print in decision_tree_generator.cc" << endl;
         Tree::Leaf * result = tree.new_leaf();
         *result = leaf;
         return result;
