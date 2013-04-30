@@ -237,6 +237,23 @@ struct BiddingAgentJS :
         HANDLE_JS_EXCEPTIONS;
     }
 
+    static v8::Handle<v8::Value> start(const v8::Arguments & args) {
+        try {
+            auto loop = ev_default_loop(0);
+            ev_ref(loop);
+
+            auto wrapper = getWrapper(args);
+            wrapper->ref();
+
+            wrapper->getWrappedObject()->start([=] () {
+                ev_unref(loop);
+                wrapper->unref();
+            });
+
+            return v8::Null();
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
     static void Initialize () {
         Persistent<FunctionTemplate> t = Register(New);
 
@@ -244,7 +261,7 @@ struct BiddingAgentJS :
         registerMemberFn(&RTBKIT::BiddingAgent::doPong, "doPong");
         registerMemberFn(&RTBKIT::BiddingAgent::doConfigJson, "doConfig");
         registerMemberFn(&RTBKIT::BiddingAgent::init, "init");
-        registerMemberFn(&RTBKIT::BiddingAgent::start, "start");
+        NODE_SET_PROTOTYPE_METHOD(tmpl, "start", start);
         registerMemberFn(&RTBKIT::BiddingAgent::shutdown, "close");
         registerMemberFn(&RTBKIT::BiddingAgent::strictMode, "strictMode");
 
