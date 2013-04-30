@@ -89,6 +89,8 @@ RubiconExchangeConnector(const std::string & name,
                          std::shared_ptr<ServiceProxies> proxies)
     : HttpExchangeConnector(name, proxies)
 {
+    this->auctionResource = "/bids";
+    this->auctionVerb = "POST";
 }
 
 std::shared_ptr<BidRequest>
@@ -118,8 +120,6 @@ parseBidRequest(HttpAuctionHandler & connection,
         connection.sendErrorResponse("expected OpenRTB version 2.1; got " + openRtbVersion);
         return res;
     }
-
-    cerr << "got request" << endl << header << endl << payload << endl;
 
     // Parse the bid request
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());

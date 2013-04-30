@@ -329,7 +329,7 @@ struct AgentConfig {
     template<typename T>
     const T * getProviderData(const std::string & provider) const
     {
-        auto it = providerData.find("rubicon");
+        auto it = providerData.find(provider);
         if (it == providerData.end())
             throw ML::Exception("provider data for " + provider + " not found");
         if (it->second.get() == nullptr)
@@ -354,9 +354,7 @@ struct AgentConfig {
     */
     BiddableSpots
     canBid(const ExchangeConnector * exchangeConnector,
-           const std::vector<AdSpot> & imp,
-           const std::string & exchange,
-           const std::string & protocolVersion,
+           const BidRequest& request,
            const Utf8String & language,
            const Utf8String & location, uint64_t locationHash,
            ML::Lightweight_Hash<uint64_t, int> & locationCache) const;

@@ -2356,12 +2356,12 @@ configure(const std::string & agent, AgentConfig & config)
                     = exch->getCreativeCompatibility(c, includeReasons);
                 if (!ccomp.isCompatible) {
                     cerr << "creative not compatible: " << ccomp.reasons << endl;
-                    return;
                 }
-
-                std::lock_guard<ML::Spinlock> guard(c.lock);
-                c.providerData[exchangeName] = ccomp.info;
-                ++numCompatibleCreatives;
+                else {
+                    std::lock_guard<ML::Spinlock> guard(c.lock);
+                    c.providerData[exchangeName] = ccomp.info;
+                    ++numCompatibleCreatives;
+                }
             }
 
             if (numCompatibleCreatives == 0) {

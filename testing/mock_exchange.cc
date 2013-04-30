@@ -239,7 +239,7 @@ makeBidRequest() -> BidRequest
     bidRequest.location.regionCode = "QC";
     bidRequest.location.cityName = "Montreal";
     bidRequest.auctionId = Id(id * 10000000 + key);
-    bidRequest.exchange = "test";
+    bidRequest.exchange = "mock";
     bidRequest.language = "en";
     bidRequest.url = Url("http://datacratic.com");
     bidRequest.timestamp = Date::now();

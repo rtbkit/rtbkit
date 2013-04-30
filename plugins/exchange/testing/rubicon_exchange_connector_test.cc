@@ -195,6 +195,7 @@ int main(int argc, char ** argv)
 
     // The agent config service lets the router know how our agent is configured
     AgentConfigurationService agentConfig(proxies, "config");
+    agentConfig.monitorProviderClient.inhibit_ = true;
     agentConfig.init();
     agentConfig.bindTcp();
     agentConfig.start();
