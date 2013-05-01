@@ -62,6 +62,7 @@ struct JsonFeeder {
     {
         int sampleNum;
         struct timeval lastRequest;
+        Easy client;
 
         for (sampleNum = 0; jsonStream && sampleNum < nSamples;
              sampleNum++) {
@@ -89,8 +90,6 @@ struct JsonFeeder {
                 }
                 lastRequest = thisRequest;
             }
-
-            Easy client;
 
             /* perform request */
             client.setOpt(options::Url(serverUri));
