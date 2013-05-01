@@ -326,9 +326,13 @@ toString() const
         return result;
     }
     case BIGDEC: {
-        string result;
         __uint128_t v = val;
         if (v == 0) return "0";
+        if (val2 == 0) {
+            return ML::format("%lld", v);
+        }
+        string result;
+        result.reserve(32);
         while (v) {
             int c = v % 10;
             v /= 10;
