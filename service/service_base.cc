@@ -621,9 +621,6 @@ ServiceBase(const std::string & subServiceName,
 ServiceBase::
 ~ServiceBase()
 {
-    // Clear out our config entries
-    if (services_)
-        getServices()->config->removePath(serviceName());
 }
 
 void

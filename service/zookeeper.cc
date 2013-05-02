@@ -92,8 +92,6 @@ connect(const std::string & host,
 
     this->host = host;
 
-    ML::Call_Guard guard([&] () { connectMutex.unlock(); });
-
     int wait = timeoutInSeconds * 1000;
     int timeout = wait;
     int times = 3;
@@ -108,6 +106,7 @@ connect(const std::string & host,
             return;
 
         zookeeper_close(handle);
+        handle = 0;
         
         int ms = wait + (std::rand() % wait);
         wait *= 2;
@@ -127,16 +126,18 @@ reconnect()
         handle = 0;
     }
 
-    connect(host);
-
-    for(auto & item : ephemerals) {
-        createNode(item.path, item.value, true, false, true, true);
-    }
-
     while(callbacks.next != &callbacks) {
         auto i = callbacks.next;
         i->unlink();
         i->call(ZOO_DELETED_EVENT);
+    }
+
+    ML::sleep(1);
+
+    connect(host);
+
+    for(auto & item : ephemerals) {
+        createNode(item.path, item.value, true, false, true, true);
     }
 }
 
@@ -474,11 +475,9 @@ eventHandlerFn(zhandle_t * handle,
 
     using namespace std;
     //cerr << "got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
-    connection->connectMutex.unlock();
 
-    if(state == ZOO_EXPIRED_SESSION_STATE) {
-        cerr << "until we handle proper reconnecting to ZooKeeper, we just die..." << endl;
-        abort();
+    if(state == ZOO_CONNECTED_STATE) {
+        connection->connectMutex.unlock();
     }
 }
 
