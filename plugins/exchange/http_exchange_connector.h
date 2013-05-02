@@ -67,7 +67,8 @@ struct HttpExchangeConnector
                        bool performNameLookup = false,
                        int backlog = DEF_BACKLOG,
                        const std::string & auctionResource = "/auctions",
-                       const std::string & auctionVerb = "POST");
+                       const std::string & auctionVerb = "POST",
+                       int realTimePriority = -1);
 
     /** Start the exchange connector running */
     virtual void start();
@@ -246,6 +247,7 @@ protected:
 
     /// Configuration parameters
     int numThreads;         
+    int realTimePriority;
     PortRange listenPort;
     std::string bindHost;
     bool performNameLookup;
