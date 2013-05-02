@@ -89,7 +89,15 @@ private:
 /** Class that aggregates a gauge over a period of time. */
 
 struct GaugeAggregator : public StatAggregator {
-    GaugeAggregator();
+
+    enum Verbosity
+    {
+        StableLevel, ///< mean
+        Level,       ///< mean, min, max
+        Outcome      ///< mean, min, max, percentiles, count
+    };
+
+    GaugeAggregator(Verbosity  verbosity = Outcome);
 
     virtual ~GaugeAggregator();
 
@@ -105,6 +113,7 @@ struct GaugeAggregator : public StatAggregator {
     virtual std::vector<StatReading> read(const std::string & prefix);
 
 private:
+    Verbosity verbosity;
     Date start;  //< Date at which we last cleared the counter
     ML::distribution<float> * volatile values;  //< List of added values
 };

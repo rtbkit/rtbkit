@@ -89,8 +89,8 @@ read(const std::string & prefix)
 /*****************************************************************************/
 
 GaugeAggregator::
-GaugeAggregator()
-    : values(new ML::distribution<float>())
+GaugeAggregator(Verbosity verbosity)
+    : verbosity(verbosity), values(new ML::distribution<float>())
 {
     values->reserve(100);
 }
@@ -166,15 +166,22 @@ read(const std::string & prefix)
     
     std::sort(values->begin(), values->end(),
               ML::safe_less<float>());
+
+    if (verbosity == StableLevel)
+        result.push_back(StatReading(prefix, values->mean(), start));
     
-    addMetric("mean", values->mean());
-    addMetric("std", values->std());
-    addMetric("upper", values->back());
-    addMetric("lower", values->front());
-    addMetric("count", values->size());
-    addMetric("upper_90", percentile(90));
-    addMetric("upper_95", percentile(95));
-    addMetric("upper_98", percentile(98));
+    else {
+        addMetric("mean", values->mean());
+        addMetric("upper", values->back());
+        addMetric("lower", values->front());
+
+        if (verbosity == Outcome) {
+            addMetric("count", values->size());
+            addMetric("upper_90", percentile(90));
+            addMetric("upper_95", percentile(95));
+            addMetric("upper_98", percentile(98));
+        }
+    }
 
     return result;
 }

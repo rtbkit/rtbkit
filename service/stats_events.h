@@ -11,10 +11,11 @@
 namespace Datacratic {
 
 enum EventType {
-    ET_COUNT,    ///< Represents an extra count on a counter
-    ET_ACCUM,    ///< Represents an extra value accumulated
-    ET_LEVEL,    ///< Represents the current level of something
-    ET_OUTCOME   ///< Represents the outcome of an experiment
+    ET_HIT,          ///< Represents an extra count on a counter
+    ET_COUNT,        ///< Represents an extra value accumulated
+    ET_STABLE_LEVEL, ///< Represents the current level of a stable something
+    ET_LEVEL,        ///< Represents the current level of something
+    ET_OUTCOME       ///< Represents the outcome of an experiment
 };
 
 

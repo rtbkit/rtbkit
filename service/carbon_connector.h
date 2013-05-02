@@ -61,32 +61,41 @@ struct MultiAggregator {
                 EventType type = ET_COUNT,
                 float value = 1.0);
 
-    /** Record the level of a something.  The stat will record the mean,
-        minimum and maximum level over the second.
-        
-        Lock-free (except the first time it's called for each name) and
-        thread safe.
-    */
-    void recordLevel(const std::string & stat,
-                     float level);
-
     /** Simplest interface: record that a particular event occurred.  The
         stat will record the total count for each second.  Lock-free and
         thread safe.
     */
-    void recordOccurrence(const std::string & stat);
+    void recordHit(const std::string & stat);
 
     /** Record that something happened.  The stat will record the total amount
         in each second.
     */
-    void recordQuantity(const std::string & stat,
-                        float quantity);
-    
-    /** Record that a given outcome from an independent process.
-        These will be represented in Carbon with mean, max, etc.
+    void recordCount(const std::string & stat, float quantity);
+
+    /** Record the value of a something. THe stat will record the mean of that
+        value over a second.
+
+        Lock-free (except the first time it's called for each name) and thread
+        safe.
+     */
+    void recordStableLevel(const std::string & stat, float value);
+
+    /** Record the level of a something.  The stat will record the mean, minimum
+        and maximum level over the second.
+
+        Lock-free (except the first time it's called for each name) and
+        thread safe.
     */
-    void recordOutcome(const std::string & stat,
-                       float measure);
+    void recordLevel(const std::string & stat, float value);
+    
+    /** Record that a given value from an independent process. The stat will
+        record the mean, mininum, maxixmum outcome over the second as well as
+        the 90th, 95th and 98th percentiles and the number of outcomes.
+
+        Lock-free (except the first time it's called for each name) and thread
+        safe.
+    */
+    void recordOutcome(const std::string & stat, float value);
 
     /** Dump synchronously (taking the lock).  This should only be used in
         testing or debugging, not when connected to Carbon.

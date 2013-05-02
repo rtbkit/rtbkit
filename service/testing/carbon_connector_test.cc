@@ -242,7 +242,7 @@ BOOST_AUTO_TEST_CASE( test_multiple_carbon_connectors )
     CarbonConnector x(addrs, "test");
 
     for (unsigned i = 0;  i < 1000;  ++i) {
-        x.recordOccurrence("hit");
+        x.recordHit("hit");
     }
 
     x.dump();
@@ -261,7 +261,7 @@ BOOST_AUTO_TEST_CASE( test_multiple_carbon_connectors )
     carbon1.shutdown();
 
     for (unsigned i = 0;  i < 1000;  ++i) {
-        x.recordOccurrence("hit");
+        x.recordHit("hit");
     }
     
     x.dump();

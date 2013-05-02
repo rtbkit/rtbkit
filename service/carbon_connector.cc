@@ -103,14 +103,19 @@ StatAggregator * createNewCounter()
     return new CounterAggregator();
 }
 
-StatAggregator * createNewGauge()
+StatAggregator * createNewStableLevel()
 {
-    return new GaugeAggregator();
+    return new GaugeAggregator(GaugeAggregator::StableLevel);
+}
+
+StatAggregator * createNewLevel()
+{
+    return new GaugeAggregator(GaugeAggregator::Level);
 }
 
 StatAggregator * createNewOutcome()
 {
-    return new GaugeAggregator();
+    return new GaugeAggregator(GaugeAggregator::Outcome);
 }
 
 void
@@ -120,10 +125,11 @@ record(const std::string & stat,
        float value)
 {
     switch (type) {
-    case ET_LEVEL: recordLevel(stat, value);       break;
-    case ET_ACCUM: recordQuantity(stat, value);    break;
-    case ET_COUNT: recordOccurrence(stat /*, value*/);  break;
-    case ET_OUTCOME: recordOutcome(stat, value);   break;
+    case ET_HIT:          recordHit(stat);                break;
+    case ET_COUNT:        recordCount(stat, value);       break;
+    case ET_STABLE_LEVEL: recordStableLevel(stat, value); break;
+    case ET_LEVEL:        recordLevel(stat, value);       break;
+    case ET_OUTCOME:      recordOutcome(stat, value);     break;
     default:
         cerr << "warning: unknown stat type" << endl;
     }
@@ -131,34 +137,39 @@ record(const std::string & stat,
 
 void
 MultiAggregator::
-recordLevel(const std::string & stat,
-            float level)
-{
-    getAggregator(stat, createNewGauge).record(level);
-}
-
-void
-MultiAggregator::
-recordOccurrence(const std::string & stat)
+recordHit(const std::string & stat)
 {
     getAggregator(stat, createNewCounter).record(1.0);
 }
 
 void
 MultiAggregator::
-recordQuantity(const std::string & stat,
-               float quantity)
+recordCount(const std::string & stat, float quantity)
 {
     getAggregator(stat, createNewCounter).record(quantity);
+}
+
+void
+MultiAggregator::
+recordStableLevel(const std::string & stat, float value)
+{
+    getAggregator(stat, createNewStableLevel).record(value);
+}
+
+void
+MultiAggregator::
+recordLevel(const std::string & stat, float value)
+{
+    getAggregator(stat, createNewLevel).record(value);
 }
     
 void
 MultiAggregator::
-recordOutcome(const std::string & stat,
-              float outcome)
+recordOutcome(const std::string & stat, float value)
 {
-    getAggregator(stat, createNewOutcome).record(outcome);
+    getAggregator(stat, createNewOutcome).record(value);
 }
+
 
 void
 MultiAggregator::

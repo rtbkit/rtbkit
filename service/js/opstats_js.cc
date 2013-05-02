@@ -96,10 +96,10 @@ struct CarbonConnectorJS
         registerMemberFn(&CarbonConnector::stop, "stop");
         registerMemberFn(&CarbonConnector::dump, "dump");
 
+        registerMemberFn(&CarbonConnector::recordHit, "recordHit");
+        registerMemberFn(&CarbonConnector::recordCount, "recordCount");
+        registerMemberFn(&CarbonConnector::recordStableLevel, "recordStableLevel");
         registerMemberFn(&CarbonConnector::recordLevel, "recordLevel");
-        registerMemberFn(&CarbonConnector::recordOccurrence,
-                         "recordOccurrence");
-        registerMemberFn(&CarbonConnector::recordQuantity, "recordQuantity");
         registerMemberFn(&CarbonConnector::recordOutcome, "recordOutcome");
     }
 
