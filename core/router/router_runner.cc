@@ -93,7 +93,7 @@ init()
         
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
 
-    router = std::make_shared<Router>(proxies, servicePrefix);
+    router = std::make_shared<Router>(proxies, servicePrefix, lossSeconds);
     router->init();
     router->setBanker(banker);
     router->bindTcp();
