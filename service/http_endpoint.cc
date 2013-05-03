@@ -61,10 +61,12 @@ handleData(const std::string & data)
     if (headerText == "" && readState == HEADER)
         firstData = Date::now();
 
+    addActivity("handleData with state %d", readState);
+
 #if 0
     string dataSample;
     dataSample.reserve(data.size() * 3 / 2);
-    for (unsigned i = 0;  i < 100 && i < data.size();  ++i) {
+    for (unsigned i = 0;  i < 300 && i < data.size();  ++i) {
         if (data[i] == '\n') dataSample += "\\n";
         else if (data[i] == '\r') dataSample += "\\r";
         else if (data[i] == '\0') dataSample += "\\0";
@@ -135,6 +137,23 @@ void
 HttpConnectionHandler::
 handleHttpHeader(const HttpHeader & header)
 {
+    // If the client expects a 100 continue, then oblige
+    std::string expect = header.tryGetHeader("expect");
+    if (!expect.empty()) {
+        expect = lowercase(expect);
+
+        if (expect == "100-continue") {
+
+            send("HTTP/1.1 100 Continue\r\n\r\n",
+                 NEXT_CONTINUE);
+        }
+        else {
+            HttpResponse response(417, "", "");
+            putResponseOnWire(response);
+            doError("unknown expectation");
+        }
+    }
+
     //cerr << "GOT HTTP HEADER[" << header << "]" << endl;
 }
 
@@ -281,12 +300,6 @@ handleHttpPayload(const HttpHeader & header,
 
 void
 HttpConnectionHandler::
-handleSendFinished()
-{
-}
-
-void
-HttpConnectionHandler::
 sendHttpChunk(const std::string & chunk,
               NextAction next,
               OnWriteFinished onWriteFinished)
@@ -314,12 +327,26 @@ HttpConnectionHandler::
 putResponseOnWire(HttpResponse response,
                   std::function<void ()> onSendFinished)
 {
-    if (!onSendFinished)
-        onSendFinished = [=] ()
-            {
+    onSendFinished = [=] ()
+        {
+#if 0
+            Date finished = Date::now();
+            double elapsedMs = finished.secondsSince(this->firstData) * 1000;
+            cerr << "send finished in "
+            << elapsedMs << "ms" << endl;
+
+
+            if (elapsedMs > 100) {
+                transport().dumpActivities();
+                abort();
+            }
+#endif
+
+            if (!onSendFinished)
                 this->transport().associateWhenHandlerFinished
                     (this->makeNewHandlerShared(), "sendFinished");
-            };
+            else onSendFinished();
+        };
 
     std::string responseStr;
     responseStr.reserve(1024 + response.body.length());

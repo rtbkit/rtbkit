@@ -184,11 +184,14 @@ handleInput()
 
         errno = 0;
 
+        //cerr << "receiving " << chunk_size << " on top of "
+        //     << buf.length() << " already there" << endl;
+
         bytes_read = recv(&buf[done], chunk_size, MSG_DONTWAIT);
 
         //int err = errno;
 
-        //cerr << "bytes_read = " << bytes_read << " on " << get_handle()
+        //cerr << "bytes_read = " << bytes_read 
         //     << " errno " << strerror(errno) << endl;
 
         if (bytes_read == 0) {

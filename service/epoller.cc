@@ -12,7 +12,7 @@
 #include "jml/arch/backtrace.h"
 #include <string.h>
 #include <iostream>
-
+#include "soa/types/date.h"
 
 using namespace std;
 using namespace ML;
@@ -64,6 +64,8 @@ void
 Epoller::
 addFd(int fd, void * data)
 {
+    //cerr << Date::now().print(4) << "added " << fd << " multiple shot" << endl;
+
     struct epoll_event event;
     event.events = EPOLLIN;
     event.data.ptr = data;
@@ -78,6 +80,8 @@ void
 Epoller::
 addFdOneShot(int fd, void * data)
 {
+    //cerr << Date::now().print(4) << "added " << fd << " one-shot" << endl;
+
     struct epoll_event event;
     event.events = EPOLLIN | EPOLLONESHOT;
     event.data.ptr = data;
@@ -93,6 +97,8 @@ void
 Epoller::
 restartFdOneShot(int fd, void * data)
 {
+    //cerr << Date::now().print(4) << "restarted " << fd << " one-shot" << endl;
+
     struct epoll_event event;
     event.events = EPOLLIN | EPOLLONESHOT;
     event.data.ptr = data;
@@ -107,6 +113,8 @@ void
 Epoller::
 removeFd(int fd)
 {
+    //cerr << Date::now().print(4) << "removed " << fd << endl;
+
     int res = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, 0);
     
     if (res == -1)

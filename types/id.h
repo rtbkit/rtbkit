@@ -52,6 +52,7 @@ struct Id {
         GOOG128 = 3,     /// google CAESEAYra3NIxLT9C8twKrzqaA
         BIGDEC = 4,      /// 7394206091425759590
         BASE64_96 = 5,   /// 16 character base64 string
+        HEX128LC = 6,    /// 32 character lowercase hex string
 
         // other integer-encoded values go here
 
