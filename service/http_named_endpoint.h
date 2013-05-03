@@ -219,7 +219,7 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
                  "sendResponse");
             };
 
-            putResponseOnWire(HttpResponse(code, body, contentType),
+            putResponseOnWire(HttpResponse(code, contentType, body),
                               onSendFinished);
 
 #if 0
