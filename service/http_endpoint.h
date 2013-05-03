@@ -114,7 +114,6 @@ struct HttpConnectionHandler : public PassiveConnectionHandler {
 
     //virtual void handleNewConnection();
     virtual void handleData(const std::string & data);
-    virtual void handleSendFinished();
     virtual void handleError(const std::string & message);
     virtual void onCleanup();
 
