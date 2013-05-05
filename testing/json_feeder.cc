@@ -19,6 +19,8 @@
 #include <curlpp/Infos.hpp>
 #include <curlpp/Options.hpp>
 
+#include "jml/arch/exception.h"
+#include "jml/arch/timers.h"
 #include "jml/utils/filter_streams.h"
 
 
@@ -27,30 +29,67 @@ using namespace boost::program_options;
 using namespace curlpp;
 
 
+int deltaDelayMs(const struct timeval & oldTime,
+                 const struct timeval & newTime)
+{
+    int64_t deltaMuSecs;
+
+    if (oldTime.tv_usec > newTime.tv_usec) {
+        deltaMuSecs = ((1000000 + newTime.tv_usec - oldTime.tv_usec)
+                       + (newTime.tv_sec - oldTime.tv_sec - 1) * 1000000);
+    }
+    else {
+        deltaMuSecs = ((newTime.tv_usec - oldTime.tv_usec)
+                       + (newTime.tv_sec - oldTime.tv_sec) * 1000000);
+    }
+
+    if (deltaMuSecs < 0)
+        throw ML::Exception("the future must not occur before the past");
+
+    return deltaMuSecs / 1000;
+}
+
 struct JsonFeeder {
     JsonFeeder(string uri, string filename,
-               bool printRequests, bool printResponses,
-               int maxSamples = 1000)
+               int nSamples, int delayMs,
+               bool printRequests, bool printResponses)
         : serverUri(uri), filename(filename), jsonStream(filename),
-          printRequests(printRequests), printResponses(printResponses),
-          maxSamples(maxSamples)
+          nSamples(nSamples), delayMs(delayMs),
+          printRequests(printRequests), printResponses(printResponses)
         {}
 
     void perform()
     {
         int sampleNum;
+        struct timeval lastRequest;
+        Easy client;
 
-        for (sampleNum = 0; jsonStream && sampleNum < maxSamples;
+        for (sampleNum = 0; jsonStream && sampleNum < nSamples;
              sampleNum++) {
             string current;
+            struct timeval thisRequest, thisResponse;
             getline(jsonStream, current);
 
             if (current == "") {
+                /* start over from the beginning of the file */
                 jsonStream = ML::filter_istream(filename);
                 getline(jsonStream, current);
             }
 
-            Easy client;
+            if (delayMs > 0) {
+                ::gettimeofday(&thisRequest, NULL);
+                if (sampleNum > 0) {
+                    int deltaRqMs = deltaDelayMs(lastRequest, thisRequest);
+                    // printf("deltaRqMs: %d\n", deltaRqMs);
+                    if (deltaRqMs < delayMs) {
+                        float sleepTime = (float) (delayMs - deltaRqMs) / 1000;
+                        // cerr << "sleeping for " << sleepTime << " secs\n";
+                        ML::sleep(sleepTime);
+                        ::gettimeofday(&thisRequest, NULL);
+                    }
+                }
+                lastRequest = thisRequest;
+            }
 
             /* perform request */
             client.setOpt(options::Url(serverUri));
@@ -69,6 +108,12 @@ struct JsonFeeder {
             client.setOpt(options::Header(false));
             client.setOpt(options::WriteStream(&body));
             client.perform();
+
+            if (delayMs > 0) {
+                ::gettimeofday(&thisResponse, NULL);
+                int deltaRqMs = deltaDelayMs(thisRequest, thisResponse);
+                cerr << "request took " << deltaRqMs << " millisecs\n";
+            }
 
             if (sampleNum > 0 && (printRequests || printResponses)) {
                 cerr << "----------------------------" << endl
@@ -92,9 +137,10 @@ struct JsonFeeder {
     string serverUri;
     string filename;
     ML::filter_istream jsonStream;
+    int nSamples;
+    int delayMs;
     bool printRequests;
     bool printResponses;
-    int maxSamples;
 };
 
 
@@ -102,6 +148,8 @@ int main(int argc, char *argv[])
 {
     string serverUri;
     string filename;
+    int delay(0);
+    int nSamples(1000);
     bool printRequests(false), printResponses(false);
 
     {
@@ -114,6 +162,10 @@ int main(int argc, char *argv[])
              "URI of server to feed")
             ("filename,f", value(&filename),
              "filename")
+            ("n-samples,n", value(&nSamples),
+             "number of requests to perform")
+            ("rq-delay,d", value(&delay),
+             "minimal delay (in ms, between requests)")
             ("printrequests", value(&printRequests)->zero_tokens(),
              "print requests on console")
             ("printresponses", value(&printResponses)->zero_tokens(),
@@ -147,7 +199,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    JsonFeeder feeder(serverUri, filename, printRequests, printResponses);
+    JsonFeeder feeder(serverUri, filename, nSamples, delay,
+                      printRequests, printResponses);
     feeder.perform();
 
     return 0;

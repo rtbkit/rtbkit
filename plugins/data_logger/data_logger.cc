@@ -15,11 +15,13 @@ using namespace Datacratic;
 using namespace RTBKIT;
 
 DataLogger::
-DataLogger(std::shared_ptr<ServiceProxies> proxies)
-    : ServiceBase("data_logger", proxies),
-      Logger(proxies->zmqContext),
+DataLogger(const string & serviceName, std::shared_ptr<ServiceProxies> proxies,
+           bool monitor, size_t bufferSize)
+    : ServiceBase(serviceName, proxies),
+      Logger(proxies->zmqContext, bufferSize),
       multipleSubscriber(proxies->zmqContext),
-      monitorProviderClient(proxies->zmqContext, *this)
+      monitorProviderClient(proxies->zmqContext, *this),
+      monitor_(monitor)
 {}
 
 DataLogger::
@@ -57,7 +59,8 @@ start(std::function<void ()> onStop)
 {
     Logger::start(onStop);
     multipleSubscriber.start();
-    monitorProviderClient.start();
+    if(monitor_)
+      monitorProviderClient.start();
 }
 
 void
