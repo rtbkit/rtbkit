@@ -921,9 +921,8 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
         //cerr << "doWinLoss in finished" << endl;
 
         FinishedInfo info = finished.get(key);
-        if (info.hasWin()) {
-            if (winPrice == info.winPrice
-                && status == info.reportedStatus) {
+        if (info.hasWin() && status == info.reportedStatus) {
+            if (winPrice == info.winPrice) {
                 recordHit("bidResult.%s.duplicate", typeStr);
                 return;
             }
@@ -949,7 +948,7 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
             // Late win with auction still around
             banker->forceWinBid(account, winPrice, LineItems());
 
-            info.setWin(timestamp, BS_WIN, winPrice, meta.toString());
+            info.forceWin(timestamp, winPrice, meta.toString());
 
             finished.update(key, info);
 

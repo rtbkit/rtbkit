@@ -110,10 +110,21 @@ struct FinishedInfo {
     void setWin(Date winTime, BidStatus status, Amount winPrice,
                 const std::string & winMeta)
     {
-        if (hasWin())
-            throw ML::Exception("already has win");
+        ExcCheck(!hasWin(), "already has win");
+
         this->winTime = winTime;
         this->reportedStatus = status;
+        this->winPrice = winPrice;
+        this->winMeta = winMeta;
+    }
+
+    void forceWin(Date winTime, Amount winPrice, const std::string & winMeta)
+    {
+        ExcCheck(!hasWin() || (reportedStatus == BS_LOSS),
+                "only losses can be overriden");
+
+        this->winTime = winTime;
+        this->reportedStatus = BS_WIN;
         this->winPrice = winPrice;
         this->winMeta = winMeta;
     }
