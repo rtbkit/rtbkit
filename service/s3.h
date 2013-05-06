@@ -468,7 +468,7 @@ struct S3Api {
     void setDefaultBandwidthToServiceMbps(double mpbs);
 
     // Used to pool connections to the S3 service
-    HttpRestProxy proxy;
+    static HttpRestProxy proxy;
 };
 
 /** S3 support for filter_ostream opens.  Register the bucket name here, and
