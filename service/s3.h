@@ -471,27 +471,6 @@ struct S3Api {
     HttpRestProxy proxy;
 };
 
-/** std::istream that connects to s3 and streams a file. */
-struct S3IStream : public std::istream {
-    S3IStream();
-    S3IStream(const S3Api & s3, const std::string & uri);
-
-    void open(const std::string & uri);
-    void open(const std::string & bucket,
-              const std::string & object);
-};
-
-struct S3Handle{
-    S3Api s3;
-    std::string s3UriPrefix;
-
-    void initS3(const std::string & accessKeyId,
-                const std::string & accessKey,
-                const std::string & uriPrefix);
-
-    size_t getS3Buffer(const std::string & filename, char** outBuffer);
-};
-
 /** S3 support for filter_ostream opens.  Register the bucket name here, and
     you can open it directly from s3.
 */
