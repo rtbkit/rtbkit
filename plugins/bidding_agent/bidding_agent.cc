@@ -418,8 +418,10 @@ handleResult(const std::vector<std::string>& msg, ResultCbFn& callback)
     recordHit(eventName(msg[0]));
     BidResult result = BidResult::parse(msg);
 
-    if (result.result == BS_WIN)
+    if (result.result == BS_WIN) {
         recordLevel(MicroUSD(result.secondPrice), "winPrice");
+        recordCount(MicroUSD(result.secondPrice), "winPriceTotal");
+    }
 
     callback(result);
 
