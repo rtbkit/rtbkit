@@ -356,7 +356,7 @@ logBidEvents(const Datacratic::EventRecorder & eventRecorder)
     eventRecorder.recordLevel(attachedBids,
                               "banker.total.attachedBids");
     eventRecorder.recordLevel(detachedBids,
-                              "banker.total.setachedBids");
+                              "banker.total.detachedBids");
     eventRecorder.recordLevel(commitments,
                               "banker.total.pendingCommitments");
     eventRecorder.recordLevel(expired,
