@@ -202,7 +202,7 @@ struct USD : public Amount {
 
 struct USD_CPM : public Amount {
     USD_CPM(double amountInDollarsCPM = 0.0)
-        : Amount(CurrencyCode::CC_USD, amountInDollarsCPM * 1000)
+        : Amount(CurrencyCode::CC_USD, amountInDollarsCPM / 1000)
     {
     }
 
