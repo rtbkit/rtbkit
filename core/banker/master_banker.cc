@@ -442,6 +442,17 @@ init(const shared_ptr<BankerPersistence> & storage)
                        RestParamDefault<AccountType>("accountType", "type of account for implicit creation (default no creation)", AT_NONE));
     
     addRouteSyncReturn(account,
+                       "/adjustment",
+                       {"PUT", "POST"},
+                       "Perform an adjustment to the account",
+                       "Account: Representation of the modified account",
+                       [] (const Account & a) { return a.toJson(); },
+                       &Accounts::addAdjustment,
+                       &accounts,
+                       accountKeyParam,
+                       JsonParam<CurrencyPool>("", "amount to add or substract"));
+
+    addRouteSyncReturn(account,
                        "/summary",
                        "GET",
                        "Return the aggregated summary of the given account",

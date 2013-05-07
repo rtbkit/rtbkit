@@ -74,6 +74,22 @@ setBudget(const CurrencyPool & newBudget)
     checkInvariants();
 }
 
+void
+Account::
+addAdjustment(const CurrencyPool & newAdjustment)
+{
+    if (newAdjustment.isNonNegative()) {
+        adjustmentsIn += newAdjustment;
+    }
+    else {
+        adjustmentsOut -= newAdjustment;
+    }
+
+    balance += newAdjustment;
+
+    checkInvariants();
+}
+
 CurrencyPool
 Account::
 importSpend(const CurrencyPool & spend)

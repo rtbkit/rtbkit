@@ -380,6 +380,10 @@ public:
         return balance;
     }
 
+    /** Increase or decrease the adjustments made to the account
+    */
+    void addAdjustment(const CurrencyPool & newAdjustement);
+
     /** (migration helper) Register an expense on a AT_SPEND account.
      */
     CurrencyPool importSpend(const CurrencyPool & spend);
@@ -935,6 +939,17 @@ struct Accounts {
         if (it == accounts.end())
             return CurrencyPool();
         return it->second.balance;
+    }
+
+    const Account addAdjustment(const AccountKey & account,
+                                CurrencyPool amount)
+    {
+        Guard guard(lock);
+
+        auto & a = getAccountImpl(account);
+        a.addAdjustment(amount);
+
+        return a;
     }
 
 
