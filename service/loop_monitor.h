@@ -42,7 +42,7 @@ struct LoopMonitor : public ServiceBase, public MessageLoop
     /** Called every updatePeriod seconds to sample the load factor of a loop
         where 0 is completely idle and 1 is always processing.
      */
-    typedef std::function<double()> SampleLoadFn;
+    typedef std::function<double(double elapsedTime)> SampleLoadFn;
 
     /** Adds a sampling function for a MessageLoop which will be called every
         updatePeriod. Thread-safe.
@@ -114,12 +114,20 @@ struct SimpleLoadShedding
      */
     bool shedMessage()
     {
+        double prob = shedProbability();
+        return prob == 0.0 ? false : rng.random01() < shedProb;
+    }
+
+    /** Returns the probability at which a message should be dropped to help the
+        system deal with excessive load.
+     */
+    double shedProbability()
+    {
         auto sample = loopMonitor.sampleLoad();
         if (sample.sequence != lastSample.sequence)
             updateProb(sample);
 
-        if (shedProb <= 0.01) return false;
-        return rng.random01() < shedProb;
+        return shedProb <= 0.01 ? 0.0 : shedProb;
     }
 
 private:
