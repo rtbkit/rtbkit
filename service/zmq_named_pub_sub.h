@@ -25,7 +25,7 @@ namespace Datacratic {
 struct ZmqNamedPublisher: public MessageLoop {
 
     ZmqNamedPublisher(std::shared_ptr<zmq::context_t> context,
-                      int messageBufferSize = 10000)
+                      int messageBufferSize = 65536)
         : publishEndpoint(context),
           publishQueue(messageBufferSize)
     {
