@@ -260,8 +260,8 @@ runWorkerThread()
 
         duty.notifyBeforeSleep();
         if (sleepTime > 0) {
-            ML::atomic_add(totalSleepTime_, sleepTime);
             ML::sleep(sleepTime);
+            totalSleepTime_ += sleepTime;
         }
         duty.notifyAfterSleep();
 
