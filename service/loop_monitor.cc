@@ -61,6 +61,7 @@ doLoops(uint64_t numTimeouts)
     }
 
     curLoad.packed = maxLoad.packed;
+    if (onLoadChange) onLoadChange(maxLoad.load);
 }
 
 void
@@ -103,18 +104,18 @@ remove(const string& name)
 
 
 /******************************************************************************/
-/* SIMPLE LOAD SHEDDING                                                       */
+/* LOAD STABILIZER                                                            */
 /******************************************************************************/
 
-SimpleLoadShedding::
-SimpleLoadShedding(const LoopMonitor& loopMonitor) :
+LoadStabilizer::
+LoadStabilizer(const LoopMonitor& loopMonitor) :
     loopMonitor(loopMonitor),
     loadThreshold(0.9),
     shedProb(0.0)
 {}
 
 void
-SimpleLoadShedding::
+LoadStabilizer::
 updateProb(LoopMonitor::LoadSample sample)
 {
     lastSample = sample;

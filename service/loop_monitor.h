@@ -82,6 +82,9 @@ struct LoopMonitor : public ServiceBase, public MessageLoop
      */
     LoadSample sampleLoad() const { return LoadSample(curLoad.packed); }
 
+    /** Called whenever the value returned by sampleLoad changes. */
+    std::function<void(double load)> onLoadChange;
+
 private:
 
     void doLoops(uint64_t numTimeouts);
@@ -96,16 +99,16 @@ private:
 
 
 /******************************************************************************/
-/* SIMPLE LOAD SHEDDING                                                       */
+/* LOAD STABILIZER                                                            */
 /******************************************************************************/
 
 /** Simple load shedding that attempts to stabilize the load of the system at
     around a threshold by randomly dropping messages with a probability that
     is adjusted over time with the system's load.
  */
-struct SimpleLoadShedding
+struct LoadStabilizer
 {
-    SimpleLoadShedding(const LoopMonitor& loopMonitor);
+    LoadStabilizer(const LoopMonitor& loopMonitor);
 
     void setLoadThreshold(double val = 0.9) { loadThreshold = val; }
 
