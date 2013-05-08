@@ -652,9 +652,12 @@ obtainMultiPartUpload(const std::string & bucket,
     string outputPrefix(resource, 1);
 
     // Check if there is already a multipart upload in progress
-    auto inProgress = get(bucket, "/", 8192, "uploads", {},
-                          { { "prefix", outputPrefix } })
-        .bodyXml();
+    auto inProgressReq = get(bucket, "/", 8192, "uploads", {},
+                          { { "prefix", outputPrefix } });
+
+    //cerr << inProgressReq.bodyXmlStr() << endl;
+
+    auto inProgress = inProgressReq.bodyXml();
 
     using namespace tinyxml2;
 
@@ -675,20 +678,15 @@ obtainMultiPartUpload(const std::string & bucket,
     for (; upload; upload = upload->NextSiblingElement("Upload")) {
         XMLHandle uploadHandle(upload);
 
-        auto foundNode
-            = uploadHandle
-            .FirstChildElement("UploadId")
-            .FirstChild()
-            .ToText();
+        auto key = extract<string>(upload, "Key");
 
-        if (!foundNode)
-            throw ML::Exception("found node has no ID");
+        if (key != outputPrefix)
+            continue;
+        
+        // Already an upload in progress
+        string uploadId = extract<string>(upload, "UploadId");
 
         // TODO: check metadata, etc
-
-        // Already an upload in progress
-        uploadId = foundNode->Value();
-
         auto inProgressInfo = get(bucket, resource, 8192,
                                   "uploadId=" + uploadId)
             .bodyXml();
