@@ -325,7 +325,8 @@ onCleanup()
 void
 HttpConnectionHandler::
 putResponseOnWire(HttpResponse response,
-                  std::function<void ()> onSendFinished)
+                  std::function<void ()> onSendFinished,
+                  NextAction next)
 {
     onSendFinished = [=] ()
         {
@@ -380,7 +381,7 @@ putResponseOnWire(HttpResponse response,
     //cerr << "sending " << responseStr << endl;
     
     send(responseStr,
-         NEXT_CONTINUE,
+         next,
          onSendFinished);
 }
 

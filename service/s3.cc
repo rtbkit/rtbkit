@@ -577,8 +577,7 @@ T extract(tinyxml2::XMLNode * element, const std::string & path)
     auto text = tinyxml2::XMLHandle(p).FirstChild().ToText();
 
     if (!text) {
-        element->GetDocument()->Print();
-        throw ML::Exception("no text at node "  + path);
+        return boost::lexical_cast<T>("");
     }
     return boost::lexical_cast<T>(text->Value());
 }
