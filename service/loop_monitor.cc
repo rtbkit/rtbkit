@@ -53,8 +53,14 @@ doLoops(uint64_t numTimeouts)
 
     for (auto& loop : loops) {
         double load = loop.second(updatePeriod * numTimeouts);
-        ExcAssertGreaterEqual(load, 0.0);
-        ExcAssertLessEqual(load, 1.0);
+        if (load < 0.0 || load > 1.0) {
+            stringstream ss;
+            ss << "WARNING: LoopMonitor." << loop.first << ": "  << load
+                << " - ignoring the value"
+                << endl;
+            cerr << ss.str();
+            continue;
+        }
 
         if (load > maxLoad.load) maxLoad.load = load;
         recordLevel(load, loop.first);
