@@ -153,7 +153,8 @@ struct HttpConnectionHandler : public PassiveConnectionHandler {
     */
     virtual void putResponseOnWire(HttpResponse response,
                                    std::function<void ()> onSendFinished
-                                       = std::function<void ()>());
+                                   = std::function<void ()>(),
+                                   NextAction next = NEXT_CONTINUE);
 
 };
 
