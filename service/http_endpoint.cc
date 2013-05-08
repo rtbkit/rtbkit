@@ -4,7 +4,7 @@
 
 */
 
-#include "soa/service//http_endpoint.h"
+#include "soa/service/http_endpoint.h"
 #include "jml/arch/cmp_xchg.h"
 #include "jml/arch/atomic_ops.h"
 #include "jml/utils/parse_context.h"

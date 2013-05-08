@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "soa/service//passive_endpoint.h"
+#include "soa/service/passive_endpoint.h"
 #include "soa/types/date.h"
 #include "http_header.h"
 #include <boost/make_shared.hpp>

@@ -268,7 +268,7 @@ std::ostream & operator << (std::ostream & stream, const HttpHeader & header)
 {
     stream << header.verb << " " << header.resource
            << header.queryParams.uriEscaped();
-    stream << "\r\n"
+    stream << " HTTP/1.1\r\n"
            << "Content-Type: " << header.contentType << "\r\n";
     if (header.isChunked)
         stream << "Transfer-Encoding: chunked\r\n";
