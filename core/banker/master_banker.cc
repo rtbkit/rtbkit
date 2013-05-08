@@ -284,6 +284,10 @@ MasterBanker(std::shared_ptr<ServiceProxies> proxies,
       saving(false),
       monitorProviderClient(proxies->zmqContext, *this)
 {
+    /* Set the Access-Control-Allow-Origins: * header to allow browser-based
+       REST calls directly to the endpoint.
+    */
+    httpEndpoint.allowAllOrigins();
 }
 
 MasterBanker::
