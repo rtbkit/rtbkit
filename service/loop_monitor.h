@@ -114,6 +114,8 @@ struct LoadStabilizer
 
     /** Returns true if a message should be dropped to help the system deal with
         excessive load.
+
+        Thread-safe and lock-free.
      */
     bool shedMessage()
     {
@@ -123,6 +125,8 @@ struct LoadStabilizer
 
     /** Returns the probability at which a message should be dropped to help the
         system deal with excessive load.
+
+        Thread-safe and lock-free.
      */
     double shedProbability()
     {

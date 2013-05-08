@@ -7,6 +7,7 @@
 */
 
 #include "loop_monitor.h"
+#include "jml/arch/cmp_xchg.h"
 
 #include <mutex>
 #include <functional>
@@ -124,7 +125,12 @@ void
 LoadStabilizer::
 updateProb(LoopMonitor::LoadSample sample)
 {
-    lastSample = sample;
+    // Ensures that only the first thread to get past this point will be able to
+    // update the shedProb.
+    auto oldSample = lastSample;
+    if (sample.sequence != oldSample.sequence) return;
+    if (!ML::cmp_xchg(lastSample.packed, oldSample.packed, sample.packed))
+        return;
 
     // Don't drop too low otherwise it'll take forever to raise the prob.
     if (sample.load < loadThreshold)
