@@ -39,6 +39,8 @@ std::string username();
 
 std::string hostname();
 
+std::string fqdn_hostname(std::string const & port);
+
 int userid();
 
 std::string userid_to_username(int userid);
