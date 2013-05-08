@@ -1,0 +1,11 @@
+/* -*- js-mode -*- */
+[
+    {
+        "exchangeType": "openrtb",
+        "listenPort": 10002,
+        "bindHost": "127.0.0.1",
+        "auctionVerb": "POST",
+        "auctionResource": "/auctions",
+        "performNameLookup": false
+    }
+]
