@@ -203,6 +203,8 @@ fromOpenRtb(OpenRTB::BidRequest && req,
     else {
         result->bidCurrency.push_back(CurrencyCode::CC_USD);
     }
+
+    result->ext = std::move(req.ext);
     
     return result.release();
 }

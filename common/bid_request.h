@@ -348,6 +348,9 @@ struct BidRequest {
     */
     LineItems winSurcharges;
 
+    /** Transposition of the "ext" field of the OpenRTB request */
+    Json::Value ext;
+
     /** Return a canonical JSON version of the bid request. */
     Json::Value toJson() const;
 
