@@ -21,8 +21,8 @@
 namespace RTBKIT {
 
 struct HttpExchangeConnector;
+struct HttpAuctionLogger;
 struct HttpAuctionHandler;
-
 
 /*****************************************************************************/
 /* HTTP EXCHANGE CONNECTOR                                                   */
@@ -50,6 +50,11 @@ struct HttpExchangeConnector
     
     virtual Json::Value getServiceStatus() const;
 
+    /** Start logging requests */
+    void startRequestLogging(std::string const & filename);
+
+    /** Stop logging */
+    void stopRequestLogging();
 
     /*************************************************************************/
     /* METHODS CALLED BY THE ROUTER TO CONTROL THE EXCHANGE CONNECTOR        */
@@ -263,6 +268,8 @@ protected:
     
 private:
     friend class HttpAuctionHandler;
+
+    std::shared_ptr<HttpAuctionLogger> logger;
 
     Lock handlersLock;
     std::set<std::shared_ptr<HttpAuctionHandler> > handlers;
