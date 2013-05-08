@@ -64,6 +64,10 @@ struct AgentConfigurationService : public RestServiceEndpoint,
         monitorProviderClient.shutdown();
     }
 
+    void unsafeDisableMonitor() {
+        monitorProviderClient.inhibit_ = true;
+    }
+
     /// Handler for POST /v1/agents/<name>/heartbeat
     void handleAgentHeartbeat(const std::string & agent);
     

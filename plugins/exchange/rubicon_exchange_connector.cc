@@ -89,7 +89,7 @@ RubiconExchangeConnector(const std::string & name,
                          std::shared_ptr<ServiceProxies> proxies)
     : HttpExchangeConnector(name, proxies)
 {
-    this->auctionResource = "/bids";
+    this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
 }
 

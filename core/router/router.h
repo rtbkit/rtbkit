@@ -203,6 +203,14 @@ struct Router : public ServiceBase,
         addExchange(exchange.release());
     }
 
+    /** Register the exchange */
+    void addExchange(std::shared_ptr<ExchangeConnector> const & exchange)
+    {
+        Guard guard(lock);
+        exchanges.push_back(exchange);
+        connectExchange(*exchange);
+    }
+
     /** Start up a new exchange and connect it to the router.  The exchange
         will read its configuration from the given JSON blob.
     */

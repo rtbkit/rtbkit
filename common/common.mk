@@ -24,3 +24,5 @@ LIBRTB_LINK := \
 	ACE arch utils jsoncpp boost_thread endpoint boost_regex zmq opstats bid_request
 
 $(eval $(call library,rtb,$(LIBRTB_SOURCES),$(LIBRTB_LINK)))
+
+$(eval $(call include_sub_make,testing,,common_testing.mk))
