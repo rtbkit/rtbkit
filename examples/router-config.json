@@ -1,9 +1,9 @@
 /* -*- js-mode -*- */
 [
     {
-        "exchangeType": "openrtb",
-        "listenPort": 10002,
-        "bindHost": "127.0.0.1",
+        "exchangeType": "mock",
+        "listenPort": 12339,
+        "bindHost": "0.0.0.0",
         "auctionVerb": "POST",
         "auctionResource": "/auctions",
         "performNameLookup": false
