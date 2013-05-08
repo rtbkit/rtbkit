@@ -9,6 +9,7 @@
 #include "soa/service/http_endpoint.h"
 #include "jml/utils/vector_utils.h"
 #include "jml/utils/exc_assert.h"
+#include "jml/utils/string_functions.h"
 #include <boost/make_shared.hpp>
 
 namespace curlpp {
@@ -60,6 +61,8 @@ struct HttpRestProxy {
         std::string getHeader(const std::string & name) const
         {
             auto it = header_.headers.find(name);
+            if (it == header_.headers.end())
+                it = header_.headers.find(ML::lowercase(name));
             if (it == header_.headers.end())
                 throw ML::Exception("required header " + name + " not found");
             return it->second;
@@ -191,6 +194,12 @@ public:
     Connection getConnection() const;
     void doneConnection(curlpp::Easy * conn);
 };
+
+inline std::ostream &
+operator << (std::ostream & stream, HttpRestProxy::Response & response)
+{
+    return stream << response.header_ << "\n" << response.body_ << "\n";
+}
 
 } // namespace Datacratic
 
