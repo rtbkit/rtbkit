@@ -36,8 +36,6 @@ void
 LoopMonitor::
 init(double updatePeriod)
 {
-    MessageLoop::init();
-
     this->updatePeriod = updatePeriod;
     addPeriodic("LoopMonitor", updatePeriod,
             std::bind(&LoopMonitor::doLoops, this, placeholders::_1));
