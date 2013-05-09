@@ -126,7 +126,7 @@ updateProb(LoopMonitor::LoadSample sample)
     // Ensures that only the first thread to get past this point will be able to
     // update the shedProb.
     auto oldSample = lastSample;
-    if (sample.sequence != oldSample.sequence) return;
+    if (sample.sequence == oldSample.sequence) return;
     if (!ML::cmp_xchg(lastSample.packed, oldSample.packed, sample.packed))
         return;
 
