@@ -39,7 +39,7 @@ namespace Datacratic {
 
 MessageLoop::
 MessageLoop(int numThreads, double maxAddedLatency)
-    : numThreadsCreated(0), totalSleepTime(0.0)
+    : numThreadsCreated(0), totalSleepTime_(0.0)
 {
     init(numThreads, maxAddedLatency);
 }
@@ -260,8 +260,8 @@ runWorkerThread()
 
         duty.notifyBeforeSleep();
         if (sleepTime > 0) {
-            totalSleepTime += sleepTime;
             ML::sleep(sleepTime);
+            totalSleepTime_ += sleepTime;
         }
         duty.notifyAfterSleep();
 

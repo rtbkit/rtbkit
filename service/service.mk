@@ -35,6 +35,7 @@ LIBSERVICES_SOURCES := \
 	port_range_service.cc \
 	service_base.cc \
 	message_loop.cc \
+	loop_monitor.cc \
 	named_endpoint.cc \
 	zookeeper_configuration_service.cc \
 	zmq_endpoint.cc \

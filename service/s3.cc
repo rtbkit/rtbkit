@@ -577,8 +577,7 @@ T extract(tinyxml2::XMLNode * element, const std::string & path)
     auto text = tinyxml2::XMLHandle(p).FirstChild().ToText();
 
     if (!text) {
-        element->GetDocument()->Print();
-        throw ML::Exception("no text at node "  + path);
+        return boost::lexical_cast<T>("");
     }
     return boost::lexical_cast<T>(text->Value());
 }
@@ -653,9 +652,12 @@ obtainMultiPartUpload(const std::string & bucket,
     string outputPrefix(resource, 1);
 
     // Check if there is already a multipart upload in progress
-    auto inProgress = get(bucket, "/", 8192, "uploads", {},
-                          { { "prefix", outputPrefix } })
-        .bodyXml();
+    auto inProgressReq = get(bucket, "/", 8192, "uploads", {},
+                          { { "prefix", outputPrefix } });
+
+    //cerr << inProgressReq.bodyXmlStr() << endl;
+
+    auto inProgress = inProgressReq.bodyXml();
 
     using namespace tinyxml2;
 
@@ -676,20 +678,15 @@ obtainMultiPartUpload(const std::string & bucket,
     for (; upload; upload = upload->NextSiblingElement("Upload")) {
         XMLHandle uploadHandle(upload);
 
-        auto foundNode
-            = uploadHandle
-            .FirstChildElement("UploadId")
-            .FirstChild()
-            .ToText();
+        auto key = extract<string>(upload, "Key");
 
-        if (!foundNode)
-            throw ML::Exception("found node has no ID");
+        if (key != outputPrefix)
+            continue;
+        
+        // Already an upload in progress
+        string uploadId = extract<string>(upload, "UploadId");
 
         // TODO: check metadata, etc
-
-        // Already an upload in progress
-        uploadId = foundNode->Value();
-
         auto inProgressInfo = get(bucket, resource, 8192,
                                   "uploadId=" + uploadId)
             .bodyXml();
@@ -1990,6 +1987,81 @@ streamingDownload(const std::string & uri,
     //cerr << "bucket = " << bucket << " object = " << object << endl;
 
     return streamingDownload(bucket, object, startOffset, endOffset, onChunk);
+}
+
+void
+S3Handle::
+initS3(const std::string & accessKeyId,
+       const std::string & accessKey,
+       const std::string & uriPrefix)
+{
+    s3.init(accessKeyId, accessKey);
+    this->s3UriPrefix = uriPrefix;
+}
+
+size_t
+S3Handle::
+getS3Buffer(const std::string & filename, char** outBuffer){
+
+    if (this->s3UriPrefix == "") {
+        // not initialized; use defaults
+        string bucket = S3Api::parseUri(filename).first;
+        auto api = getS3ApiForBucket(bucket);
+        size_t size = api->getObjectInfo(filename).size;
+
+        cerr << "size = " << size << endl;
+
+        // TODO: outBuffer exception safety
+        *outBuffer = new char[size];
+
+        uint64_t done = 0;
+
+        auto onChunk = [&] (const char * data,
+                            size_t chunkSize,
+                            int chunkIndex,
+                            uint64_t offset,
+                            uint64_t totalSize)
+            {
+                ExcAssertEqual(size, totalSize);
+                ExcAssertLessEqual(offset + chunkSize, totalSize);
+                std::copy(data, data + chunkSize, *outBuffer + offset);
+                ML::atomic_add(done, chunkSize);
+            };
+
+        api->download(filename, onChunk);
+
+        return size;
+    }
+
+    auto stats = s3.getObjectInfo(filename);
+    if (!stats)
+        throw ML::Exception("unknown s3 object");
+
+    *outBuffer = new char[stats.size];
+
+    uint64_t done = 0;
+
+    auto onChunk = [&] (const char * data,
+                        size_t size,
+                        int chunkIndex,
+                        uint64_t offset,
+                        uint64_t totalSize)
+        {
+            ExcAssertEqual(stats.size, totalSize);
+            ExcAssertLessEqual(offset + size, totalSize);
+            std::copy(data, data + size, *outBuffer + offset);
+            ML::atomic_add(done, size);
+        };
+
+    s3.download(filename, onChunk);
+
+    ExcAssertEqual(done, stats.size);
+
+    cerr << "done downloading " << stats.size << " bytes from "
+         << filename << endl;
+
+    return stats.size;
+
 }
 
 bool
