@@ -320,6 +320,14 @@ try
         /* Work out what feature we're predicting. */
         if (predicted_name != "")
             fs[i]->parse(predicted_name, predicted[i]);
+
+        /** Work out what kind of feature it is */
+        //data[i]->preindex_features();
+
+        if (fs[i]->info(predicted[i]).type() == UNKNOWN) {
+            fs[i]->set_info(predicted[i], guess_info(*data[i], predicted[i]));
+        }
+
     }
     
     /* Work out our features. */
@@ -358,6 +366,10 @@ try
             if (ids[d] == -1) continue;
 
             int nl = data[d]->label_count(predicted[d]);
+
+            //cerr << "nl = " << nl << " by_label = " << by_label << endl;
+            //cerr << "predicted[d] = " << fs[d]->print(predicted[d]) << endl;
+            //cerr << "info = " << fs[d]->info(predicted[d]) << endl;
 
             Feature feature(ids[d]);
 
