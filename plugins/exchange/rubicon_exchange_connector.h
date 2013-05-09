@@ -23,7 +23,7 @@ namespace RTBKIT {
 */
 
 struct RubiconExchangeConnector: public HttpExchangeConnector {
-    
+    RubiconExchangeConnector(ServiceBase & owner, const std::string & name);
     RubiconExchangeConnector(const std::string & name,
                              std::shared_ptr<ServiceProxies> proxies);
 

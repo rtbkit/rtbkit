@@ -29,15 +29,25 @@ namespace RTBKIT {
 /*****************************************************************************/
 
 HttpAuctionLogger::
-HttpAuctionLogger(std::string const & filename) : stream(filename) {
+HttpAuctionLogger(std::string const & filename, int count) : requestFilename(filename), requestLimit(count) {
+    requestCount = requestFile = 0;
 }
 
 void
 HttpAuctionLogger::
 recordRequest(HttpHeader const & headers, std::string const & body) {
     std::lock_guard<std::mutex> guard(lock);
-    if(stream) {
-        stream << headers << body << std::endl;
+    if(!stream) {
+        std::string filename = ML::format("%d-%s", requestFile, requestFilename);
+        stream.open(filename);
+    }
+
+    stream << headers << body << std::endl;
+    ++requestCount;
+    if(requestCount == requestLimit) {
+        stream.close();
+        ++requestFile;
+        requestCount = 0;
     }
 }
 

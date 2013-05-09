@@ -6,34 +6,12 @@
 */
 
 #include "rtbkit/core/router/router_runner.h"
-#include "rtbkit/plugins/exchange/http_exchange_connector.h"
-#include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
+#include "rtbkit/plugins/exchange/exchanges.h"
 #include "jml/arch/timers.h"
-#include "jml/utils/json_parsing.h"
-#include "mock_exchange_connector.h"
 
 using namespace std;
 using namespace Datacratic;
 using namespace RTBKIT;
-
-namespace {
-    struct Init {
-        static ExchangeConnector * createMockExchange(ServiceBase * owner,
-                                                      std::string const & name) {
-            return new MockExchangeConnector(*owner, name);
-        }
-
-        static ExchangeConnector * createOpenRTBExchange(ServiceBase * owner,
-                                                         std::string const & name) {
-            return new OpenRTBExchangeConnector(*owner, name);
-        }
-
-        Init() {
-            ExchangeConnector::registerFactory("mock", createMockExchange);
-            ExchangeConnector::registerFactory("openrtb", createOpenRTBExchange);
-        }
-    } init;
-}
 
 struct GenericRouterRunner: public RouterRunner {
     GenericRouterRunner()

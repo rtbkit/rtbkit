@@ -51,7 +51,7 @@ struct HttpExchangeConnector
     virtual Json::Value getServiceStatus() const;
 
     /** Start logging requests */
-    void startRequestLogging(std::string const & filename);
+    void startRequestLogging(std::string const & filename, int count = 1000);
 
     /** Stop logging */
     void stopRequestLogging();

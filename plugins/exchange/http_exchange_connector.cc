@@ -142,9 +142,9 @@ shutdown()
 
 void
 HttpExchangeConnector::
-startRequestLogging(std::string const & filename) {
+startRequestLogging(std::string const & filename, int count) {
     Guard guard(handlersLock);
-    logger = std::make_shared<HttpAuctionLogger>(filename);
+    logger = std::make_shared<HttpAuctionLogger>(filename, count);
 }
 
 void

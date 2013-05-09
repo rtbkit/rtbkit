@@ -57,6 +57,14 @@ struct ExchangeConnector: public ServiceBase {
     /* METHODS CALLED BY THE ROUTER TO CONTROL THE EXCHANGE CONNECTOR        */
     /*************************************************************************/
 
+    /** Start logging requests */
+    virtual void startRequestLogging(std::string const & filename, int count = 1000) {
+    }
+
+    /** Stop logging */
+    virtual void stopRequestLogging() {
+    }
+
     /** Configure the exchange connector.  The JSON provided is entirely
         interpreted by the exchange connector itself.
     */

@@ -23,7 +23,7 @@ struct HttpExchangeConnector;
 struct HttpAuctionLogger :
     public std::enable_shared_from_this<HttpAuctionLogger>
 {
-    HttpAuctionLogger(std::string const & filename);
+    HttpAuctionLogger(std::string const & filename, int count);
 
     /// adds a request to the log file
     void recordRequest(HttpHeader const & headers, std::string const & body);
@@ -40,6 +40,13 @@ private:
 
     /// log file
     ML::filter_ostream stream;
+
+    /// name for log file
+    std::string requestFilename;
+
+    int requestCount;
+    int requestLimit;
+    int requestFile;
 };
 
 /*****************************************************************************/

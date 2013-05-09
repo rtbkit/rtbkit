@@ -85,6 +85,12 @@ BOOST_STATIC_ASSERT(hasFromJson<int>::value == false);
 /*****************************************************************************/
 
 RubiconExchangeConnector::
+RubiconExchangeConnector(ServiceBase & owner, const std::string & name)
+    : HttpExchangeConnector(name, owner)
+{
+}
+
+RubiconExchangeConnector::
 RubiconExchangeConnector(const std::string & name,
                          std::shared_ptr<ServiceProxies> proxies)
     : HttpExchangeConnector(name, proxies)

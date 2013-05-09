@@ -298,13 +298,11 @@ BOOST_AUTO_TEST_CASE( test_rubicon )
     }
 
     if(generate) {
-        connector->startRequestLogging(filename);
+        connector->startRequestLogging(filename, bids);
 
         while (agent.numBidRequests < bids) {
             ML::sleep(1.0);
         }
-
-        connector->stopRequestLogging();
     }
     else {
         ML::sleep(1.0);
