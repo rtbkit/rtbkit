@@ -2231,6 +2231,9 @@ std::mutex registerBucketsMutex;
         - Bandwidth from this machine to the server (MBPS)
         - Protocol (http)
         - S3 machine host name (s3.amazonaws.com)
+
+    If S3_ACCESS_KEY_ID and S3_ACCESS_KEY environment variables are specified,
+    they will be used first.
 */
 void registerDefaultBuckets()
 {
@@ -2245,6 +2248,14 @@ void registerDefaultBuckets()
 
     string filename = "/home/" + ML::username() + "/.cloud_credentials";
     //cerr << "filename = " << filename << endl;
+
+    char* keyIdEnvChar = getenv("S3_ACCESS_KEY_ID");
+    string keyIdEnv = (keyIdEnvChar == NULL ? string() : string(keyIdEnvChar));
+    char* keyEnvChar = getenv("S3_ACCESS_KEY");
+    string keyEnv = (keyEnvChar == NULL ? string() : string(keyEnvChar));
+
+    if (keyIdEnv != "" && keyEnv != "")
+        registerS3Buckets(keyIdEnv, keyEnv, 20., "http", "s3.amazonaws.com");
 
     if (ML::fileExists(filename)) {
         std::ifstream stream(filename.c_str());
