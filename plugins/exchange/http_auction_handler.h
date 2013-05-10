@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "jml/utils/filter_streams.h"
 #include "soa/service/http_endpoint.h"
 #include "soa/service/stats_events.h"
 #include "rtbkit/common/auction.h"
@@ -15,6 +16,38 @@ namespace RTBKIT {
 
 struct HttpExchangeConnector;
 
+/*****************************************************************************/
+/* HTTP AUCTION LOGGER                                                       */
+/*****************************************************************************/
+
+struct HttpAuctionLogger :
+    public std::enable_shared_from_this<HttpAuctionLogger>
+{
+    HttpAuctionLogger(std::string const & filename, int count);
+
+    /// adds a request to the log file
+    void recordRequest(HttpHeader const & headers, std::string const & body);
+
+    void close();
+
+    /// parse a log file
+    static unsigned parse(const std::string & filename,
+                          const std::function<void(const std::string &)> & callback);
+
+private:
+    /// make sure requests are serialized
+    std::mutex lock;
+
+    /// log file
+    ML::filter_ostream stream;
+
+    /// name for log file
+    std::string requestFilename;
+
+    int requestCount;
+    int requestLimit;
+    int requestFile;
+};
 
 /*****************************************************************************/
 /* HTTP AUCTION HANDLER                                                      */
@@ -33,6 +66,7 @@ struct HttpAuctionHandler
     HttpExchangeConnector * endpoint;
 
     std::shared_ptr<Auction> auction;
+    std::shared_ptr<HttpAuctionLogger> logger;
     bool hasTimer;
     bool disconnected;
     bool servingRequest;  ///< Are we currently, actively serving a request?

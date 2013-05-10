@@ -11,9 +11,7 @@
 #ifndef __rtbkit__mock_exchange_h__
 #define __rtbkit__mock_exchange_h__
 
-#include "common/account_key.h"
-#include "common/currency.h"
-#include "common/bid_request.h"
+#include "rtbkit/common/testing/exchange_source.h"
 #include "soa/service/service_utils.h"
 #include "soa/service/service_base.h"
 #include "soa/service/zmq_endpoint.h"
@@ -45,50 +43,8 @@ struct MockExchange : public Datacratic::ServiceBase
         return !running;
     }
 
-protected:
-
-    struct Bid
-    {
-        Datacratic::Id adSpotId;
-        int maxPrice;
-        std::string tagId;
-
-        AccountKey account;
-        Datacratic::Date bidTimestamp;
-    };
-
 private:
     int running;
-
-    struct Stream {
-        Stream(int port);
-        ~Stream();
-        void connect();
-
-        addrinfo * addr;
-        int fd;
-    };
-
-    struct BidStream : public Stream {
-        BidStream(int port, int id) : Stream(port), id(id * port), key(0) {
-        }
-
-        void sendBidRequest(const BidRequest& request);
-        std::pair<bool, std::vector<Bid>> parseResponse(const std::string& rawResponse);
-        std::pair<bool, std::vector<Bid>> recvBid();
-
-        BidRequest makeBidRequest();
-
-        long long id;
-        long long key;
-    };
-
-    struct WinStream : public Stream {
-        WinStream(int port) : Stream(port) {
-        }
-
-        void sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice);
-    };
 
     struct Worker {
         Worker(MockExchange * exchange, size_t id, int bidPort, int winPort);
@@ -97,11 +53,11 @@ private:
         void run(size_t requests);
         void bid();
 
-        std::pair<bool, Amount> isWin(const BidRequest&, const Bid& bid);
+        std::pair<bool, Amount> isWin(const BidRequest&, const ExchangeSource::Bid& bid);
 
         MockExchange * exchange;
-        BidStream bids;
-        WinStream wins;
+        BidSource bids;
+        WinSource wins;
         ML::RNG rng;
     };
 

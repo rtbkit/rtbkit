@@ -16,6 +16,7 @@
 #include "soa/service/zmq_utils.h"
 #include "soa/service/socket_per_thread.h"
 #include "soa/service/typed_message_channel.h"
+#include "soa/service/loop_monitor.h"
 #include "jml/arch/futex.h"
 #include "jml/utils/ring_buffer.h"
 #include "soa/service/zmq_endpoint.h"
@@ -95,6 +96,9 @@ private:
 
     typedef std::pair<AugmentationRequest, AugmentationList> Response;
     TypedMessageSink<Response> responseQueue;
+
+    LoopMonitor loopMonitor;
+    LoadStabilizer loadStabilizer;
 
     void handleRouterMessage(const std::string & router,
                              const std::vector<std::string> & message);

@@ -90,3 +90,21 @@ BOOST_AUTO_TEST_CASE( test_master_banker_onstatesaved )
                                               ""),
                       ML::Exception);
 }
+
+BOOST_AUTO_TEST_CASE( test_master_banker_http_headers )
+{
+    auto serviceProxies = std::make_shared<ServiceProxies>();
+
+    MasterBanker testBanker(serviceProxies);
+    testBanker.init(std::make_shared<NoBankerPersistence>());
+    auto uri = testBanker.bindTcp().second;
+    testBanker.start();
+
+    HttpRestProxy proxy(uri);
+
+    auto response = proxy.get("/v1/accounts");
+                      
+    cerr << response << endl;
+
+    BOOST_CHECK_EQUAL(response.getHeader("Access-Control-Allow-Origin"), "*");
+}

@@ -284,6 +284,10 @@ MasterBanker(std::shared_ptr<ServiceProxies> proxies,
       saving(false),
       monitorProviderClient(proxies->zmqContext, *this)
 {
+    /* Set the Access-Control-Allow-Origins: * header to allow browser-based
+       REST calls directly to the endpoint.
+    */
+    httpEndpoint.allowAllOrigins();
 }
 
 MasterBanker::
@@ -441,6 +445,17 @@ init(const shared_ptr<BankerPersistence> & storage)
                        JsonParam<CurrencyPool>("", "amount to set balance to"),
                        RestParamDefault<AccountType>("accountType", "type of account for implicit creation (default no creation)", AT_NONE));
     
+    addRouteSyncReturn(account,
+                       "/adjustment",
+                       {"PUT", "POST"},
+                       "Perform an adjustment to the account",
+                       "Account: Representation of the modified account",
+                       [] (const Account & a) { return a.toJson(); },
+                       &Accounts::addAdjustment,
+                       &accounts,
+                       accountKeyParam,
+                       JsonParam<CurrencyPool>("", "amount to add or substract"));
+
     addRouteSyncReturn(account,
                        "/summary",
                        "GET",

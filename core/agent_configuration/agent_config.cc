@@ -778,9 +778,7 @@ toJson(bool includeCreatives) const
 BiddableSpots
 AgentConfig::
 canBid(const ExchangeConnector * exchangeConnector,
-       const std::vector<AdSpot> & imp,
-       const std::string & exchange,
-       const std::string & protocolVersion,
+       const BidRequest& request,
        const Utf8String & language,
        const Utf8String & location, uint64_t locationHash,
        ML::Lightweight_Hash<uint64_t, int> & locationCache) const
@@ -788,25 +786,38 @@ canBid(const ExchangeConnector * exchangeConnector,
     BiddableSpots result;
 
     // TODO: do a lookup, not an exhaustive scan
-    for (unsigned i = 0;  i < imp.size();  ++i) {
-        //cerr << "trying spot " << i << endl;
+    for (unsigned i = 0;  i < request.imp.size();  ++i) {
+        auto & item = request.imp[i];
 
         // Check that the fold position matches
-        if (!foldPositionFilter.isIncluded(imp[i].position))
+        if (!foldPositionFilter.isIncluded(item.position))
             continue;
 
         SmallIntVector matching;
         for (unsigned j = 0;  j < creatives.size();  ++j) {
-    //        cerr << "spot: " << imp[i].width << "x" << imp[i].height
-    //             << " creative: " << creatives[j].width << "x"
-    //             << creatives[j].height << endl;
-            if (creatives[j].compatible(imp[i])
-                && creatives[j].biddable(exchange, protocolVersion)
-                && creatives[j].exchangeFilter.isIncluded(exchange)
-                && creatives[j].languageFilter.isIncluded(language.rawString())
-                && creatives[j].locationFilter.isIncluded(location, locationHash, locationCache))
+            auto & creative = creatives[j];
+
+            // check that this it's compatible
+            const void * exchangeInfo = 0;
+            {
+                std::lock_guard<ML::Spinlock> guard(creative.lock);
+                auto it = creative.providerData.find(exchangeConnector->exchangeName());
+                if (it == creative.providerData.end()) {
+                    continue;
+                }
+
+                exchangeInfo = it->second.get();
+            }
+
+            if (exchangeConnector->bidRequestCreativeFilter(request, *this, exchangeInfo) 
+                && creative.compatible(item)
+                && creative.biddable(request.exchange, request.protocolVersion)
+                && creative.exchangeFilter.isIncluded(request.exchange)
+                && creative.languageFilter.isIncluded(language.rawString())
+                && creative.locationFilter.isIncluded(location, locationHash, locationCache))
                 matching.push_back(j);
         }
+
         if (!matching.empty())
             result.push_back(make_pair(i, matching));
     }
@@ -822,21 +833,19 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
                   RequestFilterCache& cache,
                   const FilterStatFn & doFilterStat) const
 {
+    const void * exchangeInfo = 0;
+
     /* First, check that the exchange has blessed this campaign as being
        biddable.  If not, we don't go any further. */
-    const void * exchangeInfo = NULL;
-    std::string exchangeName;
 
     if (exchangeConnector) {
-        exchangeName = exchangeConnector->exchangeName();
-
         //cerr << "exchangeName = " << exchangeName
         //     << " providerData.size() = " << providerData.size()
         //     << endl;
 
         {
             std::lock_guard<ML::Spinlock> guard(lock);
-            auto it = providerData.find(exchangeName);
+            auto it = providerData.find(exchangeConnector->exchangeName());
             if (it == providerData.end()) {
                 if (doFilterStat)
                     doFilterStat("static.001_exchangeRejectedCampaign");
@@ -863,9 +872,7 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
     */
     BiddableSpots biddableSpots = canBid(
             exchangeConnector,
-            request.imp,
-            request.exchange,
-            request.protocolVersion,
+            request,
             cache.language,
             cache.location,
             cache.locationHash,

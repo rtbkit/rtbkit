@@ -5,14 +5,22 @@
    Exchange connector for Rubicon.
 */
 
-#include "rtbkit/plugins/exchange/rubicon_exchange_connector.h"
-#include "rtbkit/plugins/exchange/http_auction_handler.h"
+#define BOOST_TEST_MAIN
+#define BOOST_TEST_DYN_LINK
+
+#include <boost/test/unit_test.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include "rtbkit/common/testing/exchange_source.h"
+#include "rtbkit/plugins/exchange/rubicon_exchange_connector.h"
+#include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/banker/null_banker.h"
 #include "rtbkit/testing/test_agent.h"
+
+#include "jml/arch/info.h"
 
 // for generation of dynamic creative
 #include "cairomm/surface.h"
@@ -20,12 +28,8 @@
 
 #include <type_traits>
 
-
-using namespace std;
-using namespace RTBKIT;
-
-// http://web.archiveorange.com/archive/v/QVfaOb8fEnu9f52fo4y2
 // This is needed to allow a std::function to bind into the sigc library
+// See: http://web.archiveorange.com/archive/v/QVfaOb8fEnu9f52fo4y2
 namespace sigc
 {
     template <typename Functor>
@@ -39,6 +43,8 @@ namespace sigc
     };
 }
 
+using namespace std;
+using namespace RTBKIT;
 
 /*****************************************************************************/
 /* TEST RUBICON EXCHANGE CONNECTOR                                           */
@@ -79,11 +85,12 @@ struct TestRubiconExchangeConnector: public RubiconExchangeConnector {
                 };
 
             static const Cairo::RefPtr<Cairo::Surface> logo
-                = Cairo::ImageSurface::create_from_png("static/rtbkit-logo-256x50.png");
+                = Cairo::ImageSurface::create_from_png("rtbkit/static/rtbkit-logo-256x50.png");
 
             Cairo::RefPtr<Cairo::Surface> surface;
             if (format == "svg") {
-                surface = Cairo::SvgSurface::create_for_stream(Cairo::Surface::SlotWriteFunc(writeData), width, height);
+                auto writer = Cairo::Surface::SlotWriteFunc(writeData);
+                surface = Cairo::SvgSurface::create_for_stream(writer, width, height);
                 contentType = "image/svg+xml";
             }
             else if (format == "png") {
@@ -103,8 +110,8 @@ struct TestRubiconExchangeConnector: public RubiconExchangeConnector {
             cr->set_source(logo, 0.10, 0.10);
             cr->paint();
             cr->restore();
-
             cr->save();
+
             // draw a border around the image
             cr->set_line_width(5.0); // make the line wider
             cr->rectangle(0.0, 0.0, cairo_image_surface_get_width(surface->cobj()), height);
@@ -146,10 +153,11 @@ struct TestRubiconExchangeConnector: public RubiconExchangeConnector {
                          const std::string & payload) const
     {
         // Redirect to the actual ad, but lets us get the price
-        if (header.resource == "/creative.png"
-            || header.resource == "/creative.svg") {
+        if (header.resource == "/creative.png" ||
+            header.resource == "/creative.svg") {
             int width = boost::lexical_cast<int>(header.queryParams.getValue("width"));
             int height = boost::lexical_cast<int>(header.queryParams.getValue("height"));
+
             string encodedPrice = header.queryParams.getValue("price");
 
             //cerr << "encodedPrice = " << encodedPrice << endl;
@@ -160,7 +168,8 @@ struct TestRubiconExchangeConnector: public RubiconExchangeConnector {
             connection.putResponseOnWire(response);
             return;
         }
-        else if (header.resource == "/redirect.js") {
+
+        if (header.resource == "/redirect.js") {
             //cerr << "redirect to " << header << endl;
 
             RestParams params;
@@ -183,18 +192,24 @@ struct TestRubiconExchangeConnector: public RubiconExchangeConnector {
             connection.putResponseOnWire(response);
             return;
         }
+
         connection.sendErrorResponse("unknown resource " + header.resource);
     }
 };
 
-int main(int argc, char ** argv)
+BOOST_AUTO_TEST_CASE( test_rubicon_decode_price )
 {
-    RubiconExchangeConnector::decodeWinPrice("hheehhee", "386C13726472656E");
+    float price = RubiconExchangeConnector::decodeWinPrice("hheehhee", "386C13726472656E");
+    BOOST_CHECK_EQUAL(std::to_string(price), "1.234000");
+}
 
+BOOST_AUTO_TEST_CASE( test_rubicon )
+{
     std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
 
     // The agent config service lets the router know how our agent is configured
     AgentConfigurationService agentConfig(proxies, "config");
+    agentConfig.unsafeDisableMonitor();
     agentConfig.init();
     agentConfig.bindTcp();
     agentConfig.start();
@@ -215,20 +230,24 @@ int main(int argc, char ** argv)
     // Create our exchange connector and configure it to listen on port
     // 10002.  Note that we need to ensure that port 10002 is open on
     // our firewall.
-    std::unique_ptr<TestRubiconExchangeConnector> connector
+    std::shared_ptr<TestRubiconExchangeConnector> connector
         (new TestRubiconExchangeConnector("connector", proxies));
 
-    connector->configureHttp(1, 10002, "0.0.0.0");
+    int bids = 5;
+    int port = 10002;
+
+    connector->configureHttp(1, port, "0.0.0.0");
     connector->start();
     connector->enableUntil(Date::positiveInfinity());
 
     // Tell the router about the new exchange connector
-    router.addExchange(connector.release());
+    router.addExchange(connector);
 
     // This is our bidding agent, that actually calculates the bid price
     TestAgent agent(proxies, "agent");
 
-    string hostName = "dev2.recoset.com:10002";
+    std::string portName = std::to_string(port);
+    std::string hostName = ML::fqdn_hostname(portName) + ":" + portName;
 
     agent.config.providerConfig["rubicon"]["seat"] = "123";
 
@@ -261,17 +280,50 @@ int main(int argc, char ** argv)
 
             agent.doBid(id, bids, Json::Value());
             ML::atomic_inc(agent.numBidRequests);
+
+            std::cerr << "bid count=" << agent.numBidRequests << std::endl;
         };
 
     agent.init();
     agent.start();
     agent.configure();
 
-    cerr << agent.config.toJson() << endl;
+    std::string filename = "rtbkit/plugins/exchange/testing/rubicon-samples.txt.gz";
 
-    for (;;) {
-        // Make the agent send its configuration to the router
-        ML::sleep(10.0);
-        //proxies->events->dump(cerr);
+    // either delete the file or set this to true to generate a new file
+    bool generate = false;
+
+    if(!boost::filesystem::exists(filename)) {
+        generate = true;
     }
+
+    if(generate) {
+        connector->startRequestLogging(filename, bids);
+
+        while (agent.numBidRequests < bids) {
+            ML::sleep(1.0);
+        }
+    }
+    else {
+        ML::sleep(1.0);
+
+        // replay the recorded stream of bid requests
+        BidSource source(port);
+        auto callback = [&](const std::string & payload) {
+            source.write(payload);
+            std::cerr << source.read() << std::endl;
+        };
+
+        auto count = HttpAuctionLogger::parse(filename, callback);
+
+        std::cerr << "parsed count=" << count << std::endl;
+        std::cerr << "bid requests=" << agent.numBidRequests << std::endl;
+
+        BOOST_CHECK_EQUAL(agent.numBidRequests, bids);
+    }
+
+    proxies->events->dump(cerr);
+
+    router.shutdown();
+    agentConfig.shutdown();
 }

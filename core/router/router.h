@@ -17,6 +17,7 @@
 #include "soa/service/socket_per_thread.h"
 #include "soa/service/timeout_map.h"
 #include "soa/service/pending_list.h"
+#include "soa/service/loop_monitor.h"
 #include "augmentation_loop.h"
 #include "router_types.h"
 #include "soa/gc/gc_lock.h"
@@ -203,6 +204,14 @@ struct Router : public ServiceBase,
         addExchange(exchange.release());
     }
 
+    /** Register the exchange */
+    void addExchange(std::shared_ptr<ExchangeConnector> const & exchange)
+    {
+        Guard guard(lock);
+        exchanges.push_back(exchange);
+        connectExchange(*exchange);
+    }
+
     /** Start up a new exchange and connect it to the router.  The exchange
         will read its configuration from the given JSON blob.
     */
@@ -308,18 +317,13 @@ struct Router : public ServiceBase,
     */
     void setBudgetErrorRate(double val) { budgetErrorRate = val; }
 
-    /** Overwrite this function such that it causes the number of auctions
-        coming in to be throttled.
-    */
-    boost::function<void (double)> acceptAuctionProbabilityFn;
-
     /** Auction accept probability */
     void setAcceptAuctionProbability(double val)
     {
-        if (acceptAuctionProbabilityFn)
-            acceptAuctionProbabilityFn(val);
-        else if (val != 1.0)
-            std::cerr << "warning: no way to change accept auction probability" << std::endl;
+        Guard guard(lock);
+
+        for (auto& exchange : exchanges)
+            exchange->setAcceptBidRequestProbability(val);
     }
 
     /** Return service status. */
@@ -373,6 +377,9 @@ public:
 
     AugmentationLoop augmentationLoop;
     Blacklist blacklist;
+
+    LoopMonitor loopMonitor;
+    LoadStabilizer loadStabilizer;
 
     /** List of auctions we're currently tracking as active. */
     typedef TimeoutMap<Id, AuctionInfo> InFlight;

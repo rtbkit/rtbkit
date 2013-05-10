@@ -24,6 +24,108 @@ using namespace ML;
 
 namespace RTBKIT {
 
+/*****************************************************************************/
+/* HTTP AUCTION LOGGER                                                       */
+/*****************************************************************************/
+
+HttpAuctionLogger::
+HttpAuctionLogger(std::string const & filename, int count) : requestFilename(filename), requestLimit(count) {
+    requestCount = requestFile = 0;
+}
+
+void
+HttpAuctionLogger::
+recordRequest(HttpHeader const & headers, std::string const & body) {
+    std::lock_guard<std::mutex> guard(lock);
+    if(!stream) {
+        std::string filename = ML::format("%d-%s", requestFile, requestFilename);
+        stream.open(filename);
+    }
+
+    stream << headers << body << std::endl;
+    ++requestCount;
+    if(requestCount == requestLimit) {
+        stream.close();
+        ++requestFile;
+        requestCount = 0;
+    }
+}
+
+void
+HttpAuctionLogger::
+close() {
+    if(stream) {
+        stream.close();
+    }
+}
+
+unsigned
+HttpAuctionLogger::
+parse(const std::string & filename,
+      const std::function<void(const std::string &)> & callback)
+{
+    cerr << "reading packets from " << filename << endl;
+
+    filter_istream stream(filename);
+    ML::Parse_Context context(filename, stream);
+
+    int count = 0;
+
+    while(context) {
+        try {
+            Parse_Context::Hold_Token hold(context);
+
+            while (context) {
+                Parse_Context::Revert_Token token(context);
+                if (context.match_literal("POST")) break;
+                token.ignore();
+                context.expect_line();
+            }
+
+            std::string request = context.expect_text("\r") + "\r\n";
+            context.expect_literal("\r\n");
+
+            int contentLength = -1;
+
+            while (!context.eof()) {
+                string line;
+                if (context.match_literal("Content-Length:")) {
+                    context.skip_whitespace();
+                    contentLength = context.expect_int();
+                    line = ML::format("Content-Length: %d", contentLength);
+                }
+                else {
+                    line = context.expect_text("\r\n");
+                }
+
+                request += line + "\r\n";
+                context.expect_literal("\r\n");
+
+                if (line.empty()) break;
+            }
+
+            if (contentLength == -1)
+                throw ML::Exception("no content-length");
+
+            for (unsigned i = 0;  i < contentLength;  ++i) {
+                context.match_literal('\n');
+                request += *context++;
+            }
+
+            context.match_eol();
+
+            callback(request);
+            ++count;
+        }
+        catch (const std::exception & exc) {
+            std::cerr << context.where() << ": got exception: "
+                      << exc.what() << std::endl;
+            break;
+        }
+    }
+
+    return count;
+}
 
 /*****************************************************************************/
 /* HTTP AUCTION HANDLER                                                      */
@@ -188,6 +290,10 @@ handleHttpPayload(const HttpHeader & header,
         || header.verb != endpoint->auctionVerb) {
         endpoint->handleUnknownRequest(*this, header, payload);
         return;
+    }
+
+    if(logger) {
+        logger->recordRequest(header, payload);
     }
 
     doEvent("auctionReceived");

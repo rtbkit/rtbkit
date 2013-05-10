@@ -34,7 +34,9 @@ Augmentor(const std::string & augmentorName,
     : ServiceBase(serviceName, proxies),
       augmentorName(augmentorName),
       toRouters(getZmqContext()),
-      responseQueue(QueueSize)
+      responseQueue(QueueSize),
+      loopMonitor(*this),
+      loadStabilizer(loopMonitor)
 {
 }
 
@@ -45,7 +47,9 @@ Augmentor(const std::string & augmentorName,
     : ServiceBase(serviceName, parent),
       augmentorName(augmentorName),
       toRouters(getZmqContext()),
-      responseQueue(QueueSize)
+      responseQueue(QueueSize),
+      loopMonitor(*this),
+      loadStabilizer(loopMonitor)
 {
 }
 
@@ -113,6 +117,13 @@ init()
                 recordLevel((sleepTime - lastSleepTime) * 1000.0, "sleepTime");
                 lastSleepTime = sleepTime;
             });
+
+    loopMonitor.init();
+    loopMonitor.addMessageLoop("augmentor", this);
+    loopMonitor.onLoadChange = [=, &loadStabilizer] (double) {
+        recordLevel(loadStabilizer.shedProbability(), "shedProbability");
+    };
+    addSource("Augmentor::loopMonitor", loopMonitor);
 }
 
 void
@@ -164,17 +175,23 @@ handleRouterMessage(const std::string & router,
         recordHit("messages." + type);
 
         //cerr << "got augmentor message of type " << type << endl;
-        if (type == "CONFIGOK") {
-#if 0
-            if (!awaitingConfig.empty()) {
-                for (unsigned i = 0;  i < awaitingConfig.size();  ++i)
-                    sendMessage(control, awaitingConfig[i],
-                                "CONFIGOK");
-            }
-            awaitingConfig.clear();
-#endif
-        }
+        if (type == "CONFIGOK") {}
+
         else if (type == "AUGMENT") {
+
+            if (loadStabilizer.shedMessage()) {
+                toRouters.sendMessage(
+                        router,
+                        "RESPONSE",
+                        message.at(1), // version
+                        message.at(7), // startTime
+                        message.at(3), // auctionId
+                        message.at(2), // augmentor
+                        "null");       // response
+
+                recordHit("shedMessages");
+            }
+
             const string & version = message.at(1);
 
             if (version != "1.0")

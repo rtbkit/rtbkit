@@ -120,6 +120,8 @@ Router(ServiceBase & parent,
       submittedBuffer(65536),
       auctionGraveyard(65536),
       augmentationLoop(*this),
+      loopMonitor(*this),
+      loadStabilizer(loopMonitor),
       secondsUntilLossAssumed_(secondsUntilLossAssumed),
       globalBidProbability(1.0),
       bidsErrorRate(0.0),
@@ -153,6 +155,8 @@ Router(std::shared_ptr<ServiceProxies> services,
       submittedBuffer(65536),
       auctionGraveyard(65536),
       augmentationLoop(*this),
+      loopMonitor(*this),
+      loadStabilizer(loopMonitor),
       secondsUntilLossAssumed_(secondsUntilLossAssumed),
       globalBidProbability(1.0),
       bidsErrorRate(0.0),
@@ -218,6 +222,21 @@ init()
 
     monitorClient.init(getServices()->config);
     monitorProviderClient.init(getServices()->config);
+
+    loopMonitor.init();
+    loopMonitor.addMessageLoop("augmentationLoop", &augmentationLoop);
+    loopMonitor.addMessageLoop("logger", &logger);
+    loopMonitor.addMessageLoop("configListener", &configListener);
+    loopMonitor.addMessageLoop("monitorClient", &monitorClient);
+    loopMonitor.addMessageLoop("monitorProviderClient", &monitorProviderClient);
+
+    loopMonitor.onLoadChange = [=] (double)
+        {
+            double keepProb = 1.0 - loadStabilizer.shedProbability();
+
+            setAcceptAuctionProbability(keepProb);
+            recordEvent("auctionKeepPercentage", ET_LEVEL, keepProb * 100.0);
+        };
 
     initialized = true;
 }
@@ -335,6 +354,8 @@ start(boost::function<void ()> onStop)
 
     monitorClient.start();
     monitorProviderClient.start();
+
+    loopMonitor.start();
 }
 
 size_t
@@ -402,6 +423,15 @@ run()
     int totalSleeps = 0;
     double lastTimestamp = 0;
 
+    double totalActive = 0;
+    double lastTotalActive = 0; // member variable for the lambda.
+    loopMonitor.addCallback("routerLoop",
+            [&, lastTotalActive] (double elapsed) mutable {
+                double delta = totalActive - lastTotalActive;
+                lastTotalActive = totalActive;
+                return delta / elapsed;
+            });
+
     recordHit("routerUp");
 
     //double lastDump = ML::wall_time();
@@ -424,7 +454,6 @@ run()
 
     std::map<std::string, TimesEntry> times;
 
-    double auctionKeepProbability = 1.0;
 
     // Attempt to wake up once per millisecond
 
@@ -433,6 +462,7 @@ run()
     while (!shutdown_) {
         beforeSleep = getTime();
 
+        totalActive += beforeSleep - afterSleep;
         dutyCycleCurrent.nsProcessing
             += microsecondsBetween(beforeSleep, afterSleep);
 
@@ -552,42 +582,6 @@ run()
         }
 
         if (now - last_check_pace > 10.0) {
-            if (numTimesCouldSleep < 50) {
-                auctionKeepProbability = std::max(auctionKeepProbability - 0.10,
-                                                 0.10);
-            }
-            else if (numTimesCouldSleep > 2000) {
-                auctionKeepProbability = std::min(auctionKeepProbability + 0.10,
-                                                 1.00);
-            }
-            else if (numTimesCouldSleep > 500) {
-                auctionKeepProbability = std::min(auctionKeepProbability + 0.05,
-                                                 1.00);
-            }
-            else if (numTimesCouldSleep > 100) {
-                auctionKeepProbability = std::min(auctionKeepProbability + 0.01,
-                                                 1.00);
-            }
-
-#if 1
-            cerr << "auctionKeepProbability = " << auctionKeepProbability
-                 << " numTimesCouldSleep = " << numTimesCouldSleep
-                 << endl;
-#endif
-
-            // Start dropping them early if we get to 50% and we're still having
-            // trouble keeping up.
-            double earlyAuctionKeepProbability = 1.0;
-#if 0
-            if (auctionKeepProbability < 0.5)
-                earlyAuctionKeepProbability = auctionKeepProbability * 0.5;
-#else
-            earlyAuctionKeepProbability = auctionKeepProbability;
-#endif
-            setAcceptAuctionProbability(earlyAuctionKeepProbability);
-
-            recordEvent("auctionKeepPercentage", ET_LEVEL,
-                    auctionKeepProbability * 100.0);
             recordEvent("numTimesCouldSleep", ET_LEVEL,
                         numTimesCouldSleep);
 
@@ -663,6 +657,8 @@ void
 Router::
 shutdown()
 {
+    loopMonitor.shutdown();
+
     configListener.shutdown();
 
     shutdown_ = true;
@@ -2356,12 +2352,12 @@ configure(const std::string & agent, AgentConfig & config)
                     = exch->getCreativeCompatibility(c, includeReasons);
                 if (!ccomp.isCompatible) {
                     cerr << "creative not compatible: " << ccomp.reasons << endl;
-                    return;
                 }
-
-                std::lock_guard<ML::Spinlock> guard(c.lock);
-                c.providerData[exchangeName] = ccomp.info;
-                ++numCompatibleCreatives;
+                else {
+                    std::lock_guard<ML::Spinlock> guard(c.lock);
+                    c.providerData[exchangeName] = ccomp.info;
+                    ++numCompatibleCreatives;
+                }
             }
 
             if (numCompatibleCreatives == 0) {

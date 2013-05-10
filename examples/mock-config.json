@@ -1,9 +1,0 @@
-/* -*- js-mode -*- */
-[
-    {
-        "exchangeType": "mock",
-        "listenPort": 12339,
-        "bindHost": "0.0.0.0",
-        "performNameLookup": false
-    }
-]

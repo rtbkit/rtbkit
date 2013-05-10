@@ -74,6 +74,22 @@ setBudget(const CurrencyPool & newBudget)
     checkInvariants();
 }
 
+void
+Account::
+addAdjustment(const CurrencyPool & newAdjustment)
+{
+    if (newAdjustment.isNonNegative()) {
+        adjustmentsIn += newAdjustment;
+    }
+    else {
+        adjustmentsOut -= newAdjustment;
+    }
+
+    balance += newAdjustment;
+
+    checkInvariants();
+}
+
 CurrencyPool
 Account::
 importSpend(const CurrencyPool & spend)
@@ -356,7 +372,7 @@ logBidEvents(const Datacratic::EventRecorder & eventRecorder)
     eventRecorder.recordLevel(attachedBids,
                               "banker.total.attachedBids");
     eventRecorder.recordLevel(detachedBids,
-                              "banker.total.setachedBids");
+                              "banker.total.detachedBids");
     eventRecorder.recordLevel(commitments,
                               "banker.total.pendingCommitments");
     eventRecorder.recordLevel(expired,

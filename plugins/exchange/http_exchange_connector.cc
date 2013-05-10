@@ -140,6 +140,24 @@ shutdown()
     ExchangeConnector::shutdown();
 }
 
+void
+HttpExchangeConnector::
+startRequestLogging(std::string const & filename, int count) {
+    Guard guard(handlersLock);
+    logger = std::make_shared<HttpAuctionLogger>(filename, count);
+}
+
+void
+HttpExchangeConnector::
+stopRequestLogging() {
+    Guard guard(handlersLock);
+    if(logger) {
+        logger->close();
+    }
+
+    logger.reset();
+}
+
 std::shared_ptr<ConnectionHandler>
 HttpExchangeConnector::
 makeNewHandler()
@@ -155,9 +173,17 @@ makeNewHandlerShared()
         throw ML::Exception("need to initialize handler factory");
 
     HttpAuctionHandler * handler = handlerFactory();
+    if (!handler)
+        throw ML::Exception("failed to create handler");
+
     std::shared_ptr<HttpAuctionHandler> handlerSp(handler);
+
     {
         Guard guard(handlersLock);
+        if (logger) {
+            handler->logger = logger;
+        }
+
         handlers.insert(handlerSp);
     }
 
