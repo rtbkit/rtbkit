@@ -73,9 +73,9 @@ public:
     template<typename OtherF, class OtherUnderlying>
     explicit distribution(const distribution<OtherF, OtherUnderlying> & dist)
     {
-        reserve(dist.size());
+        this->reserve(dist.size());
         for (unsigned i = 0;  i < dist.size();  ++i)
-            push_back((F)dist[i]);
+            this->push_back((F)dist[i]);
     }
 
     template<typename OtherF, class OtherUnderlying>
