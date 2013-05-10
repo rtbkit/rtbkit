@@ -148,13 +148,6 @@ init()
             idle_ = 0;
         };
 
-    double lastSleepTime = 0;
-    addPeriodic("Augmentationloop::dutyCycle", 1.0, [=] (uint64_t) mutable {
-                double sleepTime = totalSleepSeconds();
-                recordLevel((sleepTime - lastSleepTime) * 1000.0, "sleepTime");
-                lastSleepTime = sleepTime;
-            });
-
     addSource("AugmentationLoop::inbox", inbox);
     addSource("AugmentationLoop::toAugmentors", toAugmentors);
     addPeriodic("AugmentationLoop::checkExpiries", 0.977,
