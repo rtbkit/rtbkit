@@ -169,6 +169,8 @@ public:
         result.allocatedOut = CurrencyPool::fromJson(json["allocatedOut"]);
         result.commitmentsMade = CurrencyPool::fromJson(json["commitmentsMade"]);
         result.commitmentsRetired = CurrencyPool::fromJson(json["commitmentsRetired"]);
+
+        /* Note: adjustmentsIn is a credit value, ...Out is a debit value */
         result.adjustmentsIn = CurrencyPool::fromJson(json["adjustmentsIn"]);
         result.lineItems = LineItems::fromJson(json["lineItems"]);
         result.adjustmentLineItems = LineItems::fromJson(json["adjustmentLineItems"]);
