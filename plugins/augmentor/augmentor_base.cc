@@ -112,8 +112,8 @@ init()
 
     loopMonitor.init();
     loopMonitor.addMessageLoop("augmentor", this);
-    loopMonitor.onLoadChange = [=, &loadStabilizer] (double) {
-        recordLevel(loadStabilizer.shedProbability(), "shedProbability");
+    loopMonitor.onLoadChange = [=] (double) {
+        recordLevel(this->loadStabilizer.shedProbability(), "shedProbability");
     };
     addSource("Augmentor::loopMonitor", loopMonitor);
 }
