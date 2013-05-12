@@ -164,7 +164,9 @@ uint64_t calcMd5(const std::string & str)
 
 bool
 UserPartition::
-matches(const UserIds & ids) const
+matches(const UserIds & ids,
+        const std::string& ip,
+        const Utf8String& userAgent) const
 {
     if (hashOn == NONE)
         return true;
@@ -178,20 +180,21 @@ matches(const UserIds & ids) const
     else if (hashOn == RANDOM)
         value = random();
     else {
-        Id id;
+        string str;
         
         switch (hashOn) {
-        case EXCHANGEID:   id = ids.exchangeId;   break;
-        case PROVIDERID:   id = ids.providerId;   break;
+        case EXCHANGEID:   str = ids.exchangeId.toString();   break;
+        case PROVIDERID:   str = ids.providerId.toString();   break;
+        case IPUA:         str = ip + userAgent.rawString();  break;
         default:
             throw Exception("unknown hashOn");
         };
         
-        if (!id) return false;
+        if (str.empty() || str == "null") return false;
 
         // TODO: change this to a better hash once we get the chance
         // (clean break in campaigns)
-        value = calcMd5(id.toString());
+        value = calcMd5(str);
 
         //cerr << "s = " << s << " value = " << value << endl;
     }
@@ -236,6 +239,7 @@ fromJson(const Json::Value & json)
             else if (name == "random") newPartition.hashOn = RANDOM;
             else if (name == "exchangeId") newPartition.hashOn = EXCHANGEID;
             else if (name == "providerId") newPartition.hashOn = PROVIDERID;
+            else if (name == "ipua") newPartition.hashOn = IPUA;
             else throw Exception("unknown hashOn value %s", name.c_str());
         }
         else if (it.memberName() == "modulus") {
@@ -998,7 +1002,7 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
     ML::atomic_inc(stats.passedStaticPhase3);
 
     /* Check that the user partition matches. */
-    if (!userPartition.matches(request.userIds)) {
+    if (!userPartition.matches(request.userIds, request.ipAddress, request.userAgent)) {
         ML::atomic_inc(stats.userPartitionFiltered);
         if (doFilterStat) doFilterStat("static.080_userPartitionFiltered");
         return BiddableSpots();

@@ -169,6 +169,8 @@ public:
         result.allocatedOut = CurrencyPool::fromJson(json["allocatedOut"]);
         result.commitmentsMade = CurrencyPool::fromJson(json["commitmentsMade"]);
         result.commitmentsRetired = CurrencyPool::fromJson(json["commitmentsRetired"]);
+
+        /* Note: adjustmentsIn is a credit value, ...Out is a debit value */
         result.adjustmentsIn = CurrencyPool::fromJson(json["adjustmentsIn"]);
         result.lineItems = LineItems::fromJson(json["lineItems"]);
         result.adjustmentLineItems = LineItems::fromJson(json["adjustmentLineItems"]);
@@ -382,7 +384,7 @@ public:
 
     /** Increase or decrease the adjustments made to the account
     */
-    void addAdjustment(const CurrencyPool & newAdjustement);
+    void addAdjustment(const CurrencyPool & newAdjustment);
 
     /** (migration helper) Register an expense on a AT_SPEND account.
      */
@@ -696,6 +698,8 @@ struct AccountSummary {
     CurrencyPool budget;         ///< Total amount we're allowed to spend
     CurrencyPool inFlight;       ///< Sum of sub-account inFlights (pending commitments)
     CurrencyPool spent;          ///< Sum of sub-account spend
+    CurrencyPool adjustments;    ///< Sum of sub-account adjustments
+    CurrencyPool adjustedSpent;  ///< Spend minus adjustments
     CurrencyPool available;      ///< Total amount we're allowed to spend
 
     Account account;
@@ -708,6 +712,7 @@ struct AccountSummary {
             subAccounts[name] = child;
         inFlight += child.inFlight;
         spent += child.spent;
+        adjustments += child.adjustments;
     }
 
     void dump(std::ostream & stream,
@@ -734,6 +739,8 @@ struct AccountSummary {
         result["md"]["version"] = 1;
         result["budget"] = budget.toJson();
         result["spent"] = spent.toJson();
+        result["adjustments"] = adjustments.toJson();
+        result["adjustedSpent"] = adjustedSpent.toJson();
         result["available"] = available.toJson();
         result["inFlight"] = inFlight.toJson();
         if (!simplified) {
@@ -756,6 +763,8 @@ struct AccountSummary {
         result.budget = CurrencyPool::fromJson(val["budget"]);
         result.inFlight = CurrencyPool::fromJson(val["inFlight"]);
         result.spent = CurrencyPool::fromJson(val["spent"]);
+        result.adjustments = CurrencyPool::fromJson(val["adjustments"]);
+        result.adjustedSpent = CurrencyPool::fromJson(val["adjustedSpent"]);
         result.available = CurrencyPool::fromJson(val["available"]);
 
         result.account = Account::fromJson(val["account"]);
@@ -1228,6 +1237,7 @@ private:
         result.spent = a.spent;
         result.budget = a.getBudget();
         result.inFlight = a.commitmentsMade - a.commitmentsRetired;
+        result.adjustments = a.adjustmentsIn - a.adjustmentsOut;
 
         auto doChildAccount = [&] (const AccountKey & key) {
             auto childSummary = getAccountSummaryImpl(key, depth + 1,
@@ -1237,7 +1247,9 @@ private:
         };
         forEachChildAccount(account, doChildAccount);
 
-        result.available = result.budget - result.spent - result.inFlight;
+        result.available = (result.budget + result.adjustments
+                            - result.spent - result.inFlight);
+        result.adjustedSpent = result.spent - result.adjustments;
         
         return result;
     }

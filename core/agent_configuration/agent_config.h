@@ -113,7 +113,8 @@ struct UserPartition {
         RANDOM,      ///< Random number
 
         EXCHANGEID,  ///< Hash on md5(exchange ID)
-        PROVIDERID   ///< Hash on md5(provider ID)
+        PROVIDERID,  ///< Hash on md5(provider ID)
+        IPUA,        ///< hash on md5(IP + UserAgent) (no delimiter)
     } hashOn;
 
     int modulus;     ///< Max value of hash that's achievable
@@ -144,7 +145,9 @@ struct UserPartition {
     std::vector<Interval> includeRanges;
 
     /** Return true if the user matches the user partition. */
-    bool matches(const UserIds & ids) const;
+    bool matches(const UserIds & ids,
+                 const std::string& ip,
+                 const Utf8String& userAgent) const;
 
     /** Parse from JSON. */
     void fromJson(const Json::Value & json);

@@ -110,18 +110,10 @@ init()
 
     addSource("Augmentor::toRouters", toRouters);
 
-
-    double lastSleepTime = 0;
-    addPeriodic("Augmentor::dutyCycle", 1.0, [=] (uint64_t) mutable {
-                double sleepTime = totalSleepSeconds();
-                recordLevel((sleepTime - lastSleepTime) * 1000.0, "sleepTime");
-                lastSleepTime = sleepTime;
-            });
-
     loopMonitor.init();
     loopMonitor.addMessageLoop("augmentor", this);
-    loopMonitor.onLoadChange = [=, &loadStabilizer] (double) {
-        recordLevel(loadStabilizer.shedProbability(), "shedProbability");
+    loopMonitor.onLoadChange = [=] (double) {
+        recordLevel(this->loadStabilizer.shedProbability(), "shedProbability");
     };
     addSource("Augmentor::loopMonitor", loopMonitor);
 }

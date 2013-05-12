@@ -773,6 +773,8 @@ BOOST_AUTO_TEST_CASE( test_account_summary_values )
                       "  'spent':{},"
                       "  'type':'budget'},"
                       " 'available': {'USD/1M':52364946865},"
+                      " 'adjustedSpent': {'USD/1M' : 582053135},"
+                      " 'adjustments' : {},"
                       " 'budget': {'USD/1M':52947000000},"
                       " 'inFlight':{},"
                       " 'md': {'objectType':'AccountSummary',"
@@ -781,7 +783,9 @@ BOOST_AUTO_TEST_CASE( test_account_summary_values )
     BOOST_CHECK_EQUAL(normalValue, expected);
 
     Json::Value simpleValue = summary.toJson(true);
-    expected = Json::parse("{'available': {'USD/1M':52364946865},"
+    expected = Json::parse("{'adjustedSpent': {'USD/1M' : 582053135},"
+                           " 'adjustments' : {},"
+                           " 'available': {'USD/1M':52364946865},"
                            " 'budget': {'USD/1M':52947000000},"
                            " 'inFlight': {},"
                            " 'md': {'objectType':'AccountSimpleSummary',"
