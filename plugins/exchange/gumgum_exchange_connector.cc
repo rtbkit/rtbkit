@@ -83,7 +83,7 @@ GumgumExchangeConnector(const std::string & name,
                          std::shared_ptr<ServiceProxies> proxies)
     : HttpExchangeConnector(name, proxies)
 {
-    this->auctionResource = "/bids";
+    this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
 }
 
@@ -92,7 +92,7 @@ GumgumExchangeConnector(const std::string & name,
                          ServiceBase & parent)
     : HttpExchangeConnector(name, parent)
 {
-    this->auctionResource = "/bids";
+    this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
 }
 
