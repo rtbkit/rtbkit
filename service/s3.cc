@@ -415,9 +415,46 @@ signature(const RequestParams & request) const
     return S3Api::sign(digest, accessKey);
 }
 
-inline std::string uriEncode(const std::string & str)
+std::string
+S3Api::
+uriEncode(const std::string & str)
 {
-    return str;
+    std::string result;
+    for (auto c: str) {
+        if (c <= ' ' || c >= 127) {
+            result += ML::format("%%%02X", c);
+            continue;
+        }
+
+        switch (c) {
+        case '!':
+        case '#':
+        case '$':
+        case '&':
+        case '\'':
+        case '(':
+        case ')':
+        case '*':
+        case '+':
+        case ',':
+        case '/':
+        case ':':
+        case ';':
+        case '=':
+        case '?':
+        case '@':
+        case '[':
+        case ']':
+        case '%':
+            result += ML::format("%%%02X", c);
+            break;
+
+        default:
+            result += c;
+        }
+    }
+
+    return result;
 }
 
 S3Api::SignedRequest

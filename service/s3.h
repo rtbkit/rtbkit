@@ -26,6 +26,9 @@ struct S3Api {
     static std::string sign(const std::string & stringToSign,
                             const std::string & accessKey);
 
+    /** URI encode the given string according to RFC 3986 */
+    static std::string uriEncode(const std::string & str);
+
     /** Default value for bandwidth to service.  In mega*bytes* per second.
         Default value is 20.0 MBPS for ec2 instances in the same availability
         zone.

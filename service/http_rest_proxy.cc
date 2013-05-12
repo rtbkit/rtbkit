@@ -69,7 +69,10 @@ perform(const std::string & verb,
         myRequest.setOpt<CustomRequest>(verb);
 
         myRequest.setOpt<curlpp::options::Url>(uri);
-        //myRequest.setOpt<Verbose>(true);
+
+        if (debug)
+            myRequest.setOpt<Verbose>(true);
+
         myRequest.setOpt<ErrorBuffer>((char *)0);
         if (timeout != -1)
             myRequest.setOpt<Timeout>(timeout);
