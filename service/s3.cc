@@ -19,6 +19,7 @@
 #include "jml/utils/hash.h"
 #include "jml/utils/file_functions.h"
 #include "jml/utils/info.h"
+#include "xml_helpers.h"
 
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include "crypto++/sha.h"
@@ -592,71 +593,6 @@ erase(const std::string & bucket,
 
     return prepare(request).performSync();
 }
-
-template<typename T>
-T extract(tinyxml2::XMLNode * element, const std::string & path)
-{
-    if (!element)
-        throw ML::Exception("can't extract from missing element");
-    //tinyxml2::XMLHandle handle(element);
-
-    vector<string> splitPath = ML::split(path, '/');
-    auto p = element;
-    for (unsigned i = 0;  i < splitPath.size();  ++i) {
-        p = p->FirstChildElement(splitPath[i].c_str());
-        if (!p) {
-            element->GetDocument()->Print();
-            throw ML::Exception("required key " + splitPath[i]
-                                + " not found on path " + path);
-        }
-    }
-
-    auto text = tinyxml2::XMLHandle(p).FirstChild().ToText();
-
-    if (!text) {
-        return boost::lexical_cast<T>("");
-    }
-    return boost::lexical_cast<T>(text->Value());
-}
-
-template<typename T>
-T extractDef(tinyxml2::XMLNode * element, const std::string & path,
-             const T & ifMissing)
-{
-    if (!element) return ifMissing;
-
-    vector<string> splitPath = ML::split(path, '/');
-    auto p = element;
-    for (unsigned i = 0;  i < splitPath.size();  ++i) {
-        p = p->FirstChildElement(splitPath[i].c_str());
-        if (!p)
-            return ifMissing;
-    }
-
-    auto text = tinyxml2::XMLHandle(p).FirstChild().ToText();
-
-    if (!text) return ifMissing;
-
-    return boost::lexical_cast<T>(text->Value());
-}
-
-template<typename T>
-T extract(const std::unique_ptr<tinyxml2::XMLDocument> & doc,
-          const std::string & path)
-{
-    return extract<T>(doc.get(), path);
-}
-
-template<typename T>
-T extractDef(const std::unique_ptr<tinyxml2::XMLDocument> & doc,
-             const std::string & path, const T & def)
-{
-    return extractDef<T>(doc.get(), path, def);
-}
-
-namespace {
-
-} // file scope
 
 std::vector<std::pair<std::string, std::string> >
 S3Api::ObjectMetadata::

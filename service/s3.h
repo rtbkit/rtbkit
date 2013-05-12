@@ -19,6 +19,13 @@
 
 namespace Datacratic {
 
+
+/*****************************************************************************/
+/* S3 API                                                                    */
+/*****************************************************************************/
+
+/** Interface to Amazon's S3 service. */
+
 struct S3Api {
     /** Sign the given digest string with the given access key and return
         a base64 encoded signature.
