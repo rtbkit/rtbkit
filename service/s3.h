@@ -478,17 +478,7 @@ struct S3Api {
     void setDefaultBandwidthToServiceMbps(double mpbs);
 
     // Used to pool connections to the S3 service
-    HttpRestProxy proxy;
-};
-
-/** std::istream that connects to s3 and streams a file. */
-struct S3IStream : public std::istream {
-    S3IStream();
-    S3IStream(const S3Api & s3, const std::string & uri);
-
-    void open(const std::string & uri);
-    void open(const std::string & bucket,
-              const std::string & object);
+    static HttpRestProxy proxy;
 };
 
 struct S3Handle{

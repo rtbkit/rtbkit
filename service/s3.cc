@@ -2096,6 +2096,8 @@ void S3Api::setDefaultBandwidthToServiceMbps(double mbps){
     S3Api::defaultBandwidthToServiceMbps = mbps;
 }
 
+HttpRestProxy S3Api::proxy;
+
 namespace {
 
 struct S3BucketInfo {
