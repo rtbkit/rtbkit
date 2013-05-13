@@ -7,3 +7,4 @@
 #------------------------------------------------------------------------------#
 
 $(eval $(call library,augmentor_base,augmentor_base.cc,zmq rtb bid_request services))
+$(eval $(call include_sub_make,augmentor_testing,testing,augmentor_testing.mk))

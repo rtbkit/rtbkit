@@ -182,6 +182,7 @@ handleRouterMessage(const std::string & router,
                         "null");       // response
 
                 recordHit("shedMessages");
+                return;
             }
 
             const string & version = message.at(1);

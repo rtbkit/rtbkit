@@ -89,6 +89,9 @@ struct Augmentor : public ServiceBase, public MessageLoop {
     void respond(const AugmentationRequest & request,
                  const AugmentationList & response);
 
+    double sampleLoad() { return loopMonitor.sampleLoad().load; }
+    double shedProbability() { return loadStabilizer.shedProbability(); }
+
 private:
     std::string augmentorName; // This can differ from the servicenName!
 
@@ -97,8 +100,10 @@ private:
     typedef std::pair<AugmentationRequest, AugmentationList> Response;
     TypedMessageSink<Response> responseQueue;
 
+public:
     LoopMonitor loopMonitor;
     LoadStabilizer loadStabilizer;
+private:
 
     void handleRouterMessage(const std::string & router,
                              const std::vector<std::string> & message);
