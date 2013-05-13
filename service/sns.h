@@ -36,12 +36,22 @@ struct SnsApi {
               const std::string & accessKey,
               const std::string & serviceUri = "http://sns.us-east-1.amazonaws.com/");
 
-    std::string publish(const std::string & topicArn,
-                        const std::string & message,
-                        int timeout = 10,
-                        const std::string & subject = "",
-                        const std::map<std::string, std::string> & protocolMessages
-                            = std::map<std::string, std::string>());
+    /** Publish a message to a given SNS topic.  Returns the Message ID assigned
+        by Amazon.
+
+        By default, this will retry a failure 3 times before throwing an
+        exceptoin.
+
+        \param topicArn      The Amazon topic to send the message to.
+        \param message       The message to be sent
+        \param timeout       The timeout after which to retry
+        \param subject       The optional subject to give to the message
+    */
+    std::string
+    publish(const std::string & topicArn,
+            const std::string & message,
+            int timeout = 10,
+            const std::string & subject = "");
 };
 
 

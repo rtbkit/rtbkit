@@ -9,6 +9,9 @@
 #include "xml_helpers.h"
 
 
+using namespace std;
+
+
 namespace Datacratic {
 
 
@@ -43,10 +46,8 @@ SnsApi::
 publish(const std::string & topicArn,
         const std::string & message,
         int timeout,
-        const std::string & subject,
-        const std::map<std::string, std::string> & protocolMessages)
+        const std::string & subject)
 {
-    using namespace std;
     RestParams queryParams;
     if (subject != "")
         queryParams.push_back({"Subject", subject});
