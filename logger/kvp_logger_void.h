@@ -12,6 +12,7 @@ class KvpLoggerVoid : public IKvpLogger{
     public:
         KvpLoggerVoid(){}
         void log(const std::map<std::string, std::string>&, const std::string&){}
+        void log(Json::Value&, const std::string&){}
 };
 
 

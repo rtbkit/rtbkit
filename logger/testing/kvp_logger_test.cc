@@ -11,6 +11,7 @@
 #include "soa/types/date.h"
 #include "mongo/client/dbclient.h"
 #include <unistd.h>
+#include <time.h>
 
 using namespace std;
 using namespace Datacratic;
@@ -33,7 +34,9 @@ BOOST_AUTO_TEST_CASE( kvp_logger_mongodb )
     string err;
     BOOST_CHECK(conn.auth(params.db, params.user, params.pwd, err));
 
+    srand (time(NULL));
     string randVal = to_string(rand());
+    cout << "rand val:" << randVal << endl;
 
     std::shared_ptr<IKvpLogger> logger =
         IKvpLogger::getKvpLogger("mongodb", params);
@@ -52,6 +55,36 @@ BOOST_AUTO_TEST_CASE( kvp_logger_mongodb )
         BSONObj p = cursor->next();
         cout << p.getStringField("test") << " - "
             << p.getStringField("rand") << endl;
+        BOOST_CHECK_EQUAL(p.getStringField("test"), now);
+        BOOST_CHECK_EQUAL(p.getStringField("rand"), randVal);
+    }
+    conn.remove(params.db + "." + coll, obj, 1);
+    BOOST_CHECK(result);
+    
+    struct Coco{
+        string randVal;
+        Coco(string randVal) : randVal(randVal){}
+
+        Json::Value toJson() const{
+            Json::Value v;
+            v["test"] = "wololo";
+            v["rand"] = randVal;
+            return v;
+        };
+    };
+    Coco c(randVal);
+    logger->log(c, coll);
+
+    obj = BSON("test" << "wololo" << "rand" << randVal);
+    auto_ptr<DBClientCursor> cursor2 = conn.query(params.db + "." + coll, obj);
+    result = false;
+    while(cursor2->more()){
+        result = true;
+        BSONObj p = cursor2->next();
+        cout << p.getStringField("test") << " - "
+            << p.getStringField("rand") << endl;
+        BOOST_CHECK_EQUAL(p.getStringField("test"), "wololo");
+        BOOST_CHECK_EQUAL(p.getStringField("rand"), randVal);
     }
     conn.remove(params.db + "." + coll, obj, 1);
     BOOST_CHECK(result);
