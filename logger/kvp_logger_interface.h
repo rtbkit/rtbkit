@@ -4,7 +4,7 @@
 #include <boost/shared_ptr.hpp>
 #include "jml/arch/exception.h"
 #include <map>
-#include "jsoncpp/json.h"
+#include "soa/jsoncpp/json.h"
 
 namespace Datacratic{
 
