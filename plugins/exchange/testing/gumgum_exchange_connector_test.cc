@@ -126,28 +126,32 @@ BOOST_AUTO_TEST_CASE( test_gumgum )
 
     ML::sleep(1.0);
 
-    // load bid json
-    ML::Parse_Context context(bid_sample_filename);
-    std::shared_ptr<BidRequest> request(OpenRtbBidRequestParser::parseBidRequest(context, "gumgum", "gumgum"));
-    std::cerr << request->toJson() << std::endl;
+    // load bid json (this code is dropping tmax value)
+    //ML::Parse_Context context(bid_sample_filename);
+    //std::shared_ptr<BidRequest> request(OpenRtbBidRequestParser::parseBidRequest(context, "gumgum", "gumgum"));
+    //std::cerr << request->toJson() << std::endl;
+    //std::string strBidRequest = request->toJsonStr();
 
-		// send request
+    // load bid json
+		std::string strJson = loadFile(bid_sample_filename);
+    std::cerr << strJson << std::endl;
+
+		// prepare request
     BidSource source(port);
 
-    std::string strBidRequest = request->toJsonStr();
     std::string httpRequest = ML::format(
             "POST /auctions HTTP/1.1\r\n"
             "Content-Length: %zd\r\n"
             "Content-Type: application/json\r\n"
             "Connection: Keep-Alive\r\n"
+						"x-openrtb-version: 2.0\r\n"
             "\r\n"
             "%s",
-            strBidRequest.size(),
-            strBidRequest.c_str());
+            strJson.size(),
+            strJson.c_str());
 
+		// and send it
     source.write(httpRequest);
-
-    //source.sendBidRequest(*request);
     std::cerr << source.read() << std::endl;
 
     BOOST_CHECK_EQUAL(agent.numBidRequests, 1);

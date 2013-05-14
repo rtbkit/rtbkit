@@ -146,8 +146,10 @@ getTimeAvailableMs(HttpAuctionHandler & connection,
     // Scan the payload quickly for the tmax parameter.
     static const string toFind = "\"tmax\":";
     string::size_type pos = payload.find(toFind);
-    if (pos == string::npos)
-        return 10.0;
+    if (pos == string::npos) {
+        cerr << "tmax not found in request, using default value" << endl;
+        return 100.0;
+		}
         
     int tmax = atoi(payload.c_str() + pos + toFind.length());
         
@@ -244,7 +246,7 @@ getResponse(const HttpAuctionHandler & connection,
     }
 
     if (seatToBid.empty())
-        return HttpResponse(204, "none", "");
+        return HttpResponse(204, "none", "{}");
 
     static Datacratic::DefaultDescription<OpenRTB::BidResponse> desc;
     std::ostringstream stream;
@@ -262,7 +264,9 @@ getDroppedAuctionResponse(const HttpAuctionHandler & connection,
                           const Auction & auction,
                           const std::string & reason) const
 {
-    return HttpResponse(204, "application/json", "{}");
+    Json::Value response;
+    response["error"] = reason;
+    return HttpResponse(204, response);
 }
 
 HttpResponse
