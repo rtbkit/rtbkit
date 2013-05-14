@@ -337,7 +337,8 @@ struct Parse_Context {
     bool match_whitespace()
     {
         bool result = false;
-        while (!eof() && isspace(*cur_) && *cur_ != '\n') {
+        while (!eof() && isblank(*cur_)) {
+        // while (!eof() && isspace(*cur_) && *cur_ != '\n') {
             result = true;
             operator ++ ();
         }

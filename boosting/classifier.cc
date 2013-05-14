@@ -20,6 +20,7 @@
 #include <boost/thread/tss.hpp>
 #include "jml/utils/exc_assert.h"
 #include "jml/math/xdiv.h"
+#include "jml/utils/filter_streams.h"
 
 
 using namespace std;
@@ -1049,13 +1050,15 @@ operator >> (DB::Store_Reader & store, Classifier & classifier)
 
 void Classifier::load(const std::string & filename)
 {
-    Store_Reader store(filename);
+    filter_istream stream(filename);
+    Store_Reader store(stream);
     reconstitute(store);
 }
 
 void Classifier::
 load(const std::string & filename, std::shared_ptr<const Feature_Space> fs)
 {
+    filter_istream stream(filename);
     Store_Reader store(filename);
     reconstitute(store, fs);
 }

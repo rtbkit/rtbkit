@@ -320,6 +320,14 @@ try
         /* Work out what feature we're predicting. */
         if (predicted_name != "")
             fs[i]->parse(predicted_name, predicted[i]);
+
+        /** Work out what kind of feature it is */
+        //data[i]->preindex_features();
+
+        if (fs[i]->info(predicted[i]).type() == UNKNOWN) {
+            fs[i]->set_info(predicted[i], guess_info(*data[i], predicted[i]));
+        }
+
     }
     
     /* Work out our features. */
@@ -351,13 +359,17 @@ try
         vector<Variable_Stats> stats(data.size());
 
         cout << " set   values      min      max     mean      std     mode"
-             << "   uniq      r^2    int"
+             << "    uniq      r^2      int"
              << endl;
         /* Go over each dataset. */
         for (unsigned d = 0;  d < data.size();  ++d) {
             if (ids[d] == -1) continue;
 
             int nl = data[d]->label_count(predicted[d]);
+
+            //cerr << "nl = " << nl << " by_label = " << by_label << endl;
+            //cerr << "predicted[d] = " << fs[d]->print(predicted[d]) << endl;
+            //cerr << "info = " << fs[d]->info(predicted[d]) << endl;
 
             Feature feature(ids[d]);
 
@@ -369,7 +381,7 @@ try
             stats[d].calc(data[d]->index().values(feature), label_dists[d], nl);
 
             cout << format("  %2d %8zd %8.3f %8.3f %8.3f %8.3f %8.3f "
-                           "%7zd %5.3f %8.3g\n",
+                           "%7zd %8.6f %8.3g\n",
                            d,
                            stats[d].total_count - stats[d].missing
                                - stats[d].denorm,
@@ -382,7 +394,7 @@ try
             if (nl == 2 && by_label) {
                 for (unsigned i = 0;  i < nl;  ++i) {
                     cout
-                        << format("        label %d: min %8.3f max: %8.3f avg: %8.3f count: %7f",
+                        << format("        label %d: min %8.3f max: %8.3f avg: %8.3f count: %7.0f",
                                   i, stats[d].label_min[i],
                                   stats[d].label_max[i],
                                   stats[d].label_totals[i] / stats[d].label_counts[i],

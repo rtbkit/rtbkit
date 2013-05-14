@@ -200,11 +200,12 @@ operator << (std::ostream & stream, Feature_Type type);
 extern const Feature_Info MISSING_FEATURE_INFO;
 
 
-/** Guess the feature type, based upon its training data. */
+/** Guess the feature type, based upon its observed values over the
+    training data.
+*/
 Feature_Info
-guess_info(const Training_Data & data,
-           const Feature & feat,
-           const Feature_Info & before = UNKNOWN);
+guess_info(const Training_Data & data, const Feature & feature,
+           const Feature_Info & before = Feature_Info(UNKNOWN));
 
 /** Return the most inclusive of the two feature info values.  Used when two
     have been automatically detected over different datasets, to get the
