@@ -106,19 +106,104 @@ struct DefaultDescription<Url>
 };
 
 template<>
-struct DefaultDescription<int>
-    : public ValueDescriptionI<int, ValueKind::INTEGER> {
+struct DefaultDescription<signed int>
+    : public ValueDescriptionI<signed int, ValueKind::INTEGER> {
 
-    virtual void parseJsonTyped(int * val,
+    virtual void parseJsonTyped(signed int * val,
                                 JsonParsingContext & context) const
     {
         *val = context.expectInt();
     }
     
-    virtual void printJsonTyped(const int * val,
+    virtual void printJsonTyped(const signed int * val,
                                 JsonPrintingContext & context) const
     {
         context.writeInt(*val);
+    }
+};
+
+template<>
+struct DefaultDescription<unsigned int>
+    : public ValueDescriptionI<unsigned int, ValueKind::INTEGER> {
+
+    virtual void parseJsonTyped(unsigned int * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectInt();
+    }
+    
+    virtual void printJsonTyped(const unsigned int * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(*val);
+    }
+};
+
+template<>
+struct DefaultDescription<signed long>
+    : public ValueDescriptionI<signed long, ValueKind::INTEGER> {
+
+    virtual void parseJsonTyped(signed long * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectLong();
+    }
+    
+    virtual void printJsonTyped(const signed long * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeLong(*val);
+    }
+};
+
+template<>
+struct DefaultDescription<unsigned long>
+    : public ValueDescriptionI<unsigned long, ValueKind::INTEGER> {
+
+    virtual void parseJsonTyped(unsigned long * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectUnsignedLong();
+    }
+    
+    virtual void printJsonTyped(const unsigned long * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeUnsignedLong(*val);
+    }
+};
+
+template<>
+struct DefaultDescription<signed long long>
+    : public ValueDescriptionI<signed long long, ValueKind::INTEGER> {
+
+    virtual void parseJsonTyped(signed long long * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectLongLong();
+    }
+    
+    virtual void printJsonTyped(const signed long long * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeLongLong(*val);
+    }
+};
+
+template<>
+struct DefaultDescription<unsigned long long>
+    : public ValueDescriptionI<unsigned long long, ValueKind::INTEGER> {
+
+    virtual void parseJsonTyped(unsigned long long * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectUnsignedLongLong();
+    }
+    
+    virtual void printJsonTyped(const unsigned long long * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeUnsignedLongLong(*val);
     }
 };
 

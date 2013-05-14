@@ -196,7 +196,7 @@ public:
 };
 
 inline std::ostream &
-operator << (std::ostream & stream, HttpRestProxy::Response & response)
+operator << (std::ostream & stream, const HttpRestProxy::Response & response)
 {
     return stream << response.header_ << "\n" << response.body_ << "\n";
 }

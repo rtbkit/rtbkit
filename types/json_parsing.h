@@ -146,6 +146,12 @@ struct JsonParsingContext {
     virtual void exception(const std::string & message) = 0;
     
     virtual int expectInt() = 0;
+    virtual unsigned int expectUnsignedInt() = 0;
+    virtual long expectLong() = 0;
+    virtual unsigned long expectUnsignedLong() = 0;
+    virtual long long expectLongLong() = 0;
+    virtual unsigned long long expectUnsignedLongLong() = 0;
+
     virtual float expectFloat() = 0;
     virtual double expectDouble() = 0;
     virtual bool expectBool() = 0;
@@ -286,6 +292,31 @@ struct StreamingJsonParsingContext
         return context->expect_int();
     }
 
+    virtual unsigned int expectUnsignedInt()
+    {
+        return context->expect_unsigned();
+    }
+
+    virtual long expectLong()
+    {
+        return context->expect_long();
+    }
+
+    virtual unsigned long expectUnsignedLong()
+    {
+        return context->expect_unsigned_long();
+    }
+
+    virtual long long expectLongLong()
+    {
+        return context->expect_long_long();
+    }
+
+    virtual unsigned long long expectUnsignedLongLong()
+    {
+        return context->expect_unsigned_long_long();
+    }
+
     virtual float expectFloat()
     {
         return context->expect_float();
@@ -418,6 +449,31 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
     virtual int expectInt()
     {
         return current->asInt();
+    }
+
+    virtual unsigned int expectUnsignedInt()
+    {
+        return current->asUInt();
+    }
+
+    virtual long expectLong()
+    {
+        return current->asInt();
+    }
+
+    virtual unsigned long expectUnsignedLong()
+    {
+        return current->asUInt();
+    }
+
+    virtual long long expectLongLong()
+    {
+        return current->asInt();
+    }
+
+    virtual unsigned long long expectUnsignedLongLong()
+    {
+        return current->asUInt();
     }
 
     virtual float expectFloat()
