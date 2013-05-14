@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE( kvp_logger_mongodb )
         BOOST_CHECK_EQUAL(p.getStringField("test"), now);
         BOOST_CHECK_EQUAL(p.getStringField("rand"), randVal);
     }
-    //conn.remove(params.db + "." + coll, obj, 1);
+    conn.remove(params.db + "." + coll, obj, 1);
     BOOST_CHECK(result);
     
     struct Coco{
@@ -75,6 +75,8 @@ BOOST_AUTO_TEST_CASE( kvp_logger_mongodb )
     Coco c(randVal);
     logger->log(c, coll);
 
+    sleep(2);//mongodb is assync, wait a bit
+
     obj = BSON("test" << "wololo" << "rand" << randVal);
     auto_ptr<DBClientCursor> cursor2 = conn.query(params.db + "." + coll, obj);
     result = false;
@@ -87,6 +89,6 @@ BOOST_AUTO_TEST_CASE( kvp_logger_mongodb )
         BOOST_CHECK_EQUAL(p.getStringField("rand"), randVal);
     }
     conn.remove(params.db + "." + coll, obj, 1);
-    //BOOST_CHECK(result);
+    BOOST_CHECK(result);
 }
 
