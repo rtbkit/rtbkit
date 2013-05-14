@@ -4,6 +4,7 @@
 #include <boost/shared_ptr.hpp>
 #include "jml/arch/exception.h"
 #include <map>
+#include "jsoncpp/json.h"
 
 namespace Datacratic{
 
@@ -27,6 +28,12 @@ class IKvpLogger{
             getKvpLogger(const std::string& type, const KvpLoggerParams&);
 
         virtual void log(const std::map<std::string, std::string>&, const std::string&) = 0;
+        virtual void log(Json::Value&, const std::string&) = 0;
+        template <class jsonifiable>
+        void log(const jsonifiable& j, const std::string& s){
+                Json::Value root = j.toJson();
+                log(root, s);
+        };
         virtual ~IKvpLogger(){};
 };
 

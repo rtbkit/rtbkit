@@ -35,6 +35,19 @@ void KvpLoggerMongoDb
     doIt(_log);
 }
 
+void KvpLoggerMongoDb
+::log(Json::Value& json, const string& coll){
+    function<void()>  _log = [&](){
+        string jsonStr = json.toString();
+        if(*jsonStr.rbegin() == '\n'){
+            jsonStr = jsonStr.substr(0, jsonStr.length() - 1);
+        }
+        mongo::BSONObj o = mongo::fromjson(jsonStr);
+        conn.insert(params.db + "." + coll, o);
+    };
+    doIt(_log);
+}
+
 void KvpLoggerMongoDb::doIt(function<void()>& fct){
     if(params.failSafe){
         try{
