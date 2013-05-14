@@ -117,6 +117,7 @@ toJson() const
 {
     Json::Value result;
     result["type"] = (int) type;
+    if (!label.empty()) result["label"] = label;
     result["auctionId"] = auctionId.toString();
     result["adSpotId"] = adSpotId.toString();
     result["timestamp"] = timestamp.secondsSinceEpoch();

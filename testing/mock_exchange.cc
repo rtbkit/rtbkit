@@ -45,7 +45,10 @@ MockExchange::
 
 void
 MockExchange::
-start(size_t threadCount, size_t numBidRequests, std::vector<int> const & bidPorts, std::vector<int> const & winPorts)
+start(  size_t threadCount,
+        size_t numBidRequests,
+        std::vector<int> const & bidPorts,
+        std::vector<int> const & winPorts)
 {
     try {
         running = threadCount;
@@ -78,8 +81,9 @@ start(size_t threadCount, size_t numBidRequests, std::vector<int> const & bidPor
 
 
 MockExchange::Worker::
-Worker(MockExchange * exchange, size_t id, int bidPort, int winPort) : exchange(exchange), bids(bidPort, id), wins(winPort), rng(random()) {
-}
+Worker(MockExchange * exchange, size_t id, int bidPort, int winPort) :
+    exchange(exchange), bids(bidPort, id), wins(winPort), rng(random())
+{}
 
 
 void
@@ -118,8 +122,16 @@ MockExchange::Worker::bid() {
         for (auto & bid : bids) {
             auto ret = isWin(bidRequest, bid);
             if (!ret.first) continue;
+
             wins.sendWin(bidRequest, bid, ret.second);
             exchange->recordHit("wins");
+
+            wins.sendImpression(bidRequest, bid);
+            exchange->recordHit("impressions");
+
+            if (!isClick(bidRequest, bid)) continue;
+            wins.sendClick(bidRequest, bid);
+            exchange->recordHit("clicks");
         }
 
         break;
@@ -134,6 +146,12 @@ MockExchange::Worker::isWin(const BidRequest&, const ExchangeSource::Bid& bid)
         return make_pair(false, Amount());
 
     return make_pair(true, MicroUSD_CPM(bid.maxPrice * rng.random01()));
+}
+
+bool
+MockExchange::Worker::isClick(const BidRequest&, const ExchangeSource::Bid&)
+{
+    return rng.random01() <= 0.1;
 }
 
 

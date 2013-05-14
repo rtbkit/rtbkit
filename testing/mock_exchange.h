@@ -37,7 +37,11 @@ struct MockExchange : public Datacratic::ServiceBase
 
     ~MockExchange();
 
-    void start(size_t threadCount, size_t numBidRequests, std::vector<int> const & bidPorts, std::vector<int> const & winPorts);
+    void start(
+            size_t threadCount,
+            size_t numBidRequests,
+            std::vector<int> const & bidPorts,
+            std::vector<int> const & winPorts);
 
     bool isDone() const {
         return !running;
@@ -53,7 +57,9 @@ private:
         void run(size_t requests);
         void bid();
 
-        std::pair<bool, Amount> isWin(const BidRequest&, const ExchangeSource::Bid& bid);
+        std::pair<bool, Amount>
+        isWin(const BidRequest&, const ExchangeSource::Bid& bid);
+        bool isClick(const BidRequest&, const ExchangeSource::Bid& bid);
 
         MockExchange * exchange;
         BidSource bids;

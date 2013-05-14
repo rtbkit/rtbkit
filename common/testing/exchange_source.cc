@@ -218,6 +218,44 @@ sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
     event.account = bid.account;
     event.bidTimestamp = bid.bidTimestamp;
 
+    sendEvent(event);
+}
+
+void
+WinSource::
+sendImpression(const BidRequest& bidRequest, const Bid& bid)
+{
+    PostAuctionEvent event;
+    event.type = PAE_CAMPAIGN_EVENT;
+    event.label = "IMPRESSION";
+    event.auctionId = bidRequest.auctionId;
+    event.adSpotId = bid.adSpotId;
+    event.timestamp = Date::now();
+    event.uids = bidRequest.userIds;
+
+    sendEvent(event);
+}
+
+void
+WinSource::
+sendClick(const BidRequest& bidRequest, const Bid& bid)
+{
+    PostAuctionEvent event;
+    event.type = PAE_CAMPAIGN_EVENT;
+    event.label = "CLICK";
+    event.auctionId = bidRequest.auctionId;
+    event.adSpotId = bid.adSpotId;
+    event.timestamp = Date::now();
+    event.uids = bidRequest.userIds;
+
+    sendEvent(event);
+}
+
+
+void
+WinSource::
+sendEvent(const PostAuctionEvent& event)
+{
     string str = event.toJson().toString();
     string httpRequest = ML::format(
             "POST /win HTTP/1.1\r\n"

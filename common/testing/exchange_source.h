@@ -14,6 +14,8 @@
 
 namespace RTBKIT {
 
+struct PostAuctionEvent;
+
 struct ExchangeSource {
     ExchangeSource(int port);
     ~ExchangeSource();
@@ -56,7 +58,15 @@ struct WinSource : public ExchangeSource {
         ExchangeSource(port) {
     }
 
-    void sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice);
+    void sendWin(
+            const BidRequest& bidRequest,
+            const Bid& bid,
+            const Amount& winPrice);
+    void sendImpression(const BidRequest& bidRequest, const Bid& bid);
+    void sendClick(const BidRequest& bidRequest, const Bid& bid);
+
+private:
+    void sendEvent(const PostAuctionEvent& ev);
 };
 
 } // namespace RTBKIT

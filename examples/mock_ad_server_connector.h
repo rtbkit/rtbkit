@@ -90,6 +90,15 @@ struct MockAdServerConnector : public HttpAdServerConnector
             Date now = Date::now();
             publisher.publish("WIN", now.print(3), event.auctionId.toString(), event.winPrice.toString(), "0");
         }
+
+        if (event.type == PAE_CAMPAIGN_EVENT) {
+            publishCampaignEvent(event.label,
+                                 event.auctionId,
+                                 event.adSpotId,
+                                 event.timestamp,
+                                 Json::Value(),
+                                 event.uids);
+        }
     }
 
 

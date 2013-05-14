@@ -207,6 +207,10 @@ struct Components
 
 void setupAgent(TestAgent& agent)
 {
+    // Since we're writting a simple test, this allows us to omit callbacks in
+    // the bidding agent class.
+    agent.strictMode(false);
+
     // Set our frequency cap to 42. This has two effects: 1) it instructs the
     // router that we want bid requests destined for our agent to first be
     // augmented with frequency capping information and 2) it instructs our
