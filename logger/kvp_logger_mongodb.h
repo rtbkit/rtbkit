@@ -13,6 +13,7 @@ class KvpLoggerMongoDb : public IKvpLogger{
     public:
         KvpLoggerMongoDb(const KvpLoggerParams&);
         void log(const std::map<std::string, std::string>&, const std::string&);
+        void log(Json::Value&, const std::string&);
 
     private:
         mongo::DBClientConnection conn;

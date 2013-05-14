@@ -245,6 +245,13 @@ struct Date {
         double startOfDay = floor(day);
         return fromSecondsSinceEpoch(startOfDay * secPerDay);
     }
+    Date hourStart() const
+    {
+        static const double secPerHour = 3600.0;
+        double hour = secondsSinceEpoch_ / secPerHour;
+        double startOfHour = floor(hour);
+        return fromSecondsSinceEpoch(startOfHour * secPerHour);
+    }
 
     int hour() const;
     int minute() const;
