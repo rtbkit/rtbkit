@@ -1058,7 +1058,7 @@ struct Device {
     string dpidsha1;       ///< Device Platform ID: SHA1
     string dpidmd5;        ///< Device Platform ID: MD5
     string ipv6;           ///< IPv6 address
-    string carrier;        ///< Carrier or ISP (derived from IP address)
+    Utf8String carrier;        ///< Carrier or ISP (derived from IP address)
     Utf8String language;       ///< Browser language.  ISO 639-1 (alpha-2).
     string make;           ///< Device make
     string model;          ///< Device model
