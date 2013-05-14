@@ -92,9 +92,6 @@ read()
 
     ExcCheckErrno(res != -1, "recv");
 
-    close(fd);
-    fd = -1;
-
     return string(buffer.data(), res);
 }
 
