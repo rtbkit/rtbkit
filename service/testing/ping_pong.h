@@ -110,8 +110,8 @@ struct PongConnectionHandler : public ConnectionHandler {
         //cerr << Date::now().print(5)
         //     << " pong handle_input on " << fd << endl;
 
-        char buf[100] = "error";
-        int res = recv(buf, 100, MSG_DONTWAIT);
+        char buf[] = "error";
+        int res = recv(buf, sizeof(buf), MSG_DONTWAIT);
 
         if (res == 0) {
             closeWhenHandlerFinished();

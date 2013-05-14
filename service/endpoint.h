@@ -22,6 +22,7 @@
 #include "connection_handler.h"
 #include "soa/service/epoller.h"
 #include <map>
+#include <mutex>
 
 
 namespace Datacratic {
@@ -57,6 +58,13 @@ struct EndpointBase : public Epoller {
         exit before returning.
     */
     void shutdown();
+
+    /** Add a periodic job to be performed to the loop. The number passed to
+        the toRun function is the number of timeouts that have elapsed since
+        the last call; this is useful to know if something has got behind. It
+        will normally be 1. */
+    typedef std::function<void (uint64_t)> OnTimer;
+    void addPeriodic(double timePeriodSeconds, OnTimer toRun);
 
     /** What host are we connected to? */
     virtual std::string hostname() const = 0;
@@ -98,6 +106,30 @@ struct EndpointBase : public Epoller {
     */
     virtual void spinup(int num_threads, bool synchronous);
 
+    /* internal storage */
+    struct EpollData {
+        enum EpollDataType {
+            INVALID,
+            TRANSPORT,
+            TIMER,
+            WAKEUP
+        };
+
+        EpollData(EpollData::EpollDataType fdType, int fd)
+            : fdType(fdType), fd(fd), transport(nullptr)
+        {
+            if (fdType != TRANSPORT && fdType != TIMER && fdType != WAKEUP) {
+                throw ML::Exception("no such fd type");
+            }
+        }
+
+        EpollDataType fdType;
+        int fd;
+
+        std::shared_ptr<TransportBase> transport; /* TRANSPORT */
+        OnTimer onTimer;                          /* TIMER */
+    };
+
 protected:
 
     /** Callback to check in the loop if we're finished or not */
@@ -126,13 +158,20 @@ protected:
         }
     };
 
+    /** Set type used by subclasses */
     typedef std::set<std::shared_ptr<TransportBase>, SPLess> Connections;
 
-    /** Set of alive connections.  Used to know what connections are
-        outstanding and to keep them alive while they are owned by the
-        endpoint system.
+    /** Mapping of alive connections to their EpollData wrapper. Used to know
+        what connections are outstanding, to keep them alive while they are
+        owned by the endpoint system and to enable translation of operations.
     */
-    Connections alive;
+    typedef std::map<std::shared_ptr<TransportBase>,
+                     std::shared_ptr<EpollData>,
+                     SPLess> TransportMapping;
+    TransportMapping transportMapping;
+
+    typedef std::set<std::shared_ptr<EpollData>, SPLess> EpollDataSet;
+    EpollDataSet epollDataSet;
 
     /** Tell the endpoint that a connection has been opened. */
     virtual void
@@ -151,13 +190,13 @@ protected:
     /** Re-enable polling after a transport has had it's one-shot event
         handler fire.
     */
-    virtual void restartPolling(TransportBase * transport);
+    virtual void restartPolling(EpollData * epollDataPtr);
 
     /** Add the transport to the set of events to be polled. */
-    virtual void startPolling(TransportBase * transport);
+    virtual void startPolling(const std::shared_ptr<EpollData> & epollData);
 
     /** Remove the transport from the set of events to be polled. */
-    virtual void stopPolling(TransportBase * transport);
+    virtual void stopPolling(const std::shared_ptr<EpollData> & epollData);
 
     /** Perform the given callback asynchronously (in a worker thread) in the
         context of the given transport.
@@ -168,8 +207,10 @@ protected:
 
     typedef ACE_Recursive_Thread_Mutex Lock;
     typedef ACE_Guard<Lock> Guard;
-    
-    mutable Lock lock;
+    mutable Lock lock; /* transportMapping */
+
+    typedef std::unique_lock<std::mutex> MutexGuard;
+    mutable std::mutex dataSetLock; /* epollDataSet */
 
     /** released when there are no active connections */
     mutable ACE_Semaphore idle;
@@ -195,6 +236,7 @@ private:
 
     /* Are we shutting down? */
     bool shutdown_;
+    bool disallowTimers_;
 
     std::map<std::string, int> numTransportsByHost;
 
@@ -203,6 +245,9 @@ private:
 
     /** Handle a single ePoll event */
     bool handleEpollEvent(epoll_event & event);
+    void handleTransportEvent(const std::shared_ptr<TransportBase>
+                              & transport);
+    void handleTimerEvent(int fd, OnTimer toRun);
 };
 
 } // namespace Datacratic
