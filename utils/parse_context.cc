@@ -250,6 +250,52 @@ expect_unsigned(unsigned min, unsigned max, const char * error)
 
 bool
 Parse_Context::
+match_long(long & val_, long min, long max)
+{
+    Revert_Token tok(*this);
+    long val = 0;
+    if (!ML::match_long(val, *this)) return false;
+    if (val < min || val > max) return false;
+    val_ = val;
+    tok.ignore();
+    return true;
+}
+    
+long
+Parse_Context::
+expect_long(long min, long max, const char * error)
+{
+    long result;
+    if (!match_long(result, min, max)) exception(error);
+    return result;
+}
+
+bool
+Parse_Context::
+match_unsigned_long(unsigned long & val_, unsigned long min,
+                         unsigned long max)
+{
+    Revert_Token tok(*this);
+    unsigned long val = 0;
+    if (!ML::match_unsigned_long(val, *this)) return false;
+    if (val < min || val > max) return false;
+    val_ = val;
+    tok.ignore();
+    return true;
+}
+
+unsigned long
+Parse_Context::
+expect_unsigned_long(unsigned long min, unsigned long max,
+                          const char * error)
+{
+    unsigned long result;
+    if (!match_unsigned_long(result, min, max)) exception(error);
+    return result;
+}
+
+bool
+Parse_Context::
 match_long_long(long long & val_, long long min, long long max)
 {
     Revert_Token tok(*this);

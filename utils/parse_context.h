@@ -285,7 +285,24 @@ struct Parse_Context {
     
     int expect_unsigned(unsigned min = 0, unsigned max = INT_MAX,
                         const char * error = "expected unsigned");
+ 
+    bool match_long(long & val,
+                    long min = LONG_MIN,
+                    long max = LONG_MAX);
+    
+    long expect_long(long min = -LONG_MAX,
+                     long max = LONG_MAX,
+                     const char * error = "expected long integer");
 
+    bool match_unsigned_long(unsigned long & val,
+                             unsigned long min = 0,
+                             unsigned long max = ULONG_MAX);
+    
+    unsigned long
+    expect_unsigned_long(unsigned long min = 0,
+                         unsigned long max = ULONG_MAX,
+                         const char * error = "expected long integer");
+    
     bool match_long_long(long long & val,
                          long long min = LONG_LONG_MIN,
                          long long max = LONG_LONG_MAX);

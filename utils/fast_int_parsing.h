@@ -73,6 +73,51 @@ inline bool match_int(long int & result, Parse_Context & c)
     return true;
 }
 
+inline bool match_unsigned_long(unsigned long & val,
+                                Parse_Context & c)
+{
+    Parse_Context::Revert_Token tok(c);
+
+    val = 0;
+    int digits = 0;
+    
+    while (c) {
+        if (isdigit(*c)) {
+            int digit = *c - '0';
+            val = val * 10 + digit;
+            ++digits;
+        }
+        else break;
+        
+        ++c;
+    }
+    
+    if (!digits) return false;
+    
+    tok.ignore();  // we are returning true; ignore the token
+    
+    return true;
+}
+
+inline bool match_long(long int & result, Parse_Context & c)
+{
+    Parse_Context::Revert_Token tok(c);
+
+    long sign = 1;
+    if (c.match_literal('+')) ;
+    else if (c.match_literal('-')) sign = -1;
+
+    long unsigned mag;
+    if (!match_unsigned_long(mag, c)) return false;
+    
+    result = (long)mag;
+    result *= sign;
+    
+    tok.ignore();
+    return true;
+}
+
+
 inline bool match_unsigned_long_long(unsigned long long & val,
                                      Parse_Context & c)
 {
