@@ -977,6 +977,7 @@ struct ZmqNamedMultipleSubscriber: public MessageLoop {
     ZmqNamedMultipleSubscriber(std::shared_ptr<zmq::context_t> context)
         : context(context)
     {
+        needsPoll = true;
     }
 
     ~ZmqNamedMultipleSubscriber()
@@ -990,7 +991,7 @@ struct ZmqNamedMultipleSubscriber: public MessageLoop {
 
         serviceWatcher.init(config);
 
-        addSource("ZmqNamedMultipleSubscriber", serviceWatcher);
+        addSource("ZmqNamedMultipleSubscriber::serviceWatcher", serviceWatcher);
 
         //debug(true);
     }
