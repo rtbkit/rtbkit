@@ -157,8 +157,7 @@ struct RTBRouterStackJS
             // Make sure Node doesn't exit and we don't get GCd when the
             // event loop is running.
 
-            struct ev_loop * loop = ev_default_loop(0);
-            ev_ref(loop);
+            ev_ref(ev_default_loop());
             v8::Persistent<v8::Object> phandle
                 = v8::Persistent<v8::Object>::New(args.This());
 
@@ -167,7 +166,7 @@ struct RTBRouterStackJS
                     //cerr << "calling cleanup" << endl;
 
                     v8::Persistent<v8::Object> handle = phandle;
-                    ev_unref(loop);
+                    ev_unref(ev_default_loop());
 
                     //cerr << "done loop unref" << endl;
                     //cerr << "depth " << ev_depth(loop) << endl;
