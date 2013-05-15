@@ -222,6 +222,10 @@ struct HttpExchangeConnector
     getCreativeCompatibility(const Creative & creative,
                              bool includeReasons) const;
 
+
+    /** Method invoked every second for accounting */
+    virtual void periodicCallback(uint64_t numWakeups) const;
+
 protected:
     virtual std::shared_ptr<ConnectionHandler> makeNewHandler();
     virtual std::shared_ptr<HttpAuctionHandler> makeNewHandlerShared();
