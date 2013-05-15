@@ -46,11 +46,12 @@ int main() {
             std::shared_ptr<BidRequest> br,
             const Bids & bids,
             double timeLeftMs,
-            const Json::Value & aug)
+            const Json::Value & aug,
+            const WinCostModel & wcm)
     {
         std::cout << "agent got bid request " << id << std::endl;
         if (bidding) {
-            agent.doBid(id, bids, Json::Value());
+            agent.doBid(id, bids, Json::Value(), wcm);
         }
     };
 

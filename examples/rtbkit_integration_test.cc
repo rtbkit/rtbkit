@@ -233,7 +233,8 @@ void setupAgent(TestAgent& agent)
             std::shared_ptr<BidRequest> br,
             Bids bids,
             double timeLeftMs,
-            const Json::Value & augmentations)
+            const Json::Value & augmentations,
+            const WinCostModel & wcm)
         {
             ExcAssertGreater(bids.size(), 0);
 
@@ -242,7 +243,7 @@ void setupAgent(TestAgent& agent)
 
             bid.bid(bid.availableCreatives[0], USD_CPM(10));
 
-            agent.doBid(id, bids, Json::Value());
+            agent.doBid(id, bids, Json::Value(), wcm);
             ML::atomic_inc(agent.numBidRequests);
         };
 }

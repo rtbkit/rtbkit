@@ -31,15 +31,13 @@
 #include "rtbkit/common/bids.h"
 #include "rtbkit/common/messages.h"
 #include "rtbkit/common/auction_events.h"
-
+#include "rtbkit/common/win_cost_model.h"
 
 using namespace std;
 using namespace ML;
 
 
 namespace RTBKIT {
-
-
 
 /*****************************************************************************/
 /* AGENT INFO                                                                */
@@ -1486,6 +1484,9 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                                agent.c_str(),
                                auctionId.toString().c_str());
 
+            WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction,
+                                                                           *winner.config);
+
             //cerr << "sending to agent " << agent << endl;
             //cerr << fName << " sending AUCTION message " << endl;c
             /* Convert to JSON to send it on. */
@@ -1497,7 +1498,8 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                              info.encodeBidRequest(*auction),
                              winner.imp.toJsonStr(),
                              toString(timeLeftMs),
-                             auction->agentAugmentations[agent]);
+                             auction->agentAugmentations[agent],
+                             wcm.toJson());
 
             //cerr << "done" << endl;
         }
@@ -1578,8 +1580,8 @@ doBid(const std::vector<std::string> & message)
 
     ML::atomic_inc(numBids);
 
-    if (message.size() < 4 || message.size() > 5) {
-        returnErrorResponse(message, "BID message has 3-4 parts");
+    if (message.size() < 5 || message.size() > 6) {
+        returnErrorResponse(message, "BID message has 4-5 parts");
         return;
     }
 
@@ -1623,14 +1625,14 @@ doBid(const std::vector<std::string> & message)
 
     Id auctionId(message[2]);
 
-    doProfileEvent(1, "idParam");
-
-
-
     const string & agent = message[0];
     const string & biddata = message[3];
+    const string & model = message[4];
+
+    WinCostModel wcm = WinCostModel::fromJson(model.empty() ? Json::Value() : Json::parse(model));
+
     static const string nullStr("null");
-    const string & meta = (message.size() >= 5 ? message[4] : nullStr);
+    const string & meta = (message.size() >= 6 ? message[5] : nullStr);
 
     doProfileEvent(1, "params");
 
@@ -1820,7 +1822,10 @@ doBid(const std::vector<std::string> & message)
             + imp[spotIndex].id.toString() + "-"
             + agent;
 
-        if (!banker->authorizeBid(config.account, auctionKey, bid.price)
+        // authorize an amount of money computed from the win cost model.
+        Amount price = wcm.evaluate(bid, bid.price);
+
+        if (!banker->authorizeBid(config.account, auctionKey, price)
                 || failBid(budgetErrorRate))
         {
             ++info.stats->noBudget;
@@ -1857,7 +1862,8 @@ doBid(const std::vector<std::string> & message)
                 meta,
                 info.config,
                 config.visitChannels,
-                bid.creativeIndex);
+                bid.creativeIndex,
+                wcm);
 
         response.creativeName = creative.name;
         response.creativeId = creative.id;

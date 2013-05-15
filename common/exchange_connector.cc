@@ -60,6 +60,14 @@ shutdown()
 {
 }
 
+WinCostModel
+ExchangeConnector::
+getWinCostModel(Auction const & auction,
+                AgentConfig const & agent)
+{
+    return WinCostModel();
+}
+
 ExchangeConnector::ExchangeCompatibility
 ExchangeConnector::
 getCampaignCompatibility(const AgentConfig & config,

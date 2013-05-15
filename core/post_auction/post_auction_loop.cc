@@ -1342,9 +1342,12 @@ doBidResult(const Id & auctionId,
         //info.stats->totalSpent += winPrice;
         //info.stats->totalBidOnWins += bidPrice;
 
+        Bids bids = Bids::fromJson(response.bidData);
+        Amount price = response.wcm.evaluate(bids.bidForSpot(adspot_num), winPrice);
+
         // This is a real win
         guard.clear();
-        banker->winBid(account, makeBidId(auctionId, adSpotId, agent), winPrice,
+        banker->winBid(account, makeBidId(auctionId, adSpotId, agent), price,
                        LineItems());
 
         //++info.stats->wins;

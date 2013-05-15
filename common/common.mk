@@ -18,7 +18,7 @@ LIBRTB_SOURCES := \
 	bids.cc \
 	auction_events.cc \
 	exchange_connector.cc \
-
+    win_cost_model.cc \
 
 LIBRTB_LINK := \
 	ACE arch utils jsoncpp boost_thread endpoint boost_regex zmq opstats bid_request

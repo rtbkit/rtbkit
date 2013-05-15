@@ -142,11 +142,12 @@ struct TestAgent : public RTBKIT::BiddingAgent {
 
     void doBid(const Id & id,
                const Bids & bids,
-               const Json::Value & metadata)
+               const Json::Value & metadata,
+               const WinCostModel & wcm)
     {
         if (bids.size() != 0)
             recordBid(id);
-        RTBKIT::BiddingAgent::doBid(id, bids, metadata);
+        RTBKIT::BiddingAgent::doBid(id, bids, metadata, wcm);
     }
 
     void bidNull(double timestamp,
@@ -154,11 +155,12 @@ struct TestAgent : public RTBKIT::BiddingAgent {
                  std::shared_ptr<RTBKIT::BidRequest> br,
                  const Bids & bids,
                  double timeLeftMs,
-                 const Json::Value & augmentations)
+                 const Json::Value & augmentations,
+                 const WinCostModel & wcm)
     {
         using namespace std;
         //cerr << "got auction " << id << endl;
-        doBid(id, bids, Json::Value());
+        doBid(id, bids, Json::Value(), wcm);
         __sync_fetch_and_add(&numBidRequests, 1);
     }
 
@@ -176,7 +178,7 @@ struct TestAgent : public RTBKIT::BiddingAgent {
         onError
             = boost::bind(&TestAgent::defaultError, this, _1, _2, _3);
         onBidRequest
-            = boost::bind(&TestAgent::bidNull, this, _1, _2, _3, _4, _5, _6);
+            = boost::bind(&TestAgent::bidNull, this, _1, _2, _3, _4, _5, _6, _7);
         onWin
             = boost::bind(&TestAgent::defaultWin, this, _1);
         onLoss

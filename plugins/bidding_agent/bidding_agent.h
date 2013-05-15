@@ -13,6 +13,7 @@
 #include "rtbkit/common/auction.h"
 #include "rtbkit/common/bids.h"
 #include "rtbkit/common/auction_events.h"
+#include "rtbkit/common/win_cost_model.h"
 #include "soa/service/zmq.hpp"
 #include "soa/service/carbon_connector.h"
 #include "soa/jsoncpp/json.h"
@@ -82,8 +83,11 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
         \param id auction id given in the auction callback.
         \param response a Bids struct converted to json.
         \param meta A json blob that will be returned as is in the bid result.
+        \param wcm win cost model for this bid.
      */
-    void doBid(Id id, const Bids& bids, const Json::Value& meta = Json::Value());
+    void doBid(Id id, const Bids& bids,
+                      const Json::Value& meta = Json::Value(),
+                      const WinCostModel& wmc = WinCostModel());
 
     /** Notify the AgentConfigurationService that the configuration of the
         bidding agent has changed.
@@ -122,7 +126,8 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
             std::shared_ptr<BidRequest> bidRequest,
             const Bids& bids,           // Impressions available for bidding
             double timeLeftMs,          // Time left of the bid request.
-            Json::Value augmentations); // Data from the augmentors.
+            Json::Value augmentations,  // Data from the augmentors.
+            WinCostModel const & wcm);  // Win cost model.
     typedef boost::function<BidRequestCb> BidRequestCbFn;
 
     /** Called whenever bid request is received that matches the agent's

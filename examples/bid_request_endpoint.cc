@@ -107,12 +107,13 @@ int main(int argc, char ** argv) {
             std::shared_ptr<BidRequest> br,
             Bids bids,
             double timeLeftMs,
-            const Json::Value & augmentations)
+            const Json::Value & augmentations,
+            const WinCostModel & wcm)
         {
             Bid& bid = bids[0];
 
             bid.bid(bid.availableCreatives[0], USD_CPM(1.234));
-            agent.doBid(id, bids, Json::Value());
+            agent.doBid(id, bids, Json::Value(), wcm);
 
             ML::atomic_inc(agent.numBidRequests);
             std::cerr << "bid count=" << agent.numBidRequests << std::endl;

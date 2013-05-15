@@ -11,6 +11,7 @@
 #include "bid_request_js.h"
 #include "currency_js.h"
 #include "bids_js.h"
+#include "win_cost_model_js.h"
 #include "soa/service/js/service_base_js.h"
 #include "soa/service/js/opstats_js.h"
 

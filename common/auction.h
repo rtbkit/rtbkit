@@ -11,6 +11,7 @@
 #include "rtbkit/common/currency.h"
 #include "rtbkit/common/account_key.h"
 #include "rtbkit/common/augmentation.h"
+#include "rtbkit/common/win_cost_model.h"
 #include <boost/function.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include "soa/jsoncpp/json.h"
@@ -124,7 +125,8 @@ struct Auction : public std::enable_shared_from_this<Auction> {
                  std::shared_ptr<const AgentConfig> agentConfig
                      = std::shared_ptr<const AgentConfig>(),
                  const SegmentList& visitChannels = SegmentList(),
-                 int agentCreativeIndex = -1)
+                 int agentCreativeIndex = -1,
+                 const WinCostModel & wcm = WinCostModel())
             : price(price), tagId(tagId),
               account(account),
               test(test), agent(agent),
@@ -132,7 +134,8 @@ struct Auction : public std::enable_shared_from_this<Auction> {
               localStatus(INVALID),
               agentConfig(agentConfig),
               visitChannels(visitChannels),
-              agentCreativeIndex(agentCreativeIndex)
+              agentCreativeIndex(agentCreativeIndex),
+              wcm(wcm)
         {
         }
 
@@ -167,6 +170,9 @@ struct Auction : public std::enable_shared_from_this<Auction> {
 
         /** Creative index in this agentConfig's creatives array. */
         int agentCreativeIndex;
+
+        /** Win cost model for this auction. */
+        WinCostModel wcm;
 
         static std::string print(WinLoss wl);
         Json::Value toJson() const;

@@ -93,6 +93,7 @@ toJson() const
     result["agent"] = agent;
     result["account"] = account.toJson();
     result["meta"] = meta;
+    result["wcm"] = wcm.toJson();
 
     result["creativeId"] = creativeId;
     result["creativeName"] = creativeName;
@@ -118,11 +119,11 @@ void
 Auction::Response::
 serialize(DB::Store_Writer & store) const
 {
-    int version = 5;
+    int version = 6;
     store << version << price.maxPrice << price.priority
           << tagId << account
           << test << agent << bidData << meta << creativeId
-          << creativeName << (int)localStatus << visitChannels;
+          << creativeName << (int)localStatus << visitChannels << wcm;
 }
 
 void
@@ -169,6 +170,12 @@ reconstitute(DB::Store_Reader & store)
               >> tagId >> account
               >> test >> agent >> bidData >> meta >> creativeId
               >> creativeName >> localStatusi >> visitChannels;
+    }
+    else if (version == 6) {
+        store >> price.maxPrice >> price.priority
+              >> tagId >> account
+              >> test >> agent >> bidData >> meta >> creativeId
+              >> creativeName >> localStatusi >> visitChannels >> wcm;
     }
     else throw ML::Exception("reconstituting wrong version");
     localStatus = (WinLoss)localStatusi;

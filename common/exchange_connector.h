@@ -9,13 +9,13 @@
 
 #include "soa/service/service_base.h"
 #include "rtbkit/common/auction.h"
+#include "rtbkit/common/win_cost_model.h"
 #include "jml/utils/unnamed_bool.h"
 
 namespace RTBKIT {
 
 class AgentConfig;
 class Creative;
-
 
 /*****************************************************************************/
 /* EXCHANGE CONNECTOR                                                        */
@@ -92,6 +92,10 @@ struct ExchangeConnector: public ServiceBase {
     */
     virtual std::string exchangeName() const = 0;
 
+    /** Return the win cost model for the bid of an agent
+    */
+    virtual WinCostModel getWinCostModel(Auction const & auction,
+                                         AgentConfig const & agent);
 
     /*************************************************************************/
     /* EXCHANGE COMPATIBILITY                                                */

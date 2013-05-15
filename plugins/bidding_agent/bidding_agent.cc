@@ -378,6 +378,7 @@ handleBidRequest(const std::string & fromRouter,
     Json::Value imp = jsonParse(msg[5]);
     double timeLeftMs = boost::lexical_cast<double>(msg[6]);
     Json::Value augmentations = jsonParse(msg[7]);
+    WinCostModel wcm = WinCostModel::fromJson(jsonParse(msg[8]));
 
     Bids bids;
     bids.reserve(imp.size());
@@ -392,7 +393,6 @@ handleBidRequest(const std::string & fromRouter,
         bids.push_back(bid);
     }
 
-
     recordHit("requests");
 
     ExcCheck(!requests.count(id), "seen multiple requests with same ID");
@@ -403,7 +403,7 @@ handleBidRequest(const std::string & fromRouter,
         requests[id].fromRouter = fromRouter;
     }
 
-    callback(timestamp, id, br, bids, timeLeftMs, augmentations);
+    callback(timestamp, id, br, bids, timeLeftMs, augmentations, wcm);
 }
 
 void
@@ -465,7 +465,7 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
 
 void
 BiddingAgent::
-doBid(Id id, const Bids & bids, const Json::Value & jsonMeta)
+doBid(Id id, const Bids & bids, const Json::Value & jsonMeta, const WinCostModel & wcm)
 {
     Json::FastWriter jsonWriter;
 
@@ -474,6 +474,9 @@ doBid(Id id, const Bids & bids, const Json::Value & jsonMeta)
 
     string meta = jsonWriter.write(jsonMeta);
     boost::trim(meta);
+
+    string model = jsonWriter.write(wcm.toJson());
+    boost::trim(model);
 
     Date afterSend = Date::now();
     Date beforeSend;
@@ -493,7 +496,7 @@ doBid(Id id, const Bids & bids, const Json::Value & jsonMeta)
     recordLevel((afterSend - beforeSend) * 1000.0, "timeTakenMs");
 
     toRouterChannel.push(RouterMessage(
-                    fromRouter, "BID", { id.toString(), response, meta }));
+                    fromRouter, "BID", { id.toString(), response, model, meta }));
 
     /** Gather some stats */
     for (const Bid& bid : bids) {
