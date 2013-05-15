@@ -31,8 +31,13 @@ namespace Datacratic {
 struct HttpRestProxy {
 
     HttpRestProxy(const std::string & serviceUri = "")
-        : serviceUri(serviceUri)
+        : serviceUri(serviceUri), debug(false)
     {
+    }
+
+    void init(const std::string & serviceUri)
+    {
+        this->serviceUri = serviceUri;
     }
 
     ~HttpRestProxy();
@@ -149,6 +154,9 @@ struct HttpRestProxy {
         the perform() methods
     */
     std::string serviceUri;
+
+    /** Are we debugging? */
+    bool debug;
 
 private:    
     /** Lock for connection pool. */

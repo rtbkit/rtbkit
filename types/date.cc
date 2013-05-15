@@ -191,6 +191,13 @@ printRfc2616() const
 
 std::string
 Date::
+printIso8601() const
+{
+    return print("%Y-%m-%dT%H:%M:%S.000Z");
+}
+
+std::string
+Date::
 printClassic() const
 {
     return print("%Y-%m-%d %H:%M:%S");

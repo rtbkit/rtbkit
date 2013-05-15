@@ -4,6 +4,8 @@
 
 */
 
+#include <sys/timerfd.h>
+
 #include "soa/service//endpoint.h"
 
 #include "soa/service//http_endpoint.h"
@@ -41,18 +43,54 @@ EndpointBase(const std::string & name)
     : idle(1), modifyIdle(true),
       name_(name),
       threadsActive_(0),
-      numTransports(0), shutdown_(false)
+      numTransports(0), shutdown_(false), disallowTimers_(false)
 {
     Epoller::init(16384);
-    Epoller::addFd(wakeup.fd());
-    Epoller::handleEvent = std::bind(&EndpointBase::handleEpollEvent,
-                                     this,
-                                     std::placeholders::_1);
+    auto wakeupData = make_shared<EpollData>(EpollData::EpollDataType::WAKEUP,
+                                             wakeup.fd());
+    epollDataSet.insert(wakeupData);
+    Epoller::addFd(wakeupData->fd, wakeupData.get());
+    Epoller::handleEvent = [&] (epoll_event & event) {
+        return this->handleEpollEvent(event);
+    };
 }
 
 EndpointBase::
 ~EndpointBase()
 {
+}
+
+void
+EndpointBase::
+addPeriodic(double timePeriodSeconds, OnTimer toRun)
+{
+    if (!toRun)
+        throw ML::Exception("'toRun' cannot be nil");
+
+    int timerFd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+    if (timerFd == -1)
+        throw ML::Exception(errno, "timerfd_create");
+
+    itimerspec spec;
+    
+    int res = clock_gettime(CLOCK_MONOTONIC, &spec.it_value);
+    if (res == -1)
+        throw ML::Exception(errno, "clock_gettime");
+    uint64_t seconds, nanoseconds;
+    seconds = timePeriodSeconds;
+    nanoseconds = (timePeriodSeconds - seconds) * 1000000000;
+
+    spec.it_interval.tv_sec = spec.it_value.tv_sec = seconds;
+    spec.it_interval.tv_nsec = spec.it_value.tv_nsec = nanoseconds;
+
+    res = timerfd_settime(timerFd, 0, &spec, 0);
+    if (res == -1)
+        throw ML::Exception(errno, "timerfd_settime");
+
+    auto timerData = make_shared<EpollData>(EpollData::EpollDataType::TIMER,
+                                            timerFd);
+    timerData->onTimer = toRun;
+    startPolling(timerData);
 }
 
 void
@@ -106,13 +144,17 @@ shutdown()
 
     closePeer();
 
+    /* we pin all EpollDataSet instances to avoid freeing them whilst handling
+       messages */
+    EpollDataSet dataSetCopy = epollDataSet;
+    
     {
         Guard guard(lock);
-        //cerr << "sending shutdown to " << alive.size() << " transports"
-        //     << endl;
+        //cerr << "sending shutdown to " << transportMapping.size()
+        //<< " transports" << endl;
 
-        for (auto it = alive.begin(), end = alive.end();  it != end;  ++it) {
-            auto transport = it->get();
+        for (const auto & it: transportMapping) {
+            auto transport = it.first.get();
             //cerr << "shutting down transport " << transport->status() << endl;
             transport->doAsync([=] ()
                                {
@@ -121,6 +163,18 @@ shutdown()
                                    transport->closeWhenHandlerFinished();
                                },
                                "killtransport");
+        }
+    }
+
+    disallowTimers_ = true;
+    ML::memory_barrier();
+    {
+        /* we remove timer infos separately, as transport infos will be
+           removed via notifyCloseTransport */
+        for (const auto & it: dataSetCopy) {
+            if (it->fdType == EpollData::EpollDataType::TIMER) {
+                stopPolling(it);
+            }
         }
     }
 
@@ -136,7 +190,8 @@ shutdown()
     while (numTransports != 0) {
         //cerr << "shutdown " << this << ": numTransports = "
         //     << numTransports << endl;
-        ML::sleep(0.1);
+        int oldValue = numTransports;
+        ML::futex_wait(numTransports, oldValue);
     }
 
     //cerr << "numTransports = " << numTransports << endl;
@@ -144,6 +199,22 @@ shutdown()
     shutdown_ = true;
     ML::memory_barrier();
     wakeup.signal();
+
+    while (threadsActive_ > 0) {
+        int oldValue = threadsActive_;
+        ML::futex_wait(threadsActive_, oldValue);
+    }
+
+    {
+        /* we can now close the timer fds as we now that they will no longer
+           be listened to */
+        MutexGuard guard(dataSetLock);
+        for (const auto & it: epollDataSet) {
+            if (it->fdType == EpollData::EpollDataType::TIMER) {
+                ::close(it->fd);
+            }
+        }
+    }
 
     if (eventThreads) {
         eventThreads->join_all();
@@ -171,17 +242,22 @@ notifyNewTransport(const std::shared_ptr<TransportBase> & transport)
 
     //cerr << "new transport " << transport << endl;
 
-    if (alive.count(transport))
+    if (transportMapping.count(transport))
         throw ML::Exception("active set already contains connection");
-    alive.insert(transport);
+    auto epollData
+        = make_shared<EpollData>(EpollData::EpollDataType::TRANSPORT,
+                                 transport->epollFd_);
+    epollData->transport = transport;
+    transportMapping.insert({transport, epollData});
 
     int fd = transport->getHandle();
     if (fd < 0)
         throw Exception("notifyNewTransport: fd %d out of range");
 
-    startPolling(transport.get());
+    startPolling(epollData);
 
-    if (numTransports++ == 0 && modifyIdle)
+    ML::atomic_inc(numTransports);
+    if (numTransports == 1 && modifyIdle)
         idle.acquire();
     futex_wake(numTransports);
 
@@ -198,23 +274,29 @@ notifyNewTransport(const std::shared_ptr<TransportBase> & transport)
 
 void
 EndpointBase::
-startPolling(TransportBase * transport)
+startPolling(const shared_ptr<EpollData> & epollData)
 {
-    addFdOneShot(transport->epollFd_, transport);
+    MutexGuard guard(dataSetLock);
+    auto inserted = epollDataSet.insert(epollData);
+    if (!inserted.second)
+        throw ML::Exception("epollData already present");
+    addFdOneShot(epollData->fd, epollData.get());
 }
 
 void
 EndpointBase::
-stopPolling(TransportBase * transport)
-{
-    removeFd(transport->epollFd_);
+stopPolling(const shared_ptr<EpollData> & epollData)
+{ 
+    removeFd(epollData->fd);
+    MutexGuard guard(dataSetLock);
+    epollDataSet.erase(epollData);
 }
 
 void
 EndpointBase::
-restartPolling(TransportBase * transport)
+restartPolling(EpollData * epollDataPtr)
 {
-    restartFdOneShot(transport->epollFd_, transport);
+    restartFdOneShot(epollDataPtr->fd, epollDataPtr);
 }
 
 void
@@ -231,13 +313,8 @@ notifyCloseTransport(const std::shared_ptr<TransportBase> & transport)
     if (onTransportClose)
         onTransportClose(transport.get());
 
-    stopPolling(transport.get());
-
-    transport->zombie_ = true;
-    transport->closePeer();
-
     Guard guard(lock);
-    if (!alive.count(transport)) {
+    if (!transportMapping.count(transport)) {
         cerr << "closed transport " << transport << " with fd "
              << transport->getHandle() << " with " << transport.use_count()
              << " references" << " and " << transport->hasAsync() << " async"
@@ -246,12 +323,18 @@ notifyCloseTransport(const std::shared_ptr<TransportBase> & transport)
         transport->activities.dump();
         cerr << endl << endl;
 
-        throw ML::Exception("active set didn't contain connection");
+        throw ML::Exception("transportMapping didn't contain connection");
     }
-    alive.erase(transport);
+
+    auto epollData = transportMapping.at(transport);
+    stopPolling(epollData);
+    transportMapping.erase(transport); 
+    
+    transport->zombie_ = true;
+    transport->closePeer();
 
     int & ntr = numTransportsByHost[transport->getPeerName()];
-    --numTransports;
+    ML::atomic_dec(numTransports);
     futex_wake(numTransports);
     --ntr;
     if (ntr <= 0)
@@ -283,10 +366,10 @@ sleepUntilIdle() const
         }
 
         Guard guard(lock);
-        cerr << alive.size() << " transports" << endl;
+        cerr << transportMapping.size() << " transports" << endl;
 
-        for (auto it = alive.begin(), end = alive.end();  it != end;  ++it) {
-            auto transport = it->get();
+        for (auto & it: transportMapping) {
+            auto transport = it.first;
             cerr << "transport " << transport->status() << endl;
         }
 
@@ -340,36 +423,75 @@ handleEpollEvent(epoll_event & event)
              << (mask & EPOLLHUP ? "H" : "")
              << (mask & EPOLLRDHUP ? "R" : "")
              << endl;
-    }            
-            
-    TransportBase * transport_
-        = reinterpret_cast<TransportBase *>(event.data.ptr);
-    
-    //cerr << "transport_ = " << transport_ << endl; 
+    }
 
-    if (transport_ == 0) return true;  // wakeup for shutdown
+    EpollData * epollDataPtr = reinterpret_cast<EpollData *>(event.data.ptr);
+    switch (epollDataPtr->fdType) {
+    case EpollData::EpollDataType::TRANSPORT: {
+        shared_ptr<TransportBase> transport = epollDataPtr->transport;
+        handleTransportEvent(transport);
+        if (!transport->isZombie()) {
+            this->restartPolling(epollDataPtr);
+        }
+        break;
+    }
+    case EpollData::EpollDataType::TIMER: {
+        handleTimerEvent(epollDataPtr->fd, epollDataPtr->onTimer);
+        if (!disallowTimers_) {
+            this->restartPolling(epollDataPtr);
+        }
+        break;
+    }
+    case EpollData::EpollDataType::WAKEUP:
+        // wakeup for shutdown
+        return true;
+    default:
+        throw ML::Exception("unrecognized fd type");
+    }
 
-    if (debug)
-        cerr << "transport status = " << transport_->status() << endl;
-
-    // Pin it so that it can't be destroyed whilst handling messages
-    std::shared_ptr<TransportBase> transport
-        = transport_->shared_from_this();
-
-    transport->handleEvents();
-
-    if (!transport->isZombie())
-        this->restartPolling(transport.get());
 
     return false;
 }
 
 void
 EndpointBase::
+handleTransportEvent(const shared_ptr<TransportBase> & transport)
+{
+    bool debug = false;
+
+    //cerr << "transport_ = " << transport_.get() << endl; 
+
+    if (debug)
+        cerr << "transport status = " << transport->status() << endl;
+
+    transport->handleEvents();
+}
+
+void
+EndpointBase::
+handleTimerEvent(int fd, OnTimer toRun)
+{
+    uint64_t numWakeups = 0;
+    for (;;) {
+        int res = ::read(fd, &numWakeups, 8);
+        if (res == -1 && errno == EINTR) continue;
+        if (res == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+            break;
+        if (res == -1) {
+            throw ML::Exception(errno, "timerfd read");
+        }
+        else if (res != 8)
+            throw ML::Exception("timerfd read: wrong number of bytes: %d",
+                                res);
+        toRun(numWakeups);
+        break;
+    }
+}
+
+void
+EndpointBase::
 runEventThread(int threadNum, int numThreads)
 {
-    //cerr << "runEventThread" << endl;
-
     prctl(PR_SET_NAME,"EptCtrl",0,0,0);
 
     bool debug = false;

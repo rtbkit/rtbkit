@@ -89,7 +89,7 @@ BOOST_AUTO_TEST_CASE( test_zmq )
         delta_sec--;
         end.tv_usec += 1000000;
     }
-    printf ("delta: %d.%.6ld\n", delta_sec, (end.tv_usec - start.tv_usec));
+    printf ("delta: %d.%.6ld secs\n", delta_sec, (end.tv_usec - start.tv_usec));
 }
 #endif
 
@@ -158,6 +158,6 @@ BOOST_AUTO_TEST_CASE( test_unix_tcp )
         delta_sec--;
         end.tv_usec += 1000000;
     }
-    printf ("delta: %d.%.6ld\n", delta_sec, (end.tv_usec - start.tv_usec));
+    printf ("delta: %d.%.6ld secs\n", delta_sec, (end.tv_usec - start.tv_usec));
 }
 #endif

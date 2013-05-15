@@ -19,6 +19,7 @@
 #include "jml/utils/hash.h"
 #include "jml/utils/file_functions.h"
 #include "jml/utils/info.h"
+#include "xml_helpers.h"
 
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include "crypto++/sha.h"
@@ -415,9 +416,46 @@ signature(const RequestParams & request) const
     return S3Api::sign(digest, accessKey);
 }
 
-inline std::string uriEncode(const std::string & str)
+std::string
+S3Api::
+uriEncode(const std::string & str)
 {
-    return str;
+    std::string result;
+    for (auto c: str) {
+        if (c <= ' ' || c >= 127) {
+            result += ML::format("%%%02X", c);
+            continue;
+        }
+
+        switch (c) {
+        case '!':
+        case '#':
+        case '$':
+        case '&':
+        case '\'':
+        case '(':
+        case ')':
+        case '*':
+        case '+':
+        case ',':
+        case '/':
+        case ':':
+        case ';':
+        case '=':
+        case '?':
+        case '@':
+        case '[':
+        case ']':
+        case '%':
+            result += ML::format("%%%02X", c);
+            break;
+
+        default:
+            result += c;
+        }
+    }
+
+    return result;
 }
 
 S3Api::SignedRequest
@@ -556,71 +594,6 @@ erase(const std::string & bucket,
     return prepare(request).performSync();
 }
 
-template<typename T>
-T extract(tinyxml2::XMLNode * element, const std::string & path)
-{
-    if (!element)
-        throw ML::Exception("can't extract from missing element");
-    //tinyxml2::XMLHandle handle(element);
-
-    vector<string> splitPath = ML::split(path, '/');
-    auto p = element;
-    for (unsigned i = 0;  i < splitPath.size();  ++i) {
-        p = p->FirstChildElement(splitPath[i].c_str());
-        if (!p) {
-            element->GetDocument()->Print();
-            throw ML::Exception("required key " + splitPath[i]
-                                + " not found on path " + path);
-        }
-    }
-
-    auto text = tinyxml2::XMLHandle(p).FirstChild().ToText();
-
-    if (!text) {
-        return boost::lexical_cast<T>("");
-    }
-    return boost::lexical_cast<T>(text->Value());
-}
-
-template<typename T>
-T extractDef(tinyxml2::XMLNode * element, const std::string & path,
-             const T & ifMissing)
-{
-    if (!element) return ifMissing;
-
-    vector<string> splitPath = ML::split(path, '/');
-    auto p = element;
-    for (unsigned i = 0;  i < splitPath.size();  ++i) {
-        p = p->FirstChildElement(splitPath[i].c_str());
-        if (!p)
-            return ifMissing;
-    }
-
-    auto text = tinyxml2::XMLHandle(p).FirstChild().ToText();
-
-    if (!text) return ifMissing;
-
-    return boost::lexical_cast<T>(text->Value());
-}
-
-template<typename T>
-T extract(const std::unique_ptr<tinyxml2::XMLDocument> & doc,
-          const std::string & path)
-{
-    return extract<T>(doc.get(), path);
-}
-
-template<typename T>
-T extractDef(const std::unique_ptr<tinyxml2::XMLDocument> & doc,
-             const std::string & path, const T & def)
-{
-    return extractDef<T>(doc.get(), path, def);
-}
-
-namespace {
-
-} // file scope
-
 std::vector<std::pair<std::string, std::string> >
 S3Api::ObjectMetadata::
 getRequestHeaders() const
@@ -686,12 +659,20 @@ obtainMultiPartUpload(const std::string & bucket,
         // Already an upload in progress
         string uploadId = extract<string>(upload, "UploadId");
 
+        // From here onwards is only useful if we want to continue a half-finished
+        // upload.  Instead, we will delete it to avoid problems with creating
+        // half-finished files when we don't know what we're doing.
+
+        auto deletedInfo = erase(bucket, resource, "uploadId=" + uploadId);
+
+        continue;
+
         // TODO: check metadata, etc
         auto inProgressInfo = get(bucket, resource, 8192,
                                   "uploadId=" + uploadId)
             .bodyXml();
 
-        //inProgressInfo->Print();
+        inProgressInfo->Print();
 
         XMLHandle handle(*inProgressInfo);
 
@@ -756,6 +737,8 @@ finishMultiPartUpload(const std::string & bucket,
 {
     using namespace tinyxml2;
     // Finally, send back a response to join the parts together
+    ExcAssert(etags.size());
+
     XMLDocument joinRequest;
     auto r = joinRequest.InsertFirstChild(joinRequest.NewElement("CompleteMultipartUpload"));
     for (unsigned i = 0;  i < etags.size();  ++i) {
@@ -765,6 +748,9 @@ finishMultiPartUpload(const std::string & bucket,
         n->InsertEndChild(joinRequest.NewElement("ETag"))
             ->InsertEndChild(joinRequest.NewText(etags[i].c_str()));
     }
+
+    //joinRequest.Print();
+
     auto joinResponse
         = post(bucket, resource, "uploadId=" + uploadId,
                   {}, {}, joinRequest);
@@ -1788,7 +1774,7 @@ struct StreamingUploadSource {
 
         RingBufferSWMR<Chunk> chunks;
 
-        boost::mutex etagsLock;
+        std::mutex etagsLock;
         std::vector<std::string> etags;
         std::exception_ptr exc;
 
@@ -1851,6 +1837,12 @@ struct StreamingUploadSource {
                 std::rethrow_exception(exc);
             //cerr << "pushing last chunk " << chunkIndex << endl;
             flush();
+
+            if (!chunkIndex) {
+                chunks.push(std::move(current));
+                ++chunkIndex;
+            }
+
             //cerr << "waiting for everything to stop" << endl;
             chunks.waitUntilEmpty();
             //cerr << "empty" << endl;
@@ -1903,7 +1895,7 @@ struct StreamingUploadSource {
                         //cerr << "successfully uploaded part " << chunk.index
                         //     << " with etag " << etag << endl;
 
-                        boost::unique_lock<boost::mutex> guard(etagsLock);
+                        std::unique_lock<std::mutex> guard(etagsLock);
                         while (etags.size() <= chunk.index)
                             etags.push_back("");
                         etags[chunk.index] = etag;
@@ -2122,6 +2114,8 @@ uploadRecursive(string dirSrc, string bucketDest, bool includeDir){
 void S3Api::setDefaultBandwidthToServiceMbps(double mbps){
     S3Api::defaultBandwidthToServiceMbps = mbps;
 }
+
+HttpRestProxy S3Api::proxy;
 
 namespace {
 
