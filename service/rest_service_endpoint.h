@@ -10,7 +10,6 @@
 #include "zmq_endpoint.h"
 #include "jml/utils/vector_utils.h"
 #include "http_named_endpoint.h"
-#include "city.h"
 
 
 namespace Datacratic {
@@ -71,29 +70,11 @@ struct RestServiceEndpoint: public MessageLoop {
         then the service will bind to those specific ports for the given
         endpoints, and so no service discovery will need to be done.
     */
-    RestServiceEndpoint(std::shared_ptr<zmq::context_t> context)
-        : zmqEndpoint(context)
-    {
-    }
+    RestServiceEndpoint(std::shared_ptr<zmq::context_t> context);
 
-    virtual ~RestServiceEndpoint()
-    {
-        shutdown();
-    }
+    virtual ~RestServiceEndpoint();
 
-    void shutdown()
-    {
-        // 1.  Shut down the http endpoint, since it needs our threads to
-        //     complete its shutdown
-        httpEndpoint.shutdown();
-
-        // 2.  Shut down the message loop
-        MessageLoop::shutdown();
-
-        // 3.  Shut down the zmq endpoint now we know that the message loop is not using
-        //     it.
-        zmqEndpoint.shutdown();
-    }
+    void shutdown();
 
     /** Defines a connection: either a zeromq connection (identified by its
         zeromq identifier) or an http connection (identified by its
@@ -167,61 +148,12 @@ struct RestServiceEndpoint: public MessageLoop {
         /** Send the given response back on the connection. */
         void sendResponse(int responseCode,
                           const std::string & response,
-                          const std::string & contentType) const
-        {
-            if (itl->responseSent)
-                throw ML::Exception("response already sent");
-
-            if (itl->endpoint->logResponse)
-                itl->endpoint->logResponse(*this, responseCode, response,
-                                      contentType);
-
-            if (itl->http)
-                itl->http->sendResponse(responseCode, response, contentType);
-            else {
-                std::vector<std::string> message;
-                message.push_back(itl->zmqAddress);
-                message.push_back(itl->requestId);
-                message.push_back(std::to_string(responseCode));
-                message.push_back(response);
-
-                //std::cerr << "sending response to " << itl->requestId
-                //          << std::endl;
-                itl->endpoint->zmqEndpoint.sendMessage(message);
-            }
-
-            itl->responseSent = true;
-        }
+                          const std::string & contentType) const;
 
         /** Send the given response back on the connection. */
         void sendResponse(int responseCode,
                           const Json::Value & response,
-                          const std::string & contentType = "application/json") const
-        {
-            using namespace std;
-            //cerr << "sent response " << responseCode << " " << response
-            //     << endl;
-
-            if (itl->responseSent)
-                throw ML::Exception("response already sent");
-
-            if (itl->endpoint->logResponse)
-                itl->endpoint->logResponse(*this, responseCode, response.toString(),
-                                      contentType);
-
-            if (itl->http)
-                itl->http->sendResponse(responseCode, response, contentType);
-            else {
-                std::vector<std::string> message;
-                message.push_back(itl->zmqAddress);
-                message.push_back(itl->requestId);
-                message.push_back(std::to_string(responseCode));
-                message.push_back(response.toString());
-                itl->endpoint->zmqEndpoint.sendMessage(message);
-            }
-
-            itl->responseSent = true;
-        }
+                          const std::string & contentType = "application/json") const;
 
         void sendResponse(int responseCode) const
         {
@@ -231,33 +163,7 @@ struct RestServiceEndpoint: public MessageLoop {
         /** Send the given error string back on the connection. */
         void sendErrorResponse(int responseCode,
                                const std::string & error,
-                               const std::string & contentType) const
-        {
-            using namespace std;
-            cerr << "sent error response " << responseCode << " " << error
-                 << endl;
-
-            if (itl->responseSent)
-                throw ML::Exception("response already sent");
-
-
-            if (itl->endpoint->logResponse)
-                itl->endpoint->logResponse(*this, responseCode, error,
-                                      contentType);
-            
-            if (itl->http)
-                itl->http->sendResponse(responseCode, error);
-            else {
-                std::vector<std::string> message;
-                message.push_back(itl->zmqAddress);
-                message.push_back(itl->requestId);
-                message.push_back(std::to_string(responseCode));
-                message.push_back(error);
-                itl->endpoint->zmqEndpoint.sendMessage(message);
-            }
-
-            itl->responseSent = true;
-        }
+                               const std::string & contentType) const;
 
         void sendErrorResponse(int responseCode, const char * error,
                                const std::string & contentType) const
@@ -265,90 +171,21 @@ struct RestServiceEndpoint: public MessageLoop {
             sendErrorResponse(responseCode, std::string(error), "application/json");
         }
 
-        void sendErrorResponse(int responseCode, const Json::Value & error) const
-        {
-            using namespace std;
-            cerr << "sent error response " << responseCode << " " << error
-                 << endl;
-
-            if (itl->responseSent)
-                throw ML::Exception("response already sent");
-
-            if (itl->endpoint->logResponse)
-                itl->endpoint->logResponse(*this, responseCode, error.toString(),
-                                           "application/json");
-
-            if (itl->http)
-                itl->http->sendResponse(responseCode, error);
-            else {
-                std::vector<std::string> message;
-                message.push_back(itl->zmqAddress);
-                message.push_back(itl->requestId);
-                message.push_back(std::to_string(responseCode));
-                message.push_back(error.toString());
-                itl->endpoint->zmqEndpoint.sendMessage(message);
-            }
-
-            itl->responseSent = true;
-        }
+        void sendErrorResponse(int responseCode, const Json::Value & error) const;
     };
 
     void init(std::shared_ptr<ConfigurationService> config,
               const std::string & endpointName,
               double maxAddedLatency = 0.005,
-              int numThreads = 1)
-    {
-        MessageLoop::init(numThreads, maxAddedLatency);
-        zmqEndpoint.init(config, ZMQ_XREP, endpointName + "/zeromq");
-        httpEndpoint.init(config, endpointName + "/http");
-
-        auto zmqHandler = [=] (std::vector<std::string> && message)
-            {
-                using namespace std;
-
-                if (message.size() < 6) {
-                    cerr << "ignored message with invalid number of members:"
-                         << message.size()
-                         << endl;
-                    return;
-                }
-                //cerr << "got REST message at " << this << " " << message << endl;
-                this->doHandleRequest(ConnectionId(message.at(0),
-                                                   message.at(1),
-                                                   this),
-                                      RestRequest(message.at(2),
-                                                  message.at(3),
-                                                  RestParams::fromBinary(message.at(4)),
-                                                  message.at(5)));
-            };
-        
-        zmqEndpoint.messageHandler = zmqHandler;
-        
-        httpEndpoint.onRequest
-            = [=] (HttpNamedEndpoint::RestConnectionHandler * connection,
-                   const HttpHeader & header,
-                   const std::string & payload)
-            {
-                std::string requestId = this->getHttpRequestId();
-                this->doHandleRequest(ConnectionId(connection, requestId, this),
-                                      RestRequest(header, payload));
-            };
-        
-        addSource("RestServiceEndpoint::zmqEndpoint", zmqEndpoint);
-        addSource("RestServiceEndpoint::httpEndpoint", httpEndpoint);
-
-    }
+              int numThreads = 1);
 
     /** Bind to TCP/IP ports.  There is one for zeromq and one for
         http.
     */
     std::pair<std::string, std::string>
-    bindTcp(PortRange const & zmqRange = PortRange(), PortRange const & httpRange = PortRange(), std::string host = "")
-    {
-        std::string httpAddr = httpEndpoint.bindTcp(httpRange, host);
-        std::string zmqAddr = zmqEndpoint.bindTcp(zmqRange, host);
-        return std::make_pair(zmqAddr, httpAddr);
-    }
+    bindTcp(PortRange const & zmqRange = PortRange(),
+            PortRange const & httpRange = PortRange(),
+            std::string host = "");
 
     /** Bind to a fixed URI for the HTTP endpoint.  This will throw an
         exception if it can't bind.
@@ -375,19 +212,7 @@ struct RestServiceEndpoint: public MessageLoop {
         Otherwise this method should be overridden.
     */
     virtual void handleRequest(const ConnectionId & connection,
-                               const RestRequest & request) const
-    {
-        using namespace std;
-
-        //cerr << "got request " << request << endl;
-        if (onHandleRequest) {
-            onHandleRequest(connection, request);
-        }
-        else {
-            throw ML::Exception("need to override handleRequest or assign to "
-                                "onHandleRequest");
-        }
-    }
+                               const RestRequest & request) const;
 
     ZmqNamedEndpoint zmqEndpoint;
     HttpNamedEndpoint httpEndpoint;
@@ -408,13 +233,12 @@ struct RestServiceEndpoint: public MessageLoop {
     }
     
     // Create a random request ID for an HTTP request
-    std::string getHttpRequestId() const
-    {
-        std::string s = Date::now().print(9) + ML::format("%d", random());
-        uint64_t jobId = CityHash64(s.c_str(), s.size());
-        return ML::format("%016llx", jobId);
-    }
-    
+    std::string getHttpRequestId() const;
+
+    /** Log all requests and responses to the given stream.  This function
+        will overwrite logRequest and logResponse with new handlers.
+    */
+    void logToStream(std::ostream & stream);
 };
 
 } // namespace Datacratic
