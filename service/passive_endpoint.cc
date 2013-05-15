@@ -114,8 +114,8 @@ listen(PortRange const & portRange,
          });
     
     if (port == -1) {
-        throw Exception("couldn't bind to any port [%d,%d[" + portRange.first
-                                                            + portRange.last);
+        throw Exception("couldn't bind to any port in range [%d,%d]", portRange.first,
+                                                            portRange.last);
     }
 
     // Avoid already bound messages for the minute after a server has exited
