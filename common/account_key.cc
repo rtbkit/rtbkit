@@ -18,6 +18,8 @@ void validateSlug(const std::string & slug)
 {
     if (slug.empty())
         throw ML::Exception("campaign/strategy slug cannot be empty");
+	//account_key.h says max length should be 64 characters...
+	//here we say the max size is 256
     if (slug.size() > 256)
         throw ML::Exception("campaign/strategy slug has max length of 256");
 
