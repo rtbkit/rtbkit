@@ -659,12 +659,20 @@ obtainMultiPartUpload(const std::string & bucket,
         // Already an upload in progress
         string uploadId = extract<string>(upload, "UploadId");
 
+        // From here onwards is only useful if we want to continue a half-finished
+        // upload.  Instead, we will delete it to avoid problems with creating
+        // half-finished files when we don't know what we're doing.
+
+        auto deletedInfo = erase(bucket, resource, "uploadId=" + uploadId);
+
+        continue;
+
         // TODO: check metadata, etc
         auto inProgressInfo = get(bucket, resource, 8192,
                                   "uploadId=" + uploadId)
             .bodyXml();
 
-        //inProgressInfo->Print();
+        inProgressInfo->Print();
 
         XMLHandle handle(*inProgressInfo);
 
@@ -729,6 +737,8 @@ finishMultiPartUpload(const std::string & bucket,
 {
     using namespace tinyxml2;
     // Finally, send back a response to join the parts together
+    ExcAssert(etags.size());
+
     XMLDocument joinRequest;
     auto r = joinRequest.InsertFirstChild(joinRequest.NewElement("CompleteMultipartUpload"));
     for (unsigned i = 0;  i < etags.size();  ++i) {
@@ -738,6 +748,9 @@ finishMultiPartUpload(const std::string & bucket,
         n->InsertEndChild(joinRequest.NewElement("ETag"))
             ->InsertEndChild(joinRequest.NewText(etags[i].c_str()));
     }
+
+    //joinRequest.Print();
+
     auto joinResponse
         = post(bucket, resource, "uploadId=" + uploadId,
                   {}, {}, joinRequest);
@@ -1761,7 +1774,7 @@ struct StreamingUploadSource {
 
         RingBufferSWMR<Chunk> chunks;
 
-        boost::mutex etagsLock;
+        std::mutex etagsLock;
         std::vector<std::string> etags;
         std::exception_ptr exc;
 
@@ -1824,6 +1837,12 @@ struct StreamingUploadSource {
                 std::rethrow_exception(exc);
             //cerr << "pushing last chunk " << chunkIndex << endl;
             flush();
+
+            if (!chunkIndex) {
+                chunks.push(std::move(current));
+                ++chunkIndex;
+            }
+
             //cerr << "waiting for everything to stop" << endl;
             chunks.waitUntilEmpty();
             //cerr << "empty" << endl;
@@ -1876,7 +1895,7 @@ struct StreamingUploadSource {
                         //cerr << "successfully uploaded part " << chunk.index
                         //     << " with etag " << etag << endl;
 
-                        boost::unique_lock<boost::mutex> guard(etagsLock);
+                        std::unique_lock<std::mutex> guard(etagsLock);
                         while (etags.size() <= chunk.index)
                             etags.push_back("");
                         etags[chunk.index] = etag;
