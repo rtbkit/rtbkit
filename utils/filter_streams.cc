@@ -441,7 +441,7 @@ struct RegisterFileHandler {
 
             return make_pair(buf.release(), true);
         }
-        else if (mode == ios::out) {
+        else if (mode & ios::out) {
             if (resource == "-")
                 return make_pair(cout.rdbuf(), false);
 
