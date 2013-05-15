@@ -33,10 +33,6 @@ Registry::
 ~Registry()
 {
     // Close everything so that we can garbage collect them
-    for (auto it = templates.begin(), end = templates.end();
-         it != end;  ++it)
-        it->second.tmpl.Dispose();
-
     templates.clear();
 }
 

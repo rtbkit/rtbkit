@@ -16,6 +16,9 @@
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
 
+#ifdef ev_ref
+#define ev_default_loop() /* empty parameter */
+#endif
 
 namespace Datacratic {
 namespace JS {
