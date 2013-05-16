@@ -21,6 +21,14 @@ const void * is_convertible(const std::type_info & from_type,
                             const std::type_info & to_type,
                             const void * obj);
 
+inline void * is_convertible(const std::type_info & from_type,
+                             const std::type_info & to_type,
+                             void * obj)
+{
+    return const_cast<void *>(is_convertible(from_type, to_type,
+                                             (const void *)obj));
+}
+
 template<typename FromT>
 const void * is_convertible(const FromT & from_obj,
                             const std::type_info & to_type)
