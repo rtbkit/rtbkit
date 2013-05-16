@@ -198,6 +198,27 @@ createParameterExtractor(Json::Value & argHelp,
         };
 }
 
+
+struct PassParsingContext {
+};
+
+/** Pass the connection on */
+inline static std::function<const RestRequestParsingContext &
+                     (const RestServiceEndpoint::ConnectionId & connection,
+                      const RestRequest & request,
+                      const RestRequestParsingContext & context)>
+createParameterExtractor(Json::Value & argHelp,
+                         const PassParsingContext &, void * = 0)
+{
+    return [] (const RestServiceEndpoint::ConnectionId & connection,
+                const RestRequest & request,
+                const RestRequestParsingContext & context)
+        -> const RestRequestParsingContext &
+        {
+            return context;
+        };
+}
+
 /** Free function to be called in order to generate a parameter extractor
     for the given parameter.  See the CreateRestParameterGenerator class for more
     details.
