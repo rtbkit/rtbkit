@@ -365,7 +365,7 @@ handleBidRequest(const std::string & fromRouter,
     ExcCheck(!requiresAllCB || callback, "Null callback for " + msg[0]);
     if (!callback) return;
 
-    checkMessageSize(msg, 8);
+    checkMessageSize(msg, 9);
 
     double timestamp = boost::lexical_cast<double>(msg[1]);
     Id id(msg[2]);
