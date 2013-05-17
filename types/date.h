@@ -303,6 +303,32 @@ struct Date {
                                 const std::string & date_format,
                                 const std::string & time_format);
 
+
+    /** 
+        This function takes a string expected to contain a date that matches the
+        provided date pattern, followed by a time. The two patterns in the
+        string can be separated by whitespace but anything else has to appear in
+        the patterns. 
+        
+        example:
+
+            parse_date_time("2013-05-13/21:00:00", "%y-%m-%d/","%H:%M:%S")
+
+        returns 2013-May-13 21:00:00.
+        
+        symbols meanings:
+            date_format:
+                %d      day of month as digit 1-31
+                %m      month as digit 1-12
+                %M      month as 3-letter abbreviation
+                %y      year with century 1400-2999
+            time_format:
+                %h      hour as digit 1-12
+                %H      hour as digit 0-24
+                %M      minute as digit 0-60
+                %S      second as digit 0-60
+                %p      'AM' or 'PM'
+    **/
     static Date parse_date_time(const std::string & date_time,
                                 const std::string & date_format,
                                 const std::string & time_format);
