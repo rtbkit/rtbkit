@@ -274,6 +274,7 @@ toJson() const
     case RANDOM: ho = "random";  break;
     case EXCHANGEID: ho = "exchangeId";  break;
     case PROVIDERID: ho = "providerId";  break;
+    case IPUA: ho = "ipua"; break;
     default:
         throw ML::Exception("unknown hashOn");
     }
