@@ -938,11 +938,6 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
         recordOutcome(timeGapMs,
                       "bidResult.%s.alreadyFinishedTimeSinceBidSubmittedMs",
                       typeStr);
-        cerr << "WIN for already completed auction: " << meta
-             << " timeGapMs = " << timeGapMs << endl;
-
-        cerr << "info win: " << info.winMeta << " time " << info.winTime
-             << " info.hasWin() = " << info.hasWin() << endl;
 
         if (event->type == PAE_WIN) {
             // Late win with auction still around
@@ -952,13 +947,33 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 
             finished.update(key, info);
 
+            logMessage("MATCHEDWIN",
+                    info.auctionId,
+                    to_string(info.spotIndex),
+                    info.bid.agent,
+                    info.bid.account[1],
+                    info.winPrice.toString(),
+                    info.bid.price.maxPrice.toString(),
+                    to_string(info.bid.price.priority),
+                    info.bidRequestStr,
+                    info.bid.bidData,
+                    info.bid.meta,
+                    to_string(info.bid.creativeId),
+                    info.bid.creativeName,
+                    info.bid.account[0],
+                    Json::Value(), // uids - Currently missing the uid domains
+                    info.winMeta,
+                    info.bid.account[0],
+                    info.adSpotId,
+                    info.bid.account.toString(),
+                    info.bidRequestStrFormat);
+
+
+
             recordHit("bidResult.%s.winAfterLossAssumed", typeStr);
             recordOutcome(winPrice.value,
                           "bidResult.%s.winAfterLossAssumedAmount.%s",
                           typeStr, winPrice.getCurrencyStr());
-
-            cerr << "got late win with price " << winPrice
-                 << " for account " << account << endl;
         }
 
         /*
