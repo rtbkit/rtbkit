@@ -18,6 +18,7 @@
 #include "bid_request.h"
 #include "currency.h"
 #include "json_holder.h"
+#include "win_cost_model.h"
 
 
 namespace RTBKIT {
@@ -175,6 +176,7 @@ struct DeliveryEvent
         int tagId;                ///< Tag ID (v0.3)
         AccountKey account;       ///< Account we are bidding with
         bool test;                ///< Is this a test bid?
+        WinCostModel wcm;         ///< Win cost model
 
         // Information about the agent who did the bidding
         std::string agent;        ///< Agent ID who's bidding

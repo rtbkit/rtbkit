@@ -404,6 +404,14 @@ fromJson(const Json::Value& json)
             else invalid = true;
             break;
 
+        case 'w':
+            if (m == "wcm") {
+                bid.wcm = WinCostModel::fromJson(member);
+            }
+            else {
+                invalid = true;
+            }
+
         default:
             invalid = true;
             break;
