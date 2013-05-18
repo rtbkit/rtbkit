@@ -411,6 +411,7 @@ fromJson(const Json::Value& json)
             else {
                 invalid = true;
             }
+            break;
 
         default:
             invalid = true;
