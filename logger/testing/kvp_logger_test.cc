@@ -12,6 +12,7 @@
 #include "mongo/client/dbclient.h"
 #include <unistd.h>
 #include <time.h>
+#include "soa/logger/logger_metrics_interface.h"
 
 using namespace std;
 using namespace Datacratic;
@@ -39,7 +40,7 @@ BOOST_AUTO_TEST_CASE( kvp_logger_mongodb )
     cout << "rand val:" << randVal << endl;
 
     std::shared_ptr<IKvpLogger> logger =
-        IKvpLogger::getKvpLogger("mongodb", params);
+        IKvpLogger::kvpLoggerFactory("mongodb", params);
     Datacratic::Date d = Datacratic::Date::now();
     string now = d.printClassic();
     cout << now << endl;

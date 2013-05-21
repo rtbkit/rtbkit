@@ -11,3 +11,4 @@ $(eval $(call test,multi_output_logger_test,logger,boost))
 $(eval $(call test,rotating_file_logger_test,logger,boost))
 
 $(eval $(call test,kvp_logger_test,log_metrics,boost))
+$(eval $(call test,logger_metrics_mongo_test,log_metrics,boost))
