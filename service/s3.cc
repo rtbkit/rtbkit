@@ -862,13 +862,15 @@ upload(const char * data,
         part.size = min<uint64_t>(partSize, dataSize - offset);
         parts.push_back(part);
     }
+
     // we are dealing with an empty file
-    if(parts.empty())
+    if(parts.empty() || dataSize == 0)
     {
         MultiPartUploadPart part;
-        part.partNumber = parts.size() + 1;
+        parts.clear();
+        part.partNumber = 1;
         part.startOffset = offset;
-        part.size = min<uint64_t>(partSize, dataSize - offset);
+        part.size = 0;
         parts.push_back(part);
     }
     //cerr << "total parts = " << parts.size() << endl;
