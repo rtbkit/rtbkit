@@ -22,11 +22,6 @@ BOOST_AUTO_TEST_CASE( logger_metrics_mongo )
     string filename = "logger_metrics_mongo_config.json";
     string configKey = "mongoConfig";
     Json::Value json;
-    json["user"]        = "datacratic_test_user";
-    json["pwd"]         = "datacratic_test_pwd";
-    json["hostAndPort"] = "ds047437.mongolab.com:47437";
-    json["database"]    = "datacratic_test";
-    json["type"]        = "mongo";
     Json::Value json2;
     json2[configKey] = json;
     ML::filter_ostream out(filename);
