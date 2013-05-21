@@ -26,8 +26,10 @@ createTestFolder = (name, mode) ->
     try fs.mkdirSync(folderPath, mode)
 
     console.log "created ", folderPath
-
     return folderPath
+
+try fs.mkdirSync("./build/x86_64/tmp")
+try fs.mkdirSync("./build/x86_64/tmp/logger_fs_test")
 
 rotFolderAttempts = 0
 rotFileAttempts = 0
