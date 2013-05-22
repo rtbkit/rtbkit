@@ -222,13 +222,13 @@ handleExternalWinRq(const HttpHeader & header,
 
     double price(json["winPrice"].asDouble());
     double dataCostDbl(0.0);
-    if (json.isMember["dataCost"]) {
+    if (json.isMember("dataCost")) {
         dataCostDbl = json["dataCost"].asDouble();
     }
     USD_CPM dataCost(dataCostDbl);
     Json::Value bidRequest = json["bidRequest"];
 
     publisher_.publish("EXTERNALWIN", now.print(3), auctionIdStr,
-                       price.toString(), dataCost.toString(),
-                       boost::trim_copy(br.toString()));
+                       std::to_string(price), dataCost.toString(),
+                       boost::trim_copy(bidRequest.toString()));
 }
