@@ -17,9 +17,6 @@ using namespace boost::program_options;
 using namespace RTBKIT;
 
 
-static Id emptySpotId("1");
-
-
 /* STANDARDADSERVERARGUMENTS */
 boost::program_options::options_description
 StandardAdServerArguments::
@@ -69,21 +66,25 @@ init(StandardAdServerArguments & ssConfig)
 
     shared_ptr<ServiceProxies> services = getServices();
 
-    auto onWinRq = bind(&StandardAdServerConnector::handleWinRq, this,
-                        placeholders::_1, placeholders::_2,
-                        placeholders::_3);
+    auto onWinRq = [=] (const HttpHeader & header,
+                        const Json::Value & json,
+                        const std::string & jsonStr) {
+        this->handleWinRq(header, json, jsonStr);
+    };
     registerEndpoint(ssConfig.winPort, onWinRq);
 
-    auto onDeliveryRq = bind(&StandardAdServerConnector::handleDeliveryRq,
-                             this,
-                             placeholders::_1, placeholders::_2,
-                             placeholders::_3);
+    auto onDeliveryRq = [=] (const HttpHeader & header,
+                        const Json::Value & json,
+                        const std::string & jsonStr) {
+        this->handleDeliveryRq(header, json, jsonStr);
+    };
     registerEndpoint(ssConfig.eventsPort, onDeliveryRq);
 
-    auto onExternalWinRq
-        = bind(&StandardAdServerConnector::handleExternalWinRq,
-               this,
-               placeholders::_1, placeholders::_2, placeholders::_3);
+    auto onExternalWinRq = [=] (const HttpHeader & header,
+                        const Json::Value & json,
+                        const std::string & jsonStr) {
+        this->handleExternalWinRq(header, json, jsonStr);
+    };
     registerEndpoint(ssConfig.externalWinPort, onExternalWinRq);
 
     HttpAdServerConnector::init(services->config);
@@ -114,25 +115,33 @@ StandardAdServerConnector::
 handleWinRq(const HttpHeader & header,
             const Json::Value & json, const std::string & jsonStr)
 {
-    Id auctionId(json["auctionId"].asString());
-    double price(json["price"].asDouble());
-    USD_CPM usdCpmPrice(price);
-    double dataCost(json["dataCost"].asDouble());
-    USD_CPM usdCpmDC(dataCost);
-    AccountKey accountKey(json["account-key"].asString());
+    Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+    Date bidTimestamp;
+    if (json.isMember("bidTimestamp")) {
+        bidTimestamp
+            = Date::fromSecondsSinceEpoch(json["bidTimestamp"].asDouble());
+    }
+    string auctionIdStr(json["auctionId"].asString());
+    string adSpotIdStr(json["adSpotId"].asString());
+    string accountKeyStr(json["accountId"].asString());
+    double winPriceDbl(json["winPrice"].asDouble());
+    double dataCostDbl(json["dataCost"].asDouble());
 
-    // onWin(auctionId, price, dataCost, accountKey);
-    JsonHolder meta("{'dataCost':" + to_string(dataCost) + "}");
+    Id auctionId(auctionIdStr);
+    Id adSpotId(adSpotIdStr);
+    AccountKey accountKey(accountKeyStr);
+    USD_CPM winPrice(winPriceDbl);
+    USD_CPM dataCost(dataCostDbl);
+
     UserIds userIds;
-    Date emptyDate;
-    Date now = Date::now();
 
-    publishWin(auctionId, emptySpotId,
-               usdCpmPrice, now, meta, userIds, accountKey,
-               emptyDate);
-    publisher_.publish("WIN", now.print(3),
-                       auctionId.toString(),
-                       usdCpmPrice.toString(), usdCpmDC.toString());
+    const Json::Value & meta = json["winMeta"];
+
+    publishWin(auctionId, adSpotId, winPrice, timestamp, meta, userIds,
+               accountKey, bidTimestamp);
+    publisher_.publish("WIN", timestamp.print(3), auctionIdStr,
+                       adSpotIdStr, accountKeyStr,
+                       winPrice.toString(), dataCost.toString(), meta);
 }
 
 void
@@ -140,27 +149,65 @@ StandardAdServerConnector::
 handleDeliveryRq(const HttpHeader & header,
                  const Json::Value & json, const std::string & jsonStr)
 {
-    Date now = Date::now();
-    string eventType(json["eventType"].asString());
-
-    if (eventType == "click") {
-        Id auctionId(json["auctionId"].asString());
-        UserIds userIds;
-
-        publishCampaignEvent("CLICK",
-                             auctionId, emptySpotId,
-                             now, Json::Value(Json::nullValue),
-                             userIds);
-
-        publisher_.publish("CLICK", now.print(3), auctionId.toString());
+    Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+    Date bidTimestamp;
+    if (json.isMember("bidTimestamp")) {
+        bidTimestamp
+            = Date::fromSecondsSinceEpoch(json["bidTimestamp"].asDouble());
     }
-    else if (eventType == "conversion") {
-        Id auctionId(json["auctionId"].asString());
-        double payout(json["payout"].asDouble());
-        USD_CPM usdCpmPayout(payout);
-        publisher_.publish("CONVERSION", now.print(3),
-                           auctionId.toString(), usdCpmPayout.toString(),
-                           jsonStr);
+    int matchType(0); /* 1: campaign, 2: user, 0: none */
+    string auctionIdStr, adSpotIdStr, userIdStr;
+    Id auctionId, adSpotId, userId;
+    UserIds userIds;
+    
+    if (json.isMember("auctionId")) {
+        auctionIdStr = json["auctionId"].asString();
+        adSpotIdStr = json["adSpotId"].asString();
+        auctionId = Id(auctionIdStr);
+        adSpotId = Id(adSpotIdStr);
+        matchType = 1;
+    }
+    if (json.isMember("userId")) {
+        userIdStr = json["userId"].asString();
+        userId = Id(userIdStr);
+        if (!matchType)
+            matchType = 2;
+    }
+
+    string event(json["event"].asString());
+    if (event == "click") {
+        if (matchType != 1) {
+            throw ML::Exception("click events must have auction/spot ids");
+        }
+        publishCampaignEvent("CLICK", auctionId, adSpotId, timestamp,
+                             Json::Value(), userIds);
+        publisher_.publish("CLICK", timestamp.print(3), auctionIdStr,
+                           adSpotIdStr, userIds.toString());
+    }
+    else if (event == "conversion") {
+        Json::Value meta;
+        meta["payout"] = json["payout"];
+        USD_CPM payout(json["payout"].asDouble());
+
+        if (matchType == 1) {
+            publishCampaignEvent("CONVERSION", auctionId, adSpotId,
+                                 timestamp, meta, userIds);
+            publisher_.publish("CONVERSION", timestamp.print(3), "campaign", 
+                               auctionIdStr, adSpotIdStr, payout.toString());
+        }
+        else if (matchType == 2) {
+            publishUserEvent("CONVERSION", userId,
+                             timestamp, meta, userIds);
+            publisher_.publish("CONVERSION", timestamp.print(3), "user",
+                               auctionId.toString(), payout.toString());
+        }
+        else {
+            publisher_.publish("CONVERSION", timestamp.print(3), "unmatched",
+                               auctionId.toString(), payout.toString());
+        }
+    }
+    else {
+        throw ML::Exception("invalid event type: '" + event + "'");
     }
 }
 
@@ -169,23 +216,19 @@ StandardAdServerConnector::
 handleExternalWinRq(const HttpHeader & header,
                     const Json::Value & json, const std::string & jsonStr)
 {
-    Id auctionId(json["auctionId"].asString());
-    double price(json["price"].asDouble());
-    USD_CPM usdCpmPrice(price);
-    double dataCost(json["dataCost"].asDouble());
-    USD_CPM usdCpmDC(dataCost);
-    const Json::Value & br = json["bidRequest"];
-    const Json::Value & ext = br["ext"];
-    const Json::Value & cids = ext["cids"];
-    uint32_t cid(cids[0].asInt());
-
-    // onExternalWin(auctionId, price, dataCost, cid, boost::trim_copy(br.toString()));
-    UserIds userIds;
     Date now = Date::now();
+    string auctionIdStr(json["auctionId"].asString());
+    Id auctionId(auctionIdStr);
 
-    publisher_.publish("EXTERNALWIN", now.print(3),
-                       auctionId.toString(),
-                       usdCpmPrice.toString(), usdCpmDC.toString(),
-                       to_string(cid),
+    double price(json["winPrice"].asDouble());
+    double dataCostDbl(0.0);
+    if (json.isMember["dataCost"]) {
+        dataCostDbl = json["dataCost"].asDouble();
+    }
+    USD_CPM dataCost(dataCostDbl);
+    Json::Value bidRequest = json["bidRequest"];
+
+    publisher_.publish("EXTERNALWIN", now.print(3), auctionIdStr,
+                       price.toString(), dataCost.toString(),
                        boost::trim_copy(br.toString()));
 }
