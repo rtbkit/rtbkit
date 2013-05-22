@@ -9,5 +9,3 @@ $(eval $(call test,logger_deadlock_test,logger,boost manual))
 
 $(eval $(call test,multi_output_logger_test,logger,boost))
 $(eval $(call test,rotating_file_logger_test,logger,boost))
-
-$(eval $(call test,kvp_logger_test,log_metrics,boost))
