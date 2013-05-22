@@ -30,6 +30,7 @@ struct RouterRunner {
     //std::string routerConfigurationFile;
     std::string exchangeConfigurationFile;
     float lossSeconds;
+    std::string serviceName;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts

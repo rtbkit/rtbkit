@@ -39,7 +39,8 @@ static inline Json::Value loadJsonFromFile(const std::string & filename)
 
 RouterRunner::
 RouterRunner()
-    : lossSeconds(15.0)
+    : lossSeconds(15.0),
+      serviceName("router")
 {
 }
 
@@ -52,6 +53,8 @@ doOptions(int argc, char ** argv,
 
     options_description router_options("Router options");
     router_options.add_options()
+        ("name,n", value<string>(&serviceName),
+         "unique service name for this router")
         ("loss-seconds,l", value<float>(&lossSeconds),
          "number of seconds after which a loss is assumed")
         ("log-uri", value<vector<string> >(&logUris),
@@ -86,14 +89,13 @@ init()
 {
     auto proxies = serviceArgs.makeServiceProxies();
 
-    string servicePrefix("router");
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
                                              proxies->config,
-                                             servicePrefix + ".slaveBanker");
+                                             serviceName + ".slaveBanker");
         
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
 
-    router = std::make_shared<Router>(proxies, servicePrefix, lossSeconds);
+    router = std::make_shared<Router>(proxies, serviceName, lossSeconds);
     router->init();
     router->setBanker(banker);
     router->bindTcp();
