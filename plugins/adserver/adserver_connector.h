@@ -62,8 +62,8 @@ struct AdServerConnector : public Datacratic::ServiceBase {
                      const AccountKey & account,
                      Date bidTimestamp);
 
-    /** Publish a campaign event into the post auction loop, to be passed on
-        to the agent that bid on it.
+    /** Publish a campaign-based event into the post auction loop, to be
+        passed on to the agent that bid on it.
         
         If the spot ID is empty, then the click will be sent to all
         agents that had a win on the auction.
@@ -72,8 +72,18 @@ struct AdServerConnector : public Datacratic::ServiceBase {
                               const Id & auctionId,
                               const Id & adSpotId,
                               Date timestamp,
-                              const JsonHolder & impressionMeta,
+                              const JsonHolder & eventMeta,
                               const UserIds & ids);
+
+    /** Publish an user-based event into the post auction loop.
+
+        (TBD: currently only mark the event in Carbon)
+    */
+    void publishUserEvent(const std::string & label,
+                          const Id & userId,
+                          Date timestamp,
+                          const JsonHolder & eventMeta,
+                          const UserIds & ids);
 
     Date startTime_;
 

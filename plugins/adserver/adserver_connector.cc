@@ -161,4 +161,17 @@ publishCampaignEvent(const string & label,
     toPostAuctionService_.sendMessage("EVENT", str);
 }
 
+void
+AdServerConnector::
+publishUserEvent(const string & label,
+                 const Id & userId,
+                 Date timestamp,
+                 const JsonHolder & impressionMeta,
+                 const UserIds & ids)
+{ 
+    recordHit("receivedEvent");
+    recordHit("event." + label);
+}
+
+
 } // namespace RTBKIT
