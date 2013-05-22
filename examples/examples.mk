@@ -14,6 +14,7 @@ $(eval $(call program,bidding_agent_ex,bidding_agent rtb_router boost_program_op
 $(eval $(call program,ad_server_connector_ex,adserver_connector exchange rtb_router boost_program_options services))
 $(eval $(call program,router_ex,adserver_connector rubicon_exchange openrtb_exchange exchange router_runner boost_program_options services))
 $(eval $(call program,bid_request_endpoint,rubicon_exchange openrtb_exchange exchange rtb_router bidding_agent boost_program_options services))
+$(eval $(call program,adserver_endpoint,standard_adserver_connector data_logger rtb_router bidding_agent boost_program_options services))
 
 RTBKIT_INTEGRATION_TEST_LINK := \
 	rtb_router bidding_agent integration_test_utils monitor monitor_service augmentor_ex adserver_connector

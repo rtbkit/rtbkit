@@ -37,6 +37,10 @@ struct DataLogger : public Datacratic::ServiceBase,
     void connectAllServiceProviders(const std::string & serviceClass,
                                     const std::string & epName);
 
+    void unsafeDisableMonitor() {
+        monitorProviderClient.inhibit_ = true;
+    }
+
     // Subscription object to the named services
     Datacratic::ZmqNamedMultipleSubscriber multipleSubscriber;
 

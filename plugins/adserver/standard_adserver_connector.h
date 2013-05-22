@@ -40,6 +40,7 @@ struct StandardAdServerConnector : public HttpAdServerConnector
                               const string & serviceName = "StandardAdServer");
 
     void init(StandardAdServerArguments & ssConfig);
+    void init(int winsPort, int eventsPort, int externalPort);
     void start();
     void shutdown();
 

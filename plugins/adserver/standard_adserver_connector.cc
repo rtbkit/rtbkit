@@ -63,7 +63,13 @@ StandardAdServerConnector::
 init(StandardAdServerArguments & ssConfig)
 {
     ssConfig.validate();
+    init(ssConfig.winPort, ssConfig.eventsPort, ssConfig.externalWinPort);
+}
 
+void
+StandardAdServerConnector::
+init(int winsPort, int eventsPort, int externalPort)
+{
     shared_ptr<ServiceProxies> services = getServices();
 
     auto onWinRq = [=] (const HttpHeader & header,
@@ -71,21 +77,21 @@ init(StandardAdServerArguments & ssConfig)
                         const std::string & jsonStr) {
         this->handleWinRq(header, json, jsonStr);
     };
-    registerEndpoint(ssConfig.winPort, onWinRq);
+    registerEndpoint(winsPort, onWinRq);
 
     auto onDeliveryRq = [=] (const HttpHeader & header,
                         const Json::Value & json,
                         const std::string & jsonStr) {
         this->handleDeliveryRq(header, json, jsonStr);
     };
-    registerEndpoint(ssConfig.eventsPort, onDeliveryRq);
+    registerEndpoint(eventsPort, onDeliveryRq);
 
     auto onExternalWinRq = [=] (const HttpHeader & header,
                         const Json::Value & json,
                         const std::string & jsonStr) {
         this->handleExternalWinRq(header, json, jsonStr);
     };
-    registerEndpoint(ssConfig.externalWinPort, onExternalWinRq);
+    registerEndpoint(externalPort, onExternalWinRq);
 
     HttpAdServerConnector::init(services->config);
     publisher_.init(services->config, serviceName_ + "/logger");
