@@ -36,7 +36,7 @@ struct ExchangeSource {
 };
 
 struct BidSource : public ExchangeSource {
-    BidSource(int port, int id = 0) :
+    BidSource(int port = 0, int id = 0) :
         ExchangeSource(port), id(id * port), key(0) {
     }
 
@@ -48,6 +48,9 @@ struct BidSource : public ExchangeSource {
     std::pair<bool, std::vector<Bid>> recvBid();
 
     BidRequest makeBidRequest();
+
+    virtual void generateRandomBidRequest() {
+    }
 
     long long id;
     long long key;

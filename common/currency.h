@@ -106,6 +106,12 @@ struct Amount {
         return result;
     }
 
+    Amount operator * (double factor) const
+    {
+        double result = static_cast<double>(value) * factor;
+        return Amount(currencyCode, static_cast<int64_t>(result));
+    }
+
     bool currencyIsCompatible(const Amount & other) const
     {
         if (currencyCode == other.currencyCode) return true;

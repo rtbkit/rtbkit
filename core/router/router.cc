@@ -1842,6 +1842,9 @@ doBid(const std::vector<std::string> & message)
             continue;
         }
 
+	recordCount(bid.price.value, "cummulatedBidPrice");
+	recordCount(price.value, "cummulatedAuthorizedPrice");
+
         doProfileEvent(6, "banker");
 
         if (doDebug)

@@ -18,17 +18,19 @@ using namespace RTBKIT;
 ExchangeSource::ExchangeSource(int port) :
     addr(0), fd(-1)
 {
-    addrinfo hint = { 0, AF_INET, SOCK_STREAM, 0, 0, 0, 0, 0 };
+    if(port) {
+        addrinfo hint = { 0, AF_INET, SOCK_STREAM, 0, 0, 0, 0, 0 };
 
-    int res = getaddrinfo(0, to_string(port).c_str(), &hint, &addr);
-    ExcCheckErrno(!res, "getaddrinfo failed");
+        int res = getaddrinfo(0, to_string(port).c_str(), &hint, &addr);
+        ExcCheckErrno(!res, "getaddrinfo failed");
 
-    if(!addr) {
-        throw ML::Exception("cannot find suitable address");
+        if(!addr) {
+            throw ML::Exception("cannot find suitable address");
+        }
+
+        std::cerr << "publishing on port " << port << std::endl;
+        connect();
     }
-
-    std::cerr << "publishing on port " << port << std::endl;
-    connect();
 }
 
 

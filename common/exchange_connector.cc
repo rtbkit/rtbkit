@@ -68,6 +68,13 @@ getWinCostModel(Auction const & auction,
     return WinCostModel();
 }
 
+std::shared_ptr<BidSource>
+ExchangeConnector::
+getBidSource() const
+{
+    return 0;
+}
+
 ExchangeConnector::ExchangeCompatibility
 ExchangeConnector::
 getCampaignCompatibility(const AgentConfig & config,

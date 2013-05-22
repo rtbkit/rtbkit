@@ -53,13 +53,14 @@ void
 HttpExchangeConnector::
 postConstructorInit()
 {
-    numThreads = 8;
+    numThreads = 2;
     realTimePriority = -1;
-    listenPort = 10001;
     bindHost = "*";
     performNameLookup = true;
     backlog = DEF_BACKLOG;
     pingTimeUnknownHostsMs = 20;
+    auctionVerb = "POST";
+    auctionResource = "/";
 
     numServingRequest_ = 0;
     acceptAuctionProbability = 1.0;

@@ -16,6 +16,7 @@ namespace RTBKIT {
 
 class AgentConfig;
 class Creative;
+class BidSource;
 
 /*****************************************************************************/
 /* EXCHANGE CONNECTOR                                                        */
@@ -96,6 +97,10 @@ struct ExchangeConnector: public ServiceBase {
     */
     virtual WinCostModel getWinCostModel(Auction const & auction,
                                          AgentConfig const & agent);
+
+    /** Return a bid source
+    */
+    virtual std::shared_ptr<BidSource> getBidSource() const;
 
     /*************************************************************************/
     /* EXCHANGE COMPATIBILITY                                                */
@@ -302,6 +307,15 @@ struct ExchangeConnector: public ServiceBase {
     
     /** Register the given exchange factory. */
     static void registerFactory(const std::string & exchange, Factory factory);
+
+    /** Register the given exchange factory. */
+    template<typename T>
+    static void registerFactory() {
+        registerFactory(T::exchangeNameString(), [](ServiceBase * owner,
+                                                    std::string const & name) {
+            return new T(*owner, name);
+        });
+    }
 
     /** Create a new exchange connector from a factory. */
     static std::unique_ptr<ExchangeConnector>

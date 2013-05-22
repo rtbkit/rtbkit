@@ -25,8 +25,12 @@ struct OpenRTBExchangeConnector : public HttpExchangeConnector {
     OpenRTBExchangeConnector(const std::string & name,
                              std::shared_ptr<ServiceProxies> proxies);
 
-    virtual std::string exchangeName() const {
+    static std::string exchangeNameString() {
         return "openrtb";
+    }
+
+    virtual std::string exchangeName() const {
+        return exchangeNameString();
     }
 
     virtual std::shared_ptr<BidRequest>
@@ -53,6 +57,8 @@ struct OpenRTBExchangeConnector : public HttpExchangeConnector {
     getErrorResponse(const HttpAuctionHandler & connection,
                      const Auction & auction,
                      const std::string & errorMessage) const;
+
+    virtual std::shared_ptr<BidSource> getBidSource() const;
 
 private:
     virtual void setSeatBid(Auction const & auction,

@@ -164,6 +164,21 @@ struct TestAgent : public RTBKIT::BiddingAgent {
         __sync_fetch_and_add(&numBidRequests, 1);
     }
 
+    void bidWithFixedAmount(Amount amount) {
+        onBidRequest = [&] (double timestamp,
+                            const Id & id,
+                            std::shared_ptr<BidRequest> br,
+                            Bids bids,
+                            double timeLeftMs,
+                            const Json::Value & augmentations,
+                            const WinCostModel & wcm)
+        {
+            Bid & bid = bids[0];
+            bid.bid(bid.availableCreatives[0], amount);
+            doBid(id, bids, Json::Value(), wcm);
+        };
+    }
+
     void recordBid(const Id & id)
     {
         Guard guard(lock);

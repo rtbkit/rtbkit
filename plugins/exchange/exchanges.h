@@ -14,25 +14,10 @@ namespace {
     using namespace RTBKIT;
 
     struct Init {
-        static ExchangeConnector * createMockExchange(ServiceBase * owner,
-                                                      std::string const & name) {
-            return new MockExchangeConnector(*owner, name);
-        }
-
-        static ExchangeConnector * createRubiconExchange(ServiceBase * owner,
-                                                         std::string const & name) {
-            return new RubiconExchangeConnector(*owner, name);
-        }
-
-        static ExchangeConnector * createOpenRTBExchange(ServiceBase * owner,
-                                                         std::string const & name) {
-            return new OpenRTBExchangeConnector(*owner, name);
-        }
-
         Init() {
-            ExchangeConnector::registerFactory("mock", createMockExchange);
-            ExchangeConnector::registerFactory("rubicon", createRubiconExchange);
-            ExchangeConnector::registerFactory("openrtb", createOpenRTBExchange);
+            ExchangeConnector::registerFactory<MockExchangeConnector>();
+            ExchangeConnector::registerFactory<RubiconExchangeConnector>();
+            ExchangeConnector::registerFactory<OpenRTBExchangeConnector>();
         }
     } init;
 }

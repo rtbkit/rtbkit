@@ -27,9 +27,12 @@ struct RubiconExchangeConnector: public HttpExchangeConnector {
     RubiconExchangeConnector(const std::string & name,
                              std::shared_ptr<ServiceProxies> proxies);
 
-    virtual std::string exchangeName() const
-    {
+    static std::string exchangeNameString() {
         return "rubicon";
+    }
+
+    virtual std::string exchangeName() const {
+        return exchangeNameString();
     }
 
     virtual std::shared_ptr<BidRequest>

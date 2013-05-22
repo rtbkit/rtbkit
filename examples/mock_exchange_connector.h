@@ -26,8 +26,12 @@ struct MockExchangeConnector : public HttpExchangeConnector {
         this->auctionVerb = "POST";
     }
 
-    std::string exchangeName() const {
+    static std::string exchangeNameString() {
         return "mock";
+    }
+
+    std::string exchangeName() const {
+        return exchangeNameString();
     } 
 
     void configure(Json::Value const & parameters) {
