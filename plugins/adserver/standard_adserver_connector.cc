@@ -30,7 +30,7 @@ makeProgramOptions()
     options.add_options()
         ("win-port,w", value(&winPort), "listening port for wins")
         ("events-port,e", value(&eventsPort), "listening port for events")
-        ("external-win-port,c", value(&externalWinPort),
+        ("external-win-port,x", value(&externalWinPort),
          "listening port for external wins");
     stdOptions.add(options);
 
