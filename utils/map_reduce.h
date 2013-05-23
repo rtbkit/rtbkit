@@ -9,6 +9,7 @@
 #ifndef __utils__map_reduce_h__
 #define __utils__map_reduce_h__
 
+#include <utility>
 #include "worker_task.h"
 
 namespace ML {
@@ -176,7 +177,7 @@ parallelMapInOrderReduceInEqualWorkChunks
             ++i;
         }
 
-        chunks.push_back(make_pair(lastEndIt, curr));
+        chunks.push_back(std::make_pair(lastEndIt, curr));
         lastEndIt = curr;
         lastEndN = i;
     }
