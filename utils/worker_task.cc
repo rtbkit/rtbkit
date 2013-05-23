@@ -606,6 +606,12 @@ bool Worker_Task::in_group(const Job_Info & info, int group)
 Worker_Task::Job_Info Worker_Task::get_job(int group)
 {
     /* Block until we can acquire a semaphore to have jobs. */
+    for (unsigned i = 0;  i < 100;  ++i) {
+        if (jobs_sem.tryacquire() == 0) {
+            return get_job_impl(group);
+        }
+        ACE_OS::thr_yield();
+    }
     jobs_sem.acquire();
 
     return get_job_impl(group);
@@ -626,8 +632,17 @@ Worker_Task::Job_Info Worker_Task::get_job_impl(int group)
     //     << endl;
     if (force_finished) return Job_Info();
 
+    for (unsigned i = 0;  i < 100;  ++i) {
+        Guard guard(lock, std::try_to_lock);
+        if (guard)
+            return get_job_impl_ul(group);
+        ACE_OS::thr_yield();
+    }
 
     Guard guard(lock);
+
+    //static int numJobs = 0;
+    //cerr << "getting job " << ++numJobs << endl;
 
     return get_job_impl_ul(group);
 }
@@ -693,7 +708,16 @@ Worker_Task::Job_Info Worker_Task::get_job_impl_ul(int group)
 
 void Worker_Task::finish_job(const Job_Info & info)
 {
-    Guard guard(lock);
+    Guard guard(lock, std::defer_lock);
+
+    for (unsigned i = 0;  i < 100;  ++i) {
+        guard.try_lock();
+        if (guard) break;
+    }
+
+    if (!guard)
+        guard.lock();
+
     --num_running;
     
     /* Finish off the group if we need to. */

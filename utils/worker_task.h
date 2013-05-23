@@ -11,6 +11,7 @@
 
 #include "jml/utils/guard.h"
 #include "jml/arch/format.h"
+#include "jml/arch/spinlock.h"
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <ace/Synch.h>
@@ -319,6 +320,7 @@ private:
     void force_finish_group(Group_Info & group_info, int group);
 
     typedef std::mutex Lock;
+    //typedef Spinlock Lock;
     typedef std::unique_lock<Lock> Guard;
 
     Semaphore jobs_sem, finished_sem, state_change_sem, shutdown_sem;
