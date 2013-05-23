@@ -13,6 +13,11 @@ namespace Datacratic{
 
 /**
  * KvpLogger are key-value-pair loggers
+ * Mix of patterns:
+ * - Provides a factory to instanciate a logger
+ * - Provides an interface for metrics loggers
+ * - Provides adaptor functions to avoid defining redundant functions in
+ *   implementations
  */
 class ILoggerMetrics{
     protected:

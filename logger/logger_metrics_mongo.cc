@@ -40,6 +40,7 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
                            << "appName" << appName);
         conn.insert(db + "." + coll, obj);
         objectId = obj["_id"].OID();
+        setenv("METRICS_PARENT_ID", objectId.toString().c_str(), 1);
     };
     doIt(init);
 }
