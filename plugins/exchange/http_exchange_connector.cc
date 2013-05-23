@@ -266,11 +266,9 @@ getResponse(const HttpAuctionHandler & connection,
 HttpResponse
 HttpExchangeConnector::
 getDroppedAuctionResponse(const HttpAuctionHandler & connection,
-                          const Auction & auction,
                           const std::string & reason) const
 {
-    // Default for when dropped auction == no bid
-    return getResponse(connection, connection.header, auction);
+    return HttpResponse(204, "none", "");
 }
 
 HttpResponse

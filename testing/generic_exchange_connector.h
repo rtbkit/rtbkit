@@ -63,7 +63,6 @@ struct GenericExchangeConnector
 
     virtual HttpResponse
     getDroppedAuctionResponse(const HttpAuctionHandler & connection,
-                              const RTBKIT::Auction & auction,
                               const std::string & reason) const;
 
     virtual HttpResponse

@@ -167,7 +167,6 @@ struct HttpExchangeConnector
     */
     virtual HttpResponse
     getDroppedAuctionResponse(const HttpAuctionHandler & connection,
-                              const Auction & auction,
                               const std::string & reason) const;
 
     /** Return a stringified JSON of the response for our auction.  Default

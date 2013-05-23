@@ -559,7 +559,7 @@ dropAuction(const std::string & reason)
             }
         };
 
-    putResponseOnWire(endpoint->getDroppedAuctionResponse(*this, *auction, reason),
+    putResponseOnWire(endpoint->getDroppedAuctionResponse(*this, reason),
                       onSendFinished);
 }
 

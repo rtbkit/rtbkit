@@ -166,7 +166,6 @@ getResponse(const HttpAuctionHandler & connection,
 HttpResponse
 GenericExchangeConnector::
 getDroppedAuctionResponse(const HttpAuctionHandler & connection,
-                          const Auction & auction,
                           const std::string & reason) const
 {
     Json::Value response;

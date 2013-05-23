@@ -243,7 +243,6 @@ getResponse(const HttpAuctionHandler & connection,
 HttpResponse
 RubiconExchangeConnector::
 getDroppedAuctionResponse(const HttpAuctionHandler & connection,
-                          const Auction & auction,
                           const std::string & reason) const
 {
     return HttpResponse(204, "application/json", "{}");

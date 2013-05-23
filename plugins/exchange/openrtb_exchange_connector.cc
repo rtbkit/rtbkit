@@ -190,7 +190,6 @@ getResponse(const HttpAuctionHandler & connection,
 HttpResponse
 OpenRTBExchangeConnector::
 getDroppedAuctionResponse(const HttpAuctionHandler & connection,
-                          const Auction & auction,
                           const std::string & reason) const
 {
     return HttpResponse(204, "application/json", "{}");
