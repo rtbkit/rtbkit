@@ -10,16 +10,12 @@ class LoggerMetricsMongo : public ILoggerMetrics{
                            const std::string& coll,
                            const std::string& appName);
 
-    private:
+    protected:
         const std::string coll;
-        bool failSafe;
         mongo::OID objectId;
         std::string db;
         mongo::DBClientConnection conn;
-        void doIt(std::function<void()>& fct);
         void logInCategory(const std::string&, Json::Value&);
-        void logInCategory(const std::string&, const mongo::BSONObj&);
-
         void logInCategory(const std::string& category,
                            const std::vector<std::string>& path,
                            const NumOrStr& val);

@@ -1,5 +1,6 @@
 #include "soa/logger/logger_metrics_interface.h"
 #include "soa/logger/logger_metrics_mongo.h"
+#include "soa/logger/logger_metrics_void.h"
 #include "soa/jsoncpp/reader.h"
 
 namespace Datacratic{
@@ -44,7 +45,8 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
                 fct(); 
             }catch(const exception& exc){
                 cerr << "Logger fail safe caught: " << exc.what() << endl;
-                //TODO logger = void logger 
+                logger = shared_ptr<ILoggerMetrics>(
+                    new LoggerMetricsVoid(config, coll, appName));
             }
         }else{
             fct();

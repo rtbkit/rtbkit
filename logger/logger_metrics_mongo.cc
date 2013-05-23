@@ -8,41 +8,26 @@ namespace Datacratic{
 using namespace std;
 using namespace mongo;
 
-void LoggerMetricsMongo::doIt(function<void()>& fct){
-    if(failSafe){
-        try{
-            fct();
-        }catch(const exception& e){
-            cerr << e.what() << endl;
-        }
-    }else{
-        fct();
-    } 
-}
-
 LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
     const string& coll, const string& appName) : coll(coll)
 {
-    function<void()> init = [&] (){
-        HostAndPort hostAndPort(config["hostAndPort"].asString());
-        conn.connect(hostAndPort);
-        string err;
-        db = config["database"].asString();
-        if(!conn.auth(db, config["user"].asString(),
-                      config["pwd"].asString(), err))
-        {
-            throw ML::Exception(
-                "MongoDB connection failed with msg [%s]", err.c_str());
-        }
-        string now = Date::now().printClassic();
-        BSONObj obj = BSON(GENOID 
-                           << "startTime" << now 
-                           << "appName" << appName);
-        conn.insert(db + "." + coll, obj);
-        objectId = obj["_id"].OID();
-        setenv("METRICS_PARENT_ID", objectId.toString().c_str(), 1);
-    };
-    doIt(init);
+    HostAndPort hostAndPort(config["hostAndPort"].asString());
+    conn.connect(hostAndPort);
+    string err;
+    db = config["database"].asString();
+    if(!conn.auth(db, config["user"].asString(),
+                  config["pwd"].asString(), err))
+    {
+        throw ML::Exception(
+            "MongoDB connection failed with msg [%s]", err.c_str());
+    }
+    string now = Date::now().printClassic();
+    BSONObj obj = BSON(GENOID 
+                       << "startTime" << now 
+                       << "appName" << appName);
+    conn.insert(db + "." + coll, obj);
+    objectId = obj["_id"].OID();
+    setenv("METRICS_PARENT_ID", objectId.toString().c_str(), 1);
 }
 
 void LoggerMetricsMongo::logInCategory(const string& category,
@@ -84,15 +69,6 @@ void LoggerMetricsMongo::logInCategory(const string& category,
                 BSON("$set" << bson.obj()),
                     true);
 
-}
-
-void LoggerMetricsMongo
-::logInCategory(const std::string& category, const mongo::BSONObj& obj){
-    conn.update(db + "." + coll,
-                BSON("_id" << objectId),
-                BSON("$set" 
-                    << BSON(category << obj)),
-                true);
 }
 
 void LoggerMetricsMongo
