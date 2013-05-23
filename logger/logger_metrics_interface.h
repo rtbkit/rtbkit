@@ -25,8 +25,8 @@ class ILoggerMetrics{
         static bool failSafe;
 
     protected:
-        typedef boost::variant<int, float, double> Numeric;
-        typedef boost::variant<int, float, double, std::string> NumOrStr;
+        typedef boost::variant<int, float, double, size_t> Numeric;
+        typedef boost::variant<int, float, double, size_t, std::string> NumOrStr;
 
         std::string collection;
         static std::string parentObjectId;
