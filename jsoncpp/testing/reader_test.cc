@@ -91,6 +91,6 @@ BOOST_AUTO_TEST_CASE( test_iterators )
 
 BOOST_AUTO_TEST_CASE( test_from_file )
 {
-    Json::Value json = Json::parseFromFile("jsoncpp/testing/fixtures/somejson.json");
+    Json::Value json = Json::parseFromFile("soa/jsoncpp/testing/fixtures/somejson.json");
     BOOST_CHECK_EQUAL(json["octo"], "sanchez");
 }
