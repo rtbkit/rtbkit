@@ -44,33 +44,56 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
     doIt(init);
 }
 
-void LoggerMetricsMongo::logMetrics(Json::Value& json){
-    logInCategory("metrics", json);
-}
-
-void LoggerMetricsMongo::logProcess(Json::Value& json){
-    logInCategory("process", json);
-}
-
-void LoggerMetricsMongo::logMeta(Json::Value& json){
-    logInCategory("meta", json);
-}
-
 mongo::BSONObj LoggerMetricsMongo::_fromJson(const Json::Value& json){
     string jsonStr = json.toString();
     if(*jsonStr.rbegin() == '\n'){
         jsonStr = jsonStr.substr(0, jsonStr.length() - 1);
     }
+    cerr << jsonStr << endl;
     return fromjson(jsonStr);
 }
 
 void LoggerMetricsMongo::logInCategory(const string& category,
     Json::Value& json)
 {
+conn.update(db + "." + coll,
+            BSON("_id" << objectId),
+            BSON("$set" 
+                << BSON(category << _fromJson(json))),
+                true);
+
+}
+
+void LoggerMetricsMongo
+::logInCategory(const std::string& category, const mongo::BSONObj& obj){
     conn.update(db + "." + coll,
                 BSON("_id" << objectId),
                 BSON("$set" 
-                    << BSON(category << _fromJson(json))));
-
+                    << BSON(category << obj)),
+                true);
 }
+
+void LoggerMetricsMongo
+::logInCategory(const std::string& category,
+              const std::vector<std::string>& path,
+              const NumOrStr& val)
+{
+    if(path.size() == 0){
+        throw new ML::Exception(
+            "You need to specify a path where to log the value");
+    }
+    stringstream ss;
+    ss << val;
+    stringstream newCat;
+    newCat << category;
+    for(string part: path){
+        newCat << "." << part;
+    }
+    conn.update(db + "." + coll,
+                BSON("_id" << objectId),
+                BSON("$set" 
+                    << BSON(newCat.str() << ss.str())),
+                true);
+}
+
 }//namespace Datacratic

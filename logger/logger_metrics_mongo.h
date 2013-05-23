@@ -9,9 +9,6 @@ class LoggerMetricsMongo : public ILoggerMetrics{
         LoggerMetricsMongo(Json::Value config,
                            const std::string& coll,
                            const std::string& appName);
-        void logMetrics(Json::Value&);
-        void logProcess(Json::Value&);
-        void logMeta(Json::Value&);
 
     private:
         const std::string coll;
@@ -22,5 +19,10 @@ class LoggerMetricsMongo : public ILoggerMetrics{
         void doIt(std::function<void()>& fct);
         static mongo::BSONObj _fromJson(const Json::Value&);
         void logInCategory(const std::string&, Json::Value&);
+        void logInCategory(const std::string&, const mongo::BSONObj&);
+
+        void logInCategory(const std::string& category,
+                           const std::vector<std::string>& path,
+                           const NumOrStr& val);
 };
 }//namespace Datacratic

@@ -9,8 +9,12 @@ std::mutex m;
 string ILoggerMetrics::parentObjectId = "";
 bool mustSetup = true;
 shared_ptr<ILoggerMetrics> logger;
+const string ILoggerMetrics::METRICS = "metrics";
+const string ILoggerMetrics::PROCESS = "process";
+const string ILoggerMetrics::META = "meta";
 
-void ILoggerMetrics::setup(const string& configKey, const string& coll,
+shared_ptr<ILoggerMetrics> ILoggerMetrics
+::setup(const string& configKey, const string& coll,
     const string& appName)
 {
     std::lock_guard<std::mutex> lock(m);
@@ -34,6 +38,7 @@ void ILoggerMetrics::setup(const string& configKey, const string& coll,
     }else{
         throw ML::Exception("Cannot setup more than once");
     }
+    return logger;
 }
 
 shared_ptr<ILoggerMetrics> ILoggerMetrics
@@ -42,5 +47,10 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
         throw ML::Exception("Cannot get singleton within calling setup first");
     }
     return logger;
+}
+
+void ILoggerMetrics::logMetrics(Json::Value& json){
+    //TODO: validate all values are numeric
+    logInCategory(METRICS, json);
 }
 }
