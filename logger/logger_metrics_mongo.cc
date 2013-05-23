@@ -58,14 +58,22 @@ void LoggerMetricsMongo::logInCategory(const string& category,
                 doit(v[it.memberName()]);
                 stack.pop_back();
             }else{
+                Json::Value current = v[it.memberName()];
                 stringstream key;
                 key << category;
                 for(string s: stack){
                     key << "." << s;
                 }
                 key << "." << it.memberName();
-                string value = v[it.memberName()].toString();
-                bson.append(key.str(), value.substr(1, value.length() - 3));
+                string value = current.toString();
+                if(current.isInt() || current.isUInt() || current.isDouble()
+                    || current.isNumeric())
+                {
+                    value = value.substr(0, value.length() - 1); 
+                }else{
+                    value = value.substr(1, value.length() - 3); 
+                }
+                bson.append(key.str(), value);
             }
         }
     };
