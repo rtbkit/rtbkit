@@ -525,7 +525,9 @@ struct ShadowAccount {
         Amount amountUnspent = amountAuthorized - amountPaid;
         balance += amountUnspent;
         commitmentsRetired += amountAuthorized;
+	commitmentsRetired += Amount(CurrencyCode::CC_IMP, 1.0);
         spent += amountPaid;
+	spent += Amount(CurrencyCode::CC_IMP, 1.0);
         this->lineItems += lineItems;
         checkInvariants();
     }

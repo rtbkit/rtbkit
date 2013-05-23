@@ -135,7 +135,11 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
     auto summ = slave.getAccountSummarySync({"hello", "world"}, 1 /* depth */);
     cerr << "after initial spend was recorded" << endl;
     cerr << summ << endl;
-    BOOST_CHECK_EQUAL(summ.spent, USD(1));
+
+    CurrencyPool total = USD(1);
+    total += Amount(CurrencyCode::CC_IMP, 1);
+
+    BOOST_CHECK_EQUAL(summ.spent, total);
 
     // Now asynchronously start up and record another dollar of spend
     {
@@ -170,7 +174,10 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
     
     cerr << summ << endl;
 
-    BOOST_CHECK_EQUAL(summ.spent, USD(3));
+    total += USD(2);
+    total += Amount(CurrencyCode::CC_IMP, 1);
+
+    BOOST_CHECK_EQUAL(summ.spent, total);
 }
 #endif
 

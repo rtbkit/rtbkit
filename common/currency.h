@@ -20,7 +20,8 @@ namespace RTBKIT {
 
 enum class CurrencyCode : std::uint32_t {
     CC_NONE = 'N' << 24 | 'O' << 16 | 'N' << 8 | 'E',
-    CC_USD = 'U' << 24 | 'S' << 16 | 'D' << 8  | 0      // micro dollars
+    CC_USD  = 'U' << 24 | 'S' << 16 | 'D' << 8,       // micro dollars
+    CC_IMP  = 'I' << 24 | 'M' << 16 | 'P' << 8
 };
 
 std::string toString(CurrencyCode code);

@@ -89,6 +89,7 @@ getCurrencyStr(CurrencyCode currencyCode)
     switch (currencyCode) {
     case CurrencyCode::CC_NONE: return "NONE";
     case CurrencyCode::CC_USD:  return "USD/1M";
+    case CurrencyCode::CC_IMP:  return "IMP";
     default:
         throw ML::Exception("unknown currency code %d", (uint32_t)currencyCode);
     }
@@ -172,6 +173,8 @@ parseCurrency(const std::string & currency)
         return CurrencyCode::CC_NONE;
     else if (currency == "USD/1M")
         return CurrencyCode::CC_USD;
+    else if (currency == "IMP")
+        return CurrencyCode::CC_IMP;
     else throw ML::Exception("unknown currency code " + currency);
 }
 
