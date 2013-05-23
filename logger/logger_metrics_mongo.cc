@@ -45,23 +45,36 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
     doIt(init);
 }
 
-mongo::BSONObj LoggerMetricsMongo::_fromJson(const Json::Value& json){
-    string jsonStr = json.toString();
-    if(*jsonStr.rbegin() == '\n'){
-        jsonStr = jsonStr.substr(0, jsonStr.length() - 1);
-    }
-    cerr << jsonStr << endl;
-    return fromjson(jsonStr);
-}
-
 void LoggerMetricsMongo::logInCategory(const string& category,
     Json::Value& json)
 {
-conn.update(db + "." + coll,
-            BSON("_id" << objectId),
-            BSON("$set" 
-                << BSON(category << _fromJson(json))),
-                true);
+    BSONObjBuilder bson;
+    vector<string> stack;
+    function<void(const Json::Value&)> doit;
+    doit = [&](const Json::Value& v){
+        for(auto it = v.begin(); it != v.end(); ++it){
+            if(v[it.memberName()].isObject()){
+                stack.push_back(it.memberName());
+                doit(v[it.memberName()]);
+                stack.pop_back();
+            }else{
+                stringstream key;
+                key << category;
+                for(string s: stack){
+                    key << "." << s;
+                }
+                key << "." << it.memberName();
+                string value = v[it.memberName()].toString();
+                bson.append(key.str(), value.substr(1, value.length() - 3));
+            }
+        }
+    };
+    doit(json);
+
+    conn.update(db + "." + coll,
+                BSON("_id" << objectId),
+                BSON("$set" << bson.obj()),
+                    true);
 
 }
 

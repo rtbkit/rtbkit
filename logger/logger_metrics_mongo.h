@@ -17,7 +17,6 @@ class LoggerMetricsMongo : public ILoggerMetrics{
         std::string db;
         mongo::DBClientConnection conn;
         void doIt(std::function<void()>& fct);
-        static mongo::BSONObj _fromJson(const Json::Value&);
         void logInCategory(const std::string&, Json::Value&);
         void logInCategory(const std::string&, const mongo::BSONObj&);
 
