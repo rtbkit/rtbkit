@@ -35,7 +35,6 @@ CloudSink::
 open(const std::string & uri, bool append, bool disambiguate)
 {
 
-    cerr <<"CloudSink::open: with uri " <<uri << endl;
     cloudStream.close();
     cloudStream.open(uri, std::ios_base::out |
                           (append ? std::ios_base::app : std::ios::openmode()));
@@ -45,7 +44,7 @@ open(const std::string & uri, bool append, bool disambiguate)
     // but in a different directory. uri format is s3://
     fs::path backupPath(backupDir_);
     fs::path filePath(backupPath / uri.substr(5));
-    cerr << "The file path uri is " << filePath.string() << endl;
+//    cerr << "The file path uri is " << filePath.string() << endl;
     // Get the path and create the directories
     fs::create_directories(filePath.parent_path());
     // create the local file and directory
@@ -60,7 +59,7 @@ close()
    cloudStream.close();
    fileStream.close();
    fs::path filePath(backupDir_ + currentUri_.substr(5));
-   cerr << "Erasing local file " << filePath.string() << endl;
+   cerr << "Erasing local backup file " << filePath.string() << endl;
    fs::remove(filePath);
 }
 
@@ -90,18 +89,18 @@ CloudOutput::getFilesToUpload()
     {
         fs::path curDir = allDirs.back();
         allDirs.pop_back();
-        cerr <<"current directory = " << curDir.string() << endl;
+//        cerr <<"current directory = " << curDir.string() << endl;
         for (fs::directory_iterator it = fs::directory_iterator(curDir);
              it != fs::directory_iterator(); ++it)
         {
             if(fs::is_directory(*it))
             {
-                cerr << "Found directory " <<  it->path().string() << endl;
+                //cerr << "Found directory " <<  it->path().string() << endl;
                 allDirs.push_back(it->path());
             }
             else
             {
-                cerr << "found a file " << it->path().string() << endl;
+//                cerr << "found a file " << it->path().string() << endl;
                 filesToUpload.push_back(it->path());
             }
         }
@@ -240,7 +239,6 @@ createFile(const string & filename)
         { if (this->onPostFileClose) this->onPostFileClose(fn); };
     result->onFileWrite = [=] (const string& channel, const std::size_t bytes)
     { if (this->onFileWrite) this->onFileWrite(channel, bytes); };
-    cerr <<"opening cloud output with compression " << compression << endl;
     result->open(filename, compression, level);
     return result.release();
 }
