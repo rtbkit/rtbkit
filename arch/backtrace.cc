@@ -144,6 +144,8 @@ std::vector<BacktraceFrame> backtrace(int num_to_skip)
         for (unsigned i = num_to_skip;  i < size;  ++i)
             result.push_back(BacktraceFrame(i, array[i]));
     }
+
+    free(symbols);
     
     return result;
 }
