@@ -67,7 +67,38 @@ BOOST_AUTO_TEST_CASE( test_goog64_id )
     checkSerializeReconstitute(id);
 }
 
-BOOST_AUTO_TEST_CASE( test_bigdec_id )
+BOOST_AUTO_TEST_CASE( test_int64dec_id )
+{
+    /* "9223372036854775807" is INT64_MAX, but we cheat at parse time by
+       considering "999999999999999999" as LONG LONG but anything higher as
+       BIGINT */
+
+    string s = "999999999999999999";
+    Id id(s);
+    BOOST_CHECK_EQUAL(id.type, Id::INT64DEC);
+    BOOST_CHECK_EQUAL(id.toString(), s);
+    checkSerializeReconstitute(id);
+}
+
+BOOST_AUTO_TEST_CASE( test_not_int64dec_but_bigdec_id )
+{
+    string s = "1999999999999999999";
+    Id id(s);
+    BOOST_CHECK_EQUAL(id.type, Id::BIGDEC);
+    BOOST_CHECK_EQUAL(id.toString(), s);
+}
+
+
+BOOST_AUTO_TEST_CASE( test_int64dec_false_positive )
+{
+    string s = "039406091425759590";
+    Id id(s);
+    BOOST_CHECK_EQUAL(id.type, Id::STR);
+    BOOST_CHECK_EQUAL(id.toString(), s);
+    checkSerializeReconstitute(id);
+}
+
+BOOST_AUTO_TEST_CASE( test_bigdec_id1 )
 {
     string s = "7394206091425759590";
     Id id(s);
@@ -78,7 +109,7 @@ BOOST_AUTO_TEST_CASE( test_bigdec_id )
 
 BOOST_AUTO_TEST_CASE( test_bigdec_id2 )
 {
-    string s = "394206091425759590";
+    string s = "1394206091425759590";
     Id id(s);
     BOOST_CHECK_EQUAL(id.type, Id::BIGDEC);
     BOOST_CHECK_EQUAL(id.toString(), s);
@@ -87,7 +118,7 @@ BOOST_AUTO_TEST_CASE( test_bigdec_id2 )
 
 BOOST_AUTO_TEST_CASE( test_bigdec_false_positive1 )
 {
-    string s = "0394206091425759590";
+    string s = "01394206091425759590";
     Id id(s);
     BOOST_CHECK_EQUAL(id.type, Id::STR);
     BOOST_CHECK_EQUAL(id.toString(), s);
