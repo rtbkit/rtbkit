@@ -239,7 +239,7 @@ parse(const std::string & value, Type type)
         if (!error) {
             if (value.size() < max64_base10_len) {
                 if (type == UNKNOWN) {
-                    type == INT64DEC;
+                    type = INT64DEC;
                 }
                 r.type = type;
                 r.val1 = res64;
