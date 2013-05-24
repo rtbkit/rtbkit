@@ -98,6 +98,20 @@ BOOST_AUTO_TEST_CASE( test_int64dec_false_positive )
     checkSerializeReconstitute(id);
 }
 
+/* ensure that .hash returns the same value whether the integer is stored as a
+ * BIGDEC and an INT64DEC */
+BOOST_AUTO_TEST_CASE( test_decint_hash )
+{
+    Id id1, id2;
+
+    id1.type = Id::BIGDEC;
+    id1.val = 123456;
+    id2.type = Id::INT64DEC;
+    id2.val1 = 123456;
+
+    BOOST_CHECK_EQUAL(id1.hash(), id2.hash());
+}
+
 BOOST_AUTO_TEST_CASE( test_bigdec_id1 )
 {
     string s = "7394206091425759590";
