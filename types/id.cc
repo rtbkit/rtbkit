@@ -248,6 +248,11 @@ parse(const std::string & value, Type type)
                 return;
             }
 
+            if (type == INT64DEC) {
+                throw ML::Exception("the value specified exceeds the size"
+                                    " limit allowed for INT64DEC");
+            }
+
             __uint128_t res128 = res64;
             for (unsigned i = maxLowLen;  i < value.size();  ++i) {
                 if (!isdigit(value[i])) {

@@ -102,14 +102,26 @@ BOOST_AUTO_TEST_CASE( test_int64dec_false_positive )
  * BIGDEC and an INT64DEC */
 BOOST_AUTO_TEST_CASE( test_decint_hash )
 {
-    Id id1, id2;
-
-    id1.type = Id::BIGDEC;
-    id1.val = 123456;
-    id2.type = Id::INT64DEC;
-    id2.val1 = 123456;
+    string s = "123456";
+    Id id1(s, Id::BIGDEC), id2(s, Id::INT64DEC);
 
     BOOST_CHECK_EQUAL(id1.hash(), id2.hash());
+}
+
+BOOST_AUTO_TEST_CASE( test_type_respect_for_ints )
+{
+    {
+        /* ensures that the the type stays BIGDEC if declared as such */
+        string s = "12345";
+        Id id(s, Id::BIGDEC);
+        BOOST_CHECK_EQUAL(id.type, Id::BIGDEC);
+    }
+
+    {
+        /* ensures that the the we throw is we don't fit */
+        string s = "123456789012345678901234567890";
+        BOOST_CHECK_THROW(Id id(s, Id::INT64DEC), ML::Exception);
+    }
 }
 
 BOOST_AUTO_TEST_CASE( test_bigdec_id1 )
