@@ -244,6 +244,8 @@ std::ostream & operator << (std::ostream & stream,
 
 struct RestRequestRouter {
 
+    typedef RestServiceEndpoint::ConnectionId ConnectionId;
+
     enum MatchResult {
         MR_NO,     ///< Didn't match but can continue
         MR_YES,    ///< Did match
@@ -328,7 +330,8 @@ struct RestRequestRouter {
     /** Create a generic sub router. */
     RestRequestRouter &
     addSubRouter(PathSpec path, const std::string & description,
-                 ExtractObject extractObject = nullptr);
+                 ExtractObject extractObject = nullptr,
+                 std::shared_ptr<RestRequestRouter> subRouter = nullptr);
 
     /** In the normal case, we don't create an ExtractObject function. */
     static ExtractObject getExtractObject(const void *)
