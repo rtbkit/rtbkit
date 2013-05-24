@@ -53,8 +53,11 @@ struct EventService {
     virtual void dump(std::ostream & stream) const
     {
     }
-};
 
+    /** Dump the content
+    */
+    std::map<std::string, double> get(std::ostream & output) const;
+};
 
 /*****************************************************************************/
 /* NULL EVENT SERVICE                                                        */

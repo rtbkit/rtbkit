@@ -5,16 +5,31 @@ vows = require "vows"
 
 logger = require "logger"
 
+# recursive rmdir implementation.
+rm = (path) ->
+    if not fs.statSync(path).isDirectory()
+        fs.chmodSync(path, "0666")
+        fs.unlinkSync(path)
+        return
+
+    fs.chmodSync(path, "0764")
+    content = fs.readdirSync(path)
+    for file in content
+        rm(path + "/" + file)
+    fs.rmdirSync(path)
+
 
 createTestFolder = (name, mode) ->
-    folderPath = "./logtest-#{name}"
+    folderPath = "./build/x86_64/tmp/logger_fs_test/#{name}"
 
-    try fs.rmdirSync(folderPath)
+    try rm(folderPath)
     try fs.mkdirSync(folderPath, mode)
 
     console.log "created ", folderPath
-
     return folderPath
+
+try fs.mkdirSync("./build/x86_64/tmp")
+try fs.mkdirSync("./build/x86_64/tmp/logger_fs_test")
 
 rotFolderAttempts = 0
 rotFileAttempts = 0
@@ -45,9 +60,8 @@ vows.describe('logger_permision_test').export(module).addVows
             assert.throws -> l.rotate(badFolder + logfile)
 
         teardown: ->
-            fs.unlink(goodFolder + logfile)
-            fs.rmdir(goodFolder)
-            fs.rmdir(badFolder)
+            rm(goodFolder)
+            rm(badFolder)
 
 
         # Causes an exception to be thrown in another thread which isn't caught.

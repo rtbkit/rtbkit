@@ -4,7 +4,7 @@
 #include <boost/shared_ptr.hpp>
 #include "jml/arch/exception.h"
 #include <map>
-#include "jsoncpp/json.h"
+#include "soa/jsoncpp/json.h"
 
 namespace Datacratic{
 
@@ -25,7 +25,9 @@ class IKvpLogger{
          * Factory like getter for kvp
          */
         static std::shared_ptr<IKvpLogger>
-            getKvpLogger(const std::string& type, const KvpLoggerParams&);
+            kvpLoggerFactory(const std::string& type, const KvpLoggerParams&);
+        static std::shared_ptr<IKvpLogger>
+            kvpLoggerFactory(const std::string& configKey);
 
         virtual void log(const std::map<std::string, std::string>&, const std::string&) = 0;
         virtual void log(Json::Value&, const std::string&) = 0;

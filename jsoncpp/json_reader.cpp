@@ -140,6 +140,25 @@ Json::Value parse(const std::string &jsonStr)
     }
 }
 
+Json::Value parse(std::istream & ifs)
+{
+    Json::Reader reader;
+    Json::Value result;
+    if(reader.parse(ifs, result))
+    {
+        return result;
+    }
+    std::string msg = "JSON Parsing error: [" +
+        reader.getFormattedErrorMessages() + "]";
+    throw Exception(msg);
+}
+
+Json::Value parseFromFile(const std::string& filename)
+{
+    std::ifstream ifs(filename);
+    return parse(ifs);
+}
+
 // Class Reader
 // //////////////////////////////////////////////////////////////////
 

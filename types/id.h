@@ -53,6 +53,7 @@ struct Id {
         BIGDEC = 4,      /// 7394206091425759590
         BASE64_96 = 5,   /// 16 character base64 string
         HEX128LC = 6,    /// 32 character lowercase hex string
+        INT64DEC = 7,    /// decimal integer that fits in an uint64_t
 
         // other integer-encoded values go here
 

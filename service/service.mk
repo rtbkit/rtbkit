@@ -65,6 +65,7 @@ $(eval $(call library,endpoint,$(LIBENDPOINT_SOURCES),$(LIBENDPOINT_LINK)))
 LIBCLOUD_SOURCES := \
 	sftp.cc \
 	s3.cc \
+	sns.cc
 
 LIBCLOUD_LINK := crypto++ curlpp utils arch types tinyxml2 services ssh2 boost_filesystem
 
@@ -81,6 +82,7 @@ $(eval $(call library,redis,$(LIBREDIS_SOURCES),$(LIBREDIS_LINK)))
 
 
 $(eval $(call program,s3_transfer_cmd,cloud boost_program_options boost_filesystem utils))
+$(eval $(call program,s3cp,cloud boost_program_options utils))
 $(eval $(call program,s3tee,cloud boost_program_options utils))
 
 SERVICEDUMP_LINK = services boost_program_options

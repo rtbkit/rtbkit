@@ -191,6 +191,13 @@ printRfc2616() const
 
 std::string
 Date::
+printIso8601() const
+{
+    return print("%Y-%m-%dT%H:%M:%S.000Z");
+}
+
+std::string
+Date::
 printClassic() const
 {
     return print("%Y-%m-%d %H:%M:%S");
@@ -830,7 +837,7 @@ parse_date_time(const std::string & str,
         context.expect_eof();
     }
     catch (const std::exception & exc) {
-        cerr << "date was " << str << endl;
+        cerr << "Error parsing date string:\n'" << str << "'" << endl;
         throw;
     }
     

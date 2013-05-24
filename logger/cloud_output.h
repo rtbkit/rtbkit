@@ -12,6 +12,7 @@
 #include "jml/arch/timers.h"
 #include "soa/types/date.h"
 #include <boost/thread/recursive_mutex.hpp>
+#include <boost/filesystem.hpp>
 #include "soa/types/periodic_utils.h"
 #include "compressor.h"
 
@@ -26,9 +27,9 @@ namespace Datacratic {
 /** Class that writes to a cloud. */
 
 struct CloudSink : public CompressingOutput::Sink {
-    CloudSink(const std::string & uri = "",
-              bool append = true,
-              bool disambiguate = true);
+    CloudSink(const std::string & uri ,
+              bool append ,
+              bool disambiguate, std::string backupDir);
 
     virtual ~CloudSink();
 
@@ -44,7 +45,7 @@ struct CloudSink : public CompressingOutput::Sink {
 
     /// Uri of cloud we're writing to
     std::string currentUri_;
-    std::string tmpFileDir_;
+    std::string backupDir_;
 
     /// Current stream to the cloud (TM)
     ML::filter_ostream cloudStream;
@@ -77,13 +78,23 @@ struct CloudSink : public CompressingOutput::Sink {
 
 struct CloudOutput : public NamedOutput {
 
-    CloudOutput(const std::string & uri = "",
-               size_t ringBufferSize = 65536);
+    CloudOutput(std::string backupDir, std::string bucket, 
+                std::string accessKeyId, std::string accessKey,
+                size_t ringBufferSize = 65536);
 
     virtual ~CloudOutput();
 
     virtual std::shared_ptr<Sink>
     createSink(const std::string & uri, bool append);
+
+    std::vector<boost::filesystem::path> getFilesToUpload() ;
+    void uploadLocalFiles() ;
+
+    std::string backupDir_;
+    std::string bucket_;
+    std::string accessKeyId_;
+    std::string accessKey_;
+
 };
 
 
@@ -95,7 +106,8 @@ struct CloudOutput : public NamedOutput {
 
 struct RotatingCloudOutput : public RotatingOutputAdaptor {
 
-    RotatingCloudOutput();
+    RotatingCloudOutput(std::string backupDir, std::string bucket, 
+                        std::string accessKeyId, std::string accessKey);
 
     virtual ~RotatingCloudOutput();
 
@@ -122,6 +134,10 @@ private:
 
     std::string compression;
     int level;
+    std::string backupDir_;
+    std::string bucket_;
+    std::string accessKeyId_;
+    std::string accessKey_;
 };
 
 } // namespace Datacratic
