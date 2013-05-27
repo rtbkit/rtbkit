@@ -158,6 +158,7 @@ struct JsonParsingContext {
     virtual bool matchUnsignedLongLong(unsigned long long & val) = 0;
     virtual bool matchLongLong(long long & val) = 0;
     virtual std::string expectStringAscii() = 0;
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen) = 0;
     virtual Utf8String expectStringUtf8() = 0;
     virtual Json::Value expectJson() = 0;
     virtual void expectNull() = 0;
@@ -352,6 +353,11 @@ struct StreamingJsonParsingContext
         return expectJsonStringAscii(*context);
     }
 
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen)
+    {
+        return expectJsonStringAscii(*context, value, maxLen);
+    }
+
     virtual Utf8String expectStringUtf8();
 
     virtual bool isObject() const
@@ -520,6 +526,18 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
         return current->asString();
     }
 
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen)
+    {
+        const std::string & strValue = current->asString();
+        ssize_t realSize = strValue.size();
+        if (realSize >= maxLen) {
+            return -1;
+        }
+        memcpy(value, strValue.c_str(), realSize);
+        value[realSize] = '\0';
+        return realSize;
+    }
+
     virtual Utf8String expectStringUtf8()
     {
         return Utf8String(current->asString());
@@ -672,6 +690,7 @@ void parseJson(Id * output, Context & context)
 {
     using namespace std;
 
+#if 0
     unsigned long long i;
     if (context.matchUnsignedLongLong(i)) {
         cerr << "got unsigned " << i << endl;
@@ -685,9 +704,22 @@ void parseJson(Id * output, Context & context)
         *output = Id(l);
         return;
     }
+#endif
 
-    std::string s = context.expectStringAscii();
-    *output = Id(s);
+#if 1
+    size_t maxSize(1024);
+    char buffer[1024];
+    ssize_t realSize = context.expectStringAscii(buffer, maxSize);
+    if (realSize > 0) {
+        *output = Id(buffer, realSize);
+    }
+    else {
+        throw ML::Exception("not enough room in buffer");
+    }
+#else
+    std::string value = context.expectStringAscii();
+    *output = Id(value);
+#endif
 }
 
 template<typename Context, typename T>
