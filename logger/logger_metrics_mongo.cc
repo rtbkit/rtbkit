@@ -1,5 +1,4 @@
 #include "logger_metrics_mongo.h"
-#include "soa/types/date.h"
 #include "mongo/bson/bson.h"
 #include "mongo/util/net/hostandport.h"
 
@@ -9,7 +8,7 @@ using namespace std;
 using namespace mongo;
 
 LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
-    const string& coll, const string& appName) : coll(coll)
+    const string& coll, const string& appName) : ILoggerMetrics(coll)
 {
     HostAndPort hostAndPort(config["hostAndPort"].asString());
     conn.connect(hostAndPort);
@@ -21,13 +20,9 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
         throw ML::Exception(
             "MongoDB connection failed with msg [%s]", err.c_str());
     }
-    string now = Date::now().printClassic();
-    BSONObj obj = BSON(GENOID 
-                       << "startTime" << now 
-                       << "appName" << appName);
+    BSONObj obj = BSON(GENOID);
     conn.insert(db + "." + coll, obj);
     objectId = obj["_id"].OID();
-    setenv("METRICS_PARENT_ID", objectId.toString().c_str(), 1);
 }
 
 void LoggerMetricsMongo::logInCategory(const string& category,
@@ -68,7 +63,6 @@ void LoggerMetricsMongo::logInCategory(const string& category,
                 BSON("_id" << objectId),
                 BSON("$set" << bson.obj()),
                     true);
-
 }
 
 void LoggerMetricsMongo
@@ -93,5 +87,10 @@ void LoggerMetricsMongo
                     << BSON(newCat.str() << ss.str())),
                 true);
 }
+
+const std::string LoggerMetricsMongo::getProcessId() const{
+    return objectId.toString(); 
+}
+
 
 }//namespace Datacratic

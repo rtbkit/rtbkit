@@ -54,13 +54,47 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
     }else{
         throw ML::Exception("Cannot setup more than once");
     }
+
+    function<string(const char*)> getCmdResult = [](const char* cmd) -> string{
+        FILE* pipe = popen(cmd, "r");
+        if(!pipe){
+            return "ERROR";
+        }
+        char buffer[128];
+        stringstream result;
+        while(!feof(pipe)){
+            if(fgets(buffer, 128, pipe) != NULL){
+                result << buffer;
+            }
+        }
+        pclose(pipe);
+        string res = result.str();
+        return res.substr(0, res.length() - 1);//chop \n
+    };
+
+    string now = Date::now().printClassic();
+    Json::Value v;
+    v["startTime"] = now;
+    v["appName"] = appName;
+    char* metricsParentId = getenv("METRICS_PARENT_ID");
+    v["parent_id"] = string(metricsParentId ?: "");
+    v["user"] = string(getenv("USER"));
+    char hostname[128];
+    int hostnameOk = !gethostname(hostname, 128);
+    v["hostname"] = string(hostnameOk ? hostname : "");
+    v["workingDirectory"] = string(getenv("PWD"));
+    v["gitBranch"] = getCmdResult("git rev-parse --abbrev-ref HEAD");
+    v["gitHash"] = getCmdResult("git rev-parse HEAD");
+    logger->logProcess(v);
+    setenv("METRICS_PARENT_ID", logger->getProcessId().c_str(), 1);
+
     return logger;
 }
 
 shared_ptr<ILoggerMetrics> ILoggerMetrics
 ::getSingleton(){
     if(mustSetup){
-        throw ML::Exception("Cannot get singleton within calling setup first");
+        throw ML::Exception("Cannot get singleton without calling setup first");
     }
     return logger;
 }
@@ -112,4 +146,14 @@ void ILoggerMetrics::failSafeHelper(std::function<void()> fct){
         fct();
     }
 }
+
+void ILoggerMetrics::close(){
+    Json::Value v;
+    Date endDate = Date::now();
+    v["endDate"] = endDate.printClassic();
+    v["duration"] = endDate - startDate;
+    logInCategory(PROCESS, v);
+    logProcess(v);
+}
+
 }
