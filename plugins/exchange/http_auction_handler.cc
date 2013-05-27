@@ -297,6 +297,7 @@ handleHttpPayload(const HttpHeader & header,
     }
 
     doEvent("auctionReceived");
+    doEvent("auctionBodySize", ET_COUNT, payload.size());
 
     incNumServingRequest();
     servingRequest = true;
