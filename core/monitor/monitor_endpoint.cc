@@ -1,7 +1,7 @@
 /* monitor.cc
    Wolfgang Sourdeau, January 2013
    Copyright (c) 2013 Datacratic.  All rights reserved.
-   
+
    Main monitor class
 */
 
@@ -37,13 +37,11 @@ MonitorEndpoint::
 
 void
 MonitorEndpoint::
-init(const vector<string> & providerNames)
+init(const vector<string> & providerClasses)
 {
     addPeriodic("MonitorEndpoint::checkServiceIndicators", 1.0,
-                bind(&MonitorEndpoint::checkServiceIndicators, this),
-                true);
+                [=] (uint64_t) { dump(); });
 
-    providerNames_ = providerNames;
     registerServiceProvider(serviceName_, { "monitor" });
 
     auto config = getServices()->config;
@@ -65,7 +63,7 @@ init(const vector<string> & providerNames)
                        [] (bool status) {
                            Json::Value jsonResponse;
                            jsonResponse["status"] = status ? "ok" : "failure";
-                           
+
                            return jsonResponse;
                        },
                        &MonitorEndpoint::getMonitorStatus,
@@ -86,25 +84,28 @@ init(const vector<string> & providerNames)
         = versionNode.addSubRouter("/services",
                                    "Operations on service states");
 
-    for (string & providerName: providerNames_) {
-        auto providerPost = [&,providerName]
+    providerClasses_ = providerClasses;
+
+    for (const string & providerClass: providerClasses_) {
+
+        auto providerPost = [&,providerClass]
             (const RestServiceEndpoint::ConnectionId & connection,
              const RestRequest & request,
              const RestRequestParsingContext & context) {
-            if (this->postServiceIndicators(providerName, request.payload))
+
+            if (this->postServiceIndicators(providerClass, request.payload))
                 connection.sendResponse(204, "", "application/json");
             else
                 connection.sendResponse(403, "Error", "application/json");
             return RestRequestRouter::MR_YES;
         };
 
-        servicesNode.addRoute("/" + providerName, "POST",
+        servicesNode.addRoute("/" + providerClass, "POST",
                               "service REST url",
                               providerPost, Json::Value());
 
-        auto & providerStatus = providersStatus_[providerName];
-        providerStatus.lastStatus = false;
-        providerStatus.lastCheck = Date::fromSecondsSinceEpoch(0);
+        // Create the entry for our class with empty service list.
+        (void) providersStatus_[providerClass];
     }
 }
 
@@ -118,76 +119,90 @@ bindTcp(const std::string& host)
             host);
 }
 
-void
-MonitorEndpoint::
-checkServiceIndicators()
-    const
-{
-    Date now = Date::now();
-
-    for (const auto & it: providersStatus_) {
-        const MonitorProviderStatus & status = it.second;
-        if (!status.lastStatus) {
-            fprintf (stderr, "%s: status of service '%s' is wrong\n",
-                     now.printClassic().c_str(), it.first.c_str());
-        }
-        if (status.lastCheck.plusSeconds((double) checkTimeout_) <= now) {
-            fprintf (stderr,
-                     "%s: status of service '%s' was last updated at %s\n",
-                     now.printClassic().c_str(), it.first.c_str(),
-                     status.lastCheck.printClassic().c_str());
-        }
-    }
-}
-
 bool
 MonitorEndpoint::
 getMonitorStatus()
     const
 {
-    bool monitorStatus(true);
+    // If any of the classes are sick then the system is considered sick.
+    for (const auto & it : providersStatus_)
+        if (!it.second.getClassStatus(checkTimeout_)) return false;
+
+    return true;
+}
+
+bool
+MonitorEndpoint::ClassStatus::
+getClassStatus(double checkTimeout) const
+{
     Date now = Date::now();
 
-    for (const auto & it: providersStatus_) {
-        const MonitorProviderStatus & status = it.second;
-        if (!status.lastStatus) {
-            monitorStatus = false;
-        }
-        if (status.lastCheck.plusSeconds((double) checkTimeout_) <= now) {
-            monitorStatus = false;
-        }
+    // If any of the services are healthy then the class is considered healthy.
+    for (const auto& it: *this) {
+        const MonitorProviderStatus& status = it.second;
+
+        if (!status.lastStatus) continue;
+        if (status.lastCheck.plusSeconds(checkTimeout) <= now) continue;
+
+        return true;
     }
 
-    return monitorStatus;
+    return false;
 }
 
 bool
 MonitorEndpoint::
-postServiceIndicators(const string & providerName,
+postServiceIndicators(const string & providerClass,
                       const string & indicatorsStr)
 {
-    bool rc(false);
-    bool status;
+    MonitorIndicator ind;
 
     ML::Set_Trace_Exceptions notrace(false);
     try {
-        Json::Value indicators = Json::parse(indicatorsStr);
-        if (indicators.type() == Json::objectValue) {
-            status = (indicators.isMember("status")
-                      && indicators["status"] == "ok");
-            rc = true;
-        }
+        Json::Value indJson = Json::parse(indicatorsStr);
+        ind = MonitorIndicator::fromJson(indJson);
+        ExcCheck(!ind.serviceName.empty(), "service name can't be empty");
     }
     catch (...) {
         cerr << "exception during parsing of (supposedly) json response: "
              << indicatorsStr << endl;
+        return false;
     }
 
-    if (rc) {
-        auto & providerStatus = providersStatus_[providerName];
-        providerStatus.lastStatus = status;
-        providerStatus.lastCheck = Date::now();
-    }
+    MonitorProviderStatus status;
+    status.lastCheck = Date::now();
+    status.lastStatus = ind.status;
+    status.lastMessage = ind.message;
 
-    return rc;
+    providersStatus_[providerClass][ind.serviceName] = status;
+    return true;
+}
+
+void
+MonitorEndpoint::
+dump(ostream& stream) const
+{
+    for (const auto& it: providersStatus_) {
+        stream << it.first << ": " << endl;
+        it.second.dump(checkTimeout_, stream);
+    }
+}
+
+void
+MonitorEndpoint::ClassStatus::
+dump(double timeout, ostream& stream) const
+{
+    Date now = Date::now();
+
+    for (const auto& it: *this) {
+        const MonitorProviderStatus& status = it.second;
+        bool isTimeout = status.lastCheck.plusSeconds(timeout) <= now;
+
+        stream <<
+            ML::format("    %-20s %-3s %-20s %s\n",
+                    it.first,
+                    (status.lastStatus && !isTimeout ? "OK" : "ERR"),
+                    status.lastCheck.printClassic(),
+                    (isTimeout ? "Timeout" : status.lastMessage));
+    }
 }

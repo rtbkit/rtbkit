@@ -23,7 +23,7 @@ MonitorProviderClient(const std::shared_ptr<zmq::context_t> & context,
           inhibit_(false),
           pendingRequest(false)
 {
-    restUrlPath_ = "/v1/services/" + provider.getProviderName();
+    restUrlPath_ = "/v1/services/" + provider.getProviderClass();
     onDone = std::bind(&MonitorProviderClient::onResponseReceived, this,
                        placeholders::_1, placeholders::_2, placeholders::_3);
 }
@@ -66,7 +66,7 @@ postStatus()
                     " still active\n");
         }
         else {
-            string payload = provider_.getProviderIndicators().toString();
+            string payload = provider_.getProviderIndicators().toJson().toString();
             pendingRequest = true;
             push(onDone, "POST", restUrlPath_, RestParams(), payload);
         }

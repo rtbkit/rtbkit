@@ -39,8 +39,13 @@ int main(int argc, char ** argv)
     auto proxies = args.makeServiceProxies();
 
     MonitorEndpoint monitor(proxies, "monitor");
-    monitor.init({"router", "postAuction", "masterBanker", "data_logger",
-                "agentConfigurationService"});
+    monitor.init({
+                "rtbRequestRouter",
+                "rtbPostAuctionService",
+                "rtbBanker",
+                "rtbDataLogger",
+                "rtbAgentConfiguration"});
+
     auto addr = monitor.bindTcp();
     cerr << "monitor is listening on "
          << addr.first << "," << addr.second << endl;

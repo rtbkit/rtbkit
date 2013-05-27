@@ -2698,24 +2698,27 @@ dumpSpot(const Id & auction, const Id & spot) const
 /** MonitorProvider interface */
 string
 Router::
-getProviderName()
+getProviderClass()
     const
 {
-    return serviceName();
+    return "rtbRequestRouter";
 }
 
-Json::Value
+MonitorIndicator
 Router::
 getProviderIndicators()
     const
 {
-    Json::Value value;
+    bool connectedToPal = postAuctionEndpoint.isConnected();
 
-    /* Router health check:
-       - valid connection to post auction loop */
-    value["status"] = postAuctionEndpoint.isConnected() ? "ok" : "failure";
+    MonitorIndicator ind;
 
-    return value;
+    ind.serviceName = serviceName();
+    ind.status = connectedToPal;
+    ind.message = string()
+        + "Connection to PAL: " + (connectedToPal ? "OK" : "ERROR");
+
+    return ind;
 }
 
 void

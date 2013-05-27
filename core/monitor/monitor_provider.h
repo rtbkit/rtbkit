@@ -9,16 +9,13 @@
 
 #include <memory>
 
+#include "monitor_indicator.h"
 #include "soa/types/date.h"
 #include "soa/service/rest_proxy.h"
 
 namespace zmq {
     struct context_t;
 } // namespace zmq
-
-namespace Json {
-    struct Value;
-} // namespace Json
 
 namespace RTBKIT {
     using namespace Datacratic;
@@ -27,11 +24,11 @@ struct MonitorProvider
 {
     /* this method returns the service identifier to use when sending status
        information to the Monitor */
-    virtual std::string getProviderName() const = 0;
+    virtual std::string getProviderClass() const = 0;
 
     /* this method returns the service status: "true" indicates that all the
        service-specific conditions are fulfilled, "false" otherwise */
-    virtual Json::Value getProviderIndicators() const = 0;
+    virtual MonitorIndicator getProviderIndicators() const = 0;
 };
 
 struct MonitorProviderClient : public RestProxy

@@ -1,7 +1,7 @@
 /* monitor.h                                                       -*- C++ -*-
    Wolfgang Sourdeau, January-March 2013
    Copyright (c) 2013 Datacratic.  All rights reserved.
-   
+
    MonitorEndpoint class
 */
 
@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "monitor_indicator.h"
 #include "soa/types/date.h"
 #include "soa/service/service_base.h"
 #include "soa/service/rest_request_router.h"
@@ -25,33 +26,42 @@ struct MonitorEndpoint : public Datacratic::ServiceBase,
                     const std::string & serviceName = "monitor");
     ~MonitorEndpoint();
 
-    void init(const std::vector<std::string> & providerNames);
+    void init(const std::vector<std::string> & providerClasses);
 
     std::pair<std::string, std::string>
     bindTcp(const std::string& host = "");
-
-    Datacratic::RestRequestRouter router;
-
-    void checkServiceIndicators() const;
 
     /* MonitorClient interface */
 
     /** determines whether the system is working properly or not */
     bool getMonitorStatus() const;
 
-    int checkTimeout_;
 
-    /* MonitorProvider interface */
-    struct MonitorProviderStatus {
-        Datacratic::Date lastCheck;
-        bool lastStatus;
-    };
+    /** Human readable dump of the state of the various components */
+    void dump(std::ostream& stream = std::cerr) const;
 
     bool postServiceIndicators(const std::string & providerName,
                                const std::string & indicatorsStr);
 
-    std::vector<std::string> providerNames_;
-    std::unordered_map<std::string, MonitorProviderStatus> providersStatus_;
+    Datacratic::RestRequestRouter router;
+    int checkTimeout_;
+
+    /* MonitorProvider interface */
+    struct MonitorProviderStatus
+    {
+        Datacratic::Date lastCheck;
+        bool lastStatus;
+        std::string lastMessage;
+    };
+
+    std::vector<std::string> providerClasses_;
+
+    struct ClassStatus : public std::map<std::string, MonitorProviderStatus>
+    {
+        bool getClassStatus(double checkTimeout) const;
+        void dump(double checkTimeout, std::ostream& stream = std::cerr) const;
+    };
+    std::map<std::string, ClassStatus> providersStatus_;
 };
 
 } // namespace RTBKIT

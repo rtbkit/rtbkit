@@ -346,8 +346,8 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
     MonitorProviderClient monitorProviderClient;
 
     /* MonitorProvider interface */
-    std::string getProviderName() const;
-    Json::Value getProviderIndicators() const;
+    std::string getProviderClass() const;
+    MonitorIndicator getProviderIndicators() const;
 
     Date lastWinLoss;
     Date lastCampaignEvent;

@@ -631,26 +631,25 @@ bindFixedHttpAddress(const string & uri)
 /** MonitorProvider interface */
 string
 MasterBanker::
-getProviderName()
+getProviderClass()
     const
 {
-    return serviceName();
+    return "rtbBanker";
 }
 
-Json::Value
+MonitorIndicator
 MasterBanker::
 getProviderIndicators()
     const
 {
-    Json::Value value;
+    MonitorIndicator ind;
 
-    /* MB health check:
-       - no error occurred in last save (implying Redis conn is alive) */
-    Date now = Date::now();
-    bool status(lastSaveStatus == BankerPersistence::SUCCESS);
-    value["status"] = status ? "ok" : "failure";
+    ind.serviceName = serviceName();
+    ind.status = lastSaveStatus == BankerPersistence::SUCCESS;
+    ind.message = string()
+        + "Banker persistence: " + (lastSaveStatus ? "OK" : "ERROR");
 
-    return value;
+    return ind;
 }
 
 } // namespace RTBKIT

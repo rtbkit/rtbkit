@@ -82,29 +82,30 @@ connectAllServiceProviders(const string & serviceClass, const string & epName)
 /** MonitorProvider interface */
 string
 DataLogger::
-getProviderName()
+getProviderClass()
     const
 {
-    return serviceName();
+    return "rtbDataLogger";
 }
 
-Json::Value
+MonitorIndicator
 DataLogger::
 getProviderIndicators()
     const
 {
-    bool status(true);
+    MonitorIndicator ind;
+    ind.serviceName = serviceName();
+    ind.status = true;
 
     for (const auto & pair: multipleSubscriber.subscribers) {
-        if (pair.second->getConnectionState()
-            == ZmqNamedSocket::ConnectionState::DISCONNECTED) {
-            status = false;
-            break;
-        }
+        bool isDisconnected =
+            pair.second->getConnectionState()
+            == ZmqNamedSocket::ConnectionState::DISCONNECTED;
+
+        ind.status = ind.status && isDisconnected;
+        ind.message +=
+            pair.first + ": " + (!isDisconnected ? "OK" : "ERROR") + " ";
     }
 
-    Json::Value indicators;
-    indicators["status"] = status ? "ok" : "failure";
-
-    return indicators;
+    return ind;
 }

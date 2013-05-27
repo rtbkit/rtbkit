@@ -237,26 +237,22 @@ handleAgentHeartbeat(const std::string & agent)
 /** MonitorProvider interface */
 string
 AgentConfigurationService::
-getProviderName()
+getProviderClass()
     const
 {
-    return serviceName();
+    return "rtbAgentConfiguration";
 }
 
-Json::Value
+MonitorIndicator
 AgentConfigurationService::
 getProviderIndicators()
     const
 {
-    Json::Value value;
-
-    /* MB health check:
-       - no error occurred in last save (implying Redis conn is alive) */
-    Date now = Date::now();
-    bool status(true);
-    value["status"] = status ? "ok" : "failure";
-
-    return value;
+    MonitorIndicator ind;
+    ind.serviceName = serviceName();
+    ind.status = true;
+    ind.message = "Alive";
+    return ind;
 }
 
 } // namespace RTBKIT

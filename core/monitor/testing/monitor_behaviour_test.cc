@@ -40,33 +40,36 @@ BOOST_AUTO_TEST_CASE( test_monitor_endpoint )
     auto proxies = std::make_shared<ServiceProxies>();
 
     MonitorEndpoint endpoint(proxies);
-    endpoint.init({"parentservice1", "parentservice2"});
+    endpoint.init({"c1", "c2"});
     endpoint.bindTcp();
     endpoint.start();
+
     auto waitUpdate = [&] (bool initialStatus) {
         for (auto & it: endpoint.providersStatus_) {
-            auto & providerStatus = it.second;
-            providerStatus.lastStatus = initialStatus;
-            Date initialCheck = providerStatus.lastCheck;
-            while (providerStatus.lastCheck == initialCheck) {
-                ML::sleep(1);
+            for (auto & jt: it.second) {
+                auto & providerStatus = jt.second;
+                providerStatus.lastStatus = initialStatus;
+                Date initialCheck = providerStatus.lastCheck;
+                while (providerStatus.lastCheck == initialCheck) ML::sleep(1);
             }
         }
     };
 
-    MockMonitorProvider provider1;
+    MockMonitorProvider provider1("c1");
     provider1.providerName_ = "parentservice1";
     ServiceBase parentService1("parentservice1", proxies);
     MonitorProviderClient providerClient1(proxies->zmqContext, provider1);
     providerClient1.init(proxies->config);
     providerClient1.start();
 
-    MockMonitorProvider provider2;
+    MockMonitorProvider provider2("c2");
     provider2.providerName_ = "parentservice2";
     ServiceBase parentService2("parentservice2", proxies);
     MonitorProviderClient providerClient2(proxies->zmqContext, provider2);
     providerClient2.init(proxies->config);
     providerClient2.start();
+
+    ML::sleep(2);
 
     /* provider1 status is false and provider2's is false
        => proxy status is false */
@@ -111,8 +114,9 @@ BOOST_AUTO_TEST_CASE( test_monitor_endpoint )
     cerr << ("test: "
              "one provider answers with a delay of three seconds\n"
              "=> proxy status is false\n");
-    provider2.delay_ = 3;
-    waitUpdate(true);
+    provider2.delay_ = 4;
+    ML::sleep(3);
+    endpoint.dump();
     BOOST_CHECK_EQUAL(endpoint.getMonitorStatus(), false);
 }
 
@@ -129,7 +133,7 @@ BOOST_AUTO_TEST_CASE( test_monitor_client )
     proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
 
     MonitorEndpoint endpoint(proxies);
-    endpoint.init({"tim"});
+    endpoint.init({"c1"});
     endpoint.bindTcp();
     endpoint.start();
 
@@ -140,12 +144,12 @@ BOOST_AUTO_TEST_CASE( test_monitor_client )
     cerr << "test: expect computed status to be TRUE"
          << " after quering the Monitor" << endl;
     client.lastStatus = false;
-    endpoint.providersStatus_["tim"].lastCheck = Date::now();
-    endpoint.providersStatus_["tim"].lastStatus = true;
+    endpoint.providersStatus_["c1"]["tim"].lastCheck = Date::now();
+    endpoint.providersStatus_["c1"]["tim"].lastStatus = true;
     Date initialCheck = client.lastCheck;
     while (client.lastCheck == initialCheck) {
         /* make sure the monitor does not return false */
-        endpoint.providersStatus_["tim"].lastCheck = Date::now();
+        endpoint.providersStatus_["c1"]["tim"].lastCheck = Date::now();
         ML::sleep(1);
     }
     BOOST_CHECK_EQUAL(client.getStatus(), true);
@@ -153,11 +157,11 @@ BOOST_AUTO_TEST_CASE( test_monitor_client )
     cerr << "test: expect computed status to be FALSE"
          << " after quering the Monitor" << endl;
     client.lastStatus = true;
-    endpoint.providersStatus_["tim"].lastStatus = false;
+    endpoint.providersStatus_["c1"]["tim"].lastStatus = false;
     initialCheck = client.lastCheck;
     while (client.lastCheck == initialCheck) {
         /* make sure the endpoint does not return false */
-        endpoint.providersStatus_["tim"].lastCheck = Date::now();
+        endpoint.providersStatus_["c1"]["tim"].lastCheck = Date::now();
         ML::sleep(1);
     }
     BOOST_CHECK_EQUAL(client.getStatus(), false);

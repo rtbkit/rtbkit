@@ -1481,13 +1481,13 @@ makeBidId(Id auctionId, Id spotId, const std::string & agent)
 
 std::string
 PostAuctionLoop::
-getProviderName()
+getProviderClass()
     const
 {
-    return serviceName();
+    return "rtbPostAuctionService";
 }
 
-Json::Value
+MonitorIndicator
 PostAuctionLoop::
 getProviderIndicators()
     const
@@ -1497,20 +1497,25 @@ getProviderIndicators()
     /* PA health check:
        - last campaign event in the last 10 seconds */
     Date now = Date::now();
-    bool status(now < lastWinLoss.plusSeconds(10)
-                || now < lastCampaignEvent.plusSeconds(10));
+    bool winLossOk = now < lastWinLoss.plusSeconds(10);
+    bool campaignEventOk = now < lastCampaignEvent.plusSeconds(10);
 
 #if 0
     if (!status)  {
       cerr << "--- WRONGNESS DETECTED:" 
-	   << " last event: " << (now - lastCampaignEvent)
-	   << endl;
+          << " last event: " << (now - lastCampaignEvent)
+          << endl;
     }
 #endif
 
-    value["status"] = status ? "ok" : "failure";
+    MonitorIndicator ind;
+    ind.serviceName = serviceName();
+    ind.status = winLossOk || campaignEventOk;
+    ind.message = string()
+        + "WinLoss pipe: " + (winLossOk ? "OK" : "ERROR") + ", "
+        + "CampaignEvent pipe: " + (campaignEventOk ? "OK" : "ERROR");
 
-    return value;
+    return ind;
 }
 
 } // namespace RTBKIT
