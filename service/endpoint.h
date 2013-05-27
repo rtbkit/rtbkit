@@ -148,7 +148,7 @@ protected:
                                 "need to be overridden to make a handler");
     }
     
-    virtual void closePeer() = 0;
+    virtual void closePeer() {}
 
     struct SPLess {
         template<typename SP>
