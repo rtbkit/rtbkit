@@ -86,7 +86,7 @@ struct PassiveEndpoint: public EndpointBase {
         return acceptor->listen(portRange, host, this, nameLookup, backlog);
     }
 
-    virtual void closePeer()
+    void closePeer()
     {
         return acceptor->closePeer();
     }

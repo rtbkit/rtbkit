@@ -143,8 +143,6 @@ shutdown()
     //cerr << "Endpoint shutdown" << endl;
     //cerr << "numTransports = " << numTransports << endl;
 
-    closePeer();
-
     /* we pin all EpollDataSet instances to avoid freeing them whilst handling
        messages */
     EpollDataSet dataSetCopy = epollDataSet;
