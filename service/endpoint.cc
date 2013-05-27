@@ -208,7 +208,7 @@ shutdown()
         /* we can now close the timer fds as we now that they will no longer
            be listened to */
         MutexGuard guard(dataSetLock);
-        for (const auto & it: epollDataSet) {
+        for (const auto & it: dataSetCopy) {
             if (it->fdType == EpollData::EpollDataType::TIMER) {
                 ::close(it->fd);
             }
