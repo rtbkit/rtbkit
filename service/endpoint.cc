@@ -58,6 +58,7 @@ EndpointBase(const std::string & name)
 EndpointBase::
 ~EndpointBase()
 {
+    shutdown();
 }
 
 void
