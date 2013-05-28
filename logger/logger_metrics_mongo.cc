@@ -31,6 +31,15 @@ void LoggerMetricsMongo::logInCategory(const string& category,
     BSONObjBuilder bson;
     vector<string> stack;
     function<void(const Json::Value&)> doit;
+
+    auto format = [](const Json::Value& v) -> string{
+        string str = v.toString();
+        if(v.isInt() || v.isUInt() || v.isDouble() || v.isNumeric()){
+            return str.substr(0, str.length() - 1);
+        }
+        return str.substr(1, str.length() - 3);
+    };
+
     doit = [&](const Json::Value& v){
         for(auto it = v.begin(); it != v.end(); ++it){
             if(v[it.memberName()].isObject()){
@@ -45,15 +54,15 @@ void LoggerMetricsMongo::logInCategory(const string& category,
                     key << "." << s;
                 }
                 key << "." << it.memberName();
-                string value = current.toString();
-                if(current.isInt() || current.isUInt() || current.isDouble()
-                    || current.isNumeric())
-                {
-                    value = value.substr(0, value.length() - 1); 
+                if(current.isArray()){
+                    BSONArrayBuilder arr;
+                    for(const Json::Value el: current){
+                        arr.append(format(el));
+                    }
+                    bson.append(key.str(), arr.arr());
                 }else{
-                    value = value.substr(1, value.length() - 3); 
+                    bson.append(key.str(), format(current));
                 }
-                bson.append(key.str(), value);
             }
         }
     };

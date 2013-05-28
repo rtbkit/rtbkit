@@ -29,8 +29,8 @@ class ILoggerMetrics{
         ILoggerMetrics(){};
 
     protected:
-        typedef boost::variant<int, float, double, size_t> Numeric;
-        typedef boost::variant<int, float, double, size_t, std::string> NumOrStr;
+        typedef boost::variant<int, float, double, size_t, uint32_t> Numeric;
+        typedef boost::variant<int, float, double, size_t, uint32_t, std::string> NumOrStr;
 
         const static std::string METRICS;
         const static std::string PROCESS;

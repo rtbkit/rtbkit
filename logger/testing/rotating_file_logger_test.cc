@@ -37,10 +37,16 @@ BOOST_AUTO_TEST_CASE( test_rotating_file_logger )
             filesOpened.push_back(filename);
         };
 
+    logger.onPreFileClose = [&] (string filename)
+        {
+            cerr << "pre closing file " << filename << endl;
+        };
+
     logger.onPostFileOpen = [&] (string filename)
         {
-            cerr << "closing file " << filename << endl;
+            cerr << "post opening file " << filename << endl;
         };
+    
     
     logger.open("tmp/file-logger-%F-%T.log.gz", "2s");
 

@@ -28,8 +28,9 @@ namespace Datacratic {
 
 struct CloudSink : public CompressingOutput::Sink {
     CloudSink(const std::string & uri ,
-              bool append ,
-              bool disambiguate, std::string backupDir);
+              bool append, bool disambiguate, std::string backupDir,
+              std::string bucket, std::string accessKeyId, std::string accessKey
+        );
 
     virtual ~CloudSink();
 
@@ -37,15 +38,18 @@ struct CloudSink : public CompressingOutput::Sink {
               bool append,
               bool disambiguate);
 
+    std::string disambiguateUri(std::string uri) const;
+
     virtual void close();
 
     virtual size_t write(const char * data, size_t size);
 
     virtual size_t flush(FileFlushLevel flushLevel);
 
-    /// Uri of cloud we're writing to
-    std::string currentUri_;
     std::string backupDir_;
+    std::string bucket_;
+    std::string accessKeyId_;
+    std::string accessKey_;
 
     /// Current stream to the cloud (TM)
     ML::filter_ostream cloudStream;

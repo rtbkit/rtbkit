@@ -162,6 +162,26 @@ inline zmq::message_t encodeMessage(int i)
     return ML::format("%d", i);
 }
 
+inline zmq::message_t encodeMessage(unsigned int i)
+{
+    return ML::format("%u", i);
+}
+
+inline zmq::message_t encodeMessage(double i)
+{
+    return ML::format("%f", i);
+}
+
+inline zmq::message_t encodeMessage(long i)
+{
+    return ML::format("%ld", i);
+}
+
+inline zmq::message_t encodeMessage(unsigned long i)
+{
+    return ML::format("%lu", i);
+}
+
 inline zmq::message_t encodeMessage(char c)
 {
     return ML::format("%c", c);
