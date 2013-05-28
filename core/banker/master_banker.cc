@@ -642,12 +642,13 @@ MasterBanker::
 getProviderIndicators()
     const
 {
-    MonitorIndicator ind;
+    bool persistenceOk = lastSaveStatus == BankerPersistence::SUCCESS;
 
+    MonitorIndicator ind;
     ind.serviceName = serviceName();
-    ind.status = lastSaveStatus == BankerPersistence::SUCCESS;
+    ind.status = persistenceOk;
     ind.message = string()
-        + "Banker persistence: " + (lastSaveStatus ? "OK" : "ERROR");
+        + "Banker persistence: " + (persistenceOk ? "OK" : "ERROR");
 
     return ind;
 }

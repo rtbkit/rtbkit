@@ -102,9 +102,8 @@ getProviderIndicators()
             pair.second->getConnectionState()
             == ZmqNamedSocket::ConnectionState::DISCONNECTED;
 
-        ind.status = ind.status && isDisconnected;
-        ind.message +=
-            pair.first + ": " + (!isDisconnected ? "OK" : "ERROR") + " ";
+        ind.status = ind.status && !isDisconnected;
+        if (isDisconnected) ind.message += pair.first + ": ERROR ";
     }
 
     return ind;
