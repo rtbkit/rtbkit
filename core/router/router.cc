@@ -590,6 +590,7 @@ run()
         }
 
         if (now - last_check > 10.0) {
+            logUsageMetrics(10.0);
 
             logMessage("MARK",
                        Date::fromSecondsSinceEpoch(last_check).print(),
@@ -809,6 +810,34 @@ handleAgentMessage(const std::vector<std::string> & message)
         returnErrorResponse(message,
                             "threw exception: " + string(exc.what()));
     }
+}
+
+void
+Router::
+logUsageMetrics(double period)
+{
+    std::string p = std::to_string(period);
+
+    for(auto & item : agents) {
+        auto & info = item.second;
+        logMessage("USAGE", "AGENT", p, item.first,
+                                        info.config->account.toString(),
+		                        info.stats->intoFilters,
+                                        info.stats->auctions,
+		                        info.stats->bids,
+		                        info.config->bidProbability);
+    }
+
+    forAllExchanges([&](std::shared_ptr<ExchangeConnector> const & item) {
+        logMessage("USAGE", "EXCHANGE", p, item->exchangeName(),
+                                           item->numServingRequest,
+	                                   item->numAuctions,
+	                                   item->acceptAuctionProbability);
+    });
+
+    logMessage("USAGE", "ROUTER", p, numNoPotentialBidders,
+	                             numBids,
+                                     numAuctionsWithBid);
 }
 
 void

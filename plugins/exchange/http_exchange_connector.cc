@@ -62,9 +62,6 @@ postConstructorInit()
     auctionVerb = "POST";
     auctionResource = "/";
 
-    numServingRequest_ = 0;
-    acceptAuctionProbability = 1.0;
-
     // Link up events
     onTransportOpen = [=] (TransportBase *)
         {
@@ -210,9 +207,9 @@ getServiceStatus() const
     Json::Value result;
 
     result["numConnections"] = numConnections();
-    result["activeConnections"] = numServingRequest();
+    result["activeConnections"] = numServingRequest;
     result["connectionLoadFactor"]
-        = xdiv<float>(numServingRequest(),
+        = xdiv<float>(numServingRequest,
                       numConnections());
     
     map<string, int> peerCounts = numConnectionsByHost();

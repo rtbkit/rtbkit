@@ -53,6 +53,11 @@ struct ExchangeConnector: public ServiceBase {
     */
     OnAuction onNewAuction, onAuctionDone;
 
+    int numServingRequest;  ///< How many connections are serving a request
+    int numAuctions;
+
+    /** Probability that we will accept a given auction. */
+    double acceptAuctionProbability;
 
     /*************************************************************************/
     /* METHODS CALLED BY THE ROUTER TO CONTROL THE EXCHANGE CONNECTOR        */
@@ -86,7 +91,14 @@ struct ExchangeConnector: public ServiceBase {
     /** Set which percentage of bid requests will be accepted by the
         exchange connector.
     */
-    virtual void setAcceptBidRequestProbability(double prob) = 0;
+    virtual void setAcceptBidRequestProbability(double prob)
+    {
+        if (prob < 0 || prob > 1)
+            throw ML::Exception("invalid probability for "
+                                "setBidRequestProbability: "
+                                "%f is not between 0 and 1");
+        this->acceptAuctionProbability = prob;
+    }
 
     /** Return the name of the exchange, as it would be written as an
         identifier.

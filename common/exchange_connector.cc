@@ -31,6 +31,9 @@ ExchangeConnector(const std::string & name,
     onNewAuction  = [=] (std::shared_ptr<Auction> a) {cerr << "WARNING: an auction was lost into the void" << endl; };
     onAuctionDone = [=] (std::shared_ptr<Auction> a) {};
     
+    numServingRequest = 0;
+    numAuctions = 0;
+    acceptAuctionProbability = 1.0;
 }
 
 ExchangeConnector::
@@ -40,7 +43,10 @@ ExchangeConnector(const std::string & name,
 {
     onNewAuction  = [=] (std::shared_ptr<Auction> a) {cerr << "WARNING: an auction was lost into the void"; };
     onAuctionDone = [=] (std::shared_ptr<Auction> a) {};
-    
+
+    numServingRequest = 0;
+    numAuctions = 0;
+    acceptAuctionProbability = 1.0;
 }
 
 ExchangeConnector::

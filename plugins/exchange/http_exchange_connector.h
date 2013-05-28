@@ -42,12 +42,6 @@ struct HttpExchangeConnector
 
     ~HttpExchangeConnector();
 
-    /** How many connections are serving a request at the moment? */
-    int numServingRequest() const
-    {
-        return numServingRequest_;
-    }
-    
     virtual Json::Value getServiceStatus() const;
 
     /** Start logging requests */
@@ -95,19 +89,6 @@ struct HttpExchangeConnector
     {
         return now <= enabledUntil;
     }
-
-    /** Set which percentage of bid requests will be accepted by the
-        exchange connector.
-    */
-    virtual void setAcceptBidRequestProbability(double prob)
-    {
-        if (prob < 0 || prob > 1)
-            throw ML::Exception("invalid probability for "
-                                "setBidRequestProbability: "
-                                "%f is not between 0 and 1");
-        this->acceptAuctionProbability = prob;
-    }
-
 
     /*************************************************************************/
     /* METHODS TO OVERRIDE FOR A GIVEN EXCHANGE                              */
@@ -229,9 +210,6 @@ protected:
     virtual std::shared_ptr<ConnectionHandler> makeNewHandler();
     virtual std::shared_ptr<HttpAuctionHandler> makeNewHandlerShared();
 
-    /** Probability that we will accept a given auction. */
-    double acceptAuctionProbability;
-
     /** Time until which the exchange is enabled.  Normally this will be
         pushed forward a few seconds periodically so that everything will
         shut down if there is nothing controlling the exchange connector.
@@ -250,8 +228,6 @@ protected:
     */
     typedef boost::function<HttpAuctionHandler * ()> HandlerFactory;
     HandlerFactory handlerFactory;
-
-    int numServingRequest_;  ///< How many connections are serving a request
 
     /// Configuration parameters
     int numThreads;         

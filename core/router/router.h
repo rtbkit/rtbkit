@@ -570,6 +570,8 @@ public:
     /* DATA LOGGING                                                          */
     /*************************************************************************/
 
+    void logUsageMetrics(double period);
+
     /** Log a given message to the given channel. */
     template<typename... Args>
     void logMessage(const std::string & channel, Args... args)

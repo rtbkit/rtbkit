@@ -145,7 +145,7 @@ HttpAuctionHandler::
 ~HttpAuctionHandler()
 {
     if (servingRequest)
-        ML::atomic_add(endpoint->numServingRequest_, -1);
+        ML::atomic_add(endpoint->numServingRequest, -1);
     //cerr << "deleting HttpAuctionHandler at " << this << endl;
     //backtrace();
     atomic_add(destroyed, 1);
@@ -272,7 +272,7 @@ void
 HttpAuctionHandler::
 incNumServingRequest()
 {
-    ML::atomic_add(endpoint->numServingRequest_, 1);
+    ML::atomic_add(endpoint->numServingRequest, 1);
 }
 
 void
@@ -455,6 +455,8 @@ handleHttpPayload(const HttpHeader & header,
                 expiry.print(4).c_str());
 
     auction->doneParsing = Date::now();
+
+    ML::atomic_add(endpoint->numAuctions, 1);
     endpoint->onNewAuction(auction);
 }
 
