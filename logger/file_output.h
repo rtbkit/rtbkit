@@ -91,9 +91,6 @@ struct FileSink : public CompressingOutput::Sink {
 
     virtual size_t flush(FileFlushLevel flushLevel);
 
-    /// Filename of file we're writing to
-    std::string currentFilename;
-
     /// File descriptor we're writing to
     int fd;
 };

@@ -92,6 +92,7 @@ switchFile(const std::string & filename,
            const std::string & compression_,
            int level)
 {
+
     closeCompressor();
     closeFile();
 
@@ -110,10 +111,17 @@ switchFile(const std::string & filename,
     if (onPreFileOpen)
         onPreFileOpen(fn);
 
-    CompressingOutput::open(createSink(fn, append), compression, level);
+    // todo - fix this by saving the output of createSink and getting 
+    // the new uri if there is one
+    std::shared_ptr<CompressingOutput::Sink> theSink = createSink(fn, append);
+    CompressingOutput::open(theSink, compression, level);
 
     if (onPostFileOpen)
-        onPostFileOpen(fn);
+    {
+//        cerr << "NamedOutput::switchfile: calling on postfile open with " << 
+//            theSink->currentUri << endl;
+        onPostFileOpen(theSink->currentUri);
+    }
 }
 
 
@@ -182,7 +190,7 @@ open(const std::string & filename, bool append, bool disambiguate)
     if (fd == -1)
         throw ML::Exception(errno, "open of " + filename);
 
-    currentFilename = fn;
+    currentUri = fn;
 
 }
 
@@ -190,19 +198,19 @@ void
 FileSink::
 close()
 {
-    //cerr << "closing file " << currentFilename << endl;
+    //cerr << "closing file " << currentUri << endl;
 
     if (fd != -1) {
         int r = fdatasync(fd);
         if (r == -1)
-            throw ML::Exception(errno, "fdatasync " + currentFilename);
+            throw ML::Exception(errno, "fdatasync " + currentUri);
 
         int res = ::close(fd);
         if (res == -1)
-            throw ML::Exception(errno, "close " + currentFilename);
+            throw ML::Exception(errno, "close " + currentUri);
         fd = -1;
 
-        currentFilename = "";
+        currentUri = "";
     }
 }
 
@@ -216,7 +224,7 @@ write(const char * data, size_t size)
         ssize_t res = ::write(fd, data + done, size - done);
         if (res == -1)
             throw ML::Exception(errno, "write to FileSink for "
-                                + currentFilename);
+                                + currentUri);
         done += res;
     }
 
@@ -239,7 +247,7 @@ flush(FileFlushLevel flushLevel)
     case FLUSH_TO_DISK: {
         int r = fdatasync(fd);
         if (r == -1)
-            throw ML::Exception(errno, "fdatasync for " + currentFilename);
+            throw ML::Exception(errno, "fdatasync for " + currentUri);
         return 0;
     }
 

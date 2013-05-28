@@ -464,6 +464,12 @@ struct S3Api {
                           const std::string & resource,
                           const ObjectMetadata & metadata) const;
 
+
+
+    bool
+    isMultiPartUploadInProgress(const std::string & bucket,
+                                const std::string & resource) const;
+
     std::string
     finishMultiPartUpload(const std::string & bucket,
                           const std::string & resource,

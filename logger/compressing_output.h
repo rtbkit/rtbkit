@@ -120,6 +120,8 @@ struct CompressingOutput : public WorkerThreadOutput {
             flushed to make sure that the data gets to disk.
         */
         virtual size_t flush(FileFlushLevel flushLevel) = 0;
+
+        std::string currentUri;// the uri we are currently writing to
     };
 
     void open(std::shared_ptr<Sink> sink,

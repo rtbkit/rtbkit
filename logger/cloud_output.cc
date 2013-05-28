@@ -11,40 +11,105 @@
 
 namespace Datacratic {
 using namespace std;
-    using namespace ML;
+using namespace ML;
 namespace fs = boost::filesystem;
 
 CloudSink::
 CloudSink(const std::string & uri, bool append, bool disambiguate,
-          std::string backupDir):
-    currentUri_(uri),backupDir_(backupDir)
+          std::string backupDir, std::string bucket, string accessKeyId, 
+          string accessKey):
+    backupDir_(backupDir),bucket_(bucket), 
+    accessKeyId_(accessKeyId), accessKey_(accessKey)
 {
     if (uri != "")
+    {
+        currentUri = uri;
         open(uri, append, disambiguate);
+    }
 }
 
 CloudSink::
 ~CloudSink()
 {
-    //cerr << "CloudSink::~CloudSink::was called with uri " << currentUri_ << endl;
     close();
+}
+
+std::string
+CloudSink::disambiguateUri(std::string uri) const
+{
+    Datacratic::S3Api s3(accessKeyId_, accessKey_);
+    bool disamb = false;
+    string result = uri;
+    unsigned int n = 0;
+    auto orig = S3Api::parseUri(result);
+    while(!disamb)
+    {
+        //cerr << "Disambiguating s3 uri " << result << endl;
+        auto bucketObject = S3Api::parseUri(result);
+        // make sure it matches the bucket that it was created with
+        if(bucketObject.first != bucket_)
+            throw ML::Exception("trying to open a url %s which has a different bucket %s from the specified bucket",
+                                bucketObject.first.c_str(), bucket_.c_str());
+
+        S3Api::ObjectInfo info = s3.tryGetObjectInfo(bucket_, bucketObject.second);
+        if(!info.exists)
+        {
+            cerr << "file " << result << " does not exist..checking for multipart upload" << endl;
+
+            bool inProgress = s3.isMultiPartUploadInProgress(bucket_,"/" + bucketObject.second);
+            if(!inProgress)
+            {
+                cerr << "no multipart upload in progress..disambiguation complete " << endl;
+                disamb = true;
+                break;
+            }
+            else
+            {
+                cerr << "multipart upload in progress..disambiguation required" << endl;
+            }
+        }
+        // get a new uri
+        fs::path resourcePath(orig.second);
+
+        string ext = resourcePath.extension().string();
+        fs::path theStem = resourcePath.stem();
+        while (!theStem.extension().empty())
+        {
+            ext = theStem.extension().string()  + ext;
+            theStem = theStem.stem();
+        }
+
+        string num = ML::format(".%d",++n); 
+        fs::path disambName = resourcePath.parent_path().string() /
+                              fs::path((theStem.string() + num + ext));
+        result = "s3://" + orig.first + "/" + disambName.string();
+
+    }
+    //cerr << "disambiguated uri: " <<  result << endl;
+    return result ;
 }
 
 void
 CloudSink::
 open(const std::string & uri, bool append, bool disambiguate)
 {
-
     cloudStream.close();
-    cloudStream.open(uri, std::ios_base::out |
+    string disambUri(uri);
+    if(disambiguate)
+    {
+        disambUri = disambiguateUri(uri);
+    }
+
+    currentUri = disambUri;
+
+    cloudStream.open(disambUri, std::ios_base::out |
                           (append ? std::ios_base::app : std::ios::openmode()));
 
     // Get the file name from the s3 uri. We want to preserve the path since
     // if we only get the filename we could overwrite files with the same name
     // but in a different directory. uri format is s3://
     fs::path backupPath(backupDir_);
-    fs::path filePath(backupPath / uri.substr(5));
-//    cerr << "The file path uri is " << filePath.string() << endl;
+    fs::path filePath(backupPath / disambUri.substr(5));
     // Get the path and create the directories
     fs::create_directories(filePath.parent_path());
     // create the local file and directory
@@ -56,11 +121,11 @@ void
 CloudSink::
 close()
 {
-   cloudStream.close();
-   fileStream.close();
-   fs::path filePath(backupDir_ + currentUri_.substr(5));
-   cerr << "Erasing local backup file " << filePath.string() << endl;
-   fs::remove(filePath);
+    cloudStream.close();
+    fileStream.close();
+    fs::path filePath(backupDir_ + currentUri.substr(5));
+//    cerr << "Erasing local backup file " << filePath.string() << endl;
+    fs::remove(filePath);
 }
 
 size_t
@@ -89,18 +154,15 @@ CloudOutput::getFilesToUpload()
     {
         fs::path curDir = allDirs.back();
         allDirs.pop_back();
-//        cerr <<"current directory = " << curDir.string() << endl;
         for (fs::directory_iterator it = fs::directory_iterator(curDir);
              it != fs::directory_iterator(); ++it)
         {
             if(fs::is_directory(*it))
             {
-                //cerr << "Found directory " <<  it->path().string() << endl;
                 allDirs.push_back(it->path());
             }
             else
             {
-//                cerr << "found a file " << it->path().string() << endl;
                 filesToUpload.push_back(it->path());
             }
         }
@@ -160,7 +222,7 @@ CloudOutput::uploadLocalFiles()
                 // now remove the first slash
                 s3File = s3File.substr(1, s3File.size());
            
-                S3Api::ObjectInfo info = s3.getObjectInfo(bucket_, s3File);
+                S3Api::ObjectInfo info = s3.tryGetObjectInfo(bucket_, s3File);
                 if(info.exists && info.size == fs::file_size(file))
                 {
                     cerr << "File " << file << " was successfully transferred. Deleting local copy..." << endl;
@@ -176,11 +238,12 @@ CloudOutput::uploadLocalFiles()
    std::thread uploadThread(doUpload);
    uploadThread.detach();
 }
+
 std::shared_ptr<CompressingOutput::Sink>
 CloudOutput::createSink(const string & uri, bool append)
 {
-//    cerr << "CloudOutput::createSink was called with uri " << uri << endl;
-    return make_shared<CloudSink>(uri, append, true, backupDir_);
+    return make_shared<CloudSink>(uri, append, true, backupDir_, bucket_, 
+                                  accessKeyId_, accessKey_);
 }
 
  RotatingCloudOutput::RotatingCloudOutput(std::string backupDir, 
@@ -220,7 +283,7 @@ CloudOutput *
 RotatingCloudOutput::
 createFile(const string & filename)
 {
-    //cerr << "RotatingCloudOutput::createFile. Entering..." << endl;
+
     std::unique_ptr<CloudOutput> result(new CloudOutput(backupDir_, bucket_,
                                                       accessKeyId_,accessKey_));
 
@@ -239,7 +302,10 @@ createFile(const string & filename)
         { if (this->onPostFileClose) this->onPostFileClose(fn); };
     result->onFileWrite = [=] (const string& channel, const std::size_t bytes)
     { if (this->onFileWrite) this->onFileWrite(channel, bytes); };
+
+
     result->open(filename, compression, level);
+
     return result.release();
 }
 
