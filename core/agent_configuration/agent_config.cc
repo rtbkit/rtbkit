@@ -293,7 +293,8 @@ toJson() const
 
 AgentConfig::
 AgentConfig()
-    : test(false), roundRobinWeight(0),
+    : externalId(0),
+      test(false), roundRobinWeight(0),
       bidProbability(1.0), minTimeAvailableMs(5.0),
       maxInFlight(100),
       blacklistType(BL_OFF),
@@ -459,6 +460,9 @@ createFromJson(const Json::Value & json)
             newConfig.account = AccountKey::fromJson(*it);
         else if (it.memberName() == "test") {
             newConfig.test = it->asBool();
+        }
+        else if (it.memberName() == "externalId") {
+            newConfig.externalId = it->asUInt();
         }
         else if (it.memberName() == "requiredIds") {
             if (!it->isArray())
@@ -671,6 +675,7 @@ toJson(bool includeCreatives) const
 {
     Json::Value result;
     result["account"] = account.toJson();
+    result["externalId"] = externalId;
     result["test"] = test;
     if (roundRobinGroup != "") {
         result["roundRobin"]["group"] = roundRobinGroup;

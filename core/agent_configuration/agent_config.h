@@ -217,6 +217,8 @@ struct AgentConfig {
 
     AccountKey account;   ///< Who to bill this to
 
+    uint64_t externalId;  ///< Simplifies id reconciliation with external systems
+
     bool test;            ///< Can't make real bids
     
     std::string roundRobinGroup;
