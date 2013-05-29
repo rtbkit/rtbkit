@@ -62,6 +62,8 @@ postConstructorInit()
     auctionVerb = "POST";
     auctionResource = "/";
 
+    numServingRequest = 0;
+
     // Link up events
     onTransportOpen = [=] (TransportBase *)
         {

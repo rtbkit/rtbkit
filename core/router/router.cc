@@ -822,21 +822,21 @@ logUsageMetrics(double period)
         auto & info = item.second;
         logMessage("USAGE", "AGENT", p, item.first,
                                         info.config->account.toString(),
-		                        info.stats->intoFilters,
+                                        info.stats->intoFilters,
                                         info.stats->auctions,
-		                        info.stats->bids,
-		                        info.config->bidProbability);
+                                        info.stats->bids,
+                                        info.config->bidProbability);
     }
 
     forAllExchanges([&](std::shared_ptr<ExchangeConnector> const & item) {
         logMessage("USAGE", "EXCHANGE", p, item->exchangeName(),
-                                           item->numServingRequest,
-	                                   item->numAuctions,
-	                                   item->acceptAuctionProbability);
+                                           item->numRequests,
+                                           item->numAuctions,
+                                           item->acceptAuctionProbability);
     });
 
     logMessage("USAGE", "ROUTER", p, numNoPotentialBidders,
-	                             numBids,
+                                     numBids,
                                      numAuctionsWithBid);
 }
 

@@ -53,7 +53,7 @@ struct ExchangeConnector: public ServiceBase {
     */
     OnAuction onNewAuction, onAuctionDone;
 
-    int numServingRequest;  ///< How many connections are serving a request
+    int numRequests;
     int numAuctions;
 
     /** Probability that we will accept a given auction. */

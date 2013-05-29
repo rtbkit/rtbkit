@@ -296,6 +296,8 @@ handleHttpPayload(const HttpHeader & header,
         logger->recordRequest(header, payload);
     }
 
+    ML::atomic_add(endpoint->numRequests, 1);
+
     doEvent("auctionReceived");
     doEvent("auctionBodyLength", ET_COUNT, payload.size());
 

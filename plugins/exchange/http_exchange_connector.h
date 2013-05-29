@@ -229,6 +229,8 @@ protected:
     typedef boost::function<HttpAuctionHandler * ()> HandlerFactory;
     HandlerFactory handlerFactory;
 
+    int numServingRequest;  ///< How many connections are serving a request
+
     /// Configuration parameters
     int numThreads;         
     int realTimePriority;
@@ -252,7 +254,6 @@ private:
 
     Lock handlersLock;
     std::set<std::shared_ptr<HttpAuctionHandler> > handlers;
-
     void finishedWithHandler(std::shared_ptr<HttpAuctionHandler> handler);
 
     /** Common code from all constructors. */
