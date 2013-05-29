@@ -790,41 +790,37 @@ canBid(const ExchangeConnector * exchangeConnector,
 {
     BiddableSpots result;
 
-    // TODO: do a lookup, not an exhaustive scan
-    for (unsigned i = 0;  i < request.imp.size();  ++i) {
-        auto & item = request.imp[i];
+    if (exchangeConnector) {
+        // TODO: do a lookup, not an exhaustive scan
+        for (unsigned i = 0;  i < request.imp.size();  ++i) {
+            auto & item = request.imp[i];
 
-        // Check that the fold position matches
-        if (!foldPositionFilter.isIncluded(item.position))
-            continue;
+            // Check that the fold position matches
+            if (!foldPositionFilter.isIncluded(item.position))
+                continue;
 
-        SmallIntVector matching;
-        for (unsigned j = 0;  j < creatives.size();  ++j) {
-            auto & creative = creatives[j];
-
-            // check that this it's compatible
-            const void * exchangeInfo = 0;
-            {
+            SmallIntVector matching;
+            for (unsigned j = 0;  j < creatives.size();  ++j) {
+                auto & creative = creatives[j];
                 std::lock_guard<ML::Spinlock> guard(creative.lock);
                 auto it = creative.providerData.find(exchangeConnector->exchangeName());
                 if (it == creative.providerData.end()) {
                     continue;
                 }
 
-                exchangeInfo = it->second.get();
+                const void * exchangeInfo = it->second.get();
+                if (exchangeConnector->bidRequestCreativeFilter(request, *this, exchangeInfo) 
+                        && creative.compatible(item)
+                        && creative.biddable(request.exchange, request.protocolVersion)
+                        && creative.exchangeFilter.isIncluded(request.exchange)
+                        && creative.languageFilter.isIncluded(language.rawString())
+                        && creative.locationFilter.isIncluded(location, locationHash, locationCache))
+                    matching.push_back(j);
             }
 
-            if (exchangeConnector->bidRequestCreativeFilter(request, *this, exchangeInfo) 
-                && creative.compatible(item)
-                && creative.biddable(request.exchange, request.protocolVersion)
-                && creative.exchangeFilter.isIncluded(request.exchange)
-                && creative.languageFilter.isIncluded(language.rawString())
-                && creative.locationFilter.isIncluded(location, locationHash, locationCache))
-                matching.push_back(j);
+            if (!matching.empty())
+                result.push_back(make_pair(i, matching));
         }
-
-        if (!matching.empty())
-            result.push_back(make_pair(i, matching));
     }
     
     return result;
