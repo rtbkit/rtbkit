@@ -13,6 +13,7 @@
 #include "soa/service/typed_message_channel.h"
 #include "rtbkit/common/auction.h"
 #include "rtbkit/common/auction_events.h"
+#include "soa/service/loop_monitor.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/zmq_message_router.h"
 #include "soa/service/zmq_named_pub_sub.h"
@@ -465,6 +466,7 @@ private:
     static std::string makeBidId(Id auctionId, Id spotId, const std::string & agent);
 
     AgentConfigurationListener configListener;
+    LoopMonitor loopMonitor;
 };
 
 

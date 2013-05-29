@@ -253,7 +253,8 @@ PostAuctionLoop(std::shared_ptr<ServiceProxies> proxies,
       endpoint(getZmqContext()),
       router(!!getZmqContext()),
       toAgents(getZmqContext()),
-      configListener(getZmqContext())
+      configListener(getZmqContext()),
+      loopMonitor(*this)
 {
 }
 
@@ -268,7 +269,8 @@ PostAuctionLoop(ServiceBase & parent,
       endpoint(getZmqContext()),
       router(!!getZmqContext()),
       toAgents(getZmqContext()),
-      configListener(getZmqContext())
+      configListener(getZmqContext()),
+      loopMonitor(*this)
 {
 }
 
@@ -335,6 +337,11 @@ initConnections()
     loop.addSource("PostAuctionLoop::toAgents", toAgents);
     loop.addSource("PostAuctionLoop::configListener", configListener);
     loop.addSource("PostAuctionLoop::logger", logger);
+
+    // Loop monitor is purely for monitoring purposes. There's no message we can
+    // just drop in the PAL to alleviate the load.
+    loopMonitor.init();
+    loopMonitor.addMessageLoop("postAuctionLoop", &loop);
 }
 
 void
@@ -352,12 +359,14 @@ start(std::function<void ()> onStop)
 {
     loop.start(onStop);
     monitorProviderClient.start();
+    loopMonitor.start();
 }
 
 void
 PostAuctionLoop::
 shutdown()
 {
+    loopMonitor.shutdown();
     loop.shutdown();
     logger.shutdown();
     toAgents.shutdown();
