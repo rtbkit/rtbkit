@@ -415,7 +415,6 @@ toString() const
         }
         std::reverse(result.begin(), result.end());
         return result;
-        return ML::format("%lld", val1);
     }
     case BIGDEC: {
         __uint128_t v = val;
