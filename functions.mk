@@ -178,6 +178,7 @@ endif
 endef
 
 # add a (google) protobuf source file
+# intermediary files will be left in the source directory
 # $(1): filename of source file
 # $(2): basename of the filename
 define add_pbuf_source
