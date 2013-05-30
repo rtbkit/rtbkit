@@ -157,6 +157,33 @@ struct UserPartition {
 };
 
 
+/******************************************************************************/
+/* AUGMENTATION CONFIG                                                        */
+/******************************************************************************/
+
+/** Configuration for a given augmentor desired by an agent. */
+struct AugmentationConfig
+{
+    AugmentationConfig() : required(false) {}
+
+    std::string name;
+    Json::Value config;
+    IncludeExclude<std::string> filters;
+    bool required;
+
+    bool operator < (const AugmentationConfig & other) const
+    {
+        return name < other.name;
+    }
+
+    Json::Value toJson() const;
+    void fromJson(const Json::Value&);
+
+    static AugmentationConfig createFromJson(const Json::Value&);
+};
+
+
+
 /*****************************************************************************/
 /* BLACKLIST CONTROL                                                         */
 /*****************************************************************************/
@@ -196,7 +223,6 @@ enum BidResultFormat {
 
 Json::Value toJson(BidResultFormat fmt);
 void fromJson(BidResultFormat & fmt, const Json::Value & j);
-
 
 /*****************************************************************************/
 /* AGENT CONFIG                                                              */
@@ -297,18 +323,6 @@ struct AgentConfig {
     BidControlType bidControlType;
     uint32_t fixedBidCpmInMicros;
 
-    IncludeExclude<std::string> augmentationFilter;
-
-    struct AugmentationInfo {
-        std::string name;
-        Json::Value config;
-
-        bool operator < (const AugmentationInfo & other) const
-        {
-            return name < other.name;
-        }
-    };
-
     /** Add the given augmentation to the list of augmentations.  This will
         fail if the given augmentation already exists in the list.
     */
@@ -318,9 +332,9 @@ struct AgentConfig {
     /** Add the given augmentation to the list of augmentations.  This will
         fail if the given augmentation already exists in the list.
     */
-    void addAugmentation(AugmentationInfo info);
+    void addAugmentation(AugmentationConfig info);
 
-    std::vector<AugmentationInfo> augmentations;
+    std::vector<AugmentationConfig> augmentations;
 
     /** JSON value that is passed through with each bid. */
     Json::Value providerConfig;

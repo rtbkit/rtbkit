@@ -106,8 +106,12 @@ struct Components
         // Setup a monitor which ensures that any instability in the system will
         // throttle the bid request stream. In other words, it ensures you won't
         // go bankrupt.
-        monitor.init({"router1", "router2", "pas1", "masterBanker",
-                        "agentConfigurationService"});
+        monitor.init({
+                    "rtbRequestRouter",
+                    "rtbPostAuctionService",
+                    "rtbBanker",
+                    "rtbDataLogger",
+                    "rtbAgentConfiguration"});
         monitor.bindTcp();
         monitor.start();
 
@@ -211,17 +215,29 @@ void setupAgent(TestAgent& agent)
     // the bidding agent class.
     agent.strictMode(false);
 
-    // Set our frequency cap to 42. This has two effects: 1) it instructs the
-    // router that we want bid requests destined for our agent to first be
-    // augmented with frequency capping information and 2) it instructs our
-    // augmentor to place the pass-frequency-cap-ex tag on our bid request if
-    // our agent has seen a given user less then 42 times.
-    agent.config.addAugmentation("frequency-cap-ex", Json::Value(42));
 
-    // Instructs the router to only keep bid requests that have this tag. In
-    // other words keep only the bid requests that haven't reached our frequency
-    // cap limit.
-    agent.config.augmentationFilter.include.push_back("pass-frequency-cap-ex");
+    // Indicate to the router that we want our bid requests to be augmented
+    // with our frequency cap augmentor example.
+    {
+        AugmentationConfig augConfig;
+
+        // Name of the requested augmentor.
+        augConfig.name = "frequency-cap-ex";
+
+        // If the augmentor was unable to augment our bid request then it
+        // should be filtered before it makes it to our agent.
+        augConfig.required = true;
+
+        // Config parameter sent used by the augmentor to determine which
+        // tag to set.
+        augConfig.config = Json::Value(42);
+
+        // Instruct to router to filter out all bid requests who have not
+        // been tagged by our frequency cap augmentor.
+        augConfig.filters.include.push_back("pass-frequency-cap-ex");
+
+        agent.config.addAugmentation(augConfig);
+    }
 
     // Notify the world about our config change.
     agent.doConfig(agent.config);

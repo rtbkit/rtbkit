@@ -101,17 +101,29 @@ struct FixedPriceBiddingAgent :
         config.creatives.push_back(Creative::sampleWS);
         config.creatives.push_back(Creative::sampleBB);
 
-        // Set our frequency cap to 42. This has two effects: 1) it instructs
-        // the router that we want bid requests destined for our agent to first
-        // be augmented with frequency capping information and 2) it instructs
-        // the frequency cap augmentor to tag any bid requests for which we've
-        // seen the user less the 42 times.
-        config.addAugmentation("frequency-cap-ex", Json::Value(42));
 
-        // Instructs the router to only keep bid requests that have this tag. In
-        // other words keep only the bid requests that our agents has seen less
-        // then 42 times.
-        config.augmentationFilter.include.push_back("pass-frequency-cap-ex");
+        // Indicate to the router that we want our bid requests to be augmented
+        // with our frequency cap augmentor example.
+        {
+            AugmentationConfig augConfig;
+
+            // Name of the requested augmentor.
+            augConfig.name = "frequency-cap-ex";
+
+            // If the augmentor was unable to augment our bid request then it
+            // should be filtered before it makes it to our agent.
+            augConfig.required = true;
+
+            // Config parameter sent used by the augmentor to determine which
+            // tag to set.
+            augConfig.config = Json::Value(42);
+
+            // Instruct to router to filter out all bid requests who have not
+            // been tagged by our frequency cap augmentor.
+            augConfig.filters.include.push_back("pass-frequency-cap-ex");
+
+            config.addAugmentation(augConfig);
+        }
 
 
         // Tell the world about our config. We can change the configuration of

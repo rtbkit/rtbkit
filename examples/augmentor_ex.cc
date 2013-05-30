@@ -179,7 +179,7 @@ onRequest(const RTBKIT::AugmentationRequest& request)
            It's also recomended to place your data in an object labeled
            after the augmentor from which it originated.
         */
-        result[account[0]].data[request.augmentor] = count;
+        result[account[0]].data = count;
 
         /* We tag bid requests that pass the frequency cap filtering because
            if the augmentation doesn't terminate in time or if an error

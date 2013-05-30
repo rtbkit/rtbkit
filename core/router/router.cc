@@ -1340,7 +1340,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
 
         bool traceAuction = auction->id.hash() % 10 == 0;
 
-        const AugmentationList& augList = augInfo->auction->augmentations;
+        const auto& augList = augInfo->auction->augmentations;
 
         /* For each round-robin group, send the request off to exactly one
            element. */
@@ -1437,13 +1437,32 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                     continue;
                 }
 
+                stringstream ss;
+                ss << endl;
+
                 /* Filter on the augmentation tags */
-                vector<string> tags = augList.tagsForAccount(config.account);
-                if (!config.augmentationFilter.anyIsIncluded(tags)) {
+                bool filteredByAugmentation = false;
+                for (const auto& augConfig : config.augmentations) {
+                    auto it = augList.find(augConfig.name);
+
+                    if (it == augList.end()) {
+                        if (!augConfig.required) continue;
+                        string stat = "dynamic." + augConfig.name + ".missing";
+                        doFilterStat(stat.c_str());
+                        filteredByAugmentation = true;
+                        break;
+                    }
+
+                    vector<string> tags = it->second.tagsForAccount(config.account);
+                    if (augConfig.filters.anyIsIncluded(tags)) continue;
+
                     ML::atomic_inc(info.stats->augmentationTagsExcluded);
-                    doFilterStat("dynamic.augmentationTagsFiltered");
-                    continue;
+                    string stat = "dynamic." + augConfig.name + ".tags";
+                    doFilterStat(stat.c_str());
+                    filteredByAugmentation = true;
+                    break;
                 }
+                if (filteredByAugmentation) continue;
 
 
                 /* Check that there is no blacklist hit on the user. */
@@ -1495,9 +1514,12 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
 
             ++info.stats->auctions;
 
-            Augmentation aug
-                = auction->augmentations.filterForAccount(winner.config->account);
-            auction->agentAugmentations[agent] = chomp(aug.toJson().toString());
+            Json::Value aggregatedAug;
+            for (const auto& aug : augList) {
+                aggregatedAug[aug.first] =
+                    aug.second.filterForAccount(winner.config->account).toJson();
+            }
+            auction->agentAugmentations[agent] = chomp(aggregatedAug.toString());
 
             //auctionInfo.activities.push_back("sent to " + agent);
 

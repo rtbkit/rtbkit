@@ -73,7 +73,8 @@ struct Auction : public std::enable_shared_from_this<Auction> {
     std::string requestStrFormat;  ///< Format of stringified request
     std::string requestSerialized; ///< Serialized bid request (canonical)
 
-    AugmentationList augmentations; ///< Aggregate aug info for all agents.
+    ///< AugmentationList for each augmentors.
+    std::unordered_map<std::string, AugmentationList> augmentations;
     AgentAugmentations agentAugmentations; ///< per agent augmentations.
 
     /** How much time is still available for the auction (in seconds). */

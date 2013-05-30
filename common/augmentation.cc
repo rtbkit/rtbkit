@@ -25,11 +25,27 @@ namespace {
 
 void mergeAugmentationData(Json::Value& lhs, const Json::Value& rhs)
 {
-    vector<string> members = rhs.getMemberNames();
-    for (auto it = members.begin(), end = members.end(); it != end; ++it) {
-        ExcCheck(!lhs.isMember(*it), "Duplicated augmentation data.");
-        lhs[*it] = rhs[*it];
+    if (lhs.isNull()) {
+        lhs = rhs;
+        return;
     }
+
+    ExcCheckEqual(lhs.type(), rhs.type(),
+            "Augmentation data must be of the same type");
+
+    if (lhs.isObject()) {
+        vector<string> members = rhs.getMemberNames();
+        for (auto it = members.begin(), end = members.end(); it != end; ++it) {
+            ExcCheck(!lhs.isMember(*it), "Duplicated augmentation data.");
+            lhs[*it] = rhs[*it];
+        }
+    }
+
+    else if (lhs.isArray())
+        for (size_t i = 0; i < rhs.size(); ++i) lhs.append(rhs[i]);
+
+    // Last wins.
+    else lhs = rhs;
 }
 
 } // namespace anonymous

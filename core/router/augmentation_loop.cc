@@ -620,7 +620,7 @@ doResponse(const std::vector<std::string> & message)
         return;
     }
 
-    it->second->info->auction->augmentations.mergeWith(augmentationList);
+    it->second->info->auction->augmentations[augmentor].mergeWith(augmentationList);
 
     it->second->outstanding.erase(augmentor);
     if (it->second->outstanding.empty()) {

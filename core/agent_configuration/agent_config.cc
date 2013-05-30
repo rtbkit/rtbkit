@@ -287,6 +287,51 @@ toJson() const
 }
 
 
+/******************************************************************************/
+/* AUGMENTATION INFO                                                          */
+/******************************************************************************/
+
+Json::Value
+AugmentationConfig::
+toJson() const
+{
+    Json::Value result;
+
+    result["name"] = name;
+    if (!config.isNull()) result["config"] = config;
+    if (!filters.empty()) result["filters"] = filters.toJson();
+    if (required) result["required"] = true;
+
+    return result;
+}
+
+void
+AugmentationConfig::
+fromJson(const Json::Value& json)
+{
+    const auto& members = json.getMemberNames();
+    for (const auto& m : members) {
+        const Json::Value& val = json[m];
+        if      (m == "name") name = val.asString();
+        else if (m == "config") config = val;
+        else if (m == "filters") filters.fromJson(val, "augmentor.filters");
+        else if (m == "required") required = val.asBool();
+
+        else ExcCheck(false, "Unknown AugmentorInfo field: " + name);
+    }
+}
+
+AugmentationConfig
+AugmentationConfig::
+createFromJson(const Json::Value& json)
+{
+    AugmentationConfig info;
+    info.fromJson(json);
+    return info;
+}
+
+
+
 /*****************************************************************************/
 /* AGENT CONFIG                                                             */
 /*****************************************************************************/
@@ -551,15 +596,14 @@ createFromJson(const Json::Value & json)
         else if (it.memberName() == "hourOfWeekFilter") {
             newConfig.hourOfWeekFilter.fromJson(*it);
         }
-        else if (it.memberName() == "augmentationFilter") {
-            newConfig.augmentationFilter.fromJson(*it, "augmentationFilter");
-        }
-        else if (it.memberName() == "augment") {
-            if (!it->isObject())
-                throw Exception("augment must be an object of augmentor name to config");
+        else if (it.memberName() == "augmentations") {
+            ExcCheckEqual(it->type(), Json::arrayValue,
+                    "augment must be an object of augmentor name to config");
 
-            for (auto jt = (*it).begin(), end = (*it).end(); jt != end; ++jt)
-                newConfig.addAugmentation(jt.memberName(), *jt);
+            for (size_t i = 0; i < it->size(); ++i) {
+                newConfig.augmentations.emplace_back(
+                        AugmentationConfig::createFromJson((*it)[i]));
+            }
         }
         else if (it.memberName() == "blacklist") {
             for (auto jt = it->begin(), jend = it->end();
@@ -698,8 +742,6 @@ toJson(bool includeCreatives) const
         result["languageFilter"] = languageFilter.toJson();
     if (!exchangeFilter.empty())
         result["exchangeFilter"] = exchangeFilter.toJson();
-    if (!augmentationFilter.empty())
-        result["augmentationFilter"] = augmentationFilter.toJson();
     if (!requiredIds.empty()) {
         for (unsigned i = 0;  i < requiredIds.size();  ++i)
             result["requiredIds"][i] = requiredIds[i];
@@ -726,8 +768,8 @@ toJson(bool includeCreatives) const
     if (!augmentations.empty()) {
         Json::Value aug;
         for (unsigned i = 0;  i < augmentations.size();  ++i)
-            aug[augmentations[i].name] = augmentations[i].config;
-        result["augment"] = aug;
+            aug.append(augmentations[i].toJson());
+        result["augmentations"] = aug;
     }
     if (!hourOfWeekFilter.isDefault()) {
         result["hourOfWeekFilter"] = hourOfWeekFilter.toJson();
@@ -1044,7 +1086,7 @@ AgentConfig::
 addAugmentation(const std::string & name, Json::Value config)
 {
     
-    AugmentationInfo info;
+    AugmentationConfig info;
     info.name = name;
     info.config = std::move(config);
 
@@ -1053,7 +1095,7 @@ addAugmentation(const std::string & name, Json::Value config)
 
 void
 AgentConfig::
-addAugmentation(AugmentationInfo info)
+addAugmentation(AugmentationConfig info)
 {
     for (auto & a: augmentations)
         if (a.name == info.name)
