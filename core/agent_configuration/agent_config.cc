@@ -317,7 +317,7 @@ fromJson(const Json::Value& json)
         else if (m == "filters") filters.fromJson(val, "augmentor.filters");
         else if (m == "required") required = val.asBool();
 
-        else ExcCheck(false, "Unknown AugmentorInfo field: " + name);
+        else ExcCheck(false, "Unknown AugmentorInfo field: " + m);
     }
 }
 
