@@ -299,7 +299,7 @@ handleHttpPayload(const HttpHeader & header,
     ML::atomic_add(endpoint->numRequests, 1);
 
     doEvent("auctionReceived");
-    doEvent("auctionBodyLength", ET_COUNT, payload.size());
+    doEvent("auctionBodyLength", ET_OUTCOME, payload.size(), "bytes");
 
     incNumServingRequest();
     servingRequest = true;
