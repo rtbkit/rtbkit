@@ -297,7 +297,6 @@ toJson() const
 {
     Json::Value result;
 
-    result["name"] = name;
     if (!config.isNull()) result["config"] = config;
     if (!filters.empty()) result["filters"] = filters.toJson();
     if (required) result["required"] = true;
@@ -312,8 +311,8 @@ fromJson(const Json::Value& json)
     const auto& members = json.getMemberNames();
     for (const auto& m : members) {
         const Json::Value& val = json[m];
-        if      (m == "name") name = val.asString();
-        else if (m == "config") config = val;
+
+        if      (m == "config") config = val;
         else if (m == "filters") filters.fromJson(val, "augmentor.filters");
         else if (m == "required") required = val.asBool();
 
@@ -323,9 +322,9 @@ fromJson(const Json::Value& json)
 
 AugmentationConfig
 AugmentationConfig::
-createFromJson(const Json::Value& json)
+createFromJson(const Json::Value& json, const std::string& name)
 {
-    AugmentationConfig info;
+    AugmentationConfig info(name);
     info.fromJson(json);
     return info;
 }
@@ -597,12 +596,12 @@ createFromJson(const Json::Value & json)
             newConfig.hourOfWeekFilter.fromJson(*it);
         }
         else if (it.memberName() == "augmentations") {
-            ExcCheckEqual(it->type(), Json::arrayValue,
+            ExcCheckEqual(it->type(), Json::objectValue,
                     "augment must be an object of augmentor name to config");
 
-            for (size_t i = 0; i < it->size(); ++i) {
+            for (auto jt = (*it).begin(), end = (*it).end(); jt != end; ++jt) {
                 newConfig.augmentations.emplace_back(
-                        AugmentationConfig::createFromJson((*it)[i]));
+                        AugmentationConfig::createFromJson(*jt, jt.memberName()));
             }
         }
         else if (it.memberName() == "blacklist") {
@@ -768,7 +767,7 @@ toJson(bool includeCreatives) const
     if (!augmentations.empty()) {
         Json::Value aug;
         for (unsigned i = 0;  i < augmentations.size();  ++i)
-            aug.append(augmentations[i].toJson());
+            aug[augmentations[i].name] = augmentations[i].toJson();
         result["augmentations"] = aug;
     }
     if (!hourOfWeekFilter.isDefault()) {

@@ -164,7 +164,9 @@ struct UserPartition {
 /** Configuration for a given augmentor desired by an agent. */
 struct AugmentationConfig
 {
-    AugmentationConfig() : required(false) {}
+    AugmentationConfig(const std::string& name = "") :
+        name(name), required(false)
+    {}
 
     std::string name;
     Json::Value config;
@@ -179,7 +181,8 @@ struct AugmentationConfig
     Json::Value toJson() const;
     void fromJson(const Json::Value&);
 
-    static AugmentationConfig createFromJson(const Json::Value&);
+    static AugmentationConfig createFromJson(
+            const Json::Value& json, const std::string& name = "");
 };
 
 
