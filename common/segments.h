@@ -7,6 +7,7 @@
 #include "jml/utils/compact_vector.h"
 #include "jml/db/persistent_fwd.h"
 #include "soa/jsoncpp/json.h"
+#include "soa/types/value_description.h"
 #include "soa/types/value_description_fwd.h"
 #include <boost/shared_ptr.hpp>
 #include <map>
@@ -153,7 +154,84 @@ struct SegmentsBySource
 
 IMPL_SERIALIZE_RECONSTITUTE(SegmentsBySource);
 
-Datacratic::ValueDescriptionT<RTBKIT::SegmentsBySource> *
-getDefaultDescription(RTBKIT::SegmentsBySource * = 0);
-
 } // namespace RTBKIT
+
+
+namespace Datacratic {
+
+using namespace RTBKIT;
+
+template<>
+struct DefaultDescription<SegmentList>
+    : public ValueDescriptionI<SegmentList, ValueKind::ARRAY> {
+
+    virtual void parseJsonTyped(SegmentList * val,
+                                JsonParsingContext & context) const
+    {
+        Json::Value v = context.expectJson();
+        //cerr << "got segments " << v << endl;
+        *val = std::move(SegmentList::createFromJson(v));
+    }
+
+    virtual void printJsonTyped(const SegmentList * val,
+                                JsonPrintingContext & context) const
+    {
+        context.startArray();
+        if (val->weights.empty()) {
+            for (unsigned i = 0;  i < val->ints.size();  ++i)
+                context.writeInt(val->ints[i]);
+            for (unsigned i = 0;  i < val->strings.size();  ++i)
+                context.writeString(val->strings[i]);
+        }
+        else {
+            throw ML::Exception("weights unsupported");
+        }
+        context.endArray();
+    }
+
+    virtual bool isDefaultTyped(const SegmentList * val) const
+    {
+        return val->empty();
+    }
+};
+
+template<>
+struct DefaultDescription<SegmentsBySource>
+    : public ValueDescriptionI<SegmentsBySource, ValueKind::MAP> {
+    DefaultDescription(ValueDescriptionT<SegmentList> * newInner
+                       = getDefaultDescription((SegmentList *)0))
+        : inner(newInner)
+    {
+        // inner = reinterpret_cast<DefaultDescription<SegmentList> *>(newInner);
+    }
+
+    ValueDescriptionT<SegmentList> * inner;
+    // DefaultDescription<SegmentList> * inner;
+
+    virtual void parseJsonTyped(SegmentsBySource * val,
+                                JsonParsingContext & context) const
+    {
+        Json::Value v = context.expectJson();
+        //cerr << "got segments " << v << endl;
+        *val = std::move(RTBKIT::SegmentsBySource::createFromJson(v));
+    }
+
+    virtual void printJsonTyped(const SegmentsBySource * val,
+                                JsonPrintingContext & context) const
+    {
+        context.startObject();
+        for (const auto & v: *val) {
+            context.startMember(v.first);
+            inner->printJsonTyped(v.second.get(), context);
+        }
+        context.endObject();
+    }
+
+    virtual bool isDefaultTyped(const SegmentsBySource * val) const
+    {
+        return val->empty();
+    }
+};
+
+}
+

@@ -533,34 +533,5 @@ reconstitute(ML::DB::Store_Reader & store)
     swap(newMe);
 }
 
-struct SegmentsBySourceValueDescription
-    : public ValueDescriptionT<SegmentsBySource> {
-
-    virtual void parseJsonTyped(SegmentsBySource * val,
-                                JsonParsingContext & context) const
-    {
-        Json::Value v = context.expectJson();
-        //cerr << "got segments " << v << endl;
-        *val = std::move(RTBKIT::SegmentsBySource::createFromJson(v));
-    }
-
-    virtual void printJsonTyped(const SegmentsBySource * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeJson(val->toJson());
-    }
-
-    virtual bool isDefaultTyped(const SegmentsBySource * val) const
-    {
-        return val->empty();
-    }
-};
-
-ValueDescriptionT<RTBKIT::SegmentsBySource> *
-getDefaultDescription(RTBKIT::SegmentsBySource *)
-{
-    return new SegmentsBySourceValueDescription();
-}
-
 } // namespace RTBKIT
 
