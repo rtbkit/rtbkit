@@ -166,71 +166,25 @@ struct DefaultDescription<SegmentList>
     : public ValueDescriptionI<SegmentList, ValueKind::ARRAY> {
 
     virtual void parseJsonTyped(SegmentList * val,
-                                JsonParsingContext & context) const
-    {
-        Json::Value v = context.expectJson();
-        //cerr << "got segments " << v << endl;
-        *val = std::move(SegmentList::createFromJson(v));
-    }
-
+                                JsonParsingContext & context) const;
     virtual void printJsonTyped(const SegmentList * val,
-                                JsonPrintingContext & context) const
-    {
-        context.startArray();
-        if (val->weights.empty()) {
-            for (unsigned i = 0;  i < val->ints.size();  ++i)
-                context.writeInt(val->ints[i]);
-            for (unsigned i = 0;  i < val->strings.size();  ++i)
-                context.writeString(val->strings[i]);
-        }
-        else {
-            throw ML::Exception("weights unsupported");
-        }
-        context.endArray();
-    }
-
-    virtual bool isDefaultTyped(const SegmentList * val) const
-    {
-        return val->empty();
-    }
+                                JsonPrintingContext & context) const;
+    virtual bool isDefaultTyped(const SegmentList * val) const;
 };
 
 template<>
 struct DefaultDescription<SegmentsBySource>
     : public ValueDescriptionI<SegmentsBySource, ValueKind::MAP> {
     DefaultDescription(ValueDescriptionT<SegmentList> * newInner
-                       = getDefaultDescription((SegmentList *)0))
-        : inner(newInner)
-    {
-        // inner = reinterpret_cast<DefaultDescription<SegmentList> *>(newInner);
-    }
+                       = getDefaultDescription((SegmentList *)0));
 
     ValueDescriptionT<SegmentList> * inner;
-    // DefaultDescription<SegmentList> * inner;
 
     virtual void parseJsonTyped(SegmentsBySource * val,
-                                JsonParsingContext & context) const
-    {
-        Json::Value v = context.expectJson();
-        //cerr << "got segments " << v << endl;
-        *val = std::move(RTBKIT::SegmentsBySource::createFromJson(v));
-    }
-
+                                JsonParsingContext & context) const;
     virtual void printJsonTyped(const SegmentsBySource * val,
-                                JsonPrintingContext & context) const
-    {
-        context.startObject();
-        for (const auto & v: *val) {
-            context.startMember(v.first);
-            inner->printJsonTyped(v.second.get(), context);
-        }
-        context.endObject();
-    }
-
-    virtual bool isDefaultTyped(const SegmentsBySource * val) const
-    {
-        return val->empty();
-    }
+                                JsonPrintingContext & context) const;
+    virtual bool isDefaultTyped(const SegmentsBySource * val) const;
 };
 
 }
