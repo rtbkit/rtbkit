@@ -23,6 +23,9 @@ void skipJsonWhitespace(Parse_Context & context)
     // Fast-path for the usual case for not EOF and no whitespace
     if (JML_LIKELY(!context.eof())) {
         char c = *context;
+        if (c > ' ') {
+            return;
+        }
         if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
             return;
     }
