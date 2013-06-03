@@ -93,18 +93,14 @@ DataLogger::
 getProviderIndicators()
     const
 {
+    if (providerIndicatorFn)
+        return providerIndicatorFn();
+
     MonitorIndicator ind;
+
     ind.serviceName = serviceName();
     ind.status = true;
-
-    for (const auto & pair: multipleSubscriber.subscribers) {
-        bool isDisconnected =
-            pair.second->getConnectionState()
-            == ZmqNamedSocket::ConnectionState::DISCONNECTED;
-
-        ind.status = ind.status && !isDisconnected;
-        if (isDisconnected) ind.message += pair.first + ": ERROR ";
-    }
+    ind.message = "Alive";
 
     return ind;
 }

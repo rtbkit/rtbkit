@@ -48,7 +48,12 @@ struct DataLogger : public Datacratic::ServiceBase,
 
     /* MonitorProvider interface */
     std::string getProviderClass() const;
-    MonitorIndicator getProviderIndicators() const;
+
+    /** Used to overide the default getProviderIndicators implementation. */
+    std::function<MonitorIndicator()> providerIndicatorFn;
+
+    /** Returns a dumb all clear status. */
+    virtual MonitorIndicator getProviderIndicators() const;
 
     bool monitor_;
 
