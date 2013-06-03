@@ -690,36 +690,15 @@ void parseJson(Id * output, Context & context)
 {
     using namespace std;
 
-#if 0
-    unsigned long long i;
-    if (context.matchUnsignedLongLong(i)) {
-        cerr << "got unsigned " << i << endl;
-        *output = Id(i);
-        return;
-    }
-
-    signed long long l;
-    if (context.matchLongLong(l)) {
-        cerr << "got signed " << l << endl;
-        *output = Id(l);
-        return;
-    }
-#endif
-
-#if 1
-    size_t maxSize(1024);
-    char buffer[1024];
-    ssize_t realSize = context.expectStringAscii(buffer, maxSize);
-    if (realSize > 0) {
+    char buffer[4096];
+    ssize_t realSize = context.expectStringAscii(buffer, sizeof(buffer));
+    if (realSize > -1) {
         *output = Id(buffer, realSize);
     }
     else {
-        throw ML::Exception("not enough room in buffer");
+        std::string value = context.expectStringAscii();
+        *output = Id(value);
     }
-#else
-    std::string value = context.expectStringAscii();
-    *output = Id(value);
-#endif
 }
 
 template<typename Context, typename T>
