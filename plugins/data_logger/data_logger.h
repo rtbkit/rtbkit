@@ -14,6 +14,7 @@
 
 #include "soa/service/service_base.h"
 #include "soa/service/zmq_named_pub_sub.h"
+#include "soa/service/loop_monitor.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
 
 #include "soa/logger/logger.h"
@@ -56,7 +57,7 @@ struct DataLogger : public Datacratic::ServiceBase,
     virtual MonitorIndicator getProviderIndicators() const;
 
     bool monitor_;
-
+    LoopMonitor loopMonitor_;
 };
 
 } // namespace RTKBIT

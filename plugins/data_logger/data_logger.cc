@@ -21,7 +21,8 @@ DataLogger(const string & serviceName, std::shared_ptr<ServiceProxies> proxies,
       Logger(proxies->zmqContext, bufferSize),
       multipleSubscriber(proxies->zmqContext),
       monitorProviderClient(proxies->zmqContext, *this),
-      monitor_(monitor)
+      monitor_(monitor),
+      loopMonitor_(*this)
 {}
 
 DataLogger::
@@ -48,7 +49,8 @@ init()
             s.push_back(m.toString());
         this->logMessageNoTimestamp(s);
     };
-
+    loopMonitor_.init();
+    loopMonitor_.addMessageLoop("logger", &messageLoop);
     //messageLoop.addSource("DataLogger::multipleSubscriber",
     //                      multipleSubscriber);
 }
@@ -61,15 +63,19 @@ start(std::function<void ()> onStop)
     multipleSubscriber.start();
     if(monitor_)
       monitorProviderClient.start();
+
+    loopMonitor_.start();
 }
 
 void
 DataLogger::
 shutdown()
 {
+    loopMonitor_.shutdown();
     monitorProviderClient.shutdown();
     Logger::shutdown();
     multipleSubscriber.shutdown();
+    
 }
 
 void
