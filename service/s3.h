@@ -466,7 +466,7 @@ struct S3Api {
 
 
 
-    bool
+    std::pair<bool,std::string>
     isMultiPartUploadInProgress(const std::string & bucket,
                                 const std::string & resource) const;
 

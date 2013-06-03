@@ -19,6 +19,35 @@
 
 namespace Datacratic {
 
+    namespace CloudUtils {
+        // give the full path of a cloud back up file this function will
+        // return the name of the bucket and the actual file name
+        // eg. given
+        //./logger_cloud_backup/tests.datacratic.com/logger/2013-05-29/router-2013-05-29-20:00:00.log.gz
+        // returns a pair where the first element is the bucket and the second is the
+        // resource
+        std::pair<std::string,std::string>
+                        parseCloudBackupFilePath(std::string backupDir, 
+                                                 boost::filesystem::path file);
+
+        // Given an object such as logger/2013-05-29/router-2013-05-29-20:00:00.2.log.gz
+        // return the stem, the disamb number and the extension. for the example above
+        // stem: router-2013-05-29-20:00:00
+        // disamb:2
+        // ext: .log.gz
+        struct ObjectPart
+        {
+            ObjectPart(std::string stem,unsigned disamb,std::string ext)
+                :stem_(stem),disamb_(disamb),ext_(ext)
+                {
+                }
+            std::string stem_;
+            unsigned disamb_;
+            std::string ext_;
+        };
+        ObjectPart parseObject(std::string object);
+
+    };
 
 /*****************************************************************************/
 /* CLOUD SINK                                                                 */
@@ -91,14 +120,19 @@ struct CloudOutput : public NamedOutput {
     virtual std::shared_ptr<Sink>
     createSink(const std::string & uri, bool append);
 
-    std::vector<boost::filesystem::path> getFilesToUpload() ;
+    void getFilesToUpload() ;
     void uploadLocalFiles() ;
 
     std::string backupDir_;
     std::string bucket_;
     std::string accessKeyId_;
     std::string accessKey_;
-
+    // note that this structure is only filled in a function that is guaranteed
+    // to be called once
+    static std::vector<boost::filesystem::path> filesToUpload_;
+    // for each object that we need to upload store the highest disambiguation
+    // number seen
+    static std::map<std::string,unsigned> pendingDisamb_;
 };
 
 

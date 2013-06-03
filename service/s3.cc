@@ -615,7 +615,7 @@ getRequestHeaders() const
     return result;
 }
 
-bool
+pair<bool,string>
 S3Api::isMultiPartUploadInProgress(
     const std::string & bucket,
     const std::string & resource) const
@@ -653,9 +653,13 @@ S3Api::isMultiPartUploadInProgress(
 
         if (key != outputPrefix)
             continue;
-        return true;
+
+        // Already an upload in progress
+        string uploadId = extract<string>(upload, "UploadId");
+
+        return make_pair(true,uploadId);
     }
-    return false;
+    return make_pair(false,"");
 }
 
 S3Api::MultiPartUpload

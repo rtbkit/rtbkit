@@ -220,14 +220,16 @@ struct Logger {
 
     MessageLoop messageLoop;
 
+
 private:
     std::shared_ptr<zmq::context_t> context;
 
     std::map<std::string, size_t> stats;
 
-    /// Log entried to add
+protected:    /// Log entried to add
     TypedMessageSink<std::vector<std::string>> messages;
 
+private:
 #if 0
     /// Thread to do the logging
     boost::scoped_ptr<boost::thread> logThread;

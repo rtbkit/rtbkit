@@ -82,7 +82,7 @@ struct TypedMessageSink: public AsyncEventSource {
 
         return buf.couldPop();
     }
-
+    uint64_t size() const { return buf.ring.size() ; }
 private:
     ML::Wakeup_Fd wakeup;
     ML::RingBufferSRMW<Message> buf;
