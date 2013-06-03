@@ -177,8 +177,8 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 
             vector<string> values;
             for (auto & v: d.segment) {
-                if (v.id)
-                    values.push_back(v.id.toString());
+                if (!v.id.empty())
+                    values.push_back(v.id);
                 else if (!v.name.empty())
                     values.push_back(v.name);
             }

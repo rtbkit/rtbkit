@@ -1088,7 +1088,7 @@ struct Device {
     specified, it should be considered unknown.
 */
 struct Segment {
-    Id id;                         ///< Segment ID
+    string id;                         ///< Segment ID
     string name;                   ///< Segment name
     string value;                  ///< Segment value
     TaggedFloat segmentusecost;    ///< Cost of using segment in CPM
