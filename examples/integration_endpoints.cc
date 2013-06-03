@@ -34,11 +34,11 @@ int main(int argc, char ** argv) {
 
     std::string rotationInterval = "1h";
     std::string recordFile;
-    std::string exchangeConfigurationFile = "rtbkit/examples/router-config.json";
+    std::string exchangeConfigurationFile = "rtbkit/examples/integration-config.json";
     int recordCount = 1000;
-    int winsPort = 18142;
-    int eventsPort = 18143;
-    int externalPort = 18144;
+    int winsPort = 18143;
+    int eventsPort = 18144;
+    int externalPort = 18145;
 
     options_description bid_endpoint_options("Bid request endpoint options");
     bid_endpoint_options.add_options()
