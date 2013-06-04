@@ -2,7 +2,7 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
-#include <utils/variadic_hash.h>
+#include <soa/utils/variadic_hash.h>
 #include <iostream>
 
 using namespace std;
