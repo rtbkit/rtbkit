@@ -8,6 +8,7 @@ namespace Datacratic{
 using namespace std;
 
 std::mutex m;
+std::mutex m2;
 string ILoggerMetrics::parentObjectId = "";
 bool mustSetup = true;
 shared_ptr<ILoggerMetrics> logger;
@@ -109,7 +110,12 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
 shared_ptr<ILoggerMetrics> ILoggerMetrics
 ::getSingleton(){
     if(mustSetup){
-        throw ML::Exception("Cannot get singleton without calling setup first");
+        std::lock_guard<std::mutex> lock(m2);
+        if(mustSetup){
+            cerr << "Calling getSingleton without calling setup first."
+                 << "Will return a logger metrics terminal." << endl;
+            return setup("", "", "");
+        }
     }
     return logger;
 }
