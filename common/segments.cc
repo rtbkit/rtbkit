@@ -21,6 +21,84 @@ using namespace ML;
 using namespace ML::DB;
 using namespace Datacratic;
 
+namespace Datacratic {
+
+void
+DefaultDescription<SegmentList>::
+parseJsonTyped(SegmentList * val, JsonParsingContext & context)
+    const
+{
+    Json::Value v = context.expectJson();
+    //cerr << "got segments " << v << endl;
+    *val = std::move(SegmentList::createFromJson(v));
+}
+
+void
+DefaultDescription<SegmentList>::
+printJsonTyped(const SegmentList * val, JsonPrintingContext & context)
+    const
+{
+    context.startArray();
+    if (val->weights.empty()) {
+        for (unsigned i = 0;  i < val->ints.size();  ++i)
+            context.writeInt(val->ints[i]);
+        for (unsigned i = 0;  i < val->strings.size();  ++i)
+            context.writeString(val->strings[i]);
+    }
+    else {
+        throw ML::Exception("weights unsupported");
+    }
+    context.endArray();
+}
+
+bool
+DefaultDescription<SegmentList>::
+isDefaultTyped(const SegmentList * val)
+    const
+{
+    return val->empty();
+}
+
+DefaultDescription<SegmentsBySource>::
+DefaultDescription(ValueDescriptionT<SegmentList> * newInner)
+    : inner(newInner)
+{
+    // inner = reinterpret_cast<DefaultDescription<SegmentList> *>(newInner);
+}
+
+void
+DefaultDescription<SegmentsBySource>::
+parseJsonTyped(SegmentsBySource * val, JsonParsingContext & context)
+    const
+{
+    Json::Value v = context.expectJson();
+    //cerr << "got segments " << v << endl;
+    *val = std::move(RTBKIT::SegmentsBySource::createFromJson(v));
+}
+
+void
+DefaultDescription<SegmentsBySource>::
+printJsonTyped(const SegmentsBySource * val,
+               JsonPrintingContext & context) const
+{
+    context.startObject();
+    for (const auto & v: *val) {
+        context.startMember(v.first);
+        inner->printJsonTyped(v.second.get(), context);
+    }
+    context.endObject();
+}
+
+bool
+DefaultDescription<SegmentsBySource>::
+isDefaultTyped(const SegmentsBySource * val)
+    const
+{
+    return val->empty();
+}
+
+}
+
 namespace RTBKIT {
 
 
@@ -531,35 +609,6 @@ reconstitute(ML::DB::Store_Reader & store)
     }
     
     swap(newMe);
-}
-
-struct SegmentsBySourceValueDescription
-    : public ValueDescriptionT<SegmentsBySource> {
-
-    virtual void parseJsonTyped(SegmentsBySource * val,
-                                JsonParsingContext & context) const
-    {
-        Json::Value v = context.expectJson();
-        //cerr << "got segments " << v << endl;
-        *val = std::move(RTBKIT::SegmentsBySource::createFromJson(v));
-    }
-
-    virtual void printJsonTyped(const SegmentsBySource * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeJson(val->toJson());
-    }
-
-    virtual bool isDefaultTyped(const SegmentsBySource * val) const
-    {
-        return val->empty();
-    }
-};
-
-ValueDescriptionT<RTBKIT::SegmentsBySource> *
-getDefaultDescription(RTBKIT::SegmentsBySource *)
-{
-    return new SegmentsBySourceValueDescription();
 }
 
 } // namespace RTBKIT

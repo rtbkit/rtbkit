@@ -7,6 +7,7 @@
 #include "jml/utils/compact_vector.h"
 #include "jml/db/persistent_fwd.h"
 #include "soa/jsoncpp/json.h"
+#include "soa/types/value_description.h"
 #include "soa/types/value_description_fwd.h"
 #include <boost/shared_ptr.hpp>
 #include <map>
@@ -153,7 +154,38 @@ struct SegmentsBySource
 
 IMPL_SERIALIZE_RECONSTITUTE(SegmentsBySource);
 
-Datacratic::ValueDescriptionT<RTBKIT::SegmentsBySource> *
-getDefaultDescription(RTBKIT::SegmentsBySource * = 0);
-
 } // namespace RTBKIT
+
+
+namespace Datacratic {
+
+using namespace RTBKIT;
+
+template<>
+struct DefaultDescription<SegmentList>
+    : public ValueDescriptionI<SegmentList, ValueKind::ARRAY> {
+
+    virtual void parseJsonTyped(SegmentList * val,
+                                JsonParsingContext & context) const;
+    virtual void printJsonTyped(const SegmentList * val,
+                                JsonPrintingContext & context) const;
+    virtual bool isDefaultTyped(const SegmentList * val) const;
+};
+
+template<>
+struct DefaultDescription<SegmentsBySource>
+    : public ValueDescriptionI<SegmentsBySource, ValueKind::MAP> {
+    DefaultDescription(ValueDescriptionT<SegmentList> * newInner
+                       = getDefaultDescription((SegmentList *)0));
+
+    ValueDescriptionT<SegmentList> * inner;
+
+    virtual void parseJsonTyped(SegmentsBySource * val,
+                                JsonParsingContext & context) const;
+    virtual void printJsonTyped(const SegmentsBySource * val,
+                                JsonPrintingContext & context) const;
+    virtual bool isDefaultTyped(const SegmentsBySource * val) const;
+};
+
+}
+
