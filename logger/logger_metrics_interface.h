@@ -9,6 +9,7 @@
 #include <mutex>
 #include "boost/variant.hpp"
 #include <functional>
+#include "soa/types/date.h"
 
 namespace Datacratic{
 
@@ -21,19 +22,25 @@ namespace Datacratic{
  *   implementations
  */
 class ILoggerMetrics{
+
     private:
         static bool failSafe;
+        const Date startDate;
+        ILoggerMetrics(){};
 
     protected:
-        typedef boost::variant<int, float, double, size_t> Numeric;
-        typedef boost::variant<int, float, double, size_t, std::string> NumOrStr;
+        typedef boost::variant<int, float, double, size_t, uint32_t> Numeric;
+        typedef boost::variant<int, float, double, size_t, uint32_t, std::string> NumOrStr;
 
-        std::string collection;
-        static std::string parentObjectId;
         const static std::string METRICS;
         const static std::string PROCESS;
         const static std::string META;
 
+        const std::string coll;
+        static std::string parentObjectId;
+
+        ILoggerMetrics(const std::string& coll) :
+            startDate(Date::now()), coll(coll){};
         virtual void logInCategory(const std::string& category,
                                    const std::vector<std::string>& path,
                                    const NumOrStr& val) = 0;
@@ -41,9 +48,9 @@ class ILoggerMetrics{
                                    Json::Value& j) = 0;
 
         void failSafeHelper(std::function<void()>);
+        virtual const std::string getProcessId() const = 0;
 
     public:
-
         static std::shared_ptr<ILoggerMetrics> setup(
             const std::string& configKey,
             const std::string& coll,
@@ -111,6 +118,7 @@ class ILoggerMetrics{
             failSafeHelper(fct);
         }
 
+        void close();
         virtual ~ILoggerMetrics(){};
 
 };

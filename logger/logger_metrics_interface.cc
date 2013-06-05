@@ -1,12 +1,14 @@
 #include "soa/logger/logger_metrics_interface.h"
 #include "soa/logger/logger_metrics_mongo.h"
 #include "soa/logger/logger_metrics_void.h"
+#include "soa/logger/logger_metrics_term.h"
 #include "soa/jsoncpp/reader.h"
 
 namespace Datacratic{
 using namespace std;
 
 std::mutex m;
+std::mutex m2;
 string ILoggerMetrics::parentObjectId = "";
 bool mustSetup = true;
 shared_ptr<ILoggerMetrics> logger;
@@ -28,39 +30,92 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
         }else{
             parentObjectId = "";
         }
-        Json::Value config = Json::parseFromFile(getenv("CONFIG"));
-        config = config[configKey];
-        string loggerType = config["type"].asString();
-        failSafe = config["failSafe"].asBool();
-        function<void()> fct = [&]{
-            if(loggerType == "mongo"){
-                logger = shared_ptr<ILoggerMetrics>(
-                    new LoggerMetricsMongo(config, coll, appName));
-            }else{
-                throw ML::Exception("Unknown logger type [%s]", loggerType.c_str());
-            }
-        };
-        if(failSafe){
-            try{
-                fct(); 
-            }catch(const exception& exc){
-                cerr << "Logger fail safe caught: " << exc.what() << endl;
-                logger = shared_ptr<ILoggerMetrics>(
-                    new LoggerMetricsVoid(config, coll, appName));
-            }
+        if(!getenv("CONFIG")){
+            cerr << "Logger Metrics Setup: CONFIG is not defined. "
+                 << "Will use the terminal." << endl;
+            Json::Value fooConfig;
+            logger = shared_ptr<ILoggerMetrics>(
+                new LoggerMetricsTerm(fooConfig, coll, appName));
         }else{
-            fct();
+            Json::Value config = Json::parseFromFile(getenv("CONFIG"));
+            config = config[configKey];
+            string loggerType = config["type"].asString();
+            failSafe = config["failSafe"].asBool();
+            function<void()> fct = [&]{
+                if(loggerType == "mongo"){
+                    logger = shared_ptr<ILoggerMetrics>(
+                        new LoggerMetricsMongo(config, coll, appName));
+                }else if(loggerType == "term" || loggerType == "terminal"){
+                    logger = shared_ptr<ILoggerMetrics>(
+                        new LoggerMetricsTerm(config, coll, appName));
+                }else if(loggerType == "void"){
+                    logger = shared_ptr<ILoggerMetrics>(
+                        new LoggerMetricsVoid(config, coll, appName));
+                }else{
+                    throw ML::Exception("Unknown logger type [%s]", loggerType.c_str());
+                }
+            };
+            if(failSafe){
+                try{
+                    fct();
+                }catch(const exception& exc){
+                    cerr << "Logger fail safe caught: " << exc.what() << endl;
+                    logger = shared_ptr<ILoggerMetrics>(
+                        new LoggerMetricsTerm(config, coll, appName));
+                }
+            }else{
+                fct();
+            }
         }
     }else{
         throw ML::Exception("Cannot setup more than once");
     }
+
+    function<string(const char*)> getCmdResult = [](const char* cmd) -> string{
+        FILE* pipe = popen(cmd, "r");
+        if(!pipe){
+            return "ERROR";
+        }
+        char buffer[128];
+        stringstream result;
+        while(!feof(pipe)){
+            if(fgets(buffer, 128, pipe) != NULL){
+                result << buffer;
+            }
+        }
+        pclose(pipe);
+        string res = result.str();
+        return res.substr(0, res.length() - 1);//chop \n
+    };
+
+    string now = Date::now().printClassic();
+    Json::Value v;
+    v["startTime"] = now;
+    v["appName"] = appName;
+    char* metricsParentId = getenv("METRICS_PARENT_ID");
+    v["parent_id"] = string(metricsParentId ?: "");
+    v["user"] = string(getenv("USER"));
+    char hostname[128];
+    int hostnameOk = !gethostname(hostname, 128);
+    v["hostname"] = string(hostnameOk ? hostname : "");
+    v["workingDirectory"] = string(getenv("PWD"));
+    v["gitBranch"] = getCmdResult("git rev-parse --abbrev-ref HEAD");
+    v["gitHash"] = getCmdResult("git rev-parse HEAD");
+    logger->logProcess(v);
+    setenv("METRICS_PARENT_ID", logger->getProcessId().c_str(), 1);
+
     return logger;
 }
 
 shared_ptr<ILoggerMetrics> ILoggerMetrics
 ::getSingleton(){
     if(mustSetup){
-        throw ML::Exception("Cannot get singleton within calling setup first");
+        std::lock_guard<std::mutex> lock(m2);
+        if(mustSetup){
+            cerr << "Calling getSingleton without calling setup first."
+                 << "Will return a logger metrics terminal." << endl;
+            return setup("", "", "");
+        }
     }
     return logger;
 }
@@ -112,4 +167,14 @@ void ILoggerMetrics::failSafeHelper(std::function<void()> fct){
         fct();
     }
 }
+
+void ILoggerMetrics::close(){
+    Json::Value v;
+    Date endDate = Date::now();
+    v["endDate"] = endDate.printClassic();
+    v["duration"] = endDate - startDate;
+    logInCategory(PROCESS, v);
+    logProcess(v);
+}
+
 }

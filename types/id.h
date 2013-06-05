@@ -144,8 +144,8 @@ struct Id {
 
     uint64_t toInt() const
     {
-        if (type != BIGDEC)
-            throw ML::Exception("can't convert non-BIGDEC to int");
+        if (type != BIGDEC && type != INT64DEC)
+            throw ML::Exception("can't convert non-BIGDEC or non-INT64DEC to int");
         return val1;
     }
 

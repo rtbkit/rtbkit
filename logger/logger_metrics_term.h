@@ -1,18 +1,13 @@
 #pragma once
 
 #include "logger_metrics_interface.h"
-#include "mongo/client/dbclient.h"
 
 namespace Datacratic{
-class LoggerMetricsMongo : public ILoggerMetrics{
+class LoggerMetricsTerm : public ILoggerMetrics{
     friend class ILoggerMetrics;
 
     protected:
-        mongo::OID objectId;
-        std::string db;
-        mongo::DBClientConnection conn;
-
-        LoggerMetricsMongo(Json::Value config,
+        LoggerMetricsTerm(Json::Value config,
                            const std::string& coll,
                            const std::string& appName);
         void logInCategory(const std::string&, Json::Value&);
@@ -20,5 +15,8 @@ class LoggerMetricsMongo : public ILoggerMetrics{
                            const std::vector<std::string>& path,
                            const NumOrStr& val);
         const std::string getProcessId() const;
+
+    private:
+        std::string pid;
 };
 }//namespace Datacratic

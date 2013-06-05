@@ -1,5 +1,4 @@
 #include "logger_metrics_mongo.h"
-#include "soa/types/date.h"
 #include "mongo/bson/bson.h"
 #include "mongo/util/net/hostandport.h"
 
@@ -9,7 +8,7 @@ using namespace std;
 using namespace mongo;
 
 LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
-    const string& coll, const string& appName) : coll(coll)
+    const string& coll, const string& appName) : ILoggerMetrics(coll)
 {
     HostAndPort hostAndPort(config["hostAndPort"].asString());
     conn.connect(hostAndPort);
@@ -21,13 +20,9 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
         throw ML::Exception(
             "MongoDB connection failed with msg [%s]", err.c_str());
     }
-    string now = Date::now().printClassic();
-    BSONObj obj = BSON(GENOID 
-                       << "startTime" << now 
-                       << "appName" << appName);
+    BSONObj obj = BSON(GENOID);
     conn.insert(db + "." + coll, obj);
     objectId = obj["_id"].OID();
-    setenv("METRICS_PARENT_ID", objectId.toString().c_str(), 1);
 }
 
 void LoggerMetricsMongo::logInCategory(const string& category,
@@ -36,6 +31,15 @@ void LoggerMetricsMongo::logInCategory(const string& category,
     BSONObjBuilder bson;
     vector<string> stack;
     function<void(const Json::Value&)> doit;
+
+    auto format = [](const Json::Value& v) -> string{
+        string str = v.toString();
+        if(v.isInt() || v.isUInt() || v.isDouble() || v.isNumeric()){
+            return str.substr(0, str.length() - 1);
+        }
+        return str.substr(1, str.length() - 3);
+    };
+
     doit = [&](const Json::Value& v){
         for(auto it = v.begin(); it != v.end(); ++it){
             if(v[it.memberName()].isObject()){
@@ -50,15 +54,15 @@ void LoggerMetricsMongo::logInCategory(const string& category,
                     key << "." << s;
                 }
                 key << "." << it.memberName();
-                string value = current.toString();
-                if(current.isInt() || current.isUInt() || current.isDouble()
-                    || current.isNumeric())
-                {
-                    value = value.substr(0, value.length() - 1); 
+                if(current.isArray()){
+                    BSONArrayBuilder arr;
+                    for(const Json::Value el: current){
+                        arr.append(format(el));
+                    }
+                    bson.append(key.str(), arr.arr());
                 }else{
-                    value = value.substr(1, value.length() - 3); 
+                    bson.append(key.str(), format(current));
                 }
-                bson.append(key.str(), value);
             }
         }
     };
@@ -68,7 +72,6 @@ void LoggerMetricsMongo::logInCategory(const string& category,
                 BSON("_id" << objectId),
                 BSON("$set" << bson.obj()),
                     true);
-
 }
 
 void LoggerMetricsMongo
@@ -93,5 +96,10 @@ void LoggerMetricsMongo
                     << BSON(newCat.str() << ss.str())),
                 true);
 }
+
+const std::string LoggerMetricsMongo::getProcessId() const{
+    return objectId.toString(); 
+}
+
 
 }//namespace Datacratic

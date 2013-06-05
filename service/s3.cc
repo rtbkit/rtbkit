@@ -615,6 +615,53 @@ getRequestHeaders() const
     return result;
 }
 
+pair<bool,string>
+S3Api::isMultiPartUploadInProgress(
+    const std::string & bucket,
+    const std::string & resource) const
+{
+    // Contains the resource without the leading slash
+    string outputPrefix(resource, 1);
+
+    // Check if there is already a multipart upload in progress
+    auto inProgressReq = get(bucket, "/", 8192, "uploads", {},
+                          { { "prefix", outputPrefix } });
+
+    //cerr << inProgressReq.bodyXmlStr() << endl;
+
+    auto inProgress = inProgressReq.bodyXml();
+
+    using namespace tinyxml2;
+
+    XMLHandle handle(*inProgress);
+
+    auto upload
+        = handle
+        .FirstChildElement("ListMultipartUploadsResult")
+        .FirstChildElement("Upload")
+        .ToElement();
+
+    string uploadId;
+    vector<MultiPartUploadPart> parts;
+
+
+    for (; upload; upload = upload->NextSiblingElement("Upload")) 
+    {
+        XMLHandle uploadHandle(upload);
+
+        auto key = extract<string>(upload, "Key");
+
+        if (key != outputPrefix)
+            continue;
+
+        // Already an upload in progress
+        string uploadId = extract<string>(upload, "UploadId");
+
+        return make_pair(true,uploadId);
+    }
+    return make_pair(false,"");
+}
+
 S3Api::MultiPartUpload
 S3Api::
 obtainMultiPartUpload(const std::string & bucket,
