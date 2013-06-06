@@ -129,6 +129,8 @@ parseResponse(const string& rawResponse) -> pair<bool, vector<Bid>>
     try {
         HttpHeader header;
         header.parse(rawResponse);
+        if (!header.contentLength) return make_pair(false, vector<Bid>());
+
         payload = Json::parse(header.knownData);
     }
     catch (const exception & exc) {
