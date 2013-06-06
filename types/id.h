@@ -93,7 +93,7 @@ struct Id {
     }
     
     explicit Id(uint64_t value):
-    		type(BIGDEC),
+    		type(INT64DEC),
     		val1(value),val2(0)
     {
     }
