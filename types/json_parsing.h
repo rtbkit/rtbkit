@@ -690,15 +690,34 @@ void parseJson(Id * output, Context & context)
 {
     using namespace std;
 
-    char buffer[4096];
-    ssize_t realSize = context.expectStringAscii(buffer, sizeof(buffer));
-    if (realSize > -1) {
-        *output = Id(buffer, realSize);
+    if (context.isString()) {
+        char buffer[4096];
+        ssize_t realSize = context.expectStringAscii(buffer, sizeof(buffer));
+        if (realSize > -1) {
+            *output = Id(buffer, realSize);
+        }
+        else {
+            std::string value = context.expectStringAscii();
+            *output = Id(value);
+        }
+        return;
     }
-    else {
-        std::string value = context.expectStringAscii();
-        *output = Id(value);
+
+    unsigned long long i;
+    if (context.matchUnsignedLongLong(i)) {
+        // cerr << "got unsigned " << i << endl;
+        *output = Id(i);
+        return;
     }
+
+    signed long long l;
+    if (context.matchLongLong(l)) {
+        // cerr << "got signed " << l << endl;
+        *output = Id(l);
+        return;
+    }
+
+    throw ML::Exception("unhandled id conversion type");
 }
 
 template<typename Context, typename T>
