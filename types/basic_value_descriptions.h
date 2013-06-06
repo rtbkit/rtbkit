@@ -32,7 +32,7 @@ struct DefaultDescription<Datacratic::Id>
     {
         if (val->type == Id::Type::INT64DEC
             || val->type == Id::Type::BIGDEC) {
-            context.writeInt(val->toInt());
+            context.writeUnsignedLongLong(val->toInt());
         }
         else {
             context.writeString(val->toString());
