@@ -50,6 +50,10 @@ struct TestExchangeConnector : public OpenRTBExchangeConnector {
         data["b"] = MicroUSD(5.0).toJson();
         return WinCostModel("test", data);
     }
+
+    // avoid dropping bids
+    void setAcceptBidRequestProbability(double prob) {
+    }
 };
 
 } // file scope
@@ -74,7 +78,9 @@ BOOST_AUTO_TEST_CASE( win_cost_model_test )
 
     auto events = stack.proxies->events->get(std::cerr);
 
-    BOOST_CHECK_EQUAL(events["router.cummulatedBidPrice"], 10000);
-    BOOST_CHECK_EQUAL(events["router.cummulatedAuthorizedPrice"], 5050);
+    int count = events["router.bid"];
+
+    BOOST_CHECK_EQUAL(events["router.cummulatedBidPrice"], count * 1000);
+    BOOST_CHECK_EQUAL(events["router.cummulatedAuthorizedPrice"], count * 505);
 }
 
