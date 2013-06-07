@@ -67,61 +67,13 @@ BOOST_AUTO_TEST_CASE( test_goog64_id )
     checkSerializeReconstitute(id);
 }
 
-BOOST_AUTO_TEST_CASE( test_int64dec_id )
+BOOST_AUTO_TEST_CASE( test_bigdec_id )
 {
-    /* "9223372036854775807" is INT64_MAX, but we cheat at parse time by
-       considering "999999999999999999" as LONG LONG but anything higher as
-       BIGINT */
-
-    string s = "999999999999999999";
-    Id id(s);
-    BOOST_CHECK_EQUAL(id.type, Id::INT64DEC);
-    BOOST_CHECK_EQUAL(id.toString(), s);
-    checkSerializeReconstitute(id);
-}
-
-BOOST_AUTO_TEST_CASE( test_not_int64dec_but_bigdec_id )
-{
-    string s = "1999999999999999999";
+    string s = "999999999999";
     Id id(s);
     BOOST_CHECK_EQUAL(id.type, Id::BIGDEC);
     BOOST_CHECK_EQUAL(id.toString(), s);
-}
-
-
-BOOST_AUTO_TEST_CASE( test_int64dec_false_positive )
-{
-    string s = "039406091425759590";
-    Id id(s);
-    BOOST_CHECK_EQUAL(id.type, Id::STR);
-    BOOST_CHECK_EQUAL(id.toString(), s);
     checkSerializeReconstitute(id);
-}
-
-/* ensure that .hash returns the same value whether the integer is stored as a
- * BIGDEC and an INT64DEC */
-BOOST_AUTO_TEST_CASE( test_decint_hash )
-{
-    string s = "123456";
-    Id id1(s, Id::BIGDEC), id2(s, Id::INT64DEC);
-
-    BOOST_CHECK_EQUAL(id1.hash(), id2.hash());
-}
-
-BOOST_AUTO_TEST_CASE( test_type_respect_for_ints )
-{
-    {
-        /* ensures that the the type stays BIGDEC if declared as such */
-        string s = "12345";
-        Id id(s, Id::BIGDEC);
-        BOOST_CHECK_EQUAL(id.type, Id::BIGDEC);
-    }
-
-    {
-        /* ensures that the the we throw is we don't fit */
-        string s = "123456789012345678901234567890";
-        BOOST_CHECK_THROW(Id id(s, Id::INT64DEC), ML::Exception);
-    }
 }
 
 BOOST_AUTO_TEST_CASE( test_bigdec_id1 )
@@ -135,7 +87,7 @@ BOOST_AUTO_TEST_CASE( test_bigdec_id1 )
 
 BOOST_AUTO_TEST_CASE( test_bigdec_id2 )
 {
-    string s = "1394206091425759590";
+    string s = "394206091425759590";
     Id id(s);
     BOOST_CHECK_EQUAL(id.type, Id::BIGDEC);
     BOOST_CHECK_EQUAL(id.toString(), s);

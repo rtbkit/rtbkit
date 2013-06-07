@@ -53,7 +53,6 @@ struct Id {
         BIGDEC = 4,      /// 7394206091425759590
         BASE64_96 = 5,   /// 16 character base64 string
         HEX128LC = 6,    /// 32 character lowercase hex string
-        INT64DEC = 7,    /// decimal integer that fits in an uint64_t
 
         // other integer-encoded values go here
 
@@ -93,7 +92,7 @@ struct Id {
     }
     
     explicit Id(uint64_t value):
-    		type(INT64DEC),
+    		type(BIGDEC),
     		val1(value),val2(0)
     {
     }
@@ -155,8 +154,8 @@ struct Id {
 
     uint64_t toInt() const
     {
-        if (type != BIGDEC && type != INT64DEC)
-            throw ML::Exception("can't convert non-BIGDEC or non-INT64DEC to int");
+        if (type != BIGDEC)
+            throw ML::Exception("can't convert non-BIGDEC to int");
         return val1;
     }
 

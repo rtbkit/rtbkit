@@ -30,9 +30,8 @@ struct DefaultDescription<Datacratic::Id>
     virtual void printJsonTyped(const Datacratic::Id * val,
                                 JsonPrintingContext & context) const
     {
-        if (val->type == Id::Type::INT64DEC
-            || val->type == Id::Type::BIGDEC) {
-            context.writeUnsignedLongLong(val->toInt());
+        if (val->type == Id::Type::BIGDEC) {
+            context.writeInt(val->toInt());
         }
         else {
             context.writeString(val->toString());
