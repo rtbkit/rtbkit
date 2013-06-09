@@ -11,6 +11,7 @@
 # include <stack>
 # include <string>
 # include <iostream>
+# include <fstream>
 
 namespace Json {
 
@@ -25,6 +26,8 @@ private:
     std::string message;
 };
     Json::Value parse(const std::string &jsonStr);
+    Json::Value parse(std::istream & ifs);
+    Json::Value parseFromFile(const std::string &filename);
    /** \brief Unserialize a <a HREF="http://www.json.org">JSON</a> document into a Value.
     *
     */

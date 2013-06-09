@@ -27,6 +27,9 @@ namespace Datacratic {
 
 struct ZookeeperConnection {
 
+    // global lock for access to the linked list of callbacks
+    static std::mutex lock;
+
     template<typename T>
     struct CallbackNode {
         T * next;
@@ -41,6 +44,7 @@ struct ZookeeperConnection {
         }
 
         void add(T * node) {
+            std::lock_guard<std::mutex> guard(ZookeeperConnection::lock);
             node->next = next;
             node->last = (T *) this;
             next->last = node;
@@ -48,6 +52,7 @@ struct ZookeeperConnection {
         }
 
         void unlink() {
+            std::lock_guard<std::mutex> guard(ZookeeperConnection::lock);
             next->last = last;
             last->next = next;
             next = last = (T *) this;

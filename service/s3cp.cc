@@ -12,8 +12,7 @@
 #include <boost/program_options/positional_options.hpp> 
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
-
-#include <poll.h>
+#include <iostream>
 
 namespace po = boost::program_options;
 
@@ -35,10 +34,12 @@ int main(int argc, char* argv[])
     
     po::options_description desc("Main options");
     desc.add_options()
-        ("input-uri,i", po::value(&inputUri)->required(), "Input S3 URI s3://bucket/object)")
-        ("output-uri,o", po::value(&outputFiles), "Output files/uris (can have multiple file/s3://bucket/object)")
-        ("s3-key-id,I", po::value<string>(&s3KeyId), "S3 key id to add")
-        ("s3-key,K", po::value<string>(&s3Key), "S3 key to add")
+        ("input-uri,source,s", po::value(&inputUri)->required(), "Input S3 URI s3://bucket/object)")
+        ("output-uri,dest,o,d", po::value(&outputFiles), "Output files/uris (can have multiple file/s3://bucket/object)")
+        ("id,i", po::value<string>(&s3KeyId), "S3 access id")
+        ("key,k", po::value<string>(&s3Key), "S3 access id key")
+        ("s3-key-id,I", po::value<string>(&s3KeyId), "S3 access id")
+        ("s3-key,K", po::value<string>(&s3Key), "S3 access id key")
         ("compression,c", po::value<string>(&compression), "Compression to apply (default: none, valid: auto,gz,bz2,xz")
         ("help,h", "Produce help message");
     
@@ -57,7 +58,7 @@ int main(int argc, char* argv[])
         po::notify(vm);
     }catch(const std::exception & exc){
         //invalid command line param
-        cerr << "command line parsing error: " << exc.what() << endl;
+         cerr << "command line parsing error: " << exc.what() << endl;
         showHelp = true;
     }
 
@@ -67,10 +68,11 @@ int main(int argc, char* argv[])
     //If one of the options is set to 'help'...
     if (showHelp || vm.count("help")){
         //Display the options_description
-        cout << desc << "\n";
+        cout << "usage : s3cp [options] [source] [dest]+" << endl;
+        cout << desc << endl;
         return showHelp ? 1 : 0;
     }
-
+    
     if (s3KeyId != "")
         registerS3Buckets(s3KeyId, s3Key);
 

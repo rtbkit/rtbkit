@@ -75,14 +75,8 @@ void EasyKvpLogger::defineLogger(const boost::property_tree::ptree& pt,
     params.failSafe    = pt.get<bool>("logger.failSafe");
     string type        = pt.get<string>("logger.type");
 
-    /*cerr << params.hostAndPort << endl;
-    cerr << params.db << endl;
-    cerr << params.user << endl;
-    cerr << params.pwd << endl;
-    cerr << type << endl;*/
-
     logger = std::shared_ptr<IKvpLogger>(
-        IKvpLogger::getKvpLogger(type, params));
+        IKvpLogger::kvpLoggerFactory(type, params));
     setDefaults(defaults);
     if (logStartEnd)
         logStart();
@@ -100,7 +94,7 @@ void EasyKvpLogger::defineLogger(const variables_map& vm,
     params.failSafe     = vm["logger.failSafe"].as<bool>();
 
     logger = std::shared_ptr<IKvpLogger>(
-        IKvpLogger::getKvpLogger(type, params));
+        IKvpLogger::kvpLoggerFactory(type, params));
     setDefaults(defaults);
     if (logStartEnd)
         logStart();

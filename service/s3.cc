@@ -615,6 +615,53 @@ getRequestHeaders() const
     return result;
 }
 
+pair<bool,string>
+S3Api::isMultiPartUploadInProgress(
+    const std::string & bucket,
+    const std::string & resource) const
+{
+    // Contains the resource without the leading slash
+    string outputPrefix(resource, 1);
+
+    // Check if there is already a multipart upload in progress
+    auto inProgressReq = get(bucket, "/", 8192, "uploads", {},
+                          { { "prefix", outputPrefix } });
+
+    //cerr << inProgressReq.bodyXmlStr() << endl;
+
+    auto inProgress = inProgressReq.bodyXml();
+
+    using namespace tinyxml2;
+
+    XMLHandle handle(*inProgress);
+
+    auto upload
+        = handle
+        .FirstChildElement("ListMultipartUploadsResult")
+        .FirstChildElement("Upload")
+        .ToElement();
+
+    string uploadId;
+    vector<MultiPartUploadPart> parts;
+
+
+    for (; upload; upload = upload->NextSiblingElement("Upload")) 
+    {
+        XMLHandle uploadHandle(upload);
+
+        auto key = extract<string>(upload, "Key");
+
+        if (key != outputPrefix)
+            continue;
+
+        // Already an upload in progress
+        string uploadId = extract<string>(upload, "UploadId");
+
+        return make_pair(true,uploadId);
+    }
+    return make_pair(false,"");
+}
+
 S3Api::MultiPartUpload
 S3Api::
 obtainMultiPartUpload(const std::string & bucket,
@@ -862,13 +909,15 @@ upload(const char * data,
         part.size = min<uint64_t>(partSize, dataSize - offset);
         parts.push_back(part);
     }
+
     // we are dealing with an empty file
-    if(parts.empty())
+    if(parts.empty() || dataSize == 0)
     {
         MultiPartUploadPart part;
-        part.partNumber = parts.size() + 1;
+        parts.clear();
+        part.partNumber = 1;
         part.startOffset = offset;
-        part.size = min<uint64_t>(partSize, dataSize - offset);
+        part.size = 0;
         parts.push_back(part);
     }
     //cerr << "total parts = " << parts.size() << endl;

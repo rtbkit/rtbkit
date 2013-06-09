@@ -35,6 +35,11 @@ struct JsonPrintingContext {
     virtual void endArray() = 0;
 
     virtual void writeInt(int i) = 0;
+    virtual void writeUnsignedInt(unsigned i) = 0;
+    virtual void writeLong(long i) = 0;
+    virtual void writeUnsignedLong(unsigned long i) = 0;
+    virtual void writeLongLong(long long i) = 0;
+    virtual void writeUnsignedLongLong(unsigned long long i) = 0;
     virtual void writeFloat(float f) = 0;
     virtual void writeDouble(double d) = 0;
     virtual void writeString(const std::string & s) = 0;
@@ -136,6 +141,31 @@ struct StreamJsonPrintingContext
         stream << i;
     }
 
+    virtual void writeUnsignedInt(unsigned int i)
+    {
+        stream << i;
+    }
+
+    virtual void writeLong(long int i)
+    {
+        stream << i;
+    }
+
+    virtual void writeUnsignedLong(unsigned long int i)
+    {
+        stream << i;
+    }
+
+    virtual void writeLongLong(long long int i)
+    {
+        stream << i;
+    }
+
+    virtual void writeUnsignedLongLong(unsigned long long int i)
+    {
+        stream << i;
+    }
+
     virtual void writeFloat(float f)
     {
         stream << f;
@@ -231,6 +261,31 @@ struct StructuredJsonPrintingContext
     }
 
     virtual void writeInt(int i)
+    {
+        *current = i;
+    }
+
+    virtual void writeUnsignedInt(unsigned int i)
+    {
+        *current = i;
+    }
+
+    virtual void writeLong(long int i)
+    {
+        *current = i;
+    }
+
+    virtual void writeUnsignedLong(unsigned long int i)
+    {
+        *current = i;
+    }
+
+    virtual void writeLongLong(long long int i)
+    {
+        *current = i;
+    }
+
+    virtual void writeUnsignedLongLong(unsigned long long int i)
     {
         *current = i;
     }

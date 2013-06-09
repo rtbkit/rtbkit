@@ -727,6 +727,100 @@ struct DefaultDescription<std::vector<T> >
     }
 };
 
+template<typename T>
+struct DefaultDescription<std::map<std::string, T> >
+    : public ValueDescriptionI<std::map<std::string, T>, ValueKind::MAP> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner
+                      = getDefaultDescription((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::unique_ptr<ValueDescriptionT<T> > inner;
+
+    typedef ValueDescription::FieldDescription FieldDescription;
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const
+    {
+        auto * val2 = reinterpret_cast<std::map<std::string, T> *>(val);
+        return parseJsonTyped(val2, context);
+    }
+
+    virtual void parseJsonTyped(std::map<std::string, T> * val, JsonParsingContext & context) const
+    {
+        std::map<std::string, T> res;
+
+        auto onMember = [&] ()
+            {
+                inner->parseJsonTyped(&res[context.fieldName()], context);
+            };
+
+        context.forEachMember(onMember);
+
+        val->swap(res);
+    }
+
+    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    {
+        auto * val2 = reinterpret_cast<const std::map<std::string, T> *>(val);
+        return printJsonTyped(val2, context);
+    }
+
+    virtual void printJsonTyped(const std::map<std::string, T> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.startObject();
+        for (auto & v: *val) {
+            context.startMember(v.first);
+            inner->printJsonTyped(&v.second, context);
+        }
+        context.endObject();
+    }
+
+    virtual bool isDefault(const void * val) const
+    {
+        auto * val2 = reinterpret_cast<const std::map<std::string, T> *>(val);
+        return isDefaultTyped(val2);
+    }
+
+    virtual bool isDefaultTyped(const std::map<std::string, T> * val) const
+    {
+        return val->empty();
+    }
+
+    virtual size_t getFieldCount(const void * val) const
+    {
+        auto * val2 = reinterpret_cast<const std::map<std::string, T> *>(val);
+        return val2->size();
+    }
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & name) const
+    {
+        throw ML::Exception("map hasField: needs work");
+        //auto * val2 = reinterpret_cast<const std::map<std::string, T> *>(val);
+        //return val2->count(name);
+    }
+
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const
+    {
+        throw ML::Exception("map forEachField: needs work");
+    }
+
+    virtual const FieldDescription & 
+    getField(const std::string & field) const
+    {
+        throw ML::Exception("map getField: needs work");
+    }
+    
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+};
+
 
 // Template set for which hasToJson<T>::value is true if and only if it has a function
 // Json::Value T::toJson() const
@@ -785,3 +879,24 @@ Json::Value jsonEncode(const T & obj,
 }
 
 } // namespace Datacratic
+
+
+
+/// Macro to introduce a class TypeDescription that is a structure
+/// description for that type, and a getDefaultDescription()
+/// overload for it.  The constructor still needs to be done.
+#define CREATE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
+    struct Name                                                 \
+        : public Datacratic::StructureDescription<Type> {       \
+        Name();                                                 \
+    };                                                          \
+                                                                \
+    inline Name *                                               \
+    getDefaultDescription(Type *)                               \
+    {                                                           \
+        return new Name();                                      \
+    }                                                          
+
+#define CREATE_STRUCTURE_DESCRIPTION(Type)                      \
+    CREATE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
+

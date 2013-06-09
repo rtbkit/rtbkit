@@ -34,6 +34,8 @@ void zk_callback(zhandle_t * ah, int type, int state, const char * path, void * 
 /* ZOOKEEPER CONNECTION                                                      */
 /*****************************************************************************/
 
+std::mutex ZookeeperConnection::lock;
+
 ZookeeperConnection::
 ZookeeperConnection()
     : recvTimeout(1000 /* one second */),

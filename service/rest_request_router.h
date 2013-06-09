@@ -11,6 +11,8 @@
 #include "soa/service/rest_service_endpoint.h"
 #include "jml/utils/vector_utils.h"
 #include "jml/utils/positioned_types.h"
+#include "jml/arch/rtti_utils.h"
+#include "jml/arch/demangle.h"
 //#include <regex>
 #include <boost/regex.hpp>
 
@@ -154,7 +156,7 @@ struct RequestFilter {
 std::ostream & operator << (std::ostream & stream, const RequestFilter & filter);
 
 /*****************************************************************************/
-/* REQUEST REQUEST PARSING CONTEXT                                           */
+/* REST REQUEST PARSING CONTEXT                                              */
 /*****************************************************************************/
 
 /** Parsing context for a REST request.  Tracks of how the request path
@@ -167,7 +169,68 @@ struct RestRequestParsingContext {
     {
     }
 
+    /** Add the given object. */
+    template<typename T>
+    void addObject(T * obj)
+    {
+        objects.push_back(std::make_pair(obj, &typeid(T)));
+    }
+
+    /** Get the object at the given index on the context (defaults to the
+        last), and return it and its type.
+
+        Indexes below zero are interpreted as offsets from the end of the
+        array.
+    */
+    std::pair<void *, const std::type_info *> getObject(int index = -1) const
+    {
+        if (index == -1)
+            index = objects.size() + index;
+        if (index < 0 || index >= objects.size())
+            throw ML::Exception("Attempt to extract invalid object number");
+
+        auto res = objects[index];
+        if (!res.first || !res.second)
+            throw ML::Exception("invalid object");
+
+        return res;
+    }
+
+    /** Get the object at the given index on the context (defaults to the
+        last), and convert it safely to the given type.
+
+        Indexes below zero are interpreted as offsets from the end of the
+        array.
+    */
+    template<typename As>
+    As & getObjectAs(int index = -1) const
+    {
+        auto obj = getObject(index);
+
+        const std::type_info * tp = &typeid(As);
+        if (tp == obj.second)
+            return *reinterpret_cast<As *>(obj.first);
+
+        void * converted = ML::is_convertible(*obj.second,
+                                              *tp,
+                                              obj.first);
+        if (!converted)
+            throw ML::Exception("wanted to get object of type "
+                                + ML::type_name<As>()
+                                + " from incompatible object of type "
+                                + ML::demangle(obj.second->name()));
+
+        return *reinterpret_cast<As *>(converted);
+    }
+
+    /// List of resources (url components) in the path
     std::vector<std::string> resources;
+
+    /// List of extracted objects to which path components refer.  Both the
+    /// object and its type are stored.
+    std::vector<std::pair<void *, const std::type_info *> > objects;
+
+    /// Part of the resource that has not yet been consumed
     std::string remaining;
 };
 
@@ -180,6 +243,8 @@ std::ostream & operator << (std::ostream & stream,
 /*****************************************************************************/
 
 struct RestRequestRouter {
+
+    typedef RestServiceEndpoint::ConnectionId ConnectionId;
 
     enum MatchResult {
         MR_NO,     ///< Didn't match but can continue
@@ -214,10 +279,26 @@ struct RestRequestRouter {
                    const RestRequest & request,
                    RestRequestParsingContext & context) const;
 
+    /** Type of a function that is called by the route after matching to extract any
+        objects referred to so that they can be added to the context and made
+        available to futher event handlers.
+    */
+    typedef std::function<void(RestRequestParsingContext & context)> ExtractObject;
+
+    template<typename T>
+    static ExtractObject addObject(T * obj)
+    {
+        return [=] (RestRequestParsingContext & context)
+            {
+                context.addObject(obj);
+            };
+    }
+
     struct Route {
         PathSpec path;
         RequestFilter filter;
         std::shared_ptr<RestRequestRouter> router;
+        std::function<void(RestRequestParsingContext & context)> extractObject;
 
         MatchResult process(const RestRequest & request,
                             const RestRequestParsingContext & context,
@@ -228,7 +309,8 @@ struct RestRequestRouter {
         delegate to the given sub-route.
     */
     void addRoute(PathSpec path, RequestFilter filter,
-                  const std::shared_ptr<RestRequestRouter> & handler);
+                  const std::shared_ptr<RestRequestRouter> & handler,
+                  ExtractObject extractObject = nullptr);
 
     /** Add a terminal route with the given path and filter that will call
         the given callback.
@@ -236,7 +318,8 @@ struct RestRequestRouter {
     void addRoute(PathSpec path, RequestFilter filter,
                   const std::string & description,
                   const OnProcessRequest & cb,
-                  const Json::Value & argHelp);
+                  const Json::Value & argHelp,
+                  ExtractObject extractObject = nullptr);
 
     void addHelpRoute(PathSpec path, RequestFilter filter);
 
@@ -244,8 +327,46 @@ struct RestRequestRouter {
                          const std::string & currentPath,
                          const std::set<std::string> & verbs);
 
+    /** Create a generic sub router. */
     RestRequestRouter &
-    addSubRouter(PathSpec path, const std::string & description);
+    addSubRouter(PathSpec path, const std::string & description,
+                 ExtractObject extractObject = nullptr,
+                 std::shared_ptr<RestRequestRouter> subRouter = nullptr);
+
+    /** In the normal case, we don't create an ExtractObject function. */
+    static ExtractObject getExtractObject(const void *)
+    {
+        return nullptr;
+    }
+
+    /** Where the class has a getObject() function that takes a RestRequestParsingContext,
+        we do create an ExtractObject function.
+    */
+    template<typename T>
+    static ExtractObject getExtractObject(T * val,
+                                          decltype(std::declval<T *>()->getObject(std::declval<RestRequestParsingContext>())) * = 0)
+    {
+        return [=] (RestRequestParsingContext & context) -> int
+            {
+                return val->getObject(context);
+            };
+    }
+
+    /** Create a sub router of a specific type. */
+    template<typename T, typename... Args>
+    T &
+    addSubRouter(PathSpec path, const std::string & description, Args &&... args)
+    {
+        // TODO: check it doesn't exist
+        Route route;
+        route.path = path;
+        auto res = std::make_shared<T>(std::forward<Args>(args)...);
+        route.router = res;
+        route.router->description = description;
+        route.extractObject = getExtractObject(res.get());
+        subRoutes.push_back(route);
+        return *res;
+    }
     
     OnProcessRequest rootHandler;
     std::vector<Route> subRoutes;

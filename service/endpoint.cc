@@ -58,6 +58,7 @@ EndpointBase(const std::string & name)
 EndpointBase::
 ~EndpointBase()
 {
+    shutdown();
 }
 
 void
@@ -142,8 +143,6 @@ shutdown()
     //cerr << "Endpoint shutdown" << endl;
     //cerr << "numTransports = " << numTransports << endl;
 
-    closePeer();
-
     /* we pin all EpollDataSet instances to avoid freeing them whilst handling
        messages */
     EpollDataSet dataSetCopy = epollDataSet;
@@ -209,7 +208,7 @@ shutdown()
         /* we can now close the timer fds as we now that they will no longer
            be listened to */
         MutexGuard guard(dataSetLock);
-        for (const auto & it: epollDataSet) {
+        for (const auto & it: dataSetCopy) {
             if (it->fdType == EpollData::EpollDataType::TIMER) {
                 ::close(it->fd);
             }

@@ -28,6 +28,37 @@ extern const char * __progname;
 
 namespace Datacratic {
 
+/*****************************************************************************/
+/* EVENT SERVICE                                                             */
+/*****************************************************************************/
+
+std::map<std::string, double>
+EventService::
+get(std::ostream & output) const {
+    std::map<std::string, double> result;
+
+    std::stringstream ss;
+    dump(ss);
+
+    while (ss)
+    {
+        string line;
+        getline(ss, line);
+        if (line.empty()) continue;
+
+        size_t pos = line.rfind(':');
+        ExcAssertNotEqual(pos, string::npos);
+        string key = line.substr(0, pos);
+
+        pos = line.find_first_not_of(" \t", pos + 1);
+        ExcAssertNotEqual(pos, string::npos);
+        double value = stod(line.substr(pos));
+        result[key] = value;
+    }
+
+    output << ss.str();
+    return result;
+}
 
 /*****************************************************************************/
 /* NULL EVENT SERVICE                                                        */
@@ -585,8 +616,6 @@ recordEventFmt(EventType type,
         throw;
     }
 }
-
-
 
 /*****************************************************************************/
 /* SERVICE BASE                                                              */

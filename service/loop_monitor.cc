@@ -49,7 +49,6 @@ doLoops(uint64_t numTimeouts)
 
     LoadSample maxLoad;
     maxLoad.sequence = curLoad.sequence + 1;
-
     for (auto& loop : loops) {
         double load = loop.second(updatePeriod * numTimeouts);
         if (load < 0.0 || load > 1.0) {

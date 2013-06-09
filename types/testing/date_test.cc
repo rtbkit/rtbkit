@@ -194,3 +194,10 @@ BOOST_AUTO_TEST_CASE( test_addFromString )
         }
     }
 }
+
+// BOOST_AUTO_TEST_CASE( test_constructor )
+// {
+//     Date d1(2113, 2, 19, 20, 10, 41);
+//     Date d2 = Date::fromSecondsSinceEpoch(4516978241);
+//     BOOST_CHECK_EQUAL(d1, d2);
+// }

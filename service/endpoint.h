@@ -148,8 +148,6 @@ protected:
                                 "need to be overridden to make a handler");
     }
     
-    virtual void closePeer() = 0;
-
     struct SPLess {
         template<typename SP>
         bool operator () (const SP & sp1, const SP & sp2) const

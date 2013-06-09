@@ -37,7 +37,7 @@ std::ostream & operator << (std::ostream & stream, const RequestFilter & filter)
 
 
 /*****************************************************************************/
-/* REQUEST REQUEST PARSING CONTEXT                                           */
+/* REST REQUEST PARSING CONTEXT                                              */
 /*****************************************************************************/
 
 std::ostream & operator << (std::ostream & stream,
@@ -191,6 +191,9 @@ process(const RestRequest & request,
     default:
         throw ML::Exception("unknown rest request type");
     }
+    
+    if (extractObject)
+        extractObject(matched);
 
     return router->processRequest(connection, request, matched);
 }
@@ -198,7 +201,8 @@ process(const RestRequest & request,
 void
 RestRequestRouter::
 addRoute(PathSpec path, RequestFilter filter,
-         const std::shared_ptr<RestRequestRouter> & handler)
+         const std::shared_ptr<RestRequestRouter> & handler,
+         ExtractObject extractObject)
 {
     if (rootHandler)
         throw ML::Exception("can't add a sub-route to a terminal route");
@@ -207,6 +211,7 @@ addRoute(PathSpec path, RequestFilter filter,
     route.path = path;
     route.filter = filter;
     route.router = handler;
+    route.extractObject = extractObject;
 
     subRoutes.emplace_back(std::move(route));
 }
@@ -216,10 +221,12 @@ RestRequestRouter::
 addRoute(PathSpec path, RequestFilter filter,
          const std::string & description,
          const OnProcessRequest & cb,
-         const Json::Value & argHelp)
+         const Json::Value & argHelp,
+         ExtractObject extractObject)
 {
     addRoute(path, filter,
-             std::make_shared<RestRequestRouter>(cb, description, true, argHelp));
+             std::make_shared<RestRequestRouter>(cb, description, true, argHelp),
+             extractObject);
 }
 
 void
@@ -277,13 +284,18 @@ getHelp(Json::Value & result, const std::string & currentPath,
 
 RestRequestRouter &
 RestRequestRouter::
-addSubRouter(PathSpec path, const std::string & description)
+addSubRouter(PathSpec path, const std::string & description, ExtractObject extractObject,
+             std::shared_ptr<RestRequestRouter> subRouter)
 {
     // TODO: check it doesn't exist
     Route route;
     route.path = path;
-    route.router.reset(new RestRequestRouter());
+    if (subRouter)
+        route.router = subRouter;
+    else route.router.reset(new RestRequestRouter());
+
     route.router->description = description;
+    route.extractObject = extractObject;
 
     subRoutes.push_back(route);
     return *route.router;

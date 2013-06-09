@@ -51,6 +51,7 @@ struct ActiveEndpoint: public EndpointBase {
 
     ~ActiveEndpoint()
     {
+        closePeer();
         shutdown();
     }
 
@@ -123,7 +124,7 @@ struct ActiveEndpoint: public EndpointBase {
         return connector->makeNewTransport(this);
     }
 
-    virtual void closePeer()
+    void closePeer()
     {
         return connector->closePeer();
     }
@@ -353,7 +354,7 @@ struct ConnectorT : public Connector {
         return res;
     }
 
-    virtual void closePeer()
+    void closePeer()
     {
     }
 };

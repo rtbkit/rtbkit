@@ -146,12 +146,19 @@ struct JsonParsingContext {
     virtual void exception(const std::string & message) = 0;
     
     virtual int expectInt() = 0;
+    virtual unsigned int expectUnsignedInt() = 0;
+    virtual long expectLong() = 0;
+    virtual unsigned long expectUnsignedLong() = 0;
+    virtual long long expectLongLong() = 0;
+    virtual unsigned long long expectUnsignedLongLong() = 0;
+
     virtual float expectFloat() = 0;
     virtual double expectDouble() = 0;
     virtual bool expectBool() = 0;
     virtual bool matchUnsignedLongLong(unsigned long long & val) = 0;
     virtual bool matchLongLong(long long & val) = 0;
     virtual std::string expectStringAscii() = 0;
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen) = 0;
     virtual Utf8String expectStringUtf8() = 0;
     virtual Json::Value expectJson() = 0;
     virtual void expectNull() = 0;
@@ -286,6 +293,31 @@ struct StreamingJsonParsingContext
         return context->expect_int();
     }
 
+    virtual unsigned int expectUnsignedInt()
+    {
+        return context->expect_unsigned();
+    }
+
+    virtual long expectLong()
+    {
+        return context->expect_long();
+    }
+
+    virtual unsigned long expectUnsignedLong()
+    {
+        return context->expect_unsigned_long();
+    }
+
+    virtual long long expectLongLong()
+    {
+        return context->expect_long_long();
+    }
+
+    virtual unsigned long long expectUnsignedLongLong()
+    {
+        return context->expect_unsigned_long_long();
+    }
+
     virtual float expectFloat()
     {
         return context->expect_float();
@@ -319,6 +351,11 @@ struct StreamingJsonParsingContext
     virtual std::string expectStringAscii()
     {
         return expectJsonStringAscii(*context);
+    }
+
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen)
+    {
+        return expectJsonStringAscii(*context, value, maxLen);
     }
 
     virtual Utf8String expectStringUtf8();
@@ -420,6 +457,31 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
         return current->asInt();
     }
 
+    virtual unsigned int expectUnsignedInt()
+    {
+        return current->asUInt();
+    }
+
+    virtual long expectLong()
+    {
+        return current->asInt();
+    }
+
+    virtual unsigned long expectUnsignedLong()
+    {
+        return current->asUInt();
+    }
+
+    virtual long long expectLongLong()
+    {
+        return current->asInt();
+    }
+
+    virtual unsigned long long expectUnsignedLongLong()
+    {
+        return current->asUInt();
+    }
+
     virtual float expectFloat()
     {
         return current->asDouble();
@@ -462,6 +524,18 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
     virtual std::string expectStringAscii()
     {
         return current->asString();
+    }
+
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen)
+    {
+        const std::string & strValue = current->asString();
+        ssize_t realSize = strValue.size();
+        if (realSize >= maxLen) {
+            return -1;
+        }
+        memcpy(value, strValue.c_str(), realSize);
+        value[realSize] = '\0';
+        return realSize;
     }
 
     virtual Utf8String expectStringUtf8()
@@ -616,22 +690,34 @@ void parseJson(Id * output, Context & context)
 {
     using namespace std;
 
+    if (context.isString()) {
+        char buffer[4096];
+        ssize_t realSize = context.expectStringAscii(buffer, sizeof(buffer));
+        if (realSize > -1) {
+            *output = Id(buffer, realSize);
+        }
+        else {
+            std::string value = context.expectStringAscii();
+            *output = Id(value);
+        }
+        return;
+    }
+
     unsigned long long i;
     if (context.matchUnsignedLongLong(i)) {
-        cerr << "got unsigned " << i << endl;
+        // cerr << "got unsigned " << i << endl;
         *output = Id(i);
         return;
     }
 
     signed long long l;
     if (context.matchLongLong(l)) {
-        cerr << "got signed " << l << endl;
+        // cerr << "got signed " << l << endl;
         *output = Id(l);
         return;
     }
 
-    std::string s = context.expectStringAscii();
-    *output = Id(s);
+    throw ML::Exception("unhandled id conversion type");
 }
 
 template<typename Context, typename T>
