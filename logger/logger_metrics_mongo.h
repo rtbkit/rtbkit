@@ -20,5 +20,8 @@ class LoggerMetricsMongo : public ILoggerMetrics{
                            const std::vector<std::string>& path,
                            const NumOrStr& val);
         const std::string getProcessId() const;
+    
+    private:
+        bool logToTerm;
 };
 }//namespace Datacratic

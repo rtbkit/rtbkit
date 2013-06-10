@@ -23,6 +23,7 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
     BSONObj obj = BSON(GENOID);
     conn.insert(db + "." + coll, obj);
     objectId = obj["_id"].OID();
+    logToTerm = config["logToTerm"].asBool();
 }
 
 void LoggerMetricsMongo::logInCategory(const string& category,
@@ -68,6 +69,11 @@ void LoggerMetricsMongo::logInCategory(const string& category,
     };
     doit(json);
 
+    if(logToTerm){
+        cout << objectId << "." << coll << "." << category 
+             << ": " << json.toStyledString() << endl;
+    }
+
     conn.update(db + "." + coll,
                 BSON("_id" << objectId),
                 BSON("$set" << bson.obj()),
@@ -90,10 +96,16 @@ void LoggerMetricsMongo
     for(string part: path){
         newCat << "." << part;
     }
+    string newCatStr = newCat.str();
+    string str = ss.str();
+    
+    if(logToTerm){
+        cout << newCatStr << ": " << str << endl;
+    }
     conn.update(db + "." + coll,
                 BSON("_id" << objectId),
                 BSON("$set" 
-                    << BSON(newCat.str() << ss.str())),
+                    << BSON(newCatStr << str)),
                 true);
 }
 
