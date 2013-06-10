@@ -222,7 +222,7 @@ parse(const char * value, size_t len, Type type)
     }
 
     if ((type == UNKNOWN || type == INT64DEC || type == BIGDEC)
-        && value[0] != '0' && len < 32 /* TODO: better condition */) {
+        && value[0] != '0' && len < 40 /* TODO: better condition */) {
         // Try a big integer
         //ANID: --> 7394206091425759590
         uint64_t res64(0);
