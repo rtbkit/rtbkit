@@ -158,6 +158,7 @@ struct JsonParsingContext {
     virtual bool matchUnsignedLongLong(unsigned long long & val) = 0;
     virtual bool matchLongLong(long long & val) = 0;
     virtual std::string expectStringAscii() = 0;
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen) = 0;
     virtual Utf8String expectStringUtf8() = 0;
     virtual Json::Value expectJson() = 0;
     virtual void expectNull() = 0;
@@ -352,6 +353,11 @@ struct StreamingJsonParsingContext
         return expectJsonStringAscii(*context);
     }
 
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen)
+    {
+        return expectJsonStringAscii(*context, value, maxLen);
+    }
+
     virtual Utf8String expectStringUtf8();
 
     virtual bool isObject() const
@@ -520,6 +526,18 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
         return current->asString();
     }
 
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen)
+    {
+        const std::string & strValue = current->asString();
+        ssize_t realSize = strValue.size();
+        if (realSize >= maxLen) {
+            return -1;
+        }
+        memcpy(value, strValue.c_str(), realSize);
+        value[realSize] = '\0';
+        return realSize;
+    }
+
     virtual Utf8String expectStringUtf8()
     {
         return Utf8String(current->asString());
@@ -672,22 +690,34 @@ void parseJson(Id * output, Context & context)
 {
     using namespace std;
 
+    if (context.isString()) {
+        char buffer[4096];
+        ssize_t realSize = context.expectStringAscii(buffer, sizeof(buffer));
+        if (realSize > -1) {
+            *output = Id(buffer, realSize);
+        }
+        else {
+            std::string value = context.expectStringAscii();
+            *output = Id(value);
+        }
+        return;
+    }
+
     unsigned long long i;
     if (context.matchUnsignedLongLong(i)) {
-        cerr << "got unsigned " << i << endl;
+        // cerr << "got unsigned " << i << endl;
         *output = Id(i);
         return;
     }
 
     signed long long l;
     if (context.matchLongLong(l)) {
-        cerr << "got signed " << l << endl;
+        // cerr << "got signed " << l << endl;
         *output = Id(l);
         return;
     }
 
-    std::string s = context.expectStringAscii();
-    *output = Id(s);
+    throw ML::Exception("unhandled id conversion type");
 }
 
 template<typename Context, typename T>

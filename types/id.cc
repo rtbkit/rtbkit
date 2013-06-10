@@ -96,7 +96,7 @@ inline int hexToDec2(int c)
 
 void
 Id::
-parse(const std::string & value, Type type)
+parse(const char * value, size_t len, Type type)
 {
     Id r;
 
@@ -107,19 +107,20 @@ parse(const std::string & value, Type type)
             //                        + " output " + r.toString());
             if (r.type != type && type != UNKNOWN)
                 throw ML::Exception("Id::parse() changed type from %d to %d parsing %s",
-                                    r.type, type, value.c_str());
+                                    r.type, type, value);
 
             *this = r;
         };
     
-    if ((type == UNKNOWN || type == NONE) && value.empty()) {
+    if ((type == UNKNOWN || type == NONE) && len == 0) {
         r.type = NONE;
         r.val1 = r.val2 = 0;
         finish();
         return;
     }
 
-    if ((type == UNKNOWN || type == NULLID) && value.length() == 4 && value == "null") {
+    if ((type == UNKNOWN || type == NULLID) && len == 4
+        && strcmp(value, "null") == 0) {
         //throw ML::Exception("null id");
         r.type = NULLID;
         r.val1 = r.val2 = 0;
@@ -127,14 +128,14 @@ parse(const std::string & value, Type type)
         return;
     }
 
-    if ((type == UNKNOWN || type == BIGDEC) && (value.size() == 1 && value[0] == '0')) {
+    if ((type == UNKNOWN || type == BIGDEC) && (len == 1 && value[0] == '0')) {
         r.type = BIGDEC;
         r.val = 0;
         finish();
         return;
     }
 
-    while ((type == UNKNOWN ||type == UUID) && value.length() == 36) {
+    while ((type == UNKNOWN ||type == UUID) && len == 36) {
         // not really a while...
         // Try a uuid
         // AGID: --> 0828398c-5965-11e0-84c8-0026b937c8e1
@@ -148,7 +149,7 @@ parse(const std::string & value, Type type)
         short f2, f3, f4;
         unsigned long long f5;
 
-        const char * p = value.c_str();
+        const char * p = value;
         bool failed = false;
 
         auto scanRange = [&] (int start, int len) -> unsigned long long
@@ -183,7 +184,7 @@ parse(const std::string & value, Type type)
     }
 
     if ((type == UNKNOWN || type == GOOG128)
-        && value.length() == 26 && value[0] == 'C' && value[1] == 'A'
+        && len == 26 && value[0] == 'C' && value[1] == 'A'
         && value[2] == 'E' && value[3] == 'S' && value[4] == 'E') {
 
         // Google ID: --> CAESEAYra3NIxLT9C8twKrzqaA
@@ -221,13 +222,13 @@ parse(const std::string & value, Type type)
     }
 
     if ((type == UNKNOWN || type == INT64DEC || type == BIGDEC)
-        && value[0] != '0' && value.length() < 32 /* TODO: better condition */) {
+        && value[0] != '0' && len < 32 /* TODO: better condition */) {
         // Try a big integer
         //ANID: --> 7394206091425759590
         uint64_t res64(0);
         bool error = false;
 
-        int maxLowLen = min(int(value.size()), max64_base10_len);
+        int maxLowLen = min(int(len), max64_base10_len);
         for (unsigned i = 0;  i < maxLowLen;  ++i) {
             if (!isdigit(value[i])) {
                 error = true;
@@ -237,7 +238,7 @@ parse(const std::string & value, Type type)
         }
 
         if (!error) {
-            if (value.size() < max64_base10_len) {
+            if (len < max64_base10_len) {
                 if (type == UNKNOWN) {
                     type = INT64DEC;
                 }
@@ -254,7 +255,7 @@ parse(const std::string & value, Type type)
             }
 
             __uint128_t res128 = res64;
-            for (unsigned i = maxLowLen;  i < value.size();  ++i) {
+            for (unsigned i = maxLowLen;  i < len;  ++i) {
                 if (!isdigit(value[i])) {
                     error = true;
                     break;
@@ -270,7 +271,7 @@ parse(const std::string & value, Type type)
         }
     }
 
-    if ((type == UNKNOWN || type == BASE64_96) && value.length() == 16) {
+    if ((type == UNKNOWN || type == BASE64_96) && len == 16) {
         auto scanRange = [&] (const char * p, size_t l) -> int64_t
             {
                 uint64_t res = 0;
@@ -282,8 +283,8 @@ parse(const std::string & value, Type type)
                 return res;
             };
         
-        int64_t high = scanRange(value.c_str(), 8);
-        int64_t low  = scanRange(value.c_str() + 8, 8);
+        int64_t high = scanRange(value, 8);
+        int64_t low  = scanRange(value + 8, 8);
 
         if (low != -1 && high != -1) {
             __int128_t val = high;
@@ -297,13 +298,13 @@ parse(const std::string & value, Type type)
         }
     }   
 
-    //cerr << "value.length() = " << value.length()
+    //cerr << "len = " << len
     //     << " value = " << value << " type = " << (int)type << endl;
 
-    while ((type == UNKNOWN || type == HEX128LC) && value.length() == 32) {
+    while ((type == UNKNOWN || type == HEX128LC) && len == 32) {
         uint64_t high, low;
 
-        const char * p = value.c_str();
+        const char * p = value;
         bool failed = false;
 
         auto scanRange = [&] (int start, int len) -> unsigned long long
@@ -343,11 +344,15 @@ parse(const std::string & value, Type type)
 
     // Fall back to string
     r.type = STR;
-    r.len = value.size();
+    r.len = len;
     char * s = new char[r.len];
     r.str = s;
     r.ownstr = true;
-    std::copy(value.c_str(), value.c_str() + value.size(), s);
+#if 0
+    memcpy(s, value, len);
+#else
+    std::copy(value, value + len, s);
+#endif
     finish();
     return;
 }

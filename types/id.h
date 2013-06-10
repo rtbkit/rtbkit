@@ -85,8 +85,15 @@ struct Id {
         parse(value, type);
     }
     
+    explicit Id(const char * value, size_t len,
+                Type type = UNKNOWN)
+        : type(NONE), val1(0), val2(0)
+    {
+        parse(value, len, type);
+    }
+    
     explicit Id(uint64_t value):
-    		type(BIGDEC),
+    		type(INT64DEC),
     		val1(value),val2(0)
     {
     }
@@ -138,7 +145,11 @@ struct Id {
         return *this;
     }
 
-    void parse(const std::string & value, Type type = UNKNOWN);
+    void parse(const std::string & value, Type type = UNKNOWN)
+    {
+        parse(value.c_str(), value.size(), type);
+    }
+    void parse(const char * value, size_t len, Type type = UNKNOWN);
     
     std::string toString() const;
 

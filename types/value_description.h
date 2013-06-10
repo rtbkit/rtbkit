@@ -885,14 +885,18 @@ Json::Value jsonEncode(const T & obj,
 /// Macro to introduce a class TypeDescription that is a structure
 /// description for that type, and a getDefaultDescription()
 /// overload for it.  The constructor still needs to be done.
-#define CREATE_STRUCTURE_DESCRIPTION(Type)                      \
-    struct Type##Description                                    \
+#define CREATE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
+    struct Name                                                 \
         : public Datacratic::StructureDescription<Type> {       \
-        Type##Description();                                    \
+        Name();                                                 \
     };                                                          \
                                                                 \
-    inline Type##Description *                                  \
+    inline Name *                                               \
     getDefaultDescription(Type *)                               \
     {                                                           \
-        return new Type##Description();                         \
+        return new Name();                                      \
     }                                                          
+
+#define CREATE_STRUCTURE_DESCRIPTION(Type)                      \
+    CREATE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
+
