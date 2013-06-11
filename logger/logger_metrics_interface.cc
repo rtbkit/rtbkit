@@ -40,6 +40,14 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
         }else{
             Json::Value config = Json::parseFromFile(getenv("CONFIG"));
             config = config[configKey];
+            if(config.isNull()){
+                throw ML::Exception("Your configKey is invalid or your "
+                                    "config file is empty");
+            }
+            if(config["type"].isNull()){
+                throw ML::Exception("Your LoggerMetrics config needs to "
+                                    "specify a [type] key.");
+            }
             string loggerType = config["type"].asString();
             failSafe = config["failSafe"].asBool();
             function<void()> fct = [&]{

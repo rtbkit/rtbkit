@@ -10,6 +10,12 @@ using namespace mongo;
 LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
     const string& coll, const string& appName) : ILoggerMetrics(coll)
 {
+    for(string s: {"hostAndPort", "database", "user", "pwd"}){
+        if(config[s].isNull()){
+            throw ML::Exception("Missing LoggerMetricsMongo parameter [%s]",
+                                s.c_str());
+        }
+    }
     HostAndPort hostAndPort(config["hostAndPort"].asString());
     conn.connect(hostAndPort);
     string err;
