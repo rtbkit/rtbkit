@@ -26,7 +26,6 @@ struct ExchangeSource {
     {
         Datacratic::Id adSpotId;
         int maxPrice;
-        std::string tagId;
         AccountKey account;
         Datacratic::Date bidTimestamp;
     };

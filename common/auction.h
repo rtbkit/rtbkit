@@ -117,7 +117,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
     /** Response to a bid. */
     struct Response {
         Response(Price price = NONE,
-                 int tagId = -1,
+                 int creativeId = -1,
                  const AccountKey & account = AccountKey(),
                  bool test = true,
                  std::string agent = "",
@@ -128,10 +128,11 @@ struct Auction : public std::enable_shared_from_this<Auction> {
                  const SegmentList& visitChannels = SegmentList(),
                  int agentCreativeIndex = -1,
                  const WinCostModel & wcm = WinCostModel())
-            : price(price), tagId(tagId),
+            : price(price),
               account(account),
               test(test), agent(agent),
-              bidData(bidData), meta(meta), creativeId(-1),
+              bidData(bidData), meta(meta),
+              creativeId(creativeId),
               localStatus(INVALID),
               agentConfig(agentConfig),
               visitChannels(visitChannels),
@@ -142,7 +143,6 @@ struct Auction : public std::enable_shared_from_this<Auction> {
 
         // Information about the actual bid
         Price price;           ///< Price to bid on
-        int tagId;             ///< Tag ID (v0.3)
         AccountKey account;    ///< Account we are bidding with
         bool test;             ///< Is this a test bid?
 
@@ -152,7 +152,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
         std::string meta;      ///< Free form agent information about the bid
                                ///< (Passed back to agent with notification)
 
-        int creativeId;          ///< Number of the creative/placement
+        int creativeId;           ///< Id of the creative/placement
         std::string creativeName; ///< Name of the creative
 
         // Information about the status of the bid (what happened to it)

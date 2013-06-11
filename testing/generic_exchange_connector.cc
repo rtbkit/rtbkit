@@ -140,7 +140,7 @@ getResponse(const HttpAuctionHandler & connection,
         result += format("{\"id\":\"%s\",\"max_price\":%d,\"tag_id\":%d,\"passback\":\"%s,%s,%.6f\"",
                          jsonEscape(auction.request->imp[spotNum].id.toString()).c_str(),
                          resp.price.maxPrice,
-                         resp.tagId,
+                         resp.creativeId,
                          jsonEscape(resp.account.toString()),
                          Date::now().secondsSinceEpoch());
             

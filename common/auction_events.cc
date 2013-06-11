@@ -400,7 +400,6 @@ fromJson(const Json::Value& json)
             if (m == "timestamp")
                 bid.time = Date::fromSecondsSinceEpoch(member.asDouble());
             else if (m == "test") bid.test = member.asBool();
-            else if (m == "tagId") bid.test = member.asInt();
             else invalid = true;
             break;
 
@@ -435,7 +434,6 @@ toJson() const
 
     json["price"] = price.toJson();
     json["test"] = test;
-    json["tagId"] = tagId;
     json["bidData"] = bids.toJson();
 
     json["agent"] = agent;

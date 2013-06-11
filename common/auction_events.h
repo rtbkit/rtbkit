@@ -173,7 +173,6 @@ struct DeliveryEvent
 
         // Information about the actual bid
         Auction::Price price;     ///< Price to bid on
-        int tagId;                ///< Tag ID (v0.3)
         AccountKey account;       ///< Account we are bidding with
         bool test;                ///< Is this a test bid?
         WinCostModel wcm;         ///< Win cost model

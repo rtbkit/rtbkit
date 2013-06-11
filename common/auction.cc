@@ -87,7 +87,6 @@ toJson() const
 
     result["price"] = price.toJson();
     result["test"] = test;
-    result["tagId"] = tagId;
     result["bidData"] = bidData;
 
     result["agent"] = agent;
@@ -110,7 +109,7 @@ valid() const
     if (price.maxPrice.value <= 0
         || account.empty()
         || agent == ""
-        || tagId == -1)
+        || creativeId == -1)
         return false;
     return true;
 }
@@ -119,9 +118,8 @@ void
 Auction::Response::
 serialize(DB::Store_Writer & store) const
 {
-    int version = 6;
-    store << version << price.maxPrice << price.priority
-          << tagId << account
+    int version = 7;
+    store << version << price.maxPrice << price.priority << account
           << test << agent << bidData << meta << creativeId
           << creativeName << (int)localStatus << visitChannels << wcm;
 }
@@ -134,7 +132,7 @@ reconstitute(DB::Store_Reader & store)
     store >> version;
     if (version == 1) {
         string campaign, strategy;
-        string tag, click_url;
+        string tag, click_url, tagId;
         store >> price.maxPrice >> price.priority
               >> tag >> click_url >> tagId >> strategy >> campaign
               >> test >> agent >> bidData >> meta >> creativeId
@@ -143,7 +141,7 @@ reconstitute(DB::Store_Reader & store)
     }
     else if (version == 2) {
         string campaign, strategy;
-        int maxPriceUSDMicrosCPM;
+        int maxPriceUSDMicrosCPM, tagId;
         store >> maxPriceUSDMicrosCPM >> price.priority
               >> tagId >> strategy >> campaign
               >> test >> agent >> bidData >> meta >> creativeId
@@ -153,6 +151,7 @@ reconstitute(DB::Store_Reader & store)
     }
     else if (version == 3) {
         string campaign, strategy;
+        int tagId;
         store >> price.maxPrice >> price.priority
               >> tagId >> strategy >> campaign
               >> test >> agent >> bidData >> meta >> creativeId
@@ -160,20 +159,28 @@ reconstitute(DB::Store_Reader & store)
         account = { campaign, strategy };
     }
     else if (version == 4) {
+        int tagId;
         store >> price.maxPrice >> price.priority
               >> tagId >> account
               >> test >> agent >> bidData >> meta >> creativeId
               >> creativeName >> localStatusi;
     }
     else if (version == 5) {
+        int tagId;
         store >> price.maxPrice >> price.priority
               >> tagId >> account
               >> test >> agent >> bidData >> meta >> creativeId
               >> creativeName >> localStatusi >> visitChannels;
     }
     else if (version == 6) {
+        int tagId;
         store >> price.maxPrice >> price.priority
               >> tagId >> account
+              >> test >> agent >> bidData >> meta >> creativeId
+              >> creativeName >> localStatusi >> visitChannels >> wcm;
+    }
+    else if (version == 7) {
+        store >> price.maxPrice >> price.priority >> account
               >> test >> agent >> bidData >> meta >> creativeId
               >> creativeName >> localStatusi >> visitChannels >> wcm;
     }
@@ -251,7 +258,7 @@ setResponse(int spotNum, Response newResponse)
 
     if (newResponse.price.maxPrice.isNegative()
         || newResponse.agent == ""
-        || newResponse.tagId == -1)
+        || newResponse.creativeId == -1)
         return INVALID;
 
     if (current->tooLate)

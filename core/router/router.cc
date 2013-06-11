@@ -1917,7 +1917,7 @@ doBid(const std::vector<std::string> & message)
         Auction::Price bidprice(bid.price, bid.priority);
         Auction::Response response(
                 bidprice,
-                creative.tagId,
+                creative.id,
                 config.account,
                 config.test,
                 agent,
@@ -1929,7 +1929,6 @@ doBid(const std::vector<std::string> & message)
                 wcm);
 
         response.creativeName = creative.name;
-        response.creativeId = creative.id;
 
         Auction::WinLoss localResult
             = auctionInfo.auction->setResponse(spotIndex, response);

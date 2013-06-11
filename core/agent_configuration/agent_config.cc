@@ -27,9 +27,8 @@ namespace RTBKIT {
 /*****************************************************************************/
 
 Creative::
-Creative(int width, int height,
-         std::string name, int id, int tagId)
-    : format(width,height), tagId(tagId), name(name), id(id)
+Creative(int width, int height, std::string name, int id)
+    : format(width, height), name(name), id(id)
 {
 }
 
@@ -51,15 +50,8 @@ fromJson(const Json::Value & val)
         id = val["id"].asInt();
     if (id == -1)
         throw ML::Exception("creatives require an ID to be specified");
-    
-    if (val.isMember("tagId"))
-        tagId = val["tagId"].asInt();
-    else tagId = -1;
 
     providerConfig = val["providerConfig"];
-    
-    if (tagId == -1)
-        throw Exception("no tag ID in creative: " + val.toString());
 
     languageFilter.fromJson(val["languageFilter"], "languageFilter");
     locationFilter.fromJson(val["locationFilter"], "locationFilter");
@@ -75,8 +67,6 @@ toJson() const
     result["name"] = name;
     if (id != -1)
         result["id"] = id;
-    if (tagId != -1)
-        result["tagId"] = tagId;
     if (!languageFilter.empty())
         result["languageFilter"] = languageFilter.toJson();
     if (!locationFilter.empty())
@@ -89,11 +79,11 @@ toJson() const
 }
 
 const Creative Creative::sampleWS
-    (160, 600, "LeaderBoard", 0, 0);
+    (160, 600, "LeaderBoard", 0);
 const Creative Creative::sampleBB
-    (300, 250, "BigBox", 1, 1);
+    (300, 250, "BigBox", 1);
 const Creative Creative::sampleLB
-    (728, 90,  "LeaderBoard", 2, 2);
+    (728, 90,  "LeaderBoard", 2);
 
 bool
 Creative::
@@ -536,10 +526,6 @@ createFromJson(const Json::Value & json)
                  i < newConfig.creatives.size();  ++i) {
                 try {
                     newConfig.creatives[i].fromJson((*it)[i]);
-                    if (newConfig.creatives[i].tagId == -1)
-                        throw Exception("invalid tag in creative "
-                                        + boost::lexical_cast<std::string>((*it)[i]));
-                    ;
                 } catch (const std::exception & exc) {
                     throw Exception("parsing creative %d: %s",
                                     i, exc.what());
