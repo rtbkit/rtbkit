@@ -175,6 +175,9 @@ struct Id {
 
     bool operator == (const Id & other) const
     {
+        if ((type == BIGDEC && other.type == INT64DEC)
+            || (type == INT64DEC && other.type == BIGDEC))
+            return val == other.val;
         if (type != other.type) return false;
         if (type == NONE || type == NULLID) return true;
         if (JML_UNLIKELY(type >= STR)) return complexEqual(other);
@@ -188,6 +191,9 @@ struct Id {
     
     bool operator < (const Id & other) const
     {
+        if ((type == BIGDEC && other.type == INT64DEC)
+            || (type == INT64DEC && other.type == BIGDEC))
+            return val < other.val;
         if (type < other.type) return true;
         if (other.type < type) return false;
         if (JML_UNLIKELY(type >= STR)) return complexLess(other);
