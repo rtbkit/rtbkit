@@ -617,6 +617,11 @@ reconstitute(ML::DB::Store_Reader & store)
         store.load_binary(&r.val2, 8);
         break;
     }
+    case INT64DEC: {
+        store.load_binary(&r.val1, 8);
+        r.type = BIGDEC;
+        break;
+    }
     case BASE64_96: {
         store.load_binary(&r.val1, 8);
         store.load_binary(&r.val2, 4);
