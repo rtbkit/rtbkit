@@ -22,18 +22,22 @@ std::string toString(CurrencyCode code)
 {
     if (code == CurrencyCode::CC_NONE)
         return "NONE";
-    else if (code == CurrencyCode::CC_USD)
+    if (code == CurrencyCode::CC_USD)
         return "USD";
-    else throw ML::Exception("unknown currency code");
+    if (code == CurrencyCode::CC_IMP)
+        return "IMP";
+    throw ML::Exception("unknown currency code");
 }
 
 CurrencyCode parseCurrencyCode(const std::string & code)
 {
+    if (code == "NONE")
+        return CurrencyCode::CC_NONE;
     if (code == "USD")
         return CurrencyCode::CC_USD;
-    else if (code == "NONE")
-        return CurrencyCode::CC_NONE;
-    else throw ML::Exception("unknown currency code");
+    if (code == "IMP")
+        return CurrencyCode::CC_IMP;
+    throw ML::Exception("unknown currency code");
 }
 
 CurrencyCode jsonDecode(const Json::Value & j, CurrencyCode *)
@@ -43,22 +47,12 @@ CurrencyCode jsonDecode(const Json::Value & j, CurrencyCode *)
     string s = j.asString();
     if (s.size() > 4)
         throw ML::Exception("unknown currency code " + s);
-    if (s == "USD")
-        return CurrencyCode::CC_USD;
-    
-    throw ML::Exception("not done: decoding other currency " + s);
+    return parseCurrencyCode(s);
 }
 
 Json::Value jsonEncode(CurrencyCode code)
 {
-    switch (code) {
-    case CurrencyCode::CC_NONE:
-        return Json::Value();
-    case CurrencyCode::CC_USD:
-        return Json::Value("USD");
-    default:
-        throw ML::Exception("not done: encoding other currencies");
-    }
+    return Json::Value(toString(code));
 }
 
 /*****************************************************************************/
@@ -87,9 +81,12 @@ Amount::
 getCurrencyStr(CurrencyCode currencyCode)
 {
     switch (currencyCode) {
-    case CurrencyCode::CC_NONE: return "NONE";
-    case CurrencyCode::CC_USD:  return "USD/1M";
-    case CurrencyCode::CC_IMP:  return "IMP";
+    case CurrencyCode::CC_NONE:
+        return "NONE";
+    case CurrencyCode::CC_USD:
+        return "USD/1M";
+    case CurrencyCode::CC_IMP:
+        return "IMP";
     default:
         throw ML::Exception("unknown currency code %d", (uint32_t)currencyCode);
     }
@@ -171,11 +168,11 @@ parseCurrency(const std::string & currency)
 {
     if (currency == "NONE")
         return CurrencyCode::CC_NONE;
-    else if (currency == "USD/1M")
+    if (currency == "USD/1M")
         return CurrencyCode::CC_USD;
-    else if (currency == "IMP")
+    if (currency == "IMP")
         return CurrencyCode::CC_IMP;
-    else throw ML::Exception("unknown currency code " + currency);
+    throw ML::Exception("unknown currency code " + currency);
 }
 
 std::ostream &
