@@ -33,11 +33,18 @@ struct Launcher
 {
     struct Task
     {
-        Task() : pid(-1), log(false), delay(5.0) {
+        Task() : pid(-1), log(false), delay(30.0) {
         }
 
         std::string const & getName() const {
             return name;
+        }
+
+        void launch() {
+            spawn();
+            for(auto & item : children) {
+                item.launch();
+            }
         }
 
         void restart() {
@@ -46,9 +53,8 @@ struct Launcher
         }
 
         void start() {
-            spawn();
             ML::sleep(delay);
-
+            spawn();
             for(auto & item : children) {
                 item.start();
             }
@@ -283,6 +289,12 @@ struct Launcher
             return 0;
         }
 
+        void launch() {
+            for(auto & item : tasks) {
+                item.launch();
+            }
+        }
+
         void restart() {
             for(auto & item : tasks) {
                 item.restart();
@@ -447,7 +459,7 @@ struct Launcher
                 sa.sa_handler = &Service::sigchld;
                 sigaction(SIGCHLD, &sa, 0);
 
-                node->restart();
+                node->launch();
 
                 for(;;) {
                     ML::sleep(1.0);
