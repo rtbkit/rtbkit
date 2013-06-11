@@ -1014,10 +1014,6 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
 
             switch (inc) {
             case IE_NO_DATA:
-                exclude = it->second.excludeIfNotPresent;
-                if (doFilterStat) doFilterStat(
-                             ("static.080_segmentHasNoData_" + it->first).c_str());
-                break;
             case IE_NOT_INCLUDED:
             case IE_EXCLUDED:
                 if (doFilterStat) doFilterStat(

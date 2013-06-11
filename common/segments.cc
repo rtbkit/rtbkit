@@ -276,7 +276,7 @@ Json::Value
 SegmentList::
 toJson() const
 {
-    Json::Value result;
+    Json::Value result(Json::arrayValue);
 
     if (weights.empty()) {
         if (strings.empty()) {
@@ -567,6 +567,7 @@ createFromJson(const Json::Value & json)
     SegmentsBySource result;
 
     for (auto it = json.begin(), end = json.end(); it != end;  ++it) {
+        if (it->isNull()) continue;
         auto segs = std::make_shared<SegmentList>();
         *segs = SegmentList::createFromJson(*it);
         result.addSegment(it.memberName(), segs);
