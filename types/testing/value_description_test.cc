@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE( test_default_description_parse_id_64_str )
     BOOST_CHECK_EQUAL(expected, result);
 }
 
-/* ensures that 128 bit integers are properly serialized */
+/* ensures that 128 bit integers are properly serialized as strings */
 BOOST_AUTO_TEST_CASE( test_default_description_print_id_128 )
 {
     DefaultDescription<Datacratic::Id> desc;
@@ -96,40 +96,10 @@ BOOST_AUTO_TEST_CASE( test_default_description_print_id_128 )
     desc.printJsonTyped(&idBigDec, jsonContext);
     result = outStr.str();
 
-#if 1
-    /* this is a hack to support 128 bit integers by serializing them to
-     * strings */
+    /* we do not support 128-bit int output */
     string expected = "\"88962710306127693105141072481996271\"";
-#else
-    /* this is the correct version, to be used as soon as we support
-     * "writeLongLong128" */
-    string expected = "88962710306127693105141072481996271";
-#endif
     BOOST_CHECK_EQUAL(expected, result);
 }
-
-#if 0
-/* ensures that 128 bit integers are properly parsed as such */
-/* FIXME: will work only once we support
-   Parse_Context::matchedUnsignedInt128 */
-BOOST_AUTO_TEST_CASE( test_default_description_parse_id_128 )
-{
-    string input = "88962710306127693105141072481996271";
-    File_Read_Buffer buffer(input.c_str(), input.size());
-    StreamingJsonParsingContext jsonContext(buffer);
-
-    Id expected;
-    expected.type = Id::Type::BIGDEC;
-    expected.val1 = 0x0123456789abcdef;
-    expected.val2 = 0x0011223344556677;
-
-    DefaultDescription<Datacratic::Id> desc;
-    Id result;
-    desc.parseJsonTyped(&result, jsonContext);
-
-    BOOST_CHECK_EQUAL(expected, result);
-}
-#endif
 
 /* ensures that string-encoded 128 bit integers are properly parsed as 128
  * bit integers */
