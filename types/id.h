@@ -157,6 +157,9 @@ struct Id {
     {
         if (type != BIGDEC)
             throw ML::Exception("can't convert non-BIGDEC to int");
+        if (val2) {
+            throw ML::Exception("cannot convert 128-bit value to uint64_t");
+        }
         return val1;
     }
 
