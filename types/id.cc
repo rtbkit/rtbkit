@@ -24,7 +24,7 @@ namespace Datacratic {
 /*****************************************************************************/
 
 
-static const int max64_base10_len = sizeof("9223372036854775807") - 1;
+static const size_t max64_base10_len = sizeof("9223372036854775807") - 1;
 
 static const signed char hexToDecLookups[128] = {
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -221,15 +221,15 @@ parse(const char * value, size_t len, Type type)
         }
     }
 
-    if ((type == UNKNOWN || type == INT64DEC || type == BIGDEC)
+    if ((type == UNKNOWN || type == BIGDEC)
         && value[0] != '0' && len < 32 /* TODO: better condition */) {
         // Try a big integer
         //ANID: --> 7394206091425759590
         uint64_t res64(0);
         bool error = false;
 
-        int maxLowLen = min(int(len), max64_base10_len);
-        for (unsigned i = 0;  i < maxLowLen;  ++i) {
+        int maxLowLen = min(len, max64_base10_len);
+        for (unsigned i = 0; i < maxLowLen; ++i) {
             if (!isdigit(value[i])) {
                 error = true;
                 break;
@@ -238,35 +238,27 @@ parse(const char * value, size_t len, Type type)
         }
 
         if (!error) {
-            if (len < max64_base10_len) {
-                if (type == UNKNOWN) {
-                    type = INT64DEC;
-                }
-                r.type = type;
-                r.val1 = res64;
-                r.val2 = 0;
-                finish();
-                return;
-            }
-
-            if (type == INT64DEC) {
-                throw ML::Exception("the value specified exceeds the size"
-                                    " limit allowed for INT64DEC");
-            }
-
-            __uint128_t res128 = res64;
-            for (unsigned i = maxLowLen;  i < len;  ++i) {
-                if (!isdigit(value[i])) {
-                    error = true;
-                    break;
-                }
-                res128 = res128 * 10 + value[i] - '0';
-            }
-            if (!error) {
+            if (len <= max64_base10_len) {
                 r.type = BIGDEC;
-                r.val = res128;
+                r.val1 = res64;
                 finish();
                 return;
+            }
+            else {
+                __uint128_t res128 = res64;
+                for (unsigned i = maxLowLen; i < len; ++i) {
+                    if (!isdigit(value[i])) {
+                        error = true;
+                        break;
+                    }
+                    res128 = res128 * 10 + value[i] - '0';
+                }
+                if (!error) {
+                    r.type = BIGDEC;
+                    r.val = res128;
+                    finish();
+                    return;
+                }
             }
         }
     }
@@ -408,31 +400,28 @@ toString() const
         }
         return result;
     }
-    case INT64DEC: {
-        if (val1 == 0) return "0";
-        string result;
-        result.reserve(max64_base10_len);
-        uint64_t v = val1;
-        while (v) {
-            int c = v % 10;
-            v /= 10;
-            result += c + '0';
-        }
-        std::reverse(result.begin(), result.end());
-        return result;
-    }
     case BIGDEC: {
-        __uint128_t v = val;
-        if (v == 0) return "0";
-        if (val2 == 0) {
-            return ML::format("%lld", v);
-        }
         string result;
-        result.reserve(32);
-        while (v) {
-            int c = v % 10;
-            v /= 10;
-            result += c + '0';
+        if (val2 == 0) {
+            if (val1 == 0) {
+                return "0";
+            }
+            result.reserve(max64_base10_len);
+            uint64_t v = val1;
+            while (v) {
+                int c = v % 10;
+                v /= 10;
+                result += c + '0';
+            }
+        }
+        else {
+            __uint128_t v = val;
+            result.reserve(32);
+            while (v) {
+                int c = v % 10;
+                v /= 10;
+                result += c + '0';
+            }
         }
         std::reverse(result.begin(), result.end());
         return result;
@@ -569,9 +558,6 @@ serialize(ML::DB::Store_Writer & store) const
         store.save_binary(&val1, 8);
         store.save_binary(&val2, 8);
         break;
-    case INT64DEC:
-        store.save_binary(&val1, 8);
-        break;
     case BASE64_96:
         store.save_binary(&val1, 8);
         store.save_binary(&val2, 4);
@@ -629,10 +615,6 @@ reconstitute(ML::DB::Store_Reader & store)
     case BIGDEC: {
         store.load_binary(&r.val1, 8);
         store.load_binary(&r.val2, 8);
-        break;
-    }
-    case INT64DEC: {
-        store.load_binary(&r.val1, 8);
         break;
     }
     case BASE64_96: {
