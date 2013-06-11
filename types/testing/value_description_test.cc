@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_CASE( test_default_description_print_id_64 )
     StreamJsonPrintingContext jsonContext(outStr);
     string result;
 
-    idBigDec.type = Id::Type::INT64DEC;
+    idBigDec.type = Id::Type::BIGDEC;
     idBigDec.val1 = 0x0123456789abcdef;
     idBigDec.val2 = 0;
 
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE( test_default_description_parse_id_64 )
     StreamingJsonParsingContext jsonContext(buffer);
 
     Id expected;
-    expected.type = Id::Type::INT64DEC;
+    expected.type = Id::Type::BIGDEC;
     expected.val1 = 0x0123456789abcdef;
     expected.val2 = 0;
 
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE( test_default_description_parse_id_64_str )
     StreamingJsonParsingContext jsonContext(buffer);
 
     Id expected;
-    expected.type = Id::Type::INT64DEC;
+    expected.type = Id::Type::BIGDEC;
     expected.val1 = 0x0123456789abcdef;
     expected.val2 = 0;
 
