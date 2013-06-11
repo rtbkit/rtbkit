@@ -896,10 +896,6 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
     Date timestamp = event->timestamp;
     const JsonHolder & meta = event->metadata;
     const UserIds & uids = event->uids;
-    const AccountKey & account = event->account;
-    if (account.size() == 0) {
-        throw ML::Exception("invalid account key");
-    }
 
     Date bidTimestamp = event->bidTimestamp;
 
@@ -950,7 +946,7 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 
         if (event->type == PAE_WIN) {
             // Late win with auction still around
-            banker->forceWinBid(account, winPrice, LineItems());
+            banker->forceWinBid(info.bid.account, winPrice, LineItems());
 
             info.forceWin(timestamp, winPrice, meta.toString());
 
@@ -1026,6 +1022,8 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
             return;
         }
         else {
+            auto & account = event->account;
+
             cerr << "REALLY REALLY LATE WIN event='" << *event
                  << "' timeGapMs = " << timeGapMs << endl;
             cerr << "message = " << meta << endl;
@@ -1038,7 +1036,9 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
                           "bidResult.%s.notInSubmittedTimeSinceBidSubmittedMs",
                           typeStr);
 
-            banker->forceWinBid(account, winPrice, LineItems());
+            if(!account.empty()) {
+                banker->forceWinBid(account, winPrice, LineItems());
+            }
 
             return;
         }
