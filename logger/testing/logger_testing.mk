@@ -9,3 +9,5 @@ $(eval $(call test,logger_deadlock_test,logger,boost manual))
 
 $(eval $(call test,multi_output_logger_test,logger,boost))
 $(eval $(call test,rotating_file_logger_test,logger,boost))
+
+$(eval $(call vowscoffee_test,logger_metrics_interface_js_test,iloggermetricscpp))
