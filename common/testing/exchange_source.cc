@@ -197,8 +197,8 @@ makeBidRequest() -> BidRequest
     bidRequest.language = "en";
     bidRequest.url = Url("http://datacratic.com");
     bidRequest.timestamp = Date::now();
-    bidRequest.userIds.add(Id(std::string("foo")), ID_EXCHANGE);
-    bidRequest.userIds.add(Id(std::string("bar")), ID_PROVIDER);
+    bidRequest.userIds.add(Id(rng.random()), ID_EXCHANGE);
+    bidRequest.userIds.add(Id(rng.random()), ID_PROVIDER);
     ++key;
 
     return bidRequest;

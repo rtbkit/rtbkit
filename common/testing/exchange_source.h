@@ -6,6 +6,7 @@
 
 */
 
+#include "jml/utils/rng.h"
 #include "common/account_key.h"
 #include "common/currency.h"
 #include "common/bid_request.h"
@@ -32,6 +33,8 @@ struct ExchangeSource {
 
     addrinfo * addr;
     int fd;
+
+    ML::RNG rng;
 };
 
 struct BidSource : public ExchangeSource {
