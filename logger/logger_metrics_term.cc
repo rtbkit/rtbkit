@@ -38,7 +38,7 @@ void LoggerMetricsTerm
     for(string part: path){
         newCat << "." << part;
     }
-    cout << newCat << ": " << ss.str() << endl;
+    cout << newCat.str() << ": " << ss.str() << endl;
 }
 
 const std::string LoggerMetricsTerm::getProcessId() const{
