@@ -23,12 +23,21 @@ namespace RTBKIT {
 /*****************************************************************************/
 
 GenericExchangeConnector::
-GenericExchangeConnector(ServiceBase & owner, Json::Value config)
+GenericExchangeConnector(ServiceBase & owner)
     : HttpExchangeConnector("GenericExchangeConnector", owner)
 {
     auctionResource = "/auction";
     auctionVerb = "POST";
 }
+
+GenericExchangeConnector::
+GenericExchangeConnector(shared_ptr<ServiceProxies> proxies) :
+    HttpExchangeConnector("GenericExchangeConnector", proxies)
+{
+    auctionResource = "/auction";
+    auctionVerb = "POST";
+}
+
 
 GenericExchangeConnector::
 ~GenericExchangeConnector()

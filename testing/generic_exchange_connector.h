@@ -24,8 +24,9 @@ namespace RTBKIT {
 struct GenericExchangeConnector
     : public RTBKIT::HttpExchangeConnector {
     
-    GenericExchangeConnector(ServiceBase & owner,
-                             Json::Value config);
+    GenericExchangeConnector(ServiceBase & owner);
+    GenericExchangeConnector(
+            std::shared_ptr<ServiceProxies> proxies = std::shared_ptr<ServiceProxies>());
 
     ~GenericExchangeConnector();
 
