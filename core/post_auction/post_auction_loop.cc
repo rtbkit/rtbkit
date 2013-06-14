@@ -1322,7 +1322,7 @@ doBidResult(const Id & auctionId,
     const Auction::Response & response = submission.bid;
 
     const AccountKey & account = response.account;
-    if (account.size() == 0) {
+    if (account.size() < 2) {
         throw ML::Exception("invalid account key");
     }
 
