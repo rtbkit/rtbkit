@@ -44,8 +44,6 @@ validate()
     ExcCheck(winPort > 0, "winPort is not set");
     ExcCheck(eventsPort > 0, "eventsPort is not set");
     ExcCheck(externalWinPort > 0, "externalWinPort is not set");
-    ExcCheck(!installation.empty(), "'installation' is required");
-    ExcCheck(!nodeName.empty(), "'node-name' is required");
 }
 
 /* STANDARDADSERVERCONNECTOR */
