@@ -131,6 +131,11 @@ struct AccountKey : public AccountKeyBase {
         return size() < other.size();
     }
 
+    using AccountKeyBase::at;
+
+    std::string at(unsigned int index, const std::string& fallback) const {
+        return index < size() ? (*this)[index] : fallback;
+    }
 
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
