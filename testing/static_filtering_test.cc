@@ -75,6 +75,15 @@ check(  AgentConfig config,
     return make_pair(!spots.empty(), stats);
 }
 
+void dump(const AgentConfig& config, const BidRequest& request)
+{
+    cerr << endl
+        << "==================================================================="
+        << endl << "CONFIG: " << config.toJson()
+        << endl << "REQUEST: " << request.toJson()
+        << endl;
+}
+
 void dumpError(
         const string& name,
         const pair<bool, AgentStats>& ret,
@@ -104,14 +113,16 @@ void dumpError(
 #define OK(_ret_,_name_)                                       \
     do {                                                       \
         auto ret = (_ret_);                                    \
+        BOOST_CHECK(ret.first);                                \
         if (!ret.first) dumpError(_name_, ret, "passed");      \
     } while (false)
 
 #define FILTERED(_ret_,_stat_,_name_)                                   \
     do {                                                                \
         auto ret = (_ret_);                                             \
-        if (ret.first)          dumpError(_name_, ret, "filtered on " #_stat_); \
-        if (!ret.second._stat_) dumpError(_name_, ret, "filtered on " #_stat_); \
+        BOOST_CHECK(!ret.first  && ret.second._stat_);                  \
+        if (ret.first)               dumpError(_name_, ret, "filtered on " #_stat_); \
+        else if (!ret.second._stat_) dumpError(_name_, ret, "filtered on " #_stat_); \
     } while(false)
 
 
@@ -127,4 +138,51 @@ BOOST_AUTO_TEST_CASE( smoke )
 
 BOOST_AUTO_TEST_CASE( segmentFiltering )
 {
+    auto request = basicRequest();
+    auto config = basicConfig();
+
+    request.segments["s1"] = make_shared<SegmentList>();
+    OK(check(config, request), "null config");
+
+    request.segments["s1"]->add("t1");
+    OK(check(config, request), "null config with tag");
+
+    request = basicRequest();
+
+    config.segments["s1"].excludeIfNotPresent = false;
+    config.segments["s1"].include.add("t1");
+    OK(check(config, request), "null segment");
+
+    config.segments["s1"].excludeIfNotPresent = true;
+    FILTERED(check(config, request), segmentsMissing, "null segment && excludeIfNull");
+
+    request.segments["s1"] = make_shared<SegmentList>();
+    FILTERED(check(config, request), segmentFiltered, "empty segments && excludeIfNull");
+
+    config.segments["s1"].excludeIfNotPresent = false;
+    FILTERED(check(config, request), segmentFiltered, "empty segments");
+
+    request.segments["s1"]->add("t2");
+    FILTERED(check(config, request), segmentFiltered, "don't include irrelevant tag");
+
+    request.segments["s1"]->add("t1");
+    request.segments["s1"]->sort();
+    OK(check(config, request), "include a tag");
+
+    config.segments["s2"].excludeIfNotPresent = false;
+    config.segments["s2"].exclude.add("t3");
+    OK(check(config, request), "exclude on null segment");
+
+    request.segments["s2"] = make_shared<SegmentList>();
+    OK(check(config, request), "exclude on empty segment");
+
+    request.segments["s2"]->add("t4");
+    OK(check(config, request), "don't exclude irrelevant tag");
+
+    request.segments["s2"]->add("t3");
+    request.segments["s2"]->sort();
+    FILTERED(check(config, request), segmentFiltered, "exclude a tag");
+
+    config.segments["s2"].include.add("t3");
+    FILTERED(check(config, request), segmentFiltered, "exclude wins on conflict");
 }

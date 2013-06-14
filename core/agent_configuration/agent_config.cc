@@ -1000,6 +1000,8 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
 
             switch (inc) {
             case IE_NO_DATA:
+                if (it->second.include.empty()) break;
+                // Fallthrough if there's an include filter.
             case IE_NOT_INCLUDED:
             case IE_EXCLUDED:
                 if (doFilterStat) doFilterStat(
