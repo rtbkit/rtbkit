@@ -1121,7 +1121,8 @@ forEachObject(const std::string & bucket,
         string truncated
             = extract<string>(listingResult, "ListBucketResult/IsTruncated");
         if (truncated == "true") {
-            marker = extract<string>(listingResult, "ListBucketResult/Marker");
+            marker = extract<string>(listingResult, "ListBucketResult/NextMarker");
+            //cerr << "truncated; marker = " << marker << endl;
         }
         else marker = "";
 
