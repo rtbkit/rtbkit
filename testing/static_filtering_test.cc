@@ -4,6 +4,8 @@
 
     Various tests for the static filters
 
+    \todo Add tests for language, location, exchange, foldPosition and
+    hourOfWeek filters.
 */
 
 #define BOOST_TEST_MAIN
@@ -136,7 +138,7 @@ BOOST_AUTO_TEST_CASE( smoke )
     OK(check(basicConfig(), basicRequest()), "1 spot");
 }
 
-BOOST_AUTO_TEST_CASE( segmentFiltering )
+BOOST_AUTO_TEST_CASE( segments )
 {
     auto request = basicRequest();
     auto config = basicConfig();
@@ -185,4 +187,29 @@ BOOST_AUTO_TEST_CASE( segmentFiltering )
 
     config.segments["s2"].include.add("t3");
     FILTERED(check(config, request), segmentFiltered, "exclude wins on conflict");
+
+    request.exchange = "e1";
+    FILTERED(check(config, request), segmentFiltered, "no exchange filters");
+
+    config.segments["s2"].applyToExchanges.include.push_back("e2");
+    OK(check(config, request), "exchange is not included");
+
+    config.segments["s2"].applyToExchanges.include.push_back("e1");
+    FILTERED(check(config, request), segmentFiltered, "passed the exchange filter");
+
+    config.segments["s2"].applyToExchanges.include.clear();
+    config.segments["s2"].applyToExchanges.exclude.push_back("e2");
+    FILTERED(check(config, request), segmentFiltered, "exclude useless exchange");
+
+    config.segments["s2"].applyToExchanges.exclude.push_back("e1");
+    OK(check(config, request), "excluded the exchange");
+
+    config.segments["s2"].applyToExchanges.include.push_back("e1");
+    OK(check(config, request), "exchange exclude wins on conflict");
+}
+
+BOOST_AUTO_TEST_CASE( hourOfWeek )
+{
+    auto request = basicRequest();
+    auto config = basicConfig();
 }
