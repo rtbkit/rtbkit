@@ -41,7 +41,7 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
             Json::Value config = Json::parseFromFile(getenv("CONFIG"));
             config = config[configKey];
             if(config.isNull()){
-                throw ML::Exception("Your configKey is invalid or your "
+                throw ML::Exception("Your configKey [" + configKey + "] is invalid or your "
                                     "config file is empty");
             }
             if(config["type"].isNull()){
