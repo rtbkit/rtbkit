@@ -129,7 +129,7 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
     return logger;
 }
 
-void ILoggerMetrics::logMetrics(Json::Value& json){
+void ILoggerMetrics::logMetrics(const Json::Value& json){
     vector<string> stack;
     function<void(const Json::Value&)> doit;
     doit = [&](const Json::Value& v){

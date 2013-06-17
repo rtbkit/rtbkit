@@ -16,7 +16,7 @@ LoggerMetricsTerm::LoggerMetricsTerm(Json::Value config,
 }
 
 void LoggerMetricsTerm::logInCategory(const string& category,
-    Json::Value& json)
+    const Json::Value& json)
 {
     cout << pid << "." << coll << "." << category 
          << ": " << json.toStyledString() << endl;
