@@ -391,7 +391,7 @@ performSync() const
             cerr << "headers are " << responseHeaders << endl;
             cerr << "body contains " << body.size() << " bytes" << endl;
 
-            if (i < 2)
+            if (i < numRetries)
                 cerr << "retrying" << endl;
             else throw;
         }
