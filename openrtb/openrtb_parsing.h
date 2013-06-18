@@ -124,6 +124,60 @@ struct DefaultDescription<OpenRTB::TaggedIntDef<defValue> >
 };
 
 template<>
+struct DefaultDescription<OpenRTB::TaggedInt64>
+: public ValueDescriptionI<OpenRTB::TaggedInt64,
+                           ValueKind::INTEGER,
+                           DefaultDescription<OpenRTB::TaggedInt64> > {
+    
+    virtual void parseJsonTyped(OpenRTB::TaggedInt64 * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isString()) {
+            std::string s = context.expectStringAscii();
+            val->val = boost::lexical_cast<int64_t>(s);
+        }
+        else val->val = context.expectInt64();
+    }
+
+    virtual void printJsonTyped(const OpenRTB::TaggedInt64 * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt64(val->val);
+    }
+
+    virtual bool isDefaultTyped(const OpenRTB::TaggedInt64 * val) const
+    {
+        return val->val == -1;
+    }
+};
+
+template<int64_t defValue>
+struct DefaultDescription<OpenRTB::TaggedInt64Def<defValue> >
+  : public ValueDescriptionI<OpenRTB::TaggedInt64Def<defValue>, ValueKind::INTEGER > {
+
+    virtual void parseJsonTyped(OpenRTB::TaggedInt64Def<defValue> * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isString()) {
+            std::string s = context.expectStringAscii();
+            val->val = boost::lexical_cast<int64_t>(s);
+        }
+        else val->val = context.expectInt64();
+    }
+
+    virtual void printJsonTyped(const OpenRTB::TaggedInt64Def<defValue> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt64(val->val);
+    }
+
+    virtual bool isDefaultTyped(const OpenRTB::TaggedInt64Def<defValue> * val) const
+    {
+        return val->val == defValue;
+    }
+};
+
+template<>
 struct DefaultDescription<OpenRTB::TaggedFloat>
     : public ValueDescriptionI<OpenRTB::TaggedFloat,
                                ValueKind::FLOAT> {
@@ -166,6 +220,51 @@ struct DefaultDescription<OpenRTB::TaggedFloatDef<num, den> >
     virtual bool isDefaultTyped(const OpenRTB::TaggedFloatDef<num, den> * val) const
     {
         return val->val == (float)num / den;
+    }
+};
+
+template<>
+struct DefaultDescription<OpenRTB::TaggedDouble>
+: public ValueDescriptionI<OpenRTB::TaggedDouble,
+                           ValueKind::FLOAT> {
+    virtual void parseJsonTyped(OpenRTB::TaggedDouble * val,
+                                JsonParsingContext & context) const
+    {
+        val->val = context.expectDouble();
+    }
+
+    virtual void printJsonTyped(const OpenRTB::TaggedDouble * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeDouble(val->val);
+    }
+    
+    virtual bool isDefaultTyped(const OpenRTB::TaggedDouble * val) const
+    {
+        return isnan(val->val);
+    }
+};
+
+template<int num, int den>
+struct DefaultDescription<OpenRTB::TaggedDoubleDef<num, den> >
+: public ValueDescriptionI<OpenRTB::TaggedDoubleDef<num, den>,
+                           ValueKind::FLOAT> {
+
+    virtual void parseJsonTyped(OpenRTB::TaggedDoubleDef<num, den> * val,
+                                JsonParsingContext & context) const
+    {
+        val->val = context.expectDouble();
+    }
+
+    virtual void printJsonTyped(const OpenRTB::TaggedDoubleDef<num, den> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeDouble(val->val);
+    }
+
+    virtual bool isDefaultTyped(const OpenRTB::TaggedDoubleDef<num, den> * val) const
+    {
+        return val->val == (double)num / den;
     }
 };
 

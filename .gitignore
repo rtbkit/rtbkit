@@ -22,3 +22,4 @@ tmp
 bootstrap.json
 perf.data
 dox/html
+*.swp

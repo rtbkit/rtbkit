@@ -179,6 +179,27 @@ struct TaggedIntDef : TaggedInt {
     int val;
 };
 
+struct TaggedInt64 {
+      TaggedInt64()
+                : val(-1)
+                      {
+                            }
+
+          int64_t value() const { return val; }
+
+              int64_t val;
+};
+
+template<int64_t defValue = -1>
+struct TaggedInt64Def : TaggedInt {
+      TaggedInt64Def()
+                : val(defValue)
+                      {
+                            }
+
+          int64_t val;
+};
+
 struct TaggedFloat {
     TaggedFloat()
         : val(std::numeric_limits<float>::quiet_NaN())
@@ -197,6 +218,26 @@ struct TaggedFloatDef : public TaggedFloat {
 
     float val;
 };
+
+struct TaggedDouble{
+    TaggedDouble()
+        : val(std::numeric_limits<double>::quiet_NaN())
+    {
+    }
+
+    double val;
+};
+
+template<int num = -1, int den = 1>
+struct TaggedDoubleDef : public TaggedDouble {
+    TaggedDoubleDef()
+        : val(1.0 * num / den)
+    {
+    }
+
+    double val;
+};
+
 
 #if 0 // c++11 templated typedefs
 template<typename T>
@@ -1051,7 +1092,7 @@ struct Geo {
 struct Device {
     ~Device();
     TaggedBool dnt;        ///< If 1 then do not track is on
-    Utf8String ua;             ///< User agent of device
+    Utf8String ua;         ///< User agent of device
     string ip;             ///< IP address of device
     Optional<Geo> geo;     ///< Geolocation of device
     string didsha1;        ///< Device ID: SHA1
@@ -1059,8 +1100,8 @@ struct Device {
     string dpidsha1;       ///< Device Platform ID: SHA1
     string dpidmd5;        ///< Device Platform ID: MD5
     string ipv6;           ///< IPv6 address
-    Utf8String carrier;        ///< Carrier or ISP (derived from IP address)
-    Utf8String language;       ///< Browser language.  ISO 639-1 (alpha-2).
+    Utf8String carrier;    ///< Carrier or ISP (derived from IP address)
+    Utf8String language;   ///< Browser language.  ISO 639-1 (alpha-2).
     string make;           ///< Device make
     string model;          ///< Device model
     string os;             ///< Device OS

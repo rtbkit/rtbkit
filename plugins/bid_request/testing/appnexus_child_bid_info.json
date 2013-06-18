@@ -1,0 +1,53 @@
+{
+    "user_id_64":2987961585469200312,
+    "user_agent":"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US;rv:1.9.0.3) Gecko/2008092414 Firefox/3.0.3",
+    "operating_system":8,
+    "accepted_languages":"en-US,en;q=0.8",
+    "language":1,
+    "no_flash":false,
+    "no_cookies":false,
+    "gender":"male",
+    "age":50,
+    "segments":[
+        {
+            "id":103,
+            "member_id":6,
+            "code":"PotentialCarBuyer",
+            "last_seen_min":21108407
+        }
+    ],
+    "ip_address":"96.246.152.18",
+    "country":"US",
+    "region":"NY",
+    "city": "New York",
+    "postal_code": "10014",
+    "dma":501,
+    "time_zone":"America/New_York",
+    "userdata_json":
+        {
+            "key":"value",
+            "key2":1001
+        },
+    "total_clicks":0,
+    "selling_member_id":3,
+    "url":"http://www.foodandwine.com/recipes/",
+    "domain":"foodandwine.com",
+    "inventory_class":"class_2",
+    "inventory_audits":[
+        {
+            "auditor_member_id":17,
+            "intended_audience":"general",
+            "inventory_attributes":[1431,1432,1887],
+            "content_categories":[171]
+        }
+    ],
+    "within_iframe":false,
+    "publisher_id":1111,
+    "is_secure":false,
+    "app_id":"0382f0b5-91a5-11e2-adf6-28cfe94b60bf",
+    "loc":"38.7875232696533,-77.2614831924438",
+    "carrier":101,
+    "make":1001,
+    "model":10001
+}
+
