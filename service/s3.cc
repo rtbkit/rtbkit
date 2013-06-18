@@ -391,7 +391,7 @@ performSync() const
             cerr << "headers are " << responseHeaders << endl;
             cerr << "body contains " << body.size() << " bytes" << endl;
 
-            if (i < 2)
+            if (i < numRetries)
                 cerr << "retrying" << endl;
             else throw;
         }
@@ -1006,13 +1006,12 @@ upload(const char * data,
 
             ML::atomic_add(bytesDone, part.size);
 
-#if 0
             double seconds = Date::now().secondsSince(start);
-            cerr << "done " << bytesDone / 1024 / 1024 << " MB in "
+            cerr << "uploaded " << bytesDone / 1024 / 1024 << " MB in "
             << seconds << " s at "
             << bytesDone / 1024.0 / 1024 / seconds
             << " MB/second" << endl;
-#endif
+
             //cerr << putResult.header_ << endl;
 
             string etag = putResult.getHeader("etag");
@@ -1347,7 +1346,7 @@ download(const std::string & bucket,
 
             ML::atomic_add(bytesDone, part.size);
             double seconds = Date::now().secondsSince(start);
-            cerr << "done " << bytesDone / 1024 / 1024 << " MB in "
+            cerr << "downloaded " << bytesDone / 1024 / 1024 << " MB in "
             << seconds << " s at "
             << bytesDone / 1024.0 / 1024 / seconds
             << " MB/second" << endl;

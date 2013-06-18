@@ -15,7 +15,8 @@ class LoggerMetricsMongo : public ILoggerMetrics{
         LoggerMetricsMongo(Json::Value config,
                            const std::string& coll,
                            const std::string& appName);
-        void logInCategory(const std::string&, Json::Value&);
+        void logInCategory(const std::string&,
+                           const Json::Value&);
         void logInCategory(const std::string& category,
                            const std::vector<std::string>& path,
                            const NumOrStr& val);
