@@ -25,7 +25,7 @@ init(std::shared_ptr<ConfigurationService> & config,
                 std::bind(&MonitorClient::checkStatus, this),
                 true);
 
-    RestProxy::init(config, serviceName);
+    RestProxy::initServiceClass(config, serviceName, "zeromq", false);
 }
 
 void

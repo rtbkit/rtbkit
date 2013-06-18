@@ -11,11 +11,9 @@
     // Defines a namespace within zookeeper and carbon.
     "installation": "rtb-test",
 
-    // Defines a namespace on top of the installation namespace for carbon to
-    // differentiate between different instances of each services. This
-    // parameter is optional in which case the node name of the machine will be
-    // used (see uname).
-    "node-name": "server",
+    // Defines the current location the installation used to filter services
+    // and divide the carbon hierarchy.
+    "location": "mtl",
 
     // Location of the Zookeeper instance which will be used to do service
     // discovery. If missing, then all will need to be located in the same

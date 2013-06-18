@@ -221,7 +221,7 @@ init(std::shared_ptr<ConfigurationService> config,
     this->accountSuffix = accountSuffix;
     
     // Connect to the master banker
-    RestProxy::initServiceClass(config, bankerServiceName, "zeromq");
+    RestProxy::initServiceClass(config, bankerServiceName, "zeromq", false);
     
     addPeriodic("SlaveBanker::reportSpend", 1.0,
                 std::bind(&SlaveBanker::reportSpend,
@@ -400,8 +400,8 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
 
     for (auto & key: allKeys) {
         // We take its parent since syncAccount assumes nothing was added
-    	if (accounts.isInitialized(key))
-    		syncAccount(key, aggregator);
+        if (accounts.isInitialized(key))
+            syncAccount(key, aggregator);
     }
 }
 
@@ -411,37 +411,38 @@ addSpendAccount(const AccountKey & accountKey,
                 CurrencyPool accountFloat,
                 std::function<void (std::exception_ptr, ShadowAccount&&)> onDone)
 {
-	bool first = accounts.createAccountAtomic(accountKey);
-	if(!first) {
-		// already done
-		if (onDone) {
-			auto account = accounts.getAccount(accountKey);
-			onDone(nullptr, std::move(account));
-		}
+    bool first = accounts.createAccountAtomic(accountKey);
+    if(!first) {
+        // already done
+        if (onDone) {
+            auto account = accounts.getAccount(accountKey);
+            onDone(nullptr, std::move(account));
+        }
     }
-	else {
-		// TODO: record float
-		//accountFloats[accountKey] = accountFloat;
+    else {
+        // TODO: record float
+        //accountFloats[accountKey] = accountFloat;
 
-		// Now kick off the initial synchronization step
-		auto onDone2
-			= std::bind(&SlaveBanker::onInitializeResult,
-						this,
-						accountKey,
-						onDone,
-						std::placeholders::_1,
-						std::placeholders::_2);
+        // Now kick off the initial synchronization step
+        auto onDone2 = std::bind(&SlaveBanker::onInitializeResult,
+                                 this,
+                                 accountKey,
+                                 onDone,
+                                 std::placeholders::_1,
+                                 std::placeholders::_2);
 
-		cerr << "********* calling addSpendAccount for " << accountKey
-			 << " for SlaveBanker " << accountSuffix << endl;
+        cerr << "********* calling addSpendAccount for " << accountKey
+             << " for SlaveBanker " << accountSuffix << endl;
 
-		push(makeRestResponseJsonDecoder<Account>("addSpendAccount", onDone2),
-			 "POST",
-			 "/v1/accounts",
-			 { { "accountName", getShadowAccountStr(accountKey) },
-			   { "accountType", "spend" } },
-			 "");
-	}
+        push(makeRestResponseJsonDecoder<Account>("addSpendAccount", onDone2),
+             "POST",
+             "/v1/accounts",
+             {
+                 { "accountName", getShadowAccountStr(accountKey) },
+                 { "accountType", "spend" }
+             },
+             "");
+    }
 }
 
 void

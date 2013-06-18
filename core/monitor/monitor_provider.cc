@@ -43,7 +43,7 @@ init(std::shared_ptr<ConfigurationService> & config,
                 std::bind(&MonitorProviderClient::postStatus, this),
                 true);
 
-    RestProxy::init(config, serviceName);
+    RestProxy::initServiceClass(config, serviceName, "zeromq", false);
 }
 
 void
