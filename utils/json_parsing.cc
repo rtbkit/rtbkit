@@ -299,6 +299,13 @@ std::string expectJsonStringAscii(Parse_Context & context)
     return result;
 }
 
+bool
+matchJsonNull(Parse_Context & context)
+{
+    skipJsonWhitespace(context);
+    return context.match_literal("null");
+}
+
 void
 expectJsonArray(Parse_Context & context,
                 const std::function<void (int, Parse_Context &)> & onEntry)
