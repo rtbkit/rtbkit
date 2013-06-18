@@ -94,10 +94,11 @@ void
 RestProxy::
 initServiceClass(std::shared_ptr<ConfigurationService> config,
                  const std::string & serviceClass,
-                 const std::string & serviceEndpoint)
+                 const std::string & serviceEndpoint,
+                 bool local)
 {
     connection.init(config, ZMQ_XREQ);
-    connection.connectToServiceClass(serviceClass, serviceEndpoint);
+    connection.connectToServiceClass(serviceClass, serviceEndpoint, local);
     
     addSource("RestProxy::operationQueue", operationQueue);
 

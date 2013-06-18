@@ -115,7 +115,6 @@ struct ConfigurationService {
         DELETED,         ///< Value has been deleted outright
         CREATED,         ///< Entry was created
         NEW_CHILD        ///< Entry has new children
-
     };
     
     /** Callback that will be called if a given entry changes. */
@@ -281,6 +280,11 @@ struct ConfigurationService {
 
     static std::pair<std::string, std::string>
     splitPath(const std::string & path);
+
+    /** Store the current location
+     */
+
+    std::string currentLocation;
 };
 
 
@@ -370,7 +374,8 @@ struct ServiceProxies {
                      const std::string & prefix = "");
 
     void useZookeeper(std::string hostname = "localhost:2181",
-                      std::string prefix = "CWD");
+                      std::string prefix = "CWD",
+                      std::string location = "global");
 
     void usePortRanges(const std::string& path);
     void usePortRanges(const Json::Value& config);
@@ -573,8 +578,7 @@ protected:
 struct ServiceBase: public EventRecorder {
     /** Construct as a top level parent. */
     ServiceBase(const std::string & serviceName,
-                std::shared_ptr<ServiceProxies>
-                    = std::shared_ptr<ServiceProxies>());
+                std::shared_ptr<ServiceProxies> proxies = std::shared_ptr<ServiceProxies>());
 
     /** Construct as a child of an existing parent. */
     ServiceBase(const std::string & subServiceName,

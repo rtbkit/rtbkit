@@ -936,6 +936,7 @@ struct ZmqNamedProxy: public MessageLoop {
     */
     bool connectToServiceClass(const std::string & serviceClass,
                                const std::string & endpointName,
+                               bool local = true,
                                ConnectionStyle style = CS_ASYNCHRONOUS);
 
     /** Called back when one of our endpoints either changes or disappears. */
@@ -1179,7 +1180,8 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         that we listen and connect to any further ones that appear.
     */
     void connectAllServiceProviders(const std::string & serviceClass,
-                                    const std::string & endpointName)
+                                    const std::string & endpointName,
+                                    bool local = true)
     {
         if (connected)
             throw ML::Exception("alread connected to service providers");
@@ -1190,10 +1192,10 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         serviceProvidersWatch.init([=] (const std::string & path,
                                         ConfigurationService::ChangeType change)
                                    {
-                                       onServiceProvidersChanged("serviceClass/" + serviceClass);
+                                       onServiceProvidersChanged("serviceClass/" + serviceClass, local);
                                    });
 
-        onServiceProvidersChanged("serviceClass/" + serviceClass);
+        onServiceProvidersChanged("serviceClass/" + serviceClass, local);
         // std::cerr << "++++after call to onServiceProvidersChanged " << std::endl;
         connected = true;
     }
@@ -1295,7 +1297,7 @@ private:
     /** Queue of operations to perform asynchronously from our own thread. */
 
     /** Callback that will be called when the list of service providers has changed. */
-    void onServiceProvidersChanged(const std::string & path)
+    void onServiceProvidersChanged(const std::string & path, bool local)
     {
         using namespace std;
         //cerr << "onServiceProvidersChanged(" << path << ")" << endl;
@@ -1308,6 +1310,12 @@ private:
             Json::Value value = config->getJson(path + "/" + c);
             std::string name = value["serviceName"].asString();
             std::string path = value["servicePath"].asString();
+
+            std::string location = value["serviceLocation"].asString();
+            if (local && location != config->currentLocation) {
+                std::cerr << "dropping " << location << " != " << config->currentLocation << std::endl;
+                continue;
+            }
 
             watchServiceProvider(name, path);
         }

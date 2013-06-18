@@ -571,6 +571,7 @@ bool
 ZmqNamedProxy::
 connectToServiceClass(const std::string & serviceClass,
                       const std::string & endpointName,
+                      bool local,
                       ConnectionStyle style)
 {
     // TODO: exception safety... if we bail don't screw around the auction
@@ -602,6 +603,12 @@ connectToServiceClass(const std::string & serviceClass,
         Json::Value value = config->getJson(key);
         std::string name = value["serviceName"].asString();
         std::string path = value["servicePath"].asString();
+
+        std::string location = value["serviceLocation"].asString();
+        if (local && location != config->currentLocation) {
+            std::cerr << "dropping " << location << " != " << config->currentLocation << std::endl;
+            continue;
+        }
 
         //cerr << "name = " << name << " path = " << path << endl;
         if (connect(path + "/" + endpointName,
