@@ -26,6 +26,7 @@
 #include <string>
 #include <exception>
 #include "stdarg.h"
+#include "exception_handler.h"
 
 namespace ML {
 
