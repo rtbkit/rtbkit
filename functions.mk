@@ -367,7 +367,7 @@ $(1):	$(TESTS)/$(1)
 
 #$$(warning $(1) $$(CURRENT))
 
-$(if $(findstring manual,$(3)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test $(4):	$(TESTS)/$(1).passed
+$(if $(findstring manual,$(3)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test_all $(4):	$(TESTS)/$(1).passed
 endif
 endef
 
