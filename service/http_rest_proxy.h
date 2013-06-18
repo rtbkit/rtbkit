@@ -100,6 +100,14 @@ struct HttpRestProxy {
         {
         }
 
+        Content(const Json::Value & content,
+                const std::string & contentType = "application/json")
+            : str(content.toString()), data(str.c_str()),
+              size(str.size()), hasContent(true),
+              contentType(contentType)
+        {
+        }
+
         std::string str;
 
         const char * data;
