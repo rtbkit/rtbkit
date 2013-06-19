@@ -1366,8 +1366,10 @@ doBidResult(const Id & auctionId,
         //info.stats->totalSpent += winPrice;
         //info.stats->totalBidOnWins += bidPrice;
 
+        WinCostModel wcm = response.wcm;
+        wcm.data["win"] = winLossMeta;
         Bids bids = Bids::fromJson(response.bidData);
-        Amount price = response.wcm.evaluate(bids.bidForSpot(adspot_num), winPrice);
+        Amount price = wcm.evaluate(bids.bidForSpot(adspot_num), winPrice);
 
         // This is a real win
         guard.clear();
