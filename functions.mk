@@ -177,6 +177,36 @@ $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 endif
 endef
 
+# add a (google) protobuf source file
+# intermediary files will be left in the source directory
+# $(1): filename of source file
+# $(2): basename of the filename
+define add_pbuf_source
+ifneq ($(PREMAKE),1)
+$(if $(trace),$$(warning called add_pbuf_source "$(1)" "$(2)"))
+
+# Call protoc to generate the source file
+BUILD_$(SRC)/$(CWD)/$(2).pb.cc_COMMAND := "protoc -I$(SRC)/$(CWD) --cpp_out=$(SRC)/$(CWD) $(SRC)/$(CWD)/$(1)"
+
+$(SRC)/$(CWD)/$(2).pb.cc:	$(SRC)/$(CWD)/$(1)
+	@mkdir -p $(OBJ)/$(CWD)
+	$$(if $(verbose_build),@echo $$(BUILD_$(OBJ)/$(CWD)/$(2).pb.cc),@echo "      $(COLOR_CYAN)[PBUF c++]$(COLOR_RESET) $(CWD)/$(1)")
+	@eval $$(BUILD_$(SRC)/$(CWD)/$(2).pb.cc_COMMAND)
+
+# We use the add_c++_source to do most of the work, then simply point
+# to the file
+$$(eval $$(call add_c++_source,$(2).pb.cc,$(2).pb,$(SRC),-IXX))
+
+
+# Point to the object file produced by the previous macro
+BUILD_$(CWD)/$(2).lo_OBJ  := $$(BUILD_$(CWD)/$(2).pb.lo_OBJ)
+
+-include $(OBJ)/$(CWD)/$(2).d
+
+endif
+endef
+
+
 # Set up the map to map an extension to the name of a function to call
 $(call set,EXT_FUNCTIONS,.cc,add_c++_source)
 $(call set,EXT_FUNCTIONS,.cpp,add_c++_source)
@@ -184,6 +214,7 @@ $(call set,EXT_FUNCTIONS,.c,add_c_source)
 $(call set,EXT_FUNCTIONS,.f,add_fortran_source)
 $(call set,EXT_FUNCTIONS,.cu,add_cuda_source)
 $(call set,EXT_FUNCTIONS,.i,add_swig_source)
+$(call set,EXT_FUNCTIONS,.proto,add_pbuf_source)
 
 # add a single source file
 # $(1): filename
