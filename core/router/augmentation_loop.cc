@@ -94,6 +94,14 @@ init()
 
             //cerr << "got lock on inbox" << endl;
 
+            if (augmenting.count(entry->info->auction->id)) {
+                stringstream ss;
+                ss << "AugmentationLoop: duplicate auction id detected "
+                   << entry->info->auction->id << endl;
+                cerr << ss.str();
+                return;
+            }
+
             // TODO: wake up loop if slower...
             // TODO: DRY with other function...
             augmenting.insert(entry->info->auction->id, entry,
