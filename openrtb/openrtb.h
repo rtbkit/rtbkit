@@ -828,7 +828,7 @@ struct Video {
 struct Publisher {
     ~Publisher();
     Id id;                       ///< Unique ID representing the publisher
-    string name;                 ///< Publisher name
+    Utf8String name;             ///< Publisher name
     List<ContentCategory> cat; ///< Content categories     
     string domain;               ///< Domain name of publisher
 };
