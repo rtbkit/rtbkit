@@ -276,8 +276,7 @@ getErrorResponse(const HttpAuctionHandler & connection,
                  const Auction & auction,
                  const std::string & errorMessage) const
 {
-    // Default for when error == no bid
-    return getResponse(connection, connection.header, auction);
+    return HttpResponse(204, "none", "");
 }
 
 void
