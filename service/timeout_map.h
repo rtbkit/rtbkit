@@ -40,6 +40,12 @@ struct TimeoutMap {
 
     struct Node;
 
+    /** Returns true if the key is in the map. */
+    bool count(const Key & key)
+    {
+        return nodes.count(key);
+    }
+
     /** Access the entry for the given node.  If it already exists then
         return the existing entry; otherwise insert it with the default
         timeout.
