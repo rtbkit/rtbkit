@@ -180,24 +180,24 @@ struct TaggedIntDef : TaggedInt {
 };
 
 struct TaggedInt64 {
-      TaggedInt64()
-                : val(-1)
-                      {
-                            }
+    TaggedInt64()
+        : val(-1)
+    {
+    }
 
-          int64_t value() const { return val; }
+    int64_t value() const { return val; }
 
-              int64_t val;
+    int64_t val;
 };
 
 template<int64_t defValue = -1>
 struct TaggedInt64Def : TaggedInt {
-      TaggedInt64Def()
-                : val(defValue)
-                      {
-                            }
+    TaggedInt64Def()
+        : val(defValue)
+    {
+    }
 
-          int64_t val;
+    int64_t val;
 };
 
 struct TaggedFloat {

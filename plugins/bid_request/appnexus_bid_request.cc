@@ -43,8 +43,12 @@ fromAppNexus(const AppNexus::BidRequest & req,
     device->geo.reset(geo.release());
     //
     device->ua = req.bidInfo.userAgent.rawString();
-    // TODO operatingSystem
-    // device->os = req.bidInfo.operatingSystem;
+    // AN codes are located in their wiki documentation:
+    // https://wiki.appnexus.com/display/adnexusdocumentation/Operating+System+Service 
+    // Helper function here converts AN OS code to a string, using the documentation from this URL retrieved as of Jun 2013
+    int osCode = req.bidInfo.operatingSystem.val;
+    device->os = req.bidInfo.getANDeviceOsStringForCode(osCode);
+    device->osv = req.bidInfo.getANDeviceOsVersionStringForCode(osCode);
     // TODO VALIDATION against ISO-639-1
     device->language = req.bidInfo.acceptedLanguages;
     // BUSINESS RULE:
@@ -87,6 +91,20 @@ fromAppNexus(const AppNexus::BidRequest & req,
     std::unique_ptr<OpenRTB::Impression> impression(new OpenRTB::Impression);
     std::unique_ptr<OpenRTB::Banner> banner(new OpenRTB::Banner);
     impression->banner.reset(banner.release());
+    // TODO CONFIRM THIS ASSUMPTION
+    // NOTE: Assume for now that AN price units are in full currency units per CPM, e.g. if currency is USD
+    // then the reserve_price == '1.00 USD' then this is a price of $1 CPM. i.e. - price not in microdollars etc.
+    // Note that OpenRTB mapped field is Impression::bidfloorcur, and its unit is again full units per CPM, e.g. $1 CPM
+    // So the code in appnexus_parsing.cc for now simply assumes the AN price equals the OpenRTB price
+    // Also, for now, only support USD. 
+    impression->bidfloor.val = reqTag.reservePrice.val;
+
+    // TODO Add code in ./plugins/exchange/appnexus_exchange_connector.cc to call its inherited configure() method
+    //   and set a key for bid_currency there, and then check it here and set it to the OpenRTB bidfloorcur field
+    // string bidfloorcur;
+    // req.getParam(AppNexusExchangeConnector::getParameters, bidfloorcur ["bid_currency"]);
+    // impression->bidfloorcur = atof(bidfloorcur.str());
+
     /*
     TODO - come back to this. What we need is:
     - access to AN docs

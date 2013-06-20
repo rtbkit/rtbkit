@@ -107,6 +107,21 @@ struct Tag {
     Json::Value unparseable;    ///< Unparseable fields get put here
 };
 
+const unordered_map<int, string> deviceOs = {
+      {0, "Unknown"}, {1, "Micosoft Windows"}, {2, "Micosoft Windows"}, {3, "Micosoft Windows"}, {4, "Micosoft Windows"}, {5, "Micosoft Windows"},
+      {6, "Android"}, {7, "Linux"}, {8, "Apple iOS"}, {9, "Apple iOS"}, {10, "Apple iOS"}, {11, "Apple Mac OSX"}, {12, "Blackberry RIMOS"},
+      {12, "Microsoft Windows Phone OS"}, {14, "Microsoft Windows"}, {15, "Android"}, {16, "Android"}, {17, "Android"}, {18, "Android"},
+      {19, "Apple iOS"}, {20, "Apple iOS"}, {21, "Apple iOS"}, {22, "Apple iOS"}
+};
+
+const unordered_map<int, string> deviceOsVersion = {
+      {0, "Unknown"}, {1, "Windows 7"}, {2, "Windows Vista"}, {3, "Windows XP"}, {4, "Windows 2000"}, {5, "Windows (other versions)"},
+      {6, "Android (other versions)"}, {7, "Linux"}, {8, "iPhone - iOS (other versions)"}, {9, "iPod"}, {10, "iPad - iOS (other versions)"}, 
+      {11, "Apple Mac OSX"}, {12, "Blackberry (other versions)"},
+      {12, "Windows Phone 7 (other versions)"}, {14, "Windows 8"}, {15, "Android 2.0/2.1"}, {16, "Android 2.2/2.3"}, {17, "Android 3.x"}, {18, "Android 4.x"},
+      {19, "iOS 3"}, {20, "iOS 4"}, {21, "iOS 5"}, {22, "iOS 6"}
+};
+
 struct BidInfo {
     // Subsection: user
     TaggedInt64 userId64;
@@ -157,6 +172,15 @@ struct BidInfo {
     TaggedInt make;       // TODO validation, valid values "WIFI" or from vendor
     TaggedInt model;      // TODO validation, valid values "WIFI" or from vendor
     // /Subsection: Mobile fields not available in initial release
+
+    string getANDeviceOsStringForCode(int code) const {
+        return deviceOs.at(code);   // at() throws if key not found
+    }
+
+    string getANDeviceOsVersionStringForCode(int code) const {
+        return deviceOsVersion.at(code);   // at() throws if key not found
+    }
+
     Json::Value unparseable;    ///< Unparseable fields get put here
 };
 
@@ -211,6 +235,7 @@ namespace ANHelpers {
         {"German", 6}, {"Arabic", 7}, {"Portuguese", 8},
         {"Russian", 9}, {"Korean", 10}, {"Italian", 11}, {"Dutch", 12}
     };
+
 
     //static const string getLanguage(int languageCode) {
     //    return languageMap[languageCode];       // throws if index out of range

@@ -150,7 +150,6 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     // OpenRTB::Device
     BOOST_CHECK_EQUAL(ortbReq->device->ua, Utf8String("Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US;rv:1.9.0.3) Gecko/2008092414 Firefox/3.0.3"));
     BOOST_CHECK_EQUAL(ortbReq->device->language, Utf8String("en-US,en;q=0.8"));
-    
     BOOST_CHECK_EQUAL(ortbReq->device->flashver, "Flash available - version unknown");
     BOOST_CHECK_EQUAL(ortbReq->device->ip, "96.246.152.18");
     BOOST_CHECK_EQUAL(ortbReq->device->ipv6, "96.246.152.18");
@@ -167,6 +166,8 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     // So we cast the test value and use the BOOST_CHECK for testing floating point values for equaulity within a tolerance
     BOOST_CHECK_CLOSE(ortbReq->device->geo->lat.val, (float)38.7875232696533, 0.0000001);
     BOOST_CHECK_CLOSE(ortbReq->device->geo->lon.val, (float)-77.2614831924438, 0.0000001);
+    BOOST_CHECK_EQUAL(ortbReq->device->os, "Apple iOS");
+    BOOST_CHECK_EQUAL(ortbReq->device->osv, "iPhone - iOS (other versions)");
 
     // OpenRTB::User
     BOOST_CHECK_EQUAL(ortbReq->user->id.toString(), "2987961585469200312");
@@ -196,6 +197,7 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     // 0 == OpenRTB::AdPosition::Unknown, convertible enum, converted from mapped
     // AppNexus::AdPosition enum
     BOOST_CHECK_EQUAL(ortbReq->imp.front().banner->pos.val, 0);
+    BOOST_CHECK_EQUAL(ortbReq->imp.front().bidfloor.val, 1.0);
 
     printTestFooter();
 

@@ -170,6 +170,11 @@
             "ad_profile_id":382,  // int  // tag-level ad approval profile ID
             // /Subsection: General data
             // Subsection: Pricing data
+            // TODO CONFIRM THIS ASSUMPTION
+            // NOTE: Assume for now that AN price units are in full currency units per CPM, e.g. if currency is USD
+            //  then the reserve_price == '1.00 USD' then this is a price of $1 CPM. i.e. - price not in microdollars etc.
+            // Note that OpenRTB mapped field is Impression::bidfloorcur, and its unit is again full units per CPM, e.g. $1 CPM
+            // So the code in appnexus_bid_request.cc for now simply assumes the AN price equals the OpenRTB price
             "reserve_price":1.00,             // float
             "estimated_clear_price":.95,      // double
             "estimated_average_price":.70,    // double
