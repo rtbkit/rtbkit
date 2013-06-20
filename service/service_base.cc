@@ -552,7 +552,7 @@ bootstrap(const Json::Value& config)
         }
         else uris.push_back(entry.asString());
 
-        logToCarbon(uris, install + "." + location);
+        logToCarbon(uris, install);
     }
 
     if (config.isMember("zookeeper-uri"))
