@@ -89,14 +89,15 @@ init()
 {
     auto proxies = serviceArgs.makeServiceProxies();
 
-    banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
-                                             proxies->config,
-                                             serviceName + ".slaveBanker");
-        
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
 
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds);
     router->init();
+
+    banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
+                                           proxies->config,
+                                           router->serviceName() + ".slaveBanker");
+
     router->setBanker(banker);
     router->bindTcp();
 }
