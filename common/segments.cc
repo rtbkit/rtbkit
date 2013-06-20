@@ -38,12 +38,16 @@ DefaultDescription<SegmentList>::
 printJsonTyped(const SegmentList * val, JsonPrintingContext & context)
     const
 {
-    context.startArray();
+    context.startArray(val->ints.size() + val->strings.size());
     if (val->weights.empty()) {
-        for (unsigned i = 0;  i < val->ints.size();  ++i)
+        for (unsigned i = 0;  i < val->ints.size();  ++i) {
+            context.newArrayElement();
             context.writeInt(val->ints[i]);
-        for (unsigned i = 0;  i < val->strings.size();  ++i)
+        }
+        for (unsigned i = 0;  i < val->strings.size();  ++i) {
+            context.newArrayElement();
             context.writeString(val->strings[i]);
+        }
     }
     else {
         throw ML::Exception("weights unsupported");
