@@ -9,7 +9,7 @@
 #include "soa/service/zookeeper.h"
 #include "jml/utils/exc_assert.h"
 #include <boost/algorithm/string.hpp>
-
+#include <sys/utsname.h>
 
 using namespace std;
 using namespace ML;
@@ -118,6 +118,11 @@ init(std::string host,
      int timeout)
 {
     currentLocation = std::move(location);
+
+    struct utsname s;
+    int ret = uname(&s);
+    ExcCheckErrno(!ret, "Unable to call uname");
+    currentNode = string(s.nodename);
 
     zoo.reset(new ZookeeperConnection());
     zoo->connect(host, timeout);

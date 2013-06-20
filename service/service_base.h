@@ -285,6 +285,7 @@ struct ConfigurationService {
      */
 
     std::string currentLocation;
+    std::string currentNode;
 };
 
 

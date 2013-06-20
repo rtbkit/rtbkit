@@ -615,17 +615,35 @@ recordEventFmt(EventType type,
 /* SERVICE BASE                                                              */
 /*****************************************************************************/
 
+std::string
+buildServiceName(std::shared_ptr<ServiceProxies> proxies, std::string name)
+{
+    if (proxies) {
+        auto & node = proxies->config->currentNode;
+        if (!node.empty())
+            name = node + "." + name;
+
+        auto & location = proxies->config->currentLocation;
+        if (!location.empty())
+            name = location + "." + name;
+    }
+
+    return name;
+}
+
 ServiceBase::
 ServiceBase(const std::string & serviceName,
             std::shared_ptr<ServiceProxies> services)
-    : EventRecorder(serviceName, services), 
-      services_(services), serviceName_(serviceName), parent_(0)
+    : EventRecorder(buildServiceName(services, serviceName), services), 
+      services_(services),
+      serviceName_(buildServiceName(services, serviceName)),
+      parent_(0)
 {
     if (!services_)
         setServices(std::make_shared<ServiceProxies>());
 
     // Clear out any old entries
-    getServices()->config->removePath(serviceName);
+    getServices()->config->removePath(serviceName_);
 }
 
 ServiceBase::
@@ -638,7 +656,7 @@ ServiceBase(const std::string & subServiceName,
       parent_(&parent)
 {
     // Clear out any old entries
-    getServices()->config->removePath(serviceName());
+    getServices()->config->removePath(serviceName_);
 }
 
 ServiceBase::

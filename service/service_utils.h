@@ -61,8 +61,7 @@ struct ServiceProxyArguments
 
         if (!carbonUri.empty()) {
             ExcCheck(!installation.empty(), "installation is required");
-            ExcCheck(!location.empty(), "location is required");
-            services->logToCarbon(carbonUri, installation + "." + location);
+            services->logToCarbon(carbonUri, installation);
         }
 
         return services;
