@@ -391,8 +391,8 @@ struct ServiceProxies {
                          std::string const & protocol = "http");
 
     // Bootstrap the proxies services using a json configuration.
-    void bootstrap(const std::string& path);
-    void bootstrap(const Json::Value& config);
+    void bootstrap(const std::string& path, const std::string& hostname);
+    void bootstrap(const Json::Value& config, const std::string& hostname);
 };
 
 

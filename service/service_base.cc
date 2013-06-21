@@ -392,7 +392,7 @@ ServiceProxies()
       ports(new DefaultPortRangeService()),
       zmqContext(new zmq::context_t(1 /* num worker threads */))
 {
-    bootstrap(bootstrapConfigPath());
+    bootstrap(bootstrapConfigPath(), "");
 }
 
 void
@@ -515,7 +515,7 @@ ServiceProxies::getEndpointInstances(std::string const & name,
 
 void
 ServiceProxies::
-bootstrap(const std::string& path)
+bootstrap(const std::string& path, const std::string& hostname)
 {
     if (path.empty()) return;
     ExcCheck(ML::fileExists(path), path + " doesn't exist");
@@ -530,12 +530,12 @@ bootstrap(const std::string& path)
         file += line + "\n";
     }
 
-    bootstrap(Json::parse(file));
+    bootstrap(Json::parse(file), hostname);
 }
 
 void
 ServiceProxies::
-bootstrap(const Json::Value& config)
+bootstrap(const Json::Value& config, const std::string& hostname)
 {
     string install = config["installation"].asString();
     ExcCheck(!install.empty(), "installation is not specified in bootstrap.json");
@@ -557,7 +557,7 @@ bootstrap(const Json::Value& config)
     }
 
     if (config.isMember("zookeeper-uri"))
-        useZookeeper(config["zookeeper-uri"].asString(), install, location);
+        useZookeeper(config["zookeeper-uri"].asString(), install, hostname, location);
 
     if (config.isMember("portRanges"))
         usePortRanges(config["portRanges"]);

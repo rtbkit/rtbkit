@@ -53,7 +53,7 @@ struct ServiceProxyArguments
         auto services = std::make_shared<ServiceProxies>();
 
         if (!bootstrap.empty())
-            services->bootstrap(bootstrap);
+            services->bootstrap(bootstrap, hostname);
 
         if (!zookeeperUri.empty()) {
             ExcCheck(!installation.empty(), "installation is required");
