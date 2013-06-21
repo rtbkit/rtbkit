@@ -9,6 +9,7 @@
 #include <sys/utsname.h>
 #include <thread>
 #include "jml/arch/timers.h"
+#include "jml/arch/info.h"
 
 using namespace std;
 
@@ -403,10 +404,18 @@ bindTcp(PortRange const & portRange, std::string host)
 
     Json::Value config;
 
-    auto addEntry = [&] (const std::string & addr,
-                         const std::string & hostScope,
-                         const std::string & uri)
+    auto addEntry = [&] (const std::string& addr,
+                         const std::string& hostScope)
         {
+            std::string uri;
+
+            if(hostScope != "*") {
+               uri = "tcp://" + addr + ":" + to_string(port);
+            }
+            else {
+               uri = "tcp://" + ML::fqdn_hostname(to_string(port)) + ":" + to_string(port);
+            }
+
             Json::Value & entry = config[config.size()];
             entry["zmqConnectUri"] = uri;
 
@@ -423,19 +432,17 @@ bindTcp(PortRange const & portRange, std::string host)
     if (host == "*") {
         auto interfaces = getInterfaces({AF_INET});
         for (unsigned i = 0;  i < interfaces.size();  ++i) {
-            addEntry(interfaces[i].addr, interfaces[i].hostScope,
-                     getUri(interfaces[i].addr));
+            addEntry(interfaces[i].addr, interfaces[i].hostScope);
         }
         publishAddress("tcp", config);
         return getUri(host);
     }
     else {
         string host2 = addrToIp(host);
-        string uri = getUri(host2);
         // TODO: compute the host scope; don't just assume "*"
-        addEntry(host2, "*", uri);
+        addEntry(host2, "*");
         publishAddress("tcp", config);
-        return uri;
+        return getUri(host2);
     }
 }
 
