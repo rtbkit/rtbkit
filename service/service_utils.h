@@ -40,6 +40,8 @@ struct ServiceProxyArguments
              "URI for connecting to carbon daemon")
             ("installation,I", value(&installation),
              "name of the current installation")
+            ("hostname,N", value(&hostname),
+             "name of the current host")
             ("location,L", value(&location),
              "Name of the current location");
 
@@ -55,8 +57,9 @@ struct ServiceProxyArguments
 
         if (!zookeeperUri.empty()) {
             ExcCheck(!installation.empty(), "installation is required");
+            ExcCheck(!hostname.empty(), "hostname is required");
             ExcCheck(!location.empty(), "location is required");
-            services->useZookeeper(zookeeperUri, installation, location);
+            services->useZookeeper(zookeeperUri, installation, hostname, location);
         }
 
         if (!carbonUri.empty()) {
@@ -71,6 +74,7 @@ struct ServiceProxyArguments
     std::string zookeeperUri;
     std::string carbonUri;
     std::string installation;
+    std::string hostname;
     std::string location;
 };
 

@@ -281,11 +281,11 @@ struct ConfigurationService {
     static std::pair<std::string, std::string>
     splitPath(const std::string & path);
 
-    /** Store the current location
+    /** Store the current hostname and location
      */
 
+    std::string currentHostname;
     std::string currentLocation;
-    std::string currentNode;
 };
 
 
@@ -374,8 +374,9 @@ struct ServiceProxies {
     void logToCarbon(const std::vector<std::string> & carbonConnections,
                      const std::string & prefix = "");
 
-    void useZookeeper(std::string hostname = "localhost:2181",
+    void useZookeeper(std::string url = "localhost:2181",
                       std::string prefix = "CWD",
+                      std::string hostname = "locahost",
                       std::string location = "global");
 
     void usePortRanges(const std::string& path);

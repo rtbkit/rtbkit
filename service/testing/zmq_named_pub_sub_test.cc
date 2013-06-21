@@ -141,8 +141,7 @@ BOOST_AUTO_TEST_CASE( test_named_publisher )
             futex_wake(numMessages);
         };
     
-    std::string path = proxies->config->currentLocation + "." +
-                       proxies->config->currentNode + ".";
+    std::string path = proxies->config->currentHostname + ".";
 
     subscriber.connectToEndpoint(path + "pub/publish");
     subscriber.start();

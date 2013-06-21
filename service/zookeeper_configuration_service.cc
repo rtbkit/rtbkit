@@ -99,10 +99,11 @@ ZookeeperConfigurationService()
 ZookeeperConfigurationService::
 ZookeeperConfigurationService(std::string host,
                               std::string prefix,
+                              std::string hostname,
                               std::string location,
                               int timeout)
 {
-    init(std::move(host), std::move(prefix), std::move(location));
+    init(std::move(host), std::move(prefix), std::move(hostname), std::move(location));
 }
     
 ZookeeperConfigurationService::
@@ -114,15 +115,12 @@ void
 ZookeeperConfigurationService::
 init(std::string host,
      std::string prefix,
+     std::string hostname,
      std::string location,
      int timeout)
 {
+    currentHostname = std::move(hostname);
     currentLocation = std::move(location);
-
-    struct utsname s;
-    int ret = uname(&s);
-    ExcCheckErrno(!ret, "Unable to call uname");
-    currentNode = string(s.nodename);
 
     zoo.reset(new ZookeeperConnection());
     zoo->connect(host, timeout);

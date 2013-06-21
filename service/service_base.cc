@@ -420,8 +420,9 @@ logToCarbon(std::shared_ptr<CarbonConnector> conn)
 
 void
 ServiceProxies::
-useZookeeper(std::string hostname,
+useZookeeper(std::string url,
              std::string prefix,
+             std::string hostname,
              std::string location)
 {
     if (prefix == "CWD") {
@@ -438,7 +439,7 @@ useZookeeper(std::string hostname,
         prefix = "/dev/" + node + cwd + "_" + __progname + "/";
     }
 
-    config.reset(new ZookeeperConfigurationService(hostname, prefix, location));
+    config.reset(new ZookeeperConfigurationService(url, prefix, hostname, location));
 }
 
 void
@@ -619,13 +620,9 @@ std::string
 buildServiceName(std::shared_ptr<ServiceProxies> proxies, std::string name)
 {
     if (proxies) {
-        auto & node = proxies->config->currentNode;
-        if (!node.empty())
-            name = node + "." + name;
-
-        auto & location = proxies->config->currentLocation;
-        if (!location.empty())
-            name = location + "." + name;
+        auto & hostname = proxies->config->currentHostname;
+        if (!hostname.empty())
+            name = hostname + "." + name;
     }
 
     return name;
