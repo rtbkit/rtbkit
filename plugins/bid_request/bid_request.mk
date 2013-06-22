@@ -5,6 +5,7 @@
 # Makefile for bid request deserializers and parsers
 
 $(eval $(call library,openrtb_bid_request,openrtb_bid_request.cc,bid_request openrtb))
+$(eval $(call library,fbx_bid_request,fbx_bid_request.cc,bid_request fbx))
 
 $(eval $(call library,appnexus_bid_request,appnexus_bid_request.cc appnexus_parsing.cc,bid_request openrtb))
 
