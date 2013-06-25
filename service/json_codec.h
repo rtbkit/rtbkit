@@ -12,6 +12,7 @@
 #include <map>
 #include <unordered_map>
 #include "jml/utils/exc_assert.h"
+#include "soa/types/basic_value_descriptions.h"
 
 namespace Datacratic {
 
@@ -155,13 +156,5 @@ void getParam(const Json::Value & parameters,
         val = jsonDecode(j, &val);
     }
 }
-
-// In place JSON decoding
-template<typename T>
-void jsonDecode(const Json::Value & json, T & val)
-{
-    val = jsonDecode(json, (T *)0);
-}
-
 
 } // namespace Datacratic
