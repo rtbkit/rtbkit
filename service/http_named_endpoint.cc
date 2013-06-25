@@ -240,7 +240,8 @@ init(std::shared_ptr<ConfigurationService> config)
 bool
 HttpNamedRestProxy::
 connectToServiceClass(const std::string & serviceClass,
-                           const std::string & endpointName)
+                      const std::string & endpointName,
+                      bool local)
 {
     this->serviceClass = serviceClass;
     this->endpointName = endpointName;
@@ -250,10 +251,14 @@ connectToServiceClass(const std::string & serviceClass,
 
     for (auto c : children) {
         std::string key = "serviceClass/" + serviceClass + "/" + c;
-        //cerr << "getting " << key << endl;
+
         Json::Value value = config->getJson(key);
         std::string name = value["serviceName"].asString();
         std::string path = value["servicePath"].asString();
+
+        std::string location = value["serviceLocation"].asString();
+        if (local && location != config->currentLocation)
+            continue;
 
         //cerr << "name = " << name << " path = " << path << endl;
         if (connect(path + "/" + endpointName))

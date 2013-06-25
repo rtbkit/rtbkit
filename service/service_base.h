@@ -115,7 +115,6 @@ struct ConfigurationService {
         DELETED,         ///< Value has been deleted outright
         CREATED,         ///< Entry was created
         NEW_CHILD        ///< Entry has new children
-
     };
     
     /** Callback that will be called if a given entry changes. */
@@ -281,6 +280,12 @@ struct ConfigurationService {
 
     static std::pair<std::string, std::string>
     splitPath(const std::string & path);
+
+    /** Store the current hostname and location
+     */
+
+    std::string currentHostname;
+    std::string currentLocation;
 };
 
 
@@ -369,8 +374,10 @@ struct ServiceProxies {
     void logToCarbon(const std::vector<std::string> & carbonConnections,
                      const std::string & prefix = "");
 
-    void useZookeeper(std::string hostname = "localhost:2181",
-                      std::string prefix = "CWD");
+    void useZookeeper(std::string url = "localhost:2181",
+                      std::string prefix = "CWD",
+                      std::string hostname = "locahost",
+                      std::string location = "global");
 
     void usePortRanges(const std::string& path);
     void usePortRanges(const Json::Value& config);
@@ -384,8 +391,8 @@ struct ServiceProxies {
                          std::string const & protocol = "http");
 
     // Bootstrap the proxies services using a json configuration.
-    void bootstrap(const std::string& path);
-    void bootstrap(const Json::Value& config);
+    void bootstrap(const std::string& path, const std::string& hostname);
+    void bootstrap(const Json::Value& config, const std::string& hostname);
 };
 
 
@@ -573,8 +580,7 @@ protected:
 struct ServiceBase: public EventRecorder {
     /** Construct as a top level parent. */
     ServiceBase(const std::string & serviceName,
-                std::shared_ptr<ServiceProxies>
-                    = std::shared_ptr<ServiceProxies>());
+                std::shared_ptr<ServiceProxies> proxies = std::shared_ptr<ServiceProxies>());
 
     /** Construct as a child of an existing parent. */
     ServiceBase(const std::string & subServiceName,

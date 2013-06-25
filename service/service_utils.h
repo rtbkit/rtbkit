@@ -32,15 +32,18 @@ struct ServiceProxyArguments
 
         options_description options(title);
         options.add_options()
-            ("bootstrap,B", value(&bootstrapPath), "path to bootstrap.json")
-
-            ("zookeeper-uri,Z", value(&zookeeperUri), "URI of zookeeper to use")
-            ("carbon-connection,c", value<std::vector<std::string> >(&carbonUris),
-             "URI of connection to carbon daemon")
-
+            ("bootstrap,B", value(&bootstrap),
+             "path to bootstrap.json file")
+            ("zookeeper-uri,Z", value(&zookeeperUri),
+             "URI for connecting to zookeeper server")
+            ("carbon-connection,c", value(&carbonUri),
+             "URI for connecting to carbon daemon")
             ("installation,I", value(&installation),
-             "Name of the installation that is running")
-            ("node-name,N", value(&nodeName), "Name of the node we're running");
+             "name of the current installation")
+            ("hostname,N", value(&hostname),
+             "name of the current host")
+            ("location,L", value(&location),
+             "Name of the current location");
 
         return options;
     }
@@ -49,38 +52,30 @@ struct ServiceProxyArguments
     {
         auto services = std::make_shared<ServiceProxies>();
 
-        if (!bootstrapPath.empty())
-            services->bootstrap(bootstrapPath);
+        if (!bootstrap.empty())
+            services->bootstrap(bootstrap, hostname);
 
         if (!zookeeperUri.empty()) {
             ExcCheck(!installation.empty(), "installation is required");
-            services->useZookeeper(zookeeperUri, installation);
+            ExcCheck(!hostname.empty(), "hostname is required");
+            ExcCheck(!location.empty(), "location is required");
+            services->useZookeeper(zookeeperUri, installation, hostname, location);
         }
 
-        if (!carbonUris.empty()) {
+        if (!carbonUri.empty()) {
             ExcCheck(!installation.empty(), "installation is required");
-
-            if (nodeName.empty()) {
-                struct utsname s;
-                int ret = uname(&s);
-                ExcCheckErrno(!ret, "Unable to call uname");
-
-                nodeName = std::string(s.nodename);
-            }
-
-            services->logToCarbon(carbonUris, installation + "." + nodeName);
+            services->logToCarbon(carbonUri, installation);
         }
 
         return services;
     }
 
-    std::string bootstrapPath;
-
+    std::string bootstrap;
     std::string zookeeperUri;
-    std::vector<std::string> carbonUris;
-
+    std::string carbonUri;
     std::string installation;
-    std::string nodeName;
+    std::string hostname;
+    std::string location;
 };
 
 } // namespace Datacratic

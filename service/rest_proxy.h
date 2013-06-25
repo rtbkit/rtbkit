@@ -97,7 +97,8 @@ struct RestProxy: public MessageLoop {
     /** Initialize and connect to an instance of the given service class. */
     void initServiceClass(std::shared_ptr<ConfigurationService> config,
                           const std::string & serviceClass,
-                          const std::string & endpointName);
+                          const std::string & endpointName,
+                          bool local = true);
     
     typedef std::function<void (std::exception_ptr,
                                 int responseCode, const std::string &)> OnDone;
