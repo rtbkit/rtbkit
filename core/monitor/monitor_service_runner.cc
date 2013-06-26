@@ -37,8 +37,9 @@ int main(int argc, char ** argv)
     }
 
     auto proxies = args.makeServiceProxies();
+    auto serviceName = args.serviceName("monitor");
 
-    MonitorEndpoint monitor(proxies, "monitor");
+    MonitorEndpoint monitor(proxies, serviceName);
     monitor.init({
                 "rtbRequestRouter",
                 "rtbPostAuctionService",

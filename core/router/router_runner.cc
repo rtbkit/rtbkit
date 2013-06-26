@@ -39,8 +39,7 @@ static inline Json::Value loadJsonFromFile(const std::string & filename)
 
 RouterRunner::
 RouterRunner()
-    : lossSeconds(15.0),
-      serviceName("router")
+    : lossSeconds(15.0)
 {
 }
 
@@ -53,8 +52,6 @@ doOptions(int argc, char ** argv,
 
     options_description router_options("Router options");
     router_options.add_options()
-        ("name,n", value<string>(&serviceName),
-         "unique service name for this router")
         ("loss-seconds,l", value<float>(&lossSeconds),
          "number of seconds after which a loss is assumed")
         ("log-uri", value<vector<string> >(&logUris),
@@ -88,6 +85,7 @@ RouterRunner::
 init()
 {
     auto proxies = serviceArgs.makeServiceProxies();
+    auto serviceName = serviceArgs.serviceName("router");
 
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
 

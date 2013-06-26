@@ -43,7 +43,7 @@ int main(int argc, char ** argv)
     shared_ptr<ServiceProxies> proxies = proxyArgs.makeServiceProxies();
 
     // First start up the post auction loop
-    PostAuctionLoop service(proxies, "postAuction");
+    PostAuctionLoop service(proxies, proxyArgs.serviceName("postAuction"));
 
     auto banker = make_shared<SlaveBanker>(proxies->zmqContext,
                                            proxies->config,

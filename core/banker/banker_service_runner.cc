@@ -67,6 +67,7 @@ int main(int argc, char ** argv)
     }
 
     auto proxies = serviceArgs.makeServiceProxies();
+    auto serviceName = serviceArgs.serviceName("masterBanker");
 
     MasterBanker banker(proxies, "masterBanker");
     std::shared_ptr<Redis::AsyncConnection> redis;

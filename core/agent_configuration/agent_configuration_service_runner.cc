@@ -45,8 +45,9 @@ int main(int argc, char ** argv)
     }
 
     auto proxies = args.makeServiceProxies();
+    auto serviceName = args.serviceName("agentConfigurationService");
 
-    AgentConfigurationService config(proxies);
+    AgentConfigurationService config(proxies, serviceName);
     config.init();
     config.bindTcp();
     config.start();
