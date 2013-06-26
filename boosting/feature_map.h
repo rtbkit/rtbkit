@@ -104,7 +104,7 @@ template<>
 struct Feature_Extractor::access<0> {
     static void set(Feature & feat, unsigned long val)
     {
-        feat.arg2() = val;
+        feat.set_arg2(val);
     }
     
     static const unsigned long get(const Feature & feat)
@@ -117,7 +117,7 @@ template<>
 struct Feature_Extractor::access<1> {
     static void set(Feature & feat, unsigned long val)
     {
-        feat.arg1() = val;
+        feat.set_arg1(val);
     }
     
     static const unsigned long get(const Feature & feat)
@@ -130,7 +130,7 @@ template<>
 struct Feature_Extractor::access<2> {
     static void set(Feature & feat, unsigned long val)
     {
-        feat.type() = val;
+        feat.set_type(val);
     }
     
     static const unsigned long get(const Feature & feat)
