@@ -392,7 +392,7 @@ ServiceProxies()
       ports(new DefaultPortRangeService()),
       zmqContext(new zmq::context_t(1 /* num worker threads */))
 {
-    bootstrap(bootstrapConfigPath(), "");
+    bootstrap(bootstrapConfigPath());
 }
 
 void
@@ -422,7 +422,6 @@ void
 ServiceProxies::
 useZookeeper(std::string url,
              std::string prefix,
-             std::string hostname,
              std::string location)
 {
     if (prefix == "CWD") {
@@ -439,7 +438,7 @@ useZookeeper(std::string url,
         prefix = "/dev/" + node + cwd + "_" + __progname + "/";
     }
 
-    config.reset(new ZookeeperConfigurationService(url, prefix, hostname, location));
+    config.reset(new ZookeeperConfigurationService(url, prefix, location));
 }
 
 void
@@ -515,7 +514,7 @@ ServiceProxies::getEndpointInstances(std::string const & name,
 
 void
 ServiceProxies::
-bootstrap(const std::string& path, const std::string& hostname)
+bootstrap(const std::string& path)
 {
     if (path.empty()) return;
     ExcCheck(ML::fileExists(path), path + " doesn't exist");
@@ -530,12 +529,12 @@ bootstrap(const std::string& path, const std::string& hostname)
         file += line + "\n";
     }
 
-    bootstrap(Json::parse(file), hostname);
+    bootstrap(Json::parse(file));
 }
 
 void
 ServiceProxies::
-bootstrap(const Json::Value& config, const std::string& hostname)
+bootstrap(const Json::Value& config)
 {
     string install = config["installation"].asString();
     ExcCheck(!install.empty(), "installation is not specified in bootstrap.json");
@@ -557,7 +556,7 @@ bootstrap(const Json::Value& config, const std::string& hostname)
     }
 
     if (config.isMember("zookeeper-uri"))
-        useZookeeper(config["zookeeper-uri"].asString(), install, hostname, location);
+        useZookeeper(config["zookeeper-uri"].asString(), install, location);
 
     if (config.isMember("portRanges"))
         usePortRanges(config["portRanges"]);
@@ -616,24 +615,12 @@ recordEventFmt(EventType type,
 /* SERVICE BASE                                                              */
 /*****************************************************************************/
 
-std::string
-buildServiceName(std::shared_ptr<ServiceProxies> proxies, std::string name)
-{
-    if (proxies) {
-        auto & hostname = proxies->config->currentHostname;
-        if (!hostname.empty())
-            name = hostname + "." + name;
-    }
-
-    return name;
-}
-
 ServiceBase::
 ServiceBase(const std::string & serviceName,
             std::shared_ptr<ServiceProxies> services)
-    : EventRecorder(buildServiceName(services, serviceName), services), 
+    : EventRecorder(serviceName, services),
       services_(services),
-      serviceName_(buildServiceName(services, serviceName)),
+      serviceName_(serviceName),
       parent_(0)
 {
     if (!services_)

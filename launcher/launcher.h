@@ -186,8 +186,6 @@ struct Launcher
             std::vector<char const *> result;
 
             result.push_back(path.c_str());
-            result.push_back("--hostname");
-            result.push_back(node.c_str());
 
             for(auto & item : arg) {
                 result.push_back(item.c_str());

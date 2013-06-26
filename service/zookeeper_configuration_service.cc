@@ -99,11 +99,10 @@ ZookeeperConfigurationService()
 ZookeeperConfigurationService::
 ZookeeperConfigurationService(std::string host,
                               std::string prefix,
-                              std::string hostname,
                               std::string location,
                               int timeout)
 {
-    init(std::move(host), std::move(prefix), std::move(hostname), std::move(location));
+    init(std::move(host), std::move(prefix), std::move(location));
 }
     
 ZookeeperConfigurationService::
@@ -115,11 +114,9 @@ void
 ZookeeperConfigurationService::
 init(std::string host,
      std::string prefix,
-     std::string hostname,
      std::string location,
      int timeout)
 {
-    currentHostname = std::move(hostname);
     currentLocation = std::move(location);
 
     zoo.reset(new ZookeeperConnection());

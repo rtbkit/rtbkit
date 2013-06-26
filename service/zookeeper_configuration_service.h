@@ -30,7 +30,6 @@ struct ZookeeperConfigurationService
 
     ZookeeperConfigurationService(std::string host,
                                   std::string prefix,
-                                  std::string hostname,
                                   std::string location,
                                   int timeout = 5);
     
@@ -38,7 +37,6 @@ struct ZookeeperConfigurationService
 
     void init(std::string host,
               std::string prefix,
-              std::string hostname,
               std::string location,
               int timeout = 5);
 

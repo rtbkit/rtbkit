@@ -32,6 +32,8 @@ struct ServiceProxyArguments
 
         options_description options(title);
         options.add_options()
+            ("service-name,N", value(&serviceName_),
+             "unique name for the service")
             ("bootstrap,B", value(&bootstrap),
              "path to bootstrap.json file")
             ("zookeeper-uri,Z", value(&zookeeperUri),
@@ -40,12 +42,15 @@ struct ServiceProxyArguments
              "URI for connecting to carbon daemon")
             ("installation,I", value(&installation),
              "name of the current installation")
-            ("hostname,N", value(&hostname),
-             "name of the current host")
             ("location,L", value(&location),
              "Name of the current location");
 
         return options;
+    }
+
+    std::string serviceName(const std::string& defaultValue) const
+    {
+        return serviceName_.empty() ? defaultValue : serviceName_;
     }
 
     std::shared_ptr<ServiceProxies> makeServiceProxies()
@@ -53,13 +58,12 @@ struct ServiceProxyArguments
         auto services = std::make_shared<ServiceProxies>();
 
         if (!bootstrap.empty())
-            services->bootstrap(bootstrap, hostname);
+            services->bootstrap(bootstrap);
 
         if (!zookeeperUri.empty()) {
             ExcCheck(!installation.empty(), "installation is required");
-            ExcCheck(!hostname.empty(), "hostname is required");
             ExcCheck(!location.empty(), "location is required");
-            services->useZookeeper(zookeeperUri, installation, hostname, location);
+            services->useZookeeper(zookeeperUri, installation, location);
         }
 
         if (!carbonUri.empty()) {
@@ -74,8 +78,12 @@ struct ServiceProxyArguments
     std::string zookeeperUri;
     std::string carbonUri;
     std::string installation;
-    std::string hostname;
     std::string location;
+
+private:
+
+    std::string serviceName_;
+
 };
 
 } // namespace Datacratic

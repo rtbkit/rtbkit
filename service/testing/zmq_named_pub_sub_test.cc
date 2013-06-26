@@ -141,9 +141,7 @@ BOOST_AUTO_TEST_CASE( test_named_publisher )
             futex_wake(numMessages);
         };
     
-    std::string path = proxies->config->currentHostname + ".";
-
-    subscriber.connectToEndpoint(path + "pub/publish");
+    subscriber.connectToEndpoint("pub/publish");
     subscriber.start();
     subscriber.subscribe("hello");
 
@@ -199,7 +197,7 @@ BOOST_AUTO_TEST_CASE( test_named_publisher )
 
             sub.messageHandler = onSubscriptionMessage;
 
-            sub.connectToEndpoint(path + "pub/publish");
+            sub.connectToEndpoint("pub/publish");
 
             // Busy wait (for now)
             for (unsigned i = 0;  subscriber.getConnectionState() != ZmqNamedSubscriber::CONNECTED;  ++i) {
