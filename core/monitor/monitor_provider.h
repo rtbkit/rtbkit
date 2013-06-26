@@ -31,15 +31,17 @@ struct MonitorProvider
     virtual MonitorIndicator getProviderIndicators() const = 0;
 };
 
-struct MonitorProviderClient : public RestProxy
+struct MonitorProviderClient : public MultiRestProxy
 {
     MonitorProviderClient(const std::shared_ptr<zmq::context_t> & context,
                           MonitorProvider & provider);
 
     ~MonitorProviderClient();
  
-    void init(std::shared_ptr<ConfigurationService> & config,
-              const std::string & serviceName = "monitor");
+    void init(
+            std::shared_ptr<ConfigurationService> & config,
+            const std::string & serviceClass = "monitor",
+            bool localized = true);
 
     /** shutdown the MessageLoop but make sure all requests have been
         completed beforehand. */
@@ -49,10 +51,6 @@ struct MonitorProviderClient : public RestProxy
      * "POST" the result to the Monitor */
     void postStatus();
 
-    /** method executed when we receive the response from the Monitor */
-    void onResponseReceived(std::exception_ptr ext,
-                            int responseCode, const std::string & body);
-
     /** monitored service proxy */
     MonitorProvider & provider_;
 
@@ -61,16 +59,6 @@ struct MonitorProviderClient : public RestProxy
 
     /** monitored service name */
     std::string restUrlPath_;
-
-    /** bound instance of onResponseReceived */
-    RestProxy::OnDone onDone;
-
-    /** whether a request roundtrip to the Monitor is currently active */
-    bool pendingRequest;
-
-    /** the mutex used when pendingRequest is tested and modified */
-    typedef std::unique_lock<std::mutex> Guard;
-    mutable std::mutex requestLock;
 };
 
 } // namespace RTBKIT

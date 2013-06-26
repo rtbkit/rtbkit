@@ -39,10 +39,9 @@ void
 MonitorEndpoint::
 init(const vector<string> & providerClasses)
 {
-    addPeriodic("MonitorEndpoint::checkServiceIndicators", 1.0, [=] (uint64_t) {
-                cerr << endl
-                    << " DUMP ================================================="
-                    << endl;
+    addPeriodic("MonitorEndpoint::checkServiceIndicators", 10.0, [=] (uint64_t)
+            {
+                cerr << endl << endl;
                 dump();
             });
 

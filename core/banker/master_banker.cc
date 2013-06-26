@@ -479,7 +479,9 @@ init(const shared_ptr<BankerPersistence> & storage)
                        JsonParam<ShadowAccount>("",
                                                 "Representation of the shadow account"));
 
-    monitorProviderClient.init(getServices()->config);
+    // Connects to all the monitors regardless of location. This ensures that if
+    // our master banker is down then all data-centers will stop bidding.
+    monitorProviderClient.init(getServices()->config, "monitor", false);
 }
 
 void

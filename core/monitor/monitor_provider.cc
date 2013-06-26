@@ -18,14 +18,11 @@ namespace RTBKIT {
 MonitorProviderClient::
 MonitorProviderClient(const std::shared_ptr<zmq::context_t> & context,
                       MonitorProvider & provider)
-        : RestProxy(context),
+        : MultiRestProxy(context),
           provider_(provider),
-          inhibit_(false),
-          pendingRequest(false)
+          inhibit_(false)
 {
     restUrlPath_ = "/v1/services/" + provider.getProviderClass();
-    onDone = std::bind(&MonitorProviderClient::onResponseReceived, this,
-                       placeholders::_1, placeholders::_2, placeholders::_3);
 }
 
 MonitorProviderClient::
@@ -37,61 +34,34 @@ MonitorProviderClient::
 void
 MonitorProviderClient::
 init(std::shared_ptr<ConfigurationService> & config,
-     const std::string & serviceName)
+     const std::string & serviceClass,
+     bool localized)
 {
     addPeriodic("MonitorProviderClient::postStatus", 1.0,
                 std::bind(&MonitorProviderClient::postStatus, this),
                 true);
 
-    RestProxy::initServiceClass(config, serviceName, "zeromq", false);
+    MultiRestProxy::init(config);
+    MultiRestProxy::connectAllServiceProviders(serviceClass, "zeromq", localized);
 }
 
 void
 MonitorProviderClient::
 shutdown()
 {
-    sleepUntilIdle();
-    RestProxy::shutdown();
+    MultiRestProxy::shutdown();
 }
 
 void
 MonitorProviderClient::
 postStatus()
 {
-    if (!inhibit_) {
-        Guard(requestLock);
+    if (inhibit_) return;
 
-        if (pendingRequest) {
-            fprintf(stderr, "MonitorProviderClient::checkStatus: last request is"
-                    " still active\n");
-        }
-        else {
-            string payload = provider_.getProviderIndicators().toJson().toString();
-            pendingRequest = true;
-            push(onDone, "POST", restUrlPath_, RestParams(), payload);
-        }
-    }
-}
+    string payload = provider_.getProviderIndicators().toJson().toString();
 
-void
-MonitorProviderClient::
-onResponseReceived(exception_ptr ext, int responseCode, const string & body)
-{
-    bool newStatus(false);
-
-    if (responseCode == 200) {
-        ML::Set_Trace_Exceptions notrace(false);
-        try {
-            Json::Value parsedBody = Json::parse(body);
-            if (parsedBody.isMember("status") && parsedBody["status"] == "ok") {
-                newStatus = true;
-            }
-        }
-        catch (const Json::Exception & exc) {
-        }
-    }
-
-    pendingRequest = false;
+    MultiRestProxy::OnResponse onResponse; // no-op
+    push(onResponse, "POST", restUrlPath_, RestParams(), payload);
 }
 
 } // namespace RTBKIT

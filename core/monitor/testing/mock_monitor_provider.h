@@ -37,18 +37,25 @@ struct MockMonitorProvider
     {
         using namespace std;
         if (delay_) {
-            cerr << ML::format("%s: sleeping for %d seconds\n",
+            cerr << ML::format("%s: %s sleeping for %d seconds\n",
                                CURRENT_METHOD(MockMonitorProvider),
+                               providerName_.c_str(),
                                delay_);
             ML::sleep(delay_);
+
+            cerr << ML::format("%s: %s wokeup!\n",
+                               CURRENT_METHOD(MockMonitorProvider),
+                               providerName_.c_str(),
+                               delay_);
         }
 
         MonitorIndicator ind;
 
         ind.serviceName = providerName_;
         ind.status = status_;
-        cerr << ML::format("%s: returning %s\n",
+        cerr << ML::format("%s: %s returning %s\n",
                            CURRENT_METHOD(MockMonitorProvider),
+                           providerName_.c_str(),
                            boost::trim_copy(ind.toJson().toString()));
 
         return ind;
