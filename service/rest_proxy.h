@@ -97,7 +97,8 @@ struct RestProxy: public MessageLoop {
     /** Initialize and connect to an instance of the given service class. */
     void initServiceClass(std::shared_ptr<ConfigurationService> config,
                           const std::string & serviceClass,
-                          const std::string & endpointName);
+                          const std::string & endpointName,
+                          bool local = true);
     
     typedef std::function<void (std::exception_ptr,
                                 int responseCode, const std::string &)> OnDone;
@@ -136,6 +137,107 @@ protected:
 
     void handleOperation(const Operation & op);
     void handleZmqResponse(const std::vector<std::string> & message);
+};
+
+
+/******************************************************************************/
+/* MULTI REST PROXY                                                           */
+/******************************************************************************/
+
+/** Provides a way to connect to all services under a given service class
+    through a REST interface. Note that this sets a watch on the service class
+    such that whenever a service goes down or comes up the rest proxy will be
+    notified and will adjust itself accordingly.
+
+    Note: This class does not and should not provide a sleepUntilIdle interface
+    as it is very prone to deadlock when coupled with services being shutdown
+    and restarted asynchronously.
+
+    \todo Provides just about the same pattern as ZmqMultipleNamedClientBusProxy
+    so there's common functionality here that could be merged.
+ */
+struct MultiRestProxy : public MessageLoop
+{
+    MultiRestProxy(std::shared_ptr<zmq::context_t> context) :
+        connected(false),
+        context(std::move(context))
+    {}
+
+    ~MultiRestProxy() { shutdown(); }
+
+
+    void init(std::shared_ptr<ConfigurationService> config)
+    {
+        this->config = std::move(config);
+    }
+
+    void shutdown();
+
+
+    typedef std::function<void (const std::string& serviceName)> ConnectionHandler;
+
+    /** Called whenever we connect a new service. */
+    ConnectionHandler connectHandler;
+    virtual void onConnect(const std::string& serviceName)
+    {
+        if (connectHandler) connectHandler(serviceName);
+    }
+
+    /** Called whenever a service we were connected is disconnected. */
+    ConnectionHandler disconnectHandler;
+    virtual void onDisconnect(const std::string& serviceName)
+    {
+        if (disconnectHandler) disconnectHandler(serviceName);
+    }
+
+
+    /** Connects our class to every service under the given service class. */
+    void connectAllServiceProviders(
+            const std::string& serviceClass,
+            const std::string& endpointName,
+            bool local = true);
+
+
+    typedef std::function<void (
+            const std::string& serviceName,
+            std::exception_ptr ex,
+            int responseCode,
+            const std::string& payload)> OnResponse;
+
+    /** Send a REST message to every connected service. The response callback
+        will be invoked once for every answer we receive such that if we're
+        connected to 3 services then we can receive up to 5 messages.
+     */
+    void push(const RestRequest & request, const OnResponse & onResponse);
+    void push(
+            const OnResponse & onResponse,
+            const std::string & method,
+            const std::string & resource,
+            const RestParams & params = RestParams(),
+            const std::string & payload = "");
+
+private:
+
+    bool connected;
+
+    std::shared_ptr<zmq::context_t> context;
+    std::shared_ptr<ConfigurationService> config;
+
+    std::string serviceClass;
+    std::string endpointName;
+    bool localized;
+
+    ML::Spinlock connectionsLock;
+
+    typedef std::map<std::string, std::unique_ptr<RestProxy> > ConnectionsMap;
+    ConnectionsMap connections;
+
+    ConfigurationService::Watch serviceProvidersWatch;
+
+    void onServiceProvidersChanged(const std::string& path, bool local);
+    void connectServiceProvider(const std::string& serviceName);
+    void disconnectServiceProvider(const std::string& serviceName);
+
 };
 
 } // namespace Datacratic

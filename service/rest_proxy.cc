@@ -94,10 +94,11 @@ void
 RestProxy::
 initServiceClass(std::shared_ptr<ConfigurationService> config,
                  const std::string & serviceClass,
-                 const std::string & serviceEndpoint)
+                 const std::string & serviceEndpoint,
+                 bool local)
 {
     connection.init(config, ZMQ_XREQ);
-    connection.connectToServiceClass(serviceClass, serviceEndpoint);
+    connection.connectToServiceClass(serviceClass, serviceEndpoint, local);
     
     addSource("RestProxy::operationQueue", operationQueue);
 
@@ -214,6 +215,162 @@ handleZmqResponse(const std::vector<std::string> & message)
     outstanding.erase(it);
     
     ML::atomic_dec(numMessagesOutstanding_);
+}
+
+
+/******************************************************************************/
+/* MULTI REST PROXY                                                           */
+/******************************************************************************/
+
+void
+MultiRestProxy::
+shutdown()
+{
+    if (!connected) return;
+
+    MessageLoop::shutdown();
+
+    lock_guard<ML::Spinlock> guard(connectionsLock);
+
+    for (auto& conn: connections) {
+        if (!conn.second) continue;
+        conn.second->shutdown();
+    }
+
+    connections.clear();
+    connected = false;
+}
+
+namespace {
+
+RestProxy::OnDone
+makeResponseFn(
+        const std::string& serviceName, const MultiRestProxy::OnResponse& fn)
+{
+    return [=] (std::exception_ptr ex, int code, const std::string& msg) {
+        if (fn) fn(serviceName, ex, code, msg);
+    };
+}
+
+} // namespace anonymous
+
+
+
+void
+MultiRestProxy::
+push(const RestRequest & request, const OnResponse & onResponse)
+{
+    lock_guard<ML::Spinlock> guard(connectionsLock);
+
+    for (const auto& conn : connections) {
+        if (!conn.second) continue;
+
+        auto onDone = makeResponseFn(conn.first, onResponse);
+        conn.second->push(request, onDone);
+    }
+}
+
+
+void
+MultiRestProxy::
+push(   const OnResponse & onResponse,
+        const string & method,
+        const string & resource,
+        const RestParams & params,
+        const string & payload)
+{
+    lock_guard<ML::Spinlock> guard(connectionsLock);
+
+    for (const auto& conn : connections) {
+        if (!conn.second) continue;
+
+        auto onDone = makeResponseFn(conn.first, onResponse);
+        conn.second->push(onDone , method, resource, params, payload);
+    }
+}
+
+
+void
+MultiRestProxy::
+connectAllServiceProviders(
+        const string& serviceClass, const string& endpointName, bool local)
+{
+    ExcCheck(!connected, "Already connectoed to a service provider");
+
+    this->serviceClass = serviceClass;
+    this->endpointName = endpointName;
+    this->localized = local;
+
+    serviceProvidersWatch.init(
+            [=] (const string&, ConfigurationService::ChangeType) {
+                onServiceProvidersChanged("serviceClass/" + serviceClass, local);
+            });
+
+    onServiceProvidersChanged("serviceClass/" + serviceClass, local);
+    connected = true;
+}
+
+void
+MultiRestProxy::
+connectServiceProvider(const string& serviceName)
+{
+    {
+        lock_guard<ML::Spinlock> guard(connectionsLock);
+
+        auto& conn = connections[serviceName];
+        if (conn) return;
+
+        unique_ptr<RestProxy> newConn(new RestProxy(context));
+        newConn->initServiceClass(config, serviceName, endpointName, localized);
+        conn.reset(newConn.release());
+
+        addSource("MultiRestProxy::" + serviceName, *conn);
+    }
+
+    onConnect(serviceName);
+}
+
+void
+MultiRestProxy::
+onServiceProvidersChanged(const string& path, bool local)
+{
+    vector<string> children = config->getChildren(path, serviceProvidersWatch);
+
+    for (const auto& child : children) {
+        Json::Value value = config->getJson(path + "/" + child);
+
+        string location = value["serviceLocation"].asString();
+        if (local && location != config->currentLocation) {
+            cerr << "dropping " << location
+                << " != " << config->currentLocation
+                << endl;
+            continue;
+        }
+
+        connectServiceProvider(value["serviceName"].asString());
+    }
+
+    vector<string> disconnected;
+    {
+        lock_guard<ML::Spinlock> guard(connectionsLock);
+
+        for (const auto& conn : connections) {
+            if (!conn.second) continue;
+
+            auto it = find(children.begin(), children.end(), conn.first);
+            if (it != children.end()) continue;
+
+            disconnected.push_back(conn.first);
+        }
+
+        // We don't have to worry about invalidating iterators anymore.
+        for (const auto& conn : disconnected)
+            connections.erase(conn);
+    }
+
+    // Lock has been released and it's now safe to trigger the callbacks.
+    for (const auto& conn : disconnected)
+        onDisconnect(conn);
 }
 
 } // namespace Datacratic

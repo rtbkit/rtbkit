@@ -33,7 +33,7 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
 }
 
 void LoggerMetricsMongo::logInCategory(const string& category,
-    Json::Value& json)
+    const Json::Value& json)
 {
     BSONObjBuilder bson;
     vector<string> stack;

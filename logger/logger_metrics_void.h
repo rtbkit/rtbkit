@@ -9,11 +9,12 @@ class LoggerMetricsVoid : public ILoggerMetrics{
     protected:
         LoggerMetricsVoid(Json::Value config,
                            const std::string& coll,
-                           const std::string& appName) : ILoggerMetrics(coll){};
-        void logInCategory(const std::string&, Json::Value&){};
+                           const std::string& appName) : ILoggerMetrics(coll){}
+        void logInCategory(const std::string&,
+                           const Json::Value&){}
         void logInCategory(const std::string& category,
                            const std::vector<std::string>& path,
-                           const NumOrStr& val){};
-        const std::string getProcessId() const{ return ""; };
+                           const NumOrStr& val){}
+        const std::string getProcessId() const{ return ""; }
 };
 }//namespace Datacratic

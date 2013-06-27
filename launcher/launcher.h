@@ -40,23 +40,23 @@ struct Launcher
             return name;
         }
 
-        void launch() {
-            spawn();
+        void launch(std::string const & node) {
+            spawn(node);
             for(auto & item : children) {
-                item.launch();
+                item.launch(node);
             }
         }
 
-        void restart() {
+        void restart(std::string const & node) {
             stop();
-            start();
+            start(node);
         }
 
-        void start() {
+        void start(std::string const & node) {
             ML::sleep(delay);
-            spawn();
+            spawn(node);
             for(auto & item : children) {
-                item.start();
+                item.start(node);
             }
         }
 
@@ -182,10 +182,11 @@ struct Launcher
             }
         }
 
-        std::vector<char const *> makeArgs() {
+        std::vector<char const *> makeArgs(std::string const & node) {
             std::vector<char const *> result;
 
             result.push_back(path.c_str());
+
             for(auto & item : arg) {
                 result.push_back(item.c_str());
             }
@@ -200,7 +201,7 @@ struct Launcher
             return result;
         }
 
-        void spawn() {
+        void spawn(std::string const & node) {
             std::cout << "launch " << name << std::endl;
             pid = fork();
 
@@ -226,7 +227,7 @@ struct Launcher
                     throw ML::Exception(errno, "chdir failed");
                 }
 
-                std::vector<char const *> args = makeArgs();
+                std::vector<char const *> args = makeArgs(node);
                 std::vector<char const *> envs = makeEnvs();
 
                 res = execvpe(path.c_str(), (char **) &args[0], (char **) &envs[0]);
@@ -291,13 +292,13 @@ struct Launcher
 
         void launch() {
             for(auto & item : tasks) {
-                item.launch();
+                item.launch(name);
             }
         }
 
         void restart() {
             for(auto & item : tasks) {
-                item.restart();
+                item.restart(name);
             }
         }
 
@@ -484,7 +485,7 @@ struct Launcher
             std::time_t now = std::time(0);
             std::cerr << "crash! " << (item ? item->getName() : "?") << " detected at " << std::asctime(std::localtime(&now)) << std::endl;
             if(item) {
-                item->restart();
+                item->restart(node->getName());
             }
         }
 

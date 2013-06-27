@@ -420,8 +420,9 @@ logToCarbon(std::shared_ptr<CarbonConnector> conn)
 
 void
 ServiceProxies::
-useZookeeper(std::string hostname,
-             std::string prefix)
+useZookeeper(std::string url,
+             std::string prefix,
+             std::string location)
 {
     if (prefix == "CWD") {
         char buf[1024];
@@ -437,7 +438,7 @@ useZookeeper(std::string hostname,
         prefix = "/dev/" + node + cwd + "_" + __progname + "/";
     }
 
-    config.reset(new ZookeeperConfigurationService(hostname, prefix));
+    config.reset(new ZookeeperConfigurationService(url, prefix, location));
 }
 
 void
@@ -538,14 +539,8 @@ bootstrap(const Json::Value& config)
     string install = config["installation"].asString();
     ExcCheck(!install.empty(), "installation is not specified in bootstrap.json");
 
-    string node = config["node-name"].asString();
-    if (node.empty()) {
-        struct utsname s;
-        int ret = uname(&s);
-        ExcCheckErrno(!ret, "Unable to call uname");
-
-        node = string(s.nodename);
-    }
+    string location = config["location"].asString();
+    ExcCheck(!location.empty(), "location is not specified in the bootstrap.json");
 
     if (config.isMember("carbon-uri")) {
         const Json::Value& entry = config["carbon-uri"];
@@ -557,12 +552,11 @@ bootstrap(const Json::Value& config)
         }
         else uris.push_back(entry.asString());
 
-        logToCarbon(uris, install + "." + node);
+        logToCarbon(uris, install);
     }
 
-
     if (config.isMember("zookeeper-uri"))
-        useZookeeper(config["zookeeper-uri"].asString(), install);
+        useZookeeper(config["zookeeper-uri"].asString(), install, location);
 
     if (config.isMember("portRanges"))
         usePortRanges(config["portRanges"]);
@@ -624,14 +618,16 @@ recordEventFmt(EventType type,
 ServiceBase::
 ServiceBase(const std::string & serviceName,
             std::shared_ptr<ServiceProxies> services)
-    : EventRecorder(serviceName, services), 
-      services_(services), serviceName_(serviceName), parent_(0)
+    : EventRecorder(serviceName, services),
+      services_(services),
+      serviceName_(serviceName),
+      parent_(0)
 {
     if (!services_)
         setServices(std::make_shared<ServiceProxies>());
 
     // Clear out any old entries
-    getServices()->config->removePath(serviceName);
+    getServices()->config->removePath(serviceName_);
 }
 
 ServiceBase::
@@ -644,7 +640,7 @@ ServiceBase(const std::string & subServiceName,
       parent_(&parent)
 {
     // Clear out any old entries
-    getServices()->config->removePath(serviceName());
+    getServices()->config->removePath(serviceName_);
 }
 
 ServiceBase::
@@ -660,6 +656,7 @@ registerServiceProvider(const std::string & name,
     for (auto cl: serviceClasses) {
         Json::Value json;
         json["serviceName"] = name;
+        json["serviceLocation"] = services_->config->currentLocation;
         json["servicePath"] = name;
         services_->config->setUnique("serviceClass/" + cl + "/" + name, json);
     }
@@ -690,7 +687,6 @@ void
 ServiceBase::
 addChildServiceStatus(Json::Value & result) const
 {
-    
 }
 
 } // namespace Datacratic

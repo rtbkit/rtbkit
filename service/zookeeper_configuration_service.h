@@ -28,14 +28,16 @@ struct ZookeeperConfigurationService
 
     ZookeeperConfigurationService();
 
-    ZookeeperConfigurationService(const std::string & host,
-                                  const std::string & prefix,
+    ZookeeperConfigurationService(std::string host,
+                                  std::string prefix,
+                                  std::string location,
                                   int timeout = 5);
     
     ~ZookeeperConfigurationService();
 
-    void init(const std::string & host,
-              const std::string & prefix,
+    void init(std::string host,
+              std::string prefix,
+              std::string location,
               int timeout = 5);
 
     virtual Json::Value getJson(const std::string & value,

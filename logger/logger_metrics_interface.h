@@ -11,6 +11,7 @@
 #include <functional>
 #include "soa/types/date.h"
 
+
 namespace Datacratic{
 
 /**
@@ -45,7 +46,7 @@ class ILoggerMetrics{
                                    const std::vector<std::string>& path,
                                    const NumOrStr& val) = 0;
         virtual void logInCategory(const std::string& category,
-                                   Json::Value& j) = 0;
+                                   const Json::Value& j) = 0;
 
         void failSafeHelper(std::function<void()>);
         virtual const std::string getProcessId() const = 0;
@@ -60,14 +61,14 @@ class ILoggerMetrics{
          */
         static std::shared_ptr<ILoggerMetrics> getSingleton();
 
-        void logMetrics(Json::Value&);
-        void logProcess(Json::Value& j){
+        void logMetrics(const Json::Value&);
+        void logProcess(const Json::Value& j){
             std::function<void()> fct = [&](){
                 logInCategory(PROCESS, j);
             };
             failSafeHelper(fct);
         }
-        void logMeta(Json::Value& j){
+        void logMeta(const Json::Value& j){
             std::function<void()> fct = [&](){
                 logInCategory(META, j);
             };
