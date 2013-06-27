@@ -72,12 +72,13 @@ shutdown()
 void
 RestProxy::
 init(std::shared_ptr<ConfigurationService> config,
-     const std::string & serviceName)
+     const std::string & serviceName,
+     const std::string & endpointName)
 {
     serviceName_ = serviceName;
 
     connection.init(config, ZMQ_XREQ);
-    connection.connect(serviceName + "/zeromq");
+    connection.connect(serviceName + "/" + endpointName);
     
     addSource("RestProxy::operationQueue", operationQueue);
 
@@ -321,7 +322,7 @@ connectServiceProvider(const string& serviceName)
         if (conn) return;
 
         unique_ptr<RestProxy> newConn(new RestProxy(context));
-        newConn->initServiceClass(config, serviceName, endpointName, localized);
+        newConn->init(config, serviceName, endpointName);
         conn.reset(newConn.release());
 
         addSource("MultiRestProxy::" + serviceName, *conn);

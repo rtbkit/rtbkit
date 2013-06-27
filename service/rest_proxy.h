@@ -92,7 +92,8 @@ struct RestProxy: public MessageLoop {
 
     /** Initialize and connect to the given service on the "zeromq" endpoint. */
     void init(std::shared_ptr<ConfigurationService> config,
-              const std::string & serviceName);
+              const std::string & serviceName,
+              const std::string & endpointName = "zeromq");
     
     /** Initialize and connect to an instance of the given service class. */
     void initServiceClass(std::shared_ptr<ConfigurationService> config,
@@ -122,6 +123,7 @@ struct RestProxy: public MessageLoop {
 
 protected:
     std::string serviceName_;
+    std::string endpointName_;
 
     struct Operation {
         RestRequest request;
