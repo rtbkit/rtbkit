@@ -110,6 +110,10 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
     v["workingDirectory"] = string(getenv("PWD"));
     v["gitBranch"] = getCmdResult("git rev-parse --abbrev-ref HEAD");
     v["gitHash"] = getCmdResult("git rev-parse HEAD");
+    // Log environment variable RUNID. Useful to give a name to an
+    // experiment.
+    char* runid = getenv("RUNID");
+    v["runid"] = string(runid ?: "");
     logger->logProcess(v);
     setenv("METRICS_PARENT_ID", logger->getProcessId().c_str(), 1);
 
