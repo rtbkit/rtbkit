@@ -22,4 +22,20 @@ BidRequest::
 {
 }
 
+
+RtbBidDynamicCreativeSpec::
+~RtbBidDynamicCreativeSpec()
+{
+}
+
+RtbBid::
+~RtbBid()
+{
+}
+
+BidResponse::
+~BidResponse()
+{
+}
+
 } // namespace FBX

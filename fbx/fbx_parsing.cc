@@ -59,4 +59,34 @@ DefaultDescription()
     addField("country", &RtbUserContext::country, "Country");
 }
 
+
+DefaultDescription<BidResponse>::
+DefaultDescription()
+{
+    addField("requestId", &BidResponse::requestId, "Same requestId as in the bid request");
+    addField("bids", &BidResponse::bids, "Array of type RtbBid");
+    addField("processingTimeMs", &BidResponse::processingTimeMs, "Time it takes for your servers to process the bid request");
+}
+
+DefaultDescription<RtbBidDynamicCreativeSpec>::
+DefaultDescription()
+{
+    addField("title", &RtbBidDynamicCreativeSpec::title, "Title");
+    addField("body", &RtbBidDynamicCreativeSpec::body, "Body");
+    addField("link", &RtbBidDynamicCreativeSpec::link, "Link");
+    addField("creativeHash", &RtbBidDynamicCreativeSpec::creativeHash, "CreativeHash");
+    addField("imageUrl", &RtbBidDynamicCreativeSpec::imageUrl, "Image Url");
+}
+
+DefaultDescription<RtbBid>::
+DefaultDescription()
+{
+    addField("adId", &RtbBid::adId, "FB ad id for ad which partner wishes to show");
+    addField("bidNative", &RtbBid::bidNative, "The CPM bid in cents");
+    addField("impressionPayload", &RtbBid::impressionPayload, "Opaque blob which FB will return to the partner in the win notification");
+    addField("clickPayload", &RtbBid::clickPayload, "Opaque blob which FB will return to the partner upon user click");
+    addField("dynamicCreativeSpec", &RtbBid::dynamicCreativeSpec, "Dynamic creative");
+    addField("viewTagUrls", &RtbBid::viewTagUrls, "A list of view tag URL's to be fired when the impression is served.");
+}
+
 } // namespace Datacratic

@@ -320,6 +320,24 @@ struct DefaultDescription<FBX::RtbPageContext>
     DefaultDescription();
 };
 
+template<>
+struct DefaultDescription<FBX::BidResponse>
+    : public StructureDescription<FBX::BidResponse> {
+    DefaultDescription();
+};
+
+template<>
+struct DefaultDescription<FBX::RtbBid>
+    : public StructureDescription<FBX::RtbBid> {
+    DefaultDescription();
+};
+
+template<>
+struct DefaultDescription<FBX::RtbBidDynamicCreativeSpec>
+    : public StructureDescription<FBX::RtbBidDynamicCreativeSpec> {
+    DefaultDescription();
+};
+
 
 
 } // namespace Datacratic

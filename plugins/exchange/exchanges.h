@@ -9,6 +9,7 @@
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
 #include "rtbkit/plugins/exchange/rubicon_exchange_connector.h"
 #include "rtbkit/plugins/exchange/appnexus_exchange_connector.h"
+#include "rtbkit/plugins/exchange/fbx_exchange_connector.h"
 
 namespace {
     using namespace Datacratic;
@@ -20,6 +21,7 @@ namespace {
             ExchangeConnector::registerFactory<OpenRTBExchangeConnector>();
             ExchangeConnector::registerFactory<RubiconExchangeConnector>();
             ExchangeConnector::registerFactory<AppNexusExchangeConnector>();
+            ExchangeConnector::registerFactory<FBXExchangeConnector>();
         }
     } init;
 }

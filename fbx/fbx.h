@@ -322,8 +322,6 @@ struct RtbPageContext {
 
 };
 
-
-
 /*****************************************************************************/
 /* BID REQUEST                                                               */
 /*****************************************************************************/
@@ -356,5 +354,58 @@ struct BidRequest {
 
     // STOP HERE!!
 };
+
+/*****************************************************************************/
+/* RtbBidDynamicCreativeSpec                                                                       */
+/*****************************************************************************/
+
+/** RtbBidDynamicCreativeSpec
+  The fields below are optional, and will overwrite the corresponding fields
+  in the original ad creative
+*/
+struct RtbBidDynamicCreativeSpec {
+	~RtbBidDynamicCreativeSpec();
+	Optional<string> title;
+	Optional<string> body;
+	Optional<string> link;
+	Optional<string> creativeHash;
+	Optional<string> imageUrl;
+};
+
+
+/*****************************************************************************/
+/* BID                                                                       */
+/*****************************************************************************/
+
+/** Bid Object
+*/
+
+struct RtbBid {
+	~RtbBid();
+	Id adId; 										// FB ad id for ad which partner wishes to show
+	TaggedInt bidNative;							// the CPM bid in cents
+	string impressionPayload;						// opaque blob which FB will return to the partner in the win notification
+	string clickPayload;							// opaque blob which FB will return to the partner upon user click
+	Optional<RtbBidDynamicCreativeSpec> dynamicCreativeSpec; 	//
+	vector<string> viewTagUrls;       				// A list of view tag URL's to be fired when the impression is served.
+};
+
+
+
+/*****************************************************************************/
+/* BID RESPONSE                                                              */
+/*****************************************************************************/
+
+/** 4.3.1 Bid Response Object
+
+*/
+
+struct BidResponse {
+	~BidResponse();
+    Id requestId;			// Same requestId as in the bid request
+    vector<RtbBid> bids;	// Array of type RtbBid
+    Optional<TaggedInt> processingTimeMs;	// Time it takes for your servers to process the bid request
+};
+
 
 } // namespace FBX

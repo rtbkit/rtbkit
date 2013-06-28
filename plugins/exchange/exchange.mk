@@ -13,5 +13,6 @@ $(eval $(call library,openrtb_exchange,openrtb_exchange_connector.cc,exchange bi
 $(eval $(call library,rubicon_exchange,rubicon_exchange_connector.cc,exchange openrtb_bid_request))
 $(eval $(call library,appnexus_exchange,appnexus_exchange_connector.cc,exchange bid_test_utils appnexus_bid_request))
 $(eval $(call library,gumgum_exchange,gumgum_exchange_connector.cc,exchange bid_test_utils))
+$(eval $(call library,fbx_exchange,fbx_exchange_connector.cc,exchange bid_test_utils fbx_bid_request))
 
 $(eval $(call include_sub_make,exchange_testing,testing,exchange_testing.mk))
