@@ -164,6 +164,8 @@ struct Router : public ServiceBase,
             functor(item);
     }
 
+    virtual bool bidPriceExceeded(const Amount price);
+
     /** Connect the exchange connector to the router, but do not make the router
         know about or own the exchange.
 

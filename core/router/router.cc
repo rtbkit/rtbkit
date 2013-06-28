@@ -1624,6 +1624,12 @@ static bool failBid(double proportion)
     return (random() % 100) < floor(proportion * 100.0);
 }
 
+bool
+Router::
+bidPriceExceeded(const Amount price) {
+  return price > USD_CPM(200);
+}
+
 void
 Router::
 doBid(const std::vector<std::string> & message)
@@ -1836,12 +1842,11 @@ doBid(const std::vector<std::string> & message)
             continue;
         }
 
-        if (bid.price.isNegative() || bid.price > USD_CPM(200)) {
+        if (bid.price.isNegative() || bidPriceExceeded(bid.price)) {
             returnInvalidBid(i, "invalidPrice",
-                    "bid price of %s is outside range of $0-$200 CPM"
-                    "(%s) parsing bid %s",
-                    bid.price.toString().c_str(),
-                    USD_CPM(200).toString().c_str(),
+                    "bid price of %s is outside allowed range "
+                    "parsing bid %s",
+                    bid.price.toString().c_str(),                    
                     biddata.c_str());
             continue;
         }
