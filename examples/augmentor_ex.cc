@@ -119,23 +119,7 @@ init()
 
     palEvents.connectAllServiceProviders(
             "rtbPostAuctionService", "logger", {"MATCHEDWIN"});
-}
-
-void
-FrequencyCapAugmentor::
-start()
-{
-    MessageLoop::start();
-    palEvents.start();
-}
-
-
-void
-FrequencyCapAugmentor::
-shutdown()
-{
-    MessageLoop::shutdown();
-    palEvents.shutdown();
+    addSource("FrequencyCapAugmentor::palEvents", palEvents);
 }
 
 
