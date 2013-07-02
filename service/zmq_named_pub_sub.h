@@ -1010,7 +1010,8 @@ struct ZmqNamedMultipleSubscriber: public MessageLoop {
                                     const std::vector<std::string> & prefixes
                                     = std::vector<std::string>(),
                                     std::function<bool (std::string)> filter
-                                    = nullptr)
+                                    = nullptr,
+                                    bool local = true)
     {
         auto onServiceChange = [=] (const std::string & service,
                                     bool created)
@@ -1023,7 +1024,7 @@ struct ZmqNamedMultipleSubscriber: public MessageLoop {
                     return;
 
                 if (created)
-                    connectService(serviceClass, service, endpointName);
+                    connectService(serviceClass, service, endpointName, local);
                 else
                     disconnectService(serviceClass, service, endpointName);
             };
@@ -1052,9 +1053,19 @@ struct ZmqNamedMultipleSubscriber: public MessageLoop {
 
     /** Connect to the given service. */
     void connectService(std::string serviceClass, std::string service,
-                        std::string endpointName)
+                        std::string endpointName,
+                        bool local = true)
     {
         using namespace std;
+
+        Json::Value value = config->getJson(service);
+
+        std::string location = value["serviceLocation"].asString();
+        if(local && location != config->currentLocation) {
+            std::cerr << "dropping " << location
+                      << " != " << config->currentLocation << std::endl;
+            return;
+        }
 
         std::unique_lock<Lock> guard(lock);
 
@@ -1069,7 +1080,6 @@ struct ZmqNamedMultipleSubscriber: public MessageLoop {
            else
            {
              std::cerr << "we already had a connection entry to service " << service <<" - reuse " << std::endl;
-             Json::Value value = config->getJson(service);
              std::string path = value["servicePath"].asString();
              found->second->connectToEndpoint(path); 
              return ;
@@ -1089,7 +1099,6 @@ struct ZmqNamedMultipleSubscriber: public MessageLoop {
         sub->init(config);
 
         // TODO: put a watch in to reconnect if this changes
-        Json::Value value = config->getJson(service);
         std::string path = value["servicePath"].asString();
 
         //cerr << "(((((((((((( connecting to service " << service
