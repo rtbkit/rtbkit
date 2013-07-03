@@ -405,8 +405,7 @@ struct ZmqNamedSocket: public MessageLoop {
     ZmqNamedSocket(zmq::context_t & context, int type)
         : context(&context),
           socketType(type),
-          connectionState(NO_CONNECTION),
-          monitor(context)
+          connectionState(NO_CONNECTION)
     {
         //using namespace std;
         //cerr << "created zmqNamedSocket at " << this << endl;
@@ -428,13 +427,6 @@ struct ZmqNamedSocket: public MessageLoop {
         
         using namespace std;
 
-        monitor.defaultHandler
-            = std::bind(&ZmqNamedSocket::handleMonitorEvent,
-                        this,
-                        std::placeholders::_1,
-                        std::placeholders::_2,
-                        std::placeholders::_3);
-
         connector.connectHandler
             = std::bind(&ZmqNamedSocket::doConnect,
                         this,
@@ -443,10 +435,8 @@ struct ZmqNamedSocket: public MessageLoop {
                         std::placeholders::_3);
 
         connector.init(config);
-        monitor.init(*socket);
 
         addSource("ZmqNamedSocket::connector", connector);
-        addSource("ZmqNamedSocket::monitor", monitor);
         addSource("ZmqNamedSocket::socket",
                   std::make_shared<ZmqBinaryEventSource>
                   (*socket, [=] (std::vector<zmq::message_t> && message)
@@ -463,7 +453,6 @@ struct ZmqNamedSocket: public MessageLoop {
             return;
 
         disconnect();
-        monitor.shutdown();
         connector.shutdown();
 
         socket->tryDisconnect(this->connectedAddress);
@@ -631,63 +620,11 @@ private:
             socket->connect(uri);
 
             //cerr << "connection in progress to " << uri << endl;
-            connectionState = CONNECTING;
+            connectionState = CONNECTED;
             return true;
         }
         
         return false;
-    }
-
-    /** Called when the connection monitor has an event. */
-    void handleMonitorEvent(std::string addr, int param,
-                            const zmq_event_t & event)
-    {
-        using namespace std;
-
-        std::unique_lock<Lock> guard(lock);
-
-        switch (event.event) {
-
-        case ZMQ_EVENT_CONNECTED:
-            //cerr << "connecting to " << connectedAddress
-            //     << " connected to " << addr << endl;
-            connectionState = CONNECTED;
-            connectedFd = param;
-            return;
-
-        case ZMQ_EVENT_CONNECT_DELAYED:
-            //cerr << "connecting to " << connectedAddress
-            //     << " connection is delayed for " << addr << endl;
-            return;  // this is normal that connect not return immediately
-            
-        case ZMQ_EVENT_DISCONNECTED:
-            //cerr << "*********** connecting to " << connectedAddress
-            //     << " disconnected from " << addr << " " << this << endl;
-
-            socket->disconnect(connectedAddress);
-
-            // Notify the connector that the endpoint has disconnected.  It will either:
-            // 1.  Call back connect again on the same address, or
-            // 2.  Attempt to connect somewhere else
-
-            connector.handleDisconnection(connectedEndpointPath, connectedEntryName);
-
-            connectionState = DISCONNECTED;
-            connectedEndpointPath = "";
-            connectedAddress = "";
-            connectedEntryName = "";
-            return;
-            
-        default:
-            break;
-        }
-        
-        //cerr << "got socket event "
-        //     << printZmqEvent(event.event)
-        //     << " on " << addr << " with " << param;
-        //if (zmqEventIsError(event.event))
-        //    cerr << " " << strerror(param);
-        //cerr << endl;
     }
 
     /// Zmq context we're working with
@@ -719,9 +656,6 @@ private:
 
     /// Socket that we connect
     std::unique_ptr<zmq::socket_t> socket;
-    
-    /// Monitors for disconnections, etc
-    ZmqSocketMonitor monitor;
 };
 
 

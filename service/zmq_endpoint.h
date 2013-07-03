@@ -479,9 +479,6 @@ struct ZmqNamedEndpoint : public NamedEndpoint, public MessageLoop {
             unbindAll();
             socket_.reset();
         }
-
-        //ML::sleep(0.1);
-        monitor.shutdown();
     }
 
     /** Bind into a tcp port.  If the preferred port is not available, it will
@@ -647,10 +644,6 @@ private:
 
     std::shared_ptr<zmq::context_t> context_;
     std::shared_ptr<zmq::socket_t> socket_;
-
-    /// Monitor so that we can get notifications when things happen to
-    /// the socket
-    ZmqSocketMonitor monitor;
 
     struct AddressInfo {
         AddressInfo()

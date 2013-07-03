@@ -289,7 +289,7 @@ handleEvent(const zmq_event_t & event)
 
 ZmqNamedEndpoint::
 ZmqNamedEndpoint(std::shared_ptr<zmq::context_t> context)
-    : context_(context), monitor(*context)
+    : context_(context)
 {
 }
 
@@ -304,74 +304,6 @@ init(std::shared_ptr<ConfigurationService> config,
     this->socket_.reset(new zmq::socket_t(*context_, socketType));
     setHwm(*socket_, 65536);
     
-    bool monitorSocket = false;
-
-    if (monitorSocket) {
-        monitor.init(*socket_);
-
-        monitor.bindHandler = [=] (std::string addr, int fd, const zmq_event_t &)
-            {
-                std::unique_lock<Lock> guard(lock);
-                ExcAssert(!boundAddresses.count(addr));
-                boundAddresses[addr].listeningFd = fd;
-            };
-
-        monitor.acceptHandler = [=] (std::string addr, int fd, const zmq_event_t &)
-            {
-                {
-                    std::unique_lock<Lock> guard(lock);
-                    ExcAssert(boundAddresses.count(addr));
-                    bool added = boundAddresses[addr].connectedFds.insert(fd).second;
-                    ExcAssert(added);
-                }
-
-                handleAcceptEvent(addr);
-            };
-
-        monitor.disconnectHandler = [=] (std::string addr, int fd, const zmq_event_t &)
-            {
-                {
-                    std::unique_lock<Lock> guard(lock);
-                    ExcAssert(boundAddresses.count(addr));
-                    bool erased = boundAddresses[addr].connectedFds.erase(fd);
-                    ExcAssert(erased);
-                }
-            
-                handleDisconnectEvent(addr);
-            };
-
-        monitor.closeHandler = [=] (std::string addr, int fd, const zmq_event_t &)
-            {
-                {
-                    std::unique_lock<Lock> guard(lock);
-                    if (boundAddresses[addr].listeningFd != -1)
-                        ExcAssertEqual(boundAddresses[addr].listeningFd, fd);
-                    boundAddresses.erase(addr);
-                }
-            
-                handleDisconnectEvent(addr);
-            };
-    
-        // zmq_bind() returns this information for us
-        monitor.bindFailureHandler = [=] (std::string addr, int fd, const zmq_event_t &)
-            {
-            };
-    
-
-        monitor.defaultHandler = [=] (string addr, int param,
-                                      const zmq_event_t & event)
-            {
-                cerr << "ZmqNamedEndpoint got socket event "
-                << printZmqEvent(event.event)
-                << " on " << addr << " with " << param;
-                if (zmqEventIsError(event.event))
-                    cerr << " " << strerror(param);
-                cerr<< endl;
-            };
-
-        addSource("ZmqNamedEndpoint::monitor", monitor);
-    }
-
     addSource("ZmqNamedEndpoint::socket",
               std::make_shared<ZmqBinaryEventSource>
               (*socket_, [=] (std::vector<zmq::message_t> && message)
