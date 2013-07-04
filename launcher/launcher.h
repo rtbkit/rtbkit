@@ -230,7 +230,7 @@ struct Launcher
                 std::vector<char const *> args = makeArgs(node);
                 std::vector<char const *> envs = makeEnvs();
 
-                res = execvpe(path.c_str(), (char **) &args[0], (char **) &envs[0]);
+                res = execvp(path.c_str(), (char **) &args[0]);
                 if (res == -1) {
                     throw ML::Exception(errno, "process failed to start");
                 }
