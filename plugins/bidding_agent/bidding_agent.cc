@@ -138,8 +138,7 @@ init()
             //toPostAuctionServices.sendMessage(connectedTo, "CONFIG", agentName);
         };
     toPostAuctionServices.connectAllServiceProviders("rtbPostAuctionService",
-                                                     "agents",
-                                                     false);
+                                                     "agents");
 
     addSource("BiddingAgent::toRouters", toRouters);
     addSource("BiddingAgent::toPostAuctionServices", toPostAuctionServices);
