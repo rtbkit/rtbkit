@@ -57,8 +57,6 @@ struct HttpRestProxy {
         /** Body of the REST call. */
         std::string body() const
         {
-            if (code_ < 200 || code_ >= 300)
-                throw ML::Exception("invalid http code returned");
             return body_;
         }
 
@@ -77,6 +75,11 @@ struct HttpRestProxy {
         std::string body_;
         HttpHeader header_;
     };
+
+    void setCookieFromResponse(const Response& r){
+        cookie = "set-cookie: " + r.getHeader("set-cookie");
+    }
+
 
     /** Structure used to hold content for a POST request. */
     struct Content {
@@ -174,6 +177,8 @@ private:
         connection needs to be made.
     */
     mutable std::vector<curlpp::Easy *> inactive;
+
+    std::string cookie;
 
 public:
     /** Get a connection. */
