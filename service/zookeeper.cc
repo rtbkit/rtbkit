@@ -86,11 +86,9 @@ ZookeeperConnection::
 connect(const std::string & host,
         double timeoutInSeconds)
 {
+    std::unique_lock<std::mutex> lk(connectMutex);
     if (handle)
         throw ML::Exception("can't connect; handle already exists");
-
-    if (!connectMutex.try_lock())
-        throw ML::Exception("attempting to connect from two threads");
 
     this->host = host;
 
@@ -104,8 +102,10 @@ connect(const std::string & host,
         if (!handle)
             throw ML::Exception(errno, "failed to initialize ZooKeeper at " + host);
 
-        if (connectMutex.try_lock_for(std::chrono::milliseconds(timeout)))
+        if (cv.wait_for(lk, std::chrono::milliseconds(timeout)) == 
+            std::cv_status::no_timeout) {
             return;
+        }
 
         zookeeper_close(handle);
         handle = 0;
@@ -232,8 +232,8 @@ removePath(const std::string & path_)
 {
     string path = fixPath(path_);
 
-    std::function<void (const std::string &)> doNode
-        = [&] (const std::string & currentPath)
+    std::function<void (const std::string &)> doNode;
+    doNode = [&] (const std::string & currentPath)
         {
             vector<string> children
                 = getChildren(currentPath,
@@ -479,7 +479,7 @@ eventHandlerFn(zhandle_t * handle,
     //cerr << "got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
 
     if(state == ZOO_CONNECTED_STATE) {
-        connection->connectMutex.unlock();
+        connection->cv.notify_all();
     }
 }
 
