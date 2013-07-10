@@ -1011,6 +1011,7 @@ protected:
     std::string endpointName;      ///< Name of endpoint to connect to
     std::string connectedService;  ///< Name of service we're connected to
     std::string connectedUri;      ///< URI we're connected to
+    bool local;
 };
 
 

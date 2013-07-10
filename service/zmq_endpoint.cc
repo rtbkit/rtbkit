@@ -385,14 +385,16 @@ bindTcp(PortRange const & portRange, std::string host)
 /*****************************************************************************/
 
 ZmqNamedProxy::
-ZmqNamedProxy()
-    : context_(new zmq::context_t(1))
+ZmqNamedProxy() :
+    context_(new zmq::context_t(1)),
+    local(true)
 {
 }
 
 ZmqNamedProxy::
-ZmqNamedProxy(std::shared_ptr<zmq::context_t> context)
-    : context_(context)
+ZmqNamedProxy(std::shared_ptr<zmq::context_t> context) :
+    context_(context),
+    local(true)
 {
 }
 
@@ -510,9 +512,11 @@ bool
 ZmqNamedProxy::
 connectToServiceClass(const std::string & serviceClass,
                       const std::string & endpointName,
-                      bool local,
+                      bool local_,
                       ConnectionStyle style)
 {
+    local = local_;
+
     // TODO: exception safety... if we bail don't screw around the auction
     ExcAssertNotEqual(connectionType, CONNECT_DIRECT);
     ExcAssertNotEqual(serviceClass, "");
@@ -579,7 +583,7 @@ onServiceNodeChange(const std::string & path,
     if (connectionState != CONNECTION_PENDING)
         return;  // no need to watch anymore
 
-    connectToServiceClass(serviceClass, endpointName, CS_ASYNCHRONOUS);
+    connectToServiceClass(serviceClass, endpointName, local, CS_ASYNCHRONOUS);
 }
 
 void
