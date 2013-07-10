@@ -355,9 +355,11 @@ int main(int argc, char ** argv)
     // Start up the exchange threads which should let bid requests flow through
     // our stack.
     MockExchange exchange(proxies, "mock-exchange");
-    exchange.start(
-            nExchangeThreads, nBidRequestsPerThread,
-            components.exchangePorts, { components.winStreamPort });
+    std::vector<NetworkAddress> bidUrls;
+    for(auto port : components.exchangePorts) bidUrls.emplace_back(port);
+    std::vector<NetworkAddress> winUrls;
+    winUrls.emplace_back(components.winStreamPort);
+    exchange.start(nExchangeThreads, nBidRequestsPerThread, bidUrls, winUrls);
 
     // Dump the budget stats while we wait for the test to finish.
     while (!exchange.isDone()) {

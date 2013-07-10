@@ -7,6 +7,7 @@
 */
 
 #include "jml/utils/rng.h"
+#include "jml/arch/info.h"
 #include "common/account_key.h"
 #include "common/currency.h"
 #include "common/bid_request.h"
@@ -17,10 +18,28 @@ namespace RTBKIT {
 
 struct PostAuctionEvent;
 
+struct NetworkAddress {
+    NetworkAddress(int port, std::string host = "localhost") :
+        host(std::move(host)),
+        port(port) {
+    }
+
+    NetworkAddress(std::string url) {
+        auto k = url.find_first_of(':');
+        if(k == std::string::npos) throw ML::Exception("url parsing failed for '" + url + "' and should be (host:port)");
+        host = url.substr(0, k);
+        port = std::stoi(url.substr(k + 1));
+    }
+
+    std::string host;
+    int port;
+};
+
 struct ExchangeSource {
-    ExchangeSource(int port);
+    ExchangeSource(NetworkAddress address);
     ~ExchangeSource();
 
+    void setup();
     void connect();
 
     struct Bid
@@ -31,15 +50,15 @@ struct ExchangeSource {
         Datacratic::Date bidTimestamp;
     };
 
+    NetworkAddress address;
     addrinfo * addr;
     int fd;
-
     ML::RNG rng;
 };
 
 struct BidSource : public ExchangeSource {
-    BidSource(int port = 0, int id = 0) :
-        ExchangeSource(port), id(id * port), key(0) {
+    BidSource(NetworkAddress address) : ExchangeSource(std::move(address)) {
+        key = rng.random();
     }
 
     void write(std::string const & text);
@@ -54,19 +73,16 @@ struct BidSource : public ExchangeSource {
     virtual void generateRandomBidRequest() {
     }
 
-    long long id;
     long long key;
 };
 
 struct WinSource : public ExchangeSource {
-    WinSource(int port) :
-        ExchangeSource(port) {
+    WinSource(NetworkAddress address) : ExchangeSource(std::move(address)) {
     }
 
-    void sendWin(
-            const BidRequest& bidRequest,
-            const Bid& bid,
-            const Amount& winPrice);
+    void sendWin(const BidRequest& bidRequest,
+                 const Bid& bid,
+                 const Amount& winPrice);
     void sendImpression(const BidRequest& bidRequest, const Bid& bid);
     void sendClick(const BidRequest& bidRequest, const Bid& bid);
 

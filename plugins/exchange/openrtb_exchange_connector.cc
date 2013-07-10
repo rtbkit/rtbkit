@@ -213,18 +213,18 @@ getBidSource() const
     struct OpenRTBBidSource : public BidSource {
         ML::RNG rng;
 
+        std::string host;
         std::string verb;
         std::string resource;
-        std::string host;
 
         OpenRTBBidSource(int port,
                          std::string verb,
                          std::string resource)
-            : BidSource(port),
+            : BidSource(NetworkAddress(port)),
+              host(ML::fqdn_hostname(std::to_string(port)) + ":" + std::to_string(port)),
               verb(std::move(verb)),
               resource(std::move(resource))
         {
-            host = ML::fqdn_hostname(std::to_string(port)) + ":" + std::to_string(port);
         }
 
         void generateRandomBidRequest() {

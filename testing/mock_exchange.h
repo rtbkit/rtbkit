@@ -37,11 +37,10 @@ struct MockExchange : public Datacratic::ServiceBase
 
     ~MockExchange();
 
-    void start(
-            size_t threadCount,
-            size_t numBidRequests,
-            std::vector<int> const & bidPorts,
-            std::vector<int> const & winPorts);
+    void start(size_t threadCount,
+               size_t numBidRequests,
+               std::vector<NetworkAddress> const & bids,
+               std::vector<NetworkAddress> const & wins);
 
     bool isDone() const {
         return !running;
@@ -51,7 +50,7 @@ private:
     int running;
 
     struct Worker {
-        Worker(MockExchange * exchange, size_t id, int bidPort, int winPort);
+        Worker(MockExchange * exchange, NetworkAddress bid, NetworkAddress win);
 
         void run();
         void run(size_t requests);

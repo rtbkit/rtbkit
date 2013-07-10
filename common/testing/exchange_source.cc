@@ -15,26 +15,31 @@
 using namespace std;
 using namespace RTBKIT;
 
-ExchangeSource::ExchangeSource(int port) :
-    addr(0), fd(-1)
+ExchangeSource::
+ExchangeSource(NetworkAddress address_) :
+    address(std::move(address_)),
+    addr(0),
+    fd(-1)
 {
-    if(port) {
-        addrinfo hint = { 0, AF_INET, SOCK_STREAM, 0, 0, 0, 0, 0 };
+    static int seed;
+    ML::atomic_inc(seed);
+    rng.seed(seed);
 
-        int res = getaddrinfo(0, to_string(port).c_str(), &hint, &addr);
-        ExcCheckErrno(!res, "getaddrinfo failed");
+    addrinfo hint = { 0, AF_INET, SOCK_STREAM, 0, 0, 0, 0, 0 };
 
-        if(!addr) {
-            throw ML::Exception("cannot find suitable address");
-        }
+    char const * host = 0;
+    if(address.host != "localhost") host = address.host.c_str();
+    int res = getaddrinfo(host, to_string(address.port).c_str(), &hint, &addr);
+    ExcCheckErrno(!res, "getaddrinfo failed");
+    if(!addr) throw ML::Exception("cannot find suitable address");
 
-        std::cerr << "publishing on port " << port << std::endl;
-        connect();
-    }
+    std::cerr << "sending to " << address.host << ":" << address.port << std::endl;
+    connect();
 }
 
 
-ExchangeSource::~ExchangeSource()
+ExchangeSource::
+~ExchangeSource()
 {
     if (addr) freeaddrinfo(addr);
     if (fd >= 0) close(fd);
@@ -46,7 +51,6 @@ ExchangeSource::
 connect()
 {
     if(fd >= 0) close(fd);
-
     fd = socket(AF_INET, SOCK_STREAM, 0);
     ExcCheckErrno(fd != -1, "socket failed");
 
@@ -56,9 +60,10 @@ connect()
             break;
         }
 
-        //ML::sleep(0.1);
+        ML::sleep(0.1);
     }
 }
+
 
 void
 BidSource::
@@ -81,6 +86,7 @@ write(std::string const & request)
     ExcAssertEqual((void *)current, (void *)end);
 }
 
+
 std::string
 BidSource::
 read()
@@ -93,9 +99,9 @@ read()
     }
 
     ExcCheckErrno(res != -1, "recv");
-
     return string(buffer.data(), res);
 }
+
 
 void
 BidSource::
@@ -129,7 +135,9 @@ parseResponse(const string& rawResponse) -> pair<bool, vector<Bid>>
     try {
         HttpHeader header;
         header.parse(rawResponse);
-        if (!header.contentLength) return make_pair(false, vector<Bid>());
+        if (!header.contentLength || header.resource != "200") {
+            return make_pair(false, vector<Bid>());
+        }
 
         payload = Json::parse(header.knownData);
     }
@@ -164,17 +172,17 @@ parseResponse(const string& rawResponse) -> pair<bool, vector<Bid>>
 }
 
 
-auto
+pair<bool, vector<ExchangeSource::Bid>>
 BidSource::
-recvBid() -> pair<bool, vector<Bid>>
+recvBid()
 {
     return parseResponse(read());
 }
 
 
-auto
+BidRequest
 BidSource::
-makeBidRequest() -> BidRequest
+makeBidRequest()
 {
     BidRequest bidRequest;
 
@@ -192,7 +200,7 @@ makeBidRequest() -> BidRequest
     bidRequest.location.countryCode = "CA";
     bidRequest.location.regionCode = "QC";
     bidRequest.location.cityName = "Montreal";
-    bidRequest.auctionId = Id(id * 10000000 + key);
+    bidRequest.auctionId = Id(key);
     bidRequest.exchange = "mock";
     bidRequest.language = "en";
     bidRequest.url = Url("http://datacratic.com");
@@ -222,6 +230,7 @@ sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
     sendEvent(event);
 }
 
+
 void
 WinSource::
 sendImpression(const BidRequest& bidRequest, const Bid& bid)
@@ -236,6 +245,7 @@ sendImpression(const BidRequest& bidRequest, const Bid& bid)
 
     sendEvent(event);
 }
+
 
 void
 WinSource::

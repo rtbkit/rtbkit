@@ -45,16 +45,16 @@ MockExchange::
 
 void
 MockExchange::
-start(  size_t threadCount,
-        size_t numBidRequests,
-        std::vector<int> const & bidPorts,
-        std::vector<int> const & winPorts)
+start(size_t threadCount,
+      size_t numBidRequests,
+      std::vector<NetworkAddress> const & bids,
+      std::vector<NetworkAddress> const & wins)
 {
     try {
         running = threadCount;
 
-        auto startWorker = [=](size_t i, int bidPort, int winPort) {
-            Worker worker(this, i, bidPort, winPort);
+        auto startWorker = [=](NetworkAddress bid, NetworkAddress win) {
+            Worker worker(this, std::move(bid), std::move(win));
             if(numBidRequests) {
                 worker.run(numBidRequests);
             }
@@ -65,13 +65,10 @@ start(  size_t threadCount,
             ML::atomic_dec(running);
         };
 
-        int bp = 0;
-        int wp = 0;
-
         for(size_t i = 0; i != threadCount; ++i) {
-            int bidPort = bidPorts[bp++ % bidPorts.size()];
-            int winPort = winPorts[wp++ % winPorts.size()];
-            threads.create_thread(std::bind(startWorker, i, bidPort, winPort));
+            int a = i % bids.size();
+            int b = i % wins.size();
+            threads.create_thread(std::bind(startWorker, bids[a], wins[b]));
         }
     }
     catch (const exception& ex) {
@@ -81,9 +78,13 @@ start(  size_t threadCount,
 
 
 MockExchange::Worker::
-Worker(MockExchange * exchange, size_t id, int bidPort, int winPort) :
-    exchange(exchange), bids(bidPort, id), wins(winPort), rng(random())
-{}
+Worker(MockExchange * exchange, NetworkAddress bid, NetworkAddress win) :
+    exchange(exchange),
+    bids(std::move(bid)),
+    wins(std::move(win)),
+    rng(random())
+{
+}
 
 
 void
@@ -147,6 +148,7 @@ MockExchange::Worker::isWin(const BidRequest&, const ExchangeSource::Bid& bid)
 
     return make_pair(true, MicroUSD_CPM(bid.maxPrice * rng.random01()));
 }
+
 
 bool
 MockExchange::Worker::isClick(const BidRequest&, const ExchangeSource::Bid&)
