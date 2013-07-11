@@ -1362,6 +1362,8 @@ doBidResult(const Id & auctionId,
                        "bid response had no bid price");
     }
 
+    Amount price = winPrice;
+
     if (status == BS_WIN) {
         //info.stats->totalSpent += winPrice;
         //info.stats->totalBidOnWins += bidPrice;
@@ -1369,7 +1371,15 @@ doBidResult(const Id & auctionId,
         WinCostModel wcm = response.wcm;
         wcm.data["win"] = winLossMeta;
         Bids bids = Bids::fromJson(response.bidData);
-        Amount price = wcm.evaluate(bids.bidForSpot(adspot_num), winPrice);
+        price = wcm.evaluate(bids.bidForSpot(adspot_num), winPrice);
+
+        recordOutcome(winPrice.value, "accounts.%s.winPrice.%s",
+                      account.toString('.'),
+                      winPrice.getCurrencyStr());
+
+        recordOutcome(price.value, "accounts.%s.winCostPrice.%s",
+                      account.toString('.'),
+                      price.getCurrencyStr());
 
         // This is a real win
         guard.clear();
@@ -1391,7 +1401,7 @@ doBidResult(const Id & auctionId,
                to_string(adspot_num),
                response.agent,
                account.at(1, ""),
-               winPrice.toString(),
+               price.toString(),
                response.price.maxPrice.toString(),
                to_string(response.price.priority),
                submission.bidRequestStr,
@@ -1410,7 +1420,7 @@ doBidResult(const Id & auctionId,
     sendAgentMessage(response.agent, msg, timestamp,
                      confidence, auctionId,
                      to_string(adspot_num),
-                     winPrice.toString(),
+                     price.toString(),
                      submission.bidRequestStrFormat,
                      submission.bidRequestStr,
                      response.bidData,
@@ -1428,7 +1438,7 @@ doBidResult(const Id & auctionId,
     i.bid = response;
     i.reportedStatus = status;
     //i.auctionTime = auction.start;
-    i.setWin(timestamp, status, winPrice, winLossMeta);
+    i.setWin(timestamp, status, price, winLossMeta);
 
     // Copy the configuration into the finished info so that we can
     // know which visits to route back
