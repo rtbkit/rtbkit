@@ -2284,22 +2284,9 @@ void registerDefaultBuckets()
         return;
 
     std::unique_lock<std::mutex> guard(registerBucketsMutex);
-
-    /* Sample line
-       s3 1 accesskeyid accesskey <S3 host> <S3 protocol; def "http"> <bandwidth>
-    */
+    defaultBucketsRegistered = true;
 
     string filename = "/home/" + ML::username() + "/.cloud_credentials";
-    //cerr << "filename = " << filename << endl;
-
-    char* keyIdEnvChar = getenv("S3_ACCESS_KEY_ID");
-    string keyIdEnv = (keyIdEnvChar == NULL ? string() : string(keyIdEnvChar));
-    char* keyEnvChar = getenv("S3_ACCESS_KEY");
-    string keyEnv = (keyEnvChar == NULL ? string() : string(keyEnvChar));
-
-    if (keyIdEnv != "" && keyEnv != "")
-        registerS3Buckets(keyIdEnv, keyEnv, 20., "http", "s3.amazonaws.com");
-
     if (ML::fileExists(filename)) {
         std::ifstream stream(filename.c_str());
         while (stream) {
@@ -2356,10 +2343,28 @@ void registerDefaultBuckets()
             registerS3Buckets(keyId, key, boost::lexical_cast<double>(bandwidth),
                               protocol, serviceUri);
         }
-            
+        return;
     }
 
-    defaultBucketsRegistered = true;
+    char* configFilenameCStr = getenv("CONFIG");
+    string configFilename = (configFilenameCStr == NULL ?
+                                string() :
+                                string(configFilenameCStr));
+    if(configFilename != "")
+    {
+        ML::File_Read_Buffer buf(configFilename);
+        Json::Value config = Json::parse(string(buf.start(), buf.end()));
+        if(config.isMember("s3"))
+        {
+            registerS3Buckets(
+                config["s3"]["AccessKeyId"].asString(),
+                config["s3"]["AccessKey"].asString(),
+                20.,
+                "http",
+                "s3.amazonaws.com");
+        }
+        return;
+    }
 }
 
 void registerS3Buckets(const std::string & accessKeyId,
