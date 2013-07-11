@@ -2357,8 +2357,8 @@ void registerDefaultBuckets()
         if(config.isMember("s3"))
         {
             registerS3Buckets(
-                config["s3"]["AccessKeyId"].asString(),
-                config["s3"]["AccessKey"].asString(),
+                config["s3"]["accessKeyId"].asString(),
+                config["s3"]["accessKey"].asString(),
                 20.,
                 "http",
                 "s3.amazonaws.com");
