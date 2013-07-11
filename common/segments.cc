@@ -26,7 +26,7 @@ namespace Datacratic {
 void
 DefaultDescription<SegmentList>::
 parseJsonTyped(SegmentList * val, JsonParsingContext & context)
-    const
+const
 {
     Json::Value v = context.expectJson();
     //cerr << "got segments " << v << endl;
@@ -36,7 +36,7 @@ parseJsonTyped(SegmentList * val, JsonParsingContext & context)
 void
 DefaultDescription<SegmentList>::
 printJsonTyped(const SegmentList * val, JsonPrintingContext & context)
-    const
+const
 {
     context.startArray(val->ints.size() + val->strings.size());
     if (val->weights.empty()) {
@@ -49,8 +49,23 @@ printJsonTyped(const SegmentList * val, JsonPrintingContext & context)
             context.writeString(val->strings[i]);
         }
     }
-    else {
-        throw ML::Exception("weights unsupported");
+    else if (val->weights.size() == val->ints.size())
+    {
+        for (unsigned i = 0;  i < val->ints.size();  ++i) {
+            context.newArrayElement();
+            context.writeString(to_string(val->ints[i])+":"+to_string(val->weights[i]));
+        }
+    }
+    else if (val->weights.size() == val->strings.size())
+    {
+        for (unsigned i = 0;  i < val->strings.size();  ++i) {
+            context.newArrayElement();
+            context.writeString(val->strings[i]+":"+to_string(val->weights[i]));
+        }
+    }
+    else
+    {
+    	throw ML::Exception("weights unsupported");
     }
     context.endArray();
 }
@@ -58,7 +73,7 @@ printJsonTyped(const SegmentList * val, JsonPrintingContext & context)
 bool
 DefaultDescription<SegmentList>::
 isDefaultTyped(const SegmentList * val)
-    const
+const
 {
     return val->empty();
 }
@@ -73,7 +88,7 @@ DefaultDescription(ValueDescriptionT<SegmentList> * newInner)
 void
 DefaultDescription<SegmentsBySource>::
 parseJsonTyped(SegmentsBySource * val, JsonParsingContext & context)
-    const
+const
 {
     Json::Value v = context.expectJson();
     //cerr << "got segments " << v << endl;
@@ -86,7 +101,7 @@ printJsonTyped(const SegmentsBySource * val,
                JsonPrintingContext & context) const
 {
     context.startObject();
-    for (const auto & v: *val) {
+for (const auto & v: *val) {
         context.startMember(v.first);
         inner->printJsonTyped(v.second.get(), context);
     }
@@ -96,7 +111,7 @@ printJsonTyped(const SegmentsBySource * val,
 bool
 DefaultDescription<SegmentsBySource>::
 isDefaultTyped(const SegmentsBySource * val)
-    const
+const
 {
     return val->empty();
 }
@@ -174,7 +189,7 @@ bool anyMatchesLookup(const Seq1 & seq1, const Seq2 & seq2)
 {
     auto it2 = seq2.begin(), end2 = seq2.end();
     for (auto it1 = seq1.begin(), end1 = seq1.end();
-         it1 != end1;  ++it1)
+            it1 != end1;  ++it1)
         if (std::binary_search(it2, end2, *it1)) return true;
     return false;
 }
@@ -196,7 +211,7 @@ bool anyMatches(const Seq1 & seq1, const Seq2 & seq2)
         // roughly equal sizes; jointly iterate
         auto it1 = seq1.begin(), end1 = seq1.end();
         auto it2 = seq2.begin(), end2 = seq2.end();
-    
+
         while (it1 != end1 && it2 != end2) {
             if (*it1 == *it2) return true;
             else if (*it1 < *it2) ++it1;
@@ -212,7 +227,7 @@ SegmentList::
 match(const SegmentList & other) const
 {
     return anyMatches(ints, other.ints)
-        || anyMatches(strings, other.strings);
+           || anyMatches(strings, other.strings);
 }
 
 bool
@@ -259,7 +274,7 @@ createFromJson(const Json::Value & json)
                 throw ML::Exception("can't create weighted segment from "
                                     + json.toString());
             float weight = val[1].asDouble();
-            
+
             if (val[0].isInt())
                 result.add(val[0].asInt(), weight);
             else if (val[0].isNumeric())
@@ -272,7 +287,7 @@ createFromJson(const Json::Value & json)
             result.add(val.asDouble());
         else result.add(val.asString());
     }
-    
+
     return result;
 }
 
@@ -483,7 +498,7 @@ SegmentsBySource::
 sortAll()
 {
     for (auto it = begin(), end = this->end();
-         it != end;  ++it)
+            it != end;  ++it)
         it->second->sort();
 }
 
@@ -492,7 +507,7 @@ SegmentsBySource::
 get(const std::string & str) const
 {
     static const SegmentList NONE;
-    
+
     auto it = find(str);
     if (it == end()) return NONE;
     if (!it->second)
@@ -576,7 +591,7 @@ createFromJson(const Json::Value & json)
         *segs = SegmentList::createFromJson(*it);
         result.addSegment(it.memberName(), segs);
     }
-    
+
     return result;
 }
 
@@ -602,9 +617,9 @@ reconstitute(ML::DB::Store_Reader & store)
     if (version != 0)
         throw ML::Exception("invalid version");
     compact_size_t sz(store);
-    
+
     SegmentsBySourceBase newMe;
-    
+
     for (unsigned i = 0;  i < sz;  ++i) {
         string k;
         store >> k;
@@ -612,7 +627,7 @@ reconstitute(ML::DB::Store_Reader & store)
         store >> *l;
         newMe[k] = l;
     }
-    
+
     swap(newMe);
 }
 

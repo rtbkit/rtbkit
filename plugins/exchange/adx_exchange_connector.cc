@@ -58,39 +58,6 @@ AdXExchangeConnector(const std::string & name,
 typedef ::BidRequest GoogleBidRequest ;
 typedef ::BidResponse GoogleBidResponse ;
 
-/*
- *  For the sake of implementing the Google's specific filtering
- *  we have to store, one per AdSlot (OpenRTB::Imp)
- */
-struct AdXBidRequest: RTBKIT::BidRequest {
-    /**
-     * The disallowed attribute ids for the ads that can show in this slot.
-     * See publisher-excluded-creative-attributes.txt file in the technical
-     * documentation for a list of ids.
-     * Indexed by BidRequest.AdSlot.id
-     */
-    std::unordered_map<int32_t,std::unordered_set<int32_t>> excluded_attribute_;
-
-    /**
-     *The allowed vendor types.  See the vendors.txt file in the technical
-     * documentation for a list of ids.  When the seller_network is GDN, the
-     * vendor ids listed in gdn-vendors.txt in the supporting technical
-     * documentation are also allowed.
-     * Indexed by BidRequest.AdSlot.id
-     */
-    std::unordered_map<int32_t,std::unordered_set<int32_t>> allowed_vendor_type_;
-
-    /**
-     * The disallowed sensitive ad categories.  See the
-     * ad-sensitive-categories.txt file in the technical documentation for a
-     * list of ids.  You should enforce these exclusions if you have the ability
-     * to classify ads into the listed categories.
-     * Indexed by BidRequest.AdSlot.id
-     */
-    std::unordered_map<int32_t,std::unordered_set<int32_t>> excluded_sensitive_category_;
-};
-
-
 namespace {
 
 /**
@@ -108,9 +75,10 @@ ParseGbrMobile (const GoogleBidRequest& gbr, BidRequest& br)
         br.device.reset (new OpenRTB::Device);
     auto& dev = *br.device.get();
     const auto& mobile = gbr.mobile ();
-    if (mobile.has_platform()) 	dev.os    = mobile.platform() ;
-    if (mobile.has_brand()) 	dev.make  = mobile.brand() ;
-    if (mobile.has_model()) 	dev.model = mobile.model() ;
+    if (mobile.has_platform())
+        dev.os    = mobile.platform() ;
+    if (mobile.has_brand()) dev.make  = mobile.brand() ;
+    if (mobile.has_model()) dev.model = mobile.model() ;
     if (mobile.has_os_version())
     {
         dev.osv = "";
@@ -167,7 +135,7 @@ ParseGbrMobile (const GoogleBidRequest& gbr, BidRequest& br)
     if (mobile.has_screen_width())       ext.atStr("screen_width")       = mobile.screen_width();
     if (mobile.has_screen_orientation()) ext.atStr("screen_orientation") = mobile.screen_orientation();
     if (mobile.has_screen_height()&&mobile.has_screen_width())
-    	ext.atStr("res") = to_string(mobile.screen_width()) + "x" + to_string(mobile.screen_height());
+        ext.atStr("res") = to_string(mobile.screen_width()) + "x" + to_string(mobile.screen_height());
 
     // this bid request should have exactly 1 impression.
     if (br.imp.empty()) br.imp.emplace_back();
@@ -217,7 +185,7 @@ ParseGbrOtherDevice (const GoogleBidRequest& gbr, BidRequest& br)
  *   around functionalities currently handled.
  *   The bid_requests which don't pass this filter, will cause
  *   the Connector to drop the auction.
- *	TODO: handle all possible cases.
+ *   TODO: handle all possible cases.
  */
 bool
 GbrIsHandled (const GoogleBidRequest& gbr)
@@ -283,7 +251,7 @@ ParseGbrGeoCriteria (const GoogleBidRequest& gbr, BidRequest& br)
 
 //
 void
-ParseGbrAdSlot (const GoogleBidRequest& gbr, AdXBidRequest& br)
+ParseGbrAdSlot (const GoogleBidRequest& gbr, BidRequest& br)
 {
     auto& imp = br.imp;
     imp.clear ();
@@ -304,25 +272,31 @@ ParseGbrAdSlot (const GoogleBidRequest& gbr, AdXBidRequest& br)
 
         /**
          *   This is what google says about the ad_block_key:
-		 *   "The BidRequest.AdSlot.ad_block_key field in the RTB protocol contains
-		 *   a 64-bit integer that provides a stable identifier for the (web_property,
-		 *   slot, page) combinations. This new field allows you to track the performance
-		 *    of specific adblock-ad combinations to make better bidding decisions."
+         *   "The BidRequest.AdSlot.ad_block_key field in the RTB protocol contains
+         *   a 64-bit integer that provides a stable identifier for the (web_property,
+         *   slot, page) combinations. This new field allows you to track the performance
+         *    of specific adblock-ad combinations to make better bidding decisions."
          */
         if (slot.has_ad_block_key())
-        	spot.tagid = to_string(slot.ad_block_key());
+            spot.tagid = to_string(slot.ad_block_key());
 
-        auto& allowed_vendor_type = br.allowed_vendor_type_[slot.id()];
-        for (auto i: boost::irange(0,slot.allowed_vendor_type_size()))
-            allowed_vendor_type.insert(slot.allowed_vendor_type(i));
+        // Parse restrictions ;
+        {
+            vector<int> tmp ;
+            for (auto i: boost::irange(0,slot.allowed_vendor_type_size()))
+                tmp.push_back(slot.allowed_vendor_type(i));
+            spot.restrictions.addInts("allowed_vendor_type", tmp);
 
-        auto& excluded_attribute  = br.excluded_attribute_[slot.id()];
-        for (auto i: boost::irange(0,slot.excluded_attribute_size()))
-            excluded_attribute.insert(slot.excluded_attribute(i));
+            tmp.clear();
+            for (auto i: boost::irange(0,slot.excluded_attribute_size()))
+                tmp.push_back(slot.excluded_attribute(i));
+            spot.restrictions.addInts("excluded_attribute", tmp);
 
-        auto& exluded_sensitive_category = br.excluded_sensitive_category_[slot.id()];
-        for (auto i: boost::irange(0,slot.excluded_sensitive_category_size()))
-            exluded_sensitive_category.insert(slot.excluded_sensitive_category(i));
+            tmp.clear();
+            for (auto i: boost::irange(0,slot.excluded_sensitive_category_size()))
+                tmp.push_back(slot.excluded_sensitive_category(i));
+            spot.restrictions.addInts("excluded_sensitive_category", tmp);
+        }
 
         if (slot.has_slot_visibility())
         {
@@ -376,10 +350,10 @@ parseBidRequest(HttpAuctionHandler & connection,
         return std::shared_ptr<BidRequest> ();
     }
 
-    std::shared_ptr<BidRequest> res (new AdXBidRequest);
+    std::shared_ptr<BidRequest> res (new BidRequest);
     res->timeAvailableMs = deadline_ms () ;
 
-    auto& br = *reinterpret_cast<AdXBidRequest*>(res.get()) ;
+    auto& br = *res.get() ;
 
     // TODO: check reuse
     auto binary_to_hexstr = [] (const std::string& str)
@@ -439,8 +413,8 @@ parseBidRequest(HttpAuctionHandler & connection,
         }
         else if (6==gbr.ip().size())
         {
-        	// TODO: proto says that 3 bytes will be transmitted
-        	// for IPv4 and 6 bytes for IPv6
+            // TODO: proto says that 3 bytes will be transmitted
+            // for IPv4 and 6 bytes for IPv6
             struct Ip
             {
                 unsigned char a;
@@ -475,14 +449,14 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     if (gbr.has_hosted_match_data())
     {
-    	// TODO should be set on br.user.ext
-    	br.ext.atStr("user.ext.hosted_match_data") = gbr.hosted_match_data();
+        // TODO should be set on br.user.ext
+        br.ext.atStr("user.ext.hosted_match_data") = gbr.hosted_match_data();
     }
 
     if (gbr.has_cookie_age_seconds())
     {
-    	// TODO should be set on br.user.ext
-    	br.ext.atStr("user.ext.cookie_age_seconds") = gbr.cookie_age_seconds();
+        // TODO should be set on br.user.ext
+        br.ext.atStr("user.ext.cookie_age_seconds") = gbr.cookie_age_seconds();
     }
 
     // TODO: BidRequest.cookie_version
@@ -495,7 +469,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     // currently missing from OpenRTB
     // (see: http://code.google.com/p/openrtb/issues/detail?id=44)
     if (gbr.has_timezone_offset())
-    	device.ext.atStr("timezone_offset") = gbr.timezone_offset();
+        device.ext.atStr("timezone_offset") = gbr.timezone_offset();
 
     if (br.site)
     {
@@ -506,9 +480,9 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     if (gbr.has_seller_network_id())
     {
-    	if (!br.site->publisher) br.site->publisher.reset(new OpenRTB::Publisher) ;
-    	br.site->publisher->id = Id(gbr.seller_network_id());
-    	br.site->id = Id(gbr.seller_network_id());
+        if (!br.site->publisher) br.site->publisher.reset(new OpenRTB::Publisher) ;
+        br.site->publisher->id = Id(gbr.seller_network_id());
+        br.site->id = Id(gbr.seller_network_id());
     }
 
     // parse Impression array
@@ -520,10 +494,10 @@ parseBidRequest(HttpAuctionHandler & connection,
     // detected verticals:
     if (gbr.detected_vertical_size() > 0)
     {
-    	vector<pair<int,float>> segs;
+        vector<pair<int,float>> segs;
         for (auto i: boost::irange(0,gbr.detected_vertical_size()))
-        	segs.emplace_back(make_pair(gbr.detected_vertical(i).id(),
-        			gbr.detected_vertical(i).weight()));
+            segs.emplace_back(make_pair(gbr.detected_vertical(i).id(),
+                                        gbr.detected_vertical(i).weight()));
         br.segments.addWeightedInts("AdxDetectedVerticals", segs);
     }
 
@@ -626,19 +600,7 @@ getResponse(const HttpAuctionHandler & connection,
         // TODO: check what that could be
         adslot->set_id(auction.request->imp[0].id.toInt());
         adslot->set_adgroup_id(auction.request->imp[0].id.toInt());
-
-#if 0
-        cerr << "b.cid =" << Id(resp.agent) << endl;
-        cerr << "b.id =" << Id(auction.id, auction.request->imp[0].id) << endl ;
-        cerr << "b. =auction.request->imp[0].id =" << auction.request->imp[0].id << endl ;
-        cerr << "b.impid = " <<  auction.request->imp[spotNum].id << endl ;
-        cerr << "b.price.val = " << USD_CPM(resp.price.maxPrice) << endl ;
-        cerr << "b.adm = " << crinfo->adm << endl ;
-        cerr << "b.adomain = " << crinfo->adomain.size() << endl ;
-        cerr << "b.crid = " << crinfo->crid << endl ;
-#endif
     }
-
     return HttpResponse(200, "application/octet-stream", gresp.SerializeAsString());
 }
 
@@ -700,7 +662,6 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
 }
 } // file scope
 
-
 ExchangeConnector::ExchangeCompatibility
 AdXExchangeConnector::
 getCreativeCompatibility(const Creative & creative,
@@ -731,17 +692,20 @@ getCreativeCompatibility(const Creative & creative,
     getAttr(result, pconf, "agencyId", crinfo->agency_id_, includeReasons);
 
     string tmp;
-    const auto to_int = [] (const string& str) {return atoi(str.c_str());};
+    const auto to_int = [] (const string& str) {
+        return atoi(str.c_str());
+    };
 
     // 4.  Must have vendorType
     getAttr(result, pconf, "vendorType", tmp, includeReasons);
     if (!tmp.empty())
     {
-    	tokenizer<> tok(tmp);
-    	auto& ints = crinfo->vendor_type_;
-    	transform(tok.begin(), tok.end(),
-    			std::inserter(ints, ints.begin()),[&](const std::string& s) {
-    		return atoi(s.data()); });
+        tokenizer<> tok(tmp);
+        auto& ints = crinfo->vendor_type_;
+        transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return atoi(s.data());
+        });
     }
 
     tmp.clear();
@@ -749,11 +713,12 @@ getCreativeCompatibility(const Creative & creative,
     getAttr(result, pconf, "attribute", tmp, includeReasons);
     if (!tmp.empty())
     {
-    	tokenizer<> tok(tmp);
-    	auto& ints = crinfo->attribute_;
-    	transform(tok.begin(), tok.end(),
-    			std::inserter(ints, ints.begin()),[&](const std::string& s) {
-    		return atoi(s.data()); });
+        tokenizer<> tok(tmp);
+        auto& ints = crinfo->attribute_;
+        transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return atoi(s.data());
+        });
     }
 
     tmp.clear();
@@ -761,11 +726,12 @@ getCreativeCompatibility(const Creative & creative,
     getAttr(result, pconf, "sensitiveCategory", tmp, includeReasons);
     if (!tmp.empty())
     {
-    	tokenizer<> tok(tmp);
-    	auto& ints = crinfo->category_;
-    	transform(tok.begin(), tok.end(),
-    			std::inserter(ints, ints.begin()),[&](const std::string& s) {
-    		return atoi(s.data()); });
+        tokenizer<> tok(tmp);
+        auto& ints = crinfo->category_;
+        transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return atoi(s.data());
+        });
     }
 
     // Cache the information
@@ -780,44 +746,37 @@ bidRequestCreativeFilter(const BidRequest & request,
                          const AgentConfig & config,
                          const void * info) const
 {
-	const auto crinfo = reinterpret_cast<const CreativeInfo*>(info);
-	const auto& adxbr = reinterpret_cast<const AdXBidRequest&>(request);
+    const auto crinfo = reinterpret_cast<const CreativeInfo*>(info);
 
-	// This function is called once per BidRequest.
-	// However a bid request can return multiple AdSlot.
-	// The creative restrictions do apply per AdSlot.
-	// We then check that *all* the AdSlot present in this BidRequest
-	// do pass the filter.
-	for (const auto& spot: request.imp)
-	{
-		// the following cast will always work, as the
-		// google says: int32 BidRequest.AdSlot.id
-		const auto id = static_cast<int32_t>(spot.id.toInt());
+    // This function is called once per BidRequest.
+    // However a bid request can return multiple AdSlot.
+    // The creative restrictions do apply per AdSlot.
+    // We then check that *all* the AdSlot present in this BidRequest
+    // do pass the filter.
+    // TODO: verify performances of the implementation.
+    for (const auto& spot: request.imp)
+    {
 
-		// check excluded attribute
-		auto it = adxbr.excluded_attribute_.find (id);
-		if (it != adxbr.excluded_attribute_.end())
-			for (auto atr: crinfo->attribute_)
-				if ( (*it).second.find(atr) != (*it).second.end())
-					return false ;
+        const auto& excluded_attribute_seg = spot.restrictions.get("excluded_attribute");
+        for (auto atr: crinfo->attribute_)
+            if (excluded_attribute_seg.contains(atr))
+                return false ;
 
-		// check excluded sensitivity
-		it = adxbr.excluded_sensitive_category_.find (id);
-		if (it != adxbr.excluded_sensitive_category_.end())
-			for (auto atr: crinfo->category_)
-				if ( (*it).second.find(atr) != (*it).second.end())
-					return false ;
+        const auto& excluded_sensitive_category_seg =
+            spot.restrictions.get("excluded_sensitive_category");
+        // check excluded sensitivity
+        for (auto atr: crinfo->category_)
+            if (excluded_sensitive_category_seg.contains(atr))
+                return false ;
 
-		// finally check vendor type;
-		it = adxbr.allowed_vendor_type_.find (id) ;
-		if (it != adxbr.allowed_vendor_type_.end())
-			for (auto atr: crinfo->vendor_type_)
-				if ( (*it).second.find(atr) == (*it).second.end())
-					return false ;
-	}
-	return true;
+        const auto& allowed_vendor_type_seg =
+            spot.restrictions.get("allowed_vendor_type");
+        for (auto atr: crinfo->vendor_type_)
+            if (!allowed_vendor_type_seg.contains(atr))
+                return false ;
+    }
+    return true;
 }
-
 
 } // namespace RTBKIT
 
