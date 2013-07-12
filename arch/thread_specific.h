@@ -17,8 +17,16 @@
 #include <boost/thread.hpp>
 #include "exception.h"
 #include "jml/utils/exc_assert.h"
+#include <thread>
+#include "spinlock.h"
 
 namespace ML {
+
+/*****************************************************************************/
+/* THREAD SPECIFIC                                                           */
+/*****************************************************************************/
+
+/** A fast thread specific variable. */
 
 template<typename Contained, typename Tag = void>
 struct Thread_Specific {
@@ -114,14 +122,21 @@ struct ThreadSpecificInstanceInfo {
         int threadNum;
         static int totalNumThreads;
 
-        std::vector<T> info;
+        /** Holds the values, one for each instance.  Note that it is the
+            instance's responsibility to delete them when its destructor is
+            called; this vector will continue to hold a stale reference.
+        */
+        std::vector<T *> info;
 
-        T * get(int index)
+        T * get(int index, const ThreadSpecificInstanceInfo * owner)
         {
             ExcAssertGreaterEqual(index, 0);
             if (info.size() <= index)
                 info.resize(index + 1);
-            return &info[index];
+            if (!info[index])
+                info[index] = owner->create();
+
+            return info[index];
         }
     };
 
@@ -130,9 +145,27 @@ struct ThreadSpecificInstanceInfo {
     {
     }
 
+    ~ThreadSpecificInstanceInfo()
+    {
+        // All threads need to know that this instance is gone
+        for (auto i: myInstances)
+            delete i;
+    }
+
     int index;
     static Thread_Specific<PerThreadInfo> staticInfo;
     static int currentIndex;
+
+    mutable std::vector<T *> myInstances;
+    mutable Spinlock myInstancesLock;
+
+    T * create() const
+    {
+        std::unique_ptr<T> val(new T());
+        std::unique_lock<Spinlock> guard(myInstancesLock);
+        myInstances.push_back(val.get());
+        return val.release();
+    }
 
     static PerThreadInfo * getThisThread()
     {
@@ -142,19 +175,19 @@ struct ThreadSpecificInstanceInfo {
     T * get(PerThreadInfo * & info) const
     {
         if (!info) info = staticInfo.get();
-        return info->get(index);
+        return info->get(index, this);
     }
 
     T * get(PerThreadInfo * const & info) const
     {
-        return info->get(index);
+        return info->get(index, this);
     }
 
     /** Return the data for this thread for this instance of the class. */
     T * get() const
     {
         PerThreadInfo * info = staticInfo.get();
-        return info->get(index);
+        return info->get(index, this);
     }
 };
 
