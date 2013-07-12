@@ -45,6 +45,8 @@ std::string expectJsonStringAsciiPermissive(Parse_Context & context, char c);
 
 bool matchJsonString(Parse_Context & context, std::string & str);
 
+bool matchJsonNull(Parse_Context & context);
+
 void
 expectJsonArray(Parse_Context & context,
                 const std::function<void (int, Parse_Context &)> & onEntry);

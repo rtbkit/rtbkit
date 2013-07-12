@@ -24,6 +24,12 @@ $(eval $(call add_sources,node_exception_tracing.cc))
 
 LIBARCH_LINK :=	ACE dl
 
+ifeq ($(BOOST_VERSION),52)
+
+LIBARCH_LINK += boost_system
+
+endif
+
 $(eval $(call library,arch,$(LIBARCH_SOURCES),$(LIBARCH_LINK)))
 $(eval $(call library,exception_hook,exception_hook.cc,dl))
 $(eval $(call library,node_exception_tracing,node_exception_tracing.cc,dl))
