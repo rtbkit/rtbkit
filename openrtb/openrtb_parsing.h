@@ -410,6 +410,15 @@ struct DefaultDescription<OpenRTB::SourceRelationship>
 };
 
 template<>
+struct DefaultDescription<OpenRTB::Embeddable>
+    : public TaggedEnumDescription<OpenRTB::Embeddable> {
+
+    DefaultDescription()
+    {
+    }
+};
+
+template<>
 struct DefaultDescription<OpenRTB::AdPosition>
     : public TaggedEnumDescription<OpenRTB::AdPosition> {
 
