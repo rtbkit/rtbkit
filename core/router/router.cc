@@ -1836,7 +1836,8 @@ doBid(const std::vector<std::string> & message)
             continue;
         }
 
-        if (bid.price.isNegative() || bid.price > USD_CPM(200)) {
+        const Amount maxBidPrice = bidPriceCeiling(bid.price.currencyCode);
+        if (bid.price.isNegative() || bid.price > maxBidPrice) {
             returnInvalidBid(i, "invalidPrice",
                     "bid price of %s is outside range of $0-$200 CPM"
                     "(%s) parsing bid %s",

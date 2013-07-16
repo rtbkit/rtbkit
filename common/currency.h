@@ -239,6 +239,13 @@ struct MicroUSD_CPM : public Amount {
     operator int64_t () const { return value * 1000; }
 };
 
+
+/** Ceiling on all bid prices for a given currency. All bids prices should be
+    checked against the returned value to guard against buggy agents.
+ */
+Amount bidPriceCeiling(CurrencyCode code);
+
+
 /*****************************************************************************/
 /* CURRENCY POOL                                                             */
 /*****************************************************************************/
