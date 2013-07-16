@@ -482,7 +482,7 @@ struct VideoPlaybackMethod: public TaggedEnum<VideoPlaybackMethod> {
 
 struct VideoStartDelay: public TaggedEnum<VideoStartDelay> {
     enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
+        UNSPECIFIED = -3,  ///< Not explicitly specified
 
         PRE_ROLL = 0,
         GENERIC_MID_ROLL = -1,
@@ -799,7 +799,8 @@ struct Video {
     List<VideoBidResponseProtocol> protocol;  ///< Bid response protocols (table 6.7)
     TaggedInt w;                ///< Width of player in pixels
     TaggedInt h;                ///< Height of player in pixels
-    TaggedInt startdelay;       ///< Starting delay in seconds for placement (table 6.9)
+    ///< Starting delay in seconds for placement (table 6.9)
+    TaggedIntDef<VideoStartDelay::UNSPECIFIED> startdelay;
     TaggedIntDef<1> sequence;   ///< Which ad number in the bid request
     List<CreativeAttribute> battr; ///< Which creative attributes are blocked
     TaggedIntDef<0> maxextended;///< Max extended video ad duration
