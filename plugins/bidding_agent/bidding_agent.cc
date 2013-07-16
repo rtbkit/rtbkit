@@ -485,11 +485,13 @@ doBid(Id id, const Bids & bids, const Json::Value & jsonMeta, const WinCostModel
         lock_guard<mutex> guard (requestsLock);
 
         auto it = requests.find(id);
-        if (it != requests.end()) {
-            beforeSend = it->second.timestamp;
-            fromRouter = it->second.fromRouter;
-            requests.erase(it);
+        if (it == requests.end()) {
+            throw ML::Exception("Unknown bid id");
         }
+
+        beforeSend = it->second.timestamp;
+        fromRouter = it->second.fromRouter;
+        requests.erase(it);
     }
     if (fromRouter.empty()) return;
 
