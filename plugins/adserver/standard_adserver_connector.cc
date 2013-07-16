@@ -101,7 +101,7 @@ start()
 {
     bindTcp();
 
-    publisher_.bindTcp(getServices()->ports->getRange("adServer/logger"));
+    publisher_.bindTcp(getServices()->ports->getRange("adServer.logger"));
     publisher_.start();
     HttpAdServerConnector::start();
 }

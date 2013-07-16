@@ -60,7 +60,7 @@ struct MockAdServerConnector : public HttpAdServerConnector
         // And initialize the generic publisher on a predefined range of ports to try avoiding that
         // collision between different kind of service occurs.
         publisher.init(services->config, serviceName() + "/logger");
-        publisher.bindTcp(services->ports->getRange("adServer/logger"));
+        publisher.bindTcp(services->ports->getRange("adServer.logger"));
     }
 
     void start() {
