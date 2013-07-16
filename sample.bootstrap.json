@@ -47,6 +47,6 @@
         "monitor.zmq":            [24000, 25000],
         "monitor.http":             9987,
 
-        "adServer/logger":        [25000, 26000]
+        "adServer.logger":        [25000, 26000]
     }
 }
