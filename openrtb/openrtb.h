@@ -879,16 +879,19 @@ struct Geo {
     ~Geo();
     TaggedFloat lat;        ///< Latitude of user (-90 to 90; South negative)
     TaggedFloat lon;        ///< Longtitude (-180 to 180; west is negative)
-    TaggedBool latlonconsent;  ///< Has user given consent for lat/lon use? (Rubocon extension)
     string country;         ///< Country code (ISO 3166-1 Alpha-3)
     string region;          ///< Region code (ISO 3166-2)
     string regionfips104;   ///< Region using FIPS 10-4
     string metro;           ///< Metropolitan region (Google Metro code)
     Utf8String city;        ///< City name (UN Code for Trade and Transport Loc)
     string zip;             ///< Zip or postal code
-    string dma;             ///< Direct Marketing Association code
     LocationType type;      ///< Source of Geo data (table 6.15)
     Json::Value ext;        ///< Extensions go here, new in OpenRTB 2.1
+
+    /// Datacratic extensions
+    string dma;             ///< Direct Marketing Association code
+    /// Rubicon extensions
+    TaggedBool latlonconsent;  ///< Has user given consent for lat/lon use?
 };
 
 
@@ -960,6 +963,8 @@ struct Segment {
     string name;                   ///< Segment name
     string value;                  ///< Segment value
     Json::Value ext;               ///< Extensions go here, new in OpenRTB 2.1
+
+    /// Datacratic Extensions
     TaggedFloat segmentusecost;    ///< Cost of using segment in CPM
 };
 
@@ -1020,8 +1025,8 @@ struct User {
     string gender;             ///< Gender: Male, Female, Other
     CSList keywords;           ///< List of keywords of consumer intent
     string customdata;         ///< Custom data from exchange
-    vector<Data> data;         ///< User data segments
     Geo geo;                   ///< Geolocation of user at registration
+    vector<Data> data;         ///< User data segments
     Json::Value ext;           ///< Extensions go here, new in OpenRTB 2.1
 
     /// Rubicon extensions
