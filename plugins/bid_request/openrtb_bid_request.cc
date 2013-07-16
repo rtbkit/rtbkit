@@ -186,8 +186,8 @@ fromOpenRtb(OpenRTB::BidRequest && req,
             result->segments.addStrings(key, values);
         }
 
-        if (result->user->tz.val != -1)
-            result->location.timezoneOffsetMinutes = result->user->tz.val;
+        if (result->user->ext.isMember("tz"))
+            result->location.timezoneOffsetMinutes = result->user->ext["tz"].asInt();
 
         if (result->user->id)
             result->userIds.add(result->user->id, ID_EXCHANGE);

@@ -201,10 +201,6 @@ DefaultDescription()
     addField("zip", &Geo::zip, "Zip or postal code");
     addField("type", &Geo::type, "Source of location data");
     addField("ext", &Geo::ext, "Extensions to the protocol go here");
-    /// Datacratic extension
-    addField("dma", &Geo::dma, "DMA code");
-    /// Rubicon extension
-    addField("latlonconsent", &Geo::latlonconsent, "User has given consent for lat/lon information to be used");
 }
 
 DefaultDescription<OpenRTB::Device>::
@@ -239,8 +235,6 @@ DefaultDescription()
     addField("name", &Segment::name, "Segment name");
     addField("value", &Segment::value, "Segment value");
     addField("ext", &Segment::ext, "Extensions to the protocol go here");
-    /// Datacratic extension
-    addField("segmentusecost", &Segment::segmentusecost, "Segment use cost in CPM");
 }
 
 DefaultDescription<OpenRTB::Data>::
@@ -250,9 +244,6 @@ DefaultDescription()
     addField("name", &Data::name, "Segment name");
     addField("segment", &Data::segment, "Data segment");
     addField("ext", &Data::ext, "Extensions to the protocol go here");
-    /// Datacratic extension
-    addField("datausecost", &Data::datausecost, "Cost of using data in CPM");
-    addField("usecostcurrency", &Data::usecostcurrency, "Currency for use cost");
 }
 
 DefaultDescription<OpenRTB::User>::
@@ -268,9 +259,6 @@ DefaultDescription()
     addField("geo", &User::geo, "Geolocation of user at registration");
     addField("data", &User::data, "User segment data");
     addField("ext", &User::ext, "Extensions to the protocol go here");
-    /// Rubicon extension
-    addField("tz", &User::tz, "Timezone offset of user in seconds wrt GMT");
-    addField("sessiondepth", &User::sessiondepth, "Session depth of user in visits");
 }
 
 DefaultDescription<OpenRTB::Bid>::

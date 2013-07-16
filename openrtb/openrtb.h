@@ -1042,11 +1042,6 @@ struct Geo {
     string zip;             ///< Zip or postal code
     LocationType type;      ///< Source of Geo data (table 6.15)
     Json::Value ext;        ///< Extensions go here, new in OpenRTB 2.1
-
-    /// Datacratic extensions
-    string dma;             ///< Direct Marketing Association code
-    /// Rubicon extensions
-    TaggedBool latlonconsent;  ///< Has user given consent for lat/lon use?
 };
 
 
@@ -1118,9 +1113,6 @@ struct Segment {
     string name;                   ///< Segment name
     string value;                  ///< Segment value
     Json::Value ext;               ///< Extensions go here, new in OpenRTB 2.1
-
-    /// Datacratic Extensions
-    TaggedFloat segmentusecost;    ///< Cost of using segment in CPM
 };
 
 
@@ -1145,10 +1137,6 @@ struct Data {
     string name;                     ///< Data provider name
     vector<Segment> segment;         ///< Segment of data
     Json::Value ext;                 ///< Extensions go here, new in OpenRTB 2.1
-
-    /// Datacratic Extensions
-    string usecostcurrency;          ///< Currency of use cost
-    TaggedFloat datausecost;         ///< Cost of using the data (CPM)
 };
 
 
@@ -1183,10 +1171,6 @@ struct User {
     Geo geo;                   ///< Geolocation of user at registration
     vector<Data> data;         ///< User data segments
     Json::Value ext;           ///< Extensions go here, new in OpenRTB 2.1
-
-    /// Rubicon extensions
-    TaggedInt tz;              ///< User time zone in seconds after GMT
-    TaggedInt sessiondepth;    ///< User session depth
 };
 
 
