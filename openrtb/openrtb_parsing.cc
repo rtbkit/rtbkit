@@ -201,6 +201,8 @@ DefaultDescription()
     addField("zip", &Geo::zip, "Zip or postal code");
     addField("type", &Geo::type, "Source of location data");
     addField("ext", &Geo::ext, "Extensions to the protocol go here");
+    /// Datacratic extension
+    addField("dma", &Geo::dma, "DMA code");
     /// Rubicon extension
     addField("latlonconsent", &Geo::latlonconsent, "User has given consent for lat/lon information to be used");
 }
