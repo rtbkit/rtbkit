@@ -5,6 +5,7 @@
 */
 
 #include "rest_proxy.h"
+#include "jml/arch/exception_handler.h"
 
 using namespace std;
 using namespace ML;
