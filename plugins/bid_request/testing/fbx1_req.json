@@ -1,0 +1,14 @@
+{
+	"requestId":2323423432,
+   	"partnerMatchId":"26cae7718c32180a7a0f8e19d6d40a59",
+   	"userContext":	{
+    	"ipAddressMasked":"1.2.3.*",
+     	"userAgent":"User-Agent: Mozilla/5.0 Firefox/12.0",
+     	"country":"US"
+   	},
+   	"pageContext":	{
+    	"pageTypeId":3,
+     	"numSlots":6
+   	},
+   	"istest":true
+}
