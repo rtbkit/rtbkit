@@ -114,17 +114,6 @@ importSpend(const CurrencyPool & spend)
 
 CurrencyPool
 Account::
-getBudget()
-    const
-{
-    return (budgetIncreases - budgetDecreases);
-            // + allocatedIn - allocatedOut
-            // + recycledIn - recycledOut
-            // + adjustmentsIn - adjustmentsOut);
-}
-
-CurrencyPool
-Account::
 getNetBudget()
     const
 {

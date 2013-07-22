@@ -708,9 +708,9 @@ BOOST_AUTO_TEST_CASE( test_account_summary_values )
                       "'adjustmentsIn':{},"
                       "'adjustmentsOut':{},"
                       "'allocatedIn':{},"
-                      "'allocatedOut':{'USD/1M':46571708796},"
+                      "'allocatedOut':{'USD/1M':5000},"
                       "'budgetDecreases':{},"
-                      "'budgetIncreases':{'USD/1M':52947000000},"
+                      "'budgetIncreases':{'USD/1M':10000},"
                       "'commitmentsMade':{},"
                       "'commitmentsRetired':{},"
                       "'lineItems':{},"
@@ -724,14 +724,14 @@ BOOST_AUTO_TEST_CASE( test_account_summary_values )
                             "'adjustmentsIn':{},"
                             "'adjustmentsOut':{},"
                             "'allocatedIn':{},"
-                            "'allocatedOut':{'USD/1M':582053135},"
+                            "'allocatedOut':{'USD/1M':2000},"
                             "'budgetDecreases':{},"
-                            "'budgetIncreases':{'USD/1M':614502770},"
+                            "'budgetIncreases':{'USD/1M':5000},"
                             "'commitmentsMade':{},"
                             "'commitmentsRetired':{},"
                             "'lineItems':{},"
                             "'md':{'objectType':'Account','version':1},"
-                            "'recycledIn':{},"
+                            "'recycledIn':{'USD/1M':1},"
                             "'recycledOut':{},"
                             "'spent':{},"
                             "'type':'budget'}");
@@ -742,14 +742,14 @@ BOOST_AUTO_TEST_CASE( test_account_summary_values )
                             "'allocatedIn':{},"
                             "'allocatedOut':{},"
                             "'budgetDecreases':{},"
-                            "'budgetIncreases':{'USD/1M':582053135},"
+                            "'budgetIncreases':{'USD/1M':2000},"
                             "'commitmentsMade':{},"
                             "'commitmentsRetired':{},"
                             "'lineItems':{},"
                             "'md':{'objectType':'Account','version':1},"
                             "'recycledIn':{},"
                             "'recycledOut':{},"
-                            "'spent':{'USD/1M':582053135},"
+                            "'spent':{'USD/1M':1000},"
                             "'type':'spend'}");
     accounts.restoreAccount({"top", "sub", "spent"}, jsonValue);
 
@@ -761,9 +761,9 @@ BOOST_AUTO_TEST_CASE( test_account_summary_values )
                       "  'adjustmentsIn':{},"
                       "  'adjustmentsOut':{},"
                       "  'allocatedIn':{},"
-                      "  'allocatedOut': {'USD/1M':46571708796},"
+                      "  'allocatedOut': {'USD/1M':5000},"
                       "  'budgetDecreases':{},"
-                      "  'budgetIncreases': {'USD/1M':52947000000},"
+                      "  'budgetIncreases': {'USD/1M':10000},"
                       "  'commitmentsMade':{},"
                       "  'commitmentsRetired':{},"
                       "  'lineItems':{},"
@@ -772,25 +772,25 @@ BOOST_AUTO_TEST_CASE( test_account_summary_values )
                       "  'recycledOut':{},"
                       "  'spent':{},"
                       "  'type':'budget'},"
-                      " 'available': {'USD/1M':52364946865},"
-                      " 'adjustedSpent': {'USD/1M' : 582053135},"
+                      " 'available': {'USD/1M':9001},"
+                      " 'adjustedSpent': {'USD/1M' : 1000},"
                       " 'adjustments' : {},"
-                      " 'budget': {'USD/1M':52947000000},"
+                      " 'budget': {'USD/1M':10001},"
                       " 'inFlight':{},"
                       " 'md': {'objectType':'AccountSummary',"
                       "        'version':1},"
-                      " 'spent': {'USD/1M':582053135}}");
+                      " 'spent': {'USD/1M':1000}}");
     BOOST_CHECK_EQUAL(normalValue, expected);
 
     Json::Value simpleValue = summary.toJson(true);
-    expected = Json::parse("{'adjustedSpent': {'USD/1M' : 582053135},"
+    expected = Json::parse("{'adjustedSpent': {'USD/1M' : 1000},"
                            " 'adjustments' : {},"
-                           " 'available': {'USD/1M':52364946865},"
-                           " 'budget': {'USD/1M':52947000000},"
+                           " 'available': {'USD/1M':9001},"
+                           " 'budget': {'USD/1M':10001},"
                            " 'inFlight': {},"
                            " 'md': {'objectType':'AccountSimpleSummary',"
                            "        'version':1},"
-                           " 'spent': {'USD/1M':582053135}}");
+                           " 'spent': {'USD/1M':1000}}");
     BOOST_CHECK_EQUAL(simpleValue, expected);
 }
 

@@ -203,8 +203,6 @@ public:
         return (recycledIn - recycledOut).nonNegative();
     }
 
-    CurrencyPool getBudget() const;
-
     /** Returns the budget what was not transferred from or to other accounts.
      */
 
@@ -666,14 +664,7 @@ struct ShadowAccount {
         masterAccount.checkInvariants();
 
         // net budget: balance assuming spent, commitments are zero
-        netBudget = (masterAccount.budgetIncreases
-                     - masterAccount.budgetDecreases
-                     + masterAccount.recycledIn
-                     - masterAccount.recycledOut
-                     + masterAccount.adjustmentsIn
-                     - masterAccount.adjustmentsOut
-                     + masterAccount.allocatedIn
-                     - masterAccount.allocatedOut);
+        netBudget = masterAccount.getNetBudget();
         commitmentsMade += masterAccount.commitmentsMade;
         commitmentsRetired += masterAccount.commitmentsRetired;
         spent += masterAccount.spent;
@@ -716,6 +707,7 @@ struct AccountSummary {
     {
         if (addInSubaccounts)
             subAccounts[name] = child;
+        budget += child.budget;
         inFlight += child.inFlight;
         spent += child.spent;
         adjustments += child.adjustments;
@@ -1241,7 +1233,9 @@ private:
 
         result.account = a;
         result.spent = a.spent;
-        result.budget = a.getBudget();
+        result.budget = a.budgetIncreases - a.budgetDecreases 
+                        + a.recycledIn - a.recycledOut
+                        + a.allocatedIn - a.allocatedOut;
         result.inFlight = a.commitmentsMade - a.commitmentsRetired;
         result.adjustments = a.adjustmentsIn - a.adjustmentsOut;
 
