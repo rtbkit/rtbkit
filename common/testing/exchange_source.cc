@@ -292,9 +292,6 @@ sendEvent(const PostAuctionEvent& event)
         current += res;
     }
 
-    close(fd);
-    fd = -1;
-
     std::cerr << "win sent payload=" << str << std::endl;
 
     ExcAssertEqual((void *)current, (void *)end);

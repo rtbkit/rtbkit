@@ -1,0 +1,151 @@
+{
+    "nodes": [
+        {
+            "name": "st1",
+            "root": ".",
+            "tasks": [
+                {
+                    "name": "monitor",
+                    "root": ".",
+                    "path": "build/x86_64/bin/monitor_service_runner",
+                    "arg": [
+                        "-N", "st1.monitor",
+                        "-B", "sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "mock-ad-server",
+                    "root": ".",
+                    "path": "build/x86_64/bin/ad_server_connector_ex",
+                    "arg": [
+                        "-N", "st1.mock-ad-server",
+                        "-B", "sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "logger",
+                    "root": ".",
+                    "path": "build/x86_64/bin/data_logger_ex",
+                    "arg": [
+                        "-N", "st1.logger",
+                        "-B", "sample.bootstrap.json", "--log-dir", "./logs/data/"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "agent-configuration",
+                    "root": ".",
+                    "path": "build/x86_64/bin/agent_configuration_service_runner",
+                    "arg": [
+                        "-N", "st1.agent-configuration",
+                        "-B", "sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "banker",
+                    "root": ".",
+                    "path": "build/x86_64/bin/banker_service_runner",
+                    "arg": [
+                        "-N", "st1.banker",
+                        "-B", "sample.bootstrap.json", "-r", "localhost:6379"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "augmentor",
+                    "root": ".",
+                    "path": "build/x86_64/bin/augmentor_ex_runner",
+                    "arg": [
+                        "-N", "st1.augmentor",
+                        "-B", "sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "post-auction",
+                    "root": ".",
+                    "path": "build/x86_64/bin/post_auction_runner",
+                    "arg": [
+                        "-N", "st1.post-auction",
+                        "-B", "sample.bootstrap.json"
+                    ],
+                    "log": true
+                }
+            ]
+        },
+        {
+            "name": "st2",
+            "root": ".",
+            "tasks": [
+                {
+                    "name": "router",
+                    "root": ".",
+                    "path": "build/x86_64/bin/router_ex",
+                    "arg": [
+                        "-N", "st2.router",
+                        "-B", "sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "fixed-price-agent",
+                    "root": ".",
+                    "path": "build/x86_64/bin/bidding_agent_ex",
+                    "arg": [
+                        "-N", "st2.agent",
+                        "-B", "sample.bootstrap.json"
+                    ],
+                    "log": true
+                }
+            ]
+        },
+        {
+            "name": "st3",
+            "root": ".",
+            "tasks": [
+                {
+                    "name": "router",
+                    "root": ".",
+                    "path": "build/x86_64/bin/router_ex",
+                    "arg": [
+                        "-N", "st3.router",
+                        "-B", "sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "fixed-price-agent",
+                    "root": ".",
+                    "path": "build/x86_64/bin/bidding_agent_ex",
+                    "arg": [
+                        "-N", "st3.agent",
+                        "-B", "sample.bootstrap.json"
+                    ],
+                    "log": true
+                }
+            ]
+        },
+        {
+            "name": "st4",
+            "root": ".",
+            "tasks": [
+                {
+                    "name": "mock-exchange",
+                    "root": ".",
+                    "path": "build/x86_64/bin/mock_exchange_runner",
+                    "arg": [
+                        "-b", "st2.staging:12339",
+                        "-b", "st3.staging:12339",
+                        "-w", "st1.staging:12340",
+                        "-t", "8"
+                    ],
+                    "log": true
+                }
+            ]
+        }
+    ]
+}
+

@@ -2447,7 +2447,7 @@ configure(const std::string & agent, AgentConfig & config)
                 logException(exc, "Banker addAccount");
         };
 
-    banker->addSpendAccount(config.account, USD(0.10), onDone);
+    banker->addSpendAccount(config.account, Amount(), onDone);
 }
 
 Json::Value

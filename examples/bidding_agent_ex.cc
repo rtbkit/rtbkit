@@ -125,6 +125,9 @@ struct FixedPriceBiddingAgent :
             config.addAugmentation(augConfig);
         }
 
+        // Configures the agent to only receive 10% of the bid request traffic
+        // that matches its filters.
+        config.bidProbability = 0.1;
 
         // Tell the world about our config. We can change the configuration of
         // an agent at any time by calling this function.
@@ -160,7 +163,7 @@ struct FixedPriceBiddingAgent :
             // Create a 0.0001$ CPM bid with our available creative.
             // Note that by default, the bid price is set to 0 which indicates
             // that we don't wish to bid on the given spot.
-            bid.bid(availableCreative, MicroUSD_CPM(10000));
+            bid.bid(availableCreative, MicroUSD(100));
         }
 
         // A value that will be passed back to us when we receive the result of
