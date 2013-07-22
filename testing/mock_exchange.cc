@@ -68,6 +68,12 @@ start(size_t threadCount,
         for(size_t i = 0; i != threadCount; ++i) {
             int a = i % bids.size();
             int b = i % wins.size();
+
+            std::cerr << "worker " << i
+                      << " connects to bid=" << bids[a].host << ":" << bids[a].port
+                      << " connects to win=" << wins[b].host << ":" << wins[b].port
+                      << std::endl;
+
             threads.create_thread(std::bind(startWorker, bids[a], wins[b]));
         }
     }
@@ -121,6 +127,8 @@ MockExchange::Worker::bid() {
         vector<ExchangeSource::Bid> bids = response.second;
 
         for (auto & bid : bids) {
+            if(bid.maxPrice == 0) continue;
+
             auto ret = isWin(bidRequest, bid);
             if (!ret.first) continue;
 
@@ -146,7 +154,7 @@ MockExchange::Worker::isWin(const BidRequest&, const ExchangeSource::Bid& bid)
     if (rng.random01() >= 0.1)
         return make_pair(false, Amount());
 
-    return make_pair(true, MicroUSD_CPM(bid.maxPrice * rng.random01()));
+    return make_pair(true, MicroUSD_CPM(bid.maxPrice * 0.6 + bid.maxPrice * rng.random01() * 0.4));
 }
 
 

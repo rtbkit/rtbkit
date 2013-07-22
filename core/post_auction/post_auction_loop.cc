@@ -323,7 +323,19 @@ initConnections()
     // Initialize zeromq endpoints
     endpoint.init(getServices()->config, ZMQ_XREP, serviceName() + "/events");
     toAgents.init(getServices()->config, serviceName() + "/agents");
+
     configListener.init(getServices()->config);
+    configListener.onConfigChange = [=](const std::string & agent,
+                                        std::shared_ptr<const AgentConfig> config) {
+        if(config->account.empty())
+            throw ML::Exception("attempt to add an account with empty values");
+
+        banker->addSpendAccount(config->account, Amount(), [=](std::exception_ptr error,
+                                                               ShadowAccount && acount) {
+            if(error) logException(error, "Banker addSpendAccount");
+        });
+    };
+
     endpoint.messageHandler
         = std::bind(&ZmqMessageRouter::handleMessage,
                     &router,
