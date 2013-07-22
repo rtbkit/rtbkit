@@ -6,16 +6,27 @@
 # Makefile for various RTBkit examples. 
 #------------------------------------------------------------------------------#
 
+ROUTER_EX_LINK := adserver_connector adx_exchange  \
+                  rubicon_exchange openrtb_exchange \
+                  exchange router_runner boost_program_options \
+                  services
+BID_REQUEST_ENDPOINT_LINK := adx_exchange rubicon_exchange \
+                             openrtb_exchange exchange \
+                             rtb_router bidding_agent \
+                             boost_program_options services
+INTEGRATION_ENDPOINTS_LINK := adx_exchange rubicon_exchange openrtb_exchange \
+                              exchange standard_adserver_connector data_logger \
+                              rtb_router bidding_agent boost_program_options services
 $(eval $(call library,augmentor_ex,augmentor_ex.cc,augmentor_base rtb bid_request agent_configuration))
 $(eval $(call program,augmentor_ex_runner,augmentor_ex boost_program_options))
 $(eval $(call program,data_logger_ex,data_logger data_logger boost_program_options services))
 $(eval $(call program,bidding_agent_console,bidding_agent rtb_router boost_program_options services))
 $(eval $(call program,bidding_agent_ex,bidding_agent rtb_router boost_program_options services))
 $(eval $(call program,ad_server_connector_ex,adserver_connector exchange rtb_router boost_program_options services))
-$(eval $(call program,router_ex,adserver_connector rubicon_exchange openrtb_exchange exchange router_runner boost_program_options services))
-$(eval $(call program,bid_request_endpoint,rubicon_exchange openrtb_exchange exchange rtb_router bidding_agent boost_program_options services))
+$(eval $(call program,router_ex,$(ROUTER_EX_LINK)))
+$(eval $(call program,bid_request_endpoint,$(BID_REQUEST_ENDPOINT_LINK)))
 $(eval $(call program,adserver_endpoint,standard_adserver_connector data_logger rtb_router bidding_agent boost_program_options services))
-$(eval $(call program,integration_endpoints,rubicon_exchange openrtb_exchange exchange standard_adserver_connector data_logger rtb_router bidding_agent boost_program_options services))
+$(eval $(call program,integration_endpoints,$(INTEGRATION_ENDPOINTS_LINK)))
 
 RTBKIT_INTEGRATION_TEST_LINK := \
 	rtb_router bidding_agent integration_test_utils monitor monitor_service augmentor_ex adserver_connector

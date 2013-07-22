@@ -6,6 +6,7 @@
 */
 
 #include "rtbkit/examples/mock_exchange_connector.h"
+#include "rtbkit/plugins/exchange/adx_exchange_connector.h"
 #include "rtbkit/plugins/exchange/rubicon_exchange_connector.h"
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
 
@@ -15,6 +16,7 @@ namespace {
 
     struct Init {
         Init() {
+            ExchangeConnector::registerFactory<AdXExchangeConnector>();
             ExchangeConnector::registerFactory<MockExchangeConnector>();
             ExchangeConnector::registerFactory<RubiconExchangeConnector>();
             ExchangeConnector::registerFactory<OpenRTBExchangeConnector>();

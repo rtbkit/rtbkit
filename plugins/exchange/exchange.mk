@@ -7,9 +7,16 @@ LIBRTB_EXCHANGE_SOURCES := \
 LIBRTB_EXCHANGE_LINK := \
 	zeromq boost_thread utils endpoint services rtb bid_request
 
-$(eval $(call library,exchange,$(LIBRTB_EXCHANGE_SOURCES),$(LIBRTB_EXCHANGE_LINK)))
+LIBADX_EXCHANGE_SOURCES := \
+	realtime-bidding.proto    \
+	adx_exchange_connector.cc 
 
+LIBADX_EXCHANGE_LINK := \
+	exchange protobuf openrtb_bid_request
+
+$(eval $(call library,exchange,$(LIBRTB_EXCHANGE_SOURCES),$(LIBRTB_EXCHANGE_LINK)))
 $(eval $(call library,rubicon_exchange,rubicon_exchange_connector.cc,exchange openrtb_bid_request))
 $(eval $(call library,openrtb_exchange,openrtb_exchange_connector.cc,exchange bid_test_utils openrtb_bid_request))
+$(eval $(call library,adx_exchange,$(LIBADX_EXCHANGE_SOURCES),$(LIBADX_EXCHANGE_LINK)))
 
 $(eval $(call include_sub_make,exchange_testing,testing,exchange_testing.mk))
