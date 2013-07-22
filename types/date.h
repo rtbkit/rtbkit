@@ -333,6 +333,10 @@ struct Date {
                                 const std::string & date_format,
                                 const std::string & time_format);
 
+    // parse using strptime function. more compatible with the `print` format
+    static Date parse(const std::string & date,
+                      const std::string & format);
+
     size_t hash() const
     {
         return std::hash<double>() (secondsSinceEpoch_);
