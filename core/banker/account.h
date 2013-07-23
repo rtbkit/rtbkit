@@ -697,6 +697,7 @@ struct AccountSummary {
     CurrencyPool spent;          ///< Sum of sub-account spend
     CurrencyPool adjustments;    ///< Sum of sub-account adjustments
     CurrencyPool adjustedSpent;  ///< Spend minus adjustments
+    CurrencyPool effectiveBudget;  ///< budget computed internally
     CurrencyPool available;      ///< Total amount we're allowed to spend
 
     Account account;
@@ -707,7 +708,7 @@ struct AccountSummary {
     {
         if (addInSubaccounts)
             subAccounts[name] = child;
-        budget += child.budget;
+        effectiveBudget += child.effectiveBudget;
         inFlight += child.inFlight;
         spent += child.spent;
         adjustments += child.adjustments;
@@ -736,6 +737,7 @@ struct AccountSummary {
             = simplified ? "AccountSimpleSummary" : "AccountSummary";
         result["md"]["version"] = 1;
         result["budget"] = budget.toJson();
+        result["effectiveBudget"] = effectiveBudget.toJson();
         result["spent"] = spent.toJson();
         result["adjustments"] = adjustments.toJson();
         result["adjustedSpent"] = adjustedSpent.toJson();
@@ -759,6 +761,7 @@ struct AccountSummary {
         ExcAssertEqual(val["md"]["version"].asInt(), 1);
 
         result.budget = CurrencyPool::fromJson(val["budget"]);
+        result.effectiveBudget = CurrencyPool::fromJson(val["effectiveBudget"]);
         result.inFlight = CurrencyPool::fromJson(val["inFlight"]);
         result.spent = CurrencyPool::fromJson(val["spent"]);
         result.adjustments = CurrencyPool::fromJson(val["adjustments"]);
@@ -1233,7 +1236,8 @@ private:
 
         result.account = a;
         result.spent = a.spent;
-        result.budget = a.budgetIncreases - a.budgetDecreases 
+        result.budget = a.budgetIncreases - a.budgetDecreases;
+        result.effectiveBudget = a.budgetIncreases - a.budgetDecreases 
                         + a.recycledIn - a.recycledOut
                         + a.allocatedIn - a.allocatedOut;
         result.inFlight = a.commitmentsMade - a.commitmentsRetired;
@@ -1246,10 +1250,10 @@ private:
                             maxDepth == -1 || depth < maxDepth);
         };
         forEachChildAccount(account, doChildAccount);
-
-        result.available = (result.budget + result.adjustments
-                            - result.spent - result.inFlight);
+        
         result.adjustedSpent = result.spent - result.adjustments;
+
+        result.available = (result.effectiveBudget - result.adjustedSpent - result.inFlight);
         
         return result;
     }
