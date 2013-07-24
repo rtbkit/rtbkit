@@ -20,7 +20,7 @@ namespace RTBKIT {
 /* APPNEXUS BID REQUEST PARSER                                                */
 /*****************************************************************************/
 
-OpenRTB::BidRequest *
+BidRequest *
 fromAppNexus(const AppNexus::BidRequest & req,
             const std::string & provider,
             const std::string & exchange)
@@ -88,16 +88,16 @@ fromAppNexus(const AppNexus::BidRequest & req,
     // content->url = Url(req.bidInfo.url); // Datacratic::Url from Datacatic Utf8String
 
     // OpenRTB::Impression
-    std::unique_ptr<OpenRTB::Impression> impression(new OpenRTB::Impression);
+    OpenRTB::Impression impression;
     std::unique_ptr<OpenRTB::Banner> banner(new OpenRTB::Banner);
-    impression->banner.reset(banner.release());
+    impression.banner.reset(banner.release());
     // TODO CONFIRM THIS ASSUMPTION
     // NOTE: Assume for now that AN price units are in full currency units per CPM, e.g. if currency is USD
     // then the reserve_price == '1.00 USD' then this is a price of $1 CPM. i.e. - price not in microdollars etc.
     // Note that OpenRTB mapped field is Impression::bidfloorcur, and its unit is again full units per CPM, e.g. $1 CPM
     // So the code in appnexus_parsing.cc for now simply assumes the AN price equals the OpenRTB price
     // Also, for now, only support USD. 
-    impression->bidfloor.val = reqTag.reservePrice.val;
+    impression.bidfloor.val = reqTag.reservePrice.val;
 
     // TODO Add code in ./plugins/exchange/appnexus_exchange_connector.cc to call its inherited configure() method
     //   and set a key for bid_currency there, and then check it here and set it to the OpenRTB bidfloorcur field
@@ -122,7 +122,7 @@ fromAppNexus(const AppNexus::BidRequest & req,
         impression->video.topframe = iframePosn;
     }
     */
-    impression->id = Id(reqTag.auctionId64.val);
+    impression.id = Id(reqTag.auctionId64.val);
     // BUSINESS RULE: AN provides both a 'size' field and a 'sizes' field.
     // OpenRTB provides two fields, ordered lists, for 'w' and 'h'. So values at each index must match
     // and provide a 'WxH' pair. Also, because AN provides both, we first put the values from 'size' into
@@ -134,11 +134,11 @@ fromAppNexus(const AppNexus::BidRequest & req,
         splitIdx = adSizePair.find('x');
         int w = boost::lexical_cast<int>(adSizePair.substr(0, splitIdx));
         int h = boost::lexical_cast<int>(adSizePair.substr(splitIdx + 1));
-        impression->banner->w.push_back(w);
-        impression->banner->h.push_back(h);
+        impression.banner->w.push_back(w);
+        impression.banner->h.push_back(h);
     }
     OpenRTB::AdPosition position = convertAdPosition(reqTag.position);
-    impression->banner->pos.val = position.val;
+    impression.banner->pos.val = position.val;
 
     // OpenRTB::Publisher
     std::unique_ptr<OpenRTB::Publisher> publisher1(new OpenRTB::Publisher);
@@ -164,13 +164,13 @@ fromAppNexus(const AppNexus::BidRequest & req,
     // But always just statelessy assign appId. If it's empty, no harm
     app->id = Id(req.bidInfo.appId);
 
-    // OpenRTB::BidRequest
-    std::unique_ptr<OpenRTB::BidRequest> bidRequest(new OpenRTB::BidRequest);
-    bidRequest->tmax.val = req.bidderTimeoutMs.val;
+    // BidRequest
+    std::unique_ptr<BidRequest> bidRequest(new BidRequest);
+    bidRequest->timeAvailableMs = req.bidderTimeoutMs.val;
     bidRequest->device.reset(device.release());
     bidRequest->user.reset(user.release());
     // bidRequest->content.reset(content.release());
-    bidRequest->imp.push_back(*impression);
+    bidRequest->imp.emplace_back(std::move(impression));
     bidRequest->app.reset(app.release());
     bidRequest->site.reset(site.release());
 
@@ -366,7 +366,7 @@ namespace {
 */
 
 
-OpenRTB::BidRequest *
+BidRequest *
 AppNexusBidRequestParser::
 parseBidRequest(const std::string & jsonValue,
                 const std::string & provider,
@@ -381,7 +381,7 @@ parseBidRequest(const std::string & jsonValue,
     return fromAppNexus(req, provider, exchange);
 }
 
-OpenRTB::BidRequest *
+BidRequest *
 AppNexusBidRequestParser::
 parseBidRequest(ML::Parse_Context & context,
                 const std::string & provider,

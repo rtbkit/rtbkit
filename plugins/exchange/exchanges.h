@@ -6,8 +6,9 @@
 */
 
 #include "rtbkit/examples/mock_exchange_connector.h"
-#include "rtbkit/plugins/exchange/rubicon_exchange_connector.h"
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
+#include "rtbkit/plugins/exchange/rubicon_exchange_connector.h"
+#include "rtbkit/plugins/exchange/appnexus_exchange_connector.h"
 
 namespace {
     using namespace Datacratic;
@@ -16,8 +17,9 @@ namespace {
     struct Init {
         Init() {
             ExchangeConnector::registerFactory<MockExchangeConnector>();
-            ExchangeConnector::registerFactory<RubiconExchangeConnector>();
             ExchangeConnector::registerFactory<OpenRTBExchangeConnector>();
+            ExchangeConnector::registerFactory<RubiconExchangeConnector>();
+            ExchangeConnector::registerFactory<AppNexusExchangeConnector>();
         }
     } init;
 }

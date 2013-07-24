@@ -142,10 +142,10 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
 
     std::string provider = "DummyProvider";
     std::string exchange = "AppNexus";
-    OpenRTB::BidRequest* ortbReq = fromAppNexus(req, provider, exchange);
+    BidRequest* ortbReq = fromAppNexus(req, provider, exchange);
 
     // cerr << endl << "** Value returned for field: " << bidRequest->user->id.toString() << endl;
-    BOOST_CHECK_EQUAL(ortbReq->tmax.val, 100);
+    BOOST_CHECK_EQUAL(ortbReq->timeAvailableMs, 100);
     // 96.246.152.18
     // OpenRTB::Device
     BOOST_CHECK_EQUAL(ortbReq->device->ua, Utf8String("Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US;rv:1.9.0.3) Gecko/2008092414 Firefox/3.0.3"));

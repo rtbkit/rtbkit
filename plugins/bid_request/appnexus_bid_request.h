@@ -14,14 +14,7 @@
 
 namespace RTBKIT {
 
-/* TODO Get rid of this
 BidRequest *
-fromAppNexus(OpenRTB::BidRequest && req,
-            const std::string & provider,
-            const std::string & exchange);
-*/
-
-OpenRTB::BidRequest *
 fromAppNexus(const AppNexus::BidRequest & req,
             const std::string & provider,
             const std::string & exchange);
@@ -35,12 +28,12 @@ fromAppNexus(const AppNexus::BidRequest & req,
 
 struct AppNexusBidRequestParser {
 
-    static OpenRTB::BidRequest *
+    static BidRequest *
     parseBidRequest(const std::string & jsonValue,
                     const std::string & provider,
                     const std::string & exchange = "");
 
-    static OpenRTB::BidRequest *
+    static BidRequest *
     parseBidRequest(ML::Parse_Context & context,
                     const std::string & provider,
                     const std::string & exchange = "");

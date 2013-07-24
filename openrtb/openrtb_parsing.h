@@ -136,13 +136,13 @@ struct DefaultDescription<OpenRTB::TaggedInt64>
             std::string s = context.expectStringAscii();
             val->val = boost::lexical_cast<int64_t>(s);
         }
-        else val->val = context.expectInt64();
+        else val->val = context.expectLongLong();
     }
 
     virtual void printJsonTyped(const OpenRTB::TaggedInt64 * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeInt64(val->val);
+        context.writeLongLong(val->val);
     }
 
     virtual bool isDefaultTyped(const OpenRTB::TaggedInt64 * val) const
@@ -162,13 +162,13 @@ struct DefaultDescription<OpenRTB::TaggedInt64Def<defValue> >
             std::string s = context.expectStringAscii();
             val->val = boost::lexical_cast<int64_t>(s);
         }
-        else val->val = context.expectInt64();
+        else val->val = context.expectLongLong();
     }
 
     virtual void printJsonTyped(const OpenRTB::TaggedInt64Def<defValue> * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeInt64(val->val);
+        context.writeLongLong(val->val);
     }
 
     virtual bool isDefaultTyped(const OpenRTB::TaggedInt64Def<defValue> * val) const
