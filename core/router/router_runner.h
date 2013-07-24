@@ -31,6 +31,9 @@ struct RouterRunner {
     std::string exchangeConfigurationFile;
     float lossSeconds;
 
+    bool logAuctions;
+    bool logBids;
+
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
                    = boost::program_options::options_description());

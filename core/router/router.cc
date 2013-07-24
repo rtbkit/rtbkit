@@ -109,7 +109,9 @@ Router::
 Router(ServiceBase & parent,
        const std::string & serviceName,
        double secondsUntilLossAssumed,
-       bool connectPostAuctionLoop)
+       bool connectPostAuctionLoop,
+       bool logAuctions,
+       bool logBids)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       agentEndpoint(getZmqContext()),
@@ -128,6 +130,8 @@ Router(ServiceBase & parent,
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
+      logAuctions(logAuctions),
+      logBids(logBids),
       logger(getZmqContext()),
       doDebug(false),
       numAuctions(0), numBids(0), numNonEmptyBids(0),
@@ -143,7 +147,9 @@ Router::
 Router(std::shared_ptr<ServiceProxies> services,
        const std::string & serviceName,
        double secondsUntilLossAssumed,
-       bool connectPostAuctionLoop)
+       bool connectPostAuctionLoop,
+       bool logAuctions,
+       bool logBids)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       agentEndpoint(getZmqContext()),
@@ -163,6 +169,8 @@ Router(std::shared_ptr<ServiceProxies> services,
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
+      logAuctions(logAuctions),
+      logBids(logBids),
       logger(getZmqContext()),
       doDebug(false),
       numAuctions(0), numBids(0), numNonEmptyBids(0),
@@ -2003,7 +2011,9 @@ doBid(const std::vector<std::string> & message)
     }
 
     if (numValidBids > 0) {
-        //logMessage("BID", agent, auctionId, biddata, meta);
+        if (logBids)
+            // Send BID to logger
+            logMessage("BID", agent, auctionId, biddata, meta);
         ML::atomic_add(numNonEmptyBids, 1);
     }
     else if (numPassedBids > 0) {
@@ -2266,7 +2276,10 @@ onNewAuction(std::shared_ptr<Auction> auction)
 
     //cerr << "AUCTION GOT THROUGH" << endl;
 
-    //logMessage("AUCTION", auction->id, auction->requestStr);
+    if (logAuctions)
+        // Send AUCTION to logger
+        logMessage("AUCTION", auction->id, auction->requestStr);
+
     const BidRequest & request = *auction->request;
     int numFields = 0;
     if (!request.url.empty()) ++numFields;
