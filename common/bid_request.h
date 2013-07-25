@@ -147,12 +147,6 @@ struct AdSpot: public OpenRTB::Impression {
     /// Minimum price for the bid request (deprecated)
     Amount reservePrice;
 
-    /// Tags set on the creative to be filtered by the creative
-    Tags tags;
-
-    /// Filter that filters against the campaign tags
-    TagFilter tagFilter;
-    
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 };
