@@ -39,7 +39,7 @@ static inline Json::Value loadJsonFromFile(const std::string & filename)
 
 RouterRunner::
 RouterRunner()
-    : lossSeconds(15.0)
+    : lossSeconds(15.0), logAuctions(false), logBids(false)
 {
 }
 
@@ -57,7 +57,12 @@ doOptions(int argc, char ** argv,
         ("log-uri", value<vector<string> >(&logUris),
          "URI to publish logs to")
         ("exchange-configuration,x", value<string>(&exchangeConfigurationFile),
-         "configuration file with exchange data");
+         "configuration file with exchange data")
+        ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
+         "log auction requests")
+        ("log-bids", value<bool>(&logBids)->zero_tokens(),
+         "log bid responses");
+
 
     options_description all_opt = opts;
     all_opt
@@ -89,7 +94,8 @@ init()
 
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
 
-    router = std::make_shared<Router>(proxies, serviceName, lossSeconds);
+    router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
+    								  true, logAuctions, logBids);
     router->init();
 
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,

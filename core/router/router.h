@@ -101,12 +101,16 @@ struct Router : public ServiceBase,
     Router(ServiceBase & parent,
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
-           bool connectPostAuctionLoop = true);
+           bool connectPostAuctionLoop = true,
+           bool logAuctions = false,
+           bool logBids = false);
 
     Router(std::shared_ptr<ServiceProxies> services,
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
-           bool connectPostAuctionLoop = true);
+           bool connectPostAuctionLoop = true,
+           bool logAuctions = false,
+           bool logBids = false);
 
     ~Router();
 
@@ -569,6 +573,12 @@ public:
     /*************************************************************************/
     /* DATA LOGGING                                                          */
     /*************************************************************************/
+
+    /** Log auctions */
+    bool logAuctions;
+
+    /** Log bids */
+    bool logBids;
 
     void logUsageMetrics(double period);
 
