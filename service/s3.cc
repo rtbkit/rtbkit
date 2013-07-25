@@ -380,6 +380,15 @@ performSync() const
             //cerr << "uploaded " << bytesUploaded << " bytes" << endl;
 
             response.header_.parse(responseHeaders);
+            unique_ptr<tinyxml2::XMLDocument> bodyXml(response.bodyXml());
+            auto element =
+                tinyxml2::XMLHandle(*bodyXml).FirstChildElement("Error")
+                .ToElement();
+            if(element){
+                throw ML::Exception("S3 error code [%s] message [%s]",
+                    extract<string>(element, "Code").c_str(),
+                    extract<string>(element, "Message").c_str());
+            }
 
             return response;
         } catch (const curlpp::LibcurlRuntimeError & exc) {
@@ -2350,6 +2359,7 @@ void registerDefaultBuckets()
     string configFilename = (configFilenameCStr == NULL ?
                                 string() :
                                 string(configFilenameCStr));
+
     if(configFilename != "")
     {
         ML::File_Read_Buffer buf(configFilename);
@@ -2362,9 +2372,12 @@ void registerDefaultBuckets()
                 20.,
                 "http",
                 "s3.amazonaws.com");
+            return;
         }
-        return;
     }
+    cerr << "WARNING: registerDefaultBuckets needs either a .cloud_credentials"
+            " file or an environment variable CONFIG pointing toward a file "
+            "having keys s3.accessKey and s3.accessKeyId" << endl;
 }
 
 void registerS3Buckets(const std::string & accessKeyId,
