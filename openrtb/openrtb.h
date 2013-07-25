@@ -145,6 +145,9 @@ struct TaggedBool {
     {
     }
 
+    TaggedBool& operator=(int v) { val = v; return *this; }
+    operator int() const { return val; }
+
     int val;
 };
 
@@ -154,6 +157,9 @@ struct TaggedBoolDef : public TaggedBool {
         : val(defValue)
     {
     }
+
+    TaggedBoolDef& operator=(int v) { val = v; return *this; }
+    operator int() const { return val; }
 
     int val;
 };
@@ -166,6 +172,9 @@ struct TaggedInt {
 
     int value() const { return val; }
 
+    TaggedInt& operator=(int v) { val = v; return *this; }
+    operator int() const { return val; }
+
     int val;
 };
 
@@ -175,6 +184,9 @@ struct TaggedIntDef : TaggedInt {
         : val(defValue)
     {
     }
+
+    TaggedIntDef& operator=(int v) { val = v; return *this; }
+    operator int() const { return val; }
 
     int val;
 };
@@ -206,6 +218,9 @@ struct TaggedFloat {
     {
     }
 
+    TaggedFloat& operator=(float v) { val = v; return *this; }
+    operator float() const { return val; }
+
     float val;
 };
 
@@ -215,6 +230,9 @@ struct TaggedFloatDef : public TaggedFloat {
         : val(1.0f * num / den)
     {
     }
+
+    TaggedFloatDef& operator=(float v) { val = v; return *this; }
+    operator float() const { return val; }
 
     float val;
 };
