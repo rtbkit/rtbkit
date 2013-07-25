@@ -147,6 +147,9 @@ struct AdSpot: public OpenRTB::Impression {
     /// Minimum price for the bid request (deprecated)
     Amount reservePrice;
 
+    /// This field indicates the segments for filtering of creatives
+    SegmentsBySource restrictions;
+
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 };
