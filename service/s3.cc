@@ -2221,7 +2221,7 @@ void registerS3Bucket(const std::string & bucketName,
     info.api = std::make_shared<S3Api>(accessKeyId, accessKey,
                                        bandwidthToServiceMbps,
                                        protocol, serviceUri);
-
+    info.api->get("", "/" + bucketName + "/", 8192);//throws if !accessible
     s3Buckets[bucketName] = info;
 }
 
