@@ -21,6 +21,7 @@
 #include "jml/utils/compact_vector.h"
 #include "soa/jsoncpp/value.h"
 #include <iostream>
+#include "openrtb/openrtb.h"
 
 namespace FBX {
 
@@ -33,65 +34,56 @@ using Datacratic::Url;
 
 typedef std::string CSList;  // comma-separated list
 
+
+#if 0 // c++11 templated typedefs
+
 template<typename T>
-struct Optional: public std::unique_ptr<T> {
-    Optional()
-    {
-    }
-    
-    Optional(Optional && other)
-        : std::unique_ptr<T>(std::move(other))
-    {
-    }
-
-    Optional(const Optional & other)
-    {
-        if (other)
-            this->reset(new T(*other));
-    }
-
-    Optional & operator = (const Optional & other)
-    {
-        Optional newMe(other);
-        swap(newMe);
-        return *this;
-    }
-
-    Optional & operator = (Optional && other)
-    {
-        Optional newMe(other);
-        swap(newMe);
-        return *this;
-    }
-
-    void swap(Optional & other)
-    {
-        std::unique_ptr<T>::swap(other);
-    }
-};
+using Optional = typename OpenRTB::Optional<T>;
 
 template<typename Cls, int defValue = -1>
-struct TaggedEnum {
-    TaggedEnum()
-        : val(-1)
-    {
-    }
+using TaggedEnum = typename OpenRTB::TaggedEnum<Cls,defValue> ;
 
-    int val;
+struct TaggedBool : public OpenRTB::TaggedBool{};
 
-    int value() const
-    {
-        return val;
-    }
+template<int defValue = -1>
+using TaggedBoolDef = typename OpenRTB::TaggedBoolDef<defValue>;
+
+struct TaggedInt : public OpenRTB::TaggedInt{};
+
+template<int defValue = -1>
+using TaggedIntDef = typename OpenRTB::TaggedIntDef<defValue>;
+
+struct TaggedFloat : public OpenRTB::TaggedFloat{};
+
+template<int num = -1, int den = 1>
+using TaggedFloatDef = typename OpenRTB::TaggedFloatDef<num, den>;
 
 
-#if 0
-    operator typename Cls::Vals () const
-    {
-        return static_cast<typename Cls::Vals>(val);
-    }
+#else
+
+template<typename T>
+struct Optional: public OpenRTB::Optional<T> {};
+
+template<typename Cls, int defValue = -1>
+struct TaggedEnum : public OpenRTB::TaggedEnum<Cls,defValue> {};
+
+struct TaggedBool : public OpenRTB::TaggedBool{};
+
+template<int defValue = -1>
+struct TaggedBoolDef : public OpenRTB::TaggedBoolDef<defValue>{};
+
+struct TaggedInt : public OpenRTB::TaggedInt{};
+
+template<int defValue = -1>
+struct TaggedIntDef : public OpenRTB::TaggedIntDef<defValue>{};
+
+struct TaggedFloat : public OpenRTB::TaggedFloat{};
+
+template<int num = -1, int den = 1>
+struct TaggedFloatDef : public OpenRTB::TaggedFloatDef<num, den>{};
+
 #endif
-};
+
 
 template<typename E, int def>
 bool operator == (const TaggedEnum<E, def> & e1, const TaggedEnum<E, def> & e2)
@@ -129,64 +121,6 @@ inline void jsonParse(const Json::Value & j, TaggedEnum<E, def> & e)
     e.val = j.asInt();
 }
 
-struct TaggedBool {
-    TaggedBool()
-        : val(-1)
-    {
-    }
-
-    int val;
-};
-
-template<int defValue = -1>
-struct TaggedBoolDef : public TaggedBool {
-    TaggedBoolDef()
-        : val(defValue)
-    {
-    }
-
-    int val;
-};
-
-struct TaggedInt {
-    TaggedInt()
-        : val(-1)
-    {
-    }
-
-    int value() const { return val; }
-
-    int val;
-};
-
-template<int defValue = -1>
-struct TaggedIntDef : TaggedInt {
-    TaggedIntDef()
-        : val(defValue)
-    {
-    }
-
-    int val;
-};
-
-struct TaggedFloat {
-    TaggedFloat()
-        : val(std::numeric_limits<float>::quiet_NaN())
-    {
-    }
-
-    float val;
-};
-
-template<int num = -1, int den = 1>
-struct TaggedFloatDef : public TaggedFloat {
-    TaggedFloatDef()
-        : val(1.0f * num / den)
-    {
-    }
-
-    float val;
-};
 
 #if 0 // c++11 templated typedefs
 template<typename T>
@@ -249,15 +183,8 @@ struct List: public ML::compact_vector<T, 3> {
 /* MIME TYPES                                                                */
 /*****************************************************************************/
 
-struct MimeType {
-    MimeType(const std::string & type = "")
-        : type(type)
-    {
-    }
+struct MimeType : public OpenRTB::MimeType{};
 
-    std::string type;
-    //int val;
-};
 
 /*****************************************************************************/
 /* PAGE TYPE CODE	                                                     */
