@@ -23,7 +23,6 @@
 namespace Datacratic {
 
 
-
 /*****************************************************************************/
 /* GC LOCK BASE                                                              */
 /*****************************************************************************/
@@ -120,7 +119,7 @@ struct GcLockBase : public boost::noncopyable {
     Data* data;
 
     Deferred * deferred;   ///< Deferred workloads (hidden structure)
-    
+
     /** Update with the new value after first checking that the current
         value is the same as the old value.  Returns true if it
         succeeded; otherwise oldValue is updated with the new old
@@ -131,7 +130,7 @@ struct GcLockBase : public boost::noncopyable {
         on that value, and will run any deferred handlers registered for
         that value.
     */
-    bool updateData(Data & oldValue, Data & newValue);
+    bool updateData(Data & oldValue, Data & newValue, bool runDefer = true);
 
     /** Executes any available deferred work. */
     void runDefers();
@@ -141,8 +140,8 @@ struct GcLockBase : public boost::noncopyable {
     */
     std::vector<DeferredList *> checkDefers();
 
-    void enterCS(ThreadGcInfoEntry * entry = 0);
-    void exitCS(ThreadGcInfoEntry * entry = 0);
+    void enterCS(ThreadGcInfoEntry * entry = 0, bool runDefer = true);
+    void exitCS(ThreadGcInfoEntry * entry = 0, bool runDefer = true);
     void enterCSExclusive(ThreadGcInfoEntry * entry = 0);
     void exitCSExclusive(ThreadGcInfoEntry * entry = 0);
 
@@ -169,12 +168,13 @@ struct GcLockBase : public boost::noncopyable {
     /** Permanently deletes any resources associated with this lock. */
     virtual void unlink() = 0;
 
-    void lockShared(GcInfo::PerThreadInfo * info = 0)
+    void lockShared(GcInfo::PerThreadInfo * info = 0,
+                    bool runDefer = true)
     {
         ThreadGcInfoEntry & entry = getEntry(info);
 
         if (!entry.readLocked && !entry.writeLocked)
-            enterCS(&entry);
+            enterCS(&entry, runDefer);
 
         ++entry.readLocked;
 
@@ -187,7 +187,8 @@ struct GcLockBase : public boost::noncopyable {
 #endif
     }
 
-    void unlockShared(GcInfo::PerThreadInfo * info = 0)
+    void unlockShared(GcInfo::PerThreadInfo * info = 0, 
+                      bool runDefer = true)
     {
         ThreadGcInfoEntry & entry = getEntry(info);
 
@@ -195,7 +196,7 @@ struct GcLockBase : public boost::noncopyable {
             throw ML::Exception("bad read lock nesting");
         --entry.readLocked;
         if (!entry.readLocked && !entry.writeLocked)
-            exitCS(&entry);
+            exitCS(&entry, runDefer);
 
 #if GC_LOCK_DEBUG
         using namespace std;
@@ -265,18 +266,20 @@ struct GcLockBase : public boost::noncopyable {
     }
 
     struct SharedGuard {
-        SharedGuard(GcLockBase & lock)
-            : lock(lock)
+        SharedGuard(GcLockBase & lock, bool runDefer = true)
+            : lock(lock),
+              runDefer_(runDefer)
         {
-            lock.lockShared();
+            lock.lockShared(0, runDefer_);
         }
 
         ~SharedGuard()
         {
-            lock.unlockShared();
+            lock.unlockShared(0, runDefer_);
         }
         
         GcLockBase & lock;
+        const bool runDefer_;
     };
 
     struct ExclusiveGuard {
