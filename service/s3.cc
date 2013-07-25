@@ -2387,7 +2387,7 @@ void registerS3Buckets(const std::string & accessKeyId,
                        const std::string & serviceUri)
 {
     std::unique_lock<std::recursive_mutex> guard(s3BucketsLock);
-
+    int bucketCount(0);
     auto api = std::make_shared<S3Api>(accessKeyId, accessKey,
                                        bandwidthToServiceMbps,
                                        protocol, serviceUri);
@@ -2400,11 +2400,16 @@ void registerS3Buckets(const std::string & accessKeyId,
             info.s3Bucket = bucketName;
             info.api = api;
             s3Buckets[bucketName] = info;
+            bucketCount++;
 
             return true;
         };
 
     api->forEachBucket(onBucket);
+
+    if (bucketCount == 0) {
+        cerr << "registerS3Buckets: no bucket registered\n";
+    }
 }
 
 std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName)
