@@ -9,7 +9,6 @@
 #define BOOST_TEST_DYN_LINK
 
 #include "soa/gc/gc_lock.h"
-#include "soa/gc/rcu_lock.h"
 #include "jml/utils/string_functions.h"
 #include "jml/utils/exc_assert.h"
 #include "jml/utils/guard.h"
@@ -21,6 +20,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <iostream>
+#include <urcu.h>
 
 #include <boost/thread.hpp>
 #include <boost/thread/barrier.hpp>
@@ -35,12 +35,6 @@ namespace Datacratic {
 extern int32_t gcLockStartingEpoch;
 };
 
-struct doInit {
-    doInit()
-    {
-        rcu_init();
-    }
-} init;
 
 #if 1
 
@@ -642,17 +636,6 @@ BOOST_AUTO_TEST_CASE ( test_gc_sync_many_threads )
     test.run(boost::bind(&TestBase<GcLock>::allocThreadSync, &test, _1));
 }
 
-BOOST_AUTO_TEST_CASE ( test_rcu_sync )
-{
-    cerr << "testing synchronized RCU" << endl;
-
-    int nthreads = 2;
-    int nblocks = 2;
-
-    TestBase<RcuLock> test(nthreads, nblocks);
-    test.run(boost::bind(&TestBase<RcuLock>::allocThreadSync, &test, _1));
-}
-
 BOOST_AUTO_TEST_CASE ( test_gc_deferred )
 {
     cerr << "testing deferred GcLock" << endl;
@@ -662,17 +645,6 @@ BOOST_AUTO_TEST_CASE ( test_gc_deferred )
 
     TestBase<GcLock> test(nthreads, nblocks);
     test.run(boost::bind(&TestBase<GcLock>::allocThreadDefer, &test, _1));
-}
-
-BOOST_AUTO_TEST_CASE ( test_rcu_deferred )
-{
-    cerr << "testing deferred RCU" << endl;
-
-    int nthreads = 2;
-    int nblocks = 2;
-
-    TestBase<RcuLock> test(nthreads, nblocks);
-    test.run(boost::bind(&TestBase<RcuLock>::allocThreadDefer, &test, _1));
 }
 
 
