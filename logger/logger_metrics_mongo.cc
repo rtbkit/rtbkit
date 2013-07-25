@@ -10,6 +10,12 @@ using namespace mongo;
 LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
     const string& coll, const string& appName) : ILoggerMetrics(coll)
 {
+    for(string s: {"hostAndPort", "database", "user", "pwd"}){
+        if(config[s].isNull()){
+            throw ML::Exception("Missing LoggerMetricsMongo parameter [%s]",
+                                s.c_str());
+        }
+    }
     HostAndPort hostAndPort(config["hostAndPort"].asString());
     conn.connect(hostAndPort);
     string err;
@@ -23,10 +29,11 @@ LoggerMetricsMongo::LoggerMetricsMongo(Json::Value config,
     BSONObj obj = BSON(GENOID);
     conn.insert(db + "." + coll, obj);
     objectId = obj["_id"].OID();
+    logToTerm = config["logToTerm"].asBool();
 }
 
 void LoggerMetricsMongo::logInCategory(const string& category,
-    Json::Value& json)
+    const Json::Value& json)
 {
     BSONObjBuilder bson;
     vector<string> stack;
@@ -68,6 +75,11 @@ void LoggerMetricsMongo::logInCategory(const string& category,
     };
     doit(json);
 
+    if(logToTerm){
+        cout << objectId << "." << coll << "." << category 
+             << ": " << json.toStyledString() << endl;
+    }
+
     conn.update(db + "." + coll,
                 BSON("_id" << objectId),
                 BSON("$set" << bson.obj()),
@@ -90,10 +102,16 @@ void LoggerMetricsMongo
     for(string part: path){
         newCat << "." << part;
     }
+    string newCatStr = newCat.str();
+    string str = ss.str();
+    
+    if(logToTerm){
+        cout << newCatStr << ": " << str << endl;
+    }
     conn.update(db + "." + coll,
                 BSON("_id" << objectId),
                 BSON("$set" 
-                    << BSON(newCat.str() << ss.str())),
+                    << BSON(newCatStr << str)),
                 true);
 }
 

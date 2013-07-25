@@ -42,6 +42,7 @@ init(int maxFds)
 {
     //cerr << "initializing epoller at " << this << endl;
     //backtrace();
+    close();
 
     epoll_fd = epoll_create(maxFds);
     if (epoll_fd == -1)

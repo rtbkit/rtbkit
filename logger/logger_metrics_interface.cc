@@ -30,15 +30,24 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
         }else{
             parentObjectId = "";
         }
-        if(!getenv("CONFIG")){
-            cerr << "Logger Metrics Setup: CONFIG is not defined. "
-                 << "Will use the terminal." << endl;
+        if(!getenv("CONFIG") || configKey == ""){
+            cerr << "Logger Metrics Setup: either CONFIG is not defined "
+                    "or configKey empty. "
+                    "Will use the terminal." << endl;
             Json::Value fooConfig;
             logger = shared_ptr<ILoggerMetrics>(
                 new LoggerMetricsTerm(fooConfig, coll, appName));
         }else{
             Json::Value config = Json::parseFromFile(getenv("CONFIG"));
             config = config[configKey];
+            if(config.isNull()){
+                throw ML::Exception("Your configKey [" + configKey + "] is invalid or your "
+                                    "config file is empty");
+            }
+            if(config["type"].isNull()){
+                throw ML::Exception("Your LoggerMetrics config needs to "
+                                    "specify a [type] key.");
+            }
             string loggerType = config["type"].asString();
             failSafe = config["failSafe"].asBool();
             function<void()> fct = [&]{
@@ -101,6 +110,10 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
     v["workingDirectory"] = string(getenv("PWD"));
     v["gitBranch"] = getCmdResult("git rev-parse --abbrev-ref HEAD");
     v["gitHash"] = getCmdResult("git rev-parse HEAD");
+    // Log environment variable RUNID. Useful to give a name to an
+    // experiment.
+    char* runid = getenv("RUNID");
+    v["runid"] = string(runid ?: "");
     logger->logProcess(v);
     setenv("METRICS_PARENT_ID", logger->getProcessId().c_str(), 1);
 
@@ -120,7 +133,7 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
     return logger;
 }
 
-void ILoggerMetrics::logMetrics(Json::Value& json){
+void ILoggerMetrics::logMetrics(const Json::Value& json){
     vector<string> stack;
     function<void(const Json::Value&)> doit;
     doit = [&](const Json::Value& v){

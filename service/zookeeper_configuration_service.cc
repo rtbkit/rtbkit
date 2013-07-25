@@ -9,7 +9,7 @@
 #include "soa/service/zookeeper.h"
 #include "jml/utils/exc_assert.h"
 #include <boost/algorithm/string.hpp>
-
+#include <sys/utsname.h>
 
 using namespace std;
 using namespace ML;
@@ -97,11 +97,12 @@ ZookeeperConfigurationService()
 }
 
 ZookeeperConfigurationService::
-ZookeeperConfigurationService(const std::string & host,
-                              const std::string & prefix,
+ZookeeperConfigurationService(std::string host,
+                              std::string prefix,
+                              std::string location,
                               int timeout)
 {
-    init(host, prefix, timeout);
+    init(std::move(host), std::move(prefix), std::move(location));
 }
     
 ZookeeperConfigurationService::
@@ -111,35 +112,24 @@ ZookeeperConfigurationService::
 
 void
 ZookeeperConfigurationService::
-init(const std::string & host,
-     const std::string & prefix,
+init(std::string host,
+     std::string prefix,
+     std::string location,
      int timeout)
 {
+    currentLocation = std::move(location);
+
     zoo.reset(new ZookeeperConnection());
     zoo->connect(host, timeout);
-    this->prefix = prefix;
 
-    if (!this->prefix.empty()
-        && this->prefix[this->prefix.size() - 1] != '/')
-        this->prefix = this->prefix + "/";
+    if (!prefix.empty() && prefix[prefix.size() - 1] != '/')
+        prefix = prefix + "/";
 
-    if (!this->prefix.empty()
-        && this->prefix[0] != '/')
-        this->prefix = "/" + this->prefix;
-    
+    if (!prefix.empty() && prefix[0] != '/')
+        prefix = "/" + prefix;
+
+    this->prefix = std::move(prefix);
     zoo->createPath(this->prefix);
-
-#if 0
-    for (unsigned i = 1;  i < prefix.size();  ++i) {
-        if (prefix[i] == '/') {
-            zoo->createNode(string(prefix, 0, i),
-                            "",
-                            false,
-                            false,
-                            false /* must succeed */);
-        }
-    }
-#endif
 }
 
 Json::Value

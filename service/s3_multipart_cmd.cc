@@ -23,10 +23,10 @@ using namespace ML;
 
 int main(int argc, char* argv[])
 {
-    string outputFile ="s3://tests.datacratic.com/logger/2013-05-30/router-2013-05-30-23:00:00.log.gz";
+    string outputFile;
     string localFile;
-    string s3KeyId = "AKIAJPP5S2FOPKM7A6TQ";
-    string s3Key = "GWvmoRL7zimykTikj5kJszoEgPFsNsiU/jz1H6kn";
+    string s3KeyId;
+    string s3Key;
     bool cancel = false; //whether the multipart upload should be cancelled
     
     po::options_description desc("Main options");

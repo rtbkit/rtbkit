@@ -39,12 +39,12 @@ using namespace Datacratic;
 struct EchoService : public ServiceBase {
 
     EchoService(std::shared_ptr<ServiceProxies> proxies,
-                const std::string & serviceName)
-        : ServiceBase(serviceName, proxies),
+                const std::string & name)
+        : ServiceBase(name, proxies),
           toClients(getZmqContext())
     {
-        proxies->config->removePath(serviceName);
-        registerServiceProvider(serviceName, { "echo" });
+        proxies->config->removePath(serviceName());
+        registerServiceProvider(serviceName(), { "echo" });
 
         auto handler = [=] (vector<string> message)
             {

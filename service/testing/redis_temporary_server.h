@@ -131,9 +131,9 @@ struct RedisTemporaryServer : boost::noncopyable {
 
             // Wait for it to start up
             for (unsigned i = 0;  i < 1000;  ++i) {
-                res = connect(sock, (const sockaddr *)&addr, sizeof(addr));
+                res = connect(sock, (const sockaddr *)&addr, SUN_LEN(&addr));
                 if (res == 0) break;
-                if (res == -1 && errno != ECONNREFUSED)
+                if (res == -1 && errno != ECONNREFUSED && errno != ENOENT)
                     throw ML::Exception(errno, "connect");
             
                 ML::sleep(0.01);

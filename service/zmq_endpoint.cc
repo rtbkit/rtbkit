@@ -9,6 +9,7 @@
 #include <sys/utsname.h>
 #include <thread>
 #include "jml/arch/timers.h"
+#include "jml/arch/info.h"
 
 using namespace std;
 
@@ -288,7 +289,7 @@ handleEvent(const zmq_event_t & event)
 
 ZmqNamedEndpoint::
 ZmqNamedEndpoint(std::shared_ptr<zmq::context_t> context)
-    : context_(context), monitor(*context)
+    : context_(context)
 {
 }
 
@@ -303,74 +304,6 @@ init(std::shared_ptr<ConfigurationService> config,
     this->socket_.reset(new zmq::socket_t(*context_, socketType));
     setHwm(*socket_, 65536);
     
-    bool monitorSocket = false;
-
-    if (monitorSocket) {
-        monitor.init(*socket_);
-
-        monitor.bindHandler = [=] (std::string addr, int fd, const zmq_event_t &)
-            {
-                std::unique_lock<Lock> guard(lock);
-                ExcAssert(!boundAddresses.count(addr));
-                boundAddresses[addr].listeningFd = fd;
-            };
-
-        monitor.acceptHandler = [=] (std::string addr, int fd, const zmq_event_t &)
-            {
-                {
-                    std::unique_lock<Lock> guard(lock);
-                    ExcAssert(boundAddresses.count(addr));
-                    bool added = boundAddresses[addr].connectedFds.insert(fd).second;
-                    ExcAssert(added);
-                }
-
-                handleAcceptEvent(addr);
-            };
-
-        monitor.disconnectHandler = [=] (std::string addr, int fd, const zmq_event_t &)
-            {
-                {
-                    std::unique_lock<Lock> guard(lock);
-                    ExcAssert(boundAddresses.count(addr));
-                    bool erased = boundAddresses[addr].connectedFds.erase(fd);
-                    ExcAssert(erased);
-                }
-            
-                handleDisconnectEvent(addr);
-            };
-
-        monitor.closeHandler = [=] (std::string addr, int fd, const zmq_event_t &)
-            {
-                {
-                    std::unique_lock<Lock> guard(lock);
-                    if (boundAddresses[addr].listeningFd != -1)
-                        ExcAssertEqual(boundAddresses[addr].listeningFd, fd);
-                    boundAddresses.erase(addr);
-                }
-            
-                handleDisconnectEvent(addr);
-            };
-    
-        // zmq_bind() returns this information for us
-        monitor.bindFailureHandler = [=] (std::string addr, int fd, const zmq_event_t &)
-            {
-            };
-    
-
-        monitor.defaultHandler = [=] (string addr, int param,
-                                      const zmq_event_t & event)
-            {
-                cerr << "ZmqNamedEndpoint got socket event "
-                << printZmqEvent(event.event)
-                << " on " << addr << " with " << param;
-                if (zmqEventIsError(event.event))
-                    cerr << " " << strerror(param);
-                cerr<< endl;
-            };
-
-        addSource("ZmqNamedEndpoint::monitor", monitor);
-    }
-
     addSource("ZmqNamedEndpoint::socket",
               std::make_shared<ZmqBinaryEventSource>
               (*socket_, [=] (std::vector<zmq::message_t> && message)
@@ -403,10 +336,18 @@ bindTcp(PortRange const & portRange, std::string host)
 
     Json::Value config;
 
-    auto addEntry = [&] (const std::string & addr,
-                         const std::string & hostScope,
-                         const std::string & uri)
+    auto addEntry = [&] (const std::string& addr,
+                         const std::string& hostScope)
         {
+            std::string uri;
+
+            if(hostScope != "*") {
+               uri = "tcp://" + addr + ":" + to_string(port);
+            }
+            else {
+               uri = "tcp://" + ML::fqdn_hostname(to_string(port)) + ":" + to_string(port);
+            }
+
             Json::Value & entry = config[config.size()];
             entry["zmqConnectUri"] = uri;
 
@@ -423,19 +364,17 @@ bindTcp(PortRange const & portRange, std::string host)
     if (host == "*") {
         auto interfaces = getInterfaces({AF_INET});
         for (unsigned i = 0;  i < interfaces.size();  ++i) {
-            addEntry(interfaces[i].addr, interfaces[i].hostScope,
-                     getUri(interfaces[i].addr));
+            addEntry(interfaces[i].addr, interfaces[i].hostScope);
         }
         publishAddress("tcp", config);
         return getUri(host);
     }
     else {
         string host2 = addrToIp(host);
-        string uri = getUri(host2);
         // TODO: compute the host scope; don't just assume "*"
-        addEntry(host2, "*", uri);
+        addEntry(host2, "*");
         publishAddress("tcp", config);
-        return uri;
+        return getUri(host2);
     }
 }
 
@@ -446,14 +385,16 @@ bindTcp(PortRange const & portRange, std::string host)
 /*****************************************************************************/
 
 ZmqNamedProxy::
-ZmqNamedProxy()
-    : context_(new zmq::context_t(1))
+ZmqNamedProxy() :
+    context_(new zmq::context_t(1)),
+    local(true)
 {
 }
 
 ZmqNamedProxy::
-ZmqNamedProxy(std::shared_ptr<zmq::context_t> context)
-    : context_(context)
+ZmqNamedProxy(std::shared_ptr<zmq::context_t> context) :
+    context_(context),
+    local(true)
 {
 }
 
@@ -571,8 +512,11 @@ bool
 ZmqNamedProxy::
 connectToServiceClass(const std::string & serviceClass,
                       const std::string & endpointName,
+                      bool local_,
                       ConnectionStyle style)
 {
+    local = local_;
+
     // TODO: exception safety... if we bail don't screw around the auction
     ExcAssertNotEqual(connectionType, CONNECT_DIRECT);
     ExcAssertNotEqual(serviceClass, "");
@@ -602,6 +546,12 @@ connectToServiceClass(const std::string & serviceClass,
         Json::Value value = config->getJson(key);
         std::string name = value["serviceName"].asString();
         std::string path = value["servicePath"].asString();
+
+        std::string location = value["serviceLocation"].asString();
+        if (local && location != config->currentLocation) {
+            std::cerr << "dropping " << location << " != " << config->currentLocation << std::endl;
+            continue;
+        }
 
         //cerr << "name = " << name << " path = " << path << endl;
         if (connect(path + "/" + endpointName,
@@ -633,7 +583,7 @@ onServiceNodeChange(const std::string & path,
     if (connectionState != CONNECTION_PENDING)
         return;  // no need to watch anymore
 
-    connectToServiceClass(serviceClass, endpointName, CS_ASYNCHRONOUS);
+    connectToServiceClass(serviceClass, endpointName, local, CS_ASYNCHRONOUS);
 }
 
 void

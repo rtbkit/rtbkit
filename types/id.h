@@ -53,7 +53,7 @@ struct Id {
         BIGDEC = 4,      /// 7394206091425759590
         BASE64_96 = 5,   /// 16 character base64 string
         HEX128LC = 6,    /// 32 character lowercase hex string
-        INT64DEC = 7,    /// decimal integer that fits in an uint64_t
+        INT64DEC = 7,    /// obsolete type, do not use
 
         // other integer-encoded values go here
 
@@ -83,6 +83,13 @@ struct Id {
         : type(NONE), val1(0), val2(0)
     {
         parse(value, type);
+    }
+    
+    explicit Id(const char * value, size_t len,
+                Type type = UNKNOWN)
+        : type(NONE), val1(0), val2(0)
+    {
+        parse(value, len, type);
     }
     
     explicit Id(uint64_t value):
@@ -138,14 +145,21 @@ struct Id {
         return *this;
     }
 
-    void parse(const std::string & value, Type type = UNKNOWN);
+    void parse(const std::string & value, Type type = UNKNOWN)
+    {
+        parse(value.c_str(), value.size(), type);
+    }
+    void parse(const char * value, size_t len, Type type = UNKNOWN);
     
     std::string toString() const;
 
     uint64_t toInt() const
     {
-        if (type != BIGDEC && type != INT64DEC)
-            throw ML::Exception("can't convert non-BIGDEC or non-INT64DEC to int");
+        if (type != BIGDEC)
+            throw ML::Exception("can't convert non-BIGDEC to int");
+        if (val2) {
+            throw ML::Exception("cannot convert 128-bit value to uint64_t");
+        }
         return val1;
     }
 

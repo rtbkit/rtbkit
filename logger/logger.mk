@@ -26,4 +26,4 @@ LIBLOG_METRICS_LINK := \
 $(eval $(call library,log_metrics,$(LIBLOG_METRICS_SOURCES),$(LIBLOG_METRICS_LINK)))
 
 $(eval $(call include_sub_make,logger_testing,testing,logger_testing.mk))
-
+$(eval $(call include_sub_make,js))

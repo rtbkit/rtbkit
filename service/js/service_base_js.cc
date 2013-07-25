@@ -61,6 +61,7 @@ struct ServiceProxiesJS :
     {
         Persistent<FunctionTemplate> t = Register(New);
 
+        NODE_SET_PROTOTYPE_METHOD(t, "bootstrap", bootstrap);
         NODE_SET_PROTOTYPE_METHOD(t, "logToCarbon", logToCarbon);
         registerMemberFn(&Datacratic::ServiceProxies::useZookeeper, "useZookeeper");
         registerMemberFn(&Datacratic::ServiceProxies::getServiceClassInstances, "getServiceClassInstances");
@@ -88,6 +89,25 @@ struct ServiceProxiesJS :
         } HANDLE_JS_EXCEPTIONS;
     }
 
+    static Handle<Value>
+    bootstrap(const Arguments& args) {
+        try {
+            ExcCheck(args.Length() == 1, "Invalid argument count");
+
+            auto arg = args[0];
+            auto & serviceProxies = *getShared(args);
+            if (arg->IsString()) {
+                serviceProxies.bootstrap(getArg<string>(args, 0, "path"));
+            } else if (arg->IsObject()) {
+                auto config = getArg<Json::Value>(args, 0, "config");
+                serviceProxies.bootstrap(config);
+            } else {
+                ExcCheck(false, "Invalid argument type");
+            }
+
+            return Handle<Value>();
+        } HANDLE_JS_EXCEPTIONS;
+    }
 };
 
 std::shared_ptr<ServiceProxies>

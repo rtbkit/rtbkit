@@ -271,7 +271,13 @@ int
 Date::
 hour() const
 {
-    throw Exception("Date: stub method");
+    time_t t = secondsSinceEpoch();
+    tm time;
+
+    if (!gmtime_r(&t, &time))
+        throw Exception("problem with gmtime_r");
+
+    return time.tm_hour;
 }
 
 int
@@ -883,6 +889,18 @@ match_date_time(ML::Parse_Context & context,
     return true;
 }
 
+Date Date::parse(const std::string & date,
+                 const std::string & format)
+{
+    tm time;
+    memset(&time, 0, sizeof(time));
+    if(strptime(date.c_str(), format.c_str(), &time) == NULL)
+        throw ML::Exception("error in strptime");
+
+    //not using fromTm because I don't want it to assume it's local time
+    return Date(1900 + time.tm_year, 1 + time.tm_mon, time.tm_mday,
+                time.tm_hour, time.tm_min, time.tm_sec);
+}
 
 ACE_Time_Value
 Date::

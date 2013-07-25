@@ -16,7 +16,7 @@ LoggerMetricsTerm::LoggerMetricsTerm(Json::Value config,
 }
 
 void LoggerMetricsTerm::logInCategory(const string& category,
-    Json::Value& json)
+    const Json::Value& json)
 {
     cout << pid << "." << coll << "." << category 
          << ": " << json.toStyledString() << endl;
@@ -38,7 +38,7 @@ void LoggerMetricsTerm
     for(string part: path){
         newCat << "." << part;
     }
-    cout << newCat << ": " << ss.str() << endl;
+    cout << newCat.str() << ": " << ss.str() << endl;
 }
 
 const std::string LoggerMetricsTerm::getProcessId() const{

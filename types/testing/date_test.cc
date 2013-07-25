@@ -201,3 +201,33 @@ BOOST_AUTO_TEST_CASE( test_addFromString )
 //     Date d2 = Date::fromSecondsSinceEpoch(4516978241);
 //     BOOST_CHECK_EQUAL(d1, d2);
 // }
+
+BOOST_AUTO_TEST_CASE( test_strptime_parse )
+{
+    Date d(2013,1,1,0,0,0);
+    vector<string> fmts = {
+        "%d-%m-%Y %H:%M:%S",
+        "%d %m %Y",
+        "%d-%b-%Y",
+    };
+    for (auto & fmt : fmts) {
+        cerr << d.print(fmt) << endl;
+        cerr << Date::parse(d.print(fmt), fmt).print(fmt) << endl;
+        string formattedDate = d.print(fmt);
+        Date parsedDate = Date::parse(formattedDate, fmt);
+        BOOST_CHECK_EQUAL(parsedDate, d);
+    }
+}
+
+
+// for PLAT-274
+// BOOST_AUTO_TEST_CASE( test_patate) {
+    // string x = "01 01 2013";
+    // string fmt = "%d %m %Y";
+    // // const char * x = "2013-Jan-01";
+    // // const char * fmt = "%Y-%b-%d";
+
+    // struct tm tm;
+    // memset(&tm, 0, sizeof(struct tm));
+    // strptime(x.c_str(), fmt.c_str(), &tm);
+// }

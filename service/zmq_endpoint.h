@@ -479,9 +479,6 @@ struct ZmqNamedEndpoint : public NamedEndpoint, public MessageLoop {
             unbindAll();
             socket_.reset();
         }
-
-        //ML::sleep(0.1);
-        monitor.shutdown();
     }
 
     /** Bind into a tcp port.  If the preferred port is not available, it will
@@ -647,10 +644,6 @@ private:
 
     std::shared_ptr<zmq::context_t> context_;
     std::shared_ptr<zmq::socket_t> socket_;
-
-    /// Monitor so that we can get notifications when things happen to
-    /// the socket
-    ZmqSocketMonitor monitor;
 
     struct AddressInfo {
         AddressInfo()
@@ -936,6 +929,7 @@ struct ZmqNamedProxy: public MessageLoop {
     */
     bool connectToServiceClass(const std::string & serviceClass,
                                const std::string & endpointName,
+                               bool local = true,
                                ConnectionStyle style = CS_ASYNCHRONOUS);
 
     /** Called back when one of our endpoints either changes or disappears. */
@@ -1017,6 +1011,7 @@ protected:
     std::string endpointName;      ///< Name of endpoint to connect to
     std::string connectedService;  ///< Name of service we're connected to
     std::string connectedUri;      ///< URI we're connected to
+    bool local;
 };
 
 
@@ -1179,7 +1174,8 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         that we listen and connect to any further ones that appear.
     */
     void connectAllServiceProviders(const std::string & serviceClass,
-                                    const std::string & endpointName)
+                                    const std::string & endpointName,
+                                    bool local = true)
     {
         if (connected)
             throw ML::Exception("alread connected to service providers");
@@ -1190,10 +1186,10 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         serviceProvidersWatch.init([=] (const std::string & path,
                                         ConfigurationService::ChangeType change)
                                    {
-                                       onServiceProvidersChanged("serviceClass/" + serviceClass);
+                                       onServiceProvidersChanged("serviceClass/" + serviceClass, local);
                                    });
 
-        onServiceProvidersChanged("serviceClass/" + serviceClass);
+        onServiceProvidersChanged("serviceClass/" + serviceClass, local);
         // std::cerr << "++++after call to onServiceProvidersChanged " << std::endl;
         connected = true;
     }
@@ -1287,7 +1283,8 @@ private:
     mutable Lock connectionsLock;
 
     /** List of currently connected connections. */
-    std::map<std::string, std::unique_ptr<ZmqNamedClientBusProxy> > connections;
+    typedef std::map<std::string, std::unique_ptr<ZmqNamedClientBusProxy> > ConnectionMap;
+    ConnectionMap connections;
 
     /** Current watch on the list of service providers. */
     ConfigurationService::Watch serviceProvidersWatch;
@@ -1295,7 +1292,7 @@ private:
     /** Queue of operations to perform asynchronously from our own thread. */
 
     /** Callback that will be called when the list of service providers has changed. */
-    void onServiceProvidersChanged(const std::string & path)
+    void onServiceProvidersChanged(const std::string & path, bool local)
     {
         using namespace std;
         //cerr << "onServiceProvidersChanged(" << path << ")" << endl;
@@ -1309,8 +1306,42 @@ private:
             std::string name = value["serviceName"].asString();
             std::string path = value["servicePath"].asString();
 
+            std::string location = value["serviceLocation"].asString();
+            if (local && location != config->currentLocation) {
+                std::cerr << "dropping " << location << " != " << config->currentLocation << std::endl;
+                continue;
+            }
+
             watchServiceProvider(name, path);
         }
+
+        // deleting the connection could trigger a callback which is a bad idea
+        // while we're holding the connections lock. So instead we move all the
+        // connections to be deleted to a temp map which we'll wipe once the
+        // lock is released.
+        ConnectionMap pendingDisconnects;
+        {
+            std::unique_lock<Lock> guard(connectionsLock);
+
+            // Services that are no longer in zookeeper are considered to be
+            // disconnected so remove them from our connection map.
+            for (auto& conn : connections) {
+                auto it = find(children.begin(), children.end(), conn.first);
+                if (it != children.end()) continue;
+
+                // Erasing from connections in this loop would invalidate our
+                // iterator so defer until we're done with the connections map.
+                pendingDisconnects[conn.first].reset(conn.second.release());
+            }
+
+            for (const auto& conn : pendingDisconnects)
+                connections.erase(conn.first);
+        }
+
+        // We're no longer holding the lock so any delayed. Time to really
+        // disconnect and trigger the callbacks.
+        pendingDisconnects.clear();
+
     }
 
     /** Encapsulates a lock-free state machine that manages the logic of the on
@@ -1419,7 +1450,14 @@ private:
             c->connectHandler.target<OnConnectCallback>()->release();
 
         } catch (...) {
+            // Avoid triggering the disconnect callbacks while holding the
+            // connectionsLock by defering the delete of the connection until
+            // we've manually released the lock.
+            ConnectionMap::mapped_type conn(std::move(connections[name]));
             connections.erase(name);
+
+            guard.unlock();
+            // conn is a unique_ptr so it gets destroyed here.
             throw;
         }
     }

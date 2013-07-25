@@ -863,6 +863,13 @@ T jsonDecode(const Json::Value & json, T * = 0,
     return result;
 }
 
+// In-place json decoding
+template<typename T>
+void jsonDecode(const Json::Value & json, T & val)
+{
+    val = std::move(jsonDecode(json, (T *)0));
+}
+
 // jsonEncode implementation for any type which:
 // 1) has a default description;
 // 2) does NOT have a toJson() function (there is a simpler overload for this case)
@@ -878,6 +885,11 @@ Json::Value jsonEncode(const T & obj,
     return std::move(context.output);
 }
 
+inline Json::Value jsonEncode(const char * str)
+{
+    return str;
+}
+
 } // namespace Datacratic
 
 
@@ -885,14 +897,18 @@ Json::Value jsonEncode(const T & obj,
 /// Macro to introduce a class TypeDescription that is a structure
 /// description for that type, and a getDefaultDescription()
 /// overload for it.  The constructor still needs to be done.
-#define CREATE_STRUCTURE_DESCRIPTION(Type)                      \
-    struct Type##Description                                    \
+#define CREATE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
+    struct Name                                                 \
         : public Datacratic::StructureDescription<Type> {       \
-        Type##Description();                                    \
+        Name();                                                 \
     };                                                          \
                                                                 \
-    inline Type##Description *                                  \
+    inline Name *                                               \
     getDefaultDescription(Type *)                               \
     {                                                           \
-        return new Type##Description();                         \
+        return new Name();                                      \
     }                                                          
+
+#define CREATE_STRUCTURE_DESCRIPTION(Type)                      \
+    CREATE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
+

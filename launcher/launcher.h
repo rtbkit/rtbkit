@@ -33,24 +33,30 @@ struct Launcher
 {
     struct Task
     {
-        Task() : pid(-1), log(false), delay(5.0) {
+        Task() : pid(-1), log(false), delay(30.0) {
         }
 
         std::string const & getName() const {
             return name;
         }
 
-        void restart() {
-            stop();
-            start();
+        void launch(std::string const & node) {
+            spawn(node);
+            for(auto & item : children) {
+                item.launch(node);
+            }
         }
 
-        void start() {
-            spawn();
-            ML::sleep(delay);
+        void restart(std::string const & node) {
+            stop();
+            start(node);
+        }
 
+        void start(std::string const & node) {
+            ML::sleep(delay);
+            spawn(node);
             for(auto & item : children) {
-                item.start();
+                item.start(node);
             }
         }
 
@@ -176,10 +182,11 @@ struct Launcher
             }
         }
 
-        std::vector<char const *> makeArgs() {
+        std::vector<char const *> makeArgs(std::string const & node) {
             std::vector<char const *> result;
 
             result.push_back(path.c_str());
+
             for(auto & item : arg) {
                 result.push_back(item.c_str());
             }
@@ -194,7 +201,7 @@ struct Launcher
             return result;
         }
 
-        void spawn() {
+        void spawn(std::string const & node) {
             std::cout << "launch " << name << std::endl;
             pid = fork();
 
@@ -220,10 +227,10 @@ struct Launcher
                     throw ML::Exception(errno, "chdir failed");
                 }
 
-                std::vector<char const *> args = makeArgs();
+                std::vector<char const *> args = makeArgs(node);
                 std::vector<char const *> envs = makeEnvs();
 
-                res = execvpe(path.c_str(), (char **) &args[0], (char **) &envs[0]);
+                res = execvp(path.c_str(), (char **) &args[0]);
                 if (res == -1) {
                     throw ML::Exception(errno, "process failed to start");
                 }
@@ -283,9 +290,15 @@ struct Launcher
             return 0;
         }
 
+        void launch() {
+            for(auto & item : tasks) {
+                item.launch(name);
+            }
+        }
+
         void restart() {
             for(auto & item : tasks) {
-                item.restart();
+                item.restart(name);
             }
         }
 
@@ -447,7 +460,7 @@ struct Launcher
                 sa.sa_handler = &Service::sigchld;
                 sigaction(SIGCHLD, &sa, 0);
 
-                node->restart();
+                node->launch();
 
                 for(;;) {
                     ML::sleep(1.0);
@@ -472,7 +485,7 @@ struct Launcher
             std::time_t now = std::time(0);
             std::cerr << "crash! " << (item ? item->getName() : "?") << " detected at " << std::asctime(std::localtime(&now)) << std::endl;
             if(item) {
-                item->restart();
+                item->restart(node->getName());
             }
         }
 

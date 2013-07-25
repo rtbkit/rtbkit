@@ -103,7 +103,8 @@ struct HttpNamedRestProxy: public HttpRestProxy {
     void init(std::shared_ptr<ConfigurationService> config);
 
     bool connectToServiceClass(const std::string & serviceClass,
-                               const std::string & endpointName);
+                               const std::string & endpointName,
+                               bool local = true);
 
     bool connect(const std::string & endpointName);
 

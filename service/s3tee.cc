@@ -63,8 +63,12 @@ int main(int argc, char* argv[])
         return showHelp ? 1 : 0;
     }
 
-    if (s3KeyId != "")
-        registerS3Buckets(s3KeyId, s3Key);
+    for (auto f: outputFiles){
+        if(f.substr(0, 5) == "s3://"){
+            size_t pos = f.substr(5).find("/");
+            registerS3Bucket(f.substr(5, pos), s3KeyId, s3Key);
+        }
+    }
 
     std::vector<filter_ostream> streams;
     streams.reserve(outputFiles.size() + 1);
