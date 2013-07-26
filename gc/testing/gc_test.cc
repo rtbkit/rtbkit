@@ -20,7 +20,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <iostream>
-#include <urcu.h>
+#include <atomic>
 
 #include <boost/thread.hpp>
 #include <boost/thread/barrier.hpp>
@@ -367,7 +367,7 @@ struct TestBase {
     {
         for (unsigned i = 0;  i < nthreads;  ++i) {
             allBlocks[i] = new int *[nblocks];
-            std::fill(allBlocks[i], allBlocks[i] + nblocks, (int *)0);
+            std::fill(allBlocks[i].load(), allBlocks[i].load() + nblocks, (int *)0);
         }
     }
 
@@ -389,7 +389,7 @@ struct TestBase {
        here by another thread should always refer to exactly the same
        value.
     */
-    vector<int **> allBlocks;
+    vector<atomic<int **>> allBlocks;
 
     void checkVisible(int threadNum, unsigned long long start)
     {
@@ -400,7 +400,7 @@ struct TestBase {
         for (unsigned i = 0;  i < nthreads;  ++i) {
             for (unsigned j = 0;  j < nblocks;  ++j) {
                 //int * val = allBlocks[i][j];
-                int * val = (int *)(rcu_dereference_sym(allBlocks[i][j]));
+                int * val = allBlocks[i].load()[j];
                 if (val) {
                     int atVal = *val;
                     if (atVal != i) {
