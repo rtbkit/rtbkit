@@ -16,24 +16,17 @@
 
 namespace RTBKIT {
 
-OpenRTB::AdPosition convertAdPosition(AppNexus::AdPosition pos) {
-    OpenRTB::AdPosition ret;
-
-    if (pos.value() == AppNexus::AdPosition::UNKNOWN) {
-        ret.val = OpenRTB::AdPosition::UNKNOWN;
+OpenRTB::AdPosition convertAdPosition(std::string pos) {
+    if (pos == "above") {
+        return OpenRTB::AdPosition::ABOVE;
     } 
-    else if (pos.value() == AppNexus::AdPosition::ABOVE) {
-        ret.val = OpenRTB::AdPosition::ABOVE;
-    } 
-    else if (pos.value() == AppNexus::AdPosition::BELOW) {
-        ret.val = OpenRTB::AdPosition::BELOW;
+    else if (pos == "below") {
+        return OpenRTB::AdPosition::BELOW;
     }
-    else { // AN only supports the above three AdPos types.
+    else { // AN only supports the above two AdPos types.
            // ORTB supports others but AN does not.
-        ret.val = OpenRTB::AdPosition::UNSPECIFIED;
+        return OpenRTB::AdPosition::UNKNOWN;
     }
-
-    return ret;
 }
 
 } // namespace RTBKIT

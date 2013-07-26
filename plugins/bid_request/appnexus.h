@@ -24,24 +24,14 @@ using std::string;
 using std::vector;
 using std::unordered_map;
 using Datacratic::Id;
-using Datacratic::Utf8String;
 using Datacratic::Url;
-using OpenRTB::TaggedInt;
-using OpenRTB::TaggedBool;
-using OpenRTB::TaggedFloat;
-using OpenRTB::TaggedInt64;
-using OpenRTB::TaggedDouble;
+using std14::optional;
 
-
-struct AdPosition: public OpenRTB::TaggedEnum<AdPosition, 0> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        UNKNOWN = 0,
-        ABOVE = 1,
-        BELOW = 3
-    };
-};
+typedef optional<int> TaggedInt;
+typedef optional<bool> TaggedBool;
+typedef optional<float> TaggedFloat;
+typedef optional<int64_t> TaggedInt64;
+typedef optional<double> TaggedDouble;
 
 struct Segment {
     Id id;
@@ -76,7 +66,7 @@ struct Tag {
     // Subsection: General data
     string size;            // TODO validation, need enum of allowed vals
     vector<string> sizes;   // TODO validation, need enum of allowed vals
-    AdPosition position;    // TODO enum, values in positions
+    optional<string> position;    // TODO enum, values in positions
     string tagFormat;       // TODO enum, values in tagFormats
     vector<TaggedInt> allowedMediaTypes;      // TODO enum, need valid values
     vector<TaggedInt> allowedMediaSubtypes;     // TODO enum, need valid values
@@ -92,7 +82,7 @@ struct Tag {
     TaggedBool estimatedPriceVerified;
     // /Subsection: Pricing data
     // Subsection: Owner-specific data
-    Utf8String tagData;                  // "Other data related to TinyTag ID"
+    string tagData;                  // "Other data related to TinyTag ID"
     TaggedBool exclusiveDefault;
     TaggedInt defaultCreativeId;
     // /Subsection: Owner-specific data
@@ -125,7 +115,7 @@ const unordered_map<int, string> deviceOsVersion = {
 struct BidInfo {
     // Subsection: user
     TaggedInt64 userId64;
-    Utf8String userAgent;
+    string userAgent;
     // TODO Get actual values from here: https://wiki.appnexus.com/display/adnexusdocumentation/Operating+System+Service
     TaggedInt operatingSystem;
     // \"Accept-Language\" header from browser (using ISO-639 language and ISO-3166 country codes)
@@ -139,9 +129,9 @@ struct BidInfo {
     // /Subsection: user
     // Subsection: geographical data
     string ipAddress;           // TODO IP octets validation
-    Utf8String country;         // TODO no enum values in spec
-    Utf8String region;          // TODO no enum values in spec
-    Utf8String city;                // TODO no enum values in spec
+    string country;         // TODO no enum values in spec
+    string region;          // TODO no enum values in spec
+    string city;                // TODO no enum values in spec
     string postalCode;          // TODO validate postalCodes US etc. :-(
     TaggedInt dma;                    // TODO no enum values in spec
     string timeZone;            // TODO no enum values in spec
@@ -152,7 +142,7 @@ struct BidInfo {
     // /Subsection: userdata from server-side cookie storage
     // Subsection: Inventory (page) information
     Id sellingMemberId;
-    Utf8String url;             // TODO? validate valid URL
+    string url;             // TODO? validate valid URL
     string domain;
     string inventoryClass;  // DEPRECATED, TODO enum, values in inventoryClasses
     vector<InventoryAudit> inventoryAudits;

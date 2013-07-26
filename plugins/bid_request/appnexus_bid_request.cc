@@ -32,30 +32,32 @@ fromAppNexus(const AppNexus::BidRequest & req,
 
     // OpenRTB::User
     std::unique_ptr<OpenRTB::User> user(new OpenRTB::User);
-    user->id = Id(req.bidInfo.userId64.val);
+    if (req.bidInfo.userId64)
+        user->id = Id(*req.bidInfo.userId64);
     user->gender = req.bidInfo.gender;
-    user->yob.val = req.bidInfo.age.val;
+    user->yob = req.bidInfo.age;
 
     // OpenRTB::Device
     std::unique_ptr<OpenRTB::Device> device(new OpenRTB::Device);
-    // OpenRTB::Geo
-    std::unique_ptr<OpenRTB::Geo> geo(new OpenRTB::Geo);
-    device->geo.reset(geo.release());
+    device->geo.emplace();
     //
-    device->ua = req.bidInfo.userAgent.rawString();
+    device->ua = req.bidInfo.userAgent;
     // AN codes are located in their wiki documentation:
     // https://wiki.appnexus.com/display/adnexusdocumentation/Operating+System+Service 
     // Helper function here converts AN OS code to a string, using the documentation from this URL retrieved as of Jun 2013
-    int osCode = req.bidInfo.operatingSystem.val;
-    device->os = req.bidInfo.getANDeviceOsStringForCode(osCode);
-    device->osv = req.bidInfo.getANDeviceOsVersionStringForCode(osCode);
+    if (req.bidInfo.operatingSystem)
+    {
+        int osCode = *req.bidInfo.operatingSystem;
+        device->os = req.bidInfo.getANDeviceOsStringForCode(osCode);
+        device->osv = req.bidInfo.getANDeviceOsVersionStringForCode(osCode);
+    }
     // TODO VALIDATION against ISO-639-1
     device->language = req.bidInfo.acceptedLanguages;
     // BUSINESS RULE:
     // - AN only provides a boolean flag for Flash, indicating if it present or absent
     // - OpenRTB only has a 'flashver' field which wants the version of Flash if it is present
     device->flashver = "Flash available - version unknown";
-    if (req.bidInfo.noFlash.val || req.bidInfo.noFlash.val == -1) {
+    if (req.bidInfo.noFlash && *req.bidInfo.noFlash) {
         device->flashver = "Flash not available";
     }
     device->ip = req.bidInfo.ipAddress;
@@ -63,25 +65,29 @@ fromAppNexus(const AppNexus::BidRequest & req,
     //  so assign to both ORTB 'ip' and 'ipv6' fields
     device->ipv6 = req.bidInfo.ipAddress;
     // TODO Need lookup of AN int code values to strings, from AN docs
-    device->carrier = to_string(req.bidInfo.carrier.val);
+    if (req.bidInfo.carrier)
+        device->carrier = to_string(*req.bidInfo.carrier);
     // TODO Need lookup of AN int code values to strings, from AN docs
-    device->make = to_string(req.bidInfo.make.val);
+    if (req.bidInfo.make)
+        device->make = to_string(*req.bidInfo.make);
     // TODO Need lookup of AN int code values to strings, from AN docs
-    device->model = to_string(req.bidInfo.model.val);
+    if (req.bidInfo.model)
+        device->model = to_string(*req.bidInfo.model);
     // TODO VALIDATION convert to ISO 3166-1 Alpha 3
-    device->geo->country = req.bidInfo.country.rawString();
-    device->geo->region = req.bidInfo.region.rawString();
-    device->geo->city = req.bidInfo.city; // copy ctor, Utf8Strings
+    device->geo->country = req.bidInfo.country;
+    device->geo->region = req.bidInfo.region;
+    device->geo->city = req.bidInfo.city;
     device->geo->zip = req.bidInfo.postalCode;
-    device->geo->dma = to_string(req.bidInfo.dma.val);
+    if (req.bidInfo.dma)
+        device->geo->ext["dma"] = *req.bidInfo.dma;
     // Spec: "Expressed in the format 'snnn.ddddddddddddd,snnn.ddddddddddddd',
     //  south and west are negative, up to 13 decimal places of precision."
     // Example: "38.7875232696533,-77.2614831924438"
     unsigned int splitIdx = req.bidInfo.loc.find(',');
     string lat = req.bidInfo.loc.substr(0, splitIdx);
     string lon = req.bidInfo.loc.substr(splitIdx + 1);
-    device->geo->lat.val = boost::lexical_cast<float>(lat);
-    device->geo->lon.val = boost::lexical_cast<float>(lon);
+    device->geo->lat = boost::lexical_cast<float>(lat);
+    device->geo->lon = boost::lexical_cast<float>(lon);
 
     // OpenRTB::Content
     // std::unique_ptr<OpenRTB::Content> content(new OpenRTB::Content);
@@ -89,15 +95,15 @@ fromAppNexus(const AppNexus::BidRequest & req,
 
     // OpenRTB::Impression
     OpenRTB::Impression impression;
-    std::unique_ptr<OpenRTB::Banner> banner(new OpenRTB::Banner);
-    impression.banner.reset(banner.release());
+    impression.banner.emplace();
     // TODO CONFIRM THIS ASSUMPTION
     // NOTE: Assume for now that AN price units are in full currency units per CPM, e.g. if currency is USD
     // then the reserve_price == '1.00 USD' then this is a price of $1 CPM. i.e. - price not in microdollars etc.
     // Note that OpenRTB mapped field is Impression::bidfloorcur, and its unit is again full units per CPM, e.g. $1 CPM
     // So the code in appnexus_parsing.cc for now simply assumes the AN price equals the OpenRTB price
     // Also, for now, only support USD. 
-    impression.bidfloor.val = reqTag.reservePrice.val;
+    if (reqTag.reservePrice)
+        impression.bidfloor = *reqTag.reservePrice;
 
     // TODO Add code in ./plugins/exchange/appnexus_exchange_connector.cc to call its inherited configure() method
     //   and set a key for bid_currency there, and then check it here and set it to the OpenRTB bidfloorcur field
@@ -122,7 +128,8 @@ fromAppNexus(const AppNexus::BidRequest & req,
         impression->video.topframe = iframePosn;
     }
     */
-    impression.id = Id(reqTag.auctionId64.val);
+    if (reqTag.auctionId64)
+        impression.id = Id(*reqTag.auctionId64);
     // BUSINESS RULE: AN provides both a 'size' field and a 'sizes' field.
     // OpenRTB provides two fields, ordered lists, for 'w' and 'h'. So values at each index must match
     // and provide a 'WxH' pair. Also, because AN provides both, we first put the values from 'size' into
@@ -137,42 +144,42 @@ fromAppNexus(const AppNexus::BidRequest & req,
         impression.banner->w.push_back(w);
         impression.banner->h.push_back(h);
     }
-    OpenRTB::AdPosition position = convertAdPosition(reqTag.position);
-    impression.banner->pos.val = position.val;
-
-    // OpenRTB::Publisher
-    std::unique_ptr<OpenRTB::Publisher> publisher1(new OpenRTB::Publisher);
-    std::unique_ptr<OpenRTB::Publisher> publisher2(new OpenRTB::Publisher);
+    if (reqTag.position)
+        impression.banner->pos = convertAdPosition(*reqTag.position);
 
     // OpenRTB::Site
     std::unique_ptr<OpenRTB::Site> site(new OpenRTB::Site);
-    site->publisher.reset(publisher1.release());
+    site->publisher.emplace();
     site->id = reqTag.inventorySourceId;
 
     // OpenRTB::App
     std::unique_ptr<OpenRTB::App> app(new OpenRTB::App);
-    app->publisher.reset(publisher2.release());
+    app->publisher.emplace();
 
     // BUSINESS RULE - This is a weak test for "is this an app or a site"
     //  Can't see a better way to do this in AN, so we see if the Bid has an appId
-    if (req.bidInfo.appId == "") { // It's a 'site' and not an 'app'
-        site->publisher->id = Id(req.bidInfo.publisherId.val);
-    }
-    else { // It's an 'app' and not a 'site'
-        app->publisher->id = Id(req.bidInfo.publisherId.val);
+    if (req.bidInfo.publisherId)
+    {
+        if (req.bidInfo.appId == "") { // It's a 'site' and not an 'app'
+            site->publisher->id = Id(*req.bidInfo.publisherId);
+        }
+        else { // It's an 'app' and not a 'site'
+            app->publisher->id = Id(*req.bidInfo.publisherId);
+        }
     }
     // But always just statelessy assign appId. If it's empty, no harm
     app->id = Id(req.bidInfo.appId);
 
     // BidRequest
     std::unique_ptr<BidRequest> bidRequest(new BidRequest);
-    bidRequest->timeAvailableMs = req.bidderTimeoutMs.val;
-    bidRequest->device.reset(device.release());
-    bidRequest->user.reset(user.release());
+    if (req.bidderTimeoutMs)
+        bidRequest->timeAvailableMs = *req.bidderTimeoutMs;
+    bidRequest->device = std::move(*device);
+    bidRequest->user = std::move(*user);
     // bidRequest->content.reset(content.release());
     bidRequest->imp.emplace_back(std::move(impression));
-    bidRequest->app.reset(app.release());
-    bidRequest->site.reset(site.release());
+    bidRequest->app = std::move(*app);
+    bidRequest->site = std::move(*site);
 
     /*
     if (req.at.value() != OpenRTB::AuctionType::SECOND_PRICE)

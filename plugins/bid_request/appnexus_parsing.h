@@ -17,37 +17,6 @@ using std::string;
 
 namespace Datacratic {
 
-
-template<>
-struct DefaultDescription<AppNexus::AdPosition>
-    : public TaggedEnumDescription<AppNexus::AdPosition> {
-
-    DefaultDescription()
-    {
-    }
-
-    void parseJsonTyped(AppNexus::AdPosition * val,
-                   JsonParsingContext & context) const
-    {
-        string appNexAdPos = context.expectStringAscii();
-
-        if (appNexAdPos == "unknown") {
-          val->val = AppNexus::AdPosition::UNKNOWN;
-        } 
-        else if (appNexAdPos == "above") {
-          val->val = AppNexus::AdPosition::ABOVE;
-        } 
-        else if (appNexAdPos == "below") {
-          val->val = AppNexus::AdPosition::BELOW;
-        }
-        else { // AN only supports the above three AdPos types.
-               // ORTB supports others but AN does not.
-          val->val = AppNexus::AdPosition::UNSPECIFIED;
-        }
-    }
-};
-
-
 template<>
 struct DefaultDescription<AppNexus::BidRequest>
     : public StructureDescription<AppNexus::BidRequest> {
