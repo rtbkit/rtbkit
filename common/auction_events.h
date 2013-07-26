@@ -11,6 +11,7 @@
 #include "jml/db/persistent.h"
 #include "soa/types/date.h"
 #include "soa/types/id.h"
+#include "soa/types/value_description.h"
 
 #include "bids.h"
 #include "account_key.h"
@@ -44,7 +45,6 @@ struct SubmittedAuctionEvent {
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 };
-
 
 /*****************************************************************************/
 /* POST AUCTION EVENT TYPE                                                   */
@@ -232,5 +232,13 @@ struct DeliveryEvent
     static DeliveryEvent parse(const std::vector<std::string>&);
 };
 
-
 } // namespace RTBKIT
+
+namespace Datacratic {
+    template<>
+    struct DefaultDescription<RTBKIT::SubmittedAuctionEvent> :
+        public StructureDescription<RTBKIT::SubmittedAuctionEvent> {
+        DefaultDescription();
+    };
+}
+

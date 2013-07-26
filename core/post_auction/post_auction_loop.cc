@@ -497,9 +497,10 @@ doAuctionMessage(const std::vector<std::string> & message)
     recordHit("messages.AUCTION");
     //cerr << "doAuctionMessage " << message << endl;
 
-    SubmittedAuctionEvent event
-        = ML::DB::reconstituteFromString<SubmittedAuctionEvent>(message.at(2));
-    doAuction(event);
+    auto event = Message<SubmittedAuctionEvent>::fromString(message.at(2));
+    if(event) { 
+        doAuction(event.payload);
+    }
 }
 
 void

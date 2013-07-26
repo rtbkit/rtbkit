@@ -8,8 +8,8 @@
 #ifndef __router__messages_h__
 #define __router__messages_h__
 
+#include "jml/utils/json_parsing.h"
 #include "soa/service/zmq.hpp"
-
 #include "rtbkit/common/json_holder.h"
 
 namespace Datacratic {
@@ -77,6 +77,48 @@ inline std::string toString(unsigned long l)
 {
     return ML::format("%ld", l);
 }
+
+template<typename T>
+struct Message {
+    T payload;
+    bool ok;
+
+    Message() : ok(false) {
+    }
+
+    Message(T value) : payload(std::move(value)), ok(true) {
+    }
+
+    explicit operator bool() {
+        return ok;
+    }
+
+    std::string toString() const {
+        static DefaultDescription<T> desc;
+
+        std::stringstream stream;
+        StreamJsonPrintingContext context(stream);
+        desc.printJsonTyped(&payload, context);
+
+        return ML::format("{\"%s\":%s}", desc.typeName, stream.str());
+    }
+
+    static Message<T> fromString(std::string const & value) {
+        Message<T> result;
+        ML::Parse_Context source("Message", value.c_str(), value.size());
+        expectJsonObject(source, [&](std::string key,
+                                     ML::Parse_Context & context) {
+            auto desc = ValueDescription::get(key);
+            if(desc) {
+                StreamingJsonParsingContext json(context);
+                desc->parseJson(&result.payload, json);
+                result.ok = true;
+            }
+        });
+
+        return result;
+    }
+};
 
 } // namespace RTBKIT
 

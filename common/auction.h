@@ -16,6 +16,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include "soa/jsoncpp/json.h"
 #include "soa/types/date.h"
+#include "soa/types/basic_value_descriptions.h"
 #include "jml/arch/atomic_ops.h"
 #include "jml/arch/exception.h"
 #include "jml/utils/compact_vector.h"
@@ -100,18 +101,26 @@ struct Auction : public std::enable_shared_from_this<Auction> {
         Json::Value toJson() const;
         std::string toJsonStr() const;
         static Price fromJson(const Json::Value&);
+
+        static void createDescription(DefaultDescription<Price>&);
     };
 
     /** Price to bid if you don't want to bid */
     static const Price NONE;
 
     /** What happened to the bid at the local and global level? */
-    enum WinLoss {
-        PENDING,    ///< Bid is pending; unknown if we won or lost
-        WIN,        ///< Bid was won
-        LOSS,       ///< Bid was lost
-        TOOLATE,    ///< Bid was too late and so not accepted
-        INVALID,    ///< Bid was invalid and so not accepted
+    struct WinLoss : public Datacratic::TaggedEnum<WinLoss> {
+        enum {
+            PENDING,    ///< Bid is pending; unknown if we won or lost
+            WIN,        ///< Bid was won
+            LOSS,       ///< Bid was lost
+            TOOLATE,    ///< Bid was too late and so not accepted
+            INVALID,    ///< Bid was invalid and so not accepted
+        };
+
+        WinLoss(int value = INVALID) {
+            val = value;
+        }
     };
 
     /** Response to a bid. */
@@ -133,7 +142,6 @@ struct Auction : public std::enable_shared_from_this<Auction> {
               test(test), agent(agent),
               bidData(bidData), meta(meta),
               creativeId(creativeId),
-              localStatus(INVALID),
               agentConfig(agentConfig),
               visitChannels(visitChannels),
               agentCreativeIndex(agentCreativeIndex),
@@ -184,6 +192,8 @@ struct Auction : public std::enable_shared_from_this<Auction> {
 
         /** Is this a valid response? */
         bool valid() const;
+
+        static void createDescription(DefaultDescription<Response>&);
     };
 
     /** Modify the given response.  The boolean return code says whether or
@@ -293,3 +303,29 @@ public:
 };
 
 } // namespace RTBKIT
+
+namespace Datacratic {
+    template<>
+    struct DefaultDescription<RTBKIT::Auction::WinLoss> :
+        public TaggedEnumDescription<RTBKIT::Auction::WinLoss> {
+        DefaultDescription() {
+        }
+    };
+
+    template<>
+    struct DefaultDescription<RTBKIT::Auction::Price> :
+        public StructureDescription<RTBKIT::Auction::Price> {
+        DefaultDescription() {
+            RTBKIT::Auction::Price::createDescription(*this);
+        }
+    };
+
+    template<>
+    struct DefaultDescription<RTBKIT::Auction::Response> :
+        public StructureDescription<RTBKIT::Auction::Response> {
+        DefaultDescription() {
+            RTBKIT::Auction::Response::createDescription(*this);
+        }
+    };
+}
+

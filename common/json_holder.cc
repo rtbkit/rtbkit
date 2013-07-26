@@ -40,6 +40,12 @@ reconstitute(ML::DB::Store_Reader & store)
 
 void
 JsonHolder::
+createDescription(Datacratic::DefaultDescription<JsonHolder> & d) {
+    d.addField("str", &JsonHolder::str, "");
+}
+
+void
+JsonHolder::
 makeString() const
 {
     if (!str.empty()) return;

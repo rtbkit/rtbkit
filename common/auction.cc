@@ -63,17 +63,23 @@ fromJson(const Json::Value& json)
     return result;
 }
 
+void
+Auction::Price::
+createDescription(Datacratic::DefaultDescription<Price> & d) {
+    d.addField("maxPrice", &Price::maxPrice, "");
+    d.addField("priority", &Price::priority, "");
+}
 
 std::string
 Auction::Response::
 print(WinLoss wl)
 {
-    switch (wl) {
-    case PENDING: return "PENDING";
-    case WIN:     return "WIN";
-    case LOSS:    return "LOSS";
-    case TOOLATE: return "TOOLATE";
-    case INVALID: return "INVALID";
+    switch (wl.val) {
+    case WinLoss::PENDING: return "PENDING";
+    case WinLoss::WIN:     return "WIN";
+    case WinLoss::LOSS:    return "LOSS";
+    case WinLoss::TOOLATE: return "TOOLATE";
+    case WinLoss::INVALID: return "INVALID";
     default:
         throw Exception("invalid WinLoss value");
     }
@@ -121,7 +127,7 @@ serialize(DB::Store_Writer & store) const
     int version = 7;
     store << version << price.maxPrice << price.priority << account
           << test << agent << bidData << meta << creativeId
-          << creativeName << (int)localStatus << visitChannels << wcm;
+          << creativeName << localStatus.val << visitChannels << wcm;
 }
 
 void
@@ -186,6 +192,22 @@ reconstitute(DB::Store_Reader & store)
     }
     else throw ML::Exception("reconstituting wrong version");
     localStatus = (WinLoss)localStatusi;
+}
+
+void
+Auction::Response::
+createDescription(Datacratic::DefaultDescription<Response> & d) {
+    d.addField("price", &Response::price, "");
+    d.addField("account", &Response::account, "");
+    d.addField("test", &Response::test, "");
+    d.addField("agent", &Response::agent, "");
+    d.addField("bidData", &Response::bidData, "");
+    d.addField("meta", &Response::meta, "");
+    d.addField("creativeId", &Response::creativeId, "");
+    d.addField("creativeName", &Response::creativeName, "");
+    d.addField("localStatus", &Response::localStatus, "");
+    d.addField("visitChannels", &Response::visitChannels, "");
+    d.addField("wcm", &Response::wcm, "");
 }
 
 Auction::
@@ -259,10 +281,10 @@ setResponse(int spotNum, Response newResponse)
     if (newResponse.price.maxPrice.isNegative()
         || newResponse.agent == ""
         || newResponse.creativeId == -1)
-        return INVALID;
+        return WinLoss::INVALID;
 
     if (current->tooLate)
-        return TOOLATE;
+        return WinLoss::TOOLATE;
 
 
     WinLoss result;
@@ -271,22 +293,22 @@ setResponse(int spotNum, Response newResponse)
 
     for (;;) {
         if (current->tooLate)
-            return TOOLATE;
+            return WinLoss::TOOLATE;
         
         if (current->hasValidResponse(spotNum)
             && newResponse.price.priority
                 <= current->winningResponse(spotNum).price.priority)
-            return LOSS;
+            return WinLoss::LOSS;
         
         *newData = *current;
 
         bool hasExisting = current->hasValidResponse(spotNum);
 
-        result = newResponse.localStatus = PENDING;
+        result = newResponse.localStatus = WinLoss::PENDING;
         newData->responses[spotNum].push_back(newResponse);
 
         if (hasExisting) {
-            newData->responses[spotNum][0].localStatus = LOSS;
+            newData->responses[spotNum][0].localStatus = WinLoss::LOSS;
             std::swap(newData->responses[spotNum].front(),
                       newData->responses[spotNum].back());
         }
@@ -356,10 +378,10 @@ finish()
 
         for (unsigned spotNum = 0;  spotNum < numSpots(); ++spotNum) {
             if (newData->hasValidResponse(spotNum))
-                newData->responses[spotNum][0].localStatus = WIN;
+                newData->responses[spotNum][0].localStatus = WinLoss::WIN;
             
             for (unsigned i = 1;  i < newData->responses[spotNum].size();  ++i)
-                newData->responses[spotNum][i].localStatus = LOSS;
+                newData->responses[spotNum][i].localStatus = WinLoss::LOSS;
         }
         
         newData->oldData = current;
@@ -392,7 +414,7 @@ setError(const std::string & error, const std::string & details)
 
         for (unsigned spotNum = 0;  spotNum < numSpots();  ++spotNum) {
             for (unsigned i = 0;  i < newData->responses[spotNum].size();  ++i) {
-                newData->responses[spotNum][i].localStatus = LOSS;
+                newData->responses[spotNum][i].localStatus = WinLoss::LOSS;
             }
         }
         newData->oldData = current;

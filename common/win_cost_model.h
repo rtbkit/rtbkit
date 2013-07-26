@@ -44,6 +44,8 @@ struct WinCostModel {
     static void registerModel(const std::string & name,
                               Model model);
 
+    static void createDescription(DefaultDescription<WinCostModel>&);
+
 public:
     std::string name;
     Json::Value data;
@@ -52,3 +54,13 @@ public:
 IMPL_SERIALIZE_RECONSTITUTE(WinCostModel);
 
 } // namespace RTBKIT
+
+namespace Datacratic {
+    template<>
+    struct DefaultDescription<RTBKIT::WinCostModel> :
+        public StructureDescription<RTBKIT::WinCostModel> {
+        DefaultDescription() {
+            RTBKIT::WinCostModel::createDescription(*this);
+        }
+    };
+}

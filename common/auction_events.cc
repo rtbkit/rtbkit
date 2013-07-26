@@ -47,6 +47,17 @@ reconstitute(ML::DB::Store_Reader & store)
     bidRequest.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
 }
 
+DefaultDescription<SubmittedAuctionEvent>::
+DefaultDescription() {
+    addField("auctionId", &SubmittedAuctionEvent::auctionId, "");
+    addField("adSpotId", &SubmittedAuctionEvent::adSpotId, "");
+    addField("lossTimeout", &SubmittedAuctionEvent::lossTimeout, "");
+    addField("augmentation", &SubmittedAuctionEvent::augmentations, "");
+    addField("bidRequest", &SubmittedAuctionEvent::bidRequest, "");
+    addField("bidRequestStr", &SubmittedAuctionEvent::bidRequestStr, "");
+    addField("bidResponse", &SubmittedAuctionEvent::bidResponse, "");
+    addField("bidRequestStrFormat", &SubmittedAuctionEvent::bidRequestStrFormat, "");
+}
 
 /*****************************************************************************/
 /* POST AUCTION EVENT TYPE                                                   */
@@ -376,11 +387,11 @@ fromJson(const Json::Value& json)
         case 'l':
             if (m == "localStatus") {
                 string status = member.asString();
-                if (status == "PENDING") bid.localStatus = Auction::PENDING;
-                else if (status == "WIN") bid.localStatus = Auction::WIN;
-                else if (status == "LOSS") bid.localStatus = Auction::LOSS;
-                else if (status == "TOOLATE") bid.localStatus = Auction::TOOLATE;
-                else if (status == "INVALID") bid.localStatus = Auction::INVALID;
+                if (status == "PENDING") bid.localStatus.val = Auction::WinLoss::PENDING;
+                else if (status == "WIN") bid.localStatus.val = Auction::WinLoss::WIN;
+                else if (status == "LOSS") bid.localStatus.val = Auction::WinLoss::LOSS;
+                else if (status == "TOOLATE") bid.localStatus.val = Auction::WinLoss::TOOLATE;
+                else if (status == "INVALID") bid.localStatus.val = Auction::WinLoss::INVALID;
                 else throw Exception("invalid localStatus value: " + status);
             }
             else invalid = true;
@@ -650,4 +661,3 @@ parse(const std::vector<std::string>& msg)
 
     return ev;
 }
-

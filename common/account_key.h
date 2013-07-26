@@ -14,6 +14,7 @@
 #include "jml/db/persistent_fwd.h"
 #include "soa/jsoncpp/json.h"
 #include "soa/service/json_codec.h"
+#include "soa/types/basic_value_descriptions.h"
 #include <city.h>
 
 
@@ -160,3 +161,28 @@ struct hash<RTBKIT::AccountKey> {
 };
 
 } // namespace std
+
+namespace Datacratic {
+    template<>
+    struct DefaultDescription<RTBKIT::AccountKey>
+        : public ValueDescriptionI<RTBKIT::AccountKey, ValueKind::STRING> {
+
+        virtual void parseJsonTyped(RTBKIT::AccountKey * val,
+                                    JsonParsingContext & context) const
+        {
+            *val = RTBKIT::AccountKey(context.expectStringAscii());
+        }
+
+        virtual void printJsonTyped(const RTBKIT::AccountKey * val,
+                                    JsonPrintingContext & context) const
+        {
+            context.writeString(val->toString());
+        }
+
+        virtual bool isDefaultTyped(const RTBKIT::AccountKey * val) const
+        {
+            return val->empty();
+        }
+    };
+}
+

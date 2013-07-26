@@ -1959,30 +1959,30 @@ doBid(const std::vector<std::string> & message)
                             auctionKey.c_str(), msg.c_str()));
 
 
-        switch (localResult) {
-        case Auction::PENDING: {
+        switch (localResult.val) {
+        case Auction::WinLoss::PENDING: {
             ++info.stats->bids;
             info.stats->totalBid += bid.price;
             break; // response will be sent later once local winning bid known
         }
-        case Auction::LOSS:
+        case Auction::WinLoss::LOSS:
             ++info.stats->bids;
             info.stats->totalBid += bid.price;
             // fall through
-        case Auction::TOOLATE:
-        case Auction::INVALID: {
-            if (localResult == Auction::TOOLATE)
+        case Auction::WinLoss::TOOLATE:
+        case Auction::WinLoss::INVALID: {
+            if (localResult.val == Auction::WinLoss::TOOLATE)
                 ++info.stats->tooLate;
-            else if (localResult == Auction::INVALID)
+            else if (localResult.val == Auction::WinLoss::INVALID)
                 ++info.stats->invalid;
 
             banker->cancelBid(config.account, auctionKey);
 
             BidStatus status;
-            switch (localResult) {
-            case Auction::LOSS:    status = BS_LOSS;     break;
-            case Auction::TOOLATE: status = BS_TOOLATE;  break;
-            case Auction::INVALID: status = BS_INVALID;  break;
+            switch (localResult.val) {
+            case Auction::WinLoss::LOSS:    status = BS_LOSS;     break;
+            case Auction::WinLoss::TOOLATE: status = BS_TOOLATE;  break;
+            case Auction::WinLoss::INVALID: status = BS_INVALID;  break;
             default:
                 throw ML::Exception("logic error");
             }
@@ -1998,7 +1998,7 @@ doBid(const std::vector<std::string> & message)
             this->logMessage(msg, agent, auctionId, biddata, meta);
             continue;
         }
-        case Auction::WIN:
+        case Auction::WinLoss::WIN:
             this->throwException("doBid.localWinsNotPossible",
                     "local wins can't be known until auction has closed");
 
@@ -2130,7 +2130,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
             //cerr << "response.valid() = " << response.valid() << endl;
 
             // Don't deal with response 0
-            if (i == 0 && response.valid() && response.localStatus == Auction::WIN) {
+            if (i == 0 && response.valid() && response.localStatus.val == Auction::WinLoss::WIN) {
                 hasSubmittedBid = true;
                 continue;
             }
@@ -2164,23 +2164,23 @@ doSubmitted(std::shared_ptr<Auction> auction)
             string msg;
             BidStatus bidStatus(BS_INVALID);
 
-            switch (status) {
-            case Auction::PENDING:
+            switch (status.val) {
+            case Auction::WinLoss::PENDING:
                 throwException("doSubmitted.shouldNotBePending",
                                "non-winning auction should not be pending");
-            case Auction::WIN:
+            case Auction::WinLoss::WIN:
                 if(i == 0) break;
                 throwException("doSubmitted.shouldNotBeWin",
                                "auction should not be a win");
-            case Auction::INVALID:
+            case Auction::WinLoss::INVALID:
                 throwException("doSubmitted.shouldNotBeInvalid",
                                "auction should not be invalid");
-            case Auction::LOSS:
+            case Auction::WinLoss::LOSS:
                 bidStatus = BS_LOSS;
                 ++info.stats->losses;
                 msg = "LOSS";
                 break;
-            case Auction::TOOLATE:
+            case Auction::WinLoss::TOOLATE:
                 bidStatus = BS_TOOLATE;
                 ++info.stats->tooLate;
                 msg = "TOOLATE";
@@ -2676,9 +2676,8 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
     event.bidRequestStrFormat = auction->requestStrFormat ;
     event.bidResponse = bid;
 
-    string str = ML::DB::serializeToString(event);
-
-    postAuctionEndpoint.sendMessage("AUCTION", str);
+    Message<SubmittedAuctionEvent> message(std::move(event));
+    postAuctionEndpoint.sendMessage("AUCTION", message.toString());
 
     if (auction.unique()) {
         auctionGraveyard.tryPush(auction);

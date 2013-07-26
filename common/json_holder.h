@@ -9,6 +9,7 @@
 #pragma once
 
 #include "soa/jsoncpp/json.h"
+#include "soa/types/basic_value_descriptions.h"
 #include "jml/db/persistent_fwd.h"
 #include "jml/utils/unnamed_bool.h"
 #include <memory>
@@ -114,6 +115,8 @@ struct JsonHolder {
     JML_IMPLEMENT_OPERATOR_BOOL(valid());
 #endif
 
+    static void createDescription(Datacratic::DefaultDescription<JsonHolder>&);
+
 private:    
     void makeString() const;
     void makeJson() const;
@@ -127,3 +130,14 @@ IMPL_SERIALIZE_RECONSTITUTE(JsonHolder);
 std::ostream & operator << (std::ostream & stream, const JsonHolder & json);
 
 } // namespace RTBKIT
+
+namespace Datacratic {
+    template<>
+    struct DefaultDescription<RTBKIT::JsonHolder> :
+        public StructureDescription<RTBKIT::JsonHolder> {
+        DefaultDescription() {
+            RTBKIT::JsonHolder::createDescription(*this);
+        }
+    };
+}
+

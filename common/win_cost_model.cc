@@ -164,4 +164,11 @@ registerModel(std::string const & name, Model model)
     }
 }
 
+void
+WinCostModel::
+createDescription(DefaultDescription<WinCostModel> & d) {
+    d.addField("name", &WinCostModel::name, "");
+    d.addField("data", &WinCostModel::data, "");
+}
+
 } // namespace RTBKIT
