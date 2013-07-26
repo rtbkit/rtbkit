@@ -36,7 +36,6 @@
 # endif 
 
 
-namespace std{
 
 
 
@@ -47,6 +46,7 @@ namespace std{
 # else
 
 
+namespace std {
 // workaround for missing traits in GCC and CLANG
 template <class T>
 struct is_nothrow_move_constructible
@@ -85,12 +85,12 @@ struct is_nothrow_move_assignable
 };
 // end workaround
 
-
+}
 # endif   
 
 
-namespace experimental{
-
+namespace std14 {
+using namespace std;
 
 // 20.5.4, optional for object types
 template <class T> class optional;
@@ -897,16 +897,15 @@ constexpr optional<X&> make_optional(reference_wrapper<X> v)
 }
 
 
-} // namespace experimental
-} // namespace std
+} // namespace std14
 
 namespace std
 {
   template <typename T> 
-  struct hash<std::experimental::optional<T>>
+  struct hash<std14::optional<T>>
   {
     typedef typename hash<T>::result_type result_type;
-    typedef std::experimental::optional<T> argument_type;
+    typedef std14::optional<T> argument_type;
     
     constexpr result_type operator()(argument_type const& arg) const {
       return arg ? std::hash<T>{}(*arg) : result_type{};
@@ -914,10 +913,10 @@ namespace std
   };
   
   template <typename T> 
-  struct hash<std::experimental::optional<T&>>
+  struct hash<std14::optional<T&>>
   {
     typedef typename hash<T>::result_type result_type;
-    typedef std::experimental::optional<T&> argument_type;
+    typedef std14::optional<T&> argument_type;
     
     constexpr result_type operator()(argument_type const& arg) const {
       return arg ? std::hash<T>{}(*arg) : result_type{};
