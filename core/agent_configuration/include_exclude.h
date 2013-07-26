@@ -18,6 +18,8 @@
 #include <vector>
 #include <set>
 #include <iostream>
+#include "common/json.h"
+#include "openrtb/openrtb_parsing.h"
 
 
 namespace RTBKIT {
@@ -60,8 +62,6 @@ inline bool matches(int i, int j)
 
 void jsonParse(const Json::Value & value, boost::regex & reg);
 void jsonParse(const Json::Value & value, boost::u32regex & reg);
-void jsonParse(const Json::Value & value, std::string & str);
-void jsonParse(const Json::Value & value, int & i);
 
 inline Json::Value jsonPrint(const boost::regex & rex)
 {
@@ -81,14 +81,16 @@ inline Json::Value jsonPrint(const boost::u32regex & rex)
 }
 
 
-inline Json::Value jsonPrint(const std::string & str)
+template <class T>
+inline void jsonParse(const Json::Value & value, T & t)
 {
-    return str;
+    fillFromJson(t, value);
 }
 
-inline Json::Value jsonPrint(int i)
+template <class T>
+inline Json::Value jsonPrint(const T & t)
 {
-    return i;
+    return toJsonValue(t);
 }
 
 struct JsonPrint {

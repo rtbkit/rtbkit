@@ -575,56 +575,6 @@ fromJson(const Json::Value & val)
     context.onUnknownFieldHandlers.push_back(onUnknownField);
 
     desc.parseJsonTyped(this, context);
-    
-    return;
-
-    try {
-        id = Id(val["id"].asString());
-        if (val.isMember("formats")) {
-            formats.fromJson(val["formats"]);
-        }
-        else {
-            SmallIntVector widths = getDims(val["width"]);
-            SmallIntVector heights = getDims(val["height"]);
-            formats.clear();
-            if (widths.size() != heights.size())
-                throw ML::Exception("widths and heights must have same size");
-            for (unsigned i = 0;  i < widths.size();  ++i)
-                formats.push_back(Format(widths[i], heights[i]));
-        }
-        const Json::Value & rpj = val["reservePrice"];
-        if (rpj.isNumeric()) {
-            reservePrice = USD_CPM(rpj.asDouble());
-        }
-        else if (!rpj.isNull()) {
-            reservePrice = Amount::fromJson(rpj);
-        }
-        if (val.isMember("position")) {
-            auto & pj = val["position"];
-            if (pj.isString()) {
-                string s = pj.asString();
-                if (s == "NONE" || s == "none") {
-                    position.val = OpenRTB::AdPosition::UNKNOWN;
-                }
-                else if (s == "ABOVE_FOLD" || s == "above") {
-                    position.val = OpenRTB::AdPosition::ABOVE;
-                }
-                else if (s == "BELOW_FOLD" || s == "below") {
-                    position.val = OpenRTB::AdPosition::BELOW;
-                }
-            }
-            else if (pj.isIntegral()) {
-                position.val = pj.asInt();
-            }
-            else throw ML::Exception("can't parse position " + val["position"].toString());
-            //position = stringToPosition(val["position"].asString());
-        }
-        else
-            position.val = -1;//OpenRTB::AdPosition::UNKNOWN;
-    } catch (const std::exception & exc) {
-        cerr << "parsing AdSpot " << val << ": " << exc.what() << endl;
-        throw;
-    }
 }
 
 Json::Value
@@ -997,94 +947,6 @@ void fromJsonOptional(const Json::Value & val,
     ptr.swap(res);
 }
 
-BidRequest
-BidRequest::
-createFromJson(const Json::Value & json)
-{
-    BidRequest result;
-
-    string canonicalVersion;
-
-    //cerr << "parsing " << json << endl;
-
-    for (auto it = json.begin(), end = json.end(); it != end;  ++it) {
-
-        //cerr << "got member " << it.memberName() << endl;
-
-        if (it.memberName() == "!!CV") {
-            canonicalVersion = it->asString();
-            if (canonicalVersion != "0.1" && canonicalVersion != "RTBKIT-JSON-1.0")
-                throw ML::Exception("can't parse BidRequest with CV "
-                                    + canonicalVersion);
-        }
-        else if (it.memberName() == "id")
-            result.auctionId.parse(it->asString());
-        else if (it.memberName() == "timestamp")
-            result.timestamp = Date::fromSecondsSinceEpoch(it->asDouble());
-        else if (it.memberName() == "isTest")
-            result.isTest = it->asBool();
-        else if (it.memberName() == "url")
-            result.url = Url(it->asString());
-        else if (it.memberName() == "ipAddress")
-            result.ipAddress = it->asString();
-        else if (it.memberName() == "userAgent")
-            result.userAgent = it->asString();
-        else if (it.memberName() == "language")
-            result.language = it->asString();
-        else if (it.memberName() == "protocolVersion")
-            result.protocolVersion = it->asString();
-        else if (it.memberName() == "exchange")
-            result.exchange = it->asString();
-        else if (it.memberName() == "provider")
-            result.provider = it->asString();
-        else if (it.memberName() == "winSurchageMicros")
-            result.winSurcharges["surcharge"] += MicroUSD(it->asInt());
-        else if (it.memberName() == "winSurcharges")
-            result.winSurcharges += LineItems::fromJson(*it);
-        else if (it.memberName() == "meta")
-            result.meta = *it;
-        else if (it.memberName() == "creative")
-            result.meta["creative"] = *it;
-        else if (it.memberName() == "location")
-            result.location = Location::createFromJson(*it);
-        else if (it.memberName() == "segments")
-            result.segments = SegmentsBySource::createFromJson(*it);
-        else if (it.memberName() == "restrictions")
-            result.restrictions = SegmentsBySource::createFromJson(*it);
-        else if (it.memberName() == "userIds")
-            result.userIds = UserIds::createFromJson(*it);
-        else if (it.memberName() == "imp" || it.memberName() == "spots") {
-            const Json::Value & json = *it;
-            if (!json.empty() && !json.isArray())
-                throw ML::Exception("imp is not an array");
-            result.imp.clear();
-            for (unsigned i = 0;  i < json.size();  ++i) {
-                result.imp.push_back(AdSpot::createFromJson(json[i]));
-            }
-        }
-        else if (it.memberName() == "site") {
-            fromJsonOptional(*it, result.site, result.unparseable, "site");
-        }
-        else if (it.memberName() == "app") {
-            fromJsonOptional(*it, result.app, result.unparseable, "app");
-        }
-        else if (it.memberName() == "device") {
-            fromJsonOptional(*it, result.device, result.unparseable, "device");
-        }
-        else if (it.memberName() == "user") {
-            fromJsonOptional(*it, result.user, result.unparseable, "user");
-        }
-        else if (it.memberName() == "unparseable")
-            result.unparseable = *it;
-        else if (it.memberName() == "bidCurrency")
-            jsonDecode(*it, result.bidCurrency);
-        else throw ML::Exception("unknown canonical bid request field "
-                                 + it.memberName());
-    }
-
-    return result;
-}
-
 namespace {
 typedef std::unordered_map<std::string, BidRequest::Parser> Parsers;
 static Parsers parsers;
@@ -1133,20 +995,8 @@ struct CanonicalParser {
     
     static BidRequest * parse(const std::string & str)
     {
-#if 0 // old and slow
-        auto j = Json::parse(str);
-        return new BidRequest(BidRequest::createFromJson(j));
-#endif
-
-        //cerr << "parsing " << str << endl;
-        StreamingJsonParsingContext context;
-        context.init("bid request", str.c_str(), str.size());
-        auto_ptr<BidRequest> result(new BidRequest());
-        BidRequestDesc.parseJsonTyped(result.get(), context);
-
-        //cerr << "result->url = " << result->url << endl;
-        //cerr << "result->userAgent = " << result->userAgent << endl;
-
+        unique_ptr<BidRequest> result(new BidRequest());
+        fillFromJson(*result, str);
         return result.release();
     }
 };

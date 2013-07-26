@@ -22,6 +22,7 @@
 #include "rtbkit/common/currency.h"
 #include "tags.h"
 #include "openrtb/openrtb.h"
+#include "common/json.h"
 
 
 namespace RTBKIT {
@@ -358,7 +359,7 @@ struct BidRequest {
     std::string toJsonStr() const;
 
     /** Create a new BidRequest from a canonical JSON value. */
-    static BidRequest createFromJson(const Json::Value & json);
+    inline static BidRequest createFromJson(const Json::Value& json) { return fromJson<BidRequest>(json); }
 
     /** Return the ID for the given domain. */
     Id getUserId(IdDomain domain) const;
