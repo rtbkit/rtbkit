@@ -9,7 +9,7 @@
 
 #include "openrtb.h"
 #include "soa/types/value_description.h"
-#include "common/descriptions/all.h"
+#include "common/descriptions/autocast.h"
 #include "common/cpp11.h"
 
 namespace Datacratic
@@ -114,22 +114,22 @@ namespace Datacratic
 	template<> struct DefaultDescription<OpenRTB::AuctionType> : public IntegerEnumDescription<OpenRTB::AuctionType> {};
 	template<> struct DefaultDescription<OpenRTB::Content::SourceRelationship> : public IntegerEnumDescription<OpenRTB::Content::SourceRelationship> {};
 
-	template<> struct DefaultDescription<OpenRTB::BidRequest> : public StructureDescription<OpenRTB::BidRequest> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Impression> : public StructureDescription<OpenRTB::Impression> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Banner> : public StructureDescription<OpenRTB::Banner> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Video> : public StructureDescription<OpenRTB::Video> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Content> : public StructureDescription<OpenRTB::Content> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Context> : public StructureDescription<OpenRTB::Context> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Site> : public StructureDescription<OpenRTB::Site> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::App> : public StructureDescription<OpenRTB::App> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Device> : public StructureDescription<OpenRTB::Device> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::User> : public StructureDescription<OpenRTB::User> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Publisher> : public StructureDescription<OpenRTB::Publisher> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Geo> : public StructureDescription<OpenRTB::Geo> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Data> : public StructureDescription<OpenRTB::Data> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Segment> : public StructureDescription<OpenRTB::Segment> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::Bid> : public StructureDescription<OpenRTB::Bid> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::SeatBid> : public StructureDescription<OpenRTB::SeatBid> {DefaultDescription();};
-	template<> struct DefaultDescription<OpenRTB::BidResponse> : public StructureDescription<OpenRTB::BidResponse> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::BidRequest> : public AutoCastingStructureDescription<OpenRTB::BidRequest> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Impression> : public AutoCastingStructureDescription<OpenRTB::Impression> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Banner> : public AutoCastingStructureDescription<OpenRTB::Banner> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Video> : public AutoCastingStructureDescription<OpenRTB::Video> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Content> : public AutoCastingStructureDescription<OpenRTB::Content> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Context> : public AutoCastingStructureDescription<OpenRTB::Context> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Site> : public AutoCastingStructureDescription<OpenRTB::Site> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::App> : public AutoCastingStructureDescription<OpenRTB::App> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Device> : public AutoCastingStructureDescription<OpenRTB::Device> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::User> : public AutoCastingStructureDescription<OpenRTB::User> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Publisher> : public AutoCastingStructureDescription<OpenRTB::Publisher> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Geo> : public AutoCastingStructureDescription<OpenRTB::Geo> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Data> : public AutoCastingStructureDescription<OpenRTB::Data> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Segment> : public AutoCastingStructureDescription<OpenRTB::Segment> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::Bid> : public AutoCastingStructureDescription<OpenRTB::Bid> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::SeatBid> : public AutoCastingStructureDescription<OpenRTB::SeatBid> {DefaultDescription();};
+	template<> struct DefaultDescription<OpenRTB::BidResponse> : public AutoCastingStructureDescription<OpenRTB::BidResponse> {DefaultDescription();};
 
 } // namespace Datacratic
