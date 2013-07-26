@@ -286,6 +286,39 @@ struct DefaultDescription<std::unique_ptr<T> >
     }
 };
 
+template<typename T>
+struct DefaultDescription<std::shared_ptr<T> >
+    : public ValueDescriptionI<std::shared_ptr<T>, ValueKind::OPTIONAL> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner
+                       = getDefaultDescription((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::unique_ptr<ValueDescriptionT<T> > inner;
+
+    virtual void parseJsonTyped(std::shared_ptr<T> * val,
+                                JsonParsingContext & context) const
+    {
+        val->reset(new T());
+        inner->parseJsonTyped(val->get(), context);
+    }
+
+    virtual void printJsonTyped(const std::shared_ptr<T> * val,
+                                JsonPrintingContext & context) const
+    {
+        if (!val->get())
+            context.skip();
+        else inner->printJsonTyped(val->get(), context);
+    }
+
+    virtual bool isDefaultTyped(const std::shared_ptr<T> * val) const
+    {
+        return !val->get();
+    }
+};
+
 template<>
 struct DefaultDescription<Json::Value>
     : public ValueDescriptionI<Json::Value, ValueKind::ANY> {
@@ -353,6 +386,339 @@ struct DefaultDescription<Date>
     virtual bool isDefaultTyped(const Date * val) const
     {
         return *val == Date();
+    }
+};
+
+template<typename T>
+struct Optional: public std::unique_ptr<T> {
+    Optional()
+    {
+    }
+    
+    Optional(Optional && other)
+        : std::unique_ptr<T>(std::move(other))
+    {
+    }
+
+    Optional(const Optional & other)
+    {
+        if (other)
+            this->reset(new T(*other));
+    }
+
+    Optional & operator = (const Optional & other)
+    {
+        Optional newMe(other);
+        swap(newMe);
+        return *this;
+    }
+
+    Optional & operator = (Optional && other)
+    {
+        Optional newMe(other);
+        swap(newMe);
+        return *this;
+    }
+
+    void swap(Optional & other)
+    {
+        std::unique_ptr<T>::swap(other);
+    }
+};
+
+template<typename Cls, int defValue = -1>
+struct TaggedEnum {
+    TaggedEnum()
+        : val(-1)
+    {
+    }
+
+    int val;
+
+    int value() const
+    {
+        return val;
+    }
+
+
+#if 0
+    operator typename Cls::Vals () const
+    {
+        return static_cast<typename Cls::Vals>(val);
+    }
+#endif
+};
+
+template<typename E, int def>
+bool operator == (const TaggedEnum<E, def> & e1, const TaggedEnum<E, def> & e2)
+{
+    return e1.val == e2.val;
+}
+
+template<typename E, int def>
+bool operator != (const TaggedEnum<E, def> & e1, const TaggedEnum<E, def> & e2)
+{
+    return e1.val != e2.val;
+}
+
+template<typename E, int def>
+bool operator > (const TaggedEnum<E, def> & e1, const TaggedEnum<E, def> & e2)
+{
+    return e1.val > e2.val;
+}
+
+template<typename E, int def>
+bool operator < (const TaggedEnum<E, def> & e1, const TaggedEnum<E, def> & e2)
+{
+    return e1.val < e2.val;
+}
+
+template<typename E, int def>
+inline Json::Value jsonPrint(const TaggedEnum<E, def> & e)
+{
+    return e.val;
+}
+
+template<typename E, int def>
+inline void jsonParse(const Json::Value & j, TaggedEnum<E, def> & e)
+{
+    e.val = j.asInt();
+}
+
+struct TaggedBool {
+    TaggedBool()
+        : val(-1)
+    {
+    }
+
+    int val;
+};
+
+template<int defValue = -1>
+struct TaggedBoolDef : public TaggedBool {
+    TaggedBoolDef()
+        : val(defValue)
+    {
+    }
+
+    int val;
+};
+
+struct TaggedInt {
+    TaggedInt()
+        : val(-1)
+    {
+    }
+
+    int value() const { return val; }
+
+    int val;
+};
+
+template<int defValue = -1>
+struct TaggedIntDef : TaggedInt {
+    TaggedIntDef()
+        : val(defValue)
+    {
+    }
+
+    int val;
+};
+
+struct TaggedFloat {
+    TaggedFloat()
+        : val(std::numeric_limits<float>::quiet_NaN())
+    {
+    }
+
+    float val;
+};
+
+template<int num = -1, int den = 1>
+struct TaggedFloatDef : public TaggedFloat {
+    TaggedFloatDef()
+        : val(1.0f * num / den)
+    {
+    }
+
+    float val;
+};
+
+template<>
+struct DefaultDescription<TaggedBool>
+    : public ValueDescriptionI<TaggedBool, ValueKind::BOOLEAN> {
+  
+    virtual void parseJsonTyped(TaggedBool * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isBool())
+            val->val = context.expectBool();
+        else val->val = context.expectInt();
+    }
+
+    virtual void printJsonTyped(const TaggedBool * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(val->val);
+    }
+
+    virtual bool isDefaultTyped(const TaggedBool * val)
+        const
+    {
+        return val->val == -1;
+    }
+};
+
+template<int defValue>
+struct DefaultDescription<TaggedBoolDef<defValue> >
+    : public ValueDescriptionI<TaggedBoolDef<defValue>,
+                               ValueKind::BOOLEAN> {
+  
+    virtual void parseJsonTyped(TaggedBoolDef<defValue> * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isBool())
+            val->val = context.expectBool();
+        else val->val = context.expectInt();
+    }
+
+    virtual void printJsonTyped(const TaggedBoolDef<defValue> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(val->val);
+    }
+
+    virtual bool isDefaultTyped(const TaggedBoolDef<defValue> * val)
+        const
+    {
+        return val->val == defValue;
+    }
+};
+
+template<>
+struct DefaultDescription<TaggedInt>
+    : public ValueDescriptionI<TaggedInt,
+                               ValueKind::INTEGER,
+                               DefaultDescription<TaggedInt> > {
+
+    virtual void parseJsonTyped(TaggedInt * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isString()) {
+            std::string s = context.expectStringAscii();
+            val->val = boost::lexical_cast<int>(s);
+        }
+        else val->val = context.expectInt();
+    }
+
+    virtual void printJsonTyped(const TaggedInt * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(val->val);
+    }
+
+    virtual bool isDefaultTyped(const TaggedInt * val)
+        const
+    {
+        return val->val == -1;
+    }
+};
+
+template<int defValue>
+struct DefaultDescription<TaggedIntDef<defValue> >
+    : public ValueDescriptionI<TaggedIntDef<defValue>,
+                               ValueKind::INTEGER> {
+
+    virtual void parseJsonTyped(TaggedIntDef<defValue> * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isString()) {
+            std::string s = context.expectStringAscii();
+            val->val = boost::lexical_cast<int>(s);
+        }
+        else val->val = context.expectInt();
+    }
+
+    virtual void printJsonTyped(const TaggedIntDef<defValue> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(val->val);
+    }
+
+    virtual bool isDefaultTyped(const TaggedIntDef<defValue> * val)
+        const
+    {
+        return val->val == defValue;
+    }
+};
+
+template<>
+struct DefaultDescription<TaggedFloat>
+    : public ValueDescriptionI<TaggedFloat,
+                               ValueKind::FLOAT> {
+
+    virtual void parseJsonTyped(TaggedFloat * val,
+                                JsonParsingContext & context) const
+    {
+        val->val = context.expectFloat();
+    }
+
+    virtual void printJsonTyped(const TaggedFloat * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeDouble(val->val);
+    }
+
+    virtual bool isDefaultTyped(const TaggedFloat * val) const
+    {
+        return isnan(val->val);
+    }
+};
+
+template<int num, int den>
+struct DefaultDescription<TaggedFloatDef<num, den> >
+    : public ValueDescriptionI<TaggedFloatDef<num, den>,
+                               ValueKind::FLOAT> {
+
+    virtual void parseJsonTyped(TaggedFloatDef<num, den> * val,
+                                JsonParsingContext & context) const
+    {
+        val->val = context.expectFloat();
+    }
+
+    virtual void printJsonTyped(const TaggedFloatDef<num, den> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeFloat(val->val);
+    }
+
+    virtual bool isDefaultTyped(const TaggedFloatDef<num, den> * val) const
+    {
+        return val->val == (float)num / den;
+    }
+};
+
+template<class Enum>
+struct TaggedEnumDescription
+    : public ValueDescriptionI<Enum, ValueKind::ENUM,
+                               TaggedEnumDescription<Enum> > {
+
+    virtual void parseJsonTyped(Enum * val,
+                                JsonParsingContext & context) const
+    {
+        int index = context.expectInt();
+        val->val = index;
+    }
+
+    virtual void printJsonTyped(const Enum * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(val->val);
+    }
+
+    virtual bool isDefaultTyped(const Enum * val) const
+    {
+        return val->val == -1;
     }
 };
 
