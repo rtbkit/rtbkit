@@ -525,6 +525,27 @@ struct TaggedIntDef : TaggedInt {
     int val;
 };
 
+struct TaggedInt64 {
+    TaggedInt64()
+        : val(-1)
+    {
+    }
+
+    int64_t value() const { return val; }
+
+    int64_t val;
+};
+
+template<int64_t defValue = -1>
+struct TaggedInt64Def : TaggedInt {
+    TaggedInt64Def()
+        : val(defValue)
+    {
+    }
+
+    int64_t val;
+};
+
 struct TaggedFloat {
     TaggedFloat()
         : val(std::numeric_limits<float>::quiet_NaN())
@@ -542,6 +563,25 @@ struct TaggedFloatDef : public TaggedFloat {
     }
 
     float val;
+};
+
+struct TaggedDouble {
+    TaggedDouble()
+        : val(std::numeric_limits<double>::quiet_NaN())
+    {
+    }
+
+    double val;
+};
+
+template<int num = -1, int den = 1>
+struct TaggedDoubleDef : public TaggedDouble {
+    TaggedDoubleDef()
+        : val(1.0 * num / den)
+    {
+    }
+
+    double val;
 };
 
 template<>
@@ -653,6 +693,60 @@ struct DefaultDescription<TaggedIntDef<defValue> >
 };
 
 template<>
+struct DefaultDescription<TaggedInt64>
+: public ValueDescriptionI<TaggedInt64,
+                           ValueKind::INTEGER,
+                           DefaultDescription<TaggedInt64> > {
+    
+    virtual void parseJsonTyped(TaggedInt64 * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isString()) {
+            std::string s = context.expectStringAscii();
+            val->val = boost::lexical_cast<int64_t>(s);
+        }
+        else val->val = context.expectLongLong();
+    }
+
+    virtual void printJsonTyped(const TaggedInt64 * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeLongLong(val->val);
+    }
+
+    virtual bool isDefaultTyped(const TaggedInt64 * val) const
+    {
+        return val->val == -1;
+    }
+};
+
+template<int64_t defValue>
+struct DefaultDescription<TaggedInt64Def<defValue> >
+  : public ValueDescriptionI<TaggedInt64Def<defValue>, ValueKind::INTEGER > {
+
+    virtual void parseJsonTyped(TaggedInt64Def<defValue> * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isString()) {
+            std::string s = context.expectStringAscii();
+            val->val = boost::lexical_cast<int64_t>(s);
+        }
+        else val->val = context.expectLongLong();
+    }
+
+    virtual void printJsonTyped(const TaggedInt64Def<defValue> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeLongLong(val->val);
+    }
+
+    virtual bool isDefaultTyped(const TaggedInt64Def<defValue> * val) const
+    {
+        return val->val == defValue;
+    }
+};
+
+template<>
 struct DefaultDescription<TaggedFloat>
     : public ValueDescriptionI<TaggedFloat,
                                ValueKind::FLOAT> {
@@ -695,6 +789,52 @@ struct DefaultDescription<TaggedFloatDef<num, den> >
     virtual bool isDefaultTyped(const TaggedFloatDef<num, den> * val) const
     {
         return val->val == (float)num / den;
+    }
+};
+
+template<>
+struct DefaultDescription<TaggedDouble>
+    : public ValueDescriptionI<TaggedDouble,
+                               ValueKind::FLOAT> {
+
+    virtual void parseJsonTyped(TaggedDouble * val,
+                                JsonParsingContext & context) const
+    {
+        val->val = context.expectDouble();
+    }
+
+    virtual void printJsonTyped(const TaggedDouble * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeDouble(val->val);
+    }
+
+    virtual bool isDefaultTyped(const TaggedDouble * val) const
+    {
+        return isnan(val->val);
+    }
+};
+
+template<int num, int den>
+struct DefaultDescription<TaggedDoubleDef<num, den> >
+    : public ValueDescriptionI<TaggedDoubleDef<num, den>,
+                               ValueKind::FLOAT> {
+
+    virtual void parseJsonTyped(TaggedDoubleDef<num, den> * val,
+                                JsonParsingContext & context) const
+    {
+        val->val = context.expectDouble();
+    }
+
+    virtual void printJsonTyped(const TaggedDoubleDef<num, den> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeDouble(val->val);
+    }
+
+    virtual bool isDefaultTyped(const TaggedDoubleDef<num, den> * val) const
+    {
+        return val->val == (double)num / den;
     }
 };
 
