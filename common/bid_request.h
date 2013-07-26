@@ -22,6 +22,7 @@
 #include "rtbkit/common/currency.h"
 #include "tags.h"
 #include "openrtb/openrtb.h"
+#include "common/json.h"
 
 
 namespace RTBKIT {
@@ -289,18 +290,18 @@ struct BidRequest {
     /** Information specific to the site that generated the request.  Only
         one of site or app will be present.
     */
-    OpenRTB::Optional<OpenRTB::Site> site;
+    OpenRTB::optional<OpenRTB::Site> site;
 
     /** Information specific to the app that generated the request.  Only
         one of site or app will be present.
     */
-    OpenRTB::Optional<OpenRTB::App> app;
+    OpenRTB::optional<OpenRTB::App> app;
 
     /** Information about the device that generated the request. */
-    OpenRTB::Optional<OpenRTB::Device> device;
+    OpenRTB::optional<OpenRTB::Device> device;
 
     /** Information about the user that generated the request. */
-    OpenRTB::Optional<OpenRTB::User> user;
+    OpenRTB::optional<OpenRTB::User> user;
 
     /** The impressions that are available within the bid request. */
     std::vector<AdSpot> imp;
@@ -358,7 +359,7 @@ struct BidRequest {
     std::string toJsonStr() const;
 
     /** Create a new BidRequest from a canonical JSON value. */
-    static BidRequest createFromJson(const Json::Value & json);
+    inline static BidRequest createFromJson(const Json::Value& json) { return fromJson<BidRequest>(json); }
 
     /** Return the ID for the given domain. */
     Id getUserId(IdDomain domain) const;

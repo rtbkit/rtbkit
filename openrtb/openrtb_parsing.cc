@@ -89,15 +89,17 @@ DefaultDescription()
     addField("sourcerelationship", &Content::sourcerelationship, "Relationship with content source");
     addField("producer", &Content::producer, "Content producer");
     addField("len", &Content::len, "Content length in seconds");
+    addField("qagmediarating", &Content::qagmediarating, "Media rating per QAG guidelines");
+    addField("embeddable", &Content::embeddable, "1 if embeddable, 0 otherwise");
+    addField("language", &Content::language, "ISO 639-1 Content language");
+    addField("ext", &Content::ext, "Extensions to the protocol go here");
 }
 
 DefaultDescription<OpenRTB::Banner>::
 DefaultDescription()
 {
-    addField<List<int>>("w", &Banner::w, "Width of ad in pixels",
-             new FormatListDescription());
-    addField<List<int>>("h", &Banner::h, "Height of ad in pixels",
-             new FormatListDescription());
+    addField("w", &Banner::w, "Width of ad in pixels", new FormatListDescription());
+    addField("h", &Banner::h, "Height of ad in pixels", new FormatListDescription());
     addField("id", &Banner::id, "Ad ID");
     addField("pos", &Banner::pos, "Ad position");
     addField("btype", &Banner::btype, "Blocked creative types");
@@ -106,6 +108,7 @@ DefaultDescription()
     addField("topframe", &Banner::topframe, "Is it in the top frame or an iframe?");
     addField("expdir", &Banner::expdir, "Expandable ad directions");
     addField("api", &Banner::api, "Supported APIs");
+    addField("ext", &Banner::ext, "Extensions to the protocol go here");
 }
 
 DefaultDescription<OpenRTB::Video>::
@@ -130,6 +133,8 @@ DefaultDescription()
     addField("pos", &Video::pos, "Ad position");
     addField("companionad", &Video::companionad, "List of companion banners available");
     addField("api", &Video::api, "List of supported API frameworks");
+    addField("companiontype", &Video::companiontype, "List of VAST companion types");
+    addField("ext", &Video::ext, "Extensions to the protocol go here");
 }
 
 DefaultDescription<OpenRTB::Publisher>::
@@ -139,6 +144,7 @@ DefaultDescription()
     addField("name", &Publisher::name, "Publisher/producer name");
     addField("cat", &Publisher::cat, "Content categories");
     addField("domain", &Publisher::domain, "Domain name of publisher");
+    addField("ext", &Publisher::ext, "Extensions to the protocol go here");
 }
 
 DefaultDescription<OpenRTB::Context>::
@@ -177,6 +183,7 @@ DefaultDescription()
     addField("ver",    &AppInfo::ver,     "Application version");
     addField("bundle", &AppInfo::bundle,  "Application bundle name");
     addField("paid",   &AppInfo::paid,    "Is a paid version of the app");
+    addField("storeurl", &AppInfo::storeurl, "App store url");
 }
 
 DefaultDescription<OpenRTB::Geo>::
@@ -191,7 +198,7 @@ DefaultDescription()
     addField("city", &Geo::city, "City name (UN Code for Trade and Transport)");
     addField("zip", &Geo::zip, "Zip or postal code");
     addField("type", &Geo::type, "Source of location data");
-    addField("latlonconsent", &Geo::latlonconsent, "User has given consent for lat/lon information to be used");
+    addField("ext", &Geo::ext, "Extensions to the protocol go here");
 }
 
 DefaultDescription<OpenRTB::Device>::
@@ -225,7 +232,7 @@ DefaultDescription()
     addField("id", &Segment::id, "Segment ID");
     addField("name", &Segment::name, "Segment name");
     addField("value", &Segment::value, "Segment value");
-    addField("segmentusecost", &Segment::segmentusecost, "Segment use cost in CPM");
+    addField("ext", &Segment::ext, "Extensions to the protocol go here");
 }
 
 DefaultDescription<OpenRTB::Data>::
@@ -234,8 +241,7 @@ DefaultDescription()
     addField("id", &Data::id, "Segment ID");
     addField("name", &Data::name, "Segment name");
     addField("segment", &Data::segment, "Data segment");
-    addField("datausecost", &Data::datausecost, "Cost of using data in CPM");
-    addField("usecostcurrency", &Data::usecostcurrency, "Currency for use cost");
+    addField("ext", &Data::ext, "Extensions to the protocol go here");
 }
 
 DefaultDescription<OpenRTB::User>::
@@ -250,8 +256,7 @@ DefaultDescription()
     addField("customdata", &User::customdata, "Exchange-specific custom data");
     addField("geo", &User::geo, "Geolocation of user at registration");
     addField("data", &User::data, "User segment data");
-    addField("tz", &User::tz, "Timezone offset of user in seconds wrt GMT");
-    addField("sessiondepth", &User::sessiondepth, "Session depth of user in visits");
+    addField("ext", &User::ext, "Extensions to the protocol go here");
 }
 
 DefaultDescription<OpenRTB::Bid>::

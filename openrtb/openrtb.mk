@@ -1,1 +1,1 @@
-$(eval $(call library,openrtb,openrtb_parsing.cc openrtb.cc,value_description))
+$(eval $(call library,openrtb,openrtb_parsing.cc,value_description))

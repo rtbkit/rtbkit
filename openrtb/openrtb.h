@@ -23,293 +23,55 @@
 #pragma once
 
 #include <string>
+#include <cstring>
 #include <memory>
 #include <vector>
+#include <set>
+#include <iostream>
 #include "soa/types/id.h"
 #include "soa/types/string.h"
 #include "soa/types/url.h"
-#include "jml/utils/compact_vector.h"
 #include "soa/jsoncpp/value.h"
-#include <iostream>
+#include "common/cpp14.h"
+#include "common/defaulted.h"
 
 namespace OpenRTB {
 
 using std::string;
 using std::vector;
-using std::unique_ptr;
+using std::set;
+using std14::optional;
+using RTBKIT::defaulted;
+using RTBKIT::defaulted3;
 using Datacratic::Id;
-using Datacratic::Utf8String;
 using Datacratic::Url;
 
 typedef std::string CSList;  // comma-separated list
 
-template<typename T>
-struct Optional: public std::unique_ptr<T> {
-    Optional()
-    {
-    }
-    
-    Optional(Optional && other)
-        : std::unique_ptr<T>(std::move(other))
-    {
-    }
+/*****************************************************************************/
+/* CURRENCIES                                                                */
+/*****************************************************************************/
 
-    Optional(const Optional & other)
-    {
-        if (other)
-            this->reset(new T(*other));
-    }
+/** ISO 4217 currency
 
-    Optional & operator = (const Optional & other)
-    {
-        Optional newMe(other);
-        swap(newMe);
-        return *this;
-    }
+    Why enum?
+    - String and custom structures are bad, as they can't be used as template parameters.
+    - Int is bad, as it isn't typesafe.
+*/
 
-    Optional & operator = (Optional && other)
-    {
-        Optional newMe(other);
-        swap(newMe);
-        return *this;
-    }
+constexpr char _get(const char* str, int i, char replace = '\0') { return i < strlen(str) ? str[i] : replace; }
+constexpr uint32 _MakeCurrency(const char* s) { return _get(s, 0) << 24 | _get(s, 1) << 16 | _get(s, 2) << 8 | _get(s, 3); }
 
-    void swap(Optional & other)
-    {
-        std::unique_ptr<T>::swap(other);
-    }
+enum class Currency : uint32_t {
+	USD = _MakeCurrency("USD")
 };
-
-template<typename Cls, int defValue = -1>
-struct TaggedEnum {
-    TaggedEnum()
-        : val(-1)
-    {
-    }
-
-    int val;
-
-    int value() const
-    {
-        return val;
-    }
-
-
-#if 0
-    operator typename Cls::Vals () const
-    {
-        return static_cast<typename Cls::Vals>(val);
-    }
-#endif
-};
-
-template<typename E, int def>
-bool operator == (const TaggedEnum<E, def> & e1, const TaggedEnum<E, def> & e2)
-{
-    return e1.val == e2.val;
-}
-
-template<typename E, int def>
-bool operator != (const TaggedEnum<E, def> & e1, const TaggedEnum<E, def> & e2)
-{
-    return e1.val != e2.val;
-}
-
-template<typename E, int def>
-bool operator > (const TaggedEnum<E, def> & e1, const TaggedEnum<E, def> & e2)
-{
-    return e1.val > e2.val;
-}
-
-template<typename E, int def>
-bool operator < (const TaggedEnum<E, def> & e1, const TaggedEnum<E, def> & e2)
-{
-    return e1.val < e2.val;
-}
-
-template<typename E, int def>
-inline Json::Value jsonPrint(const TaggedEnum<E, def> & e)
-{
-    return e.val;
-}
-
-template<typename E, int def>
-inline void jsonParse(const Json::Value & j, TaggedEnum<E, def> & e)
-{
-    e.val = j.asInt();
-}
-
-struct TaggedBool {
-    TaggedBool()
-        : val(-1)
-    {
-    }
-
-    int val;
-};
-
-template<int defValue = -1>
-struct TaggedBoolDef : public TaggedBool {
-    TaggedBoolDef()
-        : val(defValue)
-    {
-    }
-
-    int val;
-};
-
-struct TaggedInt {
-    TaggedInt()
-        : val(-1)
-    {
-    }
-
-    int value() const { return val; }
-
-    int val;
-};
-
-template<int defValue = -1>
-struct TaggedIntDef : TaggedInt {
-    TaggedIntDef()
-        : val(defValue)
-    {
-    }
-
-    int val;
-};
-
-struct TaggedInt64 {
-    TaggedInt64()
-        : val(-1)
-    {
-    }
-
-    int64_t value() const { return val; }
-
-    int64_t val;
-};
-
-template<int64_t defValue = -1>
-struct TaggedInt64Def : TaggedInt {
-    TaggedInt64Def()
-        : val(defValue)
-    {
-    }
-
-    int64_t val;
-};
-
-struct TaggedFloat {
-    TaggedFloat()
-        : val(std::numeric_limits<float>::quiet_NaN())
-    {
-    }
-
-    float val;
-};
-
-template<int num = -1, int den = 1>
-struct TaggedFloatDef : public TaggedFloat {
-    TaggedFloatDef()
-        : val(1.0f * num / den)
-    {
-    }
-
-    float val;
-};
-
-struct TaggedDouble{
-    TaggedDouble()
-        : val(std::numeric_limits<double>::quiet_NaN())
-    {
-    }
-
-    double val;
-};
-
-template<int num = -1, int den = 1>
-struct TaggedDoubleDef : public TaggedDouble {
-    TaggedDoubleDef()
-        : val(1.0 * num / den)
-    {
-    }
-
-    double val;
-};
-
-
-#if 0 // c++11 templated typedefs
-template<typename T>
-using List = compact_vector<T, 3>;
-
-#else
-template<typename T>
-struct List: public ML::compact_vector<T, 3> {
-
-#if 0
-    typedef ML::compact_vector<T, 3> Base;
-
-    List()
-    {
-        using namespace std;
-        cerr << "default construct" << endl;
-    }
-
-    List(const List & other)
-        : Base(std::move(other))
-    {
-        using namespace std;
-        cerr << "copy construct" << endl;
-    }
-    
-    List & operator = (const List & other)
-    {
-        using namespace std;
-        cerr << "assignment" << endl;
-        *(Base *)this = (Base &)other;
-        return *this;
-    }
-
-    ~List()
-    {
-        using namespace std;
-        cerr << "destructor length " << this->size() << endl;
-    }
-
-    List & operator = (List && other)
-    {
-        using namespace std;
-        cerr << "move assignment" << endl;
-        *(Base *)this = (Base &&)other;
-        return *this;
-    }
-    
-    List(List && other)
-        : Base(std::move(other))
-    {
-        using namespace std;
-        cerr << "move constructor from length " << this->size() << endl;
-    }
-#endif
-};
-
-#endif
+constexpr Currency MakeCurrency(const char* s) { return Currency(_MakeCurrency(s)); }
 
 /*****************************************************************************/
 /* MIME TYPES                                                                */
 /*****************************************************************************/
 
-struct MimeType {
-    MimeType(const std::string & type = "")
-        : type(type)
-    {
-    }
-
-    std::string type;
-    //int val;
-};
-
+typedef string MimeType;
 
 /*****************************************************************************/
 /* CONTENT CATEGORIES                                                        */
@@ -328,26 +90,7 @@ struct MimeType {
     (This is a huge taxonomy... there are no enumerated values).
 */
 
-struct ContentCategory {
-
-    ContentCategory(const std::string & val = "")
-        : val(val)
-    {
-    }
-
-    string val;
-
-#if 0    
-    ContentCategory(int l1 = -1, int l2 = -1)
-        : l1(l1), l2(l2)
-    {
-    }
-
-    int l1;
-    int l2;
-#endif
-};
-
+typedef string ContentCategory;
 
 /*****************************************************************************/
 /* BANNER AD TYPES                                                           */
@@ -359,15 +102,11 @@ struct ContentCategory {
     exchange unless restricted by publisher site settings.
 */
 
-struct BannerAdType: public TaggedEnum<BannerAdType> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        XHTML_TEXT = 1,    ///< XHTML text ad. (usually mobile)
-        XHTML_BANNER = 2,  ///< XHTML banner ad. (usually mobile)
-        JAVASCRIPT = 3,    ///< JavaScript ad; must be valid XHTML (i.e., script tags included).
-        IFRAME = 4         ///< Full iframe HTML
-    };
+enum class BannerAdType {
+	XHTML_TEXT = 1,    ///< XHTML text ad. (usually mobile)
+	XHTML_BANNER = 2,  ///< XHTML banner ad. (usually mobile)
+	JAVASCRIPT = 3,    ///< JavaScript ad; must be valid XHTML (i.e., script tags included).
+	IFRAME = 4         ///< Full iframe HTML
 };
 
 /*****************************************************************************/
@@ -380,10 +119,7 @@ struct BannerAdType: public TaggedEnum<BannerAdType> {
     can describe an ad being served or serve as restrictions of thereof.
 */
 
-struct CreativeAttribute: public TaggedEnum<CreativeAttribute> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-    };
+enum class CreativeAttribute {
 };
 
 
@@ -396,15 +132,11 @@ struct CreativeAttribute: public TaggedEnum<CreativeAttribute> {
     This is a list of API frameworks.
 */
 
-struct ApiFramework: public TaggedEnum<ApiFramework> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        VPAID_1 = 1,    ///< IAB Video Player-Ad Interface Definitions V1
-        VPAID_2 = 2,    ///< IAB Video Player-Ad Interface Definitions V2
-        MRAID = 3,      ///< IAB Mobile Rich Media Ad Interface Definitions
-        ORMMA = 4       ///< Google Open Rich Media Mobile Advertising
-    };
+enum class ApiFramework {
+	VPAID1 = 1,    ///< IAB Video Player-Ad Interface Definitions V1
+	VPAID2 = 2,    ///< IAB Video Player-Ad Interface Definitions V2
+	MRAID = 3,     ///< IAB Mobile Rich Media Ad Interface Definitions
+	ORMMA = 4      ///< Google Open Rich Media Mobile Advertising
 };
 
 
@@ -422,19 +154,15 @@ struct ApiFramework: public TaggedEnum<ApiFramework> {
     synch with updates to the QAG values as published on IAB.net.
 */
 
-struct AdPosition: public TaggedEnum<AdPosition, 0> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        UNKNOWN = 0,
-        ABOVE = 1,
-        BETWEEN_DEPRECATED = 2,
-        BELOW = 3,
-        HEADER = 4,
-        FOOTER = 5,
-        SIDEBAR = 6,
-        FULLSCREEN = 7
-    };
+enum class AdPosition {
+	UNKNOWN = 0,
+	ABOVE = 1,
+	BETWEEN_DEPRECATED = 2,
+	BELOW = 3,
+	HEADER = 4,
+	FOOTER = 5,
+	SIDEBAR = 6,
+	FULLSCREEN = 7
 };
 
 
@@ -454,13 +182,9 @@ struct AdPosition: public TaggedEnum<AdPosition, 0> {
     IAB.net.
 */
 
-struct VideoLinearity: public TaggedEnum<VideoLinearity> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        IN_STREAM = 1,
-        OVERLAY = 2
-    };
+enum class VideoLinearity {
+	IN_STREAM = 1,
+	OVERLAY = 2
 };
 
 
@@ -474,17 +198,13 @@ struct VideoLinearity: public TaggedEnum<VideoLinearity> {
     that could be supported by an exchange.
 */
 
-struct VideoBidResponseProtocol: public TaggedEnum<VideoBidResponseProtocol> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        VAST1 = 1,
-        VAST2 = 2,
-        VAST3 = 3,
-        VAST1_WRAPPER = 4,
-        VAST2_WRAPPER = 5,
-        VAST3_WRAPPER = 6
-    };
+enum class VideoBidResponseProtocol {
+	VAST1 = 1,
+	VAST2 = 2,
+	VAST3 = 3,
+	VAST1_WRAPPER = 4,
+	VAST2_WRAPPER = 5,
+	VAST3_WRAPPER = 6
 };
 
 /*****************************************************************************/
@@ -495,15 +215,11 @@ struct VideoBidResponseProtocol: public TaggedEnum<VideoBidResponseProtocol> {
 
  */
 
-struct VideoPlaybackMethod: public TaggedEnum<VideoPlaybackMethod> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        AUTO_PLAY_SOUND_ON = 1,
-        AUTO_PLAY_SOUND_OFF = 2,
-        CLICK_TO_PLAY = 3,
-        MOUSE_OVER = 4
-    };
+enum class VideoPlaybackMethod {
+	AUTO_PLAY_SOUND_ON = 1,
+	AUTO_PLAY_SOUND_OFF = 2,
+	CLICK_TO_PLAY = 3,
+	MOUSE_OVER = 4
 };
 
 
@@ -521,14 +237,10 @@ struct VideoPlaybackMethod: public TaggedEnum<VideoPlaybackMethod> {
     table of negative numbers.
 */
 
-struct VideoStartDelay: public TaggedEnum<VideoStartDelay> {
-    enum Vals {
-        UNSPECIFIED = -3,  ///< Not explicitly specified
-
-        PRE_ROLL = 0,
-        GENERIC_MID_ROLL = -1,
-        GENERIC_POST_ROLL = -2
-    };
+enum class VideoStartDelay {
+	PRE_ROLL = 0,
+	GENERIC_MID_ROLL = -1,
+	GENERIC_POST_ROLL = -2
 };
 
 
@@ -541,18 +253,14 @@ struct VideoStartDelay: public TaggedEnum<VideoStartDelay> {
     The following table lists the various options for the connection type.
 */
 
-struct ConnectionType: public TaggedEnum<ConnectionType> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        UNKNOWN = 0,
-        ETHERNET = 1,
-        WIFI = 2,
-        CELLULAR_UNKNOWN = 3,
-        CELLULAR_2G = 4,
-        CELLULAR_3G = 5,
-        CELLULAR_4G = 6
-    };
+enum class ConnectionType {
+	UNKNOWN = 0,
+	ETHERNET = 1,
+	WIFI = 2,
+	CELLULAR_UNKNOWN = 3,
+	CELLULAR_2G = 4,
+	CELLULAR_3G = 5,
+	CELLULAR_4G = 6
 };
 
 
@@ -567,16 +275,12 @@ struct ConnectionType: public TaggedEnum<ConnectionType> {
     imposed by the content.
 */
 
-struct ExpandableDirection: public TaggedEnum<ExpandableDirection> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        LEFT = 1,
-        RIGHT = 2,
-        UP = 3,
-        DOWN = 4,
-        FULLSCREEN = 5
-    };
+enum class ExpandableDirection {
+	LEFT = 1,
+	RIGHT = 2,
+	UP = 3,
+	DOWN = 4,
+	FULLSCREEN = 5
 };
 
 
@@ -590,13 +294,9 @@ struct ExpandableDirection: public TaggedEnum<ExpandableDirection> {
     content.
 */
 
-struct ContentDeliveryMethod: public TaggedEnum<ContentDeliveryMethod> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        STREAMING = 1,
-        PROGRESSIVE = 2
-    };
+enum class ContentDeliveryMethod {
+	STREAMING = 1,
+	PROGRESSIVE = 2
 };
 
 
@@ -613,18 +313,14 @@ struct ContentDeliveryMethod: public TaggedEnum<ContentDeliveryMethod> {
     on IAB.net.
 */
 
-struct ContentContext: public TaggedEnum<ContentContext> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        VIDEO = 1,
-        GAME = 2,
-        MUSIC = 3,
-        APPLICATION = 4,
-        TEXT = 5,
-        OTHER = 6,
-        UNKNOWN = 7
-    };
+enum class ContentContext {
+	VIDEO = 1,
+	GAME = 2,
+	MUSIC = 3,
+	APPLICATION = 4,
+	TEXT = 5,
+	OTHER = 6,
+	UNKNOWN = 7
 };
 
 
@@ -638,15 +334,11 @@ struct ContentContext: public TaggedEnum<ContentContext> {
     the IAB – http://www.iab.net/media/file/long-form-video-final.pdf).
 */
 
-struct VideoQuality: public TaggedEnum<VideoQuality> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        UNKNOWN = 0,
-        PROFESSIONAL = 1,
-        PROSUMER = 2,
-        USER_GENERATED = 3
-    };
+enum class VideoQuality {
+	UNKNOWN = 0,
+	PROFESSIONAL = 1,
+	PROSUMER = 2,
+	USER_GENERATED = 3
 };
 
 
@@ -660,14 +352,10 @@ struct VideoQuality: public TaggedEnum<VideoQuality> {
     information was determined.
 */
 
-struct LocationType: public TaggedEnum<LocationType> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        GPS = 1,        ///< GPS/Location Services
-        IP_ADDRESS = 2, ///< Ip Address
-        USER = 3        ///< Provided by user
-    };
+enum class LocationType {
+	GPS = 1,        ///< GPS/Location Services
+	IP_ADDRESS = 2, ///< Ip Address
+	USER = 3        ///< Provided by user
 };
 
 
@@ -684,14 +372,10 @@ struct LocationType: public TaggedEnum<LocationType> {
     on IAB.net.
 */
 
-struct DeviceType: public TaggedEnum<DeviceType> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        MOBILE_OR_TABLET = 1,
-        PC = 2,
-        TV = 3
-    };
+enum class DeviceType {
+	MOBILE_OR_TABLET = 1,
+	PC = 2,
+	TV = 3
 };
 
 
@@ -706,14 +390,10 @@ struct DeviceType: public TaggedEnum<DeviceType> {
     www.iab.net/vast/ for more information.
 */
 
-struct VastCompanionType: public TaggedEnum<VastCompanionType> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        STATIC_RESOURCE = 1,
-        HTML_RESOURCE = 2,
-        IFRAME_RESOURCE = 3
-    };
+enum class VastCompanionType {
+	STATIC_RESOURCE = 1,
+	HTML_RESOURCE = 2,
+	IFRAME_RESOURCE = 3
 };
 
 
@@ -727,59 +407,20 @@ struct VastCompanionType: public TaggedEnum<VastCompanionType> {
     See http://www.iab.net/ne_guidelines for more information.
 */
 
-struct MediaRating: public TaggedEnum<MediaRating> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        ALL_AUDIENCES = 1,
-        OVER_12 = 2,
-        MATURE_AUDIENCES =3 
-    };
+enum class MediaRating {
+	ALL_AUDIENCES = 1,
+	OVER_12 = 2,
+	MATURE_AUDIENCES = 3 
 };
 
-
-/*****************************************************************************/
-/* FRAME POSITION                                                            */
-/*****************************************************************************/
-
-struct FramePosition: public TaggedEnum<FramePosition, 0> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        IFRAME = 0,
-        TOP_FRAME = 1
-    };
-};
-
-/*****************************************************************************/
-/* SOURCE RELATIONSHIP                                                       */
-/*****************************************************************************/
-
-struct SourceRelationship: public TaggedEnum<SourceRelationship> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        INDIRECT = 0,
-        DIRECT = 1
-    };
-};
 
 /*****************************************************************************/
 /* AUCTION TYPE                                                              */
 /*****************************************************************************/
 
-struct AuctionType: public TaggedEnum<AuctionType, 2> {
-    enum Vals {
-        UNSPECIFIED = -1,  ///< Not explicitly specified
-
-        FIRST_PRICE = 1,
-        SECOND_PRICE = 2
-    };
-
-    AuctionType(Vals val = UNSPECIFIED)
-    {
-        this->val = val;
-    }
+enum class AuctionType {
+	FIRST_PRICE = 1,
+	SECOND_PRICE = 2
 };
 
 
@@ -799,20 +440,19 @@ struct AuctionType: public TaggedEnum<AuctionType, 2> {
     size are available on a page.
 */
 struct Banner {
-    ~Banner();
-
     ///< NOTE: RTBkit extension: support for multiple formats
-    List<int> w;                     ///< Width of ad
-    List<int> h;                     ///< Height of ad
+    vector<int> w;                     ///< Width of ad
+    vector<int> h;                     ///< Height of ad
 
-    Id id;                           ///< Ad ID
-    AdPosition pos;                  ///< Ad position (table 6.5)
-    List<BannerAdType> btype;        ///< Blocked creative types (table 6.2)
-    List<CreativeAttribute> battr;   ///< Blocked creative attributes (table 6.3)
-    List<MimeType> mimes;            ///< Whitelist of content MIME types
-    FramePosition topframe;          ///< Is it in the top frame (1) or an iframe (0)?
-    List<ExpandableDirection> expdir;///< Expandable ad directions (table 6.11)
-    List<ApiFramework> api;          ///< Supported APIs (table 6.4)
+    Id id;                                          ///< Ad ID
+    defaulted<AdPosition, AdPosition::UNKNOWN> pos; ///< Ad position (table 6.5)
+    set<BannerAdType> btype;                        ///< Blocked creative types (table 6.2)
+    set<CreativeAttribute> battr;                   ///< Blocked creative attributes (table 6.3)
+    optional<set<MimeType>> mimes;                  ///< Whitelist of content MIME types
+    defaulted<bool, false> topframe;                ///< Is it in the top frame (1) or an iframe (0)?
+    set<ExpandableDirection> expdir;                ///< Expandable ad directions (table 6.11)
+    set<ApiFramework> api;                          ///< Supported APIs (table 6.4)
+    Json::Value ext;
 };
 
 
@@ -832,27 +472,27 @@ struct Banner {
     additional information to the bidder.
 */
 struct Video {
-    ~Video();
-    List<MimeType> mimes;       ///< Content MIME types supported
-    VideoLinearity linearity;   ///< Whether it's linear or not (table 6.6)
-    TaggedInt minduration;      ///< Minimum ad duration in seconds
-    TaggedInt maxduration;      ///< Maximum ad duration in seconds
-    List<VideoBidResponseProtocol> protocol;  ///< Bid response protocols (table 6.7)
-    TaggedInt w;                ///< Width of player in pixels
-    TaggedInt h;                ///< Height of player in pixels
-    ///< Starting delay in seconds for placement (table 6.9)
-    TaggedIntDef<VideoStartDelay::UNSPECIFIED> startdelay;
-    TaggedIntDef<1> sequence;   ///< Which ad number in the bid request
-    List<CreativeAttribute> battr; ///< Which creative attributes are blocked
-    TaggedIntDef<0> maxextended;///< Max extended video ad duration
-    TaggedInt minbitrate;       ///< Minimum bitrate for ad in kbps
-    TaggedInt maxbitrate;       ///< Maximum bitrate for ad in kbps
-    TaggedBoolDef<1> boxingallowed;           ///< Is letterboxing allowed
-    List<VideoPlaybackMethod> playbackmethod; ///< Available playback methods
-    List<ContentDeliveryMethod> delivery;     ///< Available delivery methods
-    AdPosition pos;             ///< Ad position (table 6.5)
-    vector<Banner> companionad; ///< List of companion banners available
-    List<ApiFramework> api;     ///< List of supported API frameworks (table 6.4)
+    set<string> mimes;                                 ///< Content MIME types supported
+    VideoLinearity linearity;                          ///< Whether it's linear or not (table 6.6)
+    int minduration;                                   ///< Minimum ad duration in seconds
+    int maxduration;                                   ///< Maximum ad duration in seconds
+    set<VideoBidResponseProtocol> protocol;            ///< Bid response protocols (table 6.7)
+    optional<int> w;                                   ///< Width of player in pixels
+    optional<int> h;                                   ///< Height of player in pixels
+    optional<int> startdelay;                          ///< Starting delay in seconds for placement (table 6.9)
+    defaulted<int, 1> sequence;                        ///< Which ad number in the bid request
+    set<CreativeAttribute> battr;                      ///< Which creative attributes are blocked
+    defaulted<int, 0> maxextended;                     ///< Max extended video ad duration
+    optional<int> minbitrate;                          ///< Minimum bitrate for ad in kbps
+    optional<int> maxbitrate;                          ///< Maximum bitrate for ad in kbps
+    defaulted<bool, true> boxingallowed;               ///< Is letterboxing allowed
+    optional<set<VideoPlaybackMethod>> playbackmethod; ///< Available playback methods
+    optional<set<ContentDeliveryMethod>> delivery;     ///< Available delivery methods
+    defaulted<AdPosition, AdPosition::UNKNOWN> pos;    ///< Ad position (table 6.5)
+    vector<Banner> companionad;                        ///< List of companion banners available
+    set<ApiFramework> api;                             ///< List of supported API frameworks (table 6.4)
+    optional<set<VastCompanionType>> companiontype;    ///< VAST Companion Types (table 6.17)
+    Json::Value ext;
 };
 
 
@@ -868,11 +508,11 @@ struct Video {
 */
 
 struct Publisher {
-    ~Publisher();
-    Id id;                       ///< Unique ID representing the publisher
-    Utf8String name;             ///< Publisher name
-    List<ContentCategory> cat; ///< Content categories     
-    string domain;               ///< Domain name of publisher
+    Id id;                              ///< Unique ID representing the publisher
+    string name;                        ///< Publisher name
+    optional<set<ContentCategory>> cat; ///< Content categories     
+    string domain;                      ///< Domain name of publisher
+    Json::Value ext;
 };
 
 /** 3.3.9 Producer Object
@@ -903,18 +543,17 @@ typedef Publisher Producer;  /// They are the same...
     within bidders.
 */
 struct Impression {
-    ~Impression();
-    Id id;                             ///< Impression ID within BR
-    Optional<Banner> banner;           ///< If it's a banner ad
-    Optional<Video> video;             ///< If it's a video ad
-    string displaymanager;             ///< What renders the ad
-    string displaymanagerver;          ///< What version of that thing
-    TaggedBoolDef<0> instl;            ///< Is it interstitial
-    string tagid;                      ///< ad tag ID for auction
-    TaggedFloatDef<0> bidfloor;        ///< CPM bid floor
-    string bidfloorcur;                ///< Bid floor currency
-    List<string> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
-    Json::Value ext;                   ///< Extended impression attributes
+    Id id;                                                ///< Impression ID within BR
+    optional<Banner> banner;                              ///< If it's a banner ad
+    optional<Video> video;                                ///< If it's a video ad
+    string displaymanager;                                ///< What renders the ad
+    string displaymanagerver;                             ///< What version of that thing
+    defaulted<bool, false> instl;                         ///< Is it interstitial
+    string tagid;                                         ///< ad tag ID for auction
+    defaulted3<double, int, 0> bidfloor;                  ///< CPM bid floor
+    defaulted<Currency, MakeCurrency("USD")> bidfloorcur; ///< Bid floor currency
+    set<string> iframebuster;                             ///< Supported iframe busters (for expandable/video ads)
+    Json::Value ext;
 };
 
 
@@ -939,23 +578,27 @@ struct Impression {
 */
 
 struct Content {
-    ~Content();
-    Id id;                   ///< Unique ID identifying the content
-    TaggedInt episode;       ///< Episode number of a series
-    Utf8String title;        ///< Content title
-    Utf8String series;       ///< Content series
-    Utf8String season;       ///< Content season
-    Url url;                 ///< Original content URL
-    List<ContentCategory> cat; ///< IAB content category (table 6.1)
-    VideoQuality videoquality; ///< Video quality (table 6.14)
-    CSList keywords;         ///< Content keywords
-    string contentrating;    ///< Content rating (eg Mature)
-    string userrating;       ///< Content user rating (eg 3 stars)
-    string context;          ///< Content context (table 6.13)
-    TaggedBool livestream;   ///< Is this being live streamed?
-    SourceRelationship sourcerelationship;  ///< 1 = direct, 0 = indirect
-    Optional<Producer> producer;  ///< Content producer
-    TaggedInt len;           ///< Length of content in seconds
+    Id id;                                ///< Unique ID identifying the content
+    optional<int> episode;                ///< Episode number of a series
+    string title;                         ///< Content title
+    string series;                        ///< Content series
+    string season;                        ///< Content season
+    Url url;                              ///< Original content URL
+    optional<set<ContentCategory>> cat;   ///< IAB content category (table 6.1)
+    optional<VideoQuality> videoquality;  ///< Video quality (table 6.14)
+    CSList keywords;                      ///< Content keywords
+    string contentrating;                 ///< Content rating (eg Mature)
+    string userrating;                    ///< Content user rating (eg 3 stars)
+    string context;                       ///< Content context (table 6.13)
+    optional<bool> livestream;            ///< Is this being live streamed?
+    enum class SourceRelationship { Direct = 1, Indirect = 0 };
+    optional<SourceRelationship> sourcerelationship;
+    optional<Producer> producer;          ///< Content producer
+    optional<int> len;                    ///< Length of content in seconds
+    optional<MediaRating> qagmediarating; ///< Media rating per QAG guidelines (table 6.18).
+    optional<bool> embeddable;            ///< 1 if embeddable, 0 otherwise
+    string language;                      ///< Content language.  ISO 639-1 (alpha-2).
+    Json::Value ext;
 };
 
 
@@ -966,17 +609,16 @@ struct Content {
 /** Common information between a Site and App. */
 
 struct Context {
-    ~Context();
-    Id id;        ///< Site ID on the exchange
-    Utf8String name;  ///< Site name
-    Utf8String domain;///< Site or app domain
-    List<ContentCategory> cat;        ///< IAB content categories for site/app
-    List<ContentCategory> sectioncat; ///< IAB content categories for subsection
-    List<ContentCategory> pagecat;    ///< IAB content categories for page/view
-    TaggedBool privacypolicy;           ///< Has a privacy policy
-    Optional<Publisher> publisher;    ///< Publisher of the site or app
-    Optional<Content> content;        ///< Content of the site or app
-    CSList keywords;                    ///< Keywords describing app
+    Id id;                                     ///< Site ID on the exchange
+    string name;                               ///< Site name
+    string domain;                             ///< Site or app domain
+    optional<set<ContentCategory>> cat;        ///< IAB content categories for site/app
+    optional<set<ContentCategory>> sectioncat; ///< IAB content categories for subsection
+    optional<set<ContentCategory>> pagecat;    ///< IAB content categories for page/view
+    optional<bool> privacypolicy;              ///< Has a privacy policy
+    optional<Publisher> publisher;             ///< Publisher of the site or app
+    optional<Content> content;                 ///< Content of the site or app
+    CSList keywords;                           ///< Keywords describing app
     Json::Value ext;
 };
 
@@ -998,9 +640,9 @@ struct Context {
 */
 
 struct SiteInfo {
-    Url page;          ///< URL of the page to be shown
-    Url ref;           ///< Referrer URL that got user to page
-    Utf8String search; ///< Search string that got user to page
+    Url page;      ///< URL of the page to be shown
+    Url ref;       ///< Referrer URL that got user to page
+    string search; ///< Search string that got user to page
 };
 
 struct Site: public Context, public SiteInfo {
@@ -1023,9 +665,10 @@ struct Site: public Context, public SiteInfo {
     App ID or bundle, but this is not strictly required.
 */
 struct AppInfo {
-    string ver;         ///< Application version
-    string bundle;      ///< Application bundle name (unique across multiple exchanges)
-    TaggedBool paid;    ///< Is a paid version of the app
+    string ver;          ///< Application version
+    string bundle;       ///< Application bundle name (unique across multiple exchanges)
+    optional<bool> paid; ///< Is a paid version of the app
+    Url storeurl;        ///< For QAG 1.5 compliance, new in OpenRTB 2.1
 };
 
 struct App: public Context, public AppInfo {
@@ -1051,18 +694,16 @@ struct App: public Context, public AppInfo {
 */
 
 struct Geo {
-    ~Geo();
-    TaggedFloat lat;        ///< Latitude of user (-90 to 90; South negative)
-    TaggedFloat lon;        ///< Longtitude (-180 to 180; west is negative)
-    TaggedBool latlonconsent;  ///< Has user given consent for lat/lon use? (Rubocon extension)
-    string country;         ///< Country code (ISO 3166-1 Alpha-3)
-    string region;          ///< Region code (ISO 3166-2)
-    string regionfips104;   ///< Region using FIPS 10-4
-    string metro;           ///< Metropolitan region (Google Metro code)
-    Utf8String city;        ///< City name (UN Code for Trade and Transport Loc)
-    string zip;             ///< Zip or postal code
-    string dma;             ///< Direct Marketing Association code
-    LocationType type;      ///< Source of Geo data (table 6.15)
+    optional<double> lat;        ///< Latitude of user (-90 to 90; South negative)
+    optional<double> lon;        ///< Longtitude (-180 to 180; west is negative)
+    string country;              ///< Country code (ISO 3166-1 Alpha-3)
+    string region;               ///< Region code (ISO 3166-2)
+    string regionfips104;        ///< Region using FIPS 10-4
+    string metro;                ///< Metropolitan region (Google Metro code)
+    string city;                 ///< City name (UN Code for Trade and Transport Loc)
+    string zip;                  ///< Zip or postal code
+    optional<LocationType> type; ///< Source of Geo data (table 6.15)
+    Json::Value ext;
 };
 
 
@@ -1090,27 +731,26 @@ struct Geo {
 */
 
 struct Device {
-    ~Device();
-    TaggedBool dnt;        ///< If 1 then do not track is on
-    Utf8String ua;         ///< User agent of device
+    optional<bool> dnt;    ///< If 1 then do not track is on
+    string ua;             ///< User agent of device
     string ip;             ///< IP address of device
-    Optional<Geo> geo;     ///< Geolocation of device
+    optional<Geo> geo;     ///< Geolocation of device
     string didsha1;        ///< Device ID: SHA1
     string didmd5;         ///< Device ID: MD5
     string dpidsha1;       ///< Device Platform ID: SHA1
     string dpidmd5;        ///< Device Platform ID: MD5
     string ipv6;           ///< IPv6 address
-    Utf8String carrier;    ///< Carrier or ISP (derived from IP address)
-    Utf8String language;   ///< Browser language.  ISO 639-1 (alpha-2).
+    string carrier;        ///< Carrier or ISP (derived from IP address)
+    string language;       ///< Browser language.  ISO 639-1 (alpha-2).
     string make;           ///< Device make
     string model;          ///< Device model
     string os;             ///< Device OS
     string osv;            ///< Device OS version
-    TaggedBool js;         ///< Javascript is supported? 1 or 0
-    ConnectionType connectiontype;    ///< Connection type (table 6.10)
-    DeviceType devicetype; ///< Device type (table 6.16)
-    string flashver;       ///< Flash version on device
-    Json::Value ext;       ///< Extensions go here
+    optional<bool> js;     ///< Javascript is supported? 1 or 0
+    optional<ConnectionType> connectiontype; ///< Connection type (table 6.10)
+    optional<DeviceType> devicetype;         ///< Device type (table 6.16)
+    string flashver;                         ///< Flash version on device
+    Json::Value ext;
 };
 
 
@@ -1133,7 +773,7 @@ struct Segment {
     Id id;                         ///< Segment ID
     string name;                   ///< Segment name
     string value;                  ///< Segment value
-    TaggedFloat segmentusecost;    ///< Cost of using segment in CPM
+    Json::Value ext;
 };
 
 
@@ -1157,10 +797,7 @@ struct Data {
     Id id;                           ///< Exchange specific data prov ID
     string name;                     ///< Data provider name
     vector<Segment> segment;         ///< Segment of data
-
-    /// Datacratic Extensions
-    string usecostcurrency;          ///< Currency of use cost
-    TaggedFloat datausecost;         ///< Cost of using the data (CPM)
+    Json::Value ext;
 };
 
 
@@ -1185,19 +822,15 @@ struct Data {
     object.
 */
 struct User {
-    ~User();
     Id id;                     ///< Exchange-specific user ID
     Id buyeruid;               ///< Exchange seat-specific user ID
-    TaggedInt yob;             ///< Year of birth
+    optional<int> yob;         ///< Year of birth
     string gender;             ///< Gender: Male, Female, Other
     CSList keywords;           ///< List of keywords of consumer intent
     string customdata;         ///< Custom data from exchange
+    optional<Geo> geo;         ///< Geolocation of user at registration
     vector<Data> data;         ///< User data segments
-    Geo geo;                   ///< Geolocation of user at registration
-
-    /// Rubicon extensions
-    TaggedInt tz;              ///< User time zone in seconds after GMT
-    TaggedInt sessiondepth;    ///< User session depth
+    Json::Value ext;
 };
 
 
@@ -1220,25 +853,23 @@ struct User {
 */
 
 struct BidRequest {
-    ~BidRequest();
-    Id id;                             ///< Bid request ID
+    Id id;                          ///< Bid request ID
 
-    vector<Impression> imp;            ///< List of impressions
-    //unique_ptr<Context> context;     // TODO: factor out of site and app
-    Optional<Site> site;
-    Optional<App> app;
-    Optional<Device> device;
-    Optional<User> user;
+    vector<Impression> imp;         ///< List of impressions
+    optional<Site> site;
+    optional<App> app;
+    optional<Device> device;
+    optional<User> user;
 
-    AuctionType at;                    ///< Auction type (1=first/2=second party)
-    TaggedInt tmax;                    ///< Max time avail in ms
-    vector<string> wseat;              ///< Allowed buyer seats
-    TaggedBool allimps;                ///< All impressions in BR (for road-blocking)
-    vector<string> cur;                ///< Allowable currencies
-    List<ContentCategory> bcat;        ///< Blocked advertiser categories (table 6.1)
-    vector<string> badv;               ///< Blocked advertiser domains
-    Json::Value ext;                   ///< Protocol extensions
-    Json::Value unparseable;           ///< Unparseable fields get put here
+    defaulted<AuctionType, AuctionType::SECOND_PRICE> at; ///< Auction type (1=first/2=second price)
+    optional<int> tmax;             ///< Max time avail in ms
+    optional<set<string>> wseat;    ///< Allowed buyer seats
+    defaulted<bool, false> allimps; ///< All impressions in BR (for road-blocking)
+    optional<set<Currency>> cur;    ///< Allowable currencies
+    set<ContentCategory> bcat;      ///< Blocked advertiser categories (table 6.1)
+    set<string> badv;               ///< Blocked advertiser domains
+    Json::Value ext;                ///< Protocol extensions
+    Json::Value unparseable;        ///< Unparseable fields get put here
 };
 
 
@@ -1270,18 +901,18 @@ struct BidRequest {
 */
 
 struct Bid {
-    Id id;                        ///< Bidder's bid ID to identify bid
-    Id impid;                     ///< ID of the impression we're bidding on
-    TaggedFloat price;            ///< Price to bid
-    Id adid;                      ///< Id of ad to be served if won
-    string nurl;                  ///< Win notice/ad markup URL
-    string adm;                   ///< Ad markup
-    vector<string> adomain;       ///< Advertiser domains
-    string iurl;                  ///< Image URL for content checking
-    Id cid;                       ///< Campaign ID
-    Id crid;                      ///< Creative ID
-    List<CreativeAttribute> attr; ///< Creative attributes
-    Json::Value ext;              ///< Extended bid fields
+    Id id;                       ///< Bidder's bid ID to identify bid
+    Id impid;                    ///< ID of the impression we're bidding on
+    defaulted3<double, int, 0> price; ///< Price to bid
+    Id adid;                     ///< Id of ad to be served if won
+    string nurl;                 ///< Win notice/ad markup URL
+    string adm;                  ///< Ad markup
+    vector<string> adomain;      ///< Advertiser domains
+    string iurl;                 ///< Image URL for content checking
+    Id cid;                      ///< Campaign ID
+    Id crid;                     ///< Creative ID
+    set<CreativeAttribute> attr; ///< Creative attributes
+    Json::Value ext;             ///< Extended bid fields
 };
 
 
@@ -1305,8 +936,8 @@ struct Bid {
 struct SeatBid {
     vector<Bid> bid;              ///< Array of bid objects  (relating to imps)
     Id seat;                      ///< Seat on behalf of whom the bid is made
-    TaggedInt group;              ///< If true, imps must be won as a group
-    Json::Value ext;              ///< Extension fields
+    defaulted<bool, false> group; ///< If true, imps must be won as a group
+    Json::Value ext;
 };
 
 
