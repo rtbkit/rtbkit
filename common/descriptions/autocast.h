@@ -105,4 +105,14 @@ namespace Datacratic
 				*val = context.expectBool();
 		}
 	};
+
+	// TODO Remove after https://github.com/datacratic/soa/pull/22.
+	template<>
+	struct AutoCastingDescription<string>: public DefaultDescription<string>
+	{
+		virtual void parseJsonTyped(string* val, JsonParsingContext& context) const override
+		{
+			*val = context.expectStringUtf8().rawString();
+		}
+	};
 }
