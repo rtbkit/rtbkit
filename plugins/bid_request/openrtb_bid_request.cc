@@ -26,12 +26,13 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 {
     std::unique_ptr<BidRequest> result(new BidRequest());
 
-    if (req.at.value() != OpenRTB::AuctionType::SECOND_PRICE)
+    if (req.at != OpenRTB::AuctionType::SECOND_PRICE)
         throw ML::Exception("TODO: support 1st price auctions in OpenRTB");
 
     result->auctionId = std::move(req.id);
     result->auctionType = AuctionType::SECOND_PRICE;
-    result->timeAvailableMs = req.tmax.value();
+    if (req.tmax)
+        result->timeAvailableMs = *req.tmax;
     result->timestamp = Date::now();
     result->isTest = false;
     result->unparseable = std::move(req.unparseable);
@@ -39,40 +40,32 @@ fromOpenRtb(OpenRTB::BidRequest && req,
     result->provider = provider;
     result->exchange = (exchange.empty() ? provider : exchange);
 
-    auto onImpression = [&] (OpenRTB::Impression && imp)
-        {
-            AdSpot spot(std::move(imp));
-
-            // Copy the ad formats in for the moment
-            if (spot.banner) {
-                for (unsigned i = 0;  i < spot.banner->w.size();  ++i) {
-                    spot.formats.push_back(Format(spot.banner->w[i],
-                                                 spot.banner->h[i]));
-                }
-            }
-            
-            result->imp.emplace_back(std::move(spot));
-
-            
-        };
-
     result->imp.reserve(req.imp.size());
 
     for (auto & i: req.imp)
-        onImpression(std::move(i));
+    {
+        AdSpot spot(std::move(i));
+
+        // Copy the ad formats in for the moment
+        if (spot.banner)
+            for (unsigned i = 0;  i < spot.banner->w.size();  ++i)
+                spot.formats.push_back(Format(spot.banner->w[i], spot.banner->h[i]));
+
+        result->imp.emplace_back(std::move(spot));
+    }
 
     if (req.site && req.app)
         throw ML::Exception("can't have site and app");
 
     if (req.site) {
-        result->site.reset(req.site.release());
+        result->site = req.site;
         if (!result->site->page.empty())
             result->url = result->site->page;
         else if (result->site->id)
             result->url = Url("http://" + result->site->id.toString() + ".siteid/");
     }
     else if (req.app) {
-        result->app.reset(req.app.release());
+        result->app = req.app;
 
         if (!result->app->bundle.empty())
             result->url = Url(result->app->bundle);
@@ -81,7 +74,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
     }
 
     if (req.device) {
-        result->device.reset(req.device.release());
+        result->device = req.device;
         result->language = result->device->language;
         result->userAgent = result->device->ua;
         if (!result->device->ip.empty())
@@ -104,7 +97,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
     }
 
     if (req.user) {
-        result->user.reset(req.user.release());
+        result->user = req.user;
         for (auto & d: result->user->data) {
             string key;
             if (d.id)
@@ -131,14 +124,11 @@ fromOpenRtb(OpenRTB::BidRequest && req,
             result->userIds.add(result->user->buyeruid, ID_PROVIDER);
     }
 
-    if (!req.cur.empty()) {
-        for (unsigned i = 0;  i < req.cur.size();  ++i) {
-            result->bidCurrency.push_back(Amount::parseCurrency(req.cur[i]));
-        }
-    }
-    else {
+    if (req.cur)
+        for (const auto& cur : *req.cur)
+            result->bidCurrency.emplace_back(CurrencyCode(uint32_t(cur)));
+    else // exchange-specific currency
         result->bidCurrency.push_back(CurrencyCode::CC_USD);
-    }
 
     result->ext = std::move(req.ext);
     

@@ -178,12 +178,12 @@ getBidSource() const
         void generateRandomBidRequest() {
             OpenRTB::BidRequest req;
             req.id = Id(rng.random());
-            req.tmax.val = 50;
+            req.tmax = 50;
 	    req.at = AuctionType::SECOND_PRICE;
 	    req.imp.emplace_back();
 	    auto & imp = req.imp[0];
 	    imp.id = Id(rng.random());
-	    imp.banner.reset(new OpenRTB::Banner);
+	    imp.banner.emplace();
 	    imp.banner->w.push_back(300);
 	    imp.banner->h.push_back(250);
 
@@ -243,7 +243,7 @@ setSeatBid(Auction const & auction,
     b.cid = Id(resp.agent);
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.impid = auction.request->imp[spotNum].id;
-    b.price.val = USD_CPM(resp.price.maxPrice);
+    b.price = USD_CPM(resp.price.maxPrice);
 }
 
 } // namespace RTBKIT

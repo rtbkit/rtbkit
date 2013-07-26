@@ -98,10 +98,8 @@ DefaultDescription()
 DefaultDescription<OpenRTB::Banner>::
 DefaultDescription()
 {
-    addField<List<int>>("w", &Banner::w, "Width of ad in pixels",
-             new FormatListDescription());
-    addField<List<int>>("h", &Banner::h, "Height of ad in pixels",
-             new FormatListDescription());
+    addField("w", &Banner::w, "Width of ad in pixels", new FormatListDescription());
+    addField("h", &Banner::h, "Height of ad in pixels", new FormatListDescription());
     addField("id", &Banner::id, "Ad ID");
     addField("pos", &Banner::pos, "Ad position");
     addField("btype", &Banner::btype, "Blocked creative types");

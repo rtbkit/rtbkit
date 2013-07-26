@@ -18,6 +18,7 @@
 #include "openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
 #include "soa/service/json_codec.h"
+#include "common/descriptions/all.h"
 
 
 using namespace std;
@@ -60,19 +61,19 @@ struct HistoricalPositionDescriptor
         if (context.isString()) {
             string s = context.expectStringAscii();
             if (s == "NONE" || s == "none") {
-                val->val = OpenRTB::AdPosition::UNKNOWN;
+                *val = OpenRTB::AdPosition::UNKNOWN;
             }
             else if (s == "ABOVE_FOLD" || s == "above") {
-                val->val = OpenRTB::AdPosition::ABOVE;
+                *val = OpenRTB::AdPosition::ABOVE;
             }
             else if (s == "BELOW_FOLD" || s == "below") {
-                val->val = OpenRTB::AdPosition::BELOW;
+                *val = OpenRTB::AdPosition::BELOW;
             }
             else throw ML::Exception("invalid ad position " + s);
         }
         else if (context.isNumber()) {
             int i = context.expectInt();
-            val->val = i;
+            *val = OpenRTB::AdPosition(i);
         }
         else throw ML::Exception("can't parse historical ad position " 
                                  + context.expectJson().toString());
@@ -81,12 +82,7 @@ struct HistoricalPositionDescriptor
     virtual void printJsonTyped(const OpenRTB::AdPosition * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeInt(val->val);
-    }
-
-    virtual bool isDefaultTyped(const OpenRTB::AdPosition * val) const
-    {
-        return val->val == -1;
+        context.writeInt(int(*val));
     }
 };
 
