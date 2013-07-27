@@ -14,6 +14,7 @@
 #ifndef __arch__thread_specific_h__
 #define __arch__thread_specific_h__
 
+#include <mutex>
 #include <boost/thread.hpp>
 #include "exception.h"
 #include "jml/utils/exc_assert.h"
