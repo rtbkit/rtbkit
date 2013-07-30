@@ -1320,7 +1320,7 @@ download(const std::string & bucket,
 
     //cerr << "getting in " << parts.size() << " parts" << endl;
 
-    uint64_t bytesDone = 0;
+    // uint64_t bytesDone = 0;
     Date start;
     bool failed = false;
 
@@ -1353,8 +1353,8 @@ download(const std::string & bucket,
                     part.offset,
                     info.size);
 
-            ML::atomic_add(bytesDone, part.size);
-            double seconds = Date::now().secondsSince(start);
+            // ML::atomic_add(bytesDone, part.size);
+            // double seconds = Date::now().secondsSince(start);
             // cerr << "downloaded " << bytesDone / 1024 / 1024 << " MB in "
             // << seconds << " s at "
             // << bytesDone / 1024.0 / 1024 / seconds
