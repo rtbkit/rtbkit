@@ -1320,7 +1320,7 @@ download(const std::string & bucket,
 
     //cerr << "getting in " << parts.size() << " parts" << endl;
 
-    uint64_t bytesDone = 0;
+    // uint64_t bytesDone = 0;
     Date start;
     bool failed = false;
 
@@ -1353,12 +1353,12 @@ download(const std::string & bucket,
                     part.offset,
                     info.size);
 
-            ML::atomic_add(bytesDone, part.size);
-            double seconds = Date::now().secondsSince(start);
-            cerr << "downloaded " << bytesDone / 1024 / 1024 << " MB in "
-            << seconds << " s at "
-            << bytesDone / 1024.0 / 1024 / seconds
-            << " MB/second" << endl;
+            // ML::atomic_add(bytesDone, part.size);
+            // double seconds = Date::now().secondsSince(start);
+            // cerr << "downloaded " << bytesDone / 1024 / 1024 << " MB in "
+            // << seconds << " s at "
+            // << bytesDone / 1024.0 / 1024 / seconds
+            // << " MB/second" << endl;
         };
 
     int currentPart = 0;
@@ -2059,7 +2059,7 @@ getS3Buffer(const std::string & filename, char** outBuffer){
         auto api = getS3ApiForBucket(bucket);
         size_t size = api->getObjectInfo(filename).size;
 
-        cerr << "size = " << size << endl;
+        // cerr << "size = " << size << endl;
 
         // TODO: outBuffer exception safety
         *outBuffer = new char[size];
