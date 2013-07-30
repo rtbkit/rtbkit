@@ -165,8 +165,18 @@ $(BIN)/$(1)_pymod: $(BIN)/$(1).so
 	@touch $(BIN)/$(1)_pymod
 
 endif
-
 endef
 
+# adds a python test dependency to a C++ program
+# $(1): name of the python test script
+# $(2): list of C++ dependencies
+
+define add_python_test_dep
+ifneq ($(PREMAKE),1)
+
+$(CWD)/$(1).py: $$(foreach dep,$(2),$(BIN)/$$(dep))
 
 endif
+endef
+
+endif # ifeq ($(PYTHON_ENABLED),1)
