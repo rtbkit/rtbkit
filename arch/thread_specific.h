@@ -14,12 +14,15 @@
 #ifndef __arch__thread_specific_h__
 #define __arch__thread_specific_h__
 
-#include <mutex>
-#include <boost/thread.hpp>
 #include "exception.h"
+#include "spinlock.h"
 #include "jml/utils/exc_assert.h"
 #include <thread>
 #include "spinlock.h"
+
+#include <boost/thread.hpp>
+#include <unordered_set>
+#include <mutex>
 
 namespace ML {
 
@@ -105,67 +108,83 @@ __thread Contained * Thread_Specific<Contained, Tag>::ptr_ = 0;
 /** This structure allows information to be stored per instance of a variable
     per thread.  To do so, include this structure somewhere in the
     class that you want to associate the info with.
-*/
+
+    Note that while this class has several locks, they're only grabbed when an
+    instance is created, destroyed or first accessed. Past the first access,
+    reads equate to a deque probe.
+
+ */
 template<typename T, typename Tag>
-struct ThreadSpecificInstanceInfo {
+struct ThreadSpecificInstanceInfo
+{
+    typedef ML::Spinlock Lock;
 
-    struct PerThreadInfo {
-        PerThreadInfo()
+    struct Value
+    {
+        Value() : object(nullptr) {}
+        ~Value()
         {
-            threadNum = __sync_fetch_and_add(&totalNumThreads, 1);
+            ThreadSpecificInstanceInfo* oldObject = destruct();
+            if (!oldObject) return;
+
+            std::lock_guard<Lock> guard(oldObject->freeSetLock);
+            oldObject->freeSet.erase(this);
         }
 
-        ~PerThreadInfo()
+        ThreadSpecificInstanceInfo* destruct()
         {
-            // TODO: release the thread number so it doesn't grow indefinitely
+            std::lock_guard<Lock> guard(destructLock);
+            if (!object) return nullptr;
+
+            value.~T();
+            auto oldObject = object;
+            object = nullptr;
+
+            return oldObject;
         }
 
-        int threadNum;
-        static int totalNumThreads;
-
-        /** Holds the values, one for each instance.  Note that it is the
-            instance's responsibility to delete them when its destructor is
-            called; this vector will continue to hold a stale reference.
-        */
-        std::vector<T *> info;
-
-        T * get(int index, const ThreadSpecificInstanceInfo * owner)
+        // This can't raise with either object destruction or thread destruction
+        // so no locks are needed.
+        void construct(ThreadSpecificInstanceInfo* newObject)
         {
-            ExcAssertGreaterEqual(index, 0);
-            if (info.size() <= index)
-                info.resize(index + 1);
-            if (!info[index])
-                info[index] = owner->create();
-
-            return info[index];
+            new (&value) T();
+            object = newObject;
         }
+
+        T value;
+        Lock destructLock;
+        ThreadSpecificInstanceInfo* object;
     };
 
+    typedef std::deque<Value> PerThreadInfo;
+
     ThreadSpecificInstanceInfo()
-        : index(__sync_fetch_and_add(&currentIndex, 1))
     {
+        std::lock_guard<Lock> guard(freeIndexLock);
+
+        if (!freeIndexes.empty()) {
+            index = freeIndexes.front();
+            freeIndexes.pop_front();
+        }
+        else index = ++nextIndex;
     }
 
     ~ThreadSpecificInstanceInfo()
     {
-        // All threads need to know that this instance is gone
-        for (auto i: myInstances)
-            delete i;
-    }
+        // We don't want to be holding the freeSet lock when calling destruct
+        // because thread destruction will also attempt to lock our freeSet lock
+        // which is a receipie for deadlocks.
+        std::unordered_set<Value*> freeSetCopy;
+        {
+            std::lock_guard<Lock> guard(freeSetLock);
+            freeSetCopy = std::move(freeSet);
+        }
 
-    int index;
-    static Thread_Specific<PerThreadInfo> staticInfo;
-    static int currentIndex;
+        for (Value* toFree : freeSetCopy)
+            toFree->destruct();
 
-    mutable std::vector<T *> myInstances;
-    mutable Spinlock myInstancesLock;
-
-    T * create() const
-    {
-        std::unique_ptr<T> val(new T());
-        std::unique_lock<Spinlock> guard(myInstancesLock);
-        myInstances.push_back(val.get());
-        return val.release();
+        std::lock_guard<Lock> guard(freeIndexLock);
+        freeIndexes.push_back(index);
     }
 
     static PerThreadInfo * getThisThread()
@@ -176,20 +195,48 @@ struct ThreadSpecificInstanceInfo {
     T * get(PerThreadInfo * & info) const
     {
         if (!info) info = staticInfo.get();
-        return info->get(index, this);
+        return load(info);
     }
 
     T * get(PerThreadInfo * const & info) const
     {
-        return info->get(index, this);
+        load(info);
     }
 
     /** Return the data for this thread for this instance of the class. */
     T * get() const
     {
         PerThreadInfo * info = staticInfo.get();
-        return info->get(index, this);
+        return load(info);
     }
+
+private:
+
+    T * load(PerThreadInfo * info) const
+    {
+        while (info->size() <= index)
+            info->emplace_back();
+
+        Value& val = (*info)[index];
+
+        if (JML_UNLIKELY(!val.object)) {
+            val.construct(const_cast<ThreadSpecificInstanceInfo*>(this));
+            std::lock_guard<Lock> guard(freeSetLock);
+            freeSet.insert(&val);
+        }
+
+        return &val.value;
+    }
+
+    static Thread_Specific<PerThreadInfo> staticInfo;
+
+    static ML::Spinlock freeIndexLock;
+    static std::deque<size_t> freeIndexes;
+    static unsigned nextIndex;
+    int index;
+
+    mutable ML::Spinlock freeSetLock;
+    mutable std::unordered_set<Value*> freeSet;
 };
 
 template<typename T, typename Tag>
@@ -197,13 +244,16 @@ Thread_Specific<typename ThreadSpecificInstanceInfo<T, Tag>::PerThreadInfo>
 ThreadSpecificInstanceInfo<T, Tag>::staticInfo;
 
 template<typename T, typename Tag>
-int
-ThreadSpecificInstanceInfo<T, Tag>::currentIndex = 0;
+ML::Spinlock
+ThreadSpecificInstanceInfo<T, Tag>::freeIndexLock;
 
 template<typename T, typename Tag>
-int
-ThreadSpecificInstanceInfo<T, Tag>::PerThreadInfo::
-totalNumThreads = 0;
+std::deque<size_t>
+ThreadSpecificInstanceInfo<T, Tag>::freeIndexes;
+
+template<typename T, typename Tag>
+unsigned
+ThreadSpecificInstanceInfo<T, Tag>::nextIndex = 0;
 
 } // namespace ML
 
