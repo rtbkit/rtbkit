@@ -310,6 +310,17 @@ getDefaultDescription(T * = 0,
     return new DefaultDescription<T>();
 }
 
+
+/*****************************************************************************/
+/* VALUE DESCRIPTION CONCRETE IMPL                                           */
+/*****************************************************************************/
+
+/** Used when there is a concrete description of a value we want to register.
+
+    The main thing that this class does is also registers the value description
+    as part of construction.
+*/
+
 template<typename T, ValueKind kind = ValueKind::ATOM,
          typename Impl = DefaultDescription<T> >
 struct ValueDescriptionI : public ValueDescriptionT<T> {
@@ -457,9 +468,14 @@ struct StructureDescriptionBase {
 /* STRUCTURE DESCRIPTION                                                     */
 /*****************************************************************************/
 
+/** Class that implements the base of a description of a structure.  Contains
+    methods to register all of the member variables of the class.
+*/
+
 template<class Struct>
 struct StructureDescription
-    :  public ValueDescriptionI<Struct, ValueKind::STRUCTURE>,
+    :  public ValueDescriptionI<Struct, ValueKind::STRUCTURE,
+                                StructureDescription<Struct> >,
        public StructureDescriptionBase {
 
     StructureDescription(bool nullAccepted = false)
