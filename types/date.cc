@@ -256,8 +256,12 @@ print(const std::string & format) const
     time_t t = secondsSinceEpoch();
     tm time;
 
-    if (!gmtime_r(&t, &time))
+    if (!gmtime_r(&t, &time)) {
+        cerr << strerror(errno) << endl;
+        cerr << t << endl;
+        cerr << secondsSinceEpoch() << endl;
         throw Exception("problem with gmtime_r");
+    }
     size_t nchars = strftime(buffer, buffer_size, format.c_str(),
                              &time);
     
