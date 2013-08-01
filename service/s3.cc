@@ -1110,7 +1110,10 @@ forEachObject(const std::string & bucket,
     //cerr << "forEachObject under " << prefix << endl;
 
     string marker;
+    bool firstIter = true;
     do {
+        //cerr << "Starting at " << marker << endl;
+        
         StrPairVector queryParams;
         if (prefix != "")
             queryParams.push_back({"prefix", prefix});
@@ -1129,11 +1132,8 @@ forEachObject(const std::string & bucket,
             = extractDef<string>(listingResult, "ListBucketResult/Prefix", "");
         string truncated
             = extract<string>(listingResult, "ListBucketResult/IsTruncated");
-        if (truncated == "true") {
-            marker = extract<string>(listingResult, "ListBucketResult/NextMarker");
-            //cerr << "truncated; marker = " << marker << endl;
-        }
-        else marker = "";
+        bool isTruncated = truncated == "true";
+        marker = "";
 
         auto foundObject
             = XMLHandle(*listingResultXml)
@@ -1141,16 +1141,26 @@ forEachObject(const std::string & bucket,
             .FirstChildElement("Contents")
             .ToElement();
 
-        for (; onObject && foundObject;
-             foundObject = foundObject->NextSiblingElement("Contents")) {
+        bool stop = false;
+
+        for (int i = 0; onObject && foundObject;
+             foundObject = foundObject->NextSiblingElement("Contents"), ++i) {
             ObjectInfo info(foundObject);
+
+            string key = info.key;
+            ExcAssertNotEqual(key, marker);
+            marker = key;
 
             ExcAssertEqual(info.key.find(foundPrefix), 0);
             string basename(info.key, foundPrefix.length());
 
-            if (!onObject(foundPrefix, basename, info, depth))
+            if (!onObject(foundPrefix, basename, info, depth)) {
+                stop = true;
                 break;
+            }
         }
+
+        if (stop) return;
 
         auto foundDir
             = XMLHandle(*listingResultXml)
@@ -1175,6 +1185,10 @@ forEachObject(const std::string & bucket,
                               depth + 1);
             }
         }
+
+        firstIter = false;
+        if (!isTruncated)
+            break;
     } while (marker != "");
 
     //cerr << "done scanning" << endl;
@@ -2441,6 +2455,35 @@ size_t getUriSize(const std::string & filename)
         if (res == -1)
             throw ML::Exception("error getting stats file");
         return stats.st_size;
+    }
+}
+
+// Return an etag for either a file or an s3 object
+std::string getUriEtag(const std::string & filename)
+{
+    if (filename.find("s3://") == 0) {
+        string bucket = S3Api::parseUri(filename).first;
+        auto api = getS3ApiForBucket(bucket);
+        return api->getObjectInfo(filename).etag;
+    }
+    else {
+        struct stat stats;
+        int res = stat(filename.c_str(), &stats);
+        if (res == -1)
+            throw ML::Exception("error getting stats file");
+        return "";
+    }
+}
+
+S3Api::ObjectInfo getUriObjectInfo(const std::string & filename)
+{
+    if (filename.find("s3://") == 0) {
+        string bucket = S3Api::parseUri(filename).first;
+        auto api = getS3ApiForBucket(bucket);
+        return api->getObjectInfo(filename);
+    }
+    else {
+        throw ML::Exception("getUriObjectInfo for file not done yet");
     }
 }
 
