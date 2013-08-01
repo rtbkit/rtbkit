@@ -33,10 +33,10 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
         if(!getenv("CONFIG") || configKey == ""){
             cerr << "Logger Metrics Setup: either CONFIG is not defined "
                     "or configKey empty. "
-                    "Will use the terminal." << endl;
+                    "Will not log." << endl;
             Json::Value fooConfig;
             logger = shared_ptr<ILoggerMetrics>(
-                new LoggerMetricsTerm(fooConfig, coll, appName));
+                new LoggerMetricsVoid(fooConfig, coll, appName));
         }else{
             Json::Value config = Json::parseFromFile(getenv("CONFIG"));
             config = config[configKey];
