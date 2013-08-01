@@ -221,12 +221,7 @@ parseBidRequest(const std::string & jsonValue,
                 const std::string & provider,
                 const std::string & exchange)
 {
-    StructuredJsonParsingContext jsonContext(jsonValue);
-
-    OpenRTB::BidRequest req;
-    desc.parseJson(&req, jsonContext);
-
-    return fromOpenRtb(std::move(req), provider, exchange);
+    return fromOpenRtb(RTBKIT::fromJson<OpenRTB::BidRequest>(jsonValue), provider, exchange);
 }
 
 BidRequest *
@@ -235,12 +230,7 @@ parseBidRequest(ML::Parse_Context & context,
                 const std::string & provider,
                 const std::string & exchange)
 {
-    StreamingJsonParsingContext jsonContext(context);
-
-    OpenRTB::BidRequest req;
-    desc.parseJson(&req, jsonContext);
-
-    return fromOpenRtb(std::move(req), provider, exchange);
+    return fromOpenRtb(RTBKIT::fromJson<OpenRTB::BidRequest>(context), provider, exchange);
 }
 
 } // namespace RTBKIT

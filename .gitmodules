@@ -16,3 +16,6 @@
 [submodule "soa"]
 	path = soa
 	url = https://github.com/datacratic/soa.git
+[submodule "cxxcompat"]
+	path = cxxcompat
+	url = https://github.com/LEW21/cxxcompat.git

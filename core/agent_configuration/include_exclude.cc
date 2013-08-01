@@ -24,16 +24,6 @@ void jsonParse(const Json::Value & value, boost::regex & rex)
     rex = value.asString();
 }
 
-void jsonParse(const Json::Value & value, std::string & str)
-{
-    str = value.asString();
-}
-
-void jsonParse(const Json::Value & value, int & i)
-{
-    i = value.asInt();
-}
-
 bool matchesAnyAny(const std::vector<int> & values, const SegmentList & vals,
                    bool matchIfEmpty)
 {
