@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "soa/types/basic_value_descriptions.h"
+#include "rtbkit/common/json_holder.h"
 #include "rtbkit/common/bid_request.h"
 #include "rtbkit/common/currency.h"
 #include "rtbkit/common/account_key.h"
@@ -16,13 +18,10 @@
 #include <boost/enable_shared_from_this.hpp>
 #include "soa/jsoncpp/json.h"
 #include "soa/types/date.h"
-#include "soa/types/basic_value_descriptions.h"
 #include "jml/arch/atomic_ops.h"
 #include "jml/arch/exception.h"
 #include "jml/utils/compact_vector.h"
 #include "jml/db/persistent_fwd.h"
-#include "rtbkit/common/json_holder.h"
-
 
 namespace RTBKIT {
 
@@ -102,7 +101,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
         std::string toJsonStr() const;
         static Price fromJson(const Json::Value&);
 
-        static void createDescription(DefaultDescription<Price>&);
+        static void createDescription(StructureDescription<Price>&);
     };
 
     /** Price to bid if you don't want to bid */
@@ -193,7 +192,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
         /** Is this a valid response? */
         bool valid() const;
 
-        static void createDescription(DefaultDescription<Response>&);
+        static void createDescription(StructureDescription<Response>&);
     };
 
     /** Modify the given response.  The boolean return code says whether or
@@ -302,30 +301,23 @@ public:
     static long long destroyed;
 };
 
+CREATE_CLASS_DESCRIPTION_NAMED(TypeAuctionPriceDescription,
+                               Auction::Price)
+
+CREATE_CLASS_DESCRIPTION_NAMED(TypeAuctionResponseDescription,
+                               Auction::Response)
+
 } // namespace RTBKIT
 
-namespace Datacratic {
-    template<>
-    struct DefaultDescription<RTBKIT::Auction::WinLoss> :
-        public TaggedEnumDescription<RTBKIT::Auction::WinLoss> {
-        DefaultDescription() {
-        }
-    };
+namespace Datacratic
+{
 
-    template<>
-    struct DefaultDescription<RTBKIT::Auction::Price> :
-        public StructureDescription<RTBKIT::Auction::Price> {
-        DefaultDescription() {
-            RTBKIT::Auction::Price::createDescription(*this);
-        }
-    };
+template<>
+struct DefaultDescription<RTBKIT::Auction::WinLoss> :
+    public TaggedEnumDescription<RTBKIT::Auction::WinLoss> {
+    DefaultDescription() {
+    }
+};
 
-    template<>
-    struct DefaultDescription<RTBKIT::Auction::Response> :
-        public StructureDescription<RTBKIT::Auction::Response> {
-        DefaultDescription() {
-            RTBKIT::Auction::Response::createDescription(*this);
-        }
-    };
 }
 

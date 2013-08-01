@@ -65,7 +65,7 @@ fromJson(const Json::Value& json)
 
 void
 Auction::Price::
-createDescription(Datacratic::DefaultDescription<Price> & d) {
+createDescription(Datacratic::StructureDescription<Auction::Price> & d) {
     d.addField("maxPrice", &Price::maxPrice, "");
     d.addField("priority", &Price::priority, "");
 }
@@ -196,7 +196,7 @@ reconstitute(DB::Store_Reader & store)
 
 void
 Auction::Response::
-createDescription(Datacratic::DefaultDescription<Response> & d) {
+createDescription(Datacratic::StructureDescription<Auction::Response> & d) {
     d.addField("price", &Response::price, "");
     d.addField("account", &Response::account, "");
     d.addField("test", &Response::test, "");

@@ -47,8 +47,8 @@ reconstitute(ML::DB::Store_Reader & store)
     bidRequest.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
 }
 
-DefaultDescription<SubmittedAuctionEvent>::
-DefaultDescription() {
+TypeSubmittedAuctionEventDescription::
+TypeSubmittedAuctionEventDescription() {
     addField("auctionId", &SubmittedAuctionEvent::auctionId, "");
     addField("adSpotId", &SubmittedAuctionEvent::adSpotId, "");
     addField("lossTimeout", &SubmittedAuctionEvent::lossTimeout, "");

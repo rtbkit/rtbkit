@@ -29,8 +29,8 @@
 #include "rtbkit/core/banker/null_banker.h"
 #include <boost/algorithm/string.hpp>
 #include "rtbkit/common/bids.h"
-#include "rtbkit/common/messages.h"
 #include "rtbkit/common/auction_events.h"
+#include "rtbkit/common/messages.h"
 #include "rtbkit/common/win_cost_model.h"
 
 using namespace std;

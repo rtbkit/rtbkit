@@ -235,10 +235,7 @@ struct DeliveryEvent
 } // namespace RTBKIT
 
 namespace Datacratic {
-    template<>
-    struct DefaultDescription<RTBKIT::SubmittedAuctionEvent> :
-        public StructureDescription<RTBKIT::SubmittedAuctionEvent> {
-        DefaultDescription();
-    };
+    CREATE_STRUCTURE_DESCRIPTION_NAMED(TypeSubmittedAuctionEventDescription,
+                                       RTBKIT::SubmittedAuctionEvent)
 }
 
