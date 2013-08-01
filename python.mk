@@ -164,6 +164,8 @@ ifneq ($(PREMAKE),1)
 $(BIN)/$(1)_pymod: $(BIN)/$(1).so
 	@touch $(BIN)/$(1)_pymod
 
+python_modules: $(BIN)/$(1).so
+
 endif
 endef
 
