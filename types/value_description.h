@@ -929,3 +929,17 @@ inline Json::Value jsonEncode(const char * str)
 #define CREATE_STRUCTURE_DESCRIPTION(Type)                      \
     CREATE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
 
+#define CREATE_CLASS_DESCRIPTION_NAMED(Name, Type)              \
+    struct Name                                                 \
+        : public Datacratic::StructureDescription<Type> {       \
+        Name() {                                                \
+            Type::createDescription(*this);                     \
+        }                                                       \
+    };                                                          \
+                                                                \
+    inline Name *                                               \
+    getDefaultDescription(Type *)                               \
+    {                                                           \
+        return new Name();                                      \
+    }
+
