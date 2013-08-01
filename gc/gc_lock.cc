@@ -536,7 +536,7 @@ enterCSExclusive(ThreadGcInfoEntry * entry)
 
         newValue = current;
         newValue.exclusive = 1;
-        if (updateData(current, newValue)) {
+        if (updateData(current, newValue, true)) {
             current = newValue;
             break;
         }

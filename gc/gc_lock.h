@@ -29,8 +29,7 @@ namespace Datacratic {
 
 struct GcLockBase : public boost::noncopyable {
 
-    struct Deferred;
-    struct DeferredList;
+public:
 
     /// A thread's bookkeeping info about each GC area
     struct ThreadGcInfoEntry {
@@ -49,96 +48,6 @@ struct GcLockBase : public boost::noncopyable {
     typedef ML::ThreadSpecificInstanceInfo<ThreadGcInfoEntry, GcLockBase>
         GcInfo;
     typedef typename GcInfo::PerThreadInfo ThreadGcInfo;
-
-    GcInfo gcInfo;
-
-    struct Data {
-        Data();
-        Data(const Data & other);
-
-        Data & operator = (const Data & other);
-
-        typedef uint64_t q2 __attribute__((__vector_size__(16)));
-        
-        volatile union {
-            struct {
-                int32_t epoch;       ///< Current epoch number (could be smaller).
-                int16_t in[2];       ///< How many threads in each epoch
-                int32_t visibleEpoch;///< Lowest epoch number that's visible
-                int32_t exclusive;   ///< Mutex value to lock exclusively
-            };
-            struct {
-                uint64_t bits;
-                uint64_t bits2;
-            };
-            struct {
-                q2 q;
-            };
-        } JML_ALIGNED(16);
-
-        int16_t inCurrent() const { return in[epoch & 1]; }
-        int16_t inOld() const { return in[(epoch - 1)&1]; }
-
-        void setIn(int32_t epoch, int val)
-        {
-            //if (epoch != this->epoch && epoch + 1 != this->epoch)
-            //    throw ML::Exception("modifying wrong epoch");
-            in[epoch & 1] = val;
-        }
-
-        void addIn(int32_t epoch, int val)
-        {
-            //if (epoch != this->epoch && epoch + 1 != this->epoch)
-            //    throw ML::Exception("modifying wrong epoch");
-            in[epoch & 1] += val;
-        }
-
-        /** Check that the invariants all hold.  Throws an exception if not. */
-        void validate() const;
-
-        /** Calculate the appropriate value of visibleEpoch from the rest
-            of the fields.  Returns true if waiters should be woken up.
-        */
-        bool calcVisibleEpoch();
-        
-        /** Human readable string. */
-        std::string print() const;
-
-        bool operator == (const Data & other) const
-        {
-            return bits == other.bits && bits2 == other.bits2;
-        }
-
-        bool operator != (const Data & other) const
-        {
-            return ! operator == (other);
-        }
-
-    } JML_ALIGNED(16);
-
-    Data* data;
-
-    Deferred * deferred;   ///< Deferred workloads (hidden structure)
-
-    /** Update with the new value after first checking that the current
-        value is the same as the old value.  Returns true if it
-        succeeded; otherwise oldValue is updated with the new old
-        value.
-
-        As part of doing this, it will calculate the correct value for
-        visibleEpoch() and, if it has changed, wake up anything waiting
-        on that value, and will run any deferred handlers registered for
-        that value.
-    */
-    bool updateData(Data & oldValue, Data & newValue, bool runDefer = true);
-
-    /** Executes any available deferred work. */
-    void runDefers();
-
-    /** Check what deferred updates need to be run and do them.  Must be
-        called with deferred locked.
-    */
-    std::vector<DeferredList *> checkDefers();
 
     void enterCS(ThreadGcInfoEntry * entry = 0, bool runDefer = true);
     void exitCS(ThreadGcInfoEntry * entry = 0, bool runDefer = true);
@@ -353,6 +262,102 @@ struct GcLockBase : public boost::noncopyable {
     }
 
     void dump();
+
+    struct Data {
+        Data();
+        Data(const Data & other);
+
+        Data & operator = (const Data & other);
+
+        typedef uint64_t q2 __attribute__((__vector_size__(16)));
+        
+        volatile union {
+            struct {
+                int32_t epoch;       ///< Current epoch number (could be smaller).
+                int16_t in[2];       ///< How many threads in each epoch
+                int32_t visibleEpoch;///< Lowest epoch number that's visible
+                int32_t exclusive;   ///< Mutex value to lock exclusively
+            };
+            struct {
+                uint64_t bits;
+                uint64_t bits2;
+            };
+            struct {
+                q2 q;
+            };
+        } JML_ALIGNED(16);
+
+        int16_t inCurrent() const { return in[epoch & 1]; }
+        int16_t inOld() const { return in[(epoch - 1)&1]; }
+
+        void setIn(int32_t epoch, int val)
+        {
+            //if (epoch != this->epoch && epoch + 1 != this->epoch)
+            //    throw ML::Exception("modifying wrong epoch");
+            in[epoch & 1] = val;
+        }
+
+        void addIn(int32_t epoch, int val)
+        {
+            //if (epoch != this->epoch && epoch + 1 != this->epoch)
+            //    throw ML::Exception("modifying wrong epoch");
+            in[epoch & 1] += val;
+        }
+
+        /** Check that the invariants all hold.  Throws an exception if not. */
+        void validate() const;
+
+        /** Calculate the appropriate value of visibleEpoch from the rest
+            of the fields.  Returns true if waiters should be woken up.
+        */
+        bool calcVisibleEpoch();
+        
+        /** Human readable string. */
+        std::string print() const;
+
+        bool operator == (const Data & other) const
+        {
+            return bits == other.bits && bits2 == other.bits2;
+        }
+
+        bool operator != (const Data & other) const
+        {
+            return ! operator == (other);
+        }
+
+    } JML_ALIGNED(16);
+
+protected:
+    Data* data;
+
+private:
+    struct Deferred;
+    struct DeferredList;
+
+    GcInfo gcInfo;
+
+
+    Deferred * deferred;   ///< Deferred workloads (hidden structure)
+
+    /** Update with the new value after first checking that the current
+        value is the same as the old value.  Returns true if it
+        succeeded; otherwise oldValue is updated with the new old
+        value.
+
+        As part of doing this, it will calculate the correct value for
+        visibleEpoch() and, if it has changed, wake up anything waiting
+        on that value, and will run any deferred handlers registered for
+        that value.
+    */
+    bool updateData(Data & oldValue, Data & newValue, bool runDefer);
+
+    /** Executes any available deferred work. */
+    void runDefers();
+
+    /** Check what deferred updates need to be run and do them.  Must be
+        called with deferred locked.
+    */
+    std::vector<DeferredList *> checkDefers();
 };
 
 
