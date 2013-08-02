@@ -34,6 +34,8 @@ namespace Datacratic {
 */
 int32_t gcLockStartingEpoch = 0;
 
+int32_t SpeculativeThreshold = 5;
+
 /** A safe comparaison of epochs that deals with potential overflows.
     \todo So many possible bit twiddling hacks... Must resist...
 */

@@ -15,6 +15,7 @@
 #include "jml/arch/atomic_ops.h"
 #include "jml/arch/thread_specific.h"
 #include <vector>
+#include <iostream>
 
 #if GC_LOCK_DEBUG
 #  include <iostream>
@@ -22,7 +23,7 @@
 
 namespace Datacratic {
 
-
+extern int32_t SpeculativeThreshold;
 /*****************************************************************************/
 /* GC LOCK BASE                                                              */
 /*****************************************************************************/
@@ -39,6 +40,7 @@ struct GcLockBase : public boost::noncopyable {
         {
         }
 
+
         int inEpoch;  // 0, 1, -1 = not in 
         int readLocked;
         int writeLocked;
@@ -46,11 +48,30 @@ struct GcLockBase : public boost::noncopyable {
         std::string print() const;
     };
 
+    struct SpeculativeEntry {
+        SpeculativeEntry() :
+            specLock(0),
+            specUnlock(0)
+        {
+        }
+
+        ~SpeculativeEntry() {
+        }
+
+        int specLock;
+        int specUnlock;
+    };
+
     typedef ML::ThreadSpecificInstanceInfo<ThreadGcInfoEntry, GcLockBase>
         GcInfo;
     typedef typename GcInfo::PerThreadInfo ThreadGcInfo;
 
+    typedef ML::ThreadSpecificInstanceInfo<SpeculativeEntry, GcLockBase>
+        SpeculativeGcInfo;
+    typedef typename SpeculativeGcInfo::PerThreadInfo ThreadSpeculativeGcInfo;
+
     GcInfo gcInfo;
+    SpeculativeGcInfo specGcInfo;
 
     struct Data {
         Data();
@@ -161,6 +182,12 @@ struct GcLockBase : public boost::noncopyable {
         return *gcInfo.get(info);
     }
 
+    JML_ALWAYS_INLINE SpeculativeEntry &
+    getSpecEntry(SpeculativeGcInfo::PerThreadInfo * info = 0) const
+    {
+        return *specGcInfo.get(info);
+    }
+
     GcLockBase();
 
     virtual ~GcLockBase();
@@ -207,6 +234,40 @@ struct GcLockBase : public boost::noncopyable {
 #endif
     }
 
+    void lockSpeculative(SpeculativeGcInfo::PerThreadInfo * info = 0)
+    {
+        SpeculativeEntry & entry = getSpecEntry(info); 
+        if (entry.specLock == 0 && entry.specUnlock == 0) {
+            lockShared(0, false);
+        }
+        ++entry.specLock;
+    }
+
+    void unlockSpeculative(SpeculativeGcInfo::PerThreadInfo * info = 0)
+    {
+        SpeculativeEntry & entry = getSpecEntry(info);
+        if (entry.specLock == 0) {
+            throw ML::Exception("Should lock before unlock");
+        }
+
+        --entry.specLock;
+        if (!entry.specLock) {
+            if (++entry.specUnlock == SpeculativeThreshold) {
+                unlockShared(0, false);
+                entry.specUnlock = 0;
+            }
+        }
+    }
+
+    void forceUnlock(SpeculativeGcInfo::PerThreadInfo * info = 0) {
+        SpeculativeEntry & entry = getSpecEntry(info);
+        ExcAssertEqual(entry.specLock, 0);
+        if (!entry.specLock && entry.specUnlock) {
+            unlockShared(0, true);
+            entry.specUnlock = 0;
+        }
+    }
+        
     int isLockedShared(GcInfo::PerThreadInfo * info = 0) const
     {
         ThreadGcInfoEntry & entry = getEntry(info);
@@ -296,6 +357,22 @@ struct GcLockBase : public boost::noncopyable {
 
         GcLockBase & lock;
     };
+
+    struct SpeculativeGuard {
+        SpeculativeGuard(GcLockBase &lock) :
+            lock(lock) 
+        {
+            lock.lockSpeculative();
+        }
+
+        ~SpeculativeGuard() 
+        {
+            lock.unlockSpeculative();
+        }
+
+        GcLockBase & lock;
+    };
+
 
     /** Wait until everything that's currently visible is no longer
         accessible.
