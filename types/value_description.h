@@ -339,9 +339,6 @@ RegisterValueDescriptionI<T, Impl>
 ValueDescriptionI<T, kind, Impl>::
 regme;
 
-template<class Struct>
-struct StructureDescription;
-
 inline void * addOffset(void * base, ssize_t offset)
 {
     char * c = reinterpret_cast<char *>(base);
@@ -436,7 +433,7 @@ struct StructureDescriptionBase {
                                 context);
                 }
             };
-        
+
         context.forEachMember(onMember);
 
         onExit(output, context);
@@ -472,13 +469,12 @@ struct StructureDescriptionBase {
     methods to register all of the member variables of the class.
 */
 
-template<class Struct>
-struct StructureDescription
-    :  public ValueDescriptionI<Struct, ValueKind::STRUCTURE,
-                                StructureDescription<Struct> >,
+template<typename Struct, typename Impl>
+struct StructureDescriptionImpl
+    :  public ValueDescriptionI<Struct, ValueKind::STRUCTURE, Impl>,
        public StructureDescriptionBase {
 
-    StructureDescription(bool nullAccepted = false)
+    StructureDescriptionImpl(bool nullAccepted = false)
         : StructureDescriptionBase(&typeid(Struct), "", nullAccepted)
     {
     }
@@ -539,40 +535,7 @@ struct StructureDescription
 
     template<typename V>
     void addParent(ValueDescriptionT<V> * description_
-                   = getDefaultDescription((V *)0))
-    {
-        StructureDescription<V> * desc2
-            = dynamic_cast<StructureDescription<V> *>(description_);
-        if (!desc2) {
-            delete description_;
-            throw ML::Exception("parent description is not a structure");
-        }
-
-        std::unique_ptr<StructureDescription<V> > description(desc2);
-
-        Struct * p = nullptr;
-        V * p2 = static_cast<V *>(p);
-
-        size_t ofs = (size_t)p2;
-
-        for (auto & oit: description->orderedFields) {
-            FieldDescription & ofd = const_cast<FieldDescription &>(oit->second);
-            const std::string & name = ofd.fieldName;
-
-            fieldNames.push_back(name);
-            const char * fieldName = fieldNames.back().c_str();
-
-            auto it = fields.insert(Fields::value_type(fieldName, std::move(FieldDescription()))).first;
-            FieldDescription & fd = it->second;
-            fd.fieldName = fieldName;
-            fd.comment = ofd.comment;
-            fd.description = std::move(ofd.description);
-            
-            fd.offset = ofd.offset + ofs;
-            fd.fieldNum = fields.size() - 1;
-            orderedFields.push_back(it);
-        }
-    }
+                   = getDefaultDescription((V *)0));
 
     virtual size_t getFieldCount(const void * val) const
     {
@@ -615,6 +578,53 @@ struct StructureDescription
         return StructureDescriptionBase::printJson(val, context);
     }
 };
+
+template<typename T>
+struct StructureDescription
+    : public StructureDescriptionImpl<T, StructureDescription<T>>
+{
+    StructureDescription(bool nullAccepted = false) :
+        StructureDescriptionImpl<T, StructureDescription<T>>(nullAccepted)
+    {
+    }
+};
+
+template<typename Struct, typename Impl>
+template<typename V>
+void StructureDescriptionImpl<Struct, Impl>::addParent(ValueDescriptionT<V> * description_)
+{
+    StructureDescription<V> * desc2
+        = dynamic_cast<StructureDescription<V> *>(description_);
+    if (!desc2) {
+        delete description_;
+        throw ML::Exception("parent description is not a structure");
+    }
+
+    std::unique_ptr<StructureDescription<V> > description(desc2);
+
+    Struct * p = nullptr;
+    V * p2 = static_cast<V *>(p);
+
+    size_t ofs = (size_t)p2;
+
+    for (auto & oit: description->orderedFields) {
+        FieldDescription & ofd = const_cast<FieldDescription &>(oit->second);
+        const std::string & name = ofd.fieldName;
+
+        fieldNames.push_back(name);
+        const char * fieldName = fieldNames.back().c_str();
+
+        auto it = fields.insert(Fields::value_type(fieldName, std::move(FieldDescription()))).first;
+        FieldDescription & fd = it->second;
+        fd.fieldName = fieldName;
+        fd.comment = ofd.comment;
+        fd.description = std::move(ofd.description);
+        
+        fd.offset = ofd.offset + ofs;
+        fd.fieldNum = fields.size() - 1;
+        orderedFields.push_back(it);
+    }
+}
 
 template<typename Enum>
 struct EnumDescription: public ValueDescriptionT<Enum> {
@@ -916,7 +926,7 @@ inline Json::Value jsonEncode(const char * str)
 /// overload for it.  The constructor still needs to be done.
 #define CREATE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
     struct Name                                                 \
-        : public Datacratic::StructureDescription<Type> {       \
+        : public Datacratic::StructureDescriptionImpl<Type, Name> { \
         Name();                                                 \
     };                                                          \
                                                                 \
@@ -931,7 +941,7 @@ inline Json::Value jsonEncode(const char * str)
 
 #define CREATE_CLASS_DESCRIPTION_NAMED(Name, Type)              \
     struct Name                                                 \
-        : public Datacratic::StructureDescription<Type> {       \
+        : public Datacratic::StructureDescriptionImpl<Type, Name> { \
         Name() {                                                \
             Type::createDescription(*this);                     \
         }                                                       \
@@ -943,3 +953,5 @@ inline Json::Value jsonEncode(const char * str)
         return new Name();                                      \
     }
 
+#define CREATE_CLASS_DESCRIPTION(Type)                          \
+    CREATE_CLASS_DESCRIPTION_NAMED(Type##Description, Type)
