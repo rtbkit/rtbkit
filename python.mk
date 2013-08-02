@@ -69,7 +69,7 @@ $(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
 
 $(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(BIN)/$$(pymod)_pymod)
-	PYTHONPATH=$(PYTHONPATH):$(BIN) $(PYTHON) $(CWD)/$(1).py
+	PYTHONPATH=$(PYTHONPATH):$(BIN) $(PYTHON) $(CWD)/$(1).py $($(1)_ARGS)
 
 .PHONY: $(1)
 

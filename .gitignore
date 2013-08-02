@@ -13,3 +13,6 @@
 
 # Compiled Python scripts
 *.pyc
+
+# Editors temp files
+*~ 
