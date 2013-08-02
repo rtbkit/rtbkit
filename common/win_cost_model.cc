@@ -166,7 +166,7 @@ registerModel(std::string const & name, Model model)
 
 void
 WinCostModel::
-createDescription(StructureDescription<WinCostModel> & d) {
+createDescription(WinCostModelDescription & d) {
     d.addField("name", &WinCostModel::name, "");
     d.addField("data", &WinCostModel::data, "");
 }

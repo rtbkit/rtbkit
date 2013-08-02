@@ -13,8 +13,8 @@
 #include "jml/arch/futex.h"
 #include "jml/db/persistent.h"
 #include "rtbkit/core/banker/banker.h"
-#include "rtbkit/common/messages.h"
 #include "rtbkit/common/auction_events.h"
+#include "rtbkit/common/messages.h"
 
 #include "post_auction_loop.h"
 

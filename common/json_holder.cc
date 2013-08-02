@@ -40,7 +40,7 @@ reconstitute(ML::DB::Store_Reader & store)
 
 void
 JsonHolder::
-createDescription(Datacratic::StructureDescription<JsonHolder> & d) {
+createDescription(JsonHolderDescription & d) {
     d.addField("str", &JsonHolder::str, "");
 }
 

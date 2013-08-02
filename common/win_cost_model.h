@@ -15,6 +15,8 @@
 
 namespace RTBKIT {
 
+class WinCostModelDescription;
+
 using namespace Datacratic;
 
 /*****************************************************************************/
@@ -44,7 +46,7 @@ struct WinCostModel {
     static void registerModel(const std::string & name,
                               Model model);
 
-    static void createDescription(StructureDescription<WinCostModel>&);
+    static void createDescription(WinCostModelDescription&);
 
 public:
     std::string name;
@@ -53,8 +55,7 @@ public:
 
 IMPL_SERIALIZE_RECONSTITUTE(WinCostModel);
 
-CREATE_CLASS_DESCRIPTION_NAMED(TypeWinCostModelDescription,
-                               WinCostModel)
+CREATE_CLASS_DESCRIPTION(WinCostModel)
 
 } // namespace RTBKIT
 

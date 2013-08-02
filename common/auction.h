@@ -27,7 +27,8 @@ namespace RTBKIT {
 
 struct AgentConfig;
 struct ExchangeConnector;
-
+struct AuctionPriceDescription;
+struct AuctionResponseDescription;
 
 /*****************************************************************************/
 /* AUCTION                                                                   */
@@ -101,7 +102,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
         std::string toJsonStr() const;
         static Price fromJson(const Json::Value&);
 
-        static void createDescription(StructureDescription<Price>&);
+        static void createDescription(AuctionPriceDescription&);
     };
 
     /** Price to bid if you don't want to bid */
@@ -192,7 +193,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
         /** Is this a valid response? */
         bool valid() const;
 
-        static void createDescription(StructureDescription<Response>&);
+        static void createDescription(AuctionResponseDescription&);
     };
 
     /** Modify the given response.  The boolean return code says whether or
@@ -301,10 +302,10 @@ public:
     static long long destroyed;
 };
 
-CREATE_CLASS_DESCRIPTION_NAMED(TypeAuctionPriceDescription,
+CREATE_CLASS_DESCRIPTION_NAMED(AuctionPriceDescription,
                                Auction::Price)
 
-CREATE_CLASS_DESCRIPTION_NAMED(TypeAuctionResponseDescription,
+CREATE_CLASS_DESCRIPTION_NAMED(AuctionResponseDescription,
                                Auction::Response)
 
 } // namespace RTBKIT
