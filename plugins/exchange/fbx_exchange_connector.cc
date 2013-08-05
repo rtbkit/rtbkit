@@ -5,17 +5,9 @@
 */
 
 #include "fbx_exchange_connector.h"
-//#include "rtbkit/common/testing/exchange_source.h"
+#include "rtbkit/plugins/bid_request/fbx_parsing.h"
 #include "rtbkit/plugins/bid_request/fbx_bid_request.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
-//#include "rtbkit/core/agent_configuration/agent_config.h"
-#include "fbx/fbx_parsing.h"
-/*#include "soa/types/json_printing.h"
-#include <boost/any.hpp>
-#include <boost/lexical_cast.hpp>
-#include "jml/utils/file_functions.h"
-#include "jml/arch/info.h"
-#include "jml/utils/rng.h"*/
 
 using namespace Datacratic;
 

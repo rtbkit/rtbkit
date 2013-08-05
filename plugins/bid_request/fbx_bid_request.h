@@ -8,6 +8,7 @@
 
 
 #include "rtbkit/common/bid_request.h"
+#include "fbx.h"
 #include "jml/utils/parse_context.h"
 
 namespace RTBKIT {

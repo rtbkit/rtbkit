@@ -22,7 +22,6 @@
 #include "rtbkit/common/currency.h"
 #include "tags.h"
 #include "openrtb/openrtb.h"
-#include "fbx/fbx.h"
 
 
 namespace RTBKIT {

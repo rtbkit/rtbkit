@@ -9,9 +9,9 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
+#include "rtbkit/plugins/bid_request/fbx_parsing.h"
 #include "rtbkit/plugins/bid_request/fbx_bid_request.h"
 #include "soa/types/json_parsing.h"
-#include "fbx/fbx_parsing.h"
 #include "jml/utils/filter_streams.h"
 
 using namespace std;
