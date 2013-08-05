@@ -302,7 +302,7 @@ struct PageTypeCode: public TaggedEnum<PageTypeCode> {
 
 struct RtbUserContext {
     ~RtbUserContext();
-    std::string ipAdressMasked;             ///< User IP address
+    std::string ipAddressMasked;             ///< User IP address
     std::string userAgent;		       ///< User agent from the user browser
     std::string country;          	       ///< Country code (ISO 3166-2)
 };

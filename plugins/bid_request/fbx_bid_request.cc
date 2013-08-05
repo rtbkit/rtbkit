@@ -31,7 +31,7 @@ fromFbx(FBX::BidRequest && req,
     result->provider = provider;
     result->exchange = (exchange.empty() ? provider : exchange);
 
-    result->ipAddress = req.userContext.ipAdressMasked;
+    result->ipAddress = req.userContext.ipAddressMasked;
     result->userAgent = req.userContext.userAgent;
     result->location.countryCode = req.userContext.country;
     result->isTest = false;

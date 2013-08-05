@@ -54,7 +54,7 @@ DefaultDescription()
 DefaultDescription<RtbUserContext>::
 DefaultDescription()
 {
-    addField("ipAdressMasked", &RtbUserContext::ipAdressMasked, "User IP address");
+    addField("ipAddressMasked", &RtbUserContext::ipAddressMasked, "User IP address");
     addField("userAgent", &RtbUserContext::userAgent, "User agent from the user browser");
     addField("country", &RtbUserContext::country, "Country");
 }

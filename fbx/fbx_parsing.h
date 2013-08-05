@@ -302,7 +302,7 @@ struct DefaultDescription<FBX::BidRequest>
 
 template<>
 struct DefaultDescription<FBX::PageTypeCode>
-    : public StructureDescription<FBX::PageTypeCode> {
+    : public TaggedEnumDescription<FBX::PageTypeCode> {
     DefaultDescription()
     {
     }
