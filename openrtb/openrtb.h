@@ -35,69 +35,13 @@
 
 namespace OpenRTB {
 
+
 using std::string;
 using std::vector;
 using std::unique_ptr;
+
 using namespace Datacratic;
 
-typedef std::string CSList;  // comma-separated list
-
-#if 0 // c++11 templated typedefs
-template<typename T>
-using List = compact_vector<T, 3>;
-
-#else
-template<typename T>
-struct List: public ML::compact_vector<T, 3> {
-
-#if 0
-    typedef ML::compact_vector<T, 3> Base;
-
-    List()
-    {
-        using namespace std;
-        cerr << "default construct" << endl;
-    }
-
-    List(const List & other)
-        : Base(std::move(other))
-    {
-        using namespace std;
-        cerr << "copy construct" << endl;
-    }
-    
-    List & operator = (const List & other)
-    {
-        using namespace std;
-        cerr << "assignment" << endl;
-        *(Base *)this = (Base &)other;
-        return *this;
-    }
-
-    ~List()
-    {
-        using namespace std;
-        cerr << "destructor length " << this->size() << endl;
-    }
-
-    List & operator = (List && other)
-    {
-        using namespace std;
-        cerr << "move assignment" << endl;
-        *(Base *)this = (Base &&)other;
-        return *this;
-    }
-    
-    List(List && other)
-        : Base(std::move(other))
-    {
-        using namespace std;
-        cerr << "move constructor from length " << this->size() << endl;
-    }
-#endif
-};
-
-#endif
 
 /*****************************************************************************/
 /* MIME TYPES                                                                */
