@@ -32,6 +32,7 @@
 #include "jml/arch/exception.h"
 #include "jml/arch/format.h"
 #include <errno.h>
+#include <sstream>
 #include <thread>
 #include <unordered_map>
 #include "lzma.h"
@@ -122,7 +123,8 @@ bool ends_with(const std::string & str, const std::string & what)
         && result == str.size() - what.size();
 }
 
-void addCompression(boost::iostreams::filtering_ostream & stream,
+void addCompression(streambuf & buf,
+                    boost::iostreams::filtering_ostream & stream,
                     const std::string & resource,
                     const std::string & compression,
                     int compressionLevel)
@@ -132,9 +134,12 @@ void addCompression(boost::iostreams::filtering_ostream & stream,
     if (compression == "gz" || compression == "gzip"
         || (compression == ""
             && (ends_with(resource, ".gz") || ends_with(resource, ".gz~")))) {
-        if (compressionLevel == -1)
-            stream.push(gzip_compressor());
-        else stream.push(gzip_compressor(compressionLevel));
+        gzip_compressor compressor;
+        if (compressionLevel != -1) {
+            compressor = gzip_compressor(compressionLevel);
+        }
+        compressor.write(buf, "", 0);
+        stream.push(compressor);
     }
     else if (compression == "bz2" || compression == "bzip2"
         || (compression == ""
@@ -201,7 +206,7 @@ openFromStreambuf(std::streambuf * buf,
     unique_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
 
-    addCompression(*new_stream, resource, compression, compressionLevel);
+    addCompression(*buf, *new_stream, resource, compression, compressionLevel);
 
     new_stream->push(*buf);
 
@@ -221,7 +226,16 @@ open(int fd, std::ios_base::openmode mode,
     unique_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
 
-    addCompression(*new_stream, "", compression, compressionLevel);
+    if (compression.size() > 0) {
+        stringbuf headerbuf;
+        addCompression(headerbuf, *new_stream, "", compression,
+                       compressionLevel);
+        string header = headerbuf.str();
+        ssize_t rc = ::write(fd, header.c_str(), header.size());
+        if (rc < 0) {
+            throw ML::Exception(errno, "open", "open");
+        }
+    }
 
 #if (BOOST_VERSION < 104100)
     new_stream->push(file_descriptor_sink(fd));

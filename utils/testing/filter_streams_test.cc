@@ -8,6 +8,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
+#include "jml/utils/file_functions.h"
 #include "jml/utils/filter_streams.h"
 #include "jml/arch/exception.h"
 #include "jml/arch/exception_handler.h"
@@ -25,10 +26,25 @@
 #include "jml/arch/exception_handler.h"
 #include "jml/arch/demangle.h"
 
-using namespace ML;
 using namespace std;
+using namespace ML;
 
 using boost::unit_test::test_suite;
+
+struct FileCleanup {
+    FileCleanup(const string & filename)
+        : filename_(filename)
+    {
+    }
+
+    ~FileCleanup()
+    {
+        ::unlink(filename_.c_str());
+    }
+
+    string filename_;
+};
+
 
 void system(const std::string & command)
 {
@@ -181,5 +197,53 @@ BOOST_AUTO_TEST_CASE( test_write_failure )
     {
         JML_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(stream << "hello again" << std::endl, std::exception);
+    }
+}
+
+/* ensures that empty gz/bzip2/xz streams have a valid header */
+BOOST_AUTO_TEST_CASE( test_empty_gzip )
+{
+    string fileprefix("build/x86_64/tmp/empty.");
+    vector<string> exts = { "gz", "bz2", "xz" };
+
+    for (const auto & ext: exts) {
+        string filename = fileprefix + ext;
+
+        /* stream from filename */
+        {
+            FileCleanup cleanup(filename);
+
+            {
+                ML::filter_ostream filestream(filename);
+            }
+
+            BOOST_CHECK(get_file_size(filename) > 2);
+            {
+                ML::filter_istream filestream(filename);
+                string line;
+                filestream >> line;
+                BOOST_CHECK_EQUAL(line.size(), 0);
+            }
+        }
+
+        /* stream from file descriptor */
+        {
+            FileCleanup cleanup(filename);
+
+            int fd = open(filename.c_str(), O_RDWR| O_CREAT, S_IRWXU);
+            {
+                ML::filter_ostream filestream;
+                filestream.open(fd, ios::out, ext);
+            }
+            close(fd);
+
+            BOOST_CHECK(get_file_size(filename) > 2);
+            {
+                ML::filter_istream filestream(filename);
+                string line;
+                filestream >> line;
+                BOOST_CHECK_EQUAL(line.size(), 0);
+            }
+        }
     }
 }
