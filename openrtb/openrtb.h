@@ -568,6 +568,19 @@ struct SourceRelationship: public TaggedEnum<SourceRelationship> {
 };
 
 /*****************************************************************************/
+/* EMBEDDABLE                                                                */
+/*****************************************************************************/
+
+struct Embeddable: public TaggedEnum<Embeddable> {
+    enum Vals {
+        UNSPECIFIED = -1,  ///< Not explicitly specified
+
+        NOT_EMBEDDABLE = 0,
+        EMBEDDABLE = 1
+    };
+};
+
+/*****************************************************************************/
 /* AUCTION TYPE                                                              */
 /*****************************************************************************/
 
@@ -616,6 +629,7 @@ struct Banner {
     FramePosition topframe;          ///< Is it in the top frame (1) or an iframe (0)?
     List<ExpandableDirection> expdir;///< Expandable ad directions (table 6.11)
     List<ApiFramework> api;          ///< Supported APIs (table 6.4)
+    Json::Value ext;                 ///< Extensions go here, new in OpenRTB 2.1
 };
 
 
@@ -656,6 +670,8 @@ struct Video {
     AdPosition pos;             ///< Ad position (table 6.5)
     vector<Banner> companionad; ///< List of companion banners available
     List<ApiFramework> api;     ///< List of supported API frameworks (table 6.4)
+    List<VastCompanionType> companiontype;    ///< VAST Companion Types (table 6.17)
+    Json::Value ext;            ///< Extensions go here, new in OpenRTB 2.1
 };
 
 
@@ -676,6 +692,7 @@ struct Publisher {
     Utf8String name;             ///< Publisher name
     List<ContentCategory> cat; ///< Content categories     
     string domain;               ///< Domain name of publisher
+    Json::Value ext;             ///< Extensions go here, new in OpenRTB 2.1
 };
 
 /** 3.3.9 Producer Object
@@ -759,6 +776,10 @@ struct Content {
     SourceRelationship sourcerelationship;  ///< 1 = direct, 0 = indirect
     Optional<Producer> producer;  ///< Content producer
     TaggedInt len;           ///< Length of content in seconds
+    MediaRating qagmediarating;///< Media rating per QAG guidelines (table 6.18).
+    Embeddable embeddable;   ///< 1 if embeddable, 0 otherwise
+    Utf8String language;     ///< Content language.  ISO 639-1 (alpha-2).
+    Json::Value ext;         ///< Extensions go here, new in OpenRTB 2.1
 };
 
 
@@ -829,6 +850,7 @@ struct AppInfo {
     string ver;         ///< Application version
     string bundle;      ///< Application bundle name (unique across multiple exchanges)
     TaggedBool paid;    ///< Is a paid version of the app
+    Url storeurl;       ///< For QAG 1.5 compliance, new in OpenRTB 2.1
 };
 
 struct App: public Context, public AppInfo {
@@ -857,15 +879,19 @@ struct Geo {
     ~Geo();
     TaggedFloat lat;        ///< Latitude of user (-90 to 90; South negative)
     TaggedFloat lon;        ///< Longtitude (-180 to 180; west is negative)
-    TaggedBool latlonconsent;  ///< Has user given consent for lat/lon use? (Rubocon extension)
     string country;         ///< Country code (ISO 3166-1 Alpha-3)
     string region;          ///< Region code (ISO 3166-2)
     string regionfips104;   ///< Region using FIPS 10-4
     string metro;           ///< Metropolitan region (Google Metro code)
     Utf8String city;        ///< City name (UN Code for Trade and Transport Loc)
     string zip;             ///< Zip or postal code
-    string dma;             ///< Direct Marketing Association code
     LocationType type;      ///< Source of Geo data (table 6.15)
+    Json::Value ext;        ///< Extensions go here, new in OpenRTB 2.1
+
+    /// Datacratic extensions
+    string dma;             ///< Direct Marketing Association code
+    /// Rubicon extensions
+    TaggedBool latlonconsent;  ///< Has user given consent for lat/lon use?
 };
 
 
@@ -936,6 +962,9 @@ struct Segment {
     Id id;                         ///< Segment ID
     string name;                   ///< Segment name
     string value;                  ///< Segment value
+    Json::Value ext;               ///< Extensions go here, new in OpenRTB 2.1
+
+    /// Datacratic Extensions
     TaggedFloat segmentusecost;    ///< Cost of using segment in CPM
 };
 
@@ -960,6 +989,7 @@ struct Data {
     Id id;                           ///< Exchange specific data prov ID
     string name;                     ///< Data provider name
     vector<Segment> segment;         ///< Segment of data
+    Json::Value ext;                 ///< Extensions go here, new in OpenRTB 2.1
 
     /// Datacratic Extensions
     string usecostcurrency;          ///< Currency of use cost
@@ -995,8 +1025,9 @@ struct User {
     string gender;             ///< Gender: Male, Female, Other
     CSList keywords;           ///< List of keywords of consumer intent
     string customdata;         ///< Custom data from exchange
-    vector<Data> data;         ///< User data segments
     Geo geo;                   ///< Geolocation of user at registration
+    vector<Data> data;         ///< User data segments
+    Json::Value ext;           ///< Extensions go here, new in OpenRTB 2.1
 
     /// Rubicon extensions
     TaggedInt tz;              ///< User time zone in seconds after GMT
