@@ -13,6 +13,7 @@
 #include "jml/arch/exception.h"
 #include "jml/arch/exception_handler.h"
 
+#include <boost/filesystem.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/barrier.hpp>
@@ -27,6 +28,7 @@
 #include "jml/arch/demangle.h"
 
 using namespace std;
+namespace fs = boost::filesystem;
 using namespace ML;
 
 using boost::unit_test::test_suite;
@@ -203,6 +205,8 @@ BOOST_AUTO_TEST_CASE( test_write_failure )
 /* ensures that empty gz/bzip2/xz streams have a valid header */
 BOOST_AUTO_TEST_CASE( test_empty_gzip )
 {
+    fs::create_directories("build/x86_64/tmp");
+
     string fileprefix("build/x86_64/tmp/empty.");
     vector<string> exts = { "gz", "bz2", "xz" };
 
