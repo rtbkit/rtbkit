@@ -56,7 +56,7 @@ void registerValueDescription(const std::type_info & type,
     /*
     cerr << "got " << ML::demangle(type.name())
          << " with description "
-         << ML::type_name(*desc) << endl;
+         << ML::type_name(*desc) << " at " << desc << endl;
     */
 
     registry[desc->typeName] = desc;
