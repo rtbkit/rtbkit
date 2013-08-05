@@ -158,6 +158,8 @@ struct ValueDescription {
     // Storage to cache Javascript converters
     mutable JSConverters * jsConverters;
     mutable bool jsConvertersInitialized;
+
+    static ValueDescription * get(std::string const & name);
 };
 
 void registerValueDescription(const std::type_info & type,
@@ -168,7 +170,7 @@ template<typename T>
 struct RegisterValueDescription {
     RegisterValueDescription()
     {
-        registerValueDescription(typeid(T), [] () { return getDefaultDescription((T*)0); });
+        registerValueDescription(typeid(T), [] () { return getDefaultDescription((T*)0); }, true);
     }
 };
 
@@ -185,7 +187,7 @@ struct RegisterValueDescriptionI {
 
 #define REGISTER_VALUE_DESCRIPTION(type)                                \
     namespace {                                                         \
-    static const RegisterValueDescription<type> registerValueDescription#type; \
+    static const RegisterValueDescription<type> registerValueDescription##type; \
     }
 
 
@@ -308,6 +310,17 @@ getDefaultDescription(T * = 0,
     return new DefaultDescription<T>();
 }
 
+
+/*****************************************************************************/
+/* VALUE DESCRIPTION CONCRETE IMPL                                           */
+/*****************************************************************************/
+
+/** Used when there is a concrete description of a value we want to register.
+
+    The main thing that this class does is also registers the value description
+    as part of construction.
+*/
+
 template<typename T, ValueKind kind = ValueKind::ATOM,
          typename Impl = DefaultDescription<T> >
 struct ValueDescriptionI : public ValueDescriptionT<T> {
@@ -325,9 +338,6 @@ template<typename T, ValueKind kind, typename Impl>
 RegisterValueDescriptionI<T, Impl>
 ValueDescriptionI<T, kind, Impl>::
 regme;
-
-template<class Struct>
-struct StructureDescription;
 
 inline void * addOffset(void * base, ssize_t offset)
 {
@@ -351,16 +361,16 @@ inline const void * addOffset(const void * base, ssize_t offset)
 struct StructureDescriptionBase {
 
     StructureDescriptionBase(const std::type_info * type,
-                             const std::string & typeName = "",
+                             const std::string & structName = "",
                              bool nullAccepted = false)
         : type(type),
-          typeName(typeName.empty() ? ML::demangle(type->name()) : typeName),
+          structName(structName.empty() ? ML::demangle(type->name()) : structName),
           nullAccepted(nullAccepted)
     {
     }
 
     const std::type_info * const type;
-    const std::string typeName;
+    const std::string structName;
     bool nullAccepted;
 
     typedef ValueDescription::FieldDescription FieldDescription;
@@ -405,7 +415,7 @@ struct StructureDescriptionBase {
         }
         
         if (!context.isObject())
-            context.exception("expected structure of type " + typeName);
+            context.exception("expected structure of type " + structName);
 
         auto onMember = [&] ()
             {
@@ -423,7 +433,7 @@ struct StructureDescriptionBase {
                                 context);
                 }
             };
-        
+
         context.forEachMember(onMember);
 
         onExit(output, context);
@@ -455,13 +465,16 @@ struct StructureDescriptionBase {
 /* STRUCTURE DESCRIPTION                                                     */
 /*****************************************************************************/
 
-template<class Struct>
-struct StructureDescription
-    :  public ValueDescriptionI<Struct, ValueKind::STRUCTURE,
-                                StructureDescription<Struct> >,
+/** Class that implements the base of a description of a structure.  Contains
+    methods to register all of the member variables of the class.
+*/
+
+template<typename Struct, typename Impl>
+struct StructureDescriptionImpl
+    :  public ValueDescriptionI<Struct, ValueKind::STRUCTURE, Impl>,
        public StructureDescriptionBase {
 
-    StructureDescription(bool nullAccepted = false)
+    StructureDescriptionImpl(bool nullAccepted = false)
         : StructureDescriptionBase(&typeid(Struct), "", nullAccepted)
     {
     }
@@ -522,40 +535,7 @@ struct StructureDescription
 
     template<typename V>
     void addParent(ValueDescriptionT<V> * description_
-                   = getDefaultDescription((V *)0))
-    {
-        StructureDescription<V> * desc2
-            = dynamic_cast<StructureDescription<V> *>(description_);
-        if (!desc2) {
-            delete description_;
-            throw ML::Exception("parent description is not a structure");
-        }
-
-        std::unique_ptr<StructureDescription<V> > description(desc2);
-
-        Struct * p = nullptr;
-        V * p2 = static_cast<V *>(p);
-
-        size_t ofs = (size_t)p2;
-
-        for (auto & oit: description->orderedFields) {
-            FieldDescription & ofd = const_cast<FieldDescription &>(oit->second);
-            const std::string & name = ofd.fieldName;
-
-            fieldNames.push_back(name);
-            const char * fieldName = fieldNames.back().c_str();
-
-            auto it = fields.insert(Fields::value_type(fieldName, std::move(FieldDescription()))).first;
-            FieldDescription & fd = it->second;
-            fd.fieldName = fieldName;
-            fd.comment = ofd.comment;
-            fd.description = std::move(ofd.description);
-            
-            fd.offset = ofd.offset + ofs;
-            fd.fieldNum = fields.size() - 1;
-            orderedFields.push_back(it);
-        }
-    }
+                   = getDefaultDescription((V *)0));
 
     virtual size_t getFieldCount(const void * val) const
     {
@@ -598,6 +578,53 @@ struct StructureDescription
         return StructureDescriptionBase::printJson(val, context);
     }
 };
+
+template<typename T>
+struct StructureDescription
+    : public StructureDescriptionImpl<T, StructureDescription<T>>
+{
+    StructureDescription(bool nullAccepted = false) :
+        StructureDescriptionImpl<T, StructureDescription<T>>(nullAccepted)
+    {
+    }
+};
+
+template<typename Struct, typename Impl>
+template<typename V>
+void StructureDescriptionImpl<Struct, Impl>::addParent(ValueDescriptionT<V> * description_)
+{
+    StructureDescription<V> * desc2
+        = dynamic_cast<StructureDescription<V> *>(description_);
+    if (!desc2) {
+        delete description_;
+        throw ML::Exception("parent description is not a structure");
+    }
+
+    std::unique_ptr<StructureDescription<V> > description(desc2);
+
+    Struct * p = nullptr;
+    V * p2 = static_cast<V *>(p);
+
+    size_t ofs = (size_t)p2;
+
+    for (auto & oit: description->orderedFields) {
+        FieldDescription & ofd = const_cast<FieldDescription &>(oit->second);
+        const std::string & name = ofd.fieldName;
+
+        fieldNames.push_back(name);
+        const char * fieldName = fieldNames.back().c_str();
+
+        auto it = fields.insert(Fields::value_type(fieldName, std::move(FieldDescription()))).first;
+        FieldDescription & fd = it->second;
+        fd.fieldName = fieldName;
+        fd.comment = ofd.comment;
+        fd.description = std::move(ofd.description);
+        
+        fd.offset = ofd.offset + ofs;
+        fd.fieldNum = fields.size() - 1;
+        orderedFields.push_back(it);
+    }
+}
 
 template<typename Enum>
 struct EnumDescription: public ValueDescriptionT<Enum> {
@@ -899,7 +926,7 @@ inline Json::Value jsonEncode(const char * str)
 /// overload for it.  The constructor still needs to be done.
 #define CREATE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
     struct Name                                                 \
-        : public Datacratic::StructureDescription<Type> {       \
+        : public Datacratic::StructureDescriptionImpl<Type, Name> { \
         Name();                                                 \
     };                                                          \
                                                                 \
@@ -912,3 +939,19 @@ inline Json::Value jsonEncode(const char * str)
 #define CREATE_STRUCTURE_DESCRIPTION(Type)                      \
     CREATE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
 
+#define CREATE_CLASS_DESCRIPTION_NAMED(Name, Type)              \
+    struct Name                                                 \
+        : public Datacratic::StructureDescriptionImpl<Type, Name> { \
+        Name() {                                                \
+            Type::createDescription(*this);                     \
+        }                                                       \
+    };                                                          \
+                                                                \
+    inline Name *                                               \
+    getDefaultDescription(Type *)                               \
+    {                                                           \
+        return new Name();                                      \
+    }
+
+#define CREATE_CLASS_DESCRIPTION(Type)                          \
+    CREATE_CLASS_DESCRIPTION_NAMED(Type##Description, Type)

@@ -38,19 +38,28 @@ std::ostream & operator << (std::ostream & stream, ValueKind kind)
     }
 }
 
+namespace {
+    std::unordered_map<std::string, ValueDescription *> registry;
+}
+
+ValueDescription * ValueDescription::get(std::string const & name) {
+    auto i = registry.find(name);
+    return registry.end() != i ? i->second : 0;
+}
+
 void registerValueDescription(const std::type_info & type,
                               std::function<ValueDescription * ()> fn,
                               bool isDefault)
 {
-#if 0
     auto desc = fn();
 
+    /*
     cerr << "got " << ML::demangle(type.name())
          << " with description "
-         << ML::type_name(*desc) << endl;
+         << ML::type_name(*desc) << " at " << desc << endl;
+    */
 
-    delete desc;
-#endif
+    registry[desc->typeName] = desc;
 }
 
 void
