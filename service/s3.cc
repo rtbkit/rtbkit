@@ -1194,6 +1194,29 @@ forEachObject(const std::string & bucket,
     //cerr << "done scanning" << endl;
 }
 
+void
+S3Api::
+forEachObject(const std::string & uriPrefix,
+              const OnObjectUri & onObject,
+              const OnSubdir & onSubdir,
+              const std::string & delimiter,
+              int depth) const
+{
+    string bucket, objectPrefix;
+    std::tie(bucket, objectPrefix) = parseUri(uriPrefix);
+
+    auto onObject2 = [&] (const std::string & prefix,
+                          const std::string & objectName,
+                          const ObjectInfo & info,
+                          int depth)
+        {
+            string uri = "s3://" + bucket + "/" + prefix + delimiter + objectName;
+            return onObject(uri, info, depth);
+        };
+
+    forEachObject(bucket, objectPrefix, onObject2, onSubdir, delimiter, depth);
+}
+
 S3Api::ObjectInfo
 S3Api::
 getObjectInfo(const std::string & bucket,
@@ -2441,6 +2464,11 @@ std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName)
     return it->second.api;
 }
 
+std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri)
+{
+    return getS3ApiForBucket(S3Api::parseUri(uri).first);
+}
+
 // Return an URI for either a file or an s3 object
 size_t getUriSize(const std::string & filename)
 {
@@ -2484,6 +2512,18 @@ S3Api::ObjectInfo getUriObjectInfo(const std::string & filename)
     }
     else {
         throw ML::Exception("getUriObjectInfo for file not done yet");
+    }
+}
+
+S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename)
+{
+    if (filename.find("s3://") == 0) {
+        string bucket = S3Api::parseUri(filename).first;
+        auto api = getS3ApiForBucket(bucket);
+        return api->tryGetObjectInfo(filename);
+    }
+    else {
+        throw ML::Exception("tryGetUriObjectInfo for file not done yet");
     }
 }
 

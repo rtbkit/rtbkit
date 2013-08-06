@@ -377,6 +377,20 @@ struct S3Api {
                        const std::string & delimiter = "/",
                        int depth = 1) const;
 
+    typedef std::function<bool (const std::string & uri,
+                                const ObjectInfo & info,
+                                int depth)>
+        OnObjectUri;
+
+    /** For each file matching the given prefix in the given bucket, call
+        the callback.
+    */
+    void forEachObject(const std::string & uriPrefix,
+                       const OnObjectUri & onObject,
+                       const OnSubdir & onSubdir = OnSubdir(),
+                       const std::string & delimiter = "/",
+                       int depth = 1) const;
+
     /** Value for the "delimiter" parameter in forEachObject for when we
         don't want any subdirectories.  It is equal to the empty string.
     */
@@ -527,6 +541,8 @@ void registerS3Buckets(const std::string & accessKeyId,
 
 std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName);
 
+std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri);
+
 // Return an URI for either a file or an s3 object
 size_t getUriSize(const std::string & filename);
 
@@ -535,5 +551,9 @@ std::string getUriEtag(const std::string & filename);
 
 // Return the object info for either a file or an S3 object
 S3Api::ObjectInfo getUriObjectInfo(const std::string & filename);
+
+// Return the object info for either a file or an S3 object, or null if
+// it doesn't exist
+S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename);
 
 } // namespace Datacratic
