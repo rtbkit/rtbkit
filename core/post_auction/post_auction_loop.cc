@@ -327,7 +327,7 @@ initConnections()
     configListener.init(getServices()->config);
     configListener.onConfigChange = [=](const std::string & agent,
                                         std::shared_ptr<const AgentConfig> config) {
-        if(config->account.empty())
+        if (!config || config->account.empty())
             throw ML::Exception("attempt to add an account with empty values");
 
         banker->addSpendAccount(config->account, Amount(), [=](std::exception_ptr error,
