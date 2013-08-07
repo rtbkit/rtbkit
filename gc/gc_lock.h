@@ -36,42 +36,121 @@ struct GcLockBase : public boost::noncopyable {
     /// A thread's bookkeeping info about each GC area
     struct ThreadGcInfoEntry {
         ThreadGcInfoEntry()
-            : inEpoch(-1), readLocked(0), writeLocked(0)
+            : inEpoch(-1), readLocked(0), writeLocked(0),
+              specLocked(0), specUnlocked(0),
+              owner(0)
         {
         }
+
+        ~ThreadGcInfoEntry() {
+            using namespace std;
+            /* We are not in a speculative critical section, check if
+             * Gc has been left locked
+             */
+            if (!specLocked && !specUnlocked && (readLocked || writeLocked))
+               cerr << "Thread died but GcLock is still locked" << endl;
+
+            /* We are in a speculative CS but Gc has not beed unlocked,
+             * then forceUnlock 
+             */
+            else if (!specLocked && specUnlocked) {
+              // unlockShared(true); 
+            }
+           
+        } 
 
 
         int inEpoch;  // 0, 1, -1 = not in 
         int readLocked;
         int writeLocked;
 
+        int specLocked;
+        int specUnlocked;
+
+        GcLockBase *owner;
+
+        void init(const GcLockBase * const self) {
+            if (!owner) 
+                owner = const_cast<GcLockBase *>(self);
+        }
+                
+
+        void lockShared(bool runDefer) {
+            if (!readLocked && !writeLocked)
+                owner->enterCS(this, runDefer);
+
+            ++readLocked;
+        }
+
+        void unlockShared(bool runDefer) {
+            if (readLocked <= 0)
+                throw ML::Exception("Bad read lock nesting");
+
+            --readLocked;
+            if (!readLocked && !writeLocked) 
+                owner->exitCS(this, runDefer);
+
+        }
+
+        bool isLockedShared() {
+            return readLocked + writeLocked;
+        }
+
+        void lockExclusive() {
+            if (!writeLocked)
+                owner->enterCSExclusive(this);
+            
+             ++writeLocked;
+        }
+
+        void unlockExclusive() {
+            if (writeLocked <= 0)
+                throw ML::Exception("Bad write lock nesting");
+
+            --writeLocked;
+            if (!writeLocked)
+                owner->exitCSExclusive(this);
+        }
+
+        void lockSpeculative() {
+            if (!specLocked && !specUnlocked) 
+                lockShared(false);
+
+            ++specLocked;
+        }
+
+        void unlockSpeculative() {
+            if (!specLocked) 
+                throw ML::Exception("Bad speculative lock nesting");
+
+            --specLocked;
+            if (!specLocked) {
+                if (++specUnlocked == SpeculativeThreshold) {
+                    unlockShared(false);
+                    specUnlocked = 0;
+                }
+            }
+        }
+
+        void forceUnlock() {
+            ExcCheckEqual(specLocked, 0, "Bad forceUnlock call");
+
+            if (specUnlocked) {
+                unlockShared(true);
+                specUnlocked = 0;
+            }
+        }
+
+
         std::string print() const;
     };
 
-    struct SpeculativeEntry {
-        SpeculativeEntry() :
-            specLock(0),
-            specUnlock(0)
-        {
-        }
-
-        ~SpeculativeEntry() {
-        }
-
-        int specLock;
-        int specUnlock;
-    };
 
     typedef ML::ThreadSpecificInstanceInfo<ThreadGcInfoEntry, GcLockBase>
         GcInfo;
     typedef typename GcInfo::PerThreadInfo ThreadGcInfo;
 
-    typedef ML::ThreadSpecificInstanceInfo<SpeculativeEntry, GcLockBase>
-        SpeculativeGcInfo;
-    typedef typename SpeculativeGcInfo::PerThreadInfo ThreadSpeculativeGcInfo;
-
     GcInfo gcInfo;
-    SpeculativeGcInfo specGcInfo;
 
     struct Data {
         Data();
@@ -179,13 +258,11 @@ struct GcLockBase : public boost::noncopyable {
     JML_ALWAYS_INLINE ThreadGcInfoEntry &
     getEntry(GcInfo::PerThreadInfo * info = 0) const
     {
-        return *gcInfo.get(info);
-    }
+        ThreadGcInfoEntry *entry = gcInfo.get(info);
+        entry->init(this);
+        return *entry;
 
-    JML_ALWAYS_INLINE SpeculativeEntry &
-    getSpecEntry(SpeculativeGcInfo::PerThreadInfo * info = 0) const
-    {
-        return *specGcInfo.get(info);
+        //return *gcInfo.get(info);
     }
 
     GcLockBase();
@@ -200,10 +277,7 @@ struct GcLockBase : public boost::noncopyable {
     {
         ThreadGcInfoEntry & entry = getEntry(info);
 
-        if (!entry.readLocked && !entry.writeLocked)
-            enterCS(&entry, runDefer);
-
-        ++entry.readLocked;
+        entry.lockShared(runDefer);
 
 #if GC_LOCK_DEBUG
         using namespace std;
@@ -219,11 +293,7 @@ struct GcLockBase : public boost::noncopyable {
     {
         ThreadGcInfoEntry & entry = getEntry(info);
 
-        if (entry.readLocked <= 0)
-            throw ML::Exception("bad read lock nesting");
-        --entry.readLocked;
-        if (!entry.readLocked && !entry.writeLocked)
-            exitCS(&entry, runDefer);
+        entry.unlockShared(runDefer);
 
 #if GC_LOCK_DEBUG
         using namespace std;
@@ -234,49 +304,37 @@ struct GcLockBase : public boost::noncopyable {
 #endif
     }
 
-    void lockSpeculative(SpeculativeGcInfo::PerThreadInfo * info = 0)
+    void lockSpeculative(GcInfo::PerThreadInfo * info = 0)
     {
-        SpeculativeEntry & entry = getSpecEntry(info); 
-        if (entry.specLock == 0 && entry.specUnlock == 0) {
-            lockShared(0, false);
-        }
-        ++entry.specLock;
+        ThreadGcInfoEntry & entry = getEntry(info); 
+
+        entry.lockSpeculative();
     }
 
-    void unlockSpeculative(SpeculativeGcInfo::PerThreadInfo * info = 0)
+    void unlockSpeculative(GcInfo::PerThreadInfo * info = 0)
     {
-        SpeculativeEntry & entry = getSpecEntry(info);
-        if (entry.specLock == 0) {
-            throw ML::Exception("Should lock before unlock");
-        }
+        ThreadGcInfoEntry & entry = getEntry(info);
 
-        --entry.specLock;
-        if (!entry.specLock) {
-            if (++entry.specUnlock == SpeculativeThreshold) {
-                unlockShared(0, false);
-                entry.specUnlock = 0;
-            }
-        }
+        entry.unlockSpeculative();
     }
 
-    void forceUnlock(SpeculativeGcInfo::PerThreadInfo * info = 0) {
-        SpeculativeEntry & entry = getSpecEntry(info);
-        ExcAssertEqual(entry.specLock, 0);
-        if (!entry.specLock && entry.specUnlock) {
-            unlockShared(0, true);
-            entry.specUnlock = 0;
-        }
+    void forceUnlock(GcInfo::PerThreadInfo * info = 0) {
+        ThreadGcInfoEntry & entry = getEntry(info);
+
+        entry.forceUnlock();
     }
         
     int isLockedShared(GcInfo::PerThreadInfo * info = 0) const
     {
         ThreadGcInfoEntry & entry = getEntry(info);
-        return entry.readLocked + entry.writeLocked;
+
+        return entry.isLockedShared();
     }
 
     int lockedInEpoch(GcInfo::PerThreadInfo * info = 0) const
     {
         ThreadGcInfoEntry & entry = getEntry(info);
+
         return entry.inEpoch;
     }
 
@@ -284,14 +342,7 @@ struct GcLockBase : public boost::noncopyable {
     {
         ThreadGcInfoEntry & entry = getEntry(info);
 
-        if (entry.readLocked)
-            throw ML::Exception("can't acquire write lock with read lock held");
-
-        if (!entry.writeLocked)
-            enterCSExclusive(&entry);
-
-        ++entry.writeLocked;
-
+        entry.lockExclusive();
 #if GC_LOCK_DEBUG
         using namespace std;
         cerr << "lockExclusive "
@@ -305,11 +356,7 @@ struct GcLockBase : public boost::noncopyable {
     {
         ThreadGcInfoEntry & entry = getEntry(info);
 
-        if (entry.writeLocked <= 0)
-            throw ML::Exception("bad write lock nesting");
-        --entry.writeLocked;
-        if (!entry.writeLocked)
-            exitCSExclusive(&entry);
+        entry.unlockExclusive();
 
 #if GC_LOCK_DEBUG
         using namespace std;
@@ -323,6 +370,7 @@ struct GcLockBase : public boost::noncopyable {
     int isLockedExclusive(GcInfo::PerThreadInfo * info = 0) const
     {
         ThreadGcInfoEntry & entry = getEntry(info);
+
         return entry.writeLocked;
     }
 

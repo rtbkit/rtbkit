@@ -483,8 +483,6 @@ void
 GcLockBase::
 exitCS(ThreadGcInfoEntry * entry, bool runDefer /* = true */)
 {
-    if (!entry) entry = &getEntry();
-
     if (entry->inEpoch == -1)
         throw ML::Exception("not in a CS");
 
@@ -516,8 +514,6 @@ void
 GcLockBase::
 enterCSExclusive(ThreadGcInfoEntry * entry)
 {
-    if (!entry) entry = &getEntry();
-        
     ExcAssertEqual(entry->inEpoch, -1);
 
     Data current = *data, newValue;
