@@ -15,7 +15,7 @@ $(eval $(call test,historical_bid_request_test,bid_request,boost))
 $(eval $(call library,integration_test_utils,generic_exchange_connector.cc mock_exchange.cc,rtb_router bid_test_utils exchange))
 
 $(eval $(call test,static_filtering_test,agent_configuration rtb_router integration_test_utils,boost))
-$(eval $(call test,win_cost_model_test,bidding_agent integration_test_utils,boost))
+$(eval $(call test,win_cost_model_test,openrtb_exchange bidding_agent integration_test_utils,boost))
 
 $(eval $(call program,mock_exchange_runner,integration_test_utils boost_program_options utils))
 $(eval $(call program,json_feeder,curlpp boost_program_options utils))
