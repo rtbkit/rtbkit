@@ -105,7 +105,7 @@ struct Router : public ServiceBase,
            bool logAuctions = false,
            bool logBids = false);
 
-    Router(std::shared_ptr<ServiceProxies> services,
+    Router(std::shared_ptr<ServiceProxies> services = std::make_shared<ServiceProxies>(),
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
            bool connectPostAuctionLoop = true,
