@@ -7,6 +7,7 @@
 
 #include "exchange_connector.h"
 #include "rtbkit/core/router/router.h"
+#include <dlfcn.h>
 
 using namespace std;
 
@@ -129,11 +130,35 @@ bidRequestCreativeFilter(const BidRequest & request,
 }
 
 namespace {
-typedef std::unordered_map<std::string, ExchangeConnector::Factory> Factories;
-static Factories factories;
-typedef boost::lock_guard<ML::Spinlock> Guard;
+typedef std::lock_guard<ML::Spinlock> Guard;
+
 static ML::Spinlock lock;
+static std::unordered_map<std::string, ExchangeConnector::Factory> factories;
 } // file scope
+
+ExchangeConnector::Factory
+getFactory(std::string const & name) {
+    // see if it's already existing
+    {
+        Guard guard(lock);
+        auto i = factories.find(name);
+        if (i != factories.end()) return i->second;
+    }
+
+    // else, try to load the exchange library
+    std::string path = "lib" + name + "_exchange.so";
+    void * handle = dlopen(path.c_str(), RTLD_NOW);
+    if (!handle) {
+        throw ML::Exception("couldn't find exchange connector library " + path);
+    }
+
+    // if it went well, it should be registered now
+    Guard guard(lock);
+    auto i = factories.find(name);
+    if (i != factories.end()) return i->second;
+
+    throw ML::Exception("couldn't find exchange connector named " + name);
+}
 
 void
 ExchangeConnector::
@@ -148,17 +173,7 @@ std::unique_ptr<ExchangeConnector>
 ExchangeConnector::
 create(const std::string & exchange, ServiceBase & owner, const std::string & name)
 {
-
-    Factory factory;
-    {
-        Guard guard(lock);
-        auto it = factories.find(exchange);
-        if (it == factories.end())
-            throw ML::Exception("couldn't find exchange factory for exchange "
-                                + exchange);
-        factory = it->second;
-    }
-
+    auto factory = getFactory(exchange);
     return std::unique_ptr<ExchangeConnector>(factory(&owner, name));
 }
 

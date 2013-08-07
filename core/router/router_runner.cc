@@ -38,8 +38,11 @@ static inline Json::Value loadJsonFromFile(const std::string & filename)
 
 
 RouterRunner::
-RouterRunner()
-    : lossSeconds(15.0), logAuctions(false), logBids(false)
+RouterRunner() :
+    exchangeConfigurationFile("examples/router-config.json"),
+    lossSeconds(15.0),
+    logAuctions(false),
+    logBids(false)
 {
 }
 
@@ -124,4 +127,21 @@ shutdown()
 {
     router->shutdown();
     banker->shutdown();
+}
+
+int main(int argc, char ** argv)
+{
+    RouterRunner runner;
+
+    runner.doOptions(argc, argv);
+    runner.init();
+    runner.start();
+
+    runner.router->forAllExchanges([](std::shared_ptr<ExchangeConnector> const & item) {
+        item->enableUntil(Date::positiveInfinity());
+    });
+
+    for (;;) {
+        ML::sleep(10.0);
+    }
 }

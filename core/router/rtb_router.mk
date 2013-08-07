@@ -11,6 +11,6 @@ LIBRTB_ROUTER_LINK := \
 
 $(eval $(call library,rtb_router,$(LIBRTB_ROUTER_SOURCES),$(LIBRTB_ROUTER_LINK)))
 
-$(eval $(call library,router_runner,router_runner.cc,rtb_router boost_program_options))
+$(eval $(call program,router_runner,rtb_router boost_program_options))
 
 $(eval $(call include_sub_make,rtb_router_testing,testing,rtb_router_testing.mk))

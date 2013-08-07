@@ -15,7 +15,6 @@
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/banker/null_banker.h"
 #include "rtbkit/testing/test_agent.h"
-#include "rtbkit/plugins/exchange/exchanges.h"
 
 #include "jml/utils/file_functions.h"
 

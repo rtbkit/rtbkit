@@ -15,7 +15,6 @@
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/banker/null_banker.h"
 #include "rtbkit/testing/test_agent.h"
-#include "rtbkit/plugins/exchange/exchanges.h"
 #include "rtbkit/plugins/adserver/standard_adserver_connector.h"
 #include "rtbkit/plugins/data_logger/data_logger.h"
 #include "soa/logger/file_output.h"
