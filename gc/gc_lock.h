@@ -265,18 +265,21 @@ struct GcLockBase : public boost::noncopyable {
     }
 
     struct SharedGuard {
-        SharedGuard(GcLockBase & lock)
-            : lock(lock)
+        SharedGuard(GcLockBase & lock, bool doLock = true)
+            : lock(lock), doLock(doLock)
         {
-            lock.lockShared();
+            if (doLock)
+                lock.lockShared();
         }
 
         ~SharedGuard()
         {
-            lock.unlockShared();
+            if (doLock)
+                lock.unlockShared();
         }
         
         GcLockBase & lock;
+        bool doLock;
     };
 
     struct ExclusiveGuard {
