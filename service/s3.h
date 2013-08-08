@@ -16,6 +16,7 @@
 #include "soa/service/http_endpoint.h"
 #include "http_rest_proxy.h"
 #include <memory>
+#include "aws.h"
 
 namespace Datacratic {
 
@@ -26,16 +27,7 @@ namespace Datacratic {
 
 /** Interface to Amazon's S3 service. */
 
-struct S3Api {
-    /** Sign the given digest string with the given access key and return
-        a base64 encoded signature.
-    */
-    static std::string sign(const std::string & stringToSign,
-                            const std::string & accessKey);
-
-    /** URI encode the given string according to RFC 3986 */
-    static std::string uriEncode(const std::string & str);
-
+struct S3Api : public AwsApi {
     /** Default value for bandwidth to service.  In mega*bytes* per second.
         Default value is 20.0 MBPS for ec2 instances in the same availability
         zone.

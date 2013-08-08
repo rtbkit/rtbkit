@@ -7,6 +7,8 @@
 
 #include "tinyxml2/tinyxml2.h"
 #include <boost/lexical_cast.hpp>
+#include "jml/arch/exception.h"
+
 
 namespace Datacratic {
 

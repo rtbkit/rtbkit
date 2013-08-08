@@ -7,7 +7,9 @@
 
 #pragma once
 
-#include "s3.h"
+#include "aws.h"
+#include "http_rest_proxy.h"
+
 
 namespace Datacratic {
 
@@ -16,7 +18,7 @@ namespace Datacratic {
 /* SNS API                                                                   */
 /*****************************************************************************/
  
-struct SnsApi {
+struct SnsApi : public AwsApi {
 
     std::string accessKeyId;
     std::string accessKey;

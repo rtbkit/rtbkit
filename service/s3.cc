@@ -196,38 +196,6 @@ getDigest(const std::string & verb,
     return stringToSign;
 }
 
-std::string
-S3Api::
-sign(const std::string & stringToSign,
-     const std::string & accessKey)
-{
-    typedef CryptoPP::SHA1 Hash;
-
-    size_t digestLen = Hash::DIGESTSIZE;
-    byte digest[digestLen];
-    CryptoPP::HMAC<Hash> hmac((byte *)accessKey.c_str(), accessKey.length());
-    hmac.CalculateDigest(digest,
-                         (byte *)stringToSign.c_str(),
-                         stringToSign.length());
-
-    // base64
-    char outBuf[256];
-
-    CryptoPP::Base64Encoder baseEncoder;
-    baseEncoder.Put(digest, digestLen);
-    baseEncoder.MessageEnd();
-    size_t got = baseEncoder.Get((byte *)outBuf, 256);
-    outBuf[got] = 0;
-
-    //cerr << "got " << got << " characters" << endl;
-
-    string base64digest(outBuf, outBuf + got - 1);
-
-    //cerr << "base64digest.size() = " << base64digest.size() << endl;
-
-    return base64digest;
-}
-
 S3Api::Response
 S3Api::SignedRequest::
 performSync() const
@@ -422,49 +390,7 @@ signature(const RequestParams & request) const
 
     //cerr << "digest = " << digest << endl;
 
-    return S3Api::sign(digest, accessKey);
-}
-
-std::string
-S3Api::
-uriEncode(const std::string & str)
-{
-    std::string result;
-    for (auto c: str) {
-        if (c <= ' ' || c >= 127) {
-            result += ML::format("%%%02X", c);
-            continue;
-        }
-
-        switch (c) {
-        case '!':
-        case '#':
-        case '$':
-        case '&':
-        case '\'':
-        case '(':
-        case ')':
-        case '*':
-        case '+':
-        case ',':
-        case '/':
-        case ':':
-        case ';':
-        case '=':
-        case '?':
-        case '@':
-        case '[':
-        case ']':
-        case '%':
-            result += ML::format("%%%02X", c);
-            break;
-
-        default:
-            result += c;
-        }
-    }
-
-    return result;
+    return signV2(digest, accessKey);
 }
 
 S3Api::SignedRequest
