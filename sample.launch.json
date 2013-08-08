@@ -61,7 +61,7 @@
                 {
                     "name": "router",
                     "root": ".",
-                    "path": "build/x86_64/bin/router_ex",
+                    "path": "build/x86_64/bin/router_runner",
                     "arg": [
                         "-B", "sample.bootstrap.json"
                     ],

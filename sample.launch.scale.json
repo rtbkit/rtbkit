@@ -83,7 +83,7 @@
                 {
                     "name": "router",
                     "root": ".",
-                    "path": "build/x86_64/bin/router_ex",
+                    "path": "build/x86_64/bin/router_runner",
                     "arg": [
                         "-N", "st2.router",
                         "-B", "sample.bootstrap.json"
@@ -109,7 +109,7 @@
                 {
                     "name": "router",
                     "root": ".",
-                    "path": "build/x86_64/bin/router_ex",
+                    "path": "build/x86_64/bin/router_runner",
                     "arg": [
                         "-N", "st3.router",
                         "-B", "sample.bootstrap.json"
