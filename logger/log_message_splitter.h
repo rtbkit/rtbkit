@@ -49,7 +49,7 @@ struct LogMessageSplitter {
         const char * start = data;
         const char * end = start + str.size();
 
-        while (start < end && numFields < maxFields) {
+        while (start <= end && numFields < maxFields) {
             offsets[numFields++] = start - data;
             while (start < end && *start != split)
                 ++start;
