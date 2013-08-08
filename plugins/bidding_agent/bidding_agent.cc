@@ -481,12 +481,18 @@ doBid(Id id, const Bids & bids, const Json::Value & jsonMeta, const WinCostModel
     Date afterSend = Date::now();
     Date beforeSend;
     string fromRouter;
+
     {
         lock_guard<mutex> guard (requestsLock);
 
         auto it = requests.find(id);
+
+        /** If the auction id isn't in the map then we previously received a
+            DROPBID message we should simply forget this bid.
+         */
         if (it == requests.end()) {
-            throw ML::Exception("Unknown bid id");
+            cerr << "Ignoring bid (dropped auction id): " << id << endl;
+            return;
         }
 
         beforeSend = it->second.timestamp;
