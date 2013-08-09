@@ -811,7 +811,7 @@ struct DefaultDescription<TaggedDouble>
 
     virtual bool isDefaultTyped(const TaggedDouble * val) const
     {
-        return isnan(val->val);
+        return std::isnan(val->val);
     }
 };
 
