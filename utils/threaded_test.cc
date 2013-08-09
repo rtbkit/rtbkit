@@ -133,7 +133,7 @@ run(unsigned durationMs)
                 auto& future = futures[i][j];
 
                 if (!future.valid()) continue;
-                if (!future.wait_for(chrono::seconds(0))) {
+                if (future.wait_for(chrono::seconds(0)) != std::future_status::ready) {
                     remaining++;
                     continue;
                 }
