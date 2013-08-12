@@ -37,7 +37,6 @@ using namespace Datacratic;
 
 struct MimeType : public OpenRTB::MimeType{};
 
-
 /*****************************************************************************/
 /* PAGE TYPE CODE	                                                     */
 /*****************************************************************************/
@@ -80,10 +79,9 @@ struct PageTypeCode: public TaggedEnum<PageTypeCode> {
 */
 
 struct RtbUserContext {
-    ~RtbUserContext();
-    std::string ipAddressMasked;             ///< User IP address
-    std::string userAgent;		       ///< User agent from the user browser
-    std::string country;          	       ///< Country code (ISO 3166-2)
+    std::string ipAddressMasked;    ///< User IP address
+    std::string userAgent;		    ///< User agent from the user browser
+    std::string country;          	///< Country code (ISO 3166-2)
 };
 
 
@@ -95,9 +93,8 @@ struct RtbUserContext {
 */
 
 struct RtbPageContext {
-    ~RtbPageContext();
     PageTypeCode pageTypeId;        ///< Page type
-    TaggedInt   numSlots;           ///< Estimated number of ad slots in the placement
+    TaggedInt numSlots;             ///< Estimated number of ad slots in the placement
 
 };
 
@@ -120,18 +117,15 @@ struct RtbPageContext {
 */
 
 struct BidRequest {
-    ~BidRequest();
-    Id requestId;                       ///< Bid request ID
-    string partnerMatchId;		///< Partner’s user ID 
+    Id requestId;                   ///< Bid request ID
+    string partnerMatchId;		    ///< Partner’s user ID 
 
     RtbUserContext userContext;		///< An object of type UserContext
     RtbPageContext pageContext;     ///< An object of type PageContext
-    TaggedBool istest;        ///< Indicates an auction being held purely for debugging purposes
+    TaggedBool istest;              ///< Indicates an auction being held purely for debugging purposes
     TaggedBool allowViewTag;        ///< Indicates if view tags are accepted.
 
-    Json::Value unparseable;           ///< Unparseable fields get put here
-
-    // STOP HERE!!
+    Json::Value unparseable;        ///< Unparseable fields get put here
 };
 
 /*****************************************************************************/
@@ -143,7 +137,6 @@ struct BidRequest {
   in the original ad creative
 */
 struct RtbBidDynamicCreativeSpec {
-	~RtbBidDynamicCreativeSpec();
 	Optional<string> title;
 	Optional<string> body;
 	Optional<string> link;
@@ -160,15 +153,13 @@ struct RtbBidDynamicCreativeSpec {
 */
 
 struct RtbBid {
-	~RtbBid();
-	Id adId; 										// FB ad id for ad which partner wishes to show
-	TaggedInt bidNative;							// the CPM bid in cents
-	string impressionPayload;						// opaque blob which FB will return to the partner in the win notification
-	string clickPayload;							// opaque blob which FB will return to the partner upon user click
-	Optional<RtbBidDynamicCreativeSpec> dynamicCreativeSpec; 	//
-	vector<string> viewTagUrls;       				// A list of view tag URL's to be fired when the impression is served.
+	Id adId;                        ///< FB ad id for ad which partner wishes to show
+	TaggedInt bidNative;            ///< the CPM bid in cents
+	string impressionPayload;       ///< opaque blob which FB will return to the partner in the win notification
+	string clickPayload;            ///< opaque blob which FB will return to the partner upon user click
+	Optional<RtbBidDynamicCreativeSpec> dynamicCreativeSpec;
+	vector<string> viewTagUrls;     ///< A list of view tag URL's to be fired when the impression is served.
 };
-
 
 
 /*****************************************************************************/
@@ -180,10 +171,9 @@ struct RtbBid {
 */
 
 struct BidResponse {
-	~BidResponse();
-    Id requestId;			// Same requestId as in the bid request
-    vector<RtbBid> bids;	// Array of type RtbBid
-    Optional<TaggedInt> processingTimeMs;	// Time it takes for your servers to process the bid request
+    Id requestId;                   ///< Same requestId as in the bid request
+    vector<RtbBid> bids;            ///< Array of type RtbBid
+    Optional<TaggedInt> processingTimeMs; ///< Time it takes for your servers to process the bid request
 };
 
 

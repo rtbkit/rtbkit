@@ -79,9 +79,8 @@ BOOST_STATIC_ASSERT(hasFromJson<int>::value == false);
 /*****************************************************************************/
 
 GumgumExchangeConnector::
-GumgumExchangeConnector(const std::string & name,
-                         std::shared_ptr<ServiceProxies> proxies)
-    : HttpExchangeConnector(name, proxies)
+GumgumExchangeConnector(ServiceBase & owner, const std::string & name)
+    : HttpExchangeConnector(name, owner)
 {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
@@ -89,8 +88,8 @@ GumgumExchangeConnector(const std::string & name,
 
 GumgumExchangeConnector::
 GumgumExchangeConnector(const std::string & name,
-                         ServiceBase & parent)
-    : HttpExchangeConnector(name, parent)
+                        std::shared_ptr<ServiceProxies> proxies)
+    : HttpExchangeConnector(name, proxies)
 {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
@@ -281,3 +280,14 @@ getErrorResponse(const HttpAuctionHandler & connection,
 
 
 } // namespace RTBKIT
+
+namespace {
+    using namespace RTBKIT;
+
+    struct Init {
+        Init() {
+            ExchangeConnector::registerFactory<GumgumExchangeConnector>();
+        }
+    } init;
+}
+

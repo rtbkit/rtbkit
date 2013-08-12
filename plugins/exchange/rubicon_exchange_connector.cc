@@ -255,3 +255,14 @@ setSeatBid(Auction const & auction,
 }
 
 } // namespace RTBKIT
+
+namespace {
+    using namespace RTBKIT;
+
+    struct Init {
+        Init() {
+            ExchangeConnector::registerFactory<RubiconExchangeConnector>();
+        }
+    } init;
+}
+

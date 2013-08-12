@@ -22,16 +22,16 @@ namespace RTBKIT {
 */
 
 struct GumgumExchangeConnector: public HttpExchangeConnector {
-    
+    GumgumExchangeConnector(ServiceBase & owner, const std::string & name);
     GumgumExchangeConnector(const std::string & name,
-                             std::shared_ptr<ServiceProxies> proxies);
+                            std::shared_ptr<ServiceProxies> proxies);
 
-    GumgumExchangeConnector(const std::string & name,
-                              ServiceBase & parent);
-
-    virtual std::string exchangeName() const
-    {
+    static std::string exchangeNameString() {
         return "gumgum";
+    }
+ 
+    virtual std::string exchangeName() const {
+        return exchangeNameString();
     }
 
     virtual std::shared_ptr<BidRequest>

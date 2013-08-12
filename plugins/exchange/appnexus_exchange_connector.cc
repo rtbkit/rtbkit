@@ -163,3 +163,14 @@ getErrorResponse(const HttpAuctionHandler & connection,
 }
 
 } // namespace RTBKIT
+
+namespace {
+    using namespace RTBKIT;
+
+    struct Init {
+        Init() {
+            ExchangeConnector::registerFactory<AppNexusExchangeConnector>();
+        }
+    } init;
+}
+
