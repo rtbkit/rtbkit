@@ -88,9 +88,13 @@ encodeDigest(const std::string & digest)
     size_t got = encoder.Get((byte *)outBuf, 256);
     outBuf[got] = 0;
 
+    //cerr << "signing " << digest.size() << " characters" << endl;
+    //cerr << "last character is " << (int)outBuf[got - 1] << endl;
     //cerr << "got " << got << " characters" << endl;
 
-    return string(outBuf, outBuf + got);
+    string result(outBuf, outBuf + got);
+    boost::trim(result);
+    return result;
 }
 
 std::string
