@@ -24,14 +24,14 @@
 namespace Datacratic {
 
 extern int32_t SpeculativeThreshold;
+
 /*****************************************************************************/
 /* GC LOCK BASE                                                              */
 /*****************************************************************************/
 
 struct GcLockBase : public boost::noncopyable {
 
-    struct Deferred;
-    struct DeferredList;
+public:
 
     /// A thread's bookkeeping info about each GC area
     struct ThreadGcInfoEntry {
@@ -145,12 +145,9 @@ struct GcLockBase : public boost::noncopyable {
         std::string print() const;
     };
 
-
     typedef ML::ThreadSpecificInstanceInfo<ThreadGcInfoEntry, GcLockBase>
         GcInfo;
     typedef typename GcInfo::PerThreadInfo ThreadGcInfo;
-
-    GcInfo gcInfo;
 
     struct Data {
         Data();
@@ -215,30 +212,6 @@ struct GcLockBase : public boost::noncopyable {
         }
 
     } JML_ALIGNED(16);
-
-    Data* data;
-
-    Deferred * deferred;   ///< Deferred workloads (hidden structure)
-
-    /** Update with the new value after first checking that the current
-        value is the same as the old value.  Returns true if it
-        succeeded; otherwise oldValue is updated with the new old
-        value.
-
-        As part of doing this, it will calculate the correct value for
-        visibleEpoch() and, if it has changed, wake up anything waiting
-        on that value, and will run any deferred handlers registered for
-        that value.
-    */
-    bool updateData(Data & oldValue, Data & newValue, bool runDefer = true);
-
-    /** Executes any available deferred work. */
-    void runDefers();
-
-    /** Check what deferred updates need to be run and do them.  Must be
-        called with deferred locked.
-    */
-    std::vector<DeferredList *> checkDefers();
 
     void enterCS(ThreadGcInfoEntry * entry = 0, bool runDefer = true);
     void exitCS(ThreadGcInfoEntry * entry = 0, bool runDefer = true);
@@ -478,6 +451,37 @@ struct GcLockBase : public boost::noncopyable {
     }
 
     void dump();
+
+protected:
+    Data* data;
+
+private:
+    struct Deferred;
+    struct DeferredList;
+
+    GcInfo gcInfo;
+
+    Deferred * deferred;   ///< Deferred workloads (hidden structure)
+
+    /** Update with the new value after first checking that the current
+        value is the same as the old value.  Returns true if it
+        succeeded; otherwise oldValue is updated with the new old
+        value.
+
+        As part of doing this, it will calculate the correct value for
+        visibleEpoch() and, if it has changed, wake up anything waiting
+        on that value, and will run any deferred handlers registered for
+        that value.
+    */
+    bool updateData(Data & oldValue, Data & newValue, bool runDefer);
+
+    /** Executes any available deferred work. */
+    void runDefers();
+
+    /** Check what deferred updates need to be run and do them.  Must be
+        called with deferred locked.
+    */
+    std::vector<DeferredList *> checkDefers();
 };
 
 
