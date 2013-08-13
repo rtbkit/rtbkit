@@ -120,6 +120,7 @@ BOOST_AUTO_TEST_CASE( stressTest )
     	Json::Value av(Json::arrayValue);
     	av.append("winSurcharges.surcharge.USD/1M");
     	av.append("id");
+    	av.append("foo.bar"); // not found
     	v["aug-list"] = av;
     	v["aug-prefix"] = "rtbkit:redis";
     	agent.config.addAugmentation(aug_conf);
