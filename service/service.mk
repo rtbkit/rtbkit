@@ -66,7 +66,8 @@ LIBCLOUD_SOURCES := \
 	sftp.cc \
 	s3.cc \
 	sns.cc \
-	aws.cc
+	aws.cc \
+	sqs.cc
 
 LIBCLOUD_LINK := crypto++ curlpp utils arch types tinyxml2 services ssh2 boost_filesystem
 
