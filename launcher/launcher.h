@@ -393,7 +393,10 @@ struct Launcher
                 }
             }
 
-            file << "tmux attach -t rtb" << std::endl;
+            file << "if [[ \"$*\" != *--quest* ]]" << std::endl;
+            file << "then" << std::endl;
+            file << "    tmux attach -t rtb" << std::endl;
+            file << "fi" << std::endl;
             file.close();
 
             chmod(sh.c_str(), 0755);

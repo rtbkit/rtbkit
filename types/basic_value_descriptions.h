@@ -9,7 +9,7 @@
 #include "value_description.h"
 #include "soa/types/url.h"
 #include "soa/types/date.h"
-
+#include "jml/utils/compact_vector.h"
 
 namespace Datacratic {
 
@@ -859,6 +859,197 @@ struct TaggedEnumDescription
     virtual bool isDefaultTyped(const Enum * val) const
     {
         return val->val == -1;
+    }
+};
+
+
+typedef std::string CSList;  // comma-separated list
+
+template<typename T>
+struct List: public ML::compact_vector<T, 3> {
+};
+
+/// This can either be:
+/// single format: "w": 123
+/// multiple formats: "w": [ 123, 456 ]
+struct FormatListDescription
+    : public ValueDescriptionI<List<int> >,
+      public ListDescriptionBase<int> {
+
+    virtual void parseJsonTyped(List<int> * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isArray()) {
+            auto onElement = [&] ()
+                {
+                    val->push_back(context.expectInt());
+                };
+            context.forEachElement(onElement);
+        }
+        else {
+            val->push_back(context.expectInt());
+        }
+    }
+
+    virtual void printJsonTyped(const List<int> * val,
+                                JsonPrintingContext & context) const
+    {
+        if (val->size() == 1) {
+            this->inner->printJsonTyped(&(*val)[0], context);
+        }
+        else
+            printJsonTypedList(val, context);
+    }
+
+    virtual bool isDefaultTyped(const List<int> * val) const
+    {
+        return val->empty();
+    }
+
+};
+
+struct CommaSeparatedListDescription
+    : public ValueDescriptionI<std::string, ValueKind::STRING> {
+
+    virtual void parseJsonTyped(std::string * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isArray()) {
+            std::string res;
+            auto onElement = [&] ()
+                {
+                    std::string s = context.expectStringAscii();
+                    if (!res.empty())
+                        res += ", ";
+                    res += s;
+                        
+                };
+            context.forEachElement(onElement);
+            *val = res;
+        }
+        else {
+            *val = context.expectStringAscii();
+        }
+    }
+
+    virtual void printJsonTyped(const std::string * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeString(*val);
+    }
+
+    virtual bool isDefaultTyped(const std::string * val) const
+    {
+        return val->empty();
+    }
+
+};
+
+template<typename T>
+struct DefaultDescription<Optional<T> >
+    : public ValueDescriptionI<Optional<T>, ValueKind::OPTIONAL> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner
+                       = getDefaultDescription((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::unique_ptr<ValueDescriptionT<T> > inner;
+
+    virtual void parseJsonTyped(Optional<T> * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isNull()) {
+            context.expectNull();
+            val->reset();
+        }
+        val->reset(new T());
+        inner->parseJsonTyped(val->get(), context);
+    }
+
+    virtual void printJsonTyped(const Optional<T> * val,
+                                JsonPrintingContext & context) const
+    {
+        if (!val->get())
+            context.skip();
+        else inner->printJsonTyped(val->get(), context);
+    }
+
+    virtual bool isDefaultTyped(const Optional<T> * val) const
+    {
+        return !val->get();
+    }
+
+    virtual void * optionalMakeValueTyped(Optional<T> * val) const
+    {
+        if (!val->get())
+            val->reset(new T());
+        return val->get();
+    }
+
+    virtual const void * optionalGetValueTyped(const Optional<T> * val) const
+    {
+        if (!val->get())
+            throw ML::Exception("no value in optional field");
+        return val->get();
+    }
+
+    virtual const ValueDescription & contained() const
+    {
+        return *inner;
+    }
+};
+
+template<typename T>
+struct DefaultDescription<List<T> >
+    : public ValueDescriptionI<List<T>, ValueKind::ARRAY>,
+      public ListDescriptionBase<T> {
+
+    virtual void parseJsonTyped(List<T> * val,
+                                JsonParsingContext & context) const
+    {
+        this->parseJsonTypedList(val, context);
+    }
+
+    virtual void printJsonTyped(const List<T> * val,
+                                JsonPrintingContext & context) const
+    {
+        this->printJsonTypedList(val, context);
+    }
+
+    virtual bool isDefaultTyped(const List<T> * val) const
+    {
+        return val->empty();
+    }
+
+    virtual size_t getArrayLength(void * val) const
+    {
+        const List<T> * val2 = reinterpret_cast<const List<T> *>(val);
+        return val2->size();
+    }
+
+    virtual void * getArrayElement(void * val, uint32_t element) const
+    {
+        List<T> * val2 = reinterpret_cast<List<T> *>(val);
+        return &val2->at(element);
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    {
+        const List<T> * val2 = reinterpret_cast<const List<T> *>(val);
+        return &val2->at(element);
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const
+    {
+        List<T> * val2 = reinterpret_cast<List<T> *>(val);
+        val2->resize(newLength);
+    }
+    
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
     }
 };
 

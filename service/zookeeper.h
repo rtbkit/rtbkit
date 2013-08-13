@@ -17,6 +17,7 @@
 #include <vector>
 #include <mutex>
 #include <thread>
+#include <condition_variable>
 
 
 namespace Datacratic {
@@ -158,7 +159,8 @@ struct ZookeeperConnection {
     /** Remove trailing slash so it can be used as a path. */
     static std::string fixPath(const std::string & path);
 
-    std::timed_mutex connectMutex;
+    std::mutex connectMutex;
+    std::condition_variable cv;
     std::string host;
     int recvTimeout;
     clientid_t clientId;

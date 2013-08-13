@@ -343,7 +343,7 @@ GcLockBase::
 
 bool
 GcLockBase::
-updateData(Data & oldValue, Data & newValue)
+updateData(Data & oldValue, Data & newValue, bool runDefer /* = true */)
 {
     bool wake;
     try {
@@ -373,7 +373,9 @@ updateData(Data & oldValue, Data & newValue)
         // anything that was waiting for it to be visible and run any
         // deferred handlers.
         futex_wake(data->visibleEpoch);
-        runDefers();
+        if (runDefer) {
+            runDefers();
+        }
     }
 
     return true;
@@ -429,7 +431,7 @@ checkDefers()
 
 void
 GcLockBase::
-enterCS(ThreadGcInfoEntry * entry)
+enterCS(ThreadGcInfoEntry * entry, bool runDefer)
 {
     if (!entry) entry = &getEntry();
         
@@ -471,24 +473,27 @@ enterCS(ThreadGcInfoEntry * entry)
 
         entry->inEpoch = newValue.epoch & 1;
             
-        if (updateData(current, newValue)) break;
+        if (updateData(current, newValue, runDefer)) break;
     }
 }
 
 void
 GcLockBase::
-exitCS(ThreadGcInfoEntry * entry)
+exitCS(ThreadGcInfoEntry * entry, bool runDefer /* = true */)
 {
     if (!entry) entry = &getEntry();
 
     if (entry->inEpoch == -1)
         throw ML::Exception("not in a CS");
 
+    ExcCheck(entry->inEpoch == 0 || entry->inEpoch == 1,
+            "Invalid inEpoch");
     // Fast path
-    if (__sync_fetch_and_add(data->in + (entry->inEpoch & 1), -1) > 1) {
+    if (__sync_fetch_and_add(data->in + entry->inEpoch, -1) > 1) {
         entry->inEpoch = -1;
         return;
     }
+
         
     // Slow path; an epoch may have come to an end
     
@@ -499,7 +504,7 @@ exitCS(ThreadGcInfoEntry * entry)
 
         //newValue.addIn(entry->inEpoch, -1);
 
-        if (updateData(current, newValue)) break;
+        if (updateData(current, newValue, runDefer)) break;
     }
 
     entry->inEpoch = -1;
@@ -531,7 +536,7 @@ enterCSExclusive(ThreadGcInfoEntry * entry)
 
         newValue = current;
         newValue.exclusive = 1;
-        if (updateData(current, newValue)) {
+        if (updateData(current, newValue, true)) {
             current = newValue;
             break;
         }

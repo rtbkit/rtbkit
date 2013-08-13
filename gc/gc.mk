@@ -8,9 +8,7 @@
 
 
 LIBGC_SOURCES := \
-	gc_lock.cc \
-	rcu_lock.cc \
-	gc.cc
+	gc_lock.cc 
 
 $(eval $(call library,gc,$(LIBGC_SOURCES),arch utils urcu))
 
