@@ -348,7 +348,7 @@ addSignatureV4(BasicRequest & request,
     
     string canonicalRequest
         = request.method + "\n"
-        + (request.relativeUri.empty() ? "/" : request.relativeUri) + "\n"
+        + "/" + request.relativeUri + "\n"
         + canonicalQueryParams + "\n"
         + canonicalHeaders + "\n"
         + signedHeaders + "\n"
@@ -466,7 +466,7 @@ setService(const std::string & serviceName,
     this->serviceUri = protocol + "://" + serviceHost + "/";
 
     proxy.init(serviceUri);
-    //proxy.debug = true;
+    proxy.debug = true;
 }
 
 void
@@ -480,11 +480,11 @@ setCredentials(const std::string & accessKeyId,
 
 AwsBasicApi::BasicRequest
 AwsBasicApi::
-signPost(RestParams && params)
+signPost(RestParams && params, const std::string & resource)
 {
     BasicRequest result;
     result.method = "POST";
-    result.relativeUri = "";
+    result.relativeUri = resource;
     result.headers.push_back({"Host", serviceHost});
     result.headers.push_back({"Content-Type", "application/x-www-form-urlencoded; charset=utf-8"});
 
@@ -510,11 +510,11 @@ signPost(RestParams && params)
 
 AwsBasicApi::BasicRequest
 AwsBasicApi::
-signGet(RestParams && params)
+signGet(RestParams && params, const std::string & resource)
 {
     BasicRequest result;
     result.method = "GET";
-    result.relativeUri = "";
+    result.relativeUri = resource;
     result.headers.push_back({"Host", serviceHost});
     result.queryParams = params;
 
@@ -523,75 +523,74 @@ signGet(RestParams && params)
     return result;
 }
 
+std::unique_ptr<tinyxml2::XMLDocument>
+AwsBasicApi::
+performPost(RestParams && params,
+            const std::string & resource)
+{
+    return perform(signGet(std::move(params), resource), 10, 3);
+}
+
 std::string
 AwsBasicApi::
 performPost(RestParams && params,
+            const std::string & resource,
             const std::string & resultSelector)
 {
-    BasicRequest sr = signPost(std::move(params));
+    return extract<string>(*performPost(std::move(params), resource), resultSelector);
+}
 
-    //cerr << "payload = " << sr.payload << endl;
+std::unique_ptr<tinyxml2::XMLDocument>
+AwsBasicApi::
+performGet(RestParams && params,
+           const std::string & resource)
+{
+    return perform(signGet(std::move(params), resource), 10, 3);
+}
 
-    int timeout = 10;
-
+std::unique_ptr<tinyxml2::XMLDocument>
+AwsBasicApi::
+perform(const BasicRequest & request,
+        int timeout,
+        int retries)
+{
     int retry = 0;
-    for (; retry < 3;  ++retry) {
+    for (; retry < retries;  ++retry) {
         HttpRestProxy::Response response;
         try {
-            response = proxy.post(sr.relativeUri,
-                                  HttpRestProxy::Content(sr.payload),
-                                  sr.queryParams,
-                                  sr.headers,
-                                  timeout);
+            response = proxy.perform(request.method,
+                                     request.relativeUri,
+                                     HttpRestProxy::Content(request.payload),
+                                     request.queryParams,
+                                     request.headers,
+                                     timeout);
 
             if (response.code() == 200) {
-                tinyxml2::XMLDocument body;
-                body.Parse(response.body().c_str());
-
-                return extract<string>(body, resultSelector);
+                std::unique_ptr<tinyxml2::XMLDocument> body(new tinyxml2::XMLDocument());
+                body->Parse(response.body().c_str());
+                return body;
             }
-            
-            cerr << "request failed: " << response << endl;
+            else if (response.code() == 503)
+                continue;
+            else {
+                cerr << "request failed: " << response << endl;
+                break;
+            }
         } catch (const std::exception & exc) {
             cerr << "error on request: " << exc.what() << endl;
         }
     }
 
-    throw ML::Exception("failed request after 3 retries");
+    throw ML::Exception("failed request after %d retries", retries);
 }
 
 std::string
 AwsBasicApi::
 performGet(RestParams && params,
+           const std::string & resource,
            const std::string & resultSelector)
 {
-    BasicRequest sr = signGet(std::move(params));
-
-    int timeout = 10;
-
-    int retry = 0;
-    for (; retry < 3;  ++retry) {
-        HttpRestProxy::Response response;
-        try {
-            response = proxy.get(sr.relativeUri,
-                                 sr.queryParams,
-                                 sr.headers,
-                                 timeout);
-
-            if (response.code() == 200) {
-                tinyxml2::XMLDocument body;
-                body.Parse(response.body().c_str());
-
-                return extract<string>(body, resultSelector);
-            }
-            
-            cerr << "request failed: " << response << endl;
-        } catch (const std::exception & exc) {
-            cerr << "error on request: " << exc.what() << endl;
-        }
-    }
-
-    throw ML::Exception("failed request after 3 retries");
+    return extract<string>(*performGet(std::move(params), resource), resultSelector);
 }
 
 } // namespace Datacratic

@@ -9,6 +9,9 @@
 #include <string>
 #include "http_rest_proxy.h"
 
+namespace tinyxml2 {
+struct XMLDocument;
+} // namespace tinyxml2
 
 namespace Datacratic {
 
@@ -142,11 +145,24 @@ struct AwsBasicApi : public AwsApi {
     std::string region;
     std::string serviceUri;
 
-    std::string performPost(RestParams && params, const std::string & resultSelector);
-    std::string performGet(RestParams && params, const std::string & resultSelector);
+    std::unique_ptr<tinyxml2::XMLDocument>
+    perform(const BasicRequest & request,
+            int timeout,
+            int retries);
+
+    std::string performPost(RestParams && params, const std::string & resource,
+                            const std::string & resultSelector);
+    std::string performGet(RestParams && params, const std::string & resource,
+                           const std::string & resultSelector);
+
+    std::unique_ptr<tinyxml2::XMLDocument>
+    performPost(RestParams && params, const std::string & resource);
+
+    std::unique_ptr<tinyxml2::XMLDocument>
+    performGet(RestParams && params, const std::string & resource);
     
-    BasicRequest signPost(RestParams && params);
-    BasicRequest signGet(RestParams && params);
+    BasicRequest signPost(RestParams && params, const std::string & resource = "");
+    BasicRequest signGet(RestParams && params, const std::string & resource = "");
 
     HttpRestProxy proxy;
 };

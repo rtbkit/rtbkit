@@ -48,7 +48,8 @@ struct SqsApi : public AwsBasicApi {
                             const QueueParams & params = QueueParams());
                             
     /** Return the URL for the given queue. */
-    std::string getQueueUrl(const std::string & queueName);
+    std::string getQueueUrl(const std::string & queueName,
+                            const std::string & ownerAccountId = "");
 
     /** Publish a message to a given SQS queue.  Returns the Message ID assigned
         by Amazon.
@@ -66,11 +67,29 @@ struct SqsApi : public AwsBasicApi {
         See also http://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/Query_QuerySendMessage.html
     */
     std::string
-    sendMessage(const std::string & queueName,
-                const std::string & accountOwner,
+    sendMessage(const std::string & queueUrl,
                 const std::string & message,
                 int timeoutSeconds = 10,
-                int delaySeconds = 0);
+                int delaySeconds = -1);
+
+    struct Message {
+        std::string body;
+        std::string bodyMd5;
+        std::string messageId;
+        std::string receiptHandle;
+        std::string senderId;
+        Date sentTimestamp;
+        int approximateReceiveCount;
+        Date approximateFirstReceiveTimestamp;
+    };
+
+    Message receiveMessage(const std::string & queueUri,
+                           int visibilityTimeout = -1,
+                           int waitTimeSeconds = -1);
+
+    /** Turns a queue URI into a relative resource path for the HttpRestProxy */
+    std::string getQueueResource(const std::string & queueUri) const;
+
 };
 
 
