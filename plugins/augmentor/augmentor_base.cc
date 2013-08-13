@@ -11,6 +11,7 @@
 #include "jml/arch/timers.h"
 #include "jml/utils/vector_utils.h"
 #include "jml/arch/futex.h"
+#include <memory>
 
 
 using namespace std;
