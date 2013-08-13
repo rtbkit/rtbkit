@@ -22,10 +22,10 @@ namespace RTBKIT {
 struct FBXExchangeConnector : public HttpExchangeConnector {
 	FBXExchangeConnector(ServiceBase & owner, const std::string & name);
 	FBXExchangeConnector(const std::string & name,
-	                         std::shared_ptr<ServiceProxies> proxies);
+	                     std::shared_ptr<ServiceProxies> proxies);
 
     static std::string exchangeNameString() {
-        return "FBX";
+        return "fbx";
     }
 
     std::string exchangeName() const {

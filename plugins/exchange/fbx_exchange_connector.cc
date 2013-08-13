@@ -10,7 +10,7 @@
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 
 using namespace Datacratic;
-
+/*
 namespace Datacratic {
 
 template<typename T, int I, typename S>
@@ -35,9 +35,9 @@ jsonDecode(const Json::Value & val, ML::compact_vector<T, I, S> *)
 }
 
 } // namespace Datacratic
-
+*/
 namespace FBX {
-
+/*
 template<typename T>
 Json::Value jsonEncode(const FBX::List<T> & vec)
 {
@@ -60,7 +60,7 @@ jsonDecode(const Json::Value & val, FBX::List<T> *)
         res.push_back(jsonDecode(val[i], (T*)0));
     return res;
 }
-
+*/
 } // namespace FBX
 
 namespace RTBKIT {
@@ -75,13 +75,11 @@ BOOST_STATIC_ASSERT(hasFromJson<int>::value == false);
 FBXExchangeConnector::
 FBXExchangeConnector(ServiceBase & owner, const std::string & name) :
 	HttpExchangeConnector(name, owner) {
-		//this->auctionResource = "/bids";
-		//this->auctionVerb = "POST";string
 }
 
 FBXExchangeConnector::
 FBXExchangeConnector(const std::string & name,
-                         std::shared_ptr<ServiceProxies> proxies)
+                     std::shared_ptr<ServiceProxies> proxies)
     : HttpExchangeConnector(name, proxies)
 {
 }
@@ -100,20 +98,13 @@ parseBidRequest(HttpAuctionHandler & connection,
         return res;
     }
 
-    std::cerr << "got request" << std::endl << header << std::endl;
-
-
     // Parse the bid request
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
     res.reset(FbxBidRequestParser::parseBidRequest(context,
-                                                       exchangeName(),
-                                                       exchangeName()));
-        
-    std::cerr << res->toJson() << std::endl;
-
+                                                   exchangeName(),
+                                                   exchangeName()));
     return res;
 }
-
 
 HttpResponse
 FBXExchangeConnector::
@@ -129,24 +120,27 @@ getResponse(const HttpAuctionHandler & connection,
 
     FBX::BidResponse response;
     response.requestId = auction.id;
-/*
+
     // Create a spot for each of the bid responses
     for (unsigned spotNum = 0; spotNum < current->responses.size(); ++spotNum) {
         if (!current->hasValidResponse(spotNum))
             continue;
 
-        setSeatBid(auction, spotNum, response);
+        const Auction::Data * data = auction.getCurrentData();
+
+        auto & resp = data->winningResponse(spotNum);
+
+        response.bids.emplace_back();
+        auto & bid = response.bids.back();
+
+        bid.adId = Id(resp.creativeId);
+        bid.bidNative.val = USD_CPM(resp.price.maxPrice);
     }
 
-    if (response.seatbid.empty())
-        return HttpResponse(204, "none", "");
-*/
     static Datacratic::DefaultDescription<FBX::BidResponse> desc;
     std::ostringstream stream;
     StreamJsonPrintingContext context(stream);
     desc.printJsonTyped(&response, context);
-
-    std::cerr << Json::parse(stream.str());
 
     return HttpResponse(200, "application/json", stream.str());
 }

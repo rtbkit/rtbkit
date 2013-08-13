@@ -121,17 +121,11 @@ parseBidRequest(HttpAuctionHandler & connection,
         return res;
     }
 
-    std::cerr << "got request" << std::endl << header << std::endl
-                                            << payload << std::endl;
-
     // Parse the bid request
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
     res.reset(OpenRtbBidRequestParser::parseBidRequest(context,
                                                        exchangeName(),
                                                        exchangeName()));
-        
-    std::cerr << res->toJson() << std::endl;
-
     return res;
 }
 
@@ -181,8 +175,6 @@ getResponse(const HttpAuctionHandler & connection,
     std::ostringstream stream;
     StreamJsonPrintingContext context(stream);
     desc.printJsonTyped(&response, context);
-
-    std::cerr << Json::parse(stream.str());
 
     return HttpResponse(200, "application/json", stream.str());
 }
