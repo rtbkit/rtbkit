@@ -97,105 +97,6 @@ Content(const tinyxml2::XMLDocument & xml)
     this->size = str.length();
 }
 
-std::string
-S3Api::
-getDigestMulti(const std::string & verb,
-               const std::string & bucket,
-               const std::string & resource,
-               const std::string & subResource,
-               const std::string & contentType,
-               const std::string & contentMd5,
-               const std::string & date,
-               const std::vector<std::pair<std::string, std::string> > & headers)
-{
-    map<string, string> canonHeaders;
-    for (auto it = headers.begin(), end = headers.end();
-         it != end;  ++it) {
-        string key = lowercase(it->first);
-        if (key.find("x-amz") != 0) continue;
-
-        string value = it->second;
-        if (canonHeaders.count(key))
-            canonHeaders[key] += ",";
-        canonHeaders[key] += value;
-    }
-
-    return getDigest(verb, bucket, resource, subResource,
-                     contentType, contentMd5, date, canonHeaders);
-
-}
-
-/*
-Authorization = "AWS" + " " + AWSAccessKeyId + ":" + Signature;
-
-Signature = Base64( HMAC-SHA1( YourSecretAccessKeyID, UTF-8-Encoding-Of( StringToSign ) ) );
-
-StringToSign = HTTP-Verb + "\n" +
-    Content-MD5 + "\n" +
-    Content-Type + "\n" +
-    Date + "\n" +
-    CanonicalizedAmzHeaders +
-    CanonicalizedResource;
-
-CanonicalizedResource = [ "/" + Bucket ] +
-    <HTTP-Request-URI, from the protocol name up to the query string> +
-    [ sub-resource, if present. For example "?acl", "?location", "?logging", or "?torrent"];
-
-CanonicalizedAmzHeaders = <described below>
-To construct the CanonicalizedAmzHeaders part of StringToSign, select all HTTP request headers that start with 'x-amz-' (using a case-insensitive comparison) and use the following process.
-
-CanonicalizedAmzHeaders Process
-1	Convert each HTTP header name to lower-case. For example, 'X-Amz-Date' becomes 'x-amz-date'.
-2	Sort the collection of headers lexicographically by header name.
-3	Combine header fields with the same name into one "header-name:comma-separated-value-list" pair as prescribed by RFC 2616, section 4.2, without any white-space between values. For example, the two metadata headers 'x-amz-meta-username: fred' and 'x-amz-meta-username: barney' would be combined into the single header 'x-amz-meta-username: fred,barney'.
-4	"Unfold" long headers that span multiple lines (as allowed by RFC 2616, section 4.2) by replacing the folding white-space (including new-line) by a single space.
-5	Trim any white-space around the colon in the header. For example, the header 'x-amz-meta-username: fred,barney' would become 'x-amz-meta-username:fred,barney'
-6	Finally, append a new-line (U+000A) to each canonicalized header in the resulting list. Construct the CanonicalizedResource element by concatenating all headers in this list into a single string.
-
-
-*/
-std::string
-S3Api::
-getDigest(const std::string & verb,
-          const std::string & bucket,
-          const std::string & resource,
-          const std::string & subResource,
-          const std::string & contentType,
-          const std::string & contentMd5,
-          const std::string & date,
-          const std::map<std::string, std::string> & headers)
-{
-    string canonHeaderString;
-
-    for (auto it = headers.begin(), end = headers.end();
-         it != end;  ++it) {
-        string key = lowercase(it->first);
-        if (key.find("x-amz") != 0) continue;
-
-        string value = it->second;
-
-        canonHeaderString += key + ":" + value + "\n";
-    }
-
-    //cerr << "bucket = " << bucket << " resource = " << resource << endl;
-
-    string canonResource
-        = (bucket == "" ? "" : "/" + bucket)
-        + resource
-        + (subResource.empty() ? "" : "?")
-        + subResource;
-
-    string stringToSign
-        = verb + "\n"
-        + contentMd5 + "\n"
-        + contentType + "\n"
-        + date + "\n"
-        + canonHeaderString
-        + canonResource;
-
-    return stringToSign;
-}
-
 S3Api::Response
 S3Api::SignedRequest::
 performSync() const
@@ -382,14 +283,14 @@ S3Api::
 signature(const RequestParams & request) const
 {
     string digest
-        = S3Api::getDigestMulti(request.verb,
-                                request.bucket,
-                                request.resource, request.subResource,
-                                request.contentType, request.contentMd5,
-                                request.date, request.headers);
-
+        = S3Api::getStringToSignV2Multi(request.verb,
+                                        request.bucket,
+                                        request.resource, request.subResource,
+                                        request.contentType, request.contentMd5,
+                                        request.date, request.headers);
+    
     //cerr << "digest = " << digest << endl;
-
+    
     return signV2(digest, accessKey);
 }
 

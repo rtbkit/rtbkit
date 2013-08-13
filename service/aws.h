@@ -39,6 +39,39 @@ struct AwsApi {
 
     static std::string hexEncodeDigest(const std::string & digest);
 
+    /** Get the digest string (the one that needs to be signed) from a set
+        of s3 parameters.  Directly implements the procedure in the
+        s3 documentation.
+
+        This variant can deal with multiple copies of each of the http
+        headers.
+    */
+    static std::string
+    getStringToSignV2Multi(const std::string & verb,
+                           const std::string & bucket,
+                           const std::string & resource,
+                           const std::string & subResource,
+                           const std::string & contentType,
+                           const std::string & contentMd5,
+                           const std::string & date,
+                           const std::vector<std::pair<std::string, std::string> > & headers);
+    
+    /** Get the digest string (the one that needs to be signed) from a set
+        of s3 parameters.  Directly implements the procedure in the
+        s3 documentation.
+
+        This variant can only accept one of each kind of http header.
+    */
+    static std::string
+    getStringToSignV2(const std::string & verb,
+                      const std::string & bucket,
+                      const std::string & resource,
+                      const std::string & subResource,
+                      const std::string & contentType,
+                      const std::string & contentMd5,
+                      const std::string & date,
+                      const std::map<std::string, std::string> & headers);
+
     /** Sign the given digest string with the given access key and return
         a base64 encoded signature.
     */

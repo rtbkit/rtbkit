@@ -22,11 +22,187 @@ using namespace std;
 using namespace Datacratic;
 using namespace ML;
 
+// These are all of those on http://docs.amazonwebservices.com/AmazonS3/2006-03-01/dev/RESTAuthentication.html?r=1821
+
+string accessKeyId = "AKIAIOSFODNN7EXAMPLE";
+string accessKey   = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+
+BOOST_AUTO_TEST_CASE( test_signing_1 )
+{
+    string correctDigest = 
+        "GET\n"
+        "\n"
+        "\n"
+        "Tue, 27 Mar 2007 19:42:41 +0000\n"
+        "/johnsmith/";
+        
+    BOOST_CHECK_EQUAL(AwsApi::getStringToSignV2("GET", "johnsmith", "/", "", "", "",
+                                                "Tue, 27 Mar 2007 19:42:41 +0000",
+                                                {}),
+                      correctDigest);
+    
+    string correctAuth = "htDYFYduRNen8P9ZfE/s9SuKy0U=";
+
+    BOOST_CHECK_EQUAL(AwsApi::signV2(correctDigest, accessKey),
+                      correctAuth);
+}
+
+BOOST_AUTO_TEST_CASE ( test_signing_2 )
+{
+    /* PUT /photos/puppy.jpg HTTP/1.1
+       Content-Type: image/jpeg
+       Content-Length: 94328
+       Host: johnsmith.s3.amazonaws.com
+       Date: Tue, 27 Mar 2007 21:15:45 +0000
+
+       Authorization: AWS AKIAIOSFODNN7EXAMPLE:
+       MyyxeRY7whkBe+bq8fHCL/2kKUg=
+    */
+
+    string correctDigest = 
+        "PUT\n"
+        "\n"
+        "image/jpeg\n"
+        "Tue, 27 Mar 2007 21:15:45 +0000\n"
+        "/johnsmith/photos/puppy.jpg";
+
+    string correctAuth = "MyyxeRY7whkBe+bq8fHCL/2kKUg=";
+
+    BOOST_CHECK_EQUAL(AwsApi::getStringToSignV2("PUT", "johnsmith", "/photos/puppy.jpg", "",
+                                                "image/jpeg", "",
+                                                "Tue, 27 Mar 2007 21:15:45 +0000",
+                                                {}),
+                      correctDigest);
+    
+    
+    BOOST_CHECK_EQUAL(AwsApi::signV2(correctDigest, accessKey),
+                      correctAuth);
+}
+
+
+BOOST_AUTO_TEST_CASE ( test_signing_3 )
+{
+    /* GET /?prefix=photos&max-keys=50&marker=puppy HTTP/1.1
+       User-Agent: Mozilla/5.0
+       Host: johnsmith.s3.amazonaws.com
+       Date: Tue, 27 Mar 2007 19:42:41 +0000
+
+       Authorization: AWS AKIAIOSFODNN7EXAMPLE:
+       htDYFYduRNen8P9ZfE/s9SuKy0U=
+    */
+
+    string correctDigest = 
+        "GET\n"
+        "\n"
+        "\n"
+        "Tue, 27 Mar 2007 19:42:41 +0000\n"
+        "/johnsmith/";
+    
+    string correctAuth = "htDYFYduRNen8P9ZfE/s9SuKy0U=";
+
+    BOOST_CHECK_EQUAL(AwsApi::getStringToSignV2("GET", "johnsmith", "/", "",
+                                                "", "",
+                                                "Tue, 27 Mar 2007 19:42:41 +0000",
+                                                {}),
+                      correctDigest);
+    
+
+    BOOST_CHECK_EQUAL(AwsApi::signV2(correctDigest, accessKey),
+                      correctAuth);
+}
+
+
+BOOST_AUTO_TEST_CASE ( test_signing_4 )
+{
+    /* GET /?acl HTTP/1.1
+       Host: johnsmith.s3.amazonaws.com
+       Date: Tue, 27 Mar 2007 19:44:46 +0000
+       
+       Authorization: AWS AKIAIOSFODNN7EXAMPLE:
+       c2WLPFtWHVgbEmeEG93a4cG37dM=
+    */
+
+    string correctDigest = 
+        "GET\n"
+        "\n"
+        "\n"
+        "Tue, 27 Mar 2007 19:44:46 +0000\n"
+        "/johnsmith/?acl";
+    
+    string correctAuth = "c2WLPFtWHVgbEmeEG93a4cG37dM=";
+
+    BOOST_CHECK_EQUAL(AwsApi::getStringToSignV2("GET", "johnsmith", "/", "acl",
+                                                "", "",
+                                                "Tue, 27 Mar 2007 19:44:46 +0000",
+                                                {}),
+                      correctDigest);
+    
+    
+    BOOST_CHECK_EQUAL(AwsApi::signV2(correctDigest, accessKey),
+                      correctAuth);
+}
+
+BOOST_AUTO_TEST_CASE ( test_signing_5 )
+{
+    /* PUT /db-backup.dat.gz HTTP/1.1
+       User-Agent: curl/7.15.5
+       Host: static.johnsmith.net:8080
+       Date: Tue, 27 Mar 2007 21:06:08 +0000
+
+       x-amz-acl: public-read
+       content-type: application/x-download
+       Content-MD5: 4gJE4saaMU4BqNR0kLY+lw==
+       X-Amz-Meta-ReviewedBy: joe@johnsmith.net
+       X-Amz-Meta-ReviewedBy: jane@johnsmith.net
+       X-Amz-Meta-FileChecksum: 0x02661779
+       X-Amz-Meta-ChecksumAlgorithm: crc32
+       Content-Disposition: attachment; filename=database.dat
+       Content-Encoding: gzip
+       Content-Length: 5913339
+
+       Authorization: AWS AKIAIOSFODNN7EXAMPLE:
+       ilyl83RwaSoYIEdixDQcA4OnAnc=
+    */
+
+    string correctDigest = 
+        "PUT\n"
+        "4gJE4saaMU4BqNR0kLY+lw==\n"
+        "application/x-download\n"
+        "Tue, 27 Mar 2007 21:06:08 +0000\n"
+        "x-amz-acl:public-read\n"
+        "x-amz-meta-checksumalgorithm:crc32\n"
+        "x-amz-meta-filechecksum:0x02661779\n"
+        "x-amz-meta-reviewedby:joe@johnsmith.net,jane@johnsmith.net\n"
+        "/static.johnsmith.net/db-backup.dat.gz";
+    
+    string correctAuth = "ilyl83RwaSoYIEdixDQcA4OnAnc=";
+
+    vector<pair<string, string> > headers = {
+        {"x-amz-acl", "public-read" },
+        { "X-Amz-Meta-ReviewedBy", "joe@johnsmith.net" },
+        { "X-Amz-Meta-ReviewedBy", "jane@johnsmith.net" },
+        { "X-Amz-Meta-FileChecksum", "0x02661779" },
+        { "X-Amz-Meta-ChecksumAlgorithm", "crc32" }
+    };
+
+    BOOST_CHECK_EQUAL(AwsApi::getStringToSignV2Multi("PUT", "static.johnsmith.net",
+                                                     "/db-backup.dat.gz", "",
+                                                     "application/x-download",
+                                                     "4gJE4saaMU4BqNR0kLY+lw==",
+                                                     "Tue, 27 Mar 2007 21:06:08 +0000",
+                                                     headers),
+                      correctDigest);
+    
+    
+    BOOST_CHECK_EQUAL(AwsApi::signV2(correctDigest, accessKey),
+                      correctAuth);
+}
+
 BOOST_AUTO_TEST_CASE( test_signing_v4 )
 {
     // Test cases are from
     // http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
-
+    
     string sampleSigningKey = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY";
     string digest = AwsApi::signingKeyV4(sampleSigningKey, "20110909","us-east-1","iam","aws4_request");
     string hexDigest = AwsApi::hexEncodeDigest(digest);
@@ -46,7 +222,7 @@ BOOST_AUTO_TEST_CASE( test_signing_v4 )
 }
 
 
-BOOST_AUTO_TEST_CASE( check_canonical_request )
+BOOST_AUTO_TEST_CASE( check_canonical_request_v4 )
 {
     // See here:
 

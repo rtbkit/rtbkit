@@ -410,39 +410,6 @@ struct S3Api : public AwsApi {
     */
     bool forEachBucket(const OnBucket & bucket) const;
 
-    /** Get the digest string (the one that needs to be signed) from a set
-        of s3 parameters.  Directly implements the procedure in the
-        s3 documentation.
-
-        This variant can deal with multiple copies of each of the http
-        headers.
-    */
-    static std::string
-    getDigestMulti(const std::string & verb,
-                   const std::string & bucket,
-                   const std::string & resource,
-                   const std::string & subResource,
-                   const std::string & contentType,
-                   const std::string & contentMd5,
-                   const std::string & date,
-                   const std::vector<std::pair<std::string, std::string> > & headers);
-
-    /** Get the digest string (the one that needs to be signed) from a set
-        of s3 parameters.  Directly implements the procedure in the
-        s3 documentation.
-
-        This variant can only accept one of each kind of http header.
-    */
-    static std::string
-    getDigest(const std::string & verb,
-              const std::string & bucket,
-              const std::string & resource,
-              const std::string & subResource,
-              const std::string & contentType,
-              const std::string & contentMd5,
-              const std::string & date,
-              const std::map<std::string, std::string> & headers);
-
     /** Turn a s3:// uri string into a bucket name and object. */
     static std::pair<std::string, std::string>
     parseUri(const std::string & uri);
