@@ -102,7 +102,7 @@ deleteMessage(const std::string & queueUri,
               const std::string & receiptHandle)
 {
     RestParams queryParams;
-    queryParams.push_back({"Action", "ReceiveMessage"});
+    queryParams.push_back({"Action", "DeleteMessage"});
     queryParams.push_back({"ReceiptHandle", receiptHandle});
     queryParams.push_back({"Version", "2012-11-05"});
 
@@ -117,7 +117,7 @@ deleteMessageBatch(const std::string & queueUri,
                    const std::vector<std::string> & receiptHandles)
 {
     RestParams queryParams;
-    queryParams.push_back({"Action", "ReceiveMessage"});
+    queryParams.push_back({"Action", "DeleteMessageBatch"});
     queryParams.push_back({"Version", "2012-11-05"});
 
     for (int i = 0; i < receiptHandles.size(); i++) {
@@ -177,7 +177,7 @@ addPermission(const std::string & queueUri, const std::string & label,
               const vector<RightsPair> & rights)
 {
     RestParams queryParams;
-    queryParams.push_back({"Action", "ReceiveMessage"});
+    queryParams.push_back({"Action", "AddPermission"});
     queryParams.push_back({"Version", "2012-11-05"});
     queryParams.push_back({"Label", label});
 
@@ -216,7 +216,7 @@ SqsApi::
 removePermission(const std::string & queueUri, const std::string & label)
 {
     RestParams queryParams;
-    queryParams.push_back({"Action", "ReceiveMessage"});
+    queryParams.push_back({"Action", "RemovePermission"});
     queryParams.push_back({"Version", "2012-11-05"});
     queryParams.push_back({"Label", label});
 
