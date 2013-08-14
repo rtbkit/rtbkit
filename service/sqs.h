@@ -109,6 +109,36 @@ struct SqsApi : public AwsBasicApi {
     void deleteMessageBatch(const std::string & queueUri,
                             const std::vector<std::string> & receiptHandles);
 
+
+    /* Change the visibility of a message on the queue.
+
+        \param queueUrl            The queue url the message belongs to
+        \param receiptHandle       The receipt handle identifying the messages
+                                   Note: this is not the message id
+        \param visibilityTimeout   New timeout
+    */
+    void changeMessageVisibility(const std::string & queueUri,
+                                 const std::string & receiptHandle,
+                                 int visibilityTimeout);
+
+    struct VisibilityPair {
+        VisibilityPair(const std::string & handle, int timeout)
+            : receiptHandle(handle), visibilityTimeout(timeout)
+        {}
+
+        std::string receiptHandle;
+        int visibilityTimeout;
+    };
+
+    /* Change the visibility of a set of messages on the queue.
+
+        \param queueUrl       The queue url the message belongs to
+        \param visibilities   An array of VisibilityPair instances
+    */
+    void changeMessageVisibilityBatch(const std::string & queueUri,
+                                      const std::vector<VisibilityPair>
+                                      & visibilities);
+
     enum Rights {
         None = 0,
         SendMessage = 1 << 0,
@@ -121,6 +151,10 @@ struct SqsApi : public AwsBasicApi {
     static std::string rightToString(enum Rights rights);
 
     struct RightsPair {
+        RightsPair(const std::string & principal, enum Rights rights)
+            : principal(principal), rights(rights)
+        {}
+
         std::string principal;
         enum Rights rights;
     };

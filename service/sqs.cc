@@ -133,6 +133,46 @@ deleteMessageBatch(const std::string & queueUri,
 
 void
 SqsApi::
+changeMessageVisibility(const std::string & queueUri,
+                        const std::string & receiptHandle,
+                        int visibilityTimeout)
+{
+    RestParams queryParams;
+    queryParams.push_back({"Action", "ChangeMessageVisibility"});
+    queryParams.push_back({"Version", "2012-11-05"});
+    queryParams.push_back({"ReceiptHandle", receiptHandle});
+    queryParams.push_back({"VisibilityTimeout", to_string(visibilityTimeout)});
+
+    auto xml = performGet(std::move(queryParams), getQueueResource(queueUri));
+
+    xml->Print();
+}
+
+void
+SqsApi::
+changeMessageVisibilityBatch(const std::string & queueUri,
+                             const std::vector<VisibilityPair> & visibilities)
+{
+    RestParams queryParams;
+    queryParams.push_back({"Action", "ChangeMessageVisibilityBatch"});
+    queryParams.push_back({"Version", "2012-11-05"});
+
+    int counter(0);
+    for (const auto & pair: visibilities) {
+        string prefix = ("ChangeMessageVisibilityBatchRequestEntry."
+                         + to_string(counter));
+        queryParams.push_back({prefix + ".Id", pair.receiptHandle});
+        queryParams.push_back({prefix + ".VisibilityTimeout",
+                               to_string(pair.visibilityTimeout)});
+    }
+
+    auto xml = performGet(std::move(queryParams), getQueueResource(queueUri));
+
+    xml->Print();
+}
+
+void
+SqsApi::
 addPermission(const std::string & queueUri, const std::string & label,
               const vector<RightsPair> & rights)
 {
