@@ -87,6 +87,15 @@ struct SqsApi : public AwsBasicApi {
                            int visibilityTimeout = -1,
                            int waitTimeSeconds = -1);
 
+    /* Delete a message from a queue.
+
+       \param receiptHandle   The receipt handle identifying the message.
+                              Note: this is not the message id
+
+    */
+    void deleteMessage(const std::string & queueUri,
+                       const std::string & receiptHandle);
+
     /** Turns a queue URI into a relative resource path for the HttpRestProxy */
     std::string getQueueResource(const std::string & queueUri) const;
 

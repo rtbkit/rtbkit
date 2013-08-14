@@ -96,6 +96,21 @@ receiveMessage(const std::string & queueUri,
     throw Exception("not finished");
 }
 
+void
+SqsApi::
+deleteMessage(const std::string & queueUri,
+              const std::string & receiptHandle)
+{
+    RestParams queryParams;
+    queryParams.push_back({"Action", "ReceiveMessage"});
+    queryParams.push_back({"ReceiptHandle", receiptHandle});
+    queryParams.push_back({"Version", "2012-11-05"});
+
+    auto xml = performGet(std::move(queryParams), getQueueResource(queueUri));
+
+    xml->Print();
+}
+
 std::string
 SqsApi::
 getQueueResource(const std::string & queueUri) const
