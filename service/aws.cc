@@ -327,7 +327,7 @@ addSignatureV4(BasicRequest & request,
         + signedHeaders + "\n"
         + payloadHash;
 
-    cerr << "canonicalRequest = " << canonicalRequest << endl;
+    //cerr << "canonicalRequest = " << canonicalRequest << endl;
 
     RestParams authParams;
 
