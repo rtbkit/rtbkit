@@ -466,7 +466,7 @@ setService(const std::string & serviceName,
     this->serviceUri = protocol + "://" + serviceHost + "/";
 
     proxy.init(serviceUri);
-    proxy.debug = true;
+    //proxy.debug = true;
 }
 
 void
