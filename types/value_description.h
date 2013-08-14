@@ -11,6 +11,7 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
+#include <set>
 #include "jml/arch/exception.h"
 #include "jml/arch/demangle.h"
 #include "json_parsing.h"
@@ -667,18 +668,42 @@ struct ListDescriptionBase {
     }
 
     template<typename List>
+    void parseJsonTypedSet(List * val, JsonParsingContext & context) const
+    {
+        val->clear();
+
+        if (!context.isArray())
+            context.exception("expected array of " + inner->typeName);
+        
+        auto onElement = [&] ()
+            {
+                T el;
+                inner->parseJsonTyped(&el, context);
+                val->insert(std::move(el));
+            };
+        
+        context.forEachElement(onElement);
+    }
+
+    template<typename List>
     void printJsonTypedList(const List * val, JsonPrintingContext & context) const
     {
         context.startArray(val->size());
 
-        for (unsigned i = 0;  i < val->size();  ++i) {
+        auto it = val->begin();
+        for (unsigned i = 0;  i < val->size();  ++i, ++it) {
             context.newArrayElement();
-            inner->printJsonTyped(&(*val)[i], context);
+            inner->printJsonTyped(&(*it), context);
         }
         
         context.endArray();
     }
 };
+
+
+/*****************************************************************************/
+/* DEFAULT DESCRIPTION FOR VECTOR                                            */
+/*****************************************************************************/
 
 template<typename T>
 struct DefaultDescription<std::vector<T> >
@@ -753,6 +778,92 @@ struct DefaultDescription<std::vector<T> >
         return *this->inner;
     }
 };
+
+
+/*****************************************************************************/
+/* DEFAULT DESCRIPTION FOR SET                                               */
+/*****************************************************************************/
+
+template<typename T>
+struct DefaultDescription<std::set<T> >
+    : public ValueDescriptionI<std::set<T>, ValueKind::ARRAY>,
+      public ListDescriptionBase<T> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner
+                      = getDefaultDescription((T *)0))
+        : ListDescriptionBase<T>(inner)
+    {
+    }
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const
+    {
+        std::set<T> * val2 = reinterpret_cast<std::set<T> *>(val);
+        return parseJsonTyped(val2, context);
+    }
+
+    virtual void parseJsonTyped(std::set<T> * val, JsonParsingContext & context) const
+    {
+        this->parseJsonTypedSet(val, context);
+    }
+
+    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    {
+        const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
+        return printJsonTyped(val2, context);
+    }
+
+    virtual void printJsonTyped(const std::set<T> * val, JsonPrintingContext & context) const
+    {
+        this->printJsonTypedList(val, context);
+    }
+
+    virtual bool isDefault(const void * val) const
+    {
+        const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
+        return isDefaultTyped(val2);
+    }
+
+    virtual bool isDefaultTyped(const std::set<T> * val) const
+    {
+        return val->empty();
+    }
+
+    virtual size_t getArrayLength(void * val) const
+    {
+        const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
+        return val2->size();
+    }
+
+    virtual void * getArrayElement(void * val, uint32_t element) const
+    {
+        throw ML::Exception("can't mutate set elements");
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    {
+        const std::set<T> * val2 = reinterpret_cast<const std::set<T> *>(val);
+        if (element >= val2->size())
+            throw ML::Exception("Invalid set element number");
+        auto it = val2->begin();
+        for (unsigned i = 0;  i < element;  ++i, ++i) ;
+        return &*it;
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const
+    {
+        throw ML::Exception("cannot adjust length of a set");
+    }
+    
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+};
+
+
+/*****************************************************************************/
+/* DEFAULT DESCRIPTION FOR MAP                                               */
+/*****************************************************************************/
 
 template<typename T>
 struct DefaultDescription<std::map<std::string, T> >
