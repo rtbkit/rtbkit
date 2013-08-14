@@ -7,23 +7,23 @@
 
 #pragma once
 
+#include "epoller.h"
 #include "async_event_source.h"
+#include "jml/arch/wakeup_fd.h"
+#include "jml/arch/spinlock.h"
+
 #include <boost/thread/thread.hpp>
-#include <mutex>
 #include <functional>
 #include <mutex>
-#include "soa/service/epoller.h"
+#include <atomic>
 
 
 namespace Datacratic {
 
 
-
 /*****************************************************************************/
 /* MESSAGE LOOP                                                              */
 /*****************************************************************************/
-
-
 
 struct MessageLoop : public Epoller {
     
@@ -43,8 +43,8 @@ struct MessageLoop : public Epoller {
     /** Add the given source of asynchronous wakeups with the given
         callback to be run when they trigger.
 
-        This method cannot be called from within an event processed by the
-        message loop (that would deadlock); instead use addPeriodicDeferred().
+        Note that this function call will not take effect immediately. All work
+        is deferred to the main message loop thread.
     */
     void addSource(const std::string & name,
                    AsyncEventSource & source,
@@ -53,8 +53,8 @@ struct MessageLoop : public Epoller {
     /** Add the given source of asynchronous wakeups with the given
         callback to be run when they trigger.
 
-        This method cannot be called from within an event processed by the
-        message loop (that would deadlock); instead use addPeriodicDeferred().
+        Note that this function call will not take effect immediately. All work
+        is deferred to the main message loop thread.
     */
     void addSource(const std::string & name,
                    std::shared_ptr<AsyncEventSource> source,
@@ -65,49 +65,13 @@ struct MessageLoop : public Epoller {
         since the last call; this is useful to know if something has
         got behind.  It will normally be 1.
 
-        This method cannot be called from within an event processed by the
-        message loop (that would deadlock); instead use addPeriodicDeferred().
+        Note that this function call will not take effect immediately. All work
+        is deferred to the main message loop thread.
     */
     void addPeriodic(const std::string & name,
                      double timePeriodSeconds,
                      std::function<void (uint64_t)> toRun,
                      int priority = 0);
-
-    /** Add the given source of asynchronous wakeups with the given
-        callback to be run when they trigger.
-
-        This method can only be called from within an event processed by the
-        message loop; the handler will actually be added after the next
-        event finishes processing.
-    */
-    void addSourceDeferred(const std::string & name,
-                           AsyncEventSource & source,
-                           int priority = 0);
-
-    /** Add the given source of asynchronous wakeups with the given
-        callback to be run when they trigger.
-
-        This method can only be called from within an event processed by the
-        message loop; the handler will actually be added after the next
-        event finishes processing.
-    */
-    void addSourceDeferred(const std::string & name,
-                           std::shared_ptr<AsyncEventSource> source,
-                           int priority = 0);
-
-    /** Add a periodic job to be performed by the loop.  The number passed
-        to the toRun function is the number of timeouts that have elapsed
-        since the last call; this is useful to know if something has
-        got behind.  It will normally be 1.
-
-        This method can only be called from within an event processed by the
-        message loop; the handler will actually be added after the next
-        event finishes processing.
-    */
-    void addPeriodicDeferred(const std::string & name,
-                             double timePeriodSeconds,
-                             std::function<void (uint64_t)> toRun,
-                             int priority = 0);
     
     typedef std::function<void (volatile int & shutdown_,
                                 int64_t threadId)> SubordinateThreadFn;
@@ -122,9 +86,11 @@ struct MessageLoop : public Epoller {
 
     virtual bool poll() const;
 
-    void debug(bool debugOn);
+    /** Remove the given source from the list of active sources.
 
-    /** Remove the given source from the list of active sources. */
+        Note that this function call will not take effect immediately. All work
+        is deferred to the main message loop thread.
+     */
     void removeSource(AsyncEventSource * source);
 
     /** Re-check if anything needs to poll. */
@@ -134,6 +100,8 @@ struct MessageLoop : public Epoller {
         Can be polled regularly to determine the duty cycle of the loop.
      */
     double totalSleepSeconds() const { return totalSleepTime_; }
+
+    void debug(bool debugOn);
     
 private:
     void runWorkerThread();
@@ -142,27 +110,48 @@ private:
 
     /** Implementation of addSource that runs without taking the lock. */
     void addSourceImpl(const std::string & name,
-                       std::shared_ptr<AsyncEventSource> source, int priority);
-    
-    //ML::Wakeup_Fd wakeup;
-    
-    std::vector<std::pair<std::string, std::shared_ptr<AsyncEventSource> > > sources;
+                       std::shared_ptr<AsyncEventSource> source,
+                       int priority);
 
-    /** Set of deferred sources.  These will be added once the current events
-        have finished processing.
-    */
-    std::vector<std::tuple<std::string, std::shared_ptr<AsyncEventSource>, int > > deferredSources;
+    typedef ML::Spinlock Lock;
+    typedef std::lock_guard<Lock> Guard;
 
+    struct SourceEntry
+    {
+        SourceEntry(
+                const std::string& name,
+                std::shared_ptr<AsyncEventSource> source,
+                int priority) :
+            name(name), source(source), priority(priority)
+        {}
+
+        std::string name;
+        std::shared_ptr<AsyncEventSource> source;
+        int priority;
+    };
+
+    std::vector<SourceEntry> sources;
+
+    mutable Lock queueLock;
+    std::vector<SourceEntry> addSourceQueue;
+    std::vector<AsyncEventSource*> removeSourceQueue;
+
+    // Notifies the main loop that a new source event needs processing.
+    ML::Wakeup_Fd queueFd;
+
+    /** Flag used to notify the main thread that one of the source queues has an
+        event. Thread-safe on reads but writes must occur while hold queueLock
+        to avoid lost notifications.
+     */
+    std::atomic<bool> sourceQueueFlag;
+
+    void processRemoveSource(AsyncEventSource* source);
+    void processAddSource(const SourceEntry& entry);
+    void processSourceQueue();
+
+    Lock threadsLock;
     int numThreadsCreated;
     boost::thread_group threads;
-    
-    // TODO: bad, bad, bad... make an API whereby we can ask this to happen later
-    // so we don't need a recursive mutex
-    //typedef std::recursive_mutex Lock;
-
-    typedef std::mutex Lock;
-    typedef std::unique_lock<Lock> Guard;
-    mutable Lock lock;
     
     /** Global flag to shutdown. */
     volatile int shutdown_;

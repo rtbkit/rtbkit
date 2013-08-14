@@ -5,19 +5,21 @@
 */
 
 #include "soa/service//message_loop.h"
-#include "jml/utils/smart_ptr_utils.h"
-#include <boost/make_shared.hpp>
-#include <iostream>
+#include "soa/types/date.h"
 #include "jml/arch/exception.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/demangle.h"
+#include "jml/arch/futex.h"
+#include "jml/arch/backtrace.h"
+#include "jml/utils/smart_ptr_utils.h"
+#include "jml/utils/exc_assert.h"
+
+#include <boost/make_shared.hpp>
+#include <iostream>
+#include <thread>
 #include <time.h>
 #include <limits.h>
-#include "jml/arch/futex.h"
-#include "soa/types/date.h"
 #include <sys/epoll.h>
-#include "jml/arch/backtrace.h"
-#include <thread>
 
 
 using namespace std;
@@ -26,20 +28,16 @@ using namespace ML;
 
 namespace Datacratic {
 
-
-/*****************************************************************************/
-/* ASYNC EVENT SOURCE                                                        */
-/*****************************************************************************/
-
-
-
 /*****************************************************************************/
 /* MESSAGE LOOP                                                              */
 /*****************************************************************************/
 
 MessageLoop::
 MessageLoop(int numThreads, double maxAddedLatency)
-    : numThreadsCreated(0), totalSleepTime_(0.0)
+    : queueFd(EFD_NONBLOCK),
+      sourceQueueFlag(false),
+      numThreadsCreated(0),
+      totalSleepTime_(0.0)
 {
     init(numThreads, maxAddedLatency);
 }
@@ -57,12 +55,16 @@ init(int numThreads, double maxAddedLatency)
     if (maxAddedLatency == 0)
         cerr << "warning: MessageLoop with maxAddedLatency of zero will busy wait" << endl;
 
+    // See the comments on processOne below for more details on this assertion.
+    ExcAssertEqual(numThreads, 1);
+
     Epoller::init(16384);
     this->shutdown_ = false;
     this->maxAddedLatency_ = maxAddedLatency;
     this->handleEvent = std::bind(&MessageLoop::handleEpollEvent,
                                    this,
                                    std::placeholders::_1);
+    addFd(queueFd.fd());
     debug_ = false;
 }
 
@@ -127,7 +129,6 @@ MessageLoop::
 addSource(const std::string & name,
           std::shared_ptr<AsyncEventSource> source, int priority)
 {
-    Guard guard(lock);
     addSourceImpl(name, source, priority);
 }
 
@@ -139,42 +140,23 @@ addPeriodic(const std::string & name,
             int priority)
 {
     addSource(name,
-              std::make_shared<PeriodicEventSource>(timePeriodSeconds,
-                                                      toRun),
+              std::make_shared<PeriodicEventSource>(timePeriodSeconds, toRun),
               priority);
 }
 
 void
 MessageLoop::
-addSourceDeferred(const std::string & name,
-                  AsyncEventSource & source, int priority)
+addSourceImpl(const std::string & name,
+              std::shared_ptr<AsyncEventSource> source,
+              int priority)
 {
-    //cerr << "addSourceDeferred" << endl;
-    // TODO: assert that lock is held by this thread
-    deferredSources.push_back(make_tuple(name, make_unowned_std_sp(source), priority));
-}
+    ExcCheck(!source->parent_, "source already has a parent: " + name);
+    source->parent_ = this;
 
-void
-MessageLoop::
-addSourceDeferred(const std::string & name,
-                  std::shared_ptr<AsyncEventSource> source, int priority)
-{
-    //cerr << "addSourceDeferred" << endl;
-    // TODO: assert that lock is held by this thread
-    deferredSources.push_back(make_tuple(name, source, priority));
-}
-
-void
-MessageLoop::
-addPeriodicDeferred(const std::string & name,
-                    double timePeriodSeconds,
-                    std::function<void (uint64_t)> toRun,
-                    int priority)
-{
-    addSourceDeferred(name,
-                      std::make_shared<PeriodicEventSource>(timePeriodSeconds,
-                                                              toRun),
-                      priority);
+    Guard guard(queueLock);
+    addSourceQueue.emplace_back(name, source, priority);
+    sourceQueueFlag = true;
+    queueFd.signal();
 }
 
 void
@@ -183,31 +165,83 @@ removeSource(AsyncEventSource * source)
 {
     // When we free the elements in our destructor, they will try to remove themselves.
     // we just make it a nop.
-    if (shutdown_)
-        return;
+    if (shutdown_) return;
 
-    Guard guard(lock);
-    for (unsigned i = 0;  i < sources.size();  ++i) {
-        if (sources[i].second.get() != source)
-            continue;
-        int fd = source->selectFd();
-        if (fd != -1) {
-            removeFd(fd);
+    Guard guard(queueLock);
+    removeSourceQueue.emplace_back(source);
+    sourceQueueFlag = true;
+    queueFd.signal();
+}
 
-            // Make sure that our and our parent's value of needsPoll is up to date
-            bool sourceNeedsPoll = source->needsPoll;
-            if (needsPoll && sourceNeedsPoll) {
-                bool oldNeedsPoll = needsPoll;
-                checkNeedsPoll();
-                if (oldNeedsPoll != needsPoll && parent_)
-                    parent_->checkNeedsPoll();
-            }
-        }
-        sources.erase(sources.begin() + i);
-        return;
+void
+MessageLoop::
+processSourceQueue()
+{
+    if (!sourceQueueFlag) return;
+
+    std::vector<SourceEntry> sourcesToAdd;
+    std::vector<AsyncEventSource*> sourcesToRemove;
+
+    {
+        Guard guard(queueLock);
+
+        sourcesToAdd = std::move(addSourceQueue);
+        sourcesToRemove = std::move(removeSourceQueue);
+
+        sourceQueueFlag = false;
+        while (!queueFd.tryRead());
     }
 
-    throw ML::Exception("couldn't remove message loop source");
+    for (auto& entry : sourcesToAdd)
+        processAddSource(entry);
+
+    for (AsyncEventSource* source : sourcesToRemove)
+        processRemoveSource(source);
+}
+
+void
+MessageLoop::
+processAddSource(const SourceEntry& entry)
+{
+    int fd = entry.source->selectFd();
+    if (fd != -1)
+        addFd(fd, entry.source.get());
+
+    if (!needsPoll && entry.source->needsPoll) {
+        needsPoll = true;
+        if (parent_) parent_->checkNeedsPoll();
+    }
+
+    if (debug_) entry.source->debug(true);
+    sources.push_back(entry);
+}
+
+void
+MessageLoop::
+processRemoveSource(AsyncEventSource* source)
+{
+    auto pred = [&] (const SourceEntry& entry) {
+        return entry.source.get() == source;
+    };
+    auto it = find_if(sources.begin(), sources.end(), pred);
+
+    ExcCheck(it != sources.end(), "couldn't remove source");
+
+    SourceEntry entry = *it;
+    sources.erase(it);
+
+    int fd = source->selectFd();
+    if (fd == -1) return;
+    removeFd(fd);
+
+    // Make sure that our and our parent's value of needsPoll is up to date
+    bool sourceNeedsPoll = entry.source->needsPoll;
+    if (needsPoll && sourceNeedsPoll) {
+        bool oldNeedsPoll = needsPoll;
+        checkNeedsPoll();
+        if (oldNeedsPoll != needsPoll && parent_)
+            parent_->checkNeedsPoll();
+    }
 }
 
 void
@@ -221,7 +255,7 @@ void
 MessageLoop::
 startSubordinateThread(const SubordinateThreadFn & thread)
 {
-    Guard guard(lock);
+    Guard guard(threadsLock);
     int64_t id = 0;
     threads.create_thread(std::bind(thread, std::ref(shutdown_),
                                     id));
@@ -237,7 +271,6 @@ runWorkerThread()
 
     while (!shutdown_) {
 
-
         Date start = Date::now();
 
         bool more = true;
@@ -246,7 +279,7 @@ runWorkerThread()
             cerr << "handling events from " << sources.size()
                  << " sources with needsPoll " << needsPoll << endl;
             for (unsigned i = 0;  i < sources.size();  ++i)
-                cerr << sources[i].first << " " << sources[i].second->needsPoll << endl;
+                cerr << sources[i].name << " " << sources[i].source->needsPoll << endl;
         }
 
         while (more) {
@@ -313,35 +346,41 @@ MessageLoop::
 poll() const
 {
     if (needsPoll) {
-        Guard guard(lock);
         for (auto & s: sources)
-            if (s.second->poll())
+            if (s.source->poll())
                 return true;
         return false;
     }
     else return Epoller::poll();
 }
 
+/** This function assumes that it's called by only a single thread. This
+    contradicts the AsyncEventSource documentation for processOne. If
+    multi-threading is ever required then accesses to the sources array will
+    need to be synchronized in some way.
+
+    Note, that this synchronization mechanism should not hold a lock while
+    calling a child's processOne() function. This can easily lead to
+    deadlocks. This is the main reason for the existence of the sources queues.
+
+ */
 bool
 MessageLoop::
 processOne()
 {
     bool more = false;
 
+    processSourceQueue();
+
     if (needsPoll) {
-        Guard guard(lock);
-            
         for (unsigned i = 0;  i < sources.size();  ++i) {
             try {
-                bool hasMore = sources[i].second->processOne();
-                if (debug_) {
-                    cerr << "source " << sources[i].first << " has " << hasMore << endl;
-                }
-                //if (hasMore)
-                //    cerr << "source " << sources[i].first << " has more" << endl;
+                bool hasMore = sources[i].source->processOne();
+                if (debug_)
+                    cerr << "source " << sources[i].name << " has " << hasMore << endl;
                 more = more || hasMore;
             } catch (...) {
-                cerr << "exception processing source " << sources[i].first
+                cerr << "exception processing source " << sources[i].name
                      << endl;
                 throw;
             }
@@ -349,65 +388,7 @@ processOne()
     }
     else more = Epoller::processOne();
 
-    // Add in any deferred sources that have been queued by the event handlers
-    if (!deferredSources.empty()) {
-        // Taking this lock after calling empty() instead of before is dodgy,
-        // but looking at the g++ STL it should never crash and it saves us
-        // from a spurious lock on every iteration through.
-        // TODO: a better scheme, maybe with a boolean for hasDeferredSources
-        Guard guard(lock);
-
-        //cerr << "adding " << deferredSources.size() << " deferred sources"
-        //     << endl;
-
-        for (auto s: deferredSources)
-            addSourceImpl(std::get<0>(s), std::get<1>(s), std::get<2>(s));
-        
-        deferredSources.clear();
-    }
-
     return more;
-}
-
-void
-MessageLoop::
-addSourceImpl(const std::string & name,
-              std::shared_ptr<AsyncEventSource> source, int priority)
-{
-    if (debug_) {
-        cerr << "adding source " << name << "; we now have " << sources.size()
-             << " with needsPoll " << needsPoll;
-        if (parent_)
-            cerr << " parent needsPoll = " << parent_->needsPoll << endl;
-        cerr << endl;
-    }
-
-    if (source->parent_)
-        throw ML::Exception("adding a source that already has a parent");
-    source->parent_ = this;
-
-    sources.push_back(make_pair(name, source));
-    int fd = source->selectFd();
-    if (fd != -1)
-        addFd(fd, source.get());
-    bool oldNeedsPoll = needsPoll;
-    if (source->needsPoll && !oldNeedsPoll) {
-        needsPoll = true;
-
-        // Deadlock?
-        if (parent_)
-            parent_->checkNeedsPoll();
-    }
-
-    if (debug_) {
-        cerr << "finished adding source " << name << "; we now have " << sources.size()
-             << " with needsPoll " << needsPoll;
-        if (parent_)
-            cerr << " parent needsPoll = " << parent_->needsPoll << endl;
-        cerr << endl;
-    }
-
-    wakeupMainThread();
 }
 
 void
@@ -415,21 +396,20 @@ MessageLoop::
 debug(bool debugOn)
 {
     debug_ = debugOn;
-    Guard guard(lock);
-    for (unsigned i = 0;  i < sources.size();  ++i) {
-        sources[i].second->debug(debugOn);
-    }
 }
 
 void
 MessageLoop::
 checkNeedsPoll()
 {
-    Guard guard(lock);
     bool newNeedsPoll = false;
     for (unsigned i = 0;  i < sources.size() && !newNeedsPoll;  ++i)
-        newNeedsPoll = sources[i].second->needsPoll;
+        newNeedsPoll = sources[i].source->needsPoll;
+
+    if (newNeedsPoll == needsPoll) return;
+
     needsPoll = newNeedsPoll;
+    if (parent_) parent_->checkNeedsPoll();
 }
 
 } // namespace Datacratic
