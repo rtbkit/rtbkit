@@ -223,37 +223,10 @@ uriEncode(const std::string & str)
 {
     std::string result;
     for (auto c: str) {
-        if (c <= ' ' || c >= 127) {
-            result += ML::format("%%%02X", c);
-            continue;
-        }
 
-        switch (c) {
-        case '!':
-        case '#':
-        case '$':
-        case '&':
-        case '\'':
-        case '(':
-        case ')':
-        case '*':
-        case '+':
-        case ',':
-        case '/':
-        case ':':
-        case ';':
-        case '=':
-        case '?':
-        case '@':
-        case '[':
-        case ']':
-        case '%':
-            result += ML::format("%%%02X", c);
-            break;
-
-        default:
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
             result += c;
-        }
+        else result += ML::format("%%%02X", c);
     }
 
     return result;
@@ -354,7 +327,7 @@ addSignatureV4(BasicRequest & request,
         + signedHeaders + "\n"
         + payloadHash;
 
-    //cerr << "canonicalRequest = " << canonicalRequest << endl;
+    cerr << "canonicalRequest = " << canonicalRequest << endl;
 
     RestParams authParams;
 
