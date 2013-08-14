@@ -49,6 +49,20 @@ printJsonTyped(const SegmentList * val, JsonPrintingContext & context)
             context.writeString(val->strings[i]);
         }
     }
+    else if (val->weights.size() == val->ints.size())
+    {
+        for (unsigned i = 0;  i < val->ints.size();  ++i) {
+            context.newArrayElement();
+            context.writeString(to_string(val->ints[i])+":"+to_string(val->weights[i]));
+        }
+    }
+    else if (val->weights.size() == val->strings.size())
+    {
+        for (unsigned i = 0;  i < val->strings.size();  ++i) {
+            context.newArrayElement();
+            context.writeString(val->strings[i]+":"+to_string(val->weights[i]));
+        }
+    }
     else {
         throw ML::Exception("weights unsupported");
     }
