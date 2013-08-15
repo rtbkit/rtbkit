@@ -86,6 +86,7 @@ receiveMessage(const std::string & queueUri,
     RestParams queryParams;
     queryParams.push_back({"Action", "ReceiveMessage"});
     queryParams.push_back({"Version", "2012-11-05"});
+    queryParams.push_back({"AttributeName.1", "All"});
     if (visibilityTimeout != -1)
         queryParams.push_back({"VisibilityTimeout", to_string(visibilityTimeout)});
     if (waitTimeSeconds != -1)
@@ -93,19 +94,54 @@ receiveMessage(const std::string & queueUri,
 
     auto xml = performGet(std::move(queryParams), getQueueResource(queueUri));
 
-    const string messagePrefix("ReceiveMessageResponse"
-                               "/ReceiveMessageResult"
+    const string messagePrefix("ReceiveMessageResult"
                                "/Message");
-    message.body = extract<string>(xml,
+    message.body = extract<string>(xml->RootElement(),
                                    messagePrefix + "/Body");
-    message.bodyMd5 = extract<string>(xml,
+    message.bodyMd5 = extract<string>(xml->RootElement(),
                                       messagePrefix + "/MD5OfBody");
-    message.messageId = extract<string>(xml,
+    message.messageId = extract<string>(xml->RootElement(),
                                         messagePrefix + "/MessageId");
-    message.receiptHandle = extract<string>(xml,
+    message.receiptHandle = extract<string>(xml->RootElement(),
                                             messagePrefix + "/ReceiptHandle");
 
     // xml->Print();
+
+    auto p = extractNode(xml->RootElement(),
+                         messagePrefix + "/Attribute");
+    while (p && strcmp(p->Name(), "Attribute") == 0) {
+        auto name = extractNode(p, "Name");
+        auto value = extractNode(p, "Value");
+        if (name && value) {
+            string attrName(name->FirstChild()->ToText()->Value());
+            string attrValue(value->FirstChild()->ToText()->Value());
+            if (value) {
+                if (attrName == "SenderId") {
+                    message.senderId = attrValue;
+                }
+                else if (attrName == "ApproximateFirstReceiveTimestamp") {
+                    long long ms = stoll(attrValue);
+                    double seconds = (double)ms / 1000;
+                    message.approximateFirstReceiveTimestamp
+                        = Date::fromSecondsSinceEpoch(seconds);
+                }
+                else if (attrName == "SentTimestamp") {
+                    long long ms = stoll(attrValue);
+                    double seconds = (double)ms / 1000;
+                    message.sentTimestamp
+                        = Date::fromSecondsSinceEpoch(seconds);
+                }
+                else if (attrName == "ApproximateReceiveCount") {
+                    message.approximateReceiveCount = stoi(attrValue);
+                }
+                else {
+                    throw ML::Exception("unexpected attribute name: "
+                                        + attrName);
+                }
+            }
+        }
+        p = p->NextSiblingElement();
+    }
 
     return message;
 }

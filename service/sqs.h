@@ -46,7 +46,7 @@ struct SqsApi : public AwsBasicApi {
      */
     std::string createQueue(const std::string & queueName,
                             const QueueParams & params = QueueParams());
-                            
+
     /** Return the URL for the given queue. */
     std::string getQueueUrl(const std::string & queueName,
                             const std::string & ownerAccountId = "");
@@ -77,12 +77,10 @@ struct SqsApi : public AwsBasicApi {
         std::string bodyMd5;
         std::string messageId;
         std::string receiptHandle;
-#if 0
         std::string senderId;
         Date sentTimestamp;
         int approximateReceiveCount;
         Date approximateFirstReceiveTimestamp;
-#endif
     };
 
     Message receiveMessage(const std::string & queueUri,
