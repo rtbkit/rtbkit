@@ -55,7 +55,7 @@ char * jsonEscapeCore(const std::string & str, char * p, char * end)
             case '\\':
             case '\"': *p++ = (c);  break;
             default:
-                throw Exception("invalid character in Json string");
+                throw Exception("Invalid character in JSON string: " + str);
             }
         }
     }
