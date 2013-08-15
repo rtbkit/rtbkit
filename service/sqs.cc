@@ -39,6 +39,37 @@ createQueue(const std::string & queueName,
     queryParams.push_back({"QueueName", queueName});
     queryParams.push_back({"Version", "2012-11-05"});
 
+    int counter(1);
+    auto addAttribute = [&] (const string & name, const string & value) {
+        string prefix = "Attribute." + to_string(counter);
+        queryParams.push_back({prefix + ".Name", name});
+        queryParams.push_back({prefix + ".Value", value});
+        counter++;
+    };
+
+    if (params.delaySeconds > 0) {
+        addAttribute("DelaySeconds", to_string(params.delaySeconds));
+    }
+    if (params.maximumMessageSize > -1) {
+        addAttribute("MaximumMessageSize",
+                     to_string(params.maximumMessageSize));
+    }
+    if (params.messageRetentionPeriod > -1) {
+        addAttribute("MessageRetentionPeriod",
+                     to_string(params.messageRetentionPeriod));
+    }
+    if (params.policy.size() > 0) {
+        throw ML::Exception("'policy' not supported yet");
+    }
+    if (params.receiveMessageWaitTimeSeconds > -1) {
+        addAttribute("ReceiveMessageWaitTimeSeconds",
+                     to_string(params.receiveMessageWaitTimeSeconds));
+    }
+    if (params.visibilityTimeout > -1) {
+        addAttribute("VisibilityTimeout",
+                     to_string(params.visibilityTimeout));
+    }
+
     return performPost(std::move(queryParams), "",
                        "CreateQueueResponse/CreateQueueResult/QueueUrl");
 }
@@ -219,7 +250,7 @@ changeMessageVisibilityBatch(const std::string & queueUri,
     queryParams.push_back({"Action", "ChangeMessageVisibilityBatch"});
     queryParams.push_back({"Version", "2012-11-05"});
 
-    int counter(0);
+    int counter(1);
     for (const auto & pair: visibilities) {
         string prefix = ("ChangeMessageVisibilityBatchRequestEntry."
                          + to_string(counter));
@@ -243,7 +274,7 @@ addPermission(const std::string & queueUri, const std::string & label,
     queryParams.push_back({"Version", "2012-11-05"});
     queryParams.push_back({"Label", label});
 
-    int counter(0);
+    int counter(1);
     for (const RightsPair & pair: rights) {
         if (pair.rights == Rights::All) {
             queryParams.push_back({"AWSAccountId." + to_string(counter),
