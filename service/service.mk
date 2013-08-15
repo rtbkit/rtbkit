@@ -46,6 +46,7 @@ LIBSERVICES_SOURCES := \
 	rest_request_router.cc \
 	zookeeper.cc \
 	http_rest_proxy.cc \
+	xml_helpers.cc
 
 LIBSERVICES_LINK := opstats curl curlpp boost_regex zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types
 

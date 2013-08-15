@@ -8,9 +8,13 @@
 #include "tinyxml2/tinyxml2.h"
 #include <boost/lexical_cast.hpp>
 #include "jml/arch/exception.h"
+#include "jml/utils/string_functions.h"
 
 
 namespace Datacratic {
+
+tinyxml2::XMLElement * extractNode(tinyxml2::XMLElement * element,
+                                   const std::string & path);
 
 template<typename T>
 T extract(const tinyxml2::XMLNode * element, const std::string & path)
