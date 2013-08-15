@@ -474,8 +474,7 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     if (gbr.has_hosted_match_data())
     {
-        // TODO should be set on br.user.ext
-        br.ext.atStr("user.ext.hosted_match_data") = gbr.hosted_match_data();
+        br.user->buyeruid = Id(binary_to_hexstr(gbr.hosted_match_data()));
     }
 
     if (gbr.has_cookie_age_seconds())
