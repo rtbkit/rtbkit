@@ -28,7 +28,7 @@ SqsApi(const std::string & protocol,
 {
     setService("sqs", protocol, region);
 }
- 
+
 std::string
 SqsApi::
 createQueue(const std::string & queueName,
@@ -41,6 +41,16 @@ createQueue(const std::string & queueName,
 
     return performPost(std::move(queryParams), "",
                        "CreateQueueResponse/CreateQueueResult/QueueUrl");
+}
+
+void
+SqsApi::
+deleteQueue(const std::string & queueUri)
+{
+    RestParams queryParams;
+    queryParams.push_back({"Action", "DeleteQueue"});
+
+    performGet(std::move(queryParams), getQueueResource(queueUri));
 }
 
 std::string
@@ -94,21 +104,23 @@ receiveMessage(const std::string & queueUri,
 
     auto xml = performGet(std::move(queryParams), getQueueResource(queueUri));
 
-    const string messagePrefix("ReceiveMessageResult"
-                               "/Message");
-    message.body = extract<string>(xml->RootElement(),
-                                   messagePrefix + "/Body");
-    message.bodyMd5 = extract<string>(xml->RootElement(),
-                                      messagePrefix + "/MD5OfBody");
-    message.messageId = extract<string>(xml->RootElement(),
-                                        messagePrefix + "/MessageId");
-    message.receiptHandle = extract<string>(xml->RootElement(),
-                                            messagePrefix + "/ReceiptHandle");
+    auto result = extractNode(xml->RootElement(), "ReceiveMessageResult");
+    if (result->NoChildren()) {
+        cerr << "empty message\n";
+        return message;
+    }
+
+    message.body = extract<string>(result, "Message/Body");
+    message.bodyMd5 = extract<string>(result,
+                                      "Message/MD5OfBody");
+    message.messageId = extract<string>(result,
+                                        "Message/MessageId");
+    message.receiptHandle = extract<string>(result,
+                                            "Message/ReceiptHandle");
 
     // xml->Print();
 
-    auto p = extractNode(xml->RootElement(),
-                         messagePrefix + "/Attribute");
+    auto p = extractNode(result, "Message/Attribute");
     while (p && strcmp(p->Name(), "Attribute") == 0) {
         auto name = extractNode(p, "Name");
         auto value = extractNode(p, "Value");
@@ -175,7 +187,7 @@ deleteMessageBatch(const std::string & queueUri,
         queryParams.push_back({prefix + ".Id", "msg" + to_string(i)});
         queryParams.push_back({prefix + ".ReceiptHandle", receiptHandles[i]});
     }
-    
+
     auto xml = performGet(std::move(queryParams), getQueueResource(queueUri));
 
     xml->Print();

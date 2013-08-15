@@ -47,6 +47,10 @@ struct SqsApi : public AwsBasicApi {
     std::string createQueue(const std::string & queueName,
                             const QueueParams & params = QueueParams());
 
+    /** Delete a queue.
+     */
+    void deleteQueue(const std::string & queueUri);
+
     /** Return the URL for the given queue. */
     std::string getQueueUrl(const std::string & queueName,
                             const std::string & ownerAccountId = "");
@@ -73,6 +77,9 @@ struct SqsApi : public AwsBasicApi {
                 int delaySeconds = -1);
 
     struct Message {
+        bool isNull()
+        { return messageId.empty(); }
+
         std::string body;
         std::string bodyMd5;
         std::string messageId;
