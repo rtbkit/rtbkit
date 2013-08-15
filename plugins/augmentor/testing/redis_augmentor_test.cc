@@ -14,9 +14,10 @@
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "jml/db/persistent.h"
 #include "jml/utils/exc_assert.h"
+#include "soa/service/redis.h"
 
 #include <boost/test/unit_test.hpp>
-#include <thread>
+#include <mutex>
 #include <atomic>
 #include <set>
 
@@ -34,6 +35,10 @@ std::string instancedName(const std::string& prefix)
     return prefix + to_string(instances.fetch_add(1));
 }
 
+static mutex aug_mtx ;
+static const string aug_str =
+		"[{\"account\":[\"aliceCampaign\",\"aliceStrategy\"],\"augmentation\":{\"data\":{\"rtbkit:redis:id:85885bb0-b91b-11e2-c4cf-7fba90171555\":\"9876\",\"rtbkit:redis:url:http://myonlinearcade.com/\":\"JSCRIPT\"}}},{\"account\":[\"testCampaign\",\"testStrategy\"],\"augmentation\":{\"data\":{\"rtbkit:redis:id:85885bb0-b91b-11e2-c4cf-7fba90171555\":\"9876\",\"rtbkit:redis:winSurcharges.surcharge.USD/1M:50\":\"123\"}}}]";
+static vector<string> aug_vec ;
 struct MockAugmentationLoop : public ServiceBase, public MessageLoop
 {
     MockAugmentationLoop(const std::shared_ptr<ServiceProxies>& proxies) :
@@ -56,7 +61,9 @@ struct MockAugmentationLoop : public ServiceBase, public MessageLoop
         		ExcAssertEqual (message.size(), 7);
         		ExcAssertEqual (message[5], "redis-augmentation");
         		recordHit("recv");
-        		cerr << "REDIS-AUG:" << message[6] << endl ;
+        		// cerr << "REDIS-AUG:" << message[6] << endl ;
+        		lock_guard<mutex> l(aug_mtx);
+        		aug_vec.emplace_back (message[6]);
         		recv++;
         	}
         };
@@ -100,13 +107,31 @@ struct MockAugmentationLoop : public ServiceBase, public MessageLoop
     size_t sent, recv;
 };
 
-BOOST_AUTO_TEST_CASE( stressTest )
+
+
+BOOST_AUTO_TEST_CASE( redisAugmentorTest )
 {
     enum {
         FeederThreads = 1,
         TestLength = 20,
-        RedisThreads = 5
+        RedisThreads = 2
     };
+
+
+    // Setup Redis -- assuming an instance runs locally
+    // on default port.
+    {
+    	using namespace Redis;
+    	AsyncConnection redis(Address("localhost:6379"));
+    	// set a few keys
+        Command mset(MSET);
+        mset.addArg("rtbkit:redis:winSurcharges.surcharge.USD/1M:50"); mset.addArg(123.45);
+        mset.addArg("rtbkit:redis:id:85885bb0-b91b-11e2-c4cf-7fba90171555"); mset.addArg(9876);
+        mset.addArg("rtbkit:redis:url:http://myonlinearcade.com/"); mset.addArg("JSCRIPT");
+
+        Result result = redis.exec(mset);
+        BOOST_CHECK_EQUAL(result.ok(), true);
+    }
 
     auto proxies = make_shared<ServiceProxies>();
 
@@ -168,7 +193,7 @@ BOOST_AUTO_TEST_CASE( stressTest )
     cerr << "init aug\n";
 
     RedisAugmentor aug("redis-augmentation", "redis-augmentation", proxies, "localhost:6379");
-    aug.init(2);
+    aug.init(RedisThreads);
     aug.start();
 
     this_thread::sleep_for(chrono::milliseconds(100));
@@ -192,6 +217,11 @@ BOOST_AUTO_TEST_CASE( stressTest )
         recv += th->recv;
     }
     aug.shutdown();
+
+    BOOST_CHECK_EQUAL(aug_vec.size(),sent);
+    BOOST_CHECK_EQUAL(sent,recv);
+    for (const auto& str: aug_vec)
+    	BOOST_CHECK_EQUAL(str, aug_str);
 
     cerr << "sent: " << sent << endl
          << "proc: " << processed << endl
