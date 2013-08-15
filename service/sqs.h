@@ -77,10 +77,12 @@ struct SqsApi : public AwsBasicApi {
         std::string bodyMd5;
         std::string messageId;
         std::string receiptHandle;
+#if 0
         std::string senderId;
         Date sentTimestamp;
         int approximateReceiveCount;
         Date approximateFirstReceiveTimestamp;
+#endif
     };
 
     Message receiveMessage(const std::string & queueUri,

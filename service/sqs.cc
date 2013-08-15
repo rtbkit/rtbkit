@@ -81,6 +81,8 @@ receiveMessage(const std::string & queueUri,
                int visibilityTimeout,
                int waitTimeSeconds)
 {
+    SqsApi::Message message;
+
     RestParams queryParams;
     queryParams.push_back({"Action", "ReceiveMessage"});
     queryParams.push_back({"Version", "2012-11-05"});
@@ -88,12 +90,24 @@ receiveMessage(const std::string & queueUri,
         queryParams.push_back({"VisibilityTimeout", to_string(visibilityTimeout)});
     if (waitTimeSeconds != -1)
         queryParams.push_back({"WaitTimeSeconds", to_string(waitTimeSeconds)});
-    
+
     auto xml = performGet(std::move(queryParams), getQueueResource(queueUri));
 
-    xml->Print();
+    const string messagePrefix("ReceiveMessageResponse"
+                               "/ReceiveMessageResult"
+                               "/Message");
+    message.body = extract<string>(xml,
+                                   messagePrefix + "/Body");
+    message.bodyMd5 = extract<string>(xml,
+                                      messagePrefix + "/MD5OfBody");
+    message.messageId = extract<string>(xml,
+                                        messagePrefix + "/MessageId");
+    message.receiptHandle = extract<string>(xml,
+                                            messagePrefix + "/ReceiptHandle");
 
-    throw Exception("not finished");
+    // xml->Print();
+
+    return message;
 }
 
 void
