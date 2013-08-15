@@ -7,6 +7,8 @@
  */
 
 #include <atomic>
+#include <iterator> // std::back_inserter
+#include <algorithm>// std::copy_if
 #include <boost/range/irange.hpp>
 #include <boost/algorithm/string.hpp>
 #include "redis_augmentor.h"
@@ -83,29 +85,14 @@ onRequest(const AugmentationRequest & request, SendResponseCB sendResponse)
         {
             auto key = aug_l.atIndex(i).asString();
             if (key.empty()) continue;
-            if (key[0] != '.') key = "."+key ;
-            cerr << "key = " << key << endl ;
-            Json::Value v = Json::Path(key).make(br);
+            // prefix root path (.) if absent.
+            auto root_key = key[0] == '.' ? key : "."+key;
+            Json::Value v = Json::Path(root_key).make(br);
             if (!v) continue;
-            string v_str;
-            switch (v.type())
-            {
-            case Json::stringValue:
-                v_str = v.asString();
-                break;
-            case Json::intValue:
-                v_str = to_string(v.asInt());
-                break;
-            case Json::uintValue:
-                v_str = to_string(v.asUInt());
-                break;
-            case Json::realValue:
-                v_str = to_string(v.asDouble());
-                break;
-            default:
-                v_str = v.toString();
-            }
-            jobs[prefix+":"+key+":"+v_str].insert (c.config->account);
+            auto v_str = v.toString();
+            string vv_str ;
+            copy_if(v_str.begin(), v_str.end(),  back_inserter(vv_str), [](const char& c){return c!='\n'&&c!='"';});
+            jobs[prefix+":"+key+":"+vv_str].insert (c.config->account);
         }
     }
 
@@ -116,28 +103,25 @@ onRequest(const AugmentationRequest & request, SendResponseCB sendResponse)
         return;
     }
 
-    // big nasty capture
     auto doResponse = [=](const Redis::Results& results) {
-        ExcAssert (results.size() == jobs.size());
+        ExcAssertEqual (results.size(), jobs.size());
         AugmentationList auglret;
         if (results)
         {
-            auto i=0;
-            for (const auto& ii: jobs)
-            {
-                const auto& res = results.at(i).reply().asString();
-                for (const auto& jj: ii.second)
-                {
-                    auglret[jj].data.atStr(ii.first) = res;
-                    cerr << "accK=" << jj << " redisK=" << ii.first << " res=" << res << endl ;
-                }
-                ++i;
-            }
+        	auto i=0;
+        	for (const auto& ii: jobs)
+        	{
+        		const auto& res = results.at(i).reply().asString();
+        		if (!res.empty())
+        			for (const auto& jj: ii.second)
+        				auglret[jj].data.atStr(ii.first) = res;
+        		++i;
+        	}
         }
         else
         {
-            cerr << "RedisAugmentor::onRequest::lambda(doResponse) error: " << results.error() << endl ;
-            recordHit("redisError."+results.error());
+        	cerr << "RedisAugmentor::onRequest::lambda(doResponse) error: " << results.error() << endl ;
+        	recordHit("redisError."+results.error());
         }
         recordOutcome(tm.elapsed_wall() * 1000.0, "redisResponseMs");
         sendResponse(auglret);
