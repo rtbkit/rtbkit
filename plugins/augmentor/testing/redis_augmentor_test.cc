@@ -13,6 +13,7 @@
 #include "rtbkit/plugins/augmentor/redis_augmentor.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "jml/db/persistent.h"
+#include "jml/utils/exc_assert.h"
 
 #include <boost/test/unit_test.hpp>
 #include <thread>
@@ -49,8 +50,15 @@ struct MockAugmentationLoop : public ServiceBase, public MessageLoop
         toAug.bindTcp(getServices()->ports->getRange("augmentors"));
 
         toAug.clientMessageHandler = [&] (const vector<string> & message) {
-            recordHit("recv");
-            recv++;
+        	ExcAssertEqual (message[0], "redis-augmentation");
+        	if (message[1] == "RESPONSE")
+        	{
+        		ExcAssertEqual (message.size(), 7);
+        		ExcAssertEqual (message[5], "redis-augmentation");
+        		recordHit("recv");
+        		cerr << "REDIS-AUG:" << message[6] << endl ;
+        		recv++;
+        	}
         };
 
         toAug.onConnection = [=] (const std::string & client) {
@@ -65,7 +73,10 @@ struct MockAugmentationLoop : public ServiceBase, public MessageLoop
 
         {
             // FIXME: should use Agent Config
-            set<string> agents { "bob-the-agent_" + to_string(getpid()) };
+            set<string> agents {
+            	"bob-the-agent_" + to_string(getpid()),
+            	"alice-the-agent_" + to_string(getpid())
+            };
             std::ostringstream agentStr;
             ML::DB::Store_Writer writer(agentStr);
             writer.save(agents);
@@ -107,12 +118,11 @@ BOOST_AUTO_TEST_CASE( stressTest )
 
     atomic<size_t> processed(0);
 
-    TestAgent agent(proxies, "bob-the-agent");
-    agent.init();
-    agent.start();
-    agent.configure();
+    TestAgent agent1(proxies, "bob-the-agent");
+    agent1.init();
+    agent1.start();
+    agent1.configure();
     {
-    	cerr << "CONFIG = " << agent.config.toJson(false).toString() << endl ;
     	AugmentationConfig aug_conf;
     	aug_conf.name = "redis";
     	aug_conf.required = true;
@@ -120,13 +130,32 @@ BOOST_AUTO_TEST_CASE( stressTest )
     	Json::Value av(Json::arrayValue);
     	av.append("winSurcharges.surcharge.USD/1M");
     	av.append("id");
+    	av.append("exchange");
     	av.append("foo.bar"); // not found
     	v["aug-list"] = av;
     	v["aug-prefix"] = "rtbkit:redis";
-    	agent.config.addAugmentation(aug_conf);
+    	agent1.config.addAugmentation(aug_conf);
     }
-    agent.doConfig (agent.config);
-    cerr << "CONFIG = " << agent.config.toJson(true).toString() << endl ;
+    agent1.doConfig (agent1.config);
+
+    TestAgent agent2(proxies, "alice-the-agent");
+    agent2.config.account = {"aliceCampaign", "aliceStrategy"};
+    agent2.init();
+    agent2.start();
+    agent2.doConfig(agent2.config);
+    {
+    	AugmentationConfig aug_conf;
+    	aug_conf.name = "redis";
+    	aug_conf.required = true;
+    	auto& v =  aug_conf.config;
+    	Json::Value av(Json::arrayValue);
+    	av.append("id");
+    	av.append("url"); // not found
+    	v["aug-list"] = av;
+    	v["aug-prefix"] = "rtbkit:redis";
+    	agent2.config.addAugmentation(aug_conf);
+    }
+    agent2.doConfig (agent2.config);
 
     cerr << "init feeders\n";
 
