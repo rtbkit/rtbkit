@@ -7,4 +7,6 @@
 #------------------------------------------------------------------------------#
 
 $(eval $(call test,augmentor_stress_test,augmentor_base bid_request,boost manual))
+$(eval $(call test,redis_augmentor_test,augmentor_base bid_request bidding_agent,boost manual))
+
 

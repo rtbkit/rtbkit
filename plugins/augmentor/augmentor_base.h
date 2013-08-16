@@ -8,6 +8,7 @@
 #ifndef __rtb__augmentor_base_h__
 #define __rtb__augmentor_base_h__
 
+#include "soa/service/service_base.h"
 #include "soa/service/zmq.hpp"
 #include "soa/types/id.h"
 #include "rtbkit/common/auction.h"

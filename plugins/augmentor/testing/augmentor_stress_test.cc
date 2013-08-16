@@ -62,7 +62,7 @@ struct MockAugmentationLoop : public ServiceBase, public MessageLoop
 
 
         {
-            set<string> agents = { "bob-the-agent", "thingy" };
+            set<string> agents { "bob-the-agent", "thingy" };
             std::ostringstream agentStr;
             ML::DB::Store_Writer writer(agentStr);
             writer.save(agents);
