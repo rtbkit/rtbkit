@@ -151,10 +151,10 @@ receiveMessage(const std::string & queueUri,
 
     // xml->Print();
 
-    auto p = extractNode(result, "Message/Attribute");
+    const tinyxml2::XMLElement * p = extractNode(result, "Message/Attribute")->ToElement();
     while (p && strcmp(p->Name(), "Attribute") == 0) {
-        auto name = extractNode(p, "Name");
-        auto value = extractNode(p, "Value");
+        const tinyxml2::XMLNode * name = extractNode(p, "Name");
+        const tinyxml2::XMLNode * value = extractNode(p, "Value");
         if (name && value) {
             string attrName(name->FirstChild()->ToText()->Value());
             string attrValue(value->FirstChild()->ToText()->Value());

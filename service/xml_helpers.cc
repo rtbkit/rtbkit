@@ -17,13 +17,13 @@ using namespace std;
 
 namespace Datacratic {
 
-tinyxml2::XMLElement *
-extractNode(tinyxml2::XMLElement * element, const string & path)
+const tinyxml2::XMLNode *
+extractNode(const tinyxml2::XMLNode * element, const string & path)
 {
     using namespace std;
 
     vector<string> splitPath = ML::split(path, '/');
-    tinyxml2::XMLElement * p = element;
+    const tinyxml2::XMLNode * p = element;
     for (unsigned i = 0;  i < splitPath.size();  ++i) {
         p = p->FirstChildElement(splitPath[i].c_str());
         if (!p) {
