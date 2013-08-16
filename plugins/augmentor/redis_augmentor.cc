@@ -37,7 +37,6 @@ init(int nthreads)
     /* Manages all the communications with the AgentConfigurationService. */
     agent_config_.init(getServices()->config);
     addSource("RedisAugmentor::agentConfig", agent_config_);
-
 }
 
 
@@ -48,9 +47,6 @@ onRequest(const AugmentationRequest & request, SendResponseCB sendResponse)
     ML::Timer tm;
 
     recordHit("requests");
-
-    // const RTBKIT::UserIds& uids = request.bidRequest->userIds;
-
 
     // we build an *ordered* map indexed by Redis keys, pointing
     // at set of account keys. It will be captured by copy by the
@@ -80,7 +76,7 @@ onRequest(const AugmentationRequest & request, SendResponseCB sendResponse)
             continue ;
         }
         int n = aug_l.size();
-        static const string prefix = "rtbkit:redis" ;
+        static const string prefix = "RTBkit:aug" ;
         for (auto i: boost::irange (0,n))
         {
             auto key = aug_l.atIndex(i).asString();
@@ -91,7 +87,9 @@ onRequest(const AugmentationRequest & request, SendResponseCB sendResponse)
             if (!v) continue;
             auto v_str = v.toString();
             string vv_str ;
-            copy_if(v_str.begin(), v_str.end(),  back_inserter(vv_str), [](const char& c){return c!='\n'&&c!='"';});
+            copy_if(v_str.begin(), v_str.end(),  back_inserter(vv_str), [](const char& c) {
+                return c!='\n'&&c!='"';
+            });
             jobs[prefix+":"+key+":"+vv_str].insert (c.config->account);
         }
     }
@@ -108,20 +106,20 @@ onRequest(const AugmentationRequest & request, SendResponseCB sendResponse)
         AugmentationList auglret;
         if (results)
         {
-        	auto i=0;
-        	for (const auto& ii: jobs)
-        	{
-        		const auto& res = results.at(i).reply().asString();
-        		if (!res.empty())
-        			for (const auto& jj: ii.second)
-        				auglret[jj].data.atStr(ii.first) = res;
-        		++i;
-        	}
+            auto i=0;
+            for (const auto& ii: jobs)
+            {
+                const auto& res = results.at(i).reply().asString();
+                if (!res.empty())
+                    for (const auto& jj: ii.second)
+                        auglret[jj].data.atStr(ii.first) = res;
+                ++i;
+            }
         }
         else
         {
-        	cerr << "RedisAugmentor::onRequest::lambda(doResponse) error: " << results.error() << endl ;
-        	recordHit("redisError."+results.error());
+            cerr << "RedisAugmentor::onRequest::lambda(doResponse) error: " << results.error() << endl ;
+            recordHit("redisError."+results.error());
         }
         recordOutcome(tm.elapsed_wall() * 1000.0, "redisResponseMs");
         sendResponse(auglret);
@@ -132,7 +130,8 @@ onRequest(const AugmentationRequest & request, SendResponseCB sendResponse)
     for (auto& ii: jobs)
         cmds.emplace_back (Redis::GET(ii.first));
 
-    redis_.queueMulti(cmds, doResponse, 0.004);
+    // and post it
+    redis_->queueMulti(cmds, doResponse, 0.004);
 
 }
 } /* namespace RTBKIT */

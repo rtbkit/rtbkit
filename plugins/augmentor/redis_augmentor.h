@@ -23,28 +23,49 @@ public:
     RedisAugmentor(const std::string& augmentorName,
                    const std::string& serviceName,
                    std::shared_ptr<ServiceProxies> proxies,
-                   const std::string& redisUri)
+                   const Redis::Address& redis)
         : RTBKIT::AsyncAugmentor(augmentorName,serviceName,proxies)
         , agent_config_ (proxies->zmqContext)
-        , redis_ (Redis::Address(redisUri))
+        , redis_(std::make_shared<Redis::AsyncConnection>(redis))
+    {
+    }
+
+    RedisAugmentor(const std::string& augmentorName,
+                   const std::string& serviceName,
+                   std::shared_ptr<ServiceProxies> proxies,
+                   std::shared_ptr<Redis::AsyncConnection> redis)
+        : RTBKIT::AsyncAugmentor(augmentorName,serviceName,proxies)
+        , agent_config_ (proxies->zmqContext)
+        , redis_(redis)
     {
     }
 
     RedisAugmentor(const std::string& augmentorName,
                    const std::string& serviceName,
                    ServiceBase& parent,
-                   const std::string& redisUri)
+                   const Redis::Address& redis)
         : RTBKIT::AsyncAugmentor(augmentorName,serviceName,parent)
         , agent_config_ (parent.getZmqContext())
-        , redis_ (Redis::Address(redisUri))
+        , redis_(std::make_shared<Redis::AsyncConnection>(redis))
     {
     }
+
+    RedisAugmentor(const std::string& augmentorName,
+                   const std::string& serviceName,
+                   ServiceBase& parent,
+                   std::shared_ptr<Redis::AsyncConnection> redis)
+        : RTBKIT::AsyncAugmentor(augmentorName,serviceName,parent)
+        , agent_config_ (parent.getZmqContext())
+        , redis_ (redis)
+    {
+    }
+
     void init(int nthreads);
     virtual ~RedisAugmentor() ;
 private:
     void onRequest(const AugmentationRequest & request, SendResponseCB sendResponse) override;
     RTBKIT::AgentConfigurationListener agent_config_;
-    Redis::AsyncConnection redis_ ;
+    std::shared_ptr<Redis::AsyncConnection> redis_ ;
 };
 
 } /* namespace RTBKIT */
