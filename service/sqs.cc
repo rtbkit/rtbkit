@@ -307,6 +307,31 @@ sendMessage(const std::string & queueUri,
                        "SendMessageResponse/SendMessageResult/MD5OfMessageBody");
 }
 
+void
+SqsApi::
+sendMessageBatch(const string & queueUri,
+                 const vector<string> & messages,
+                 int delaySeconds)
+{
+    RestParams queryParams;
+    queryParams.push_back({"Action", "SendMessageBatch"});
+    queryParams.push_back({"Version", "2012-11-05"});
+
+    int counter(1);
+    for (const string & message: messages) {
+        string prefix("SendMessageBatchRequestEntry." + to_string(counter));
+        queryParams.push_back({prefix + ".Id", "msg" + to_string(counter)});
+        queryParams.push_back({prefix + ".MessageBody", message});
+        if (delaySeconds > -1) {
+            queryParams.push_back({prefix + ".DelaySeconds",
+                                   to_string(delaySeconds)});
+        }
+        counter++;
+    }
+
+    performPost(std::move(queryParams), getQueueResource(queueUri));
+}
+
 SqsApi::Message
 SqsApi::
 receiveMessage(const std::string & queueUri,

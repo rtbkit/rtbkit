@@ -104,6 +104,11 @@ struct SqsApi : public AwsBasicApi {
                 int timeoutSeconds = 10,
                 int delaySeconds = -1);
 
+    /** Send multiple messages at once (10 at most). */
+    void sendMessageBatch(const std::string & queueUri,
+                          const std::vector<std::string> & messages,
+                          int delaySeconds = -1);
+
     struct Message {
         bool isNull()
         { return messageId.empty(); }
