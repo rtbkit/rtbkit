@@ -89,6 +89,36 @@ SqsApi(const std::string & protocol, const std::string & region)
     setService("sqs", protocol, region);
 }
 
+vector<string>
+SqsApi::
+listQueues(const string & queueNamePrefix)
+{
+    vector<string> urls;
+
+    RestParams queryParams;
+    queryParams.push_back({"Action", "ListQueues"});
+    queryParams.push_back({"Version", "2012-11-05"});
+    if (queueNamePrefix != "") {
+        queryParams.push_back({"QueueNamePrefix", queueNamePrefix});
+    }
+
+    auto xml = performGet(std::move(queryParams), "");
+    // xml->Print();
+
+    auto result = extractNode(xml->RootElement(), "ListQueuesResult");
+    if (result->NoChildren()) {
+        return urls;
+    }
+
+    const tinyxml2::XMLElement * p = extractNode(result, "QueueUrl")->ToElement();
+    while (p && strcmp(p->Name(), "QueueUrl") == 0) {
+        urls.emplace_back(p->FirstChild()->ToText()->Value());
+        p = p->NextSiblingElement();
+    };
+
+    return urls;
+}
+
 std::string
 SqsApi::
 createQueue(const std::string & queueName,

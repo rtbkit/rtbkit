@@ -42,6 +42,11 @@ struct SqsApi : public AwsBasicApi {
         int visibilityTimeout;
     };
 
+    /** List the queue urls.
+     */
+    std::vector<std::string> listQueues(const std::string
+                                        & queueNamePrefix = "");
+
     /** Create a queue.
      */
     std::string createQueue(const std::string & queueName,
