@@ -12,6 +12,7 @@
 #include "rtbkit/testing/test_agent.h"
 #include "rtbkit/plugins/augmentor/redis_augmentor.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
+#include "rtbkit/soa/service/testing/redis_temporary_server.h"
 #include "jml/db/persistent.h"
 #include "jml/utils/exc_assert.h"
 #include "soa/service/redis.h"
@@ -37,7 +38,7 @@ std::string instancedName(const std::string& prefix)
 
 static mutex aug_mtx ;
 static const string aug_str =
-		"[{\"account\":[\"aliceCampaign\",\"aliceStrategy\"],\"augmentation\":{\"data\":{\"rtbkit:redis:id:85885bb0-b91b-11e2-c4cf-7fba90171555\":\"9876\",\"rtbkit:redis:url:http://myonlinearcade.com/\":\"JSCRIPT\"}}},{\"account\":[\"testCampaign\",\"testStrategy\"],\"augmentation\":{\"data\":{\"rtbkit:redis:id:85885bb0-b91b-11e2-c4cf-7fba90171555\":\"9876\",\"rtbkit:redis:winSurcharges.surcharge.USD/1M:50\":\"123\"}}}]";
+    "[{\"account\":[\"aliceCampaign\",\"aliceStrategy\"],\"augmentation\":{\"data\":{\"RTBkit:aug:id:85885bb0-b91b-11e2-c4cf-7fba90171555\":\"9876\",\"RTBkit:aug:url:http://myonlinearcade.com/\":\"JSCRIPT\"}}},{\"account\":[\"testCampaign\",\"testStrategy\"],\"augmentation\":{\"data\":{\"RTBkit:aug:id:85885bb0-b91b-11e2-c4cf-7fba90171555\":\"9876\",\"RTBkit:aug:winSurcharges.surcharge.USD/1M:50\":\"123\"}}}]";
 static vector<string> aug_vec ;
 struct MockAugmentationLoop : public ServiceBase, public MessageLoop
 {
@@ -55,17 +56,17 @@ struct MockAugmentationLoop : public ServiceBase, public MessageLoop
         toAug.bindTcp(getServices()->ports->getRange("augmentors"));
 
         toAug.clientMessageHandler = [&] (const vector<string> & message) {
-        	ExcAssertEqual (message[0], "redis-augmentation");
-        	if (message[1] == "RESPONSE")
-        	{
-        		ExcAssertEqual (message.size(), 7);
-        		ExcAssertEqual (message[5], "redis-augmentation");
-        		recordHit("recv");
-        		// cerr << "REDIS-AUG:" << message[6] << endl ;
-        		lock_guard<mutex> l(aug_mtx);
-        		aug_vec.emplace_back (message[6]);
-        		recv++;
-        	}
+            ExcAssertEqual (message[0], "redis-augmentation");
+            if (message[1] == "RESPONSE")
+            {
+                ExcAssertEqual (message.size(), 7);
+                ExcAssertEqual (message[5], "redis-augmentation");
+                recordHit("recv");
+                // cerr << "REDIS-AUG:" << message[6] << endl ;
+                lock_guard<mutex> l(aug_mtx);
+                aug_vec.emplace_back (message[6]);
+                recv++;
+            }
         };
 
         toAug.onConnection = [=] (const std::string & client) {
@@ -81,8 +82,8 @@ struct MockAugmentationLoop : public ServiceBase, public MessageLoop
         {
             // FIXME: should use Agent Config
             set<string> agents {
-            	"bob-the-agent_" + to_string(getpid()),
-            	"alice-the-agent_" + to_string(getpid())
+                "bob-the-agent_" + to_string(getpid()),
+                "alice-the-agent_" + to_string(getpid())
             };
             std::ostringstream agentStr;
             ML::DB::Store_Writer writer(agentStr);
@@ -117,19 +118,20 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
         RedisThreads = 2
     };
 
-
-    // Setup Redis -- assuming an instance runs locally
-    // on default port.
+    Redis::RedisTemporaryServer redis;
     {
-    	using namespace Redis;
-    	AsyncConnection redis(Address("localhost:6379"));
-    	// set a few keys
+        using namespace Redis;
+        AsyncConnection async_redis(redis);
+        // set a few keys
         Command mset(MSET);
-        mset.addArg("rtbkit:redis:winSurcharges.surcharge.USD/1M:50"); mset.addArg(123.45);
-        mset.addArg("rtbkit:redis:id:85885bb0-b91b-11e2-c4cf-7fba90171555"); mset.addArg(9876);
-        mset.addArg("rtbkit:redis:url:http://myonlinearcade.com/"); mset.addArg("JSCRIPT");
+        mset.addArg("RTBkit:aug:winSurcharges.surcharge.USD/1M:50");
+        mset.addArg(123.45);
+        mset.addArg("RTBkit:aug:id:85885bb0-b91b-11e2-c4cf-7fba90171555");
+        mset.addArg(9876);
+        mset.addArg("RTBkit:aug:url:http://myonlinearcade.com/");
+        mset.addArg("JSCRIPT");
 
-        Result result = redis.exec(mset);
+        Result result = async_redis.exec(mset);
         BOOST_CHECK_EQUAL(result.ok(), true);
     }
 
@@ -141,25 +143,23 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
     agentConfig.bindTcp();
     agentConfig.start();
 
-    atomic<size_t> processed(0);
-
     TestAgent agent1(proxies, "bob-the-agent");
     agent1.init();
     agent1.start();
     agent1.configure();
     {
-    	AugmentationConfig aug_conf;
-    	aug_conf.name = "redis";
-    	aug_conf.required = true;
-    	auto& v =  aug_conf.config;
-    	Json::Value av(Json::arrayValue);
-    	av.append("winSurcharges.surcharge.USD/1M");
-    	av.append("id");
-    	av.append("exchange");
-    	av.append("foo.bar"); // not found
-    	v["aug-list"] = av;
-    	v["aug-prefix"] = "rtbkit:redis";
-    	agent1.config.addAugmentation(aug_conf);
+        AugmentationConfig aug_conf;
+        aug_conf.name = "redis";
+        aug_conf.required = true;
+        auto& v =  aug_conf.config;
+        Json::Value av(Json::arrayValue);
+        av.append("winSurcharges.surcharge.USD/1M");
+        av.append("id");
+        av.append("exchange");
+        av.append("foo.bar"); // not found
+        v["aug-list"] = av;
+        v["aug-prefix"] = "RTBkit:aug";
+        agent1.config.addAugmentation(aug_conf);
     }
     agent1.doConfig (agent1.config);
 
@@ -169,30 +169,31 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
     agent2.start();
     agent2.doConfig(agent2.config);
     {
-    	AugmentationConfig aug_conf;
-    	aug_conf.name = "redis";
-    	aug_conf.required = true;
-    	auto& v =  aug_conf.config;
-    	Json::Value av(Json::arrayValue);
-    	av.append("id");
-    	av.append("url"); // not found
-    	v["aug-list"] = av;
-    	v["aug-prefix"] = "rtbkit:redis";
-    	agent2.config.addAugmentation(aug_conf);
+        AugmentationConfig aug_conf;
+        aug_conf.name = "redis";
+        aug_conf.required = true;
+        auto& v =  aug_conf.config;
+        Json::Value av(Json::arrayValue);
+        av.append("id");
+        av.append("url"); // not found
+        v["aug-list"] = av;
+        v["aug-prefix"] = "RTBkit:aug";
+        agent2.config.addAugmentation(aug_conf);
     }
     agent2.doConfig (agent2.config);
 
     cerr << "init feeders\n";
 
     vector< std::shared_ptr<MockAugmentationLoop> > feederThreads;
-    for (size_t i = 0; i < FeederThreads; ++i) {
+    for (size_t i = 0; i < FeederThreads; ++i)
+    {
         feederThreads.emplace_back(new MockAugmentationLoop(proxies));
         feederThreads.back()->start();
     }
 
     cerr << "init aug\n";
 
-    RedisAugmentor aug("redis-augmentation", "redis-augmentation", proxies, "localhost:6379");
+    RedisAugmentor aug("redis-augmentation", "redis-augmentation", proxies, redis);
     aug.init(RedisThreads);
     aug.start();
 
@@ -200,7 +201,8 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
 
     cerr << "sleeping..." << endl;
 
-    for (size_t i = 0; i < TestLength; ++i) {
+    for (size_t i = 0; i < TestLength; ++i)
+    {
         this_thread::sleep_for(chrono::seconds(1));
         cerr << "[ " << i << " / " << TestLength << " ]: "
              << "load=" << aug.sampleLoad()
@@ -211,7 +213,8 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
     cerr << "WOKE UP!" << endl;
 
     size_t sent = 0, recv = 0;
-    for (auto& th : feederThreads) {
+    for (auto& th : feederThreads)
+    {
         th->shutdown();
         sent += th->sent;
         recv += th->recv;
@@ -221,10 +224,9 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
     BOOST_CHECK_EQUAL(aug_vec.size(),sent);
     BOOST_CHECK_EQUAL(sent,recv);
     for (const auto& str: aug_vec)
-    	BOOST_CHECK_EQUAL(str, aug_str);
+        BOOST_CHECK_EQUAL(str, aug_str);
 
     cerr << "sent: " << sent << endl
-         << "proc: " << processed << endl
          << "recv: " << recv << endl;
 
     proxies->events->dump(cerr);
