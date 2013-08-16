@@ -94,6 +94,11 @@ struct SqsApi : public AwsBasicApi {
                            int visibilityTimeout = -1,
                            int waitTimeSeconds = -1);
 
+    std::vector<Message> receiveMessageBatch(const std::string & queueUri,
+                                             int maxNumberOfMessages = 1,
+                                             int visibilityTimeout = -1,
+                                             int waitTimeSeconds = -1);
+
     /* Delete a message from a queue.
 
         \param queueUrl        The queue url to delete the message from

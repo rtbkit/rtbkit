@@ -15,6 +15,67 @@ using namespace std;
 using namespace ML;
 
 
+namespace {
+
+using namespace Datacratic;
+
+
+SqsApi::Message
+extractMessage(const tinyxml2::XMLNode * messageNode)
+{
+    SqsApi::Message message;
+
+    message.body = extract<string>(messageNode, "Body");
+    message.bodyMd5 = extract<string>(messageNode,
+                                      "MD5OfBody");
+    message.messageId = extract<string>(messageNode,
+                                        "MessageId");
+    message.receiptHandle = extract<string>(messageNode,
+                                            "ReceiptHandle");
+
+    // xml->Print();
+
+    const tinyxml2::XMLElement * p = extractNode(messageNode, "Attribute")->ToElement();
+    while (p && strcmp(p->Name(), "Attribute") == 0) {
+        const tinyxml2::XMLNode * name = extractNode(p, "Name");
+        const tinyxml2::XMLNode * value = extractNode(p, "Value");
+        if (name && value) {
+            string attrName(name->FirstChild()->ToText()->Value());
+            string attrValue(value->FirstChild()->ToText()->Value());
+            if (value) {
+                if (attrName == "SenderId") {
+                    message.senderId = attrValue;
+                }
+                else if (attrName == "ApproximateFirstReceiveTimestamp") {
+                    long long ms = stoll(attrValue);
+                    double seconds = (double)ms / 1000;
+                    message.approximateFirstReceiveTimestamp
+                        = Date::fromSecondsSinceEpoch(seconds);
+                }
+                else if (attrName == "SentTimestamp") {
+                    long long ms = stoll(attrValue);
+                    double seconds = (double)ms / 1000;
+                    message.sentTimestamp
+                        = Date::fromSecondsSinceEpoch(seconds);
+                }
+                else if (attrName == "ApproximateReceiveCount") {
+                    message.approximateReceiveCount = stoi(attrValue);
+                }
+                else {
+                    throw ML::Exception("unexpected attribute name: "
+                                        + attrName);
+                }
+            }
+        }
+        p = p->NextSiblingElement();
+    }
+
+    return message;
+}
+
+}
+
+
 namespace Datacratic {
 
 
@@ -23,8 +84,7 @@ namespace Datacratic {
 /*****************************************************************************/
 
 SqsApi::
-SqsApi(const std::string & protocol,
-       const std::string & region)
+SqsApi(const std::string & protocol, const std::string & region)
 {
     setService("sqs", protocol, region);
 }
@@ -122,12 +182,33 @@ receiveMessage(const std::string & queueUri,
                int visibilityTimeout,
                int waitTimeSeconds)
 {
+    
     SqsApi::Message message;
+
+    auto messages = receiveMessageBatch(queueUri, 1,
+                                        visibilityTimeout, waitTimeSeconds);
+    if (messages.size() > 0) {
+        message = messages[0];
+    }
+
+    return message;
+}
+
+vector<SqsApi::Message>
+SqsApi::
+receiveMessageBatch(const std::string & queueUri,
+                    int maxNumberOfMessages,
+                    int visibilityTimeout,
+                    int waitTimeSeconds)
+{
+    vector<SqsApi::Message> messages;
 
     RestParams queryParams;
     queryParams.push_back({"Action", "ReceiveMessage"});
     queryParams.push_back({"Version", "2012-11-05"});
     queryParams.push_back({"AttributeName.1", "All"});
+    queryParams.push_back({"MaxNumberOfMessages",
+                           to_string(maxNumberOfMessages)});
     if (visibilityTimeout != -1)
         queryParams.push_back({"VisibilityTimeout", to_string(visibilityTimeout)});
     if (waitTimeSeconds != -1)
@@ -137,56 +218,18 @@ receiveMessage(const std::string & queueUri,
 
     auto result = extractNode(xml->RootElement(), "ReceiveMessageResult");
     if (result->NoChildren()) {
-        cerr << "empty message\n";
-        return message;
+        return messages;
     }
 
-    message.body = extract<string>(result, "Message/Body");
-    message.bodyMd5 = extract<string>(result,
-                                      "Message/MD5OfBody");
-    message.messageId = extract<string>(result,
-                                        "Message/MessageId");
-    message.receiptHandle = extract<string>(result,
-                                            "Message/ReceiptHandle");
+    messages.reserve(maxNumberOfMessages);
 
-    // xml->Print();
-
-    const tinyxml2::XMLElement * p = extractNode(result, "Message/Attribute")->ToElement();
-    while (p && strcmp(p->Name(), "Attribute") == 0) {
-        const tinyxml2::XMLNode * name = extractNode(p, "Name");
-        const tinyxml2::XMLNode * value = extractNode(p, "Value");
-        if (name && value) {
-            string attrName(name->FirstChild()->ToText()->Value());
-            string attrValue(value->FirstChild()->ToText()->Value());
-            if (value) {
-                if (attrName == "SenderId") {
-                    message.senderId = attrValue;
-                }
-                else if (attrName == "ApproximateFirstReceiveTimestamp") {
-                    long long ms = stoll(attrValue);
-                    double seconds = (double)ms / 1000;
-                    message.approximateFirstReceiveTimestamp
-                        = Date::fromSecondsSinceEpoch(seconds);
-                }
-                else if (attrName == "SentTimestamp") {
-                    long long ms = stoll(attrValue);
-                    double seconds = (double)ms / 1000;
-                    message.sentTimestamp
-                        = Date::fromSecondsSinceEpoch(seconds);
-                }
-                else if (attrName == "ApproximateReceiveCount") {
-                    message.approximateReceiveCount = stoi(attrValue);
-                }
-                else {
-                    throw ML::Exception("unexpected attribute name: "
-                                        + attrName);
-                }
-            }
-        }
-        p = p->NextSiblingElement();
+    auto messageNode = extractNode(result, "Message");
+    while (messageNode) {
+        messages.emplace_back(extractMessage(messageNode));
+        messageNode = messageNode->NextSiblingElement();
     }
 
-    return message;
+    return messages;
 }
 
 void
