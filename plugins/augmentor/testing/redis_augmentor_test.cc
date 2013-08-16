@@ -12,7 +12,7 @@
 #include "rtbkit/testing/test_agent.h"
 #include "rtbkit/plugins/augmentor/redis_augmentor.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
-#include "rtbkit/soa/service/testing/redis_temporary_server.h"
+#include "soa/service/testing/redis_temporary_server.h"
 #include "jml/db/persistent.h"
 #include "jml/utils/exc_assert.h"
 #include "soa/service/redis.h"

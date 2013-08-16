@@ -1,4 +1,4 @@
-/*
+/* -*- C++ -*-
  * redis_augmentor.h
  *
  *  Created on: Aug 7, 2013
@@ -10,7 +10,7 @@
 
 #include <string>
 #include "augmentor_base.h"
-#include "rtbkit/soa/service/redis.h"
+#include "soa/service/redis.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 
 namespace RTBKIT {
@@ -63,7 +63,7 @@ public:
     void init(int nthreads);
     virtual ~RedisAugmentor() ;
 private:
-    void onRequest(const AugmentationRequest & request, SendResponseCB sendResponse) override;
+    void onRequest(const AugmentationRequest & request, SendResponseCB sendResponse);
     RTBKIT::AgentConfigurationListener agent_config_;
     std::shared_ptr<Redis::AsyncConnection> redis_ ;
 };
