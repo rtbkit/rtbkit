@@ -6,11 +6,9 @@
  *      Copyright (c) 2013 Datacratic.  All rights reserved.
  */
 
-#include <atomic>
 #include <iterator> // std::back_inserter
 #include <algorithm>// std::copy_if
 #include <boost/range/irange.hpp>
-#include <boost/algorithm/string.hpp>
 #include "redis_augmentor.h"
 #include "jml/utils/exc_assert.h"
 using namespace std;

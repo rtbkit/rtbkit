@@ -38,7 +38,7 @@ std::string instancedName(const std::string& prefix)
 
 static mutex aug_mtx ;
 static const string aug_str =
-    "[{\"account\":[\"aliceCampaign\",\"aliceStrategy\"],\"augmentation\":{\"data\":{\"rtbkit:redis:id:85885bb0-b91b-11e2-c4cf-7fba90171555\":\"9876\",\"rtbkit:redis:url:http://myonlinearcade.com/\":\"JSCRIPT\"}}},{\"account\":[\"testCampaign\",\"testStrategy\"],\"augmentation\":{\"data\":{\"rtbkit:redis:id:85885bb0-b91b-11e2-c4cf-7fba90171555\":\"9876\",\"rtbkit:redis:winSurcharges.surcharge.USD/1M:50\":\"123\"}}}]";
+    "[{\"account\":[\"aliceCampaign\",\"aliceStrategy\"],\"augmentation\":{\"data\":{\"RTBkit:aug:id:85885bb0-b91b-11e2-c4cf-7fba90171555\":\"9876\",\"RTBkit:aug:url:http://myonlinearcade.com/\":\"JSCRIPT\"}}},{\"account\":[\"testCampaign\",\"testStrategy\"],\"augmentation\":{\"data\":{\"RTBkit:aug:id:85885bb0-b91b-11e2-c4cf-7fba90171555\":\"9876\",\"RTBkit:aug:winSurcharges.surcharge.USD/1M:50\":\"123\"}}}]";
 static vector<string> aug_vec ;
 struct MockAugmentationLoop : public ServiceBase, public MessageLoop
 {
@@ -118,14 +118,6 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
         RedisThreads = 2
     };
 
-    //tmp
-    int i = 123;
-    cerr << i << endl ;
-    vector<int> vi{1,2,3,45,};
-    for (auto& x:vi)
-    {
-    	cout << x << endl ;
-    }
     Redis::RedisTemporaryServer redis;
     {
         using namespace Redis;
@@ -150,8 +142,6 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
     agentConfig.init();
     agentConfig.bindTcp();
     agentConfig.start();
-
-    atomic<size_t> processed(0);
 
     TestAgent agent1(proxies, "bob-the-agent");
     agent1.init();
@@ -187,7 +177,7 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
         av.append("id");
         av.append("url"); // not found
         v["aug-list"] = av;
-        v["aug-prefix"] = "rtbkit:redis";
+        v["aug-prefix"] = "RTBkit:aug";
         agent2.config.addAugmentation(aug_conf);
     }
     agent2.doConfig (agent2.config);
@@ -237,7 +227,6 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
         BOOST_CHECK_EQUAL(str, aug_str);
 
     cerr << "sent: " << sent << endl
-         << "proc: " << processed << endl
          << "recv: " << recv << endl;
 
     proxies->events->dump(cerr);
