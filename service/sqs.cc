@@ -199,9 +199,7 @@ deleteMessage(const std::string & queueUri,
     queryParams.push_back({"ReceiptHandle", receiptHandle});
     queryParams.push_back({"Version", "2012-11-05"});
 
-    auto xml = performGet(std::move(queryParams), getQueueResource(queueUri));
-
-    xml->Print();
+    performGet(std::move(queryParams), getQueueResource(queueUri));
 }
 
 void
@@ -213,15 +211,15 @@ deleteMessageBatch(const std::string & queueUri,
     queryParams.push_back({"Action", "DeleteMessageBatch"});
     queryParams.push_back({"Version", "2012-11-05"});
 
-    for (int i = 0; i < receiptHandles.size(); i++) {
-        string prefix = "DeleteMessageBatchRequestEntry." + to_string(i);
-        queryParams.push_back({prefix + ".Id", "msg" + to_string(i)});
-        queryParams.push_back({prefix + ".ReceiptHandle", receiptHandles[i]});
+    int counter(1);
+    for (const string & receiptHandle: receiptHandles) {
+        string prefix = "DeleteMessageBatchRequestEntry." + to_string(counter);
+        queryParams.push_back({prefix + ".Id", "msg" + to_string(counter)});
+        queryParams.push_back({prefix + ".ReceiptHandle", receiptHandle});
+        counter++;
     }
 
-    auto xml = performGet(std::move(queryParams), getQueueResource(queueUri));
-
-    xml->Print();
+    performGet(std::move(queryParams), getQueueResource(queueUri));
 }
 
 void
