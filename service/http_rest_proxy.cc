@@ -79,6 +79,11 @@ perform(const std::string & verb,
         else myRequest.setOpt<Timeout>(0);
         myRequest.setOpt<NoSignal>(1);
 
+        if (noSSLChecks) {
+            myRequest.setOpt<SslVerifyHost>(false);
+            myRequest.setOpt<SslVerifyPeer>(false);
+        }
+
         auto onData = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
             {
                 //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
