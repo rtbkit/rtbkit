@@ -10,6 +10,7 @@
 #include "rtbkit/core/banker/null_banker.h"
 #include "rtbkit/common/testing/exchange_source.h"
 #include "rtbkit/testing/test_agent.h"
+#include "rtbkit/testing/mock_exchange.h"
 #include "jml/utils/file_functions.h"
 
 namespace RTBKIT {
@@ -20,8 +21,6 @@ struct BidStack {
     // components
     std::shared_ptr<Banker> banker;
     std::shared_ptr<TestAgent> agent;
-
-    std::vector<std::shared_ptr<BidSource>> sources;
 
     BidStack() {
         proxies.reset(new ServiceProxies());
@@ -59,14 +58,20 @@ struct BidStack {
             router.startExchange(exchange);
         }
 
+        std::string mock = "{\"workers\":[";
+
         router.forAllExchanges([&](std::shared_ptr<ExchangeConnector> const & item) {
             item->enableUntil(Date::positiveInfinity());
 
-            auto source = item->getBidSource();
-            if(source) {
-                sources.push_back(source);
-            }
+            auto json = item->getBidSourceConfiguration();
+            std::cerr << json << std::endl;
+            mock += ML::format("{\"bids\":{\"lifetime\":%d,%s,\"wins\":{\"type\":\"none\"}},",
+                               count,
+                               json.substr(1));
         });
+
+        mock.erase(mock.size() - 1);
+        mock += "]}";
 
         // This is our bidding agent, that actually calculates the bid price
         if(!agent) {
@@ -81,11 +86,8 @@ struct BidStack {
         // Wait a little for the stack to startup...
         ML::sleep(1.0);
 
-        for(int i = 0; i != count; ++i) {
-            for(auto & item : sources) {
-                item->generateRandomBidRequest();
-            }
-        }
+        MockExchange mockExchange(proxies);
+        mockExchange.start(Json::parse(mock));
     }
 };
 

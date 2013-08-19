@@ -13,13 +13,12 @@ $(eval $(call program,augmentor_ex_runner,augmentor_ex boost_program_options))
 $(eval $(call program,data_logger_ex,data_logger data_logger boost_program_options services))
 $(eval $(call program,bidding_agent_console,bidding_agent rtb_router boost_program_options services))
 $(eval $(call program,bidding_agent_ex,bidding_agent rtb_router boost_program_options services))
-$(eval $(call program,ad_server_connector_ex,adserver_connector exchange rtb_router boost_program_options services))
 $(eval $(call program,bid_request_endpoint,exchange rtb_router bidding_agent boost_program_options services))
-$(eval $(call program,adserver_endpoint,standard_adserver_connector data_logger rtb_router bidding_agent boost_program_options services))
-$(eval $(call program,integration_endpoints,exchange standard_adserver_connector data_logger rtb_router bidding_agent boost_program_options services))
+$(eval $(call program,adserver_endpoint,standard_adserver data_logger rtb_router bidding_agent boost_program_options services))
+$(eval $(call program,integration_endpoints,exchange standard_adserver data_logger rtb_router bidding_agent boost_program_options services))
 
 RTBKIT_INTEGRATION_TEST_LINK := \
-	rtb_router bidding_agent integration_test_utils monitor monitor_service augmentor_ex adserver_connector
+	rtb_router bidding_agent integration_test_utils monitor monitor_service augmentor_ex adserver_connector mock_bid_request mock_adserver
 
 $(eval $(call test,rtbkit_integration_test,$(RTBKIT_INTEGRATION_TEST_LINK),boost))
 

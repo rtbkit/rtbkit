@@ -75,11 +75,11 @@ getWinCostModel(Auction const & auction,
     return WinCostModel();
 }
 
-std::shared_ptr<BidSource>
+std::string
 ExchangeConnector::
-getBidSource() const
+getBidSourceConfiguration() const
 {
-    return 0;
+    return "{\"type\":\"unknown\"}";
 }
 
 ExchangeConnector::ExchangeCompatibility

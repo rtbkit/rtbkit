@@ -1,12 +1,13 @@
-/** ad_server_connector_ex.cc                                 -*- C++ -*-
-    Eric Robert, 03 April 2013
-    Copyright (c) 2013 Datacratic.  All rights reserved.
+/* adserver_runner.cc
+   Eric Robert, 20 Aug 2013
+   Copyright (c) 2013 Datacratic.  All rights reserved.
 
-    Example of a simple ad server connector.
-
+   Tool to run the ad server
 */
 
-#include "mock_ad_server_connector.h"
+#include "adserver_connector.h"
+#include "soa/service/service_utils.h"
+#include "jml/utils/file_functions.h"
 
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
@@ -22,6 +23,12 @@ using namespace std;
 using namespace Datacratic;
 using namespace ML;
 
+static inline Json::Value loadJsonFromFile(const std::string & filename)
+{
+    ML::File_Read_Buffer buf(filename);
+    return Json::parse(std::string(buf.start(), buf.end()));
+}
+
 /******************************************************************************/
 /* MAIN                                                                       */
 /******************************************************************************/
@@ -30,13 +37,13 @@ int main(int argc, char** argv)
 {
     using namespace boost::program_options;
 
-    int winPort = 12340;
+    std::string configuration = "rtbkit/examples/adserver-config.json";
 
     ServiceProxyArguments args;
     options_description options = args.makeProgramOptions();
-    options_description more("Mock Ad Server Connector");
+    options_description more("Ad Server");
     more.add_options()
-        ("win-port,w", value(&winPort), "listening port for wins");
+        ("adserver-configuration,f", value(&configuration), "configuration file");
 
     options.add(more);
     options.add_options() ("help,h", "Print this message");
@@ -50,9 +57,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    RTBKIT::MockAdServerConnector server(args, "mock-ad-server-connector");
-    server.init(winPort);
-    server.start();
+    auto server = RTBKIT::AdServerConnector::create(loadJsonFromFile(configuration));
+    server->start();
 
     while (true) this_thread::sleep_for(chrono::seconds(10));
 

@@ -112,7 +112,7 @@ struct ExchangeConnector: public ServiceBase {
 
     /** Return a bid source
     */
-    virtual std::shared_ptr<BidSource> getBidSource() const;
+    virtual std::string getBidSourceConfiguration() const;
 
     /*************************************************************************/
     /* EXCHANGE COMPATIBILITY                                                */

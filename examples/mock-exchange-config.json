@@ -1,0 +1,15 @@
+{
+    "workers": [
+        {
+            "thread": 1,
+            "bids": {
+                "type": "mock",
+                "url": "localhost:12339"
+            },
+            "wins": {
+                "type": "mock",
+                "url": "localhost:12340"
+            }
+        }
+    ]
+}

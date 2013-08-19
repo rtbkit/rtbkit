@@ -37,120 +37,117 @@ MockExchange(const shared_ptr<ServiceProxies> proxies, const string& name) :
 
 
 MockExchange::
-~MockExchange()
-{
+~MockExchange() {
     threads.join_all();
 }
 
 
 void
 MockExchange::
-start(size_t threadCount,
-      size_t numBidRequests,
-      std::vector<NetworkAddress> const & bids,
-      std::vector<NetworkAddress> const & wins)
-{
-    try {
-        running = threadCount;
+start(Json::Value const & configuration) {
+    auto workers = configuration["workers"];
 
-        auto startWorker = [=](NetworkAddress bid, NetworkAddress win) {
-            Worker worker(this, std::move(bid), std::move(win));
-            if(numBidRequests) {
-                worker.run(numBidRequests);
-            }
-            else {
+    for(auto i = workers.begin(), end = workers.end(); i != end; ++i) {
+        auto json = *i;
+        auto count = json.get("threads", 1).asInt();
+
+        for(auto j = 0; j != count; ++j) {
+            std::cerr << "starting worker " << running << std::endl;
+            ML::atomic_inc(running);
+
+            auto bid = json["bids"];
+            auto win = json["wins"];
+            threads.create_thread([=]() {
+                Worker worker(this, bid, win);
                 worker.run();
-            }
 
-            ML::atomic_dec(running);
-        };
-
-        for(size_t i = 0; i != threadCount; ++i) {
-            int a = i % bids.size();
-            int b = i % wins.size();
-
-            std::cerr << "worker " << i
-                      << " connects to bid=" << bids[a].host << ":" << bids[a].port
-                      << " connects to win=" << wins[b].host << ":" << wins[b].port
-                      << std::endl;
-
-            threads.create_thread(std::bind(startWorker, bids[a], wins[b]));
+                ML::atomic_dec(running);
+            });
         }
-    }
-    catch (const exception& ex) {
-        cerr << "got exception on request: " << ex.what() << endl;
     }
 }
 
 
+void
+MockExchange::
+add(BidSource * bid, WinSource * win) {
+    std::cerr << "starting worker " << running << std::endl;
+    ML::atomic_inc(running);
+
+    threads.create_thread([=]() {
+        Worker worker(this, bid, win);
+        worker.run();
+
+        ML::atomic_dec(running);
+    });
+}
+
+
 MockExchange::Worker::
-Worker(MockExchange * exchange, NetworkAddress bid, NetworkAddress win) :
+Worker(MockExchange * exchange, BidSource * bid, WinSource * win) :
     exchange(exchange),
-    bids(std::move(bid)),
-    wins(std::move(win)),
-    rng(random())
-{
+    bids(bid),
+    wins(win),
+    rng(random()) {
+}
+
+
+MockExchange::Worker::
+Worker(MockExchange * exchange, Json::Value bid, Json::Value win) :
+    exchange(exchange),
+    bids(BidSource::createBidSource(std::move(bid))),
+    wins(WinSource::createWinSource(std::move(win))),
+    rng(random()) {
 }
 
 
 void
 MockExchange::Worker::
 run() {
-    for(;;) {
-        bid();
-    }
+    while(bid());
 }
 
-
-void
-MockExchange::Worker::
-run(size_t requests) {
-    for(size_t i = 0; i != requests; ++i) {
-        bid();
-    }
-}
-
-
-void
+bool
 MockExchange::Worker::bid() {
-    BidRequest bidRequest = bids.makeBidRequest();
-    exchange->recordHit("requests");
-
     for (;;) {
-        bids.sendBidRequest(bidRequest);
-        exchange->recordHit("sent");
+        auto br = bids->sendBidRequest();
+        exchange->recordHit("requests");
 
-        auto response = bids.recvBid();
+        auto response = bids->receiveBid();
+        exchange->recordHit("responses");
+
         if (!response.first) continue;
-        exchange->recordHit("bids");
+        vector<ExchangeSource::Bid> items = response.second;
 
-        vector<ExchangeSource::Bid> bids = response.second;
-
-        for (auto & bid : bids) {
+        for (auto & bid : items) {
             if(bid.maxPrice == 0) continue;
+            exchange->recordHit("responses");
 
-            auto ret = isWin(bidRequest, bid);
+            if (!wins) break;
+
+            auto ret = isWin(br, bid);
             if (!ret.first) continue;
 
-            wins.sendWin(bidRequest, bid, ret.second);
+            wins->sendWin(br, bid, ret.second);
             exchange->recordHit("wins");
 
-            wins.sendImpression(bidRequest, bid);
+            wins->sendImpression(br, bid);
             exchange->recordHit("impressions");
 
-            if (!isClick(bidRequest, bid)) continue;
-            wins.sendClick(bidRequest, bid);
+            if (!isClick(br, bid)) continue;
+            wins->sendClick(br, bid);
             exchange->recordHit("clicks");
         }
 
         break;
     }
+
+    return !bids->isDone();
 }
 
 
 pair<bool, Amount>
-MockExchange::Worker::isWin(const BidRequest&, const ExchangeSource::Bid& bid)
-{
+MockExchange::Worker::isWin(const BidRequest&, const ExchangeSource::Bid& bid) {
     if (rng.random01() >= 0.1)
         return make_pair(false, Amount());
 
@@ -159,8 +156,7 @@ MockExchange::Worker::isWin(const BidRequest&, const ExchangeSource::Bid& bid)
 
 
 bool
-MockExchange::Worker::isClick(const BidRequest&, const ExchangeSource::Bid&)
-{
+MockExchange::Worker::isClick(const BidRequest&, const ExchangeSource::Bid&) {
     return rng.random01() <= 0.1;
 }
 

@@ -87,6 +87,11 @@ struct AdServerConnector : public Datacratic::ServiceBase {
 
     Date startTime_;
 
+    static std::unique_ptr<AdServerConnector> create(Json::Value const & json);
+
+    typedef std::function<AdServerConnector * (Json::Value const & json)> Factory;
+    static void registerFactory(std::string const & name, Factory factory);
+
 private:
     // Connection to the post auction loops
     ZmqNamedProxy toPostAuctionService_;

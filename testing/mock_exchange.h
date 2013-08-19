@@ -37,32 +37,31 @@ struct MockExchange : public Datacratic::ServiceBase
 
     ~MockExchange();
 
-    void start(size_t threadCount,
-               size_t numBidRequests,
-               std::vector<NetworkAddress> const & bids,
-               std::vector<NetworkAddress> const & wins);
+    void start(Json::Value const & configuration);
 
     bool isDone() const {
         return !running;
     }
 
+    void add(BidSource * bids, WinSource * wins);
+
 private:
     int running;
 
     struct Worker {
-        Worker(MockExchange * exchange, NetworkAddress bid, NetworkAddress win);
+        Worker(MockExchange * exchange, BidSource * bid, WinSource * win);
+        Worker(MockExchange * exchange, Json::Value bid, Json::Value win);
 
         void run();
-        void run(size_t requests);
-        void bid();
+        bool bid();
 
         std::pair<bool, Amount>
         isWin(const BidRequest&, const ExchangeSource::Bid& bid);
         bool isClick(const BidRequest&, const ExchangeSource::Bid& bid);
 
         MockExchange * exchange;
-        BidSource bids;
-        WinSource wins;
+        std::unique_ptr<BidSource> bids;
+        std::unique_ptr<WinSource> wins;
         ML::RNG rng;
     };
 

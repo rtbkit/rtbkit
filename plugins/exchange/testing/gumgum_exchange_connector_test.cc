@@ -134,11 +134,12 @@ BOOST_AUTO_TEST_CASE( test_gumgum )
     //std::string strBidRequest = request->toJsonStr();
 
     // load bid json
-		std::string strJson = loadFile(bid_sample_filename);
+    std::string strJson = loadFile(bid_sample_filename);
     std::cerr << strJson << std::endl;
 
-		// prepare request
-    BidSource source(port);
+    // prepare request
+    NetworkAddress address(port);
+    BidSource source(address);
 
     std::string httpRequest = ML::format(
             "POST /auctions HTTP/1.1\r\n"
@@ -151,7 +152,7 @@ BOOST_AUTO_TEST_CASE( test_gumgum )
             strJson.size(),
             strJson.c_str());
 
-		// and send it
+    // and send it
     source.write(httpRequest);
     std::cerr << source.read() << std::endl;
 

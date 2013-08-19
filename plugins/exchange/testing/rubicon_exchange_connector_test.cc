@@ -309,7 +309,8 @@ BOOST_AUTO_TEST_CASE( test_rubicon )
         ML::sleep(1.0);
 
         // replay the recorded stream of bid requests
-        BidSource source(port);
+        NetworkAddress address(port);
+        BidSource source(address);
         auto callback = [&](const std::string & payload) {
             source.write(payload);
             std::cerr << source.read() << std::endl;

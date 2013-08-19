@@ -7,6 +7,7 @@
 #include "openrtb_exchange_connector.h"
 #include "rtbkit/common/testing/exchange_source.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
+#include "rtbkit/plugins/bid_request/openrtb_bid_source.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "openrtb/openrtb_parsing.h"
@@ -198,67 +199,13 @@ getErrorResponse(const HttpAuctionHandler & connection,
     return HttpResponse(400, response);
 }
 
-std::shared_ptr<BidSource>
+std::string
 OpenRTBExchangeConnector::
-getBidSource() const
+getBidSourceConfiguration() const
 {
-    struct OpenRTBBidSource : public BidSource {
-        ML::RNG rng;
-
-        std::string host;
-        std::string verb;
-        std::string resource;
-
-        OpenRTBBidSource(int port,
-                         std::string verb,
-                         std::string resource)
-            : BidSource(NetworkAddress(port)),
-              host(ML::fqdn_hostname(std::to_string(port)) + ":" + std::to_string(port)),
-              verb(std::move(verb)),
-              resource(std::move(resource))
-        {
-        }
-
-        void generateRandomBidRequest() {
-            OpenRTB::BidRequest req;
-            req.id = Id(rng.random());
-            req.tmax.val = 50;
-	    req.at = AuctionType::SECOND_PRICE;
-	    req.imp.emplace_back();
-	    auto & imp = req.imp[0];
-	    imp.id = Id(rng.random());
-	    imp.banner.reset(new OpenRTB::Banner);
-	    imp.banner->w.push_back(300);
-	    imp.banner->h.push_back(250);
-
-            StructuredJsonPrintingContext context;
-            DefaultDescription<OpenRTB::BidRequest> desc;
-            desc.printJson(&req, context);
-            std::string content = context.output.toString();
-
-            int length = content.length();
-
-            std::string message = ML::format(
-                "%s %s HTTP/1.1\r\n"
-                "Content-Type: application/json\r\n"
-                "Content-Length: %d\r\n"
-                "accept: */*\r\n"
-                "connection: Keep-Alive\r\n"
-                "host: %s\r\n"
-                "user-agent: be2/1.0\r\n"
-                "x-openrtb-version: 2.1\r\n"
-                "\r\n%s",
-                verb.c_str(), resource.c_str(), length, host.c_str(), content.c_str());
-
-            std::cerr << message << std::endl;
-            write(message);
-            std::cerr << read() << std::endl;
-        }
-    };
-
-    return std::make_shared<OpenRTBBidSource>(port(),
-                                              auctionVerb,
-                                              auctionResource);
+    auto suffix = std::to_string(port());
+    return ML::format("{\"type\":\"openrtb\",\"url\":\"%s\"}",
+                      ML::fqdn_hostname(suffix) + ":" + suffix);
 }
 
 void

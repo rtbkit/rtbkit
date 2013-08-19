@@ -89,7 +89,7 @@ private:
 struct HttpAdServerConnector : public AdServerConnector {
     HttpAdServerConnector(const std::string & serviceName,
                           const std::shared_ptr<Datacratic::ServiceProxies>
-                          & proxy);
+                          & proxy = std::make_shared<Datacratic::ServiceProxies>());
     ~HttpAdServerConnector() {
         shutdown();
     }

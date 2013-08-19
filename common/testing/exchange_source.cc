@@ -10,9 +10,9 @@
 #include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "soa/service/http_header.h"
 
+#include <dlfcn.h>
 #include <array>
 
-using namespace std;
 using namespace RTBKIT;
 
 ExchangeSource::
@@ -29,12 +29,12 @@ ExchangeSource(NetworkAddress address_) :
 
     char const * host = 0;
     if(address.host != "localhost") host = address.host.c_str();
-    int res = getaddrinfo(host, to_string(address.port).c_str(), &hint, &addr);
+    int res = getaddrinfo(host, std::to_string(address.port).c_str(), &hint, &addr);
     ExcCheckErrno(!res, "getaddrinfo failed");
     if(!addr) throw ML::Exception("cannot find suitable address");
 
-    std::cerr << "sending to " << address.host << ":" << address.port << std::endl;
     connect();
+    std::cerr << "sending to " << address.host << ":" << address.port << std::endl;
 }
 
 
@@ -65,10 +65,45 @@ connect()
 }
 
 
+BidSource::BidSource(NetworkAddress address) :
+    ExchangeSource(std::move(address)),
+    bidForever(true),
+    bidCount(0),
+    bidLifetime(0) {
+}
+
+
+BidSource::BidSource(NetworkAddress address, int lifetime) :
+    ExchangeSource(std::move(address)),
+    bidForever(false),
+    bidCount(0),
+    bidLifetime(lifetime) {
+}
+
+
+BidSource::
+BidSource(Json::Value const & json) :
+    ExchangeSource(json["url"].asString()),
+    bidForever(true),
+    bidCount(0),
+    bidLifetime(0) {
+    if(json.isMember("lifetime")) {
+        bidForever = false;
+        bidLifetime = json["lifetime"].asInt();
+    }
+}
+
+
+bool
+BidSource::
+isDone() const {
+    return bidForever ? false : bidLifetime <= bidCount;
+}
+
+
 void
 BidSource::
-write(std::string const & request)
-{
+write(std::string const & request) {
     const char * current = request.c_str();
     const char * end = current + request.size();
 
@@ -91,7 +126,7 @@ std::string
 BidSource::
 read()
 {
-    array<char, 16384> buffer;
+    std::array<char, 16384> buffer;
 
     int res = recv(fd, buffer.data(), buffer.size(), 0);
     if (res == 0 || (res == -1 && errno == ECONNRESET)) {
@@ -99,135 +134,40 @@ read()
     }
 
     ExcCheckErrno(res != -1, "recv");
-    return string(buffer.data(), res);
-}
-
-
-void
-BidSource::
-sendBidRequest(const BidRequest& originalBidRequest)
-{
-    string strBidRequest = originalBidRequest.toJsonStr();
-    string httpRequest = ML::format(
-            "POST /bids HTTP/1.1\r\n"
-            "Content-Length: %zd\r\n"
-            "Content-Type: application/json\r\n"
-            "Connection: Keep-Alive\r\n"
-            "\r\n"
-            "%s",
-            strBidRequest.size(),
-            strBidRequest.c_str());
-
-    write(httpRequest);
-}
-
-
-auto
-BidSource::
-parseResponse(const string& rawResponse) -> pair<bool, vector<Bid>>
-{
-    Json::Value payload;
-
-    if(rawResponse.empty()) {
-        return make_pair(false, vector<Bid>());
-    }
-
-    try {
-        HttpHeader header;
-        header.parse(rawResponse);
-        if (!header.contentLength || header.resource != "200") {
-            return make_pair(false, vector<Bid>());
-        }
-
-        payload = Json::parse(header.knownData);
-    }
-    catch (const exception & exc) {
-        cerr << "invalid response received: " << exc.what() << endl;
-        return make_pair(false, vector<Bid>());
-    }
-
-    if (payload.isMember("error")) {
-        cerr << "error returned: "
-            << payload["error"] << endl
-            << payload["details"] << endl;
-        return make_pair(false, vector<Bid>());
-    }
-
-    ExcAssert(payload.isMember("imp"));
-
-    vector<Bid> bids;
-
-    for (size_t i = 0; i < payload["imp"].size(); ++i) {
-        auto& spot = payload["imp"][i];
-
-        Bid bid;
-
-        bid.adSpotId = Id(spot["id"].asString());
-        bid.maxPrice = spot["max_price"].asInt();
-        bid.account = AccountKey(spot["account"].asString(), '.');
-        bids.push_back(bid);
-    }
-
-    return make_pair(true, bids);
-}
-
-
-pair<bool, vector<ExchangeSource::Bid>>
-BidSource::
-recvBid()
-{
-    return parseResponse(read());
+    return std::string(buffer.data(), res);
 }
 
 
 BidRequest
 BidSource::
-makeBidRequest()
-{
-    BidRequest bidRequest;
-
-    FormatSet formats;
-    formats.push_back(Format(160,600));
-    AdSpot spot;
-    spot.id = Id(1);
-    spot.formats = formats;
-    bidRequest.imp.push_back(spot);
-
-    formats[0] = Format(300,250);
-    spot.id = Id(2);
-    bidRequest.imp.push_back(spot);
-
-    bidRequest.location.countryCode = "CA";
-    bidRequest.location.regionCode = "QC";
-    bidRequest.location.cityName = "Montreal";
-    bidRequest.auctionId = Id(key);
-    bidRequest.exchange = "mock";
-    bidRequest.language = "en";
-    bidRequest.url = Url("http://datacratic.com");
-    bidRequest.timestamp = Date::now();
-    bidRequest.userIds.add(Id(rng.random()), ID_EXCHANGE);
-    bidRequest.userIds.add(Id(rng.random()), ID_PROVIDER);
-    ++key;
-
-    return bidRequest;
+sendBidRequest() {
+    ++bidCount;
+    return generateRandomBidRequest();
 }
 
+
+std::pair<bool, std::vector<ExchangeSource::Bid>>
+BidSource::
+receiveBid() {
+    return parseResponse(read());
+}
+
+
+WinSource::
+WinSource(NetworkAddress address) :
+    ExchangeSource(std::move(address)) {
+}
+
+
+WinSource::
+WinSource(Json::Value const & json) :
+    ExchangeSource(json["url"].asString()) {
+}
 
 void
 WinSource::
 sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
 {
-    PostAuctionEvent event;
-    event.type = PAE_WIN;
-    event.auctionId = bidRequest.auctionId;
-    event.adSpotId = bid.adSpotId;
-    event.timestamp = Date::now();
-    event.winPrice = winPrice;
-    event.uids = bidRequest.userIds;
-    event.account = bid.account;
-    event.bidTimestamp = bid.bidTimestamp;
-
-    sendEvent(event);
 }
 
 
@@ -235,15 +175,6 @@ void
 WinSource::
 sendImpression(const BidRequest& bidRequest, const Bid& bid)
 {
-    PostAuctionEvent event;
-    event.type = PAE_CAMPAIGN_EVENT;
-    event.label = "IMPRESSION";
-    event.auctionId = bidRequest.auctionId;
-    event.adSpotId = bid.adSpotId;
-    event.timestamp = Date::now();
-    event.uids = bidRequest.userIds;
-
-    sendEvent(event);
 }
 
 
@@ -251,48 +182,116 @@ void
 WinSource::
 sendClick(const BidRequest& bidRequest, const Bid& bid)
 {
-    PostAuctionEvent event;
-    event.type = PAE_CAMPAIGN_EVENT;
-    event.label = "CLICK";
-    event.auctionId = bidRequest.auctionId;
-    event.adSpotId = bid.adSpotId;
-    event.timestamp = Date::now();
-    event.uids = bidRequest.userIds;
-
-    sendEvent(event);
 }
 
 
 void
 WinSource::
-sendEvent(const PostAuctionEvent& event)
+write(const std::string & data)
 {
-    string str = event.toJson().toString();
-    string httpRequest = ML::format(
-            "POST /win HTTP/1.1\r\n"
-            "Content-Length: %zd\r\n"
-            "Content-Type: application/json\r\n"
-            "Connection: Keep-Alive\r\n"
-            "\r\n"
-            "%s",
-            str.size(),
-            str.c_str());
-
-    const char * current = httpRequest.c_str();
-    const char * end = current + httpRequest.size();
+    const char * current = data.c_str();
+    const char * end = current + data.size();
 
     while (current != end) {
         int res = send(fd, current, end - current, MSG_NOSIGNAL);
         if(res == 0 || res == -1) {
             connect();
-            current = httpRequest.c_str();
+            current = data.c_str();
             continue;
         }
 
         current += res;
     }
 
-    std::cerr << "win sent payload=" << str << std::endl;
-
     ExcAssertEqual((void *)current, (void *)end);
 }
+
+
+namespace {
+    typedef std::lock_guard<ML::Spinlock> Guard;
+    static ML::Spinlock bidLock;
+    static ML::Spinlock winLock;
+    static std::unordered_map<std::string, BidSource::Factory> bidFactories;
+    static std::unordered_map<std::string, WinSource::Factory> winFactories;
+}
+
+
+BidSource::Factory getBidFactory(std::string const & name) {
+    // see if it's already existing
+    {
+        Guard guard(bidLock);
+        auto i = bidFactories.find(name);
+        if (i != bidFactories.end()) return i->second;
+    }
+
+    // else, try to load the exchange library
+    std::string path = "lib" + name + "_bid_request.so";
+    void * handle = dlopen(path.c_str(), RTLD_NOW);
+    if (!handle) {
+        throw ML::Exception("couldn't find bid request/source library " + path);
+    }
+
+    // if it went well, it should be registered now
+    Guard guard(bidLock);
+    auto i = bidFactories.find(name);
+    if (i != bidFactories.end()) return i->second;
+
+    throw ML::Exception("couldn't find bid source name " + name);
+}
+
+
+void BidSource::registerBidSourceFactory(std::string const & name, Factory callback) {
+    Guard guard(bidLock);
+    if (!bidFactories.insert(std::make_pair(name, callback)).second)
+        throw ML::Exception("already had a bid source factory registered");
+}
+
+
+std::unique_ptr<BidSource> BidSource::createBidSource(Json::Value const & json) {
+    auto name = json.get("type", "unknown").asString();
+    auto factory = getBidFactory(name);
+    return std::unique_ptr<BidSource>(factory(json));
+}
+
+
+WinSource::Factory getWinFactory(std::string const & name) {
+    // see if it's already existing
+    {
+        Guard guard(winLock);
+        auto i = winFactories.find(name);
+        if (i != winFactories.end()) return i->second;
+    }
+
+    // else, try to load the adserver library
+    std::string path = "lib" + name + "_adserver.so";
+    void * handle = dlopen(path.c_str(), RTLD_NOW);
+    if (!handle) {
+        throw ML::Exception("couldn't find adserver library " + path);
+    }
+
+    // if it went well, it should be registered now
+    Guard guard(winLock);
+    auto i = winFactories.find(name);
+    if (i != winFactories.end()) return i->second;
+
+    throw ML::Exception("couldn't find win source name " + name);
+}
+
+
+void WinSource::registerWinSourceFactory(std::string const & name, Factory callback) {
+    Guard guard(winLock);
+    if (!winFactories.insert(std::make_pair(name, callback)).second)
+        throw ML::Exception("already had a win source factory registered");
+}
+
+
+std::unique_ptr<WinSource> WinSource::createWinSource(Json::Value const & json) {
+    auto name = json.get("type", "unknown").asString();
+    if(name == "none") {
+        return 0;
+    }
+
+    auto factory = getWinFactory(name);
+    return std::unique_ptr<WinSource>(factory(json));
+}
+

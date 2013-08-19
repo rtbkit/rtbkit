@@ -6,6 +6,8 @@
 
 */
 
+#pragma once
+
 #include "jml/utils/rng.h"
 #include "jml/arch/info.h"
 #include "common/account_key.h"
@@ -26,7 +28,8 @@ struct NetworkAddress {
 
     NetworkAddress(std::string url) {
         auto k = url.find_first_of(':');
-        if(k == std::string::npos) throw ML::Exception("url parsing failed for '" + url + "' and should be (host:port)");
+        if(k == std::string::npos)
+            throw ML::Exception("url parsing failed for '" + url + "' and should be (host:port)");
         host = url.substr(0, k);
         port = std::stoi(url.substr(k + 1));
     }
@@ -57,37 +60,52 @@ struct ExchangeSource {
 };
 
 struct BidSource : public ExchangeSource {
-    BidSource(NetworkAddress address) : ExchangeSource(std::move(address)) {
-        key = rng.random();
-    }
+    BidSource(NetworkAddress address);
+    BidSource(NetworkAddress address, int lifetime);
+    BidSource(Json::Value const & json);
+
+    bool isDone() const;
 
     void write(std::string const & text);
     std::string read();
 
-    void sendBidRequest(const BidRequest& request);
-    std::pair<bool, std::vector<Bid>> parseResponse(const std::string& rawResponse);
-    std::pair<bool, std::vector<Bid>> recvBid();
+    BidRequest sendBidRequest();
+    std::pair<bool, std::vector<Bid>> receiveBid();
 
-    BidRequest makeBidRequest();
-
-    virtual void generateRandomBidRequest() {
+    virtual std::pair<bool, std::vector<Bid>> parseResponse(const std::string& rawResponse) {
+        return std::make_pair(false, std::vector<Bid>());
     }
 
-    long long key;
+    virtual BidRequest generateRandomBidRequest() {
+        return BidRequest();
+    }
+
+    typedef std::function<BidSource * (Json::Value const &)> Factory;
+    static void registerBidSourceFactory(std::string const & name, Factory callback);
+    static std::unique_ptr<BidSource> createBidSource(Json::Value const & json);
+
+    bool bidForever;
+    long bidCount;
+    long bidLifetime;
+
+    unsigned long long key;
 };
 
 struct WinSource : public ExchangeSource {
-    WinSource(NetworkAddress address) : ExchangeSource(std::move(address)) {
-    }
+    WinSource(NetworkAddress address);
+    WinSource(Json::Value const & json);
 
-    void sendWin(const BidRequest& bidRequest,
-                 const Bid& bid,
-                 const Amount& winPrice);
-    void sendImpression(const BidRequest& bidRequest, const Bid& bid);
-    void sendClick(const BidRequest& bidRequest, const Bid& bid);
+    void write(const std::string & data);
 
-private:
-    void sendEvent(const PostAuctionEvent& ev);
+    virtual void sendWin(const BidRequest& br,
+                         const Bid& bid,
+                         const Amount& winPrice);
+    virtual void sendImpression(const BidRequest& br, const Bid& bid);
+    virtual void sendClick(const BidRequest& br, const Bid& bid);
+
+    typedef std::function<WinSource * (Json::Value const &)> Factory;
+    static void registerWinSourceFactory(std::string const & name, Factory callback);
+    static std::unique_ptr<WinSource> createWinSource(Json::Value const & json);
 };
 
 } // namespace RTBKIT

@@ -22,7 +22,9 @@
 #include "testing/mock_exchange.h"
 #include "rtbkit/testing/test_agent.h"
 #include "rtbkit/examples/mock_exchange_connector.h"
-#include "rtbkit/examples/mock_ad_server_connector.h"
+#include "rtbkit/plugins/adserver/mock_adserver_connector.h"
+#include "rtbkit/plugins/adserver/mock_win_source.h"
+#include "rtbkit/plugins/bid_request/mock_bid_source.h"
 #include <boost/thread.hpp>
 #include <netdb.h>
 #include <memory>
@@ -355,11 +357,12 @@ int main(int argc, char ** argv)
     // Start up the exchange threads which should let bid requests flow through
     // our stack.
     MockExchange exchange(proxies, "mock-exchange");
-    std::vector<NetworkAddress> bidUrls;
-    for(auto port : components.exchangePorts) bidUrls.emplace_back(port);
-    std::vector<NetworkAddress> winUrls;
-    winUrls.emplace_back(components.winStreamPort);
-    exchange.start(nExchangeThreads, nBidRequestsPerThread, bidUrls, winUrls);
+
+    for(auto i = 0; i != nExchangeThreads; ++i) {
+        NetworkAddress bids(components.exchangePorts[i % components.exchangePorts.size()]);
+        NetworkAddress wins(components.winStreamPort);
+        exchange.add(new MockBidSource(bids, nBidRequestsPerThread), new MockWinSource(wins));
+    }
 
     // Dump the budget stats while we wait for the test to finish.
     while (!exchange.isDone()) {

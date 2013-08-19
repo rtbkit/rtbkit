@@ -57,7 +57,7 @@ struct OpenRTBExchangeConnector : public HttpExchangeConnector {
                      const Auction & auction,
                      const std::string & errorMessage) const;
 
-    virtual std::shared_ptr<BidSource> getBidSource() const;
+    virtual std::string getBidSourceConfiguration() const;
 
 private:
     virtual void setSeatBid(Auction const & auction,

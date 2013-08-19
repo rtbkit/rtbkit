@@ -5,9 +5,9 @@
             "root": ".",
             "tasks": [
                 {
-                    "name": "mock-ad-server",
+                    "name": "ad-server",
                     "root": ".",
-                    "path": "build/x86_64/bin/ad_server_connector_ex",
+                    "path": "build/x86_64/bin/adserver_runner",
                     "arg": [
                         "-B", "sample.bootstrap.json"
                     ],

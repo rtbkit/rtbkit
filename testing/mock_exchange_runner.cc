@@ -7,6 +7,7 @@
 
 #include "soa/service/service_utils.h"
 #include "mock_exchange.h"
+#include "jml/utils/file_functions.h"
 
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
@@ -19,17 +20,13 @@ int main(int argc, char ** argv)
 {
     using namespace boost::program_options;
 
-    std::vector<std::string> bidUrls = { "localhost:12339" };
-    std::vector<std::string> winUrls = { "localhost:12340" };
-    int thread = 1;
+    std::string configuration = "rtbkit/examples/mock-exchange-config.json";
 
     ServiceProxyArguments args;
     options_description options = args.makeProgramOptions();
     options_description more("Mock Exchange");
     more.add_options()
-        ("bid-url,b", value(&bidUrls), "outgoing url for bids")
-        ("win-url,w", value(&winUrls), "outgoing url for wins")
-        ("thread,t", value(&thread), "number of worker thread");
+        ("configuration,c", value(&configuration), "mock exchange configuration file");
 
     options.add(more);
     options.add_options() ("help,h", "Print this message");
@@ -43,18 +40,11 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
-    std::vector<NetworkAddress> bids;
-    for(auto item : bidUrls) {
-        bids.emplace_back(item);
-    }
-
-    std::vector<NetworkAddress> wins;
-    for(auto item : winUrls) {
-        wins.emplace_back(item);
-    }
+    ML::File_Read_Buffer buf(configuration);
+    Json::Value result = Json::parse(std::string(buf.start(), buf.end()));
 
     RTBKIT::MockExchange exchange(args);
-    exchange.start(thread, 0, bids, wins);
+    exchange.start(result);
 
     for(;;) {
         this_thread::sleep_for(chrono::seconds(10));
