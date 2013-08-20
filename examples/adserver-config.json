@@ -1,7 +1,5 @@
 /* -*- js-mode -*- */
-[
-    {
-        "type": "mock",
-        "listenPort": 12340
-    }
-]
+{
+    "type": "mock",
+    "port": 12340
+}
