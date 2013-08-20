@@ -161,6 +161,8 @@ getResponse(const HttpAuctionHandler & connection,
     OpenRTB::BidResponse response;
     response.id = auction.id;
 
+    response.ext = getResponseExt(connection, auction);
+
     // Create a spot for each of the bid responses
     for (unsigned spotNum = 0; spotNum < current->responses.size(); ++spotNum) {
         if (!current->hasValidResponse(spotNum))
@@ -178,6 +180,14 @@ getResponse(const HttpAuctionHandler & connection,
     desc.printJsonTyped(&response, context);
 
     return HttpResponse(200, "application/json", stream.str());
+}
+
+Json::Value
+OpenRTBExchangeConnector::
+getResponseExt(const HttpAuctionHandler & connection,
+               const Auction & auction) const
+{
+    return {};
 }
 
 HttpResponse
