@@ -1,7 +1,7 @@
 /* -*- js-mode -*- */
 [
 	{
-        "exchangeType": "FBX",
+        "exchangeType": "rubicon",
         "listenPort": 18142,
         "bindHost": "0.0.0.0",
         "auctionVerb": "POST",
