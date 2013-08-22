@@ -61,9 +61,9 @@ StandardAdServerConnector(std::shared_ptr<ServiceProxies> const & proxies,
                           Json::Value const & json) :
     HttpAdServerConnector(json.get("name", "standard-adserver").asString(), proxies),
     publisher_(getServices()->zmqContext) {
-    int winPort = json.get("winPort", "18143").asInt();
-    int eventsPort = json.get("eventsPort", "18144").asInt();
-    int externalWinPort = json.get("externalWinPort", "18145").asInt();
+    int winPort = json.get("winPort", 18143).asInt();
+    int eventsPort = json.get("eventsPort", 18144).asInt();
+    int externalWinPort = json.get("externalWinPort", 18145).asInt();
     init(winPort, eventsPort, externalWinPort);
 }
 
