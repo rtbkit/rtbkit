@@ -6,6 +6,7 @@ $(eval $(call test,rest_service_endpoint_test,services,boost))
 $(eval $(call test,multiple_service_test,services,boost))
 
 $(eval $(call test,zookeeper_test,cloud,boost manual))
+$(eval $(call test,aws_test,cloud,boost))
 
 $(eval $(call test,redis_async_test,redis,boost))
 $(eval $(call test,redis_commands_test,redis,boost))
@@ -17,7 +18,7 @@ $(eval $(call test,carbon_connector_test,opstats endpoint,boost manual))
 
 $(eval $(call test,endpoint_unit_test,endpoint,boost))
 $(eval $(call test,test_active_endpoint_nothing_listening,endpoint,boost manual))
-$(eval $(call test,test_active_endpoint_not_responding,endpoint,boost))
+$(eval $(call test,test_active_endpoint_not_responding,endpoint,boost manual))
 $(eval $(call test,test_endpoint_ping_pong,endpoint,boost))
 $(eval $(call test,test_endpoint_connection_speed,endpoint,boost manual))
 $(eval $(call test,test_endpoint_accept_speed,endpoint,boost))

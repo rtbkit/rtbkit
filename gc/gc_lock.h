@@ -33,6 +33,15 @@ struct GcLockBase : public boost::noncopyable {
 
 public:
 
+    /** Enum for type safe specification of whether or not we run deferrals on
+        entry or exit to a critical sections.  Thoss places that are latency
+        sensitive should use RD_NO.
+    */
+    enum RunDefer {
+        RD_NO = 0,      ///< Don't run deferred work on this call
+        RD_YES = 1      ///< Potentially run deferred work on this call
+    };
+
     /// A thread's bookkeeping info about each GC area
     struct ThreadGcInfoEntry {
         ThreadGcInfoEntry()
@@ -75,21 +84,20 @@ public:
         }
                 
 
-        void lockShared(bool runDefer) {
+        void lockShared(RunDefer runDefer) {
             if (!readLocked && !writeLocked)
                 owner->enterCS(this, runDefer);
 
             ++readLocked;
         }
 
-        void unlockShared(bool runDefer) {
+        void unlockShared(RunDefer runDefer) {
             if (readLocked <= 0)
                 throw ML::Exception("Bad read lock nesting");
 
             --readLocked;
             if (!readLocked && !writeLocked) 
                 owner->exitCS(this, runDefer);
-
         }
 
         bool isLockedShared() {
@@ -114,7 +122,7 @@ public:
 
         void lockSpeculative() {
             if (!specLocked && !specUnlocked) 
-                lockShared(false);
+                lockShared(RD_NO);
 
             ++specLocked;
         }
@@ -126,7 +134,7 @@ public:
             --specLocked;
             if (!specLocked) {
                 if (++specUnlocked == SpeculativeThreshold) {
-                    unlockShared(false);
+                    unlockShared(RD_NO);
                     specUnlocked = 0;
                 }
             }
@@ -136,7 +144,7 @@ public:
             ExcCheckEqual(specLocked, 0, "Bad forceUnlock call");
 
             if (specUnlocked) {
-                unlockShared(true);
+                unlockShared(RD_YES);
                 specUnlocked = 0;
             }
         }
@@ -213,8 +221,9 @@ public:
 
     } JML_ALIGNED(16);
 
-    void enterCS(ThreadGcInfoEntry * entry = 0, bool runDefer = true);
-    void exitCS(ThreadGcInfoEntry * entry = 0, bool runDefer = true);
+
+    void enterCS(ThreadGcInfoEntry * entry = 0, RunDefer runDefer = RD_YES);
+    void exitCS(ThreadGcInfoEntry * entry = 0, RunDefer runDefer = RD_YES);
     void enterCSExclusive(ThreadGcInfoEntry * entry = 0);
     void exitCSExclusive(ThreadGcInfoEntry * entry = 0);
 
@@ -246,7 +255,7 @@ public:
     virtual void unlink() = 0;
 
     void lockShared(GcInfo::PerThreadInfo * info = 0,
-                    bool runDefer = true)
+                    RunDefer runDefer = RD_YES)
     {
         ThreadGcInfoEntry & entry = getEntry(info);
 
@@ -262,7 +271,7 @@ public:
     }
 
     void unlockShared(GcInfo::PerThreadInfo * info = 0, 
-                      bool runDefer = true)
+                      RunDefer runDefer = RD_YES)
     {
         ThreadGcInfoEntry & entry = getEntry(info);
 
@@ -347,21 +356,32 @@ public:
         return entry.writeLocked;
     }
 
+    enum DoLock {
+        DONT_LOCK = 0,
+        DO_LOCK = 1
+    };
+
     struct SharedGuard {
-        SharedGuard(GcLockBase & lock, bool runDefer = true)
+        SharedGuard(GcLockBase & lock,
+                    RunDefer runDefer = RD_YES,
+                    DoLock doLock = DO_LOCK)
             : lock(lock),
-              runDefer_(runDefer)
+              runDefer_(runDefer),
+              doLock_(doLock)
         {
-            lock.lockShared(0, runDefer_);
+            if (doLock_)
+                lock.lockShared(0, runDefer_);
         }
 
         ~SharedGuard()
         {
-            lock.unlockShared(0, runDefer_);
+            if (doLock_)
+                lock.unlockShared(0, runDefer_);
         }
         
         GcLockBase & lock;
-        const bool runDefer_;
+        const RunDefer runDefer_;  ///< Can this do deferred work?
+        const DoLock doLock_;      ///< Do we really lock?
     };
 
     struct ExclusiveGuard {
@@ -473,7 +493,7 @@ private:
         on that value, and will run any deferred handlers registered for
         that value.
     */
-    bool updateData(Data & oldValue, Data & newValue, bool runDefer);
+    bool updateData(Data & oldValue, Data & newValue, RunDefer runDefer);
 
     /** Executes any available deferred work. */
     void runDefers();

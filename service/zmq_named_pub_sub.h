@@ -1046,7 +1046,7 @@ struct ZmqNamedMultipleSubscriber: public MessageLoop {
         else sub->subscribe(""); // Subscribe to everything.
 
         sub->connectToEndpoint(path + "/" + endpointName);
-        addSourceDeferred(service, *sub);
+        addSource(service, *sub);
         subscribers[service] = std::move(sub);
     }
 

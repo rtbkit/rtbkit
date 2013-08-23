@@ -156,6 +156,11 @@ struct RcuProtected {
         return RcuLocked<const T>(val, lock);
     }
 
+    T * unsafePtr() const
+    {
+        return val;
+    }
+
     void replace(T * newVal, bool defer = true)
     {
         T * toDelete = ML::atomic_xchg(val, newVal);

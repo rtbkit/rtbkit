@@ -345,7 +345,7 @@ GcLockBase::
 
 bool
 GcLockBase::
-updateData(Data & oldValue, Data & newValue, bool runDefer /* = true */)
+updateData(Data & oldValue, Data & newValue, RunDefer runDefer)
 {
     bool wake;
     try {
@@ -433,7 +433,7 @@ checkDefers()
 
 void
 GcLockBase::
-enterCS(ThreadGcInfoEntry * entry, bool runDefer)
+enterCS(ThreadGcInfoEntry * entry, RunDefer runDefer)
 {
     if (!entry) entry = &getEntry();
         
@@ -481,7 +481,7 @@ enterCS(ThreadGcInfoEntry * entry, bool runDefer)
 
 void
 GcLockBase::
-exitCS(ThreadGcInfoEntry * entry, bool runDefer /* = true */)
+exitCS(ThreadGcInfoEntry * entry, RunDefer runDefer /* = true */)
 {
     if (entry->inEpoch == -1)
         throw ML::Exception("not in a CS");
@@ -534,7 +534,7 @@ enterCSExclusive(ThreadGcInfoEntry * entry)
 
         newValue = current;
         newValue.exclusive = 1;
-        if (updateData(current, newValue, true)) {
+        if (updateData(current, newValue, RD_YES)) {
             current = newValue;
             break;
         }

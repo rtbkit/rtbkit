@@ -97,137 +97,6 @@ Content(const tinyxml2::XMLDocument & xml)
     this->size = str.length();
 }
 
-std::string
-S3Api::
-getDigestMulti(const std::string & verb,
-               const std::string & bucket,
-               const std::string & resource,
-               const std::string & subResource,
-               const std::string & contentType,
-               const std::string & contentMd5,
-               const std::string & date,
-               const std::vector<std::pair<std::string, std::string> > & headers)
-{
-    map<string, string> canonHeaders;
-    for (auto it = headers.begin(), end = headers.end();
-         it != end;  ++it) {
-        string key = lowercase(it->first);
-        if (key.find("x-amz") != 0) continue;
-
-        string value = it->second;
-        if (canonHeaders.count(key))
-            canonHeaders[key] += ",";
-        canonHeaders[key] += value;
-    }
-
-    return getDigest(verb, bucket, resource, subResource,
-                     contentType, contentMd5, date, canonHeaders);
-
-}
-
-/*
-Authorization = "AWS" + " " + AWSAccessKeyId + ":" + Signature;
-
-Signature = Base64( HMAC-SHA1( YourSecretAccessKeyID, UTF-8-Encoding-Of( StringToSign ) ) );
-
-StringToSign = HTTP-Verb + "\n" +
-    Content-MD5 + "\n" +
-    Content-Type + "\n" +
-    Date + "\n" +
-    CanonicalizedAmzHeaders +
-    CanonicalizedResource;
-
-CanonicalizedResource = [ "/" + Bucket ] +
-    <HTTP-Request-URI, from the protocol name up to the query string> +
-    [ sub-resource, if present. For example "?acl", "?location", "?logging", or "?torrent"];
-
-CanonicalizedAmzHeaders = <described below>
-To construct the CanonicalizedAmzHeaders part of StringToSign, select all HTTP request headers that start with 'x-amz-' (using a case-insensitive comparison) and use the following process.
-
-CanonicalizedAmzHeaders Process
-1	Convert each HTTP header name to lower-case. For example, 'X-Amz-Date' becomes 'x-amz-date'.
-2	Sort the collection of headers lexicographically by header name.
-3	Combine header fields with the same name into one "header-name:comma-separated-value-list" pair as prescribed by RFC 2616, section 4.2, without any white-space between values. For example, the two metadata headers 'x-amz-meta-username: fred' and 'x-amz-meta-username: barney' would be combined into the single header 'x-amz-meta-username: fred,barney'.
-4	"Unfold" long headers that span multiple lines (as allowed by RFC 2616, section 4.2) by replacing the folding white-space (including new-line) by a single space.
-5	Trim any white-space around the colon in the header. For example, the header 'x-amz-meta-username: fred,barney' would become 'x-amz-meta-username:fred,barney'
-6	Finally, append a new-line (U+000A) to each canonicalized header in the resulting list. Construct the CanonicalizedResource element by concatenating all headers in this list into a single string.
-
-
-*/
-std::string
-S3Api::
-getDigest(const std::string & verb,
-          const std::string & bucket,
-          const std::string & resource,
-          const std::string & subResource,
-          const std::string & contentType,
-          const std::string & contentMd5,
-          const std::string & date,
-          const std::map<std::string, std::string> & headers)
-{
-    string canonHeaderString;
-
-    for (auto it = headers.begin(), end = headers.end();
-         it != end;  ++it) {
-        string key = lowercase(it->first);
-        if (key.find("x-amz") != 0) continue;
-
-        string value = it->second;
-
-        canonHeaderString += key + ":" + value + "\n";
-    }
-
-    //cerr << "bucket = " << bucket << " resource = " << resource << endl;
-
-    string canonResource
-        = (bucket == "" ? "" : "/" + bucket)
-        + resource
-        + (subResource.empty() ? "" : "?")
-        + subResource;
-
-    string stringToSign
-        = verb + "\n"
-        + contentMd5 + "\n"
-        + contentType + "\n"
-        + date + "\n"
-        + canonHeaderString
-        + canonResource;
-
-    return stringToSign;
-}
-
-std::string
-S3Api::
-sign(const std::string & stringToSign,
-     const std::string & accessKey)
-{
-    typedef CryptoPP::SHA1 Hash;
-
-    size_t digestLen = Hash::DIGESTSIZE;
-    byte digest[digestLen];
-    CryptoPP::HMAC<Hash> hmac((byte *)accessKey.c_str(), accessKey.length());
-    hmac.CalculateDigest(digest,
-                         (byte *)stringToSign.c_str(),
-                         stringToSign.length());
-
-    // base64
-    char outBuf[256];
-
-    CryptoPP::Base64Encoder baseEncoder;
-    baseEncoder.Put(digest, digestLen);
-    baseEncoder.MessageEnd();
-    size_t got = baseEncoder.Get((byte *)outBuf, 256);
-    outBuf[got] = 0;
-
-    //cerr << "got " << got << " characters" << endl;
-
-    string base64digest(outBuf, outBuf + got - 1);
-
-    //cerr << "base64digest.size() = " << base64digest.size() << endl;
-
-    return base64digest;
-}
-
 S3Api::Response
 S3Api::SignedRequest::
 performSync() const
@@ -414,57 +283,15 @@ S3Api::
 signature(const RequestParams & request) const
 {
     string digest
-        = S3Api::getDigestMulti(request.verb,
-                                request.bucket,
-                                request.resource, request.subResource,
-                                request.contentType, request.contentMd5,
-                                request.date, request.headers);
-
+        = S3Api::getStringToSignV2Multi(request.verb,
+                                        request.bucket,
+                                        request.resource, request.subResource,
+                                        request.contentType, request.contentMd5,
+                                        request.date, request.headers);
+    
     //cerr << "digest = " << digest << endl;
-
-    return S3Api::sign(digest, accessKey);
-}
-
-std::string
-S3Api::
-uriEncode(const std::string & str)
-{
-    std::string result;
-    for (auto c: str) {
-        if (c <= ' ' || c >= 127) {
-            result += ML::format("%%%02X", c);
-            continue;
-        }
-
-        switch (c) {
-        case '!':
-        case '#':
-        case '$':
-        case '&':
-        case '\'':
-        case '(':
-        case ')':
-        case '*':
-        case '+':
-        case ',':
-        case '/':
-        case ':':
-        case ';':
-        case '=':
-        case '?':
-        case '@':
-        case '[':
-        case ']':
-        case '%':
-            result += ML::format("%%%02X", c);
-            break;
-
-        default:
-            result += c;
-        }
-    }
-
-    return result;
+    
+    return signV2(digest, accessKey);
 }
 
 S3Api::SignedRequest
@@ -1015,11 +842,11 @@ upload(const char * data,
 
             ML::atomic_add(bytesDone, part.size);
 
-            double seconds = Date::now().secondsSince(start);
-            cerr << "uploaded " << bytesDone / 1024 / 1024 << " MB in "
-            << seconds << " s at "
-            << bytesDone / 1024.0 / 1024 / seconds
-            << " MB/second" << endl;
+            // double seconds = Date::now().secondsSince(start);
+            // cerr << "uploaded " << bytesDone / 1024 / 1024 << " MB in "
+            // << seconds << " s at "
+            // << bytesDone / 1024.0 / 1024 / seconds
+            // << " MB/second" << endl;
 
             //cerr << putResult.header_ << endl;
 
@@ -1192,6 +1019,29 @@ forEachObject(const std::string & bucket,
     } while (marker != "");
 
     //cerr << "done scanning" << endl;
+}
+
+void
+S3Api::
+forEachObject(const std::string & uriPrefix,
+              const OnObjectUri & onObject,
+              const OnSubdir & onSubdir,
+              const std::string & delimiter,
+              int depth) const
+{
+    string bucket, objectPrefix;
+    std::tie(bucket, objectPrefix) = parseUri(uriPrefix);
+
+    auto onObject2 = [&] (const std::string & prefix,
+                          const std::string & objectName,
+                          const ObjectInfo & info,
+                          int depth)
+        {
+            string uri = "s3://" + bucket + "/" + prefix + delimiter + objectName;
+            return onObject(uri, info, depth);
+        };
+
+    forEachObject(bucket, objectPrefix, onObject2, onSubdir, delimiter, depth);
 }
 
 S3Api::ObjectInfo
@@ -1928,12 +1778,12 @@ struct StreamingUploadSource {
             if (exc)
                 std::rethrow_exception(exc);
 
-            double elapsed = Date::now().secondsSince(startDate);
+            // double elapsed = Date::now().secondsSince(startDate);
 
-            cerr << "uploaded " << offset / 1024.0 / 1024.0
-                 << "MB in " << elapsed << "s at "
-                 << offset / 1024.0 / 1024.0 / elapsed
-                 << "MB/s" << " to " << etag << endl;
+            // cerr << "uploaded " << offset / 1024.0 / 1024.0
+            //      << "MB in " << elapsed << "s at "
+            //      << offset / 1024.0 / 1024.0 / elapsed
+            //      << "MB/s" << " to " << etag << endl;
         }
 
         void runThread()
@@ -2121,8 +1971,8 @@ getS3Buffer(const std::string & filename, char** outBuffer){
 
     ExcAssertEqual(done, stats.size);
 
-    cerr << "done downloading " << stats.size << " bytes from "
-         << filename << endl;
+    // cerr << "done downloading " << stats.size << " bytes from "
+    //      << filename << endl;
 
     return stats.size;
 
@@ -2441,6 +2291,11 @@ std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName)
     return it->second.api;
 }
 
+std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri)
+{
+    return getS3ApiForBucket(S3Api::parseUri(uri).first);
+}
+
 // Return an URI for either a file or an s3 object
 size_t getUriSize(const std::string & filename)
 {
@@ -2484,6 +2339,18 @@ S3Api::ObjectInfo getUriObjectInfo(const std::string & filename)
     }
     else {
         throw ML::Exception("getUriObjectInfo for file not done yet");
+    }
+}
+
+S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename)
+{
+    if (filename.find("s3://") == 0) {
+        string bucket = S3Api::parseUri(filename).first;
+        auto api = getS3ApiForBucket(bucket);
+        return api->tryGetObjectInfo(filename);
+    }
+    else {
+        throw ML::Exception("tryGetUriObjectInfo for file not done yet");
     }
 }
 

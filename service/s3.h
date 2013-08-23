@@ -16,6 +16,7 @@
 #include "soa/service/http_endpoint.h"
 #include "http_rest_proxy.h"
 #include <memory>
+#include "aws.h"
 
 namespace Datacratic {
 
@@ -26,16 +27,7 @@ namespace Datacratic {
 
 /** Interface to Amazon's S3 service. */
 
-struct S3Api {
-    /** Sign the given digest string with the given access key and return
-        a base64 encoded signature.
-    */
-    static std::string sign(const std::string & stringToSign,
-                            const std::string & accessKey);
-
-    /** URI encode the given string according to RFC 3986 */
-    static std::string uriEncode(const std::string & str);
-
+struct S3Api : public AwsApi {
     /** Default value for bandwidth to service.  In mega*bytes* per second.
         Default value is 20.0 MBPS for ec2 instances in the same availability
         zone.
@@ -377,6 +369,20 @@ struct S3Api {
                        const std::string & delimiter = "/",
                        int depth = 1) const;
 
+    typedef std::function<bool (const std::string & uri,
+                                const ObjectInfo & info,
+                                int depth)>
+        OnObjectUri;
+
+    /** For each file matching the given prefix in the given bucket, call
+        the callback.
+    */
+    void forEachObject(const std::string & uriPrefix,
+                       const OnObjectUri & onObject,
+                       const OnSubdir & onSubdir = OnSubdir(),
+                       const std::string & delimiter = "/",
+                       int depth = 1) const;
+
     /** Value for the "delimiter" parameter in forEachObject for when we
         don't want any subdirectories.  It is equal to the empty string.
     */
@@ -403,39 +409,6 @@ struct S3Api {
         account.
     */
     bool forEachBucket(const OnBucket & bucket) const;
-
-    /** Get the digest string (the one that needs to be signed) from a set
-        of s3 parameters.  Directly implements the procedure in the
-        s3 documentation.
-
-        This variant can deal with multiple copies of each of the http
-        headers.
-    */
-    static std::string
-    getDigestMulti(const std::string & verb,
-                   const std::string & bucket,
-                   const std::string & resource,
-                   const std::string & subResource,
-                   const std::string & contentType,
-                   const std::string & contentMd5,
-                   const std::string & date,
-                   const std::vector<std::pair<std::string, std::string> > & headers);
-
-    /** Get the digest string (the one that needs to be signed) from a set
-        of s3 parameters.  Directly implements the procedure in the
-        s3 documentation.
-
-        This variant can only accept one of each kind of http header.
-    */
-    static std::string
-    getDigest(const std::string & verb,
-              const std::string & bucket,
-              const std::string & resource,
-              const std::string & subResource,
-              const std::string & contentType,
-              const std::string & contentMd5,
-              const std::string & date,
-              const std::map<std::string, std::string> & headers);
 
     /** Turn a s3:// uri string into a bucket name and object. */
     static std::pair<std::string, std::string>
@@ -527,6 +500,8 @@ void registerS3Buckets(const std::string & accessKeyId,
 
 std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName);
 
+std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri);
+
 // Return an URI for either a file or an s3 object
 size_t getUriSize(const std::string & filename);
 
@@ -535,5 +510,9 @@ std::string getUriEtag(const std::string & filename);
 
 // Return the object info for either a file or an S3 object
 S3Api::ObjectInfo getUriObjectInfo(const std::string & filename);
+
+// Return the object info for either a file or an S3 object, or null if
+// it doesn't exist
+S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename);
 
 } // namespace Datacratic

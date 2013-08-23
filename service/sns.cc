@@ -79,14 +79,14 @@ publish(const std::string & topicArn,
     for (unsigned i = 0;  i < queryParams.size();  ++i) {
         if (i != 0)
             toSign += "&";
-        toSign += S3Api::uriEncode(queryParams[i].first);
+        toSign += uriEncode(queryParams[i].first);
         toSign += "=";
-        toSign += S3Api::uriEncode(queryParams[i].second);
+        toSign += uriEncode(queryParams[i].second);
     }
 
     //cerr << "toSign = " << toSign << endl;
 
-    string signature = S3Api::sign(toSign, accessKey);
+    string signature = signV2(toSign, accessKey);
 
     queryParams.push_back({"Signature", signature});
 

@@ -31,7 +31,7 @@ namespace Datacratic {
 struct HttpRestProxy {
 
     HttpRestProxy(const std::string & serviceUri = "")
-        : serviceUri(serviceUri), debug(false)
+        : serviceUri(serviceUri), noSSLChecks(false), debug(false)
     {
     }
 
@@ -165,6 +165,9 @@ struct HttpRestProxy {
         the perform() methods
     */
     std::string serviceUri;
+
+    /** SSL checks */
+    bool noSSLChecks;
 
     /** Are we debugging? */
     bool debug;
