@@ -1971,8 +1971,8 @@ getS3Buffer(const std::string & filename, char** outBuffer){
 
     ExcAssertEqual(done, stats.size);
 
-    cerr << "done downloading " << stats.size << " bytes from "
-         << filename << endl;
+    // cerr << "done downloading " << stats.size << " bytes from "
+    //      << filename << endl;
 
     return stats.size;
 
