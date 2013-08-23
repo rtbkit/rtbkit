@@ -63,7 +63,7 @@ public:
              * then forceUnlock 
              */
             else if (!specLocked && specUnlocked) {
-              // unlockShared(true); 
+                unlockShared(RD_YES);
             }
            
         } 
