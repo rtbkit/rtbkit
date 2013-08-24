@@ -244,9 +244,9 @@ struct Command {
 
     //std::string formatted() const;
 
-    void addArg(const std::string & arg)
+    void addArg(std::string arg)
     {
-        args.push_back(arg);
+        args.push_back(std::move(arg));
     }
 
     void addArg(int64_t arg)
@@ -255,7 +255,7 @@ struct Command {
     }
 
     template<typename Arg, typename... Args>
-    Command operator () (const Arg & head, Args&&... tail) const
+    Command operator () (Arg && head, Args&&... tail) const
     {
         Command result = *this;
         result.addArg(head);
