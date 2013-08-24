@@ -255,16 +255,22 @@ struct Command {
     }
 
     template<typename Arg, typename... Args>
-    Command operator () (Arg && head, Args&&... tail) const
+    void addArgs(Arg && head, Args &&... tail)
     {
-        Command result = *this;
-        result.addArg(head);
-        return result(std::forward<Args>(tail)...);
+        addArg(std::forward<Arg>(head));
+        addArgs(std::forward<Args>(tail)...);
     }
-    
-    Command operator () () const
+
+    void addArgs()
     {
-        return *this;
+    }
+
+    template<typename... Args>
+    Command operator () (Args &&... args) const
+    {
+        auto result = *this;
+        result.addArgs(std::forward<Args>(args)...);
+        return result;
     }
     
     int argc() const
