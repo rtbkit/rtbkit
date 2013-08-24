@@ -226,14 +226,16 @@ struct Command {
 
     //explicit Command(const char * args, ...);
 
-    Command(const std::string & command)
-        : formatStr(command)
+    template<typename... Args>
+    Command(std::string command, Args &&... args)
+        : formatStr(std::move(command))
     {
+        addArgs(std::forward<Args>(args)...);
     }
 
     Command(const std::string & cmd,
             const std::initializer_list<std::string> & args)
-        : formatStr(cmd)
+        : formatStr(std::move(cmd))
     {
         for (auto arg: args)
             addArg(arg);
