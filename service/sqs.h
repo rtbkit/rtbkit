@@ -9,6 +9,7 @@
 
 #include "aws.h"
 #include "http_rest_proxy.h"
+#include "jml/utils/unnamed_bool.h"
 
 
 namespace Datacratic {
@@ -110,7 +111,7 @@ struct SqsApi : public AwsBasicApi {
                           int delaySeconds = -1);
 
     struct Message {
-        bool isNull()
+        bool isNull() const
         { return messageId.empty(); }
 
         std::string body;
@@ -121,6 +122,8 @@ struct SqsApi : public AwsBasicApi {
         Date sentTimestamp;
         int approximateReceiveCount;
         Date approximateFirstReceiveTimestamp;
+
+        JML_IMPLEMENT_OPERATOR_BOOL(!isNull());
     };
 
     Message receiveMessage(const std::string & queueUri,
