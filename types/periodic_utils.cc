@@ -8,7 +8,6 @@
 #include "jml/utils/parse_context.h"
 #include <boost/tuple/tuple.hpp>
 #include "jml/utils/exc_assert.h"
-#include "value_description.h"
 
 
 using namespace std;
@@ -219,25 +218,6 @@ parse(const std::string & str)
 {
     std::tie(granularity, number) = parsePeriod(str);
     interval = findPeriod(Date(), granularity, number).second;
-}
-
-struct TimePeriodDescription: public ValueDescriptionT<TimePeriod> {
-    virtual void parseJsonTyped(TimePeriod * val,
-                                JsonParsingContext & context) const
-    {
-        val->parse(context.expectStringAscii());
-    }
-
-    virtual void printJsonTyped(const TimePeriod * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeString(val->toString());
-    }
-};
-
-ValueDescriptionT<TimePeriod> * getDefaultDescription(TimePeriod *)
-{
-    return new TimePeriodDescription();
 }
 
 } // namespace Datacratic

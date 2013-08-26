@@ -117,6 +117,7 @@ struct TimePeriod {
     double interval;
 };
 
+// NOTE: this is defined in the value description library
 ValueDescriptionT<TimePeriod> * getDefaultDescription(TimePeriod *);
 
 
