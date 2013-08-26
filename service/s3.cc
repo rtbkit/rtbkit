@@ -103,6 +103,8 @@ performSync() const
 {
     int numRetries = 7;
 
+    string savedBody;
+
     for (unsigned i = 0;  i < numRetries;  ++i) {
         string responseHeaders;
         string body;
@@ -134,7 +136,7 @@ performSync() const
                 = totalBytesToTransfer
                 / 1000000.0
                 / bandwidthToServiceMbps;
-            int timeout = 15 + std::max<int>(30, expectedTimeSeconds * 3);
+            int timeout = 15 + std::max<int>(30, expectedTimeSeconds * 6);
 
 #if 0
             cerr << "totalBytesToTransfer = " << totalBytesToTransfer << endl;
@@ -261,6 +263,7 @@ performSync() const
 
             return response;
         } catch (const curlpp::LibcurlRuntimeError & exc) {
+            
             cerr << "libCurl returned an error with code " << exc.whatCode()
                  << endl;
             cerr << "error is " << curl_easy_strerror(exc.whatCode())
@@ -268,6 +271,16 @@ performSync() const
             cerr << "uri is " << uri << endl;
             cerr << "headers are " << responseHeaders << endl;
             cerr << "body contains " << body.size() << " bytes" << endl;
+
+#if 0
+            if (exc.whatCode() == CURL_TIMEOUT) {
+                // Save the current data and continue;
+                if (!savedBody.empty())
+                    savedBody += body;
+                else savedBody.swap(body);
+                continue;
+            }
+#endif
 
             if (i < numRetries)
                 cerr << "retrying" << endl;
@@ -930,13 +943,14 @@ forEachObject(const std::string & bucket,
               const OnObject & onObject,
               const OnSubdir & onSubdir,
               const std::string & delimiter,
-              int depth) const
+              int depth,
+              const std::string & startAt) const
 {
     using namespace tinyxml2;
 
     //cerr << "forEachObject under " << prefix << endl;
 
-    string marker;
+    string marker = startAt;
     bool firstIter = true;
     do {
         //cerr << "Starting at " << marker << endl;
@@ -1027,7 +1041,8 @@ forEachObject(const std::string & uriPrefix,
               const OnObjectUri & onObject,
               const OnSubdir & onSubdir,
               const std::string & delimiter,
-              int depth) const
+              int depth,
+              const std::string & startAt) const
 {
     string bucket, objectPrefix;
     std::tie(bucket, objectPrefix) = parseUri(uriPrefix);
@@ -1041,7 +1056,7 @@ forEachObject(const std::string & uriPrefix,
             return onObject(uri, info, depth);
         };
 
-    forEachObject(bucket, objectPrefix, onObject2, onSubdir, delimiter, depth);
+    forEachObject(bucket, objectPrefix, onObject2, onSubdir, delimiter, depth, startAt);
 }
 
 S3Api::ObjectInfo
