@@ -855,11 +855,11 @@ upload(const char * data,
 
             ML::atomic_add(bytesDone, part.size);
 
-            double seconds = Date::now().secondsSince(start);
-            cerr << "uploaded " << bytesDone / 1024 / 1024 << " MB in "
-            << seconds << " s at "
-            << bytesDone / 1024.0 / 1024 / seconds
-            << " MB/second" << endl;
+            // double seconds = Date::now().secondsSince(start);
+            // cerr << "uploaded " << bytesDone / 1024 / 1024 << " MB in "
+            // << seconds << " s at "
+            // << bytesDone / 1024.0 / 1024 / seconds
+            // << " MB/second" << endl;
 
             //cerr << putResult.header_ << endl;
 
@@ -1793,12 +1793,12 @@ struct StreamingUploadSource {
             if (exc)
                 std::rethrow_exception(exc);
 
-            double elapsed = Date::now().secondsSince(startDate);
+            // double elapsed = Date::now().secondsSince(startDate);
 
-            cerr << "uploaded " << offset / 1024.0 / 1024.0
-                 << "MB in " << elapsed << "s at "
-                 << offset / 1024.0 / 1024.0 / elapsed
-                 << "MB/s" << " to " << etag << endl;
+            // cerr << "uploaded " << offset / 1024.0 / 1024.0
+            //      << "MB in " << elapsed << "s at "
+            //      << offset / 1024.0 / 1024.0 / elapsed
+            //      << "MB/s" << " to " << etag << endl;
         }
 
         void runThread()
@@ -1986,8 +1986,8 @@ getS3Buffer(const std::string & filename, char** outBuffer){
 
     ExcAssertEqual(done, stats.size);
 
-    cerr << "done downloading " << stats.size << " bytes from "
-         << filename << endl;
+    // cerr << "done downloading " << stats.size << " bytes from "
+    //      << filename << endl;
 
     return stats.size;
 
