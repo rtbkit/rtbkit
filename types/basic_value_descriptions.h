@@ -389,6 +389,37 @@ struct DefaultDescription<Date>
     }
 };
 
+struct JavaTimestampValueDescription: public DefaultDescription<Date> {
+
+    virtual void parseJsonTyped(Date * val,
+                                JsonParsingContext & context) const
+    {
+        *val = Date::fromSecondsSinceEpoch(context.expectDouble() * 0.001);
+    }
+
+    virtual void printJsonTyped(const Date * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeJson((uint64_t)(val->secondsSinceEpoch() * 1000));
+    }
+};
+
+struct Iso8601TimestampValueDescription: public DefaultDescription<Date> {
+
+    virtual void parseJsonTyped(Date * val,
+                                JsonParsingContext & context) const
+    {
+        *val = Date::parseIso8601(context.expectStringAscii());
+    }
+
+    virtual void printJsonTyped(const Date * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeString(val->printIso8601());
+    }
+};
+
+
 template<typename T>
 struct Optional: public std::unique_ptr<T> {
     Optional()
