@@ -21,6 +21,44 @@
 #  include <iostream>
 #endif
 
+/**
+   Deterministic memory reclamation is a fundamental problem in
+   lock-free algorithms and data structures. 
+
+   When concurrently updating a lock-free data structure, it is
+   not safe to immediatly dispose the old value since a bazillon
+   of threads might in the same time hold a reference to the old
+   value. We then need a safe memory reclamation mechanism.
+   That is why GcLock exists. GcLock works by deferring destruction 
+   when it is safe to do (when nobody can hold a reference).
+
+   GcLock works by defining "critical sections". When a thread holds
+   a reference to a shared object, it enters a critical section.
+   
+   Speculative critical section should be used when you only want
+   to make progress occasionally. Common use case for speculative
+   critical section is inside a loop, when you don't need Gc to be unlocked
+   everytime but only occasionally :
+
+   GcLock gc;
+   for (condition) {
+       gc.enterSpeculative();
+       // In critical section
+
+       gc.exitSpeculative();
+       // After the call, gc might or might not be unlocked
+   } 
+
+   gc.forceUnlock();
+
+   forceUnlock makes sure that after the call, the Gc is "unlocked".
+   At the end of the loop, Gc might still be in a speculative 
+   section, forceUnlock is a way to enforce the unlock.  
+   Under heavy contention, speculative "locking" might help improving
+   general throughput.
+   
+*/
+
 namespace Datacratic {
 
 extern int32_t SpeculativeThreshold;
