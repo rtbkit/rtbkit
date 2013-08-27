@@ -20,58 +20,6 @@
 
 using namespace Datacratic;
 
-namespace Datacratic {
-
-template<typename T, int I, typename S>
-Json::Value jsonEncode(const ML::compact_vector<T, I, S> & vec)
-{
-    Json::Value result(Json::arrayValue);
-    for (unsigned i = 0;  i < vec.size();  ++i)
-        result[i] = jsonEncode(vec[i]);
-    return result;
-}
-
-template<typename T, int I, typename S>
-ML::compact_vector<T, I, S>
-jsonDecode(const Json::Value & val, ML::compact_vector<T, I, S> *)
-{
-    ExcAssert(val.isArray());
-    ML::compact_vector<T, I, S> res;
-    res.reserve(val.size());
-    for (unsigned i = 0;  i < val.size();  ++i)
-        res.push_back(jsonDecode(val[i], (T*)0));
-    return res;
-}
-
-} // namespace Datacratic
-
-namespace OpenRTB {
-
-template<typename T>
-Json::Value jsonEncode(const OpenRTB::List<T> & vec)
-{
-    using Datacratic::jsonEncode;
-    Json::Value result(Json::arrayValue);
-    for (unsigned i = 0;  i < vec.size();  ++i)
-        result[i] = jsonEncode(vec[i]);
-    return result;
-}
-
-template<typename T>
-OpenRTB::List<T>
-jsonDecode(const Json::Value & val, OpenRTB::List<T> *)
-{
-    using Datacratic::jsonDecode;
-    ExcAssert(val.isArray());
-    OpenRTB::List<T> res;
-    res.reserve(val.size());
-    for (unsigned i = 0;  i < val.size();  ++i)
-        res.push_back(jsonDecode(val[i], (T*)0));
-    return res;
-}
-
-} // namespace OpenRTB
-
 namespace RTBKIT {
 
 BOOST_STATIC_ASSERT(hasFromJson<Datacratic::Id>::value == true);

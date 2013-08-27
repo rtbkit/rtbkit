@@ -372,13 +372,7 @@ parseBidRequest(const std::string & jsonValue,
                 const std::string & provider,
                 const std::string & exchange)
 {
-    StructuredJsonParsingContext jsonContext(jsonValue);
-
-    AppNexus::BidRequest req;
-    Datacratic::DefaultDescription<AppNexus::BidRequest> desc;
-    desc.parseJson(&req, jsonContext);
-
-    return fromAppNexus(req, provider, exchange);
+    return fromAppNexus(RTBKIT::fromJson<AppNexus::BidRequest>(jsonValue), provider, exchange);
 }
 
 BidRequest *
@@ -387,13 +381,7 @@ parseBidRequest(ML::Parse_Context & context,
                 const std::string & provider,
                 const std::string & exchange)
 {
-    StreamingJsonParsingContext jsonContext(context);
-
-    AppNexus::BidRequest req;
-    Datacratic::DefaultDescription<AppNexus::BidRequest> desc;
-    desc.parseJson(&req, jsonContext);
-
-    return fromAppNexus(req, provider, exchange);
+    return fromAppNexus(RTBKIT::fromJson<AppNexus::BidRequest>(context), provider, exchange);
 }
 
 } // namespace RTBKIT

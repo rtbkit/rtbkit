@@ -22,6 +22,7 @@
 #include "rtbkit/common/currency.h"
 #include "tags.h"
 #include "openrtb/openrtb.h"
+#include "common/json.h"
 
 
 namespace RTBKIT {
@@ -130,10 +131,10 @@ struct AdSpot: public OpenRTB::Impression {
     {
     }
 
-    void fromJson(const Json::Value & val);
-    Json::Value toJson() const;
-    std::string toJsonStr() const;
-    static AdSpot createFromJson(const Json::Value & json);
+    void fromJson(const Json::Value & json) { *this = RTBKIT::fromJson<AdSpot>(json); }
+    Json::Value toJson() const { return RTBKIT::toJsonValue(*this); }
+    std::string toJsonStr() const { return RTBKIT::toJson(*this); }
+    static AdSpot createFromJson(const Json::Value & json) { return RTBKIT::fromJson<AdSpot>(json); }
 
     std::string format() const;
     std::string firstFormat() const;
@@ -238,16 +239,16 @@ struct Location {
     int dma;
     int timezoneOffsetMinutes;
 
-    static Location createFromJson(const Json::Value & json);
+    static Location createFromJson(const Json::Value & json) { return RTBKIT::fromJson<Location>(json); }
 
     /** Return a location string with COUNTRY:REGION:CITY:POSTAL:DMA */
     Utf8String fullLocationString() const;
 
     /** Return a canonical JSON version of the bid request. */
-    Json::Value toJson() const;
+    Json::Value toJson() const { return RTBKIT::toJsonValue(*this); }
 
     /** Return a canonical stringified JSON version of the bid request. */
-    std::string toJsonStr() const;
+    std::string toJsonStr() const { return RTBKIT::toJson(*this); }
 
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
@@ -349,13 +350,13 @@ struct BidRequest {
     Json::Value ext;
 
     /** Return a canonical JSON version of the bid request. */
-    Json::Value toJson() const;
+    Json::Value toJson() const { return RTBKIT::toJsonValue(*this); }
 
     /** Return a canonical stringified JSON version of the bid request. */
-    std::string toJsonStr() const;
+    std::string toJsonStr() const { return RTBKIT::toJson(*this); }
 
     /** Create a new BidRequest from a canonical JSON value. */
-    static BidRequest createFromJson(const Json::Value & json);
+    static BidRequest createFromJson(const Json::Value& json) { return RTBKIT::fromJson<BidRequest>(json); }
 
     /** Return the ID for the given domain. */
     Id getUserId(IdDomain domain) const;
