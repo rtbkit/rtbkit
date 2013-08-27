@@ -21,9 +21,8 @@ ExchangeSource(NetworkAddress address_) :
     addr(0),
     fd(-1)
 {
-    static int seed;
-    ML::atomic_inc(seed);
-    rng.seed(seed);
+    auto seed = reinterpret_cast<size_t>(this);
+    rng.seed((uint32_t) seed);
 
     addrinfo hint = { 0, AF_INET, SOCK_STREAM, 0, 0, 0, 0, 0 };
 
@@ -69,7 +68,8 @@ BidSource::BidSource(NetworkAddress address) :
     ExchangeSource(std::move(address)),
     bidForever(true),
     bidCount(0),
-    bidLifetime(0) {
+    bidLifetime(0),
+    key(rng.random()) {
 }
 
 
@@ -77,7 +77,8 @@ BidSource::BidSource(NetworkAddress address, int lifetime) :
     ExchangeSource(std::move(address)),
     bidForever(false),
     bidCount(0),
-    bidLifetime(lifetime) {
+    bidLifetime(lifetime),
+    key(rng.random()) {
 }
 
 
@@ -86,7 +87,8 @@ BidSource(Json::Value const & json) :
     ExchangeSource(json["url"].asString()),
     bidForever(true),
     bidCount(0),
-    bidLifetime(0) {
+    bidLifetime(0),
+    key(rng.random()) {
     if(json.isMember("lifetime")) {
         bidForever = false;
         bidLifetime = json["lifetime"].asInt();

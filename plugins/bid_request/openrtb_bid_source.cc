@@ -13,13 +13,15 @@ using namespace Datacratic;
 using namespace RTBKIT;
 
 BidRequest OpenRTBBidSource::generateRandomBidRequest() {
+    key += rng.random();
+
     OpenRTB::BidRequest req;
     req.id = Id(rng.random());
     req.tmax.val = 50;
     req.at = AuctionType::SECOND_PRICE;
     req.imp.emplace_back();
     auto & imp = req.imp[0];
-    imp.id = Id(rng.random());
+    imp.id = Id(key);
     imp.banner.reset(new OpenRTB::Banner);
     imp.banner->w.push_back(300);
     imp.banner->h.push_back(250);
@@ -44,8 +46,8 @@ BidRequest OpenRTBBidSource::generateRandomBidRequest() {
         verb.c_str(), resource.c_str(), length, host.c_str(), content.c_str());
 
     write(message);
-    BidRequest br = *fromOpenRtb(std::move(req), "openrtb", "openrtb");
-    return br;
+    std::unique_ptr<BidRequest> br(fromOpenRtb(std::move(req), "openrtb", "openrtb"));
+    return BidRequest(*br);
 }
 
 auto
@@ -61,7 +63,7 @@ parseResponse(const std::string& rawResponse) -> std::pair<bool, std::vector<Bid
         HttpHeader header;
         header.parse(rawResponse);
         if (!header.contentLength || header.resource != "200") {
-            std::cerr << rawResponse << std::endl;
+            //std::cerr << rawResponse << std::endl;
             return std::make_pair(false, std::vector<Bid>());
         }
 

@@ -29,7 +29,7 @@ sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
     json["auctionId"] = bidRequest.auctionId.toString();
     json["adSpotId"] = bid.adSpotId.toString();
     json["accountId"] = bid.account.toString();
-    json["winPrice"] = USD_CPM(winPrice).toString();
+    json["winPrice"] = (double) USD_CPM(winPrice);
     json["userIds"] = bidRequest.userIds.toJson();
 
     sendEvent(json);
