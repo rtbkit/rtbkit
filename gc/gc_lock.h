@@ -158,31 +158,31 @@ public:
                 owner->exitCSExclusive(this);
         }
 
-        void lockSpeculative() {
+        void lockSpeculative(RunDefer runDefer) {
             if (!specLocked && !specUnlocked) 
-                lockShared(RD_NO);
+                lockShared(runDefer);
 
             ++specLocked;
         }
 
-        void unlockSpeculative() {
+        void unlockSpeculative(RunDefer runDefer) {
             if (!specLocked) 
                 throw ML::Exception("Bad speculative lock nesting");
 
             --specLocked;
             if (!specLocked) {
                 if (++specUnlocked == SpeculativeThreshold) {
-                    unlockShared(RD_NO);
+                    unlockShared(runDefer);
                     specUnlocked = 0;
                 }
             }
         }
 
-        void forceUnlock() {
+        void forceUnlock(RunDefer runDefer) {
             ExcCheckEqual(specLocked, 0, "Bad forceUnlock call");
 
             if (specUnlocked) {
-                unlockShared(RD_YES);
+                unlockShared(runDefer);
                 specUnlocked = 0;
             }
         }
@@ -324,24 +324,27 @@ public:
 #endif
     }
 
-    void lockSpeculative(GcInfo::PerThreadInfo * info = 0)
+    void lockSpeculative(GcInfo::PerThreadInfo * info = 0,
+                         RunDefer runDefer = RD_YES)
     {
         ThreadGcInfoEntry & entry = getEntry(info); 
 
-        entry.lockSpeculative();
+        entry.lockSpeculative(runDefer);
     }
 
-    void unlockSpeculative(GcInfo::PerThreadInfo * info = 0)
+    void unlockSpeculative(GcInfo::PerThreadInfo * info = 0,
+                           RunDefer runDefer = RD_YES)
     {
         ThreadGcInfoEntry & entry = getEntry(info);
 
-        entry.unlockSpeculative();
+        entry.unlockSpeculative(runDefer);
     }
 
-    void forceUnlock(GcInfo::PerThreadInfo * info = 0) {
+    void forceUnlock(GcInfo::PerThreadInfo * info = 0,
+                     RunDefer runDefer = RD_YES) {
         ThreadGcInfoEntry & entry = getEntry(info);
 
-        entry.forceUnlock();
+        entry.forceUnlock(runDefer);
     }
         
     int isLockedShared(GcInfo::PerThreadInfo * info = 0) const
@@ -438,18 +441,21 @@ public:
     };
 
     struct SpeculativeGuard {
-        SpeculativeGuard(GcLockBase &lock) :
-            lock(lock) 
+        SpeculativeGuard(GcLockBase &lock,
+                         RunDefer runDefer = RD_YES) :
+            lock(lock),
+            runDefer_(runDefer) 
         {
-            lock.lockSpeculative();
+            lock.lockSpeculative(0, runDefer_);
         }
 
         ~SpeculativeGuard() 
         {
-            lock.unlockSpeculative();
+            lock.unlockSpeculative(0, runDefer_);
         }
 
         GcLockBase & lock;
+        const RunDefer runDefer_;
     };
 
 
