@@ -26,7 +26,7 @@ int main(int argc, char ** argv)
     options_description options = args.makeProgramOptions();
     options_description more("Mock Exchange");
     more.add_options()
-        ("configuration,c", value(&configuration), "mock exchange configuration file");
+        ("configuration,f", value(&configuration), "mock exchange configuration file");
 
     options.add(more);
     options.add_options() ("help,h", "Print this message");
