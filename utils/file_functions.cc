@@ -30,12 +30,14 @@
 #include <fcntl.h>
 #include "string_functions.h"
 #include "jml/arch/exception.h"
+#include "jml/arch/spinlock.h"
 #include <iostream>
 #include <boost/weak_ptr.hpp>
 #include <map>
 #include <grp.h>
 #include <exception>
 #include "guard.h"
+#include <mutex>
 
 
 using namespace std;
@@ -303,9 +305,17 @@ class File_Read_Buffer::MMap_Region
         return result;
     }
 
+    static ML::Spinlock & lock()
+    {
+        static ML::Spinlock result;
+        return result;
+    }
+
 public:
     static std::shared_ptr<MMap_Region> get(int fd)
     {
+        std::lock_guard<ML::Spinlock> guard(lock());
+
         inode_type inode = get_inode(fd);
         std::weak_ptr<MMap_Region> & ptr = cache()[inode];
 
@@ -324,6 +334,7 @@ public:
     {
         if  (size) munmap((void *)start, size);
 
+        std::lock_guard<ML::Spinlock> guard(lock());
         if (cache()[inode].expired())
             cache().erase(inode);
     }
