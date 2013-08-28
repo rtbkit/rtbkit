@@ -45,6 +45,9 @@ struct ExchangeSource {
     void setup();
     void connect();
 
+    std::string read();
+    void write(std::string const & text);
+
     struct Bid
     {
         Datacratic::Id adSpotId;
@@ -65,9 +68,6 @@ struct BidSource : public ExchangeSource {
     BidSource(Json::Value const & json);
 
     bool isDone() const;
-
-    void write(std::string const & text);
-    std::string read();
 
     BidRequest sendBidRequest();
     std::pair<bool, std::vector<Bid>> receiveBid();
@@ -94,8 +94,6 @@ struct BidSource : public ExchangeSource {
 struct WinSource : public ExchangeSource {
     WinSource(NetworkAddress address);
     WinSource(Json::Value const & json);
-
-    void write(const std::string & data);
 
     virtual void sendWin(const BidRequest& br,
                          const Bid& bid,

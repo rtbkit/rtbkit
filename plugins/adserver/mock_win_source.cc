@@ -86,6 +86,13 @@ sendEvent(const PostAuctionEvent& event)
             str.c_str());
 
     write(httpRequest);
+
+    std::string result = read();
+    std::string status = "HTTP/1.1 200 OK";
+
+    if(result.compare(0, status.length(), status)) {
+        std::cerr << result << std::endl;
+    }
 }
 
 namespace {

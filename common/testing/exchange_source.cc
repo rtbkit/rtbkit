@@ -64,6 +64,45 @@ connect()
 }
 
 
+std::string
+ExchangeSource::
+read()
+{
+    std::array<char, 16384> buffer;
+
+    int res = recv(fd, buffer.data(), buffer.size(), 0);
+    if (res == 0 || (res == -1 && errno == ECONNRESET)) {
+        return "";
+    }
+
+    ExcCheckErrno(res != -1, "recv");
+    return std::string(buffer.data(), res);
+}
+
+
+void
+ExchangeSource::
+write(const std::string & data)
+{
+    const char * current = data.c_str();
+    const char * end = current + data.size();
+
+    while (current != end) {
+        int res = send(fd, current, end - current, MSG_NOSIGNAL);
+        if(res == 0 || res == -1) {
+            connect();
+            current = data.c_str();
+            continue;
+        }
+
+        current += res;
+    }
+
+    ExcAssertEqual((void *)current, (void *)end);
+}
+
+
+
 BidSource::BidSource(NetworkAddress address) :
     ExchangeSource(std::move(address)),
     bidForever(true),
@@ -100,43 +139,6 @@ bool
 BidSource::
 isDone() const {
     return bidForever ? false : bidLifetime <= bidCount;
-}
-
-
-void
-BidSource::
-write(std::string const & request) {
-    const char * current = request.c_str();
-    const char * end = current + request.size();
-
-    while (current != end) {
-        int res = send(fd, current, end - current, MSG_NOSIGNAL);
-        if(res == 0 || res == -1) {
-            connect();
-            current = request.c_str();
-            continue;
-        }
-
-        current += res;
-    }
-
-    ExcAssertEqual((void *)current, (void *)end);
-}
-
-
-std::string
-BidSource::
-read()
-{
-    std::array<char, 16384> buffer;
-
-    int res = recv(fd, buffer.data(), buffer.size(), 0);
-    if (res == 0 || (res == -1 && errno == ECONNRESET)) {
-        return "";
-    }
-
-    ExcCheckErrno(res != -1, "recv");
-    return std::string(buffer.data(), res);
 }
 
 
@@ -184,28 +186,6 @@ void
 WinSource::
 sendClick(const BidRequest& bidRequest, const Bid& bid)
 {
-}
-
-
-void
-WinSource::
-write(const std::string & data)
-{
-    const char * current = data.c_str();
-    const char * end = current + data.size();
-
-    while (current != end) {
-        int res = send(fd, current, end - current, MSG_NOSIGNAL);
-        if(res == 0 || res == -1) {
-            connect();
-            current = data.c_str();
-            continue;
-        }
-
-        current += res;
-    }
-
-    ExcAssertEqual((void *)current, (void *)end);
 }
 
 
