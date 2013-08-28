@@ -44,6 +44,7 @@ LIBSERVICES_SOURCES := \
 	http_named_endpoint.cc \
 	rest_proxy.cc \
 	rest_request_router.cc \
+	runner.cc \
 	zookeeper.cc \
 	http_rest_proxy.cc \
 	xml_helpers.cc
