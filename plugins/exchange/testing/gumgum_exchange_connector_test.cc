@@ -76,10 +76,10 @@ BOOST_AUTO_TEST_CASE( test_gumgum )
     std::shared_ptr<GumgumExchangeConnector> connector
         (new GumgumExchangeConnector("connector", proxies));
 
-    int port = 10002;
-
-    connector->configureHttp(1, port, "0.0.0.0");
+    connector->configureHttp(1, -1, "0.0.0.0");
     connector->start();
+    int port = connector->port();
+
     connector->enableUntil(Date::positiveInfinity());
 
     // Tell the router about the new exchange connector
