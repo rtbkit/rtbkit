@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <limits>
+
 #include "value_description.h"
 #include "soa/types/url.h"
 #include "soa/types/date.h"
@@ -30,10 +32,10 @@ struct DefaultDescription<Datacratic::Id>
     virtual void printJsonTyped(const Datacratic::Id * val,
                                 JsonPrintingContext & context) const
     {
-        if (val->val2 == 0 && val->type == Id::Type::BIGDEC) {
-            context.writeUnsignedLongLong(val->toInt());
-        }
-        else {
+        if (val->type == Id::Type::BIGDEC &&
+            val->val2 == 0 && val->val1 <= std::numeric_limits<int>::max()) {
+            context.writeInt(val->val1);
+        } else {
             context.writeString(val->toString());
         }
     }

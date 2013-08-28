@@ -170,8 +170,7 @@ struct Id {
 
     bool notNull() const
     {
-        return type >= NULLID
-            && val != 0;
+        return type >= NULLID;
     }
 
     JML_IMPLEMENT_OPERATOR_BOOL(notNull());
