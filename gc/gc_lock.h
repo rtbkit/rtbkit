@@ -21,42 +21,30 @@
 #  include <iostream>
 #endif
 
-/**
-   Deterministic memory reclamation is a fundamental problem in
-   lock-free algorithms and data structures. 
+/** Deterministic memory reclamation is a fundamental problem in lock-free
+    algorithms and data structures.
 
-   When concurrently updating a lock-free data structure, it is
-   not safe to immediatly dispose the old value since a bazillon
-   of threads might in the same time hold a reference to the old
-   value. We then need a safe memory reclamation mechanism.
-   That is why GcLock exists. GcLock works by deferring destruction 
-   when it is safe to do (when nobody can hold a reference).
+    When concurrently updating a lock-free data structure, it is not safe to
+    immediately reclaim the old value since a bazillon other threads might still
+    hold a reference to the old value. What we need is a safe memory reclamation
+    mechanism. That is why GcLock exists. GcLock works by deferring the
+    destruction of an object until it is safe to do; when the system decides
+    that nobody still holds a reference to it.
 
-   GcLock works by defining "critical sections". When a thread holds
-   a reference to a shared object, it enters a critical section.
-   
-   Speculative critical section should be used when you only want
-   to make progress occasionally. Common use case for speculative
-   critical section is inside a loop, when you don't need Gc to be unlocked
-   everytime but only occasionally :
+    GcLock works by defining "critical sections" that a thread should hold to
+    safely read a shared object.
 
-   GcLock gc;
-   for (condition) {
-       gc.enterSpeculative();
-       // In critical section
+    Note that this class contains many types of critical sections which are all
+    specialized for various situations:
 
-       gc.exitSpeculative();
-       // After the call, gc might or might not be unlocked
-   } 
+    - Shared CS: Regular read side critical sections.
+    - Exclusive CS: Acts as the write op in a read-write lock with the shared CS
+    - Speculative CS: Optimization of Shared CS whereby the CS may or may not be
+      unlocked when requested to save on repeated accesses to the CS.
 
-   gc.forceUnlock();
+    Further details is available in the documentation of each respective
+    operand.
 
-   forceUnlock makes sure that after the call, the Gc is "unlocked".
-   At the end of the loop, Gc might still be in a speculative 
-   section, forceUnlock is a way to enforce the unlock.  
-   Under heavy contention, speculative "locking" might help improving
-   general throughput.
-   
 */
 
 namespace Datacratic {
@@ -324,6 +312,32 @@ public:
 #endif
     }
 
+    /** Speculative critical sections should be used for hot loops doing
+        repeated but short reads on shared objects where it's acceptable to keep
+        hold of the section in between read operations because you're likely to
+        need it again soon.
+
+        This is an optimization of lockShared since it can avoid repeated entry
+        and exit of the CS when it's likely to be reused shortly after. It also
+        has the effect of heavily reducing contention on the lock under heavy
+        contention scenarios.
+
+        Usage example:
+
+            GcLock gc;
+            for (condition) {
+                gc.enterSpeculative();
+                // In critical section
+
+                gc.exitSpeculative();
+                // After the call, gc might or might not be unlocked
+            }
+
+            gc.forceUnlock();
+
+        Note the call to forceUnlock() after the loop which ensure that we've
+        exited the critical section.
+    */
     void lockSpeculative(GcInfo::PerThreadInfo * info = 0,
                          RunDefer runDefer = RD_YES)
     {
@@ -340,6 +354,14 @@ public:
         entry.unlockSpeculative(runDefer);
     }
 
+    /** Ensures that after the call, the Gc is "unlocked".
+
+        This should be used in conjunction with the speculative lock to notify
+        the Gc Lock to exit any leftover speculative sections for the current
+        thread. If multiple threads can hold a speculative region, this function
+        has to be called in each thread respectively. Note that it will be
+        called automatically when a thread is destroyed.
+     */
     void forceUnlock(GcInfo::PerThreadInfo * info = 0,
                      RunDefer runDefer = RD_YES) {
         ThreadGcInfoEntry & entry = getEntry(info);
