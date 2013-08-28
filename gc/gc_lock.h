@@ -336,7 +336,10 @@ public:
             gc.forceUnlock();
 
         Note the call to forceUnlock() after the loop which ensure that we've
-        exited the critical section.
+        exited the critical section. Also note that the speculative functions
+        are called directly in this example for illustrative purposes. In actual
+        code, use the SpeculativeGuard class which provides full RAII
+        guarantees.
     */
     void lockSpeculative(GcInfo::PerThreadInfo * info = 0,
                          RunDefer runDefer = RD_YES)
