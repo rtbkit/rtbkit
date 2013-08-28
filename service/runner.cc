@@ -132,66 +132,6 @@ init(const OnTerminate & onTerminate,
     onStdErr_ = onStdErr;
 }
 
-/**
-   create pipes
-   register pipes to msg loop
-   fork
-   close fds
-   exec
-   register signalfd */
-
-/*
-AsyncRunner::RunResult
-AsyncRunner::
-runSync()
-{
-    return pair<int>{-1, -1};
-}
-*/
-
-/*
-AsyncRunner::RunResult
-AsyncRunner::
-runWithMessageLoopSync(MessageLoop & messageLoop)
-{
-    int signum(-1);
-    int errorCode(-1);
-
-    auto terminateWrapper = [&] (int sig, int rc) {
-        if (onTerminate_) {
-            onTerminate_(sig, rc);
-        }
-
-        signum = sig;
-        errorCode = rc;
-        sigChildHandler_ = onTerminate_;
-        ML::futex_wake(signum);
-    };
-    sigChildHandler_ = terminateWrapper;
-
-    runWithMessageLoop(messageLoop);
-
-    while (signum == -1) {
-        ML::futex_wait(signum, -1);
-    }
-
-    return make_pair(signum, errorCode);
-}
-
-void
-AsyncRunner::
-runWithMessageLoop(MessageLoop & messageLoop)
-{
-    epollFd_ = epoll_create(4);
-    if (epollFd_ == -1)
-        throw ML::Exception(errno, "AsyncRunner: epoll_create()");
-
-    sigChildHandler_ = onTerminate_;
-
-    messageLoop.addSource("runner", *this);
-}
-*/
-
 void
 AsyncRunner::
 postTerminate()
