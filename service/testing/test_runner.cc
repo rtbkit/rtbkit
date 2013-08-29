@@ -1,22 +1,30 @@
-#define BOOST_TEST_MAIN
-#define BOOST_TEST_DYN_LINK
+// #define BOOST_TEST_MAIN
+// #define BOOST_TEST_DYN_LINK
 
-#include <boost/test/unit_test.hpp>
+// #include <boost/test/unit_test.hpp>
 
 #include "jml/arch/exception.h"
 #include "jml/arch/futex.h"
+#include "jml/utils/exc_assert.h"
 #include "jml/utils/string_functions.h"
 #include "soa/service/message_loop.h"
 #include "soa/service/runner.h"
+
+#include "signals.h"
 
 using namespace std;
 // using namespace ML;
 using namespace Datacratic;
 
-BOOST_AUTO_TEST_CASE( test_runner )
+#define BOOST_CHECK_EQUAL(x,y)  { ExcCheckEqual((x), (y), ""); }
+
+// BOOST_AUTO_TEST_CASE( test_runner )
+int main()
 {
+    // DisabledSignal disSig(SIGCHLD);
+
     // char * newEnv = strdup("BOOST_TEST_CATCH_SYSTEM_ERRORS=no");
-    // ::putenv(newEnv);p
+    // ::putenv(newEnv);
 
     vector<string> commands;
     size_t current(0);
@@ -24,28 +32,26 @@ BOOST_AUTO_TEST_CASE( test_runner )
     MessageLoop loop;
     AsyncRunner runner({"build/x86_64/bin/test_runner_helper"});
 
-    int done = false;
+    int done(0);
     auto onTerminate = [&] (int rc, int code) {
-        cerr << "onTerminate\n";
-        done = true;
+        cerr << "test: onTerminate\n";
+        done = 1;
         ML::futex_wake(done);
     };
 
     auto onStdIn = [&] () {
-        cerr << "onStdIn requested\n";
         if (current < commands.size()) {
             return commands[current++];
         }
         else {
-            cerr << "(no more commands)\n";
             return string("");
         }
     };
     auto onStdOut = [&] (const string & message) {
-        cerr << "stdout: " + message << endl;
+        fprintf(stderr, "test: stdout: /%s/\n", message.c_str());
     };
     auto onStdErr = [&] (const string & message) {
-        cerr << "stderr: " + message << endl;
+        fprintf(stderr, "test: stderr: /%s/\n", message.c_str());
     };
 
     runner.init(onTerminate, onStdOut, onStdErr, onStdIn);
@@ -69,20 +75,23 @@ BOOST_AUTO_TEST_CASE( test_runner )
         commands.push_back(string(cmdBuffer, totalLen));
     };
 
-    cerr << "sending commands\n";
+    cerr << "test: preparing commands\n";
     sendOutput(true, "hello stdout");
     sendOutput(true, "hello stdout2");
     sendOutput(false, "hello stderr");
+    sendExit(123);
 
-    cerr << "starting\n";
+    cerr << "test: runner.run()\n";
     runner.run();
 
     while (!done) {
-        ML::futex_wait(done, false);
+        ML::futex_wait(done, 1);
     }
 
     BOOST_CHECK_EQUAL(runner.lastSignal(), 6);
     BOOST_CHECK_EQUAL(runner.lastReturnCode(), -1);
 
     loop.shutdown();
+
+    return 0;
 }
