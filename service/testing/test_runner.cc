@@ -71,17 +71,14 @@ BOOST_AUTO_TEST_CASE( test_runner )
 {
     BlockedSignals blockedSigs(SIGCHLD);
 
-    HelperCommands commands;
-
     MessageLoop loop;
     AsyncRunner runner({"build/x86_64/bin/test_runner_helper"});
 
-    int done(0);
-    auto onTerminate = [&] (int rc, int code) {
-        done = 1;
-        ML::futex_wake(done);
-    };
-
+    HelperCommands commands;
+    commands.sendOutput(true, "hello stdout");
+    commands.sendOutput(true, "hello stdout2");
+    commands.sendOutput(false, "hello stderr");
+    commands.sendExit(0);
     auto onStdIn = [&] () {
         return commands.nextCommand();
     };
@@ -92,51 +89,35 @@ BOOST_AUTO_TEST_CASE( test_runner )
         fprintf(stderr, "test: stderr: /%s/\n", message.c_str());
     };
 
-    runner.init(onTerminate, onStdOut, onStdErr, onStdIn);
+    runner.init(onStdOut, onStdErr, onStdIn);
     loop.addSource("runner", runner);
     loop.start();
 
-    commands.sendOutput(true, "hello stdout");
-    commands.sendOutput(true, "hello stdout2");
-    commands.sendOutput(false, "hello stderr");
-    commands.sendExit(0);
-
     runner.run();
-
-    while (!done) {
-        ML::futex_wait(done, 1);
-    }
+    runner.waitTermination();
 }
 
+#if 0
 BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 {
     BlockedSignals blockedSigs(SIGCHLD);
+
     MessageLoop loop;
-
     AsyncRunner runner({"build/x86_64/bin/test_runner_helper"});
-    HelperCommands commands;
 
-    int done(0);
-    auto onTerminate = [&] (int rc, int code) {
-        cerr << "test: onTerminate\n";
-        done = 1;
-        ML::futex_wake(done);
-    };
+    HelperCommands commands;
+    commands.sendExit(123);
     auto onStdIn = [&] () {
         return commands.nextCommand();
     };
     auto discard = [&] (const string & message) {
     };
-    runner.init(onTerminate, discard, discard, onStdIn);
+    runner.init(discard, discard, onStdIn);
     loop.addSource("runner", runner);
     loop.start();
 
-    commands.sendExit(123);
-
     runner.run();
-    while (!done) {
-        ML::futex_wait(done, 1);
-    }
+    runner.waitTermination();
 
     BOOST_CHECK_EQUAL(runner.lastSignal(), -1);
     BOOST_CHECK_EQUAL(runner.lastReturnCode(), 123);
@@ -145,33 +126,25 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 BOOST_AUTO_TEST_CASE( test_runner_abort )
 {
     BlockedSignals blockedSigs(SIGCHLD);
+
     MessageLoop loop;
-
     AsyncRunner runner({"build/x86_64/bin/test_runner_helper"});
-    HelperCommands commands;
 
-    int done(0);
-    auto onTerminate = [&] (int rc, int code) {
-        cerr << "test: onTerminate\n";
-        done = 1;
-        ML::futex_wake(done);
-    };
+    HelperCommands commands;
+    commands.sendAbort();
     auto onStdIn = [&] () {
         return commands.nextCommand();
     };
     auto discard = [&] (const string & message) {
     };
-    runner.init(onTerminate, discard, discard, onStdIn);
+    runner.init(discard, discard, onStdIn);
     loop.addSource("runner", runner);
     loop.start();
 
-    commands.sendAbort();
-
     runner.run();
-    while (!done) {
-        ML::futex_wait(done, 1);
-    }
+    runner.waitTermination();
 
     BOOST_CHECK_EQUAL(runner.lastSignal(), SIGABRT);
     BOOST_CHECK_EQUAL(runner.lastReturnCode(), -1);
 }
+#endif

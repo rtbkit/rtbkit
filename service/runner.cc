@@ -120,7 +120,9 @@ AsyncRunner(const std::vector<std::string> & command)
       childPid_(-1),
       lastSignal_(-1),
       lastRc_(-1),
+#if ASYNCRUNNER_SIGNALFD
       sigChildFd_(-1),
+#endif
       stdInFd_(-1),
       stdOutFd_(-1),
       stdErrFd_(-1)
@@ -129,7 +131,7 @@ AsyncRunner(const std::vector<std::string> & command)
 
 void
 AsyncRunner::
-init(const OnTerminate & onTerminate,
+init(// const OnTerminate & onTerminate,
      const OnOutput & onStdOut, const OnOutput & onStdErr,
      const OnInput & onStdIn)
 {
@@ -137,46 +139,24 @@ init(const OnTerminate & onTerminate,
 
     handleEvent
         = bind(&AsyncRunner::handleEpollEvent, this, placeholders::_1);
-    onTerminate_ = onTerminate;
+    // onTerminate_ = onTerminate;
     onStdOut_ = onStdOut;
     onStdErr_ = onStdErr;
     onStdIn_ = onStdIn;
-}
-
-void
-AsyncRunner::
-postTerminate()
-{
-    if (onTerminate_) {
-        onTerminate_(lastSignal_, lastRc_);
-    }
-
-    running_ = false;
-    childPid_ = -1;
-
-    auto unregisterFd = [&] (int & fd)  {
-        if (fd > -1) {
-            removeFd(fd);
-            ::close(fd);
-            fd = -1;
-        }
-    };
-
-    unregisterFd(stdInFd_);
-    unregisterFd(stdOutFd_);
-    unregisterFd(stdErrFd_);
-    unregisterFd(sigChildFd_);
 }
 
 bool
 AsyncRunner::
 handleEpollEvent(const struct epoll_event & event)
 {
+#if ASYNCRUNNER_SIGNALFD
     if (event.data.ptr == &sigChildFd_) {
         fprintf(stderr, "parent: handle signal\n");
         handleSigChild();
     }
-    else if (event.data.ptr == &stdInFd_) {
+#endif
+
+    if (event.data.ptr == &stdInFd_) {
         fprintf(stderr, "parent: handle child input\n");
         handleChildInput(event);
     }
@@ -195,6 +175,7 @@ handleEpollEvent(const struct epoll_event & event)
     return false;
 }
 
+#if ASYNCRUNNER_SIGNALFD
 void
 AsyncRunner::
 handleSigChild()
@@ -222,6 +203,7 @@ handleSigChild()
                             + to_string(siginfo.ssi_signo));
     }
 }
+#endif
 
 void
 AsyncRunner::
@@ -269,6 +251,7 @@ AsyncRunner::
 handleChildOutput(const struct epoll_event & event, const OnOutput & onOutputFn)
 {
     char buffer[4096];
+    bool closedFd(false);
     string data;
 
     int inputFd = *static_cast<int *>(event.data.ptr);
@@ -277,19 +260,26 @@ handleChildOutput(const struct epoll_event & event, const OnOutput & onOutputFn)
         cerr << "parent: handling epollin from output" << endl;
         while (1) {
             ssize_t len = ::read(inputFd, buffer, sizeof(buffer));
+            cerr << "returned len: " << len << endl;
             if (len < 0) {
+                perror("  len -1");
                 if (errno == EWOULDBLOCK) {
                     break;
                 }
-                else {
-                    throw ML::Exception(errno, "AsyncRunner::handleInput");
+                else if (errno == EBADF) {
+                    closedFd = true;
+                    break;
                 }
+                else {
+                    throw ML::Exception(errno, "AsyncRunner::handleChildOutput");
+                }
+            }
+            else if (len == 0) {
+                closedFd = true;
+                break;
             }
             else if (len > 0) {
                 data.append(buffer, len);
-            }
-            else {
-                break;
             }
         }
 
@@ -302,12 +292,47 @@ handleChildOutput(const struct epoll_event & event, const OnOutput & onOutputFn)
         }
     }
 
-    if ((event.events & EPOLLHUP) == 0) {
-        restartFdOneShot(inputFd, event.data.ptr);
+    cerr << "closedFd: " << closedFd << endl;
+    if (!closedFd && (event.events & EPOLLHUP) == 0) {
+        JML_TRACE_EXCEPTIONS(false);
+        try {
+            restartFdOneShot(inputFd, event.data.ptr);
+        }
+        catch (const ML::Exception & exc) {
+        }
     }
     else {
         cerr << "parent: child stdout or stderr closed\n";
     }
+}
+
+void
+AsyncRunner::
+postTerminate()
+{
+#if ASYNCRUNNER_SIGNALFD
+    if (onTerminate_) {
+        onTerminate_(lastSignal_, lastRc_);
+    }
+#endif
+
+    running_ = false;
+    childPid_ = -1;
+
+    auto unregisterFd = [&] (int & fd)  {
+        if (fd > -1) {
+            removeFd(fd);
+            ::close(fd);
+            fd = -1;
+        }
+    };
+
+    unregisterFd(stdInFd_);
+    unregisterFd(stdOutFd_);
+    unregisterFd(stdErrFd_);
+#if ASYNCRUNNER_SIGNALFD
+    unregisterFd(sigChildFd_);
+#endif
 }
 
 void
@@ -360,6 +385,7 @@ run()
         throw ML::Exception(errno, "AsyncRunner::run fork");
     }
     else {
+#if ASYNCRUNNER_SIGNALFD
         /* catch SIGCHLD */
         {
             sigset_t mask;
@@ -377,6 +403,7 @@ run()
             addFd(sigChildFd_, &sigChildFd_);
             // cerr << "sigChildFd_: " + to_string(sigChildFd_) + "\n";
         }
+#endif
 
         if (onStdIn_) {
             ML::set_file_flag(stdInFd_, O_NONBLOCK);
@@ -397,4 +424,39 @@ run()
 
         printf ("parent: fds setup\n");
     }
+}
+
+void
+AsyncRunner::
+kill(int signum)
+{
+    if (!running_)
+        throw ML::Exception("subprocess has already terminated");
+
+    ::kill(childPid_, signum);
+    waitTermination();
+}
+
+void
+AsyncRunner::
+waitTermination()
+{
+    if (!running_)
+        throw ML::Exception("subprocess has already terminated");
+
+    int status;
+
+    int res = ::waitpid(childPid_, &status, 0);
+    if (res == -1) {
+        throw ML::Exception(errno, "AsyncRunner::waitTermination waitpid");
+    }
+
+    if (WIFEXITED(status)) {
+        lastRc_ = WEXITSTATUS(status);
+    }
+    else if (WIFSIGNALED(status)) {
+        lastSignal_ = WTERMSIG(status);
+    }
+
+    postTerminate();
 }
