@@ -53,7 +53,7 @@ struct Creative {
     Json::Value providerConfig;
 
     /// lock for the provider data
-    ML::Spinlock lock;
+    mutable ML::Spinlock lock;
 
     /// List of provider-specific creative data
     std::map<std::string, std::shared_ptr<void> > providerData;
@@ -339,7 +339,7 @@ struct AgentConfig {
     Json::Value providerConfig;
 
     /// lock for the provider data
-    ML::Spinlock lock;
+    mutable ML::Spinlock lock;
 
     /// List of provider-specific creative data
     std::map<std::string, std::shared_ptr<void> > providerData;
