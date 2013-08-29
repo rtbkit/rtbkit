@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 
+#include <iostream>
 #include <utility>
 
 #include "jml/arch/futex.h"
@@ -155,8 +156,8 @@ postTerminate()
 
     auto unregisterFd = [&] (int & fd)  {
         if (fd > -1) {
-            ::close(fd);
             removeFd(fd);
+            ::close(fd);
             fd = -1;
         }
     };
@@ -206,16 +207,15 @@ handleSigChild()
         throw ML::Exception(errno, "AsyncRunner::handleSigChild");
 
     if (siginfo.ssi_signo == SIGCHLD) {
-        if (WIFEXITED(siginfo.ssi_status)) {
-            lastSignal_ = 0;
-            lastRc_ = WEXITSTATUS(siginfo.ssi_status);
-            postTerminate();
+        if (siginfo.ssi_code == CLD_EXITED) {
+            lastSignal_ = -1;
+            lastRc_ = siginfo.ssi_status;
         }
-        else if (WIFSIGNALED(siginfo.ssi_status)) {
-            lastSignal_ = WTERMSIG(siginfo.ssi_status);
-            lastRc_ = 0;
-            postTerminate();
+        else {
+            lastSignal_ = siginfo.ssi_status;
+            lastRc_ = -1;
         }
+        postTerminate();
     }
     else {
         throw ML::Exception("AsyncRunner::handleSigChild: unexpected signal "
@@ -365,12 +365,11 @@ run()
             sigset_t mask;
 
             sigemptyset(&mask);
-            // sigaddset(&mask, SIGCHLD);
-            sigfillset(&mask);
-            // int err = sigprocmask(SIG_BLOCK, &mask, NULL);
-            // if (err != 0) {
-            //     throw ML::Exception(err, "AsyncRunner::run sigprocmask");
-            // }
+            sigaddset(&mask, SIGCHLD);
+            int err = pthread_sigmask(SIG_BLOCK, &mask, NULL);
+            if (err != 0) {
+                 throw ML::Exception(err, "AsyncRunner::run pthread_sigmask");
+            }
             sigChildFd_ = signalfd(-1, &mask, SFD_NONBLOCK);
             if (sigChildFd_ == -1) {
                 throw ML::Exception(errno, "AsyncRunner::run signalfd");
