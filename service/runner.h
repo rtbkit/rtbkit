@@ -68,9 +68,9 @@ struct AsyncRunner: public Epoller {
     bool handleEpollEvent(const struct epoll_event & event);
 
     void handleSigChild();
-    void handleInput(const struct epoll_event & event,
-                     const OnOutput & onOutputFn);
-    void handleOutput(const struct epoll_event & event);
+    void handleChildInput(const struct epoll_event & event);
+    void handleChildOutput(const struct epoll_event & event,
+                           const OnOutput & onOutputFn);
 
     void postTerminate();
 

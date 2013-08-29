@@ -15,6 +15,8 @@
 #include <utility>
 
 #include "jml/arch/futex.h"
+#include "jml/arch/timers.h"
+#include "jml/utils/file_functions.h"
 
 #include "message_loop.h"
 
@@ -24,6 +26,8 @@ using namespace std;
 using namespace Datacratic;
 
 /* TODO:
+   - signalfd can "compact" multiple and unrelated sigchilds, we must handle
+     this in a thread-safe and lockless way
    - interface without message loop
  */
 
@@ -69,9 +73,18 @@ struct ChildFds {
 
     void close()
     {
-        ::close(stdIn_);
-        ::close(stdOut_);
-        ::close(stdErr_);
+        if (stdIn_ != STDIN_FILENO) {
+            cerr << "closing fd " << stdIn_ << endl;
+            ::close(stdIn_);
+        }
+        if (stdOut_ != STDOUT_FILENO) {
+            cerr << "closing fd " << stdOut_ << endl;
+            ::close(stdOut_);
+        }
+        if (stdErr_ != STDERR_FILENO) {
+            cerr << "closing fd " << stdErr_ << endl;
+            ::close(stdErr_);
+        }
     }
 
     int stdIn_;
@@ -79,22 +92,19 @@ struct ChildFds {
     int stdErr_;
 };
 
-void CreateStdPipe(int & parentFd, int & childFd, bool forWriting)
+pair<int, int> CreateStdPipe(bool forWriting)
 {
     int fds[2];
-    int rc = pipe2(fds, O_NONBLOCK);
-    if (rc == 0) {
-        if (forWriting) {
-            parentFd = fds[1];
-            childFd = fds[0];
-        }
-        else {
-            parentFd = fds[0];
-            childFd = fds[1];
-        }
+    int rc = pipe(fds);
+    if (rc == -1) {
+        throw ML::Exception(errno, "AsyncRunner::run:: pipe2");
+    }
+
+    if (forWriting) {
+        return pair<int, int>(fds[1], fds[0]);
     }
     else {
-        throw ML::Exception(errno, "AsyncRunner::run:: pipe");
+        return pair<int, int>(fds[0], fds[1]);
     }
 }
 
@@ -127,9 +137,9 @@ init(const OnTerminate & onTerminate,
     handleEvent
         = bind(&AsyncRunner::handleEpollEvent, this, placeholders::_1);
     onTerminate_ = onTerminate;
-    onStdIn_ = onStdIn;
     onStdOut_ = onStdOut;
     onStdErr_ = onStdErr;
+    onStdIn_ = onStdIn;
 }
 
 void
@@ -151,10 +161,10 @@ postTerminate()
         }
     };
 
-    unregisterFd(sigChildFd_);
     unregisterFd(stdInFd_);
     unregisterFd(stdOutFd_);
     unregisterFd(stdErrFd_);
+    unregisterFd(sigChildFd_);
 }
 
 bool
@@ -162,17 +172,20 @@ AsyncRunner::
 handleEpollEvent(const struct epoll_event & event)
 {
     if (event.data.ptr == &sigChildFd_) {
-        fprintf(stderr, "handle signal\n");
+        fprintf(stderr, "parent: handle signal\n");
         handleSigChild();
     }
     else if (event.data.ptr == &stdInFd_) {
-        handleOutput(event);
+        fprintf(stderr, "parent: handle child input\n");
+        handleChildInput(event);
     }
     else if (event.data.ptr == &stdOutFd_) {
-        handleInput(event, onStdOut_);
+        fprintf(stderr, "parent: handle child output from stdout\n");
+        handleChildOutput(event, onStdOut_);
     }
     else if (event.data.ptr == &stdErrFd_) {
-        handleInput(event, onStdErr_);
+        fprintf(stderr, "parent: handle child output from stderr\n");
+        handleChildOutput(event, onStdErr_);
     }
     else {
         throw ML::Exception("this should never occur");
@@ -212,52 +225,89 @@ handleSigChild()
 
 void
 AsyncRunner::
-handleOutput(const struct epoll_event & event)
+handleChildInput(const struct epoll_event & event)
 {
-    string data = onStdIn_();
-
-    const char *buffer = data.c_str();
-    ssize_t remaining = data.size();
     size_t written(0);
-    while (remaining > 0) {
-        ssize_t len = ::write(stdInFd_, buffer + written, remaining);
-        if (len > 0) {
-            written += len;
-            remaining -= len;
+
+    if ((event.events & EPOLLOUT) != 0) {
+        string data = onStdIn_();
+
+        const char *buffer = data.c_str();
+        ssize_t remaining = data.size();
+        while (remaining > 0) {
+            ssize_t len = ::write(stdInFd_, buffer + written, remaining);
+            if (len > 0) {
+                written += len;
+                remaining -= len;
+            }
+            else {
+                throw ML::Exception(errno, "AsyncRunner::handleOutput");
+            }
+        }
+
+        if ((event.events & EPOLLHUP) == 0) {
+            if (written > 0) {
+                restartFdOneShot(stdInFd_, event.data.ptr, true);
+            }
         }
         else {
-            throw ML::Exception(errno, "AsyncRunner::handleOutput");
+            cerr << "parent: child stdin closed\n";
         }
     }
-
-    if (written > 0) {
-        restartFdOneShot(stdInFd_, event.data.ptr, true);
+    else {
+        if ((event.events & EPOLLHUP) == 0) {
+            restartFdOneShot(stdInFd_, event.data.ptr, true);
+        }
+        else {
+            cerr << "parent: child stdin closed\n";
+        }
     }
 }
 
 void
 AsyncRunner::
-handleInput(const struct epoll_event & event, const OnOutput & onOutputFn)
+handleChildOutput(const struct epoll_event & event, const OnOutput & onOutputFn)
 {
     char buffer[4096];
+    string data;
 
     int inputFd = *static_cast<int *>(event.data.ptr);
 
     if ((event.events & EPOLLIN) != 0) {
-        ssize_t len = ::read(inputFd, buffer, sizeof(buffer));
-        if (len < 0) {
-            if (errno != EWOULDBLOCK) {
-                throw ML::Exception(errno, "AsyncRunner::handleInput");
+        cerr << "parent: handling epollin from output" << endl;
+        while (1) {
+            ssize_t len = ::read(inputFd, buffer, sizeof(buffer));
+            if (len < 0) {
+                if (errno == EWOULDBLOCK) {
+                    break;
+                }
+                else {
+                    throw ML::Exception(errno, "AsyncRunner::handleInput");
+                }
+            }
+            else if (len > 0) {
+                data.append(buffer, len);
+            }
+            else {
+                break;
             }
         }
-        else if (len > 0) {
-            string data(buffer, len);
+
+        if (data.size() > 0) {
+            cerr << "sending child output to output handler\n";
             onOutputFn(data);
+        }
+        else {
+            cerr << "ignoring child output due to size == 0\n";
         }
     }
 
-    if ((event.events & EPOLLHUP) == 0)
+    if ((event.events & EPOLLHUP) == 0) {
         restartFdOneShot(inputFd, event.data.ptr);
+    }
+    else {
+        cerr << "parent: child stdout or stderr closed\n";
+    }
 }
 
 void
@@ -267,28 +317,27 @@ run()
     if (running_)
         throw ML::Exception("already running");
 
-    /* catch SIGCHLD */
-    {
-        sigset_t mask;
-
-        sigemptyset(&mask);
-        sigaddset(&mask, SIGCHLD);
-        sigChildFd_ = signalfd(-1, &mask, SFD_NONBLOCK);
-        addFd(sigChildFd_, &sigChildFd_);
-    }
-
     ChildFds childFds;
     if (onStdIn_) {
-        CreateStdPipe(stdInFd_, childFds.stdIn_, true);
-        addFdOneShot(stdInFd_, &stdInFd_, true);
+        auto fds = CreateStdPipe(true);
+        stdInFd_ = fds.first;
+        childFds.stdIn_ = fds.second; 
+        cerr << "stdinFd_: " + to_string(stdInFd_) + "\n";
+        cerr << "child stdinFd_: " + to_string(childFds.stdIn_) + "\n";
     }
     if (onStdOut_) {
-        CreateStdPipe(stdOutFd_, childFds.stdOut_, false);
-        addFdOneShot(stdOutFd_, &stdOutFd_);
+        auto fds = CreateStdPipe(false);
+        stdOutFd_ = fds.first;
+        childFds.stdOut_ = fds.second; 
+        cerr << "stdoutFd_: " + to_string(stdOutFd_) + "\n";
+        cerr << "child stdoutFd_: " + to_string(childFds.stdOut_) + "\n";
     }
     if (onStdErr_) {
-        CreateStdPipe(stdErrFd_, childFds.stdErr_, false);
-        addFdOneShot(stdErrFd_, &stdErrFd_);
+        auto fds = CreateStdPipe(false);
+        stdErrFd_ = fds.first;
+        childFds.stdErr_ = fds.second; 
+        cerr << "stderrFd_: " + to_string(stdErrFd_) + "\n";
+        cerr << "child stderrFd_: " + to_string(childFds.stdErr_) + "\n";
     }
 
     running_ = true;
@@ -311,6 +360,42 @@ run()
         throw ML::Exception(errno, "AsyncRunner::run fork");
     }
     else {
+        /* catch SIGCHLD */
+        {
+            sigset_t mask;
+
+            sigemptyset(&mask);
+            // sigaddset(&mask, SIGCHLD);
+            sigfillset(&mask);
+            // int err = sigprocmask(SIG_BLOCK, &mask, NULL);
+            // if (err != 0) {
+            //     throw ML::Exception(err, "AsyncRunner::run sigprocmask");
+            // }
+            sigChildFd_ = signalfd(-1, &mask, SFD_NONBLOCK);
+            if (sigChildFd_ == -1) {
+                throw ML::Exception(errno, "AsyncRunner::run signalfd");
+            }
+            addFd(sigChildFd_, &sigChildFd_);
+            // cerr << "sigChildFd_: " + to_string(sigChildFd_) + "\n";
+        }
+
+        if (onStdIn_) {
+            ML::set_file_flag(stdInFd_, O_NONBLOCK);
+            addFdOneShot(stdInFd_, &stdInFd_, true);
+        }
+        if (onStdOut_) {
+            ML::set_file_flag(stdOutFd_, O_NONBLOCK);
+            addFdOneShot(stdOutFd_, &stdOutFd_);
+        }
+        if (onStdErr_) {
+            ML::set_file_flag(stdErrFd_, O_NONBLOCK);
+            addFdOneShot(stdErrFd_, &stdErrFd_);
+        }
+        printf ("parent: added fds to poll\n");
+
         childFds.close();
+        printf ("parent: closed child ends\n");
+
+        printf ("parent: fds setup\n");
     }
 }
