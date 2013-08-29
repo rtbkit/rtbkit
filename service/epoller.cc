@@ -63,12 +63,12 @@ close()
 
 void
 Epoller::
-addFd(int fd, void * data, bool writeFd)
+addFd(int fd, void * data, bool writerFd)
 {
     //cerr << Date::now().print(4) << "added " << fd << " multiple shot" << endl;
 
     struct epoll_event event;
-    event.events = (writeFd ? EPOLLOUT : EPOLLIN);
+    event.events = (writerFd ? EPOLLOUT : EPOLLIN);
     event.data.ptr = data;
     
     int res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
@@ -79,12 +79,12 @@ addFd(int fd, void * data, bool writeFd)
     
 void
 Epoller::
-addFdOneShot(int fd, void * data, bool writeFd)
+addFdOneShot(int fd, void * data, bool writerFd)
 {
     //cerr << Date::now().print(4) << "added " << fd << " one-shot" << endl;
 
     struct epoll_event event;
-    event.events = (writeFd ? EPOLLOUT : EPOLLIN) | EPOLLONESHOT;
+    event.events = (writerFd ? EPOLLOUT : EPOLLIN) | EPOLLONESHOT;
     event.data.ptr = data;
     
     int res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
@@ -96,12 +96,12 @@ addFdOneShot(int fd, void * data, bool writeFd)
 
 void
 Epoller::
-restartFdOneShot(int fd, void * data, bool writeFd)
+restartFdOneShot(int fd, void * data, bool writerFd)
 {
     //cerr << Date::now().print(4) << "restarted " << fd << " one-shot" << endl;
 
     struct epoll_event event;
-    event.events = (writeFd ? EPOLLOUT : EPOLLIN) | EPOLLONESHOT;
+    event.events = (writerFd ? EPOLLOUT : EPOLLIN) | EPOLLONESHOT;
     event.data.ptr = data;
     
     int res = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
@@ -156,7 +156,7 @@ handleEvents(int usToWait, int nEvents,
             //if (debug) cerr << "handleEvents: res = " << res << endl;
             if (res == 0) return 0;
         }
-                
+
         int res = epoll_wait(epoll_fd, events, nEvents, 0);
 
         if (afterSleep)

@@ -36,15 +36,15 @@ struct Epoller: public AsyncEventSource {
     /** Add the given fd to multiplex fd.  It will repeatedly wake up the
         loop without being restarted.
     */
-    void addFd(int fd, void * data = 0, bool writeFd = false);
+    void addFd(int fd, void * data = 0, bool writerFd = false);
     
     /** Add the given fd to wake up one a one-shot basis.  It will need to
         be restarted once the event is handled.
     */
-    void addFdOneShot(int fd, void * data = 0, bool writeFd = false);
+    void addFdOneShot(int fd, void * data = 0, bool writerFd = false);
 
     /** Restart a woken up one-shot fd. */
-    void restartFdOneShot(int fd, void * data = 0, bool writeFd = false);
+    void restartFdOneShot(int fd, void * data = 0, bool writerFd = false);
 
     /** Remove the given fd from the multiplexer set. */
     void removeFd(int fd);
