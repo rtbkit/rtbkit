@@ -85,11 +85,11 @@ public:
             if (!specLocked && !specUnlocked && (readLocked || writeLocked))
                cerr << "Thread died but GcLock is still locked" << endl;
 
-            /* We are in a speculative CS but Gc has not beed unlocked,
-             * then forceUnlock 
+            /* We are in a speculative CS but Gc has not beed unlocked
              */
             else if (!specLocked && specUnlocked) {
                 unlockShared(RD_YES);
+                specUnlocked = 0;
             }
            
         } 
