@@ -1128,12 +1128,14 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         : zmqContext(new zmq::context_t(1))
     {
         connected = false;
+        inProvidersChanged = false;
     }
 
     ZmqMultipleNamedClientBusProxy(std::shared_ptr<zmq::context_t> context)
         : zmqContext(context)
     {
         connected = false;
+        inProvidersChanged = false;
     }
 
     ~ZmqMultipleNamedClientBusProxy()
@@ -1178,7 +1180,7 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
                                     bool local = true)
     {
         if (connected)
-            throw ML::Exception("alread connected to service providers");
+            throw ML::Exception("already connected to service providers");
 
         this->serviceClass = serviceClass;
         this->endpointName = endpointName;
@@ -1190,7 +1192,6 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
                                    });
 
         onServiceProvidersChanged("serviceClass/" + serviceClass, local);
-        // std::cerr << "++++after call to onServiceProvidersChanged " << std::endl;
         connected = true;
     }
 
@@ -1289,12 +1290,22 @@ private:
     /** Current watch on the list of service providers. */
     ConfigurationService::Watch serviceProvidersWatch;
 
+    /** Are we currently in onServiceProvidersChanged? **/
+    bool inProvidersChanged ;
     /** Queue of operations to perform asynchronously from our own thread. */
 
     /** Callback that will be called when the list of service providers has changed. */
     void onServiceProvidersChanged(const std::string & path, bool local)
     {
         using namespace std;
+        // this function is invoked upon a disconnect
+        if( inProvidersChanged)
+        {
+            std::cerr << "!!!Already in service providers changed - bailing out "
+                << std::endl;
+            return ;
+        }
+        inProvidersChanged = true;
         //cerr << "onServiceProvidersChanged(" << path << ")" << endl;
 
         // The list of service providers has changed
@@ -1337,11 +1348,10 @@ private:
             for (const auto& conn : pendingDisconnects)
                 connections.erase(conn.first);
         }
-
         // We're no longer holding the lock so any delayed. Time to really
         // disconnect and trigger the callbacks.
         pendingDisconnects.clear();
-
+        inProvidersChanged = false;
     }
 
     /** Encapsulates a lock-free state machine that manages the logic of the on
@@ -1415,8 +1425,13 @@ private:
         auto & c = connections[name];
 
         // already connected
-        if (c) return;
-
+        if (c) 
+        {
+            std::cerr << "watchServiceProvider: name " << name << " already connected " << std::endl;
+            return;
+        }
+        std::cerr << "watchServiceProvider: name " << name << " not already connected " << std::endl;
+        
         try {
             std::unique_ptr<ZmqNamedClientBusProxy> newClient
                 (new ZmqNamedClientBusProxy(zmqContext));
