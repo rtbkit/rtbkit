@@ -6,7 +6,7 @@
 
 #include "soa/service/zookeeper.h"
 #include "jml/arch/timers.h"
-
+#include "jml/arch/backtrace.h"
 using namespace std;
 
 namespace Datacratic {
@@ -21,25 +21,102 @@ struct Init {
 } init;
 
 void zk_callback(zhandle_t * ah, int type, int state, const char * path, void * user) {
-    auto cb = reinterpret_cast<ZookeeperConnection::Callback *>(user);
+    uintptr_t cbid = reinterpret_cast<uintptr_t>(user);
+    ZookeeperCallback *cb = ZookeeperCallbackManager::instance().popCallback(cbid);
     if(cb) {
-        cb->unlink();
+#if 0
+        std::cerr << "zk_callback: Found user = " << user << " type:"
+            << ZookeeperConnection::printEvent(type) << " state:" 
+            << ZookeeperConnection::printState(state)
+            << " id = " << cbid << std::endl;
+#endif
         cb->call(type);
     }
 }
 
 } // file scope
 
+ZookeeperCallbackManager &ZookeeperCallbackManager::instance()
+{
+    static ZookeeperCallbackManager cbm;
+    return cbm;
+}
+
+uintptr_t
+ZookeeperCallbackManager::createCallback(ZookeeperCallbackType watch, 
+                                         std::string const & path, void * data)
+{
+    if(!watch) 
+    {
+        return 0;
+    }
+
+    std::lock_guard<std::mutex> guard(lock);
+    id_++;
+//    cerr << "ZookeeperCallbackManager::createCallback: ID " << id_ << endl;
+    ZookeeperCallback * item = new ZookeeperCallback(id_, this, watch,
+                                                     path, data);
+    callbacks_[id_] = CallbackInfo(item);
+    return id_;
+}
+
+ZookeeperCallback *
+ZookeeperCallbackManager::popCallback(uintptr_t id)
+{
+    std::lock_guard<std::mutex> guard(lock);
+    auto found = callbacks_.find(id);
+    if( found != callbacks_.end())
+    {
+        callbacks_.erase(id);
+        return found->second.callback;
+    }
+    return nullptr;
+}
+
+bool
+ZookeeperCallbackManager::mark(uintptr_t id, bool valid)
+{
+    std::lock_guard<std::mutex> guard(lock);
+    auto found = callbacks_.find(id);
+    if( found != callbacks_.end())
+    {
+        found->second.valid = valid;
+        return true;
+    }
+    return false;
+}
+
+void
+ZookeeperCallbackManager::sendEvent(int type)
+{
+    ZookeeperCallbackMap localCallbacks;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        localCallbacks = std::move(callbacks_);
+    }
+
+    for( auto it = localCallbacks.begin(); it != callbacks_.end(); ++it)
+    {
+        //Only invoke if valid
+        if(it->second.valid)
+        {
+//            std::cerr << "sendEvent: event of type " << type << " was sent!" << std::endl;
+            it->second.callback->call(type);
+        }
+    }
+}
+
 /*****************************************************************************/
 /* ZOOKEEPER CONNECTION                                                      */
 /*****************************************************************************/
 
-std::mutex ZookeeperConnection::lock;
+
 
 ZookeeperConnection::
 ZookeeperConnection()
     : recvTimeout(1000 /* one second */),
-      handle(0)
+      handle(0),
+      callbackMgr_(ZookeeperCallbackManager::instance())
 {
 }
     
@@ -94,7 +171,7 @@ connect(const std::string & host,
 
     int wait = timeoutInSeconds * 1000;
     int timeout = wait;
-    int times = 3;
+    int times = 10;
 
     for(int i = 0; i != times; ++i) {
         handle = zookeeper_init(host.c_str(), eventHandlerFn, recvTimeout, 0, this, 0);
@@ -106,13 +183,12 @@ connect(const std::string & host,
             std::cv_status::no_timeout) {
             return;
         }
-
         zookeeper_close(handle);
         handle = 0;
         
         int ms = wait + (std::rand() % wait);
         wait *= 2;
-
+        cerr << "ZookeeperConnection:connect: waiting " << ms/1000.0 << " seconds " << endl;
         ML::sleep(ms / 1000.0);
     }
 
@@ -128,19 +204,14 @@ reconnect()
         handle = 0;
     }
 
-    while(callbacks.next != &callbacks) {
-        auto i = callbacks.next;
-        i->unlink();
-        i->call(ZOO_DELETED_EVENT);
-    }
-
     ML::sleep(1);
-
     connect(host);
-
+//    cerr << fName << "connection successful! " << endl;
+    callbackMgr_.sendEvent(ZOO_DELETED_EVENT);
     for(auto & item : ephemerals) {
         createNode(item.path, item.value, true, false, true, true);
     }
+
 }
 
 void
@@ -336,21 +407,24 @@ fixPath(const std::string & path)
 
 bool
 ZookeeperConnection::
-nodeExists(const std::string & path_, Callback::Type watcher, void * watcherData)
+nodeExists(const std::string & path_, ZookeeperCallbackType watcher, void * watcherData)
 {
     string path = fixPath(path_);
 
     int retries = 0;
     for (;;) {
 
-        Callback * cb = getCallback(watcher, path, watcherData);
-
-        int res = zoo_wexists(handle, path.c_str(), zk_callback,
-                              cb, 0 /* stat */);
+        uintptr_t cb = callbackMgr_.createCallback(watcher, path, watcherData);
+                int res = zoo_wexists(handle, path.c_str(), zk_callback,
+                reinterpret_cast<void *>(cb), 0 /* stat */);
         if (res == ZNONODE)
             return false;
         if (checkRes(res, retries, "zoo_wexists", path.c_str()) == CR_DONE)
+        {
+            // mark this particular callback as valid
+            callbackMgr_.mark(cb, true);
             break;
+        }
     }
 
     return true;
@@ -358,7 +432,7 @@ nodeExists(const std::string & path_, Callback::Type watcher, void * watcherData
 
 std::string
 ZookeeperConnection::
-readNode(const std::string & path_, Callback::Type watcher, void * watcherData)
+readNode(const std::string & path_, ZookeeperCallbackType watcher, void * watcherData)
 {
     string path = fixPath(path_);
 
@@ -368,14 +442,18 @@ readNode(const std::string & path_, Callback::Type watcher, void * watcherData)
     int retries = 0;
     for (;;bufLen = 16384) {
 
-        Callback * cb = getCallback(watcher, path, watcherData);
+        uintptr_t cb = callbackMgr_.createCallback(watcher, path, watcherData);
 
-        int res = zoo_wget(handle, path.c_str(), zk_callback, cb,
+        int res = zoo_wget(handle, path.c_str(), zk_callback, reinterpret_cast<void *>(cb),
                            buf, &bufLen, 0 /* stat */);
         if (res == ZNONODE)
             return "";
         if (checkRes(res, retries, "zoo_wget", path.c_str()) == CR_DONE)
+        {
+            // mark this particular callback as valid
+            callbackMgr_.mark(cb, true);
             break;
+        }
     }
 
     return string(buf, buf + bufLen);
@@ -404,11 +482,12 @@ writeNode(const std::string & path, const std::string & value)
 std::vector<std::string>
 ZookeeperConnection::
 getChildren(const std::string & path_, bool failIfNodeMissing,
-            Callback::Type watcher, void * watcherData)
+            ZookeeperCallbackType watcher, void * watcherData)
 {
     string path = fixPath(path_);
 
-    //cerr << "getChildren for " << path << ", " << path_ << endl;
+//    cerr << pthread_self() << "::getChildren for " << path << ", " 
+//         << path_ << " watcher data " << watcherData << endl;
 
     String_vector strings;
 
@@ -416,14 +495,14 @@ getChildren(const std::string & path_, bool failIfNodeMissing,
 
     int retries = 0;
     for (;;) {
-        Callback * cb = getCallback(watcher, path, watcherData);
+        uintptr_t cb = callbackMgr_.createCallback(watcher, path, watcherData);
 
         int res = zoo_wget_children(handle, path.c_str(),
-                                    zk_callback, cb,
+                                    zk_callback, reinterpret_cast<void *>(cb),
                                     &strings);
 
-        //cerr << "zoo_wget_children for " << path << " returned "
-        //     << res << " and " << strings.count << " strings" << endl;
+//        cerr << "zoo_wget_children for " << path << " returned "
+//             << res << " and " << strings.count << " strings" << endl;
 
         if (res == ZNONODE && !failIfNodeMissing) {
 
@@ -434,35 +513,40 @@ getChildren(const std::string & path_, bool failIfNodeMissing,
             // set it up here.
             if (watcher) {
 
-                Callback * cb = getCallback(watcher, path, watcherData);
-
-                res = zoo_wexists(handle, path.c_str(), zk_callback, cb, 0);
-                //cerr << "wexists handler returned " << res << endl;
+                res = zoo_wexists(handle, path.c_str(), zk_callback, reinterpret_cast<void *>(cb), 0);
+                cerr << "wexists handler returned " << res << endl;
 
                 if (res == ZOK) {
                     cerr << "wexists handler: node appeared" << endl;
                     continue;  // node suddenly appeared
                 }
                 else if (res == ZNONODE)
+                {
+                    std::cerr << "2. returning result " << std::endl;
                     return result;
+                }
                 if (checkRes(res, retries, "zoo_wexists", path.c_str()) == CR_DONE)
+                {
+                    cerr << "3. Returning result "  << endl;
                     return result;
+                }
             }
-
             return result;
         }
-
-        if (checkRes(res, retries, "zoo_get_children", path.c_str()) == CR_DONE)
+        ZookeeperConnection::CheckResult ret = checkRes(res, retries, "zoo_get_children", path.c_str());
+        if (ret == CR_DONE)
+        {
+            // mark this particular callback as valid
+            callbackMgr_.mark(cb, true);
             break;
+        }
     }
 
     for (unsigned i = 0;  i < strings.count;  ++i)
         result.push_back(strings.data[i]);
 
     deallocate_String_vector(&strings);
-
     return result;
-        
 }
 
 void
@@ -476,7 +560,7 @@ eventHandlerFn(zhandle_t * handle,
     ZookeeperConnection * connection = reinterpret_cast<ZookeeperConnection *>(context);
 
     using namespace std;
-    //cerr << "got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
+//    cerr << "got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
 
     if(state == ZOO_CONNECTED_STATE) {
         connection->cv.notify_all();

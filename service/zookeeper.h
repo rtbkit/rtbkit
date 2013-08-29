@@ -18,9 +18,86 @@
 #include <mutex>
 #include <thread>
 #include <condition_variable>
+#include <unordered_map>
 
 
 namespace Datacratic {
+
+//forward declaration
+struct ZookeeperCallback;
+
+typedef void (* ZookeeperCallbackType)(int type, std::string const & path, void * data);
+struct CallbackInfo
+{
+    CallbackInfo(ZookeeperCallback *cb=nullptr):callback(cb),valid(false)
+    {
+    }
+
+    ZookeeperCallback *callback;
+    bool valid;
+};
+typedef std::unordered_map<uintptr_t, CallbackInfo> ZookeeperCallbackMap;
+
+class ZookeeperCallbackManager 
+{
+public:
+
+    static ZookeeperCallbackManager & instance();
+
+    ZookeeperCallbackManager():id_(0)
+    {}
+
+    uintptr_t  createCallback(ZookeeperCallbackType watch, 
+                              std::string const & path, void * data) ;
+
+    // returns a pointer to a callback with the specified id. nullptr if not found
+    // note that if found the callback will be removed from the list of callbacks
+    // it is the responsibility of the caller to invoke call on the pointer which
+    // frees up the memory
+    ZookeeperCallback *popCallback(uintptr_t id) ;
+
+    // Marks callback id with the specified value
+    bool mark(uintptr_t id, bool valid);
+    // sends the specified event to all callbacks and deletes all callbacks
+    void sendEvent(int type) ;
+
+    // at this point used for tests for want of a better mechanism
+    uintptr_t getId() const
+    {
+        return id_;
+    }
+private:
+    // global lock for access to the linked list of callbacks
+    std::mutex lock;
+    ZookeeperCallbackMap callbacks_;
+    uintptr_t id_;
+};
+
+
+struct ZookeeperCallback  {
+
+    uintptr_t id;
+    ZookeeperCallbackManager *mgr;
+    ZookeeperCallbackType callback;
+    std::string path;
+    void * user;
+    // we want to make sure only the ZookeeperManager can create callbacks
+    friend class ZookeeperCallbackManager;
+protected:
+    ZookeeperCallback(uint64_t id, ZookeeperCallbackManager *mgr, 
+                      ZookeeperCallbackType callback, 
+                      std::string path, void * user) : 
+        id(id), mgr(mgr), callback(callback), path(path), user(user) 
+    {
+    }
+public:
+    void call(int type) 
+    {
+        callback(type, path, user);
+        delete this;
+    }
+};
+
 
 /*****************************************************************************/
 /* ZOOKEEPER CONNECTION                                                      */
@@ -28,62 +105,6 @@ namespace Datacratic {
 
 struct ZookeeperConnection {
 
-    // global lock for access to the linked list of callbacks
-    static std::mutex lock;
-
-    template<typename T>
-    struct CallbackNode {
-        T * next;
-        T * last;
-
-        CallbackNode() {
-            next = last = (T *) this;
-        }
-
-        ~CallbackNode() {
-            unlink();
-        }
-
-        void add(T * node) {
-            std::lock_guard<std::mutex> guard(ZookeeperConnection::lock);
-            node->next = next;
-            node->last = (T *) this;
-            next->last = node;
-            this->next = node;
-        }
-
-        void unlink() {
-            std::lock_guard<std::mutex> guard(ZookeeperConnection::lock);
-            next->last = last;
-            last->next = next;
-            next = last = (T *) this;
-        }
-    };
-
-    struct Callback : public CallbackNode<Callback> {
-        typedef void (* Type)(int type, std::string const & path, void * data);
-        Type callback;
-        std::string path;
-        void * user;
-
-        Callback(Type callback, std::string path, void * user) : callback(callback), path(path), user(user) {
-        }
-
-        void call(int type) {
-            callback(type, path, user);
-            delete this;
-        }
-    };
-
-    Callback * getCallback(Callback::Type watch, std::string const & path, void * data) {
-        if(!watch) {
-            return nullptr;
-        }
-
-        Callback * item = new Callback(watch, path, data);
-        callbacks.add(item);
-        return item;
-    }
 
     ZookeeperConnection();
     ~ZookeeperConnection() { close(); }
@@ -135,11 +156,11 @@ struct ZookeeperConnection {
 
     /** Return if the node exists or not. */
     bool nodeExists(const std::string & path,
-                    Callback::Type watcher = 0,
+                    ZookeeperCallbackType watcher = 0,
                     void * watcherData = 0);
 
     std::string readNode(const std::string & path,
-                         Callback::Type watcher = 0,
+                         ZookeeperCallbackType watcher = 0,
                          void * watcherData = 0);
 
     void writeNode(const std::string & path, const std::string & value);
@@ -147,7 +168,7 @@ struct ZookeeperConnection {
     std::vector<std::string>
     getChildren(const std::string & path,
                 bool failIfNodeMissing = true,
-                Callback::Type watcher = 0,
+                ZookeeperCallbackType watcher = 0,
                 void * watcherData = 0);
 
     static void eventHandlerFn(zhandle_t * handle,
@@ -183,8 +204,8 @@ struct ZookeeperConnection {
 
     std::set<Node> ephemerals;
 
-    // head of doubly linked list of callbacks
-    CallbackNode<Callback> callbacks;
+    ZookeeperCallbackManager &callbackMgr_;
+    
 };
 
 } // namespace Datacratic

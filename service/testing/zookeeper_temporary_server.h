@@ -52,6 +52,38 @@ struct TemporaryServer : boost::noncopyable
         createServer();
     }
 
+    void suspend()
+    {
+        if(server != -1)
+        {
+            // Stop boost test framework from interpreting this as a problem...
+            signal(SIGCHLD, SIG_DFL);
+
+            std::cerr << "suspending server with pid " << server << std::endl;
+            int res = kill(server, SIGSTOP);
+            if(res == -1)
+            {
+                throw ML::Exception("failed to suspend zookeeper");
+            }
+        }
+        else
+        {
+            throw ML::Exception("server was not started!");
+        }
+    }
+
+    void resume() 
+    {
+        if(server == -1)
+            throw ML::Exception("server was not started!");
+
+        int res = kill(server, SIGCONT);
+        if(res == -1)
+        {
+            throw ML::Exception("failed to continue zookeeper");
+        }
+    }
+
     void shutdown() {
         if (server == -1)
             return;
@@ -113,7 +145,7 @@ private:
 
         std::cerr << "zookeeper is using port " << port << std::endl;
 
-        file << "tickTime=2000" << std::endl;
+        file << "tickTime=1000" << std::endl;
         file << "dataDir=" << uniquePath << "/data" << std::endl;
         file << "clientPort=" << port << std::endl;
         file << "dataLogDir=" << uniquePath << std::endl;

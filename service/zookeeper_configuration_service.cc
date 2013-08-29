@@ -53,13 +53,15 @@ void
 watcherFn(int type, std::string const & path, void * watcherCtx)
 {
     typedef std::shared_ptr<ConfigurationService::Watch::Data> SharedPtr;
-    std::unique_ptr<SharedPtr> data(reinterpret_cast<SharedPtr *>(watcherCtx));
+       std::unique_ptr<SharedPtr> data(reinterpret_cast<SharedPtr *>(watcherCtx));
+//    SharedPtr * data = reinterpret_cast<SharedPtr *>(watcherCtx);
 #if 0
-    cerr << "type = " << printZookeeperEventType(type)
-         << " state = " << printZookeeperState(state)
+    cerr << "zookeeper_configuration_service.cc::watcherFn:type = " << printZookeeperEventType(type)
+//         << " state = " << printZookeeperState(state)
          << " path = " << path << " context "
-         << watcherCtx << " data " << data->get() << endl;
+         << watcherCtx << " data " << data->get() << endl << endl;
 #endif
+
 
     ConfigurationService::ChangeType change;
     if (type == ZOO_CREATED_EVENT)
@@ -73,11 +75,12 @@ watcherFn(int type, std::string const & path, void * watcherCtx)
 
     auto & item = *data;
     if (item->watchReferences > 0) {
+//        cerr << "watcherFn:calling with path " << path << " and change " << change << endl;
         item->onChange(path, change);
     }
 }
 
-ZookeeperConnection::Callback::Type
+ZookeeperCallbackType
 getWatcherFn(const ConfigurationService::Watch & watch)
 {
     if (!watch)
