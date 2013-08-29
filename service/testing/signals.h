@@ -1,18 +1,37 @@
+#pragma once
+
 #include <signal.h>
 
-struct DisabledSignal
+namespace Datacratic {
+
+struct BlockedSignals
 {
-    DisabledSignal(int signum)
-    : signum_(signum)
+    BlockedSignals(const sigset_t & newSet)
     {
-        oldHandler_ = ::signal(signum, SIG_DFL);
+        blockMask(newSet);
     }
 
-    ~DisabledSignal()
+    ~BlockedSignals()
     {
-        ::signal(signum_, oldHandler_);
+        sigprocmask(SIG_UNBLOCK, &oldSet_, NULL);
     }
 
-    int signum_;
-    sighandler_t oldHandler_;
+    BlockedSignals(int signum)
+    {
+        sigset_t newSet;
+
+        sigemptyset(&newSet);
+        sigaddset(&newSet, signum);
+
+        blockMask(newSet);
+    }
+
+    void blockMask(const sigset_t & newSet)
+    {
+        ::sigprocmask(SIG_BLOCK, &newSet, &oldSet_);
+    }
+
+    sigset_t oldSet_;
 };
+
+}
