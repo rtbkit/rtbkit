@@ -120,6 +120,24 @@ void delete_file(const std::string & filename)
         throw Exception(errno, "couldn't delete file " + filename, "unlink");
 }
 
+void set_file_flag(int fd, int newFlag)
+{
+    int oldFlags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, oldFlags | newFlag);
+}
+
+void unset_file_flag(int fd, int oldFlag)
+{
+    int oldFlags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, oldFlags & ~oldFlag);
+}
+
+bool is_file_flag_set(int fd, int flag)
+{
+    int oldFlags = fcntl(fd, F_GETFL, 0);
+    return ((oldFlags & flag) == flag);
+}
+
 /** Does the file exist? */
 bool fileExists(const std::string & filename)
 {

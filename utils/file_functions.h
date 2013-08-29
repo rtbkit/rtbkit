@@ -48,6 +48,11 @@ inode_type get_inode(int fd);
 
 void delete_file(const std::string & filename);
 
+/* wrappers around fcntl with F_GETFL/F_SETFL */
+void set_file_flag(int fd, int newFlag);
+void unset_file_flag(int fd, int oldFlag);
+bool is_file_flag_set(int fd, int flag);
+
 void set_permissions(std::string filename,
                      const std::string & perms,
                      const std::string & group);
