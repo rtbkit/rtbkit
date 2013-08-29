@@ -461,6 +461,12 @@ public:
     void doConfig(const std::string & agent,
                   std::shared_ptr<const AgentConfig> config);
 
+    /* Add a given agent (with the given configuration) to the exchange */
+    void configureAgentOnExchange(std::shared_ptr<ExchangeConnector> const & exchange,
+                                  std::string const & agent,
+                                  AgentConfig & config,
+                                  bool includeReasons = true);
+
     /** Remove the given agent (with the given configuration) from the
         configuration structures.
     */

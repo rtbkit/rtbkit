@@ -122,7 +122,7 @@ struct AgentInfo {
     } bidRequestFormat;
     
     bool configured;
-    std::shared_ptr<const AgentConfig> config;
+    std::shared_ptr<AgentConfig> config;
     std::shared_ptr<AgentStatus> status;
     std::shared_ptr<AgentStats> stats;
     double throttleProbability;

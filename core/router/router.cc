@@ -2406,52 +2406,54 @@ unconfigure(const std::string & agent, const AgentConfig & config)
 
 void
 Router::
+configureAgentOnExchange(std::shared_ptr<ExchangeConnector> const & exchange,
+                         std::string const & agent,
+                         AgentConfig & config,
+                         bool includeReasons)
+{
+    auto name = exchange->exchangeName();
+
+    cerr << "scanning campaign with exchange " << name << endl;
+    auto ecomp = exchange->getCampaignCompatibility(config, includeReasons);
+    if(!ecomp.isCompatible) {
+        cerr << "campaign not compatible: " << ecomp.reasons << endl;
+        return;
+    }
+
+    int numCompatibleCreatives = 0;
+
+    for(auto & c : config.creatives) {
+        auto ccomp = exchange->getCreativeCompatibility(c, includeReasons);
+        if(!ccomp.isCompatible) {
+            cerr << "creative not compatible: " << ccomp.reasons << endl;
+        }
+        else {
+            std::lock_guard<ML::Spinlock> guard(c.lock);
+            c.providerData[name] = ccomp.info;
+            ++numCompatibleCreatives;
+        }
+    }
+
+    if (numCompatibleCreatives == 0) {
+        cerr << "no compatible creatives" << endl;
+        return;
+    }
+
+    std::lock_guard<ML::Spinlock> guard(config.lock);
+    config.providerData[name] = ecomp.info;
+}
+
+void
+Router::
 configure(const std::string & agent, AgentConfig & config)
 {
     if (config.account.empty())
         throw ML::Exception("attempt to add an account with empty values");
-    // TODO: async
-
-    bool includeReasons = true;
 
     // For each exchange, check campaign and creative compatibility
-    auto onExchange = [&] (const std::shared_ptr<ExchangeConnector> & exch)
-        {
-            string exchangeName = exch->exchangeName();
-
-            cerr << "scanning campaign with exchange " << exchangeName << endl;
-            ExchangeConnector::ExchangeCompatibility ecomp
-                = exch->getCampaignCompatibility(config, includeReasons);
-            if (!ecomp.isCompatible) {
-                cerr << "campaign not compatible: " << ecomp.reasons << endl;
-                return;
-            }
-
-            int numCompatibleCreatives = 0;
-
-            for (auto & c: config.creatives) {
-                ExchangeConnector::ExchangeCompatibility ccomp
-                    = exch->getCreativeCompatibility(c, includeReasons);
-                if (!ccomp.isCompatible) {
-                    cerr << "creative not compatible: " << ccomp.reasons << endl;
-                }
-                else {
-                    std::lock_guard<ML::Spinlock> guard(c.lock);
-                    c.providerData[exchangeName] = ccomp.info;
-                    ++numCompatibleCreatives;
-                }
-            }
-
-            if (numCompatibleCreatives == 0) {
-                cerr << "no compatible creatives" << endl;
-                return;
-            }
-
-            std::lock_guard<ML::Spinlock> guard(config.lock);
-            config.providerData[exchangeName] = ecomp.info;
-        };
-
-    forAllExchanges(onExchange);
+    forAllExchanges([&] (const std::shared_ptr<ExchangeConnector> & exchange) {
+        configureAgentOnExchange(exchange, agent, config);
+    });
 
     auto onDone = [=] (std::exception_ptr exc, ShadowAccount&& ac)
         {
@@ -2795,15 +2797,19 @@ getProviderIndicators()
 
 void
 Router::
-startExchange(const std::string & exchangeType,
-              const Json::Value & exchangeConfig)
+startExchange(const std::string & type,
+              const Json::Value & config)
 {
-    auto exchange = ExchangeConnector::
-        create(exchangeType, *this, exchangeType);
-    exchange->configure(exchangeConfig);
+    auto exchange = ExchangeConnector::create(type, *this, type);
+    exchange->configure(config);
     exchange->start();
 
-    addExchange(std::move(exchange));
+    std::shared_ptr<ExchangeConnector> item(exchange.release());
+    addExchange(item);
+
+    for(auto i = agents.begin(), end = agents.end(); i != end; ++i) {
+        configureAgentOnExchange(item, i->first, *i->second.config);
+    }
 }
 
 void
