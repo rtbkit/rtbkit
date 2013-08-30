@@ -10,10 +10,6 @@
 #include "epoller.h"
 
 
-/* disabled until signalfd is handled properly */
-#define ASYNCRUNNER_SIGNALFD 0
-
-
 namespace Datacratic {
 
 struct AsyncRunner: public Epoller {
