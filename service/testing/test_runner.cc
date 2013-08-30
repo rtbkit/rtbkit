@@ -26,6 +26,8 @@ struct HelperCommands : vector<string>
           active_(0)
     {}
 
+    void reset() { active_ = 0; }
+
     string nextCommand()
     {
         if (active_ < size()) {
@@ -66,7 +68,6 @@ struct HelperCommands : vector<string>
     int active_;
 };
 
-
 BOOST_AUTO_TEST_CASE( test_runner )
 {
     BlockedSignals blockedSigs(SIGCHLD);
@@ -79,22 +80,38 @@ BOOST_AUTO_TEST_CASE( test_runner )
     commands.sendOutput(true, "hello stdout2");
     commands.sendOutput(false, "hello stderr");
     commands.sendExit(0);
+
+    vector<string> receivedStdOut;
+    vector<string> receivedStdErr;
+
+    int done = false;
+    auto onTerminate = [&] (const AsyncRunner::RunResult & result) {
+        cerr << "terminate\n";
+        done = true;
+        ML::futex_wake(done);
+    };
+
     auto onStdIn = [&] () {
         return commands.nextCommand();
     };
     auto onStdOut = [&] (const string & message) {
-        fprintf(stderr, "test: stdout: /%s/\n", message.c_str());
+        cerr << "received message on stdout: /" + message + "/" << endl;
+        receivedStdOut.push_back(message);
     };
     auto onStdErr = [&] (const string & message) {
-        fprintf(stderr, "test: stderr: /%s/\n", message.c_str());
+        cerr << "received message on stderr: /" + message + "/" << endl;
+        receivedStdErr.push_back(message);
     };
 
-    runner.init(onStdOut, onStdErr, onStdIn);
+    runner.init(onTerminate, onStdOut, onStdErr, onStdIn);
     loop.addSource("runner", runner);
     loop.start();
 
     runner.run();
-    runner.waitTermination();
+
+    while (!done) {
+        ML::futex_wait(done, false);
+    }
 }
 
 #if 0

@@ -34,66 +34,17 @@ using namespace Datacratic;
 
 namespace {
 
-struct ChildFds {
-    ChildFds()
-        : stdIn_(::fileno(stdin)),
-          stdOut_(::fileno(stdout)),
-          stdErr_(::fileno(stderr))
-    {
-    }
-
-    void closeRemainingFds()
-    {
-        struct rlimit limits;
-        ::getrlimit(RLIMIT_NOFILE, &limits);
-
-        for (int fd = 0; fd < limits.rlim_cur; fd++) {
-            if (fd != STDIN_FILENO
-                && fd != STDOUT_FILENO && fd != STDERR_FILENO) {
-                ::close(fd);
-            }
-        }
-    }
-
-    void reSetupStream(int oldFd, int newFd)
-    {
-        if (oldFd != newFd) {
-            int rc = ::dup2(oldFd, newFd);
-            if (rc == -1) {
-                throw ML::Exception(errno, "ChildFds::reSetupStream dup2");
-            }
-        }
-    }
-
-    void reSetupStdStreams()
-    {
-        reSetupStream(stdIn_, STDIN_FILENO);
-        reSetupStream(stdOut_, STDOUT_FILENO);
-        reSetupStream(stdErr_, STDERR_FILENO);
-    }
-
-    void close()
-    {
-        if (stdIn_ != STDIN_FILENO) {
-            cerr << "closing fd " << stdIn_ << endl;
-            ::close(stdIn_);
-        }
-        if (stdOut_ != STDOUT_FILENO) {
-            cerr << "closing fd " << stdOut_ << endl;
-            ::close(stdOut_);
-        }
-        if (stdErr_ != STDERR_FILENO) {
-            cerr << "closing fd " << stdErr_ << endl;
-            ::close(stdErr_);
-        }
-    }
-
-    int stdIn_;
-    int stdOut_;
-    int stdErr_;
+struct ChildStatus
+{
+    bool running;
+    union {
+        int pid;
+        int status;
+    };
 };
 
-pair<int, int> CreateStdPipe(bool forWriting)
+pair<int, int>
+CreateStdPipe(bool forWriting)
 {
     int fds[2];
     int rc = pipe(fds);
@@ -109,8 +60,118 @@ pair<int, int> CreateStdPipe(bool forWriting)
     }
 }
 
+struct ChildFds {
+    ChildFds()
+        : stdIn_(::fileno(stdin)),
+          stdOut_(::fileno(stdout)),
+          stdErr_(::fileno(stderr)),
+          statusFd_(-1)
+    {
+    }
+
+    /* child api */
+    void closeRemainingFds()
+    {
+        struct rlimit limits;
+        ::getrlimit(RLIMIT_NOFILE, &limits);
+
+        for (int fd = 0; fd < limits.rlim_cur; fd++) {
+            if (fd != STDIN_FILENO
+                && fd != STDOUT_FILENO && fd != STDERR_FILENO
+                && fd != statusFd_) {
+                ::close(fd);
+            }
+        }
+    }
+
+    void dupToStdStreams()
+    {
+        auto reSetupStream = [&] (int oldFd, int newFd) {
+            if (oldFd != newFd) {
+                int rc = ::dup2(oldFd, newFd);
+                if (rc == -1) {
+                    throw ML::Exception(errno, "ChildFds::reSetupStream dup2");
+                }
+            }
+        };
+        reSetupStream(stdIn_, STDIN_FILENO);
+        reSetupStream(stdOut_, STDOUT_FILENO);
+        reSetupStream(stdErr_, STDERR_FILENO);
+    }
+
+    /* parent & child api */
+    void close()
+    {
+        auto closeIfNotEqual = [&] (int & fd, int notValue) {
+            if (fd != notValue) {
+                // cerr << "closing fd " << fd << endl;
+                ::close(stdIn_);
+            }
+        };
+        closeIfNotEqual(stdIn_, STDIN_FILENO);
+        closeIfNotEqual(stdOut_, STDOUT_FILENO);
+        closeIfNotEqual(stdErr_, STDERR_FILENO);
+        closeIfNotEqual(statusFd_, -1);
+    }
+
+    int stdIn_;
+    int stdOut_;
+    int stdErr_;
+    int statusFd_;
+};
+
+void
+RunWrapper(const vector<string> & command, ChildFds & fds)
+{
+    fds.dupToStdStreams();
+    fds.closeRemainingFds();
+
+    int childPid = fork();
+    if (childPid == -1) {
+        throw ML::Exception(errno, "RunWrapper fork");
+    }
+    else if (childPid == 0) {
+        size_t len = command.size();
+        char * argv[len + 1];
+        for (int i = 0; i < len; i++) {
+            argv[i] = strdup(command[i].c_str());
+        }
+        argv[len] = NULL;
+        execv(command[0].c_str(), argv);
+        throw ML::Exception("The Alpha became the Omega.");
+    }
+    else {
+        FILE * terminal = ::fopen("/dev/tty", "a");
+
+        ::fprintf(terminal, "wrapper: real child pid: %d\n", childPid);
+        ChildStatus status;
+
+        status.running = true;
+        status.pid = childPid;
+        if (::write(fds.statusFd_, &status, sizeof(status)) == -1) {
+            throw ML::Exception(errno, "RunWrapper write");
+        }
+
+        ::fprintf(terminal, "wrapper: waiting child...\n");
+
+        waitpid(childPid, &status.status, 0);
+
+        ::fprintf(terminal, "wrapper: child terminated\n");
+
+        status.running = false;
+        if (::write(fds.statusFd_, &status, sizeof(status)) == -1) {
+            throw ML::Exception(errno, "RunWrapper write");
+        }
+
+        fflush(stdout);
+        fflush(stderr);
+        fds.close();
+
+        exit(0);
+    }
 }
 
+} // namespace
 
 AsyncRunner::
 AsyncRunner(const std::vector<std::string> & command)
@@ -118,28 +179,24 @@ AsyncRunner(const std::vector<std::string> & command)
       command_(command),
       running_(false),
       childPid_(-1),
-      lastSignal_(-1),
-      lastRc_(-1),
-#if ASYNCRUNNER_SIGNALFD
-      sigChildFd_(-1),
-#endif
       stdInFd_(-1),
       stdOutFd_(-1),
-      stdErrFd_(-1)
+      stdErrFd_(-1),
+      statusFd_(-1)
 {
 }
 
 void
 AsyncRunner::
-init(// const OnTerminate & onTerminate,
+init(const OnTerminate & onTerminate,
      const OnOutput & onStdOut, const OnOutput & onStdErr,
      const OnInput & onStdIn)
 {
     Epoller::init(4);
 
-    handleEvent
-        = bind(&AsyncRunner::handleEpollEvent, this, placeholders::_1);
-    // onTerminate_ = onTerminate;
+    handleEvent = bind(&AsyncRunner::handleEpollEvent, this,
+                       placeholders::_1);
+    onTerminate_ = onTerminate;
     onStdOut_ = onStdOut;
     onStdErr_ = onStdErr;
     onStdIn_ = onStdIn;
@@ -149,15 +206,12 @@ bool
 AsyncRunner::
 handleEpollEvent(const struct epoll_event & event)
 {
-#if ASYNCRUNNER_SIGNALFD
-    if (event.data.ptr == &sigChildFd_) {
-        fprintf(stderr, "parent: handle signal\n");
-        handleSigChild();
+    if (event.data.ptr == &statusFd_) {
+        fprintf(stderr, "parent: handle child status input\n");
+        handleChildStatus(event);
     }
-#endif
-
-    if (event.data.ptr == &stdInFd_) {
-        fprintf(stderr, "parent: handle child input\n");
+    else if (event.data.ptr == &stdInFd_) {
+        fprintf(stderr, "parent: handle child input to stdin\n");
         handleChildInput(event);
     }
     else if (event.data.ptr == &stdOutFd_) {
@@ -175,35 +229,27 @@ handleEpollEvent(const struct epoll_event & event)
     return false;
 }
 
-#if ASYNCRUNNER_SIGNALFD
 void
 AsyncRunner::
-handleSigChild()
+handleChildStatus(const struct epoll_event & event)
 {
-    struct signalfd_siginfo siginfo;
+    ChildStatus status;
 
-    cerr << "handleSigChild\n";
-    ssize_t s = ::read(sigChildFd_, &siginfo, sizeof(siginfo));
-    if (s != sizeof(siginfo))
-        throw ML::Exception(errno, "AsyncRunner::handleSigChild");
+    cerr << "handleChildStatus\n";
+    ssize_t s = ::read(statusFd_, &status, sizeof(status));
+    if (s == -1) {
+        throw ML::Exception(errno, "AsyncRunner::handleChildStatus read");
+    }
 
-    if (siginfo.ssi_signo == SIGCHLD) {
-        if (siginfo.ssi_code == CLD_EXITED) {
-            lastSignal_ = -1;
-            lastRc_ = siginfo.ssi_status;
-        }
-        else {
-            lastSignal_ = siginfo.ssi_status;
-            lastRc_ = -1;
-        }
-        postTerminate();
+    if (status.running) {
+        childPid_ = status.pid;
+        restartFdOneShot(statusFd_, event.data.ptr);
     }
     else {
-        throw ML::Exception("AsyncRunner::handleSigChild: unexpected signal "
-                            + to_string(siginfo.ssi_signo));
+        runResult_.updateFromStatus(status.status);
+        postTerminate();
     }
 }
-#endif
 
 void
 AsyncRunner::
@@ -260,9 +306,9 @@ handleChildOutput(const struct epoll_event & event, const OnOutput & onOutputFn)
         cerr << "parent: handling epollin from output" << endl;
         while (1) {
             ssize_t len = ::read(inputFd, buffer, sizeof(buffer));
-            cerr << "returned len: " << len << endl;
+            // cerr << "returned len: " << len << endl;
             if (len < 0) {
-                perror("  len -1");
+                // perror("  len -1");
                 if (errno == EWOULDBLOCK) {
                     break;
                 }
@@ -292,7 +338,7 @@ handleChildOutput(const struct epoll_event & event, const OnOutput & onOutputFn)
         }
     }
 
-    cerr << "closedFd: " << closedFd << endl;
+    // cerr << "closedFd: " << closedFd << endl;
     if (!closedFd && (event.events & EPOLLHUP) == 0) {
         JML_TRACE_EXCEPTIONS(false);
         try {
@@ -310,11 +356,9 @@ void
 AsyncRunner::
 postTerminate()
 {
-#if ASYNCRUNNER_SIGNALFD
-    if (onTerminate_) {
-        onTerminate_(lastSignal_, lastRc_);
-    }
-#endif
+    cerr << "postTerminate\n";
+    waitpid(wrapperPid_, NULL, 0);
+    wrapperPid_ = -1;
 
     running_ = false;
     childPid_ = -1;
@@ -326,13 +370,14 @@ postTerminate()
             fd = -1;
         }
     };
-
     unregisterFd(stdInFd_);
     unregisterFd(stdOutFd_);
     unregisterFd(stdErrFd_);
-#if ASYNCRUNNER_SIGNALFD
-    unregisterFd(sigChildFd_);
-#endif
+    unregisterFd(statusFd_);
+
+    if (onTerminate_) {
+        onTerminate_(runResult_);
+    }
 }
 
 void
@@ -343,6 +388,10 @@ run()
         throw ML::Exception("already running");
 
     ChildFds childFds;
+
+    auto statusFds = CreateStdPipe(false);
+    statusFd_ = statusFds.first;
+    childFds.statusFd_ = statusFds.second;
     if (onStdIn_) {
         auto fds = CreateStdPipe(true);
         stdInFd_ = fds.first;
@@ -367,22 +416,12 @@ run()
 
     running_ = true;
 
-    childPid_ = fork();
-    if (childPid_ == 0) {
-        childFds.reSetupStdStreams();
-        childFds.closeRemainingFds();
-
-        size_t len = command_.size();
-        char * argv[len + 1];
-        for (int i = 0; i < len; i++) {
-            argv[i] = strdup(command_[i].c_str());
-        }
-        argv[len] = NULL;
-
-        execv(command_[0].c_str(), argv);
-    }
-    else if (childPid_ == -1) {
+    wrapperPid_ = fork();
+    if (wrapperPid_ == -1) {
         throw ML::Exception(errno, "AsyncRunner::run fork");
+    }
+    else if (wrapperPid_ == 0) {
+        RunWrapper(command_, childFds);
     }
     else {
 #if ASYNCRUNNER_SIGNALFD
@@ -417,12 +456,12 @@ run()
             ML::set_file_flag(stdErrFd_, O_NONBLOCK);
             addFdOneShot(stdErrFd_, &stdErrFd_);
         }
+        ML::set_file_flag(statusFd_, O_NONBLOCK);
+        addFdOneShot(statusFd_, &statusFd_);
         printf ("parent: added fds to poll\n");
 
         childFds.close();
         printf ("parent: closed child ends\n");
-
-        printf ("parent: fds setup\n");
     }
 }
 
@@ -450,13 +489,21 @@ waitTermination()
     if (res == -1) {
         throw ML::Exception(errno, "AsyncRunner::waitTermination waitpid");
     }
+    runResult_.updateFromStatus(status);
+    postTerminate();
+}
 
+void
+AsyncRunner::
+RunResult::
+updateFromStatus(int status)
+{
     if (WIFEXITED(status)) {
-        lastRc_ = WEXITSTATUS(status);
+        signaled = false;
+        returnCode = WEXITSTATUS(status);
     }
     else if (WIFSIGNALED(status)) {
-        lastSignal_ = WTERMSIG(status);
+        signaled = true;
+        signum = WTERMSIG(status);
     }
-
-    postTerminate();
 }
