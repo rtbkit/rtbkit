@@ -186,16 +186,16 @@ ifneq ($(PREMAKE),1)
 $(if $(trace),$$(warning called add_pbuf_source "$(1)" "$(2)"))
 
 # Call protoc to generate the source file
-BUILD_$(SRC)/$(CWD)/$(2).pb.cc_COMMAND := "protoc -I$(SRC)/$(CWD) --cpp_out=$(SRC)/$(CWD) $(SRC)/$(CWD)/$(1)"
+BUILD_$(GEN)/$(CWD)/$(2).pb.cc_COMMAND := "protoc -I$(SRC)/$(CWD) --cpp_out=$(GEN)/$(CWD) $(SRC)/$(CWD)/$(1)"
 
-$(SRC)/$(CWD)/$(2).pb.cc:	$(SRC)/$(CWD)/$(1)
-	@mkdir -p $(OBJ)/$(CWD)
-	$$(if $(verbose_build),@echo $$(BUILD_$(OBJ)/$(CWD)/$(2).pb.cc),@echo "      $(COLOR_CYAN)[PBUF c++]$(COLOR_RESET) $(CWD)/$(1)")
-	@eval $$(BUILD_$(SRC)/$(CWD)/$(2).pb.cc_COMMAND)
+$(GEN)/$(CWD)/$(2).pb.cc:	$(SRC)/$(CWD)/$(1)
+	@mkdir -p $(GEN)/$(CWD)
+	$$(if $(verbose_build),@echo $$(BUILD_$(GEN)/$(CWD)/$(2).pb.cc),@echo "      $(COLOR_CYAN)[PBUF c++]$(COLOR_RESET) $(CWD)/$(1)")
+	@eval $$(BUILD_$(GEN)/$(CWD)/$(2).pb.cc_COMMAND)
 
 # We use the add_c++_source to do most of the work, then simply point
 # to the file
-$$(eval $$(call add_c++_source,$(2).pb.cc,$(2).pb,$(SRC),-IXX))
+$$(eval $$(call add_c++_source,$(2).pb.cc,$(2).pb,$(GEN),-IXX))
 
 
 # Point to the object file produced by the previous macro
