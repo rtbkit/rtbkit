@@ -95,7 +95,6 @@ BOOST_AUTO_TEST_CASE( test_service_zk_disconnect )
     cerr << "Starting multiple service zk disconnect " << endl;
     auto proxies = std::make_shared<ServiceProxies>();
     proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
-    //proxies->useZookeeper(ML::format("ag3.datacratic.com:2181"));
 
     ZmqMultipleNamedClientBusProxy connection(proxies->zmqContext);
     connection.init(proxies->config, "client1");
