@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <limits>
+
 #include "value_description.h"
 #include "soa/types/url.h"
 #include "soa/types/date.h"
@@ -30,10 +32,10 @@ struct DefaultDescription<Datacratic::Id>
     virtual void printJsonTyped(const Datacratic::Id * val,
                                 JsonPrintingContext & context) const
     {
-        if (val->val2 == 0 && val->type == Id::Type::BIGDEC) {
-            context.writeUnsignedLongLong(val->toInt());
-        }
-        else {
+        if (val->type == Id::Type::BIGDEC &&
+            val->val2 == 0 && val->val1 <= std::numeric_limits<int32_t>::max()) {
+            context.writeInt(val->val1);
+        } else {
             context.writeString(val->toString());
         }
     }
@@ -388,6 +390,37 @@ struct DefaultDescription<Date>
         return *val == Date();
     }
 };
+
+struct JavaTimestampValueDescription: public DefaultDescription<Date> {
+
+    virtual void parseJsonTyped(Date * val,
+                                JsonParsingContext & context) const
+    {
+        *val = Date::fromSecondsSinceEpoch(context.expectDouble() * 0.001);
+    }
+
+    virtual void printJsonTyped(const Date * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeJson((uint64_t)(val->secondsSinceEpoch() * 1000));
+    }
+};
+
+struct Iso8601TimestampValueDescription: public DefaultDescription<Date> {
+
+    virtual void parseJsonTyped(Date * val,
+                                JsonParsingContext & context) const
+    {
+        *val = Date::parseIso8601(context.expectStringAscii());
+    }
+
+    virtual void printJsonTyped(const Date * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeString(val->printIso8601());
+    }
+};
+
 
 template<typename T>
 struct Optional: public std::unique_ptr<T> {

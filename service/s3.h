@@ -367,7 +367,8 @@ struct S3Api : public AwsApi {
                        const OnObject & onObject = OnObject(),
                        const OnSubdir & onSubdir = OnSubdir(),
                        const std::string & delimiter = "/",
-                       int depth = 1) const;
+                       int depth = 1,
+                       const std::string & startAt = "") const;
 
     typedef std::function<bool (const std::string & uri,
                                 const ObjectInfo & info,
@@ -381,7 +382,8 @@ struct S3Api : public AwsApi {
                        const OnObjectUri & onObject,
                        const OnSubdir & onSubdir = OnSubdir(),
                        const std::string & delimiter = "/",
-                       int depth = 1) const;
+                       int depth = 1,
+                       const std::string & startAt = "") const;
 
     /** Value for the "delimiter" parameter in forEachObject for when we
         don't want any subdirectories.  It is equal to the empty string.

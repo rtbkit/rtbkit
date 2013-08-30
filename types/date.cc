@@ -93,6 +93,13 @@ Date
 Date::
 parseDefaultUtc(const std::string & date)
 {
+    if (date == "NaD" || date == "NaN")
+        return notADate();
+    else if (date == "Inf")
+        return positiveInfinity();
+    else if (date == "-Inf")
+        return negativeInfinity();
+
     return parse_date_time(date, "%y-%M-%d", "%H:%M:%S");
 }
 
@@ -100,6 +107,13 @@ Date
 Date::
 parseIso8601(const std::string & date)
 {
+    if (date == "NaD" || date == "NaN")
+        return notADate();
+    else if (date == "Inf")
+        return positiveInfinity();
+    else if (date == "-Inf")
+        return negativeInfinity();
+
     return parse_date_time(date, "%y-%m-%d", "T%H:%M:%SZ");
 }
 
@@ -186,6 +200,16 @@ std::string
 Date::
 printRfc2616() const
 {
+    if (!std::isfinite(secondsSinceEpoch_)) {
+        if (std::isnan(secondsSinceEpoch_)) {
+            return "NaD";
+        }
+        else if (secondsSinceEpoch_ > 0) {
+            return "Inf";
+        }
+        else return "-Inf";
+    }
+
     return print("%a, %d %b %Y %H:%M:%S GMT");
 }
 
@@ -193,6 +217,16 @@ std::string
 Date::
 printIso8601() const
 {
+    if (!std::isfinite(secondsSinceEpoch_)) {
+        if (std::isnan(secondsSinceEpoch_)) {
+            return "NaD";
+        }
+        else if (secondsSinceEpoch_ > 0) {
+            return "Inf";
+        }
+        else return "-Inf";
+    }
+
     return print("%Y-%m-%dT%H:%M:%S.000Z");
 }
 
@@ -200,6 +234,16 @@ std::string
 Date::
 printClassic() const
 {
+    if (!std::isfinite(secondsSinceEpoch_)) {
+        if (std::isnan(secondsSinceEpoch_)) {
+            return "NaD";
+        }
+        else if (secondsSinceEpoch_ > 0) {
+            return "Inf";
+        }
+        else return "-Inf";
+    }
+
     return print("%Y-%m-%d %H:%M:%S");
 }
 

@@ -7,23 +7,25 @@
 #include "periodic_utils.h"
 #include "jml/utils/parse_context.h"
 #include <boost/tuple/tuple.hpp>
+#include "jml/utils/exc_assert.h"
+
 
 using namespace std;
 
 
 namespace Datacratic {
 
-std::pair<TimeGranularity, int>
+std::pair<TimeGranularity, double>
 parsePeriod(const std::string & pattern)
 {
     TimeGranularity granularity;
-    int number;
+    double number;
 
     ML::Parse_Context context(pattern,
                               pattern.c_str(),
                               pattern.c_str() + pattern.length());
 
-    number = context.expect_int();
+    number = context.expect_double();
     
     if (number <= 0)
         context.exception("invalid time number: must be > 0");
@@ -55,14 +57,22 @@ std::pair<Date, double>
 findPeriod(Date current, const std::string & period)
 {
     TimeGranularity p;
-    int n;
+    double n;
     boost::tie(p, n) = parsePeriod(period);
     return findPeriod(current, p, n);
 }
 
 std::pair<Date, double>
-findPeriod(Date current, TimeGranularity granularity, int number)
+findPeriod(Date current, TimeGranularity granularity, double number_)
 {
+    if (number_  == 0)
+        return make_pair(current, 0);
+
+    int64_t number = number_;
+
+    // Make sure it's an integer number of seconds
+    ExcAssertEqual(number, number_);
+
     // Find where the current period starts
 
     tm t = current.toTm();
@@ -78,6 +88,10 @@ findPeriod(Date current, TimeGranularity granularity, int number)
 
     switch (granularity) {
     case DAYS:
+        current.quantize(3600 * 24);
+        interval = 3600 * 24 * number;
+        break;
+
         if (number != 1)
             throw ML::Exception("only 1d is supported for days");
         // Go to the start of the day
@@ -140,6 +154,70 @@ std::string
 filenameFor(const Date & date, const std::string & pattern)
 {
     return date.print(pattern);
+}
+
+/*****************************************************************************/
+/* TIME PERIOD                                                               */
+/*****************************************************************************/
+
+TimePeriod::
+TimePeriod(const std::string & periodName)
+{
+    parse(periodName);
+}
+
+TimePeriod::
+TimePeriod(const char * periodName)
+{
+    parse(periodName);
+}
+
+TimePeriod::
+TimePeriod(TimeGranularity granularity, double number)
+    : granularity(granularity), number(number),
+      interval(findPeriod(Date(), granularity, number).second)
+{
+}
+
+Date
+TimePeriod::
+current(Date now)
+{
+    return findPeriod(now, granularity, number).first;
+}
+
+Date
+TimePeriod::
+next(Date now)
+{
+    return findPeriod(now, granularity, number).first.plusSeconds(interval);
+}
+
+std::string
+TimePeriod::
+toString() const
+{
+    string result = boost::lexical_cast<string>(number);//ML::format("%f", number);
+    switch (granularity) {
+    case MILLISECONDS:  result += "ms";  return result;
+    case SECONDS:       result += 's';   return result;
+    case MINUTES:       result += 'm';   return result;
+    case HOURS:         result += 'h';   return result;
+    case DAYS:          result += 'd';   return result;
+    case WEEKS:         result += 'w';   return result;
+    case MONTHS:        result += 'M';   return result;
+    case YEARS:         result += 'y';   return result;
+    default:
+        throw ML::Exception("unknown time period");
+    }
+}
+
+void
+TimePeriod::
+parse(const std::string & str)
+{
+    std::tie(granularity, number) = parsePeriod(str);
+    interval = findPeriod(Date(), granularity, number).second;
 }
 
 } // namespace Datacratic

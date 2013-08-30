@@ -23,7 +23,8 @@ $(eval $(call library,types,$(LIBTYPES_SOURCES),$(LIBTYPES_LINK)))
 LIBVALUE_DESCRIPTION_SOURCES := \
 	value_description.cc \
 	json_parsing.cc \
-	json_printing.cc
+	json_printing.cc \
+	periodic_utils_value_descriptions.cc
 
 LIBVALUE_DESCRIPTION_LINK := \
 	types

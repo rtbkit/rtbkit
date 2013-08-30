@@ -21,8 +21,8 @@ using namespace std;
 using namespace ML;
 using namespace Datacratic;
 
-
-BOOST_AUTO_TEST_CASE( test_default_description_print_id_64 )
+/* ensures that signed integers < (1 << 32 - 1) are serialized as integers */
+BOOST_AUTO_TEST_CASE( test_default_description_print_id_32 )
 {
     DefaultDescription<Datacratic::Id> desc;
     Id idBigDec;
@@ -31,13 +31,33 @@ BOOST_AUTO_TEST_CASE( test_default_description_print_id_64 )
     string result;
 
     idBigDec.type = Id::Type::BIGDEC;
-    idBigDec.val1 = 0x0123456789abcdef;
+    idBigDec.val1 = 0x7fffffff;
     idBigDec.val2 = 0;
 
     desc.printJsonTyped(&idBigDec, jsonContext);
     result = outStr.str();
 
-    string expected = "81985529216486895";
+    string expected = "2147483647";
+    BOOST_CHECK_EQUAL(expected, result);
+}
+
+/* ensures that integers >= 1 << 32 are serialized as strings */
+BOOST_AUTO_TEST_CASE( test_default_description_print_id_non_32 )
+{
+    DefaultDescription<Datacratic::Id> desc;
+    Id idBigDec;
+    ostringstream outStr;
+    StreamJsonPrintingContext jsonContext(outStr);
+    string result;
+
+    idBigDec.type = Id::Type::BIGDEC;
+    idBigDec.val1 = 0x8fffffff;
+    idBigDec.val2 = 0;
+
+    desc.printJsonTyped(&idBigDec, jsonContext);
+    result = outStr.str();
+
+    string expected = "\"2415919103\"";
     BOOST_CHECK_EQUAL(expected, result);
 }
 

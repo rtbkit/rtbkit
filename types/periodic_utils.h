@@ -9,6 +9,7 @@
 #define __logger__periodic_utils_h__
 
 #include "date.h"
+#include "value_description_fwd.h"
 
 namespace Datacratic {
 
@@ -25,7 +26,7 @@ enum TimeGranularity {
 
 /** Calculate when the next period will be. */
 std::pair<Date, double>
-findPeriod(Date now, TimeGranularity granularity, int interval);
+findPeriod(Date now, TimeGranularity granularity, double interval);
 
 std::pair<Date, double>
 findPeriod(Date now, const std::string & granularityName);
@@ -91,8 +92,34 @@ findPeriod(Date now, const std::string & granularityName);
 std::string filenameFor(const Date & date,
                         const std::string & pattern);
     
-std::pair<TimeGranularity, int>
+std::pair<TimeGranularity, double>
 parsePeriod(const std::string & pattern);
+
+
+/*****************************************************************************/
+/* TIME PERIOD                                                               */
+/*****************************************************************************/
+
+struct TimePeriod {
+    TimePeriod(const std::string & periodName);
+    TimePeriod(const char * periodName);
+    TimePeriod(TimeGranularity granularity = SECONDS, double number = 0);
+
+    Date current(Date now = Date::now());
+    Date next(Date now);
+
+    std::string toString() const;
+
+    void parse(const std::string & val);
+
+    TimeGranularity granularity;
+    double number;
+    double interval;
+};
+
+// NOTE: this is defined in the value description library
+ValueDescriptionT<TimePeriod> * getDefaultDescription(TimePeriod *);
+
 
 } // namespace Datacratic
 
