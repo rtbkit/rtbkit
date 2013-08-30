@@ -393,7 +393,7 @@ struct Launcher
                 }
             }
 
-            file << "if [[ \"$*\" != *--quest* ]]" << std::endl;
+            file << "if [[ \"$*\" != *--quiet* ]]" << std::endl;
             file << "then" << std::endl;
             file << "    tmux attach -t rtb" << std::endl;
             file << "fi" << std::endl;
