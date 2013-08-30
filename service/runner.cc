@@ -27,9 +27,7 @@ using namespace std;
 using namespace Datacratic;
 
 /* TODO:
-   - signalfd can "compact" multiple and unrelated sigchilds, we must handle
-     this in a thread-safe and lockless way
-   - interface without message loop
+   - interface without external message loop
  */
 
 namespace {
@@ -357,11 +355,9 @@ AsyncRunner::
 postTerminate()
 {
     cerr << "postTerminate\n";
+
     waitpid(wrapperPid_, NULL, 0);
     wrapperPid_ = -1;
-
-    running_ = false;
-    childPid_ = -1;
 
     auto unregisterFd = [&] (int & fd)  {
         if (fd > -1) {
@@ -375,9 +371,14 @@ postTerminate()
     unregisterFd(stdErrFd_);
     unregisterFd(statusFd_);
 
+    running_ = false;
+    childPid_ = -1;
+
     if (onTerminate_) {
         onTerminate_(runResult_);
     }
+
+    ML::futex_wake(running_);
 }
 
 void
@@ -482,15 +483,10 @@ waitTermination()
 {
     if (!running_)
         throw ML::Exception("subprocess has already terminated");
-
-    int status;
-
-    int res = ::waitpid(childPid_, &status, 0);
-    if (res == -1) {
-        throw ML::Exception(errno, "AsyncRunner::waitTermination waitpid");
+    
+    while (running_) {
+        ML::futex_wait(running_, true);
     }
-    runResult_.updateFromStatus(status);
-    postTerminate();
 }
 
 void

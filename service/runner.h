@@ -67,7 +67,7 @@ private:
     OnOutput onStdOut_;
     OnOutput onStdErr_;
 
-    bool running_;
+    int running_;
     pid_t childPid_;
     pid_t wrapperPid_;
 

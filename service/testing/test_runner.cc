@@ -86,7 +86,6 @@ BOOST_AUTO_TEST_CASE( test_runner )
 
     int done = false;
     auto onTerminate = [&] (const AsyncRunner::RunResult & result) {
-        cerr << "terminate\n";
         done = true;
         ML::futex_wake(done);
     };
@@ -114,7 +113,6 @@ BOOST_AUTO_TEST_CASE( test_runner )
     }
 }
 
-#if 0
 BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 {
     BlockedSignals blockedSigs(SIGCHLD);
@@ -124,20 +122,25 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 
     HelperCommands commands;
     commands.sendExit(123);
+
+    AsyncRunner::RunResult result;
+    auto onTerminate = [&] (const AsyncRunner::RunResult & newResult) {
+        result = newResult;
+    };
     auto onStdIn = [&] () {
         return commands.nextCommand();
     };
     auto discard = [&] (const string & message) {
     };
-    runner.init(discard, discard, onStdIn);
+    runner.init(onTerminate, discard, discard, onStdIn);
     loop.addSource("runner", runner);
     loop.start();
 
     runner.run();
     runner.waitTermination();
 
-    BOOST_CHECK_EQUAL(runner.lastSignal(), -1);
-    BOOST_CHECK_EQUAL(runner.lastReturnCode(), 123);
+    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.returnCode, 123);
 }
 
 BOOST_AUTO_TEST_CASE( test_runner_abort )
@@ -149,19 +152,23 @@ BOOST_AUTO_TEST_CASE( test_runner_abort )
 
     HelperCommands commands;
     commands.sendAbort();
+
+    AsyncRunner::RunResult result;
+    auto onTerminate = [&] (const AsyncRunner::RunResult & newResult) {
+        result = newResult;
+    };
     auto onStdIn = [&] () {
         return commands.nextCommand();
     };
     auto discard = [&] (const string & message) {
     };
-    runner.init(discard, discard, onStdIn);
+    runner.init(onTerminate, discard, discard, onStdIn);
     loop.addSource("runner", runner);
     loop.start();
 
     runner.run();
     runner.waitTermination();
 
-    BOOST_CHECK_EQUAL(runner.lastSignal(), SIGABRT);
-    BOOST_CHECK_EQUAL(runner.lastReturnCode(), -1);
+    BOOST_CHECK_EQUAL(result.signaled, true);
+    BOOST_CHECK_EQUAL(result.returnCode, SIGABRT);
 }
-#endif
