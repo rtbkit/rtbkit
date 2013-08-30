@@ -47,14 +47,14 @@ CreateStdPipe(bool forWriting)
     int fds[2];
     int rc = pipe(fds);
     if (rc == -1) {
-        throw ML::Exception(errno, "AsyncRunner::run:: pipe2");
+        throw ML::Exception(errno, "CreateStdPipe pipe2");
     }
 
     if (forWriting) {
-        return pair<int, int>(fds[1], fds[0]);
+        return tuple<int, int>(fds[1], fds[0]);
     }
     else {
-        return pair<int, int>(fds[0], fds[1]);
+        return tuple<int, int>(fds[0], fds[1]);
     }
 }
 
@@ -168,6 +168,8 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 }
 
 } // namespace
+
+/* ASYNCRUNNER */
 
 AsyncRunner::
 AsyncRunner(const std::vector<std::string> & command)
@@ -450,6 +452,8 @@ waitTermination()
         ML::futex_wait(running_, true);
     }
 }
+
+/* ASYNCRUNNER::RUNRESULT */
 
 void
 AsyncRunner::
