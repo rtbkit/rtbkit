@@ -129,6 +129,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         throw ML::Exception(errno, "RunWrapper fork");
     }
     else if (childPid == 0) {
+        ::close(fds.statusFd_);
         size_t len = command.size();
         char * argv[len + 1];
         for (int i = 0; i < len; i++) {
