@@ -31,7 +31,7 @@ struct AsyncEventSource {
 
     virtual ~AsyncEventSource()
     {
-        disconnect();
+        // disconnect(); calling this is evil because it better be already removed from the message loop
     }
 
     /** Return the file descriptor on which one should select() for messages
