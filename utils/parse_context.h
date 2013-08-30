@@ -680,6 +680,14 @@ public:
         {
             remove();
         }
+
+        std::string captured() const
+        {
+            if (!context)
+                throw ML::Exception("hold token hasn't captured any text");
+
+            return context->text_between(ofs, context->get_offset());
+        }
     };
 
 private:
@@ -689,6 +697,9 @@ private:
 
     /** Go to a given offset.  It must be within the current set of buffers. */
     void goto_ofs(uint64_t ofs, size_t line, size_t col);
+
+    /** Return the text between the given offsets. */
+    std::string text_between(uint64_t ofs1, uint64_t ofs2) const;
 
     /** Check if there are and buffers that can be freed, and do so if
         possible. */

@@ -510,6 +510,30 @@ goto_ofs(uint64_t ofs, size_t line, size_t col)
     exception_fmt("Parse_Context::goto_ofs(): couldn't find position %zd (l%zdc%zd)", ofs, line, col);
 }
 
+std::string
+Parse_Context::
+text_between(uint64_t ofs1, uint64_t ofs2) const
+{
+    std::string result;
+
+    for (auto it = buffers_.begin();
+         it != buffers_.end() && ofs1 < ofs2;  ++it) {
+
+        if (ofs1 < it->ofs + it->size
+            || (ofs1 == 0 && it->ofs + it->size == 0)) {
+            /* In here. */
+            const char * cur = it->pos + (ofs1 - it->ofs);
+            const char * ebuf = it->pos + it->size;
+
+            int64_t bufToDo = std::min<int64_t>(ofs2 - ofs1, ebuf - cur);
+            result.append(cur, cur + bufToDo);
+            ofs1 += bufToDo;
+        }
+    }
+
+    return result;
+}
+
 void
 Parse_Context::
 free_buffers()
