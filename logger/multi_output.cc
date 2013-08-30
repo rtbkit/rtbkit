@@ -27,6 +27,9 @@ MultiOutput()
 MultiOutput::
 ~MultiOutput()
 {
+    for (auto &output : outputs) {
+        output.second->close();
+    }
 }
 
 void

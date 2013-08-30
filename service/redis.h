@@ -226,14 +226,16 @@ struct Command {
 
     //explicit Command(const char * args, ...);
 
-    Command(const std::string & command)
-        : formatStr(command)
+    template<typename... Args>
+    Command(std::string command, Args &&... args)
+        : formatStr(std::move(command))
     {
+        addArgs(std::forward<Args>(args)...);
     }
 
     Command(const std::string & cmd,
             const std::initializer_list<std::string> & args)
-        : formatStr(cmd)
+        : formatStr(std::move(cmd))
     {
         for (auto arg: args)
             addArg(arg);
@@ -244,9 +246,9 @@ struct Command {
 
     //std::string formatted() const;
 
-    void addArg(const std::string & arg)
+    void addArg(std::string arg)
     {
-        args.push_back(arg);
+        args.push_back(std::move(arg));
     }
 
     void addArg(int64_t arg)
@@ -255,16 +257,22 @@ struct Command {
     }
 
     template<typename Arg, typename... Args>
-    Command operator () (const Arg & head, Args&&... tail) const
+    void addArgs(Arg && head, Args &&... tail)
     {
-        Command result = *this;
-        result.addArg(head);
-        return result(std::forward<Args>(tail)...);
+        addArg(std::forward<Arg>(head));
+        addArgs(std::forward<Args>(tail)...);
     }
-    
-    Command operator () () const
+
+    void addArgs()
     {
-        return *this;
+    }
+
+    template<typename... Args>
+    Command operator () (Args &&... args) const
+    {
+        auto result = *this;
+        result.addArgs(std::forward<Args>(args)...);
+        return result;
     }
     
     int argc() const
