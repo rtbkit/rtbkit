@@ -1284,7 +1284,7 @@ private:
     mutable Lock connectionsLock;
 
     /** List of currently connected connections. */
-    typedef std::map<std::string, std::unique_ptr<ZmqNamedClientBusProxy> > ConnectionMap;
+    typedef std::map<std::string, std::shared_ptr<ZmqNamedClientBusProxy> > ConnectionMap;
     ConnectionMap connections;
 
     /** Current watch on the list of service providers. */
@@ -1342,7 +1342,8 @@ private:
 
                 // Erasing from connections in this loop would invalidate our
                 // iterator so defer until we're done with the connections map.
-                pendingDisconnects[conn.first].reset(conn.second.release());
+                removeSource(conn.second.get());
+                pendingDisconnects[conn.first] = std::move(conn.second);
             }
 
             for (const auto& conn : pendingDisconnects)
@@ -1433,8 +1434,7 @@ private:
         std::cerr << "watchServiceProvider: name " << name << " not already connected " << std::endl;
         
         try {
-            std::unique_ptr<ZmqNamedClientBusProxy> newClient
-                (new ZmqNamedClientBusProxy(zmqContext));
+            auto newClient = std::make_shared<ZmqNamedClientBusProxy>(zmqContext);
             newClient->init(config, identity);
 
             // The connect call below could trigger this callback while we're
@@ -1456,10 +1456,10 @@ private:
                 };
             //newClient->debug(true);
 
-            c.reset(newClient.release());
+            c = std::move(newClient);
 
             // Add it to our message loop so that it can process messages
-            addSource("ZmqMultipleNamedClientBusProxy child " + name, *c);
+            addSource("ZmqMultipleNamedClientBusProxy child " + name, c);
 
             guard.unlock();
             c->connectHandler.target<OnConnectCallback>()->release();

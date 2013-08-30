@@ -323,11 +323,11 @@ connectServiceProvider(const string& serviceName)
         auto& conn = connections[serviceName];
         if (conn) return;
 
-        unique_ptr<RestProxy> newConn(new RestProxy(context));
+        shared_ptr<RestProxy> newConn(new RestProxy(context));
         newConn->init(config, serviceName, endpointName);
-        conn.reset(newConn.release());
+        conn = std::move(newConn);
 
-        addSource("MultiRestProxy::" + serviceName, *conn);
+        addSource("MultiRestProxy::" + serviceName, conn);
     }
 
     onConnect(serviceName);
@@ -363,6 +363,7 @@ onServiceProvidersChanged(const string& path, bool local)
             auto it = find(children.begin(), children.end(), conn.first);
             if (it != children.end()) continue;
 
+            removeSource(conn.second.get());
             disconnected.push_back(conn.first);
         }
 
