@@ -267,6 +267,7 @@ protected:
     int backlog;
     std::string auctionResource;
     std::string auctionVerb;
+    bool useKernelRTTEstimation;
 
     /// The ping time to known hosts in milliseconds
     std::unordered_map<std::string, float> pingTimesByHostMs;

@@ -61,6 +61,7 @@ postConstructorInit()
     pingTimeUnknownHostsMs = 20;
     auctionVerb = "POST";
     auctionResource = "/";
+    useKernelRTTEstimation = true;
 
     numServingRequest = 0;
 
@@ -102,6 +103,7 @@ configure(const Json::Value & parameters)
     getParam(parameters, auctionVerb, "auctionVerb");
     getParam(parameters, pingTimesByHostMs, "pingTimesByHostMs");
     getParam(parameters, pingTimeUnknownHostsMs, "pingTimeUnknownHostsMs");
+    getParam(parameters, useKernelRTTEstimation, "useKernelRTTEstimation");
 }
 
 void
@@ -253,10 +255,11 @@ getRoundTripTimeMs(HttpAuctionHandler & connection,
     auto it = pingTimesByHostMs.find(peerName);
     if (it == pingTimesByHostMs.end()) {
 
-        auto rtt = connection.getEstimatedRTT();
-        if (rtt != double(-1))
-        {
-            return rtt;
+        if (useKernelRTTEstimation) {
+            auto rtt = connection.getEstimatedRTT();
+            if (rtt != double(-1)) {
+                return rtt;
+            }
         }
 
         return pingTimeUnknownHostsMs;
