@@ -245,11 +245,22 @@ HttpExchangeConnector::
 getRoundTripTimeMs(HttpAuctionHandler & connection,
                    const HttpHeader & header)
 {
+    // should we prioritize the configuration or the
+    // linux estimation ?
+
     string peerName = connection.transport().getPeerName();
     
     auto it = pingTimesByHostMs.find(peerName);
-    if (it == pingTimesByHostMs.end())
+    if (it == pingTimesByHostMs.end()) {
+
+        auto rtt = connection.getEstimatedRTT();
+        if (rtt != double(-1))
+        {
+            return rtt;
+        }
+
         return pingTimeUnknownHostsMs;
+    }
     return it->second;
 }
 
