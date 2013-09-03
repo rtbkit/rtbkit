@@ -78,12 +78,11 @@ public:
         }
 
         ~ThreadGcInfoEntry() {
-            using namespace std;
             /* We are not in a speculative critical section, check if
              * Gc has been left locked
              */
             if (!specLocked && !specUnlocked && (readLocked || writeLocked))
-               cerr << "Thread died but GcLock is still locked" << endl;
+                ExcCheck(false, "Thread died but GcLock is still locked");
 
             /* We are in a speculative CS but Gc has not beed unlocked
              */
