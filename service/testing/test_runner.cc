@@ -73,7 +73,6 @@ BOOST_AUTO_TEST_CASE( test_runner )
     BlockedSignals blockedSigs(SIGCHLD);
 
     MessageLoop loop;
-    AsyncRunner runner({"build/x86_64/bin/test_runner_helper"});
 
     HelperCommands commands;
     commands.sendOutput(true, "hello stdout");
@@ -102,11 +101,12 @@ BOOST_AUTO_TEST_CASE( test_runner )
         receivedStdErr.push_back(message);
     };
 
-    runner.init(onTerminate, onStdOut, onStdErr, onStdIn);
+    AsyncRunner runner;
     loop.addSource("runner", runner);
     loop.start();
 
-    runner.run();
+    runner.run({"build/x86_64/bin/test_runner_helper"},
+               onTerminate, onStdOut, onStdErr, onStdIn);
 
     while (!done) {
         ML::futex_wait(done, false);
@@ -118,7 +118,6 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
     BlockedSignals blockedSigs(SIGCHLD);
 
     MessageLoop loop;
-    AsyncRunner runner({"build/x86_64/bin/test_runner_helper"});
 
     HelperCommands commands;
     commands.sendExit(123);
@@ -132,11 +131,12 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
     };
     auto discard = [&] (const string & message) {
     };
-    runner.init(onTerminate, discard, discard, onStdIn);
+    AsyncRunner runner;
     loop.addSource("runner", runner);
     loop.start();
 
-    runner.run();
+    runner.run({"build/x86_64/bin/test_runner_helper"},
+               onTerminate, discard, discard, onStdIn);
     runner.waitTermination();
 
     BOOST_CHECK_EQUAL(result.signaled, false);
@@ -148,7 +148,6 @@ BOOST_AUTO_TEST_CASE( test_runner_abort )
     BlockedSignals blockedSigs(SIGCHLD);
 
     MessageLoop loop;
-    AsyncRunner runner({"build/x86_64/bin/test_runner_helper"});
 
     HelperCommands commands;
     commands.sendAbort();
@@ -162,11 +161,12 @@ BOOST_AUTO_TEST_CASE( test_runner_abort )
     };
     auto discard = [&] (const string & message) {
     };
-    runner.init(onTerminate, discard, discard, onStdIn);
+    AsyncRunner runner;
     loop.addSource("runner", runner);
     loop.start();
 
-    runner.run();
+    runner.run({"build/x86_64/bin/test_runner_helper"},
+               onTerminate, discard, discard, onStdIn);
     runner.waitTermination();
 
     BOOST_CHECK_EQUAL(result.signaled, true);
