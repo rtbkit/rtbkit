@@ -26,9 +26,6 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 {
     std::unique_ptr<BidRequest> result(new BidRequest());
 
-    if (req.at.value() != OpenRTB::AuctionType::SECOND_PRICE)
-        throw ML::Exception("TODO: support 1st price auctions in OpenRTB");
-
     result->auctionId = std::move(req.id);
     result->auctionType = AuctionType::SECOND_PRICE;
     result->timeAvailableMs = req.tmax.value();
