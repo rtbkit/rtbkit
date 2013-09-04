@@ -182,3 +182,18 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         BOOST_CHECK_EQUAL(result.returnCode, SIGABRT);
     }
 }
+
+BOOST_AUTO_TEST_CASE( test_runner_execute )
+{
+    HelperCommands commands;
+    commands.sendExit(0);
+
+    auto onStdIn = [&] () {
+        return commands.nextCommand();
+    };
+
+    auto result = Execute({"build/x86_64/bin/test_runner_helper"},
+                          nullptr, nullptr, onStdIn);
+    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.returnCode, 0);
+}

@@ -26,9 +26,6 @@
 using namespace std;
 using namespace Datacratic;
 
-/* TODO:
-   - interface without external message loop
- */
 
 namespace {
 
@@ -169,6 +166,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 }
 
 } // namespace
+
 
 /* ASYNCRUNNER */
 
@@ -420,6 +418,7 @@ waitTermination()
     }
 }
 
+
 /* ASYNCRUNNER::TASK */
 
 void
@@ -448,6 +447,7 @@ postTerminate(AsyncRunner & runner, const RunResult & runResult)
     }
 }
 
+
 /* ASYNCRUNNER::RUNRESULT */
 
 void
@@ -463,4 +463,30 @@ updateFromStatus(int status)
         signaled = true;
         signum = WTERMSIG(status);
     }
+}
+
+
+/* EXECUTE */
+
+AsyncRunner::RunResult
+Datacratic::
+Execute(const std::vector<std::string> & command,
+        const AsyncRunner::OnOutput & onStdOut,
+        const AsyncRunner::OnOutput & onStdErr,
+        const AsyncRunner::OnInput & onStdIn)
+{
+    AsyncRunner::RunResult result;
+    auto onTerminate = [&](const AsyncRunner::RunResult & runResult) {
+        result = runResult;
+    };
+
+    MessageLoop loop;
+    AsyncRunner runner;
+    loop.addSource("runner", runner);
+    loop.start();
+
+    runner.run(command, onTerminate, onStdOut, onStdErr, onStdIn);
+    runner.waitTermination();
+
+    return result;
 }

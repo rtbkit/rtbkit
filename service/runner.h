@@ -92,4 +92,12 @@ private:
     std::unique_ptr<Task> task_;
 };
 
+AsyncRunner::RunResult Execute(const std::vector<std::string> & command,
+                               const AsyncRunner::OnOutput & onStdOut
+                               = nullptr,
+                               const AsyncRunner::OnOutput & onStdErr
+                               = nullptr,
+                               const AsyncRunner::OnInput & onStdIn
+                               = nullptr);
+
 }
