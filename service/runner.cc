@@ -356,6 +356,8 @@ run(const std::vector<std::string> & command,
     task_.reset(new Task());
     Task & task = *task_;
 
+    task.onTerminate = onTerminate;
+
     ChildFds childFds;
     tie(task.statusFd, childFds.statusFd) = CreateStdPipe(false);
     if (onStdIn) {
