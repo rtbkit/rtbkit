@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
         abt
     */
 
-    printf("helper ready\n");
+    printf("helper: ready\n");
     while (1) {
         char command[3];
         size_t n = ::fread(command, 1, sizeof(command), stdin);

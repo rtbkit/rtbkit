@@ -68,7 +68,8 @@ struct HelperCommands : vector<string>
     int active_;
 };
 
-BOOST_AUTO_TEST_CASE( test_runner )
+/* ensures that the basic callback system works */
+BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 {
     BlockedSignals blockedSigs(SIGCHLD);
 
@@ -80,8 +81,12 @@ BOOST_AUTO_TEST_CASE( test_runner )
     commands.sendOutput(false, "hello stderr");
     commands.sendExit(0);
 
-    vector<string> receivedStdOut;
-    vector<string> receivedStdErr;
+    string receivedStdOut, expectedStdOut;
+    string receivedStdErr, expectedStdErr;
+
+    expectedStdOut = ("helper: ready\nhello stdout\nhello stdout2\n"
+                      "helper: exit with code 0\n");
+    expectedStdErr = "hello stderr\n";
 
     int done = false;
     auto onTerminate = [&] (const AsyncRunner::RunResult & result) {
@@ -93,12 +98,12 @@ BOOST_AUTO_TEST_CASE( test_runner )
         return commands.nextCommand();
     };
     auto onStdOut = [&] (const string & message) {
-        cerr << "received message on stdout: /" + message + "/" << endl;
-        receivedStdOut.push_back(message);
+        // cerr << "received message on stdout: /" + message + "/" << endl;
+        receivedStdOut += message;
     };
     auto onStdErr = [&] (const string & message) {
-        cerr << "received message on stderr: /" + message + "/" << endl;
-        receivedStdErr.push_back(message);
+        // cerr << "received message on stderr: /" + message + "/" << endl;
+        receivedStdErr += message;
     };
 
     AsyncRunner runner;
@@ -111,64 +116,69 @@ BOOST_AUTO_TEST_CASE( test_runner )
     while (!done) {
         ML::futex_wait(done, false);
     }
+
+    BOOST_CHECK_EQUAL(receivedStdOut, expectedStdOut);
+    BOOST_CHECK_EQUAL(receivedStdErr, expectedStdErr);
 }
 
+/* ensures that the returned status is properly set after termination */
 BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 {
     BlockedSignals blockedSigs(SIGCHLD);
 
-    MessageLoop loop;
+    /* normal termination, with code */
+    {
+        MessageLoop loop;
 
-    HelperCommands commands;
-    commands.sendExit(123);
+        HelperCommands commands;
+        commands.sendExit(123);
 
-    AsyncRunner::RunResult result;
-    auto onTerminate = [&] (const AsyncRunner::RunResult & newResult) {
-        result = newResult;
-    };
-    auto onStdIn = [&] () {
-        return commands.nextCommand();
-    };
-    auto discard = [&] (const string & message) {
-    };
-    AsyncRunner runner;
-    loop.addSource("runner", runner);
-    loop.start();
+        AsyncRunner::RunResult result;
+        auto onTerminate = [&] (const AsyncRunner::RunResult & newResult) {
+            result = newResult;
+        };
+        auto onStdIn = [&] () {
+            return commands.nextCommand();
+        };
+        auto discard = [&] (const string & message) {
+        };
+        AsyncRunner runner;
+        loop.addSource("runner", runner);
+        loop.start();
 
-    runner.run({"build/x86_64/bin/test_runner_helper"},
-               onTerminate, discard, discard, onStdIn);
-    runner.waitTermination();
+        runner.run({"build/x86_64/bin/test_runner_helper"},
+                   onTerminate, discard, discard, onStdIn);
+        runner.waitTermination();
 
-    BOOST_CHECK_EQUAL(result.signaled, false);
-    BOOST_CHECK_EQUAL(result.returnCode, 123);
-}
+        BOOST_CHECK_EQUAL(result.signaled, false);
+        BOOST_CHECK_EQUAL(result.returnCode, 123);
+    }
 
-BOOST_AUTO_TEST_CASE( test_runner_abort )
-{
-    BlockedSignals blockedSigs(SIGCHLD);
+    /* aborted termination, with signum */
+    {
+        MessageLoop loop;
 
-    MessageLoop loop;
+        HelperCommands commands;
+        commands.sendAbort();
 
-    HelperCommands commands;
-    commands.sendAbort();
+        AsyncRunner::RunResult result;
+        auto onTerminate = [&] (const AsyncRunner::RunResult & newResult) {
+            result = newResult;
+        };
+        auto onStdIn = [&] () {
+            return commands.nextCommand();
+        };
+        auto discard = [&] (const string & message) {
+        };
+        AsyncRunner runner;
+        loop.addSource("runner", runner);
+        loop.start();
 
-    AsyncRunner::RunResult result;
-    auto onTerminate = [&] (const AsyncRunner::RunResult & newResult) {
-        result = newResult;
-    };
-    auto onStdIn = [&] () {
-        return commands.nextCommand();
-    };
-    auto discard = [&] (const string & message) {
-    };
-    AsyncRunner runner;
-    loop.addSource("runner", runner);
-    loop.start();
+        runner.run({"build/x86_64/bin/test_runner_helper"},
+                   onTerminate, discard, discard, onStdIn);
+        runner.waitTermination();
 
-    runner.run({"build/x86_64/bin/test_runner_helper"},
-               onTerminate, discard, discard, onStdIn);
-    runner.waitTermination();
-
-    BOOST_CHECK_EQUAL(result.signaled, true);
-    BOOST_CHECK_EQUAL(result.returnCode, SIGABRT);
+        BOOST_CHECK_EQUAL(result.signaled, true);
+        BOOST_CHECK_EQUAL(result.returnCode, SIGABRT);
+    }
 }
