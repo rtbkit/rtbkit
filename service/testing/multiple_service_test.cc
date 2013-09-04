@@ -13,6 +13,7 @@
 #include "soa/service/message_loop.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/testing/zookeeper_temporary_server.h"
+#include "soa/service/zookeeper_configuration_service.h"
 #include "jml/utils/guard.h"
 #include "jml/arch/exception_handler.h"
 #include "jml/utils/testing/watchdog.h"
@@ -85,6 +86,224 @@ struct EchoService : public ServiceBase {
 
     ZmqNamedClientBus toClients;
 };
+
+class ServiceDiscoveryScenario {
+public:
+    friend class ServiceDiscoveryScenarioTest;
+
+    ServiceDiscoveryScenario(const std::string &name) :
+        name { name }
+    { }
+
+    std::shared_ptr<ServiceProxies>
+    createProxies(const std::string &host, 
+                  const std::string &name = "DEFAULT") 
+    {
+        if (getFromMap(proxiesMap, name))
+            throw ML::Exception(ML::format("Proxies with name '%s' already exist",
+                                name.c_str()));
+
+        auto proxies = std::make_shared<ServiceProxies>();
+        proxies->useZookeeper(host);
+
+        auto proxiesEntry = std::make_shared<ProxiesEntry>(proxies, host);
+        proxiesMap.insert(std::make_pair(name, proxiesEntry));
+
+        return proxies;
+    }
+
+    int
+    startTemporaryServer() 
+    {
+        zooServer.reset(new ZooKeeper::TemporaryServer);
+        zooServer->start();
+
+        return zooServer->getPort();
+    }
+
+    void
+    reset() {
+        zooServer.reset(nullptr);
+        proxiesMap.clear();
+        clientsMap.clear();
+        servicesMap.clear();
+    }
+
+    std::shared_ptr<ZmqMultipleNamedClientBusProxy> 
+    createConnection(const std::string &name,
+                     const std::string &proxiesName = "DEFAULT")
+    {
+        auto proxiesEntry = getFromMap(proxiesMap, proxiesName);
+        if (!proxiesEntry)
+            throw ML::Exception(ML::format("Proxies with name '%s' does not "
+                                           "exist", proxiesName.c_str()));
+
+        if (getFromMap(clientsMap, name))
+            throw ML::Exception("createConnection: client with the same name already "
+                                 "exists");
+
+        auto proxies = proxiesEntry->proxies;
+        ExcAssert(proxies);
+        auto conn = std::make_shared<ZmqMultipleNamedClientBusProxy>(proxies->zmqContext);
+        conn->init(proxies->config);
+        clientsMap.insert(std::make_pair(name, conn));
+
+        return conn;
+
+    }
+
+    std::shared_ptr<ZmqMultipleNamedClientBusProxy>
+    createConnectionAndStart(const std::string &name,
+                             const std::string &proxiesName = "DEFAULT") 
+    {
+        auto conn = createConnection(name, proxiesName);
+        conn->start();
+
+        return conn;
+    }    
+
+    std::shared_ptr<ZmqMultipleNamedClientBusProxy> 
+    connectServiceProviders(const std::string &clientName,
+                            const std::string &serviceClass,
+                            const std::string &endpointName)
+    {
+        auto connection = getFromMap(clientsMap, clientName);
+        if (!connection)
+            throw ML::Exception(ML::format("connection with name '%s' does "
+                                           "not exist", clientName.c_str()));
+
+        connection->connectAllServiceProviders(serviceClass, endpointName);
+        return connection;
+    }
+
+    std::shared_ptr<EchoService>
+    createService(const std::string &name, 
+                  const std::string &proxiesName = "DEFAULT")
+    {
+        auto proxiesEntry = getFromMap(proxiesMap, proxiesName);
+        if (!proxiesEntry)
+            throw ML::Exception(ML::format("Proxies with name '%s' does not "
+                                           "exist", proxiesName.c_str()));
+        
+        auto proxies = proxiesEntry->proxies;
+        ExcAssert(proxies);
+        auto service = std::make_shared<EchoService>(proxies, name);
+        service->init();
+
+        servicesMap.insert(std::make_pair(name, service));
+
+        return service;
+    }
+
+    std::shared_ptr<EchoService>
+    createServiceAndStart(const std::string &name,
+                          const std::string &proxiesName = "DEFAULT")
+    {
+        auto service = createService(name, proxiesName);
+            
+        service->bindTcp();
+        service->start();
+
+        return service;
+    }
+
+    void
+    expireSession(const std::string &proxiesName)
+    {
+        auto proxiesEntry = getFromMap(proxiesMap, proxiesName);
+        if (!proxiesEntry) 
+            throw ML::Exception(ML::format("Proxies with name '%s' does not exist",
+                                           proxiesName.c_str()));
+
+        if (!proxiesEntry->hasCredentials)
+            throw ML::Exception("No credentials for given proxy");
+
+        auto proxies = proxiesEntry->proxies;
+        ExcAssert(proxies);
+        
+        std::unique_ptr<ZookeeperConnection> connection(new ZookeeperConnection);
+        connection->connectWithCredentials(proxiesEntry->host, proxiesEntry->sessionId,
+                                           proxiesEntry->password);
+        connection->close();
+    }
+        
+
+private:
+    std::string name;
+    std::unique_ptr<ZooKeeper::TemporaryServer> zooServer;
+
+    struct ProxiesEntry {
+        ProxiesEntry(const std::shared_ptr<ServiceProxies> &proxies,
+                     const std::string &host) :
+            proxies { proxies },
+            host { host },
+            hasCredentials { false }
+        { }
+
+        ProxiesEntry(const std::shared_ptr<ServiceProxies> &proxies,
+                     const std::string &host,
+                     int64_t sessionId,
+                     const std::string &password) :
+            proxies { proxies },
+            host { host },
+            hasCredentials { true },
+            sessionId { sessionId },
+            password { password }
+        { }
+
+        std::shared_ptr<ServiceProxies> proxies;
+        std::string host;
+        bool hasCredentials;
+
+        int64_t sessionId;
+        std::string password;
+
+    };
+
+    typedef std::map<std::string, std::shared_ptr<ZmqMultipleNamedClientBusProxy>>
+    ClientsMap;
+    typedef std::map<std::string, std::shared_ptr<EchoService>>
+    ServicesMap;
+    typedef std::map<std::string, std::shared_ptr<ProxiesEntry>>
+    ProxiesMap;
+
+    ClientsMap clientsMap;
+    ServicesMap servicesMap;
+    ProxiesMap proxiesMap;
+
+    template<typename Map>
+    typename Map::mapped_type 
+    getFromMap(const Map &map, const std::string &name)
+    {
+        auto it = map.find(name);
+        if (it == end(map)) 
+            return nullptr;
+
+        return it->second;
+    } 
+
+};
+
+class ServiceDiscoveryScenarioTest {
+public:
+    ServiceDiscoveryScenarioTest(ServiceDiscoveryScenario &scenario) :
+        scenario(scenario)
+    { }
+
+    void assertConnectionCount(const std::string &connectionName,
+                               int count)
+    {
+        auto connection = scenario.getFromMap(scenario.clientsMap,
+                                              connectionName);
+        ExcAssert(connection);
+        BOOST_CHECK_EQUAL(connection->connectionCount(), count);
+    }
+
+private:
+    ServiceDiscoveryScenario &scenario;
+};
+
+#if 0
 BOOST_AUTO_TEST_CASE( test_service_zk_disconnect )
 {
     ZooKeeper::TemporaryServer zookeeper;
@@ -164,8 +383,45 @@ BOOST_AUTO_TEST_CASE( test_service_zk_disconnect )
     for (unsigned i = 0;  i < services.size();  ++i)
         services[i]->shutdown();
 }
+#endif
 
-#if 1
+std::string formatHost(const std::string &host, int port) {
+    return ML::format("%s:%d", host.c_str(), port);
+}
+
+BOOST_AUTO_TEST_CASE( zk_simple_watch_test )
+{
+    ZooKeeper::TemporaryServer zkServer;
+    zkServer.start();
+
+    const std::string host { formatHost("localhost", zkServer.getPort()) };
+
+    auto proxies = std::make_shared<ServiceProxies>();
+    proxies->useZookeeper(host);
+
+    ZmqNamedClientBusProxy connection(proxies->zmqContext);
+    connection.init(proxies->config, "client");
+    connection.start();
+    connection.connectToServiceClass("echo", "echo");
+
+    std::unique_ptr<EchoService> service { new EchoService(proxies, "echo0") };
+    service->init();
+    auto addr = service->bindTcp();
+    std::cout << "Service listening on " << addr << std::endl; 
+
+    service->start();
+
+    while (!connection.isConnected())
+        ML::sleep(0.1);
+
+    ML::sleep(5);
+
+    connection.shutdown();
+    service->shutdown();
+}
+
+
+#if 0
 BOOST_AUTO_TEST_CASE( test_early_connection )
 {
     /** Test that we can do a "connect", then start the service, and
@@ -281,3 +537,49 @@ BOOST_AUTO_TEST_CASE( test_multiple_services )
 
 }
 #endif
+
+BOOST_AUTO_TEST_CASE( test_multiple_services )
+{
+    ServiceDiscoveryScenario scenario("test_multiple_services");
+    ServiceDiscoveryScenarioTest test(scenario);
+
+    int port = scenario.startTemporaryServer();
+    scenario.createProxies(formatHost("localhost", port));
+
+    auto connection = scenario.createConnectionAndStart("client");
+    connection->connectHandler = [](const std::string &) {
+        std::cout << "connected" << std::endl;
+    };
+
+    test.assertConnectionCount("client", 0);
+
+    scenario.connectServiceProviders("client", "echo", "echo");
+    test.assertConnectionCount("client", 0);
+    scenario.createServiceAndStart("echo0");
+
+    ML::sleep(0.5);
+
+    test.assertConnectionCount("client", 1);
+}
+
+BOOST_AUTO_TEST_CASE( test_simple_disconnect )
+{
+    ServiceDiscoveryScenario scenario("test_simple_disconnect");
+    ServiceDiscoveryScenarioTest test(scenario);
+
+    int port = scenario.startTemporaryServer();
+    scenario.createProxies(formatHost("localhost", port), "connectionProxy");
+    scenario.createProxies(formatHost("localhost", port), "endpointProxy");
+
+    auto connection = scenario.createConnectionAndStart("client", "connectionProxy");
+    connection->connectHandler = [](const std::string &) {
+        std::cout << "connected" << std::endl;
+    };
+
+    scenario.connectServiceProviders("client", "echo", "echo");
+    scenario.createServiceAndStart("echo0", "endpointProxy");
+
+    ML::sleep(0.5);
+
+    test.assertConnectionCount("client", 1);
+}

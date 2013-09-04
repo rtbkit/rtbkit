@@ -1185,7 +1185,7 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         this->serviceClass = serviceClass;
         this->endpointName = endpointName;
 
-        serviceProvidersWatch.init([=] (const std::string & path,
+        serviceProvidersWatch.init([=, this] (const std::string & path,
                                         ConfigurationService::ChangeType change)
                                    {
                                        onServiceProvidersChanged("serviceClass/" + serviceClass, local);

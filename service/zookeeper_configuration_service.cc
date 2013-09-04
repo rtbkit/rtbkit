@@ -107,6 +107,18 @@ ZookeeperConfigurationService(std::string host,
 {
     init(std::move(host), std::move(prefix), std::move(location));
 }
+
+ZookeeperConfigurationService::
+ZookeeperConfigurationService(std::string host,
+                              std::string prefix,
+                              std::string location,
+                              int64_t sessionId,
+                              std::string password,
+                              int timeout)
+{
+    initWithCredentials(std::move(host), std::move(prefix), std::move(location),
+                        sessionId, std::move(password), timeout);
+}
     
 ZookeeperConfigurationService::
 ~ZookeeperConfigurationService()
@@ -120,10 +132,33 @@ init(std::string host,
      std::string location,
      int timeout)
 {
-    currentLocation = std::move(location);
 
     zoo.reset(new ZookeeperConnection());
     zoo->connect(host, timeout);
+    
+    completeInit(location, prefix);
+}
+
+void
+ZookeeperConfigurationService::
+initWithCredentials(std::string host,
+                    std::string prefix,
+                    std::string location,
+                    int64_t sessionId,
+                    const std::string &password,
+                    int timeout)
+{
+    zoo.reset(new ZookeeperConnection());
+    zoo->connectWithCredentials(host, sessionId, password, timeout);
+
+    completeInit(std::move(location), std::move(prefix));
+}
+
+void 
+ZookeeperConfigurationService::
+completeInit(std::string location, std::string prefix)
+{
+    currentLocation = std::move(location);
 
     if (!prefix.empty() && prefix[prefix.size() - 1] != '/')
         prefix = prefix + "/";

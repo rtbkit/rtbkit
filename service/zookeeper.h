@@ -115,7 +115,16 @@ struct ZookeeperConnection {
 
     /** Connect synchronously. */
     void connect(const std::string & host,
-                 double timeoutInSeconds = 5);
+                 double timeoutInSeconds = 5.0);
+
+    /** Connect with a session id and password 
+     * 
+     *  precondition: password.size() <= 16
+     */ 
+    void connectWithCredentials(const std::string & host,
+                                int64_t sessionId,
+                                const std::string &password,
+                                double timeoutInSeconds = 5.0);
 
     void reconnect();
 
@@ -184,7 +193,7 @@ struct ZookeeperConnection {
     std::condition_variable cv;
     std::string host;
     int recvTimeout;
-    clientid_t clientId;
+    std::shared_ptr<clientid_t> clientId;
     zhandle_t * handle;
 
     struct Node {
@@ -205,6 +214,11 @@ struct ZookeeperConnection {
     std::set<Node> ephemerals;
 
     ZookeeperCallbackManager &callbackMgr_;
+
+private:
+    void connectImpl(const std::string &host, 
+                     double timeoutInSeconds,
+                     clientid_t *clientId);
     
 };
 

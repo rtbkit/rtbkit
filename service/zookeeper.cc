@@ -160,8 +160,9 @@ printState(int state)
 
 void
 ZookeeperConnection::
-connect(const std::string & host,
-        double timeoutInSeconds)
+connectImpl(const std::string & host,
+            double timeoutInSeconds,
+            clientid_t *clientId)
 {
     std::unique_lock<std::mutex> lk(connectMutex);
     if (handle)
@@ -174,7 +175,7 @@ connect(const std::string & host,
     int times = 10;
 
     for(int i = 0; i != times; ++i) {
-        handle = zookeeper_init(host.c_str(), eventHandlerFn, recvTimeout, 0, this, 0);
+        handle = zookeeper_init(host.c_str(), eventHandlerFn, recvTimeout, clientId, this, 0);
 
         if (!handle)
             throw ML::Exception(errno, "failed to initialize ZooKeeper at " + host);
@@ -194,6 +195,30 @@ connect(const std::string & host,
 
     throw ML::Exception("connection to Zookeeper timed out");
 }
+
+void ZookeeperConnection::
+connect(const std::string &host,
+        double timeoutInSeconds)
+{
+    connectImpl(host, timeoutInSeconds, 0);
+}
+
+void ZookeeperConnection::
+connectWithCredentials(const std::string &host,
+                       int64_t sessionId,
+                       const std::string &password,
+                       double timeoutInSeconds)
+{
+    if (password.size() > 16)
+        throw ML::Exception("Password must have at most 16 characters");
+
+    clientId.reset(new clientid_t);
+    clientId->client_id = sessionId;
+    password.copy(clientId->passwd, password.size());
+
+    connectImpl(host, timeoutInSeconds, clientId.get());
+}
+
 
 void
 ZookeeperConnection::
