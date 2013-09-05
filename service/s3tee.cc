@@ -34,8 +34,8 @@ int main(int argc, char* argv[])
     po::options_description desc("Main options");
     desc.add_options()
         ("output-uri,o", po::value(&outputFiles), "Output files/uris (can have multiple file/s3://bucket/object)")
-        ("s3-key-id,I", po::value<string>(&s3KeyId), "S3 key id")
-        ("s3-key,K", po::value<string>(&s3Key), "S3 key")
+        ("s3-key-id,I", po::value(&s3KeyId), "S3 key id")
+        ("s3-key,K", po::value(&s3Key), "S3 key")
         ("help,h", "Produce help message");
     
     po::positional_options_description pos;
@@ -60,13 +60,14 @@ int main(int argc, char* argv[])
     if (showHelp || vm.count("help")){
         //Display the options_description
         cout << desc << "\n";
-        return showHelp ? 1 : 0;
+        return 1;
     }
 
     for (auto f: outputFiles){
         if(f.substr(0, 5) == "s3://"){
             size_t pos = f.substr(5).find("/");
-            registerS3Bucket(f.substr(5, pos), s3KeyId, s3Key);
+            if (s3KeyId != "")
+                registerS3Bucket(f.substr(5, pos), s3KeyId, s3Key);
         }
     }
 
