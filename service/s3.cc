@@ -2375,8 +2375,10 @@ void makeUriDirectory(const std::string & uri)
         return;
 
     string::size_type lastSlash = uri.rfind('/');
-    if (lastSlash == string::npos)
-        throw ML::Exception("directory to create contained no slash");
+    if (lastSlash == string::npos) {
+        return;
+        throw ML::Exception("directory to create contained no slash: " + uri);
+    }
     string dir(uri, 0, lastSlash + 1);
 
     int res = system(("mkdir -p '" + dir + "'").c_str());
