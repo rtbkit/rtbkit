@@ -517,4 +517,8 @@ S3Api::ObjectInfo getUriObjectInfo(const std::string & filename);
 // it doesn't exist
 S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename);
 
+// Create the directories for the given path.  For S3 it does nothing;
+// for normal directories it does mkdir -p
+void makeUriDirectory(const std::string & uri);
+
 } // namespace Datacratic

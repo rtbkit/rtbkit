@@ -1128,12 +1128,14 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         : zmqContext(new zmq::context_t(1))
     {
         connected = false;
+        inProvidersChanged = false;
     }
 
     ZmqMultipleNamedClientBusProxy(std::shared_ptr<zmq::context_t> context)
         : zmqContext(context)
     {
         connected = false;
+        inProvidersChanged = false;
     }
 
     ~ZmqMultipleNamedClientBusProxy()
@@ -1178,7 +1180,7 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
                                     bool local = true)
     {
         if (connected)
-            throw ML::Exception("alread connected to service providers");
+            throw ML::Exception("already connected to service providers");
 
         this->serviceClass = serviceClass;
         this->endpointName = endpointName;
@@ -1190,7 +1192,6 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
                                    });
 
         onServiceProvidersChanged("serviceClass/" + serviceClass, local);
-        // std::cerr << "++++after call to onServiceProvidersChanged " << std::endl;
         connected = true;
     }
 
@@ -1283,18 +1284,28 @@ private:
     mutable Lock connectionsLock;
 
     /** List of currently connected connections. */
-    typedef std::map<std::string, std::unique_ptr<ZmqNamedClientBusProxy> > ConnectionMap;
+    typedef std::map<std::string, std::shared_ptr<ZmqNamedClientBusProxy> > ConnectionMap;
     ConnectionMap connections;
 
     /** Current watch on the list of service providers. */
     ConfigurationService::Watch serviceProvidersWatch;
 
+    /** Are we currently in onServiceProvidersChanged? **/
+    bool inProvidersChanged ;
     /** Queue of operations to perform asynchronously from our own thread. */
 
     /** Callback that will be called when the list of service providers has changed. */
     void onServiceProvidersChanged(const std::string & path, bool local)
     {
         using namespace std;
+        // this function is invoked upon a disconnect
+        if( inProvidersChanged)
+        {
+            std::cerr << "!!!Already in service providers changed - bailing out "
+                << std::endl;
+            return ;
+        }
+        inProvidersChanged = true;
         //cerr << "onServiceProvidersChanged(" << path << ")" << endl;
 
         // The list of service providers has changed
@@ -1331,17 +1342,17 @@ private:
 
                 // Erasing from connections in this loop would invalidate our
                 // iterator so defer until we're done with the connections map.
-                pendingDisconnects[conn.first].reset(conn.second.release());
+                removeSource(conn.second.get());
+                pendingDisconnects[conn.first] = std::move(conn.second);
             }
 
             for (const auto& conn : pendingDisconnects)
                 connections.erase(conn.first);
         }
-
         // We're no longer holding the lock so any delayed. Time to really
         // disconnect and trigger the callbacks.
         pendingDisconnects.clear();
-
+        inProvidersChanged = false;
     }
 
     /** Encapsulates a lock-free state machine that manages the logic of the on
@@ -1415,11 +1426,15 @@ private:
         auto & c = connections[name];
 
         // already connected
-        if (c) return;
-
+        if (c) 
+        {
+            std::cerr << "watchServiceProvider: name " << name << " already connected " << std::endl;
+            return;
+        }
+        std::cerr << "watchServiceProvider: name " << name << " not already connected " << std::endl;
+        
         try {
-            std::unique_ptr<ZmqNamedClientBusProxy> newClient
-                (new ZmqNamedClientBusProxy(zmqContext));
+            auto newClient = std::make_shared<ZmqNamedClientBusProxy>(zmqContext);
             newClient->init(config, identity);
 
             // The connect call below could trigger this callback while we're
@@ -1441,10 +1456,10 @@ private:
                 };
             //newClient->debug(true);
 
-            c.reset(newClient.release());
+            c = std::move(newClient);
 
             // Add it to our message loop so that it can process messages
-            addSource("ZmqMultipleNamedClientBusProxy child " + name, *c);
+            addSource("ZmqMultipleNamedClientBusProxy child " + name, c);
 
             guard.unlock();
             c->connectHandler.target<OnConnectCallback>()->release();

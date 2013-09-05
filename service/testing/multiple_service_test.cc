@@ -21,7 +21,7 @@
 #include "jml/arch/timers.h"
 #include <thread>
 #include "soa/service/zmq_utils.h"
-
+#include "soa/service/zookeeper.h"
 
 using namespace std;
 using namespace ML;
@@ -85,7 +85,87 @@ struct EchoService : public ServiceBase {
 
     ZmqNamedClientBus toClients;
 };
+BOOST_AUTO_TEST_CASE( test_service_zk_disconnect )
+{
+    ZooKeeper::TemporaryServer zookeeper;
+    std::cerr <<"starting zookeeper..." << std::endl;
+    zookeeper.start();
+    ML::sleep(2);
 
+    cerr << "Starting multiple service zk disconnect " << endl;
+    auto proxies = std::make_shared<ServiceProxies>();
+    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
+
+    ZmqMultipleNamedClientBusProxy connection(proxies->zmqContext);
+    connection.init(proxies->config, "client1");
+
+    connection.connectHandler = [&] (const std::string & svc)
+        {
+            cerr << "connected to " << svc << endl;
+        };
+
+    connection.disconnectHandler = [&] (const std::string  & svc)
+        {
+            cerr << "disconnected from " << svc << endl;
+        };
+
+    connection.start();
+
+    BOOST_CHECK_EQUAL(connection.connectionCount(), 0);
+
+    connection.connectAllServiceProviders("echo", "echo");
+
+    BOOST_CHECK_EQUAL(connection.connectionCount(), 0);
+
+    std::vector<unique_ptr<EchoService> > services;
+
+    auto startService = [&] ()
+        {
+            services.emplace_back(new EchoService(proxies, "echo" + to_string(services.size())));
+            EchoService & service = *services.back();
+            service.init();
+            auto addr = service.bindTcp();
+            cerr << "echo service is listening on " << addr << endl;
+            service.start();
+        };
+
+    startService();
+
+//    proxies->config->dump(cerr);
+//    std::cerr <<"going to sleep for 5 seconds " << std::endl;
+    ML::sleep(5);
+
+    std::cerr << "About to suspend zookeeper..." ;
+    // Make sure that the latest callback id is correct
+    BOOST_CHECK_EQUAL(ZookeeperCallbackManager::instance().getId(),6);
+    zookeeper.suspend();
+    std::cerr << "zookeeper suspended " << std::endl;
+    ML::sleep(10);
+    std::cerr <<"resuming zookeeper " << std::endl;
+    zookeeper.resume() ;
+    ML::sleep(10);
+    // When we resume zookeeper we will reconnect and a new callback
+    // should be installed if the watch is reinstalled correctly
+    // @todo better mechanism for checking that watches are handled 
+    // correctly.
+    BOOST_CHECK_EQUAL(ZookeeperCallbackManager::instance().getId(),8);
+    zookeeper.suspend();
+    std::cerr << "zookeeper suspended again" << std::endl;
+    ML::sleep(10);
+    std::cerr <<"resuming zookeeper again " << std::endl;
+    zookeeper.resume() ;
+    cerr << "going to sleep for 30 seconds.." << endl;
+    ML::sleep(10);
+    BOOST_CHECK_EQUAL(ZookeeperCallbackManager::instance().getId(), 10);
+    cerr << "shutting down" << endl;
+
+    connection.shutdown();
+
+    for (unsigned i = 0;  i < services.size();  ++i)
+        services[i]->shutdown();
+}
+
+#if 1
 BOOST_AUTO_TEST_CASE( test_early_connection )
 {
     /** Test that we can do a "connect", then start the service, and
@@ -141,7 +221,6 @@ BOOST_AUTO_TEST_CASE( test_early_connection )
     std::cerr << "done." << std::endl;
 }
 
-#if 1
 BOOST_AUTO_TEST_CASE( test_multiple_services )
 {
     ZooKeeper::TemporaryServer zookeeper;

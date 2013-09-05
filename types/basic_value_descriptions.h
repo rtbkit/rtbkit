@@ -411,7 +411,11 @@ struct Iso8601TimestampValueDescription: public DefaultDescription<Date> {
     virtual void parseJsonTyped(Date * val,
                                 JsonParsingContext & context) const
     {
-        *val = Date::parseIso8601(context.expectStringAscii());
+        if (context.isNumber())
+            *val = Date::fromSecondsSinceEpoch(context.expectDouble());
+        else if (context.isString())
+            *val = Date::parseIso8601(context.expectStringAscii());
+        else context.exception("expected date");
     }
 
     virtual void printJsonTyped(const Date * val,

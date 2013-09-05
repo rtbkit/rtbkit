@@ -73,100 +73,12 @@ partial_bind(const std::function<R (Arg1, Args...)> & fn, Bind1 && bind1)
 
 
 /*****************************************************************************/
-/* REST PARAM                                                                */
+/* REST CODEC                                                                */
 /*****************************************************************************/
 
-template<typename T>
-struct RestParam {
-    RestParam(const std::string & name, const std::string & description)
-        : name(name), description(description)
-    {
-        //std::cerr << "created RestParam with " << name << " at "
-        //          << this << std::endl;
-    }
-    
-    RestParam(const RestParam & other)
-        : name(other.name), description(other.description)
-    {
-        //std::cerr << "copied RestParam with " << name << " to "
-        //          << this << std::endl;
-    }
-
-    std::string name;
-    std::string description;
-
-private:
-    void operator = (const RestParam & other);
-};
-
-template<typename T>
-struct RestParamDefault {
-    RestParamDefault(const std::string & name, const std::string & description,
-                     T defaultValue)
-        : name(name), description(description), defaultValue(defaultValue),
-          defaultValueStr(boost::lexical_cast<std::string>(defaultValue))
-    {
-        //std::cerr << "created RestParam with " << name << " at "
-        //          << this << std::endl;
-    }
-    
-    RestParamDefault(const RestParamDefault & other)
-        : name(other.name), description(other.description),
-          defaultValue(other.defaultValue),
-          defaultValueStr(other.defaultValueStr)
-    {
-        //std::cerr << "copied RestParam with " << name << " to "
-        //          << this << std::endl;
-    }
-
-    std::string name;
-    std::string description;
-    T defaultValue;
-    std::string defaultValueStr;
-
-private:
-    void operator = (const RestParamDefault & other);
-};
-
-template<typename T>
-struct JsonParam {
-    JsonParam(const std::string & name, const std::string & description)
-        : name(name), description(description)
-    {
-    }
-    
-    JsonParam(const JsonParam & other)
-        : name(other.name), description(other.description)
-    {
-    }
-    
-    std::string name;
-    std::string description;
-};
-
-template<typename T>
-struct RequestParam {
-    RequestParam(int index, const std::string & name, const std::string & description)
-        : index(index), name(name), description(description)
-    {
-    }
-
-    RequestParam(const RequestParam & other)
-        : index(other.index),
-          name(other.name),
-          description(other.description)
-    {
-    }
-
-    int index;
-    std::string name;
-    std::string description;
-};
-
-/////////////////////////
-//// TODO: IS THIS USED? vvvvvv
-
-
+/** Default parameter encoder / decoder that uses a lexical cast to convert
+    to the required type.
+*/
 template<typename T>
 decltype(boost::lexical_cast<T>(std::declval<std::string>()))
 restDecode(const std::string & str, T * = 0)
@@ -194,12 +106,198 @@ struct RestCodec {
     }
 };
 
-/////////////////////////
-//// TODO: IS THIS USED? ^^^^
+/*****************************************************************************/
+/* JSON STR CODEC                                                            */
+/*****************************************************************************/
+
+/** Parameter encoder / decoder that takes parameters encoded in JSON as a
+    string and converts them into the required type.
+*/
+
+template<typename T>
+struct JsonStrCodec {
+    static T decode(const std::string & str)
+    {
+        return jsonDecodeStr<T>(str);
+    }
+
+    static std::string encode(const T & t)
+    {
+        return jsonEncodeStr(t);
+    }
+};
 
 
+/*****************************************************************************/
+/* REST PARAMETER SELECTORS                                                  */
+/*****************************************************************************/
+
+/** This indicates that we get a parameter from the query string.  If the
+    parameter is not present, we throw an exception.
+*/
+template<typename T, typename Codec = RestCodec<T> >
+struct RestParam {
+    RestParam(const std::string & name, const std::string & description)
+        : name(name), description(description)
+    {
+        //std::cerr << "created RestParam with " << name << " at "
+        //          << this << std::endl;
+    }
+    
+    RestParam(const RestParam & other)
+        : name(other.name), description(other.description)
+    {
+        //std::cerr << "copied RestParam with " << name << " to "
+        //          << this << std::endl;
+    }
+
+    std::string name;
+    std::string description;
+
+private:
+    void operator = (const RestParam & other);
+};
+
+
+/** This indicates that we get a parameter from the query string.  If the
+    parameter is not present, we use a default value.
+*/
+template<typename T, typename Codec = RestCodec<T> >
+struct RestParamDefault {
+    RestParamDefault(const std::string & name,
+                     const std::string & description,
+                     T defaultValue,
+                     const std::string & defaultValueStr)
+        : name(name), description(description), defaultValue(defaultValue),
+          defaultValueStr(defaultValueStr)
+    {
+        //std::cerr << "created RestParam with " << name << " at "
+        //          << this << std::endl;
+    }
+
+    RestParamDefault(const std::string & name,
+                     const std::string & description,
+                     T defaultValue = T())
+        : name(name), description(description), defaultValue(defaultValue),
+          defaultValueStr(boost::lexical_cast<std::string>(defaultValue))
+    {
+        //std::cerr << "created RestParam with " << name << " at "
+        //          << this << std::endl;
+    }
+    
+    RestParamDefault(const RestParamDefault & other)
+        : name(other.name), description(other.description),
+          defaultValue(other.defaultValue),
+          defaultValueStr(other.defaultValueStr)
+    {
+        //std::cerr << "copied RestParam with " << name << " to "
+        //          << this << std::endl;
+    }
+
+    std::string name;
+    std::string description;
+    T defaultValue;
+    std::string defaultValueStr;
+
+private:
+    void operator = (const RestParamDefault & other);
+};
+
+
+/** This indicates that we get a parameter from the query string and decode
+    it from JSON.  If the parameter is not present, we throw an exception.
+*/
+template<typename T, typename Codec = JsonStrCodec<T> >
+struct RestParamJson : public RestParam<T, Codec> {
+    RestParamJson(const std::string & name, const std::string & description)
+        : RestParam<T, Codec>(name, description)
+    {
+    }
+    
+private:
+    void operator = (const RestParamJson & other);
+};
+
+
+/** This indicates that we get a parameter from the query string.  If the
+    parameter is not present, we use a default value.  Encoding/decoding
+    is done through JSON.
+*/
+template<typename T, typename Codec = JsonStrCodec<T> >
+struct RestParamJsonDefault : public RestParamDefault<T, Codec> {
+    RestParamJsonDefault(const std::string & name,
+                         const std::string & description,
+                         T defaultValue = T(),
+                         const std::string & defaultValueStr = "")
+        : RestParamDefault<T, Codec>(name, description, defaultValue,
+                                     defaultValueStr)
+    {
+    }
+    
+private:
+    void operator = (const RestParamJsonDefault & other);
+};
+
+
+/** This indicates that we get a parameter from the JSON payload.
+    If name is empty, then we get the whole payload.  Otherwise we
+    get the named value of the payload.
+*/
+template<typename T>
+struct JsonParam {
+    JsonParam(const std::string & name, const std::string & description)
+        : name(name), description(description)
+    {
+    }
+    
+    JsonParam(const JsonParam & other)
+        : name(other.name), description(other.description)
+    {
+    }
+    
+    std::string name;
+    std::string description;
+};
+
+
+/** This indicates that we get a parameter from the path of the request. 
+    For example, GET /v1/object/3/value, this would be able to bind "3" to
+    a parameter of the request.
+*/
+template<typename T, class Codec = RestCodec<T> >
+struct RequestParam {
+    RequestParam(int index, const std::string & name, const std::string & description)
+        : index(index), name(name), description(description)
+    {
+    }
+
+    RequestParam(const RequestParam & other)
+        : index(other.index),
+          name(other.name),
+          description(other.description)
+    {
+    }
+
+    int index;
+    std::string name;
+    std::string description;
+};
+
+
+/*****************************************************************************/
+/* CREATE PARAMETER EXTRACTOR                                                */
+/*****************************************************************************/
+
+/** These functions turn an argument to the request binding into a function
+    that can generate the value required by the handler function.
+
+*/
+
+#if 0
 /** By default, to create a parameter extractor we simply take a copy of the
     argument and return that.
+
+    This is used to pass through direct parameter values.
 */
 template<typename T>
 std::function<T (const RestServiceEndpoint::ConnectionId & connection,
@@ -214,6 +312,7 @@ createParameterExtractor(Json::Value & argHelp, const T & p, void * = 0)
             return p;
         };
 }
+#endif
 
 /** Free function to take the payload and pass it as a string. */
 struct StringPayload {
@@ -308,13 +407,13 @@ createParameterExtractor(Json::Value & argHelp,
     for the given parameter.  See the CreateRestParameterGenerator class for more
     details.
 */
-template<typename T>
-static std::function<decltype(RestCodec<T>::decode(std::declval<std::string>()))
+template<typename T, typename Codec>
+static std::function<decltype(Codec::decode(std::declval<std::string>()))
                      (const RestServiceEndpoint::ConnectionId & connection,
                       const RestRequest & request,
                       const RestRequestParsingContext & context)>
 createParameterExtractor(Json::Value & argHelp,
-                         const RestParam<T> & p, void * = 0)
+                         const RestParam<T, Codec> & p, void * = 0)
 {
     ExcAssertNotEqual(p.name, "");
 
@@ -333,16 +432,16 @@ createParameterExtractor(Json::Value & argHelp,
         {
             //std::cerr << "getting value of " << p.name << std::endl;
             std::string paramValue = request.params.getValue(p.name);
-            return RestCodec<T>::decode(paramValue);
+            return Codec::decode(paramValue);
         };
 }
 
-template<typename T>
+template<typename T, typename Codec>
 static std::function<T (const RestServiceEndpoint::ConnectionId & connection,
                         const RestRequest & request,
                         const RestRequestParsingContext & context)>
 createParameterExtractor(Json::Value & argHelp,
-                         const RestParamDefault<T> & p, void * = 0)
+                         const RestParamDefault<T, Codec> & p, void * = 0)
 {
     ExcAssertNotEqual(p.name, "");
 
@@ -364,7 +463,7 @@ createParameterExtractor(Json::Value & argHelp,
             std::string paramValue;
             T result;
             if (request.params.hasValue(p.name)) 
-                result = RestCodec<T>::decode(request.params.getValue(p.name));
+                result = Codec::decode(request.params.getValue(p.name));
             else result = p.defaultValue;
             return result;
         };
@@ -404,13 +503,13 @@ createParameterExtractor(Json::Value & argHelp,
     for the given parameter.  See the CreateRestParameterGenerator class for more
     details.
 */
-template<typename T>
-static std::function<decltype(RestCodec<T>::decode(std::declval<std::string>()))
+template<typename T, typename Codec>
+static std::function<decltype(Codec::decode(std::declval<std::string>()))
                      (const RestServiceEndpoint::ConnectionId & connection,
                       const RestRequest & request,
                       const RestRequestParsingContext & context)>
 createParameterExtractor(Json::Value & argHelp,
-                         const RequestParam<T> & p, void * = 0)
+                         const RequestParam<T, Codec> & p, void * = 0)
 {
     Json::Value & v = argHelp["resourceParams"];
     Json::Value & v2 = v[v.size()];
@@ -432,7 +531,7 @@ createParameterExtractor(Json::Value & argHelp,
             if (index < 0)
                 index = context.resources.size() + index;
             std::string paramValue = context.resources.at(index);
-            return RestCodec<T>::decode(paramValue);
+            return Codec::decode(paramValue);
         };
 }
 
