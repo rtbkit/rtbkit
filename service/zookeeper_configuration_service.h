@@ -26,6 +26,7 @@ struct ZookeeperConnection;
 struct ZookeeperConfigurationService
     : public ConfigurationService {
 
+
     ZookeeperConfigurationService();
 
     ZookeeperConfigurationService(std::string host,
@@ -33,26 +34,12 @@ struct ZookeeperConfigurationService
                                   std::string location,
                                   int timeout = 5);
     
-    ZookeeperConfigurationService(std::string host,
-                                  std::string prefix,
-                                  std::string location,
-                                  int64_t sessionId,
-                                  std::string password,
-                                  int timeout = 5);
-
     ~ZookeeperConfigurationService();
 
     void init(std::string host,
               std::string prefix,
               std::string location,
               int timeout = 5);
-
-    void initWithCredentials(std::string host,
-                             std::string prefix,
-                             std::string location,
-                             int64_t sessionId,
-                             const std::string &password,
-                             int timeout = 5);
 
     virtual Json::Value getJson(const std::string & value,
                                 Watch watch = Watch());
@@ -73,8 +60,7 @@ struct ZookeeperConfigurationService
     /** Recursively remove everything below this path. */
     virtual void removePath(const std::string & path);
 
-private:
-    void completeInit(std::string location, std::string prefix);
+public:
     std::unique_ptr<ZookeeperConnection> zoo;
     std::string prefix;
 };

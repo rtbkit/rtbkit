@@ -383,25 +383,6 @@ std::string bootstrapConfigPath()
     return "";
 }
 
-std::string zookeeperPrefix(std::string prefix)
-{
-    if (prefix == "CWD") {
-        char buf[1024];
-        if (!getcwd(buf, 1024))
-            throw ML::Exception(errno, "getcwd");
-        string cwd = buf;
-
-        utsname name;
-        if (uname(&name))
-            throw ML::Exception(errno, "uname");
-        string node = name.nodename;
-        
-        prefix = "/dev/" + node + cwd + "_" + __progname + "/";
-    }
-
-    return prefix;
-}
-
 } // namespace anonymous
 
 ServiceProxies::
@@ -444,21 +425,21 @@ useZookeeper(std::string url,
              std::string prefix,
              std::string location)
 {
-    std::string currentPrefix { zookeeperPrefix(prefix) };
-    config.reset(new ZookeeperConfigurationService(url, currentPrefix, location));
-}
+    if (prefix == "CWD") {
+        char buf[1024];
+        if (!getcwd(buf, 1024))
+            throw ML::Exception(errno, "getcwd");
+        string cwd = buf;
 
-void 
-ServiceProxies::
-useZookeeperWithCredentials(int64_t sessionId,
-                            std::string password,
-                            std::string url,
-                            std::string prefix,
-                            std::string location)
-{
-    std::string currentPrefix { zookeeperPrefix(prefix) };
-    config.reset(new ZookeeperConfigurationService(url, currentPrefix, location, 
-                                                   sessionId, password));
+        utsname name;
+        if (uname(&name))
+            throw ML::Exception(errno, "uname");
+        string node = name.nodename;
+        
+        prefix = "/dev/" + node + cwd + "_" + __progname + "/";
+    }
+
+    config.reset(new ZookeeperConfigurationService(url, prefix, location));
 }
 
 

@@ -368,6 +368,13 @@ struct ServiceProxies {
     /** Zeromq context for communication. */
     std::shared_ptr<zmq::context_t> zmqContext;
 
+    template<typename Configuration> 
+    JML_ALWAYS_INLINE
+    std::shared_ptr<Configuration> configAs() 
+    {
+        return std::static_pointer_cast<Configuration>(config);
+    }
+
     void logToCarbon(std::shared_ptr<CarbonConnector> conn);
     void logToCarbon(const std::string & carbonConnection,
                      const std::string & prefix = "");
@@ -377,12 +384,6 @@ struct ServiceProxies {
     void useZookeeper(std::string url = "localhost:2181",
                       std::string prefix = "CWD",
                       std::string location = "global");
-
-    void useZookeeperWithCredentials(int64_t sessionId,
-                                     std::string password,
-                                     std::string url = "localhost:2181",
-                                     std::string prefix = "CWD",
-                                     std::string location = "global");
 
     void usePortRanges(const std::string& path);
     void usePortRanges(const Json::Value& config);

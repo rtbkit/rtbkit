@@ -7,6 +7,8 @@
 #include "soa/service/zookeeper.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/backtrace.h"
+#include <cstring>
+
 using namespace std;
 
 namespace Datacratic {
@@ -30,7 +32,7 @@ void zk_callback(zhandle_t * ah, int type, int state, const char * path, void * 
             << ZookeeperConnection::printState(state)
             << " id = " << cbid << std::endl;
 #endif
-        cb->call(type);
+        cb->call(type, state);
     }
 }
 
@@ -87,7 +89,7 @@ ZookeeperCallbackManager::mark(uintptr_t id, bool valid)
 }
 
 void
-ZookeeperCallbackManager::sendEvent(int type)
+ZookeeperCallbackManager::sendEvent(int type, int state)
 {
     ZookeeperCallbackMap localCallbacks;
     {
@@ -101,7 +103,7 @@ ZookeeperCallbackManager::sendEvent(int type)
         if(it->second.valid)
         {
 //            std::cerr << "sendEvent: event of type " << type << " was sent!" << std::endl;
-            it->second.callback->call(type);
+            it->second.callback->call(type, state);
         }
     }
 }
@@ -158,6 +160,18 @@ printState(int state)
         return ML::format("UNKNOWN(%d)", state);
 }
 
+std::pair<int64_t, const char *>
+ZookeeperConnection::
+sessionCredentials() const
+{
+    if (!handle)
+        throw ML::Exception("Not connected");
+
+    const clientid_t *clientId = zoo_client_id(handle);
+
+    return std::make_pair(clientId->client_id, clientId->passwd);
+}
+
 void
 ZookeeperConnection::
 connectImpl(const std::string & host,
@@ -206,15 +220,15 @@ connect(const std::string &host,
 void ZookeeperConnection::
 connectWithCredentials(const std::string &host,
                        int64_t sessionId,
-                       const std::string &password,
+                       const char *password,
                        double timeoutInSeconds)
 {
-    if (password.size() > 16)
-        throw ML::Exception("Password must have at most 16 characters");
+   // if (std::strlen(password) > 16)
+   //     throw ML::Exception("Password must have at most 16 characters");
 
     clientId.reset(new clientid_t);
     clientId->client_id = sessionId;
-    password.copy(clientId->passwd, password.size());
+    std::strncpy(clientId->passwd, password, 16);
 
     connectImpl(host, timeoutInSeconds, clientId.get());
 }
@@ -232,7 +246,7 @@ reconnect()
     ML::sleep(1);
     connect(host);
 //    cerr << fName << "connection successful! " << endl;
-    callbackMgr_.sendEvent(ZOO_DELETED_EVENT);
+    callbackMgr_.sendEvent(ZOO_DELETED_EVENT, -1);
     for(auto & item : ephemerals) {
         createNode(item.path, item.value, true, false, true, true);
     }
@@ -585,8 +599,11 @@ eventHandlerFn(zhandle_t * handle,
     ZookeeperConnection * connection = reinterpret_cast<ZookeeperConnection *>(context);
 
     using namespace std;
-//    cerr << "got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
+    //cerr << connection << " got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
 
+    cerr << ML::format("%p got event %s state %s on path %s\n",
+                    (void *) connection, printEvent(event).c_str(),
+                    printState(state).c_str(), path);
     if(state == ZOO_CONNECTED_STATE) {
         connection->cv.notify_all();
     }

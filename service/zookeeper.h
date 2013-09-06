@@ -26,7 +26,8 @@ namespace Datacratic {
 //forward declaration
 struct ZookeeperCallback;
 
-typedef void (* ZookeeperCallbackType)(int type, std::string const & path, void * data);
+typedef void (* ZookeeperCallbackType)(int type, int state, std::string const & path, 
+                                       void * data);
 struct CallbackInfo
 {
     CallbackInfo(ZookeeperCallback *cb=nullptr):callback(cb),valid(false)
@@ -59,7 +60,7 @@ public:
     // Marks callback id with the specified value
     bool mark(uintptr_t id, bool valid);
     // sends the specified event to all callbacks and deletes all callbacks
-    void sendEvent(int type) ;
+    void sendEvent(int type, int state) ;
 
     // at this point used for tests for want of a better mechanism
     uintptr_t getId() const
@@ -91,9 +92,9 @@ protected:
     {
     }
 public:
-    void call(int type) 
+    void call(int type, int state) 
     {
-        callback(type, path, user);
+        callback(type, state, path, user);
         delete this;
     }
 };
@@ -123,8 +124,10 @@ struct ZookeeperConnection {
      */ 
     void connectWithCredentials(const std::string & host,
                                 int64_t sessionId,
-                                const std::string &password,
+                                const char *password,
                                 double timeoutInSeconds = 5.0);
+
+    std::pair<int64_t, const char *> sessionCredentials() const;
 
     void reconnect();
 
