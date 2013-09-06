@@ -273,6 +273,7 @@ struct MasterBanker
     int saving;
 
     Json::Value createAccount(const AccountKey & key, AccountType type);
+    Json::Value getAccountsSimpleSummaries(int depth);
 
     /** Save the entire state asynchronously.  Will return straight away. */
     void saveState();

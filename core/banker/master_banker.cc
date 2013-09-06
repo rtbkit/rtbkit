@@ -344,9 +344,8 @@ init(const shared_ptr<BankerPersistence> & storage)
                        " accounts",
                        "",
                        [] (const Json::Value & a) { return a; },
-                       &Accounts::getAccountSummariesJson,
-                       &accounts,
-                       true,
+                       &MasterBanker::getAccountsSimpleSummaries,
+                       this,
                        RestParamDefault<int>("maxDepth", "maximum depth to traverse", 3));
 
 
@@ -524,6 +523,13 @@ createAccount(const AccountKey & key, AccountType type)
         shadow.syncFromMaster(account);
         return shadow.toJson();
     }
+}
+
+Json::Value
+MasterBanker::
+getAccountsSimpleSummaries(int depth)
+{
+    return accounts.getAccountSummariesJson(true, depth);
 }
 
 void
