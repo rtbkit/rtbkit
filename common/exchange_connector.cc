@@ -6,7 +6,6 @@
 */
 
 #include "exchange_connector.h"
-#include "rtbkit/core/router/router.h"
 #include <dlfcn.h>
 
 using namespace std;

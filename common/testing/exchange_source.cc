@@ -6,8 +6,12 @@
 
 */
 
+#include <mutex>
+
+#include "jml/arch/spinlock.h"
+#include "jml/arch/timers.h"
+
 #include "exchange_source.h"
-#include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "soa/service/http_header.h"
 
 #include <dlfcn.h>
