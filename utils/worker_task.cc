@@ -8,6 +8,7 @@
 
 #include "jml/utils/worker_task.h"
 #include "jml/arch/exception.h"
+#include "jml/arch/timers.h"
 #include "jml/utils/string_functions.h"
 #include <iostream>
 #include <boost/utility.hpp>
@@ -42,13 +43,16 @@ const Job NO_JOB;
 /* WORKER_TASK                                                               */
 /*****************************************************************************/
 
-Worker_Task & Worker_Task::instance(int thr)
+Worker_Task &
+Worker_Task::
+instance(int thr)
 {
     static Worker_Task result(thr);
     return result;
 }
 
-Worker_Task::Worker_Task(int threads)
+Worker_Task::
+Worker_Task(int threads)
     : jobs_sem(0), finished_sem(1), state_change_sem(0), shutdown_sem(0),
       next_group(0), next_job(0), num_queued(0),
       num_running(0), force_finished(false)
@@ -61,15 +65,8 @@ Worker_Task::Worker_Task(int threads)
     //cerr << "creating worker task with " << threads << " threads" << endl;
 
     /* Create our threads */
-    if (threads > 0) {
-        int res = activate(THR_JOINABLE | THR_NEW_LWP, threads);
-        
-        //cerr << "res from activate = " << res << endl;
-        
-        if (res == -1)
-            throw Exception("ACE_Task::activate() returned "
-                            + ostream_format(res));
-    }
+    for (unsigned i = 0;  i < threads;  ++i)
+        workerThreads_.emplace_back(new std::thread(std::bind(&Worker_Task::runWorkerThread, this)));
 }
 
 Worker_Task::~Worker_Task()
@@ -90,11 +87,12 @@ Worker_Task::~Worker_Task()
     for (unsigned i = 0;  i < threads_;  ++i)
         shutdown_sem.acquire();
 
-    int res = wait();
-    if (res == -1)
-        throw Exception("wait returned error %s", strerror(errno));
-    
-    //cerr << "finished stopping worker task" << endl;
+    // Join all worker threads
+    for (auto & t: workerThreads_) {
+        while (!t->joinable())
+            ML::sleep(0.01);
+        t->join();
+    }
 }
 
 Worker_Task::Id
@@ -202,19 +200,7 @@ void Worker_Task::clear_all()
     throw Exception("Worker_Task::clear_all(): not implemented");
 }
 
-int Worker_Task::open(void *args)
-{
-    /* don't need to do anything. */
-    return 0;
-}
-
-int Worker_Task::close(u_long flags)
-{
-    /* Again; do nothing. */
-    return 1;
-}
-
-int Worker_Task::svc()
+int Worker_Task::runWorkerThread()
 {
     //cerr << "worker function" << endl;
     
@@ -610,7 +596,7 @@ Worker_Task::Job_Info Worker_Task::get_job(int group)
         if (jobs_sem.tryacquire() == 0) {
             return get_job_impl(group);
         }
-        ACE_OS::thr_yield();
+        sched_yield();
     }
     jobs_sem.acquire();
 
@@ -636,7 +622,7 @@ Worker_Task::Job_Info Worker_Task::get_job_impl(int group)
         Guard guard(lock, std::try_to_lock);
         if (guard)
             return get_job_impl_ul(group);
-        ACE_OS::thr_yield();
+        sched_yield();
     }
 
     Guard guard(lock);
@@ -813,7 +799,7 @@ bool Worker_Task::check_finished_ul(Id group)
         //cerr << "finished group " << group << endl;
 
         try {
-            if (!group_info->finished.empty() && !group_info->error)
+            if (group_info->finished && !group_info->error)
                 group_info->finished();
         }
         catch (const std::exception & exc) {

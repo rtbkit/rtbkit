@@ -6,17 +6,13 @@
    Task list of work to do.
 */
 
-#ifndef __boosting__worker_task_h__
-#define __boosting__worker_task_h__
+#pragma once
 
 #include "jml/utils/guard.h"
 #include "jml/arch/format.h"
 #include "jml/arch/spinlock.h"
-#include <boost/function.hpp>
-#include <boost/bind.hpp>
-#include <ace/Synch.h>
-#include <ace/Token.h>
-#include <ace/Task.h>
+#include "jml/arch/semaphore.h"
+#include <functional>
 #include <list>
 #include <map>
 #include <mutex>
@@ -31,61 +27,7 @@ namespace ML {
     elsewhere.
 */
 
-typedef boost::function<void ()> Job;
-
-/** The ACE semaphores are not useful, as two tryacquire operations performed
-    in parallel with 2 free semaphores (eg, enough for both to acquire the
-    semaphore) can cause only one to succeed.  This is because the tryacquire
-    operation performs a tryacquire on the semaphore's mutex, which just
-    protects the internal state, and doesn't retry afterwards.
-
-    We create this class here with a useful tryacquire behaviour.
-
-    TODO: this is suboptimal due to the calls to gettimeofday(); we should
-    use something that directly implements semaphores using the pthread
-    primitives, or attempt to re-write the ACE implementation.
-*/
-struct Semaphore : public ACE_Semaphore {
-    Semaphore(int initial_count = 1)
-        : ACE_Semaphore(initial_count)
-    {
-    }
-
-    int acquire()
-    {
-        return ACE_Semaphore::acquire();
-    }
-
-    int tryacquire()
-    {
-        return ACE_Semaphore::tryacquire();
-
-        ACE_Time_Value tv = ACE_OS::gettimeofday();
-        int result = ACE_Semaphore::acquire(tv);
-        if (result == 0) return result;
-        if (result == -1 && errno == ETIME) return 0;
-        return -1;
-    }
-
-    int release()
-    {
-        return ACE_Semaphore::release();
-    }
-};
-
-struct Release_Sem {
-    Release_Sem(Semaphore & sem)
-        : sem(&sem)
-    {
-    }
-
-    void operator () ()
-    {
-        sem->release();
-    }
-
-    Semaphore * sem;
-};
+typedef std::function<void ()> Job;
 
 extern const Job NO_JOB;
 
@@ -114,7 +56,7 @@ int num_threads();
    It works multithreaded, and deals with all locking and unlocking.
 */
 
-class Worker_Task : public ACE_Task_Base {
+class Worker_Task {
 public:
     typedef long long Id;  // 64 bits so no wraparound
 
@@ -158,12 +100,12 @@ public:
         {
             int parent = -1;  // no parent group
             group = get_group(NO_JOB, groupName, parent);
-            Call_Guard guard(boost::bind(&Worker_Task::unlock_group,
+            Call_Guard guard(std::bind(&Worker_Task::unlock_group,
                                          this,
                                          group));
             
             for (int i = 0; first != last;  ++first, ++i)
-                add(boost::bind<void>(doWork, first),
+                add(std::bind<void>(doWork, first),
                     jobName + ML::format("%d", i),
                     group);
         }
@@ -228,15 +170,12 @@ public:
     */
     void lend_thread(int group);
 
-    /** ACE_Task_Base methods. */
-    virtual int open(void *args = 0);
-
-    virtual int close(u_long flags = 0);
-    
-    virtual int svc();
+    int runWorkerThread();
 
 private:
     int threads_;
+
+    std::vector<std::unique_ptr<std::thread> > workerThreads_;
     
     struct Job_Info;
 
@@ -393,7 +332,3 @@ void run_in_parallel_blocked(RAIt first, RAIt2 last,
 
 
 } // namespace ML
-
-
-
-#endif /* __boosting__worker_task_h__ */

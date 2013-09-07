@@ -76,12 +76,14 @@ void test_semaphore(int nthreads, int niter)
     BOOST_CHECK_EQUAL(errors, 0);
 }
 
+#if 0
 BOOST_AUTO_TEST_CASE(test_ace_semaphore)
 {
     test_semaphore<ACE_Semaphore>(1, 1000000);
     test_semaphore<ACE_Semaphore>(10, 100000);
     test_semaphore<ACE_Semaphore>(100, 10000);
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(test_our_semaphore)
 {
