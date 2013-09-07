@@ -219,14 +219,13 @@ struct Lapack_Guard {
     Lapack_Guard()
     {
         if (!need_lock) return;
-        if (lock.acquire() == -1)
-            throw ML::Exception("failed to acquire lock");
+        lock.lock();
     }
 
     ~Lapack_Guard()
     {
         if (!need_lock) return;
-        lock.release();
+        lock.unlock();
     }
 };
 

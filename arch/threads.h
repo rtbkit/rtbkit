@@ -23,14 +23,16 @@
 #ifndef __arch__threads_h__
 #define __arch__threads_h__
 
-#include <ace/Token.h>
-#include <ace/Synch.h>
+#include <thread>
 
 
-typedef ACE_Token Lock;
-typedef ACE_Guard<Lock> Guard;
-typedef ACE_Read_Guard<Lock> Read_Guard;
-typedef ACE_Write_Guard<Lock> Write_Guard;
+typedef std::recursive_mutex Lock;
+typedef std::unique_lock<Lock> Guard;
+
+// c++14
+//typedef std::shared_lock<Lock> Read_Guard;
+//typedef std::unique_lock<Lock> Read_Guard;
+//typedef std::unique_lock<Lock> Write_Guard;
 
 
 #endif /* __arch__threads_h__ */
