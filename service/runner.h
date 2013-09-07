@@ -3,8 +3,7 @@
    Copyright (c) 2013 Datacratic.  All rights reserved.
 
    A command runner class that hides the specifics of the underlying unix
-   system calls in order to provide an easy interface for running commands
-   and intercepting input and output.
+   system calls and can intercept input and output.
 */
 
 #pragma once
@@ -23,7 +22,7 @@
 
 namespace Datacratic {
 
-/* ASYNCRUNNER */
+/* SINK */
 
 /* Note: the receiving end is responsible for thread isolation. */
 struct Sink {
@@ -61,6 +60,8 @@ struct NullSink : public Sink {
     virtual void write(std::string && data)
     {}
 };
+
+/* ASYNCRUNNER */
 
 struct AsyncRunner: public Epoller {
     struct RunResult {
