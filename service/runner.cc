@@ -192,15 +192,19 @@ handleEpollEvent(const struct epoll_event & event)
         }
         else if (event.data.ptr == &task.stdInFd) {
             // fprintf(stderr, "parent: handle child input to stdin\n");
-            handleChildInput(event, task.stdInFd, task.onStdIn);
+            handleStdInStatus(event, task.stdInFd);
+        }
+        else if (event.data.ptr == task.inSink.get()) {
+            // fprintf(stderr, "parent: handle child input to stdin\n");
+            handleClientData(event, *task.inSink);
         }
         else if (event.data.ptr == &task.stdOutFd) {
             // fprintf(stderr, "parent: handle child output from stdout\n");
-            handleChildOutput(event, task.stdOutFd, task.onStdOut);
+            handleOutputStatus(event, task.stdOutFd, *stdOutSink_);
         }
         else if (event.data.ptr == &task.stdErrFd) {
             // fprintf(stderr, "parent: handle child output from stderr\n");
-            handleChildOutput(event, task.stdErrFd, task.onStdErr);
+            handleOutputStatus(event, task.stdErrFd, *stdErrSink_);
         }
         else {
             throw ML::Exception("this should never occur");
@@ -240,50 +244,50 @@ handleChildStatus(const struct epoll_event & event, int statusFd, Task & task)
 
 void
 AsyncRunner::
-handleChildInput(const struct epoll_event & event,
-                 int stdInFd, const OnInput & onInputFn)
+handleStdInStatus(const struct epoll_event & event, int stdInFd)
 {
-    size_t written(0);
-
     if ((event.events & EPOLLOUT) != 0) {
-        string data = onInputFn();
-
-        const char *buffer = data.c_str();
-        ssize_t remaining = data.size();
-        while (remaining > 0) {
-            ssize_t len = ::write(stdInFd, buffer + written, remaining);
-            if (len > 0) {
-                written += len;
-                remaining -= len;
-            }
-            else {
-                throw ML::Exception(errno, "AsyncRunner::handleOutput");
-            }
-        }
-
-        if ((event.events & EPOLLHUP) == 0) {
-            if (written > 0) {
-                restartFdOneShot(stdInFd, event.data.ptr, true);
-            }
-        }
-        else {
-            cerr << "parent: child stdin closed\n";
-        }
+        task_->stdInReady = true;
+        task_->flushStdInBuffer();
     }
-    else {
-        if ((event.events & EPOLLHUP) == 0) {
-            restartFdOneShot(stdInFd, event.data.ptr, true);
-        }
-        else {
-            cerr << "parent: child stdin closed\n";
-        }
+
+    if ((event.events & EPOLLHUP) == 0) {
+        restartFdOneShot(stdInFd, event.data.ptr, true);
     }
 }
 
 void
 AsyncRunner::
-handleChildOutput(const struct epoll_event & event,
-                  int outputFd, const OnOutput & onOutputFn)
+handleClientData(const struct epoll_event & event,
+                 TypedMessageSink<string> & inSink)
+{
+    int fd = inSink.selectFd();
+
+    if ((event.events & EPOLLIN) != 0) {
+        eventfd_t val = 0;
+        int res = eventfd_read(fd, &val);
+        if (res == -1)
+            throw ML::Exception(errno, "handleClientData eventfd_read");
+        while (inSink.poll()) {
+            inSink.processOne();
+        }
+        task_->flushStdInBuffer();
+    }
+
+    if (stdInSink_->closed() || (event.events & EPOLLHUP) == 0) {
+        removeFd(task_->stdInFd);
+        ::close(task_->stdInFd);
+        task_->stdInFd = -1;
+    }
+    else {
+        restartFdOneShot(fd, event.data.ptr);
+    }
+}
+
+void
+AsyncRunner::
+handleOutputStatus(const struct epoll_event & event,
+                   int outputFd, Sink & sink)
 {
     char buffer[4096];
     bool closedFd(false);
@@ -304,7 +308,7 @@ handleChildOutput(const struct epoll_event & event,
                 }
                 else {
                     throw ML::Exception(errno,
-                                        "AsyncRunner::handleChildOutput read");
+                                        "AsyncRunner::handleOutputStatus read");
                 }
             }
             else if (len == 0) {
@@ -318,7 +322,7 @@ handleChildOutput(const struct epoll_event & event,
 
         if (data.size() > 0) {
             // cerr << "sending child output to output handler\n";
-            onOutputFn(data);
+            sink.write(move(data));
         }
         else {
             cerr << "ignoring child output due to size == 0\n";
@@ -339,13 +343,35 @@ handleChildOutput(const struct epoll_event & event,
     }
 }
 
+Sink &
+AsyncRunner::
+getStdInSink()
+{
+    if (running_)
+        throw ML::Exception("already running");
+    if (stdInSink_)
+        throw ML::Exception("stdin sink already set");
+
+    auto stdInCb = [&] (string && data) {
+        if (task_ && task_->inSink) {
+            task_->inSink->push(move(data));
+        }
+        else {
+            fprintf(stderr,
+                    "stdInCb: discarded input data\n");
+        }
+    };
+    stdInSink_.reset(new CallbackSink(stdInCb));
+
+    return *stdInSink_;
+}
+
 void
 AsyncRunner::
-run(const std::vector<std::string> & command,
+run(const vector<string> & command,
     const OnTerminate & onTerminate,
-    const OnOutput & onStdOut,
-    const OnOutput & onStdErr,
-    const OnInput & onStdIn)
+    const shared_ptr<Sink> & stdOutSink,
+    const shared_ptr<Sink> & stdErrSink)
 {
     if (task_)
         throw ML::Exception("already running");
@@ -358,16 +384,16 @@ run(const std::vector<std::string> & command,
 
     ChildFds childFds;
     tie(task.statusFd, childFds.statusFd) = CreateStdPipe(false);
-    if (onStdIn) {
-        task.onStdIn = onStdIn;
+
+    if (stdInSink_) {
         tie(task.stdInFd, childFds.stdIn) = CreateStdPipe(true);
     }
-    if (onStdOut) {
-        task.onStdOut = onStdOut;
+    if (stdOutSink) {
+        stdOutSink_ = stdOutSink;
         tie(task.stdOutFd, childFds.stdOut) = CreateStdPipe(false);
     }
-    if (onStdErr) {
-        task.onStdErr = onStdErr;
+    if (stdErrSink) {
+        stdErrSink_ = stdErrSink;
         tie(task.stdErrFd, childFds.stdErr) = CreateStdPipe(false);
     }
 
@@ -379,20 +405,22 @@ run(const std::vector<std::string> & command,
         RunWrapper(command, childFds);
     }
     else {
-        if (onStdIn) {
+        ML::set_file_flag(task.statusFd, O_NONBLOCK);
+        addFdOneShot(task.statusFd, &task.statusFd);
+        if (task.stdInFd != -1) {
             ML::set_file_flag(task.stdInFd, O_NONBLOCK);
             addFdOneShot(task.stdInFd, &task.stdInFd, true);
+            task.setupInSink();
+            addFdOneShot(task.inSink->selectFd(), task.inSink.get());
         }
-        if (onStdOut) {
+        if (task.stdOutFd != -1) {
             ML::set_file_flag(task.stdOutFd, O_NONBLOCK);
             addFdOneShot(task.stdOutFd, &task.stdOutFd);
         }
-        if (onStdErr) {
+        if (task.stdErrFd != -1) {
             ML::set_file_flag(task.stdErrFd, O_NONBLOCK);
             addFdOneShot(task.stdErrFd, &task.stdErrFd);
         }
-        ML::set_file_flag(task.statusFd, O_NONBLOCK);
-        addFdOneShot(task.statusFd, &task.statusFd);
 
         childFds.close();
     }
@@ -424,19 +452,71 @@ waitTermination()
 void
 AsyncRunner::
 Task::
+setupInSink()
+{
+    if (inSink) {
+        throw ML::Exception("inSink already exists");
+    }
+
+    inSink.reset(new TypedMessageSink<string>(32));
+    auto flushInSink = [&] (string && data) {
+        buffer += data;
+    };
+    inSink->onEvent = flushInSink;
+}
+
+void
+AsyncRunner::
+Task::
+flushStdInBuffer()
+{
+    ssize_t remaining = buffer.size();
+    if (stdInReady && remaining > 0) {
+        const char * data = buffer.c_str();
+        size_t written(0);
+        while (remaining > 0) {
+            ssize_t len = ::write(stdInFd, data + written, remaining);
+            if (len > 0) {
+                written += len;
+                remaining -= len;
+                if (remaining == 0) {
+                    buffer = "";
+                }
+            }
+            else {
+                if (errno == EWOULDBLOCK) {
+                    stdInReady = false;
+                    buffer = buffer.substr(written);
+                    break;
+                }
+                else {
+                    throw ML::Exception(errno, "write");
+                }
+            }
+        }
+    }
+}
+
+void
+AsyncRunner::
+Task::
 postTerminate(AsyncRunner & runner, const RunResult & runResult)
 {
     // cerr << "postTerminate\n";
 
     waitpid(wrapperPid, NULL, 0);
 
-    auto unregisterFd = [&] (int & fd)  {
+    auto unregisterFd = [&] (int & fd) {
         if (fd > -1) {
             runner.removeFd(fd);
             ::close(fd);
             fd = -1;
         }
     };
+
+    if (inSink) {
+        runner.removeFd(inSink->selectFd());
+    }
     unregisterFd(stdInFd);
     unregisterFd(stdOutFd);
     unregisterFd(stdErrFd);
@@ -470,10 +550,10 @@ updateFromStatus(int status)
 
 AsyncRunner::RunResult
 Datacratic::
-Execute(const std::vector<std::string> & command,
-        const AsyncRunner::OnOutput & onStdOut,
-        const AsyncRunner::OnOutput & onStdErr,
-        const AsyncRunner::OnInput & onStdIn)
+Execute(const vector<string> & command,
+        const shared_ptr<Sink> & stdOutSink,
+        const shared_ptr<Sink> & stdErrSink,
+        const string & stdInData)
 {
     AsyncRunner::RunResult result;
     auto onTerminate = [&](const AsyncRunner::RunResult & runResult) {
@@ -482,10 +562,20 @@ Execute(const std::vector<std::string> & command,
 
     MessageLoop loop;
     AsyncRunner runner;
+
     loop.addSource("runner", runner);
     loop.start();
 
-    runner.run(command, onTerminate, onStdOut, onStdErr, onStdIn);
+    if (stdInData.size() > 0) {
+        auto & sink = runner.getStdInSink();
+        runner.run(command, onTerminate, stdOutSink, stdErrSink);
+        sink.write(string(stdInData));
+        sink.close();
+    }
+    else {
+        runner.run(command, onTerminate, stdOutSink, stdErrSink);
+    }
+
     runner.waitTermination();
 
     return result;

@@ -68,6 +68,7 @@ struct HelperCommands : vector<string>
     int active_;
 };
 
+#if 1
 /* ensures that the basic callback system works */
 BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 {
@@ -94,24 +95,28 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
         ML::futex_wake(done);
     };
 
-    auto onStdIn = [&] () {
-        return commands.nextCommand();
-    };
-    auto onStdOut = [&] (const string & message) {
+    auto onStdOut = [&] (string && message) {
         // cerr << "received message on stdout: /" + message + "/" << endl;
         receivedStdOut += message;
     };
-    auto onStdErr = [&] (const string & message) {
+    auto stdOutSink = make_shared<CallbackSink>(onStdOut);
+
+    auto onStdErr = [&] (string && message) {
         // cerr << "received message on stderr: /" + message + "/" << endl;
         receivedStdErr += message;
     };
+    auto stdErrSink = make_shared<CallbackSink>(onStdErr);
 
     AsyncRunner runner;
     loop.addSource("runner", runner);
     loop.start();
 
+    auto & stdInSink = runner.getStdInSink();
     runner.run({"build/x86_64/bin/test_runner_helper"},
-               onTerminate, onStdOut, onStdErr, onStdIn);
+               onTerminate, stdOutSink, stdErrSink);
+    for (const string & command: commands) {
+        stdInSink.write(string(command));
+    }
 
     while (!done) {
         ML::futex_wait(done, false);
@@ -120,11 +125,15 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     BOOST_CHECK_EQUAL(receivedStdOut, expectedStdOut);
     BOOST_CHECK_EQUAL(receivedStdErr, expectedStdErr);
 }
+#endif
 
+#if 1
 /* ensures that the returned status is properly set after termination */
 BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 {
     BlockedSignals blockedSigs(SIGCHLD);
+
+    auto nullSink = make_shared<NullSink>();
 
     /* normal termination, with code */
     {
@@ -137,17 +146,16 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         auto onTerminate = [&] (const AsyncRunner::RunResult & newResult) {
             result = newResult;
         };
-        auto onStdIn = [&] () {
-            return commands.nextCommand();
-        };
-        auto discard = [&] (const string & message) {
-        };
         AsyncRunner runner;
         loop.addSource("runner", runner);
         loop.start();
 
+        auto & stdInSink = runner.getStdInSink();
         runner.run({"build/x86_64/bin/test_runner_helper"},
-                   onTerminate, discard, discard, onStdIn);
+                   onTerminate, nullSink, nullSink);
+        for (const string & command: commands) {
+            stdInSink.write(string(command));
+        }
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.signaled, false);
@@ -165,35 +173,37 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         auto onTerminate = [&] (const AsyncRunner::RunResult & newResult) {
             result = newResult;
         };
-        auto onStdIn = [&] () {
-            return commands.nextCommand();
-        };
-        auto discard = [&] (const string & message) {
-        };
         AsyncRunner runner;
         loop.addSource("runner", runner);
         loop.start();
 
+        auto & stdInSink = runner.getStdInSink();
         runner.run({"build/x86_64/bin/test_runner_helper"},
-                   onTerminate, discard, discard, onStdIn);
+                   onTerminate, nullSink, nullSink);
+        for (const string & command: commands) {
+            stdInSink.write(string(command));
+        }
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.signaled, true);
         BOOST_CHECK_EQUAL(result.returnCode, SIGABRT);
     }
 }
+#endif
 
+/* test Execute function */
 BOOST_AUTO_TEST_CASE( test_runner_execute )
 {
-    HelperCommands commands;
-    commands.sendExit(0);
-
-    auto onStdIn = [&] () {
-        return commands.nextCommand();
+    string received;
+    auto onStdOut = [&] (string && message) {
+        // cerr << "received message on stdout: /" + message + "/" << endl;
+        received = move(message);
     };
+    auto stdOutSink = make_shared<CallbackSink>(onStdOut);
 
-    auto result = Execute({"build/x86_64/bin/test_runner_helper"},
-                          nullptr, nullptr, onStdIn);
+    auto result = Execute({"/bin/cat", "-"},
+                          stdOutSink, nullptr, "hello callbacks");
+    BOOST_CHECK_EQUAL(received, "hello callbacks");
     BOOST_CHECK_EQUAL(result.signaled, false);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 }

@@ -1,3 +1,12 @@
+/* runner.h                                                        -*- C++ -*-
+   Wolfgang Sourdeau, September 2013
+   Copyright (c) 2013 Datacratic.  All rights reserved.
+
+   A command runner class that hides the specifics of the underlying unix
+   system calls in order to provide an easy interface for running commands
+   and intercepting input and output.
+*/
+
 #pragma once
 
 #include <signal.h>
@@ -7,10 +16,51 @@
 #include <utility>
 #include <vector>
 
+#include "jml/utils/ring_buffer.h"
 #include "epoller.h"
+#include "typed_message_channel.h"
 
 
 namespace Datacratic {
+
+/* ASYNCRUNNER */
+
+/* Note: the receiving end is responsible for thread isolation. */
+struct Sink {
+    Sink()
+        : closed_(false)
+    {}
+
+    virtual void write(std::string && data) = 0;
+
+    void close(void)
+    { closed_ = true; }
+
+    bool closed() const
+    { return closed_; }
+
+private:
+    bool closed_;
+};
+
+struct CallbackSink : Sink {
+    typedef std::function<void(std::string && data)> OnData;
+
+    CallbackSink(const OnData & onData)
+        : Sink(), onData_(onData)
+    {}
+
+    virtual void write(std::string && data)
+    { onData_(std::move(data)); }
+
+private:
+    OnData onData_;
+};
+
+struct NullSink : public Sink {
+    virtual void write(std::string && data)
+    {}
+};
 
 struct AsyncRunner: public Epoller {
     struct RunResult {
@@ -34,16 +84,15 @@ struct AsyncRunner: public Epoller {
     };
 
     typedef std::function<void (const RunResult & result)> OnTerminate;
-    typedef std::function<void (const std::string & newOutput)> OnOutput;
-    typedef std::function<std::string (void)> OnInput;
 
     AsyncRunner();
 
+    Sink & getStdInSink();
+
     void run(const std::vector<std::string> & command,
              const OnTerminate & onTerminate = nullptr,
-             const OnOutput & onStdOut = nullptr,
-             const OnOutput & onStdErr = nullptr,
-             const OnInput & onStdIn = nullptr);
+             const std::shared_ptr<Sink> & stdOutSink = nullptr,
+             const std::shared_ptr<Sink> & stdErrSink = nullptr);
     void kill(int signal = SIGTERM);
     void waitTermination();
 
@@ -56,23 +105,28 @@ private:
             : childPid(-1),
               wrapperPid(-1),
               stdInFd(-1),
+              stdInReady(false),
               stdOutFd(-1),
               stdErrFd(-1),
               statusFd(-1)
         {}
 
+        void setupInSink();
+        void flushInSink();
+        void flushStdInBuffer();
         void postTerminate(AsyncRunner & runner, const RunResult & runResult);
 
         std::vector<std::string> command;
         OnTerminate onTerminate;
-        OnInput onStdIn;
-        OnOutput onStdOut;
-        OnOutput onStdErr;
+
+        std::unique_ptr<TypedMessageSink<std::string> > inSink;
+        std::string buffer;
 
         pid_t childPid;
         pid_t wrapperPid;
 
         int stdInFd;
+        bool stdInReady;
         int stdOutFd;
         int stdErrFd;
         int statusFd;
@@ -82,22 +136,29 @@ private:
     bool handleEpollEvent(const struct epoll_event & event);
     void handleChildStatus(const struct epoll_event & event,
                            int fd, Task & task);
-    void handleChildInput(const struct epoll_event & event,
-                          int fd, const OnInput & onInputFn);
-    void handleChildOutput(const struct epoll_event & event,
-                           int fd, const OnOutput & onOutputFn);
+    void handleClientData(const struct epoll_event & event,
+                          TypedMessageSink<std::string> & inSink);
+    void handleStdInStatus(const struct epoll_event & event, int fd);
+    void handleOutputStatus(const struct epoll_event & event,
+                            int fd, Sink & inputSink);
     void postTerminate();
 
     int running_;
+
+    std::unique_ptr<Sink> stdInSink_;
+    std::shared_ptr<Sink> stdOutSink_;
+    std::shared_ptr<Sink> stdErrSink_;
+
     std::unique_ptr<Task> task_;
 };
 
+/* EXECUTE */
+
 AsyncRunner::RunResult Execute(const std::vector<std::string> & command,
-                               const AsyncRunner::OnOutput & onStdOut
+                               const std::shared_ptr<Sink> & stdOutSink
                                = nullptr,
-                               const AsyncRunner::OnOutput & onStdErr
+                               const std::shared_ptr<Sink> & stdErrSink
                                = nullptr,
-                               const AsyncRunner::OnInput & onStdIn
-                               = nullptr);
+                               const std::string & stdInData = "");
 
 }
