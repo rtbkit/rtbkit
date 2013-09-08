@@ -9,6 +9,7 @@
 #include "jml/utils/string_functions.h"
 #include "soa/service/message_loop.h"
 #include "soa/service/runner.h"
+#include "soa/service/sink.h"
 
 #include <iostream>
 
@@ -68,7 +69,7 @@ struct HelperCommands : vector<string>
     int active_;
 };
 
-#if 1
+#if 0
 /* ensures that the basic callback system works */
 BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 {
@@ -99,13 +100,13 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
         // cerr << "received message on stdout: /" + message + "/" << endl;
         receivedStdOut += message;
     };
-    auto stdOutSink = make_shared<CallbackSink>(onStdOut);
+    auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
 
     auto onStdErr = [&] (string && message) {
         // cerr << "received message on stderr: /" + message + "/" << endl;
         receivedStdErr += message;
     };
-    auto stdErrSink = make_shared<CallbackSink>(onStdErr);
+    auto stdErrSink = make_shared<CallbackInputSink>(onStdErr);
 
     AsyncRunner runner;
     loop.addSource("runner", runner);
@@ -133,7 +134,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 {
     BlockedSignals blockedSigs(SIGCHLD);
 
-    auto nullSink = make_shared<NullSink>();
+    auto nullSink = make_shared<NullInputSink>();
 
     /* normal termination, with code */
     {
@@ -191,6 +192,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 }
 #endif
 
+#if 1
 /* test Execute function */
 BOOST_AUTO_TEST_CASE( test_runner_execute )
 {
@@ -199,7 +201,7 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
         // cerr << "received message on stdout: /" + message + "/" << endl;
         received = move(message);
     };
-    auto stdOutSink = make_shared<CallbackSink>(onStdOut);
+    auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
 
     auto result = Execute({"/bin/cat", "-"},
                           stdOutSink, nullptr, "hello callbacks");
@@ -207,3 +209,4 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
     BOOST_CHECK_EQUAL(result.signaled, false);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 }
+#endif

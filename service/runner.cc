@@ -20,6 +20,7 @@
 #include "jml/utils/file_functions.h"
 
 #include "message_loop.h"
+#include "sink.h"
 
 #include "runner.h"
 
@@ -180,6 +181,12 @@ AsyncRunner()
                        placeholders::_1);
 }
 
+AsyncRunner::
+~AsyncRunner()
+{
+    waitTermination();
+}
+
 bool
 AsyncRunner::
 handleEpollEvent(const struct epoll_event & event)
@@ -189,14 +196,6 @@ handleEpollEvent(const struct epoll_event & event)
         if (event.data.ptr == &task.statusFd) {
             // fprintf(stderr, "parent: handle child status input\n");
             handleChildStatus(event, task.statusFd, task);
-        }
-        else if (event.data.ptr == &task.stdInFd) {
-            // fprintf(stderr, "parent: handle child input to stdin\n");
-            handleStdInStatus(event, task.stdInFd);
-        }
-        else if (event.data.ptr == task.inSink.get()) {
-            // fprintf(stderr, "parent: handle child input to stdin\n");
-            handleClientData(event, *task.inSink);
         }
         else if (event.data.ptr == &task.stdOutFd) {
             // fprintf(stderr, "parent: handle child output from stdout\n");
@@ -236,58 +235,21 @@ handleChildStatus(const struct epoll_event & event, int statusFd, Task & task)
     else {
         RunResult result(status.status);
         task.postTerminate(*this, result);
-        task_.reset();
         running_ = false;
+        if (stdInSink_) {
+            stdInSink_->requestClose();
+        }
+        else {
+            task_.reset(nullptr);
+        }
         ML::futex_wake(running_);
     }
 }
 
 void
 AsyncRunner::
-handleStdInStatus(const struct epoll_event & event, int stdInFd)
-{
-    if ((event.events & EPOLLOUT) != 0) {
-        task_->stdInReady = true;
-        task_->flushStdInBuffer();
-    }
-
-    if ((event.events & EPOLLHUP) == 0) {
-        restartFdOneShot(stdInFd, event.data.ptr, true);
-    }
-}
-
-void
-AsyncRunner::
-handleClientData(const struct epoll_event & event,
-                 TypedMessageSink<string> & inSink)
-{
-    int fd = inSink.selectFd();
-
-    if ((event.events & EPOLLIN) != 0) {
-        eventfd_t val = 0;
-        int res = eventfd_read(fd, &val);
-        if (res == -1)
-            throw ML::Exception(errno, "handleClientData eventfd_read");
-        while (inSink.poll()) {
-            inSink.processOne();
-        }
-        task_->flushStdInBuffer();
-    }
-
-    if (stdInSink_->closed() || (event.events & EPOLLHUP) == 0) {
-        removeFd(task_->stdInFd);
-        ::close(task_->stdInFd);
-        task_->stdInFd = -1;
-    }
-    else {
-        restartFdOneShot(fd, event.data.ptr);
-    }
-}
-
-void
-AsyncRunner::
 handleOutputStatus(const struct epoll_event & event,
-                   int outputFd, Sink & sink)
+                   int outputFd, InputSink & sink)
 {
     char buffer[4096];
     bool closedFd(false);
@@ -322,7 +284,7 @@ handleOutputStatus(const struct epoll_event & event,
 
         if (data.size() > 0) {
             // cerr << "sending child output to output handler\n";
-            sink.write(move(data));
+            sink.notifyReceived(move(data));
         }
         else {
             cerr << "ignoring child output due to size == 0\n";
@@ -330,20 +292,21 @@ handleOutputStatus(const struct epoll_event & event,
     }
 
     // cerr << "closedFd: " << closedFd << endl;
-    if (!closedFd && (event.events & EPOLLHUP) == 0) {
+    if (closedFd || (event.events & EPOLLHUP) == 0) {
+        sink.notifyClosed();
+    }
+    else {
         JML_TRACE_EXCEPTIONS(false);
         try {
             restartFdOneShot(outputFd, event.data.ptr);
         }
         catch (const ML::Exception & exc) {
+            sink.notifyClosed();
         }
-    }
-    else {
-        cerr << "parent: child stdout or stderr closed\n";
     }
 }
 
-Sink &
+OutputSink &
 AsyncRunner::
 getStdInSink()
 {
@@ -352,16 +315,10 @@ getStdInSink()
     if (stdInSink_)
         throw ML::Exception("stdin sink already set");
 
-    auto stdInCb = [&] (string && data) {
-        if (task_ && task_->inSink) {
-            task_->inSink->push(move(data));
-        }
-        else {
-            fprintf(stderr,
-                    "stdInCb: discarded input data\n");
-        }
+    auto onClosed = [&] (const OutputSink & closedSink) {
+        this->onStdInClosed(closedSink);
     };
-    stdInSink_.reset(new CallbackSink(stdInCb));
+    stdInSink_.reset(new AsyncFdOutputSink(onClosed));
 
     return *stdInSink_;
 }
@@ -370,8 +327,8 @@ void
 AsyncRunner::
 run(const vector<string> & command,
     const OnTerminate & onTerminate,
-    const shared_ptr<Sink> & stdOutSink,
-    const shared_ptr<Sink> & stdErrSink)
+    const shared_ptr<InputSink> & stdOutSink,
+    const shared_ptr<InputSink> & stdErrSink)
 {
     if (task_)
         throw ML::Exception("already running");
@@ -406,18 +363,17 @@ run(const vector<string> & command,
     }
     else {
         ML::set_file_flag(task.statusFd, O_NONBLOCK);
-        addFdOneShot(task.statusFd, &task.statusFd);
-        if (task.stdInFd != -1) {
+        if (stdInSink_) {
             ML::set_file_flag(task.stdInFd, O_NONBLOCK);
-            addFdOneShot(task.stdInFd, &task.stdInFd, true);
-            task.setupInSink();
-            addFdOneShot(task.inSink->selectFd(), task.inSink.get());
+            stdInSink_->init(task.stdInFd);
+            parent_->addSource("stdInSink", stdInSink_);
         }
-        if (task.stdOutFd != -1) {
+        addFdOneShot(task.statusFd, &task.statusFd);
+        if (stdOutSink) {
             ML::set_file_flag(task.stdOutFd, O_NONBLOCK);
             addFdOneShot(task.stdOutFd, &task.stdOutFd);
         }
-        if (task.stdErrFd != -1) {
+        if (stdErrSink) {
             ML::set_file_flag(task.stdErrFd, O_NONBLOCK);
             addFdOneShot(task.stdErrFd, &task.stdErrFd);
         }
@@ -441,61 +397,36 @@ void
 AsyncRunner::
 waitTermination()
 {
+    while (task_ && task_->stdInFd != -1) {
+        int oldVal = task_->stdInFd;
+        ML::futex_wait(task_->stdInFd, oldVal);
+    }
+
     while (running_) {
         ML::futex_wait(running_, true);
     }
 }
 
-
-/* ASYNCRUNNER::TASK */
-
 void
 AsyncRunner::
-Task::
-setupInSink()
+onStdInClosed(const OutputSink & sink)
 {
-    if (inSink) {
-        throw ML::Exception("inSink already exists");
+    if (task_) {
+        task_->stdInFd = -1;
+        ML::futex_wake(task_->stdInFd);
+        task_.reset(nullptr);
     }
-
-    inSink.reset(new TypedMessageSink<string>(32));
-    auto flushInSink = [&] (string && data) {
-        buffer += data;
-    };
-    inSink->onEvent = flushInSink;
-}
-
-void
-AsyncRunner::
-Task::
-flushStdInBuffer()
-{
-    ssize_t remaining = buffer.size();
-    if (stdInReady && remaining > 0) {
-        const char * data = buffer.c_str();
-        size_t written(0);
-        while (remaining > 0) {
-            ssize_t len = ::write(stdInFd, data + written, remaining);
-            if (len > 0) {
-                written += len;
-                remaining -= len;
-                if (remaining == 0) {
-                    buffer = "";
-                }
-            }
-            else {
-                if (errno == EWOULDBLOCK) {
-                    stdInReady = false;
-                    buffer = buffer.substr(written);
-                    break;
-                }
-                else {
-                    throw ML::Exception(errno, "write");
-                }
-            }
+    else {
+        if (stdInSink_ && !stdInSink_->closed()) {
+            cerr << "task dead but stdin sink not closed\n";
         }
     }
+
+    parent_->removeSource(stdInSink_.get());
 }
+
+
+/* ASYNCRUNNER::TASK */
 
 void
 AsyncRunner::
@@ -513,11 +444,6 @@ postTerminate(AsyncRunner & runner, const RunResult & runResult)
             fd = -1;
         }
     };
-
-    if (inSink) {
-        runner.removeFd(inSink->selectFd());
-    }
-    unregisterFd(stdInFd);
     unregisterFd(stdOutFd);
     unregisterFd(stdErrFd);
     unregisterFd(statusFd);
@@ -551,8 +477,8 @@ updateFromStatus(int status)
 AsyncRunner::RunResult
 Datacratic::
 Execute(const vector<string> & command,
-        const shared_ptr<Sink> & stdOutSink,
-        const shared_ptr<Sink> & stdErrSink,
+        const shared_ptr<InputSink> & stdOutSink,
+        const shared_ptr<InputSink> & stdErrSink,
         const string & stdInData)
 {
     AsyncRunner::RunResult result;
@@ -570,7 +496,7 @@ Execute(const vector<string> & command,
         auto & sink = runner.getStdInSink();
         runner.run(command, onTerminate, stdOutSink, stdErrSink);
         sink.write(string(stdInData));
-        sink.close();
+        sink.requestClose();
     }
     else {
         runner.run(command, onTerminate, stdOutSink, stdErrSink);
