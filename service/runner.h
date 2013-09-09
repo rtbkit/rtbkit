@@ -95,7 +95,7 @@ private:
                             int fd, InputSink & inputSink);
     void handleTaskTermination(const struct epoll_event & event);
 
-    void onStdInClose();
+    void closeStdInSink();
 
     ML::Wakeup_Fd wakeup_;
     int running_;

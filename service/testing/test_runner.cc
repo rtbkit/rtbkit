@@ -118,6 +118,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     for (const string & command: commands) {
         stdInSink.write(string(command));
     }
+    stdInSink.requestClose();
 
     while (!done) {
         ML::futex_wait(done, false);
@@ -157,6 +158,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         for (const string & command: commands) {
             stdInSink.write(string(command));
         }
+        stdInSink.requestClose();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.signaled, false);
@@ -184,6 +186,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         for (const string & command: commands) {
             stdInSink.write(string(command));
         }
+        stdInSink.requestClose();
         runner.waitTermination();
 
         BOOST_CHECK_EQUAL(result.signaled, true);

@@ -241,8 +241,7 @@ handleChildStatus(const struct epoll_event & event, int statusFd, Task & task)
     }
     else {
         if (stdInSink_) {
-            stdInSink_->state = OutputSink::CLOSED;
-            onStdInClose();
+            closeStdInSink();
         }
         task.runResult.updateFromStatus(status.status);
         wakeup_.signal();
@@ -315,6 +314,20 @@ handleTaskTermination(const struct epoll_event & event)
 {
     wakeup_.read();
 
+    if (stdInSink_) {
+        closeStdInSink();
+        parent_->removeSource(stdInSink_.get());
+        stdInSink_.reset();
+    }
+    if (stdOutSink_) {
+        stdOutSink_->notifyClosed();
+        stdOutSink_.reset();
+    }
+    if (stdErrSink_) {
+        stdErrSink_->notifyClosed();
+        stdErrSink_.reset();
+    }
+
     task_->postTerminate(*this);
     task_.reset(nullptr);
 
@@ -334,10 +347,10 @@ getStdInSink()
         throw ML::Exception("stdin sink already set");
 
     auto onHangup = [&] () {
-        this->onStdInClose();
+        this->closeStdInSink();
     };
     auto onClose = [&] () {
-        this->onStdInClose();
+        this->closeStdInSink();
     };
     stdInSink_.reset(new AsyncFdOutputSink(onHangup, onClose));
 
@@ -425,7 +438,7 @@ waitTermination()
 
 void
 AsyncRunner::
-onStdInClose()
+closeStdInSink()
 {
     if (task_) {
         if (task_->stdInFd != -1) {
@@ -437,6 +450,7 @@ onStdInClose()
         throw ML::Exception("task dead but stdin sink alive\n");
     }
 
+    stdInSink_->state = OutputSink::CLOSED;
     parent_->removeSource(stdInSink_.get());
     stdInSink_.reset();
 }
