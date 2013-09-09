@@ -46,6 +46,11 @@ int main(int argc, char *argv[])
     while (1) {
         char command[3];
         size_t n = ::fread(command, 1, sizeof(command), stdin);
+        if (n < 3) {
+            if (::feof(stdin)) {
+                break;
+            }
+        }
         if (n == 0) {
             continue;
         }
