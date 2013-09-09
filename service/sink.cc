@@ -22,6 +22,28 @@ doClose()
     state = CLOSED;
 }
 
+std::istream &
+Datacratic::operator >>
+(std::istream & stream, OutputSink & sink)
+{
+    string newData;
+
+    stream >> newData;
+    sink.write(move(newData));
+
+    return stream;
+}
+
+
+/* CALLBACKOUTPUTSINK */
+
+bool
+CallbackOutputSink::
+write(std::string && data)
+{
+    return onData_(move(data));
+}
+
 
 /* ASYNCOUTPUTSINK */
 

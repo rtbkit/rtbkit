@@ -30,6 +30,7 @@ $(eval $(call test,service_proxies_test,endpoint,boost))
 $(eval $(call program,test_runner_helper,utils))
 $(eval $(call test,test_runner,services,boost))
 $(TESTS)/test_runner: test_runner_helper
+$(eval $(call test,test_sink,services,boost))
 
 $(eval $(call library,tcpsockets,tcpsockets.cc,services))
 $(eval $(call test,zmq_tcp_bench,tcpsockets services,boost manual timed))

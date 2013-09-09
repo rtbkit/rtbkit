@@ -62,6 +62,26 @@ struct OutputSink {
     OnClose onClose_;
 };
 
+std::istream & operator >> (std::istream & stream, OutputSink & sink);
+
+
+/* CALLBACKOUTPUTSINK
+ */
+
+struct CallbackOutputSink : public OutputSink {
+    typedef std::function<bool(std::string && data)> OnData;
+
+    CallbackOutputSink(const OnData & onData,
+                       const OutputSink::OnClose & onClose = nullptr)
+        : OutputSink(onClose), onData_(onData)
+    {}
+
+    virtual bool write(std::string && data);
+
+private:
+    OnData onData_;
+
+};
 
 /* ASYNCOUTPUTSINK
 
