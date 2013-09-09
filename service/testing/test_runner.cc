@@ -69,7 +69,7 @@ struct HelperCommands : vector<string>
     int active_;
 };
 
-#if 0
+#if 1
 /* ensures that the basic callback system works */
 BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 {
@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 }
 #endif
 
-#if 0
+#if 1
 /* ensures that the returned status is properly set after termination */
 BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 {
