@@ -28,9 +28,7 @@ namespace Datacratic {
  */
 
 struct OutputSink {
-    /* "data" has been received and must be written. Returns the number of
-     * bytes. */
-    typedef std::function<size_t (const char *, size_t)> OnWrite;
+    /* The client has requested the closing of the connection. */
     typedef std::function<void ()> OnClose;
 
     enum State {
@@ -39,13 +37,12 @@ struct OutputSink {
         CLOSED
     };
 
-    OutputSink(const OnWrite & onWrite, const OnClose & onClose = nullptr)
-        : state(OPEN), onWrite_(onWrite), onClose_(onClose)
+    OutputSink(const OnClose & onClose = nullptr)
+        : state(OPEN), onClose_(onClose)
     {}
 
     /* Write data to the output. Returns true when successful. */
-    virtual bool write(std::string && data)
-    { return (onWrite_(data.c_str(), data.size()) > 0); }
+    virtual bool write(std::string && data) = 0;
 
     bool write(const std::string & data)
     {
@@ -62,19 +59,20 @@ struct OutputSink {
 
     void doClose();
 
-    OnWrite onWrite_;
     OnClose onClose_;
 };
 
 
 /* ASYNCOUTPUTSINK
 
-   A non-blocking output sink that sends data to an open file descriptor. */
+   A non-blocking output sink that sends data to an open file descriptor.
+   Opening and closing of the file descriptor is left to the provider. */
 struct AsyncFdOutputSink : public AsyncEventSource,
                            public OutputSink {
+    /* The file-descriptor was hung up by the receiving end. */
     typedef std::function<void ()> OnHangup;
-    AsyncFdOutputSink(const OnWrite & onWrite,
-                      const OnHangup & onHangup,
+
+    AsyncFdOutputSink(const OnHangup & onHangup,
                       const OnClose & onClose,
                       int bufferSize = 32);
     ~AsyncFdOutputSink();

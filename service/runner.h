@@ -95,7 +95,6 @@ private:
                             int fd, InputSink & inputSink);
     void handleTaskTermination(const struct epoll_event & event);
 
-    size_t onStdInWrite(const char * data, size_t len);
     void onStdInClose();
 
     ML::Wakeup_Fd wakeup_;

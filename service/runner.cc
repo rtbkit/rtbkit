@@ -333,16 +333,13 @@ getStdInSink()
     if (stdInSink_)
         throw ML::Exception("stdin sink already set");
 
-    auto onWrite = [&] (const char * data, size_t len) {
-        return this->onStdInWrite(data, len);
-    };
     auto onHangup = [&] () {
         this->onStdInClose();
     };
     auto onClose = [&] () {
         this->onStdInClose();
     };
-    stdInSink_.reset(new AsyncFdOutputSink(onWrite, onHangup, onClose));
+    stdInSink_.reset(new AsyncFdOutputSink(onHangup, onClose));
 
     return *stdInSink_;
 }
@@ -424,22 +421,6 @@ waitTermination()
     while (running_) {
         ML::futex_wait(running_, true);
     }
-}
-
-size_t
-AsyncRunner::
-onStdInWrite(const char * data, size_t len)
-{
-    ssize_t written = ::write(task_->stdInFd, data, len);
-
-    if (written < 0) {
-        if (errno != EWOULDBLOCK) {
-            throw ML::Exception(errno, "write");
-        }
-        written = 0;
-    }
-    
-    return written;
 }
 
 void

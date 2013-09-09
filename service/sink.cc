@@ -26,12 +26,11 @@ doClose()
 /* ASYNCOUTPUTSINK */
 
 AsyncFdOutputSink::
-AsyncFdOutputSink(const OnWrite & onWrite,
-                  const OnHangup & onHangup,
+AsyncFdOutputSink(const OnHangup & onHangup,
                   const OnClose & onClose,
                   int bufferSize)
     : AsyncEventSource(),
-      OutputSink(onWrite, onClose),
+      OutputSink(onClose),
       onHangup_(onHangup),
       outputFd_(-1),
       fdReady_(false),
@@ -178,16 +177,16 @@ AsyncFdOutputSink::
 handleFdEvent(const struct epoll_event & event)
 {
     if ((event.events & EPOLLHUP) != 0) {
+        removeFd(outputFd_);
         onHangup_();
+        outputFd_ = -1;
         state = CLOSED;
     }
     else if ((event.events & EPOLLOUT) != 0) {
         if (state != CLOSED) {
             fdReady_ = true;
             flushStdInBuffer();
-            if (state == OPEN) {
-                restartFdOneShot(outputFd_, handleFdEventCb_, true);
-            }
+            restartFdOneShot(outputFd_, handleFdEventCb_, true);
         }
     }
 }
@@ -233,18 +232,25 @@ flushStdInBuffer()
         const char * data = buffer_.c_str();
         size_t written(0);
         while (remaining > 0) {
-            size_t len = onWrite_(data + written, remaining);
-            if (len > 0) {
+            ssize_t len = ::write(outputFd_, data + written, remaining);
+            if (len == 0) {
+                buffer_ = buffer_.substr(written);
+                break;
+            }
+            else if (len < 0) {
+                if (errno == EWOULDBLOCK) {
+                    fdReady_ = false;
+                }
+                else {
+                    throw ML::Exception(errno, "write");
+                }
+            }
+            else if (len > 0) {
                 written += len;
                 remaining -= len;
                 if (remaining == 0) {
                     buffer_ = "";
                 }
-            }
-            else {
-                fdReady_ = false;
-                buffer_ = buffer_.substr(written);
-                break;
             }
         }
         buffer_.reserve(8192);
