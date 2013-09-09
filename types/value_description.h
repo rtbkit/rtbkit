@@ -340,16 +340,14 @@ RegisterValueDescriptionI<T, Impl>
 ValueDescriptionI<T, kind, Impl>::
 regme;
 
-inline void * addOffset(void * base, ssize_t offset)
+inline constexpr void * addOffset(void * base, ssize_t offset)
 {
-    char * c = reinterpret_cast<char *>(base);
-    return c + offset;
+    return reinterpret_cast<char *>(base) + offset;
 }
 
-inline const void * addOffset(const void * base, ssize_t offset)
+inline constexpr const void * addOffset(const void * base, ssize_t offset)
 {
-    const char * c = reinterpret_cast<const char *>(base);
-    return c + offset;
+    return reinterpret_cast<const char *>(base) + offset;
 }
 
 
@@ -958,6 +956,12 @@ struct DefaultDescription<std::map<std::string, T> >
         return *this->inner;
     }
 };
+
+
+
+/*****************************************************************************/
+/* CONVERSION FUNCTIONS                                                      */
+/*****************************************************************************/
 
 
 // Template set for which hasToJson<T>::value is true if and only if it has a function
