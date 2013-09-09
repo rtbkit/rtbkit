@@ -60,6 +60,11 @@ struct HttpRestProxy {
             return body_;
         }
 
+        Json::Value jsonBody() const
+        {
+            return Json::parse(body_);
+        }
+
         /** Get the given response header of the REST call. */
         std::string getHeader(const std::string & name) const
         {

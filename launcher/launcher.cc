@@ -78,7 +78,7 @@ int main(int argc, char ** argv)
 
     Datacratic::Launcher::Service::get().run(root, node, filename, script, launch, master);
 
-    if(!launch) {
+    if(launch) {
         int res = system(script.c_str());
         if(res == -1) {
             std::cerr << "cannot launch script" << std::endl;

@@ -231,7 +231,7 @@ private:
 
     ML::Spinlock connectionsLock;
 
-    typedef std::map<std::string, std::unique_ptr<RestProxy> > ConnectionsMap;
+    typedef std::map<std::string, std::shared_ptr<RestProxy> > ConnectionsMap;
     ConnectionsMap connections;
 
     ConfigurationService::Watch serviceProvidersWatch;

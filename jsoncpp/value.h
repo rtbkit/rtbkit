@@ -245,6 +245,10 @@ namespace Json {
       Value( bool value );
       Value( const Value &other );
       Value( Value &&other );
+      
+      /** Construct an array. */
+      Value( const std::initializer_list<Json::Value> & vals );
+
       ~Value();
 
       Value &operator=( const Value &other );

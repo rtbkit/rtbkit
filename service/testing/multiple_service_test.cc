@@ -292,6 +292,7 @@ private:
     ServiceDiscoveryScenario &scenario;
 };
 
+// FIXME this test is failing on AWS
 #if 0
 BOOST_AUTO_TEST_CASE( test_service_zk_disconnect )
 {
@@ -378,8 +379,8 @@ std::string formatHost(const std::string &host, int port) {
     return ML::format("%s:%d", host.c_str(), port);
 }
 
-#if 0
 
+#if 0
 BOOST_AUTO_TEST_CASE( test_early_connection )
 {
     /** Test that we can do a "connect", then start the service, and
@@ -521,7 +522,7 @@ BOOST_AUTO_TEST_CASE( test_simple_disconnect )
         ML::sleep(0.1);
 
     std::cerr << "Expiring session\n";
-    scenario.expireSession("connectionProxy");
+    scenario.expireSession("endpointProxy");
 
     ML::sleep(10);
 }

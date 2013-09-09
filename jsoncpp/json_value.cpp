@@ -480,6 +480,24 @@ Value::Value( const Value &other )
    }
 }
 
+Value::Value( const std::initializer_list<Json::Value> & vals )
+   : type_( arrayValue )
+   , allocated_( 0 )
+   , comments_( 0 )
+# ifdef JSON_VALUE_USE_INTERNAL_MAP
+   , itemIsUsed_( 0 )
+#endif
+{
+#ifndef JSON_VALUE_USE_INTERNAL_MAP
+    value_.map_ = new ObjectValues();
+#else
+    value_.array_ = arrayAllocator()->newArray();
+#endif
+
+    for (auto & v: vals)
+        append(v);
+}
+
 Value::Value( Value &&other )
     :  value_(other.value_)
     , type_( other.type_ )

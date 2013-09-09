@@ -394,8 +394,8 @@ struct TestBase {
     void checkVisible(int threadNum, unsigned long long start)
     {
         // We're reading from someone else's pointers, so we need to lock here
-        gc.enterCS();
-        //gc.lockShared();
+        //gc.enterCS();
+        gc.lockShared();
 
         for (unsigned i = 0;  i < nthreads;  ++i) {
             for (unsigned j = 0;  j < nblocks;  ++j) {
@@ -415,8 +415,8 @@ struct TestBase {
             }
         }
 
-        gc.exitCS();
-        //gc.unlockShared();
+        //gc.exitCS();
+        gc.unlockShared();
     }
 
     void doReadThread(int threadNum)

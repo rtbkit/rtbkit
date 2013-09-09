@@ -1001,11 +1001,35 @@ T jsonDecode(const Json::Value & json, T * = 0,
     return result;
 }
 
-// In-place json decoding
+// jsonDecode implementation for any type which:
+// 1) has a default description;
+// 2) does NOT have a fromJson() function (there is a simpler overload for this case)
 template<typename T>
-void jsonDecode(const Json::Value & json, T & val)
+T jsonDecodeStr(const std::string & json, T * = 0,
+                decltype(getDefaultDescription((T *)0)) * = 0,
+                typename std::enable_if<!hasFromJson<T>::value>::type * = 0)
+{
+    T result;
+
+    static std::unique_ptr<ValueDescription> desc
+        (getDefaultDescription((T *)0));
+    StreamingJsonParsingContext context(json, json.c_str(), json.c_str() + json.size());
+    desc->parseJson(&result, context);
+    return result;
+}
+
+// In-place json decoding
+template<typename T, typename V>
+void jsonDecode(V && json, T & val)
 {
     val = std::move(jsonDecode(json, (T *)0));
+}
+
+// In-place json decoding
+template<typename T>
+void jsonDecodeStr(const std::string & json, T & val)
+{
+    val = std::move(jsonDecodeStr(json, (T *)0));
 }
 
 // jsonEncode implementation for any type which:
@@ -1021,6 +1045,22 @@ Json::Value jsonEncode(const T & obj,
     StructuredJsonPrintingContext context;
     desc->printJson(&obj, context);
     return std::move(context.output);
+}
+
+// jsonEncode implementation for any type which:
+// 1) has a default description;
+// 2) does NOT have a toJson() function (there is a simpler overload for this case)
+template<typename T>
+std::string jsonEncodeStr(const T & obj,
+                          decltype(getDefaultDescription((T *)0)) * = 0,
+                          typename std::enable_if<!hasToJson<T>::value>::type * = 0)
+{
+    static std::unique_ptr<ValueDescription> desc
+        (getDefaultDescription((T *)0));
+    std::ostringstream stream;
+    StreamJsonPrintingContext context(stream);
+    desc->printJson(&obj, context);
+    return std::move(stream.str());
 }
 
 inline Json::Value jsonEncode(const char * str)
