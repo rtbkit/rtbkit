@@ -56,7 +56,7 @@ partial_bind(R (Obj::* pmf) (Args...),
 {
     return [=] (Args&&... args) -> R
         {
-            const Obj & obj = *ptr;
+            Obj & obj = *ptr;
             return ((obj).*(pmf))(std::forward<Args>(args)...);
         };
 }
