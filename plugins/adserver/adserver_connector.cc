@@ -192,7 +192,8 @@ AdServerConnector::Factory getFactory(std::string const & name) {
     std::string path = "lib" + name + "_adserver.so";
     void * handle = dlopen(path.c_str(), RTLD_NOW);
     if (!handle) {
-        throw ML::Exception("couldn't find adserver library " + path);
+        std::cerr << dlerror() << std::endl;
+        throw ML::Exception("couldn't load adserver library " + path);
     }
 
     // if it went well, it should be registered now
