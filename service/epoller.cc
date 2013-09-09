@@ -63,12 +63,12 @@ close()
 
 void
 Epoller::
-addFd(int fd, void * data, bool writerFd)
+addFd(int fd, void * data)
 {
     //cerr << Date::now().print(4) << "added " << fd << " multiple shot" << endl;
 
     struct epoll_event event;
-    event.events = (writerFd ? EPOLLOUT : EPOLLIN);
+    event.events = EPOLLIN;
     event.data.ptr = data;
     
     int res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
@@ -79,12 +79,12 @@ addFd(int fd, void * data, bool writerFd)
     
 void
 Epoller::
-addFdOneShot(int fd, void * data, bool writerFd)
+addFdOneShot(int fd, void * data)
 {
     //cerr << Date::now().print(4) << "added " << fd << " one-shot" << endl;
 
     struct epoll_event event;
-    event.events = (writerFd ? EPOLLOUT : EPOLLIN) | EPOLLONESHOT;
+    event.events = EPOLLIN | EPOLLONESHOT;
     event.data.ptr = data;
     
     int res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
@@ -96,12 +96,12 @@ addFdOneShot(int fd, void * data, bool writerFd)
 
 void
 Epoller::
-restartFdOneShot(int fd, void * data, bool writerFd)
+restartFdOneShot(int fd, void * data)
 {
     //cerr << Date::now().print(4) << "restarted " << fd << " one-shot" << endl;
 
     struct epoll_event event;
-    event.events = (writerFd ? EPOLLOUT : EPOLLIN) | EPOLLONESHOT;
+    event.events = EPOLLIN | EPOLLONESHOT;
     event.data.ptr = data;
     
     int res = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
