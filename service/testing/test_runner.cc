@@ -212,3 +212,48 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 }
 #endif
+
+#if 1
+/* perform multiple runs with the same Runner and ensures task-specific
+ * components are properly segregated */
+BOOST_AUTO_TEST_CASE( test_runner_cleanup )
+{
+    MessageLoop loop;
+
+    AsyncRunner runner;
+    loop.addSource("runner", runner);
+    loop.start();
+
+    auto nullSink = make_shared<NullInputSink>();
+
+    auto performLoop = [&] (const string & loopData) {
+        HelperCommands commands;
+        commands.sendOutput(true, loopData);
+        commands.sendExit(0);
+
+        string expectedStdOut("helper: ready\n" + loopData
+                              + "\nhelper: exit with code 0\n");
+        string receivedStdOut;
+        auto onStdOut = [&] (string && message) {
+            // cerr << "received message on stdout: /" + message + "/" << endl;
+            receivedStdOut += message;
+        };
+        auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
+
+        auto & stdInSink = runner.getStdInSink();
+        runner.run({"build/x86_64/bin/test_runner_helper"},
+                   nullptr, stdOutSink, nullSink);
+        for (const string & command: commands) {
+            stdInSink.write(string(command));
+        }
+        stdInSink.requestClose();
+        runner.waitTermination();
+
+        BOOST_CHECK_EQUAL(receivedStdOut, expectedStdOut);
+    };
+
+    for (int i = 0; i < 5; i++) {
+        performLoop(to_string(i));
+    }
+}
+#endif
