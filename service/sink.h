@@ -192,4 +192,21 @@ private:
     OnClose onClose_;
 };
 
+/* OSTREAMINPUTSINK
+
+   An InputSink issuing data to an ostream
+ */
+
+struct OStreamInputSink : public InputSink {
+    OStreamInputSink(std::ostream * stream)
+        : stream_(stream)
+    {}
+
+    virtual void notifyReceived(std::string && data);
+    virtual void notifyClosed();
+
+private:
+    std::ostream * stream_;
+};
+
 } // namespace Datacratic

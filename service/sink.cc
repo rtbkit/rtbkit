@@ -325,3 +325,24 @@ notifyClosed()
         onClose_();
     }
 }
+
+
+/* OSTREAMINPUTSINK
+
+   An InputSink issuing data to an ostream
+ */
+
+void
+OStreamInputSink::
+notifyReceived(std::string && data)
+{
+    string newData(data);
+
+    *stream_ << data;
+}
+
+void
+OStreamInputSink::
+notifyClosed()
+{
+}

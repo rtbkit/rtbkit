@@ -40,3 +40,16 @@ BOOST_AUTO_TEST_CASE( test_outputsink_istream )
 
     BOOST_CHECK_EQUAL(received, expected);
 }
+
+BOOST_AUTO_TEST_CASE( test_ostreaminputsink )
+{
+    ostringstream received;
+
+    OStreamInputSink outputSink(&received);
+
+    string data("I am sending data.");
+    string expected(data);
+    outputSink.notifyReceived(move(data));
+
+    BOOST_CHECK_EQUAL(received.str(), expected);
+}
