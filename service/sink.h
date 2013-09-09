@@ -151,13 +151,11 @@ private:
 
 struct InputSink {
     /* Notify that data has been received and transfers it. */
-    virtual void notifyReceived(std::string && data)
-    { throw ML::Exception("unimplemented"); }
+    virtual void notifyReceived(std::string && data) = 0;
 
     /* Notify that the input has been closed and that data will not be
        received anymore. */
-    virtual void notifyClosed(void)
-    { throw ML::Exception("unimplemented"); }
+    virtual void notifyClosed(void) = 0;
 };
 
 
