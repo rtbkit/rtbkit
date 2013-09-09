@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 }
 #endif
 
-#if 1
+#if 0
 /* ensures that the returned status is properly set after termination */
 BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 {
@@ -198,10 +198,9 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
 {
     string received;
     auto onStdOut = [&] (string && message) {
-        // cerr << "received message on stdout: /" + message + "/" << endl;
         received = move(message);
     };
-    auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
+    auto stdOutSink = make_shared<CallbackInputSink>(onStdOut, nullptr);
 
     auto result = Execute({"/bin/cat", "-"},
                           stdOutSink, nullptr, "hello callbacks");
