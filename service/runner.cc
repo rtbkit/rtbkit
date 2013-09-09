@@ -318,10 +318,10 @@ handleTaskTermination(const struct epoll_event & event)
     task_->postTerminate(*this);
     task_.reset(nullptr);
 
+    restartFdOneShot(wakeup_.fd(), event.data.ptr);
+
     running_ = false;
     ML::futex_wake(running_);
-
-    restartFdOneShot(wakeup_.fd(), &wakeup_.fd_);
 }
 
 OutputSink &
