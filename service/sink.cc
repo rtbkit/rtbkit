@@ -10,32 +10,29 @@ using namespace Datacratic;
 
 
 /* OUTPUTSINK */
+
 void
 OutputSink::
 doClose()
 {
-    closed_ = true;
-    if (onClosed_) {
-        onClosed_(*this);
+    state = CLOSING;
+    if (onClose_) {
+        onClose_();
     }
-}
-
-bool
-OutputSink::
-closed()
-    const
-{
-    return closed_;
+    state = CLOSED;
 }
 
 
 /* ASYNCOUTPUTSINK */
 
 AsyncFdOutputSink::
-AsyncFdOutputSink(const OnClosed & onClosed, int bufferSize)
+AsyncFdOutputSink(const OnWrite & onWrite,
+                  const OnHangup & onHangup,
+                  const OnClose & onClose,
+                  int bufferSize)
     : AsyncEventSource(),
-      OutputSink(onClosed),
-      closing_(false),
+      OutputSink(onWrite, onClose),
+      onHangup_(onHangup),
       outputFd_(-1),
       fdReady_(false),
       wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
@@ -70,28 +67,38 @@ init(int outputFd)
     addFdOneShot(outputFd_, handleFdEventCb_, true);
 }
 
-void
+bool
 AsyncFdOutputSink::
 write(std::string && data)
 {
-    if (closing_) {
+    bool result(true);
+
+    if (state == OPEN) {
+        if (threadBuffer_.tryPush(data)) {
+            wakeup_.signal();
+        }
+        else {
+            result = false;
+        }
+    }
+    else {
         throw ML::Exception("cannot write after closing");
     }
 
-    if (threadBuffer_.tryPush(data))
-        wakeup_.signal();
-    else
-        throw ML::Exception("the message queue is full");
+    return result;
 }
 
 void
 AsyncFdOutputSink::
 requestClose()
 {
-    if (closing_)
-        return;
-    closing_ = true;
-    wakeup_.signal();
+    if (state == OPEN) {
+        state = CLOSING;
+        wakeup_.signal();
+    }
+    else {
+        throw ML::Exception("cannot close twice");
+    }
 }
 
 bool
@@ -162,6 +169,7 @@ close()
 {
     if (epollFd_ > -1) {
         ::close(epollFd_);
+        epollFd_ = -1;
     }
 }
 
@@ -169,13 +177,18 @@ void
 AsyncFdOutputSink::
 handleFdEvent(const struct epoll_event & event)
 {
-    if ((event.events & EPOLLOUT) != 0) {
-        fdReady_ = true;
-        flushStdInBuffer();
+    if ((event.events & EPOLLHUP) != 0) {
+        onHangup_();
+        state = CLOSED;
     }
-
-    if ((event.events & EPOLLHUP) == 0) {
-        restartFdOneShot(outputFd_, handleFdEventCb_, true);
+    else if ((event.events & EPOLLOUT) != 0) {
+        if (state != CLOSED) {
+            fdReady_ = true;
+            flushStdInBuffer();
+            if (state == OPEN) {
+                restartFdOneShot(outputFd_, handleFdEventCb_, true);
+            }
+        }
     }
 }
 
@@ -188,12 +201,15 @@ handleWakeupEvent(const struct epoll_event & event)
         flushThreadBuffer();
         flushStdInBuffer();
     }
-
-    if (closing_ || (event.events & EPOLLHUP) != 0) {
-        doClose();
-    }
     else {
+        throw ML::Exception("unhandled event");
+    }
+
+    if (state == OPEN) {
         restartFdOneShot(wakeup_.fd(), handleWakeupEventCb_);
+    }
+    else if (state == CLOSING) {
+        doClose();
     }
 }
 
@@ -217,7 +233,7 @@ flushStdInBuffer()
         const char * data = buffer_.c_str();
         size_t written(0);
         while (remaining > 0) {
-            ssize_t len = ::write(outputFd_, data + written, remaining);
+            size_t len = onWrite_(data + written, remaining);
             if (len > 0) {
                 written += len;
                 remaining -= len;
@@ -226,31 +242,27 @@ flushStdInBuffer()
                 }
             }
             else {
-                if (errno == EWOULDBLOCK) {
-                    fdReady_ = false;
-                    buffer_ = buffer_.substr(written);
-                    break;
-                }
-                else {
-                    throw ML::Exception(errno, "write");
-                }
+                fdReady_ = false;
+                buffer_ = buffer_.substr(written);
+                break;
             }
         }
+        buffer_.reserve(8192);
     }
-    buffer_.reserve(8192);
 }
 
 void
 AsyncFdOutputSink::
 doClose()
 {
-    removeFd(wakeup_.fd());
-    ::close(wakeup_.fd());
-
+    state = CLOSING;
     if (outputFd_ != -1) {
         removeFd(outputFd_);
-        ::close(outputFd_);
+        outputFd_ = -1;
     }
+
+    removeFd(wakeup_.fd());
+    ::close(wakeup_.fd());
 
     OutputSink::doClose();
 }
@@ -281,5 +293,7 @@ void
 CallbackInputSink::
 notifyClosed()
 {
-    onClose_();
+    if (onClose_) {
+        onClose_();
+    }
 }

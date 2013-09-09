@@ -173,12 +173,16 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
 AsyncRunner::
 AsyncRunner()
-    : running_(false)
+    : wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
+      running_(false)
 {
     Epoller::init(4);
 
-    handleEvent = bind(&AsyncRunner::handleEpollEvent, this,
-                       placeholders::_1);
+    addFdOneShot(wakeup_.fd(), &wakeup_.fd_);
+
+    handleEvent = [&] (const struct epoll_event & event) {
+        return this->handleEpollEvent(event);
+    };
 }
 
 AsyncRunner::
@@ -204,6 +208,9 @@ handleEpollEvent(const struct epoll_event & event)
         else if (event.data.ptr == &task.stdErrFd) {
             // fprintf(stderr, "parent: handle child output from stderr\n");
             handleOutputStatus(event, task.stdErrFd, *stdErrSink_);
+        }
+        else if (event.data.ptr == &wakeup_.fd_) {
+            handleTaskTermination(event);
         }
         else {
             throw ML::Exception("this should never occur");
@@ -233,16 +240,12 @@ handleChildStatus(const struct epoll_event & event, int statusFd, Task & task)
         restartFdOneShot(statusFd, event.data.ptr);
     }
     else {
-        RunResult result(status.status);
-        task.postTerminate(*this, result);
-        running_ = false;
         if (stdInSink_) {
-            stdInSink_->requestClose();
+            stdInSink_->state = OutputSink::CLOSED;
+            onStdInClose();
         }
-        else {
-            task_.reset(nullptr);
-        }
-        ML::futex_wake(running_);
+        task.runResult.updateFromStatus(status.status);
+        wakeup_.signal();
     }
 }
 
@@ -306,6 +309,21 @@ handleOutputStatus(const struct epoll_event & event,
     }
 }
 
+void
+AsyncRunner::
+handleTaskTermination(const struct epoll_event & event)
+{
+    wakeup_.read();
+
+    task_->postTerminate(*this);
+    task_.reset(nullptr);
+
+    running_ = false;
+    ML::futex_wake(running_);
+
+    restartFdOneShot(wakeup_.fd(), &wakeup_.fd_);
+}
+
 OutputSink &
 AsyncRunner::
 getStdInSink()
@@ -315,10 +333,16 @@ getStdInSink()
     if (stdInSink_)
         throw ML::Exception("stdin sink already set");
 
-    auto onClosed = [&] (const OutputSink & closedSink) {
-        this->onStdInClosed(closedSink);
+    auto onWrite = [&] (const char * data, size_t len) {
+        return this->onStdInWrite(data, len);
     };
-    stdInSink_.reset(new AsyncFdOutputSink(onClosed));
+    auto onHangup = [&] () {
+        this->onStdInClose();
+    };
+    auto onClose = [&] () {
+        this->onStdInClose();
+    };
+    stdInSink_.reset(new AsyncFdOutputSink(onWrite, onHangup, onClose));
 
     return *stdInSink_;
 }
@@ -397,32 +421,43 @@ void
 AsyncRunner::
 waitTermination()
 {
-    while (task_ && task_->stdInFd != -1) {
-        int oldVal = task_->stdInFd;
-        ML::futex_wait(task_->stdInFd, oldVal);
-    }
-
     while (running_) {
         ML::futex_wait(running_, true);
     }
 }
 
+size_t
+AsyncRunner::
+onStdInWrite(const char * data, size_t len)
+{
+    ssize_t written = ::write(task_->stdInFd, data, len);
+
+    if (written < 0) {
+        if (errno != EWOULDBLOCK) {
+            throw ML::Exception(errno, "write");
+        }
+        written = 0;
+    }
+    
+    return written;
+}
+
 void
 AsyncRunner::
-onStdInClosed(const OutputSink & sink)
+onStdInClose()
 {
     if (task_) {
-        task_->stdInFd = -1;
-        ML::futex_wake(task_->stdInFd);
-        task_.reset(nullptr);
+        if (task_->stdInFd != -1) {
+            ::close(task_->stdInFd);
+            task_->stdInFd = -1;
+        }
     }
     else {
-        if (stdInSink_ && !stdInSink_->closed()) {
-            cerr << "task dead but stdin sink not closed\n";
-        }
+        throw ML::Exception("task dead but stdin sink alive\n");
     }
 
     parent_->removeSource(stdInSink_.get());
+    stdInSink_.reset();
 }
 
 
@@ -431,11 +466,16 @@ onStdInClosed(const OutputSink & sink)
 void
 AsyncRunner::
 Task::
-postTerminate(AsyncRunner & runner, const RunResult & runResult)
+postTerminate(AsyncRunner & runner)
 {
     // cerr << "postTerminate\n";
 
     waitpid(wrapperPid, NULL, 0);
+
+    if (stdInFd != -1) {
+        ::close(stdInFd);
+        stdInFd = -1;
+    }
 
     auto unregisterFd = [&] (int & fd) {
         if (fd > -1) {
@@ -495,7 +535,7 @@ Execute(const vector<string> & command,
     if (stdInData.size() > 0) {
         auto & sink = runner.getStdInSink();
         runner.run(command, onTerminate, stdOutSink, stdErrSink);
-        sink.write(string(stdInData));
+        sink.write(stdInData);
         sink.requestClose();
     }
     else {

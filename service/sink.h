@@ -1,3 +1,10 @@
+/* sink.h                                                          -*- C++ -*-
+   Wolfgang Sourdeau, September 2013
+   Copyright (c) 2013 Datacratic.  All rights reserved.
+
+   A sink mechanism for writing to input or output "pipes".
+ */
+
 #pragma once
 
 #include <functional>
@@ -21,31 +28,42 @@ namespace Datacratic {
  */
 
 struct OutputSink {
-    typedef std::function<void (const OutputSink & closedSink)> OnClosed;
+    /* "data" has been received and must be written. Returns the number of
+     * bytes. */
+    typedef std::function<size_t (const char *, size_t)> OnWrite;
+    typedef std::function<void ()> OnClose;
 
-    OutputSink(const OnClosed & onClosed = nullptr)
-        : closed_(false),
-          onClosed_(onClosed)
+    enum State {
+        OPEN,
+        CLOSING,
+        CLOSED
+    };
+
+    OutputSink(const OnWrite & onWrite, const OnClose & onClose = nullptr)
+        : state(OPEN), onWrite_(onWrite), onClose_(onClose)
     {}
 
-    /* Write data to the output */
-    virtual void write(std::string && data)
-    { throw ML::Exception("unimplemented"); }
+    /* Write data to the output. Returns true when successful. */
+    virtual bool write(std::string && data)
+    { return (onWrite_(data.c_str(), data.size()) > 0); }
+
+    bool write(const std::string & data)
+    {
+        std::string localData(data);
+        return write(std::move(localData));
+    }
 
     /* Request the output to be closed and guarantee that "write" will never
        be invoked anymore. May be invoked by both ends. */
     virtual void requestClose()
-    { throw ML::Exception("unimplemented"); }
+    { doClose(); }
 
-    /* From the provider, corrolary to the "requestClose" method.
-       Invoked "onClosed_" if set. */
+    enum State state;
+
     void doClose();
 
-    bool closed() const;
-
-private:
-    bool closed_;
-    OnClosed onClosed_;
+    OnWrite onWrite_;
+    OnClose onClose_;
 };
 
 
@@ -54,7 +72,11 @@ private:
    A non-blocking output sink that sends data to an open file descriptor. */
 struct AsyncFdOutputSink : public AsyncEventSource,
                            public OutputSink {
-    AsyncFdOutputSink(const OnClosed & onClosed, int bufferSize = 32);
+    typedef std::function<void ()> OnHangup;
+    AsyncFdOutputSink(const OnWrite & onWrite,
+                      const OnHangup & onHangup,
+                      const OnClose & onClose,
+                      int bufferSize = 32);
     ~AsyncFdOutputSink();
 
     void init(int outputFd);
@@ -65,8 +87,11 @@ struct AsyncFdOutputSink : public AsyncEventSource,
     virtual bool processOne();
 
     /* OutputSink interface */
-    virtual void write(std::string && data);
+    virtual bool write(std::string && data);
     virtual void requestClose();
+
+    OnHangup onHangup_;
+    void doClose();
 
 private:
     typedef std::function<void (struct epoll_event &)> EpollCallback;
@@ -75,6 +100,7 @@ private:
     void restartFdOneShot(int fd, EpollCallback & cb, bool writerFd = false);
     void removeFd(int fd);
     void close();
+    int epollFd_;
 
     void handleFdEvent(const struct epoll_event & event);
     void handleWakeupEvent(const struct epoll_event & event);
@@ -83,11 +109,6 @@ private:
 
     void flushThreadBuffer();
     void flushStdInBuffer();
-    void doClose();
-
-    bool closing_;
-
-    int epollFd_;
 
     int outputFd_;
     int fdReady_;
@@ -142,7 +163,8 @@ struct CallbackInputSink : public InputSink {
     typedef std::function<void(std::string && data)> OnData;
     typedef std::function<void()> OnClose;
 
-    CallbackInputSink(const OnData & onData, const OnClose & onClose)
+    CallbackInputSink(const OnData & onData,
+                      const OnClose & onClose = nullptr)
         : onData_(onData), onClose_(onClose)
     {}
 

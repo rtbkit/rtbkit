@@ -15,10 +15,10 @@
 #include <utility>
 #include <vector>
 
+#include "jml/arch/wakeup_fd.h"
 #include "jml/utils/ring_buffer.h"
 #include "epoller.h"
 #include "sink.h"
-#include "typed_message_channel.h"
 
 
 namespace Datacratic {
@@ -30,11 +30,6 @@ struct AsyncRunner: public Epoller {
         RunResult()
         : signaled(false), signum(-1)
         {}
-
-        RunResult(int status)
-        {
-            updateFromStatus(status);
-        }
 
         void updateFromStatus(int status);
 
@@ -77,10 +72,11 @@ private:
         void setupInSink();
         void flushInSink();
         void flushStdInBuffer();
-        void postTerminate(AsyncRunner & runner, const RunResult & runResult);
+        void postTerminate(AsyncRunner & runner);
 
         std::vector<std::string> command;
         OnTerminate onTerminate;
+        RunResult runResult;
 
         pid_t childPid;
         pid_t wrapperPid;
@@ -97,9 +93,12 @@ private:
                            int fd, Task & task);
     void handleOutputStatus(const struct epoll_event & event,
                             int fd, InputSink & inputSink);
+    void handleTaskTermination(const struct epoll_event & event);
 
-    void onStdInClosed(const OutputSink & sink);
+    size_t onStdInWrite(const char * data, size_t len);
+    void onStdInClose();
 
+    ML::Wakeup_Fd wakeup_;
     int running_;
 
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
