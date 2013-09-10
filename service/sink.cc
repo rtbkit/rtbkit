@@ -9,6 +9,8 @@
 #include <sys/epoll.h>
 #include <poll.h>
 
+#include <iostream>
+
 #include "jml/arch/exception.h"
 #include "jml/utils/file_functions.h"
 

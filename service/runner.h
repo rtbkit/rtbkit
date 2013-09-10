@@ -23,9 +23,9 @@
 
 namespace Datacratic {
 
-/* ASYNCRUNNER */
+/* RUNNER */
 
-struct AsyncRunner: public Epoller {
+struct Runner: public Epoller {
     struct RunResult {
         RunResult()
         : signaled(false), signum(-1)
@@ -43,8 +43,8 @@ struct AsyncRunner: public Epoller {
 
     typedef std::function<void (const RunResult & result)> OnTerminate;
 
-    AsyncRunner();
-    ~AsyncRunner();
+    Runner();
+    ~Runner();
 
     OutputSink & getStdInSink();
 
@@ -72,7 +72,7 @@ private:
         void setupInSink();
         void flushInSink();
         void flushStdInBuffer();
-        void postTerminate(AsyncRunner & runner);
+        void postTerminate(Runner & runner);
 
         std::vector<std::string> command;
         OnTerminate onTerminate;
@@ -107,13 +107,24 @@ private:
     std::unique_ptr<Task> task_;
 };
 
+
 /* EXECUTE */
 
-AsyncRunner::RunResult Execute(const std::vector<std::string> & command,
-                               const std::shared_ptr<InputSink> & stdOutSink
-                               = nullptr,
-                               const std::shared_ptr<InputSink> & stdErrSink
-                               = nullptr,
-                               const std::string & stdInData = "");
+/* Execute a command synchronously using the specified message loop. */
+Runner::RunResult execute(MessageLoop & loop,
+                          const std::vector<std::string> & command,
+                          const std::shared_ptr<InputSink> & stdOutSink
+                          = nullptr,
+                          const std::shared_ptr<InputSink> & stdErrSink
+                          = nullptr,
+                          const std::string & stdInData = "");
+
+/* Execute a command synchronously using its own message loop. */
+Runner::RunResult execute(const std::vector<std::string> & command,
+                          const std::shared_ptr<InputSink> & stdOutSink
+                          = nullptr,
+                          const std::shared_ptr<InputSink> & stdErrSink
+                          = nullptr,
+                          const std::string & stdInData = "");
 
 }

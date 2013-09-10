@@ -91,7 +91,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     expectedStdErr = "hello stderr\n";
 
     int done = false;
-    auto onTerminate = [&] (const AsyncRunner::RunResult & result) {
+    auto onTerminate = [&] (const Runner::RunResult & result) {
         done = true;
         ML::futex_wake(done);
     };
@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     };
     auto stdErrSink = make_shared<CallbackInputSink>(onStdErr);
 
-    AsyncRunner runner;
+    Runner runner;
     loop.addSource("runner", runner);
     loop.start();
 
@@ -144,11 +144,11 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         HelperCommands commands;
         commands.sendExit(123);
 
-        AsyncRunner::RunResult result;
-        auto onTerminate = [&] (const AsyncRunner::RunResult & newResult) {
+        Runner::RunResult result;
+        auto onTerminate = [&] (const Runner::RunResult & newResult) {
             result = newResult;
         };
-        AsyncRunner runner;
+        Runner runner;
         loop.addSource("runner", runner);
         loop.start();
 
@@ -172,11 +172,11 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         HelperCommands commands;
         commands.sendAbort();
 
-        AsyncRunner::RunResult result;
-        auto onTerminate = [&] (const AsyncRunner::RunResult & newResult) {
+        Runner::RunResult result;
+        auto onTerminate = [&] (const Runner::RunResult & newResult) {
             result = newResult;
         };
-        AsyncRunner runner;
+        Runner runner;
         loop.addSource("runner", runner);
         loop.start();
 
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 #endif
 
 #if 1
-/* test Execute function */
+/* test the "execute" function */
 BOOST_AUTO_TEST_CASE( test_runner_execute )
 {
     string received;
@@ -205,7 +205,7 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
     };
     auto stdOutSink = make_shared<CallbackInputSink>(onStdOut, nullptr);
 
-    auto result = Execute({"/bin/cat", "-"},
+    auto result = execute({"/bin/cat", "-"},
                           stdOutSink, nullptr, "hello callbacks");
     BOOST_CHECK_EQUAL(received, "hello callbacks");
     BOOST_CHECK_EQUAL(result.signaled, false);
@@ -220,7 +220,7 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
 {
     MessageLoop loop;
 
-    AsyncRunner runner;
+    Runner runner;
     loop.addSource("runner", runner);
     loop.start();
 

@@ -178,8 +178,8 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
 /* ASYNCRUNNER */
 
-AsyncRunner::
-AsyncRunner()
+Runner::
+Runner()
     : wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
       running_(false)
 {
@@ -192,14 +192,14 @@ AsyncRunner()
     };
 }
 
-AsyncRunner::
-~AsyncRunner()
+Runner::
+~Runner()
 {
     waitTermination();
 }
 
 bool
-AsyncRunner::
+Runner::
 handleEpollEvent(const struct epoll_event & event)
 {
     if (task_) {
@@ -231,7 +231,7 @@ handleEpollEvent(const struct epoll_event & event)
 }
 
 void
-AsyncRunner::
+Runner::
 handleChildStatus(const struct epoll_event & event, int statusFd, Task & task)
 {
     ChildStatus status;
@@ -239,7 +239,7 @@ handleChildStatus(const struct epoll_event & event, int statusFd, Task & task)
     // cerr << "handleChildStatus\n";
     ssize_t s = ::read(statusFd, &status, sizeof(status));
     if (s == -1) {
-        throw ML::Exception(errno, "AsyncRunner::handleChildStatus read");
+        throw ML::Exception(errno, "Runner::handleChildStatus read");
     }
 
     if (status.running) {
@@ -256,7 +256,7 @@ handleChildStatus(const struct epoll_event & event, int statusFd, Task & task)
 }
 
 void
-AsyncRunner::
+Runner::
 handleOutputStatus(const struct epoll_event & event,
                    int outputFd, InputSink & sink)
 {
@@ -279,7 +279,7 @@ handleOutputStatus(const struct epoll_event & event,
                 }
                 else {
                     throw ML::Exception(errno,
-                                        "AsyncRunner::handleOutputStatus read");
+                                        "Runner::handleOutputStatus read");
                 }
             }
             else if (len == 0) {
@@ -316,7 +316,7 @@ handleOutputStatus(const struct epoll_event & event,
 }
 
 void
-AsyncRunner::
+Runner::
 handleTaskTermination(const struct epoll_event & event)
 {
     wakeup_.read();
@@ -345,7 +345,7 @@ handleTaskTermination(const struct epoll_event & event)
 }
 
 OutputSink &
-AsyncRunner::
+Runner::
 getStdInSink()
 {
     if (running_)
@@ -365,7 +365,7 @@ getStdInSink()
 }
 
 void
-AsyncRunner::
+Runner::
 run(const vector<string> & command,
     const OnTerminate & onTerminate,
     const shared_ptr<InputSink> & stdOutSink,
@@ -397,7 +397,7 @@ run(const vector<string> & command,
 
     task.wrapperPid = fork();
     if (task.wrapperPid == -1) {
-        throw ML::Exception(errno, "AsyncRunner::run fork");
+        throw ML::Exception(errno, "Runner::run fork");
     }
     else if (task.wrapperPid == 0) {
         RunWrapper(command, childFds);
@@ -424,7 +424,7 @@ run(const vector<string> & command,
 }
 
 void
-AsyncRunner::
+Runner::
 kill(int signum)
 {
     if (!task_)
@@ -435,7 +435,7 @@ kill(int signum)
 }
 
 void
-AsyncRunner::
+Runner::
 waitTermination()
 {
     while (running_) {
@@ -444,7 +444,7 @@ waitTermination()
 }
 
 void
-AsyncRunner::
+Runner::
 closeStdInSink()
 {
     if (task_) {
@@ -466,9 +466,9 @@ closeStdInSink()
 /* ASYNCRUNNER::TASK */
 
 void
-AsyncRunner::
+Runner::
 Task::
-postTerminate(AsyncRunner & runner)
+postTerminate(Runner & runner)
 {
     // cerr << "postTerminate\n";
 
@@ -499,7 +499,7 @@ postTerminate(AsyncRunner & runner)
 /* ASYNCRUNNER::RUNRESULT */
 
 void
-AsyncRunner::
+Runner::
 RunResult::
 updateFromStatus(int status)
 {
@@ -516,20 +516,20 @@ updateFromStatus(int status)
 
 /* EXECUTE */
 
-AsyncRunner::RunResult
+Runner::RunResult
 Datacratic::
-Execute(const vector<string> & command,
+execute(MessageLoop & loop,
+        const vector<string> & command,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink,
         const string & stdInData)
 {
-    AsyncRunner::RunResult result;
-    auto onTerminate = [&](const AsyncRunner::RunResult & runResult) {
+    Runner::RunResult result;
+    auto onTerminate = [&](const Runner::RunResult & runResult) {
         result = runResult;
     };
 
-    MessageLoop loop;
-    AsyncRunner runner;
+    Runner runner;
 
     loop.addSource("runner", runner);
     loop.start();
@@ -547,4 +547,16 @@ Execute(const vector<string> & command,
     runner.waitTermination();
 
     return result;
+}
+
+Runner::RunResult
+Datacratic::
+execute(const vector<string> & command,
+        const shared_ptr<InputSink> & stdOutSink,
+        const shared_ptr<InputSink> & stdErrSink,
+        const string & stdInData)
+{
+    MessageLoop loop;
+
+    return execute(loop, command, stdOutSink, stdErrSink, stdInData);
 }
