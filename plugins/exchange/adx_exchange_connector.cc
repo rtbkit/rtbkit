@@ -85,8 +85,8 @@ void
 ParseGbrMobile (const GoogleBidRequest& gbr, BidRequest& br)
 {
     if (!br.device)
-        br.device.reset (new OpenRTB::Device);
-    auto& dev = *br.device.get();
+        br.device.emplace();
+    auto& dev = *br.device;
     const auto& mobile = gbr.mobile ();
     if (mobile.has_platform())
         dev.os    = mobile.platform() ;
@@ -106,12 +106,12 @@ ParseGbrMobile (const GoogleBidRequest& gbr, BidRequest& br)
     if (mobile.has_carrier_id()) dev.carrier = to_string(mobile.carrier_id()) ;
     if (mobile.is_app())
     {
-        if (!br.app) br.app.reset (new OpenRTB::App);
+        if (!br.app) br.app.emplace();
         //
         if (mobile.has_app_id())
         {
-            br.app.get()->id = Id(mobile.app_id (), Id::STR);
-            br.app.get()->bundle = mobile.app_id();
+            br.app->id = Id(mobile.app_id (), Id::STR);
+            br.app->bundle = mobile.app_id();
         }
         else
         {
@@ -119,14 +119,14 @@ ParseGbrMobile (const GoogleBidRequest& gbr, BidRequest& br)
             // However, I never saw such bid requests.
             assert (gbr.has_anonymous_id());
             // TODO: check this is valid
-            br.app.get()->id = Id(gbr.anonymous_id(),Id::STR);
-            br.app.get()->bundle = gbr.anonymous_id();
+            br.app->id = Id(gbr.anonymous_id(),Id::STR);
+            br.app->bundle = gbr.anonymous_id();
         }
     }
     else
     {
         //
-        if (!br.site) br.site.reset (new OpenRTB::Site);
+        if (!br.site) br.site.emplace();
     }
 
     if (mobile.has_mobile_device_type())
@@ -135,15 +135,15 @@ ParseGbrMobile (const GoogleBidRequest& gbr, BidRequest& br)
         {
         case BidRequest_Mobile_MobileDeviceType_HIGHEND_PHONE:
         case BidRequest_Mobile_MobileDeviceType_TABLET:
-            br.device.get()->devicetype.val = OpenRTB::DeviceType::MOBILE_OR_TABLET ;
+            br.device->devicetype.val = OpenRTB::DeviceType::MOBILE_OR_TABLET ;
             break;
         default:
-            br.device.get()->devicetype.val = OpenRTB::DeviceType::UNSPECIFIED ;
+            break;
         }
     }
 
     // will be needed later on to populate the ext field on the openrtb device obj.
-    auto& ext = br.device.get()->ext ;
+    auto& ext = br.device->ext ;
     if (mobile.has_screen_height())      ext.atStr("screen_height")      = mobile.screen_height();
     if (mobile.has_screen_width())       ext.atStr("screen_width")       = mobile.screen_width();
     if (mobile.has_screen_orientation()) ext.atStr("screen_orientation") = mobile.screen_orientation();
@@ -153,7 +153,7 @@ ParseGbrMobile (const GoogleBidRequest& gbr, BidRequest& br)
     // this bid request should have exactly 1 impression.
     if (br.imp.empty()) br.imp.emplace_back();
     if (mobile.has_is_interstitial_request())
-        br.imp.back().instl.val = static_cast<int>(mobile.is_interstitial_request());
+        br.imp.back().instl = static_cast<int>(mobile.is_interstitial_request());
 
 
     // TODO: verify the mapping between:
@@ -162,10 +162,7 @@ ParseGbrMobile (const GoogleBidRequest& gbr, BidRequest& br)
     //      http://www.iab.net/media/file/OpenRTB-API-Specification-Version-2-1-FINAL.pdf
     if (br.app)
         for (auto i: boost::irange(0, mobile.app_category_ids_size()))
-        {
-            OpenRTB::ContentCategory cc (to_string(mobile.app_category_ids(i)));
-            br.app.get()->cat.push_back(cc);
-        }
+            br.app->cat.emplace_back(to_string(mobile.app_category_ids(i)));
 
     if (mobile.has_is_mobile_web_optimized())
         ext.atStr("is_mobile_web_optimized") = mobile.is_mobile_web_optimized();
@@ -183,11 +180,11 @@ void
 ParseGbrOtherDevice (const GoogleBidRequest& gbr, BidRequest& br)
 {
     if (!br.device)
-        br.device.reset (new OpenRTB::Device);
+        br.device.emplace();
     if (!br.site)
-        br.site.reset (new OpenRTB::Site);
+        br.site.emplace();
 #if 0
-    auto& dev = *br.device.get();
+    auto& dev = *br.device;
     auto& site = *br.site.get ();
 #endif
 }
@@ -247,9 +244,9 @@ ParseGbrGeoCriteria (const GoogleBidRequest& gbr, BidRequest& br)
     if (false == gbr.has_geo_criteria_id())
         return ;
     assert (br.device);
-    auto& device = *br.device.get() ;
-    if (!device.geo) device.geo.reset (new OpenRTB::Geo);
-    auto& ext = br.device.get()->ext ;
+    auto& device = *br.device ;
+    if (!device.geo) device.geo.emplace();
+    auto& ext = br.device->ext ;
     ext.atStr("geo_criteria_id") = gbr.geo_criteria_id() ;
 
     if (gbr.has_postal_code())
@@ -273,7 +270,7 @@ ParseGbrAdSlot (const GoogleBidRequest& gbr, BidRequest& br)
         imp.emplace_back();
         auto& spot = imp.back();
         spot.id = Id(slot.id());
-        spot.banner.reset (new OpenRTB::Banner) ;
+        spot.banner.emplace();
         for (auto i: boost::irange(0,slot.width_size()))
         {
             spot.banner->w.push_back (slot.width(i));
@@ -321,7 +318,6 @@ ParseGbrAdSlot (const GoogleBidRequest& gbr, BidRequest& br)
                 spot.banner->pos.val = OpenRTB::AdPosition::BELOW ;
                 break;
             default:
-                spot.banner->pos.val = OpenRTB::AdPosition::UNKNOWN ;
                 break;
             }
         }
@@ -372,7 +368,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     std::shared_ptr<BidRequest> res (new BidRequest);
     res->timeAvailableMs = deadline_ms () ;
 
-    auto& br = *res.get() ;
+    auto& br = *res ;
 
     // TODO: check reuse
     auto binary_to_hexstr = [] (const std::string& str)
@@ -406,7 +402,7 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     assert (br.app || br.site);
 
-    auto& device  = *br.device.get();
+    auto& device  = *br.device;
 
     // deal with things on BidRequest
     // BidRequest.ip
@@ -461,7 +457,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     {
         // Always create an OpenRTB::User object, since it's recommended
         // in the spec. All top level recommended objects are always created.
-    	br.user.reset (new OpenRTB::User) ;
+    	br.user.emplace();
     }
 
     if (gbr.has_google_user_id())
@@ -512,7 +508,7 @@ parseBidRequest(HttpAuctionHandler & connection,
         br.site->page = br.url;
         if (gbr.has_seller_network_id())
         {
-            if (!br.site->publisher) br.site->publisher.reset(new OpenRTB::Publisher) ;
+            if (!br.site->publisher) br.site->publisher.emplace();
             br.site->publisher->id = Id(gbr.seller_network_id());
             br.site->id = Id(gbr.seller_network_id());
         }
