@@ -26,6 +26,8 @@ struct ZookeeperConnection;
 struct ZookeeperConfigurationService
     : public ConfigurationService {
 
+    friend class ServiceDiscoveryScenario;    
+
 
     ZookeeperConfigurationService();
 
@@ -60,7 +62,7 @@ struct ZookeeperConfigurationService
     /** Recursively remove everything below this path. */
     virtual void removePath(const std::string & path);
 
-public:
+private:
     std::unique_ptr<ZookeeperConnection> zoo;
     std::string prefix;
 };
