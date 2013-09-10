@@ -470,8 +470,8 @@ struct Optional: public std::unique_ptr<T> {
 
 template<typename Cls, int defValue = -1>
 struct TaggedEnum {
-    TaggedEnum()
-        : val(-1)
+    TaggedEnum(int v = defValue)
+        : val(v)
     {
     }
 
@@ -533,6 +533,11 @@ struct TaggedBool {
     {
     }
 
+    TaggedBool(bool v)
+        : val(v)
+    {
+    }
+
     int val;
 };
 
@@ -543,12 +548,17 @@ struct TaggedBoolDef : public TaggedBool {
     {
     }
 
+    TaggedBoolDef(bool v)
+        : val(v)
+    {
+    }
+
     int val;
 };
 
 struct TaggedInt {
-    TaggedInt()
-        : val(-1)
+    TaggedInt(int v = -1)
+        : val(v)
     {
     }
 
@@ -559,8 +569,8 @@ struct TaggedInt {
 
 template<int defValue = -1>
 struct TaggedIntDef : TaggedInt {
-    TaggedIntDef()
-        : val(defValue)
+    TaggedIntDef(int v = defValue)
+        : val(v)
     {
     }
 
@@ -568,8 +578,8 @@ struct TaggedIntDef : TaggedInt {
 };
 
 struct TaggedInt64 {
-    TaggedInt64()
-        : val(-1)
+    TaggedInt64(int64_t v = -1)
+        : val(v)
     {
     }
 
@@ -580,8 +590,8 @@ struct TaggedInt64 {
 
 template<int64_t defValue = -1>
 struct TaggedInt64Def : TaggedInt {
-    TaggedInt64Def()
-        : val(defValue)
+    TaggedInt64Def(int64_t v = defValue)
+        : val(v)
     {
     }
 
@@ -589,8 +599,8 @@ struct TaggedInt64Def : TaggedInt {
 };
 
 struct TaggedFloat {
-    TaggedFloat()
-        : val(std::numeric_limits<float>::quiet_NaN())
+    TaggedFloat(float v = std::numeric_limits<float>::quiet_NaN())
+        : val(v)
     {
     }
 
@@ -599,8 +609,8 @@ struct TaggedFloat {
 
 template<int num = -1, int den = 1>
 struct TaggedFloatDef : public TaggedFloat {
-    TaggedFloatDef()
-        : val(1.0f * num / den)
+    TaggedFloatDef(float v = 1.0f * num / den)
+        : val(v)
     {
     }
 
@@ -608,8 +618,8 @@ struct TaggedFloatDef : public TaggedFloat {
 };
 
 struct TaggedDouble {
-    TaggedDouble()
-        : val(std::numeric_limits<double>::quiet_NaN())
+    TaggedDouble(double v = std::numeric_limits<double>::quiet_NaN())
+        : val(v)
     {
     }
 
@@ -618,8 +628,8 @@ struct TaggedDouble {
 
 template<int num = -1, int den = 1>
 struct TaggedDoubleDef : public TaggedDouble {
-    TaggedDoubleDef()
-        : val(1.0 * num / den)
+    TaggedDoubleDef(double v = 1.0 * num / den)
+        : val(v)
     {
     }
 
