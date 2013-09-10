@@ -1,6 +1,14 @@
+/* sink.cc                                                         -*- C++ -*-
+   Wolfgang Sourdeau, September 2013
+   Copyright (c) 2013 Datacratic.  All rights reserved.
+
+   A sink mechanism for writing to input or output "pipes".
+ */
+
 #include <fcntl.h>
 #include <sys/epoll.h>
 #include <poll.h>
+
 #include "jml/arch/exception.h"
 #include "jml/utils/file_functions.h"
 

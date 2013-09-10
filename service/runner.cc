@@ -1,3 +1,10 @@
+/* runner.cc                                                       -*- C++ -*-
+   Wolfgang Sourdeau, September 2013
+   Copyright (c) 2013 Datacratic.  All rights reserved.
+
+   A command runner class that hides the specifics of the underlying unix
+   system calls and can intercept input and output.
+*/
 
 #include <fcntl.h>
 #include <poll.h>
