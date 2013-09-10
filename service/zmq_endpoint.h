@@ -1129,6 +1129,7 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
     {
         connected = false;
         inProvidersChanged = false;
+        triggeredWatches = 0;
     }
 
     ZmqMultipleNamedClientBusProxy(std::shared_ptr<zmq::context_t> context)
@@ -1136,6 +1137,7 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
     {
         connected = false;
         inProvidersChanged = false;
+        triggeredWatches = 0;
     }
 
     ~ZmqMultipleNamedClientBusProxy()
@@ -1259,6 +1261,11 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
             throw ML::Exception("need to override on messageHandler or handleMessage");
     }
 
+    /** Number of time a watch has been triggered. This count is meant for
+     *  tests purposes
+     */
+    uint32_t triggeredWatches;
+
 private:
     /** Are we connected? */
     bool connected;
@@ -1306,6 +1313,7 @@ private:
             return ;
         }
         inProvidersChanged = true;
+        ++triggeredWatches;
         //cerr << "onServiceProvidersChanged(" << path << ")" << endl;
 
         // The list of service providers has changed

@@ -218,11 +218,13 @@ public:
                                            proxiesName.c_str()));
 
         auto config = proxies->configAs<ZookeeperConfigurationService>();
-       // int oldFd = config->zoo->handle->fd;
-       // int newFd = ::open("/dev/null", O_RDWR);
-       // config->zoo->handle->fd = newFd;
-       // std::cerr << "Closing fd\n";
-       // std::cerr << ::close(oldFd) << std::endl;
+// Closing the fd does not seem to trigger a session expired
+#if 0
+        int oldFd = config->zoo->handle->fd;
+        int newFd = ::open("/dev/null", O_RDWR);
+        config->zoo->handle->fd = newFd;
+        std::cerr << ::close(oldFd) << std::endl;
+#else
         auto credentials = config->zoo->sessionCredentials();
 
         std::unique_ptr<ZookeeperConnection> connection(new ZookeeperConnection);
@@ -230,6 +232,7 @@ public:
         connection->connectWithCredentials(config->zoo->host,
                                            credentials.first, credentials.second);
         connection->close();
+#endif
     }
 
     void
@@ -243,7 +246,7 @@ public:
         auto config = proxies->configAs<ZookeeperConfigurationService>();
         config->zoo->reconnect();
     }
-        
+
 
 private:
     std::string name;
@@ -286,6 +289,15 @@ public:
                                               connectionName);
         ExcAssert(connection);
         BOOST_CHECK_EQUAL(connection->connectionCount(), count);
+    }
+
+    void assertTriggeredWatches(const std::string &clientName,
+                                uint32_t count)
+    {
+        auto client = scenario.getFromMap(scenario.clientsMap,
+                                          clientName);
+
+        BOOST_CHECK_EQUAL(connection->triggeredWatches, count);
     }
 
 private:
@@ -515,14 +527,22 @@ BOOST_AUTO_TEST_CASE( test_simple_disconnect )
         connected = true;
     };
 
-    scenario.connectServiceProviders("client", "echo", "echo");
+    auto client = scenario.connectServiceProviders("client", "echo", "echo");
     scenario.createServiceAndStart("echo0", "endpointProxy");
 
-   while (!connected)
-        ML::sleep(0.1);
+    while (!connected)
+       ML::sleep(0.1);
+
+    auto currentWatchesCount = client->triggeredWatches;
 
     std::cerr << "Expiring session\n";
-    scenario.expireSession("endpointProxy");
+    scenario.expireSession("connectionProxy");
+    ML::sleep(5);
+    test.assertTriggeredWatches("client", currentWatchesCount + 1);
+    currentWatchesCount = client->triggeredWatches;
+
+    scenario.reconnectSession("connectionProxy");
+    test.assertTriggeredWatches("client", currentWatchesCount + 1);
 
     ML::sleep(10);
 }
