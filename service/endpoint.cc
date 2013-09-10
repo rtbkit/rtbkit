@@ -106,6 +106,8 @@ spinup(int num_threads, bool synchronous)
 
     threadsActive_ = 0;
 
+    totalSleepTime.resize(num_threads, 0.0);
+
     for (unsigned i = 0;  i < num_threads;  ++i) {
         boost::thread * thread
             = eventThreads->create_thread
@@ -570,7 +572,8 @@ runEventThread(int threadNum, int numThreads)
             int usToWait = myEndUs - fracms;
             if (usToWait < 0 || usToWait > timesliceUs)
                 usToWait = timesliceUs;
-            
+
+            totalSleepTime[threadNum] += double(usToWait) / 1000000.0;
             int numHandled = handleEvents(usToWait, 4, handleEvent,
                                           beforeSleep, afterSleep);
             if (debug && false)
