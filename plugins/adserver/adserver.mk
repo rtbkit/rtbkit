@@ -5,7 +5,7 @@ LIBADSERVERCONNECTOR_SOURCES := \
 	http_adserver_connector.cc
 
 LIBADSERVERCONNECTOR_LINK := \
-	zeromq boost_thread utils endpoint services rtb
+	zeromq boost_thread utils endpoint services rtb gc
 
 $(eval $(call library,adserver_connector, \
 	$(LIBADSERVERCONNECTOR_SOURCES),  \
