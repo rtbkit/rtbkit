@@ -100,6 +100,14 @@ struct ExchangeConnector: public ServiceBase {
         this->acceptAuctionProbability = prob;
     }
 
+    /** Returns a function that can be used to sample the load of the exchange
+        connector. See LoopMonitor documentation for more details.
+     */
+    virtual std::function<double(double)> getLoadSampleFn() const
+    {
+        return [] (double) { return 0.0; };
+    }
+
     /** Return the name of the exchange, as it would be written as an
         identifier.
     */

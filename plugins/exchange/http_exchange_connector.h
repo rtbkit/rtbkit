@@ -90,6 +90,33 @@ struct HttpExchangeConnector
         return now <= enabledUntil;
     }
 
+    /** Returns a function that can be used to sample the load of the exchange
+        connector. See LoopMonitor documentation for more details.
+     */
+    virtual std::function<double(double)> getLoadSampleFn() const
+    {
+        // This gets captured by value and effectively becomes a state variable
+        // for the mutable lambda. Not very clean but it works.
+        std::vector<double> lastSample;
+
+        return [=] (double elapsed) mutable -> double {
+            auto sample = totalSleepSeconds();
+
+            if (lastSample.size() < sample.size())
+                lastSample.resize(sample.size(), 0.0);
+
+            double maxLoad = 0.0;
+            for (size_t i = 0; i < sample.size(); ++i) {
+                double load = 1.0 - ((sample[i] - lastSample[i]) / elapsed);
+                maxLoad = std::max(load, maxLoad);
+            }
+
+            lastSample = std::move(sample);
+            return maxLoad;
+        };
+    }
+
+
     /*************************************************************************/
     /* METHODS TO OVERRIDE FOR A GIVEN EXCHANGE                              */
     /*************************************************************************/
