@@ -461,6 +461,11 @@ struct Optional: public std::unique_ptr<T> {
     {
         std::unique_ptr<T>::swap(other);
     }
+
+    void emplace()
+    {
+        this->reset(new T{});
+    }
 };
 
 template<typename Cls, int defValue = -1>
