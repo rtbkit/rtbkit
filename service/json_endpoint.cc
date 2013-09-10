@@ -29,7 +29,8 @@ void
 JsonConnectionHandler::
 handleHttpHeader(const HttpHeader & header)
 {
-    if (header.contentType.find("json") == string::npos
+    if (!header.contentType.empty()
+        && header.contentType.find("json") == string::npos
         && header.contentType.find("text") == string::npos)
         throw Exception("invalid content type '%s' for JSON",
                         header.contentType.c_str());
