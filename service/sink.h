@@ -10,8 +10,10 @@
 #include <functional>
 #include <string>
 
+#include "jml/arch/wakeup_fd.h"
+#include "jml/utils/ring_buffer.h"
+
 #include "async_event_source.h"
-#include "typed_message_channel.h"
 
 
 namespace Datacratic {
@@ -28,14 +30,12 @@ namespace Datacratic {
  */
 
 struct OutputSink {
+    static constexpr int OPEN = 0;
+    static constexpr int CLOSING = 1;
+    static constexpr int CLOSED = 2;
+
     /* The client has requested the closing of the connection. */
     typedef std::function<void ()> OnClose;
-
-    enum State {
-        OPEN,
-        CLOSING,
-        CLOSED
-    };
 
     OutputSink(const OnClose & onClose = nullptr)
         : state(OPEN), onClose_(onClose)
@@ -55,7 +55,9 @@ struct OutputSink {
     virtual void requestClose()
     { doClose(); }
 
-    enum State state;
+    void waitState(int expectedState);
+
+    int state;
 
     void doClose();
 
@@ -118,6 +120,9 @@ private:
     void restartFdOneShot(int fd, EpollCallback & cb, bool writerFd = false);
     void removeFd(int fd);
     void close();
+
+    void handleHangup();
+
     int epollFd_;
 
     void handleFdEvent(const struct epoll_event & event);

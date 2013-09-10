@@ -1,6 +1,8 @@
+#include <fcntl.h>
 #include <sys/epoll.h>
 #include <poll.h>
 #include "jml/arch/exception.h"
+#include "jml/utils/file_functions.h"
 
 #include "sink.h"
 
@@ -16,10 +18,22 @@ OutputSink::
 doClose()
 {
     state = CLOSING;
+    ML::futex_wake(state);
     if (onClose_) {
         onClose_();
     }
     state = CLOSED;
+    ML::futex_wake(state);
+}
+
+void
+OutputSink::
+waitState(int expectedState)
+{
+    while (state != expectedState) {
+        int currentState = state;
+        ML::futex_wait(state, currentState);
+    }
 }
 
 std::istream &
@@ -81,6 +95,10 @@ void
 AsyncFdOutputSink::
 init(int outputFd)
 {
+    if (!ML::is_file_flag_set(outputFd, O_NONBLOCK)) {
+        throw ML::Exception("file decriptor is blocking");
+    }
+
     outputFd_ = outputFd;
     handleFdEventCb_ = [&] (const struct epoll_event & event) {
         this->handleFdEvent(event);
@@ -116,6 +134,7 @@ requestClose()
     if (state == OPEN) {
         state = CLOSING;
         wakeup_.signal();
+        ML::futex_wake(state);
     }
     else {
         throw ML::Exception("cannot close twice");
@@ -127,7 +146,7 @@ AsyncFdOutputSink::
 processOne()
 {
     struct epoll_event events[3];
-
+    
     int res = epoll_wait(epollFd_, events, sizeof(events), 0);
     if (res == -1) {
         throw ML::Exception(errno, "epoll_wait");
@@ -145,14 +164,15 @@ void
 AsyncFdOutputSink::
 addFdOneShot(int fd, EpollCallback & cb, bool writerFd)
 {
+    if (epollFd_ == -1)
+        return;
     //cerr << Date::now().print(4) << "added " << fd << " one-shot" << endl;
 
     struct epoll_event event;
     event.events = (writerFd ? EPOLLOUT : EPOLLIN) | EPOLLONESHOT;
     event.data.ptr = &cb;
-    
+
     int res = epoll_ctl(epollFd_, EPOLL_CTL_ADD, fd, &event);
-        
     if (res == -1)
         throw ML::Exception(errno, "epoll_ctl ADD " + to_string(fd));
 }
@@ -161,6 +181,8 @@ void
 AsyncFdOutputSink::
 restartFdOneShot(int fd, EpollCallback & cb, bool writerFd)
 {
+    if (epollFd_ == -1)
+        return;
     //cerr << Date::now().print(4) << "restarted " << fd << " one-shot" << endl;
 
     struct epoll_event event;
@@ -168,7 +190,6 @@ restartFdOneShot(int fd, EpollCallback & cb, bool writerFd)
     event.data.ptr = &cb;
     
     int res = epoll_ctl(epollFd_, EPOLL_CTL_MOD, fd, &event);
-    
     if (res == -1)
         throw ML::Exception(errno, "epoll_ctl MOD " + to_string(fd));
 }
@@ -177,6 +198,8 @@ void
 AsyncFdOutputSink::
 removeFd(int fd)
 {
+    if (epollFd_ == -1)
+        return;
     //cerr << Date::now().print(4) << "removed " << fd << endl;
 
     int res = epoll_ctl(epollFd_, EPOLL_CTL_DEL, fd, 0);
@@ -188,10 +211,11 @@ void
 AsyncFdOutputSink::
 close()
 {
-    if (epollFd_ > -1) {
-        ::close(epollFd_);
-        epollFd_ = -1;
-    }
+    if (epollFd_ == -1) 
+        return;
+
+    ::close(epollFd_);
+    epollFd_ = -1;
 }
 
 void
@@ -203,12 +227,15 @@ handleFdEvent(const struct epoll_event & event)
         onHangup_();
         outputFd_ = -1;
         state = CLOSED;
+        ML::futex_wake(state);
     }
     else if ((event.events & EPOLLOUT) != 0) {
         if (state != CLOSED) {
             fdReady_ = true;
             flushStdInBuffer();
-            restartFdOneShot(outputFd_, handleFdEventCb_, true);
+            if (state != CLOSED) {
+                restartFdOneShot(outputFd_, handleFdEventCb_, true);
+            }
         }
     }
 }
@@ -263,6 +290,10 @@ flushStdInBuffer()
                 if (errno == EWOULDBLOCK) {
                     fdReady_ = false;
                 }
+                else if (errno == EPIPE) {
+                    handleHangup();
+                    break;
+                }
                 else {
                     throw ML::Exception(errno, "write");
                 }
@@ -283,9 +314,17 @@ void
 AsyncFdOutputSink::
 doClose()
 {
+    if (state == CLOSED) {
+        cerr << "already closed\n";
+    }
     state = CLOSING;
+    ML::futex_wake(state);
     if (outputFd_ != -1) {
-        removeFd(outputFd_);
+        try {
+            removeFd(outputFd_);
+        }
+        catch(const ML::Exception & exc)
+        {}
         outputFd_ = -1;
     }
 
@@ -293,6 +332,17 @@ doClose()
     ::close(wakeup_.fd());
 
     OutputSink::doClose();
+}
+
+void
+AsyncFdOutputSink::
+handleHangup()
+{
+    removeFd(outputFd_);
+    onHangup_();
+    outputFd_ = -1;
+    state = CLOSED;
+    ML::futex_wake(state);
 }
 
 /* NULLINPUTSINK */
