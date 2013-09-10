@@ -33,90 +33,60 @@ using namespace ML;
 using namespace Datacratic;
 
 
-// FIXME this test is failing on AWS
-#if 0
 BOOST_AUTO_TEST_CASE( test_service_zk_disconnect )
 {
-    ZooKeeper::TemporaryServer zookeeper;
-    std::cerr <<"starting zookeeper..." << std::endl;
-    zookeeper.start();
+    ServiceDiscoveryScenario scenario("test_service_zk_disconnect");
+    ServiceDiscoveryScenarioTest test(scenario);
+
+    int port = scenario.startTemporaryServer();
     ML::sleep(2);
 
     cerr << "Starting multiple service zk disconnect " << endl;
-    auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
+    scenario.createProxies(formatHost("localhost", port));
 
-    ZmqMultipleNamedClientBusProxy connection(proxies->zmqContext);
-    connection.init(proxies->config, "client1");
+    auto connection = scenario.createConnectionAndStart("client1");
 
-    connection.connectHandler = [&] (const std::string & svc)
+    connection->connectHandler = [&] (const std::string & svc)
         {
             cerr << "connected to " << svc << endl;
         };
 
-    connection.disconnectHandler = [&] (const std::string  & svc)
+    connection->disconnectHandler = [&] (const std::string  & svc)
         {
             cerr << "disconnected from " << svc << endl;
         };
 
-    connection.start();
+    test.assertConnectionCount("client1", 0);
 
-    BOOST_CHECK_EQUAL(connection.connectionCount(), 0);
+    scenario.connectServiceProviders("client1", "echo", "echo");
 
-    connection.connectAllServiceProviders("echo", "echo");
+    test.assertConnectionCount("client1", 0);
 
-    BOOST_CHECK_EQUAL(connection.connectionCount(), 0);
+    scenario.createServiceAndStart("echo0");
 
-    std::vector<unique_ptr<EchoService> > services;
-
-    auto startService = [&] ()
-        {
-            services.emplace_back(new EchoService(proxies, "echo" + to_string(services.size())));
-            EchoService & service = *services.back();
-            service.init();
-            auto addr = service.bindTcp();
-            cerr << "echo service is listening on " << addr << endl;
-            service.start();
-        };
-
-    startService();
-
-//    proxies->config->dump(cerr);
-//    std::cerr <<"going to sleep for 5 seconds " << std::endl;
     ML::sleep(5);
 
     std::cerr << "About to suspend zookeeper..." ;
-    // Make sure that the latest callback id is correct
-    BOOST_CHECK_EQUAL(ZookeeperCallbackManager::instance().getId(),6);
-    zookeeper.suspend();
+//    test.assertTriggeredWatches("client1", 1);
+    std::cerr << "Watches = " << connection->triggeredWatches << std::endl;
+    scenario.suspendServer();
     std::cerr << "zookeeper suspended " << std::endl;
     ML::sleep(10);
     std::cerr <<"resuming zookeeper " << std::endl;
-    zookeeper.resume() ;
+    scenario.resumeServer();
     ML::sleep(10);
-    // When we resume zookeeper we will reconnect and a new callback
-    // should be installed if the watch is reinstalled correctly
-    // @todo better mechanism for checking that watches are handled 
-    // correctly.
-    BOOST_CHECK_EQUAL(ZookeeperCallbackManager::instance().getId(),8);
-    zookeeper.suspend();
+    std::cerr << "Watches = " << connection->triggeredWatches << std::endl;
+//    test.assertTriggeredWatches("client1", 4);
+    scenario.suspendServer();
     std::cerr << "zookeeper suspended again" << std::endl;
     ML::sleep(10);
     std::cerr <<"resuming zookeeper again " << std::endl;
-    zookeeper.resume() ;
+    scenario.resumeServer();
     cerr << "going to sleep for 30 seconds.." << endl;
     ML::sleep(10);
-    BOOST_CHECK_EQUAL(ZookeeperCallbackManager::instance().getId(), 10);
     cerr << "shutting down" << endl;
-
-    connection.shutdown();
-
-    for (unsigned i = 0;  i < services.size();  ++i)
-        services[i]->shutdown();
 }
-#endif
 
-#if 0
 BOOST_AUTO_TEST_CASE( test_early_connection )
 {
     /** Test that we can do a "connect", then start the service, and
@@ -124,149 +94,76 @@ BOOST_AUTO_TEST_CASE( test_early_connection )
     */
     cerr << "Testing early connection..." << endl;
 
-    ZooKeeper::TemporaryServer zookeeper;
-    zookeeper.start();
+    ServiceDiscoveryScenario scenario("test_early_connection");
+    ServiceDiscoveryScenarioTest test(scenario);
 
-    auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
+    int port = scenario.startTemporaryServer();
+    auto proxies = scenario.createProxies(formatHost("localhost", port));
 
-    ZmqNamedClientBusProxy connection(proxies->zmqContext);
-    connection.init(proxies->config, "client1");
-    connection.connectHandler = [&] (const std::string & svc) {
+    auto connection = scenario.createConnectionAndStart("client1");
+    connection->connectHandler = [&] (const std::string & svc) {
         cerr << "connected to " << svc << endl;
     };
 
-    connection.disconnectHandler = [&] (const std::string  & svc) {
+    connection->disconnectHandler = [&] (const std::string  & svc) {
         cerr << "disconnected from " << svc << endl;
     };
 
-    connection.start();
-    connection.connectToServiceClass("echo", "echo");
+    scenario.connectServiceProviders("client1", "echo", "echo");
 
-    //for(int i = 0; i != 2; ++i)
-    {
-        while(connection.isConnected()) {
-            ML::sleep(0.1);
-        }
+    test.assertConnectionCount("client1", 0);
 
-        BOOST_CHECK_EQUAL(connection.isConnected(), false);
+    proxies->config->removePath("");
 
-        proxies->config->removePath("");
+    scenario.createServiceAndStart("echo");
+    //proxies->config->dump(cerr);
 
-        EchoService service(proxies, "echo");
-        service.init();
-        auto addr = service.bindTcp();
-        cerr << "echo service is listening on " << addr << endl;
-        service.start();
+    scenario.waitForClientConnected("client1");
 
-        //proxies->config->dump(cerr);
-
-        while(!connection.isConnected()) {
-            ML::sleep(0.1);
-        }
-
-        cerr << "Checking that we are connected " << endl;
-        BOOST_CHECK_EQUAL(connection.isConnected(), true);
-    }
+    cerr << "Checking that we are connected " << endl;
+    test.assertConnectionCount("client1", 1);
 
     std::cerr << "done." << std::endl;
 }
-#endif
 
-#if 0
 BOOST_AUTO_TEST_CASE( test_multiple_services )
 {
-    ZooKeeper::TemporaryServer zookeeper;
-    zookeeper.start();
+    ServiceDiscoveryScenario scenario("test_multiple_services");
+    ServiceDiscoveryScenarioTest test(scenario);
 
-    auto proxies = std::make_shared<ServiceProxies>();
-    proxies->useZookeeper(ML::format("localhost:%d", zookeeper.getPort()));
+    int port = scenario.startTemporaryServer();
+    scenario.createProxies(formatHost("localhost", port));
 
     cerr << "Starting multiple services test " << endl;
 
-    ZmqMultipleNamedClientBusProxy connection(proxies->zmqContext);
-    connection.init(proxies->config, "client1");
-
-    connection.connectHandler = [&] (const std::string & svc)
+    auto connection = scenario.createConnectionAndStart("client1");
+    connection->connectHandler = [&] (const std::string & svc)
         {
             cerr << "connected to " << svc << endl;
         };
 
-    connection.disconnectHandler = [&] (const std::string  & svc)
+    connection->disconnectHandler = [&] (const std::string  & svc)
         {
             cerr << "disconnected from " << svc << endl;
         };
 
-    connection.start();
+    test.assertConnectionCount("client1", 0);
 
-    BOOST_CHECK_EQUAL(connection.connectionCount(), 0);
+    scenario.connectServiceProviders("client1", "echo", "echo");
 
-    connection.connectAllServiceProviders("echo", "echo");
+    test.assertConnectionCount("client1", 0);
 
-    BOOST_CHECK_EQUAL(connection.connectionCount(), 0);
-
-    std::vector<unique_ptr<EchoService> > services;
-
+    int instance { 0 };
     auto startService = [&] ()
-        {
-            services.emplace_back(new EchoService(proxies, "echo" + to_string(services.size())));
-            EchoService & service = *services.back();
-            service.init();
-            auto addr = service.bindTcp();
-            cerr << "echo service is listening on " << addr << endl;
-            service.start();
-        };
+    {
+        scenario.createServiceAndStart("echo" + to_string(instance++));
+    };
 
     startService();
 
-    proxies->config->dump(cerr);
-
     ML::sleep(0.1);
 
-    BOOST_CHECK_EQUAL(connection.connectionCount(), 1);
-
-    cerr << "shutting down" << endl;
-
-    connection.shutdown();
-
-    for (unsigned i = 0;  i < services.size();  ++i)
-        services[i]->shutdown();
+    test.assertConnectionCount("client1", 1);
 
 }
-#endif
 
-BOOST_AUTO_TEST_CASE( test_simple_disconnect )
-{
-    ServiceDiscoveryScenario scenario("test_simple_disconnect");
-    ServiceDiscoveryScenarioTest test(scenario);
-
-    int port = scenario.startTemporaryServer();
-    scenario.createProxies(formatHost("localhost", port), "connectionProxy");
-
-    scenario.createProxies(formatHost("localhost", port), "endpointProxy");
-
-    auto connection = scenario.createConnectionAndStart("client", "connectionProxy");
-    volatile bool connected = false;
-    connection->connectHandler = [&](const std::string &) {
-        connected = true;
-    };
-
-    auto client = scenario.connectServiceProviders("client", "echo", "echo");
-    scenario.createServiceAndStart("echo0", "endpointProxy");
-
-    while (!connected)
-       ML::sleep(0.1);
-
-    auto currentWatchesCount = client->triggeredWatches;
-
-    std::cerr << "Expiring session\n";
-    scenario.expireSession("connectionProxy");
-    ML::sleep(5);
-    test.assertTriggeredWatches("client", currentWatchesCount + 1);
-    currentWatchesCount = client->triggeredWatches;
-
-    scenario.reconnectSession("connectionProxy");
-    test.assertTriggeredWatches("client", currentWatchesCount + 1);
-
-    ML::sleep(10);
-}

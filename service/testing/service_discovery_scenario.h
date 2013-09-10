@@ -34,8 +34,14 @@ public:
     friend class ServiceDiscoveryScenarioTest;
 
     ServiceDiscoveryScenario(const std::string &name) :
-        name { name }
+        name { name },
+        serverStatus { Down }
     { }
+
+    ~ServiceDiscoveryScenario()
+    {
+        //reset();
+    }
 
     std::shared_ptr<ServiceProxies>
     createProxies(const std::string &host, 
@@ -59,16 +65,53 @@ public:
         zooServer.reset(new ZooKeeper::TemporaryServer);
         zooServer->start();
 
+        serverStatus = Running;
         return zooServer->getPort();
+    }
+
+    void
+    suspendServer()
+    {
+        if (!zooServer)
+            throw ML::Exception("NULL server can not be suspended");
+
+        if (serverStatus != Running)
+            throw ML::Exception("Server must be running to be suspended");
+
+        zooServer->suspend();
+        serverStatus = Suspended;
+    }
+
+    void
+    resumeServer()
+    {
+        if (!zooServer)
+            throw ML::Exception("NULL server can not be resumed");
+
+        if (serverStatus != Suspended)
+            throw ML::Exception("Server is not suspended");
+
+        zooServer->resume();
+        serverStatus = Running;
     }
 
     void
     reset()
     {
-        zooServer.reset(nullptr);
-        proxiesMap.clear();
+#if 0
+        for (auto &client: clientsMap)
+            client.second->shutdown();
+        for (auto &service: servicesMap)
+            service.second->shutdown();
+#endif
+
         clientsMap.clear();
+        proxiesMap.clear();
         servicesMap.clear();
+
+        zooServer->shutdown();
+        zooServer.reset(nullptr);
+
     }
 
     std::shared_ptr<ZmqMultipleNamedClientBusProxy> 
@@ -114,6 +157,19 @@ public:
 
         connection->connectAllServiceProviders(serviceClass, endpointName);
         return connection;
+    }
+
+    void
+    waitForClientConnected(const std::string &clientName,
+                           double sleepTime = 0.1)
+    {
+        auto client = getFromMap(clientsMap, clientName);
+        if (!client)
+            throw ML::Exception(ML::format("connection with hame '%s' does "
+                                           "not exist", clientName.c_str()));
+
+        while (!client->connected)
+            ML::sleep(sleepTime);
     }
 
     std::shared_ptr<EchoService>
@@ -184,8 +240,15 @@ public:
     }
 
 
+
 private:
     std::string name;
+
+    enum ServerStatus {
+        Down,
+        Suspended,
+        Running 
+    } serverStatus;
     std::unique_ptr<ZooKeeper::TemporaryServer> zooServer;
 
     typedef std::map<std::string, std::shared_ptr<ZmqMultipleNamedClientBusProxy>>

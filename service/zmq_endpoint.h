@@ -1123,6 +1123,7 @@ struct ZmqNamedClientBusProxy : public ZmqNamedProxy {
 */
 
 struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
+    friend class ServiceDiscoveryScenario;
 
     ZmqMultipleNamedClientBusProxy()
         : zmqContext(new zmq::context_t(1))
