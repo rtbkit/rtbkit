@@ -113,7 +113,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     loop.start();
 
     auto & stdInSink = runner.getStdInSink();
-    runner.run({"build/x86_64/bin/test_runner_helper"},
+    runner.run({"build/x86_64/bin/runner_test_helper"},
                onTerminate, stdOutSink, stdErrSink);
     for (const string & command: commands) {
         stdInSink.write(string(command));
@@ -153,7 +153,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         loop.start();
 
         auto & stdInSink = runner.getStdInSink();
-        runner.run({"build/x86_64/bin/test_runner_helper"},
+        runner.run({"build/x86_64/bin/runner_test_helper"},
                    onTerminate, nullSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
@@ -181,7 +181,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         loop.start();
 
         auto & stdInSink = runner.getStdInSink();
-        runner.run({"build/x86_64/bin/test_runner_helper"},
+        runner.run({"build/x86_64/bin/runner_test_helper"},
                    onTerminate, nullSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
@@ -241,7 +241,7 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
         auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
 
         auto & stdInSink = runner.getStdInSink();
-        runner.run({"build/x86_64/bin/test_runner_helper"},
+        runner.run({"build/x86_64/bin/runner_test_helper"},
                    nullptr, stdOutSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
