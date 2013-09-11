@@ -136,7 +136,7 @@ struct ThreadSpecificInstanceInfo
             std::lock_guard<Lock> guard(destructLock);
             if (!object) return nullptr;
 
-            value.~T();
+            storage.value.~T();
             auto oldObject = object;
             object = nullptr;
 
@@ -147,11 +147,27 @@ struct ThreadSpecificInstanceInfo
         // so no locks are needed.
         void construct(ThreadSpecificInstanceInfo* newObject)
         {
-            new (&value) T();
+            new (&storage.value) T();
             object = newObject;
         }
 
-        T value;
+        /** The odd setup is to prevent spurious calls to the T constructor and
+            destructor when we construct our parent class Value.
+
+            Note that using a union is a well defined type-puning construct in
+            gcc while reinterpret_cast<> could cause problems when used with
+            strict-aliasing (I think). Feel free to simplify it if I'm wrong.
+         */
+        union Storage
+        {
+            Storage() {}
+            ~Storage() {}
+
+            T value;
+            uint8_t unused[sizeof(T)];
+        } storage;
+
+
         Lock destructLock;
         ThreadSpecificInstanceInfo* object;
     };
@@ -225,7 +241,7 @@ private:
             freeSet.insert(&val);
         }
 
-        return &val.value;
+        return &val.storage.value;
     }
 
     static Thread_Specific<PerThreadInfo> staticInfo;

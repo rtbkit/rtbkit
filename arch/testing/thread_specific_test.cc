@@ -54,6 +54,16 @@ size_t Data::destructed = 0;
 typedef ML::ThreadSpecificInstanceInfo<Data, Data> Tls;
 
 
+BOOST_AUTO_TEST_CASE(sanityTest)
+{
+    {
+        ML::ThreadSpecificInstanceInfo<Data, Data> data;
+        data.get();
+    }
+
+    BOOST_CHECK_EQUAL(Data::constructed, Data::destructed);
+}
+
 BOOST_AUTO_TEST_CASE( test_single_thread )
 {
     {
