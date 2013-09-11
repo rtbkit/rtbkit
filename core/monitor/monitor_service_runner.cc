@@ -25,7 +25,8 @@ int main(int argc, char ** argv)
     Datacratic::ServiceProxyArguments args;
 
     options_description options = args.makeProgramOptions("Monitor Service");
-    options.add_options() ("help,h", "Print this message");
+    options.add_options() ("help,h", "Print this message")
+                          ("disabled,d", "Disable the monitor");
 
     variables_map vm;
     store(command_line_parser(argc, argv) .options(options) .run(), vm);
@@ -52,6 +53,11 @@ int main(int argc, char ** argv)
          << addr.first << "," << addr.second << endl;
 
     proxies->config->dump(cerr);
+
+    if(vm.count("disabled")) {
+        monitor.disabled = true;
+        std::cerr << "MONITOR IS DISABLED" << std::endl;
+    }
 
     monitor.startSync();
 

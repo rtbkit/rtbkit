@@ -25,7 +25,8 @@ MonitorEndpoint(shared_ptr<ServiceProxies> proxies,
                 const string & serviceName)
     : ServiceBase(serviceName, proxies),
       RestServiceEndpoint(proxies->zmqContext),
-      checkTimeout_(2)
+      checkTimeout_(2),
+      disabled(false)
 {
 }
 
@@ -131,7 +132,7 @@ getMonitorStatus()
     for (const auto & it : providersStatus_)
         if (!it.second.getClassStatus(checkTimeout_)) return false;
 
-    return true;
+    return !disabled;
 }
 
 bool

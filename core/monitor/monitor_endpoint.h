@@ -61,7 +61,10 @@ struct MonitorEndpoint : public Datacratic::ServiceBase,
         bool getClassStatus(double checkTimeout) const;
         void dump(double checkTimeout, std::ostream& stream = std::cerr) const;
     };
+
     std::map<std::string, ClassStatus> providersStatus_;
+
+    bool disabled;
 };
 
 } // namespace RTBKIT
