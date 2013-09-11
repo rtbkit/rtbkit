@@ -132,9 +132,9 @@ perform(const std::string & verb,
         myRequest.setOpt<BoostHeaderFunction>(onHeader);
         myRequest.setOpt<BoostWriteFunction>(onWriteData);
         myRequest.setOpt<BoostProgressFunction>(onProgress);
-        if(cookie.length() > 0){
+        for (auto & cookie: cookies)
             myRequest.setOpt<curlpp::options::CookieList>(cookie);
-        }
+
         //myRequest.setOpt<Header>(true);
 
         if (content.data) {
