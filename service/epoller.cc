@@ -156,7 +156,7 @@ handleEvents(int usToWait, int nEvents,
             //if (debug) cerr << "handleEvents: res = " << res << endl;
             if (res == 0) return 0;
         }
-                
+
         int res = epoll_wait(epoll_fd, events, nEvents, 0);
 
         if (afterSleep)
