@@ -124,8 +124,8 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
         ML::futex_wait(done, false);
     }
 
-    BOOST_CHECK_EQUAL(receivedStdOut, expectedStdOut);
-    BOOST_CHECK_EQUAL(receivedStdErr, expectedStdErr);
+    BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdOut), ML::hexify_string(expectedStdOut));
+    BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdErr), ML::hexify_string(expectedStdErr));
 }
 #endif
 
@@ -249,7 +249,8 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
         stdInSink.requestClose();
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(receivedStdOut, expectedStdOut);
+        BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdOut),
+                          ML::hexify_string(expectedStdOut));
     };
 
     for (int i = 0; i < 5; i++) {
