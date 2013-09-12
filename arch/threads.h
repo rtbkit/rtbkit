@@ -23,7 +23,7 @@
 #ifndef __arch__threads_h__
 #define __arch__threads_h__
 
-#include <thread>
+#include <mutex>
 
 
 typedef std::recursive_mutex Lock;
