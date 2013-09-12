@@ -58,35 +58,45 @@ BOOST_AUTO_TEST_CASE( test_service_zk_disconnect )
 
     test.assertConnectionCount("client1", 0);
 
+    std::cerr << "Connecting all service providers" << std::endl;
     scenario.connectServiceProviders("client1", "echo", "echo");
 
+    test.assertTriggeredWatches("client1", 0);
     test.assertConnectionCount("client1", 0);
 
+    std::cerr << "Creating service" << std::endl;
     scenario.createServiceAndStart("echo0");
 
-    ML::sleep(5);
+    ML::sleep(10);
+    // Service must be registered in ZooKeeper, a watch must have been triggered
+    test.assertTriggeredWatches("client1", 1);
 
-    std::cerr << "About to suspend zookeeper..." ;
-//    test.assertTriggeredWatches("client1", 1);
-    std::cerr << "Watches = " << connection->triggeredWatches << std::endl;
+    std::cerr << "About to suspend zookeeper..." << std::endl;
     scenario.suspendServer();
     std::cerr << "zookeeper suspended " << std::endl;
     ML::sleep(10);
+
+    // When suspending the server, a watch with SESSION_EXPIRED is triggered
+    test.assertTriggeredWatches("client1", 2);
     std::cerr <<"resuming zookeeper " << std::endl;
     scenario.resumeServer();
     ML::sleep(10);
-    std::cerr << "Watches = " << connection->triggeredWatches << std::endl;
-//    test.assertTriggeredWatches("client1", 4);
+
+    // After resuming the server, the watch must have been reinstalled. We
+    // suspend the server again to check if the watch is triggered
     scenario.suspendServer();
     std::cerr << "zookeeper suspended again" << std::endl;
     ML::sleep(10);
+    test.assertTriggeredWatches("client1", 3);
     std::cerr <<"resuming zookeeper again " << std::endl;
     scenario.resumeServer();
-    cerr << "going to sleep for 30 seconds.." << endl;
+
+    cerr << "going to sleep for 10 seconds.." << endl;
     ML::sleep(10);
     cerr << "shutting down" << endl;
 }
 
+#if 0
 BOOST_AUTO_TEST_CASE( test_early_connection )
 {
     /** Test that we can do a "connect", then start the service, and
@@ -167,3 +177,4 @@ BOOST_AUTO_TEST_CASE( test_multiple_services )
 
 }
 
+#endif

@@ -49,6 +49,26 @@ std::string printZookeeperState(int state)
     return ML::format("ZOO_UNKNOWN_STATE(%d)", state);
 }
 
+std::string printChangeType(ConfigurationService::ChangeType change)
+{
+    switch (change)
+    {
+#define CHANGE_CASE(change, str) \
+        case change: \
+            return str;
+
+        CHANGE_CASE(ConfigurationService::CREATED, "CREATED")
+        CHANGE_CASE(ConfigurationService::DELETED, "DELETED")
+        CHANGE_CASE(ConfigurationService::VALUE_CHANGED, "VALUE_CHANGED")
+        CHANGE_CASE(ConfigurationService::NEW_CHILD, "NEW_CHILD")
+
+#undef CHANGE_CASE
+    }
+
+    ExcCheck(false, "Bad code path");
+}
+    
+
 void
 watcherFn(int type, int state, std::string const & path, void * watcherCtx)
 {
@@ -75,7 +95,10 @@ watcherFn(int type, int state, std::string const & path, void * watcherCtx)
 
     auto & item = *data;
     if (item->watchReferences > 0) {
-//        cerr << "watcherFn:calling with path " << path << " and change " << change << endl;
+#if 0
+        cerr << "watcherFn:calling with path " << path << " and change " 
+             << printChangeType(change) << endl;
+#endif
         item->onChange(path, change);
     }
 }

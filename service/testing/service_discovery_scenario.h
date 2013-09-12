@@ -40,7 +40,7 @@ public:
 
     ~ServiceDiscoveryScenario()
     {
-        //reset();
+        reset();
     }
 
     std::shared_ptr<ServiceProxies>
@@ -297,7 +297,8 @@ public:
         auto client = scenario.getFromMap(scenario.clientsMap,
                                           clientName);
 
-        BOOST_CHECK_EQUAL(client->triggeredWatches, count);
+        BOOST_CHECK_EQUAL(client->changesCount[ConfigurationService::CREATED], 
+                          count);
     }
 
 private:

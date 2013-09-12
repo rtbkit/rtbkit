@@ -1124,22 +1124,33 @@ struct ZmqNamedClientBusProxy : public ZmqNamedProxy {
 
 struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
     friend class ServiceDiscoveryScenario;
+    friend class ServiceDiscoveryScenarioTest;
+
+#define CHANGES_MAP_INITIALIZER \
+    { \
+        { ConfigurationService::VALUE_CHANGED, 0 }, \
+        { ConfigurationService::DELETED, 0 }, \
+        { ConfigurationService::CREATED, 0 }, \
+        { ConfigurationService::NEW_CHILD, 0 } \
+    }
 
     ZmqMultipleNamedClientBusProxy()
-        : zmqContext(new zmq::context_t(1))
+       : zmqContext(new zmq::context_t(1)),
+         changesCount( CHANGES_MAP_INITIALIZER )
     {
         connected = false;
         inProvidersChanged = false;
-        triggeredWatches = 0;
     }
 
     ZmqMultipleNamedClientBusProxy(std::shared_ptr<zmq::context_t> context)
-        : zmqContext(context)
+        : zmqContext(context),
+          changesCount( CHANGES_MAP_INITIALIZER )
     {
         connected = false;
         inProvidersChanged = false;
-        triggeredWatches = 0;
     }
+
+#undef CHANGES_MAP_INITIALIZER
 
     ~ZmqMultipleNamedClientBusProxy()
     {
@@ -1191,6 +1202,7 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         serviceProvidersWatch.init([=, this] (const std::string & path,
                                         ConfigurationService::ChangeType change)
                                    {
+                                       ++changesCount[change];
                                        onServiceProvidersChanged("serviceClass/" + serviceClass, local);
                                    });
 
@@ -1262,10 +1274,6 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
             throw ML::Exception("need to override on messageHandler or handleMessage");
     }
 
-    /** Number of time a watch has been triggered. This count is meant for
-     *  tests purposes
-     */
-    uint32_t triggeredWatches;
 
 private:
     /** Are we connected? */
@@ -1273,6 +1281,11 @@ private:
 
     /** Common zeromq context for all connections. */
     std::shared_ptr<zmq::context_t> zmqContext;
+
+    /** Number of times a particular change has occured. This is only meant for tests
+     *  purposes.
+     */
+    std::map<int, uint32_t> changesCount;
 
     /** Configuration service from where we learn where to connect. */
     std::shared_ptr<ConfigurationService> config;
@@ -1314,7 +1327,6 @@ private:
             return ;
         }
         inProvidersChanged = true;
-        ++triggeredWatches;
         //cerr << "onServiceProvidersChanged(" << path << ")" << endl;
 
         // The list of service providers has changed
@@ -1433,6 +1445,7 @@ private:
         std::unique_lock<Lock> guard(connectionsLock);
 
         auto & c = connections[name];
+        //ML::backtrace();
 
         // already connected
         if (c) 
