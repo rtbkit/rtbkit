@@ -340,16 +340,14 @@ RegisterValueDescriptionI<T, Impl>
 ValueDescriptionI<T, kind, Impl>::
 regme;
 
-inline void * addOffset(void * base, ssize_t offset)
+inline constexpr void * addOffset(void * base, ssize_t offset)
 {
-    char * c = reinterpret_cast<char *>(base);
-    return c + offset;
+    return reinterpret_cast<char *>(base) + offset;
 }
 
-inline const void * addOffset(const void * base, ssize_t offset)
+inline constexpr const void * addOffset(const void * base, ssize_t offset)
 {
-    const char * c = reinterpret_cast<const char *>(base);
-    return c + offset;
+    return reinterpret_cast<const char *>(base) + offset;
 }
 
 
@@ -958,6 +956,106 @@ struct DefaultDescription<std::map<std::string, T> >
         return *this->inner;
     }
 };
+
+
+/*****************************************************************************/
+/* DESCRIPTION FROM BASE                                                     */
+/*****************************************************************************/
+
+/** This class is used for when you want to create a value description for
+    a class that derives from a base class that provides most or all of its
+    functionality (eg, a vector).  It forwards all of the methods to the
+    base value description.
+*/
+
+template<typename T, typename Base,
+         typename BaseDescription = typename std::remove_reference<decltype(*getDefaultDescription((Base*)0))>::type>
+struct DescriptionFromBase
+    : public ValueDescriptionT<T> {
+
+    DescriptionFromBase(BaseDescription * inner
+                      = getDefaultDescription((Base *)0))
+        : inner(inner)
+    {
+    }
+
+    std::unique_ptr<BaseDescription> inner;
+
+    constexpr ssize_t offset() const
+    {
+        return (ssize_t)(static_cast<Base *>((T *)0));
+    }
+
+    void * fixPtr(void * ptr) const
+    {
+        return addOffset(ptr, offset());
+    }
+
+    const void * fixPtr(const void * ptr) const
+    {
+        return addOffset(ptr, offset());
+    }
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const
+    {
+        inner->parseJson(fixPtr(val), context);
+    }
+
+    virtual void parseJsonTyped(T * val, JsonParsingContext & context) const
+    {
+        inner->parseJson(fixPtr(val), context);
+    }
+
+    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    {
+        inner->printJson(fixPtr(val), context);
+    }
+
+    virtual void printJsonTyped(const T * val, JsonPrintingContext & context) const
+    {
+        inner->printJson(fixPtr(val), context);
+    }
+
+    virtual bool isDefault(const void * val) const
+    {
+        return inner->isDefault(fixPtr(val));
+    }
+
+    virtual bool isDefaultTyped(const T * val) const
+    {
+        return inner->isDefault(fixPtr(val));
+    }
+
+    virtual size_t getArrayLength(void * val) const
+    {
+        return inner->getArrayLength(fixPtr(val));
+    }
+
+    virtual void * getArrayElement(void * val, uint32_t element) const
+    {
+        return inner->getArrayElement(fixPtr(val), element);
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    {
+        return inner->getArrayElement(fixPtr(val), element);
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const
+    {
+        inner->setArrayLength(fixPtr(val), newLength);
+    }
+    
+    virtual const ValueDescription & contained() const
+    {
+        return inner->contained();
+    }
+};
+
+
+/*****************************************************************************/
+/* CONVERSION FUNCTIONS                                                      */
+/*****************************************************************************/
 
 
 // Template set for which hasToJson<T>::value is true if and only if it has a function

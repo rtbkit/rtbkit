@@ -81,10 +81,17 @@ struct HttpRestProxy {
         HttpHeader header_;
     };
 
-    void setCookieFromResponse(const Response& r){
-        cookie = "set-cookie: " + r.getHeader("set-cookie");
+    /** Add a cookie to the connection that comes in from the response. */
+    void setCookieFromResponse(const Response& r)
+    {
+        cookies.push_back("Set-Cookie: " + r.getHeader("set-cookie"));
     }
 
+    /** Add a cookie to the connection. */
+    void setCookie(const std::string & value)
+    {
+        cookies.push_back("Set-Cookie: " + value);
+    }
 
     /** Structure used to hold content for a POST request. */
     struct Content {
@@ -186,7 +193,7 @@ private:
     */
     mutable std::vector<curlpp::Easy *> inactive;
 
-    std::string cookie;
+    std::vector<std::string> cookies;
 
 public:
     /** Get a connection. */

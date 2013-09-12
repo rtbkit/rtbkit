@@ -44,6 +44,7 @@ perform(const std::string & verb,
 {
     string responseHeaders;
     string body;
+    string uri;
 
     try {
         responseHeaders.clear();
@@ -62,7 +63,7 @@ perform(const std::string & verb,
                                   + headers[i].second);
         }
 
-        std::string uri = serviceUri + resource + queryParams.uriEscaped();
+        uri = serviceUri + resource + queryParams.uriEscaped();
 
         //cerr << "uri = " << uri << endl;
         
@@ -132,9 +133,9 @@ perform(const std::string & verb,
         myRequest.setOpt<BoostHeaderFunction>(onHeader);
         myRequest.setOpt<BoostWriteFunction>(onWriteData);
         myRequest.setOpt<BoostProgressFunction>(onProgress);
-        if(cookie.length() > 0){
+        for (auto & cookie: cookies)
             myRequest.setOpt<curlpp::options::CookieList>(cookie);
-        }
+
         //myRequest.setOpt<Header>(true);
 
         if (content.data) {
@@ -176,7 +177,9 @@ perform(const std::string & verb,
              << endl;
         cerr << "error is " << curl_easy_strerror(exc.whatCode())
              << endl;
-        //cerr << "uri is " << uri << endl;
+        cerr << "verb is " << verb << endl;
+        cerr << "uri is " << uri << endl;
+        //cerr << "query params are " << queryParams << endl;
         cerr << "headers are " << responseHeaders << endl;
         cerr << "body contains " << body.size() << " bytes" << endl;
         throw;
