@@ -297,9 +297,6 @@ void Training_Data::
 preindex(const Feature & label, const std::vector<Feature> & features)
 {
     Guard guard(index_lock);
-    if (!guard.locked()) {
-        throw Exception("guard not locked: %s", strerror(errno));
-    }
     if (index_)
         throw Exception("preindex: already has index");
 
@@ -466,9 +463,6 @@ Training_Data * Training_Data::make_type() const
 const Dataset_Index & Training_Data::generate_index() const
 {
     Guard guard(index_lock);
-    if (!guard.locked()) {
-        throw Exception("guard not locked: %s", strerror(errno));
-    }
     if (!dirty_ && index_) return *index_;
 
     //boost::timer timer;

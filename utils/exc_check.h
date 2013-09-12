@@ -36,9 +36,10 @@ struct Check_Failure: public Exception {
 #define ExcCheckImpl(condition, message, exc_type)                      \
     do {                                                                \
         if (!(condition)) {                                             \
-            std::string msg = ML::format("%s: %s", message, #condition); \
+            std::string msg__ =                                         \
+                ML::format("%s: %s", message, #condition);              \
             ML::do_abort();                                             \
-            throw exc_type(msg.c_str(), __PRETTY_FUNCTION__,            \
+            throw exc_type(msg__.c_str(), __PRETTY_FUNCTION__,          \
                     __FILE__, __LINE__);                                \
         }                                                               \
     } while (0)
@@ -48,13 +49,14 @@ struct Check_Failure: public Exception {
 #define ExcCheckOpImpl(op, value1, value2, message, exc_type)           \
     do {                                                                \
         if (!((value1) op (value2))) {                                  \
-            std::string v1 = boost::lexical_cast<std::string>(value1);  \
-            std::string v2 = boost::lexical_cast<std::string>(value2);  \
-            std::string msg = ML::format(                               \
+            std::string v1__ = boost::lexical_cast<std::string>(value1);\
+            std::string v2__ = boost::lexical_cast<std::string>(value2);\
+            std::string msg__ = ML::format(                             \
                     "%s: !(%s " #op " %s) [!(%s " #op " %s)]",          \
-                    message, #value1, #value2, v1.c_str(), v2.c_str()); \
+                    message, #value1, #value2, v1__.c_str(),            \
+                    v2__.c_str());                                      \
             ML::do_abort();                                             \
-            throw exc_type(msg.c_str(), __PRETTY_FUNCTION__,            \
+            throw exc_type(msg__.c_str(), __PRETTY_FUNCTION__,          \
                                         __FILE__, __LINE__);            \
         }                                                               \
     } while (0)
@@ -63,10 +65,10 @@ struct Check_Failure: public Exception {
 #define ExcCheckErrnoImpl(condition, message, exc_type)                 \
     do {                                                                \
         if (!(condition)) {                                             \
-            std::string msg = ML::format("%s: %s(%d)",                  \
+            std::string msg__ = ML::format("%s: %s(%d)",                \
                     message, strerror(errno), errno);                   \
             ML::do_abort();                                             \
-            throw exc_type(msg.c_str(), __PRETTY_FUNCTION__,            \
+            throw exc_type(msg__.c_str(), __PRETTY_FUNCTION__,          \
                     __FILE__, __LINE__);                                \
         }                                                               \
     } while (0)
