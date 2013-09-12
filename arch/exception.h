@@ -51,6 +51,8 @@ private:
 */
 class SilentException : public virtual std::exception {};
 
+/** Return a string that represents the currently thrown exception. */
+std::string getExceptionString();
 
 } // namespace ML
 

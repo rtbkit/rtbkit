@@ -23,6 +23,8 @@
 #include "exception.h"
 #include "format.h"
 #include <string.h>
+#include <cxxabi.h>
+#include "demangle.h"
 
 using namespace std;
 
@@ -82,5 +84,12 @@ const char * Exception::what() const throw()
 {
     return message.c_str();
 }
+
+std::string getExceptionString()
+{
+    const std::type_info* t = __cxxabiv1::__cxa_current_exception_type();
+    return demangle(t->name());
+}
+
 
 } // namespace ML
