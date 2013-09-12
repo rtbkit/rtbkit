@@ -599,11 +599,10 @@ eventHandlerFn(zhandle_t * handle,
     ZookeeperConnection * connection = reinterpret_cast<ZookeeperConnection *>(context);
 
     using namespace std;
-    //cerr << connection << " got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
 
-    cerr << ML::format("%p got event %s state %s on path %s\n",
-                    (void *) connection, printEvent(event).c_str(),
-                    printState(state).c_str(), path);
+   // cerr << ML::format("%p got event %s state %s on path %s\n",
+   //                 (void *) connection, printEvent(event).c_str(),
+   //                 printState(state).c_str(), path);
     if(state == ZOO_CONNECTED_STATE) {
         connection->cv.notify_all();
     }
