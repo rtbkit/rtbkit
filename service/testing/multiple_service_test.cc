@@ -32,7 +32,6 @@ using namespace std;
 using namespace ML;
 using namespace Datacratic;
 
-
 BOOST_AUTO_TEST_CASE( test_service_zk_disconnect )
 {
     ServiceDiscoveryScenario scenario("test_service_zk_disconnect");
@@ -44,17 +43,7 @@ BOOST_AUTO_TEST_CASE( test_service_zk_disconnect )
     cerr << "Starting multiple service zk disconnect " << endl;
     scenario.createProxies(formatHost("localhost", port));
 
-    auto connection = scenario.createConnectionAndStart("client1");
-
-    connection->connectHandler = [&] (const std::string & svc)
-        {
-            cerr << "connected to " << svc << endl;
-        };
-
-    connection->disconnectHandler = [&] (const std::string  & svc)
-        {
-            cerr << "disconnected from " << svc << endl;
-        };
+    scenario.createConnectionAndStart("client1");
 
     test.assertConnectionCount("client1", 0);
 
@@ -94,9 +83,10 @@ BOOST_AUTO_TEST_CASE( test_service_zk_disconnect )
     cerr << "going to sleep for 10 seconds.." << endl;
     ML::sleep(10);
     cerr << "shutting down" << endl;
+
+    scenario.reset();
 }
 
-#if 0
 BOOST_AUTO_TEST_CASE( test_early_connection )
 {
     /** Test that we can do a "connect", then start the service, and
@@ -108,32 +98,24 @@ BOOST_AUTO_TEST_CASE( test_early_connection )
     ServiceDiscoveryScenarioTest test(scenario);
 
     int port = scenario.startTemporaryServer();
-    auto proxies = scenario.createProxies(formatHost("localhost", port));
+    scenario.createProxies(formatHost("localhost", port));
 
-    auto connection = scenario.createConnectionAndStart("client1");
-    connection->connectHandler = [&] (const std::string & svc) {
-        cerr << "connected to " << svc << endl;
-    };
-
-    connection->disconnectHandler = [&] (const std::string  & svc) {
-        cerr << "disconnected from " << svc << endl;
-    };
+    scenario.createConnectionAndStart("client1");
 
     scenario.connectServiceProviders("client1", "echo", "echo");
 
     test.assertConnectionCount("client1", 0);
 
-    proxies->config->removePath("");
+    scenario.createServiceAndStart("echo0");
 
-    scenario.createServiceAndStart("echo");
-    //proxies->config->dump(cerr);
-
-    scenario.waitForClientConnected("client1");
+    ML::sleep(3);
 
     cerr << "Checking that we are connected " << endl;
     test.assertConnectionCount("client1", 1);
 
     std::cerr << "done." << std::endl;
+
+    scenario.reset();
 }
 
 BOOST_AUTO_TEST_CASE( test_multiple_services )
@@ -146,16 +128,7 @@ BOOST_AUTO_TEST_CASE( test_multiple_services )
 
     cerr << "Starting multiple services test " << endl;
 
-    auto connection = scenario.createConnectionAndStart("client1");
-    connection->connectHandler = [&] (const std::string & svc)
-        {
-            cerr << "connected to " << svc << endl;
-        };
-
-    connection->disconnectHandler = [&] (const std::string  & svc)
-        {
-            cerr << "disconnected from " << svc << endl;
-        };
+    scenario.createConnectionAndStart("client1");
 
     test.assertConnectionCount("client1", 0);
 
@@ -163,18 +136,13 @@ BOOST_AUTO_TEST_CASE( test_multiple_services )
 
     test.assertConnectionCount("client1", 0);
 
-    int instance { 0 };
-    auto startService = [&] ()
-    {
-        scenario.createServiceAndStart("echo" + to_string(instance++));
-    };
+    scenario.createServiceAndStart("echo0");
+    scenario.createServiceAndStart("echo1");
 
-    startService();
+    ML::sleep(3);
 
-    ML::sleep(0.1);
+    test.assertConnectionCount("client1", 2);
 
-    test.assertConnectionCount("client1", 1);
-
+    scenario.reset();
 }
 
-#endif

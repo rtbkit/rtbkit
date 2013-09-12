@@ -40,7 +40,7 @@ public:
 
     ~ServiceDiscoveryScenario()
     {
-        reset();
+       // reset();
     }
 
     std::shared_ptr<ServiceProxies>
@@ -98,19 +98,19 @@ public:
     void
     reset()
     {
-#if 0
         for (auto &client: clientsMap)
             client.second->shutdown();
+
         for (auto &service: servicesMap)
             service.second->shutdown();
-#endif
 
-        clientsMap.clear();
         proxiesMap.clear();
+        clientsMap.clear();
         servicesMap.clear();
 
-        zooServer->shutdown();
-        zooServer.reset(nullptr);
+        if (zooServer)
+            zooServer->shutdown();
+            zooServer.reset(nullptr);
 
     }
 
@@ -129,6 +129,12 @@ public:
 
         auto conn = std::make_shared<ZmqMultipleNamedClientBusProxy>(proxies->zmqContext);
         conn->init(proxies->config);
+        conn->connectHandler = [&] (const std::string & svc) {
+        };
+
+        conn->disconnectHandler = [&] (const std::string  & svc) {
+        };
+
         clientsMap.insert(std::make_pair(name, conn));
 
         return conn;
@@ -183,6 +189,7 @@ public:
         
         auto service = std::make_shared<EchoService>(proxies, name);
         service->init();
+        service->bindTcp();
 
         servicesMap.insert(std::make_pair(name, service));
 
@@ -194,8 +201,6 @@ public:
                           const std::string &proxiesName = "DEFAULT")
     {
         auto service = createService(name, proxiesName);
-            
-        service->bindTcp();
         service->start();
 
         return service;
@@ -249,7 +254,6 @@ private:
         Suspended,
         Running 
     } serverStatus;
-    std::unique_ptr<ZooKeeper::TemporaryServer> zooServer;
 
     typedef std::map<std::string, std::shared_ptr<ZmqMultipleNamedClientBusProxy>>
     ClientsMap;
@@ -258,9 +262,11 @@ private:
     typedef std::map<std::string, std::shared_ptr<ServiceProxies>>
     ProxiesMap;
 
+    ProxiesMap proxiesMap;
     ClientsMap clientsMap;
     ServicesMap servicesMap;
-    ProxiesMap proxiesMap;
+
+    std::unique_ptr<ZooKeeper::TemporaryServer> zooServer;
 
     template<typename Map>
     typename Map::mapped_type 
