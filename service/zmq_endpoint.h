@@ -1463,7 +1463,8 @@ private:
             // holding the connectionsLock which is a big no-no. This fancy
             // wrapper ensures that it's only called after we call its release
             // function.
-            newClient->connectHandler = OnConnectCallback(connectHandler, name);
+            if (connectHandler)
+                newClient->connectHandler = OnConnectCallback(connectHandler, name);
 
             newClient->disconnectHandler = [=] (std::string s)
                 {
@@ -1484,7 +1485,8 @@ private:
             addSource("ZmqMultipleNamedClientBusProxy child " + name, c);
 
             guard.unlock();
-            c->connectHandler.target<OnConnectCallback>()->release();
+            if (connectHandler)
+                c->connectHandler.target<OnConnectCallback>()->release();
 
         } catch (...) {
             // Avoid triggering the disconnect callbacks while holding the

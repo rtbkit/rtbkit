@@ -129,11 +129,6 @@ public:
 
         auto conn = std::make_shared<ZmqMultipleNamedClientBusProxy>(proxies->zmqContext);
         conn->init(proxies->config);
-        conn->connectHandler = [&] (const std::string & svc) {
-        };
-
-        conn->disconnectHandler = [&] (const std::string  & svc) {
-        };
 
         clientsMap.insert(std::make_pair(name, conn));
 
