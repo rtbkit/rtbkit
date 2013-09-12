@@ -219,6 +219,44 @@ BOOST_AUTO_TEST_CASE( test_strptime_parse )
     }
 }
 
+BOOST_AUTO_TEST_CASE( test_weekday )
+{
+    {
+        /* "2012-12-30-00" = sunday */
+        Date date = Date::parse_date_time("2012-12-30-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.weekday(), 0);
+    }
+
+    {
+        /* "2012-12-31-00" = monday */
+        Date date = Date::parse_date_time("2012-12-31-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.weekday(), 1);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_iso8601Weekday )
+{
+    {
+        /* "2012-12-30-00" = sunday */
+        Date date = Date::parse_date_time("2012-12-30-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 7);
+    }
+
+    {
+        /* "2012-12-31-00" = monday */
+        Date date = Date::parse_date_time("2012-12-31-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 1);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_dayOfYear )
+{
+    {
+        /* "2012-01-01-00" = day 0 */
+        Date date = Date::parse_date_time("2012-01-01-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.dayOfYear(), 0);
+    }
+}
 
 // for PLAT-274
 // BOOST_AUTO_TEST_CASE( test_patate) {

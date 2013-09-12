@@ -344,7 +344,8 @@ second() const
 
 int
 Date::
-weekday() const
+weekday()
+    const
 {
     using namespace boost::gregorian;
 
@@ -361,9 +362,36 @@ weekday() const
 
 int
 Date::
+iso8601Weekday()
+    const
+{
+    int weekDay = weekday();
+
+    if (weekDay == 0) {
+        weekDay = 7;
+    }
+
+    return weekDay;
+}
+
+int
+Date::
 dayOfMonth() const
 {
     return boost::gregorian::from_string(print()).day();
+}
+
+int
+Date::
+dayOfYear()
+    const
+{
+    time_t t = secondsSinceEpoch_;
+    struct tm time;
+
+    ::gmtime_r(&t, &time);
+
+    return time.tm_yday;
 }
 
 int

@@ -258,7 +258,9 @@ struct Date {
     int minute() const;
     int second() const;
     int weekday() const;
+    int iso8601Weekday() const;
     int dayOfMonth() const;
+    int dayOfYear() const;
     int monthOfYear() const;
     int year() const;
 
