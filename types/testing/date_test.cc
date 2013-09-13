@@ -283,6 +283,10 @@ BOOST_AUTO_TEST_CASE( test_iso8601WeekOfYear )
     weeks.insert({"2013-01-06-00", 1});
     weeks.insert({"2013-01-07-00", 2});
     weeks.insert({"2013-01-08-00", 2});
+    weeks.insert({"2013-09-08-23", 36});
+    weeks.insert({"2013-09-09-00", 37});
+    weeks.insert({"2013-09-15-23", 37});
+    weeks.insert({"2013-09-16-00", 38});
 
     for (const auto & entry: weeks) {
         cerr << "testing " + entry.first << endl;
@@ -290,6 +294,35 @@ BOOST_AUTO_TEST_CASE( test_iso8601WeekOfYear )
         BOOST_CHECK_EQUAL(date.iso8601WeekOfYear(), entry.second);
     }
 }
+
+BOOST_AUTO_TEST_CASE( test_weekStart )
+{
+    {
+        /* "2013-09-13-14" -> "2013-09-08-00"*/
+        Date date = Date::parse_date_time("2013-09-13-14", "%y-%m-%d-", "%H");
+        Date start = date.weekStart();
+        BOOST_CHECK_EQUAL(start.printIso8601(), "2013-09-08T00:00:00.000Z");
+    }
+    {
+        /* "2013-09-08-00" -> "2013-09-08-00"*/
+        Date date = Date::parse_date_time("2013-09-08-00", "%y-%m-%d-", "%H");
+        Date start = date.weekStart();
+        BOOST_CHECK_EQUAL(start.printIso8601(), "2013-09-08T00:00:00.000Z");
+    }
+}
+
+#if 1
+BOOST_AUTO_TEST_CASE( test_iso8601WeekStart )
+{
+    /* "2013-09-13-14" -> "2013-09-09-00"*/
+    Date date = Date::parse_date_time("2013-09-13-14", "%y-%m-%d-", "%H");
+    Date start = date.iso8601WeekStart();
+    BOOST_CHECK_EQUAL(start.printIso8601(), "2013-09-09T00:00:00.000Z");
+
+    Date newStart = start.iso8601WeekStart();
+    BOOST_CHECK_EQUAL(newStart, start);
+}
+#endif
 
 // for PLAT-274
 // BOOST_AUTO_TEST_CASE( test_patate) {

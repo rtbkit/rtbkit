@@ -239,6 +239,18 @@ struct Date {
         return dayStart() == other.dayStart();
     }
 
+    Date weekStart() const
+    {
+        int delta = weekday();
+        return plusDays(-delta).dayStart();
+    }
+    Date iso8601WeekStart() const
+    {
+        int nbr = iso8601Weekday();
+        return (nbr == 1
+                ? dayStart()
+                : plusDays(1-nbr).dayStart());
+    }
     Date dayStart() const
     {
         static const double secPerDay = 24.0 * 3600.0;
