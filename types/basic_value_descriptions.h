@@ -214,8 +214,7 @@ struct DefaultDescription<unsigned long long>
     }
 };
 
-template<>
-struct DefaultDescription<float>
+struct FloatValueDescription
     : public ValueDescriptionI<float, ValueKind::FLOAT> {
 
     virtual void parseJsonTyped(float * val,
@@ -232,7 +231,10 @@ struct DefaultDescription<float>
 };
 
 template<>
-struct DefaultDescription<double>
+struct DefaultDescription<float>: public FloatValueDescription {
+};
+
+struct DoubleValueDescription
     : public ValueDescriptionI<double, ValueKind::FLOAT> {
 
     virtual void parseJsonTyped(double * val,
@@ -246,6 +248,10 @@ struct DefaultDescription<double>
     {
         context.writeDouble(*val);
     }
+};
+
+template<>
+struct DefaultDescription<double>: public DoubleValueDescription {
 };
 
 #if 0

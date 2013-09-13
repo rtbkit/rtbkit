@@ -74,7 +74,12 @@ struct ValueDescription {
     
     ValueKind kind;
     const std::type_info * const type;
-    const std::string typeName;
+    std::string typeName;
+
+    void setTypeName(const std::string & newName)
+    {
+        this->typeName = newName;
+    }
 
     virtual void parseJson(void * val, JsonParsingContext & context) const = 0;
     virtual void printJson(const void * val, JsonPrintingContext & context) const = 0;
@@ -311,6 +316,14 @@ getDefaultDescription(T * = 0,
     return new DefaultDescription<T>();
 }
 
+/** Template that returns the type of the default description that should
+    be instantiated for the given use case.
+*/
+template<typename T>
+struct GetDefaultDescriptionType {
+    typedef typename std::remove_reference<decltype(*getDefaultDescription((T*)0))>::type type;
+};
+
 
 /*****************************************************************************/
 /* VALUE DESCRIPTION CONCRETE IMPL                                           */
@@ -349,6 +362,37 @@ inline constexpr const void * addOffset(const void * base, ssize_t offset)
 {
     return reinterpret_cast<const char *>(base) + offset;
 }
+
+
+/*****************************************************************************/
+/* VALUE DESCRIPTION WITH DEFAULT                                            */
+/*****************************************************************************/
+
+/** Provides an adaptor that adapts a given value description and adds
+    a default value.
+*/
+
+template<typename T,
+         typename Base = typename GetDefaultDescriptionType<T>::type>
+struct ValueDescriptionWithDefault : public Base {
+    ValueDescriptionWithDefault(T defaultValue)
+        : defaultValue(defaultValue)
+    {
+    }
+    
+    virtual bool isDefaultTyped(const T * val) const
+    {
+        return *val == defaultValue;
+    }
+
+    virtual void setDefaultTyped(T * val) const
+    {
+        *val = defaultValue;
+    }
+
+    T defaultValue;
+};
+
 
 
 /*****************************************************************************/
@@ -532,6 +576,17 @@ struct StructureDescriptionImpl
         //cerr << "offset = " << fd.offset << endl;
     }
 
+    /** Add a description with a default value. */
+    template<typename V, typename Base,
+             typename Desc = ValueDescriptionWithDefault<V> >
+    void addField(std::string name,
+                  V Base::* field,
+                  std::string comment,
+                  const V & defaultValue)
+    {
+        addField(name, field, comment, new Desc(defaultValue));
+    }
+
     template<typename V>
     void addParent(ValueDescriptionT<V> * description_
                    = getDefaultDescription((V *)0));
@@ -625,17 +680,79 @@ void StructureDescriptionImpl<Struct, Impl>::addParent(ValueDescriptionT<V> * de
     }
 }
 
+
+/*****************************************************************************/
+/* ENUM DESCRIPTION                                                          */
+/*****************************************************************************/
+
 template<typename Enum>
-struct EnumDescription: public ValueDescriptionT<Enum> {
+struct EnumDescription: public ValueDescriptionI<Enum, ValueKind::ENUM,
+                                                 EnumDescription<Enum> > {
 
-    struct Value {
-        int value;
-        std::string name;
-    };
+    EnumDescription()
+        : hasDefault(false), defaultValue(Enum(0))
+    {
+    }
 
-    std::unordered_map<std::string, int> parse;
-    std::unordered_map<int, Value> print;
+    virtual void parseJsonTyped(Enum * val, JsonParsingContext & context) const
+    {
+        if (context.isString()) {
+            std::string s = context.expectStringAscii();
+            auto it = parse.find(s);
+            if (it == parse.end())
+                context.exception("unknown value for " + this->typeName
+                                  + ": " + s);
+            *val = it->second;
+            return;
+        }
+
+        *val = (Enum)context.expectInt();
+    }
+
+    virtual void printJsonTyped(const Enum * val, JsonPrintingContext & context) const
+    {
+        auto it = print.find(*val);
+        if (it == print.end())
+            context.writeInt((int)*val);
+        else context.writeString(it->second);
+    }
+    
+    virtual bool isDefaultTyped(const Enum * val) const
+    {
+        if (!hasDefault)
+            return false;
+        return *val == defaultValue;
+    }
+
+    virtual void setDefaultTyped(Enum * val) const
+    {
+        *val = defaultValue;
+    }
+
+    bool hasDefault;
+    Enum defaultValue;
+
+    void setDefaultValue(Enum value)
+    {
+        this->hasDefault = true;
+        this->defaultValue = value;
+    }
+
+    void addValue(const std::string & name, Enum value)
+    {
+        if (!print.insert(make_pair(value, name)).second)
+            throw ML::Exception("double added name to enum");
+        parse.insert(make_pair(name, value));
+    }
+
+    std::unordered_map<std::string, Enum> parse;
+    std::unordered_map<int, std::string> print;
 };
+
+
+/*****************************************************************************/
+/* LIST DESCRIPTION                                                          */
+/*****************************************************************************/
 
 template<typename T>
 struct ListDescriptionBase {
@@ -969,7 +1086,8 @@ struct DefaultDescription<std::map<std::string, T> >
 */
 
 template<typename T, typename Base,
-         typename BaseDescription = typename std::remove_reference<decltype(*getDefaultDescription((Base*)0))>::type>
+         typename BaseDescription
+             = typename GetDefaultDescriptionType<Base>::type>
 struct DescriptionFromBase
     : public ValueDescriptionT<T> {
 
@@ -1204,3 +1322,18 @@ inline Json::Value jsonEncode(const char * str)
 
 #define CREATE_CLASS_DESCRIPTION(Type)                          \
     CREATE_CLASS_DESCRIPTION_NAMED(Type##Description, Type)
+
+#define CREATE_ENUM_DESCRIPTION_NAMED(Name, Type)          \
+    struct Name                                                 \
+        : public Datacratic::EnumDescription<Type> { \
+        Name();                                                 \
+    };                                                          \
+                                                                \
+    inline Name *                                               \
+    getDefaultDescription(Type *)                               \
+    {                                                           \
+        return new Name();                                      \
+    }                                                          
+
+#define CREATE_ENUM_DESCRIPTION(Type)                      \
+    CREATE_ENUM_DESCRIPTION_NAMED(Type##Description, Type)
