@@ -2,7 +2,7 @@
     "name": "rtbkit",
     "version": "0.9.0",
     "author": "Datacratic <info@datacratic.com>",
-    "description": "A real-time bidder framwork", 
+    "description": "A real-time bidder framework", 
     "dependencies" : 
     {
         "vows":             "0.6.1",
