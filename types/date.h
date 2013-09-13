@@ -191,6 +191,11 @@ struct Date {
         return result;
     }
 
+    Date plusWeeks(double interval) const
+    {
+        return plusDays(7);
+    }
+
     double secondsUntil(const Date & other) const
     {
         return other.secondsSinceEpoch_ - secondsSinceEpoch_;
