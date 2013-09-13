@@ -261,6 +261,7 @@ struct Date {
     int iso8601Weekday() const;
     int dayOfMonth() const;
     int dayOfYear() const;
+    int iso8601WeekOfYear() const;
     int monthOfYear() const;
     int year() const;
 

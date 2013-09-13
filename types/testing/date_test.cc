@@ -237,6 +237,18 @@ BOOST_AUTO_TEST_CASE( test_weekday )
 BOOST_AUTO_TEST_CASE( test_iso8601Weekday )
 {
     {
+        /* "2011-01-01-00" = saturday */
+        Date date = Date::parse_date_time("2011-01-01-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 6);
+    }
+
+    {
+        /* "2011-01-02-00" = sunday */
+        Date date = Date::parse_date_time("2011-01-02-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 7);
+    }
+
+    {
         /* "2012-12-30-00" = sunday */
         Date date = Date::parse_date_time("2012-12-30-00", "%y-%m-%d-", "%H");
         BOOST_CHECK_EQUAL(date.iso8601Weekday(), 7);
@@ -255,6 +267,27 @@ BOOST_AUTO_TEST_CASE( test_dayOfYear )
         /* "2012-01-01-00" = day 0 */
         Date date = Date::parse_date_time("2012-01-01-00", "%y-%m-%d-", "%H");
         BOOST_CHECK_EQUAL(date.dayOfYear(), 0);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_iso8601WeekOfYear )
+{
+    map<string, int> weeks;
+    
+    weeks.insert({"2010-12-31-00", 52});
+    weeks.insert({"2011-01-01-00", 52});
+    weeks.insert({"2011-01-02-00", 52});
+    weeks.insert({"2011-01-03-00", 1});
+    weeks.insert({"2013-01-01-00", 1});
+    weeks.insert({"2013-01-05-00", 1});
+    weeks.insert({"2013-01-06-00", 1});
+    weeks.insert({"2013-01-07-00", 2});
+    weeks.insert({"2013-01-08-00", 2});
+
+    for (const auto & entry: weeks) {
+        cerr << "testing " + entry.first << endl;
+        Date date = Date::parse_date_time(entry.first, "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.iso8601WeekOfYear(), entry.second);
     }
 }
 

@@ -396,6 +396,39 @@ dayOfYear()
 
 int
 Date::
+iso8601WeekOfYear()
+    const
+{
+    int yearDay = dayOfYear();
+    int weekDay = iso8601Weekday();
+
+    if (yearDay == 0) {
+        /* first week = the week with the year's first Thursday in it */
+        if (weekDay <= 4) {
+            return 1;
+        }
+        else {
+            /* else: Jan 1 is part of week 52 or 53 of the previous year */
+            Date prevDec31 = plusSeconds(-24 * 3600);
+            return prevDec31.iso8601WeekOfYear();
+        }
+    }
+
+    Date jan1 = plusSeconds(24 * 3600 * -yearDay);
+    int jan1Week = jan1.iso8601WeekOfYear();
+    int weeks = (1 + yearDay - weekDay + jan1.iso8601Weekday()) / 7;
+    if (weeks == 0) {
+        weeks = jan1Week;
+    }
+    else if (jan1Week == 1) {
+        weeks++;
+    }
+
+    return weeks;
+}
+
+int
+Date::
 monthOfYear() const
 {
     return boost::gregorian::from_string(print()).month();
