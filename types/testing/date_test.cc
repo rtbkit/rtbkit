@@ -219,6 +219,21 @@ BOOST_AUTO_TEST_CASE( test_strptime_parse )
     }
 }
 
+#if 1
+BOOST_AUTO_TEST_CASE( test_parse_date_time )
+{
+    {
+        Date date = Date::parse_date_time("2013-01-01-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.secondsSinceEpoch(), 1356998400);
+    }
+
+    {
+        Date date = Date::parse_date_time("2012-07-01-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.secondsSinceEpoch(), 1341100800);
+    }
+}
+#endif
+
 BOOST_AUTO_TEST_CASE( test_weekday )
 {
     {
