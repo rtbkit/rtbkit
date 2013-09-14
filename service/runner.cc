@@ -547,6 +547,7 @@ execute(MessageLoop & loop,
     }
 
     runner.waitTermination();
+    loop.removeSource(&runner);
 
     return result;
 }
@@ -560,5 +561,10 @@ execute(const vector<string> & command,
 {
     MessageLoop loop;
 
-    return execute(loop, command, stdOutSink, stdErrSink, stdInData);
+    Runner::RunResult result = execute(loop, command, stdOutSink, stdErrSink,
+                                       stdInData);
+
+    loop.shutdown();
+
+    return result;
 }
