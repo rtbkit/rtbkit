@@ -12,8 +12,8 @@ using namespace std;
 using namespace Datacratic;
 
 
-/* ensure MessageLoop and TypedMessageSink behave properly when destroyed */
-BOOST_AUTO_TEST_CASE( test_destruction )
+/* this test causes a crash because sink is destroyed before messageloop */
+BOOST_AUTO_TEST_CASE( test_destruction_order )
 {
     MessageLoop loop;
     TypedMessageSink<string> sink(12);
@@ -23,18 +23,14 @@ BOOST_AUTO_TEST_CASE( test_destruction )
 
     string result;
     auto onEvent = [&] (string && msg) {
-        string recv(msg);
         cerr << "received and sleeping\n";
-        ML::sleep(3.0);
-        result += recv;
+        ML::sleep(5.0);
+        result += msg;
+        cerr << "done sleeping\n";
     };
     sink.onEvent = onEvent;
 
-    /* We need to sleep to ensure epoll has caught the wakeup signals from the
-     * sink, otherwise the buffer will be destroyed too soon and the crash
-     * not occurs */
+    cerr << "sending msg 1\n";
     sink.push("This would not cause a crash...");
-    ML::sleep(1.0);
-    sink.push("Hope fully this would not either");
     ML::sleep(1.0);
 }
