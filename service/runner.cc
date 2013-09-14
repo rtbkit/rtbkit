@@ -395,6 +395,7 @@ run(const vector<string> & command,
         tie(task.stdErrFd, childFds.stdErr) = CreateStdPipe(false);
     }
 
+    ::fflush(NULL);
     task.wrapperPid = fork();
     if (task.wrapperPid == -1) {
         throw ML::Exception(errno, "Runner::run fork");
