@@ -779,7 +779,7 @@ struct EnumDescription: public ValueDescriptionI<Enum, ValueKind::ENUM,
     }
 
     std::unordered_map<std::string, Enum> parse;
-    std::unordered_map<int, std::string> print;
+    std::unordered_map<Enum, std::string> print;
 };
 
 
