@@ -143,12 +143,25 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         throw ML::Exception(errno, "RunWrapper fork");
     }
     else if (childPid == 0) {
+        signal(SIGCHLD, SIG_DFL);
+        signal(SIGPIPE, SIG_DFL);
+
         ::prctl(PR_SET_PDEATHSIG, SIGTERM);
         ::close(fds.statusFd);
-        execv(command[0].c_str(), argv);
+        int res = execv(command[0].c_str(), argv);
+        if (res == -1) {
+            throw ML::Exception(errno, "RunWrapper exec");
+        }
+
+        /* there is no possible way this code could be executed */
         throw ML::Exception("The Alpha became the Omega.");
     }
     else {
+        // Undo any SIGCHLD block from the parent process so it can
+        // properly wait for the signal
+        signal(SIGCHLD, SIG_DFL);
+        signal(SIGPIPE, SIG_DFL);
+
         // FILE * terminal = ::fopen("/dev/tty", "a");
 
         // ::fprintf(terminal, "wrapper: real child pid: %d\n", childPid);
@@ -162,7 +175,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
         // ::fprintf(terminal, "wrapper: waiting child...\n");
 
-        int res = waitpid(childPid, &status.status, 0);
+        int res = ::waitpid(childPid, &status.status, 0);
         if (res == -1)
             throw ML::Exception(errno, "waitpid");
         if (res != childPid)
@@ -481,7 +494,7 @@ postTerminate(Runner & runner)
 {
     // cerr << "postTerminate\n";
 
-    int res = waitpid(wrapperPid, NULL, 0);
+    int res = ::waitpid(wrapperPid, NULL, 0);
     if (res == -1)
         throw ML::Exception(errno, "waitpid");
     if (res != wrapperPid)
