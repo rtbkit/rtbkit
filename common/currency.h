@@ -514,5 +514,15 @@ getDefaultDescription(Amount * = 0);
 
 } // namespace RTBKIT
 
+namespace std {
+
+template<>
+struct hash<RTBKIT::CurrencyCode>
+{
+    size_t operator() (const RTBKIT::CurrencyCode & code) const
+    { return static_cast<int>(code); }
+};
+
+}
 
 #endif /* __types__currency_h__ */
