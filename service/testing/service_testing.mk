@@ -27,6 +27,8 @@ $(eval $(call test,endpoint_closed_connection_test,endpoint,boost))
 $(eval $(call test,http_long_header_test,endpoint,boost manual))
 $(eval $(call test,service_proxies_test,endpoint,boost))
 
+$(eval $(call test,message_loop_test,services,boost manual))
+
 $(eval $(call program,runner_test_helper,utils))
 $(eval $(call test,runner_test,services,boost))
 $(TESTS)/runner_test: runner_test_helper
