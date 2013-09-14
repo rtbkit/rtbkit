@@ -191,6 +191,11 @@ struct Date {
         return result;
     }
 
+    Date plusWeeks(double interval) const
+    {
+        return plusDays(7);
+    }
+
     double secondsUntil(const Date & other) const
     {
         return other.secondsSinceEpoch_ - secondsSinceEpoch_;
@@ -239,6 +244,18 @@ struct Date {
         return dayStart() == other.dayStart();
     }
 
+    Date weekStart() const
+    {
+        int delta = weekday();
+        return plusDays(-delta).dayStart();
+    }
+    Date iso8601WeekStart() const
+    {
+        int nbr = iso8601Weekday();
+        return (nbr == 1
+                ? dayStart()
+                : plusDays(1-nbr).dayStart());
+    }
     Date dayStart() const
     {
         static const double secPerDay = 24.0 * 3600.0;
@@ -258,7 +275,10 @@ struct Date {
     int minute() const;
     int second() const;
     int weekday() const;
+    int iso8601Weekday() const;
     int dayOfMonth() const;
+    int dayOfYear() const;
+    int iso8601WeekOfYear() const;
     int monthOfYear() const;
     int year() const;
 

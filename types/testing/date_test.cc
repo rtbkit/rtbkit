@@ -219,6 +219,125 @@ BOOST_AUTO_TEST_CASE( test_strptime_parse )
     }
 }
 
+#if 1
+BOOST_AUTO_TEST_CASE( test_parse_date_time )
+{
+    {
+        Date date = Date::parse_date_time("2013-01-01-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.secondsSinceEpoch(), 1356998400);
+    }
+
+    {
+        Date date = Date::parse_date_time("2012-07-01-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.secondsSinceEpoch(), 1341100800);
+    }
+}
+#endif
+
+BOOST_AUTO_TEST_CASE( test_weekday )
+{
+    {
+        /* "2012-12-30-00" = sunday */
+        Date date = Date::parse_date_time("2012-12-30-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.weekday(), 0);
+    }
+
+    {
+        /* "2012-12-31-00" = monday */
+        Date date = Date::parse_date_time("2012-12-31-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.weekday(), 1);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_iso8601Weekday )
+{
+    {
+        /* "2011-01-01-00" = saturday */
+        Date date = Date::parse_date_time("2011-01-01-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 6);
+    }
+
+    {
+        /* "2011-01-02-00" = sunday */
+        Date date = Date::parse_date_time("2011-01-02-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 7);
+    }
+
+    {
+        /* "2012-12-30-00" = sunday */
+        Date date = Date::parse_date_time("2012-12-30-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 7);
+    }
+
+    {
+        /* "2012-12-31-00" = monday */
+        Date date = Date::parse_date_time("2012-12-31-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 1);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_dayOfYear )
+{
+    {
+        /* "2012-01-01-00" = day 0 */
+        Date date = Date::parse_date_time("2012-01-01-00", "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.dayOfYear(), 0);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_iso8601WeekOfYear )
+{
+    map<string, int> weeks;
+    
+    weeks.insert({"2010-12-31-00", 52});
+    weeks.insert({"2011-01-01-00", 52});
+    weeks.insert({"2011-01-02-00", 52});
+    weeks.insert({"2011-01-03-00", 1});
+    weeks.insert({"2013-01-01-00", 1});
+    weeks.insert({"2013-01-05-00", 1});
+    weeks.insert({"2013-01-06-00", 1});
+    weeks.insert({"2013-01-07-00", 2});
+    weeks.insert({"2013-01-08-00", 2});
+    weeks.insert({"2013-09-08-23", 36});
+    weeks.insert({"2013-09-09-00", 37});
+    weeks.insert({"2013-09-15-23", 37});
+    weeks.insert({"2013-09-16-00", 38});
+
+    for (const auto & entry: weeks) {
+        cerr << "testing " + entry.first << endl;
+        Date date = Date::parse_date_time(entry.first, "%y-%m-%d-", "%H");
+        BOOST_CHECK_EQUAL(date.iso8601WeekOfYear(), entry.second);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_weekStart )
+{
+    {
+        /* "2013-09-13-14" -> "2013-09-08-00"*/
+        Date date = Date::parse_date_time("2013-09-13-14", "%y-%m-%d-", "%H");
+        Date start = date.weekStart();
+        BOOST_CHECK_EQUAL(start.printIso8601(), "2013-09-08T00:00:00.000Z");
+    }
+    {
+        /* "2013-09-08-00" -> "2013-09-08-00"*/
+        Date date = Date::parse_date_time("2013-09-08-00", "%y-%m-%d-", "%H");
+        Date start = date.weekStart();
+        BOOST_CHECK_EQUAL(start.printIso8601(), "2013-09-08T00:00:00.000Z");
+    }
+}
+
+#if 1
+BOOST_AUTO_TEST_CASE( test_iso8601WeekStart )
+{
+    /* "2013-09-13-14" -> "2013-09-09-00"*/
+    Date date = Date::parse_date_time("2013-09-13-14", "%y-%m-%d-", "%H");
+    Date start = date.iso8601WeekStart();
+    BOOST_CHECK_EQUAL(start.printIso8601(), "2013-09-09T00:00:00.000Z");
+
+    Date newStart = start.iso8601WeekStart();
+    BOOST_CHECK_EQUAL(newStart, start);
+}
+#endif
 
 // for PLAT-274
 // BOOST_AUTO_TEST_CASE( test_patate) {

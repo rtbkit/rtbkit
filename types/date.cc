@@ -344,7 +344,8 @@ second() const
 
 int
 Date::
-weekday() const
+weekday()
+    const
 {
     using namespace boost::gregorian;
 
@@ -361,9 +362,69 @@ weekday() const
 
 int
 Date::
+iso8601Weekday()
+    const
+{
+    int weekDay = weekday();
+
+    if (weekDay == 0) {
+        weekDay = 7;
+    }
+
+    return weekDay;
+}
+
+int
+Date::
 dayOfMonth() const
 {
     return boost::gregorian::from_string(print()).day();
+}
+
+int
+Date::
+dayOfYear()
+    const
+{
+    time_t t = secondsSinceEpoch_;
+    struct tm time;
+
+    ::gmtime_r(&t, &time);
+
+    return time.tm_yday;
+}
+
+int
+Date::
+iso8601WeekOfYear()
+    const
+{
+    int yearDay = dayOfYear();
+    int weekDay = iso8601Weekday();
+
+    if (yearDay == 0) {
+        /* first week = the week with the year's first Thursday in it */
+        if (weekDay <= 4) {
+            return 1;
+        }
+        else {
+            /* else: Jan 1 is part of week 52 or 53 of the previous year */
+            Date prevDec31 = plusSeconds(-24 * 3600);
+            return prevDec31.iso8601WeekOfYear();
+        }
+    }
+
+    Date jan1 = plusSeconds(24 * 3600 * -yearDay);
+    int jan1Week = jan1.iso8601WeekOfYear();
+    int weeks = (1 + yearDay - weekDay + jan1.iso8601Weekday()) / 7;
+    if (weeks == 0) {
+        weeks = jan1Week;
+    }
+    else if (jan1Week == 1) {
+        weeks++;
+    }
+
+    return weeks;
 }
 
 int
