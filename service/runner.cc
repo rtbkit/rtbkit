@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/epoll.h>
-#include <sys/signalfd.h>
+#include <sys/prctl.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -134,6 +134,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         throw ML::Exception(errno, "RunWrapper fork");
     }
     else if (childPid == 0) {
+        ::prctl(PR_SET_PDEATHSIG, SIGTERM);
         ::close(fds.statusFd);
         size_t len = command.size();
         char * argv[len + 1];
