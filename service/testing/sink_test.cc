@@ -84,6 +84,8 @@ BOOST_AUTO_TEST_CASE( test_asyncfdoutputsink_hup )
     sink->write("test message");
     ML::sleep(1.0);
     BOOST_CHECK_EQUAL(hup, true);
+
+    loop.shutdown();
 }
 #endif
 
@@ -151,6 +153,8 @@ BOOST_AUTO_TEST_CASE( test_asyncfdoutputsink_many_msgs )
     }
 
     BOOST_CHECK_EQUAL(i, nmsgs);
+
+    loop.shutdown();
 }
 #endif
 
