@@ -26,6 +26,7 @@
 #include <vector>
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 
 
 namespace ML {
@@ -136,6 +137,18 @@ operator << (std::ostream & stream, const vector<T, A> & vec)
         stream << " " << vec[i];
     return stream << " ]";
 }
+
+template<class T, class A>
+std::string
+to_string(const vector<T, A> & vec)
+{
+    ostringstream stream;
+
+    stream << vec;
+
+    return stream.str();
+}
+
 
 } // namespace std
 
