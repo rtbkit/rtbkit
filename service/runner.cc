@@ -162,7 +162,11 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
         // ::fprintf(terminal, "wrapper: waiting child...\n");
 
-        waitpid(childPid, &status.status, 0);
+        int res = waitpid(childPid, &status.status, 0);
+        if (res == -1)
+            throw ML::Exception(errno, "waitpid");
+        if (res != childPid)
+            throw ML::Exception("waitpid has not returned the childPid");
 
         // ::fprintf(terminal, "wrapper: child terminated\n");
 
@@ -477,7 +481,11 @@ postTerminate(Runner & runner)
 {
     // cerr << "postTerminate\n";
 
-    waitpid(wrapperPid, NULL, 0);
+    int res = waitpid(wrapperPid, NULL, 0);
+    if (res == -1)
+        throw ML::Exception(errno, "waitpid");
+    if (res != wrapperPid)
+        throw ML::Exception("waitpid has not returned the wrappedPid");
 
     if (stdInFd != -1) {
         ::close(stdInFd);
