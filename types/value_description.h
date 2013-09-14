@@ -309,7 +309,7 @@ struct ValueDescriptionT : public ValueDescription {
 };
 
 template<typename T>
-ValueDescriptionT<T> *
+DefaultDescription<T> *
 getDefaultDescription(T * = 0,
                       typename DefaultDescription<T>::defined * = 0)
 {
@@ -380,6 +380,20 @@ struct ValueDescriptionWithDefault : public Base {
     {
     }
     
+    virtual void parseJsonTyped(T * val,
+                                JsonParsingContext & context) const
+    {
+        std::cerr << "parseJsonTyped" << std::endl;
+        std::cerr << typeid(Base).name() << std::endl;
+        Base::parseJsonTyped(val, context);
+    }
+
+    virtual void printJsonTyped(const T * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeDouble(*val);
+    }
+
     virtual bool isDefaultTyped(const T * val) const
     {
         return *val == defaultValue;
@@ -631,16 +645,35 @@ struct StructureDescriptionImpl
     {
         return StructureDescriptionBase::printJson(val, context);
     }
+
+    void collectUnparseableJson(Json::Value Struct::* member)
+    {
+        this->onUnknownField = [=] (Struct * obj, JsonParsingContext & context)
+            {
+                std::function<Json::Value & (int, Json::Value &)> getEntry
+                = [&] (int n, Json::Value & curr) -> Json::Value &
+                {
+                    if (n == context.path.size())
+                        return curr;
+                    else if (context.path[n].index != -1)
+                        return getEntry(n + 1, curr[context.path[n].index]);
+                    else return getEntry(n + 1, curr[context.path[n].key]);
+                };
+
+                getEntry(0, obj->*member) = context.expectJson();
+            };
+    }
 };
 
 template<typename T>
 struct StructureDescription
-    : public StructureDescriptionImpl<T, StructureDescription<T>>
+    : public StructureDescriptionImpl<T, StructureDescription<T> >
 {
-    StructureDescription(bool nullAccepted = false) :
-        StructureDescriptionImpl<T, StructureDescription<T>>(nullAccepted)
+    StructureDescription(bool nullAccepted = false)
+        : StructureDescriptionImpl<T, StructureDescription<T> >(nullAccepted)
     {
     }
+    
 };
 
 template<typename Struct, typename Impl>
@@ -740,9 +773,9 @@ struct EnumDescription: public ValueDescriptionI<Enum, ValueKind::ENUM,
 
     void addValue(const std::string & name, Enum value)
     {
-        if (!print.insert(make_pair(value, name)).second)
+        if (!parse.insert(make_pair(name, value)).second)
             throw ML::Exception("double added name to enum");
-        parse.insert(make_pair(name, value));
+        print.insert(make_pair(value, name));
     }
 
     std::unordered_map<std::string, Enum> parse;

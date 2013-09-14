@@ -223,6 +223,12 @@ struct FloatValueDescription
         *val = context.expectFloat();
     }
 
+    virtual void parseJson(void * val,
+                           JsonParsingContext & context) const
+    {
+        *(float *)val = context.expectFloat();
+    }
+
     virtual void printJsonTyped(const float * val,
                                 JsonPrintingContext & context) const
     {
