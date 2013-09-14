@@ -129,6 +129,15 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
     fds.dupToStdStreams();
     fds.closeRemainingFds();
 
+    // Set up the arguments before we fork, as we don't want to call malloc()
+    // from the fork, and it can be called from c_str() in theory.
+    size_t len = command.size();
+    char * argv[len + 1];
+    for (int i = 0; i < len; i++) {
+        argv[i] = (char *) command[i].c_str();
+    }
+    argv[len] = NULL;
+
     int childPid = fork();
     if (childPid == -1) {
         throw ML::Exception(errno, "RunWrapper fork");
@@ -136,12 +145,6 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
     else if (childPid == 0) {
         ::prctl(PR_SET_PDEATHSIG, SIGTERM);
         ::close(fds.statusFd);
-        size_t len = command.size();
-        char * argv[len + 1];
-        for (int i = 0; i < len; i++) {
-            argv[i] = strdup(command[i].c_str());
-        }
-        argv[len] = NULL;
         execv(command[0].c_str(), argv);
         throw ML::Exception("The Alpha became the Omega.");
     }
