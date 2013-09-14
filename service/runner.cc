@@ -108,7 +108,7 @@ struct ChildFds {
     {
         auto closeIfNotEqual = [&] (int & fd, int notValue) {
             if (fd != notValue) {
-                ::close(stdIn);
+                ::close(fd);
             }
         };
         closeIfNotEqual(stdIn, STDIN_FILENO);
