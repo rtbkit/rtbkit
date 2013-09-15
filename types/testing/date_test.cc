@@ -22,6 +22,24 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601)
     BOOST_CHECK_NO_THROW(Date::parseIso8601("2012-12-20T14:57:57.187775+00:00")) ;
 }
 #endif
+
+BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_weeks)
+{
+    Date sept130909 = Date::parseIso8601("2013-W37");
+    Date sept130909_day = Date::parseIso8601("2013-W37-1");
+    Date sept130910_day = Date::parseIso8601("2013-W37-2");
+
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(Date::parseIso8601("2013-W37-0"),
+                          ML::Exception);
+        BOOST_CHECK_THROW(Date::parseIso8601("2013-W37-01"),
+                          ML::Exception);
+        BOOST_CHECK_THROW(Date::parseIso8601("2013-W37-8"),
+                          ML::Exception);
+    }
+}
+
 BOOST_AUTO_TEST_CASE( test_microsecond_date )
 {
     Date d = Date::now();
@@ -283,6 +301,15 @@ BOOST_AUTO_TEST_CASE( test_dayOfYear )
         Date date = Date::parse_date_time("2012-01-01-00", "%y-%m-%d-", "%H");
         BOOST_CHECK_EQUAL(date.dayOfYear(), 0);
     }
+}
+
+BOOST_AUTO_TEST_CASE( test_Date_fromIso8601Week )
+{
+    Date sept130909 = Date::fromIso8601Week(2013, 37);
+    BOOST_CHECK_EQUAL(sept130909.year(), 2013);
+    BOOST_CHECK_EQUAL(sept130909.monthOfYear(), 9);
+    BOOST_CHECK_EQUAL(sept130909.dayOfMonth(), 9);
+    BOOST_CHECK_EQUAL(sept130909.iso8601WeekStart(), sept130909);
 }
 
 BOOST_AUTO_TEST_CASE( test_iso8601WeekOfYear )

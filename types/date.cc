@@ -21,6 +21,35 @@ using namespace std;
 using namespace ML;
 
 
+namespace {
+
+int
+expectFixedWidthInt(ML::Parse_Context & context,
+                    int length, int min, int max, const char * message)
+{
+    char buf[length + 1];
+    unsigned i = 0;
+    for (;  i < length && context;  ++i, ++context) {
+        char c = *context;
+        if (c < '0' || c > '9') {
+            break;
+        }
+        buf[i] = c;
+    }
+    if (i == 0)
+        context.exception(message);
+    buf[i] = 0;
+    int result = boost::lexical_cast<int>((const char *)buf);
+
+    // This WILL bite us some time.  640k anyone?
+    if (result < min || result > max) {
+        context.exception(message);
+    }
+    return result;
+}
+    
+}
+
 namespace Datacratic {
 
 
@@ -77,6 +106,23 @@ Date(const ACE_Time_Value & value)
 
 Date
 Date::
+fromIso8601Week(int year, int week, int day)
+{
+    Date newDate(year, 1, 1);
+
+    int currentWeek = newDate.iso8601WeekOfYear();
+    if (currentWeek == 1) {
+        newDate.addWeeks(week - 1);
+    }
+    else {
+        newDate.addWeeks(week);
+    }
+
+    return newDate.iso8601WeekStart().plusDays(day - 1);
+}
+
+Date
+Date::
 parseSecondsSinceEpoch(const std::string & date)
 {
     errno = 0;
@@ -114,7 +160,12 @@ parseIso8601(const std::string & date)
     else if (date == "-Inf")
         return negativeInfinity();
 
-    return parse_date_time(date, "%y-%m-%d", "T%H:%M:%SZ");
+    if (date.size() > 5 && date[5] == 'W') {
+        return parse_iso8601_date_week(date);
+    }
+    else {
+        return parse_date_time(date, "%y-%m-%d", "T%H:%M:%SZ");
+    }
 }
 
 Date
@@ -616,30 +667,6 @@ expect_date(ML::Parse_Context & context, const std::string & format)
 {
     int year = -1, month = 1, day = 1;
 
-    auto expectFixedWidthInt = [&] (int length, int min, int max,
-                                     const char * message)
-        {
-            char buf[length + 1];
-            unsigned i = 0;
-            for (;  i < length && context;  ++i, ++context) {
-                char c = *context;
-                if (c < '0' || c > '9') {
-                    break;
-                }
-                buf[i] = c;
-            }
-            if (i == 0)
-                context.exception(message);
-            buf[i] = 0;
-            int result = boost::lexical_cast<int>((const char *)buf);
-
-            // This WILL bite us some time.  640k anyone?
-            if (result < min || result > max) {
-                context.exception(message);
-            }
-            return result;
-        };
-    
     for (const char * f = format.c_str();  context && *f;  ++f) {
         if (*f != '%') {
             context.expect_literal(*f);
@@ -652,10 +679,12 @@ expect_date(ML::Parse_Context & context, const std::string & format)
             context.expect_literal('%');
             break;
         case 'd':
-            day = expectFixedWidthInt(2, 1, 31, "expected day of month");
+            day = expectFixedWidthInt(context, 2, 1, 31,
+                                      "expected day of month");
             break;
         case 'm':
-            month = expectFixedWidthInt(2, 1, 12, "expected month of year");
+            month = expectFixedWidthInt(context, 2, 1, 12,
+                                        "expected month of year");
             break;
         case 'M':
             switch(tolower(*context)) {
@@ -733,7 +762,8 @@ expect_date(ML::Parse_Context & context, const std::string & format)
             }
             break;
         case 'y':
-            year = expectFixedWidthInt(4, 1400, 2999, "expected year");
+            year = expectFixedWidthInt(context, 4, 1400, 2999,
+                                       "expected year");
             break;
         default:
             throw Exception("expect_date: format " + string(1, *f)
@@ -996,6 +1026,45 @@ match_date_time(ML::Parse_Context & context,
     result = date.plusSeconds(time);
 
     return true;
+}
+
+Date
+Date::
+parse_iso8601_date_week(const std::string & str)
+{
+    if (str == "") return Date::notADate();
+    
+    Date result;
+    try {
+        ML::Parse_Context context(str,
+                                  str.c_str(), str.c_str() + str.length());
+        result = expect_iso8601_date_week(context);
+        
+        context.expect_eof();
+    }
+    catch (const std::exception & exc) {
+        cerr << "Error parsing date string:\n'" << str << "'" << endl;
+        throw;
+    }
+    
+    return result;
+}
+
+Date
+Date::
+expect_iso8601_date_week(ML::Parse_Context & context)
+{
+    int year(-1), week(-1), day(1);
+
+    year = expectFixedWidthInt(context, 4, 1400, 9999, "bad year");
+    context.expect_literal('-');
+    context.expect_literal('W');
+    week = expectFixedWidthInt(context, 2, 1, 53, "bad week of year");
+    if (context.match_literal('-')) {
+        day = expectFixedWidthInt(context, 1, 1, 7, "bad day of week");
+    }
+
+    return Date::fromIso8601Week(year, week, day);
 }
 
 Date Date::parse(const std::string & date,
