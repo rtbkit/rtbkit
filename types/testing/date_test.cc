@@ -25,9 +25,24 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601)
 
 BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_weeks)
 {
-    Date sept130909 = Date::parseIso8601("2013-W37");
-    Date sept130909_day = Date::parseIso8601("2013-W37-1");
-    Date sept130910_day = Date::parseIso8601("2013-W37-2");
+    {
+        Date date = Date::parseIso8601("2013-W37");
+        BOOST_CHECK_EQUAL(date.year(), 2013);
+        BOOST_CHECK_EQUAL(date.iso8601WeekOfYear(), 37);
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 1);
+    }
+    {
+        Date date = Date::parseIso8601("2013-W27-2");
+        BOOST_CHECK_EQUAL(date.year(), 2013);
+        BOOST_CHECK_EQUAL(date.iso8601WeekOfYear(), 27);
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 2);
+    }
+    {
+        Date date = Date::parseIso8601("2013-W39-3");
+        BOOST_CHECK_EQUAL(date.year(), 2013);
+        BOOST_CHECK_EQUAL(date.iso8601WeekOfYear(), 39);
+        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 3);
+    }
 
     {
         JML_TRACE_EXCEPTIONS(false);
