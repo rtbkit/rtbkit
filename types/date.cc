@@ -952,7 +952,7 @@ parse_date_time(const std::string & str,
         context.expect_eof();
     }
     catch (const std::exception & exc) {
-        cerr << "Error parsing date string:\n'" << str << "'" << endl;
+        //cerr << "Error parsing date string:\n'" << str << "'" << endl;
         throw;
     }
     
