@@ -129,23 +129,39 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
     fds.dupToStdStreams();
     fds.closeRemainingFds();
 
+    // Set up the arguments before we fork, as we don't want to call malloc()
+    // from the fork, and it can be called from c_str() in theory.
+    size_t len = command.size();
+    char * argv[len + 1];
+    for (int i = 0; i < len; i++) {
+        argv[i] = (char *) command[i].c_str();
+    }
+    argv[len] = NULL;
+
     int childPid = fork();
     if (childPid == -1) {
         throw ML::Exception(errno, "RunWrapper fork");
     }
     else if (childPid == 0) {
+        signal(SIGCHLD, SIG_DFL);
+        signal(SIGPIPE, SIG_DFL);
+
         ::prctl(PR_SET_PDEATHSIG, SIGTERM);
         ::close(fds.statusFd);
-        size_t len = command.size();
-        char * argv[len + 1];
-        for (int i = 0; i < len; i++) {
-            argv[i] = strdup(command[i].c_str());
+        int res = execv(command[0].c_str(), argv);
+        if (res == -1) {
+            throw ML::Exception(errno, "RunWrapper exec");
         }
-        argv[len] = NULL;
-        execv(command[0].c_str(), argv);
+
+        /* there is no possible way this code could be executed */
         throw ML::Exception("The Alpha became the Omega.");
     }
     else {
+        // Undo any SIGCHLD block from the parent process so it can
+        // properly wait for the signal
+        signal(SIGCHLD, SIG_DFL);
+        signal(SIGPIPE, SIG_DFL);
+
         // FILE * terminal = ::fopen("/dev/tty", "a");
 
         // ::fprintf(terminal, "wrapper: real child pid: %d\n", childPid);
@@ -159,7 +175,11 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
         // ::fprintf(terminal, "wrapper: waiting child...\n");
 
-        waitpid(childPid, &status.status, 0);
+        int res = ::waitpid(childPid, &status.status, 0);
+        if (res == -1)
+            throw ML::Exception(errno, "waitpid");
+        if (res != childPid)
+            throw ML::Exception("waitpid has not returned the childPid");
 
         // ::fprintf(terminal, "wrapper: child terminated\n");
 
@@ -396,15 +416,23 @@ run(const vector<string> & command,
         tie(task.stdErrFd, childFds.stdErr) = CreateStdPipe(false);
     }
 
+    ::flockfile(stdout);
+    ::flockfile(stderr);
     ::fflush(NULL);
     task.wrapperPid = fork();
     if (task.wrapperPid == -1) {
+        ::funlockfile(stderr);
+        ::funlockfile(stdout);
         throw ML::Exception(errno, "Runner::run fork");
     }
     else if (task.wrapperPid == 0) {
+        ::funlockfile(stderr);
+        ::funlockfile(stdout);
         RunWrapper(command, childFds);
     }
     else {
+        ::funlockfile(stderr);
+        ::funlockfile(stdout);
         ML::set_file_flag(task.statusFd, O_NONBLOCK);
         if (stdInSink_) {
             ML::set_file_flag(task.stdInFd, O_NONBLOCK);
@@ -474,7 +502,11 @@ postTerminate(Runner & runner)
 {
     // cerr << "postTerminate\n";
 
-    waitpid(wrapperPid, NULL, 0);
+    int res = ::waitpid(wrapperPid, NULL, 0);
+    if (res == -1)
+        throw ML::Exception(errno, "waitpid");
+    if (res != wrapperPid)
+        throw ML::Exception("waitpid has not returned the wrappedPid");
 
     if (stdInFd != -1) {
         ::close(stdInFd);
@@ -547,6 +579,7 @@ execute(MessageLoop & loop,
     }
 
     runner.waitTermination();
+    loop.removeSource(&runner);
 
     return result;
 }
@@ -560,5 +593,10 @@ execute(const vector<string> & command,
 {
     MessageLoop loop;
 
-    return execute(loop, command, stdOutSink, stdErrSink, stdInData);
+    Runner::RunResult result = execute(loop, command, stdOutSink, stdErrSink,
+                                       stdInData);
+
+    loop.shutdown();
+
+    return result;
 }

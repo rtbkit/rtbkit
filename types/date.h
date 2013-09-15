@@ -64,6 +64,8 @@ struct Date {
         return result;
     }
 
+    static Date fromIso8601Week(int year, int week, int day = 1);
+
     static Date parseSecondsSinceEpoch(const std::string & date);
 
     static Date parseDefaultUtc(const std::string & date);
@@ -163,6 +165,11 @@ struct Date {
         secondsSinceEpoch_ += interval * 3600.0 * 24.0;
     }
 
+    void addWeeks(double interval)
+    {
+        addDays(interval * 7.0);
+    }
+
     Date plusSeconds(double interval) const
     {
         Date result = *this;
@@ -193,7 +200,7 @@ struct Date {
 
     Date plusWeeks(double interval) const
     {
-        return plusDays(7);
+        return plusDays(interval * 7.0);
     }
 
     double secondsUntil(const Date & other) const
@@ -323,6 +330,7 @@ struct Date {
                                 const std::string & date_format,
                                 const std::string & time_format);
 
+    static Date expect_iso8601_date_week(ML::Parse_Context & context);
 
     /** 
         This function takes a string expected to contain a date that matches the
@@ -352,6 +360,8 @@ struct Date {
     static Date parse_date_time(const std::string & date_time,
                                 const std::string & date_format,
                                 const std::string & time_format);
+
+    static Date parse_iso8601_date_week(const std::string & str);
 
     // parse using strptime function. more compatible with the `print` format
     static Date parse(const std::string & date,

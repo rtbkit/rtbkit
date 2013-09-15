@@ -124,8 +124,12 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
         ML::futex_wait(done, false);
     }
 
-    BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdOut), ML::hexify_string(expectedStdOut));
-    BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdErr), ML::hexify_string(expectedStdErr));
+    BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdOut),
+                      ML::hexify_string(expectedStdOut));
+    BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdErr),
+                      ML::hexify_string(expectedStdErr));
+
+    loop.shutdown();
 }
 #endif
 
@@ -163,6 +167,8 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 
         BOOST_CHECK_EQUAL(result.signaled, false);
         BOOST_CHECK_EQUAL(result.returnCode, 123);
+
+        loop.shutdown();
     }
 
     /* aborted termination, with signum */
@@ -191,6 +197,8 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 
         BOOST_CHECK_EQUAL(result.signaled, true);
         BOOST_CHECK_EQUAL(result.returnCode, SIGABRT);
+
+        loop.shutdown();
     }
 }
 #endif
@@ -256,5 +264,7 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
     for (int i = 0; i < 5; i++) {
         performLoop(to_string(i));
     }
+
+    loop.shutdown();
 }
 #endif
