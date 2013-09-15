@@ -420,19 +420,15 @@ run(const vector<string> & command,
     ::flockfile(stderr);
     ::fflush(NULL);
     task.wrapperPid = fork();
+    ::funlockfile(stderr);
+    ::funlockfile(stdout);
     if (task.wrapperPid == -1) {
-        ::funlockfile(stderr);
-        ::funlockfile(stdout);
         throw ML::Exception(errno, "Runner::run fork");
     }
     else if (task.wrapperPid == 0) {
-        ::funlockfile(stderr);
-        ::funlockfile(stdout);
         RunWrapper(command, childFds);
     }
     else {
-        ::funlockfile(stderr);
-        ::funlockfile(stdout);
         ML::set_file_flag(task.statusFd, O_NONBLOCK);
         if (stdInSink_) {
             ML::set_file_flag(task.stdInFd, O_NONBLOCK);
