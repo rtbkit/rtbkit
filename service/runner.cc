@@ -204,7 +204,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
 Runner::
 Runner()
-    : running_(false)
+    : running_(false), childPid_(false)
 {
     Epoller::init(4);
 
@@ -275,7 +275,7 @@ handleChildStatus(const struct epoll_event & event, int statusFd, Task & task)
         loops++;
         if (status.running) {
             alive = true;
-            task.childPid = status.pid;
+            childPid_ = status.pid;
             // cerr << "child now running\n";
         }
         else {
@@ -475,10 +475,10 @@ void
 Runner::
 kill(int signum)
 {
-    if (!task_)
-        throw ML::Exception("subprocess has already terminated");
+    if (!childPid_)
+        throw ML::Exception("subprocess not available");
 
-    ::kill(task_->childPid, signum);
+    ::kill(childPid_, signum);
     waitTermination();
 }
 

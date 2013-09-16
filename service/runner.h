@@ -55,13 +55,12 @@ struct Runner: public Epoller {
     void waitTermination();
 
     bool running() const { return task_ != nullptr; }
-    int childPid() const { return task_->childPid; }
+    int childPid() const { return childPid_; }
 
 private:
     struct Task {
         Task()
-            : childPid(-1),
-              wrapperPid(-1),
+            : wrapperPid(-1),
               stdInFd(-1),
               stdOutFd(-1),
               stdErrFd(-1),
@@ -77,7 +76,6 @@ private:
         OnTerminate onTerminate;
         RunResult runResult;
 
-        pid_t childPid;
         pid_t wrapperPid;
 
         int stdInFd;
@@ -98,6 +96,7 @@ private:
     void closeStdInSink();
 
     int running_;
+    int childPid_;
 
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
     std::shared_ptr<InputSink> stdOutSink_;
