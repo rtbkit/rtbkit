@@ -383,15 +383,13 @@ struct ValueDescriptionWithDefault : public Base {
     virtual void parseJsonTyped(T * val,
                                 JsonParsingContext & context) const
     {
-        std::cerr << "parseJsonTyped" << std::endl;
-        std::cerr << typeid(Base).name() << std::endl;
         Base::parseJsonTyped(val, context);
     }
 
     virtual void printJsonTyped(const T * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeDouble(*val);
+        Base::printJsonTyped(val, context);
     }
 
     virtual bool isDefaultTyped(const T * val) const
@@ -779,7 +777,7 @@ struct EnumDescription: public ValueDescriptionI<Enum, ValueKind::ENUM,
     }
 
     std::unordered_map<std::string, Enum> parse;
-    std::unordered_map<Enum, std::string> print;
+    std::map<Enum, std::string> print;
 };
 
 

@@ -841,6 +841,7 @@ Value::asDouble() const
    case stringValue:
    case arrayValue:
    case objectValue:
+       std::cerr << *this;
       JSON_ASSERT_MESSAGE( false, "Type is not convertible to double" );
    default:
       JSON_ASSERT_UNREACHABLE;
