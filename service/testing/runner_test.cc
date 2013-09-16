@@ -1,10 +1,18 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#include <mutex>
+#include <thread>
+
 #include <boost/test/unit_test.hpp>
 
+#include "jml/arch/atomic_ops.h"
 #include "jml/arch/exception.h"
 #include "jml/arch/futex.h"
+#include "jml/arch/timers.h"
 #include "jml/utils/exc_assert.h"
 #include "jml/utils/string_functions.h"
 #include "soa/service/message_loop.h"
@@ -116,7 +124,9 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     runner.run({"build/x86_64/bin/runner_test_helper"},
                onTerminate, stdOutSink, stdErrSink);
     for (const string & command: commands) {
-        stdInSink.write(string(command));
+        while (!stdInSink.write(string(command))) {
+            ML::sleep(0.1);
+        }
     }
     stdInSink.requestClose();
 
@@ -267,4 +277,138 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
 
     loop.shutdown();
 }
+#endif
+
+#if 1
+/* stress test that runs 10 threads in parallel, where each thread:
+- invoke "execute", with 3000 messages to stderr and stdout (each)
+  received from the stdin sink
+- compare those messages with a fixture
+and
+- the parent thread that outputs messages on stderr and on stdout until all
+  threads are done
+- wait for the termination of all threads
+- ensures that all child process have properly exited
+*/
+
+BOOST_AUTO_TEST_CASE( test_stress_runner )
+{
+    vector<thread> threads;
+    vector<int> childPids;
+    int nThreads(20), activeThreads;
+    int msgsToSend(3000);
+
+    activeThreads = nThreads;
+    auto runThread = [&] (int threadNum) {
+        /* preparation */
+        HelperCommands commands;
+        string receivedStdOut, expectedStdOut;
+        string receivedStdErr, expectedStdErr;
+        size_t stdInBytes(0);
+
+        receivedStdOut.reserve(msgsToSend * 80);
+        expectedStdOut.reserve(msgsToSend * 80);
+        receivedStdErr.reserve(msgsToSend * 80);
+        expectedStdErr.reserve(msgsToSend * 80);
+
+        expectedStdOut = "helper: ready\n";
+        for (int i = 0; i < msgsToSend; i++) {
+            string stdOutData = (to_string(threadNum)
+                                 + ":" + to_string(i)
+                                 + ": this is a message to stdout\n\t"
+                                 + "and a tabbed line");
+            commands.sendOutput(true, stdOutData);
+            expectedStdOut += stdOutData + "\n";
+            string stdErrData = (to_string(threadNum)
+                                 + ":" + to_string(i)
+                                 + ": this is a message to stderr\n\t"
+                                 + "and a tabbed line");
+            commands.sendOutput(false, stdErrData);
+            expectedStdErr += stdErrData + "\n";
+        }
+        commands.sendExit(0);
+
+        expectedStdOut += "helper: exit with code 0\n";
+
+        /* execution */
+        MessageLoop loop;
+        Runner runner;
+
+        loop.addSource("runner", runner);
+        loop.start();
+
+        auto onStdOut = [&] (string && message) {
+            receivedStdOut += message;
+        };
+        auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
+        auto onStdErr = [&] (string && message) {
+            receivedStdErr += message;
+        };
+        auto stdErrSink = make_shared<CallbackInputSink>(onStdErr);
+
+        auto & stdInSink = runner.getStdInSink();
+        runner.run({"build/x86_64/bin/runner_test_helper"},
+                   nullptr, stdOutSink, stdErrSink);
+
+        for (const string & command: commands) {
+            while (!stdInSink.write(string(command))) {
+                ML::sleep(0.1);
+            }
+            stdInBytes += command.size();
+        }
+        stdInSink.requestClose();
+
+        ML::sleep(1.0);
+
+        runner.waitTermination();
+        childPids.push_back(runner.childPid());
+
+        loop.shutdown();
+
+        AsyncFdOutputSink * sinkPtr = (AsyncFdOutputSink *) &stdInSink;
+        BOOST_CHECK_EQUAL(sinkPtr->bytesSent(), stdInBytes);
+
+        BOOST_CHECK_EQUAL(receivedStdOut, expectedStdOut);
+        BOOST_CHECK_EQUAL(receivedStdErr, expectedStdErr);
+
+        ML::atomic_dec(activeThreads);
+        cerr << "activeThreads now: " + to_string(activeThreads) + "\n";
+        if (activeThreads == 0) {
+            ML::futex_wake(activeThreads);
+        }
+    };
+
+    for (int i = 0; i < nThreads; i++) {
+        threads.emplace_back(runThread, i);
+    }
+
+    ML::memory_barrier();
+
+    /* attempting to interfere with stdout/stderr as long as any thread is
+     * running */
+    while (activeThreads > 0) {
+        cout << "performing interference on stdout\n";
+        cerr << "performing interference on stderr\n";
+        // int n = activeThreads;
+        // ML::futex_wait(activeThreads, n);
+    }
+
+    for (thread & current: threads) {
+        current.join();
+    }
+ 
+    /* ensure children have all exited... */
+    BOOST_CHECK_EQUAL(childPids.size(), threads.size());
+    for (const int & pid: childPids) {
+        if (pid > 0) {
+            waitpid(pid, NULL, WNOHANG);
+            int errno_ = errno;
+            BOOST_CHECK_EQUAL(errno_, ECHILD);
+        }
+        else {
+            throw ML::Exception("no pid");
+        }
+    }
+}
+
 #endif
