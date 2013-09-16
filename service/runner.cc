@@ -39,6 +39,9 @@ namespace {
 
 struct ChildStatus
 {
+    ChildStatus()
+        : running(false), pid(-1)
+    {}
     bool running;
     union {
         int pid;
@@ -201,12 +204,9 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
 Runner::
 Runner()
-    : wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
-      running_(false)
+    : running_(false)
 {
     Epoller::init(4);
-
-    addFdOneShot(wakeup_.fd(), &wakeup_.fd_);
 
     handleEvent = [&] (const struct epoll_event & event) {
         return this->handleEpollEvent(event);
@@ -231,14 +231,11 @@ handleEpollEvent(const struct epoll_event & event)
         }
         else if (event.data.ptr == &task.stdOutFd) {
             // fprintf(stderr, "parent: handle child output from stdout\n");
-            handleOutputStatus(event, task.stdOutFd, *stdOutSink_);
+            handleOutputStatus(event, task.stdOutFd, stdOutSink_);
         }
         else if (event.data.ptr == &task.stdErrFd) {
             // fprintf(stderr, "parent: handle child output from stderr\n");
-            handleOutputStatus(event, task.stdErrFd, *stdErrSink_);
-        }
-        else if (event.data.ptr == &wakeup_.fd_) {
-            handleTaskTermination(event);
+            handleOutputStatus(event, task.stdErrFd, stdErrSink_);
         }
         else {
             throw ML::Exception("this should never occur");
@@ -256,30 +253,56 @@ Runner::
 handleChildStatus(const struct epoll_event & event, int statusFd, Task & task)
 {
     ChildStatus status;
+    bool alive(false);
 
-    // cerr << "handleChildStatus\n";
-    ssize_t s = ::read(statusFd, &status, sizeof(status));
-    if (s == -1) {
-        throw ML::Exception(errno, "Runner::handleChildStatus read");
+    int loops(0);
+    while (1) {
+        ssize_t s = ::read(statusFd, &status, sizeof(status));
+        if (s == -1) {
+            if (errno == EWOULDBLOCK) {
+                break;
+            }
+            else if (errno == EBADF) {
+                // cerr << "badf\n";
+                break;
+            }
+            throw ML::Exception(errno, "Runner::handleChildStatus read");
+        }
+        else if (s == 0) {
+            break;
+        }
+
+        loops++;
+        if (status.running) {
+            alive = true;
+            task.childPid = status.pid;
+            // cerr << "child now running\n";
+        }
+        else {
+            alive = false;
+            task.runResult.updateFromStatus(status.status);
+            attemptTaskTermination();
+            // cerr << "child now stopped\n";
+        }
     }
 
-    if (status.running) {
-        task.childPid = status.pid;
+    if (alive) {
         restartFdOneShot(statusFd, event.data.ptr);
     }
     else {
-        if (stdInSink_) {
-            closeStdInSink();
+        JML_TRACE_EXCEPTIONS(false);
+        try {
+            removeFd(statusFd);
         }
-        task.runResult.updateFromStatus(status.status);
-        wakeup_.signal();
+        catch (const ML::Exception & exc) {
+        }
     }
 }
 
 void
 Runner::
 handleOutputStatus(const struct epoll_event & event,
-                   int outputFd, InputSink & sink)
+                   int outputFd, shared_ptr<InputSink> & sink)
 {
     char buffer[4096];
     bool closedFd(false);
@@ -314,16 +337,17 @@ handleOutputStatus(const struct epoll_event & event,
 
         if (data.size() > 0) {
             // cerr << "sending child output to output handler\n";
-            sink.notifyReceived(move(data));
+            sink->notifyReceived(move(data));
         }
         else {
             cerr << "ignoring child output due to size == 0\n";
         }
     }
 
-    // cerr << "closedFd: " << closedFd << endl;
-    if (closedFd || (event.events & EPOLLHUP) == 0) {
-        sink.notifyClosed();
+    if (closedFd || (event.events & EPOLLHUP) != 0) {
+        sink->notifyClosed();
+        sink.reset();
+        attemptTaskTermination();
     }
     else {
         JML_TRACE_EXCEPTIONS(false);
@@ -331,38 +355,35 @@ handleOutputStatus(const struct epoll_event & event,
             restartFdOneShot(outputFd, event.data.ptr);
         }
         catch (const ML::Exception & exc) {
-            sink.notifyClosed();
+            cerr << "closing sink due to bad fd\n";
+            sink->notifyClosed();
+            sink.reset(); 
+            attemptTaskTermination();
         }
     }
 }
 
 void
 Runner::
-handleTaskTermination(const struct epoll_event & event)
+attemptTaskTermination()
 {
-    wakeup_.read();
-
-    if (stdInSink_) {
-        closeStdInSink();
-        parent_->removeSource(stdInSink_.get());
-        stdInSink_.reset();
+    /* for a task to be considered done:
+       - stdout and stderr must have been closed, provided we redirected them
+       - the closing child status must have been returned */
+    if (stdOutSink_ || stdErrSink_ || task_->runResult.returnCode == -1) {
     }
-    if (stdOutSink_) {
-        stdOutSink_->notifyClosed();
-        stdOutSink_.reset();
+    else {
+        // cerr << to_string(childPid()) + ": really terminated\n";
+        if (stdInSink_) {
+            closeStdInSink();
+        }
+
+        task_->postTerminate(*this);
+        task_.reset(nullptr);
+
+        running_ = false;
+        ML::futex_wake(running_);
     }
-    if (stdErrSink_) {
-        stdErrSink_->notifyClosed();
-        stdErrSink_.reset();
-    }
-
-    task_->postTerminate(*this);
-    task_.reset(nullptr);
-
-    restartFdOneShot(wakeup_.fd(), event.data.ptr);
-
-    running_ = false;
-    ML::futex_wake(running_);
 }
 
 OutputSink &
@@ -396,6 +417,7 @@ run(const vector<string> & command,
         throw ML::Exception("already running");
 
     running_ = true;
+    
     task_.reset(new Task());
     Task & task = *task_;
 
@@ -511,7 +533,12 @@ postTerminate(Runner & runner)
 
     auto unregisterFd = [&] (int & fd) {
         if (fd > -1) {
-            runner.removeFd(fd);
+            JML_TRACE_EXCEPTIONS(false);
+            try {
+                runner.removeFd(fd);
+            }
+            catch (const ML::Exception & exc) {
+            }
             ::close(fd);
             fd = -1;
         }

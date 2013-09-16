@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "epoller.h"
-#include "jml/arch/wakeup_fd.h"
 #include "jml/utils/ring_buffer.h"
 #include "sink.h"
 
@@ -28,7 +27,7 @@ namespace Datacratic {
 struct Runner: public Epoller {
     struct RunResult {
         RunResult()
-        : signaled(false), signum(-1)
+        : signaled(false), returnCode(-1)
         {}
 
         void updateFromStatus(int status);
@@ -92,12 +91,12 @@ private:
     void handleChildStatus(const struct epoll_event & event,
                            int fd, Task & task);
     void handleOutputStatus(const struct epoll_event & event,
-                            int fd, InputSink & inputSink);
-    void handleTaskTermination(const struct epoll_event & event);
+                            int fd, std::shared_ptr<InputSink> & sink);
+
+    void attemptTaskTermination();
 
     void closeStdInSink();
 
-    ML::Wakeup_Fd wakeup_;
     int running_;
 
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
