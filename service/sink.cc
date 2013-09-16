@@ -257,10 +257,12 @@ handleWakeupEvent(const struct epoll_event & event)
 {
     bool hasData(false);
     if ((event.events & EPOLLIN) != 0) {
-        wakeup_.read();
-        flushThreadBuffer();
-        hasData = (buffer_.size() > 0);
-        flushFdBuffer();
+        eventfd_t val;
+        while (wakeup_.tryRead(val)) {
+            flushThreadBuffer();
+            hasData = (buffer_.size() > 0);
+            flushFdBuffer();
+        }
     }
     else {
         throw ML::Exception("unhandled event");
