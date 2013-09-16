@@ -106,6 +106,9 @@ struct AsyncFdOutputSink : public AsyncEventSource,
     { return epollFd_; }
     virtual bool processOne();
 
+    size_t bytesSent() const
+    { return bytesSent_; }
+
     /* OutputSink interface */
     virtual bool write(std::string && data);
     virtual void requestClose();
@@ -131,7 +134,7 @@ private:
     EpollCallback handleWakeupEventCb_;
 
     void flushThreadBuffer();
-    void flushStdInBuffer();
+    void flushFdBuffer();
 
     int outputFd_;
     int fdReady_;
@@ -140,6 +143,7 @@ private:
     ML::RingBufferSRMW<std::string> threadBuffer_;
 
     std::string buffer_;
+    size_t bytesSent_;
 };
 
 

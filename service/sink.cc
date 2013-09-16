@@ -81,7 +81,8 @@ AsyncFdOutputSink(const OnHangup & onHangup,
       outputFd_(-1),
       fdReady_(false),
       wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
-      threadBuffer_(bufferSize)
+      threadBuffer_(bufferSize),
+      bytesSent_(0)
 {
     epollFd_ = ::epoll_create(2);
     if (epollFd_ == -1)
@@ -242,7 +243,7 @@ handleFdEvent(const struct epoll_event & event)
     else if ((event.events & EPOLLOUT) != 0) {
         if (state != CLOSED) {
             fdReady_ = true;
-            flushStdInBuffer();
+            flushFdBuffer();
             if (state != CLOSED) {
                 restartFdOneShot(outputFd_, handleFdEventCb_, true);
             }
@@ -254,10 +255,12 @@ void
 AsyncFdOutputSink::
 handleWakeupEvent(const struct epoll_event & event)
 {
+    bool hasData(false);
     if ((event.events & EPOLLIN) != 0) {
         wakeup_.read();
         flushThreadBuffer();
-        flushStdInBuffer();
+        hasData = (buffer_.size() > 0);
+        flushFdBuffer();
     }
     else {
         throw ML::Exception("unhandled event");
@@ -267,7 +270,13 @@ handleWakeupEvent(const struct epoll_event & event)
         restartFdOneShot(wakeup_.fd(), handleWakeupEventCb_);
     }
     else if (state == CLOSING) {
-        doClose();
+        if (hasData) {
+            restartFdOneShot(wakeup_.fd(), handleWakeupEventCb_);
+            wakeup_.signal();
+        }
+        else {
+            doClose();
+        }
     }
 }
 
@@ -284,7 +293,7 @@ flushThreadBuffer()
 
 void
 AsyncFdOutputSink::
-flushStdInBuffer()
+flushFdBuffer()
 {
     ssize_t remaining = buffer_.size();
     if (fdReady_ && remaining > 0) {
@@ -293,7 +302,6 @@ flushStdInBuffer()
         while (remaining > 0) {
             ssize_t len = ::write(outputFd_, data + written, remaining);
             if (len == 0) {
-                buffer_ = buffer_.substr(written);
                 break;
             }
             else if (len < 0) {
@@ -302,20 +310,26 @@ flushStdInBuffer()
                 }
                 else if (errno == EPIPE) {
                     handleHangup();
-                    break;
                 }
                 else {
                     throw ML::Exception(errno, "write");
                 }
+                break;
             }
             else if (len > 0) {
+                bytesSent_ += len;
                 written += len;
                 remaining -= len;
-                if (remaining == 0) {
-                    buffer_ = "";
-                }
             }
         }
+
+        if (remaining > 0) {
+            buffer_ = buffer_.substr(remaining);
+        }
+        else {
+            buffer_ = "";
+        }
+
         buffer_.reserve(8192);
     }
 }
