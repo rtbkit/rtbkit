@@ -300,7 +300,6 @@ struct AgentConfig {
         void fromJson(const Json::Value & val);
         Json::Value toJson() const;
 
-    private:
         std::bitset<168> hourBitmap;
     };
     
