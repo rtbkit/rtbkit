@@ -8,6 +8,7 @@
 #ifndef __rtb__router_h__
 #define __rtb__router_h__
 
+#include "filter_pool.h"
 #include "soa/service/zmq.hpp"
 #include <unordered_map>
 #include <boost/thread/thread.hpp>
@@ -47,6 +48,7 @@ struct Accountant;
 /** A single entry in the agent info structure. */
 struct AgentInfoEntry {
     std::string name;
+    unsigned filterIndex;
     std::shared_ptr<const AgentConfig> config;
     std::shared_ptr<const AgentStatus> status;
     std::shared_ptr<AgentStats> stats;
@@ -378,6 +380,8 @@ public:
     ML::RingBufferSWMR<std::shared_ptr<Auction> > auctionGraveyard;
 
     ML::Wakeup_Fd wakeupMainLoop;
+
+    FilterPool filters;
 
     AugmentationLoop augmentationLoop;
     Blacklist blacklist;

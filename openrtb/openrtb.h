@@ -1117,3 +1117,21 @@ struct BidResponse {
 };
 
 } // namespace OpenRTB
+
+
+/******************************************************************************/
+/* HASH                                                                       */
+/******************************************************************************/
+
+namespace std {
+
+template<>
+struct hash<OpenRTB::AdPosition>
+{
+    size_t operator() (OpenRTB::AdPosition obj) const
+    {
+        return std::hash<int>()(static_cast<int>(obj.val));
+    }
+};
+
+} // namespace std

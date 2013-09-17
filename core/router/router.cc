@@ -190,6 +190,9 @@ init()
 
     registerServiceProvider(serviceName(), { "rtbRequestRouter" });
 
+    filters.init(this);
+    FilterPool::initWithDefaultFilters(filters);
+
     banker.reset(new NullBanker());
 
     augmentationLoop.init();
@@ -531,6 +534,7 @@ run()
                 if (!config.second) {
                     // deconfiguration
                     // TODO
+                    filters.removeConfig(config.first);
                     cerr << "agent " << config.first << " lost configuration"
                          << endl;
                 }
@@ -1191,71 +1195,74 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
 
     auto exchangeConnector = auction->exchangeConnector;
 
+
+    auto doFilterStat = [&] (const AgentConfig& config, const char * reason) {
+        if (!traceAuction) return;
+
+        this->recordHit("accounts.%s.filter.%s",
+                config.account.toString('.'),
+                reason);
+    };
+
+
+    ConfigSet filterMask;
     auto checkAgent = [&] (const AgentInfoEntry & entry)
         {
             const AgentConfig & config = *entry.config;
             AgentStats & stats = *entry.stats;
-            const string & agentName = entry.name;
-
-            auto doFilterStat = [&] (const char * reason)
-            {
-                if (!traceAuction) return;
-
-                this->recordHit("accounts.%s.filter.%s",
-                                config.account.toString('.'),
-                                reason);
-            };
 
             ML::atomic_inc(stats.intoFilters);
-            doFilterStat("intoStaticFilters");
+            doFilterStat(config, "intoStaticFilters");
 
             ExcAssert(entry.status);
 
             if (entry.status->lastHeartbeat.secondsSince(now) > 2.0
                 || entry.status->dead) {
-                doFilterStat("static.003_agentAppearsDead");
+                doFilterStat(config, "static.003_agentAppearsDead");
                 return;
             }
 
             if (entry.status->numBidsInFlight >= config.maxInFlight) {
-                doFilterStat("static.004_earlyTooManyInFlight");
+                doFilterStat(config, "static.004_earlyTooManyInFlight");
                 return;
             }
 
             /* Check if we have enough time to process it. */
             if (config.minTimeAvailableMs != 0.0
                 && timeLeftMs < config.minTimeAvailableMs)
-                {
-                    ML::atomic_inc(stats.notEnoughTime);
-                    doFilterStat("static.005_notEnoughTime");
-                    return;
-                }
-
-            BiddableSpots biddableSpots
-                = config.isBiddableRequest(exchangeConnector,
-                                           *auction->request, stats,
-                                           cache, doFilterStat);
-            if (biddableSpots.empty())
+            {
+                ML::atomic_inc(stats.notEnoughTime);
+                doFilterStat(config, "static.005_notEnoughTime");
                 return;
+            }
 
-            ML::atomic_inc(stats.passedStaticFilters);
-            doFilterStat("passedStaticFilters");
-
-            string rrGroup = config.roundRobinGroup;
-            if (rrGroup == "") rrGroup = agentName;
-
-            PotentialBidder bidder;
-            bidder.agent = agentName;
-            bidder.imp = biddableSpots;
-            bidder.config = entry.config;
-            bidder.stats = entry.stats;
-
-            groupAgents[rrGroup].push_back(bidder);
-            groupAgents[rrGroup].totalBidProbability
-                += config.bidProbability;
+            filterMask.set(entry.filterIndex);
         };
 
     forEachAgent(checkAgent);
+
+    auto biddableConfigs =
+        filters.filter(*auction->request, exchangeConnector, filterMask);
+
+    for (const auto& entry : biddableConfigs) {
+        if (entry.biddableSpots.empty()) continue;
+
+        ML::atomic_inc(entry.stats->passedStaticFilters);
+        doFilterStat(*entry.config, "passedStaticFilters");
+
+        string rrGroup = entry.config->roundRobinGroup;
+        if (rrGroup == "") rrGroup = entry.name;
+
+        PotentialBidder bidder;
+        bidder.agent = entry.name;
+        bidder.config = entry.config;
+        bidder.stats = entry.stats;
+        bidder.imp = std::move(entry.biddableSpots);
+
+        groupAgents[rrGroup].push_back(bidder);
+        groupAgents[rrGroup].totalBidProbability += entry.config->bidProbability;
+    }
+
 
     std::vector<GroupPotentialBidders> validGroups;
 
@@ -1758,7 +1765,7 @@ doBid(const std::vector<std::string> & message)
     auto returnInvalidBid = [&] (int i, const char * reason,
                                  const char * message, ...)
         {
-            this->recordHit("bidErrors.%s");
+            this->recordHit("bidErrors.%s", reason);
             this->recordHit("accounts.%s.bidErrors.total",
                             config.account.toString('.'));
             this->recordHit("accounts.%s.bidErrors.%s",
@@ -2342,6 +2349,7 @@ updateAllAgents()
 
             AgentInfoEntry entry;
             entry.name = it->first;
+            entry.filterIndex = it->second.filterIndex;
             entry.config = it->second.config;
             entry.stats = it->second.stats;
             entry.status = it->second.status;
@@ -2394,6 +2402,8 @@ doConfig(const std::string & agent,
     info.configured = true;
     sendAgentMessage(agent, "GOTCONFIG", getCurrentTime());
 
+    info.filterIndex = filters.addConfig(agent, newConfig, info.stats);
+
     // Broadcast that we have a new agent or it has a new configuration
     updateAllAgents();
 }
@@ -2413,7 +2423,6 @@ configureAgentOnExchange(std::shared_ptr<ExchangeConnector> const & exchange,
 {
     auto name = exchange->exchangeName();
 
-    cerr << "scanning campaign with exchange " << name << endl;
     auto ecomp = exchange->getCampaignCompatibility(config, includeReasons);
     if(!ecomp.isCompatible) {
         cerr << "campaign not compatible: " << ecomp.reasons << endl;
