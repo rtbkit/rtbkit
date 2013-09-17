@@ -31,6 +31,16 @@
 namespace RTBKIT
 {
 
+#define GCC_VERSION (__GNUC__ * 10000       \
+                     + __GNUC_MINOR__ * 100 \
+                     + __GNUC_PATCHLEVEL__)
+
+#if GCC_VERSION >= 40700
+    typedef std::chrono::steady_clock clock_type;
+#else
+    typedef std::chrono::monotonic_clock clock_type;
+#endif
+
 typedef std::tuple<const char*,std::string,uint32_t> ProbeCtx;
 
 //// base template
@@ -42,9 +52,8 @@ struct Span
 {
     std::string              tag_ ;
     uint32_t                 id_, pid_;
-    std::chrono::monotonic_clock::time_point start_, end_;
+    clock_type::time_point start_, end_;
     Span(uint32_t id = 0, uint32_t pid = 0) : id_ (id), pid_(pid) {}
-    Span& operator=(const Span&) =delete;
 };
 typedef std::function<void(const ProbeCtx&, const std::vector<Span>&)> SinkCb;
 
@@ -68,17 +77,23 @@ template <typename T>
 class Trace
 {
 public:
-    Trace (const std::shared_ptr<T>& t, const std::string& tag)
-        : Trace (*t.get(), tag)
+    Trace (const std::shared_ptr<T>& object, const std::string& tag)
     {
-
+        init(*object.get(), tag);
     }
-    Trace (const T& t, const std::string& tag)
-        : pctx_    (do_probe(t))
-        , key_     (CityHash64(std::get<1>(pctx_).c_str(),std::get<1>(pctx_).size()))
-        , probed_  (false)
-        , spans_   (0)
+
+    Trace (const T& object, const std::string& tag)
     {
+        init(object, tag);
+    }
+
+    void init(const T &object, const std::string &tag)
+    {
+        pctx_ = do_probe(object);
+        key_ = CityHash64(std::get<1>(pctx_).c_str(),std::get<1>(pctx_).size());
+        probed_ = false;
+        spans_ = nullptr;
+
         if (key_ % std::get<2>(pctx_)) return ;
         probed_ = true;
         using detail::PSTACKS;
@@ -96,15 +111,15 @@ public:
         else
             sp.pid_ = 0;
         sp.id_ = ++std::get<0>(*spans_);
-        sp.start_ = std::chrono::monotonic_clock::now () ;
+        sp.start_ = clock_type::now () ;
         std::get<1>(*spans_).emplace (sp);
     }
 
     ~Trace ()
     {
         if (!probed_) return;
-        std::get<1>(*spans_).top().end_ = std::chrono::monotonic_clock::now () ;
-        std::get<2>(*spans_).emplace_back (std::get<1>(*spans_).top());
+        std::get<1>(*spans_).top().end_ = clock_type::now () ;
+        std::get<2>(*spans_).emplace_back (std::move(std::get<1>(*spans_).top()));
         std::get<1>(*spans_).pop() ;
         if (std::get<1>(*spans_).empty ())
         {
