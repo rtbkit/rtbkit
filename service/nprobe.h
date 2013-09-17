@@ -7,6 +7,7 @@
 
 #ifndef NPROBE_H_
 #define NPROBE_H_
+
 #include <unordered_map>
 #include <chrono>
 #include <memory>
@@ -41,9 +42,8 @@ struct Span
 {
     std::string              tag_ ;
     uint32_t                 id_, pid_;
-    std::chrono::steady_clock::time_point start_, end_;
-    Span(uint32_t id, uint32_t pid) : id_ (id), pid_(pid) {}
-    Span() : Span(0,0) {}
+    std::chrono::monotonic_clock::time_point start_, end_;
+    Span(uint32_t id = 0, uint32_t pid = 0) : id_ (id), pid_(pid) {}
     Span& operator=(const Span&) =delete;
 };
 typedef std::function<void(const ProbeCtx&, const std::vector<Span>&)> SinkCb;
@@ -96,14 +96,14 @@ public:
         else
             sp.pid_ = 0;
         sp.id_ = ++std::get<0>(*spans_);
-        sp.start_ = std::chrono::steady_clock::now () ;
+        sp.start_ = std::chrono::monotonic_clock::now () ;
         std::get<1>(*spans_).emplace (sp);
     }
 
     ~Trace ()
     {
         if (!probed_) return;
-        std::get<1>(*spans_).top().end_ = std::chrono::steady_clock::now () ;
+        std::get<1>(*spans_).top().end_ = std::chrono::monotonic_clock::now () ;
         std::get<2>(*spans_).emplace_back (std::get<1>(*spans_).top());
         std::get<1>(*spans_).pop() ;
         if (std::get<1>(*spans_).empty ())
@@ -112,7 +112,7 @@ public:
             if (S_sink_)
                 S_sink_(pctx_, std::get<2>(*spans_));
 #ifdef BOOST_USE_TSS
-            (*PSTACKS.get()).erase(key_));
+            (*PSTACKS.get()).erase(key_);
 #else
             PSTACKS->erase(key_);
 #endif
