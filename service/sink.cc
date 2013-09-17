@@ -11,6 +11,7 @@
 
 #include <iostream>
 
+#include "jml/arch/atomic_ops.h"
 #include "jml/arch/exception.h"
 #include "jml/utils/file_functions.h"
 
@@ -81,7 +82,9 @@ AsyncFdOutputSink(const OnHangup & onHangup,
       outputFd_(-1),
       fdReady_(false),
       wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
-      threadBuffer_(bufferSize)
+      threadBuffer_(bufferSize),
+      bytesSent_(0),
+      remainingMsgs_(0)
 {
     epollFd_ = ::epoll_create(2);
     if (epollFd_ == -1)
@@ -91,8 +94,6 @@ AsyncFdOutputSink(const OnHangup & onHangup,
         this->handleWakeupEvent(event);
     };
     addFdOneShot(wakeup_.fd(), handleWakeupEventCb_);
-
-    buffer_.reserve(8192);
 }
 
 AsyncFdOutputSink::
@@ -125,6 +126,7 @@ write(std::string && data)
     if (state == OPEN) {
         if (threadBuffer_.tryPush(data)) {
             wakeup_.signal();
+            ML::atomic_inc(remainingMsgs_);
         }
         else {
             result = false;
@@ -232,6 +234,12 @@ void
 AsyncFdOutputSink::
 handleFdEvent(const struct epoll_event & event)
 {
+    if ((event.events & EPOLLOUT) != 0) {
+        if (state != CLOSED) {
+            fdReady_ = true;
+            flush();
+        }
+    }
     if ((event.events & EPOLLHUP) != 0) {
         removeFd(outputFd_);
         onHangup_();
@@ -239,13 +247,11 @@ handleFdEvent(const struct epoll_event & event)
         state = CLOSED;
         ML::futex_wake(state);
     }
-    else if ((event.events & EPOLLOUT) != 0) {
+    else {
+        // TODO: this may cause intense looping since we dont currently wait
+        // for EWOULDBLOCK to be returned before rearming the epoll fd.
         if (state != CLOSED) {
-            fdReady_ = true;
-            flushStdInBuffer();
-            if (state != CLOSED) {
-                restartFdOneShot(outputFd_, handleFdEventCb_, true);
-            }
+            restartFdOneShot(outputFd_, handleFdEventCb_, true);
         }
     }
 }
@@ -255,9 +261,12 @@ AsyncFdOutputSink::
 handleWakeupEvent(const struct epoll_event & event)
 {
     if ((event.events & EPOLLIN) != 0) {
-        wakeup_.read();
-        flushThreadBuffer();
-        flushStdInBuffer();
+        if (fdReady_) {
+            eventfd_t val;
+            while (wakeup_.tryRead(val)) {
+                flush();
+            }
+        }
     }
     else {
         throw ML::Exception("unhandled event");
@@ -267,56 +276,79 @@ handleWakeupEvent(const struct epoll_event & event)
         restartFdOneShot(wakeup_.fd(), handleWakeupEventCb_);
     }
     else if (state == CLOSING) {
-        doClose();
+        if (remainingMsgs_ > 0 || lastLine_.size() > 0) {
+            restartFdOneShot(wakeup_.fd(), handleWakeupEventCb_);
+            wakeup_.signal();
+        }
+        else {
+            doClose();
+        }
     }
 }
 
 void
 AsyncFdOutputSink::
-flushThreadBuffer()
+flush()
 {
-    string newData;
+    if (!fdReady_)
+        return;
 
-    while (threadBuffer_.tryPop(newData)) {
-        buffer_ += newData;
+    // cerr << "flush1\n";
+    if (lastLine_.size() == 0) {
+        if (threadBuffer_.tryPop(lastLine_)) {
+            ML::atomic_dec(remainingMsgs_);
+        }
+        else {
+            return;
+        }
     }
-}
 
-void
-AsyncFdOutputSink::
-flushStdInBuffer()
-{
-    ssize_t remaining = buffer_.size();
-    if (fdReady_ && remaining > 0) {
-        const char * data = buffer_.c_str();
-        size_t written(0);
-        while (remaining > 0) {
-            ssize_t len = ::write(outputFd_, data + written, remaining);
-            if (len == 0) {
-                buffer_ = buffer_.substr(written);
-                break;
-            }
-            else if (len < 0) {
-                if (errno == EWOULDBLOCK) {
-                    fdReady_ = false;
-                }
-                else if (errno == EPIPE) {
-                    handleHangup();
-                    break;
+    bool done(false);
+    size_t written(0), remaining(lastLine_.size());
+    const char * data = lastLine_.c_str();
+
+    while (fdReady_ && !done) {
+        ssize_t len = ::write(outputFd_, data + written, remaining);
+        if (len > 0) {
+            written += len;
+            remaining -= len;
+            bytesSent_ += len;
+            if (remaining == 0) {
+                if (threadBuffer_.tryPop(lastLine_)) {
+                    ML::atomic_dec(remainingMsgs_);
+                    data = lastLine_.c_str();
+                    remaining = lastLine_.size();
+                    written = 0;
                 }
                 else {
-                    throw ML::Exception(errno, "write");
-                }
-            }
-            else if (len > 0) {
-                written += len;
-                remaining -= len;
-                if (remaining == 0) {
-                    buffer_ = "";
+                    done = true;
                 }
             }
         }
-        buffer_.reserve(8192);
+        else if (len == 0) {
+            done = true;
+        }
+        else {
+            fdReady_ = false;
+            if (errno == EPIPE) {
+                handleHangup();
+            }
+            else if (errno != EWOULDBLOCK) {
+                throw ML::Exception(errno, "write");
+            }
+        }
+    }
+
+    if (fdReady_ && written == 0) {
+        cerr << "written nothing\n";
+    }
+    if (written > 0) {
+        if (remaining == 0) {
+            lastLine_ = "";
+        }
+        else {
+            lastLine_ = lastLine_.substr(written);
+        }
     }
 }
 

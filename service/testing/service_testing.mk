@@ -31,7 +31,8 @@ $(eval $(call test,message_loop_test,services,boost manual))
 
 $(eval $(call program,runner_test_helper,utils))
 $(eval $(call test,runner_test,services,boost))
-$(TESTS)/runner_test: runner_test_helper
+$(eval $(call test,runner_stress_test,services,boost manual))
+$(TESTS)/runner_test $(TESTS)/runner_stress_test: runner_test_helper
 $(eval $(call test,sink_test,services,boost))
 
 $(eval $(call library,tcpsockets,tcpsockets.cc,services))

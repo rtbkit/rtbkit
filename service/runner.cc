@@ -39,9 +39,11 @@ namespace {
 
 struct ChildStatus
 {
-    bool running;
+    ChildStatus()
+        : pid(-1)
+    {}
     union {
-        int pid;
+        pid_t pid;
         int status;
     };
 };
@@ -126,6 +128,11 @@ struct ChildFds {
 void
 RunWrapper(const vector<string> & command, ChildFds & fds)
 {
+    // Undo any SIGCHLD block from the parent process so it can
+    // properly wait for the signal
+    ::signal(SIGCHLD, SIG_DFL);
+    ::signal(SIGPIPE, SIG_DFL);
+
     fds.dupToStdStreams();
     fds.closeRemainingFds();
 
@@ -143,12 +150,9 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         throw ML::Exception(errno, "RunWrapper fork");
     }
     else if (childPid == 0) {
-        signal(SIGCHLD, SIG_DFL);
-        signal(SIGPIPE, SIG_DFL);
-
         ::prctl(PR_SET_PDEATHSIG, SIGTERM);
         ::close(fds.statusFd);
-        int res = execv(command[0].c_str(), argv);
+        int res = ::execv(command[0].c_str(), argv);
         if (res == -1) {
             throw ML::Exception(errno, "RunWrapper exec");
         }
@@ -157,17 +161,11 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         throw ML::Exception("The Alpha became the Omega.");
     }
     else {
-        // Undo any SIGCHLD block from the parent process so it can
-        // properly wait for the signal
-        signal(SIGCHLD, SIG_DFL);
-        signal(SIGPIPE, SIG_DFL);
-
         // FILE * terminal = ::fopen("/dev/tty", "a");
 
         // ::fprintf(terminal, "wrapper: real child pid: %d\n", childPid);
         ChildStatus status;
 
-        status.running = true;
         status.pid = childPid;
         if (::write(fds.statusFd, &status, sizeof(status)) == -1) {
             throw ML::Exception(errno, "RunWrapper write");
@@ -183,14 +181,13 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
         // ::fprintf(terminal, "wrapper: child terminated\n");
 
-        status.running = false;
         if (::write(fds.statusFd, &status, sizeof(status)) == -1) {
             throw ML::Exception(errno, "RunWrapper write");
         }
 
         fds.close();
 
-        exit(0);
+        ::exit(0);
     }
 }
 
@@ -201,12 +198,9 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
 Runner::
 Runner()
-    : wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
-      running_(false)
+    : running_(false), childPid_(-1)
 {
     Epoller::init(4);
-
-    addFdOneShot(wakeup_.fd(), &wakeup_.fd_);
 
     handleEvent = [&] (const struct epoll_event & event) {
         return this->handleEpollEvent(event);
@@ -223,29 +217,20 @@ bool
 Runner::
 handleEpollEvent(const struct epoll_event & event)
 {
-    if (task_) {
-        Task & task = *task_;
-        if (event.data.ptr == &task.statusFd) {
-            // fprintf(stderr, "parent: handle child status input\n");
-            handleChildStatus(event, task.statusFd, task);
-        }
-        else if (event.data.ptr == &task.stdOutFd) {
-            // fprintf(stderr, "parent: handle child output from stdout\n");
-            handleOutputStatus(event, task.stdOutFd, *stdOutSink_);
-        }
-        else if (event.data.ptr == &task.stdErrFd) {
-            // fprintf(stderr, "parent: handle child output from stderr\n");
-            handleOutputStatus(event, task.stdErrFd, *stdErrSink_);
-        }
-        else if (event.data.ptr == &wakeup_.fd_) {
-            handleTaskTermination(event);
-        }
-        else {
-            throw ML::Exception("this should never occur");
-        }
+    if (event.data.ptr == &task_.statusFd) {
+        // fprintf(stderr, "parent: handle child status input\n");
+        handleChildStatus(event);
+    }
+    else if (event.data.ptr == &task_.stdOutFd) {
+        // fprintf(stderr, "parent: handle child output from stdout\n");
+        handleOutputStatus(event, task_.stdOutFd, stdOutSink_);
+    }
+    else if (event.data.ptr == &task_.stdErrFd) {
+        // fprintf(stderr, "parent: handle child output from stderr\n");
+        handleOutputStatus(event, task_.stdErrFd, stdErrSink_);
     }
     else {
-        throw ML::Exception("received event for ghost task");
+        throw ML::Exception("this should never occur");
     }
 
     return false;
@@ -253,33 +238,72 @@ handleEpollEvent(const struct epoll_event & event)
 
 void
 Runner::
-handleChildStatus(const struct epoll_event & event, int statusFd, Task & task)
+handleChildStatus(const struct epoll_event & event)
 {
+    // cerr << "handleChildStatus\n";
     ChildStatus status;
 
-    // cerr << "handleChildStatus\n";
-    ssize_t s = ::read(statusFd, &status, sizeof(status));
-    if (s == -1) {
-        throw ML::Exception(errno, "Runner::handleChildStatus read");
+    if ((event.events & EPOLLIN) != 0) {
+        while (1) {
+            ssize_t s = ::read(task_.statusFd, &status, sizeof(status));
+            if (s == -1) {
+                if (errno == EWOULDBLOCK) {
+                    break;
+                }
+                else if (errno == EBADF) {
+                    // cerr << "badf\n";
+                    break;
+                }
+                throw ML::Exception(errno, "Runner::handleChildStatus read");
+            }
+            else if (s == 0) {
+                break;
+            }
+            else if (s != sizeof(status)) {
+                throw
+                    ML::Exception("Runner::handleChildStatus sizeof(status)");
+            }
+
+            if (task_.statusState == Task::StatusState::START) {
+                childPid_ = status.pid;
+                ML::futex_wake(childPid_);
+                // cerr << "child now running: " + to_string(childPid_) + "\n";
+                task_.statusState = Task::StatusState::STOP;
+            }
+            else if (task_.statusState == Task::StatusState::STOP) {
+                // cerr << "child now stopped: " + to_string(childPid_) + "\n";
+                childPid_ = -1;
+                task_.runResult.updateFromStatus(status.status);
+                task_.statusState = Task::StatusState::DONE;
+                attemptTaskTermination();
+            }
+            else {
+                throw ML::Exception("unexpected status when DONE");
+            }
+        }
     }
 
-    if (status.running) {
-        task.childPid = status.pid;
-        restartFdOneShot(statusFd, event.data.ptr);
+    if ((event.events & EPOLLHUP) != 0) {
+        if (task_.statusState != Task::StatusState::DONE) {
+            throw ML::Exception("statusfd hup but not done: "
+                                + task_.statusStateAsString());
+        }
+
+        removeFd(task_.statusFd);
+        ::close(task_.statusFd);
+        task_.statusFd = -1;
     }
     else {
-        if (stdInSink_) {
-            closeStdInSink();
-        }
-        task.runResult.updateFromStatus(status.status);
-        wakeup_.signal();
+        restartFdOneShot(task_.statusFd, event.data.ptr);
     }
+
+    // cerr << "handleChildStatus done\n";
 }
 
 void
 Runner::
 handleOutputStatus(const struct epoll_event & event,
-                   int outputFd, InputSink & sink)
+                   int outputFd, shared_ptr<InputSink> & sink)
 {
     char buffer[4096];
     bool closedFd(false);
@@ -314,16 +338,17 @@ handleOutputStatus(const struct epoll_event & event,
 
         if (data.size() > 0) {
             // cerr << "sending child output to output handler\n";
-            sink.notifyReceived(move(data));
+            sink->notifyReceived(move(data));
         }
         else {
             cerr << "ignoring child output due to size == 0\n";
         }
     }
 
-    // cerr << "closedFd: " << closedFd << endl;
-    if (closedFd || (event.events & EPOLLHUP) == 0) {
-        sink.notifyClosed();
+    if (closedFd || (event.events & EPOLLHUP) != 0) {
+        sink->notifyClosed();
+        sink.reset();
+        attemptTaskTermination();
     }
     else {
         JML_TRACE_EXCEPTIONS(false);
@@ -331,38 +356,32 @@ handleOutputStatus(const struct epoll_event & event,
             restartFdOneShot(outputFd, event.data.ptr);
         }
         catch (const ML::Exception & exc) {
-            sink.notifyClosed();
+            cerr << "closing sink due to bad fd\n";
+            sink->notifyClosed();
+            sink.reset(); 
+            attemptTaskTermination();
         }
     }
 }
 
 void
 Runner::
-handleTaskTermination(const struct epoll_event & event)
+attemptTaskTermination()
 {
-    wakeup_.read();
+    /* for a task to be considered done:
+       - stdout and stderr must have been closed, provided we redirected them
+       - the closing child status must have been returned */
+    if (!stdOutSink_ && !stdErrSink_ && childPid_ == -1) {
+        // cerr << to_string(childPid()) + ": really terminated\n";
+        if (stdInSink_) {
+            closeStdInSink();
+        }
 
-    if (stdInSink_) {
-        closeStdInSink();
-        parent_->removeSource(stdInSink_.get());
-        stdInSink_.reset();
+        task_.postTerminate(*this);
+
+        running_ = false;
+        ML::futex_wake(running_);
     }
-    if (stdOutSink_) {
-        stdOutSink_->notifyClosed();
-        stdOutSink_.reset();
-    }
-    if (stdErrSink_) {
-        stdErrSink_->notifyClosed();
-        stdErrSink_.reset();
-    }
-
-    task_->postTerminate(*this);
-    task_.reset(nullptr);
-
-    restartFdOneShot(wakeup_.fd(), event.data.ptr);
-
-    running_ = false;
-    ML::futex_wake(running_);
 }
 
 OutputSink &
@@ -392,57 +411,56 @@ run(const vector<string> & command,
     const shared_ptr<InputSink> & stdOutSink,
     const shared_ptr<InputSink> & stdErrSink)
 {
-    if (task_)
+    if (running_)
         throw ML::Exception("already running");
 
     running_ = true;
-    task_.reset(new Task());
-    Task & task = *task_;
 
-    task.onTerminate = onTerminate;
+    task_.statusState = Task::StatusState::START;
+    task_.onTerminate = onTerminate;
 
     ChildFds childFds;
-    tie(task.statusFd, childFds.statusFd) = CreateStdPipe(false);
+    tie(task_.statusFd, childFds.statusFd) = CreateStdPipe(false);
 
     if (stdInSink_) {
-        tie(task.stdInFd, childFds.stdIn) = CreateStdPipe(true);
+        tie(task_.stdInFd, childFds.stdIn) = CreateStdPipe(true);
     }
     if (stdOutSink) {
         stdOutSink_ = stdOutSink;
-        tie(task.stdOutFd, childFds.stdOut) = CreateStdPipe(false);
+        tie(task_.stdOutFd, childFds.stdOut) = CreateStdPipe(false);
     }
     if (stdErrSink) {
         stdErrSink_ = stdErrSink;
-        tie(task.stdErrFd, childFds.stdErr) = CreateStdPipe(false);
+        tie(task_.stdErrFd, childFds.stdErr) = CreateStdPipe(false);
     }
 
     ::flockfile(stdout);
     ::flockfile(stderr);
-    ::fflush(NULL);
-    task.wrapperPid = fork();
+    ::fflush_unlocked(NULL);
+    task_.wrapperPid = fork();
     ::funlockfile(stderr);
     ::funlockfile(stdout);
-    if (task.wrapperPid == -1) {
+    if (task_.wrapperPid == -1) {
         throw ML::Exception(errno, "Runner::run fork");
     }
-    else if (task.wrapperPid == 0) {
+    else if (task_.wrapperPid == 0) {
         RunWrapper(command, childFds);
     }
     else {
-        ML::set_file_flag(task.statusFd, O_NONBLOCK);
+        ML::set_file_flag(task_.statusFd, O_NONBLOCK);
         if (stdInSink_) {
-            ML::set_file_flag(task.stdInFd, O_NONBLOCK);
-            stdInSink_->init(task.stdInFd);
+            ML::set_file_flag(task_.stdInFd, O_NONBLOCK);
+            stdInSink_->init(task_.stdInFd);
             parent_->addSource("stdInSink", stdInSink_);
         }
-        addFdOneShot(task.statusFd, &task.statusFd);
+        addFdOneShot(task_.statusFd, &task_.statusFd);
         if (stdOutSink) {
-            ML::set_file_flag(task.stdOutFd, O_NONBLOCK);
-            addFdOneShot(task.stdOutFd, &task.stdOutFd);
+            ML::set_file_flag(task_.stdOutFd, O_NONBLOCK);
+            addFdOneShot(task_.stdOutFd, &task_.stdOutFd);
         }
         if (stdErrSink) {
-            ML::set_file_flag(task.stdErrFd, O_NONBLOCK);
-            addFdOneShot(task.stdErrFd, &task.stdErrFd);
+            ML::set_file_flag(task_.stdErrFd, O_NONBLOCK);
+            addFdOneShot(task_.stdErrFd, &task_.stdErrFd);
         }
 
         childFds.close();
@@ -452,17 +470,29 @@ run(const vector<string> & command,
 void
 Runner::
 kill(int signum)
+    const
 {
-    if (!task_)
-        throw ML::Exception("subprocess has already terminated");
+    if (!childPid_)
+        throw ML::Exception("subprocess not available");
 
-    ::kill(task_->childPid, signum);
+    ::kill(childPid_, signum);
     waitTermination();
 }
 
 void
 Runner::
+waitStart()
+    const
+{
+    while (childPid_ == -1) {
+        ML::futex_wait(childPid_, -1);
+    }
+}
+
+void
+Runner::
 waitTermination()
+    const
 {
     while (running_) {
         ML::futex_wait(running_, true);
@@ -473,14 +503,9 @@ void
 Runner::
 closeStdInSink()
 {
-    if (task_) {
-        if (task_->stdInFd != -1) {
-            ::close(task_->stdInFd);
-            task_->stdInFd = -1;
-        }
-    }
-    else {
-        throw ML::Exception("task dead but stdin sink alive\n");
+    if (task_.stdInFd != -1) {
+        ::close(task_.stdInFd);
+        task_.stdInFd = -1;
     }
 
     stdInSink_->state = OutputSink::CLOSED;
@@ -503,6 +528,7 @@ postTerminate(Runner & runner)
         throw ML::Exception(errno, "waitpid");
     if (res != wrapperPid)
         throw ML::Exception("waitpid has not returned the wrappedPid");
+    wrapperPid = -1;
 
     if (stdInFd != -1) {
         ::close(stdInFd);
@@ -511,18 +537,27 @@ postTerminate(Runner & runner)
 
     auto unregisterFd = [&] (int & fd) {
         if (fd > -1) {
-            runner.removeFd(fd);
+            JML_TRACE_EXCEPTIONS(false);
+            try {
+                runner.removeFd(fd);
+            }
+            catch (const ML::Exception & exc) {
+            }
             ::close(fd);
             fd = -1;
         }
     };
     unregisterFd(stdOutFd);
     unregisterFd(stdErrFd);
-    unregisterFd(statusFd);
+
+    command.clear();
 
     if (onTerminate) {
         onTerminate(runResult);
+        onTerminate = nullptr;
     }
+    runResult.signaled = false;
+    runResult.returnCode = -1;
 }
 
 

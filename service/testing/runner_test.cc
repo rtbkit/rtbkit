@@ -1,10 +1,18 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#include <mutex>
+#include <thread>
+
 #include <boost/test/unit_test.hpp>
 
+#include "jml/arch/atomic_ops.h"
 #include "jml/arch/exception.h"
 #include "jml/arch/futex.h"
+#include "jml/arch/timers.h"
 #include "jml/utils/exc_assert.h"
 #include "jml/utils/string_functions.h"
 #include "soa/service/message_loop.h"
@@ -19,6 +27,12 @@ using namespace std;
 using namespace Datacratic;
 
 // #define BOOST_CHECK_EQUAL(x,y)  { ExcCheckEqual((x), (y), ""); }
+
+struct _Init {
+    _Init() {
+        signal(SIGPIPE, SIG_IGN);
+    }
+} myInit;
 
 struct HelperCommands : vector<string>
 {
@@ -73,7 +87,7 @@ struct HelperCommands : vector<string>
 /* ensures that the basic callback system works */
 BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 {
-    BlockedSignals blockedSigs(SIGCHLD);
+    BlockedSignals blockedSigs2(SIGCHLD);
 
     MessageLoop loop;
 
@@ -116,7 +130,9 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     runner.run({"build/x86_64/bin/runner_test_helper"},
                onTerminate, stdOutSink, stdErrSink);
     for (const string & command: commands) {
-        stdInSink.write(string(command));
+        while (!stdInSink.write(string(command))) {
+            ML::sleep(0.1);
+        }
     }
     stdInSink.requestClose();
 
