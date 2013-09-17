@@ -602,7 +602,11 @@ runEventThread(int threadNum, int numThreads)
                 ExcAssertGreaterEqual(usToSleep, 0);
                 if (debug && false)
                     cerr << "sleeping for " << usToSleep << " micros" << endl;
-                ML::sleep(usToSleep / 1000000.0);
+
+                double secToSleep = double(usToSleep) / 1000000.0;
+                totalSleepTime[threadNum] += secToSleep;
+
+                ML::sleep(secToSleep);
                 duty.notifyAfterSleep();
                 forceInSlice = true;
 
