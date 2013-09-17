@@ -1,0 +1,33 @@
+{
+  "account": ["hello","world"],
+  "bidProbability": 1.0,
+  "creatives": [ 
+   {
+      "format":{"width":720, "height":90},
+      "id":0,
+      "name":"LeaderBoard",
+      "tagId":0
+    },
+    {
+      "format":{"width":160,"height":600},
+      "id":1,
+      "name":"LeaderBoard",
+      "tagId":1
+    },
+    {
+      "format":{"width":300,"height":250},
+      "id":2,
+      "name":"BigBox",
+      "tagId":2
+    }
+  ],
+  "augmentations":{
+    "predicative-basic":{
+      "required":false,
+      "config":"dr72hf47",
+      "filters":{"include":["predicative-basic"]}    
+    } 
+  },
+  "maxInFlight": 50
+}
+
