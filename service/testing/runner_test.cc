@@ -28,6 +28,12 @@ using namespace Datacratic;
 
 // #define BOOST_CHECK_EQUAL(x,y)  { ExcCheckEqual((x), (y), ""); }
 
+struct _Init {
+    _Init() {
+        signal(SIGPIPE, SIG_IGN);
+    }
+} myInit;
+
 struct HelperCommands : vector<string>
 {
     HelperCommands()
@@ -81,7 +87,7 @@ struct HelperCommands : vector<string>
 /* ensures that the basic callback system works */
 BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 {
-    BlockedSignals blockedSigs(SIGCHLD);
+    BlockedSignals blockedSigs2(SIGCHLD);
 
     MessageLoop loop;
 
@@ -280,8 +286,8 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
 #endif
 
 #if 1
-/* stress test that runs 10 threads in parallel, where each thread:
-- invoke "execute", with 3000 messages to stderr and stdout (each)
+/* stress test that runs 20 threads in parallel, where each thread:
+- invoke "execute", with 10000 messages to stderr and stdout (each)
   received from the stdin sink
 - compare those messages with a fixture
 and
@@ -290,13 +296,13 @@ and
 - wait for the termination of all threads
 - ensures that all child process have properly exited
 */
-
 BOOST_AUTO_TEST_CASE( test_stress_runner )
 {
     vector<thread> threads;
-    vector<int> childPids;
     int nThreads(20), activeThreads;
-    int msgsToSend(3000);
+    vector<pid_t> childPids(nThreads);
+    int msgsToSend(10000);
+    int nRunning(0);
 
     activeThreads = nThreads;
     auto runThread = [&] (int threadNum) {
@@ -352,16 +358,21 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
 
         for (const string & command: commands) {
             while (!stdInSink.write(string(command))) {
-                ML::sleep(0.1);
+                ML::sleep(0.01);
             }
             stdInBytes += command.size();
         }
         stdInSink.requestClose();
 
+        runner.waitStart();
+        pid_t pid = runner.childPid();
+        ML::atomic_inc(nRunning);
+        // cerr << "running with pid: " << pid << endl;
+        childPids[threadNum] = pid;
+
         ML::sleep(1.0);
 
         runner.waitTermination();
-        childPids.push_back(runner.childPid());
 
         loop.shutdown();
 
@@ -372,7 +383,7 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         BOOST_CHECK_EQUAL(receivedStdErr, expectedStdErr);
 
         ML::atomic_dec(activeThreads);
-        cerr << "activeThreads now: " + to_string(activeThreads) + "\n";
+        // cerr << "activeThreads now: " + to_string(activeThreads) + "\n";
         if (activeThreads == 0) {
             ML::futex_wake(activeThreads);
         }
@@ -384,9 +395,9 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
 
     ML::memory_barrier();
 
-    /* attempting to interfere with stdout/stderr as long as any thread is
-     * running */
-    while (activeThreads > 0) {
+    /* attempting to interfere with stdout/stderr as long as all thread have
+     * not redirected their output channels yet (are not running) */
+    while (nRunning < nThreads) {
         cout << "performing interference on stdout\n";
         cerr << "performing interference on stderr\n";
         // int n = activeThreads;
