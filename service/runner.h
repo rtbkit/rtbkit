@@ -51,20 +51,28 @@ struct Runner: public Epoller {
              const OnTerminate & onTerminate = nullptr,
              const std::shared_ptr<InputSink> & stdOutSink = nullptr,
              const std::shared_ptr<InputSink> & stdErrSink = nullptr);
-    void kill(int signal = SIGTERM);
-    void waitTermination();
+    void kill(int signal = SIGTERM) const;
+    void waitStart() const;
+    void waitTermination() const;
 
-    bool running() const { return task_ != nullptr; }
-    int childPid() const { return childPid_; }
+    bool running() const { return running_; }
+    pid_t childPid() const { return childPid_; }
 
 private:
     struct Task {
+        enum StatusState {
+            START,
+            STOP,
+            DONE
+        };
+
         Task()
             : wrapperPid(-1),
               stdInFd(-1),
               stdOutFd(-1),
               stdErrFd(-1),
-              statusFd(-1)
+              statusFd(-1),
+              statusState(DONE)
         {}
 
         void setupInSink();
@@ -82,12 +90,26 @@ private:
         int stdOutFd;
         int stdErrFd;
         int statusFd;
+        StatusState statusState;
+        std::string statusStateAsString() {
+            if (statusState == START) {
+                return "START";
+            }
+            else if (statusState == STOP) {
+                return "STOP";
+            }
+            else if (statusState == DONE) {
+                return "DONE";
+            }
+            else {
+                throw ML::Exception("unknown status");
+            }
+        }
     };
 
     void prepareChild();
     bool handleEpollEvent(const struct epoll_event & event);
-    void handleChildStatus(const struct epoll_event & event,
-                           int fd, Task & task);
+    void handleChildStatus(const struct epoll_event & event);
     void handleOutputStatus(const struct epoll_event & event,
                             int fd, std::shared_ptr<InputSink> & sink);
 
@@ -96,13 +118,13 @@ private:
     void closeStdInSink();
 
     int running_;
-    int childPid_;
+    pid_t childPid_;
 
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
     std::shared_ptr<InputSink> stdOutSink_;
     std::shared_ptr<InputSink> stdErrSink_;
 
-    std::unique_ptr<Task> task_;
+    Task task_;
 };
 
 
