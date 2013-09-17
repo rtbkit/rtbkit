@@ -22,11 +22,11 @@
     }
   ],
   "augmentations":{
-    "predicative-basic":{
-      "required":false,
-      "config":"dr72hf47",
-      "filters":{"include":["predicative-basic"]}    
-    } 
+    "frequency-cap-ex":{
+      "required":true,
+      "config":42,
+      "filters":{"include":["pass-frequency-cap-ex"]}    
+    }  
   },
   "maxInFlight": 50
 }
