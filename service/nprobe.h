@@ -13,10 +13,10 @@
 #include <functional>
 #include <string>
 #include <stack>
+#include <vector>
 #include <tuple>
 #include <city.h>
-#include <boost/asio.hpp>
-#include <boost/scoped_ptr.hpp>
+
 
 #if 1 //  __GNUC_MINOR__ <= 7
 #define USE_BOOST_TSS
@@ -27,9 +27,15 @@
 #endif
 
 
-namespace RTBKIT {
+namespace RTBKIT
+{
 
 typedef std::tuple<const char*,std::string,uint32_t> ProbeCtx;
+
+//// base template
+//template <typename X>
+//ProbeCtx
+//do_probe(X const&);
 
 struct Span
 {
@@ -45,49 +51,18 @@ typedef std::function<void(const ProbeCtx&, const std::vector<Span>&)> SinkCb;
 
 namespace detail
 {
+typedef std::tuple<int,std::stack<Span>, std::vector<Span>> pstack_t;
 // this is our structure.
-typedef std::unordered_map<
-size_t,
-std::pair<std::stack<Span>,std::vector<Span>>
-> ProbeStacks;
+typedef std::unordered_map<size_t,pstack_t> ProbeStacks;
 #ifndef USE_BOOST_TSS
 static thread_local ProbeStacks PSTACKS;
 #else
 static boost::thread_specific_ptr<ProbeStacks> PSTACKS;
 #endif
 
-class MulticastSender
-{
-public:
-    MulticastSender(const boost::asio::ip::address& multicast_addr,
-                    const unsigned short multicast_port)
-        : ep_(multicast_addr, multicast_port)
-    {
-        socket_.reset(new boost::asio::ip::udp::socket(svc_, ep_.protocol()));
-    }
-
-    ~MulticastSender()
-    {
-        socket_.reset(NULL);
-    }
-
-public:
-    void send_data(const std::string& msg)
-    {
-        socket_->send_to( boost::asio::buffer(msg), ep_);
-    }
-
-private:
-    boost::asio::ip::udp::endpoint                  ep_;
-    boost::scoped_ptr<boost::asio::ip::udp::socket> socket_;
-    boost::asio::io_service                         svc_;
-};
+// default sink (see nprobe.cc)
+extern void default_probe_sink(const RTBKIT::ProbeCtx& ctx, const std::vector<RTBKIT::Span>& vs);
 }
-
-static
-detail::MulticastSender
-MC_(boost::asio::ip::address::from_string("234.2.3.4"), 30001);
-
 
 template <typename T>
 class Trace
@@ -116,24 +91,26 @@ public:
 #endif
         Span sp;
         sp.tag_   = tag;
-        if (!spans_->first.empty())
-            sp.pid_ = spans_->first.top().id_;
-        sp.id_ = sp.pid_ + 1;
+        if (!std::get<1>(*spans_).empty())
+            sp.pid_ = std::get<1>(*spans_).top().id_;
+        else
+            sp.pid_ = 0;
+        sp.id_ = ++std::get<0>(*spans_);
         sp.start_ = std::chrono::steady_clock::now () ;
-        spans_->first.emplace (sp);
+        std::get<1>(*spans_).emplace (sp);
     }
 
     ~Trace ()
     {
         if (!probed_) return;
-        spans_->first.top().end_ = std::chrono::steady_clock::now () ;
-        spans_->second.emplace_back (spans_->first.top());
-        spans_->first.pop() ;
-        if (spans_->first.empty ())
+        std::get<1>(*spans_).top().end_ = std::chrono::steady_clock::now () ;
+        std::get<2>(*spans_).emplace_back (std::get<1>(*spans_).top());
+        std::get<1>(*spans_).pop() ;
+        if (std::get<1>(*spans_).empty ())
         {
             using detail::PSTACKS;
             if (S_sink_)
-                S_sink_(pctx_, spans_->second);
+                S_sink_(pctx_, std::get<2>(*spans_));
 #ifdef BOOST_USE_TSS
             (*PSTACKS.get()).erase(key_));
 #else
@@ -143,15 +120,14 @@ public:
     }
 
     static SinkCb                                  S_sink_;
+    static void set_sinkCb (SinkCb sink_cb)        {
+        S_sink_ = sink_cb;
+    }
     std::tuple<const char*,std::string,uint32_t>   pctx_ ; // probe ctx
     size_t                                         key_ ;
     bool                                           probed_ ;
-    std::pair<std::stack<Span>,std::vector<Span>>* spans_;  // our entry in PSTACKS
+    detail::pstack_t*                              spans_;  // our entry in PSTACKS
 };
-
-// template <typename T>
-// SinkCb
-// Trace<T>::S_sink_ = nullptr;
 
 } // RTBKIT;
 
