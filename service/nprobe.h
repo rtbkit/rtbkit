@@ -1,4 +1,4 @@
-/*
+/* -*- C++ -*-
  * nprobe.h
  *
  *  Created on: Sep 10, 2013
@@ -7,6 +7,8 @@
 
 #ifndef NPROBE_H_
 #define NPROBE_H_
+
+#include "jml/arch/thread_specific.h"
 
 #include <unordered_map>
 #include <chrono>
@@ -18,14 +20,6 @@
 #include <tuple>
 #include <city.h>
 
-
-#if 1 //  __GNUC_MINOR__ <= 7
-#define USE_BOOST_TSS
-#endif
-
-#ifdef USE_BOOST_TSS
-#include <boost/thread/tss.hpp>
-#endif
 
 
 namespace RTBKIT
@@ -43,10 +37,10 @@ namespace RTBKIT
 
 typedef std::tuple<const char*,std::string,uint32_t> ProbeCtx;
 
-//// base template
-//template <typename X>
-//ProbeCtx
-//do_probe(X const&);
+
+/******************************************************************************/
+/* SPAN                                                                       */
+/******************************************************************************/
 
 struct Span
 {
@@ -55,23 +49,24 @@ struct Span
     clock_type::time_point start_, end_;
     Span(uint32_t id = 0, uint32_t pid = 0) : id_ (id), pid_(pid) {}
 };
+
+
+/******************************************************************************/
+/* SINK                                                                       */
+/******************************************************************************/
+
+typedef std::tuple<const char*,std::string,uint32_t> ProbeCtx;
+
+// default sink (see nprobe.cc)
+extern void syslog_probe_sink(const RTBKIT::ProbeCtx& ctx, const std::vector<RTBKIT::Span>& vs);
+
 typedef std::function<void(const ProbeCtx&, const std::vector<Span>&)> SinkCb;
 
 
-namespace detail
-{
-typedef std::tuple<int,std::stack<Span>, std::vector<Span>> pstack_t;
-// this is our structure.
-typedef std::unordered_map<size_t,pstack_t> ProbeStacks;
-#ifndef USE_BOOST_TSS
-static thread_local ProbeStacks PSTACKS;
-#else
-static boost::thread_specific_ptr<ProbeStacks> PSTACKS;
-#endif
 
-// default sink (see nprobe.cc)
-extern void default_probe_sink(const RTBKIT::ProbeCtx& ctx, const std::vector<RTBKIT::Span>& vs);
-}
+/******************************************************************************/
+/* TRACE                                                                      */
+/******************************************************************************/
 
 template <typename T>
 class Trace
@@ -96,14 +91,8 @@ public:
 
         if (key_ % std::get<2>(pctx_)) return ;
         probed_ = true;
-        using detail::PSTACKS;
-#ifdef USE_BOOST_TSS
-        if (!PSTACKS.get())
-            PSTACKS.reset (new detail::ProbeStacks());
+        if (!PSTACKS.get()) PSTACKS.create();
         spans_ = &(*PSTACKS.get())[key_];
-#else
-        spans_ = &detail::PSTACKS[key_];
-#endif
         Span sp;
         sp.tag_   = tag;
         if (!std::get<1>(*spans_).empty())
@@ -123,14 +112,9 @@ public:
         std::get<1>(*spans_).pop() ;
         if (std::get<1>(*spans_).empty ())
         {
-            using detail::PSTACKS;
             if (S_sink_)
                 S_sink_(pctx_, std::get<2>(*spans_));
-#ifdef BOOST_USE_TSS
             (*PSTACKS.get()).erase(key_);
-#else
-            PSTACKS->erase(key_);
-#endif
         }
     }
 
@@ -138,11 +122,19 @@ public:
     static void set_sinkCb (SinkCb sink_cb)        {
         S_sink_ = sink_cb;
     }
+
+    typedef std::tuple<int,std::stack<Span>, std::vector<Span>> pstack_t;
+
     std::tuple<const char*,std::string,uint32_t>   pctx_ ; // probe ctx
     size_t                                         key_ ;
     bool                                           probed_ ;
-    detail::pstack_t*                              spans_;  // our entry in PSTACKS
+    pstack_t*                                      spans_;  // our entry in PSTACKS
+
+    // this is our structure.
+    typedef std::unordered_map<size_t,pstack_t> ProbeStacks;
+    static ML::Thread_Specific<ProbeStacks> PSTACKS;
 };
+
 
 } // RTBKIT;
 

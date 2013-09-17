@@ -1,10 +1,19 @@
+/** nprobe.cc                                 -*- C++ -*-
+    Jan Sulmont, 17 Sep 2013
+    Copyright (c) 2013 Datacratic.  All rights reserved.
+
+    Stuff...
+
+*/
+
+#include "nprobe.h"
+#include "jml/arch/info.h"
+
 #include <sstream>
 #include <thread>
 #include <syslog.h>
 #include <chrono>
 #include <iostream>
-#include <boost/asio/ip/host_name.hpp>
-#include "soa/service/nprobe.h"
 
 namespace RTBKIT
 {
@@ -17,11 +26,11 @@ struct syslog_init {
 };
 syslog_init syslog_init_ ;
 
-void default_probe_sink(const RTBKIT::ProbeCtx& ctx, const std::vector<RTBKIT::Span>& vs)
+void syslog_probe_sink(const RTBKIT::ProbeCtx& ctx, const std::vector<RTBKIT::Span>& vs)
 {
     using namespace std::chrono;
     using std::get;
-    static auto hostname = boost::asio::ip::host_name();
+    static auto hostname = ML::hostname();
     static auto pid = ::getpid();
     auto format = [&] (RTBKIT::Span const& s) {
         std::ostringstream oss;
@@ -51,5 +60,5 @@ void default_probe_sink(const RTBKIT::ProbeCtx& ctx, const std::vector<RTBKIT::S
 
 template <typename T>
 SinkCb
-Trace<T>::S_sink_ = detail::default_probe_sink ;
+Trace<T>::S_sink_ = detail::syslog_probe_sink ;
 }
