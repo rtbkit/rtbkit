@@ -112,7 +112,7 @@ public:
             if (S_sink_)
                 S_sink_(pctx_, std::get<2>(*spans_));
 #ifdef BOOST_USE_TSS
-            (*PSTACKS.get()).erase(key_));
+            (*PSTACKS.get()).erase(key_);
 #else
             PSTACKS->erase(key_);
 #endif
