@@ -436,7 +436,7 @@ run(const vector<string> & command,
 
     ::flockfile(stdout);
     ::flockfile(stderr);
-    ::fflush(NULL);
+    ::fflush_unlocked(NULL);
     task_.wrapperPid = fork();
     ::funlockfile(stderr);
     ::funlockfile(stdout);
