@@ -44,7 +44,6 @@ struct Span
     uint32_t                 id_, pid_;
     std::chrono::monotonic_clock::time_point start_, end_;
     Span(uint32_t id = 0, uint32_t pid = 0) : id_ (id), pid_(pid) {}
-    Span& operator=(const Span&) =delete;
 };
 typedef std::function<void(const ProbeCtx&, const std::vector<Span>&)> SinkCb;
 
@@ -68,17 +67,23 @@ template <typename T>
 class Trace
 {
 public:
-    Trace (const std::shared_ptr<T>& t, const std::string& tag)
-        : Trace (*t.get(), tag)
+    Trace (const std::shared_ptr<T>& object, const std::string& tag)
     {
-
+        init(*object.get(), tag);
     }
-    Trace (const T& t, const std::string& tag)
-        : pctx_    (do_probe(t))
-        , key_     (CityHash64(std::get<1>(pctx_).c_str(),std::get<1>(pctx_).size()))
-        , probed_  (false)
-        , spans_   (0)
+
+    Trace (const T& object, const std::string& tag)
     {
+        init(object, tag);
+    }
+
+    void init(const T &object, const std::string &tag)
+    {
+        pctx_ = do_probe(object);
+        key_ = CityHash64(std::get<1>(pctx_).c_str(),std::get<1>(pctx_).size());
+        probed_ = false;
+        spans_ = nullptr;
+
         if (key_ % std::get<2>(pctx_)) return ;
         probed_ = true;
         using detail::PSTACKS;
@@ -104,7 +109,7 @@ public:
     {
         if (!probed_) return;
         std::get<1>(*spans_).top().end_ = std::chrono::monotonic_clock::now () ;
-        std::get<2>(*spans_).emplace_back (std::get<1>(*spans_).top());
+        std::get<2>(*spans_).emplace_back (std::move(std::get<1>(*spans_).top()));
         std::get<1>(*spans_).pop() ;
         if (std::get<1>(*spans_).empty ())
         {
