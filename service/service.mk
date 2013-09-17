@@ -48,7 +48,8 @@ LIBSERVICES_SOURCES := \
 	sink.cc \
 	zookeeper.cc \
 	http_rest_proxy.cc \
-	xml_helpers.cc
+	xml_helpers.cc \
+	nprobe.cc
 
 LIBSERVICES_LINK := opstats curl curlpp boost_regex zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2
 
