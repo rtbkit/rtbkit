@@ -142,6 +142,8 @@ BOOST_AUTO_TEST_CASE( test_default_description_parse_id_128_str )
     BOOST_CHECK_EQUAL(expected, result);
 }
 
+#if ENABLE_THIS_TEST
+
 namespace Datacratic {
 
 typedef map<string, string> StringDict;
@@ -247,3 +249,5 @@ BOOST_AUTO_TEST_CASE( test_value_description_map )
     }
 
 }
+
+#endif
