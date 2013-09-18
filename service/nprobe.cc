@@ -60,8 +60,5 @@ void syslog_probe_sink(const ProbeCtx& ctx, const std::vector<Span>& vs)
     }
 }
 
-template <typename T>
-SinkCb
-Trace<T>::S_sink_ = syslog_probe_sink ;
 
 } // Datacratic namespace
