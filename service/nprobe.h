@@ -135,8 +135,15 @@ public:
     static ML::Thread_Specific<ProbeStacks> PSTACKS;
 };
 
+template<typename T>
+ML::Thread_Specific<typename Trace<T>::ProbeStacks>
+Trace<T>::PSTACKS { };
 
-} // Dacratic
+template <typename T>
+SinkCb
+Trace<T>::S_sink_ = syslog_probe_sink ;
+
+} // Datacratic
 
 
 #endif /* NPROBE_H_ */
