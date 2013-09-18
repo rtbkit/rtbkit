@@ -1053,7 +1053,7 @@ struct DefaultDescription<std::map<K, T> >
 #if ENABLE_KEYCODEC
                 K key = KeyCodec<K>::decode(context.fieldName());
 #else
-                K key = stringToKey(context.fieldName(), (T *)0);
+                K key = stringToKey(context.fieldName(), (K *)0);
 #endif
                 inner->parseJsonTyped(&res[key], context);
             };
