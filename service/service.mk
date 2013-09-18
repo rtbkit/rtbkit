@@ -51,7 +51,7 @@ LIBSERVICES_SOURCES := \
 	xml_helpers.cc \
 	nprobe.cc
 
-LIBSERVICES_LINK := opstats curl curlpp boost_regex zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2
+LIBSERVICES_LINK := opstats curl curlpp boost_regex zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2 boost_system
 
 $(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
 
