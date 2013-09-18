@@ -1009,6 +1009,15 @@ struct DefaultDescription<std::set<T> >
 inline std::string stringToKey(const std::string & str, std::string *) { return str; }
 inline std::string keyToString(const std::string & str) { return str; }
 
+template<typename T>
+inline T
+stringToKey(const std::string & str, T *)
+{ throw ML::Exception("specialization required"); }
+
+template<typename T>
+inline std::string
+keyToString(const T & k)
+{ throw ML::Exception("specialization required"); }
 
 /*****************************************************************************/
 /* DEFAULT DESCRIPTION FOR MAP                                               */
