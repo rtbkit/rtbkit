@@ -187,7 +187,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
         fds.close();
 
-        ::exit(0);
+        ::_exit(0);
     }
 }
 
