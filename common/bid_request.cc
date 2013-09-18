@@ -1103,6 +1103,7 @@ BidRequest::Parser getParser(std::string const & source) {
     std::string path = "lib" + source + "_bid_request.so";
     void * handle = dlopen(path.c_str(), RTLD_NOW);
     if (!handle) {
+        std::cerr << dlerror() << std::endl;
         throw ML::Exception("couldn't find bid request parser library " + path);
     }
 
