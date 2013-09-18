@@ -93,7 +93,7 @@ BOOST_AUTO_TEST_CASE( test_zookeeper_crash )
     zk.connect(uri);
     zk.createNode("/hello", "world", true, false);
 
-    zk.readNode("/hello", [](int type, std::string const & path, void * data) {
+    zk.readNode("/hello", [](int type, int state, std::string const & path, void * data) {
         std::cerr << "event type=" << type << " path=" << path << std::endl;
     }, 0);
 
