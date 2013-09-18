@@ -390,6 +390,8 @@ private:
 
 struct FilterBase
 {
+    virtual ~FilterBase() {}
+
     /**
 
      */

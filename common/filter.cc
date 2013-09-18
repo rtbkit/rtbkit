@@ -12,7 +12,7 @@
 #include "jml/utils/exc_check.h"
 
 #include <unordered_map>
-#include <thread>
+#include <mutex>
 
 
 using namespace std;
