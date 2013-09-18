@@ -1006,20 +1006,18 @@ struct DefaultDescription<std::set<T> >
     }
 };
 
-template<typename T, typename Enable = void>
-struct KeyConverter
-{
-};
+inline std::string stringToKey(const std::string & str, std::string *) { return str; }
+inline std::string keyToString(const std::string & str) { return str; }
 
-template<>
-struct KeyConverter<std::string>
-{
-    inline static std::string stringToKey(const std::string & str)
-    { return str; }
+template<typename T>
+inline T
+stringToKey(const std::string & str, T *)
+{ throw ML::Exception("specialization required"); }
 
-    inline static std::string keyToString(const std::string & k)
-    { return k; }
-};
+template<typename T>
+inline std::string
+keyToString(const T & k)
+{ throw ML::Exception("specialization required"); }
 
 /*****************************************************************************/
 /* DEFAULT DESCRIPTION FOR MAP                                               */
@@ -1051,8 +1049,7 @@ struct DefaultDescription<std::map<K, T> >
 
         auto onMember = [&] ()
             {
-                T * v = &res[KeyConverter<K>::stringToKey(context.fieldName())];
-                inner->parseJsonTyped(v, context);
+                inner->parseJsonTyped(&res[stringToKey(context.fieldName(), (K *)0)], context);
             };
 
         context.forEachMember(onMember);
@@ -1071,7 +1068,7 @@ struct DefaultDescription<std::map<K, T> >
     {
         context.startObject();
         for (auto & v: *val) {
-            context.startMember(KeyConverter<K>::keyToString(v.first));
+            context.startMember(keyToString(v.first));
             inner->printJsonTyped(&v.second, context);
         }
         context.endObject();

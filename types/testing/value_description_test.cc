@@ -9,7 +9,6 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 #include <sstream>
-#include <string>
 #include <boost/test/unit_test.hpp>
 
 #include "jml/utils/file_functions.h"
@@ -140,53 +139,4 @@ BOOST_AUTO_TEST_CASE( test_default_description_parse_id_128_str )
     desc.parseJsonTyped(&result, jsonContext);
 
     BOOST_CHECK_EQUAL(expected, result);
-}
-
-namespace Datacratic {
-
-typedef map<string, string> StringDict;
-
-struct SubClass : public std::string
-{
-    explicit SubClass(const std::string & other)
-        : std::string(other)
-    {}
-};
-
-typedef map<SubClass, string> SubClassDict;
-
-template<>
-struct KeyConverter<SubClass>
-{
-    static SubClass stringToKey(const string & str)
-    { return SubClass(str); }
-
-    static string keyToString(const SubClass & k)
-    { return k; }
-};
-
-}
-
-BOOST_AUTO_TEST_CASE( test_value_description_map )
-{
-    string data("{ \"key1\": \"value\", \"key2\": \"value2\" }");
-
-    {
-        StringDict dict;
-
-        // auto d = getDefaultDescription(&dict);
-        // cerr << d << endl;
-
-        dict = jsonDecodeStr(data, &dict);
-        BOOST_CHECK_EQUAL(dict["key1"], string("value"));
-        BOOST_CHECK_EQUAL(dict["key2"], string("value2"));
-    }
-
-    {
-        SubClassDict dict;
-
-        dict = jsonDecodeStr(data, &dict);
-        BOOST_CHECK_EQUAL(dict[SubClass("key1")], string("value"));
-        BOOST_CHECK_EQUAL(dict[SubClass("key2")], string("value2"));
-    }
 }
