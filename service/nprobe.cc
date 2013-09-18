@@ -15,24 +15,27 @@
 #include <chrono>
 #include <iostream>
 
-namespace RTBKIT
+namespace Datacratic
 {
-namespace detail
+
+namespace
 {
+
 struct syslog_init {
     syslog_init() {
         ::openlog("RTBkit", LOG_PID, LOG_LOCAL7);
     }
-};
-syslog_init syslog_init_ ;
+} syslog_init_;
 
-void syslog_probe_sink(const RTBKIT::ProbeCtx& ctx, const std::vector<RTBKIT::Span>& vs)
+} // anonymous namespace
+
+void syslog_probe_sink(const ProbeCtx& ctx, const std::vector<Span>& vs)
 {
     using namespace std::chrono;
     using std::get;
     static auto hostname = ML::hostname();
     static auto pid = ::getpid();
-    auto format = [&] (RTBKIT::Span const& s) {
+    auto format = [&] (Span const& s) {
         std::ostringstream oss;
         oss << "{"
         << "\"tid\":\"" << std::this_thread::get_id() << "\""
@@ -56,9 +59,9 @@ void syslog_probe_sink(const RTBKIT::ProbeCtx& ctx, const std::vector<RTBKIT::Sp
         syslog (LOG_INFO, "%s", str.c_str());
     }
 }
-}
 
 template <typename T>
 SinkCb
-Trace<T>::S_sink_ = detail::syslog_probe_sink ;
-}
+Trace<T>::S_sink_ = syslog_probe_sink ;
+
+} // Datacratic namespace

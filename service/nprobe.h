@@ -22,7 +22,7 @@
 
 
 
-namespace RTBKIT
+namespace Datacratic
 {
 
 #define GCC_VERSION (__GNUC__ * 10000       \
@@ -58,7 +58,7 @@ struct Span
 typedef std::tuple<const char*,std::string,uint32_t> ProbeCtx;
 
 // default sink (see nprobe.cc)
-extern void syslog_probe_sink(const RTBKIT::ProbeCtx& ctx, const std::vector<RTBKIT::Span>& vs);
+extern void syslog_probe_sink(const ProbeCtx& ctx, const std::vector<Span>& vs);
 
 typedef std::function<void(const ProbeCtx&, const std::vector<Span>&)> SinkCb;
 
@@ -136,7 +136,7 @@ public:
 };
 
 
-} // RTBKIT;
+} // Dacratic
 
 
 #endif /* NPROBE_H_ */
