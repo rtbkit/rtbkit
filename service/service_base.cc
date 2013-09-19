@@ -418,6 +418,7 @@ logToCarbon(std::shared_ptr<CarbonConnector> conn)
     events.reset(new CarbonEventService(conn));
 }
 
+
 void
 ServiceProxies::
 useZookeeper(std::string url,
@@ -440,6 +441,7 @@ useZookeeper(std::string url,
 
     config.reset(new ZookeeperConfigurationService(url, prefix, location));
 }
+
 
 void
 ServiceProxies::

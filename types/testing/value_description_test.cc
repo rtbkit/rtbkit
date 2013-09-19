@@ -9,6 +9,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 #include <sstream>
+#include <string>
 #include <boost/test/unit_test.hpp>
 
 #include "jml/utils/file_functions.h"
@@ -140,3 +141,113 @@ BOOST_AUTO_TEST_CASE( test_default_description_parse_id_128_str )
 
     BOOST_CHECK_EQUAL(expected, result);
 }
+
+#if ENABLE_THIS_TEST
+
+namespace Datacratic {
+
+typedef map<string, string> StringDict;
+
+#if ENABLE_KEYCODEC
+/* SubClass1, where function overloads are used */
+struct SubClass1 : public std::string
+{
+    explicit SubClass1(const std::string & other)
+        : std::string(other)
+    {}
+};
+
+typedef map<SubClass1, string> SubClass1Dict;
+
+inline SubClass1 stringToKey(const std::string & str, SubClass1 *) { return SubClass1(str); }
+inline std::string keyToString(const SubClass1 & str) { return str; }
+
+
+/* SubClass2, where template specialization is used */
+
+struct SubClass2 : public std::string
+{
+    explicit SubClass2(const std::string & other)
+        : std::string(other)
+    {}
+};
+
+typedef map<SubClass2, string> SubClass2Dict;
+
+template<typename T>
+struct KeyCodec<SubClass2, T>
+{
+    static SubClass2 decode(const std::string & s) { return SubClass2(s); }
+    static std::string encode(const SubClass2 & t) { return t; }
+};
+#endif
+
+/* StrClass, a class convertible from/to std::string */
+struct CompatClass
+{
+    CompatClass(const std::string & value)
+        : value_(value)
+    {}
+
+    std::string value_;
+
+    operator std::string() const
+    { return value_; }
+
+    bool operator < (const CompatClass & other)
+        const
+    { return value_ < other.value_; }
+};
+
+
+typedef map<CompatClass, string> CompatClassDict;
+
+}
+
+BOOST_AUTO_TEST_CASE( test_value_description_map )
+{
+    string data("{ \"key1\": \"value\", \"key2\": \"value2\" }");
+
+    {
+        StringDict dict;
+
+        // auto d = getDefaultDescription(&dict);
+        // cerr << d << endl;
+
+        dict = jsonDecodeStr(data, &dict);
+        BOOST_CHECK_EQUAL(dict["key1"], string("value"));
+        BOOST_CHECK_EQUAL(dict["key2"], string("value2"));
+    }
+
+#if ENABLE_KEYCODEC
+    {
+        SubClass1Dict dict;
+
+        dict = jsonDecodeStr(data, &dict);
+        BOOST_CHECK_EQUAL(dict[SubClass1("key1")], string("value"));
+        BOOST_CHECK_EQUAL(dict[SubClass1("key2")], string("value2"));
+    }
+
+    {
+        SubClass2Dict dict;
+
+        dict = jsonDecodeStr(data, &dict);
+        BOOST_CHECK_EQUAL(dict[SubClass2("key1")], string("value"));
+        BOOST_CHECK_EQUAL(dict[SubClass2("key2")], string("value2"));
+    }
+#endif
+
+    {
+        CompatClassDict dict;
+
+        dict = jsonDecodeStr(data, &dict);
+
+        string value1 = dict[CompatClass("key1")];
+        BOOST_CHECK_EQUAL(value1, string("value"));
+        string value2 = dict[CompatClass("key2")];
+        BOOST_CHECK_EQUAL(value2, string("value2"));
+    }
+
+}
+
+#endif
