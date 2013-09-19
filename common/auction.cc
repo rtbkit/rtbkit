@@ -295,11 +295,6 @@ setResponse(int spotNum, Response newResponse)
         if (current->tooLate)
             return WinLoss::TOOLATE;
         
-        if (current->hasValidResponse(spotNum)
-            && newResponse.price.priority
-                <= current->winningResponse(spotNum).price.priority)
-            return WinLoss::LOSS;
-        
         *newData = *current;
 
         bool hasExisting = current->hasValidResponse(spotNum);
@@ -308,9 +303,13 @@ setResponse(int spotNum, Response newResponse)
         newData->responses[spotNum].push_back(newResponse);
 
         if (hasExisting) {
-            newData->responses[spotNum][0].localStatus = WinLoss::LOSS;
-            std::swap(newData->responses[spotNum].front(),
-                      newData->responses[spotNum].back());
+            auto & spot = newData->responses[spotNum];
+            if (newResponse.price.priority >
+                current->winningResponse(spotNum).price.priority) {
+                std::swap(spot.front(), spot.back());
+            }
+
+            spot.back().localStatus = WinLoss::LOSS;
         }
 
         newData->oldData = current;
@@ -379,9 +378,6 @@ finish()
         for (unsigned spotNum = 0;  spotNum < numSpots(); ++spotNum) {
             if (newData->hasValidResponse(spotNum))
                 newData->responses[spotNum][0].localStatus = WinLoss::WIN;
-            
-            for (unsigned i = 1;  i < newData->responses[spotNum].size();  ++i)
-                newData->responses[spotNum][i].localStatus = WinLoss::LOSS;
         }
         
         newData->oldData = current;
@@ -413,8 +409,8 @@ setError(const std::string & error, const std::string & details)
         newData->details = details;
 
         for (unsigned spotNum = 0;  spotNum < numSpots();  ++spotNum) {
-            for (unsigned i = 0;  i < newData->responses[spotNum].size();  ++i) {
-                newData->responses[spotNum][i].localStatus = WinLoss::LOSS;
+            if (newData->hasValidResponse(spotNum)) {
+                newData->responses[spotNum][0].localStatus = WinLoss::LOSS;
             }
         }
         newData->oldData = current;
