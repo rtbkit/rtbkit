@@ -1,11 +1,18 @@
-var RTBkit = require('../../build/x86_64/bin/rtb.node'),
-    services = require('../../build/x86_64/bin/services.node'),
-    budgetController = require('./budget-controller.js'),
+/** nodebidagent.js
+    Jay Pozo, 19 Sep 2013
+    Copyright (c) 2013 Datacratic.  All rights reserved.
+
+    Example of a simple node.js fixed-price bidding agent.
+*/
+
+var RTBkit = require('rtb'),
+    services = require('services'),
+    budgetController = require('budget-controller'),
     zookeeperUri = "localhost:2181", // must point to same Zookeeper as routers
     services = new services.ServiceProxies(),
     accountAdded = false,
     interval,
-    config = require('./agent-config.json'),
+    config = require('nodebidagent-config').config,
     accountParent = config.account[0],
     accountFullName = config.account.join(":");
     

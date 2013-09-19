@@ -1,3 +1,10 @@
+/** budget-controller.js
+    Jay Pozo, 19 Sep 2013
+    Copyright (c) 2013 Datacratic.  All rights reserved.
+
+    Interface to access the banker through http requests.
+*/
+
 var http = require("http");
 var querystring = require("querystring");
 

@@ -1,4 +1,11 @@
-{
+/** nodebidagent-config.js
+    Jay Pozo, 19 Sep 2013
+    Copyright (c) 2013 Datacratic.  All rights reserved.
+
+    Configuration of our node bidding agent.
+*/
+
+exports.config = {
   "account": ["hello","world"],
   "bidProbability": 1.0,
   "creatives": [ 
@@ -29,5 +36,4 @@
     }  
   },
   "maxInFlight": 50
-}
-
+} 
