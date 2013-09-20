@@ -106,6 +106,8 @@ spinup(int num_threads, bool synchronous)
 
     threadsActive_ = 0;
 
+    totalSleepTime.resize(num_threads, 0.0);
+
     for (unsigned i = 0;  i < num_threads;  ++i) {
         boost::thread * thread
             = eventThreads->create_thread
@@ -570,7 +572,8 @@ runEventThread(int threadNum, int numThreads)
             int usToWait = myEndUs - fracms;
             if (usToWait < 0 || usToWait > timesliceUs)
                 usToWait = timesliceUs;
-            
+
+            totalSleepTime[threadNum] += double(usToWait) / 1000000.0;
             int numHandled = handleEvents(usToWait, 4, handleEvent,
                                           beforeSleep, afterSleep);
             if (debug && false)
@@ -599,7 +602,11 @@ runEventThread(int threadNum, int numThreads)
                 ExcAssertGreaterEqual(usToSleep, 0);
                 if (debug && false)
                     cerr << "sleeping for " << usToSleep << " micros" << endl;
-                ML::sleep(usToSleep / 1000000.0);
+
+                double secToSleep = double(usToSleep) / 1000000.0;
+                totalSleepTime[threadNum] += secToSleep;
+
+                ML::sleep(secToSleep);
                 duty.notifyAfterSleep();
                 forceInSlice = true;
 

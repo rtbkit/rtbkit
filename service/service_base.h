@@ -368,6 +368,13 @@ struct ServiceProxies {
     /** Zeromq context for communication. */
     std::shared_ptr<zmq::context_t> zmqContext;
 
+    template<typename Configuration> 
+    JML_ALWAYS_INLINE
+    std::shared_ptr<Configuration> configAs() 
+    {
+        return std::static_pointer_cast<Configuration>(config);
+    }
+
     void logToCarbon(std::shared_ptr<CarbonConnector> conn);
     void logToCarbon(const std::string & carbonConnection,
                      const std::string & prefix = "");

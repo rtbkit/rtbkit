@@ -118,9 +118,11 @@ removeFd(int fd)
 
     int res = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, 0);
     
-    if (res == -1)
-        throw ML::Exception("epoll_ctl DEL fd %d: %s", fd,
-                            strerror(errno));
+    if (res == -1) {
+        if (errno != EBADF)
+            throw ML::Exception("epoll_ctl DEL fd %d: %s", fd,
+                                strerror(errno));
+    }
 }
 
 int

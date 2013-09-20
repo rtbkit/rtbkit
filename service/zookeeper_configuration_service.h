@@ -26,6 +26,9 @@ struct ZookeeperConnection;
 struct ZookeeperConfigurationService
     : public ConfigurationService {
 
+    friend class ServiceDiscoveryScenario;    
+
+
     ZookeeperConfigurationService();
 
     ZookeeperConfigurationService(std::string host,

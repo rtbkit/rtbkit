@@ -1006,14 +1006,27 @@ struct DefaultDescription<std::set<T> >
     }
 };
 
+inline std::string stringToKey(const std::string & str, std::string *) { return str; }
+inline std::string keyToString(const std::string & str) { return str; }
+
+#define ENABLE_KEYCODEC 0
+
+#if ENABLE_KEYCODEC
+template<typename T, typename Enable = void>
+struct KeyCodec {
+    static T decode(const std::string & s) { return stringToKey(s, (T *)0); }
+
+    static std::string encode(const T & t) { return keyToString(t); }
+};
+#endif
 
 /*****************************************************************************/
 /* DEFAULT DESCRIPTION FOR MAP                                               */
 /*****************************************************************************/
 
-template<typename T>
-struct DefaultDescription<std::map<std::string, T> >
-    : public ValueDescriptionI<std::map<std::string, T>, ValueKind::MAP> {
+template<typename K, typename T>
+struct DefaultDescription<std::map<K, T> >
+    : public ValueDescriptionI<std::map<K, T>, ValueKind::MAP> {
 
     DefaultDescription(ValueDescriptionT<T> * inner
                       = getDefaultDescription((T *)0))
@@ -1027,17 +1040,22 @@ struct DefaultDescription<std::map<std::string, T> >
 
     virtual void parseJson(void * val, JsonParsingContext & context) const
     {
-        auto * val2 = reinterpret_cast<std::map<std::string, T> *>(val);
+        auto * val2 = reinterpret_cast<std::map<K, T> *>(val);
         return parseJsonTyped(val2, context);
     }
 
-    virtual void parseJsonTyped(std::map<std::string, T> * val, JsonParsingContext & context) const
+    virtual void parseJsonTyped(std::map<K, T> * val, JsonParsingContext & context) const
     {
-        std::map<std::string, T> res;
+        std::map<K, T> res;
 
         auto onMember = [&] ()
             {
-                inner->parseJsonTyped(&res[context.fieldName()], context);
+#if ENABLE_KEYCODEC
+                K key = KeyCodec<K>::decode(context.fieldName());
+#else
+                K key = stringToKey(context.fieldName(), (K *)0);
+#endif
+                inner->parseJsonTyped(&res[key], context);
             };
 
         context.forEachMember(onMember);
@@ -1047,16 +1065,20 @@ struct DefaultDescription<std::map<std::string, T> >
 
     virtual void printJson(const void * val, JsonPrintingContext & context) const
     {
-        auto * val2 = reinterpret_cast<const std::map<std::string, T> *>(val);
+        auto * val2 = reinterpret_cast<const std::map<K, T> *>(val);
         return printJsonTyped(val2, context);
     }
 
-    virtual void printJsonTyped(const std::map<std::string, T> * val,
+    virtual void printJsonTyped(const std::map<K, T> * val,
                                 JsonPrintingContext & context) const
     {
         context.startObject();
         for (auto & v: *val) {
-            context.startMember(v.first);
+#if ENABLE_KEYCODEC
+            context.startMember(KeyCodec<K>::encode(v.first));
+#else
+            context.startMember(keyToString(v.first));
+#endif
             inner->printJsonTyped(&v.second, context);
         }
         context.endObject();
@@ -1064,18 +1086,18 @@ struct DefaultDescription<std::map<std::string, T> >
 
     virtual bool isDefault(const void * val) const
     {
-        auto * val2 = reinterpret_cast<const std::map<std::string, T> *>(val);
+        auto * val2 = reinterpret_cast<const std::map<K, T> *>(val);
         return isDefaultTyped(val2);
     }
 
-    virtual bool isDefaultTyped(const std::map<std::string, T> * val) const
+    virtual bool isDefaultTyped(const std::map<K, T> * val) const
     {
         return val->empty();
     }
 
     virtual size_t getFieldCount(const void * val) const
     {
-        auto * val2 = reinterpret_cast<const std::map<std::string, T> *>(val);
+        auto * val2 = reinterpret_cast<const std::map<K, T> *>(val);
         return val2->size();
     }
 

@@ -1123,20 +1123,34 @@ struct ZmqNamedClientBusProxy : public ZmqNamedProxy {
 */
 
 struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
+    friend class ServiceDiscoveryScenario;
+    friend class ServiceDiscoveryScenarioTest;
+
+#define CHANGES_MAP_INITIALIZER \
+    { \
+        { ConfigurationService::VALUE_CHANGED, 0 }, \
+        { ConfigurationService::DELETED, 0 }, \
+        { ConfigurationService::CREATED, 0 }, \
+        { ConfigurationService::NEW_CHILD, 0 } \
+    }
 
     ZmqMultipleNamedClientBusProxy()
-        : zmqContext(new zmq::context_t(1))
+       : zmqContext(new zmq::context_t(1)),
+         changesCount( CHANGES_MAP_INITIALIZER )
     {
         connected = false;
         inProvidersChanged = false;
     }
 
     ZmqMultipleNamedClientBusProxy(std::shared_ptr<zmq::context_t> context)
-        : zmqContext(context)
+        : zmqContext(context),
+          changesCount( CHANGES_MAP_INITIALIZER )
     {
         connected = false;
         inProvidersChanged = false;
     }
+
+#undef CHANGES_MAP_INITIALIZER
 
     ~ZmqMultipleNamedClientBusProxy()
     {
@@ -1188,6 +1202,7 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         serviceProvidersWatch.init([=] (const std::string & path,
                                         ConfigurationService::ChangeType change)
                                    {
+                                       ++changesCount[change];
                                        onServiceProvidersChanged("serviceClass/" + serviceClass, local);
                                    });
 
@@ -1259,12 +1274,18 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
             throw ML::Exception("need to override on messageHandler or handleMessage");
     }
 
+
 private:
     /** Are we connected? */
     bool connected;
 
     /** Common zeromq context for all connections. */
     std::shared_ptr<zmq::context_t> zmqContext;
+
+    /** Number of times a particular change has occured. This is only meant for tests
+     *  purposes.
+     */
+    std::map<int, uint32_t> changesCount;
 
     /** Configuration service from where we learn where to connect. */
     std::shared_ptr<ConfigurationService> config;
@@ -1424,6 +1445,7 @@ private:
         std::unique_lock<Lock> guard(connectionsLock);
 
         auto & c = connections[name];
+        //ML::backtrace();
 
         // already connected
         if (c) 
@@ -1441,7 +1463,8 @@ private:
             // holding the connectionsLock which is a big no-no. This fancy
             // wrapper ensures that it's only called after we call its release
             // function.
-            newClient->connectHandler = OnConnectCallback(connectHandler, name);
+            if (connectHandler)
+                newClient->connectHandler = OnConnectCallback(connectHandler, name);
 
             newClient->disconnectHandler = [=] (std::string s)
                 {
@@ -1462,7 +1485,8 @@ private:
             addSource("ZmqMultipleNamedClientBusProxy child " + name, c);
 
             guard.unlock();
-            c->connectHandler.target<OnConnectCallback>()->release();
+            if (connectHandler)
+                c->connectHandler.target<OnConnectCallback>()->release();
 
         } catch (...) {
             // Avoid triggering the disconnect callbacks while holding the
