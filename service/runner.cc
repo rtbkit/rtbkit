@@ -242,10 +242,14 @@ handleChildStatus(const struct epoll_event & event)
 {
     // cerr << "handleChildStatus\n";
     ChildStatus status;
+    char buffer[sizeof(status)];
 
     if ((event.events & EPOLLIN) != 0) {
+        ssize_t remaining = sizeof(buffer);
+        char * current = buffer;
+
         while (1) {
-            ssize_t s = ::read(task_.statusFd, &status, sizeof(status));
+            ssize_t s = ::read(task_.statusFd, current, remaining);
             if (s == -1) {
                 if (errno == EWOULDBLOCK) {
                     break;
@@ -259,26 +263,32 @@ handleChildStatus(const struct epoll_event & event)
             else if (s == 0) {
                 break;
             }
-            else if (s != sizeof(status)) {
-                throw
-                    ML::Exception("Runner::handleChildStatus sizeof(status)");
-            }
 
-            if (task_.statusState == Task::StatusState::START) {
-                childPid_ = status.pid;
-                ML::futex_wake(childPid_);
-                // cerr << "child now running: " + to_string(childPid_) + "\n";
-                task_.statusState = Task::StatusState::STOP;
+            remaining -= s;
+            if (remaining > 0) {
+                cerr << "warning: reading status fd in multiple chunks\n";
+                current += s;
             }
-            else if (task_.statusState == Task::StatusState::STOP) {
-                // cerr << "child now stopped: " + to_string(childPid_) + "\n";
-                childPid_ = -1;
-                task_.runResult.updateFromStatus(status.status);
-                task_.statusState = Task::StatusState::DONE;
-                attemptTaskTermination();
-            }
-            else {
-                throw ML::Exception("unexpected status when DONE");
+            else if (remaining == 0) {
+                memcpy(&status, buffer, sizeof(status));
+                if (task_.statusState == Task::StatusState::START) {
+                    childPid_ = status.pid;
+                    ML::futex_wake(childPid_);
+                    // cerr << "child now running: " + to_string(childPid_) + "\n";
+                    task_.statusState = Task::StatusState::STOP;
+                }
+                else if (task_.statusState == Task::StatusState::STOP) {
+                    // cerr << "child now stopped: " + to_string(childPid_) + "\n";
+                    childPid_ = -1;
+                    task_.runResult.updateFromStatus(status.status);
+                    task_.statusState = Task::StatusState::DONE;
+                    attemptTaskTermination();
+                }
+                else {
+                    throw ML::Exception("unexpected status when DONE");
+                }
+                remaining = sizeof(buffer);
+                current = buffer;
             }
         }
     }
