@@ -250,7 +250,7 @@ handleChildStatus(const struct epoll_event & event)
                 if (errno == EWOULDBLOCK) {
                     break;
                 }
-                else if (errno == EBADF) {
+                else if (errno == EBADF || errno == EINVAL) {
                     // cerr << "badf\n";
                     break;
                 }
@@ -318,7 +318,7 @@ handleOutputStatus(const struct epoll_event & event,
                 if (errno == EWOULDBLOCK) {
                     break;
                 }
-                else if (errno == EBADF) {
+                else if (errno == EBADF || errno == EINVAL) {
                     closedFd = true;
                     break;
                 }
