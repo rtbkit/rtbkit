@@ -202,6 +202,8 @@ fromOpenRtb(OpenRTB::BidRequest && req,
     }
 
     result->ext = std::move(req.ext);
+
+    result->segments.addStrings("openrtb-wseat", req.wseat);
     
     return result.release();
 }
