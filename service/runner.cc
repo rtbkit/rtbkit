@@ -37,17 +37,6 @@ using namespace Datacratic;
 
 namespace {
 
-struct ChildStatus
-{
-    ChildStatus()
-        : pid(-1)
-    {}
-    union {
-        pid_t pid;
-        int status;
-    };
-};
-
 tuple<int, int>
 CreateStdPipe(bool forWriting)
 {
@@ -65,132 +54,6 @@ CreateStdPipe(bool forWriting)
     }
 }
 
-struct ChildFds {
-    ChildFds()
-        : stdIn(::fileno(stdin)),
-          stdOut(::fileno(stdout)),
-          stdErr(::fileno(stderr)),
-          statusFd(-1)
-    {
-    }
-
-    /* child api */
-    void closeRemainingFds()
-    {
-        struct rlimit limits;
-        ::getrlimit(RLIMIT_NOFILE, &limits);
-
-        for (int fd = 0; fd < limits.rlim_cur; fd++) {
-            if (fd != STDIN_FILENO
-                && fd != STDOUT_FILENO && fd != STDERR_FILENO
-                && fd != statusFd) {
-                ::close(fd);
-            }
-        }
-    }
-
-    void dupToStdStreams()
-    {
-        auto dupToStdStream = [&] (int oldFd, int newFd) {
-            if (oldFd != newFd) {
-                int rc = ::dup2(oldFd, newFd);
-                if (rc == -1) {
-                    throw ML::Exception(errno,
-                                        "ChildFds::dupToStdStream dup2");
-                }
-            }
-        };
-        dupToStdStream(stdIn, STDIN_FILENO);
-        dupToStdStream(stdOut, STDOUT_FILENO);
-        dupToStdStream(stdErr, STDERR_FILENO);
-    }
-
-    /* parent & child api */
-    void close()
-    {
-        auto closeIfNotEqual = [&] (int & fd, int notValue) {
-            if (fd != notValue) {
-                ::close(fd);
-            }
-        };
-        closeIfNotEqual(stdIn, STDIN_FILENO);
-        closeIfNotEqual(stdOut, STDOUT_FILENO);
-        closeIfNotEqual(stdErr, STDERR_FILENO);
-        closeIfNotEqual(statusFd, -1);
-    }
-
-    int stdIn;
-    int stdOut;
-    int stdErr;
-    int statusFd;
-};
-
-void
-RunWrapper(const vector<string> & command, ChildFds & fds)
-{
-    // Undo any SIGCHLD block from the parent process so it can
-    // properly wait for the signal
-    ::signal(SIGCHLD, SIG_DFL);
-    ::signal(SIGPIPE, SIG_DFL);
-
-    fds.dupToStdStreams();
-    fds.closeRemainingFds();
-
-    // Set up the arguments before we fork, as we don't want to call malloc()
-    // from the fork, and it can be called from c_str() in theory.
-    size_t len = command.size();
-    char * argv[len + 1];
-    for (int i = 0; i < len; i++) {
-        argv[i] = (char *) command[i].c_str();
-    }
-    argv[len] = NULL;
-
-    int childPid = fork();
-    if (childPid == -1) {
-        throw ML::Exception(errno, "RunWrapper fork");
-    }
-    else if (childPid == 0) {
-        ::prctl(PR_SET_PDEATHSIG, SIGTERM);
-        ::close(fds.statusFd);
-        int res = ::execv(command[0].c_str(), argv);
-        if (res == -1) {
-            throw ML::Exception(errno, "RunWrapper exec");
-        }
-
-        /* there is no possible way this code could be executed */
-        throw ML::Exception("The Alpha became the Omega.");
-    }
-    else {
-        // FILE * terminal = ::fopen("/dev/tty", "a");
-
-        // ::fprintf(terminal, "wrapper: real child pid: %d\n", childPid);
-        ChildStatus status;
-
-        status.pid = childPid;
-        if (::write(fds.statusFd, &status, sizeof(status)) == -1) {
-            throw ML::Exception(errno, "RunWrapper write");
-        }
-
-        // ::fprintf(terminal, "wrapper: waiting child...\n");
-
-        int res = ::waitpid(childPid, &status.status, 0);
-        if (res == -1)
-            throw ML::Exception(errno, "waitpid");
-        if (res != childPid)
-            throw ML::Exception("waitpid has not returned the childPid");
-
-        // ::fprintf(terminal, "wrapper: child terminated\n");
-
-        if (::write(fds.statusFd, &status, sizeof(status)) == -1) {
-            throw ML::Exception(errno, "RunWrapper write");
-        }
-
-        fds.close();
-
-        ::_exit(0);
-    }
-}
-
 } // namespace
 
 
@@ -198,7 +61,9 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
 Runner::
 Runner()
-    : running_(false), childPid_(-1)
+    : running_(false), childPid_(-1),
+      statusRemaining_(sizeof(Task::ChildStatus))
+
 {
     Epoller::init(4);
 
@@ -241,15 +106,13 @@ Runner::
 handleChildStatus(const struct epoll_event & event)
 {
     // cerr << "handleChildStatus\n";
-    ChildStatus status;
-    char buffer[sizeof(status)];
+    Task::ChildStatus status;
 
     if ((event.events & EPOLLIN) != 0) {
-        ssize_t remaining = sizeof(buffer);
-        char * current = buffer;
-
         while (1) {
-            ssize_t s = ::read(task_.statusFd, current, remaining);
+            char * current = (statusBuffer_ + sizeof(Task::ChildStatus)
+                              - statusRemaining_);
+            ssize_t s = ::read(task_.statusFd, current, statusRemaining_);
             if (s == -1) {
                 if (errno == EWOULDBLOCK) {
                     break;
@@ -264,13 +127,12 @@ handleChildStatus(const struct epoll_event & event)
                 break;
             }
 
-            remaining -= s;
-            if (remaining > 0) {
+            statusRemaining_ -= s;
+            if (statusRemaining_ > 0) {
                 cerr << "warning: reading status fd in multiple chunks\n";
-                current += s;
             }
-            else if (remaining == 0) {
-                memcpy(&status, buffer, sizeof(status));
+            else if (statusRemaining_ == 0) {
+                memcpy(&status, statusBuffer_, sizeof(status));
                 if (task_.statusState == Task::StatusState::START) {
                     childPid_ = status.pid;
                     ML::futex_wake(childPid_);
@@ -287,8 +149,7 @@ handleChildStatus(const struct epoll_event & event)
                 else {
                     throw ML::Exception("unexpected status when DONE");
                 }
-                remaining = sizeof(buffer);
-                current = buffer;
+                statusRemaining_ = sizeof(statusBuffer_);
             }
         }
     }
@@ -429,7 +290,7 @@ run(const vector<string> & command,
     task_.statusState = Task::StatusState::START;
     task_.onTerminate = onTerminate;
 
-    ChildFds childFds;
+    Task::ChildFds childFds;
     tie(task_.statusFd, childFds.statusFd) = CreateStdPipe(false);
 
     if (stdInSink_) {
@@ -454,7 +315,7 @@ run(const vector<string> & command,
         throw ML::Exception(errno, "Runner::run fork");
     }
     else if (task_.wrapperPid == 0) {
-        RunWrapper(command, childFds);
+        task_.RunWrapper(command, childFds);
     }
     else {
         ML::set_file_flag(task_.statusFd, O_NONBLOCK);
@@ -529,6 +390,74 @@ closeStdInSink()
 void
 Runner::
 Task::
+RunWrapper(const vector<string> & command, ChildFds & fds)
+{
+    // Undo any SIGCHLD block from the parent process so it can
+    // properly wait for the signal
+    ::signal(SIGCHLD, SIG_DFL);
+    ::signal(SIGPIPE, SIG_DFL);
+
+    fds.dupToStdStreams();
+    fds.closeRemainingFds();
+
+    // Set up the arguments before we fork, as we don't want to call malloc()
+    // from the fork, and it can be called from c_str() in theory.
+    size_t len = command.size();
+    char * argv[len + 1];
+    for (int i = 0; i < len; i++) {
+        argv[i] = (char *) command[i].c_str();
+    }
+    argv[len] = NULL;
+
+    int childPid = fork();
+    if (childPid == -1) {
+        throw ML::Exception(errno, "RunWrapper fork");
+    }
+    else if (childPid == 0) {
+        ::prctl(PR_SET_PDEATHSIG, SIGTERM);
+        ::close(fds.statusFd);
+        int res = ::execv(command[0].c_str(), argv);
+        if (res == -1) {
+            throw ML::Exception(errno, "RunWrapper exec");
+        }
+
+        /* there is no possible way this code could be executed */
+        throw ML::Exception("The Alpha became the Omega.");
+    }
+    else {
+        // FILE * terminal = ::fopen("/dev/tty", "a");
+
+        // ::fprintf(terminal, "wrapper: real child pid: %d\n", childPid);
+        ChildStatus status;
+
+        status.pid = childPid;
+        if (::write(fds.statusFd, &status, sizeof(status)) == -1) {
+            throw ML::Exception(errno, "RunWrapper write");
+        }
+
+        // ::fprintf(terminal, "wrapper: waiting child...\n");
+
+        int res = ::waitpid(childPid, &status.status, 0);
+        if (res == -1)
+            throw ML::Exception(errno, "waitpid");
+        if (res != childPid)
+            throw ML::Exception("waitpid has not returned the childPid");
+
+        // ::fprintf(terminal, "wrapper: child terminated\n");
+
+        if (::write(fds.statusFd, &status, sizeof(status)) == -1) {
+            throw ML::Exception(errno, "RunWrapper write");
+        }
+
+        fds.close();
+
+        ::_exit(0);
+    }
+}
+
+void
+Runner::
+Task::
 postTerminate(Runner & runner)
 {
     // cerr << "postTerminate\n";
@@ -568,6 +497,77 @@ postTerminate(Runner & runner)
     }
     runResult.signaled = false;
     runResult.returnCode = -1;
+}
+
+
+/* CHILD::CHILDFDS */
+
+Runner::
+Task::
+ChildFds::
+ChildFds()
+    : stdIn(::fileno(stdin)),
+      stdOut(::fileno(stdout)),
+      stdErr(::fileno(stderr)),
+      statusFd(-1)
+{
+}
+
+/* child api */
+void
+Runner::
+Task::
+ChildFds::
+closeRemainingFds()
+{
+    struct rlimit limits;
+    ::getrlimit(RLIMIT_NOFILE, &limits);
+
+    for (int fd = 0; fd < limits.rlim_cur; fd++) {
+        if (fd != STDIN_FILENO
+            && fd != STDOUT_FILENO && fd != STDERR_FILENO
+            && fd != statusFd) {
+            ::close(fd);
+        }
+    }
+}
+
+void
+Runner::
+Task::
+ChildFds::
+dupToStdStreams()
+{
+    auto dupToStdStream = [&] (int oldFd, int newFd) {
+        if (oldFd != newFd) {
+            int rc = ::dup2(oldFd, newFd);
+            if (rc == -1) {
+                throw ML::Exception(errno,
+                                    "ChildFds::dupToStdStream dup2");
+            }
+        }
+    };
+    dupToStdStream(stdIn, STDIN_FILENO);
+    dupToStdStream(stdOut, STDOUT_FILENO);
+    dupToStdStream(stdErr, STDERR_FILENO);
+}
+
+/* parent & child api */
+void
+Runner::
+Task::
+ChildFds::
+close()
+{
+    auto closeIfNotEqual = [&] (int & fd, int notValue) {
+        if (fd != notValue) {
+            ::close(fd);
+        }
+    };
+    closeIfNotEqual(stdIn, STDIN_FILENO);
+    closeIfNotEqual(stdOut, STDOUT_FILENO);
+    closeIfNotEqual(stdErr, STDERR_FILENO);
+    closeIfNotEqual(statusFd, -1);
 }
 
 
