@@ -23,6 +23,7 @@ using namespace RTBKIT;
 vector<string> samples = {
     "rtbkit/plugins/bid_request/testing/openrtb1_req.json",
     "rtbkit/plugins/bid_request/testing/openrtb2_req.json",
+    "rtbkit/plugins/bid_request/testing/openrtb_wseat_req.json",
     "rtbkit/plugins/bid_request/testing/openrtb_banner.json",
     "rtbkit/plugins/bid_request/testing/openrtb_expandable_creative.json",
     "rtbkit/plugins/bid_request/testing/openrtb_mobile.json",
