@@ -1324,7 +1324,7 @@ inline Json::Value jsonEncode(const char * str)
 /// overload for it.  The constructor still needs to be done.
 #define CREATE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
     struct Name                                                 \
-        : public Datacratic::StructureDescriptionImpl<Type, Name> { \
+        : public Datacratic::StructureDescription<Type> { \
         Name();                                                 \
     };                                                          \
                                                                 \
@@ -1339,7 +1339,7 @@ inline Json::Value jsonEncode(const char * str)
 
 #define CREATE_CLASS_DESCRIPTION_NAMED(Name, Type)              \
     struct Name                                                 \
-        : public Datacratic::StructureDescriptionImpl<Type, Name> { \
+        : public Datacratic::StructureDescription<Type> { \
         Name() {                                                \
             Type::createDescription(*this);                     \
         }                                                       \
