@@ -91,7 +91,7 @@ FilterPool::
 recordTime(uint64_t start, const FilterBase* filter)
 {
     uint64_t now = ticks();
-    double us = ((now - start - ticks_overhead) / ticks_per_second) * 1000000.0;
+    double us = ((now - start) / ticks_per_second) * 1000000.0;
 
     events->recordLevel(us, "filters.timingUs.%s", filter->name());
 
