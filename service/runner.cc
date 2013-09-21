@@ -414,6 +414,10 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         throw ML::Exception(errno, "RunWrapper fork");
     }
     else if (childPid == 0) {
+        ::signal(SIGQUIT, SIG_DFL);
+        ::signal(SIGTERM, SIG_DFL);
+        ::signal(SIGINT, SIG_DFL);
+
         ::prctl(PR_SET_PDEATHSIG, SIGTERM);
         ::close(fds.statusFd);
         int res = ::execv(command[0].c_str(), argv);
@@ -621,6 +625,7 @@ execute(MessageLoop & loop,
 
     runner.waitTermination();
     loop.removeSource(&runner);
+    ML::sleep(0.5);
 
     return result;
 }
