@@ -626,7 +626,7 @@ execute(MessageLoop & loop,
 
     runner.waitTermination();
     loop.removeSource(&runner);
-    ML::sleep(0.5);
+    runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
 
     return result;
 }
