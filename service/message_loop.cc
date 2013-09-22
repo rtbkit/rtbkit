@@ -7,6 +7,7 @@
 #include "soa/service//message_loop.h"
 #include "soa/types/date.h"
 #include "jml/arch/exception.h"
+#include "jml/arch/futex.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/demangle.h"
 #include "jml/arch/futex.h"
@@ -214,6 +215,9 @@ processAddSource(const SourceEntry& entry)
 
     if (debug_) entry.source->debug(true);
     sources.push_back(entry);
+
+    entry.source->connectionState_ = AsyncEventSource::CONNECTED;
+    ML::futex_wake(entry.source->connectionState_);
 }
 
 void
@@ -242,6 +246,9 @@ processRemoveSource(AsyncEventSource* source)
         if (oldNeedsPoll != needsPoll && parent_)
             parent_->checkNeedsPoll();
     }
+
+    entry.source->connectionState_ = AsyncEventSource::DISCONNECTED;
+    ML::futex_wake(entry.source->connectionState_);
 }
 
 void

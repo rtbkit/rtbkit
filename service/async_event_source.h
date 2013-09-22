@@ -23,9 +23,11 @@ struct MessageLoop;
 /*****************************************************************************/
 
 struct AsyncEventSource {
+    constexpr static int DISCONNECTED = 0;
+    constexpr static int CONNECTED = 1;
 
     AsyncEventSource()
-        : needsPoll(false), debug_(false), parent_(0)
+        : needsPoll(false), debug_(false), parent_(0), connectionState_(DISCONNECTED)
     {
     }
 
@@ -89,6 +91,9 @@ struct AsyncEventSource {
     /** Disconnect from the parent message loop. */
     void disconnect();
 
+    /** Blocks until the connection state changes to the specified value. */
+    void waitConnectionState(int state) const;
+
     /** Sets whether or not this source requires polling periodically (as
         the selectFd may not include all events).
     */
@@ -99,6 +104,9 @@ struct AsyncEventSource {
 
     /** The parent message loop. */
     MessageLoop * parent_;
+
+    /** The connection state to the message loop. */
+    int connectionState_;
 };
 
 

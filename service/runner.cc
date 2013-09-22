@@ -381,6 +381,7 @@ closeStdInSink()
 
     stdInSink_->state = OutputSink::CLOSED;
     parent_->removeSource(stdInSink_.get());
+    stdInSink_->waitConnectionState(AsyncEventSource::DISCONNECTED);
     stdInSink_.reset();
 }
 
