@@ -139,13 +139,14 @@ private:
     void handleChildStatus(const struct epoll_event & event);
     void handleOutputStatus(const struct epoll_event & event,
                             int fd, std::shared_ptr<InputSink> & sink);
+    void handleWakeup(const struct epoll_event & event);
 
     void attemptTaskTermination();
 
-    void closeStdInSink();
-
     int running_;
     pid_t childPid_;
+
+    ML::Wakeup_Fd wakeup_;
 
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
     std::shared_ptr<InputSink> stdOutSink_;
