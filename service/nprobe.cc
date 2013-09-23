@@ -23,8 +23,9 @@ namespace
 
 struct syslog_init {
     syslog_init() {
-        ::openlog("RTBkit", LOG_PID, LOG_LOCAL7);
+        ::openlog("RTBkit", LOG_PID, LOG_USER);
     }
+
 } syslog_init_;
 
 } // anonymous namespace
