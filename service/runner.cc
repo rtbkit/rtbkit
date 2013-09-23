@@ -61,9 +61,8 @@ CreateStdPipe(bool forWriting)
 
 Runner::
 Runner()
-    : running_(false), childPid_(-1),
+    : running_(false), childPid_(-1), wakeup_(EFD_NONBLOCK),
       statusRemaining_(sizeof(Task::ChildStatus))
-
 {
     Epoller::init(4);
 
@@ -93,6 +92,10 @@ handleEpollEvent(const struct epoll_event & event)
     else if (event.data.ptr == &task_.stdErrFd) {
         // fprintf(stderr, "parent: handle child output from stderr\n");
         handleOutputStatus(event, task_.stdErrFd, stdErrSink_);
+    }
+    else if (event.data.ptr == nullptr) {
+        // stdInSink cleanup for now...
+        handleWakeup(event);
     }
     else {
         throw ML::Exception("this should never occur");
@@ -144,6 +147,9 @@ handleChildStatus(const struct epoll_event & event)
                     childPid_ = -1;
                     task_.runResult.updateFromStatus(status.status);
                     task_.statusState = Task::StatusState::DONE;
+                    if (stdInSink_) {
+                        stdInSink_->requestClose();
+                    }
                     attemptTaskTermination();
                 }
                 else {
@@ -237,17 +243,29 @@ handleOutputStatus(const struct epoll_event & event,
 
 void
 Runner::
+handleWakeup(const struct epoll_event & event)
+{
+    if ((event.events & EPOLLIN) != 0) {
+        if (stdInSink_) {
+            if (stdInSink_->connectionState_
+                == AsyncEventSource::DISCONNECTED) {
+                stdInSink_.reset();
+                attemptTaskTermination();
+            }
+        }
+        while (!wakeup_.tryRead());
+        removeFd(wakeup_.fd());
+    }
+}
+
+void
+Runner::
 attemptTaskTermination()
 {
     /* for a task to be considered done:
        - stdout and stderr must have been closed, provided we redirected them
        - the closing child status must have been returned */
-    if (!stdOutSink_ && !stdErrSink_ && childPid_ == -1) {
-        // cerr << to_string(childPid()) + ": really terminated\n";
-        if (stdInSink_) {
-            closeStdInSink();
-        }
-
+    if (!stdInSink_ && !stdOutSink_ && !stdErrSink_ && childPid_ == -1) {
         task_.postTerminate(*this);
 
         running_ = false;
@@ -264,13 +282,15 @@ getStdInSink()
     if (stdInSink_)
         throw ML::Exception("stdin sink already set");
 
-    auto onHangup = [&] () {
-        this->closeStdInSink();
-    };
     auto onClose = [&] () {
-        this->closeStdInSink();
+        if (task_.stdInFd != -1) {
+            ::close(task_.stdInFd);
+            task_.stdInFd = -1;
+        }
+        parent_->removeSource(stdInSink_.get());
+        wakeup_.signal();
     };
-    stdInSink_.reset(new AsyncFdOutputSink(onHangup, onClose));
+    stdInSink_.reset(new AsyncFdOutputSink(onClose, onClose));
 
     return *stdInSink_;
 }
@@ -323,6 +343,7 @@ run(const vector<string> & command,
             ML::set_file_flag(task_.stdInFd, O_NONBLOCK);
             stdInSink_->init(task_.stdInFd);
             parent_->addSource("stdInSink", stdInSink_);
+            addFdOneShot(wakeup_.fd());
         }
         addFdOneShot(task_.statusFd, &task_.statusFd);
         if (stdOutSink) {
@@ -370,20 +391,6 @@ waitTermination()
     }
 }
 
-void
-Runner::
-closeStdInSink()
-{
-    if (task_.stdInFd != -1) {
-        ::close(task_.stdInFd);
-        task_.stdInFd = -1;
-    }
-
-    stdInSink_->state = OutputSink::CLOSED;
-    parent_->removeSource(stdInSink_.get());
-    stdInSink_.reset();
-}
-
 
 /* ASYNCRUNNER::TASK */
 
@@ -414,6 +421,10 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         throw ML::Exception(errno, "RunWrapper fork");
     }
     else if (childPid == 0) {
+        ::signal(SIGQUIT, SIG_DFL);
+        ::signal(SIGTERM, SIG_DFL);
+        ::signal(SIGINT, SIG_DFL);
+
         ::prctl(PR_SET_PDEATHSIG, SIGTERM);
         ::close(fds.statusFd);
         int res = ::execv(command[0].c_str(), argv);
@@ -621,6 +632,7 @@ execute(MessageLoop & loop,
 
     runner.waitTermination();
     loop.removeSource(&runner);
+    runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
 
     return result;
 }
