@@ -1006,29 +1006,34 @@ struct DefaultDescription<std::set<T> >
     }
 };
 
-inline std::string stringToKey(const std::string & str, std::string *) { return str; }
-inline std::string keyToString(const std::string & str) { return str; }
-
-#define ENABLE_KEYCODEC 0
-
-#if ENABLE_KEYCODEC
-template<typename T, typename Enable = void>
-struct KeyCodec {
-    static T decode(const std::string & s) { return stringToKey(s, (T *)0); }
-
-    static std::string encode(const T & t) { return keyToString(t); }
-};
-#endif
-
 /*****************************************************************************/
 /* DEFAULT DESCRIPTION FOR MAP                                               */
 /*****************************************************************************/
 
-template<typename K, typename T>
-struct DefaultDescription<std::map<K, T> >
+inline std::string stringToKey(const std::string & str, std::string *) { return str; }
+inline std::string keyToString(const std::string & str) { return str; }
+
+template<typename T>
+inline T stringToKey(const std::string & str, T *) { return boost::lexical_cast<T>(str); }
+
+template<typename T>
+inline std::string keyToString(const T & key)
+{
+    using std::to_string;
+    return to_string(key);
+}
+
+template<typename T, typename Enable = void>
+struct FreeFunctionKeyCodec {
+    static T decode(const std::string & s, T *) { return stringToKey(s, (T *)0); }
+    static std::string encode(const T & t) { return keyToString(t); }
+};
+
+template<typename K, typename T, typename KeyCodec = FreeFunctionKeyCodec<K> >
+struct MapValueDescription
     : public ValueDescriptionI<std::map<K, T>, ValueKind::MAP> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
+    MapValueDescription(ValueDescriptionT<T> * inner
                       = getDefaultDescription((T *)0))
         : inner(inner)
     {
@@ -1050,11 +1055,7 @@ struct DefaultDescription<std::map<K, T> >
 
         auto onMember = [&] ()
             {
-#if ENABLE_KEYCODEC
-                K key = KeyCodec<K>::decode(context.fieldName());
-#else
-                K key = stringToKey(context.fieldName(), (K *)0);
-#endif
+                K key = KeyCodec::decode(context.fieldName(), (K *)0);
                 inner->parseJsonTyped(&res[key], context);
             };
 
@@ -1074,11 +1075,7 @@ struct DefaultDescription<std::map<K, T> >
     {
         context.startObject();
         for (auto & v: *val) {
-#if ENABLE_KEYCODEC
-            context.startMember(KeyCodec<K>::encode(v.first));
-#else
-            context.startMember(keyToString(v.first));
-#endif
+            context.startMember(KeyCodec::encode(v.first));
             inner->printJsonTyped(&v.second, context);
         }
         context.endObject();
@@ -1126,6 +1123,17 @@ struct DefaultDescription<std::map<K, T> >
         return *this->inner;
     }
 };
+
+template<typename Key, typename Value>
+struct DefaultDescription<std::map<Key, Value> >
+    : public MapValueDescription<Key, Value> {
+    DefaultDescription(ValueDescriptionT<Value> * inner
+                       = getDefaultDescription((Value *)0))
+        : MapValueDescription<Key, Value>(inner)
+    {
+    }
+};
+
 
 
 /*****************************************************************************/
