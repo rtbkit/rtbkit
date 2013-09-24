@@ -31,7 +31,7 @@ namespace RTBKIT {
 /* FIXED PRICE BIDDING AGENT                                                  */
 /******************************************************************************/
 
-/** Simple bidding agent whose sole purpose in life is to bid 1$ CPM on every
+/** Simple bidding agent whose sole purpose in life is to bid 0.1$ CPM on every
     bid requests it sees. It also has a very simple pacer which ensures that we
     always have at most 1$ to spend every 10 seconds.
 
