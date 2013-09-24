@@ -262,3 +262,57 @@ BOOST_AUTO_TEST_CASE( test_value_description_map )
     }
 
 }
+
+struct SomeTestStructure {
+    Id someId;
+    std::string someText;
+
+    SomeTestStructure(Id id = Id(0), std::string text = "nothing") : someId(id), someText(text) {
+    }
+
+    bool operator==(SomeTestStructure const & other) const {
+        return someId == other.someId && someText == other.someText;
+    }
+
+    friend std::ostream & operator<<(std::ostream & stream, SomeTestStructure const & data) {
+        return stream << "id=" << data.someId << " text=" << data.someText;
+    }
+};
+
+CREATE_STRUCTURE_DESCRIPTION(SomeTestStructure)
+
+SomeTestStructureDescription::
+SomeTestStructureDescription() {
+    addField("someId", &SomeTestStructure::someId, "");
+    addField("someText", &SomeTestStructure::someText, "");
+}
+
+BOOST_AUTO_TEST_CASE( test_structure_description )
+{
+    SomeTestStructure data(Id(42), "hello world");
+
+    // write the thing
+    using namespace Datacratic;
+    ValueDescription * desc = getDefaultDescription(&data);
+    std::stringstream stream;
+    StreamJsonPrintingContext context(stream);
+    desc->printJson(&data, context);
+
+    // inline in some other thing
+    std::string value = ML::format("{\"%s\":%s}", desc->typeName, stream.str());
+
+    // parse it back
+    SomeTestStructure result;
+    ML::Parse_Context source("test", value.c_str(), value.size());
+        expectJsonObject(source, [&](std::string key,
+                                     ML::Parse_Context & context) {
+            auto * desc = ValueDescription::get(key);
+            if(desc) {
+                StreamingJsonParsingContext json(context);
+                desc->parseJson(&result, json);
+            }
+        });
+
+    BOOST_CHECK_EQUAL(result, data);
+}
+
