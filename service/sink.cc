@@ -148,9 +148,6 @@ requestClose()
         wakeup_.signal();
         ML::futex_wake(state);
     }
-    else {
-        throw ML::Exception("cannot close twice");
-    }
 }
 
 bool

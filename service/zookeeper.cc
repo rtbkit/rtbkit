@@ -7,6 +7,8 @@
 #include "soa/service/zookeeper.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/backtrace.h"
+#include <cstring>
+
 using namespace std;
 
 namespace Datacratic {
@@ -30,7 +32,7 @@ void zk_callback(zhandle_t * ah, int type, int state, const char * path, void * 
             << ZookeeperConnection::printState(state)
             << " id = " << cbid << std::endl;
 #endif
-        cb->call(type);
+        cb->call(type, state);
     }
 }
 
@@ -87,7 +89,7 @@ ZookeeperCallbackManager::mark(uintptr_t id, bool valid)
 }
 
 void
-ZookeeperCallbackManager::sendEvent(int type)
+ZookeeperCallbackManager::sendEvent(int type, int state)
 {
     ZookeeperCallbackMap localCallbacks;
     {
@@ -101,7 +103,7 @@ ZookeeperCallbackManager::sendEvent(int type)
         if(it->second.valid)
         {
 //            std::cerr << "sendEvent: event of type " << type << " was sent!" << std::endl;
-            it->second.callback->call(type);
+            it->second.callback->call(type, state);
         }
     }
 }
@@ -158,10 +160,23 @@ printState(int state)
         return ML::format("UNKNOWN(%d)", state);
 }
 
+std::pair<int64_t, const char *>
+ZookeeperConnection::
+sessionCredentials() const
+{
+    if (!handle)
+        throw ML::Exception("Not connected");
+
+    const clientid_t *clientId = zoo_client_id(handle);
+
+    return std::make_pair(clientId->client_id, clientId->passwd);
+}
+
 void
 ZookeeperConnection::
-connect(const std::string & host,
-        double timeoutInSeconds)
+connectImpl(const std::string & host,
+            double timeoutInSeconds,
+            clientid_t *clientId)
 {
     std::unique_lock<std::mutex> lk(connectMutex);
     if (handle)
@@ -174,7 +189,7 @@ connect(const std::string & host,
     int times = 10;
 
     for(int i = 0; i != times; ++i) {
-        handle = zookeeper_init(host.c_str(), eventHandlerFn, recvTimeout, 0, this, 0);
+        handle = zookeeper_init(host.c_str(), eventHandlerFn, recvTimeout, clientId, this, 0);
 
         if (!handle)
             throw ML::Exception(errno, "failed to initialize ZooKeeper at " + host);
@@ -195,6 +210,30 @@ connect(const std::string & host,
     throw ML::Exception("connection to Zookeeper timed out");
 }
 
+void ZookeeperConnection::
+connect(const std::string &host,
+        double timeoutInSeconds)
+{
+    connectImpl(host, timeoutInSeconds, 0);
+}
+
+void ZookeeperConnection::
+connectWithCredentials(const std::string &host,
+                       int64_t sessionId,
+                       const char *password,
+                       double timeoutInSeconds)
+{
+   // if (std::strlen(password) > 16)
+   //     throw ML::Exception("Password must have at most 16 characters");
+
+    clientId.reset(new clientid_t);
+    clientId->client_id = sessionId;
+    std::strncpy(clientId->passwd, password, 16);
+
+    connectImpl(host, timeoutInSeconds, clientId.get());
+}
+
+
 void
 ZookeeperConnection::
 reconnect()
@@ -207,7 +246,7 @@ reconnect()
     ML::sleep(1);
     connect(host);
 //    cerr << fName << "connection successful! " << endl;
-    callbackMgr_.sendEvent(ZOO_DELETED_EVENT);
+    callbackMgr_.sendEvent(ZOO_DELETED_EVENT, -1);
     for(auto & item : ephemerals) {
         createNode(item.path, item.value, true, false, true, true);
     }
@@ -560,8 +599,10 @@ eventHandlerFn(zhandle_t * handle,
     ZookeeperConnection * connection = reinterpret_cast<ZookeeperConnection *>(context);
 
     using namespace std;
-//    cerr << "got event " << printEvent(event) << " state " << printState(state) << " on path " << path << endl;
 
+   // cerr << ML::format("%p got event %s state %s on path %s\n",
+   //                 (void *) connection, printEvent(event).c_str(),
+   //                 printState(state).c_str(), path);
     if(state == ZOO_CONNECTED_STATE) {
         connection->cv.notify_all();
     }

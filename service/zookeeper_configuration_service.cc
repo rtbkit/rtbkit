@@ -49,15 +49,35 @@ std::string printZookeeperState(int state)
     return ML::format("ZOO_UNKNOWN_STATE(%d)", state);
 }
 
+std::string printChangeType(ConfigurationService::ChangeType change)
+{
+    switch (change)
+    {
+#define CHANGE_CASE(change, str) \
+        case change: \
+            return str;
+
+        CHANGE_CASE(ConfigurationService::CREATED, "CREATED")
+        CHANGE_CASE(ConfigurationService::DELETED, "DELETED")
+        CHANGE_CASE(ConfigurationService::VALUE_CHANGED, "VALUE_CHANGED")
+        CHANGE_CASE(ConfigurationService::NEW_CHILD, "NEW_CHILD")
+
+#undef CHANGE_CASE
+    }
+
+    ExcCheck(false, "Bad code path");
+}
+    
+
 void
-watcherFn(int type, std::string const & path, void * watcherCtx)
+watcherFn(int type, int state, std::string const & path, void * watcherCtx)
 {
     typedef std::shared_ptr<ConfigurationService::Watch::Data> SharedPtr;
        std::unique_ptr<SharedPtr> data(reinterpret_cast<SharedPtr *>(watcherCtx));
 //    SharedPtr * data = reinterpret_cast<SharedPtr *>(watcherCtx);
 #if 0
     cerr << "zookeeper_configuration_service.cc::watcherFn:type = " << printZookeeperEventType(type)
-//         << " state = " << printZookeeperState(state)
+         << " state = " << printZookeeperState(state)
          << " path = " << path << " context "
          << watcherCtx << " data " << data->get() << endl << endl;
 #endif
@@ -75,7 +95,10 @@ watcherFn(int type, std::string const & path, void * watcherCtx)
 
     auto & item = *data;
     if (item->watchReferences > 0) {
-//        cerr << "watcherFn:calling with path " << path << " and change " << change << endl;
+#if 0
+        cerr << "watcherFn:calling with path " << path << " and change " 
+             << printChangeType(change) << endl;
+#endif
         item->onChange(path, change);
     }
 }
@@ -107,7 +130,7 @@ ZookeeperConfigurationService(std::string host,
 {
     init(std::move(host), std::move(prefix), std::move(location));
 }
-    
+
 ZookeeperConfigurationService::
 ~ZookeeperConfigurationService()
 {
@@ -124,7 +147,7 @@ init(std::string host,
 
     zoo.reset(new ZookeeperConnection());
     zoo->connect(host, timeout);
-
+    
     if (!prefix.empty() && prefix[prefix.size() - 1] != '/')
         prefix = prefix + "/";
 

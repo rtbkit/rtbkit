@@ -26,7 +26,8 @@ namespace Datacratic {
 //forward declaration
 struct ZookeeperCallback;
 
-typedef void (* ZookeeperCallbackType)(int type, std::string const & path, void * data);
+typedef void (* ZookeeperCallbackType)(int type, int state, std::string const & path, 
+                                       void * data);
 struct CallbackInfo
 {
     CallbackInfo(ZookeeperCallback *cb=nullptr):callback(cb),valid(false)
@@ -59,7 +60,7 @@ public:
     // Marks callback id with the specified value
     bool mark(uintptr_t id, bool valid);
     // sends the specified event to all callbacks and deletes all callbacks
-    void sendEvent(int type) ;
+    void sendEvent(int type, int state) ;
 
     // at this point used for tests for want of a better mechanism
     uintptr_t getId() const
@@ -91,9 +92,9 @@ protected:
     {
     }
 public:
-    void call(int type) 
+    void call(int type, int state) 
     {
-        callback(type, path, user);
+        callback(type, state, path, user);
         delete this;
     }
 };
@@ -115,7 +116,18 @@ struct ZookeeperConnection {
 
     /** Connect synchronously. */
     void connect(const std::string & host,
-                 double timeoutInSeconds = 5);
+                 double timeoutInSeconds = 5.0);
+
+    /** Connect with a session id and password 
+     * 
+     *  precondition: password.size() <= 16
+     */ 
+    void connectWithCredentials(const std::string & host,
+                                int64_t sessionId,
+                                const char *password,
+                                double timeoutInSeconds = 5.0);
+
+    std::pair<int64_t, const char *> sessionCredentials() const;
 
     void reconnect();
 
@@ -184,7 +196,7 @@ struct ZookeeperConnection {
     std::condition_variable cv;
     std::string host;
     int recvTimeout;
-    clientid_t clientId;
+    std::shared_ptr<clientid_t> clientId;
     zhandle_t * handle;
 
     struct Node {
@@ -205,6 +217,11 @@ struct ZookeeperConnection {
     std::set<Node> ephemerals;
 
     ZookeeperCallbackManager &callbackMgr_;
+
+private:
+    void connectImpl(const std::string &host, 
+                     double timeoutInSeconds,
+                     clientid_t *clientId);
     
 };
 

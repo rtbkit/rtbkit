@@ -14,6 +14,7 @@
 #include <set>
 #include "jml/arch/exception.h"
 #include "jml/arch/demangle.h"
+#include "jml/utils/filter_streams.h"
 #include "json_parsing.h"
 #include "json_printing.h"
 #include "value_description_fwd.h"
@@ -655,7 +656,7 @@ struct StructureDescriptionImpl
                         return curr;
                     else if (context.path[n].index != -1)
                         return getEntry(n + 1, curr[context.path[n].index]);
-                    else return getEntry(n + 1, curr[context.path[n].key]);
+                    else return getEntry(n + 1, curr[context.path[n].fieldName()]);
                 };
 
                 getEntry(0, obj->*member) = context.expectJson();
@@ -1006,30 +1007,34 @@ struct DefaultDescription<std::set<T> >
     }
 };
 
-template<typename T, typename Enable = void>
-struct KeyConverter
-{
-};
-
-template<>
-struct KeyConverter<std::string>
-{
-    inline static std::string stringToKey(const std::string & str)
-    { return str; }
-
-    inline static std::string keyToString(const std::string & k)
-    { return k; }
-};
-
 /*****************************************************************************/
 /* DEFAULT DESCRIPTION FOR MAP                                               */
 /*****************************************************************************/
 
-template<typename K, typename T>
-struct DefaultDescription<std::map<K, T> >
+inline std::string stringToKey(const std::string & str, std::string *) { return str; }
+inline std::string keyToString(const std::string & str) { return str; }
+
+template<typename T>
+inline T stringToKey(const std::string & str, T *) { return boost::lexical_cast<T>(str); }
+
+template<typename T>
+inline std::string keyToString(const T & key)
+{
+    using std::to_string;
+    return to_string(key);
+}
+
+template<typename T, typename Enable = void>
+struct FreeFunctionKeyCodec {
+    static T decode(const std::string & s, T *) { return stringToKey(s, (T *)0); }
+    static std::string encode(const T & t) { return keyToString(t); }
+};
+
+template<typename K, typename T, typename KeyCodec = FreeFunctionKeyCodec<K> >
+struct MapValueDescription
     : public ValueDescriptionI<std::map<K, T>, ValueKind::MAP> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
+    MapValueDescription(ValueDescriptionT<T> * inner
                       = getDefaultDescription((T *)0))
         : inner(inner)
     {
@@ -1051,8 +1056,8 @@ struct DefaultDescription<std::map<K, T> >
 
         auto onMember = [&] ()
             {
-                T * v = &res[KeyConverter<K>::stringToKey(context.fieldName())];
-                inner->parseJsonTyped(v, context);
+                K key = KeyCodec::decode(context.fieldName(), (K *)0);
+                inner->parseJsonTyped(&res[key], context);
             };
 
         context.forEachMember(onMember);
@@ -1071,7 +1076,7 @@ struct DefaultDescription<std::map<K, T> >
     {
         context.startObject();
         for (auto & v: *val) {
-            context.startMember(KeyConverter<K>::keyToString(v.first));
+            context.startMember(KeyCodec::encode(v.first));
             inner->printJsonTyped(&v.second, context);
         }
         context.endObject();
@@ -1119,6 +1124,17 @@ struct DefaultDescription<std::map<K, T> >
         return *this->inner;
     }
 };
+
+template<typename Key, typename Value>
+struct DefaultDescription<std::map<Key, Value> >
+    : public MapValueDescription<Key, Value> {
+    DefaultDescription(ValueDescriptionT<Value> * inner
+                       = getDefaultDescription((Value *)0))
+        : MapValueDescription<Key, Value>(inner)
+    {
+    }
+};
+
 
 
 /*****************************************************************************/
@@ -1280,6 +1296,42 @@ T jsonDecodeStr(const std::string & json, T * = 0,
     return result;
 }
 
+// jsonDecode implementation for any type which:
+// 1) has a default description;
+// 2) does NOT have a fromJson() function (there is a simpler overload for this case)
+template<typename T>
+T jsonDecodeStream(std::istream & stream, T * = 0,
+                   decltype(getDefaultDescription((T *)0)) * = 0,
+                   typename std::enable_if<!hasFromJson<T>::value>::type * = 0)
+{
+    T result;
+
+    static std::unique_ptr<ValueDescription> desc
+        (getDefaultDescription((T *)0));
+    StreamingJsonParsingContext context("<<input stream>>", stream);
+    desc->parseJson(&result, context);
+    return result;
+}
+
+// jsonDecode implementation for any type which:
+// 1) has a default description;
+// 2) does NOT have a fromJson() function (there is a simpler overload for this case)
+template<typename T>
+T jsonDecodeFile(const std::string & filename, T * = 0,
+                 decltype(getDefaultDescription((T *)0)) * = 0,
+                 typename std::enable_if<!hasFromJson<T>::value>::type * = 0)
+{
+    T result;
+    
+    ML::filter_istream stream(filename);
+    
+    static std::unique_ptr<ValueDescription> desc
+        (getDefaultDescription((T *)0));
+    StreamingJsonParsingContext context(filename, stream);
+    desc->parseJson(&result, context);
+    return result;
+}
+
 // In-place json decoding
 template<typename T, typename V>
 void jsonDecode(V && json, T & val)
@@ -1292,6 +1344,20 @@ template<typename T>
 void jsonDecodeStr(const std::string & json, T & val)
 {
     val = std::move(jsonDecodeStr(json, (T *)0));
+}
+
+// In-place json decoding
+template<typename T>
+void jsonDecodeStream(std::istream & stream, T & val)
+{
+    val = std::move(jsonDecodeStream(stream, (T *)0));
+}
+
+// In-place json decoding
+template<typename T>
+void jsonDecodeFile(const std::string & filename, T & val)
+{
+    val = std::move(jsonDecodeFile(filename, (T *)0));
 }
 
 // jsonEncode implementation for any type which:
