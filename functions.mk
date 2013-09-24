@@ -289,7 +289,8 @@ $(BIN)/$$(tmpLIBNAME)$$(so).version.mk:
 # We need the library so names to stay the same, so we copy the correct one
 # into our version
 $(BIN)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) 
-	@cp $$< $$@
+	$(RM) $$@
+	ln $$< $$@
 	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@.version.mk
 
 LINK_$(1)_COMMAND2 := $$(subst $(BIN)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
