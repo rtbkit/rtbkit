@@ -14,6 +14,7 @@
 #include <set>
 #include "jml/arch/exception.h"
 #include "jml/arch/demangle.h"
+#include "jml/utils/filter_streams.h"
 #include "json_parsing.h"
 #include "json_printing.h"
 #include "value_description_fwd.h"
@@ -1295,6 +1296,42 @@ T jsonDecodeStr(const std::string & json, T * = 0,
     return result;
 }
 
+// jsonDecode implementation for any type which:
+// 1) has a default description;
+// 2) does NOT have a fromJson() function (there is a simpler overload for this case)
+template<typename T>
+T jsonDecodeStream(std::istream & stream, T * = 0,
+                   decltype(getDefaultDescription((T *)0)) * = 0,
+                   typename std::enable_if<!hasFromJson<T>::value>::type * = 0)
+{
+    T result;
+
+    static std::unique_ptr<ValueDescription> desc
+        (getDefaultDescription((T *)0));
+    StreamingJsonParsingContext context("<<input stream>>", stream);
+    desc->parseJson(&result, context);
+    return result;
+}
+
+// jsonDecode implementation for any type which:
+// 1) has a default description;
+// 2) does NOT have a fromJson() function (there is a simpler overload for this case)
+template<typename T>
+T jsonDecodeFile(const std::string & filename, T * = 0,
+                 decltype(getDefaultDescription((T *)0)) * = 0,
+                 typename std::enable_if<!hasFromJson<T>::value>::type * = 0)
+{
+    T result;
+    
+    ML::filter_istream stream(filename);
+    
+    static std::unique_ptr<ValueDescription> desc
+        (getDefaultDescription((T *)0));
+    StreamingJsonParsingContext context(filename, stream);
+    desc->parseJson(&result, context);
+    return result;
+}
+
 // In-place json decoding
 template<typename T, typename V>
 void jsonDecode(V && json, T & val)
@@ -1307,6 +1344,20 @@ template<typename T>
 void jsonDecodeStr(const std::string & json, T & val)
 {
     val = std::move(jsonDecodeStr(json, (T *)0));
+}
+
+// In-place json decoding
+template<typename T>
+void jsonDecodeStream(std::istream & stream, T & val)
+{
+    val = std::move(jsonDecodeStream(stream, (T *)0));
+}
+
+// In-place json decoding
+template<typename T>
+void jsonDecodeFile(const std::string & filename, T & val)
+{
+    val = std::move(jsonDecodeFile(filename, (T *)0));
 }
 
 // jsonEncode implementation for any type which:
