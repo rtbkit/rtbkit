@@ -19,7 +19,7 @@
 #include <vector>
 #include <tuple>
 #include <city.h>
-
+#include <iostream>
 
 
 namespace Datacratic
@@ -45,7 +45,8 @@ typedef std::tuple<const char*,std::string,uint32_t> ProbeCtx;
 struct Span
 {
     std::string              tag_ ;
-    uint32_t                 id_, pid_;
+    uint32_t                 id_ ;
+    int32_t                  pid_;
     clock_type::time_point start_, end_;
     Span(uint32_t id = 0, uint32_t pid = 0) : id_ (id), pid_(pid) {}
 };
@@ -68,6 +69,34 @@ typedef std::function<void(const ProbeCtx&, const std::vector<Span>&)> SinkCb;
 /* TRACE                                                                      */
 /******************************************************************************/
 
+/**
+  * Main Tracing class
+  * 
+  * Create an instance of this class to start tracing :
+  *
+  *    Trace<BidRequest> trace(br, "function");
+  *
+  * Traces can be nested within a given scope :
+  *
+  *    Trace<BidRequest> trace1(br, "function");
+  *    
+  *    // additional code
+  *
+  *    Trace<BidRequest> trace2(br, "function");
+  *
+  * make_trace<T> constructs an object of type Trace<T> and relies
+  * on template argument deduction :
+  *
+  *     auto trace = make_trace(br, "function")
+  *
+  * The TRACE() macro auto-magically generates an unique name for
+  * the trace object:
+  *
+  *     TRACE(br, "function")
+  *
+  * 
+*/    
+
 template <typename T>
 class Trace
 {
@@ -85,35 +114,42 @@ public:
     void init(const T &object, const std::string &tag)
     {
         pctx_ = do_probe(object);
-        key_ = CityHash64(std::get<1>(pctx_).c_str(),std::get<1>(pctx_).size());
+        const std::string &uid { std::get<1>(pctx_) };
+        const int sampling_freq { std::get<2>(pctx_) };
+        key_ = CityHash64(uid.c_str(), uid.size());
         probed_ = false;
         spans_ = nullptr;
 
-        if (key_ % std::get<2>(pctx_)) return ;
+        if (key_ % sampling_freq) return ;
+
         probed_ = true;
         if (!PSTACKS.get()) PSTACKS.create();
         spans_ = &(*PSTACKS.get())[key_];
         Span sp;
         sp.tag_   = tag;
-        if (!std::get<1>(*spans_).empty())
-            sp.pid_ = std::get<1>(*spans_).top().id_;
+
+        auto &stack = std::get<1>(*spans_);
+        if (!stack.empty())
+            sp.pid_ = stack.top().id_;
         else
-            sp.pid_ = 0;
+            sp.pid_ = -1;
         sp.id_ = ++std::get<0>(*spans_);
         sp.start_ = clock_type::now () ;
-        std::get<1>(*spans_).emplace (sp);
+        stack.emplace (sp);
     }
 
     ~Trace ()
     {
         if (!probed_) return;
-        std::get<1>(*spans_).top().end_ = clock_type::now () ;
-        std::get<2>(*spans_).emplace_back (std::move(std::get<1>(*spans_).top()));
-        std::get<1>(*spans_).pop() ;
-        if (std::get<1>(*spans_).empty ())
+        auto &stack = std::get<1>(*spans_);
+        auto &vector = std::get<2>(*spans_);
+        stack.top().end_ = clock_type::now () ;
+        vector.emplace_back (std::move(stack.top()));
+        stack.pop() ;
+        if (stack.empty ())
         {
             if (S_sink_)
-                S_sink_(pctx_, std::get<2>(*spans_));
+                S_sink_(pctx_, vector);
             (*PSTACKS.get()).erase(key_);
         }
     }
@@ -135,6 +171,31 @@ public:
     static ML::Thread_Specific<ProbeStacks> PSTACKS;
 };
 
+template<typename T>
+Trace<T> make_trace(const T &object, const std::string &tag) {
+    return Trace<T>(object, tag);
+}
+
+template<typename T>
+Trace<T> make_trace(const std::shared_ptr<T> &object, const std::string &tag) {
+    return Trace<T>(object, tag);
+}
+
+#define PREFIX_ trace__
+#define CAT(a, b) a##b
+#define LABEL_(a) CAT(PREFIX_, a)
+#define UNIQUE_LABEL LABEL_(__LINE__)
+
+#define TRACE(object, tag) \
+    auto UNIQUE_LABEL = make_trace(object, tag); \
+    (void) 0
+
+
+#define TRACE_FN(object, tag, fn) \
+    auto UNIQUE_LABEL = make_trace(object, tag); \
+    UNIQUE_LABEL.set_sinkCb(fn); \
+    (void) 0
+    
 template<typename T>
 ML::Thread_Specific<typename Trace<T>::ProbeStacks>
 Trace<T>::PSTACKS { };
