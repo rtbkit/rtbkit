@@ -24,22 +24,24 @@ namespace {
 
 bool
 matchFixedWidthInt(ML::Parse_Context & context,
-                   int length, int min, int max, int & value)
+                   int minLength, int maxLength,
+                   int min, int max, int & value)
 {
     ML::Parse_Context::Revert_Token token(context);
 
-    char buf[length + 1];
+    char buf[maxLength + 1];
     unsigned i = 0;
-    for (;  i < length;  ++i, ++context) {
-        if (context.eof())
-            return false;
+    for (;  i < maxLength && context;  ++i, ++context) {
         char c = *context;
         if (c < '0' || c > '9') {
-            return false;
+            if (i >= minLength)
+                break;
+            else
+                return false;
         }
         buf[i] = c;
     }
-    if (i == 0)
+    if (i < minLength)
         return false;
     buf[i] = 0;
 
@@ -58,11 +60,13 @@ matchFixedWidthInt(ML::Parse_Context & context,
 
 int
 expectFixedWidthInt(ML::Parse_Context & context,
-                    int length, int min, int max, const char * message)
+                    int minLength, int maxLength,
+                    int min, int max, const char * message)
 {
     int result;
 
-    if (!matchFixedWidthInt(context, length, min, max, result)) {
+    if (!matchFixedWidthInt(context, minLength, maxLength,
+                            min, max, result)) {
         context.exception(message);
     }
 
@@ -695,11 +699,11 @@ expect_date(ML::Parse_Context & context, const std::string & format)
             context.expect_literal('%');
             break;
         case 'd':
-            day = expectFixedWidthInt(context, 2, 1, 31,
+            day = expectFixedWidthInt(context, 1, 2, 1, 31,
                                       "expected day of month");
             break;
         case 'm':
-            month = expectFixedWidthInt(context, 2, 1, 12,
+            month = expectFixedWidthInt(context, 1, 2, 1, 12,
                                         "expected month of year");
             break;
         case 'M':
@@ -778,7 +782,7 @@ expect_date(ML::Parse_Context & context, const std::string & format)
             }
             break;
         case 'y':
-            year = expectFixedWidthInt(context, 4, 1400, 2999,
+            year = expectFixedWidthInt(context, 4, 4, 1400, 2999,
                                        "expected year");
             break;
         default:
@@ -1225,49 +1229,49 @@ bool
 Iso8601Parser::
 matchYearDay(int & result)
 {
-    return matchFixedWidthInt(*this, 3, 1, 366, result);
+    return matchFixedWidthInt(*this, 3, 3, 1, 366, result);
 }
 
 int
 Iso8601Parser::
 expectYear()
 {
-    return expectFixedWidthInt(*this, 4, 1400, 9999, "bad year");
+    return expectFixedWidthInt(*this, 4, 4, 1400, 9999, "bad year");
 }
 
 int
 Iso8601Parser::
 expectMonth()
 {
-    return expectFixedWidthInt(*this, 2, 1, 12, "bad month");
+    return expectFixedWidthInt(*this, 2, 2, 1, 12, "bad month");
 }
 
 int
 Iso8601Parser::
 expectWeekNumber()
 {
-    return expectFixedWidthInt(*this, 2, 1, 53, "bad week number");
+    return expectFixedWidthInt(*this, 2, 2, 1, 53, "bad week number");
 }
 
 int
 Iso8601Parser::
 expectWeekDay()
 {
-    return expectFixedWidthInt(*this, 1, 1, 7, "bad week day");
+    return expectFixedWidthInt(*this, 1, 1, 1, 7, "bad week day");
 }
 
 int
 Iso8601Parser::
 expectMonthDay()
 {
-    return expectFixedWidthInt(*this, 2, 1, 31, "bad month day");
+    return expectFixedWidthInt(*this, 2, 2, 1, 31, "bad month day");
 }
 
 int
 Iso8601Parser::
 expectYearDay()
 {
-    return expectFixedWidthInt(*this, 3, 1, 366, "bad year day");
+    return expectFixedWidthInt(*this, 3, 3, 1, 366, "bad year day");
 }
 
 Date
@@ -1298,7 +1302,7 @@ expectTime()
     }
 
     if (match_literal('.')) {
-        int millis = expectFixedWidthInt(*this, 3, 0, 999,
+        int millis = expectFixedWidthInt(*this, 3, 3, 0, 999,
                                          "bad milliseconds");
         date.addSeconds(float(millis) / 1000);
     }
@@ -1325,28 +1329,28 @@ int
 Iso8601Parser::
 expectHours()
 {
-    return expectFixedWidthInt(*this, 2, 0, 23, "wrong hour value");
+    return expectFixedWidthInt(*this, 2, 2, 0, 23, "wrong hour value");
 }
 
 int
 Iso8601Parser::
 expectMinutes()
 {
-    return expectFixedWidthInt(*this, 2, 1, 59, "bad minute value");
+    return expectFixedWidthInt(*this, 2, 2, 1, 59, "bad minute value");
 }
 
 bool
 Iso8601Parser::
 matchMinutes(int & result)
 {
-    return matchFixedWidthInt(*this, 2, 1, 59, result);
+    return matchFixedWidthInt(*this, 2, 2, 1, 59, result);
 }
 
 int
 Iso8601Parser::
 expectSeconds()
 {
-    return expectFixedWidthInt(*this, 2, 1, 60, "bad second value");
+    return expectFixedWidthInt(*this, 2, 2, 1, 60, "bad second value");
 }
 
 int
