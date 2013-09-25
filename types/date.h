@@ -13,6 +13,7 @@
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "jml/db/persistent_fwd.h"
+#include "jml/utils/parse_context.h"
 #include <chrono>
 
 
@@ -69,7 +70,8 @@ struct Date {
     static Date parseSecondsSinceEpoch(const std::string & date);
 
     static Date parseDefaultUtc(const std::string & date);
-    static Date parseIso8601(const std::string & date);
+    static Date parseIso8601DateTime(const std::string & date);
+    static Date parseIso8601Time(const std::string & date);
 
     static Date notADate();
     static Date positiveInfinity();
@@ -433,6 +435,50 @@ void to_js(JSValue & jsval, Date value);
 Date from_js(const JSValue & val, Date *);
 
 } // namespace JS
+
+
+/*****************************************************************************/
+/* ISO8601PARSER                                                             */
+/*****************************************************************************/
+
+struct Iso8601Parser : public ML::Parse_Context
+{
+    static Date parseDateTimeString(const std::string & dateTimeStr)
+    {
+        Iso8601Parser parser(dateTimeStr);
+        return parser.expectDateTime();
+    }
+
+    static Date parseTimeString(const std::string & timeStr)
+    {
+        Iso8601Parser parser(timeStr);
+        return parser.expectTime();
+    }
+
+    Iso8601Parser(const std::string & dateStr)
+        : Parse_Context(dateStr, dateStr.c_str(),
+                        dateStr.c_str() + dateStr.size())
+    {}
+
+    Date expectDateTime();
+
+    Date expectDate();
+    bool matchYearDay(int & result);
+    int expectYear();
+    int expectMonth();
+    int expectWeekNumber();
+    int expectWeekDay();
+    int expectMonthDay();
+    int expectYearDay();
+
+    int expectHours();
+    int expectMinutes();
+    bool matchMinutes(int & result);
+    int expectSeconds();
+
+    Date expectTime();
+    int expectTimeZoneMinutes();
+};
 
 } // namespace Datacratic
 

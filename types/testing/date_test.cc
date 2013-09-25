@@ -15,44 +15,112 @@ using namespace std;
 using namespace ML;
 using namespace Datacratic;
 
-#if 0
-BOOST_AUTO_TEST_CASE(test_date_parse_iso8601)
+BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
 {
-    // Issue PLAT-151 should fix this test
-    BOOST_CHECK_NO_THROW(Date::parseIso8601("2012-12-20T14:57:57.187775+00:00")) ;
+    JML_TRACE_EXCEPTIONS(false);
+    Date date;
+    string expected;
+
+    {
+        /* YYYY-MM-DD  or  YYYYMMDD
+           YYYY-MM  (but not YYYYMM) */
+        vector<string> dateStrs = {"2013-04-01", "20130401", "2013-04"};
+        expected = "2013-Apr-01 00:00:00.000";
+        for (const string & dateStr: dateStrs) {
+            date = Date::parseIso8601DateTime(dateStr);
+            BOOST_CHECK_EQUAL(date.print(3), expected);
+        }
+
+        date = Date::parseIso8601DateTime("2013-04-01T09:08:07");
+        expected = "2013-Apr-01 09:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("2013-04-01T09:08:07Z");
+        expected = "2013-Apr-01 09:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("2013-04-01T09:08:07-04:00");
+        expected = "2013-Apr-01 05:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("20130401T090807");
+        expected = "2013-Apr-01 09:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("20130401T090807Z");
+        expected = "2013-Apr-01 09:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("20130401T090807-0400");
+        expected = "2013-Apr-01 05:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+    }
+
+    {
+        /* YYYY-Www  or  YYYYWww
+           YYYY-Www-D  or  YYYYWwwD */
+        BOOST_CHECK_THROW(Date::parseIso8601DateTime("2013-W00"), ML::Exception);
+        BOOST_CHECK_THROW(Date::parseIso8601DateTime("2013-W60"), ML::Exception);
+        date = Date::parseIso8601DateTime("2013-W23");
+        expected = "2013-Jun-03 00:00:00.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+        date = Date::parseIso8601DateTime("2013W23");
+        expected = "2013-Jun-03 00:00:00.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+        BOOST_CHECK_THROW(Date::parseIso8601DateTime("2013-W23-8"), ML::Exception);
+        BOOST_CHECK_THROW(Date::parseIso8601DateTime("2013-W23-0"), ML::Exception);
+        date = Date::parseIso8601DateTime("2013-W23-6");
+        expected = "2013-Jun-08 00:00:00.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+        BOOST_CHECK_THROW(Date::parseIso8601DateTime("2013W238"), ML::Exception);
+        BOOST_CHECK_THROW(Date::parseIso8601DateTime("2013W230"), ML::Exception);
+        date = Date::parseIso8601DateTime("2013W236");
+        expected = "2013-Jun-08 00:00:00.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+    }
+
+    {
+        /* YYYY-DDD or YYYYDDD */
+        BOOST_CHECK_THROW(Date::parseIso8601DateTime("2013-000"), ML::Exception);
+        BOOST_CHECK_THROW(Date::parseIso8601DateTime("2013-367"), ML::Exception);
+        date = Date::parseIso8601DateTime("2013-006");
+        expected = "2013-Jan-06 00:00:00.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+    }
+
+    {
+        // Issue PLAT-151 should fix this test
+        string dt = "2012-12-20T14:57:57.187+00:00";
+        date = Date::parseIso8601DateTime(dt);
+        expected = "2012-Dec-20 14:57:57.187";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+    }
 }
-#endif
 
-BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_weeks)
+BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_time)
 {
-    {
-        Date date = Date::parseIso8601("2013-W37");
-        BOOST_CHECK_EQUAL(date.year(), 2013);
-        BOOST_CHECK_EQUAL(date.iso8601WeekOfYear(), 37);
-        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 1);
-    }
-    {
-        Date date = Date::parseIso8601("2013-W27-2");
-        BOOST_CHECK_EQUAL(date.year(), 2013);
-        BOOST_CHECK_EQUAL(date.iso8601WeekOfYear(), 27);
-        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 2);
-    }
-    {
-        Date date = Date::parseIso8601("2013-W39-3");
-        BOOST_CHECK_EQUAL(date.year(), 2013);
-        BOOST_CHECK_EQUAL(date.iso8601WeekOfYear(), 39);
-        BOOST_CHECK_EQUAL(date.iso8601Weekday(), 3);
-    }
+    JML_TRACE_EXCEPTIONS(false);
+    Date date;
+    string expected;
 
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(Date::parseIso8601("2013-W37-0"),
-                          ML::Exception);
-        BOOST_CHECK_THROW(Date::parseIso8601("2013-W37-01"),
-                          ML::Exception);
-        BOOST_CHECK_THROW(Date::parseIso8601("2013-W37-8"),
-                          ML::Exception);
-    }
+    BOOST_CHECK_THROW(Date::parseIso8601Time("24:59:01"), ML::Exception);
+    BOOST_CHECK_THROW(Date::parseIso8601Time("23:69:01"), ML::Exception);
+    BOOST_CHECK_THROW(Date::parseIso8601Time("23:09:61"), ML::Exception);
+    date = Date::parseIso8601Time("02:23:43");
+    expected = "1970-Jan-01 02:23:43.000";
+    BOOST_CHECK_EQUAL(date.print(3), expected);
+    date = Date::parseIso8601Time("022343");
+    expected = "1970-Jan-01 02:23:43.000";
+    BOOST_CHECK_EQUAL(date.print(3), expected);
+    date = Date::parseIso8601Time("01:23");
+    expected = "1970-Jan-01 01:23:00.000";
+    BOOST_CHECK_EQUAL(date.print(3), expected);
+    date = Date::parseIso8601Time("0123");
+    expected = "1970-Jan-01 01:23:00.000";
+    BOOST_CHECK_EQUAL(date.print(3), expected);
+    date = Date::parseIso8601Time("23");
+    expected = "1970-Jan-01 23:00:00.000";
+    BOOST_CHECK_EQUAL(date.print(3), expected);
 }
 
 BOOST_AUTO_TEST_CASE( test_microsecond_date )
