@@ -426,7 +426,7 @@ struct Iso8601TimestampValueDescription: public DefaultDescription<Date> {
         if (context.isNumber())
             *val = Date::fromSecondsSinceEpoch(context.expectDouble());
         else if (context.isString())
-            *val = Date::parseIso8601(context.expectStringAscii());
+            *val = Date::parseIso8601DateTime(context.expectStringAscii());
         else context.exception("expected date");
     }
 
