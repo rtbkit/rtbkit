@@ -1044,44 +1044,6 @@ match_date_time(ML::Parse_Context & context,
     return true;
 }
 
-Date
-Date::
-parse_iso8601_date_week(const std::string & str)
-{
-    if (str == "") return Date::notADate();
-    
-    Date result;
-    try {
-        ML::Parse_Context context(str,
-                                  str.c_str(), str.c_str() + str.length());
-        result = expect_iso8601_date_week(context);
-        
-        context.expect_eof();
-    }
-    catch (const std::exception & exc) {
-        cerr << "Error parsing date string:\n'" << str << "'" << endl;
-        throw;
-    }
-    
-    return result;
-}
-
-Date
-Date::
-expect_iso8601_date_week(ML::Parse_Context & context)
-{
-    int year(-1), week(-1), day(1);
-
-    year = expectFixedWidthInt(context, 4, 1400, 9999, "bad year");
-    context.expect_literal('-');
-    context.expect_literal('W');
-    week = expectFixedWidthInt(context, 2, 1, 53, "bad week of year");
-    if (context.match_literal('-')) {
-        day = expectFixedWidthInt(context, 1, 1, 7, "bad day of week");
-    }
-
-    return Date::fromIso8601Week(year, week, day);
-}
 
 Date Date::parse(const std::string & date,
                  const std::string & format)

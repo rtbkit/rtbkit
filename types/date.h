@@ -332,8 +332,6 @@ struct Date {
                                 const std::string & date_format,
                                 const std::string & time_format);
 
-    static Date expect_iso8601_date_week(ML::Parse_Context & context);
-
     /** 
         This function takes a string expected to contain a date that matches the
         provided date pattern, followed by a time. The two patterns in the
@@ -362,8 +360,6 @@ struct Date {
     static Date parse_date_time(const std::string & date_time,
                                 const std::string & date_format,
                                 const std::string & time_format);
-
-    static Date parse_iso8601_date_week(const std::string & str);
 
     // parse using strptime function. more compatible with the `print` format
     static Date parse(const std::string & date,
