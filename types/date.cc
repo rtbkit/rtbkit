@@ -1336,21 +1336,21 @@ int
 Iso8601Parser::
 expectMinutes()
 {
-    return expectFixedWidthInt(*this, 2, 2, 1, 59, "bad minute value");
+    return expectFixedWidthInt(*this, 2, 2, 0, 59, "bad minute value");
 }
 
 bool
 Iso8601Parser::
 matchMinutes(int & result)
 {
-    return matchFixedWidthInt(*this, 2, 2, 1, 59, result);
+    return matchFixedWidthInt(*this, 2, 2, 0, 59, result);
 }
 
 int
 Iso8601Parser::
 expectSeconds()
 {
-    return expectFixedWidthInt(*this, 2, 2, 1, 60, "bad second value");
+    return expectFixedWidthInt(*this, 2, 2, 0, 60, "bad second value");
 }
 
 int
