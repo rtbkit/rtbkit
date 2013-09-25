@@ -525,16 +525,17 @@ struct StructureDescriptionBase {
     methods to register all of the member variables of the class.
 */
 
-template<typename Struct, typename Impl>
-struct StructureDescriptionImpl
-    :  public ValueDescriptionI<Struct, ValueKind::STRUCTURE, Impl>,
-       public StructureDescriptionBase {
-
-    StructureDescriptionImpl(bool nullAccepted = false)
-        : StructureDescriptionBase(&typeid(Struct), "", nullAccepted)
+template<typename Struct>
+struct StructureDescription
+    : public ValueDescriptionT<Struct>,
+      public StructureDescriptionBase {
+    StructureDescription(bool nullAccepted = false,
+                         const std::string & structName = "")
+        : StructureDescriptionBase(&typeid(Struct), structName,
+                                   nullAccepted)
     {
     }
-
+    
     /// Function to be called before parsing; if it returns false parsing stops
     std::function<bool (Struct *, JsonParsingContext & context)> onEntryHandler;
 
@@ -664,20 +665,34 @@ struct StructureDescriptionImpl
     }
 };
 
-template<typename T>
-struct StructureDescription
-    : public StructureDescriptionImpl<T, StructureDescription<T> >
-{
-    StructureDescription(bool nullAccepted = false)
-        : StructureDescriptionImpl<T, StructureDescription<T> >(nullAccepted)
+/** Base class for an implementation of a structure description.  It
+    derives from StructureDescription<Struct>, and also registers
+    itself.
+*/
+
+template<typename Struct, typename Impl>
+struct StructureDescriptionImpl
+    :  public StructureDescription<Struct> {
+    
+    StructureDescriptionImpl(bool nullAccepted = false)
+        : StructureDescription<Struct>(nullAccepted)
     {
+        regme.done = true;
     }
     
+    static RegisterValueDescriptionI<Struct, Impl> regme;
 };
 
 template<typename Struct, typename Impl>
+RegisterValueDescriptionI<Struct, Impl>
+StructureDescriptionImpl<Struct, Impl>::
+regme;
+
+
+template<typename Struct>
 template<typename V>
-void StructureDescriptionImpl<Struct, Impl>::addParent(ValueDescriptionT<V> * description_)
+void StructureDescription<Struct>::
+addParent(ValueDescriptionT<V> * description_)
 {
     StructureDescription<V> * desc2
         = dynamic_cast<StructureDescription<V> *>(description_);

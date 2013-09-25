@@ -316,3 +316,24 @@ BOOST_AUTO_TEST_CASE( test_structure_description )
     BOOST_CHECK_EQUAL(result, data);
 }
 
+struct S1 {
+    string val1;
+};
+
+struct S2 : S1 {
+    string val2;
+};
+
+CREATE_STRUCTURE_DESCRIPTION(S1);
+CREATE_STRUCTURE_DESCRIPTION(S2);
+
+S1Description::S1Description()
+{
+    addField("val1", &S1::val1, "first value");
+}
+
+S2Description::S2Description()
+{
+    addParent<S1>(); // make sure we don't get "parent description is not a structure
+    addField("val2", &S2::val2, "second value");
+}
