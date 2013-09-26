@@ -193,14 +193,14 @@ Date
 Date::
 parseIso8601DateTime(const std::string & dateTimeStr)
 {
-    return Iso8601Parser::parseDateTimeString(dateTimeStr);
-}
-
-Date
-Date::
-parseIso8601Time(const std::string & timeStr)
-{
-    return Iso8601Parser::parseTimeString(timeStr);
+    if (dateTimeStr == "NaD" || dateTimeStr == "NaN")
+        return notADate();
+    else if (dateTimeStr == "Inf")
+        return positiveInfinity();
+    else if (dateTimeStr == "-Inf")
+        return negativeInfinity();
+    else
+        return Iso8601Parser::parseDateTimeString(dateTimeStr);
 }
 
 Date
