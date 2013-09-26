@@ -120,6 +120,46 @@ struct TimePeriod {
 // NOTE: this is defined in the value description library
 ValueDescriptionT<TimePeriod> * getDefaultDescription(TimePeriod *);
 
+inline Date operator + (Date d, TimePeriod p)
+{
+    return d.plusSeconds(p.interval);
+}
+
+inline Date & operator += (Date & d, TimePeriod p)
+{
+    d.addSeconds(p.interval);
+    return d;
+}
+
+inline Date operator + (TimePeriod p, Date d)
+{
+    return d.plusSeconds(p.interval);
+}
+
+inline Date operator - (Date d, TimePeriod p)
+{
+    return d.plusSeconds(-p.interval);
+}
+
+inline Date & operator -= (Date & d, TimePeriod p)
+{
+    d.addSeconds(-p.interval);
+    return d;
+}
+
+inline TimePeriod operator * (TimePeriod p, int factor)
+{
+    TimePeriod result = p;
+    result.number *= factor;
+    result.interval *= factor;
+    return result;
+}
+
+inline Date operator % (Date d, TimePeriod p)
+{
+    return d.quantize(p.interval);
+}
+
 
 } // namespace Datacratic
 
