@@ -176,6 +176,21 @@ parseDefaultUtc(const std::string & date)
 
 Date
 Date::
+parseIso8601(const std::string & date)
+{
+    if (date == "NaD" || date == "NaN")
+        return notADate();
+    else if (date == "Inf")
+        return positiveInfinity();
+    else if (date == "-Inf")
+        return negativeInfinity();
+    else {
+        return parse_date_time(date, "%y-%m-%d", "T%H:%M:%SZ");
+    }
+}
+
+Date
+Date::
 parseIso8601DateTime(const std::string & dateTimeStr)
 {
     return Iso8601Parser::parseDateTimeString(dateTimeStr);

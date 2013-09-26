@@ -73,6 +73,9 @@ struct Date {
     static Date parseIso8601DateTime(const std::string & date);
     static Date parseIso8601Time(const std::string & date);
 
+    // Deprecated
+    static Date parseIso8601(const std::string & date);
+
     static Date notADate();
     static Date positiveInfinity();
     static Date negativeInfinity();
