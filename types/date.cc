@@ -6,7 +6,6 @@
 
 #include "date.h"
 #include <limits>
-#include "jml/utils/parse_context.h"
 #include "jml/arch/format.h"
 #include "soa/js/js_value.h"
 #include "soa/jsoncpp/json.h"
@@ -19,35 +18,61 @@
 
 using namespace std;
 using namespace ML;
-
+using namespace Datacratic;
 
 namespace {
 
-int
-expectFixedWidthInt(ML::Parse_Context & context,
-                    int length, int min, int max, const char * message)
+bool
+matchFixedWidthInt(ML::Parse_Context & context,
+                   int minLength, int maxLength,
+                   int min, int max, int & value)
 {
-    char buf[length + 1];
+    ML::Parse_Context::Revert_Token token(context);
+
+    char buf[maxLength + 1];
     unsigned i = 0;
-    for (;  i < length && context;  ++i, ++context) {
+    for (;  i < maxLength && context;  ++i, ++context) {
         char c = *context;
         if (c < '0' || c > '9') {
-            break;
+            if (i >= minLength)
+                break;
+            else
+                return false;
         }
         buf[i] = c;
     }
-    if (i == 0)
-        context.exception(message);
+    if (i < minLength)
+        return false;
     buf[i] = 0;
-    int result = boost::lexical_cast<int>((const char *)buf);
 
+    int result = boost::lexical_cast<int>((const char *)buf);
     // This WILL bite us some time.  640k anyone?
     if (result < min || result > max) {
+        return false;
+    }
+
+    token.ignore();
+
+    value = result;
+
+    return true;
+}
+
+int
+expectFixedWidthInt(ML::Parse_Context & context,
+                    int minLength, int maxLength,
+                    int min, int max, const char * message)
+{
+    int result;
+
+    if (!matchFixedWidthInt(context, minLength, maxLength,
+                            min, max, result)) {
         context.exception(message);
     }
+
     return result;
 }
-    
+
 }
 
 namespace Datacratic {
@@ -151,21 +176,16 @@ parseDefaultUtc(const std::string & date)
 
 Date
 Date::
-parseIso8601(const std::string & date)
+parseIso8601DateTime(const std::string & dateTimeStr)
 {
-    if (date == "NaD" || date == "NaN")
-        return notADate();
-    else if (date == "Inf")
-        return positiveInfinity();
-    else if (date == "-Inf")
-        return negativeInfinity();
+    return Iso8601Parser::parseDateTimeString(dateTimeStr);
+}
 
-    if (date.size() > 5 && date[5] == 'W') {
-        return parse_iso8601_date_week(date);
-    }
-    else {
-        return parse_date_time(date, "%y-%m-%d", "T%H:%M:%SZ");
-    }
+Date
+Date::
+parseIso8601Time(const std::string & timeStr)
+{
+    return Iso8601Parser::parseTimeString(timeStr);
 }
 
 Date
@@ -679,11 +699,11 @@ expect_date(ML::Parse_Context & context, const std::string & format)
             context.expect_literal('%');
             break;
         case 'd':
-            day = expectFixedWidthInt(context, 2, 1, 31,
+            day = expectFixedWidthInt(context, 1, 2, 1, 31,
                                       "expected day of month");
             break;
         case 'm':
-            month = expectFixedWidthInt(context, 2, 1, 12,
+            month = expectFixedWidthInt(context, 1, 2, 1, 12,
                                         "expected month of year");
             break;
         case 'M':
@@ -762,7 +782,7 @@ expect_date(ML::Parse_Context & context, const std::string & format)
             }
             break;
         case 'y':
-            year = expectFixedWidthInt(context, 4, 1400, 2999,
+            year = expectFixedWidthInt(context, 4, 4, 1400, 2999,
                                        "expected year");
             break;
         default:
@@ -1028,44 +1048,6 @@ match_date_time(ML::Parse_Context & context,
     return true;
 }
 
-Date
-Date::
-parse_iso8601_date_week(const std::string & str)
-{
-    if (str == "") return Date::notADate();
-    
-    Date result;
-    try {
-        ML::Parse_Context context(str,
-                                  str.c_str(), str.c_str() + str.length());
-        result = expect_iso8601_date_week(context);
-        
-        context.expect_eof();
-    }
-    catch (const std::exception & exc) {
-        cerr << "Error parsing date string:\n'" << str << "'" << endl;
-        throw;
-    }
-    
-    return result;
-}
-
-Date
-Date::
-expect_iso8601_date_week(ML::Parse_Context & context)
-{
-    int year(-1), week(-1), day(1);
-
-    year = expectFixedWidthInt(context, 4, 1400, 9999, "bad year");
-    context.expect_literal('-');
-    context.expect_literal('W');
-    week = expectFixedWidthInt(context, 2, 1, 53, "bad week of year");
-    if (context.match_literal('-')) {
-        day = expectFixedWidthInt(context, 1, 1, 7, "bad day of week");
-    }
-
-    return Date::fromIso8601Week(year, week, day);
-}
 
 Date Date::parse(const std::string & date,
                  const std::string & format)
@@ -1164,5 +1146,225 @@ DB::Store_Reader & operator >> (ML::DB::Store_Reader & store, Date & date)
     return store;
 }
 
+
+/*****************************************************************************/
+/* ISO8601PARSER                                                             */
+/*****************************************************************************/
+
+Date
+Iso8601Parser::
+expectDateTime()
+{
+        /* try parse time
+           or {
+           parse date
+           try eof
+           or {
+           parse 'T'
+           parse time
+           }
+           }
+           try eof
+           or
+           parse tz
+           } */
+
+    Date date = expectDate();
+    if (!eof() && match_literal('T')) {
+        date.addSeconds(expectTime().secondsSinceEpoch());
+    }
+
+    return date;
+}
+    
+Date
+Iso8601Parser::
+expectDate()
+{
+    int year = expectYear();
+
+    match_literal('-');
+    if (match_literal('W')) {
+        int week = expectWeekNumber();
+        match_literal('-');
+        int day;
+        if (eof()) {
+            day = 1;
+        }
+        else {
+            day = expectWeekDay();
+        }
+
+        return Date::fromIso8601Week(year, week, day);
+    }
+    else {
+        int day(1);
+
+        {
+            ML::Parse_Context::Revert_Token token(*this);
+
+            if (matchYearDay(day) && (eof() || !isdigit(*(*this)))) {
+                Date date(year, 1, 1);
+                date.addDays(day - 1);
+                token.ignore();
+
+                return date;
+            }
+        }
+
+        int month(1);
+        if (!eof()) {
+            month = expectMonth();
+            match_literal('-');
+            if (!eof() && isdigit(*(*this))) {
+                day = expectMonthDay();
+            }
+        }
+
+        return Date(year, month, day);
+    }
+}
+
+bool
+Iso8601Parser::
+matchYearDay(int & result)
+{
+    return matchFixedWidthInt(*this, 3, 3, 1, 366, result);
+}
+
+int
+Iso8601Parser::
+expectYear()
+{
+    return expectFixedWidthInt(*this, 4, 4, 1400, 9999, "bad year");
+}
+
+int
+Iso8601Parser::
+expectMonth()
+{
+    return expectFixedWidthInt(*this, 2, 2, 1, 12, "bad month");
+}
+
+int
+Iso8601Parser::
+expectWeekNumber()
+{
+    return expectFixedWidthInt(*this, 2, 2, 1, 53, "bad week number");
+}
+
+int
+Iso8601Parser::
+expectWeekDay()
+{
+    return expectFixedWidthInt(*this, 1, 1, 1, 7, "bad week day");
+}
+
+int
+Iso8601Parser::
+expectMonthDay()
+{
+    return expectFixedWidthInt(*this, 2, 2, 1, 31, "bad month day");
+}
+
+int
+Iso8601Parser::
+expectYearDay()
+{
+    return expectFixedWidthInt(*this, 3, 3, 1, 366, "bad year day");
+}
+
+Date
+Iso8601Parser::
+expectTime()
+{
+    Date date;
+
+    int hours = expectHours();
+    date.addHours(hours);
+    if (eof()) {
+        return date;
+    }
+
+    match_literal(':');
+
+    int minutes = expectMinutes();
+    date.addMinutes(minutes);
+    if (eof()) {
+        return date;
+    }
+
+    match_literal(':');
+    int seconds = expectSeconds();
+    date.addSeconds(seconds);
+    if (eof()) {
+        return date;
+    }
+
+    if (match_literal('.')) {
+        int millis = expectFixedWidthInt(*this, 3, 3, 0, 999,
+                                         "bad milliseconds");
+        date.addSeconds(float(millis) / 1000);
+    }
+
+    if (eof()) {
+        return date;
+    }
+    int tzminutes(0);
+    if (match_literal('+')) {
+        tzminutes = expectTimeZoneMinutes();
+    }
+    else if (match_literal('-')) {
+        tzminutes = -expectTimeZoneMinutes();
+    }
+    else {
+        expect_literal('Z');
+    }
+    date.addMinutes(tzminutes);
+
+    return date;
+}
+
+int
+Iso8601Parser::
+expectHours()
+{
+    return expectFixedWidthInt(*this, 2, 2, 0, 23, "wrong hour value");
+}
+
+int
+Iso8601Parser::
+expectMinutes()
+{
+    return expectFixedWidthInt(*this, 2, 2, 0, 59, "bad minute value");
+}
+
+bool
+Iso8601Parser::
+matchMinutes(int & result)
+{
+    return matchFixedWidthInt(*this, 2, 2, 0, 59, result);
+}
+
+int
+Iso8601Parser::
+expectSeconds()
+{
+    return expectFixedWidthInt(*this, 2, 2, 0, 60, "bad second value");
+}
+
+int
+Iso8601Parser::
+expectTimeZoneMinutes()
+{
+    int minutes(0);
+
+    int hours = expectHours();
+    match_literal(':');
+    matchMinutes(minutes);
+    minutes += hours * 60;
+
+    return minutes;
+}
 
 } // namespace Datacratic

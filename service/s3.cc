@@ -928,7 +928,7 @@ ObjectInfo(tinyxml2::XMLNode * element)
     size = extract<uint64_t>(element, "Size");
     key  = extract<string>(element, "Key");
     string lastModifiedStr = extract<string>(element, "LastModified");
-    lastModified = Date::parseIso8601(lastModifiedStr);
+    lastModified = Date::parseIso8601DateTime(lastModifiedStr);
     etag = extract<string>(element, "ETag");
     ownerId = extract<string>(element, "Owner/ID");
     ownerName = extractDef<string>(element, "Owner/DisplayName", "");
