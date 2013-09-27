@@ -1027,6 +1027,7 @@ struct DefaultDescription<Optional<T> >
         if (context.isNull()) {
             context.expectNull();
             val->reset();
+            return;
         }
         val->reset(new T());
         inner->parseJsonTyped(val->get(), context);
