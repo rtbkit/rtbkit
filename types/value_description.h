@@ -531,7 +531,8 @@ struct StructureDescription
       public StructureDescriptionBase {
     StructureDescription(bool nullAccepted = false,
                          const std::string & structName = "")
-        : StructureDescriptionBase(&typeid(Struct), structName,
+        : ValueDescriptionT<Struct>(ValueKind::STRUCTURE),
+          StructureDescriptionBase(&typeid(Struct), structName,
                                    nullAccepted)
     {
     }
