@@ -747,6 +747,13 @@ void parseJson(Id * output, Context & context)
         return;
     }
 
+    if (context.isNull()) {
+        context.expectNull();
+        *output = Id();
+        output->type = Id::NULLID;
+        return;
+    }
+
     throw ML::Exception("unhandled id conversion type");
 }
 

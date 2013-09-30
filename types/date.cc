@@ -313,7 +313,14 @@ printIso8601() const
         else return "-Inf";
     }
 
-    return print("%Y-%m-%dT%H:%M:%S.000Z");
+    string result = print("%Y-%m-%dT%H:%M:%S");
+
+    double partial_seconds = fractionalSeconds();
+    string fractional = format("%.3fZ", partial_seconds);
+
+    result.append(fractional, 1, -1);
+
+    return result;
 }
 
 std::string

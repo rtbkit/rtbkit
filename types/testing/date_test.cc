@@ -422,6 +422,15 @@ BOOST_AUTO_TEST_CASE( test_iso8601WeekOfYear )
     }
 }
 
+BOOST_AUTO_TEST_CASE( test_printIso8601 )
+{
+    Date testDate = Date::fromSecondsSinceEpoch(1348089400.416978);
+
+    string expected = "2012-09-19T21:16:40.417Z";
+    string result = testDate.printIso8601();
+    BOOST_CHECK_EQUAL(result, expected);
+}
+
 BOOST_AUTO_TEST_CASE( test_weekStart )
 {
     {
