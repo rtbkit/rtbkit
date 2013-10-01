@@ -5,6 +5,7 @@
 */
 
 #include "date.h"
+#include <cmath>
 #include <limits>
 #include "jml/arch/format.h"
 #include "soa/js/js_value.h"
@@ -301,7 +302,7 @@ printRfc2616() const
 
 std::string
 Date::
-printIso8601() const
+printIso8601(unsigned int fraction) const
 {
     if (!std::isfinite(secondsSinceEpoch_)) {
         if (std::isnan(secondsSinceEpoch_)) {
@@ -316,7 +317,7 @@ printIso8601() const
     string result = print("%Y-%m-%dT%H:%M:%S");
 
     double partial_seconds = fractionalSeconds();
-    string fractional = format("%.3fZ", partial_seconds);
+    string fractional = format("%.*fZ", fraction, partial_seconds);
 
     result.append(fractional, 1, -1);
 
@@ -1324,9 +1325,11 @@ expectTime()
     }
 
     if (match_literal('.')) {
-        int millis = expectFixedWidthInt(*this, 3, 3, 0, 999,
-                                         "bad milliseconds");
-        date.addSeconds(float(millis) / 1000);
+        size_t start = get_offset();
+        int millis = expect_int();
+        size_t end = get_offset();
+        double seconds = double(millis) / pow(10, end-start);
+        date.addSeconds(seconds);
     }
 
     if (eof()) {
