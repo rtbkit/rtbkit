@@ -262,14 +262,6 @@ reconstitute(ML::DB::Store_Reader & store)
 }
 
 
-Amount bidPriceCeiling(CurrencyCode code)
-{
-    if (code == CurrencyCode::CC_USD) return USD_CPM(200);
-
-    ExcCheck(false, "Undefined bid price ceiling for currency " + toString(code));
-}
-
-
 /*****************************************************************************/
 /* CURRENCY POOL                                                             */
 /*****************************************************************************/

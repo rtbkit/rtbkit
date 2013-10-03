@@ -111,7 +111,8 @@ Router(ServiceBase & parent,
        double secondsUntilLossAssumed,
        bool connectPostAuctionLoop,
        bool logAuctions,
-       bool logBids)
+       bool logBids,
+       Amount maxBidAmount)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       agentEndpoint(getZmqContext()),
@@ -139,7 +140,8 @@ Router(ServiceBase & parent,
       numNoBidders(0),
       monitorClient(getZmqContext()),
       slowModeCount(0),
-      monitorProviderClient(getZmqContext(), *this)
+      monitorProviderClient(getZmqContext(), *this),
+      maxBidAmount(maxBidAmount)
 {
 }
 
@@ -149,7 +151,8 @@ Router(std::shared_ptr<ServiceProxies> services,
        double secondsUntilLossAssumed,
        bool connectPostAuctionLoop,
        bool logAuctions,
-       bool logBids)
+       bool logBids,
+       Amount maxBidAmount)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       agentEndpoint(getZmqContext()),
@@ -178,7 +181,8 @@ Router(std::shared_ptr<ServiceProxies> services,
       numNoBidders(0),
       monitorClient(getZmqContext()),
       slowModeCount(0),
-      monitorProviderClient(getZmqContext(), *this)
+      monitorProviderClient(getZmqContext(), *this),
+      maxBidAmount(maxBidAmount)
 {
 }
 
@@ -1851,13 +1855,11 @@ doBid(const std::vector<std::string> & message)
             continue;
         }
 
-        const Amount maxBidPrice = bidPriceCeiling(bid.price.currencyCode);
-        if (bid.price.isNegative() || bid.price > maxBidPrice) {
+        if (bid.price.isNegative() || bid.price > maxBidAmount) {
             returnInvalidBid(i, "invalidPrice",
-                    "bid price of %s is outside range of $0-$200 CPM"
-                    "(%s) parsing bid %s",
+                    "bid price of %s is outside range of $0-%s parsing bid %s",
                     bid.price.toString().c_str(),
-                    USD_CPM(200).toString().c_str(),
+                    maxBidAmount.toString().c_str(),
                     biddata.c_str());
             continue;
         }

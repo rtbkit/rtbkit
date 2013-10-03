@@ -42,7 +42,8 @@ RouterRunner() :
     exchangeConfigurationFile("examples/router-config.json"),
     lossSeconds(15.0),
     logAuctions(false),
-    logBids(false)
+    logBids(false),
+    maxBidPrice(200)
 {
 }
 
@@ -64,8 +65,9 @@ doOptions(int argc, char ** argv,
         ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
          "log auction requests")
         ("log-bids", value<bool>(&logBids)->zero_tokens(),
-         "log bid responses");
-
+         "log bid responses")
+        ("max-bid-price", value(&maxBidPrice),
+         "maximum bid price accepted by router");
 
     options_description all_opt = opts;
     all_opt
@@ -98,7 +100,8 @@ init()
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
 
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
-    								  true, logAuctions, logBids);
+                                      true, logAuctions, logBids,
+                                      USD_CPM(maxBidPrice));
     router->init();
 
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
