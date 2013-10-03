@@ -105,14 +105,16 @@ struct Router : public ServiceBase,
            double secondsUntilLossAssumed = 2.0,
            bool connectPostAuctionLoop = true,
            bool logAuctions = false,
-           bool logBids = false);
+           bool logBids = false,
+           Amount maxBidAmount = USD_CPM(200));
 
     Router(std::shared_ptr<ServiceProxies> services = std::make_shared<ServiceProxies>(),
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
            bool connectPostAuctionLoop = true,
            bool logAuctions = false,
-           bool logBids = false);
+           bool logBids = false,
+           Amount maxBidAmount = USD_CPM(200));
 
     ~Router();
 
@@ -683,6 +685,8 @@ public:
     /* MONITOR PROVIDER */
     /* Post service health status to Monitor */
     MonitorProviderClient monitorProviderClient;
+
+    Amount maxBidAmount;
 
     /* MonitorProvider interface */
     std::string getProviderClass() const;
