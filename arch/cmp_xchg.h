@@ -19,6 +19,10 @@ namespace ML {
 template<unsigned Size>
 struct cmp_xchg_switch {
 
+    /** Required to prevent compiler "optimizations" in gcc 4.8. My guess is
+        that doing atomic operands over float values is undefined because there
+        are values that may multiple binary representations.
+     */
     JML_ALWAYS_INLINE bool cmp_xchg(double & val, double & old,
                                     const double & new_val)
     {
@@ -29,6 +33,10 @@ struct cmp_xchg_switch {
         return cmp_xchg(*_val, *_old, *_new_val);
     }
 
+    /** Required to prevent compiler "optimizations" in gcc 4.8. My guess is
+        that doing atomic operands over float values is undefined because there
+        are values that may multiple binary representations.
+     */
     JML_ALWAYS_INLINE bool cmp_xchg(volatile double & val,
                                     volatile double & old,
                                     volatile const double & new_val)
