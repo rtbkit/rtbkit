@@ -11,6 +11,7 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include "jml/utils/testing/watchdog.h"
 #include "rtbkit/common/win_cost_model.h"
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
 #include "rtbkit/testing/bid_stack.h"
@@ -60,6 +61,8 @@ struct TestExchangeConnector : public OpenRTBExchangeConnector {
 
 BOOST_AUTO_TEST_CASE( win_cost_model_test )
 {
+    ML::Watchdog watchdog(10.0);
+
     // register the exchange
     ExchangeConnector::registerFactory<TestExchangeConnector>();
 

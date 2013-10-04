@@ -17,6 +17,7 @@
 #include "jml/utils/pair_utils.h"
 #include "jml/utils/environment.h"
 #include "jml/arch/timers.h"
+#include "jml/utils/testing/watchdog.h"
 #include "soa/service/testing/redis_temporary_server.h"
 #include "testing/generic_exchange_connector.h"
 #include "testing/mock_exchange.h"
@@ -321,6 +322,8 @@ void dumpAccounts(
  */
 int main(int argc, char ** argv)
 {
+    Watchdog watchdog(30.0);
+
     // Controls the length of the test.
     enum {
         nExchangeThreads = 10,
