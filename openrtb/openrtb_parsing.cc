@@ -276,16 +276,21 @@ DefaultDescription()
 DefaultDescription<OpenRTB::Bid>::
 DefaultDescription()
 {
-    addField("id", &Bid::id, "Bidder's ID to identify the bid");
-    addField("impid", &Bid::impid, "ID of impression");
+    addField("id", &Bid::id, "Bidder's ID to identify the bid",
+             new StringIdDescription());
+    addField("impid", &Bid::impid, "ID of impression",
+             new StringIdDescription());
     addField("price", &Bid::price, "CPM price to bid for the impression");
-    addField("adid", &Bid::adid, "ID of ad to be served if bid is won");
+    addField("adid", &Bid::adid, "ID of ad to be served if bid is won",
+             new StringIdDescription());
     addField("nurl", &Bid::nurl, "Win notice/ad markup URL");
     addField("adm", &Bid::adm, "Ad markup");
     addField("adomain", &Bid::adomain, "Advertiser domain(s)");
     addField("iurl", &Bid::iurl, "Image URL for content checking");
-    addField("cid", &Bid::cid, "Campaign ID");
-    addField("crid", &Bid::crid, "Creative ID");
+    addField("cid", &Bid::cid, "Campaign ID",
+             new StringIdDescription());
+    addField("crid", &Bid::crid, "Creative ID",
+             new StringIdDescription());
     addField("attr", &Bid::attr, "Creative attributes");
     addField("ext", &Bid::ext, "Extensions");
 }
@@ -294,7 +299,8 @@ DefaultDescription<OpenRTB::SeatBid>::
 DefaultDescription()
 {
     addField("bid", &SeatBid::bid, "Bids made for this seat");
-    addField("seat", &SeatBid::seat, "Seat name who is bidding");
+    addField("seat", &SeatBid::seat, "Seat name who is bidding",
+             new StringIdDescription());
     addField("group", &SeatBid::group, "Do we require all bids to be won in a group?");
     addField("ext", &SeatBid::ext, "Extensions");
 }
@@ -302,9 +308,11 @@ DefaultDescription()
 DefaultDescription<OpenRTB::BidResponse>::
 DefaultDescription()
 {
-    addField("id", &BidResponse::id, "ID of auction");
+    addField("id", &BidResponse::id, "ID of auction",
+             new StringIdDescription());
     addField("seatbid", &BidResponse::seatbid, "Array of bids for each seat");
-    addField("bidid", &BidResponse::bidid, "Bidder's internal ID for this bid");
+    addField("bidid", &BidResponse::bidid, "Bidder's internal ID for this bid",
+             new StringIdDescription());
     addField("cur", &BidResponse::cur, "Currency in which we're bidding");
     addField("customData", &BidResponse::customData, "Custom data to be stored for user");
     addField("ext", &BidResponse::ext, "Extensions");
