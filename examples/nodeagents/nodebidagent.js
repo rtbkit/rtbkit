@@ -114,7 +114,7 @@ agent.onBidRequest = function(timestamp, auctionId, bidRequest, bids, timeAvaila
   var amount = new RTBkit.MicroUSD(100);
   for (var i=0; i<bids.length; i++){
     // TODO: validate a bid before deciding to put an amount on it
-    bids.bid(i,1,amount,1); // spotId, creativeIndex, price, priority
+    bids.bid(i,0,amount,1); // spotId, creativeIndex, price, priority
   }
   agent.doBid(auctionId, bids, {}, wcm); // auction id, collection of bids, meta, win cost model.
   amount = null;
