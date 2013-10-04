@@ -220,7 +220,9 @@ parseBidRequest(const std::string & jsonValue,
                 const std::string & provider,
                 const std::string & exchange)
 {
-    StructuredJsonParsingContext jsonContext(jsonValue);
+    const char * strStart = jsonValue.c_str();
+    StreamingJsonParsingContext jsonContext(jsonValue, strStart,
+                                            strStart + jsonValue.size());
 
     OpenRTB::BidRequest req;
     desc.parseJson(&req, jsonContext);
