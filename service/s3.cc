@@ -2174,8 +2174,12 @@ void registerDefaultBuckets()
     std::unique_lock<std::mutex> guard(registerBucketsMutex);
     defaultBucketsRegistered = true;
 
-    string filename = "/home/" + ML::username() + "/.cloud_credentials";
-    if (ML::fileExists(filename)) {
+    string filename = "";
+    char* home;
+    home = getenv("HOME");
+    if (home != NULL)
+        filename = home + string("/.cloud_credentials");
+    if (filename != "" && ML::fileExists(filename)) {
         std::ifstream stream(filename.c_str());
         while (stream) {
             string line;
