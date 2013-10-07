@@ -51,6 +51,16 @@ init(const vector<string> & providerClasses)
     auto config = getServices()->config;
     config->removePath(serviceName_);
     RestServiceEndpoint::init(config, serviceName_);
+    selfWatch.init([&](const std::string &path,
+                       ConfigurationService::ChangeType change)
+        {
+            auto children = config->getChildren("serviceClass/" + serviceName_,
+                                                selfWatch);
+        });
+
+    auto children = config->getChildren("serviceClass/" + serviceName_,
+                                        selfWatch);
+
 
     /* rest router */
     onHandleRequest = router.requestHandler();

@@ -65,6 +65,8 @@ struct MonitorEndpoint : public Datacratic::ServiceBase,
     std::map<std::string, ClassStatus> providersStatus_;
 
     bool disabled;
+
+    Datacratic::ConfigurationService::Watch selfWatch;
 };
 
 } // namespace RTBKIT
