@@ -61,6 +61,7 @@ postConstructorInit()
     pingTimeUnknownHostsMs = 20;
     auctionVerb = "POST";
     auctionResource = "/";
+    useKernelRTTEstimation = true;
 
     numServingRequest = 0;
 
@@ -102,6 +103,7 @@ configure(const Json::Value & parameters)
     getParam(parameters, auctionVerb, "auctionVerb");
     getParam(parameters, pingTimesByHostMs, "pingTimesByHostMs");
     getParam(parameters, pingTimeUnknownHostsMs, "pingTimeUnknownHostsMs");
+    getParam(parameters, useKernelRTTEstimation, "useKernelRTTEstimation");
 }
 
 void
@@ -245,11 +247,23 @@ HttpExchangeConnector::
 getRoundTripTimeMs(HttpAuctionHandler & connection,
                    const HttpHeader & header)
 {
+    // should we prioritize the configuration or the
+    // linux estimation ?
+
     string peerName = connection.transport().getPeerName();
     
     auto it = pingTimesByHostMs.find(peerName);
-    if (it == pingTimesByHostMs.end())
+    if (it == pingTimesByHostMs.end()) {
+
+        if (useKernelRTTEstimation) {
+            auto rtt = connection.getEstimatedRTT();
+            if (rtt != double(-1)) {
+                return rtt;
+            }
+        }
+
         return pingTimeUnknownHostsMs;
+    }
     return it->second;
 }
 
