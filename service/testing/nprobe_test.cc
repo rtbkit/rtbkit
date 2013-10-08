@@ -71,6 +71,7 @@ struct JoinGuard {
         }
     }
 
+    JoinGuard(JoinGuard &&) = default;
 
 private:
     std::thread thread_;
