@@ -114,8 +114,8 @@ public:
     void init(const T &object, const std::string &tag)
     {
         pctx_ = do_probe(object);
-        const std::string &uid { std::get<1>(pctx_) };
-        const int sampling_freq { std::get<2>(pctx_) };
+        auto & uid = std::get<1>(pctx_);
+        auto sampling_freq = std::get<2>(pctx_);
         key_ = CityHash64(uid.c_str(), uid.size());
         probed_ = false;
         spans_ = nullptr;
