@@ -1208,27 +1208,29 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
                 reason);
     };
 
+    if (traceAuction) {
+        forEachAgent([&] (const AgentInfoEntry& info) {
+                    ML::atomic_inc(info.stats->intoFilters);
+                    doFilterStat(*info.config, "intoStaticFilters");
+                });
+    }
 
-    ConfigSet filterMask;
-    auto checkAgent = [&] (const AgentInfoEntry & entry)
+    // Do the actual filtering.
+    auto biddableConfigs = filters.filter(*auction->request, exchangeConnector);
+
+    auto checkAgent = [&] (
+            const AgentConfig & config,
+            const AgentStatus & status,
+            AgentStats & stats)
         {
-            const AgentConfig & config = *entry.config;
-            AgentStats & stats = *entry.stats;
-
-            ML::atomic_inc(stats.intoFilters);
-            doFilterStat(config, "intoStaticFilters");
-
-            ExcAssert(entry.status);
-
-            if (entry.status->lastHeartbeat.secondsSince(now) > 2.0
-                || entry.status->dead) {
-                doFilterStat(config, "static.003_agentAppearsDead");
-                return;
+            if (status.dead || status.lastHeartbeat.secondsSince(now) > 2.0) {
+                doFilterStat(config, "static.agentAppearsDead");
+                return false;
             }
 
-            if (entry.status->numBidsInFlight >= config.maxInFlight) {
-                doFilterStat(config, "static.004_earlyTooManyInFlight");
-                return;
+            if (status.numBidsInFlight >= config.maxInFlight) {
+                doFilterStat(config, "static.earlyTooManyInFlight");
+                return false;
             }
 
             /* Check if we have enough time to process it. */
@@ -1236,20 +1238,16 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
                 && timeLeftMs < config.minTimeAvailableMs)
             {
                 ML::atomic_inc(stats.notEnoughTime);
-                doFilterStat(config, "static.005_notEnoughTime");
-                return;
+                doFilterStat(config, "static.notEnoughTime");
+                return false;
             }
 
-            filterMask.set(entry.filterIndex);
+            return true;
         };
-
-    forEachAgent(checkAgent);
-
-    auto biddableConfigs =
-        filters.filter(*auction->request, exchangeConnector, filterMask);
 
     for (const auto& entry : biddableConfigs) {
         if (entry.biddableSpots.empty()) continue;
+        if (!checkAgent(*entry.config, *entry.status, *entry.stats)) continue;
 
         ML::atomic_inc(entry.stats->passedStaticFilters);
         doFilterStat(*entry.config, "passedStaticFilters");
@@ -2404,7 +2402,7 @@ doConfig(const std::string & agent,
     info.configured = true;
     sendAgentMessage(agent, "GOTCONFIG", getCurrentTime());
 
-    info.filterIndex = filters.addConfig(agent, newConfig, info.stats);
+    info.filterIndex = filters.addConfig(agent, info);
 
     // Broadcast that we have a new agent or it has a new configuration
     updateAllAgents();

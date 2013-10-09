@@ -186,13 +186,8 @@ removeFilter(const string& name)
 
 unsigned
 FilterPool::
-addConfig(
-        const string& name,
-        const shared_ptr<AgentConfig>& config,
-        const shared_ptr<AgentStats>& stats)
+addConfig(const string& name, const AgentInfo& info)
 {
-    ExcAssert(config.get());
-
     GcLockBase::SharedGuard guard(gc);
 
     unique_ptr<Data> newData;
@@ -201,7 +196,7 @@ addConfig(
 
     do {
         newData.reset(new Data(*oldData));
-        index = newData->addConfig(name, config, stats);
+        index = newData->addConfig(name, info);
     } while (!setData(oldData, newData));
 
     if (events) events->recordHit("filters.addConfig");
@@ -261,10 +256,7 @@ findConfig(const string& name) const
 
 unsigned
 FilterPool::Data::
-addConfig(
-        const string& name,
-        const shared_ptr<AgentConfig>& config,
-        const shared_ptr<AgentStats>& stats)
+addConfig(const string& name, const AgentInfo& info)
 {
     // If our config already exists, we have to deregister it with the filters
     // before we can add the new config.
@@ -272,16 +264,16 @@ addConfig(
 
     ssize_t index = findConfig("");
     if (index >= 0)
-        configs[index] = ConfigEntry(name, config, stats);
+        configs[index] = ConfigEntry(name, info);
     else {
         index = configs.size();
-        configs.emplace_back(name, config, stats);
+        configs.emplace_back(name, info);
     }
 
-    activeConfigs.setConfig(index, config->creatives.size());
+    activeConfigs.setConfig(index, info.config->creatives.size());
 
     for (FilterBase* filter : filters)
-        filter->addConfig(index, config);
+        filter->addConfig(index, info.config);
 
     return index;
 }

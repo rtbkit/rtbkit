@@ -17,7 +17,6 @@ namespace RTBKIT {
 
 struct Priority
 {
-    static constexpr unsigned ExchangePre          = 0x0100;
     static constexpr unsigned ExchangeName         = 0x0200;
 
     static constexpr unsigned Location             = 0x1000;
@@ -35,6 +34,8 @@ struct Priority
     static constexpr unsigned FoldPosition         = 0x3200;
     static constexpr unsigned RequiredIds          = 0x3300;
     static constexpr unsigned UserPartition        = 0x3400;
+
+    static constexpr unsigned ExchangePre          = 0xF000;
 
     // Really slow so delay as much as possible.
     static constexpr unsigned CreativeExchange     = 0xF100;

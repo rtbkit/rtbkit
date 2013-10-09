@@ -27,6 +27,9 @@ namespace RTBKIT {
 
 struct BidRequest;
 struct ExchangeConnector;
+struct AgentInfo;
+struct AgentStatus;
+struct AgentStats;
 struct AgentConfig;
 
 
@@ -43,13 +46,11 @@ struct FilterPool
 
     struct ConfigEntry
     {
-        ConfigEntry(
-                std::string name,
-                std::shared_ptr<AgentConfig> config,
-                std::shared_ptr<AgentStats> stats) :
+        ConfigEntry(std::string name, const AgentInfo& info) :
             name(std::move(name)),
-            config(std::move(config)),
-            stats(std::move(stats))
+            config(info.config),
+            status(info.status),
+            stats(info.stats)
         {}
 
         void reset()
@@ -61,7 +62,10 @@ struct FilterPool
 
         std::string name;
         std::shared_ptr<AgentConfig> config;
+        std::shared_ptr<AgentStatus> status;
         std::shared_ptr<AgentStats> stats;
+
+        // Only used in the instances returned from filter.
         BiddableSpots biddableSpots;
     };
     typedef std::vector<ConfigEntry> ConfigList;
@@ -77,10 +81,7 @@ struct FilterPool
     void removeFilter(const std::string& name);
 
     // \todo Need batch interfaces to alleviate overhead.
-    unsigned addConfig(
-            const std::string& name,
-            const std::shared_ptr<AgentConfig>& config,
-            const std::shared_ptr<AgentStats>& stats);
+    unsigned addConfig(const std::string& name, const AgentInfo& info);
     void removeConfig(const std::string& name);
 
     static void initWithDefaultFilters(FilterPool& pool);
@@ -94,10 +95,7 @@ private:
         ~Data();
 
         ssize_t findConfig(const std::string& name) const;
-        unsigned addConfig(
-                const std::string& name,
-                const std::shared_ptr<AgentConfig>& config,
-                const std::shared_ptr<AgentStats>& stats);
+        unsigned addConfig(const std::string& name, const AgentInfo& info);
         void removeConfig(const std::string& name);
 
         ssize_t findFilter(const std::string& name) const;
