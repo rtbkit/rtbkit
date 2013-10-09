@@ -90,7 +90,7 @@ struct Date {
 
     std::string print(unsigned seconds_digits = 0) const;
     std::string print(const std::string & format) const;
-    std::string printIso8601() const;
+    std::string printIso8601(unsigned int fraction = 3) const;
     std::string printRfc2616() const;
     std::string printClassic() const;
 

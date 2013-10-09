@@ -123,6 +123,26 @@ BOOST_AUTO_TEST_CASE( test_default_description_print_id_128 )
     BOOST_CHECK_EQUAL(expected, result);
 }
 
+/* ensures that ids are always rendered as strings, notwithstanding their
+ * internal type */
+BOOST_AUTO_TEST_CASE( test_stringid_description )
+{
+    StringIdDescription desc;
+    Id idBigDec;
+    ostringstream outStr;
+    StreamJsonPrintingContext jsonContext(outStr);
+    string result;
+
+    idBigDec.type = Id::Type::BIGDEC;
+    idBigDec.val = 2;
+
+    desc.printJsonTyped(&idBigDec, jsonContext);
+    result = outStr.str();
+
+    string expected = "\"2\"";
+    BOOST_CHECK_EQUAL(expected, result);
+}
+
 /* ensures that string-encoded 128 bit integers are properly parsed as 128
  * bit integers */
 BOOST_AUTO_TEST_CASE( test_default_description_parse_id_128_str )

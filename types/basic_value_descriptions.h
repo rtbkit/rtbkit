@@ -46,6 +46,16 @@ struct DefaultDescription<Datacratic::Id>
     }
 };
 
+struct StringIdDescription: public DefaultDescription<Datacratic::Id> {
+
+    virtual void printJsonTyped(const Datacratic::Id * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeString(val->toString());
+    }
+};
+
+
 template<>
 struct DefaultDescription<std::string>
     : public ValueDescriptionI<std::string, ValueKind::STRING> {
