@@ -429,7 +429,14 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         ::close(fds.statusFd);
         int res = ::execv(command[0].c_str(), argv);
         if (res == -1) {
-            throw ML::Exception(errno, "RunWrapper exec");
+            int exitCode;
+            if (errno == ENOENT)
+                exitCode = 127; // "command not found"
+            else if (errno == EACCES)
+                exitCode = 126; // "permission denied"
+            else
+                exitCode = 1;   // generic error
+            _exit(exitCode);
         }
 
         /* there is no possible way this code could be executed */
