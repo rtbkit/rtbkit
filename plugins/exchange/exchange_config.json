@@ -1,0 +1,11 @@
+/* -*- by Murtaza @ vf -*- */
+[
+    {
+        "type": "mopub",
+        "nurl": "http://54.214.251.166:18143?id=${AUCTION_ID}&bidid=${AUCTION_BID_ID}&impid=${AUCTION_IMP_ID}&seat=${AUCTION_SEAT_ID}&adid=${AUCTION_AD_ID}&price=${AUCTION_PRICE}"
+    },
+    {
+        "type": "nexage",
+        "nurl": "http://54.214.251.166:18143?id=${AUCTION_ID}&bidid=${AUCTION_BID_ID}&impid=${AUCTION_IMP_ID}&seat=${AUCTION_SEAT_ID}&adid=${AUCTION_AD_ID}&price=${AUCTION_PRICE}"
+    }
+]
