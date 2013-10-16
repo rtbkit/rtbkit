@@ -1106,7 +1106,7 @@ Date Date::parse(const std::string & date,
     tm time;
     memset(&time, 0, sizeof(time));
     if(strptime(date.c_str(), format.c_str(), &time) == NULL)
-        throw ML::Exception("error in strptime");
+        throw ML::Exception("strptime error. format='" + format + "', string='" + date + "'");
 
     //not using fromTm because I don't want it to assume it's local time
     return Date(1900 + time.tm_year, 1 + time.tm_mon, time.tm_mday,
