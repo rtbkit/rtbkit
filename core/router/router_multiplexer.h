@@ -44,29 +44,29 @@ struct RouterMessage
 
 
 class RouterMultiplexer: public Datacratic::MessageLoop,
-                         public Datacratic::ServiceBase
+    public Datacratic::ServiceBase
 {
 public:
-	RouterMultiplexer(std::shared_ptr<Datacratic::ServiceProxies> proxies,
-			          const std::string &                         router_mx_name = "router_mx",
-			          const std::string &                         service_class  = "rtbRequestRouter",
-			          const std::string &                         endpoint_name  = "agents");
-	RouterMultiplexer(Datacratic::ServiceBase &                   parent,
-         	          const std::string &                         router_mx_name = "router_mx",
-	                  const std::string &                         service_class  = "rtbRequestRouter",
-	                  const std::string &                         endpoint_name  = "agents");
+    RouterMultiplexer(std::shared_ptr<Datacratic::ServiceProxies> proxies,
+                      const std::string &                         router_mx_name = "router_mx",
+                      const std::string &                         service_class  = "rtbRequestRouter",
+                      const std::string &                         endpoint_name  = "agents");
+    RouterMultiplexer(Datacratic::ServiceBase &                   parent,
+                      const std::string &                         router_mx_name = "router_mx",
+                      const std::string &                         service_class  = "rtbRequestRouter",
+                      const std::string &                         endpoint_name  = "agents");
 
     void init();
 
     void shutdown();
 
-	virtual ~RouterMultiplexer() ;
+    virtual ~RouterMultiplexer() ;
 
 
     //
-	RouterMultiplexer (const RouterMultiplexer&)             = delete;
-	RouterMultiplexer (const RouterMultiplexer&&)            = delete;
-	RouterMultiplexer& operator= (const RouterMultiplexer&)  = delete;
+    RouterMultiplexer (const RouterMultiplexer&)             = delete;
+    RouterMultiplexer (const RouterMultiplexer&&)            = delete;
+    RouterMultiplexer& operator= (const RouterMultiplexer&)  = delete;
     RouterMultiplexer& operator= (const RouterMultiplexer&&) = delete;
 
 
@@ -78,8 +78,8 @@ public:
      *  client enters the multiplex.
      */
     std::pair<Datacratic::ZmqMultipleNamedClientBusProxy*,
-              Datacratic::TypedMessageSink<RouterMessage>*>
-    hook (const std::string&   client_name);
+        Datacratic::TypedMessageSink<RouterMessage>*>
+        hook (const std::string&   client_name);
 
 
 private:

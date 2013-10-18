@@ -81,13 +81,13 @@ struct RouterMultiplexer::Entry
 pair<ZmqMultipleNamedClientBusProxy*,TypedMessageSink<RouterMessage>*>
 RouterMultiplexer::hook (const std::string&   client_name)
 {
-	std::lock_guard<std::mutex> L(this->mtx_);
-	auto it = clients_.find (client_name);
-	if (it != clients_.end())
-		return make_pair(&(*it).second->routers_, &(*it).second->sink_);
-	auto entry = shared_ptr<Entry>(new Entry(*this,client_name));
-	clients_[client_name] = entry ;
-	return make_pair(&entry->routers_,&entry->sink_);
+    std::lock_guard<std::mutex> L(this->mtx_);
+    auto it = clients_.find (client_name);
+    if (it != clients_.end())
+        return make_pair(&(*it).second->routers_, &(*it).second->sink_);
+    auto entry = shared_ptr<Entry>(new Entry(*this,client_name));
+    clients_[client_name] = entry ;
+    return make_pair(&entry->routers_,&entry->sink_);
 }
 
 } // namespace RTBKIT
