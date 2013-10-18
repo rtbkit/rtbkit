@@ -21,7 +21,7 @@ struct Router;
 /******************************************************************************/
 
 struct RouterRestApiConnection
-    : public HttpMonitorHandler<RouterRestApiConnection, Router*> {
+    : public Datacratic::HttpMonitorHandler<RouterRestApiConnection, Router*> {
 
     RouterRestApiConnection(const std::string& name,
                             Router* router);
@@ -34,7 +34,7 @@ struct RouterRestApiConnection
                         const std::string& payload);
 };
 
-typedef HttpMonitor<RouterRestApiConnection, Router*> RouterRestApi;
+typedef Datacratic::HttpMonitor<RouterRestApiConnection, Router*> RouterRestApi;
 
 } // namespace RTBKIT
 

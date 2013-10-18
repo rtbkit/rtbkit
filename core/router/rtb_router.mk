@@ -18,7 +18,8 @@ LIBRTB_ROUTER_SOURCES := \
 	router.cc \
 	router_types.cc \
 	router_stack.cc \
-	filter_pool.cc
+	filter_pool.cc  \
+	router_multiplexer.cc
 
 LIBRTB_ROUTER_LINK := \
 	rtb zeromq boost_thread logger opstats crypto++ leveldb gc services redis banker agent_configuration monitor monitor_service post_auction static_filters

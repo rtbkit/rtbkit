@@ -14,6 +14,7 @@
 #include "rtbkit/common/bids.h"
 #include "rtbkit/common/auction_events.h"
 #include "rtbkit/common/win_cost_model.h"
+#include "core/router/router_multiplexer.h"
 #include "soa/service/zmq.hpp"
 #include "soa/service/carbon_connector.h"
 #include "soa/jsoncpp/json.h"
@@ -51,9 +52,11 @@ namespace RTBKIT {
 struct BiddingAgent : public ServiceBase, public MessageLoop {
 
     BiddingAgent(std::shared_ptr<ServiceProxies> proxies,
-                const std::string & name = "bidding_agent");
+                const std::string & name = "bidding_agent",
+                std::shared_ptr<RouterMultiplexer> router_mux = std::shared_ptr<RouterMultiplexer>());
     BiddingAgent(ServiceBase & parent,
-                const std::string & name = "bidding_agent");
+                const std::string & name = "bidding_agent",
+                std::shared_ptr<RouterMultiplexer> router_mux = std::shared_ptr<RouterMultiplexer>());
 
     ~BiddingAgent();
 
@@ -223,28 +226,11 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
     ErrorCbFn onError;
 
 private:
-
-    /** Format of a message to a router. */
-    struct RouterMessage {
-        RouterMessage(const std::string & toRouter = "",
-                      const std::string & type = "",
-                      const std::vector<std::string> & payload
-                          = std::vector<std::string>())
-            : toRouter(toRouter),
-              type(type),
-              payload(payload)
-        {
-        }
-
-        std::string toRouter;
-        std::string type;
-        std::vector<std::string> payload;
-    };
-
-    ZmqMultipleNamedClientBusProxy toRouters;
-    ZmqMultipleNamedClientBusProxy toPostAuctionServices;
-    ZmqNamedClientBusProxy toConfigurationAgent;
-    TypedMessageSink<RouterMessage> toRouterChannel;
+    std::shared_ptr<RouterMultiplexer> routerMux;
+    ZmqMultipleNamedClientBusProxy*    toRouters;
+    TypedMessageSink<RouterMessage>*   toRouterChannel;
+    ZmqNamedClientBusProxy             toConfigurationAgent;
+    ZmqMultipleNamedClientBusProxy     toPostAuctionServices;
 
     struct RequestStatus {
         Date timestamp;

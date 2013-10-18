@@ -55,28 +55,42 @@ jsonParse(const std::string & str)
 
 BiddingAgent::
 BiddingAgent(std::shared_ptr<ServiceProxies> proxies,
-            const std::string & name)
+            const std::string & name,
+            std::shared_ptr<RouterMultiplexer> mux)
     : ServiceBase(name, proxies),
       agentName(name + "_" + to_string(getpid())),
-      toRouters(getZmqContext()),
-      toPostAuctionServices(getZmqContext()),
+      routerMux(mux),
+      toRouters(nullptr),
+      toRouterChannel(nullptr),
       toConfigurationAgent(getZmqContext()),
-      toRouterChannel(65536),
+      toPostAuctionServices(getZmqContext()),
       requiresAllCB(true)
 {
+	if (!routerMux.get())
+	{
+		routerMux.reset (new RouterMultiplexer (proxies, "rmux!"+agentName));
+		routerMux->start();
+	}
 }
 
 BiddingAgent::
 BiddingAgent(ServiceBase& parent,
-            const std::string & name)
+            const std::string & name,
+            std::shared_ptr<RouterMultiplexer> mux)
     : ServiceBase(name, parent),
       agentName(name + "_" + to_string(getpid())),
-      toRouters(getZmqContext()),
-      toPostAuctionServices(getZmqContext()),
+      routerMux(mux),
+      toRouters(nullptr),
+      toRouterChannel(nullptr),
       toConfigurationAgent(getZmqContext()),
-      toRouterChannel(65536),
+      toPostAuctionServices(getZmqContext()),
       requiresAllCB(true)
 {
+	if (!routerMux.get())
+	{
+		routerMux.reset (new RouterMultiplexer (parent, "rmux!"+agentName));
+		routerMux->start();
+	}
 }
 
 BiddingAgent::
@@ -85,10 +99,18 @@ BiddingAgent::
     shutdown();
 }
 
+inline string tid()
+{
+    ostringstream oss ;
+    oss <<  "0x" << hex << this_thread::get_id();
+    return oss.str();
+}
+
 void
 BiddingAgent::
 init()
 {
+	tie (toRouters,toRouterChannel) = routerMux->hook(serviceName()) ;
     auto messageHandler = [=] (
             const string & service, const vector<string>& msg)
         {
@@ -104,7 +126,7 @@ init()
             }
         };
 
-    toRouters.messageHandler = messageHandler;
+    toRouters->messageHandler = messageHandler;
 
     toPostAuctionServices.messageHandler = messageHandler;
     toConfigurationAgent.init(getServices()->config, agentName);
@@ -116,19 +138,19 @@ init()
             sendConfig();
         };
 
-    toRouters.init(getServices()->config, agentName);
-    toRouters.connectHandler = [=] (const std::string & connectedTo)
+    toRouters->init(getServices()->config, agentName);
+    toRouters->connectHandler = [=] (const std::string & connectedTo)
         {
             std::stringstream ss;
             ss << "BiddingAgent is connected to router "
                  << connectedTo << endl;
             cerr << ss.str() ;
-            toRouters.sendMessage(connectedTo, "CONFIG", agentName);
+            toRouters->sendMessage(connectedTo, "CONFIG", agentName);
         };
-    toRouters.connectAllServiceProviders("rtbRequestRouter", "agents");
-    toRouterChannel.onEvent = [=] (const RouterMessage & msg)
+    toRouters->connectAllServiceProviders("rtbRequestRouter", "agents");
+    toRouterChannel->onEvent = [=] (const RouterMessage & msg)
         {
-            toRouters.sendMessage(msg.toRouter, msg.type, msg.payload);
+            toRouters->sendMessage(msg.dest_, msg.type_, msg.payload_);
         };
     toPostAuctionServices.init(getServices()->config, agentName);
     toPostAuctionServices.connectHandler = [=] (const std::string & connectedTo)
@@ -140,10 +162,10 @@ init()
     toPostAuctionServices.connectAllServiceProviders("rtbPostAuctionService",
                                                      "agents");
 
-    addSource("BiddingAgent::toRouters", toRouters);
+    routerMux->addSource("BiddingAgent::toRouters", *toRouters);
     addSource("BiddingAgent::toPostAuctionServices", toPostAuctionServices);
     addSource("BiddingAgent::toConfigurationAgent", toConfigurationAgent);
-    addSource("BiddingAgent::toRouterChannel", toRouterChannel);
+    routerMux->addSource("BiddingAgent::toRouterChannel", *toRouterChannel);
 
     MessageLoop::init();
 }
@@ -155,7 +177,7 @@ shutdown()
     MessageLoop::shutdown();
 
     toConfigurationAgent.shutdown();
-    toRouters.shutdown();
+    toRouters->shutdown();
     //toPostAuctionService.shutdown();
 }
 
@@ -164,6 +186,7 @@ BiddingAgent::
 handleRouterMessage(const std::string & fromRouter,
                     const std::vector<std::string> & message)
 {
+	cerr << "BA:" << serviceName() << " handleRouterMessage() on: " << tid() << endl;
     if (message.empty()) {
         cerr << "invalid empty message received" << endl;
         recordHit("errorEmptyMessage");
@@ -261,7 +284,7 @@ handleRouterMessage(const std::string & fromRouter,
             auto message_ = message;
             string received = message.at(1);
             message_.erase(message_.begin(), message_.begin() + 2);
-            toRouters.sendMessage(fromRouter, "PONG0", received, Date::now(), message_);
+            toRouters->sendMessage(fromRouter, "PONG0", received, Date::now(), message_);
         }
         else if (message[0] == "PING1") {
             // High-level ping (to measure whole stack backlog);
@@ -503,7 +526,7 @@ doBid(Id id, const Bids & bids, const Json::Value & jsonMeta, const WinCostModel
 
     recordLevel((afterSend - beforeSend) * 1000.0, "timeTakenMs");
 
-    toRouterChannel.push(RouterMessage(
+    toRouterChannel->push(RouterMessage(
                     fromRouter, "BID", { id.toString(), response, model, meta }));
 
     /** Gather some stats */
@@ -547,7 +570,7 @@ doPong(const std::string & fromRouter, Date sent, Date received,
     };
 
     message.insert(message.end(), payload.begin(), payload.end());
-    toRouterChannel.push(RouterMessage(fromRouter, "PONG1", message));
+    toRouterChannel->push(RouterMessage(fromRouter, "PONG1", message));
 }
 
 void
