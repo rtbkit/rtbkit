@@ -110,8 +110,12 @@ int main(int argc, char ** argv)
         }
     });
 
+    // create a router proxy and start it.
+
     auto rmx = shared_ptr<RouterMultiplexer>(new RouterMultiplexer (proxies, "RMX"));
     rmx->start();
+
+    // create/start/configure 1st agent
     auto bob = make_shared<TestAgent>(proxies, "BOB", rmx);
     bob->onBidRequest = [&] (
                            double timestamp,
@@ -131,7 +135,33 @@ int main(int argc, char ** argv)
     bob->init();
     bob->start();
     bob->configure ();
-    for(;;) {
+
+
+    // create/start/configure 2nd agent
+    auto alice = make_shared<TestAgent>(proxies, "ALICE", rmx);
+    alice->onBidRequest = [&] (
+                           double timestamp,
+                           const Id & id,
+                           std::shared_ptr<BidRequest> br,
+                           Bids bids,
+                           double timeLeftMs,
+                           const Json::Value & augmentations,
+                           const WinCostModel & wcm)
+    {
+        Bid& bid = bids[0];
+        bid.bid(bid.availableCreatives[0], USD_CPM(1.233));
+        alice->doBid(id, bids, Json::Value(), wcm);
+        ML::atomic_inc(bob->numBidRequests);
+        cerr << alice->serviceName() << "(" << tid() << ") bid count=" << alice->numBidRequests << endl;
+    };
+    alice->init();
+    alice->start();
+    alice->configure ();
+
+
+
+    for(;;)
+    {
         ML::sleep(10.0);
 
         std::cerr << "----------[ REPORT ]----------" << std::endl;
