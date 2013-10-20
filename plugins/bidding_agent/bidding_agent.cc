@@ -186,7 +186,6 @@ BiddingAgent::
 handleRouterMessage(const std::string & fromRouter,
                     const std::vector<std::string> & message)
 {
-	cerr << "BA:" << serviceName() << " handleRouterMessage() on: " << tid() << endl;
     if (message.empty()) {
         cerr << "invalid empty message received" << endl;
         recordHit("errorEmptyMessage");
