@@ -14,8 +14,9 @@ namespace RTBKIT {
 
 struct TestAgent : public RTBKIT::BiddingAgent {
     TestAgent(std::shared_ptr<RTBKIT::ServiceProxies> proxies,
-              const std::string & name = "testAgent")
-        : RTBKIT::BiddingAgent(proxies, name)
+             const std::string & name = "testAgent",
+             std::shared_ptr<RouterMultiplexer> router_mux = std::shared_ptr<RouterMultiplexer>())
+        : RTBKIT::BiddingAgent(proxies, name, router_mux)
     {
         setDefaultConfig();
         setupCallbacks();

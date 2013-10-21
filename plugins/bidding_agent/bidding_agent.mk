@@ -5,6 +5,6 @@ LIBRTB_ROUTER_PROXY_SOURCES := \
 	bidding_agent.cc
 
 LIBRTB_ROUTER_PROXY_LINK := \
-	ACE arch utils jsoncpp boost_thread zmq opstats bid_request services
+	ACE arch utils jsoncpp boost_thread zmq opstats bid_request services rtb_router
 
 $(eval $(call library,bidding_agent,$(LIBRTB_ROUTER_PROXY_SOURCES),$(LIBRTB_ROUTER_PROXY_LINK)))
