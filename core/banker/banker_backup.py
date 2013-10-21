@@ -10,7 +10,6 @@
 import redis
 import json
 import datetime
-import sys
 
 
 
