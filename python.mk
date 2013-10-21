@@ -139,6 +139,7 @@ run_$(1):	$(BIN)/$(1)
 
 $(BIN)/$(1): $(CWD)/$(2) $(BIN)/.dir_exists $$(foreach pymod,$(3),$(BIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"
+	@$(PYFLAKES) $$<
 	@cp $$< $$@~
 	@chmod +x $$@~
 	@mv $$@~ $$@
