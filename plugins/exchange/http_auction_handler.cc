@@ -323,6 +323,7 @@ handleHttpPayload(const HttpHeader & header,
     if (acceptProbability < 1.0
         && random() % 1000000 > 1000000 * acceptProbability) {
         // early drop...
+        doEvent("auctionEarlyDrop.randomEarlyDrop");
         dropAuction("random early drop");
         return;
     }
