@@ -538,7 +538,6 @@ run()
                 if (!config.second) {
                     // deconfiguration
                     // TODO
-                    filters.removeConfig(config.first);
                     cerr << "agent " << config.first << " lost configuration"
                          << endl;
                 }
@@ -966,6 +965,7 @@ checkDeadAgents()
         cerr << "WARNING: dead agent doesn't clean up its state properly"
              << endl;
         // TODO: undo all bids in progress
+        filters.removeConfig((*it)->first);
         agents.erase(*it);
     }
 
