@@ -391,6 +391,13 @@ print(const std::string & format) const
     size_t buffer_size = format.size() + 1024;
     char buffer[buffer_size];
 
+    if (secondsSinceEpoch() > std::numeric_limits<time_t>::max()) {
+        return "Inf";
+    }
+    if (secondsSinceEpoch() < std::numeric_limits<time_t>::min()) {
+        return "-Inf";
+    }
+
     time_t t = secondsSinceEpoch();
     tm time;
 
