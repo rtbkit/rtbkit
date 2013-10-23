@@ -760,8 +760,10 @@ getCreativeCompatibility(const Creative & creative,
         });
     }
 
-    // Cache the information
-    result.info = crinfo;
+    if (result.isCompatible()) {
+        // Cache the information
+        result.info = crinfo;
+    }
 
     return result;
 }
