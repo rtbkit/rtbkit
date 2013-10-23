@@ -116,6 +116,7 @@ int main(int argc, char ** argv)
     config.creatives.push_back(RTBKIT::Creative::sampleBB);
 
     // create a router proxy and start it.
+    // will start polling in a dedicated thread
     BiddingAgentCluster cluster (proxies, "BAC");
     cluster.start ();
 
@@ -165,9 +166,6 @@ int main(int argc, char ** argv)
 
     // for each agent A in cluster, will call A.init()
     cluster.init();
-
-    // will start polling in a dedicated thread
-    cluster.start ();
 
     config.account = {"testCampaign", "bobStrategy"};
     cluster[bob]->doConfig(config);
