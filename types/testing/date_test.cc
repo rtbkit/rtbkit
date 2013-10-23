@@ -513,3 +513,15 @@ BOOST_AUTO_TEST_CASE( test_iso8601WeekStart )
     // memset(&tm, 0, sizeof(struct tm));
     // strptime(x.c_str(), fmt.c_str(), &tm);
 // }
+
+BOOST_AUTO_TEST_CASE( test_date_iostream_print )
+{
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::positiveInfinity()),
+                      "Inf");
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::negativeInfinity()),
+                      "-Inf");
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::notADate()),
+                      "NaD");
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((uint64_t)-1)),
+                      "Inf");
+}
