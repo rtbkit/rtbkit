@@ -1,9 +1,9 @@
-$(eval $(call test,named_endpoint_test,services,boost))
+$(eval $(call test,named_endpoint_test,services,boost manual))
 $(eval $(call test,zmq_named_pub_sub_test,services,boost manual))
-$(eval $(call test,zmq_endpoint_test,services,boost))
+$(eval $(call test,zmq_endpoint_test,services,boost manual))
 $(eval $(call test,message_channel_test,services,boost))
 $(eval $(call test,rest_service_endpoint_test,services,boost))
-$(eval $(call test,multiple_service_test,services,boost))
+$(eval $(call test,multiple_service_test,services,boost manual))
 
 $(eval $(call test,zookeeper_test,cloud,boost manual))
 $(eval $(call test,aws_test,cloud,boost))
