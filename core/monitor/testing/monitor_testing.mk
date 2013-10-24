@@ -8,6 +8,6 @@ $(eval $(call test,monitor_endpoint_test,monitor_service,boost))
 $(eval $(call test,monitor_client_test,monitor,boost))
 
 # Integration test between all Monitor components
-$(eval $(call test,monitor_behaviour_test,monitor monitor_service,boost))
+$(eval $(call test,monitor_behaviour_test,monitor monitor_service,boost manual))
 
 monitor_tests: monitor_test monitor_client_test monitor_behaviour_test
