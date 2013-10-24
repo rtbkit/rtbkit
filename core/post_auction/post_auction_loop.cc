@@ -980,7 +980,7 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
                     to_string(info.bid.creativeId),
                     info.bid.creativeName,
                     info.bid.account.at(0, ""),
-                    Json::Value(), // uids - Currently missing the uid domains
+                    uids.toJsonStr(),
                     info.winMeta,
                     info.bid.account.at(0, ""),
                     info.adSpotId,
