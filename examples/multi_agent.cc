@@ -160,18 +160,18 @@ int main(int argc, char ** argv)
     // join agents to our cluster
     // joined agents will be added as source to
     // our the cluster's poll loop;
-    cluster.join (bob);
-    cluster.join (alice);
+    cluster.join (bob, "BOB");
+    cluster.join (alice, "ALICE");
 
 
     // for each agent A in cluster, will call A.init()
     cluster.init();
 
     config.account = {"testCampaign", "bobStrategy"};
-    cluster[bob]->doConfig(config);
+    bob->doConfig (config);
 
     config.account = {"testCampaign", "aliceStrategy"};
-    cluster[alice]->doConfig(config);
+    alice->doConfig(config);
 
     for(;;)
     {

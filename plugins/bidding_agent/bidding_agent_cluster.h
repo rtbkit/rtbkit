@@ -70,34 +70,34 @@ public:
     }
 
     /** attempt to add new_member in the cluster. return true when success */
-    bool join (const agent_ptr& new_member)
+    bool join (const agent_ptr& new_member, const std::string& name)
     {
         std::lock_guard<std::mutex> l(mtx_);
-        auto it = agents_.insert ( {new_member->serviceName(), new_member});
+        auto it = agents_.insert ({name, new_member});
         if (it.second)
-            this->addSource (new_member->serviceName(), *new_member.get());
+            this->addSource (name, *new_member.get());
         return it.second ;
     }
 
     /** attempt to remove member from the cluster. return true when success */
-    bool leave (const agent_ptr&  member)
+    bool leave (const std::string& name)
     {
         std::lock_guard<std::mutex> l(mtx_);
-        return 0 < agents_.erase (member->serviceName());
+        return 0 < agents_.erase (name);
     }
 
     /** returns true if agent is member of our cluster */
-    bool is_member (const agent_ptr & member) const
+    bool is_member (const std::string & name) const
     {
         std::lock_guard<std::mutex> l(mtx_);
-        return agents_.find (member->serviceName()) != agents_.end();
+        return agents_.find (name) != agents_.end();
     }
 
-    /** convenient indexing */
-    agent_ptr operator[] (const agent_ptr& member) const
+    /** probably useless */
+    agent_ptr operator[] (const std::string& name) const
     {
         std::lock_guard<std::mutex> l(mtx_);
-        auto it = agents_.find(member->serviceName());
+        auto it = agents_.find(name);
         return it != agents_.end() ? (*it).second : agent_ptr();
     }
 
