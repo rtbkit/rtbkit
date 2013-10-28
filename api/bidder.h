@@ -24,14 +24,11 @@ enum BidStatus
     INVALID,    ///< Bid was invalid and so not accepted
     LOSTBID,    ///< Bid was lost somewhere
     DROPPEDBID, ///< Bid was dropped as way too late
-    NOBUDGET    ///< No budget
+    NOBUDGET,   ///< No budget
+    BUG         ///< Bug request
 };
 
-struct Amount
-{
-    std::string               currency_code_;  ///< currency code;
-    uint64_t                  value_;          ///< amount
-};
+;
 
 struct BidResult
 {
@@ -39,7 +36,7 @@ struct BidResult
     double                    timestamp;     ///> Time at which the event occured
     std::string               auctionId;     ///> Unique auction id for the original bid
     int                       spotNum;       ///> Spot index into the bidRequest.imp or ourBid
-    Amount                    secondPrice;   ///> Depends on result from router or the exchange
+    std::string               secondPrice;   ///> Depends on result from router or the exchange
     std::string               bidRequest;    ///> Original request we bid on
     std::string               ourBid;        ///> Original bids that was placed
     std::string               metadata;      ///> Metadata that was attached to the bid
@@ -57,7 +54,7 @@ struct DeliveryEvent
     std::string               augmentations;
     std::string               bid;
     std::string               win;
-    std::vector<std::string>  campaignEvents;
+    std::string               campaignEvents;
     std::vector<std::string>  visits;
 };
 
@@ -68,24 +65,14 @@ public:
      *    Create a bidder.
      *    \param name name give to the bidder.
      */
-    explicit Bidder(const std::string& name);
+     Bidder(const std::string& service_proxy_json,
+    		const std::string& name);
 
     virtual ~Bidder();
 
     void init();
 
     void shutdown();
-
-    /** Send a bid response to the router in answer to a received auction.
-     * \param id  string rep.  of an auction id given in the auction callback.
-     * \param bids string rep. of a Bids struct converted to json.
-     * \param meta string rep. of a json blob that will be returned as is in the bid result.
-     * \param wcm string rep of a Win cost model to be used.
-     */
-    void doBid(const std::string& id,
-               const std::string& bids,
-               const std::string& meta,
-               const std::string& wmc);
 
     /** Notify the AgentConfigurationService that the configuration of the
      *  bidding agent has changed.
@@ -97,6 +84,17 @@ public:
      *  done asynchronously and changes might not take effect immediately.
      */
     void doConfig(const std::string& config);
+
+    /** Send a bid response to the router in answer to a received auction.
+     * \param id  string rep.  of an auction id given in the auction callback.
+     * \param bids string rep. of a Bids struct converted to json.
+     * \param meta string rep. of a json blob that will be returned as is in the bid result.
+     * \param wcm string rep of a Win cost model to be used.
+     */
+    void doBid(const std::string& id,
+               const std::string& bids,
+               const std::string& meta = "",
+               const std::string& wmc  = "");
 
     /**
      *   the following callback if set,  will be used
@@ -136,9 +134,9 @@ public:
     >                                         error_cb_;
 
 private:
+    const std::string&    name_;
     class impl;
     std::unique_ptr<impl> pimpl_;
-    const std::string&    name_;
     // unwanted.
     Bidder(const Bidder&);
     Bidder& operator=(const Bidder&);
