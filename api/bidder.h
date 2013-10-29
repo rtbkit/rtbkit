@@ -72,6 +72,8 @@ public:
 
     void init();
 
+    void start(bool sync=false );
+
     void shutdown();
 
     /** Notify the AgentConfigurationService that the configuration of the
