@@ -760,7 +760,7 @@ getCreativeCompatibility(const Creative & creative,
         });
     }
 
-    if (result.isCompatible()) {
+    if (result.isCompatible) {
         // Cache the information
         result.info = crinfo;
     }
