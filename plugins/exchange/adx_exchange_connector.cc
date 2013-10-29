@@ -690,6 +690,11 @@ getCreativeCompatibility(const Creative & creative,
 
     auto crinfo = std::make_shared<CreativeInfo>();
 
+    if (!creative.providerConfig.isMember("adx")) {
+        result.setIncompatible();
+        return result;
+    }
+
     const Json::Value & pconf = creative.providerConfig["adx"];
 
     // 1.  Must have adx.externalId containing creative attributes.
@@ -755,8 +760,10 @@ getCreativeCompatibility(const Creative & creative,
         });
     }
 
-    // Cache the information
-    result.info = crinfo;
+    if (result.isCompatible()) {
+        // Cache the information
+        result.info = crinfo;
+    }
 
     return result;
 }
