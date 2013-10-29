@@ -65,8 +65,8 @@ public:
      *    Create a bidder.
      *    \param name name give to the bidder.
      */
-     Bidder(const std::string& service_proxy_json,
-    		const std::string& name);
+     Bidder(const std::string& name,
+    		const std::string& service_proxy_config = "");
 
     virtual ~Bidder();
 
@@ -134,7 +134,7 @@ public:
     >                                         error_cb_;
 
 private:
-    const std::string&    name_;
+    const std::string    name_;
     class impl;
     std::unique_ptr<impl> pimpl_;
     // unwanted.

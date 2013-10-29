@@ -22,12 +22,14 @@ struct Bidder::impl
     unique_ptr<BiddingAgent>   bidding_agent_;
 };
 
-Bidder::Bidder(const string& svc_prx_config, const string& name)
-    : name_ (name)
-    , pimpl_(new impl())
+Bidder::Bidder(const string& name,
+		       const string& svc_prx_config)
+    : name_  (name)
+    , pimpl_ (new impl())
 {
     pimpl_->prx_.reset (new ServiceProxies);
-    pimpl_->prx_->bootstrap (Json::Value(svc_prx_config));
+    if (svc_prx_config.length())
+         pimpl_->prx_->bootstrap (Json::parse(svc_prx_config));
     pimpl_->bidding_agent_.reset (new BiddingAgent(pimpl_->prx_, name));
 
     if (bid_request_cb_)
