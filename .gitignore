@@ -23,5 +23,3 @@ bootstrap.json
 perf.data
 dox/html
 *.swp
-*.pb.cc
-*.pb.h
