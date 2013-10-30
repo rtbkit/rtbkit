@@ -88,10 +88,10 @@ message BidRequest {
   // anonymous.
   optional string anonymous_id = 19;
 
-  // The two-letter code for the language of the page.  The documentation for
-  // the codes is at
+  // The two or 5 letter code for the languages of the page or the user.  The
+  // documentation for the codes is at
   // https://developers.google.com/adwords/api/docs/appendix/languagecodes
-  optional string detected_language = 12;
+  repeated string detected_language = 12;
 
   // One or more detected verticals for the page as determined by Google.
   //
@@ -360,6 +360,12 @@ message BidRequest {
     // to classify ads into the listed categories.
     repeated int32 excluded_sensitive_category = 7 [packed=true];
 
+    // The allowed restricted ad categories.  See the
+    // ad-restricted-categories.txt file in the technical documentation for a
+    // list of ids.  If you are bidding with ads in any of the listed categories
+    // you MUST declare them in the bid response.
+    repeated int32 allowed_restricted_category = 16 [packed=true];
+
     // The disallowed ad product categories.  See the ad-product-categories.txt
     // file in the technical documentation for a list of ids.  You should
     // enforce these exclusions if you have the ability to classify ads into the
@@ -463,19 +469,10 @@ message BidRequest {
   // possible without executing any bidding logic.
   optional bool is_ping = 17 [default=false];
 
-  // If true, then this request is using an experimental deadline greater than
-  // the normal 100ms.  We will sometimes send a small number of requests with
-  // experimental_deadline=true to evaluate the effect of different deadlines on
-  // spend.  Requests with experimental_deadline=true are for real impressions
-  // and you should bid on them normally.  However, if you use internal timeouts
-  // to abort processing when it is taking too long as a way of keeping your
-  // error rate low, then you can disable these internal timeouts for requests
-  // with experimental_deadline=true.  The effect on your error rate will be
-  // limited since we will only set this on a small percentage of requests.
-  // Paying attention to experimental_deadline is optional, but you may choose
-  // to do so if you would benefit from higher deadlines and therefore wish to
-  // help us accurately measure the effect of raising them.
-  optional bool experimental_deadline = 35 [default=false];
+  // If true, then the selective callout model predicted that you will not bid
+  // on this request.  We send a sampled percentage of such requests so that we
+  // can automatically update the model when bidding patterns change.
+  optional bool is_predicted_to_be_ignored = 45 [default=false];
 
   // These are deprecated.  Please ignore.
   optional int32 DEPRECATED_protocol_version = 1;
@@ -494,6 +491,7 @@ message BidRequest {
     optional string DEPRECATED_google_user_id = 2;
   }
   repeated MatchingNetwork DEPRECATED_matching_network = 27;
+  optional bool DEPRECATED_experimental_deadline = 35 [default=false];
 }
 
 // This is the message that you return in response to a BidRequest.  You may
@@ -610,6 +608,13 @@ message BidResponse {
     // of ids.  We will check to ensure none of these categories were in the
     // excluded_sensitive_category list in the BidRequest.
     repeated int32 category = 7;
+
+    // All restricted categories for the ads that may be shown from this
+    // snippet.  See ad-restricted-categories.txt in the technical documentation
+    // for a list of ids.  We will check to ensure these categories were listed
+    // in the allowed_restricted_category list in the BidRequest.  If you are
+    // bidding with ads in restricted categories you MUST declare them here.
+    repeated int32 restricted_category = 17;
 
     // All names of the ad's advertisers.
     repeated string advertiser_name = 11;
