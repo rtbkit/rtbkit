@@ -1,7 +1,6 @@
-%module "RTBKIT.api"
-%import "std_vector.i"
-%import "std_string.i"
-#include "bidder.h"
-namespace std {
-   %template(vectors) vector<string>;
-};
+%module "api"
+%{ 
+    #define SWIG_FILE_WITH_INIT
+    #include "api/bidder.h"
+%}
+%include "bidder.h"
