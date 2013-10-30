@@ -100,10 +100,12 @@ public:
 
     using Classifier_Impl::predict;
 
-    virtual float predict(int label, const Feature_Set & features) const;
+    virtual float predict(int label, const Feature_Set & features,
+                          PredictionContext * context = 0) const;
 
     virtual distribution<float>
-    predict(const Feature_Set & features) const;
+    predict(const Feature_Set & features,
+            PredictionContext * context = 0) const;
 
     virtual std::string print() const;
 

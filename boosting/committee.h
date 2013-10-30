@@ -55,10 +55,13 @@ public:
     using Classifier_Impl::predict;
 
     /** Predict the score for a single class. */
-    virtual float predict(int label, const Feature_Set & features) const;
+    virtual float predict(int label, const Feature_Set & features,
+                          PredictionContext * context = 0) const;
 
     /** Predict all classes. */
-    virtual distribution<float> predict(const Feature_Set & features) const;
+    virtual distribution<float>
+    predict(const Feature_Set & features,
+            PredictionContext * context = 0) const;
 
 
     /** Is optimization supported by the classifier? */
@@ -83,21 +86,25 @@ public:
     */
     virtual Label_Dist
     optimized_predict_impl(const float * features,
-                           const Optimization_Info & info) const;
+                           const Optimization_Info & info,
+                           PredictionContext * context = 0) const;
     
     virtual void
     optimized_predict_impl(const float * features,
                            const Optimization_Info & info,
                            double * accum,
-                           double weight) const;
+                           double weight,
+                           PredictionContext * context = 0) const;
     virtual float
     optimized_predict_impl(int label,
                            const float * features,
-                           const Optimization_Info & info) const;
+                           const Optimization_Info & info,
+                           PredictionContext * context = 0) const;
 
     virtual Explanation explain(const Feature_Set & feature_set,
                                 int label,
-                                double weight = 1.0) const;
+                                double weight = 1.0,
+                                PredictionContext * context = 0) const;
 
     virtual std::string print() const;
 

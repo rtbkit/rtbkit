@@ -144,7 +144,8 @@ decode(const Feature_Set & feature_set) const
 }
 
 Label_Dist
-GLZ_Classifier::predict(const Feature_Set & features) const
+GLZ_Classifier::predict(const Feature_Set & features,
+                        PredictionContext * context) const
 {
     distribution<float> features_c = extract(features);
     Label_Dist result = predict(features_c);
@@ -152,7 +153,8 @@ GLZ_Classifier::predict(const Feature_Set & features) const
 }
 
 Label_Dist
-GLZ_Classifier::predict(const distribution<float> & features_c) const
+GLZ_Classifier::predict(const distribution<float> & features_c,
+                        PredictionContext * context) const
 {
     if (features_c.size() != features.size())
         throw Exception("wrong number of features");
@@ -194,7 +196,8 @@ optimize_impl(Optimization_Info & info)
 Label_Dist
 GLZ_Classifier::
 optimized_predict_impl(const float * features_c,
-                       const Optimization_Info & info) const
+                       const Optimization_Info & info,
+                       PredictionContext * context) const
 {
     return do_predict_impl(features_c, &feature_indexes[0]);
 }
@@ -204,7 +207,8 @@ GLZ_Classifier::
 optimized_predict_impl(const float * features_c,
                        const Optimization_Info & info,
                        double * accum_out,
-                       double weight) const
+                       double weight,
+                       PredictionContext * context) const
 {
     do_predict_impl(features_c, &feature_indexes[0], accum_out, weight);
 }
@@ -213,7 +217,8 @@ float
 GLZ_Classifier::
 optimized_predict_impl(int label,
                        const float * features_c,
-                       const Optimization_Info & info) const
+                       const Optimization_Info & info,
+                       PredictionContext * context) const
 {
     return do_predict_impl(label, features_c, &feature_indexes[0]);
 }
@@ -331,7 +336,8 @@ Explanation
 GLZ_Classifier::
 explain(const Feature_Set & feature_set,
         int label,
-        double weight) const
+        double weight,
+        PredictionContext * context) const
 {
     Explanation result(feature_space(), weight);
 

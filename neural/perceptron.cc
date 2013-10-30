@@ -105,14 +105,16 @@ operator = (const Perceptron & other)
 
 float
 Perceptron::
-predict(int label, const Feature_Set & features) const
+predict(int label, const Feature_Set & features,
+        PredictionContext * context) const
 {
     return predict(features).at(label);
 }
 
 distribution<float>
 Perceptron::
-predict(const Feature_Set & fs) const
+predict(const Feature_Set & fs,
+        PredictionContext * context) const
 {
     PROFILE_FUNCTION(t_predict);
 

@@ -173,7 +173,8 @@ public:
     Output_Encoding encoding;          ///< What type of predictions?
 
     /** Predict the score for all classes. */
-    Label_Dist predict(const Feature_Set & features) const;
+    Label_Dist predict(const Feature_Set & features,
+                       PredictionContext * context = 0) const;
 
     using Classifier_Impl::predict;
 
@@ -189,7 +190,8 @@ public:
     float predict(int label, FeatureExPtrPtr first, FeatureExPtrPtr last) const;
 
     /** Predict the score for a single class. */
-    virtual float predict(int label, const Feature_Set & features) const;
+    virtual float predict(int label, const Feature_Set & features,
+                          PredictionContext * context = 0) const;
 
     virtual Output_Encoding output_encoding() const;
 

@@ -146,7 +146,8 @@ struct Results_Single {
 
 distribution<float>
 Boosted_Stumps::
-predict(const Feature_Set & features) const
+predict(const Feature_Set & features,
+        PredictionContext * context) const
 {
     PROFILE_FUNCTION(t_predict);
     distribution<float> result(label_count());
@@ -224,7 +225,8 @@ predict(const Feature_Set & features) const
 
 float
 Boosted_Stumps::
-predict(int label, const Feature_Set & features) const
+predict(int label, const Feature_Set & features,
+        PredictionContext * context) const
 {
     PROFILE_FUNCTION(t_predict);
     if (label < 0 || label >= label_count())

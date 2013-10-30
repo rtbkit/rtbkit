@@ -144,6 +144,20 @@ struct Explanation {
 
 
 /*****************************************************************************/
+/* PREDICTION CONTEXT                                                        */
+/*****************************************************************************/
+
+/** This structure provides context for a prediction.  It's designed to
+    provide extra information that a classifier may need that doesn't neatly
+    fit within its arguments.
+*/
+
+struct PredictionContext {
+    std::map<std::string, boost::any> entries;
+};
+
+
+/*****************************************************************************/
 /* CLASSIFIER_IMPL                                                           */
 /*****************************************************************************/
 
@@ -265,7 +279,8 @@ public:
         quicker (more efficient) to calculate a score for one feature only
         rather than all at once.
      */
-    virtual float predict(int label, const Feature_Set & features) const;
+    virtual float predict(int label, const Feature_Set & features,
+                          PredictionContext * context = 0) const;
 
     /** Predict the highest class.  This method returns the label which has
         the highest class.  Ties may be handled in any way.  Normally, it
@@ -282,7 +297,8 @@ public:
         Throws an exception if label_count() == 0, or if there was a problem
         performing the classification.
     */
-    virtual int predict_highest(const Feature_Set & features) const;
+    virtual int predict_highest(const Feature_Set & features,
+                                PredictionContext * context = 0) const;
 
     /** Predict the score for all labels.  This method needs to be overridden
         at the very minimum.
@@ -296,7 +312,8 @@ public:
         an exception.
      */
     virtual Label_Dist
-    predict(const Feature_Set & features) const = 0;
+    predict(const Feature_Set & features,
+            PredictionContext * context = 0) const = 0;
 
     /** Optimize the classifier to be called optimally with the given list of
         features.  The Optimization_Info structure can then be passed to the
@@ -320,22 +337,28 @@ public:
         predict_is_optimized() and if true, will call the optimized methods.
         Otherwise, they fall back to the non-optimized versions. */
     virtual Label_Dist predict(const Feature_Set & features,
-                               const Optimization_Info & info) const;
+                               const Optimization_Info & info,
+                               PredictionContext * context = 0) const;
     virtual Label_Dist predict(const std::vector<float> & features,
-                               const Optimization_Info & info) const;
+                               const Optimization_Info & info,
+                               PredictionContext * context = 0) const;
     virtual Label_Dist predict(const float * features,
-                               const Optimization_Info & info) const;
+                               const Optimization_Info & info,
+                               PredictionContext * context = 0) const;
     
     virtual float predict(int label,
                           const Feature_Set & features,
-                          const Optimization_Info & info) const;
+                          const Optimization_Info & info,
+                          PredictionContext * context = 0) const;
     virtual float predict(int label,
                           const std::vector<float> & features,
-                          const Optimization_Info & info) const;
+                          const Optimization_Info & info,
+                          PredictionContext * context = 0) const;
     virtual float predict(int label,
                           const float * features,
-                          const Optimization_Info & info) const;
-    
+                          const Optimization_Info & info,
+                          PredictionContext * context = 0) const;
+
     //protected:
 
     /** Function to override to perform the optimization.  Default will
@@ -352,18 +375,21 @@ public:
     */
     virtual Label_Dist
     optimized_predict_impl(const float * features,
-                           const Optimization_Info & info) const;
+                           const Optimization_Info & info,
+                           PredictionContext * context = 0) const;
     
     virtual void
     optimized_predict_impl(const float * features,
                            const Optimization_Info & info,
                            double * accum,
-                           double weight = 1.0) const;
+                           double weight = 1.0,
+                           PredictionContext * context = 0) const;
     
     virtual float
     optimized_predict_impl(int label,
                            const float * features,
-                           const Optimization_Info & info) const;
+                           const Optimization_Info & info,
+                           PredictionContext * context = 0) const;
     
 public:
     /** Run the classifier over the entire dataset, calling the predict
@@ -396,7 +422,16 @@ public:
     */
     virtual Explanation explain(const Feature_Set & feature_set,
                                 int label,
-                                double weight = 1.0) const;
+                                double weight = 1.0,
+                                PredictionContext * context = 0) const;
+
+    virtual Explanation explainContext(const Feature_Set & feature_set,
+                                       int label,
+                                       const PredictionContext & context,
+                                       double weight = 1.0) const
+    {
+        return explain(feature_set, label, weight);
+    }
 
     /** \name Accuracy
         These methods are all ways of returning the accuracy of the classifier
@@ -657,22 +692,25 @@ public:
     }
     
     /** Predict the score for a single class. */
-    float predict(int label, const Feature_Set & features) const
+    float predict(int label, const Feature_Set & features,
+                  PredictionContext * context = 0) const
     {
-        return impl->predict(label, features);
+        return impl->predict(label, features, context);
     }
 
     /** Predict the highest class. */
-    int predict_highest(const Feature_Set & features) const
+    int predict_highest(const Feature_Set & features,
+                        PredictionContext * context = 0) const
     {
-        return impl->predict_highest(features);
+        return impl->predict_highest(features, context);
     }
 
     /** Predict the score for all classes. */
     Label_Dist
-    predict(const Feature_Set & features) const
+    predict(const Feature_Set & features,
+            PredictionContext * context = 0) const
     {
-        return impl->predict(features);
+        return impl->predict(features, context);
     }
 
     /** Calculate the prediction accuracy over a training set. */

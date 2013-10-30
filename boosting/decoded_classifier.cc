@@ -41,7 +41,8 @@ Decoded_Classifier::~Decoded_Classifier()
 }
 
 distribution<float>
-Decoded_Classifier::predict(const Feature_Set & features) const
+Decoded_Classifier::predict(const Feature_Set & features,
+                            PredictionContext * context) const
 {
     distribution<float> result = classifier_.predict(features);
     //cerr << "Decoded_Classifier: nondecoded = " << result << endl;
@@ -52,7 +53,8 @@ Decoded_Classifier::predict(const Feature_Set & features) const
 
 float
 Decoded_Classifier::
-predict(int label, const Feature_Set & features) const
+predict(int label, const Feature_Set & features,
+        PredictionContext * context) const
 {
     /* We require predictions for all labels as some decoders work with
        all of them and won't work with just one. */
@@ -83,7 +85,8 @@ optimize_impl(Optimization_Info & info)
 Label_Dist
 Decoded_Classifier::
 optimized_predict_impl(const float * features,
-                       const Optimization_Info & info) const
+                       const Optimization_Info & info,
+                       PredictionContext * context) const
 {
     Label_Dist result
         = classifier_.impl->optimized_predict_impl(features, info);
@@ -96,7 +99,8 @@ Decoded_Classifier::
 optimized_predict_impl(const float * features,
                        const Optimization_Info & info,
                        double * accum,
-                       double weight) const
+                       double weight,
+                       PredictionContext * context) const
 {
     Label_Dist result = optimized_predict_impl(features, info);
     for (unsigned i = 0;  i < result.size();  ++i)
@@ -107,7 +111,8 @@ float
 Decoded_Classifier::
 optimized_predict_impl(int label,
                        const float * features,
-                       const Optimization_Info & info) const
+                       const Optimization_Info & info,
+                       PredictionContext * context) const
 {
     return optimized_predict_impl(features, info)[label];
 }
@@ -121,7 +126,8 @@ Explanation
 Decoded_Classifier::
 explain(const Feature_Set & feature_set,
         int label,
-        double weight) const
+        double weight,
+        PredictionContext * context) const
 {
     return classifier_.impl->explain(feature_set, label, weight);
 }

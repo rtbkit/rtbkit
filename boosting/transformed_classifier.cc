@@ -43,11 +43,12 @@ Transformed_Classifier::~Transformed_Classifier()
 }
 
 distribution<float>
-Transformed_Classifier::predict(const Feature_Set & features) const
+Transformed_Classifier::predict(const Feature_Set & features,
+                                PredictionContext * context) const
 {
     std::shared_ptr<Feature_Set> tr_features
         = transformer_.transform(features);
-    distribution<float> result = classifier_.predict(*tr_features);
+    distribution<float> result = classifier_.predict(*tr_features, context);
     return result;
 }
 

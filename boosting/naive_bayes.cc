@@ -57,7 +57,8 @@ namespace {
 
 distribution<float>
 Naive_Bayes::
-predict(const Feature_Set & feature_set) const
+predict(const Feature_Set & feature_set,
+        PredictionContext * context) const
 {
     /* How we do the prediction depends upon the relative size of our rules
        array versus the feature set.  If the feature set is much bigger, then
@@ -290,7 +291,8 @@ predict(const Feature_Set & feature_set) const
 }
 
 float Naive_Bayes::
-predict(int label, const Feature_Set & features) const
+predict(int label, const Feature_Set & features,
+        PredictionContext * context) const
 {
     return predict(features)[label];
 }

@@ -164,7 +164,8 @@ struct LabelResults {
 
 float
 Decision_Tree::
-predict(int label, const Feature_Set & features) const
+predict(int label, const Feature_Set & features,
+        PredictionContext * context) const
 {
     StandardGetFeatures get_features(features);
     LabelResults results(label);
@@ -175,7 +176,8 @@ predict(int label, const Feature_Set & features) const
 
 Label_Dist
 Decision_Tree::
-predict(const Feature_Set & features) const
+predict(const Feature_Set & features,
+        PredictionContext * context) const
 {
     StandardGetFeatures get_features(features);
     int nl = label_count();
@@ -228,7 +230,8 @@ optimize_recursive(Optimization_Info & info,
 Label_Dist
 Decision_Tree::
 optimized_predict_impl(const float * features,
-                       const Optimization_Info & info) const
+                       const Optimization_Info & info,
+                       PredictionContext * context) const
 {
     OptimizedGetFeatures get_features(features);
 
@@ -245,7 +248,8 @@ Decision_Tree::
 optimized_predict_impl(const float * features,
                        const Optimization_Info & info,
                        double * accum,
-                       double weight) const
+                       double weight,
+                       PredictionContext * context) const
 {
     OptimizedGetFeatures get_features(features);
     AccumResults results(accum, label_count(), weight);
@@ -257,7 +261,8 @@ float
 Decision_Tree::
 optimized_predict_impl(int label,
                        const float * features,
-                       const Optimization_Info & info) const
+                       const Optimization_Info & info,
+                       PredictionContext * context) const
 {
     OptimizedGetFeatures get_features(features);
     LabelResults results(label);
@@ -415,7 +420,8 @@ Explanation
 Decision_Tree::
 explain(const Feature_Set & feature_set,
         int label,
-        double weight) const
+        double weight,
+        PredictionContext * context) const
 {
     Explanation result(feature_space(), weight); 
 

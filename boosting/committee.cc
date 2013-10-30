@@ -51,7 +51,8 @@ Committee(const std::shared_ptr<const Feature_Space>
 
 float
 Committee::
-predict(int label, const Feature_Set & features) const
+predict(int label, const Feature_Set & features,
+        PredictionContext * context) const
 {
     if (label >= bias.size())
         throw Exception("Committee::predict(): invalid label");
@@ -60,7 +61,7 @@ predict(int label, const Feature_Set & features) const
 
     for (unsigned i = 0;  i < classifiers.size();  ++i) {
         if (weights[i] == 0.0) continue;
-        result += weights[i] * classifiers[i]->predict(label, features);
+        result += weights[i] * classifiers[i]->predict(label, features, context);
     }
 
     return result;
@@ -68,14 +69,15 @@ predict(int label, const Feature_Set & features) const
 
 Label_Dist
 Committee::
-predict(const Feature_Set & features) const
+predict(const Feature_Set & features,
+        PredictionContext * context) const
 {
     Label_Dist result = bias;
 
     for (unsigned i = 0;  i < classifiers.size();  ++i) {
         if (weights[i] == 0.0) continue;
 
-        Label_Dist sub_result = classifiers[i]->predict(features);
+        Label_Dist sub_result = classifiers[i]->predict(features, context);
 
         result += weights[i] * sub_result;
     }
@@ -114,7 +116,8 @@ optimize_impl(Optimization_Info & info)
 Label_Dist
 Committee::
 optimized_predict_impl(const float * features,
-                       const Optimization_Info & info) const
+                       const Optimization_Info & info,
+                       PredictionContext * context) const
 {
     int nl = bias.size();
 
@@ -125,7 +128,7 @@ optimized_predict_impl(const float * features,
         if (weights[i] == 0.0) continue;
 
         classifiers[i]
-            ->optimized_predict_impl(features, info, accum, weights[i]);
+            ->optimized_predict_impl(features, info, accum, weights[i], context);
     }
 
     return Label_Dist(accum, accum + nl);
@@ -136,7 +139,8 @@ Committee::
 optimized_predict_impl(const float * features,
                        const Optimization_Info & info,
                        double * accum,
-                       double weight) const
+                       double weight,
+                       PredictionContext * context) const
 {
     int nl = bias.size();
 
@@ -147,7 +151,7 @@ optimized_predict_impl(const float * features,
         if (weights[i] == 0.0) continue;
         classifiers[i]
             ->optimized_predict_impl(features, info, accum,
-                                     weight * weights[i]);
+                                     weight * weights[i], context);
     }
 }
 
@@ -155,7 +159,8 @@ float
 Committee::
 optimized_predict_impl(int label,
                        const float * features,
-                       const Optimization_Info & info) const
+                       const Optimization_Info & info,
+                       PredictionContext * context) const
 {
     if (label >= bias.size())
         throw Exception("Committee::predict(): invalid label");
@@ -166,7 +171,8 @@ optimized_predict_impl(int label,
         if (weights[i] == 0.0) continue;
         result = result
             + weights[i]
-            * classifiers[i]->optimized_predict_impl(label, features, info);
+            * classifiers[i]->optimized_predict_impl(label, features, info,
+                                                     context);
     }
 
     return result;
@@ -176,13 +182,14 @@ Explanation
 Committee::
 explain(const Feature_Set & feature_set,
         int label,
-        double weight) const
+        double weight,
+        PredictionContext * context) const
 {
     Explanation result(feature_space(), weight);
 
     for (unsigned i = 0;  i < classifiers.size();  ++i) {
         if (weights[i] == 0.0) continue;
-        result.add(classifiers[i]->explain(feature_set, label),
+        result.add(classifiers[i]->explain(feature_set, label, 1.0, context),
                    weight * weights[i]);
     }
 

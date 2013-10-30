@@ -237,19 +237,21 @@ Stump * Stump::make_copy() const
 
 
 Label_Dist
-Stump::predict(const Feature_Set & features) const
+Stump::predict(const Feature_Set & features,
+               PredictionContext * context) const
 {
     Split::Weights weights = split.apply(features);
     return action.apply(weights);
 }
 
 float
-Stump::predict(int label, const Feature_Set & features) const
+Stump::predict(int label, const Feature_Set & features,
+               PredictionContext * context) const
 {
     // TODO: could be optimised.  However, the boosted stumps don't call this,
     // so it is a bit of a moot point.  (We are unlikely to use it without
     // boosting!)
-    return predict(features).at(label);
+    return predict(features, context).at(label);
 }
 
 std::string Stump::print() const

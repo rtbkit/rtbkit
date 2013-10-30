@@ -125,10 +125,13 @@ public:
     using Classifier_Impl::predict;
 
     /** Predict the score for a single class. */
-    virtual float predict(int label, const Feature_Set & features) const;
+    virtual float predict(int label, const Feature_Set & features,
+                          PredictionContext * context = 0) const;
 
     /** Predict the score for all classes. */
-    virtual distribution<float> predict(const Feature_Set & features) const;
+    virtual distribution<float>
+    predict(const Feature_Set & features,
+            PredictionContext * context = 0) const;
 
     /** This is the core of the predict algorithm.  It is parameterised by how
         it updates its results, which allows us to reuse the same code for both

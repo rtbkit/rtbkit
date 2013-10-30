@@ -89,10 +89,13 @@ public:
     using Classifier_Impl::predict;
 
     /** Predict the score for a single class. */
-    virtual float predict(int label, const Feature_Set & features) const;
+    virtual float predict(int label, const Feature_Set & features,
+                          PredictionContext * context = 0) const;
     
     /** Predict the score for all classes. */
-    virtual distribution<float> predict(const Feature_Set & features) const;
+    virtual distribution<float>
+    predict(const Feature_Set & features,
+            PredictionContext * context = 0) const;
 
     /** Apply the first layer to a dataset to decorrelate it. */
     boost::multi_array<float, 2> decorrelate(const Training_Data & data) const;

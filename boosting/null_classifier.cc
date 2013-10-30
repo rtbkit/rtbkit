@@ -47,7 +47,8 @@ Null_Classifier::~Null_Classifier()
 }
 
 distribution<float>
-Null_Classifier::predict(const Feature_Set & features) const
+Null_Classifier::predict(const Feature_Set & features,
+                         PredictionContext * context) const
 {
     distribution<float> result(label_count(), 0.0);
     if (!result.empty()) result[0] = 1.0;

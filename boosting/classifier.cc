@@ -323,18 +323,24 @@ Classifier_Impl::~Classifier_Impl()
 {
 }
 
-float Classifier_Impl::predict(int label, const Feature_Set & features) const
+float
+Classifier_Impl::
+predict(int label, const Feature_Set & features,
+        PredictionContext * context) const
 {
     if (label < 0 || label >= label_count())
         throw Exception(format("Attempt to predict non-existent label: "
                                "label = %d, label_count = %zd", label,
                                label_count()));
-    return predict(features)[label];
+    return predict(features, context)[label];
 }
 
-int Classifier_Impl::predict_highest(const Feature_Set & features) const
+int
+Classifier_Impl::
+predict_highest(const Feature_Set & features,
+                PredictionContext * context) const
 {
-    distribution<float> prediction = predict(features);
+    distribution<float> prediction = predict(features, context);
     return std::max_element(prediction.begin(), prediction.end())
         - prediction.begin();
 }
@@ -440,43 +446,47 @@ predict_is_optimized() const
 Label_Dist
 Classifier_Impl::
 predict(const Feature_Set & features,
-        const Optimization_Info & info) const
+        const Optimization_Info & info,
+        PredictionContext * context) const
 {
-    if (!predict_is_optimized() || !info) return predict(features);
+    if (!predict_is_optimized() || !info) return predict(features, context);
 
     float fv[info.features_out()];
     info.apply(features, fv);
 
-    return optimized_predict_impl(fv, info);
+    return optimized_predict_impl(fv, info, context);
 }
 
 Label_Dist
 Classifier_Impl::
 predict(const std::vector<float> & features,
-        const Optimization_Info & info) const
+        const Optimization_Info & info,
+        PredictionContext * context) const
 {
     float fv[info.features_out()];
     info.apply(features, fv);
 
-    return optimized_predict_impl(fv, info);
+    return optimized_predict_impl(fv, info, context);
 }
 
 Label_Dist
 Classifier_Impl::
 predict(const float * features,
-        const Optimization_Info & info) const
+        const Optimization_Info & info,
+        PredictionContext * context) const
 {
     float fv[info.features_out()];
     info.apply(features, fv);
 
-    return optimized_predict_impl(fv, info);
+    return optimized_predict_impl(fv, info, context);
 }
 
 float
 Classifier_Impl::
 predict(int label,
         const Feature_Set & features,
-        const Optimization_Info & info) const
+        const Optimization_Info & info,
+        PredictionContext * context) const
 {
     if (!predict_is_optimized() || !info) return predict(label, features);
 
@@ -484,14 +494,15 @@ predict(int label,
 
     info.apply(features, fv);
 
-    return optimized_predict_impl(label, fv, info);
+    return optimized_predict_impl(label, fv, info, context);
 }
 
 float
 Classifier_Impl::
 predict(int label,
         const std::vector<float> & features,
-        const Optimization_Info & info) const
+        const Optimization_Info & info,
+        PredictionContext * context) const
 {
     if (!predict_is_optimized() || !info) {
 
@@ -506,14 +517,15 @@ predict(int label,
 
     info.apply(features, fv);
 
-    return optimized_predict_impl(label, fv, info);
+    return optimized_predict_impl(label, fv, info, context);
 }
 
 float
 Classifier_Impl::
 predict(int label,
         const float * features,
-        const Optimization_Info & info) const
+        const Optimization_Info & info,
+        PredictionContext * context) const
 {
     if (!predict_is_optimized() || !info) {
 
@@ -521,7 +533,7 @@ predict(int label,
         Dense_Feature_Set fset(make_unowned_sp(info.to_features),
                                features);
 
-        return predict(label, fset);
+        return predict(label, fset, context);
     }
 
     float fv[info.features_out()];
@@ -541,7 +553,8 @@ optimize_impl(Optimization_Info & info)
 Label_Dist
 Classifier_Impl::
 optimized_predict_impl(const float * features,
-                       const Optimization_Info & info) const
+                       const Optimization_Info & info,
+                       PredictionContext * context) const
 {
     // If the classifier implemented optimized predict, then this would have
     // been overridden.
@@ -550,7 +563,7 @@ optimized_predict_impl(const float * features,
     Dense_Feature_Set fset(make_unowned_sp(info.to_features),
                            features);
     
-    return predict(fset);
+    return predict(fset, context);
 }
 
 void
@@ -558,9 +571,10 @@ Classifier_Impl::
 optimized_predict_impl(const float * features,
                        const Optimization_Info & info,
                        double * accum,
-                       double weight) const
+                       double weight,
+                       PredictionContext * context) const
 {
-    Label_Dist result = optimized_predict_impl(features, info);
+    Label_Dist result = optimized_predict_impl(features, info, context);
     for (unsigned i = 0;  i < result.size();  ++i) {
         accum[i] += weight * result[i];
     }
@@ -570,7 +584,8 @@ float
 Classifier_Impl::
 optimized_predict_impl(int label,
                        const float * features,
-                       const Optimization_Info & info) const
+                       const Optimization_Info & info,
+                       PredictionContext * context) const
 {
     // If the classifier implemented optimized predict, then this would have
     // been overridden.
@@ -579,7 +594,7 @@ optimized_predict_impl(int label,
     Dense_Feature_Set fset(make_unowned_sp(info.to_features),
                            features);
 
-    return predict(label, fset);
+    return predict(label, fset, context);
 }
 
 namespace {
@@ -836,7 +851,8 @@ Explanation
 Classifier_Impl::
 explain(const Feature_Set & feature_set,
         int label,
-        double weight) const
+        double weight,
+        PredictionContext * context) const
 {
     throw Exception("class " + demangle(typeid(*this).name())
                     + " doesn't implement the explain() method");

@@ -37,7 +37,8 @@ public:
     using Classifier_Impl::predict;
 
     virtual distribution<float>
-    predict(const Feature_Set & features) const;
+    predict(const Feature_Set & features,
+            PredictionContext * context = 0) const;
     
     virtual std::string print() const;
     
