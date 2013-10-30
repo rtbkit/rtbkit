@@ -1,4 +1,4 @@
-%module "api"
+%module "rtbkit_api"
 %{ 
     #define SWIG_FILE_WITH_INIT
     #include "api/bidder.h"
