@@ -15,24 +15,24 @@ def pca(X, no_dims = 50):
     import numpy as Math
 
     print "Preprocessing the data using PCA..."
-    (n, d) = X.shape;
-    X = X - Math.tile(Math.mean(X, 0), (n, 1));
-    X = Math.asarray(X, "float32");
-    (l, M) = Math.linalg.eig(Math.dot(X.T, X));
+    (n, d) = X.shape
+    X = X - Math.tile(Math.mean(X, 0), (n, 1))
+    X = Math.asarray(X, "float32")
+    (l, M) = Math.linalg.eig(Math.dot(X.T, X))
     M = Math.asarray(M, "float32")
-    Y = Math.dot(X, M[:,0:no_dims]);
+    Y = Math.dot(X, M[:,0:no_dims])
     
     print "Y", Y.dtype
 
-    return Y;
+    return Y
 
 
 def tsne(X, num_dims = 2, initial_dims = 50, perplexity = 30.0, use_pca=True,
          **kwargs):
     
     if use_pca:
-        X = pca(X, initial_dims);
-    (n, d) = X.shape;
+        X = pca(X, initial_dims)
+    (n, d) = X.shape
 
     D = vectors_to_distances(X)
 
