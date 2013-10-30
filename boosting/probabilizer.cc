@@ -21,6 +21,8 @@
 #include <fstream>
 #include "config_impl.h"
 #include "jml/utils/exc_assert.h"
+#include "jml/arch/backtrace.h"
+#include "jml/arch/simd_vector.h"
 
 
 using namespace std;
@@ -52,6 +54,12 @@ GLZ_Probabilizer::~GLZ_Probabilizer()
 distribution<float>
 GLZ_Probabilizer::apply(const distribution<float> & input) const
 {
+    //static std::mutex lock;
+    //std::unique_lock<std::mutex> guard(lock);
+    //cerr << endl << endl;
+    //backtrace();
+    //cerr << "applying: params = " << params << " input = " << input << endl;
+
     if (params.size() == 0)
         throw Exception("applying untrained glz probabilizer");
     if (params.size() != input.size()) {
@@ -73,7 +81,7 @@ GLZ_Probabilizer::apply(const distribution<float> & input) const
     distribution<float> result(input.size());
     
     for (unsigned i = 0;  i < input.size();  ++i)
-        result[i] = apply_link_inverse((input2 * params[i]).total(), link);
+        result[i] = apply_link_inverse(SIMD::vec_dotprod_dp(&input2[0], &params[i][0], input2.size()), link);
     
     if (debug & 2) cerr << "result = " << result << endl;
 
@@ -960,6 +968,9 @@ void GLZ_Probabilizer::reconstitute(DB::Store_Reader & store)
     //cerr << "link = " << link << endl;
     
     store >> params;
+
+    //cerr << "loaded probabilizer: params = " << params << " link = "
+    //     << link << endl;
 }
 
 GLZ_Probabilizer::GLZ_Probabilizer(DB::Store_Reader & store)
