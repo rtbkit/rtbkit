@@ -1,6 +1,6 @@
-%module "rtbkit_api"
+%module "lwrtb"
 %{ 
     #define SWIG_FILE_WITH_INIT
-    #include "api/bidder.h"
+    #include "lwrtb/bidder.h"
 %}
 %include "bidder.h"

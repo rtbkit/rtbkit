@@ -13,8 +13,7 @@
 #include <vector>
 #include <functional>
 
-namespace RTBKIT {
-namespace api {
+namespace lwrtb {
 
 enum BidStatus
 {
@@ -144,6 +143,5 @@ private:
     Bidder& operator=(const Bidder&);
 };
 
-} /* namespace api */
-} /* namespace RTBKIT */
+} /* namespace lwrtb */
 #endif /* BIDDINGAGENT_H_ */

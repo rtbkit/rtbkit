@@ -3,8 +3,8 @@
 #include <chrono>
 #include <string>
 
-#include "rtbkit/api/api.h"
-#include "rtbkit/common/bids.h"
+#include "lwrtb/lwrtb.h"
+#include "common/bids.h"
 
 using namespace std;
 using namespace RTBKIT;
@@ -14,7 +14,7 @@ auto proxy_config = "{\"installation\":\"rtb-test\",\"location\":\"mtl\",\"zooke
 
 int main()
 {
-    RTBKIT::api::Bidder  bob("BOB", proxy_config);
+    lwrtb::Bidder  bob("BOB", proxy_config);
     bob.bid_request_cb_ = [&] (double               timestamp,
                                const std::string&   id,           // Auction i
                                const std::string&   bidRequest_str,

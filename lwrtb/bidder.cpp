@@ -8,14 +8,15 @@
 #include <string>
 #include <memory>
 
-#include "api/bidder.h"
+#include "lwrtb/bidder.h"
 #include "soa/jsoncpp/value.h"
 #include "plugins/bidding_agent/bidding_agent.h"
 
 using namespace std;
+using namespace RTBKIT;
+using namespace Datacratic;
 
-namespace RTBKIT {
-namespace api {
+namespace lwrtb {
 struct Bidder::impl
 {
     shared_ptr<ServiceProxies> prx_;
@@ -76,17 +77,17 @@ Bidder::init()
     if (bid_result_cb_)
     {
         static auto my_convert = [] (const RTBKIT::BidStatus& s) {
-            if (s== RTBKIT::BidStatus::BS_WIN) return RTBKIT::api::BidStatus::WIN;
-            if (s== RTBKIT::BidStatus::BS_LOSS) return RTBKIT::api::BidStatus::LOSS;
-            if (s== RTBKIT::BidStatus::BS_TOOLATE) return RTBKIT::api::BidStatus::TOOLATE;
-            if (s== RTBKIT::BidStatus::BS_INVALID) return RTBKIT::api::BidStatus::INVALID;
-            if (s== RTBKIT::BidStatus::BS_LOSTBID) return RTBKIT::api::BidStatus::LOSTBID;
-            if (s== RTBKIT::BidStatus::BS_DROPPEDBID) return RTBKIT::api::BidStatus::DROPPEDBID;
-            if (s== RTBKIT::BidStatus::BS_NOBUDGET) return RTBKIT::api::BidStatus::NOBUDGET;
-            return RTBKIT::api::BidStatus::BUG;
+            if (s== RTBKIT::BidStatus::BS_WIN) return lwrtb::BidStatus::WIN;
+            if (s== RTBKIT::BidStatus::BS_LOSS) return lwrtb::BidStatus::LOSS;
+            if (s== RTBKIT::BidStatus::BS_TOOLATE) return lwrtb::BidStatus::TOOLATE;
+            if (s== RTBKIT::BidStatus::BS_INVALID) return lwrtb::BidStatus::INVALID;
+            if (s== RTBKIT::BidStatus::BS_LOSTBID) return lwrtb::BidStatus::LOSTBID;
+            if (s== RTBKIT::BidStatus::BS_DROPPEDBID) return lwrtb::BidStatus::DROPPEDBID;
+            if (s== RTBKIT::BidStatus::BS_NOBUDGET) return lwrtb::BidStatus::NOBUDGET;
+            return lwrtb::BidStatus::BUG;
         };
         pimpl_->bidding_agent_->onWin = [this] (const RTBKIT::BidResult &br) {
-            RTBKIT::api::BidResult res {
+            lwrtb::BidResult res {
                 my_convert(br.result),
                 br.timestamp,
                 br.auctionId.toString(),
@@ -109,7 +110,7 @@ Bidder::init()
     if (delivery_event_cb_)
     {
         pimpl_->bidding_agent_->onImpression = [this] (const RTBKIT::DeliveryEvent& de) {
-            RTBKIT::api::DeliveryEvent ode {
+            lwrtb::DeliveryEvent ode {
                 de.event,
                 de.timestamp.secondsSinceEpoch(),
                 de.auctionId.toString(),
@@ -156,5 +157,4 @@ Bidder::doBid(const string& id,
 }
 
 
-} /* namespace api */
-} /* namespace RTBKIT */
+} /* namespace lwrtb */

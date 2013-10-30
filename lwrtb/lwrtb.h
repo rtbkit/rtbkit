@@ -1,15 +1,15 @@
 /*
- * api.h
+ * lwrtb.h
  *
  *  Created on: Oct 26, 2013
  *      Author: jan
  */
 
-#ifndef API_H_
-#define API_H_
+#ifndef LWRTB_H_
+#define LWRTB_H_
 
-#include "api/bidder.h"
+#include "lwrtb/bidder.h"
 
 
 
-#endif /* API_H_ */
+#endif /* LWRTB_H_ */
