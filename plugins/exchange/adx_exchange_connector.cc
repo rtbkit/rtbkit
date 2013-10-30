@@ -517,8 +517,10 @@ parseBidRequest(HttpAuctionHandler & connection,
     // parse Impression array
     ParseGbrAdSlot(gbr, br);
 
-    if (gbr.has_detected_language())
-        device.language = gbr.detected_language();
+    if (gbr.detected_language_size())
+    {   // TODO when gbr.detected_language_size()>1
+        device.language = gbr.detected_language(0);
+    }
 
     // detected verticals:
     if (gbr.detected_vertical_size() > 0)
