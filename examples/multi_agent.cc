@@ -17,7 +17,7 @@
 #include "rtbkit/core/banker/null_banker.h"
 #include "rtbkit/plugins/bidding_agent/bidding_agent_cluster.h"
 #include "rtbkit/testing/test_agent.h"
-#include "rtbkit/soa/service/message_loop.h"
+#include "soa/service/message_loop.h"
 #include "jml/utils/file_functions.h"
 
 using namespace Datacratic;
