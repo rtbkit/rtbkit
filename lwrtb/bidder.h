@@ -57,6 +57,49 @@ struct DeliveryEvent
     std::vector<std::string>  visits;
 };
 
+// the following 4 to to be used
+// from within Swig exits (python, lua, ..)
+class BidRequestCb  ;
+class DeliveryCb ;
+class BidResultCb   ;
+class ErrorCb       ;
+
+class BidRequestCb
+{
+public:
+	BidRequestCb() {}
+    virtual ~BidRequestCb() {}
+    virtual void call(Bidder& ,
+    		          double, const std::string&, const std::string&, const std::string&,
+    		          double, const std::string& ,const std::string&) {}
+};
+
+class DeliveryCb
+{
+public:
+	DeliveryCb() {}
+    virtual ~DeliveryCb() {}
+    virtual void call(Bidder& , const DeliveryEvent&) {}
+};
+
+class BidResultCb
+{
+public:
+	BidResultCb() {}
+    virtual ~BidResultCb() {}
+    virtual void call(Bidder& , const BidResult&) {}
+};
+
+class ErrorCb
+{
+public:
+	ErrorCb() {}
+    virtual ~ErrorCb() {}
+    virtual void call(Bidder& , double,
+    		          const std::string&,
+    		          const std::vector<std::string>&) {}
+};
+
 class Bidder
 {
 public:
@@ -64,8 +107,8 @@ public:
      *    Create a bidder.
      *    \param name name give to the bidder.
      */
-     Bidder(const std::string& name,
-    		const std::string& service_proxy_config = "");
+    Bidder(const std::string& name,
+           const std::string& service_proxy_config = "");
 
     virtual ~Bidder();
 
@@ -126,18 +169,30 @@ public:
 
     /**
      * whenever  router receives an invalid message from the
-     * agent. This can either be caused by an invalid config, and invalid bid
+     * agent. This can either be caused by an invalid config,
+     * and invalid bid
      */
-    std::function<
-    void(double timestamp,
-         std::string description,
-         std::vector<std::string> originalError)
+    std::function<void(double timestamp,
+         const std::string& description,
+         const std::vector<std::string>& originalError)
     >                                         error_cb_;
 
+    void setBidRequestCb  (BidRequestCb&);
+    void setDeliveryCb    (DeliveryCb&);
+    void setBidResultCb   (BidResultCb&);
+    void setErrorCb       (ErrorCb&);
+
 private:
-    const std::string    name_;
+    const std::string     name_;
     class impl;
     std::unique_ptr<impl> pimpl_;
+
+    // SWIG plumbing
+    BidResultCb*          swig_bres_cb_ ;
+    DeliveryCb*           swig_devr_cb_ ;
+    ErrorCb*              swig_err_cb_  ;
+    BidRequestCb*         swig_breq_cb_ ;
+
     // unwanted.
     Bidder(const Bidder&);
     Bidder& operator=(const Bidder&);

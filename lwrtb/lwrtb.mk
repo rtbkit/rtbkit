@@ -19,7 +19,7 @@ LWRTB_PYTHON_LINK := lwrtb
 
 $(eval $(call library,lwrtb_python,$(LWRTB_PYTHON_SOURCES),$(LWRTB_PYTHON_LINK),_lwrtb))
 
-$(eval $(call python_module,lwrtb,__init__.py,,lwrtb_python))
+$(eval $(call python_module,lwrtb,__init__.py lwrtb.py,,lwrtb_python))
 
 
 endif # python

@@ -22,11 +22,16 @@ struct Bidder::impl
     shared_ptr<ServiceProxies> prx_;
     unique_ptr<BiddingAgent>   bidding_agent_;
 };
+std::unique_ptr<int> pl;
 
 Bidder::Bidder(const string& name,
                const string& svc_prx_config)
-    : name_  (name)
-    , pimpl_ (new impl())
+    : name_         (name)
+    , pimpl_        (new impl()
+    , swig_bres_cb_ (nullptr)
+    , swig_devr_cb_ (nullptr)
+    , swig_err_cb_  (nullptr)
+    , swig_breq_cb_ (nullptr))
 {
     pimpl_->prx_.reset (new ServiceProxies);
     if (svc_prx_config.length())
@@ -53,7 +58,7 @@ void Bidder::start(bool sync)
 void
 Bidder::init()
 {
-	pimpl_->bidding_agent_->strictMode(false);
+    pimpl_->bidding_agent_->strictMode(false);
     if (bid_request_cb_)
         pimpl_->bidding_agent_->onBidRequest = [this] (double timestamp,
                                                Id & id,
@@ -62,7 +67,7 @@ Bidder::init()
                                                double timeLeftMs,
                                                const Json::Value & augmentations,
         const WinCostModel& wcm) {
-    	this->bid_request_cb_ (timestamp,
+        this->bid_request_cb_ (timestamp,
                                id.toString(),
                                br->toJsonStr(),
                                bids.toJson().toString(),
@@ -122,7 +127,7 @@ Bidder::init()
                 de.win.toJson().toString(),
                 de.campaignEvents.toJson().toString()
             };
-            for (const auto& v: de.visits)
+for (const auto& v: de.visits)
                 ode.visits.emplace_back(v.toJson().toString());
         };
         pimpl_->bidding_agent_->onClick = pimpl_->bidding_agent_->onImpression;
@@ -156,5 +161,47 @@ Bidder::doBid(const string& id,
         wmc.size() ? WinCostModel::fromJson(Json::parse(wmc)) : WinCostModel());
 }
 
+
+void Bidder::setBidRequestCb  (BidRequestCb& cb)
+{
+	this->swig_breq_cb_ = &cb ;
+	bid_request_cb_ = [&] (double ts,
+                           const std::string&   id,
+                           const std::string&   br,
+                           const std::string&   bids,
+                           double               left,
+                           const std::string&   augs,
+                           const std::string&   wcm) {
+		this->swig_breq_cb_->call (*this, ts,id,br,bids,left,augs,wcm);
+	};
+}
+
+
+void Bidder::setDeliveryCb  (DeliveryCb& cb)
+{
+	this->swig_devr_cb_ = &cb ;
+	delivery_event_cb_ = [&] (const DeliveryEvent& de) {
+		this->swig_devr_cb_->call (*this,de);
+	};
+}
+
+
+void Bidder::setBidResultCb  (BidResultCb& cb)
+{
+	this->swig_bres_cb_ = &cb ;
+	bid_result_cb_ = [&] (const BidResult& br) {
+		this->swig_bres_cb_->call (*this,br);
+	};
+}
+
+
+void Bidder::setErrorCb  (ErrorCb& cb)
+{
+	this->swig_err_cb_ = &cb ;
+	error_cb_ = [&] (double ts, const string& str,
+			         const vector<string>& strvec) {
+		this->swig_err_cb_->call (*this,ts, str,strvec);
+	};
+}
 
 } /* namespace lwrtb */
