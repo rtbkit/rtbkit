@@ -153,6 +153,7 @@ struct Explanation {
 */
 
 struct PredictionContext {
+    boost::any seed;  ///< Seed data for the prediction
     std::map<std::string, boost::any> entries;
 };
 
