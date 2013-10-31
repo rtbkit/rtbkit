@@ -98,7 +98,7 @@ Bidder::init()
                 br.auctionId.toString(),
                 br.spotNum,
                 br.secondPrice.toString(),
-                br.request->toJsonStr(),
+                br.request.get() ? br.request->toJsonStr() : "",
                 br.ourBid.toJson().toString(),
                 br.metadata.toString(),
                 br.augmentations.toString()
@@ -164,44 +164,44 @@ Bidder::doBid(const string& id,
 
 void Bidder::setBidRequestCb  (BidRequestCb& cb)
 {
-	this->swig_breq_cb_ = &cb ;
-	bid_request_cb_ = [&] (double ts,
+    this->swig_breq_cb_ = &cb ;
+    bid_request_cb_ = [&] (double ts,
                            const std::string&   id,
                            const std::string&   br,
                            const std::string&   bids,
                            double               left,
                            const std::string&   augs,
-                           const std::string&   wcm) {
-		this->swig_breq_cb_->call (*this, ts,id,br,bids,left,augs,wcm);
-	};
+    const std::string&   wcm) {
+        this->swig_breq_cb_->call (*this, ts,id,br,bids,left,augs,wcm);
+    };
 }
 
 
 void Bidder::setDeliveryCb  (DeliveryCb& cb)
 {
-	this->swig_devr_cb_ = &cb ;
-	delivery_event_cb_ = [&] (const DeliveryEvent& de) {
-		this->swig_devr_cb_->call (*this,de);
-	};
+    this->swig_devr_cb_ = &cb ;
+    delivery_event_cb_ = [&] (const DeliveryEvent& de) {
+        this->swig_devr_cb_->call (*this,de);
+    };
 }
 
 
 void Bidder::setBidResultCb  (BidResultCb& cb)
 {
-	this->swig_bres_cb_ = &cb ;
-	bid_result_cb_ = [&] (const BidResult& br) {
-		this->swig_bres_cb_->call (*this,br);
-	};
+    this->swig_bres_cb_ = &cb ;
+    bid_result_cb_ = [&] (const BidResult& br) {
+        this->swig_bres_cb_->call (*this,br);
+    };
 }
 
 
 void Bidder::setErrorCb  (ErrorCb& cb)
 {
-	this->swig_err_cb_ = &cb ;
-	error_cb_ = [&] (double ts, const string& str,
-			         const vector<string>& strvec) {
-		this->swig_err_cb_->call (*this,ts, str,strvec);
-	};
+    this->swig_err_cb_ = &cb ;
+    error_cb_ = [&] (double ts, const string& str,
+    const vector<string>& strvec) {
+        this->swig_err_cb_->call (*this,ts, str,strvec);
+    };
 }
 
 } /* namespace lwrtb */
