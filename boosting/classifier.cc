@@ -488,7 +488,7 @@ predict(int label,
         const Optimization_Info & info,
         PredictionContext * context) const
 {
-    if (!predict_is_optimized() || !info) return predict(label, features);
+    if (!predict_is_optimized() || !info) return predict(label, features, context);
 
     float fv[info.features_out()];
 
@@ -540,7 +540,7 @@ predict(int label,
 
     info.apply(features, fv);
 
-    return optimized_predict_impl(label, fv, info);
+    return optimized_predict_impl(label, fv, info, context);
 }
 
 bool
