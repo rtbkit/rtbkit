@@ -4,18 +4,20 @@
 namespace std {
 %template(StringVector) vector<string>;
 }
+
 %{
-   #define SWIG_FILE_WITH_INIT
-   #include "lwrt/bidder.h"
+   /* #define SWIG_FILE_WITH_INIT*/
+   #include "lwrtb/bidder.h"
 %}
-%feature("director")   lwrtb::BidRequestCb;
-%feature("director")   lwrtb::DeliveryCb;
-%feature("director")   lwrtb::BidResultCb;
-%feature("director")   lwrtb::ErrorCb;
-%feature("nodirector") lwrtb::Bidder;
-%feature("pythonprepend") lwrtb::Bidder::setBidRequestCb(lwrtb::BidRequestCb&) %{
-   if len(args) == 1 and (not isinstance(args[0], Callback) and callable(args[0])):
-      class CallableWrapper(Callback):
+
+%feature("director")   BidRequestCb;
+%feature("director")   DeliveryCb;
+%feature("director")   BidResultCb;
+%feature("director")   ErrorCb;
+%feature("nodirector") Bidder;
+%feature("pythonprepend") lwrtb::Bidder::setBidRequestCb(BidRequestCb&) %{
+   if len(args) == 1 and (not isinstance(args[0], BidRequestCb) and callable(args[0])):
+      class CallableWrapper(BidRequestCb):
          def __init__(self, f):
             super(CallableWrapper, self).__init__()
             self.f_ = f
@@ -24,12 +26,12 @@ namespace std {
 
       args = tuple([CallableWrapper(args[0])])
       args[0].__disown__()
-   elif len(args) == 1 and isinstance(args[0], Callback):
+   elif len(args) == 1 and isinstance(args[0], BidRequestCb):
       args[0].__disown__()
 %}
-%feature("pythonprepend") lwrtb::Bidder::setDeliveryCb(lwrtb::DeliveryCb&) %{
-   if len(args) == 1 and (not isinstance(args[0], Callback) and callable(args[0])):
-      class CallableWrapper(Callback):
+%feature("pythonprepend") lwrtb::Bidder::setDeliveryCb(DeliveryCb&) %{
+   if len(args) == 1 and (not isinstance(args[0], DeliveryCb) and callable(args[0])):
+      class CallableWrapper(DeliveryCb):
          def __init__(self, f):
             super(CallableWrapper, self).__init__()
             self.f_ = f
@@ -38,12 +40,12 @@ namespace std {
 
       args = tuple([CallableWrapper(args[0])])
       args[0].__disown__()
-   elif len(args) == 1 and isinstance(args[0], Callback):
+   elif len(args) == 1 and isinstance(args[0], DeliveryCb):
       args[0].__disown__()
 %}
-%feature("pythonprepend") lwrtb::Bidder::setBidResultCb(lwrtb::BidResultCb&) %{
-   if len(args) == 1 and (not isinstance(args[0], Callback) and callable(args[0])):
-      class CallableWrapper(Callback):
+%feature("pythonprepend") lwrtb::Bidder::setBidResultCb(BidResultCb&) %{
+   if len(args) == 1 and (not isinstance(args[0], BidResultCb) and callable(args[0])):
+      class CallableWrapper(BidResultCb):
          def __init__(self, f):
             super(CallableWrapper, self).__init__()
             self.f_ = f
@@ -52,12 +54,12 @@ namespace std {
 
       args = tuple([CallableWrapper(args[0])])
       args[0].__disown__()
-   elif len(args) == 1 and isinstance(args[0], Callback):
+   elif len(args) == 1 and isinstance(args[0], BidResultCb):
       args[0].__disown__()
 %}
-%feature("pythonprepend") lwrtb::Bidder::setErrorCb(lwrtb::ErrorCb&) %{
-   if len(args) == 1 and (not isinstance(args[0], Callback) and callable(args[0])):
-      class CallableWrapper(Callback):
+%feature("pythonprepend") lwrtb::Bidder::setErrorCb(ErrorCb&) %{
+   if len(args) == 1 and (not isinstance(args[0], ErrorCb) and callable(args[0])):
+      class CallableWrapper(ErrorCb):
          def __init__(self, f):
             super(CallableWrapper, self).__init__()
             self.f_ = f
@@ -66,7 +68,7 @@ namespace std {
 
       args = tuple([CallableWrapper(args[0])])
       args[0].__disown__()
-   elif len(args) == 1 and isinstance(args[0], Callback):
+   elif len(args) == 1 and isinstance(args[0], ErrorCb):
       args[0].__disown__()
 %}
 

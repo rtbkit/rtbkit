@@ -11,7 +11,7 @@ $(eval $(call library,lwrtb,$(LIBLWRTB_SOURCES),$(LIBLWRTB_LINK)))
 
 ifeq ($(PYTHON_ENABLED),1)
 LWRTB_PYTHON_SOURCES := \
-	lwrtb_python.i
+	lwrtb.i
 
 $(eval $(call set_compile_option,$(LWRTB_PYTHON_SOURCE),-I(PYTHON_INCLUDE_PATH)))
 

@@ -5,8 +5,8 @@
  *      Author: jan
  */
 
-#ifndef BIDDINGAGENT_H_
-#define BIDDINGAGENT_H_
+#ifndef BIDDER_H_
+#define BIDDER_H_
 
 #include <string>
 #include <memory>
@@ -26,8 +26,6 @@ enum BidStatus
     NOBUDGET,   ///< No budget
     BUG         ///< Bug request
 };
-
-;
 
 struct BidResult
 {
@@ -57,27 +55,23 @@ struct DeliveryEvent
     std::vector<std::string>  visits;
 };
 
-// the following 4 to to be used
-// from within Swig exits (python, lua, ..)
-class BidRequestCb  ;
-class DeliveryCb ;
-class BidResultCb   ;
-class ErrorCb       ;
+// forward
+class Bidder;
 
 class BidRequestCb
 {
 public:
-	BidRequestCb() {}
+    BidRequestCb() {}
     virtual ~BidRequestCb() {}
     virtual void call(Bidder& ,
-    		          double, const std::string&, const std::string&, const std::string&,
-    		          double, const std::string& ,const std::string&) {}
+                      double, const std::string&, const std::string&, const std::string&,
+                      double, const std::string& ,const std::string&) {}
 };
 
 class DeliveryCb
 {
 public:
-	DeliveryCb() {}
+    DeliveryCb() {}
     virtual ~DeliveryCb() {}
     virtual void call(Bidder& , const DeliveryEvent&) {}
 };
@@ -85,7 +79,7 @@ public:
 class BidResultCb
 {
 public:
-	BidResultCb() {}
+    BidResultCb() {}
     virtual ~BidResultCb() {}
     virtual void call(Bidder& , const BidResult&) {}
 };
@@ -93,12 +87,13 @@ public:
 class ErrorCb
 {
 public:
-	ErrorCb() {}
+    ErrorCb() {}
     virtual ~ErrorCb() {}
     virtual void call(Bidder& , double,
-    		          const std::string&,
-    		          const std::vector<std::string>&) {}
+                      const std::string&,
+                      const std::vector<std::string>&) {}
 };
+
 
 class Bidder
 {
@@ -173,8 +168,8 @@ public:
      * and invalid bid
      */
     std::function<void(double timestamp,
-         const std::string& description,
-         const std::vector<std::string>& originalError)
+                       const std::string& description,
+                       const std::vector<std::string>& originalError)
     >                                         error_cb_;
 
     void setBidRequestCb  (BidRequestCb&);
@@ -199,4 +194,4 @@ private:
 };
 
 } /* namespace lwrtb */
-#endif /* BIDDINGAGENT_H_ */
+#endif /* BIDDER_H_ */

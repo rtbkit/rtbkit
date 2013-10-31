@@ -27,11 +27,11 @@ std::unique_ptr<int> pl;
 Bidder::Bidder(const string& name,
                const string& svc_prx_config)
     : name_         (name)
-    , pimpl_        (new impl()
+    , pimpl_        (new impl())
     , swig_bres_cb_ (nullptr)
     , swig_devr_cb_ (nullptr)
     , swig_err_cb_  (nullptr)
-    , swig_breq_cb_ (nullptr))
+    , swig_breq_cb_ (nullptr)
 {
     pimpl_->prx_.reset (new ServiceProxies);
     if (svc_prx_config.length())
