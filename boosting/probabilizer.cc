@@ -51,11 +51,14 @@ GLZ_Probabilizer::~GLZ_Probabilizer()
 {
 }
 
+bool debugProbabilizer = false;
+
 distribution<float>
 GLZ_Probabilizer::apply(const distribution<float> & input) const
 {
-    //static std::mutex lock;
-    //std::unique_lock<std::mutex> guard(lock);
+    static std::mutex lock;
+    std::unique_lock<std::mutex> guard(lock, std::defer_lock);
+
     //cerr << endl << endl;
     //backtrace();
     //cerr << "applying: params = " << params << " input = " << input << endl;
@@ -94,7 +97,8 @@ GLZ_Probabilizer::apply(const distribution<float> & input) const
     for (unsigned i = 0;  i < result.size();  ++i)
         if (!isfinite(result[i])) all_ok = false;
 
-    if (!all_ok || result.total() == 0.0) {
+    if (!all_ok || (result.total() == 0.0 && link != LINEAR)) {
+        guard.lock();
         cerr << "applying GLZ_Probabilizer lead to zero results: " << endl;
         cerr << "  input = " << input << endl;
         cerr << "  input2 = " << input2 << endl;
@@ -113,6 +117,12 @@ GLZ_Probabilizer::apply(const distribution<float> & input) const
         cerr << "  total = " << result.total() << endl;
     }
 #endif
+
+    if (debugProbabilizer) {
+        guard.lock();
+        cerr << "probabilizer " << params << " input " << input << " output "
+             << result << endl;
+    }
     
     return result;
 }
