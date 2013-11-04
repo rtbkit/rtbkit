@@ -15,6 +15,7 @@
 #include "jml/arch/exception.h"
 #include "jml/arch/demangle.h"
 #include "jml/utils/filter_streams.h"
+#include "jml/utils/smart_ptr_utils.h"
 #include "json_parsing.h"
 #include "json_printing.h"
 #include "value_description_fwd.h"
@@ -134,7 +135,7 @@ struct ValueDescription {
     struct FieldDescription {
         std::string fieldName;
         std::string comment;
-        std::unique_ptr<ValueDescription > description;
+        std::shared_ptr<const ValueDescription > description;
         int offset;
         int fieldNum;
     };
@@ -166,7 +167,41 @@ struct ValueDescription {
     mutable JSConverters * jsConverters;
     mutable bool jsConvertersInitialized;
 
-    static ValueDescription * get(std::string const & name);
+    /** Get the value description for a type name */
+    static std::shared_ptr<const ValueDescription>
+    get(std::string const & name);
+
+    /** Get the value description for a type */
+    static std::shared_ptr<const ValueDescription>
+    get(const std::type_info & type);
+
+    /** Get the value description for a type */
+    template<typename T>
+    static std::shared_ptr<const ValueDescriptionT<T> >
+    getType()
+    {
+        auto base = get(typeid(T));
+
+        if (!base)
+            return nullptr;
+
+        auto res
+            = std::dynamic_pointer_cast<const ValueDescriptionT<T> >(base);
+        if (!res)
+            throw ML::Exception("logic error in registry: wrong type: "
+                                + ML::type_name(*base) + " not convertible to "
+                                + ML::type_name<const ValueDescriptionT<T>>());
+        return res;
+    }
+
+    /** Get the value description for an object */
+    template<typename T>
+    static std::shared_ptr<const ValueDescriptionT<T> >
+    getType(const T * val)
+    {
+        // TODO: support polymorphic objects
+        return getType<T>();
+    }
 };
 
 void registerValueDescription(const std::type_info & type,
@@ -325,6 +360,34 @@ struct GetDefaultDescriptionType {
     typedef typename std::remove_reference<decltype(*getDefaultDescription((T*)0))>::type type;
 };
 
+/** Return the shared copy of the default description for this value.  This
+    will look it up in the registry, and if not found, will create (and
+    register) it.
+*/
+template<typename T>
+std::shared_ptr<const typename GetDefaultDescriptionType<T>::type>
+getDefaultDescriptionShared(T * = 0)
+{
+    auto res = ValueDescription::getType<T>();
+    if (!res) {
+        // For now, register it if it wasn't before.  Eventually this should
+        // be done elsewhere.
+        registerValueDescription(typeid(T),
+                                 [] () { return getDefaultDescription((T *)0); },
+                                 true);
+        res = ValueDescription::getType<T>();
+    }
+    ExcAssert(res);
+
+    auto cast = std::dynamic_pointer_cast<const typename GetDefaultDescriptionType<T>::type>(res);
+
+    if (!cast)
+        throw ML::Exception("logic error in registry: wrong type: "
+                            + ML::type_name(*res) + " not convertible to "
+                            + ML::type_name<typename GetDefaultDescriptionType<T>::type>());
+
+    return cast;
+}
 
 /*****************************************************************************/
 /* VALUE DESCRIPTION CONCRETE IMPL                                           */
@@ -566,8 +629,18 @@ struct StructureDescription
     void addField(std::string name,
                   V Base::* field,
                   std::string comment,
-                  ValueDescriptionT<V> * description
-                  = getDefaultDescription((V *)0))
+                  ValueDescriptionT<V> * description)
+    {
+        addField(name, field, comment,
+                 std::shared_ptr<const ValueDescriptionT<V> >(description));
+    }
+
+    template<typename V, typename Base>
+    void addField(std::string name,
+                  V Base::* field,
+                  std::string comment,
+                  std::shared_ptr<const ValueDescriptionT<V> > description
+                      = getDefaultDescriptionShared<V>())
     {
         if (fields.count(name.c_str()))
             throw ML::Exception("field '" + name + "' added twice");
@@ -582,7 +655,7 @@ struct StructureDescription
         FieldDescription & fd = it->second;
         fd.fieldName = fieldName;
         fd.comment = comment;
-        fd.description.reset(description);
+        fd.description = description;
         Struct * p = nullptr;
         fd.offset = (size_t)&(p->*field);
         fd.fieldNum = fields.size() - 1;
@@ -702,7 +775,7 @@ addParent(ValueDescriptionT<V> * description_)
         throw ML::Exception("parent description is not a structure");
     }
 
-    std::unique_ptr<StructureDescription<V> > description(desc2);
+    std::shared_ptr<StructureDescription<V> > description(desc2);
 
     Struct * p = nullptr;
     V * p2 = static_cast<V *>(p);
@@ -734,11 +807,11 @@ addParent(ValueDescriptionT<V> * description_)
 /*****************************************************************************/
 
 template<typename Enum>
-struct EnumDescription: public ValueDescriptionI<Enum, ValueKind::ENUM,
-                                                 EnumDescription<Enum> > {
+struct EnumDescription: public ValueDescriptionT<Enum> {
 
     EnumDescription()
-        : hasDefault(false), defaultValue(Enum(0))
+        : ValueDescriptionT<Enum>(ValueKind::ENUM),
+          hasDefault(false), defaultValue(Enum(0))
     {
     }
 
@@ -805,12 +878,18 @@ struct EnumDescription: public ValueDescriptionI<Enum, ValueKind::ENUM,
 template<typename T>
 struct ListDescriptionBase {
 
-    ListDescriptionBase(ValueDescriptionT<T> * inner = getDefaultDescription((T *)0))
+    ListDescriptionBase(ValueDescriptionT<T> * inner)
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescriptionT<T> > inner;
+    ListDescriptionBase(std::shared_ptr<const ValueDescriptionT<T> > inner
+                        = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     template<typename List>
     void parseJsonTypedList(List * val, JsonParsingContext & context) const
@@ -873,8 +952,13 @@ struct DefaultDescription<std::vector<T> >
     : public ValueDescriptionI<std::vector<T>, ValueKind::ARRAY>,
       public ListDescriptionBase<T> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
-                      = getDefaultDescription((T *)0))
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : ListDescriptionBase<T>(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
         : ListDescriptionBase<T>(inner)
     {
     }
@@ -952,8 +1036,13 @@ struct DefaultDescription<std::set<T> >
     : public ValueDescriptionI<std::set<T>, ValueKind::ARRAY>,
       public ListDescriptionBase<T> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
-                      = getDefaultDescription((T *)0))
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : ListDescriptionBase<T>(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                      = getDefaultDescriptionShared((T *)0))
         : ListDescriptionBase<T>(inner)
     {
     }
@@ -1056,7 +1145,13 @@ struct MapValueDescription
     {
     }
 
-    std::unique_ptr<ValueDescriptionT<T> > inner;
+    MapValueDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                        = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     typedef ValueDescription::FieldDescription FieldDescription;
 
@@ -1144,8 +1239,13 @@ struct MapValueDescription
 template<typename Key, typename Value>
 struct DefaultDescription<std::map<Key, Value> >
     : public MapValueDescription<Key, Value> {
-    DefaultDescription(ValueDescriptionT<Value> * inner
-                       = getDefaultDescription((Value *)0))
+    DefaultDescription(ValueDescriptionT<Value> * inner)
+        : MapValueDescription<Key, Value>(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<Value> > inner
+                       = getDefaultDescriptionShared((Value *)0))
         : MapValueDescription<Key, Value>(inner)
     {
     }
@@ -1169,13 +1269,18 @@ template<typename T, typename Base,
 struct DescriptionFromBase
     : public ValueDescriptionT<T> {
 
-    DescriptionFromBase(BaseDescription * inner
-                      = getDefaultDescription((Base *)0))
+    DescriptionFromBase(BaseDescription * inner)
         : inner(inner)
     {
     }
 
-    std::unique_ptr<BaseDescription> inner;
+    DescriptionFromBase(std::shared_ptr<const BaseDescription> inner
+                      = getDefaultDescriptionShared((Base *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const BaseDescription> inner;
 
     constexpr ssize_t offset() const
     {
@@ -1288,8 +1393,7 @@ T jsonDecode(const Json::Value & json, T * = 0,
 {
     T result;
 
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     StructuredJsonParsingContext context(json);
     desc->parseJson(&result, context);
     return result;
@@ -1305,8 +1409,7 @@ T jsonDecodeStr(const std::string & json, T * = 0,
 {
     T result;
 
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     StreamingJsonParsingContext context(json, json.c_str(), json.c_str() + json.size());
     desc->parseJson(&result, context);
     return result;
@@ -1322,8 +1425,7 @@ T jsonDecodeStream(std::istream & stream, T * = 0,
 {
     T result;
 
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     StreamingJsonParsingContext context("<<input stream>>", stream);
     desc->parseJson(&result, context);
     return result;
@@ -1341,8 +1443,7 @@ T jsonDecodeFile(const std::string & filename, T * = 0,
     
     ML::filter_istream stream(filename);
     
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     StreamingJsonParsingContext context(filename, stream);
     desc->parseJson(&result, context);
     return result;
@@ -1384,8 +1485,7 @@ Json::Value jsonEncode(const T & obj,
                        decltype(getDefaultDescription((T *)0)) * = 0,
                        typename std::enable_if<!hasToJson<T>::value>::type * = 0)
 {
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     StructuredJsonPrintingContext context;
     desc->printJson(&obj, context);
     return std::move(context.output);
@@ -1399,8 +1499,7 @@ std::string jsonEncodeStr(const T & obj,
                           decltype(getDefaultDescription((T *)0)) * = 0,
                           typename std::enable_if<!hasToJson<T>::value>::type * = 0)
 {
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     std::ostringstream stream;
     StreamJsonPrintingContext context(stream);
     desc->printJson(&obj, context);
