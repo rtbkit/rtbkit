@@ -95,6 +95,44 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
         expected = "2012-Dec-20 14:57:57.187";
         BOOST_CHECK_EQUAL(date.print(3), expected);
     }
+
+    /* fractional seconds */
+    {
+        string dt = "2012-12-20T14:57:57.1+00:00";
+        date = Date::parseIso8601DateTime(dt);
+        expected = "2012-Dec-20 14:57:57.100000";
+        BOOST_CHECK_EQUAL(date.print(6), expected);
+
+        dt = "2012-12-20T14:57:57.12+00:00";
+        date = Date::parseIso8601DateTime(dt);
+        expected = "2012-Dec-20 14:57:57.120000";
+        BOOST_CHECK_EQUAL(date.print(6), expected);
+
+        dt = "2012-12-20T14:57:57.123+00:00";
+        date = Date::parseIso8601DateTime(dt);
+        expected = "2012-Dec-20 14:57:57.123000";
+        BOOST_CHECK_EQUAL(date.print(6), expected);
+
+        dt = "2012-12-20T14:57:57.1234+00:00";
+        date = Date::parseIso8601DateTime(dt);
+        expected = "2012-Dec-20 14:57:57.123400";
+        BOOST_CHECK_EQUAL(date.print(6), expected);
+
+        dt = "2012-12-20T14:57:57.12345+00:00";
+        date = Date::parseIso8601DateTime(dt);
+        expected = "2012-Dec-20 14:57:57.123450";
+        BOOST_CHECK_EQUAL(date.print(6), expected);
+
+        dt = "2012-12-20T14:57:57.123456+00:00";
+        date = Date::parseIso8601DateTime(dt);
+        expected = "2012-Dec-20 14:57:57.123456";
+        BOOST_CHECK_EQUAL(date.print(6), expected);
+
+        dt = "2012-12-20T14:57:57.1234567+00:00";
+        date = Date::parseIso8601DateTime(dt);
+        expected = "2012-Dec-20 14:57:57.1234567";
+        BOOST_CHECK_EQUAL(date.print(7), expected);
+    }
 }
 
 #if 0
@@ -429,6 +467,10 @@ BOOST_AUTO_TEST_CASE( test_printIso8601 )
     string expected = "2012-09-19T21:16:40.417Z";
     string result = testDate.printIso8601();
     BOOST_CHECK_EQUAL(result, expected);
+
+    expected = "2012-09-19T21:16:40.416978Z";
+    result = testDate.printIso8601(6);
+    BOOST_CHECK_EQUAL(result, expected);
 }
 
 BOOST_AUTO_TEST_CASE( test_weekStart )
@@ -471,3 +513,15 @@ BOOST_AUTO_TEST_CASE( test_iso8601WeekStart )
     // memset(&tm, 0, sizeof(struct tm));
     // strptime(x.c_str(), fmt.c_str(), &tm);
 // }
+
+BOOST_AUTO_TEST_CASE( test_date_iostream_print )
+{
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::positiveInfinity()),
+                      "Inf");
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::negativeInfinity()),
+                      "-Inf");
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::notADate()),
+                      "NaD");
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((uint64_t)-1)),
+                      "Inf");
+}

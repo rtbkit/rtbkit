@@ -121,8 +121,9 @@ private:
     void createDirectory() {
         struct stat stats;
         int res = stat(uniquePath.c_str(), &stats);
-        if (res != -1 || (errno != EEXIST && errno != ENOENT)) {
-            throw ML::Exception(errno, "path " + uniquePath + " already exists");
+        if (res != -1) {
+            res = system(ML::format("rm -rf %s", uniquePath).c_str());
+            if (res == -1) throw ML::Exception(errno, "Unable to clean up old path");
         }
 
         res = system(ML::format("mkdir -p %s", uniquePath).c_str());

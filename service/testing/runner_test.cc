@@ -220,6 +220,66 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 #endif
 
 #if 1
+/* test the behaviour of the Runner class when attempting to launch a missing
+ * executable, mostly mimicking bash */
+BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
+{
+    MessageLoop loop;
+
+    loop.start();
+
+    Runner::RunResult result;
+    auto onTerminate = [&] (const Runner::RunResult & newResult) {
+        result = newResult;
+    };
+
+    /* running a program that does not exist */
+    {
+        Runner runner;
+        loop.addSource("runner1", runner);
+
+        runner.run({"/this/command/is/missing"}, onTerminate);
+        runner.waitTermination();
+
+        BOOST_CHECK_EQUAL(result.signaled, false);
+        BOOST_CHECK_EQUAL(result.returnCode, 127);
+
+        loop.removeSource(&runner);
+    }
+
+    /* running a non-executable but existing file */
+    {
+        Runner runner;
+        loop.addSource("runner2", runner);
+
+        runner.run({"/dev/null"}, onTerminate);
+        runner.waitTermination();
+
+        BOOST_CHECK_EQUAL(result.signaled, false);
+        BOOST_CHECK_EQUAL(result.returnCode, 126);
+
+        loop.removeSource(&runner);
+    }
+
+    /* running a non-executable but existing non-file */
+    {
+        Runner runner;
+        loop.addSource("runner2", runner);
+
+        runner.run({"/dev"}, onTerminate);
+        runner.waitTermination();
+
+        BOOST_CHECK_EQUAL(result.signaled, false);
+        BOOST_CHECK_EQUAL(result.returnCode, 126);
+
+        loop.removeSource(&runner);
+    }
+
+    loop.shutdown();
+}
+#endif
+
+#if 1
 /* test the "execute" function */
 BOOST_AUTO_TEST_CASE( test_runner_execute )
 {

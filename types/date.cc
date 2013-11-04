@@ -5,6 +5,7 @@
 */
 
 #include "date.h"
+#include <cmath>
 #include <limits>
 #include "jml/arch/format.h"
 #include "soa/js/js_value.h"
@@ -301,7 +302,7 @@ printRfc2616() const
 
 std::string
 Date::
-printIso8601() const
+printIso8601(unsigned int fraction) const
 {
     if (!std::isfinite(secondsSinceEpoch_)) {
         if (std::isnan(secondsSinceEpoch_)) {
@@ -316,7 +317,7 @@ printIso8601() const
     string result = print("%Y-%m-%dT%H:%M:%S");
 
     double partial_seconds = fractionalSeconds();
-    string fractional = format("%.3fZ", partial_seconds);
+    string fractional = format("%.*fZ", fraction, partial_seconds);
 
     result.append(fractional, 1, -1);
 
@@ -389,6 +390,13 @@ print(const std::string & format) const
 {
     size_t buffer_size = format.size() + 1024;
     char buffer[buffer_size];
+
+    if (secondsSinceEpoch() > std::numeric_limits<time_t>::max()) {
+        return "Inf";
+    }
+    if (secondsSinceEpoch() < std::numeric_limits<time_t>::min()) {
+        return "-Inf";
+    }
 
     time_t t = secondsSinceEpoch();
     tm time;
@@ -1005,6 +1013,34 @@ expect_time(ML::Parse_Context & context,
 }
 #endif
 
+
+
+/** 
+    DEPRECATED FUNCTION documentation:
+    This function takes a string expected to contain a date that matches the
+    provided date pattern, followed by a time. The two patterns in the
+    string can be separated by whitespace but anything else has to appear in
+    the patterns. 
+    
+    example:
+
+        parse_date_time("2013-05-13/21:00:00", "%y-%m-%d/","%H:%M:%S")
+
+    returns 2013-May-13 21:00:00.
+    
+    symbols meanings:
+        date_format:
+            %d      day of month as digit 1-31
+            %m      month as digit 1-12
+            %M      month as 3-letter abbreviation
+            %y      year with century 1400-2999
+        time_format:
+            %h      hour as digit 1-12
+            %H      hour as digit 0-24
+            %M      minute as digit 0-60
+            %S      second as digit 0-60
+            %p      'AM' or 'PM'
+**/
 Date
 Date::
 parse_date_time(const std::string & str,
@@ -1077,7 +1113,7 @@ Date Date::parse(const std::string & date,
     tm time;
     memset(&time, 0, sizeof(time));
     if(strptime(date.c_str(), format.c_str(), &time) == NULL)
-        throw ML::Exception("error in strptime");
+        throw ML::Exception("strptime error. format='" + format + "', string='" + date + "'");
 
     //not using fromTm because I don't want it to assume it's local time
     return Date(1900 + time.tm_year, 1 + time.tm_mon, time.tm_mday,
@@ -1324,9 +1360,11 @@ expectTime()
     }
 
     if (match_literal('.')) {
-        int millis = expectFixedWidthInt(*this, 3, 3, 0, 999,
-                                         "bad milliseconds");
-        date.addSeconds(float(millis) / 1000);
+        size_t start = get_offset();
+        int millis = expect_int();
+        size_t end = get_offset();
+        double seconds = double(millis) / pow(10, end-start);
+        date.addSeconds(seconds);
     }
 
     if (eof()) {

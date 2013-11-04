@@ -189,19 +189,15 @@ parse(const std::string & headerAndData)
         context.expect_literal(' ');
         parsed.resource = context.expect_text(" ?");
         if (context.match_literal('?')) {
-            while (!context.match_literal(' ')) {
+            do {
                 string key = expectUrlEncodedString(context, "=& ");
-                if (context.match_literal(' ')) {
-                    queryParams.push_back(make_pair(key, ""));
-                    break;
-                }
                 if (context.match_literal('=')) {
                     string value = expectUrlEncodedString(context, "& ");
                     queryParams.push_back(make_pair(key, value));
+                } else {
+                    queryParams.push_back(make_pair(key, ""));
                 }
-                if (!context.match_literal('&'))
-                    break;
-            }
+            } while (context.match_literal('&'));
         }
         context.expect_literal(' ');
         parsed.version = context.expect_text('\r');

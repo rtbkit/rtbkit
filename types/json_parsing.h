@@ -159,6 +159,7 @@ struct JsonParsingContext {
     virtual bool expectBool() = 0;
     virtual bool matchUnsignedLongLong(unsigned long long & val) = 0;
     virtual bool matchLongLong(long long & val) = 0;
+    virtual bool matchDouble(double & val) = 0;
     virtual std::string expectStringAscii() = 0;
     virtual ssize_t expectStringAscii(char * value, size_t maxLen) = 0;
     virtual Utf8String expectStringUtf8() = 0;
@@ -356,6 +357,11 @@ struct StreamingJsonParsingContext
         return context->match_long_long(val);
     }
 
+    virtual bool matchDouble(double & val)
+    {
+        return context->match_double(val);
+    }
+
     virtual std::string expectStringAscii()
     {
         return expectJsonStringAscii(*context);
@@ -534,6 +540,13 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
             val = current->asUInt();
             return true;
         }
+        if (current->isNumeric()) {
+            unsigned long long v = current->asDouble();
+            if (v == current->asDouble()) {
+                val = v;
+                return true;
+            }
+        }
         return false;
     }
 
@@ -541,6 +554,22 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
     {
         if (current->isIntegral()) {
             val = current->asInt();
+            return true;
+        }
+        if (current->isNumeric()) {
+            long long v = current->asDouble();
+            if (v == current->asDouble()) {
+                val = v;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    virtual bool matchDouble(double & val)
+    {
+        if (current->isNumeric()) {
+            val = current->asDouble();
             return true;
         }
         return false;
@@ -747,12 +776,22 @@ void parseJson(Id * output, Context & context)
         return;
     }
 
+    double d;
+    if (context.matchDouble(d)) {
+        if ((long long)d != d)
+            context.exception("IDs must be integers");
+        *output = Id((long long)d);
+        return;
+    }
+
     if (context.isNull()) {
         context.expectNull();
         *output = Id();
         output->type = Id::NULLID;
         return;
     }
+
+    std::cerr << context.expectJson() << endl;
 
     throw ML::Exception("unhandled id conversion type");
 }

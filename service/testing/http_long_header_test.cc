@@ -14,25 +14,6 @@
 #include "soa/service/passive_endpoint.h"
 #include <sys/socket.h>
 #include "jml/utils/guard.h"
-#include "jml/utils/filter_streams.h"
-#include "jml/arch/exception_handler.h"
-#include "jml/utils/testing/watchdog.h"
-#include "jml/utils/testing/fd_exhauster.h"
-#include "test_connection_error.h"
-
-using namespace std;
-using namespace ML;
-using namespace Datacratic;
-
-#define BOOST_TEST_MAIN
-#define BOOST_TEST_DYN_LINK
-
-#include <boost/test/unit_test.hpp>
-#include "soa/service/http_endpoint.h"
-#include "soa/service/active_endpoint.h"
-#include "soa/service/passive_endpoint.h"
-#include <sys/socket.h>
-#include "jml/utils/guard.h"
 #include "jml/arch/exception_handler.h"
 #include "jml/utils/testing/watchdog.h"
 #include "jml/utils/testing/fd_exhauster.h"
