@@ -22,6 +22,16 @@
 
 namespace Datacratic {
 
+/** Tag structure to indicate that we want to only construct a
+    description, not initialize it.  Initialization can be
+    performed later.
+*/
+
+struct ConstructOnly {
+};
+
+static const ConstructOnly constructOnly;
+
 struct JsonParsingContext;
 struct JsonPrintingContext;
 struct JSConverters;
@@ -75,7 +85,7 @@ struct ValueDescription {
     virtual ~ValueDescription() {};
     
     ValueKind kind;
-    const std::type_info * const type;
+    const std::type_info * type;
     std::string typeName;
 
     void setTypeName(const std::string & newName)
@@ -204,8 +214,19 @@ struct ValueDescription {
     }
 };
 
+/** Register the given value description with the system under the given
+    type name.
+*/
 void registerValueDescription(const std::type_info & type,
                               std::function<ValueDescription * ()>,
+                              bool isDefault);
+
+/** Register the value description with a two phase create then
+    initialize protocol.  This is needed for recursive structures.
+*/
+void registerValueDescription(const std::type_info & type,
+                              std::function<ValueDescription * ()> createFn,
+                              std::function<void (ValueDescription &)> initFn,
                               bool isDefault);
 
 template<typename T>
@@ -344,13 +365,40 @@ struct ValueDescriptionT : public ValueDescription {
     }
 };
 
+/** Basic function to implement getting a default description for a type.
+    The default implementation will work for any type for which
+    DefaultDescription<T> is defined.
+*/
 template<typename T>
-DefaultDescription<T> *
+inline DefaultDescription<T> *
 getDefaultDescription(T * = 0,
                       typename DefaultDescription<T>::defined * = 0)
 {
     return new DefaultDescription<T>();
 }
+
+/** This function is used to get a default description that is uninitialized.
+    It's necessary when working with recursive data types, as the object needs
+    to be registered before it can be initialized.
+    
+    The default implementation simply uses getDefaultDescription().
+*/
+template<typename T>
+inline decltype(getDefaultDescription((T *)0))
+getDefaultDescriptionUninitialized(T * = 0)
+{
+    return getDefaultDescription((T *)0);
+}
+
+/** This function is used to initialize a default description that was
+    previously uninitialized.  The default does nothing.
+*/
+template<typename Desc>
+inline void
+initializeDefaultDescription(Desc & desc)
+{
+}
+
 
 /** Template that returns the type of the default description that should
     be instantiated for the given use case.
@@ -370,11 +418,23 @@ getDefaultDescriptionShared(T * = 0)
 {
     auto res = ValueDescription::getType<T>();
     if (!res) {
+        auto createFn = [] ()
+            {
+                return getDefaultDescriptionUninitialized((T *)0);
+            };
+
+        auto initFn = [] (ValueDescription & desc)
+            {
+                auto & descTyped
+                = dynamic_cast<typename GetDefaultDescriptionType<T>::type &>
+                    (desc);
+                initializeDefaultDescription(descTyped);
+            };
+        
         // For now, register it if it wasn't before.  Eventually this should
         // be done elsewhere.
-        registerValueDescription(typeid(T),
-                                 [] () { return getDefaultDescription((T *)0); },
-                                 true);
+        registerValueDescription(typeid(T), createFn, initFn, true);
+
         res = ValueDescription::getType<T>();
     }
     ExcAssert(res);
@@ -488,8 +548,8 @@ struct StructureDescriptionBase {
     {
     }
 
-    const std::type_info * const type;
-    const std::string structName;
+    const std::type_info * type;
+    std::string structName;
     bool nullAccepted;
 
     typedef ValueDescription::FieldDescription FieldDescription;
@@ -1139,6 +1199,10 @@ template<typename K, typename T, typename KeyCodec = FreeFunctionKeyCodec<K> >
 struct MapValueDescription
     : public ValueDescriptionI<std::map<K, T>, ValueKind::MAP> {
 
+    MapValueDescription(ConstructOnly)
+    {
+    }
+
     MapValueDescription(ValueDescriptionT<T> * inner
                       = getDefaultDescription((T *)0))
         : inner(inner)
@@ -1249,8 +1313,29 @@ struct DefaultDescription<std::map<Key, Value> >
         : MapValueDescription<Key, Value>(inner)
     {
     }
+
+    DefaultDescription(ConstructOnly)
+        : MapValueDescription<Key, Value>(constructOnly)
+    {
+    }
 };
 
+/** These functions allow it to be used to hold recursive data types. */
+
+template<typename Key, typename Value>
+DefaultDescription<std::map<Key, Value> > *
+getDefaultDescriptionUninitialized(std::map<Key, Value> * = 0)
+{
+    abort();
+    return new DefaultDescription<std::map<Key, Value> >(constructOnly);
+}
+
+template<typename Key, typename Value>
+void
+initializeDefaultDescription(DefaultDescription<std::map<Key, Value> > & desc)
+{
+    desc = std::move(DefaultDescription<std::map<Key, Value> >());
+}
 
 
 /*****************************************************************************/
@@ -1522,14 +1607,30 @@ inline Json::Value jsonEncode(const char * str)
     struct Name                                                 \
         : public Datacratic::StructureDescriptionImpl<Type, Name> { \
         Name();                                                 \
+                                                                \
+        Name(const Datacratic::ConstructOnly &)                 \
+        {                                                       \
+        }                                                       \
     };                                                          \
                                                                 \
     inline Name *                                               \
     getDefaultDescription(Type *)                               \
     {                                                           \
         return new Name();                                      \
-    }                                                          
-
+    }                                                           \
+                                                                \
+    inline Name *                                               \
+    getDefaultDescriptionUninitialized(Type *)                  \
+    {                                                           \
+        return new Name(Datacratic::ConstructOnly());           \
+    }                                                           \
+                                                                \
+    inline void initializeDefaultDescription(Name & desc)       \
+    {                                                           \
+        Name newDesc;                                           \
+        desc = std::move(newDesc);                              \
+    }                                                           \
+    
 #define CREATE_STRUCTURE_DESCRIPTION(Type)                      \
     CREATE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
 
@@ -1539,13 +1640,29 @@ inline Json::Value jsonEncode(const char * str)
         Name() {                                                \
             Type::createDescription(*this);                     \
         }                                                       \
+                                                                \
+        Name(const Datacratic::ConstructOnly &)                 \
+        {                                                       \
+        }                                                       \
     };                                                          \
                                                                 \
     inline Name *                                               \
     getDefaultDescription(Type *)                               \
     {                                                           \
         return new Name();                                      \
-    }
+    }                                                           \
+                                                                \
+    inline Name *                                               \
+    getDefaultDescriptionUninitialized(Type *)                  \
+    {                                                           \
+        return new Name(Datacratic::ConstructOnly());           \
+    }                                                           \
+                                                                \
+    inline void initializeDefaultDescription(Name & desc)       \
+    {                                                           \
+        Name newDesc;                                           \
+        desc = std::move(newDesc);                              \
+    }                                                           \
 
 #define CREATE_CLASS_DESCRIPTION(Type)                          \
     CREATE_CLASS_DESCRIPTION_NAMED(Type##Description, Type)

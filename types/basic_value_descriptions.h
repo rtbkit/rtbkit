@@ -281,13 +281,18 @@ template<typename T>
 struct DefaultDescription<std::unique_ptr<T> >
     : public ValueDescriptionI<std::unique_ptr<T>, ValueKind::OPTIONAL> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
-                       = getDefaultDescription((T *)0))
+    DefaultDescription(ValueDescriptionT<T> * inner)
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescriptionT<T> > inner;
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(std::unique_ptr<T> * val,
                                 JsonParsingContext & context) const
@@ -314,17 +319,27 @@ template<typename T>
 struct DefaultDescription<std::shared_ptr<T> >
     : public ValueDescriptionI<std::shared_ptr<T>, ValueKind::OPTIONAL> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
-                       = getDefaultDescription((T *)0))
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescriptionT<T> > inner;
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(std::shared_ptr<T> * val,
                                 JsonParsingContext & context) const
     {
+        if (context.isNull()) {
+            val->reset();
+            context.expectNull();
+            return;
+        }
         val->reset(new T());
         inner->parseJsonTyped(val->get(), context);
     }
@@ -1023,13 +1038,18 @@ template<typename T>
 struct DefaultDescription<Optional<T> >
     : public ValueDescriptionI<Optional<T>, ValueKind::OPTIONAL> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
-                       = getDefaultDescription((T *)0))
+    DefaultDescription(ValueDescriptionT<T> * inner)
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescriptionT<T> > inner;
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(Optional<T> * val,
                                 JsonParsingContext & context) const

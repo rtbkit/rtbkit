@@ -63,11 +63,23 @@ void registerValueDescription(const std::type_info & type,
                               std::function<ValueDescription * ()> fn,
                               bool isDefault)
 {
+    registerValueDescription(type, fn, [] (ValueDescription &) {}, isDefault);
+}
+
+void
+registerValueDescription(const std::type_info & type,
+                         std::function<ValueDescription * ()> createFn,
+                         std::function<void (ValueDescription &)> initFn,
+                         bool isDefault)
+{
     std::unique_lock<std::recursive_mutex> guard(registryMutex);
 
-    auto desc = fn();
-
+    std::shared_ptr<ValueDescription> desc(createFn());
     ExcAssert(desc);
+    registry[desc->typeName] = desc;
+    registry[type.name()] = desc;
+
+    initFn(*desc);
 
 #if 0
     cerr << "type " << ML::demangle(type.name())
@@ -78,11 +90,6 @@ void registerValueDescription(const std::type_info & type,
         throw ML::Exception("attempt to double register "
                             + ML::demangle(type.name()));
 #endif
-    
-    registry[desc->typeName].reset(desc);
-
-    // Register under the C++ type name as well
-    registry[type.name()].reset(fn());
 }
 
 void

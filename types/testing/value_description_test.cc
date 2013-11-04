@@ -360,6 +360,8 @@ S2Description::S2Description()
 
 struct RecursiveStructure {
     std::map<std::string, std::shared_ptr<RecursiveStructure> > elements;
+    std::vector<std::shared_ptr<RecursiveStructure> > vec;
+    std::map<std::string, RecursiveStructure> directElements;
 };
 
 CREATE_STRUCTURE_DESCRIPTION(RecursiveStructure);
@@ -368,6 +370,10 @@ RecursiveStructureDescription::RecursiveStructureDescription()
 {
     addField("elements", &RecursiveStructure::elements,
              "elements of structure");
+    addField("vec", &RecursiveStructure::vec,
+             "vector of elements of structure");
+    addField("directElements", &RecursiveStructure::directElements,
+             "direct map of elements");
 }
 
 BOOST_AUTO_TEST_CASE( test_recursive_description )
@@ -380,6 +386,12 @@ BOOST_AUTO_TEST_CASE( test_recursive_description )
     s.elements["first"]->elements["first.element2"];  // null
 
     s.elements["second"]; // null
+    s.vec.push_back(make_shared<RecursiveStructure>());
+    s.vec[0]->vec.push_back(make_shared<RecursiveStructure>());
+    s.vec[0]->elements["third"] = nullptr;
+    s.vec.push_back(nullptr);
+
+    s.directElements["first"].directElements["second"].directElements["third"].vec.push_back(nullptr);
 
     Json::Value j = jsonEncode(s);
 
