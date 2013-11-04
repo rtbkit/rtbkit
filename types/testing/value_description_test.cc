@@ -326,7 +326,7 @@ BOOST_AUTO_TEST_CASE( test_structure_description )
     ML::Parse_Context source("test", value.c_str(), value.size());
         expectJsonObject(source, [&](std::string key,
                                      ML::Parse_Context & context) {
-            auto * desc = ValueDescription::get(key);
+            auto desc = ValueDescription::get(key);
             if(desc) {
                 StreamingJsonParsingContext json(context);
                 desc->parseJson(&result, json);
@@ -356,4 +356,50 @@ S2Description::S2Description()
 {
     addParent<S1>(); // make sure we don't get "parent description is not a structure
     addField("val2", &S2::val2, "second value");
+}
+
+struct RecursiveStructure {
+    std::map<std::string, std::shared_ptr<RecursiveStructure> > elements;
+    std::vector<std::shared_ptr<RecursiveStructure> > vec;
+    std::map<std::string, RecursiveStructure> directElements;
+};
+
+CREATE_STRUCTURE_DESCRIPTION(RecursiveStructure);
+
+RecursiveStructureDescription::RecursiveStructureDescription()
+{
+    addField("elements", &RecursiveStructure::elements,
+             "elements of structure");
+    addField("vec", &RecursiveStructure::vec,
+             "vector of elements of structure");
+    addField("directElements", &RecursiveStructure::directElements,
+             "direct map of elements");
+}
+
+BOOST_AUTO_TEST_CASE( test_recursive_description )
+{
+    RecursiveStructureDescription desc;
+
+    RecursiveStructure s;
+    s.elements["first"] = make_shared<RecursiveStructure>();
+    s.elements["first"]->elements["first.element"] = make_shared<RecursiveStructure>();
+    s.elements["first"]->elements["first.element2"];  // null
+
+    s.elements["second"]; // null
+    s.vec.push_back(make_shared<RecursiveStructure>());
+    s.vec[0]->vec.push_back(make_shared<RecursiveStructure>());
+    s.vec[0]->elements["third"] = nullptr;
+    s.vec.push_back(nullptr);
+
+    s.directElements["first"].directElements["second"].directElements["third"].vec.push_back(nullptr);
+
+    Json::Value j = jsonEncode(s);
+
+    cerr << j << endl;
+
+    RecursiveStructure s2 = jsonDecode<RecursiveStructure>(j);
+
+    Json::Value j2 = jsonEncode(s2);
+
+    BOOST_CHECK_EQUAL(j, j2);
 }
