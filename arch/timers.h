@@ -45,7 +45,7 @@ struct Timer {
     unsigned long long ticks_;
     bool enabled;
 
-    Timer(bool enable = true)
+    explicit Timer(bool enable = true)
         : enabled(enable)
     {
         restart();
