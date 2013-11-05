@@ -1341,7 +1341,6 @@ template<typename Key, typename Value>
 DefaultDescription<std::map<Key, Value> > *
 getDefaultDescriptionUninitialized(std::map<Key, Value> * = 0)
 {
-    abort();
     return new DefaultDescription<std::map<Key, Value> >(constructOnly);
 }
 
