@@ -127,7 +127,7 @@ Bidder::init()
                 de.win.toJson().toString(),
                 de.campaignEvents.toJson().toString()
             };
-for (const auto& v: de.visits)
+        for (const auto& v: de.visits)
                 ode.visits.emplace_back(v.toJson().toString());
         };
         pimpl_->bidding_agent_->onClick = pimpl_->bidding_agent_->onImpression;
