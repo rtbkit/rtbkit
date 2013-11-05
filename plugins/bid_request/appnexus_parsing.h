@@ -10,6 +10,7 @@
 #include <string>
 #include "appnexus.h"
 #include "openrtb/openrtb_parsing.h"
+#include <type_traits>
 
 // using namespace OpenRTB;
 using std::string;
@@ -47,7 +48,6 @@ struct DefaultDescription<AppNexus::AdPosition>
     }
 };
 
-
 template<>
 struct DefaultDescription<AppNexus::BidRequest>
     : public StructureDescription<AppNexus::BidRequest> {
@@ -84,5 +84,6 @@ struct DefaultDescription<AppNexus::Member>
     DefaultDescription();
 };
 
+static_assert(std::is_same<typename GetDefaultDescriptionType<AppNexus::AdPosition>::type, DefaultDescription<AppNexus::AdPosition> >::type(), "wrong appnexus type");
 
 } // namespace Datacratic

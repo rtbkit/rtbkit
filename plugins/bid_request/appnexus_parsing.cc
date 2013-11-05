@@ -17,23 +17,7 @@ namespace Datacratic {
 DefaultDescription<AppNexus::BidRequest>::
 DefaultDescription()
 {
-        onUnknownField = [=] (AppNexus::BidRequest* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable)
-                = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::BidRequest::unparseable);
 
     addField("member_ad_profile_id", &AppNexus::BidRequest::memberAdProfileId, "Bid Request ID");
     addField("timestamp", &AppNexus::BidRequest::timestamp, "Timestamp");
@@ -53,22 +37,7 @@ DefaultDescription()
 DefaultDescription<AppNexus::BidInfo>::
 DefaultDescription()
 {
-    onUnknownField = [=] (AppNexus::BidInfo* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable) = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::BidInfo::unparseable);
 
     addField("user_id_64", &AppNexus::BidInfo::userId64, "Bid request userId in AN namespace");
     addField("user_agent", &AppNexus::BidInfo::userAgent, "Bid request client user agent");
@@ -108,22 +77,7 @@ DefaultDescription()
 DefaultDescription<AppNexus::Segment>::
 DefaultDescription()
 {
-    onUnknownField = [=] (AppNexus::Segment* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable) = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::Segment::unparseable);
 
     addField("id", &AppNexus::Segment::id, "AN segment Id");
     addField("member_id", &AppNexus::Segment::memberId, "AN member that owns the segment");
@@ -135,22 +89,7 @@ DefaultDescription()
 DefaultDescription<AppNexus::InventoryAudit>::
 DefaultDescription()
 {
-    onUnknownField = [=] (AppNexus::InventoryAudit* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable) = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::InventoryAudit::unparseable);
 
     addField("auditor_member_id", &AppNexus::InventoryAudit::auditorMemberId, "AN member Id");
     addField("intended_audience", &AppNexus::InventoryAudit::intendedAudience, "AN enum set of audience textual codes");
@@ -162,22 +101,7 @@ DefaultDescription()
 DefaultDescription<AppNexus::Tag>::
 DefaultDescription()
 {
-    onUnknownField = [=] (AppNexus::Tag* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable) = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::Tag::unparseable);
 
     addField("auction_id_64", &AppNexus::Tag::auctionId64, "AN auction Id");
     addField("id", &AppNexus::Tag::id, "TinyTag Id. TinyTag is AN mechanism for user to label partitions of inventory.");
@@ -210,22 +134,7 @@ DefaultDescription()
 DefaultDescription<AppNexus::Member>::
 DefaultDescription()
 {
-    onUnknownField = [=] (AppNexus::Member* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable) = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::Member::unparseable);
 
     addField("id", &AppNexus::Member::id, "AN member Id");
     addField("unparseable", &AppNexus::Member::unparseable, "Unparseable fields are collected here");

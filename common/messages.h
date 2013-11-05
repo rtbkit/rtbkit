@@ -95,7 +95,7 @@ struct Message {
 
     std::string toString() const {
         using namespace Datacratic;
-        static ValueDescription * desc = getDefaultDescription((T*) 0);
+        static auto desc = getDefaultDescriptionShared((T*) 0);
 
         std::stringstream stream;
         StreamJsonPrintingContext context(stream);

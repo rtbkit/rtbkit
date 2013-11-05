@@ -53,6 +53,16 @@ struct DefaultDescription<OpenRTB::MimeType>
     }
 };
 
+#if 0
+#define DECLARE_TAGGED_ENUM(Name)                   \
+    TaggedEnumDescription<Name> *                   \
+    getDefaultDescription(Name *)                   \
+    {                                               \
+        return new TaggedEnumDescription<Name>();   \
+    }
+
+DECLARE_TAGGED_ENUM(OpenRTB::VideoQuality);
+
 template<>
 struct DefaultDescription<OpenRTB::VideoQuality>
     : public TaggedEnumDescription<OpenRTB::VideoQuality> {
@@ -241,6 +251,7 @@ struct DefaultDescription<OpenRTB::AdPosition>
     {
     }
 };
+#endif
 
 template<>
 struct DefaultDescription<OpenRTB::BidRequest>
