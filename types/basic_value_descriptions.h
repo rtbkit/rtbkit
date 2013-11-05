@@ -519,6 +519,8 @@ struct TaggedEnum {
         return val;
     }
 
+    /// This typedef allows it to be picked up by a default value description
+    typedef void isTaggedEnumType;
 
 #if 0
     operator typename Cls::Vals () const
@@ -929,8 +931,12 @@ struct DefaultDescription<TaggedDoubleDef<num, den> >
 
 template<class Enum>
 struct TaggedEnumDescription
-    : public ValueDescriptionI<Enum, ValueKind::ENUM,
-                               TaggedEnumDescription<Enum> > {
+    : public ValueDescriptionT<Enum> {
+
+    TaggedEnumDescription()
+        : ValueDescriptionT<Enum>(ValueKind::ENUM)
+    {
+    }
 
     virtual void parseJsonTyped(Enum * val,
                                 JsonParsingContext & context) const
@@ -951,6 +957,18 @@ struct TaggedEnumDescription
     }
 };
 
+/** Default description for anything that has a tagged enum but no default
+    description.
+*/
+
+template<typename Enum>
+TaggedEnumDescription<Enum> *
+getDefaultDescription(Enum *,
+                      typename Enum::isTaggedEnumType * = 0,
+                      typename DefaultDescription<Enum>::not_defined * = 0)
+{
+    return new TaggedEnumDescription<Enum>();
+}
 
 typedef std::string CSList;  // comma-separated list
 

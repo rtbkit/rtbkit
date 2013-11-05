@@ -391,7 +391,8 @@ getDefaultDescriptionUninitialized(T * = 0)
 }
 
 /** This function is used to initialize a default description that was
-    previously uninitialized.  The default does nothing.
+    previously uninitialized.  The default does nothing.  This function
+    may be overridden for the value descriptions that require it.
 */
 template<typename Desc>
 inline void
@@ -407,6 +408,20 @@ template<typename T>
 struct GetDefaultDescriptionType {
     typedef typename std::remove_reference<decltype(*getDefaultDescription((T*)0))>::type type;
 };
+
+// Json::Value T::toJson() const
+template<typename T, typename Enable = void>
+struct hasDefaultDescription {
+    enum { value = false };
+    typedef bool is_false;
+};
+
+template<typename T>
+struct hasDefaultDescription<T, typename DefaultDescription<T>::defined *> {
+    enum { value = true };
+    typedef bool is_true;
+};
+
 
 /** Return the shared copy of the default description for this value.  This
     will look it up in the registry, and if not found, will create (and
