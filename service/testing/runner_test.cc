@@ -18,6 +18,7 @@
 #include "soa/service/message_loop.h"
 #include "soa/service/runner.h"
 #include "soa/service/sink.h"
+#include "soa/types/date.h"
 
 #include <iostream>
 
@@ -57,13 +58,23 @@ struct HelperCommands : vector<string>
 
     void sendOutput(bool isStdOut, const string & data)
     {
-        char cmdBuffer[1024];
+        char cmdBuffer[16384];
         int len = data.size();
         int totalLen = len + 3 + sizeof(int);
+        if (totalLen > 16384) {
+            throw ML::Exception("message too large");
+        }
         sprintf(cmdBuffer, (isStdOut ? "out" : "err"));
         memcpy(cmdBuffer + 3, &len, sizeof(int));
         memcpy(cmdBuffer + 3 + sizeof(int), data.c_str(), len);
         push_back(string(cmdBuffer, totalLen));
+    }
+
+    void sendSleep(int tenthSecs)
+    {
+        char cmdBuffer[8];
+        ::sprintf(cmdBuffer, "slp%.4x", tenthSecs);
+        push_back(string(cmdBuffer, 7));
     }
 
     void sendExit(int code)
@@ -344,3 +355,77 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
     loop.shutdown();
 }
 #endif
+
+#if 1
+/* Ensures that the output is received as soon as it is emitted, and not by
+ * chunks. This is done by expecting different types of strings: a simple one
+ * with a few chars, another one with two carriage returns and a third one
+ * with 1024 chars. The test works by ensuring that all strings are received
+ * one by one, with a relatively precise and constant delay of 1 second
+ * between them. */
+BOOST_AUTO_TEST_CASE( test_runner_no_output_delay )
+{
+    double delays[3];
+    int sizes[3];
+    int pos(-1);
+
+    Date start = Date::now();
+    Date last;
+
+    auto onStdOut = [&] (string && message) {
+        Date now = Date::now();
+        if (pos > -1 && pos < 3) {
+            /* skip "helper: ready" message */
+            delays[pos] = now.secondsSinceEpoch() - last.secondsSinceEpoch();
+            sizes[pos] = message.size();
+        }
+        pos++;
+        last = now;
+    };
+    auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
+
+    HelperCommands commands;
+    commands.sendSleep(10);
+    commands.sendOutput(true, "first");
+    commands.sendSleep(10);
+    commands.sendOutput(true, "second\nsecond");
+    commands.sendSleep(10);
+
+    string third;
+    for (int i = 0; i < 128; i++) {
+        third += "abcdefgh";
+    }
+    commands.sendOutput(true, third);
+    commands.sendSleep(10);
+    commands.sendExit(0);
+
+    MessageLoop loop;
+    Runner runner;
+    loop.addSource("runner", runner);
+    loop.start();
+
+    auto & stdInSink = runner.getStdInSink();
+    runner.run({"build/x86_64/bin/runner_test_helper"},
+               nullptr, stdOutSink);
+    for (const string & command: commands) {
+        while (!stdInSink.write(string(command))) {
+            ML::sleep(0.1);
+        }
+    }
+    stdInSink.requestClose();
+    Date end = Date::now();
+    runner.waitTermination();
+
+    BOOST_CHECK_EQUAL(sizes[0], 6);
+    BOOST_CHECK(delays[0] >= 1.0);
+    BOOST_CHECK_EQUAL(sizes[1], 14);
+    BOOST_CHECK(delays[1] >= 1.0);
+    BOOST_CHECK_EQUAL(sizes[2], 1025);
+    BOOST_CHECK(delays[2] >= 1.0);
+
+    for (int i = 0; i < 3; i++) {
+        ::fprintf(stderr, "%d: size: %d; delay: %f\n", i, sizes[i], delays[i]);
+    }
+}
+#endif
+
