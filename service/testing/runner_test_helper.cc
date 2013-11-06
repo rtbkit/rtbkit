@@ -1,26 +1,49 @@
+#include <string>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "jml/arch/timers.h"
 #include "jml/utils/exc_check.h"
+
+using namespace std;
+
 
 void
 DoOutput(FILE * in, FILE * out)
 {
     int len(0);
-    char *buffer;
+    unique_ptr<char> buffer;
 
     size_t n = ::fread(&len, sizeof(len), 1, in);
     ExcCheckNotEqual(n, 0, "sizeof(len) must be 4");
 
-    buffer = (char *) ::malloc(len + 1);
-    n = ::fread(buffer, sizeof(char), len, in);
+    buffer.reset(new char[len + 1]);
+    n = ::fread(buffer.get(), sizeof(char), len, in);
     ExcCheckNotEqual(n, 0, "received 0 bytes");
 
-    buffer[len] = 0;
+    buffer.get()[len] = 0;
 
-    ::fprintf(out, "%s\n", buffer);
-    ::free(buffer);
+    // ::fprintf(stderr, "helper output: %s\n", buffer);
+
+    ::fprintf(out, "%s\n", buffer.get());
+    ::fflush(out);
+}
+
+void
+DoSleep(FILE * in)
+{
+    char delay_buf[5]; /* in .1 secs units */
+    delay_buf[4] = 0;
+
+    size_t r = ::fread(&delay_buf, 1, 4, in);
+    if (r != 4) {
+        throw ML::Exception("wrong delay: " + to_string(r));
+    }
+
+    long delay = ::strtol(delay_buf, NULL, 16);
+    ML::sleep(delay * 0.1);
 }
 
 void
@@ -45,6 +68,8 @@ int main(int argc, char *argv[])
     */
 
     printf("helper: ready\n");
+    fflush(stdout);
+
     while (1) {
         char command[3];
         size_t n = ::fread(command, 1, sizeof(command), stdin);
@@ -62,6 +87,9 @@ int main(int argc, char *argv[])
         }
         else if (::strncmp(command, "out", 3) == 0) {
             DoOutput(stdin, stdout);
+        }
+        else if (::strncmp(command, "slp", 3) == 0) {
+            DoSleep(stdin);
         }
         else if (::strncmp(command, "xit", 3) == 0) {
             DoExit(stdin);
