@@ -14,8 +14,6 @@
 namespace RTBKIT {
 
 struct OpenRTBBidSource : public BidSource {
-    ML::RNG rng;
-
     std::string host;
     std::string verb;
     std::string resource;
