@@ -1,8 +1,9 @@
-#include <string>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <memory>
+#include <string>
 
 #include "jml/arch/timers.h"
 #include "jml/utils/exc_check.h"
