@@ -65,6 +65,14 @@ struct Date {
         return result;
     }
 
+    static Date fromTimespec(const struct timespec & ts)
+    {
+        Date result;
+        result.secondsSinceEpoch_ = (double(ts.tv_sec)
+                                     + double(ts.tv_nsec) / 1000000000);
+        return result;
+    }
+
     static Date fromIso8601Week(int year, int week, int day = 1);
 
     static Date parseSecondsSinceEpoch(const std::string & date);
