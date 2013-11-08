@@ -146,6 +146,11 @@ struct JsonParsingContext {
     /** Handler for when we get an undexpected field. */
 
     virtual void exception(const std::string & message) = 0;
+
+    /** Return a string that gives the context of where the parsing is
+        at, for example line number and column.
+    */
+    virtual std::string getContext() const = 0;
     
     virtual int expectInt() = 0;
     virtual unsigned int expectUnsignedInt() = 0;
@@ -432,7 +437,12 @@ struct StreamingJsonParsingContext
 
     virtual void exception(const std::string & message)
     {
-        context->exception(message);
+        context->exception("at " + printPath() + ": " + message);
+    }
+
+    virtual std::string getContext() const
+    {
+        return context->where() + " at " + printPath();
     }
 
 #if 0
@@ -483,6 +493,11 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
                             + boost::trim_copy(top->toString()));
     }
     
+    virtual std::string getContext() const
+    {
+        return printPath();
+    }
+
     virtual int expectInt()
     {
         return current->asInt();
