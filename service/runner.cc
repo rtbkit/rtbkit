@@ -37,6 +37,8 @@ using namespace Datacratic;
 
 namespace {
 
+const string StdbufCmd = "/usr/bin/stdbuf";
+
 tuple<int, int>
 CreateStdPipe(bool forWriting)
 {
@@ -407,12 +409,16 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
     fds.dupToStdStreams();
     fds.closeRemainingFds();
 
+    vector<string> stdbufCommand = { StdbufCmd, "-o0" };
+    stdbufCommand.insert(stdbufCommand.end(),
+                           command.begin(), command.end());
+
     // Set up the arguments before we fork, as we don't want to call malloc()
     // from the fork, and it can be called from c_str() in theory.
-    size_t len = command.size();
+    size_t len = stdbufCommand.size();
     char * argv[len + 1];
     for (int i = 0; i < len; i++) {
-        argv[i] = (char *) command[i].c_str();
+        argv[i] = (char *) stdbufCommand[i].c_str();
     }
     argv[len] = NULL;
 
@@ -427,7 +433,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
         ::prctl(PR_SET_PDEATHSIG, SIGTERM);
         ::close(fds.statusFd);
-        int res = ::execv(command[0].c_str(), argv);
+        int res = ::execv(stdbufCommand[0].c_str(), argv);
         if (res == -1) {
             int exitCode;
             if (errno == ENOENT)

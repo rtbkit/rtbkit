@@ -29,7 +29,6 @@ DoOutput(FILE * in, FILE * out)
     // ::fprintf(stderr, "helper output: %s\n", buffer);
 
     ::fprintf(out, "%s\n", buffer.get());
-    ::fflush(out);
 }
 
 void
@@ -69,7 +68,6 @@ int main(int argc, char *argv[])
     */
 
     printf("helper: ready\n");
-    fflush(stdout);
 
     while (1) {
         char command[3];
