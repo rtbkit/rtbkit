@@ -15,9 +15,10 @@ proxy_config = "{\"installation\":\"rtb-test\",\"location\":\"mtl\",\"zookeeper-
 class BCB(lwrtb.BidRequestCb):
     def __init__(self):
         super(BCB, self).__init__()    
-    def call (self, agent, ts, bid_id, bid_req, bids, time_left, augmentations, wcm):
-	x = ujson.loads(bid_req)
-	y= ujson.loads(bids)
+    def call (self, agent, br):
+	pprint.pprint(br)
+	x = ujson.loads(br.bidRequest)
+	y= ujson.loads(br.bids)
 	for bid in y['bids']:
 		bid['price']='100USD/1M'
 		bid['creative']=bid['availableCreatives'][0]

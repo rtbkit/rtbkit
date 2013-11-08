@@ -15,14 +15,8 @@ auto proxy_config = "{\"installation\":\"rtb-test\",\"location\":\"mtl\",\"zooke
 int main()
 {
     lwrtb::Bidder  bob("BOB", proxy_config);
-    bob.bid_request_cb_ = [&] (double               timestamp,
-                               const std::string&   id,           // Auction i
-                               const std::string&   bidRequest_str,
-                               const std::string&   bids_str,
-                               double               timeLeftMs,   // Time left of the bid reques
-                               const std::string&   augmentations,
-                               const std::string&   wcm) {
-        auto bids = Bids::fromJson(bids_str);
+    bob.bid_request_cb_ = [&] (const lwrtb::BidRequestEvent& ev) {
+        auto bids = Bids::fromJson(ev.bids);
         // auto br = RTBKIT::BidRequest::createFromJson(Json::parse(bidRequest_str));
         for (Bid& bid : bids) {
 
@@ -49,7 +43,7 @@ int main()
         Json::Value metadata = 42;
 
         // Send our bid back to the agent.
-        bob.doBid(id, bids.toJson().toString());
+        bob.doBid(ev.id, bids.toJson().toString());
     };
     bob.init();
     bob.doConfig (agent_config);

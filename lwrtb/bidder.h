@@ -5,8 +5,7 @@
  *      Author: jan
  */
 
-#ifndef BIDDER_H_
-#define BIDDER_H_
+#pragma once
 
 #include <string>
 #include <memory>
@@ -15,6 +14,7 @@
 
 namespace lwrtb {
 
+// enum class  BidStatus: char
 enum BidStatus
 {
     WIN,        ///< Bid was won
@@ -27,19 +27,29 @@ enum BidStatus
     BUG         ///< Bug request
 };
 
-struct BidResult
+inline
+std::string BidStatusToString (BidStatus status)
 {
-    BidStatus                 result;        ///> Result of our bid
-    double                    timestamp;     ///> Time at which the event occured
-    std::string               auctionId;     ///> Unique auction id for the original bid
-    int                       spotNum;       ///> Spot index into the bidRequest.imp or ourBid
-    std::string               secondPrice;   ///> Depends on result from router or the exchange
-    std::string               bidRequest;    ///> Original request we bid on
-    std::string               ourBid;        ///> Original bids that was placed
-    std::string               metadata;      ///> Metadata that was attached to the bid
-    std::string               augmentations; ///> Original Augmentations sent with the request
-};
+    switch (status)
+    {
+    case BidStatus::WIN: return "WIN";
+    case BidStatus::LOSS: return "LOSS";
+    case BidStatus::TOOLATE: return "TOOLATE";
+    case BidStatus::INVALID: return "INVALID";
+    case BidStatus::LOSTBID: return "LOSTBID";
+    case BidStatus::DROPPEDBID: return "DROPPEDBID";
+    case BidStatus::NOBUDGET: return "NOBUDGET";
+    case BidStatus::BUG: return "BUG";
+    default: return "NOPE";
+    }
+}
 
+// forward
+class Bidder;
+
+//
+//     DELIVERY
+//
 struct DeliveryEvent
 {
     std::string               event;
@@ -54,20 +64,6 @@ struct DeliveryEvent
     std::string               campaignEvents;
     std::vector<std::string>  visits;
 };
-
-// forward
-class Bidder;
-
-class BidRequestCb
-{
-public:
-    BidRequestCb() {}
-    virtual ~BidRequestCb() {}
-    virtual void call(Bidder& ,
-                      double, const std::string&, const std::string&, const std::string&,
-                      double, const std::string& ,const std::string&) {}
-};
-
 class DeliveryCb
 {
 public:
@@ -76,22 +72,67 @@ public:
     virtual void call(Bidder& , const DeliveryEvent&) {}
 };
 
+//
+//     BID REQUEST
+//
+struct BidRequestEvent
+{
+    double      timestamp;     // Start time of the auction.
+    std::string id;            // Auction id
+    std::string bidRequest;
+    std::string bids;          // Impressions available for bidding
+    double      timeLeftMs;    // Time left of the bid request.
+    std::string augmentations; // Data from the augmentors.
+    std::string winCostModel;  // Win cost model.
+};
+
+class BidRequestCb
+{
+public:
+    BidRequestCb() {}
+    virtual ~BidRequestCb() {}
+    virtual void call(Bidder& , const BidRequestEvent&) { }
+};
+
+//
+//     BID RESULT
+//
+struct BidResultEvent
+{
+    BidStatus                 result;        ///> Result of our bid
+    double                    timestamp;     ///> Time at which the event occured
+    std::string               auctionId;     ///> Unique auction id for the original bid
+    int                       spotNum;       ///> Spot index into the bidRequest.imp or ourBid
+    std::string               secondPrice;   ///> Depends on result from router or the exchange
+    std::string               bidRequest;    ///> Original request we bid on
+    std::string               ourBid;        ///> Original bids that was placed
+    std::string               metadata;      ///> Metadata that was attached to the bid
+    std::string               augmentations; ///> Original Augmentations sent with the request
+};
+
 class BidResultCb
 {
 public:
     BidResultCb() {}
     virtual ~BidResultCb() {}
-    virtual void call(Bidder& , const BidResult&) {}
+    virtual void call(Bidder& , const BidResultEvent&) {}
 };
 
+//
+//     ERROR
+//
+struct ErrorEvent
+{
+    double                    timestamp;
+    std::string               description;
+    std::vector<std::string>  originalError;
+};
 class ErrorCb
 {
 public:
     ErrorCb() {}
     virtual ~ErrorCb() {}
-    virtual void call(Bidder& , double,
-                      const std::string&,
-                      const std::vector<std::string>&) {}
+    virtual void call(Bidder& , const ErrorEvent&) {}
 };
 
 
@@ -139,38 +180,27 @@ public:
      *   the following callback if set,  will be used
      *   for the delivery of relevant bid requests
      */
-    std::function<
-    void( double               timestamp,    // Start time of the auction.
-          const std::string&   id,           // Auction id
-          const std::string&   bidRequest,
-          const std::string&   bids,         // Impressions available for bidding
-          double               timeLeftMs,   // Time left of the bid request
-          const std::string&   augmentations,// data for the augmentors
-          const std::string&   wcm)          // Win cost model
-    >                                         bid_request_cb_;
+    std::function<void(const BidRequestEvent&)>   bid_request_cb_;
 
 
     /**
      *  the following callback, if set, will  be used i/o
      *  dispatch results coming from back from the router.
      */
-    std::function<void(const BidResult&)>     bid_result_cb_;
+    std::function<void(const BidResultEvent&)>     bid_result_cb_;
 
     /**
      *  the following callback, if set, will  be used i/o
      *  dispatch results coming from back from the router.
      */
-    std::function<void(const DeliveryEvent&)> delivery_event_cb_;
+    std::function<void(const DeliveryEvent&)>      delivery_event_cb_;
 
     /**
      * whenever  router receives an invalid message from the
      * agent. This can either be caused by an invalid config,
      * and invalid bid
      */
-    std::function<void(double timestamp,
-                       const std::string& description,
-                       const std::vector<std::string>& originalError)
-    >                                         error_cb_;
+    std::function<void(const ErrorEvent&)>         error_cb_;
 
     void setBidRequestCb  (BidRequestCb&);
     void setDeliveryCb    (DeliveryCb&);
@@ -194,4 +224,4 @@ private:
 };
 
 } /* namespace lwrtb */
-#endif /* BIDDER_H_ */
+

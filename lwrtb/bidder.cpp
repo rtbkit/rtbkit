@@ -60,24 +60,39 @@ Bidder::init()
 {
     pimpl_->bidding_agent_->strictMode(false);
     if (bid_request_cb_)
+    {
         pimpl_->bidding_agent_->onBidRequest = [this] (double timestamp,
                                                Id & id,
                                                shared_ptr<RTBKIT::BidRequest> br,
                                                const Bids& bids,
                                                double timeLeftMs,
                                                const Json::Value & augmentations,
-        const WinCostModel& wcm) {
-        this->bid_request_cb_ (timestamp,
-                               id.toString(),
-                               br->toJsonStr(),
-                               bids.toJson().toString(),
-                               timeLeftMs,
-                               augmentations.toString(),
-                               wcm.toJson().toString());
-    };
+                                               const WinCostModel& wcm) {
+        lwrtb::BidRequestEvent res {
+            timestamp,
+            id.toString(),
+            br->toJsonStr(),
+            bids.toJson().toString(),
+            timeLeftMs,
+            augmentations.toString(),
+            wcm.toJson().toString()};
+        this->bid_request_cb_ (res);
+      };
+    }
 
     if (error_cb_)
-        pimpl_->bidding_agent_->onError = this->error_cb_;
+    {
+        pimpl_->bidding_agent_->onError = [this](double timestamp,
+                                                 const std::string& description,
+                                                 const std::vector<std::string> originalError) {
+    	lwrtb::ErrorEvent res {
+            timestamp,
+            description,
+            originalError 	};
+    	this->error_cb_(res);
+        };
+    }
+
 
     if (bid_result_cb_)
     {
@@ -92,7 +107,7 @@ Bidder::init()
             return lwrtb::BidStatus::BUG;
         };
         pimpl_->bidding_agent_->onWin = [this] (const RTBKIT::BidResult &br) {
-            lwrtb::BidResult res {
+            lwrtb::BidResultEvent res {
                 my_convert(br.result),
                 br.timestamp,
                 br.auctionId.toString(),
@@ -127,7 +142,7 @@ Bidder::init()
                 de.win.toJson().toString(),
                 de.campaignEvents.toJson().toString()
             };
-        for (const auto& v: de.visits)
+            for (const auto& v: de.visits)
                 ode.visits.emplace_back(v.toJson().toString());
         };
         pimpl_->bidding_agent_->onClick = pimpl_->bidding_agent_->onImpression;
@@ -165,14 +180,8 @@ Bidder::doBid(const string& id,
 void Bidder::setBidRequestCb  (BidRequestCb& cb)
 {
     this->swig_breq_cb_ = &cb ;
-    bid_request_cb_ = [&] (double ts,
-                           const std::string&   id,
-                           const std::string&   br,
-                           const std::string&   bids,
-                           double               left,
-                           const std::string&   augs,
-    const std::string&   wcm) {
-        this->swig_breq_cb_->call (*this, ts,id,br,bids,left,augs,wcm);
+    bid_request_cb_ = [&] (const lwrtb::BidRequestEvent& ev) {
+        this->swig_breq_cb_->call (*this, ev);
     };
 }
 
@@ -189,7 +198,7 @@ void Bidder::setDeliveryCb  (DeliveryCb& cb)
 void Bidder::setBidResultCb  (BidResultCb& cb)
 {
     this->swig_bres_cb_ = &cb ;
-    bid_result_cb_ = [&] (const BidResult& br) {
+    bid_result_cb_ = [&] (const BidResultEvent& br) {
         this->swig_bres_cb_->call (*this,br);
     };
 }
@@ -198,9 +207,8 @@ void Bidder::setBidResultCb  (BidResultCb& cb)
 void Bidder::setErrorCb  (ErrorCb& cb)
 {
     this->swig_err_cb_ = &cb ;
-    error_cb_ = [&] (double ts, const string& str,
-    const vector<string>& strvec) {
-        this->swig_err_cb_->call (*this,ts, str,strvec);
+    error_cb_ = [&] (const ErrorEvent& err) {
+        this->swig_err_cb_->call (*this,err);
     };
 }
 
