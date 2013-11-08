@@ -417,11 +417,11 @@ BOOST_AUTO_TEST_CASE( test_runner_no_output_delay )
     runner.waitTermination();
 
     BOOST_CHECK_EQUAL(sizes[0], 6);
-    BOOST_CHECK(delays[0] >= 1.0);
+    BOOST_CHECK(delays[0] >= 0.9);
     BOOST_CHECK_EQUAL(sizes[1], 14);
-    BOOST_CHECK(delays[1] >= 1.0);
+    BOOST_CHECK(delays[1] >= 0.9);
     BOOST_CHECK_EQUAL(sizes[2], 1025);
-    BOOST_CHECK(delays[2] >= 1.0);
+    BOOST_CHECK(delays[2] >= 0.9);
 
     for (int i = 0; i < 3; i++) {
         ::fprintf(stderr, "%d: size: %d; delay: %f\n", i, sizes[i], delays[i]);
