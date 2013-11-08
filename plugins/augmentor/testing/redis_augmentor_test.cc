@@ -62,7 +62,6 @@ struct MockAugmentationLoop : public ServiceBase, public MessageLoop
                 ExcAssertEqual (message.size(), 7);
                 ExcAssertEqual (message[5], "redis-augmentation");
                 recordHit("recv");
-                // cerr << "REDIS-AUG:" << message[6] << endl ;
                 lock_guard<mutex> l(aug_mtx);
                 aug_vec.emplace_back (message[6]);
                 recv++;
@@ -114,7 +113,7 @@ BOOST_AUTO_TEST_CASE( redisAugmentorTest )
 {
     enum {
         FeederThreads = 1,
-        TestLength = 20,
+        TestLength = 5,
         RedisThreads = 2
     };
 

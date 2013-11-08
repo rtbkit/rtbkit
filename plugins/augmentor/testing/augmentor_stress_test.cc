@@ -107,11 +107,11 @@ BOOST_AUTO_TEST_CASE( stressTest )
 
     cerr << "init aug\n";
 
-    Augmentor aug("test-aug", "test-aug", proxies);
+    SyncAugmentor aug("test-aug", "test-aug", proxies);
     aug.init();
-    aug.onRequest = [&] (const AugmentationRequest& req) {
-        aug.respond(req, AugmentationList());
+    aug.doRequest = [&] (const AugmentationRequest& req) {
         processed++;
+        return AugmentationList();
     };
     aug.start();
 
