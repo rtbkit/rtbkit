@@ -15,11 +15,22 @@
 #include "jml/arch/exception.h"
 #include "jml/arch/demangle.h"
 #include "jml/utils/filter_streams.h"
+#include "jml/utils/smart_ptr_utils.h"
 #include "json_parsing.h"
 #include "json_printing.h"
 #include "value_description_fwd.h"
 
 namespace Datacratic {
+
+/** Tag structure to indicate that we want to only construct a
+    description, not initialize it.  Initialization can be
+    performed later.
+*/
+
+struct ConstructOnly {
+};
+
+static const ConstructOnly constructOnly;
 
 struct JsonParsingContext;
 struct JsonPrintingContext;
@@ -74,7 +85,7 @@ struct ValueDescription {
     virtual ~ValueDescription() {};
     
     ValueKind kind;
-    const std::type_info * const type;
+    const std::type_info * type;
     std::string typeName;
 
     void setTypeName(const std::string & newName)
@@ -134,7 +145,7 @@ struct ValueDescription {
     struct FieldDescription {
         std::string fieldName;
         std::string comment;
-        std::unique_ptr<ValueDescription > description;
+        std::shared_ptr<const ValueDescription > description;
         int offset;
         int fieldNum;
     };
@@ -166,11 +177,56 @@ struct ValueDescription {
     mutable JSConverters * jsConverters;
     mutable bool jsConvertersInitialized;
 
-    static ValueDescription * get(std::string const & name);
+    /** Get the value description for a type name */
+    static std::shared_ptr<const ValueDescription>
+    get(std::string const & name);
+
+    /** Get the value description for a type */
+    static std::shared_ptr<const ValueDescription>
+    get(const std::type_info & type);
+
+    /** Get the value description for a type */
+    template<typename T>
+    static std::shared_ptr<const ValueDescriptionT<T> >
+    getType()
+    {
+        auto base = get(typeid(T));
+
+        if (!base)
+            return nullptr;
+
+        auto res
+            = std::dynamic_pointer_cast<const ValueDescriptionT<T> >(base);
+        if (!res)
+            throw ML::Exception("logic error in registry: wrong type: "
+                                + ML::type_name(*base) + " not convertible to "
+                                + ML::type_name<const ValueDescriptionT<T>>());
+        return res;
+    }
+
+    /** Get the value description for an object */
+    template<typename T>
+    static std::shared_ptr<const ValueDescriptionT<T> >
+    getType(const T * val)
+    {
+        // TODO: support polymorphic objects
+        return getType<T>();
+    }
 };
 
+/** Register the given value description with the system under the given
+    type name.
+*/
 void registerValueDescription(const std::type_info & type,
                               std::function<ValueDescription * ()>,
+                              bool isDefault);
+
+/** Register the value description with a two phase create then
+    initialize protocol.  This is needed for recursive structures.
+*/
+void registerValueDescription(const std::type_info & type,
+                              std::function<ValueDescription * ()> createFn,
+                              std::function<void (ValueDescription &)> initFn,
                               bool isDefault);
 
 template<typename T>
@@ -309,13 +365,41 @@ struct ValueDescriptionT : public ValueDescription {
     }
 };
 
+/** Basic function to implement getting a default description for a type.
+    The default implementation will work for any type for which
+    DefaultDescription<T> is defined.
+*/
 template<typename T>
-DefaultDescription<T> *
+inline DefaultDescription<T> *
 getDefaultDescription(T * = 0,
                       typename DefaultDescription<T>::defined * = 0)
 {
     return new DefaultDescription<T>();
 }
+
+/** This function is used to get a default description that is uninitialized.
+    It's necessary when working with recursive data types, as the object needs
+    to be registered before it can be initialized.
+    
+    The default implementation simply uses getDefaultDescription().
+*/
+template<typename T>
+inline decltype(getDefaultDescription((T *)0))
+getDefaultDescriptionUninitialized(T * = 0)
+{
+    return getDefaultDescription((T *)0);
+}
+
+/** This function is used to initialize a default description that was
+    previously uninitialized.  The default does nothing.  This function
+    may be overridden for the value descriptions that require it.
+*/
+template<typename Desc>
+inline void
+initializeDefaultDescription(Desc & desc)
+{
+}
+
 
 /** Template that returns the type of the default description that should
     be instantiated for the given use case.
@@ -325,6 +409,60 @@ struct GetDefaultDescriptionType {
     typedef typename std::remove_reference<decltype(*getDefaultDescription((T*)0))>::type type;
 };
 
+// Json::Value T::toJson() const
+template<typename T, typename Enable = void>
+struct hasDefaultDescription {
+    enum { value = false };
+    typedef bool is_false;
+};
+
+template<typename T>
+struct hasDefaultDescription<T, typename DefaultDescription<T>::defined *> {
+    enum { value = true };
+    typedef bool is_true;
+};
+
+
+/** Return the shared copy of the default description for this value.  This
+    will look it up in the registry, and if not found, will create (and
+    register) it.
+*/
+template<typename T>
+std::shared_ptr<const typename GetDefaultDescriptionType<T>::type>
+getDefaultDescriptionShared(T * = 0)
+{
+    auto res = ValueDescription::getType<T>();
+    if (!res) {
+        auto createFn = [] ()
+            {
+                return getDefaultDescriptionUninitialized((T *)0);
+            };
+
+        auto initFn = [] (ValueDescription & desc)
+            {
+                auto & descTyped
+                = dynamic_cast<typename GetDefaultDescriptionType<T>::type &>
+                    (desc);
+                initializeDefaultDescription(descTyped);
+            };
+        
+        // For now, register it if it wasn't before.  Eventually this should
+        // be done elsewhere.
+        registerValueDescription(typeid(T), createFn, initFn, true);
+
+        res = ValueDescription::getType<T>();
+    }
+    ExcAssert(res);
+
+    auto cast = std::dynamic_pointer_cast<const typename GetDefaultDescriptionType<T>::type>(res);
+
+    if (!cast)
+        throw ML::Exception("logic error in registry: wrong type: "
+                            + ML::type_name(*res) + " not convertible to "
+                            + ML::type_name<typename GetDefaultDescriptionType<T>::type>());
+
+    return cast;
+}
 
 /*****************************************************************************/
 /* VALUE DESCRIPTION CONCRETE IMPL                                           */
@@ -425,8 +563,8 @@ struct StructureDescriptionBase {
     {
     }
 
-    const std::type_info * const type;
-    const std::string structName;
+    const std::type_info * type;
+    std::string structName;
     bool nullAccepted;
 
     typedef ValueDescription::FieldDescription FieldDescription;
@@ -599,8 +737,18 @@ struct StructureDescription
     void addField(std::string name,
                   V Base::* field,
                   std::string comment,
-                  ValueDescriptionT<V> * description
-                  = getDefaultDescription((V *)0))
+                  ValueDescriptionT<V> * description)
+    {
+        addField(name, field, comment,
+                 std::shared_ptr<const ValueDescriptionT<V> >(description));
+    }
+
+    template<typename V, typename Base>
+    void addField(std::string name,
+                  V Base::* field,
+                  std::string comment,
+                  std::shared_ptr<const ValueDescriptionT<V> > description
+                      = getDefaultDescriptionShared<V>())
     {
         if (fields.count(name.c_str()))
             throw ML::Exception("field '" + name + "' added twice");
@@ -615,7 +763,7 @@ struct StructureDescription
         FieldDescription & fd = it->second;
         fd.fieldName = fieldName;
         fd.comment = comment;
-        fd.description.reset(description);
+        fd.description = description;
         Struct * p = nullptr;
         fd.offset = (size_t)&(p->*field);
         fd.fieldNum = fields.size() - 1;
@@ -735,7 +883,7 @@ addParent(ValueDescriptionT<V> * description_)
         throw ML::Exception("parent description is not a structure");
     }
 
-    std::unique_ptr<StructureDescription<V> > description(desc2);
+    std::shared_ptr<StructureDescription<V> > description(desc2);
 
     Struct * p = nullptr;
     V * p2 = static_cast<V *>(p);
@@ -767,11 +915,11 @@ addParent(ValueDescriptionT<V> * description_)
 /*****************************************************************************/
 
 template<typename Enum>
-struct EnumDescription: public ValueDescriptionI<Enum, ValueKind::ENUM,
-                                                 EnumDescription<Enum> > {
+struct EnumDescription: public ValueDescriptionT<Enum> {
 
     EnumDescription()
-        : hasDefault(false), defaultValue(Enum(0))
+        : ValueDescriptionT<Enum>(ValueKind::ENUM),
+          hasDefault(false), defaultValue(Enum(0))
     {
     }
 
@@ -838,12 +986,18 @@ struct EnumDescription: public ValueDescriptionI<Enum, ValueKind::ENUM,
 template<typename T>
 struct ListDescriptionBase {
 
-    ListDescriptionBase(ValueDescriptionT<T> * inner = getDefaultDescription((T *)0))
+    ListDescriptionBase(ValueDescriptionT<T> * inner)
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescriptionT<T> > inner;
+    ListDescriptionBase(std::shared_ptr<const ValueDescriptionT<T> > inner
+                        = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     template<typename List>
     void parseJsonTypedList(List * val, JsonParsingContext & context) const
@@ -906,8 +1060,13 @@ struct DefaultDescription<std::vector<T> >
     : public ValueDescriptionI<std::vector<T>, ValueKind::ARRAY>,
       public ListDescriptionBase<T> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
-                      = getDefaultDescription((T *)0))
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : ListDescriptionBase<T>(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
         : ListDescriptionBase<T>(inner)
     {
     }
@@ -985,8 +1144,13 @@ struct DefaultDescription<std::set<T> >
     : public ValueDescriptionI<std::set<T>, ValueKind::ARRAY>,
       public ListDescriptionBase<T> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
-                      = getDefaultDescription((T *)0))
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : ListDescriptionBase<T>(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                      = getDefaultDescriptionShared((T *)0))
         : ListDescriptionBase<T>(inner)
     {
     }
@@ -1083,13 +1247,23 @@ template<typename K, typename T, typename KeyCodec = FreeFunctionKeyCodec<K> >
 struct MapValueDescription
     : public ValueDescriptionI<std::map<K, T>, ValueKind::MAP> {
 
+    MapValueDescription(ConstructOnly)
+    {
+    }
+
     MapValueDescription(ValueDescriptionT<T> * inner
                       = getDefaultDescription((T *)0))
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescriptionT<T> > inner;
+    MapValueDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                        = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     typedef ValueDescription::FieldDescription FieldDescription;
 
@@ -1177,13 +1351,38 @@ struct MapValueDescription
 template<typename Key, typename Value>
 struct DefaultDescription<std::map<Key, Value> >
     : public MapValueDescription<Key, Value> {
-    DefaultDescription(ValueDescriptionT<Value> * inner
-                       = getDefaultDescription((Value *)0))
+    DefaultDescription(ValueDescriptionT<Value> * inner)
         : MapValueDescription<Key, Value>(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<Value> > inner
+                       = getDefaultDescriptionShared((Value *)0))
+        : MapValueDescription<Key, Value>(inner)
+    {
+    }
+
+    DefaultDescription(ConstructOnly)
+        : MapValueDescription<Key, Value>(constructOnly)
     {
     }
 };
 
+/** These functions allow it to be used to hold recursive data types. */
+
+template<typename Key, typename Value>
+DefaultDescription<std::map<Key, Value> > *
+getDefaultDescriptionUninitialized(std::map<Key, Value> * = 0)
+{
+    return new DefaultDescription<std::map<Key, Value> >(constructOnly);
+}
+
+template<typename Key, typename Value>
+void
+initializeDefaultDescription(DefaultDescription<std::map<Key, Value> > & desc)
+{
+    desc = std::move(DefaultDescription<std::map<Key, Value> >());
+}
 
 
 /*****************************************************************************/
@@ -1202,13 +1401,18 @@ template<typename T, typename Base,
 struct DescriptionFromBase
     : public ValueDescriptionT<T> {
 
-    DescriptionFromBase(BaseDescription * inner
-                      = getDefaultDescription((Base *)0))
+    DescriptionFromBase(BaseDescription * inner)
         : inner(inner)
     {
     }
 
-    std::unique_ptr<BaseDescription> inner;
+    DescriptionFromBase(std::shared_ptr<const BaseDescription> inner
+                      = getDefaultDescriptionShared((Base *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const BaseDescription> inner;
 
     constexpr ssize_t offset() const
     {
@@ -1321,8 +1525,7 @@ T jsonDecode(const Json::Value & json, T * = 0,
 {
     T result;
 
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     StructuredJsonParsingContext context(json);
     desc->parseJson(&result, context);
     return result;
@@ -1338,8 +1541,7 @@ T jsonDecodeStr(const std::string & json, T * = 0,
 {
     T result;
 
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     StreamingJsonParsingContext context(json, json.c_str(), json.c_str() + json.size());
     desc->parseJson(&result, context);
     return result;
@@ -1355,8 +1557,7 @@ T jsonDecodeStream(std::istream & stream, T * = 0,
 {
     T result;
 
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     StreamingJsonParsingContext context("<<input stream>>", stream);
     desc->parseJson(&result, context);
     return result;
@@ -1374,8 +1575,7 @@ T jsonDecodeFile(const std::string & filename, T * = 0,
     
     ML::filter_istream stream(filename);
     
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     StreamingJsonParsingContext context(filename, stream);
     desc->parseJson(&result, context);
     return result;
@@ -1417,8 +1617,7 @@ Json::Value jsonEncode(const T & obj,
                        decltype(getDefaultDescription((T *)0)) * = 0,
                        typename std::enable_if<!hasToJson<T>::value>::type * = 0)
 {
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     StructuredJsonPrintingContext context;
     desc->printJson(&obj, context);
     return std::move(context.output);
@@ -1432,8 +1631,7 @@ std::string jsonEncodeStr(const T & obj,
                           decltype(getDefaultDescription((T *)0)) * = 0,
                           typename std::enable_if<!hasToJson<T>::value>::type * = 0)
 {
-    static std::unique_ptr<ValueDescription> desc
-        (getDefaultDescription((T *)0));
+    static auto desc = getDefaultDescriptionShared<T>();
     std::ostringstream stream;
     StreamJsonPrintingContext context(stream);
     desc->printJson(&obj, context);
@@ -1456,14 +1654,30 @@ inline Json::Value jsonEncode(const char * str)
     struct Name                                                 \
         : public Datacratic::StructureDescriptionImpl<Type, Name> { \
         Name();                                                 \
+                                                                \
+        Name(const Datacratic::ConstructOnly &)                 \
+        {                                                       \
+        }                                                       \
     };                                                          \
                                                                 \
     inline Name *                                               \
     getDefaultDescription(Type *)                               \
     {                                                           \
         return new Name();                                      \
-    }                                                          
-
+    }                                                           \
+                                                                \
+    inline Name *                                               \
+    getDefaultDescriptionUninitialized(Type *)                  \
+    {                                                           \
+        return new Name(Datacratic::ConstructOnly());           \
+    }                                                           \
+                                                                \
+    inline void initializeDefaultDescription(Name & desc)       \
+    {                                                           \
+        Name newDesc;                                           \
+        desc = std::move(newDesc);                              \
+    }                                                           \
+    
 #define CREATE_STRUCTURE_DESCRIPTION(Type)                      \
     CREATE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
 
@@ -1473,13 +1687,29 @@ inline Json::Value jsonEncode(const char * str)
         Name() {                                                \
             Type::createDescription(*this);                     \
         }                                                       \
+                                                                \
+        Name(const Datacratic::ConstructOnly &)                 \
+        {                                                       \
+        }                                                       \
     };                                                          \
                                                                 \
     inline Name *                                               \
     getDefaultDescription(Type *)                               \
     {                                                           \
         return new Name();                                      \
-    }
+    }                                                           \
+                                                                \
+    inline Name *                                               \
+    getDefaultDescriptionUninitialized(Type *)                  \
+    {                                                           \
+        return new Name(Datacratic::ConstructOnly());           \
+    }                                                           \
+                                                                \
+    inline void initializeDefaultDescription(Name & desc)       \
+    {                                                           \
+        Name newDesc;                                           \
+        desc = std::move(newDesc);                              \
+    }                                                           \
 
 #define CREATE_CLASS_DESCRIPTION(Type)                          \
     CREATE_CLASS_DESCRIPTION_NAMED(Type##Description, Type)

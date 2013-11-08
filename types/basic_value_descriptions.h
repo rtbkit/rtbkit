@@ -281,13 +281,18 @@ template<typename T>
 struct DefaultDescription<std::unique_ptr<T> >
     : public ValueDescriptionI<std::unique_ptr<T>, ValueKind::OPTIONAL> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
-                       = getDefaultDescription((T *)0))
+    DefaultDescription(ValueDescriptionT<T> * inner)
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescriptionT<T> > inner;
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(std::unique_ptr<T> * val,
                                 JsonParsingContext & context) const
@@ -314,17 +319,27 @@ template<typename T>
 struct DefaultDescription<std::shared_ptr<T> >
     : public ValueDescriptionI<std::shared_ptr<T>, ValueKind::OPTIONAL> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
-                       = getDefaultDescription((T *)0))
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescriptionT<T> > inner;
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(std::shared_ptr<T> * val,
                                 JsonParsingContext & context) const
     {
+        if (context.isNull()) {
+            val->reset();
+            context.expectNull();
+            return;
+        }
         val->reset(new T());
         inner->parseJsonTyped(val->get(), context);
     }
@@ -504,6 +519,8 @@ struct TaggedEnum {
         return val;
     }
 
+    /// This typedef allows it to be picked up by a default value description
+    typedef void isTaggedEnumType;
 
 #if 0
     operator typename Cls::Vals () const
@@ -914,8 +931,12 @@ struct DefaultDescription<TaggedDoubleDef<num, den> >
 
 template<class Enum>
 struct TaggedEnumDescription
-    : public ValueDescriptionI<Enum, ValueKind::ENUM,
-                               TaggedEnumDescription<Enum> > {
+    : public ValueDescriptionT<Enum> {
+
+    TaggedEnumDescription()
+        : ValueDescriptionT<Enum>(ValueKind::ENUM)
+    {
+    }
 
     virtual void parseJsonTyped(Enum * val,
                                 JsonParsingContext & context) const
@@ -936,6 +957,18 @@ struct TaggedEnumDescription
     }
 };
 
+/** Default description for anything that has a tagged enum but no default
+    description.
+*/
+
+template<typename Enum>
+TaggedEnumDescription<Enum> *
+getDefaultDescription(Enum *,
+                      typename Enum::isTaggedEnumType * = 0,
+                      typename DefaultDescription<Enum>::not_defined * = 0)
+{
+    return new TaggedEnumDescription<Enum>();
+}
 
 typedef std::string CSList;  // comma-separated list
 
@@ -1023,13 +1056,18 @@ template<typename T>
 struct DefaultDescription<Optional<T> >
     : public ValueDescriptionI<Optional<T>, ValueKind::OPTIONAL> {
 
-    DefaultDescription(ValueDescriptionT<T> * inner
-                       = getDefaultDescription((T *)0))
+    DefaultDescription(ValueDescriptionT<T> * inner)
         : inner(inner)
     {
     }
 
-    std::unique_ptr<ValueDescriptionT<T> > inner;
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
 
     virtual void parseJsonTyped(Optional<T> * val,
                                 JsonParsingContext & context) const
@@ -1037,6 +1075,7 @@ struct DefaultDescription<Optional<T> >
         if (context.isNull()) {
             context.expectNull();
             val->reset();
+            return;
         }
         val->reset(new T());
         inner->parseJsonTyped(val->get(), context);

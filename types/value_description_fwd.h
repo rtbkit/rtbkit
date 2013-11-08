@@ -19,6 +19,8 @@ template<typename T>
 struct ValueDescriptionT;
 
 template<typename T, typename Enable = void>
-struct DefaultDescription;
+struct DefaultDescription {
+    typedef std::true_type not_defined;
+};
 
 } // namespace Datacratic
