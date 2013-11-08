@@ -109,7 +109,7 @@ struct Message {
         ML::Parse_Context source("Message", value.c_str(), value.size());
         expectJsonObject(source, [&](std::string key,
                                      ML::Parse_Context & context) {
-            auto * desc = ValueDescription::get(key);
+            auto desc = ValueDescription::get(key);
             if(desc) {
                 StreamingJsonParsingContext json(context);
                 desc->parseJson(&result.payload, json);
