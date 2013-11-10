@@ -22,6 +22,8 @@
 
 #include <iostream>
 
+#include "runner_test.h"
+
 #include "signals.h"
 
 using namespace std;
@@ -35,64 +37,6 @@ struct _Init {
     }
 } myInit;
 
-struct HelperCommands : vector<string>
-{
-    HelperCommands()
-        : vector<string>(),
-          active_(0)
-    {}
-
-    void reset() { active_ = 0; }
-
-    string nextCommand()
-    {
-        if (active_ < size()) {
-            int active = active_;
-            active_++;
-            return at(active);
-        }
-        else {
-            return "";
-        }
-    }
-
-    void sendOutput(bool isStdOut, const string & data)
-    {
-        char cmdBuffer[16384];
-        int len = data.size();
-        int totalLen = len + 3 + sizeof(int);
-        if (totalLen > 16384) {
-            throw ML::Exception("message too large");
-        }
-        sprintf(cmdBuffer, (isStdOut ? "out" : "err"));
-        memcpy(cmdBuffer + 3, &len, sizeof(int));
-        memcpy(cmdBuffer + 3 + sizeof(int), data.c_str(), len);
-        push_back(string(cmdBuffer, totalLen));
-    }
-
-    void sendSleep(int tenthSecs)
-    {
-        char cmdBuffer[8];
-        ::sprintf(cmdBuffer, "slp%.4x", tenthSecs);
-        push_back(string(cmdBuffer, 7));
-    }
-
-    void sendExit(int code)
-    {
-        char cmdBuffer[1024];
-        int totalLen = 3 + sizeof(int);
-        sprintf(cmdBuffer, "xit");
-        memcpy(cmdBuffer + 3, &code, sizeof(int));
-        push_back(string(cmdBuffer, totalLen));
-    };
-
-    void sendAbort()
-    {
-        push_back("abt");
-    }
-
-    int active_;
-};
 
 #if 1
 /* ensures that the basic callback system works */
@@ -102,7 +46,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 
     MessageLoop loop;
 
-    HelperCommands commands;
+    RunnerTestHelperCommands commands;
     commands.sendOutput(true, "hello stdout");
     commands.sendOutput(true, "hello stdout2");
     commands.sendOutput(false, "hello stderr");
@@ -172,7 +116,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
     {
         MessageLoop loop;
 
-        HelperCommands commands;
+        RunnerTestHelperCommands commands;
         commands.sendExit(123);
 
         Runner::RunResult result;
@@ -202,7 +146,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
     {
         MessageLoop loop;
 
-        HelperCommands commands;
+        RunnerTestHelperCommands commands;
         commands.sendAbort();
 
         Runner::RunResult result;
@@ -322,7 +266,7 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
     auto nullSink = make_shared<NullInputSink>();
 
     auto performLoop = [&] (const string & loopData) {
-        HelperCommands commands;
+        RunnerTestHelperCommands commands;
         commands.sendOutput(true, loopData);
         commands.sendExit(0);
 
@@ -384,7 +328,7 @@ BOOST_AUTO_TEST_CASE( test_runner_no_output_delay )
     };
     auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
 
-    HelperCommands commands;
+    RunnerTestHelperCommands commands;
     commands.sendSleep(10);
     commands.sendOutput(true, "first");
     commands.sendSleep(10);
