@@ -833,35 +833,54 @@ logUsageMetrics(double period)
 {
     std::string p = std::to_string(period);
 
-    for(auto & item : agents) {
+    for (const auto & item : agents) {
         auto & info = item.second;
+
+        auto & last = lastAgentUsageMetrics[item.first];
+
+        AgentUsageMetrics newMetrics(info.stats->intoFilters,
+                                     info.stats->passedStaticFilters,
+                                     info.stats->auctions,
+                                     info.stats->bids);
+        AgentUsageMetrics delta = newMetrics - last;
+
         logMessage("USAGE", "AGENT", p, item.first,
-                                        info.config->account.toString(),
-                                        info.stats->intoFilters,
-                                         info.stats->passedStaticFilters,
-                                        info.stats->auctions,
-                                        info.stats->bids,
-                                        info.config->bidProbability);
+                   info.config->account.toString(),
+                   delta.intoFilters,
+                   delta.passedStaticFilters,
+                   delta.auctions,
+                   delta.bids,
+                   info.config->bidProbability);
+
+        last = move(newMetrics);
     }
 
-    int numExchanges = 0;
-    int numRequests = 0;
-    int numAuctions = 0;
-    float acceptAuctionProbability = 0;
+    {
+        RouterUsageMetrics newMetrics;
+        int numExchanges = 0;
+        float acceptAuctionProbability(0.0);
 
-    forAllExchanges([&](std::shared_ptr<ExchangeConnector> const & item) {
-        ++numExchanges;
-        numRequests += item->numRequests;
-        numAuctions += item->numAuctions;
-        acceptAuctionProbability += item->acceptAuctionProbability;
-    });
+        forAllExchanges([&](std::shared_ptr<ExchangeConnector> const & item) {
+            ++numExchanges;
+            newMetrics.numRequests += item->numRequests;
+            newMetrics.numAuctions += item->numAuctions;
+            acceptAuctionProbability += item->acceptAuctionProbability;
+        });
+        newMetrics.numNoPotentialBidders = numNoPotentialBidders;
+        newMetrics.numAuctionsWithBid = numAuctionsWithBid;
 
-    logMessage("USAGE", "ROUTER", p, numRequests,
-                                     numAuctions,
-                                     numNoPotentialBidders,
-                                     numBids,
-                                     numAuctionsWithBid,
-                                     acceptAuctionProbability / numExchanges);
+        RouterUsageMetrics delta = lastRouterUsageMetrics - newMetrics;
+
+        logMessage("USAGE", "ROUTER", p,
+                   delta.numRequests,
+                   delta.numAuctions,
+                   delta.numNoPotentialBidders,
+                   delta.numBids,
+                   delta.numAuctionsWithBid,
+                   acceptAuctionProbability / numExchanges);
+
+        lastRouterUsageMetrics = move(newMetrics);
+    }
 }
 
 void
