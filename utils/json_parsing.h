@@ -13,6 +13,7 @@
 #include <string>
 #include <functional>
 #include "parse_context.h"
+#include <boost/lexical_cast.hpp>
 
 
 namespace ML {
@@ -108,7 +109,47 @@ expectJson(Parse_Context & context)
                              result[key] = expectJson(context);
                          });
         return result;
-    } else return context.expect_double();
+    } else {
+        Json::Value result;
+
+        // Look for an integer first
+        std::string found;
+        found.reserve(100);
+        int nonDigits = 0;
+        bool negative = false;
+
+        while (context) {
+            char c = *context;
+            if (c == ',' || c == '}' || c == ']' || isspace(c))
+                break;
+            found += c;
+            if (found.empty()) {
+                if (c == '-')
+                    negative = true;
+            }
+            if (!found.empty() && c != '+' && c != '-')
+                nonDigits += !isdigit(c);
+            ++context;
+        }
+        
+        //using namespace std;
+        //cerr << "found = " << found << endl;
+
+        if (nonDigits == 0 && !negative) {
+            // Unsigned integer
+            result = boost::lexical_cast<unsigned long long>(found);
+        }
+        else if (nonDigits == 0) {
+            // Signed integer
+            result = boost::lexical_cast<long long>(found);
+        }
+        else {
+            // Floating point
+            result = boost::lexical_cast<double>(found);
+        }
+        return result;
+        //return context.expect_double();
+    }
 }
 
 #endif
