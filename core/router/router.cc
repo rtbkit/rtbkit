@@ -833,6 +833,14 @@ logUsageMetrics(double period)
 {
     std::string p = std::to_string(period);
 
+    for (auto it = lastAgentUsageMetrics.begin();
+         it != lastAgentUsageMetrics.end();
+         it++) {
+        if (agents.count(it->first) == 0) {
+            it = lastAgentUsageMetrics.erase(it);
+        }
+    }
+
     for (const auto & item : agents) {
         auto & info = item.second;
 
