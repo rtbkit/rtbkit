@@ -833,35 +833,64 @@ logUsageMetrics(double period)
 {
     std::string p = std::to_string(period);
 
-    for(auto & item : agents) {
-        auto & info = item.second;
-        logMessage("USAGE", "AGENT", p, item.first,
-                                        info.config->account.toString(),
-                                        info.stats->intoFilters,
-                                         info.stats->passedStaticFilters,
-                                        info.stats->auctions,
-                                        info.stats->bids,
-                                        info.config->bidProbability);
+    for (auto it = lastAgentUsageMetrics.begin();
+         it != lastAgentUsageMetrics.end();) {
+        if (agents.count(it->first) == 0) {
+            it = lastAgentUsageMetrics.erase(it);
+        }
+        else {
+            it++;
+        }
     }
 
-    int numExchanges = 0;
-    int numRequests = 0;
-    int numAuctions = 0;
-    float acceptAuctionProbability = 0;
+    for (const auto & item : agents) {
+        auto & info = item.second;
 
-    forAllExchanges([&](std::shared_ptr<ExchangeConnector> const & item) {
-        ++numExchanges;
-        numRequests += item->numRequests;
-        numAuctions += item->numAuctions;
-        acceptAuctionProbability += item->acceptAuctionProbability;
-    });
+        auto & last = lastAgentUsageMetrics[item.first];
 
-    logMessage("USAGE", "ROUTER", p, numRequests,
-                                     numAuctions,
-                                     numNoPotentialBidders,
-                                     numBids,
-                                     numAuctionsWithBid,
-                                     acceptAuctionProbability / numExchanges);
+        AgentUsageMetrics newMetrics(info.stats->intoFilters,
+                                     info.stats->passedStaticFilters,
+                                     info.stats->auctions,
+                                     info.stats->bids);
+        AgentUsageMetrics delta = newMetrics - last;
+
+        logMessage("USAGE", "AGENT", p, item.first,
+                   info.config->account.toString(),
+                   delta.intoFilters,
+                   delta.passedStaticFilters,
+                   delta.auctions,
+                   delta.bids,
+                   info.config->bidProbability);
+
+        last = move(newMetrics);
+    }
+
+    {
+        RouterUsageMetrics newMetrics;
+        int numExchanges = 0;
+        float acceptAuctionProbability(0.0);
+
+        forAllExchanges([&](std::shared_ptr<ExchangeConnector> const & item) {
+            ++numExchanges;
+            newMetrics.numRequests += item->numRequests;
+            newMetrics.numAuctions += item->numAuctions;
+            acceptAuctionProbability += item->acceptAuctionProbability;
+        });
+        newMetrics.numNoPotentialBidders = numNoPotentialBidders;
+        newMetrics.numAuctionsWithBid = numAuctionsWithBid;
+
+        RouterUsageMetrics delta = lastRouterUsageMetrics - newMetrics;
+
+        logMessage("USAGE", "ROUTER", p,
+                   delta.numRequests,
+                   delta.numAuctions,
+                   delta.numNoPotentialBidders,
+                   delta.numBids,
+                   delta.numAuctionsWithBid,
+                   acceptAuctionProbability / numExchanges);
+
+        lastRouterUsageMetrics = move(newMetrics);
+    }
 }
 
 void
