@@ -111,15 +111,12 @@ struct AugmentationLoop : public ServiceBase, public MessageLoop {
     struct AugmentorInfoEntry {
         std::string name;
         std::shared_ptr<AugmentorInfo> info;
-        //std::shared_ptr<const AugmentorConfig> config;
     };
 
     /** A read-only structure in which the augmentors are periodically published.
         Protected by RCU.
     */
-    struct AllAugmentorInfo : public std::vector<AugmentorInfoEntry> {
-        std::set<std::string> index;
-    };
+    struct AllAugmentorInfo : public std::vector<AugmentorInfoEntry> {};
 
     /** Pointer to current version.  Protected by allAgentsGc. */
     AllAugmentorInfo * allAugmentors;
