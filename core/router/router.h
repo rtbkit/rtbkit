@@ -615,12 +615,12 @@ public:
         AgentUsageMetrics operator - (const AgentUsageMetrics & other)
             const
         {
-            AgentUsageMetrics result(other);
+            AgentUsageMetrics result(*this);
 
-            result.intoFilters -= intoFilters;
-            result.passedStaticFilters -= passedStaticFilters;
-            result.auctions -= auctions;
-            result.bids -= bids;
+            result.intoFilters -= other.intoFilters;
+            result.passedStaticFilters -= other.passedStaticFilters;
+            result.auctions -= other.auctions;
+            result.bids -= other.bids;
 
             return result;
         };
@@ -640,13 +640,13 @@ public:
         RouterUsageMetrics operator - (const RouterUsageMetrics & other)
             const
         {
-            RouterUsageMetrics result(other);
+            RouterUsageMetrics result(*this);
 
-            result.numRequests -= numRequests;
-            result.numAuctions -= numAuctions;
-            result.numNoPotentialBidders -= numNoPotentialBidders;
-            result.numBids -= numBids;
-            result.numAuctionsWithBid -= numAuctionsWithBid;
+            result.numRequests -= other.numRequests;
+            result.numAuctions -= other.numAuctions;
+            result.numNoPotentialBidders -= other.numNoPotentialBidders;
+            result.numBids -= other.numBids;
+            result.numAuctionsWithBid -= other.numAuctionsWithBid;
 
             return result;
         };
