@@ -16,15 +16,13 @@ class BCB(lwrtb.BidRequestCb):
     def __init__(self):
         super(BCB, self).__init__()    
     def call (self, agent, br):
-	pprint.pprint(br)
-	x = ujson.loads(br.bidRequest)
-	y= ujson.loads(br.bids)
-	for bid in y['bids']:
+	bidreq = ujson.loads(br.bidRequest)
+	bids = ujson.loads(br.bids)
+	for bid in bids['bids']:
 		bid['price']='100USD/1M'
 		bid['creative']=bid['availableCreatives'][0]
-	# print ujson.dumps(y)
-	agent.doBid(bid_id, ujson.dumps(y))
-	print 'BIDREQ bid on id=%s'%bid_id
+	agent.doBid(br.id, ujson.dumps(bids))
+	print 'BIDREQ bid on id=%s'%(br.id)
 	pass
 
 class ECB(lwrtb.ErrorCb):
