@@ -368,8 +368,8 @@ struct GzipCompressorFilter::Itl : public boost::iostreams::gzip_compressor {
                   closable_tag {
             };
 
-            const char * & src_begin;
-            const char * & src_end;
+            const char_type * & src_begin;
+            const char_type * & src_end;
 
             size_t read(char * buf, size_t n)
             {
@@ -486,8 +486,8 @@ struct GzipDecompressor::Itl : public boost::iostreams::gzip_decompressor {
                   closable_tag {
             };
 
-            const char * & src_begin;
-            const char * & src_end;
+            const char_type * & src_begin;
+            const char_type * & src_end;
 
             ssize_t read(char * buf, size_t n)
             {
