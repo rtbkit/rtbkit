@@ -47,7 +47,6 @@ struct AugmentorInfo {
     AugmentorInfo(const std::string& name = "") : name(name) {}
 
     std::string name;                   ///< What the augmentation is called
-    std::map<Id, Date> inFlight;
     std::vector<AugmentorInstanceInfo> instances;
 
     AugmentorInstanceInfo* findInstance(const std::string& addr)
@@ -119,10 +118,6 @@ private:
         Date timeout;
     };
 
-    AugmentorInstanceInfo* pickInstance(AugmentorInfo& aug);
-    void doAugmentation(const std::shared_ptr<Entry> & entry);
-    void doDisconnection(const std::string & addr, const std::string & aug = "");
-
     /** List of auctions we're currently augmenting.  Once the augmentation
         process is finished the auction will be passed on.
     */
@@ -141,7 +136,7 @@ private:
     /** A read-only structure in which the augmentors are periodically published.
         Protected by RCU.
     */
-    struct AllAugmentorInfo : public std::vector<AugmentorInfoEntry> {};
+    typedef std::vector<AugmentorInfoEntry> AllAugmentorInfo;
 
     /** Pointer to current version.  Protected by allAgentsGc. */
     AllAugmentorInfo * allAugmentors;
@@ -165,12 +160,21 @@ private:
     /** Update the augmentors from the configuration settings. */
     void updateAllAugmentors();
 
+
     void handleAugmentorMessage(const std::vector<std::string> & message);
+
+    AugmentorInstanceInfo* pickInstance(AugmentorInfo& aug);
+    void doAugmentation(const std::shared_ptr<Entry> & entry);
+
+    void recordStats();
 
     void checkExpiries();
 
     /** Handle a configuration message from an augmentor. */
     void doConfig(const std::vector<std::string> & message);
+
+    /** Disconnect the instance at addr for type aug. */
+    void doDisconnection(const std::string & addr, const std::string & aug = "");
 
     /** Handle a response from an augmentation. */
     void doResponse(const std::vector<std::string> & message);

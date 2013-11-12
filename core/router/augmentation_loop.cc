@@ -103,8 +103,12 @@ init()
     addSource("AugmentationLoop::inbox", inbox);
     addSource("AugmentationLoop::disconnections", disconnections);
     addSource("AugmentationLoop::toAugmentors", toAugmentors);
-    addPeriodic("AugmentationLoop::checkExpiries", 0.977,
+
+    addPeriodic("AugmentationLoop::checkExpiries", 0.001,
                 [=] (int) { checkExpiries(); });
+
+    addPeriodic("AugmentationLoop::recordStats", 0.977,
+                [=] (int) { recordStats(); });
 }
 
 void
@@ -182,68 +186,43 @@ handleAugmentorMessage(const std::vector<std::string> & message)
 
 void
 AugmentationLoop::
+recordStats()
+{
+    for (auto it = augmentors.begin(), end = augmentors.end();
+         it != end;  ++it)
+    {
+        size_t inFlights = 0;
+        for (const auto& instance : it->second->instances)
+            inFlights += instance.numInFlight;
+
+        recordLevel(inFlights, "augmentor.%s.numInFlight", it->first);
+    }
+}
+
+
+void
+AugmentationLoop::
 checkExpiries()
 {
-    //cerr << "checking expiries" << endl;
-
     Guard guard(lock);
-
     Date now = Date::now();
-
-    for (auto it = augmentors.begin(), end = augmentors.end();
-         it != end;  ++it) {
-
-        AugmentorInfo & aug = *it->second;
-
-        vector<Id> lostAuctions;
-
-        for (auto jt = aug.inFlight.begin(), jend = aug.inFlight.end();
-             jt != jend;  ++jt)
-        {
-            if (now.secondsSince(jt->second) > 5.0) {
-                cerr << "warning: augmentor " << it->first
-                     << " lost auction " << jt->first
-                     << endl;
-
-                string eventName = "augmentor."
-                    + it->first + ".lostAuction";
-                recordEvent(eventName.c_str());
-
-                lostAuctions.push_back(jt->first);
-            }
-        }
-                
-        // Delete all in flight that appear to be lost
-        for (unsigned i = 0;  i < lostAuctions.size();  ++i)
-            aug.inFlight.erase(lostAuctions[i]);
-                
-        string eventName = "augmentor." + it->first + ".numInFlight";
-        recordEvent(eventName.c_str(), ET_LEVEL,
-                    aug.inFlight.size());
-    }
 
     auto onExpired = [&] (const Id & id,
                           const std::shared_ptr<Entry> & entry) -> Date
         {
-            //++numAugmented;
-            //cerr << "augmented " << ++numAugmented << " bids" << endl;
-
             for (auto it = entry->outstanding.begin(),
                      end = entry->outstanding.end();
-                 it != end;  ++it) {
-                string eventName = "augmentor." + *it
-                    + ".expiredTooLate";
-                recordEvent(eventName.c_str(), ET_COUNT);
+                 it != end; ++it)
+            {
+                recordHit("augmentor.%s.expiredTooLate", *it);
             }
                 
             this->augmentationExpired(id, *entry);
             return Date();
         };
 
-    if (augmenting.earliest <= now) {
-        //Guard guard(lock);
+    if (augmenting.earliest <= now)
         augmenting.expire(onExpired, now);
-    }
 
     if (augmenting.empty() && !idle_) {
         idle_ = 1;
@@ -455,12 +434,6 @@ doAugmentation(const std::shared_ptr<Entry> & entry)
                 entry->info->auction->requestStr,
                 availableAgentsStr.str(),
                 Date::now());
-
-        auto ret = aug.inFlight.insert(make_pair(entry->info->auction->id, now));
-        if (!ret.second) {
-            cerr << "warning: double augment for auction "
-                << entry->info->auction->id << endl;
-        }
     }
 
     recordLevel(Date::now().secondsSince(now), "requestTimeMs");
@@ -593,28 +566,23 @@ doResponse(const std::vector<std::string> & message)
         recordEvent(eventName.c_str(), ET_OUTCOME, responseLength);
     }
 
-    const char* eventType =
-        (augmentation == "" || augmentation == "null") ?
-        "nullResponse" : "validResponse";
-    recordHit("augmentor.%s.%s", augmentor, eventType);
-    recordHit("augmentor.%s.instances.%s.%s", augmentor, addr, eventType);
-
 
     if (augmentors.count(augmentor)) {
-        auto & entry = *augmentors[augmentor];
-        entry.inFlight.erase(id);
-        auto instance = entry.findInstance(addr);
+        auto instance = augmentors[augmentor]->findInstance(addr);
         if (instance) instance->numInFlight--;
     }
 
     auto it = augmenting.find(id);
     if (it == augmenting.end()) {
         recordHit("augmentation.unknown");
-        string eventName = "augmentor." + augmentor + ".unknown";
-        recordHit(eventName);
-        //cerr << "warning: handled response for unknown auction" << endl;
+        recordHit("augmentor.%s.instances.%s.unknown", augmentor, addr);
         return;
     }
+
+    const char* eventType =
+        (augmentation == "" || augmentation == "null") ?
+        "nullResponse" : "validResponse";
+    recordHit("augmentor.%s.instances.%s.%s", augmentor, addr, eventType);
 
     it->second->info->auction->augmentations[augmentor].mergeWith(augmentationList);
 
