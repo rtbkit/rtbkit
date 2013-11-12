@@ -30,17 +30,36 @@ namespace RTBKIT {
 /* AUGMENTOR CONFIG                                                          */
 /*****************************************************************************/
 
-/** Information about a given augmentor. */
-struct AugmentorInfo {
-    AugmentorInfo()
-        : numInFlight(0)
-    {
-    }
+/** Information about a specific augmentor which belongs to an augmentor class.
+ */
+struct AugmentorInstanceInfo {
+    AugmentorInstanceInfo(const std::string& addr = "", int maxInFlight = 0) :
+        addr(addr), numInFlight(0), maxInFlight(maxInFlight)
+    {}
 
-    std::string augmentorAddr;             ///< zmq socket name for it
+    std::string addr;
+    int numInFlight;
+    int maxInFlight;
+};
+
+/** Information about a given class of augmentor. */
+struct AugmentorInfo {
+    AugmentorInfo(const std::string& name = "") : name(name) {}
+
     std::string name;                   ///< What the augmentation is called
     std::map<Id, Date> inFlight;
-    int numInFlight;
+    std::vector<AugmentorInstanceInfo> instances;
+
+    AugmentorInstanceInfo* findInstance(const std::string& addr)
+    {
+        for (auto it = instances.begin(), end = instances.end();
+             it != end; ++it)
+        {
+            if (it->addr == addr) return &(*it);
+        }
+        return nullptr;
+
+    }
 };
 
 // Information about an auction being augmented
@@ -91,12 +110,18 @@ struct AugmentationLoop : public ServiceBase, public MessageLoop {
                  Date timeout,
                  const OnFinished & onFinished);
 
+private:
+
     struct Entry {
         std::shared_ptr<AugmentationInfo> info;
         std::set<std::string> outstanding;
         OnFinished onFinished;
         Date timeout;
     };
+
+    AugmentorInstanceInfo* pickInstance(AugmentorInfo& aug);
+    void doAugmentation(const std::shared_ptr<Entry> & entry);
+    void doDisconnection(const std::string & addr, const std::string & aug = "");
 
     /** List of auctions we're currently augmenting.  Once the augmentation
         process is finished the auction will be passed on.
@@ -128,6 +153,7 @@ struct AugmentationLoop : public ServiceBase, public MessageLoop {
 
     /// We pick up augmentations to be done from here
     TypedMessageSink<std::shared_ptr<Entry> > inbox;
+    TypedMessageSink<std::string> disconnections;
 
     /// Connection to all of our augmentors
     ZmqNamedClientBus toAugmentors;

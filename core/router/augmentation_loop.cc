@@ -36,6 +36,7 @@ AugmentationLoop(ServiceBase & parent,
       allAugmentors(0),
       idle_(1),
       inbox(65536),
+      disconnections(1024),
       toAugmentors(getZmqContext())
 {
     updateAllAugmentors();
@@ -48,6 +49,7 @@ AugmentationLoop(std::shared_ptr<ServiceProxies> proxies,
       allAugmentors(0),
       idle_(1),
       inbox(65536),
+      disconnections(1024),
       toAugmentors(getZmqContext())
 {
     updateAllAugmentors();
@@ -80,83 +82,26 @@ init()
             cerr << "augmentor " << client << " has connected" << endl;
         };
 
+    // These events show up on the zookeeper thread so redirect them to our
+    // message loop thread.
     toAugmentors.onDisconnection = [=] (const std::string & client)
         {
             cerr << "augmentor " << client << " has disconnected" << endl;
+            disconnections.push(client);
         };
 
-    inbox.onEvent = [&] (const std::shared_ptr<Entry> & entry)
+    disconnections.onEvent = [&] (const std::string& addr)
         {
-            //cerr << "got event on inbox" << endl;
+            doDisconnection(addr);
+        };
 
-            Guard guard(lock);
-            Date now = Date::now();
-
-            //cerr << "got lock on inbox" << endl;
-
-            if (augmenting.count(entry->info->auction->id)) {
-                stringstream ss;
-                ss << "AugmentationLoop: duplicate auction id detected "
-                   << entry->info->auction->id << endl;
-                cerr << ss.str();
-                return;
-            }
-
-            // TODO: wake up loop if slower...
-            // TODO: DRY with other function...
-            augmenting.insert(entry->info->auction->id, entry,
-                              entry->timeout);
-
-            for (auto it = entry->outstanding.begin(),
-                     end = entry->outstanding.end();
-                 it != end;  ++it) {
-
-                auto & aug = *augmentors[*it];
-
-                //cerr << "sending to " << *it << " at "
-                //     << aug.agentAddr << endl;
-
-                set<string> agents;
-                const auto& bidderGroups = entry->info->potentialGroups;
-
-                for (auto jt = bidderGroups.begin(), end = bidderGroups.end();
-                     jt != end; ++jt)
-                {
-                    for (auto kt = jt->begin(), end = jt->end();
-                         kt != end; ++kt)
-                    {
-                        agents.insert(kt->agent);
-                    }
-                }
-
-                std::ostringstream availableAgentsStr;
-                ML::DB::Store_Writer writer(availableAgentsStr);
-                writer.save(agents);
-                        
-                // Send the message to the augmentor
-                toAugmentors.sendMessage(aug.augmentorAddr,
-                                         "AUGMENT", "1.0", *it,
-                                         entry->info->auction->id.toString(),
-                                         entry->info->auction->requestStrFormat,
-                                         entry->info->auction->requestStr,
-                                         availableAgentsStr.str(),
-                                         Date::now());
-
-                if (!aug.inFlight.insert
-                    (make_pair(entry->info->auction->id, now))
-                    .second) {
-                    cerr << "warning: double augment for auction "
-                         << entry->info->auction->id << endl;
-                }
-                else aug.numInFlight = aug.inFlight.size();
-            }
-
-            recordLevel(Date::now().secondsSince(now), "requestTimeMs");
-                    
-            idle_ = 0;
+    inbox.onEvent = [&] (const std::shared_ptr<Entry>& entry)
+        {
+            doAugmentation(entry);
         };
 
     addSource("AugmentationLoop::inbox", inbox);
+    addSource("AugmentationLoop::disconnections", disconnections);
     addSource("AugmentationLoop::toAugmentors", toAugmentors);
     addPeriodic("AugmentationLoop::checkExpiries", 0.977,
                 [=] (int) { checkExpiries(); });
@@ -252,9 +197,9 @@ checkExpiries()
 
         vector<Id> lostAuctions;
 
-        for (auto jt = aug.inFlight.begin(),
-                 jend = aug.inFlight.end();
-             jt != jend;  ++jt) {
+        for (auto jt = aug.inFlight.begin(), jend = aug.inFlight.end();
+             jt != jend;  ++jt)
+        {
             if (now.secondsSince(jt->second) > 5.0) {
                 cerr << "warning: augmentor " << it->first
                      << " lost auction " << jt->first
@@ -386,21 +331,12 @@ augment(const std::shared_ptr<AugmentationInfo> & info,
     while (it1 != end1 && it2 != end2) {
         if (*it1 == it2->name) {
             // Augmentor we need to run
-
             //cerr << "augmenting with " << it2->name << endl;
-
             recordEvent("augmentation.request");
             string eventName = "augmentor." + it2->name + ".request";
             recordEvent(eventName.c_str());
             
-            if (it2->info->numInFlight > 3000) {
-                string eventName = "augmentor." + it2->name
-                    + ".skippedTooManyInFlight";
-                recordEvent(eventName.c_str());
-            }
-            else {
-                entry->outstanding.insert(*it1);
-            }
+             entry->outstanding.insert(*it1);
 
             ++it1;
             ++it2;
@@ -440,17 +376,113 @@ augment(const std::shared_ptr<AugmentationInfo> & info,
     }
 }
 
+AugmentorInstanceInfo*
+AugmentationLoop::
+pickInstance(AugmentorInfo& aug)
+{
+    AugmentorInstanceInfo* instance = nullptr;
+    int minInFlights = std::numeric_limits<int>::max();
+
+    stringstream ss;
+
+    for (auto it = aug.instances.begin(), end = aug.instances.end();
+         it != end; ++it)
+    {
+        if (it->numInFlight >= minInFlights) continue;
+        if (it->numInFlight >= it->maxInFlight) continue;
+
+        instance = &(*it);
+        minInFlights = it->numInFlight;
+    }
+
+    if (instance) instance->numInFlight++;
+    return instance;
+}
+
+
+void
+AugmentationLoop::
+doAugmentation(const std::shared_ptr<Entry> & entry)
+{
+    Guard guard(lock);
+    Date now = Date::now();
+
+    if (augmenting.count(entry->info->auction->id)) {
+        stringstream ss;
+        ss << "AugmentationLoop: duplicate auction id detected "
+            << entry->info->auction->id << endl;
+        cerr << ss.str();
+        recordHit("duplicateAuction");
+        return;
+    }
+    augmenting.insert(entry->info->auction->id, entry, entry->timeout);
+
+    for (auto it = entry->outstanding.begin(), end = entry->outstanding.end();
+         it != end;  ++it)
+    {
+        auto & aug = *augmentors[*it];
+
+        const AugmentorInstanceInfo* instance = pickInstance(aug);
+        if (!instance) {
+            recordHit("augmentor.%s.noAvailableInstances", *it);
+            continue;
+        }
+        recordHit("augmentor.%s.instances.%s.requests", *it, instance->addr);
+
+        set<string> agents;
+        const auto& bidderGroups = entry->info->potentialGroups;
+
+        for (auto jt = bidderGroups.begin(), end = bidderGroups.end();
+             jt != end; ++jt)
+        {
+            for (auto kt = jt->begin(), end = jt->end();
+                 kt != end; ++kt)
+            {
+                agents.insert(kt->agent);
+            }
+        }
+
+        std::ostringstream availableAgentsStr;
+        ML::DB::Store_Writer writer(availableAgentsStr);
+        writer.save(agents);
+
+        // Send the message to the augmentor
+        toAugmentors.sendMessage(
+                instance->addr,
+                "AUGMENT", "1.0", *it,
+                entry->info->auction->id.toString(),
+                entry->info->auction->requestStrFormat,
+                entry->info->auction->requestStr,
+                availableAgentsStr.str(),
+                Date::now());
+
+        auto ret = aug.inFlight.insert(make_pair(entry->info->auction->id, now));
+        if (!ret.second) {
+            cerr << "warning: double augment for auction "
+                << entry->info->auction->id << endl;
+        }
+    }
+
+    recordLevel(Date::now().secondsSince(now), "requestTimeMs");
+
+    idle_ = 0;
+}
+
 void
 AugmentationLoop::
 doConfig(const std::vector<std::string> & message)
 {
-    if (message.size() != 4)
-        throw ML::Exception("config message has wrong size: %zd vs 4",
-                            message.size());
+    ExcCheckGreaterEqual(message.size(), 4, "config message has wrong size");
+    ExcCheckLessEqual(message.size(), 5, "config message has wrong size");
 
-    const string & augmentorAddr = message[0];
+    const string & addr = message[0];
     const string & version = message[2];
     const string & name = message[3];
+
+    int maxInFlight = -1;
+    if (message.size() >= 5)
+        maxInFlight = std::stoi(message[5]);
+    if (maxInFlight < 0) maxInFlight = 3000;
 
     ExcCheckEqual(version, "1.0", "unknown version for config message");
     ExcCheck(!name.empty(), "no augmentor name specified");
@@ -458,24 +490,59 @@ doConfig(const std::vector<std::string> & message)
     //cerr << "configuring augmentor " << name << " on " << connectTo
     //     << endl;
 
-    string eventName = "augmentor." + name + ".configured";
-    recordEvent(eventName.c_str());
+    doDisconnection(addr, name);
 
-    auto newInfo = std::make_shared<AugmentorInfo>();
-    newInfo->name = name;
-    newInfo->augmentorAddr = augmentorAddr;
+    auto& info = augmentors[name];
+    if (!info) {
+        info = std::make_shared<AugmentorInfo>(name);
+        recordHit("augmentor.%s.configured", name);
+    }
 
-    //cerr << "connecting on " << connectTo << endl;
-    //info->connection();
+    info->instances.emplace_back(addr, maxInFlight);
+    recordHit("augmentor.%s.instances.%s.configured", name, addr);
 
-    augmentors[name] = newInfo;
 
     updateAllAugmentors();
 
-    toAugmentors.sendMessage(augmentorAddr, "CONFIGOK");
-
-    //cerr << "done updating" << endl;
+    toAugmentors.sendMessage(addr, "CONFIGOK");
 }
+
+
+void
+AugmentationLoop::
+doDisconnection(const std::string & addr, const std::string & aug)
+{
+    std::vector<std::string> toErase;
+
+    for (auto& info: augmentors) {
+        auto& augmentor = *info.second;
+        if (!augmentor.name.empty() && augmentor.name != aug) continue;
+
+        for (auto it = augmentor.instances.begin(),
+                 end = augmentor.instances.end();
+             it != end; ++it)
+        {
+            if (it->addr != addr) continue;
+
+            augmentor.instances.erase(it);
+            recordHit("augmentor.%s.instances.%s.disconnected",
+                    augmentor.name, it->addr);
+            break;
+        }
+
+        // Erasing would invalidate our iterator so need to defer it.
+        if (augmentor.instances.empty())
+            toErase.push_back(augmentor.name);
+    }
+
+    // We let the inFlight auctions expire naturally.
+    for (const auto& name : toErase)
+        augmentors.erase(name);
+
+    if (!toErase.empty())
+        updateAllAugmentors();
+}
+
 
 void
 AugmentationLoop::
@@ -483,14 +550,14 @@ doResponse(const std::vector<std::string> & message)
 {
     recordEvent("augmentation.response");
     //cerr << "doResponse " << message << endl;
-    if (message.size() != 7)
-        throw ML::Exception("response message has wrong size: %zd",
-                            message.size());
-    const string & version = message[2];
-    if (version != "1.0")
-        throw ML::Exception("unknown response version");
-    Date startTime = Date::parseSecondsSinceEpoch(message[3]);
 
+    ExcCheckEqual(message.size(), 7, "response message has wrong size");
+
+    const string & version = message[2];
+    ExcCheckEqual(version, "1.0", "unknown response version");
+
+    const std::string & addr = message[0];
+    Date startTime = Date::parseSecondsSinceEpoch(message[3]);
     Id id(message[4]);
     const std::string & augmentor = message[5];
     const std::string & augmentation = message[6];
@@ -526,26 +593,25 @@ doResponse(const std::vector<std::string> & message)
         recordEvent(eventName.c_str(), ET_OUTCOME, responseLength);
     }
 
-    string eventName = ML::format("augmentor.%s.%s",
-                                  augmentor.c_str(),
-                                  (augmentation == "" || augmentation == "null"
-                                   ? "nullResponse" : "validResponse"));
-    recordEvent(eventName.c_str());
+    const char* eventType =
+        (augmentation == "" || augmentation == "null") ?
+        "nullResponse" : "validResponse";
+    recordHit("augmentor.%s.%s", augmentor, eventType);
+    recordHit("augmentor.%s.instances.%s.%s", augmentor, addr, eventType);
 
-    // Modify the augmentor data structures
-    //Guard guard(lock);
 
     if (augmentors.count(augmentor)) {
         auto & entry = *augmentors[augmentor];
         entry.inFlight.erase(id);
-        entry.numInFlight = entry.inFlight.size();
+        auto instance = entry.findInstance(addr);
+        if (instance) instance->numInFlight--;
     }
 
     auto it = augmenting.find(id);
     if (it == augmenting.end()) {
-        recordEvent("augmentation.unknown");
+        recordHit("augmentation.unknown");
         string eventName = "augmentor." + augmentor + ".unknown";
-        recordEvent(eventName.c_str());
+        recordHit(eventName);
         //cerr << "warning: handled response for unknown auction" << endl;
         return;
     }
