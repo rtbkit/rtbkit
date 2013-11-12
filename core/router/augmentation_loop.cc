@@ -566,30 +566,33 @@ doResponse(const std::vector<std::string> & message)
         recordEvent(eventName.c_str(), ET_OUTCOME, responseLength);
     }
 
-
-    if (augmentors.count(augmentor)) {
-        auto instance = augmentors[augmentor]->findInstance(addr);
+    auto augmentorIt = augmentors.find(augmentor);
+    if (augmentorIt != augmentors.end()) {
+        auto instance = augmentorIt->second->findInstance(addr);
         if (instance) instance->numInFlight--;
     }
 
-    auto it = augmenting.find(id);
-    if (it == augmenting.end()) {
+    auto augmentingIt = augmenting.find(id);
+    if (augmentingIt == augmenting.end()) {
         recordHit("augmentation.unknown");
         recordHit("augmentor.%s.instances.%s.unknown", augmentor, addr);
         return;
     }
+
+    auto& entry = *augmentingIt;
 
     const char* eventType =
         (augmentation == "" || augmentation == "null") ?
         "nullResponse" : "validResponse";
     recordHit("augmentor.%s.instances.%s.%s", augmentor, addr, eventType);
 
-    it->second->info->auction->augmentations[augmentor].mergeWith(augmentationList);
+    auto& auctionAugs = entry.second->info->auction->augmentations;
+    auctionAugs[augmentor].mergeWith(augmentationList);
 
-    it->second->outstanding.erase(augmentor);
-    if (it->second->outstanding.empty()) {
-        it->second->onFinished(it->second->info);
-        augmenting.erase(it);
+    entry.second->outstanding.erase(augmentor);
+    if (entry.second->outstanding.empty()) {
+        entry.second->onFinished(entry.second->info);
+        augmenting.erase(augmentingIt);
     }
 }
 
