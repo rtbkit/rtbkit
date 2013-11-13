@@ -6,6 +6,7 @@
 #ifndef __logger__log_message_splitter_h__
 #define __logger__log_message_splitter_h__
 
+#include <cstring>
 #include <string>
 
 #include "jml/arch/exception.h"
@@ -22,6 +23,18 @@ struct Field {
     const char * end;
 
     size_t length() const { return end - start; }
+
+    int compare(const char * data) const
+    { return std::strncmp(start, data, length()); }
+
+    int compare(const std::string & str) const
+    { return compare(str.c_str()); }
+
+    bool operator == (const char * data) const
+    { return (compare(data) == 0); }
+
+    bool operator == (const std::string & str) const
+    { return (compare(str) == 0); }
     
     operator std::string() const { return std::string(start, end); };
 };
