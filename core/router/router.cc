@@ -1359,12 +1359,6 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
 
     try {
         Id auctionId = augInfo->auction->id;
-
-        if (augmentationLoop.currentlyAugmenting(auctionId)) {
-            throwException("doStartBidding.alreadyAugmenting",
-                           "auction with ID %s already preprocessing",
-                           auctionId.toString().c_str());
-        }
         if (inFlight.count(auctionId)) {
             throwException("doStartBidding.alreadyInFlight",
                            "auction with ID %s already in progress",

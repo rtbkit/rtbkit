@@ -36,6 +36,7 @@ AugmentationLoop(ServiceBase & parent,
       allAugmentors(0),
       idle_(1),
       inbox(65536),
+      disconnections(1024),
       toAugmentors(getZmqContext())
 {
     updateAllAugmentors();
@@ -48,6 +49,7 @@ AugmentationLoop(std::shared_ptr<ServiceProxies> proxies,
       allAugmentors(0),
       idle_(1),
       inbox(65536),
+      disconnections(1024),
       toAugmentors(getZmqContext())
 {
     updateAllAugmentors();
@@ -80,86 +82,33 @@ init()
             cerr << "augmentor " << client << " has connected" << endl;
         };
 
+    // These events show up on the zookeeper thread so redirect them to our
+    // message loop thread.
     toAugmentors.onDisconnection = [=] (const std::string & client)
         {
             cerr << "augmentor " << client << " has disconnected" << endl;
+            disconnections.push(client);
         };
 
-    inbox.onEvent = [&] (const std::shared_ptr<Entry> & entry)
+    disconnections.onEvent = [&] (const std::string& addr)
         {
-            //cerr << "got event on inbox" << endl;
+            doDisconnection(addr);
+        };
 
-            Guard guard(lock);
-            Date now = Date::now();
-
-            //cerr << "got lock on inbox" << endl;
-
-            if (augmenting.count(entry->info->auction->id)) {
-                stringstream ss;
-                ss << "AugmentationLoop: duplicate auction id detected "
-                   << entry->info->auction->id << endl;
-                cerr << ss.str();
-                return;
-            }
-
-            // TODO: wake up loop if slower...
-            // TODO: DRY with other function...
-            augmenting.insert(entry->info->auction->id, entry,
-                              entry->timeout);
-
-            for (auto it = entry->outstanding.begin(),
-                     end = entry->outstanding.end();
-                 it != end;  ++it) {
-
-                auto & aug = *augmentors[*it];
-
-                //cerr << "sending to " << *it << " at "
-                //     << aug.agentAddr << endl;
-
-                set<string> agents;
-                const auto& bidderGroups = entry->info->potentialGroups;
-
-                for (auto jt = bidderGroups.begin(), end = bidderGroups.end();
-                     jt != end; ++jt)
-                {
-                    for (auto kt = jt->begin(), end = jt->end();
-                         kt != end; ++kt)
-                    {
-                        agents.insert(kt->agent);
-                    }
-                }
-
-                std::ostringstream availableAgentsStr;
-                ML::DB::Store_Writer writer(availableAgentsStr);
-                writer.save(agents);
-                        
-                // Send the message to the augmentor
-                toAugmentors.sendMessage(aug.augmentorAddr,
-                                         "AUGMENT", "1.0", *it,
-                                         entry->info->auction->id.toString(),
-                                         entry->info->auction->requestStrFormat,
-                                         entry->info->auction->requestStr,
-                                         availableAgentsStr.str(),
-                                         Date::now());
-
-                if (!aug.inFlight.insert
-                    (make_pair(entry->info->auction->id, now))
-                    .second) {
-                    cerr << "warning: double augment for auction "
-                         << entry->info->auction->id << endl;
-                }
-                else aug.numInFlight = aug.inFlight.size();
-            }
-
-            recordLevel(Date::now().secondsSince(now), "requestTimeMs");
-                    
-            idle_ = 0;
+    inbox.onEvent = [&] (const std::shared_ptr<Entry>& entry)
+        {
+            doAugmentation(entry);
         };
 
     addSource("AugmentationLoop::inbox", inbox);
+    addSource("AugmentationLoop::disconnections", disconnections);
     addSource("AugmentationLoop::toAugmentors", toAugmentors);
-    addPeriodic("AugmentationLoop::checkExpiries", 0.977,
+
+    addPeriodic("AugmentationLoop::checkExpiries", 0.001,
                 [=] (int) { checkExpiries(); });
+
+    addPeriodic("AugmentationLoop::recordStats", 0.977,
+                [=] (int) { recordStats(); });
 }
 
 void
@@ -190,17 +139,7 @@ size_t
 AugmentationLoop::
 numAugmenting() const
 {
-    // TODO: can we get away without a lock here?
-    Guard guard(lock);
     return augmenting.size();
-}
-
-bool
-AugmentationLoop::
-currentlyAugmenting(const Id & auctionId) const
-{
-    Guard guard(lock);
-    return augmenting.count(auctionId);
 }
 
 void
@@ -219,8 +158,6 @@ void
 AugmentationLoop::
 handleAugmentorMessage(const std::vector<std::string> & message)
 {
-    Guard guard(lock);
-
     Date now = Date::now();
 
     const std::string & type = message.at(1); 
@@ -237,84 +174,42 @@ handleAugmentorMessage(const std::vector<std::string> & message)
 
 void
 AugmentationLoop::
+recordStats()
+{
+    for (auto it = augmentors.begin(), end = augmentors.end();
+         it != end;  ++it)
+    {
+        size_t inFlights = 0;
+        for (const auto& instance : it->second->instances)
+            inFlights += instance.numInFlight;
+
+        recordLevel(inFlights, "augmentor.%s.numInFlight", it->first);
+    }
+}
+
+
+void
+AugmentationLoop::
 checkExpiries()
 {
-    //cerr << "checking expiries" << endl;
-
-    Guard guard(lock);
-
     Date now = Date::now();
-
-    for (auto it = augmentors.begin(), end = augmentors.end();
-         it != end;  ++it) {
-
-        AugmentorInfo & aug = *it->second;
-
-        vector<Id> lostAuctions;
-
-        for (auto jt = aug.inFlight.begin(),
-                 jend = aug.inFlight.end();
-             jt != jend;  ++jt) {
-            if (now.secondsSince(jt->second) > 5.0) {
-                cerr << "warning: augmentor " << it->first
-                     << " lost auction " << jt->first
-                     << endl;
-
-                string eventName = "augmentor."
-                    + it->first + ".lostAuction";
-                recordEvent(eventName.c_str());
-
-                lostAuctions.push_back(jt->first);
-            }
-        }
-                
-        // Delete all in flight that appear to be lost
-        for (unsigned i = 0;  i < lostAuctions.size();  ++i)
-            aug.inFlight.erase(lostAuctions[i]);
-                
-        string eventName = "augmentor." + it->first + ".numInFlight";
-        recordEvent(eventName.c_str(), ET_LEVEL,
-                    aug.inFlight.size());
-    }
-    
-#if 0
-    vector<string> deadAugmentors;
-
-    for (unsigned i = 0;  i < deadAugmentors.size();  ++i) {
-        string aug = deadAugmentors[i];
-        augmentors.erase(aug);
-                
-        string eventName = "augmentor." + aug + ".dead";
-        recordEvent(eventName.c_str());
-    }
-
-    if (!deadAugmentors.empty())
-        updateAllAugmentors();
-    
-#endif
 
     auto onExpired = [&] (const Id & id,
                           const std::shared_ptr<Entry> & entry) -> Date
         {
-            //++numAugmented;
-            //cerr << "augmented " << ++numAugmented << " bids" << endl;
-
             for (auto it = entry->outstanding.begin(),
                      end = entry->outstanding.end();
-                 it != end;  ++it) {
-                string eventName = "augmentor." + *it
-                    + ".expiredTooLate";
-                recordEvent(eventName.c_str(), ET_COUNT);
+                 it != end; ++it)
+            {
+                recordHit("augmentor.%s.expiredTooLate", *it);
             }
                 
             this->augmentationExpired(id, *entry);
             return Date();
         };
 
-    if (augmenting.earliest <= now) {
-        //Guard guard(lock);
+    if (augmenting.earliest <= now)
         augmenting.expire(onExpired, now);
-    }
 
     if (augmenting.empty() && !idle_) {
         idle_ = 1;
@@ -323,49 +218,40 @@ checkExpiries()
 
 }
 
+// Is not thread safe and should only be called from the polling loop thread.
 void
 AugmentationLoop::
 updateAllAugmentors()
 {
-    for (;;) {
-        auto_ptr<AllAugmentorInfo> newInfo(new AllAugmentorInfo);
+    unique_ptr<AllAugmentorInfo> newInfo(new AllAugmentorInfo());
 
-        AllAugmentorInfo * current = allAugmentors;
+    for (auto it = augmentors.begin(), end = augmentors.end(); it != end;  ++it) {
+        ExcAssert(it->second);
 
-        for (auto it = augmentors.begin(), end = augmentors.end();
-             it != end;  ++it) {
-            AugmentorInfo & aug = *it->second;
+        AugmentorInfo & aug = *it->second;
+        ExcAssert(!aug.name.empty());
 
-            //if (!it->second.configured) continue;
-            if (!it->second) continue;
-            if (aug.name == "") continue;
-            AugmentorInfoEntry entry;
-            entry.name = aug.name;
-            entry.info = it->second;
-            //entry.config = aug.config;
-            newInfo->push_back(entry);
-        }
-
-        // Sort they by their name
-        std::sort(newInfo->begin(), newInfo->end(),
-                  [] (const AugmentorInfoEntry & entry1,
-                      const AugmentorInfoEntry & entry2)
-                  {
-                      return entry1.name < entry2.name;
-                  });
-        
-        // Add the index
-        //for (unsigned i = 0;  i < newInfo->size();  ++i) {
-        //    newInfo->index[(*newInfo.get())[i].name] = i;
-        //}
-
-        if (ML::cmp_xchg(allAugmentors, current, newInfo.get())) {
-            newInfo.release();
-            if (current)
-                allAugmentorsGc.defer([=] () { delete current; });
-            break;
-        }
+        AugmentorInfoEntry entry;
+        entry.name = aug.name;
+        entry.info = it->second;
+        newInfo->push_back(entry);
     }
+
+    std::sort(newInfo->begin(), newInfo->end(),
+            [] (const AugmentorInfoEntry & entry1,
+                const AugmentorInfoEntry & entry2)
+            {
+                return entry1.name < entry2.name;
+            });
+    
+    // Make sure our struct is fully written before we make it visible.
+    ML::memory_barrier();
+
+    AllAugmentorInfo * current = allAugmentors;
+    allAugmentors = newInfo.get();
+    newInfo.release();
+    if (current)
+        allAugmentorsGc.defer([=] () { delete current; });
 }
 
 void
@@ -411,27 +297,12 @@ augment(const std::shared_ptr<AugmentationInfo> & info,
     while (it1 != end1 && it2 != end2) {
         if (*it1 == it2->name) {
             // Augmentor we need to run
-
             //cerr << "augmenting with " << it2->name << endl;
-
             recordEvent("augmentation.request");
             string eventName = "augmentor." + it2->name + ".request";
             recordEvent(eventName.c_str());
             
-            if (it2->info->numInFlight > 3000) {
-                string eventName = "augmentor." + it2->name
-                    + ".skippedTooManyInFlight";
-                recordEvent(eventName.c_str());
-#if 0
-            } else if (it2->info->lastHeartbeat.secondsUntil(now) > 2.0) {
-                string eventName = "augmentor." + it2->name
-                    + ".skippedNoHeartbeat";
-                recordEvent(eventName.c_str());
-#endif
-            }
-            else {
-                entry->outstanding.insert(*it1);
-            }
+             entry->outstanding.insert(*it1);
 
             ++it1;
             ++it2;
@@ -468,92 +339,182 @@ augment(const std::shared_ptr<AugmentationInfo> & info,
     else {
         //cerr << "putting in inbox" << endl;
         inbox.push(entry);
-
-#if 0 // optimization
-        // Set up to run the augmentors
-        Guard guard(lock, boost::try_to_lock_t());
-        if (guard) {
-            // Got the lock... put it straight in
-            augmenting.insert(info->auction->id, entry, timeout);
-
-            for (auto it = entry->outstanding.begin(),
-                     end = entry->outstanding.end();
-                 it != end;  ++it) {
-                auto & aug = *this->augmentors[*it];
-
-                if (!aug.inFlight.insert
-                    (make_pair(info->auction->id, now))
-                    .second) {
-                    cerr << "warning: double augment for auction "
-                         << info->auction->id << endl;
-                }
-                else aug.numInFlight = aug.inFlight.size();
-            }
-
-            idle_ = 0;
-        }
-        else {
-            // Couldn't get the lock... put it on the queue
-            sendMessage(toEndpoint_(), "QUEUE", entry);
-        }
-#endif // optimization
-
     }
+}
+
+AugmentorInstanceInfo*
+AugmentationLoop::
+pickInstance(AugmentorInfo& aug)
+{
+    AugmentorInstanceInfo* instance = nullptr;
+    int minInFlights = std::numeric_limits<int>::max();
+
+    stringstream ss;
+
+    for (auto it = aug.instances.begin(), end = aug.instances.end();
+         it != end; ++it)
+    {
+        if (it->numInFlight >= minInFlights) continue;
+        if (it->numInFlight >= it->maxInFlight) continue;
+
+        instance = &(*it);
+        minInFlights = it->numInFlight;
+    }
+
+    if (instance) instance->numInFlight++;
+    return instance;
+}
+
+
+void
+AugmentationLoop::
+doAugmentation(const std::shared_ptr<Entry> & entry)
+{
+    Date now = Date::now();
+
+    if (augmenting.count(entry->info->auction->id)) {
+        stringstream ss;
+        ss << "AugmentationLoop: duplicate auction id detected "
+            << entry->info->auction->id << endl;
+        cerr << ss.str();
+        recordHit("duplicateAuction");
+        return;
+    }
+
+    bool sentToAugmentor = false;
+
+    for (auto it = entry->outstanding.begin(), end = entry->outstanding.end();
+         it != end;  ++it)
+    {
+        auto & aug = *augmentors[*it];
+
+        const AugmentorInstanceInfo* instance = pickInstance(aug);
+        if (!instance) {
+            recordHit("augmentor.%s.skippedTooManyInFlight", *it);
+            continue;
+        }
+        recordHit("augmentor.%s.instances.%s.requests", *it, instance->addr);
+
+        set<string> agents;
+        const auto& bidderGroups = entry->info->potentialGroups;
+
+        for (auto jt = bidderGroups.begin(), end = bidderGroups.end();
+             jt != end; ++jt)
+        {
+            for (auto kt = jt->begin(), end = jt->end();
+                 kt != end; ++kt)
+            {
+                agents.insert(kt->agent);
+            }
+        }
+
+        std::ostringstream availableAgentsStr;
+        ML::DB::Store_Writer writer(availableAgentsStr);
+        writer.save(agents);
+
+        // Send the message to the augmentor
+        toAugmentors.sendMessage(
+                instance->addr,
+                "AUGMENT", "1.0", *it,
+                entry->info->auction->id.toString(),
+                entry->info->auction->requestStrFormat,
+                entry->info->auction->requestStr,
+                availableAgentsStr.str(),
+                Date::now());
+
+        sentToAugmentor = true;
+    }
+
+    if (sentToAugmentor)
+        augmenting.insert(entry->info->auction->id, entry, entry->timeout);
+    else entry->onFinished(entry->info);
+
+    recordLevel(Date::now().secondsSince(now), "requestTimeMs");
+
+    idle_ = 0;
 }
 
 void
 AugmentationLoop::
 doConfig(const std::vector<std::string> & message)
 {
-    if (message.size() != 4)
-        throw ML::Exception("config message has wrong size: %zd vs 4",
-                            message.size());
+    ExcCheckGreaterEqual(message.size(), 4, "config message has wrong size");
+    ExcCheckLessEqual(message.size(), 5, "config message has wrong size");
 
-    const string & augmentorAddr = message[0];
+    const string & addr = message[0];
     const string & version = message[2];
     const string & name = message[3];
 
-    if (version != "1.0")
-        throw ML::Exception("unknown version for config message");
+    int maxInFlight = -1;
+    if (message.size() >= 5)
+        maxInFlight = std::stoi(message[4]);
+    if (maxInFlight < 0) maxInFlight = 3000;
+
+    ExcCheckEqual(version, "1.0", "unknown version for config message");
+    ExcCheck(!name.empty(), "no augmentor name specified");
 
     //cerr << "configuring augmentor " << name << " on " << connectTo
     //     << endl;
 
-    string eventName = "augmentor." + name + ".configured";
-    recordEvent(eventName.c_str());
+    doDisconnection(addr, name);
 
-    auto newInfo = std::make_shared<AugmentorInfo>();
-    newInfo->name = name;
-    newInfo->augmentorAddr = augmentorAddr;
-
-    //cerr << "connecting on " << connectTo << endl;
-    //info->connection();
-
-    if (augmentors.count(name)) {
-        // Grab the old version
-        auto oldInfo = augmentors[name];
-
-        // There was an old entry... wait until nobody is using it
-
-        // First unpublish the entry
-        updateAllAugmentors();
-
-        // Now wait until nothing else can see it
-        allAugmentorsGc.deferBarrier();
-
-        augmentors.erase(name);
-
-        //cerr << "  done removing old version" << endl;
+    auto& info = augmentors[name];
+    if (!info) {
+        info = std::make_shared<AugmentorInfo>(name);
+        recordHit("augmentor.%s.configured", name);
     }
 
-    augmentors[name] = newInfo;
+    info->instances.emplace_back(addr, maxInFlight);
+    recordHit("augmentor.%s.instances.%s.configured", name, addr);
+
 
     updateAllAugmentors();
 
-    toAugmentors.sendMessage(augmentorAddr, "CONFIGOK");
-
-    //cerr << "done updating" << endl;
+    toAugmentors.sendMessage(addr, "CONFIGOK");
 }
+
+
+/** Note that there's a race here between the disconnection zk event and the
+    config message sent by the same service reconnecting.
+
+    This should be pretty rare and requires heartbeats which are problematic
+    over zmq so, for the moment, we'll leave it as is.
+ */
+void
+AugmentationLoop::
+doDisconnection(const std::string & addr, const std::string & aug)
+{
+    std::vector<std::string> toErase;
+
+    for (auto& info: augmentors) {
+        auto& augmentor = *info.second;
+        if (!augmentor.name.empty() && augmentor.name != aug) continue;
+
+        for (auto it = augmentor.instances.begin(),
+                 end = augmentor.instances.end();
+             it != end; ++it)
+        {
+            if (it->addr != addr) continue;
+
+            augmentor.instances.erase(it);
+            recordHit("augmentor.%s.instances.%s.disconnected",
+                    augmentor.name, it->addr);
+            break;
+        }
+
+        // Erasing would invalidate our iterator so need to defer it.
+        if (augmentor.instances.empty())
+            toErase.push_back(augmentor.name);
+    }
+
+    // We let the inFlight auctions expire naturally.
+    for (const auto& name : toErase)
+        augmentors.erase(name);
+
+    if (!toErase.empty())
+        updateAllAugmentors();
+}
+
 
 void
 AugmentationLoop::
@@ -561,14 +522,14 @@ doResponse(const std::vector<std::string> & message)
 {
     recordEvent("augmentation.response");
     //cerr << "doResponse " << message << endl;
-    if (message.size() != 7)
-        throw ML::Exception("response message has wrong size: %zd",
-                            message.size());
-    const string & version = message[2];
-    if (version != "1.0")
-        throw ML::Exception("unknown response version");
-    Date startTime = Date::parseSecondsSinceEpoch(message[3]);
 
+    ExcCheckEqual(message.size(), 7, "response message has wrong size");
+
+    const string & version = message[2];
+    ExcCheckEqual(version, "1.0", "unknown response version");
+
+    const std::string & addr = message[0];
+    Date startTime = Date::parseSecondsSinceEpoch(message[3]);
     Id id(message[4]);
     const std::string & augmentor = message[5];
     const std::string & augmentation = message[6];
@@ -604,36 +565,33 @@ doResponse(const std::vector<std::string> & message)
         recordEvent(eventName.c_str(), ET_OUTCOME, responseLength);
     }
 
-    string eventName = ML::format("augmentor.%s.%s",
-                                  augmentor.c_str(),
-                                  (augmentation == "" || augmentation == "null"
-                                   ? "nullResponse" : "validResponse"));
-    recordEvent(eventName.c_str());
-
-    // Modify the augmentor data structures
-    //Guard guard(lock);
-
-    if (augmentors.count(augmentor)) {
-        auto & entry = *augmentors[augmentor];
-        entry.inFlight.erase(id);
-        entry.numInFlight = entry.inFlight.size();
+    auto augmentorIt = augmentors.find(augmentor);
+    if (augmentorIt != augmentors.end()) {
+        auto instance = augmentorIt->second->findInstance(addr);
+        if (instance) instance->numInFlight--;
     }
 
-    auto it = augmenting.find(id);
-    if (it == augmenting.end()) {
-        recordEvent("augmentation.unknown");
-        string eventName = "augmentor." + augmentor + ".unknown";
-        recordEvent(eventName.c_str());
-        //cerr << "warning: handled response for unknown auction" << endl;
+    auto augmentingIt = augmenting.find(id);
+    if (augmentingIt == augmenting.end()) {
+        recordHit("augmentation.unknown");
+        recordHit("augmentor.%s.instances.%s.unknown", augmentor, addr);
         return;
     }
 
-    it->second->info->auction->augmentations[augmentor].mergeWith(augmentationList);
+    auto& entry = *augmentingIt;
 
-    it->second->outstanding.erase(augmentor);
-    if (it->second->outstanding.empty()) {
-        it->second->onFinished(it->second->info);
-        augmenting.erase(it);
+    const char* eventType =
+        (augmentation == "" || augmentation == "null") ?
+        "nullResponse" : "validResponse";
+    recordHit("augmentor.%s.instances.%s.%s", augmentor, addr, eventType);
+
+    auto& auctionAugs = entry.second->info->auction->augmentations;
+    auctionAugs[augmentor].mergeWith(augmentationList);
+
+    entry.second->outstanding.erase(augmentor);
+    if (entry.second->outstanding.empty()) {
+        entry.second->onFinished(entry.second->info);
+        augmenting.erase(augmentingIt);
     }
 }
 
