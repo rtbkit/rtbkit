@@ -394,7 +394,8 @@ doAugmentation(const std::shared_ptr<Entry> & entry)
         recordHit("duplicateAuction");
         return;
     }
-    augmenting.insert(entry->info->auction->id, entry, entry->timeout);
+
+    bool sentToAugmentor = false;
 
     for (auto it = entry->outstanding.begin(), end = entry->outstanding.end();
          it != end;  ++it)
@@ -403,7 +404,7 @@ doAugmentation(const std::shared_ptr<Entry> & entry)
 
         const AugmentorInstanceInfo* instance = pickInstance(aug);
         if (!instance) {
-            recordHit("augmentor.%s.noAvailableInstances", *it);
+            recordHit("augmentor.%s.skippedTooManyInFlight", *it);
             continue;
         }
         recordHit("augmentor.%s.instances.%s.requests", *it, instance->addr);
@@ -434,7 +435,13 @@ doAugmentation(const std::shared_ptr<Entry> & entry)
                 entry->info->auction->requestStr,
                 availableAgentsStr.str(),
                 Date::now());
+
+        sentToAugmentor = true;
     }
+
+    if (sentToAugmentor)
+        augmenting.insert(entry->info->auction->id, entry, entry->timeout);
+    else entry->onFinished(entry->info);
 
     recordLevel(Date::now().secondsSince(now), "requestTimeMs");
 
@@ -454,7 +461,7 @@ doConfig(const std::vector<std::string> & message)
 
     int maxInFlight = -1;
     if (message.size() >= 5)
-        maxInFlight = std::stoi(message[5]);
+        maxInFlight = std::stoi(message[4]);
     if (maxInFlight < 0) maxInFlight = 3000;
 
     ExcCheckEqual(version, "1.0", "unknown version for config message");
@@ -481,6 +488,12 @@ doConfig(const std::vector<std::string> & message)
 }
 
 
+/** Note that there's a race here between the disconnection zk event and the
+    config message sent by the same service reconnecting.
+
+    This should be pretty rare and requires heartbeats which are problematic
+    over zmq so, for the moment, we'll leave it as is.
+ */
 void
 AugmentationLoop::
 doDisconnection(const std::string & addr, const std::string & aug)
