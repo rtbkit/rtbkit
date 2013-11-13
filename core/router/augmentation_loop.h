@@ -100,7 +100,6 @@ struct AugmentationLoop : public ServiceBase, public MessageLoop {
     void sleepUntilIdle();
     void shutdown();
     size_t numAugmenting() const;
-    bool currentlyAugmenting(const Id & auctionId) const;
 
     void bindAugmentors(const std::string & uri);
 
@@ -152,10 +151,6 @@ private:
 
     /// Connection to all of our augmentors
     ZmqNamedClientBus toAugmentors;
-
-    typedef ML::Spinlock Lock;
-    typedef boost::unique_lock<Lock> Guard;
-    mutable ML::Spinlock lock;
 
     /** Update the augmentors from the configuration settings. */
     void updateAllAugmentors();

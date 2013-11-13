@@ -139,17 +139,7 @@ size_t
 AugmentationLoop::
 numAugmenting() const
 {
-    // TODO: can we get away without a lock here?
-    Guard guard(lock);
     return augmenting.size();
-}
-
-bool
-AugmentationLoop::
-currentlyAugmenting(const Id & auctionId) const
-{
-    Guard guard(lock);
-    return augmenting.count(auctionId);
 }
 
 void
@@ -168,8 +158,6 @@ void
 AugmentationLoop::
 handleAugmentorMessage(const std::vector<std::string> & message)
 {
-    Guard guard(lock);
-
     Date now = Date::now();
 
     const std::string & type = message.at(1); 
@@ -204,7 +192,6 @@ void
 AugmentationLoop::
 checkExpiries()
 {
-    Guard guard(lock);
     Date now = Date::now();
 
     auto onExpired = [&] (const Id & id,
@@ -383,7 +370,6 @@ void
 AugmentationLoop::
 doAugmentation(const std::shared_ptr<Entry> & entry)
 {
-    Guard guard(lock);
     Date now = Date::now();
 
     if (augmenting.count(entry->info->auction->id)) {
