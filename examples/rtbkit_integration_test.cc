@@ -58,7 +58,7 @@ struct Components
     AgentConfigurationService agentConfig;
     MonitorEndpoint monitor;
     TestAgent agent;
-    FrequencyCapAugmentor augmentor;
+    FrequencyCapAugmentor augmentor1, augmentor2;
 
     // \todo Add a PAL event subscriber.
 
@@ -78,7 +78,8 @@ struct Components
           agentConfig(proxies, "agentConfigurationService"),
           monitor(proxies, "monitor"),
           agent(proxies, "agent1"),
-          augmentor(proxies, "frequency-cap-ex"),
+          augmentor1(proxies, "fca1"),
+          augmentor2(proxies, "fca2"),
           winStream("mockStream", proxies)
     {
     }
@@ -94,7 +95,8 @@ struct Components
         masterBanker.shutdown();
 
         agent.shutdown();
-        augmentor.shutdown();
+        augmentor1.shutdown();
+        augmentor2.shutdown();
         agentConfig.shutdown();
 
         monitor.shutdown();
@@ -202,8 +204,10 @@ struct Components
         agent.configure();
 
         // Our augmentor which does frequency capping for our agent.
-        augmentor.init();
-        augmentor.start();
+        augmentor1.init();
+        augmentor1.start();
+        augmentor2.init();
+        augmentor2.start();
     }
 };
 

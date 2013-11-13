@@ -30,17 +30,35 @@ namespace RTBKIT {
 /* AUGMENTOR CONFIG                                                          */
 /*****************************************************************************/
 
-/** Information about a given augmentor. */
-struct AugmentorInfo {
-    AugmentorInfo()
-        : numInFlight(0)
-    {
-    }
+/** Information about a specific augmentor which belongs to an augmentor class.
+ */
+struct AugmentorInstanceInfo {
+    AugmentorInstanceInfo(const std::string& addr = "", int maxInFlight = 0) :
+        addr(addr), numInFlight(0), maxInFlight(maxInFlight)
+    {}
 
-    std::string augmentorAddr;             ///< zmq socket name for it
-    std::string name;                   ///< What the augmentation is called
-    std::map<Id, Date> inFlight;
+    std::string addr;
     int numInFlight;
+    int maxInFlight;
+};
+
+/** Information about a given class of augmentor. */
+struct AugmentorInfo {
+    AugmentorInfo(const std::string& name = "") : name(name) {}
+
+    std::string name;                   ///< What the augmentation is called
+    std::vector<AugmentorInstanceInfo> instances;
+
+    AugmentorInstanceInfo* findInstance(const std::string& addr)
+    {
+        for (auto it = instances.begin(), end = instances.end();
+             it != end; ++it)
+        {
+            if (it->addr == addr) return &(*it);
+        }
+        return nullptr;
+
+    }
 };
 
 // Information about an auction being augmented
@@ -82,7 +100,6 @@ struct AugmentationLoop : public ServiceBase, public MessageLoop {
     void sleepUntilIdle();
     void shutdown();
     size_t numAugmenting() const;
-    bool currentlyAugmenting(const Id & auctionId) const;
 
     void bindAugmentors(const std::string & uri);
 
@@ -90,6 +107,8 @@ struct AugmentationLoop : public ServiceBase, public MessageLoop {
     void augment(const std::shared_ptr<AugmentationInfo> & info,
                  Date timeout,
                  const OnFinished & onFinished);
+
+private:
 
     struct Entry {
         std::shared_ptr<AugmentationInfo> info;
@@ -111,15 +130,12 @@ struct AugmentationLoop : public ServiceBase, public MessageLoop {
     struct AugmentorInfoEntry {
         std::string name;
         std::shared_ptr<AugmentorInfo> info;
-        //std::shared_ptr<const AugmentorConfig> config;
     };
 
     /** A read-only structure in which the augmentors are periodically published.
         Protected by RCU.
     */
-    struct AllAugmentorInfo : public std::vector<AugmentorInfoEntry> {
-        std::set<std::string> index;
-    };
+    typedef std::vector<AugmentorInfoEntry> AllAugmentorInfo;
 
     /** Pointer to current version.  Protected by allAgentsGc. */
     AllAugmentorInfo * allAugmentors;
@@ -131,23 +147,29 @@ struct AugmentationLoop : public ServiceBase, public MessageLoop {
 
     /// We pick up augmentations to be done from here
     TypedMessageSink<std::shared_ptr<Entry> > inbox;
+    TypedMessageSink<std::string> disconnections;
 
     /// Connection to all of our augmentors
     ZmqNamedClientBus toAugmentors;
 
-    typedef ML::Spinlock Lock;
-    typedef boost::unique_lock<Lock> Guard;
-    mutable ML::Spinlock lock;
-
     /** Update the augmentors from the configuration settings. */
     void updateAllAugmentors();
 
+
     void handleAugmentorMessage(const std::vector<std::string> & message);
+
+    AugmentorInstanceInfo* pickInstance(AugmentorInfo& aug);
+    void doAugmentation(const std::shared_ptr<Entry> & entry);
+
+    void recordStats();
 
     void checkExpiries();
 
     /** Handle a configuration message from an augmentor. */
     void doConfig(const std::vector<std::string> & message);
+
+    /** Disconnect the instance at addr for type aug. */
+    void doDisconnection(const std::string & addr, const std::string & aug = "");
 
     /** Handle a response from an augmentation. */
     void doResponse(const std::vector<std::string> & message);
