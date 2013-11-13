@@ -24,18 +24,28 @@ struct Field {
 
     size_t length() const { return end - start; }
 
+    /* compare */
     int compare(const char * data) const
     { return std::strncmp(start, data, length()); }
 
     int compare(const std::string & str) const
     { return compare(str.c_str()); }
 
+    /* operator == */
     bool operator == (const char * data) const
     { return (compare(data) == 0); }
 
     bool operator == (const std::string & str) const
     { return (compare(str) == 0); }
+
+    /* operator != */
+    bool operator != (const std::string & str) const
+    { return !(operator ==(str)); }
     
+    bool operator != (const char * data) const
+    { return !(operator ==(data)); }
+
+    /* string converter */
     operator std::string() const { return std::string(start, end); };
 };
 
