@@ -142,7 +142,10 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
 
     std::string provider = "DummyProvider";
     std::string exchange = "AppNexus";
-    BidRequest* ortbReq = fromAppNexus(req, provider, exchange);
+    auto ortbReq = fromAppNexus(req, provider, exchange);
+
+    // check that the thing did actually convert
+    BOOST_REQUIRE (ortbReq);
 
     // cerr << endl << "** Value returned for field: " << bidRequest->user->id.toString() << endl;
     BOOST_CHECK_EQUAL(ortbReq->timeAvailableMs, 100);
@@ -170,7 +173,7 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     BOOST_CHECK_EQUAL(ortbReq->device->osv, "iPhone - iOS (other versions)");
 
     // OpenRTB::User
-    BOOST_CHECK_EQUAL(ortbReq->user->id.toString(), "2987961585469200312");
+    BOOST_CHECK_EQUAL(ortbReq->user->id.toString(), "2987961585469200400");
     BOOST_CHECK_EQUAL(ortbReq->user->gender, "male");
     BOOST_CHECK_EQUAL(ortbReq->user->yob.val, 50);
 
@@ -186,7 +189,7 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     BOOST_CHECK_EQUAL(ortbReq->site->id.toInt(), 476);
 
     // OpenRTB::Impression
-    BOOST_CHECK_EQUAL(ortbReq->imp.front().id.toInt(), 8984480746668973511);
+    BOOST_CHECK_EQUAL(ortbReq->imp.front().id.toInt(), 8984480746668973000);
     for (int width : ortbReq->imp.front().banner->w) {
       BOOST_CHECK(width == 300 || width == 320);
     }

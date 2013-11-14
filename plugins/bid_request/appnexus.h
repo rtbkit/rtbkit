@@ -184,7 +184,8 @@ struct BidInfo {
     Json::Value unparseable;    ///< Unparseable fields get put here
 };
 
-struct BidRequest {
+
+struct BidRequestMsg {
     // Subsection: General data
     Id memberAdProfileId;
     string timestamp;           // TODO timestamp with validation
@@ -208,6 +209,10 @@ struct BidRequest {
     Json::Value unparseable;    ///< Unparseable fields get put here
 };
 
+struct BidRequest {
+    BidRequestMsg  bidRequest;
+    Json::Value    unparseable;    ///< Unparseable fields get put here
+};
 
 namespace ANHelpers {
     // TODO Implement validation using these constants pulled from the AN Bid Request spec

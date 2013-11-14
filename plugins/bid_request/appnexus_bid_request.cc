@@ -6,6 +6,10 @@
 */
 
 
+//
+// Why make simple when it can be complicated.
+// Why make simple simple complilcated.
+
 #include "appnexus_openrtb_mapping.h"
 #include "appnexus_parsing.h"
 #include "appnexus_bid_request.h"
@@ -19,16 +23,18 @@ namespace RTBKIT {
 /*****************************************************************************/
 /* APPNEXUS BID REQUEST PARSER                                                */
 /*****************************************************************************/
-
-BidRequest *
-fromAppNexus(const AppNexus::BidRequest & req,
-            const std::string & provider,
-            const std::string & exchange)
+shared_ptr<BidRequest>
+fromAppNexus(const AppNexus::BidRequest & req_b,
+             const std::string & provider,
+             const std::string & exchange)
 {
+    shared_ptr<BidRequest> rv (new BidRequest);
+    auto const& req = req_b.bidRequest;
+// #if 0
     // To save calling vector member function repeatedly
     // TODO validate there is at least one Tag in tags. vector data member will only
     //  be initialized to be typed vector, not to hold any actual objects
-    const AppNexus::Tag & reqTag = req.tags.front();
+    const auto & reqTag = req.tags.front();
 
     // OpenRTB::User
     std::unique_ptr<OpenRTB::User> user(new OpenRTB::User);
@@ -38,13 +44,10 @@ fromAppNexus(const AppNexus::BidRequest & req,
 
     // OpenRTB::Device
     std::unique_ptr<OpenRTB::Device> device(new OpenRTB::Device);
-    // OpenRTB::Geo
-    std::unique_ptr<OpenRTB::Geo> geo(new OpenRTB::Geo);
-    device->geo.reset(geo.release());
-    //
+    device->geo.reset(new OpenRTB::Geo);
     device->ua = req.bidInfo.userAgent.rawString();
     // AN codes are located in their wiki documentation:
-    // https://wiki.appnexus.com/display/adnexusdocumentation/Operating+System+Service 
+    // https://wiki.appnexus.com/display/adnexusdocumentation/Operating+System+Service
     // Helper function here converts AN OS code to a string, using the documentation from this URL retrieved as of Jun 2013
     int osCode = req.bidInfo.operatingSystem.val;
     device->os = req.bidInfo.getANDeviceOsStringForCode(osCode);
@@ -89,14 +92,13 @@ fromAppNexus(const AppNexus::BidRequest & req,
 
     // OpenRTB::Impression
     OpenRTB::Impression impression;
-    std::unique_ptr<OpenRTB::Banner> banner(new OpenRTB::Banner);
-    impression.banner.reset(banner.release());
+    impression.banner.reset(new OpenRTB::Banner);
     // TODO CONFIRM THIS ASSUMPTION
     // NOTE: Assume for now that AN price units are in full currency units per CPM, e.g. if currency is USD
     // then the reserve_price == '1.00 USD' then this is a price of $1 CPM. i.e. - price not in microdollars etc.
     // Note that OpenRTB mapped field is Impression::bidfloorcur, and its unit is again full units per CPM, e.g. $1 CPM
     // So the code in appnexus_parsing.cc for now simply assumes the AN price equals the OpenRTB price
-    // Also, for now, only support USD. 
+    // Also, for now, only support USD.
     impression.bidfloor.val = reqTag.reservePrice.val;
 
     // TODO Add code in ./plugins/exchange/appnexus_exchange_connector.cc to call its inherited configure() method
@@ -130,7 +132,8 @@ fromAppNexus(const AppNexus::BidRequest & req,
     set<string> dedupedSizes;
     dedupedSizes.insert(reqTag.size);
     dedupedSizes.insert(reqTag.sizes.begin(), reqTag.sizes.end());
-    for (string adSizePair : dedupedSizes) {
+    for (const string& adSizePair : dedupedSizes)
+    {
         splitIdx = adSizePair.find('x');
         int w = boost::lexical_cast<int>(adSizePair.substr(0, splitIdx));
         int h = boost::lexical_cast<int>(adSizePair.substr(splitIdx + 1));
@@ -140,18 +143,14 @@ fromAppNexus(const AppNexus::BidRequest & req,
     OpenRTB::AdPosition position = convertAdPosition(reqTag.position);
     impression.banner->pos.val = position.val;
 
-    // OpenRTB::Publisher
-    std::unique_ptr<OpenRTB::Publisher> publisher1(new OpenRTB::Publisher);
-    std::unique_ptr<OpenRTB::Publisher> publisher2(new OpenRTB::Publisher);
-
     // OpenRTB::Site
     std::unique_ptr<OpenRTB::Site> site(new OpenRTB::Site);
-    site->publisher.reset(publisher1.release());
+    site->publisher.reset(new OpenRTB::Publisher);
     site->id = reqTag.inventorySourceId;
 
     // OpenRTB::App
     std::unique_ptr<OpenRTB::App> app(new OpenRTB::App);
-    app->publisher.reset(publisher2.release());
+    app->publisher.reset(new OpenRTB::Publisher);
 
     // BUSINESS RULE - This is a weak test for "is this an app or a site"
     //  Can't see a better way to do this in AN, so we see if the Bid has an appId
@@ -164,15 +163,14 @@ fromAppNexus(const AppNexus::BidRequest & req,
     // But always just statelessy assign appId. If it's empty, no harm
     app->id = Id(req.bidInfo.appId);
 
-    // BidRequest
-    std::unique_ptr<BidRequest> bidRequest(new BidRequest);
-    bidRequest->timeAvailableMs = req.bidderTimeoutMs.val;
-    bidRequest->device.reset(device.release());
-    bidRequest->user.reset(user.release());
+    // beef our return value up.
+    rv->timeAvailableMs = req.bidderTimeoutMs.val;
+    rv->device.reset(device.release());
+    rv->user.reset(user.release());
     // bidRequest->content.reset(content.release());
-    bidRequest->imp.emplace_back(std::move(impression));
-    bidRequest->app.reset(app.release());
-    bidRequest->site.reset(site.release());
+    rv->imp.emplace_back(std::move(impression));
+    rv->app.reset(app.release());
+    rv->site.reset(site.release());
 
     /*
     if (req.at.value() != OpenRTB::AuctionType::SECOND_PRICE)
@@ -202,7 +200,7 @@ fromAppNexus(const AppNexus::BidRequest & req,
 
             // Now create tags
 
-#if 0
+    #if 0
 
 
             spot.id = std::move(imp.id);
@@ -262,7 +260,7 @@ fromAppNexus(const AppNexus::BidRequest & req,
             for (b: imp.iframebuster) {
                 spot.tags.add("iframebuster", b);
             }
-#endif
+    #endif
 
             result->spots.emplace_back(std::move(spot));
 
@@ -352,9 +350,8 @@ fromAppNexus(const AppNexus::BidRequest & req,
     else {
         result->bidCurrency.push_back(CurrencyCode::CC_USD);
     }
-*/
-
-    return bidRequest.release();
+    */
+    return rv;
 }
 
 /*
@@ -366,7 +363,7 @@ namespace {
 */
 
 
-BidRequest *
+shared_ptr<BidRequest>
 AppNexusBidRequestParser::
 parseBidRequest(const std::string & jsonValue,
                 const std::string & provider,
@@ -377,11 +374,11 @@ parseBidRequest(const std::string & jsonValue,
     AppNexus::BidRequest req;
     Datacratic::DefaultDescription<AppNexus::BidRequest> desc;
     desc.parseJson(&req, jsonContext);
-
+    cerr << "appnexus::bidreq.unparse=" << req.unparseable.toString() << endl ;
     return fromAppNexus(req, provider, exchange);
 }
 
-BidRequest *
+shared_ptr<BidRequest>
 AppNexusBidRequestParser::
 parseBidRequest(ML::Parse_Context & context,
                 const std::string & provider,
@@ -392,6 +389,7 @@ parseBidRequest(ML::Parse_Context & context,
     AppNexus::BidRequest req;
     Datacratic::DefaultDescription<AppNexus::BidRequest> desc;
     desc.parseJson(&req, jsonContext);
+    cerr << "appnexus::bidreq.unparse=" << req.unparseable.toString() << endl ;
 
     return fromAppNexus(req, provider, exchange);
 }

@@ -75,20 +75,20 @@ parseBidRequest(HttpAuctionHandler & connection,
                 const HttpHeader & header,
                 const std::string & payload)
 {
-    std::shared_ptr<BidRequest> result;
-
     // Check for JSON content-type
-    if (header.contentType != "application/json") {
+    if (header.contentType != "application/json")
+    {
         connection.sendErrorResponse("non-JSON request");
-        return result;
+        return std::shared_ptr<BidRequest>();
     }
 
-    auto name = exchangeNameString(); 
-
-    // Parse the bid request
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
-    result.reset(AppNexusBidRequestParser::parseBidRequest(context, name, name));
-    return result;
+    auto rc = AppNexusBidRequestParser::parseBidRequest(context,
+    		exchangeNameString(), exchangeNameString()) ;
+
+    if (!rc)
+    	connection.sendErrorResponse("appnexus connector: bad JSON fed");
+     return rc;
 }
 
 double
