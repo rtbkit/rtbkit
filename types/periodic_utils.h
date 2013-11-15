@@ -115,6 +115,16 @@ struct TimePeriod {
     TimeGranularity granularity;
     double number;
     double interval;
+
+    bool operator == (const TimePeriod & other) const
+    {
+        return interval == other.interval;
+    }
+
+    bool operator != (const TimePeriod & other) const
+    {
+        return ! operator == (other);
+    }
 };
 
 // NOTE: this is defined in the value description library

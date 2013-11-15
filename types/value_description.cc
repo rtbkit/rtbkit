@@ -9,7 +9,7 @@
 
 #include "value_description.h"
 #include "jml/arch/demangle.h"
-
+#include <mutex>
 
 using namespace std;
 using namespace ML;
@@ -39,27 +39,57 @@ std::ostream & operator << (std::ostream & stream, ValueKind kind)
 }
 
 namespace {
-    std::unordered_map<std::string, ValueDescription *> registry;
+std::recursive_mutex registryMutex;
+std::unordered_map<std::string, std::shared_ptr<const ValueDescription> > registry;
 }
 
-ValueDescription * ValueDescription::get(std::string const & name) {
+std::shared_ptr<const ValueDescription>
+ValueDescription::
+get(std::string const & name)
+{
+    std::unique_lock<std::recursive_mutex> guard(registryMutex);
     auto i = registry.find(name);
-    return registry.end() != i ? i->second : 0;
+    return registry.end() != i ? i->second : nullptr;
+}
+
+std::shared_ptr<const ValueDescription>
+ValueDescription::
+get(const std::type_info & type)
+{
+    return get(type.name());
 }
 
 void registerValueDescription(const std::type_info & type,
                               std::function<ValueDescription * ()> fn,
                               bool isDefault)
 {
-    auto desc = fn();
+    registerValueDescription(type, fn, [] (ValueDescription &) {}, isDefault);
+}
 
-    /*
-    cerr << "got " << ML::demangle(type.name())
-         << " with description "
-         << ML::type_name(*desc) << " at " << desc << endl;
-    */
+void
+registerValueDescription(const std::type_info & type,
+                         std::function<ValueDescription * ()> createFn,
+                         std::function<void (ValueDescription &)> initFn,
+                         bool isDefault)
+{
+    std::unique_lock<std::recursive_mutex> guard(registryMutex);
 
+    std::shared_ptr<ValueDescription> desc(createFn());
+    ExcAssert(desc);
     registry[desc->typeName] = desc;
+    registry[type.name()] = desc;
+
+    initFn(*desc);
+
+#if 0
+    cerr << "type " << ML::demangle(type.name())
+         << " has description "
+         << ML::type_name(*desc) << " default " << isDefault << endl;
+
+    if (registry.count(type.name()))
+        throw ML::Exception("attempt to double register "
+                            + ML::demangle(type.name()));
+#endif
 }
 
 void

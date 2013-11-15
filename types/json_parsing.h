@@ -10,6 +10,8 @@
 #include "jml/utils/json_parsing.h"
 #include "soa/types/id.h"
 #include "soa/types/string.h"
+#include <boost/algorithm/string.hpp>
+
 
 namespace Datacratic {
 
@@ -144,6 +146,11 @@ struct JsonParsingContext {
     /** Handler for when we get an undexpected field. */
 
     virtual void exception(const std::string & message) = 0;
+
+    /** Return a string that gives the context of where the parsing is
+        at, for example line number and column.
+    */
+    virtual std::string getContext() const = 0;
     
     virtual int expectInt() = 0;
     virtual unsigned int expectUnsignedInt() = 0;
@@ -174,6 +181,12 @@ struct JsonParsingContext {
 #endif
     virtual void skip() = 0;
 
+    /** For debugging: print out what is the currently being parsed
+        element.  No guarantees about what it actually prints; that
+        depends on the .
+    */
+    virtual std::string printCurrent() = 0;
+    
     virtual void forEachMember(const std::function<void ()> & fn) = 0;
     virtual void forEachElement(const std::function<void ()> & fn) = 0;
 };
@@ -424,7 +437,12 @@ struct StreamingJsonParsingContext
 
     virtual void exception(const std::string & message)
     {
-        context->exception(message);
+        context->exception("at " + printPath() + ": " + message);
+    }
+
+    virtual std::string getContext() const
+    {
+        return context->where() + " at " + printPath();
     }
 
 #if 0
@@ -442,22 +460,44 @@ struct StreamingJsonParsingContext
     {
         return ML::expectJson(*context);
     }
+
+    virtual std::string printCurrent()
+    {
+        try {
+            ML::Parse_Context::Revert_Token token(*context);
+            return boost::trim_copy(expectJson().toString());
+        } catch (const std::exception & exc) {
+            ML::Parse_Context::Revert_Token token(*context);
+            return context->expect_text("\n");
+        }
+    }
 };
 
 struct StructuredJsonParsingContext: public JsonParsingContext {
 
     StructuredJsonParsingContext(const Json::Value & val)
-        : current(&val)
+        : current(&val), top(&val)
     {
     }
 
     const Json::Value * current;
+    const Json::Value * top;
 
     virtual void exception(const std::string & message)
     {
-        throw ML::Exception("At path " + printPath() + ": " + message);
+        //using namespace std;
+        //cerr << *current << endl;
+        //cerr << *top << endl;
+        throw ML::Exception("At path " + printPath() + ": "
+                            + message + " parsing "
+                            + boost::trim_copy(top->toString()));
     }
     
+    virtual std::string getContext() const
+    {
+        return printPath();
+    }
+
     virtual int expectInt()
     {
         return current->asInt();
@@ -670,6 +710,11 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
             popPath();
         
         current = oldCurrent;
+    }
+
+    virtual std::string printCurrent()
+    {
+        return boost::trim_copy(current->toString());
     }
 };
 
