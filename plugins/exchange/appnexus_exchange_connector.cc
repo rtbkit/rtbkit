@@ -1,8 +1,10 @@
 /* appnexus_exchange_connector.cc
    Eric Robert, 23 July 2013
-   
+
    Implementation of the AppNexus exchange connector.
 */
+
+#include <iostream>
 
 #include "appnexus_exchange_connector.h"
 #include "rtbkit/plugins/bid_request/appnexus_bid_request.h"
@@ -75,20 +77,25 @@ parseBidRequest(HttpAuctionHandler & connection,
                 const HttpHeader & header,
                 const std::string & payload)
 {
-    // Check for JSON content-type
-    if (header.contentType != "application/json")
+    // doest not set a content type.
+#if 0
     {
-        connection.sendErrorResponse("non-JSON request");
-        return std::shared_ptr<BidRequest>();
+        std::cerr << "**GOT:\n" << Json::parse(payload).toString() << std::endl;
     }
-
+#endif
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
     auto rc = AppNexusBidRequestParser::parseBidRequest(context,
-    		exchangeNameString(), exchangeNameString()) ;
+              exchangeNameString(), exchangeNameString()) ;
 
     if (!rc)
-    	connection.sendErrorResponse("appnexus connector: bad JSON fed");
-     return rc;
+        connection.sendErrorResponse("appnexus connector: bad JSON fed");
+#if 1
+    else
+        std::cerr << "\nAPPNEXUS: " << payload
+                  << "  RTBkit: " << rc->toJsonStr()
+                  << std::endl;
+#endif
+    return rc;
 }
 
 double
@@ -102,7 +109,7 @@ getTimeAvailableMs(HttpAuctionHandler & connection,
     std::string::size_type pos = payload.find(toFind);
     if (pos == std::string::npos)
         return 100.0;
-    
+
     int tmax = atoi(payload.c_str() + pos + toFind.length());
     return tmax;
 }
@@ -165,12 +172,12 @@ getErrorResponse(const HttpAuctionHandler & connection,
 } // namespace RTBKIT
 
 namespace {
-    using namespace RTBKIT;
+using namespace RTBKIT;
 
-    struct Init {
-        Init() {
-            ExchangeConnector::registerFactory<AppNexusExchangeConnector>();
-        }
-    } init;
+struct Init {
+    Init() {
+        ExchangeConnector::registerFactory<AppNexusExchangeConnector>();
+    }
+} init;
 }
 
