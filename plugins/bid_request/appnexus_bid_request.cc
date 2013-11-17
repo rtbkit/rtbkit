@@ -10,7 +10,9 @@
 
 #include "appnexus_parsing.h"
 #include "appnexus_bid_request.h"
+#include "soa/jsoncpp/value.h"
 #include "jml/utils/exc_assert.h"
+
 
 using namespace std;
 using namespace Datacratic;
@@ -180,6 +182,12 @@ fromAppNexus(const AppNexus::BidRequest & req_b,
     rv->provider = provider;
     rv->exchange = (exchange.empty() ? provider : exchange);
 
+    // deal with the members. they will be needed
+    // in BidResponses
+    Json::Value members(Json::arrayValue);
+    for (const auto& m: req.members)
+       members.append (Json::Value(m.id.toInt()));
+    rv->unparseable["members"] = members;
     return rv;
 }
 

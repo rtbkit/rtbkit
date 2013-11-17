@@ -5,6 +5,7 @@
 */
 
 #include <iostream>
+#include <boost/range/irange.hpp>
 
 #include "appnexus_exchange_connector.h"
 #include "rtbkit/plugins/bid_request/appnexus_bid_request.h"
@@ -21,6 +22,7 @@
 #include "jml/utils/rng.h"
 */
 
+using namespace std ;
 using namespace Datacratic;
 /*
 namespace Datacratic {
@@ -78,7 +80,7 @@ parseBidRequest(HttpAuctionHandler & connection,
                 const std::string & payload)
 {
     // doest not set a content type.
-#if 0
+#if 1
     {
         std::cerr << "**GOT:\n" << Json::parse(payload).toString() << std::endl;
     }
@@ -122,10 +124,55 @@ getResponse(const HttpAuctionHandler & connection,
 {
     const Auction::Data * current = auction.getCurrentData();
 
+    cerr << "XXXX = " << auction.id.toString() << "XXX\n";
+    for (size_t i =0; i < auction.getResponses().size(); i++)
+    {
+    	cerr << "RESPONSE: --- " << auction.getResponseJson(i).toString() << endl ;
+    }
+
     if (current->hasError())
         return getErrorResponse(connection, auction,
                                 current->error + ": " + current->details);
 
+
+    Json::Value response ;
+    response["no_bid"] = true;
+    response["auction_id_64"] = auction.id.toInt();
+    Json::Value responses (Json::arrayValue);
+    responses.append(response);
+    Json::Value bid_response ;
+    bid_response["responses"] = responses ;
+    Json::Value retval;
+    retval["bid_response"] = bid_response;
+
+//    GoogleBidResponse gresp ;
+//    gresp.set_processing_time_ms(static_cast<uint32_t>(auction.timeUsed()*1000));
+
+    auto en = exchangeName();
+
+    // Create a spot for each of the bid responses
+    for (auto spotNum: boost::irange(0UL, current->responses.size()))
+    {
+
+        if (!current->hasValidResponse(spotNum))
+            continue ;
+        // Get the winning bid
+        auto & resp = current->winningResponse(spotNum);
+
+        // Find how the agent is configured.  We need to copy some of the
+        // fields into the bid.
+        const AgentConfig * config  =
+            std::static_pointer_cast<const AgentConfig>(resp.agentConfig).get();
+
+        // Put in the fixed parts from the creative
+        int creativeIndex = resp.agentCreativeIndex;
+
+        auto & creative = config->creatives.at(creativeIndex);
+
+        cerr << "spotnum=" << spotNum << ": " << creative.id << endl ;
+
+
+    }
     /*
     AppNexus::BidResponse response;
     response.id = auction.id;
@@ -147,7 +194,7 @@ getResponse(const HttpAuctionHandler & connection,
     desc.printJsonTyped(&response, context);
     */
 
-    return HttpResponse(200, "application/json", "stream.str()");
+    return HttpResponse(200, "application/json", retval.toString());
 }
 
 HttpResponse
