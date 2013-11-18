@@ -38,7 +38,7 @@ struct SubmittedAuctionEvent {
     Date lossTimeout;              ///< Time at which a loss is to be assumed
     JsonHolder augmentations;      ///< Augmentations active
     std::shared_ptr<BidRequest> bidRequest;  ///< Bid request
-    std::string bidRequestStr;     ///< Bid request as string on the wire
+    Utf8String bidRequestStr;     ///< Bid request as string on the wire
     Auction::Response bidResponse; ///< Bid response that was sent
     std::string bidRequestStrFormat;  ///< Format of stringified request(i.e "datacratic")
 
