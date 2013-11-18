@@ -307,16 +307,19 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
  * with 1024 chars. The test works by ensuring that all strings are received
  * one by one, with a relatively precise and constant delay of 1 second
  * between them. */
-BOOST_AUTO_TEST_CASE( test_runner_no_output_delay )
+static void
+test_runner_no_output_delay_helper(bool stdout)
 {
     double delays[3];
     int sizes[3];
-    int pos(-1);
+    int pos(stdout ? -1 : 0);
+    shared_ptr<CallbackInputSink> stdOutSink(nullptr);
+    shared_ptr<CallbackInputSink> stdErrSink(nullptr);
 
     Date start = Date::now();
-    Date last;
+    Date last = start;
 
-    auto onStdOut = [&] (string && message) {
+    auto onCapture = [&] (string && message) {
         Date now = Date::now();
         if (pos > -1 && pos < 3) {
             /* skip "helper: ready" message */
@@ -326,20 +329,25 @@ BOOST_AUTO_TEST_CASE( test_runner_no_output_delay )
         pos++;
         last = now;
     };
-    auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
+    if (stdout) {
+        stdOutSink.reset(new CallbackInputSink(onCapture));
+    }
+    else {
+        stdErrSink.reset(new CallbackInputSink(onCapture));
+    }
 
     RunnerTestHelperCommands commands;
     commands.sendSleep(10);
-    commands.sendOutput(true, "first");
+    commands.sendOutput(stdout, "first");
     commands.sendSleep(10);
-    commands.sendOutput(true, "second\nsecond");
+    commands.sendOutput(stdout, "second\nsecond");
     commands.sendSleep(10);
 
     string third;
     for (int i = 0; i < 128; i++) {
         third += "abcdefgh";
     }
-    commands.sendOutput(true, third);
+    commands.sendOutput(stdout, third);
     commands.sendSleep(10);
     commands.sendExit(0);
 
@@ -350,7 +358,7 @@ BOOST_AUTO_TEST_CASE( test_runner_no_output_delay )
 
     auto & stdInSink = runner.getStdInSink();
     runner.run({"build/x86_64/bin/runner_test_helper"},
-               nullptr, stdOutSink);
+               nullptr, stdOutSink, stdErrSink);
     for (const string & command: commands) {
         while (!stdInSink.write(string(command))) {
             ML::sleep(0.1);
@@ -370,6 +378,16 @@ BOOST_AUTO_TEST_CASE( test_runner_no_output_delay )
     for (int i = 0; i < 3; i++) {
         ::fprintf(stderr, "%d: size: %d; delay: %f\n", i, sizes[i], delays[i]);
     }
+}
+
+BOOST_AUTO_TEST_CASE( test_runner_no_output_delay_stdout )
+{
+    test_runner_no_output_delay_helper(true);
+}
+
+BOOST_AUTO_TEST_CASE( test_runner_no_output_delay_stderr )
+{
+    test_runner_no_output_delay_helper(false);
 }
 #endif
 
