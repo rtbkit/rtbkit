@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <unordered_set>
 #include "rtbkit/plugins/exchange/http_exchange_connector.h"
 
 namespace RTBKIT {
@@ -56,6 +57,30 @@ struct AppNexusExchangeConnector : public HttpExchangeConnector {
     getErrorResponse(const HttpAuctionHandler & connection,
                      const Auction & auction,
                      const std::string & errorMessage) const;
+
+    /** This is the information that AppNexus needs in order to properly
+        filter and serve a creative.
+    */
+    struct CreativeInfo
+    {
+        uint32_t agency_id_ ;                       ///< Agency Id
+        std::string buyer_creative_id_ ;            ///< Buyer Creative Id
+        std::string html_snippet_;                  ///< landing Url
+        std::string click_through_url_;             ///< Click
+        std::unordered_set<int32_t> vendor_type_ ;  ///< Vendor Type
+        std::unordered_set<int32_t> category_ ;     ///< Category
+        std::unordered_set<int32_t> attribute_;     ///< Attribute
+    };
+
+    virtual bool
+    bidRequestCreativeFilter(const BidRequest & request,
+                             const AgentConfig & config,
+                             const void * info) const;
+
+    virtual ExchangeCompatibility
+    getCreativeCompatibility(const Creative & creative,
+                             bool includeReasons) const;
+
 };
 
 

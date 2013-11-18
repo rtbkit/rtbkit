@@ -6,55 +6,16 @@
 
 #include <iostream>
 #include <boost/range/irange.hpp>
+#include <boost/tokenizer.hpp>
 
 #include "appnexus_exchange_connector.h"
 #include "rtbkit/plugins/bid_request/appnexus_bid_request.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
-/*
-#include "rtbkit/common/testing/exchange_source.h"
-#include "rtbkit/core/agent_configuration/agent_config.h"
-#include "openrtb/openrtb_parsing.h"
-#include "soa/types/json_printing.h"
-#include <boost/any.hpp>
-#include <boost/lexical_cast.hpp>
-#include "jml/utils/file_functions.h"
-#include "jml/arch/info.h"
-#include "jml/utils/rng.h"
-*/
 
 using namespace std ;
 using namespace Datacratic;
-/*
-namespace Datacratic {
-
-template<typename T, int I, typename S>
-Json::Value jsonEncode(const ML::compact_vector<T, I, S> & vec)
-{
-    Json::Value result(Json::arrayValue);
-    for (unsigned i = 0;  i < vec.size();  ++i)
-        result[i] = jsonEncode(vec[i]);
-    return result;
-}
-
-template<typename T, int I, typename S>
-ML::compact_vector<T, I, S>
-jsonDecode(const Json::Value & val, ML::compact_vector<T, I, S> *)
-{
-    ExcAssert(val.isArray());
-    ML::compact_vector<T, I, S> res;
-    res.reserve(val.size());
-    for (unsigned i = 0;  i < val.size();  ++i)
-        res.push_back(jsonDecode(val[i], (T*)0));
-    return res;
-}
-
-} // namespace Datacratic
-*/
 
 namespace RTBKIT {
-
-//BOOST_STATIC_ASSERT(hasFromJson<Datacratic::Id>::value == true);
-//BOOST_STATIC_ASSERT(hasFromJson<int>::value == false);
 
 /*****************************************************************************/
 /* OPENRTB EXCHANGE CONNECTOR                                                */
@@ -82,7 +43,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     // doest not set a content type.
 #if 1
     {
-        std::cerr << "**GOT:\n" << Json::parse(payload).toString() << std::endl;
+        std::cerr << "*** THEIRS :\n" << Json::parse(payload).toString() << std::endl;
     }
 #endif
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
@@ -93,9 +54,7 @@ parseBidRequest(HttpAuctionHandler & connection,
         connection.sendErrorResponse("appnexus connector: bad JSON fed");
 #if 1
     else
-        std::cerr << "\nAPPNEXUS: " << payload
-                  << "  RTBkit: " << rc->toJsonStr()
-                  << std::endl;
+        std::cerr << "***   OURS :\n" << rc->toJsonStr() << std::endl;
 #endif
     return rc;
 }
@@ -119,82 +78,51 @@ getTimeAvailableMs(HttpAuctionHandler & connection,
 HttpResponse
 AppNexusExchangeConnector::
 getResponse(const HttpAuctionHandler & connection,
-            const HttpHeader & requestHeader,
-            const Auction & auction) const
+		const HttpHeader & requestHeader,
+		const Auction & auction) const
 {
-    const Auction::Data * current = auction.getCurrentData();
+	const Auction::Data * current = auction.getCurrentData();
 
-    cerr << "XXXX = " << auction.id.toString() << "XXX\n";
-    for (size_t i =0; i < auction.getResponses().size(); i++)
-    {
-    	cerr << "RESPONSE: --- " << auction.getResponseJson(i).toString() << endl ;
-    }
+	if (current->hasError())
+		return getErrorResponse(connection, auction,
+				current->error + ": " + current->details);
 
-    if (current->hasError())
-        return getErrorResponse(connection, auction,
-                                current->error + ": " + current->details);
+	Json::Value responses (Json::arrayValue);
 
+	auto en = exchangeName();
 
-    Json::Value response ;
-    response["no_bid"] = true;
-    response["auction_id_64"] = auction.id.toInt();
-    Json::Value responses (Json::arrayValue);
-    responses.append(response);
-    Json::Value bid_response ;
-    bid_response["responses"] = responses ;
-    Json::Value retval;
-    retval["bid_response"] = bid_response;
+	// Create a spot for each of the bid responses
+	for (auto spotNum: boost::irange(0UL, current->responses.size()))
+	{
 
-//    GoogleBidResponse gresp ;
-//    gresp.set_processing_time_ms(static_cast<uint32_t>(auction.timeUsed()*1000));
+		if (!current->hasValidResponse(spotNum))
+			continue ;
 
-    auto en = exchangeName();
+		Json::Value response ;
+		response["no_bid"] = false;
+		response["auction_id_64"] = auction.id.toInt();
 
-    // Create a spot for each of the bid responses
-    for (auto spotNum: boost::irange(0UL, current->responses.size()))
-    {
+		// Get the winning bid
+		auto & resp = current->winningResponse(spotNum);
+		// TODO:
+	    // figure out what to do w.r.t. members etc.
+		//
+		response["member_id"] = 2187;
+		response["price"] = resp.price.maxPrice.value;
+		response["creative_id"] = resp.creativeId;
+		response["creative_code"] = resp.creativeName;
 
-        if (!current->hasValidResponse(spotNum))
-            continue ;
-        // Get the winning bid
-        auto & resp = current->winningResponse(spotNum);
-
-        // Find how the agent is configured.  We need to copy some of the
-        // fields into the bid.
-        const AgentConfig * config  =
-            std::static_pointer_cast<const AgentConfig>(resp.agentConfig).get();
-
-        // Put in the fixed parts from the creative
-        int creativeIndex = resp.agentCreativeIndex;
-
-        auto & creative = config->creatives.at(creativeIndex);
-
-        cerr << "spotnum=" << spotNum << ": " << creative.id << endl ;
-
-
-    }
-    /*
-    AppNexus::BidResponse response;
-    response.id = auction.id;
-
-    // Create a spot for each of the bid responses
-    for (unsigned spotNum = 0; spotNum < current->responses.size(); ++spotNum) {
-        if (!current->hasValidResponse(spotNum))
-            continue;
-
-        setBid(auction, spotNum, response);
-    }
-
-    if (response.seatbid.empty())
-        return HttpResponse(204, "none", "");
-
-    static Datacratic::DefaultDescription<AppNexus::BidResponse> desc;
-    std::ostringstream stream;
-    StreamJsonPrintingContext context(stream);
-    desc.printJsonTyped(&response, context);
-    */
-
-    return HttpResponse(200, "application/json", retval.toString());
+		responses.append(response);
+	}
+	// Is there a nicer way to do this?
+	Json::Value bid_response ;
+	bid_response["responses"] = responses ;
+	Json::Value retval;
+	retval["bid_response"] = bid_response;
+#if 7
+	cerr << " ---> BID_RESPONSE=" << retval.toString() << endl ;
+#endif
+	return HttpResponse(200, "application/json", retval.toString());
 }
 
 HttpResponse
@@ -214,6 +142,175 @@ getErrorResponse(const HttpAuctionHandler & connection,
     Json::Value response;
     response["error"] = errorMessage;
     return HttpResponse(400, response);
+}
+
+using namespace boost;
+
+namespace {
+
+using Datacratic::jsonDecode;
+
+/** Given a configuration field, convert it to the appropriate JSON */
+template<typename T>
+void getAttr(ExchangeConnector::ExchangeCompatibility & result,
+             const Json::Value & config,
+             const char * fieldName,
+             T & field,
+             bool includeReasons)
+{
+    try {
+        if (!config.isMember(fieldName)) {
+            result.setIncompatible
+            ("creative[].providerConfig.appnexus." + string(fieldName)
+             + " must be specified", includeReasons);
+            return;
+        }
+
+        const Json::Value & val = config[fieldName];
+
+        jsonDecode(val, field);
+    }
+    catch (const std::exception & exc) {
+        result.setIncompatible("creative[].providerConfig.appnexus."
+                               + string(fieldName) + ": error parsing field: "
+                               + exc.what(), includeReasons);
+        return;
+    }
+}
+} // file scope
+
+ExchangeConnector::ExchangeCompatibility
+AppNexusExchangeConnector::
+getCreativeCompatibility(const Creative & creative,
+                         bool includeReasons) const
+{
+    ExchangeCompatibility result;
+    result.setCompatible();
+
+    auto crinfo = std::make_shared<CreativeInfo>();
+
+    if (!creative.providerConfig.isMember("appnexus")) {
+        result.setIncompatible();
+        return result;
+    }
+
+    const Json::Value & pconf = creative.providerConfig["appnexus"];
+
+    // 1.  Must have appnexus.externalId containing creative attributes.
+    getAttr(result, pconf, "externalId", crinfo->buyer_creative_id_, includeReasons);
+
+    // 2.  Must have appnexus.htmlTemplate that includes AdX's macro
+    getAttr(result, pconf, "htmlTemplate", crinfo->html_snippet_, includeReasons);
+    if (crinfo->html_snippet_.find("%%WINNING_PRICE%%") == string::npos)
+        result.setIncompatible
+        ("creative[].providerConfig.appnexus.html_snippet must contain "
+         "encrypted win price macro %%WINNING_PRICE%%",
+         includeReasons);
+
+    // 3.  Must have appnexus.clickThroughUrl
+    getAttr(result, pconf, "clickThroughUrl", crinfo->click_through_url_, includeReasons);
+
+    // 4.  Must have appnexus.agencyId
+    //     according to the .proto file this could also be set
+    //     to 1 if nothing has been provided in the providerConfig
+    getAttr(result, pconf, "agencyId", crinfo->agency_id_, includeReasons);
+    if (!crinfo->agency_id_) crinfo->agency_id_ = 1;
+
+    string tmp;
+    const auto to_int = [] (const string& str) {
+        return atoi(str.c_str());
+    };
+
+    // 5.  Must have vendorType
+    getAttr(result, pconf, "vendorType", tmp, includeReasons);
+    if (!tmp.empty())
+    {
+        tokenizer<> tok(tmp);
+        auto& ints = crinfo->vendor_type_;
+        transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return atoi(s.data());
+        });
+    }
+
+    tmp.clear();
+    // 6.  Must have attribute
+    getAttr(result, pconf, "attribute", tmp, includeReasons);
+    if (!tmp.empty())
+    {
+        tokenizer<> tok(tmp);
+        auto& ints = crinfo->attribute_;
+        transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return atoi(s.data());
+        });
+    }
+
+    tmp.clear();
+    // 7.  Must have sensitiveCategory
+    getAttr(result, pconf, "sensitiveCategory", tmp, includeReasons);
+    if (!tmp.empty())
+    {
+        tokenizer<> tok(tmp);
+        auto& ints = crinfo->category_;
+        transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return atoi(s.data());
+        });
+    }
+
+    if (result.isCompatible) {
+        // Cache the information
+        result.info = crinfo;
+    }
+
+    return result;
+}
+
+bool
+AppNexusExchangeConnector::
+bidRequestCreativeFilter(const BidRequest & request,
+                         const AgentConfig & config,
+                         const void * info) const
+{
+    const auto crinfo = reinterpret_cast<const CreativeInfo*>(info);
+
+    // This function is called once per BidRequest.
+    // However a bid request can return multiple AdSlot.
+    // The creative restrictions do apply per AdSlot.
+    // We then check that *all* the AdSlot present in this BidRequest
+    // do pass the filter.
+    // TODO: verify performances of the implementation.
+    for (const auto& spot: request.imp)
+    {
+
+        const auto& excluded_attribute_seg = spot.restrictions.get("excluded_attribute");
+        for (auto atr: crinfo->attribute_)
+            if (excluded_attribute_seg.contains(atr))
+            {
+                this->recordHit ("attribute_excluded");
+                return false ;
+            }
+
+        const auto& excluded_sensitive_category_seg =
+            spot.restrictions.get("excluded_sensitive_category");
+        for (auto atr: crinfo->category_)
+            if (excluded_sensitive_category_seg.contains(atr))
+            {
+                this->recordHit ("sensitive_category_excluded");
+                return false ;
+            }
+
+        const auto& allowed_vendor_type_seg =
+            spot.restrictions.get("allowed_vendor_type");
+        for (auto atr: crinfo->vendor_type_)
+            if (!allowed_vendor_type_seg.contains(atr))
+            {
+                this->recordHit ("vendor_type_not_allowed");
+                return false ;
+            }
+    }
+    return true;
 }
 
 } // namespace RTBKIT
