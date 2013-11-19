@@ -876,10 +876,11 @@ logUsageMetrics(double period)
             newMetrics.numAuctions += item->numAuctions;
             acceptAuctionProbability += item->acceptAuctionProbability;
         });
+        newMetrics.numBids = numBids;
         newMetrics.numNoPotentialBidders = numNoPotentialBidders;
         newMetrics.numAuctionsWithBid = numAuctionsWithBid;
 
-        RouterUsageMetrics delta = lastRouterUsageMetrics - newMetrics;
+        RouterUsageMetrics delta = newMetrics - lastRouterUsageMetrics;
 
         logMessage("USAGE", "ROUTER", p,
                    delta.numRequests,
