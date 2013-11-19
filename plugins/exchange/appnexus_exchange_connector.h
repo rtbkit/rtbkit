@@ -5,8 +5,8 @@
 */
 
 #pragma once
-
 #include <unordered_set>
+#include <boost/any.hpp>
 #include "rtbkit/plugins/exchange/http_exchange_connector.h"
 
 namespace RTBKIT {
@@ -62,14 +62,17 @@ struct AppNexusExchangeConnector : public HttpExchangeConnector {
         filter and serve a creative.
     */
     struct CreativeInfo
-    {
-        uint32_t agency_id_ ;                       ///< Agency Id
-        std::string buyer_creative_id_ ;            ///< Buyer Creative Id
-        std::string html_snippet_;                  ///< landing Url
-        std::string click_through_url_;             ///< Click
-        std::unordered_set<int32_t> vendor_type_ ;  ///< Vendor Type
-        std::unordered_set<int32_t> category_ ;     ///< Category
-        std::unordered_set<int32_t> attribute_;     ///< Attribute
+    {   // see https://wiki.appnexus.com/display/adnexusdocumentation/Bid+Response
+    	int member_id_ ;                    // *must* have.The ID of the member whose creative is
+    	                                    // chosen by the bidder from the "members" array in
+    	                                    // the request.
+        int creative_id_ ;                  // *must* have either this or:
+        std::string creative_code_ ;        // The custom code of the creative passed
+                                            //     into the creative service.
+        std::string click_url_;             // The click URL to be associated with the creative
+        std::string pixel_url_;             // The pixel URL to be associated with the creative
+        std::unordered_set<int32_t> attrs_; // Attributes
+
     };
 
     virtual bool

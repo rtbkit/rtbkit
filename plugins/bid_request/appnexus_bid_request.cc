@@ -182,12 +182,18 @@ fromAppNexus(const AppNexus::BidRequest & req_b,
     rv->provider = provider;
     rv->exchange = (exchange.empty() ? provider : exchange);
 
-    // deal with the members. they will be needed
-    // in BidResponses
-    Json::Value members(Json::arrayValue);
+    // deal with the members. needed in BidResponse
+    vector<int> tmp ;
     for (const auto& m: req.members)
-       members.append (Json::Value(m.id.toInt()));
-    rv->unparseable["members"] = members;
+       tmp.push_back (m.id.toInt());
+    if (!tmp.empty())
+       rv->restrictions.addInts("members", tmp);
+    // deal with excluded attributes. needed in BidResponse
+    tmp.clear();
+    for (const auto& m: req.excludedAttributes)
+       tmp.push_back (m.val);
+    if (!tmp.empty())
+    	rv->restrictions.addInts("excluded_attributes", tmp);
     return rv;
 }
 

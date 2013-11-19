@@ -41,7 +41,7 @@ parseBidRequest(HttpAuctionHandler & connection,
                 const std::string & payload)
 {
     // doest not set a content type.
-#if 1
+#if 0
     {
         std::cerr << "*** THEIRS :\n" << Json::parse(payload).toString() << std::endl;
     }
@@ -52,7 +52,7 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     if (!rc)
         connection.sendErrorResponse("appnexus connector: bad JSON fed");
-#if 1
+#if 0
     else
         std::cerr << "***   OURS :\n" << rc->toJsonStr() << std::endl;
 #endif
@@ -119,7 +119,7 @@ getResponse(const HttpAuctionHandler & connection,
 	bid_response["responses"] = responses ;
 	Json::Value retval;
 	retval["bid_response"] = bid_response;
-#if 7
+#if 0
 	cerr << " ---> BID_RESPONSE=" << retval.toString() << endl ;
 #endif
 	return HttpResponse(200, "application/json", retval.toString());
@@ -153,118 +153,106 @@ using Datacratic::jsonDecode;
 /** Given a configuration field, convert it to the appropriate JSON */
 template<typename T>
 void getAttr(ExchangeConnector::ExchangeCompatibility & result,
-             const Json::Value & config,
-             const char * fieldName,
-             T & field,
-             bool includeReasons)
+		const Json::Value & config, const char * fieldName, T & field,
+		bool includeReasons)
 {
-    try {
-        if (!config.isMember(fieldName)) {
-            result.setIncompatible
-            ("creative[].providerConfig.appnexus." + string(fieldName)
-             + " must be specified", includeReasons);
-            return;
-        }
+	try {
+		if (!config.isMember(fieldName)) {
+			result.setIncompatible(
+					"creative[].providerConfig['appnexus']." + string(fieldName)
+							+ " must be specified", includeReasons);
+			return;
+		}
 
-        const Json::Value & val = config[fieldName];
+		const Json::Value & val = config[fieldName];
 
-        jsonDecode(val, field);
-    }
-    catch (const std::exception & exc) {
-        result.setIncompatible("creative[].providerConfig.appnexus."
-                               + string(fieldName) + ": error parsing field: "
-                               + exc.what(), includeReasons);
-        return;
-    }
+		jsonDecode(val, field);
+	} catch (const std::exception & exc) {
+		result.setIncompatible(
+				"creative[].providerConfig['appnexus']." + string(fieldName)
+						+ ": error parsing field: " + exc.what(),
+				includeReasons);
+		return;
+	}
 }
 } // file scope
 
 ExchangeConnector::ExchangeCompatibility
-AppNexusExchangeConnector::
-getCreativeCompatibility(const Creative & creative,
-                         bool includeReasons) const
+AppNexusExchangeConnector::getCreativeCompatibility(
+		const Creative & creative, bool includeReasons) const
 {
-    ExchangeCompatibility result;
-    result.setCompatible();
 
-    auto crinfo = std::make_shared<CreativeInfo>();
+	ExchangeCompatibility result;
+	result.setCompatible();
 
-    if (!creative.providerConfig.isMember("appnexus")) {
-        result.setIncompatible();
-        return result;
-    }
+	if (!creative.providerConfig.isMember("appnexus")) {
+		result.setIncompatible("creative[].providerConfig['appnexus'] missing",
+				includeReasons);
+		return result;;
+	}
 
-    const Json::Value & pconf = creative.providerConfig["appnexus"];
-
-    // 1.  Must have appnexus.externalId containing creative attributes.
-    getAttr(result, pconf, "externalId", crinfo->buyer_creative_id_, includeReasons);
-
-    // 2.  Must have appnexus.htmlTemplate that includes AdX's macro
-    getAttr(result, pconf, "htmlTemplate", crinfo->html_snippet_, includeReasons);
-    if (crinfo->html_snippet_.find("%%WINNING_PRICE%%") == string::npos)
-        result.setIncompatible
-        ("creative[].providerConfig.appnexus.html_snippet must contain "
-         "encrypted win price macro %%WINNING_PRICE%%",
-         includeReasons);
-
-    // 3.  Must have appnexus.clickThroughUrl
-    getAttr(result, pconf, "clickThroughUrl", crinfo->click_through_url_, includeReasons);
-
-    // 4.  Must have appnexus.agencyId
-    //     according to the .proto file this could also be set
-    //     to 1 if nothing has been provided in the providerConfig
-    getAttr(result, pconf, "agencyId", crinfo->agency_id_, includeReasons);
-    if (!crinfo->agency_id_) crinfo->agency_id_ = 1;
-
+	const Json::Value & pconf = creative.providerConfig["appnexus"];
+	auto crinfo = std::make_shared<CreativeInfo>();
     string tmp;
-    const auto to_int = [] (const string& str) {
-        return atoi(str.c_str());
-    };
 
-    // 5.  Must have vendorType
-    getAttr(result, pconf, "vendorType", tmp, includeReasons);
+	// 1. must have a member id.
+	getAttr(result, pconf, "memberId", crinfo->member_id_, includeReasons);
+	if (!result.isCompatible)
+		goto out;
+
+	// 2. check for either creativeId, or creativeCode (or both)
+	{
+		auto gotit = false;
+		// 2. check for either creativeId, or creativeCode
+		if (pconf.isMember("creativeId")) {
+			getAttr(result, pconf, "creativeId", crinfo->creative_id_,
+					includeReasons);
+			if (result.isCompatible)
+				gotit = true;
+		}
+		if (pconf.isMember("creativeCode")) {
+			getAttr(result, pconf, "creativeCode", crinfo->creative_code_,
+					includeReasons);
+			if (result.isCompatible)
+				gotit = true;
+		}
+		if (!gotit) {
+			result.setIncompatible("creative[].providerConfig['appnexus']: "
+					"either 'creativeId' or 'creativeCode' must be configured",
+					includeReasons);
+		}
+		if (!result.isCompatible)
+			goto out;
+	}
+
+	if (pconf.isMember("clickUrl")) {
+		getAttr(result, pconf, "clickUrl", crinfo->click_url_, includeReasons);
+		if (!result.isCompatible)
+			goto out;
+	}
+	if (pconf.isMember("pixelUrl")) {
+		getAttr(result, pconf, "pixelUrl", crinfo->pixel_url_, includeReasons);
+		if (!result.isCompatible)
+			goto out;
+	}
+
+
+	getAttr(result, pconf, "attributes", tmp, includeReasons);
     if (!tmp.empty())
     {
         tokenizer<> tok(tmp);
-        auto& ints = crinfo->vendor_type_;
+        auto& ints = crinfo->attrs_;
         transform(tok.begin(), tok.end(),
         std::inserter(ints, ints.begin()),[&](const std::string& s) {
             return atoi(s.data());
         });
     }
-
-    tmp.clear();
-    // 6.  Must have attribute
-    getAttr(result, pconf, "attribute", tmp, includeReasons);
-    if (!tmp.empty())
-    {
-        tokenizer<> tok(tmp);
-        auto& ints = crinfo->attribute_;
-        transform(tok.begin(), tok.end(),
-        std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return atoi(s.data());
-        });
-    }
-
-    tmp.clear();
-    // 7.  Must have sensitiveCategory
-    getAttr(result, pconf, "sensitiveCategory", tmp, includeReasons);
-    if (!tmp.empty())
-    {
-        tokenizer<> tok(tmp);
-        auto& ints = crinfo->category_;
-        transform(tok.begin(), tok.end(),
-        std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return atoi(s.data());
-        });
-    }
-
-    if (result.isCompatible) {
-        // Cache the information
-        result.info = crinfo;
-    }
-
-    return result;
+	if (result.isCompatible)
+	{
+		result.info = crinfo;
+	}
+out:
+	return result;
 }
 
 bool
@@ -275,40 +263,21 @@ bidRequestCreativeFilter(const BidRequest & request,
 {
     const auto crinfo = reinterpret_cast<const CreativeInfo*>(info);
 
-    // This function is called once per BidRequest.
-    // However a bid request can return multiple AdSlot.
-    // The creative restrictions do apply per AdSlot.
-    // We then check that *all* the AdSlot present in this BidRequest
-    // do pass the filter.
-    // TODO: verify performances of the implementation.
-    for (const auto& spot: request.imp)
+    // 1. filter attributes
+    const auto& excluded_attribute_seg = request.restrictions.get("excluded_attributes");
+    for (auto atr: crinfo->attrs_)
+        if (excluded_attribute_seg.contains(atr))
+        {
+            this->recordHit ("attribute_excluded");
+            return false ;
+        }
+
+    // 2. filter member etc.
+    const auto& member_list = request.restrictions.get("members");
+    if (!member_list.contains(crinfo->member_id_))
     {
-
-        const auto& excluded_attribute_seg = spot.restrictions.get("excluded_attribute");
-        for (auto atr: crinfo->attribute_)
-            if (excluded_attribute_seg.contains(atr))
-            {
-                this->recordHit ("attribute_excluded");
-                return false ;
-            }
-
-        const auto& excluded_sensitive_category_seg =
-            spot.restrictions.get("excluded_sensitive_category");
-        for (auto atr: crinfo->category_)
-            if (excluded_sensitive_category_seg.contains(atr))
-            {
-                this->recordHit ("sensitive_category_excluded");
-                return false ;
-            }
-
-        const auto& allowed_vendor_type_seg =
-            spot.restrictions.get("allowed_vendor_type");
-        for (auto atr: crinfo->vendor_type_)
-            if (!allowed_vendor_type_seg.contains(atr))
-            {
-                this->recordHit ("vendor_type_not_allowed");
-                return false ;
-            }
+    	this->recordHit ("unlisted_member: " + to_string(crinfo->member_id_));
+    	return false;
     }
     return true;
 }
