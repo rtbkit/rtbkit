@@ -155,7 +155,7 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     BOOST_CHECK_EQUAL(ortbReq->device->language, Utf8String("en-US,en;q=0.8"));
     BOOST_CHECK_EQUAL(ortbReq->device->flashver, "Flash available - version unknown");
     BOOST_CHECK_EQUAL(ortbReq->device->ip, "96.246.152.18");
-    BOOST_CHECK_EQUAL(ortbReq->device->ipv6, "96.246.152.18");
+    // BOOST_CHECK_EQUAL(ortbReq->device->ipv6, "96.246.152.18");
     BOOST_CHECK_EQUAL(ortbReq->device->carrier, Utf8String("101"));
     BOOST_CHECK_EQUAL(ortbReq->device->language, Utf8String("en-US,en;q=0.8"));
     BOOST_CHECK_EQUAL(ortbReq->device->make, "1001");
@@ -169,13 +169,13 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     // So we cast the test value and use the BOOST_CHECK for testing floating point values for equaulity within a tolerance
     BOOST_CHECK_CLOSE(ortbReq->device->geo->lat.val, (float)38.7875232696533, 0.0000001);
     BOOST_CHECK_CLOSE(ortbReq->device->geo->lon.val, (float)-77.2614831924438, 0.0000001);
-    BOOST_CHECK_EQUAL(ortbReq->device->os, "Apple iOS");
-    BOOST_CHECK_EQUAL(ortbReq->device->osv, "iPhone - iOS (other versions)");
+    BOOST_CHECK_EQUAL(ortbReq->device->os, "iPhone");
+    BOOST_CHECK_EQUAL(ortbReq->device->osv, "N/A");
 
     // OpenRTB::User
     BOOST_CHECK_EQUAL(ortbReq->user->id.toString(), "2987961585469200400");
     BOOST_CHECK_EQUAL(ortbReq->user->gender, "male");
-    BOOST_CHECK_EQUAL(ortbReq->user->yob.val, 50);
+    BOOST_CHECK_EQUAL(ortbReq->user->yob.val, 1963);
 
     // OpenRTB::Content
     // TODO What happened to OpenRTB Content struct?
