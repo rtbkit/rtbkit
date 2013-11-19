@@ -1,4 +1,4 @@
-// Copyright 2007-2010 Baptiste Lepilleur
+// Copyright 2007-2010 Baptiste Lepilleur  -*- C++ -*-
 // Distributed under MIT license, or public domain if desired and
 // recognized in your jurisdiction.
 // See file LICENSE for detail or copy at http://jsoncpp.sourceforge.net/LICENSE
@@ -248,6 +248,26 @@ namespace Json {
       
       /** Construct an array. */
       Value( const std::initializer_list<Json::Value> & vals );
+
+      /** Construct an array from a range. */
+      template<typename It>
+      Value ( It first, It last )
+          : type_( arrayValue )
+          , allocated_( 0 )
+          , comments_( 0 )
+# ifdef JSON_VALUE_USE_INTERNAL_MAP
+          , itemIsUsed_( 0 )
+#endif
+      {
+#ifndef JSON_VALUE_USE_INTERNAL_MAP
+          value_.map_ = new ObjectValues();
+#else
+          value_.array_ = arrayAllocator()->newArray();
+#endif
+          
+          for (; first != last;  ++first)
+              append(*first);
+      }
 
       ~Value();
 
