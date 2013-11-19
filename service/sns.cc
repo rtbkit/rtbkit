@@ -90,9 +90,10 @@ publish(const std::string & topicArn,
 
     queryParams.push_back({"Signature", signature});
 
+    HttpRestProxy::Response response;
+
     int retry = 0;
     for (; retry < 3;  ++retry) {
-        HttpRestProxy::Response response;
         try {
             response = proxy.post("", HttpRestProxy::Content(), queryParams, {}, timeout);
 
@@ -111,7 +112,8 @@ publish(const std::string & topicArn,
         }
     }
 
-    throw ML::Exception("failed SNS request after 3 retries");
+    throw ML::Exception("failed SNS request after 3 retries: code %d, body %s",
+                        response.code(), response.body().c_str());
 }
 
 } // namespace Datacratic
