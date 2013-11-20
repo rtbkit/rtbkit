@@ -104,6 +104,12 @@ performSync() const
     int numRetries = 7;
     string body;
 
+    size_t spacePos = uri.find(" ");
+    if (spacePos != string::npos) {
+        throw ML::Exception("url '" + uri + "' contains an unescaped space"
+                            " at position " + to_string(spacePos));
+    }
+
     Range currentRange = params.downloadRange;
     bool useRange(false);
     if (params.verb == "GET") {
