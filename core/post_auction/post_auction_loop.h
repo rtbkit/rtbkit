@@ -39,7 +39,7 @@ struct SubmissionInfo {
     }
 
     std::shared_ptr<BidRequest> bidRequest;
-    std::string bidRequestStr;
+    Utf8String bidRequestStr;
     std::string bidRequestStrFormat;
     JsonHolder augmentations;
     Auction::Response  bid;               ///< Bid we passed on
@@ -80,7 +80,7 @@ struct FinishedInfo {
     Id adSpotId;          ///< Spot ID from host
     int spotIndex;
     std::shared_ptr<BidRequest> bidRequest;  ///< What we bid on
-    std::string bidRequestStr;
+    Utf8String bidRequestStr;
     std::string bidRequestStrFormat;
     JsonHolder augmentations;
     std::set<Id> uids;                ///< All UIDs for this user
