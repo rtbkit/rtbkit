@@ -112,43 +112,52 @@ expectJson(Parse_Context & context)
     } else {
         Json::Value result;
 
-        // Look for an integer first
-        std::string found;
-        found.reserve(100);
-        int nonDigits = 0;
+        std::string number;
         bool negative = false;
+        bool doublePrecision = false;
 
-        while (context) {
-            char c = *context;
-            if (c == ',' || c == '}' || c == ']' || isspace(c))
-                break;
-            found += c;
-            if (found.empty()) {
-                if (c == '-')
-                    negative = true;
+        if (context.match_literal('-')) {
+            number += '-';
+            negative = true;
+        }
+
+        while (context && isdigit(*context)) {
+            number += *context++;
+        }
+
+        if (context.match_literal('.')) {
+            doublePrecision = true;
+            number += '.';
+
+            while (context && isdigit(*context)) {
+                number += *context++;
             }
-            if (!found.empty() && c != '+' && c != '-')
-                nonDigits += !isdigit(c);
-            ++context;
         }
-        
-        //using namespace std;
-        //cerr << "found = " << found << endl;
 
-        if (nonDigits == 0 && !negative) {
-            // Unsigned integer
-            result = boost::lexical_cast<unsigned long long>(found);
+        char sci = context ? *context : '\0';
+        if (sci == 'e' || sci == 'E') {
+            doublePrecision = true;
+            number += *context++;
+
+            char sign = context ? *context : '\0';
+            if (sign == '+' || sign == '-') {
+                number += *context++;
+            }
+
+            while (context && isdigit(*context)) {
+                number += *context++;
+            }
         }
-        else if (nonDigits == 0) {
-            // Signed integer
-            result = boost::lexical_cast<long long>(found);
+
+        if (doublePrecision) {
+            result = boost::lexical_cast<double>(number);
+        } else if (negative) {
+            result = boost::lexical_cast<long long>(number);
+        } else {
+            result = boost::lexical_cast<unsigned long long>(number);
         }
-        else {
-            // Floating point
-            result = boost::lexical_cast<double>(found);
-        }
+
         return result;
-        //return context.expect_double();
     }
 }
 
