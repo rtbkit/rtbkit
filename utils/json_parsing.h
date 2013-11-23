@@ -79,6 +79,34 @@ inline bool expectJsonBool(Parse_Context & context)
     context.exception("expected bool (true or false)");
 }
 
+/** Representation of a numeric value in JSON.  It's designed to allow
+    it to be stored the same way it was written (as an integer versus
+    floating point, signed vs unsigned) without losing precision.
+*/
+struct JsonNumber {
+    enum Type {
+        NONE,
+        UNSIGNED_INT,
+        SIGNED_INT,
+        FLOATING_POINT
+    } type;
+
+    union {
+        unsigned long long uns;
+        long long sgn;
+        double fp;
+    };    
+};
+
+/** Expect a JSON number.  This function is written in this strange way
+    because JsonCPP is not a require dependency of jml, but the function
+    needs to be out-of-line.
+*/
+JsonNumber expectJsonNumber(Parse_Context & context);
+
+/** Match a JSON number. */
+bool matchJsonNumber(Parse_Context & context, JsonNumber & num);
+
 #ifdef CPPTL_JSON_H_INCLUDED
 
 inline Json::Value
@@ -110,54 +138,17 @@ expectJson(Parse_Context & context)
                          });
         return result;
     } else {
-        Json::Value result;
-
-        std::string number;
-        bool negative = false;
-        bool doublePrecision = false;
-
-        if (context.match_literal('-')) {
-            number += '-';
-            negative = true;
+        JsonNumber number = expectJsonNumber(context);
+        switch (number.type) {
+        case JsonNumber::UNSIGNED_INT:
+            return number.uns;
+        case JsonNumber::SIGNED_INT:
+            return number.sgn;
+        case JsonNumber::FLOATING_POINT:
+            return number.fp;
+        default:
+            throw ML::Exception("logic error in expectJson");
         }
-
-        while (context && isdigit(*context)) {
-            number += *context++;
-        }
-
-        if (context.match_literal('.')) {
-            doublePrecision = true;
-            number += '.';
-
-            while (context && isdigit(*context)) {
-                number += *context++;
-            }
-        }
-
-        char sci = context ? *context : '\0';
-        if (sci == 'e' || sci == 'E') {
-            doublePrecision = true;
-            number += *context++;
-
-            char sign = context ? *context : '\0';
-            if (sign == '+' || sign == '-') {
-                number += *context++;
-            }
-
-            while (context && isdigit(*context)) {
-                number += *context++;
-            }
-        }
-
-        if (doublePrecision) {
-            result = boost::lexical_cast<double>(number);
-        } else if (negative) {
-            result = boost::lexical_cast<long long>(number);
-        } else {
-            result = boost::lexical_cast<unsigned long long>(number);
-        }
-
-        return result;
     }
 }
 

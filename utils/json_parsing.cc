@@ -446,4 +446,86 @@ matchJsonObject(Parse_Context & context,
     return true;
 }
 
+JsonNumber expectJsonNumber(Parse_Context & context)
+{
+    JsonNumber result;
+
+    std::string number;
+    number.reserve(32);
+
+    bool negative = false;
+    bool doublePrecision = false;
+
+    if (context.match_literal('-')) {
+        number += '-';
+        negative = true;
+    }
+
+    // EXTENSION: accept NaN and positive or negative infinity
+    if (context.match_literal('N')) {
+        context.expect_literal("aN");
+        result.fp = negative ? -NAN : NAN;
+        result.type = JsonNumber::FLOATING_POINT;
+        return result;
+    }
+    else if (context.match_literal('n')) {
+        context.expect_literal("an");
+        result.fp = negative ? -NAN : NAN;
+        result.type = JsonNumber::FLOATING_POINT;
+        return result;
+    }
+    else if (context.match_literal('I') || context.match_literal('i')) {
+        context.expect_literal("nf");
+        result.fp = negative ? -INFINITY : INFINITY;
+        result.type = JsonNumber::FLOATING_POINT;
+        return result;
+    }
+
+    while (context && isdigit(*context)) {
+        number += *context++;
+    }
+
+    if (context.match_literal('.')) {
+        doublePrecision = true;
+        number += '.';
+
+        while (context && isdigit(*context)) {
+            number += *context++;
+        }
+    }
+
+    char sci = context ? *context : '\0';
+    if (sci == 'e' || sci == 'E') {
+        doublePrecision = true;
+        number += *context++;
+
+        char sign = context ? *context : '\0';
+        if (sign == '+' || sign == '-') {
+            number += *context++;
+        }
+
+        while (context && isdigit(*context)) {
+            number += *context++;
+        }
+    }
+
+    try {
+        JML_TRACE_EXCEPTIONS(false);
+        if (doublePrecision) {
+            result.fp = boost::lexical_cast<double>(number);
+            result.type = JsonNumber::FLOATING_POINT;
+        } else if (negative) {
+            result.sgn = boost::lexical_cast<long long>(number);
+            result.type = JsonNumber::SIGNED_INT;
+        } else {
+            result.uns = boost::lexical_cast<unsigned long long>(number);
+            result.type = JsonNumber::UNSIGNED_INT;
+        }
+    } catch (const std::exception & exc) {
+        context.exception("expected number");
+    }
+
+    return result;
+}
+
 } // namespace ML
