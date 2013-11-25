@@ -3,6 +3,7 @@
    Copyright (c) 2012 Datacratic.  All rights reserved.
 
    Class to deal with doing s3.
+   Note: Your access key must have the listallmybuckets permission on the aws side.
 */
 
 #pragma once
