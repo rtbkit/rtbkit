@@ -85,7 +85,7 @@ struct AwsApi {
     static std::string uriEncode(const std::string & str);
 
     /** Helper for url-escaping of resource names */
-    std::string escapeResource(const std::string & resource) const;
+    static std::string escapeResource(const std::string & resource);
 
     /** See http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html */
     static std::string signingKeyV4(const std::string & accessKey,

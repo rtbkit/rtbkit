@@ -673,9 +673,11 @@ finishMultiPartUpload(const std::string & bucket,
 
     //joinRequest.Print();
 
+    string escapedResource = escapeResource(resource);
+
     auto joinResponse
-        = post(bucket, resource, "uploadId=" + uploadId,
-                  {}, {}, joinRequest);
+        = postEscaped(bucket, escapedResource, "uploadId=" + uploadId,
+                      {}, {}, joinRequest);
 
     //cerr << joinResponse.bodyXmlStr() << endl;
 
@@ -923,7 +925,7 @@ upload(const char * data,
     for (unsigned i = 0;  i < parts.size();  ++i) {
         etags.push_back(parts[i].etag);
     }
-    string finalEtag = finishMultiPartUpload(bucket, escapedResource,
+    string finalEtag = finishMultiPartUpload(bucket, resource,
                                              uploadId, etags);
     return finalEtag;
 }
@@ -1786,7 +1788,7 @@ struct StreamingUploadSource {
         {
             if (exc)
                 std::rethrow_exception(exc);
-            //cerr << "pushing last chunk " << chunkIndex << endl;
+            // cerr << "pushing last chunk " << chunkIndex << endl;
             flush();
 
             if (!chunkIndex) {
@@ -1843,7 +1845,7 @@ struct StreamingUploadSource {
                             throw ML::Exception("put didn't work: %d", (int)putResult.code_);
                         }
                         string etag = putResult.getHeader("etag");
-                        //cerr << "successfully uploaded part " << chunk.index
+                        // cerr << "successfully uploaded part " << chunk.index
                         //     << " with etag " << etag << endl;
 
                         std::unique_lock<std::mutex> guard(etagsLock);

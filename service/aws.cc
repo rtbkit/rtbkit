@@ -235,7 +235,6 @@ uriEncode(const std::string & str)
 std::string
 AwsApi::
 escapeResource(const std::string & resource)
-    const
 {
     if (resource.size() == 0) {
         throw ML::Exception("empty resource name");
