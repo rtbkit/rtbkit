@@ -80,6 +80,28 @@ struct RecordCtx : public Context
 };
 
 
+struct ArrayIndexT {} ArrayIndex;
+
+template<typename Ctx>
+struct CtxGuard
+{
+    CtxGuard(Ctx& ctx, const std::string& key) : ctx(ctx)
+    {
+        ctx.enter(key);
+    }
+
+    CtxGuard(Ctx& ctx, ArrayIndexT) : ctx(ctx)
+    {
+        ctx.enter("<index>");
+    }
+
+    ~CtxGuard() { ctx.exit(); }
+
+private:
+    Ctx& ctx;
+};
+
+
 /******************************************************************************/
 /* NODE TYPE                                                                  */
 /******************************************************************************/
@@ -144,19 +166,10 @@ struct NodeTypeHash
 /******************************************************************************/
 
 struct Node;
-Node* createNode(NodeType type, size_t count);
+void recordNode(RecordCtx& ctx, Node* & node, const Json::Value& value);
+Node* recordNode(RecordCtx& ctx, const Json::Value& value);
 Node* loadNode(Parse_Context& ctx);
 void dumpNode(Node* node, ostream& stream);
-
-
-template<typename K, typename H>
-Node& getNode(unordered_map<K,Node*,H>& map, const K& key, NodeType type)
-{
-    auto it = map.find(key);
-    if (it == map.end())
-        it = map.insert(make_pair(key, createNode(type, 0))).first;
-    return *it->second;
-}
 
 
 /******************************************************************************/
@@ -254,6 +267,27 @@ struct NodeLeaf : public Node
 
 
 /******************************************************************************/
+/* NODE GENERATED                                                             */
+/******************************************************************************/
+
+struct NodeGenerated : public Node
+{
+    NodeGenerated() : Node(Generated, 0) {}
+
+    void record(RecordCtx&, const Json::Value&) {}
+
+    Json::Value generate(GenerateCtx& ctx) const
+    {
+        ExcAssert(ctx.generator);
+        return ctx.generator(ctx.path());
+    }
+
+    void dump(ostream& stream) const {}
+    void load(Parse_Context& ctx) {}
+};
+
+
+/******************************************************************************/
 /* NODE OBJECT                                                                */
 /******************************************************************************/
 
@@ -276,9 +310,12 @@ struct NodeObject : public Node
         const auto& members = json.getMemberNames();
 
         for (const string& member : members) {
+            CtxGuard<RecordCtx> guard(ctx, member);
+
             const Json::Value& value = json[member];
             if (debug) cerr << "    obj.rec: " << member << endl;
-            getNode(fields, member, getType(value)).record(ctx, value);
+
+            recordNode(ctx, fields[member], value);
         }
     }
 
@@ -289,6 +326,8 @@ struct NodeObject : public Node
         for (const auto& field : fields) {
             double p = double(field.second->count) / double(count);
             if (p < ctx.rng.random01()) continue;
+
+            CtxGuard<GenerateCtx> guard(ctx, field.first);
 
             Json::Value value = field.second->generate(ctx);
             if (debug) cerr << "    obj.gen: " << field.first << " -> " << value.toString();
@@ -344,11 +383,12 @@ struct NodeArray : public Node
         count++;
         sizes[json.size()]++;
 
+        CtxGuard<RecordCtx> guard(ctx, ArrayIndex);
+
         for (size_t i = 0; i < json.size(); ++i) {
             const Json::Value& value = json[i];
             NodeType type = getType(value);
-
-            getNode(values, type, type).record(ctx, value);
+            recordNode(ctx, values[type], value);
         }
     }
 
@@ -356,6 +396,8 @@ struct NodeArray : public Node
     {
         Json::Value value;
         size_t size = pickRandom(sizes, count, ctx.rng);
+
+        CtxGuard<GenerateCtx> guard(ctx, ArrayIndex);
 
         for (size_t i = 0; i < size; ++i) {
             Json::Value json = generateValue(ctx);
@@ -459,15 +501,32 @@ private:
 /* UTILS IMPL                                                                 */
 /******************************************************************************/
 
-
-Node* createNode(NodeType type, size_t count)
+void recordNode(RecordCtx& ctx, Node* & node, const Json::Value& value)
 {
-    switch (type) {
-    case Object:    return new NodeObject(count);
-    case Array:     return new NodeArray(count);
-    // case Generated: return new NodeGenerated();
-    default:        return new NodeLeaf(type, count);
+    if (node) node->record(ctx, value);
+    else node = recordNode(ctx, value);
+}
+
+Node* recordNode(RecordCtx& ctx, const Json::Value& value)
+{
+    std::unique_ptr<Node> node;
+
+    if (ctx.isCutoff && ctx.isCutoff(ctx.path()))
+        node.reset(new NodeLeaf(Json, 0));
+
+    else if (ctx.isGenerated && ctx.isGenerated(ctx.path()))
+        node.reset(new NodeGenerated());
+
+    else {
+        switch (getType(value)) {
+        case Object: node.reset(new NodeObject(0)); break;
+        case Array:  node.reset(new NodeArray(0)); break;
+        default:     node.reset(new NodeLeaf(getType(value), 0)); break;
+        }
     }
+
+    node->record(ctx, value);
+    return node.release();
 }
 
 
@@ -484,7 +543,12 @@ Node* loadNode(Parse_Context& ctx)
                 if      (field == "type") type = NodeType(ctx.expect_int());
                 else if (field == "count") count = ctx.expect_unsigned_long();
                 else if (field == "node") {
-                    node.reset(createNode(type, count));
+                    switch (type) {
+                    case Generated: node.reset(new NodeGenerated()); break;
+                    case Object:    node.reset(new NodeObject(count)); break;
+                    case Array:     node.reset(new NodeArray(count)); break;
+                    default:        node.reset(new NodeLeaf(type, count)); break;
+                    }
                     node->load(ctx);
                 }
 
