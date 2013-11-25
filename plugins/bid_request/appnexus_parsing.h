@@ -49,6 +49,12 @@ struct DefaultDescription<AppNexus::AdPosition>
 };
 
 template<>
+struct DefaultDescription<AppNexus::BidRequestMsg>
+    : public StructureDescription<AppNexus::BidRequestMsg> {
+    DefaultDescription();
+};
+
+template<>
 struct DefaultDescription<AppNexus::BidRequest>
     : public StructureDescription<AppNexus::BidRequest> {
     DefaultDescription();
