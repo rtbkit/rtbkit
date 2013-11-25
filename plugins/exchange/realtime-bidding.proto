@@ -15,12 +15,14 @@ message BidRequest {
   // included from IPv6 addresses may change later.
   optional bytes ip = 4;
 
+
   // The Google ID for the user as described in the documentation for the cookie
   // matching service.  This field is the unpadded web-safe base64 encoded
   // version of a binary cookie id. See the "Base 64 Encoding with URL and
   // Filename Safe Alphabet" section in RFC 3548 for encoding details.  This
   // field is the same as the Google ID returned by the cookie matching service.
   optional string google_user_id = 21;
+
 
   // The version number of the google_user_id.  We may sometimes change the
   // mapping from cookie to google_user_id.  In this case the version will be
@@ -34,6 +36,7 @@ message BidRequest {
   // service.  If a match exists, then this field holds the decoded data that
   // was passed in the google_hm parameter.
   optional bytes hosted_match_data = 37;
+
 
   // A string that identifies the browser and type of device that sent the
   // request.
@@ -51,6 +54,38 @@ message BidRequest {
   optional string postal_code = 33;
   optional string postal_code_prefix = 34;
 
+  // A hyperlocal targeting location when available.
+  //
+  message Hyperlocal {
+    // A location on the Earth's surface.
+    //
+    message Point {
+      optional float latitude = 1;
+      optional float longitude = 2;
+    }
+
+    // The mobile device can be at any point inside the geofence polygon defined
+    // by a list of corners.  Currently, the polygon is always a parallelogram
+    // with 4 corners.
+    repeated Point corners = 1;
+  }
+
+  message HyperlocalSet {
+    // This field currently contains at most one hyperlocal polygon.
+    repeated Hyperlocal hyperlocal = 1;
+
+    // The approximate geometric center of the geofence area.  It is calculated
+    // exclusively based on the geometric shape of the geofence area and in no
+    // way indicates the mobile device's actual location within the geofence
+    // area.  If multiple hyperlocal polygons are specified above then
+    // center_point is the geometric center of all hyperlocal polygons.
+    optional Hyperlocal.Point center_point = 2;
+  }
+
+  // Hyperlocal targeting signal when available, encrypted as described at
+  // https://developers.google.com/ad-exchange/rtb/response-guide/decrypt-hyperlocal
+  optional bytes encrypted_hyperlocal_set = 40;
+
   // The offset of the user's time from GMT in minutes.  For example, GMT+10 is
   // timezone_offset = 600.
   optional int32 timezone_offset = 25;
@@ -58,8 +93,9 @@ message BidRequest {
   // List of detected user verticals.  Currently unused.
   repeated int32 user_vertical = 30 [packed=true];
 
-  // Audience-targeting list to which the user has been added. See the Buyer UI
+  // Audience-targeting list to which the user has been added.  See the Buyer UI
   // Help topics on remarketing, where it is called a remarketing list.
+  //
   message UserList {
     // The user list id.
     optional int64 id = 1;
@@ -81,11 +117,13 @@ message BidRequest {
   // The URL of the page with parameters removed.  This is only set if the site
   // is not anonymous and the publisher allows site targeting.  You can use
   // anonymous_id for targeting if the inventory is anonymous.  Otherwise, use
-  // detected_vertical's.
+  // detected_vertical's.  Only one of url or anonymous_id is ever set in the
+  // same request.
   optional string url = 11;
 
   // An id for the domain of the page.  This is set when the inventory is
-  // anonymous.
+  // anonymous.  Only one of url or anonymous_id is ever set in the same
+  // request.
   optional string anonymous_id = 19;
 
   // The two or 5 letter code for the languages of the page or the user.  The
@@ -162,7 +200,7 @@ message BidRequest {
     // https://developers.google.com/adwords/api/docs/appendix/mobilecarriers.
     optional int64 carrier_id = 18;
 
-    // If true, then this request is from a mobile application. Will always be
+    // If true, then this request is from a mobile application.  Will always be
     // true when app_id is set.  May also be true for anonymous inventory, in
     // which case anonymous_id will be set.
     optional bool is_app = 7 [default = false];
@@ -212,7 +250,7 @@ message BidRequest {
 
     // Used for high-density devices (e.g. iOS retina displays), where non-
     // default value indicates that the nominal screen size (with pixels as the
-    // unit) does not describe the actual number of pixels in the screen. For
+    // unit) does not describe the actual number of pixels in the screen.  For
     // example, nominal width and height may be 320x640 for a screen that
     // actually has 640x1080 pixels, in which case screen_width=320,
     // screen_height=640, and device_pixel_ratio_millis=2000, since each axis
@@ -220,8 +258,7 @@ message BidRequest {
     optional int32 device_pixel_ratio_millis = 19 [default=1000];
 
     // Apple's identifier for advertising (IDFA) when available, encrypted as
-    // described at
-    // https://developers.google.com/ad-exchange/rtb/response-guide/decrypt-idfa
+    // described at https://support.google.com/adxbuyer/answer/3221407
     // For encrypted_idfa the plaintext achieved after decrypting the ciphertext
     // is the IDFA returned by iOS's [ASIdentifierManager
     // advertisingIdentifier].  For encrypted_hashed_idfa the plaintext is the
@@ -230,6 +267,7 @@ message BidRequest {
     // provide the IDFA unhashed.
     optional bytes encrypted_idfa = 20;
     optional bytes encrypted_hashed_idfa = 21;
+
 
     // These are deprecated.  Please ignore.
     optional string DEPRECATED_app_name = 1;
@@ -242,6 +280,13 @@ message BidRequest {
   // Information about the video if this is an in-video ad request.
   //
   message Video {
+    // The URL of the page that the publisher gives Google to describe the video
+    // content, with parameters removed.
+    optional string description_url = 10;
+
+    // If true, the video is embedded on pages out of the publisher's domain.
+    optional bool is_embedded_offsite = 11 [default = false];
+
     // The time in milliseconds from the start of the video when the ad will be
     // displayed.  0 means pre-roll and -1 means post-roll.  The value is valid
     // only if this param is set.  When not set, the display position is
@@ -264,8 +309,7 @@ message BidRequest {
     }
     optional int32 inventory_type = 3 [default = 0];
 
-    // Does the publisher allow/require/block skippable video ads?  If this
-    // field is not set, skippable ads are allowed.
+    // Does the publisher allow/require/block skippable video ads?
     enum SkippableBidRequestType {
       ALLOW_SKIPPABLE = 0;
       REQUIRE_SKIPPABLE = 1;
@@ -280,7 +324,7 @@ message BidRequest {
     // any duration is allowed.
     optional int32 skippable_max_ad_duration = 5;
 
-    // The video technologies that are allowed for this request. The response
+    // The video technologies that are allowed for this request.  The response
     // should support at least one of them.
     enum VideoFormat {
       VIDEO_FLASH = 0;
@@ -300,7 +344,8 @@ message BidRequest {
       repeated int32 height = 1 [packed=true];
       repeated int32 width  = 2 [packed=true];
 
-      // These are the formats of the creatives allowed in this companion ad slot.
+      // These are the formats of the creatives allowed in this companion ad
+      // slot.
       enum CreativeFormat {
         IMAGE_CREATIVE = 0;
         FLASH_CREATIVE = 1;
@@ -309,6 +354,7 @@ message BidRequest {
       repeated CreativeFormat creative_format = 3;
     }
     repeated CompanionSlot companion_slot = 7;
+
   }
   optional Video video = 29;
 
@@ -326,7 +372,7 @@ message BidRequest {
     // bid on in the BidResponse.
     required int32 id = 1;
 
-    // Unique identifier for this adslot's ad block for the page URL.
+    // A stable identifier for the combination of publisher, ad slot, and page.
     optional uint64 ad_block_key = 14;
 
     // Set of channels of which this ad slot is a member.  A channel is a set of
@@ -503,15 +549,15 @@ message BidRequest {
 message BidResponse {
   message Ad {
 
-    // A unique identifier chosen by you for the creative in this response.  The
-    // identifier must be limited to 64 bytes and must be a valid UTF8 string.
-    // Every buyer_creative_id you use must always be associated with the same
-    // creative.  This field can be used to communicate approval statuses when
-    // issues are found.  Do not specify the same id for different creatives, or
-    // all creatives will be disapproved if a problem with a single ad is found.
-    // Do not specify different ids for the same creative in different responses
-    // or no creatives will be served since approval status is assigned on a
-    // per-id basis.
+    // A unique identifier chosen by you for the creative in this response.
+    // This must always be set, must be limited to at most 64 bytes, and must be
+    // a valid UTF8 string.  Every buyer_creative_id you use must always be
+    // associated with the same creative.  This field is used to communicate
+    // approval statuses when issues are found.  Do not specify the same id for
+    // different creatives, or all creatives will be disapproved if a problem
+    // with a single creative is found.  Do not specify different ids for the
+    // same creative in different responses or no creatives will be served since
+    // approval status is assigned on a per-id basis.
     optional string buyer_creative_id = 10;
 
     // The HTML snippet that will be placed on the web page to display the ad.
@@ -531,7 +577,7 @@ message BidResponse {
     // An HTML snippet in the form of a template and multiple parameter values.
     // See
     // https://developers.google.com/ad-exchange/rtb/response-guide/multiple-ads-guide
-    // for more details of how to use snippet_template and all the fields in
+    // for details of how to use snippet_template and all the fields in
     // TemplateParameter.  Only one of the following should be set:
     // html_snippet, video_url, snippet_template.
     optional string snippet_template = 12;
@@ -619,9 +665,9 @@ message BidResponse {
     // All names of the ad's advertisers.
     repeated string advertiser_name = 11;
 
-    // The width and height in pixels of the ad.  Setting these is optional if
-    // the BidRequest.AdSlot has only one width and height.  These must be set
-    // if the bid BidRequest.AdSlot has more than one width and height.
+    // The width and the height in pixels of the ad.  Setting these is optional.
+    // However, these must be set if the bid BidRequest.AdSlot has more than one
+    // width and height or if BidRequest.Mobile.is_interstitial_request is true.
     optional int32 width = 14;
     optional int32 height = 15;
 

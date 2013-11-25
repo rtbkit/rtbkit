@@ -13,25 +13,31 @@ using namespace std;
 
 namespace Datacratic {
 
-
 DefaultDescription<AppNexus::BidRequest>::
 DefaultDescription()
 {
     collectUnparseableJson(&AppNexus::BidRequest::unparseable);
+    addField("bid_request", &AppNexus::BidRequest::bidRequest, "Bid Request");
+}
 
-    addField("member_ad_profile_id", &AppNexus::BidRequest::memberAdProfileId, "Bid Request ID");
-    addField("timestamp", &AppNexus::BidRequest::timestamp, "Timestamp");
-    addField("bidder_timeout_ms", &AppNexus::BidRequest::bidderTimeoutMs, "Bidder timeout ms");
-    addField("bid_info", &AppNexus::BidRequest::bidInfo, "AN BidInfo object");
-    addField("members", &AppNexus::BidRequest::members, "Array of AN Members Json object");
-    addField("tags", &AppNexus::BidRequest::tags, "Array of AN Tags objects");
-    addField("allow_exclusive", &AppNexus::BidRequest::allowExclusive, "Allow exclusive inventory flag");
-    addField("debug_requested", &AppNexus::BidRequest::debugRequested, "Flag to mark this bid request for debugging");
-    addField("debug_member_id", &AppNexus::BidRequest::debugMemberId, "AN customer requesting debug");
-    addField("test", &AppNexus::BidRequest::test, "Flag marking bid request as a test call");
-    addField("excluded_attributes", &AppNexus::BidRequest::excludedAttributes, "Array of Ids of excluded attributes");
-    addField("single_phase", &AppNexus::BidRequest::singlePhase, "AN-specific flag");
-    addField("unparseable", &AppNexus::BidRequest::unparseable, "Unparseable fields are collected here");
+DefaultDescription<AppNexus::BidRequestMsg>::
+DefaultDescription()
+{
+    collectUnparseableJson(&AppNexus::BidRequestMsg::unparseable);
+
+    addField("member_ad_profile_id", &AppNexus::BidRequestMsg::memberAdProfileId, "Bid Request ID");
+    addField("timestamp", &AppNexus::BidRequestMsg::timestamp, "Timestamp");
+    addField("bidder_timeout_ms", &AppNexus::BidRequestMsg::bidderTimeoutMs, "Bidder timeout ms");
+    addField("bid_info", &AppNexus::BidRequestMsg::bidInfo, "AN BidInfo object");
+    addField("members", &AppNexus::BidRequestMsg::members, "Array of AN Members Json object");
+    addField("tags", &AppNexus::BidRequestMsg::tags, "Array of AN Tags objects");
+    addField("allow_exclusive", &AppNexus::BidRequestMsg::allowExclusive, "Allow exclusive inventory flag");
+    addField("debug_requested", &AppNexus::BidRequestMsg::debugRequested, "Flag to mark this bid request for debugging");
+    addField("debug_member_id", &AppNexus::BidRequestMsg::debugMemberId, "AN customer requesting debug");
+    addField("test", &AppNexus::BidRequestMsg::test, "Flag marking bid request as a test call");
+    addField("excluded_attributes", &AppNexus::BidRequestMsg::excludedAttributes, "Array of Ids of excluded attributes");
+    addField("single_phase", &AppNexus::BidRequestMsg::singlePhase, "AN-specific flag");
+    addField("unparseable", &AppNexus::BidRequestMsg::unparseable, "Unparseable fields are collected here");
 }
 
 DefaultDescription<AppNexus::BidInfo>::

@@ -7,14 +7,14 @@
 
 #pragma once
 
-
+#include <memory>
 #include "rtbkit/common/bid_request.h"
 #include "appnexus_parsing.h"
 #include "jml/utils/parse_context.h"
 
 namespace RTBKIT {
 
-BidRequest *
+std::shared_ptr<BidRequest>
 fromAppNexus(const AppNexus::BidRequest & req,
             const std::string & provider,
             const std::string & exchange);
@@ -28,12 +28,12 @@ fromAppNexus(const AppNexus::BidRequest & req,
 
 struct AppNexusBidRequestParser {
 
-    static BidRequest *
+    static std::shared_ptr<BidRequest>
     parseBidRequest(const std::string & jsonValue,
                     const std::string & provider,
                     const std::string & exchange = "");
 
-    static BidRequest *
+    static std::shared_ptr<BidRequest>
     parseBidRequest(ML::Parse_Context & context,
                     const std::string & provider,
                     const std::string & exchange = "");
