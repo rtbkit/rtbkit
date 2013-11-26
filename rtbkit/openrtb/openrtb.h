@@ -670,7 +670,7 @@ struct Video {
 struct Publisher {
     ~Publisher();
     Id id;                       ///< Unique ID representing the publisher
-    Utf8String name;             ///< Publisher name
+    UtfString name;             ///< Publisher name
     List<ContentCategory> cat; ///< Content categories     
     string domain;               ///< Domain name of publisher
     Json::Value ext;             ///< Extensions go here, new in OpenRTB 2.1
@@ -744,9 +744,9 @@ struct Content {
     ~Content();
     Id id;                   ///< Unique ID identifying the content
     TaggedInt episode;       ///< Episode number of a series
-    Utf8String title;        ///< Content title
-    Utf8String series;       ///< Content series
-    Utf8String season;       ///< Content season
+    UtfString title;        ///< Content title
+    UtfString series;       ///< Content series
+    UtfString season;       ///< Content season
     Url url;                 ///< Original content URL
     List<ContentCategory> cat; ///< IAB content category (table 6.1)
     VideoQuality videoquality; ///< Video quality (table 6.14)
@@ -760,7 +760,7 @@ struct Content {
     TaggedInt len;           ///< Length of content in seconds
     MediaRating qagmediarating;///< Media rating per QAG guidelines (table 6.18).
     Embeddable embeddable;   ///< 1 if embeddable, 0 otherwise
-    Utf8String language;     ///< Content language.  ISO 639-1 (alpha-2).
+    UtfString language;     ///< Content language.  ISO 639-1 (alpha-2).
     Json::Value ext;         ///< Extensions go here, new in OpenRTB 2.1
 };
 
@@ -774,8 +774,8 @@ struct Content {
 struct Context {
     ~Context();
     Id id;        ///< Site ID on the exchange
-    Utf8String name;  ///< Site name
-    Utf8String domain;///< Site or app domain
+    UtfString name;  ///< Site name
+    UtfString domain;///< Site or app domain
     List<ContentCategory> cat;        ///< IAB content categories for site/app
     List<ContentCategory> sectioncat; ///< IAB content categories for subsection
     List<ContentCategory> pagecat;    ///< IAB content categories for page/view
@@ -806,7 +806,7 @@ struct Context {
 struct SiteInfo {
     Url page;          ///< URL of the page to be shown
     Url ref;           ///< Referrer URL that got user to page
-    Utf8String search; ///< Search string that got user to page
+    UtfString search; ///< Search string that got user to page
 };
 
 struct Site: public Context, public SiteInfo {
@@ -865,7 +865,7 @@ struct Geo {
     string region;          ///< Region code (ISO 3166-2)
     string regionfips104;   ///< Region using FIPS 10-4
     string metro;           ///< Metropolitan region (Google Metro code)
-    Utf8String city;        ///< City name (UN Code for Trade and Transport Loc)
+    UtfString city;        ///< City name (UN Code for Trade and Transport Loc)
     string zip;             ///< Zip or postal code
     LocationType type;      ///< Source of Geo data (table 6.15)
     Json::Value ext;        ///< Extensions go here, new in OpenRTB 2.1
@@ -903,7 +903,7 @@ struct Geo {
 struct Device {
     ~Device();
     TaggedBool dnt;        ///< If 1 then do not track is on
-    Utf8String ua;         ///< User agent of device
+    UtfString ua;         ///< User agent of device
     string ip;             ///< IP address of device
     Optional<Geo> geo;     ///< Geolocation of device
     string didsha1;        ///< Device ID: SHA1
@@ -911,12 +911,12 @@ struct Device {
     string dpidsha1;       ///< Device Platform ID: SHA1
     string dpidmd5;        ///< Device Platform ID: MD5
     string ipv6;           ///< IPv6 address
-    Utf8String carrier;    ///< Carrier or ISP (derived from IP address)
-    Utf8String language;   ///< Browser language.  ISO 639-1 (alpha-2).
-    Utf8String make;       ///< Device make
-    Utf8String model;      ///< Device model
-    Utf8String os;         ///< Device OS
-    Utf8String osv;         ///< Device OS version
+    UtfString carrier;    ///< Carrier or ISP (derived from IP address)
+    UtfString language;   ///< Browser language.  ISO 639-1 (alpha-2).
+    UtfString make;       ///< Device make
+    UtfString model;      ///< Device model
+    UtfString os;         ///< Device OS
+    UtfString osv;         ///< Device OS version
     TaggedBool js;         ///< Javascript is supported? 1 or 0
     ConnectionType connectiontype;    ///< Connection type (table 6.10)
     DeviceType devicetype; ///< Device type (table 6.16)

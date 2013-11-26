@@ -151,26 +151,26 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     BOOST_CHECK_EQUAL(ortbReq->timeAvailableMs, 100);
     // 96.246.152.18
     // OpenRTB::Device
-    BOOST_CHECK_EQUAL(ortbReq->device->ua, Utf8String("Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US;rv:1.9.0.3) Gecko/2008092414 Firefox/3.0.3"));
-    BOOST_CHECK_EQUAL(ortbReq->device->language, Utf8String("en-US,en;q=0.8"));
+    BOOST_CHECK_EQUAL(ortbReq->device->ua, UtfString("Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US;rv:1.9.0.3) Gecko/2008092414 Firefox/3.0.3"));
+    BOOST_CHECK_EQUAL(ortbReq->device->language, UtfString("en-US,en;q=0.8"));
     BOOST_CHECK_EQUAL(ortbReq->device->flashver, "Flash available - version unknown");
     BOOST_CHECK_EQUAL(ortbReq->device->ip, "96.246.152.18");
     // BOOST_CHECK_EQUAL(ortbReq->device->ipv6, "96.246.152.18");
-    BOOST_CHECK_EQUAL(ortbReq->device->carrier, Utf8String("101"));
-    BOOST_CHECK_EQUAL(ortbReq->device->language, Utf8String("en-US,en;q=0.8"));
-    BOOST_CHECK_EQUAL(ortbReq->device->make, Utf8String("1001"));
-    BOOST_CHECK_EQUAL(ortbReq->device->model, Utf8String("10001"));
+    BOOST_CHECK_EQUAL(ortbReq->device->carrier, UtfString("101"));
+    BOOST_CHECK_EQUAL(ortbReq->device->language, UtfString("en-US,en;q=0.8"));
+    BOOST_CHECK_EQUAL(ortbReq->device->make, UtfString("1001"));
+    BOOST_CHECK_EQUAL(ortbReq->device->model, UtfString("10001"));
     BOOST_CHECK_EQUAL(ortbReq->device->geo->country, "US");
     BOOST_CHECK_EQUAL(ortbReq->device->geo->region, "NY");
-    BOOST_CHECK_EQUAL(ortbReq->device->geo->city.rawString(), "New York");
+    BOOST_CHECK_EQUAL(ortbReq->device->geo->city, UtfString("New York"));
     BOOST_CHECK_EQUAL(ortbReq->device->geo->zip, "10014");
     BOOST_CHECK_EQUAL(ortbReq->device->geo->dma, "501");
     // NOTE: AN provides lat and long values at greater precision than float, which is what OpenRTB stores
     // So we cast the test value and use the BOOST_CHECK for testing floating point values for equaulity within a tolerance
     BOOST_CHECK_CLOSE(ortbReq->device->geo->lat.val, (float)38.7875232696533, 0.0000001);
     BOOST_CHECK_CLOSE(ortbReq->device->geo->lon.val, (float)-77.2614831924438, 0.0000001);
-    BOOST_CHECK_EQUAL(ortbReq->device->os, Utf8String("iPhone"));
-    BOOST_CHECK_EQUAL(ortbReq->device->osv, Utf8String("N/A"));
+    BOOST_CHECK_EQUAL(ortbReq->device->os, UtfString("iPhone"));
+    BOOST_CHECK_EQUAL(ortbReq->device->osv, UtfString("N/A"));
 
     // OpenRTB::User
     BOOST_CHECK_EQUAL(ortbReq->user->id.toString(), "2987961585469200400");
