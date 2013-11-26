@@ -16,7 +16,7 @@ namespace Json { struct Value; }
 
 namespace RTBKIT {
 
-namespace Synth { struct NodeObject; }
+namespace Synth { struct Node; }
 
 /******************************************************************************/
 /* BID REQUEST SYNTH                                                          */
@@ -33,7 +33,7 @@ struct BidRequestSynth
     void load(std::istream& stream);
 
 private:
-    std::shared_ptr<Synth::NodeObject> values;
+    std::shared_ptr<Synth::Node> values;
 };
 
 
