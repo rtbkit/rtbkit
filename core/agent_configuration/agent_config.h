@@ -77,7 +77,7 @@ struct Creative {
     TagFilterExpression eligibilityFilter;
 
     IncludeExclude<std::string> languageFilter;
-    IncludeExclude<CachedRegex<boost::u32regex, Utf8String> > locationFilter;
+    IncludeExclude<CachedRegex<boost::u32regex, UtfString> > locationFilter;
     IncludeExclude<std::string> exchangeFilter;
 
     /** Is the given ad spot compatible with the given creative format? */
@@ -143,7 +143,7 @@ struct UserPartition {
     /** Return true if the user matches the user partition. */
     bool matches(const UserIds & ids,
                  const std::string& ip,
-                 const Utf8String& userAgent) const;
+                 const UtfString& userAgent) const;
 
     /** Parse from JSON. */
     void fromJson(const Json::Value & json);
@@ -259,7 +259,7 @@ struct AgentConfig {
     IncludeExclude<DomainMatcher> hostFilter;
     IncludeExclude<CachedRegex<boost::regex, std::string> > urlFilter;
     IncludeExclude<CachedRegex<boost::regex, std::string> > languageFilter;
-    IncludeExclude<CachedRegex<boost::u32regex, Utf8String> > locationFilter;
+    IncludeExclude<CachedRegex<boost::u32regex, UtfString> > locationFilter;
 
     struct SegmentInfo {
         SegmentInfo()
@@ -372,8 +372,8 @@ struct AgentConfig {
     BiddableSpots
     canBid(const ExchangeConnector * exchangeConnector,
            const BidRequest& request,
-           const Utf8String & language,
-           const Utf8String & location, uint64_t locationHash,
+           const UtfString & language,
+           const UtfString & location, uint64_t locationHash,
            ML::Lightweight_Hash<uint64_t, int> & locationCache) const;
 
 
@@ -386,7 +386,7 @@ struct AgentConfig {
             urlHash(hashString(request.url.c_str())),
 
             language(!request.language.empty() ?
-                     request.language : Utf8String("unspecified")),
+                     request.language : UtfString("unspecified")),
             languageHash(hashString(request.language)),
 
             location(request.location.fullLocationString()),
@@ -395,10 +395,10 @@ struct AgentConfig {
 
         uint64_t urlHash;
 
-        Utf8String language;
+        UtfString language;
         uint64_t languageHash;
 
-        Utf8String location;
+        UtfString location;
         uint64_t locationHash;
 
         // Cache of regex -> bool

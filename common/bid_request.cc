@@ -336,7 +336,7 @@ bool isEmpty(const Json::Value & val)
     return val.isNull();
 }
 
-bool isEmpty(const Utf8String &str)
+bool isEmpty(const UtfString &str)
 {
     return (str.rawLength() == 0) ;
 }
@@ -422,15 +422,15 @@ getDefaultDescription(RTBKIT::FormatSet *)
 /* LOCATION                                                                  */
 /*****************************************************************************/
 
-Utf8String
+UtfString
 Location::
 fullLocationString() const
 {
-    Utf8String result(countryCode + ":" + regionCode + ":") ;
+    UtfString result(countryCode + ":" + regionCode + ":") ;
     result += cityName ;
     result += (":" + postalCode + ":" + boost::lexical_cast<string>(dma));
     return result;
-    //Utf8String result(countryCode +":"+ regionCode +":" +
+    //UtfString result(countryCode +":"+ regionCode +":" +
  //   return ML::format("%s:%s:%s:%s:%d",
  //                     countryCode.c_str(), regionCode.c_str(),
  //                     cityName.c_str(), postalCode.c_str(), dma);
@@ -443,7 +443,7 @@ toJson() const
     Json::Value result;
     addIfNotEmpty(result, "countryCode",  countryCode);
     addIfNotEmpty(result, "regionCode",   regionCode);
-    addIfNotEmpty(result, "cityName",     std::string(cityName.rawData(),cityName.rawLength()));
+    addIfNotEmpty(result, "cityName",     cityName.utf8String());
     addIfNotEmpty(result, "postalCode",   postalCode);
     addIfNotEmpty(result, "dma",          dma, -1);
     addIfNotEmpty(result, "timezoneOffsetMinutes", timezoneOffsetMinutes, -1);
@@ -907,8 +907,8 @@ toJson() const
     addIfNotEmpty(result, "isTest", isTest, false);
     addIfNotEmpty(result, "url", url);
     addIfNotEmpty(result, "ipAddress", ipAddress);
-    addIfNotEmpty(result, "userAgent", userAgent);
-    addIfNotEmpty(result, "language", language);
+    addIfNotEmpty(result, "userAgent", userAgent.utf8String());
+    addIfNotEmpty(result, "language", language.utf8String());
     addIfNotEmpty(result, "protocolVersion", protocolVersion);
     addIfNotEmpty(result, "exchange", exchange);
     addIfNotEmpty(result, "provider", provider);
@@ -1194,7 +1194,7 @@ BidRequest *
 BidRequest::
 parse(const std::string & source, const Utf8String & bidRequest)
 {
-    return BidRequest::parse(source, string(bidRequest.rawData(), bidRequest.rawLength()));
+    return BidRequest::parse(source, bidRequest.rawString());
 }
 
 SegmentResult
