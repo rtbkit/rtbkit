@@ -24,7 +24,7 @@ using std::string;
 using std::vector;
 using std::unordered_map;
 using Datacratic::Id;
-using Datacratic::Utf8String;
+using Datacratic::UtfString;
 using Datacratic::Url;
 using OpenRTB::TaggedInt;
 using OpenRTB::TaggedBool;
@@ -92,7 +92,7 @@ struct Tag {
     TaggedBool estimatedPriceVerified;
     // /Subsection: Pricing data
     // Subsection: Owner-specific data
-    Utf8String tagData;                  // "Other data related to TinyTag ID"
+    UtfString tagData;                  // "Other data related to TinyTag ID"
     TaggedBool exclusiveDefault;
     TaggedInt defaultCreativeId;
     // /Subsection: Owner-specific data
@@ -125,7 +125,7 @@ const unordered_map<int, string> deviceOsVersion = {
 struct BidInfo {
     // Subsection: user
     TaggedInt64 userId64;
-    Utf8String userAgent;
+    UtfString userAgent;
     // TODO Get actual values from here: https://wiki.appnexus.com/display/adnexusdocumentation/Operating+System+Service
     TaggedInt operatingSystem;
     // \"Accept-Language\" header from browser (using ISO-639 language and ISO-3166 country codes)
@@ -139,9 +139,9 @@ struct BidInfo {
     // /Subsection: user
     // Subsection: geographical data
     string ipAddress;           // TODO IP octets validation
-    Utf8String country;         // TODO no enum values in spec
-    Utf8String region;          // TODO no enum values in spec
-    Utf8String city;                // TODO no enum values in spec
+    UtfString country;         // TODO no enum values in spec
+    UtfString region;          // TODO no enum values in spec
+    UtfString city;                // TODO no enum values in spec
     string postalCode;          // TODO validate postalCodes US etc. :-(
     TaggedInt dma;                    // TODO no enum values in spec
     string timeZone;            // TODO no enum values in spec
@@ -152,7 +152,7 @@ struct BidInfo {
     // /Subsection: userdata from server-side cookie storage
     // Subsection: Inventory (page) information
     Id sellingMemberId;
-    Utf8String url;             // TODO? validate valid URL
+    UtfString url;             // TODO? validate valid URL
     string domain;
     string inventoryClass;  // DEPRECATED, TODO enum, values in inventoryClasses
     vector<InventoryAudit> inventoryAudits;

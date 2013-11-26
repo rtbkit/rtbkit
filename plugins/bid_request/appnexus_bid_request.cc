@@ -42,7 +42,7 @@ fromAppNexus(const AppNexus::BidRequest & req,
     std::unique_ptr<OpenRTB::Geo> geo(new OpenRTB::Geo);
     device->geo.reset(geo.release());
     //
-    device->ua = req.bidInfo.userAgent.rawString();
+    device->ua = req.bidInfo.userAgent.utf8String();
     // AN codes are located in their wiki documentation:
     // https://wiki.appnexus.com/display/adnexusdocumentation/Operating+System+Service 
     // Helper function here converts AN OS code to a string, using the documentation from this URL retrieved as of Jun 2013
@@ -69,8 +69,8 @@ fromAppNexus(const AppNexus::BidRequest & req,
     // TODO Need lookup of AN int code values to strings, from AN docs
     device->model = to_string(req.bidInfo.model.val);
     // TODO VALIDATION convert to ISO 3166-1 Alpha 3
-    device->geo->country = req.bidInfo.country.rawString();
-    device->geo->region = req.bidInfo.region.rawString();
+    device->geo->country = req.bidInfo.country.utf8String();
+    device->geo->region = req.bidInfo.region.utf8String();
     device->geo->city = req.bidInfo.city; // copy ctor, Utf8Strings
     device->geo->zip = req.bidInfo.postalCode;
     device->geo->dma = to_string(req.bidInfo.dma.val);
