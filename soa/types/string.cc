@@ -119,4 +119,67 @@ string Utf8String::extractAscii()
     return s;
 }
 
+/*****************************************************************************/
+/* UTF32STRING                                                                */
+/****************************************************************************/
+
+Utf32String Utf32String::fromLatin1(const std::string &str) {
+    std::u32string u32str;
+    for (auto c: str) {
+        u32str.push_back(static_cast<char32_t>(static_cast<uint8_t>(c)));
+    }
+
+    Utf32String ret;
+    ret.data_ = u32str;
+    return ret;
+}
+
+Utf32String Utf32String::fromUtf8(const Utf8String &str) {
+    return Utf32String(str.rawString());
+}
+
+string Utf32String::extractAscii() const {
+    string ascii;
+    for (auto c: data_) {
+        if ((c & 0x80) == 0)
+            ascii += c;
+        else
+            ascii += '?';
+    }
+
+    return ascii;
+}
+
+Utf32String operator+(Utf32String lhs, const Utf32String &rhs) {
+    return lhs += rhs;
+}
+
+
+std::ostream & operator << (std::ostream & stream, const Utf32String & str)
+{
+    return stream;
+}
+
+void
+Utf32String::
+serialize(ML::DB::Store_Writer & store) const
+{
+    std::string utf8Str;
+    utf8::utf32to8(std::begin(data_), std::end(data_), std::back_inserter(utf8Str));
+    store << utf8Str;
+}
+
+void
+Utf32String::
+reconstitute(ML::DB::Store_Reader & store)
+{
+    std::string utf8Str;
+    store >> utf8Str;
+
+    std::u32string utf32Str;
+    utf8::utf8to32(std::begin(utf8Str), std::end(utf8Str), std::back_inserter(utf32Str));
+
+    data_ = std::move(utf32Str);
+}
+
 } // namespace Datacratic
