@@ -55,8 +55,6 @@ T pickRandom(const unordered_map<T, size_t>& map, size_t max, RNG& rng)
 /* CONTEXT                                                                    */
 /******************************************************************************/
 
-typedef std::vector<std::string> NodePath;
-
 struct Context
 {
     void enter(const std::string& key) { path_.push_back(key); }
@@ -70,17 +68,15 @@ private:
 struct GenerateCtx : public Context
 {
     RNG rng;
-    std::function<Json::Value(const NodePath&)> generator;
+    GeneratorFn generator;
 };
 
 struct RecordCtx : public Context
 {
-    std::function<bool(const NodePath&)> isGenerated;
-    std::function<bool(const NodePath&)> isCutoff;
+    TestPathFn isGenerated;
+    TestPathFn isCutoff;
 };
 
-
-struct ArrayIndexT {} ArrayIndex;
 
 template<typename Ctx>
 struct CtxGuard
@@ -88,11 +84,6 @@ struct CtxGuard
     CtxGuard(Ctx& ctx, const std::string& key) : ctx(ctx)
     {
         ctx.enter(key);
-    }
-
-    CtxGuard(Ctx& ctx, ArrayIndexT) : ctx(ctx)
-    {
-        ctx.enter("<index>");
     }
 
     ~CtxGuard() { ctx.exit(); }
@@ -206,7 +197,8 @@ struct NodeLeaf : public Node
 
     virtual void record(RecordCtx& ctx, const Json::Value& json)
     {
-        ExcCheckEqual(type, getType(json), "Mixing json types");
+        if (type != Json)
+            ExcCheckEqual(type, getType(json), "Mixing json types");
 
         count++;
         string value = json.toString();
@@ -272,18 +264,25 @@ struct NodeLeaf : public Node
 
 struct NodeGenerated : public Node
 {
-    NodeGenerated() : Node(Generated, 0) {}
+    NodeGenerated(size_t count = 0) : Node(Generated, count) {}
 
-    void record(RecordCtx&, const Json::Value&) {}
+    void record(RecordCtx&, const Json::Value&)
+    {
+        if (debug) cerr << "    gen.rec: " << endl;
+
+        count++;
+    }
 
     Json::Value generate(GenerateCtx& ctx) const
     {
-        ExcAssert(ctx.generator);
+        if (debug) cerr << "    gen.gen: " << endl;
+
+        ExcCheck(ctx.generator, "can't generate a value without a generator");
         return ctx.generator(ctx.path());
     }
 
-    void dump(ostream& stream) const {}
-    void load(Parse_Context& ctx) {}
+    void dump(ostream& stream) const { stream << "null"; }
+    void load(Parse_Context& ctx) { ctx.expect_literal("null"); }
 };
 
 
@@ -544,7 +543,7 @@ Node* loadNode(Parse_Context& ctx)
                 else if (field == "count") count = ctx.expect_unsigned_long();
                 else if (field == "node") {
                     switch (type) {
-                    case Generated: node.reset(new NodeGenerated()); break;
+                    case Generated: node.reset(new NodeGenerated(count)); break;
                     case Object:    node.reset(new NodeObject(count)); break;
                     case Array:     node.reset(new NodeArray(count)); break;
                     default:        node.reset(new NodeLeaf(type, count)); break;
@@ -587,6 +586,9 @@ record(const Json::Value& json)
     if (Synth::debug) cerr << "RECORD:" << endl;
 
     Synth::RecordCtx ctx;
+    ctx.isGenerated = isGeneratedFn;
+    ctx.isCutoff = isCutoffFn;
+
     values->record(ctx, json);
 }
 
@@ -597,6 +599,8 @@ generate() const
     if (Synth::debug) cerr << "GENERATE:" << endl;
 
     Synth::GenerateCtx ctx;
+    ctx.generator = generatorFn;
+
     return values->generate(ctx);
 }
 
