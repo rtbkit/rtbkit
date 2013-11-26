@@ -101,6 +101,30 @@ struct DefaultDescription<Utf8String>
 };
 
 template<>
+struct DefaultDescription<Utf32String> :
+    public ValueDescriptionI<Utf32String, ValueKind::STRING> {
+        virtual void parseJsonTyped(Utf32String *val,
+                                    JsonParsingContext & context) const
+        {
+            auto utf8Str = context.expectStringUtf8();
+            *val = Utf32String::fromUtf8(utf8Str);
+        }
+
+        virtual void printJsonTyped(const Utf32String *val,
+                                     JsonPrintingContext & context) const
+        {
+            std::string utf8Str;
+            utf8::utf32to8(val->begin(), val->end(), std::back_inserter(utf8Str));
+            context.writeStringUtf8(Utf8String { utf8Str });
+        }
+
+        virtual bool isDefaultTyped(const Utf32String *val) const
+        {
+            return val->empty();
+        }
+};
+
+template<>
 struct DefaultDescription<Url>
     : public ValueDescriptionI<Url, ValueKind::ATOM> {
 
