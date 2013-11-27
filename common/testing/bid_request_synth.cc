@@ -175,6 +175,8 @@ struct Node
     virtual Json::Value generate(GenerateCtx& ctx) const = 0;
     virtual void dump(ostream& stream) const = 0;
     virtual void load(Parse_Context& ctx) = 0;
+
+    virtual ~Node() = default;
 };
 
 
