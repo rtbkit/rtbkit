@@ -176,7 +176,7 @@ struct Node
     virtual void dump(ostream& stream) const = 0;
     virtual void load(Parse_Context& ctx) = 0;
 
-    virtual ~Node() = default;
+    virtual ~Node() {}
 };
 
 
