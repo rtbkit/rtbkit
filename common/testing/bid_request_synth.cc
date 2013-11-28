@@ -594,11 +594,12 @@ record(const Json::Value& json)
 
 Json::Value
 BidRequestSynth::
-generate() const
+generate(uint32_t seed) const
 {
     if (Synth::debug) cerr << "GENERATE:" << endl;
 
     Synth::GenerateCtx ctx;
+    ctx.rng.seed(seed);
     ctx.generator = generatorFn;
 
     return values->generate(ctx);

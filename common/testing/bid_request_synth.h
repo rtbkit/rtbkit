@@ -68,7 +68,7 @@ struct BidRequestSynth
     Synth::GeneratorFn generatorFn;
 
     void record(const Json::Value& json);
-    Json::Value generate() const;
+    Json::Value generate(uint32_t seed = 0) const;
 
     void dump(std::ostream& stream);
     void load(std::istream& stream);
