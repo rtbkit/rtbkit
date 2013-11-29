@@ -11,19 +11,16 @@
 #include "jml/arch/futex.h"
 #include "jml/arch/exception_handler.h"
 #include "soa/jsoncpp/writer.h"
-#include <boost/foreach.hpp>
 #include "jml/arch/atomic_ops.h"
 #include "jml/utils/set_utils.h"
 #include "jml/utils/environment.h"
 #include "jml/arch/info.h"
 #include "jml/utils/lightweight_hash.h"
 #include "jml/math/xdiv.h"
-#include <boost/tuple/tuple.hpp>
 #include "jml/utils/pair_utils.h"
 #include "jml/utils/exc_assert.h"
 #include "jml/db/persistent.h"
 #include "jml/utils/json_parsing.h"
-#include <boost/make_shared.hpp>
 #include "profiler.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/core/banker/null_banker.h"
@@ -533,6 +530,7 @@ run()
         {
             double atStart = getTime();
 
+            bool updateAll = false;
             std::pair<std::string, std::shared_ptr<const AgentConfig> > config;
             while (configBuffer.tryPop(config)) {
                 if (!config.second) {
@@ -540,9 +538,17 @@ run()
                     // TODO
                     cerr << "agent " << config.first << " lost configuration"
                          << endl;
+                    auto const& info = agents[config.first];
+                    unconfigure(config.first, info);
+                    updateAll = true;
                 }
                 else {
                     doConfig(config.first, config.second);
+                    updateAll = false;
+                }
+
+                if (updateAll) {
+                    updateAllAgents();
                 }
             }
 
@@ -995,7 +1001,7 @@ checkDeadAgents()
         cerr << "WARNING: dead agent doesn't clean up its state properly"
              << endl;
         // TODO: undo all bids in progress
-        filters.removeConfig((*it)->first);
+        unconfigure((*it)->first, (*it)->second);
         agents.erase(*it);
     }
 
@@ -1119,7 +1125,7 @@ doStats(const std::vector<std::string> & message)
 
     int totalAgentInFlight = 0;
 
-    BOOST_FOREACH(auto agent, agents) {
+    for(auto agent: agents) {
         agentsVal[agent.first] = agent.second.toJson(false, false);
         totalAgentInFlight += agent.second.numBidsInFlight();
     }
@@ -1277,22 +1283,33 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
 
     for (const auto& entry : biddableConfigs) {
         if (entry.biddableSpots.empty()) continue;
-        if (!checkAgent(*entry.config, *entry.status, *entry.stats)) continue;
 
         ML::atomic_inc(entry.stats->passedStaticFilters);
         doFilterStat(*entry.config, "passedStaticFilters");
-
         string rrGroup = entry.config->roundRobinGroup;
-        if (rrGroup == "") rrGroup = entry.name;
 
-        PotentialBidder bidder;
-        bidder.agent = entry.name;
-        bidder.config = entry.config;
-        bidder.stats = entry.stats;
-        bidder.imp = std::move(entry.biddableSpots);
+        boost::shared_lock<decltype(groupsLock)> lock(groupsLock);
+        for (auto& potentialBidder : groups[rrGroup]) {
 
-        groupAgents[rrGroup].push_back(bidder);
-        groupAgents[rrGroup].totalBidProbability += entry.config->bidProbability;
+            auto& potentialBidderName = potentialBidder.first;
+            auto& potentialBidderInfo = potentialBidder.second;
+
+            if (!checkAgent(*potentialBidderInfo.config,
+                            *potentialBidderInfo.status,
+                            *potentialBidderInfo.stats)) {
+                continue;
+            }
+
+            PotentialBidder bidder;
+            bidder.agent = potentialBidderName;
+            bidder.config = potentialBidderInfo.config;
+            bidder.stats = potentialBidderInfo.stats;
+            bidder.imp = entry.biddableSpots;
+
+            groupAgents[rrGroup].push_back(bidder);
+            groupAgents[rrGroup].totalBidProbability +=
+                potentialBidderInfo.config->bidProbability;
+        }
     }
 
 
@@ -2373,7 +2390,6 @@ updateAllAgents()
 
             AgentInfoEntry entry;
             entry.name = it->first;
-            entry.filterIndex = it->second.filterIndex;
             entry.config = it->second.config;
             entry.stats = it->second.stats;
             entry.status = it->second.status;
@@ -2405,13 +2421,13 @@ doConfig(const std::string & agent,
 
     // TODO: no need for this...
     auto newConfig = std::make_shared<AgentConfig>(*config);
-    if (newConfig->roundRobinGroup == "")
+    if (newConfig->roundRobinGroup.empty())
         newConfig->roundRobinGroup = agent;
 
     AgentInfo & info = agents[agent];
 
     if (info.configured) {
-        unconfigure(agent, *info.config);
+        unconfigure(agent, info);
         info.configured = false;
     }
 
@@ -2424,9 +2440,36 @@ doConfig(const std::string & agent,
 
     configure(agent, *newConfig);
     info.configured = true;
+
     sendAgentMessage(agent, "GOTCONFIG", getCurrentTime());
 
-    info.filterIndex = filters.addConfig(agent, info);
+    auto const& roundRobinGroupName = newConfig->roundRobinGroup;
+
+    {
+        AgentInfoWithName agentInfoWithName(agent, info);
+
+        boost::unique_lock<decltype(groupsLock)> lock(groupsLock);
+        auto it = groups.find(roundRobinGroupName);
+        if (it == std::end(groups)) {
+            groups[roundRobinGroupName]
+                .emplace_back(std::move(agentInfoWithName));
+        } else {
+            auto& agentsCollection = it->second;
+
+            auto existingElement =
+                std::find_if(std::begin(agentsCollection),
+                             std::end(agentsCollection),
+                             [&agent](const AgentInfoWithName& info)
+                             { return info.first == agent; });
+            if (existingElement == std::end(agentsCollection)) {
+                agentsCollection.emplace_back(std::move(agentInfoWithName));
+            } else {
+                *existingElement = std::move(agentInfoWithName);
+            }
+        }
+
+        filters.addConfig(roundRobinGroupName, info);
+    }
 
     // Broadcast that we have a new agent or it has a new configuration
     updateAllAgents();
@@ -2434,8 +2477,27 @@ doConfig(const std::string & agent,
 
 void
 Router::
-unconfigure(const std::string & agent, const AgentConfig & config)
+unconfigure(const std::string& agent, const AgentInfo& info)
 {
+    auto const& roundRobinGroupName = info.config->roundRobinGroup;
+    boost::unique_lock<decltype(groupsLock)> lock(groupsLock);
+    auto& agentsCollection = groups[roundRobinGroupName];
+    auto element =
+        std::find_if(std::begin(agentsCollection), std::end(agentsCollection),
+            [&agent](const AgentInfoWithName& info)
+            { return info.first == agent; });
+
+    if (element != std::end(agentsCollection)) {
+        agentsCollection.erase(element);
+        agentsCollection.shrink_to_fit();
+    } else {
+        std::cerr << "Error, cannot unconfigure agent: " << agent << std::endl;
+    }
+
+    if (agentsCollection.empty()) {
+        filters.removeConfig(roundRobinGroupName);
+        groups.erase(roundRobinGroupName);
+    }
 }
 
 void

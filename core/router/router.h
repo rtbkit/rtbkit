@@ -33,6 +33,7 @@
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
 #include "rtbkit/core/monitor/monitor_client.h"
+#include <vector>
 
 namespace RTBKIT {
 
@@ -48,7 +49,6 @@ struct Accountant;
 /** A single entry in the agent info structure. */
 struct AgentInfoEntry {
     std::string name;
-    unsigned filterIndex;
     std::shared_ptr<const AgentConfig> config;
     std::shared_ptr<const AgentStatus> status;
     std::shared_ptr<AgentStats> stats;
@@ -488,7 +488,7 @@ public:
     /** Remove the given agent (with the given configuration) from the
         configuration structures.
     */
-    void unconfigure(const std::string & agent, const AgentConfig & config);
+    void unconfigure(const std::string& agent, const AgentInfo& info);
 
     /** Add the given agent (with the given configuration) to the
         configuration structures.
@@ -758,6 +758,15 @@ public:
     /* MonitorProvider interface */
     std::string getProviderClass() const;
     MonitorIndicator getProviderIndicators() const;
+
+    using RoundRobinGroupName = std::string;
+    using AgentInfoWithName = std::pair<std::string, AgentInfo>;
+
+    using RoundRobinGroups =
+        std::unordered_map<RoundRobinGroupName, std::vector<AgentInfoWithName>>;
+
+    RoundRobinGroups groups;
+    boost::shared_mutex groupsLock;
 };
 
 
