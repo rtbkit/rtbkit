@@ -132,16 +132,11 @@ struct JsonParsingContext {
         path.pop();
     }
 
-    typedef std::function<void ()> OnUnknownField;
+    typedef std::function<void (const ValueDescription * desc)> OnUnknownField;
 
     std::vector<OnUnknownField> onUnknownFieldHandlers;
 
-    void onUnknownField()
-    {
-        if (!onUnknownFieldHandlers.empty())
-            onUnknownFieldHandlers.back()();
-        else exception("unknown field " + printPath());
-    }
+    void onUnknownField(const ValueDescription * desc = 0);
 
     /** Handler for when we get an undexpected field. */
 

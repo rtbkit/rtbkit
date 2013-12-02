@@ -6,11 +6,24 @@
 
 #include "json_parsing.h"
 #include "string.h"
+#include "value_description.h"
 
 using namespace std;
 using namespace ML;
 
 namespace Datacratic {
+
+void
+JsonParsingContext::
+onUnknownField(const ValueDescription * desc)
+{
+    if (!onUnknownFieldHandlers.empty())
+        onUnknownFieldHandlers.back()(desc);
+    else {
+        std::string typeNameStr = desc ? "parsing " + desc->typeName + " ": "";
+        exception("unknown field " + typeNameStr + printPath());
+    }
+}
 
 Utf8String
 StreamingJsonParsingContext::

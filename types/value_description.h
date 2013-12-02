@@ -555,17 +555,20 @@ struct ValueDescriptionWithDefault : public Base {
 struct StructureDescriptionBase {
 
     StructureDescriptionBase(const std::type_info * type,
+                             ValueDescription * owner,
                              const std::string & structName = "",
                              bool nullAccepted = false)
         : type(type),
           structName(structName.empty() ? ML::demangle(type->name()) : structName),
-          nullAccepted(nullAccepted)
+          nullAccepted(nullAccepted),
+          owner(owner)
     {
     }
 
     const std::type_info * type;
     std::string structName;
     bool nullAccepted;
+    ValueDescription * owner;
 
     typedef ValueDescription::FieldDescription FieldDescription;
 
@@ -631,7 +634,7 @@ struct StructureDescriptionBase {
                         auto n = context.fieldNamePtr();
                         auto it = fields.find(n);
                         if (it == fields.end()) {
-                            context.onUnknownField();
+                            context.onUnknownField(owner);
                         }
                         else {
                             it->second.description
@@ -703,7 +706,7 @@ struct StructureDescription
     StructureDescription(bool nullAccepted = false,
                          const std::string & structName = "")
         : ValueDescriptionT<Struct>(ValueKind::STRUCTURE),
-          StructureDescriptionBase(&typeid(Struct), structName,
+          StructureDescriptionBase(&typeid(Struct), this, structName,
                                    nullAccepted)
     {
     }
@@ -722,7 +725,7 @@ struct StructureDescription
         }
         
         if (onUnknownField)
-            context.onUnknownFieldHandlers.push_back([=,&context] () { this->onUnknownField((Struct *)output, context); });
+            context.onUnknownFieldHandlers.push_back([=,&context] (const ValueDescription *) { this->onUnknownField((Struct *)output, context); });
 
         return true;
     }
