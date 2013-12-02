@@ -12,6 +12,7 @@
 #include "bid_request_synth.h"
 #include "soa/jsoncpp/value.h"
 #include "soa/jsoncpp/reader.h"
+#include "jml/utils/exc_assert.h"
 
 #include <boost/test/unit_test.hpp>
 #include <iostream>
@@ -103,11 +104,14 @@ void check(BidRequestSynth& synth)
         synth.dump(ss);
         second = Json::parse(ss.str());
     }
+
     check(first, second);
 }
 
 BOOST_AUTO_TEST_CASE( recordLeafs )
 {
+    cerr << "\n=== LEAFS\n";
+
     BidRequestSynth synth;
 
     Json::Value source = Json::parse(
@@ -125,6 +129,8 @@ BOOST_AUTO_TEST_CASE( recordLeafs )
 
 BOOST_AUTO_TEST_CASE( recordArray )
 {
+    cerr << "\n=== ARRAY\n";
+
     BidRequestSynth synth;
 
     Json::Value source = Json::parse(
@@ -145,6 +151,8 @@ BOOST_AUTO_TEST_CASE( recordArray )
 
 BOOST_AUTO_TEST_CASE( recordObject )
 {
+    cerr << "\n=== OBJECT\n";
+
     BidRequestSynth synth;
     Json::Value source = Json::parse(
             "{"
@@ -158,5 +166,74 @@ BOOST_AUTO_TEST_CASE( recordObject )
 
     synth.record(source);
     check(source, synth.generate());
+    check(synth);
+}
+
+
+BOOST_AUTO_TEST_CASE( recordCutoff )
+{
+    cerr << "\n=== CUTOFF\n";
+
+    BidRequestSynth synth;
+    Json::Value source = Json::parse(
+            "{"
+            "  'a':{"
+            "      'b':{'a':1, 'b':2, 'c':3}"
+            "    , 'bleh':["
+            "       {'j':1, 'k':2, 'l':3}"
+            "    ]"
+            "  }"
+            "}"
+        );
+
+    const Synth::NodePath objPath = { "a", "b" };
+    const Synth::NodePath arrPath = { "a", "bleh", Synth::ArrayIndex };
+
+    synth.isCutoffFn = [&] (const Synth::NodePath& path) {
+        return path == objPath || path == arrPath;
+    };
+
+    synth.record(source);
+    check(source, synth.generate());
+    check(synth);
+}
+
+
+BOOST_AUTO_TEST_CASE( recordGenerated )
+{
+    cerr << "\n=== GENERATED\n";
+
+    BidRequestSynth synth;
+    Json::Value source = Json::parse(
+            "{"
+            "  'a':{"
+            "      'b':{'a':1, 'b':2, 'c':3},"
+            "      'd':[10]"
+            "  },"
+            "  'f': {'g':'10'}"
+            "}"
+        );
+
+    const Synth::NodePath path0 = { "a", "b", "c" };
+    const Synth::NodePath path1 = { "a", "d" };
+    const Synth::NodePath path2 = { "f" };
+
+    synth.isGeneratedFn = [&] (const Synth::NodePath& path) {
+        return path == path0 || path == path1 || path == path2;
+    };
+
+    synth.generatorFn = [&] (const Synth::NodePath& path) {
+        Json::Value value;
+
+        if      (path == path0) value["blah"] = 10;
+        else if (path == path1) value = "bleh";
+        else if (path == path2) value.append(10);
+        else ExcAssert(false);
+
+        return value;
+    };
+
+    synth.record(source);
+    cerr << synth.generate().toString() << endl;
     check(synth);
 }
