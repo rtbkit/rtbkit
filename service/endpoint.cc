@@ -547,16 +547,17 @@ runEventThread(int threadNum, int numThreads)
         // little less CPU intensive.
         if (realTimePolling_) {
 
+            Date beforPoll = Date::now();
             bool isBusy = handleEvents(0, 4, handleEvent) > 0;
 
             // This ensures that our load sampling mechanism is still somewhat
-            // meaningfull even though we never sleep. It's still a bad
-            // aproximation since we flip isBusy only after we processed the
-            // events. At least we tried :/
+            // meaningfull even though we never sleep.
             if (wasBusy != isBusy) {
 
-                if (wasBusy && !isBusy) sleepStart = Date::now();
-                else totalSleepTime[threadNum] += Date::now() - sleepStart;
+                if (wasBusy && !isBusy) sleepStart = beforePoll;
+
+                // We don't want to include the time we spent doing stuff.
+                else totalSleepTime[threadNum] += beforePoll - sleepStart;
 
                 wasBusy = isBusy;
             }
