@@ -105,6 +105,11 @@ struct EndpointBase : public Epoller {
     /** Set this endpoint up to handle events in realtime. */
     void makeRealTime(int priority = 1);
 
+    /** Helps reduce latency jitter caused by the polling loop at the cost of
+        busy looping the CPU (100% usage).
+    */
+    void realTimePolling(bool value) { realTimePolling_ = true; }
+
     /** Spin up the threads as part of the initialization.  NOTE: make sure that this is
         only called once; normally it will be done as part of init().  Calling directly is
         only for advanced use where init() is not called.
@@ -240,6 +245,9 @@ private:
     /* Are we shutting down? */
     bool shutdown_;
     bool disallowTimers_;
+
+    // Turns the polling loop into a busy loop with no sleeps.
+    bool realTimePolling_;
 
     std::map<std::string, int> numTransportsByHost;
 
