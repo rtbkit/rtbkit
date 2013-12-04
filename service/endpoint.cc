@@ -547,7 +547,7 @@ runEventThread(int threadNum, int numThreads)
         // little less CPU intensive.
         if (realTimePolling_) {
 
-            Date beforPoll = Date::now();
+            Date beforePoll = Date::now();
             bool isBusy = handleEvents(0, 4, handleEvent) > 0;
 
             // This ensures that our load sampling mechanism is still somewhat
