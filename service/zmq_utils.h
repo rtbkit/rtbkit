@@ -145,6 +145,11 @@ inline zmq::message_t encodeMessage(const std::string & message)
     return message;
 }
 
+inline zmq::message_t encodeMessage(const Utf8String & message)
+{
+    return message.rawString();
+}
+
 inline zmq::message_t encodeMessage(const char * msg)
 {
     size_t sz = strlen(msg);
@@ -211,13 +216,6 @@ inline bool sendMesg(zmq::socket_t & sock,
     zmq::message_t msg1(msg.size());
     std::copy(msg.begin(), msg.end(), (char *)msg1.data());
     return sock.send(msg1, options);
-}
-
-inline bool sendMesg(zmq::socket_t & sock,
-                     const Utf8String & msg,
-                     int options = 0)
-{
-    return sendMesg(sock, msg.rawString(), options);
 }
     
 inline bool sendMesg(zmq::socket_t & sock,
