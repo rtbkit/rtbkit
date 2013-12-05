@@ -117,6 +117,7 @@ Router(ServiceBase & parent,
       shutdown_(false),
       agentEndpoint(getZmqContext()),
       configBuffer(1024),
+      exchangeBuffer(64),
       startBiddingBuffer(65536),
       submittedBuffer(65536),
       auctionGraveyard(65536),
@@ -158,6 +159,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       agentEndpoint(getZmqContext()),
       postAuctionEndpoint(getZmqContext()),
       configBuffer(1024),
+      exchangeBuffer(64),
       startBiddingBuffer(65536),
       submittedBuffer(65536),
       auctionGraveyard(65536),
@@ -528,7 +530,16 @@ run()
             times["doStartBidding"].add(microsecondsBetween(atEnd, atStart));
         }
 
-
+        {
+            std::shared_ptr<ExchangeConnector> exchange;
+            while (exchangeBuffer.tryPop(exchange)) {
+                for (auto & agent : agents) {
+                    configureAgentOnExchange(exchange,
+                                             agent.first,
+                                             *agent.second.config);
+                };
+            }
+        }
 
         {
             double atStart = getTime();
@@ -2840,9 +2851,7 @@ startExchange(const std::string & type,
     std::shared_ptr<ExchangeConnector> item(exchange.release());
     addExchange(item);
 
-    for(auto i = agents.begin(), end = agents.end(); i != end; ++i) {
-        configureAgentOnExchange(item, i->first, *i->second.config);
-    }
+    exchangeBuffer.push(item);
 }
 
 void

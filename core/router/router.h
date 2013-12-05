@@ -389,6 +389,7 @@ public:
     Agents agents;
 
     ML::RingBufferSRMW<std::pair<std::string, std::shared_ptr<const AgentConfig> > > configBuffer;
+    ML::RingBufferSRMW<std::shared_ptr<ExchangeConnector> > exchangeBuffer;
     ML::RingBufferSRMW<std::shared_ptr<AugmentationInfo> > startBiddingBuffer;
     ML::RingBufferSRMW<std::shared_ptr<Auction> > submittedBuffer;
     ML::RingBufferSWMR<std::shared_ptr<Auction> > auctionGraveyard;
