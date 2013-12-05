@@ -403,3 +403,11 @@ BOOST_AUTO_TEST_CASE( test_recursive_description )
 
     BOOST_CHECK_EQUAL(j, j2);
 }
+
+BOOST_AUTO_TEST_CASE( test_date_value_description )
+{
+    auto desc = DefaultDescription<Date>();
+
+    Date d = Date::now().quantized(0.001);
+    BOOST_CHECK_EQUAL(jsonDecode<Date>(d.printIso8601()), d);
+}

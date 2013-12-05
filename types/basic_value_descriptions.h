@@ -411,8 +411,15 @@ struct DefaultDescription<Date>
     {
         if (context.isNumber())
             *val = Date::fromSecondsSinceEpoch(context.expectDouble());
-        else if (context.isString())
-            *val = Date::parseDefaultUtc(context.expectStringAscii());
+        else if (context.isString()) {
+            std::string s = context.expectStringAscii();
+            if (s.length() >= 11
+                && s[4] == '-'
+                && s[7] == '-'
+                && s[s.size() - 1] == 'Z')
+                *val = Date::parseIso8601(s);
+            else *val = Date::parseDefaultUtc(s);
+        }
         else context.exception("expected date");
     }
 
