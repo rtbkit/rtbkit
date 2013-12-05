@@ -536,7 +536,34 @@ runEventThread(int threadNum, int numThreads)
 
     bool forceInSlice = false;
 
+    bool wasBusy = false;
+    Date sleepStart = Date::now();
+
+
     while (!shutdown_) {
+
+        // Busy loop polling which reduces the latency jitter caused by the
+        // fancy polling scheme below. Should eventually be replaced something a
+        // little less CPU intensive.
+        if (realTimePolling_) {
+
+            Date beforePoll = Date::now();
+            bool isBusy = handleEvents(0, 4, handleEvent) > 0;
+
+            // This ensures that our load sampling mechanism is still somewhat
+            // meaningfull even though we never sleep.
+            if (wasBusy != isBusy) {
+
+                if (wasBusy && !isBusy) sleepStart = beforePoll;
+
+                // We don't want to include the time we spent doing stuff.
+                else totalSleepTime[threadNum] += beforePoll - sleepStart;
+
+                wasBusy = isBusy;
+            }
+
+            continue;
+        }
 
         Date now = Date::now();
         

@@ -3,6 +3,7 @@
    Copyright (c) 2012 Datacratic.  All rights reserved.
 
    Class to deal with doing s3.
+   Note: Your access key must have the listallmybuckets permission on the aws side.
 */
 
 #pragma once
@@ -235,7 +236,12 @@ struct S3Api : public AwsApi {
                  const Range & downloadRange,
                  const std::string & subResource = "",
                  const StrPairVector & headers = StrPairVector(),
-                 const StrPairVector & queryParams = StrPairVector()) const;
+                 const StrPairVector & queryParams = StrPairVector())
+        const
+    {
+        return getEscaped(bucket, escapeResource(resource), downloadRange,
+                          subResource, headers, queryParams);
+    }
 
 
     /** Perform a POST request from end to end. */
@@ -244,7 +250,12 @@ struct S3Api : public AwsApi {
                   const std::string & subResource = "",
                   const StrPairVector & headers = StrPairVector(),
                   const StrPairVector & queryParams = StrPairVector(),
-                  const Content & content = Content()) const;
+                  const Content & content = Content())
+        const
+    {
+        return postEscaped(bucket, escapeResource(resource), subResource,
+                           headers, queryParams, content);
+    }
 
     /** Perform a PUT request from end to end including data. */
     Response put(const std::string & bucket,
@@ -252,16 +263,25 @@ struct S3Api : public AwsApi {
                  const std::string & subResource = "",
                  const StrPairVector & headers = StrPairVector(),
                  const StrPairVector & queryParams = StrPairVector(),
-                 const Content & content = Content()) const;
+                 const Content & content = Content())
+        const
+    {
+        return putEscaped(bucket, escapeResource(resource), subResource,
+                          headers, queryParams, content);
+    }
 
     /** Perform a DELETE request from end to end including data. */
-     Response erase(const std::string & bucket,
-                    const std::string & resource,
-                    const std::string & subResource = "",
-                    const StrPairVector & headers = StrPairVector(),
-                    const StrPairVector & queryParams = StrPairVector(),
-                    const Content & content = Content()) const;
-
+    Response erase(const std::string & bucket,
+                   const std::string & resource,
+                   const std::string & subResource = "",
+                   const StrPairVector & headers = StrPairVector(),
+                   const StrPairVector & queryParams = StrPairVector(),
+                   const Content & content = Content())
+        const
+    {
+        return eraseEscaped(bucket, escapeResource(resource), subResource,
+                            headers, queryParams, content);
+    }
 
     enum CheckMethod {
         CM_SIZE,     ///< Check via the size of the content
@@ -468,8 +488,6 @@ struct S3Api : public AwsApi {
                           const std::string & resource,
                           const ObjectMetadata & metadata) const;
 
-
-
     std::pair<bool,std::string>
     isMultiPartUploadInProgress(const std::string & bucket,
                                 const std::string & resource) const;
@@ -483,6 +501,40 @@ struct S3Api : public AwsApi {
     void uploadRecursive(std::string dirSrc,
                          std::string bucketDest,
                          bool includeDir);
+
+    /** Pre-escaped versions of the above methods */
+
+    /* get */
+    Response getEscaped(const std::string & bucket,
+                        const std::string & resource,
+                        const Range & downloadRange,
+                        const std::string & subResource = "",
+                        const StrPairVector & headers = StrPairVector(),
+                        const StrPairVector & queryParams = StrPairVector()) const;
+
+    /* post */
+    Response postEscaped(const std::string & bucket,
+                         const std::string & resource,
+                         const std::string & subResource = "",
+                         const StrPairVector & headers = StrPairVector(),
+                         const StrPairVector & queryParams = StrPairVector(),
+                         const Content & content = Content()) const;
+
+    /* put */
+    Response putEscaped(const std::string & bucket,
+                        const std::string & resource,
+                        const std::string & subResource = "",
+                        const StrPairVector & headers = StrPairVector(),
+                        const StrPairVector & queryParams = StrPairVector(),
+                        const Content & content = Content()) const;
+
+    /* erase */
+    Response eraseEscaped(const std::string & bucket,
+                          const std::string & resource,
+                          const std::string & subResource,
+                          const StrPairVector & headers = StrPairVector(),
+                          const StrPairVector & queryParams = StrPairVector(),
+                          const Content & content = Content()) const;
 
     //easy handle for v8 wrapping
     void setDefaultBandwidthToServiceMbps(double mpbs);

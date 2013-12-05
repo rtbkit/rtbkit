@@ -16,6 +16,7 @@
 #include "soa/service/zmq.hpp"
 #include "soa/jsoncpp/value.h"
 #include "soa/types/date.h"
+#include "soa/types/string.h"
 #include "soa/service/port_range_service.h"
 #include "jml/arch/format.h"
 #include "jml/arch/exception.h"
@@ -210,6 +211,13 @@ inline bool sendMesg(zmq::socket_t & sock,
     zmq::message_t msg1(msg.size());
     std::copy(msg.begin(), msg.end(), (char *)msg1.data());
     return sock.send(msg1, options);
+}
+
+inline bool sendMesg(zmq::socket_t & sock,
+                     const Utf8String & msg,
+                     int options = 0)
+{
+    return sendMesg(sock, msg.rawString(), options);
 }
     
 inline bool sendMesg(zmq::socket_t & sock,

@@ -234,6 +234,21 @@ uriEncode(const std::string & str)
 
 std::string
 AwsApi::
+escapeResource(const std::string & resource)
+{
+    if (resource.size() == 0) {
+        throw ML::Exception("empty resource name");
+    }
+
+    if (resource[0] != '/') {
+        throw ML::Exception("resource name must start with a '/'");
+    }
+
+    return "/" + uriEncode(resource.substr(1));
+}
+
+std::string
+AwsApi::
 signingKeyV4(const std::string & accessKey,
              const std::string & date,
              const std::string & region,

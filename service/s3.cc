@@ -379,12 +379,12 @@ prepare(const RequestParams & request) const
 
 S3Api::Response
 S3Api::
-get(const std::string & bucket,
-    const std::string & resource,
-    const Range & downloadRange,
-    const std::string & subResource,
-    const StrPairVector & headers,
-    const StrPairVector & queryParams) const
+getEscaped(const std::string & bucket,
+           const std::string & resource,
+           const Range & downloadRange,
+           const std::string & subResource,
+           const StrPairVector & headers,
+           const StrPairVector & queryParams) const
 {
     RequestParams request;
     request.verb = "GET";
@@ -399,15 +399,15 @@ get(const std::string & bucket,
     return prepare(request).performSync();
 }
 
-    /** Perform a POST request from end to end. */
+/** Perform a POST request from end to end. */
 S3Api::Response
 S3Api::
-post(const std::string & bucket,
-     const std::string & resource,
-     const std::string & subResource,
-     const StrPairVector & headers,
-     const StrPairVector & queryParams,
-     const Content & content) const
+postEscaped(const std::string & bucket,
+            const std::string & resource,
+            const std::string & subResource,
+            const StrPairVector & headers,
+            const StrPairVector & queryParams,
+            const Content & content) const
 {
     RequestParams request;
     request.verb = "POST";
@@ -424,12 +424,12 @@ post(const std::string & bucket,
 
 S3Api::Response
 S3Api::
-put(const std::string & bucket,
-    const std::string & resource,
-    const std::string & subResource,
-    const StrPairVector & headers,
-    const StrPairVector & queryParams,
-    const Content & content) const
+putEscaped(const std::string & bucket,
+           const std::string & resource,
+           const std::string & subResource,
+           const StrPairVector & headers,
+           const StrPairVector & queryParams,
+           const Content & content) const
 {
     RequestParams request;
     request.verb = "PUT";
@@ -446,12 +446,12 @@ put(const std::string & bucket,
 
 S3Api::Response
 S3Api::
-erase(const std::string & bucket,
-    const std::string & resource,
-    const std::string & subResource,
-    const StrPairVector & headers,
-    const StrPairVector & queryParams,
-    const Content & content) const
+eraseEscaped(const std::string & bucket,
+             const std::string & resource,
+             const std::string & subResource,
+             const StrPairVector & headers,
+             const StrPairVector & queryParams,
+             const Content & content) const
 {
     RequestParams request;
     request.verb = "DELETE";
@@ -540,6 +540,7 @@ obtainMultiPartUpload(const std::string & bucket,
                       const std::string & resource,
                       const ObjectMetadata & metadata) const
 {
+    string escapedResource = escapeResource(resource);
     // Contains the resource without the leading slash
     string outputPrefix(resource, 1);
 
@@ -582,13 +583,14 @@ obtainMultiPartUpload(const std::string & bucket,
         // upload.  Instead, we will delete it to avoid problems with creating
         // half-finished files when we don't know what we're doing.
 
-        auto deletedInfo = erase(bucket, resource, "uploadId=" + uploadId);
+        auto deletedInfo = eraseEscaped(bucket, escapedResource,
+                                        "uploadId=" + uploadId);
 
         continue;
 
         // TODO: check metadata, etc
-        auto inProgressInfo = get(bucket, resource, 8192,
-                                  "uploadId=" + uploadId)
+        auto inProgressInfo = getEscaped(bucket, escapedResource, 8192,
+                                         "uploadId=" + uploadId)
             .bodyXml();
 
         inProgressInfo->Print();
@@ -630,7 +632,8 @@ obtainMultiPartUpload(const std::string & bucket,
         //cerr << "getting new ID" << endl;
 
         vector<pair<string, string> > headers = metadata.getRequestHeaders();
-        auto result = post(bucket, resource, "uploads", headers).bodyXml();
+        auto result = postEscaped(bucket, escapedResource,
+                                  "uploads", headers).bodyXml();
         //result->Print();
         //cerr << "result = " << result << endl;
 
@@ -670,9 +673,11 @@ finishMultiPartUpload(const std::string & bucket,
 
     //joinRequest.Print();
 
+    string escapedResource = escapeResource(resource);
+
     auto joinResponse
-        = post(bucket, resource, "uploadId=" + uploadId,
-                  {}, {}, joinRequest);
+        = postEscaped(bucket, escapedResource, "uploadId=" + uploadId,
+                      {}, {}, joinRequest);
 
     //cerr << joinResponse.bodyXmlStr() << endl;
 
@@ -712,8 +717,8 @@ upload(const char * data,
        const ObjectMetadata & metadata,
        int numInParallel)
 {
-    if (resource == "" || resource[0] != '/')
-        throw ML::Exception("resource should start with a /");
+    string escapedResource = escapeResource(resource);
+
     // Contains the resource without the leading slash
     string outputPrefix(resource, 1);
 
@@ -856,7 +861,7 @@ upload(const char * data,
                 }
             }
 
-            auto putResult = put(bucket, resource,
+            auto putResult = putEscaped(bucket, escapedResource,
                                     ML::format("partNumber=%d&uploadId=%s",
                                                part.partNumber, uploadId),
                                     {}, {},
@@ -920,7 +925,8 @@ upload(const char * data,
     for (unsigned i = 0;  i < parts.size();  ++i) {
         etags.push_back(parts[i].etag);
     }
-    string finalEtag = finishMultiPartUpload(bucket, resource, uploadId, etags);
+    string finalEtag = finishMultiPartUpload(bucket, resource,
+                                             uploadId, etags);
     return finalEtag;
 }
 
@@ -1090,7 +1096,7 @@ getObjectInfo(const std::string & bucket,
     StrPairVector queryParams;
     queryParams.push_back({"prefix", object});
 
-    auto listingResult = get(bucket, "/", 8192, "", {}, queryParams);
+    auto listingResult = getEscaped(bucket, "/", 8192, "", {}, queryParams);
 
     if (listingResult.code_ != 200) {
         cerr << listingResult.bodyXmlStr() << endl;
@@ -1782,7 +1788,7 @@ struct StreamingUploadSource {
         {
             if (exc)
                 std::rethrow_exception(exc);
-            //cerr << "pushing last chunk " << chunkIndex << endl;
+            // cerr << "pushing last chunk " << chunkIndex << endl;
             flush();
 
             if (!chunkIndex) {
@@ -1839,7 +1845,7 @@ struct StreamingUploadSource {
                             throw ML::Exception("put didn't work: %d", (int)putResult.code_);
                         }
                         string etag = putResult.getHeader("etag");
-                        //cerr << "successfully uploaded part " << chunk.index
+                        // cerr << "successfully uploaded part " << chunk.index
                         //     << " with etag " << etag << endl;
 
                         std::unique_lock<std::mutex> guard(etagsLock);
@@ -2110,7 +2116,7 @@ void registerS3Bucket(const std::string & bucketName,
     info.api = std::make_shared<S3Api>(accessKeyId, accessKey,
                                        bandwidthToServiceMbps,
                                        protocol, serviceUri);
-    info.api->get("", "/" + bucketName + "/", 8192);//throws if !accessible
+    info.api->getEscaped("", "/" + bucketName + "/", 8192);//throws if !accessible
     s3Buckets[bucketName] = info;
 }
 
