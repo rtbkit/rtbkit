@@ -659,13 +659,17 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
              const Json::Value & config,
              const char * fieldName,
              T & field,
-             bool includeReasons)
+             bool includeReasons,
+             bool optional = false)
 {
     try {
-        if (!config.isMember(fieldName)) {
+        bool isMember = config.isMember(fieldName);
+        if (!isMember && !optional) {
             result.setIncompatible
             ("creative[].providerConfig.adx." + string(fieldName)
              + " must be specified", includeReasons);
+            return;
+        }else if(!isMember && optional){
             return;
         }
 
