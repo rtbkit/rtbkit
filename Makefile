@@ -10,8 +10,6 @@ VOWS?=./node_modules/vows/bin/vows
 COFFEE?=./node_modules/coffee-script/bin/coffee
 LOCAL_LIB_DIR?=$(LOCAL_DIR)/lib /usr/local/lib
 LOCAL_INCLUDE_DIR?=$(LOCAL_DIR)/include
-THRIFT_PREFIX?=$(LOCAL_DIR)
-THRIFT_INCLUDE?=$(LOCAL_DIR)/include/thrift
 
 MACHINE_NAME:=$(shell uname -n)
 
@@ -55,8 +53,7 @@ PKGINCLUDE_PACKAGES = sigc++-2.0 cairomm-1.0
 PKGCONFIG_INCLUDE:=$(shell pkg-config --cflags-only-I $(PKGINCLUDE_PACKAGES))
 
 
-THRIFT_INCLUDE?=$(NODE_PREFIX)/include/thrift
-CXXFLAGS += -Wno-deprecated -Winit-self -fno-omit-frame-pointer -std=c++0x -fno-deduce-init-list -I$(NODE_PREFIX)/include/node -msse3 -I$(THRIFT_INCLUDE) -Ileveldb/include -Wno-unused-but-set-variable -I$(LOCAL_INCLUDE_DIR) -I$(GEN) $(PKGCONFIG_INCLUDE) -Wno-psabi -D__GXX_EXPERIMENTAL_CXX0X__=1
+CXXFLAGS += -Wno-deprecated -Winit-self -fno-omit-frame-pointer -std=c++0x -fno-deduce-init-list -I$(NODE_PREFIX)/include/node -msse3 -Ileveldb/include -Wno-unused-but-set-variable -I$(LOCAL_INCLUDE_DIR) -I$(GEN) $(PKGCONFIG_INCLUDE) -Wno-psabi -D__GXX_EXPERIMENTAL_CXX0X__=1
 CXXLINKFLAGS += -Wl,--copy-dt-needed-entries -Wl,--no-as-needed -L/usr/local/lib
 CFLAGS +=  -Wno-unused-but-set-variable
 

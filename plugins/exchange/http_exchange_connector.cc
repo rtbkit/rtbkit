@@ -102,6 +102,9 @@ configure(const Json::Value & parameters)
     getParam(parameters, auctionVerb, "auctionVerb");
     getParam(parameters, pingTimesByHostMs, "pingTimesByHostMs");
     getParam(parameters, pingTimeUnknownHostsMs, "pingTimeUnknownHostsMs");
+
+    if (parameters.isMember("realTimePolling"))
+        realTimePolling(parameters["realTimePolling"].asBool());
 }
 
 void
@@ -113,7 +116,8 @@ configureHttp(int numThreads,
               int backlog,
               const std::string & auctionResource,
               const std::string & auctionVerb,
-              int realTimePriority)
+              int realTimePriority,
+              bool realTimePolling)
 {
     this->numThreads = numThreads;
     this->realTimePriority = realTimePriority;
@@ -123,6 +127,7 @@ configureHttp(int numThreads,
     this->backlog = backlog;
     this->auctionResource = auctionResource;
     this->auctionVerb = auctionVerb;
+    this->realTimePolling(realTimePolling);
 }
 
 void

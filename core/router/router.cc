@@ -117,6 +117,7 @@ Router(ServiceBase & parent,
       shutdown_(false),
       agentEndpoint(getZmqContext()),
       configBuffer(1024),
+      exchangeBuffer(64),
       startBiddingBuffer(65536),
       submittedBuffer(65536),
       auctionGraveyard(65536),
@@ -158,6 +159,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       agentEndpoint(getZmqContext()),
       postAuctionEndpoint(getZmqContext()),
       configBuffer(1024),
+      exchangeBuffer(64),
       startBiddingBuffer(65536),
       submittedBuffer(65536),
       auctionGraveyard(65536),
@@ -528,7 +530,16 @@ run()
             times["doStartBidding"].add(microsecondsBetween(atEnd, atStart));
         }
 
-
+        {
+            std::shared_ptr<ExchangeConnector> exchange;
+            while (exchangeBuffer.tryPop(exchange)) {
+                for (auto & agent : agents) {
+                    configureAgentOnExchange(exchange,
+                                             agent.first,
+                                             *agent.second.config);
+                };
+            }
+        }
 
         {
             double atStart = getTime();
@@ -833,35 +844,65 @@ logUsageMetrics(double period)
 {
     std::string p = std::to_string(period);
 
-    for(auto & item : agents) {
-        auto & info = item.second;
-        logMessage("USAGE", "AGENT", p, item.first,
-                                        info.config->account.toString(),
-                                        info.stats->intoFilters,
-                                         info.stats->passedStaticFilters,
-                                        info.stats->auctions,
-                                        info.stats->bids,
-                                        info.config->bidProbability);
+    for (auto it = lastAgentUsageMetrics.begin();
+         it != lastAgentUsageMetrics.end();) {
+        if (agents.count(it->first) == 0) {
+            it = lastAgentUsageMetrics.erase(it);
+        }
+        else {
+            it++;
+        }
     }
 
-    int numExchanges = 0;
-    int numRequests = 0;
-    int numAuctions = 0;
-    float acceptAuctionProbability = 0;
+    for (const auto & item : agents) {
+        auto & info = item.second;
 
-    forAllExchanges([&](std::shared_ptr<ExchangeConnector> const & item) {
-        ++numExchanges;
-        numRequests += item->numRequests;
-        numAuctions += item->numAuctions;
-        acceptAuctionProbability += item->acceptAuctionProbability;
-    });
+        auto & last = lastAgentUsageMetrics[item.first];
 
-    logMessage("USAGE", "ROUTER", p, numRequests,
-                                     numAuctions,
-                                     numNoPotentialBidders,
-                                     numBids,
-                                     numAuctionsWithBid,
-                                     acceptAuctionProbability / numExchanges);
+        AgentUsageMetrics newMetrics(info.stats->intoFilters,
+                                     info.stats->passedStaticFilters,
+                                     info.stats->auctions,
+                                     info.stats->bids);
+        AgentUsageMetrics delta = newMetrics - last;
+
+        logMessage("USAGE", "AGENT", p, item.first,
+                   info.config->account.toString(),
+                   delta.intoFilters,
+                   delta.passedStaticFilters,
+                   delta.auctions,
+                   delta.bids,
+                   info.config->bidProbability);
+
+        last = move(newMetrics);
+    }
+
+    {
+        RouterUsageMetrics newMetrics;
+        int numExchanges = 0;
+        float acceptAuctionProbability(0.0);
+
+        forAllExchanges([&](std::shared_ptr<ExchangeConnector> const & item) {
+            ++numExchanges;
+            newMetrics.numRequests += item->numRequests;
+            newMetrics.numAuctions += item->numAuctions;
+            acceptAuctionProbability += item->acceptAuctionProbability;
+        });
+        newMetrics.numBids = numBids;
+        newMetrics.numNoPotentialBidders = numNoPotentialBidders;
+        newMetrics.numAuctionsWithBid = numAuctionsWithBid;
+
+        RouterUsageMetrics delta = newMetrics - lastRouterUsageMetrics;
+
+        logMessage("USAGE", "ROUTER", p,
+                   delta.numRequests,
+                   delta.numAuctions,
+                   delta.numNoPotentialBidders,
+                   delta.numBids,
+                   delta.numAuctionsWithBid,
+                   acceptAuctionProbability / numExchanges);
+
+        lastRouterUsageMetrics = move(newMetrics);
+    }
 }
 
 void
@@ -1330,12 +1371,6 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
 
     try {
         Id auctionId = augInfo->auction->id;
-
-        if (augmentationLoop.currentlyAugmenting(auctionId)) {
-            throwException("doStartBidding.alreadyAugmenting",
-                           "auction with ID %s already preprocessing",
-                           auctionId.toString().c_str());
-        }
         if (inFlight.count(auctionId)) {
             throwException("doStartBidding.alreadyInFlight",
                            "auction with ID %s already in progress",
@@ -2823,9 +2858,7 @@ startExchange(const std::string & type,
     std::shared_ptr<ExchangeConnector> item(exchange.release());
     addExchange(item);
 
-    for(auto i = agents.begin(), end = agents.end(); i != end; ++i) {
-        configureAgentOnExchange(item, i->first, *i->second.config);
-    }
+    exchangeBuffer.push(item);
 }
 
 void

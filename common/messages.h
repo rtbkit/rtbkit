@@ -95,7 +95,7 @@ struct Message {
 
     std::string toString() const {
         using namespace Datacratic;
-        static ValueDescription * desc = getDefaultDescription((T*) 0);
+        static auto desc = getDefaultDescriptionShared((T*) 0);
 
         std::stringstream stream;
         StreamJsonPrintingContext context(stream);
@@ -109,7 +109,7 @@ struct Message {
         ML::Parse_Context source("Message", value.c_str(), value.size());
         expectJsonObject(source, [&](std::string key,
                                      ML::Parse_Context & context) {
-            auto * desc = ValueDescription::get(key);
+            auto desc = ValueDescription::get(key);
             if(desc) {
                 StreamingJsonParsingContext json(context);
                 desc->parseJson(&result.payload, json);

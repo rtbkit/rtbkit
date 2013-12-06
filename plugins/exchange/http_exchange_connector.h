@@ -67,7 +67,8 @@ struct HttpExchangeConnector
                        int backlog = DEF_BACKLOG,
                        const std::string & auctionResource = "/auctions",
                        const std::string & auctionVerb = "POST",
-                       int realTimePriority = -1);
+                       int realTimePriority = -1,
+                       bool realTimePolling = false);
 
     /** Start the exchange connector running */
     virtual void start();

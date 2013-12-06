@@ -39,7 +39,6 @@ enum { debug = false };
 template<typename T>
 T pickRandom(const unordered_map<T, size_t>& map, size_t max, RNG& rng)
 {
-    T value;
     size_t target = rng.random(max + 1);
     size_t sum = 0;
 
@@ -48,64 +47,49 @@ T pickRandom(const unordered_map<T, size_t>& map, size_t max, RNG& rng)
             return it.first;
 
     ExcAssert(false);
-    return value;
+    return T();
 }
-
-template<typename T>
-T& get(T* & p)
-{
-    if (!p) p = new T;
-    return *p;
-}
-
-template<typename T>
-T& get(unique_ptr<T>& p)
-{
-    if (!p) p.reset(new T);
-    return *p;
-}
-
-template<typename T>
-const T& get(T* const & p)
-{
-    ExcAssert(p);
-    return *p;
-}
-
-template<typename T>
-const T& get(const unique_ptr<T>& p)
-{
-    ExcAssert(p);
-    return *p;
-}
-
-template<typename K, typename V>
-V& get(unordered_map<K,V*>& map, const K& key)
-{
-    auto it = map.find(key);
-    if (it == map.end())
-        it = map.insert(make_pair(key, new V())).first;
-    return *it->second;
-}
-
-
-template<typename K, typename V>
-const V& get(const unordered_map<K,V*>& map, const K& key)
-{
-    auto it = map.find(key);
-    ExcAssert(it != map.end());
-    return *it->second;
-}
-
 
 
 /******************************************************************************/
-/* GEN CONTEXT                                                                */
+/* CONTEXT                                                                    */
 /******************************************************************************/
 
-struct GenContext
+struct Context
+{
+    void enter(const std::string& key) { path_.push_back(key); }
+    void exit() { path_.pop_back(); }
+    const NodePath& path() { return path_; }
+
+private:
+    NodePath path_;
+};
+
+struct GenerateCtx : public Context
 {
     RNG rng;
+    GeneratorFn generator;
+};
+
+struct RecordCtx : public Context
+{
+    TestPathFn isGenerated;
+    TestPathFn isCutoff;
+};
+
+
+template<typename Ctx>
+struct CtxGuard
+{
+    CtxGuard(Ctx& ctx, const std::string& key) : ctx(ctx)
+    {
+        ctx.enter(key);
+    }
+
+    ~CtxGuard() { ctx.exit(); }
+
+private:
+    Ctx& ctx;
 };
 
 
@@ -117,6 +101,7 @@ enum NodeType
 {
     Null,
 
+    Generated,
     Object,
     Array,
 
@@ -143,6 +128,40 @@ void print(NodeType type)
     else ExcAssert(false);
 }
 
+NodeType getType(const Json::Value& json)
+{
+    switch (json.type()) {
+    case Json::objectValue:  return Object;
+    case Json::arrayValue:   return Array;
+
+    case Json::booleanValue: return Bool;
+    case Json::intValue:
+    case Json::uintValue:    return Integer;
+    case Json::realValue:    return Float;
+    case Json::stringValue:  return String;
+    case Json::nullValue:    // We treat nulls as json blobs.
+    default:                 return Json;
+    }
+}
+
+struct NodeTypeHash
+{
+    size_t operator() (NodeType type) const
+    {
+        return std::hash<int>()(type);
+    }
+};
+
+/******************************************************************************/
+/* PROTOTYPES                                                                 */
+/******************************************************************************/
+
+struct Node;
+void recordNode(RecordCtx& ctx, Node* & node, const Json::Value& value);
+Node* recordNode(RecordCtx& ctx, const Json::Value& value);
+Node* loadNode(Parse_Context& ctx);
+void dumpNode(Node* node, ostream& stream);
+
 
 /******************************************************************************/
 /* NODE                                                                       */
@@ -153,37 +172,17 @@ struct Node
     NodeType type;
     size_t count;
 
-    Node() : type(Null), count(0) {}
+    explicit Node(size_t count = 0) : type(Null), count(count) {}
+    Node(NodeType type, size_t count) : type(type), count(count) {}
 
-    void record(NodeType newType)
-    {
-        // We assume that once set, the type of a node can't change.
-        ExcAssert(type == Null || type == newType);
-        type = newType;
-        count++;
-    }
+    virtual void record(RecordCtx& ctx, const Json::Value& json) = 0;
+    virtual Json::Value generate(GenerateCtx& ctx) const = 0;
+    virtual void dump(ostream& stream) const = 0;
+    virtual void load(Parse_Context& ctx) = 0;
 
-    void dump(ostream& stream) const
-    {
-        stream << "{"
-            << "\"type\":" << int(type)
-            << ",\"count\":" << count
-            << "}";
-    }
-
-    void load(Parse_Context& ctx)
-    {
-        expectJsonObject(ctx, [&] (string field, Parse_Context& ctx)
-                {
-                    if (debug) cerr << "    nod.load: " << field << endl;
-
-                    if      (field == "type")  type = NodeType(ctx.expect_int());
-                    else if (field == "count") count = ctx.expect_unsigned_long();
-
-                    else ExcCheck(false, "Unknown Node field: " + field);
-                });
-    }
+    virtual ~Node() {}
 };
+
 
 
 /******************************************************************************/
@@ -194,18 +193,14 @@ struct NodeLeaf : public Node
 {
     unordered_map<string, size_t> values;
 
-    void record(const Json::Value& json)
-    {
-        switch (json.type()) {
-        case Json::booleanValue: Node::record(Bool); break;
-        case Json::intValue:
-        case Json::uintValue:    Node::record(Integer); break;
-        case Json::realValue:    Node::record(Float); break;
-        case Json::stringValue:  Node::record(String); break;
-        case Json::nullValue:    // We treat nulls as json blobs.
-        default:                 Node::record(Json); break;
-        }
+    explicit NodeLeaf(NodeType type, size_t count = 0) : Node(type, count) {}
 
+    virtual void record(RecordCtx& ctx, const Json::Value& json)
+    {
+        if (type != Json)
+            ExcCheckEqual(type, getType(json), "Mixing json types");
+
+        count++;
         string value = json.toString();
 
         if (type == String) value = value.substr(1, value.size() - 3);
@@ -215,7 +210,7 @@ struct NodeLeaf : public Node
         if (debug) cerr << "    lef.rec: " << value << endl;
     }
 
-    Json::Value generate(GenContext& ctx) const
+    Json::Value generate(GenerateCtx& ctx) const
     {
         string value = pickRandom(values, count, ctx.rng);
 
@@ -239,34 +234,6 @@ struct NodeLeaf : public Node
     {
         stream << '{';
 
-        stream << "\"node\":";
-        Node::dump(stream);
-
-        stream << ",\"values\":";
-        dumpValues(stream);
-
-        stream << '}';
-    }
-
-    void load(Parse_Context& ctx)
-    {
-        expectJsonObject(ctx, [&] (string field, Parse_Context& ctx)
-                {
-                    if (debug) cerr << "    lef.load: " << field << endl;
-
-                    if      (field == "node")   Node::load(ctx);
-                    else if (field == "values") loadValues(ctx);
-
-                    else ExcCheck(false, "Unknown NodeLeaf field: " + field);
-                });
-    }
-
-private:
-
-    void dumpValues(ostream& stream) const
-    {
-        stream << '{';
-
         bool addSep = false;
         for (const auto& val : values) {
             if (addSep) stream << ',';
@@ -280,7 +247,7 @@ private:
         stream << '}';
     }
 
-    void loadValues(Parse_Context& ctx)
+    void load(Parse_Context& ctx)
     {
         expectJsonObject(ctx, [&] (string field, Parse_Context& ctx) {
                     if (debug) cerr << "        values: " << field << endl;
@@ -292,35 +259,30 @@ private:
 
 
 /******************************************************************************/
-/* NODE ARRAY                                                                 */
+/* NODE GENERATED                                                             */
 /******************************************************************************/
 
-struct NodeArray : public Node
+struct NodeGenerated : public Node
 {
-    unordered_map<size_t, size_t> sizes;
+    NodeGenerated(size_t count = 0) : Node(Generated, count) {}
 
-    unique_ptr<NodeObject> objects;
-    unique_ptr<NodeArray> arrays;
-    unique_ptr<NodeLeaf> leafs;
+    void record(RecordCtx&, const Json::Value&)
+    {
+        if (debug) cerr << "    gen.rec: " << endl;
 
-    void record(const Json::Value& json);
-    Json::Value generate(GenContext& ctx) const;
+        count++;
+    }
 
-    void dump(ostream& stream) const;
-    void load(Parse_Context& ctx);
+    Json::Value generate(GenerateCtx& ctx) const
+    {
+        if (debug) cerr << "    gen.gen: " << endl;
 
-private:
+        ExcCheck(ctx.generator, "can't generate a value without a generator");
+        return ctx.generator(ctx.path());
+    }
 
-    void check();
-
-    template<typename T>
-    Json::Value generate(size_t size, const T& values, GenContext& ctx) const;
-
-    void dumpSizes(ostream& stream) const;
-    void loadSizes(Parse_Context& ctx);
-
-    template<typename T>
-    void dump(ostream& stream, const string& name, const T& values) const;
+    void dump(ostream& stream) const { stream << "null"; }
+    void load(Parse_Context& ctx) { ctx.expect_literal("null"); }
 };
 
 
@@ -330,118 +292,53 @@ private:
 
 struct NodeObject : public Node
 {
-    unordered_map<string, NodeObject*> objects;
-    unordered_map<string, NodeArray*> arrays;
-    unordered_map<string, NodeLeaf*> leafs;
+    unordered_map<string, Node*> fields;
+
+    explicit NodeObject(size_t count = 0) : Node(Object, count) {}
 
     ~NodeObject()
     {
-        destroy(objects);
-        destroy(arrays);
-        destroy(leafs);
+        for (auto& field: fields)
+            delete field.second;
     }
 
-    void record(const Json::Value& json)
+    void record(RecordCtx& ctx, const Json::Value& json)
     {
-        Node::record(Object);
+        count++;
 
-        const auto& fields = json.getMemberNames();
-        for (const string& field : fields) {
-            const Json::Value& value = json[field];
+        const auto& members = json.getMemberNames();
 
-            if (value.type() == Json::objectValue)
-                get(objects, field).record(value);
+        for (const string& member : members) {
+            CtxGuard<RecordCtx> guard(ctx, member);
 
-            else if (value.type() == Json::arrayValue)
-                get(arrays, field).record(value);
+            const Json::Value& value = json[member];
+            if (debug) cerr << "    obj.rec: " << member << endl;
 
-            else get(leafs, field).record(value);
+            recordNode(ctx, fields[member], value);
         }
     }
 
-    Json::Value generate(GenContext& ctx) const
+    Json::Value generate(GenerateCtx& ctx) const
     {
-        Json::Value value;
+        Json::Value json;
 
-        generate(value, objects, ctx);
-        generate(value, arrays, ctx);
-        generate(value, leafs, ctx);
+        for (const auto& field : fields) {
+            double p = double(field.second->count) / double(count);
+            if (p < ctx.rng.random01()) continue;
 
-        return value;
+            CtxGuard<GenerateCtx> guard(ctx, field.first);
+
+            Json::Value value = field.second->generate(ctx);
+            if (debug) cerr << "    obj.gen: " << field.first << " -> " << value.toString();
+            if (!value.isNull()) json[field.first] = value;
+        }
+
+        return json;
     }
 
     void dump(ostream& stream) const
     {
-
-        stream << '{';
-
-        stream << "\"node\":";
-        Node::dump(stream);
-
-        if (objects.size()) dump(stream, "objects", objects);
-        if (arrays.size())  dump(stream, "arrays", arrays);
-        if (leafs.size())   dump(stream, "leafs", leafs);
-
-        stream << '}';
-    }
-
-    void load(Parse_Context& ctx)
-    {
-        expectJsonObject(ctx, [&] (string field, Parse_Context& ctx)
-                {
-                    if (debug) cerr << "    obj.load: " << field << endl;
-
-                    if      (field == "node")    Node::load(ctx);
-                    else if (field == "objects") load(ctx, objects);
-                    else if (field == "arrays")  load(ctx, arrays);
-                    else if (field == "leafs")   load(ctx, leafs);
-
-                    else ExcCheck(false, "Unknown NodeObject field: " + field);
-                });
-
-        if (debug) {
-            cerr << "    => " << this << " { ";
-            for (const auto& f : leafs) cerr << f.first << " ";
-            cerr << "}" << endl;
-        }
-
-    }
-
-private:
-
-    template<typename T>
-    void destroy(unordered_map<string, T>& values)
-    {
-        for (auto& val : values) {
-            delete val.second;
-            val.second = nullptr;
-        }
-        values.clear();
-    }
-
-    template<typename T>
-    void generate(
-            Json::Value& value,
-            const unordered_map<string, T> fields,
-            GenContext& ctx) const
-    {
-        for (const auto& field : fields) {
-            double p = double(get(field.second).count) / double(count);
-            if (p < ctx.rng.random01()) continue;
-
-            Json::Value val = get(field.second).generate(ctx);
-            if (debug) cerr << "    obj.gen: " << field.first << " -> " << val.toString();
-            if (!val.isNull()) value[field.first] = val;
-        }
-    }
-
-    template<typename T>
-    void dump(
-            ostream& stream,
-            const string& name,
-            const unordered_map<string, T> fields) const
-    {
-        stream << ",\"" << name << "\":{";
+        stream << "{";
 
         bool addSep = false;
         for (const auto& field : fields) {
@@ -449,18 +346,17 @@ private:
             addSep = true;
 
             stream << "\"" << field.first << "\":";
-            get(field.second).dump(stream);
+            dumpNode(field.second, stream);
         }
 
         stream << '}';
     }
 
-    template<typename T>
-    void load(Parse_Context& ctx, unordered_map<string, T>& fields) const
+    void load(Parse_Context& ctx)
     {
         expectJsonObject(ctx, [&] (string field, Parse_Context& ctx) {
                     if (debug) cerr << "        load: " << field << endl;
-                    get(fields, field).load(ctx);
+                    fields[field] = loadNode(ctx);
                 });
 
         if (debug) {
@@ -474,144 +370,202 @@ private:
 
 
 /******************************************************************************/
-/* NODE ARRAY IMPL                                                            */
+/* NODE ARRAY                                                                 */
 /******************************************************************************/
 
-void
-NodeArray::
-record(const Json::Value& json)
+struct NodeArray : public Node
 {
-    Node::record(Array);
-    sizes[json.size()]++;
+    NodeArray(size_t count) : Node(Array, count) {}
 
-    for (size_t i = 0; i < json.size(); ++i) {
-        const Json::Value& value = json[i];
+    void record(RecordCtx& ctx, const Json::Value& json)
+    {
+        count++;
+        sizes[json.size()]++;
 
-        if (value.type() == Json::objectValue)
-            get(objects).record(value);
+        CtxGuard<RecordCtx> guard(ctx, ArrayIndex);
 
-        else if (value.type() == Json::arrayValue)
-            get(arrays).record(value);
-
-        else get(leafs).record(value);
+        for (size_t i = 0; i < json.size(); ++i) {
+            const Json::Value& value = json[i];
+            NodeType type = getType(value);
+            recordNode(ctx, values[type], value);
+        }
     }
 
-    check();
+    Json::Value generate(GenerateCtx& ctx) const
+    {
+        Json::Value value;
+        size_t size = pickRandom(sizes, count, ctx.rng);
+
+        CtxGuard<GenerateCtx> guard(ctx, ArrayIndex);
+
+        for (size_t i = 0; i < size; ++i) {
+            Json::Value json = generateValue(ctx);
+            if (!json.isNull()) value.append(json);
+        }
+
+        return value;
+    }
+
+    void dump(ostream& stream) const
+    {
+        stream << '{';
+
+        stream << "\"sizes\":";
+        dumpSizes(stream);
+
+        stream << ",\"values\":";
+        dumpValues(stream);
+
+        stream << '}';
+    }
+
+    void load(Parse_Context& ctx)
+    {
+        expectJsonObject(ctx, [&] (string field, Parse_Context& ctx)
+                {
+                    if (debug) cerr << "    arr.load: " << field << endl;
+
+                    if      (field == "sizes")  loadSizes(ctx);
+                    else if (field == "values") loadValues(ctx);
+
+                    else ExcCheck(false, "Unknown NodeArray field: " + field);
+                });
+    }
+
+private:
+
+    Json::Value generateValue(GenerateCtx& ctx) const
+    {
+        size_t target = ctx.rng.random(count + 1);
+        size_t sum = 0;
+
+        for (const auto& it: values) {
+            if ((sum += it.second->count) >= target)
+                return it.second->generate(ctx);
+        }
+
+        ExcAssert(false);
+    }
+
+    void dumpSizes(ostream& stream) const
+    {
+        stream << '{';
+
+        bool addSep = false;
+        for (const auto& it : sizes) {
+            if (addSep) stream << ',';
+            else addSep = true;
+
+            stream << "\"" << it.first << "\":" << to_string(it.second);
+        }
+        stream << '}';
+    }
+
+    void loadSizes(Parse_Context& ctx)
+    {
+        expectJsonObject(ctx, [&] (string field, Parse_Context& ctx) {
+                    sizes[stoull(field)] = ctx.expect_unsigned_long();
+                });
+    }
+
+    void dumpValues(ostream& stream) const
+    {
+        stream << '[';
+
+        bool addSep = false;
+        for (const auto& value: values) {
+            if (addSep) stream << ',';
+            else addSep = true;
+
+            dumpNode(value.second, stream);
+        }
+        stream << ']';
+    }
+
+    void loadValues(Parse_Context& ctx)
+    {
+        expectJsonArray(ctx, [&] (int, Parse_Context& ctx) {
+                    std::unique_ptr<Node> node(loadNode(ctx));
+                    ExcAssert(!values.count(node->type));
+                    values[node->type] = node.release();
+                });
+    }
+
+    unordered_map<size_t, size_t> sizes;
+    unordered_map<NodeType, Node*, NodeTypeHash> values;
+};
+
+
+/******************************************************************************/
+/* UTILS IMPL                                                                 */
+/******************************************************************************/
+
+void recordNode(RecordCtx& ctx, Node* & node, const Json::Value& value)
+{
+    if (node) node->record(ctx, value);
+    else node = recordNode(ctx, value);
 }
 
-Json::Value
-NodeArray::
-generate(GenContext& ctx) const
+Node* recordNode(RecordCtx& ctx, const Json::Value& value)
 {
-    size_t size = pickRandom(sizes, count, ctx.rng);
+    std::unique_ptr<Node> node;
 
-    if (objects) return generate(size, get(objects), ctx);
-    if (arrays)  return generate(size, get(arrays), ctx);
-    if (leafs)   return generate(size, get(leafs), ctx);
+    if (ctx.isCutoff && ctx.isCutoff(ctx.path()))
+        node.reset(new NodeLeaf(Json, 0));
 
-    ExcAssert(false);
-    return Json::Value();
+    else if (ctx.isGenerated && ctx.isGenerated(ctx.path()))
+        node.reset(new NodeGenerated());
+
+    else {
+        switch (getType(value)) {
+        case Object: node.reset(new NodeObject(0)); break;
+        case Array:  node.reset(new NodeArray(0)); break;
+        default:     node.reset(new NodeLeaf(getType(value), 0)); break;
+        }
+    }
+
+    node->record(ctx, value);
+    return node.release();
 }
 
 
-void
-NodeArray::
-dump(ostream& stream) const
+Node* loadNode(Parse_Context& ctx)
 {
-    stream << '{';
+    NodeType type = Null;
+    size_t count = 0;
+    unique_ptr<Node> node;
 
-    stream << "\"node\":";
-    Node::dump(stream);
-
-    stream << ",\"sizes\":";
-    dumpSizes(stream);
-
-    if      (objects) dump(stream, "objects", get(objects));
-    else if (arrays)  dump(stream, "arrays", get(arrays));
-    else if (leafs)   dump(stream, "leafs", get(leafs));
-
-    stream << '}';
-}
-
-void
-NodeArray::
-load(Parse_Context& ctx)
-{
     expectJsonObject(ctx, [&] (string field, Parse_Context& ctx)
             {
-                if (debug) cerr << "    arr.load: " << field << endl;
+                if (debug) cerr << "    nod.load: " << field << endl;
 
-                if      (field == "node")    Node::load(ctx);
-                else if (field == "sizes")   loadSizes(ctx);
-                else if (field == "objects") get(objects).load(ctx);
-                else if (field == "arrays")  get(arrays).load(ctx);
-                else if (field == "leafs")   get(leafs).load(ctx);
+                if      (field == "type") type = NodeType(ctx.expect_int());
+                else if (field == "count") count = ctx.expect_unsigned_long();
+                else if (field == "node") {
+                    switch (type) {
+                    case Generated: node.reset(new NodeGenerated(count)); break;
+                    case Object:    node.reset(new NodeObject(count)); break;
+                    case Array:     node.reset(new NodeArray(count)); break;
+                    default:        node.reset(new NodeLeaf(type, count)); break;
+                    }
+                    node->load(ctx);
+                }
 
-                else ExcCheck(false, "Unknown NodeArray field: " + field);
+                else ExcCheck(false, "Unknown Node field: " + field);
             });
-    check();
+
+    return node.release();
 }
 
-void
-NodeArray::
-check()
+void dumpNode(Node* node, ostream& stream)
 {
-    // We're assuming that there's only one type of element in the array.
-    ExcAssert(
-            ( objects && !arrays && !leafs) ||
-            (!objects &&  arrays && !leafs) ||
-            (!objects && !arrays &&  leafs));
+    stream << "{"
+        << "\"type\":" << int(node->type)
+        << ",\"count\":" << node->count
+        << ",\"node\":";
+    node->dump(stream);
+    stream << "}";
 }
-
-template<typename T>
-Json::Value
-NodeArray::
-generate(size_t size, const T& values, GenContext& ctx) const
-{
-    Json::Value array;
-
-    for (size_t i = 0; i < size; ++i) {
-        Json::Value val = values.generate(ctx);
-        if (!val.isNull()) array.append(val);
-    }
-
-    return array;
-}
-
-void
-NodeArray::
-dumpSizes(ostream& stream) const
-{
-    stream << '{';
-
-    bool addSep = false;
-    for (const auto& it : sizes) {
-        if (addSep) stream << ',';
-        else addSep = true;
-
-        stream << "\"" << it.first << "\":" << to_string(it.second);
-    }
-    stream << '}';
-}
-
-void
-NodeArray::
-loadSizes(Parse_Context& ctx)
-{
-    expectJsonObject(ctx, [&] (string field, Parse_Context& ctx) {
-                sizes[stoull(field)] = ctx.expect_unsigned_long();
-            });
-}
-
-template<typename T>
-void
-NodeArray::
-dump(ostream& stream, const string& name, const T& values) const
-{
-    stream << ",\"" << name << "\":";
-    values.dump(stream);
-}
-
 
 } // namepsace Synth
 
@@ -622,7 +576,7 @@ dump(ostream& stream, const string& name, const T& values) const
 
 BidRequestSynth::
 BidRequestSynth() :
-    values(make_shared<Synth::NodeObject>())
+    values(new Synth::NodeObject(0))
 {}
 
 void
@@ -630,16 +584,24 @@ BidRequestSynth::
 record(const Json::Value& json)
 {
     if (Synth::debug) cerr << "RECORD:" << endl;
-    values->record(json);
+
+    Synth::RecordCtx ctx;
+    ctx.isGenerated = isGeneratedFn;
+    ctx.isCutoff = isCutoffFn;
+
+    values->record(ctx, json);
 }
 
 Json::Value
 BidRequestSynth::
-generate() const
+generate(uint32_t seed) const
 {
     if (Synth::debug) cerr << "GENERATE:" << endl;
 
-    Synth::GenContext ctx;
+    Synth::GenerateCtx ctx;
+    ctx.rng.seed(seed);
+    ctx.generator = generatorFn;
+
     return values->generate(ctx);
 }
 
@@ -647,7 +609,8 @@ void
 BidRequestSynth::
 dump(std::ostream& stream)
 {
-    values->dump(stream);
+    if (Synth::debug) cerr << "DUMP:" << endl;
+    Synth::dumpNode(values.get(), stream);
 }
 
 void
@@ -656,12 +619,8 @@ load(std::istream& stream)
 {
     if (Synth::debug) cerr << "LOAD:" << endl;
 
-    auto newValues = make_shared<Synth::NodeObject>();
-
     Parse_Context ctx("", stream);
-    newValues->load(ctx);
-
-    values.swap(newValues);
+    values.reset(Synth::loadNode(ctx));
 }
 
 

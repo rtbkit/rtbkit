@@ -21,14 +21,6 @@ struct DefaultDescription<FBX::BidRequest>
 };
 
 template<>
-struct DefaultDescription<FBX::PageTypeCode>
-    : public TaggedEnumDescription<FBX::PageTypeCode> {
-    DefaultDescription()
-    {
-    }
-};
-
-template<>
 struct DefaultDescription<FBX::RtbUserContext>
     : public StructureDescription<FBX::RtbUserContext> {
     DefaultDescription();

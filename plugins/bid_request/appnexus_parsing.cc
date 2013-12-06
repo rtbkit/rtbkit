@@ -13,62 +13,37 @@ using namespace std;
 
 namespace Datacratic {
 
-
 DefaultDescription<AppNexus::BidRequest>::
 DefaultDescription()
 {
-        onUnknownField = [=] (AppNexus::BidRequest* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
+    collectUnparseableJson(&AppNexus::BidRequest::unparseable);
+    addField("bid_request", &AppNexus::BidRequest::bidRequest, "Bid Request");
+}
 
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
+DefaultDescription<AppNexus::BidRequestMsg>::
+DefaultDescription()
+{
+    collectUnparseableJson(&AppNexus::BidRequestMsg::unparseable);
 
-            getEntry(0, br->unparseable)
-                = context.expectJson();
-        };
-
-    addField("member_ad_profile_id", &AppNexus::BidRequest::memberAdProfileId, "Bid Request ID");
-    addField("timestamp", &AppNexus::BidRequest::timestamp, "Timestamp");
-    addField("bidder_timeout_ms", &AppNexus::BidRequest::bidderTimeoutMs, "Bidder timeout ms");
-    addField("bid_info", &AppNexus::BidRequest::bidInfo, "AN BidInfo object");
-    addField("members", &AppNexus::BidRequest::members, "Array of AN Members Json object");
-    addField("tags", &AppNexus::BidRequest::tags, "Array of AN Tags objects");
-    addField("allow_exclusive", &AppNexus::BidRequest::allowExclusive, "Allow exclusive inventory flag");
-    addField("debug_requested", &AppNexus::BidRequest::debugRequested, "Flag to mark this bid request for debugging");
-    addField("debug_member_id", &AppNexus::BidRequest::debugMemberId, "AN customer requesting debug");
-    addField("test", &AppNexus::BidRequest::test, "Flag marking bid request as a test call");
-    addField("excluded_attributes", &AppNexus::BidRequest::excludedAttributes, "Array of Ids of excluded attributes");
-    addField("single_phase", &AppNexus::BidRequest::singlePhase, "AN-specific flag");
-    addField("unparseable", &AppNexus::BidRequest::unparseable, "Unparseable fields are collected here");
+    addField("member_ad_profile_id", &AppNexus::BidRequestMsg::memberAdProfileId, "Bid Request ID");
+    addField("timestamp", &AppNexus::BidRequestMsg::timestamp, "Timestamp");
+    addField("bidder_timeout_ms", &AppNexus::BidRequestMsg::bidderTimeoutMs, "Bidder timeout ms");
+    addField("bid_info", &AppNexus::BidRequestMsg::bidInfo, "AN BidInfo object");
+    addField("members", &AppNexus::BidRequestMsg::members, "Array of AN Members Json object");
+    addField("tags", &AppNexus::BidRequestMsg::tags, "Array of AN Tags objects");
+    addField("allow_exclusive", &AppNexus::BidRequestMsg::allowExclusive, "Allow exclusive inventory flag");
+    addField("debug_requested", &AppNexus::BidRequestMsg::debugRequested, "Flag to mark this bid request for debugging");
+    addField("debug_member_id", &AppNexus::BidRequestMsg::debugMemberId, "AN customer requesting debug");
+    addField("test", &AppNexus::BidRequestMsg::test, "Flag marking bid request as a test call");
+    addField("excluded_attributes", &AppNexus::BidRequestMsg::excludedAttributes, "Array of Ids of excluded attributes");
+    addField("single_phase", &AppNexus::BidRequestMsg::singlePhase, "AN-specific flag");
+    addField("unparseable", &AppNexus::BidRequestMsg::unparseable, "Unparseable fields are collected here");
 }
 
 DefaultDescription<AppNexus::BidInfo>::
 DefaultDescription()
 {
-    onUnknownField = [=] (AppNexus::BidInfo* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable) = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::BidInfo::unparseable);
 
     addField("user_id_64", &AppNexus::BidInfo::userId64, "Bid request userId in AN namespace");
     addField("user_agent", &AppNexus::BidInfo::userAgent, "Bid request client user agent");
@@ -108,22 +83,7 @@ DefaultDescription()
 DefaultDescription<AppNexus::Segment>::
 DefaultDescription()
 {
-    onUnknownField = [=] (AppNexus::Segment* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable) = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::Segment::unparseable);
 
     addField("id", &AppNexus::Segment::id, "AN segment Id");
     addField("member_id", &AppNexus::Segment::memberId, "AN member that owns the segment");
@@ -135,22 +95,7 @@ DefaultDescription()
 DefaultDescription<AppNexus::InventoryAudit>::
 DefaultDescription()
 {
-    onUnknownField = [=] (AppNexus::InventoryAudit* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable) = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::InventoryAudit::unparseable);
 
     addField("auditor_member_id", &AppNexus::InventoryAudit::auditorMemberId, "AN member Id");
     addField("intended_audience", &AppNexus::InventoryAudit::intendedAudience, "AN enum set of audience textual codes");
@@ -162,22 +107,7 @@ DefaultDescription()
 DefaultDescription<AppNexus::Tag>::
 DefaultDescription()
 {
-    onUnknownField = [=] (AppNexus::Tag* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable) = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::Tag::unparseable);
 
     addField("auction_id_64", &AppNexus::Tag::auctionId64, "AN auction Id");
     addField("id", &AppNexus::Tag::id, "TinyTag Id. TinyTag is AN mechanism for user to label partitions of inventory.");
@@ -210,22 +140,7 @@ DefaultDescription()
 DefaultDescription<AppNexus::Member>::
 DefaultDescription()
 {
-    onUnknownField = [=] (AppNexus::Member* br, JsonParsingContext & context)
-        {
-            //cerr << "got unknown field " << context.printPath() << endl;
-
-            std::function<Json::Value & (int, Json::Value &)> getEntry
-            = [&] (int n, Json::Value & curr) -> Json::Value &
-            {
-                if (n == context.path.size())
-                    return curr;
-                else if (context.path[n].index != -1)
-                    return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
-            };
-
-            getEntry(0, br->unparseable) = context.expectJson();
-        };
+    collectUnparseableJson(&AppNexus::Member::unparseable);
 
     addField("id", &AppNexus::Member::id, "AN member Id");
     addField("unparseable", &AppNexus::Member::unparseable, "Unparseable fields are collected here");

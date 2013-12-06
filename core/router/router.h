@@ -389,6 +389,7 @@ public:
     Agents agents;
 
     ML::RingBufferSRMW<std::pair<std::string, std::shared_ptr<const AgentConfig> > > configBuffer;
+    ML::RingBufferSRMW<std::shared_ptr<ExchangeConnector> > exchangeBuffer;
     ML::RingBufferSRMW<std::shared_ptr<AugmentationInfo> > startBiddingBuffer;
     ML::RingBufferSRMW<std::shared_ptr<Auction> > submittedBuffer;
     ML::RingBufferSWMR<std::shared_ptr<Auction> > auctionGraveyard;
@@ -594,6 +595,75 @@ public:
     }
 
 
+    /************************************************************************/
+    /* USAGE METRICS                                                        */
+    /************************************************************************/
+
+    struct AgentUsageMetrics {
+        AgentUsageMetrics()
+            : intoFilters(0), passedStaticFilters(0), auctions(0), bids(0)
+        {}
+
+        AgentUsageMetrics(uint64_t intoFilters,
+                          uint64_t passedStaticFilters,
+                          uint64_t auctions,
+                          uint64_t bids)
+            : intoFilters(intoFilters),
+              passedStaticFilters(passedStaticFilters), auctions(auctions),
+              bids(bids)
+        {}
+
+        AgentUsageMetrics operator - (const AgentUsageMetrics & other)
+            const
+        {
+            AgentUsageMetrics result(*this);
+
+            result.intoFilters -= other.intoFilters;
+            result.passedStaticFilters -= other.passedStaticFilters;
+            result.auctions -= other.auctions;
+            result.bids -= other.bids;
+
+            return result;
+        };
+
+        uint64_t intoFilters;
+        uint64_t passedStaticFilters;
+        uint64_t auctions;
+        uint64_t bids;
+    };
+
+    struct RouterUsageMetrics {
+        RouterUsageMetrics()
+            : numRequests(0), numAuctions(0), numNoPotentialBidders(0),
+              numBids(0), numAuctionsWithBid(0)
+        {}
+
+        RouterUsageMetrics operator - (const RouterUsageMetrics & other)
+            const
+        {
+            RouterUsageMetrics result(*this);
+
+            result.numRequests -= other.numRequests;
+            result.numAuctions -= other.numAuctions;
+            result.numNoPotentialBidders -= other.numNoPotentialBidders;
+            result.numBids -= other.numBids;
+            result.numAuctionsWithBid -= other.numAuctionsWithBid;
+
+            return result;
+        };
+
+        uint64_t numRequests;
+        uint64_t numAuctions;
+        uint64_t numNoPotentialBidders;
+        uint64_t numBids;
+        uint64_t numAuctionsWithBid;
+    };
+
+    void logUsageMetrics(double period);
+
+    std::map<std::string, AgentUsageMetrics> lastAgentUsageMetrics;
+    RouterUsageMetrics lastRouterUsageMetrics;
+
     /*************************************************************************/
     /* DATA LOGGING                                                          */
     /*************************************************************************/
@@ -603,8 +673,6 @@ public:
 
     /** Log bids */
     bool logBids;
-
-    void logUsageMetrics(double period);
 
     /** Log a given message to the given channel. */
     template<typename... Args>

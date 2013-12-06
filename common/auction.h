@@ -310,15 +310,3 @@ CREATE_CLASS_DESCRIPTION_NAMED(AuctionResponseDescription,
 
 } // namespace RTBKIT
 
-namespace Datacratic
-{
-
-template<>
-struct DefaultDescription<RTBKIT::Auction::WinLoss> :
-    public TaggedEnumDescription<RTBKIT::Auction::WinLoss> {
-    DefaultDescription() {
-    }
-};
-
-}
-
