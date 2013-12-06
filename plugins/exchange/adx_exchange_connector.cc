@@ -305,6 +305,16 @@ ParseGbrAdSlot (const GoogleBidRequest& gbr, BidRequest& br)
             for (auto i: boost::irange(0,slot.excluded_sensitive_category_size()))
                 tmp.push_back(slot.excluded_sensitive_category(i));
             spot.restrictions.addInts("excluded_sensitive_category", tmp);
+
+            vector<std::string> adg_ids;
+            for (auto i: boost::irange(0,slot.matching_ad_data_size())){
+                if(slot.matching_ad_data(i).has_adgroup_id()){
+                    adg_ids.push_back(
+                        boost::lexical_cast<std::string>(
+                            slot.matching_ad_data(i).adgroup_id()));
+                }
+            }
+            spot.restrictions.addStrings("allowed_adgroup", adg_ids);
         }
 
         if (slot.has_slot_visibility())
@@ -531,7 +541,6 @@ parseBidRequest(HttpAuctionHandler & connection,
                                         gbr.detected_vertical(i).weight()));
         br.segments.addWeightedInts("AdxDetectedVerticals", segs);
     }
-
     // auto str = res->toJsonStr();
     // cerr << "RTBKIT::BidRequest: " << str << endl ;
     return res ;
@@ -620,6 +629,10 @@ getResponse(const HttpAuctionHandler & connection,
         ad->add_click_through_url(myFormat(crinfo->click_through_url_,dict)) ;
         adslot->set_max_cpm_micros(MicroUSD_CPM(resp.price.maxPrice));
         adslot->set_id(auction.request->imp[spotNum].id.toInt());
+        if(!crinfo->adgroup_id_.empty()){            
+            adslot->set_adgroup_id(
+                boost::lexical_cast<uint64_t>(crinfo->adgroup_id_));
+        }
     }
     return HttpResponse(200, "application/octet-stream", gresp.SerializeAsString());
 }
@@ -766,6 +779,15 @@ getCreativeCompatibility(const Creative & creative,
         });
     }
 
+    /* 
+       8. adGroupId is an optional paramater, this must always 
+          be set if the BidRequest has more than one 
+          BidRequest.AdSlot.matching_ad_data 
+    */
+    int64_t adgroup_id = 0;
+    getAttr(result, pconf, "adGroupId", adgroup_id, includeReasons, true);
+    crinfo->adgroup_id_ = boost::lexical_cast<std::string>(adgroup_id);
+
     if (result.isCompatible) {
         // Cache the information
         result.info = crinfo;
@@ -816,6 +838,16 @@ bidRequestCreativeFilter(const BidRequest & request,
                 this->recordHit ("vendor_type_not_allowed");
                 return false ;
             }
+
+        const auto& allowed_adgroup_seg =
+            spot.restrictions.get("allowed_adgroup");
+        if (!allowed_adgroup_seg.contains(crinfo->adgroup_id_) 
+                 && !allowed_adgroup_seg.empty()
+                 && !crinfo->adgroup_id_.empty())
+        {
+            this->recordHit ("adgroup_not_allowed");
+            return false ;
+        }
     }
     return true;
 }
