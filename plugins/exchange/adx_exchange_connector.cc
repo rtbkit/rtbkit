@@ -315,6 +315,11 @@ ParseGbrAdSlot (const GoogleBidRequest& gbr, BidRequest& br)
                 }
             }
             spot.restrictions.addStrings("allowed_adgroup", adg_ids);
+
+            tmp.clear();
+            for (auto i: boost::irange(0,slot.allowed_restricted_category_size()))
+                tmp.push_back(slot.allowed_restricted_category(i));
+            spot.restrictions.addInts("allowed_restricted_category", tmp);
         }
 
         if (slot.has_slot_visibility())
@@ -637,6 +642,8 @@ getResponse(const HttpAuctionHandler & connection,
             adslot->set_adgroup_id(
                 boost::lexical_cast<uint64_t>(crinfo->adgroup_id_));
         }
+        for(auto& cat : crinfo->restricted_category_)
+            ad->add_restricted_category(cat);
     }
     return HttpResponse(200, "application/octet-stream", gresp.SerializeAsString());
 }
@@ -792,6 +799,25 @@ getCreativeCompatibility(const Creative & creative,
     getAttr(result, pconf, "adGroupId", adgroup_id, includeReasons, true);
     crinfo->adgroup_id_ = boost::lexical_cast<std::string>(adgroup_id);
 
+    /*
+       9. If you are bidding with ads in restricted categories 
+          you MUST declare them in restrictedCategories.
+    */
+    tmp.clear();
+    getAttr(result, pconf, "restrictedCategory", tmp, includeReasons);
+    if (!tmp.empty())
+    {
+        tokenizer<> tok(tmp);
+        auto& ints = crinfo->restricted_category_;
+        transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return std::stoi(s);
+        });
+        if(ints.size() == 1 && *ints.begin() == 0){
+           ints.clear(); 
+        }
+    }
+
     if (result.isCompatible) {
         // Cache the information
         result.info = crinfo;
@@ -852,6 +878,20 @@ bidRequestCreativeFilter(const BidRequest & request,
             this->recordHit ("adgroup_not_allowed");
             return false ;
         }
+
+        const auto& allowed_restricted_category_seg =
+            spot.restrictions.get("allowed_restricted_category");
+        for (auto atr: crinfo->restricted_category_)
+            if (    (!allowed_restricted_category_seg.contains(atr) 
+                  && !allowed_restricted_category_seg.empty())
+                ||
+                    (allowed_restricted_category_seg.empty()
+                  && !crinfo->restricted_category_.empty())
+                )
+            {
+                this->recordHit ("restricted_category_not_allowed");
+                return false ;
+            }
     }
     return true;
 }
