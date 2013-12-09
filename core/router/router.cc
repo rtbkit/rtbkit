@@ -5,6 +5,7 @@
    RTB router code.
 */
 
+#include <set>
 #include "router.h"
 #include "soa/service/zmq_utils.h"
 #include "jml/arch/backtrace.h"
@@ -23,7 +24,6 @@
 #include "jml/utils/exc_assert.h"
 #include "jml/db/persistent.h"
 #include "jml/utils/json_parsing.h"
-#include <boost/make_shared.hpp>
 #include "profiler.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/core/banker/null_banker.h"
@@ -854,8 +854,13 @@ logUsageMetrics(double period)
         }
     }
 
+    set<AccountKey> agentAccounts;
     for (const auto & item : agents) {
         auto & info = item.second;
+        const AccountKey & account = info.config->account;
+        if (!agentAccounts.insert(account).second) {
+            continue;
+        }
 
         auto & last = lastAgentUsageMetrics[item.first];
 
