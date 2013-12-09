@@ -858,10 +858,9 @@ logUsageMetrics(double period)
     for (const auto & item : agents) {
         auto & info = item.second;
         const AccountKey & account = info.config->account;
-        if (agentAccounts.find(account) != agentAccounts.end()) {
+        if (!agentAccounts.insert(account).second) {
             continue;
         }
-        agentAccounts.insert(account);
 
         auto & last = lastAgentUsageMetrics[item.first];
 
