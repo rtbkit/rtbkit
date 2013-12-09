@@ -1,6 +1,7 @@
-/* lotame_import_service.h                                         -*- C++ -*-
-   Jeremy Barnes, 22 April 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+/*
+ * This file is used to illustrate various uses of the REST API
+ * Start with
+ * make run_rest_api_example ARGS=" --listen-port 8088"
 
 */
 
@@ -47,19 +48,34 @@ struct RestAPIExampleService: public ServiceBase, public RestServiceEndpoint {
        {
        	std::cerr << path_param << "  " << stuff <<  std::endl;
        };
-    void echoParamFn2(const std::string & a_value,
+    void echoSyncParam(const std::string & a_value,
         		         const std::string & stuff)
            {
            	std::cerr << a_value << "  " << stuff <<  std::endl;
            };
 
+    void echoAsyncParam(const std::string & a_value,
+    		           const RestServiceEndpoint::ConnectionId & connection)
+               {
+               	std::cerr << a_value << std::endl;
+               	connection.sendResponse(200, a_value, "text/plain");
+               };
+
     void init() {
     	registerServiceProvider(serviceName(), { "RestApiExample" });
     	RestServiceEndpoint::init(getServices()->config, serviceName());
     	router.description = "Datacratic REST API Example";
+    	// this function must be declared (TODO check why)
     	onHandleRequest = router.requestHandler();
+
+    	// defines the help route
+    	// The return value of the help route is automatically built using the information from the other routes of the system
+    	//
     	router.addHelpRoute("/", "GET");
 
+
+    	// Illustrates using the Router instead of the helper functions to add a route
+    	//
         RestRequestRouter::OnProcessRequest pingRoute
             = [] (const RestServiceEndpoint::ConnectionId & connection,
                   const RestRequest & request,
@@ -72,14 +88,18 @@ struct RestAPIExampleService: public ServiceBase, public RestServiceEndpoint {
                         pingRoute,
                         Json::Value());
 
-        auto & versionNode = router.addSubRouter("/v1", "version 1 of API");
+        // illustrates using sub routes
+        //
         auto & paramsNode = router.addSubRouter("/params", "param example");
+        auto & asyncNode = router.addSubRouter("/async", "async call example");
+        auto & versionNode = router.addSubRouter("/v1", "version 1 of API");
         auto & urlParamNode = versionNode.addSubRouter(Rx("/([^/]*)","/<path>"), "url path");
 
         // Illustrates extracting a parameter from the url path
         // example:
         //		http://localhost:8088/v1/params_value
         //			will call echoParaFn with path_param= param_value
+        //
         RequestParam<std::string> pathParam(2, "<echo_val>", "echo value");
 
         addRouteSync(urlParamNode,
@@ -95,17 +115,36 @@ struct RestAPIExampleService: public ServiceBase, public RestServiceEndpoint {
         //Illustrates getting the parameters from the url parameters
         // example:
         //         http://localhost:8088/params?a_value=toto&stuff=bof
-        //				will call the echoParamFn2 with a_value = toto and stuff = bof
+        //				will call the echoSyncParam with a_value = toto and stuff = bof
         //         http://localhost:8088/params?a_value=toto
-        //              will call the echoParamFn2 with a_value = toto and stuff = default_stuff
+        //              will call the echoSyncParam with a_value = toto and stuff = default_stuff
         addRouteSync(paramsNode,
                            "",
                            {"GET"},
                            "echo a part of the path",
-                           &RestAPIExampleService::echoParamFn2,
+                           &RestAPIExampleService::echoSyncParam,
                            this,
                            RestParam<std::string>("a_value", "a value"),
                            RestParamDefault<std::string>("stuff", "stuff", "default_stuff")
+                           );
+
+
+        // Illustrates using the async helper functions and also the use of the ConnectionId from within the callback.
+        // The return value must be managed manually. In this case
+        // we use the connection parameter to send the reply.
+        // example:
+        //         http://localhost:8088/async?&stuff=bof
+        //				will call the echoAsyncParam with a_value = toto and stuff = bof
+        //         http://localhost:8088/params?a_value=toto
+        //              will call the echoAsyncParam with a_value = toto and stuff = default_stuff
+        addRouteAsync(asyncNode,
+                           "",
+                           {"GET"},
+                           "echo a part of the path",
+                           &RestAPIExampleService::echoAsyncParam,
+                           this,
+                           RestParamDefault<std::string>("a_value", "a_value", "default_stuff"),
+                           PassConnectionId()
                            );
 
 
@@ -177,8 +216,6 @@ int main(int argc, char ** argv)
     string sqsQueueUri;
 
     configuration_options.add_options()
-        ("output-path,o", value(&outputPath),
-         "write files to this path (can be s3://...)")
         ("listen-port,p", value(&listenPort),
          "listen on given port (4888)")
         ("listen-host,h", value(&listenHost),
@@ -208,9 +245,6 @@ int main(int argc, char ** argv)
     }
 
     auto proxies = serviceArgs.makeServiceProxies();
-
-    if (outputPath.empty())
-        throw ML::Exception("output path must be specified");
 
     RestAPIExampleService service(proxies, "pixelServerService", outputPath);
     service.init();
