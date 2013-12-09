@@ -627,6 +627,8 @@ getResponse(const HttpAuctionHandler & connection,
         ad->set_buyer_creative_id(crinfo->buyer_creative_id_);
         ad->set_html_snippet(myFormat(crinfo->html_snippet_,dict));
         ad->add_click_through_url(myFormat(crinfo->click_through_url_,dict)) ;
+        for(auto& vt : crinfo->vendor_type_)
+            ad->add_vendor_type(vt);
         adslot->set_max_cpm_micros(MicroUSD_CPM(resp.price.maxPrice));
         adslot->set_id(auction.request->imp[spotNum].id.toInt());
         if(!crinfo->adgroup_id_.empty()){            
