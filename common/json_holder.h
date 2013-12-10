@@ -118,11 +118,12 @@ struct JsonHolder {
 
     static void createDescription(JsonHolderDescription&);
 
+    mutable std::string str;
+
 private:    
     void makeString() const;
     void makeJson() const;
 
-    mutable std::string str;
     mutable std::shared_ptr<const Json::Value> parsed;
 };
 
@@ -134,3 +135,13 @@ CREATE_CLASS_DESCRIPTION(JsonHolder)
 
 } // namespace RTBKIT
 
+
+namespace Datacratic {
+
+template<>
+struct DefaultDescription<RTBKIT::JsonHolder>
+  : public StructureDescription<RTBKIT::JsonHolder> {
+    DefaultDescription();
+};
+
+} // namespace Datacratic
