@@ -43,7 +43,8 @@ EndpointBase(const std::string & name)
     : idle(1), modifyIdle(true),
       name_(name),
       threadsActive_(0),
-      numTransports(0), shutdown_(false), disallowTimers_(false)
+      numTransports(0), shutdown_(false), disallowTimers_(false),
+      realTimePolling_(false)
 {
     Epoller::init(16384);
     auto wakeupData = make_shared<EpollData>(EpollData::EpollDataType::WAKEUP,
