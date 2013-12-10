@@ -108,7 +108,7 @@ struct EndpointBase : public Epoller {
     /** Helps reduce latency jitter caused by the polling loop at the cost of
         busy looping the CPU (100% usage).
     */
-    void realTimePolling(bool value) { realTimePolling_ = true; }
+    void realTimePolling(bool value) { realTimePolling_ = value; }
 
     /** Spin up the threads as part of the initialization.  NOTE: make sure that this is
         only called once; normally it will be done as part of init().  Calling directly is
