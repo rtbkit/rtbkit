@@ -116,8 +116,6 @@ struct JsonHolder {
     JML_IMPLEMENT_OPERATOR_BOOL(valid());
 #endif
 
-    static void createDescription(JsonHolderDescription&);
-
     mutable std::string str;
 
 private:    
@@ -130,8 +128,6 @@ private:
 IMPL_SERIALIZE_RECONSTITUTE(JsonHolder);
 
 std::ostream & operator << (std::ostream & stream, const JsonHolder & json);
-
-CREATE_CLASS_DESCRIPTION(JsonHolder)
 
 } // namespace RTBKIT
 
