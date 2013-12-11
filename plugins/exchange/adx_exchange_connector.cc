@@ -749,7 +749,7 @@ getCreativeCompatibility(const Creative & creative,
 
     string tmp;
     const auto to_int = [] (const string& str) {
-        return atoi(str.c_str());
+        return std::stoi(str);
     };
 
     // 5.  Must have vendorType
@@ -760,7 +760,7 @@ getCreativeCompatibility(const Creative & creative,
         auto& ints = crinfo->vendor_type_;
         transform(tok.begin(), tok.end(),
         std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return atoi(s.data());
+            return std::stoi(s);
         });
     }
 
@@ -773,7 +773,7 @@ getCreativeCompatibility(const Creative & creative,
         auto& ints = crinfo->attribute_;
         transform(tok.begin(), tok.end(),
         std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return atoi(s.data());
+            return std::stoi(s);
         });
     }
 
@@ -786,7 +786,7 @@ getCreativeCompatibility(const Creative & creative,
         auto& ints = crinfo->category_;
         transform(tok.begin(), tok.end(),
         std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return atoi(s.data());
+            return std::stoi(s);
         });
     }
 
