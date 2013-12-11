@@ -1641,6 +1641,21 @@ std::string jsonEncodeStr(const T & obj,
     return std::move(stream.str());
 }
 
+// jsonEncode implementation for any type which:
+// 1) has a default description;
+// 2) does NOT have a toJson() function (there is a simpler overload for this case)
+template<typename T>
+std::ostream & jsonEncodeToStream(const T & obj,
+                                  std::ostream & stream,
+                                  decltype(getDefaultDescription((T *)0)) * = 0,
+                                  typename std::enable_if<!hasToJson<T>::value>::type * = 0)
+{
+    static auto desc = getDefaultDescriptionShared<T>();
+    StreamJsonPrintingContext context(stream);
+    desc->printJson(&obj, context);
+    return stream;
+}
+
 inline Json::Value jsonEncode(const char * str)
 {
     return str;
