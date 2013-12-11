@@ -1428,6 +1428,15 @@ Value::toString() const
    return writer.write( *this );
 }
 
+std::string
+Value::toStringNoNewLine() const
+{
+    std::string str = toString();
+    if (str.back() == '\n')
+        str.erase(str.size() - 1);
+    return std::move(str);
+}
+
 
 Value::const_iterator
 Value::begin() const
