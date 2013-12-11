@@ -68,4 +68,6 @@ BOOST_AUTO_TEST_CASE( test1 )
     BOOST_CHECK_THROW(testFp(".", 0.1), std::exception);
     BOOST_CHECK_THROW(testFp("", 0.1), std::exception);
     BOOST_CHECK_THROW(testFp("e3", 0.1), std::exception);
+    BOOST_CHECK_THROW(testFp("3e", 0.1), std::exception);
+    BOOST_CHECK_THROW(testFp("3.1aade", 0.1), std::exception);
 }

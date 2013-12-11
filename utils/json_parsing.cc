@@ -511,14 +511,32 @@ JsonNumber expectJsonNumber(Parse_Context & context)
 
     try {
         JML_TRACE_EXCEPTIONS(false);
+        if (number.empty())
+            context.exception("expected number");
+
         if (doublePrecision) {
-            result.fp = boost::lexical_cast<double>(number);
+            char * endptr = 0;
+            errno = 0;
+            result.fp = strtod(number.c_str(), &endptr);
+            if (errno || endptr != number.c_str() + number.length())
+                context.exception(ML::format("failed to convert '%s' to long long",
+                                             number.c_str()));
             result.type = JsonNumber::FLOATING_POINT;
         } else if (negative) {
-            result.sgn = boost::lexical_cast<long long>(number);
+            char * endptr = 0;
+            errno = 0;
+            result.sgn = strtol(number.c_str(), &endptr, 10);
+            if (errno || endptr != number.c_str() + number.length())
+                context.exception(ML::format("failed to convert '%s' to long long",
+                                             number.c_str()));
             result.type = JsonNumber::SIGNED_INT;
         } else {
-            result.uns = boost::lexical_cast<unsigned long long>(number);
+            char * endptr = 0;
+            errno = 0;
+            result.uns = strtoull(number.c_str(), &endptr, 10);
+            if (errno || endptr != number.c_str() + number.length())
+                context.exception(ML::format("failed to convert '%s' to unsigned long long",
+                                             number.c_str()));
             result.type = JsonNumber::UNSIGNED_INT;
         }
     } catch (const std::exception & exc) {
