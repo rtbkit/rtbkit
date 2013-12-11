@@ -46,7 +46,13 @@ matchFixedWidthInt(ML::Parse_Context & context,
         return false;
     buf[i] = 0;
 
-    int result = boost::lexical_cast<int>((const char *)buf);
+    char * endptr = 0;
+    errno = 0;
+    int result = strtol(buf, &endptr, 10);
+    
+    if (errno || *endptr != 0 || endptr != buf + i)
+        context.exception("expected fixed width int");
+
     // This WILL bite us some time.  640k anyone?
     if (result < min || result > max) {
         return false;
