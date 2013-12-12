@@ -5,6 +5,15 @@
 
 */
 
+#include <boost/program_options/cmdline.hpp>
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/positional_options.hpp>
+#include <boost/program_options/parsers.hpp>
+#include <boost/program_options/variables_map.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/make_shared.hpp>
+
 #include "soa/types/value_description.h"
 #include "soa/types/basic_value_descriptions.h"
 #include "soa/service/rest_service_endpoint.h"
@@ -13,6 +22,13 @@
 #include "soa/service/s3.h"
 #include "soa/service/sqs.h"
 #include "soa/service/rest_request_binding.h"
+
+#include "soa/service/service_utils.h"
+#include "jml/utils/pair_utils.h"
+#include "jml/arch/timers.h"
+#include "jml/arch/futex.h"
+#include "soa/service/s3.h"
+#include "soa/jsoncpp/json.h"
 
 
 namespace Datacratic {
@@ -61,11 +77,18 @@ struct RestAPIExampleService: public ServiceBase, public RestServiceEndpoint {
                	connection.sendResponse(200, a_value, "text/plain");
                };
 
+    Json::Value returnValueFn(const std::string & a_value)
+    {
+      Json::Value result;
+      result["the_result"] = a_value;
+      return result; 
+    }
+
     void init() {
     	registerServiceProvider(serviceName(), { "RestApiExample" });
     	RestServiceEndpoint::init(getServices()->config, serviceName());
     	router.description = "Datacratic REST API Example";
-    	// this function must be declared (TODO check why)
+
     	onHandleRequest = router.requestHandler();
 
     	// defines the help route
@@ -74,7 +97,7 @@ struct RestAPIExampleService: public ServiceBase, public RestServiceEndpoint {
     	router.addHelpRoute("/", "GET");
 
 
-    	// Illustrates using the Router instead of the helper functions to add a route
+    	// Illustrates using the Router directly instead of the helper functions to add a route
     	//
         RestRequestRouter::OnProcessRequest pingRoute
             = [] (const RestServiceEndpoint::ConnectionId & connection,
@@ -91,6 +114,7 @@ struct RestAPIExampleService: public ServiceBase, public RestServiceEndpoint {
         // illustrates using sub routes
         //
         auto & paramsNode = router.addSubRouter("/params", "param example");
+        auto & rtnValNode = router.addSubRouter("/rtn", "param example");
         auto & asyncNode = router.addSubRouter("/async", "async call example");
         auto & versionNode = router.addSubRouter("/v1", "version 1 of API");
         auto & urlParamNode = versionNode.addSubRouter(Rx("/([^/]*)","/<path>"), "url path");
@@ -138,15 +162,24 @@ struct RestAPIExampleService: public ServiceBase, public RestServiceEndpoint {
         //         http://localhost:8088/params?a_value=toto
         //              will call the echoAsyncParam with a_value = toto and stuff = default_stuff
         addRouteAsync(asyncNode,
-                           "",
+                      "",
+                      {"GET"},
+                      "demonstrate returning result through a connection",
+                      &RestAPIExampleService::echoAsyncParam,
+                      this,
+                      RestParamDefault<std::string>("a_value", "a_value", "default_stuff"),
+                      PassConnectionId()
+                      );
+	addRouteSyncReturn(rtnValNode,
+			   "",
                            {"GET"},
-                           "echo a part of the path",
-                           &RestAPIExampleService::echoAsyncParam,
-                           this,
-                           RestParamDefault<std::string>("a_value", "a_value", "default_stuff"),
-                           PassConnectionId()
-                           );
-
+			   "demonstrate a sync route with return value",
+			   "the return value",
+			   [] (Json::Value v) { return v;},
+			   &RestAPIExampleService::returnValueFn,
+			   this,
+			   RestParamDefault<std::string>("a_value", "a_value", "default_stuff")
+			   );
 
     }
 
@@ -175,21 +208,7 @@ struct RestAPIExampleService: public ServiceBase, public RestServiceEndpoint {
 
 //*******************************************************************************************
 
-#include <boost/program_options/cmdline.hpp>
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/positional_options.hpp>
-#include <boost/program_options/parsers.hpp>
-#include <boost/program_options/variables_map.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/thread/thread.hpp>
-#include <boost/make_shared.hpp>
 
-
-#include "soa/service/service_utils.h"
-#include "jml/utils/pair_utils.h"
-#include "jml/arch/timers.h"
-#include "jml/arch/futex.h"
-#include "soa/service/s3.h"
 
 
 using namespace std;
