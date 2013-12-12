@@ -26,6 +26,7 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
+#include <map>
 
 namespace ML {
 
@@ -53,6 +54,12 @@ public:
                    const std::string & compression = "",
                    int compressionLevel = -1);
 
+    filter_ostream(int fd,
+                   const std::map<std::string, std::string> & options);
+
+    filter_ostream(const std::string & uri,
+                   const std::map<std::string, std::string> & options);
+
     filter_ostream(filter_ostream && other) noexcept;
 
     filter_ostream & operator = (filter_ostream && other);
@@ -73,7 +80,25 @@ public:
                            const std::string & resource = "",
                            const std::string & compression = "",
                            int compressionLevel = -1);
+                           
+    /** Open with the given options.  Option keys are interpreted by plugins,
+        but include:
 
+        mode = comma separated list of out,append,create
+        compression = string (gz, bz2, xz, ...)
+        resource = string to be used in error messages
+    */
+    void open(const std::string & uri,
+              const std::map<std::string, std::string> & options);
+
+    void open(int fd,
+              const std::map<std::string, std::string> & options);
+
+    void openFromStreambuf(std::streambuf * buf,
+                           bool weOwnBuf,
+                           const std::string & resource,
+                           const std::map<std::string, std::string> & options);
+    
     void close();
 
     std::string status() const;
@@ -81,6 +106,7 @@ public:
 private:
     std::unique_ptr<std::ostream> stream;
     std::unique_ptr<std::streambuf> sink;
+    std::map<std::string, std::string> options;
 };
 
 
@@ -125,7 +151,8 @@ private:
 typedef std::function<std::pair<std::streambuf *, bool>
                       (const std::string & scheme,
                        const std::string & resource,
-                       std::ios_base::openmode mode)>
+                       std::ios_base::openmode mode,
+                       const std::map<std::string, std::string> & options)>
 UriHandlerFunction;
 
 void registerUriHandler(const std::string & scheme,

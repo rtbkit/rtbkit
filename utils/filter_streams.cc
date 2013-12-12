@@ -29,8 +29,10 @@
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/version.hpp>
+#include <boost/lexical_cast.hpp>
 #include "jml/arch/exception.h"
 #include "jml/arch/format.h"
+#include "string_functions.h"
 #include <errno.h>
 #include <sstream>
 #include <thread>
@@ -90,7 +92,23 @@ filter_ostream(int fd, std::ios_base::openmode mode,
                const std::string & compression, int level)
     : ostream(std::cout.rdbuf())
 {
-    open(fd, mode);
+    open(fd, mode, compression, level);
+}
+
+filter_ostream::
+filter_ostream(int fd,
+               const std::map<std::string, std::string> & options)
+    : ostream(std::cout.rdbuf())
+{
+    open(fd, options);
+}
+
+filter_ostream::
+filter_ostream(const std::string & uri,
+               const std::map<std::string, std::string> & options)
+    : ostream(std::cout.rdbuf())
+{
+    open(uri, options);
 }
 
 filter_ostream::
@@ -160,6 +178,101 @@ void addCompression(streambuf & buf,
     
 }
 
+void addCompression(streambuf & buf,
+                    boost::iostreams::filtering_ostream & stream,
+                    const std::string & resource,
+                    const std::map<std::string, std::string> & options)
+{
+    string compression;
+    auto it = options.find("compression");
+    if (it != options.end())
+        compression = it->second;
+
+    int compressionLevel = -1;
+    it = options.find("compressionLevel");
+    if (it != options.end())
+        compressionLevel = boost::lexical_cast<int>(it->second);
+    
+    addCompression(buf, stream, resource, compression, compressionLevel);
+}
+
+
+/** Create an options map from a set of legacy options passed by value. */
+std::map<std::string, std::string>
+createOptions(std::ios_base::openmode mode,
+              const std::string & compression,
+              int compressionLevel)
+{
+    /* 
+app	(append) Set the stream's position indicator to the end of the stream before each output operation.
+ate	(at end) Set the stream's position indicator to the end of the stream on opening.
+binary	(binary) Consider stream as binary rather than text.
+in	(input) Allow input operations on the stream.
+out	(output) Allow output operations on the stream.
+trunc	(truncate) Any current content is discarded, assuming a length of zero on opening.
+    */
+
+    string modeStr;
+    auto addMode = [&] (int mask, const char * name)
+        {
+            if ((mode & mask) == 0)
+                return;
+            if (!modeStr.empty())
+                modeStr += ',';
+            modeStr += name;
+        };
+
+    addMode(ios_base::app, "app");
+    addMode(ios_base::ate, "ate");
+    addMode(ios_base::binary, "binary");
+    addMode(ios_base::in, "in");
+    addMode(ios_base::out, "out");
+    addMode(ios_base::trunc, "trunc");
+
+    //cerr << "compression = " << compression << endl;
+
+    std::map<std::string, std::string> result;
+
+    if (!modeStr.empty())
+        result["mode"] = modeStr;
+    if (!compression.empty())
+        result["compression"] = compression;
+    if (compressionLevel != -1)
+        result["compressionLevel"] = std::to_string(compressionLevel);
+
+    return result;
+}
+
+std::ios_base::openmode getMode(const std::map<std::string, std::string> & options)
+{
+    std::ios_base::openmode result
+        = std::ios_base::openmode(0);
+
+    auto it = options.find("mode");
+    if (it == options.end())
+        return result;
+
+    vector<string> elements = split(it->second, ',');
+
+    for (auto & el: elements) {
+        if (el == "app")
+            result |= ios_base::app;
+        else if (el == "ate")
+            result |= ios_base::ate;
+        else if (el == "binary")
+            result |= ios_base::binary;
+        else if (el == "in")
+            result |= ios_base::in;
+        else if (el == "out")
+            result |= ios_base::out;
+        else if (el == "trunc")
+            result |= ios_base::trunc;
+        else throw ML::Exception("unknown filter_stream open mode " + el);
+    }
+
+    return result;
+}
+
 } // file scope
 
 void
@@ -167,10 +280,22 @@ filter_ostream::
 open(const std::string & uri, std::ios_base::openmode mode,
      const std::string & compression, int compressionLevel)
 {
+    //cerr << "uri = " << uri << " compression = " << compression << endl;
+
+    open(uri, createOptions(mode, compression, compressionLevel));
+}
+
+void
+filter_ostream::
+open(const std::string & uri,
+     const std::map<std::string, std::string> & options)
+{
     using namespace boost::iostreams;
 
     string scheme, resource;
     std::tie(scheme, resource) = getScheme(uri);
+
+    std::ios_base::openmode mode = getMode(options);
 
     //cerr << "opening scheme " << scheme << " resource " << resource
     //     << endl;
@@ -178,10 +303,9 @@ open(const std::string & uri, std::ios_base::openmode mode,
     const auto & handler = getUriHandler(scheme);
     std::streambuf * buf;
     bool weOwnBuf;
-    std::tie(buf, weOwnBuf) = handler(scheme, resource, mode);
-
-    return openFromStreambuf(buf, weOwnBuf, resource, compression,
-                             compressionLevel);
+    std::tie(buf, weOwnBuf) = handler(scheme, resource, mode, options);
+    
+    return openFromStreambuf(buf, weOwnBuf, resource, options);
 }
 
 void
@@ -192,6 +316,19 @@ openFromStreambuf(std::streambuf * buf,
                   const std::string & compression,
                   int compressionLevel)
 {
+    openFromStreambuf(buf, weOwnBuf, resource,
+                      createOptions(std::ios_base::openmode(0),
+                                    compression, compressionLevel));
+}    
+
+void
+filter_ostream::
+openFromStreambuf(std::streambuf * buf,
+                  bool weOwnBuf,
+                  const std::string & resource,
+                  const std::map<std::string, std::string> & options)
+{
+
     // TODO: exception safety for buf
 
     using namespace boost::iostreams;
@@ -206,7 +343,7 @@ openFromStreambuf(std::streambuf * buf,
     unique_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
 
-    addCompression(*buf, *new_stream, resource, compression, compressionLevel);
+    addCompression(*buf, *new_stream, resource, options);
 
     new_stream->push(*buf);
 
@@ -221,16 +358,21 @@ void filter_ostream::
 open(int fd, std::ios_base::openmode mode,
      const std::string & compression, int compressionLevel)
 {
+    open(fd, createOptions(mode, compression, compressionLevel));
+}
+
+void filter_ostream::
+open(int fd, const std::map<std::string, std::string> & options)
+{
     using namespace boost::iostreams;
     
     unique_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
 
-    if (compression.size() > 0) {
-        stringbuf headerbuf;
-        addCompression(headerbuf, *new_stream, "", compression,
-                       compressionLevel);
-        string header = headerbuf.str();
+    stringbuf headerbuf;
+    addCompression(headerbuf, *new_stream, "", options);
+    string header = headerbuf.str();
+    if (!header.empty()) {
         ssize_t rc = ::write(fd, header.c_str(), header.size());
         if (rc < 0) {
             throw ML::Exception(errno, "open", "open");
@@ -262,6 +404,7 @@ close()
     stream.reset();
     sink.reset();
     rdbuf(0);
+    options.clear();
     //stream->close();
 }
 
@@ -337,7 +480,8 @@ open(const std::string & uri,
     const auto & handler = getUriHandler(scheme);
     std::streambuf * buf;
     bool weOwnBuf;
-    std::tie(buf, weOwnBuf) = handler(scheme, resource, mode);
+    std::tie(buf, weOwnBuf) = handler(scheme, resource, mode,
+                                      createOptions(mode, compression, -1));
 
     openFromStreambuf(buf, weOwnBuf, resource, compression);
 }
@@ -438,7 +582,8 @@ struct RegisterFileHandler {
     static std::pair<std::streambuf *, bool>
     getFileHandler(const std::string & scheme,
                    std::string resource,
-                   std::ios_base::open_mode mode)
+                   std::ios_base::open_mode mode,
+                   const std::map<std::string, std::string> & options)
     {
         if (resource == "")
             resource = "/dev/null";
