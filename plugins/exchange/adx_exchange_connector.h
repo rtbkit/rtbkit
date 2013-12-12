@@ -101,6 +101,8 @@ struct AdXExchangeConnector: public HttpExchangeConnector {
         std::unordered_set<int32_t> vendor_type_ ;  ///< Vendor Type
         std::unordered_set<int32_t> category_ ;     ///< Category
         std::unordered_set<int32_t> attribute_;     ///< Attribute
+        std::unordered_set<int32_t> 
+                        restricted_category_;       ///< Restricted category
     };
 
     virtual bool
