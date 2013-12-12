@@ -131,8 +131,8 @@ performSync() const
 
             list<string> curlHeaders;
             for (unsigned i = 0;  i < params.headers.size();  ++i) {
-                curlHeaders.push_back(params.headers[i].first + ": "
-                                      + params.headers[i].second);
+                curlHeaders.emplace_back(params.headers[i].first + ": "
+                                         + params.headers[i].second);
             }
 
             curlHeaders.push_back("Date: " + params.date);
@@ -176,60 +176,52 @@ performSync() const
             myRequest.setOpt<Timeout>(timeout);
             myRequest.setOpt<NoSignal>(1);
 
-            auto onData = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
-                {
-                    //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
-                    return 0;
-                };
+            auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
+                //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
+                return 0;
+            };
 
-            auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
-                {
-                    size_t total = ofs1 * ofs2;
-                    received += total;
-                    body.append(data, total);
-                    return total;
-                    //cerr << "called onWrite for " << ofs1 << " " << ofs2 << endl;
-                };
+            auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) {
+                size_t total = ofs1 * ofs2;
+                received += total;
+                body.append(data, total);
+                return total;
+                //cerr << "called onWrite for " << ofs1 << " " << ofs2 << endl;
+            };
 
-            auto onProgress = [&] (double p1, double p2, double p3, double p4) -> int
-                {
-                    cerr << "progress " << p1 << " " << p2 << " " << p3 << " "
-                         << p4 << endl;
-                    return 0;
-                };
+            auto onProgress = [&] (double p1, double p2, double p3, double p4) {
+                cerr << "progress " << p1 << " " << p2 << " " << p3 << " "
+                     << p4 << endl;
+                return 0;
+            };
 
             bool afterContinue = false;
 
-            auto onHeader = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
-                {
-                    string headerLine(data, ofs1 * ofs2);
-                    if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
-                        afterContinue = true;
-                    }
-                    else if (afterContinue) {
-                        if (headerLine == "\r\n")
-                            afterContinue = false;
-                    }
-                    else {
-                        responseHeaders.append(headerLine);
-                        //cerr << "got header data " << headerLine << endl;
-                    }
-                    return ofs1 * ofs2;
-                };
+            auto onHeader = [&] (char * data, size_t ofs1, size_t ofs2) {
+                string headerLine(data, ofs1 * ofs2);
+                if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
+                    afterContinue = true;
+                }
+                else if (afterContinue) {
+                    if (headerLine == "\r\n")
+                        afterContinue = false;
+                }
+                else {
+                    responseHeaders.append(headerLine);
+                    //cerr << "got header data " << headerLine << endl;
+                }
+                return ofs1 * ofs2;
+            };
 
             myRequest.setOpt<BoostHeaderFunction>(onHeader);
             myRequest.setOpt<BoostWriteFunction>(onWriteData);
             myRequest.setOpt<BoostProgressFunction>(onProgress);
             //myRequest.setOpt<Header>(true);
+            string s;
             if (params.content.data) {
-                string s(params.content.data, params.content.size);
-                myRequest.setOpt<PostFields>(s);
+                s.append(params.content.data, params.content.size);
             }
-            else
-            {
-                string s;
-                myRequest.setOpt<PostFields>(s);
-            }
+            myRequest.setOpt<PostFields>(s);
             myRequest.setOpt<PostFieldSize>(params.content.size);
             curlHeaders.push_back(ML::format("Content-Length: %lld",
                                              params.content.size));
@@ -310,7 +302,7 @@ performSync() const
         }
     }
 
-    throw ML::Exception("logic error");
+    throw ML::Exception("too many retries");
 }
 
 std::string
