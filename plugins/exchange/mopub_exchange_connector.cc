@@ -158,47 +158,6 @@ getCreativeCompatibility(const Creative & creative,
 
     return result;
 }
-
-float
-MoPubExchangeConnector::
-decodeWinPrice(const std::string & sharedSecret,
-               const std::string & winPriceStr) {
-    ExcAssertEqual(winPriceStr.length(), 16);
-
-    auto tox = [] (char c) {
-        if (c >= '0' && c <= '9')
-            return c - '0';
-        else if (c >= 'A' && c <= 'F')
-            return 10 + c - 'A';
-        else if (c >= 'a' && c <= 'f')
-            return 10 + c - 'a';
-        throw ML::Exception("invalid hex digit");
-    };
-
-    unsigned char input[8];
-    for (unsigned i = 0;  i < 8;  ++i)
-        input[i]
-            = tox(winPriceStr[i * 2]) * 16
-              + tox(winPriceStr[i * 2 + 1]);
-
-    CryptoPP::ECB_Mode<CryptoPP::Blowfish>::Decryption d;
-    d.SetKey((byte *)sharedSecret.c_str(), sharedSecret.size());
-    CryptoPP::StreamTransformationFilter
-    filt(d, nullptr,
-         CryptoPP::StreamTransformationFilter::NO_PADDING);
-    filt.Put(input, 8);
-    filt.MessageEnd();
-    char recovered[9];
-    size_t nrecovered = filt.Get((byte *)recovered, 8);
-
-    ExcAssertEqual(nrecovered, 8);
-    recovered[nrecovered] = 0;
-
-    float res = boost::lexical_cast<float>(recovered);
-
-    return res;
-}
-
 std::shared_ptr<BidRequest>
 MoPubExchangeConnector::
 parseBidRequest(HttpAuctionHandler & connection,
@@ -220,43 +179,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     return res;
 }
 
-#if 0
-HttpResponse
-MoPubExchangeConnector::
-getResponse(const HttpAuctionHandler & connection,
-            const HttpHeader & requestHeader,
-            const Auction & auction) const
-{
-    const Auction::Data * current = auction.getCurrentData();
 
-    if (current->hasError())
-        return getErrorResponse(connection, auction,
-                                current->error + ": " + current->details);
-
-    OpenRTB::BidResponse response;
-    response.id = auction.id;
-
-    response.ext = getResponseExt(connection, auction);
-
-    // Create a spot for each of the bid responses
-    for (unsigned spotNum = 0; spotNum < current->responses.size(); ++spotNum) {
-        if (!current->hasValidResponse(spotNum))
-            continue;
-
-        setSeatBid(auction, spotNum, response);
-    }
-
-    if (response.seatbid.empty())
-        return HttpResponse(204, "none", "");
-
-    static Datacratic::DefaultDescription<OpenRTB::BidResponse> desc;
-    std::ostringstream stream;
-    StreamJsonPrintingContext context(stream);
-    desc.printJsonTyped(&response, context);
-
-    return HttpResponse(200, "application/json", stream.str());
-}
-#endif
 void
 MoPubExchangeConnector::
 setSeatBid(Auction const & auction,
