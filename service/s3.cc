@@ -102,6 +102,7 @@ S3Api::SignedRequest::
 performSync() const
 {
     int numRetries = 7;
+    int numSeconds = 10;
     string body;
 
     size_t spacePos = uri.find(" ");
@@ -117,189 +118,206 @@ performSync() const
     }
 
     for (unsigned i = 0;  i < numRetries; ++i) {
+        if (i > 0) {
+            ::fprintf(stderr,
+                      "S3 operation retry in %d seconds: %s %s\n",
+                      numSeconds, params.verb.c_str(), uri.c_str());
+            ML::sleep(numSeconds);
+        }
+
+        JML_TRACE_EXCEPTIONS(false);
+
         string responseHeaders;
+        string responseBody;
+        int responseCode;
         size_t received(0);
 
+        auto connection = owner->proxy.getConnection();
+        curlpp::Easy & myRequest = *connection;
+
+        using namespace curlpp;
+        using namespace curlpp::infos;
+
+        list<string> curlHeaders;
+        for (unsigned i = 0;  i < params.headers.size();  ++i) {
+            curlHeaders.emplace_back(params.headers[i].first + ": "
+                                     + params.headers[i].second);
+        }
+
+        curlHeaders.push_back("Date: " + params.date);
+        curlHeaders.push_back("Authorization: " + auth);
+
+        if (useRange) {
+            uint64_t end = currentRange.endPos();
+            string range = ML::format("range: bytes=%zd-%zd",
+                                      currentRange.offset, end);
+            // ::fprintf(stderr, "%p: requesting %s\n", this, range.c_str());
+            curlHeaders.emplace_back(move(range));
+        }
+
+        // cerr << "getting " << uri << " " << params.headers << endl;
+
+        double expectedTimeSeconds
+            = (currentRange.size / 1000000.0) / bandwidthToServiceMbps;
+        int timeout = 15 + std::max<int>(30, expectedTimeSeconds * 6);
+
+#if 0
+        cerr << "expectedTimeSeconds = " << expectedTimeSeconds << endl;
+        cerr << "timeout = " << timeout << endl;
+#endif
+
+#if 0
+        if (params.verb == "GET") ;
+        else if (params.verb == "POST") {
+            //myRequest.setOpt<Post>(true);
+        }
+        else if (params.verb == "PUT") {
+            myRequest.setOpt<options::Post>(true);
+        }
+        else throw ML::Exception("unknown verb " + params.verb);
+#endif
+        //cerr << "!!!Setting params verb " << params.verb << endl;
+        myRequest.setOpt<options::CustomRequest>(params.verb);
+
+        myRequest.setOpt<options::Url>(uri);
+        //myRequest.setOpt<Verbose>(true);
+        myRequest.setOpt<options::ErrorBuffer>((char *)0);
+        myRequest.setOpt<options::Timeout>(timeout);
+        myRequest.setOpt<options::NoSignal>(1);
+
+        auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
+            //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
+            return 0;
+        };
+
+        auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) {
+            size_t total = ofs1 * ofs2;
+            received += total;
+            responseBody.append(data, total);
+            return total;
+            //cerr << "called onWrite for " << ofs1 << " " << ofs2 << endl;
+        };
+
+        // auto onProgress = [&] (double p1, double p2,
+        //                        double p3, double p4) {
+        //     cerr << "progress " << p1 << " " << p2 << " " << p3 << " "
+        //          << p4 << endl;
+        //     return 0;
+        // };
+
+        bool afterContinue = false;
+
+        auto onHeader = [&] (char * data, size_t ofs1, size_t ofs2) {
+            string headerLine(data, ofs1 * ofs2);
+            if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
+                afterContinue = true;
+            }
+            else if (afterContinue) {
+                if (headerLine == "\r\n")
+                    afterContinue = false;
+            }
+            else {
+                responseHeaders.append(headerLine);
+                //cerr << "got header data " << headerLine << endl;
+            }
+            return ofs1 * ofs2;
+        };
+
+        myRequest.setOpt<options::HeaderFunction>(onHeader);
+        myRequest.setOpt<options::WriteFunction>(onWriteData);
+        // myRequest.setOpt<BoostProgressFunction>(onProgress);
+        //myRequest.setOpt<Header>(true);
+        string s;
+        if (params.content.data) {
+            s.append(params.content.data, params.content.size);
+        }
+        myRequest.setOpt<options::PostFields>(s);
+        myRequest.setOpt<options::PostFieldSize>(params.content.size);
+        curlHeaders.push_back(ML::format("Content-Length: %lld",
+                                         params.content.size));
+        curlHeaders.push_back("Transfer-Encoding:");
+        curlHeaders.push_back("Content-Type:");
+        myRequest.setOpt<options::HttpHeader>(curlHeaders);
+
         try {
-            JML_TRACE_EXCEPTIONS(false);
-
-            auto connection = owner->proxy.getConnection();
-            curlpp::Easy & myRequest = *connection;
-
-            using namespace curlpp::options;
-            using namespace curlpp::infos;
-
-            list<string> curlHeaders;
-            for (unsigned i = 0;  i < params.headers.size();  ++i) {
-                curlHeaders.emplace_back(params.headers[i].first + ": "
-                                         + params.headers[i].second);
-            }
-
-            curlHeaders.push_back("Date: " + params.date);
-            curlHeaders.push_back("Authorization: " + auth);
-
-            if (useRange) {
-                uint64_t end = currentRange.endPos();
-                string range = ML::format("range: bytes=%zd-%zd",
-                                          currentRange.offset, end);
-                // ::fprintf(stderr, "%p: requesting %s\n", this, range.c_str());
-                curlHeaders.emplace_back(move(range));
-            }
-
-            // cerr << "getting " << uri << " " << params.headers << endl;
-
-            double expectedTimeSeconds
-                = (currentRange.size / 1000000.0) / bandwidthToServiceMbps;
-            int timeout = 15 + std::max<int>(30, expectedTimeSeconds * 6);
-
-#if 0
-            cerr << "expectedTimeSeconds = " << expectedTimeSeconds << endl;
-            cerr << "timeout = " << timeout << endl;
-#endif
-
-#if 0
-            if (params.verb == "GET") ;
-            else if (params.verb == "POST") {
-                //myRequest.setOpt<Post>(true);
-            }
-            else if (params.verb == "PUT") {
-                myRequest.setOpt<Post>(true);
-            }
-            else throw ML::Exception("unknown verb " + params.verb);
-#endif
-            //cerr << "!!!Setting params verb " << params.verb << endl;
-            myRequest.setOpt<CustomRequest>(params.verb);
-
-            myRequest.setOpt<curlpp::options::Url>(uri);
-            //myRequest.setOpt<Verbose>(true);
-            myRequest.setOpt<ErrorBuffer>((char *)0);
-            myRequest.setOpt<Timeout>(timeout);
-            myRequest.setOpt<NoSignal>(1);
-
-            auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
-                //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
-                return 0;
-            };
-
-            auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) {
-                size_t total = ofs1 * ofs2;
-                received += total;
-                body.append(data, total);
-                return total;
-                //cerr << "called onWrite for " << ofs1 << " " << ofs2 << endl;
-            };
-
-            auto onProgress = [&] (double p1, double p2, double p3, double p4) {
-                cerr << "progress " << p1 << " " << p2 << " " << p3 << " "
-                     << p4 << endl;
-                return 0;
-            };
-
-            bool afterContinue = false;
-
-            auto onHeader = [&] (char * data, size_t ofs1, size_t ofs2) {
-                string headerLine(data, ofs1 * ofs2);
-                if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
-                    afterContinue = true;
-                }
-                else if (afterContinue) {
-                    if (headerLine == "\r\n")
-                        afterContinue = false;
-                }
-                else {
-                    responseHeaders.append(headerLine);
-                    //cerr << "got header data " << headerLine << endl;
-                }
-                return ofs1 * ofs2;
-            };
-
-            myRequest.setOpt<BoostHeaderFunction>(onHeader);
-            myRequest.setOpt<BoostWriteFunction>(onWriteData);
-            myRequest.setOpt<BoostProgressFunction>(onProgress);
-            //myRequest.setOpt<Header>(true);
-            string s;
-            if (params.content.data) {
-                s.append(params.content.data, params.content.size);
-            }
-            myRequest.setOpt<PostFields>(s);
-            myRequest.setOpt<PostFieldSize>(params.content.size);
-            curlHeaders.push_back(ML::format("Content-Length: %lld",
-                                             params.content.size));
-            curlHeaders.push_back("Transfer-Encoding:");
-            curlHeaders.push_back("Content-Type:");
-            myRequest.setOpt<curlpp::options::HttpHeader>(curlHeaders);
-
             myRequest.perform();
-
-            Response response;
-            response.body_ = body;
-
-            curlpp::InfoGetter::get(myRequest, CURLINFO_RESPONSE_CODE,
-                                    response.code_);
-
-            if (response.code_ == 500) {
-                // Internal server error
-                // Wait 10 seconds and retry
-                cerr << "Service returned 500: " << endl;
-                cerr << "uri is " << uri << endl;
-                cerr << "response headers " << responseHeaders << endl;
-                cerr << "body is " << body << endl;
-
-                if (useRange) {
-                    currentRange.adjust(received);
-                }
-
-                ML::sleep(10);
-                continue;  // retry
-            }
-
-            double bytesUploaded;
-
-            curlpp::InfoGetter::get(myRequest, CURLINFO_SIZE_UPLOAD,
-                                    bytesUploaded);
-
-            //cerr << "uploaded " << bytesUploaded << " bytes" << endl;
-
-            response.header_.parse(responseHeaders);
-            unique_ptr<tinyxml2::XMLDocument> bodyXml(response.bodyXml());
-            auto element =
-                tinyxml2::XMLHandle(*bodyXml).FirstChildElement("Error")
-                .ToElement();
-            if(element){
-                throw ML::Exception("S3 error code [%s] message [%s]",
-                    extract<string>(element, "Code").c_str(),
-                    extract<string>(element, "Message").c_str());
-            }
-
-            return response;
-        } catch (const curlpp::LibcurlRuntimeError & exc) {
-            
-            cerr << "libCurl returned an error with code " << exc.whatCode()
-                 << endl;
-            cerr << "error is " << curl_easy_strerror(exc.whatCode())
-                 << endl;
-            cerr << "uri is " << uri << endl;
-            cerr << "headers are " << responseHeaders << endl;
-            cerr << "body contains " << body.size() << " bytes" << endl;
-
-#if 0
-            if (exc.whatCode() == CURL_TIMEOUT) {
-                // Save the current data and continue;
-                if (!savedBody.empty())
-                    savedBody += body;
-                else savedBody.swap(body);
-                continue;
-            }
-#endif
-
-            if (useRange) {
+        }
+        catch (const curlpp::LibcurlRuntimeError & exc) {
+            ::fprintf(stderr,
+                      "S3 operation failed with a libCurl error: %s (%d)\n"
+                      "\t%s %s\n"
+                      "\theaders:\n%s\n"
+                      "\tbody (%lu bytes):\n%s\n"
+                      "(end of error)\n",
+                      curl_easy_strerror(exc.whatCode()), exc.whatCode(),
+                      params.verb.c_str(), uri.c_str(),
+                      responseHeaders.c_str(),
+                      responseBody.size(), responseBody.c_str());
+            if (useRange && received > 0) {
+                body.append(responseBody);
                 currentRange.adjust(received);
             }
-
-            if (i < numRetries)
-                cerr << "retrying" << endl;
-            else throw;
+            continue;
         }
+
+        curlpp::InfoGetter::get(myRequest, CURLINFO_RESPONSE_CODE,
+                                responseCode);
+
+        if (responseCode >= 300) {
+            ::fprintf(stderr,
+                      "S3 operation failed with HTTP code %d\n"
+                      "\t%s %s\n"
+                      "\theaders:\n%s\n"
+                      "\tbody (%lu bytes):\n%s\n",
+                      responseCode,
+                      params.verb.c_str(), uri.c_str(),
+                      responseHeaders.c_str(),
+                      responseBody.size(), responseBody.c_str());
+
+            /* log so-called "REST error"
+               (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
+            */
+            if (responseHeaders.find("Content-Type: application/xml")
+                != string::npos) {
+                unique_ptr<tinyxml2::XMLDocument> localXml(
+                    new tinyxml2::XMLDocument()
+                    );
+                localXml->Parse(responseBody.c_str());
+                auto element
+                    = tinyxml2::XMLHandle(*localXml).FirstChildElement("Error")
+                    .ToElement();
+                if (element) {
+                    cerr << ("S3 error code ["
+                             + extract<string>(element, "Code")
+                             + "] message ["
+                             + extract<string>(element, "Message")
+                             +"]\n");
+                }
+            }
+
+            /* retry on 50X range errors (recoverable) */
+            if (responseCode >= 500 and responseCode < 505) {
+                continue;
+            }
+            else {
+                throw ML::Exception("S3 error is unrecoverable");
+            }
+        }
+
+        // double bytesUploaded;
+
+        // curlpp::InfoGetter::get(myRequest, CURLINFO_SIZE_UPLOAD,
+        //                         bytesUploaded);
+
+        //cerr << "uploaded " << bytesUploaded << " bytes" << endl;
+
+        Response response;
+        response.code_ = responseCode;
+        response.header_.parse(responseHeaders);
+        body.append(responseBody);
+        response.body_ = body;
+
+        return response;
     }
 
     throw ML::Exception("too many retries");
