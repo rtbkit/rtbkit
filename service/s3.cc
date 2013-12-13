@@ -127,6 +127,7 @@ performSync() const
         useRange = true;
     }
 
+    string body;
     for (unsigned i = 0;  i < numRetries; ++i) {
         if (i > 0) {
             int numSeconds = ::random() % (baseRetryDelay * (1 << i));
@@ -135,8 +136,6 @@ performSync() const
                       numSeconds, params.verb.c_str(), uri.c_str());
             ML::sleep(numSeconds);
         }
-
-        JML_TRACE_EXCEPTIONS(false);
 
         string responseHeaders;
         string responseBody;
@@ -251,26 +250,24 @@ performSync() const
         myRequest.setOpt<options::HttpHeader>(curlHeaders);
 
         try {
+            JML_TRACE_EXCEPTIONS(false);
             myRequest.perform();
         }
-        catch (const curlpp::LibcurlRuntimeError & exc) {
-            if (responseCode >= 200 && responseCode < 300) {
-                string message("S3 operation failed with a libCurl error: "
-                               + string(curl_easy_strerror(exc.whatCode()))
-                               + " (" + to_string(exc.whatCode()) + ")\n"
-                               + params.verb + " " + uri + "\n");
-                if (responseHeaders.size() > 0) {
-                    message += "headers:\n" + responseHeaders;
-                }
-                cerr << message;
-
-                if (useRange && received > 0) {
-                    body.append(responseBody);
-                    currentRange.adjust(received);
-                }
-                continue;
+        catch (const LibcurlRuntimeError & exc) {
+            string message("S3 operation failed with a libCurl error: "
+                           + string(curl_easy_strerror(exc.whatCode()))
+                           + " (" + to_string(exc.whatCode()) + ")\n"
+                           + params.verb + " " + uri + "\n");
+            if (responseHeaders.size() > 0) {
+                message += "headers:\n" + responseHeaders;
             }
-            throw;
+            ::fprintf(stderr, "%s\n", message.c_str());
+
+            if (useRange && received > 0) {
+                body.append(responseBody);
+                currentRange.adjust(received);
+            }
+            continue;
         }
 
         curlpp::InfoGetter::get(myRequest, CURLINFO_RESPONSE_CODE,
@@ -287,7 +284,6 @@ performSync() const
                 message += (string("body (") + to_string(responseBody.size())
                             + " bytes):\n" + responseBody);
             }
-            cerr << message;
 
             /* log so-called "REST error"
                (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
@@ -296,19 +292,20 @@ performSync() const
                 != string::npos) {
                 unique_ptr<tinyxml2::XMLDocument> localXml(
                     new tinyxml2::XMLDocument()
-                    );
+                );
                 localXml->Parse(responseBody.c_str());
                 auto element
                     = tinyxml2::XMLHandle(*localXml).FirstChildElement("Error")
                     .ToElement();
                 if (element) {
-                    cerr << ("S3 error code ["
-                             + extract<string>(element, "Code")
-                             + "] message ["
-                             + extract<string>(element, "Message")
-                             +"]\n");
+                    message += ("S3 REST error: ["
+                                + extract<string>(element, "Code")
+                                + "] message ["
+                                + extract<string>(element, "Message")
+                                +"]\n");
                 }
             }
+            ::fprintf(stderr, "%s\n", message.c_str());
 
             /* retry on 50X range errors (recoverable) */
             if (responseCode >= 500 and responseCode < 505) {
