@@ -104,6 +104,7 @@ performSync() const
     static int numRetries(-1);
 
     if (numRetries == -1) {
+        /* -1 is infinity */
         char * numRetriesEnv = getenv("S3_RETRIES");
         if (numRetriesEnv) {
             numRetries = atoi(numRetriesEnv);
@@ -128,7 +129,7 @@ performSync() const
     }
 
     string body;
-    for (unsigned i = 0;  i < numRetries; ++i) {
+    for (unsigned i = 0; numRetries == -1 || i < numRetries; ++i) {
         if (i > 0) {
             int numSeconds = ::random() % (baseRetryDelay * (1 << i));
             ::fprintf(stderr,
