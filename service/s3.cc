@@ -101,9 +101,19 @@ S3Api::Response
 S3Api::SignedRequest::
 performSync() const
 {
-    int numRetries = 7;
-    int numSeconds = 10;
-    string body;
+    static int numRetries(-1);
+
+    if (numRetries == -1) {
+        char * numRetriesEnv = getenv("S3_RETRIES");
+        if (numRetriesEnv) {
+            numRetries = atoi(numRetriesEnv);
+        }
+        else {
+            numRetries = 7;
+        }
+    }
+
+    static const int baseRetryDelay(3);
 
     size_t spacePos = uri.find(" ");
     if (spacePos != string::npos) {
@@ -119,6 +129,7 @@ performSync() const
 
     for (unsigned i = 0;  i < numRetries; ++i) {
         if (i > 0) {
+            int numSeconds = ::random() % (baseRetryDelay * (1 << i));
             ::fprintf(stderr,
                       "S3 operation retry in %d seconds: %s %s\n",
                       numSeconds, params.verb.c_str(), uri.c_str());
