@@ -129,7 +129,7 @@ performSync() const
 
         string responseHeaders;
         string responseBody;
-        int responseCode;
+        int responseCode(0);
         size_t received(0);
 
         auto connection = owner->proxy.getConnection();
@@ -243,36 +243,40 @@ performSync() const
             myRequest.perform();
         }
         catch (const curlpp::LibcurlRuntimeError & exc) {
-            ::fprintf(stderr,
-                      "S3 operation failed with a libCurl error: %s (%d)\n"
-                      "\t%s %s\n"
-                      "\theaders:\n%s\n"
-                      "\tbody (%lu bytes):\n%s\n"
-                      "(end of error)\n",
-                      curl_easy_strerror(exc.whatCode()), exc.whatCode(),
-                      params.verb.c_str(), uri.c_str(),
-                      responseHeaders.c_str(),
-                      responseBody.size(), responseBody.c_str());
-            if (useRange && received > 0) {
-                body.append(responseBody);
-                currentRange.adjust(received);
+            if (responseCode >= 200 && responseCode < 300) {
+                string message("S3 operation failed with a libCurl error: "
+                               + string(curl_easy_strerror(exc.whatCode()))
+                               + " (" + to_string(exc.whatCode()) + ")\n"
+                               + params.verb + " " + uri + "\n");
+                if (responseHeaders.size() > 0) {
+                    message += "headers:\n" + responseHeaders;
+                }
+                cerr << message;
+
+                if (useRange && received > 0) {
+                    body.append(responseBody);
+                    currentRange.adjust(received);
+                }
+                continue;
             }
-            continue;
+            throw;
         }
 
         curlpp::InfoGetter::get(myRequest, CURLINFO_RESPONSE_CODE,
                                 responseCode);
 
         if (responseCode >= 300) {
-            ::fprintf(stderr,
-                      "S3 operation failed with HTTP code %d\n"
-                      "\t%s %s\n"
-                      "\theaders:\n%s\n"
-                      "\tbody (%lu bytes):\n%s\n",
-                      responseCode,
-                      params.verb.c_str(), uri.c_str(),
-                      responseHeaders.c_str(),
-                      responseBody.size(), responseBody.c_str());
+            string message("S3 operation failed with HTTP code "
+                           + to_string(responseCode) + "\n"
+                           + params.verb + " " + uri + "\n");
+            if (responseHeaders.size() > 0) {
+                message += "headers:\n" + responseHeaders;
+            }
+            if (responseBody.size() > 0) {
+                message += (string("body (") + to_string(responseBody.size())
+                            + " bytes):\n" + responseBody);
+            }
+            cerr << message;
 
             /* log so-called "REST error"
                (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
