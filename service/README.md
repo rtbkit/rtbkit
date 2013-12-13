@@ -1,5 +1,4 @@
 
-
 #How to Build a Service Using the Datacratic REST Api
 
 We will try to document the use of the Datacratic REST Api. An example of a Rest service can be found at  soa/service/testing/rest_api_example.cc
@@ -19,34 +18,26 @@ The endpoint (RestServiceEndpoint) implements the message loop and the interacti
 The service should have a member that is a RestRequestRouter. This will manage the various routes used by the service.
 
 Example:
+```c++
+#include "soa/service/rest_service_endpoint.h"
+#include "soa/service/rest_request_router.h"
 
-`#include "soa/service/rest_service_endpoint.h"`
+struct ExampleService(std::shared_ptr<ServiceProxies> proxies,
 
-`#include "soa/service/rest_request_router.h"`
+                    const std::string & serviceName)
 
-`struct ExampleService(std::shared_ptr<ServiceProxies> proxies,`
+{
+RestRequestRouter router;
+//...
+}
 
-`                    const std::string & serviceName)`
-
-`{`
-
-`RestRequestRouter router;`
-
-`//...`
-
-`}`
-
-`ExampleService::ExampleService(std::shared_ptr<ServiceProxies> proxies, const std::string & serviceName)`
-
-`   : ServiceBase(serviceName, proxies),`
-
-` RestServiceEndpoint(getZmqContext()) // getZmqContext is provided by the ServiceBase`
-
-`{`
-
-`//...`
-
-`}`
+ExampleService::ExampleService(std::shared_ptr<ServiceProxies> proxies, const std::string & serviceName)
+   : ServiceBase(serviceName, proxies),
+     RestServiceEndpoint(getZmqContext()) // getZmqContext is provided by the ServiceBase
+{
+//...
+}
+```
 
 # Define the Routes
 
@@ -55,58 +46,46 @@ The route configuration has many options, but the two main ways of doing this ar
 ## Using the router class
 
 The following example illustrates the implementation of a basic route:
+```c++
+RestRequestRouter::OnProcessRequest pingRoute
+    = [] (const RestServiceEndpoint::ConnectionId & connection,
+          const RestRequest & request,
+          const RestRequestParsingContext & context) {
+    connection.sendResponse(200, "1");
+    return RestRequestRouter::MR_YES;
+ };
 
-`RestRequestRouter::OnProcessRequest pingRoute`
+router.addRoute( "/ping", "GET", "Ping the availability of the endpoint",
+                pingRoute,
+                Json::Value());
 
-`    = [] (const RestServiceEndpoint::ConnectionId & connection,`
-
-`          const RestRequest & request,`
-
-`          const RestRequestParsingContext & context) {`
-
-`    connection.sendResponse(200, "1");`
-
-`    return RestRequestRouter::MR_YES;`
-
-` };`
-
-`router.addRoute( "/ping", "GET", "Ping the availability of the endpoint",`
-
-`                pingRoute,`
-
-`                Json::Value());`
-
+```
 ### Help Route
 
 The Help route collects the information from the other routes automatically to automatically return info on the service.
 
 Example:
 
-`router.addHelpRoute("/", "GET")`
+```c++
+router.addHelpRoute("/", "GET")
+```
 
 ## Using the helper functions
 
 Most of the helper functions are variations on the addRouteSyncReturn function. The helper functions are either sync or async. The sync helper functions return a result automatically while the async variations don't return anything. A result can be sent back later or manually through the connection. Sending a result through the connection while using a Sync version will throw an exception because it tries to send the result twice.
 
 The addRouteSyncReturn has the following definition:
-
-`addRouteSyncReturn( RestRequestRouter & router,`
-
-`                 PathSpec path,`
-
-`             RequestFilter filter,`
-
-`                 const std::string & description,`
-
-`                    const std::string & resultDescription, `
-
-`                    const TransformResult &transformResult, `
-
-`                 Return (Obj::* pmf) (Args...),`
-
-`                 Ptr ptr,`
-
-`                 Params&&... params)`
+```c++
+addRouteSyncReturn( RestRequestRouter & router,
+                    PathSpec path,
+                    RequestFilter filter,
+                    const std::string & description,
+                    const std::string & resultDescription, 
+                    const TransformResult &transformResult, 
+                    Return (Obj::* pmf) (Args...),
+                    Ptr ptr,
+                    Params&&... params)
+```                    
 
 Parameters of the route helper functions
 
@@ -129,22 +108,16 @@ Parameters of the route helper functions
 * *params* is the list of parameters that are passed to the callback function.
 
 Example:
-
-`     // using the helper functions`
-
-` addRouteSync(versionNode,`
-
-`             "/events/record",`
-
-`             {"PUT"},`
-
-`             "store something",`
-
-`             &ExampleService::recordEvent,`
-
-`             this,`
-
-`             JsonParam<string>("", "Payload for events"));`
+```c++
+  // using the helper functions
+ addRouteSync(versionNode,
+             "/events/record",
+             {"PUT"},
+             "store something",
+             &ExampleService::recordEvent,
+             this,
+             JsonParam<string>("", "Payload for events"));
+```             
 
 ## Tips and Tricks
 
@@ -155,9 +128,9 @@ It is possible to define routes based on regular expressions.
 RX is a PatchSpec subclass that has this role. 
 
 The most common usage of this is to define a sub route based on a regular expression:
-
-`auto & evtNode = versionNode.addSubRouter(Rx("/([^/]*)","/<path>"), "url path");`
-
+```c++
+auto & evtNode = versionNode.addSubRouter(Rx("/([^/]*)","/<path>"), "url path");
+```
 ### Extract Parameters from the Route
 
 The RequestParam template is used to define a parameter that is extracted from directly from the route. This can then be passed as a parameter to a route definition helper function.
@@ -167,55 +140,39 @@ The RequestParam template is used to define a parameter that is extracted from d
 To have access to the connection from the router function (pfm parameter of the helper functions) specify PassConnectionId() as one of the parameters.
 
 For example:
-
-   `addRouteAsync(asyncNode,`
-
-`              "",`
-
-`               {"GET"},`
-
-`               "echo a part of the path",`
-
-`               &RestAPIExampleService::echoAsyncParam,`
-
-`               this,`
-
-`               RestParamDefault<std::string>("a_value", "a_value", "default_stuff"),`
-
-`                PassConnectionId()`
-
-`              );`
-
+```c++
+   addRouteAsync(asyncNode,
+                 "",
+                 {"GET"},
+                 "echo a part of the path",
+                 &RestAPIExampleService::echoAsyncParam,
+                 this,
+                 RestParamDefault<std::string>("a_value", "a_value", "default_stuff"),
+                 PassConnectionId()
+                 );
+```
 Various route examples:
+```c++
+// add a submode
 
-`// add a submode`
+auto & versionNode = router.addSubRouter("/v1", "version 1 of API");`
 
-`auto & versionNode = router.addSubRouter("/v1", "version 1 of API");`
+// add a routes to the submode`
 
-`// add a routes to the submode`
+RestRequestRouter::OnProcessRequest serviceInfoRoute
+    = [=] (const RestServiceEndpoint::ConnectionId & connection,
+            const RestRequest & request,
+            const RestRequestParsingContext & context) {
+            Json::Value result;
 
-`RestRequestRouter::OnProcessRequest serviceInfoRoute`
-
-`    = [=] (const RestServiceEndpoint::ConnectionId & connection,`
-
-`            const RestRequest & request,`
-
-`            const RestRequestParsingContext & context) {`
-
-`    Json::Value result;`
-
-`    result["apiVersions"]["v1"] = "1.0.0";`
-
-`    connection.sendResponse(200, result);`
-
-`    return RestRequestRouter::MR_YES;`
-
-` };`
-
-`versionNode.addRoute("/info","GET", "Return service information (version, etc)"serviceInfoRoute,`
-
-`                Json::Value());`
-
+    result["apiVersions"]["v1"] = "1.0.0";
+    connection.sendResponse(200, result);
+    return RestRequestRouter::MR_YES;
+ };
+ 
+versionNode.addRoute("/info","GET", "Return service information (version, etc)"serviceInfoRoute,
+                      Json::Value());
+```
 # Service Configuration
 
 The ServiceProxyArguments class contains the logic for the usual options of a service, it is initialized with a boost configuration_options object.
@@ -245,20 +202,19 @@ For example:
 The ServiceProxyArguments is used by the ServiceBase superclass of the service to specify the basic functionalities.
 
 example:
+```c+
+// construct a BOOST::program_options.configuration_object from the 
+// command line and/or config files.
+// This is outside of the scope of the current document. Refer to the 
+// BOOST documentation.
 
-`// construct a BOOST::program_options.configuration_object from the // command line and/or config files.`
+ServiceProxyArguments serviceArgs;
 
-`// This is outside of the scope of the current document. Refer to the // BOOST documentation.`
+…
 
-`ServiceProxyArguments serviceArgs;`
+// pass create a ServiceProxies object
+auto proxies = serviceArgs.makeServiceProxies();
 
-`…`
-
-`// pass create a ServiceProxies object`
-
-`auto proxies = serviceArgs.makeServiceProxies();`
-
-`// you now have the service object`
-
-`ExampleService service(proxies, "ExampleService)`
-
+// you now have the service object
+ExampleService service(proxies, "ExampleService)
+```
