@@ -157,10 +157,8 @@ struct RestAPIExampleService: public ServiceBase, public RestServiceEndpoint {
         // The return value must be managed manually. In this case
         // we use the connection parameter to send the reply.
         // example:
-        //         http://localhost:8088/async?&stuff=bof
-        //				will call the echoAsyncParam with a_value = toto and stuff = bof
         //         http://localhost:8088/params?a_value=toto
-        //              will call the echoAsyncParam with a_value = toto and stuff = default_stuff
+        //              will call the echoAsyncParam with a_value = toto
         addRouteAsync(asyncNode,
                       "",
                       {"GET"},
@@ -170,9 +168,20 @@ struct RestAPIExampleService: public ServiceBase, public RestServiceEndpoint {
                       RestParamDefault<std::string>("a_value", "a_value", "default_stuff"),
                       PassConnectionId()
                       );
-	addRouteSyncReturn(rtnValNode,
+
+        // Illustrates using the sync helper functions that returns a value.
+        // The return value will be intercepted by the transformResultParameter that can modify it
+        // before passing it along.
+        // example:
+        //         http://localhost:8088/rtns?a_value=toto
+        //              will call the returnValueFn with a_value = toto
+        // And return the jason string:
+        // {
+        //     "the_result" : "toto"
+        // }
+	    addRouteSyncReturn(rtnValNode,
 			   "",
-                           {"GET"},
+               {"GET"},
 			   "demonstrate a sync route with return value",
 			   "the return value",
 			   [] (Json::Value v) { return v;},
