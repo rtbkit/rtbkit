@@ -1,4 +1,3 @@
-
 #How to Build a Service Using the Datacratic REST Api
 
 We will try to document the use of the Datacratic REST Api. An example of a Rest service can be found at  soa/service/testing/rest_api_example.cc
@@ -8,9 +7,7 @@ We will try to document the use of the Datacratic REST Api. An example of a Rest
 ### Base Classes
 
 The service class to implement usually derives from ServiceBase and an endpoint such as RestServiceEndpoint.
-
 ServiceBase offers common features like Zookeeper registration and graphite logging.
-
 The endpoint (RestServiceEndpoint) implements the message loop and the interaction with the routes.
 
 ### Members
@@ -124,10 +121,9 @@ Example:
 ### Regular expressions
 
 It is possible to define routes based on regular expressions.
-
 RX is a PatchSpec subclass that has this role. 
-
 The most common usage of this is to define a sub route based on a regular expression:
+
 ```c++
 auto & evtNode = versionNode.addSubRouter(Rx("/([^/]*)","/<path>"), "url path");
 ```
@@ -176,13 +172,9 @@ versionNode.addRoute("/info","GET", "Return service information (version, etc)"s
 # Service Configuration
 
 The ServiceProxyArguments class contains the logic for the usual options of a service, it is initialized with a boost configuration_options object.
-
 The ServiceProxyArguments is then used to initialize a ServiceProxy object.
-
 It has a method makeServiceProxies which configures and returns the services.
-
 The service proxy is then used to specify the service currently being defined.
-
 The ServiceProxyArguments already defines many of the usual options of a service:
 
 For example:
