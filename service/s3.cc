@@ -132,6 +132,9 @@ performSync() const
             /* allow a maximum of 384 seconds for retry delays (1 << 7 * 3) */
             int multiplier = i < 8 ? (1 << i) : i << 7;
             int numSeconds = ::random() % (baseRetryDelay * multiplier);
+            if (numSeconds == 0) {
+                numSeconds = baseRetryDelay * multiplier;
+            }
 
             ::fprintf(stderr,
                       "S3 operation retry in %d seconds: %s %s\n",
