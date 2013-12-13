@@ -287,7 +287,7 @@ performSync() const
             }
             if (responseBody.size() > 0) {
                 message += (string("body (") + to_string(responseBody.size())
-                            + " bytes):\n" + responseBody);
+                            + " bytes):\n" + responseBody + "\n");
             }
 
             /* log so-called "REST error"
