@@ -296,6 +296,8 @@ open(const std::string & uri,
     std::tie(scheme, resource) = getScheme(uri);
 
     std::ios_base::openmode mode = getMode(options);
+    if (!mode)
+        mode = std::ios_base::out;
 
     //cerr << "opening scheme " << scheme << " resource " << resource
     //     << endl;
