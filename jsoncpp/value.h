@@ -485,6 +485,7 @@ namespace Json {
 
       std::string toStyledString() const;
       std::string toString() const;
+      std::string toStringNoNewLine() const;
 
       const_iterator begin() const;
       const_iterator end() const;

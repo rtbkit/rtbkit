@@ -39,3 +39,4 @@ $(eval $(call test,sink_test,services,boost))
 $(eval $(call library,tcpsockets,tcpsockets.cc,services))
 $(eval $(call test,zmq_tcp_bench,tcpsockets services,boost manual timed))
 $(eval $(call test,nprobe_test,services,boost manual))
+
