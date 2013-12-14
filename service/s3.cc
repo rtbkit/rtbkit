@@ -1187,6 +1187,71 @@ tryGetObjectInfo(const std::string & uri) const
 
 void
 S3Api::
+eraseObject(const std::string & bucket,
+            const std::string & object)
+{
+    Response response = erase(bucket, object);
+
+    if (response.code_ != 200) {
+        cerr << response.bodyXmlStr() << endl;
+        throw ML::Exception("error erasing object request: %d",
+                            response.code_);
+    }
+}
+
+bool
+S3Api::
+tryEraseObject(const std::string & bucket,
+               const std::string & object)
+{
+    Response response = erase(bucket, object);
+    
+    if (response.code_ != 200) {
+        return false;
+    }
+
+    return true;
+}
+
+void
+S3Api::
+eraseObject(const std::string & uri)
+{
+    string bucket, object;
+    std::tie(bucket, object) = parseUri(uri);
+    eraseObject(bucket, object);
+}
+
+bool
+S3Api::
+tryEraseObject(const std::string & uri)
+{
+    string bucket, object;
+    std::tie(bucket, object) = parseUri(uri);
+    return tryEraseObject(bucket, object);
+}
+
+std::string
+S3Api::
+getPublicUri(const std::string & uri,
+             const std::string & protocol)
+{
+    string bucket, object;
+    std::tie(bucket, object) = parseUri(uri);
+    return getPublicUri(bucket, object, protocol);
+}
+
+std::string
+S3Api::
+getPublicUri(const std::string & bucket,
+             const std::string & object,
+             const std::string & protocol)
+{
+    return protocol + "://" + bucket + ".s3.amazonaws.com/" + object;
+}
+
+void
+S3Api::
 download(const std::string & uri,
          const OnChunk & onChunk,
          ssize_t startOffset,
@@ -2454,6 +2519,7 @@ S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename)
     }
 }
 
+
 void makeUriDirectory(const std::string & uri)
 {
     if (uri.find("s3://") == 0)
@@ -2470,5 +2536,30 @@ void makeUriDirectory(const std::string & uri)
     if (res != 0)
         throw ML::Exception("mkdir of " + dir + " failed");
 }
+
+void eraseUriObject(const std::string & uri)
+{
+    if (uri.find("s3://") == 0) {
+        unlink(uri.c_str());
+        return;
+    }
+
+    string bucket = S3Api::parseUri(uri).first;
+    auto api = getS3ApiForBucket(bucket);
+    return api->eraseObject(uri);
+}
+
+bool tryEraseUriObject(const std::string & uri)
+{
+    if (uri.find("s3://") == 0) {
+        int res = unlink(uri.c_str());
+        return res == 0;
+    }
+
+    string bucket = S3Api::parseUri(uri).first;
+    auto api = getS3ApiForBucket(bucket);
+    return api->tryEraseObject(uri);
+}
+
 
 } // namespace Datacratic

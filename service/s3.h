@@ -458,6 +458,32 @@ struct S3Api : public AwsApi {
 
     ObjectInfo getObjectInfo(const std::string & uri) const;
 
+    /** Erase the given object.  Throws an exception if it fails. */
+    void eraseObject(const std::string & bucket,
+                     const std::string & object);
+
+    /** Erase the given object.  Throws an exception if it fails. */
+    void eraseObject(const std::string & uri);
+
+    /** Erase the given object.  Returns true if an object was erased or false
+        otherwise.
+    */
+    bool tryEraseObject(const std::string & bucket,
+                        const std::string & object);
+    
+    /** Erase the given object.  Returns true if an object was erased or false
+        otherwise.
+    */
+    bool tryEraseObject(const std::string & uri);
+
+    /** Return the public URI that should be used to access a public object. */
+    static std::string getPublicUri(const std::string & uri,
+                                    const std::string & protocol);
+
+    static std::string getPublicUri(const std::string & bucket,
+                                    const std::string & object,
+                                    const std::string & protocol);
+
     typedef std::function<bool (std::string bucket)> OnBucket;
 
     /** Call the given callback on every bucket in the current
@@ -608,5 +634,11 @@ S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename);
 // Create the directories for the given path.  For S3 it does nothing;
 // for normal directories it does mkdir -p
 void makeUriDirectory(const std::string & uri);
+
+// Erase the object at the given uri
+void eraseUriObject(const std::string & uri);
+
+// Erase the object at the given uri
+bool tryEraseUriObject(const std::string & uri);
 
 } // namespace Datacratic
