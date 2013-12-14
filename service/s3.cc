@@ -471,6 +471,11 @@ S3Api::ObjectMetadata::
 getRequestHeaders() const
 {
     std::vector<std::pair<std::string, std::string> > result;
+    Redundancy redundancy = this->redundancy;
+
+    if (redundancy == REDUNDANCY_DEFAULT)
+        redundancy = defaultRedundancy;
+
     if (redundancy == REDUNDANCY_REDUCED)
         result.push_back({"x-amz-storage-class", "REDUCED_REDUNDANCY"});
     else if(redundancy == REDUNDANCY_GLACIER)
@@ -481,6 +486,8 @@ getRequestHeaders() const
         result.push_back({"Content-Type", contentType});
     if (contentEncoding != "")
         result.push_back({"Content-Encoding", contentEncoding});
+    if (acl != "")
+        result.push_back({"x-amz-acl", acl});
     for (auto md: metadata) {
         result.push_back({"x-amz-meta-" + md.first, md.second});
     }
@@ -2070,6 +2077,24 @@ void S3Api::setDefaultBandwidthToServiceMbps(double mbps){
 
 HttpRestProxy S3Api::proxy;
 
+S3Api::Redundancy S3Api::defaultRedundancy = S3Api::REDUNDANCY_STANDARD;
+
+void
+S3Api::
+setDefaultRedundancy(Redundancy redundancy)
+{
+    if (redundancy == REDUNDANCY_DEFAULT)
+        throw ML::Exception("Can't set default redundancy as default");
+    defaultRedundancy = redundancy;
+}
+
+S3Api::Redundancy
+S3Api::
+getDefaultRedundancy()
+{
+    return defaultRedundancy;
+}
+
 namespace {
 
 struct S3BucketInfo {
@@ -2120,11 +2145,15 @@ void registerS3Bucket(const std::string & bucketName,
     s3Buckets[bucketName] = info;
 }
 
+/** Register S3 with the filter streams API so that a filter_stream can be used to
+    treat an S3 object as a simple stream.
+*/
 struct RegisterS3Handler {
     static std::pair<std::streambuf *, bool>
     getS3Handler(const std::string & scheme,
                  const std::string & resource,
-                 std::ios_base::open_mode mode)
+                 std::ios_base::open_mode mode,
+                 const std::map<std::string, std::string> & options)
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
@@ -2141,7 +2170,43 @@ struct RegisterS3Handler {
                              true);
         }
         else if (mode == ios::out) {
-            return make_pair(api->streamingUpload("s3://" + resource)
+
+            S3Api::ObjectMetadata md;
+            for (auto & opt: options) {
+                string name = opt.first;
+                string value = opt.second;
+                if (name == "redundancy" || name == "aws-redundancy") {
+                    if (value == "STANDARD")
+                        md.redundancy = S3Api::REDUNDANCY_STANDARD;
+                    else if (value == "REDUCED")
+                        md.redundancy = S3Api::REDUNDANCY_REDUCED;
+                    else throw ML::Exception("unknown redundancy value " + value
+                                             + " writing S3 object " + resource);
+                }
+                else if (name == "contentType" || name == "aws-contentType") {
+                    md.contentType = value;
+                }
+                else if (name == "contentEncoding" || name == "aws-contentEncoding") {
+                    md.contentEncoding = value;
+                }
+                else if (name == "acl" || name == "aws-acl") {
+                    md.acl = value;
+                }
+                else if (name == "mode" || name == "compression"
+                         || name == "compressionLevel") {
+                    // do nothing
+                }
+                else if (name.find("aws-") == 0) {
+                    throw ML::Exception("unknown aws option " + name + "=" + value
+                                        + " opening S3 object " + resource);
+                }
+                else {
+                    cerr << "warning: skipping unknown S3 option "
+                         << name << "=" << value << endl;
+                }
+            }
+
+            return make_pair(api->streamingUpload("s3://" + resource, md)
                              .release(),
                              true);
         }

@@ -179,10 +179,18 @@ struct S3Api : public AwsApi {
     };
 
     enum Redundancy {
+        REDUNDANCY_DEFAULT,
         REDUNDANCY_STANDARD,
         REDUNDANCY_REDUCED,
         REDUNDANCY_GLACIER
     };
+
+    /** Set the meaning of REDUNDANCY_DEFAULT.  Default is REDUNDANCY_STANDARD.
+     */
+    static void setDefaultRedundancy(Redundancy redundancy);
+
+    /** Get the meaning of REDUNDANCY_DEFAULT.  */
+    static Redundancy getDefaultRedundancy();
 
     enum ServerSideEncryption {
         SSE_NONE,
@@ -191,7 +199,7 @@ struct S3Api : public AwsApi {
 
     struct ObjectMetadata {
         ObjectMetadata()
-            : redundancy(REDUNDANCY_STANDARD),
+            : redundancy(REDUNDANCY_DEFAULT),
               serverSideEncryption(SSE_NONE)
         {
         }
@@ -210,6 +218,7 @@ struct S3Api : public AwsApi {
         std::string contentType;
         std::string contentEncoding;
         std::map<std::string, std::string> metadata;
+        std::string acl;
     };
 
     /** Signed request that can be executed. */
@@ -541,6 +550,9 @@ struct S3Api : public AwsApi {
 
     // Used to pool connections to the S3 service
     static HttpRestProxy proxy;
+
+    /// Static variable to hold the default redundancy to be used
+    static Redundancy defaultRedundancy;
 };
 
 struct S3Handle{

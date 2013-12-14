@@ -912,7 +912,8 @@ struct RegisterSftpHandler {
     static std::pair<std::streambuf *, bool>
     getSftpHandler(const std::string & scheme,
                    const std::string & resource,
-                   std::ios_base::open_mode mode)
+                   std::ios_base::open_mode mode,
+                   const std::map<std::string, std::string> & options)
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
