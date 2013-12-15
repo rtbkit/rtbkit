@@ -46,6 +46,30 @@ using namespace ML;
 
 namespace Datacratic {
 
+std::string
+S3Api::
+s3EscapeResource(const std::string & str)
+{
+    if (str.size() == 0) {
+        throw ML::Exception("empty str name");
+    }
+
+    if (str[0] != '/') {
+        throw ML::Exception("resource name must start with a '/'");
+    }
+
+    std::string result;
+    for (auto c: str) {
+
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/')
+            result += c;
+        else result += ML::format("%%%02X", c);
+    }
+    
+    return result;
+}
+
+
 double
 S3Api::
 defaultBandwidthToServiceMbps = 20.0;
@@ -110,7 +134,7 @@ performSync() const
             numRetries = atoi(numRetriesEnv);
         }
         else {
-            numRetries = 7;
+            numRetries = 45;
         }
     }
 
@@ -131,13 +155,15 @@ performSync() const
         if (i > 0) {
             /* allow a maximum of 384 seconds for retry delays (1 << 7 * 3) */
             int multiplier = i < 8 ? (1 << i) : i << 7;
-            int numSeconds = ::random() % (baseRetryDelay * multiplier);
+            double numSeconds = ::random() % (baseRetryDelay * multiplier);
             if (numSeconds == 0) {
                 numSeconds = baseRetryDelay * multiplier;
             }
 
+            numSeconds = 0.05;
+
             ::fprintf(stderr,
-                      "S3 operation retry in %d seconds: %s %s\n",
+                      "S3 operation retry in %f seconds: %s %s\n",
                       numSeconds, params.verb.c_str(), uri.c_str());
             ML::sleep(numSeconds);
         }
@@ -572,94 +598,99 @@ S3Api::MultiPartUpload
 S3Api::
 obtainMultiPartUpload(const std::string & bucket,
                       const std::string & resource,
-                      const ObjectMetadata & metadata) const
+                      const ObjectMetadata & metadata,
+                      UploadRequirements requirements) const
 {
-    string escapedResource = escapeResource(resource);
+    string escapedResource = s3EscapeResource(resource);
     // Contains the resource without the leading slash
     string outputPrefix(resource, 1);
-
-    // Check if there is already a multipart upload in progress
-    auto inProgressReq = get(bucket, "/", 8192, "uploads", {},
-                             { { "prefix", outputPrefix } });
-
-    //cerr << inProgressReq.bodyXmlStr() << endl;
-
-    auto inProgress = inProgressReq.bodyXml();
-
-    using namespace tinyxml2;
-
-    XMLHandle handle(*inProgress);
-
-    auto upload
-        = handle
-        .FirstChildElement("ListMultipartUploadsResult")
-        .FirstChildElement("Upload")
-        .ToElement();
 
     string uploadId;
     vector<MultiPartUploadPart> parts;
 
-    uint64_t partSize = 0;
-    uint64_t currentOffset = 0;
+    if (requirements != UR_FRESH) {
 
-    for (; upload; upload = upload->NextSiblingElement("Upload")) {
-        XMLHandle uploadHandle(upload);
+        // Check if there is already a multipart upload in progress
+        auto inProgressReq = get(bucket, "/", 8192, "uploads", {},
+                                 { { "prefix", outputPrefix } });
 
-        auto key = extract<string>(upload, "Key");
+        //cerr << "in progress requests:" << endl;
+        //cerr << inProgressReq.bodyXmlStr() << endl;
 
-        if (key != outputPrefix)
-            continue;
-        
-        // Already an upload in progress
-        string uploadId = extract<string>(upload, "UploadId");
+        auto inProgress = inProgressReq.bodyXml();
 
-        // From here onwards is only useful if we want to continue a half-finished
-        // upload.  Instead, we will delete it to avoid problems with creating
-        // half-finished files when we don't know what we're doing.
+        using namespace tinyxml2;
 
-        auto deletedInfo = eraseEscaped(bucket, escapedResource,
-                                        "uploadId=" + uploadId);
+        XMLHandle handle(*inProgress);
 
-        continue;
-
-        // TODO: check metadata, etc
-        auto inProgressInfo = getEscaped(bucket, escapedResource, 8192,
-                                         "uploadId=" + uploadId)
-            .bodyXml();
-
-        inProgressInfo->Print();
-
-        XMLHandle handle(*inProgressInfo);
-
-        auto foundPart
+        auto upload
             = handle
-            .FirstChildElement("ListPartsResult")
-            .FirstChildElement("Part")
+            .FirstChildElement("ListMultipartUploadsResult")
+            .FirstChildElement("Upload")
             .ToElement();
 
-        int numPartsDone = 0;
-        uint64_t biggestPartSize = 0;
-        for (; foundPart;
-             foundPart = foundPart->NextSiblingElement("Part"),
-                 ++numPartsDone) {
-            MultiPartUploadPart currentPart;
-            currentPart.fromXml(foundPart);
-            if (currentPart.partNumber != numPartsDone + 1) {
-                //cerr << "missing part " << numPartsDone + 1 << endl;
-                // from here we continue alone
-                break;
+        uint64_t partSize = 0;
+        uint64_t currentOffset = 0;
+
+        for (; upload; upload = upload->NextSiblingElement("Upload")) {
+            XMLHandle uploadHandle(upload);
+
+            auto key = extract<string>(upload, "Key");
+
+            if (key != outputPrefix)
+                continue;
+        
+            // Already an upload in progress
+            string uploadId = extract<string>(upload, "UploadId");
+
+            // From here onwards is only useful if we want to continue a half-finished
+            // upload.  Instead, we will delete it to avoid problems with creating
+            // half-finished files when we don't know what we're doing.
+
+            auto deletedInfo = eraseEscaped(bucket, escapedResource,
+                                            "uploadId=" + uploadId);
+
+            continue;
+
+            // TODO: check metadata, etc
+            auto inProgressInfo = getEscaped(bucket, escapedResource, 8192,
+                                             "uploadId=" + uploadId)
+                .bodyXml();
+
+            inProgressInfo->Print();
+
+            XMLHandle handle(*inProgressInfo);
+
+            auto foundPart
+                = handle
+                .FirstChildElement("ListPartsResult")
+                .FirstChildElement("Part")
+                .ToElement();
+
+            int numPartsDone = 0;
+            uint64_t biggestPartSize = 0;
+            for (; foundPart;
+                 foundPart = foundPart->NextSiblingElement("Part"),
+                     ++numPartsDone) {
+                MultiPartUploadPart currentPart;
+                currentPart.fromXml(foundPart);
+                if (currentPart.partNumber != numPartsDone + 1) {
+                    //cerr << "missing part " << numPartsDone + 1 << endl;
+                    // from here we continue alone
+                    break;
+                }
+                currentPart.startOffset = currentOffset;
+                currentOffset += currentPart.size;
+                biggestPartSize = std::max(biggestPartSize, currentPart.size);
+                parts.push_back(currentPart);
             }
-            currentPart.startOffset = currentOffset;
-            currentOffset += currentPart.size;
-            biggestPartSize = std::max(biggestPartSize, currentPart.size);
-            parts.push_back(currentPart);
+
+            partSize = biggestPartSize;
+
+            //cerr << "numPartsDone = " << numPartsDone << endl;
+            //cerr << "currentOffset = " << currentOffset
+            //     << "dataSize = " << dataSize << endl;
         }
-
-        partSize = biggestPartSize;
-
-        //cerr << "numPartsDone = " << numPartsDone << endl;
-        //cerr << "currentOffset = " << currentOffset
-        //     << "dataSize = " << dataSize << endl;
     }
 
     if (uploadId.empty()) {
@@ -707,7 +738,7 @@ finishMultiPartUpload(const std::string & bucket,
 
     //joinRequest.Print();
 
-    string escapedResource = escapeResource(resource);
+    string escapedResource = s3EscapeResource(resource);
 
     auto joinResponse
         = postEscaped(bucket, escapedResource, "uploadId=" + uploadId,
@@ -751,7 +782,7 @@ upload(const char * data,
        const ObjectMetadata & metadata,
        int numInParallel)
 {
-    string escapedResource = escapeResource(resource);
+    string escapedResource = s3EscapeResource(resource);
 
     // Contains the resource without the leading slash
     string outputPrefix(resource, 1);
@@ -787,7 +818,7 @@ upload(const char * data,
         }
     }
 
-    auto upload = obtainMultiPartUpload(bucket, resource, metadata);
+    auto upload = obtainMultiPartUpload(bucket, resource, metadata, UR_EXCLUSIVE);
 
     uint64_t partSize = 0;
     uint64_t currentOffset = 0;
@@ -1823,7 +1854,7 @@ struct StreamingUploadSource {
         };
 
         Chunk current;
-
+        
         RingBufferSWMR<Chunk> chunks;
 
         std::mutex etagsLock;
@@ -1832,7 +1863,8 @@ struct StreamingUploadSource {
 
         void start()
         {
-            auto upload = owner->obtainMultiPartUpload(bucket, "/" + object, metadata);
+            auto upload = owner->obtainMultiPartUpload(bucket, "/" + object, metadata,
+                                                       S3Api::UR_EXCLUSIVE);
 
             uploadId = upload.id;
             //cerr << "uploadId = " << uploadId << endl;

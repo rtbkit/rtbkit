@@ -239,6 +239,10 @@ struct S3Api : public AwsApi {
     /** Prepare a request to be executed. */
     SignedRequest prepare(const RequestParams & request) const;
 
+    /** Escape a resource used by S3; this in particular leaves a slash
+        in place. */
+    static std::string s3EscapeResource(const std::string & resource);
+
     /** Perform a GET request from end to end. */
     Response get(const std::string & bucket,
                  const std::string & resource,
@@ -248,7 +252,7 @@ struct S3Api : public AwsApi {
                  const StrPairVector & queryParams = StrPairVector())
         const
     {
-        return getEscaped(bucket, escapeResource(resource), downloadRange,
+        return getEscaped(bucket, s3EscapeResource(resource), downloadRange,
                           subResource, headers, queryParams);
     }
 
@@ -262,7 +266,7 @@ struct S3Api : public AwsApi {
                   const Content & content = Content())
         const
     {
-        return postEscaped(bucket, escapeResource(resource), subResource,
+        return postEscaped(bucket, s3EscapeResource(resource), subResource,
                            headers, queryParams, content);
     }
 
@@ -275,7 +279,7 @@ struct S3Api : public AwsApi {
                  const Content & content = Content())
         const
     {
-        return putEscaped(bucket, escapeResource(resource), subResource,
+        return putEscaped(bucket, s3EscapeResource(resource), subResource,
                           headers, queryParams, content);
     }
 
@@ -288,7 +292,7 @@ struct S3Api : public AwsApi {
                    const Content & content = Content())
         const
     {
-        return eraseEscaped(bucket, escapeResource(resource), subResource,
+        return eraseEscaped(bucket, s3EscapeResource(resource), subResource,
                             headers, queryParams, content);
     }
 
@@ -517,11 +521,18 @@ struct S3Api : public AwsApi {
         std::vector<MultiPartUploadPart> parts;
     };
 
+    enum UploadRequirements {
+        UR_EXISTING,   ///< OK to return an existing one
+        UR_FRESH,      ///< Must be a fresh one
+        UR_EXCLUSIVE   ///< Must be a fresh one, and no other may exist
+    };
+
     /** Obtain a multipart upload, either in progress or a new one. */
     MultiPartUpload
     obtainMultiPartUpload(const std::string & bucket,
                           const std::string & resource,
-                          const ObjectMetadata & metadata) const;
+                          const ObjectMetadata & metadata,
+                          UploadRequirements requirements) const;
 
     std::pair<bool,std::string>
     isMultiPartUploadInProgress(const std::string & bucket,
