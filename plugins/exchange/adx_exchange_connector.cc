@@ -305,6 +305,21 @@ ParseGbrAdSlot (const GoogleBidRequest& gbr, BidRequest& br)
             for (auto i: boost::irange(0,slot.excluded_sensitive_category_size()))
                 tmp.push_back(slot.excluded_sensitive_category(i));
             spot.restrictions.addInts("excluded_sensitive_category", tmp);
+
+            vector<std::string> adg_ids;
+            for (auto i: boost::irange(0,slot.matching_ad_data_size())){
+                if(slot.matching_ad_data(i).has_adgroup_id()){
+                    adg_ids.push_back(
+                        boost::lexical_cast<std::string>(
+                            slot.matching_ad_data(i).adgroup_id()));
+                }
+            }
+            spot.restrictions.addStrings("allowed_adgroup", adg_ids);
+
+            tmp.clear();
+            for (auto i: boost::irange(0,slot.allowed_restricted_category_size()))
+                tmp.push_back(slot.allowed_restricted_category(i));
+            spot.restrictions.addInts("allowed_restricted_category", tmp);
         }
 
         if (slot.has_slot_visibility())
@@ -531,7 +546,6 @@ parseBidRequest(HttpAuctionHandler & connection,
                                         gbr.detected_vertical(i).weight()));
         br.segments.addWeightedInts("AdxDetectedVerticals", segs);
     }
-
     // auto str = res->toJsonStr();
     // cerr << "RTBKIT::BidRequest: " << str << endl ;
     return res ;
@@ -617,9 +631,19 @@ getResponse(const HttpAuctionHandler & connection,
         // 3. populate, substituting whenever necessary
         ad->set_buyer_creative_id(crinfo->buyer_creative_id_);
         ad->set_html_snippet(myFormat(crinfo->html_snippet_,dict));
-        ad->add_click_through_url(myFormat(crinfo->click_through_url_,dict)) ;
+        ad->add_click_through_url(myFormat(crinfo->click_through_url_,dict));
+        ad->set_width(creative.format.width);
+        ad->set_height(creative.format.height);
+        for(auto& vt : crinfo->vendor_type_)
+            ad->add_vendor_type(vt);
         adslot->set_max_cpm_micros(MicroUSD_CPM(resp.price.maxPrice));
         adslot->set_id(auction.request->imp[spotNum].id.toInt());
+        if(!crinfo->adgroup_id_.empty()){            
+            adslot->set_adgroup_id(
+                boost::lexical_cast<uint64_t>(crinfo->adgroup_id_));
+        }
+        for(auto& cat : crinfo->restricted_category_)
+            ad->add_restricted_category(cat);
     }
     return HttpResponse(200, "application/octet-stream", gresp.SerializeAsString());
 }
@@ -659,13 +683,17 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
              const Json::Value & config,
              const char * fieldName,
              T & field,
-             bool includeReasons)
+             bool includeReasons,
+             bool optional = false)
 {
     try {
-        if (!config.isMember(fieldName)) {
+        bool isMember = config.isMember(fieldName);
+        if (!isMember && !optional) {
             result.setIncompatible
             ("creative[].providerConfig.adx." + string(fieldName)
              + " must be specified", includeReasons);
+            return;
+        }else if(!isMember && optional){
             return;
         }
 
@@ -721,7 +749,7 @@ getCreativeCompatibility(const Creative & creative,
 
     string tmp;
     const auto to_int = [] (const string& str) {
-        return atoi(str.c_str());
+        return std::stoi(str);
     };
 
     // 5.  Must have vendorType
@@ -732,7 +760,7 @@ getCreativeCompatibility(const Creative & creative,
         auto& ints = crinfo->vendor_type_;
         transform(tok.begin(), tok.end(),
         std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return atoi(s.data());
+            return std::stoi(s);
         });
     }
 
@@ -745,7 +773,7 @@ getCreativeCompatibility(const Creative & creative,
         auto& ints = crinfo->attribute_;
         transform(tok.begin(), tok.end(),
         std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return atoi(s.data());
+            return std::stoi(s);
         });
     }
 
@@ -758,8 +786,36 @@ getCreativeCompatibility(const Creative & creative,
         auto& ints = crinfo->category_;
         transform(tok.begin(), tok.end(),
         std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return atoi(s.data());
+            return std::stoi(s);
         });
+    }
+
+    /* 
+       8. adGroupId is an optional paramater, this must always 
+          be set if the BidRequest has more than one 
+          BidRequest.AdSlot.matching_ad_data 
+    */
+    int64_t adgroup_id = 0;
+    getAttr(result, pconf, "adGroupId", adgroup_id, includeReasons, true);
+    crinfo->adgroup_id_ = boost::lexical_cast<std::string>(adgroup_id);
+
+    /*
+       9. If you are bidding with ads in restricted categories 
+          you MUST declare them in restrictedCategories.
+    */
+    tmp.clear();
+    getAttr(result, pconf, "restrictedCategory", tmp, includeReasons);
+    if (!tmp.empty())
+    {
+        tokenizer<> tok(tmp);
+        auto& ints = crinfo->restricted_category_;
+        transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return std::stoi(s);
+        });
+        if(ints.size() == 1 && *ints.begin() == 0){
+           ints.clear(); 
+        }
     }
 
     if (result.isCompatible) {
@@ -810,6 +866,30 @@ bidRequestCreativeFilter(const BidRequest & request,
             if (!allowed_vendor_type_seg.contains(atr))
             {
                 this->recordHit ("vendor_type_not_allowed");
+                return false ;
+            }
+
+        const auto& allowed_adgroup_seg =
+            spot.restrictions.get("allowed_adgroup");
+        if (!allowed_adgroup_seg.contains(crinfo->adgroup_id_) 
+                 && !allowed_adgroup_seg.empty()
+                 && !crinfo->adgroup_id_.empty())
+        {
+            this->recordHit ("adgroup_not_allowed");
+            return false ;
+        }
+
+        const auto& allowed_restricted_category_seg =
+            spot.restrictions.get("allowed_restricted_category");
+        for (auto atr: crinfo->restricted_category_)
+            if (    (!allowed_restricted_category_seg.contains(atr) 
+                  && !allowed_restricted_category_seg.empty())
+                ||
+                    (allowed_restricted_category_seg.empty()
+                  && !crinfo->restricted_category_.empty())
+                )
+            {
+                this->recordHit ("restricted_category_not_allowed");
                 return false ;
             }
     }

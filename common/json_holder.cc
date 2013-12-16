@@ -40,12 +40,6 @@ reconstitute(ML::DB::Store_Reader & store)
 
 void
 JsonHolder::
-createDescription(JsonHolderDescription & d) {
-    d.addField("str", &JsonHolder::str, "");
-}
-
-void
-JsonHolder::
 makeString() const
 {
     if (!str.empty()) return;
@@ -73,3 +67,14 @@ std::ostream & operator << (std::ostream & stream, const JsonHolder & json)
 }
 
 } // namespace RTBKIT
+
+
+namespace Datacratic {
+
+DefaultDescription<RTBKIT::JsonHolder>::
+DefaultDescription()
+{
+    addField("str", &RTBKIT::JsonHolder::str, "");
+}
+
+} // namespace Datacratic

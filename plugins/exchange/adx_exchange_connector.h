@@ -97,9 +97,12 @@ struct AdXExchangeConnector: public HttpExchangeConnector {
         std::string buyer_creative_id_ ;            ///< Buyer Creative Id
         std::string html_snippet_;                  ///< landing Url
         std::string click_through_url_;             ///< Click
+        std::string adgroup_id_;                    ///< Ad Group Id
         std::unordered_set<int32_t> vendor_type_ ;  ///< Vendor Type
         std::unordered_set<int32_t> category_ ;     ///< Category
         std::unordered_set<int32_t> attribute_;     ///< Attribute
+        std::unordered_set<int32_t> 
+                        restricted_category_;       ///< Restricted category
     };
 
     virtual bool

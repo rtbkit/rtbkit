@@ -67,7 +67,9 @@ private:
 
 struct GenerateCtx : public Context
 {
-    RNG rng;
+    GenerateCtx(RNG& rng) : rng(rng) {}
+
+    RNG& rng;
     GeneratorFn generator;
 };
 
@@ -598,8 +600,20 @@ generate(uint32_t seed) const
 {
     if (Synth::debug) cerr << "GENERATE:" << endl;
 
-    Synth::GenerateCtx ctx;
-    ctx.rng.seed(seed);
+    ML::RNG rng(seed);
+    Synth::GenerateCtx ctx(rng);
+    ctx.generator = generatorFn;
+
+    return values->generate(ctx);
+}
+
+Json::Value
+BidRequestSynth::
+generate(RNG& rng) const
+{
+    if (Synth::debug) cerr << "GENERATE:" << endl;
+
+    Synth::GenerateCtx ctx(rng);
     ctx.generator = generatorFn;
 
     return values->generate(ctx);

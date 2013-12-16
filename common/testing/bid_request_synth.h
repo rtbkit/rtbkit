@@ -17,6 +17,7 @@
 #include <string>
 
 namespace Json { struct Value; }
+namespace ML { struct RNG; }
 
 namespace RTBKIT {
 
@@ -52,7 +53,7 @@ struct NodePath : public std::vector<std::string>
 typedef std::function<Json::Value(const NodePath&)> GeneratorFn;
 typedef std::function<bool(const NodePath&)> TestPathFn;
 
-const char* ArrayIndex = "_i_";
+static constexpr const char* ArrayIndex = "_i_";
 }
 
 /******************************************************************************/
@@ -69,6 +70,7 @@ struct BidRequestSynth
 
     void record(const Json::Value& json);
     Json::Value generate(uint32_t seed = 0) const;
+    Json::Value generate(ML::RNG& rng) const;
 
     void dump(std::ostream& stream);
     void load(std::istream& stream);
