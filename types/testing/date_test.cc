@@ -532,4 +532,10 @@ BOOST_AUTO_TEST_CASE( test_date_iostream_print )
                       "NaD");
     BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((uint64_t)-1)),
                       "Inf");
+
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(9.22337e+18)), "Inf");
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(std::numeric_limits<int64_t>::min())), "-Inf");
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(9223372036854775807ULL)), "Inf");
+    
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(-9.22337e+18)), "-Inf");
 }
