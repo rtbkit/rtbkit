@@ -5,11 +5,13 @@
 */
 
 #include <sys/syscall.h>
+#include <fstream>
 #include "exception.h"
 #include "exception_hook.h"
 #include "demangle.h"
 #include <cxxabi.h>
 #include "backtrace.h"
+#include "jml/arch/format.h"
 #include "jml/compiler/compiler.h"
 #include "jml/utils/environment.h"
 
@@ -107,15 +109,43 @@ void trace_exception(void * object, const std::type_info * tinfo)
     // We don't want these exceptions to be printed out.
     if (dynamic_cast<const ML::SilentException *>(exc)) return;
 
+    time_t now;
+    time(&now);
+
+    char datetime[128];
+    strftime(datetime, sizeof(datetime), "%F-%H%M%S", localtime(&now));
+
+    auto pid = getpid();
+    auto tid = (long) syscall(SYS_gettid);
+
+
     cerr << endl;
-    cerr << "----------------- Exception thrown ------------------------"
+    cerr << "--------------------------[Exception thrown]---------------------------"
          << endl;
+    cerr << "time:   " << datetime << endl;
     cerr << "type:   " << demangle(tinfo->name()) << endl
-         << "pid:    " << getpid() << "; tid: " << (long) syscall(SYS_gettid) << endl;
+         << "pid:    " << pid << "; tid: " << tid << endl;
     if (exc) cerr << "what:   " << exc->what() << endl;
 
     cerr << "stack:" << endl;
     backtrace(cerr, 3);
+
+    char const * reports = getenv("ENABLE_EXCEPTION_REPORTS");
+    if(reports) {
+        std::string path = ML::format("%s/exception-report-%s-%d-%d.log",
+                                      reports,
+                                      datetime,
+                                      pid,
+                                      tid);
+
+        std::ofstream file(path, std::ios_base::app);
+        if(file) {
+            file << getenv("_") << endl;
+            backtrace(file, 3);
+            file.close();
+        }
+    }
+
     cerr << endl;
 }
 
