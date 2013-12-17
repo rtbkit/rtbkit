@@ -1932,6 +1932,12 @@ struct StreamingUploadSource {
             //cerr << "empty" << endl;
             stop();
             //cerr << "stopped" << endl;
+
+            // Make sure that an exception in uploading the last chunk doesn't
+            // lead to a corrupt (truncated) file
+            if (exc)
+                std::rethrow_exception(exc);
+
             string etag = owner->finishMultiPartUpload(bucket, "/" + object,
                                                        uploadId,
                                                        etags);
