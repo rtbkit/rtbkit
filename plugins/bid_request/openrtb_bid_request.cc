@@ -194,10 +194,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 
     if (!req.cur.empty()) {
         for (unsigned i = 0;  i < req.cur.size();  ++i) {
-        	if (req.cur[i] == "USD")
-                result->bidCurrency.push_back(CurrencyCode::CC_USD);
-        	else
-                result->bidCurrency.push_back(Amount::parseCurrency(req.cur[i]));
+                result->bidCurrency.push_back(Amount::parseISOCurrency(req.cur[i]));
         }
     }
     else {

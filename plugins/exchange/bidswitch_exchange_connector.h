@@ -22,7 +22,7 @@ namespace RTBKIT {
 struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
     BidSwitchExchangeConnector(ServiceBase & owner, const std::string & name);
     BidSwitchExchangeConnector(const std::string & name,
-                           std::shared_ptr<ServiceProxies> proxies);
+                               std::shared_ptr<ServiceProxies> proxies);
 
     static std::string exchangeNameString() {
         return "bidswitch";
@@ -47,9 +47,8 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
     virtual double
     getTimeAvailableMs(HttpAuctionHandler & connection,
                        const HttpHeader & header,
-                       const std::string & payload)
-    {
-    	// TODO: check that is at it seems
+                       const std::string & payload) {
+        // TODO: check that is at it seems
         return 200.0;
     }
 
@@ -69,11 +68,8 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
         filter and serve a creative.
     */
     struct CreativeInfo {
-        std::string adm;                                ///< Ad markup
-        std::vector<std::string> adomain;               ///< Advertiser domains
-        Id crid;                                        ///< Creative ID
-        OpenRTB::List<OpenRTB::CreativeAttribute> attr; ///< Creative attributes
-        std::string ext_creativeapi;                    ///< Creative API
+        Id adid;                ///< ID for ad to be service if bid wins
+        std::string nurl;       ///< Win notice URL
     };
 
     virtual ExchangeCompatibility
@@ -84,7 +80,7 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
     static float decodeWinPrice(const std::string & sharedSecret,
                                 const std::string & winPriceStr);
 
-private:
+  private:
     virtual void setSeatBid(Auction const & auction,
                             int spotNum,
                             OpenRTB::BidResponse & response) const;

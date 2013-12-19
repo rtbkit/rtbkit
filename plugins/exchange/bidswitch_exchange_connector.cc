@@ -36,7 +36,7 @@ BidSwitchExchangeConnector(ServiceBase & owner, const std::string & name)
 
 BidSwitchExchangeConnector::
 BidSwitchExchangeConnector(const std::string & name,
-                       std::shared_ptr<ServiceProxies> proxies)
+                           std::shared_ptr<ServiceProxies> proxies)
     : OpenRTBExchangeConnector(name, proxies) {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
@@ -125,32 +125,19 @@ getCreativeCompatibility(const Creative & creative,
 
     const Json::Value & pconf = creative.providerConfig["bidswitch"];
 
-    // 1.  Must have bidswitch.attr containing creative attributes.  These
-    //     turn into BidSwitchCreativeAttribute filters.
-    getAttr(result, pconf, "attr", crinfo->attr, includeReasons);
-
-    // TODO: create filter from these...
-
-    // 2.  Must have bidswitch.adm that includes BidSwitch's macro
-    getAttr(result, pconf, "adm", crinfo->adm, includeReasons);
-    if (crinfo->adm.find("${AUCTION_PRICE:BF}") == string::npos)
+    // 1.  Must have bidswitch.nurl that includes BidSwitch's macro
+    getAttr(result, pconf, "nurl", crinfo->nurl, includeReasons);
+    if (crinfo->nurl.find("${AUCTION_PRICE}") == string::npos)
         result.setIncompatible
-        ("creative[].providerConfig.bidswitch.adm ad markup must contain "
-         "encrypted win price macro ${AUCTION_PRICE:BF}",
+        ("creative[].providerConfig.bidswitch.nurl ad markup must contain "
+         "encrypted win price macro ${AUCTION_PRICE}",
          includeReasons);
 
-    // 3.  Must have creative ID in bidswitch.crid
-    getAttr(result, pconf, "crid", crinfo->crid, includeReasons);
-    if (!crinfo->crid)
+    // 2.  Must have creative ID in bidswitch.crid
+    getAttr(result, pconf, "adid", crinfo->adid, includeReasons);
+    if (!crinfo->adid)
         result.setIncompatible
-        ("creative[].providerConfig.bidswitch.crid is null",
-         includeReasons);
-
-    // 4.  Must have advertiser names array in bidswitch.adomain
-    getAttr(result, pconf, "adomain", crinfo->adomain,  includeReasons);
-    if (crinfo->adomain.empty())
-        result.setIncompatible
-        ("creative[].providerConfig.bidswitch.adomain is empty",
+        ("creative[].providerConfig.bidswitch.adid is null",
          includeReasons);
 
     // Cache the information
@@ -162,13 +149,26 @@ std::shared_ptr<BidRequest>
 BidSwitchExchangeConnector::
 parseBidRequest(HttpAuctionHandler & connection,
                 const HttpHeader & header,
-                const std::string & payload)
-{
+                const std::string & payload) {
     std::shared_ptr<BidRequest> res;
-
+//
     // Check for JSON content-type
     if (header.contentType != "application/json") {
         connection.sendErrorResponse("non-JSON request");
+        return res;
+    }
+
+    // Check for the x-openrtb-version header
+    auto it = header.headers.find("x-openrtb-version");
+    if (it == header.headers.end()) {
+        connection.sendErrorResponse("no OpenRTB version header supplied");
+        return res;
+    }
+
+    // Check that it's version 2.1
+    std::string openRtbVersion = it->second;
+    if (openRtbVersion != "2.0") {
+        connection.sendErrorResponse("expected OpenRTB version 2.0; got " + openRtbVersion);
         return res;
     }
 
@@ -234,9 +234,8 @@ setSeatBid(Auction const & auction,
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.impid = auction.request->imp[spotNum].id;
     b.price.val = USD_CPM(resp.price.maxPrice);
-    b.adm = crinfo->adm;
-    b.adomain = crinfo->adomain;
-    b.crid = crinfo->crid;
+    b.nurl = crinfo->nurl;
+    b.adid = crinfo->adid;
     b.iurl = cpinfo->iurl;
 }
 

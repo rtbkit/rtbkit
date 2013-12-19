@@ -175,6 +175,15 @@ parseCurrency(const std::string & currency)
     throw ML::Exception("unknown currency code " + currency);
 }
 
+CurrencyCode
+Amount::
+parseISOCurrency(const std::string & currency)
+{
+    if (currency.empty() || currency == "USD")
+    	return CurrencyCode::CC_USD;
+    throw ML::Exception("unknown currency code " + currency);
+}
+
 std::ostream &
 operator << (std::ostream & stream, Amount amount)
 {

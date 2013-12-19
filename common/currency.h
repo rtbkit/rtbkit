@@ -157,6 +157,9 @@ struct Amount {
     static std::string getCurrencyStr(CurrencyCode currencyCode);
     std::string getCurrencyStr() const;
     static CurrencyCode parseCurrency(const std::string & currency);
+    static CurrencyCode parseISOCurrency(const std::string & currency);
+
+
 
     std::string toString() const;
 
