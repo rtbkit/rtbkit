@@ -3,6 +3,8 @@
 
    Implementation of the MoPub exchange connector.
 */
+#include <algorithm>
+#include <boost/tokenizer.hpp>
 
 #include "mopub_exchange_connector.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
@@ -17,6 +19,7 @@
 #include "crypto++/blowfish.h"
 #include "crypto++/modes.h"
 #include "crypto++/filters.h"
+
 
 using namespace std;
 using namespace Datacratic;
@@ -124,14 +127,46 @@ getCreativeCompatibility(const Creative & creative,
     auto crinfo = std::make_shared<CreativeInfo>();
 
     const Json::Value & pconf = creative.providerConfig["mopub"];
+    std::string tmp;
+
+    boost::char_separator<char> sep(" ,");
 
     // 1.  Must have mopub.attr containing creative attributes.  These
     //     turn into MoPubCreativeAttribute filters.
-    getAttr(result, pconf, "attr", crinfo->attr, includeReasons);
+    getAttr(result, pconf, "attr", tmp, includeReasons);
+    if (!tmp.empty())  {
+        boost::tokenizer<boost::char_separator<char>> tok(tmp, sep);
+        auto& ints = crinfo->attr;
+        std::transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return atoi(s.data());
+        });
+    }
+    tmp.clear();
 
-    // TODO: create filter from these...
 
-    // 2.  Must have mopub.adm that includes MoPub's macro
+    // 2. Must have mopub.type containing attribute type.
+    getAttr(result, pconf, "type", tmp, includeReasons);
+    if (!tmp.empty())  {
+        boost::tokenizer<boost::char_separator<char>> tok(tmp, sep);
+        auto& ints = crinfo->type;
+        std::transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return atoi(s.data());
+        });
+    }
+    tmp.clear();
+
+    // 3. Must have mopub.cat containing attribute type.
+    getAttr(result, pconf, "cat", tmp, includeReasons);
+    if (!tmp.empty())  {
+        boost::tokenizer<boost::char_separator<char>> tok(tmp, sep);
+        auto& strs = crinfo->cat;
+        copy(tok.begin(),tok.end(),inserter(strs,strs.begin()));
+    }
+    tmp.clear();
+
+    // 4.  Must have mopub.adm that includes MoPub's macro
     getAttr(result, pconf, "adm", crinfo->adm, includeReasons);
     if (crinfo->adm.find("${AUCTION_PRICE:BF}") == string::npos)
         result.setIncompatible
@@ -139,14 +174,14 @@ getCreativeCompatibility(const Creative & creative,
          "encrypted win price macro ${AUCTION_PRICE:BF}",
          includeReasons);
 
-    // 3.  Must have creative ID in mopub.crid
+    // 5.  Must have creative ID in mopub.crid
     getAttr(result, pconf, "crid", crinfo->crid, includeReasons);
     if (!crinfo->crid)
         result.setIncompatible
         ("creative[].providerConfig.mopub.crid is null",
          includeReasons);
 
-    // 4.  Must have advertiser names array in mopub.adomain
+    // 6.  Must have advertiser names array in mopub.adomain
     getAttr(result, pconf, "adomain", crinfo->adomain,  includeReasons);
     if (crinfo->adomain.empty())
         result.setIncompatible
@@ -162,8 +197,7 @@ std::shared_ptr<BidRequest>
 MoPubExchangeConnector::
 parseBidRequest(HttpAuctionHandler & connection,
                 const HttpHeader & header,
-                const std::string & payload)
-{
+                const std::string & payload) {
     std::shared_ptr<BidRequest> res;
 
     // Check for JSON content-type
@@ -176,6 +210,26 @@ parseBidRequest(HttpAuctionHandler & connection,
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
     res.reset(OpenRtbBidRequestParser::parseBidRequest(context, exchangeName(), exchangeName()));
 
+    // get restrictions enforced by MoPub.
+    //1) blocked category
+    std::vector<std::string> strv;
+    for (const auto& cat: res->blockedCategories)
+        strv.push_back(cat.val);
+    res->restrictions.addStrings("blockedCategories", strv);
+
+    //2) per slot: blocked type and attribute;
+    std::vector<int> intv;
+    for (auto& spot: res->imp) {
+        for (const auto& t: spot.banner->btype) {
+            intv.push_back (t.val);
+        }
+        spot.restrictions.addInts("blockedTypes", intv);
+        intv.clear();
+        for (const auto& a: spot.banner->battr) {
+            intv.push_back (a.val);
+        }
+        spot.restrictions.addInts("blockedAttrs", intv);
+    }
     return res;
 }
 
@@ -238,6 +292,53 @@ setSeatBid(Auction const & auction,
     b.adomain = crinfo->adomain;
     b.crid = crinfo->crid;
     b.iurl = cpinfo->iurl;
+}
+
+template <typename T>
+bool disjoint (const set<T>& s1, const set<T>& s2) {
+    auto i = s1.begin(), j = s2.begin();
+    while (i != s1.end() && j != s2.end()) {
+        if (*i == *j)
+            return false;
+        else if (*i < *j)
+            ++i;
+        else
+            ++j;
+    }
+    return true;
+}
+bool
+MoPubExchangeConnector::
+bidRequestCreativeFilter(const BidRequest & request,
+                         const AgentConfig & config,
+                         const void * info) const {
+    const auto crinfo = reinterpret_cast<const CreativeInfo*>(info);
+
+    // 1) we first check for blocked content categories
+    const auto& blocked_categories = request.restrictions.get("blockedCategories");
+    for (const auto& cat: crinfo->cat)
+        if (blocked_categories.contains(cat)) {
+            this->recordHit ("blockedCategory");
+            return false;
+        }
+
+    // 2) now go throught the spots.
+    for (const auto& spot: request.imp) {
+        const auto& blocked_types = spot.restrictions.get("blockedTypes");
+        for (const auto& t: crinfo->type)
+            if (blocked_types.contains(t)) {
+                this->recordHit ("blockedType");
+                return false;
+            }
+        const auto& blocked_attr = spot.restrictions.get("blockedAttrs");
+        for (const auto& a: crinfo->attr)
+            if (blocked_attr.contains(a)) {
+                this->recordHit ("blockedAttr");
+                return false;
+            }
+    }
+
+    return true;
 }
 
 } // namespace RTBKIT
