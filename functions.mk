@@ -1,5 +1,7 @@
 include $(JML_BUILD)/gmsl/gmsl
 
+TMPBIN ?= $(BIN)
+
 dollars=$$
 
 SHELL := /bin/bash
@@ -278,9 +280,9 @@ OBJFILES_$(1):=$$(foreach file,$(addsuffix .lo,$(basename $(2:%=$(CWD)/%))),$$(B
 LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) -o $(BIN)/$$(tmpLIBNAME)$$(so) $$(OBJFILES_$(1)) $$(foreach lib,$(3), -l$$(lib))
 
 LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
-LIB_$(1)_SO   := $(BIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
+LIB_$(1)_SO   := $(TMPBIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
 
--include $(BIN)/$$(tmpLIBNAME)$$(so).version.mk
+-include $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk
 
 $(BIN)/$$(tmpLIBNAME)$$(so).version.mk:
 	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@
@@ -291,7 +293,7 @@ $(BIN)/$$(tmpLIBNAME)$$(so).version.mk:
 $(BIN)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) 
 	@$(RM) $$@
 	@ln $$< $$@
-	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@.version.mk
+	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk
 
 LINK_$(1)_COMMAND2 := $$(subst $(BIN)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
 
