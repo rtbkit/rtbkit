@@ -5,9 +5,16 @@ PYTHON_VERSION ?= $(PYTHON_VERSION_DETECTED)
 
 PYTHON_INCLUDE_PATH ?= $(VIRTUALENV)/include/python$(PYTHON_VERSION)
 PYTHON ?= python$(PYTHON_VERSION)
-PYTHONPATH ?= $(BIN)
 PIP ?= pip
 PYFLAKES ?= true
+
+PYTHON_PURE_LIB_PATH ?= $(LIB)
+PYTHON_PLAT_LIB_PATH ?= $(LIB)
+PYTHON_BIN_PATH ?= $(BIN)
+
+RUN_PYTHONPATH := $(if $(PYTHONPATH),$(PYTHONPATH):,)$(PYTHON_PURE_LIB_PATH):$(PYTHON_PLAT_LIB_PATH):$(PYTHON_BIN_PATH)
+
+PYTHONPATH ?= RUN_PYTHONPATH
 
 ifdef VIRTUALENV
 
@@ -62,16 +69,16 @@ define python_test
 ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called python_test "$(1)" "$(2)" "$(3)" "$(4)"))
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && $(PYFLAKES) $(CWD)/$(1).py && ((set -o pipefail && PYTHONPATH=$(PYTHONPATH):$(BIN) $(PYTHON) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && $(PYFLAKES) $(CWD)/$(1).py && ((set -o pipefail && PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && false))
 
-$(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(BIN)/$$(pymod)_pymod)
+$(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(TMPBIN)/$$(pymod)_pymod)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
 	@$$(TEST_$(1)_COMMAND)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed$(COLOR_RESET)")
 
-$(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(BIN)/$$(pymod)_pymod)
+$(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(TMPBIN)/$$(pymod)_pymod)
 	@$(PYFLAKES) $(CWD)/$(1).py
-	PYTHONPATH=$(PYTHONPATH):$(BIN) $(PYTHON) $(CWD)/$(1).py $($(1)_ARGS)
+	PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(CWD)/$(1).py $($(1)_ARGS)
 
 .PHONY: $(1)
 
@@ -87,7 +94,7 @@ ifneq ($(PREMAKE),1)
 
 $$(if $(trace),$$(warning called install_python_file "$(1)" "$(2)"))
 
-$(BIN)/$(2)/$(1):	$(CWD)/$(1) $(BIN)/$(2)/.dir_exists
+$(PYTHON_PURE_LIB_PATH)/$(2)/$(1):	$(CWD)/$(1) $(PYTHON_PURE_LIB_PATH)/$(2)/.dir_exists
 	$$(if $(verbose_build),@echo "cp $$< $$@",@echo " $(COLOR_YELLOW)[PYTHON_MODULE]$(COLOR_RESET) $(2)/$(1)")
 	@$(PYFLAKES) $$<
 	@cp $$< $$@~
@@ -95,7 +102,7 @@ $(BIN)/$(2)/$(1):	$(CWD)/$(1) $(BIN)/$(2)/.dir_exists
 
 #$$(w arning building $(BIN)/$(2)/$(1))
 
-all compile: $(BIN)/$(2)/$(1)
+all compile: $(PYTHON_PURE_LIB_PATH)/$(2)/$(1)
 
 endif
 endef
@@ -111,14 +118,15 @@ $$(if $(trace),$$(warning called python_module "$(1)" "$(2)" "$(3)" "$(4)"))
 
 $$(foreach file,$(2),$$(eval $$(call install_python_file,$$(file),$(1))))
 
-PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(BIN)/$(1)/$$(file)) $$(foreach pymod,$(3),$(BIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS)) $$(foreach lib,$(4),$$(LIB_$$(lib)_DEPS)) 
+PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(PYTHON_PURE_LIB_PATH)/$(1)/$$(file)) $$(foreach pymod,$(3),$(TMPBIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS)) $$(foreach lib,$(4),$$(LIB_$$(lib)_DEPS))
 
 #$$(w arning PYTHON_$(1)_DEPS=$$(PYTHON_$(1)_DEPS))
 
-$(BIN)/$(1)_pymod: $$(PYTHON_$(1)_DEPS)
-	@touch $(BIN)/$(1)_pymod
+$(TMPBIN)/$(1)_pymod: $$(PYTHON_$(1)_DEPS)
+	@mkdir -p $(dir $(TMPBIN)/$(1)_pymod)
+	@touch $(TMPBIN)/$(1)_pymod
 
-python_modules: $$(PYTHON_$(1)_DEPS)
+python_modules: $$(PYTHON_$(1)_DEPS) $(TMPBIN)/$(1)_pymod
 
 all compile:	python_modules
 endif
@@ -132,12 +140,12 @@ define python_program
 ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called python_program "$(1)" "$(2)" "$(3)"))
 
-PYTHON_$(1)_DEPS := $(BIN)/$(1) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
+PYTHON_$(1)_DEPS := $(PYTHON_BIN_PATH)/$(1) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 
-run_$(1):	$(BIN)/$(1)
-	$(PYTHON) $(BIN)/$(1)  $($(1)_ARGS)
+run_$(1):	$(PYTHON_BIN_PATH)/$(1)
+	$(PYTHON) $(PYTHON_BIN_PATH)/$(1)  $($(1)_ARGS)
 
-$(BIN)/$(1): $(CWD)/$(2) $(BIN)/.dir_exists $$(foreach pymod,$(3),$(BIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
+$(PYTHON_BIN_PATH)/$(1): $(CWD)/$(2) $(PYTHON_BIN_PATH)/.dir_exists $$(foreach pymod,$(3),$(TMPBIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"
 	@$(PYFLAKES) $$<
 	@cp $$< $$@~
@@ -146,7 +154,7 @@ $(BIN)/$(1): $(CWD)/$(2) $(BIN)/.dir_exists $$(foreach pymod,$(3),$(BIN)/$$(pymo
 
 #$$(w arning PYTHON_$(1)_DEPS=$$(PYTHON_$(1)_DEPS))
 
-$(1): $(BIN)/$(1)
+$(1): $(PYTHON_BIN_PATH)/$(1)
 
 python_programs: $$(PYTHON_$(1)_DEPS)
 
@@ -165,15 +173,16 @@ $$(eval $$(call library,$(1),$(2),$(3) boost_python,$(1),,"  $(COLOR_YELLOW)[PYT
 
 ifneq ($(PREMAKE),1)
 
-$(BIN)/$(1)_pymod: $(BIN)/$(1).so
-	@touch $(BIN)/$(1)_pymod
+$(TMPBIN)/$(1)_pymod: $(PYTHON_PLAT_LIB_PATH)/$(1).so
+	@mkdir -p $(dir $@)
+	@touch $(TMPBIN)/$(1)_pymod
 
-python_modules: $(BIN)/$(1).so
+python_modules: $(PYTHON_PLAT_LIB_PATH)/$(1).so
 
 endif
 endef
 
-# adds a python test dependency to a C++ program
+# adds a C++ program as a dependency of a python test script
 # $(1): name of the python test script
 # $(2): list of C++ dependencies
 

@@ -1,6 +1,7 @@
 include $(JML_BUILD)/gmsl/gmsl
 
 TMPBIN ?= $(BIN)
+LIB ?= $(BIN)
 
 dollars=$$
 
@@ -277,35 +278,35 @@ LIB_$(1)_BUILD_NAME := $(if $(6),$(6),"            $(COLOR_YELLOW)[SO]$(COLOR_RE
 
 OBJFILES_$(1):=$$(foreach file,$(addsuffix .lo,$(basename $(2:%=$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) -o $(BIN)/$$(tmpLIBNAME)$$(so) $$(OBJFILES_$(1)) $$(foreach lib,$(3), -l$$(lib))
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) -o $(LIB)/$$(tmpLIBNAME)$$(so) $$(OBJFILES_$(1)) $$(foreach lib,$(3), -l$$(lib))
 
 LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
 LIB_$(1)_SO   := $(TMPBIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
 
 -include $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk
 
-$(BIN)/$$(tmpLIBNAME)$$(so).version.mk:
+$(LIB)/$$(tmpLIBNAME)$$(so).version.mk:
 	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@
 
 
 # We need the library so names to stay the same, so we copy the correct one
 # into our version
-$(BIN)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) 
+$(LIB)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) 
 	@$(RM) $$@
 	@ln $$< $$@
 	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk
 
-LINK_$(1)_COMMAND2 := $$(subst $(BIN)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
+LINK_$(1)_COMMAND2 := $$(subst $(LIB)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
 
 LIB_$(1)_FILENAME := $$(tmpLIBNAME)$$(so)
 
-$$(LIB_$(1)_SO):	$(BIN)/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
+$$(LIB_$(1)_SO):	$(LIB)/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo $$(LIB_$(1)_BUILD_NAME) $$(LIB_$(1)_FILENAME))
 	@$$(LINK_$(1)_COMMAND2)
 
-LIB_$(1)_DEPS := $(BIN)/$$(tmpLIBNAME)$$(so)
+LIB_$(1)_DEPS := $(LIB)/$$(tmpLIBNAME)$$(so)
 
-libraries: $(BIN)/$$(tmpLIBNAME)$$(so)
+libraries: $(LIB)/$$(tmpLIBNAME)$$(so)
 endif
 endef
 
@@ -331,10 +332,10 @@ $(1)_OBJFILES:=$$(foreach file,$$(addsuffix .lo,$$(basename $$($(1)_PROGFILES:%=
 #$$(warning $(1)_OBJFILES = $$($(1)_OBJFILES))
 #$$(warning $(1)_PROGFILES = "$$($(1)_PROGFILES)")
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(BIN)/$(1) -lexception_hook $(MALLOC_LIBRARY) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), -l$$(lib)) $$(CXXEXEPOSTFLAGS)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(BIN)/$(1) -lexception_hook $(MALLOC_LIBRARY) -L$(LIB) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), -l$$(lib)) $$(CXXEXEPOSTFLAGS)
 
 
-$(BIN)/$(1):	$(BIN)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(BIN)/libexception_hook.so)
+$(BIN)/$(1):	$(BIN)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(LIB)/libexception_hook.so)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET) $(1)")
 	@$$(LINK_$(1)_COMMAND)
 
@@ -380,7 +381,7 @@ $(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).lo_OBJ)
 
 LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook $(MALLOC_LIBRARY) -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), -l$$(lib)) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(CXXEXEPOSTFLAGS)
 
-$(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(BIN)/libexception_hook.so)
+$(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(LIB)/libexception_hook.so)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET) $(1)")
 	@$$(LINK_$(1)_COMMAND)
 
