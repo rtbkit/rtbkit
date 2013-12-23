@@ -293,7 +293,7 @@ $(LIB)/$$(tmpLIBNAME)$$(so).version.mk:
 
 # We need the library so names to stay the same, so we copy the correct one
 # into our version
-$(LIB)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) 
+$(LIB)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) $$(dir $(LIB)/$$(tmpLIBNAME))/.dir_exists
 	@$(RM) $$@
 	@ln $$< $$@
 	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk

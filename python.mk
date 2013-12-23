@@ -27,7 +27,6 @@ endif
 
 python_dependencies: python_requirements.txt
 	$(PIP) install -r python_requirements.txt
-	virtualenv --relocatable
 
 dependencies: python_dependencies
 
