@@ -18,6 +18,7 @@ COLOR_BLUE :=$(ESC)[34m
 COLOR_VIOLET :=$(ESC)[35m
 COLOR_CYAN :=$(ESC)[36m
 COLOR_RESET := $(ESC)[0m
+COLOR_BOLD :=$(ESC)[1m
 
 endif
 
@@ -32,6 +33,7 @@ COLOR_BLUE :=$(ESC)[34m
 COLOR_VIOLET :=$(ESC)[35m
 COLOR_CYAN :=$(ESC)[36m
 COLOR_RESET := $(ESC)[0m
+COLOR_BOLD :=$(ESC)[1m
 
 endif
 
