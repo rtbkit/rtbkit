@@ -58,7 +58,7 @@ NODE_$(1)_LINK := $$(BIN)/$(1).node
 nodejs_addons: $$(LIB_$(1)_node_impl_DEPS) $$(BIN)/$(1).node
 
 $$(BIN)/$(1).node: $$(LIB_$(1)_node_impl_SO) $$(BIN)/lib$(1)_node_impl.so $$(call node_addon_deps,$(4))
-	@$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) -o $$@~ $$(BIN)/lib$(1)_node_impl.so
+	@$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) -o $$@~ -l$(1)_node_impl
 	@mv $$@~ $$@
 endif
 

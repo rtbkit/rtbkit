@@ -1,5 +1,7 @@
 include $(JML_BUILD)/gmsl/gmsl
 
+TMPBIN ?= $(BIN)
+
 dollars=$$
 
 SHELL := /bin/bash
@@ -186,16 +188,16 @@ ifneq ($(PREMAKE),1)
 $(if $(trace),$$(warning called add_pbuf_source "$(1)" "$(2)"))
 
 # Call protoc to generate the source file
-BUILD_$(SRC)/$(CWD)/$(2).pb.cc_COMMAND := "protoc -I$(SRC)/$(CWD) --cpp_out=$(SRC)/$(CWD) $(SRC)/$(CWD)/$(1)"
+BUILD_$(GEN)/$(CWD)/$(2).pb.cc_COMMAND := "protoc -I$(SRC)/$(CWD) --cpp_out=$(GEN)/$(CWD) $(SRC)/$(CWD)/$(1)"
 
-$(SRC)/$(CWD)/$(2).pb.cc:	$(SRC)/$(CWD)/$(1)
-	@mkdir -p $(OBJ)/$(CWD)
-	$$(if $(verbose_build),@echo $$(BUILD_$(OBJ)/$(CWD)/$(2).pb.cc),@echo "      $(COLOR_CYAN)[PBUF c++]$(COLOR_RESET) $(CWD)/$(1)")
-	@eval $$(BUILD_$(SRC)/$(CWD)/$(2).pb.cc_COMMAND)
+$(GEN)/$(CWD)/$(2).pb.cc:	$(SRC)/$(CWD)/$(1)
+	@mkdir -p $(GEN)/$(CWD)
+	$$(if $(verbose_build),@echo $$(BUILD_$(GEN)/$(CWD)/$(2).pb.cc),@echo "      $(COLOR_CYAN)[PBUF c++]$(COLOR_RESET) $(CWD)/$(1)")
+	@eval $$(BUILD_$(GEN)/$(CWD)/$(2).pb.cc_COMMAND)
 
 # We use the add_c++_source to do most of the work, then simply point
 # to the file
-$$(eval $$(call add_c++_source,$(2).pb.cc,$(2).pb,$(SRC),-IXX))
+$$(eval $$(call add_c++_source,$(2).pb.cc,$(2).pb,$(GEN),-IXX))
 
 
 # Point to the object file produced by the previous macro
@@ -278,9 +280,9 @@ OBJFILES_$(1):=$$(foreach file,$(addsuffix .lo,$(basename $(2:%=$(CWD)/%))),$$(B
 LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) -o $(BIN)/$$(tmpLIBNAME)$$(so) $$(OBJFILES_$(1)) $$(foreach lib,$(3), -l$$(lib))
 
 LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
-LIB_$(1)_SO   := $(BIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
+LIB_$(1)_SO   := $(TMPBIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
 
--include $(BIN)/$$(tmpLIBNAME)$$(so).version.mk
+-include $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk
 
 $(BIN)/$$(tmpLIBNAME)$$(so).version.mk:
 	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@
@@ -289,8 +291,9 @@ $(BIN)/$$(tmpLIBNAME)$$(so).version.mk:
 # We need the library so names to stay the same, so we copy the correct one
 # into our version
 $(BIN)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) 
-	@cp $$< $$@
-	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@.version.mk
+	@$(RM) $$@
+	@ln $$< $$@
+	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk
 
 LINK_$(1)_COMMAND2 := $$(subst $(BIN)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
 
