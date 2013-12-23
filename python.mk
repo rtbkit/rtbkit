@@ -124,7 +124,7 @@ PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(PYTHON_PURE_LIB_PATH)/$(1)/$$(file)) 
 #$$(w arning PYTHON_$(1)_DEPS=$$(PYTHON_$(1)_DEPS))
 
 $(TMPBIN)/$(1)_pymod: $$(PYTHON_$(1)_DEPS)
-	@mkdir -p $(dir $(TMPBIN)/$(1)_pymod)
+	@mkdir -p $$(dir $$@)
 	@touch $(TMPBIN)/$(1)_pymod
 
 python_modules: $$(PYTHON_$(1)_DEPS) $(TMPBIN)/$(1)_pymod
@@ -175,7 +175,7 @@ $$(eval $$(call library,$(1),$(2),$(3) boost_python,$(1),,"  $(COLOR_YELLOW)[PYT
 ifneq ($(PREMAKE),1)
 
 $(TMPBIN)/$(1)_pymod: $(PYTHON_PLAT_LIB_PATH)/$(1).so
-	@mkdir -p $(dir $@)
+	@mkdir -p $$(dir $$@)
 	@touch $(TMPBIN)/$(1)_pymod
 
 python_modules: $(PYTHON_PLAT_LIB_PATH)/$(1).so
