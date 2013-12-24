@@ -93,6 +93,7 @@ $(eval $(call program,s3cp,cloud boost_program_options utils))
 $(eval $(call program,s3_multipart_cmd,cloud boost_program_options utils))
 $(eval $(call program,syslog_trace,services))
 $(eval $(call program,s3cat,cloud boost_program_options utils))
+$(eval $(call program,sns_send,cloud boost_program_options utils))
 
 SERVICEDUMP_LINK = services boost_program_options
 
