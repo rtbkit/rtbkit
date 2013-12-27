@@ -745,14 +745,14 @@ injectAuction(Auction::HandleAuction onAuctionFinished,
               double expiryTime,
               double lossTime)
 {
-    std::shared_ptr<Auction> auction
-        (new Auction(nullptr,
-                     onAuctionFinished,
-                     request,
-                     chomp(requestStr),
-                     requestStrFormat,
-                     Date::fromSecondsSinceEpoch(startTime),
-                     Date::fromSecondsSinceEpoch(expiryTime)));
+    auto auction = std::make_shared<Auction>(
+        nullptr,
+        onAuctionFinished,
+        request,
+        chomp(requestStr),
+        requestStrFormat,
+        Date::fromSecondsSinceEpoch(startTime),
+        Date::fromSecondsSinceEpoch(expiryTime));
 
     injectAuction(auction, lossTime);
 
