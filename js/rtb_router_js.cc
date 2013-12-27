@@ -304,8 +304,12 @@ struct RTBRouterStackJS
                     return true;
                 };
 
+            /* TODO: Use a real exchange name */
+            static const std::string exchangeName = "js";
+
             getShared(args)
-                ->router.injectAuction(onAuctionFinished2,
+                ->router.injectAuction(exchangeName,
+                                       onAuctionFinished2,
                                        request, requestStr, requestFormat,
                                        startTime, expiryTime, lossTime);
 

@@ -6,6 +6,7 @@
 */
 
 #include "rtbkit/common/auction.h"
+#include "rtbkit/common/exchange_connector.h"
 #include "jml/arch/exception.h"
 #include "jml/arch/format.h"
 #include "jml/arch/backtrace.h"
@@ -212,7 +213,7 @@ createDescription(AuctionResponseDescription & d) {
 
 Auction::
 Auction()
-    : isZombie(false), exchangeConnector(nullptr), data(new Data())
+    : isZombie(false), exchangeConnector(nullptr), exchangeName(""), data(new Data())
 {
 }
 
@@ -236,6 +237,7 @@ Auction(ExchangeConnector * exchangeConnector,
 
     this->id = request->auctionId;
     this->requestSerialized = request->serializeToString();
+    this->exchangeName = exchangeConnector ? exchangeConnector->exchangeName() : "";
 }
 
 Auction::
@@ -294,7 +296,7 @@ setResponse(int spotNum, Response newResponse)
     for (;;) {
         if (current->tooLate)
             return WinLoss::TOOLATE;
-        
+
         *newData = *current;
 
         bool hasExisting = current->hasValidResponse(spotNum);
@@ -379,7 +381,7 @@ finish()
             if (newData->hasValidResponse(spotNum))
                 newData->responses[spotNum][0].localStatus = WinLoss::WIN;
         }
-        
+
         newData->oldData = current;
         newData->tooLate = true;
 
@@ -404,7 +406,7 @@ setError(const std::string & error, const std::string & details)
             return false;
 
         auto_ptr<Data> newData(new Data(*current));
-        
+
         newData->error = error;
         newData->details = details;
 
@@ -422,7 +424,7 @@ setError(const std::string & error, const std::string & details)
     }
 
     handleAuction(shared_from_this());
-    
+
     return true;
 }
 
@@ -468,7 +470,7 @@ getResponseJson(int spotNum) const
         result["details"] = current->details;
         return result;
     }
-    
+
     for (unsigned spotNum = 0;  spotNum < numSpots();  ++spotNum) {
         if (current->hasValidResponse(spotNum))
             result[spotNum] = current->winningResponse(spotNum).toJson();

@@ -183,7 +183,9 @@ struct Router : public ServiceBase,
     */
     void connectExchange(ExchangeConnector & exchange)
     {
-        exchange.onNewAuction  = [=] (std::shared_ptr<Auction> a) { this->injectAuction(a, secondsUntilLossAssumed_); };
+        const std::string exchangeName = exchange.exchangeName();
+        exchange.onNewAuction  = [=] (std::shared_ptr<Auction> a) {
+            this->injectAuction(exchangeName, a, secondsUntilLossAssumed_); };
         exchange.onAuctionDone = [=] (std::shared_ptr<Auction> a) { this->onAuctionDone(a); };
     }
 
@@ -251,7 +253,8 @@ struct Router : public ServiceBase,
                    then secondsSinceLossAssumed will be added to
                    the current time and that value used.
     */
-    void injectAuction(std::shared_ptr<Auction> auction,
+    void injectAuction(const std::string & exchangeName,
+                       std::shared_ptr<Auction> auction,
                        double lossTime = INFINITY);
     
     /** Inject an auction into the router given its components.
@@ -281,7 +284,8 @@ struct Router : public ServiceBase,
         at the desired time, externally.
     */
     std::shared_ptr<Auction>
-    injectAuction(Auction::HandleAuction onAuctionFinished,
+    injectAuction(const std::string & exchangeName,
+                  Auction::HandleAuction onAuctionFinished,
                   std::shared_ptr<BidRequest> request,
                   const std::string & requestStr,
                   const std::string & requestStrFormat,

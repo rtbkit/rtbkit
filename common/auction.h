@@ -39,13 +39,13 @@ struct AuctionResponseDescription;
 */
 
 struct Auction : public std::enable_shared_from_this<Auction> {
-    
+
     /** Callback that's called once the auction is finished. */
     typedef boost::function<void (std::shared_ptr<Auction> auction)>
         HandleAuction;
 
     Auction();
-    
+
     Auction(ExchangeConnector * exchangeConnector,
             HandleAuction handleAuction,
             std::shared_ptr<BidRequest> request,
@@ -53,7 +53,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
             const std::string & requestStrFormat,
             Date start,
             Date expiry);
-    
+
     ~Auction();
 
     bool isZombie;  ///< Auction was externally cancelled
@@ -95,8 +95,8 @@ struct Auction : public std::enable_shared_from_this<Auction> {
         {
         }
 
-        Amount maxPrice;      ///< Price to bid for this *one* ad
-        float  priority;       ///< Bid priority for when multiple campaigns bid
+        Amount maxPrice;    ///< Price to bid for this *one* ad
+        float  priority;    ///< Bid priority for when multiple campaigns bid
 
         Json::Value toJson() const;
         std::string toJsonStr() const;
@@ -155,7 +155,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
         bool test;             ///< Is this a test bid?
 
         // Information about the agent who did the bidding
-        std::string agent;    ///< Agent ID who's bidding
+        std::string agent;     ///< Agent ID who's bidding
         std::string bidData;   ///< Data that the bidder wants to keep
         std::string meta;      ///< Free form agent information about the bid
                                ///< (Passed back to agent with notification)
@@ -236,7 +236,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
 
     /** Return a JSON representation of the response. */
     Json::Value getResponseJson(int spotNum) const;
-    
+
     /** Return all responses as JSON. */
     Json::Value getResponsesJson() const;
 
@@ -246,6 +246,9 @@ struct Auction : public std::enable_shared_from_this<Auction> {
     const std::vector<std::vector<Response> > & getResponses() const;
 
     ExchangeConnector * exchangeConnector; ///< Exchange connector for auction
+    // TODO: exchangeConnector is not currently populated.  exchangeName is temporary.
+    // Consider converting exchangeConnector to a std::weak_ptr<>
+    std::string exchangeName;
     HandleAuction handleAuction;   ///< Callback for when auction is finished
 
     struct Data {
@@ -266,7 +269,7 @@ struct Auction : public std::enable_shared_from_this<Auction> {
                 throw ML::Exception("invalid spot number");
             return !responses[spotNum].empty();
         }
-        
+
         bool hasError() const
         {
             return !error.empty();
