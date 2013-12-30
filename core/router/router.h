@@ -696,36 +696,36 @@ public:
     /* DEBUGGING                                                             */
     /*************************************************************************/
 
-    void debugAuction(const Id & auction, const std::string & type,
+    void debugAuction(const Id & auctionId, const std::string & type,
                       const std::vector<std::string> & args
                       = std::vector<std::string>())
     {
         if (JML_LIKELY(!doDebug)) return;
-        debugAuctionImpl(auction, type, args);
+        debugAuctionImpl(auctionId, type, args);
     }
 
-    void debugAuctionImpl(const Id & auction, const std::string & type,
+    void debugAuctionImpl(const Id & auctionId, const std::string & type,
                           const std::vector<std::string> & args);
 
-    void debugSpot(const Id & auction,
-                   const Id & spot,
+    void debugSpot(const Id & auctionId,
+                   const Id & spotId,
                    const std::string & type,
                    const std::vector<std::string> & args
                        = std::vector<std::string>())
     {
         if (JML_LIKELY(!doDebug)) return;
-        debugSpotImpl(auction, spot, type, args);
+        debugSpotImpl(auctionId, spotId, type, args);
     }
 
-    void debugSpotImpl(const Id & auction,
-                       const Id & spot,
+    void debugSpotImpl(const Id & auctionId,
+                       const Id & spotId,
                        const std::string & type,
                        const std::vector<std::string> & args);
 
     void expireDebugInfo();
 
-    void dumpAuction(const Id & auction) const;
-    void dumpSpot(const Id & auction, const Id & spot) const;
+    void dumpAuction(const Id & auctionId) const;
+    void dumpSpot(const Id & auctionId, const Id & spotId) const;
 
     Date getCurrentTime() const { return Date::now(); }
 
