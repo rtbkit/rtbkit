@@ -150,19 +150,23 @@ struct AwsBasicApi : public AwsApi {
 
     std::unique_ptr<tinyxml2::XMLDocument>
     perform(const BasicRequest & request,
-            int timeout,
+            double timeoutSeconds,
             int retries);
 
     std::string performPost(RestParams && params, const std::string & resource,
-                            const std::string & resultSelector);
+                            const std::string & resultSelector,
+                            double timeoutSeconds = 10.0);
     std::string performGet(RestParams && params, const std::string & resource,
-                           const std::string & resultSelector);
+                           const std::string & resultSelector,
+                           double timeoutSeconds = 10.0);
 
     std::unique_ptr<tinyxml2::XMLDocument>
-    performPost(RestParams && params, const std::string & resource);
+    performPost(RestParams && params, const std::string & resource,
+                double timeoutSeconds = 10.0);
 
     std::unique_ptr<tinyxml2::XMLDocument>
-    performGet(RestParams && params, const std::string & resource);
+    performGet(RestParams && params, const std::string & resource,
+               double timeoutSeconds = 10.0);
     
     BasicRequest signPost(RestParams && params, const std::string & resource = "");
     BasicRequest signGet(RestParams && params, const std::string & resource = "");

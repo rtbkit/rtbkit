@@ -514,32 +514,36 @@ signGet(RestParams && params, const std::string & resource)
 std::unique_ptr<tinyxml2::XMLDocument>
 AwsBasicApi::
 performPost(RestParams && params,
-            const std::string & resource)
+            const std::string & resource,
+            double timeoutSeconds)
 {
-    return perform(signGet(std::move(params), resource), 10, 3);
+    return perform(signGet(std::move(params), resource), timeoutSeconds, 3);
 }
 
 std::string
 AwsBasicApi::
 performPost(RestParams && params,
             const std::string & resource,
-            const std::string & resultSelector)
+            const std::string & resultSelector,
+            double timeoutSeconds)
 {
-    return extract<string>(*performPost(std::move(params), resource), resultSelector);
+    return extract<string>(*performPost(std::move(params), resource, timeoutSeconds),
+                           resultSelector);
 }
 
 std::unique_ptr<tinyxml2::XMLDocument>
 AwsBasicApi::
 performGet(RestParams && params,
-           const std::string & resource)
+           const std::string & resource,
+           double timeoutSeconds)
 {
-    return perform(signGet(std::move(params), resource), 10, 3);
+    return perform(signGet(std::move(params), resource), timeoutSeconds, 3);
 }
 
 std::unique_ptr<tinyxml2::XMLDocument>
 AwsBasicApi::
 perform(const BasicRequest & request,
-        int timeout,
+        double timeoutSeconds,
         int retries)
 {
     int retry = 0;
@@ -551,7 +555,7 @@ perform(const BasicRequest & request,
                                      HttpRestProxy::Content(request.payload),
                                      request.queryParams,
                                      request.headers,
-                                     timeout);
+                                     timeoutSeconds);
 
             if (response.code() == 200) {
                 std::unique_ptr<tinyxml2::XMLDocument> body(new tinyxml2::XMLDocument());
@@ -576,9 +580,11 @@ std::string
 AwsBasicApi::
 performGet(RestParams && params,
            const std::string & resource,
-           const std::string & resultSelector)
+           const std::string & resultSelector,
+           double timeoutSeconds)
 {
-    return extract<string>(*performGet(std::move(params), resource), resultSelector);
+    return extract<string>(*performGet(std::move(params), resource, timeoutSeconds),
+                           resultSelector);
 }
 
 } // namespace Datacratic

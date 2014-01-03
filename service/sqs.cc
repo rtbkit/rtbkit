@@ -365,12 +365,18 @@ receiveMessageBatch(const std::string & queueUri,
     queryParams.push_back({"AttributeName.1", "All"});
     queryParams.push_back({"MaxNumberOfMessages",
                            to_string(maxNumberOfMessages)});
+
+    double timeoutSeconds = 10.0;
+
     if (visibilityTimeout != -1)
         queryParams.push_back({"VisibilityTimeout", to_string(visibilityTimeout)});
-    if (waitTimeSeconds != -1)
+    if (waitTimeSeconds != -1) {
         queryParams.push_back({"WaitTimeSeconds", to_string(waitTimeSeconds)});
+        timeoutSeconds = std::max(timeoutSeconds, waitTimeSeconds + 5.0);
+    }
 
-    auto xml = performGet(std::move(queryParams), getQueueResource(queueUri));
+    auto xml = performGet(std::move(queryParams), getQueueResource(queueUri),
+                          timeoutSeconds);
 
     auto result = extractNode(xml->RootElement(), "ReceiveMessageResult");
     if (result->NoChildren()) {
