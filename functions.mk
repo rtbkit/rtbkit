@@ -302,7 +302,7 @@ LINK_$(1)_COMMAND2 := $$(subst $(LIB)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$(LI
 
 LIB_$(1)_FILENAME := $$(tmpLIBNAME)$$(so)
 
-$$(LIB_$(1)_SO):	$(LIB)/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
+$$(LIB_$(1)_SO):	$(LIB)/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS)) $$(dir $$(LIB_$(1)_SO))/.dir_exists
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo $$(LIB_$(1)_BUILD_NAME) $$(LIB_$(1)_FILENAME))
 	@$$(LINK_$(1)_COMMAND2)
 
