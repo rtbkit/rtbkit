@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     // OpenRTB::User
     BOOST_CHECK_EQUAL(ortbReq->user->id.toString(), "2987961585469200400");
     BOOST_CHECK_EQUAL(ortbReq->user->gender, "male");
-    BOOST_CHECK_EQUAL(ortbReq->user->yob.val, 1963);
+    BOOST_CHECK_EQUAL(ortbReq->user->yob.val, Date::now().year() - 50);
 
     // OpenRTB::Content
     // TODO What happened to OpenRTB Content struct?
