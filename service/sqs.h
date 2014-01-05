@@ -10,7 +10,7 @@
 #include "aws.h"
 #include "http_rest_proxy.h"
 #include "jml/utils/unnamed_bool.h"
-
+#include "soa/types/value_description.h"
 
 namespace Datacratic {
 
@@ -110,6 +110,20 @@ struct SqsApi : public AwsBasicApi {
                           const std::vector<std::string> & messages,
                           int delaySeconds = -1);
 
+    // The body of a message is actually in this format when it comes from
+    // SNS.
+    struct SnsMessageBody {
+        std::string type;
+        std::string messageId;
+        std::string topicArn;
+        std::string message;
+        Date timestamp;
+        std::string signatureVersion;
+        std::string signature;
+        std::string signingCertUrl;
+        std::string unsubscribeUrl;
+    };
+
     struct Message {
         bool isNull() const
         { return messageId.empty(); }
@@ -122,6 +136,13 @@ struct SqsApi : public AwsBasicApi {
         Date sentTimestamp;
         int approximateReceiveCount;
         Date approximateFirstReceiveTimestamp;
+
+        /** Convert the body field to the SnsMessageBody structure.  This is
+            appropriate when the message was forwarded from SNS to SQS, and
+            can be used to remove the wrapping from the original sent message
+            (that is in the message field)/
+        */
+        SnsMessageBody snsBody() const;
 
         JML_IMPLEMENT_OPERATOR_BOOL(!isNull());
     };
@@ -230,5 +251,7 @@ struct SqsApi : public AwsBasicApi {
     std::string getQueueResource(const std::string & queueUri) const;
 
 };
+
+CREATE_STRUCTURE_DESCRIPTION_NAMED(SqsSnsMessageBodyDescription, SqsApi::SnsMessageBody);
 
 } // namespace Datacratic

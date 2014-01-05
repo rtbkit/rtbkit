@@ -9,7 +9,7 @@
 #include "xml_helpers.h"
 #include <boost/algorithm/string.hpp>
 #include "jml/utils/exc_assert.h"
-
+#include "soa/types/basic_value_descriptions.h"
 
 using namespace std;
 using namespace ML;
@@ -550,5 +550,37 @@ rightToString(enum SqsApi::Rights rights)
     };
 }
 
+SqsApi::SnsMessageBody
+SqsApi::Message::snsBody() const
+{
+    Json::Value json;
+    try {
+        return jsonDecodeStr<SnsMessageBody>(body);
+    } catch (const std::exception & exc) {
+        cerr << "error parsing body " << body << endl;
+        cerr << exc.what() << endl;
+        throw;
+    }
+}
+
+SqsSnsMessageBodyDescription::
+SqsSnsMessageBodyDescription()
+{
+    addField("Type", &SqsApi::SnsMessageBody::type, "type of message");
+    addField("MessageId", &SqsApi::SnsMessageBody::messageId, "ID of message");
+    addField("TopicArn", &SqsApi::SnsMessageBody::topicArn,
+             "ARN of message topic");
+    addField("Message", &SqsApi::SnsMessageBody::message, "Message contents");
+    addField("Timestamp", &SqsApi::SnsMessageBody::timestamp,
+             "Message timestamp");
+    addField("SignatureVersion", &SqsApi::SnsMessageBody::signatureVersion,
+             "version of signature");
+    addField("Signature", &SqsApi::SnsMessageBody::signature,
+             "signature of message");
+    addField("SigningCertURL", &SqsApi::SnsMessageBody::signingCertUrl,
+             "URL to signing certificate");
+    addField("UnsubscribeURL", &SqsApi::SnsMessageBody::unsubscribeUrl,
+             "URI to unsubscrive from topic");
+}
 
 } // namespace Datacratic
