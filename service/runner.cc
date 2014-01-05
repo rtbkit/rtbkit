@@ -430,7 +430,9 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         ::signal(SIGTERM, SIG_DFL);
         ::signal(SIGINT, SIG_DFL);
 
-        ::prctl(PR_SET_PDEATHSIG, SIGTERM);
+        ::prctl(PR_SET_PDEATHSIG, SIGHUP);
+        if (getppid() == 1)
+            ::kill(getpid(), SIGHUP);
         ::close(fds.statusFd);
         int res = ::execv(stdbufCommand[0].c_str(), argv);
         if (res == -1) {
