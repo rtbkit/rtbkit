@@ -8,8 +8,8 @@ PYTHON ?= python$(PYTHON_VERSION)
 PIP ?= pip
 PYFLAKES ?= true
 
-PYTHON_PURE_LIB_PATH ?= $(LIB)
-PYTHON_PLAT_LIB_PATH ?= $(LIB)
+PYTHON_PURE_LIB_PATH ?= $(BIN)
+PYTHON_PLAT_LIB_PATH ?= $(BIN)
 PYTHON_BIN_PATH ?= $(BIN)
 
 RUN_PYTHONPATH := $(if $(PYTHONPATH),$(PYTHONPATH):,)$(PYTHON_PURE_LIB_PATH):$(PYTHON_PLAT_LIB_PATH):$(PYTHON_BIN_PATH)
@@ -172,6 +172,10 @@ $$(eval $$(call set_compile_option,$(2),-I$$(PYTHON_INCLUDE_PATH)))
 $$(eval $$(call library,$(1),$(2),$(3) boost_python,$(1),,"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
 
 ifneq ($(PREMAKE),1)
+
+$(PYTHON_PLAT_LIB_PATH)/$(1).so:	$(LIB)/$(1).so
+	@cp $$< $$@~ && mv $$@~ $$@
+
 
 $(TMPBIN)/$(1)_pymod: $(PYTHON_PLAT_LIB_PATH)/$(1).so
 	@mkdir -p $$(dir $$@)
