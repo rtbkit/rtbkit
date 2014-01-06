@@ -696,9 +696,10 @@ public:
     /* DEBUGGING                                                             */
     /*************************************************************************/
 
+    static const std::vector<std::string> emptyDebugArgs;
+
     void debugAuction(const Id & auction, const std::string & type,
-                      const std::vector<std::string> & args
-                      = std::vector<std::string>())
+                      const std::vector<std::string> & args = emptyDebugArgs)
     {
         if (JML_LIKELY(!doDebug)) return;
         debugAuctionImpl(auction, type, args);
@@ -710,8 +711,7 @@ public:
     void debugSpot(const Id & auction,
                    const Id & spot,
                    const std::string & type,
-                   const std::vector<std::string> & args
-                       = std::vector<std::string>())
+                   const std::vector<std::string> & args = emptyDebugArgs)
     {
         if (JML_LIKELY(!doDebug)) return;
         debugSpotImpl(auction, spot, type, args);

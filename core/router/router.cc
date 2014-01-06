@@ -58,6 +58,8 @@ toJson() const
 /* AUCTION DEBUG INFO                                                        */
 /*****************************************************************************/
 
+/* static */ const std::vector<std::string> Router::emptyDebugArgs{};
+
 void
 AuctionDebugInfo::
 addAuctionEvent(Date timestamp, std::string type,
