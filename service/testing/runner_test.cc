@@ -394,3 +394,25 @@ BOOST_AUTO_TEST_CASE( test_runner_no_output_delay_stderr )
 }
 #endif
 
+#if 1
+/* invoke "execute" multiple time with the same MessageLoop as parameter */
+BOOST_AUTO_TEST_CASE( test_runner_multi_execute_single_loop )
+{
+    MessageLoop loop;
+
+    loop.start();
+
+    auto result
+           = execute(loop, {"/bin/echo", "Test 1"});
+    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.returnCode, 0);
+
+    result = execute(loop, {"/bin/echo", "Test 2"});
+    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.returnCode, 0);
+
+    result = execute(loop, {"/bin/echo", "Test 3"});
+    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.returnCode, 0);
+}
+#endif
