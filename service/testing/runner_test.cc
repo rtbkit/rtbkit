@@ -200,6 +200,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         BOOST_CHECK_EQUAL(result.returnCode, 127);
 
         loop.removeSource(&runner);
+        runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
     }
 
     /* running a non-executable but existing file */
@@ -214,6 +215,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         BOOST_CHECK_EQUAL(result.returnCode, 126);
 
         loop.removeSource(&runner);
+        runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
     }
 
     /* running a non-executable but existing non-file */
@@ -228,6 +230,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         BOOST_CHECK_EQUAL(result.returnCode, 126);
 
         loop.removeSource(&runner);
+        runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
     }
 
     loop.shutdown();
