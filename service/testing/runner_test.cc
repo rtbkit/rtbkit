@@ -179,6 +179,10 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
  * executable, mostly mimicking bash */
 BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
 {
+    MessageLoop loop;
+
+    loop.start();
+
     Runner::RunResult result;
     auto onTerminate = [&] (const Runner::RunResult & newResult) {
         result = newResult;
@@ -186,10 +190,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
 
     /* running a program that does not exist */
     {
-        MessageLoop loop;
         Runner runner;
-
-        loop.start();
         loop.addSource("runner1", runner);
 
         runner.run({"/this/command/is/missing"}, onTerminate);
@@ -199,15 +200,11 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         BOOST_CHECK_EQUAL(result.returnCode, 127);
 
         loop.removeSource(&runner);
-        loop.shutdown();
     }
 
     /* running a non-executable but existing file */
     {
-        MessageLoop loop;
         Runner runner;
-
-        loop.start();
         loop.addSource("runner2", runner);
 
         runner.run({"/dev/null"}, onTerminate);
@@ -217,16 +214,12 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         BOOST_CHECK_EQUAL(result.returnCode, 126);
 
         loop.removeSource(&runner);
-        loop.shutdown();
     }
 
     /* running a non-executable but existing non-file */
     {
-        MessageLoop loop;
         Runner runner;
-
-        loop.start();
-        loop.addSource("runner3", runner);
+        loop.addSource("runner2", runner);
 
         runner.run({"/dev"}, onTerminate);
         runner.waitTermination();
@@ -235,9 +228,9 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         BOOST_CHECK_EQUAL(result.returnCode, 126);
 
         loop.removeSource(&runner);
-        loop.shutdown();
     }
 
+    loop.shutdown();
 }
 #endif
 
