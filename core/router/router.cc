@@ -738,7 +738,7 @@ inline std::string chomp(const std::string & s)
 std::shared_ptr<Auction>
 Router::
 injectAuction(Auction::HandleAuction onAuctionFinished,
-              std::shared_ptr<BidRequest> request,
+              const std::shared_ptr<BidRequest> & request,
               const std::string & requestStr,
               const std::string & requestStrFormat,
               double startTime,

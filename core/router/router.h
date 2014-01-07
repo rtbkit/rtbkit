@@ -282,7 +282,7 @@ struct Router : public ServiceBase,
     */
     std::shared_ptr<Auction>
     injectAuction(Auction::HandleAuction onAuctionFinished,
-                  std::shared_ptr<BidRequest> request,
+                  const std::shared_ptr<BidRequest> & request,
                   const std::string & requestStr,
                   const std::string & requestStrFormat,
                   double startTime = 0.0,

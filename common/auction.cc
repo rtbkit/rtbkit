@@ -219,7 +219,7 @@ Auction()
 Auction::
 Auction(ExchangeConnector * exchangeConnector,
         HandleAuction handleAuction,
-        std::shared_ptr<BidRequest> request,
+        const std::shared_ptr<BidRequest> & request,
         const std::string & requestStr,
         const std::string & requestStrFormat,
         Date start,
