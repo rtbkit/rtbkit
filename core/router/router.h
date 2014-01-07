@@ -601,15 +601,19 @@ public:
 
     struct AgentUsageMetrics {
         AgentUsageMetrics()
-            : intoFilters(0), passedStaticFilters(0), auctions(0), bids(0)
+            : intoFilters(0), passedStaticFilters(0), passedDynamicFilters(0),
+              auctions(0), bids(0)
         {}
 
         AgentUsageMetrics(uint64_t intoFilters,
                           uint64_t passedStaticFilters,
+                          uint64_t passedDynamicFilters,
                           uint64_t auctions,
                           uint64_t bids)
             : intoFilters(intoFilters),
-              passedStaticFilters(passedStaticFilters), auctions(auctions),
+              passedStaticFilters(passedStaticFilters),
+              passedDynamicFilters(passedDynamicFilters),
+              auctions(auctions),
               bids(bids)
         {}
 
@@ -620,6 +624,7 @@ public:
 
             result.intoFilters -= other.intoFilters;
             result.passedStaticFilters -= other.passedStaticFilters;
+            result.passedDynamicFilters -= other.passedDynamicFilters;
             result.auctions -= other.auctions;
             result.bids -= other.bids;
 
@@ -628,6 +633,7 @@ public:
 
         uint64_t intoFilters;
         uint64_t passedStaticFilters;
+        uint64_t passedDynamicFilters;
         uint64_t auctions;
         uint64_t bids;
     };

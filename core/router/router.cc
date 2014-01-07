@@ -866,6 +866,7 @@ logUsageMetrics(double period)
 
         AgentUsageMetrics newMetrics(info.stats->intoFilters,
                                      info.stats->passedStaticFilters,
+                                     info.stats->passedDynamicFilters,
                                      info.stats->auctions,
                                      info.stats->bids);
         AgentUsageMetrics delta = newMetrics - last;
@@ -874,6 +875,7 @@ logUsageMetrics(double period)
                    info.config->account.toString(),
                    delta.intoFilters,
                    delta.passedStaticFilters,
+                   delta.passedDynamicFilters,
                    delta.auctions,
                    delta.bids,
                    info.config->bidProbability);
