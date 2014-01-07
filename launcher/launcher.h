@@ -26,8 +26,12 @@
 #include "soa/service/service_base.h"
 #include "soa/service/message_loop.h"
 #include "soa/service/typed_message_channel.h"
+#include "soa/service/logs.h"
 
 namespace Datacratic {
+
+Logging::Category launcherTrace("Launch");
+Logging::Category launcherError("LaunchError", launcherTrace);
 
 struct Launcher
 {
@@ -64,16 +68,16 @@ struct Launcher
             if(pid != -1 && kill(pid, 0) != -1) {
                 int res = kill(pid, SIGTERM);
                 if(res == -1) {
-                    throw ML::Exception(errno, "cannot kill process");
+                    THROW(launcherError) << "cannot kill process errno=" << errno << std::endl;
                 }
 
                 int status = 0;
                 res = waitpid(pid, &status, 0);
                 if(res == -1) {
-                    throw ML::Exception(errno, "failed to wait for process to shutdown");
+                    THROW(launcherError) << "failed to wait for process to shutdown errno=" << errno << std::endl;
                 }
 
-                std::cout << "killed " << name << std::endl;
+                LOG(launcherTrace) << "killed " << name << std::endl;
             }
 
             pid = -1;
@@ -123,7 +127,7 @@ struct Launcher
                 if(i.memberName() == "children") {
                     auto & json = *i;
                     if(!json.empty() && !json.isArray()) {
-                        throw ML::Exception("children is not an array");
+                        THROW(launcherError) << "'children' is not an array" << std::endl;
                     }
 
                     for(auto j = json.begin(), end = json.end(); j != end; ++j) {
@@ -149,7 +153,7 @@ struct Launcher
                 else if(i.memberName() == "arg") {
                     auto & json = *i;
                     if(!json.empty() && !json.isArray()) {
-                        throw ML::Exception("'arg' is not an array");
+                        THROW(launcherError) << "'arg' is not an array" << std::endl;
                     }
 
                     for(auto j = json.begin(), end = json.end(); j != end; ++j) {
@@ -158,7 +162,7 @@ struct Launcher
                     }
                 }
                 else {
-                    throw ML::Exception("unknown task field '" + i.memberName() + "'");
+                    THROW(launcherError) << "unknown task field '" << i.memberName() << "'" << std::endl;
                 }
             }
 
@@ -202,11 +206,11 @@ struct Launcher
         }
 
         void spawn(std::string const & node) {
-            std::cout << "launch " << name << std::endl;
+            LOG(launcherTrace) << "launch " << name << std::endl;
             pid = fork();
 
             if(pid == -1) {
-                throw ML::Exception(errno, "fork failed");
+                THROW(launcherError) << "fork failed errno=" << errno << std::endl;
             }
 
             if(pid == 0) {
@@ -215,7 +219,7 @@ struct Launcher
 
                 int res = prctl(PR_SET_PDEATHSIG, SIGHUP);
                 if(res == -1) {
-                    throw ML::Exception(errno, "prctl failed");
+                    THROW(launcherError) << "prctl failed errno=" << errno << std::endl;
                 }
 
                 if(log) {
@@ -224,7 +228,7 @@ struct Launcher
 
                 res = chdir(root.c_str());
                 if(res == -1) {
-                    throw ML::Exception(errno, "chdir failed");
+                    THROW(launcherError) << "chdir failed errno=" << errno << std::endl;
                 }
 
                 std::vector<char const *> args = makeArgs(node);
@@ -232,10 +236,10 @@ struct Launcher
 
                 res = execvp(path.c_str(), (char **) &args[0]);
                 if (res == -1) {
-                    throw ML::Exception(errno, "process failed to start");
+                    THROW(launcherError) << "process failed to start errno=" << errno << std::endl;
                 }
 
-                throw ML::Exception(errno, "execvp failed");
+                THROW(launcherError) << "execvp failed errno=" << errno << std::endl;
             }
         }
 
@@ -244,20 +248,20 @@ struct Launcher
 
             int fd = open(filename.c_str(), O_WRONLY|O_CREAT, 0666);
             if(fd == -1) {
-                throw ML::Exception(errno, "open log '" + name + "' failed");
+                THROW(launcherError) << "open log '" << name << "' failed errno=" << errno << std::endl;
             }
 
             if(-1 == dup2(fd, 1)) {
-                throw ML::Exception(errno, "failed to redirect STDOUT to file");
+                THROW(launcherError) << "failed to redirect STDOUT errno=" << errno << std::endl;
             }
 
             if(-1 == dup2(1, 2)) {
-                throw ML::Exception(errno, "failed to redirect STDERR to STDOUT");
+                THROW(launcherError) << "failed to redirect STDERR to STDOUT errno=" << errno << std::endl;
             }
 
             std::string ln = ML::format("ln -s -f ./%s-%d.log ./logs/%s.log", name, getpid(), name);
             if(-1 == system(ln.c_str())) {
-                throw ML::Exception(errno, "failed to create symbolic link");
+                THROW(launcherError) << "failed to create symbolic link errno=" << errno << std::endl;
             }
 
             close(fd);
@@ -329,7 +333,7 @@ struct Launcher
                 if(i.memberName() == "tasks") {
                     auto & json = *i;
                     if(!json.empty() && !json.isArray()) {
-                        throw ML::Exception("'tasks' is not an array");
+                        THROW(launcherError) << "'tasks' is not an array" << std::endl;
                     }
 
                     for(auto j = json.begin(), end = json.end(); j != end; ++j) {
@@ -344,7 +348,7 @@ struct Launcher
                     result.root = i->asString();
                 }
                 else {
-                    throw ML::Exception("unknown node field '" + i.memberName() + "'");
+                    THROW(launcherError) << "unknown node field '" << i.memberName() << "'" << std::endl;
                 }
             }
 
@@ -372,7 +376,7 @@ struct Launcher
         void script(std::string const & filename, std::string const & sh, std::string const & node, bool master) {
             std::ofstream file(sh);
             if(!file) {
-                throw ML::Exception("cannot create " + sh + " script");
+                THROW(launcherError) << "cannot create '" << sh << "' script" << std::endl;
             }
 
             file << "#!/bin/bash" << std::endl;
@@ -416,7 +420,7 @@ struct Launcher
                 if(i.memberName() == "nodes") {
                     auto & json = *i;
                     if(!json.empty() && !json.isArray()) {
-                        throw ML::Exception("'nodes' is not an array");
+                        THROW(launcherError) << "'nodes' is not an array" << std::endl;
                     }
 
                     for(auto j = json.begin(), end = json.end(); j != end; ++j) {
@@ -425,7 +429,7 @@ struct Launcher
                     }
                 }
                 else {
-                    throw ML::Exception("unknown launch sequence field '" + i.memberName() + "'");
+                    THROW(launcherError) << "unknown launch sequence field '" << i.memberName() << "'" << std::endl;
                 }
             }
 
@@ -448,12 +452,12 @@ struct Launcher
             if(launch) {
                 node = sequence.getNode(name);
                 if(!node) {
-                    throw ML::Exception("cannot find node " + name);
+                    THROW(launcherError) << "cannot find node " << name << std::endl;
                 }
 
                 int res = system("mkdir -p ./logs");
                 if(res == -1) {
-                    throw ML::Exception("cannot create ./logs directory");
+                    THROW(launcherError) << "cannot create ./logs directory" << std::endl;
                 }
 
                 start();
@@ -486,7 +490,7 @@ struct Launcher
             Task * item = node->findTask(pid);
 
             std::time_t now = std::time(0);
-            std::cerr << "crash! " << (item ? item->getName() : "?") << " detected at " << std::asctime(std::localtime(&now)) << std::endl;
+            LOG(launcherError) << "crash! " << (item ? item->getName() : "?") << " detected at " << std::asctime(std::localtime(&now)) << std::endl;
             if(item) {
                 item->restart(node->getName());
             }
@@ -497,32 +501,29 @@ struct Launcher
                 int status = 0;
                 pid_t pid = waitpid(-1, &status, WNOHANG);
                 if(pid == 0) {
-	            break;
-                }
-                if (pid == -1) {
-                    if (errno == ECHILD)
-                        break;
-                    else
-                        throw ML::Exception(errno, "launcher", "sigchld");
+    	            break;
                 }
 
-                if (WIFSTOPPED(status)) {
-                    std::cerr << "process " << pid
-                              << " stopped by signal " << WSTOPSIG(status)
-                              << " (ignoring)\n";
+                if(pid == -1 && errno == ECHILD) {
+                    break;
+                }
+
+                if(WIFSTOPPED(status)) {
+                    LOG(launcherError) << "process " << pid << " stopped by signal " << WSTOPSIG(status) << " (ignoring)" << std::endl;
                     continue;
                 }
-                else if (WIFCONTINUED(status)) {
-                    std::cerr << "process " << pid << " continued\n";
+
+                if(WIFCONTINUED(status)) {
+                    LOG(launcherError) << "process " << pid << " continued" << std::endl;
                     continue;
                 }
-                else if (WIFEXITED(status)) {
-                    std::cerr << "process " << pid << " exited normally\n";
+
+                if(WIFEXITED(status)) {
+                    LOG(launcherError) << "process " << pid << " exited normally" << std::endl;
                 }
-                else if (WIFSIGNALED(status)) {
-                    std::cerr << "process " << pid
-                              << " killed by signal " << WTERMSIG(status)
-                              << std::endl;
+
+                if(WIFSIGNALED(status)) {
+                    LOG(launcherError) << "process " << pid << " killed by signal " << WTERMSIG(status) << std::endl;
                 }
 
                 Service::get().events.push(pid);
