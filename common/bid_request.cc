@@ -916,7 +916,8 @@ toJson() const
     addIfNotEmpty(result, "unparseable", unparseable);
     if (!bidCurrency.empty())
         result["bidCurrency"] = jsonEncode(bidCurrency);
-   
+    if (blockedCategories.size())
+    	result["blockedCategories"] = jsonEncode(blockedCategories);
     if (site) {
         toJsonValue(result["site"], *site);
     }

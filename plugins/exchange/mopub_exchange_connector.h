@@ -47,9 +47,8 @@ struct MoPubExchangeConnector: public OpenRTBExchangeConnector {
     virtual double
     getTimeAvailableMs(HttpAuctionHandler & connection,
                        const HttpHeader & header,
-                       const std::string & payload)
-    {
-    	// TODO: check that is at it seems
+                       const std::string & payload) {
+        // TODO: check that is at it seems
         return 200.0;
     }
 
@@ -72,7 +71,9 @@ struct MoPubExchangeConnector: public OpenRTBExchangeConnector {
         std::string adm;                                ///< Ad markup
         std::vector<std::string> adomain;               ///< Advertiser domains
         Id crid;                                        ///< Creative ID
-        OpenRTB::List<OpenRTB::CreativeAttribute> attr; ///< Creative attributes
+        std::set<std::string> cat;                      ///< Creative category Appendix 6.1
+        std::set<int>  type;                            ///< Creative type Appendix 6.2
+        std::set<int>  attr;                            ///< Creative attributes Appendix 6.3
         std::string ext_creativeapi;                    ///< Creative API
     };
 
@@ -80,11 +81,16 @@ struct MoPubExchangeConnector: public OpenRTBExchangeConnector {
     getCreativeCompatibility(const Creative & creative,
                              bool includeReasons) const;
 
+    virtual bool
+    bidRequestCreativeFilter(const BidRequest & request,
+                             const AgentConfig & config,
+                             const void * info) const;
+
     // MoPub win price decoding function.
     static float decodeWinPrice(const std::string & sharedSecret,
                                 const std::string & winPriceStr);
 
-private:
+  private:
     virtual void setSeatBid(Auction const & auction,
                             int spotNum,
                             OpenRTB::BidResponse & response) const;

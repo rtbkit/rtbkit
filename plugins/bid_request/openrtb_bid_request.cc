@@ -201,6 +201,8 @@ fromOpenRtb(OpenRTB::BidRequest && req,
         result->bidCurrency.push_back(CurrencyCode::CC_USD);
     }
 
+    result->blockedCategories = std::move(req.bcat);
+
     result->ext = std::move(req.ext);
 
     result->segments.addStrings("openrtb-wseat", req.wseat);
