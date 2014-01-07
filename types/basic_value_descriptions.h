@@ -977,7 +977,7 @@ getDefaultDescription(Enum *,
     return new TaggedEnumDescription<Enum>();
 }
 
-typedef std::string CSList;  // comma-separated list
+typedef Utf8String CSList;  // comma-separated list
 
 template<typename T>
 struct List: public ML::compact_vector<T, 3> {
@@ -1053,6 +1053,44 @@ struct CommaSeparatedListDescription
     }
 
     virtual bool isDefaultTyped(const std::string * val) const
+    {
+        return val->empty();
+    }
+
+};
+
+
+struct Utf8CommaSeparatedListDescription
+    : public ValueDescriptionI<Utf8String, ValueKind::STRING> {
+
+    virtual void parseJsonTyped(Utf8String * val,
+                                JsonParsingContext & context) const
+    {
+        if (context.isArray()) {
+            Utf8String res;
+            auto onElement = [&] ()
+                {
+                    Utf8String s = context.expectStringUtf8();
+                    if (!res.empty())
+                        res += ", ";
+                    res += s;
+                };
+
+            context.forEachElement(onElement);
+            *val = res;
+        }
+        else {
+            *val = context.expectStringUtf8();
+        }
+    }
+
+    virtual void printJsonTyped(const Utf8String * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeStringUtf8(*val);
+    }
+
+    virtual bool isDefaultTyped(const Utf8String * val) const
     {
         return val->empty();
     }
