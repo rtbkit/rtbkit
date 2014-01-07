@@ -2760,28 +2760,28 @@ throwException(const std::string & key, const std::string & fmt, ...)
 
 void
 Router::
-debugAuctionImpl(const Id & auction, const std::string & type,
+debugAuctionImpl(const Id & auctionId, const std::string & type,
                  const std::vector<std::string> & args)
 {
     Date now = Date::now();
     boost::unique_lock<ML::Spinlock> guard(debugLock);
     AuctionDebugInfo & entry
-        = debugInfo.access(auction, now.plusSeconds(30.0));
+        = debugInfo.access(auctionId, now.plusSeconds(30.0));
 
     entry.addAuctionEvent(now, type, args);
 }
 
 void
 Router::
-debugSpotImpl(const Id & auction, const Id & spot, const std::string & type,
+debugSpotImpl(const Id & auctionId, const Id & spotId, const std::string & type,
               const std::vector<std::string> & args)
 {
     Date now = Date::now();
     boost::unique_lock<ML::Spinlock> guard(debugLock);
     AuctionDebugInfo & entry
-        = debugInfo.access(auction, now.plusSeconds(30.0));
+        = debugInfo.access(auctionId, now.plusSeconds(30.0));
 
-    entry.addSpotEvent(spot, now, type, args);
+    entry.addSpotEvent(spotId, now, type, args);
 }
 
 void
@@ -2794,12 +2794,12 @@ expireDebugInfo()
 
 void
 Router::
-dumpAuction(const Id & auction) const
+dumpAuction(const Id & auctionId) const
 {
     boost::unique_lock<ML::Spinlock> guard(debugLock);
-    auto it = debugInfo.find(auction);
+    auto it = debugInfo.find(auctionId);
     if (it == debugInfo.end()) {
-        //cerr << "*** unknown auction " << auction << " in "
+        //cerr << "*** unknown auction " << auctionId << " in "
         //     << debugInfo.size() << endl;
     }
     else it->second.dumpAuction();
@@ -2807,15 +2807,15 @@ dumpAuction(const Id & auction) const
 
 void
 Router::
-dumpSpot(const Id & auction, const Id & spot) const
+dumpSpot(const Id & auctionId, const Id & spotId) const
 {
     boost::unique_lock<ML::Spinlock> guard(debugLock);
-    auto it = debugInfo.find(auction);
+    auto it = debugInfo.find(auctionId);
     if (it == debugInfo.end()) {
-        //cerr << "*** unknown auction " << auction << " in "
+        //cerr << "*** unknown auction " << auctionId << " in "
         //     << debugInfo.size() << endl;
     }
-    else it->second.dumpSpot(spot);
+    else it->second.dumpSpot(spotId);
 }
 
 /** MonitorProvider interface */
