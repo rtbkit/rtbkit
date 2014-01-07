@@ -340,6 +340,9 @@ struct BidRequest {
     /** Set of currency codes in which the bid can occur. */
     std::vector<CurrencyCode> bidCurrency;
 
+    /** Blocked Categories. */
+    OpenRTB::List<OpenRTB::ContentCategory> blockedCategories;
+
     /** Amount of extras that will be paid if we win the auction.  These will
         be accumulated in the banker against the winning account.
     */
