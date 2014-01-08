@@ -80,7 +80,7 @@ DefaultDescription()
     addField("url", &Content::url, "URL of the content's original location");
     addField("cat", &Content::cat, "IAB content categories of the content");
     addField("videoquality", &Content::videoquality, "Quality of the video");
-    ValueDescriptionT<std::string> * kwdesc = new CommaSeparatedListDescription();
+    ValueDescriptionT<CSList> * kwdesc = new Utf8CommaSeparatedListDescription();
     addField("keywords", &Content::keywords, "Keywords describing the keywords", kwdesc);
     addField("contentrating", &Content::contentrating, "Rating of the content");
     addField("userrating", &Content::userrating, "User-provided rating of the content");
@@ -161,7 +161,7 @@ DefaultDescription()
     addField("privacypolicy", &Context::privacypolicy, "Site or app has a privacy policy");
     addField("publisher", &Context::publisher, "Publisher of site or app");
     addField("content", &Context::content, "Content of site or app");
-    ValueDescriptionT<std::string> * kwdesc = new CommaSeparatedListDescription();
+    ValueDescriptionT<CSList> * kwdesc = new Utf8CommaSeparatedListDescription();
     addField("keywords", &Context::keywords, "Keywords describing siter or app", kwdesc);
     addField("ext", &Context::ext, "Extensions to the protocol go here");
 }
@@ -262,7 +262,7 @@ DefaultDescription()
     addField("buyeruid", &User::buyeruid, "Seat specific user ID");
     addField("yob", &User::yob, "Year of birth");
     addField("gender", &User::gender, "Gender");
-    ValueDescriptionT<std::string> * kwdesc = new CommaSeparatedListDescription();
+    ValueDescriptionT<CSList> * kwdesc = new Utf8CommaSeparatedListDescription();
     addField("keywords", &User::keywords, "Keywords about user", kwdesc);
     addField("customdata", &User::customdata, "Exchange-specific custom data");
     addField("geo", &User::geo, "Geolocation of user at registration");
