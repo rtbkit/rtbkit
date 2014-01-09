@@ -122,8 +122,11 @@ parseBidRequest(HttpAuctionHandler & connection,
         return res;
     }
 
+    // Trun ISO8859 characters into UTF8 chars
+    std::string utf8string = Utf8String::fromLatin1(payload.c_str()).rawString();
+
     // Parse the bid request
-    ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
+    ML::Parse_Context context("Bid Request", utf8string.c_str(), utf8string.size());
     res.reset(OpenRtbBidRequestParser::parseBidRequest(context,
                                                        exchangeName(),
                                                        exchangeName()));
