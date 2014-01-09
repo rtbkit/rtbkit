@@ -567,6 +567,8 @@ SqsSnsMessageBodyDescription::
 SqsSnsMessageBodyDescription()
 {
     addField("Type", &SqsApi::SnsMessageBody::type, "type of message");
+    addField("Subject", &SqsApi::SnsMessageBody::subject,
+             "Message subject", string());
     addField("MessageId", &SqsApi::SnsMessageBody::messageId, "ID of message");
     addField("TopicArn", &SqsApi::SnsMessageBody::topicArn,
              "ARN of message topic");

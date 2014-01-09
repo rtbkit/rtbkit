@@ -116,6 +116,7 @@ struct SqsApi : public AwsBasicApi {
         std::string type;
         std::string messageId;
         std::string topicArn;
+        std::string subject;
         std::string message;
         Date timestamp;
         std::string signatureVersion;
