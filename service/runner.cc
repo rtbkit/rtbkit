@@ -632,7 +632,6 @@ execute(MessageLoop & loop,
     Runner runner;
 
     loop.addSource("runner", runner);
-    loop.start();
 
     if (stdInData.size() > 0) {
         auto & sink = runner.getStdInSink();
@@ -660,6 +659,7 @@ execute(const vector<string> & command,
 {
     MessageLoop loop;
 
+    loop.start();
     Runner::RunResult result = execute(loop, command, stdOutSink, stdErrSink,
                                        stdInData);
 
