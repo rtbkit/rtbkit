@@ -76,6 +76,7 @@ void compress_using_stream(const std::string & input_file,
                            const std::string & output_file)
 {
     ifstream in(input_file.c_str());
+
     filter_ostream out(output_file);
 
     char buf[16386];
