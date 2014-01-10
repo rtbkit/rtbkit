@@ -376,24 +376,28 @@ struct StreamingJsonParsingContext
 
     virtual bool isObject() const
     {
+        skipJsonWhitespace(*context);
         char c = *(*context);
         return c == '{';
     }
 
     virtual bool isString() const
     {
+        skipJsonWhitespace(*context);
         char c = *(*context);
         return c == '\"';
     }
 
     virtual bool isArray() const
     {
+        skipJsonWhitespace(*context);
         char c = *(*context);
         return c == '[';
     }
 
     virtual bool isBool() const
     {
+        skipJsonWhitespace(*context);
         char c = *(*context);
         return c == 't' || c == 'f';
         
@@ -401,6 +405,7 @@ struct StreamingJsonParsingContext
 
     virtual bool isNumber() const
     {
+        skipJsonWhitespace(*context);
         ML::Parse_Context::Revert_Token token(*context);
         double d;
         if (context->match_double(d))
@@ -410,6 +415,7 @@ struct StreamingJsonParsingContext
 
     virtual bool isNull() const
     {
+        skipJsonWhitespace(*context);
         ML::Parse_Context::Revert_Token token(*context);
         if (context->match_literal("null"))
             return true;
