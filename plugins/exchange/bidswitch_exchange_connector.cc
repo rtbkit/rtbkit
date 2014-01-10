@@ -140,6 +140,13 @@ getCreativeCompatibility(const Creative & creative,
         ("creative[].providerConfig.bidswitch.adid is null",
          includeReasons);
 
+
+    // 3.  Must have AdvertiserDomain in bidswitch.crid
+    getAttr(result, pconf, "adomain", crinfo->adomain, includeReasons);
+    if (crinfo->adomain.empty())
+        result.setIncompatible
+        ("creative[].providerConfig.bidswitch.adomain is null",
+         includeReasons);
     // Cache the information
     result.info = crinfo;
 
@@ -158,6 +165,10 @@ parseBidRequest(HttpAuctionHandler & connection,
         return res;
     }
 
+#if 0
+    /*
+     * Unfortunately, x-openrtb-version isn't sent in the real traffic
+     */
     // Check for the x-openrtb-version header
     auto it = header.headers.find("x-openrtb-version");
     if (it == header.headers.end()) {
@@ -171,6 +182,7 @@ parseBidRequest(HttpAuctionHandler & connection,
         connection.sendErrorResponse("expected OpenRTB version 2.0; got " + openRtbVersion);
         return res;
     }
+#endif
 
     // Parse the bid request
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
@@ -236,6 +248,7 @@ setSeatBid(Auction const & auction,
     b.price.val = USD_CPM(resp.price.maxPrice);
     b.nurl = crinfo->nurl;
     b.adid = crinfo->adid;
+    b.adomain = crinfo->adomain;
     b.iurl = cpinfo->iurl;
 }
 

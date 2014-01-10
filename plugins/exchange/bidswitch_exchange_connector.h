@@ -70,6 +70,7 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
     struct CreativeInfo {
         Id adid;                ///< ID for ad to be service if bid wins
         std::string nurl;       ///< Win notice URL
+        std::vector<std::string> adomain;    ///< Advertiser Domain
     };
 
     virtual ExchangeCompatibility
