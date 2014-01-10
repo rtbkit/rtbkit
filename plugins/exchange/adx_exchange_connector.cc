@@ -203,14 +203,14 @@ GbrIsHandled (const GoogleBidRequest& gbr, EventRecorder& evr)
     // ping request are of course handled
     if (gbr.has_is_ping() && gbr.is_ping())
     {
-    	evr.recordHit("pingRequest");
+        evr.recordHit("pingRequest");
         return true ;
     }
 
     // we currently don't deal with Video.
     if (gbr.has_video())
     {
-    	evr.recordHit("notHandledVideo");
+        evr.recordHit("notHandledVideo");
         return false ;
     }
 
@@ -223,7 +223,7 @@ GbrIsHandled (const GoogleBidRequest& gbr, EventRecorder& evr)
                 !(gbr.has_url() || gbr.has_anonymous_id()))
         {
             evr.recordHit("notHandledDevice");
-        	return false;
+            return false;
         }
     }
     return true;
@@ -316,8 +316,8 @@ ParseGbrAdSlot (const GoogleBidRequest& gbr, BidRequest& br)
             spot.restrictions.addInts("excluded_sensitive_category", tmp);
 
             vector<std::string> adg_ids;
-            for (auto i: boost::irange(0,slot.matching_ad_data_size())){
-                if(slot.matching_ad_data(i).has_adgroup_id()){
+            for (auto i: boost::irange(0,slot.matching_ad_data_size())) {
+                if(slot.matching_ad_data(i).has_adgroup_id()) {
                     adg_ids.push_back(
                         boost::lexical_cast<std::string>(
                             slot.matching_ad_data(i).adgroup_id()));
@@ -478,15 +478,15 @@ parseBidRequest(HttpAuctionHandler & connection,
     {
         // Always create an OpenRTB::User object, since it's recommended
         // in the spec. All top level recommended objects are always created.
-    	br.user.emplace();
+        br.user.emplace();
     }
 
     if (gbr.has_google_user_id())
     {
-    	// google_user_id
+        // google_user_id
         // TODO: fix Id() so that it can parse 27 char Google ID into GOOG128
         // for now, fall back on STR type
-    	br.user->id = Id (gbr.google_user_id());
+        br.user->id = Id (gbr.google_user_id());
     }
 
     if (gbr.has_hosted_match_data())
@@ -504,8 +504,8 @@ parseBidRequest(HttpAuctionHandler & connection,
     {
 
 #if 0
-    	// we need to strip funny spurious strings inserted
-    	//   ... ,gzip(gfe)[,gzip(gfe)]
+        // we need to strip funny spurious strings inserted
+        //   ... ,gzip(gfe)[,gzip(gfe)]
         static sregex oe = sregex::compile("(,gzip\\(gfe\\))+$") ;
         device.ua = regex_replace (gbr.user_agent(), oe, string());
 #else
@@ -626,7 +626,7 @@ getResponse(const HttpAuctionHandler & connection,
         // passed along with every bid response, as a
         // stringified JSON object (a la Python)
         unordered_map<string,string> dict;
-        auto 	vals = Json::parse (resp.meta);
+        auto vals = Json::parse (resp.meta);
         for (auto name: vals.getMemberNames())
             dict[name] = vals.atStr(name).asString();
 
@@ -644,7 +644,7 @@ getResponse(const HttpAuctionHandler & connection,
             ad->add_vendor_type(vt);
         adslot->set_max_cpm_micros(MicroUSD_CPM(resp.price.maxPrice));
         adslot->set_id(auction.request->imp[spotNum].id.toInt());
-        if(!crinfo->adgroup_id_.empty()){            
+        if(!crinfo->adgroup_id_.empty()) {
             adslot->set_adgroup_id(
                 boost::lexical_cast<uint64_t>(crinfo->adgroup_id_));
         }
@@ -699,7 +699,7 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
             ("creative[].providerConfig.adx." + string(fieldName)
              + " must be specified", includeReasons);
             return;
-        }else if(!isMember && optional){
+        } else if(!isMember && optional) {
             return;
         }
 
@@ -796,17 +796,17 @@ getCreativeCompatibility(const Creative & creative,
         });
     }
 
-    /* 
-       8. adGroupId is an optional paramater, this must always 
-          be set if the BidRequest has more than one 
-          BidRequest.AdSlot.matching_ad_data 
+    /*
+       8. adGroupId is an optional paramater, this must always
+          be set if the BidRequest has more than one
+          BidRequest.AdSlot.matching_ad_data
     */
     int64_t adgroup_id = 0;
     getAttr(result, pconf, "adGroupId", adgroup_id, includeReasons, true);
     crinfo->adgroup_id_ = boost::lexical_cast<std::string>(adgroup_id);
 
     /*
-       9. If you are bidding with ads in restricted categories 
+       9. If you are bidding with ads in restricted categories
           you MUST declare them in restrictedCategories.
     */
     tmp.clear();
@@ -819,8 +819,8 @@ getCreativeCompatibility(const Creative & creative,
         std::inserter(ints, ints.begin()),[&](const std::string& s) {
             return std::stoi(s);
         });
-        if(ints.size() == 1 && *ints.begin() == 0){
-           ints.clear(); 
+        if(ints.size() == 1 && *ints.begin() == 0) {
+            ints.clear();
         }
     }
 
@@ -877,9 +877,9 @@ bidRequestCreativeFilter(const BidRequest & request,
 
         const auto& allowed_adgroup_seg =
             spot.restrictions.get("allowed_adgroup");
-        if (!allowed_adgroup_seg.contains(crinfo->adgroup_id_) 
-                 && !allowed_adgroup_seg.empty()
-                 && !crinfo->adgroup_id_.empty())
+        if (!allowed_adgroup_seg.contains(crinfo->adgroup_id_)
+                && !allowed_adgroup_seg.empty()
+                && !crinfo->adgroup_id_.empty())
         {
             this->recordHit ("adgroup_not_allowed");
             return false ;
@@ -888,12 +888,12 @@ bidRequestCreativeFilter(const BidRequest & request,
         const auto& allowed_restricted_category_seg =
             spot.restrictions.get("allowed_restricted_category");
         for (auto atr: crinfo->restricted_category_)
-            if (    (!allowed_restricted_category_seg.contains(atr) 
-                  && !allowed_restricted_category_seg.empty())
-                ||
+            if (    (!allowed_restricted_category_seg.contains(atr)
+                     && !allowed_restricted_category_seg.empty())
+                    ||
                     (allowed_restricted_category_seg.empty()
-                  && !crinfo->restricted_category_.empty())
-                )
+                     && !crinfo->restricted_category_.empty())
+               )
             {
                 this->recordHit ("restricted_category_not_allowed");
                 return false ;
