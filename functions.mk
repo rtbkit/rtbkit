@@ -287,7 +287,7 @@ LIB_$(1)_SO   := $(TMPBIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
 
 -include $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk
 
-$(LIB)/$$(tmpLIBNAME)$$(so).version.mk:
+$(LIB)/$$(tmpLIBNAME)$$(so).version.mk:	$(LIB)/.dir_exists 
 	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@
 
 
