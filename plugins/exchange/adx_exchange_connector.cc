@@ -198,15 +198,21 @@ ParseGbrOtherDevice (const GoogleBidRequest& gbr, BidRequest& br)
  *   TODO: handle all possible cases.
  */
 bool
-GbrIsHandled (const GoogleBidRequest& gbr)
+GbrIsHandled (const GoogleBidRequest& gbr, EventRecorder& evr)
 {
     // ping request are of course handled
     if (gbr.has_is_ping() && gbr.is_ping())
+    {
+    	evr.recordHit("pingRequest");
         return true ;
+    }
 
     // we currently don't deal with Video.
     if (gbr.has_video())
+    {
+    	evr.recordHit("notHandledVideo");
         return false ;
+    }
 
     // a bid request originated from a device, should
     // either be from an app or a web site
@@ -215,7 +221,10 @@ GbrIsHandled (const GoogleBidRequest& gbr)
         const auto& mob = gbr.mobile();
         if ((mob.has_is_app() && mob.is_app() && !mob.has_app_id()) ||
                 !(gbr.has_url() || gbr.has_anonymous_id()))
-            return false;
+        {
+            evr.recordHit("notHandledDevice");
+        	return false;
+        }
     }
     return true;
 }
@@ -371,12 +380,9 @@ parseBidRequest(HttpAuctionHandler & connection,
     }
 
     // check if this BidRequest is handled by us;
-    // or it's a ping.
-    if (!GbrIsHandled(gbr) || gbr.is_ping())
+    if (!GbrIsHandled(gbr, *this))
     {
-        auto msg = gbr.is_ping() ? "pingRequest" : "requestNotHandled" ;
-        connection.dropAuction (msg);
-        this->recordHit(msg);
+        connection.dropAuction ("requestNotHandled");
         return std::shared_ptr<BidRequest> ();
     }
 
