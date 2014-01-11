@@ -173,8 +173,10 @@ $$(eval $$(call library,$(1),$(2),$(3) boost_python,$(1),,"  $(COLOR_YELLOW)[PYT
 
 ifneq ($(PREMAKE),1)
 
+ifneq ($(LIB),$(PYTHON_PLAT_LIB_PATH))
 $(PYTHON_PLAT_LIB_PATH)/$(1).so:	$(LIB)/$(1).so
 	@cp $$< $$@~ && mv $$@~ $$@
+endif
 
 
 $(TMPBIN)/$(1)_pymod: $(PYTHON_PLAT_LIB_PATH)/$(1).so
