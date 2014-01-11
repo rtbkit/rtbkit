@@ -40,9 +40,8 @@ namespace RTBKIT {
  *    in the bid response.
  * 4) Google has a 100 ms deadline policy, including processing time and RTT,
  *    yielding to a 10 bid requests/second worse case scenario.
- *    Without an estimate of the RTT, we chose a conservative approach and
- *    set this RTT estimate to 50ms, resulting in an effective deadline of
- *    50 ms for computing a bid response.
+ *    We rely on HttpExchangeConnector::getRoundTripTimeMs(), which assumes that
+ *    pingTimeUnknownHostsMs is configured.
  * 5) based on above, obviously, the lower the processing_time_ms, the more
  *    bid requests Google will send.
 */
@@ -70,10 +69,6 @@ struct AdXExchangeConnector: public HttpExchangeConnector {
     getTimeAvailableMs(HttpAuctionHandler & connection,
                        const HttpHeader & header,
                        const std::string & payload) ;
-
-    virtual double
-    getRoundTripTimeMs(HttpAuctionHandler & connection,
-                       const HttpHeader & header) ;
 
     virtual HttpResponse
     getResponse(const HttpAuctionHandler & connection,
@@ -121,9 +116,6 @@ private:
     static double deadline_ms()  {
         return 100.0;
     }
-    static double rtt_ms()       {
-        return 50;
-    }
 };
 
 
@@ -135,14 +127,6 @@ AdXExchangeConnector::getTimeAvailableMs(HttpAuctionHandler & ,
 {
     return deadline_ms ();
 }
-
-inline
-double
-AdXExchangeConnector::getRoundTripTimeMs(HttpAuctionHandler &, const HttpHeader & )
-{
-    return rtt_ms ();
-}
-
 
 } // namespace RTBKIT
 
