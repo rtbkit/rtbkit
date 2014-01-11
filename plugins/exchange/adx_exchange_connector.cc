@@ -474,15 +474,10 @@ parseBidRequest(HttpAuctionHandler & connection,
         }
     }
 
-    if (!br.user)
-    {
-        // Always create an OpenRTB::User object, since it's recommended
-        // in the spec. All top level recommended objects are always created.
-        br.user.emplace();
-    }
-
     if (gbr.has_google_user_id())
     {
+        if (!br.user)
+            br.user.emplace();
         // google_user_id
         // TODO: fix Id() so that it can parse 27 char Google ID into GOOG128
         // for now, fall back on STR type
@@ -491,11 +486,15 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     if (gbr.has_hosted_match_data())
     {
+        if (!br.user)
+            br.user.emplace();
         br.user->buyeruid = Id(binary_to_hexstr(gbr.hosted_match_data()));
     }
 
     if (gbr.has_cookie_age_seconds())
     {
+        if (!br.user)
+            br.user.emplace();
         br.user->ext.atStr("cookie_age_seconds") = gbr.cookie_age_seconds();
     }
 
