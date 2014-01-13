@@ -808,10 +808,10 @@ struct Site: public Context, public SiteInfo {
     App ID or bundle, but this is not strictly required.
 */
 struct AppInfo {
-    string ver;         ///< Application version
-    Utf8String bundle;  ///< Application bundle name (unique across multiple exchanges)
-    TaggedBool paid;    ///< Is a paid version of the app
-    Url storeurl;       ///< For QAG 1.5 compliance, new in OpenRTB 2.1
+    string ver;             ///< Application version
+    Utf8String bundle;      ///< Application bundle name (unique across multiple exchanges)
+    TaggedBool paid;        ///< Is a paid version of the app
+    Url storeurl;           ///< For QAG 1.5 compliance, new in OpenRTB 2.1
 };
 
 struct App: public Context, public AppInfo {

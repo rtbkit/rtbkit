@@ -93,7 +93,7 @@ parseResponse(const std::string& rawResponse) -> std::pair<bool, std::vector<Bid
         Bid bid;
 
         bid.adSpotId = Id(spot["id"].asString());
-        bid.maxPrice = spot["max_price"].asInt();
+        bid.maxPrice = MicroUSD_CPM(spot["max_price"].asInt());
         bid.account = AccountKey(spot["account"].asString(), '.');
         bids.push_back(bid);
     }

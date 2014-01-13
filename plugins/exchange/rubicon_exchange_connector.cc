@@ -30,18 +30,66 @@ namespace RTBKIT {
 RubiconExchangeConnector::
 RubiconExchangeConnector(ServiceBase & owner, const std::string & name)
     : OpenRTBExchangeConnector(owner, name)
+    , configuration_("rubicon")
 {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+
+    init();
 }
 
 RubiconExchangeConnector::
 RubiconExchangeConnector(const std::string & name,
                          std::shared_ptr<ServiceProxies> proxies)
     : OpenRTBExchangeConnector(name, proxies)
+    , configuration_("rubicon")
 {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+
+    init();
+}
+
+void
+RubiconExchangeConnector::init()
+{
+
+    // 1.  Must have rubicon.attr containing creative attributes.  These
+    //     turn into RubiconCreativeAttribute filters.
+    configuration_.addField(
+        "attr",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.attr);
+            return true;
+    });
+    // TODO: create filter from these...
+
+    // 2.  Must have rubicon.adm that includes Rubicon's macro
+    configuration_.addField(
+        "adm",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.adm);
+            if (data.adm.find("${AUCTION_PRICE:BF}") == std::string::npos) {
+                throw std::invalid_argument("${AUCTION_PRICE:BF} is expected in adm");
+            }
+            return true;
+    }).snippet();
+
+    // 3.  Must have creative ID in rubicon.crid
+    configuration_.addField(
+        "crid",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.crid);
+            return true;
+    });
+
+    // 4.  Must have advertiser names array in rubicon.adomain
+    configuration_.addField(
+        "adomain",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.adomain);
+            return true;
+    });
 }
 
 ExchangeConnector::ExchangeCompatibility
@@ -67,90 +115,18 @@ getCampaignCompatibility(const AgentConfig & config,
              + exc.what(), includeReasons);
         return result;
     }
-    
+
     result.info = cpinfo;
-    
+
     return result;
 }
-
-namespace {
-
-using Datacratic::jsonDecode;
-
-/** Given a configuration field, convert it to the appropriate JSON */
-template<typename T>
-void getAttr(ExchangeConnector::ExchangeCompatibility & result,
-             const Json::Value & config,
-             const char * fieldName,
-             T & field,
-             bool includeReasons)
-{
-    try {
-        if (!config.isMember(fieldName)) {
-            result.setIncompatible
-                ("creative[].providerConfig.rubicon." + string(fieldName)
-                 + " must be specified", includeReasons);
-            return;
-        }
-        
-        const Json::Value & val = config[fieldName];
-        
-        jsonDecode(val, field);
-    }
-    catch (const std::exception & exc) {
-        result.setIncompatible("creative[].providerConfig.rubicon."
-                               + string(fieldName) + ": error parsing field: "
-                               + exc.what(), includeReasons);
-        return;
-    }
-}
-    
-} // file scope
 
 ExchangeConnector::ExchangeCompatibility
 RubiconExchangeConnector::
 getCreativeCompatibility(const Creative & creative,
                          bool includeReasons) const
 {
-    ExchangeCompatibility result;
-    result.setCompatible();
-
-    auto crinfo = std::make_shared<CreativeInfo>();
-
-    const Json::Value & pconf = creative.providerConfig["rubicon"];
-
-    // 1.  Must have rubicon.attr containing creative attributes.  These
-    //     turn into RubiconCreativeAttribute filters.
-    getAttr(result, pconf, "attr", crinfo->attr, includeReasons);
-
-    // TODO: create filter from these...
-
-    // 2.  Must have rubicon.adm that includes Rubicon's macro
-    getAttr(result, pconf, "adm", crinfo->adm, includeReasons);
-    if (crinfo->adm.find("${AUCTION_PRICE:BF}") == string::npos)
-        result.setIncompatible
-            ("creative[].providerConfig.rubicon.adm ad markup must contain "
-             "encrypted win price macro ${AUCTION_PRICE:BF}",
-             includeReasons);
-    
-    // 3.  Must have creative ID in rubicon.crid
-    getAttr(result, pconf, "crid", crinfo->crid, includeReasons);
-    if (!crinfo->crid)
-        result.setIncompatible
-            ("creative[].providerConfig.rubicon.crid is null",
-             includeReasons);
-            
-    // 4.  Must have advertiser names array in rubicon.adomain
-    getAttr(result, pconf, "adomain", crinfo->adomain,  includeReasons);
-    if (crinfo->adomain.empty())
-        result.setIncompatible
-            ("creative[].providerConfig.rubicon.adomain is empty",
-             includeReasons);
-
-    // Cache the information
-    result.info = crinfo;
-
-    return result;
+    return configuration_.handleCreativeCompatibility(creative, includeReasons);
 }
 
 float
@@ -249,7 +225,14 @@ setSeatBid(Auction const & auction,
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.impid = auction.request->imp[spotNum].id;
     b.price.val = USD_CPM(resp.price.maxPrice);
-    b.adm = crinfo->adm;
+
+    RubiconCreativeConfiguration::Context ctx = {
+        creative,
+        resp,
+        *auction.request
+    };
+
+    b.adm = configuration_.expand(crinfo->adm, ctx);
     b.adomain = crinfo->adomain;
     b.crid = crinfo->crid;
 }

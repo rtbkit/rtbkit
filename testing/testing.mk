@@ -20,3 +20,5 @@ $(eval $(call test,win_cost_model_test,openrtb_exchange bidding_agent integratio
 $(eval $(call program,mock_exchange_runner,integration_test_utils boost_program_options utils))
 $(eval $(call program,json_feeder,curlpp boost_program_options utils))
 $(eval $(call program,json_listener,boost_program_options services utils))
+
+$(eval $(call test,creative_configuration_test,rtb_router, boost))

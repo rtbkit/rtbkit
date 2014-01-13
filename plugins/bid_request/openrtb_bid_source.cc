@@ -82,7 +82,7 @@ parseResponse(const std::string& rawResponse) -> std::pair<bool, std::vector<Bid
     for(auto i = 0; i != response.seatbid[0].bid.size(); ++i) {
         Bid bid;
         bid.adSpotId = response.seatbid[0].bid[i].impid;
-        bid.maxPrice = response.seatbid[0].bid[i].price.val;
+        bid.maxPrice = USD_CPM(response.seatbid[0].bid[i].price.val);
         bids.push_back(bid);
     }
 

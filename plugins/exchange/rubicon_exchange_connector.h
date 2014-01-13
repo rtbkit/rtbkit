@@ -7,6 +7,7 @@
 #pragma once
 
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
+#include "rtbkit/common/creative_configuration.h"
 
 namespace RTBKIT {
 
@@ -42,7 +43,7 @@ struct RubiconExchangeConnector: public OpenRTBExchangeConnector {
     virtual ExchangeCompatibility
     getCampaignCompatibility(const AgentConfig & config,
                              bool includeReasons) const;
-    
+
     /** This is the information that Rubicon needs in order to properly
         filter and serve a creative.
     */
@@ -53,6 +54,10 @@ struct RubiconExchangeConnector: public OpenRTBExchangeConnector {
         OpenRTB::List<OpenRTB::CreativeAttribute> attr; ///< Creative attributes
         std::string ext_creativeapi;                    ///< Creative API
     };
+
+    typedef CreativeConfiguration<CreativeInfo> RubiconCreativeConfiguration;
+
+    void init();
 
     virtual ExchangeCompatibility
     getCreativeCompatibility(const Creative & creative,
@@ -66,6 +71,8 @@ private:
     virtual void setSeatBid(Auction const & auction,
                             int spotNum,
                             OpenRTB::BidResponse & response) const;
+
+    RubiconCreativeConfiguration configuration_;
 };
 
 
