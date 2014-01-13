@@ -73,7 +73,7 @@ struct Logging
         void activate(bool recurse = true);
         void deactivate(bool recurse = true);
 
-        std::ostream & beginWrite(char const * fct, char const * file, int line);
+        std::ostream & beginWrite(char const * function, char const * file, int line);
 
         static Category root;
 
@@ -104,6 +104,48 @@ struct Logging
 
     private:
         Category & category;
+    };
+
+    struct Progress
+    {
+        Progress(Category & category, std::function<void()> output, double delta = 2.0) :
+            output(output),
+            done(false),
+            category(category),
+            delta(delta) {
+            start = print = Date::now();
+        }
+
+        bool isDisabled() const {
+            return !done && Date::now().secondsSince(print) < delta;
+        }
+
+        std::ostream & beginWrite(char const * function, char const * file, int line) {
+            print = Date::now();
+            return category.beginWrite(function, file, line);
+        }
+
+        operator Category & () {
+            return category;
+        }
+
+        double secondsSinceStart() const {
+            return Date::now().secondsSince(start);
+        }
+
+        void stop() {
+            done = true;
+            output();
+        }
+
+        std::function<void()> output;
+
+    private:
+        bool done;
+        Category & category;
+        Date print;
+        Date start;
+        double delta;
     };
 };
 
