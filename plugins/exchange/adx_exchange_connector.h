@@ -11,6 +11,7 @@
 #include <sstream>
 #include <unordered_set>
 
+#include "rtbkit/common/creative_configuration.h"
 #include "rtbkit/plugins/exchange/http_exchange_connector.h"
 
 namespace RTBKIT {
@@ -60,6 +61,8 @@ struct AdXExchangeConnector: public HttpExchangeConnector {
     virtual std::string exchangeName() const {
         return exchangeNameString();
     }
+
+    void init();
 
     virtual std::shared_ptr<BidRequest>
     parseBidRequest(HttpAuctionHandler & connection,
@@ -115,6 +118,10 @@ struct AdXExchangeConnector: public HttpExchangeConnector {
                              bool includeReasons) const;
 
 private:
+
+    typedef CreativeConfiguration<CreativeInfo> AdxCreativeConfiguration;
+    AdxCreativeConfiguration configuration_;
+
     /**
      * see class comments
      */

@@ -13,14 +13,8 @@
 #include <unordered_set>
 #include <type_traits>
 #include <string>
-#include <iterator>  // back_inserter
-#include <algorithm> // transform
-#include <boost/any.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/range/irange.hpp>
-#include <boost/algorithm/string/join.hpp>
-#include <boost/xpressive/xpressive.hpp>
-#include <boost/tokenizer.hpp>
+#include <boost/algorithm/string.hpp>
 #include "adx_exchange_connector.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
@@ -53,17 +47,150 @@ registerConnector() {
 AdXExchangeConnector::
 AdXExchangeConnector(ServiceBase & owner, const std::string & name)
     : HttpExchangeConnector(name, owner)
+    , configuration_("adx")
 {
+    init();
 }
 
 AdXExchangeConnector::
 AdXExchangeConnector(const std::string & name,
                      std::shared_ptr<ServiceProxies> proxies)
     : HttpExchangeConnector(name, proxies)
+    , configuration_("adx")
 {
     // useless?
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+
+    init();
+}
+
+static std::vector<int> stringsToInts(const Json::Value& value)
+{
+    const std::string & data = value.asString();
+    std::vector<std::string> strings;
+    std::vector<int> ints;
+    boost::split(strings, data, boost::is_space(), boost::token_compress_on);
+    for (const std::string& e : strings) {
+        if (e.empty()) {
+            continue;
+        }
+
+        ints.push_back(std::stoi(e));
+    }
+
+    return ints;
+}
+
+void
+AdXExchangeConnector::init()
+{
+    configuration_.addField(
+        "externalId",
+        [](const Json::Value & value, CreativeInfo & info) {
+            Datacratic::jsonDecode(value, info.buyer_creative_id_);
+            return true;
+        }
+    );
+
+    configuration_.addField(
+        "htmlTemplate",
+        [](const Json::Value & value, CreativeInfo & info) {
+            Datacratic::jsonDecode(value, info.html_snippet_);
+            if (info.html_snippet_.find("%%WINNING_PRICE%%") == std::string::npos) {
+                throw std::invalid_argument("%%WINNING_PRICE%% price macro expected");
+            }
+            return true;
+        }
+    ).snippet();
+
+    configuration_.addField(
+        "clickThroughUrl",
+        [](const Json::Value & value, CreativeInfo & info) {
+            Datacratic::jsonDecode(value, info.click_through_url_);
+            return true;
+        }
+    ).snippet();
+
+    //     according to the .proto file this could also be set
+    //     to 1 if nothing has been provided in the providerConfig
+    configuration_.addField(
+        "agencyId",
+        [](const Json::Value & value, CreativeInfo & info)
+        {
+            Datacratic::jsonDecode(value, info.agency_id_);
+            return true;
+        }
+    ).defaultTo(1);
+
+    configuration_.addField(
+        "vendorType",
+        [](const Json::Value & value, CreativeInfo & info)
+        {
+            auto ints = stringsToInts(value);
+            info.vendor_type_ = { std::begin(ints), std::end(ints) };
+            return true;
+        }
+    );
+
+    configuration_.addField(
+        "attribute",
+        [](const Json::Value & value, CreativeInfo & info)
+        {
+            auto ints = stringsToInts(value);
+            info.attribute_ = { std::begin(ints), std::end(ints) };
+            return true;
+        }
+    );
+
+    configuration_.addField(
+        "sensitiveCategory",
+        [](const Json::Value & value, CreativeInfo & info)
+        {
+            auto ints = stringsToInts(value);
+            info.category_ = { std::begin(ints), std::end(ints) };
+            return true;
+        }
+    );
+
+    /*
+          adGroupId is an optional parameter, this must always
+          be set if the BidRequest has more than one
+          BidRequest.AdSlot.matching_ad_data
+    */
+    configuration_.addField(
+            "adGroupId",
+            [](const Json::Value & value, CreativeInfo & info)
+            {
+                int64_t adGroupId = 0;
+                Datacratic::jsonDecode(value, adGroupId);
+                info.adgroup_id_ = std::to_string(adGroupId);
+                return true;
+            }
+    ).optional();
+
+
+    /*
+          If you are bidding with ads in restricted categories
+          you MUST declare them in restrictedCategories.
+    */
+
+    configuration_.addField(
+        "restrictedCategories",
+        [](const Json::Value & value, CreativeInfo & info)
+        {
+            auto ints = stringsToInts(value);
+            info.restricted_category_ = { std::begin(ints), std::end(ints) };
+
+            if(info.restricted_category_.size() == 1
+                && *info.restricted_category_.begin() == 0){
+                info.restricted_category_.clear();
+            }
+
+            return true;
+        }
+    );
+
 }
 
 // using GoogleBidRequest = ::BidRequest ;
@@ -341,13 +468,6 @@ ParseGbrAdSlot (const GoogleBidRequest& gbr, BidRequest& br)
 
 } // anonymous NS
 
-using namespace boost;
-using namespace boost::xpressive;
-using xpressive::smatch;
-using xpressive::sregex;
-using xpressive::sregex_iterator;
-using xpressive::regex_replace;
-
 std::shared_ptr<BidRequest>
 AdXExchangeConnector::
 parseBidRequest(HttpAuctionHandler & connection,
@@ -551,24 +671,6 @@ parseBidRequest(HttpAuctionHandler & connection,
     return res ;
 }
 
-namespace {
-/**
- *   with dict = {{"K1","V1"}, {"K2","V2"}, ...}
- *   return a copy of the input string, in which all the
- *   occurrences of the string "${Ki}" are replaced
- *   by the string "Vi"
- */
-string
-myFormat (const string& in, unordered_map<string,string>& dict)
-{
-    auto format_dict = [&](smatch const& what) {
-        return dict[what[1].str()];
-    };
-    static sregex envar = "${" >> (s1 = +_w) >> "}";
-    auto rc = regex_replace(in, envar, format_dict);
-    return rc;
-}
-}
 /**
  *  prepare a Google BidResponse.
  *  Will handle
@@ -614,35 +716,33 @@ getResponse(const HttpAuctionHandler & connection,
         auto ad = gresp.add_ad();
         auto adslot = ad->add_adslot() ;
 
-        // handle macros.
 
-        // 1. take care of the agent defined macros,
-        // passed along with every bid response, as a
-        // stringified JSON object (a la Python)
-        unordered_map<string,string> dict;
-        auto 	vals = Json::parse (resp.meta);
-        for (auto name: vals.getMemberNames())
-            dict[name] = vals.atStr(name).asString();
-
-        // 2. enrich the above dictionary, with
-        // ExchangeConnector specific variables
-        dict["AUCTION_ID"] = auction.id.toString();
-
-        // 3. populate, substituting whenever necessary
         ad->set_buyer_creative_id(crinfo->buyer_creative_id_);
-        ad->set_html_snippet(myFormat(crinfo->html_snippet_,dict));
-        ad->add_click_through_url(myFormat(crinfo->click_through_url_,dict));
         ad->set_width(creative.format.width);
         ad->set_height(creative.format.height);
-        for(auto& vt : crinfo->vendor_type_)
+
+        // handle macros.
+        AdxCreativeConfiguration::Context ctx {
+            creative,
+            resp,
+            *auction.request
+        };
+
+        // populate, substituting whenever necessary
+        ad->set_html_snippet(
+                configuration_.expand(crinfo->html_snippet_, ctx));
+        ad->add_click_through_url(
+                configuration_.expand(crinfo->click_through_url_, ctx));
+
+        for(auto vt : crinfo->vendor_type_)
             ad->add_vendor_type(vt);
         adslot->set_max_cpm_micros(MicroUSD_CPM(resp.price.maxPrice));
         adslot->set_id(auction.request->imp[spotNum].id.toInt());
-        if(!crinfo->adgroup_id_.empty()){            
+        if(!crinfo->adgroup_id_.empty()) {
             adslot->set_adgroup_id(
                 boost::lexical_cast<uint64_t>(crinfo->adgroup_id_));
         }
-        for(auto& cat : crinfo->restricted_category_)
+        for(const auto& cat : crinfo->restricted_category_)
             ad->add_restricted_category(cat);
     }
     return HttpResponse(200, "application/octet-stream", gresp.SerializeAsString());
@@ -673,157 +773,12 @@ getErrorResponse(const HttpAuctionHandler & connection,
     return HttpResponse(500, response);
 }
 
-namespace {
-
-using Datacratic::jsonDecode;
-
-/** Given a configuration field, convert it to the appropriate JSON */
-template<typename T>
-void getAttr(ExchangeConnector::ExchangeCompatibility & result,
-             const Json::Value & config,
-             const char * fieldName,
-             T & field,
-             bool includeReasons,
-             bool optional = false)
-{
-    try {
-        bool isMember = config.isMember(fieldName);
-        if (!isMember && !optional) {
-            result.setIncompatible
-            ("creative[].providerConfig.adx." + string(fieldName)
-             + " must be specified", includeReasons);
-            return;
-        }else if(!isMember && optional){
-            return;
-        }
-
-        const Json::Value & val = config[fieldName];
-
-        jsonDecode(val, field);
-    }
-    catch (const std::exception & exc) {
-        result.setIncompatible("creative[].providerConfig.adx."
-                               + string(fieldName) + ": error parsing field: "
-                               + exc.what(), includeReasons);
-        return;
-    }
-}
-} // file scope
-
 ExchangeConnector::ExchangeCompatibility
 AdXExchangeConnector::
 getCreativeCompatibility(const Creative & creative,
                          bool includeReasons) const
 {
-    ExchangeCompatibility result;
-    result.setCompatible();
-
-    auto crinfo = std::make_shared<CreativeInfo>();
-
-    if (!creative.providerConfig.isMember("adx")) {
-        result.setIncompatible();
-        return result;
-    }
-
-    const Json::Value & pconf = creative.providerConfig["adx"];
-
-    // 1.  Must have adx.externalId containing creative attributes.
-    getAttr(result, pconf, "externalId", crinfo->buyer_creative_id_, includeReasons);
-
-    // 2.  Must have adx.htmlTemplate that includes AdX's macro
-    getAttr(result, pconf, "htmlTemplate", crinfo->html_snippet_, includeReasons);
-    if (crinfo->html_snippet_.find("%%WINNING_PRICE%%") == string::npos)
-        result.setIncompatible
-        ("creative[].providerConfig.adx.html_snippet must contain "
-         "encrypted win price macro %%WINNING_PRICE%%",
-         includeReasons);
-
-    // 3.  Must have adx.clickThroughUrl
-    getAttr(result, pconf, "clickThroughUrl", crinfo->click_through_url_, includeReasons);
-
-    // 4.  Must have adx.agencyId
-    //     according to the .proto file this could also be set
-    //     to 1 if nothing has been provided in the providerConfig
-    getAttr(result, pconf, "agencyId", crinfo->agency_id_, includeReasons);
-    if (!crinfo->agency_id_) crinfo->agency_id_ = 1;
-
-    string tmp;
-    const auto to_int = [] (const string& str) {
-        return std::stoi(str);
-    };
-
-    // 5.  Must have vendorType
-    getAttr(result, pconf, "vendorType", tmp, includeReasons);
-    if (!tmp.empty())
-    {
-        tokenizer<> tok(tmp);
-        auto& ints = crinfo->vendor_type_;
-        transform(tok.begin(), tok.end(),
-        std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return std::stoi(s);
-        });
-    }
-
-    tmp.clear();
-    // 6.  Must have attribute
-    getAttr(result, pconf, "attribute", tmp, includeReasons);
-    if (!tmp.empty())
-    {
-        tokenizer<> tok(tmp);
-        auto& ints = crinfo->attribute_;
-        transform(tok.begin(), tok.end(),
-        std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return std::stoi(s);
-        });
-    }
-
-    tmp.clear();
-    // 7.  Must have sensitiveCategory
-    getAttr(result, pconf, "sensitiveCategory", tmp, includeReasons);
-    if (!tmp.empty())
-    {
-        tokenizer<> tok(tmp);
-        auto& ints = crinfo->category_;
-        transform(tok.begin(), tok.end(),
-        std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return std::stoi(s);
-        });
-    }
-
-    /* 
-       8. adGroupId is an optional paramater, this must always 
-          be set if the BidRequest has more than one 
-          BidRequest.AdSlot.matching_ad_data 
-    */
-    int64_t adgroup_id = 0;
-    getAttr(result, pconf, "adGroupId", adgroup_id, includeReasons, true);
-    crinfo->adgroup_id_ = boost::lexical_cast<std::string>(adgroup_id);
-
-    /*
-       9. If you are bidding with ads in restricted categories 
-          you MUST declare them in restrictedCategories.
-    */
-    tmp.clear();
-    getAttr(result, pconf, "restrictedCategory", tmp, includeReasons);
-    if (!tmp.empty())
-    {
-        tokenizer<> tok(tmp);
-        auto& ints = crinfo->restricted_category_;
-        transform(tok.begin(), tok.end(),
-        std::inserter(ints, ints.begin()),[&](const std::string& s) {
-            return std::stoi(s);
-        });
-        if(ints.size() == 1 && *ints.begin() == 0){
-           ints.clear(); 
-        }
-    }
-
-    if (result.isCompatible) {
-        // Cache the information
-        result.info = crinfo;
-    }
-
-    return result;
+    return configuration_.handleCreativeCompatibility(creative, includeReasons);
 }
 
 bool
