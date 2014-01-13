@@ -809,7 +809,7 @@ struct Site: public Context, public SiteInfo {
 */
 struct AppInfo {
     string ver;         ///< Application version
-    string bundle;      ///< Application bundle name (unique across multiple exchanges)
+    Utf8String bundle;  ///< Application bundle name (unique across multiple exchanges)
     TaggedBool paid;    ///< Is a paid version of the app
     Url storeurl;       ///< For QAG 1.5 compliance, new in OpenRTB 2.1
 };
@@ -892,10 +892,10 @@ struct Device {
     string ipv6;           ///< IPv6 address
     Utf8String carrier;    ///< Carrier or ISP (derived from IP address)
     Utf8String language;   ///< Browser language.  ISO 639-1 (alpha-2).
-    string make;           ///< Device make
-    string model;          ///< Device model
-    string os;             ///< Device OS
-    string osv;            ///< Device OS version
+    Utf8String make;       ///< Device make
+    Utf8String model;      ///< Device model
+    Utf8String os;         ///< Device OS
+    Utf8String osv;        ///< Device OS version
     TaggedBool js;         ///< Javascript is supported? 1 or 0
     ConnectionType connectiontype;    ///< Connection type (table 6.10)
     DeviceType devicetype; ///< Device type (table 6.16)
@@ -1031,7 +1031,7 @@ struct BidRequest {
     TaggedBool allimps;                ///< All impressions in BR (for road-blocking)
     vector<string> cur;                ///< Allowable currencies
     List<ContentCategory> bcat;        ///< Blocked advertiser categories (table 6.1)
-    vector<string> badv;               ///< Blocked advertiser domains
+    vector<Utf8String> badv;           ///< Blocked advertiser domains
     Json::Value ext;                   ///< Protocol extensions
     Json::Value unparseable;           ///< Unparseable fields get put here
 };
