@@ -286,7 +286,8 @@ createFromJson(const Json::Value & json)
             result.add(val.asDouble());
         else result.add(val.asString());
     }
-    
+
+    result.sort();
     return result;
 }
 
