@@ -59,3 +59,33 @@ BOOST_AUTO_TEST_CASE( currencyValues )
     // precision issue i.e. the value is rounded to the closed 1K
     BOOST_CHECK_EQUAL(1000, (double) MicroUSD_CPM(1000));
 }
+
+static inline void test2(CurrencyPool)
+{
+}
+
+BOOST_AUTO_TEST_CASE( currencyConversion)
+{
+    {
+        auto tt = USD_CPM(Amount(CurrencyCode::CC_USD, 1000));
+        double d = tt;
+        (void)d;
+    }
+
+    {
+        auto tt = USD(Amount(CurrencyCode::CC_USD, 1000));
+        int64_t d = tt;
+        (void)d;
+    }
+
+    {
+        auto tt = USD(Amount(CurrencyCode::CC_USD, 1000));
+        float d = tt;
+        (void)d;
+    }
+
+    {
+        auto tt = USD(Amount(CurrencyCode::CC_USD, 1000));
+        test2(tt);
+    }
+}
