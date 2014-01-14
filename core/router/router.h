@@ -500,7 +500,7 @@ public:
     template<typename... Args>
     void sendAgentMessage(const std::string & agent,
                           const std::string & messageType,
-                          const Date & date,
+                          const Date date,
                           Args... args)
     {
         agentEndpoint.sendMessage(agent, messageType, date, args...);
