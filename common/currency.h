@@ -7,6 +7,7 @@
 #ifndef __types__currency_h__
 #define __types__currency_h__
 
+#include <cstddef>
 #include <ratio>
 #include <type_traits>
 
@@ -186,21 +187,27 @@ typedef std::ratio<std::micro::den, std::micro::num> NaturalCurrency;
 typedef std::ratio<std::micro::den / 1000, std::micro::num> CPM;
 typedef std::ratio_multiply<std::micro, std::ratio<1000, 1>> MicroCPM;
 
-template <typename T>
+template <typename Ratio>
 struct PriceIntegerType
 {
-    static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
-    typedef typename std::conditional<std::is_integral<T>::value,
-                                      int64_t,
-                                      double>::type type;
+    typedef typename std::conditional<(Ratio::den > Ratio::num), double, int64_t>::type type;
 };
 
-template <typename T>
-static inline constexpr typename PriceIntegerType<T>::type
-integerToPrice(T number)
-{
-    return number;
-}
+#define CHECK_PRICE_INTEGER_TYPE(price_ratio, result_type)                          \
+    static_assert(                                                                  \
+        std::is_same<                                                               \
+            /* ratio reverted because we want make sure that the way back has */    \
+            /*   the proper type */                                                 \
+            typename PriceIntegerType<std::ratio<price_ratio::den, price_ratio::num>>::type, \
+            result_type>::value,                                                    \
+        "Something's wrong")
+
+CHECK_PRICE_INTEGER_TYPE(Micro, int64_t);
+CHECK_PRICE_INTEGER_TYPE(NaturalCurrency, double);
+CHECK_PRICE_INTEGER_TYPE(CPM, double);
+CHECK_PRICE_INTEGER_TYPE(MicroCPM, int64_t);
+
+#undef CHECK_PRICE_INTEGER_TYPE
 
 template <CurrencyCode CURRENCY, typename Ratio>
 struct CurrencyTemplate : public Amount
@@ -219,10 +226,11 @@ struct CurrencyTemplate : public Amount
     template <typename T,
               typename = typename std::enable_if<std::is_arithmetic<T>::value>::type>
     CurrencyTemplate(T value)
-    : Amount(CURRENCY, currentRatioToBaseRatio(integerToPrice(value)))
-    {}
+    : Amount(CURRENCY, currentRatioToBaseRatio(value))
+    {
+    }
 
-    CurrencyTemplate(Amount amount)
+    CurrencyTemplate(const Amount& amount)
     : Amount(amount)
     {
         if (amount)
@@ -244,6 +252,7 @@ namespace detail {
 template <typename Ratio>
 struct CurrencyConverter
 {
+    typedef std::ratio<Ratio::den, Ratio::num> RevertedRatio;
     typedef decltype(std::declval<Amount>().value) ValueType;
 
     template <CurrencyCode code>
@@ -254,17 +263,19 @@ struct CurrencyConverter
     }
 
     template <typename T,
-              typename ReturnType = typename PriceIntegerType<T>::type,
+              typename ReturnType = typename PriceIntegerType<RevertedRatio>::type,
               typename = typename std::enable_if<std::is_arithmetic<T>::value>::type>
     inline ReturnType baseRatioToCurrentRatio(T value) const
     {
+        static_assert(std::is_same<ReturnType, T>::value,
+                      "Invalid type cast required");
         return (ReturnType(value) * Ratio::den) / Ratio::num;
     }
 
-    template <typename T>
-    inline T baseRatioToCurrentRatio(...) const
+    template <typename T, typename ReturnType = typename std::decay<T>::type>
+    inline ReturnType baseRatioToCurrentRatio(...) const
     {
-        static_assert(std::is_convertible<Amount, typename std::decay<T>::type>::value,
+        static_assert(std::is_convertible<Amount, ReturnType>::value,
                       "Cast is impossible");
         return Amount{code, value};
     }
@@ -314,6 +325,12 @@ inline detail::CurrencyConverter<Ratio> getAmountIn(CurrencyCode currency, const
             throw std::runtime_error("Cannot convert amount to currency: " +
                                      toString(currency));
     };
+}
+
+template<typename Ratio = Micro>
+inline detail::CurrencyConverter<Ratio> getAmountIn(const Amount& amount)
+{
+    return getAmountIn<Ratio>(amount.currencyCode, amount);
 }
 
 /*****************************************************************************/
