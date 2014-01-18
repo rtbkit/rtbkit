@@ -891,6 +891,7 @@ struct Stump_Trainer {
                     Results & results,
                     int advance) const
     {
+        using namespace std;
         //cerr << "test_real" << endl;
 
         /* See if we can do it by buckets.  We only do so if more than 20% of
@@ -908,8 +909,8 @@ struct Stump_Trainer {
         ++num_real;
 
         bool debug = false;
-        //debug = (data.feature_space()->print(feature) == "hmmInfSubNeTypeProbability");
-        //debug = (feature.type() == 102);
+        //debug = (data.feature_space()->print(feature) == "language|all_diff_prob_lb");
+        //debug = (feature.type() == 10);
 
         using namespace std;
 
@@ -933,6 +934,8 @@ struct Stump_Trainer {
 
         if (ex == 0) return Z::none;
 
+        if (debug)
+            cerr << "ex = " << ex << " adjusted w " << endl << w.print() << endl;
         //cerr << "adjusted w = " << endl << w.print() << endl;
 
         double missing;
@@ -950,7 +953,7 @@ struct Stump_Trainer {
         }
 
         // TODO: not missing
-        float Z = 1.0;
+        float Z = Z::worst;
 #if 0
         /* One candidate split point is -INF, which lets us split only based
            upon missing or not. */
@@ -1043,7 +1046,7 @@ struct Stump_Trainer {
         using namespace std;
 
         bool debug = false;
-        //debug = (feature.type() == 6);
+        //debug = (feature.type() == 10);
 
         Joint_Index index
             = data.index().joint(predicted, feature, BY_EXAMPLE,
@@ -1098,9 +1101,6 @@ struct Stump_Trainer {
            in order to make a split. */
         if (nb + (missing > 0.0) < 2) return Z::none;
 
-        if (debug)
-            cerr << "missing = " << missing << endl;
-
         /* One candidate split point is -INF, which lets us split only based
            upon missing or not. */
         float Z = Z::worst;
@@ -1110,6 +1110,7 @@ struct Stump_Trainer {
         float best_arg = -INFINITY;
 
         if (debug) {
+            cerr << "missing = " << missing << endl;
             cerr << "nb = " << nb << endl;
             cerr << "added default split " << -INFINITY << " with "
                  << missing << " missing and score " << Z
