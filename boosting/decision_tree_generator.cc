@@ -226,7 +226,7 @@ struct Tree_Accum {
                const Tracer & tracer = Tracer())
         : tracer(tracer), best_w(nl),
           best_arg(numeric_limits<float>::quiet_NaN()),
-          best_z(1.0),
+          best_z(Z::worst),
           best_feature(MISSING_FEATURE), fs(fs)
     {
     }
@@ -717,8 +717,9 @@ train_recursive(Thread_Context & context,
         cerr << endl;
     }
 #endif
-
-    //cerr << "train_recursive: depth " << depth << endl;
+    
+    if (debug)
+        cerr << "train_recursive: depth " << depth << endl;
 
     double total_weight = in_class.total();
 
@@ -727,18 +728,18 @@ train_recursive(Thread_Context & context,
     /* Check for zero impurity, and return a leaf if we have it. */
     distribution<float> class_weights(nl);
 
-#if 0
-    cerr << "predicted = " << predicted << endl;
-    cerr << "fs = " << data.feature_space()->print() << endl;
-    cerr << "data[0] = " << data.feature_space()->print(data[0]) << endl;
-    cerr << "data.example_count() = " << data.example_count() << endl;
+    if (debug) {
+        cerr << "predicted = " << predicted << endl;
+        cerr << "fs = " << data.feature_space()->print() << endl;
+        cerr << "data[0] = " << data.feature_space()->print(data[0]) << endl;
+        cerr << "data.example_count() = " << data.example_count() << endl;
 
-    cerr << "data.label_count(predicted) = " << data.label_count(predicted)
-         << endl;
-    cerr << "data.label_count(model.predicted()) = "
-         << data.label_count(model.predicted())
-         << endl;
-#endif
+        cerr << "data.label_count(predicted) = " << data.label_count(predicted)
+             << endl;
+        cerr << "data.label_count(model.predicted()) = "
+             << data.label_count(model.predicted())
+             << endl;
+    }
 
     if (advance == 0) {
         /* Use the stump trainer to accumulate for us. */
@@ -774,14 +775,27 @@ train_recursive(Thread_Context & context,
     fillin_leaf(leaf, data, model.predicted(), weights, advance,
                 in_class, update_alg, total_weight);
 
-    //cerr << "class_weights = " << class_weights << endl;
+    if (debug) {
+        cerr << "class_weights = " << class_weights << endl;
+        cerr << "total_weight = " << total_weight << endl;
+        cerr << "class_weights.total() = " << class_weights.total() << endl;
+        cerr << "in_class.size() = " << in_class.size() << endl;
+    }
     
+    // Calculate how many classes (labels) have non-zero weight.  We need at least
+    // 2 distinct labels for training to make sense; otherwise we bail out
+    int numNonZeroClasses = 0;
+    for (auto c: class_weights)
+        if (c != 0.0)
+            numNonZeroClasses += 1;
+
     //cerr << "done test" << endl;
 
     if (class_weights.max() == 1.0  // minimum impurity; one per class
         || depth == max_depth       // reached maximum depth
+        || numNonZeroClasses <= 1   // only one non-zero weighted label left
         || total_weight < 1.0       // split up finer than one example
-        || class_weights.total() == 0.0 // weights to small to count
+        || class_weights.total() == 0.0 // weights too small to count
         || in_class.size() == 1     // only one example
         || false) {
         Tree::Leaf * result = tree.new_leaf();
@@ -792,9 +806,11 @@ train_recursive(Thread_Context & context,
     int num_non_zero = std::count_if(in_class.begin(), in_class.end(),
                                      std::bind2nd(std::greater<float>(), 0.0));
     
-    //cerr << "in_class.size() = " << in_class.size() << " num_non_zero = "
-    //     << num_non_zero << " total_weight = " << total_weight
-    //     << endl;
+    if (debug) {
+        cerr << "in_class.size() = " << in_class.size() << " num_non_zero = "
+             << num_non_zero << " total_weight = " << total_weight
+             << endl;
+    }
 
     if (num_non_zero * 16 < in_class.size()) {
         Training_Data new_data(data.feature_space());
@@ -814,15 +830,20 @@ train_recursive(Thread_Context & context,
     //cerr << "training decision tree with total weight "
     //     << total_weight << " at depth " << depth << endl;
 
+    //cerr << "advance = " << advance << endl;
+
     Split split;
     float best_z = 0.0;
+
+    typedef No_Trace TrainerTracer;
+    //typedef Stream_Tracer TrainerTracer;  // for debugging
 
     if (advance == 0) {
         typedef W_binsym W;
         typedef Z_binsym Z;
     
         typedef Tree_Accum<W, Z, Stream_Tracer> Accum;
-        typedef Stump_Trainer<W, Z> Trainer;
+        typedef Stump_Trainer<W, Z, TrainerTracer> Trainer;
         
         Accum accum(*model.feature_space(), nl, trace);
         Trainer trainer;
@@ -839,7 +860,7 @@ train_recursive(Thread_Context & context,
         typedef Z_normal Z;
     
         typedef Tree_Accum<W, Z, Stream_Tracer> Accum;
-        typedef Stump_Trainer<W, Z> Trainer;
+        typedef Stump_Trainer<W, Z, TrainerTracer> Trainer;
         
         Accum accum(*model.feature_space(), nl, trace);
         Trainer trainer;
@@ -862,6 +883,7 @@ train_recursive(Thread_Context & context,
         cerr << "class_weights = " << class_weights << endl;
         cerr << "total_weight = " << total_weight << endl;
  */       
+        cerr << "WARNING: no feature found in decision tree split" << endl;
         cerr << "warning : didn't print a sometimes awfully long print in decision_tree_generator.cc" << endl;
         Tree::Leaf * result = tree.new_leaf();
         *result = leaf;
@@ -877,13 +899,15 @@ train_recursive(Thread_Context & context,
         cerr << "z = " << best_z << endl;
     }
 
-    if (best_z == 0.0) {
+    // We used to not allow the decision tree to learn a perfect split.  Now we allow it
+    // but we make sure that the next level down only leaf nodes will be created as there
+    // will be only one label.
+    if (best_z == 0.0 && false) {
         // No impurity at all
         Tree::Leaf * result = tree.new_leaf();
         *result = leaf;
         return result;
     }
-
     
     /* Split these examples based upon what the split said. */
     distribution<float> class_true;
