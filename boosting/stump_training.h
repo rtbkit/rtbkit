@@ -1,7 +1,6 @@
 /* stump_training.h                                                -*- C++ -*-
    Jeremy Barnes, 20 February 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   $Source$
 
    Implementation of the code to train a decision stump classifier.
 */
@@ -86,13 +85,13 @@ struct W_normalT {
         for (size_t l = 0;  l < nl();  ++l) {
             result += format("  l = %zd:\n", l);
             result
-                += format("  t,c:%7.5f t,i:%7.5f",
+                += format("  t,c:%11.9f t,i:%11.9f",
                           (double)(*this)(l, true, true),
                           (double)(*this)(l, true, false))
-                +  format(" f,c:%7.5f f,i:%7.5f",
+                +  format(" f,c:%11.9f f,i:%11.9f",
                           (double)(*this)(l, false, true),
                           (double)(*this)(l, false, false))
-                +  format(" m,c:%7.5f m,i:%7.5f",
+                +  format(" m,c:%11.9f m,i:%11.9f",
                           (double)(*this)(l, MISSING, true),
                           (double)(*this)(l, MISSING, false))
                 + "\n";
