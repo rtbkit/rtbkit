@@ -13,6 +13,7 @@
 #include "jml/utils/floating_point.h"
 #include "jml/utils/worker_task.h"
 #include "jml/arch/timers.h"
+#include <mutex>
 
 using namespace std;
 
@@ -55,8 +56,9 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
         };
 
     //cerr << "aliases" << endl;
-    vector<tuple<int, uint64_t, float> > sorted;
-    sorted.resize(dataset.example_count());
+    vector<tuple<int, uint64_t, float> > sorted[32];
+    ML::Spinlock sortedLocks[32];
+    //sorted.resize(dataset.example_count());
 
     auto doHash = [&] (int exampleNum)
         {
@@ -66,7 +68,8 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
 
             //cerr << "example " << exampleNum << " hash " << hash << endl;
 
-            sorted[exampleNum] = std::make_tuple(exampleNum, hash, label);
+            std::unique_lock<ML::Spinlock> guard(sortedLocks[hash % 32]);
+            sorted[hash % 32].emplace_back(exampleNum, hash, label);
         };
 
     // Hash the examples in parallel
@@ -114,32 +117,51 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
             return compareExamples(ex1, ex2) == -1;
         };
 
-    // Now sort them
-    std::sort(sorted.begin(), sorted.end(), lessExamples);
+    vector<Alias> bucketResults[32];
 
-    cerr << "sorted examples in " << timer.elapsed() << endl;
-    
-    vector<Alias> result;
-    int x = 0;
-    while (x < sorted.size()) {
-        int b = x++;  // beginning of equal range
-        while (x < sorted.size()
-               && compareExamples(sorted[x], sorted[b]) == 0)
-            ++x;
+    // Check for aliases within the bucket
+    auto processBucket = [&] (int i)
+        {
+            auto & bucket = sorted[i];
+
+            // Now sort them
+            std::sort(bucket.begin(), bucket.end(), lessExamples);
+
+            std::vector<Alias> & bucketResult = bucketResults[i];
+
+            int x = 0;
+            while (x < bucket.size()) {
+                int b = x++;  // beginning of equal range
+                while (x < bucket.size()
+                       && compareExamples(bucket[x], bucket[b]) == 0)
+                    ++x;
         
-        if (x == b + 1) continue;  // only one in the range
+                if (x == b + 1) continue;  // only one in the range
 
-        Alias alias;
-        alias.homogenous = true;
-        int label = (int)(std::get<2>(sorted[b]));
-        for (unsigned i = b;  i < x;  ++i) {
-            alias.examples.insert(std::get<0>(sorted[i]));
-            if ((int)std::get<2>(sorted[i]) != label)
-                alias.homogenous = false;
-        }
+                Alias alias;
+                alias.homogenous = true;
+                int label = (int)(std::get<2>(bucket[b]));
+                for (unsigned i = b;  i < x;  ++i) {
+                    alias.examples.insert(std::get<0>(bucket[i]));
+                    if ((int)std::get<2>(bucket[i]) != label)
+                        alias.homogenous = false;
+                }
+                
+                
+                bucketResult.push_back(alias);
+            }
 
-        result.push_back(alias);
-    }
+        };
+
+    run_in_parallel(0, 32, processBucket);
+
+    // Assemble a final result
+    vector<Alias> result;
+    for (auto & r: bucketResults)
+        result.insert(result.end(), r.begin(), r.end());
+
+    cerr << "comparisons " << comparisons << " non-trivial " << nontrivialComparisons
+         << " " << 100.0 * nontrivialComparisons / comparisons << "%" << endl;
 
     cerr << "alias detection took " << timer.elapsed() << endl;
 
