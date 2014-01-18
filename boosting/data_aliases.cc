@@ -10,67 +10,138 @@
 #include <utility>
 #include <algorithm>
 #include "jml/utils/sgi_numeric.h"
-
+#include "jml/utils/floating_point.h"
+#include "jml/utils/worker_task.h"
+#include "jml/arch/timers.h"
 
 using namespace std;
 
 
 namespace ML {
 
-namespace {
-
-/** Internal structure to compare two feature sets at the end of pointer to
-    an Example_Data structure.
-*/
-struct Compare_Example_Data {
-    Compare_Example_Data(const Feature & to_ignore)
-        : to_ignore(to_ignore)
-    {
-    }
-
-    typedef const pair<int, std::shared_ptr<const ML::Feature_Set> >
-          arg_type;
-    bool operator() (const arg_type & p1, const arg_type & p2) const
-    {
-        return p1.second->compare(*p2.second, to_ignore) == -1;
-    }
-
-    Feature to_ignore;
-};
-
-} // file scope
-
 std::vector<Alias>
 aliases(const ML::Training_Data & dataset, const Feature & predicted)
 {
+    Timer timer;
+
+    auto hashFeatureSet = [&] (const ML::Feature_Set & features) -> uint64_t
+        {
+            std::string printed;
+            printed.reserve(4096);
+
+            uint64_t result = 1231223;
+            for (auto f: features) {
+                Feature feat;
+                float value;
+                std::tie(feat, value) = f;
+                
+                if (feat == predicted)
+                    continue;
+
+                //printed += dataset.feature_space()->print(feat, value);
+
+                uint64_t featHash = feat.hash();
+                uint64_t valueHash = float_hasher()(value);
+
+                if (featHash == 0)
+                    featHash = 1;
+                if (valueHash == 0)
+                    valueHash = 1;
+                
+                result = chain_hash(chain_hash(featHash, valueHash), result);
+            }
+
+            return result; // ^ std::hash<string>()(printed);
+        };
+
     //cerr << "aliases" << endl;
-    vector<pair<int, std::shared_ptr<const ML::Feature_Set> > > sorted;
-    sorted.reserve(dataset.example_count());
-    for (unsigned i = 0;  i < dataset.example_count();  ++i)
-        sorted.push_back(make_pair(i, dataset.get(i)));
-    std::sort(sorted.begin(), sorted.end(), Compare_Example_Data(predicted));
+    vector<tuple<int, uint64_t, float> > sorted;
+    sorted.resize(dataset.example_count());
+
+    auto doHash = [&] (int exampleNum)
+        {
+            auto example = dataset.get(exampleNum);
+            uint64_t hash = hashFeatureSet(*example);
+            float label = (*example)[predicted];
+
+            //cerr << "example " << exampleNum << " hash " << hash << endl;
+
+            sorted[exampleNum] = std::make_tuple(exampleNum, hash, label);
+        };
+
+    // Hash the examples in parallel
+    run_in_parallel_blocked(0, dataset.example_count(), doHash);
+
+    cerr << "hashed examples in " << timer.elapsed() << endl;
+
+    uint64_t comparisons = 0, nontrivialComparisons = 0;
+
+    auto compareExamples = [&] (const std::tuple<int, uint64_t, float> & ex1,
+                                const std::tuple<int, uint64_t, float> & ex2)
+        -> int
+        {
+            ML::atomic_inc(comparisons);
+
+            uint64_t hash1 = std::get<1>(ex1);
+            uint64_t hash2 = std::get<1>(ex2);
+
+            if (hash1 < hash2)
+                return -1;
+            else if (hash1 > hash2)
+                return 1;
+
+            ML::atomic_inc(nontrivialComparisons);
+
+            // Same hash; compare the contents
+            auto fv1 = dataset.get(std::get<0>(ex1));
+            auto fv2 = dataset.get(std::get<0>(ex2));
+
+            int res = fv1->compare(*fv2, predicted);
+
+            if (res == -1)
+                return -1;
+            else if (res == 1)
+                return 1;
+            else if (res != 0)
+                throw ML::Exception("unexpected compare result");
+
+            return 0;  // equal
+        };
+
+    auto lessExamples = [&] (const std::tuple<int, uint64_t, float> & ex1,
+                             const std::tuple<int, uint64_t, float> & ex2)
+        {
+            return compareExamples(ex1, ex2) == -1;
+        };
+
+    // Now sort them
+    std::sort(sorted.begin(), sorted.end(), lessExamples);
+
+    cerr << "sorted examples in " << timer.elapsed() << endl;
     
     vector<Alias> result;
     int x = 0;
     while (x < sorted.size()) {
         int b = x++;  // beginning of equal range
         while (x < sorted.size()
-               && sorted[x].second->compare(*sorted[b].second, predicted) == 0)
+               && compareExamples(sorted[x], sorted[b]) == 0)
             ++x;
         
         if (x == b + 1) continue;  // only one in the range
 
         Alias alias;
         alias.homogenous = true;
-        int label = (int)(*sorted[b].second)[predicted];
+        int label = (int)(std::get<2>(sorted[b]));
         for (unsigned i = b;  i < x;  ++i) {
-            alias.examples.insert(sorted[i].first);
-            if ((*sorted[i].second)[predicted] != label)
+            alias.examples.insert(std::get<0>(sorted[i]));
+            if ((int)std::get<2>(sorted[i]) != label)
                 alias.homogenous = false;
         }
 
         result.push_back(alias);
     }
+
+    cerr << "alias detection took " << timer.elapsed() << endl;
 
     return result;
 }
