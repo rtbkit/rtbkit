@@ -228,8 +228,8 @@ get_values(Sort_By sort_by)
     else if (sort_by == BY_VALUE) {
         if (has_values_sorted) return values_sorted;
         vector<float> new_values_sorted = values;
-        std::sort(new_values_sorted.begin(), new_values_sorted.end(),
-                  safe_less<float>());
+        std::sort(new_values_sorted.begin(), new_values_sorted.end());
+        //safe_less<float>());
         
         Guard guard(lock);
         if (has_values_sorted) return values_sorted;
