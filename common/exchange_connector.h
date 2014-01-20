@@ -74,7 +74,7 @@ struct ExchangeConnector: public ServiceBase {
     /** Configure the exchange connector.  The JSON provided is entirely
         interpreted by the exchange connector itself.
     */
-    virtual void configure(const Json::Value & parameters) = 0;
+    virtual void configure(const Json::Value & parameters);
 
     /** Start the exchange connector running */
     virtual void start();
@@ -343,6 +343,32 @@ struct ExchangeConnector: public ServiceBase {
            ServiceBase & owner,
            const std::string & name);
 
+    const std::string& getCurrencyAsString() const
+    {
+        return currency_;
+    }
+
+    CurrencyCode getCurrency() const
+    {
+        return currencyCode_;
+    }
+
+    template <typename Ratio = Micro>
+    auto getAmountIn(const Amount & amount)
+        const -> decltype(RTBKIT::getAmountIn<Ratio>(CurrencyCode::CC_NONE, amount))
+    {
+        return RTBKIT::getAmountIn<Ratio>(getCurrency(), amount);
+    }
+
+    bool hasCurrencyConfigured() const
+    {
+        return hasCurrencyConfigured_;
+    }
+
+private:
+    bool hasCurrencyConfigured_;
+    std::string currency_;
+    RTBKIT::CurrencyCode currencyCode_;
 };
 
 

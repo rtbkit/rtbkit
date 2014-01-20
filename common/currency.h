@@ -7,6 +7,12 @@
 #ifndef __types__currency_h__
 #define __types__currency_h__
 
+#include <cstddef>
+#include <ratio>
+#include <type_traits>
+
+#include <boost/preprocessor/cat.hpp>
+
 
 #include "jml/utils/exc_assert.h"
 #include "jml/utils/compact_vector.h"
@@ -21,6 +27,7 @@ namespace RTBKIT {
 enum class CurrencyCode : std::uint32_t {
     CC_NONE = 'N' << 24 | 'O' << 16 | 'N' << 8 | 'E',
     CC_USD  = 'U' << 24 | 'S' << 16 | 'D' << 8,       // micro dollars
+    CC_EUR  = 'E' << 24 | 'U' << 16 | 'R' << 8,       // micro euros
     CC_IMP  = 'I' << 24 | 'M' << 16 | 'P' << 8
 };
 
@@ -175,70 +182,156 @@ std::ostream & operator << (std::ostream & stream, Amount amount);
 
 IMPL_SERIALIZE_RECONSTITUTE(Amount);
 
-struct MicroUSD : public Amount {
-    MicroUSD(int64_t value = 0)
-        : Amount(CurrencyCode::CC_USD, value)
-    {
-    }
+typedef std::ratio<1, 1> Micro;
+typedef std::ratio<std::micro::den, std::micro::num> NaturalCurrency;
+typedef std::ratio<std::micro::den / 1000, std::micro::num> CPM;
+typedef std::ratio_multiply<std::micro, std::ratio<1000, 1>> MicroCPM;
 
-    MicroUSD(Amount amount)
-        : Amount(amount)
-    {
-        if (amount)
-            ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
-    }
-
-    operator int64_t () const { return value; }
+template <typename Ratio>
+struct PriceIntegerType
+{
+    typedef typename std::conditional<(Ratio::den > Ratio::num), double, int64_t>::type type;
 };
 
-struct USD : public Amount {
-    USD(double value = 0.0)
-        : Amount(CurrencyCode::CC_USD, value * 1000000)
+#define CHECK_PRICE_INTEGER_TYPE(price_ratio, result_type)                          \
+    static_assert(                                                                  \
+        std::is_same<                                                               \
+            /* ratio reverted because we want make sure that the way back has */    \
+            /*   the proper type */                                                 \
+            typename PriceIntegerType<std::ratio<price_ratio::den, price_ratio::num>>::type, \
+            result_type>::value,                                                    \
+        "Something's wrong")
+
+CHECK_PRICE_INTEGER_TYPE(Micro, int64_t);
+CHECK_PRICE_INTEGER_TYPE(NaturalCurrency, double);
+CHECK_PRICE_INTEGER_TYPE(CPM, double);
+CHECK_PRICE_INTEGER_TYPE(MicroCPM, int64_t);
+
+#undef CHECK_PRICE_INTEGER_TYPE
+
+template <CurrencyCode CURRENCY, typename Ratio>
+struct CurrencyTemplate : public Amount
+{
+    template <typename T>
+    static inline T currentRatioToBaseRatio(T value)
+    {
+        return (value * Ratio::num) / Ratio::den;
+    }
+
+    CurrencyTemplate()
+    : Amount(CURRENCY, 0)
     {
     }
 
-    USD(Amount amount)
-        : Amount(amount)
+    template <typename T,
+              typename = typename std::enable_if<std::is_arithmetic<T>::value>::type>
+    CurrencyTemplate(T value)
+    : Amount(CURRENCY, currentRatioToBaseRatio(value))
+    {
+    }
+
+    CurrencyTemplate(const Amount& amount)
+    : Amount(amount)
     {
         if (amount)
-            ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
+            ExcAssertEqual(currencyCode, CURRENCY);
     }
-    
-    operator double () const { return value * 0.000001; }
+
+    template <typename R>
+    bool operator==(const CurrencyTemplate<CURRENCY, R>& rhs) const
+    {
+        return Amount::operator==(rhs);
+    }
+
+    template <typename T>
+    operator T() const;
 };
 
-struct USD_CPM : public Amount {
-    USD_CPM(double amountInDollarsCPM = 0.0)
-        : Amount(CurrencyCode::CC_USD, amountInDollarsCPM * 1000)
+namespace detail {
+
+template <typename Ratio>
+struct CurrencyConverter
+{
+    typedef std::ratio<Ratio::den, Ratio::num> RevertedRatio;
+    typedef decltype(std::declval<Amount>().value) ValueType;
+
+    template <CurrencyCode code>
+    CurrencyConverter(const CurrencyTemplate<code, Ratio>& currency)
+    : value(currency.value)
+    , code(currency.currencyCode)
     {
     }
 
-    USD_CPM(Amount amount)
-        : Amount(amount)
+    template <typename T,
+              typename ReturnType = typename PriceIntegerType<RevertedRatio>::type,
+              typename = typename std::enable_if<std::is_arithmetic<T>::value>::type>
+    inline ReturnType baseRatioToCurrentRatio(T value) const
     {
-        if (amount)
-            ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
+        static_assert(std::is_same<ReturnType, T>::value,
+                      "Invalid type cast required");
+        return (ReturnType(value) * Ratio::den) / Ratio::num;
     }
 
-    operator double () const { return value * 0.001; }
+    template <typename T, typename ReturnType = typename std::decay<T>::type>
+    inline ReturnType baseRatioToCurrentRatio(...) const
+    {
+        static_assert(std::is_convertible<Amount, ReturnType>::value,
+                      "Cast is impossible");
+        return Amount{code, value};
+    }
+
+    template <typename T>
+    operator T() const
+    {
+        return baseRatioToCurrentRatio<T>(value);
+    }
+
+    ValueType value;
+    CurrencyCode code;
 };
 
-struct MicroUSD_CPM : public Amount {
-    MicroUSD_CPM(int64_t amountInMicroDollarsCPM = 0.0)
-        : Amount(CurrencyCode::CC_USD, amountInMicroDollarsCPM / 1000)
+} // namespace detail
+
+template <CurrencyCode CURRENCY, typename Ratio>
+template <typename T>
+CurrencyTemplate<CURRENCY, Ratio>::operator T() const
+{
+    return detail::CurrencyConverter<Ratio>(*this);
+}
+
+
+template <CurrencyCode, typename Ratio>
+inline detail::CurrencyConverter<Ratio> amountToCurrencyRatio(const Amount& amount);
+
+#define CURRENCY EUR
+#include "currency.h.in"
+#undef CURRENCY
+
+#define CURRENCY USD
+#include "currency.h.in"
+#undef CURRENCY
+
+template<typename Ratio = Micro>
+inline detail::CurrencyConverter<Ratio> getAmountIn(CurrencyCode currency, const Amount& amount)
+{
+    switch (currency)
     {
-    }
+        case CurrencyCode::CC_EUR:
+            return amountToCurrencyRatio<CurrencyCode::CC_EUR, Ratio>(amount);
+        case CurrencyCode::CC_USD:
+            return amountToCurrencyRatio<CurrencyCode::CC_USD, Ratio>(amount);
 
-    MicroUSD_CPM(Amount amount)
-        : Amount(amount)
-    {
-        if (amount)
-            ExcAssertEqual(currencyCode, CurrencyCode::CC_USD);
-    }
+        default:
+            throw std::runtime_error("Cannot convert amount to currency: " +
+                                     toString(currency));
+    };
+}
 
-    operator int64_t () const { return value * 1000; }
-};
-
+template<typename Ratio = Micro>
+inline detail::CurrencyConverter<Ratio> getAmountIn(const Amount& amount)
+{
+    return getAmountIn<Ratio>(amount.currencyCode, amount);
+}
 
 /*****************************************************************************/
 /* CURRENCY POOL                                                             */

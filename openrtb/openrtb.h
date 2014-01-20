@@ -692,7 +692,7 @@ struct Impression {
     string displaymanagerver;          ///< What version of that thing
     TaggedBoolDef<0> instl;            ///< Is it interstitial
     string tagid;                      ///< ad tag ID for auction
-    TaggedFloatDef<0> bidfloor;        ///< CPM bid floor
+    TaggedDoubleDef<0> bidfloor;        ///< CPM bid floor
     string bidfloorcur;                ///< Bid floor currency
     List<string> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
     Json::Value ext;                   ///< Extended impression attributes
@@ -926,7 +926,7 @@ struct Segment {
     Json::Value ext;               ///< Extensions go here, new in OpenRTB 2.1
 
     /// Datacratic Extensions
-    TaggedFloat segmentusecost;    ///< Cost of using segment in CPM
+    TaggedDouble segmentusecost;    ///< Cost of using segment in CPM
 };
 
 
@@ -954,7 +954,7 @@ struct Data {
 
     /// Datacratic Extensions
     string usecostcurrency;          ///< Currency of use cost
-    TaggedFloat datausecost;         ///< Cost of using the data (CPM)
+    TaggedDouble datausecost;         ///< Cost of using the data (CPM)
 };
 
 
@@ -1067,7 +1067,7 @@ struct BidRequest {
 struct Bid {
     Id id;                        ///< Bidder's bid ID to identify bid
     Id impid;                     ///< ID of the impression we're bidding on
-    TaggedFloat price;            ///< Price to bid
+    TaggedDouble price;           ///< Price to bid
     Id adid;                      ///< Id of ad to be served if won
     string nurl;                  ///< Win notice/ad markup URL
     string adm;                   ///< Ad markup

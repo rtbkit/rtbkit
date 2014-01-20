@@ -162,6 +162,12 @@ void initCurrencyFunctions(Handle<v8::Object>& target)
     registerModuleFn(target, "USD",          amountFn<USD, double>);
     registerModuleFn(target, "USD_CPM",      amountFn<USD_CPM, double>);
     registerModuleFn(target, "MicroUSD_CPM", amountFn<MicroUSD_CPM, int64_t>);
+
+
+    registerModuleFn(target, "MicroEUR", amountFn<MicroEUR, int64_t>);
+    registerModuleFn(target, "EUR", amountFn<EUR, double>);
+    registerModuleFn(target, "EUR_CPM", amountFn<EUR_CPM, double>);
+    registerModuleFn(target, "MicroEUR_CPM", amountFn<MicroEUR_CPM, int64_t>);
 }
 
 } // namepsace JS

@@ -736,7 +736,7 @@ getResponse(const HttpAuctionHandler & connection,
 
         for(auto vt : crinfo->vendor_type_)
             ad->add_vendor_type(vt);
-        adslot->set_max_cpm_micros(MicroUSD_CPM(resp.price.maxPrice));
+        adslot->set_max_cpm_micros(getAmountIn<MicroCPM>(resp.price.maxPrice));
         adslot->set_id(auction.request->imp[spotNum].id.toInt());
         if(!crinfo->adgroup_id_.empty()) {
             adslot->set_adgroup_id(

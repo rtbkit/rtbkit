@@ -134,7 +134,9 @@ getResponse(const HttpAuctionHandler & connection,
         auto & bid = response.bids.back();
 
         bid.adId = Id(resp.creativeId);
-        bid.bidNative.val = USD_CPM(resp.price.maxPrice);
+        // will be casted in int, according to the comment (for bidNative), this
+        // is expected
+        bid.bidNative.val = double(getAmountIn<CPM>(resp.price.maxPrice));
     }
 
     static Datacratic::DefaultDescription<FBX::BidResponse> desc;

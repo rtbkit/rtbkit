@@ -238,7 +238,7 @@ getResponse(const HttpAuctionHandler & connection,
         // Put in the variable parts
         b.id = Id(auction.id, auction.request->imp[0].id);
         b.impid = auction.request->imp[spotNum].id;
-        b.price.val = USD_CPM(resp.price.maxPrice);
+        b.price.val = getAmountIn<CPM>(resp.price.maxPrice);
         if(crinfo_ok && adid != Id("")) b.adid = adid;
         if(crinfo_ok && !adm.empty()) b.adm = adm;
         if(crinfo_ok && !nurl.empty()) b.nurl = nurl;

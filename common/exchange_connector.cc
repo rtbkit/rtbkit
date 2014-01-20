@@ -26,7 +26,10 @@ CampaignCompatibility(const AgentConfig & config)
 ExchangeConnector::
 ExchangeConnector(const std::string & name,
                   ServiceBase & parent)
-    : ServiceBase(name, parent)
+: ServiceBase(name, parent)
+, hasCurrencyConfigured_(false)
+, currency_("USD")
+, currencyCode_(CurrencyCode::CC_USD)
 {
     onNewAuction  = [=] (std::shared_ptr<Auction> a) {
         cerr << "WARNING: an auction was lost into the void.  exchange=" << name <<
@@ -41,7 +44,10 @@ ExchangeConnector(const std::string & name,
 ExchangeConnector::
 ExchangeConnector(const std::string & name,
                   std::shared_ptr<ServiceProxies> proxies)
-    : ServiceBase(name, proxies)
+: ServiceBase(name, proxies)
+, hasCurrencyConfigured_(false)
+, currency_("USD")
+, currencyCode_(CurrencyCode::CC_USD)
 {
     onNewAuction  = [=] (std::shared_ptr<Auction> a) {
         cerr << "WARNING: an auction was lost into the void.  exchange=" << name <<
@@ -56,6 +62,31 @@ ExchangeConnector(const std::string & name,
 ExchangeConnector::
 ~ExchangeConnector()
 {
+}
+
+void
+ExchangeConnector::
+configure(const Json::Value & parameters)
+{
+    const auto & currency = parameters["currency"];
+    if (currency != Json::Value::null) {
+        currency_ = currency.asString();
+        try
+        {
+            // try to parse a standard currency
+            currencyCode_ =
+                parseCurrencyCode(currency_);
+        }
+        catch (const ML::Exception &)
+        {
+            // Not a standard currency, let's try a RTBKIT's currency
+            currencyCode_ = Amount::parseCurrency(currency_);
+            // get standard currency str !
+            currency_ = toString(currencyCode_);
+        }
+
+        hasCurrencyConfigured_ = true;
+    }
 }
 
 void
