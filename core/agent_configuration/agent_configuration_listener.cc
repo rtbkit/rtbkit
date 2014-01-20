@@ -87,7 +87,7 @@ onMessage(const std::vector<std::string> & message)
     AllAgentConfig * ac = allAgents;
     
     /* Create a new object and copy the old ones in */
-    std::unique_ptr<AllAgentConfig> newConfig(new AllAgentConfig());
+    AllAgentConfig* newConfig = new AllAgentConfig;
     bool found = false;
     for (auto & c: *ac) {
         if (c.name == agent) {
@@ -116,8 +116,7 @@ onMessage(const std::vector<std::string> & message)
         newConfig->accountIndex[newConfig->back().config->account].push_back(i);
     }
 
-    if (ML::cmp_xchg(allAgents, ac, (AllAgentConfig *)newConfig.get())) {
-        newConfig.release();
+    if (ML::cmp_xchg(allAgents, ac, newConfig)) {
         ExcAssertNotEqual(ac, allAgents);
         if (ac)
             allAgentsGc.defer([=] () { delete ac; });
