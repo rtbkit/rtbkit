@@ -171,9 +171,25 @@ struct RestRequestParsingContext {
 
     /** Add the given object. */
     template<typename T>
-    void addObject(T * obj)
+    void addObject(T * obj,
+                   std::function<void (void *)> deleter = nullptr)
     {
-        objects.push_back(std::make_pair(obj, &typeid(T)));
+        objects.emplace_back(obj, &typeid(T), std::move(deleter));
+    }
+
+    /** Add a shared pointer to the given object, incrementing the
+        count so that it cannot be freed until this parsing context
+        releases it.
+
+        This is useful when an object may be deleted during request
+        parsing, to make sure it stays alive until the request has
+        completed.
+    */
+    template<typename T>
+    void addSharedPtr(std::shared_ptr<T> ptr)
+    {
+        addObject(new std::shared_ptr<T>(std::move(ptr)),
+                  [] (void * ptr) { delete (std::shared_ptr<T> *)ptr; });
     }
 
     /** Get the object at the given index on the context (defaults to the
@@ -189,11 +205,11 @@ struct RestRequestParsingContext {
         if (index < 0 || index >= objects.size())
             throw ML::Exception("Attempt to extract invalid object number");
 
-        auto res = objects[index];
-        if (!res.first || !res.second)
+        auto & res = objects[index];
+        if (!res.obj || !res.type)
             throw ML::Exception("invalid object");
 
-        return res;
+        return std::make_pair(res.obj, res.type);
     }
 
     /** Get the object at the given index on the context (defaults to the
@@ -223,15 +239,111 @@ struct RestRequestParsingContext {
         return *reinterpret_cast<As *>(converted);
     }
 
+    template<typename As>
+    std::shared_ptr<As> getSharedPtrAs(int index = -1) const
+    {
+        return getObjectAs<std::shared_ptr<As> >(index);
+    }
+
     /// List of resources (url components) in the path
     std::vector<std::string> resources;
 
+    /// Objects
+    struct ObjectEntry {
+        ObjectEntry(void * obj = nullptr,
+                    const std::type_info * type = nullptr,
+                    std::function<void (void *) noexcept> deleter = nullptr)
+            : obj(obj), type(type), deleter(std::move(deleter))
+        {
+        }
+
+        ~ObjectEntry() noexcept
+        {
+            if (deleter)
+                deleter(obj);
+        }
+
+        void * obj;
+        const std::type_info * type;
+        std::function<void (void *) noexcept> deleter;
+
+        //ObjectEntry(const ObjectEntry &) = delete;
+        //void operator = (const ObjectEntry &) = delete;
+
+        // Needed for gcc 4.6
+        ObjectEntry(const ObjectEntry & other)
+            : obj(other.obj), type(other.type)
+        {
+            ObjectEntry & otherNonConst = (ObjectEntry &)other;
+            deleter = std::move(otherNonConst.deleter);
+            otherNonConst.obj = nullptr;
+            otherNonConst.type = nullptr;
+        }
+
+        void operator = (const ObjectEntry & other)
+        {
+            ObjectEntry newMe(other);
+            *this = std::move(newMe);
+        }
+    };
+
     /// List of extracted objects to which path components refer.  Both the
-    /// object and its type are stored.
-    std::vector<std::pair<void *, const std::type_info *> > objects;
+    /// object and its type are stored as well as a destructor function.
+    /// They are shared pointers as the contexts are copied.
+    std::vector<ObjectEntry> objects;
 
     /// Part of the resource that has not yet been consumed
     std::string remaining;
+
+    /// Used to save the state so that whatever was pushed after can be
+    /// removed and the object can get back to its old state (without making
+    /// a copy).
+    struct State {
+        std::string remaining;
+        int resourcesLength;
+        int objectsLength;
+    };
+
+    /// Save the current state, to be restored in restoreState
+    State saveState() const
+    {
+        State result;
+        result.remaining = remaining;
+        result.resourcesLength = resources.size();
+        result.objectsLength = objects.size();
+        return result;
+    }
+
+    /// Restore the current state
+    void restoreState(State && state)
+    {
+        remaining = std::move(state.remaining);
+        ExcAssertGreaterEqual(resources.size(), state.resourcesLength);
+        resources.resize(state.resourcesLength);
+        ExcAssertGreaterEqual(objects.size(), state.objectsLength);
+        while (objects.size() > state.objectsLength)
+            objects.pop_back();
+    }
+
+    /// Guard object to save the state and restore it on scope exit
+    struct StateGuard {
+        State state;
+        RestRequestParsingContext * obj;
+
+        StateGuard(RestRequestParsingContext * obj)
+            : state(std::move(obj->saveState())),
+              obj(obj)
+        {
+        }
+
+        ~StateGuard()
+        {
+            obj->restoreState(std::move(state));
+        }
+    };
+
+    RestRequestParsingContext(const RestRequestParsingContext &) = delete;
+    void operator = (const RestRequestParsingContext &) = delete;
 };
 
 std::ostream & operator << (std::ostream & stream,
@@ -254,7 +366,7 @@ struct RestRequestRouter {
 
     typedef std::function<MatchResult (const RestServiceEndpoint::ConnectionId & connection,
                                        const RestRequest & request,
-                                       const RestRequestParsingContext & context)>
+                                       RestRequestParsingContext & context)>
          OnProcessRequest;
 
     RestRequestRouter();
@@ -301,7 +413,7 @@ struct RestRequestRouter {
         std::function<void(RestRequestParsingContext & context)> extractObject;
 
         MatchResult process(const RestRequest & request,
-                            const RestRequestParsingContext & context,
+                            RestRequestParsingContext & context,
                             const RestServiceEndpoint::ConnectionId & connection) const;
     };
 
