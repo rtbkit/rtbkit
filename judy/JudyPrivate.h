@@ -1147,12 +1147,14 @@ static inline BITMAPL_t j__udyCountBitsL(BITMAPL_t word)
 
 #define JU_DELETEINPLACE(PARRAY,POP1,OFFSET,IGNORE)             \
         assert((long) (POP1) > 0);                              \
-        assert((Word_t) (OFFSET) < (Word_t) (POP1));            \
         {                                                       \
-            Word_t i_offset = (OFFSET);                         \
+            Word_t i_offset = (OFFSET)+1;                       \
+            assert((Word_t) (i_offset) < (Word_t) (POP1));      \
                                                                 \
-            while (++i_offset < (POP1))                         \
+            while (i_offset < (POP1)) {                         \
                 (PARRAY)[i_offset - 1] = (PARRAY)[i_offset];    \
+                i_offset++;                                     \
+            }                                                   \
         }
 
 // Variation for odd-byte-sized (non-native) Indexes, where cIS = Index Size
