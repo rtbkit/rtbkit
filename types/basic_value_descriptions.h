@@ -469,6 +469,65 @@ struct Iso8601TimestampValueDescription: public DefaultDescription<Date> {
     }
 };
 
+template<typename T, typename U>
+struct DefaultDescription<std::pair<T, U> >
+    : public ValueDescriptionI<std::pair<T, U>, ValueKind::ARRAY> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner1,
+                       ValueDescriptionT<U> * inner2)
+        : inner1(inner1), inner2(inner2)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner1
+                       = getDefaultDescriptionShared((T *)0),
+                       std::shared_ptr<const ValueDescriptionT<U> > inner2
+                       = getDefaultDescriptionShared((U *)0))
+        : inner1(inner1), inner2(inner2)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner1;
+    std::shared_ptr<const ValueDescriptionT<U> > inner2;
+
+    virtual void parseJsonTyped(std::pair<T, U> * val,
+                                JsonParsingContext & context) const
+    {
+        int el = 0;
+        auto onElement = [&] ()
+            {
+                if (el == 0)
+                    inner1->parseJsonTyped(&val->first, context);
+                else if (el == 1)
+                    inner2->parseJsonTyped(&val->second, context);
+                else context.exception("expected 2 element array");
+
+                ++el;
+            };
+
+        context.forEachElement(onElement);
+
+        if (el != 2)
+            context.exception("expected 2 element array");
+    }
+
+    virtual void printJsonTyped(const std::pair<T, U> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.startArray(2);
+        context.newArrayElement();
+        inner1->printJsonTyped(&val->first, context);
+        context.newArrayElement();
+        inner2->printJsonTyped(&val->second, context);
+        context.endArray();
+    }
+
+    virtual bool isDefaultTyped(const std::pair<T, U> * val) const
+    {
+        return inner1->isDefaultTyped(&val->first)
+            && inner2->isDefaultTyped(&val->second);
+    }
+};
 
 template<typename T>
 struct Optional: public std::unique_ptr<T> {
@@ -976,6 +1035,89 @@ getDefaultDescription(Enum *,
 {
     return new TaggedEnumDescription<Enum>();
 }
+
+/*****************************************************************************/
+/* DEFAULT DESCRIPTION FOR COMPACT VECTOR                                    */
+/*****************************************************************************/
+
+template<typename T, int Internal>
+struct DefaultDescription<ML::compact_vector<T, Internal> >
+    : public ValueDescriptionI<ML::compact_vector<T, Internal>, ValueKind::ARRAY>,
+      public ListDescriptionBase<T> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : ListDescriptionBase<T>(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
+        : ListDescriptionBase<T>(inner)
+    {
+    }
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const
+    {
+        ML::compact_vector<T, Internal> * val2 = reinterpret_cast<ML::compact_vector<T, Internal> *>(val);
+        return parseJsonTyped(val2, context);
+    }
+
+    virtual void parseJsonTyped(ML::compact_vector<T, Internal> * val, JsonParsingContext & context) const
+    {
+        this->parseJsonTypedList(val, context);
+    }
+
+    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    {
+        const ML::compact_vector<T, Internal> * val2 = reinterpret_cast<const ML::compact_vector<T, Internal> *>(val);
+        return printJsonTyped(val2, context);
+    }
+
+    virtual void printJsonTyped(const ML::compact_vector<T, Internal> * val, JsonPrintingContext & context) const
+    {
+        this->printJsonTypedList(val, context);
+    }
+
+    virtual bool isDefault(const void * val) const
+    {
+        const ML::compact_vector<T, Internal> * val2 = reinterpret_cast<const ML::compact_vector<T, Internal> *>(val);
+        return isDefaultTyped(val2);
+    }
+
+    virtual bool isDefaultTyped(const ML::compact_vector<T, Internal> * val) const
+    {
+        return val->empty();
+    }
+
+    virtual size_t getArrayLength(void * val) const
+    {
+        const ML::compact_vector<T, Internal> * val2 = reinterpret_cast<const ML::compact_vector<T, Internal> *>(val);
+        return val2->size();
+    }
+
+    virtual void * getArrayElement(void * val, uint32_t element) const
+    {
+        ML::compact_vector<T, Internal> * val2 = reinterpret_cast<ML::compact_vector<T, Internal> *>(val);
+        return &val2->at(element);
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    {
+        const ML::compact_vector<T, Internal> * val2 = reinterpret_cast<const ML::compact_vector<T, Internal> *>(val);
+        return &val2->at(element);
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const
+    {
+        ML::compact_vector<T, Internal> * val2 = reinterpret_cast<ML::compact_vector<T, Internal> *>(val);
+        val2->resize(newLength);
+    }
+    
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+};
 
 typedef Utf8String CSList;  // comma-separated list
 
