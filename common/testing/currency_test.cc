@@ -54,8 +54,44 @@ BOOST_AUTO_TEST_CASE( currencyValues )
     // and check conversion
     BOOST_CHECK_EQUAL(1, (double) USD(1));
     BOOST_CHECK_EQUAL(1, (double) USD_CPM(1));
-    BOOST_CHECK_EQUAL(1, (double) MicroUSD(1));
+    BOOST_CHECK_EQUAL(1, (int64_t) MicroUSD(1));
 
     // precision issue i.e. the value is rounded to the closed 1K
-    BOOST_CHECK_EQUAL(1000, (double) MicroUSD_CPM(1000));
+    BOOST_CHECK_EQUAL(1000, (int64_t) MicroUSD_CPM(1000));
+}
+
+static inline void test2(CurrencyPool)
+{
+}
+
+BOOST_AUTO_TEST_CASE( currencyConversion)
+{
+    {
+        USD_CPM price;
+        double value = price;
+        (void)value;
+    }
+
+    {
+        MicroUSD_CPM price;
+        int64_t value = price;
+        (void)value;
+    }
+
+    {
+        USD price;
+        double value = price;
+        (void)value;
+    }
+
+    {
+        MicroUSD price;
+        int64_t value = price;
+        (void)value;
+    }
+
+    {
+        USD price;
+        test2(price);
+    }
 }

@@ -24,6 +24,8 @@ std::string toString(CurrencyCode code)
         return "NONE";
     if (code == CurrencyCode::CC_USD)
         return "USD";
+    if (code == CurrencyCode::CC_EUR)
+        return "EUR";
     if (code == CurrencyCode::CC_IMP)
         return "IMP";
     throw ML::Exception("unknown currency code");
@@ -35,6 +37,8 @@ CurrencyCode parseCurrencyCode(const std::string & code)
         return CurrencyCode::CC_NONE;
     if (code == "USD")
         return CurrencyCode::CC_USD;
+    if (code == "EUR")
+        return CurrencyCode::CC_EUR;
     if (code == "IMP")
         return CurrencyCode::CC_IMP;
     throw ML::Exception("unknown currency code");
@@ -83,6 +87,8 @@ getCurrencyStr(CurrencyCode currencyCode)
     switch (currencyCode) {
     case CurrencyCode::CC_NONE:
         return "NONE";
+    case CurrencyCode::CC_EUR:
+        return "EUR/1M";
     case CurrencyCode::CC_USD:
         return "USD/1M";
     case CurrencyCode::CC_IMP:
@@ -168,6 +174,8 @@ parseCurrency(const std::string & currency)
 {
     if (currency == "NONE")
         return CurrencyCode::CC_NONE;
+    if (currency == "EUR/1M")
+        return CurrencyCode::CC_EUR;
     if (currency == "USD/1M")
         return CurrencyCode::CC_USD;
     if (currency == "IMP")
