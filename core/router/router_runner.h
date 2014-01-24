@@ -35,7 +35,7 @@ struct RouterRunner {
     bool logAuctions;
     bool logBids;
 
-    float maxBidPrice;
+    std::vector<Amount> maxBidPrices;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts

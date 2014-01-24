@@ -43,10 +43,39 @@ RouterRunner() :
     lossSeconds(15.0),
     noPostAuctionLoop(false),
     logAuctions(false),
-    logBids(false),
-    maxBidPrice(200)
+    logBids(false)
 {
 }
+
+namespace RTBKIT {
+
+void validate(boost::any & v, const std::vector<std::string> & values, Amount *, int)
+{
+    namespace po = boost::program_options;
+    po::validators::check_first_occurrence(v);
+    const std::string & amountString = po::validators::get_single_string(values);
+
+    auto idx = amountString.find(':');
+    if (idx == std::string::npos) {
+        throw po::validation_error(po::validation_error::invalid_option_value);
+    }
+
+    try
+    {
+        std::string currency = amountString.substr(0, idx);
+        std::string value = amountString.substr(idx + 1);
+        double dvalue = std::stod(value);
+        CurrencyCode code = RTBKIT::parseCurrencyCode(currency);
+        v = boost::any(Amount(code, dvalue));
+    }
+    catch (const std::exception & e)
+    {
+        throw po::validation_error(po::validation_error::invalid_option_value,
+                                   e.what());
+    }
+}
+
+} // namespace RTBKIT
 
 void
 RouterRunner::
@@ -69,8 +98,8 @@ doOptions(int argc, char ** argv,
          "log auction requests")
         ("log-bids", value<bool>(&logBids)->zero_tokens(),
          "log bid responses")
-        ("max-bid-price", value(&maxBidPrice),
-         "maximum bid price accepted by router");
+        ("max-bid-price", value(&maxBidPrices),
+         "maximum bid price accepted by router. It should be CURRENCY:amount");
 
     options_description all_opt = opts;
     all_opt
@@ -103,10 +132,13 @@ init()
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
 
     auto connectPostAuctionLoop = !noPostAuctionLoop;
-    router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
+    router = std::make_shared<Router>(proxies,
+                                      serviceName,
+                                      lossSeconds,
                                       connectPostAuctionLoop,
-                                      logAuctions, logBids,
-                                      USD_CPM(maxBidPrice));
+                                      logAuctions,
+                                      logBids,
+                                      maxBidPrices);
     router->init();
 
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
