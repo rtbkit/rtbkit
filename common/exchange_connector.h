@@ -127,14 +127,14 @@ struct ExchangeConnector: public ServiceBase {
     /*************************************************************************/
 
     /* This functionality is used by the router to determine which campaigns
-       may bid on inventory from the campaign, and which creatives are
+       may bid on inventory from the exchange, and which creatives are
        eligible to be shown to fill impressions for the campaign.
 
        This is where exchange-specific logic as to required information
        in the creative can be implemented, and allows feedback as to why
        a given campaign or creative is not working on an exchange for
        debugging purposes.
-       
+
        Please note that these methods are called infrequently at campaign
        configuration time, and apply to *all* bid requests for each
        campaign.  Filtering of individual bid requests is done via
