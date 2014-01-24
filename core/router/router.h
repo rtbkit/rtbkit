@@ -258,8 +258,6 @@ struct Router : public ServiceBase,
         
         onAuctionFinished: this is the callback that will be called once
                            the auction is finished
-        id:                string ID to represent the auction.  Must be
-                           globally unique for the router.
         request:           JSON string with the bid request
         startTime:         time at which the auction starts; if empty the
                            current time will be used
