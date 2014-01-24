@@ -258,7 +258,8 @@ struct Router : public ServiceBase,
         
         onAuctionFinished: this is the callback that will be called once
                            the auction is finished
-        request:           JSON string with the bid request
+        requestStr:        JSON string with the bid request
+        requestStrFormat:  format of the bid request
         startTime:         time at which the auction starts; if empty the
                            current time will be used
         expiryTime:        time at which the auction expires; if empty the
