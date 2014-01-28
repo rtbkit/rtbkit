@@ -565,9 +565,10 @@ struct Optional: public std::unique_ptr<T> {
         std::unique_ptr<T>::swap(other);
     }
 
-    void emplace()
+    template<typename... Args>
+    void emplace(Args&&... args)
     {
-        this->reset(new T{});
+        this->reset(new T(std::forward<Args>(args)...));
     }
 };
 
