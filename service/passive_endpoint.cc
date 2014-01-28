@@ -135,6 +135,14 @@ listen(PortRange const & portRange,
         throw Exception("error on listen: %s", strerror(errno));
     }
 
+    if (port == 0) {
+        sockaddr_in inAddr;
+        socklen_t inAddrLen = sizeof(inAddr);
+        res = ::getsockname(fd, (sockaddr *) &inAddr, &inAddrLen);
+        port = ntohs(inAddr.sin_port);
+        addr.set(&inAddr, inAddrLen);
+    }
+
     shutdown = false;
 
     acceptThread.reset(new boost::thread([=] () { this->runAcceptThread(); }));
