@@ -58,7 +58,8 @@ struct SegmentList {
     std::string toString() const;
 
     /* Mutation */
-    
+
+    // add(...) does not sort the segments. Should be done manually.
     void add(int i, float weight = 1.0);
     void add(const std::string & str, float weight = 1.0);
 
