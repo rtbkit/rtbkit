@@ -112,7 +112,8 @@ Router(ServiceBase & parent,
        bool connectPostAuctionLoop,
        bool logAuctions,
        bool logBids,
-       Amount maxBidAmount)
+       Amount maxBidAmount,
+       uint16_t maxSlowModeAuctions)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       agentEndpoint(getZmqContext()),
@@ -142,7 +143,8 @@ Router(ServiceBase & parent,
       monitorClient(getZmqContext()),
       slowModeCount(0),
       monitorProviderClient(getZmqContext(), *this),
-      maxBidAmount(maxBidAmount)
+      maxBidAmount(maxBidAmount),
+      maxSlowModeAuctions(maxSlowModeAuctions)
 {
 }
 
@@ -153,7 +155,8 @@ Router(std::shared_ptr<ServiceProxies> services,
        bool connectPostAuctionLoop,
        bool logAuctions,
        bool logBids,
-       Amount maxBidAmount)
+       Amount maxBidAmount,
+       uint16_t maxSlowModeAuctions)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       agentEndpoint(getZmqContext()),
@@ -184,7 +187,8 @@ Router(std::shared_ptr<ServiceProxies> services,
       monitorClient(getZmqContext()),
       slowModeCount(0),
       monitorProviderClient(getZmqContext(), *this),
-      maxBidAmount(maxBidAmount)
+      maxBidAmount(maxBidAmount),
+      maxSlowModeAuctions(maxSlowModeAuctions)
 {
 }
 
@@ -2315,8 +2319,9 @@ onNewAuction(std::shared_ptr<Auction> auction)
             slowModeCount++;
         }
 
-        if (slowModeCount > 100) {
-            /* we only let the first 100 auctions take place each second */
+        if (maxSlowModeAuctions > 0 && slowModeCount > maxSlowModeAuctions) {
+            /* Allow the first 100 auctions each second (configurable: --max-slow-auctions).
+               This control is disabled if it is 0. */
             recordHit("monitor.ignoredAuctions");
             auction->finish();
             return;

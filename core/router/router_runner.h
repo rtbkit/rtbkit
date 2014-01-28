@@ -36,6 +36,8 @@ struct RouterRunner {
 
     float maxBidPrice;
 
+    uint16_t maxSlowModeAuctions;
+
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
                    = boost::program_options::options_description());
