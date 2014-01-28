@@ -2719,18 +2719,20 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
                         + "-" + bid.agent;
     banker->detachBid(bid.account, auctionKey);
 
-    SubmittedAuctionEvent event;
-    event.auctionId = auction->id;
-    event.adSpotId = adSpotId;
-    event.lossTimeout = auction->lossAssumed;
-    event.augmentations = auction->agentAugmentations[bid.agent];
-    event.bidRequest = auction->request;
-    event.bidRequestStr = auction->requestStr;
-    event.bidRequestStrFormat = auction->requestStrFormat ;
-    event.bidResponse = bid;
+    if (postAuctionEndpoint.isConnected()) {
+        SubmittedAuctionEvent event;
+        event.auctionId = auction->id;
+        event.adSpotId = adSpotId;
+        event.lossTimeout = auction->lossAssumed;
+        event.augmentations = auction->agentAugmentations[bid.agent];
+        event.bidRequest = auction->request;
+        event.bidRequestStr = auction->requestStr;
+        event.bidRequestStrFormat = auction->requestStrFormat ;
+        event.bidResponse = bid;
 
-    Message<SubmittedAuctionEvent> message(std::move(event));
-    postAuctionEndpoint.sendMessage("AUCTION", message.toString());
+        Message<SubmittedAuctionEvent> message(std::move(event));
+        postAuctionEndpoint.sendMessage("AUCTION", message.toString());
+    }
 
     if (auction.unique()) {
         auctionGraveyard.tryPush(auction);
