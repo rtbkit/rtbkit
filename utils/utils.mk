@@ -10,6 +10,8 @@ LIBUTILS_SOURCES := \
 	exc_assert.cc \
 	hex_dump.cc \
 	lzma.cc \
+	lz4.c \
+	lz4hc.c \
 	floating_point.cc \
 	json_parsing.cc \
 	rng.cc \
