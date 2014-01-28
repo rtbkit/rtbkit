@@ -38,6 +38,7 @@
 #include <thread>
 #include <unordered_map>
 #include "lzma.h"
+#include "lz4_filter.h"
 
 
 using namespace std;
@@ -172,6 +173,11 @@ void addCompression(streambuf & buf,
         if (compressionLevel == -1)
             stream.push(lzma_compressor());
         else stream.push(lzma_compressor(compressionLevel));
+    }
+    else if (compression == "lz4"
+        || (compression == ""
+            && (ends_with(resource, ".lz4") || ends_with(resource, ".lz4~")))) {
+        stream.push(lz4_compressor(compressionLevel));
     }
     else if (compression != "" && compression != "none")
         throw ML::Exception("unknown filter compression " + compression);
@@ -519,9 +525,15 @@ openFromStreambuf(std::streambuf * buf,
                      && (ends_with(resource, ".xz")
                          || ends_with(resource, ".xz~"))));
 
+    bool lz4 = (compression == "lz4"
+                 || (compression == ""
+                     && (ends_with(resource, ".lz4")
+                         || ends_with(resource, ".lz4~"))));
+
     if (gzip) new_stream->push(gzip_decompressor());
     if (bzip2) new_stream->push(bzip2_decompressor());
     if (lzma) new_stream->push(lzma_decompressor());
+    if (lz4) new_stream->push(lz4_decompressor());
 
     new_stream->push(*buf);
 

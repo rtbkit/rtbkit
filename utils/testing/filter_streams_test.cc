@@ -172,6 +172,24 @@ BOOST_AUTO_TEST_CASE( test_compress_decompress_xz )
     test_compress_decompress(input_file, "xz", "xz", "xz -d");
 }
 
+/** We don't have a readily available command line tool for lz4. */
+BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4 )
+{
+    const string input_file = "jml/utils/testing/filter_streams_test.cc";
+    const string base = "filter_streams_test-lz4";
+    const string cmp = base + ".1.lz4";
+    const string dec  = base + ".1";
+
+    // Test 1: compress using filter stream
+    Call_Guard guard1(boost::bind(&::unlink, cmp.c_str()));
+    compress_using_stream(input_file, cmp);
+
+    // Test 2: decompress stream file using stream
+    Call_Guard guard5(boost::bind(&::unlink, dec.c_str()));
+    decompress_using_stream(cmp, dec);
+    assert_files_identical(input_file, dec);
+}
+
 BOOST_AUTO_TEST_CASE( test_open_failure )
 {
     filter_ostream stream;
