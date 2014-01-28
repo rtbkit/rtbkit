@@ -41,6 +41,7 @@ RouterRunner::
 RouterRunner() :
     exchangeConfigurationFile("examples/router-config.json"),
     lossSeconds(15.0),
+    noPostAuctionLoop(false),
     logAuctions(false),
     logBids(false),
     maxBidPrice(200)
@@ -58,6 +59,8 @@ doOptions(int argc, char ** argv,
     router_options.add_options()
         ("loss-seconds,l", value<float>(&lossSeconds),
          "number of seconds after which a loss is assumed")
+        ("no-post-auction-loop", bool_switch(&noPostAuctionLoop),
+         "don't connect to the post auction loop")
         ("log-uri", value<vector<string> >(&logUris),
          "URI to publish logs to")
         ("exchange-configuration,x", value<string>(&exchangeConfigurationFile),
@@ -99,8 +102,10 @@ init()
 
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
 
+    auto connectPostAuctionLoop = !noPostAuctionLoop;
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
-                                      true, logAuctions, logBids,
+                                      connectPostAuctionLoop,
+                                      logAuctions, logBids,
                                       USD_CPM(maxBidPrice));
     router->init();
 

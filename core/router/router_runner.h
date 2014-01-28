@@ -30,6 +30,7 @@ struct RouterRunner {
     //std::string routerConfigurationFile;
     std::string exchangeConfigurationFile;
     float lossSeconds;
+    bool noPostAuctionLoop;
 
     bool logAuctions;
     bool logBids;
