@@ -333,6 +333,26 @@ inline detail::CurrencyConverter<Ratio> getAmountIn(const Amount& amount)
     return getAmountIn<Ratio>(amount.currencyCode, amount);
 }
 
+template <CurrencyCode CURRENCY, typename Ratio, typename Integer>
+inline Amount createAmount(Integer amount)
+{ return CurrencyTemplate<CURRENCY, Ratio>(amount); }
+
+template <typename Ratio, typename Integer>
+Amount createAmount(Integer amount, CurrencyCode currency)
+{
+    switch (currency)
+    {
+        case CurrencyCode::CC_EUR:
+            return createAmount<CurrencyCode::CC_EUR, Ratio>(amount);
+        case CurrencyCode::CC_USD:
+            return createAmount<CurrencyCode::CC_USD, Ratio>(amount);
+
+        default:
+            throw std::runtime_error("Cannot convert create amount of: " +
+                                     toString(currency));
+    };
+}
+
 /*****************************************************************************/
 /* CURRENCY POOL                                                             */
 /*****************************************************************************/
