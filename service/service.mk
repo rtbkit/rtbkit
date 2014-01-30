@@ -47,6 +47,7 @@ LIBSERVICES_SOURCES := \
 	runner.cc \
 	sink.cc \
 	zookeeper.cc \
+	http_client.cc \
 	http_rest_proxy.cc \
 	xml_helpers.cc \
 	nprobe.cc \

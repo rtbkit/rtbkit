@@ -40,3 +40,4 @@ $(eval $(call library,tcpsockets,tcpsockets.cc,services))
 $(eval $(call test,zmq_tcp_bench,tcpsockets services,boost manual timed))
 $(eval $(call test,nprobe_test,services,boost manual))
 
+$(eval $(call test,http_client_test,services,boost))
