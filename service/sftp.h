@@ -143,6 +143,8 @@ struct SftpConnection : public SshConnection {
     void uploadFile(const char * start,
                     size_t size,
                     const std::string & path);
+
+    bool getAttributes(const std::string & path, Attributes & attrs) const;
     
     std::unique_ptr<std::streambuf>
     streamingUploadStreambuf(const std::string & path);

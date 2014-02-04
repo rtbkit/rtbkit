@@ -494,6 +494,19 @@ openFile(const std::string & path)
     return File(path, handle, this);
 }
 
+bool
+SftpConnection::
+getAttributes(const std::string & path, Attributes & attrs)
+    const
+{
+    int res = libssh2_sftp_statvfs(sftp_session,
+                                   path.c_str(), path.length(),
+                                   &attrs);
+
+    return (res != -1);
+}
+
+    
 void
 SftpConnection::
 close()
