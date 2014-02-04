@@ -499,13 +499,11 @@ SftpConnection::
 getAttributes(const std::string & path, Attributes & attrs)
     const
 {
-    int res = libssh2_sftp_statvfs(sftp_session,
-                                   path.c_str(), path.length(),
+    int res = libssh2_sftp_stat_ex(sftp_session,
+                                   path.c_str(), path.length(), LIBSSH2_SFTP_STAT,
                                    &attrs);
-
     return (res != -1);
 }
-
     
 void
 SftpConnection::
