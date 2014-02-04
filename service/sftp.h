@@ -185,4 +185,7 @@ void registerSftpHostPublicKey(const std::string & hostname,
                                const std::string & privateKeyFile,
                                const std::string & port = "ssh");
 
+std::shared_ptr<SftpConnection> getSftpConnectionForHost(const std::string
+                                                         & hostname);
+
 } // namespace Datacratic
