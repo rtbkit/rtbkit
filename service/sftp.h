@@ -143,6 +143,8 @@ struct SftpConnection : public SshConnection {
     void uploadFile(const char * start,
                     size_t size,
                     const std::string & path);
+
+    bool getAttributes(const std::string & path, Attributes & attrs) const;
     
     std::unique_ptr<std::streambuf>
     streamingUploadStreambuf(const std::string & path);
@@ -182,5 +184,8 @@ void registerSftpHostPublicKey(const std::string & hostname,
                                const std::string & publicKeyFile,
                                const std::string & privateKeyFile,
                                const std::string & port = "ssh");
+
+std::shared_ptr<SftpConnection> getSftpConnectionForHost(const std::string
+                                                         & hostname);
 
 } // namespace Datacratic
