@@ -46,6 +46,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                     spot.formats.push_back(Format(spot.banner->w[i],
                                                  spot.banner->h[i]));
                 }
+                spot.position = spot.banner->pos;
             }
 
             // Now create tags
