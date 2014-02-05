@@ -246,7 +246,7 @@ struct Parse_Context {
 
         return true;
     }
-    
+
     struct Matches_Char {
         Matches_Char(char c) : c(c) {}
         char c;

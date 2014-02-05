@@ -54,7 +54,7 @@ expectJsonArray(Parse_Context & context,
 
 void
 expectJsonObject(Parse_Context & context,
-                 const std::function<void (std::string, Parse_Context &)> & onEntry);
+                 const std::function<void (const std::string &, Parse_Context &)> & onEntry);
 
 /** Expect a Json object and call the given callback.  The keys are assumed
     to be ASCII which means no embedded nulls, and so the key can be passed
@@ -66,7 +66,7 @@ expectJsonObjectAscii(Parse_Context & context,
 
 bool
 matchJsonObject(Parse_Context & context,
-                const std::function<bool (std::string, Parse_Context &)> & onEntry);
+                const std::function<bool (const std::string &, Parse_Context &)> & onEntry);
 
 void skipJsonWhitespace(Parse_Context & context);
 
@@ -131,8 +131,8 @@ expectJson(Parse_Context & context)
         return result;
     } else if (*context == '{') {
         Json::Value result(Json::objectValue);
-        expectJsonObject(context,
-                         [&] (std::string key, Parse_Context & context)
+        expectJsonObjectAscii(context,
+                         [&] (const char * key, Parse_Context & context)
                          {
                              result[key] = expectJson(context);
                          });

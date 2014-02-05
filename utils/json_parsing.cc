@@ -254,6 +254,16 @@ std::string expectJsonStringAscii(Parse_Context & context)
 
     // Try multiple times to make it fit
     while (!context.match_literal('"')) {
+
+#if 0 // attempt to do it a block at a time
+        char * bufferEnd = cbuffer + bufferSize;
+
+        int charsMatched
+            = context.match_text(buffer + pos, buffer + bufferSize,
+                                 "\"\\");
+        pos += charsMatched;
+#endif
+
         int c = *context++;
         if (c == '\\') {
             c = *context++;
@@ -291,7 +301,7 @@ std::string expectJsonStringAscii(Parse_Context & context)
         }
         buffer[pos++] = c;
     }
-
+    
     string result(buffer, buffer + pos);
     if (buffer != internalBuffer)
         delete[] buffer;
@@ -335,7 +345,7 @@ expectJsonArray(Parse_Context & context,
 
 void
 expectJsonObject(Parse_Context & context,
-                 const std::function<void (std::string, Parse_Context &)> & onEntry)
+                 const std::function<void (const std::string &, Parse_Context &)> & onEntry)
 {
     skipJsonWhitespace(context);
 
@@ -413,7 +423,7 @@ expectJsonObjectAscii(Parse_Context & context,
 
 bool
 matchJsonObject(Parse_Context & context,
-                const std::function<bool (std::string, Parse_Context &)> & onEntry)
+                const std::function<bool (const std::string &, Parse_Context &)> & onEntry)
 {
     skipJsonWhitespace(context);
 
