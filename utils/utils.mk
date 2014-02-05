@@ -1,3 +1,4 @@
+
 LIBUTILS_SOURCES := \
         environment.cc \
         file_functions.cc \
@@ -10,6 +11,7 @@ LIBUTILS_SOURCES := \
 	exc_assert.cc \
 	hex_dump.cc \
 	lzma.cc \
+	xxhash.c \
 	lz4.c \
 	lz4hc.c \
 	floating_point.cc \
@@ -21,6 +23,9 @@ LIBUTILS_SOURCES := \
 LIBUTILS_LINK :=	ACE arch boost_iostreams lzma boost_thread cryptopp
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
+
+$(eval $(call program,lz4cli,,lz4cli.c lz4.c lz4hc.c xxhash.c))
+
 
 LIBWORKER_TASK_SOURCES := worker_task.cc
 LIBWORKER_TASK_LINK    := ACE arch pthread
