@@ -166,8 +166,6 @@ static_assert(sizeof(Header) == 7, "sizeof(lz4::Header) == 7");
 
 struct lz4_compressor : public boost::iostreams::multichar_output_filter
 {
-    enum Level { Normal, High };
-
     lz4_compressor(int level = 0, uint8_t blockSizeId = 7) :
         head(blockSizeId, true, true, false), writeHeader(true), pos(0)
     {
