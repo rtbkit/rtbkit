@@ -85,11 +85,13 @@ void read(Source& src, T* typedData, size_t size)
 struct JML_PACKED Header
 {
     Header() : magic(0) {}
-    Header(int blockId, bool blockIndependence, bool blockChecksum) :
+    Header( int blockId,
+            bool blockIndependence,
+            bool blockChecksum,
+            bool streamChecksum) :
         magic(MagicConst), options({0, 0})
     {
         const uint8_t version = 1; // 2 bits
-        const uint8_t streamChecksum = 0;
 
         checkBlockId(blockId);
 
@@ -167,10 +169,10 @@ struct lz4_compressor : public boost::iostreams::multichar_output_filter
     enum Level { Normal, High };
 
     lz4_compressor(int level = 0, uint8_t blockSizeId = 7) :
-        head(blockSizeId, true, true), writeHeader(true), pos(0)
+        head(blockSizeId, true, true, false), writeHeader(true), pos(0)
     {
         buffer.resize(head.blockSize());
-        compressFn = level >= 3 ? LZ4_compress : LZ4_compressHC;
+        compressFn = level < 3 ? LZ4_compress : LZ4_compressHC;
 
         if (head.streamChecksum())
             streamChecksumState = XXH32_init(lz4::ChecksumSeed);
