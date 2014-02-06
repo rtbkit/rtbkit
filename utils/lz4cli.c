@@ -1035,7 +1035,6 @@ int main(int argc, char** argv)
         cLevel=0,
         decode=0,
         bench=0,
-        filenamesStart=2,
         legacy_format=0,
         forceStdout=0,
         forceCompress=0,
@@ -1181,7 +1180,7 @@ int main(int argc, char** argv)
         }
 
         // first provided filename is input
-        if (!input_filename) { input_filename=argument; filenamesStart=i; continue; }
+        if (!input_filename) { input_filename=argument; continue; }
 
         // second provided filename is output
         if (!output_filename)
