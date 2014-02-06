@@ -14,6 +14,7 @@
 #include "soa/types/json_printing.h"
 #include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/tokenizer.hpp>
 #include "jml/utils/file_functions.h"
 #include "jml/arch/info.h"
 #include "jml/utils/rng.h"
@@ -103,7 +104,19 @@ parseBidRequest(HttpAuctionHandler & connection,
     std::shared_ptr<BidRequest> res;
 
     // Check for JSON content-type
-    if (header.contentType != "application/json") {
+    if (!header.contentType.empty()) {
+        std::string delimiter = ";";
+ 
+        std::string content = header.contentType.substr(0, header.contentType.find(delimiter));
+        std::string charset = header.contentType.substr(header.contentType.find(delimiter), header.contentType.length());
+
+        if(content != "application/json") {
+            connection.sendErrorResponse("non-JSON request");
+            return res;
+        }
+
+    }
+    else {
         connection.sendErrorResponse("non-JSON request");
         return res;
     }
