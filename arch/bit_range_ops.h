@@ -357,7 +357,7 @@ struct Bit_Buffer {
         if (JML_UNLIKELY(bits <= 0)) return Data(0);
 
         Data result;
-        if (bit_ofs + bits < 8 * sizeof(Data))
+        if (bit_ofs + bits <= 8 * sizeof(Data))
             // TODO: simplify
             result = extract_bit_range(data.curr(), Data(0), bit_ofs, bits);
         else
