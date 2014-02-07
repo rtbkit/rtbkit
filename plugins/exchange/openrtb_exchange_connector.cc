@@ -103,7 +103,28 @@ parseBidRequest(HttpAuctionHandler & connection,
     std::shared_ptr<BidRequest> res;
 
     // Check for JSON content-type
-    if (header.contentType != "application/json") {
+    if (!header.contentType.empty()) {
+        static const std::string delimiter = ";";
+        
+        std::string::size_type posDelim = header.contentType.find(delimiter);
+        std::string content;
+
+        if(posDelim == std::string::npos)
+            content = header.contentType;    
+        else {
+            std::string content = header.contentType.substr(0, posDelim);
+            #if 0
+            std::string charset = header.contentType.substr(posDelim, header.contentType.length());
+            #endif
+        }
+
+        if(content != "application/json") {
+            connection.sendErrorResponse("non-JSON request");
+            return res;
+        }
+
+    }
+    else {
         connection.sendErrorResponse("non-JSON request");
         return res;
     }
