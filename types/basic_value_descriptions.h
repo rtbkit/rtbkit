@@ -426,7 +426,7 @@ struct DefaultDescription<Date>
     virtual void printJsonTyped(const Date * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeJson(val->secondsSinceEpoch());
+        context.writeJson(val->printIso8601());//val->secondsSinceEpoch());
     }
 
     virtual bool isDefaultTyped(const Date * val) const
