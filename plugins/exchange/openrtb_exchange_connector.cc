@@ -105,11 +105,12 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     // Check for JSON content-type
     if (!header.contentType.empty()) {
-        std::string delimiter = ";";
+        static const std::string delimiter = ";";
  
         std::string content = header.contentType.substr(0, header.contentType.find(delimiter));
+        #if 0
         std::string charset = header.contentType.substr(header.contentType.find(delimiter), header.contentType.length());
-
+        #endif
         if(content != "application/json") {
             connection.sendErrorResponse("non-JSON request");
             return res;
