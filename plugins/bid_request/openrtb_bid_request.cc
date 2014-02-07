@@ -192,8 +192,8 @@ fromOpenRtb(OpenRTB::BidRequest && req,
         if (result->user->buyeruid)
             result->userIds.add(result->user->buyeruid, ID_PROVIDER);
         else if(req.device && !req.device->ip.empty() && !req.device->ua.empty()) {
-            result->userAgentIPHash = CityHash64((req.device->ip + req.device->ua.extractAscii()).c_str(),
-                                              (req.device->ip + req.device->ua.extractAscii()).length());
+            const std::string &strToHash = (req.device->ip + req.device->ua.extractAscii());
+            result->userAgentIPHash = CityHash64(strToHash.c_str(), strToHash.length());
             result->userIds.add(Id(result->userAgentIPHash), ID_PROVIDER);
         }
         
@@ -207,8 +207,8 @@ fromOpenRtb(OpenRTB::BidRequest && req,
         // the user
 
         if(req.device && !req.device->ip.empty() && !req.device->ua.empty()) {
-            result->userAgentIPHash = CityHash64((req.device->ip + req.device->ua.extractAscii()).c_str(),
-                                              (req.device->ip + req.device->ua.extractAscii()).length());
+            const std::string &strToHash = (req.device->ip + req.device->ua.extractAscii());
+            result->userAgentIPHash = CityHash64(strToHash.c_str(), strToHash.length());
             result->userIds.add(Id(result->userAgentIPHash), ID_PROVIDER);
         }
         else

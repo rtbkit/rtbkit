@@ -14,7 +14,6 @@
 #include "soa/types/json_printing.h"
 #include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/tokenizer.hpp>
 #include "jml/utils/file_functions.h"
 #include "jml/arch/info.h"
 #include "jml/utils/rng.h"
