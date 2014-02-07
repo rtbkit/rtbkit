@@ -26,27 +26,27 @@ namespace curlopt = curlpp::options;
 
 namespace {
 
-HttpClientResponse::Error
+HttpClientCallbacks::Error
 translateError(CURLcode curlError)
 {
-    HttpClientResponse::Error error;
+    HttpClientCallbacks::Error error;
 
     switch (curlError) {
     case CURLE_OK:
-        error = HttpClientResponse::Error::NONE;
+        error = HttpClientCallbacks::Error::NONE;
         break;
     case CURLE_OPERATION_TIMEDOUT:
-        error = HttpClientResponse::Error::TIMEOUT;
+        error = HttpClientCallbacks::Error::TIMEOUT;
         break;
     case CURLE_COULDNT_RESOLVE_HOST:
-        error = HttpClientResponse::Error::HOST_NOT_FOUND;
+        error = HttpClientCallbacks::Error::HOST_NOT_FOUND;
         break;
     case CURLE_COULDNT_CONNECT:
-        error = HttpClientResponse::Error::COULD_NOT_CONNECT;
+        error = HttpClientCallbacks::Error::COULD_NOT_CONNECT;
         break;
     default:
         ::fprintf(stderr, "returning 'unknown' for code %d\n", curlError);
-        error = HttpClientResponse::Error::UNKNOWN;
+        error = HttpClientCallbacks::Error::UNKNOWN;
     }
 
     return error;
@@ -70,10 +70,25 @@ int timerCallback(CURLM *multi, long timeoutMs, void *clientP)
 }
 
 
-/* HTTPCLIENTRESPONSE */
+/* HTTPCLIENTCALLBACKS */
+
+HttpClientCallbacks::
+HttpClientCallbacks(OnResponseStart onResponseStart,
+                    OnData onHeader, OnData onData, OnDone onDone)
+    : onResponseStart_(onResponseStart),
+      onHeader_(onHeader),
+      onData_(onData),
+      onDone_(onDone)
+{
+}
+
+HttpClientCallbacks::
+~HttpClientCallbacks()
+{
+}
 
 string
-HttpClientResponse::
+HttpClientCallbacks::
 errorMessage(Error errorCode)
 {
     static const string none = "No error";
@@ -96,6 +111,43 @@ errorMessage(Error errorCode)
     default:
         throw ML::Exception("invalid error code");
     };
+}
+
+void
+HttpClientCallbacks::
+onResponseStart(const HttpRequest & rq,
+                const std::string & httpVersion, int code)
+    const
+{
+    if (onResponseStart_)
+        onResponseStart_(rq, httpVersion, code);
+}
+
+void
+HttpClientCallbacks::
+onHeader(const HttpRequest & rq, const std::string & header)
+    const
+{
+    if (onHeader_)
+        onHeader_(rq, header);
+}
+
+void
+HttpClientCallbacks::
+onData(const HttpRequest & rq, const std::string & data)
+    const
+{
+    if (onData_)
+        onData_(rq, data);
+}
+
+void
+HttpClientCallbacks::
+onDone(const HttpRequest & rq, Error errorCode)
+    const
+{
+    if (onDone_)
+        onDone_(rq, errorCode);
 }
 
 
@@ -187,7 +239,28 @@ onCurlHeader(char * data, size_t size)
             afterContinue_ = false;
     }
     else {
-        response_.header_.parseLine(headerLine);
+        if (headerLine.find("HTTP/") == 0) {
+            size_t lineSize = headerLine.size();
+            size_t oldTokenIdx(0);
+            size_t tokenIdx = headerLine.find(" ");
+            if (tokenIdx == string::npos || tokenIdx >= lineSize) {
+                throw ML::Exception("malformed header");
+            }
+            string version = headerLine.substr(oldTokenIdx, tokenIdx);
+
+            oldTokenIdx = tokenIdx + 1;
+            tokenIdx = headerLine.find(" ", oldTokenIdx);
+            if (tokenIdx == string::npos || tokenIdx >= lineSize) {
+                throw ML::Exception("malformed header");
+            }
+            int code = stoi(headerLine.substr(oldTokenIdx, tokenIdx));
+
+            request_.callbacks_->onResponseStart(request_,
+                                                 move(version), code);
+        }
+        else {
+            request_.callbacks_->onHeader(request_, move(headerLine));
+        }
     }
 
     return size;
@@ -199,7 +272,7 @@ onCurlWrite(char * data, size_t size)
     noexcept
 {
     // cerr << "onCurlWrite\n";
-    response_.body_.append(data, size);
+    request_.callbacks_->onData(request_, string(data, size));
     return size;
 }
 
@@ -219,83 +292,6 @@ onCurlRead(char * data, size_t size, size_t max)
     return chunkSize;
 }
 
-
-/* HTTPRESPONSEHEADER */
-
-void
-HttpResponseHeader::
-clear()
-{
-    code_ = 0;
-    contentLength_ = -1;
-    contentType_.clear();
-    headers_.clear();
-}
-
-void
-HttpResponseHeader::
-parseLine(const string & line)
-{
-    size_t lineSize = line.size();
-    if (lineSize == 2) {
-        return;
-    }
-
-    if (code_ == 0) {
-        if (line.find("HTTP/") == 0) {
-            size_t oldTokenIdx(0);
-            size_t tokenIdx = line.find(" ");
-            if (tokenIdx == string::npos || tokenIdx >= lineSize) {
-                throw ML::Exception("malformed header");
-            }
-            version_ = line.substr(oldTokenIdx, tokenIdx);
-
-            oldTokenIdx = tokenIdx + 1;
-            tokenIdx = line.find(" ", oldTokenIdx);
-            if (tokenIdx == string::npos || tokenIdx >= lineSize) {
-                throw ML::Exception("malformed header");
-            }
-            code_ = stoi(line.substr(oldTokenIdx, tokenIdx));
-        }
-        else {
-            throw ML::Exception("expected response line");
-        }
-    }
-    else {
-        size_t tokenIdx = line.find(":");
-        if (tokenIdx == string::npos || tokenIdx >= lineSize) {
-            throw ML::Exception("malformed header");
-        }
-        return;
-        string key = line.substr(0, tokenIdx);
-        for (auto & it: key) {
-            it = ::tolower(it);
-        }
-
-        size_t valueIdx = tokenIdx + 1;
-        while (line[valueIdx] == ' ') {
-            valueIdx++;
-        }
-        string value = line.substr(valueIdx, lineSize - valueIdx - 2);
-
-        auto it = headers_.find(key);
-        if (it == headers_.end()) {
-            headers_[key] == value;
-        }
-        else {
-            it->second += "; " + value;
-        }
-
-        if (key == "content-type") {
-            contentType_ = value;
-        }
-        if (key == "content-length") {
-            contentLength_ = stoi(value);
-        }
-
-        // cerr << "key: " + key + "; value: /" + value + "/\n";
-    }
-}
 
 /* HTTPCLIENT */
 
@@ -406,7 +402,7 @@ removeFd(int fd)
 bool
 HttpClient::
 enqueueRequest(const string & verb, const string & resource,
-               const HttpRequest::OnResponse & onResponse,
+               const HttpClientCallbacks & callbacks,
                const HttpRequest::Content & content,
                const RestParams & queryParams, const RestParams & headers,
                int timeout)
@@ -414,7 +410,7 @@ enqueueRequest(const string & verb, const string & resource,
     bool result(true);
     string url = baseUrl_ + resource + queryParams.uriEscaped();
 
-    if (queue_.tryPush(HttpRequest(verb, url, onResponse,
+    if (queue_.tryPush(HttpRequest(verb, url, callbacks,
                                    content, headers, timeout))) {
         wakeup_.signal();
     }
@@ -536,14 +532,9 @@ checkMultiInfos()
             HttpConnection * conn(nullptr);
             ::curl_easy_getinfo(msg->easy_handle,
                                 CURLINFO_PRIVATE, &conn);
-            HttpClientResponse & resp = conn->response_;
-            resp.errorCode_ = translateError(msg->data.result);
-            if (msg->data.result != CURLE_OK) {
-                // cerr << "? not ok: " + to_string(msg->data.result) + "\n";
-                resp.body_
-                    = HttpClientResponse::errorMessage(resp.errorCode_);
-            }
-            conn->request_.onResponse_(resp, conn->request_);
+
+            const HttpClientCallbacks & cbs = *conn->request_.callbacks_;
+            cbs.onDone(conn->request_, translateError(msg->data.result));
             conn->clear();
             multi_.remove(&conn->easy_);
             releaseConnection(conn);

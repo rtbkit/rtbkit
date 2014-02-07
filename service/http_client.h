@@ -19,81 +19,30 @@
 #include "jml/arch/wakeup_fd.h"
 #include "jml/utils/ring_buffer.h"
 
-#include "soa/service/http_endpoint.h"
-#include "soa/service/http_header.h"
-#include "soa/jsoncpp/reader.h"
+#include "soa/jsoncpp/value.h"
+#include "soa/service/async_event_source.h"
 
 
-/* Notes:
-   - mostly similar to http_rest_proxy
-   - lacks support for cookies yet
-   - no support for EPOLLONESHOT yet */
+/*
+  HttpClient is meant to provide the most featureful asynchronous HTTP client
+  class. It supports strictly asynchronous (non-blocking) operations as well
+  as HTTP pipelining and concurrent requests, and enables streaming responses
+  via a callback mechanism. It is meant to be subclassed whenever a
+  synchronous interface or a one-shot response mechanism is required. In
+  general, the code should be complete enough that existing and similar
+  classes can be subclasses gradually (HttpRestProxy, s3 internals).
+
+  Caveat:
+  - does not provide any support for cookies
+  - no support for EPOLLONESHOT yet
+  - has not yet been tweaked for performance
+*/
 
 namespace Datacratic {
 
+struct HttpRequest;
 
-/** Header for an HTTP request.  Just a place to dump the data. */
-
-struct HttpResponseHeader {
-    HttpResponseHeader()
-        : code_(0), contentLength_(-1)
-    {
-    }
-
-    int code()
-        const
-    {
-        return code_;
-    }
-    int code_; // HTTP status code
-
-    std::string version()
-        const
-    {
-        return version_;
-    }
-    std::string version_; // HTTP version
-
-    void clear();
-
-    std::string contentType()
-        const
-    {
-        return contentType_;
-    }
-    std::string contentType_;
-
-    size_t contentLength()
-        const
-    {
-        return contentLength_;
-    }
-    ssize_t contentLength_;
-
-    std::string getHeader(const std::string & key)
-        const
-    {
-        // std::string & value = headers_.at(key);
-        // return value;
-        return std::string();
-    }
-
-    std::string tryGetHeader(const std::string & key) const
-    {
-        return std::string();
-        // auto it = headers_.find(key);
-        // if (it == headers_.end())
-        //     return "";
-        // return *it->second;
-    }
-    std::map<std::string, std::string> headers_;
-
-    /* curl helper */
-    void parseLine(const std::string & headerLine);
-};
-
-/** The response of a request.  Has a return code and a body. */
-struct HttpClientResponse {
+struct HttpClientCallbacks {
     enum Error {
         NONE,
         UNKNOWN,
@@ -101,42 +50,49 @@ struct HttpClientResponse {
         HOST_NOT_FOUND,
         COULD_NOT_CONNECT,
     };
+
+    typedef std::function<void (const HttpRequest &,
+                                const std::string &,
+                                int code)> OnResponseStart;
+    typedef std::function<void (const HttpRequest &,
+                                const std::string &)> OnData;
+    typedef std::function<void (const HttpRequest & rq,
+                                Error errorCode)> OnDone;
+
+    HttpClientCallbacks(OnResponseStart onResponseStart = nullptr,
+                        OnData onHeader = nullptr,
+                        OnData onData = nullptr,
+                        OnDone onDone = nullptr);
+    virtual ~HttpClientCallbacks();
+
     static std::string errorMessage(Error errorCode);
 
-    HttpClientResponse()
-        : errorCode_(Error::NONE)
-    {}
+    /* initiates a response */
+    virtual void onResponseStart(const HttpRequest & rq,
+                                 const std::string & httpVersion,
+                                 int code) const;
 
-    /** Body of the REST call. */
-    std::string body()
-        const
-    {
-        return body_;
-    }
+    /* callback for header lines */
+    virtual void onHeader(const HttpRequest & rq,
+                          const std::string & header) const;
 
-    Json::Value jsonBody()
-        const
-    {
-        return Json::parse(body_);
-    }
+    /* callback for body data */
+    virtual void onData(const HttpRequest & rq,
+                        const std::string & data) const;
 
-    void clear()
-    {
-        errorCode_ = Error::NONE;
-        header_.clear();
-        body_ = "";
-    }
+    /* callback for operation completions */
+    virtual void onDone(const HttpRequest & rq,
+                        Error errorCode) const;
 
-    Error errorCode_;
-    HttpResponseHeader header_;
-    std::string body_;
+    OnResponseStart onResponseStart_;
+    OnData onHeader_;
+    OnData onData_;
+    OnDone onDone_;
 };
+
 
 /* Representation of an HTTP request. */
 struct HttpRequest {
-    typedef std::function<void (const HttpClientResponse &,
-                                const HttpRequest &)> OnResponse;
-
     /** Structure used to hold content for a POST request. */
     struct Content {
         Content()
@@ -178,16 +134,16 @@ struct HttpRequest {
     };
 
     HttpRequest()
-        : timeout_(-1)
+        : callbacks_(nullptr), timeout_(-1)
     {
     }
 
     HttpRequest(const std::string & verb, const std::string & url,
-                const OnResponse & onResponse,
+                const HttpClientCallbacks & callbacks,
                 const Content & content, const RestParams & headers,
                 int timeout = -1)
         noexcept
-        : verb_(verb), url_(url), onResponse_(onResponse),
+        : verb_(verb), url_(url), callbacks_(&callbacks),
           content_(content), headers_(headers),
           timeout_(timeout)
     {
@@ -196,7 +152,7 @@ struct HttpRequest {
     HttpRequest(const HttpRequest & other)
         noexcept
         : verb_(other.verb_), url_(other.url_),
-          onResponse_(other.onResponse_), content_(other.content_),
+          callbacks_(other.callbacks_), content_(other.content_),
           headers_(other.headers_), timeout_(other.timeout_)
     {
     }
@@ -207,7 +163,7 @@ struct HttpRequest {
         if (&other != this) {
             verb_ = std::move(other.verb_);
             url_ = std::move(other.url_);
-            onResponse_ = std::move(other.onResponse_);
+            callbacks_ = other.callbacks_;
             content_ = std::move(other.content_);
             headers_ = std::move(other.headers_);
             timeout_ = other.timeout_;
@@ -220,7 +176,7 @@ struct HttpRequest {
         if (&other != this) {
             verb_ = other.verb_;
             url_ = other.url_;
-            onResponse_ = other.onResponse_,
+            callbacks_ = other.callbacks_,
             content_ = other.content_;
             headers_ = other.headers_;
             timeout_ = other.timeout_;
@@ -236,7 +192,7 @@ struct HttpRequest {
 
     std::string verb_;
     std::string url_;
-    OnResponse onResponse_;
+    const HttpClientCallbacks * callbacks_;
     Content content_;
     RestParams headers_;
     int timeout_;
@@ -252,7 +208,6 @@ struct HttpConnection {
     {
         easy_.reset();
         request_.clear();
-        response_.clear();
         afterContinue_ = false;
         uploadOffset_ = 0;
     }
@@ -269,7 +224,7 @@ struct HttpConnection {
     HttpRequest request_;
 
     curlpp::Easy easy_;
-    HttpClientResponse response_;
+    // HttpClientResponse response_;
     bool afterContinue_;
     size_t uploadOffset_;
 
@@ -282,51 +237,37 @@ struct HttpClient : public AsyncEventSource {
     ~HttpClient();
 
     bool post(const std::string & resource,
-              const HttpRequest::OnResponse & onResponse,
+              const HttpClientCallbacks & callbacks,
               const HttpRequest::Content & content = HttpRequest::Content(),
               const RestParams & queryParams = RestParams(),
               const RestParams & headers = RestParams(),
               int timeout = -1)
     {
-        return enqueueRequest("POST", resource, onResponse, content,
+        return enqueueRequest("POST", resource, callbacks, content,
                               queryParams, headers, timeout);
     }
 
     bool put(const std::string & resource,
-             const HttpRequest::OnResponse & onResponse,
+             const HttpClientCallbacks & callbacks,
              const HttpRequest::Content & content = HttpRequest::Content(),
              const RestParams & queryParams = RestParams(),
              const RestParams & headers = RestParams(),
              int timeout = -1)
     {
-        return enqueueRequest("PUT", resource, onResponse, content,
+        return enqueueRequest("PUT", resource, callbacks, content,
                               queryParams, headers, timeout);
     }
 
     bool get(const std::string & resource,
-             const HttpRequest::OnResponse & onResponse,
+             const HttpClientCallbacks & callbacks,
              const RestParams & queryParams = RestParams(),
              const RestParams & headers = RestParams(),
              int timeout = -1)
     {
-        // std::cerr << "get\n";
-        return enqueueRequest("GET", resource, onResponse,
+        return enqueueRequest("GET", resource, callbacks,
                               HttpRequest::Content(),
                               queryParams, headers, timeout);
     }
-
-    // /** Add a cookie to the connection. */
-    // void setCookie(const std::string & value)
-    // {
-    //     headers_.emplace_back("Cookie", value);
-    // }
-
-    // /** Add a cookie to the connection that comes in from the response. */
-    // void setCookieFromResponse(const HttpClientResponse & r)
-    // {
-    //     cookies_.emplace_back("Cookie: "
-    //                           + r.header_.getHeader("set-cookie"));
-    // }
 
     /* AsyncEventSource */
     virtual int selectFd() const;
@@ -336,7 +277,7 @@ struct HttpClient : public AsyncEventSource {
     /* internal */
     bool enqueueRequest(const std::string & verb,
                         const std::string & resource,
-                        const HttpRequest::OnResponse & onResponse,
+                        const HttpClientCallbacks & callbacks,
                         const HttpRequest::Content & content,
                         const RestParams & queryParams,
                         const RestParams & headers,

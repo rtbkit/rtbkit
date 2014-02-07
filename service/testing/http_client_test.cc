@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string>
+#include <tuple>
 #include <boost/test/unit_test.hpp>
 
 #include "jml/utils/testing/watchdog.h"
@@ -15,6 +16,8 @@
 using namespace std;
 using namespace Datacratic;
 
+
+namespace {
 
 struct HttpTestConnHandler;
 
@@ -144,30 +147,45 @@ struct HttpUploadService : public HttpService {
     }
 };
 
+typedef tuple<HttpClientCallbacks::Error, int, std::string> ClientResponse;
+
 /* sync request helpers */
-HttpClientResponse
+ClientResponse
 doGetRequest(MessageLoop & loop,
              const string & baseUrl, const string & resource,
              const RestParams & headers = RestParams(),
              int timeout = -1)
 {
-    HttpClientResponse response;
+    ClientResponse response;
 
     int done(false);
-    auto onResponse = [&] (const HttpClientResponse & resp,
-                           const HttpRequest & req) {
-        response = resp;
+    auto onResponseStart = [&] (const HttpRequest & rq,
+                                const std::string & httpVersion,
+                                int code_) {
+        int & code = get<1>(response);
+        code = code_;
+    };
+    auto onData = [&] (const HttpRequest & rq, const std::string & data) {
+        string & body = get<2>(response);
+        body += data;
+    };
+    auto onDone = [&] (const HttpRequest & rq,
+                       HttpClientCallbacks::Error errorCode_) {
+        HttpClientCallbacks::Error & errorCode = get<0>(response);
+        errorCode = errorCode_;
         done = true;
         ML::futex_wake(done);
     };
 
+    HttpClientCallbacks cbs(onResponseStart, nullptr, onData, onDone);
+
     auto client = make_shared<HttpClient>(baseUrl);
     loop.addSource("httpClient", client);
     if (timeout == -1) {
-        client->get(resource, onResponse, RestParams(), headers);
+        client->get(resource, cbs, RestParams(), headers);
     }
     else {
-        client->get(resource, onResponse, RestParams(), headers,
+        client->get(resource, cbs, RestParams(), headers,
                     timeout);
     }
 
@@ -182,31 +200,41 @@ doGetRequest(MessageLoop & loop,
     return response;
 }
 
-HttpClientResponse
+ClientResponse
 doUploadRequest(MessageLoop & loop,
                 bool isPut,
                 const string & baseUrl, const string & resource,
                 const string & body, const string & type)
 {
-    HttpClientResponse response;
-
+    HttpClientCallbacks::Error errorCode;
+    string respBody;
+    int code;
     int done(false);
-    auto onResponse = [&] (const HttpClientResponse & resp,
-                           const HttpRequest & req) {
-        response = resp;
+
+    auto onResponseStart = [&] (const HttpRequest & rq,
+                                const std::string & httpVersion,
+                                int code_) {
+        code = code_;
+    };
+    auto onData = [&] (const HttpRequest & rq, const std::string & data) {
+        respBody += data;
+    };
+    auto onDone = [&] (const HttpRequest & rq,
+                       HttpClientCallbacks::Error errorCode_) {
+        errorCode = errorCode_;
         done = true;
         ML::futex_wake(done);
     };
 
     auto client = make_shared<HttpClient>(baseUrl);
     loop.addSource("httpClient", client);
-
+    HttpClientCallbacks cbs(onResponseStart, nullptr, onData, onDone);
     HttpRequest::Content content(body, type);
     if (isPut) {
-        client->put(resource, onResponse, content);
+        client->put(resource, cbs, content);
     }
     else {
-        client->post(resource, onResponse, content);
+        client->post(resource, cbs, content);
     }
 
     while (!done) {
@@ -217,7 +245,11 @@ doUploadRequest(MessageLoop & loop,
     loop.removeSource(client.get());
     client->waitConnectionState(AsyncEventSource::DISCONNECTED);
 
+    ClientResponse response(errorCode, code, respBody);
+
     return response;
+}
+
 }
 
 BOOST_AUTO_TEST_CASE( test_http_client_get )
@@ -236,27 +268,27 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
     {
         string baseUrl("http://123.234.12.23");
         auto resp = doGetRequest(loop, baseUrl, "/");
-        BOOST_CHECK_EQUAL(resp.errorCode_,
-                          HttpClientResponse::Error::COULD_NOT_CONNECT);
-        BOOST_CHECK_EQUAL(resp.header_.code(), 0);
+        BOOST_CHECK_EQUAL(get<0>(resp),
+                          HttpClientCallbacks::Error::COULD_NOT_CONNECT);
+        BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 
     /* request to bad hostname */
     {
         string baseUrl("http://somewhere.lost");
         auto resp = doGetRequest(loop, baseUrl, "/");
-        BOOST_CHECK_EQUAL(resp.errorCode_,
-                          HttpClientResponse::Error::HOST_NOT_FOUND);
-        BOOST_CHECK_EQUAL(resp.header_.code(), 0);
+        BOOST_CHECK_EQUAL(get<0>(resp),
+                          HttpClientCallbacks::Error::HOST_NOT_FOUND);
+        BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 
     /* request with timeout */
     {
         string baseUrl("http://127.0.0.1:" + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/timeout", {}, 1);
-        BOOST_CHECK_EQUAL(resp.errorCode_,
-                          HttpClientResponse::Error::TIMEOUT);
-        BOOST_CHECK_EQUAL(resp.header_.code(), 0);
+        BOOST_CHECK_EQUAL(get<0>(resp),
+                          HttpClientCallbacks::Error::TIMEOUT);
+        BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 
     /* request to /nothing -> 404 */
@@ -264,8 +296,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://127.0.0.1:"
                        + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/nothing");
-        BOOST_CHECK_EQUAL(resp.errorCode_, HttpClientResponse::Error::NONE);
-        BOOST_CHECK_EQUAL(resp.header_.code(), 404);
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientCallbacks::Error::NONE);
+        BOOST_CHECK_EQUAL(get<1>(resp), 404);
     }
 
     /* request to /coucou -> 200 + "coucou" */
@@ -273,9 +305,9 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://127.0.0.1:"
                        + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/coucou");
-        BOOST_CHECK_EQUAL(resp.errorCode_, HttpClientResponse::Error::NONE);
-        BOOST_CHECK_EQUAL(resp.header_.code(), 200);
-        BOOST_CHECK_EQUAL(resp.body(), "coucou");
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientCallbacks::Error::NONE);
+        BOOST_CHECK_EQUAL(get<1>(resp), 200);
+        BOOST_CHECK_EQUAL(get<2>(resp), "coucou");
     }
 
     /* headers and cookies */
@@ -287,7 +319,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         expBody["accept"] = "*/*";
         expBody["host"] = baseUrl.substr(7);
         expBody["someheader"] = "somevalue";
-        BOOST_CHECK_EQUAL(resp.jsonBody(), expBody);
+        Json::Value jsonBody = Json::parse(get<2>(resp));
+        BOOST_CHECK_EQUAL(jsonBody, expBody);
     }
 }
 
@@ -308,9 +341,9 @@ BOOST_AUTO_TEST_CASE( test_http_client_post )
                        + to_string(service.port()));
         auto resp = doUploadRequest(loop, false, baseUrl, "/post-test",
                                     "post body", "application/x-nothing");
-        BOOST_CHECK_EQUAL(resp.errorCode_, HttpClientResponse::Error::NONE);
-        BOOST_CHECK_EQUAL(resp.header_.code(), 200);
-        Json::Value jsonBody = Json::parse(resp.body());
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientCallbacks::Error::NONE);
+        BOOST_CHECK_EQUAL(get<1>(resp), 200);
+        Json::Value jsonBody = Json::parse(get<2>(resp));
         BOOST_CHECK_EQUAL(jsonBody["verb"], "POST");
         BOOST_CHECK_EQUAL(jsonBody["payload"], "post body");
         BOOST_CHECK_EQUAL(jsonBody["type"], "application/x-nothing");
@@ -337,9 +370,9 @@ BOOST_AUTO_TEST_CASE( test_http_client_put )
     }
     auto resp = doUploadRequest(loop, true, baseUrl, "/put-test",
                                 bigBody, "application/x-nothing");
-    BOOST_CHECK_EQUAL(resp.errorCode_, HttpClientResponse::Error::NONE);
-    BOOST_CHECK_EQUAL(resp.header_.code(), 200);
-    Json::Value jsonBody = Json::parse(resp.body());
+    BOOST_CHECK_EQUAL(get<0>(resp), HttpClientCallbacks::Error::NONE);
+    BOOST_CHECK_EQUAL(get<1>(resp), 200);
+    Json::Value jsonBody = Json::parse(get<2>(resp));
     BOOST_CHECK_EQUAL(jsonBody["verb"], "PUT");
     BOOST_CHECK_EQUAL(jsonBody["payload"], bigBody);
     BOOST_CHECK_EQUAL(jsonBody["type"], "application/x-nothing");
@@ -370,20 +403,21 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
     int maxReqs(10000), numReqs(0);
     int numResponses(0);
 
-    auto onResponse = [&] (const HttpClientResponse & resp,
-                           const HttpRequest & req) {
+    auto onDone = [&] (const HttpRequest & rq,
+                       HttpClientCallbacks::Error errorCode_) {
         // cerr << ("* onResponse " + to_string(numResponses)
-        //          + ": " + to_string(resp.header_.code())
+        //          + ": " + to_string(get<1>(resp))
         //          + "\n\n\n");
-        // cerr << "    body =\n/" + resp.body() + "/\n";
+        // cerr << "    body =\n/" + get<2>(resp) + "/\n";
         numResponses++;
         if (numResponses == numReqs) {
             ML::futex_wake(numResponses);
         }
     };
+    HttpClientCallbacks cbs(nullptr, nullptr, nullptr, onDone);
 
     while (numReqs < maxReqs) {
-        if (client->get("/", onResponse)) {
+        if (client->get("/", cbs)) {
             numReqs++;
         }
     }
