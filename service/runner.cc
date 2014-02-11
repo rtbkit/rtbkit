@@ -369,7 +369,7 @@ kill(int signum)
     if (!childPid_)
         throw ML::Exception("subprocess not available");
 
-    ::kill(childPid_, signum);
+    ::kill(-childPid_, signum);
     waitTermination();
 }
 
@@ -426,6 +426,8 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         throw ML::Exception(errno, "RunWrapper fork");
     }
     else if (childPid == 0) {
+        ::setpgid(0, 0);
+
         ::signal(SIGQUIT, SIG_DFL);
         ::signal(SIGTERM, SIG_DFL);
         ::signal(SIGINT, SIG_DFL);
