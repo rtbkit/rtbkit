@@ -74,7 +74,7 @@ struct ExchangeConnector: public ServiceBase {
     /** Configure the exchange connector.  The JSON provided is entirely
         interpreted by the exchange connector itself.
     */
-    virtual void configure(const Json::Value & parameters) = 0;
+    virtual void configure(const Json::Value & parameters);
 
     /** Start the exchange connector running */
     virtual void start();
@@ -127,14 +127,14 @@ struct ExchangeConnector: public ServiceBase {
     /*************************************************************************/
 
     /* This functionality is used by the router to determine which campaigns
-       may bid on inventory from the campaign, and which creatives are
+       may bid on inventory from the exchange, and which creatives are
        eligible to be shown to fill impressions for the campaign.
 
        This is where exchange-specific logic as to required information
        in the creative can be implemented, and allows feedback as to why
        a given campaign or creative is not working on an exchange for
        debugging purposes.
-       
+
        Please note that these methods are called infrequently at campaign
        configuration time, and apply to *all* bid requests for each
        campaign.  Filtering of individual bid requests is done via
@@ -343,6 +343,32 @@ struct ExchangeConnector: public ServiceBase {
            ServiceBase & owner,
            const std::string & name);
 
+    const std::string& getCurrencyAsString() const
+    {
+        return currency_;
+    }
+
+    CurrencyCode getCurrency() const
+    {
+        return currencyCode_;
+    }
+
+    template <typename Ratio = Micro>
+    auto getAmountIn(const Amount & amount)
+        const -> decltype(RTBKIT::getAmountIn<Ratio>(CurrencyCode::CC_NONE, amount))
+    {
+        return RTBKIT::getAmountIn<Ratio>(getCurrency(), amount);
+    }
+
+    bool hasCurrencyConfigured() const
+    {
+        return hasCurrencyConfigured_;
+    }
+
+private:
+    bool hasCurrencyConfigured_;
+    std::string currency_;
+    RTBKIT::CurrencyCode currencyCode_;
 };
 
 

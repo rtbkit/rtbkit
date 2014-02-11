@@ -595,17 +595,39 @@ parseBidRequest(HttpAuctionHandler & connection,
     	br.user.emplace();
     }
 
-    if (gbr.has_google_user_id())
+    bool has_google_user_id = gbr.has_google_user_id();
+    bool has_user_agent = gbr.has_user_agent();
+
+    if (has_google_user_id)
     {
     	// google_user_id
         // TODO: fix Id() so that it can parse 27 char Google ID into GOOG128
         // for now, fall back on STR type
     	br.user->id = Id (gbr.google_user_id());
+        br.userIds.add(br.user->id, ID_EXCHANGE);
     }
 
     if (gbr.has_hosted_match_data())
     {
         br.user->buyeruid = Id(binary_to_hexstr(gbr.hosted_match_data()));
+        // Provider ID is needed to map different bid requests to the same user
+        br.userIds.add(br.user->buyeruid, ID_PROVIDER);
+    }
+    else
+    {
+        if(has_google_user_id) {
+            // We'll use the google user id for the provider ID
+            br.userIds.add(br.user->id, ID_PROVIDER);
+        }
+        if (gbr.has_ip() && has_user_agent){
+            // Use a hashing function of IP + User Agent concatenation
+            br.userAgentIPHash = CityHash64((gbr.ip() + gbr.user_agent()).c_str(),(gbr.ip() + gbr.user_agent()).length());
+            br.userIds.add(Id(br.userAgentIPHash), ID_PROVIDER);
+        }
+        else {
+            // Set provider ID to 0
+            br.userIds.add(Id(0), ID_PROVIDER);
+        }
     }
 
     if (gbr.has_cookie_age_seconds())
@@ -614,7 +636,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     }
 
     // TODO: BidRequest.cookie_version
-    if (gbr.has_user_agent())
+    if (has_user_agent)
     {
 
 #if 0
@@ -623,8 +645,9 @@ parseBidRequest(HttpAuctionHandler & connection,
         static sregex oe = sregex::compile("(,gzip\\(gfe\\))+$") ;
         device.ua = regex_replace (gbr.user_agent(), oe, string());
 #else
-        device.ua = gbr.user_agent();
+        device.ua = Utf8String(gbr.user_agent());
 #endif
+        br.userAgent = Utf8String(gbr.user_agent());
     }
 
     // See function comment.
@@ -736,7 +759,7 @@ getResponse(const HttpAuctionHandler & connection,
 
         for(auto vt : crinfo->vendor_type_)
             ad->add_vendor_type(vt);
-        adslot->set_max_cpm_micros(MicroUSD_CPM(resp.price.maxPrice));
+        adslot->set_max_cpm_micros(getAmountIn<MicroCPM>(resp.price.maxPrice));
         adslot->set_id(auction.request->imp[spotNum].id.toInt());
         if(!crinfo->adgroup_id_.empty()) {
             adslot->set_adgroup_id(

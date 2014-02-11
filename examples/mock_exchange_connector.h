@@ -91,9 +91,9 @@ struct MockExchangeConnector : public HttpExchangeConnector {
             first = false;
 
             auto & resp = current->winningResponse(spotNum);
-            result += ML::format("{\"id\":\"%s\",\"max_price\":%lld,\"account\":\"%s\"}",
+            result += ML::format("{\"id\":\"%s\",\"max_price\":%ld,\"account\":\"%s\"}",
                              ML::jsonEscape(auction.request->imp.at(spotNum).id.toString()).c_str(),
-                             (long long)(MicroUSD_CPM(resp.price.maxPrice)),
+                             (int64_t)(MicroUSD_CPM(resp.price.maxPrice)),
                              resp.account.toString('.'));
         }
 

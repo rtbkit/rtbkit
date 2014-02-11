@@ -278,6 +278,7 @@ struct BidRequest {
     std::string protocolVersion;  ///< What protocol version, eg OpenRTB
     std::string exchange;
     std::string provider;
+    std::string userAgentIPHash;  ///< Concatenation of the user agent and IP hashed
 
     /* The following fields indicate the contents of the OpenRTB bid request
        that is being processed.

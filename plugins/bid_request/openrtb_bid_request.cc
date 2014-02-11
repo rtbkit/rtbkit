@@ -46,6 +46,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                     spot.formats.push_back(Format(spot.banner->w[i],
                                                  spot.banner->h[i]));
                 }
+                spot.position = spot.banner->pos;
             }
 
             // Now create tags
@@ -190,6 +191,28 @@ fromOpenRtb(OpenRTB::BidRequest && req,
             result->userIds.add(result->user->id, ID_EXCHANGE);
         if (result->user->buyeruid)
             result->userIds.add(result->user->buyeruid, ID_PROVIDER);
+        else if(req.device && !req.device->ip.empty() && !req.device->ua.empty()) {
+            const std::string &strToHash = (req.device->ip + req.device->ua.extractAscii());
+            result->userAgentIPHash = CityHash64(strToHash.c_str(), strToHash.length());
+            result->userIds.add(Id(result->userAgentIPHash), ID_PROVIDER);
+        }
+        
+        else
+            result->userIds.add(Id(0), ID_PROVIDER);
+
+    }
+    else
+    {
+        // We do receive a user object, we need at least to set provider_ID in order to identify
+        // the user
+
+        if(req.device && !req.device->ip.empty() && !req.device->ua.empty()) {
+            const std::string &strToHash = (req.device->ip + req.device->ua.extractAscii());
+            result->userAgentIPHash = CityHash64(strToHash.c_str(), strToHash.length());
+            result->userIds.add(Id(result->userAgentIPHash), ID_PROVIDER);
+        }
+        else
+            result->userIds.add(Id(0), ID_PROVIDER);
     }
 
     if (!req.cur.empty()) {

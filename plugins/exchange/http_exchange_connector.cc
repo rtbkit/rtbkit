@@ -92,6 +92,8 @@ void
 HttpExchangeConnector::
 configure(const Json::Value & parameters)
 {
+    ExchangeConnector::configure(parameters);
+
     getParam(parameters, numThreads, "numThreads");
     getParam(parameters, realTimePriority, "realTimePriority");
     getParam(parameters, listenPort, "listenPort");
