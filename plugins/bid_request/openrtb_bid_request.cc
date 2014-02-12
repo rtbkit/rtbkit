@@ -154,9 +154,10 @@ fromOpenRtb(OpenRTB::BidRequest && req,
         if (result->device->geo) {
             const auto & g = *result->device->geo;
             auto & l = result->location;
+	    Utf8String strRegion = g.region;
             l.countryCode = g.country;
             if (!g.region.empty())
-                l.regionCode = g.region;
+                l.regionCode = strRegion.extractAscii();
             else l.regionCode = g.regionfips104;
             l.cityName = g.city;
             l.postalCode = g.zip;

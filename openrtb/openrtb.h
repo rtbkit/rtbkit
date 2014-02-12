@@ -841,7 +841,7 @@ struct Geo {
     TaggedFloat lat;        ///< Latitude of user (-90 to 90; South negative)
     TaggedFloat lon;        ///< Longtitude (-180 to 180; west is negative)
     string country;         ///< Country code (ISO 3166-1 Alpha-3)
-    string region;          ///< Region code (ISO 3166-2)
+    Utf8String region;          ///< Region code (ISO 3166-2)
     string regionfips104;   ///< Region using FIPS 10-4
     string metro;           ///< Metropolitan region (Google Metro code)
     Utf8String city;        ///< City name (UN Code for Trade and Transport Loc)

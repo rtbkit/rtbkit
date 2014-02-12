@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     BOOST_CHECK_EQUAL(ortbReq->device->make, Utf8String("1001"));
     BOOST_CHECK_EQUAL(ortbReq->device->model, Utf8String("10001"));
     BOOST_CHECK_EQUAL(ortbReq->device->geo->country, "US");
-    BOOST_CHECK_EQUAL(ortbReq->device->geo->region, "NY");
+    BOOST_CHECK_EQUAL(ortbReq->device->geo->region, Utf8String("NY"));
     BOOST_CHECK_EQUAL(ortbReq->device->geo->city.rawString(), "New York");
     BOOST_CHECK_EQUAL(ortbReq->device->geo->zip, "10014");
     BOOST_CHECK_EQUAL(ortbReq->device->geo->dma, "501");
