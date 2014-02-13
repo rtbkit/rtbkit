@@ -68,6 +68,7 @@ $(eval $(call library,endpoint,$(LIBENDPOINT_SOURCES),$(LIBENDPOINT_LINK)))
 
 
 LIBCLOUD_SOURCES := \
+	fs_utils.cc \
 	sftp.cc \
 	s3.cc \
 	sns.cc \
