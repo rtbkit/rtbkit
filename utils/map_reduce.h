@@ -10,6 +10,7 @@
 #define __utils__map_reduce_h__
 
 #include <utility>
+#include <mutex>
 #include "worker_task.h"
 
 namespace ML {
@@ -23,7 +24,7 @@ parallelMapInOrderReduce(It first, It2 last, MapFn map, ReduceFn reduce)
 
     It next = first;
     std::map<It, MapResult> writeQueue;
-    boost::mutex lock;
+    std::mutex lock;
 
     auto drainWriteQueue = [&] ()
         {
@@ -40,7 +41,7 @@ parallelMapInOrderReduce(It first, It2 last, MapFn map, ReduceFn reduce)
         {
             auto res = map(it);
 
-            boost::unique_lock<boost::mutex> guard(lock);
+            std::unique_lock<std::mutex> guard(lock);
             writeQueue[it] = std::move(res);
             drainWriteQueue();
         };
