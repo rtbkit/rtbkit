@@ -14,12 +14,14 @@
 #include "xxhash.h"
 #include "lz4.h"
 #include "lz4hc.h"
+#include "jml/utils/exc_assert.h"
 
 #include <boost/iostreams/concepts.hpp>
 #include <ios>
 #include <vector>
 #include <cstring>
 #include <alloca.h>
+#include "jml/utils/guard.h"
 
 namespace ML {
 
@@ -222,7 +224,11 @@ private:
         if (head.streamChecksum())
             XXH32_update(streamChecksumState, buffer.data(), pos);
 
-        char* compressed = (char*) alloca(LZ4_compressBound(pos));
+        size_t bytesToAlloc = LZ4_compressBound(pos);
+        ExcAssert(bytesToAlloc);
+        char* compressed = new char[bytesToAlloc];
+        ML::Call_Guard guard([&] () { delete[] compressed; });
+        
         auto compressedSize = compressFn(buffer.data(), compressed, pos);
 
         auto writeChecksum = [&](const char* data, size_t n) {
