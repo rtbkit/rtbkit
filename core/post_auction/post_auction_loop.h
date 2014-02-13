@@ -6,6 +6,8 @@
 #ifndef __router__post_auction_loop_h__
 #define __router__post_auction_loop_h__
 
+//#include <iostream> 
+
 #include "soa/service/service_base.h"
 #include "soa/service/pending_list.h"
 #include <unordered_map>
@@ -356,10 +358,12 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
 
 	void setWinTimeout(const float & timeOut) {
 		winTimeout = timeOut;
+        	//std::cerr << "********* setting Win Timeout to " << winTimeout << std::endl;
 	}
 
 	void setAuctionTimeout(const float & timeOut) {
 		auctionTimeout = timeOut;
+        	//std::cerr << "********* setting Auction Timeout to " << auctionTimeout << std::endl;
 	}
 
 
