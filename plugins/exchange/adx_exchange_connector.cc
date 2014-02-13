@@ -619,7 +619,7 @@ parseBidRequest(HttpAuctionHandler & connection,
             // We'll use the google user id for the provider ID
             br.userIds.add(br.user->id, ID_PROVIDER);
         }
-        if (gbr.has_ip() && has_user_agent){
+        else if (gbr.has_ip() && has_user_agent){
             // Use a hashing function of IP + User Agent concatenation
             br.userAgentIPHash = CityHash64((gbr.ip() + gbr.user_agent()).c_str(),(gbr.ip() + gbr.user_agent()).length());
             br.userIds.add(Id(br.userAgentIPHash), ID_PROVIDER);
