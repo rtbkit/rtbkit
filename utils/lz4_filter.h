@@ -91,7 +91,7 @@ struct JML_PACKED Header
             bool blockIndependence,
             bool blockChecksum,
             bool streamChecksum) :
-        magic(MagicConst), options({0, 0})
+        magic(MagicConst), options{0, 0}
     {
         const uint8_t version = 1; // 2 bits
 
