@@ -353,6 +353,16 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
     Date lastWinLoss;
     Date lastCampaignEvent;
 
+
+	void setWinTimeout(const float & timeOut) {
+		winTimeout = timeOut;
+	}
+
+	void setAuctionTimeout(const float & timeOut) {
+		auctionTimeout = timeOut;
+	}
+
+
 private:
     /** Initialize all of our connections, hooking everything in to the
         event loop.
@@ -467,6 +477,10 @@ private:
 
     AgentConfigurationListener configListener;
     LoopMonitor loopMonitor;
+
+	float auctionTimeout;
+	float winTimeout;
+
 };
 
 
