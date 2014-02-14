@@ -139,6 +139,10 @@ struct BudgetController {
     /**
      * The amount here refers to an absolute amount that the strategy should have. This method
      * transfers the appropriate amount so that the strategy ends up with the specified amount
+     * 
+     * The default implementation of the following two methods call each other, so you
+     * must override at least one of them to avoid an infinite recursion
+     * 
      * @param campaign The campaign to which we want to add our strategy
      * @param strategy The name of the strategy
      * @param amount The amount that the strategy should have after the transfer

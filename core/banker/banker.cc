@@ -61,6 +61,7 @@ addAccountSync(const AccountKey & account)
     return result.get();
 }
 
+//you must override either this method or the next one to avoid an infinite recursion
 void
 BudgetController::
 topupTransfer(const AccountKey & account,
@@ -78,6 +79,7 @@ topupTransfer(const AccountKey & account,
     }
 }
 
+//you must override either this method or the previous one to avoid an infinite recursion
 void
 BudgetController::
 topupTransferSync(const AccountKey & account,
