@@ -357,13 +357,21 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
 
 
 	void setWinTimeout(const float & timeOut) {
+		
+		if (timeOut < 0.0) 
+			throw ML::Exception("Invalid timeout for Win timeout");
+
 		winTimeout = timeOut;
-        	//std::cerr << "********* setting Win Timeout to " << winTimeout << std::endl;
+        //std::cerr << "********* setting Win Timeout to " << winTimeout << std::endl;
 	}
 
 	void setAuctionTimeout(const float & timeOut) {
+		
+		if (timeOut < 0.0) 
+			throw ML::Exception("Invalid timeout for Win timeout");
+		
 		auctionTimeout = timeOut;
-        	//std::cerr << "********* setting Auction Timeout to " << auctionTimeout << std::endl;
+       	//std::cerr << "********* setting Auction Timeout to " << auctionTimeout << std::endl;
 	}
 
 
