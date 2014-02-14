@@ -398,6 +398,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
                    + to_string(service.port()));
 
     auto client = make_shared<HttpClient>(baseUrl);
+    auto & clientRef = *client.get();
     loop.addSource("httpClient", client);
 
     int maxReqs(10000), numReqs(0);
@@ -416,8 +417,10 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
     };
     HttpClientCallbacks cbs(nullptr, nullptr, nullptr, onDone);
 
+    Date start = Date::now();
+
     while (numReqs < maxReqs) {
-        if (client->get("/", cbs)) {
+        if (clientRef.get("/", cbs)) {
             numReqs++;
         }
     }
@@ -426,5 +429,11 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
         int old(numResponses);
         ML::futex_wait(numResponses, old);
     }
+
+    Date end = Date::now();
+    double delta = end - start;
+    double qps = numReqs / delta;
+    ::fprintf(stderr, "%d requests performed in %f secs => %f qps\n",
+              numReqs, delta, qps);
 }
 #endif
