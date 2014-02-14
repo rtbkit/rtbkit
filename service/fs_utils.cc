@@ -10,6 +10,7 @@
 #include <map>
 
 #include "boost/filesystem.hpp"
+#include "googleurl/src/url_util.h"
 
 #include "fs_utils.h"
 
@@ -119,6 +120,10 @@ void registerUrlFsHandler(const std::string & scheme,
     if (registry.find(scheme) != registry.end()) {
         throw ML::Exception("fs handler already registered");
     }
+
+    /* this enables googleuri to parse our urls properly */
+    url_util::AddStandardScheme(scheme.c_str());
+
     registry[scheme] = handler;
 }
 
