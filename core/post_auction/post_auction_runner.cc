@@ -68,7 +68,7 @@ PostAuctionRunner::
 init()
 {
     auto proxies = serviceArgs.makeServiceProxies();
-    auto serviceName = serviceArgs.serviceName("Post Auction Loop");
+    auto serviceName = serviceArgs.serviceName("PostAuctionLoop");
 
     postAuctionLoop = std::make_shared<PostAuctionLoop>(proxies, serviceName);
 	postAuctionLoop->init();    
