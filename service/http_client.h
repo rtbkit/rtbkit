@@ -3,6 +3,19 @@
    Copyright (c) 2014 Datacratic.  All rights reserved.
 
    An asynchronous HTTP client.
+
+   HttpClient is meant to provide a featureful asynchronous HTTP client class.
+   It supports strictly asynchronous (non-blocking) operations, HTTP
+   pipelining and concurrent requests while enabling streaming responses via a
+   callback mechanism. It is meant to be subclassed whenever a synchronous
+   interface or a one-shot response mechanism is required. In general, the
+   code should be complete enough that existing and similar classes could be
+   subclassed gradually (HttpRestProxy, s3 internals).
+
+   Caveat:
+   - no support for EPOLLONESHOT yet
+   - has not been tweaked for performance yet
+   - does and will not provide any support for cookies per se
 */
 
 #pragma once
@@ -23,73 +36,12 @@
 #include "soa/service/async_event_source.h"
 
 
-/*
-  HttpClient is meant to provide the most featureful asynchronous HTTP client
-  class. It supports strictly asynchronous (non-blocking) operations as well
-  as HTTP pipelining and concurrent requests, and enables streaming responses
-  via a callback mechanism. It is meant to be subclassed whenever a
-  synchronous interface or a one-shot response mechanism is required. In
-  general, the code should be complete enough that existing and similar
-  classes can be subclasses gradually (HttpRestProxy, s3 internals).
-
-  Caveat:
-  - does not provide any support for cookies
-  - no support for EPOLLONESHOT yet
-  - has not yet been tweaked for performance
-*/
-
 namespace Datacratic {
 
-struct HttpRequest;
+struct HttpClientCallbacks;
 
-struct HttpClientCallbacks {
-    enum Error {
-        NONE,
-        UNKNOWN,
-        TIMEOUT,
-        HOST_NOT_FOUND,
-        COULD_NOT_CONNECT,
-    };
 
-    typedef std::function<void (const HttpRequest &,
-                                const std::string &,
-                                int code)> OnResponseStart;
-    typedef std::function<void (const HttpRequest &,
-                                const std::string &)> OnData;
-    typedef std::function<void (const HttpRequest & rq,
-                                Error errorCode)> OnDone;
-
-    HttpClientCallbacks(OnResponseStart onResponseStart = nullptr,
-                        OnData onHeader = nullptr,
-                        OnData onData = nullptr,
-                        OnDone onDone = nullptr);
-    virtual ~HttpClientCallbacks();
-
-    static std::string errorMessage(Error errorCode);
-
-    /* initiates a response */
-    virtual void onResponseStart(const HttpRequest & rq,
-                                 const std::string & httpVersion,
-                                 int code) const;
-
-    /* callback for header lines */
-    virtual void onHeader(const HttpRequest & rq,
-                          const std::string & header) const;
-
-    /* callback for body data */
-    virtual void onData(const HttpRequest & rq,
-                        const std::string & data) const;
-
-    /* callback for operation completions */
-    virtual void onDone(const HttpRequest & rq,
-                        Error errorCode) const;
-
-    OnResponseStart onResponseStart_;
-    OnData onHeader_;
-    OnData onData_;
-    OnDone onDone_;
-};
-
+/* HTTPREQUEST */
 
 /* Representation of an HTTP request. */
 struct HttpRequest {
@@ -199,37 +151,7 @@ struct HttpRequest {
 };
 
 
-struct HttpConnection {
-    HttpConnection();
-
-    HttpConnection(const HttpConnection & other) = delete;
-
-    void clear()
-    {
-        easy_.reset();
-        request_.clear();
-        afterContinue_ = false;
-        uploadOffset_ = 0;
-    }
-    void perform(bool noSSLChecks, bool debug);
-
-    curlpp::types::WriteFunctionFunctor onHeader_;
-    curlpp::types::WriteFunctionFunctor onWrite_;
-    size_t onCurlHeader(char * data, size_t size) noexcept;
-    size_t onCurlWrite(char * data, size_t size) noexcept;
-
-    curlpp::types::ReadFunctionFunctor onRead_;
-    size_t onCurlRead(char * data, size_t size, size_t max) noexcept;
-
-    HttpRequest request_;
-
-    curlpp::Easy easy_;
-    // HttpClientResponse response_;
-    bool afterContinue_;
-    size_t uploadOffset_;
-
-    struct HttpConnection *next;
-};
+/* HTTPCLIENT */
 
 struct HttpClient : public AsyncEventSource {
     HttpClient(const std::string & baseUrl,
@@ -285,6 +207,9 @@ struct HttpClient : public AsyncEventSource {
 
     void handleEvents();
     void handleEvent(const ::epoll_event & event);
+    void handleWakeupEvent();
+    void handleTimerEvent();
+    void handleMultiEvent(const ::epoll_event & event);
 
     void checkMultiInfos();
 
@@ -293,6 +218,40 @@ struct HttpClient : public AsyncEventSource {
 
     void addFd(int fd, bool isMod, int flags) const;
     void removeFd(int fd) const;
+
+    struct HttpConnection {
+        HttpConnection();
+
+        HttpConnection(const HttpConnection & other) = delete;
+
+        void clear()
+        {
+            easy_.reset();
+            request_.clear();
+            afterContinue_ = false;
+            uploadOffset_ = 0;
+        }
+        void perform(bool noSSLChecks, bool debug);
+
+        /* header and body write callbacks */
+        curlpp::types::WriteFunctionFunctor onHeader_;
+        curlpp::types::WriteFunctionFunctor onWrite_;
+        size_t onCurlHeader(const char * data, size_t size) noexcept;
+        size_t onCurlWrite(const char * data, size_t size) noexcept;
+
+        /* body read callback */
+        curlpp::types::ReadFunctionFunctor onRead_;
+        size_t onCurlRead(char * buffer, size_t bufferSize) noexcept;
+
+        HttpRequest request_;
+
+        curlpp::Easy easy_;
+        // HttpClientResponse response_;
+        bool afterContinue_;
+        size_t uploadOffset_;
+
+        struct HttpConnection *next;
+    };
 
     HttpConnection * getConnection();
     void releaseConnection(HttpConnection * connection);
@@ -318,4 +277,64 @@ struct HttpClient : public AsyncEventSource {
     ML::RingBufferSRMW<HttpRequest> queue_; /* queued requests */
 };
 
-}
+
+/* HTTPCLIENTCALLBACKS */
+
+struct HttpClientCallbacks {
+    enum Error {
+        NONE,
+        UNKNOWN,
+        TIMEOUT,
+        HOST_NOT_FOUND,
+        COULD_NOT_CONNECT,
+    };
+
+    typedef std::function<void (const HttpRequest &,
+                                const std::string &,
+                                int code)> OnResponseStart;
+    typedef std::function<void (const HttpRequest &,
+                                const std::string &)> OnData;
+    typedef std::function<void (const HttpRequest & rq,
+                                Error errorCode)> OnDone;
+
+    HttpClientCallbacks(OnResponseStart onResponseStart = nullptr,
+                        OnData onHeader = nullptr,
+                        OnData onData = nullptr,
+                        OnDone onDone = nullptr)
+        : onResponseStart_(onResponseStart),
+          onHeader_(onHeader), onData_(onData),
+          onDone_(onDone)
+    {
+    }
+
+    virtual ~HttpClientCallbacks()
+    {
+    }
+
+    static const std::string & errorMessage(Error errorCode);
+
+    /* initiates a response */
+    virtual void onResponseStart(const HttpRequest & rq,
+                                 const std::string & httpVersion,
+                                 int code) const;
+
+    /* callback for header lines */
+    virtual void onHeader(const HttpRequest & rq,
+                          const std::string & header) const;
+
+    /* callback for body data */
+    virtual void onData(const HttpRequest & rq,
+                        const std::string & data) const;
+
+    /* callback for operation completions */
+    virtual void onDone(const HttpRequest & rq,
+                        Error errorCode) const;
+
+    OnResponseStart onResponseStart_;
+    OnData onHeader_;
+    OnData onData_;
+    OnDone onDone_;
+};
+
+} // namespace Datacratic
+

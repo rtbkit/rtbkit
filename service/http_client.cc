@@ -60,7 +60,8 @@ socketCallback(CURL *e, curl_socket_t s, int what, void *clientP, void *sockp)
     return this_->onCurlSocketEvent(e, s, what, sockp);
 }
 
-int timerCallback(CURLM *multi, long timeoutMs, void *clientP)
+int
+timerCallback(CURLM *multi, long timeoutMs, void *clientP)
 {
     HttpClient *this_ = static_cast<HttpClient *>(clientP);
 
@@ -72,22 +73,7 @@ int timerCallback(CURLM *multi, long timeoutMs, void *clientP)
 
 /* HTTPCLIENTCALLBACKS */
 
-HttpClientCallbacks::
-HttpClientCallbacks(OnResponseStart onResponseStart,
-                    OnData onHeader, OnData onData, OnDone onDone)
-    : onResponseStart_(onResponseStart),
-      onHeader_(onHeader),
-      onData_(onData),
-      onDone_(onDone)
-{
-}
-
-HttpClientCallbacks::
-~HttpClientCallbacks()
-{
-}
-
-string
+const string &
 HttpClientCallbacks::
 errorMessage(Error errorCode)
 {
@@ -148,148 +134,6 @@ onDone(const HttpRequest & rq, Error errorCode)
 {
     if (onDone_)
         onDone_(rq, errorCode);
-}
-
-
-/* HTTPCONNECTION */
-
-HttpConnection::
-HttpConnection()
-    : afterContinue_(false), uploadOffset_(0)
-{
-    onHeader_ = [&] (char * data, size_t ofs1, size_t ofs2) {
-        return this->onCurlHeader(data, ofs1 * ofs2);
-    };
-    onWrite_ = [&] (char * data, size_t ofs1, size_t ofs2) {
-        return this->onCurlWrite(data, ofs1 * ofs2);
-    };
-    onRead_ = [&] (char * data, size_t ofs1, size_t ofs2) {
-        return this->onCurlRead(data, ofs1, ofs2);
-    };
-}
-
-void
-HttpConnection::
-perform(bool noSSLChecks, bool debug)
-{
-    // cerr << "* performRequest\n";
-
-    // cerr << "nbrRequests: " + to_string(nbrRequests_) + "\n";
-
-    afterContinue_ = false;
-
-    easy_.reset();
-    easy_.setOpt<curlopt::Url>(request_.url_);
-    // easy_.setOpt<curlopt::CustomRequest>(request_.verb_);
-
-    list<string> curlHeaders;
-    for (const auto & it: request_.headers_) {
-        curlHeaders.push_back(it.first + ": " + it.second);
-    }
-    if (request_.verb_ != "GET") {
-        if (request_.verb_ == "PUT") {
-            easy_.setOpt<curlopt::Upload>(true);
-            easy_.setOpt<curlopt::InfileSize>(request_.content_.size);
-        }
-        else if (request_.verb_ == "POST") {
-            easy_.setOpt<curlopt::Post>(true);
-            easy_.setOpt<curlopt::PostFields>(request_.content_.str);
-            easy_.setOpt<curlopt::PostFieldSize>(request_.content_.size);
-        }
-        curlHeaders.push_back("Content-Length: "
-                              + to_string(request_.content_.size));
-        curlHeaders.push_back("Expect:");
-        curlHeaders.push_back("Transfer-Encoding:");
-        curlHeaders.push_back("Content-Type: "
-                              + request_.content_.contentType);
-    }
-    easy_.setOpt<curlopt::HttpHeader>(curlHeaders);
-
-    easy_.setOpt<curlopt::CustomRequest>(request_.verb_);
-    easy_.setOpt<curlopt::Private>(this);
-    easy_.setOpt<curlopt::HeaderFunction>(onHeader_);
-    easy_.setOpt<curlopt::WriteFunction>(onWrite_);
-    easy_.setOpt<curlopt::ReadFunction>(onRead_);
-    if (request_.timeout_ != -1) {
-        easy_.setOpt<curlopt::Timeout>(request_.timeout_);
-    }
-    easy_.setOpt<curlopt::NoSignal>(true);
-    easy_.setOpt<curlopt::NoProgress>(true);
-    if (noSSLChecks) {
-        easy_.setOpt<curlopt::SslVerifyHost>(false);
-        easy_.setOpt<curlopt::SslVerifyPeer>(false);
-    }
-    if (debug) {
-        easy_.setOpt<curlopt::Verbose>(1L);
-    }
-}
-
-size_t
-HttpConnection::
-onCurlHeader(char * data, size_t size)
-    noexcept
-{
-    // cerr << "onCurlHeader\n";
-    string headerLine(data, size);
-    if (headerLine.find("HTTP/1.1 100") == 0) {
-        afterContinue_ = true;
-    }
-    else if (afterContinue_) {
-        if (headerLine == "\r\n")
-            afterContinue_ = false;
-    }
-    else {
-        if (headerLine.find("HTTP/") == 0) {
-            size_t lineSize = headerLine.size();
-            size_t oldTokenIdx(0);
-            size_t tokenIdx = headerLine.find(" ");
-            if (tokenIdx == string::npos || tokenIdx >= lineSize) {
-                throw ML::Exception("malformed header");
-            }
-            string version = headerLine.substr(oldTokenIdx, tokenIdx);
-
-            oldTokenIdx = tokenIdx + 1;
-            tokenIdx = headerLine.find(" ", oldTokenIdx);
-            if (tokenIdx == string::npos || tokenIdx >= lineSize) {
-                throw ML::Exception("malformed header");
-            }
-            int code = stoi(headerLine.substr(oldTokenIdx, tokenIdx));
-
-            request_.callbacks_->onResponseStart(request_,
-                                                 move(version), code);
-        }
-        else {
-            request_.callbacks_->onHeader(request_, move(headerLine));
-        }
-    }
-
-    return size;
-}
-
-size_t
-HttpConnection::
-onCurlWrite(char * data, size_t size)
-    noexcept
-{
-    // cerr << "onCurlWrite\n";
-    request_.callbacks_->onData(request_, string(data, size));
-    return size;
-}
-
-size_t
-HttpConnection::
-onCurlRead(char * data, size_t size, size_t max)
-    noexcept
-{
-    size_t chunkSize = request_.content_.size - uploadOffset_;
-    if (chunkSize > max) {
-        chunkSize = max;
-    }
-    const char * chunkStart = request_.content_.data + uploadOffset_;
-    copy(chunkStart, chunkStart + chunkSize, data);
-    uploadOffset_ += chunkSize;
-
-    return chunkSize;
 }
 
 
@@ -465,56 +309,77 @@ HttpClient::
 handleEvent(const ::epoll_event & event)
 {
     if (event.data.fd == wakeup_.fd()) {
-        // cerr << "  wakeup event\n";
-        wakeup_.read();
-        HttpConnection * conn = getConnection();
-        if (conn != nullptr) {
-            if (queue_.tryPop(conn->request_)) {
-                conn->perform(noSSLChecks, debug);
-                multi_.add(&conn->easy_);
-            }
-            else {
-                releaseConnection(conn);
-            }
-        }
+        handleWakeupEvent();
     }
     else if (event.data.fd == timerFd_) {
-        // cerr << "  timer event\n";
-        uint64_t misses;
-        ssize_t len = ::read(timerFd_, &misses, sizeof(misses));
-        if (len == -1) {
-            if (errno != EAGAIN) {
-                throw ML::Exception(errno, "read timerd");
-            }
-        }
-        int runningHandles;
-        ::CURLMcode rc = ::curl_multi_socket_action(handle_,
-                                                    CURL_SOCKET_TIMEOUT, 0, 
-                                                    &runningHandles);
-        if (rc != ::CURLM_OK) {
-            throw ML::Exception("curl error " + to_string(rc));
-        }
+        handleTimerEvent();
     }
     else {
-        // cerr << "  curl event\n";
-        int actionFlags(0);
-        if ((event.events & EPOLLIN) != 0) {
-            actionFlags |= CURL_CSELECT_IN;
-        }
-        if ((event.events & EPOLLOUT) != 0) {
-            actionFlags |= CURL_CSELECT_OUT;
-        }
-    
-        int runningHandles;
-        ::CURLMcode rc = ::curl_multi_socket_action(handle_, event.data.fd,
-                                                    actionFlags,
-                                                    &runningHandles);
-        if (rc != ::CURLM_OK) {
-            throw ML::Exception("curl error " + to_string(rc));
-        }
-
-        checkMultiInfos();
+        handleMultiEvent(event);
     }
+}
+
+void
+HttpClient::
+handleWakeupEvent()
+{
+    // cerr << "  wakeup event\n";
+    wakeup_.read();
+    HttpConnection * conn = getConnection();
+    if (conn != nullptr) {
+        if (queue_.tryPop(conn->request_)) {
+            conn->perform(noSSLChecks, debug);
+            multi_.add(&conn->easy_);
+        }
+        else {
+            releaseConnection(conn);
+        }
+    }
+}
+
+void
+HttpClient::
+handleTimerEvent()
+{
+    // cerr << "  timer event\n";
+    uint64_t misses;
+    ssize_t len = ::read(timerFd_, &misses, sizeof(misses));
+    if (len == -1) {
+        if (errno != EAGAIN) {
+            throw ML::Exception(errno, "read timerd");
+        }
+    }
+    int runningHandles;
+    ::CURLMcode rc = ::curl_multi_socket_action(handle_,
+                                                CURL_SOCKET_TIMEOUT, 0, 
+                                                &runningHandles);
+    if (rc != ::CURLM_OK) {
+        throw ML::Exception("curl error " + to_string(rc));
+    }
+}
+
+void
+HttpClient::
+handleMultiEvent(const ::epoll_event & event)
+{
+    // cerr << "  curl event\n";
+    int actionFlags(0);
+    if ((event.events & EPOLLIN) != 0) {
+        actionFlags |= CURL_CSELECT_IN;
+    }
+    if ((event.events & EPOLLOUT) != 0) {
+        actionFlags |= CURL_CSELECT_OUT;
+    }
+    
+    int runningHandles;
+    ::CURLMcode rc = ::curl_multi_socket_action(handle_, event.data.fd,
+                                                actionFlags,
+                                                &runningHandles);
+    if (rc != ::CURLM_OK) {
+        throw ML::Exception("curl error " + to_string(rc));
+    }
+
+    checkMultiInfos();
 }
 
 void
@@ -607,6 +472,7 @@ onCurlTimerEvent(long timeoutMs)
     return 0;
 }
 
+HttpClient::
 HttpConnection *
 HttpClient::
 getConnection()
@@ -639,4 +505,151 @@ releaseConnection(HttpConnection * oldConnection)
         oldConnection->next = next;
         done = ML::cmp_xchg(connections_, next, oldConnection);
     }
+}
+
+
+/* HTTPCLIENT::HTTPCONNECTION */
+
+HttpClient::
+HttpConnection::
+HttpConnection()
+    : onHeader_([&] (const char * data, size_t ofs1, size_t ofs2) {
+          return this->onCurlHeader(data, ofs1 * ofs2);
+      }),
+      onWrite_([&] (const char * data, size_t ofs1, size_t ofs2) {
+          return this->onCurlWrite(data, ofs1 * ofs2);
+      }),
+      onRead_([&] (char * data, size_t ofs1, size_t ofs2) {
+          return this->onCurlRead(data, ofs1 * ofs2);
+      }),
+      afterContinue_(false), uploadOffset_(0)
+{
+}
+
+void
+HttpClient::
+HttpConnection::
+perform(bool noSSLChecks, bool debug)
+{
+    // cerr << "* performRequest\n";
+
+    // cerr << "nbrRequests: " + to_string(nbrRequests_) + "\n";
+
+    afterContinue_ = false;
+
+    easy_.reset();
+    easy_.setOpt<curlopt::Url>(request_.url_);
+    // easy_.setOpt<curlopt::CustomRequest>(request_.verb_);
+
+    list<string> curlHeaders;
+    for (const auto & it: request_.headers_) {
+        curlHeaders.push_back(it.first + ": " + it.second);
+    }
+    if (request_.verb_ != "GET") {
+        if (request_.verb_ == "PUT") {
+            easy_.setOpt<curlopt::Upload>(true);
+            easy_.setOpt<curlopt::InfileSize>(request_.content_.size);
+        }
+        else if (request_.verb_ == "POST") {
+            easy_.setOpt<curlopt::Post>(true);
+            easy_.setOpt<curlopt::PostFields>(request_.content_.str);
+            easy_.setOpt<curlopt::PostFieldSize>(request_.content_.size);
+        }
+        curlHeaders.push_back("Content-Length: "
+                              + to_string(request_.content_.size));
+        curlHeaders.push_back("Expect:");
+        curlHeaders.push_back("Transfer-Encoding:");
+        curlHeaders.push_back("Content-Type: "
+                              + request_.content_.contentType);
+    }
+    easy_.setOpt<curlopt::HttpHeader>(curlHeaders);
+
+    easy_.setOpt<curlopt::CustomRequest>(request_.verb_);
+    easy_.setOpt<curlopt::Private>(this);
+    easy_.setOpt<curlopt::HeaderFunction>(onHeader_);
+    easy_.setOpt<curlopt::WriteFunction>(onWrite_);
+    easy_.setOpt<curlopt::ReadFunction>(onRead_);
+    if (request_.timeout_ != -1) {
+        easy_.setOpt<curlopt::Timeout>(request_.timeout_);
+    }
+    easy_.setOpt<curlopt::NoSignal>(true);
+    easy_.setOpt<curlopt::NoProgress>(true);
+    if (noSSLChecks) {
+        easy_.setOpt<curlopt::SslVerifyHost>(false);
+        easy_.setOpt<curlopt::SslVerifyPeer>(false);
+    }
+    if (debug) {
+        easy_.setOpt<curlopt::Verbose>(1L);
+    }
+}
+
+size_t
+HttpClient::
+HttpConnection::
+onCurlHeader(const char * data, size_t size)
+    noexcept
+{
+    // cerr << "onCurlHeader\n";
+    string headerLine(data, size);
+    if (headerLine.find("HTTP/1.1 100") == 0) {
+        afterContinue_ = true;
+    }
+    else if (afterContinue_) {
+        if (headerLine == "\r\n")
+            afterContinue_ = false;
+    }
+    else {
+        if (headerLine.find("HTTP/") == 0) {
+            size_t lineSize = headerLine.size();
+            size_t oldTokenIdx(0);
+            size_t tokenIdx = headerLine.find(" ");
+            if (tokenIdx == string::npos || tokenIdx >= lineSize) {
+                throw ML::Exception("malformed header");
+            }
+            string version = headerLine.substr(oldTokenIdx, tokenIdx);
+
+            oldTokenIdx = tokenIdx + 1;
+            tokenIdx = headerLine.find(" ", oldTokenIdx);
+            if (tokenIdx == string::npos || tokenIdx >= lineSize) {
+                throw ML::Exception("malformed header");
+            }
+            int code = stoi(headerLine.substr(oldTokenIdx, tokenIdx));
+
+            request_.callbacks_->onResponseStart(request_,
+                                                 move(version), code);
+        }
+        else {
+            request_.callbacks_->onHeader(request_, move(headerLine));
+        }
+    }
+
+    return size;
+}
+
+size_t
+HttpClient::
+HttpConnection::
+onCurlWrite(const char * data, size_t size)
+    noexcept
+{
+    // cerr << "onCurlWrite\n";
+    request_.callbacks_->onData(request_, string(data, size));
+    return size;
+}
+
+size_t
+HttpClient::
+HttpConnection::
+onCurlRead(char * buffer, size_t bufferSize)
+    noexcept
+{
+    size_t chunkSize = request_.content_.size - uploadOffset_;
+    if (chunkSize > bufferSize) {
+        chunkSize = bufferSize;
+    }
+    const char * chunkStart = request_.content_.data + uploadOffset_;
+    copy(chunkStart, chunkStart + chunkSize, buffer);
+    uploadOffset_ += chunkSize;
+
+    return chunkSize;
 }
