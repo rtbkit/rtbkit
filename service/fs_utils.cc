@@ -9,11 +9,13 @@
 #include <memory>
 #include <map>
 
+#include "boost/filesystem.hpp"
+
 #include "fs_utils.h"
 
 using namespace std;
 using namespace Datacratic;
-
+namespace fs = boost::filesystem;
 
 namespace {
 
@@ -44,10 +46,10 @@ struct LocalUrlFsHandler : public UrlFsHandler {
 
     virtual void makeDirectory(const Url & url)
     {
+        boost::system::error_code ec;
         string path = url.path();
-        int res = ::mkdir(path.c_str(), 0777);
-        if (res == -1) {
-            throw ML::Exception(errno, "mkdir");
+        if (!fs::create_directories(path, ec)) {
+            throw ML::Exception(ec.message());
         }
     }
 
