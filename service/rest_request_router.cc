@@ -123,7 +123,7 @@ processRequest(const RestServiceEndpoint::ConnectionId & connection,
         try {
             MatchResult mr = sr.process(request, context, connection);
             //cerr << "returned " << mr << endl;
-            if (mr == MR_YES || mr == MR_ERROR)
+            if (mr == MR_YES || mr == MR_ASYNC || mr == MR_ERROR)
                 return mr;
         } catch (const std::exception & exc) {
             connection.sendErrorResponse(500, ML::format("threw exception: %s",
