@@ -23,6 +23,7 @@ using namespace RTBKIT;
 vector<string> samples = {
     "rtbkit/plugins/bid_request/testing/openrtb1_req.json",
     "rtbkit/plugins/bid_request/testing/openrtb2_req.json",
+    "rtbkit/plugins/bid_request/testing/openrtb3_req.json",
     "rtbkit/plugins/bid_request/testing/openrtb_wseat_req.json",
     "rtbkit/plugins/bid_request/testing/openrtb_banner.json",
     "rtbkit/plugins/bid_request/testing/openrtb_expandable_creative.json",
@@ -380,4 +381,81 @@ BOOST_AUTO_TEST_CASE( benchmark_canonical_parsing )
     
     cerr << "did " << done << " in " << elapsed << "s at "
          << done / elapsed << "/s" << endl;
+}
+
+BOOST_AUTO_TEST_CASE( id_provider ) {
+
+    cerr << "id provider test : making sure we parse it correctly and always set it" << endl;
+
+    DefaultDescription<OpenRTB::BidRequest> desc;
+
+    vector<string> reqs;
+    bool hasBuyerUid, hasUserId, hasDeviceUA, hasDeviceIP;
+
+    for (auto s: samples) {
+
+        hasBuyerUid = false;
+        hasUserId = false;
+        hasDeviceUA = false;
+        hasDeviceIP = false;
+
+        OpenRTB::BidRequest req;
+        {
+            StreamingJsonParsingContext context;
+            context.init(s);
+            desc.parseJson(&req, context);
+        }
+
+        OpenRTB::BidRequest req2;
+        {
+            StreamingJsonParsingContext context;
+            context.init(s);
+            desc.parseJson(&req2, context);
+        }
+
+        std::unique_ptr<BidRequest> datacraticReq(fromOpenRtb(std::move(req), "openrtb", "openrtb"));
+
+        if(req2.user) {
+            if(req2.user->buyeruid)
+                hasBuyerUid = true;
+            // Check if we have userId
+            else if(req2.user->id)
+                hasUserId = true;
+        }
+
+        if(req2.device) {
+
+            // Check if we have the IP
+            if(!(req2.device->ip.empty()))
+                hasDeviceIP = true;
+
+            // Check if we have the UA
+            if(!(req2.device->ua.empty()))
+                hasDeviceUA = true;
+        }
+
+        // Check if we manage to to get buyeruid
+        if(hasBuyerUid) {
+            cerr << "BidRequest Buyer Id : " << req2.user->buyeruid << endl;
+            cerr << "Datacratic BidRequest Provider Id : " << datacraticReq->userIds.providerId << endl;
+            BOOST_CHECK( req2.user->buyeruid == datacraticReq->userIds.providerId );
+        }
+        // Check what we have for providerId in the bidrequest.
+        else if(hasUserId) {
+            cerr << "BidRequest User Id : " << req2.user->id << endl;
+            cerr << "Datacratic BidRequest Provider Id : " << datacraticReq->userIds.providerId << endl;
+            BOOST_CHECK( req2.user->id == datacraticReq->userIds.providerId );
+        }
+        else if(hasDeviceIP && hasDeviceUA) {
+            cerr << "BidRequest Device IP : " << req2.device->ip << endl; 
+            cerr << "BidRequest Device Agent : " << req2.device->ua << endl;
+            cerr << "Datacratic BidRequest Provider Id : " << datacraticReq->userIds.providerId << endl;
+            BOOST_CHECK( datacraticReq->userIds.providerId != Id(0) );
+        }
+        else {
+            cerr << "BidRequest User Id : " << req2.user->id << endl;
+            cerr << "Datacratic BidRequest Provider Id : " << datacraticReq->userIds.providerId << endl;
+            BOOST_CHECK( datacraticReq->userIds.providerId == Id(0) );
+        }
+    }
 }
