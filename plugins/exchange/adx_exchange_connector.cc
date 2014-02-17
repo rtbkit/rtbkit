@@ -621,8 +621,8 @@ parseBidRequest(HttpAuctionHandler & connection,
         }
         else if (gbr.has_ip() && has_user_agent){
             // Use a hashing function of IP + User Agent concatenation
-            br.userAgentIPHash = CityHash64((gbr.ip() + gbr.user_agent()).c_str(),(gbr.ip() + gbr.user_agent()).length());
-            br.userIds.add(Id(br.userAgentIPHash), ID_PROVIDER);
+            br.userAgentIPHash = Id(CityHash64((gbr.ip() + gbr.user_agent()).c_str(),(gbr.ip() + gbr.user_agent()).length()));
+            br.userIds.add(br.userAgentIPHash, ID_PROVIDER);
         }
         else {
             // Set provider ID to 0
