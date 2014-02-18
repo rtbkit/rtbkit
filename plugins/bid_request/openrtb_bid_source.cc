@@ -71,7 +71,7 @@ replayRequest()
 {
     ExcCheck(replay, "Bad call");
 
-    size_t index = replayCursor.load(std::memory_order_acquire);
+    size_t index = replayCursor.load();
     ExcCheck(index < replayBuffer.size(), "replayCursor is invalid");
 
     auto br = replayBuffer[index];
