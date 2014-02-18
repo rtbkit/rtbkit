@@ -128,6 +128,8 @@ MockExchange::Worker::bid() {
             auto ret = isWin(br, bid);
             if (!ret.first) continue;
 
+			bid.bidTimestamp = Date::now();
+
             wins->sendWin(br, bid, ret.second);
             exchange->recordHit("wins");
 
