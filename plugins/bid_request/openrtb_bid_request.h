@@ -28,10 +28,16 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 
 struct OpenRtbBidRequestParser {
 
+    static OpenRTB::BidRequest
+    parseBidRequest(const std::string & jsonValue);
+
     static BidRequest *
     parseBidRequest(const std::string & jsonValue,
                     const std::string & provider,
                     const std::string & exchange = "");
+
+    static OpenRTB::BidRequest
+    parseBidRequest(ML::Parse_Context & context);
 
     static BidRequest *
     parseBidRequest(ML::Parse_Context & context,

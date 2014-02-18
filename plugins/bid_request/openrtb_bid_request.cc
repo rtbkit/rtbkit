@@ -242,11 +242,10 @@ static DefaultDescription<OpenRTB::BidRequest> desc;
 
 } // file scope
 
-BidRequest *
+
+OpenRTB::BidRequest
 OpenRtbBidRequestParser::
-parseBidRequest(const std::string & jsonValue,
-                const std::string & provider,
-                const std::string & exchange)
+parseBidRequest(const std::string & jsonValue)
 {
     const char * strStart = jsonValue.c_str();
     StreamingJsonParsingContext jsonContext(jsonValue, strStart,
@@ -254,8 +253,28 @@ parseBidRequest(const std::string & jsonValue,
 
     OpenRTB::BidRequest req;
     desc.parseJson(&req, jsonContext);
+    return std::move(req);
+}
 
-    return fromOpenRtb(std::move(req), provider, exchange);
+
+BidRequest *
+OpenRtbBidRequestParser::
+parseBidRequest(const std::string & jsonValue,
+                const std::string & provider,
+                const std::string & exchange)
+{
+    return fromOpenRtb(parseBidRequest(jsonValue), provider, exchange);
+}
+
+OpenRTB::BidRequest
+OpenRtbBidRequestParser::
+parseBidRequest(ML::Parse_Context & context)
+{
+    StreamingJsonParsingContext jsonContext(context);
+
+    OpenRTB::BidRequest req;
+    desc.parseJson(&req, jsonContext);
+    return std::move(req);
 }
 
 BidRequest *
@@ -264,12 +283,7 @@ parseBidRequest(ML::Parse_Context & context,
                 const std::string & provider,
                 const std::string & exchange)
 {
-    StreamingJsonParsingContext jsonContext(context);
-
-    OpenRTB::BidRequest req;
-    desc.parseJson(&req, jsonContext);
-
-    return fromOpenRtb(std::move(req), provider, exchange);
+    return fromOpenRtb(parseBidRequest(context), provider, exchange);
 }
 
 } // namespace RTBKIT

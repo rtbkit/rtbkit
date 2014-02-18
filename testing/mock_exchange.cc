@@ -10,6 +10,7 @@
 
 #include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "soa/service/http_header.h"
+#include "jml/utils/smart_ptr_utils.h"
 
 #include <array>
 
@@ -51,12 +52,15 @@ start(Json::Value const & configuration) {
         auto json = *i;
         auto count = json.get("threads", 1).asInt();
 
+        // Sources are shared across threads to make replay mechanism work
+        // (they all share and RMW the same replay cursor)
+        auto bid = std::shared_ptr<BidSource>(BidSource::createBidSource(json["bids"]));
+        auto win = std::shared_ptr<WinSource>(WinSource::createWinSource(json["wins"]));
+
         for(auto j = 0; j != count; ++j) {
             std::cerr << "starting worker " << running << std::endl;
             ML::atomic_inc(running);
 
-            auto bid = json["bids"];
-            auto win = json["wins"];
             threads.create_thread([=]() {
                 Worker worker(this, bid, win);
                 worker.run();
@@ -75,7 +79,7 @@ add(BidSource * bid, WinSource * win) {
     ML::atomic_inc(running);
 
     threads.create_thread([=]() {
-        Worker worker(this, bid, win);
+        Worker worker(this, ML::make_unowned_sp(*bid), ML::make_unowned_sp(*win));
         worker.run();
 
         ML::atomic_dec(running);
@@ -84,7 +88,9 @@ add(BidSource * bid, WinSource * win) {
 
 
 MockExchange::Worker::
-Worker(MockExchange * exchange, BidSource * bid, WinSource * win) :
+Worker(MockExchange * exchange,
+       const std::shared_ptr<BidSource> &bid,
+       const std::shared_ptr<WinSource> &win) :
     exchange(exchange),
     bids(bid),
     wins(win),

@@ -12,7 +12,43 @@
 using namespace Datacratic;
 using namespace RTBKIT;
 
-BidRequest OpenRTBBidSource::generateRandomBidRequest() {
+OpenRTBBidSource::
+OpenRTBBidSource(Json::Value const & json) :
+    BidSource(json),
+    host(json.get("host", ML::hostname()).asString()),
+    verb(json.get("verb", "POST").asString()),
+    resource(json.get("resource", "/").asString()),
+    replay(false),
+    replayCursor(0)
+{
+    if (json.isMember("replayFile")) {
+        loadReplayFile(json["replayFile"].asString());
+        replay = true;
+    }
+}
+
+void
+OpenRTBBidSource::
+loadReplayFile(const std::string& filename)
+{
+    ML::filter_istream is(filename);
+    if (!is) {
+        throw ML::Exception(ML::format("Could not load replay file: %s",
+                                       filename.c_str()));
+    }
+
+    for (std::string line; getline(is, line); ) {
+        auto br = OpenRtbBidRequestParser::parseBidRequest(line);
+        replayBuffer.push_back(std::move(br));
+    }
+
+}
+
+
+OpenRTB::BidRequest
+OpenRTBBidSource::
+generateRequest()
+{
     key += rng.random();
 
     OpenRTB::BidRequest req;
@@ -25,6 +61,36 @@ BidRequest OpenRTBBidSource::generateRandomBidRequest() {
     imp.banner.reset(new OpenRTB::Banner);
     imp.banner->w.push_back(300);
     imp.banner->h.push_back(250);
+
+    return req;
+}
+
+OpenRTB::BidRequest
+OpenRTBBidSource::
+replayRequest()
+{
+    ExcCheck(replay, "Bad call");
+
+    size_t index = replayCursor.load(std::memory_order_acquire);
+    ExcCheck(index < replayBuffer.size(), "replayCursor is invalid");
+
+    auto br = replayBuffer[index];
+    size_t oldIndex { index };
+    size_t newIndex;
+    do {
+        newIndex = (oldIndex + 1) % replayBuffer.size();
+    } while (!replayCursor.compare_exchange_weak(oldIndex, newIndex));
+
+    return br;
+}
+
+BidRequest OpenRTBBidSource::generateRandomBidRequest() {
+    OpenRTB::BidRequest req;
+
+    if (replay)
+        req = replayRequest();
+    else
+        req = generateRequest();
 
     StructuredJsonPrintingContext context;
     DefaultDescription<OpenRTB::BidRequest> desc;
