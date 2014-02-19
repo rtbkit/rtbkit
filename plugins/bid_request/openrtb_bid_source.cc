@@ -8,40 +8,76 @@
 #include "openrtb_bid_request.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/service/http_header.h"
+#include <mutex>
 
 using namespace Datacratic;
 using namespace RTBKIT;
+
+namespace {
+    class BidRequestReplayBuffer {
+    public:
+        BidRequestReplayBuffer() :
+            cursor { 0 }
+          , isFileLoaded { false }
+        { }
+
+        void loadFile(const std::string &fileName) {
+            ML::filter_istream is(fileName);
+            if (!is) {
+                throw ML::Exception(ML::format("Could not load replay file: %s",
+                                               fileName.c_str()));
+            }
+
+            for (std::string line; getline(is, line); ) {
+                auto br = OpenRtbBidRequestParser::parseBidRequest(line);
+                buffer.push_back(std::move(br));
+            }
+
+        }
+
+        bool isActive() const {
+            return isFileLoaded;
+        }
+
+        OpenRTB::BidRequest next() {
+            ExcCheck(isFileLoaded, "Replay file is not loaded");
+
+            size_t index = cursor.load();
+            ExcCheck(index < buffer.size(), "replayCursor is invalid");
+
+            auto br = buffer[index];
+            size_t oldIndex { index };
+            size_t newIndex;
+            do {
+                newIndex = (oldIndex + 1) % buffer.size();
+            } while (!cursor.compare_exchange_weak(oldIndex, newIndex));
+
+            return br;
+        }
+
+    private:
+        std::atomic<size_t> cursor;
+        bool isFileLoaded;
+        std::vector<OpenRTB::BidRequest> buffer;
+    };
+
+    BidRequestReplayBuffer replay;
+    std::once_flag flag;
+}
+
 
 OpenRTBBidSource::
 OpenRTBBidSource(Json::Value const & json) :
     BidSource(json),
     host(json.get("host", ML::hostname()).asString()),
     verb(json.get("verb", "POST").asString()),
-    resource(json.get("resource", "/").asString()),
-    replay(false),
-    replayCursor(0)
+    resource(json.get("resource", "/").asString())
 {
-    if (json.isMember("replayFile")) {
-        loadReplayFile(json["replayFile"].asString());
-        replay = true;
-    }
-}
-
-void
-OpenRTBBidSource::
-loadReplayFile(const std::string& filename)
-{
-    ML::filter_istream is(filename);
-    if (!is) {
-        throw ML::Exception(ML::format("Could not load replay file: %s",
-                                       filename.c_str()));
-    }
-
-    for (std::string line; getline(is, line); ) {
-        auto br = OpenRtbBidRequestParser::parseBidRequest(line);
-        replayBuffer.push_back(std::move(br));
-    }
-
+    std::call_once(flag, [&]() {
+        if (json.isMember("replayFile")) {
+            replay.loadFile(json["replayFile"].asString());
+        }
+    });
 }
 
 
@@ -65,30 +101,11 @@ generateRequest()
     return req;
 }
 
-OpenRTB::BidRequest
-OpenRTBBidSource::
-replayRequest()
-{
-    ExcCheck(replay, "Bad call");
-
-    size_t index = replayCursor.load();
-    ExcCheck(index < replayBuffer.size(), "replayCursor is invalid");
-
-    auto br = replayBuffer[index];
-    size_t oldIndex { index };
-    size_t newIndex;
-    do {
-        newIndex = (oldIndex + 1) % replayBuffer.size();
-    } while (!replayCursor.compare_exchange_weak(oldIndex, newIndex));
-
-    return br;
-}
-
 BidRequest OpenRTBBidSource::generateRandomBidRequest() {
     OpenRTB::BidRequest req;
 
-    if (replay)
-        req = replayRequest();
+    if (replay.isActive())
+        req = replay.next();
     else
         req = generateRequest();
 

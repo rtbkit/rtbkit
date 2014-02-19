@@ -52,17 +52,13 @@ start(Json::Value const & configuration) {
         auto json = *i;
         auto count = json.get("threads", 1).asInt();
 
-        // Sources are shared across threads to make replay mechanism work
-        // (they all share and RMW the same replay cursor)
-        auto bid = std::shared_ptr<BidSource>(BidSource::createBidSource(json["bids"]));
-        auto win = std::shared_ptr<WinSource>(WinSource::createWinSource(json["wins"]));
 
         for(auto j = 0; j != count; ++j) {
             std::cerr << "starting worker " << running << std::endl;
             ML::atomic_inc(running);
 
             threads.create_thread([=]() {
-                Worker worker(this, bid, win);
+                Worker worker(this, json["bids"], json["wins"]);
                 worker.run();
 
                 ML::atomic_dec(running);
@@ -79,7 +75,7 @@ add(BidSource * bid, WinSource * win) {
     ML::atomic_inc(running);
 
     threads.create_thread([=]() {
-        Worker worker(this, ML::make_unowned_sp(*bid), ML::make_unowned_sp(*win));
+        Worker worker(this, bid, win);
         worker.run();
 
         ML::atomic_dec(running);
@@ -88,9 +84,7 @@ add(BidSource * bid, WinSource * win) {
 
 
 MockExchange::Worker::
-Worker(MockExchange * exchange,
-       const std::shared_ptr<BidSource> &bid,
-       const std::shared_ptr<WinSource> &win) :
+Worker(MockExchange * exchange, BidSource *bid, WinSource *win) :
     exchange(exchange),
     bids(bid),
     wins(win),
