@@ -645,9 +645,9 @@ parseBidRequest(HttpAuctionHandler & connection,
         static sregex oe = sregex::compile("(,gzip\\(gfe\\))+$") ;
         device.ua = regex_replace (gbr.user_agent(), oe, string());
 #else
-        device.ua = Utf8String(gbr.user_agent());
+        device.ua = UtfString(gbr.user_agent());
 #endif
-        br.userAgent = Utf8String(gbr.user_agent());
+        br.userAgent = UtfString(gbr.user_agent());
     }
 
     // See function comment.

@@ -78,7 +78,7 @@ fromAppNexus(const AppNexus::BidRequest & req_b,
     rv->user->yob.val = current_year.val_ - (req.bidInfo.age.val<=0?0:req.bidInfo.age.val);
     rv->device.reset (new OpenRTB::Device);
     rv->device->geo.reset(new OpenRTB::Geo);
-    rv->device->ua = req.bidInfo.userAgent.utf8tring();
+    rv->device->ua = req.bidInfo.userAgent.utf8String();
     int osCode = req.bidInfo.operatingSystem.val;
     rv->device->os = req.bidInfo.getANDeviceOsStringForCode(osCode);
     rv->device->osv = "N/A";
@@ -105,7 +105,7 @@ fromAppNexus(const AppNexus::BidRequest & req_b,
     }
 
     if (!req.bidInfo.url.empty())
-    	rv->url = std::move(Url(req.bidInfo.url));
+    	rv->url = std::move(Url(req.bidInfo.url.utf8String()));
 
     // Impression
     rv->imp.emplace_back (AdSpot());

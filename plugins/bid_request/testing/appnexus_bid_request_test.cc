@@ -169,8 +169,8 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     // So we cast the test value and use the BOOST_CHECK for testing floating point values for equaulity within a tolerance
     BOOST_CHECK_CLOSE(ortbReq->device->geo->lat.val, (float)38.7875232696533, 0.0000001);
     BOOST_CHECK_CLOSE(ortbReq->device->geo->lon.val, (float)-77.2614831924438, 0.0000001);
-    BOOST_CHECK_EQUAL(ortbReq->device->os, Utf8String("iPhone"));
-    BOOST_CHECK_EQUAL(ortbReq->device->osv, Utf8String("N/A"));
+    BOOST_CHECK_EQUAL(ortbReq->device->os, UtfString("iPhone"));
+    BOOST_CHECK_EQUAL(ortbReq->device->osv, UtfString("N/A"));
 
     // OpenRTB::User
     BOOST_CHECK_EQUAL(ortbReq->user->id.toString(), "2987961585469200400");
