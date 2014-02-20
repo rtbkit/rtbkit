@@ -988,6 +988,15 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
                     info.bidRequestStrFormat);
 
 
+		sendAgentMessage(info.bid.agent, "LATEWIN", timestamp,
+                     "guaranteed", info.auctionId,
+                     to_string(info.bidRequest->findAdSpotIndex(adSpotId)),
+                     info.winPrice.toString(),
+                     info.bidRequestStrFormat,
+                     info.bidRequestStr,
+                     info.bid.bidData,
+                     info.bid.meta,
+                     info.augmentations);
 
             recordHit("bidResult.%s.winAfterLossAssumed", typeStr);
             recordOutcome(winPrice.value,
