@@ -188,7 +188,7 @@ struct lz4_compressor : public boost::iostreams::multichar_output_filter
         size_t toWrite = n;
         while (toWrite > 0) {
             size_t toCopy = std::min<size_t>(toWrite, buffer.size() - pos);
-            std::memcpy(buffer.data() + pos, s + (n - toWrite), toCopy);
+            std::memcpy(buffer.data() + pos, s, toCopy);
 
             toWrite -= toCopy;
             pos += toCopy;
