@@ -46,6 +46,7 @@ namespace {
             std::cout << "Replay: parsed total of " << total << " lines, "
                       << rejected << " rejected (" << ((rejected * 100.0) / total)
                       << "%)" << std::endl;
+            isFileLoaded = true;
 
         }
 
