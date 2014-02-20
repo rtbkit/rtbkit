@@ -6,6 +6,8 @@
 #ifndef __router__post_auction_loop_h__
 #define __router__post_auction_loop_h__
 
+//#include <iostream> 
+
 #include "soa/service/service_base.h"
 #include "soa/service/pending_list.h"
 #include <unordered_map>
@@ -353,6 +355,26 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
     Date lastWinLoss;
     Date lastCampaignEvent;
 
+
+	void setWinTimeout(const float & timeOut) {
+		
+		if (timeOut < 0.0) 
+			throw ML::Exception("Invalid timeout for Win timeout");
+
+		winTimeout = timeOut;
+        //std::cerr << "********* setting Win Timeout to " << winTimeout << std::endl;
+	}
+
+	void setAuctionTimeout(const float & timeOut) {
+		
+		if (timeOut < 0.0) 
+			throw ML::Exception("Invalid timeout for Win timeout");
+		
+		auctionTimeout = timeOut;
+       	//std::cerr << "********* setting Auction Timeout to " << auctionTimeout << std::endl;
+	}
+
+
 private:
     /** Initialize all of our connections, hooking everything in to the
         event loop.
@@ -467,6 +489,10 @@ private:
 
     AgentConfigurationListener configListener;
     LoopMonitor loopMonitor;
+
+	float auctionTimeout;
+	float winTimeout;
+
 };
 
 

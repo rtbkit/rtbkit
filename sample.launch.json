@@ -72,7 +72,9 @@
                     "root": ".",
                     "path": "build/x86_64/bin/post_auction_runner",
                     "arg": [
-                        "-B", "sample.bootstrap.json"
+                        "-B", "sample.bootstrap.json",
+			"--win-seconds", "3600.0", 
+			"--auction-seconds", "900.0"
                     ],
                     "log": true
                 },
