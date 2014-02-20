@@ -28,10 +28,21 @@ namespace {
                                                fileName.c_str()));
             }
 
+            size_t rejected, total;
+            rejected = total = 0;
             for (std::string line; getline(is, line); ) {
-                auto br = OpenRtbBidRequestParser::parseBidRequest(line);
-                buffer.push_back(std::move(br));
+                try {
+                    ++total;
+                    auto br = OpenRtbBidRequestParser::parseBidRequest(line);
+                    buffer.push_back(std::move(br));
+                } catch (const ML::Exception &) {
+                    ++rejected;
+                }
             }
+
+            std::cout << "Replay: parsed total of " << total << "lines, "
+                      << rejected << " rejected (" << ((rejected * 100.0) / total)
+                      << ")" << std::endl;
 
         }
 
