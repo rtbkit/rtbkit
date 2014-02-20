@@ -259,3 +259,33 @@ BOOST_AUTO_TEST_CASE( test_empty_gzip )
         }
     }
 }
+
+BOOST_AUTO_TEST_CASE( test_large_blocks )
+{
+    size_t blockSize = 64 * 1024 * 1024;
+    char * block = new char [blockSize];
+    for (unsigned i = 0;  i < blockSize;  ++i) {
+        block[i] = i ^ (i << 8) ^ (i << 16) ^ (1 << 24);
+    }
+    
+    string filename = "build/x86_64/tmp/badfile.xz4";
+
+    FileCleanup cleanup(filename);
+        
+    {
+        ML::filter_ostream stream(filename);
+        stream.write(block, blockSize);
+    }
+
+    {
+        ML::filter_istream stream(filename);
+        char * block2 = new char[blockSize];
+        stream.read(block2, blockSize);
+        BOOST_CHECK_EQUAL(stream.gcount(), blockSize);
+
+        //BOOST_CHECK(stream.eof());
+
+        BOOST_CHECK_EQUAL_COLLECTIONS(block, block + blockSize,
+                                      block2, block2 + blockSize);
+    }
+}
