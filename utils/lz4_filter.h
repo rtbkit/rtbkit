@@ -20,7 +20,6 @@
 #include <ios>
 #include <vector>
 #include <cstring>
-#include <alloca.h>
 #include "jml/utils/guard.h"
 
 namespace ML {
@@ -325,7 +324,8 @@ private:
         bool notCompressed = compressedSize & lz4::NotCompressedMask;
         compressedSize &= ~lz4::NotCompressedMask;
 
-        char* compressed = (char*) alloca(compressedSize);
+        char* compressed = (char*) malloc(compressedSize);
+        ML::Call_Guard guard([=] () { free(compressed); });
         lz4::read(src, compressed, compressedSize);
 
         if (head.blockChecksum()) {
