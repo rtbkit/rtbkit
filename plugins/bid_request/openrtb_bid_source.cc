@@ -22,11 +22,14 @@ namespace {
         { }
 
         void loadFile(const std::string &fileName) {
+            JML_TRACE_EXCEPTIONS(false)
             ML::filter_istream is(fileName);
             if (!is) {
                 throw ML::Exception(ML::format("Could not load replay file: %s",
                                                fileName.c_str()));
             }
+
+            std::cout << "Loading " << fileName << " replay file" << std::endl;
 
             size_t rejected, total;
             rejected = total = 0;
@@ -40,9 +43,9 @@ namespace {
                 }
             }
 
-            std::cout << "Replay: parsed total of " << total << "lines, "
+            std::cout << "Replay: parsed total of " << total << " lines, "
                       << rejected << " rejected (" << ((rejected * 100.0) / total)
-                      << ")" << std::endl;
+                      << "%)" << std::endl;
 
         }
 
