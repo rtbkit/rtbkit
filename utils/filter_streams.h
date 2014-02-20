@@ -158,6 +158,11 @@ UriHandlerFunction;
 void registerUriHandler(const std::string & scheme,
                         const UriHandlerFunction & handler);
 
+std::string & getMemStreamString(const std::string & name);
+void setMemStreamString(const std::string & name,
+                        const std::string & contents);
+void deleteMemStreamString(const std::string & name);
+void deleteAllMemStreamStrings();
 
 } // namespace ML
 
