@@ -26,7 +26,7 @@ struct JsonPathEntry {
     }
     
     JsonPathEntry(const std::string & key)
-        : index(-1), keyPtr(key.c_str()),
+        : index(-1), keyPtr(key.c_str()), keyStr(new std::string(key)),
           fieldNumber(0)
     {
     }
@@ -36,13 +36,35 @@ struct JsonPathEntry {
     {
     }
 
+    JsonPathEntry(JsonPathEntry && other) noexcept
+    {
+        *this = std::move(other);
+    }
+
+    JsonPathEntry & operator = (JsonPathEntry && other) noexcept
+    {
+        index = other.index;
+        keyPtr = other.keyPtr;
+        keyStr = other.keyStr;
+        fieldNumber = other.fieldNumber;
+        other.keyStr = nullptr;
+        return *this;
+    }
+
+    ~JsonPathEntry()
+    {
+        if (keyStr)
+            delete keyStr;
+    }
+
     int index;
     const char * keyPtr;
+    std::string * keyStr;
     int fieldNumber;
 
-    const char * fieldName() const
+    std::string fieldName() const
     {
-        return keyPtr;
+        return keyPtr ? std::string(keyPtr) : *keyStr;
     }
 
     const char * fieldNamePtr() const
@@ -50,6 +72,21 @@ struct JsonPathEntry {
         return keyPtr;
     }
 
+    // Needed for compilers that don't support move_if_noexcept
+    JsonPathEntry & operator = (const JsonPathEntry & other)
+    {
+        index = other.index;
+        keyPtr = other.keyPtr;
+        keyStr = other.keyStr ? new std::string(*other.keyStr) : nullptr;
+        fieldNumber = other.fieldNumber;
+        return *this;
+    }
+
+    // Needed for compilers that don't support move_if_noexcept
+    JsonPathEntry(const JsonPathEntry & other)
+    {
+        *this = other;
+    }
 };
 
 struct JsonPath: public ML::compact_vector<JsonPathEntry, 8> {
