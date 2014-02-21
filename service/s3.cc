@@ -54,8 +54,9 @@ namespace {
 struct S3UrlFsHandler : public UrlFsHandler {
     virtual UrlInfo getInfo(const Url & url)
     {
-        auto api = getS3ApiForBucket(url.host());
-        return api->getObjectInfo(url.path());
+        string bucket = url.host();
+        auto api = getS3ApiForBucket(bucket);
+        return api->getObjectInfo(bucket, url.path().substr(1));
     }
 
     virtual void makeDirectory(const Url & url)
@@ -66,7 +67,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
     {
         string bucket = url.host();
         auto api = getS3ApiForBucket(bucket);
-        return api->eraseObject(bucket, url.path());
+        return api->eraseObject(bucket, url.path().substr(1));
     }
 };
 

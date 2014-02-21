@@ -137,6 +137,7 @@ getUriObjectInfo(const std::string & url)
 UrlInfo
 tryGetUriObjectInfo(const std::string & url)
 {
+    JML_TRACE_EXCEPTIONS(false);
     try {
         return getUriObjectInfo(url);
     }
@@ -176,8 +177,9 @@ eraseUriObject(const std::string & url)
 bool
 tryEraseUriObject(const std::string & uri)
 {
-    bool result(true);
+    JML_TRACE_EXCEPTIONS(false);
 
+    bool result(true);
     try {
         eraseUriObject(uri);
     }
