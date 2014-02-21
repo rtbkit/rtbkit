@@ -28,14 +28,9 @@ struct OpenRTBBidSource : public BidSource {
 
 private:
 
+    bool replayFile;
     OpenRTB::BidRequest generateRequest();
-    OpenRTB::BidRequest replayRequest();
 
-    void loadReplayFile(const std::string& filename);
-
-    bool replay;
-    std::atomic<size_t> replayCursor;
-    std::vector<OpenRTB::BidRequest> replayBuffer;
 };
 
 } // namespace RTBKIT

@@ -49,9 +49,7 @@ private:
     int running;
 
     struct Worker {
-        Worker(MockExchange * exchange,
-               const std::shared_ptr<BidSource> &bid,
-               const std::shared_ptr<WinSource> &win);
+        Worker(MockExchange * exchange, BidSource *bid, WinSource *win);
         Worker(MockExchange * exchange, Json::Value bid, Json::Value win);
 
         void run();
@@ -62,8 +60,8 @@ private:
         bool isClick(const BidRequest&, const ExchangeSource::Bid& bid);
 
         MockExchange * exchange;
-        std::shared_ptr<BidSource> bids;
-        std::shared_ptr<WinSource> wins;
+        std::unique_ptr<BidSource> bids;
+        std::unique_ptr<WinSource> wins;
         ML::RNG rng;
     };
 
