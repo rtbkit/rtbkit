@@ -66,6 +66,7 @@ DefaultDescription()
     addField("bidfloor", &Impression::bidfloor, "Bid floor in CPM of currency");
     addField("bidfloorcur", &Impression::bidfloorcur, "Currency for bid floor");
     addField("iframebuster", &Impression::iframebuster, "Supported iframe busters");
+    addField("pmp", &Impression::pmp, "Contains any deals eligible for the impression");
     addField("ext", &Impression::ext, "Extended impression attributes");
 }
 
@@ -316,6 +317,25 @@ DefaultDescription()
     addField("cur", &BidResponse::cur, "Currency in which we're bidding");
     addField("customData", &BidResponse::customData, "Custom data to be stored for user");
     addField("ext", &BidResponse::ext, "Extensions");
+}
+
+DefaultDescription<OpenRTB::Deal>::
+DefaultDescription()
+{
+    addField("id", &Deal::id, "Id of the deal", new StringIdDescription);
+    addField("bidfloor", &Deal::bidfloor, "bid floor");
+    addField("bidfloorcur", &Deal::bidfloorcur, "Currency of the deal");
+    addField("wseat", &Deal::wseat, "List of buyer seats allowed");
+    addField("at", &Deal::at, "Auction type");
+    addField("ext", &Deal::ext, "Extensions");
+}
+
+DefaultDescription<OpenRTB::PMP>::
+DefaultDescription()
+{
+    addField("private_auction", &PMP::privateAuction, "is a private auction");
+    addField("deals", &PMP::deals, "Deals");
+    addField("ext", &PMP::ext, "Extensions");
 }
 
 } // namespace Datacratic
