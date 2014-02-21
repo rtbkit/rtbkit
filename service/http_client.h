@@ -48,41 +48,35 @@ struct HttpRequest {
     /** Structure used to hold content for a POST request. */
     struct Content {
         Content()
-            : data(0), size(0), hasContent(false)
+            : hasContent(false)
         {
         }
 
         Content(const std::string & str,
                 const std::string & contentType = "")
-            : str(str), data(str.c_str()), size(str.size()),
-              hasContent(true), contentType(contentType)
+            : str(str), hasContent(true), contentType(contentType)
         {
         }
 
         Content(const char * data, uint64_t size,
-                const std::string & contentType = "",
-                const std::string & contentMd5 = "")
-            : data(data), size(size), hasContent(true),
-              contentType(contentType), contentMd5(contentMd5)
+                const std::string & contentType = "")
+            : str(data, size), hasContent(true),
+              contentType(contentType)
         {
         }
 
         Content(const Json::Value & content,
                 const std::string & contentType = "application/json")
-            : str(content.toString()), data(str.c_str()),
-              size(str.size()), hasContent(true),
+            : str(content.toString()), hasContent(true),
               contentType(contentType)
         {
         }
 
         std::string str;
-        const char * data;
-        uint64_t size;
 
         bool hasContent;
 
         std::string contentType;
-        std::string contentMd5;
     };
 
     HttpRequest()

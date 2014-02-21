@@ -546,17 +546,18 @@ perform(bool noSSLChecks, bool debug)
         curlHeaders.push_back(it.first + ": " + it.second);
     }
     if (request_.verb_ != "GET") {
+        const string & data = request_.content_.str;
         if (request_.verb_ == "PUT") {
             easy_.setOpt<curlopt::Upload>(true);
-            easy_.setOpt<curlopt::InfileSize>(request_.content_.size);
+            easy_.setOpt<curlopt::InfileSize>(data.size());
         }
         else if (request_.verb_ == "POST") {
             easy_.setOpt<curlopt::Post>(true);
-            easy_.setOpt<curlopt::PostFields>(request_.content_.str);
-            easy_.setOpt<curlopt::PostFieldSize>(request_.content_.size);
+            easy_.setOpt<curlopt::PostFields>(data);
+            easy_.setOpt<curlopt::PostFieldSize>(data.size());
         }
         curlHeaders.push_back("Content-Length: "
-                              + to_string(request_.content_.size));
+                              + to_string(data.size()));
         curlHeaders.push_back("Expect:");
         curlHeaders.push_back("Transfer-Encoding:");
         curlHeaders.push_back("Content-Type: "
@@ -643,11 +644,12 @@ HttpConnection::
 onCurlRead(char * buffer, size_t bufferSize)
     noexcept
 {
-    size_t chunkSize = request_.content_.size - uploadOffset_;
+    const string & data = request_.content_.str;
+    size_t chunkSize = data.size() - uploadOffset_;
     if (chunkSize > bufferSize) {
         chunkSize = bufferSize;
     }
-    const char * chunkStart = request_.content_.data + uploadOffset_;
+    const char * chunkStart = data.c_str() + uploadOffset_;
     copy(chunkStart, chunkStart + chunkSize, buffer);
     uploadOffset_ += chunkSize;
 
