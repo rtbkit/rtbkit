@@ -28,6 +28,7 @@ struct OpenRTBBidSource : public BidSource {
 
 private:
 
+    bool replayFile;
     OpenRTB::BidRequest generateRequest();
 
 };

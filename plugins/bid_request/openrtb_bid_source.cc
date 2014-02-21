@@ -50,12 +50,9 @@ namespace {
 
         }
 
-        bool isActive() const {
-            return isFileLoaded;
-        }
-
         OpenRTB::BidRequest next() {
-            ExcCheck(isFileLoaded, "Replay file is not loaded");
+            // Spinning until isFileLoaded is true
+            while (!isFileLoaded) ; 
 
             size_t index = cursor.load();
             ExcCheck(index < buffer.size(), "replayCursor is invalid");
@@ -72,7 +69,7 @@ namespace {
 
     private:
         std::atomic<size_t> cursor;
-        bool isFileLoaded;
+        std::atomic<bool> isFileLoaded;
         std::vector<OpenRTB::BidRequest> buffer;
     };
 
@@ -90,6 +87,7 @@ OpenRTBBidSource(Json::Value const & json) :
 {
     std::call_once(flag, [&]() {
         if (json.isMember("replayFile")) {
+            replayFile = true;
             replay.loadFile(json["replayFile"].asString());
         }
     });
@@ -119,7 +117,7 @@ generateRequest()
 BidRequest OpenRTBBidSource::generateRandomBidRequest() {
     OpenRTB::BidRequest req;
 
-    if (replay.isActive())
+    if (replayFile)
         req = replay.next();
     else
         req = generateRequest();
