@@ -22,6 +22,7 @@
 
 #include "sys/epoll.h"
 
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -265,7 +266,7 @@ struct HttpClient : public AsyncEventSource {
     curlpp::Multi multi_;
     ::CURLM * handle_;
 
-    HttpConnection * connections_;
+    std::atomic<HttpConnection *> connections_;
     std::vector<HttpConnection> connectionStash_;
 
     ML::RingBufferSRMW<HttpRequest> queue_; /* queued requests */

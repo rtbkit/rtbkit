@@ -3,13 +3,14 @@
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 
+#include <atomic>
+
 #include <curlpp/cURLpp.hpp>
 #include <curlpp/Easy.hpp>
 #include <curlpp/Options.hpp>
 #include <curlpp/Info.hpp>
 #include <curlpp/Infos.hpp>
 
-#include "jml/arch/cmp_xchg.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/exception.h"
 #include "jml/utils/string_functions.h"
@@ -477,18 +478,10 @@ HttpConnection *
 HttpClient::
 getConnection()
 {
-    HttpConnection * newConnection;
-    bool done(false);
+    HttpConnection * newConnection = connections_;
 
-    while (!done) {
-        newConnection = connections_;
-        if (newConnection) {
-            done = ML::cmp_xchg(connections_, newConnection, newConnection->next);
-        }
-        else {
-            done = true;
-        }
-    }
+    while (atomic_compare_exchange_weak(&connections_, &newConnection,
+                                        newConnection->next));
 
     return newConnection;
 }
@@ -497,13 +490,11 @@ void
 HttpClient::
 releaseConnection(HttpConnection * oldConnection)
 {
-    HttpConnection * next;
-    bool done(false);
+    HttpConnection * next = connections_;
 
-    while (!done) {
-        next = connections_;
+    while (!atomic_compare_exchange_weak(&connections_, &next,
+                                         oldConnection)) {
         oldConnection->next = next;
-        done = ML::cmp_xchg(connections_, next, oldConnection);
     }
 }
 
