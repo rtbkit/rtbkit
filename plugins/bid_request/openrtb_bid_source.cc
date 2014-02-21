@@ -117,10 +117,17 @@ generateRequest()
 BidRequest OpenRTBBidSource::generateRandomBidRequest() {
     OpenRTB::BidRequest req;
 
-    if (replayFile)
+    if (replayFile) {
         req = replay.next();
-    else
+        req.id = Id(rng.random());
+        for (auto &imp: req.imp) {
+            key += rng.random();
+            imp.id = Id(key);
+        }
+    }
+    else {
         req = generateRequest();
+    }
 
     StructuredJsonPrintingContext context;
     DefaultDescription<OpenRTB::BidRequest> desc;
