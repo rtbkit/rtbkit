@@ -8,6 +8,7 @@
 
 #include "soa/jsoncpp/json.h"
 #include "jml/utils/json_parsing.h"
+#include "jml/utils/compact_vector.h"
 #include "soa/types/id.h"
 #include "soa/types/string.h"
 #include <boost/algorithm/string.hpp>
@@ -24,8 +25,8 @@ struct JsonPathEntry {
     {
     }
     
-    JsonPathEntry(std::string key)
-        : index(-1), key(std::move(key)), keyPtr(this->key.c_str()),
+    JsonPathEntry(const std::string & key)
+        : index(-1), keyPtr(key.c_str()),
           fieldNumber(0)
     {
     }
@@ -36,13 +37,12 @@ struct JsonPathEntry {
     }
 
     int index;
-    std::string key;
     const char * keyPtr;
     int fieldNumber;
 
-    std::string fieldName() const
+    const char * fieldName() const
     {
-        return key.empty() && keyPtr ? keyPtr : key;
+        return keyPtr;
     }
 
     const char * fieldNamePtr() const
@@ -52,13 +52,17 @@ struct JsonPathEntry {
 
 };
 
-struct JsonPath: public std::vector<JsonPathEntry> {
+struct JsonPath: public ML::compact_vector<JsonPathEntry, 8> {
+    JsonPath()
+    {
+    }
+
     std::string print() const
     {
         std::string result;
         for (auto & e: *this) {
             if (e.index == -1)
-                result += "." + e.fieldName();
+                result += "." + std::string(e.fieldName());
             else result += '[' + std::to_string(e.index) + ']';
         }
         return result;
