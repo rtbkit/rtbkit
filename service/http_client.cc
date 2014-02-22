@@ -478,12 +478,12 @@ HttpConnection *
 HttpClient::
 getConnection()
 {
-    HttpConnection * newConnection = connections_;
+    HttpConnection * conn = connections_;
 
-    while (atomic_compare_exchange_weak(&connections_, &newConnection,
-                                        newConnection->next));
+    while (conn != nullptr
+           && !connections_.compare_exchange_weak(conn, conn->next));
 
-    return newConnection;
+    return conn;
 }
 
 void
@@ -492,8 +492,7 @@ releaseConnection(HttpConnection * oldConnection)
 {
     HttpConnection * next = connections_;
 
-    while (!atomic_compare_exchange_weak(&connections_, &next,
-                                         oldConnection)) {
+    while (!connections_.compare_exchange_weak(next, oldConnection)) {
         oldConnection->next = next;
     }
 }
