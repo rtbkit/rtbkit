@@ -58,6 +58,7 @@ CreateStdPipe(bool forWriting)
 
 } // namespace
 
+namespace Datacratic {
 
 /* ASYNCRUNNER */
 
@@ -136,38 +137,64 @@ handleChildStatus(const struct epoll_event & event)
             if (statusRemaining_ > 0) {
                 cerr << "warning: reading status fd in multiple chunks\n";
             }
-            else if (statusRemaining_ == 0) {
-                memcpy(&status, statusBuffer_, sizeof(status));
-                if (task_.statusState == Task::StatusState::START) {
-                    childPid_ = status.pid;
-                    ML::futex_wake(childPid_);
-                    // cerr << "child now running: " + to_string(childPid_) + "\n";
-                    task_.statusState = Task::StatusState::STOP;
+            else if (statusRemaining_ != 0)
+                continue;
+
+            memcpy(&status, statusBuffer_, sizeof(status));
+
+            // Set up for next message
+            statusRemaining_ = sizeof(statusBuffer_);
+
+#if 0
+            cerr << "got status " << status.state
+                 << " " << Task::statusStateAsString(status.state)
+                 << " " << status.pid << " " << status.childStatus
+                 << " " << status.launchErrno << " "
+                 << strerror(status.launchErrno) << " "
+                 << Task::strLaunchError(status.launchErrorCode)
+                 << endl;
+#endif
+
+            task_.statusState = status.state;
+
+            if (status.launchErrno
+                || status.launchErrorCode) {
+                //cerr << "*** launch error" << endl;
+                // Error
+                childPid_ = -1;
+                task_.runResult.updateFromLaunchError
+                    (status.launchErrno,
+                     Task::strLaunchError(status.launchErrorCode));
+                attemptTaskTermination();
+                break;
+            }
+
+            switch (status.state) {
+            case Task::LAUNCHING:
+                childPid_ = status.pid;
+                break;
+            case Task::RUNNING:
+                childPid_ = status.pid;
+                ML::futex_wake(childPid_);
+                break;
+            case Task::STOPPED:
+                childPid_ = -1;
+                task_.runResult.updateFromStatus(status.childStatus);
+                task_.statusState = Task::StatusState::DONE;
+                if (stdInSink_) {
+                    stdInSink_->requestClose();
                 }
-                else if (task_.statusState == Task::StatusState::STOP) {
-                    // cerr << "child now stopped: " + to_string(childPid_) + "\n";
-                    childPid_ = -1;
-                    task_.runResult.updateFromStatus(status.status);
-                    task_.statusState = Task::StatusState::DONE;
-                    if (stdInSink_) {
-                        stdInSink_->requestClose();
-                    }
-                    attemptTaskTermination();
-                }
-                else {
-                    throw ML::Exception("unexpected status when DONE");
-                }
-                statusRemaining_ = sizeof(statusBuffer_);
+                attemptTaskTermination();
+                break;
+            case Task::DONE:
+                throw ML::Exception("unexpected status DONE");
+            case Task::ST_UNKNOWN:
+                throw ML::Exception("unexpected status UNKNOWN");
             }
         }
     }
 
     if ((event.events & EPOLLHUP) != 0) {
-        if (task_.statusState != Task::StatusState::DONE) {
-            throw ML::Exception("statusfd hup but not done: "
-                                + task_.statusStateAsString());
-        }
-
         removeFd(task_.statusFd);
         ::close(task_.statusFd);
         task_.statusFd = -1;
@@ -309,7 +336,7 @@ run(const vector<string> & command,
 
     running_ = true;
 
-    task_.statusState = Task::StatusState::START;
+    task_.statusState = Task::StatusState::ST_UNKNOWN;
     task_.onTerminate = onTerminate;
 
     Task::ChildFds childFds;
@@ -393,7 +420,6 @@ waitTermination()
     }
 }
 
-
 /* ASYNCRUNNER::TASK */
 
 void
@@ -409,7 +435,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
     fds.dupToStdStreams();
     fds.closeRemainingFds();
 
-    vector<string> stdbufCommand{stdbufCmd, "-o0"};
+    vector<string> stdbufCommand; //{stdbufCmd, "-o0"};
     stdbufCommand.insert(stdbufCommand.end(), command.begin(), command.end());
 
     // Set up the arguments before we fork, as we don't want to call malloc()
@@ -421,11 +447,23 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
     }
     argv[len] = NULL;
 
+    // Create a pipe for the child to accurately report launch errors back
+    // to the parent.  We set the close-on-exit so that when the new
+    // process has finished launching, the pipe will be completely closed
+    // and we can use this to know that it has properly started.
+
+    int childLaunchStatusFd[2];
+    int res = ::pipe2(childLaunchStatusFd, O_CLOEXEC);
+    if (res == -1)
+        throw ML::Exception(errno, "pipe() for status");
+
     int childPid = fork();
     if (childPid == -1) {
-        throw ML::Exception(errno, "RunWrapper fork");
+        throw ML::Exception(errno, "fork() in RunWrapper");
     }
     else if (childPid == 0) {
+        ::close(childLaunchStatusFd[0]);
+
         ::setpgid(0, 0);
 
         ::signal(SIGQUIT, SIG_DFL);
@@ -438,43 +476,101 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
         ::close(fds.statusFd);
         int res = ::execv(stdbufCommand[0].c_str(), argv);
         if (res == -1) {
-            int exitCode;
-            if (errno == ENOENT)
-                exitCode = 127; // "command not found"
-            else if (errno == EACCES)
-                exitCode = 126; // "permission denied"
-            else
-                exitCode = 1;   // generic error
-            _exit(exitCode);
+            // Report back that we couldn't launch
+            int err = errno;
+            int res = ::write(childLaunchStatusFd[1], &err, sizeof(err));
+            if (res == -1)
+                _exit(126);
+            else _exit(127);
         }
 
         /* there is no possible way this code could be executed */
         throw ML::Exception("The Alpha became the Omega.");
     }
     else {
+        ::close(childLaunchStatusFd[1]);
         // FILE * terminal = ::fopen("/dev/tty", "a");
-
         // ::fprintf(terminal, "wrapper: real child pid: %d\n", childPid);
         ChildStatus status;
 
+        // Write an update to the current status
+        auto writeStatus = [&] ()
+            {
+                int res = ::write(fds.statusFd, &status, sizeof(status));
+                if (res == -1)
+                    throw ML::Exception(errno, "RunWrapper write status");
+                else if (res != sizeof(status))
+                    throw ML::Exception("didn't completely write status");
+            };
+
+        // Write that there was an error to the calling process, and then
+        // exit
+        auto writeError = [&] (int launchErrno, LaunchErrorCode errorCode,
+                               int exitCode)
+            {
+                status.launchErrno = launchErrno;
+                status.launchErrorCode = errorCode;
+                
+                //cerr << "sending error " << strerror(launchErrno)
+                //<< " " << strLaunchError(errorCode) << endl;
+
+                int res = ::write(fds.statusFd, &status, sizeof(status));
+                if (res == -1)
+                    throw ML::Exception(errno, "RunWrapper write status");
+                else if (res != sizeof(status))
+                    throw ML::Exception("didn't completely write status");
+
+                fds.close();
+                
+                _exit(exitCode);
+            };
+
+        status.state = LAUNCHING;
         status.pid = childPid;
-        if (::write(fds.statusFd, &status, sizeof(status)) == -1) {
-            throw ML::Exception(errno, "RunWrapper write");
-        }
+
+        writeStatus();
 
         // ::fprintf(terminal, "wrapper: waiting child...\n");
 
-        int res = ::waitpid(childPid, &status.status, 0);
-        if (res == -1)
-            throw ML::Exception(errno, "waitpid");
-        if (res != childPid)
-            throw ML::Exception("waitpid has not returned the childPid");
-
-        // ::fprintf(terminal, "wrapper: child terminated\n");
-
-        if (::write(fds.statusFd, &status, sizeof(status)) == -1) {
-            throw ML::Exception(errno, "RunWrapper write");
+        // Read from the launch status pipe to know that the launch has
+        // finished.
+        int launchErrno;
+        int bytes = ::read(childLaunchStatusFd[0], &launchErrno,
+                           sizeof(launchErrno));
+        
+        if (bytes == 0) {
+            // Launch happened successfully (pipe was closed on exec)
+            status.state = RUNNING;
+            writeStatus();
         }
+        else if (bytes == -1) {
+            // Problem reading
+            writeError(errno, E_READ_STATUS_PIPE, 127);
+        }
+        else if (bytes != sizeof(launchErrno)) {
+            // Wrong size of message
+            writeError(0, E_STATUS_PIPE_WRONG_LENGTH, 127);
+        }
+        else {
+            // Launch was unsuccessful; we have the errno.  Return it and
+            // exit.
+            writeError(launchErrno, E_SUBTASK_LAUNCH, 126);
+        }
+
+        int childStatus;
+
+        int res = ::waitpid(childPid, &childStatus, 0);
+        if (res == -1) {
+            writeError(errno, E_SUBTASK_WAITPID, 127);
+        }
+        else if (res != childPid) {
+            writeError(0, E_WRONG_CHILD, 127);
+        }
+
+        status.state = STOPPED;
+        status.childStatus = childStatus;
+
+        writeStatus();
 
         fds.close();
 
@@ -489,12 +585,15 @@ postTerminate(Runner & runner)
 {
     // cerr << "postTerminate\n";
 
+    //cerr << "waiting for wrapper" << endl;
     int res = ::waitpid(wrapperPid, NULL, 0);
     if (res == -1)
         throw ML::Exception(errno, "waitpid");
     if (res != wrapperPid)
         throw ML::Exception("waitpid has not returned the wrappedPid");
     wrapperPid = -1;
+
+    //cerr << "finished waiting for wrapper" << endl;
 
     if (stdInFd != -1) {
         ::close(stdInFd);
@@ -522,8 +621,7 @@ postTerminate(Runner & runner)
         onTerminate(runResult);
         onTerminate = nullptr;
     }
-    runResult.signaled = false;
-    runResult.returnCode = -1;
+    runResult = RunResult();
 }
 
 
@@ -598,36 +696,52 @@ close()
 }
 
 
-/* ASYNCRUNNER::RUNRESULT */
+/* RUNRESULT */
 
 void
-Runner::
 RunResult::
 updateFromStatus(int status)
 {
     if (WIFEXITED(status)) {
-        signaled = false;
+        state = RETURNED;
         returnCode = WEXITSTATUS(status);
     }
     else if (WIFSIGNALED(status)) {
-        signaled = true;
+        state = SIGNALED;
         signum = WTERMSIG(status);
     }
+}
+
+std::string to_string(const RunResult::State & state)
+{
+    switch (state) {
+    case RunResult::UNKNOWN: return "UNKNOWN";
+    case RunResult::LAUNCH_ERROR: return "LAUNCH_ERROR";
+    case RunResult::RETURNED: return "RETURNED";
+    case RunResult::SIGNALED: return "SIGNALED";
+    }
+
+    return ML::format("RunResult::State(%d)", state);
+}
+
+std::ostream &
+operator << (std::ostream & stream, const RunResult::State & state)
+{
+    return stream << to_string(state);
 }
 
 
 /* EXECUTE */
 
-Runner::RunResult
-Datacratic::
+RunResult
 execute(MessageLoop & loop,
         const vector<string> & command,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink,
         const string & stdInData)
 {
-    Runner::RunResult result;
-    auto onTerminate = [&](const Runner::RunResult & runResult) {
+    RunResult result;
+    auto onTerminate = [&](const RunResult & runResult) {
         result = runResult;
     };
 
@@ -652,8 +766,7 @@ execute(MessageLoop & loop,
     return result;
 }
 
-Runner::RunResult
-Datacratic::
+RunResult
 execute(const vector<string> & command,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink,
@@ -662,10 +775,12 @@ execute(const vector<string> & command,
     MessageLoop loop;
 
     loop.start();
-    Runner::RunResult result = execute(loop, command, stdOutSink, stdErrSink,
-                                       stdInData);
+    RunResult result = execute(loop, command, stdOutSink, stdErrSink,
+                               stdInData);
 
     loop.shutdown();
 
     return result;
 }
+
+} // namespace Datacratic

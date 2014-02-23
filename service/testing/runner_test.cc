@@ -60,7 +60,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     expectedStdErr = "hello stderr\n";
 
     int done = false;
-    auto onTerminate = [&] (const Runner::RunResult & result) {
+    auto onTerminate = [&] (const RunResult & result) {
         done = true;
         ML::futex_wake(done);
     };
@@ -119,8 +119,8 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         RunnerTestHelperCommands commands;
         commands.sendExit(123);
 
-        Runner::RunResult result;
-        auto onTerminate = [&] (const Runner::RunResult & newResult) {
+        RunResult result;
+        auto onTerminate = [&] (const RunResult & newResult) {
             result = newResult;
         };
         Runner runner;
@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         stdInSink.requestClose();
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(result.signaled, false);
+        BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
         BOOST_CHECK_EQUAL(result.returnCode, 123);
 
         loop.shutdown();
@@ -149,8 +149,8 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         RunnerTestHelperCommands commands;
         commands.sendAbort();
 
-        Runner::RunResult result;
-        auto onTerminate = [&] (const Runner::RunResult & newResult) {
+        RunResult result;
+        auto onTerminate = [&] (const RunResult & newResult) {
             result = newResult;
         };
         Runner runner;
@@ -166,8 +166,8 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         stdInSink.requestClose();
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(result.signaled, true);
-        BOOST_CHECK_EQUAL(result.returnCode, SIGABRT);
+        BOOST_CHECK_EQUAL(result.state, RunResult::SIGNALED);
+        BOOST_CHECK_EQUAL(result.signum, SIGABRT);
 
         loop.shutdown();
     }
@@ -179,12 +179,14 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
  * executable, mostly mimicking bash */
 BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
 {
+    BlockedSignals blockedSigs(SIGCHLD);
+
     MessageLoop loop;
 
     loop.start();
 
-    Runner::RunResult result;
-    auto onTerminate = [&] (const Runner::RunResult & newResult) {
+    RunResult result;
+    auto onTerminate = [&] (const RunResult & newResult) {
         result = newResult;
     };
 
@@ -196,8 +198,10 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         runner.run({"/this/command/is/missing"}, onTerminate);
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(result.signaled, false);
-        BOOST_CHECK_EQUAL(result.returnCode, 127);
+        BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
+        BOOST_CHECK_EQUAL(result.returnCode, -1);
+        BOOST_CHECK_EQUAL(result.launchErrno, ENOENT);
+        
 
         loop.removeSource(&runner);
         runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
@@ -211,8 +215,8 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         runner.run({"/dev/null"}, onTerminate);
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(result.signaled, false);
-        BOOST_CHECK_EQUAL(result.returnCode, 126);
+        BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
+        BOOST_CHECK_EQUAL(result.launchErrno, EACCES);
 
         loop.removeSource(&runner);
         runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
@@ -226,8 +230,8 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         runner.run({"/dev"}, onTerminate);
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(result.signaled, false);
-        BOOST_CHECK_EQUAL(result.returnCode, 126);
+        BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
+        BOOST_CHECK_EQUAL(result.launchErrno, EACCES);
 
         loop.removeSource(&runner);
         runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
@@ -250,7 +254,7 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
     auto result = execute({"/bin/cat", "-"},
                           stdOutSink, nullptr, "hello callbacks");
     BOOST_CHECK_EQUAL(received, "hello callbacks");
-    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 }
 #endif
@@ -360,7 +364,8 @@ test_runner_no_output_delay_helper(bool stdout)
     loop.start();
 
     auto & stdInSink = runner.getStdInSink();
-    runner.run({"build/x86_64/bin/runner_test_helper"},
+    runner.run({"/usr/bin/stdbuf", "-o0",
+                "build/x86_64/bin/runner_test_helper"},
                nullptr, stdOutSink, stdErrSink);
     for (const string & command: commands) {
         while (!stdInSink.write(string(command))) {
@@ -404,19 +409,20 @@ BOOST_AUTO_TEST_CASE( test_runner_multi_execute_single_loop )
 
     auto result
            = execute(loop, {"/bin/echo", "Test 1"});
-    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 
     result = execute(loop, {"/bin/echo", "Test 2"});
-    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 
     result = execute(loop, {"/bin/echo", "Test 3"});
-    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 }
 #endif
 
+#if 0
 BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
 {
     volatile bool shutdown = false;
@@ -451,3 +457,4 @@ BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
     
     cerr << "did " << doneIterations << " runner iterations" << endl;
 }
+#endif
