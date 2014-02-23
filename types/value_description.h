@@ -977,6 +977,16 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
         print.insert(make_pair(value, name));
     }
 
+    void addValue(const std::string & name, Enum value,
+                  const std::string & description)
+    {
+        if (!parse.insert(make_pair(name, value)).second)
+            throw ML::Exception("double added name to enum");
+        print.insert(make_pair(value, name));
+
+        // TODO: description
+    }
+
     std::unordered_map<std::string, Enum> parse;
     std::map<Enum, std::string> print;
 };
