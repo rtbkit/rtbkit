@@ -355,6 +355,17 @@ struct DefaultDescription<OpenRTB::BidResponse>
     DefaultDescription();
 };
 
+template<>
+struct DefaultDescription<OpenRTB::Deal>
+    : public StructureDescription<OpenRTB::Deal> {
+    DefaultDescription();
+};
+
+template<>
+struct DefaultDescription<OpenRTB::PMP>
+    : public StructureDescription<OpenRTB::PMP> {
+    DefaultDescription();
+};
 
 
 

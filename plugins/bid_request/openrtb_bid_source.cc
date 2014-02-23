@@ -22,25 +22,37 @@ namespace {
         { }
 
         void loadFile(const std::string &fileName) {
+            JML_TRACE_EXCEPTIONS(false)
             ML::filter_istream is(fileName);
             if (!is) {
                 throw ML::Exception(ML::format("Could not load replay file: %s",
                                                fileName.c_str()));
             }
 
+            std::cout << "Loading " << fileName << " replay file" << std::endl;
+
+            size_t rejected, total;
+            rejected = total = 0;
             for (std::string line; getline(is, line); ) {
-                auto br = OpenRtbBidRequestParser::parseBidRequest(line);
-                buffer.push_back(std::move(br));
+                try {
+                    ++total;
+                    auto br = OpenRtbBidRequestParser::parseBidRequest(line);
+                    buffer.push_back(std::move(br));
+                } catch (const ML::Exception &) {
+                    ++rejected;
+                }
             }
 
-        }
+            std::cout << "Replay: parsed total of " << total << " lines, "
+                      << rejected << " rejected (" << ((rejected * 100.0) / total)
+                      << "%)" << std::endl;
+            isFileLoaded = true;
 
-        bool isActive() const {
-            return isFileLoaded;
         }
 
         OpenRTB::BidRequest next() {
-            ExcCheck(isFileLoaded, "Replay file is not loaded");
+            // Spinning until isFileLoaded is true
+            while (!isFileLoaded) ; 
 
             size_t index = cursor.load();
             ExcCheck(index < buffer.size(), "replayCursor is invalid");
@@ -57,7 +69,7 @@ namespace {
 
     private:
         std::atomic<size_t> cursor;
-        bool isFileLoaded;
+        std::atomic<bool> isFileLoaded;
         std::vector<OpenRTB::BidRequest> buffer;
     };
 
@@ -75,6 +87,7 @@ OpenRTBBidSource(Json::Value const & json) :
 {
     std::call_once(flag, [&]() {
         if (json.isMember("replayFile")) {
+            replayFile = true;
             replay.loadFile(json["replayFile"].asString());
         }
     });
@@ -104,10 +117,17 @@ generateRequest()
 BidRequest OpenRTBBidSource::generateRandomBidRequest() {
     OpenRTB::BidRequest req;
 
-    if (replay.isActive())
+    if (replayFile) {
         req = replay.next();
-    else
+        req.id = Id(rng.random());
+        for (auto &imp: req.imp) {
+            key += rng.random();
+            imp.id = Id(key);
+        }
+    }
+    else {
         req = generateRequest();
+    }
 
     StructuredJsonPrintingContext context;
     DefaultDescription<OpenRTB::BidRequest> desc;

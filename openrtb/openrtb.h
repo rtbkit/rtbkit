@@ -42,6 +42,26 @@ using std::unique_ptr;
 
 using namespace Datacratic;
 
+struct Deal
+{
+    Id id;                     ///< DEAL ID
+    TaggedDouble bidfloor;     ///< Deal price floow
+    string bidfloorcur;        ///< Currency
+    List<string> wseat;        ///< Array of buyer seats allowed to bid on this
+                               /// Direct Deal.
+    TaggedInt at;              ///< Auction type
+    Json::Value ext;           ///< Extensions
+};
+
+struct PMP
+{
+    TaggedIntDef<0> privateAuction; ///< Is this a private deal? A value of 1
+                                    /// indicates that open market bids need not be
+                                    /// returned and that only bids submitted inside
+                                    /// pmp.deals will be considered to serve.
+    List<Deal> deals;               ///< Array of deal objects, if present
+    Json::Value ext;                ///< Extensions
+};
 
 /*****************************************************************************/
 /* MIME TYPES                                                                */
@@ -695,6 +715,7 @@ struct Impression {
     TaggedDoubleDef<0> bidfloor;        ///< CPM bid floor
     string bidfloorcur;                ///< Bid floor currency
     List<string> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
+    Optional<OpenRTB::PMP> pmp;        ///< Containing any Deals eligible for the impression object
     Json::Value ext;                   ///< Extended impression attributes
 };
 

@@ -387,7 +387,10 @@ ParseGbrGeoCriteria (const GoogleBidRequest& gbr, BidRequest& br)
 
 //
 void
-ParseGbrAdSlot (const GoogleBidRequest& gbr, BidRequest& br)
+ParseGbrAdSlot (const std::string currency,
+               const CurrencyCode currencyCode,
+               const GoogleBidRequest& gbr,
+               BidRequest& br)
 {
     auto& imp = br.imp;
     imp.clear ();
@@ -461,6 +464,39 @@ ParseGbrAdSlot (const GoogleBidRequest& gbr, BidRequest& br)
                 break;
             default:
                 break;
+            }
+        }
+
+        {
+            spot.pmp.emplace();
+
+            for (auto const & matchingAdData : slot.matching_ad_data()) {
+
+                if (matchingAdData.has_adgroup_id())
+                {
+                    spot.pmp->ext["adgroup_id"] =
+                        std::to_string(matchingAdData.adgroup_id());
+                }
+
+                for (auto const & directDeal : matchingAdData.direct_deal()) {
+
+                    double amountInCpm =
+                        getAmountIn<CPM>(RTBKIT::createAmount<MicroCPM>(
+                            directDeal.fixed_cpm_micros(), currencyCode));
+
+                    static const int SECOND_PRICE_AUCTION = 2;
+                    OpenRTB::Deal deal
+                    {
+                        Id(directDeal.direct_deal_id()),
+                        amountInCpm,
+                        currency,
+                        List<std::string>{},
+                        SECOND_PRICE_AUCTION,
+                        Json::Value::null
+                    };
+
+                    spot.pmp->deals.emplace_back(std::move(deal));
+                }
             }
         }
     }
@@ -673,7 +709,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     }
 
     // parse Impression array
-    ParseGbrAdSlot(gbr, br);
+    ParseGbrAdSlot(getCurrencyAsString(), getCurrency(), gbr, br);
 
     if (gbr.detected_language_size())
     {   // TODO when gbr.detected_language_size()>1
@@ -744,12 +780,10 @@ getResponse(const HttpAuctionHandler & connection,
         ad->set_width(creative.format.width);
         ad->set_height(creative.format.height);
 
+        const BidRequest & br = *auction.request;
+
         // handle macros.
-        AdxCreativeConfiguration::Context ctx {
-            creative,
-            resp,
-            *auction.request
-        };
+        AdxCreativeConfiguration::Context ctx { creative, resp, br };
 
         // populate, substituting whenever necessary
         ad->set_html_snippet(
@@ -761,6 +795,37 @@ getResponse(const HttpAuctionHandler & connection,
             ad->add_vendor_type(vt);
         adslot->set_max_cpm_micros(getAmountIn<MicroCPM>(resp.price.maxPrice));
         adslot->set_id(auction.request->imp[spotNum].id.toInt());
+
+        { // handle direct deals
+            auto imp = br.imp[spotNum];
+            if (imp.pmp) {
+                auto const & pmp = *imp.pmp;
+                if (pmp.privateAuction.val != 0) {
+
+                    Json::Value meta;
+                    Json::Reader reader;
+                    if (!reader.parse(resp.meta, meta)) {
+                        return getErrorResponse(
+                                connection,
+                                auction,
+                                "Cannot decode meta information");
+                    }
+
+                    if (meta.isMember("deal_id")) {
+                        Id dealId = Id(meta["deal_id"].asString());
+                        adslot->set_deal_id(dealId.toInt());
+                    } else {
+                        adslot->set_deal_id(1); // open auction
+                    }
+
+                    if (meta.isMember("adgroup_id")) {
+                        int64_t adgroup_id = stoll(meta["adgroup_id"].asString());
+                        adslot->set_adgroup_id(adgroup_id);
+                    }
+                }
+            }
+        }
+
         if(!crinfo->adgroup_id_.empty()) {
             adslot->set_adgroup_id(
                 boost::lexical_cast<uint64_t>(crinfo->adgroup_id_));

@@ -637,7 +637,7 @@ initStatePersistence(const std::string & path)
     finishedPersistence->stringifyValue = stringifyFinishedInfo;
     finishedPersistence->unstringifyValue = unstringifyFinishedInfo;
 
-    newTimeout = Date::now().plusSeconds(900);
+    newTimeout = Date::now().plusSeconds(auctionTimeout);
 
     auto acceptFinished = [&] (pair<Id, Id> & key,
                                FinishedInfo & info,
@@ -653,7 +653,7 @@ initStatePersistence(const std::string & path)
 
     finished.initFromStore(finishedPersistence,
                            acceptFinished,
-                           Date::now().plusSeconds(900));
+                           Date::now().plusSeconds(auctionTimeout));
 
     auto backgroundWork = [=] (volatile int & shutdown, int64_t threadId)
         {
@@ -988,6 +988,15 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
                     info.bidRequestStrFormat);
 
 
+		sendAgentMessage(info.bid.agent, "LATEWIN", timestamp,
+                     "guaranteed", info.auctionId,
+                     to_string(info.bidRequest->findAdSpotIndex(adSpotId)),
+                     info.winPrice.toString(),
+                     info.bidRequestStrFormat,
+                     info.bidRequestStr,
+                     info.bid.bidData,
+                     info.bid.meta,
+                     info.augmentations);
 
             recordHit("bidResult.%s.winAfterLossAssumed", typeStr);
             recordOutcome(winPrice.value,
@@ -1461,9 +1470,9 @@ doBidResult(const Id & auctionId,
 
     i.addUids(uids);
 
-    double expiryInterval = 3600;
+    double expiryInterval = winTimeout;
     if (status == BS_LOSS)
-        expiryInterval = 900;
+        expiryInterval = auctionTimeout;
 
     Date expiryTime = Date::now().plusSeconds(expiryInterval);
 
