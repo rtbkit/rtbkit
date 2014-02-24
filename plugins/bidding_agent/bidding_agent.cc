@@ -194,9 +194,14 @@ handleRouterMessage(const std::string & fromRouter,
     case 'L':
         if (message[0] == "LOSS")
             handleResult(message, onLoss);
-        else invalid = true;
+        else {
+            if (message[0] == "LATEWIN")
+                handleResult(message, onLateWin );
+            else
+                invalid = true;
+        }
         break;
-
+        
     case 'N':
         if (message[0] == "NOBUDGET")
             handleResult(message, onNoBudget);

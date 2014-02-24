@@ -268,6 +268,7 @@ struct BiddingAgentJS :
         registerAsyncCallback(&RTBKIT::BiddingAgent::onBidRequest, "onBidRequest");
 
         registerAsyncCallback(&RTBKIT::BiddingAgent::onWin, "onWin");
+        registerAsyncCallback(&RTBKIT::BiddingAgent::onLateWin, "onLateWin");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onLoss, "onLoss");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onNoBudget, "onNoBudget");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onTooLate, "onTooLate");

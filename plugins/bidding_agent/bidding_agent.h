@@ -164,6 +164,10 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
         shortly if not already received. */
     ResultCbFn onWin;
 
+    /** We won the auction and we should expect to receive delivery noticifation
+        shortly if not already received. */
+    ResultCbFn onLateWin;
+    
     /** We lost either the internal router auction or the exchange auction. */
     ResultCbFn onLoss;
 
