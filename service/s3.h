@@ -45,6 +45,7 @@ struct S3Api : public AwsApi {
           const std::string & serviceUri = "s3.amazonaws.com");
 
     /** Set up the API to called with the given credentials. */
+    void init();
     void init(const std::string & accessKeyId,
               const std::string & accessKey,
               double bandwidthToServiceMbps = defaultBandwidthToServiceMbps,
@@ -590,6 +591,7 @@ struct S3Api : public AwsApi {
 
     /// Static variable to hold the default redundancy to be used
     static Redundancy defaultRedundancy;
+
 };
 
 struct S3Handle{
@@ -651,5 +653,10 @@ void eraseUriObject(const std::string & uri);
 
 // Erase the object at the given uri
 bool tryEraseUriObject(const std::string & uri);
+
+std::tuple<std::string, std::string, std::string, std::string, std::string> 
+    getCloudCredentials();
+
+std::pair<std::string, std::string> getDefaultCredentials();
 
 } // namespace Datacratic

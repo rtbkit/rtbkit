@@ -109,6 +109,13 @@ init(const std::string & accessKeyId,
     this->bandwidthToServiceMbps = bandwidthToServiceMbps;
 }
 
+void
+S3Api::init()
+{
+    pair<string, string> creds = getDefaultCredentials();
+    this->init(creds.first, creds.second);
+}
+
 S3Api::Content::
 Content(const tinyxml2::XMLDocument & xml)
 {
@@ -2357,6 +2364,87 @@ struct RegisterS3Handler {
 bool defaultBucketsRegistered = false;
 std::mutex registerBucketsMutex;
 
+tuple<string, string, string, string, string> getCloudCredentials()
+{
+    string filename = "";
+    char* home;
+    home = getenv("HOME");
+    if (home != NULL)
+        filename = home + string("/.cloud_credentials");
+    if (filename != "" && ML::fileExists(filename)) {
+        std::ifstream stream(filename.c_str());
+        while (stream) {
+            string line;
+
+            getline(stream, line);
+            if (line.empty() || line[0] == '#')
+                continue;
+            if (line.find("s3") != 0)
+                continue;
+
+            vector<string> fields = ML::split(line, '\t');
+
+            if (fields[0] != "s3")
+                continue;
+
+            if (fields.size() < 4) {
+                cerr << "warning: skipping invalid line in ~/.cloud_credentials: "
+                     << line << endl;
+                continue;
+            }
+                
+            fields.resize(7);
+
+            string version = fields[1];
+            if (version != "1") {
+                cerr << "warning: ignoring unknown version "
+                     << version <<  " in ~/.cloud_credentials: "
+                     << line << endl;
+                continue;
+            }
+                
+            string keyId = fields[2];
+            string key = fields[3];
+            string bandwidth = fields[4];
+            string protocol = fields[5];
+            string serviceUri = fields[6];
+
+            return make_tuple(keyId, key, bandwidth, protocol, serviceUri);
+        }
+    }
+    return make_tuple("", "", "", "", "");
+}
+
+pair<string, string> getDefaultCredentials()
+{
+    tuple<string, string, string, string, string> cloudCredentials = 
+        getCloudCredentials();
+    if(get<0>(cloudCredentials) != ""){
+        return make_pair(get<0>(cloudCredentials), get<1>(cloudCredentials));
+    }
+
+    cerr << "Default credentials not found in ~/.cloud_credentials" << endl;
+
+    char* configFilenameCStr = getenv("CONFIG");
+    string configFilename = (configFilenameCStr == NULL ?
+                                string() :
+                                string(configFilenameCStr));
+
+    if(configFilename != "")
+    {
+        ML::File_Read_Buffer buf(configFilename);
+        Json::Value config = Json::parse(string(buf.start(), buf.end()));
+        if(config.isMember("s3"))
+        {
+            return make_pair(
+                config["s3"]["accessKeyId"].asString(),
+                config["s3"]["accessKey"].asString());
+        }
+    }
+    throw ML::Exception("No default credentials found");
+}
+
+
 /** Parse the ~/.cloud_credentials file and add those buckets in.
 
     The format of that file is as follows:
@@ -2385,67 +2473,24 @@ void registerDefaultBuckets()
     std::unique_lock<std::mutex> guard(registerBucketsMutex);
     defaultBucketsRegistered = true;
 
-    string filename = "";
-    char* home;
-    home = getenv("HOME");
-    if (home != NULL)
-        filename = home + string("/.cloud_credentials");
-    if (filename != "" && ML::fileExists(filename)) {
-        std::ifstream stream(filename.c_str());
-        while (stream) {
-            string line;
+    tuple<string, string, string, string, string> cloudCredentials = 
+        getCloudCredentials();
+    if(get<0>(cloudCredentials) != ""){
+        string keyId      = get<0>(cloudCredentials);
+        string key        = get<1>(cloudCredentials);
+        string bandwidth  = get<2>(cloudCredentials);
+        string protocol   = get<3>(cloudCredentials);
+        string serviceUri = get<4>(cloudCredentials);
 
-            //cerr << "line = " << line << endl;
+        if (protocol == "")
+            protocol = "http";
+        if (bandwidth == "")
+            bandwidth = "20.0";
+        if (serviceUri == "")
+            serviceUri = "s3.amazonaws.com";
 
-            getline(stream, line);
-            if (line.empty() || line[0] == '#')
-                continue;
-            if (line.find("s3") != 0)
-                continue;
-
-            vector<string> fields = ML::split(line, '\t');
-
-            //cerr << "fields = " << fields << endl;
-
-            if (fields[0] != "s3")
-                continue;
-
-            if (fields.size() < 4) {
-                cerr << "warning: skipping invalid line in ~/.cloud_credentials: "
-                     << line << endl;
-                continue;
-            }
-                
-            fields.resize(7);
-
-
-            string version = fields[1];
-            if (version != "1") {
-                cerr << "warning: ignoring unknown version "
-                     << version <<  " in ~/.cloud_credentials: "
-                     << line << endl;
-                continue;
-            }
-                
-            string keyId = fields[2];
-            string key = fields[3];
-            string bandwidth = fields[4];
-            string protocol = fields[5];
-            string serviceUri = fields[6];
-
-            if (protocol == "")
-                protocol = "http";
-            if (bandwidth == "")
-                bandwidth = "20.0";
-            if (serviceUri == "")
-                serviceUri = "s3.amazonaws.com";
-
-            //cerr << "registering " << keyId << " " << key << " " << bandwidth
-            //     << " " << protocol << " " << serviceUri << endl;
-
-            registerS3Buckets(keyId, key, boost::lexical_cast<double>(bandwidth),
-                              protocol, serviceUri);
-        }
+        registerS3Buckets(keyId, key, boost::lexical_cast<double>(bandwidth),
+                          protocol, serviceUri);
         return;
     }
 
