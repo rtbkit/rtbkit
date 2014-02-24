@@ -30,7 +30,7 @@ parsePeriod(const std::string & pattern)
     //if (number <= 0)
     //    context.exception("invalid time number: must be > 0");
 
-    if (context.match_literal('x'))
+    if (context.match_literal('x') || context.match_literal("ms"))
 	granularity = MILLISECONDS;
     else if (context.match_literal('s'))
         granularity = SECONDS;

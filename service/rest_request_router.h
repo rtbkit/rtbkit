@@ -364,7 +364,8 @@ struct RestRequestRouter {
     enum MatchResult {
         MR_NO,     ///< Didn't match but can continue
         MR_YES,    ///< Did match
-        MR_ERROR   ///< Error
+        MR_ERROR,  ///< Error
+        MR_ASYNC   ///< Handled, but asynchronously
     };    
 
     typedef std::function<MatchResult (const RestServiceEndpoint::ConnectionId & connection,

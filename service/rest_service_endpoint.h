@@ -83,6 +83,11 @@ struct RestServiceEndpoint: public MessageLoop {
         connection handler object).
     */
     struct ConnectionId {
+        /// Don't initialize for now
+        ConnectionId()
+        {
+        }
+        
         /// Initialize for zeromq
         ConnectionId(const std::string & zmqAddress,
                      const std::string & requestId,

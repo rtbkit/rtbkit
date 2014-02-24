@@ -78,7 +78,7 @@ namespace zmq
             throw error_t ();
     }
 
-    class message_t : private zmq_msg_t
+    class message_t : public zmq_msg_t
     {
         friend class socket_t;
 

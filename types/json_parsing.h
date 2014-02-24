@@ -8,6 +8,7 @@
 
 #include "soa/jsoncpp/json.h"
 #include "jml/utils/json_parsing.h"
+#include "jml/utils/compact_vector.h"
 #include "soa/types/id.h"
 #include "soa/types/string.h"
 #include <boost/algorithm/string.hpp>
@@ -24,8 +25,8 @@ struct JsonPathEntry {
     {
     }
     
-    JsonPathEntry(std::string key)
-        : index(-1), key(std::move(key)), keyPtr(this->key.c_str()),
+    JsonPathEntry(const std::string & key)
+        : index(-1), keyPtr(key.c_str()), keyStr(new std::string(key)),
           fieldNumber(0)
     {
     }
@@ -35,14 +36,35 @@ struct JsonPathEntry {
     {
     }
 
+    JsonPathEntry(JsonPathEntry && other) noexcept
+    {
+        *this = std::move(other);
+    }
+
+    JsonPathEntry & operator = (JsonPathEntry && other) noexcept
+    {
+        index = other.index;
+        keyPtr = other.keyPtr;
+        keyStr = other.keyStr;
+        fieldNumber = other.fieldNumber;
+        other.keyStr = nullptr;
+        return *this;
+    }
+
+    ~JsonPathEntry()
+    {
+        if (keyStr)
+            delete keyStr;
+    }
+
     int index;
-    std::string key;
     const char * keyPtr;
+    std::string * keyStr;
     int fieldNumber;
 
     std::string fieldName() const
     {
-        return key.empty() && keyPtr ? keyPtr : key;
+        return keyPtr ? std::string(keyPtr) : *keyStr;
     }
 
     const char * fieldNamePtr() const
@@ -50,15 +72,34 @@ struct JsonPathEntry {
         return keyPtr;
     }
 
+    // Needed for compilers that don't support move_if_noexcept
+    JsonPathEntry & operator = (const JsonPathEntry & other)
+    {
+        index = other.index;
+        keyPtr = other.keyPtr;
+        keyStr = other.keyStr ? new std::string(*other.keyStr) : nullptr;
+        fieldNumber = other.fieldNumber;
+        return *this;
+    }
+
+    // Needed for compilers that don't support move_if_noexcept
+    JsonPathEntry(const JsonPathEntry & other)
+    {
+        *this = other;
+    }
 };
 
-struct JsonPath: public std::vector<JsonPathEntry> {
+struct JsonPath: public ML::compact_vector<JsonPathEntry, 8> {
+    JsonPath()
+    {
+    }
+
     std::string print() const
     {
         std::string result;
         for (auto & e: *this) {
             if (e.index == -1)
-                result += "." + e.fieldName();
+                result += "." + std::string(e.fieldName());
             else result += '[' + std::to_string(e.index) + ']';
         }
         return result;
