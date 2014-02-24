@@ -24,6 +24,7 @@
 
 #include "jml/arch/futex.h"
 #include "jml/arch/timers.h"
+#include "jml/utils/guard.h"
 #include "jml/utils/file_functions.h"
 
 #include "message_loop.h"
@@ -136,11 +137,11 @@ handleChildStatus(const struct epoll_event & event)
             }
 
             statusRemaining_ -= s;
+
             if (statusRemaining_ > 0) {
                 cerr << "warning: reading status fd in multiple chunks\n";
-            }
-            else if (statusRemaining_ != 0)
                 continue;
+            }
 
             memcpy(&status, statusBuffer_, sizeof(status));
 
@@ -159,8 +160,7 @@ handleChildStatus(const struct epoll_event & event)
 
             task_.statusState = status.state;
 
-            if (status.launchErrno
-                || status.launchErrorCode) {
+            if (status.launchErrno || status.launchErrorCode) {
                 //cerr << "*** launch error" << endl;
                 // Error
                 childPid_ = -1;
@@ -369,6 +369,8 @@ run(const vector<string> & command,
         task_.RunWrapper(command, childFds);
     }
     else {
+        task_.statusState = Task::StatusState::LAUNCHING;
+
         ML::set_file_flag(task_.statusFd, O_NONBLOCK);
         if (stdInSink_) {
             ML::set_file_flag(task_.stdInFd, O_NONBLOCK);
@@ -454,7 +456,17 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
     // process has finished launching, the pipe will be completely closed
     // and we can use this to know that it has properly started.
 
-    int childLaunchStatusFd[2];
+    int childLaunchStatusFd[2] = { -1, -1 };
+
+    // Arrange for them to be closed in the case of an exception.
+    ML::Call_Guard guard([&] ()
+                         {
+                             if (childLaunchStatusFd[0] != -1)
+                                 ::close(childLaunchStatusFd[0]);
+                             if (childLaunchStatusFd[1] != -1)
+                                 ::close(childLaunchStatusFd[1]);
+
+                         });
     int res = ::pipe2(childLaunchStatusFd, O_CLOEXEC);
     if (res == -1)
         throw ML::Exception(errno, "pipe() for status");
@@ -486,11 +498,14 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
             else _exit(127);
         }
 
+        // No need to close the FDs because this fork won't last long
+
         /* there is no possible way this code could be executed */
         throw ML::Exception("The Alpha became the Omega.");
     }
     else {
         ::close(childLaunchStatusFd[1]);
+        childLaunchStatusFd[1] = -1;
         // FILE * terminal = ::fopen("/dev/tty", "a");
         // ::fprintf(terminal, "wrapper: real child pid: %d\n", childPid);
         ChildStatus status;

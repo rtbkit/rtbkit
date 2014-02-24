@@ -422,7 +422,7 @@ BOOST_AUTO_TEST_CASE( test_runner_multi_execute_single_loop )
 }
 #endif
 
-#if 0
+#if 1
 BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
 {
     volatile bool shutdown = false;
