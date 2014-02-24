@@ -4,25 +4,26 @@
 
    An asynchronous HTTP client.
 
-   HttpClient is meant to provide a featureful asynchronous HTTP client class.
-   It supports strictly asynchronous (non-blocking) operations, HTTP
-   pipelining and concurrent requests while enabling streaming responses via a
-   callback mechanism. It is meant to be subclassed whenever a synchronous
-   interface or a one-shot response mechanism is required. In general, the
-   code should be complete enough that existing and similar classes could be
-   subclassed gradually (HttpRestProxy, s3 internals).
+   HttpClient is meant to provide a featureful, generic and asynchronous HTTP
+   client class. It supports strictly asynchronous (non-blocking) operations,
+   HTTP pipelining and concurrent requests while enabling streaming responses
+   via a callback mechanism. It is meant to be subclassed whenever a
+   synchronous interface or a one-shot response mechanism is required. In
+   general, the code should be complete enough that existing and similar
+   classes could be subclassed gradually (HttpRestProxy, s3 internals). As a
+   generic class, it does not make assumptions on the transfer contents.
+   Finally, it is based on the interface of HttpRestProxy.
 
    Caveat:
    - no support for EPOLLONESHOT yet
    - has not been tweaked for performance yet
-   - does and will not provide any support for cookies per se
+   - does not and will not provide any support for cookies per se
 */
 
 #pragma once
 
 #include "sys/epoll.h"
 
-#include <atomic>
 #include <string>
 #include <vector>
 
@@ -48,35 +49,27 @@ struct HttpClientCallbacks;
 struct HttpRequest {
     /** Structure used to hold content for a POST request. */
     struct Content {
-        Content()
-            : hasContent(false)
-        {
-        }
+        Content() = default;
 
         Content(const std::string & str,
                 const std::string & contentType = "")
-            : str(str), hasContent(true), contentType(contentType)
+            : str(str), contentType(contentType)
         {
         }
 
         Content(const char * data, uint64_t size,
                 const std::string & contentType = "")
-            : str(data, size), hasContent(true),
-              contentType(contentType)
+            : str(data, size), contentType(contentType)
         {
         }
 
         Content(const Json::Value & content,
                 const std::string & contentType = "application/json")
-            : str(content.toString()), hasContent(true),
-              contentType(contentType)
+            : str(content.toString()), contentType(contentType)
         {
         }
 
         std::string str;
-
-        bool hasContent;
-
         std::string contentType;
     };
 
@@ -153,28 +146,16 @@ struct HttpClient : public AsyncEventSource {
                int numParallel = 4, size_t queueSize = 32);
     ~HttpClient();
 
-    bool post(const std::string & resource,
-              const HttpClientCallbacks & callbacks,
-              const HttpRequest::Content & content = HttpRequest::Content(),
-              const RestParams & queryParams = RestParams(),
-              const RestParams & headers = RestParams(),
-              int timeout = -1)
-    {
-        return enqueueRequest("POST", resource, callbacks, content,
-                              queryParams, headers, timeout);
-    }
+    /** SSL checks */
+    bool noSSLChecks;
 
-    bool put(const std::string & resource,
-             const HttpClientCallbacks & callbacks,
-             const HttpRequest::Content & content = HttpRequest::Content(),
-             const RestParams & queryParams = RestParams(),
-             const RestParams & headers = RestParams(),
-             int timeout = -1)
-    {
-        return enqueueRequest("PUT", resource, callbacks, content,
-                              queryParams, headers, timeout);
-    }
+    /** Are we debugging? */
+    bool debug;
 
+    /** Performs a POST request, with "resource" as the location of the
+     *  resource on the server indicated in "baseUrl". Query parameters
+     *  should preferably be passed via "queryParams".
+     */
     bool get(const std::string & resource,
              const HttpClientCallbacks & callbacks,
              const RestParams & queryParams = RestParams(),
@@ -186,12 +167,37 @@ struct HttpClient : public AsyncEventSource {
                               queryParams, headers, timeout);
     }
 
+    /** Performs a POST request, using similar parameters as get with the
+     * addition of "content" which defines the contents body and type. */
+    bool post(const std::string & resource,
+              const HttpClientCallbacks & callbacks,
+              const HttpRequest::Content & content = HttpRequest::Content(),
+              const RestParams & queryParams = RestParams(),
+              const RestParams & headers = RestParams(),
+              int timeout = -1)
+    {
+        return enqueueRequest("POST", resource, callbacks, content,
+                              queryParams, headers, timeout);
+    }
+
+    /** Performs a PUT request in a similar fashion to "post" above. */
+    bool put(const std::string & resource,
+             const HttpClientCallbacks & callbacks,
+             const HttpRequest::Content & content = HttpRequest::Content(),
+             const RestParams & queryParams = RestParams(),
+             const RestParams & headers = RestParams(),
+             int timeout = -1)
+    {
+        return enqueueRequest("PUT", resource, callbacks, content,
+                              queryParams, headers, timeout);
+    }
+
+private:
     /* AsyncEventSource */
     virtual int selectFd() const;
     virtual bool processOne();
-    // virtual bool poll() const;
 
-    /* internal */
+    /* Local */
     bool enqueueRequest(const std::string & verb,
                         const std::string & resource,
                         const HttpClientCallbacks & callbacks,
@@ -208,7 +214,11 @@ struct HttpClient : public AsyncEventSource {
 
     void checkMultiInfos();
 
+    static int socketCallback(CURL *e, curl_socket_t s, int what,
+                              void *clientP, void *sockp);
     int onCurlSocketEvent(CURL *e, curl_socket_t s, int what, void *sockp);
+
+    static int timerCallback(CURLM *multi, long timeoutMs, void *clientP);
     int onCurlTimerEvent(long timeout_ms);
 
     void addFd(int fd, bool isMod, int flags) const;
@@ -253,12 +263,6 @@ struct HttpClient : public AsyncEventSource {
 
     std::string baseUrl_;
 
-    /** SSL checks */
-    bool noSSLChecks;
-
-    /** Are we debugging? */
-    bool debug;
-
     int fd_;
     ML::Wakeup_Fd wakeup_;
     int timerFd_;
@@ -266,7 +270,7 @@ struct HttpClient : public AsyncEventSource {
     curlpp::Multi multi_;
     ::CURLM * handle_;
 
-    std::atomic<HttpConnection *> connections_;
+    HttpConnection * connections_;
     std::vector<HttpConnection> connectionStash_;
 
     ML::RingBufferSRMW<HttpRequest> queue_; /* queued requests */
@@ -313,15 +317,16 @@ struct HttpClientCallbacks {
                                  const std::string & httpVersion,
                                  int code) const;
 
-    /* callback for header lines */
+    /* callback for header lines, one invocation per line */
     virtual void onHeader(const HttpRequest & rq,
                           const std::string & header) const;
 
-    /* callback for body data */
+    /* callback for body data, one invocation per chunk */
     virtual void onData(const HttpRequest & rq,
                         const std::string & data) const;
 
-    /* callback for operation completions */
+    /* callback for operation completions, implying that no other call will
+     * be performed for the same request */
     virtual void onDone(const HttpRequest & rq,
                         Error errorCode) const;
 

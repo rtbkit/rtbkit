@@ -3,8 +3,6 @@
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 
-#include <atomic>
-
 #include <curlpp/cURLpp.hpp>
 #include <curlpp/Easy.hpp>
 #include <curlpp/Options.hpp>
@@ -51,22 +49,6 @@ translateError(CURLcode curlError)
     }
 
     return error;
-}
-
-int
-socketCallback(CURL *e, curl_socket_t s, int what, void *clientP, void *sockp)
-{
-    HttpClient *this_ = static_cast<HttpClient *>(clientP);
-
-    return this_->onCurlSocketEvent(e, s, what, sockp);
-}
-
-int
-timerCallback(CURLM *multi, long timeoutMs, void *clientP)
-{
-    HttpClient *this_ = static_cast<HttpClient *>(clientP);
-
-    return this_->onCurlTimerEvent(timeoutMs);
 }
 
 }
@@ -143,8 +125,8 @@ onDone(const HttpRequest & rq, Error errorCode)
 HttpClient::
 HttpClient(const string & baseUrl, int numParallel, size_t queueSize)
     : AsyncEventSource(),
-      baseUrl_(baseUrl),
       noSSLChecks(false), debug(false),
+      baseUrl_(baseUrl),
       fd_(-1),
       wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
       timerFd_(-1),
@@ -389,9 +371,9 @@ checkMultiInfos()
 {
     int remainingMsgs(0);
     CURLMsg * msg;
-    int count(0);
+    // int count(0);
     while ((msg = curl_multi_info_read(handle_, &remainingMsgs))) {
-        count++;
+        // count++;
         // cerr << to_string(count) << " msg\n";
         // cerr << "  remaining: " + to_string(remainingMsgs) << " msg\n";
         if (msg->msg == CURLMSG_DONE) {
@@ -411,6 +393,15 @@ checkMultiInfos()
             cerr << "? not done\n";
         }
     }
+}
+
+int
+HttpClient::
+socketCallback(CURL *e, curl_socket_t s, int what, void *clientP, void *sockp)
+{
+    HttpClient *this_ = static_cast<HttpClient *>(clientP);
+
+    return this_->onCurlSocketEvent(e, s, what, sockp);
 }
 
 int
@@ -439,6 +430,15 @@ onCurlSocketEvent(CURL *e, curl_socket_t fd, int what, void *sockp)
     }
 
     return 0;
+}
+
+int
+HttpClient::
+timerCallback(CURLM *multi, long timeoutMs, void *clientP)
+{
+    HttpClient *this_ = static_cast<HttpClient *>(clientP);
+
+    return this_->onCurlTimerEvent(timeoutMs);
 }
 
 int
@@ -479,9 +479,9 @@ HttpClient::
 getConnection()
 {
     HttpConnection * conn = connections_;
-
-    while (conn != nullptr
-           && !connections_.compare_exchange_weak(conn, conn->next));
+    if (conn) {
+        connections_ = conn->next;
+    }
 
     return conn;
 }
@@ -490,11 +490,8 @@ void
 HttpClient::
 releaseConnection(HttpConnection * oldConnection)
 {
-    HttpConnection * next = connections_;
-
-    while (!connections_.compare_exchange_weak(next, oldConnection)) {
-        oldConnection->next = next;
-    }
+    oldConnection->next = connections_;
+    connections_ = oldConnection;
 }
 
 

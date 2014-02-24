@@ -384,7 +384,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put )
    Not a performance test. */
 BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
 {
-    ML::Watchdog watchdog(10);
+    ML::Watchdog watchdog(30);
     auto proxies = make_shared<ServiceProxies>();
     HttpGetService service(proxies);
 
@@ -410,6 +410,52 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
         //          + ": " + to_string(get<1>(resp))
         //          + "\n\n\n");
         // cerr << "    body =\n/" + get<2>(resp) + "/\n";
+        numResponses++;
+        if (numResponses == numReqs) {
+            ML::futex_wake(numResponses);
+        }
+    };
+    HttpClientCallbacks cbs(nullptr, nullptr, nullptr, onDone);
+
+    while (numReqs < maxReqs) {
+        if (clientRef.get("/", cbs)) {
+            numReqs++;
+        }
+    }
+
+    while (numResponses < numReqs) {
+        int old(numResponses);
+        ML::futex_wait(numResponses, old);
+    }
+}
+#endif
+
+#if 1
+/* A small performance test. */
+BOOST_AUTO_TEST_CASE( test_http_client_perf_test )
+{
+    ML::Watchdog watchdog(30);
+    auto proxies = make_shared<ServiceProxies>();
+    HttpGetService service(proxies);
+
+    service.addResponse("GET", "/", 200, "coucou");
+    service.start();
+
+    MessageLoop loop;
+    loop.start();
+
+    string baseUrl("http://127.0.0.1:"
+                   + to_string(service.port()));
+
+    auto client = make_shared<HttpClient>(baseUrl, 1, 16384);
+    auto & clientRef = *client.get();
+    loop.addSource("httpClient", client);
+
+    int maxReqs(1000), numReqs(0);
+    int numResponses(0);
+
+    auto onDone = [&] (const HttpRequest & rq,
+                       HttpClientCallbacks::Error errorCode_) {
         numResponses++;
         if (numResponses == numReqs) {
             ML::futex_wake(numResponses);
