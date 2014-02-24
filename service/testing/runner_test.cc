@@ -416,3 +416,38 @@ BOOST_AUTO_TEST_CASE( test_runner_multi_execute_single_loop )
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 }
 #endif
+
+BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
+{
+    volatile bool shutdown = false;
+    
+    int doneIterations = 0;
+
+    auto doThread = [&] (int threadNum)
+        {
+            while (!shutdown) {
+                auto result = execute({ "/bin/true" },
+                                      std::make_shared<OStreamInputSink>(&std::cout),
+                                      std::make_shared<OStreamInputSink>(&std::cerr));
+
+                ExcAssertEqual(result.returnCode, 0);
+                cerr << threadNum;
+
+                ML::atomic_inc(doneIterations);
+            }
+        };
+
+    std::vector<std::unique_ptr<std::thread> > threads;
+
+    for (unsigned i = 0;  i < 8;  ++i)
+        threads.emplace_back(new std::thread(std::bind(doThread, i)));
+
+    ML::sleep(2.0);
+
+    shutdown = true;
+
+    for (auto & t: threads)
+        t->join();
+    
+    cerr << "did " << doneIterations << " runner iterations" << endl;
+}
