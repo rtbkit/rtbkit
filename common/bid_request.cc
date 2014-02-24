@@ -42,6 +42,8 @@ DefaultDescription()
              "Postal code of location");
     addField("dma", &Location::dma,
              "DMA code of location");
+    addField("metro", &Location::metro,
+             "Metro code of location");
     addField("timezoneOffsetMinutes", &Location::timezoneOffsetMinutes,
              "Timezone offset of location in minutes");
 }
@@ -428,7 +430,7 @@ fullLocationString() const
 {
     Utf8String result(countryCode + ":" + regionCode + ":") ;
     result += cityName ;
-    result += (":" + postalCode + ":" + boost::lexical_cast<string>(dma));
+    result += (":" + postalCode + ":" + boost::lexical_cast<string>(dma) + ":" + boost::lexical_cast<string>(metro));
     return result;
     //Utf8String result(countryCode +":"+ regionCode +":" +
  //   return ML::format("%s:%s:%s:%s:%d",
@@ -446,6 +448,7 @@ toJson() const
     addIfNotEmpty(result, "cityName",     std::string(cityName.rawData(),cityName.rawLength()));
     addIfNotEmpty(result, "postalCode",   postalCode);
     addIfNotEmpty(result, "dma",          dma, -1);
+    addIfNotEmpty(result, "metro",        metro, -1);
     addIfNotEmpty(result, "timezoneOffsetMinutes", timezoneOffsetMinutes, -1);
     return result;
 }
@@ -474,6 +477,8 @@ createFromJson(const Json::Value & json)
             result.postalCode = it->asString();
         else if (it.memberName() == "dma")
             result.dma = it->asInt();
+        else if (it.memberName() == "metro")
+            result.metro = it->asInt();
         else if (it.memberName() == "timezoneOffsetMinutes")
             result.timezoneOffsetMinutes = it->asInt();
         else throw ML::Exception("unknown location field " + it.memberName());

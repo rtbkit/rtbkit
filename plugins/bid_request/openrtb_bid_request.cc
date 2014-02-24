@@ -160,8 +160,9 @@ fromOpenRtb(OpenRTB::BidRequest && req,
             else l.regionCode = g.regionfips104;
             l.cityName = g.city;
             l.postalCode = g.zip;
-            
-            // TODO: DMA
+            if(!g.metro.empty())
+                l.metro = boost::lexical_cast<int> (g.metro);            
+// TODO DMA
         }
     }
 
