@@ -17,6 +17,8 @@
 using namespace std;
 using namespace Datacratic;
 
+/* 0 = all but perf tests; 1 = perf tests only */
+#define DO_PERF_TESTS 0
 
 namespace {
 
@@ -256,6 +258,9 @@ doUploadRequest(MessageLoop & loop,
 
 }
 
+#if (DO_PERF_TESTS == 0)
+
+#if 1
 BOOST_AUTO_TEST_CASE( test_http_client_get )
 {
     ML::Watchdog watchdog(10);
@@ -327,6 +332,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         BOOST_CHECK_EQUAL(jsonBody, expBody);
     }
 }
+#endif
 
 #if 1
 BOOST_AUTO_TEST_CASE( test_http_client_post )
@@ -434,6 +440,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
 }
 #endif
 
+#else /* DO_PERF_TESTS */
+
 #if 1
 /* A small performance test for HttpClient. */
 BOOST_AUTO_TEST_CASE( test_http_client_perf_test )
@@ -521,3 +529,5 @@ BOOST_AUTO_TEST_CASE( test_http_rest_proxy_perf_test )
               maxReqs, delta, qps);
 }
 #endif
+
+#endif /* DO_PERF_TESTS */
