@@ -10,6 +10,7 @@
 #include "soa/service/http_endpoint.h"
 #include "soa/service/named_endpoint.h"
 #include "soa/service/message_loop.h"
+#include "soa/service/rest_proxy.h"
 #include "soa/service/rest_service_endpoint.h"
 #include "soa/service/http_client.h"
 
@@ -24,7 +25,8 @@ struct HttpTestConnHandler;
 struct HttpService : public ServiceBase, public HttpEndpoint {
     HttpService(const shared_ptr<ServiceProxies> & proxies)
         : ServiceBase("http-test-service", proxies),
-          HttpEndpoint("http-test-service-ep")
+          HttpEndpoint("http-test-service-ep"),
+          portToUse(0)
     {
     }
 
@@ -35,13 +37,15 @@ struct HttpService : public ServiceBase, public HttpEndpoint {
 
     void start()
     {
-        init(0, "127.0.0.1", 1);
+        init(portToUse, "127.0.0.1", 1);
     }
 
     virtual shared_ptr<ConnectionHandler> makeNewHandler();
     virtual void handleHttpPayload(HttpTestConnHandler & handler,
                                    const HttpHeader & header,
                                    const string & payload) = 0;
+
+    int portToUse;
 };
 
 struct HttpTestConnHandler : HttpConnectionHandler {
@@ -431,13 +435,13 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
 #endif
 
 #if 1
-/* A small performance test. */
+/* A small performance test for HttpClient. */
 BOOST_AUTO_TEST_CASE( test_http_client_perf_test )
 {
     ML::Watchdog watchdog(30);
     auto proxies = make_shared<ServiceProxies>();
     HttpGetService service(proxies);
-
+    // service.portToUse = 20000;
     service.addResponse("GET", "/", 200, "coucou");
     service.start();
 
@@ -447,7 +451,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_perf_test )
     string baseUrl("http://127.0.0.1:"
                    + to_string(service.port()));
 
-    auto client = make_shared<HttpClient>(baseUrl, 1, 16384);
+    auto client = make_shared<HttpClient>(baseUrl, 1);
     auto & clientRef = *client.get();
     loop.addSource("httpClient", client);
 
@@ -481,5 +485,39 @@ BOOST_AUTO_TEST_CASE( test_http_client_perf_test )
     double qps = numReqs / delta;
     ::fprintf(stderr, "%d requests performed in %f secs => %f qps\n",
               numReqs, delta, qps);
+}
+#endif
+
+#if 1
+/* A small performance test for HttpRestProxy. */
+BOOST_AUTO_TEST_CASE( test_http_rest_proxy_perf_test )
+{
+    int maxReqs(10000);
+    ML::Watchdog watchdog(30);
+    auto proxies = make_shared<ServiceProxies>();
+    HttpGetService service(proxies);
+    // service.portToUse = 20000;
+    service.addResponse("GET", "/", 200, "coucou");
+    service.start();
+
+    MessageLoop loop;
+    loop.start();
+
+    string baseUrl("http://127.0.0.1:"
+                   + to_string(service.port()));
+
+    HttpRestProxy client(baseUrl);
+
+    Date start = Date::now();
+
+    for (int i = 0; i < maxReqs; i++) {
+        auto response = client.get("/");
+    }
+
+    Date end = Date::now();
+    double delta = end - start;
+    double qps = maxReqs / delta;
+    ::fprintf(stderr, "%d requests performed in %f secs => %f qps\n",
+              maxReqs, delta, qps);
 }
 #endif

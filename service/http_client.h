@@ -142,6 +142,12 @@ struct HttpRequest {
 /* HTTPCLIENT */
 
 struct HttpClient : public AsyncEventSource {
+
+    /* "baseUrl": scheme, hostname and port (scheme://hostname[:port]) that
+       will be used as base for all requests
+       "numParallels": number of requests that can be handled simultaneously
+       "queueSize": size of the backlog of pending requests, after which
+       operations will be refused */
     HttpClient(const std::string & baseUrl,
                int numParallel = 4, size_t queueSize = 32);
     ~HttpClient();
@@ -155,6 +161,8 @@ struct HttpClient : public AsyncEventSource {
     /** Performs a POST request, with "resource" as the location of the
      *  resource on the server indicated in "baseUrl". Query parameters
      *  should preferably be passed via "queryParams".
+     *
+     *  Returns "true" when the request could successfully be enqueued.
      */
     bool get(const std::string & resource,
              const HttpClientCallbacks & callbacks,
@@ -168,7 +176,10 @@ struct HttpClient : public AsyncEventSource {
     }
 
     /** Performs a POST request, using similar parameters as get with the
-     * addition of "content" which defines the contents body and type. */
+     * addition of "content" which defines the contents body and type.
+     *
+     *  Returns "true" when the request could successfully be enqueued.
+     */
     bool post(const std::string & resource,
               const HttpClientCallbacks & callbacks,
               const HttpRequest::Content & content = HttpRequest::Content(),
@@ -180,7 +191,10 @@ struct HttpClient : public AsyncEventSource {
                               queryParams, headers, timeout);
     }
 
-    /** Performs a PUT request in a similar fashion to "post" above. */
+    /** Performs a PUT request in a similar fashion to "post" above.
+     *
+     *  Returns "true" when the request could successfully be enqueued.
+     */
     bool put(const std::string & resource,
              const HttpClientCallbacks & callbacks,
              const HttpRequest::Content & content = HttpRequest::Content(),
