@@ -17,6 +17,7 @@
 
 #include "epoller.h"
 #include "sink.h"
+#include "soa/types/value_description.h"
 
 
 namespace Datacratic {
@@ -86,6 +87,9 @@ std::string to_string(const RunResult::State & state);
 
 std::ostream &
 operator << (std::ostream & stream, const RunResult::State & state);
+
+CREATE_STRUCTURE_DESCRIPTION(RunResult);
+CREATE_ENUM_DESCRIPTION_NAMED(RunResultStateDescription, RunResult::State);
 
 
 /*****************************************************************************/

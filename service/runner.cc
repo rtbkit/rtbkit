@@ -31,6 +31,8 @@
 
 #include "runner.h"
 
+#include "soa/types/basic_value_descriptions.h"
+
 using namespace std;
 using namespace Datacratic;
 
@@ -728,6 +730,33 @@ std::ostream &
 operator << (std::ostream & stream, const RunResult::State & state)
 {
     return stream << to_string(state);
+}
+
+RunResultDescription::
+RunResultDescription()
+{
+    addField("state", &RunResult::state, "State of run command");
+    addField("signum", &RunResult::signum,
+             "Signal number that it exited with", -1);
+    addField("returnCode", &RunResult::returnCode,
+             "Return code of command", -1);
+    addField("launchErrno", &RunResult::launchErrno,
+             "Errno for launch error", 0);
+    addField("launchError", &RunResult::launchError,
+             "Error message for launch error");
+}
+
+RunResultStateDescription::
+RunResultStateDescription()
+{
+    addValue("UNKNOWN", RunResult::UNKNOWN,
+             "State is unknown or uninitialized");
+    addValue("LAUNCH_ERROR", RunResult::LAUNCH_ERROR,
+             "Command was unable to be launched");
+    addValue("RETURNED", RunResult::RETURNED,
+             "Command returned");
+    addValue("SIGNALED", RunResult::SIGNALED,
+             "Command exited with a signal");
 }
 
 
