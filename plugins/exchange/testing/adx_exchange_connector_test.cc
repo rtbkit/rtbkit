@@ -47,10 +47,6 @@ std::string loadFile(const std::string & filename)
     assert (len<sizeof buf);
     ifs.read (buf, len);
     assert (ifs);
-    {
-	std::ofstream ofs("/tmp/br.dat",std::ios::out|std::ios::binary|std::ios::trunc);
-	ofs.write(buf,len);
-    }
     return std::string (buf, len);
 }
 
@@ -153,21 +149,6 @@ BOOST_AUTO_TEST_CASE( test_adx )
     NetworkAddress address(port);
     BidSource source(address);
 
-
-    /*
-    std::string httpRequest = ML::format(
-                                  "POST /auctions HTTP/1.1\r\n"
-                                  "Content-Length: %zd\r\n"
-                                  "Content-Type: application/XXoctet\r\n"
-                                  "Connection: Keep-Alive\r\n"
-                                  "\r\n"
-                                  "%s",
-                                  google_bid_request.size(),
-                                  google_bid_request.c_str());
-
-    std::cerr << "httpRequest=" << httpRequest.size() << std::endl ;
-    std::cerr << "googleBR=" << google_bid_request.size() << std::endl ;
-    */
     std::ostringstream oss ;
     oss << "POST /auctions HTTP/1.1\r\n"
         << "Content-Length: "<< google_bid_request.size() << "\r\n"
@@ -175,9 +156,6 @@ BOOST_AUTO_TEST_CASE( test_adx )
         << "Connection: Keep-Alive\r\n"
         << "\r\n";
     auto httpRequest = oss.str() + google_bid_request;
-
-    std::cerr << "httpRequest=" << httpRequest.size() << std::endl ;
-    std::cerr << "googleBR=" << google_bid_request.size() << std::endl ;
 
     // and send it
     source.write(httpRequest);
