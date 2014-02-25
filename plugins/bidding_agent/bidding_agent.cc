@@ -26,7 +26,39 @@ using namespace Datacratic;
 using namespace RTBKIT;
 using namespace ML;
 
+
 namespace RTBKIT {
+
+
+/******************************************************************************/
+/* UTILITIES                                                                  */
+/******************************************************************************/
+
+
+typedef uint64_t hash_t;
+
+const hash_t prime = 0x100000001B3ull;
+const hash_t basis = 0xCBF29CE484222325ull;
+
+
+hash_t hash(std::string str)
+{
+    hash_t ret{basis};
+    auto i = 0;
+    
+	while(str[i]){
+		ret ^= str[i];
+		ret *= prime;
+		i++;
+	}
+ 
+	return ret;
+} 
+
+constexpr hash_t hash_compile_time(char const* str, hash_t last_value = basis)
+{
+    return *str ? hash_compile_time(str+1, (*str ^ last_value) * prime) : last_value;
+}
 
 
 /******************************************************************************/
@@ -176,89 +208,22 @@ handleRouterMessage(const std::string & fromRouter,
         return;
     }
 
-    bool invalid = false;
 
-    switch (message[0][0]) {
-    case 'A':
-        if (message[0] == "AUCTION")
-            handleBidRequest(fromRouter, message, onBidRequest);
-        else invalid = true;
-        break;
-
-    case 'W':
-        if (message[0] == "WIN")
-            handleResult(message, onWin);
-        else invalid = true;
-        break;
-
-    case 'L':
-        if (message[0] == "LOSS")
-            handleResult(message, onLoss);
-        else {
-            if (message[0] == "LATEWIN")
-                handleResult(message, onLateWin );
-            else
-                invalid = true;
-        }
-        break;
-        
-    case 'N':
-        if (message[0] == "NOBUDGET")
-            handleResult(message, onNoBudget);
-        else if (message[0] == "NEEDCONFIG") sendConfig();
-        else invalid = true;
-        break;
-
-    case 'T':
-        if (message[0] == "TOOLATE")
-            handleResult(message, onTooLate);
-        else invalid = true;
-        break;
-
-    case 'I':
-        if (message[0] == "INVALID")
-            handleResult(message, onInvalidBid);
-        else if (message[0] == "IMPRESSION")
-            handleDelivery(message, onImpression);
-        else invalid = true;
-        break;
-
-    case 'D':
-        if (message[0] == "DROPPEDBID")
-            handleResult(message, onDroppedBid);
-        else invalid = true;
-        break;
-
-    case 'G':
-        if (message[0] == "GOTCONFIG") { /* no-op */ }
-        else invalid = true;
-        break;
-
-    case 'E':
-        if (message[0] == "ERROR")
-            handleError(message, onError);
-        else invalid = true;
-        break;
-
-    case 'B':
-        if (message[0] == "BYEBYE")   { /*no-op*/ }
-        else invalid = true;
-        break;
-
-    case 'C':
-        if (message[0] == "CLICK")
-            handleDelivery(message, onClick);
-        else invalid = true;
-        break;
-
-    case 'V':
-        if (message[0] == "VISIT")
-            handleDelivery(message, onVisit);
-        else invalid = true;
-        break;
-
-    case 'P':
-        if (message[0] == "PING0") {
+    switch (hash(message[0])) {
+        case hash_compile_time("AUCTION") : handleBidRequest(fromRouter, message, onBidRequest); break;
+        case hash_compile_time("WIN") :     handleResult(message, onWin); break;
+        case hash_compile_time("LOSS") :    handleResult(message, onLoss); break;
+        case hash_compile_time("LATEWIN") : handleResult(message, onLateWin ); break;
+        case hash_compile_time("NOBUDGET") : handleResult(message, onNoBudget); break;
+        case hash_compile_time("NEEDCONFIG") : sendConfig(); break;
+        case hash_compile_time("TOOLATE") : handleResult(message, onTooLate); break;
+        case hash_compile_time("INVALID") : handleResult(message, onInvalidBid); break;
+        case hash_compile_time("CAMPAIGN_EVENT") : handleDelivery(message, onCampaignEvent); break;
+        case hash_compile_time("DROPPEDBID") : handleResult(message, onDroppedBid); break;
+        case hash_compile_time("GOTCONFIG") : /* no-op */ ; break;
+        case hash_compile_time("ERROR") : handleError(message, onError) ; break;
+        case hash_compile_time("BYEBYE") : /* no-op */; break;
+        case hash_compile_time("PING0") : {
             //cerr << "ping0: message " << message << endl;
 
             // Low-level ping (to measure network/message queue backlog);
@@ -267,29 +232,35 @@ handleRouterMessage(const std::string & fromRouter,
             string received = message.at(1);
             message_.erase(message_.begin(), message_.begin() + 2);
             toRouters.sendMessage(fromRouter, "PONG0", received, Date::now(), message_);
-        }
-        else if (message[0] == "PING1") {
+            break;
+        } 
+        case hash_compile_time("PING1") : {
+
             // High-level ping (to measure whole stack backlog);
             // we pass through to the agent to process so we can measure
             // any backlog in the agent itself
             handlePing(fromRouter, message, onPing);
+            break;
         }
-        else invalid = true;
-        break;
+        default : {
+             switch (hash(message[0])) {  
+                 // Backward compatibility : replace by CAMPAIGN_EVENT
+                 case hash_compile_time("VISIT") : handleDelivery(message, onVisit); break;
+                 case hash_compile_time("IMPRESSION") : handleDelivery(message, onImpression); break;
+                 case hash_compile_time("CLICK") : handleDelivery(message, onClick); break;
+                 default : {
 
-    default:
-        invalid = true;
-        break;
-    }
+                     recordHit("errorUnknownMessage");
+                     cerr << "Unknown message: {";
+                     for_each(message.begin(), message.end(), [&](const string& m) {
+                        cerr << m << ", ";
+                     });
+                     cerr << "}" << endl;
+                 }
 
-    if (invalid) {
-        recordHit("errorUnknownMessage");
-        cerr << "Unknown message: {";
-        for_each(message.begin(), message.end(), [&](const string& m) {
-                    cerr << m << ", ";
-                });
-        cerr << "}" << endl;
-    }
+             }
+       }
+   }
 }
 
 namespace {
