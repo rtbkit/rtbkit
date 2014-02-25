@@ -18,6 +18,7 @@
 #include "http_rest_proxy.h"
 #include <memory>
 #include "aws.h"
+#include "fs_utils.h"
 
 namespace Datacratic {
 
@@ -390,20 +391,15 @@ struct S3Api : public AwsApi {
                     const std::string & object,
                     const ObjectMetadata & md = ObjectMetadata()) const;
 
-    struct ObjectInfo {
-        ObjectInfo();
+    struct ObjectInfo : public UrlInfo {
+        ObjectInfo()
+        {}
+
         ObjectInfo(tinyxml2::XMLNode * element);
 
-        JML_IMPLEMENT_OPERATOR_BOOL(exists);
-
         std::string key;
-        uint64_t size;
-        bool exists;
-        std::string etag;
         std::string ownerId;
         std::string ownerName;
-        Date lastModified;
-        std::string storageClass;
     };
 
     typedef std::function<bool (const std::string & prefix,
@@ -630,29 +626,6 @@ void registerS3Buckets(const std::string & accessKeyId,
 std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName);
 
 std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri);
-
-// Return an URI for either a file or an s3 object
-size_t getUriSize(const std::string & filename);
-
-// Return an etag for either a file or an s3 object
-std::string getUriEtag(const std::string & filename);
-
-// Return the object info for either a file or an S3 object
-S3Api::ObjectInfo getUriObjectInfo(const std::string & filename);
-
-// Return the object info for either a file or an S3 object, or null if
-// it doesn't exist
-S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename);
-
-// Create the directories for the given path.  For S3 it does nothing;
-// for normal directories it does mkdir -p
-void makeUriDirectory(const std::string & uri);
-
-// Erase the object at the given uri
-void eraseUriObject(const std::string & uri);
-
-// Erase the object at the given uri
-bool tryEraseUriObject(const std::string & uri);
 
 std::tuple<std::string, std::string, std::string, std::string, std::string> 
     getCloudCredentials();

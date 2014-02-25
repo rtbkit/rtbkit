@@ -40,9 +40,45 @@
 
 #include <boost/filesystem.hpp>
 
+#include "fs_utils.h"
+
 
 using namespace std;
 using namespace ML;
+using namespace Datacratic;
+
+namespace {
+
+/* S3URLFSHANDLER */
+
+struct S3UrlFsHandler : public UrlFsHandler {
+    virtual UrlInfo getInfo(const Url & url)
+    {
+        string bucket = url.host();
+        auto api = getS3ApiForBucket(bucket);
+        return api->getObjectInfo(bucket, url.path().substr(1));
+    }
+
+    virtual void makeDirectory(const Url & url)
+    {
+    }
+
+    virtual void erase(const Url & url)
+    {
+        string bucket = url.host();
+        auto api = getS3ApiForBucket(bucket);
+        api->erase(bucket, url.path());
+    }
+};
+
+struct AtInit {
+    AtInit() {
+        registerUrlFsHandler("s3", new S3UrlFsHandler());
+    }
+} atInit;
+
+}
+
 
 namespace Datacratic {
 
@@ -1015,12 +1051,6 @@ upload(const char * data,
     std::tie(bucket, object) = parseUri(uri);
     return upload(data, bytes, bucket, "/" + object, check, metadata,
                   numInParallel);
-}
-
-S3Api::ObjectInfo::
-ObjectInfo()
-    : size(0), exists(false)
-{
 }
 
 S3Api::ObjectInfo::
@@ -2569,106 +2599,6 @@ std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName)
 std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri)
 {
     return getS3ApiForBucket(S3Api::parseUri(uri).first);
-}
-
-// Return an URI for either a file or an s3 object
-size_t getUriSize(const std::string & filename)
-{
-    if (filename.find("s3://") == 0) {
-        string bucket = S3Api::parseUri(filename).first;
-        auto api = getS3ApiForBucket(bucket);
-        return api->getObjectInfo(filename).size;
-    }
-    else {
-        struct stat stats;
-        int res = stat(filename.c_str(), &stats);
-        if (res == -1)
-            throw ML::Exception("error getting stats file");
-        return stats.st_size;
-    }
-}
-
-// Return an etag for either a file or an s3 object
-std::string getUriEtag(const std::string & filename)
-{
-    if (filename.find("s3://") == 0) {
-        string bucket = S3Api::parseUri(filename).first;
-        auto api = getS3ApiForBucket(bucket);
-        return api->getObjectInfo(filename).etag;
-    }
-    else {
-        struct stat stats;
-        int res = stat(filename.c_str(), &stats);
-        if (res == -1)
-            throw ML::Exception("error getting stats file");
-        return "";
-    }
-}
-
-S3Api::ObjectInfo getUriObjectInfo(const std::string & filename)
-{
-    if (filename.find("s3://") == 0) {
-        string bucket = S3Api::parseUri(filename).first;
-        auto api = getS3ApiForBucket(bucket);
-        return api->getObjectInfo(filename);
-    }
-    else {
-        throw ML::Exception("getUriObjectInfo for file not done yet");
-    }
-}
-
-S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename)
-{
-    if (filename.find("s3://") == 0) {
-        string bucket = S3Api::parseUri(filename).first;
-        auto api = getS3ApiForBucket(bucket);
-        return api->tryGetObjectInfo(filename);
-    }
-    else {
-        throw ML::Exception("tryGetUriObjectInfo for file not done yet");
-    }
-}
-
-
-void makeUriDirectory(const std::string & uri)
-{
-    if (uri.find("s3://") == 0)
-        return;
-
-    string::size_type lastSlash = uri.rfind('/');
-    if (lastSlash == string::npos) {
-        return;
-        throw ML::Exception("directory to create contained no slash: " + uri);
-    }
-    string dir(uri, 0, lastSlash + 1);
-
-    int res = system(("mkdir -p '" + dir + "'").c_str());
-    if (res != 0)
-        throw ML::Exception("mkdir of " + dir + " failed");
-}
-
-void eraseUriObject(const std::string & uri)
-{
-    if (uri.find("s3://") == 0) {
-        unlink(uri.c_str());
-        return;
-    }
-
-    string bucket = S3Api::parseUri(uri).first;
-    auto api = getS3ApiForBucket(bucket);
-    return api->eraseObject(uri);
-}
-
-bool tryEraseUriObject(const std::string & uri)
-{
-    if (uri.find("s3://") == 0) {
-        int res = unlink(uri.c_str());
-        return res == 0;
-    }
-
-    string bucket = S3Api::parseUri(uri).first;
-    auto api = getS3ApiForBucket(bucket);
-    return api->tryEraseObject(uri);
 }
 
 
