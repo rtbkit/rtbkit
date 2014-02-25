@@ -1,4 +1,4 @@
-// Copyright 2013 Google Inc. All Rights Reserved.
+// Copyright 2014 Google Inc. All Rights Reserved.
 
 // This is the message that Google uses to request bids.  A single BidRequest
 // includes all applicable ad slots from a single impression.
@@ -93,7 +93,7 @@ message BidRequest {
   // List of detected user verticals.  Currently unused.
   repeated int32 user_vertical = 30 [packed=true];
 
-  // Audience-targeting list to which the user has been added.  See the Buyer UI
+  // Audience-targeting list to which the user has been added. See the Buyer UI
   // Help topics on remarketing, where it is called a remarketing list.
   //
   message UserList {
@@ -257,15 +257,15 @@ message BidRequest {
     // has twice as many pixels as its dimensions would indicate.
     optional int32 device_pixel_ratio_millis = 19 [default=1000];
 
-    // Apple's identifier for advertising (IDFA) when available, encrypted as
-    // described at https://support.google.com/adxbuyer/answer/3221407
-    // For encrypted_idfa the plaintext achieved after decrypting the ciphertext
-    // is the IDFA returned by iOS's [ASIdentifierManager
-    // advertisingIdentifier].  For encrypted_hashed_idfa the plaintext is the
-    // MD5 hash of the IDFA.  Only one of the two fields will be available,
-    // depending on the version of the SDK making the request.  Later SDKs will
-    // provide the IDFA unhashed.
-    optional bytes encrypted_idfa = 20;
+    // Apple's identifier for advertising (IDFA) as described at
+    // https://support.google.com/adxbuyer/answer/3221407 or Android's
+    // advertising identifier.  When the encrypted_advertising_id is an IDFA,
+    // the plaintext after decrypting the ciphertext is the IDFA returned by
+    // iOS's [ASIdentifierManager advertisingIdentifier].  For
+    // encrypted_hashed_idfa, the plaintext is the MD5 hash of the IDFA.  Only
+    // one of the two fields will be available, depending on the version of the
+    // SDK making the request.  Later SDKs provide unhashed values.
+    optional bytes encrypted_advertising_id = 20;
     optional bytes encrypted_hashed_idfa = 21;
 
 
