@@ -36,7 +36,7 @@
 
 #include "soa/jsoncpp/value.h"
 #include "soa/service/async_event_source.h"
-
+#include "soa/service/http_header.h"
 
 namespace Datacratic {
 
