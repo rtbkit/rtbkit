@@ -1228,13 +1228,10 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
         return std::shared_ptr<AugmentationInfo>();
     }
 
-    const string & exchange = auction->request->exchange;
-
     /* Parse out the adimp. */
     const vector<AdSpot> & imp = auction->request->imp;
 
-    recordCount(imp.size(), "exchange.%s.imp", exchange.c_str());
-    recordHit("exchange.%s.requests", exchange.c_str());
+    recordCount(imp.size(), "exchange.%s.imp", auction->exchangeName());
 
     // List of possible agents per round robin group
     std::map<string, GroupPotentialBidders> groupAgents;
@@ -2302,6 +2299,9 @@ void
 Router::
 onNewAuction(std::shared_ptr<Auction> auction)
 {
+    recordHit("auctions");
+    recordHit("exchange.%s.requests", auction->exchangeName());
+
     if (!monitorClient.getStatus()) {
         Date now = Date::now();
 
@@ -2318,6 +2318,7 @@ onNewAuction(std::shared_ptr<Auction> auction)
         if (slowModeCount > 100) {
             /* we only let the first 100 auctions take place each second */
             recordHit("monitor.ignoredAuctions");
+            recordHit("exchange.%s.ignoredRequests", auction->exchangeName());
             auction->finish();
             return;
         }
