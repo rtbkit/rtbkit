@@ -292,6 +292,7 @@ BOOST_AUTO_TEST_CASE( test_large_blocks )
 }
 #endif
 
+#if 1
 /* ensures that writing a 8M bytes text works */
 BOOST_AUTO_TEST_CASE( test_mem_scheme_out )
 {
@@ -314,7 +315,9 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_out )
     string result = getMemStreamString("out_file.txt");
     BOOST_CHECK_EQUAL(text, result);
 }
+#endif
 
+#if 1
 /* ensures that writing a 8M bytes text to a gz target invokes the gz
  * filter */
 BOOST_AUTO_TEST_CASE( test_mem_scheme_out_gz )
@@ -335,10 +338,16 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_out_gz )
         outS << text;
     }
 
+    /* A very poor check, indeed... Ultimatly, a real decompression should
+    occur, but since we know that the gz filter works, and that unfiltered
+    output works, logically we can deduce that the gz filter was invoked
+    correctly if the strings are not equal. */
     string result = getMemStreamString("out_file.gz");
-    BOOST_CHECK_EQUAL(text, result);
+    BOOST_CHECK_NE(text, result);
 }
+#endif
 
+#if 1
 /* ensures that reading a 8M bytes text works well too */
 BOOST_AUTO_TEST_CASE( test_mem_scheme_in )
 {
@@ -364,3 +373,4 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_in )
 
     BOOST_CHECK_EQUAL(text, result);
 }
+#endif
