@@ -152,7 +152,6 @@ HttpClient(const string & baseUrl, int numParallel, size_t queueSize)
     ::curl_multi_setopt(handle_, CURLMOPT_SOCKETDATA, this);
     ::curl_multi_setopt(handle_, CURLMOPT_TIMERFUNCTION, timerCallback);
     ::curl_multi_setopt(handle_, CURLMOPT_TIMERDATA, this);
-    ::curl_multi_setopt(handle_, CURLMOPT_PIPELINING, 1);
 
     /* connections */
     connections_ = &connectionStash_[0];
@@ -182,6 +181,13 @@ HttpClient::
     if (timerFd_ != -1) {
         ::close(timerFd_);
     }
+}
+
+void
+HttpClient::
+enablePipelining()
+{
+    ::curl_multi_setopt(handle_, CURLMOPT_PIPELINING, 1);
 }
 
 void

@@ -158,6 +158,9 @@ struct HttpClient : public AsyncEventSource {
     /** Are we debugging? */
     bool debug;
 
+    /** Use with servers that support HTTP pipelining */
+    void enablePipelining();
+
     /** Performs a POST request, with "resource" as the location of the
      *  resource on the server indicated in "baseUrl". Query parameters
      *  should preferably be passed via "queryParams".
