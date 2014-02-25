@@ -67,7 +67,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
     {
         string bucket = url.host();
         auto api = getS3ApiForBucket(bucket);
-        return api->eraseObject(bucket, url.path().substr(1));
+        api->erase(bucket, url.path());
     }
 };
 
