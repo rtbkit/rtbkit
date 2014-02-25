@@ -630,20 +630,20 @@ DeliveryEvent::
 parse(const std::vector<std::string>& msg)
 {
     DeliveryEvent ev;
-    ExcCheckGreaterEqual(msg.size(), 12, "Invalid message size");
+    ExcCheckGreaterEqual(msg.size(), 13, "Invalid message size");
 
     using boost::lexical_cast;
 
-    ev.event = msg[0];
-    ev.timestamp = Date::fromSecondsSinceEpoch(lexical_cast<double>(msg[1]));
-    ev.auctionId = Id(msg[2]);
-    ev.spotId = Id(msg[3]);
-    ev.spotIndex = lexical_cast<int>(msg[4]);
+    ev.event = msg[1];
+    ev.timestamp = Date::fromSecondsSinceEpoch(lexical_cast<double>(msg[2]));
+    ev.auctionId = Id(msg[3]);
+    ev.spotId = Id(msg[4]);
+    ev.spotIndex = lexical_cast<int>(msg[5]);
 
-    string bidRequestSource = msg[5];
-    ev.bidRequest.reset(BidRequest::parse(bidRequestSource, msg[6]));
+    string bidRequestSource = msg[6];
+    ev.bidRequest.reset(BidRequest::parse(bidRequestSource, msg[7]));
 
-    ev.augmentations = msg[7];
+    ev.augmentations = msg[8];
 
     auto jsonParse = [] (const string& str)
         {
@@ -651,11 +651,11 @@ parse(const std::vector<std::string>& msg)
             return Json::parse(str);
         };
 
-    ev.bid = Bid::fromJson(jsonParse(msg[8]));
-    ev.win = Win::fromJson(jsonParse(msg[9]));
-    ev.campaignEvents = CampaignEvents::fromJson(jsonParse(msg[10]));
+    ev.bid = Bid::fromJson(jsonParse(msg[9]));
+    ev.win = Win::fromJson(jsonParse(msg[10]));
+    ev.campaignEvents = CampaignEvents::fromJson(jsonParse(msg[11]));
 
-    const Json::Value& visits = jsonParse(msg[11]);
+    const Json::Value& visits = jsonParse(msg[12]);
     for (size_t i = 0; i < visits.size(); ++i)
         ev.visits.push_back(Visit::fromJson(visits[i]));
 

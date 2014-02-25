@@ -41,7 +41,7 @@ const hash_t prime = 0x100000001B3ull;
 const hash_t basis = 0xCBF29CE484222325ull;
 
 
-hash_t hash(std::string str)
+hash_t hash(const std::string & str)
 {
     hash_t ret{basis};
     auto i = 0;
@@ -243,11 +243,27 @@ handleRouterMessage(const std::string & fromRouter,
             break;
         }
         default : {
+             
+             auto newMessage = [&] {
+                 auto msg(message);
+                 msg.insert(msg.begin(), "CAMPAIGN_EVENT");
+                 return msg;
+             }();
+           
              switch (hash(message[0])) {  
                  // Backward compatibility : replace by CAMPAIGN_EVENT
-                 case hash_compile_time("VISIT") : handleDelivery(message, onVisit); break;
-                 case hash_compile_time("IMPRESSION") : handleDelivery(message, onImpression); break;
-                 case hash_compile_time("CLICK") : handleDelivery(message, onClick); break;
+                 case hash_compile_time("VISIT") : {
+                     handleDelivery(newMessage, onVisit); 
+                     break;
+                 }
+                 case hash_compile_time("IMPRESSION") : {
+                     handleDelivery(newMessage, onImpression); 
+                     break;
+                 }
+                 case hash_compile_time("CLICK") : {
+                     handleDelivery(newMessage, onClick); 
+                     break;
+                 }
                  default : {
 
                      recordHit("errorUnknownMessage");
@@ -431,7 +447,7 @@ handleDelivery(const std::vector<std::string>& msg, DeliveryCbFn& callback)
     ExcCheck(!requiresAllCB || callback, "Null callback for " + msg[0]);
     if (!callback) return;
 
-    checkMessageSize(msg, 12);
+    checkMessageSize(msg, 13);
 
     DeliveryEvent ev = DeliveryEvent::parse(msg);
     recordHit(eventName(ev.event));
