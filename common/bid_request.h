@@ -226,7 +226,7 @@ getDefaultDescription(RTBKIT::UserIds * = 0);
 
 struct Location {
     Location()
-        : cityName(""),dma(-1), timezoneOffsetMinutes(-1)
+        : cityName(""),dma(-1),metro(-1), timezoneOffsetMinutes(-1)
     {
     }
 
@@ -236,6 +236,7 @@ struct Location {
     std::string postalCode;
 
     int dma;
+    int metro;
     int timezoneOffsetMinutes;
 
     static Location createFromJson(const Json::Value & json);
