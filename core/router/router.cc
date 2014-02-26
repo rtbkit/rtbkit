@@ -39,6 +39,8 @@ using namespace ML;
 
 namespace RTBKIT {
 
+const std::vector<Amount> Router::DEFAULT_MAX_PRICES = {USD_CPM(200)};
+
 /*****************************************************************************/
 /* AGENT INFO                                                                */
 /*****************************************************************************/
@@ -112,7 +114,7 @@ Router(ServiceBase & parent,
        bool connectPostAuctionLoop,
        bool logAuctions,
        bool logBids,
-       Amount maxBidAmount)
+       const std::vector<Amount> & maxBidAmountList)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       agentEndpoint(getZmqContext()),
@@ -142,7 +144,7 @@ Router(ServiceBase & parent,
       monitorClient(getZmqContext()),
       slowModeCount(0),
       monitorProviderClient(getZmqContext(), *this),
-      maxBidAmount(maxBidAmount)
+      maxBidAmountList(maxBidAmountList)
 {
 }
 
@@ -153,7 +155,7 @@ Router(std::shared_ptr<ServiceProxies> services,
        bool connectPostAuctionLoop,
        bool logAuctions,
        bool logBids,
-       Amount maxBidAmount)
+       const std::vector<Amount> & maxBidAmountList)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       agentEndpoint(getZmqContext()),
@@ -184,7 +186,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       monitorClient(getZmqContext()),
       slowModeCount(0),
       monitorProviderClient(getZmqContext(), *this),
-      maxBidAmount(maxBidAmount)
+      maxBidAmountList(maxBidAmountList)
 {
 }
 
@@ -193,6 +195,10 @@ Router::
 init()
 {
     ExcAssert(!initialized);
+
+    for (const auto & amount : maxBidAmountList) {
+        maxBidAmounts[amount.currencyCode] = amount;
+    }
 
     registerServiceProvider(serviceName(), { "rtbRequestRouter" });
 
@@ -1895,13 +1901,21 @@ doBid(const std::vector<std::string> & message)
             continue;
         }
 
-        if (bid.price.isNegative() || bid.price > maxBidAmount) {
-            returnInvalidBid(i, "invalidPrice",
+        {
+            auto it = maxBidAmounts.find(bid.price.currencyCode);
+            auto end = maxBidAmounts.end();
+
+            if (bid.price.isNegative() ||
+                ((it != end) && bid.price > it->second)) {
+                returnInvalidBid(
+                    i,
+                    "invalidPrice",
                     "bid price of %s is outside range of $0-%s parsing bid %s",
                     bid.price.toString().c_str(),
-                    maxBidAmount.toString().c_str(),
+                    it->second.toString().c_str(),
                     biddata.c_str());
-            continue;
+                continue;
+            }
         }
 
         const Creative & creative = config.creatives.at(bid.creativeIndex);

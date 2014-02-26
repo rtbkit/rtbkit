@@ -100,21 +100,25 @@ struct AuctionDebugInfo {
 struct Router : public ServiceBase,
                 public MonitorProvider
 {
+
+    static const std::vector<Amount> DEFAULT_MAX_PRICES;
+
     Router(ServiceBase & parent,
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
            bool connectPostAuctionLoop = true,
            bool logAuctions = false,
            bool logBids = false,
-           Amount maxBidAmount = USD_CPM(200));
+           const std::vector<Amount> & maxPrices = DEFAULT_MAX_PRICES);
 
-    Router(std::shared_ptr<ServiceProxies> services = std::make_shared<ServiceProxies>(),
+    Router(std::shared_ptr<ServiceProxies> services =
+               std::make_shared<ServiceProxies>(),
            const std::string & serviceName = "router",
            double secondsUntilLossAssumed = 2.0,
            bool connectPostAuctionLoop = true,
            bool logAuctions = false,
            bool logBids = false,
-           Amount maxBidAmount = USD_CPM(200));
+           const std::vector<Amount> & maxPrices = DEFAULT_MAX_PRICES);
 
     ~Router();
 
@@ -759,7 +763,8 @@ public:
     /* Post service health status to Monitor */
     MonitorProviderClient monitorProviderClient;
 
-    Amount maxBidAmount;
+    const std::vector<Amount> maxBidAmountList;
+    std::map<CurrencyCode, Amount> maxBidAmounts;
 
     /* MonitorProvider interface */
     std::string getProviderClass() const;
