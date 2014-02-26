@@ -34,7 +34,7 @@ var topupErrorHandler = function(err, res){
     // TODO: Handle an error topping up the account. 
     console.log("Error topping up "+accountFullName);
     // shutdown with an error
-    shutdown(1);
+    process.exit(1);
   }
 }
 
@@ -130,10 +130,3 @@ agent.doConfig(config);
 // Start pacing the budget inflow for this bid agent
 pace();
 interval = setInterval(pace,10000);
-
-// code is 1 for fail, 0 for success
-var shutdown = function(code){
-  clearInterval(interval);
-  agent.close();
-  process.exit(code);
-}
