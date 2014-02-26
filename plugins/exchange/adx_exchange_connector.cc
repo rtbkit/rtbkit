@@ -905,12 +905,15 @@ bidRequestCreativeFilter(const BidRequest & request,
 
         const auto& allowed_vendor_type_seg =
             spot.restrictions.get("allowed_vendor_type");
-        for (auto atr: crinfo->vendor_type_)
-            if (!allowed_vendor_type_seg.contains(atr))
-            {
-                this->recordHit ("vendor_type_not_allowed");
-                return false ;
-            }
+	if (!allowed_vendor_type_seg.empty())
+        {
+            for (auto atr: crinfo->vendor_type_)
+                if (!allowed_vendor_type_seg.contains(atr))
+                {
+                    this->recordHit ("vendor_type_not_allowed");
+                    return false ;
+                }
+	}
 
         const auto& allowed_adgroup_seg =
             spot.restrictions.get("allowed_adgroup");
