@@ -1,4 +1,4 @@
-/* fs_utils.h                                                            -*- C++ -*-
+/* fs_utils.h                                                       -*- C++ -*-
    Wolfgang Sourdeau, February 2014
    Copyright (c) 2014 Datacratic.  All rights reserved.
 
@@ -29,9 +29,11 @@ struct UrlInfo {
 
     bool exists;
     Date lastModified;
-    size_t size;
+    int64_t size;
     std::string etag;
     std::string storageClass;
+    std::string ownerId;
+    std::string ownerName;
 
     JML_IMPLEMENT_OPERATOR_BOOL(exists);
 };
@@ -40,15 +42,16 @@ struct UrlInfo {
 /* URLFSHANDLER */
 
 struct UrlFsHandler {
-    virtual UrlInfo getInfo(const Url & url) = 0;
+    virtual UrlInfo getInfo(const Url & url) const = 0;
 
-    virtual size_t getSize(const Url & url);
-    virtual std::string getEtag(const Url & url);
+    virtual size_t getSize(const Url & url) const;
+    virtual std::string getEtag(const Url & url) const;
 
-    virtual void makeDirectory(const Url & url) = 0;
-    virtual void erase(const Url & url) = 0;
+    virtual void makeDirectory(const Url & url) const = 0;
+    virtual void erase(const Url & url) const = 0;
 };
 
+/** Register a new handler for handling URIs of the given scheme. */
 void registerUrlFsHandler(const std::string & scheme,
                           UrlFsHandler * handler);
 

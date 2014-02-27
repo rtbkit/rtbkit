@@ -52,18 +52,18 @@ namespace {
 /* S3URLFSHANDLER */
 
 struct S3UrlFsHandler : public UrlFsHandler {
-    virtual UrlInfo getInfo(const Url & url)
+    virtual UrlInfo getInfo(const Url & url) const
     {
         string bucket = url.host();
         auto api = getS3ApiForBucket(bucket);
         return api->getObjectInfo(bucket, url.path().substr(1));
     }
 
-    virtual void makeDirectory(const Url & url)
+    virtual void makeDirectory(const Url & url) const
     {
     }
 
-    virtual void erase(const Url & url)
+    virtual void erase(const Url & url) const
     {
         string bucket = url.host();
         auto api = getS3ApiForBucket(bucket);

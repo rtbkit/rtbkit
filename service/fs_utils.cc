@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <map>
+#include <mutex>
 
 #include "boost/filesystem.hpp"
 #include "googleurl/src/url_util.h"
@@ -22,13 +23,14 @@ namespace {
 
 /* registry */
 
-map<string, UrlFsHandler *> registry;
+std::mutex registryMutex;
+map<string, std::unique_ptr<const UrlFsHandler> > registry;
 
 
 /* LOCALURLFSHANDLER */
 
 struct LocalUrlFsHandler : public UrlFsHandler {
-    virtual UrlInfo getInfo(const Url & url)
+    virtual UrlInfo getInfo(const Url & url) const
     {
         UrlInfo urlInfo;
         struct stat stats;
@@ -38,6 +40,8 @@ struct LocalUrlFsHandler : public UrlFsHandler {
             throw ML::Exception(errno, "stat");
         }
 
+        // TODO: owner ID (uid) and name (uname)
+
         urlInfo.exists = true;
         urlInfo.lastModified = Date::fromTimespec(stats.st_mtim);
         urlInfo.size = stats.st_size;
@@ -45,7 +49,7 @@ struct LocalUrlFsHandler : public UrlFsHandler {
         return urlInfo;
     }
 
-    virtual void makeDirectory(const Url & url)
+    virtual void makeDirectory(const Url & url) const
     {
         boost::system::error_code ec;
         string path = url.path();
@@ -54,7 +58,7 @@ struct LocalUrlFsHandler : public UrlFsHandler {
         }
     }
 
-    virtual void erase(const Url & url)
+    virtual void erase(const Url & url) const
     {
         string path = url.path();
         int res = ::unlink(path.c_str());
@@ -64,13 +68,14 @@ struct LocalUrlFsHandler : public UrlFsHandler {
     }
 };
 
-UrlFsHandler * findFsHandler(const string & scheme)
+const UrlFsHandler * findFsHandler(const string & scheme)
 {
+    std::unique_lock<std::mutex> guard(registryMutex);
     auto handler = registry.find(scheme);
     if (handler == registry.end()) {
         throw ML::Exception("no handler found for scheme: " + scheme);
     }
-    return handler->second;
+    return handler->second.get();
 }
 
 struct AtInit {
@@ -99,14 +104,14 @@ namespace Datacratic {
 
 size_t
 UrlFsHandler::
-getSize(const Url & url)
+getSize(const Url & url) const
 {
     return getInfo(url).size;
 }
 
 string
 UrlFsHandler::
-getEtag(const Url & url)
+getEtag(const Url & url) const
 {
     return getInfo(url).etag;
 }
@@ -124,7 +129,7 @@ void registerUrlFsHandler(const std::string & scheme,
     /* this enables googleuri to parse our urls properly */
     url_util::AddStandardScheme(scheme.c_str());
 
-    registry[scheme] = handler;
+    registry[scheme].reset(handler);
 }
 
 UrlInfo

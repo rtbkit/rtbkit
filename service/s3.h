@@ -398,8 +398,6 @@ struct S3Api : public AwsApi {
         ObjectInfo(tinyxml2::XMLNode * element);
 
         std::string key;
-        std::string ownerId;
-        std::string ownerName;
     };
 
     typedef std::function<bool (const std::string & prefix,
