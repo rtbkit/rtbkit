@@ -38,9 +38,9 @@ namespace Datacratic {
 /* LOCALURLFSHANDLER */
 
 struct LocalUrlFsHandler : public UrlFsHandler {
-    virtual UrlInfo getInfo(const Url & url) const
+    virtual FsObjectInfo getInfo(const Url & url) const
     {
-        UrlInfo urlInfo;
+        FsObjectInfo urlInfo;
         struct stat stats;
         string path = url.path();
         int res = ::stat(path.c_str(), &stats);
@@ -140,14 +140,14 @@ void registerUrlFsHandler(const std::string & scheme,
     registry[scheme].reset(handler);
 }
 
-UrlInfo
+FsObjectInfo
 getUriObjectInfo(const std::string & url)
 {
     Url realUrl = makeUrl(url);
     return findFsHandler(realUrl.scheme())->getInfo(realUrl);
 }
 
-UrlInfo
+FsObjectInfo
 tryGetUriObjectInfo(const std::string & url)
 {
     JML_TRACE_EXCEPTIONS(false);
@@ -155,7 +155,7 @@ tryGetUriObjectInfo(const std::string & url)
         return getUriObjectInfo(url);
     }
     catch (...) {
-        return UrlInfo();
+        return FsObjectInfo();
     }
 }
 

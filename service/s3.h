@@ -391,7 +391,7 @@ struct S3Api : public AwsApi {
                     const std::string & object,
                     const ObjectMetadata & md = ObjectMetadata()) const;
 
-    struct ObjectInfo : public UrlInfo {
+    struct ObjectInfo : public FsObjectInfo {
         ObjectInfo()
         {}
 

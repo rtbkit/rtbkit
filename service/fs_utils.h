@@ -24,8 +24,8 @@ namespace Datacratic {
     file system.
 */
 
-struct UrlInfo {
-    UrlInfo()
+struct FsObjectInfo {
+    FsObjectInfo()
         : exists(false), size(-1)
     {}
 
@@ -48,7 +48,7 @@ struct UrlInfo {
 /** Handles dealing with objects in a generalized file system. */
 
 struct UrlFsHandler {
-    virtual UrlInfo getInfo(const Url & url) const = 0;
+    virtual FsObjectInfo getInfo(const Url & url) const = 0;
 
     virtual size_t getSize(const Url & url) const;
     virtual std::string getEtag(const Url & url) const;
@@ -67,11 +67,11 @@ void registerUrlFsHandler(const std::string & scheme,
 /*****************************************************************************/
 
 // Return the object info for either a file or an S3 object
-UrlInfo getUriObjectInfo(const std::string & filename);
+FsObjectInfo getUriObjectInfo(const std::string & filename);
 
 // Return the object info for either a file or an S3 object, or null if
 // it doesn't exist
-UrlInfo tryGetUriObjectInfo(const std::string & filename);
+FsObjectInfo tryGetUriObjectInfo(const std::string & filename);
 
 // Return an URI for either a file or an s3 object
 size_t getUriSize(const std::string & filename);
