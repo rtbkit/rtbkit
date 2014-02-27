@@ -306,7 +306,7 @@ runWorkerThread()
         duty.notifyAfterSleep();
 
         if (lastCheck.secondsUntil(end) > 10.0) {
-            auto stats = duty.stats();
+            // auto stats = duty.stats();
             //cerr << "message loop: wakeups " << stats.numWakeups
             //     << " duty " << stats.duty_cycle() << endl;
             lastCheck = end;

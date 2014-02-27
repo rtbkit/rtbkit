@@ -379,8 +379,9 @@ quantize(double fraction)
     }
     else {
         // Fractions of a second; split off to avoid loss of precision
-        double whole_seconds, partial_seconds;
-        partial_seconds = modf(secondsSinceEpoch_, &whole_seconds);
+        double whole_seconds;
+        // double partial_seconds = modf(secondsSinceEpoch_, &whole_seconds);
+        modf(secondsSinceEpoch_, &whole_seconds);
 
         uint64_t frac = fraction;
         if (frac != fraction)

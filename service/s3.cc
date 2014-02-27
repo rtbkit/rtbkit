@@ -269,10 +269,10 @@ performSync() const
         myRequest.setOpt<options::Timeout>(timeout);
         myRequest.setOpt<options::NoSignal>(1);
 
-        auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
-            //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
-            return 0;
-        };
+        // auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
+        //     //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
+        //     return 0;
+        // };
 
         auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) {
             size_t total = ofs1 * ofs2;
@@ -672,7 +672,7 @@ obtainMultiPartUpload(const std::string & bucket,
             .FirstChildElement("Upload")
             .ToElement();
 
-        uint64_t partSize = 0;
+        // uint64_t partSize = 0;
         uint64_t currentOffset = 0;
 
         for (; upload; upload = upload->NextSiblingElement("Upload")) {
@@ -728,7 +728,7 @@ obtainMultiPartUpload(const std::string & bucket,
                 parts.push_back(currentPart);
             }
 
-            partSize = biggestPartSize;
+            // partSize = biggestPartSize;
 
             //cerr << "numPartsDone = " << numPartsDone << endl;
             //cerr << "currentOffset = " << currentOffset
@@ -1082,7 +1082,7 @@ forEachObject(const std::string & bucket,
     //cerr << "forEachObject under " << prefix << endl;
 
     string marker = startAt;
-    bool firstIter = true;
+    // bool firstIter = true;
     do {
         //cerr << "Starting at " << marker << endl;
         
@@ -1158,7 +1158,7 @@ forEachObject(const std::string & bucket,
             }
         }
 
-        firstIter = false;
+        // firstIter = false;
         if (!isTruncated)
             break;
     } while (marker != "");

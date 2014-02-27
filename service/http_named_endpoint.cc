@@ -279,10 +279,10 @@ connect(const std::string & endpointName)
 {
     using namespace std;
 
-    auto onChange = std::bind(&HttpNamedRestProxy::onConfigChange, this,
-                              std::placeholders::_1,
-                              std::placeholders::_2,
-                              std::placeholders::_3);
+    // auto onChange = std::bind(&HttpNamedRestProxy::onConfigChange, this,
+    //                           std::placeholders::_1,
+    //                           std::placeholders::_2,
+    //                           std::placeholders::_3);
 
     connected = false;
 

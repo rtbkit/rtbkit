@@ -455,7 +455,6 @@ test_runner_no_output_delay_helper(bool stdout)
         }
     }
     stdInSink.requestClose();
-    Date end = Date::now();
     runner.waitTermination();
 
     BOOST_CHECK_EQUAL(sizes[0], 6);

@@ -87,7 +87,7 @@ BOOST_AUTO_TEST_CASE( test_accept_speed )
 
     BOOST_CHECK_EQUAL(acceptor.numConnections(), 0);
 
-    Date before = Date::now();
+    // Date before = Date::now();
 
     /* Open a connection */
     int s = socket(AF_INET, SOCK_STREAM, 0);

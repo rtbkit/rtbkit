@@ -1064,8 +1064,8 @@ struct ZmqNamedClientBusProxy : public ZmqNamedProxy {
 
                 sendMessage("HEARTBEAT");
 
-                auto now = Date::now();
-                auto end = now.plusSeconds(-timeout);
+                // auto now = Date::now();
+                // auto end = now.plusSeconds(-timeout);
                 //if(lastHeartbeat < end) {
                     //std::cerr << "no heartbeat for " << timeout << "s... should be disconnecting from " << connectedUri << std::endl;
                     //disconnect();
