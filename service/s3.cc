@@ -2297,6 +2297,7 @@ void registerS3Bucket(const std::string & bucketName,
             || api->defaultProtocol != protocol
             || api->serviceUri != serviceUri)
         {
+            return;
             throw ML::Exception("Trying to re-register a bucket with different "
                 "parameters");
         }
