@@ -201,10 +201,11 @@ void
 HttpNamedEndpoint::RestConnectionHandler::
 sendResponse(int code,
              const Json::Value & response,
-             const std::string & contentType)
+             const std::string & contentType,
+             RestParams headers)
 {
     std::string body = response.toStyledString();
-    return sendResponse(code, body, contentType);
+    return sendResponse(code, body, contentType, std::move(headers));
 }
 
         
@@ -213,7 +214,8 @@ void
 HttpNamedEndpoint::RestConnectionHandler::
 sendResponse(int code,
              const std::string & body,
-             const std::string & contentType)
+             const std::string & contentType,
+             RestParams headers)
 {
     auto onSendFinished = [=] {
         this->transport().associateWhenHandlerFinished
@@ -221,7 +223,10 @@ sendResponse(int code,
          "sendResponse");
     };
     
-    putResponseOnWire(HttpResponse(code, contentType, body, endpoint->extraHeaders),
+    for (auto & h: endpoint->extraHeaders)
+        headers.push_back(h);
+
+    putResponseOnWire(HttpResponse(code, contentType, body, headers),
                       onSendFinished);
 }
 

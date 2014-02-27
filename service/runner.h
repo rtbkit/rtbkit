@@ -117,8 +117,12 @@ struct Runner: public Epoller {
     /** Kill the subprocess with the given signal. */
     void kill(int signal = SIGTERM) const;
 
-    /** Synchronous wait for the subprocess to start. */
-    void waitStart() const;
+    /** Synchronous wait for the subprocess to start.  Returns true if the
+        process started, or false if it wasn't able to start.
+
+        Will wait for a maximum of secondsToWait seconds.
+    */
+    bool waitStart(double secondsToWait = INFINITY) const;
 
     /** Synchronous wait for termination of the subprocess. */
     void waitTermination() const;
@@ -257,6 +261,12 @@ private:
     void attemptTaskTermination();
 
     int running_;
+
+    /** Holds the child PID if > 0.  If not:
+        -1 means the child has not launched yet
+        -2 means there was a launch error
+        -3 means the child has exited
+    */
     pid_t childPid_;
 
     ML::Wakeup_Fd wakeup_;
