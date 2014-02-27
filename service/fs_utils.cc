@@ -15,6 +15,11 @@
 
 #include "fs_utils.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+
 using namespace std;
 using namespace Datacratic;
 namespace fs = boost::filesystem;
@@ -26,6 +31,9 @@ namespace {
 std::mutex registryMutex;
 map<string, std::unique_ptr<const UrlFsHandler> > registry;
 
+} // file scope
+
+namespace Datacratic {
 
 /* LOCALURLFSHANDLER */
 
@@ -195,4 +203,4 @@ tryEraseUriObject(const std::string & uri)
     return result;
 }
 
-}
+} // namespace Datacratic

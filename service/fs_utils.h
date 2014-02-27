@@ -8,11 +8,6 @@
 
 #pragma once
 
-#define _GNU_SOURCE 1
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include <string>
 
 #include "soa/types/date.h"
@@ -20,11 +15,18 @@
 
 namespace Datacratic {
 
-/* URLINFO */
+
+/*****************************************************************************/
+/* FS OBJECT INFO                                                            */
+/*****************************************************************************/
+
+/** This class contains information about an object in some kind of generalized
+    file system.
+*/
 
 struct UrlInfo {
     UrlInfo()
-        : exists(false), size(0)
+        : exists(false), size(-1)
     {}
 
     bool exists;
@@ -39,7 +41,11 @@ struct UrlInfo {
 };
 
 
-/* URLFSHANDLER */
+/*****************************************************************************/
+/* URL FS HANDLER                                                            */
+/*****************************************************************************/
+
+/** Handles dealing with objects in a generalized file system. */
 
 struct UrlFsHandler {
     virtual UrlInfo getInfo(const Url & url) const = 0;
@@ -56,7 +62,9 @@ void registerUrlFsHandler(const std::string & scheme,
                           UrlFsHandler * handler);
 
 
-/* FUNCS */
+/*****************************************************************************/
+/* FREE FUNCTIONS                                                            */
+/*****************************************************************************/
 
 // Return the object info for either a file or an S3 object
 UrlInfo getUriObjectInfo(const std::string & filename);
