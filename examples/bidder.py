@@ -2,8 +2,14 @@
 # bidder.py
 # 
 #
+import sys
 import ujson
 import pprint
+from os import getenv
+
+# WARNING: security risk; don't do this for anything that might be installed
+sys.path.append(getenv("BIN"))
+
 from lwrtb import lwrtb
 
 
@@ -12,6 +18,7 @@ agent_config = "{\"lossFormat\":\"lightweight\",\"winFormat\":\"full\",\"test\":
 proxy_config = "{\"installation\":\"rtb-test\",\"location\":\"mtl\",\"zookeeper-uri\":\"localhost:2181\",\"portRanges\":{\"logs\":[16000,17000],\"router\":[17000,18000],\"augmentors\":[18000,19000],\"configuration\":[19000,20000],\"postAuctionLoop\":[20000,21000],\"postAuctionLoopAgents\":[21000,22000],\"banker.zmq\":[22000,23000],\"banker.http\":9985,\"agentConfiguration.zmq\":[23000,24000],\"agentConfiguration.http\":9986,\"monitor.zmq\":[24000,25000],\"monitor.http\":9987,\"adServer.logger\":[25000,26000]}}";
 
 
+# called back upon bidrequest
 class BCB(lwrtb.BidRequestCb):
     def __init__(self):
         super(BCB, self).__init__()    
@@ -25,6 +32,7 @@ class BCB(lwrtb.BidRequestCb):
 	print 'BIDREQ bid on id=%s'%(br.id)
 	pass
 
+# called back upon error
 class ECB(lwrtb.ErrorCb):
     def __init__(self):
         super(ECB, self).__init__()    
@@ -33,6 +41,7 @@ class ECB(lwrtb.ErrorCb):
 	print 'ERROR', msg
 	pass
 
+# called back upon delivery callback 
 class DCB(lwrtb.DeliveryCb):
     def __init__(self):
         super(DCB, self).__init__()    
@@ -40,6 +49,7 @@ class DCB(lwrtb.DeliveryCb):
     def call (self, agent, dlv):
 	pass
 
+# called back upon bid result
 class RCB(lwrtb.BidResultCb):
     def __init__(self):
         super(RCB, self).__init__()    

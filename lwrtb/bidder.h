@@ -1,5 +1,5 @@
 /*
- * BiddingAgent.h
+ * Bidder.h
  *
  *  Created on: Oct 26, 2013
  *      Author: jan
@@ -12,11 +12,11 @@
 #include <vector>
 #include <functional>
 
-namespace lwrtb {
+namespace lwrtb
+{
 
 // enum class  BidStatus: char
-enum BidStatus
-{
+enum BidStatus {
     WIN,        ///< Bid was won
     LOSS,       ///< Bid was lost
     TOOLATE,    ///< Bid was too late and so not accepted
@@ -30,17 +30,25 @@ enum BidStatus
 inline
 std::string BidStatusToString (BidStatus status)
 {
-    switch (status)
-    {
-    case BidStatus::WIN: return "WIN";
-    case BidStatus::LOSS: return "LOSS";
-    case BidStatus::TOOLATE: return "TOOLATE";
-    case BidStatus::INVALID: return "INVALID";
-    case BidStatus::LOSTBID: return "LOSTBID";
-    case BidStatus::DROPPEDBID: return "DROPPEDBID";
-    case BidStatus::NOBUDGET: return "NOBUDGET";
-    case BidStatus::BUG: return "BUG";
-    default: return "NOPE";
+    switch (status) {
+    case BidStatus::WIN:
+        return "WIN";
+    case BidStatus::LOSS:
+        return "LOSS";
+    case BidStatus::TOOLATE:
+        return "TOOLATE";
+    case BidStatus::INVALID:
+        return "INVALID";
+    case BidStatus::LOSTBID:
+        return "LOSTBID";
+    case BidStatus::DROPPEDBID:
+        return "DROPPEDBID";
+    case BidStatus::NOBUDGET:
+        return "NOBUDGET";
+    case BidStatus::BUG:
+        return "BUG";
+    default:
+        return "NOPE";
     }
 }
 
@@ -50,8 +58,7 @@ class Bidder;
 //
 //     DELIVERY
 //
-struct DeliveryEvent
-{
+struct DeliveryEvent {
     std::string               event;
     double                    timestamp;      // number of seconds since epoch
     std::string               auctionId;
@@ -75,8 +82,7 @@ public:
 //
 //     BID REQUEST
 //
-struct BidRequestEvent
-{
+struct BidRequestEvent {
     double      timestamp;     // Start time of the auction.
     std::string id;            // Auction id
     std::string bidRequest;
@@ -97,8 +103,7 @@ public:
 //
 //     BID RESULT
 //
-struct BidResultEvent
-{
+struct BidResultEvent {
     BidStatus                 result;        ///> Result of our bid
     double                    timestamp;     ///> Time at which the event occured
     std::string               auctionId;     ///> Unique auction id for the original bid
@@ -121,8 +126,7 @@ public:
 //
 //     ERROR
 //
-struct ErrorEvent
-{
+struct ErrorEvent {
     double                    timestamp;
     std::string               description;
     std::vector<std::string>  originalError;

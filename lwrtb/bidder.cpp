@@ -1,8 +1,8 @@
 /*
- * BiddingAgent.cpp
+ * Bidder.cpp
  *
  *  Created on: Oct 26, 2013
- *      Author: rtbkit
+ *      Author: jan
  */
 
 #include <string>
@@ -16,9 +16,9 @@ using namespace std;
 using namespace RTBKIT;
 using namespace Datacratic;
 
-namespace lwrtb {
-struct Bidder::impl
+namespace lwrtb
 {
+struct Bidder::impl {
     shared_ptr<ServiceProxies> prx_;
     unique_ptr<BiddingAgent>   bidding_agent_;
 };
@@ -59,43 +59,42 @@ void
 Bidder::init()
 {
     pimpl_->bidding_agent_->strictMode(false);
-    if (bid_request_cb_)
-    {
+    if (bid_request_cb_) {
         pimpl_->bidding_agent_->onBidRequest = [this] (double timestamp,
                                                Id & id,
                                                shared_ptr<RTBKIT::BidRequest> br,
                                                const Bids& bids,
                                                double timeLeftMs,
                                                const Json::Value & augmentations,
-                                               const WinCostModel& wcm) {
-        lwrtb::BidRequestEvent res {
-            timestamp,
-            id.toString(),
-            br->toJsonStr(),
-            bids.toJson().toString(),
-            timeLeftMs,
-            augmentations.toString(),
-            wcm.toJson().toString()};
-        this->bid_request_cb_ (res);
-      };
+        const WinCostModel& wcm) {
+            lwrtb::BidRequestEvent res {
+                timestamp,
+                id.toString(),
+                br->toJsonStr(),
+                bids.toJson().toString(),
+                timeLeftMs,
+                augmentations.toString(),
+                wcm.toJson().toString()
+            };
+            this->bid_request_cb_ (res);
+        };
     }
 
-    if (error_cb_)
-    {
+    if (error_cb_) {
         pimpl_->bidding_agent_->onError = [this](double timestamp,
-                                                 const std::string& description,
-                                                 const std::vector<std::string> originalError) {
-    	lwrtb::ErrorEvent res {
-            timestamp,
-            description,
-            originalError 	};
-    	this->error_cb_(res);
+                                          const std::string& description,
+        const std::vector<std::string> originalError) {
+            lwrtb::ErrorEvent res {
+                timestamp,
+                description,
+                originalError
+            };
+            this->error_cb_(res);
         };
     }
 
 
-    if (bid_result_cb_)
-    {
+    if (bid_result_cb_) {
         static auto my_convert = [] (const RTBKIT::BidStatus& s) {
             if (s== RTBKIT::BidStatus::BS_WIN) return lwrtb::BidStatus::WIN;
             if (s== RTBKIT::BidStatus::BS_LOSS) return lwrtb::BidStatus::LOSS;
@@ -127,8 +126,7 @@ Bidder::init()
         pimpl_->bidding_agent_->onInvalidBid = pimpl_->bidding_agent_->onWin;
     }
 
-    if (delivery_event_cb_)
-    {
+    if (delivery_event_cb_) {
         pimpl_->bidding_agent_->onImpression = [this] (const RTBKIT::DeliveryEvent& de) {
             lwrtb::DeliveryEvent ode {
                 de.event,
