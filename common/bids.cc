@@ -108,7 +108,7 @@ Json::Value
 Bid::
 toJson() const
 {
-    // JAN: if (isNullBid()) return Json::Value();
+    // if (isNullBid()) return Json::Value();
 
     Json::Value json(Json::objectValue);
 
@@ -116,7 +116,7 @@ toJson() const
     json["price"] = price.toString();
     json["priority"] = priority;
     json["spotIndex"] = spotIndex;
-    // HACK JAN. FIXME FIXME FIXME
+    
     if (!availableCreatives.empty())
     {
     	Json::Value vec(Json::arrayValue);
