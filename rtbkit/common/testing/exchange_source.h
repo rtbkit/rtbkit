@@ -10,9 +10,9 @@
 
 #include "jml/utils/rng.h"
 #include "jml/arch/info.h"
-#include "common/account_key.h"
-#include "common/currency.h"
-#include "common/bid_request.h"
+#include "rtbkit/common/account_key.h"
+#include "rtbkit/common/currency.h"
+#include "rtbkit/common/bid_request.h"
 
 #include <netdb.h>
 

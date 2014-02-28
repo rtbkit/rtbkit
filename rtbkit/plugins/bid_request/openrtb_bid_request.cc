@@ -7,8 +7,8 @@
 
 #include "openrtb_bid_request.h"
 #include "jml/utils/json_parsing.h"
-#include "openrtb/openrtb.h"
-#include "openrtb/openrtb_parsing.h"
+#include "rtbkit/openrtb/openrtb.h"
+#include "rtbkit/openrtb/openrtb_parsing.h"
 
 using namespace std;
 

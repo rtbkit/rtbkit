@@ -32,9 +32,9 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
-#include "plugins/bid_request/appnexus_bid_request.h"
+#include "rtbkit/plugins/bid_request/appnexus_bid_request.h"
 #include "soa/types/json_parsing.h"
-#include "plugins/bid_request/appnexus_parsing.h"
+#include "rtbkit/plugins/bid_request/appnexus_parsing.h"
 #include "jml/utils/filter_streams.h"
 
 using namespace std;

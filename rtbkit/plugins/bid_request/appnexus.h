@@ -14,7 +14,7 @@
 #include "soa/types/id.h"
 #include "soa/types/string.h"
 #include "soa/types/url.h"
-#include "openrtb/openrtb.h"
+#include "rtbkit/openrtb/openrtb.h"
 #include <string>
 #include <vector>
 #include <unordered_map>

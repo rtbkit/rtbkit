@@ -20,7 +20,7 @@
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/plugins/exchange/realtime-bidding.pb.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
-#include "openrtb/openrtb_parsing.h"
+#include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
 
 using namespace std;

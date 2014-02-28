@@ -12,7 +12,7 @@
 #include <boost/test/unit_test.hpp>
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "soa/types/json_parsing.h"
-#include "openrtb/openrtb_parsing.h"
+#include "rtbkit/openrtb/openrtb_parsing.h"
 #include "jml/utils/filter_streams.h"
 
 using namespace std;

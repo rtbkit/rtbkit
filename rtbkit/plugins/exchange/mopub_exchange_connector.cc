@@ -1,14 +1,16 @@
-/* bidswitch_exchange_connector.cc
+/* mopub_exchange_connector.cc
    Jeremy Barnes, 15 March 2013
 
-   Implementation of the BidSwitch exchange connector.
+   Implementation of the MoPub exchange connector.
 */
+#include <algorithm>
+#include <boost/tokenizer.hpp>
 
-#include "bidswitch_exchange_connector.h"
+#include "mopub_exchange_connector.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
-#include "openrtb/openrtb_parsing.h"
+#include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
 #include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
@@ -18,32 +20,33 @@
 #include "crypto++/modes.h"
 #include "crypto++/filters.h"
 
+
 using namespace std;
 using namespace Datacratic;
 
 namespace RTBKIT {
 
 /*****************************************************************************/
-/* BIDSWITCH EXCHANGE CONNECTOR                                                */
+/* MOPUB EXCHANGE CONNECTOR                                                */
 /*****************************************************************************/
 
-BidSwitchExchangeConnector::
-BidSwitchExchangeConnector(ServiceBase & owner, const std::string & name)
+MoPubExchangeConnector::
+MoPubExchangeConnector(ServiceBase & owner, const std::string & name)
     : OpenRTBExchangeConnector(owner, name) {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
 }
 
-BidSwitchExchangeConnector::
-BidSwitchExchangeConnector(const std::string & name,
-                           std::shared_ptr<ServiceProxies> proxies)
+MoPubExchangeConnector::
+MoPubExchangeConnector(const std::string & name,
+                       std::shared_ptr<ServiceProxies> proxies)
     : OpenRTBExchangeConnector(name, proxies) {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
 }
 
 ExchangeConnector::ExchangeCompatibility
-BidSwitchExchangeConnector::
+MoPubExchangeConnector::
 getCampaignCompatibility(const AgentConfig & config,
                          bool includeReasons) const {
     ExchangeCompatibility result;
@@ -51,16 +54,16 @@ getCampaignCompatibility(const AgentConfig & config,
 
     auto cpinfo = std::make_shared<CampaignInfo>();
 
-    const Json::Value & pconf = config.providerConfig["bidswitch"];
+    const Json::Value & pconf = config.providerConfig["mopub"];
 
     try {
         cpinfo->seat = Id(pconf["seat"].asString());
         if (!cpinfo->seat)
-            result.setIncompatible("providerConfig.bidswitch.seat is null",
+            result.setIncompatible("providerConfig.mopub.seat is null",
                                    includeReasons);
     } catch (const std::exception & exc) {
         result.setIncompatible
-        (string("providerConfig.bidswitch.seat parsing error: ")
+        (string("providerConfig.mopub.seat parsing error: ")
          + exc.what(), includeReasons);
         return result;
     }
@@ -68,11 +71,11 @@ getCampaignCompatibility(const AgentConfig & config,
     try {
         cpinfo->iurl = pconf["iurl"].asString();
         if (!cpinfo->iurl.size())
-            result.setIncompatible("providerConfig.bidswitch.iurl is null",
+            result.setIncompatible("providerConfig.mopub.iurl is null",
                                    includeReasons);
     } catch (const std::exception & exc) {
         result.setIncompatible
-        (string("providerConfig.bidswitch.iurl parsing error: ")
+        (string("providerConfig.mopub.iurl parsing error: ")
          + exc.what(), includeReasons);
         return result;
     }
@@ -96,7 +99,7 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
     try {
         if (!config.isMember(fieldName)) {
             result.setIncompatible
-            ("creative[].providerConfig.bidswitch." + string(fieldName)
+            ("creative[].providerConfig.mopub." + string(fieldName)
              + " must be specified", includeReasons);
             return;
         }
@@ -105,7 +108,7 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
 
         jsonDecode(val, field);
     } catch (const std::exception & exc) {
-        result.setIncompatible("creative[].providerConfig.bidswitch."
+        result.setIncompatible("creative[].providerConfig.mopub."
                                + string(fieldName) + ": error parsing field: "
                                + exc.what(), includeReasons);
         return;
@@ -115,7 +118,7 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
 } // file scope
 
 ExchangeConnector::ExchangeCompatibility
-BidSwitchExchangeConnector::
+MoPubExchangeConnector::
 getCreativeCompatibility(const Creative & creative,
                          bool includeReasons) const {
     ExchangeCompatibility result;
@@ -123,77 +126,116 @@ getCreativeCompatibility(const Creative & creative,
 
     auto crinfo = std::make_shared<CreativeInfo>();
 
-    const Json::Value & pconf = creative.providerConfig["bidswitch"];
+    const Json::Value & pconf = creative.providerConfig["mopub"];
+    std::string tmp;
 
-    // 1.  Must have bidswitch.nurl that includes BidSwitch's macro
-    getAttr(result, pconf, "nurl", crinfo->nurl, includeReasons);
-    if (crinfo->nurl.find("${AUCTION_PRICE}") == string::npos)
+    boost::char_separator<char> sep(" ,");
+
+    // 1.  Must have mopub.attr containing creative attributes.  These
+    //     turn into MoPubCreativeAttribute filters.
+    getAttr(result, pconf, "attr", tmp, includeReasons);
+    if (!tmp.empty())  {
+        boost::tokenizer<boost::char_separator<char>> tok(tmp, sep);
+        auto& ints = crinfo->attr;
+        std::transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return atoi(s.data());
+        });
+    }
+    tmp.clear();
+
+
+    // 2. Must have mopub.type containing attribute type.
+    getAttr(result, pconf, "type", tmp, includeReasons);
+    if (!tmp.empty())  {
+        boost::tokenizer<boost::char_separator<char>> tok(tmp, sep);
+        auto& ints = crinfo->type;
+        std::transform(tok.begin(), tok.end(),
+        std::inserter(ints, ints.begin()),[&](const std::string& s) {
+            return atoi(s.data());
+        });
+    }
+    tmp.clear();
+
+    // 3. Must have mopub.cat containing attribute type.
+    getAttr(result, pconf, "cat", tmp, includeReasons);
+    if (!tmp.empty())  {
+        boost::tokenizer<boost::char_separator<char>> tok(tmp, sep);
+        auto& strs = crinfo->cat;
+        copy(tok.begin(),tok.end(),inserter(strs,strs.begin()));
+    }
+    tmp.clear();
+
+    // 4.  Must have mopub.adm that includes MoPub's macro
+    getAttr(result, pconf, "adm", crinfo->adm, includeReasons);
+    if (crinfo->adm.find("${AUCTION_PRICE:BF}") == string::npos)
         result.setIncompatible
-        ("creative[].providerConfig.bidswitch.nurl ad markup must contain "
-         "encrypted win price macro ${AUCTION_PRICE}",
+        ("creative[].providerConfig.mopub.adm ad markup must contain "
+         "encrypted win price macro ${AUCTION_PRICE:BF}",
          includeReasons);
 
-    // 2.  Must have creative ID in bidswitch.crid
-    getAttr(result, pconf, "adid", crinfo->adid, includeReasons);
-    if (!crinfo->adid)
+    // 5.  Must have creative ID in mopub.crid
+    getAttr(result, pconf, "crid", crinfo->crid, includeReasons);
+    if (!crinfo->crid)
         result.setIncompatible
-        ("creative[].providerConfig.bidswitch.adid is null",
+        ("creative[].providerConfig.mopub.crid is null",
          includeReasons);
 
-
-    // 3.  Must have AdvertiserDomain in bidswitch.crid
-    getAttr(result, pconf, "adomain", crinfo->adomain, includeReasons);
+    // 6.  Must have advertiser names array in mopub.adomain
+    getAttr(result, pconf, "adomain", crinfo->adomain,  includeReasons);
     if (crinfo->adomain.empty())
         result.setIncompatible
-        ("creative[].providerConfig.bidswitch.adomain is null",
+        ("creative[].providerConfig.mopub.adomain is empty",
          includeReasons);
+
     // Cache the information
     result.info = crinfo;
 
     return result;
 }
 std::shared_ptr<BidRequest>
-BidSwitchExchangeConnector::
+MoPubExchangeConnector::
 parseBidRequest(HttpAuctionHandler & connection,
                 const HttpHeader & header,
                 const std::string & payload) {
     std::shared_ptr<BidRequest> res;
-//
+
     // Check for JSON content-type
     if (header.contentType != "application/json") {
         connection.sendErrorResponse("non-JSON request");
         return res;
     }
 
-#if 0
-    /*
-     * Unfortunately, x-openrtb-version isn't sent in the real traffic
-     */
-    // Check for the x-openrtb-version header
-    auto it = header.headers.find("x-openrtb-version");
-    if (it == header.headers.end()) {
-        connection.sendErrorResponse("no OpenRTB version header supplied");
-        return res;
-    }
-
-    // Check that it's version 2.1
-    std::string openRtbVersion = it->second;
-    if (openRtbVersion != "2.0") {
-        connection.sendErrorResponse("expected OpenRTB version 2.0; got " + openRtbVersion);
-        return res;
-    }
-#endif
-
     // Parse the bid request
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
     res.reset(OpenRtbBidRequestParser::parseBidRequest(context, exchangeName(), exchangeName()));
 
+    // get restrictions enforced by MoPub.
+    //1) blocked category
+    std::vector<std::string> strv;
+    for (const auto& cat: res->blockedCategories)
+        strv.push_back(cat.val);
+    res->restrictions.addStrings("blockedCategories", strv);
+
+    //2) per slot: blocked type and attribute;
+    std::vector<int> intv;
+    for (auto& spot: res->imp) {
+        for (const auto& t: spot.banner->btype) {
+            intv.push_back (t.val);
+        }
+        spot.restrictions.addInts("blockedTypes", intv);
+        intv.clear();
+        for (const auto& a: spot.banner->battr) {
+            intv.push_back (a.val);
+        }
+        spot.restrictions.addInts("blockedAttrs", intv);
+    }
     return res;
 }
 
 
 void
-BidSwitchExchangeConnector::
+MoPubExchangeConnector::
 setSeatBid(Auction const & auction,
            int spotNum,
            OpenRTB::BidResponse & response) const {
@@ -245,11 +287,58 @@ setSeatBid(Auction const & auction,
     b.cid = Id(resp.agent);
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.impid = auction.request->imp[spotNum].id;
-    b.price.val = USD_CPM(resp.price.maxPrice);
-    b.nurl = crinfo->nurl;
-    b.adid = crinfo->adid;
+    b.price.val = getAmountIn<CPM>(resp.price.maxPrice);
+    b.adm = crinfo->adm;
     b.adomain = crinfo->adomain;
+    b.crid = crinfo->crid;
     b.iurl = cpinfo->iurl;
+}
+
+template <typename T>
+bool disjoint (const set<T>& s1, const set<T>& s2) {
+    auto i = s1.begin(), j = s2.begin();
+    while (i != s1.end() && j != s2.end()) {
+        if (*i == *j)
+            return false;
+        else if (*i < *j)
+            ++i;
+        else
+            ++j;
+    }
+    return true;
+}
+bool
+MoPubExchangeConnector::
+bidRequestCreativeFilter(const BidRequest & request,
+                         const AgentConfig & config,
+                         const void * info) const {
+    const auto crinfo = reinterpret_cast<const CreativeInfo*>(info);
+
+    // 1) we first check for blocked content categories
+    const auto& blocked_categories = request.restrictions.get("blockedCategories");
+    for (const auto& cat: crinfo->cat)
+        if (blocked_categories.contains(cat)) {
+            this->recordHit ("blockedCategory");
+            return false;
+        }
+
+    // 2) now go throught the spots.
+    for (const auto& spot: request.imp) {
+        const auto& blocked_types = spot.restrictions.get("blockedTypes");
+        for (const auto& t: crinfo->type)
+            if (blocked_types.contains(t)) {
+                this->recordHit ("blockedType");
+                return false;
+            }
+        const auto& blocked_attr = spot.restrictions.get("blockedAttrs");
+        for (const auto& a: crinfo->attr)
+            if (blocked_attr.contains(a)) {
+                this->recordHit ("blockedAttr");
+                return false;
+            }
+    }
+
+    return true;
 }
 
 } // namespace RTBKIT
@@ -259,7 +348,7 @@ using namespace RTBKIT;
 
 struct Init {
     Init() {
-        ExchangeConnector::registerFactory<BidSwitchExchangeConnector>();
+        ExchangeConnector::registerFactory<MoPubExchangeConnector>();
     }
 } init;
 }

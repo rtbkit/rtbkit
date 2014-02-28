@@ -8,7 +8,7 @@
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
-#include "openrtb/openrtb_parsing.h"
+#include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
 #include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>

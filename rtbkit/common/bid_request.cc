@@ -15,7 +15,7 @@
 #include <unordered_map>
 
 #include "jml/db/persistent.h"
-#include "openrtb/openrtb_parsing.h"
+#include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
 #include "soa/service/json_codec.h"
 

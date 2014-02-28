@@ -10,7 +10,7 @@
                     "path": "build/x86_64/bin/monitor_service_runner",
                     "arg": [
                         "-N", "st1.monitor",
-                        "-B", "sample.bootstrap.json"
+                        "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
                 },
@@ -20,7 +20,7 @@
                     "path": "build/x86_64/bin/adserver_runner",
                     "arg": [
                         "-N", "st1.mock-ad-server",
-                        "-B", "sample.bootstrap.json"
+                        "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
                 },
@@ -30,7 +30,7 @@
                     "path": "build/x86_64/bin/data_logger_ex",
                     "arg": [
                         "-N", "st1.logger",
-                        "-B", "sample.bootstrap.json", "--log-dir", "./logs/data/"
+                        "-B", "rtbkit/sample.bootstrap.json", "--log-dir", "./logs/data/"
                     ],
                     "log": true
                 },
@@ -40,7 +40,7 @@
                     "path": "build/x86_64/bin/agent_configuration_service_runner",
                     "arg": [
                         "-N", "st1.agent-configuration",
-                        "-B", "sample.bootstrap.json"
+                        "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
                 },
@@ -50,7 +50,7 @@
                     "path": "build/x86_64/bin/banker_service_runner",
                     "arg": [
                         "-N", "st1.banker",
-                        "-B", "sample.bootstrap.json", "-r", "localhost:6379"
+                        "-B", "rtbkit/sample.bootstrap.json", "-r", "localhost:6379"
                     ],
                     "log": true
                 },
@@ -60,7 +60,7 @@
                     "path": "build/x86_64/bin/augmentor_ex_runner",
                     "arg": [
                         "-N", "st1.augmentor",
-                        "-B", "sample.bootstrap.json"
+                        "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
                 },
@@ -70,7 +70,7 @@
                     "path": "build/x86_64/bin/post_auction_runner",
                     "arg": [
                         "-N", "st1.post-auction",
-                        "-B", "sample.bootstrap.json"
+                        "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
                 }
@@ -86,7 +86,7 @@
                     "path": "build/x86_64/bin/router_runner",
                     "arg": [
                         "-N", "st2.router",
-                        "-B", "sample.bootstrap.json"
+                        "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
                 },
@@ -96,7 +96,7 @@
                     "path": "build/x86_64/bin/bidding_agent_ex",
                     "arg": [
                         "-N", "st2.agent",
-                        "-B", "sample.bootstrap.json"
+                        "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
                 }
@@ -112,7 +112,7 @@
                     "path": "build/x86_64/bin/router_runner",
                     "arg": [
                         "-N", "st3.router",
-                        "-B", "sample.bootstrap.json"
+                        "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
                 },
@@ -122,7 +122,7 @@
                     "path": "build/x86_64/bin/bidding_agent_ex",
                     "arg": [
                         "-N", "st3.agent",
-                        "-B", "sample.bootstrap.json"
+                        "-B", "rtbkit/sample.bootstrap.json"
                     ],
                     "log": true
                 }

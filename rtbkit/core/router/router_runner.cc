@@ -39,7 +39,7 @@ static inline Json::Value loadJsonFromFile(const std::string & filename)
 
 RouterRunner::
 RouterRunner() :
-    exchangeConfigurationFile("examples/router-config.json"),
+    exchangeConfigurationFile("rtbkit/examples/router-config.json"),
     lossSeconds(15.0),
     noPostAuctionLoop(false),
     logAuctions(false),

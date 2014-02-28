@@ -21,7 +21,7 @@
 #include "jml/utils/compact_vector.h"
 #include "soa/jsoncpp/value.h"
 #include <iostream>
-#include "openrtb/openrtb.h"
+#include "rtbkit/openrtb/openrtb.h"
 
 namespace FBX {
 

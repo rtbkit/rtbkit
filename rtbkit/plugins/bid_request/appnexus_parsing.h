@@ -9,7 +9,7 @@
 
 #include <string>
 #include "appnexus.h"
-#include "openrtb/openrtb_parsing.h"
+#include "rtbkit/openrtb/openrtb_parsing.h"
 #include <type_traits>
 
 // using namespace OpenRTB;
