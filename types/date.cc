@@ -628,6 +628,20 @@ match_date(ML::Parse_Context & context,
             break;
         case 'M':
             switch(tolower(*context)) {
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9': {
+                if (!context.match_int(month, 1, 12))
+                    return false;
+                break;
+            }
             case 'j': {
                 ++context;
                 if (context.match_literal("an")) {
@@ -748,6 +762,20 @@ expect_date(ML::Parse_Context & context, const std::string & format)
             break;
         case 'M':
             switch(tolower(*context)) {
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9': {
+                month = expectFixedWidthInt(context, 1, 2, 1, 12,
+                                            "expected month of year");
+                break;
+            }
             case 'j': {
                 ++context;
                 if (context.match_literal("an")) {
