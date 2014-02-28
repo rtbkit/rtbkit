@@ -1379,9 +1379,12 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
     try {
         Id auctionId = augInfo->auction->id;
         if (inFlight.count(auctionId)) {
-            throwException("doStartBidding.alreadyInFlight",
+            if (augInfo)
+                augInfo->auction->setError("auction processing error", "already in flight");
+            return;
+            /*throwException("doStartBidding.alreadyInFlight",
                            "auction with ID %s already in progress",
-                           auctionId.toString().c_str());
+                           auctionId.toString().c_str());*/
         }
 #if 0
         if (findAuction(finished, auctionId)) {

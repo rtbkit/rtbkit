@@ -547,7 +547,8 @@ struct ShadowAccount {
         if (!balance.hasAvailable(amount))
             return false;  // no budget balance
 
-        attachBid(item, amount);
+        if(!attachBid(item, amount))
+            return false;
 
         balance -= amount;
         commitmentsMade += amount;
@@ -587,14 +588,15 @@ struct ShadowAccount {
         return amountAuthorized;
     }
 
-    void attachBid(const std::string & item,
+    bool attachBid(const std::string & item,
                    Amount amount)
     {
         Date now = Date::now();
         auto c = commitments.insert(make_pair(item, Commitment(amount, now)));
         if (!c.second)
-            throw ML::Exception("attempt to re-open commitment");
+            return false;//throw ML::Exception("attempt to re-open commitment");
         attachedBids++;
+        return true;
     }
 
     /*************************************************************************/
@@ -1436,12 +1438,12 @@ struct ShadowAccounts {
         return getAccountImpl(accountKey).detachBid(item);
     }
 
-    void attachBid(const AccountKey & accountKey,
+    bool attachBid(const AccountKey & accountKey,
                    const std::string & item,
                    Amount amountAuthorized)
     {
         Guard guard(lock);
-        getAccountImpl(accountKey).attachBid(item, amountAuthorized);
+        return getAccountImpl(accountKey).attachBid(item, amountAuthorized);
     }
 
     void logBidEvents(const Datacratic::EventRecorder & eventRecorder);
