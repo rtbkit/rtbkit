@@ -142,6 +142,8 @@ $$(if $(trace),$$(warning called python_program "$(1)" "$(2)" "$(3)"))
 
 PYTHON_$(1)_DEPS := $(PYTHON_BIN_PATH)/$(1) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 
+.PHONY: run_$(1)
+
 run_$(1):	$(PYTHON_BIN_PATH)/$(1)
 	$(PYTHON) $(PYTHON_BIN_PATH)/$(1)  $($(1)_ARGS)
 
