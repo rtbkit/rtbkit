@@ -125,7 +125,7 @@ DefaultDescription()
                     return curr;
                 else if (context.path[n].index != -1)
                     return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
+                else return getEntry(n + 1, curr[context.path[n].fieldName()]);
             };
 
             getEntry(0, br->unparseable)
@@ -990,7 +990,7 @@ void fromJsonOptional(const Json::Value & val,
                     return curr;
                 else if (context.path[n].index != -1)
                     return getEntry(n + 1, curr[context.path[n].index]);
-                else return getEntry(n + 1, curr[context.path[n].key]);
+                else return getEntry(n + 1, curr[context.path[n].fieldName()]);
             };
 
             getEntry(0, unparseable[key]) = context.expectJson();
