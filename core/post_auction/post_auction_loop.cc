@@ -1136,7 +1136,6 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
     Id adSpotId = event->adSpotId;
     Date timestamp = event->timestamp;
     const JsonHolder & meta = event->metadata;
-    const UserIds & uids = event->uids;
 
     SubmissionInfo submissionInfo;
     FinishedInfo finishedInfo;
@@ -1199,10 +1198,6 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
         //cerr << "key = " << key << endl;
         if (!key.second)
             throw ML::Exception("updating null entry in finished map");
-
-        // Add in the user IDs to the index so we can route any visits
-        // properly
-        finishedInfo.addUids(uids);
 
         finished.update(key, finishedInfo);
 
