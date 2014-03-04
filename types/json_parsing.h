@@ -21,7 +21,7 @@ struct ValueDescription;
 
 struct JsonPathEntry {
     JsonPathEntry(int index)
-        : index(index), keyPtr(0), fieldNumber(0)
+        : index(index), keyPtr(0), keyStr(0), fieldNumber(0)
     {
     }
     
@@ -32,7 +32,7 @@ struct JsonPathEntry {
     }
     
     JsonPathEntry(const char * keyPtr)
-        : index(-1), keyPtr(keyPtr)
+        : index(-1), keyPtr(keyPtr), keyStr(nullptr), fieldNumber(0)
     {
     }
 
