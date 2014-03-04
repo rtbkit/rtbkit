@@ -182,10 +182,9 @@ handleDeliveryRq(const HttpHeader & header,
         if (matchType != 1) {
             throw ML::Exception("click events must have auction/spot ids");
         }
-        publishCampaignEvent("CLICK", auctionId, adSpotId, timestamp,
-                             Json::Value());
-        publisher_.publish("CLICK", timestamp.print(3), auctionIdStr,
-                           adSpotIdStr);
+        publishCampaignEvent("CLICK", auctionId, adSpotId, timestamp);
+        publisher_.publish("CLICK", timestamp.print(3),
+                           auctionIdStr, adSpotIdStr);
     }
     else if (event == "conversion") {
         Json::Value meta;
@@ -193,8 +192,7 @@ handleDeliveryRq(const HttpHeader & header,
         USD_CPM payout(json["payout"].asDouble());
 
         if (matchType == 1) {
-            publishCampaignEvent("CONVERSION", auctionId, adSpotId,
-                                 timestamp, meta, userIds);
+            publishCampaignEvent("CONVERSION", auctionId, adSpotId, timestamp);
             publisher_.publish("CONVERSION", timestamp.print(3), "campaign", 
                                auctionIdStr, adSpotIdStr, payout.toString());
         }
