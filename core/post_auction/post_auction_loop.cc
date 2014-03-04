@@ -1135,7 +1135,6 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
     const Id & auctionId = event->auctionId;
     Id adSpotId = event->adSpotId;
     Date timestamp = event->timestamp;
-    const JsonHolder & meta = event->metadata;
 
     SubmissionInfo submissionInfo;
     FinishedInfo finishedInfo;
@@ -1155,8 +1154,7 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
         {
             this->logMessage(string("UNMATCHED") + label, why,
                              auctionId.toString(), adSpotId.toString(),
-                             to_string(timestamp.secondsSinceEpoch()),
-                             meta);
+                             to_string(timestamp.secondsSinceEpoch()));
         };
 
     if (findAuction(submitted, auctionId, adSpotId, submissionInfo)) {
@@ -1187,7 +1185,7 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
             return;
         }
 
-        finishedInfo.campaignEvents.setEvent(label, timestamp, meta);
+        finishedInfo.campaignEvents.setEvent(label, timestamp);
         ML::atomic_inc(numCampaignEvents);
 
         recordHit("delivery.%s.account.%s.matched",

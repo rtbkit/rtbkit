@@ -183,9 +183,9 @@ handleDeliveryRq(const HttpHeader & header,
             throw ML::Exception("click events must have auction/spot ids");
         }
         publishCampaignEvent("CLICK", auctionId, adSpotId, timestamp,
-                             Json::Value(), userIds);
+                             Json::Value());
         publisher_.publish("CLICK", timestamp.print(3), auctionIdStr,
-                           adSpotIdStr, userIds.toString());
+                           adSpotIdStr);
     }
     else if (event == "conversion") {
         Json::Value meta;

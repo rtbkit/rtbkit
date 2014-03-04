@@ -141,8 +141,7 @@ AdServerConnector::
 publishCampaignEvent(const string & label,
                      const Id & auctionId,
                      const Id & adSpotId,
-                     Date timestamp,
-                     const JsonHolder & impressionMeta)
+                     Date timestamp)
 { 
     recordHit("receivedEvent");
     recordHit("event." + label);
@@ -153,7 +152,6 @@ publishCampaignEvent(const string & label,
     event.auctionId = auctionId;
     event.adSpotId = adSpotId;
     event.timestamp = timestamp;
-    event.metadata = impressionMeta;
 
     string str = ML::DB::serializeToString(event);
     toPostAuctionService_.sendMessage("EVENT", str);
