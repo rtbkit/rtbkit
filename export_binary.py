@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 #-------------------------------------------------------------------------------#
 # A tool which exports a development tree to userland.
-# The development tree is supposed to properly built and tested.
+# The development tree is supposed to properly built 
+# and tested.
 #-------------------------------------------------------------------------------#
 import re
 import os 
@@ -9,6 +10,8 @@ import os.path
 import tarfile
 import logging
 import argparse
+import tempfile
+from datetime import date
 
 
 LOGGERS_CREATED = set()
@@ -40,25 +43,41 @@ def read_arguments():
         help='path to the rtbkit root directory')
 
     parser.add_argument('--local_root', required=True,
-        help='path to the local directory where platform-deps were installed')
+		    help='path to the local directory where platform-deps were installed')
 
     parser.add_argument('--prefix',
-        help='Optionally specify a basename for the export. default to rtbkit')
+		    help='Optionally specify a basename for the export. default to rtbkit-YYYMMDD')
 
     return parser.parse_args()
 
-    
-def main(args):
+def main_build (args):
+    cwd = os.getcwd()
+    logger.info('building rtbkit in %s'%args.rtbkit_root)
+    try:
+       os.chdir(args.rtbkit_root)
+       # os.system('git pull origin master')
+       # os.system('make compile test')
+    finally:
+       os.chdir(cwd)
+    pass
+
+def main_archive (args):
     logger = setup_console_logger('export_rtbkit')
-    
-    # rtbkit_root = '.'
-    # local_root = '../local'
     bin_root = args.rtbkit_root + '/build/x86_64/bin'
-    base = 'rtbkit'
+    base = 'rtbkit-%s'%date.today().strftime('%Y%m%d')
     if args.prefix: base = args.prefix
     tar_filename=base + '.tar.bz2'
     tar_out = tarfile.open(name=tar_filename ,mode='w:bz2', dereference=True)
     
+    def build_env_script():
+        t = tempfile.mkstemp()
+	os.write(t[0], '#!/bin/bash\n#\n# Set up the environment i/o use %s\n#'%base)
+	os.write(t[0], '\nexport RTBKIT_HOME=`pwd`')
+	os.write(t[0], '\nexport LD_LIBRARY_PATH=$RTBKIT_HOME/lib:$LD_LIBRARY_PATH')
+	os.write(t[0], '\nexport PATH=$RTBKIT_HOME/bin:$RTBKIT_HOME/bin/zookeeper/bin:$PATH')
+        return t[1]
+	pass
+
     logger.info ('opening archive: ' + tar_filename)
     def tarfile_add (arc, name, arcname):
         logger.info ('adding %s to %s'%(name, arcname))
@@ -76,6 +95,10 @@ def main(args):
         if (path.endswith('.h') or path.endswith('.hh') or path.endswith('.hpp') or path.endswith('.h.in')):
             return True
         return False
+    
+    # add our environment script
+    env_script = build_env_script()
+    tarfile_add(tar_out, build_env_script(), '%s/%s.env.sh'%(base,base))
     
     # we do do rtbkit includes
     exclude_re = re.compile ('.*\/(build|examples)\/.*')
@@ -131,5 +154,5 @@ def main(args):
 ##########################
 if __name__ == '__main__':
     args = read_arguments()
-    main(args)
+    main_archive (args)
 
