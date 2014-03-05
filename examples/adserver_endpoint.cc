@@ -25,7 +25,6 @@ int main(int argc, char * argv[])
     std::string rotationInterval = "1h";
     int winsPort = 18142;
     int eventsPort = 18143;
-    int externalPort = 18144;
 
     options_description endpoint_options("Ad Server request endpoint options");
     endpoint_options.add_options()
@@ -34,9 +33,7 @@ int main(int argc, char * argv[])
         ("win-port,w", value<int>(&winsPort),
          "port for incoming wins")
         ("event-port,e", value<int>(&eventsPort),
-         "port for incoming events")
-        ("external-win-port,x", value<int>(&externalPort),
-         "port for external wins");
+         "port for incoming events");
 
     options_description all_opt;
     all_opt
@@ -59,7 +56,7 @@ int main(int argc, char * argv[])
     std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
 
     StandardAdServerConnector connector(proxies);
-    connector.init(winsPort, eventsPort, externalPort);
+    connector.init(winsPort, eventsPort);
     connector.start();
 
     DataLogger logger("data_logger", proxies);
