@@ -85,12 +85,13 @@ OpenRTBBidSource(Json::Value const & json) :
     verb(json.get("verb", "POST").asString()),
     resource(json.get("resource", "/").asString())
 {
-    std::call_once(flag, [&]() {
-        if (json.isMember("replayFile")) {
-            replayFile = true;
+    if (json.isMember("replayFile")) {
+        replayFile = true;
+        // Make sure we load the file only once
+        std::call_once(flag, [&]() {
             replay.loadFile(json["replayFile"].asString());
-        }
-    });
+        });
+    }
 }
 
 
