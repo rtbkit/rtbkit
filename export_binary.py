@@ -75,8 +75,9 @@ def main_archive (args):
 	os.write(t[0], '\nexport RTBKIT_HOME=`pwd`')
 	os.write(t[0], '\nexport LD_LIBRARY_PATH=$RTBKIT_HOME/lib:$LD_LIBRARY_PATH')
 	os.write(t[0], '\nexport PATH=$RTBKIT_HOME/bin:$RTBKIT_HOME/bin/zookeeper/bin:$PATH')
-	os.write(t[0], '\nrm -f rtbkit\nrm -rf build\nln -s . rtbkit')
-	os.write(t[0], '\nmkdir -p build/x86_64\nln -s bin build/x86_64\n')
+	os.write(t[0], '\n[ -L rtbkit ] || \nln -s . rtbkit')
+	os.write(t[0], '\nif [ ! -L build/x86_64/bin ]\nthen\n mkdir -p build/x86_64')
+	os.write(t[0], '\n cd build/x86_64\n ln -s ../../bin\nfi\ncd $RTBKIT_HOME\n)'
         return t[1]
 	pass
 
@@ -149,6 +150,7 @@ def main_archive (args):
 	    continue
     	if sample_config=='sample.zookeeper.conf': 
                 tarfile_add (tar_out, fn, base+'/bin/zookeeper/bin/'+sample_config)
+                tarfile_add (tar_out, fn, base+'/bin/zookeeper/conf/zoo.cfg')
     
     tar_out.close()
 
