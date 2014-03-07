@@ -37,7 +37,6 @@ int main(int argc, char ** argv) {
     int recordCount = 1000;
     int winsPort = 18143;
     int eventsPort = 18144;
-    int externalPort = 18145;
 
     options_description bid_endpoint_options("Bid request endpoint options");
     bid_endpoint_options.add_options()
@@ -55,9 +54,7 @@ int main(int argc, char ** argv) {
         ("win-port,w", value<int>(&winsPort),
          "port for incoming wins")
         ("event-port,e", value<int>(&eventsPort),
-         "port for incoming events")
-        ("external-win-port,x", value<int>(&externalPort),
-         "port for external wins");
+         "port for incoming events");
 
     options_description all_opt;
     all_opt.add(bid_endpoint_options);
@@ -81,7 +78,7 @@ int main(int argc, char ** argv) {
 
     // Create the ad server endpoint
     StandardAdServerConnector connector(proxies);
-    connector.init(winsPort, eventsPort, externalPort);
+    connector.init(winsPort, eventsPort);
     connector.start();
 
     // And a logger to track what is received there
