@@ -190,6 +190,7 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
     typedef void (DeliveryCb) (const DeliveryEvent & args);
     typedef boost::function<DeliveryCb> DeliveryCbFn;
 
+
     /** Triggered when an impression we bid on is shown to the user. */
     DeliveryCbFn onImpression;
 
@@ -198,6 +199,11 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
 
     /** Triggered when a user visits the landing page of our creative.  */
     DeliveryCbFn onVisit;
+
+
+    /** Triggered for all campaign event (click, impression, visit ...).  */
+    DeliveryCbFn onCampaignEvent;
+
 
 
     typedef void (PingCb) (const std::string & fromRouter,

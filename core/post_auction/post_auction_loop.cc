@@ -1256,7 +1256,7 @@ routePostAuctionEvent(const string & label,
             sent = true;
 
             this->sendAgentMessage(entry.name,
-                                   label,
+                                   "CAMPAIGN_EVENT", label,
                                    Date::now(),
                                    finishedInfo.auctionId,
                                    finishedInfo.adSpotId,
