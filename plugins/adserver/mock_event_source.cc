@@ -1,46 +1,60 @@
-/** mock_win_source.cc                                 -*- C++ -*-
+/** mock_event_source.cc                                 -*- C++ -*-
     Eric Robert, 20 Aug 2013
     Copyright (c) 2013 Datacratic.  All rights reserved.
 
 */
 
-#include "mock_win_source.h"
+#include "mock_event_source.h"
 #include "rtbkit/core/post_auction/post_auction_loop.h"
 
 using namespace RTBKIT;
 
-MockWinSource::
-MockWinSource(NetworkAddress address) :
-    WinSource(std::move(address)) {
+MockEventSource::
+MockEventSource(NetworkAddress address) :
+    EventSource(std::move(address)) {
 }
 
 
-MockWinSource::
-MockWinSource(Json::Value const & json) :
-    WinSource(json) {
+MockEventSource::
+MockEventSource(Json::Value const & json) :
+    EventSource(json) {
 }
+
 
 void
-MockWinSource::
-sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
+MockEventSource::
+sendImpression(const BidRequest& bidRequest, const Bid& bid)
 {
     PostAuctionEvent event;
-    event.type = PAE_WIN;
+    event.type = PAE_CAMPAIGN_EVENT;
+    event.label = "IMPRESSION";
     event.auctionId = bidRequest.auctionId;
     event.adSpotId = bid.adSpotId;
     event.timestamp = Date::now();
-    event.winPrice = winPrice;
     event.uids = bidRequest.userIds;
-    event.account = bid.account;
-    event.bidTimestamp = bid.bidTimestamp;
 
     sendEvent(event);
 }
 
 
+void
+MockEventSource::
+sendClick(const BidRequest& bidRequest, const Bid& bid)
+{
+    PostAuctionEvent event;
+    event.type = PAE_CAMPAIGN_EVENT;
+    event.label = "CLICK";
+    event.auctionId = bidRequest.auctionId;
+    event.adSpotId = bid.adSpotId;
+    event.timestamp = Date::now();
+    event.uids = bidRequest.userIds;
+
+    sendEvent(event);
+}
+
 
 void
-MockWinSource::
+MockEventSource::
 sendEvent(const PostAuctionEvent& event)
 {
     std::string str = event.toJson().toString();
@@ -69,8 +83,8 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        WinSource::registerWinSourceFactory("mock", [](Json::Value const & json) {
-            return new MockWinSource(json);
+        EventSource::registerEventSourceFactory("mock", [](Json::Value const & json) {
+            return new MockEventSource(json);
         });
     }
 } atInit;

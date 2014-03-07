@@ -17,8 +17,6 @@ struct StandardWinSource : public WinSource {
     void sendWin(const BidRequest& br,
                  const Bid& bid,
                  const Amount& winPrice);
-    void sendImpression(const BidRequest& br, const Bid& bid);
-    void sendClick(const BidRequest& br, const Bid& bid);
 
 private:
     void sendEvent(Json::Value const & json);

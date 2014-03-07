@@ -179,26 +179,40 @@ sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
 }
 
 
+
+EventSource::
+EventSource(NetworkAddress address) :
+    ExchangeSource(std::move(address)) {
+}
+
+
+EventSource::
+EventSource(Json::Value const & json) :
+    ExchangeSource(json["url"].asString()) {
+}
+
+
 void
-WinSource::
+EventSource::
 sendImpression(const BidRequest& bidRequest, const Bid& bid)
 {
 }
 
 
 void
-WinSource::
+EventSource::
 sendClick(const BidRequest& bidRequest, const Bid& bid)
 {
 }
-
 
 namespace {
     typedef std::lock_guard<ML::Spinlock> Guard;
     static ML::Spinlock bidLock;
     static ML::Spinlock winLock;
+    static ML::Spinlock eventLock;
     static std::unordered_map<std::string, BidSource::Factory> bidFactories;
     static std::unordered_map<std::string, WinSource::Factory> winFactories;
+    static std::unordered_map<std::string, EventSource::Factory> eventFactories;
 }
 
 
@@ -279,5 +293,48 @@ std::unique_ptr<WinSource> WinSource::createWinSource(Json::Value const & json) 
 
     auto factory = getWinFactory(name);
     return std::unique_ptr<WinSource>(factory(json));
+}
+
+
+
+EventSource::Factory getEventFactory(std::string const & name) {
+    // see if it's already existing
+    {
+        Guard guard(eventLock);
+        auto i = eventFactories.find(name);
+        if (i != eventFactories.end()) return i->second;
+    }
+
+    // else, try to load the adserver library
+    std::string path = "lib" + name + "_adserver.so";
+    void * handle = dlopen(path.c_str(), RTLD_NOW);
+    if (!handle) {
+        throw ML::Exception("couldn't find adserver library " + path);
+    }
+
+    // if it went well, it should be registered now
+    Guard guard(eventLock);
+    auto i = eventFactories.find(name);
+    if (i != eventFactories.end()) return i->second;
+
+    throw ML::Exception("couldn't find event source name " + name);
+}
+
+
+void EventSource::registerEventSourceFactory(std::string const & name, Factory callback) {
+    Guard guard(eventLock);
+    if (!eventFactories.insert(std::make_pair(name, callback)).second)
+        throw ML::Exception("already had a event source factory registered");
+}
+
+
+std::unique_ptr<EventSource> EventSource::createEventSource(Json::Value const & json) {
+    auto name = json.get("type", "unknown").asString();
+    if(name == "none") {
+        return 0;
+    }
+
+    auto factory = getEventFactory(name);
+    return std::unique_ptr<EventSource>(factory(json));
 }
 
