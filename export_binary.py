@@ -75,7 +75,7 @@ def main_archive (args):
 	os.write(t[0], '\nexport RTBKIT_HOME=`pwd`')
 	os.write(t[0], '\nexport LD_LIBRARY_PATH=$RTBKIT_HOME/lib:$LD_LIBRARY_PATH')
 	os.write(t[0], '\nexport PATH=$RTBKIT_HOME/bin:$RTBKIT_HOME/bin/zookeeper/bin:$PATH')
-	os.write(t[0], '\n[ -L rtbkit ] || \nln -s . rtbkit')
+	os.write(t[0], '\n[ -L rtbkit ] || ln -s . rtbkit')
 	os.write(t[0], '\nif [ ! -L build/x86_64/bin ]\nthen\n mkdir -p build/x86_64')
 	os.write(t[0], '\n cd build/x86_64\n ln -s ../../bin\nfi\ncd $RTBKIT_HOME\n)'
         return t[1]
