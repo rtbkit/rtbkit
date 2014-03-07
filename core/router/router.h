@@ -74,16 +74,16 @@ struct AllAgentInfo : public std::vector<AgentInfoEntry> {
 /*****************************************************************************/
 
 struct AuctionDebugInfo {
-    void addAuctionEvent(Date date, std::string type,
+    void addAuctionEvent(Date date, const std::string & type,
                          const std::vector<std::string> & args);
-    void addSpotEvent(const Id & spot, Date date, std::string type,
+    void addSpotEvent(const Id & spotId, Date date, const std::string & type,
                       const std::vector<std::string> & args);
     void dumpAuction() const;
-    void dumpSpot(Id spot) const;
+    void dumpSpot(const Id & spotId) const;
 
     struct Message {
         Date timestamp;
-        Id spot;
+        Id spotId;
         std::string type;
         std::vector<std::string> args;
     };

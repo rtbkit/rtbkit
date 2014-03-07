@@ -60,7 +60,7 @@ toJson() const
 
 void
 AuctionDebugInfo::
-addAuctionEvent(Date timestamp, std::string type,
+addAuctionEvent(const Date timestamp, const std::string & type,
                 const std::vector<std::string> & args)
 {
     Message message;
@@ -72,11 +72,11 @@ addAuctionEvent(Date timestamp, std::string type,
 
 void
 AuctionDebugInfo::
-addSpotEvent(const Id & spot, Date timestamp, std::string type,
+addSpotEvent(const Id & spotId, const Date timestamp, const std::string & type,
              const std::vector<std::string> & args)
 {
     Message message;
-    message.spot = spot;
+    message.spotId = spotId;
     message.timestamp = timestamp;
     message.type = type;
     //message.args = args;
@@ -87,15 +87,14 @@ void
 AuctionDebugInfo::
 dumpAuction() const
 {
-    for (unsigned i = 0;  i < messages.size();  ++i) {
-        auto & m = messages[i];
-        cerr << m.timestamp.print(6) << " " << m.spot << " " << m.type << endl;
+    for (const auto & m : messages) {
+        cerr << m.timestamp.print(6) << " " << m.spotId << " " << m.type << endl;
     }
 }
 
 void
 AuctionDebugInfo::
-dumpSpot(Id spot) const
+dumpSpot(const Id & spotId) const
 {
     dumpAuction();  // TODO
 }
