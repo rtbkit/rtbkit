@@ -257,8 +257,7 @@ fromJson(const Json::Value & jsonValue)
 
     CampaignEvent event(
             jsonValue["label"].asString(),
-            Date::fromSecondsSinceEpoch(timeSeconds),
-            jsonValue["meta"]);
+            Date::fromSecondsSinceEpoch(timeSeconds));
 
     return event;
 }
@@ -271,7 +270,6 @@ toJson() const
 
     json["label"] = label_;
     json["timestamp"] = time_.secondsSinceEpoch();
-    json["meta"] = meta_.toJson();
 
     return json;
 }
@@ -281,7 +279,6 @@ CampaignEvent::
 serialize(DB::Store_Writer & writer) const
 {
     writer << label_ << time_.secondsSinceEpoch();
-    meta_.serialize(writer);
 }
 
 void
@@ -293,7 +290,6 @@ reconstitute(DB::Store_Reader & store)
 
     store >> label_ >> timeSeconds;
     time_ = Date::fromSecondsSinceEpoch(timeSeconds);
-    meta_.reconstitute(store);
 }
 
 Json::Value
@@ -336,13 +332,11 @@ hasEvent(const std::string & label) const
 
 void
 CampaignEvents::
-setEvent(const std::string & label,
-                 Date eventTime,
-                 const JsonHolder & eventMeta)
+setEvent(const std::string & label, Date eventTime)
 {
     if (hasEvent(label))
         throw ML::Exception("already has event '" + label + "'");
-    emplace_back(label, eventTime, eventMeta);
+    emplace_back(label, eventTime);
 }
 
 

@@ -1135,8 +1135,6 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
     const Id & auctionId = event->auctionId;
     Id adSpotId = event->adSpotId;
     Date timestamp = event->timestamp;
-    const JsonHolder & meta = event->metadata;
-    const UserIds & uids = event->uids;
 
     SubmissionInfo submissionInfo;
     FinishedInfo finishedInfo;
@@ -1156,8 +1154,7 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
         {
             this->logMessage(string("UNMATCHED") + label, why,
                              auctionId.toString(), adSpotId.toString(),
-                             to_string(timestamp.secondsSinceEpoch()),
-                             meta);
+                             to_string(timestamp.secondsSinceEpoch()));
         };
 
     if (findAuction(submitted, auctionId, adSpotId, submissionInfo)) {
@@ -1188,7 +1185,7 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
             return;
         }
 
-        finishedInfo.campaignEvents.setEvent(label, timestamp, meta);
+        finishedInfo.campaignEvents.setEvent(label, timestamp);
         ML::atomic_inc(numCampaignEvents);
 
         recordHit("delivery.%s.account.%s.matched",
@@ -1199,10 +1196,6 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
         //cerr << "key = " << key << endl;
         if (!key.second)
             throw ML::Exception("updating null entry in finished map");
-
-        // Add in the user IDs to the index so we can route any visits
-        // properly
-        finishedInfo.addUids(uids);
 
         finished.update(key, finishedInfo);
 

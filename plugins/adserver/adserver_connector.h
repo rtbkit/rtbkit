@@ -71,9 +71,7 @@ struct AdServerConnector : public Datacratic::ServiceBase {
     void publishCampaignEvent(const std::string & label,
                               const Id & auctionId,
                               const Id & adSpotId,
-                              Date timestamp,
-                              const JsonHolder & eventMeta,
-                              const UserIds & ids);
+                              Date timestamp);
 
     /** Publish an user-based event into the post auction loop.
 

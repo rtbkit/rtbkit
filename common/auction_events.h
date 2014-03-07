@@ -114,9 +114,8 @@ ML::DB::Store_Reader & operator
 
 struct CampaignEvent
 {
-    CampaignEvent(const std::string & label = "", Date time = Date(),
-            const JsonHolder & meta = JsonHolder())
-        : label_(label), time_(time), meta_(meta)
+    CampaignEvent(const std::string & label = "", Date time = Date())
+        : label_(label), time_(time)
     {}
 
     Json::Value toJson() const;
@@ -127,16 +126,13 @@ struct CampaignEvent
 
     std::string label_;
     Date time_;
-    JsonHolder meta_;
 };
 
 
 struct CampaignEvents : public std::vector<CampaignEvent>
 {
     bool hasEvent(const std::string & label) const;
-    void setEvent(const std::string & label,
-                          Date eventTime,
-                          const JsonHolder & eventMeta);
+    void setEvent(const std::string & label, Date eventTime);
 
     Json::Value toJson() const;
     static CampaignEvents fromJson(const Json::Value&);
