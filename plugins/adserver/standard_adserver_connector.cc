@@ -260,6 +260,11 @@ writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, con
         "\"dataCost\":\"" << dataCost.toString() << "\"}";
 
     cerr << testOutStr.str() << endl;
+
+    ofstream testOut;
+    testOut.open("./testing/fixtures/test_win_rq.txt", std::ofstream::out | std::ofstream::app );
+    testOut << testOutStr.str();
+    testOut.close();
 } 
 
 void
@@ -279,6 +284,11 @@ writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdS
         "\"event\":\"" << event << "\"}";
 
     cerr << testOutStr.str() << endl;
+
+    ofstream testOut;
+    testOut.open("./testing/fixtures/test_delevry_rq.txt", std::ofstream::out | std::ofstream::app );
+    testOut << testOutStr.str();
+    testOut.close();
 }
 
 namespace {
