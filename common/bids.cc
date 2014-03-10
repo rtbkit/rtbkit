@@ -10,6 +10,7 @@
 
 #include "jml/utils/exc_check.h"
 #include "jml/utils/json_parsing.h"
+#include "soa/service/json_codec.h"
 
 using namespace std;
 using namespace ML;
@@ -94,12 +95,20 @@ bid(int creativeIndex, Amount price, double priority)
     this->priority = priority;
 }
 
+template<typename T, int I, typename S>
+Json::Value jsonEncode(const ML::compact_vector<T, I, S> & vec)
+{
+    Json::Value result(Json::arrayValue);
+    for (unsigned i = 0;  i < vec.size();  ++i)
+        result[i] = jsonEncode(vec[i]);
+    return result;
+}
 
 Json::Value
 Bid::
 toJson() const
 {
-    if (isNullBid()) return Json::Value();
+    // JAN: if (isNullBid()) return Json::Value();
 
     Json::Value json(Json::objectValue);
 
@@ -107,6 +116,16 @@ toJson() const
     json["price"] = price.toString();
     json["priority"] = priority;
     json["spotIndex"] = spotIndex;
+    // HACK JAN. FIXME FIXME FIXME
+    if (!availableCreatives.empty())
+    {
+    	Json::Value vec(Json::arrayValue);
+        for (int i =0;i< availableCreatives.size();i++)
+        {
+        	vec.append(Json::Value(availableCreatives[i]));
+        }
+    	json["availableCreatives"] = vec;
+    }
     if (!account.empty()) json["account"] = account.toString();
 
     return json;
@@ -121,6 +140,10 @@ fromJson(ML::Parse_Context& context)
     if (context.match_literal("null") || context.match_literal("{}"))
         return bid;  // null bid
 
+    auto onVecNtry = [&] (int, ML::Parse_Context& context)
+		{
+            bid.availableCreatives.emplace_back(context.expect_int());
+		};
     auto onBidField = [&] (
             const std::string& fieldName, ML::Parse_Context& context)
         {
@@ -132,7 +155,8 @@ fromJson(ML::Parse_Context& context)
             case 'a':
                 if (fieldName == "account")
                     bid.account = AccountKey(expectJsonStringAscii(context));
-
+                else if (fieldName == "availableCreatives")
+                    expectJsonArray(context, onVecNtry);
                 else foundField = false;
                 break;
 
