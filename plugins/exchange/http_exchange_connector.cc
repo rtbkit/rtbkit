@@ -283,7 +283,7 @@ getErrorResponse(const HttpAuctionHandler & connection,
                  const Auction & auction,
                  const std::string & errorMessage) const
 {
-    return HttpResponse(204, "none", "");
+    return HttpResponse(400, "none", errorMessage);
 }
 
 void
@@ -293,15 +293,13 @@ handleUnknownRequest(HttpAuctionHandler & connection,
                      const std::string & payload) const
 {
     // Deal with the "/ready" request
-    
     if (header.resource == "/ready") {
         connection.putResponseOnWire(HttpResponse(200, "text/plain", "1"));
         return;
     }
 
     // Otherwise, it's an error
-
-    connection.sendErrorResponse("unknown resource " + header.resource);
+    connection.sendErrorResponse("UNKNOWN_RESOURCE", "There is no handler for the requested resource '" + header.resource + "'");
 }
 
 ExchangeConnector::ExchangeCompatibility

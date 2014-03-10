@@ -100,17 +100,17 @@ parseBidRequest(HttpAuctionHandler & connection,
                 const HttpHeader & header,
                 const std::string & payload)
 {
-    std::shared_ptr<BidRequest> res;
+    std::shared_ptr<BidRequest> none;
 
     // Check for JSON content-type
     if (!header.contentType.empty()) {
         static const std::string delimiter = ";";
-        
+
         std::string::size_type posDelim = header.contentType.find(delimiter);
         std::string content;
 
         if(posDelim == std::string::npos)
-            content = header.contentType;    
+            content = header.contentType;
         else {
             std::string content = header.contentType.substr(0, posDelim);
             #if 0
@@ -119,36 +119,58 @@ parseBidRequest(HttpAuctionHandler & connection,
         }
 
         if(content != "application/json") {
-            connection.sendErrorResponse("non-JSON request");
-            return res;
+            connection.sendErrorResponse("UNSUPPORTED_CONTENT_TYPE", "The request is required to use the 'Content-Type: application/json' header");
+            return none;
         }
-
     }
     else {
-        connection.sendErrorResponse("non-JSON request");
-        return res;
+        connection.sendErrorResponse("MISSING_CONTENT_TYPE_HEADER", "The request is missing the 'Content-Type' header");
+        return none;
     }
 
     // Check for the x-openrtb-version header
     auto it = header.headers.find("x-openrtb-version");
     if (it == header.headers.end()) {
-        connection.sendErrorResponse("no OpenRTB version header supplied");
-        return res;
+        connection.sendErrorResponse("MISSING_OPENRTB_HEADER", "The request is missing the 'x-openrtb-version' header");
+        return none;
     }
 
     // Check that it's version 2.1
     std::string openRtbVersion = it->second;
     if (openRtbVersion != "2.1") {
-        connection.sendErrorResponse("expected OpenRTB version 2.1; got " + openRtbVersion);
-        return res;
+        connection.sendErrorResponse("UNSUPPORTED_OPENRTB_VERSION", "The request is required to be using version 2.1 of the OpenRTB protocol but requested " + openRtbVersion);
+        return none;
     }
 
     // Parse the bid request
-    ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
-    res.reset(OpenRtbBidRequestParser::parseBidRequest(context,
-                                                       exchangeName(),
-                                                       exchangeName()));
-    return res;
+    std::shared_ptr<BidRequest> result;
+    try {
+        ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
+        result.reset(OpenRtbBidRequestParser::parseBidRequest(context,
+                                                           exchangeName(),
+                                                           exchangeName()));
+    }
+    catch(ML::Exception const & e) {
+        connection.sendErrorResponse("INVALID_JSON", e.what());
+        return none;
+    }
+    catch(...) {
+        connection.sendErrorResponse("INVALID_JSON", "Failed to parse the json payload");
+        return none;
+    }
+
+    // Check if we want some reporting
+    auto verbose = header.headers.find("x-openrtb-verbose");
+    if(header.headers.end() != verbose) {
+        if(verbose->second == "1") {
+            if(!result->auctionId.notNull()) {
+                connection.sendErrorResponse("MISSING_ID", "The bid request requires the 'id' field");
+                return none;
+            }
+        }
+    }
+
+    return result;
 }
 
 double
@@ -223,10 +245,10 @@ HttpResponse
 OpenRTBExchangeConnector::
 getErrorResponse(const HttpAuctionHandler & connection,
                  const Auction & auction,
-                 const std::string & errorMessage) const
+                 const std::string & message) const
 {
     Json::Value response;
-    response["error"] = errorMessage;
+    response["error"] = message;
     return HttpResponse(400, response);
 }
 
