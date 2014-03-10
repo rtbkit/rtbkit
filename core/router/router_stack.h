@@ -112,11 +112,10 @@ struct RouterStack: public ServiceBase {
                              const Id & auctionId,
                              const Id & spotId,
                              Date timestamp,
-                             const JsonHolder & eventMeta,
-                             const UserIds & uids)
+                             const JsonHolder & eventMeta)
     {
         postAuctionLoop.injectCampaignEvent(label, auctionId, spotId,
-                                            timestamp, eventMeta, uids);
+                                            timestamp, eventMeta);
     }
 
     /** Notify the router that the given auction/spot will never receive

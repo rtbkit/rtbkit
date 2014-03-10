@@ -323,8 +323,7 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
                              const Id & auctionId,
                              const Id & adSpotId,
                              Date timestamp,
-                             const JsonHolder & eventMeta,
-                             const UserIds & ids);
+                             const JsonHolder & eventMeta);
 
     /** Notify the loop that the given auction/spot will never receive
         another message and should be forgotten.  This is mostly for the

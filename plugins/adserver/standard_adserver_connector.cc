@@ -187,9 +187,8 @@ handleDeliveryRq(const HttpHeader & header,
 {
     Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
     
-    string auctionIdStr, adSpotIdStr, userIdStr, event;
+    string auctionIdStr, adSpotIdStr, event;
     Id auctionId, adSpotId, userId;
-    UserIds userIds;
     
     if (json.isMember("auctionId")) {
         auctionIdStr = json["auctionId"].asString();
@@ -197,40 +196,30 @@ handleDeliveryRq(const HttpHeader & header,
         auctionId = Id(auctionIdStr);
         adSpotId = Id(adSpotIdStr);
     
-        if (json.isMember("userIds")) {
-             auto item =  json["userIds"];
-             if(item.isMember("prov")){
-                  userIdStr = item["prov"].asString();
-                  userIds.add(Id(userIdStr), ID_PROVIDER);
-             }
-        }
-
 	event = (json["event"].asString());
 
-        if(isUnitTest) {
-             writeUnitTestDeliveryReqOutput(timestamp,
-                                    auctionIdStr, 
-                                    adSpotIdStr, 
-                                    userIdStr,
-                                    event);
-
+        if (isUnitTest) {
+            writeUnitTestDeliveryReqOutput(timestamp,
+                                           auctionIdStr,
+                                           adSpotIdStr,
+                                           event);
         }
         else {
             if (event == "click") {
                 publishCampaignEvent("CLICK", auctionId, adSpotId, timestamp,
-                                     Json::Value(), userIds);
+                                     Json::Value());
                 publisher_.publish("CLICK", timestamp.print(3), auctionIdStr,
-                                      adSpotIdStr, userIds.toString());
+                                   adSpotIdStr);
             }
             else if (event == "conversion") {
-                 publishCampaignEvent("CONVERSION", auctionId, adSpotId,
-                                      timestamp, Json::Value(), userIds);
-                 publisher_.publish("CONVERSION", timestamp.print(3),
-                                      auctionIdStr, adSpotIdStr, userIds.toString());
+                publishCampaignEvent("CONVERSION", auctionId, adSpotId,
+                                     timestamp, Json::Value());
+                publisher_.publish("CONVERSION", timestamp.print(3),
+                                   auctionIdStr, adSpotIdStr);
             }
             else {
-                 publisher_.publish("CONVERSION", timestamp.print(3), "unmatched",
-                                      auctionId.toString());
+                publisher_.publish("CONVERSION", timestamp.print(3), "unmatched",
+                                   auctionId.toString());
             }
         }
     }
@@ -265,7 +254,7 @@ writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, con
 void
 StandardAdServerConnector::
 writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdStr, const string & adSpotIdStr, 
-                               const string &  userIdStr, const string &event){
+                               const string &event){
 
     if (!isUnitTest) {
         throw ML::Exception(string("Illegal to call writeUnitTestDeliveryRqOutput if isUnitTest is False\n"));
@@ -275,7 +264,6 @@ writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdS
     testOutStr << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
         "\"auctionId\":\"" << auctionIdStr << "\"," <<
         "\"adSpotId\":\"" << adSpotIdStr << "\"," <<
-        "\"userIds\":" << "\"" << userIdStr << "\"," <<
         "\"event\":\"" << event << "\"}";
 
     cerr << testOutStr.str() << endl;
