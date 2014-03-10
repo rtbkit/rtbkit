@@ -369,9 +369,8 @@ struct RTBRouterStackJS
                 = Date::fromSecondsSinceEpoch
                     (getArg<double>(args, 3, "timestamp"));
             Json::Value meta = getArg(args, 4, Json::Value(), "meta");
-            UserIds uids = getArg(args, 5, UserIds(), "userIds");
             getShared(args)->injectCampaignEvent(label, auctionId, adSpot,
-                                                 timestamp, meta, uids);
+                                                 timestamp, meta);
             return args.This();
         } HANDLE_JS_EXCEPTIONS;
     }

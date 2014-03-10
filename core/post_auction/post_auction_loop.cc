@@ -475,8 +475,7 @@ injectCampaignEvent(const string & label,
                     const Id & auctionId,
                     const Id & adSpotId,
                     Date timestamp,
-                    const JsonHolder & impressionMeta,
-                    const UserIds & uids)
+                    const JsonHolder & impressionMeta)
 {
     auto event = std::make_shared<PostAuctionEvent>();
     event->type = PAE_CAMPAIGN_EVENT;
@@ -485,7 +484,6 @@ injectCampaignEvent(const string & label,
     event->adSpotId = adSpotId;
     event->timestamp = timestamp;
     event->metadata = impressionMeta;
-    event->uids = uids;
 
     events.push(event);
 }
@@ -1136,7 +1134,6 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
     Id adSpotId = event->adSpotId;
     Date timestamp = event->timestamp;
     const JsonHolder & meta = event->metadata;
-    const UserIds & uids = event->uids;
 
     SubmissionInfo submissionInfo;
     FinishedInfo finishedInfo;
@@ -1199,10 +1196,6 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
         //cerr << "key = " << key << endl;
         if (!key.second)
             throw ML::Exception("updating null entry in finished map");
-
-        // Add in the user IDs to the index so we can route any visits
-        // properly
-        finishedInfo.addUids(uids);
 
         finished.update(key, finishedInfo);
 

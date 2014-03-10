@@ -74,8 +74,7 @@ void MockAdServerConnector::handleEvent(PostAuctionEvent const & event) {
                              event.auctionId,
                              event.adSpotId,
                              event.timestamp,
-                             Json::Value(),
-                             event.uids);
+                             Json::Value());
     }
 }
 

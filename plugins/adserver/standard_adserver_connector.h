@@ -68,8 +68,7 @@ private :
                                    const string & userId, const USD_CPM dataCost);
 
     void writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdStr, 
-                                        const string & adSpotIdStr, const string &  userIdStr, 
-                                        const string &event);
+                                        const string & adSpotIdStr, const string &event);
     
     bool isUnitTest;
 };
