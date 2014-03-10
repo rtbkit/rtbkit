@@ -58,7 +58,7 @@ start(Json::Value const & configuration) {
             ML::atomic_inc(running);
 
             threads.create_thread([=]() {
-                Worker worker(this, json["bids"], json["wins"]);
+                Worker worker(this, json["bids"], json["wins"], json["events"]);
                 worker.run();
 
                 ML::atomic_dec(running);
@@ -70,12 +70,12 @@ start(Json::Value const & configuration) {
 
 void
 MockExchange::
-add(BidSource * bid, WinSource * win) {
+add(BidSource * bid, WinSource * win, EventSource * event) {
     std::cerr << "starting worker " << running << std::endl;
     ML::atomic_inc(running);
 
     threads.create_thread([=]() {
-        Worker worker(this, bid, win);
+        Worker worker(this, bid, win, event);
         worker.run();
 
         ML::atomic_dec(running);
@@ -84,19 +84,21 @@ add(BidSource * bid, WinSource * win) {
 
 
 MockExchange::Worker::
-Worker(MockExchange * exchange, BidSource *bid, WinSource *win) :
+Worker(MockExchange * exchange, BidSource *bid, WinSource *win, EventSource *event) :
     exchange(exchange),
     bids(bid),
     wins(win),
+    events(event),
     rng(random()) {
 }
 
 
 MockExchange::Worker::
-Worker(MockExchange * exchange, Json::Value bid, Json::Value win) :
+Worker(MockExchange * exchange, Json::Value bid, Json::Value win, Json::Value event) :
     exchange(exchange),
     bids(BidSource::createBidSource(std::move(bid))),
     wins(WinSource::createWinSource(std::move(win))),
+    events(EventSource::createEventSource(std::move(event))),
     rng(random()) {
 }
 
@@ -134,11 +136,11 @@ MockExchange::Worker::bid() {
             wins->sendWin(br, bid, ret.second);
             exchange->recordHit("wins");
 
-            wins->sendImpression(br, bid);
+            events->sendImpression(br, bid);
             exchange->recordHit("impressions");
 
             if (!isClick(br, bid)) continue;
-            wins->sendClick(br, bid);
+            events->sendClick(br, bid);
             exchange->recordHit("clicks");
         }
 

@@ -25,6 +25,7 @@
 #include "rtbkit/examples/mock_exchange_connector.h"
 #include "rtbkit/plugins/adserver/mock_adserver_connector.h"
 #include "rtbkit/plugins/adserver/mock_win_source.h"
+#include "rtbkit/plugins/adserver/mock_event_source.h"
 #include "rtbkit/plugins/bid_request/mock_bid_source.h"
 #include <boost/thread.hpp>
 #include <netdb.h>
@@ -64,6 +65,7 @@ struct Components
 
     MockAdServerConnector winStream;
     int winStreamPort;
+    int eventStreamPort;
 
     vector<unique_ptr<MockExchangeConnector> > exchangeConnectors;
     vector<int> exchangePorts;
@@ -193,7 +195,7 @@ struct Components
         
         // Setup an ad server connector that also acts as a midlle men between
         // the exchange's wins and the post auction loop.
-        winStream.init(winStreamPort = 12340);
+        winStream.init(winStreamPort = 12340, eventStreamPort = 12341);
         winStream.start();
 
         // Our bidding agent which listens to the bid request stream from all
@@ -368,7 +370,8 @@ int main(int argc, char ** argv)
     for(auto i = 0; i != nExchangeThreads; ++i) {
         NetworkAddress bids(components.exchangePorts[i % components.exchangePorts.size()]);
         NetworkAddress wins(components.winStreamPort);
-        exchange.add(new MockBidSource(bids, nBidRequestsPerThread), new MockWinSource(wins));
+        NetworkAddress events(components.eventStreamPort);
+        exchange.add(new MockBidSource(bids, nBidRequestsPerThread), new MockWinSource(wins), new MockEventSource(events));
     }
 
     // Dump the budget stats while we wait for the test to finish.

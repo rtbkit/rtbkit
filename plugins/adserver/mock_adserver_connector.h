@@ -42,7 +42,7 @@ struct MockAdServerConnector : public HttpAdServerConnector
     MockAdServerConnector(std::shared_ptr<ServiceProxies> const & proxies,
                           Json::Value const & json);
 
-    void init(int port);
+    void init(int winPort, int eventPort);
     void start();
     void shutdown();
     void handleEvent(PostAuctionEvent const & event);

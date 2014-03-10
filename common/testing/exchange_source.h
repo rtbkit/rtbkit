@@ -98,12 +98,22 @@ struct WinSource : public ExchangeSource {
     virtual void sendWin(const BidRequest& br,
                          const Bid& bid,
                          const Amount& winPrice);
-    virtual void sendImpression(const BidRequest& br, const Bid& bid);
-    virtual void sendClick(const BidRequest& br, const Bid& bid);
 
     typedef std::function<WinSource * (Json::Value const &)> Factory;
     static void registerWinSourceFactory(std::string const & name, Factory callback);
     static std::unique_ptr<WinSource> createWinSource(Json::Value const & json);
+};
+
+struct EventSource : public ExchangeSource {
+    EventSource(NetworkAddress address);
+    EventSource(Json::Value const & json);
+
+    virtual void sendImpression(const BidRequest& br, const Bid& bid);
+    virtual void sendClick(const BidRequest& br, const Bid& bid);
+
+    typedef std::function<EventSource * (Json::Value const &)> Factory;
+    static void registerEventSourceFactory(std::string const & name, Factory callback);
+    static std::unique_ptr<EventSource> createEventSource(Json::Value const & json);
 };
 
 } // namespace RTBKIT
