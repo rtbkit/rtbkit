@@ -7,6 +7,8 @@
 #include "rtbkit/common/currency.h"
 #include "rtbkit/common/json_holder.h"
 
+#include "soa/service/logs.h"
+
 #include "standard_adserver_connector.h"
 
 
@@ -16,6 +18,7 @@ using namespace boost::program_options;
 
 using namespace RTBKIT;
 
+Logging::Category adserverTrace("Standard Ad-Server connector");
 
 /* STANDARDADSERVERARGUMENTS */
 boost::program_options::options_description
@@ -79,7 +82,9 @@ void
 StandardAdServerConnector::
 init(int winsPort, int eventsPort, bool isTest)
 {
-
+    if(!isTest) {
+        adserverTrace.deactivate();
+    }
     isUnitTest = isTest;
 
     shared_ptr<ServiceProxies> services = getServices();
@@ -249,8 +254,8 @@ writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, con
         throw ML::Exception(string("Illegal to call writeUnitTestWinReqOutput if isUnitTest is False"));
     }
 
-    stringstream testOutStr;
-    testOutStr << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
+    //stringstream testOutStr;
+    LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
         "\"bidTimestamp\":\"" << bidTimestamp.print(3) << "\"," <<
         "\"auctionId\":\"" << auctionId << "\"," <<
         "\"adSpotId\":\"" << adSpotId << "\"," <<
@@ -259,12 +264,7 @@ writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, con
         "\"userIds\":" << "\"" << userId << "\"," <<
         "\"dataCost\":\"" << dataCost.toString() << "\"}";
 
-    cerr << testOutStr.str() << endl;
-
-    ofstream testOut;
-    testOut.open("./testing/fixtures/test_win_rq.txt", std::ofstream::out | std::ofstream::app );
-    testOut << testOutStr.str();
-    testOut.close();
+    //cerr << testOutStr.str() << endl;
 } 
 
 void
@@ -276,22 +276,19 @@ writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdS
         throw ML::Exception(string("Illegal to call writeUnitTestDeliveryRqOutput if isUnitTest is False\n"));
     }
 
-    stringstream testOutStr;
-    testOutStr << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
+//    stringstream testOutStr;
+    LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
         "\"auctionId\":\"" << auctionIdStr << "\"," <<
         "\"adSpotId\":\"" << adSpotIdStr << "\"," <<
         "\"userIds\":" << "\"" << userIdStr << "\"," <<
         "\"event\":\"" << event << "\"}";
 
-    cerr << testOutStr.str() << endl;
-
-    ofstream testOut;
-    testOut.open("./testing/fixtures/test_delevry_rq.txt", std::ofstream::out | std::ofstream::app );
-    testOut << testOutStr.str();
-    testOut.close();
+  //  cerr << testOutStr.str() << endl;
 }
 
 namespace {
+
+//Logging::Category adserverTrace("Standard Ad-Server connector");
 
 struct AtInit {
     AtInit()
