@@ -168,6 +168,15 @@ shutdown()
 
 void
 ZmqSocketMonitor::
+disconnect()
+{
+    std::unique_lock<Lock> guard(lock);
+    if (monitorEndpoint)
+        monitorEndpoint->tryDisconnect(connectedUri.c_str());
+}
+
+void
+ZmqSocketMonitor::
 init(zmq::socket_t & socketToMonitor, int events)
 {
     static int serial = 0;

@@ -396,6 +396,9 @@ struct ZmqSocketMonitor : public ZmqBinaryTypedEventSource<zmq_event_t> {
     */
     void init(zmq::socket_t & socketToMonitor, int events = ZMQ_EVENT_ALL);
 
+    /** Disconnect so that no more events will be received. */
+    void disconnect();
+
     /** Event handler for events:
         - The first argument is the address which the event concerns;
         - The second argument is
