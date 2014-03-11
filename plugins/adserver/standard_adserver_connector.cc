@@ -25,13 +25,14 @@ makeProgramOptions()
     boost::program_options::options_description stdOptions
         = ServiceProxyArguments::makeProgramOptions();
 
+    isUnitTest = false;
+
     boost::program_options::options_description
         options("Standard Ad Server Connector");
     options.add_options()
         ("win-port,w", value(&winPort), "listening port for wins")
         ("events-port,e", value(&eventsPort), "listening port for events")
-        ("external-win-port,x", value(&externalWinPort),
-         "listening port for external wins");
+        ("isUnitTest,i", value(&isUnitTest), "unit test for Ad-Server connector");
     stdOptions.add(options);
 
     return stdOptions;
@@ -43,7 +44,6 @@ validate()
 {
     ExcCheck(winPort > 0, "winPort is not set");
     ExcCheck(eventsPort > 0, "eventsPort is not set");
-    ExcCheck(externalWinPort > 0, "externalWinPort is not set");
 }
 
 /* STANDARDADSERVERCONNECTOR */
@@ -63,8 +63,8 @@ StandardAdServerConnector(std::shared_ptr<ServiceProxies> const & proxies,
     publisher_(getServices()->zmqContext) {
     int winPort = json.get("winPort", 18143).asInt();
     int eventsPort = json.get("eventsPort", 18144).asInt();
-    int externalWinPort = json.get("externalWinPort", 18145).asInt();
-    init(winPort, eventsPort, externalWinPort);
+    isUnitTest = json.get("isUnitTest", false).asBool();
+    init(winPort, eventsPort, isUnitTest);
 }
 
 void
@@ -72,13 +72,16 @@ StandardAdServerConnector::
 init(StandardAdServerArguments & ssConfig)
 {
     ssConfig.validate();
-    init(ssConfig.winPort, ssConfig.eventsPort, ssConfig.externalWinPort);
+    init(ssConfig.winPort, ssConfig.eventsPort, ssConfig.isUnitTest);
 }
 
 void
 StandardAdServerConnector::
-init(int winsPort, int eventsPort, int externalPort)
+init(int winsPort, int eventsPort, bool isTest)
 {
+
+    isUnitTest = isTest;
+
     shared_ptr<ServiceProxies> services = getServices();
 
     auto win = &StandardAdServerConnector::handleWinRq;
@@ -87,11 +90,16 @@ init(int winsPort, int eventsPort, int externalPort)
     auto delivery = &StandardAdServerConnector::handleDeliveryRq;
     registerEndpoint(eventsPort, bind(delivery, this, _1, _2, _3));
 
-    auto externalWin = &StandardAdServerConnector::handleExternalWinRq;
-    registerEndpoint(externalPort, bind(externalWin, this, _1, _2, _3));
-
     HttpAdServerConnector::init(services->config);
     publisher_.init(services->config, serviceName_ + "/logger");
+}
+
+
+void
+StandardAdServerConnector::
+init(int winsPort, int eventsPort)
+{
+    init(winsPort, eventsPort, false);
 }
 
 void
@@ -137,14 +145,39 @@ handleWinRq(const HttpHeader & header,
     USD_CPM dataCost(dataCostDbl);
 
     UserIds userIds;
+    string userIdStr;
 
+
+    if (json.isMember("userIds")) {
+        auto item =  json["userIds"];
+        if(item.isMember("prov")){
+             userIdStr = item["prov"].asString();
+             userIds.add(Id(userIdStr), ID_PROVIDER);
+        }
+    }
+    else {
+        throw ML::Exception("UserIds is mandatory in a WIN Impression");
+    }
+    
     const Json::Value & meta = json["winMeta"];
 
-    publishWin(auctionId, adSpotId, winPrice, timestamp, meta, userIds,
-               accountKey, bidTimestamp);
-    publisher_.publish("WIN", timestamp.print(3), auctionIdStr,
-                       adSpotIdStr, accountKeyStr,
-                       winPrice.toString(), dataCost.toString(), meta);
+    if(isUnitTest) {
+         writeUnitTestWinReqOutput(timestamp,
+                                    bidTimestamp,
+                                    auctionIdStr, 
+                                    adSpotIdStr, 
+                                    accountKeyStr, 
+                                    winPrice,
+                                    userIdStr,
+                                    dataCost);
+    }
+    else {
+        publishWin(auctionId, adSpotId, winPrice, timestamp, meta, userIds,
+                   accountKey, bidTimestamp);
+        publisher_.publish("WIN", timestamp.print(3), auctionIdStr,
+                           adSpotIdStr, accountKeyStr,
+                           winPrice.toString(), dataCost.toString(), meta);
+    }
 }
 
 void
@@ -153,13 +186,8 @@ handleDeliveryRq(const HttpHeader & header,
                  const Json::Value & json, const std::string & jsonStr)
 {
     Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
-    Date bidTimestamp;
-    if (json.isMember("bidTimestamp")) {
-        bidTimestamp
-            = Date::fromSecondsSinceEpoch(json["bidTimestamp"].asDouble());
-    }
-    int matchType(0); /* 1: campaign, 2: user, 0: none */
-    string auctionIdStr, adSpotIdStr, userIdStr;
+    
+    string auctionIdStr, adSpotIdStr, userIdStr, event;
     Id auctionId, adSpotId, userId;
     UserIds userIds;
     
@@ -168,45 +196,42 @@ handleDeliveryRq(const HttpHeader & header,
         adSpotIdStr = json["adSpotId"].asString();
         auctionId = Id(auctionIdStr);
         adSpotId = Id(adSpotIdStr);
-        matchType = 1;
-    }
-    if (json.isMember("userId")) {
-        userIdStr = json["userId"].asString();
-        userId = Id(userIdStr);
-        if (!matchType)
-            matchType = 2;
-    }
-
-    string event(json["event"].asString());
-    if (event == "click") {
-        if (matchType != 1) {
-            throw ML::Exception("click events must have auction/spot ids");
+    
+        if (json.isMember("userIds")) {
+             auto item =  json["userIds"];
+             if(item.isMember("prov")){
+                  userIdStr = item["prov"].asString();
+                  userIds.add(Id(userIdStr), ID_PROVIDER);
+             }
         }
-        publishCampaignEvent("CLICK", auctionId, adSpotId, timestamp,
-                             Json::Value(), userIds);
-        publisher_.publish("CLICK", timestamp.print(3), auctionIdStr,
-                           adSpotIdStr, userIds.toString());
-    }
-    else if (event == "conversion") {
-        Json::Value meta;
-        meta["payout"] = json["payout"];
-        USD_CPM payout(json["payout"].asDouble());
 
-        if (matchType == 1) {
-            publishCampaignEvent("CONVERSION", auctionId, adSpotId,
-                                 timestamp, meta, userIds);
-            publisher_.publish("CONVERSION", timestamp.print(3), "campaign", 
-                               auctionIdStr, adSpotIdStr, payout.toString());
-        }
-        else if (matchType == 2) {
-            publishUserEvent("CONVERSION", userId,
-                             timestamp, meta, userIds);
-            publisher_.publish("CONVERSION", timestamp.print(3), "user",
-                               auctionId.toString(), payout.toString());
+	event = (json["event"].asString());
+
+        if(isUnitTest) {
+             writeUnitTestDeliveryReqOutput(timestamp,
+                                    auctionIdStr, 
+                                    adSpotIdStr, 
+                                    userIdStr,
+                                    event);
+
         }
         else {
-            publisher_.publish("CONVERSION", timestamp.print(3), "unmatched",
-                               auctionId.toString(), payout.toString());
+            if (event == "click") {
+                publishCampaignEvent("CLICK", auctionId, adSpotId, timestamp,
+                                     Json::Value(), userIds);
+                publisher_.publish("CLICK", timestamp.print(3), auctionIdStr,
+                                      adSpotIdStr, userIds.toString());
+            }
+            else if (event == "conversion") {
+                 publishCampaignEvent("CONVERSION", auctionId, adSpotId,
+                                      timestamp, Json::Value(), userIds);
+                 publisher_.publish("CONVERSION", timestamp.print(3),
+                                      auctionIdStr, adSpotIdStr, userIds.toString());
+            }
+            else {
+                 publisher_.publish("CONVERSION", timestamp.print(3), "unmatched",
+                                      auctionId.toString());
+            }
         }
     }
     else {
@@ -216,24 +241,44 @@ handleDeliveryRq(const HttpHeader & header,
 
 void
 StandardAdServerConnector::
-handleExternalWinRq(const HttpHeader & header,
-                    const Json::Value & json, const std::string & jsonStr)
-{
-    Date now = Date::now();
-    string auctionIdStr(json["auctionId"].asString());
-    Id auctionId(auctionIdStr);
+writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, const string & auctionId, 
+                          const string & adSpotId, const string & accountKeyStr, const USD_CPM & winPrice,
+                          const string & userId, const USD_CPM dataCost) {
 
-    double price(json["winPrice"].asDouble());
-    double dataCostDbl(0.0);
-    if (json.isMember("dataCost")) {
-        dataCostDbl = json["dataCost"].asDouble();
+    if (!isUnitTest) {
+        throw ML::Exception(string("Illegal to call writeUnitTestWinReqOutput if isUnitTest is False"));
     }
-    USD_CPM dataCost(dataCostDbl);
-    Json::Value bidRequest = json["bidRequest"];
 
-    publisher_.publish("EXTERNALWIN", now.print(3), auctionIdStr,
-                       std::to_string(price), dataCost.toString(),
-                       boost::trim_copy(bidRequest.toString()));
+    stringstream testOutStr;
+    testOutStr << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
+        "\"bidTimestamp\":\"" << bidTimestamp.print(3) << "\"," <<
+        "\"auctionId\":\"" << auctionId << "\"," <<
+        "\"adSpotId\":\"" << adSpotId << "\"," <<
+        "\"accountId\":\"" << accountKeyStr << "\"," <<
+        "\"winPrice\":\"" << winPrice.toString() << "\"," <<
+        "\"userIds\":" << "\"" << userId << "\"," <<
+        "\"dataCost\":\"" << dataCost.toString() << "\"}";
+
+    cerr << testOutStr.str() << endl;
+} 
+
+void
+StandardAdServerConnector::
+writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdStr, const string & adSpotIdStr, 
+                               const string &  userIdStr, const string &event){
+
+    if (!isUnitTest) {
+        throw ML::Exception(string("Illegal to call writeUnitTestDeliveryRqOutput if isUnitTest is False\n"));
+    }
+
+    stringstream testOutStr;
+    testOutStr << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
+        "\"auctionId\":\"" << auctionIdStr << "\"," <<
+        "\"adSpotId\":\"" << adSpotIdStr << "\"," <<
+        "\"userIds\":" << "\"" << userIdStr << "\"," <<
+        "\"event\":\"" << event << "\"}";
+
+    cerr << testOutStr.str() << endl;
 }
 
 namespace {

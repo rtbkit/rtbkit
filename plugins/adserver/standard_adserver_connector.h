@@ -31,7 +31,8 @@ struct StandardAdServerArguments : ServiceProxyArguments
 
     int winPort;
     int eventsPort;
-    int externalWinPort;
+
+    bool isUnitTest;
 };
 
 struct StandardAdServerConnector : public HttpAdServerConnector
@@ -42,7 +43,7 @@ struct StandardAdServerConnector : public HttpAdServerConnector
                               Json::Value const & json);
 
     void init(StandardAdServerArguments & ssConfig);
-    void init(int winsPort, int eventsPort, int externalPort);
+    void init(int winsPort, int eventsPort);
     void start();
     void shutdown();
 
@@ -54,12 +55,23 @@ struct StandardAdServerConnector : public HttpAdServerConnector
     void handleDeliveryRq(const HttpHeader & header,
                           const Json::Value & json, const string & jsonStr);
 
-    /** Handle events received on the external wins port */
-    void handleExternalWinRq(const HttpHeader & header,
-                             const Json::Value & json, const string & jsonStr);
-    
     /** */
     Datacratic::ZmqNamedPublisher publisher_;
+
+private :
+
+    void init(int winsPort, int eventsPort, bool isTest);
+
+    void writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, 
+                                   const string & auctionId, const string & adSpotId, 
+                                   const string & accountKeyStr, const USD_CPM & winPrice,
+                                   const string & userId, const USD_CPM dataCost);
+
+    void writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdStr, 
+                                        const string & adSpotIdStr, const string &  userIdStr, 
+                                        const string &event);
+    
+    bool isUnitTest;
 };
 
 } // namespace RTBKIT

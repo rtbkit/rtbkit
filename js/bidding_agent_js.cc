@@ -275,6 +275,7 @@ struct BiddingAgentJS :
         registerAsyncCallback(&RTBKIT::BiddingAgent::onInvalidBid, "onInvalidBid");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onDroppedBid, "onDroppedBid");
 
+        registerAsyncCallback(&RTBKIT::BiddingAgent::onCampaignEvent, "onCampaignEvent");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onImpression, "onImpression");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onClick, "onClick");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onVisit, "onVisit");

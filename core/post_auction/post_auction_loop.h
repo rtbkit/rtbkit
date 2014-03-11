@@ -484,6 +484,18 @@ private:
                              std::forward<Args>(args)...);
     }
 
+    /** Send the given message to the given bidding agent. */
+    template<typename... Args>
+    void sendAgentMessage(const std::string & agent,
+                          const std::string & eventType,
+                          const std::string & messageType,
+                          const Date & date,
+                          Args... args)
+    {
+        toAgents.sendMessage(agent, eventType, messageType, date,
+                             std::forward<Args>(args)...);
+    }
+
     /** Turn an auction and agent into the bid ID for the banker */
     static std::string makeBidId(Id auctionId, Id spotId, const std::string & agent);
 
