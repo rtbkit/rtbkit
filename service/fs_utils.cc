@@ -198,7 +198,7 @@ makeUriDirectory(const std::string & url)
     }
     dirUrl.resize(slashIdx);
 
-    cerr << "url: " + url + "/dirUrl: " + dirUrl + "\n";
+    // cerr << "url: " + url + "/dirUrl: " + dirUrl + "\n";
 
     Url realUrl = makeUrl(dirUrl);
     findFsHandler(realUrl.scheme())->makeDirectory(realUrl);
