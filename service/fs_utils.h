@@ -79,8 +79,14 @@ size_t getUriSize(const std::string & filename);
 // Return an etag for either a file or an s3 object
 std::string getUriEtag(const std::string & filename);
 
-// Create the directories for the given path.  For S3 it does nothing;
-// for normal directories it does mkdir -p
+/* Create the directories for the given path.  For S3 it does nothing;
+   for normal directories it does mkdir -p
+
+   use cases:
+   "/some/filename" gives "/some"
+   "/some/dirname/" gives "/some/dirname/"
+   "dirname" throws */
+
 void makeUriDirectory(const std::string & uri);
 
 // Erase the object at the given uri
