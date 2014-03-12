@@ -232,8 +232,8 @@ struct Location {
 
     std::string countryCode;
     std::string regionCode;
-    Utf8String cityName;
-    std::string postalCode;
+    UtfString cityName;
+    UtfString postalCode;
 
     int dma;
     int metro;
@@ -242,7 +242,7 @@ struct Location {
     static Location createFromJson(const Json::Value & json);
 
     /** Return a location string with COUNTRY:REGION:CITY:POSTAL:DMA */
-    Utf8String fullLocationString() const;
+    UtfString fullLocationString() const;
 
     /** Return a canonical JSON version of the bid request. */
     Json::Value toJson() const;
@@ -311,11 +311,11 @@ struct BidRequest {
        optimization algorithm can make use of them.
     */
        
-    Utf8String language;   ///< User's language.
+    UtfString language;   ///< User's language.
     Location location;      ///< Best available location information
     Url url;
     std::string ipAddress;
-    Utf8String userAgent;
+    UtfString userAgent;
 
     /** This field should be used to indicate what User IDs are available
         in the bid request.  These are normally used by the augmentors to
@@ -401,7 +401,7 @@ struct BidRequest {
     parse(const std::string & source, const std::string & bidRequest);
 
     static BidRequest *
-    parse(const std::string & source, const Utf8String & bidRequest);
+    parse(const std::string & source, const UtfString & bidRequest);
 
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);

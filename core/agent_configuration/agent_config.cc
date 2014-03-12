@@ -156,7 +156,7 @@ bool
 UserPartition::
 matches(const UserIds & ids,
         const std::string& ip,
-        const Utf8String& userAgent) const
+        const UtfString& userAgent) const
 {
     if (hashOn == NONE)
         return true;
@@ -175,7 +175,7 @@ matches(const UserIds & ids,
         switch (hashOn) {
         case EXCHANGEID:   str = ids.exchangeId.toString();   break;
         case PROVIDERID:   str = ids.providerId.toString();   break;
-        case IPUA:         str = ip + userAgent.rawString();  break;
+        case IPUA:         str = ip + userAgent.utf8String();  break;
         default:
             throw Exception("unknown hashOn");
         };
@@ -816,8 +816,8 @@ BiddableSpots
 AgentConfig::
 canBid(const ExchangeConnector * exchangeConnector,
        const BidRequest& request,
-       const Utf8String & language,
-       const Utf8String & location, uint64_t locationHash,
+       const UtfString & language,
+       const UtfString & location, uint64_t locationHash,
        ML::Lightweight_Hash<uint64_t, int> & locationCache) const
 {
     BiddableSpots result;
@@ -845,7 +845,7 @@ canBid(const ExchangeConnector * exchangeConnector,
                         && creative.compatible(item)
                         && creative.biddable(request.exchange, request.protocolVersion)
                         && creative.exchangeFilter.isIncluded(request.exchange)
-                        && creative.languageFilter.isIncluded(language.rawString())
+                        && creative.languageFilter.isIncluded(language.utf8String())
                         && creative.locationFilter.isIncluded(location, locationHash, locationCache))
                     matching.push_back(j);
             }
@@ -961,7 +961,7 @@ isBiddableRequest(const ExchangeConnector * exchangeConnector,
 
     /* Check for language. */
     if (!languageFilter.isIncluded(
-            cache.language.rawString(), cache.languageHash, cache.languageFilter))
+            cache.language.utf8String(), cache.languageHash, cache.languageFilter))
     {
         ML::atomic_inc(stats.languageFiltered);
         if (doFilterStat) doFilterStat("static.070_languageFiltered");
