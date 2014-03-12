@@ -43,6 +43,8 @@ struct LocalUrlFsHandler : public UrlFsHandler {
         FsObjectInfo urlInfo;
         struct stat stats;
         string path = url.path();
+
+        // cerr << "fs info on path: " + path + "\n";
         int res = ::stat(path.c_str(), &stats);
         if (res == -1) {
             throw ML::Exception(errno, "stat");
@@ -76,6 +78,7 @@ struct LocalUrlFsHandler : public UrlFsHandler {
     }
 };
 
+
 const UrlFsHandler * findFsHandler(const string & scheme)
 {
     std::unique_lock<std::mutex> guard(registryMutex);
@@ -86,20 +89,32 @@ const UrlFsHandler * findFsHandler(const string & scheme)
     return handler->second.get();
 }
 
+
 struct AtInit {
     AtInit() {
         registerUrlFsHandler("file", new LocalUrlFsHandler());
     }
 } atInit;
 
+
 /* ensures that local filenames are represented as urls */
 Url makeUrl(const string & urlStr)
 {
-    if (urlStr[0] == '/') {
+    /* scheme is specified */
+    if (urlStr.find("://") != string::npos) {
+        return Url(urlStr);
+    }
+    /* absolute local filenames */
+    else if (urlStr[0] == '/') {
         return Url("file://" + urlStr);
     }
+    /* relative filenames */
     else {
-        return Url(urlStr);
+        char cCurDir[PATH_MAX + 1];
+        string filename(getcwd(cCurDir, sizeof(cCurDir)));
+        filename += "/" + urlStr;
+
+        return Url("file://" + filename);
     }
 }
 
@@ -176,7 +191,16 @@ getUriEtag(const std::string & url)
 void
 makeUriDirectory(const std::string & url)
 {
-    Url realUrl = makeUrl(url);
+    string dirUrl(url);
+    size_t slashIdx = dirUrl.rfind('/');
+    if (slashIdx == string::npos) {
+        throw ML::Exception("makeUriDirectory cannot work on filenames");
+    }
+    dirUrl.resize(slashIdx);
+
+    // cerr << "url: " + url + "/dirUrl: " + dirUrl + "\n";
+
+    Url realUrl = makeUrl(dirUrl);
     findFsHandler(realUrl.scheme())->makeDirectory(realUrl);
 }
 
