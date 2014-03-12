@@ -430,7 +430,12 @@ fullLocationString() const
 {
     UtfString result(countryCode + ":" + regionCode + ":") ;
     result += cityName ;
-    result += (":" + postalCode + ":" + boost::lexical_cast<string>(dma) + ":" + boost::lexical_cast<string>(metro));
+    result += ":";
+    result += postalCode;
+    result += ":";
+    result += boost::lexical_cast<string>(dma);
+    result += ":";
+    result += boost::lexical_cast<string>(metro);
     return result;
     //UtfString result(countryCode +":"+ regionCode +":" +
  //   return ML::format("%s:%s:%s:%s:%d",
@@ -446,7 +451,7 @@ toJson() const
     addIfNotEmpty(result, "countryCode",  countryCode);
     addIfNotEmpty(result, "regionCode",   regionCode);
     addIfNotEmpty(result, "cityName",     cityName.utf8String());
-    addIfNotEmpty(result, "postalCode",   postalCode);
+    addIfNotEmpty(result, "postalCode",   postalCode.utf8String());
     addIfNotEmpty(result, "dma",          dma, -1);
     addIfNotEmpty(result, "metro",        metro, -1);
     addIfNotEmpty(result, "timezoneOffsetMinutes", timezoneOffsetMinutes, -1);
@@ -1197,9 +1202,9 @@ parse(const std::string & source, const std::string & bidRequest)
 
 BidRequest *
 BidRequest::
-parse(const std::string & source, const Utf8String & bidRequest)
+parse(const std::string & source, const UtfString & bidRequest)
 {
-    return BidRequest::parse(source, bidRequest.rawString());
+    return BidRequest::parse(source, bidRequest.utf8String());
 }
 
 SegmentResult

@@ -672,7 +672,7 @@ struct Publisher {
     Id id;                       ///< Unique ID representing the publisher
     UtfString name;             ///< Publisher name
     List<ContentCategory> cat; ///< Content categories     
-    string domain;               ///< Domain name of publisher
+    UtfString domain;               ///< Domain name of publisher
     Json::Value ext;             ///< Extensions go here, new in OpenRTB 2.1
 };
 
@@ -708,13 +708,13 @@ struct Impression {
     Id id;                             ///< Impression ID within BR
     Optional<Banner> banner;           ///< If it's a banner ad
     Optional<Video> video;             ///< If it's a video ad
-    string displaymanager;             ///< What renders the ad
-    string displaymanagerver;          ///< What version of that thing
+    UtfString displaymanager;          ///< What renders the ad
+    UtfString displaymanagerver;        ///< What version of that thing
     TaggedBoolDef<0> instl;            ///< Is it interstitial
-    string tagid;                      ///< ad tag ID for auction
+    UtfString tagid;                   ///< ad tag ID for auction
     TaggedDoubleDef<0> bidfloor;        ///< CPM bid floor
     string bidfloorcur;                ///< Bid floor currency
-    List<string> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
+    List<UtfString> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
     Optional<OpenRTB::PMP> pmp;        ///< Containing any Deals eligible for the impression object
     Json::Value ext;                   ///< Extended impression attributes
 };
@@ -751,9 +751,9 @@ struct Content {
     List<ContentCategory> cat; ///< IAB content category (table 6.1)
     VideoQuality videoquality; ///< Video quality (table 6.14)
     CSList keywords;         ///< Content keywords
-    string contentrating;    ///< Content rating (eg Mature)
-    string userrating;       ///< Content user rating (eg 3 stars)
-    string context;          ///< Content context (table 6.13)
+    UtfString contentrating;    ///< Content rating (eg Mature)
+    UtfString userrating;       ///< Content user rating (eg 3 stars)
+    UtfString context;          ///< Content context (table 6.13)
     TaggedBool livestream;   ///< Is this being live streamed?
     SourceRelationship sourcerelationship;  ///< 1 = direct, 0 = indirect
     Optional<Producer> producer;  ///< Content producer
@@ -830,7 +830,7 @@ struct Site: public Context, public SiteInfo {
 */
 struct AppInfo {
     string ver;             ///< Application version
-    Utf8String bundle;      ///< Application bundle name (unique across multiple exchanges)
+    UtfString bundle;      ///< Application bundle name (unique across multiple exchanges)
     TaggedBool paid;        ///< Is a paid version of the app
     Url storeurl;           ///< For QAG 1.5 compliance, new in OpenRTB 2.1
 };
@@ -866,7 +866,7 @@ struct Geo {
     string regionfips104;   ///< Region using FIPS 10-4
     string metro;           ///< Metropolitan region (Google Metro code)
     UtfString city;        ///< City name (UN Code for Trade and Transport Loc)
-    string zip;             ///< Zip or postal code
+    UtfString zip;             ///< Zip or postal code
     LocationType type;      ///< Source of Geo data (table 6.15)
     Json::Value ext;        ///< Extensions go here, new in OpenRTB 2.1
 
@@ -942,8 +942,8 @@ struct Device {
 */
 struct Segment {
     Id id;                         ///< Segment ID
-    string name;                   ///< Segment name
-    string value;                  ///< Segment value
+    UtfString name;                   ///< Segment name
+    UtfString value;                  ///< Segment value
     Json::Value ext;               ///< Extensions go here, new in OpenRTB 2.1
 
     /// Datacratic Extensions
@@ -969,7 +969,7 @@ struct Segment {
 */
 struct Data {
     Id id;                           ///< Exchange specific data prov ID
-    string name;                     ///< Data provider name
+    UtfString name;                  ///< Data provider name
     vector<Segment> segment;         ///< Segment of data
     Json::Value ext;                 ///< Extensions go here, new in OpenRTB 2.1
 
@@ -1006,7 +1006,7 @@ struct User {
     TaggedInt yob;             ///< Year of birth
     string gender;             ///< Gender: Male, Female, Other
     CSList keywords;           ///< List of keywords of consumer intent
-    string customdata;         ///< Custom data from exchange
+    UtfString customdata;         ///< Custom data from exchange
     Geo geo;                   ///< Geolocation of user at registration
     vector<Data> data;         ///< User data segments
     Json::Value ext;           ///< Extensions go here, new in OpenRTB 2.1
@@ -1052,7 +1052,7 @@ struct BidRequest {
     TaggedBool allimps;                ///< All impressions in BR (for road-blocking)
     vector<string> cur;                ///< Allowable currencies
     List<ContentCategory> bcat;        ///< Blocked advertiser categories (table 6.1)
-    vector<Utf8String> badv;           ///< Blocked advertiser domains
+    vector<UtfString> badv;           ///< Blocked advertiser domains
     Json::Value ext;                   ///< Protocol extensions
     Json::Value unparseable;           ///< Unparseable fields get put here
 };
@@ -1090,10 +1090,10 @@ struct Bid {
     Id impid;                     ///< ID of the impression we're bidding on
     TaggedDouble price;           ///< Price to bid
     Id adid;                      ///< Id of ad to be served if won
-    string nurl;                  ///< Win notice/ad markup URL
-    string adm;                   ///< Ad markup
+    UtfString nurl;                  ///< Win notice/ad markup URL
+    UtfString adm;                   ///< Ad markup
     vector<string> adomain;       ///< Advertiser domains
-    string iurl;                  ///< Image URL for content checking
+    UtfString iurl;                  ///< Image URL for content checking
     Id cid;                       ///< Campaign ID
     Id crid;                      ///< Creative ID
     List<CreativeAttribute> attr; ///< Creative attributes
@@ -1150,7 +1150,7 @@ struct BidResponse {
     vector<SeatBid> seatbid;
     Id bidid;
     string cur;
-    string customData;
+    UtfString customData;
     Json::Value ext;
 };
 

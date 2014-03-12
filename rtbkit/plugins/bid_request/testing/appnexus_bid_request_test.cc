@@ -163,7 +163,7 @@ BOOST_AUTO_TEST_CASE( test_openrtb_from_appnexus )
     BOOST_CHECK_EQUAL(ortbReq->device->geo->country, "US");
     BOOST_CHECK_EQUAL(ortbReq->device->geo->region, "NY");
     BOOST_CHECK_EQUAL(ortbReq->device->geo->city, UtfString("New York"));
-    BOOST_CHECK_EQUAL(ortbReq->device->geo->zip, "10014");
+    BOOST_CHECK_EQUAL(ortbReq->device->geo->zip, UtfString("10014"));
     BOOST_CHECK_EQUAL(ortbReq->device->geo->dma, "501");
     // NOTE: AN provides lat and long values at greater precision than float, which is what OpenRTB stores
     // So we cast the test value and use the BOOST_CHECK for testing floating point values for equaulity within a tolerance

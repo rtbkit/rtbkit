@@ -233,7 +233,7 @@ struct Location {
     std::string countryCode;
     std::string regionCode;
     UtfString cityName;
-    std::string postalCode;
+    UtfString postalCode;
 
     int dma;
     int metro;
@@ -346,7 +346,7 @@ struct BidRequest {
     OpenRTB::List<OpenRTB::ContentCategory> blockedCategories;
 
     /** Blocked TLD Advertisers (badv) */
-    std::vector<Datacratic::Utf8String> badv ;
+    std::vector<Datacratic::UtfString> badv ;
 
     /** Amount of extras that will be paid if we win the auction.  These will
         be accumulated in the banker against the winning account.
@@ -404,7 +404,7 @@ struct BidRequest {
     parse(const std::string & source, const std::string & bidRequest);
 
     static BidRequest *
-    parse(const std::string & source, const Utf8String & bidRequest);
+    parse(const std::string & source, const UtfString & bidRequest);
 
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
