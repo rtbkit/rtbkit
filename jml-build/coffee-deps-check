@@ -1,0 +1,133 @@
+#! /usr/bin/python
+#------------------------------------------------------------------------------#
+# coffee-deps-check
+# by Remi Attab on 30-10-2012
+#
+# Checks the require statements in coffee scripts to see if they are also
+# present  in its build dependency.
+#
+# If not arguments are provided then this script acts like a git pre-commit hook
+# and will fetch the list of files to check from git (git diff
+# --cached).
+#
+# To run the script as batch process, just provide a list of coffee scripts as
+# arguments. The script will then check of the coffee scripts in turn.
+#
+#------------------------------------------------------------------------------#
+
+
+import sys
+import re
+import subprocess
+import jmlbuild
+import os
+
+def git_files():
+    """
+    Returns all the .coffee file that are about to be committed.
+    """
+    process = subprocess.Popen(
+        ["git", "diff", "--cached", "--name-only"],
+        stdout = subprocess.PIPE,
+        stderr = subprocess.PIPE)
+
+    while True:
+        ret = process.poll()
+        line = process.stdout.readline()
+        yield line
+        if ret is not None: return
+
+
+def parse_script(path):
+    """
+    finds all the require statement in a coffeescript file and returns a list of
+    the required modules.
+    """
+    modules = []
+
+    with open(path, 'r') as f:
+        for line in f:
+            m = re.match(r".*\brequire\W*\(?\W*[\"'](\w+)[\"']\)?\W*$", line)
+            if not m: continue
+            if re.match(r".*#.*require.*", line): continue
+
+            modules.append(m.group(1))
+
+    return modules
+
+def check_deps(path, graph, module, requires):
+    """
+    Checks the given set of requires against a edges defined in the dependency
+    graph.
+    """
+    if module + jmlbuild.Ext.NODEJS_MODULE in graph.edges:
+        module = module + jmlbuild.Ext.NODEJS_MODULE
+
+    elif module + jmlbuild.Ext.NODEJS_TEST in graph.edges:
+        module = module + jmlbuild.Ext.NODEJS_TEST
+
+    if False:
+        print "MODULE: ", module
+        print "REQUIRES: ", requires
+        print "EDGES: ", graph.edges[module]
+
+    if not module in graph.edges:
+        print "%s: no target defined for %s" % (path, module)
+        return 1
+
+    deps = []
+    for d in requires:
+        if d + jmlbuild.Ext.NODEJS_MODULE in graph.edges:
+            deps.append(d + jmlbuild.Ext.NODEJS_MODULE)
+
+        elif d + jmlbuild.Ext.NODEJS_ADDON in graph.edges:
+            deps.append(d + jmlbuild.Ext.NODEJS_ADDON)
+
+
+    error = 0
+    for d in deps:
+        if not d in graph.edges[module]:
+            print "%s: %s missing dependency on %s" % (path, module, d)
+            error = 1
+
+    for d in graph.edges[module]:
+        if not d in deps:
+            print "%s: %s extra dependency on %s" % (path, module, d)
+
+    return error
+
+
+def check_script(path):
+    """
+    Runs the script for a given filename.
+    """
+    if not path.endswith(".coffee"): return
+    if not os.path.exists(path): return
+
+    requires = parse_script(path)
+
+    script = os.path.split(path)[1]
+    module = script.split(".")[0]
+
+    return check_deps(path, graph, module, requires)
+
+
+build_folder = jmlbuild.find_dotgit(os.getcwd())
+graph = jmlbuild.parse_makefile("Makefile", build_folder)
+error = 0
+
+if len(sys.argv) > 1:
+    for path in sys.argv[1:]:
+        error = check_script(path) or error
+
+else:
+    for line in git_files():
+        line = line[:len(line) -1]
+        error = check_script(line) or error
+
+if error != 0:
+    print "ERROR: Add the missing coffee script dependencies and try again."
+else:
+    print "No missing coffee script dependencies detected."
+
+sys.exit(error)

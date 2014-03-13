@@ -1,0 +1,94 @@
+{
+    "nodes": [
+        {
+            "name": "localhost",
+            "root": ".",
+            "tasks": [
+                {
+                    "name": "ad-server",
+                    "root": ".",
+                    "path": "build/x86_64/bin/adserver_runner",
+                    "arg": [
+                        "-B", "rtbkit/sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "monitor",
+                    "root": ".",
+                    "path": "build/x86_64/bin/monitor_service_runner",
+                    "arg": [
+                        "-B", "rtbkit/sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "logger",
+                    "root": ".",
+                    "path": "build/x86_64/bin/data_logger_ex",
+                    "arg": [
+                        "-B", "rtbkit/sample.bootstrap.json", "--log-dir", "./logs/data/"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "agent-configuration",
+                    "root": ".",
+                    "path": "build/x86_64/bin/agent_configuration_service_runner",
+                    "arg": [
+                        "-B", "rtbkit/sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "banker",
+                    "root": ".",
+                    "path": "build/x86_64/bin/banker_service_runner",
+                    "arg": [
+                        "-B", "rtbkit/sample.bootstrap.json", "-r", "localhost:6379"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "augmentor",
+                    "root": ".",
+                    "path": "build/x86_64/bin/augmentor_ex_runner",
+                    "arg": [
+                        "-B", "rtbkit/sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "router",
+                    "root": ".",
+                    "path": "build/x86_64/bin/router_runner",
+                    "arg": [
+                        "-B", "rtbkit/sample.bootstrap.json"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "post-auction",
+                    "root": ".",
+                    "path": "build/x86_64/bin/post_auction_runner",
+                    "arg": [
+                        "-B", "rtbkit/sample.bootstrap.json",
+                        "--win-seconds", "3600.0", 
+                        "--auction-seconds", "900.0"
+                    ],
+                    "log": true
+                },
+                {
+                    "name": "fixed-price-agent",
+                    "root": ".",
+                    "path": "build/x86_64/bin/bidding_agent_ex",
+                    "arg": [
+                        "-B", "rtbkit/sample.bootstrap.json"
+                    ],
+                    "log": true
+                }
+            ]
+        }
+    ]
+}
+

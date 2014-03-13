@@ -1,0 +1,49 @@
+#! /usr/bin/python
+#-------------------------------------------------------------- -*- python -*- #
+# build-targets
+# Remi Attab, 19 Dec 2012
+# Copyright (c) 2012 Datacratic.  All rights reserved.
+#
+# Dumps the list of all dependency to be built for a given target.
+#------------------------------------------------------------------------------#
+
+import jmlbuild
+import os
+import sys
+import string
+
+if not len(sys.argv) in [2, 3]:
+    print "Incorect arguments: build-targets <target> [tree]"
+    sys.exit(1)
+
+build_folder = jmlbuild.find_dotgit(os.getcwd())
+graph = jmlbuild.parse_makefile("Makefile", build_folder)
+
+built = set([])
+
+if len(sys.argv) == 2:
+
+    def do_target(target):
+        global built
+
+        if target in built: return
+        if not target in graph.edges: return
+
+        for dep in graph.edges[target]:
+            do_target(dep)
+
+        built = built | set([target])
+        print target
+
+    do_target(sys.argv[1])
+
+else:
+    def list_deps(target, indent):
+        print string.rjust("", indent * 4) + target
+        if not target in graph.edges: return
+
+        for dep in graph.edges[target]:
+            list_deps(dep, indent + 1)
+
+    list_deps(sys.argv[1], 0)
+
