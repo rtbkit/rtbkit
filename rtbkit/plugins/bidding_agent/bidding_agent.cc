@@ -225,24 +225,34 @@ handleRouterMessage(const std::string & fromRouter,
         case hash_compile_time("TOOLATE") : handleResult(message, onTooLate); break;
         case hash_compile_time("INVALID") : handleResult(message, onInvalidBid); break;
         case hash_compile_time("CAMPAIGN_EVENT") :  {
-             switch (hash(message[1])) {  
-                 // Backward compatibility : replace by CAMPAIGN_EVENT
-                 case hash_compile_time("VISIT") : {
-                     handleDelivery(newMessage, onVisit); 
-                     break;
-                 }
-                 case hash_compile_time("IMPRESSION") : {
-                     handleDelivery(newMessage, onImpression); 
-                     break;
-                 }
-                 case hash_compile_time("CLICK") : {
-                     handleDelivery(newMessage, onClick); 
-                     break;
-                 }
-                 default : {
-                    handleDelivery(message, onCampaignEvent); break;
+            if(!onCampaignEvent) { 
+                switch (hash(message[1])) {  
+                     // Backward compatibility : replace by CAMPAIGN_EVENT
+                    case hash_compile_time("VISIT") : {
+                        handleDelivery(newMessage, onVisit); 
+                        break;
+                    }
+                    case hash_compile_time("IMPRESSION") : {
+                        handleDelivery(newMessage, onImpression); 
+                        break;
+                    }
+                    case hash_compile_time("CLICK") : {
+                        handleDelivery(newMessage, onClick); 
+                        break;
+                    }
+                    default : {
+                        recordHit("errorUnknownMessage");
+                        cerr << "Unknown message: {";
+                        for_each(message.begin(), message.end(), [&](const string& m) {
+                            cerr << m << ", ";
+                        });
+                        cerr << "}" << endl;
+                    }
                 }
-             }
+            }
+            else {
+                handleDelivery(message, onCampaignEvent);
+            }
             break;
         }
         case hash_compile_time("DROPPEDBID") : handleResult(message, onDroppedBid); break;
@@ -284,7 +294,6 @@ handleRouterMessage(const std::string & fromRouter,
                      break;
                  }
                  default : {
-
                      recordHit("errorUnknownMessage");
                      cerr << "Unknown message: {";
                      for_each(message.begin(), message.end(), [&](const string& m) {
