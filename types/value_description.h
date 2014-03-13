@@ -14,6 +14,8 @@
 #include <set>
 #include "jml/arch/exception.h"
 #include "jml/arch/demangle.h"
+#include "jml/arch/demangle.h"
+#include "jml/utils/exc_assert.h"
 #include "jml/utils/filter_streams.h"
 #include "jml/utils/smart_ptr_utils.h"
 #include "json_parsing.h"
