@@ -9,18 +9,35 @@
 #pragma once
 
 #include <signal.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 
 #include <functional>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "soa/types/value_description.h"
+
 #include "epoller.h"
 #include "sink.h"
-#include "soa/types/value_description.h"
 
 
 namespace Datacratic {
+
+/* value descriptions for "timeval" and "rusage" */
+
+template<>
+struct DefaultDescription<timeval>
+    : public Datacratic::StructureDescription<timeval> {
+    DefaultDescription();
+};
+
+template<>
+struct DefaultDescription<rusage>
+    : public Datacratic::StructureDescription<rusage> {
+    DefaultDescription();
+};
 
 
 /*****************************************************************************/
@@ -40,10 +57,7 @@ namespace Datacratic {
 */
 
 struct RunResult {
-    RunResult()
-        : state(UNKNOWN), signum(-1), returnCode(-1), launchErrno(0)
-    {
-    }
+    RunResult();
 
     /** Update the state in response to the command returning.
         The status parameter is as returned by waidpid.
@@ -68,6 +82,8 @@ struct RunResult {
 
     int launchErrno;    ///< Errno (if appropriate) of launch error
     std::string launchError;  ///< Error string describing launch error
+
+    rusage usage;       ///< Process statistics
 };
 
 std::string to_string(const RunResult::State & state);

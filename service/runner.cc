@@ -157,6 +157,7 @@ handleChildStatus(const struct epoll_event & event)
 #endif
 
             task_.statusState = status.state;
+            task_.runResult.usage = status.usage;
 
             if (status.launchErrno || status.launchErrorCode) {
                 //cerr << "*** launch error" << endl;
@@ -660,6 +661,7 @@ runWrapper(const vector<string> & command, ChildFds & fds)
 
         status.state = STOPPED;
         status.childStatus = childStatus;
+        getrusage(RUSAGE_CHILDREN, &status.usage);
 
         writeStatus();
 
@@ -782,7 +784,28 @@ close()
 }
 
 
+/* RUNNER TASK CHILDSTATUS */
+
+Runner::Task::ChildStatus::
+ChildStatus()
+    : state(ST_UNKNOWN),
+      pid(-1),
+      childStatus(-1),
+      launchErrno(0),
+      launchErrorCode(E_NONE)
+{
+    ::memset(&usage, 0, sizeof(usage));
+}
+
+
 /* RUNRESULT */
+
+RunResult::
+RunResult()
+    : state(UNKNOWN), signum(-1), returnCode(-1), launchErrno(0)
+{
+    ::memset(&usage, 0, sizeof(usage));
+}
 
 void
 RunResult::
@@ -847,6 +870,8 @@ RunResultDescription()
              "Errno for launch error", 0);
     addField("launchError", &RunResult::launchError,
              "Error message for launch error");
+    addField("usage", &RunResult::usage,
+             "Process statistics as returned by getrusage()");
 }
 
 RunResultStateDescription::
@@ -856,10 +881,37 @@ RunResultStateDescription()
              "State is unknown or uninitialized");
     addValue("LAUNCH_ERROR", RunResult::LAUNCH_ERROR,
              "Command was unable to be launched");
-    addValue("RETURNED", RunResult::RETURNED,
-             "Command returned");
-    addValue("SIGNALED", RunResult::SIGNALED,
-             "Command exited with a signal");
+    addValue("RETURNED", RunResult::RETURNED, "Command returned");
+    addValue("SIGNALED", RunResult::SIGNALED, "Command exited with a signal");
+}
+
+
+DefaultDescription<timeval>::
+DefaultDescription()
+{
+    addField("tv_sec", &timeval::tv_sec, "seconds");
+    addField("tv_usec", &timeval::tv_usec, "micro seconds");
+}
+
+DefaultDescription<rusage>::
+DefaultDescription()
+{
+    addField("utime", &rusage::ru_utime, "user CPU time used");
+    addField("stime", &rusage::ru_stime, "system CPU time used");
+    addField("maxrss", &rusage::ru_maxrss, "maximum resident set size");
+    addField("ixrss", &rusage::ru_ixrss, "integral shared memory size");
+    addField("idrss", &rusage::ru_idrss, "integral unshared data size");
+    addField("isrss", &rusage::ru_isrss, "integral unshared stack size");
+    addField("minflt", &rusage::ru_minflt, "page reclaims (soft page faults)");
+    addField("majflt", &rusage::ru_majflt, "page faults (hard page faults)");
+    addField("nswap", &rusage::ru_nswap, "swaps");
+    addField("inblock", &rusage::ru_inblock, "block input operations");
+    addField("oublock", &rusage::ru_oublock, "block output operations");
+    addField("msgsnd", &rusage::ru_msgsnd, "IPC messages sent");
+    addField("msgrcv", &rusage::ru_msgrcv, "IPC messages received");
+    addField("nsignals", &rusage::ru_nsignals, "signals received");
+    addField("nvcsw", &rusage::ru_nvcsw, "voluntary context switches");
+    addField("nivcsw", &rusage::ru_nivcsw, "involuntary context switches");
 }
 
 

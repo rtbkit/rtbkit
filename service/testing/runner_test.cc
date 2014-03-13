@@ -539,3 +539,26 @@ BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
     cerr << "did " << doneIterations << " runner iterations" << endl;
 }
 #endif
+
+BOOST_AUTO_TEST_CASE( test_timeval_value_description )
+{
+    /* printing */
+    {
+        timeval tv;
+        tv.tv_sec = 1;
+        tv.tv_usec = 2; /* 1.000002 secs */
+
+        Json::Value expected
+            = Json::parse("{\"tv_sec\": 1, \"tv_usec\": 2}");
+        Json::Value result = jsonEncode<timeval>(tv);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    /* parsing */
+    {
+        string input = "{\"tv_sec\": 12, \"tv_usec\": 3456}";
+        struct timeval tv = jsonDecodeStr<timeval>(input);
+        BOOST_CHECK_EQUAL(tv.tv_sec, 12);
+        BOOST_CHECK_EQUAL(tv.tv_usec, 3456);
+    }
+}
