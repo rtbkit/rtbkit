@@ -277,6 +277,71 @@ struct DefaultDescription<std::vector<T> >
 };
 #endif
 
+
+template<typename T>
+struct DefaultDescription<T*>
+    : public ValueDescriptionI<T*, ValueKind::OPTIONAL> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : inner(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
+
+    virtual void parseJsonTyped(T** val, JsonParsingContext & context) const
+    {
+        *val = new T();
+        inner->parseJsonTyped(*val, context);
+    }
+
+    virtual void printJsonTyped(T* const* val, JsonPrintingContext & context) const
+    {
+        if (!*val)
+            context.skip();
+        else inner->printJsonTyped(*val, context);
+    }
+
+    virtual bool isDefaultTyped(T* const* val) const
+    {
+        return !*val;
+    }
+
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+
+
+    virtual bool isPointer() const { return true; }
+
+    static T*& cast(void* obj)
+    {
+        return *static_cast<T**>(obj);
+    }
+
+    virtual void* dereference(void* obj) const
+    {
+        return cast(obj);
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        if (!valueDesc->isPointer())
+            throw ML::Exception("assignment of non-pointer type to pointer type");
+
+        valueDesc->contained().checkChildOf(&contained());
+        cast(obj) = reinterpret_cast<T*>(valueDesc->dereference(value));
+    }
+};
+
 template<typename T>
 struct DefaultDescription<std::unique_ptr<T> >
     : public ValueDescriptionI<std::unique_ptr<T>, ValueKind::OPTIONAL> {
@@ -312,6 +377,37 @@ struct DefaultDescription<std::unique_ptr<T> >
     virtual bool isDefaultTyped(const std::unique_ptr<T> * val) const
     {
         return !val->get();
+    }
+
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+
+    virtual bool isPointer() const { return true; }
+    virtual bool isUniquePtr() const { return true; }
+
+    static std::unique_ptr<T>& cast(void* obj)
+    {
+        return *static_cast< std::unique_ptr<T>* >(obj);
+    }
+
+    virtual void* dereference(void* obj) const
+    {
+        return cast(obj).get();
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        if (!valueDesc->isPointer())
+            throw ML::Exception("assignment of non-pointer type to pointer type");
+
+        if (valueDesc->isUniquePtr() || valueDesc->isSharedPtr())
+            throw ML::Exception("unsafe pointer assignement");
+
+        valueDesc->contained().checkChildOf(&contained());
+        cast(obj).reset(static_cast<T*>(valueDesc->dereference(value)));
     }
 };
 
@@ -356,6 +452,43 @@ struct DefaultDescription<std::shared_ptr<T> >
     {
         return !val->get();
     }
+
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+
+    virtual bool isPointer() const { return true; }
+    virtual bool isSharedPtr() const { return true; }
+
+
+    static std::shared_ptr<T>& cast(void* obj)
+    {
+        return *static_cast< std::shared_ptr<T>* >(obj);
+    }
+
+    virtual void* dereference(void* obj) const
+    {
+        return cast(obj).get();
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        if (!valueDesc->isPointer())
+            throw ML::Exception("assignment of non-pointer type to pointer type");
+
+        if (valueDesc->isUniquePtr())
+            throw ML::Exception("unsafe pointer assignement");
+
+        valueDesc->contained().checkChildOf(&contained());
+
+        // Casting is necessary to make sure the ref count is incremented.
+        if (valueDesc->isSharedPtr())
+            cast(obj) = cast(value);
+        else cast(obj).reset(static_cast<T*>(valueDesc->dereference(value)));
+    }
+
 };
 
 template<>

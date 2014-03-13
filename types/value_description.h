@@ -19,6 +19,7 @@
 #include "json_parsing.h"
 #include "json_printing.h"
 #include "value_description_fwd.h"
+#include "soa/utils/type_traits.h"
 
 namespace Datacratic {
 
@@ -57,6 +58,8 @@ enum class ValueKind : int32_t {
 
 std::ostream & operator << (std::ostream & stream, ValueKind kind);
 
+
+struct ValueDescription;
 
 /*****************************************************************************/
 /* VALUE DESCRIPTION                                                         */
@@ -136,6 +139,22 @@ struct ValueDescription {
         throw ML::Exception("type does not contain another");
     }
 
+    virtual bool isPointer() const { return false; }
+    virtual bool isUniquePtr() const { return false; }
+    virtual bool isSharedPtr() const { return false; }
+
+    virtual void* dereference(void* obj) const
+    {
+        throw ML::Exception("type is not a pointer");
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        throw ML::Exception("type can't be written to");
+    }
+
+
     // Convert from one type to another, making a copy.
     // Default will go through a JSON conversion.
     virtual void convertAndCopy(const void * from,
@@ -148,6 +167,11 @@ struct ValueDescription {
         std::shared_ptr<const ValueDescription > description;
         int offset;
         int fieldNum;
+
+        void* getFieldPtr(void* obj) const
+        {
+            return ((char*) obj) + offset;
+        }
     };
 
     virtual size_t getFieldCount(const void * val) const
@@ -212,6 +236,41 @@ struct ValueDescription {
         // TODO: support polymorphic objects
         return getType<T>();
     }
+
+    bool isSame(const ValueDescription* other) const
+    {
+        return type == other->type;
+    }
+
+    void checkSame(const ValueDescription* other) const
+    {
+        ExcCheck(isSame(other),
+                "Wrong object type: "
+                "expected <" + typeName + "> got <" + other->typeName + ">");
+    }
+
+
+    bool isChildOf(const ValueDescription* base) const
+    {
+        if (isSame(base)) return true;
+
+        for (const auto& parent : parents)
+            if (parent->isChildOf(base))
+                return true;
+
+        return false;
+    }
+
+    void checkChildOf(const ValueDescription* base) const
+    {
+        ExcCheck(isChildOf(base),
+                "value of type " + typeName +
+                " is not convertible to type " + typeName);
+    }
+
+
+    std::vector< std::shared_ptr<ValueDescription> > parents;
+
 };
 
 /** Register the given value description with the system under the given
@@ -316,20 +375,12 @@ struct ValueDescriptionT : public ValueDescription {
 
     virtual void copyValue(const void * from, void * to) const
     {
-        auto from2 = reinterpret_cast<const T *>(from);
-        auto to2 = reinterpret_cast<T *>(to);
-        if (from2 == to2)
-            return;
-        *to2 = *from2;
+        copyValue(to, from, typename is_copy_assignable<T>::type());
     }
 
     virtual void moveValue(void * from, void * to) const
     {
-        auto from2 = reinterpret_cast<T *>(from);
-        auto to2 = reinterpret_cast<T *>(to);
-        if (from2 == to2)
-            return;
-        *to2 = std::move(*from2);
+        moveValue(to, from, typename is_move_assignable<T>::type());
     }
 
     virtual void swapValues(void * from, void * to) const
@@ -340,6 +391,13 @@ struct ValueDescriptionT : public ValueDescription {
         if (from2 == to2)
             return;
         std::swap(*from2, *to2);
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        checkSame(valueDesc);
+        copyValue(value, obj);
     }
 
     virtual void * optionalMakeValue(void * val) const
@@ -363,6 +421,32 @@ struct ValueDescriptionT : public ValueDescription {
     {
         throw ML::Exception("type is not optional");
     }
+
+private:
+
+    void copyValue(void* obj, const void* value, std::true_type) const
+    {
+        if (obj == value) return;
+        *static_cast<T*>(obj) = *static_cast<const T*>(value);
+    }
+
+    void copyValue(void* obj, const void* value, std::false_type) const
+    {
+        throw ML::Exception("type is not copy assignable");
+    }
+
+
+    void moveValue(void* obj, void* value, std::true_type) const
+    {
+        if (obj == value) return;
+        *static_cast<T*>(obj) = std::move(*static_cast<T*>(value));
+    }
+
+    void moveValue(void* obj, void* value, std::false_type) const
+    {
+        throw ML::Exception("type is not move assignable");
+    }
+
 };
 
 /** Basic function to implement getting a default description for a type.
@@ -786,6 +870,8 @@ struct StructureDescription
         addField(name, field, comment, new Desc(defaultValue));
     }
 
+    using ValueDescriptionT<Struct>::parents;
+
     template<typename V>
     void addParent(ValueDescriptionT<V> * description_
                    = getDefaultDescription((V *)0));
@@ -887,6 +973,7 @@ addParent(ValueDescriptionT<V> * description_)
     }
 
     std::shared_ptr<StructureDescription<V> > description(desc2);
+    parents.push_back(description);
 
     Struct * p = nullptr;
     V * p2 = static_cast<V *>(p);
