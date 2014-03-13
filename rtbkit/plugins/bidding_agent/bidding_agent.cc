@@ -209,6 +209,12 @@ handleRouterMessage(const std::string & fromRouter,
     }
 
 
+    auto newMessage = [&] {
+        auto msg(message);
+        msg.insert(msg.begin(), "CAMPAIGN_EVENT");
+        return msg;
+    }();
+    
     switch (hash(message[0])) {
         case hash_compile_time("AUCTION") : handleBidRequest(fromRouter, message, onBidRequest); break;
         case hash_compile_time("WIN") :     handleResult(message, onWin); break;
@@ -218,7 +224,37 @@ handleRouterMessage(const std::string & fromRouter,
         case hash_compile_time("NEEDCONFIG") : sendConfig(); break;
         case hash_compile_time("TOOLATE") : handleResult(message, onTooLate); break;
         case hash_compile_time("INVALID") : handleResult(message, onInvalidBid); break;
-        case hash_compile_time("CAMPAIGN_EVENT") : handleDelivery(message, onCampaignEvent); break;
+        case hash_compile_time("CAMPAIGN_EVENT") :  {
+            if(!onCampaignEvent) { 
+                switch (hash(message[1])) {  
+                     // Backward compatibility : replace by CAMPAIGN_EVENT
+                    case hash_compile_time("VISIT") : {
+                        handleDelivery(newMessage, onVisit); 
+                        break;
+                    }
+                    case hash_compile_time("IMPRESSION") : {
+                        handleDelivery(newMessage, onImpression); 
+                        break;
+                    }
+                    case hash_compile_time("CLICK") : {
+                        handleDelivery(newMessage, onClick); 
+                        break;
+                    }
+                    default : {
+                        recordHit("errorUnknownMessage");
+                        cerr << "Unknown message: {";
+                        for_each(message.begin(), message.end(), [&](const string& m) {
+                            cerr << m << ", ";
+                        });
+                        cerr << "}" << endl;
+                    }
+                }
+            }
+            else {
+                handleDelivery(message, onCampaignEvent);
+            }
+            break;
+        }
         case hash_compile_time("DROPPEDBID") : handleResult(message, onDroppedBid); break;
         case hash_compile_time("GOTCONFIG") : /* no-op */ ; break;
         case hash_compile_time("ERROR") : handleError(message, onError) ; break;
@@ -243,13 +279,6 @@ handleRouterMessage(const std::string & fromRouter,
             break;
         }
         default : {
-             
-             auto newMessage = [&] {
-                 auto msg(message);
-                 msg.insert(msg.begin(), "CAMPAIGN_EVENT");
-                 return msg;
-             }();
-           
              switch (hash(message[0])) {  
                  // Backward compatibility : replace by CAMPAIGN_EVENT
                  case hash_compile_time("VISIT") : {
@@ -265,7 +294,6 @@ handleRouterMessage(const std::string & fromRouter,
                      break;
                  }
                  default : {
-
                      recordHit("errorUnknownMessage");
                      cerr << "Unknown message: {";
                      for_each(message.begin(), message.end(), [&](const string& m) {
