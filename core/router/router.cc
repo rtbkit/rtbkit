@@ -983,28 +983,39 @@ checkDeadAgents()
                           "accounts.%s.timeSinceHeartbeat", account);
 
         if (timeSinceHeartbeat > 5.0) {
-            info.status->dead = true;
-            if (it->second.numBidsInFlight() != 0) {
-                cerr << "agent " << it->first
-                     << " has " << it->second.numBidsInFlight()
-                     << " undead auctions: " << endl;
+        	// we
+        	if (++info.status->suspected == 1) {
+                logMessage("GMP",
+                           Date::fromSecondsSinceEpoch(timeSinceHeartbeat).print(),
+                           format("SUSPECTED agent: %s"), it->first);
+        	}
+        	else {
+        		info.status->dead = true;
+                logMessage("GMP",
+                           Date::fromSecondsSinceEpoch(timeSinceHeartbeat).print(),
+                           format("DEAD agent: %s"), it->first);
+        		if (it->second.numBidsInFlight() != 0) {
+        			cerr << "agent " << it->first
+        					<< " has " << it->second.numBidsInFlight()
+        					<< " undead auctions: " << endl;
 
-                auto onInFlight = [&] (const Id & id, Date date)
-                    {
-                        cerr << "  " << id << " --> "
-                        << date << " (" << now.secondsSince(date)
-                        << "s ago)" << endl;
-                    };
+        			auto onInFlight = [&] (const Id & id, Date date)
+                    		{
+        				        cerr << "  " << id << " --> "
+        						     << date << " (" << now.secondsSince(date)
+        						     << "s ago)" << endl;
+                    		};
 
-                info.forEachInFlight(onInFlight);
-            }
-            else {
-                // agent is dead
-                cerr << "agent " << it->first << " appears to be dead"
-                     << endl;
-                sendAgentMessage(it->first, "BYEBYE", getCurrentTime());
-                deadAgents.push_back(it);
-            }
+        			info.forEachInFlight(onInFlight);
+        		}
+        		else {
+        			// agent is dead
+        			cerr << "agent " << it->first << " appears to be dead"
+        					<< endl;
+        			sendAgentMessage(it->first, "BYEBYE", getCurrentTime());
+        			deadAgents.push_back(it);
+        		}
+        	}
         }
     }
 
