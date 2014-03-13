@@ -821,6 +821,34 @@ updateFromStatus(int status)
     }
 }
 
+int
+RunResult::
+processStatus()
+    const
+{
+    int status;
+
+    if (state == RETURNED)
+        status = returnCode;
+    else if (state == SIGNALED)
+        status = 128 + signum;
+    else if (state == LAUNCH_ERROR) {
+        if (launchErrno == EPERM) {
+            status = 126;
+        }
+        else if (launchErrno == ENOENT) {
+            status = 127;
+        }
+        else {
+            status = 1;
+        }
+    }
+    else
+        throw ML::Exception("unhandled state");
+
+    return status;
+}
+
 void
 RunResult::
 updateFromLaunchError(int launchErrno,

@@ -64,6 +64,9 @@ struct RunResult {
     */
     void updateFromStatus(int status);
 
+    /** Extract the process return code as would be returned by a shell. */
+    int processStatus() const;
+
     /** Update the state in response to a launch error. */
     void updateFromLaunchError(int launchErrno,
                                const std::string & launchError);
