@@ -1,0 +1,12 @@
+{
+    "name": "soa",
+    "version": "0.1.0",
+    "author": "Datacratic <info@datacratic.com>",
+    "description": "A service-oriented architecture framework", 
+    "dependencies" : 
+    {
+        "vows":             "0.6.1",
+        "coffee-script":    "1.2.0"
+    }
+
+}

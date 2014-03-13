@@ -1,0 +1,3 @@
+#! /bin/bash
+
+cd .git && find . -name "pre-commit" | xargs rm && cd -

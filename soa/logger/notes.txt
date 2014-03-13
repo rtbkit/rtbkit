@@ -1,0 +1,240 @@
+ls -lh rtb_router_auctions-2011-May-24-18:41:13.log*
+-rw-r--r-- 1 jeremy jeremy  21G 2011-05-25 23:13 rtb_router_auctions-2011-May-24-18:41:13.log
+-rw-r--r-- 1 jeremy jeremy 1.2G 2011-05-26 01:26 rtb_router_auctions-2011-May-24-18:41:13.log.bz2
+-rw-r--r-- 1 jeremy jeremy 2.2G 2011-05-24 16:01 rtb_router_auctions-2011-May-24-18:41:13.log.gz
+-rw-r--r-- 1 jeremy jeremy 856M 2011-05-26 01:18 rtb_router_auctions-2011-May-24-18:41:13.log.xz
+-rw-r--r-- 1 jeremy jeremy 1.5G 2011-05-25 23:29 rtb_router_auctions-2011-May-24-18:41:13.log.xz2
+-rw-r--r-- 1 jeremy jeremy 1.2G 2011-05-26 00:33 rtb_router_auctions-2011-May-24-18:41:13.log.xz3
+
+
+ zcat rtb_router_auctions-2011-May-24-18:41:13.log.gz | /usr/bin/time bzip2 > rtb_router_auctions-2011-May-24-18:41:13.log.bz2
+
+gzip: rtb_router_auctions-2011-May-24-18:41:13.log.gz: unexpected end of file
+7962.34user 15.41system 2:13:00elapsed 99%CPU (0avgtext+0avgdata 28144maxresident)k
+0inputs+2456744outputs (0major+1804minor)pagefaults 0swaps
+
+
+zcat rtb_router_auctions-2011-May-24-18:41:13.log.gz | /usr/bin/time xz > rtb_router_auctions-2011-May-24-18:41:13.log.xz
+
+gzip: rtb_router_auctions-2011-May-24-18:41:13.log.gz: unexpected end of file
+7464.33user 26.34system 2:04:53elapsed 99%CPU (0avgtext+0avgdata 385056maxresident)k
+16inputs+1752568outputs (1major+24114minor)pagefaults 0swaps
+
+
+ zcat rtb_router_auctions-2011-May-24-18:41:13.log.gz | /usr/bin/time xz -2 > rtb_router_auctions-2011-May-24-18:41:13.log.xz2
+
+gzip: rtb_router_auctions-2011-May-24-18:41:13.log.gz: unexpected end of file
+742.07user 13.18system 12:50.21elapsed 98%CPU (0avgtext+0avgdata 22976maxresident)k
+0inputs+3002832outputs (0major+1485minor)pagefaults 0swaps
+
+
+
+
+zcat rtb_router_auctions-2011-May-24-18:41:13.log.gz | /usr/bin/time xz -3 > rtb_router_auctions-2011-May-24-18:41:13.log.xz3
+
+gzip: rtb_router_auctions-2011-May-24-18:41:13.log.gz: unexpected end of file
+3611.67user 12.45system 1:00:25elapsed 99%CPU (0avgtext+0avgdata 55312maxresident)k
+0inputs+2477352outputs (0major+3506minor)pagefaults 0swaps
+
+
+cmp_elapsed = 0.25612 out_bytes = 3070780
+Json                :   5.01MB in,   3.07MB out, ratio  61.25%, ctime   0.26s, crate    19.57MB/s, dtime   0.10s, drate    50.15MB/s
+cmp_elapsed = 0.102448 out_bytes = 535132
+zlib                :   5.01MB in,   0.54MB out, ratio  10.67%, ctime   0.10s, crate    48.94MB/s, dtime   0.02s, drate   243.63MB/s
+cmp_elapsed = 0.361792 out_bytes = 581755
+json+zlib           :   5.01MB in,   0.58MB out, ratio  11.60%, ctime   0.36s, crate    13.86MB/s, dtime   0.11s, drate    46.11MB/s
+
+
+
+Json                :   5.01MB in,   6.59MB out, ratio 131.39%, ctime   0.24s, crate    20.75MB/s, dtime   0.10s, drate    52.74MB/s
+cmp_elapsed = 0.10428 out_bytes = 535132
+zlib                :   5.01MB in,   0.54MB out, ratio  10.67%, ctime   0.10s, crate    48.08MB/s, dtime   0.02s, drate   244.56MB/s
+cmp_elapsed = 0.372585 out_bytes = 640873
+json+zlib           :   5.01MB in,   0.64MB out, ratio  12.78%, ctime   0.37s, crate    13.46MB/s, dtime   0.11s, drate    45.72MB/s
+
+
+
+No opt:
+
+Json                :  50.00MB in,  29.33MB out, ratio  58.66%, ctime   2.72s, crate    18.41MB/s, dtime   1.10s, drate    45.55MB/s
+
+
+
+
+No ostreams for output:
+
+Json                :  50.00MB in,  29.33MB out, ratio  58.66%, ctime   2.37s, crate    21.12MB/s, dtime   1.02s, drate    48.95MB/s
+
+
+StringState performance improvements:
+
+Json                :  50.00MB in,  29.33MB out, ratio  58.66%, ctime   1.51s, crate    33.22MB/s, dtime   1.09s, drate    45.67MB/s
+
+
+
+----------
+
+
+read in 20.00MB in 0.16 s, rate = 127.09MB/sec
+Json                :  20.00MB in,  11.92MB out, ratio  59.58%, ctime   0.60s, crate    33.09MB/s, dtime   0.44s, drate    45.42MB/s
+zlib                :  20.00MB in,   2.14MB out, ratio  10.69%, ctime   0.41s, crate    48.39MB/s, dtime   0.08s, drate   241.39MB/s
+json+zlib           :  20.00MB in,   2.20MB out, ratio  11.02%, ctime   1.04s, crate    19.29MB/s, dtime   0.48s, drate    41.63MB/s
+lzma                :  20.00MB in,   0.94MB out, ratio   4.70%, ctime   6.72s, crate     2.98MB/s, dtime   0.12s, drate   165.96MB/s
+json+lzma           :  20.00MB in,   1.41MB out, ratio   7.05%, ctime   6.79s, crate     2.95MB/s, dtime   0.56s, drate    35.58MB/s
+
+
+
+---------
+
+
+Absolute offsets for interned strings:
+
+read in 20.00MB in 0.15 s, rate = 129.63MB/sec
+Json                :  20.00MB in,  11.62MB out, ratio  58.11%, ctime   0.60s, crate    33.51MB/s, dtime   0.37s, drate    53.46MB/s
+zlib                :  20.00MB in,   2.14MB out, ratio  10.69%, ctime   0.47s, crate    42.31MB/s, dtime   0.08s, drate   242.81MB/s
+json+zlib           :  20.00MB in,   1.67MB out, ratio   8.34%, ctime   0.90s, crate    22.23MB/s, dtime   0.41s, drate    48.77MB/s
+lzma2               :  20.00MB in,   1.17MB out, ratio   5.82%, ctime   0.83s, crate    24.17MB/s, dtime   0.13s, drate   155.57MB/s
+json+lzma2          :  20.00MB in,   1.10MB out, ratio   5.49%, ctime   1.26s, crate    15.91MB/s, dtime   0.46s, drate    43.61MB/s
+lzma6               :  20.00MB in,   0.94MB out, ratio   4.70%, ctime   6.67s, crate     3.00MB/s, dtime   0.12s, drate   167.33MB/s
+json+lzma2          :  20.00MB in,   0.91MB out, ratio   4.56%, ctime   5.52s, crate     3.62MB/s, dtime   0.46s, drate    43.77MB/s
+
+
+Extra lzma3 filter:
+
+read in 20.00MB in 0.16 s, rate = 127.96MB/sec
+Json                :  20.00MB in,  10.24MB out, ratio  51.18%, ctime   0.65s, crate    30.75MB/s, dtime   0.37s, drate    54.30MB/s
+zlib                :  20.00MB in,   2.14MB out, ratio  10.69%, ctime   0.41s, crate    48.75MB/s, dtime   0.08s, drate   242.93MB/s
+json+zlib           :  20.00MB in,   1.66MB out, ratio   8.28%, ctime   0.94s, crate    21.22MB/s, dtime   0.41s, drate    49.39MB/s
+lzma2               :  20.00MB in,   1.17MB out, ratio   5.82%, ctime   0.91s, crate    21.87MB/s, dtime   0.13s, drate   156.56MB/s
+json+lzma2          :  20.00MB in,   1.09MB out, ratio   5.46%, ctime   1.30s, crate    15.37MB/s, dtime   0.46s, drate    43.94MB/s
+lzma3               :  20.00MB in,   1.09MB out, ratio   5.43%, ctime   1.03s, crate    19.39MB/s, dtime   0.12s, drate   166.90MB/s
+json+lzma3          :  20.00MB in,   1.06MB out, ratio   5.28%, ctime   1.52s, crate    13.12MB/s, dtime   0.44s, drate    45.07MB/s
+lzma6               :  20.00MB in,   0.94MB out, ratio   4.70%, ctime   6.65s, crate     3.01MB/s, dtime   0.12s, drate   167.75MB/s
+json+lzma6          :  20.00MB in,   0.89MB out, ratio   4.47%, ctime   4.92s, crate     4.06MB/s, dtime   0.45s, drate    44.56MB/s
+
+
+---
+
+no small strings; no strings > 32 bytes
+
+read in 20.00MB in 0.16 s, rate = 126.99MB/sec
+Json                :  20.00MB in,  11.61MB out, ratio  58.01%, ctime   0.57s, crate    35.36MB/s, dtime   0.38s, drate    52.59MB/s
+zlib                :  20.00MB in,   2.14MB out, ratio  10.69%, ctime   0.41s, crate    48.62MB/s, dtime   0.08s, drate   240.12MB/s
+json+zlib           :  20.00MB in,   1.74MB out, ratio   8.67%, ctime   0.87s, crate    22.88MB/s, dtime   0.40s, drate    49.46MB/s
+lzma2               :  20.00MB in,   1.17MB out, ratio   5.82%, ctime   0.81s, crate    24.77MB/s, dtime   0.13s, drate   154.24MB/s
+json+lzma2          :  20.00MB in,   1.11MB out, ratio   5.53%, ctime   1.24s, crate    16.19MB/s, dtime   0.46s, drate    43.04MB/s
+lzma3               :  20.00MB in,   1.09MB out, ratio   5.43%, ctime   1.03s, crate    19.45MB/s, dtime   0.12s, drate   165.78MB/s
+json+lzma3          :  20.00MB in,   1.07MB out, ratio   5.33%, ctime   1.44s, crate    13.89MB/s, dtime   0.45s, drate    44.00MB/s
+lzma6               :  20.00MB in,   0.94MB out, ratio   4.70%, ctime   6.64s, crate     3.01MB/s, dtime   0.12s, drate   166.54MB/s
+json+lzma6          :  20.00MB in,   0.91MB out, ratio   4.53%, ctime   5.43s, crate     3.68MB/s, dtime   0.46s, drate    43.68MB/s
+
+
+---
+
+bzip2 filter:
+
+read in 20.00MB in 0.16 s, rate = 125.21MB/sec
+Json                :  20.00MB in,  11.61MB out, ratio  58.01%, ctime   0.63s, crate    31.74MB/s, dtime   0.38s, drate    52.89MB/s
+bzip2               :  20.00MB in,   1.20MB out, ratio   5.98%, ctime   7.32s, crate     2.73MB/s, dtime   0.69s, drate    29.09MB/s
+json+bzip2          :  18.61MB in,   1.00MB out, ratio   5.39%, ctime   3.17s, crate     5.87MB/s, dtime   0.70s, drate    26.73MB/s
+zlib                :  20.00MB in,   2.14MB out, ratio  10.69%, ctime   0.42s, crate    47.40MB/s, dtime   0.08s, drate   242.29MB/s
+json+zlib           :  20.00MB in,   1.74MB out, ratio   8.67%, ctime   0.86s, crate    23.19MB/s, dtime   0.41s, drate    48.66MB/s
+lzma2               :  20.00MB in,   1.17MB out, ratio   5.82%, ctime   0.89s, crate    22.39MB/s, dtime   0.18s, drate   108.95MB/s
+json+lzma2          :  20.00MB in,   1.11MB out, ratio   5.53%, ctime   1.24s, crate    16.14MB/s, dtime   0.46s, drate    43.58MB/s
+lzma3               :  20.00MB in,   1.09MB out, ratio   5.43%, ctime   1.05s, crate    19.00MB/s, dtime   0.12s, drate   167.08MB/s
+json+lzma3          :  20.00MB in,   1.07MB out, ratio   5.33%, ctime   1.44s, crate    13.88MB/s, dtime   0.46s, drate    43.33MB/s
+lzma6               :  20.00MB in,   0.94MB out, ratio   4.70%, ctime   6.74s, crate     2.97MB/s, dtime   0.12s, drate   161.69MB/s
+json+lzma6          :  20.00MB in,   0.91MB out, ratio   4.53%, ctime   5.43s, crate     3.68MB/s, dtime   0.47s, drate    42.87MB/s
+
+common strings:
+
+read in 20.00MB in 0.17 s, rate = 119.65MB/sec
+Json                :  20.00MB in,  11.56MB out, ratio  57.79%, ctime   0.57s, crate    35.20MB/s, dtime   0.39s, drate    51.61MB/s
+stringNum = 45376
+bzip2               :  20.00MB in,   1.20MB out, ratio   5.98%, ctime   7.43s, crate     2.69MB/s, dtime   0.66s, drate    30.41MB/s
+json+bzip2          :  18.68MB in,   1.01MB out, ratio   5.41%, ctime   3.52s, crate     5.31MB/s, dtime   0.72s, drate    25.81MB/s
+stringNum = 45376
+zlib                :  20.00MB in,   2.14MB out, ratio  10.69%, ctime   0.41s, crate    48.68MB/s, dtime   0.08s, drate   242.99MB/s
+json+zlib           :  20.00MB in,   1.75MB out, ratio   8.76%, ctime   0.87s, crate    22.86MB/s, dtime   0.42s, drate    48.11MB/s
+stringNum = 45376
+lzma2               :  20.00MB in,   1.17MB out, ratio   5.82%, ctime   0.83s, crate    24.19MB/s, dtime   0.13s, drate   156.88MB/s
+json+lzma2          :  20.00MB in,   1.11MB out, ratio   5.56%, ctime   1.24s, crate    16.19MB/s, dtime   0.48s, drate    41.88MB/s
+stringNum = 45376
+lzma3               :  20.00MB in,   1.09MB out, ratio   5.43%, ctime   1.06s, crate    18.95MB/s, dtime   0.12s, drate   166.80MB/s
+json+lzma3          :  20.00MB in,   1.07MB out, ratio   5.36%, ctime   1.56s, crate    12.86MB/s, dtime   0.47s, drate    42.97MB/s
+stringNum = 45376
+lzma6               :  20.00MB in,   0.94MB out, ratio   4.70%, ctime   6.84s, crate     2.93MB/s, dtime   0.12s, drate   167.84MB/s
+json+lzma6          :  20.00MB in,   0.91MB out, ratio   4.56%, ctime   5.38s, crate     3.72MB/s, dtime   0.47s, drate    42.15MB/s
+stringNum = 45376
+
+---
+
+one-byte common strings
+
+read in 20.00MB in 0.16 s, rate = 121.78MB/sec
+Json                :  20.00MB in,   9.90MB out, ratio  49.49%, ctime   0.54s, crate    36.99MB/s, dtime   0.25s, drate    80.26MB/s
+stringNum = 45379
+bzip2               :  20.00MB in,   1.20MB out, ratio   5.98%, ctime   7.33s, crate     2.73MB/s, dtime   0.66s, drate    30.42MB/s
+json+bzip2          :  20.00MB in,   0.98MB out, ratio   4.92%, ctime   2.31s, crate     8.66MB/s, dtime   0.58s, drate    34.35MB/s
+stringNum = 45379
+zlib                :  20.00MB in,   2.14MB out, ratio  10.69%, ctime   0.41s, crate    48.65MB/s, dtime   0.08s, drate   242.79MB/s
+json+zlib           :  20.00MB in,   1.68MB out, ratio   8.38%, ctime   0.82s, crate    24.45MB/s, dtime   0.29s, drate    70.07MB/s
+stringNum = 45379
+lzma2               :  20.00MB in,   1.17MB out, ratio   5.82%, ctime   0.84s, crate    23.85MB/s, dtime   0.13s, drate   156.59MB/s
+json+lzma2          :  20.00MB in,   1.09MB out, ratio   5.46%, ctime   1.19s, crate    16.85MB/s, dtime   0.34s, drate    58.25MB/s
+stringNum = 45379
+lzma3               :  20.00MB in,   1.09MB out, ratio   5.43%, ctime   1.06s, crate    18.92MB/s, dtime   0.12s, drate   166.87MB/s
+json+lzma3          :  20.00MB in,   1.06MB out, ratio   5.29%, ctime   1.42s, crate    14.13MB/s, dtime   0.34s, drate    59.49MB/s
+stringNum = 45379
+lzma6               :  20.00MB in,   0.94MB out, ratio   4.70%, ctime   6.65s, crate     3.01MB/s, dtime   0.12s, drate   167.94MB/s
+json+lzma6          :  20.00MB in,   0.90MB out, ratio   4.50%, ctime   4.62s, crate     4.33MB/s, dtime   0.34s, drate    59.45MB/s
+stringNum = 45379
+
+lzma2,3,4,5,6,9
+
+read in 20.00MB in 0.17 s, rate = 120.51MB/sec
+Json                :  20.00MB in,   9.90MB out, ratio  49.49%, ctime   0.54s, crate    36.75MB/s, dtime   0.25s, drate    79.18MB/s
+bzip2               :  20.00MB in,   1.20MB out, ratio   5.98%, ctime   7.30s, crate     2.74MB/s, dtime   0.66s, drate    30.46MB/s
+json+bzip2          :  20.00MB in,   0.98MB out, ratio   4.92%, ctime   2.32s, crate     8.63MB/s, dtime   0.58s, drate    34.39MB/s
+zlib                :  20.00MB in,   2.14MB out, ratio  10.69%, ctime   0.41s, crate    48.64MB/s, dtime   0.08s, drate   243.42MB/s
+json+zlib           :  20.00MB in,   1.68MB out, ratio   8.38%, ctime   0.82s, crate    24.47MB/s, dtime   0.28s, drate    70.21MB/s
+lzma2               :  20.00MB in,   1.17MB out, ratio   5.82%, ctime   0.83s, crate    24.08MB/s, dtime   0.13s, drate   155.83MB/s
+json+lzma2          :  20.00MB in,   1.09MB out, ratio   5.46%, ctime   1.19s, crate    16.83MB/s, dtime   0.34s, drate    58.72MB/s
+lzma3               :  20.00MB in,   1.09MB out, ratio   5.43%, ctime   1.05s, crate    19.06MB/s, dtime   0.12s, drate   166.05MB/s
+json+lzma3          :  20.00MB in,   1.06MB out, ratio   5.29%, ctime   1.41s, crate    14.17MB/s, dtime   0.34s, drate    58.93MB/s
+lzma4               :  20.00MB in,   1.19MB out, ratio   5.97%, ctime   2.35s, crate     8.52MB/s, dtime   0.14s, drate   143.52MB/s
+json+lzma4          :  20.00MB in,   1.11MB out, ratio   5.53%, ctime   2.44s, crate     8.19MB/s, dtime   0.35s, drate    57.24MB/s
+lzma5               :  20.00MB in,   1.06MB out, ratio   5.27%, ctime   3.87s, crate     5.16MB/s, dtime   0.13s, drate   156.58MB/s
+json+lzma5          :  20.00MB in,   0.95MB out, ratio   4.73%, ctime   3.54s, crate     5.66MB/s, dtime   0.34s, drate    58.60MB/s
+lzma6               :  20.00MB in,   0.94MB out, ratio   4.70%, ctime   6.61s, crate     3.03MB/s, dtime   0.12s, drate   166.12MB/s
+json+lzma6          :  20.00MB in,   0.90MB out, ratio   4.50%, ctime   4.63s, crate     4.32MB/s, dtime   0.34s, drate    59.12MB/s
+lzma9               :  20.00MB in,   0.92MB out, ratio   4.61%, ctime   6.80s, crate     2.94MB/s, dtime   0.12s, drate   169.64MB/s
+json+lzma9          :  20.00MB in,   0.90MB out, ratio   4.50%, ctime   4.67s, crate     4.29MB/s, dtime   0.34s, drate    58.66MB/s
+
+
+
+---
+
+With more lzma levels:
+
+read in 20.00MB in 0.15 s, rate = 130.03MB/sec
+Json                :  20.00MB in,   9.90MB out, ratio  49.49%, ctime   0.54s, crate    37.08MB/s, dtime   0.25s, drate    79.61MB/s
+bzip2               :  20.00MB in,   1.20MB out, ratio   5.98%, ctime   7.28s, crate     2.75MB/s, dtime   0.66s, drate    30.47MB/s
+json+bzip2          :  20.00MB in,   0.98MB out, ratio   4.92%, ctime   2.30s, crate     8.69MB/s, dtime   0.65s, drate    30.61MB/s
+zlib                :  20.00MB in,   2.14MB out, ratio  10.69%, ctime   0.41s, crate    48.57MB/s, dtime   0.08s, drate   243.13MB/s
+json+zlib           :  20.00MB in,   1.68MB out, ratio   8.38%, ctime   0.82s, crate    24.43MB/s, dtime   0.28s, drate    70.59MB/s
+lzma1               :  20.00MB in,   1.29MB out, ratio   6.47%, ctime   0.67s, crate    29.83MB/s, dtime   0.14s, drate   143.45MB/s
+json+lzma1          :  20.00MB in,   1.17MB out, ratio   5.83%, ctime   1.04s, crate    19.32MB/s, dtime   0.35s, drate    57.53MB/s
+lzma2               :  20.00MB in,   1.17MB out, ratio   5.82%, ctime   0.82s, crate    24.40MB/s, dtime   0.13s, drate   155.85MB/s
+json+lzma2          :  20.00MB in,   1.09MB out, ratio   5.46%, ctime   1.18s, crate    17.00MB/s, dtime   0.34s, drate    58.95MB/s
+lzma3               :  20.00MB in,   1.09MB out, ratio   5.43%, ctime   1.05s, crate    19.10MB/s, dtime   0.12s, drate   166.75MB/s
+json+lzma3          :  20.00MB in,   1.06MB out, ratio   5.29%, ctime   1.41s, crate    14.22MB/s, dtime   0.34s, drate    59.56MB/s
+lzma4               :  20.00MB in,   1.19MB out, ratio   5.97%, ctime   2.35s, crate     8.50MB/s, dtime   0.14s, drate   145.23MB/s
+json+lzma4          :  20.00MB in,   1.11MB out, ratio   5.53%, ctime   2.42s, crate     8.27MB/s, dtime   0.35s, drate    57.73MB/s
+lzma5               :  20.00MB in,   1.06MB out, ratio   5.27%, ctime   4.00s, crate     5.00MB/s, dtime   0.13s, drate   154.47MB/s
+json+lzma5          :  20.00MB in,   0.95MB out, ratio   4.73%, ctime   3.50s, crate     5.72MB/s, dtime   0.34s, drate    59.46MB/s
+lzma6               :  20.00MB in,   0.94MB out, ratio   4.70%, ctime   6.60s, crate     3.03MB/s, dtime   0.12s, drate   168.31MB/s
+json+lzma6          :  20.00MB in,   0.90MB out, ratio   4.50%, ctime   4.63s, crate     4.32MB/s, dtime   0.34s, drate    59.65MB/s
+lzma9               :  20.00MB in,   0.92MB out, ratio   4.61%, ctime   6.78s, crate     2.95MB/s, dtime   0.12s, drate   170.43MB/s
+json+lzma9          :  20.00MB in,   0.90MB out, ratio   4.50%, ctime   4.66s, crate     4.29MB/s, dtime   0.33s, drate    59.87MB/s
+

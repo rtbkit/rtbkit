@@ -1,0 +1,50 @@
+#! /usr/bin/python
+#-------------------------------------------------------------- -*- python -*- #
+# buildorder
+# Remi Attab, 08 Nov 2012
+# Copyright (c) 2012 Datacratic.  All rights reserved.
+#
+# Checks the build ordering of the targets to make sure that a target doesn't
+# depend on something that doesn't exist.
+# ------------------------------------------------------------------------------#
+
+import jmlbuild
+import os
+import sys
+
+build_folder = jmlbuild.find_dotgit(os.getcwd())
+graph = jmlbuild.parse_makefile("Makefile", build_folder)
+
+built = set([])
+error = False
+
+for target in graph.order:
+    # makefiles aren't part of the dependency graph.
+    if target == "Makefile": continue
+    if target.endswith(jmlbuild.Ext.MK): continue
+
+    # nodejs modules dependencies are resolved at runtime.
+    if target.endswith(jmlbuild.Ext.NODEJS_TEST): continue
+    if target.endswith(jmlbuild.Ext.NODEJS_MODULE): continue
+
+    built = built | set([target])
+    for dep in graph.edges[target]:
+
+        # nodejs modules dependencies are resolved at runtime.
+        if dep.endswith(jmlbuild.Ext.NODEJS_MODULE): continue
+
+        if (not dep in built) and (dep in graph.edges):
+            level = "warning"
+            if not target.endswith(jmlbuild.Ext.TEST):
+                error = True
+                level = "error"
+
+            print "%s: %s built before dependency %s" % (level, target, dep)
+
+if error:
+    print "ERROR: Fix the build ordering and try again."
+else:
+    print "No build order errors detected."
+
+sys.exit(error)
+

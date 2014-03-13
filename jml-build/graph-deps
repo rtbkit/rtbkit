@@ -1,0 +1,33 @@
+#! /usr/bin/python
+#------------------------------------------------------------------------------#
+# graph-deps
+# by Remi Attab on 29-10-2012
+#
+# Generates a dot file of the dependencies in the build system.
+#
+# Syntax: graph-deps [folder [makefile]]
+#
+# The graph is dumped in stdout and it can be easily filtered using grep -v.
+#
+#------------------------------------------------------------------------------#
+
+import sys
+import jmlbuild
+
+
+if len(sys.argv) == 1:
+    graph = jmlbuild.parse_makefile("Makefile")
+elif len(sys.argv) == 2:
+    graph = jmlbuild.parse_makefile("Makefile", sys.argv[1])
+else:
+    graph = jmlbuild.parse_makefile(sys.argv[2], sys.argv[1])
+
+print "digraph {"
+
+for key in sorted(graph.edges.keys()):
+    for value in graph.edges[key]:
+        print "  \"%s\" -> \"%s\";" % (key, value)
+
+print "}"
+
+

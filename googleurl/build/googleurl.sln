@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual Studio 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "googleurl", "googleurl.vcproj", "{EF5E94AB-B646-4E5B-A058-52EF07B8351C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "base", "base.vcproj", "{ACAC8E18-F003-4881-9BA0-C7718AC5FFD5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{D8E84C85-89D3-4B8D-9A3A-C44B63C3383A}"
+	ProjectSection(SolutionItems) = preProject
+		..\LICENSE.txt = ..\LICENSE.txt
+		..\README.txt = ..\README.txt
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EF5E94AB-B646-4E5B-A058-52EF07B8351C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EF5E94AB-B646-4E5B-A058-52EF07B8351C}.Debug|Win32.Build.0 = Debug|Win32
+		{EF5E94AB-B646-4E5B-A058-52EF07B8351C}.Release|Win32.ActiveCfg = Release|Win32
+		{EF5E94AB-B646-4E5B-A058-52EF07B8351C}.Release|Win32.Build.0 = Release|Win32
+		{ACAC8E18-F003-4881-9BA0-C7718AC5FFD5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{ACAC8E18-F003-4881-9BA0-C7718AC5FFD5}.Debug|Win32.Build.0 = Debug|Win32
+		{ACAC8E18-F003-4881-9BA0-C7718AC5FFD5}.Release|Win32.ActiveCfg = Release|Win32
+		{ACAC8E18-F003-4881-9BA0-C7718AC5FFD5}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

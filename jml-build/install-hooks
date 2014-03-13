@@ -1,0 +1,88 @@
+#! /usr/bin/python
+#------------------------------------------------------------------------------#
+# install-hooks
+# by Remi Attab on 30-10-2012
+#
+# Installs useful hooks into a git repo that allows for extra build related
+# checks prior to a commit. Note that a hook will be installed for the repo as
+# well as for every submodules and every submodules of submodules.
+#
+#------------------------------------------------------------------------------#
+
+import re
+import sys
+import os
+import stat
+import jmlbuild
+
+# List of hooks to be installed
+to_install = ["coffee-deps-check", "build-order"]
+
+
+def get_installed_hooks(path):
+    """
+    Finds all the hooks managed by this script that are currently
+    installed. This is used to avoid reinstalling the same hook twice.
+    """
+    hooks = []
+
+    with open(path, "r") as hook:
+        for line in hook:
+            m = re.match(r".*/jml-build/([\w-]+)$", line)
+            if not m: continue
+            hooks.append(m.group(1))
+
+    return hooks
+
+
+def install_hook(path, rel_path):
+    """
+    Creates or appends to the pre-commit hook a call to our scripts. Note that
+    rel_path is required to find the checked out jml-build folder from a given
+    submodule.
+    """
+    path = os.path.join(path, "hooks")
+    if not os.path.isdir(path):
+        os.mkdir(path)
+
+    path = os.path.join(path, "pre-commit")
+    exists = os.path.isfile(path)
+
+    print path
+    installed = get_installed_hooks(path) if exists else []
+
+    with open(path, "a+") as hook:
+        if not exists:
+            hook.write("#! /bin/bash\n")
+
+        for h in to_install:
+            print "\t%s: %s" % (h, "SKIP" if h in installed else "ADD")
+            if h in installed: continue
+            hook.write(rel_path + "/jml-build/%s\n" % h)
+
+    print
+
+    if not exists:
+        os.chmod(path, 0766)
+
+
+def process_modules(path, rel_path):
+    """
+    Installs a the hook into the current module and recurses into each submodule
+    of the current module.
+    """
+
+    install_hook(path, rel_path)
+
+    module_dir = os.path.join(path, "modules")
+    if not os.path.isdir(module_dir):
+        return
+
+    rel_path = os.path.join(rel_path, "..")
+    for module in os.listdir(module_dir):
+        process_modules(os.path.join(module_dir, module), rel_path)
+
+
+path = os.path.join(jmlbuild.find_dotgit(os.getcwd()), ".git")
+process_modules(path, ".")
+
