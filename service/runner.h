@@ -52,20 +52,7 @@ struct RunResult {
 
     /** Update the state in response to a launch error. */
     void updateFromLaunchError(int launchErrno,
-                               const std::string & launchError)
-    {
-        this->state = LAUNCH_ERROR;
-        this->launchErrno = launchErrno;
-        if (!launchError.empty()) {
-            this->launchError = launchError;
-            if (launchErrno)
-                this->launchError += std::string(": ")
-                    + strerror(launchErrno);
-        }
-        else {
-            this->launchError = strerror(launchErrno);
-        }
-    }
+                               const std::string & launchError);
 
     /// Enumeration of the final state of the command
     enum State {
@@ -150,7 +137,7 @@ private:
 
         /** State of the process. */
         enum StatusState {
-            ST_UNKNOWN,       ///< Unknown status
+            ST_UNKNOWN,    ///< Unknown status
             LAUNCHING,     ///< Being launched
             RUNNING,       ///< Currently running
             STOPPED,       ///< No longer running
@@ -173,55 +160,28 @@ private:
         };
 
         /** Turn a launch error code into a descriptive string. */
-        static std::string strLaunchError(LaunchErrorCode error)
-        {
-            switch (error) {
-            case E_NONE: return "no error";
-            case E_READ_STATUS_PIPE: return "read() on status pipe";
-            case E_STATUS_PIPE_WRONG_LENGTH:
-                return "wrong message size reading launch pipe";
-            case E_SUBTASK_LAUNCH: return "exec() launching subtask";
-            case E_SUBTASK_WAITPID: return "waitpid waiting for subtask";
-            case E_WRONG_CHILD: return "waitpid() returned the wrong child";
-            }
-            throw ML::Exception("unknown error launch error code %d",
-                                error);
-        }
+        static std::string strLaunchError(LaunchErrorCode error);
             
-
         /** Structure passed back and forth between the launcher and the
             monitor to know the current state of the running process.
         */
         struct ChildStatus {
-            ChildStatus()
-                : state(ST_UNKNOWN),
-                  pid(-1),
-                  childStatus(-1),
-                  launchErrno(0),
-                  launchErrorCode(E_NONE)
-            {
-            }
+            ChildStatus();
 
             StatusState state;
             pid_t pid;
             int childStatus;
             int launchErrno;
             LaunchErrorCode launchErrorCode;
+            rusage usage;
         };
 
-        Task()
-            : wrapperPid(-1),
-              stdInFd(-1),
-              stdOutFd(-1),
-              stdErrFd(-1),
-              statusFd(-1),
-              statusState(ST_UNKNOWN)
-        {}
+        Task();
 
         void setupInSink();
         void flushInSink();
         void flushStdInBuffer();
-        void RunWrapper(const std::vector<std::string> & command,
+        void runWrapper(const std::vector<std::string> & command,
                         ChildFds & fds);
                         
         void postTerminate(Runner & runner);
@@ -238,17 +198,7 @@ private:
         int statusFd;
 
         StatusState statusState;
-        static std::string statusStateAsString(StatusState statusState)
-        {
-            switch (statusState) {
-            case ST_UNKNOWN: return "UNKNOWN";
-            case LAUNCHING: return "LAUNCHING";
-            case RUNNING: return "RUNNING";
-            case STOPPED: return "STOPPED";
-            case DONE: return "DONE";
-            }
-            throw ML::Exception("unknown status %d", statusState);
-        }
+        static std::string statusStateAsString(StatusState statusState);
     };
 
     void prepareChild();
