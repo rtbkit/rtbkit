@@ -157,6 +157,7 @@ handleChildStatus(const struct epoll_event & event)
 #endif
 
             task_.statusState = status.state;
+            task_.runResult.usage = status.usage;
 
             if (status.launchErrno || status.launchErrorCode) {
                 //cerr << "*** launch error" << endl;
@@ -376,7 +377,7 @@ run(const vector<string> & command,
         throw ML::Exception(errno, "Runner::run fork");
     }
     else if (task_.wrapperPid == 0) {
-        task_.RunWrapper(command, childFds);
+        task_.runWrapper(command, childFds);
     }
     else {
         task_.statusState = Task::StatusState::LAUNCHING;
@@ -442,12 +443,52 @@ waitTermination() const
     }
 }
 
-/* ASYNCRUNNER::TASK */
+/* RUNNER::TASK */
+
+Runner::Task::
+Task()
+    : wrapperPid(-1),
+      stdInFd(-1),
+      stdOutFd(-1),
+      stdErrFd(-1),
+      statusFd(-1),
+      statusState(ST_UNKNOWN)
+{}
+
+std::string
+Runner::Task::
+strLaunchError(LaunchErrorCode error)
+{
+    switch (error) {
+    case E_NONE: return "no error";
+    case E_READ_STATUS_PIPE: return "read() on status pipe";
+    case E_STATUS_PIPE_WRONG_LENGTH:
+        return "wrong message size reading launch pipe";
+    case E_SUBTASK_LAUNCH: return "exec() launching subtask";
+    case E_SUBTASK_WAITPID: return "waitpid waiting for subtask";
+    case E_WRONG_CHILD: return "waitpid() returned the wrong child";
+    }
+    throw ML::Exception("unknown error launch error code %d",
+                        error);
+}
+
+std::string
+Runner::Task::
+statusStateAsString(StatusState statusState)
+{
+    switch (statusState) {
+    case ST_UNKNOWN: return "UNKNOWN";
+    case LAUNCHING: return "LAUNCHING";
+    case RUNNING: return "RUNNING";
+    case STOPPED: return "STOPPED";
+    case DONE: return "DONE";
+    }
+    throw ML::Exception("unknown status %d", statusState);
+}
 
 void
-Runner::
-Task::
-RunWrapper(const vector<string> & command, ChildFds & fds)
+Runner::Task::
+runWrapper(const vector<string> & command, ChildFds & fds)
 {
     // Undo any SIGCHLD block from the parent process so it can
     // properly wait for the signal
@@ -488,7 +529,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
     int childPid = fork();
     if (childPid == -1) {
-        throw ML::Exception(errno, "fork() in RunWrapper");
+        throw ML::Exception(errno, "fork() in runWrapper");
     }
     else if (childPid == 0) {
         ::close(childLaunchStatusFd[0]);
@@ -530,7 +571,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
             {
                 int res = ::write(fds.statusFd, &status, sizeof(status));
                 if (res == -1)
-                    throw ML::Exception(errno, "RunWrapper write status");
+                    throw ML::Exception(errno, "runWrapper write status");
                 else if (res != sizeof(status))
                     throw ML::Exception("didn't completely write status");
             };
@@ -549,7 +590,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
                 int res = ::write(fds.statusFd, &status, sizeof(status));
                 if (res == -1)
-                    throw ML::Exception(errno, "RunWrapper write status");
+                    throw ML::Exception(errno, "runWrapper write status");
                 else if (res != sizeof(status))
                     throw ML::Exception("didn't completely write status");
 
@@ -620,6 +661,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 
         status.state = STOPPED;
         status.childStatus = childStatus;
+        getrusage(RUSAGE_CHILDREN, &status.usage);
 
         writeStatus();
 
@@ -630,8 +672,7 @@ RunWrapper(const vector<string> & command, ChildFds & fds)
 }
 
 void
-Runner::
-Task::
+Runner::Task::
 postTerminate(Runner & runner)
 {
     //cerr << "postTerminate\n";
@@ -682,9 +723,7 @@ postTerminate(Runner & runner)
 
 /* CHILD::CHILDFDS */
 
-Runner::
-Task::
-ChildFds::
+Runner::Task::ChildFds::
 ChildFds()
     : stdIn(::fileno(stdin)),
       stdOut(::fileno(stdout)),
@@ -695,9 +734,7 @@ ChildFds()
 
 /* child api */
 void
-Runner::
-Task::
-ChildFds::
+Runner::Task::ChildFds::
 closeRemainingFds()
 {
     struct rlimit limits;
@@ -713,9 +750,7 @@ closeRemainingFds()
 }
 
 void
-Runner::
-Task::
-ChildFds::
+Runner::Task::ChildFds::
 dupToStdStreams()
 {
     auto dupToStdStream = [&] (int oldFd, int newFd) {
@@ -734,9 +769,7 @@ dupToStdStreams()
 
 /* parent & child api */
 void
-Runner::
-Task::
-ChildFds::
+Runner::Task::ChildFds::
 close()
 {
     auto closeIfNotEqual = [&] (int & fd, int notValue) {
@@ -751,7 +784,28 @@ close()
 }
 
 
+/* RUNNER TASK CHILDSTATUS */
+
+Runner::Task::ChildStatus::
+ChildStatus()
+    : state(ST_UNKNOWN),
+      pid(-1),
+      childStatus(-1),
+      launchErrno(0),
+      launchErrorCode(E_NONE)
+{
+    ::memset(&usage, 0, sizeof(usage));
+}
+
+
 /* RUNRESULT */
+
+RunResult::
+RunResult()
+    : state(UNKNOWN), signum(-1), returnCode(-1), launchErrno(0)
+{
+    ::memset(&usage, 0, sizeof(usage));
+}
 
 void
 RunResult::
@@ -767,7 +821,26 @@ updateFromStatus(int status)
     }
 }
 
-std::string to_string(const RunResult::State & state)
+void
+RunResult::
+updateFromLaunchError(int launchErrno,
+                      const std::string & launchError)
+{
+    this->state = LAUNCH_ERROR;
+    this->launchErrno = launchErrno;
+    if (!launchError.empty()) {
+        this->launchError = launchError;
+        if (launchErrno)
+            this->launchError += std::string(": ")
+                + strerror(launchErrno);
+    }
+    else {
+        this->launchError = strerror(launchErrno);
+    }
+}
+
+std::string
+to_string(const RunResult::State & state)
 {
     switch (state) {
     case RunResult::UNKNOWN: return "UNKNOWN";
@@ -797,6 +870,8 @@ RunResultDescription()
              "Errno for launch error", 0);
     addField("launchError", &RunResult::launchError,
              "Error message for launch error");
+    addField("usage", &RunResult::usage,
+             "Process statistics as returned by getrusage()");
 }
 
 RunResultStateDescription::
@@ -806,10 +881,37 @@ RunResultStateDescription()
              "State is unknown or uninitialized");
     addValue("LAUNCH_ERROR", RunResult::LAUNCH_ERROR,
              "Command was unable to be launched");
-    addValue("RETURNED", RunResult::RETURNED,
-             "Command returned");
-    addValue("SIGNALED", RunResult::SIGNALED,
-             "Command exited with a signal");
+    addValue("RETURNED", RunResult::RETURNED, "Command returned");
+    addValue("SIGNALED", RunResult::SIGNALED, "Command exited with a signal");
+}
+
+
+DefaultDescription<timeval>::
+DefaultDescription()
+{
+    addField("tv_sec", &timeval::tv_sec, "seconds");
+    addField("tv_usec", &timeval::tv_usec, "micro seconds");
+}
+
+DefaultDescription<rusage>::
+DefaultDescription()
+{
+    addField("utime", &rusage::ru_utime, "user CPU time used");
+    addField("stime", &rusage::ru_stime, "system CPU time used");
+    addField("maxrss", &rusage::ru_maxrss, "maximum resident set size");
+    addField("ixrss", &rusage::ru_ixrss, "integral shared memory size");
+    addField("idrss", &rusage::ru_idrss, "integral unshared data size");
+    addField("isrss", &rusage::ru_isrss, "integral unshared stack size");
+    addField("minflt", &rusage::ru_minflt, "page reclaims (soft page faults)");
+    addField("majflt", &rusage::ru_majflt, "page faults (hard page faults)");
+    addField("nswap", &rusage::ru_nswap, "swaps");
+    addField("inblock", &rusage::ru_inblock, "block input operations");
+    addField("oublock", &rusage::ru_oublock, "block output operations");
+    addField("msgsnd", &rusage::ru_msgsnd, "IPC messages sent");
+    addField("msgrcv", &rusage::ru_msgrcv, "IPC messages received");
+    addField("nsignals", &rusage::ru_nsignals, "signals received");
+    addField("nvcsw", &rusage::ru_nvcsw, "voluntary context switches");
+    addField("nivcsw", &rusage::ru_nivcsw, "involuntary context switches");
 }
 
 
