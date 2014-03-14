@@ -17,6 +17,12 @@ namespace Datacratic {
 /* VALUE INSTANCE                                                             */
 /******************************************************************************/
 
+/** Proxy object to manipulate values through the reflection mechanism.
+
+    This object does not own the manipulated object and it's up to the user to
+    keep the referenced object valid throughought the lifetime of this object.
+
+ */
 struct ValueInstance
 {
     template<typename T>
