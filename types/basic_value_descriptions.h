@@ -277,9 +277,77 @@ struct DefaultDescription<std::vector<T> >
 };
 #endif
 
+
+template<typename T>
+struct DefaultDescription<T*>
+    : public ValueDescriptionI<T*, ValueKind::LINK> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : inner(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
+
+    virtual void parseJsonTyped(T** val, JsonParsingContext & context) const
+    {
+        *val = new T();
+        inner->parseJsonTyped(*val, context);
+    }
+
+    virtual void printJsonTyped(T* const* val, JsonPrintingContext & context) const
+    {
+        if (!*val)
+            context.skip();
+        else inner->printJsonTyped(*val, context);
+    }
+
+    virtual bool isDefaultTyped(T* const* val) const
+    {
+        return !*val;
+    }
+
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+
+
+    virtual OwnershipModel getOwnershipModel() const
+    {
+        return OwnershipModel::NONE;
+    }
+
+    static T*& cast(void* obj)
+    {
+        return *static_cast<T**>(obj);
+    }
+
+    virtual void* getLink(void* obj) const
+    {
+        return cast(obj);
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        if (valueDesc->kind != ValueKind::LINK)
+            throw ML::Exception("assignment of non-link type to link type");
+
+        valueDesc->contained().checkChildOf(&contained());
+        cast(obj) = static_cast<T*>(valueDesc->getLink(value));
+    }
+};
+
 template<typename T>
 struct DefaultDescription<std::unique_ptr<T> >
-    : public ValueDescriptionI<std::unique_ptr<T>, ValueKind::OPTIONAL> {
+    : public ValueDescriptionI<std::unique_ptr<T>, ValueKind::LINK> {
 
     DefaultDescription(ValueDescriptionT<T> * inner)
         : inner(inner)
@@ -313,11 +381,44 @@ struct DefaultDescription<std::unique_ptr<T> >
     {
         return !val->get();
     }
+
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+
+    virtual OwnershipModel getOwnershipModel() const
+    {
+        return OwnershipModel::UNIQUE;
+    }
+
+    static std::unique_ptr<T>& cast(void* obj)
+    {
+        return *static_cast< std::unique_ptr<T>* >(obj);
+    }
+
+    virtual void* getLink(void* obj) const
+    {
+        return cast(obj).get();
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        if (valueDesc->kind != ValueKind::LINK)
+            throw ML::Exception("assignment of non-link type to link type");
+
+        if (valueDesc->getOwnershipModel() != OwnershipModel::NONE)
+            throw ML::Exception("unsafe link assignement");
+
+        valueDesc->contained().checkChildOf(&contained());
+        cast(obj).reset(static_cast<T*>(valueDesc->getLink(value)));
+    }
 };
 
 template<typename T>
 struct DefaultDescription<std::shared_ptr<T> >
-    : public ValueDescriptionI<std::shared_ptr<T>, ValueKind::OPTIONAL> {
+    : public ValueDescriptionI<std::shared_ptr<T>, ValueKind::LINK> {
 
     DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
                        = getDefaultDescriptionShared((T *)0))
@@ -356,6 +457,45 @@ struct DefaultDescription<std::shared_ptr<T> >
     {
         return !val->get();
     }
+
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+
+    virtual OwnershipModel getOwnershipModel() const
+    {
+        return OwnershipModel::SHARED;
+    }
+
+
+    static std::shared_ptr<T>& cast(void* obj)
+    {
+        return *static_cast< std::shared_ptr<T>* >(obj);
+    }
+
+    virtual void* getLink(void* obj) const
+    {
+        return cast(obj).get();
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        if (valueDesc->kind != ValueKind::LINK)
+            throw ML::Exception("assignment of non-link type to link type");
+
+        if (valueDesc->getOwnershipModel() == OwnershipModel::UNIQUE)
+            throw ML::Exception("unsafe link assignement");
+
+        valueDesc->contained().checkChildOf(&contained());
+
+        // Casting is necessary to make sure the ref count is incremented.
+        if (valueDesc->getOwnershipModel() == OwnershipModel::SHARED)
+            cast(obj) = cast(value);
+        else cast(obj).reset(static_cast<T*>(valueDesc->getLink(value)));
+    }
+
 };
 
 template<>
