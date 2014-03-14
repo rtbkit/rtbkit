@@ -48,12 +48,19 @@ enum class ValueKind : int32_t {
 
     // Non-atomic, ie part of them can be mutated
     OPTIONAL,
+    POINTER,
     ARRAY,
     STRUCTURE,
     TUPLE,
     VARIANT,
     MAP,
     ANY
+};
+
+enum class OwnershipModel : int32_t {
+    NONE,
+    UNIQUE,
+    SHARED
 };
 
 std::ostream & operator << (std::ostream & stream, ValueKind kind);
@@ -139,11 +146,12 @@ struct ValueDescription {
         throw ML::Exception("type does not contain another");
     }
 
-    virtual bool isPointer() const { return false; }
-    virtual bool isUniquePtr() const { return false; }
-    virtual bool isSharedPtr() const { return false; }
+    virtual OwnershipModel getOwnershipModel() const
+    {
+        throw ML::Exception("type does not define an ownership type");
+    }
 
-    virtual void* dereference(void* obj) const
+    virtual void* getPointer(void* obj) const
     {
         throw ML::Exception("type is not a pointer");
     }
