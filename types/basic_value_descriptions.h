@@ -280,7 +280,7 @@ struct DefaultDescription<std::vector<T> >
 
 template<typename T>
 struct DefaultDescription<T*>
-    : public ValueDescriptionI<T*, ValueKind::POINTER> {
+    : public ValueDescriptionI<T*, ValueKind::LINK> {
 
     DefaultDescription(ValueDescriptionT<T> * inner)
         : inner(inner)
@@ -329,7 +329,7 @@ struct DefaultDescription<T*>
         return *static_cast<T**>(obj);
     }
 
-    virtual void* getPointer(void* obj) const
+    virtual void* getLink(void* obj) const
     {
         return cast(obj);
     }
@@ -337,17 +337,17 @@ struct DefaultDescription<T*>
     virtual void set(
             void* obj, void* value, const ValueDescription* valueDesc) const
     {
-        if (valueDesc->kind != ValueKind::POINTER)
-            throw ML::Exception("assignment of non-pointer type to pointer type");
+        if (valueDesc->kind != ValueKind::LINK)
+            throw ML::Exception("assignment of non-link type to link type");
 
         valueDesc->contained().checkChildOf(&contained());
-        cast(obj) = static_cast<T*>(valueDesc->getPointer(value));
+        cast(obj) = static_cast<T*>(valueDesc->getLink(value));
     }
 };
 
 template<typename T>
 struct DefaultDescription<std::unique_ptr<T> >
-    : public ValueDescriptionI<std::unique_ptr<T>, ValueKind::POINTER> {
+    : public ValueDescriptionI<std::unique_ptr<T>, ValueKind::LINK> {
 
     DefaultDescription(ValueDescriptionT<T> * inner)
         : inner(inner)
@@ -397,7 +397,7 @@ struct DefaultDescription<std::unique_ptr<T> >
         return *static_cast< std::unique_ptr<T>* >(obj);
     }
 
-    virtual void* getPointer(void* obj) const
+    virtual void* getLink(void* obj) const
     {
         return cast(obj).get();
     }
@@ -405,20 +405,20 @@ struct DefaultDescription<std::unique_ptr<T> >
     virtual void set(
             void* obj, void* value, const ValueDescription* valueDesc) const
     {
-        if (valueDesc->kind != ValueKind::POINTER)
-            throw ML::Exception("assignment of non-pointer type to pointer type");
+        if (valueDesc->kind != ValueKind::LINK)
+            throw ML::Exception("assignment of non-link type to link type");
 
         if (valueDesc->getOwnershipModel() != OwnershipModel::NONE)
-            throw ML::Exception("unsafe pointer assignement");
+            throw ML::Exception("unsafe link assignement");
 
         valueDesc->contained().checkChildOf(&contained());
-        cast(obj).reset(static_cast<T*>(valueDesc->getPointer(value)));
+        cast(obj).reset(static_cast<T*>(valueDesc->getLink(value)));
     }
 };
 
 template<typename T>
 struct DefaultDescription<std::shared_ptr<T> >
-    : public ValueDescriptionI<std::shared_ptr<T>, ValueKind::POINTER> {
+    : public ValueDescriptionI<std::shared_ptr<T>, ValueKind::LINK> {
 
     DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
                        = getDefaultDescriptionShared((T *)0))
@@ -474,7 +474,7 @@ struct DefaultDescription<std::shared_ptr<T> >
         return *static_cast< std::shared_ptr<T>* >(obj);
     }
 
-    virtual void* getPointer(void* obj) const
+    virtual void* getLink(void* obj) const
     {
         return cast(obj).get();
     }
@@ -482,18 +482,18 @@ struct DefaultDescription<std::shared_ptr<T> >
     virtual void set(
             void* obj, void* value, const ValueDescription* valueDesc) const
     {
-        if (valueDesc->kind != ValueKind::POINTER)
-            throw ML::Exception("assignment of non-pointer type to pointer type");
+        if (valueDesc->kind != ValueKind::LINK)
+            throw ML::Exception("assignment of non-link type to link type");
 
         if (valueDesc->getOwnershipModel() == OwnershipModel::UNIQUE)
-            throw ML::Exception("unsafe pointer assignement");
+            throw ML::Exception("unsafe link assignement");
 
         valueDesc->contained().checkChildOf(&contained());
 
         // Casting is necessary to make sure the ref count is incremented.
         if (valueDesc->getOwnershipModel() == OwnershipModel::SHARED)
             cast(obj) = cast(value);
-        else cast(obj).reset(static_cast<T*>(valueDesc->getPointer(value)));
+        else cast(obj).reset(static_cast<T*>(valueDesc->getLink(value)));
     }
 
 };

@@ -48,7 +48,7 @@ enum class ValueKind : int32_t {
 
     // Non-atomic, ie part of them can be mutated
     OPTIONAL,
-    POINTER,
+    LINK,
     ARRAY,
     STRUCTURE,
     TUPLE,
@@ -151,9 +151,9 @@ struct ValueDescription {
         throw ML::Exception("type does not define an ownership type");
     }
 
-    virtual void* getPointer(void* obj) const
+    virtual void* getLink(void* obj) const
     {
-        throw ML::Exception("type is not a pointer");
+        throw ML::Exception("type is not a link");
     }
 
     virtual void set(
