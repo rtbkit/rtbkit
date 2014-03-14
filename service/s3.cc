@@ -148,8 +148,18 @@ init(const std::string & accessKeyId,
 void
 S3Api::init()
 {
-    pair<string, string> creds = getDefaultCredentials();
-    this->init(creds.first, creds.second);
+    string keyId, key;
+    tie(keyId, key, std::ignore, std::ignore, std::ignore)
+        = getCloudCredentials();
+    if (keyId != "" && key != "") {
+        auto keys = getS3CredentialsFromEnvVar();
+        keyId = keys.first;
+        key = keys.second;
+    }
+    if (keyId != "" && key != "")
+        throw ML::Exception("does this make sense?");
+    
+    this->init(keyId, key);
 }
 
 S3Api::Content::
@@ -2446,35 +2456,14 @@ tuple<string, string, string, string, string> getCloudCredentials()
     return make_tuple("", "", "", "", "");
 }
 
-pair<string, string> getDefaultCredentials()
+pair<string, string> getS3CredentialsFromEnvVar()
 {
-    tuple<string, string, string, string, string> cloudCredentials = 
-        getCloudCredentials();
-    if(get<0>(cloudCredentials) != ""){
-        return make_pair(get<0>(cloudCredentials), get<1>(cloudCredentials));
-    }
-
-    cerr << "Default credentials not found in ~/.cloud_credentials" << endl;
-
-    char* configFilenameCStr = getenv("CONFIG");
-    string configFilename = (configFilenameCStr == NULL ?
-                                string() :
-                                string(configFilenameCStr));
-
-    if(configFilename != "")
-    {
-        ML::File_Read_Buffer buf(configFilename);
-        Json::Value config = Json::parse(string(buf.start(), buf.end()));
-        if(config.isMember("s3"))
-        {
-            return make_pair(
-                config["s3"]["accessKeyId"].asString(),
-                config["s3"]["accessKey"].asString());
-        }
-    }
-    throw ML::Exception("No default credentials found");
+    char* s3KeyIdCStr = getenv("S3_KEY_ID");
+    char* s3KeyCStr = getenv("S3_KEY");
+    string s3KeyId = (s3KeyIdCStr == NULL ? "" : string(s3KeyIdCStr));
+    string s3Key= (s3KeyCStr == NULL ? "" : string(s3KeyCStr));
+    return make_pair(s3KeyId, s3Key);
 }
-
 
 /** Parse the ~/.cloud_credentials file and add those buckets in.
 
@@ -2493,7 +2482,7 @@ pair<string, string> getDefaultCredentials()
         - Protocol (http)
         - S3 machine host name (s3.amazonaws.com)
 
-    If S3_ACCESS_KEY_ID and S3_ACCESS_KEY environment variables are specified,
+    If S3_KEY_ID and S3_KEY environment variables are specified,
     they will be used first.
 */
 void registerDefaultBuckets()
@@ -2506,7 +2495,7 @@ void registerDefaultBuckets()
 
     tuple<string, string, string, string, string> cloudCredentials = 
         getCloudCredentials();
-    if(get<0>(cloudCredentials) != ""){
+    if (get<0>(cloudCredentials) != "") {
         string keyId      = get<0>(cloudCredentials);
         string key        = get<1>(cloudCredentials);
         string bandwidth  = get<2>(cloudCredentials);
@@ -2524,7 +2513,16 @@ void registerDefaultBuckets()
                           protocol, serviceUri);
         return;
     }
+    auto keys = getS3CredentialsFromEnvVar();
+    if (keys.first != "" && keys.second != "")
+        registerS3Buckets(keys.first, keys.second, 20., "http",
+                          "s3.amazonaws.com");
+    else
+        cerr << "WARNING: registerDefaultBuckets needs either a "
+                ".cloud_credentials or S3_KEY_ID and S3_KEY environment "
+                " variables" << endl;
 
+#if 0
     char* configFilenameCStr = getenv("CONFIG");
     string configFilename = (configFilenameCStr == NULL ?
                                 string() :
@@ -2548,6 +2546,7 @@ void registerDefaultBuckets()
     cerr << "WARNING: registerDefaultBuckets needs either a .cloud_credentials"
             " file or an environment variable CONFIG pointing toward a file "
             "having keys s3.accessKey and s3.accessKeyId" << endl;
+#endif
 }
 
 void registerS3Buckets(const std::string & accessKeyId,

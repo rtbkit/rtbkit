@@ -628,6 +628,8 @@ std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri);
 std::tuple<std::string, std::string, std::string, std::string, std::string> 
     getCloudCredentials();
 
-std::pair<std::string, std::string> getDefaultCredentials();
+std::pair<std::string, std::string> getS3CredentialsFromEnvVar();
+
+// std::pair<std::string, std::string> getDefaultCredentials();
 
 } // namespace Datacratic
