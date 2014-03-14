@@ -138,6 +138,9 @@ BOOST_AUTO_TEST_CASE( test_objecs )
 
     instance.cast<Foo>()->value = 30;
     BOOST_CHECK_EQUAL(bar.value, 30);
+
+    instance["value"].set(instance["count"]);
+    BOOST_CHECK_EQUAL(bar.value, bar.count);
 }
 
 BOOST_AUTO_TEST_CASE( test_shared_pointers )
