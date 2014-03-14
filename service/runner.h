@@ -22,23 +22,13 @@
 #include "epoller.h"
 #include "sink.h"
 
-
-namespace Datacratic {
-
 /* value descriptions for "timeval" and "rusage" */
 
-template<>
-struct DefaultDescription<timeval>
-    : public Datacratic::StructureDescription<timeval> {
-    DefaultDescription();
-};
+CREATE_STRUCTURE_DESCRIPTION(timeval);
+CREATE_STRUCTURE_DESCRIPTION(rusage);
 
-template<>
-struct DefaultDescription<rusage>
-    : public Datacratic::StructureDescription<rusage> {
-    DefaultDescription();
-};
 
+namespace Datacratic {
 
 /*****************************************************************************/
 /* RUN RESULT                                                                */

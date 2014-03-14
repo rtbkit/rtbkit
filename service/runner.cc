@@ -38,6 +38,35 @@ using namespace std;
 using namespace Datacratic;
 
 
+timevalDescription::
+timevalDescription()
+{
+    addField("tv_sec", &timeval::tv_sec, "seconds");
+    addField("tv_usec", &timeval::tv_usec, "micro seconds");
+}
+
+rusageDescription::
+rusageDescription()
+{
+    addField("utime", &rusage::ru_utime, "user CPU time used");
+    addField("stime", &rusage::ru_stime, "system CPU time used");
+    addField("maxrss", &rusage::ru_maxrss, "maximum resident set size");
+    addField("ixrss", &rusage::ru_ixrss, "integral shared memory size");
+    addField("idrss", &rusage::ru_idrss, "integral unshared data size");
+    addField("isrss", &rusage::ru_isrss, "integral unshared stack size");
+    addField("minflt", &rusage::ru_minflt, "page reclaims (soft page faults)");
+    addField("majflt", &rusage::ru_majflt, "page faults (hard page faults)");
+    addField("nswap", &rusage::ru_nswap, "swaps");
+    addField("inblock", &rusage::ru_inblock, "block input operations");
+    addField("oublock", &rusage::ru_oublock, "block output operations");
+    addField("msgsnd", &rusage::ru_msgsnd, "IPC messages sent");
+    addField("msgrcv", &rusage::ru_msgrcv, "IPC messages received");
+    addField("nsignals", &rusage::ru_nsignals, "signals received");
+    addField("nvcsw", &rusage::ru_nvcsw, "voluntary context switches");
+    addField("nivcsw", &rusage::ru_nivcsw, "involuntary context switches");
+}
+
+
 namespace {
 
 tuple<int, int>
@@ -911,35 +940,6 @@ RunResultStateDescription()
              "Command was unable to be launched");
     addValue("RETURNED", RunResult::RETURNED, "Command returned");
     addValue("SIGNALED", RunResult::SIGNALED, "Command exited with a signal");
-}
-
-
-DefaultDescription<timeval>::
-DefaultDescription()
-{
-    addField("tv_sec", &timeval::tv_sec, "seconds");
-    addField("tv_usec", &timeval::tv_usec, "micro seconds");
-}
-
-DefaultDescription<rusage>::
-DefaultDescription()
-{
-    addField("utime", &rusage::ru_utime, "user CPU time used");
-    addField("stime", &rusage::ru_stime, "system CPU time used");
-    addField("maxrss", &rusage::ru_maxrss, "maximum resident set size");
-    addField("ixrss", &rusage::ru_ixrss, "integral shared memory size");
-    addField("idrss", &rusage::ru_idrss, "integral unshared data size");
-    addField("isrss", &rusage::ru_isrss, "integral unshared stack size");
-    addField("minflt", &rusage::ru_minflt, "page reclaims (soft page faults)");
-    addField("majflt", &rusage::ru_majflt, "page faults (hard page faults)");
-    addField("nswap", &rusage::ru_nswap, "swaps");
-    addField("inblock", &rusage::ru_inblock, "block input operations");
-    addField("oublock", &rusage::ru_oublock, "block output operations");
-    addField("msgsnd", &rusage::ru_msgsnd, "IPC messages sent");
-    addField("msgrcv", &rusage::ru_msgrcv, "IPC messages received");
-    addField("nsignals", &rusage::ru_nsignals, "signals received");
-    addField("nvcsw", &rusage::ru_nvcsw, "voluntary context switches");
-    addField("nivcsw", &rusage::ru_nivcsw, "involuntary context switches");
 }
 
 
