@@ -229,15 +229,15 @@ handleRouterMessage(const std::string & fromRouter,
                 switch (hash(message[1])) {  
                      // Backward compatibility : replace by CAMPAIGN_EVENT
                     case hash_compile_time("VISIT") : {
-                        handleDelivery(newMessage, onVisit); 
+                        handleDelivery(message, onVisit); 
                         break;
                     }
                     case hash_compile_time("IMPRESSION") : {
-                        handleDelivery(newMessage, onImpression); 
+                        handleDelivery(message, onImpression); 
                         break;
                     }
                     case hash_compile_time("CLICK") : {
-                        handleDelivery(newMessage, onClick); 
+                        handleDelivery(message, onClick); 
                         break;
                     }
                     default : {
