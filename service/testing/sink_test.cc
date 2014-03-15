@@ -205,3 +205,25 @@ BOOST_AUTO_TEST_CASE( test_ostreaminputsink )
     BOOST_CHECK_EQUAL(received.str(), expected);
 }
 #endif
+
+#if 1
+BOOST_AUTO_TEST_CASE( test_chaininputsink )
+{
+    ostringstream stream1;
+    ostringstream stream2;
+
+    auto sink1 = make_shared<OStreamInputSink>(&stream1);
+    auto sink2 = make_shared<OStreamInputSink>(&stream2);
+
+    ChainInputSink chainSink;
+    chainSink.appendSink(sink1);
+    chainSink.appendSink(sink2);
+
+    string data("I am sending data.");
+    string expected(data);
+    chainSink.notifyReceived(move(data));
+
+    BOOST_CHECK_EQUAL(stream1.str(), expected);
+    BOOST_CHECK_EQUAL(stream2.str(), expected);
+}
+#endif

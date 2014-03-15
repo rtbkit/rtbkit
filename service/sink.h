@@ -218,4 +218,21 @@ private:
     std::ostream * stream_;
 };
 
+
+/* CHAININPUTSINK
+
+   An InputSink that chains callbacks to other input sinks
+   (not thread-safe)
+ */
+
+struct ChainInputSink : public InputSink {
+    void appendSink(const std::shared_ptr<InputSink> & newSink);
+
+    virtual void notifyReceived(std::string && data);
+    virtual void notifyClosed();
+
+private:
+    std::vector<std::shared_ptr<InputSink> > sinks_;
+};
+
 } // namespace Datacratic
