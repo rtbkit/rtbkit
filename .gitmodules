@@ -1,9 +1,9 @@
 [submodule "jml-build"]
 	path = jml-build
-	url = https://github.com/jeremybarnes/jml-build.git
+	url = https://github.com/datacratic/jml-build.git
 [submodule "jml"]
 	path = jml
-	url = https://github.com/jeremybarnes/jml.git
+	url = https://github.com/datacratic/jml.git
 [submodule "googleurl"]
 	path = googleurl
 	url = https://github.com/datacratic/google-url.git
