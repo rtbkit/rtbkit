@@ -55,6 +55,9 @@ bool endsWith(const std::string & haystack, const std::string & needle);
 /* replace unprintable characters with a hex representation thereof */
 std::string hexify_string(const std::string & str);
 
+/* returns a string of random characters in the ranges A-Z, a-z and 0-9 */
+std::string randomString(size_t length);
+
 } // namespace ML
 
 
