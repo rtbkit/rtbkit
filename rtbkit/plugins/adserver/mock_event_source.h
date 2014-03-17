@@ -10,13 +10,12 @@
 
 namespace RTBKIT {
 
-struct MockWinSource : public WinSource {
-    MockWinSource(NetworkAddress address);
-    MockWinSource(Json::Value const & json);
+struct MockEventSource : public EventSource {
+    MockEventSource(NetworkAddress address);
+    MockEventSource(Json::Value const & json);
 
-    void sendWin(const BidRequest& br,
-                 const Bid& bid,
-                 const Amount& winPrice);
+    void sendImpression(const BidRequest& br, const Bid& bid);
+    void sendClick(const BidRequest& br, const Bid& bid);
 
 private:
     void sendEvent(const PostAuctionEvent& ev);

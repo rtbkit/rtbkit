@@ -43,14 +43,14 @@ struct MockExchange : public Datacratic::ServiceBase
         return !running;
     }
 
-    void add(BidSource * bids, WinSource * wins);
+    void add(BidSource * bids, WinSource * wins, EventSource * events);
 
 private:
     int running;
 
     struct Worker {
-        Worker(MockExchange * exchange, BidSource *bid, WinSource *win);
-        Worker(MockExchange * exchange, Json::Value bid, Json::Value win);
+        Worker(MockExchange * exchange, BidSource *bid, WinSource *win, EventSource *event);
+        Worker(MockExchange * exchange, Json::Value bid, Json::Value win, Json::Value event);
 
         void run();
         bool bid();
@@ -62,6 +62,7 @@ private:
         MockExchange * exchange;
         std::unique_ptr<BidSource> bids;
         std::unique_ptr<WinSource> wins;
+        std::unique_ptr<EventSource> events;
         ML::RNG rng;
     };
 
