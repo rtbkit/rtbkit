@@ -38,20 +38,6 @@ sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
 
 void
 StandardWinSource::
-sendImpression(const BidRequest& bidRequest, const Bid& bid)
-{
-}
-
-
-void
-StandardWinSource::
-sendClick(const BidRequest& bidRequest, const Bid& bid)
-{
-}
-
-
-void
-StandardWinSource::
 sendEvent(Json::Value const & json)
 {
     std::string str = json.toString();
