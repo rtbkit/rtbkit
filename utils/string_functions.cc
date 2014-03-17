@@ -156,30 +156,4 @@ std::string hexify_string(const std::string & str)
     return newString;
 }
 
-string randomString(size_t length)
-{
-    string result;
-    result.resize(length);
-
-    for (size_t i = 0; i < length; i++) {
-        int rnd = random() % 62;
-
-        /* digits */
-        if (rnd < 10) {
-            rnd += 48;
-        }
-        /* upper case */
-        else if (rnd < 36) {
-            rnd += 55;
-        }
-        /* lower case */
-        else {
-            rnd += 61;
-        }
-        result[i] = char(rnd);
-    }
-
-    return result;
-}
-
 } // namespace ML
