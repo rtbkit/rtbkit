@@ -315,6 +315,8 @@ void
 Runner::
 handleWakeup(const struct epoll_event & event)
 {
+    // cerr << "handleWakup\n";
+
     if ((event.events & EPOLLIN) != 0) {
         if (stdInSink_) {
             if (stdInSink_->connectionState_
@@ -335,7 +337,9 @@ attemptTaskTermination()
     /* for a task to be considered done:
        - stdout and stderr must have been closed, provided we redirected them
        - the closing child status must have been returned */
-    if (!stdInSink_ && !stdOutSink_ && !stdErrSink_ && childPid_ < 0) {
+    if (!stdInSink_ && !stdOutSink_ && !stdErrSink_ && childPid_ < 0
+        && (task_.statusState == Task::StatusState::STOPPED
+            || task_.statusState == Task::StatusState::DONE)) {
         task_.postTerminate(*this);
 
         running_ = false;
@@ -704,13 +708,13 @@ void
 Runner::Task::
 postTerminate(Runner & runner)
 {
-    //cerr << "postTerminate\n";
+    // cerr << "postTerminate\n";
 
-    //cerr << "waiting for wrapper pid " << wrapperPid << endl;
+    // cerr << "waiting for wrapper pid: " << wrapperPid << endl;
     int wrapperPidStatus;
     int res;
     while ((res = ::waitpid(wrapperPid, &wrapperPidStatus, 0)) == -1
-           && errno == EINTR) ;
+           && errno == EINTR);
     if (res == -1)
         throw ML::Exception(errno, "waitpid");
     if (res != wrapperPid)
