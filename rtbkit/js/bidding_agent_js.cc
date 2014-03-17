@@ -282,6 +282,7 @@ struct BiddingAgentJS :
 
         registerAsyncCallback(&RTBKIT::BiddingAgent::onPing, "onPing");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onError, "onError");
+        registerAsyncCallback(&RTBKIT::BiddingAgent::onByebye, "onByebye");
     }
 };
 

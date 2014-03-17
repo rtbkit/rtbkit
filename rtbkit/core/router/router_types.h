@@ -95,6 +95,7 @@ struct AgentStats {
 struct AgentStatus {
     AgentStatus()
         : dead(false), numBidsInFlight(0)
+	, suspected(0)
     {
         lastHeartbeat = Date::now();
     }
@@ -102,6 +103,7 @@ struct AgentStatus {
     bool dead;
     Date lastHeartbeat;
     size_t numBidsInFlight;
+    uint16_t suspected;
 };
 
 /// Information about a agent
