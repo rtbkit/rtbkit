@@ -82,7 +82,7 @@ inline bool match_hex4(long int & result, Parse_Context & c)
     
     for(unsigned i=0 ; i<4; ++i) {
         int digit;
-        if(isalnum(*c)) {
+        if(c && isalnum(*c)) {
             int car = *c;
             if (car >= '0' && car <= '9')
                 digit = car - '0';

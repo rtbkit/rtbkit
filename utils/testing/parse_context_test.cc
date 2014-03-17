@@ -161,6 +161,28 @@ BOOST_AUTO_TEST_CASE( test_long_long_parsing )
     test_long_long(LONG_LONG_MAX);
 }
 
+static const char * testUnicode_str = "0026\n026";
+
+void run_test_unicode(Parse_Context & context)
+{
+    int j = -1 ;
+    BOOST_CHECK(context.match_hex4(j));
+    BOOST_CHECK_EQUAL(j, 38);
+    BOOST_CHECK(context.match_eol());
+    BOOST_CHECK_EQUAL(context.get_line(), 2);
+    BOOST_CHECK_EQUAL(context.get_col(), 1);
+    j = -1 ;
+    BOOST_CHECK(!context.match_hex4(j));
+}
+
+BOOST_AUTO_TEST_CASE( test_Unicode )
+{
+    {
+        Parse_Context context("test unicode",
+                              testUnicode_str, testUnicode_str + strlen(testUnicode_str));
+        run_test_unicode(context);
+    }
+}
 static const char * test1_str = "Here \t is a\tparse context\nwith two\ni mean 3 lines";
 
 void run_test1(Parse_Context & context)
