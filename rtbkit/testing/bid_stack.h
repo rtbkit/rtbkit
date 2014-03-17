@@ -65,7 +65,7 @@ struct BidStack {
 
             auto json = item->getBidSourceConfiguration();
             std::cerr << json << std::endl;
-            mock += ML::format("{\"bids\":{\"lifetime\":%d,%s,\"wins\":{\"type\":\"none\"}},",
+            mock += ML::format("{\"bids\":{\"lifetime\":%d,%s,\"wins\":{\"type\":\"none\"},\"events\":{\"type\":\"none\"}},",
                                count,
                                json.substr(1));
         });

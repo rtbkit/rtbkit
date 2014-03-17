@@ -38,37 +38,6 @@ sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
 }
 
 
-void
-MockWinSource::
-sendImpression(const BidRequest& bidRequest, const Bid& bid)
-{
-    PostAuctionEvent event;
-    event.type = PAE_CAMPAIGN_EVENT;
-    event.label = "IMPRESSION";
-    event.auctionId = bidRequest.auctionId;
-    event.adSpotId = bid.adSpotId;
-    event.timestamp = Date::now();
-    event.uids = bidRequest.userIds;
-
-    sendEvent(event);
-}
-
-
-void
-MockWinSource::
-sendClick(const BidRequest& bidRequest, const Bid& bid)
-{
-    PostAuctionEvent event;
-    event.type = PAE_CAMPAIGN_EVENT;
-    event.label = "CLICK";
-    event.auctionId = bidRequest.auctionId;
-    event.adSpotId = bid.adSpotId;
-    event.timestamp = Date::now();
-    event.uids = bidRequest.userIds;
-
-    sendEvent(event);
-}
-
 
 void
 MockWinSource::

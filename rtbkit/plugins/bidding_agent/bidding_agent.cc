@@ -229,15 +229,15 @@ handleRouterMessage(const std::string & fromRouter,
                 switch (hash(message[1])) {  
                      // Backward compatibility : replace by CAMPAIGN_EVENT
                     case hash_compile_time("VISIT") : {
-                        handleDelivery(newMessage, onVisit); 
+                        handleDelivery(message, onVisit); 
                         break;
                     }
                     case hash_compile_time("IMPRESSION") : {
-                        handleDelivery(newMessage, onImpression); 
+                        handleDelivery(message, onImpression); 
                         break;
                     }
                     case hash_compile_time("CLICK") : {
-                        handleDelivery(newMessage, onClick); 
+                        handleDelivery(message, onClick); 
                         break;
                     }
                     default : {
@@ -258,7 +258,15 @@ handleRouterMessage(const std::string & fromRouter,
         case hash_compile_time("DROPPEDBID") : handleResult(message, onDroppedBid); break;
         case hash_compile_time("GOTCONFIG") : /* no-op */ ; break;
         case hash_compile_time("ERROR") : handleError(message, onError) ; break;
-        case hash_compile_time("BYEBYE") : /* no-op */; break;
+        case hash_compile_time("BYEBYE"): {
+             if (onByebye) {
+                 onByebye(fromRouter,Date::now());
+              }
+              else {
+                 cerr << "eviction notification received. agent should join again";
+              }
+              break;
+        }
         case hash_compile_time("PING0") : {
             //cerr << "ping0: message " << message << endl;
 
