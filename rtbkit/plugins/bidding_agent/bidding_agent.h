@@ -232,6 +232,16 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
      */
     ErrorCbFn onError;
 
+    typedef void (ByebyeCb) (const std::string& fromRouter,
+                             Date timestamp);
+    typedef boost::function<ByebyeCb> ByebyeCbFn;
+
+    /** Triggered whenever  router considers this agent as dead
+     */
+    ByebyeCbFn onByebye;
+
+
+
 private:
 
     /** Format of a message to a router. */
