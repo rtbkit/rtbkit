@@ -127,7 +127,7 @@ def main_archive (args):
     	        pass
     
     # we now add the examples directory
-    tarfile_add (tar_out, args.rtbkit_root+'/examples', base+'/examples')
+    tarfile_add (tar_out, args.rtbkit_root+'/rtbkit/examples', base+'/examples')
     
     # we deal with local includes
     tarfile_add (tar_out, args.local_root+'/include',base+'/include') 
@@ -142,7 +142,7 @@ def main_archive (args):
     # grab our sample json configs
     sample_configs= ['sample.bootstrap.json','sample.launch.json','sample.launch.scale.json','sample.redis.conf','sample.zookeeper.conf']
     for sample_config in sample_configs:
-        fn=args.rtbkit_root+'/'+sample_config
+        fn=args.rtbkit_root+'/rtbkit/'+sample_config
         if os.path.isfile(fn):
             tarfile_add (tar_out, fn, base+'/config/'+sample_config)
         else:
