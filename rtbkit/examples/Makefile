@@ -1,80 +1,47 @@
-CXX ?= g++
-CC ?= gcc
-FC := gfortran
-NODEJS_ENABLED:=1
-PYTHON_ENABLED:=0
+##
+## This simple makefiles allows to build RTBkit samples
+## 
+CXX       = g++ -pthread
+CPPFLAGS  = -I$(RTBKIT_HOME)/include 
+CPPFLAGS += -I$(RTBKIT_HOME)/include/rtbkit/
+CPPFLAGS += -I$(RTBKIT_HOME)/include/rtbkit/leveldb/include
+CXXFLAGS += -std=c++0x -ggdb -Wno-deprecated-declarations
 
-LOCAL_DIR?=$(HOME)/local
-NODE_PREFIX:=$(LOCAL_DIR)
-VOWS?=./node_modules/vows/bin/vows
-COFFEE?=./node_modules/coffee-script/bin/coffee
-LOCAL_LIB_DIR?=$(LOCAL_DIR)/lib /usr/local/lib
-LOCAL_INCLUDE_DIR?=$(LOCAL_DIR)/include
-
-MACHINE_NAME:=$(shell uname -n)
-
-
--include local.mk
-VIRTUALENV ?= $(LOCAL_DIR)/platform_virtualenv
-PYTHON ?= $(VIRTUALENV)/bin/python
-PIP ?= $(VIRTUALENV)/bin/pip
-
-default: all
-.PHONY: default
-
-BUILD   ?= build
-ARCH    ?= $(shell uname -m)
-OBJ     := $(BUILD)/$(ARCH)/obj
-GEN     := $(BUILD)/$(ARCH)/gen
-BIN     := $(BUILD)/$(ARCH)/bin
-TESTS   := $(BUILD)/$(ARCH)/tests
-SRC     := .
-TMP     ?= $(BUILD)/$(ARCH)/tmp
-TEST_TMP := $(TESTS)
-
-JML_BUILD := jml-build
-JML_TOP := jml
-INCLUDE := -I.
-
-export JML_TOP
-export BIN
-export BUILD
-export TEST_TMP
-export TMP
-
-include $(JML_BUILD)/arch/$(ARCH).mk
-
-CXX_VERSION?=$(shell g++ --version | head -n1 | sed 's/.* //g')
-
-CFLAGS += -fno-strict-overflow -msse4.2
-
-PKGINCLUDE_PACKAGES = sigc++-2.0 cairomm-1.0
-
-PKGCONFIG_INCLUDE:=$(shell pkg-config --cflags-only-I $(PKGINCLUDE_PACKAGES))
+LDFLAGS   = -Wl,--rpath-link,$(RTBKIT_HOME)/lib -L$(RTBKIT_HOME)/lib 
+LDFLAGS  += -Wl,--copy-dt-needed-entries
+LDFLAGS  += -Wl,--no-as-needed
+LIBS      = -lexception_hook -ltcmalloc -ldl 
 
 
-CXXFLAGS += -Wno-deprecated -Winit-self -fno-omit-frame-pointer -std=c++0x -fno-deduce-init-list -I$(NODE_PREFIX)/include/node -msse3 -Ileveldb/include -Wno-unused-but-set-variable -I$(LOCAL_INCLUDE_DIR) -I$(GEN) $(PKGCONFIG_INCLUDE) -Wno-psabi -D__GXX_EXPERIMENTAL_CXX0X__=1
-CXXLINKFLAGS += -Wl,--copy-dt-needed-entries -Wl,--no-as-needed -L/usr/local/lib
-CFLAGS +=  -Wno-unused-but-set-variable
+EXECS     = multi_agent  data_logger_ex \
+            bidding_agent_console bidding_agent_ex \
+            bid_request_endpoint \
+            adserver_endpoint \
+            integration_endpoints
 
-VALGRINDFLAGS := --suppressions=valgrind.supp --error-exitcode=1 --leak-check=full
+all: $(EXECS)
 
-$(if $(findstring x4.5,x$(CXX_VERSION)),$(eval CXXFLAGS += -Dnoexcept= -Dnullptr=NULL))
+multi_agent: multi_agent.o
+	$(CXX) -o multi_agent multi_agent.o $(LDFLAGS) $(LIBS) -lrtb_router -lbidding_agent -lboost_program_options -lservices
 
-include $(JML_BUILD)/functions.mk
-include $(JML_BUILD)/rules.mk
-include $(JML_BUILD)/node.mk
-include $(JML_BUILD)/python.mk
-include $(JML_BUILD)/tcmalloc.mk
+data_logger_ex: data_logger_ex.o
+	$(CXX) -o data_logger_ex data_logger_ex.o $(LDFLAGS) $(LIBS) -ldata_logger -lboost_program_options -lservices
 
-SUBDIRS := jml tinyxml2 googleurl leveldb soa rtbkit
+bidding_agent_console: bidding_agent_console.o
+	$(CXX) -o bidding_agent_console bidding_agent_console.o $(LDFLAGS) $(LIBS) -lbidding_agent -lrtb_router -lboost_program_options -lservices
+
+bidding_agent_ex: bidding_agent_ex.o
+	$(CXX) -o bidding_agent_ex bidding_agent_ex.o $(LDFLAGS) $(LIBS) -lbidding_agent -lrtb_router -lboost_program_options -lservices
+
+bid_request_endpoint: bid_request_endpoint.o
+	$(CXX) -o bid_request_endpoint bid_request_endpoint.o $(LDFLAGS) $(LIBS) -lbidding_agent -lexchange -lrtb_router -lbid_request -lboost_program_options -lservices
+
+adserver_endpoint: adserver_endpoint.o
+	$(CXX) -o adserver_endpoint adserver_endpoint.o $(LDFLAGS) $(LIBS) -lstandard_adserver -ldata_logger -lrtb_router -lbidding_agent -lboost_program_options -lservices
+
+integration_endpoints: integration_endpoints.o
+	$(CXX) -o integration_endpoints integration_endpoints.o $(LDFLAGS) $(LIBS) -lexchange -lstandard_adserver -ldata_logger -lrtb_router -lbidding_agent -lboost_program_options -lservices
 
 
-PREMAKE := 1
-
-$(eval $(call include_sub_makes,$(SUBDIRS)))
-
-
-PREMAKE := 0
-
-$(eval $(call include_sub_makes,$(SUBDIRS)))
+clean:
+	$(RM) $(EXECS) *.o
