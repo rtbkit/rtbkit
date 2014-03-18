@@ -87,9 +87,9 @@ inline bool match_hex4(long int & result, Parse_Context & c)
             if (car >= '0' && car <= '9')
                 digit = car - '0';
             else if (car >= 'a' && car <= 'f')
-                digit = car - 'a';
+                digit = car - 'a' + 10 ;
             else if (car >= 'A' && car <= 'F')
-                digit = car - 'A';
+                digit = car - 'A' + 10;
             else {
                 return false;
             }
