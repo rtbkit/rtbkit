@@ -50,10 +50,18 @@ BOOST_AUTO_TEST_CASE( test_agent_configuration )
         {
             currentName = agent;
             //ExcAssertEqual(agent, "bidding_agent");
-            cerr << "got new configuration for agent " << agent << endl;
             currentConfig = config;
-            ++numConfigurations;
-            ML::futex_wake(numConfigurations);
+            if (config) {
+                cerr << "got new configuration for agent " << agent << endl;
+                ++numConfigurations;
+                ML::futex_wake(numConfigurations);
+            }
+            else {
+            	cerr << "agent " << agent << " removed\n";
+                --numConfigurations;
+                ML::futex_wake(numConfigurations);
+            }
+
         };
 
     listener.init(proxies->config);
@@ -112,6 +120,15 @@ BOOST_AUTO_TEST_CASE( test_agent_configuration )
     BOOST_CHECK_EQUAL(listener.getAgentEntry("bidding_agent2").config,
                       currentConfig);
     BOOST_CHECK_EQUAL(currentName, "bidding_agent2");
+
+    // now we shutdown agent2 and verify that we've received a void config
+    // for it.
+    agent2.shutdown();
+
+    while (numConfigurations == 3)
+        futex_wait(numConfigurations, 3);
+    BOOST_CHECK_EQUAL(numConfigurations, 2);
+
 
     cerr << "tests done" << endl;
 }
