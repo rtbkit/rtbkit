@@ -34,13 +34,15 @@ const std::string SNIPPET2 = "%{creative.name}";
 const std::string SNIPPET3 = "%{meta.test.coucou}";
 const std::string SNIPPET4 = "%{meta.filter#upper}";
 const std::string SNIPPET5 = "%{meta.filter#lower}";
+const std::string SNIPPET6 = "%{meta.filter#urlencode}";
 
 #define APPLY_ON_SNIPPETS(SNIPPET_FN)   \
     SNIPPET_FN(1, SNIPPET1)             \
     SNIPPET_FN(2, SNIPPET2)             \
     SNIPPET_FN(3, SNIPPET3)             \
     SNIPPET_FN(4, SNIPPET4)             \
-    SNIPPET_FN(5, SNIPPET5)
+    SNIPPET_FN(5, SNIPPET5)             \
+    SNIPPET_FN(6, SNIPPET6)
 
 const auto providerConfigSnippet = [&](){
     Json::Value conf;
@@ -169,6 +171,7 @@ BOOST_AUTO_TEST_CASE(test_snippet)
         const auto RESULT3 = "Test:Meta";
         const auto RESULT4 = "TEST:META";
         const auto RESULT5 = "test:meta";
+        const auto RESULT6 = "Test%3AMeta";
 
 #define APPLY_FN(NB, var) \
         BOOST_CHECK_EQUAL(RESULT ## NB, conf.expand(var, context));
