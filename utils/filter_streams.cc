@@ -637,4 +637,171 @@ struct RegisterFileHandler {
 
 } registerFileHandler;
 
+
+
+/* "mem:" scheme for using memory as storage backend. Only useful for testing. */
+
+namespace {
+
+mutex memStringsLock;
+map<string, string> memStrings;
+
+} // "mem" scheme
+
+string &
+getMemStreamString(const string & name)
+{
+    unique_lock<mutex> guard(memStringsLock);
+
+    return memStrings.at(name);    
+}
+
+void
+setMemStreamString(const std::string & name,
+                   const std::string & contents)
+{
+    unique_lock<mutex> guard(memStringsLock);
+
+    memStrings.insert({name, contents});
+}
+
+void
+deleteMemStreamString(const std::string & name)
+{
+    unique_lock<mutex> guard(memStringsLock);
+
+    memStrings.erase(name);    
+}
+
+void
+deleteAllMemStreamStrings()
+{
+    unique_lock<mutex> guard(memStringsLock);
+
+    memStrings.clear();
+}
+
+
+struct MemStreamingInOut {
+    MemStreamingInOut(string & targetString)
+        : open_(true), pos_(0), targetString_(targetString)
+    {
+    }
+
+    typedef char char_type;
+
+    bool is_open() const
+    {
+        return open_;
+    }
+
+    void close()
+    {
+        open_ = false;
+    }
+
+    bool open_;
+    size_t pos_;
+    string & targetString_;
+};
+
+struct MemStreamingIn : public MemStreamingInOut {
+    struct category
+        : public boost::iostreams::input,
+          public boost::iostreams::device_tag,
+          public boost::iostreams::closable_tag
+    {
+    };
+
+    MemStreamingIn(string & targetString)
+        : MemStreamingInOut(targetString)
+    {
+    }
+
+    streamsize read(char * s, streamsize n)
+    {
+        streamsize res;
+        unique_lock<mutex> guard(memStringsLock);
+
+        size_t maxLen = std::min<size_t>(targetString_.size() - pos_,
+                                         n);
+        if (maxLen > 0) {
+            const char * start = targetString_.c_str() + pos_;
+            copy(start, start + maxLen, s);
+            pos_ += maxLen;
+            res = maxLen;
+        }
+        else {
+            res = -1;
+        }
+
+        return res;
+    }
+};
+
+struct MemStreamingOut : public MemStreamingInOut {
+    struct category
+        : public boost::iostreams::output,
+          public boost::iostreams::device_tag,
+          public boost::iostreams::closable_tag
+    {
+    };
+
+    MemStreamingOut(string & targetString)
+        : MemStreamingInOut(targetString)
+    {
+    }
+
+    streamsize write(const char * s, streamsize n)
+    {
+        unique_lock<mutex> guard(memStringsLock);
+
+        size_t nextLen = pos_ + n;
+        targetString_.reserve(nextLen);
+        targetString_.append(s, n);
+        pos_ = nextLen;
+
+        return n;
+    }
+};
+
+struct RegisterMemHandler {
+    static pair<streambuf *, bool>
+    getMemHandler(const string & scheme,
+                  string resource,
+                  ios_base::open_mode mode,
+                  const map<string, string> & options)
+    {
+        if (scheme != "mem")
+            throw ML::Exception("bad scheme name");
+        if (resource == "")
+            throw ML::Exception("bad resource name");
+
+        unique_lock<mutex> guard(memStringsLock);
+
+        // cerr << "string resource : " + resource + "\n";
+        string & targetString = memStrings[resource];
+
+        unique_ptr<std::streambuf> streamBuf;
+        if (mode == ios::in) {
+            streamBuf.reset(new boost::iostreams::stream_buffer<MemStreamingIn>(MemStreamingIn(targetString),
+                                                                                4096));
+        }
+        else if (mode == ios::out) {
+            streamBuf.reset(new boost::iostreams::stream_buffer<MemStreamingOut>(MemStreamingOut(targetString),
+                                                                                 4096));
+        }
+        else {
+            throw ML::Exception("unable to create mem handler");
+        }
+        return make_pair(streamBuf.release(), true);
+    }
+
+    RegisterMemHandler()
+    {
+        registerUriHandler("mem", getMemHandler);
+    }
+
+} registerMemHandler;
+
 } // namespace ML
