@@ -32,7 +32,7 @@ struct StandardAdServerArguments : ServiceProxyArguments
     int winPort;
     int eventsPort;
 
-    bool isUnitTest;
+    bool verbose;
 };
 
 struct StandardAdServerConnector : public HttpAdServerConnector
@@ -48,11 +48,11 @@ struct StandardAdServerConnector : public HttpAdServerConnector
     void shutdown();
 
     /** Handle events received on the win port */
-    void handleWinRq(const HttpHeader & header,
+    HttpAdServerResponse handleWinRq(const HttpHeader & header,
                      const Json::Value & json, const string & jsonStr);
 
     /** Handle events received on the events port */
-    void handleDeliveryRq(const HttpHeader & header,
+    HttpAdServerResponse handleDeliveryRq(const HttpHeader & header,
                           const Json::Value & json, const string & jsonStr);
 
     /** */
@@ -60,7 +60,8 @@ struct StandardAdServerConnector : public HttpAdServerConnector
 
 private :
 
-    void init(int winsPort, int eventsPort, bool isTest);
+    void init(int winsPort, int eventsPort, bool verbose);
+    virtual void initEventType(const Json::Value &json);
 
     void writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, 
                                    const string & auctionId, const string & adSpotId, 
@@ -70,8 +71,9 @@ private :
     void writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdStr, 
                                         const string & adSpotIdStr, const string &  userIdStr, 
                                         const string &event);
-    
-    bool isUnitTest;
+
+    std::map<std::string , std::string> eventType;  
+    bool verbose;
 };
 
 } // namespace RTBKIT

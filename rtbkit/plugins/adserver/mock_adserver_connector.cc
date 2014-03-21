@@ -28,7 +28,7 @@ void MockAdServerConnector::init(int winPort, int eventPort) {
     auto handleEvent = [&](const Datacratic::HttpHeader & header,
                            const Json::Value & json,
                            const std::string & text) {
-        this->handleEvent(PostAuctionEvent(json));
+        return this->handleEvent(PostAuctionEvent(json));
     };
     registerEndpoint(winPort, handleEvent);
     registerEndpoint(eventPort, handleEvent);
@@ -55,7 +55,9 @@ void MockAdServerConnector::shutdown() {
 }
 
 
-void MockAdServerConnector::handleEvent(PostAuctionEvent const & event) {
+HttpAdServerResponse MockAdServerConnector::handleEvent(PostAuctionEvent const & event) {
+    HttpAdServerResponse response;
+
     if(event.type == PAE_WIN) {
         publishWin(event.auctionId,
                    event.adSpotId,
@@ -78,6 +80,8 @@ void MockAdServerConnector::handleEvent(PostAuctionEvent const & event) {
                              Json::Value(),
                              event.uids);
     }
+    
+    return response;
 }
 
 namespace {

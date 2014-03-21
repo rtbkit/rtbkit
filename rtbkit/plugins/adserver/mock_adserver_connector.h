@@ -45,7 +45,7 @@ struct MockAdServerConnector : public HttpAdServerConnector
     void init(int winPort, int eventPort);
     void start();
     void shutdown();
-    void handleEvent(PostAuctionEvent const & event);
+    HttpAdServerResponse handleEvent(PostAuctionEvent const & event);
 
     /// Generic publishing endpoint to forward wins to anyone registered. Currently, there's only the
     /// router that connects to this.
