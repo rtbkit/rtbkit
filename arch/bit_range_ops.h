@@ -11,6 +11,7 @@
 #include "jml/arch/arch.h"
 #include "jml/compiler/compiler.h"
 #include "jml/arch/format.h"
+#include "jml/arch/atomic_ops.h"
 #include <cstddef>
 #include <stdint.h>
 #include <algorithm>
@@ -198,6 +199,7 @@ Data set_bits(Data in, Data val, shift_t bit, shift_t bits)
 }
 
 template<typename Data>
+JML_ALWAYS_INLINE
 void set_bit_range(Data& p0, Data& p1, Data val, shift_t bit, shift_t bits)
 {
     if (JML_UNLIKELY(bits == 0)) return;
