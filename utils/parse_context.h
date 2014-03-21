@@ -283,7 +283,7 @@ struct Parse_Context {
     bool match_unsigned(unsigned & val, unsigned min = 0,
                         unsigned max = INT_MAX);
     
-    int expect_unsigned(unsigned min = 0, unsigned max = INT_MAX,
+    unsigned expect_unsigned(unsigned min = 0, unsigned max = INT_MAX,
                         const char * error = "expected unsigned");
  
     bool match_long(long & val,

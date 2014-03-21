@@ -239,7 +239,7 @@ match_unsigned(unsigned & val_, unsigned min, unsigned max)
     return true;
 }
 
-int
+unsigned
 Parse_Context::
 expect_unsigned(unsigned min, unsigned max, const char * error)
 {
