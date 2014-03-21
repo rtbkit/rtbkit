@@ -39,7 +39,7 @@ struct StandardAdServerConnector : public HttpAdServerConnector
 {
     StandardAdServerConnector(shared_ptr<Datacratic::ServiceProxies> & proxy,
                               const string & serviceName = "StandardAdServer");
-    StandardAdServerConnector(std::shared_ptr<Datacratic::ServiceProxies> const & proxy,
+    StandardAdServerConnector(std::string const & serviceName, std::shared_ptr<Datacratic::ServiceProxies> const & proxy,
                               Json::Value const & json);
 
     void init(StandardAdServerArguments & ssConfig);

@@ -61,9 +61,9 @@ StandardAdServerConnector(std::shared_ptr<ServiceProxies> & proxy,
 }
 
 StandardAdServerConnector::
-StandardAdServerConnector(std::shared_ptr<ServiceProxies> const & proxies,
+StandardAdServerConnector(std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies,
                           Json::Value const & json) :
-    HttpAdServerConnector(json.get("name", "standard-adserver").asString(), proxies),
+    HttpAdServerConnector(serviceName, proxies),
     publisher_(getServices()->zmqContext) {
     int winPort = json.get("winPort", 18143).asInt();
     int eventsPort = json.get("eventsPort", 18144).asInt();
@@ -304,9 +304,8 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        AdServerConnector::registerFactory("standard", [](std::shared_ptr<ServiceProxies> const & proxies,
-                                                          Json::Value const & json) {
-            return new StandardAdServerConnector(proxies, json);
+        AdServerConnector::registerFactory("standard", [](std::string const & serviceName , std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) {
+            return new StandardAdServerConnector(serviceName, proxies, json);
         });
     }
 } atInit;

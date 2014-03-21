@@ -39,7 +39,7 @@ struct MockAdServerConnector : public HttpAdServerConnector
           publisher(getServices()->zmqContext) {
     }
 
-    MockAdServerConnector(std::shared_ptr<ServiceProxies> const & proxies,
+    MockAdServerConnector(std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies,
                           Json::Value const & json);
 
     void init(int winPort, int eventPort);
