@@ -228,6 +228,28 @@ expect_int(int min, int max, const char * error)
 
 bool
 Parse_Context::
+match_hex4(int & val_, int min, int max)
+{
+    Revert_Token tok(*this);
+    long val = 0;
+    if (!ML::match_hex4(val, *this)) return false;
+    if (val < min || val > max) return false;
+    val_ = val;
+    tok.ignore();
+    return true;
+}
+
+int
+Parse_Context::
+expect_hex4(int min, int max, const char * error)
+{
+    int result;
+    if (!match_hex4(result, min, max)) exception(error);
+    return result;
+}
+
+bool
+Parse_Context::
 match_unsigned(unsigned & val_, unsigned min, unsigned max)
 {
     Revert_Token tok(*this);

@@ -280,6 +280,12 @@ struct Parse_Context {
     int expect_int(int min = -INT_MAX, int max = INT_MAX,
                    const char * error = "expected integer");
 
+    bool match_hex4(int & val, int min = -INT_MAX, int max = INT_MAX);
+    
+    int expect_hex4(int min = -INT_MAX, int max = INT_MAX,
+                   const char * error = "invalid hexadecimal in code");
+
+
     bool match_unsigned(unsigned & val, unsigned min = 0,
                         unsigned max = INT_MAX);
     
