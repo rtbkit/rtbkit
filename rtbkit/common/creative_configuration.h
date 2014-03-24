@@ -126,6 +126,21 @@ public:
                     return value;
                 }
             },
+            {
+                "urlencode",
+                [](std::string& value) -> std::string&
+                {
+                    std::string result;
+                    for (auto c: value) {
+                        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+                            result += c;
+                        else result += ML::format("%%%02X", c);
+                    }
+
+                    value = std::move(result);
+                    return value;
+                }
+            },
         };
 
     }
