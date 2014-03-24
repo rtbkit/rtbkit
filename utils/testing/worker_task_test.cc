@@ -76,28 +76,12 @@ void test_semaphore(int nthreads, int niter)
     BOOST_CHECK_EQUAL(errors, 0);
 }
 
-#if 0
-BOOST_AUTO_TEST_CASE(test_ace_semaphore)
-{
-    test_semaphore<ACE_Semaphore>(1, 1000000);
-    test_semaphore<ACE_Semaphore>(10, 100000);
-    test_semaphore<ACE_Semaphore>(100, 10000);
-}
-#endif
-
-BOOST_AUTO_TEST_CASE(test_our_semaphore)
-{
-    test_semaphore<Semaphore>(1, 1000000);
-    test_semaphore<Semaphore>(10, 100000);
-    test_semaphore<Semaphore>(100, 10000);
-}
-
 void null_job()
 {
 }
 
 void test_overhead_job(int nthreads, int ntasks, bool verbose = true,
-                       void (&job) () = null_job)
+                       const Job & job = null_job)
 {
     Worker_Task worker(nthreads - 1);
     
@@ -119,10 +103,31 @@ void test_overhead_job(int nthreads, int ntasks, bool verbose = true,
     }
     
     worker.run_until_finished(group);
-    
+
     if (verbose)
         cerr << "elapsed for " << ntasks << " null tasks in " << nthreads
              << " threads:" << timer.elapsed() << endl;
+}
+
+void exception_job()
+{
+    throw Exception("there was an exception");
+}
+
+#if 0
+BOOST_AUTO_TEST_CASE(test_ace_semaphore)
+{
+    test_semaphore<ACE_Semaphore>(1, 1000000);
+    test_semaphore<ACE_Semaphore>(10, 100000);
+    test_semaphore<ACE_Semaphore>(100, 10000);
+}
+#endif
+
+BOOST_AUTO_TEST_CASE(test_our_semaphore)
+{
+    test_semaphore<Semaphore>(1, 1000000);
+    test_semaphore<Semaphore>(10, 100000);
+    test_semaphore<Semaphore>(100, 10000);
 }
 
 BOOST_AUTO_TEST_CASE( test_create_destroy )
@@ -143,15 +148,11 @@ BOOST_AUTO_TEST_CASE( test_overhead )
     test_overhead_job(16, njobs);
 }
 
-void exception_job()
-{
-    throw Exception("there was an exception");
-}
-
 BOOST_AUTO_TEST_CASE( test_exception )
 {
     int njobs = 1000;
     set_trace_exceptions(false);
+
     for (unsigned i = 0;  i < 100;  ++i) {
         JML_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(test_overhead_job(4, njobs, false /* verbose */,
@@ -159,4 +160,3 @@ BOOST_AUTO_TEST_CASE( test_exception )
                           std::exception);
     }
 }
-
