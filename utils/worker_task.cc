@@ -24,6 +24,7 @@ using namespace std;
 namespace ML {
 
 Env_Option<int> NUM_THREADS("NUM_THREADS", -1);
+Env_Option<int> DEBUG_LOGGING("DEBUG_LOGGING", 0);
 
 int num_threads()
 {
@@ -35,6 +36,13 @@ int num_threads()
     return result;
 }
 
+void log(const string & msg)
+{
+    if (DEBUG_LOGGING != 0) {
+        pid_t tid = (long) syscall(SYS_gettid);
+        cerr << to_string(tid) + ": " + msg;
+    }
+}
 
 const Job NO_JOB;
 
@@ -69,9 +77,10 @@ Worker_Task(int threads)
         workerThreads_.emplace_back(new std::thread(std::bind(&Worker_Task::runWorkerThread, this)));
 }
 
-Worker_Task::~Worker_Task()
+Worker_Task::
+~Worker_Task()
 {
-    //cerr << "stopping worker task" << endl;
+    log("~Worker_Task: stopping worker task\n");
     force_finished = true;
 
     // Wake up all tasks by providing jobs
@@ -93,6 +102,8 @@ Worker_Task::~Worker_Task()
             ML::sleep(0.01);
         t->join();
     }
+
+    log("~Worker_Task: stopped worker task\n");
 }
 
 Worker_Task::Id
@@ -159,6 +170,10 @@ add(const Job & job, const Job & error, const std::string & job_info, Id group)
             throw Exception("Worker_Task::add(): group info has none");
 
         Group_Info & group_info = groups[group];
+        if (group_info.exc) {
+            log("ignoring job addition to an error group\n");
+            return -1;
+        }
         ++group_info.jobs_outstanding;
         
         /* Jobs::iterator it = */ jobs.insert(group_info.group_job, info);
@@ -209,19 +224,26 @@ int Worker_Task::runWorkerThread()
     
     while (!force_finished) {
         
+        log("runWorkerThread: getting job\n");
         Job_Info info = get_job();
+        log("runWorkerThread: got job: " + to_string(info.id) + "\n");
 
         if (force_finished) break;
 
         try {
+            log("runWorkerThread: running job\n");
             //cerr << "thread " << ACE_OS::thr_self() << " is running job "
             //     << info.id << " (" << info.info << ")" << endl;
-            info.job();
-            //cerr << "thread " << ACE_OS::thr_self() << " is finished job "
-            //     << info.id << " (" << info.info << ")" << endl;
-            finish_job(info);
+            if (!info.invalidGroup) {
+                info.job();
+            }
+            else {
+                log("skipping job from invalid group\n");
+            }
         }
         catch (const std::exception & exc) {
+            log("runWorkerThread: job exception: " + string(exc.what())
+                + "\n");
             // TODO: make this exception go to the calling process
             //cerr << "thread " << ACE_OS::thr_self() << " running job "
             //     << info.id << " (" << info.info << "): " << endl;
@@ -239,13 +261,22 @@ int Worker_Task::runWorkerThread()
             if (info.group != -1) {
                 Guard guard(lock);
                 Group_Info & group_info = groups[info.group];
-                group_info.error = true;
-                group_info.error_message = exc.what();
-                cancel_group_ul(group_info, info.group);
+                if (!group_info.exc) {
+                    /* When a job fails in a group, all remaining jobs from
+                       this group are marked for skipping and the queue is
+                       cleaned up gradually via get_job/finish_job. This
+                       marking is performed by both the worker and control
+                       threads. When it is known that all jobs have been fully
+                       executed or skipped, the group is then removed and the
+                       exception rethrown from the control thread. */
+                    group_info.exc = current_exception();
+                    mark_group_jobs_invalid_ul(group_info, info.group);
+                }
             }
-
-            finish_job(info);
         }
+        //cerr << "thread " << ACE_OS::thr_self() << " is finished job "
+        //     << info.id << " (" << info.info << ")" << endl;
+        finish_job(info);
     }
 
     shutdown_sem.release();
@@ -298,8 +329,12 @@ void Worker_Task::run_until_released(Semaphore & sem, int group)
             // release lock here
 
             try {
-                info.job();
-                finish_job(info);
+                if (!info.invalidGroup) {
+                    info.job();
+                }
+                else {
+                    log("skipping job from invalid group\n");
+                }
             }
             catch (const std::exception & exc) {
                 // TODO: make this exception go to the calling process
@@ -312,8 +347,9 @@ void Worker_Task::run_until_released(Semaphore & sem, int group)
                     cerr << "warning: job error function throw exception: "
                          << exc.what() << endl;
                 }
-                finish_job(info);
             }
+
+            finish_job(info);
 
             continue;
         }
@@ -337,6 +373,7 @@ void
 Worker_Task::
 cancel_group_ul(Group_Info & group_info, int group)
 {
+    log("cancel_group_ul\n");
     //cerr << "thread " << ACE_OS::thr_self() << " cancel_group() "
     //     << group_info.info << endl;
     
@@ -347,7 +384,6 @@ cancel_group_ul(Group_Info & group_info, int group)
     /* Iterate through this group's jobs. */
         
     while (it != group_info.group_job) {
-
         while (it != group_info.group_job
                && (it->id == -1 || !in_group(*it, group))) ++it;
             
@@ -364,15 +400,33 @@ cancel_group_ul(Group_Info & group_info, int group)
         it = next;
     }
     
-    //cerr << "finished clearing jobs for group " << group << endl;
+    log("finished clearning jobs for group " + to_string(group) + "\n");
 }
 
 void
 Worker_Task::
-force_finish_group(Group_Info & group_info, int group)
+mark_group_jobs_invalid_ul(Group_Info & group_info, int group)
 {
-    cancel_group(group_info, group);
+    log("mark_group_jobs_invalid_ul\n");
 
+    if (group == -1) {
+        throw ML::Exception("cannot mark group -1 as invalid");
+    }
+
+    for (Jobs::iterator it = jobs.begin(); it != group_info.group_job; it++) {
+        if (it->group == group) {
+            it->invalidGroup = true;
+        }
+    }
+
+    log("mark_group_jobs_invalid_ul done\n");
+}
+
+void
+Worker_Task::
+wait_group_finished(Group_Info & group_info, int group)
+{
+    // cancel_group(group_info, group);
     /* Wait until everything has stopped running in this group. */
 
     Semaphore state_semaphore(0);
@@ -386,6 +440,7 @@ force_finish_group(Group_Info & group_info, int group)
         state_semaphore.acquire();
 
     /* Group should be finished. */
+    log("group finished\n");
 }
 
 void
@@ -395,7 +450,7 @@ run_until_finished(int group, bool unlock)
     /* We check at every change in state for either a) the group being
        finished or b) an error from the group or c) a job being available.
     */
-    
+
     map<Id, Group_Info>::iterator group_it;
     
     /* Lock the group so that it doesn't get removed. */
@@ -438,60 +493,61 @@ run_until_finished(int group, bool unlock)
 
         /* Is the group finished?  If so, we can get out of here. */
         {
-            if (group_info.error) {
-                //cerr << "thread " << ACE_OS::thr_self()
-                //     << " had a group error" << endl;
-                /* The group had an error.  Wait until there's nothing
-                   running, then throw an exception. */
+            if (group_info.jobs_outstanding
+                + group_info.jobs_running
+                + group_info.groups_outstanding == 0) {
+                /* We're finished */
 
-                /* Save the message, as we're about to remove the
-                   group. */
-                string message = group_info.error_message;
-                
-                //cerr << "finishing the group..." << endl;
-
-                force_finish_group(group_info, group);
-
-                //cerr << "done finishing group" << endl;
-
-                /* Unlock the group to allow everything to finish. */
-                unlock_guard.clear();
-                unlock_group(group);
-
-                /* Done; throw the exception. */
-                
-                throw Exception("Error in worker job: " + message);
-            }
-            else {
-                if (group_info.jobs_outstanding
-                    + group_info.jobs_running
-                    + group_info.groups_outstanding == 0) {
-                    /* We're finished */
+                /* If the group had an error, clean up the group structures,
+                 * then rethrow the exception that occurred. */
+                if (group_info.exc) {
                     //cerr << "thread " << ACE_OS::thr_self()
-                    //     << " finished all jobs" << endl;
-                    return;
+                    //     << " had a group error" << endl;
+
+                    /* Save and replace the exception ptr, as we're about to
+                       remove the group. */
+                    exception_ptr exc = group_info.exc;
+                    group_info.exc = exception_ptr();
+
+                    /* Unlock the group to allow everything to finish. */
+                    unlock_guard.clear();
+                    unlock_group(group);
+
+                    /* Done; throw the exception. */
+                    if (exc)
+                        rethrow_exception(exc);
                 }
+                else
+                    return;
             }
         }
 
         /* Run a job if we can */
         Job_Info info;
+        log("run_until_finished: try to get job\n");
         if (try_get_job(info, group)) {
-
+            log("run_until_finished: got job: " + to_string(info.id) + "\n");
             try {
                 //cerr << "thread " << ACE_OS::thr_self() << " is running job "
                 //     << info.id << " (" << info.info << ")" << endl;
-                info.job();
+                log("run_until_finished: running job\n");
+                if (!info.invalidGroup) {
+                    info.job();
+                }
+                else {
+                    log("skipping job from invalid group\n");
+                }
+
                 //cerr << "thread " << ACE_OS::thr_self() << " finished job "
                 //     << info.id << " (" << info.info << ")" << endl;
-                finish_job(info);
             }
             catch (const std::exception & exc) {
+                log("run_until_finished: job exception\n");
                 // TODO: make this exception go to the calling process
                 //cerr << "thread " << ACE_OS::thr_self() << " running job "
                 //     << info.id << " (" << info.info << "):" << endl;
-                cerr << "warning: job threw exception: "
-                     << exc.what() << endl;
+                // cerr << "run_until_finished: warning: job threw exception: "
+                //      << exc.what() << endl;
                 try {
                     if (info.error) info.error();
                 }
@@ -504,13 +560,13 @@ run_until_finished(int group, bool unlock)
                 if (info.group != -1) {
                     Guard guard(lock);
                     Group_Info & group_info = groups[info.group];
-                    group_info.error = true;
-                    group_info.error_message = exc.what();
-                    cancel_group_ul(group_info, info.group);
+                    if (!group_info.exc) {
+                        group_info.exc = current_exception();
+                        mark_group_jobs_invalid_ul(group_info, info.group);
+                    }
                 }
-
-                finish_job(info);
             }
+            finish_job(info);
             
             continue;  // no state change needed
         }
@@ -530,10 +586,12 @@ lend_thread(int group)
         try {
             //cerr << "thread " << ACE_OS::thr_self() << " is running job "
             //     << info.id << " (" << info.info << ")" << endl;
-            info.job();
-            //cerr << "thread " << ACE_OS::thr_self() << " finished job "
-            //     << info.id << " (" << info.info << ")" << endl;
-            finish_job(info);
+            if (!info.invalidGroup) {
+                info.job();
+            }
+            else {
+                log("skipping job from invalid group\n");
+            }
         }
         catch (const std::exception & exc) {
             // TODO: make this exception go to the calling process
@@ -553,13 +611,15 @@ lend_thread(int group)
             if (info.group != -1) {
                 Guard guard(lock);
                 Group_Info & group_info = groups[info.group];
-                group_info.error = true;
-                group_info.error_message = exc.what();
-                cancel_group_ul(group_info, info.group);
+                if (!group_info.exc) {
+                    group_info.exc = current_exception();
+                    cancel_group_ul(group_info, info.group);
+                }
             }
-
-            finish_job(info);
         }
+        //cerr << "thread " << ACE_OS::thr_self() << " finished job "
+        //     << info.id << " (" << info.info << ")" << endl;
+        finish_job(info);
     }
 }
 
@@ -589,7 +649,8 @@ bool Worker_Task::in_group(const Job_Info & info, int group)
     return false;
 }
 
-Worker_Task::Job_Info Worker_Task::get_job(int group)
+Worker_Task::Job_Info
+Worker_Task::get_job(int group)
 {
     /* Block until we can acquire a semaphore to have jobs. */
     for (unsigned i = 0;  i < 100;  ++i) {
@@ -633,7 +694,9 @@ Worker_Task::Job_Info Worker_Task::get_job_impl(int group)
     return get_job_impl_ul(group);
 }
 
-Worker_Task::Job_Info Worker_Task::get_job_impl_ul(int group)
+Worker_Task::Job_Info
+Worker_Task::
+get_job_impl_ul(int group)
 {
     //cerr << "thread " << ACE_OS::thr_self()
     //     << " is getting a job in group " << group
@@ -652,18 +715,17 @@ Worker_Task::Job_Info Worker_Task::get_job_impl_ul(int group)
         if (it == jobs.end())
             throw Exception("get_job(): internal error: "
                             "semaphore acquired with zero jobs");
-
     }
     else {
         map<Id, Group_Info>::const_iterator group_it
             = groups.find(group);
         if (group_it == groups.end()) {
             //throw Exception("iterator not found in group");
-            cerr << "coldn't find group " << group << " in  list"
+            cerr << "couldn't find group " << group << " in  list"
                  << endl;
             return get_job_impl_ul(-1);
         }
-        else if (group_it->second.error)
+        else if (group_it->second.exc)
             return get_job_impl_ul(-1);  // group has an error; we don't do it
         else it = jobs.begin();
         
@@ -692,7 +754,9 @@ Worker_Task::Job_Info Worker_Task::get_job_impl_ul(int group)
     return result;
 }
 
-void Worker_Task::finish_job(const Job_Info & info)
+void
+Worker_Task::
+finish_job(const Job_Info & info)
 {
     Guard guard(lock, std::defer_lock);
 
@@ -741,11 +805,12 @@ remove_job_ul(const Jobs::iterator & it)
     --num_queued;
     
     if (jobs_sem.tryacquire() == -1) {
-        cerr << "errno = " << errno << endl;
-        cerr << "error = " << strerror(errno) << endl;
-        cerr << "Worker_Task::remove_job(): couldn't acquire the job "
-             << "semaphore" << endl;
-        cerr << "force_finished = " << force_finished << endl;
+        log(string("remove_job_ul error:\n")
+            + "errno = " + to_string(errno) + "\n"
+            + "error = " + strerror(errno) + "\n"
+            + "Worker_Task::remove_job_ul(): couldn't acquire the job "
+            + "semaphore\n"
+            + "force_finished = " + to_string(force_finished) + "\n");
         dump();
         abort();
     }
@@ -794,12 +859,14 @@ bool Worker_Task::check_finished_ul(Id group)
            && group_info->groups_outstanding == 0) {
         //cerr << "  *** yes, group " << group << " is finished" << endl;
 
-        if (group_info->locked) return false;
+        /* If group has an exception attached to it, it must stay in memory
+           until the control thread handles it. */
+        if (group_info->exc || group_info->locked) return false;
 
         //cerr << "finished group " << group << endl;
 
         try {
-            if (group_info->finished && !group_info->error)
+            if (group_info->finished && !group_info->exc)
                 group_info->finished();
         }
         catch (const std::exception & exc) {
@@ -876,8 +943,7 @@ dump(std::ostream & stream, int indent) const
     stream << i << "  parent group       = " << parent_group << endl;
     stream << i << "  group job          = " << &(*group_job) << endl;
     stream << i << "  locked             = " << locked << endl;
-    stream << i << "  error              = " << error << endl;
-    stream << i << "  error message      = " << error_message << endl;
+    stream << i << "  exc              = "   << (bool)exc << endl;
     stream << i << "  finished set       = " << (bool)finished << endl;
 }
 
