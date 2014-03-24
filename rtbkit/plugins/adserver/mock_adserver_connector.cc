@@ -12,8 +12,8 @@
 using namespace RTBKIT;
 
 MockAdServerConnector::
-MockAdServerConnector(std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) :
-    HttpAdServerConnector(json.get("name", "mock-adserver").asString(), proxies),
+MockAdServerConnector(std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) :
+    HttpAdServerConnector(serviceName, proxies),
     publisher(getServices()->zmqContext) {
 }
 
@@ -89,9 +89,9 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        AdServerConnector::registerFactory("mock", [](std::shared_ptr<ServiceProxies> const & proxies,
+        AdServerConnector::registerFactory("mock", [](std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies,
                                                       Json::Value const & json) {
-            auto server = new MockAdServerConnector(proxies, json);
+            auto server = new MockAdServerConnector(serviceName, proxies, json);
 
             int winPort = json.get("winPort", "12340").asInt();
             int eventPort = json.get("eventPort", "12341").asInt();
