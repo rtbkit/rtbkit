@@ -58,12 +58,15 @@ printPct(double value)
 
 /** Generates an easily printable random string of a given size. */
 inline std::string
-randomString(size_t size) 
+randomString(size_t size)
 {
     const std::string chars =
         "0123456789"
         "abcdefghijklmnopqrstuvwxyz"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    /* provide some randomness based on time */
+    ::srandom(::time(NULL) ^ getpid());
 
     std::string s;
     for (size_t i = 0; i < size; ++i)
