@@ -34,7 +34,7 @@ std::ostream & operator << (std::ostream & stream, ValueKind kind)
     case ValueKind::MAP: return stream << "MAP";
     case ValueKind::ANY: return stream << "ANY";
     default:
-        return stream << "ValueKind(" << to_string((int)kind) << ")";
+        return stream << "ValueKind(" << std::to_string((int)kind) << ")";
     }
 }
 

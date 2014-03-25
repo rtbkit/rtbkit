@@ -168,12 +168,16 @@ struct StreamJsonPrintingContext
 
     virtual void writeFloat(float f)
     {
-        stream << f;
+        if (std::isfinite(f))
+            stream << f;
+        else stream << "\"" << f << "\"";
     }
 
     virtual void writeDouble(double d)
     {
-        stream << d;
+        if (std::isfinite(d))
+            stream << d;
+        else stream << "\"" << d << "\"";
     }
 
     virtual void writeString(const std::string & s)

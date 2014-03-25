@@ -172,14 +172,14 @@ fromOpenRtb(OpenRTB::BidRequest && req,
             string key;
             if (d.id)
                 key = d.id.toString();
-            else key = d.name;
+            else key = d.name.extractAscii();
 
             vector<string> values;
             for (auto & v: d.segment) {
                 if (v.id)
                     values.push_back(v.id.toString());
                 else if (!v.name.empty())
-                    values.push_back(v.name);
+                    values.push_back(v.name.extractAscii());
             }
 
             result->segments.addStrings(key, values);

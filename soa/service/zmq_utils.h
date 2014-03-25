@@ -217,7 +217,21 @@ inline bool sendMesg(zmq::socket_t & sock,
     std::copy(msg.begin(), msg.end(), (char *)msg1.data());
     return sock.send(msg1, options);
 }
-    
+
+inline bool sendMesg(zmq::socket_t & sock,
+                     const Utf8String & msg,
+                     int options = 0)
+{
+    return sendMesg(sock, msg.rawString(), options);
+}
+
+inline bool sendMesg(zmq::socket_t & sock,
+                     const Utf32String & msg,
+                     int options = 0)
+{
+    return sendMesg(sock, msg.utf8String(), options);
+}
+
 inline bool sendMesg(zmq::socket_t & sock,
                      const char * msg,
                      int options = 0)

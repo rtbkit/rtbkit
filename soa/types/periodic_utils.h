@@ -105,8 +105,8 @@ struct TimePeriod {
     TimePeriod(const char * periodName);
     TimePeriod(TimeGranularity granularity = SECONDS, double number = 0);
 
-    Date current(Date now = Date::now());
-    Date next(Date now);
+    Date current(Date now = Date::now()) const;
+    Date next(Date now) const;
 
     std::string toString() const;
 

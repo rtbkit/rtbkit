@@ -181,16 +181,16 @@ TimePeriod(TimeGranularity granularity, double number)
 
 Date
 TimePeriod::
-current(Date now)
+current(Date now) const
 {
     return findPeriod(now, granularity, number).first;
 }
 
 Date
 TimePeriod::
-next(Date now)
+next(Date now) const
 {
-    return findPeriod(now, granularity, number).first.plusSeconds(interval);
+    return current(now).plusSeconds(interval);
 }
 
 std::string

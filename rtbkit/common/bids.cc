@@ -54,6 +54,7 @@ BidStatus bidStatusFromString(const std::string& str)
     case 'L':
         if (str == "LOSS") return BS_LOSS;
         if (str == "LOSTBID") return BS_LOSTBID;
+        if (str == "LATEWIN") return BS_WIN;
         break;
 
     case 'T':

@@ -535,6 +535,9 @@ void
 TransportBase::
 hasConnection()
 {
+    addActivity("hasConnection; handle %d; epoll fd %d",
+                getHandle(), epollFd_);
+
     if (getHandle() < 0)
         throw ML::Exception("hasConnection without a connection");
 
@@ -585,6 +588,7 @@ handleEvents()
 {
     int rc = 0;
 
+    addActivity("handleEvents");
         
     while (!isZombie() && rc != -1) {
         struct pollfd items[3] = {
@@ -848,7 +852,8 @@ void
 TransportBase::
 doAsync(const boost::function<void ()> & callback, const std::string & name)
 {
-    addActivity("doAsync: %s", name.c_str());
+    addActivity("doAsync: %s lockedByThisThread %d", name.c_str(),
+                lockedByThisThread());
     pushAsync(callback, name);
 }
 

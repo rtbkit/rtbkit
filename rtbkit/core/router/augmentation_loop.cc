@@ -393,8 +393,7 @@ doAugmentation(const std::shared_ptr<Entry> & entry)
             recordHit("augmentor.%s.skippedTooManyInFlight", *it);
             continue;
         }
-        recordHit("augmentor.%s.requests", *it, instance->addr);
-        recordHit("augmentor.%s.instances.%s.requests", *it, instance->addr);
+        recordHit("augmentor.%s.instances.%s.request", *it, instance->addr);
 
         set<string> agents;
         const auto& bidderGroups = entry->info->potentialGroups;
@@ -585,7 +584,7 @@ doResponse(const std::vector<std::string> & message)
     const char* eventType =
         (augmentation == "" || augmentation == "null") ?
         "nullResponse" : "validResponse";
-    recordHit("augmentor.%s.%s", augmentor, addr, eventType);
+    recordHit("augmentor.%s.%s", augmentor, eventType);
     recordHit("augmentor.%s.instances.%s.%s", augmentor, addr, eventType);
 
     auto& auctionAugs = entry.second->info->auction->augmentations;

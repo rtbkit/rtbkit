@@ -34,39 +34,26 @@ Url::
 Url(const std::string & s_)
     : original(s_)
 {
-    std::string s = s_;
-    if (s == "") {
-        url.reset(new GURL(s));
-        return;
-    }
-
-    if (s.find("://") == string::npos) {
-        s = "http://" + s;
-    }
-    url.reset(new GURL(s));
-
-    if (url->possibly_invalid_spec().empty()) {
-        //cerr << "bad parse 1" << endl;
-        url.reset(new GURL("http://" + s));
-        if (url->possibly_invalid_spec().empty()) {
-            //cerr << "bad parse 2" << endl;
-            url.reset(new GURL("http://" + s + "/"));
-        }
-    }
-    
-    //cerr << "parsing " << s << " returned " << toString()
-    //     << " host " << host()
-    //     << " valid " << valid()
-    //     << endl;
-    //cerr << "url has scheme " + gurl.scheme() << endl;
-    //cerr << "url has spec " + gurl.spec() << endl;
+    init(original);
 }
 
 Url::
 Url(const Utf8String & s_)
     : original(s_.rawString())
 {
-    std::string s = original;
+    init(original);
+}
+
+Url::
+Url(const Utf32String & s_)
+    : original(s_.utf8String())
+{
+    init(original);
+}
+
+void Url::
+init(std::string s)
+{
     if (s == "") {
         url.reset(new GURL(s));
         return;

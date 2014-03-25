@@ -2468,6 +2468,7 @@ configureAgentOnExchange(std::shared_ptr<ExchangeConnector> const & exchange,
     auto ecomp = exchange->getCampaignCompatibility(config, includeReasons);
     if(!ecomp.isCompatible) {
         cerr << "campaign not compatible: " << ecomp.reasons << endl;
+        this->recordHit("%s.compaignNotCompatible", name);
         return;
     }
 
@@ -2477,6 +2478,7 @@ configureAgentOnExchange(std::shared_ptr<ExchangeConnector> const & exchange,
         auto ccomp = exchange->getCreativeCompatibility(c, includeReasons);
         if(!ccomp.isCompatible) {
             cerr << "creative not compatible: " << ccomp.reasons << endl;
+            this->recordHit("%s.creativeNotCompatible", name);
         }
         else {
             std::lock_guard<ML::Spinlock> guard(c.lock);
@@ -2487,6 +2489,7 @@ configureAgentOnExchange(std::shared_ptr<ExchangeConnector> const & exchange,
 
     if (numCompatibleCreatives == 0) {
         cerr << "no compatible creatives" << endl;
+        this->recordHit("%s.noCompatibleCreative", name);
         return;
     }
 

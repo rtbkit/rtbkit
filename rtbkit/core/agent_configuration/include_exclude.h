@@ -40,6 +40,15 @@ inline bool matches(const boost::u32regex & rex, const Utf8String & val)
     return result;
 }
 
+inline bool matches(const boost::u32regex & rex, const Utf32String & val)
+{
+    std::string raw;
+    utf8::utf32to8(val.begin(), val.end(), std::back_inserter(raw));
+    boost::match_results<std::string::const_iterator> matches;
+    bool result = boost::u32regex_search(raw, matches, rex) ;
+    return result;
+}
+
 inline bool matches(const boost::regex & rex, const std::string & val)
 {
     //using namespace std;
@@ -109,6 +118,12 @@ inline uint64_t hashString(const std::string & str)
 inline uint64_t hashString(const Utf8String & str)
 {
     return std::hash<std::string>()(std::string(str.rawData(), str.rawLength()));
+}
+
+
+inline uint64_t hashString(const Utf32String & str)
+{
+    return std::hash<std::u32string>()(str.rawString());
 }
 
 inline uint64_t hashString(const std::wstring & str)

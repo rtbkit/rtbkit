@@ -13,6 +13,7 @@
 # include <boost/type_traits/is_unsigned.hpp>
 # include <boost/type_traits/is_convertible.hpp>
 # include <boost/utility/enable_if.hpp>
+# include "soa/types/string.h"
 
 # ifndef JSON_USE_CPPTL_SMALLMAP
 #  include <map>
@@ -27,9 +28,6 @@
 #define JSON_ASSERT_UNREACHABLE throw std::runtime_error( "Json unreachable error" );
 #define JSON_ASSERT( condition ) if (!( condition )) throw std::runtime_error( "Json assertion error" );
 #define JSON_ASSERT_MESSAGE( condition, message ) if (!( condition )) throw std::runtime_error( message );
-namespace Datacratic{
-    class Utf8String;
-}
 
 /** \brief JSON (JavaScript Object Notation).
  */

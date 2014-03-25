@@ -322,6 +322,9 @@ printIso8601(unsigned int fraction) const
 
     string result = print("%Y-%m-%dT%H:%M:%S");
 
+    if (result == "Inf" || result == "-Inf" || result == "NaD")
+        return result;
+    
     double partial_seconds = fractionalSeconds();
     string fractional = format("%.*fZ", fraction, partial_seconds);
 

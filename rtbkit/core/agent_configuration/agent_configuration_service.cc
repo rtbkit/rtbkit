@@ -49,6 +49,9 @@ init()
     agents.onDisconnection = [=] (const std::string & agent)
         {
             cerr << "lost agent " << hexify_string(agent) << endl;
+
+            agentInfo.erase(agent);
+
             // Broadcast the disconnection to all listeners
             for (auto & l: listenerInfo)
                 listeners.sendMessage(l.first, "CONFIG", agent, "");

@@ -26,7 +26,8 @@ struct RestRequest {
 
     RestRequest(const HttpHeader & header,
                 const std::string & payload)
-        : verb(header.verb),
+        : header(header),
+          verb(header.verb),
           resource(header.resource),
           params(header.queryParams),
           payload(payload)
@@ -41,6 +42,7 @@ struct RestRequest {
     {
     }
 
+    HttpHeader header;
     std::string verb;
     std::string resource;
     RestParams params;
@@ -81,6 +83,11 @@ struct RestServiceEndpoint: public MessageLoop {
         connection handler object).
     */
     struct ConnectionId {
+        /// Don't initialize for now
+        ConnectionId()
+        {
+        }
+        
         /// Initialize for zeromq
         ConnectionId(const std::string & zmqAddress,
                      const std::string & requestId,

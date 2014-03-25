@@ -43,28 +43,23 @@ handleJson(const HttpHeader & header, const Json::Value & json,
     };
 
     try {
-        requestCb_(header, json, jsonStr);
-        resultMsg = ("HTTP/1.1 200 OK\r\n"
+        HttpAdServerResponse returnValue = requestCb_(header, json, jsonStr);
+        if(returnValue.valid) {
+            resultMsg = ("HTTP/1.1 200 OK\r\n"
                      "Content-Type: none\r\n"
                      "Content-Length: 0\r\n"
                      "\r\n");
+        }
+        else {
+            endpoint_.doEvent("error.rqParsingError");
+            resultMsg = sendErrorResponse(returnValue.error, returnValue.details, json);
+        }
     }
     catch (const exception & exc) {
         cerr << "error parsing adserver request " << json << ": "
              << exc.what() << endl;
         endpoint_.doEvent("error.rqParsingError");
-
-        Json::Value responseJson;
-        responseJson["error"] = "error parsing AdServer message";
-        responseJson["message"] = json;
-        responseJson["details"] = exc.what();
-
-        string response = responseJson.toString();
-        resultMsg = ML::format("HTTP/1.1 400 Bad Request\r\n"
-                               "Content-Type: text/json\r\n"
-                               "Content-Length: %zd\r\n"
-                               "\r\n%s",
-                               response.size(), response.c_str());
+        resultMsg = sendErrorResponse("error parsing AdServer message", exc.what(), json);
     }
 
     send(resultMsg,
@@ -72,6 +67,26 @@ handleJson(const HttpHeader & header, const Json::Value & json,
          onSendFinished);
 }
 
+
+std::string
+HttpAdServerConnectionHandler::
+sendErrorResponse(const std::string & error, const std::string & details, const Json::Value & json)
+{
+    std::string resultMsg;
+    Json::Value responseJson;
+    
+    responseJson["error"] =error;
+    responseJson["message"] = json;
+    responseJson["details"] = details;
+
+    string response = responseJson.toString();
+    resultMsg = ML::format("HTTP/1.1 400 Bad Request\r\n"
+                               "Content-Type: text/json\r\n"
+                               "Content-Length: %zd\r\n"
+                               "\r\n%s",
+                               response.size(), response.c_str());
+    return resultMsg;
+}
 
 /****************************************************************************/
 /* HTTPADSERVERHTTPENDPOINT                                                 */
@@ -185,3 +200,4 @@ start()
     }
     AdServerConnector::start();
 }
+

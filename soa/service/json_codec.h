@@ -86,7 +86,7 @@ Json::Value jsonEncode(const std::map<std::string, T> & m)
 {
     Json::Value result(Json::objectValue);
     for (auto & e: m)
-        result[m.first] = jsonEncode(m.second);
+        result[e.first] = jsonEncode(e.second);
     return result;
 }
 

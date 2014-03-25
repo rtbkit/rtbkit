@@ -322,6 +322,14 @@ send(const std::string & str,
      NextAction next,
      OnWriteFinished onWriteFinished)
 {
+    // If we're not in the right thread, then set the send up to be
+    // asynchronous.
+    if (!transport().lockedByThisThread()) {
+        doAsync([=] () { this->send(str, next, onWriteFinished); },
+                "deferredSend");
+        return;
+    }
+
     //cerr << "message being sent<" << str << "> on handle" << transport().getHandle() <<  endl;
     transport().assertLockedByThisThread();
 

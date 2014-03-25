@@ -123,7 +123,7 @@ processRequest(const RestServiceEndpoint::ConnectionId & connection,
         try {
             MatchResult mr = sr.process(request, context, connection);
             //cerr << "returned " << mr << endl;
-            if (mr == MR_YES || mr == MR_ERROR)
+            if (mr == MR_YES || mr == MR_ASYNC || mr == MR_ERROR)
                 return mr;
         } catch (const std::exception & exc) {
             connection.sendErrorResponse(500, ML::format("threw exception: %s",
@@ -141,7 +141,7 @@ processRequest(const RestServiceEndpoint::ConnectionId & connection,
 RestRequestRouter::MatchResult
 RestRequestRouter::Route::
 process(const RestRequest & request,
-        const RestRequestParsingContext & context,
+        RestRequestParsingContext & context,
         const RestServiceEndpoint::ConnectionId & connection) const
 {
     using namespace std;
@@ -156,15 +156,17 @@ process(const RestRequest & request,
         && !filter.verbs.count(request.verb))
         return MR_NO;
 
-    RestRequestParsingContext matched = context;
+    // At the end, make sure we put the context back to how it was
+    RestRequestParsingContext::StateGuard guard(&context);
+
     switch (path.type) {
     case PathSpec::STRING: {
         std::string::size_type pos = context.remaining.find(path.path);
         if (pos == 0) {
             using namespace std;
-            //cerr << "matched string " << pos << endl;
-            matched.resources.push_back(path.path);
-            matched.remaining = string(matched.remaining, path.path.size());
+            //cerr << "context string " << pos << endl;
+            context.resources.push_back(path.path);
+            context.remaining = string(context.remaining, path.path.size());
             break;
         }
         else return MR_NO;
@@ -182,8 +184,8 @@ process(const RestRequest & request,
         if (!found)
             return MR_NO;
         for (unsigned i = 0;  i < results.size();  ++i)
-            matched.resources.push_back(results[i]);
-        matched.remaining = std::string(matched.remaining,
+            context.resources.push_back(results[i]);
+        context.remaining = std::string(context.remaining,
                                         results[0].length());
         break;
     }
@@ -193,9 +195,9 @@ process(const RestRequest & request,
     }
     
     if (extractObject)
-        extractObject(matched);
+        extractObject(context);
 
-    return router->processRequest(connection, request, matched);
+    return router->processRequest(connection, request, context);
 }
 
 void

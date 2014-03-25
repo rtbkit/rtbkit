@@ -213,10 +213,19 @@ void AdServerConnector::registerFactory(std::string const & name, Factory callba
 
 
 std::unique_ptr<AdServerConnector> AdServerConnector::create(
-    std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) {
+        std::string const & serviceName, 
+        std::shared_ptr<ServiceProxies> const & proxies, 
+        Json::Value const & json) {
+    
     auto name = json.get("type", "unknown").asString();
     auto factory = getFactory(name);
-    return std::unique_ptr<AdServerConnector>(factory(proxies, json));
+    
+    auto nameService  = serviceName;
+    if(nameService.empty()) {
+        nameService = json.get("name", "adserver").asString();
+    }
+
+    return std::unique_ptr<AdServerConnector>(factory(nameService, proxies, json));
 }
 
 } // namespace RTBKIT

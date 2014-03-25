@@ -192,7 +192,7 @@ getValue(const BidRequest& br, const FilterEntry& entry) const
         str = br.userIds.providerId.toString(); break;
 
     case UserPartition::IPUA:
-        str = br.ipAddress + br.userAgent.rawString(); break;
+        str = br.ipAddress + br.userAgent.utf8String(); break;
 
     default: ExcAssert(false);
     };

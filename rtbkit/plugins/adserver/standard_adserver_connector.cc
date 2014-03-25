@@ -7,6 +7,8 @@
 #include "rtbkit/common/currency.h"
 #include "rtbkit/common/json_holder.h"
 
+#include "soa/service/logs.h"
+
 #include "standard_adserver_connector.h"
 
 
@@ -16,6 +18,7 @@ using namespace boost::program_options;
 
 using namespace RTBKIT;
 
+Logging::Category adserverTrace("Standard Ad-Server connector");
 
 /* STANDARDADSERVERARGUMENTS */
 boost::program_options::options_description
@@ -25,14 +28,14 @@ makeProgramOptions()
     boost::program_options::options_description stdOptions
         = ServiceProxyArguments::makeProgramOptions();
 
-    isUnitTest = false;
+    verbose = false;
 
     boost::program_options::options_description
-        options("Standard Ad Server Connector");
+        options("Standard-Ad-Server-Connector");
     options.add_options()
         ("win-port,w", value(&winPort), "listening port for wins")
         ("events-port,e", value(&eventsPort), "listening port for events")
-        ("isUnitTest,i", value(&isUnitTest), "unit test for Ad-Server connector");
+        ("verbose,v", value(&verbose), "verbose mode");
     stdOptions.add(options);
 
     return stdOptions;
@@ -54,17 +57,38 @@ StandardAdServerConnector(std::shared_ptr<ServiceProxies> & proxy,
     : HttpAdServerConnector(serviceName, proxy),
       publisher_(proxy->zmqContext)
 {
+    initEventType(Json::Value());
 }
 
 StandardAdServerConnector::
-StandardAdServerConnector(std::shared_ptr<ServiceProxies> const & proxies,
+StandardAdServerConnector(std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies,
                           Json::Value const & json) :
-    HttpAdServerConnector(json.get("name", "standard-adserver").asString(), proxies),
+    HttpAdServerConnector(serviceName, proxies),
     publisher_(getServices()->zmqContext) {
     int winPort = json.get("winPort", 18143).asInt();
     int eventsPort = json.get("eventsPort", 18144).asInt();
-    isUnitTest = json.get("isUnitTest", false).asBool();
-    init(winPort, eventsPort, isUnitTest);
+    verbose = json.get("verbose", false).asBool();
+    initEventType(json);
+    init(winPort, eventsPort, verbose);
+}
+
+void
+StandardAdServerConnector::
+initEventType(const Json::Value &json) {
+    
+    // Default value
+    eventType["CLICK"] =  "CLICK";
+    eventType["CONVERSION"] =  "CONVERSION";
+
+    // User value
+    if(json.isMember("eventType")) {
+        auto item = json["eventType"];
+        auto items = item.getMemberNames();
+        
+        for(auto i=items.begin(); i!=items.end(); ++i) {
+            eventType[*i] = item[*i].asString();
+        }
+    }
 }
 
 void
@@ -72,15 +96,16 @@ StandardAdServerConnector::
 init(StandardAdServerArguments & ssConfig)
 {
     ssConfig.validate();
-    init(ssConfig.winPort, ssConfig.eventsPort, ssConfig.isUnitTest);
+    init(ssConfig.winPort, ssConfig.eventsPort, ssConfig.verbose);
 }
 
 void
 StandardAdServerConnector::
-init(int winsPort, int eventsPort, bool isTest)
+init(int winsPort, int eventsPort, bool verbose)
 {
-
-    isUnitTest = isTest;
+    if(!verbose) {
+        adserverTrace.deactivate();
+    }
 
     shared_ptr<ServiceProxies> services = getServices();
 
@@ -121,11 +146,13 @@ shutdown()
     HttpAdServerConnector::shutdown();
 }
 
-void
+HttpAdServerResponse
 StandardAdServerConnector::
 handleWinRq(const HttpHeader & header,
             const Json::Value & json, const std::string & jsonStr)
 {
+    HttpAdServerResponse response;
+
     Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
     Date bidTimestamp;
     if (json.isMember("bidTimestamp")) {
@@ -156,13 +183,14 @@ handleWinRq(const HttpHeader & header,
         }
     }
     else {
-        throw ML::Exception("UserIds is mandatory in a WIN Impression");
+        response.valid = false;
+        response.error = "MISSING_USERID";
+        response.details = "A win notice requires the userIds field";
     }
     
     const Json::Value & meta = json["winMeta"];
 
-    if(isUnitTest) {
-         writeUnitTestWinReqOutput(timestamp,
+    writeUnitTestWinReqOutput(timestamp,
                                     bidTimestamp,
                                     auctionIdStr, 
                                     adSpotIdStr, 
@@ -170,73 +198,75 @@ handleWinRq(const HttpHeader & header,
                                     winPrice,
                                     userIdStr,
                                     dataCost);
-    }
-    else {
+    if(response.valid) {
         publishWin(auctionId, adSpotId, winPrice, timestamp, meta, userIds,
                    accountKey, bidTimestamp);
         publisher_.publish("WIN", timestamp.print(3), auctionIdStr,
                            adSpotIdStr, accountKeyStr,
                            winPrice.toString(), dataCost.toString(), meta);
     }
+
+    return response;
 }
 
-void
+HttpAdServerResponse
 StandardAdServerConnector::
 handleDeliveryRq(const HttpHeader & header,
                  const Json::Value & json, const std::string & jsonStr)
-{
-    Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
-    
+{    
+    HttpAdServerResponse response;
     string auctionIdStr, adSpotIdStr, userIdStr, event;
     Id auctionId, adSpotId, userId;
     UserIds userIds;
     
-    if (json.isMember("auctionId")) {
-        auctionIdStr = json["auctionId"].asString();
-        adSpotIdStr = json["adSpotId"].asString();
-        auctionId = Id(auctionIdStr);
-        adSpotId = Id(adSpotIdStr);
+    Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+
+    if (!json.isMember("auctionId") || !json.isMember("adSpotId")) {
+        response.valid = false;
+        response.error = "MISSING_ID";
+        response.details = "A conversion notice requires the auctionId and adSpotId field";
+    }
     
-        if (json.isMember("userIds")) {
-             auto item =  json["userIds"];
-             if(item.isMember("prov")){
-                  userIdStr = item["prov"].asString();
-                  userIds.add(Id(userIdStr), ID_PROVIDER);
-             }
+    auctionIdStr = json["auctionId"].asString();
+    adSpotIdStr = json["adSpotId"].asString();
+    auctionId = Id(auctionIdStr);
+    adSpotId = Id(adSpotIdStr);
+    
+    if (json.isMember("userIds")) {
+        auto item =  json["userIds"];
+        if(item.isMember("prov")){
+            userIdStr = item["prov"].asString();
+            userIds.add(Id(userIdStr), ID_PROVIDER);
         }
+    }
 
-	event = (json["event"].asString());
+    if(json.isMember("event")) {
+        event = (json["event"].asString());
+        if(eventType.find(event) == eventType.end()){
+            response.valid = false;
+            response.error = "UNSUPPORTED_EVENT_TYPE";
+            response.details = "A conversion notice requires the event field";
+        }
+    }
+    else {
+        response.valid = false;
+        response.error = "MISSING_EVENT_TYPE";
+        response.details = "A conversion notice requires the event field";
+    }
 
-        if(isUnitTest) {
-             writeUnitTestDeliveryReqOutput(timestamp,
+    writeUnitTestDeliveryReqOutput(timestamp,
                                     auctionIdStr, 
                                     adSpotIdStr, 
                                     userIdStr,
                                     event);
 
-        }
-        else {
-            if (event == "click") {
-                publishCampaignEvent("CLICK", auctionId, adSpotId, timestamp,
-                                     Json::Value(), userIds);
-                publisher_.publish("CLICK", timestamp.print(3), auctionIdStr,
-                                      adSpotIdStr, userIds.toString());
-            }
-            else if (event == "conversion") {
-                 publishCampaignEvent("CONVERSION", auctionId, adSpotId,
-                                      timestamp, Json::Value(), userIds);
-                 publisher_.publish("CONVERSION", timestamp.print(3),
-                                      auctionIdStr, adSpotIdStr, userIds.toString());
-            }
-            else {
-                 publisher_.publish("CONVERSION", timestamp.print(3), "unmatched",
-                                      auctionId.toString());
-            }
-        }
+    if(response.valid) {
+        publishCampaignEvent(eventType[event], auctionId, adSpotId, timestamp,
+                                 Json::Value(), userIds);
+        publisher_.publish(eventType[event], timestamp.print(3), auctionIdStr,
+                                adSpotIdStr, userIds.toString());
     }
-    else {
-        throw ML::Exception("invalid event type: '" + event + "'");
-    }
+    return response;
 }
 
 void
@@ -245,12 +275,7 @@ writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, con
                           const string & adSpotId, const string & accountKeyStr, const USD_CPM & winPrice,
                           const string & userId, const USD_CPM dataCost) {
 
-    if (!isUnitTest) {
-        throw ML::Exception(string("Illegal to call writeUnitTestWinReqOutput if isUnitTest is False"));
-    }
-
-    stringstream testOutStr;
-    testOutStr << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
+    LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
         "\"bidTimestamp\":\"" << bidTimestamp.print(3) << "\"," <<
         "\"auctionId\":\"" << auctionId << "\"," <<
         "\"adSpotId\":\"" << adSpotId << "\"," <<
@@ -258,8 +283,6 @@ writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, con
         "\"winPrice\":\"" << winPrice.toString() << "\"," <<
         "\"userIds\":" << "\"" << userId << "\"," <<
         "\"dataCost\":\"" << dataCost.toString() << "\"}";
-
-    cerr << testOutStr.str() << endl;
 } 
 
 void
@@ -267,28 +290,22 @@ StandardAdServerConnector::
 writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdStr, const string & adSpotIdStr, 
                                const string &  userIdStr, const string &event){
 
-    if (!isUnitTest) {
-        throw ML::Exception(string("Illegal to call writeUnitTestDeliveryRqOutput if isUnitTest is False\n"));
-    }
-
-    stringstream testOutStr;
-    testOutStr << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
+    LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
         "\"auctionId\":\"" << auctionIdStr << "\"," <<
         "\"adSpotId\":\"" << adSpotIdStr << "\"," <<
         "\"userIds\":" << "\"" << userIdStr << "\"," <<
         "\"event\":\"" << event << "\"}";
-
-    cerr << testOutStr.str() << endl;
 }
 
 namespace {
 
+//Logging::Category adserverTrace("Standard Ad-Server connector");
+
 struct AtInit {
     AtInit()
     {
-        AdServerConnector::registerFactory("standard", [](std::shared_ptr<ServiceProxies> const & proxies,
-                                                          Json::Value const & json) {
-            return new StandardAdServerConnector(proxies, json);
+        AdServerConnector::registerFactory("standard", [](std::string const & serviceName , std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) {
+            return new StandardAdServerConnector(serviceName, proxies, json);
         });
     }
 } atInit;
