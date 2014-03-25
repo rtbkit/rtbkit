@@ -134,7 +134,7 @@ struct CreativeLocationFilter : public CreativeFilter<CreativeLocationFilter>
     }
 
 private:
-    typedef CreativeRegexFilter<boost::u32regex, UtfString> BaseFilter;
+    typedef CreativeRegexFilter<boost::u32regex, Datacratic::UnicodeString> BaseFilter;
     CreativeIncludeExcludeFilter<BaseFilter> impl;
 };
 

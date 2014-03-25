@@ -338,7 +338,7 @@ bool isEmpty(const Json::Value & val)
     return val.isNull();
 }
 
-bool isEmpty(const UtfString &str)
+bool isEmpty(const Datacratic::UnicodeString &str)
 {
     return (str.rawLength() == 0) ;
 }
@@ -424,11 +424,11 @@ getDefaultDescription(RTBKIT::FormatSet *)
 /* LOCATION                                                                  */
 /*****************************************************************************/
 
-UtfString
+Datacratic::UnicodeString
 Location::
 fullLocationString() const
 {
-    UtfString result(countryCode + ":" + regionCode + ":") ;
+    Datacratic::UnicodeString result(countryCode + ":" + regionCode + ":") ;
     result += cityName ;
     result += ":";
     result += postalCode;
@@ -437,7 +437,7 @@ fullLocationString() const
     result += ":";
     result += boost::lexical_cast<string>(metro);
     return result;
-    //UtfString result(countryCode +":"+ regionCode +":" +
+    //Datacratic::UnicodeString result(countryCode +":"+ regionCode +":" +
  //   return ML::format("%s:%s:%s:%s:%d",
  //                     countryCode.c_str(), regionCode.c_str(),
  //                     cityName.c_str(), postalCode.c_str(), dma);
@@ -1202,7 +1202,7 @@ parse(const std::string & source, const std::string & bidRequest)
 
 BidRequest *
 BidRequest::
-parse(const std::string & source, const UtfString & bidRequest)
+parse(const std::string & source, const Datacratic::UnicodeString & bidRequest)
 {
     return BidRequest::parse(source, bidRequest.utf8String());
 }

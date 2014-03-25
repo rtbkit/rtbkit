@@ -546,7 +546,7 @@ struct WinLossOutput : public LogOutput {
 
         std::string country JML_UNUSED = req->location.countryCode;
         std::string region JML_UNUSED = req->location.regionCode;
-        UtfString city JML_UNUSED = req->location.cityName;
+        UnicodeString city JML_UNUSED = req->location.cityName;
         
 #if 0
      - domain

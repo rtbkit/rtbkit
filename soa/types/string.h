@@ -282,7 +282,7 @@ std::ostream & operator << (std::ostream & stream, const Utf32String & str);
 
 IMPL_SERIALIZE_RECONSTITUTE(Utf32String);
 
-typedef Utf8String UtfString;
+typedef Utf8String UnicodeString;
 
 } // namespace Datacratic
 

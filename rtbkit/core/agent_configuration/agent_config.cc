@@ -156,7 +156,7 @@ bool
 UserPartition::
 matches(const UserIds & ids,
         const std::string& ip,
-        const UtfString& userAgent) const
+        const Datacratic::UnicodeString& userAgent) const
 {
     if (hashOn == NONE)
         return true;
@@ -816,8 +816,8 @@ BiddableSpots
 AgentConfig::
 canBid(const ExchangeConnector * exchangeConnector,
        const BidRequest& request,
-       const UtfString & language,
-       const UtfString & location, uint64_t locationHash,
+       const Datacratic::UnicodeString & language,
+       const Datacratic::UnicodeString & location, uint64_t locationHash,
        ML::Lightweight_Hash<uint64_t, int> & locationCache) const
 {
     BiddableSpots result;

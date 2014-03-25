@@ -213,12 +213,12 @@ struct LocationFilter : public FilterBaseT<LocationFilter>
 
     void filter(FilterState& state) const
     {
-        UtfString location = state.request.location.fullLocationString();
+        Datacratic::UnicodeString location = state.request.location.fullLocationString();
         state.narrowConfigs(impl.filter(location));
     }
 
 private:
-    typedef RegexFilter<boost::u32regex, UtfString> BaseFilter;
+    typedef RegexFilter<boost::u32regex, Datacratic::UnicodeString> BaseFilter;
     IncludeExcludeFilter<BaseFilter> impl;
 };
 

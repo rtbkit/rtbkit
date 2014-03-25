@@ -36,30 +36,28 @@
 namespace OpenRTB {
 
 
-using std::string;
-using std::vector;
-using std::unique_ptr;
-
-using namespace Datacratic;
+//using namespace Datacratic;
+using Datacratic::Optional;
+using Datacratic::List;
 
 struct Deal
 {
-    Id id;                     ///< DEAL ID
-    TaggedDouble bidfloor;     ///< Deal price floow
-    string bidfloorcur;        ///< Currency
-    List<string> wseat;        ///< Array of buyer seats allowed to bid on this
+    Datacratic::Id id;                     ///< DEAL ID
+    Datacratic::TaggedDouble bidfloor;     ///< Deal price floow
+    std::string bidfloorcur;        ///< Currency
+    Datacratic::List<std::string> wseat;        ///< Array of buyer seats allowed to bid on this
                                /// Direct Deal.
-    TaggedInt at;              ///< Auction type
+    Datacratic::TaggedInt at;              ///< Auction type
     Json::Value ext;           ///< Extensions
 };
 
 struct PMP
 {
-    TaggedIntDef<0> privateAuction; ///< Is this a private deal? A value of 1
+    Datacratic::TaggedIntDef<0> privateAuction; ///< Is this a private deal? A value of 1
                                     /// indicates that open market bids need not be
                                     /// returned and that only bids submitted inside
                                     /// pmp.deals will be considered to serve.
-    List<Deal> deals;               ///< Array of deal objects, if present
+    Datacratic::List<Deal> deals;               ///< Array of deal objects, if present
     Json::Value ext;                ///< Extensions
 };
 
@@ -102,7 +100,7 @@ struct ContentCategory {
     {
     }
 
-    string val;
+    std::string val;
 
 #if 0    
     ContentCategory(int l1 = -1, int l2 = -1)
@@ -126,7 +124,7 @@ struct ContentCategory {
     exchange unless restricted by publisher site settings.
 */
 
-struct BannerAdType: public TaggedEnum<BannerAdType> {
+struct BannerAdType: public Datacratic::TaggedEnum<BannerAdType> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -147,7 +145,7 @@ struct BannerAdType: public TaggedEnum<BannerAdType> {
     can describe an ad being served or serve as restrictions of thereof.
 */
 
-struct CreativeAttribute: public TaggedEnum<CreativeAttribute> {
+struct CreativeAttribute: public Datacratic::TaggedEnum<CreativeAttribute> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -180,7 +178,7 @@ struct CreativeAttribute: public TaggedEnum<CreativeAttribute> {
     This is a list of API frameworks.
 */
 
-struct ApiFramework: public TaggedEnum<ApiFramework> {
+struct ApiFramework: public Datacratic::TaggedEnum<ApiFramework> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -206,7 +204,7 @@ struct ApiFramework: public TaggedEnum<ApiFramework> {
     synch with updates to the QAG values as published on IAB.net.
 */
 
-struct AdPosition: public TaggedEnum<AdPosition, 0> {
+struct AdPosition: public Datacratic::TaggedEnum<AdPosition, 0> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -238,7 +236,7 @@ struct AdPosition: public TaggedEnum<AdPosition, 0> {
     IAB.net.
 */
 
-struct VideoLinearity: public TaggedEnum<VideoLinearity> {
+struct VideoLinearity: public Datacratic::TaggedEnum<VideoLinearity> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -258,7 +256,7 @@ struct VideoLinearity: public TaggedEnum<VideoLinearity> {
     that could be supported by an exchange.
 */
 
-struct VideoBidResponseProtocol: public TaggedEnum<VideoBidResponseProtocol> {
+struct VideoBidResponseProtocol: public Datacratic::TaggedEnum<VideoBidResponseProtocol> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -279,7 +277,7 @@ struct VideoBidResponseProtocol: public TaggedEnum<VideoBidResponseProtocol> {
 
  */
 
-struct VideoPlaybackMethod: public TaggedEnum<VideoPlaybackMethod> {
+struct VideoPlaybackMethod: public Datacratic::TaggedEnum<VideoPlaybackMethod> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -305,7 +303,7 @@ struct VideoPlaybackMethod: public TaggedEnum<VideoPlaybackMethod> {
     table of negative numbers.
 */
 
-struct VideoStartDelay: public TaggedEnum<VideoStartDelay> {
+struct VideoStartDelay: public Datacratic::TaggedEnum<VideoStartDelay> {
     enum Vals {
         UNSPECIFIED = -3,  ///< Not explicitly specified
 
@@ -325,7 +323,7 @@ struct VideoStartDelay: public TaggedEnum<VideoStartDelay> {
     The following table lists the various options for the connection type.
 */
 
-struct ConnectionType: public TaggedEnum<ConnectionType> {
+struct ConnectionType: public Datacratic::TaggedEnum<ConnectionType> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -351,7 +349,7 @@ struct ConnectionType: public TaggedEnum<ConnectionType> {
     imposed by the content.
 */
 
-struct ExpandableDirection: public TaggedEnum<ExpandableDirection> {
+struct ExpandableDirection: public Datacratic::TaggedEnum<ExpandableDirection> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -374,7 +372,7 @@ struct ExpandableDirection: public TaggedEnum<ExpandableDirection> {
     content.
 */
 
-struct ContentDeliveryMethod: public TaggedEnum<ContentDeliveryMethod> {
+struct ContentDeliveryMethod: public Datacratic::TaggedEnum<ContentDeliveryMethod> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -397,7 +395,7 @@ struct ContentDeliveryMethod: public TaggedEnum<ContentDeliveryMethod> {
     on IAB.net.
 */
 
-struct ContentContext: public TaggedEnum<ContentContext> {
+struct ContentContext: public Datacratic::TaggedEnum<ContentContext> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -422,7 +420,7 @@ struct ContentContext: public TaggedEnum<ContentContext> {
     the IAB – http://www.iab.net/media/file/long-form-video-final.pdf).
 */
 
-struct VideoQuality: public TaggedEnum<VideoQuality> {
+struct VideoQuality: public Datacratic::TaggedEnum<VideoQuality> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -444,7 +442,7 @@ struct VideoQuality: public TaggedEnum<VideoQuality> {
     information was determined.
 */
 
-struct LocationType: public TaggedEnum<LocationType> {
+struct LocationType: public Datacratic::TaggedEnum<LocationType> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -468,7 +466,7 @@ struct LocationType: public TaggedEnum<LocationType> {
     on IAB.net.
 */
 
-struct DeviceType: public TaggedEnum<DeviceType> {
+struct DeviceType: public Datacratic::TaggedEnum<DeviceType> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -490,7 +488,7 @@ struct DeviceType: public TaggedEnum<DeviceType> {
     www.iab.net/vast/ for more information.
 */
 
-struct VastCompanionType: public TaggedEnum<VastCompanionType> {
+struct VastCompanionType: public Datacratic::TaggedEnum<VastCompanionType> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -511,7 +509,7 @@ struct VastCompanionType: public TaggedEnum<VastCompanionType> {
     See http://www.iab.net/ne_guidelines for more information.
 */
 
-struct MediaRating: public TaggedEnum<MediaRating> {
+struct MediaRating: public Datacratic::TaggedEnum<MediaRating> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -526,7 +524,7 @@ struct MediaRating: public TaggedEnum<MediaRating> {
 /* FRAME POSITION                                                            */
 /*****************************************************************************/
 
-struct FramePosition: public TaggedEnum<FramePosition, 0> {
+struct FramePosition: public Datacratic::TaggedEnum<FramePosition, 0> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -539,7 +537,7 @@ struct FramePosition: public TaggedEnum<FramePosition, 0> {
 /* SOURCE RELATIONSHIP                                                       */
 /*****************************************************************************/
 
-struct SourceRelationship: public TaggedEnum<SourceRelationship> {
+struct SourceRelationship: public Datacratic::TaggedEnum<SourceRelationship> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -552,7 +550,7 @@ struct SourceRelationship: public TaggedEnum<SourceRelationship> {
 /* EMBEDDABLE                                                                */
 /*****************************************************************************/
 
-struct Embeddable: public TaggedEnum<Embeddable> {
+struct Embeddable: public Datacratic::TaggedEnum<Embeddable> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -565,7 +563,7 @@ struct Embeddable: public TaggedEnum<Embeddable> {
 /* AUCTION TYPE                                                              */
 /*****************************************************************************/
 
-struct AuctionType: public TaggedEnum<AuctionType, 2> {
+struct AuctionType: public Datacratic::TaggedEnum<AuctionType, 2> {
     enum Vals {
         UNSPECIFIED = -1,  ///< Not explicitly specified
 
@@ -599,17 +597,17 @@ struct Banner {
     ~Banner();
 
     ///< NOTE: RTBkit extension: support for multiple formats
-    List<int> w;                     ///< Width of ad
-    List<int> h;                     ///< Height of ad
+    Datacratic::List<int> w;                     ///< Width of ad
+    Datacratic::List<int> h;                     ///< Height of ad
 
-    Id id;                           ///< Ad ID
+    Datacratic::Id id;                           ///< Ad ID
     AdPosition pos;                  ///< Ad position (table 6.5)
-    List<BannerAdType> btype;        ///< Blocked creative types (table 6.2)
-    List<CreativeAttribute> battr;   ///< Blocked creative attributes (table 6.3)
-    List<MimeType> mimes;            ///< Whitelist of content MIME types
+    Datacratic::List<BannerAdType> btype;        ///< Blocked creative types (table 6.2)
+    Datacratic::List<CreativeAttribute> battr;   ///< Blocked creative attributes (table 6.3)
+    Datacratic::List<MimeType> mimes;            ///< Whitelist of content MIME types
     FramePosition topframe;          ///< Is it in the top frame (1) or an iframe (0)?
-    List<ExpandableDirection> expdir;///< Expandable ad directions (table 6.11)
-    List<ApiFramework> api;          ///< Supported APIs (table 6.4)
+    Datacratic::List<ExpandableDirection> expdir;///< Expandable ad directions (table 6.11)
+    Datacratic::List<ApiFramework> api;          ///< Supported APIs (table 6.4)
     Json::Value ext;                 ///< Extensions go here, new in OpenRTB 2.1
 };
 
@@ -631,27 +629,27 @@ struct Banner {
 */
 struct Video {
     ~Video();
-    List<MimeType> mimes;       ///< Content MIME types supported
+    Datacratic::List<MimeType> mimes;       ///< Content MIME types supported
     VideoLinearity linearity;   ///< Whether it's linear or not (table 6.6)
-    TaggedInt minduration;      ///< Minimum ad duration in seconds
-    TaggedInt maxduration;      ///< Maximum ad duration in seconds
-    List<VideoBidResponseProtocol> protocol;  ///< Bid response protocols (table 6.7)
-    TaggedInt w;                ///< Width of player in pixels
-    TaggedInt h;                ///< Height of player in pixels
+    Datacratic::TaggedInt minduration;      ///< Minimum ad duration in seconds
+    Datacratic::TaggedInt maxduration;      ///< Maximum ad duration in seconds
+    Datacratic::List<VideoBidResponseProtocol> protocol;  ///< Bid response protocols (table 6.7)
+    Datacratic::TaggedInt w;                ///< Width of player in pixels
+    Datacratic::TaggedInt h;                ///< Height of player in pixels
     ///< Starting delay in seconds for placement (table 6.9)
-    TaggedIntDef<VideoStartDelay::UNSPECIFIED> startdelay;
-    TaggedIntDef<1> sequence;   ///< Which ad number in the bid request
-    List<CreativeAttribute> battr; ///< Which creative attributes are blocked
-    TaggedIntDef<0> maxextended;///< Max extended video ad duration
-    TaggedInt minbitrate;       ///< Minimum bitrate for ad in kbps
-    TaggedInt maxbitrate;       ///< Maximum bitrate for ad in kbps
-    TaggedBoolDef<1> boxingallowed;           ///< Is letterboxing allowed
-    List<VideoPlaybackMethod> playbackmethod; ///< Available playback methods
-    List<ContentDeliveryMethod> delivery;     ///< Available delivery methods
+    Datacratic::TaggedIntDef<VideoStartDelay::UNSPECIFIED> startdelay;
+    Datacratic::TaggedIntDef<1> sequence;   ///< Which ad number in the bid request
+    Datacratic::List<CreativeAttribute> battr; ///< Which creative attributes are blocked
+    Datacratic::TaggedIntDef<0> maxextended;///< Max extended video ad duration
+    Datacratic::TaggedInt minbitrate;       ///< Minimum bitrate for ad in kbps
+    Datacratic::TaggedInt maxbitrate;       ///< Maximum bitrate for ad in kbps
+    Datacratic::TaggedBoolDef<1> boxingallowed;           ///< Is letterboxing allowed
+    Datacratic::List<VideoPlaybackMethod> playbackmethod; ///< Available playback methods
+    Datacratic::List<ContentDeliveryMethod> delivery;     ///< Available delivery methods
     AdPosition pos;             ///< Ad position (table 6.5)
-    vector<Banner> companionad; ///< List of companion banners available
-    List<ApiFramework> api;     ///< List of supported API frameworks (table 6.4)
-    List<VastCompanionType> companiontype;    ///< VAST Companion Types (table 6.17)
+    std::vector<Banner> companionad; ///< List of companion banners available
+    Datacratic::List<ApiFramework> api;     ///< List of supported API frameworks (table 6.4)
+    Datacratic::List<VastCompanionType> companiontype;    ///< VAST Companion Types (table 6.17)
     Json::Value ext;            ///< Extensions go here, new in OpenRTB 2.1
 };
 
@@ -669,10 +667,10 @@ struct Video {
 
 struct Publisher {
     ~Publisher();
-    Id id;                       ///< Unique ID representing the publisher
-    UtfString name;             ///< Publisher name
-    List<ContentCategory> cat; ///< Content categories     
-    UtfString domain;               ///< Domain name of publisher
+    Datacratic::Id id;                       ///< Unique ID representing the publisher
+    Datacratic::UnicodeString name;             ///< Publisher name
+    Datacratic::List<ContentCategory> cat; ///< Content categories     
+    Datacratic::UnicodeString domain;               ///< Domain name of publisher
     Json::Value ext;             ///< Extensions go here, new in OpenRTB 2.1
 };
 
@@ -705,17 +703,17 @@ typedef Publisher Producer;  /// They are the same...
 */
 struct Impression {
     ~Impression();
-    Id id;                             ///< Impression ID within BR
-    Optional<Banner> banner;           ///< If it's a banner ad
-    Optional<Video> video;             ///< If it's a video ad
-    UtfString displaymanager;          ///< What renders the ad
-    UtfString displaymanagerver;        ///< What version of that thing
-    TaggedBoolDef<0> instl;            ///< Is it interstitial
-    UtfString tagid;                   ///< ad tag ID for auction
-    TaggedDoubleDef<0> bidfloor;        ///< CPM bid floor
-    string bidfloorcur;                ///< Bid floor currency
-    List<std::string> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
-    Optional<OpenRTB::PMP> pmp;        ///< Containing any Deals eligible for the impression object
+    Datacratic::Id id;                             ///< Impression ID within BR
+    Datacratic::Optional<Banner> banner;           ///< If it's a banner ad
+    Datacratic::Optional<Video> video;             ///< If it's a video ad
+    Datacratic::UnicodeString displaymanager;          ///< What renders the ad
+    Datacratic::UnicodeString displaymanagerver;        ///< What version of that thing
+    Datacratic::TaggedBoolDef<0> instl;            ///< Is it interstitial
+    Datacratic::UnicodeString tagid;                   ///< ad tag ID for auction
+    Datacratic::TaggedDoubleDef<0> bidfloor;        ///< CPM bid floor
+    std::string bidfloorcur;                ///< Bid floor currency
+    Datacratic::List<std::string> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
+    Datacratic::Optional<OpenRTB::PMP> pmp;        ///< Containing any Deals eligible for the impression object
     Json::Value ext;                   ///< Extended impression attributes
 };
 
@@ -742,22 +740,22 @@ struct Impression {
 
 struct Content {
     ~Content();
-    Id id;                   ///< Unique ID identifying the content
-    TaggedInt episode;       ///< Episode number of a series
-    UtfString title;        ///< Content title
-    UtfString series;       ///< Content series
-    UtfString season;       ///< Content season
-    Url url;                 ///< Original content URL
-    List<ContentCategory> cat; ///< IAB content category (table 6.1)
+    Datacratic::Id id;                   ///< Unique ID identifying the content
+    Datacratic::TaggedInt episode;       ///< Episode number of a series
+    Datacratic::UnicodeString title;        ///< Content title
+    Datacratic::UnicodeString series;       ///< Content series
+    Datacratic::UnicodeString season;       ///< Content season
+    Datacratic::Url url;                 ///< Original content URL
+    Datacratic::List<ContentCategory> cat; ///< IAB content category (table 6.1)
     VideoQuality videoquality; ///< Video quality (table 6.14)
-    CSList keywords;         ///< Content keywords
-    UtfString contentrating;    ///< Content rating (eg Mature)
-    UtfString userrating;       ///< Content user rating (eg 3 stars)
-    UtfString context;          ///< Content context (table 6.13)
-    TaggedBool livestream;   ///< Is this being live streamed?
+    Datacratic::CSList keywords;         ///< Content keywords
+    Datacratic::UnicodeString contentrating;    ///< Content rating (eg Mature)
+    Datacratic::UnicodeString userrating;       ///< Content user rating (eg 3 stars)
+    Datacratic::UnicodeString context;          ///< Content context (table 6.13)
+    Datacratic::TaggedBool livestream;   ///< Is this being live streamed?
     SourceRelationship sourcerelationship;  ///< 1 = direct, 0 = indirect
-    Optional<Producer> producer;  ///< Content producer
-    TaggedInt len;           ///< Length of content in seconds
+    Datacratic::Optional<Producer> producer;  ///< Content producer
+    Datacratic::TaggedInt len;           ///< Length of content in seconds
     MediaRating qagmediarating;///< Media rating per QAG guidelines (table 6.18).
     Embeddable embeddable;   ///< 1 if embeddable, 0 otherwise
     std::string language;     ///< Content language.  ISO 639-1 (alpha-2).
@@ -773,16 +771,16 @@ struct Content {
 
 struct Context {
     ~Context();
-    Id id;        ///< Site ID on the exchange
-    UtfString name;  ///< Site name
-    UtfString domain;///< Site or app domain
-    List<ContentCategory> cat;        ///< IAB content categories for site/app
-    List<ContentCategory> sectioncat; ///< IAB content categories for subsection
-    List<ContentCategory> pagecat;    ///< IAB content categories for page/view
-    TaggedBool privacypolicy;           ///< Has a privacy policy
-    Optional<Publisher> publisher;    ///< Publisher of the site or app
-    Optional<Content> content;        ///< Content of the site or app
-    CSList keywords;                    ///< Keywords describing app
+    Datacratic::Id id;        ///< Site ID on the exchange
+    Datacratic::UnicodeString name;  ///< Site name
+    Datacratic::UnicodeString domain;///< Site or app domain
+    Datacratic::List<ContentCategory> cat;        ///< IAB content categories for site/app
+    Datacratic::List<ContentCategory> sectioncat; ///< IAB content categories for subsection
+    Datacratic::List<ContentCategory> pagecat;    ///< IAB content categories for page/view
+    Datacratic::TaggedBool privacypolicy;           ///< Has a privacy policy
+    Datacratic::Optional<Publisher> publisher;    ///< Publisher of the site or app
+    Datacratic::Optional<Content> content;        ///< Content of the site or app
+    Datacratic::CSList keywords;                    ///< Keywords describing app
     Json::Value ext;
 };
 
@@ -804,9 +802,9 @@ struct Context {
 */
 
 struct SiteInfo {
-    Url page;          ///< URL of the page to be shown
-    Url ref;           ///< Referrer URL that got user to page
-    UtfString search; ///< Search string that got user to page
+    Datacratic::Url page;          ///< URL of the page to be shown
+    Datacratic::Url ref;           ///< Referrer URL that got user to page
+    Datacratic::UnicodeString search; ///< Search string that got user to page
 };
 
 struct Site: public Context, public SiteInfo {
@@ -829,10 +827,10 @@ struct Site: public Context, public SiteInfo {
     App ID or bundle, but this is not strictly required.
 */
 struct AppInfo {
-    string ver;             ///< Application version
-    UtfString bundle;      ///< Application bundle name (unique across multiple exchanges)
-    TaggedBool paid;        ///< Is a paid version of the app
-    Url storeurl;           ///< For QAG 1.5 compliance, new in OpenRTB 2.1
+    std::string ver;             ///< Application version
+    Datacratic::UnicodeString bundle;      ///< Application bundle name (unique across multiple exchanges)
+    Datacratic::TaggedBool paid;        ///< Is a paid version of the app
+    Datacratic::Url storeurl;           ///< For QAG 1.5 compliance, new in OpenRTB 2.1
 };
 
 struct App: public Context, public AppInfo {
@@ -859,21 +857,21 @@ struct App: public Context, public AppInfo {
 
 struct Geo {
     ~Geo();
-    TaggedFloat lat;        ///< Latitude of user (-90 to 90; South negative)
-    TaggedFloat lon;        ///< Longtitude (-180 to 180; west is negative)
-    string country;         ///< Country code (ISO 3166-1 Alpha-3)
-    string region;          ///< Region code (ISO 3166-2)
-    string regionfips104;   ///< Region using FIPS 10-4
-    string metro;           ///< Metropolitan region (Google Metro code)
-    UtfString city;        ///< City name (UN Code for Trade and Transport Loc)
-    UtfString zip;             ///< Zip or postal code
+    Datacratic::TaggedFloat lat;        ///< Latitude of user (-90 to 90; South negative)
+    Datacratic::TaggedFloat lon;        ///< Longtitude (-180 to 180; west is negative)
+    std::string country;         ///< Country code (ISO 3166-1 Alpha-3)
+    std::string region;          ///< Region code (ISO 3166-2)
+    std::string regionfips104;   ///< Region using FIPS 10-4
+    std::string metro;           ///< Metropolitan region (Google Metro code)
+    Datacratic::UnicodeString city;        ///< City name (UN Code for Trade and Transport Loc)
+    Datacratic::UnicodeString zip;             ///< Zip or postal code
     LocationType type;      ///< Source of Geo data (table 6.15)
     Json::Value ext;        ///< Extensions go here, new in OpenRTB 2.1
 
     /// Datacratic extensions
-    string dma;             ///< Direct Marketing Association code
+    std::string dma;             ///< Direct Marketing Association code
     /// Rubicon extensions
-    TaggedBool latlonconsent;  ///< Has user given consent for lat/lon use?
+    Datacratic::TaggedBool latlonconsent;  ///< Has user given consent for lat/lon use?
 };
 
 
@@ -902,25 +900,25 @@ struct Geo {
 
 struct Device {
     ~Device();
-    TaggedBool dnt;        ///< If 1 then do not track is on
-    UtfString ua;         ///< User agent of device
-    string ip;             ///< IP address of device
-    Optional<Geo> geo;     ///< Geolocation of device
-    string didsha1;        ///< Device ID: SHA1
-    string didmd5;         ///< Device ID: MD5
-    string dpidsha1;       ///< Device Platform ID: SHA1
-    string dpidmd5;        ///< Device Platform ID: MD5
-    string ipv6;           ///< IPv6 address
-    UtfString carrier;    ///< Carrier or ISP (derived from IP address)
-    UtfString language;   ///< Browser language.  ISO 639-1 (alpha-2).
-    UtfString make;       ///< Device make
-    UtfString model;      ///< Device model
-    UtfString os;         ///< Device OS
-    UtfString osv;         ///< Device OS version
-    TaggedBool js;         ///< Javascript is supported? 1 or 0
+    Datacratic::TaggedBool dnt;        ///< If 1 then do not track is on
+    Datacratic::UnicodeString ua;         ///< User agent of device
+    std::string ip;             ///< IP address of device
+    Datacratic::Optional<Geo> geo;     ///< Geolocation of device
+    std::string didsha1;        ///< Device ID: SHA1
+    std::string didmd5;         ///< Device ID: MD5
+    std::string dpidsha1;       ///< Device Platform ID: SHA1
+    std::string dpidmd5;        ///< Device Platform ID: MD5
+    std::string ipv6;           ///< IPv6 address
+    Datacratic::UnicodeString carrier;    ///< Carrier or ISP (derived from IP address)
+    Datacratic::UnicodeString language;   ///< Browser language.  ISO 639-1 (alpha-2).
+    Datacratic::UnicodeString make;       ///< Device make
+    Datacratic::UnicodeString model;      ///< Device model
+    Datacratic::UnicodeString os;         ///< Device OS
+    Datacratic::UnicodeString osv;         ///< Device OS version
+    Datacratic::TaggedBool js;         ///< Javascript is supported? 1 or 0
     ConnectionType connectiontype;    ///< Connection type (table 6.10)
     DeviceType devicetype; ///< Device type (table 6.16)
-    string flashver;       ///< Flash version on device
+    std::string flashver;       ///< Flash version on device
     Json::Value ext;       ///< Extensions go here
 };
 
@@ -941,13 +939,13 @@ struct Device {
     specified, it should be considered unknown.
 */
 struct Segment {
-    Id id;                         ///< Segment ID
-    UtfString name;                   ///< Segment name
-    UtfString value;                  ///< Segment value
+    Datacratic::Id id;                         ///< Segment ID
+    Datacratic::UnicodeString name;                   ///< Segment name
+    Datacratic::UnicodeString value;                  ///< Segment value
     Json::Value ext;               ///< Extensions go here, new in OpenRTB 2.1
 
     /// Datacratic Extensions
-    TaggedDouble segmentusecost;    ///< Cost of using segment in CPM
+    Datacratic::TaggedDouble segmentusecost;    ///< Cost of using segment in CPM
 };
 
 
@@ -968,14 +966,14 @@ struct Segment {
     specified, it should be considered unknown.
 */
 struct Data {
-    Id id;                           ///< Exchange specific data prov ID
-    UtfString name;                  ///< Data provider name
-    vector<Segment> segment;         ///< Segment of data
+    Datacratic::Id id;                           ///< Exchange specific data prov ID
+    Datacratic::UnicodeString name;                  ///< Data provider name
+    std::vector<Segment> segment;         ///< Segment of data
     Json::Value ext;                 ///< Extensions go here, new in OpenRTB 2.1
 
     /// Datacratic Extensions
-    string usecostcurrency;          ///< Currency of use cost
-    TaggedDouble datausecost;         ///< Cost of using the data (CPM)
+    std::string usecostcurrency;          ///< Currency of use cost
+    Datacratic::TaggedDouble datausecost;         ///< Cost of using the data (CPM)
 };
 
 
@@ -1001,19 +999,19 @@ struct Data {
 */
 struct User {
     ~User();
-    Id id;                     ///< Exchange-specific user ID
-    Id buyeruid;               ///< Exchange seat-specific user ID
-    TaggedInt yob;             ///< Year of birth
-    string gender;             ///< Gender: Male, Female, Other
-    CSList keywords;           ///< List of keywords of consumer intent
-    UtfString customdata;         ///< Custom data from exchange
+    Datacratic::Id id;                     ///< Exchange-specific user ID
+    Datacratic::Id buyeruid;               ///< Exchange seat-specific user ID
+    Datacratic::TaggedInt yob;             ///< Year of birth
+    std::string gender;             ///< Gender: Male, Female, Other
+    Datacratic::CSList keywords;           ///< List of keywords of consumer intent
+    Datacratic::UnicodeString customdata;         ///< Custom data from exchange
     Geo geo;                   ///< Geolocation of user at registration
-    vector<Data> data;         ///< User data segments
+    std::vector<Data> data;         ///< User data segments
     Json::Value ext;           ///< Extensions go here, new in OpenRTB 2.1
 
     /// Rubicon extensions
-    TaggedInt tz;              ///< User time zone in seconds after GMT
-    TaggedInt sessiondepth;    ///< User session depth
+    Datacratic::TaggedInt tz;              ///< User time zone in seconds after GMT
+    Datacratic::TaggedInt sessiondepth;    ///< User session depth
 };
 
 
@@ -1037,22 +1035,22 @@ struct User {
 
 struct BidRequest {
     ~BidRequest();
-    Id id;                             ///< Bid request ID
+    Datacratic::Id id;                             ///< Bid request ID
 
-    vector<Impression> imp;            ///< List of impressions
+    std::vector<Impression> imp;            ///< List of impressions
     //unique_ptr<Context> context;     // TODO: factor out of site and app
-    Optional<Site> site;
-    Optional<App> app;
-    Optional<Device> device;
-    Optional<User> user;
+    Datacratic::Optional<Site> site;
+    Datacratic::Optional<App> app;
+    Datacratic::Optional<Device> device;
+    Datacratic::Optional<User> user;
 
     AuctionType at;                    ///< Auction type (1=first/2=second party)
-    TaggedInt tmax;                    ///< Max time avail in ms
-    vector<string> wseat;              ///< Allowed buyer seats
-    TaggedBool allimps;                ///< All impressions in BR (for road-blocking)
-    vector<string> cur;                ///< Allowable currencies
-    List<ContentCategory> bcat;        ///< Blocked advertiser categories (table 6.1)
-    vector<UtfString> badv;           ///< Blocked advertiser domains
+    Datacratic::TaggedInt tmax;                    ///< Max time avail in ms
+    std::vector<std::string> wseat;              ///< Allowed buyer seats
+    Datacratic::TaggedBool allimps;                ///< All impressions in BR (for road-blocking)
+    std::vector<std::string> cur;                ///< Allowable currencies
+    Datacratic::List<ContentCategory> bcat;        ///< Blocked advertiser categories (table 6.1)
+    std::vector<Datacratic::UnicodeString> badv;           ///< Blocked advertiser domains
     Json::Value ext;                   ///< Protocol extensions
     Json::Value unparseable;           ///< Unparseable fields get put here
 };
@@ -1086,17 +1084,17 @@ struct BidRequest {
 */
 
 struct Bid {
-    Id id;                        ///< Bidder's bid ID to identify bid
-    Id impid;                     ///< ID of the impression we're bidding on
-    TaggedDouble price;           ///< Price to bid
-    Id adid;                      ///< Id of ad to be served if won
-    UtfString nurl;                  ///< Win notice/ad markup URL
-    UtfString adm;                   ///< Ad markup
-    vector<string> adomain;       ///< Advertiser domains
-    UtfString iurl;                  ///< Image URL for content checking
-    Id cid;                       ///< Campaign ID
-    Id crid;                      ///< Creative ID
-    List<CreativeAttribute> attr; ///< Creative attributes
+    Datacratic::Id id;                        ///< Bidder's bid ID to identify bid
+    Datacratic::Id impid;                     ///< ID of the impression we're bidding on
+    Datacratic::TaggedDouble price;           ///< Price to bid
+    Datacratic::Id adid;                      ///< Id of ad to be served if won
+    Datacratic::UnicodeString nurl;                  ///< Win notice/ad markup URL
+    Datacratic::UnicodeString adm;                   ///< Ad markup
+    std::vector<std::string> adomain;       ///< Advertiser domains
+    Datacratic::UnicodeString iurl;                  ///< Image URL for content checking
+    Datacratic::Id cid;                       ///< Campaign ID
+    Datacratic::Id crid;                      ///< Creative ID
+    Datacratic::List<CreativeAttribute> attr; ///< Creative attributes
     Json::Value ext;              ///< Extended bid fields
 };
 
@@ -1119,9 +1117,9 @@ struct Bid {
 */
 
 struct SeatBid {
-    vector<Bid> bid;              ///< Array of bid objects  (relating to imps)
-    Id seat;                      ///< Seat on behalf of whom the bid is made
-    TaggedInt group;              ///< If true, imps must be won as a group
+    std::vector<Bid> bid;              ///< Array of bid objects  (relating to imps)
+    Datacratic::Id seat;                      ///< Seat on behalf of whom the bid is made
+    Datacratic::TaggedInt group;              ///< If true, imps must be won as a group
     Json::Value ext;              ///< Extension fields
 };
 
@@ -1146,11 +1144,11 @@ struct SeatBid {
 */
 
 struct BidResponse {
-    Id id;
-    vector<SeatBid> seatbid;
-    Id bidid;
-    string cur;
-    UtfString customData;
+    Datacratic::Id id;
+    std::vector<SeatBid> seatbid;
+    Datacratic::Id bidid;
+    std::string cur;
+    Datacratic::UnicodeString customData;
     Json::Value ext;
 };
 
