@@ -537,7 +537,7 @@ runEventThread(int threadNum, int numThreads)
         lock.release();
     }
 
-    bool forceInSlice = false;
+    // bool forceInSlice = false;
 
     bool wasBusy = false;
     Date sleepStart = Date::now();
@@ -612,7 +612,7 @@ runEventThread(int threadNum, int numThreads)
                      << " taken " << Date::now().secondsSince(now) * 1000000
                      << "us" << endl;
             if (numHandled == -1) break;
-            forceInSlice = false;
+            // forceInSlice = false;
         }
         else {
             // No... try to handle something and then sleep if we don't
@@ -638,7 +638,7 @@ runEventThread(int threadNum, int numThreads)
 
                 ML::sleep(secToSleep);
                 duty.notifyAfterSleep();
-                forceInSlice = true;
+                // forceInSlice = true;
 
                 if (debug && false)
                     cerr << " slept for "

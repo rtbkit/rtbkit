@@ -232,11 +232,13 @@ BOOST_AUTO_TEST_CASE( test_redis_mt )
                 finishedRequest();
             };
             
+#if 0
             auto onTimeout = [&] ()
             {
                 cerr << "got timeout" << endl;
                 finishedRequest();
             };
+#endif
             
             while (!finished) {
                 //cerr << "doing request" << endl;

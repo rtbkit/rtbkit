@@ -21,18 +21,18 @@ struct ValueDescription;
 
 struct JsonPathEntry {
     JsonPathEntry(int index)
-        : index(index), keyPtr(0), fieldNumber(0)
+        : index(index), keyStr(0), keyPtr(0), fieldNumber(0)
     {
     }
     
     JsonPathEntry(const std::string & key)
-        : index(-1), keyPtr(key.c_str()), keyStr(new std::string(key)),
+        : index(-1), keyStr(new std::string(key)), keyPtr(keyStr->c_str()),
           fieldNumber(0)
     {
     }
     
     JsonPathEntry(const char * keyPtr)
-        : index(-1), keyPtr(keyPtr)
+        : index(-1), keyStr(nullptr), keyPtr(keyPtr), fieldNumber(0)
     {
     }
 
@@ -48,6 +48,7 @@ struct JsonPathEntry {
         keyStr = other.keyStr;
         fieldNumber = other.fieldNumber;
         other.keyStr = nullptr;
+        other.keyPtr = nullptr;
         return *this;
     }
 
@@ -58,13 +59,13 @@ struct JsonPathEntry {
     }
 
     int index;
-    const char * keyPtr;
     std::string * keyStr;
+    const char * keyPtr;
     int fieldNumber;
 
     std::string fieldName() const
     {
-        return keyPtr ? std::string(keyPtr) : *keyStr;
+        return keyStr ? *keyStr : std::string(keyPtr);
     }
 
     const char * fieldNamePtr() const
@@ -76,8 +77,14 @@ struct JsonPathEntry {
     JsonPathEntry & operator = (const JsonPathEntry & other)
     {
         index = other.index;
-        keyPtr = other.keyPtr;
-        keyStr = other.keyStr ? new std::string(*other.keyStr) : nullptr;
+        if (other.keyStr) {
+            keyStr = new std::string(*other.keyStr);
+            keyPtr = keyStr->c_str();
+        }
+        else {
+            keyPtr = other.keyPtr;
+            keyStr = nullptr;
+        }
         fieldNumber = other.fieldNumber;
         return *this;
     }

@@ -123,6 +123,32 @@ struct HttpRestProxy {
         {
         }
 
+        static std::string urlEncode(const std::string & str)
+        {
+            std::string result;
+            for (auto c: str) {
+                
+                if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+                    result += c;
+                else result += ML::format("%%%02X", c);
+            }
+            return result;
+        }
+        
+        Content(const RestParams & form)
+        {
+            for (auto p: form) {
+                if (!str.empty())
+                    str += "&";
+                str += urlEncode(p.first) + "=" + urlEncode(p.second);
+            }
+
+            data = str.c_str();
+            size = str.size();
+            hasContent = true;
+            contentType = "application/x-www-form-urlencoded";
+        }
+
         std::string str;
 
         const char * data;

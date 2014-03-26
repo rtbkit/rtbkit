@@ -137,6 +137,7 @@ BOOST_AUTO_TEST_CASE( test_named_endpoint )
             cerr << "done proxy shutdown" << endl;
         };
 
+#if 0
     auto runHttpThread = [&] ()
         {
             HttpNamedRestProxy proxy;
@@ -156,6 +157,7 @@ BOOST_AUTO_TEST_CASE( test_named_endpoint )
             }
 
         };
+#endif
 
     boost::thread_group threads;
 

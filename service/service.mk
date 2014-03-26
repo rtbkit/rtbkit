@@ -53,7 +53,7 @@ LIBSERVICES_SOURCES := \
 	nprobe.cc \
 	logs.cc
 
-LIBSERVICES_LINK := opstats curl curlpp boost_regex zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2 boost_system
+LIBSERVICES_LINK := opstats curl curlpp boost_regex zeromq zookeeper_mt ACE arch utils jsoncpp boost_thread zmq types tinyxml2 boost_system value_description
 
 $(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
 
@@ -69,6 +69,7 @@ $(eval $(call library,endpoint,$(LIBENDPOINT_SOURCES),$(LIBENDPOINT_LINK)))
 
 
 LIBCLOUD_SOURCES := \
+	fs_utils.cc \
 	sftp.cc \
 	s3.cc \
 	sns.cc \

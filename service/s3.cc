@@ -40,9 +40,45 @@
 
 #include <boost/filesystem.hpp>
 
+#include "fs_utils.h"
+
 
 using namespace std;
 using namespace ML;
+using namespace Datacratic;
+
+namespace {
+
+/* S3URLFSHANDLER */
+
+struct S3UrlFsHandler : public UrlFsHandler {
+    virtual FsObjectInfo getInfo(const Url & url) const
+    {
+        string bucket = url.host();
+        auto api = getS3ApiForBucket(bucket);
+        return api->getObjectInfo(bucket, url.path().substr(1));
+    }
+
+    virtual void makeDirectory(const Url & url) const
+    {
+    }
+
+    virtual void erase(const Url & url) const
+    {
+        string bucket = url.host();
+        auto api = getS3ApiForBucket(bucket);
+        api->erase(bucket, url.path());
+    }
+};
+
+struct AtInit {
+    AtInit() {
+        registerUrlFsHandler("s3", new S3UrlFsHandler());
+    }
+} atInit;
+
+}
+
 
 namespace Datacratic {
 
@@ -107,6 +143,23 @@ init(const std::string & accessKeyId,
     this->defaultProtocol = defaultProtocol;
     this->serviceUri = serviceUri;
     this->bandwidthToServiceMbps = bandwidthToServiceMbps;
+}
+
+void
+S3Api::init()
+{
+    string keyId, key;
+    tie(keyId, key, std::ignore, std::ignore, std::ignore)
+        = getCloudCredentials();
+    if (keyId != "" && key != "") {
+        auto keys = getS3CredentialsFromEnvVar();
+        keyId = keys.first;
+        key = keys.second;
+    }
+    if (keyId != "" && key != "")
+        throw ML::Exception("does this make sense?");
+    
+    this->init(keyId, key);
 }
 
 S3Api::Content::
@@ -226,10 +279,10 @@ performSync() const
         myRequest.setOpt<options::Timeout>(timeout);
         myRequest.setOpt<options::NoSignal>(1);
 
-        auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
-            //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
-            return 0;
-        };
+        // auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
+        //     //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
+        //     return 0;
+        // };
 
         auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) {
             size_t total = ofs1 * ofs2;
@@ -629,7 +682,7 @@ obtainMultiPartUpload(const std::string & bucket,
             .FirstChildElement("Upload")
             .ToElement();
 
-        uint64_t partSize = 0;
+        // uint64_t partSize = 0;
         uint64_t currentOffset = 0;
 
         for (; upload; upload = upload->NextSiblingElement("Upload")) {
@@ -685,7 +738,7 @@ obtainMultiPartUpload(const std::string & bucket,
                 parts.push_back(currentPart);
             }
 
-            partSize = biggestPartSize;
+            // partSize = biggestPartSize;
 
             //cerr << "numPartsDone = " << numPartsDone << endl;
             //cerr << "currentOffset = " << currentOffset
@@ -1011,12 +1064,6 @@ upload(const char * data,
 }
 
 S3Api::ObjectInfo::
-ObjectInfo()
-    : size(0), exists(false)
-{
-}
-
-S3Api::ObjectInfo::
 ObjectInfo(tinyxml2::XMLNode * element)
 {
     size = extract<uint64_t>(element, "Size");
@@ -1045,7 +1092,7 @@ forEachObject(const std::string & bucket,
     //cerr << "forEachObject under " << prefix << endl;
 
     string marker = startAt;
-    bool firstIter = true;
+    // bool firstIter = true;
     do {
         //cerr << "Starting at " << marker << endl;
         
@@ -1121,7 +1168,7 @@ forEachObject(const std::string & bucket,
             }
         }
 
-        firstIter = false;
+        // firstIter = false;
         if (!isTruncated)
             break;
     } while (marker != "");
@@ -2260,6 +2307,7 @@ void registerS3Bucket(const std::string & bucketName,
             || api->defaultProtocol != protocol
             || api->serviceUri != serviceUri)
         {
+            return;
             throw ML::Exception("Trying to re-register a bucket with different "
                 "parameters");
         }
@@ -2357,6 +2405,66 @@ struct RegisterS3Handler {
 bool defaultBucketsRegistered = false;
 std::mutex registerBucketsMutex;
 
+tuple<string, string, string, string, string> getCloudCredentials()
+{
+    string filename = "";
+    char* home;
+    home = getenv("HOME");
+    if (home != NULL)
+        filename = home + string("/.cloud_credentials");
+    if (filename != "" && ML::fileExists(filename)) {
+        std::ifstream stream(filename.c_str());
+        while (stream) {
+            string line;
+
+            getline(stream, line);
+            if (line.empty() || line[0] == '#')
+                continue;
+            if (line.find("s3") != 0)
+                continue;
+
+            vector<string> fields = ML::split(line, '\t');
+
+            if (fields[0] != "s3")
+                continue;
+
+            if (fields.size() < 4) {
+                cerr << "warning: skipping invalid line in ~/.cloud_credentials: "
+                     << line << endl;
+                continue;
+            }
+                
+            fields.resize(7);
+
+            string version = fields[1];
+            if (version != "1") {
+                cerr << "warning: ignoring unknown version "
+                     << version <<  " in ~/.cloud_credentials: "
+                     << line << endl;
+                continue;
+            }
+                
+            string keyId = fields[2];
+            string key = fields[3];
+            string bandwidth = fields[4];
+            string protocol = fields[5];
+            string serviceUri = fields[6];
+
+            return make_tuple(keyId, key, bandwidth, protocol, serviceUri);
+        }
+    }
+    return make_tuple("", "", "", "", "");
+}
+
+pair<string, string> getS3CredentialsFromEnvVar()
+{
+    char* s3KeyIdCStr = getenv("S3_KEY_ID");
+    char* s3KeyCStr = getenv("S3_KEY");
+    string s3KeyId = (s3KeyIdCStr == NULL ? "" : string(s3KeyIdCStr));
+    string s3Key= (s3KeyCStr == NULL ? "" : string(s3KeyCStr));
+    return make_pair(s3KeyId, s3Key);
+}
+
 /** Parse the ~/.cloud_credentials file and add those buckets in.
 
     The format of that file is as follows:
@@ -2374,7 +2482,7 @@ std::mutex registerBucketsMutex;
         - Protocol (http)
         - S3 machine host name (s3.amazonaws.com)
 
-    If S3_ACCESS_KEY_ID and S3_ACCESS_KEY environment variables are specified,
+    If S3_KEY_ID and S3_KEY environment variables are specified,
     they will be used first.
 */
 void registerDefaultBuckets()
@@ -2385,70 +2493,36 @@ void registerDefaultBuckets()
     std::unique_lock<std::mutex> guard(registerBucketsMutex);
     defaultBucketsRegistered = true;
 
-    string filename = "";
-    char* home;
-    home = getenv("HOME");
-    if (home != NULL)
-        filename = home + string("/.cloud_credentials");
-    if (filename != "" && ML::fileExists(filename)) {
-        std::ifstream stream(filename.c_str());
-        while (stream) {
-            string line;
+    tuple<string, string, string, string, string> cloudCredentials = 
+        getCloudCredentials();
+    if (get<0>(cloudCredentials) != "") {
+        string keyId      = get<0>(cloudCredentials);
+        string key        = get<1>(cloudCredentials);
+        string bandwidth  = get<2>(cloudCredentials);
+        string protocol   = get<3>(cloudCredentials);
+        string serviceUri = get<4>(cloudCredentials);
 
-            //cerr << "line = " << line << endl;
+        if (protocol == "")
+            protocol = "http";
+        if (bandwidth == "")
+            bandwidth = "20.0";
+        if (serviceUri == "")
+            serviceUri = "s3.amazonaws.com";
 
-            getline(stream, line);
-            if (line.empty() || line[0] == '#')
-                continue;
-            if (line.find("s3") != 0)
-                continue;
-
-            vector<string> fields = ML::split(line, '\t');
-
-            //cerr << "fields = " << fields << endl;
-
-            if (fields[0] != "s3")
-                continue;
-
-            if (fields.size() < 4) {
-                cerr << "warning: skipping invalid line in ~/.cloud_credentials: "
-                     << line << endl;
-                continue;
-            }
-                
-            fields.resize(7);
-
-
-            string version = fields[1];
-            if (version != "1") {
-                cerr << "warning: ignoring unknown version "
-                     << version <<  " in ~/.cloud_credentials: "
-                     << line << endl;
-                continue;
-            }
-                
-            string keyId = fields[2];
-            string key = fields[3];
-            string bandwidth = fields[4];
-            string protocol = fields[5];
-            string serviceUri = fields[6];
-
-            if (protocol == "")
-                protocol = "http";
-            if (bandwidth == "")
-                bandwidth = "20.0";
-            if (serviceUri == "")
-                serviceUri = "s3.amazonaws.com";
-
-            //cerr << "registering " << keyId << " " << key << " " << bandwidth
-            //     << " " << protocol << " " << serviceUri << endl;
-
-            registerS3Buckets(keyId, key, boost::lexical_cast<double>(bandwidth),
-                              protocol, serviceUri);
-        }
+        registerS3Buckets(keyId, key, boost::lexical_cast<double>(bandwidth),
+                          protocol, serviceUri);
         return;
     }
+    auto keys = getS3CredentialsFromEnvVar();
+    if (keys.first != "" && keys.second != "")
+        registerS3Buckets(keys.first, keys.second, 20., "http",
+                          "s3.amazonaws.com");
+    else
+        cerr << "WARNING: registerDefaultBuckets needs either a "
+                ".cloud_credentials or S3_KEY_ID and S3_KEY environment "
+                " variables" << endl;
 
+#if 0
     char* configFilenameCStr = getenv("CONFIG");
     string configFilename = (configFilenameCStr == NULL ?
                                 string() :
@@ -2472,6 +2546,7 @@ void registerDefaultBuckets()
     cerr << "WARNING: registerDefaultBuckets needs either a .cloud_credentials"
             " file or an environment variable CONFIG pointing toward a file "
             "having keys s3.accessKey and s3.accessKeyId" << endl;
+#endif
 }
 
 void registerS3Buckets(const std::string & accessKeyId,
@@ -2524,106 +2599,6 @@ std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName)
 std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri)
 {
     return getS3ApiForBucket(S3Api::parseUri(uri).first);
-}
-
-// Return an URI for either a file or an s3 object
-size_t getUriSize(const std::string & filename)
-{
-    if (filename.find("s3://") == 0) {
-        string bucket = S3Api::parseUri(filename).first;
-        auto api = getS3ApiForBucket(bucket);
-        return api->getObjectInfo(filename).size;
-    }
-    else {
-        struct stat stats;
-        int res = stat(filename.c_str(), &stats);
-        if (res == -1)
-            throw ML::Exception("error getting stats file");
-        return stats.st_size;
-    }
-}
-
-// Return an etag for either a file or an s3 object
-std::string getUriEtag(const std::string & filename)
-{
-    if (filename.find("s3://") == 0) {
-        string bucket = S3Api::parseUri(filename).first;
-        auto api = getS3ApiForBucket(bucket);
-        return api->getObjectInfo(filename).etag;
-    }
-    else {
-        struct stat stats;
-        int res = stat(filename.c_str(), &stats);
-        if (res == -1)
-            throw ML::Exception("error getting stats file");
-        return "";
-    }
-}
-
-S3Api::ObjectInfo getUriObjectInfo(const std::string & filename)
-{
-    if (filename.find("s3://") == 0) {
-        string bucket = S3Api::parseUri(filename).first;
-        auto api = getS3ApiForBucket(bucket);
-        return api->getObjectInfo(filename);
-    }
-    else {
-        throw ML::Exception("getUriObjectInfo for file not done yet");
-    }
-}
-
-S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename)
-{
-    if (filename.find("s3://") == 0) {
-        string bucket = S3Api::parseUri(filename).first;
-        auto api = getS3ApiForBucket(bucket);
-        return api->tryGetObjectInfo(filename);
-    }
-    else {
-        throw ML::Exception("tryGetUriObjectInfo for file not done yet");
-    }
-}
-
-
-void makeUriDirectory(const std::string & uri)
-{
-    if (uri.find("s3://") == 0)
-        return;
-
-    string::size_type lastSlash = uri.rfind('/');
-    if (lastSlash == string::npos) {
-        return;
-        throw ML::Exception("directory to create contained no slash: " + uri);
-    }
-    string dir(uri, 0, lastSlash + 1);
-
-    int res = system(("mkdir -p '" + dir + "'").c_str());
-    if (res != 0)
-        throw ML::Exception("mkdir of " + dir + " failed");
-}
-
-void eraseUriObject(const std::string & uri)
-{
-    if (uri.find("s3://") == 0) {
-        unlink(uri.c_str());
-        return;
-    }
-
-    string bucket = S3Api::parseUri(uri).first;
-    auto api = getS3ApiForBucket(bucket);
-    return api->eraseObject(uri);
-}
-
-bool tryEraseUriObject(const std::string & uri)
-{
-    if (uri.find("s3://") == 0) {
-        int res = unlink(uri.c_str());
-        return res == 0;
-    }
-
-    string bucket = S3Api::parseUri(uri).first;
-    auto api = getS3ApiForBucket(bucket);
-    return api->tryEraseObject(uri);
 }
 
 

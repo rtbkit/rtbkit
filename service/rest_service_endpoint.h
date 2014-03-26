@@ -167,6 +167,8 @@ struct RestServiceEndpoint: public MessageLoop {
             return sendResponse(responseCode, "", "");
         }
 
+        void sendRedirect(int responseCode, const std::string & location) const;
+
         /** Send the given error string back on the connection. */
         void sendErrorResponse(int responseCode,
                                const std::string & error,

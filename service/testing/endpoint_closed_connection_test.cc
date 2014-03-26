@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
                     const char * current = request.c_str();
                     const char * end = current + request.size();
 
-                    Date before = Date::now();
+                    // Date before = Date::now();
 
                     while (current != end) {
                         res = send(fd, current, end - current, MSG_NOSIGNAL);
