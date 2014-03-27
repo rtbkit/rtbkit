@@ -39,13 +39,13 @@ struct MockAdServerConnector : public HttpAdServerConnector
           publisher(getServices()->zmqContext) {
     }
 
-    MockAdServerConnector(std::shared_ptr<ServiceProxies> const & proxies,
+    MockAdServerConnector(std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies,
                           Json::Value const & json);
 
-    void init(int port);
+    void init(int winPort, int eventPort);
     void start();
     void shutdown();
-    void handleEvent(PostAuctionEvent const & event);
+    HttpAdServerResponse handleEvent(PostAuctionEvent const & event);
 
     /// Generic publishing endpoint to forward wins to anyone registered. Currently, there's only the
     /// router that connects to this.

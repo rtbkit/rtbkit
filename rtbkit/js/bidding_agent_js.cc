@@ -205,6 +205,7 @@ const char* BiddingAgentName = "BiddingAgent";
 RegisterJsOps<RTBKIT::BiddingAgent::BidRequestCb> reg_bidRequestCb;
 RegisterJsOps<RTBKIT::BiddingAgent::PingCb> reg_pingCb;
 RegisterJsOps<RTBKIT::BiddingAgent::ErrorCb> reg_errorCb;
+RegisterJsOps<RTBKIT::BiddingAgent::ByebyeCb> reg_byebyeCb;
 
 struct BiddingAgentJS :
     public JSWrapped2<
@@ -282,6 +283,8 @@ struct BiddingAgentJS :
 
         registerAsyncCallback(&RTBKIT::BiddingAgent::onPing, "onPing");
         registerAsyncCallback(&RTBKIT::BiddingAgent::onError, "onError");
+        registerAsyncCallback(&RTBKIT::BiddingAgent::onByebye, "onByebye");
+
     }
 };
 

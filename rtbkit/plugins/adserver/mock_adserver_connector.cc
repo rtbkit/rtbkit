@@ -12,12 +12,12 @@
 using namespace RTBKIT;
 
 MockAdServerConnector::
-MockAdServerConnector(std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) :
-    HttpAdServerConnector(json.get("name", "mock-adserver").asString(), proxies),
+MockAdServerConnector(std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) :
+    HttpAdServerConnector(serviceName, proxies),
     publisher(getServices()->zmqContext) {
 }
 
-void MockAdServerConnector::init(int port) {
+void MockAdServerConnector::init(int winPort, int eventPort) {
     auto services = getServices();
 
     // Initialize our base class
@@ -28,9 +28,10 @@ void MockAdServerConnector::init(int port) {
     auto handleEvent = [&](const Datacratic::HttpHeader & header,
                            const Json::Value & json,
                            const std::string & text) {
-        this->handleEvent(PostAuctionEvent(json));
+        return this->handleEvent(PostAuctionEvent(json));
     };
-    registerEndpoint(port, handleEvent);
+    registerEndpoint(winPort, handleEvent);
+    registerEndpoint(eventPort, handleEvent);
 
     // Publish the endpoint now that it exists.
     HttpAdServerConnector::bindTcp();
@@ -54,7 +55,9 @@ void MockAdServerConnector::shutdown() {
 }
 
 
-void MockAdServerConnector::handleEvent(PostAuctionEvent const & event) {
+HttpAdServerResponse MockAdServerConnector::handleEvent(PostAuctionEvent const & event) {
+    HttpAdServerResponse response;
+
     if(event.type == PAE_WIN) {
         publishWin(event.auctionId,
                    event.adSpotId,
@@ -77,6 +80,8 @@ void MockAdServerConnector::handleEvent(PostAuctionEvent const & event) {
                              Json::Value(),
                              event.uids);
     }
+    
+    return response;
 }
 
 namespace {
@@ -84,12 +89,13 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        AdServerConnector::registerFactory("mock", [](std::shared_ptr<ServiceProxies> const & proxies,
+        AdServerConnector::registerFactory("mock", [](std::string const & serviceName, std::shared_ptr<ServiceProxies> const & proxies,
                                                       Json::Value const & json) {
-            auto server = new MockAdServerConnector(proxies, json);
+            auto server = new MockAdServerConnector(serviceName, proxies, json);
 
-            int port = json.get("port", "12340").asInt();
-            server->init(port);
+            int winPort = json.get("winPort", "12340").asInt();
+            int eventPort = json.get("eventPort", "12341").asInt();
+            server->init(winPort, eventPort);
             return server;
         });
     }
