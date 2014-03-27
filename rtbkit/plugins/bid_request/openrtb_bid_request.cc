@@ -230,7 +230,13 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 
     result->blockedCategories = std::move(req.bcat);
 
+    // blocked tld advertisers
     result->blockedTldAdvertisers = std::move(req.badv);
+    vector<string> badv ;
+    for (auto s: req.badv) {
+    	badv.push_back (s.extractAscii());
+    }
+
 
     result->ext = std::move(req.ext);
 
