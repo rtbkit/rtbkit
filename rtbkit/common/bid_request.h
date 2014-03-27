@@ -346,7 +346,7 @@ struct BidRequest {
     OpenRTB::List<OpenRTB::ContentCategory> blockedCategories;
 
     /** Blocked TLD Advertisers (badv) */
-    std::vector<RTBKIT::Utf8String> blockedTldAdvertisers ;
+    std::vector<Datacratic::Utf8String> badv ;
 
     /** Amount of extras that will be paid if we win the auction.  These will
         be accumulated in the banker against the winning account.
