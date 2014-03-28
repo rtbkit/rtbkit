@@ -185,11 +185,13 @@ private:
         Job_Info() : id(-1), group(-1) {}
         Job_Info(const Job & job, const Job & error,
                  const std::string & info, Id id, Id group = -1)
-            : job(job), error(error), id(id), group(group), info(info) {}
+            : job(job), error(error), id(id), group(group),
+              invalidGroup(false), info(info) {}
         Job job;
         Job error;
         Id id;    // if -1, this is a group end marker
         Id group;
+        bool invalidGroup; // true is group has error set
         std::string info;
         void dump(std::ostream & stream, int indent = 0) const;
     };
@@ -198,7 +200,7 @@ private:
         Group_Info()
             : jobs_outstanding(0), jobs_running(0),
               groups_outstanding(0), parent_group(0),
-              locked(false), error(false)
+              locked(false)
         {
         }
 
@@ -209,8 +211,7 @@ private:
         Id parent_group;           ///< Group to notify when finished
         Jobs::iterator group_job;  ///< Job for the group; always last
         bool locked;
-        bool error;                ///< No further jobs can be run
-        std::string error_message; ///< Error message to throw
+        std::exception_ptr exc;    ///< Exception to rethrow
         std::string info;
 
         void dump(std::ostream & stream, int indent = 0) const;
@@ -253,10 +254,12 @@ private:
         Lock must already be held. */
     void cancel_group_ul(Group_Info & group_info, int group);
 
-    /** Removes all queued jobs in the group, and waits for running jobs to
-        finish.
-    */
-    void force_finish_group(Group_Info & group_info, int group);
+    /** Marks invalid all the jobs belonging to a group, so that the worker threads can
+     * skip those jobs easily and in a lockless manner */
+    void mark_group_jobs_invalid_ul(Group_Info & group_info, int group);
+
+    /** Waits for running jobs to finish. */
+    void wait_group_finished(Group_Info & group_info, int group);
 
     typedef std::mutex Lock;
     //typedef Spinlock Lock;
