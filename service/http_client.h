@@ -79,7 +79,7 @@ struct HttpRequest {
     }
 
     HttpRequest(const std::string & verb, const std::string & url,
-                const HttpClientCallbacks & callbacks,
+                HttpClientCallbacks & callbacks,
                 const Content & content, const RestParams & headers,
                 int timeout = -1)
         noexcept
@@ -132,7 +132,7 @@ struct HttpRequest {
 
     std::string verb_;
     std::string url_;
-    const HttpClientCallbacks * callbacks_;
+    HttpClientCallbacks * callbacks_;
     Content content_;
     RestParams headers_;
     int timeout_;
@@ -168,7 +168,7 @@ struct HttpClient : public AsyncEventSource {
      *  Returns "true" when the request could successfully be enqueued.
      */
     bool get(const std::string & resource,
-             const HttpClientCallbacks & callbacks,
+             HttpClientCallbacks & callbacks,
              const RestParams & queryParams = RestParams(),
              const RestParams & headers = RestParams(),
              int timeout = -1)
@@ -184,7 +184,7 @@ struct HttpClient : public AsyncEventSource {
      *  Returns "true" when the request could successfully be enqueued.
      */
     bool post(const std::string & resource,
-              const HttpClientCallbacks & callbacks,
+              HttpClientCallbacks & callbacks,
               const HttpRequest::Content & content = HttpRequest::Content(),
               const RestParams & queryParams = RestParams(),
               const RestParams & headers = RestParams(),
@@ -199,7 +199,7 @@ struct HttpClient : public AsyncEventSource {
      *  Returns "true" when the request could successfully be enqueued.
      */
     bool put(const std::string & resource,
-             const HttpClientCallbacks & callbacks,
+             HttpClientCallbacks & callbacks,
              const HttpRequest::Content & content = HttpRequest::Content(),
              const RestParams & queryParams = RestParams(),
              const RestParams & headers = RestParams(),
@@ -217,7 +217,7 @@ private:
     /* Local */
     bool enqueueRequest(const std::string & verb,
                         const std::string & resource,
-                        const HttpClientCallbacks & callbacks,
+                        HttpClientCallbacks & callbacks,
                         const HttpRequest::Content & content,
                         const RestParams & queryParams,
                         const RestParams & headers,
@@ -332,21 +332,22 @@ struct HttpClientCallbacks {
     /* initiates a response */
     virtual void onResponseStart(const HttpRequest & rq,
                                  const std::string & httpVersion,
-                                 int code) const;
+                                 int code);
 
     /* callback for header lines, one invocation per line */
     virtual void onHeader(const HttpRequest & rq,
-                          const std::string & header) const;
+                          const std::string & header);
 
     /* callback for body data, one invocation per chunk */
     virtual void onData(const HttpRequest & rq,
-                        const std::string & data) const;
+                        const std::string & data);
 
     /* callback for operation completions, implying that no other call will
      * be performed for the same request */
     virtual void onDone(const HttpRequest & rq,
-                        Error errorCode) const;
+                        Error errorCode);
 
+private:
     OnResponseStart onResponseStart_;
     OnData onHeader_;
     OnData onData_;
@@ -354,4 +355,3 @@ struct HttpClientCallbacks {
 };
 
 } // namespace Datacratic
-

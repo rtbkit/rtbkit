@@ -86,7 +86,6 @@ void
 HttpClientCallbacks::
 onResponseStart(const HttpRequest & rq,
                 const std::string & httpVersion, int code)
-    const
 {
     if (onResponseStart_)
         onResponseStart_(rq, httpVersion, code);
@@ -95,7 +94,6 @@ onResponseStart(const HttpRequest & rq,
 void
 HttpClientCallbacks::
 onHeader(const HttpRequest & rq, const std::string & header)
-    const
 {
     if (onHeader_)
         onHeader_(rq, header);
@@ -104,7 +102,6 @@ onHeader(const HttpRequest & rq, const std::string & header)
 void
 HttpClientCallbacks::
 onData(const HttpRequest & rq, const std::string & data)
-    const
 {
     if (onData_)
         onData_(rq, data);
@@ -113,7 +110,6 @@ onData(const HttpRequest & rq, const std::string & data)
 void
 HttpClientCallbacks::
 onDone(const HttpRequest & rq, Error errorCode)
-    const
 {
     if (onDone_)
         onDone_(rq, errorCode);
@@ -235,7 +231,7 @@ removeFd(int fd)
 bool
 HttpClient::
 enqueueRequest(const string & verb, const string & resource,
-               const HttpClientCallbacks & callbacks,
+               HttpClientCallbacks & callbacks,
                const HttpRequest::Content & content,
                const RestParams & queryParams, const RestParams & headers,
                int timeout)
@@ -387,7 +383,7 @@ checkMultiInfos()
             ::curl_easy_getinfo(msg->easy_handle,
                                 CURLINFO_PRIVATE, &conn);
 
-            const HttpClientCallbacks & cbs = *conn->request_.callbacks_;
+            HttpClientCallbacks & cbs = *conn->request_.callbacks_;
             cbs.onDone(conn->request_, translateError(msg->data.result));
             conn->clear();
             multi_.remove(&conn->easy_);
