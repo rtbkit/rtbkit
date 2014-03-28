@@ -14,6 +14,7 @@
 #include "googleurl/src/url_util.h"
 
 #include "fs_utils.h"
+#include "jml/utils/file_functions.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -37,10 +38,21 @@ namespace Datacratic {
 
 /* LOCALURLFSHANDLER */
 
+static FsObjectInfo extractInfo(const struct stat & stats)
+{
+    FsObjectInfo objectInfo;
+
+    objectInfo.exists = true;
+    objectInfo.lastModified = Date::fromTimespec(stats.st_mtim);
+    objectInfo.size = stats.st_size;
+
+    return objectInfo;
+}
+
 struct LocalUrlFsHandler : public UrlFsHandler {
+
     virtual FsObjectInfo getInfo(const Url & url) const
     {
-        FsObjectInfo urlInfo;
         struct stat stats;
         string path = url.path();
 
@@ -52,11 +64,7 @@ struct LocalUrlFsHandler : public UrlFsHandler {
 
         // TODO: owner ID (uid) and name (uname)
 
-        urlInfo.exists = true;
-        urlInfo.lastModified = Date::fromTimespec(stats.st_mtim);
-        urlInfo.size = stats.st_size;
-
-        return urlInfo;
+        return extractInfo(stats);
     }
 
     virtual void makeDirectory(const Url & url) const
@@ -68,13 +76,63 @@ struct LocalUrlFsHandler : public UrlFsHandler {
         }
     }
 
-    virtual void erase(const Url & url) const
+    virtual bool erase(const Url & url, bool throwException) const
     {
         string path = url.path();
         int res = ::unlink(path.c_str());
         if (res == -1) {
-            throw ML::Exception(errno, "unlink");
+            if (throwException) {
+                throw ML::Exception(errno, "unlink");
+            }
+            else return false;
         }
+        return true;
+    }
+
+    virtual bool forEach(const Url & prefix,
+                         const OnUriObject & onObject,
+                         const OnUriSubdir & onSubdir,
+                         const std::string & delimiter,
+                         const std::string & startAt) const
+    {
+        using namespace ML;
+
+        if (startAt != "")
+            throw ML::Exception("not implemented: startAt for local files");
+        if (delimiter != "/")
+            throw ML::Exception("not implemented: delimiters other than '/' "
+                                "for local files");
+        
+
+        bool result = true;
+        auto onFileFound = [&] (const std::string & dir,
+                                const std::string & basename,
+                                const struct stat & stats,
+                                FileType type,
+                                int depth) -> ML::FileAction
+            {
+                if (type == FT_FILE) {
+                    result = onObject(dir + "/" + basename,
+                                      extractInfo(stats),
+                                      depth);
+                    if (!result)
+                        return FA_STOP;
+                    else return FA_CONTINUE;
+                }
+                else if (type == FT_DIR) {
+                    if (!onSubdir)
+                        return FA_CONTINUE;
+                    else if (onSubdir(dir + "/" + basename,
+                                      depth))
+                        return FA_CONTINUE;
+                    else return FA_SKIP_SUBTREE;
+                }
+                else return FA_CONTINUE;
+            };
+
+        scanFiles(prefix.path(), onFileFound, -1);
+
+        return result;
     }
 };
 
@@ -204,27 +262,28 @@ makeUriDirectory(const std::string & url)
     findFsHandler(realUrl.scheme())->makeDirectory(realUrl);
 }
 
-void
-eraseUriObject(const std::string & url)
+bool
+eraseUriObject(const std::string & url, bool throwException)
 {
     Url realUrl = makeUrl(url);
-    findFsHandler(realUrl.scheme())->erase(realUrl);
+    return findFsHandler(realUrl.scheme())->erase(realUrl, throwException);
 }
 
 bool
 tryEraseUriObject(const std::string & uri)
 {
-    JML_TRACE_EXCEPTIONS(false);
+    return eraseUriObject(uri, false);
+}
 
-    bool result(true);
-    try {
-        eraseUriObject(uri);
-    }
-    catch (...) {
-        result = false;
-    }
-
-    return result;
+bool forEachUriObject(const std::string & urlPrefix,
+                      const OnUriObject & onObject,
+                      const OnUriSubdir & onSubdir,
+                      const std::string & delimiter,
+                      const std::string & startAt)
+{
+    Url realUrl = makeUrl(urlPrefix);
+    return findFsHandler(realUrl.scheme())
+        ->forEach(realUrl, onObject, onSubdir, delimiter, startAt);
 }
 
 } // namespace Datacratic
