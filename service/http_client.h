@@ -11,13 +11,14 @@
    synchronous interface or a one-shot response mechanism is required. In
    general, the code should be complete enough that existing and similar
    classes could be subclassed gradually (HttpRestProxy, s3 internals). As a
-   generic class, it does not make assumptions on the transfer contents.
+   generic class, it does not make assumptions on the transferred contents.
    Finally, it is based on the interface of HttpRestProxy.
 
    Caveat:
    - no support for EPOLLONESHOT yet
    - has not been tweaked for performance yet
-   - does not and will not provide any support for cookies per se
+   - since those require header interpretation, there is not support for
+     cookies per se
 */
 
 #pragma once
@@ -38,10 +39,12 @@
 #include "soa/service/async_event_source.h"
 #include "soa/service/http_header.h"
 
+
 namespace Datacratic {
 
-struct HttpClientCallbacks;
+struct MessageLoop;
 
+struct HttpClientCallbacks;
 
 /* HTTPREQUEST */
 
@@ -89,45 +92,14 @@ struct HttpRequest {
     {
     }
 
-    HttpRequest(const HttpRequest & other)
-        noexcept
-        : verb_(other.verb_), url_(other.url_),
-          callbacks_(other.callbacks_), content_(other.content_),
-          headers_(other.headers_), timeout_(other.timeout_)
-    {
-    }
-
-    HttpRequest(HttpRequest && other)
-        noexcept
-    {
-        if (&other != this) {
-            verb_ = std::move(other.verb_);
-            url_ = std::move(other.url_);
-            callbacks_ = other.callbacks_;
-            content_ = std::move(other.content_);
-            headers_ = std::move(other.headers_);
-            timeout_ = other.timeout_;
-        }
-    }
-
-    HttpRequest & operator = (const HttpRequest & other)
-        noexcept
-    {
-        if (&other != this) {
-            verb_ = other.verb_;
-            url_ = other.url_;
-            callbacks_ = other.callbacks_,
-            content_ = other.content_;
-            headers_ = other.headers_;
-            timeout_ = other.timeout_;
-        }
-
-        return *this;
-    }
-
     void clear()
     {
-        *this = HttpRequest();
+        verb_ = "";
+        url_ = "";
+        callbacks_ = nullptr;
+        content_ = Content();
+        headers_ = RestParams();
+        timeout_ = -1;
     }
 
     std::string verb_;
@@ -150,13 +122,13 @@ struct HttpClient : public AsyncEventSource {
        operations will be refused */
     HttpClient(const std::string & baseUrl,
                int numParallel = 4, size_t queueSize = 32);
+    HttpClient(HttpClient && other) noexcept;
+    HttpClient(const HttpClient & other) = delete;
+
     ~HttpClient();
 
     /** SSL checks */
     bool noSSLChecks;
-
-    /** Are we debugging? */
-    bool debug;
 
     /** Use with servers that support HTTP pipelining */
     void enablePipelining();
@@ -209,10 +181,14 @@ struct HttpClient : public AsyncEventSource {
                               queryParams, headers, timeout);
     }
 
+    HttpClient & operator = (HttpClient && other) noexcept;
+
 private:
     /* AsyncEventSource */
     virtual int selectFd() const;
     virtual bool processOne();
+
+    void fixConnectionStash();
 
     /* Local */
     bool enqueueRequest(const std::string & verb,
@@ -352,6 +328,49 @@ private:
     OnData onHeader_;
     OnData onData_;
     OnDone onDone_;
+};
+
+
+/* HTTP CLIENT POOL */
+
+/* In general, there is one socket per HttpClient instance and requests are
+ * queued until that socket become available. With HttpClientPool, it is
+ * ensured that requests are distributed more or less equally across different
+ * instances, in a round-robin fashion. This enables a certain amount of
+ * parallelism. */
+
+struct HttpClientPool
+{
+    HttpClientPool(const std::string & baseUrl, size_t numClients = 8) noexcept;
+
+    void registerClients(MessageLoop & loop);
+    void unregisterClients(MessageLoop & loop);
+
+    bool get(const std::string & resource,
+             HttpClientCallbacks & callbacks,
+             const RestParams & queryParams = RestParams(),
+             const RestParams & headers = RestParams(),
+             int timeout = -1);
+
+    bool put(const std::string & resource,
+             HttpClientCallbacks & callbacks,
+             const HttpRequest::Content & content = HttpRequest::Content(),
+             const RestParams & queryParams = RestParams(),
+             const RestParams & headers = RestParams(),
+             int timeout = -1);
+
+    bool post(const std::string & resource,
+              HttpClientCallbacks & callbacks,
+              const HttpRequest::Content & content = HttpRequest::Content(),
+              const RestParams & queryParams = RestParams(),
+              const RestParams & headers = RestParams(),
+              int timeout = -1);
+
+private:
+    std::vector<HttpClient> clients_;
+
+    size_t getNextClientNbr();
+    size_t nextClientNbr_;
 };
 
 } // namespace Datacratic

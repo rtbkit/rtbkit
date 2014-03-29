@@ -9,10 +9,12 @@
 #include <curlpp/Info.hpp>
 #include <curlpp/Infos.hpp>
 
+#include "jml/arch/cmp_xchg.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/exception.h"
 #include "jml/utils/string_functions.h"
 
+#include "soa/service/message_loop.h"
 #include "soa/service/http_header.h"
 
 #include "http_client.h"
@@ -85,7 +87,7 @@ errorMessage(Error errorCode)
 void
 HttpClientCallbacks::
 onResponseStart(const HttpRequest & rq,
-                const std::string & httpVersion, int code)
+                const string & httpVersion, int code)
 {
     if (onResponseStart_)
         onResponseStart_(rq, httpVersion, code);
@@ -93,7 +95,7 @@ onResponseStart(const HttpRequest & rq,
 
 void
 HttpClientCallbacks::
-onHeader(const HttpRequest & rq, const std::string & header)
+onHeader(const HttpRequest & rq, const string & header)
 {
     if (onHeader_)
         onHeader_(rq, header);
@@ -101,7 +103,7 @@ onHeader(const HttpRequest & rq, const std::string & header)
 
 void
 HttpClientCallbacks::
-onData(const HttpRequest & rq, const std::string & data)
+onData(const HttpRequest & rq, const string & data)
 {
     if (onData_)
         onData_(rq, data);
@@ -121,7 +123,7 @@ onDone(const HttpRequest & rq, Error errorCode)
 HttpClient::
 HttpClient(const string & baseUrl, int numParallel, size_t queueSize)
     : AsyncEventSource(),
-      noSSLChecks(false), debug(false),
+      noSSLChecks(false),
       baseUrl_(baseUrl),
       fd_(-1),
       wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
@@ -143,20 +145,13 @@ HttpClient(const string & baseUrl, int numParallel, size_t queueSize)
     /* multi */
     ::CURLM ** handle = (::CURLM **) &multi_;
     handle_ = *handle;
-
     ::curl_multi_setopt(handle_, CURLMOPT_SOCKETFUNCTION, socketCallback);
     ::curl_multi_setopt(handle_, CURLMOPT_SOCKETDATA, this);
     ::curl_multi_setopt(handle_, CURLMOPT_TIMERFUNCTION, timerCallback);
     ::curl_multi_setopt(handle_, CURLMOPT_TIMERDATA, this);
 
     /* connections */
-    connections_ = &connectionStash_[0];
-    HttpConnection * current = connections_;
-    for (size_t i = 1; i < numParallel; i++) {
-        current->next = &connectionStash_[i];
-        current = current->next;
-    }
-    current->next = nullptr;
+    fixConnectionStash();
 
     /* kick start multi */
     int runningHandles;
@@ -166,6 +161,31 @@ HttpClient(const string & baseUrl, int numParallel, size_t queueSize)
     if (rc != ::CURLM_OK) {
         throw ML::Exception("curl error " + to_string(rc));
     }
+}
+
+HttpClient::
+HttpClient(HttpClient && other)
+    noexcept
+    : AsyncEventSource(move(other)),
+      baseUrl_(move(other.baseUrl_)),
+      fd_(other.fd_),
+      wakeup_(move(other.wakeup_)),
+      timerFd_(other.timerFd_),
+      connectionStash_(move(other.connectionStash_)),
+      queue_(move(other.queue_))
+{
+    other.fd_ = -1;
+    other.timerFd_ = -1;
+
+    /* the move operator of Curl::Multi is dubious but our multi handle is not
+       supposed to be active at this point, therefore we do not need to move it */
+    ::CURLM ** handle = (::CURLM **) &multi_;
+    handle_ = *handle;
+    ::curl_multi_setopt(handle_, CURLMOPT_SOCKETFUNCTION, socketCallback);
+    ::curl_multi_setopt(handle_, CURLMOPT_SOCKETDATA, this);
+    ::curl_multi_setopt(handle_, CURLMOPT_TIMERFUNCTION, timerCallback);
+    ::curl_multi_setopt(handle_, CURLMOPT_TIMERDATA, this);
+    fixConnectionStash();
 }
 
 HttpClient::
@@ -181,9 +201,41 @@ HttpClient::
 
 void
 HttpClient::
+fixConnectionStash()
+{
+    connections_ = &connectionStash_[0];
+    HttpConnection * current = connections_;
+    for (size_t i = 1; i < connectionStash_.size(); i++) {
+        current->next = &connectionStash_[i];
+        current = current->next;
+    }
+    current->next = nullptr;
+}
+
+void
+HttpClient::
 enablePipelining()
 {
     ::curl_multi_setopt(handle_, CURLMOPT_PIPELINING, 1);
+}
+
+HttpClient &
+HttpClient::
+operator = (HttpClient && other)
+    noexcept
+{
+    AsyncEventSource::operator = (other);
+    baseUrl_ = move(other.baseUrl_);
+    fd_ = other.fd_;
+    other.fd_ = -1;
+    wakeup_ = move(other.wakeup_);
+    timerFd_ = other.timerFd_;
+    other.timerFd_ = -1;
+    connectionStash_ = move(other.connectionStash_);
+    fixConnectionStash();
+    queue_ = move(other.queue_);
+
+    return *this;
 }
 
 void
@@ -313,7 +365,7 @@ handleWakeupEvent()
     HttpConnection * conn = getConnection();
     if (conn != nullptr) {
         if (queue_.tryPop(conn->request_)) {
-            conn->perform(noSSLChecks, debug);
+            conn->perform(noSSLChecks, debug_);
             multi_.add(&conn->easy_);
         }
         else {
@@ -643,4 +695,123 @@ onCurlRead(char * buffer, size_t bufferSize)
     uploadOffset_ += chunkSize;
 
     return chunkSize;
+}
+
+
+/* HTTP CLIENT POOL */
+
+HttpClientPool::
+HttpClientPool(const string & baseUrl, size_t numClients)
+    noexcept
+    : nextClientNbr_(0)
+{
+    for (size_t i = 0; i < numClients; i++) {
+        clients_.emplace_back(baseUrl);
+    }
+}
+
+void
+HttpClientPool::
+registerClients(MessageLoop & loop)
+{
+    char buffer[512];
+
+    for (size_t i = 0; i < clients_.size(); i++) {
+        size_t bufferSize = sprintf(buffer, "poolclient%p", &clients_[i]);
+        loop.addSource(string(buffer, bufferSize), clients_[i]);
+    }
+}
+
+void
+HttpClientPool::
+unregisterClients(MessageLoop & loop)
+{
+    for (size_t i = 0; i < clients_.size(); i++) {
+        loop.removeSource(&clients_[i]);
+    }
+    for (size_t i = 0; i < clients_.size(); i++) {
+        clients_[i].waitConnectionState(AsyncEventSource::DISCONNECTED);
+    }
+}
+
+bool
+HttpClientPool::
+get(const string & resource,
+    HttpClientCallbacks & callbacks,
+    const RestParams & queryParams,
+    const RestParams & headers,
+    int timeout)
+{
+    size_t offset = getNextClientNbr();
+
+    for (size_t i = 0; i < clients_.size(); i++) {
+        size_t current = (i + offset) % clients_.size();
+        if (clients_[current].get(resource, callbacks, queryParams, headers,
+                                  timeout)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool
+HttpClientPool::
+put(const string & resource,
+    HttpClientCallbacks & callbacks,
+    const HttpRequest::Content & content,
+    const RestParams & queryParams,
+    const RestParams & headers,
+    int timeout)
+{
+    size_t offset = getNextClientNbr();
+
+    for (size_t i = 0; i < clients_.size(); i++) {
+        size_t current = (i + offset) % clients_.size();
+        if (clients_[current].put(resource, callbacks, content, queryParams,
+                                  headers, timeout)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool
+HttpClientPool::
+post(const string & resource,
+     HttpClientCallbacks & callbacks,
+     const HttpRequest::Content & content,
+     const RestParams & queryParams,
+     const RestParams & headers,
+     int timeout)
+{
+    size_t offset = getNextClientNbr();
+
+    for (size_t i = 0; i < clients_.size(); i++) {
+        size_t current = (i + offset) % clients_.size();
+        if (clients_[current].post(resource, callbacks, content, queryParams,
+                                   headers, timeout)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+size_t
+HttpClientPool::
+getNextClientNbr()
+{
+    size_t initial, next;
+
+    do {
+        initial = nextClientNbr_;
+        next = initial + 1;
+        if (next == clients_.size()) {
+            next = 0;
+        }
+    } while (!ML::cmp_xchg(nextClientNbr_, initial, next));
+
+    return initial;
 }
