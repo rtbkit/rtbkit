@@ -831,8 +831,20 @@ struct StructureDescription
     {
         if (onUnknownField)
             context.onUnknownFieldHandlers.pop_back();
-        if (onPostValidate)
-            onPostValidate((Struct *) output, context);
+        postValidate(output, context);
+        StructureDescription * structParent;
+        for (auto parent: parents) {
+            structParent = static_cast<StructureDescription *>(parent.get());
+            structParent->postValidate(output, context);
+        }
+    }
+
+    virtual void postValidate(void * output, JsonParsingContext & context) const
+    {
+        if (onPostValidate) {
+            Struct * structOutput = static_cast<Struct *>(output);
+            onPostValidate(structOutput, context);
+        }
     }
 
     template<typename V, typename Base>
