@@ -67,6 +67,14 @@ DOCKER_GET_REVISION_SCRIPT?=$(JML_BUILD)/get_git_revision.sh
 # DOCKER_TARGET_DEPS: Anything in this variable (which should be overridden
 # on a per-target basis) will be made before the docker image.
 
+# DOCKER_TAG: if this is defined, the given tag will also be applied to the
+# built image.  By default it's "latest" which is expected by most docker
+# tooling, but can be changed to something else or undefined if required.
+
+DOCKER_TAG:=latest
+
+
+
 # Docker target (generic).  If you make docker_target_name, it will make
 # target_name and install it inside a docker image.
 #
@@ -86,6 +94,7 @@ docker_%: % $(DOCKER_GLOBAL_DEPS) $(DOCKER_TARGET_DEPS)
 	cat $(TMPBIN)/$(<).cid
 	echo docker commit `cat $(TMPBIN)/$(<).cid` $(DOCKER_REGISTRY)$(DOCKER_USER)$(<):`cat $(TMPBIN)/$(<).rid`
 	docker commit `cat $(TMPBIN)/$(<).cid` $(DOCKER_REGISTRY)$(DOCKER_USER)$(<):`cat $(TMPBIN)/$(<).rid` > $(TMPBIN)/$<.iid && cat $(TMPBIN)/$<.iid 
+	$(if $(DOCKER_TAG),docker tag `cat $(TMPBIN)/$(<).iid` $(DOCKER_REGISTRY)$(DOCKER_USER)$(<):$(DOCKER_TAG))
 	@docker rm `cat $(TMPBIN)/$(<).cid`
 	$(if $(DOCKER_PUSH),docker push $(DOCKER_REGISTRY)$(DOCKER_USER)$(<))
 	@echo $(COLOR_WHITE)Created $(if $(DOCKER_PUSH),and pushed )$(COLOR_BOLD)$(DOCKER_REGISTRY)$(DOCKER_USER)$(<):`cat $(TMPBIN)/$(<).rid`$(COLOR_RESET) as image $(COLOR_WHITE)$(COLOR_BOLD)`cat $(TMPBIN)/$<.iid`$(COLOR_RESET)
