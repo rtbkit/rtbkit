@@ -94,7 +94,7 @@ handleRequest(const RestServiceEndpoint::ConnectionId & connection,
     RestRequestParsingContext context(request);
     MatchResult res = processRequest(connection, request, context);
     if (res == MR_NO) {
-        connection.sendErrorResponse(404, "unknown resource " + request.resource);
+        connection.sendErrorResponse(404, "unknown resource " + request.verb + " " + request.resource);
     }
 }
 
