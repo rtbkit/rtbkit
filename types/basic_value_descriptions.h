@@ -701,6 +701,14 @@ struct Optional: public std::unique_ptr<T> {
         return *this;
     }
 
+    bool operator == (Optional && other) const
+    {
+        return (this->get() == other.get()
+                || (this->get() != nullptr
+                    && other.get != nullptr
+                    && *this == *other));
+    }
+
     void swap(Optional & other)
     {
         std::unique_ptr<T>::swap(other);
