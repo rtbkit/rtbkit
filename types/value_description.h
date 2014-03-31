@@ -804,12 +804,15 @@ struct StructureDescription
                                    nullAccepted)
     {
     }
-    
+
     /// Function to be called before parsing; if it returns false parsing stops
     std::function<bool (Struct *, JsonParsingContext & context)> onEntryHandler;
 
     /// Function to be called whenever an unknown field is found
     std::function<void (Struct *, JsonParsingContext & context)> onUnknownField;
+
+    /// Function to be called after parsing and validation
+    std::function<void (Struct *, JsonParsingContext & context)> onPostValidate;
 
     virtual bool onEntry(void * output, JsonParsingContext & context) const
     {
@@ -828,6 +831,20 @@ struct StructureDescription
     {
         if (onUnknownField)
             context.onUnknownFieldHandlers.pop_back();
+        postValidate(output, context);
+        StructureDescription * structParent;
+        for (auto parent: parents) {
+            structParent = static_cast<StructureDescription *>(parent.get());
+            structParent->postValidate(output, context);
+        }
+    }
+
+    virtual void postValidate(void * output, JsonParsingContext & context) const
+    {
+        if (onPostValidate) {
+            Struct * structOutput = static_cast<Struct *>(output);
+            onPostValidate(structOutput, context);
+        }
     }
 
     template<typename V, typename Base>

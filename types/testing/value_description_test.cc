@@ -411,3 +411,66 @@ BOOST_AUTO_TEST_CASE( test_date_value_description )
     Date d = Date::now().quantized(0.001);
     BOOST_CHECK_EQUAL(jsonDecode<Date>(d.printIso8601()), d);
 }
+
+
+/* ensure that struct description invoke struct validators and child
+   validators */
+
+int numParentValidations(0);
+int numChildValidations(0);
+
+BOOST_AUTO_TEST_CASE( test_date_value_description_validation )
+{
+    /* test structs */
+    struct ParentStruct
+    {
+        string value;
+    };
+    struct ChildStruct : public ParentStruct
+    {
+        int otherValue;
+    };
+
+    /* value descriptions */
+
+    struct ParentStructVD
+        : public StructureDescriptionImpl<ParentStruct, ParentStructVD>
+    {
+        ParentStructVD()
+        {
+            addField("value", &ParentStruct::value, "");
+            onPostValidate = [&] (ParentStruct * value,
+                                  JsonParsingContext & context) {
+                numParentValidations++;
+            };
+        }
+    };
+    
+    struct ChildStructVD
+        : public StructureDescriptionImpl<ChildStruct, ChildStructVD>
+    {
+        ChildStructVD()
+        {
+            addParent(new ParentStructVD());
+            addField("other-value", &ChildStruct::otherValue, "");
+            onPostValidate = [&] (ChildStruct * value,
+                                  JsonParsingContext & context) {
+                numChildValidations++;
+            };
+        }
+    };
+
+    string testJson("{ \"value\": \"a string value\","
+                    "  \"other-value\": 5}");
+    ChildStruct testStruct;
+
+    ChildStructVD desc;
+    StreamingJsonParsingContext context(testJson,
+                                        testJson.c_str(),
+                                        testJson.c_str()
+                                        + testJson.size());
+    desc.parseJson(&testStruct, context);
+
+    BOOST_CHECK_EQUAL(numChildValidations, 1);
+    BOOST_CHECK_EQUAL(numParentValidations, 1);
+}
