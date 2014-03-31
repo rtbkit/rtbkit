@@ -556,8 +556,9 @@ struct DefaultDescription<Date>
             if (s.length() >= 11
                 && s[4] == '-'
                 && s[7] == '-'
-                && s[s.size() - 1] == 'Z')
-                *val = Date::parseIso8601(s);
+                && (s[s.size() - 1] == 'Z'
+                    || s[s.size() - 3] == ':'))
+                *val = Date::parseIso8601DateTime(s);
             else *val = Date::parseDefaultUtc(s);
         }
         else context.exception("expected date");
