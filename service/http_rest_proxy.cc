@@ -173,6 +173,8 @@ perform(const std::string & verb,
 
         return response;
     } catch (const curlpp::LibcurlRuntimeError & exc) {
+        if (exc.whatCode() == CURLE_OPERATION_TIMEDOUT)
+            throw;
         cerr << "libCurl returned an error with code " << exc.whatCode()
              << endl;
         cerr << "error is " << curl_easy_strerror(exc.whatCode())
