@@ -22,9 +22,16 @@ struct Wakeup_Fd {
             throw ML::Exception(errno, "eventfd");
     }
 
+    Wakeup_Fd(Wakeup_Fd && other) noexcept
+        : fd_(other.fd_)
+    {
+        other.fd_ = -1;
+    }
+
     ~Wakeup_Fd()
     {
-        close(fd_);
+        if (fd_ != -1)
+            close(fd_);
     }
 
     int fd() const { return fd_; }
