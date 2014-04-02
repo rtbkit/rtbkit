@@ -714,7 +714,7 @@ struct Impression {
     UtfString tagid;                   ///< ad tag ID for auction
     TaggedDoubleDef<0> bidfloor;        ///< CPM bid floor
     string bidfloorcur;                ///< Bid floor currency
-    List<UtfString> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
+    List<std::string> iframebuster;         ///< Supported iframe busters (for expandable/video ads)
     Optional<OpenRTB::PMP> pmp;        ///< Containing any Deals eligible for the impression object
     Json::Value ext;                   ///< Extended impression attributes
 };
@@ -760,7 +760,7 @@ struct Content {
     TaggedInt len;           ///< Length of content in seconds
     MediaRating qagmediarating;///< Media rating per QAG guidelines (table 6.18).
     Embeddable embeddable;   ///< 1 if embeddable, 0 otherwise
-    UtfString language;     ///< Content language.  ISO 639-1 (alpha-2).
+    std::string language;     ///< Content language.  ISO 639-1 (alpha-2).
     Json::Value ext;         ///< Extensions go here, new in OpenRTB 2.1
 };
 
