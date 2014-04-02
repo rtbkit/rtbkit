@@ -24,6 +24,26 @@ struct RingBufferBase {
         init(size);
     }
 
+    RingBufferBase(RingBufferBase && other)
+        noexcept
+    {
+        *this = std::move(other);
+    }
+
+    RingBufferBase & operator = (RingBufferBase && other)
+        noexcept
+    {
+        ring = std::move(other.ring);
+        bufferSize = other.bufferSize;
+        other.bufferSize = 0;
+        readPosition = other.readPosition;
+        other.readPosition = 0;
+        writePosition = other.writePosition;
+        other.writePosition = 0;
+
+        return *this;
+    }
+
     std::vector<Request> ring;
     int bufferSize;
     int readPosition;
@@ -36,7 +56,6 @@ struct RingBufferBase {
         readPosition = 0;
         writePosition = 0;
     }
-
 };
 
 /*****************************************************************************/
@@ -219,6 +238,25 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
     RingBufferSRMW(size_t size)
         : RingBufferBase<Request>(size)
     {
+    }
+
+    RingBufferSRMW(const RingBufferSRMW & other) = delete;
+    RingBufferSRMW & operator = (const RingBufferSRMW & other) = delete;
+
+    RingBufferSRMW(RingBufferSRMW && other)
+        noexcept
+        : RingBufferBase<Request>(std::move(other))
+    {
+    }
+
+    RingBufferSRMW & operator = (RingBufferSRMW && other)
+        noexcept
+    {
+        Guard guard(other.mutex);
+
+        RingBufferBase<Request>::operator = (std::move(other));
+
+        return *this;
     }
 
     typedef ML::Spinlock Mutex;
