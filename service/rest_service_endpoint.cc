@@ -175,6 +175,30 @@ sendRedirect(int responseCode, const std::string & location) const
     itl->responseSent = true;
 }
 
+void
+RestServiceEndpoint::ConnectionId::
+sendHttpResponse(int responseCode,
+                 const std::string & response,
+                 const std::string & contentType,
+                 const RestParams & headers) const
+{
+    if (itl->responseSent)
+        throw ML::Exception("response already sent");
+
+    if (itl->endpoint->logResponse)
+        itl->endpoint->logResponse(*this, responseCode, response,
+                                   contentType);
+
+    if (itl->http)
+        itl->http->sendResponse(responseCode, response, contentType,
+                                headers);
+    else {
+        throw ML::Exception("zeromq redirects not done yet");
+    }
+
+    itl->responseSent = true;
+}
+
 
 /*****************************************************************************/
 /* REST SERVICE ENDPOINT                                                     */
