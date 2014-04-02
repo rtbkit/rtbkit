@@ -155,15 +155,61 @@ handleWinRq(const HttpHeader & header,
 
     Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
     Date bidTimestamp;
+
     if (json.isMember("bidTimestamp")) {
         bidTimestamp
             = Date::fromSecondsSinceEpoch(json["bidTimestamp"].asDouble());
     }
-    string auctionIdStr(json["auctionId"].asString());
-    string adSpotIdStr(json["adSpotId"].asString());
-    string accountKeyStr(json["accountId"].asString());
-    double winPriceDbl(json["winPrice"].asDouble());
+
+    string auctionIdStr;
+    string adSpotIdStr;
+    string accountKeyStr;
+    double winPriceDbl;
     double dataCostDbl(json["dataCost"].asDouble());
+
+    if (json.isMember("auctionId")) {
+        auctionIdStr =  json["auctionId"].asString();
+    }
+    else {
+        response.valid = false;
+        response.error = "MISSING_AUCTIONID";
+        response.details = "A win notice requires the auctionId field";
+
+        return response;
+    }
+
+    if (json.isMember("adSpotId")) {
+        adSpotIdStr =  json["adSpotId"].asString();
+    }
+    else {
+        response.valid = false;
+        response.error = "MISSING_ADSPOTID";
+        response.details = "A win notice requires the adSpotId field";
+    
+        return response;
+    }
+
+    if (json.isMember("accountId")) {
+        accountKeyStr =  json["accountId"].asString();
+    }
+    else {
+        response.valid = false;
+        response.error = "MISSING_ACCOUNTID";
+        response.details = "A win notice requires the accountId field";
+    
+        return response;
+    }
+
+    if (json.isMember("winPrice")) {
+        winPriceDbl =  json["winPrice"].asDouble();
+    }
+    else {
+        response.valid = false;
+        response.error = "MISSING_WINPRICE";
+        response.details = "A win notice requires the winPrice field";
+    
+        return response;
+    }
 
     Id auctionId(auctionIdStr);
     Id adSpotId(adSpotIdStr);
@@ -174,9 +220,8 @@ handleWinRq(const HttpHeader & header,
     UserIds userIds;
     string userIdStr;
 
-
-    if (json.isMember("userIds")) {
-        auto item =  json["userIds"];
+    if (json.isMember("userId")) {
+        auto item =  json["userId"];
         if(item.isMember("prov")){
              userIdStr = item["prov"].asString();
              userIds.add(Id(userIdStr), ID_PROVIDER);
@@ -185,7 +230,9 @@ handleWinRq(const HttpHeader & header,
     else {
         response.valid = false;
         response.error = "MISSING_USERID";
-        response.details = "A win notice requires the userIds field";
+        response.details = "A win notice requires the userId field";
+
+        return response;
     }
     
     const Json::Value & meta = json["winMeta"];
