@@ -40,7 +40,7 @@ perform(const std::string & verb,
         const Content & content,
         const RestParams & queryParams,
         const RestParams & headers,
-        int timeout) const
+        double timeout) const
 {
     string responseHeaders;
     string body;
@@ -76,7 +76,7 @@ perform(const std::string & verb,
 
         myRequest.setOpt<ErrorBuffer>((char *)0);
         if (timeout != -1)
-            myRequest.setOpt<Timeout>(timeout);
+            myRequest.setOpt<curlpp::OptionTrait<long, CURLOPT_TIMEOUT_MS> >(timeout * 1000);
         else myRequest.setOpt<Timeout>(0);
         myRequest.setOpt<NoSignal>(1);
 
