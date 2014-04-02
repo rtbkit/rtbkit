@@ -63,6 +63,7 @@ fromAppNexus(const AppNexus::BidRequest & req_b,
     const auto & reqTag = req.tags.front();
 
     // OpenRTB::User
+    rv->user.reset(new OpenRTB::User);
     rv->user->id = Id(req.bidInfo.userId64.val);
     rv->user->gender = req.bidInfo.gender;
     static struct current_year_st_ {
