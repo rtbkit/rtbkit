@@ -331,6 +331,42 @@ private:
 };
 
 
+/* SINGLE CALLBACKS */
+
+/* This class enables to simplify the interface use by clients which do not
+ * need support for progressive responses. */
+struct HttpClientSingleCallbacks : public HttpClientCallbacks
+{
+    typedef std::function<void (const HttpRequest &,    /* request */
+                                Error,                  /* error code */
+                                int,                    /* status code */
+                                const std::string &,    /* headers */
+                                const std::string &)>   /* body */
+        OnResponse;
+    HttpClientSingleCallbacks(const OnResponse & onResponse = nullptr);
+
+    /* HttpClientCallbacks overrides */
+    virtual void onResponseStart(const HttpRequest & rq,
+                                 const std::string & httpVersion, int code);
+    virtual void onHeader(const HttpRequest & rq, const std::string & header);
+    virtual void onData(const HttpRequest & rq, const std::string & data);
+    virtual void onDone(const HttpRequest & rq, Error errorCode);
+
+    virtual void onResponse(const HttpRequest & rq,
+                            Error error,
+                            int status,
+                            const std::string & headers,
+                            const std::string & body);
+
+private:
+    OnResponse onResponse_;
+
+    int statusCode_;
+    std::string headers_;
+    std::string body_;
+};
+
+
 /* HTTP CLIENT POOL */
 
 /* In general, there is one socket per HttpClient instance and requests are
