@@ -81,7 +81,7 @@ CXXFLAGS += -std=c++0x -ggdb -Wno-deprecated-declarations
 LDFLAGS   = -Wl,--rpath-link,$(RTBKIT_HOME)/lib -L$(RTBKIT_HOME)/lib 
 LDFLAGS  += -Wl,--copy-dt-needed-entries
 LDFLAGS  += -Wl,--no-as-needed
-LIBS      = -lrtbkit -lexception_hook -ltcmalloc -ldl 
+LOADLIBES = -lrtbkit -lexception_hook -ltcmalloc -ldl 
 EXECS     = multi_agent  data_logger_ex \
             bidding_agent_console bidding_agent_ex \
             bid_request_endpoint \
