@@ -77,16 +77,16 @@ struct HttpRequest {
     };
 
     HttpRequest()
-        : callbacks_(nullptr), timeout_(-1)
+        : timeout_(-1)
     {
     }
 
     HttpRequest(const std::string & verb, const std::string & url,
-                HttpClientCallbacks & callbacks,
+                const std::shared_ptr<HttpClientCallbacks> & callbacks,
                 const Content & content, const RestParams & headers,
                 int timeout = -1)
         noexcept
-        : verb_(verb), url_(url), callbacks_(&callbacks),
+        : verb_(verb), url_(url), callbacks_(callbacks),
           content_(content), headers_(headers),
           timeout_(timeout)
     {
@@ -104,7 +104,7 @@ struct HttpRequest {
 
     std::string verb_;
     std::string url_;
-    HttpClientCallbacks * callbacks_;
+    std::shared_ptr<HttpClientCallbacks> callbacks_;
     Content content_;
     RestParams headers_;
     int timeout_;
@@ -140,7 +140,7 @@ struct HttpClient : public AsyncEventSource {
      *  Returns "true" when the request could successfully be enqueued.
      */
     bool get(const std::string & resource,
-             HttpClientCallbacks & callbacks,
+             const std::shared_ptr<HttpClientCallbacks> & callbacks,
              const RestParams & queryParams = RestParams(),
              const RestParams & headers = RestParams(),
              int timeout = -1)
@@ -156,7 +156,7 @@ struct HttpClient : public AsyncEventSource {
      *  Returns "true" when the request could successfully be enqueued.
      */
     bool post(const std::string & resource,
-              HttpClientCallbacks & callbacks,
+              const std::shared_ptr<HttpClientCallbacks> & callbacks,
               const HttpRequest::Content & content = HttpRequest::Content(),
               const RestParams & queryParams = RestParams(),
               const RestParams & headers = RestParams(),
@@ -171,7 +171,7 @@ struct HttpClient : public AsyncEventSource {
      *  Returns "true" when the request could successfully be enqueued.
      */
     bool put(const std::string & resource,
-             HttpClientCallbacks & callbacks,
+             const std::shared_ptr<HttpClientCallbacks> & callbacks,
              const HttpRequest::Content & content = HttpRequest::Content(),
              const RestParams & queryParams = RestParams(),
              const RestParams & headers = RestParams(),
@@ -193,7 +193,7 @@ private:
     /* Local */
     bool enqueueRequest(const std::string & verb,
                         const std::string & resource,
-                        HttpClientCallbacks & callbacks,
+                        const std::shared_ptr<HttpClientCallbacks> & callbacks,
                         const HttpRequest::Content & content,
                         const RestParams & queryParams,
                         const RestParams & headers,

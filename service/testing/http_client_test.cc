@@ -17,9 +17,7 @@
 using namespace std;
 using namespace Datacratic;
 
-/* 0 = all but perf tests; 1 = perf tests only */
-#define DO_PERF_TESTS 0
-
+/* helpers functions used in tests */
 namespace {
 
 struct HttpTestConnHandler;
@@ -183,7 +181,8 @@ doGetRequest(MessageLoop & loop,
         ML::futex_wake(done);
     };
 
-    HttpClientCallbacks cbs(onResponseStart, nullptr, onData, onDone);
+    auto cbs = make_shared<HttpClientCallbacks>(onResponseStart, nullptr,
+                                                onData, onDone);
 
     auto client = make_shared<HttpClient>(baseUrl);
     loop.addSource("httpClient", client);
@@ -234,7 +233,8 @@ doUploadRequest(MessageLoop & loop,
 
     auto client = make_shared<HttpClient>(baseUrl);
     loop.addSource("httpClient", client);
-    HttpClientCallbacks cbs(onResponseStart, nullptr, onData, onDone);
+    auto cbs = make_shared<HttpClientCallbacks>(onResponseStart, nullptr,
+                                                onData, onDone);
     HttpRequest::Content content(body, type);
     if (isPut) {
         client->put(resource, cbs, content);
@@ -258,7 +258,6 @@ doUploadRequest(MessageLoop & loop,
 
 }
 
-#if (DO_PERF_TESTS == 0)
 
 #if 1
 BOOST_AUTO_TEST_CASE( test_http_client_get )
@@ -282,6 +281,9 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 
+    /* FIXME: this test does not work because the Datacratic name service
+     * always returns something */
+#if 0
     /* request to bad hostname */
     {
         string baseUrl("http://somewhere.lost");
@@ -290,6 +292,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
                           HttpClientCallbacks::Error::HOST_NOT_FOUND);
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
+#endif
 
     /* request with timeout */
     {
@@ -415,7 +418,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
     int numResponses(0);
 
     auto onDone = [&] (const HttpRequest & rq,
-                       HttpClientCallbacks::Error errorCode_) {
+                       HttpClientCallbacks::Error errorCode, int status,
+                       const string & headers, const string & body) {
         // cerr << ("* onResponse " + to_string(numResponses)
         //          + ": " + to_string(get<1>(resp))
         //          + "\n\n\n");
@@ -425,7 +429,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
             ML::futex_wake(numResponses);
         }
     };
-    HttpClientCallbacks cbs(nullptr, nullptr, nullptr, onDone);
+    auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
 
     while (numReqs < maxReqs) {
         if (clientRef.get("/", cbs)) {
@@ -463,12 +467,15 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
         getClient.waitConnectionState(AsyncEventSource::CONNECTED);
 
         int done(false);
+
         auto onDone = [&] (const HttpRequest & rq,
-                           HttpClientCallbacks::Error errorCode_) {
+                           HttpClientCallbacks::Error errorCode, int status,
+                           const string & headers, const string & body) {
             done = true;
             ML::futex_wake(done);
         };
-        HttpClientCallbacks cbs(nullptr, nullptr, nullptr, onDone);
+        auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
+
         getClient.get("/", cbs);
         while (!done) {
             int old = done;
@@ -494,95 +501,3 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
     doGet(client2);
 }
 #endif
-
-#else /* DO_PERF_TESTS */
-
-#if 1
-/* A small performance test for HttpClient. */
-BOOST_AUTO_TEST_CASE( test_http_client_perf_test )
-{
-    ML::Watchdog watchdog(30);
-    auto proxies = make_shared<ServiceProxies>();
-    HttpGetService service(proxies);
-    // service.portToUse = 20000;
-    service.addResponse("GET", "/", 200, "coucou");
-    service.start();
-
-    MessageLoop loop;
-    loop.start();
-
-    string baseUrl("http://127.0.0.1:"
-                   + to_string(service.port()));
-
-    auto client = make_shared<HttpClient>(baseUrl, 1);
-    auto & clientRef = *client.get();
-    loop.addSource("httpClient", client);
-
-    int maxReqs(1000), numReqs(0);
-    int numResponses(0);
-
-    auto onDone = [&] (const HttpRequest & rq,
-                       HttpClientCallbacks::Error errorCode_) {
-        numResponses++;
-        if (numResponses == numReqs) {
-            ML::futex_wake(numResponses);
-        }
-    };
-    HttpClientCallbacks cbs(nullptr, nullptr, nullptr, onDone);
-
-    Date start = Date::now();
-
-    while (numReqs < maxReqs) {
-        if (clientRef.get("/", cbs)) {
-            numReqs++;
-        }
-    }
-
-    while (numResponses < numReqs) {
-        int old(numResponses);
-        ML::futex_wait(numResponses, old);
-    }
-
-    Date end = Date::now();
-    double delta = end - start;
-    double qps = numReqs / delta;
-    ::fprintf(stderr, "%d requests performed in %f secs => %f qps\n",
-              numReqs, delta, qps);
-}
-#endif
-
-#if 1
-/* A small performance test for HttpRestProxy. */
-BOOST_AUTO_TEST_CASE( test_http_rest_proxy_perf_test )
-{
-    int maxReqs(10000);
-    ML::Watchdog watchdog(30);
-    auto proxies = make_shared<ServiceProxies>();
-    HttpGetService service(proxies);
-    // service.portToUse = 20000;
-    service.addResponse("GET", "/", 200, "coucou");
-    service.start();
-
-    MessageLoop loop;
-    loop.start();
-
-    string baseUrl("http://127.0.0.1:"
-                   + to_string(service.port()));
-
-    HttpRestProxy client(baseUrl);
-
-    Date start = Date::now();
-
-    for (int i = 0; i < maxReqs; i++) {
-        auto response = client.get("/");
-    }
-
-    Date end = Date::now();
-    double delta = end - start;
-    double qps = maxReqs / delta;
-    ::fprintf(stderr, "%d requests performed in %f secs => %f qps\n",
-              maxReqs, delta, qps);
-}
-#endif
-
-#endif /* DO_PERF_TESTS */

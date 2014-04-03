@@ -283,23 +283,19 @@ removeFd(int fd)
 bool
 HttpClient::
 enqueueRequest(const string & verb, const string & resource,
-               HttpClientCallbacks & callbacks,
+               const shared_ptr<HttpClientCallbacks> & callbacks,
                const HttpRequest::Content & content,
                const RestParams & queryParams, const RestParams & headers,
                int timeout)
 {
-    bool result(true);
     string url = baseUrl_ + resource + queryParams.uriEscaped();
-
-    if (queue_.tryPush(HttpRequest(verb, url, callbacks,
-                                   content, headers, timeout))) {
-        wakeup_.signal();
+    if (!queue_.tryPush(HttpRequest(verb, url, callbacks,
+                                    content, headers, timeout))) {
+        return false;
     }
-    else {
-        result = false;
-    }
+    wakeup_.signal();
 
-    return result;
+    return true;
 }
 
 int
@@ -435,8 +431,8 @@ checkMultiInfos()
             ::curl_easy_getinfo(msg->easy_handle,
                                 CURLINFO_PRIVATE, &conn);
 
-            HttpClientCallbacks & cbs = *conn->request_.callbacks_;
-            cbs.onDone(conn->request_, translateError(msg->data.result));
+            shared_ptr<HttpClientCallbacks> & cbs = conn->request_.callbacks_;
+            cbs->onDone(conn->request_, translateError(msg->data.result));
             conn->clear();
             multi_.remove(&conn->easy_);
             releaseConnection(conn);
