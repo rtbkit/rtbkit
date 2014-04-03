@@ -146,14 +146,13 @@ AsyncModelBench(const string & baseUrl, int maxReqs, int concurrency)
     auto & clientRef = *client.get();
     loop.addSource("httpClient", client);
 
-    auto onDone = [&] (const HttpRequest & rq,
-                       HttpClientCallbacks::Error errorCode_) {
+    auto onDone = [&] (const HttpRequest & rq, HttpClientError errorCode_) {
         numResponses++;
         if (numResponses == numReqs) {
             ML::futex_wake(numResponses);
         }
     };
-    HttpClientCallbacks cbs(nullptr, nullptr, nullptr, onDone);
+    auto cbs = make_shared<HttpClientCallbacks>(nullptr, nullptr, nullptr, onDone);
 
     for (numReqs = 0; numReqs < maxReqs;) {
         if (clientRef.get("/", cbs)) {
