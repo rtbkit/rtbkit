@@ -27,27 +27,27 @@ namespace curlopt = curlpp::options;
 
 namespace {
 
-HttpClientCallbacks::Error
+HttpClientError
 translateError(CURLcode curlError)
 {
-    HttpClientCallbacks::Error error;
+    HttpClientError error;
 
     switch (curlError) {
     case CURLE_OK:
-        error = HttpClientCallbacks::Error::NONE;
+        error = HttpClientError::NONE;
         break;
     case CURLE_OPERATION_TIMEDOUT:
-        error = HttpClientCallbacks::Error::TIMEOUT;
+        error = HttpClientError::TIMEOUT;
         break;
     case CURLE_COULDNT_RESOLVE_HOST:
-        error = HttpClientCallbacks::Error::HOST_NOT_FOUND;
+        error = HttpClientError::HOST_NOT_FOUND;
         break;
     case CURLE_COULDNT_CONNECT:
-        error = HttpClientCallbacks::Error::COULD_NOT_CONNECT;
+        error = HttpClientError::COULD_NOT_CONNECT;
         break;
     default:
         ::fprintf(stderr, "returning 'unknown' for code %d\n", curlError);
-        error = HttpClientCallbacks::Error::UNKNOWN;
+        error = HttpClientError::UNKNOWN;
     }
 
     return error;
@@ -56,11 +56,22 @@ translateError(CURLcode curlError)
 }
 
 
+/* HTTPCLIENTERROR */
+
+std::ostream &
+Datacratic::
+operator << (std::ostream & stream, HttpClientError error)
+{
+    return stream << to_string(int(error));
+}
+
+
+
 /* HTTPCLIENTCALLBACKS */
 
 const string &
 HttpClientCallbacks::
-errorMessage(Error errorCode)
+errorMessage(HttpClientError errorCode)
 {
     static const string none = "No error";
     static const string unknown = "Unknown error";
@@ -69,15 +80,15 @@ errorMessage(Error errorCode)
     static const string timeout = "Request timed out";
 
     switch (errorCode) {
-    case NONE:
+    case HttpClientError::NONE:
         return none;
-    case UNKNOWN:
+    case HttpClientError::UNKNOWN:
         return unknown;
-    case TIMEOUT:
+    case HttpClientError::TIMEOUT:
         return timeout;
-    case HOST_NOT_FOUND:
+    case HttpClientError::HOST_NOT_FOUND:
         return hostNotFound;
-    case COULD_NOT_CONNECT:
+    case HttpClientError::COULD_NOT_CONNECT:
         return couldNotConnect;
     default:
         throw ML::Exception("invalid error code");
@@ -111,7 +122,7 @@ onData(const HttpRequest & rq, const string & data)
 
 void
 HttpClientCallbacks::
-onDone(const HttpRequest & rq, Error errorCode)
+onDone(const HttpRequest & rq, HttpClientError errorCode)
 {
     if (onDone_)
         onDone_(rq, errorCode);
@@ -726,7 +737,7 @@ onData(const HttpRequest & rq, const string & data)
 
 void
 HttpClientSimpleCallbacks::
-onDone(const HttpRequest & rq, Error error)
+onDone(const HttpRequest & rq, HttpClientError error)
 {
     onResponse(rq, error, statusCode_, headers_, body_);
 }
@@ -734,7 +745,7 @@ onDone(const HttpRequest & rq, Error error)
 void
 HttpClientSimpleCallbacks::
 onResponse(const HttpRequest & rq,
-           Error error, int status,
+           HttpClientError error, int status,
            const string & headers, const string & body)
 {
     if (onResponse_) {

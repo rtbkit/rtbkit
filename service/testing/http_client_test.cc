@@ -151,7 +151,7 @@ struct HttpUploadService : public HttpService {
     }
 };
 
-typedef tuple<HttpClientCallbacks::Error, int, std::string> ClientResponse;
+typedef tuple<HttpClientError, int, std::string> ClientResponse;
 
 /* sync request helpers */
 ClientResponse
@@ -174,8 +174,8 @@ doGetRequest(MessageLoop & loop,
         body += data;
     };
     auto onDone = [&] (const HttpRequest & rq,
-                       HttpClientCallbacks::Error errorCode_) {
-        HttpClientCallbacks::Error & errorCode = get<0>(response);
+                       HttpClientError errorCode_) {
+        HttpClientError & errorCode = get<0>(response);
         errorCode = errorCode_;
         done = true;
         ML::futex_wake(done);
@@ -211,7 +211,7 @@ doUploadRequest(MessageLoop & loop,
                 const string & baseUrl, const string & resource,
                 const string & body, const string & type)
 {
-    HttpClientCallbacks::Error errorCode;
+    HttpClientError errorCode;
     string respBody;
     int code;
     int done(false);
@@ -225,7 +225,7 @@ doUploadRequest(MessageLoop & loop,
         respBody += data;
     };
     auto onDone = [&] (const HttpRequest & rq,
-                       HttpClientCallbacks::Error errorCode_) {
+                       HttpClientError errorCode_) {
         errorCode = errorCode_;
         done = true;
         ML::futex_wake(done);
@@ -277,7 +277,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://123.234.12.23");
         auto resp = doGetRequest(loop, baseUrl, "/");
         BOOST_CHECK_EQUAL(get<0>(resp),
-                          HttpClientCallbacks::Error::COULD_NOT_CONNECT);
+                          HttpClientError::COULD_NOT_CONNECT);
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 
@@ -289,7 +289,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://somewhere.lost");
         auto resp = doGetRequest(loop, baseUrl, "/");
         BOOST_CHECK_EQUAL(get<0>(resp),
-                          HttpClientCallbacks::Error::HOST_NOT_FOUND);
+                          HttpClientError::HOST_NOT_FOUND);
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 #endif
@@ -299,7 +299,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://127.0.0.1:" + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/timeout", {}, 1);
         BOOST_CHECK_EQUAL(get<0>(resp),
-                          HttpClientCallbacks::Error::TIMEOUT);
+                          HttpClientError::TIMEOUT);
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 
@@ -308,7 +308,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://127.0.0.1:"
                        + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/nothing");
-        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientCallbacks::Error::NONE);
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::NONE);
         BOOST_CHECK_EQUAL(get<1>(resp), 404);
     }
 
@@ -317,7 +317,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://127.0.0.1:"
                        + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/coucou");
-        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientCallbacks::Error::NONE);
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::NONE);
         BOOST_CHECK_EQUAL(get<1>(resp), 200);
         BOOST_CHECK_EQUAL(get<2>(resp), "coucou");
     }
@@ -354,7 +354,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_post )
                        + to_string(service.port()));
         auto resp = doUploadRequest(loop, false, baseUrl, "/post-test",
                                     "post body", "application/x-nothing");
-        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientCallbacks::Error::NONE);
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::NONE);
         BOOST_CHECK_EQUAL(get<1>(resp), 200);
         Json::Value jsonBody = Json::parse(get<2>(resp));
         BOOST_CHECK_EQUAL(jsonBody["verb"], "POST");
@@ -383,7 +383,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put )
     }
     auto resp = doUploadRequest(loop, true, baseUrl, "/put-test",
                                 bigBody, "application/x-nothing");
-    BOOST_CHECK_EQUAL(get<0>(resp), HttpClientCallbacks::Error::NONE);
+    BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::NONE);
     BOOST_CHECK_EQUAL(get<1>(resp), 200);
     Json::Value jsonBody = Json::parse(get<2>(resp));
     BOOST_CHECK_EQUAL(jsonBody["verb"], "PUT");
@@ -418,7 +418,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
     int numResponses(0);
 
     auto onDone = [&] (const HttpRequest & rq,
-                       HttpClientCallbacks::Error errorCode, int status,
+                       HttpClientError errorCode, int status,
                        const string & headers, const string & body) {
         // cerr << ("* onResponse " + to_string(numResponses)
         //          + ": " + to_string(get<1>(resp))
@@ -469,7 +469,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
         int done(false);
 
         auto onDone = [&] (const HttpRequest & rq,
-                           HttpClientCallbacks::Error errorCode, int status,
+                           HttpClientError errorCode, int status,
                            const string & headers, const string & body) {
             done = true;
             ML::futex_wake(done);

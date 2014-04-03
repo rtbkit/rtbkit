@@ -270,24 +270,26 @@ private:
 };
 
 
+enum struct HttpClientError {
+    NONE,
+    UNKNOWN,
+    TIMEOUT,
+    HOST_NOT_FOUND,
+    COULD_NOT_CONNECT,
+};
+
+std::ostream & operator << (std::ostream & stream, HttpClientError error);
+
 /* HTTPCLIENTCALLBACKS */
 
 struct HttpClientCallbacks {
-    enum Error {
-        NONE,
-        UNKNOWN,
-        TIMEOUT,
-        HOST_NOT_FOUND,
-        COULD_NOT_CONNECT,
-    };
-
     typedef std::function<void (const HttpRequest &,
                                 const std::string &,
                                 int code)> OnResponseStart;
     typedef std::function<void (const HttpRequest &,
                                 const std::string &)> OnData;
     typedef std::function<void (const HttpRequest & rq,
-                                Error errorCode)> OnDone;
+                                HttpClientError errorCode)> OnDone;
 
     HttpClientCallbacks(OnResponseStart onResponseStart = nullptr,
                         OnData onHeader = nullptr,
@@ -303,7 +305,7 @@ struct HttpClientCallbacks {
     {
     }
 
-    static const std::string & errorMessage(Error errorCode);
+    static const std::string & errorMessage(HttpClientError errorCode);
 
     /* initiates a response */
     virtual void onResponseStart(const HttpRequest & rq,
@@ -321,7 +323,7 @@ struct HttpClientCallbacks {
     /* callback for operation completions, implying that no other call will
      * be performed for the same request */
     virtual void onDone(const HttpRequest & rq,
-                        Error errorCode);
+                        HttpClientError errorCode);
 
 private:
     OnResponseStart onResponseStart_;
@@ -338,7 +340,7 @@ private:
 struct HttpClientSimpleCallbacks : public HttpClientCallbacks
 {
     typedef std::function<void (const HttpRequest &,    /* request */
-                                Error,                  /* error code */
+                                HttpClientError,                  /* error code */
                                 int,                    /* status code */
                                 const std::string &,    /* headers */
                                 const std::string &)>   /* body */
@@ -350,10 +352,10 @@ struct HttpClientSimpleCallbacks : public HttpClientCallbacks
                                  const std::string & httpVersion, int code);
     virtual void onHeader(const HttpRequest & rq, const std::string & header);
     virtual void onData(const HttpRequest & rq, const std::string & data);
-    virtual void onDone(const HttpRequest & rq, Error errorCode);
+    virtual void onDone(const HttpRequest & rq, HttpClientError errorCode);
 
     virtual void onResponse(const HttpRequest & rq,
-                            Error error,
+                            HttpClientError error,
                             int status,
                             const std::string & headers,
                             const std::string & body);
