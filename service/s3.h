@@ -223,6 +223,32 @@ struct S3Api : public AwsApi {
         std::string acl;
     };
 
+    struct SignedRequest;
+
+    struct S3Request {
+        S3Request()
+            : useRange(false), currentRange(0), retries(0)
+        {}
+
+        typedef std::function<void (const Response &)> OnResponse;
+
+        void performAsync(const SignedRequest & rq,
+                          const OnResponse & onResponse);
+
+        bool useRange;
+        Range currentRange;
+        int retries;
+
+        int responseCode;
+        std::string responseHeaders;
+        std::string responseBody;
+
+        HttpClient client;
+
+        /** Perform the request asynchronously. */
+        void performAsync(const S3Request::OnResponse & onResponse);
+    };
+
     /** Signed request that can be executed. */
     struct SignedRequest {
         RequestParams params;
@@ -233,6 +259,9 @@ struct S3Api : public AwsApi {
 
         /** Perform the request synchronously and return the result. */
         Response performSync() const;
+
+        /** Perform the request asynchronously. */
+        void performAsync(const S3Request::OnResponse & onResponse) const;
     };
 
     /** Calculate the signature for a given request. */

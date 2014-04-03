@@ -495,48 +495,6 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
 }
 #endif
 
-#if 1
-/* Ensures that instantiated client pools work */
-BOOST_AUTO_TEST_CASE( test_http_client_pool_basics )
-{
-    ML::Watchdog watchdog(30);
-    auto proxies = make_shared<ServiceProxies>();
-
-    HttpGetService service(proxies);
-    service.addResponse("GET", "/", 200, "coucou");
-    service.start();
-
-    MessageLoop loop;
-    loop.start();
-
-    string baseUrl("http://127.0.0.1:"
-                   + to_string(service.port()));
-
-    auto doGet = [&] (HttpClientPool & pool) {
-        int done(false);
-        auto onDone = [&] (const HttpRequest & rq,
-                           HttpClientCallbacks::Error errorCode_) {
-            cerr << "get response\n";
-            done = true;
-            ML::futex_wake(done);
-        };
-        HttpClientCallbacks cbs(nullptr, nullptr, nullptr, onDone);
-        pool.get("/", cbs);
-        while (!done) {
-            int old = done;
-            ML::futex_wait(done, old);
-        }
-    };
-
-    /* first move constructor invocation with unconnected client */
-    HttpClientPool pool(baseUrl, 1);
-    pool.registerClients(loop);
-    doGet(pool);
-
-    pool.unregisterClients(loop);
-}
-#endif
-
 #else /* DO_PERF_TESTS */
 
 #if 1

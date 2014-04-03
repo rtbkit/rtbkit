@@ -366,47 +366,4 @@ private:
     std::string body_;
 };
 
-
-/* HTTP CLIENT POOL */
-
-/* In general, there is one socket per HttpClient instance and requests are
- * queued until that socket become available. With HttpClientPool, it is
- * ensured that requests are distributed more or less equally across different
- * instances, in a round-robin fashion. This enables a certain amount of
- * parallelism. */
-
-struct HttpClientPool
-{
-    HttpClientPool(const std::string & baseUrl, size_t numClients = 8) noexcept;
-
-    void registerClients(MessageLoop & loop);
-    void unregisterClients(MessageLoop & loop);
-
-    bool get(const std::string & resource,
-             HttpClientCallbacks & callbacks,
-             const RestParams & queryParams = RestParams(),
-             const RestParams & headers = RestParams(),
-             int timeout = -1);
-
-    bool put(const std::string & resource,
-             HttpClientCallbacks & callbacks,
-             const HttpRequest::Content & content = HttpRequest::Content(),
-             const RestParams & queryParams = RestParams(),
-             const RestParams & headers = RestParams(),
-             int timeout = -1);
-
-    bool post(const std::string & resource,
-              HttpClientCallbacks & callbacks,
-              const HttpRequest::Content & content = HttpRequest::Content(),
-              const RestParams & queryParams = RestParams(),
-              const RestParams & headers = RestParams(),
-              int timeout = -1);
-
-private:
-    std::vector<HttpClient> clients_;
-
-    size_t getNextClientNbr();
-    size_t nextClientNbr_;
-};
-
 } // namespace Datacratic

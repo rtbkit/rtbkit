@@ -40,6 +40,9 @@
 
 #include <boost/filesystem.hpp>
 
+#include "http_client.h"
+#include "message_loop.h"
+
 #include "fs_utils.h"
 
 
@@ -71,9 +74,12 @@ struct S3UrlFsHandler : public UrlFsHandler {
     }
 };
 
+MessageLoop s3Loop;
+
 struct AtInit {
     AtInit() {
         registerUrlFsHandler("s3", new S3UrlFsHandler());
+        s3Loop.start();
     }
 } atInit;
 
@@ -279,46 +285,7 @@ performSync() const
         myRequest.setOpt<options::Timeout>(timeout);
         myRequest.setOpt<options::NoSignal>(1);
 
-        // auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
-        //     //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
-        //     return 0;
-        // };
 
-        auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) {
-            size_t total = ofs1 * ofs2;
-            received += total;
-            responseBody.append(data, total);
-            return total;
-            //cerr << "called onWrite for " << ofs1 << " " << ofs2 << endl;
-        };
-
-        // auto onProgress = [&] (double p1, double p2,
-        //                        double p3, double p4) {
-        //     cerr << "progress " << p1 << " " << p2 << " " << p3 << " "
-        //          << p4 << endl;
-        //     return 0;
-        // };
-
-        bool afterContinue = false;
-
-        auto onHeader = [&] (char * data, size_t ofs1, size_t ofs2) {
-            string headerLine(data, ofs1 * ofs2);
-            if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
-                afterContinue = true;
-            }
-            else if (afterContinue) {
-                if (headerLine == "\r\n")
-                    afterContinue = false;
-            }
-            else {
-                responseHeaders.append(headerLine);
-                //cerr << "got header data " << headerLine << endl;
-            }
-            return ofs1 * ofs2;
-        };
-
-        myRequest.setOpt<options::HeaderFunction>(onHeader);
-        myRequest.setOpt<options::WriteFunction>(onWriteData);
         // myRequest.setOpt<BoostProgressFunction>(onProgress);
         //myRequest.setOpt<Header>(true);
         string s;
@@ -417,6 +384,173 @@ performSync() const
     }
 
     throw ML::Exception("too many retries");
+}
+
+void
+S3Api::S3Request::
+performAsync(const SignedRequest & rq,
+             const OnResponse & onResponse)
+{
+    static const int baseRetryDelay(3);
+    static int numRetries(-1);
+
+    if (numRetries == -1) {
+        char * numRetriesEnv = getenv("S3_RETRIES");
+        if (numRetriesEnv) {
+            numRetries = atoi(numRetriesEnv);
+        }
+        else {
+            numRetries = 45;
+        }
+    }
+
+    size_t spacePos = rq.uri.find(" ");
+    if (spacePos != string::npos) {
+        throw ML::Exception("url '" + rq.uri + "' contains an unescaped space"
+                            " at position " + to_string(spacePos));
+    }
+
+    Range currentRange = params.downloadRange;
+
+    string body;
+    int retries(0);
+
+    auto onResponseStart = [&] (const HttpRequest & httpReq,
+                                const string & version, int code) {
+        responseCode = code;
+    };
+    auto onHeader = [&] (const HttpRequest & httpReq, const string & header) {
+        responseHeaders.append(header);
+    };
+    auto onData = [&] (const HttpRequest & httpReq, const string & data) {
+        responseBody.append(data);
+        if (rq.verb == "GET") {
+            currentRange.adjust(received);
+        }
+    };
+    auto onDone = [&] (const HttpRequest & httpReq, Error errorCode) {
+        if (errorCode == NONE) {
+            Response response;
+            response.code_ = responseCode;
+            response.header_.parse(responseHeaders);
+            response.body_ = responseBody;
+            onResponse(response);
+        }
+    };
+
+    HttpClientCallbacks callbacks(onResponseStart, onHeader, onData, onDone);
+
+    RestParams headers = rq.params.headers;
+    headers.emplace_back(make_pair("Date", rq.params.date));
+    headers.emplace_back(make_pair("Authorization", auth));
+
+        // cerr << "getting " << uri << " " << params.headers << endl;
+
+    double expectedTimeSeconds
+        = (currentRange.size / 1000000.0) / bandwidthToServiceMbps;
+    int timeout = 15 + std::max<int>(30, expectedTimeSeconds * 6);
+
+    HttpClient client(rq.uri);
+    if (rq.params.verb == "GET") {
+        uint64_t end = currentRange.endPos();
+        string range = ML::format("bytes=%zd-%zd", currentRange.offset,
+                                  end);
+        headers.emplace_back(make_pair("Range", range));
+        client.get("", callbacks, RestParams(), headers, timeout);
+    }
+    else {
+        HttpRequest::Content content(params.content.data,
+                                     params.content.size);
+        if (rq.params.verb == "PUT") {
+            client.put("", callbacks, content, RestParams(), headers, timeout);
+        }
+        else if (rq.params.verb == "POST") {
+            client.post("", callbacks, content, RestParams(), headers, timeout);
+        }
+    }
+
+
+        try {
+            JML_TRACE_EXCEPTIONS(false);
+            myRequest.perform();
+        }
+        catch (const LibcurlRuntimeError & exc) {
+            string message("S3 operation failed with a libCurl error: "
+                           + string(curl_easy_strerror(exc.whatCode()))
+                           + " (" + to_string(exc.whatCode()) + ")\n"
+                           + params.verb + " " + uri + "\n");
+            if (responseHeaders.size() > 0) {
+                message += "headers:\n" + responseHeaders;
+            }
+            ::fprintf(stderr, "%s\n", message.c_str());
+
+            if (useRange && received > 0) {
+                body.append(responseBody);
+                currentRange.adjust(received);
+            }
+            continue;
+        }
+
+        curlpp::InfoGetter::get(myRequest, CURLINFO_RESPONSE_CODE,
+                                responseCode);
+
+        if (responseCode >= 300) {
+            string message("S3 operation failed with HTTP code "
+                           + to_string(responseCode) + "\n"
+                           + params.verb + " " + uri + "\n");
+            if (responseHeaders.size() > 0) {
+                message += "headers:\n" + responseHeaders;
+            }
+            if (responseBody.size() > 0) {
+                message += (string("body (") + to_string(responseBody.size())
+                            + " bytes):\n" + responseBody + "\n");
+            }
+
+            /* log so-called "REST error"
+               (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
+            */
+            if (responseHeaders.find("Content-Type: application/xml")
+                != string::npos) {
+                unique_ptr<tinyxml2::XMLDocument> localXml(
+                    new tinyxml2::XMLDocument()
+                );
+                localXml->Parse(responseBody.c_str());
+                auto element
+                    = tinyxml2::XMLHandle(*localXml).FirstChildElement("Error")
+                    .ToElement();
+                if (element) {
+                    message += ("S3 REST error: ["
+                                + extract<string>(element, "Code")
+                                + "] message ["
+                                + extract<string>(element, "Message")
+                                +"]\n");
+                }
+            }
+            ::fprintf(stderr, "%s\n", message.c_str());
+
+            /* retry on 50X range errors (recoverable) */
+            if (responseCode >= 500 and responseCode < 505) {
+                continue;
+            }
+            else {
+                throw ML::Exception("S3 error is unrecoverable");
+            }
+        }
+
+        // double bytesUploaded;
+
+        // curlpp::InfoGetter::get(myRequest, CURLINFO_SIZE_UPLOAD,
+        //                         bytesUploaded);
+
+        //cerr << "uploaded " << bytesUploaded << " bytes" << endl;
+
+        Response response;
+        response.code_ = responseCode;
+        response.header_.parse(responseHeaders);
+        body.append(responseBody);
+        response.body_ = body;
+
+        return response;
 }
 
 std::string
