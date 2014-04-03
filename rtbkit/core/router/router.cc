@@ -197,7 +197,7 @@ init()
     registerServiceProvider(serviceName(), { "rtbRequestRouter" });
 
     filters.init(this);
-    FilterPool::initWithDefaultFilters(filters);
+    filters.initWithDefaultFilters();
 
     banker.reset(new NullBanker());
 
@@ -2864,6 +2864,7 @@ startExchange(const std::string & type,
     addExchange(item);
 
     exchangeBuffer.push(item);
+    filters.initWithDefaultFilters();
 }
 
 void
