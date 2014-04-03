@@ -9,7 +9,7 @@
             "wins": {
                 "type": "mock",
                 "url": "localhost:12340"
-            }
+            },
             "events": {
                 "type": "mock",
                 "url": "localhost:12341"
