@@ -698,16 +698,16 @@ onCurlRead(char * buffer, size_t bufferSize)
 }
 
 
-/* HTTPCLIENTSINGLECALLBACKS */
+/* HTTPCLIENTSIMPLECALLBACKS */
 
-HttpClientSingleCallbacks::
-HttpClientSingleCallbacks(const OnResponse & onResponse)
+HttpClientSimpleCallbacks::
+HttpClientSimpleCallbacks(const OnResponse & onResponse)
     : onResponse_(onResponse)
 {
 }
 
 void
-HttpClientSingleCallbacks::
+HttpClientSimpleCallbacks::
 onResponseStart(const HttpRequest & rq,
                 const string & httpVersion, int code)
 {
@@ -715,28 +715,28 @@ onResponseStart(const HttpRequest & rq,
 }
 
 void
-HttpClientSingleCallbacks::
+HttpClientSimpleCallbacks::
 onHeader(const HttpRequest & rq, const string & header)
 {
     headers_.append(header);
 }
 
 void
-HttpClientSingleCallbacks::
+HttpClientSimpleCallbacks::
 onData(const HttpRequest & rq, const string & data)
 {
     body_.append(data);
 }
 
 void
-HttpClientSingleCallbacks::
+HttpClientSimpleCallbacks::
 onDone(const HttpRequest & rq, Error error)
 {
     onResponse(rq, error, statusCode_, headers_, body_);
 }
 
 void
-HttpClientSingleCallbacks::
+HttpClientSimpleCallbacks::
 onResponse(const HttpRequest & rq,
            Error error, int status,
            const string & headers, const string & body)

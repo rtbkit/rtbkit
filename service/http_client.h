@@ -331,11 +331,11 @@ private:
 };
 
 
-/* SINGLE CALLBACKS */
+/* SIMPLE CALLBACKS */
 
 /* This class enables to simplify the interface use by clients which do not
  * need support for progressive responses. */
-struct HttpClientSingleCallbacks : public HttpClientCallbacks
+struct HttpClientSimpleCallbacks : public HttpClientCallbacks
 {
     typedef std::function<void (const HttpRequest &,    /* request */
                                 Error,                  /* error code */
@@ -343,7 +343,7 @@ struct HttpClientSingleCallbacks : public HttpClientCallbacks
                                 const std::string &,    /* headers */
                                 const std::string &)>   /* body */
         OnResponse;
-    HttpClientSingleCallbacks(const OnResponse & onResponse = nullptr);
+    HttpClientSimpleCallbacks(const OnResponse & onResponse = nullptr);
 
     /* HttpClientCallbacks overrides */
     virtual void onResponseStart(const HttpRequest & rq,
