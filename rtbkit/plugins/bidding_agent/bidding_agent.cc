@@ -323,49 +323,21 @@ namespace {
 static string
 eventName(const string& name)
 {
-    switch(name[0]) {
-    case 'C':
-        if (name == "CLICK") return "clicks";
-        break;
-
-    case 'D':
-        if (name == "DROPPEDBID") return "droppedbids";
-        break;
-
-    case 'E':
-        if (name == "ERROR") return "errors";
-        break;
-
-    case 'I':
-        if (name == "INVALIDBID") return "invalidbids";
-        if (name == "IMPRESSION") return "impressions";
-        break;
-
-    case 'L':
-        if (name == "LOSS") return "losses";
-        break;
-
-    case 'N':
-        if (name == "NOBUDGET") return "nobudgets";
-        break;
-
-    case 'P':
-        if (name == "PING1") return "ping";
-        break;
-
-    case 'T':
-        if (name == "TOOLATE") return "toolate";
-        break;
-
-    case 'V':
-        if (name == "VISIT") return "visits";
-        break;
-
-    case 'W':
-        if (name == "WIN") return "wins";
-        break;
+    switch (hash(name)) {
+        case hash_compile_time("CLICK") : return "clicks"; break;
+        case hash_compile_time("DROPPEDBID") : return "droppedbids"; break;
+        case hash_compile_time("ERROR") : return "errors"; break;
+        case hash_compile_time("INVALIDBID") : return "invalidbids"; break;
+        case hash_compile_time("IMPRESSION") : return "impressions"; break;
+        case hash_compile_time("LOSS") : return "losses"; break;
+        case hash_compile_time("NOBUDGET") : return "nobudgets"; break;
+        case hash_compile_time("PING1") : return "ping"; break;
+        case hash_compile_time("TOOLATE") : return "toolate"; break;
+        case hash_compile_time("VISIT") : return "visits"; break;
+        case hash_compile_time("WIN") : return "wins"; break;
+        case hash_compile_time("LATEWIN") : return "latewins"; break;
     }
-
+   
     ExcAssert(false);
     return "unknown";
 }
