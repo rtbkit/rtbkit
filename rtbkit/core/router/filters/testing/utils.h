@@ -20,6 +20,24 @@
 
 namespace RTBKIT {
 
+/******************************************************************************/
+/* FILTER EXCHANGE CONNECTOR                                                  */
+/******************************************************************************/
+
+struct FilterExchangeConnector : public ExchangeConnector
+{
+    FilterExchangeConnector(const std::string& name) :
+        ExchangeConnector(name), name(name)
+    {}
+
+    std::string exchangeName() const { return name; }
+
+    void configure(const Json::Value& parameters) {}
+    void enableUntil(Date date) {}
+
+private:
+    std::string name;
+};
 
 /******************************************************************************/
 /* TITLE                                                                      */
@@ -74,6 +92,21 @@ void check(
     BOOST_CHECK(false);
 }
 
+void check(
+        const FilterBase& filter,
+        const BidRequest& request,
+        const CreativeMatrix& creatives,
+        unsigned imp,
+        const std::vector< std::vector<size_t> >& expected)
+{
+    FilterExchangeConnector conn("bob");
+
+    FilterState state(request, &conn, creatives);
+    filter.filter(state);
+
+    check(state.creatives(imp), expected);
+}
+
 
 /******************************************************************************/
 /* IE                                                                         */
@@ -124,6 +157,31 @@ SegmentList segment(Args&&... args)
     return seg;
 }
 
+/******************************************************************************/
+/* IMPRESSION                                                                 */
+/******************************************************************************/
+void addImp(
+        BidRequest& request,
+        OpenRTB::AdPosition::Vals pos,
+        const std::initializer_list<Format>& formats)
+{
+    AdSpot imp;
+    for (const auto& format : formats) imp.formats.push_back(format);
+    imp.position.val = pos;
+    request.imp.push_back(imp);
+}
+
+
+void addImp(
+        BidRequest& request,
+        OpenRTB::AdPosition::Vals pos,
+        const std::string & ext)
+{
+    AdSpot imp;
+    imp.ext = Json::parse(ext);
+    imp.position.val = pos;
+    request.imp.push_back(imp);
+}
 
 /******************************************************************************/
 /* ADD/REMOVE CONFIG                                                          */
@@ -134,29 +192,27 @@ void addConfig(FilterBase& filter, unsigned cfgIndex, AgentConfig& cfg)
     filter.addConfig(cfgIndex, ML::make_unowned_sp(cfg));
 }
 
+void addConfig(
+        FilterBase& filter,
+        unsigned cfgIndex, AgentConfig& cfg,
+        CreativeMatrix& creatives)
+{
+    addConfig(filter, cfgIndex, cfg);
+    creatives.setConfig(cfgIndex, cfg.creatives.size());
+}
+
 void removeConfig(FilterBase& filter, unsigned cfgIndex, AgentConfig& cfg)
 {
     filter.removeConfig(cfgIndex, ML::make_unowned_sp(cfg));
 }
 
-
-/******************************************************************************/
-/* FILTER EXCHANGE CONNECTOR                                                  */
-/******************************************************************************/
-
-struct FilterExchangeConnector : public ExchangeConnector
+void removeConfig(
+        FilterBase& filter,
+        unsigned cfgIndex, AgentConfig& cfg,
+        CreativeMatrix& creatives)
 {
-    FilterExchangeConnector(const std::string& name) :
-        ExchangeConnector(name), name(name)
-    {}
-
-    std::string exchangeName() const { return name; }
-
-    void configure(const Json::Value& parameters) {}
-    void enableUntil(Date date) {}
-
-private:
-    std::string name;
-};
+    removeConfig(filter, cfgIndex, cfg);
+    creatives.resetConfig(cfgIndex);
+}
 
 } // namespace RTBKIT
