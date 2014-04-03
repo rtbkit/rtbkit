@@ -230,6 +230,14 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 
     result->blockedCategories = std::move(req.bcat);
 
+    // blocked tld advertisers
+    result->badv = std::move(req.badv);
+    vector<string> badv ;
+    for (auto s: req.badv)
+    	badv.push_back (s.extractAscii());
+    result->restrictions.addStrings("badv", badv);
+
+
     result->ext = std::move(req.ext);
 
     result->segments.addStrings("openrtb-wseat", req.wseat);
