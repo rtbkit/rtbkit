@@ -105,7 +105,7 @@ reconstitute(ML::DB::Store_Reader & store)
     store >> data_;
 }
     
-string Utf8String::extractAscii()
+string Utf8String::extractAscii() const
 {
     string s;
     for(auto it = begin(); it != end(); it++) {
