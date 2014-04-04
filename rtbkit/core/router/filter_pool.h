@@ -79,12 +79,12 @@ struct FilterPool
     // \todo Need batch interfaces of these to alleviate overhead.
     void addFilter(const std::string& name);
     void removeFilter(const std::string& name);
+    void initWithDefaultFilters();
+
 
     // \todo Need batch interfaces to alleviate overhead.
     unsigned addConfig(const std::string& name, const AgentInfo& info);
     void removeConfig(const std::string& name);
-
-    static void initWithDefaultFilters(FilterPool& pool);
 
 private:
 
