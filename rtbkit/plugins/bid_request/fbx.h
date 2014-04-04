@@ -25,11 +25,6 @@
 
 namespace FBX {
 
-using std::string;
-using std::vector;
-using std::unique_ptr;
-
-using namespace Datacratic;
 
 /*****************************************************************************/
 /* MIME TYPES                                                                */
@@ -46,7 +41,7 @@ struct MimeType : public OpenRTB::MimeType{};
 
 */
 
-struct PageTypeCode: public TaggedEnum<PageTypeCode> {
+struct PageTypeCode: public Datacratic::TaggedEnum<PageTypeCode> {
     enum Vals {
     PAGE_UNSPECIFIED = 0,
     PAGE_CANVAS = 1,
@@ -94,7 +89,7 @@ struct RtbUserContext {
 
 struct RtbPageContext {
     PageTypeCode pageTypeId;        ///< Page type
-    TaggedInt numSlots;             ///< Estimated number of ad slots in the placement
+    Datacratic::TaggedInt numSlots;    ///< Estimated number of ad slots in the placement
 
 };
 
@@ -117,13 +112,13 @@ struct RtbPageContext {
 */
 
 struct BidRequest {
-    Id requestId;                   ///< Bid request ID
-    string partnerMatchId;		    ///< Partner’s user ID 
+    Datacratic::Id requestId;       ///< Bid request ID
+    std::string partnerMatchId;		///< Partner’s user ID 
 
     RtbUserContext userContext;		///< An object of type UserContext
     RtbPageContext pageContext;     ///< An object of type PageContext
-    TaggedBool istest;              ///< Indicates an auction being held purely for debugging purposes
-    TaggedBool allowViewTag;        ///< Indicates if view tags are accepted.
+    Datacratic::TaggedBool istest;  ///< Indicates an auction being held purely for debugging purposes
+    Datacratic::TaggedBool allowViewTag;   ///< Indicates if view tags are accepted.
 
     Json::Value unparseable;        ///< Unparseable fields get put here
 };
@@ -137,11 +132,11 @@ struct BidRequest {
   in the original ad creative
 */
 struct RtbBidDynamicCreativeSpec {
-	Optional<string> title;
-	Optional<string> body;
-	Optional<string> link;
-	Optional<string> creativeHash;
-	Optional<string> imageUrl;
+    Datacratic::Optional<std::string> title;
+    Datacratic::Optional<std::string> body;
+	Datacratic::Optional<std::string> link;
+	Datacratic::Optional<std::string> creativeHash;
+	Datacratic::Optional<std::string> imageUrl;
 };
 
 
@@ -153,12 +148,12 @@ struct RtbBidDynamicCreativeSpec {
 */
 
 struct RtbBid {
-	Id adId;                        ///< FB ad id for ad which partner wishes to show
-	TaggedInt bidNative;            ///< the CPM bid in cents
-	string impressionPayload;       ///< opaque blob which FB will return to the partner in the win notification
-	string clickPayload;            ///< opaque blob which FB will return to the partner upon user click
-	Optional<RtbBidDynamicCreativeSpec> dynamicCreativeSpec;
-	vector<string> viewTagUrls;     ///< A list of view tag URL's to be fired when the impression is served.
+    Datacratic::Id adId;                   ///< FB ad id for ad which partner wishes to show
+    Datacratic::TaggedInt bidNative;      ///< the CPM bid in cents
+    std::string impressionPayload;       ///< opaque blob which FB will return to the partner in the win notification
+    std::string clickPayload;            ///< opaque blob which FB will return to the partner upon user click
+    Datacratic::Optional<RtbBidDynamicCreativeSpec> dynamicCreativeSpec;
+    std::vector<std::string> viewTagUrls;     ///< A list of view tag URL's to be fired when the impression is served.
 };
 
 
@@ -171,9 +166,9 @@ struct RtbBid {
 */
 
 struct BidResponse {
-    Id requestId;                   ///< Same requestId as in the bid request
-    vector<RtbBid> bids;            ///< Array of type RtbBid
-    Optional<TaggedInt> processingTimeMs; ///< Time it takes for your servers to process the bid request
+    Datacratic::Id requestId;   ///< Same requestId as in the bid request
+    std::vector<RtbBid> bids;        ///< Array of type RtbBid
+    Datacratic::Optional<Datacratic::TaggedInt> processingTimeMs; ///< Time it takes for your servers to process the bid request
 };
 
 
