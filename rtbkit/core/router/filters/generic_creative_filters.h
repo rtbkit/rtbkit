@@ -63,6 +63,58 @@ struct CreativeFilter : public FilterBaseT<Filter>
 
 
 /******************************************************************************/
+/* ITERATIVE CREATIVE FILTER                                                  */
+/******************************************************************************/
+
+template<typename Filter>
+struct IterativeCreativeFilter : public IterativeFilter<Filter>
+{
+
+    virtual void filter(FilterState& state) const
+    {
+        for (size_t impId = 0; impId < state.request.imp.size(); ++impId) {
+            const auto& imp = state.request.imp[impId];
+            auto mask = filterImpression(state, impId, imp);
+            state.narrowCreativesForImp(impId, mask);
+        }
+    }
+
+    virtual CreativeMatrix
+    filterImpression(FilterState& state, size_t impId, const AdSpot& imp)
+    {
+        CreativeMatrix mask;
+        auto active = state.creatives(impId);
+
+        ConfigSet matches = state.configs();
+        for (size_t cfgId = matches.next();
+             cfgId < matches.size();
+             cfgId = matches.next(cfgId+1))
+        {
+            const auto& cfg = *this->configs[cfgId];
+
+            for (size_t crId = 0; crId < cfg.creatives.size(); ++crId) {
+                if (!active[crId][cfgId]) continue;
+
+                if (filterCreative(state, imp, cfg, cfg.creatives[crId]))
+                    mask.set(crId, cfgId);
+            }
+        }
+
+        return mask;
+    }
+
+    virtual bool
+    filterCreative(
+            FilterState&, const AdSpot&, const AgentConfig&, const Creative&)
+    {
+        ExcAssert(false);
+        return false;
+    }
+
+};
+
+
+/******************************************************************************/
 /* CREATIVE REGEX FILTER                                                      */
 /******************************************************************************/
 
