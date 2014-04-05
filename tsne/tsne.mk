@@ -15,7 +15,7 @@ ifeq ($(PYTHON_ENABLED),1)
 TSNE_PYTHON_SOURCES := \
 	tsne_python.cc
 
-$(eval $(call set_compile_option,$(TSNE_PYTHON_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
+$(eval $(call set_compile_option,$(TSNE_PYTHON_SOURCES),-I$(PYTHON_INCLUDE_PATH) -Wno-error=cpp))
 
 TSNE_PYTHON_LINK := tsne
 
