@@ -5,6 +5,8 @@
    Functionality to print JSON values.
 */
 
+#include "jml/utils/exc_assert.h"
+
 #include "json_printing.h"
 
 

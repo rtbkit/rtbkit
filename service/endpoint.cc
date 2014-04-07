@@ -143,6 +143,10 @@ void
 EndpointBase::
 shutdown()
 {
+    // First, close the peer so that we don't get any more connections
+    // while shutting down
+    closePeer();
+
     //cerr << "Endpoint shutdown" << endl;
     //cerr << "numTransports = " << numTransports << endl;
 
@@ -157,14 +161,8 @@ shutdown()
 
         for (const auto & it: transportMapping) {
             auto transport = it.first.get();
-            //cerr << "shutting down transport " << transport->status() << endl;
-            transport->doAsync([=] ()
-                               {
-                                   //cerr << "killing transport " << transport
-                                   //     << endl;
-                                   transport->closeWhenHandlerFinished();
-                               },
-                               "killtransport");
+            cerr << "shutting down transport " << transport->status() << endl;
+            transport->closeAsync();
         }
     }
 
@@ -193,7 +191,7 @@ shutdown()
         //cerr << "shutdown " << this << ": numTransports = "
         //     << numTransports << endl;
         int oldValue = numTransports;
-        ML::futex_wait(numTransports, oldValue);
+        ML::futex_wait(numTransports, oldValue, 0.1);
     }
 
     //cerr << "numTransports = " << numTransports << endl;
@@ -372,7 +370,9 @@ sleepUntilIdle() const
 
         for (auto & it: transportMapping) {
             auto transport = it.first;
-            cerr << "transport " << transport->status() << endl;
+            transport->dumpActivities();
+            cerr << "transport " << transport->status() << " zombie "
+                << transport->isZombie() << endl;
         }
 
         dumpState();
@@ -466,7 +466,9 @@ handleTransportEvent(const shared_ptr<TransportBase> & transport)
     if (debug)
         cerr << "transport status = " << transport->status() << endl;
 
-    transport->handleEvents();
+    int res = transport->handleEvents();
+    if (res == -1)
+        transport->closePeer();
 }
 
 void
@@ -535,7 +537,7 @@ runEventThread(int threadNum, int numThreads)
         lock.release();
     }
 
-    bool forceInSlice = false;
+    // bool forceInSlice = false;
 
     bool wasBusy = false;
     Date sleepStart = Date::now();
@@ -610,7 +612,7 @@ runEventThread(int threadNum, int numThreads)
                      << " taken " << Date::now().secondsSince(now) * 1000000
                      << "us" << endl;
             if (numHandled == -1) break;
-            forceInSlice = false;
+            // forceInSlice = false;
         }
         else {
             // No... try to handle something and then sleep if we don't
@@ -636,7 +638,7 @@ runEventThread(int threadNum, int numThreads)
 
                 ML::sleep(secToSleep);
                 duty.notifyAfterSleep();
-                forceInSlice = true;
+                // forceInSlice = true;
 
                 if (debug && false)
                     cerr << " slept for "

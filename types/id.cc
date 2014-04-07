@@ -109,7 +109,7 @@ parse(const char * value, size_t len, Type type)
                 throw ML::Exception("Id::parse() changed type from %d to %d parsing %s",
                                     r.type, type, value);
 
-            *this = r;
+            *this = std::move(r);
         };
     
     if ((type == UNKNOWN || type == NONE) && len == 0) {

@@ -435,3 +435,32 @@ OStreamInputSink::
 notifyClosed()
 {
 }
+
+
+/* CHAININPUTSINK */
+
+void
+ChainInputSink::
+appendSink(const std::shared_ptr<InputSink> & newSink)
+{
+    sinks_.emplace_back(newSink);
+}
+
+void
+ChainInputSink::
+notifyReceived(std::string && data)
+{
+    for (std::shared_ptr<InputSink> sink: sinks_) {
+        string sinkData(data);
+        sink->notifyReceived(move(sinkData));
+    }
+}
+
+void
+ChainInputSink::
+notifyClosed()
+{
+    for (std::shared_ptr<InputSink> sink: sinks_) {
+        sink->notifyClosed();
+    }
+}

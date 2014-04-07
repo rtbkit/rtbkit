@@ -8,6 +8,8 @@
 
 #include "soa/jsoncpp/json.h"
 #include "jml/utils/json_parsing.h"
+#include "jml/utils/parse_context.h"
+#include "jml/utils/compact_vector.h"
 #include "soa/types/id.h"
 #include "soa/types/string.h"
 #include <boost/algorithm/string.hpp>
@@ -20,29 +22,51 @@ struct ValueDescription;
 
 struct JsonPathEntry {
     JsonPathEntry(int index)
-        : index(index), keyPtr(0), fieldNumber(0)
+        : index(index), keyStr(0), keyPtr(0), fieldNumber(0)
     {
     }
     
-    JsonPathEntry(std::string key)
-        : index(-1), key(std::move(key)), keyPtr(this->key.c_str()),
+    JsonPathEntry(const std::string & key)
+        : index(-1), keyStr(new std::string(key)), keyPtr(keyStr->c_str()),
           fieldNumber(0)
     {
     }
     
     JsonPathEntry(const char * keyPtr)
-        : index(-1), keyPtr(keyPtr)
+        : index(-1), keyStr(nullptr), keyPtr(keyPtr), fieldNumber(0)
     {
     }
 
+    JsonPathEntry(JsonPathEntry && other) noexcept
+    {
+        *this = std::move(other);
+    }
+
+    JsonPathEntry & operator = (JsonPathEntry && other) noexcept
+    {
+        index = other.index;
+        keyPtr = other.keyPtr;
+        keyStr = other.keyStr;
+        fieldNumber = other.fieldNumber;
+        other.keyStr = nullptr;
+        other.keyPtr = nullptr;
+        return *this;
+    }
+
+    ~JsonPathEntry()
+    {
+        if (keyStr)
+            delete keyStr;
+    }
+
     int index;
-    std::string key;
+    std::string * keyStr;
     const char * keyPtr;
     int fieldNumber;
 
     std::string fieldName() const
     {
-        return key.empty() && keyPtr ? keyPtr : key;
+        return keyStr ? *keyStr : std::string(keyPtr);
     }
 
     const char * fieldNamePtr() const
@@ -50,15 +74,40 @@ struct JsonPathEntry {
         return keyPtr;
     }
 
+    // Needed for compilers that don't support move_if_noexcept
+    JsonPathEntry & operator = (const JsonPathEntry & other)
+    {
+        index = other.index;
+        if (other.keyStr) {
+            keyStr = new std::string(*other.keyStr);
+            keyPtr = keyStr->c_str();
+        }
+        else {
+            keyPtr = other.keyPtr;
+            keyStr = nullptr;
+        }
+        fieldNumber = other.fieldNumber;
+        return *this;
+    }
+
+    // Needed for compilers that don't support move_if_noexcept
+    JsonPathEntry(const JsonPathEntry & other)
+    {
+        *this = other;
+    }
 };
 
-struct JsonPath: public std::vector<JsonPathEntry> {
+struct JsonPath: public ML::compact_vector<JsonPathEntry, 8> {
+    JsonPath()
+    {
+    }
+
     std::string print() const
     {
         std::string result;
         for (auto & e: *this) {
             if (e.index == -1)
-                result += "." + e.fieldName();
+                result += "." + std::string(e.fieldName());
             else result += '[' + std::to_string(e.index) + ']';
         }
         return result;

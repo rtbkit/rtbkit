@@ -301,9 +301,77 @@ struct DefaultDescription<std::vector<T> >
 };
 #endif
 
+
+template<typename T>
+struct DefaultDescription<T*>
+    : public ValueDescriptionI<T*, ValueKind::LINK> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : inner(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
+        : inner(inner)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner;
+
+    virtual void parseJsonTyped(T** val, JsonParsingContext & context) const
+    {
+        *val = new T();
+        inner->parseJsonTyped(*val, context);
+    }
+
+    virtual void printJsonTyped(T* const* val, JsonPrintingContext & context) const
+    {
+        if (!*val)
+            context.skip();
+        else inner->printJsonTyped(*val, context);
+    }
+
+    virtual bool isDefaultTyped(T* const* val) const
+    {
+        return !*val;
+    }
+
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+
+
+    virtual OwnershipModel getOwnershipModel() const
+    {
+        return OwnershipModel::NONE;
+    }
+
+    static T*& cast(void* obj)
+    {
+        return *static_cast<T**>(obj);
+    }
+
+    virtual void* getLink(void* obj) const
+    {
+        return cast(obj);
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        if (valueDesc->kind != ValueKind::LINK)
+            throw ML::Exception("assignment of non-link type to link type");
+
+        valueDesc->contained().checkChildOf(&contained());
+        cast(obj) = static_cast<T*>(valueDesc->getLink(value));
+    }
+};
+
 template<typename T>
 struct DefaultDescription<std::unique_ptr<T> >
-    : public ValueDescriptionI<std::unique_ptr<T>, ValueKind::OPTIONAL> {
+    : public ValueDescriptionI<std::unique_ptr<T>, ValueKind::LINK> {
 
     DefaultDescription(ValueDescriptionT<T> * inner)
         : inner(inner)
@@ -337,11 +405,44 @@ struct DefaultDescription<std::unique_ptr<T> >
     {
         return !val->get();
     }
+
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+
+    virtual OwnershipModel getOwnershipModel() const
+    {
+        return OwnershipModel::UNIQUE;
+    }
+
+    static std::unique_ptr<T>& cast(void* obj)
+    {
+        return *static_cast< std::unique_ptr<T>* >(obj);
+    }
+
+    virtual void* getLink(void* obj) const
+    {
+        return cast(obj).get();
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        if (valueDesc->kind != ValueKind::LINK)
+            throw ML::Exception("assignment of non-link type to link type");
+
+        if (valueDesc->getOwnershipModel() != OwnershipModel::NONE)
+            throw ML::Exception("unsafe link assignement");
+
+        valueDesc->contained().checkChildOf(&contained());
+        cast(obj).reset(static_cast<T*>(valueDesc->getLink(value)));
+    }
 };
 
 template<typename T>
 struct DefaultDescription<std::shared_ptr<T> >
-    : public ValueDescriptionI<std::shared_ptr<T>, ValueKind::OPTIONAL> {
+    : public ValueDescriptionI<std::shared_ptr<T>, ValueKind::LINK> {
 
     DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
                        = getDefaultDescriptionShared((T *)0))
@@ -380,6 +481,45 @@ struct DefaultDescription<std::shared_ptr<T> >
     {
         return !val->get();
     }
+
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+
+    virtual OwnershipModel getOwnershipModel() const
+    {
+        return OwnershipModel::SHARED;
+    }
+
+
+    static std::shared_ptr<T>& cast(void* obj)
+    {
+        return *static_cast< std::shared_ptr<T>* >(obj);
+    }
+
+    virtual void* getLink(void* obj) const
+    {
+        return cast(obj).get();
+    }
+
+    virtual void set(
+            void* obj, void* value, const ValueDescription* valueDesc) const
+    {
+        if (valueDesc->kind != ValueKind::LINK)
+            throw ML::Exception("assignment of non-link type to link type");
+
+        if (valueDesc->getOwnershipModel() == OwnershipModel::UNIQUE)
+            throw ML::Exception("unsafe link assignement");
+
+        valueDesc->contained().checkChildOf(&contained());
+
+        // Casting is necessary to make sure the ref count is incremented.
+        if (valueDesc->getOwnershipModel() == OwnershipModel::SHARED)
+            cast(obj) = cast(value);
+        else cast(obj).reset(static_cast<T*>(valueDesc->getLink(value)));
+    }
+
 };
 
 template<>
@@ -440,8 +580,9 @@ struct DefaultDescription<Date>
             if (s.length() >= 11
                 && s[4] == '-'
                 && s[7] == '-'
-                && s[s.size() - 1] == 'Z')
-                *val = Date::parseIso8601(s);
+                && (s[s.size() - 1] == 'Z'
+                    || s[s.size() - 3] == ':'))
+                *val = Date::parseIso8601DateTime(s);
             else *val = Date::parseDefaultUtc(s);
         }
         else context.exception("expected date");
@@ -450,7 +591,7 @@ struct DefaultDescription<Date>
     virtual void printJsonTyped(const Date * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeJson(val->secondsSinceEpoch());
+        context.writeJson(val->printIso8601());//val->secondsSinceEpoch());
     }
 
     virtual bool isDefaultTyped(const Date * val) const
@@ -493,6 +634,65 @@ struct Iso8601TimestampValueDescription: public DefaultDescription<Date> {
     }
 };
 
+template<typename T, typename U>
+struct DefaultDescription<std::pair<T, U> >
+    : public ValueDescriptionI<std::pair<T, U>, ValueKind::ARRAY> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner1,
+                       ValueDescriptionT<U> * inner2)
+        : inner1(inner1), inner2(inner2)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner1
+                       = getDefaultDescriptionShared((T *)0),
+                       std::shared_ptr<const ValueDescriptionT<U> > inner2
+                       = getDefaultDescriptionShared((U *)0))
+        : inner1(inner1), inner2(inner2)
+    {
+    }
+
+    std::shared_ptr<const ValueDescriptionT<T> > inner1;
+    std::shared_ptr<const ValueDescriptionT<U> > inner2;
+
+    virtual void parseJsonTyped(std::pair<T, U> * val,
+                                JsonParsingContext & context) const
+    {
+        int el = 0;
+        auto onElement = [&] ()
+            {
+                if (el == 0)
+                    inner1->parseJsonTyped(&val->first, context);
+                else if (el == 1)
+                    inner2->parseJsonTyped(&val->second, context);
+                else context.exception("expected 2 element array");
+
+                ++el;
+            };
+
+        context.forEachElement(onElement);
+
+        if (el != 2)
+            context.exception("expected 2 element array");
+    }
+
+    virtual void printJsonTyped(const std::pair<T, U> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.startArray(2);
+        context.newArrayElement();
+        inner1->printJsonTyped(&val->first, context);
+        context.newArrayElement();
+        inner2->printJsonTyped(&val->second, context);
+        context.endArray();
+    }
+
+    virtual bool isDefaultTyped(const std::pair<T, U> * val) const
+    {
+        return inner1->isDefaultTyped(&val->first)
+            && inner2->isDefaultTyped(&val->second);
+    }
+};
 
 template<typename T>
 struct Optional: public std::unique_ptr<T> {
@@ -525,14 +725,23 @@ struct Optional: public std::unique_ptr<T> {
         return *this;
     }
 
+    bool operator == (Optional && other) const
+    {
+        return (this->get() == other.get()
+                || (this->get() != nullptr
+                    && other.get != nullptr
+                    && *this == *other));
+    }
+
     void swap(Optional & other)
     {
         std::unique_ptr<T>::swap(other);
     }
 
-    void emplace()
+    template<typename... Args>
+    void emplace(Args&&... args)
     {
-        this->reset(new T{});
+        this->reset(new T(std::forward<Args>(args)...));
     }
 };
 
@@ -1000,6 +1209,89 @@ getDefaultDescription(Enum *,
 {
     return new TaggedEnumDescription<Enum>();
 }
+
+/*****************************************************************************/
+/* DEFAULT DESCRIPTION FOR COMPACT VECTOR                                    */
+/*****************************************************************************/
+
+template<typename T, int Internal>
+struct DefaultDescription<ML::compact_vector<T, Internal> >
+    : public ValueDescriptionI<ML::compact_vector<T, Internal>, ValueKind::ARRAY>,
+      public ListDescriptionBase<T> {
+
+    DefaultDescription(ValueDescriptionT<T> * inner)
+        : ListDescriptionBase<T>(inner)
+    {
+    }
+
+    DefaultDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
+                       = getDefaultDescriptionShared((T *)0))
+        : ListDescriptionBase<T>(inner)
+    {
+    }
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const
+    {
+        ML::compact_vector<T, Internal> * val2 = reinterpret_cast<ML::compact_vector<T, Internal> *>(val);
+        return parseJsonTyped(val2, context);
+    }
+
+    virtual void parseJsonTyped(ML::compact_vector<T, Internal> * val, JsonParsingContext & context) const
+    {
+        this->parseJsonTypedList(val, context);
+    }
+
+    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    {
+        const ML::compact_vector<T, Internal> * val2 = reinterpret_cast<const ML::compact_vector<T, Internal> *>(val);
+        return printJsonTyped(val2, context);
+    }
+
+    virtual void printJsonTyped(const ML::compact_vector<T, Internal> * val, JsonPrintingContext & context) const
+    {
+        this->printJsonTypedList(val, context);
+    }
+
+    virtual bool isDefault(const void * val) const
+    {
+        const ML::compact_vector<T, Internal> * val2 = reinterpret_cast<const ML::compact_vector<T, Internal> *>(val);
+        return isDefaultTyped(val2);
+    }
+
+    virtual bool isDefaultTyped(const ML::compact_vector<T, Internal> * val) const
+    {
+        return val->empty();
+    }
+
+    virtual size_t getArrayLength(void * val) const
+    {
+        const ML::compact_vector<T, Internal> * val2 = reinterpret_cast<const ML::compact_vector<T, Internal> *>(val);
+        return val2->size();
+    }
+
+    virtual void * getArrayElement(void * val, uint32_t element) const
+    {
+        ML::compact_vector<T, Internal> * val2 = reinterpret_cast<ML::compact_vector<T, Internal> *>(val);
+        return &val2->at(element);
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    {
+        const ML::compact_vector<T, Internal> * val2 = reinterpret_cast<const ML::compact_vector<T, Internal> *>(val);
+        return &val2->at(element);
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const
+    {
+        ML::compact_vector<T, Internal> * val2 = reinterpret_cast<ML::compact_vector<T, Internal> *>(val);
+        val2->resize(newLength);
+    }
+    
+    virtual const ValueDescription & contained() const
+    {
+        return *this->inner;
+    }
+};
 
 typedef Utf8String CSList;  // comma-separated list
 

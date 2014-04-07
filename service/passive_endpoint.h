@@ -86,7 +86,10 @@ struct PassiveEndpoint: public EndpointBase {
         return acceptor->listen(portRange, host, this, nameLookup, backlog);
     }
 
-    void closePeer()
+    /** Closing the peer in the context of a passive endpoint means
+        simply not accepting connections any more.
+    */
+    virtual void closePeer()
     {
         return acceptor->closePeer();
     }
