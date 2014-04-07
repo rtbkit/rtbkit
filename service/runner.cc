@@ -831,13 +831,15 @@ close()
 
 Runner::Task::ChildStatus::
 ChildStatus()
-    : state(ST_UNKNOWN),
-      pid(-1),
-      childStatus(-1),
-      launchErrno(0),
-      launchErrorCode(E_NONE)
 {
-    ::memset(&usage, 0, sizeof(usage));
+    // Doing it this way keeps ValGrind happy
+    ::memset(this, 0, sizeof(*this));
+
+    state = ST_UNKNOWN;
+    pid = -1;
+    childStatus = -1;
+    launchErrno = 0;
+    launchErrorCode = E_NONE;
 }
 
 
