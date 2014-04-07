@@ -73,6 +73,44 @@ inline bool match_int(long int & result, Parse_Context & c)
     return true;
 }
 
+inline bool match_hex4(long int & result, Parse_Context & c)
+{
+    Parse_Context::Revert_Token tok(c);
+
+    int code = 0;
+    unsigned digits = 0;
+    
+    for(unsigned i=0 ; i<4; ++i) {
+        int digit;
+        if(c && isalnum(*c)) {
+            int car = *c;
+            if (car >= '0' && car <= '9')
+                digit = car - '0';
+            else if (car >= 'a' && car <= 'f')
+                digit = car - 'a' + 10 ;
+            else if (car >= 'A' && car <= 'F')
+                digit = car - 'A' + 10;
+            else {
+                return false;
+            }
+            code = (code << 4) | digit;
+            ++digits;
+        }
+        else {
+            break;
+        }
+        c++;
+    }
+
+    if(digits!=4)
+        return false;
+
+    result = code;
+
+    tok.ignore();
+    return true;
+}
+
 inline bool match_unsigned_long(unsigned long & val,
                                 Parse_Context & c)
 {

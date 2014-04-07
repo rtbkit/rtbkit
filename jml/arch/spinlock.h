@@ -44,7 +44,7 @@ struct Spinlock {
     int acquire()
     {
         for (int tries = 0; true;  ++tries) {
-            if (__sync_bool_compare_and_swap(&value, 0, 1))
+            if (!__sync_lock_test_and_set(&value, 1))
                 return 0;
             if (tries == 100 && yield) {
                 tries = 0;

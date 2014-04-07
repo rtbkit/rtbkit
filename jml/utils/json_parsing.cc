@@ -121,7 +121,7 @@ bool matchJsonString(Parse_Context & context, std::string & str)
         case '\\':result.push_back('\\');  break;
         case '"': result.push_back('"');   break;
         case 'u': {
-            int code = context.expect_int();
+            int code = context.expect_hex4();
             if (code<0 || code>255)
             {
                 return false;
@@ -165,7 +165,7 @@ std::string expectJsonStringAsciiPermissive(Parse_Context & context, char sub)
             case '\\':c = '\\';  break;
             case '"': c = '"';   break;
             case 'u': {
-                int code = context.expect_int();
+                int code = context.expect_hex4();
                 c = code;
                 break;
             }
@@ -217,7 +217,7 @@ ssize_t expectJsonStringAscii(Parse_Context & context, char * buffer, size_t max
             case '\\':c = '\\';  break;
             case '"': c = '"';   break;
             case 'u': {
-                int code = context.expect_int();
+                int code = context.expect_hex4();
                 if (code<0 || code>255) {
                     context.exception(format("non 8bit char %d", code));
                 }
@@ -277,7 +277,7 @@ std::string expectJsonStringAscii(Parse_Context & context)
             case '\\':c = '\\';  break;
             case '"': c = '"';   break;
             case 'u': {
-                int code = context.expect_int();
+                int code = context.expect_hex4();
                 if (code<0 || code>255) {
                     context.exception(format("non 8bit char %d", code));
                 }
