@@ -72,3 +72,48 @@ BOOST_AUTO_TEST_CASE( test_print_format )
     }
     BOOST_CHECK_EQUAL(boost::u32regex_search(raw, matches, withHex), true);
 }
+
+
+template<typename Str>
+static size_t count_chars(const Str &str, std::initializer_list<wchar_t> chars) {
+    size_t count = std::count_if(begin(str), end(str),
+            [&](typename std::iterator_traits<typename Str::iterator>::value_type c) {
+            return std::find(begin(chars), end(chars), c) != end(chars);
+    });
+
+    return count;
+}
+
+BOOST_AUTO_TEST_CASE( test_u32_string )
+{
+    const std::string str1 { "daß auf dïch" };
+
+    auto nonAscii = count_chars(str1, { L'ß', L'ï' });
+
+    BOOST_CHECK_EQUAL(nonAscii, 0);
+
+    const Utf32String u32str1 { str1 };
+    nonAscii = count_chars(u32str1, { L'ß', L'ï' });
+
+    BOOST_CHECK_EQUAL(nonAscii, 2);
+
+    Utf32String u32str2 { "daß" };
+
+    Utf32String u32str3 { "für" };
+
+    auto u32str4 = u32str2 + u32str3;
+    nonAscii = count_chars(u32str4, { L'ß', L'ü' });
+    BOOST_CHECK_EQUAL(nonAscii, 2);
+
+    u32str4 += "Ô Mélodie!";
+
+    nonAscii = count_chars(u32str4, { L'ß', L'ü', L'Ô', L'é' });
+    BOOST_CHECK_EQUAL(nonAscii, 4);
+
+    std::string ascii = u32str1.extractAscii();
+    BOOST_CHECK_EQUAL(ascii, "da? auf d?ch");
+
+    Utf32String plainAscii { "Plain Ascii" };
+    BOOST_CHECK_EQUAL(plainAscii.extractAscii(), "Plain Ascii");
+
+}

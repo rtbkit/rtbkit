@@ -150,6 +150,11 @@ inline zmq::message_t encodeMessage(const Utf8String & message)
     return message.rawString();
 }
 
+inline zmq::message_t encodeMessage(const Utf32String & message)
+{
+    return message.utf8String();
+}
+
 inline zmq::message_t encodeMessage(const char * msg)
 {
     size_t sz = strlen(msg);
