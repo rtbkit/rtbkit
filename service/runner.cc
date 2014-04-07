@@ -447,6 +447,16 @@ kill(int signum) const
     waitTermination();
 }
 
+void
+Runner::
+signal(int signum)
+{
+    if (childPid_ <= 0)
+        throw ML::Exception("subprocess not available");
+
+    ::kill(childPid_, signum);
+}
+
 bool
 Runner::
 waitStart(double secondsToWait) const
