@@ -31,6 +31,30 @@ struct AsyncEventSource {
     {
     }
 
+    AsyncEventSource(AsyncEventSource && other)
+        : needsPoll(other.needsPoll), debug_(other.debug_), parent_(nullptr), connectionState_(other.connectionState_)
+    {
+        if (other.parent_ != nullptr) {
+            fprintf(stderr,
+                    "AsyncEventSource(&&): moved instance is attached to a MessageLoop\n");
+            abort();
+        }
+    }
+
+    AsyncEventSource & operator = (const AsyncEventSource & other)
+        noexcept
+    {
+        if (other.parent_ != nullptr) {
+            fprintf(stderr, "AsyncEventSource::=(const&): "
+                    "copied instance is attached to a MessageLoop\n");
+            abort();
+        }
+        needsPoll = other.needsPoll;
+        debug_ = other.debug_;
+
+        return *this;
+    }
+
     virtual ~AsyncEventSource()
     {
         // disconnect(); calling this is evil because it better be already removed from the message loop
