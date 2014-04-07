@@ -59,6 +59,14 @@ struct EndpointBase : public Epoller {
     */
     void shutdown();
 
+    /** Close any associated connections.  This is mostly useful in the
+        passive case where we are accepting connections.  Default implementation
+        is the null operation.
+    */
+    virtual void closePeer()
+    {
+    }
+
     /** Add a periodic job to be performed to the loop. The number passed to
         the toRun function is the number of timeouts that have elapsed since
         the last call; this is useful to know if something has got behind. It

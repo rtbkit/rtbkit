@@ -7,9 +7,12 @@
 */
 
 
-#include "value_description.h"
-#include "jml/arch/demangle.h"
 #include <mutex>
+#if 0
+#include "jml/arch/demangle.h"
+#endif
+#include "jml/utils/exc_assert.h"
+#include "value_description.h"
 
 using namespace std;
 using namespace ML;
@@ -34,7 +37,7 @@ std::ostream & operator << (std::ostream & stream, ValueKind kind)
     case ValueKind::MAP: return stream << "MAP";
     case ValueKind::ANY: return stream << "ANY";
     default:
-        return stream << "ValueKind(" << to_string((int)kind) << ")";
+        return stream << "ValueKind(" << std::to_string((int)kind) << ")";
     }
 }
 

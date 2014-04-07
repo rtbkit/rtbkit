@@ -115,7 +115,7 @@ public:
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
 
-    std::string extractAscii();
+    std::string extractAscii() const;
 
     bool operator == (const Utf8String & other) const
     {

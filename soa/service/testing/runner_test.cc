@@ -15,6 +15,7 @@
 #include "jml/arch/timers.h"
 #include "jml/utils/exc_assert.h"
 #include "jml/utils/string_functions.h"
+#include "jml/utils/vector_utils.h"
 #include "soa/service/message_loop.h"
 #include "soa/service/runner.h"
 #include "soa/service/sink.h"
@@ -37,6 +38,83 @@ struct _Init {
     }
 } myInit;
 
+#if 1
+
+void dumpSigStatus()
+{
+    ML::filter_istream stream("/proc/self/status");
+    string line;
+    while (stream) {
+        getline(stream, line);
+        if (line.empty())
+            return;
+        if (line.find("Sig") == 0 || line.find("Shd") == 0)
+            cerr << line << endl;
+    }
+}
+
+
+vector<string> pendingSignals()
+{
+    sigset_t sigs;
+    int res = sigpending(&sigs);
+    if (res == -1)
+        throw ML::Exception(errno, "sigpending");
+    
+    vector<string> result;
+    for (unsigned i = 1;  i < 32;  ++i)
+        if (sigismember(&sigs, i))
+            result.push_back(strsignal(i));
+    return result;
+}
+
+BOOST_AUTO_TEST_CASE( test_runner_no_sigchld )
+{
+    BlockedSignals blockedSigs2(SIGCHLD);
+
+    BOOST_CHECK_EQUAL(pendingSignals(), vector<string>());
+
+    MessageLoop loop;
+    Runner runner;
+    std::mutex runResultLock;
+    RunResult runResult;
+    bool isTerminated = false;
+
+    vector<string> command = {
+        "shasdasdsadas", "-c", "echo hello"
+    };
+    
+    auto onTerminate = [&] (const RunResult & result)
+        {
+            cerr << "command has terminated" << endl;
+            std::unique_lock<std::mutex> guard(runResultLock);
+            runResult = result;
+            isTerminated = true;
+        };
+    
+    auto onData = [&] (const std::string && data)
+        {
+            cerr << data;
+        };
+    
+    auto onClose = [] (){};
+    
+    auto stdErrSink = make_shared<CallbackInputSink>(onData, onClose);
+    loop.addSource("runner", runner);
+    loop.start();
+
+    runner.run(command, onTerminate, nullptr, stdErrSink);
+
+    cerr << "waiting for start" << endl;
+    BOOST_REQUIRE_EQUAL(runner.waitStart(1.0), false);
+    cerr << "done waiting for start" << endl;
+
+    BOOST_CHECK(isTerminated);
+    BOOST_CHECK_EQUAL(runResult.state, RunResult::LAUNCH_ERROR);
+
+    runner.waitTermination();
+}
+#endif
 
 #if 1
 /* ensures that the basic callback system works */
@@ -60,7 +138,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     expectedStdErr = "hello stderr\n";
 
     int done = false;
-    auto onTerminate = [&] (const Runner::RunResult & result) {
+    auto onTerminate = [&] (const RunResult & result) {
         done = true;
         ML::futex_wake(done);
     };
@@ -119,8 +197,8 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         RunnerTestHelperCommands commands;
         commands.sendExit(123);
 
-        Runner::RunResult result;
-        auto onTerminate = [&] (const Runner::RunResult & newResult) {
+        RunResult result;
+        auto onTerminate = [&] (const RunResult & newResult) {
             result = newResult;
         };
         Runner runner;
@@ -136,7 +214,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         stdInSink.requestClose();
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(result.signaled, false);
+        BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
         BOOST_CHECK_EQUAL(result.returnCode, 123);
 
         loop.shutdown();
@@ -149,8 +227,8 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         RunnerTestHelperCommands commands;
         commands.sendAbort();
 
-        Runner::RunResult result;
-        auto onTerminate = [&] (const Runner::RunResult & newResult) {
+        RunResult result;
+        auto onTerminate = [&] (const RunResult & newResult) {
             result = newResult;
         };
         Runner runner;
@@ -166,8 +244,8 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         stdInSink.requestClose();
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(result.signaled, true);
-        BOOST_CHECK_EQUAL(result.returnCode, SIGABRT);
+        BOOST_CHECK_EQUAL(result.state, RunResult::SIGNALED);
+        BOOST_CHECK_EQUAL(result.signum, SIGABRT);
 
         loop.shutdown();
     }
@@ -179,12 +257,15 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
  * executable, mostly mimicking bash */
 BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
 {
+    BlockedSignals blockedSigs(SIGCHLD);
+
     MessageLoop loop;
 
     loop.start();
 
-    Runner::RunResult result;
-    auto onTerminate = [&] (const Runner::RunResult & newResult) {
+    RunResult result;
+    auto onTerminate = [&] (const RunResult & newResult) {
+        cerr << "called onTerminate" << endl;
         result = newResult;
     };
 
@@ -193,12 +274,15 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         Runner runner;
         loop.addSource("runner1", runner);
 
+        cerr << "running 1" << endl;
         runner.run({"/this/command/is/missing"}, onTerminate);
+        cerr << "running 1b" << endl;
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(result.signaled, false);
-        BOOST_CHECK_EQUAL(result.returnCode, 127);
-
+        BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
+        BOOST_CHECK_EQUAL(result.returnCode, -1);
+        BOOST_CHECK_EQUAL(result.launchErrno, ENOENT);
+        
         loop.removeSource(&runner);
         runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
     }
@@ -211,8 +295,8 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         runner.run({"/dev/null"}, onTerminate);
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(result.signaled, false);
-        BOOST_CHECK_EQUAL(result.returnCode, 126);
+        BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
+        BOOST_CHECK_EQUAL(result.launchErrno, EACCES);
 
         loop.removeSource(&runner);
         runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
@@ -226,8 +310,8 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
         runner.run({"/dev"}, onTerminate);
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(result.signaled, false);
-        BOOST_CHECK_EQUAL(result.returnCode, 126);
+        BOOST_CHECK_EQUAL(result.state, RunResult::LAUNCH_ERROR);
+        BOOST_CHECK_EQUAL(result.launchErrno, EACCES);
 
         loop.removeSource(&runner);
         runner.waitConnectionState(AsyncEventSource::DISCONNECTED);
@@ -241,6 +325,8 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
 /* test the "execute" function */
 BOOST_AUTO_TEST_CASE( test_runner_execute )
 {
+    cerr << "execute test" << endl;
+
     string received;
     auto onStdOut = [&] (string && message) {
         received = move(message);
@@ -250,7 +336,7 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
     auto result = execute({"/bin/cat", "-"},
                           stdOutSink, nullptr, "hello callbacks");
     BOOST_CHECK_EQUAL(received, "hello callbacks");
-    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 }
 #endif
@@ -360,7 +446,8 @@ test_runner_no_output_delay_helper(bool stdout)
     loop.start();
 
     auto & stdInSink = runner.getStdInSink();
-    runner.run({"build/x86_64/bin/runner_test_helper"},
+    runner.run({"/usr/bin/stdbuf", "-o0",
+                "build/x86_64/bin/runner_test_helper"},
                nullptr, stdOutSink, stdErrSink);
     for (const string & command: commands) {
         while (!stdInSink.write(string(command))) {
@@ -368,7 +455,6 @@ test_runner_no_output_delay_helper(bool stdout)
         }
     }
     stdInSink.requestClose();
-    Date end = Date::now();
     runner.waitTermination();
 
     BOOST_CHECK_EQUAL(sizes[0], 6);
@@ -404,15 +490,75 @@ BOOST_AUTO_TEST_CASE( test_runner_multi_execute_single_loop )
 
     auto result
            = execute(loop, {"/bin/echo", "Test 1"});
-    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 
     result = execute(loop, {"/bin/echo", "Test 2"});
-    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 
     result = execute(loop, {"/bin/echo", "Test 3"});
-    BOOST_CHECK_EQUAL(result.signaled, false);
+    BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 }
 #endif
+
+#if 1
+BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
+{
+    volatile bool shutdown = false;
+    
+    int doneIterations = 0;
+
+    auto doThread = [&] (int threadNum)
+        {
+            while (!shutdown) {
+                auto result = execute({ "/bin/true" },
+                                      std::make_shared<OStreamInputSink>(&std::cout),
+                                      std::make_shared<OStreamInputSink>(&std::cerr));
+
+                ExcAssertEqual(result.returnCode, 0);
+                cerr << threadNum;
+
+                ML::atomic_inc(doneIterations);
+            }
+        };
+
+    std::vector<std::unique_ptr<std::thread> > threads;
+
+    for (unsigned i = 0;  i < 8;  ++i)
+        threads.emplace_back(new std::thread(std::bind(doThread, i)));
+
+    ML::sleep(2.0);
+
+    shutdown = true;
+
+    for (auto & t: threads)
+        t->join();
+    
+    cerr << "did " << doneIterations << " runner iterations" << endl;
+}
+#endif
+
+BOOST_AUTO_TEST_CASE( test_timeval_value_description )
+{
+    /* printing */
+    {
+        timeval tv;
+        tv.tv_sec = 1;
+        tv.tv_usec = 2; /* 1.000002 secs */
+
+        Json::Value expected
+            = Json::parse("{\"tv_sec\": 1, \"tv_usec\": 2}");
+        Json::Value result = jsonEncode<timeval>(tv);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    /* parsing */
+    {
+        string input = "{\"tv_sec\": 12, \"tv_usec\": 3456}";
+        struct timeval tv = jsonDecodeStr<timeval>(input);
+        BOOST_CHECK_EQUAL(tv.tv_sec, 12);
+        BOOST_CHECK_EQUAL(tv.tv_usec, 3456);
+    }
+}

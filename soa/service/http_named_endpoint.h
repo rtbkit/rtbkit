@@ -72,11 +72,13 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
 
         void sendResponse(int code,
                           const Json::Value & response,
-                          const std::string & contentType = "application/json");
+                          const std::string & contentType = "application/json",
+                          RestParams headers = RestParams());
 
         void sendResponse(int code,
                           const std::string & body,
-                          const std::string & contentType);
+                          const std::string & contentType,
+                          RestParams headers = RestParams());
     };
 
     typedef std::function<void (RestConnectionHandler * connection,

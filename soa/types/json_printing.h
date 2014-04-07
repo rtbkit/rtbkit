@@ -7,10 +7,14 @@
 
 #pragma once
 
-#include "json_parsing.h"
-#include "jml/utils/exc_assert.h"
-#include <boost/algorithm/string.hpp>
 #include <string>
+#include <ostream>
+
+#include "jml/utils/exc_assert.h"
+#include "jml/utils/json_parsing.h"
+
+#include "soa/jsoncpp/value.h"
+#include "soa/types/string.h"
 
 
 namespace Datacratic {
@@ -168,12 +172,16 @@ struct StreamJsonPrintingContext
 
     virtual void writeFloat(float f)
     {
-        stream << f;
+        if (std::isfinite(f))
+            stream << f;
+        else stream << "\"" << f << "\"";
     }
 
     virtual void writeDouble(double d)
     {
-        stream << d;
+        if (std::isfinite(d))
+            stream << d;
+        else stream << "\"" << d << "\"";
     }
 
     virtual void writeString(const std::string & s)
@@ -187,7 +195,7 @@ struct StreamJsonPrintingContext
 
     virtual void writeJson(const Json::Value & val)
     {
-        stream << boost::trim_copy(val.toString());
+        stream << val.toStringNoNewLine();
     }
 
     virtual void writeBool(bool b)

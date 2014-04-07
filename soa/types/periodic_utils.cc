@@ -30,7 +30,7 @@ parsePeriod(const std::string & pattern)
     //if (number <= 0)
     //    context.exception("invalid time number: must be > 0");
 
-    if (context.match_literal('x'))
+    if (context.match_literal('x') || context.match_literal("ms"))
 	granularity = MILLISECONDS;
     else if (context.match_literal('s'))
         granularity = SECONDS;
@@ -181,16 +181,16 @@ TimePeriod(TimeGranularity granularity, double number)
 
 Date
 TimePeriod::
-current(Date now)
+current(Date now) const
 {
     return findPeriod(now, granularity, number).first;
 }
 
 Date
 TimePeriod::
-next(Date now)
+next(Date now) const
 {
-    return findPeriod(now, granularity, number).first.plusSeconds(interval);
+    return current(now).plusSeconds(interval);
 }
 
 std::string
