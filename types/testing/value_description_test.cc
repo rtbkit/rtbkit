@@ -409,7 +409,16 @@ BOOST_AUTO_TEST_CASE( test_date_value_description )
     auto desc = DefaultDescription<Date>();
 
     Date d = Date::now().quantized(0.001);
-    BOOST_CHECK_EQUAL(jsonDecode<Date>(d.printIso8601()), d);
+
+    /* timezone is "Z" */
+    string isoZ = d.printIso8601();
+    BOOST_CHECK_EQUAL(jsonDecode<Date>(isoZ), d);
+
+    /* timezone is "+00:00" */
+    string iso00 = isoZ;
+    iso00.resize(iso00.size() - 1);
+    iso00.append("+00:00");
+    BOOST_CHECK_EQUAL(jsonDecode<Date>(iso00), d);
 }
 
 

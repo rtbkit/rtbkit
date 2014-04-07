@@ -8,6 +8,7 @@
 
 #include "soa/jsoncpp/json.h"
 #include "jml/utils/json_parsing.h"
+#include "jml/utils/parse_context.h"
 #include "jml/utils/compact_vector.h"
 #include "soa/types/id.h"
 #include "soa/types/string.h"
