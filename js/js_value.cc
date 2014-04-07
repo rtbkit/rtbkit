@@ -160,6 +160,11 @@ void to_js(JSValue & jsval, const Utf8String & value)
 	jsval = v8::String::New(value.rawData(), value.rawLength());
 }
 
+void to_js(JSValue & jsval, const Utf32String & value)
+{
+    std::string utf8Str { value.utf8String() };
+	jsval = v8::String::New(utf8Str.c_str(), utf8Str.size());
+}
 void to_js(JSValue & jsval, const char * value)
 {
     jsval = v8::String::New(value);
@@ -480,6 +485,11 @@ Date from_js(const JSValue & val, Date *)
 Utf8String from_js(const JSValue & val, Utf8String *)
 {
 	return Utf8String(*v8::String::Utf8Value(val)) ;
+}
+
+Utf32String from_js(const JSValue & val, Utf32String *)
+{
+    return Utf32String(*v8::String::Utf8Value(val));
 }
 
 Json::Value from_js_ref(const JSValue & val, Json::Value *)
