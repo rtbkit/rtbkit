@@ -235,6 +235,7 @@ setSeatBid(Auction const & auction,
     // Put in the variable parts
     b.cid = Id(resp.agent);
     b.iurl = cpinfo->iurl;
+    b.impid = auction.request->imp[spotNum].id;
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.price.val = USD_CPM(resp.price.maxPrice);
     b.crid = crinfo->crid;
