@@ -70,19 +70,6 @@ ZmqEventSource::
 poll() const
 {
     return getEvents(socket()).first;
-
-#if 0
-    using namespace std;
-
-    
-
-    zmq_pollitem_t toPoll = { socket(), 0, ZMQ_POLLIN };
-    int res = zmq_poll(&toPoll, 1, 0);
-    //cerr << "poll returned " << res << endl;
-    if (res == -1)
-        THROW(ZmqLogs::error) << "zmq_poll error: " << strerror(errno) << endl;
-    return res;
-#endif
 }
 
 bool
@@ -473,15 +460,9 @@ connect(const std::string & endpointName,
     for (auto c: children) {
         ExcAssertNotEqual(connectionState, CONNECTED);
         string key = endpointName + "/" + c;
-        //cerr << "got key " << key << endl;
         Json::Value epConfig = config->getJson(key);
-
-        //cerr << "epConfig for " << key << " is " << epConfig
-        //     << endl;
                 
         for (auto & entry: epConfig) {
-
-            //cerr << "entry is " << entry << endl;
 
             if (!entry.isMember("zmqConnectUri"))
                 return true;
@@ -543,8 +524,6 @@ connectToServiceClass(const std::string & serviceClass,
     ExcAssertNotEqual(serviceClass, "");
     ExcAssertNotEqual(endpointName, "");
 
-    //cerr << "serviceClass = " << serviceClass << endl;
-
     this->serviceClass = serviceClass;
     this->endpointName = endpointName;
 
@@ -565,7 +544,6 @@ connectToServiceClass(const std::string & serviceClass,
 
     for (auto c: children) {
         string key = "serviceClass/" + serviceClass + "/" + c;
-        //cerr << "getting " << key << endl;
         Json::Value value = config->getJson(key);
         std::string name = value["serviceName"].asString();
         std::string path = value["servicePath"].asString();
@@ -580,7 +558,6 @@ connectToServiceClass(const std::string & serviceClass,
             continue;
         }
 
-        //cerr << "name = " << name << " path = " << path << endl;
         if (connect(path + "/" + endpointName,
                     style == CS_ASYNCHRONOUS ? CS_ASYNCHRONOUS : CS_SYNCHRONOUS))
             return true;
@@ -607,8 +584,6 @@ ZmqNamedProxy::
 onServiceNodeChange(const std::string & path,
                     ConfigurationService::ChangeType change)
 {
-    //cerr << "******* CHANGE TO SERVICE NODE " << path << endl;
-
     if (connectionState != CONNECTION_PENDING)
         return;  // no need to watch anymore
 
@@ -620,12 +595,245 @@ ZmqNamedProxy::
 onEndpointNodeChange(const std::string & path,
                      ConfigurationService::ChangeType change)
 {
-    //cerr << "******* CHANGE TO ENDPOINT NODE " << path << endl;
-
     if (connectionState != CONNECTION_PENDING)
         return;  // no need to watch anymore
 
     connect(connectedService, CS_ASYNCHRONOUS);
+}
+
+
+/******************************************************************************/
+/* ZMQ MULTIPLE NAMED CLIENT BUS PROXY                                        */
+/******************************************************************************/
+
+void
+ZmqMultipleNamedClientBusProxy::
+connectAllServiceProviders(const std::string & serviceClass,
+                           const std::string & endpointName,
+                           bool local)
+{
+    if (connected) {
+        THROW(ZmqLogs::error)
+            << "already connected to "
+                << serviceClass << " / " << endpointName
+                << std::endl;
+    }
+
+    this->serviceClass = serviceClass;
+    this->endpointName = endpointName;
+
+    serviceProvidersWatch.init([=] (const std::string & path,
+                    ConfigurationService::ChangeType change)
+            {
+                ++changesCount[change];
+                onServiceProvidersChanged("serviceClass/" + serviceClass, local);
+            });
+
+    onServiceProvidersChanged("serviceClass/" + serviceClass, local);
+    connected = true;
+}
+
+
+void
+ZmqMultipleNamedClientBusProxy::
+onServiceProvidersChanged(const std::string & path, bool local)
+{
+    // this function is invoked upon a disconnect
+    if (inProvidersChanged) {
+
+        std::stringstream ss;
+        ss << "discovering: " << dbg_lastChildren << "\nbacktrace:\n";
+        ML::backtrace(ss);
+
+        LOG(ZmqLogs::print)
+            << "@@@ Already in service providers changed - bailing out\n"
+                << ss.str() << "\n"
+                << std::endl;
+        return ;
+    }
+
+    inProvidersChanged = true;
+
+    // The list of service providers has changed
+
+    std::vector<std::string> children
+        = config->getChildren(path, serviceProvidersWatch);
+
+    dbg_lastChildren = children;
+
+    for (auto c: children) {
+        Json::Value value = config->getJson(path + "/" + c);
+        std::string name = value["serviceName"].asString();
+        std::string path = value["servicePath"].asString();
+
+        std::string location = value["serviceLocation"].asString();
+        if (local && location != config->currentLocation) {
+            LOG(ZmqLogs::trace)
+                << path << " / " << name << " dropped ("
+                    << location << " != " << config->currentLocation << ")"
+                    << std::endl;
+            continue;
+        }
+
+        watchServiceProvider(name, path);
+    }
+
+    // deleting the connection could trigger a callback which is a bad idea
+    // while we're holding the connections lock. So instead we move all the
+    // connections to be deleted to a temp map which we'll wipe once the
+    // lock is released.
+    ConnectionMap pendingDisconnects;
+    {
+        std::unique_lock<Lock> guard(connectionsLock);
+
+        // Services that are no longer in zookeeper are considered to be
+        // disconnected so remove them from our connection map.
+        for (auto& conn : connections) {
+            auto it = find(children.begin(), children.end(), conn.first);
+            if (it != children.end()) continue;
+
+            // Erasing from connections in this loop would invalidate our
+            // iterator so defer until we're done with the connections map.
+            removeSource(conn.second.get());
+            pendingDisconnects[conn.first] = std::move(conn.second);
+        }
+
+        for (const auto& conn : pendingDisconnects)
+            connections.erase(conn.first);
+    }
+    // We're no longer holding the lock so any delayed. Time to really
+    // disconnect and trigger the callbacks.
+    pendingDisconnects.clear();
+    inProvidersChanged = false;
+}
+
+
+/** Encapsulates a lock-free state machine that manages the logic of the on
+    config callback. The problem being solved is that the onConnect callback
+    should not call the user's callback while we're holding the connection
+    lock but should do it when the lock is released.
+
+    The lock-free state machine guarantees that no callbacks are lost and
+    that no callbacks will be triggered before a call to release is made.
+    The overhead of this class amounts to at most 2 CAS when the callback is
+    triggered; one if there's no contention.
+
+    Note that this isn't an ideal solution to this problem because we really
+    should get rid of the locks when manipulating these events.
+
+    \todo could be generalized if we need this pattern elsewhere.
+*/
+struct ZmqMultipleNamedClientBusProxy::OnConnectCallback
+{
+    OnConnectCallback(const ConnectionHandler& fn, std::string name) :
+        fn(fn), name(name), state(DEFER)
+    {}
+
+    /** Should ONLY be called AFTER the lock is released. */
+    void release()
+    {
+        State old = state;
+
+        ExcAssertNotEqual(old, CALL);
+
+        // If the callback wasn't triggered while we were holding the lock
+        // then trigger it the next time we see it.
+        if (old == DEFER && ML::cmp_xchg(state, old, CALL)) return;
+
+        ExcAssertEqual(old, DEFERRED);
+        fn(name);
+    }
+
+    void operator() (std::string blah)
+    {
+        State old = state;
+        ExcAssertNotEqual(old, DEFERRED);
+
+        // If we're still in the locked section then trigger the callback
+        // when release is called.
+        if (old == DEFER && ML::cmp_xchg(state, old, DEFERRED)) return;
+
+        // We're out of the locked section so just trigger the callback.
+        ExcAssertEqual(old, CALL);
+        fn(name);
+    }
+
+private:
+
+    ConnectionHandler fn;
+    std::string name;
+
+    enum State {
+        DEFER,    // We're holding the lock so defer an incoming callback.
+        DEFERRED, // We were called while holding the lock.
+        CALL      // We were not called while holding the lock.
+    } state;
+};
+
+
+void
+ZmqMultipleNamedClientBusProxy::
+watchServiceProvider(const std::string & name, const std::string & path)
+{
+    // Protects the connections map... I think.
+    std::unique_lock<Lock> guard(connectionsLock);
+
+    auto & c = connections[name];
+
+    // already connected
+    if (c) {
+        LOG(ZmqLogs::trace)
+            << path << " / " << name << " is already connected"
+                << std::endl;
+        return;
+    }
+
+    LOG(ZmqLogs::trace)
+        << "connecting to " << path << " / " << name << std::endl;
+
+    try {
+        auto newClient = std::make_shared<ZmqNamedClientBusProxy>(zmqContext);
+        newClient->init(config, identity);
+
+        // The connect call below could trigger this callback while we're
+        // holding the connectionsLock which is a big no-no. This fancy
+        // wrapper ensures that it's only called after we call its release
+        // function.
+        if (connectHandler)
+            newClient->connectHandler = OnConnectCallback(connectHandler, name);
+
+        newClient->disconnectHandler = [=] (std::string s)
+            {
+                // TODO: chain in so that we know it's not around any more
+                this->onDisconnect(s);
+            };
+
+        newClient->connect(path + "/" + endpointName);
+        newClient->messageHandler = [=] (const std::vector<std::string> & msg)
+            {
+                this->handleMessage(name, msg);
+            };
+
+        c = std::move(newClient);
+
+        // Add it to our message loop so that it can process messages
+        addSource("ZmqMultipleNamedClientBusProxy child " + name, c);
+
+        guard.unlock();
+        if (connectHandler)
+            c->connectHandler.target<OnConnectCallback>()->release();
+
+    } catch (...) {
+        // Avoid triggering the disconnect callbacks while holding the
+        // connectionsLock by defering the delete of the connection until
+        // we've manually released the lock.
+        ConnectionMap::mapped_type conn(std::move(connections[name]));
+        connections.erase(name);
+
+        guard.unlock();
+        // conn is a unique_ptr so it gets destroyed here.
+        throw;
+    }
 }
 
 
