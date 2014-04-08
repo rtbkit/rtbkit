@@ -265,6 +265,7 @@ private:
 
     HttpConnection * connections_;
     std::vector<HttpConnection> connectionStash_;
+    size_t avlConnections_;
 
     ML::RingBufferSRMW<HttpRequest> queue_; /* queued requests */
 };

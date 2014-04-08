@@ -143,7 +143,6 @@ AsyncModelBench(const string & baseUrl, int maxReqs, int concurrency)
     loop.start();
 
     auto client = make_shared<HttpClient>(baseUrl, concurrency);
-    auto & clientRef = *client.get();
     loop.addSource("httpClient", client);
 
     auto onDone = [&] (const HttpRequest & rq, HttpClientError errorCode_) {
@@ -154,6 +153,7 @@ AsyncModelBench(const string & baseUrl, int maxReqs, int concurrency)
     };
     auto cbs = make_shared<HttpClientCallbacks>(nullptr, nullptr, nullptr, onDone);
 
+    auto & clientRef = *client.get();
     for (numReqs = 0; numReqs < maxReqs;) {
         if (clientRef.get("/", cbs)) {
             numReqs++;
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
         ("requests,r", value(&maxReqs),
          "total of number of requests to perform")
         ("payload-size,s", value(&payloadSize),
-         "size of the response body")
+         "size of the response body (*8)")
         ("help,H", "show help");
 
     variables_map vm;
