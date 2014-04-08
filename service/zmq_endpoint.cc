@@ -16,6 +16,15 @@ using namespace std;
 
 namespace Datacratic {
 
+/******************************************************************************/
+/* ZMQ LOGS                                                                   */
+/******************************************************************************/
+
+Logging::Category ZmqLogs::print("ZMQ");
+Logging::Category ZmqLogs::error("ZMQ Error", ZmqLogs::print);
+Logging::Category ZmqLogs::trace("ZMQ Trace", ZmqLogs::print);
+
+
 
 /*****************************************************************************/
 /* ZMQ EVENT SOURCE                                                          */
@@ -52,9 +61,7 @@ selectFd() const
     size_t resSize = sizeof(int);
     socket().getsockopt(ZMQ_FD, &res, &resSize);
     if (res == -1)
-        throw ML::Exception("no fd for zeromq socket");
-    using namespace std;
-    //cerr << "select FD is " << res << endl;
+        THROW(ZmqLogs::error) << "no fd for zeromq socket" << endl;
     return res;
 }
 
@@ -73,7 +80,7 @@ poll() const
     int res = zmq_poll(&toPoll, 1, 0);
     //cerr << "poll returned " << res << endl;
     if (res == -1)
-        throw ML::Exception(errno, "zmq_poll");
+        THROW(ZmqLogs::error) << "zmq_poll error: " << strerror(errno) << endl;
     return res;
 #endif
 }
@@ -127,10 +134,10 @@ std::vector<std::string>
 ZmqEventSource::
 handleSyncMessage(const std::vector<std::string> & message)
 {
-    if (syncMessageHandler)
-        return syncMessageHandler(message);
-    throw ML::Exception("need to assign to or override one of the "
-                        "message handlers");
+    if (!syncMessageHandler)
+        THROW(ZmqLogs::error) << "no message handler set" << std::endl;
+
+    return syncMessageHandler(message);
 }
     
 
@@ -285,8 +292,8 @@ handleEvent(const zmq_event_t & event)
                        event.data.disconnected.fd);
             
     default:
-        using namespace std;
-        cerr << "got unknown event type " << event.event << endl;
+        LOG(ZmqLogs::print)
+            << "got unknown event type " << event.event << endl;
         return doEvent(defaultHandler, "", -1);
     }
 }
@@ -328,8 +335,7 @@ bindTcp(PortRange const & portRange, std::string host)
     std::unique_lock<Lock> guard(lock);
 
     if (!socket_)
-        throw ML::Exception("need to call ZmqNamedEndpoint::init() before "
-                            "bind");
+        THROW(ZmqLogs::error) << "bind called before init" << std::endl;
 
     using namespace std;
 
@@ -438,18 +444,20 @@ ZmqNamedProxy::
 connect(const std::string & endpointName,
         ConnectionStyle style)
 {
-    if (!config)
-        throw ML::Exception("attempt to connect to named service "
-                            + endpointName + " without calling init()");
+    if (!config) {
+        THROW(ZmqLogs::error)
+            << "attempt to connect to " << endpointName
+            << " without calling init()" << endl;
+    }
 
     if (connectionState == CONNECTED)
-        throw ML::Exception("already connected");
+        THROW(ZmqLogs::error) << "already connected" << endl;
 
     this->connectedService = endpointName;
     if (connectionType == NO_CONNECTION)
         connectionType = CONNECT_DIRECT;
 
-    cerr << "connecting to " << endpointName << endl;
+    LOG(ZmqLogs::print) << "connecting to " << endpointName << endl;
 
     vector<string> children
         = config->getChildren(endpointName, endpointWatch);
@@ -487,8 +495,10 @@ connect(const std::string & endpointName,
             string hostScope = hs.asString();
             if (hs != "*") {
                 utsname name;
-                if (uname(&name))
-                    throw ML::Exception(errno, "uname");
+                if (uname(&name)) {
+                    THROW(ZmqLogs::error)
+                        << "uname error: " << strerror(errno) << std::endl;
+                }
                 if (hostScope != name.nodename)
                     continue;  // wrong host scope
             }
@@ -500,7 +510,7 @@ connect(const std::string & endpointName,
                 connectionState = CONNECTED;
             }
 
-            cerr << "connected to " << uri << endl;
+            LOG(ZmqLogs::print) << "connected to " << uri << endl;
             onConnect(uri);
             return true;
         }
@@ -509,9 +519,11 @@ connect(const std::string & endpointName,
         return false;
     }
 
-    if (style == CS_MUST_SUCCEED && connectionState != CONNECTED)
-        throw ML::Exception("couldn't connect to any services of class "
-                            + serviceClass);
+    if (style == CS_MUST_SUCCEED && connectionState != CONNECTED) {
+        THROW(ZmqLogs::error)
+            << "couldn't connect to any services of class " <<  serviceClass
+            << endl;
+    }
 
     setPending();
     return connectionState == CONNECTED;
@@ -539,12 +551,14 @@ connectToServiceClass(const std::string & serviceClass,
     if (connectionType == NO_CONNECTION)
         connectionType = CONNECT_TO_CLASS;
 
-    if (!config)
-        throw ML::Exception("attempt to connect to named service "
-                            + endpointName + " without calling init()");
+    if (!config) {
+        THROW(ZmqLogs::error)
+            << "attempt to connect to " << endpointName
+            << " without calling init()" << endl;
+    }
 
     if (connectionState == CONNECTED)
-        throw ML::Exception("attempt to double connect connection");
+        THROW(ZmqLogs::error) << "attempt to double connect connection" << endl;
 
     vector<string> children
         = config->getChildren("serviceClass/" + serviceClass, serviceWatch);
@@ -558,7 +572,11 @@ connectToServiceClass(const std::string & serviceClass,
 
         std::string location = value["serviceLocation"].asString();
         if (local && location != config->currentLocation) {
-            std::cerr << "dropping " << location << " != " << config->currentLocation << std::endl;
+                LOG(ZmqLogs::trace)
+                    << path << " / " << name << " dropped while connecting to "
+                    << serviceClass << "/" << endpointName
+                    << "(" << location << " != " << config->currentLocation << ")"
+                    << std::endl;
             continue;
         }
 
@@ -568,9 +586,11 @@ connectToServiceClass(const std::string & serviceClass,
             return true;
     }
 
-    if (style == CS_MUST_SUCCEED && connectionState != CONNECTED)
-        throw ML::Exception("couldn't connect to any services of class "
-                            + serviceClass);
+    if (style == CS_MUST_SUCCEED && connectionState != CONNECTED) {
+        THROW(ZmqLogs::error)
+            << "couldn't connect to any services of class " << serviceClass
+            << endl;
+    }
 
     {
         std::lock_guard<ZmqEventSource::SocketLock> guard(socketLock_);
