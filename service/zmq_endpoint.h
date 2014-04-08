@@ -10,6 +10,7 @@
 
 #include "named_endpoint.h"
 #include "message_loop.h"
+#include "logs.h"
 #include <set>
 #include <type_traits>
 #include "jml/utils/smart_ptr_utils.h"
@@ -21,6 +22,18 @@
 #include "zmq_utils.h"
 
 namespace Datacratic {
+
+
+/******************************************************************************/
+/* ZMQ LOGS                                                                   */
+/******************************************************************************/
+
+struct ZmqLogs
+{
+    static Logging::Category print;
+    static Logging::Category error;
+    static Logging::Category trace;
+};
 
 
 /*****************************************************************************/
@@ -151,7 +164,7 @@ struct ZmqBinaryEventSource : public AsyncEventSource {
         size_t resSize = sizeof(int);
         socket().getsockopt(ZMQ_FD, &res, &resSize);
         if (res == -1)
-            throw ML::Exception("no fd for zeromq socket");
+            THROW(ZmqLogs::error) << "no fd for zeromq socket" << std::endl;
         return res;
     }
 
@@ -190,7 +203,9 @@ struct ZmqBinaryEventSource : public AsyncEventSource {
     {
         if (messageHandler)
             messageHandler(std::move(message));
-        else throw ML::Exception("need to override handleMessage");
+        else {
+            THROW(ZmqLogs::error) << "no message handler set" << std::endl;
+        }
     }
 
     zmq::socket_t & socket() const
@@ -244,7 +259,7 @@ struct ZmqBinaryTypedEventSource: public AsyncEventSource {
         size_t resSize = sizeof(int);
         socket().getsockopt(ZMQ_FD, &res, &resSize);
         if (res == -1)
-            throw ML::Exception("no fd for zeromq socket");
+            THROW(ZmqLogs::error) << "no fd for zeromq socket" << std::endl;
         return res;
     }
 
@@ -281,7 +296,9 @@ struct ZmqBinaryTypedEventSource: public AsyncEventSource {
     {
         if (messageHandler)
             messageHandler(arg);
-        else throw ML::Exception("handleMessage not done");
+        else {
+            THROW(ZmqLogs::error) << "no message handler set" << std::endl;
+        }
     }
 
     zmq::socket_t & socket() const
@@ -339,12 +356,18 @@ struct ZmqTypedEventSource: public ZmqEventSource {
     virtual void handleMessage(const std::vector<std::string> & message)
     {
         int expectedSize = routable + 2;
-        if (message.size() != expectedSize)
-            throw ML::Exception("unexpected message size in ZmqTypedMessageSink");
+        if (message.size() != expectedSize) {
+            THROW(ZmqLogs::error) << "unexpected message size: "
+                << "expected=" << expectedSize << ", got=" << message.size()
+                << std::endl;
+        }
 
         int i = routable;
-        if (message[i + 1] != messageTopic)
-            throw ML::Exception("unexpected messake kind in ZmqTypedMessageSink");
+        if (message[i + 1] != messageTopic) {
+            THROW(ZmqLogs::error) << "unexpected message kind: "
+                << "expected=" << message[i + 1] << ", got=" << messageTopic
+                << std::endl;
+        }
 
         std::istringstream stream(message[i + 2]);
         ML::DB::Store_Reader store(stream);
@@ -358,9 +381,9 @@ struct ZmqTypedEventSource: public ZmqEventSource {
     {
         if (onMessage)
             onMessage(message, address);
-        else
-            throw ML::Exception("need to override handleTypedMessage or assign "
-                                "to onMessage");
+        else {
+            THROW(ZmqLogs::error) << "no message handler set" << std::endl;
+        }
     }
 };
 
@@ -495,8 +518,7 @@ struct ZmqNamedEndpoint : public NamedEndpoint, public MessageLoop {
     void bind(const std::string & address)
     {
         if (!socket_)
-            throw ML::Exception("need to call ZmqNamedEndpoint::init() before "
-                                "bind");
+            THROW(ZmqLogs::error) << "bind called before init" << std::endl;
 
         std::unique_lock<Lock> guard(lock);
         socket_->bind(address);
@@ -577,8 +599,8 @@ struct ZmqNamedEndpoint : public NamedEndpoint, public MessageLoop {
     {
         if (messageHandler)
             messageHandler(std::move(message));
-        else throw ML::Exception("need to override handleRawMessage or "
-                                 "handleMessage");
+        else
+            THROW(ZmqLogs::error) << "no message handler set" << std::endl;
     }
 
     typedef std::function<void (std::string bindAddress)>
@@ -796,15 +818,10 @@ struct ZmqNamedClientBus: public ZmqNamedEndpoint {
         if (clientMessageHandler)
             clientMessageHandler(message);
         else {
-            throw ML::Exception("need to assign to onClientMessage "
-                                "or override handleClientMessage for message "
-                                + message.at(1));
+            THROW(ZmqLogs::error)
+                << "no message handler set for client " << message.at(1)
+                << std::endl;
         }
-#if 0
-        using namespace std;
-        cerr << "ZmqNamedClientBus handleClientMessage " << message << endl;
-        throw ML::Exception("handleClientMessage");
-#endif
     }
 
 private:
@@ -961,7 +978,8 @@ struct ZmqNamedProxy: public MessageLoop {
                 "sending on an unconnected socket: " + endpointName);
 
         if (connectionState == CONNECTION_PENDING) {
-            std::cerr << ("dropping message for " + endpointName + "\n");
+            LOG(ZmqLogs::error)
+                << "dropping message for " << endpointName << std::endl;
             return;
         }
 
@@ -1107,7 +1125,7 @@ struct ZmqNamedClientBusProxy : public ZmqNamedProxy {
         if (messageHandler)
             messageHandler(message);
         else
-            throw ML::Exception("need to override on messageHandler or handleMessage");
+            THROW(ZmqLogs::error) << "no message handler set" << std::endl;
     }
 
     Date lastHeartbeat;
@@ -1183,8 +1201,10 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         std::unique_lock<Lock> guard(connectionsLock);
         auto it = connections.find(recipient);
         if (it == connections.end()) {
-            throw ML::Exception("attempt to deliver " + topic + " message to unknown client "
-                                + recipient);
+            THROW(ZmqLogs::error)
+                << "unable to deliver " << topic
+                << " to unknown client " << recipient
+                << std::endl;
         }
         it->second->sendMessage(topic, std::forward<Args>(args)...);
     }
@@ -1196,8 +1216,12 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
                                     const std::string & endpointName,
                                     bool local = true)
     {
-        if (connected)
-            throw ML::Exception("already connected to service providers");
+        if (connected) {
+            THROW(ZmqLogs::error)
+                << "already connected to "
+                << serviceClass << " / " << endpointName
+                << std::endl;
+        }
 
         this->serviceClass = serviceClass;
         this->endpointName = endpointName;
@@ -1274,7 +1298,7 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         if (messageHandler)
             messageHandler(source, message);
         else
-            throw ML::Exception("need to override on messageHandler or handleMessage");
+            THROW(ZmqLogs::error) << "no message handler set" << std::endl;
     }
 
 
@@ -1318,24 +1342,34 @@ private:
     bool inProvidersChanged ;
     /** Queue of operations to perform asynchronously from our own thread. */
 
+    std::vector<std::string> dbg_lastChildren;
+
     /** Callback that will be called when the list of service providers has changed. */
     void onServiceProvidersChanged(const std::string & path, bool local)
     {
-        using namespace std;
         // this function is invoked upon a disconnect
-        if( inProvidersChanged)
-        {
-            std::cerr << "!!!Already in service providers changed - bailing out "
+        if (inProvidersChanged) {
+
+            std::stringstream ss;
+            ss << "discovering: " << dbg_lastChildren << "\nbacktrace:\n";
+            ML::backtrace(ss);
+
+            LOG(ZmqLogs::print)
+                << "@@@ Already in service providers changed - bailing out\n"
+                << ss.str() << "\n"
                 << std::endl;
             return ;
         }
+
         inProvidersChanged = true;
-        //cerr << "onServiceProvidersChanged(" << path << ")" << endl;
 
         // The list of service providers has changed
 
-        vector<string> children
+        std::vector<std::string> children
             = config->getChildren(path, serviceProvidersWatch);
+
+        dbg_lastChildren = children;
+
         for (auto c: children) {
             Json::Value value = config->getJson(path + "/" + c);
             std::string name = value["serviceName"].asString();
@@ -1343,7 +1377,10 @@ private:
 
             std::string location = value["serviceLocation"].asString();
             if (local && location != config->currentLocation) {
-                std::cerr << "dropping " << location << " != " << config->currentLocation << std::endl;
+                LOG(ZmqLogs::trace)
+                    << path << " / " << name << " dropped ("
+                    << location << " != " << config->currentLocation << ")"
+                    << std::endl;
                 continue;
             }
 
@@ -1415,7 +1452,7 @@ private:
             fn(name);
         }
 
-        void operator() (std::string)
+        void operator() (std::string blah)
         {
             State old = state;
             ExcAssertNotEqual(old, DEFERRED);
@@ -1451,12 +1488,15 @@ private:
         //ML::backtrace();
 
         // already connected
-        if (c) 
-        {
-            std::cerr << "watchServiceProvider: name " << name << " already connected " << std::endl;
+        if (c) {
+            LOG(ZmqLogs::trace)
+                << path << " / " << name << " is already connected"
+                << std::endl;
             return;
         }
-        std::cerr << "watchServiceProvider: name " << name << " not already connected " << std::endl;
+
+        LOG(ZmqLogs::trace)
+            << "connecting to " << path << " / " << name << std::endl;
         
         try {
             auto newClient = std::make_shared<ZmqNamedClientBusProxy>(zmqContext);
