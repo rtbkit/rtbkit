@@ -635,7 +635,7 @@ struct Video {
     VideoLinearity linearity;   ///< Whether it's linear or not (table 6.6)
     TaggedInt minduration;      ///< Minimum ad duration in seconds
     TaggedInt maxduration;      ///< Maximum ad duration in seconds
-    List<VideoBidResponseProtocol> protocol;  ///< Bid response protocols (table 6.7)
+    VideoBidResponseProtocol protocol;  ///< Bid response protocols (table 6.7)
     TaggedInt w;                ///< Width of player in pixels
     TaggedInt h;                ///< Height of player in pixels
     ///< Starting delay in seconds for placement (table 6.9)

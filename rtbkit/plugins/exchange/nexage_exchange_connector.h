@@ -11,7 +11,7 @@ namespace RTBKIT {
 
 
 /*****************************************************************************/
-/* BIDSWITCH EXCHANGE CONNECTOR                                                */
+/* NEXAGE EXCHANGE CONNECTOR                                                */
 /*****************************************************************************/
 
 /** Exchange connector for Nexage.  This speaks their flavour of the
@@ -21,7 +21,7 @@ namespace RTBKIT {
 struct NexageExchangeConnector: public OpenRTBExchangeConnector {
     NexageExchangeConnector(ServiceBase & owner, const std::string & name);
     NexageExchangeConnector(const std::string & name,
-                               std::shared_ptr<ServiceProxies> proxies);
+                            std::shared_ptr<ServiceProxies> proxies);
 
     static std::string exchangeNameString() {
         return "nexage";
@@ -43,6 +43,13 @@ struct NexageExchangeConnector: public OpenRTBExchangeConnector {
                 const Auction & auction) const;
 #endif
 
+    virtual double
+    getTimeAvailableMs(HttpAuctionHandler & connection,
+                       const HttpHeader & header,
+                       const std::string & payload) {
+        return 150.0;
+    }
+
     /** This is the information that the Nexage exchange needs to keep
         for each campaign (agent).
     */
@@ -59,8 +66,7 @@ struct NexageExchangeConnector: public OpenRTBExchangeConnector {
         filter and serve a creative.
     */
     struct CreativeInfo {
-        Id adid;                ///< ID for ad to be service if bid wins
-        std::string nurl;       ///< Win notice URL
+        Id crid;                ///< ID Creative Id
         std::vector<std::string> adomain;    ///< Advertiser Domain
     };
 

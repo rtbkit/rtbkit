@@ -1,6 +1,6 @@
-/* bidswitch_exchange_connector_test.cc
+/* nexage_exchange_connector_test.cc
 
-   Exchange connector test for BidSwitch.
+   Exchange connector test for Nexage.
    Based on rubicon_exchange_connector_test.cc
 */
 
@@ -13,7 +13,7 @@
 
 #include "rtbkit/common/testing/exchange_source.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
-#include "rtbkit/plugins/exchange/bidswitch_exchange_connector.h"
+#include "rtbkit/plugins/exchange/nexage_exchange_connector.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
@@ -28,7 +28,7 @@
 using namespace RTBKIT;
 
 
-const std::string bid_sample_filename("rtbkit/plugins/exchange/testing/bidswitch_bid_request.json");
+const std::string bid_sample_filename("rtbkit/plugins/exchange/testing/nexage_bid_request.json");
 
 
 std::string loadFile(const std::string & filename) {
@@ -45,7 +45,7 @@ std::string loadFile(const std::string & filename) {
     return result;
 }
 
-BOOST_AUTO_TEST_CASE( test_bidswitch ) {
+BOOST_AUTO_TEST_CASE( test_nexage ) {
     std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
 
     // The agent config service lets the router know how our agent is configured
@@ -71,8 +71,8 @@ BOOST_AUTO_TEST_CASE( test_bidswitch ) {
     // Create our exchange connector and configure it to listen on port
     // 10002.  Note that we need to ensure that port 10002 is open on
     // our firewall.
-    std::shared_ptr<BidSwitchExchangeConnector> connector
-    (new BidSwitchExchangeConnector("connector", proxies));
+    std::shared_ptr<NexageExchangeConnector> connector
+    (new NexageExchangeConnector("connector", proxies));
 
     connector->configureHttp(1, -1, "0.0.0.0");
     connector->start();
@@ -90,24 +90,14 @@ BOOST_AUTO_TEST_CASE( test_bidswitch ) {
     agent.config.creatives.push_back(RTBKIT::Creative::sampleLB);
     agent.config.creatives.push_back(RTBKIT::Creative::sampleWS);
     agent.config.creatives.push_back(RTBKIT::Creative::sampleBB);
-    std::string portName = std::to_string(port);
-    std::string hostName = ML::fqdn_hostname(portName) + ":" + portName;
 
-    agent.config.providerConfig["bidswitch"]["seat"] = "123";
-    agent.config.providerConfig["bidswitch"]["iurl"] = "http://www.gnu.org";
+    agent.config.providerConfig["nexage"]["seat"] = "123";
+    agent.config.providerConfig["nexage"]["iurl"] = "http://www.gnu.org";
 
     // Configure the agent for bidding
     for (auto & c: agent.config.creatives) {
-        c.providerConfig["bidswitch"]["adomain"][0] = "rtbkit.org";
-        c.providerConfig["bidswitch"]["nurl"]
-            = "<img src=\"http://"
-              + hostName
-              + "/creative.png?width="
-              + std::to_string(c.format.width)
-              + "&height="
-              + std::to_string(c.format.height)
-              + "&price=${AUCTION_PRICE}\"/>";
-        c.providerConfig["bidswitch"]["adid"] = c.name;
+        c.providerConfig["nexage"]["adomain"][0] = "rtbkit.org";
+        c.providerConfig["nexage"]["crid"] = c.name;
     }
 
     agent.onBidRequest = [&] (

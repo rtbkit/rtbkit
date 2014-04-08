@@ -1,10 +1,9 @@
-/* bidswitch_exchange_connector.cc
-   Jeremy Barnes, 15 March 2013
-
-   Implementation of the BidSwitch exchange connector.
+/* nexage_exchange_connector.cc
+   (C) 2014 Datacratic Inc
+   Implementation of the Nexage exchange connector.
 */
 
-#include "bidswitch_exchange_connector.h"
+#include "nexage_exchange_connector.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
@@ -24,26 +23,26 @@ using namespace Datacratic;
 namespace RTBKIT {
 
 /*****************************************************************************/
-/* BIDSWITCH EXCHANGE CONNECTOR                                              */
+/* NEXAGE EXCHANGE CONNECTOR                                                */
 /*****************************************************************************/
 
-BidSwitchExchangeConnector::
-BidSwitchExchangeConnector(ServiceBase & owner, const std::string & name)
+NexageExchangeConnector::
+NexageExchangeConnector(ServiceBase & owner, const std::string & name)
     : OpenRTBExchangeConnector(owner, name) {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
 }
 
-BidSwitchExchangeConnector::
-BidSwitchExchangeConnector(const std::string & name,
-                           std::shared_ptr<ServiceProxies> proxies)
+NexageExchangeConnector::
+NexageExchangeConnector(const std::string & name,
+                        std::shared_ptr<ServiceProxies> proxies)
     : OpenRTBExchangeConnector(name, proxies) {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
 }
 
 ExchangeConnector::ExchangeCompatibility
-BidSwitchExchangeConnector::
+NexageExchangeConnector::
 getCampaignCompatibility(const AgentConfig & config,
                          bool includeReasons) const {
     ExchangeCompatibility result;
@@ -51,16 +50,16 @@ getCampaignCompatibility(const AgentConfig & config,
 
     auto cpinfo = std::make_shared<CampaignInfo>();
 
-    const Json::Value & pconf = config.providerConfig["bidswitch"];
+    const Json::Value & pconf = config.providerConfig["nexage"];
 
     try {
         cpinfo->seat = Id(pconf["seat"].asString());
         if (!cpinfo->seat)
-            result.setIncompatible("providerConfig.bidswitch.seat is null",
+            result.setIncompatible("providerConfig.nexage.seat is null",
                                    includeReasons);
     } catch (const std::exception & exc) {
         result.setIncompatible
-        (string("providerConfig.bidswitch.seat parsing error: ")
+        (string("providerConfig.nexage.seat parsing error: ")
          + exc.what(), includeReasons);
         return result;
     }
@@ -68,11 +67,11 @@ getCampaignCompatibility(const AgentConfig & config,
     try {
         cpinfo->iurl = pconf["iurl"].asString();
         if (!cpinfo->iurl.size())
-            result.setIncompatible("providerConfig.bidswitch.iurl is null",
+            result.setIncompatible("providerConfig.nexage.iurl is null",
                                    includeReasons);
     } catch (const std::exception & exc) {
         result.setIncompatible
-        (string("providerConfig.bidswitch.iurl parsing error: ")
+        (string("providerConfig.nexage.iurl parsing error: ")
          + exc.what(), includeReasons);
         return result;
     }
@@ -96,7 +95,7 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
     try {
         if (!config.isMember(fieldName)) {
             result.setIncompatible
-            ("creative[].providerConfig.bidswitch." + string(fieldName)
+            ("creative[].providerConfig.nexage." + string(fieldName)
              + " must be specified", includeReasons);
             return;
         }
@@ -105,7 +104,7 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
 
         jsonDecode(val, field);
     } catch (const std::exception & exc) {
-        result.setIncompatible("creative[].providerConfig.bidswitch."
+        result.setIncompatible("creative[].providerConfig.nexage."
                                + string(fieldName) + ": error parsing field: "
                                + exc.what(), includeReasons);
         return;
@@ -115,7 +114,7 @@ void getAttr(ExchangeConnector::ExchangeCompatibility & result,
 } // file scope
 
 ExchangeConnector::ExchangeCompatibility
-BidSwitchExchangeConnector::
+NexageExchangeConnector::
 getCreativeCompatibility(const Creative & creative,
                          bool includeReasons) const {
     ExchangeCompatibility result;
@@ -123,29 +122,21 @@ getCreativeCompatibility(const Creative & creative,
 
     auto crinfo = std::make_shared<CreativeInfo>();
 
-    const Json::Value & pconf = creative.providerConfig["bidswitch"];
+    const Json::Value & pconf = creative.providerConfig["nexage"];
 
-    // 1.  Must have bidswitch.nurl that includes BidSwitch's macro
-    getAttr(result, pconf, "nurl", crinfo->nurl, includeReasons);
-    if (crinfo->nurl.find("${AUCTION_PRICE}") == string::npos)
+    // 1.  Must have creative ID in nexage.crid
+    getAttr(result, pconf, "crid", crinfo->crid, includeReasons);
+    if (!crinfo->crid)
         result.setIncompatible
-        ("creative[].providerConfig.bidswitch.nurl ad markup must contain "
-         "encrypted win price macro ${AUCTION_PRICE}",
-         includeReasons);
-
-    // 2.  Must have creative ID in bidswitch.crid
-    getAttr(result, pconf, "adid", crinfo->adid, includeReasons);
-    if (!crinfo->adid)
-        result.setIncompatible
-        ("creative[].providerConfig.bidswitch.adid is null",
+        ("creative[].providerConfig.nexage.crid is null",
          includeReasons);
 
 
-    // 3.  Must have AdvertiserDomain in bidswitch.crid
+    // 2.  Must have AdvertiserDomain in nexage.crid
     getAttr(result, pconf, "adomain", crinfo->adomain, includeReasons);
     if (crinfo->adomain.empty())
         result.setIncompatible
-        ("creative[].providerConfig.bidswitch.adomain is null",
+        ("creative[].providerConfig.nexage.adomain is null",
          includeReasons);
     // Cache the information
     result.info = crinfo;
@@ -153,7 +144,7 @@ getCreativeCompatibility(const Creative & creative,
     return result;
 }
 std::shared_ptr<BidRequest>
-BidSwitchExchangeConnector::
+NexageExchangeConnector::
 parseBidRequest(HttpAuctionHandler & connection,
                 const HttpHeader & header,
                 const std::string & payload) {
@@ -193,7 +184,7 @@ parseBidRequest(HttpAuctionHandler & connection,
 
 
 void
-BidSwitchExchangeConnector::
+NexageExchangeConnector::
 setSeatBid(Auction const & auction,
            int spotNum,
            OpenRTB::BidResponse & response) const {
@@ -243,13 +234,11 @@ setSeatBid(Auction const & auction,
 
     // Put in the variable parts
     b.cid = Id(resp.agent);
-    b.id = Id(auction.id, auction.request->imp[0].id);
-    b.impid = auction.request->imp[spotNum].id;
-    b.price.val = USD_CPM(resp.price.maxPrice);
-    b.nurl = crinfo->nurl;
-    b.adid = crinfo->adid;
-    b.adomain = crinfo->adomain;
     b.iurl = cpinfo->iurl;
+    b.id = Id(auction.id, auction.request->imp[0].id);
+    b.price.val = USD_CPM(resp.price.maxPrice);
+    b.crid = crinfo->crid;
+    b.adomain = crinfo->adomain;
 }
 
 } // namespace RTBKIT
@@ -259,7 +248,7 @@ using namespace RTBKIT;
 
 struct Init {
     Init() {
-        ExchangeConnector::registerFactory<BidSwitchExchangeConnector>();
+        ExchangeConnector::registerFactory<NexageExchangeConnector>();
     }
 } init;
 }
