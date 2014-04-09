@@ -39,7 +39,7 @@ namespace RTBKIT {
 struct Banker;
 struct BudgetController;
 struct Accountant;
-
+struct BidPriceCalculator;
 
 /*****************************************************************************/
 /* AGENT INFO                                                                */
@@ -505,21 +505,6 @@ public:
         agentEndpoint.sendMessage(agent, messageType, date, args...);
     }
 
-    /** Send the given bid response to the given bidding agent. */
-    void sendBidResponse(const std::string & agent,
-                         const AgentInfo & info,
-                         BidStatus status,
-                         Date timestamp,
-                         const std::string & message,
-                         const Id & auctionId,
-                         int spotNum = -1,
-                         Amount price = Amount(),
-                         const Auction * auction = 0,
-                         const std::string & bidData = "",
-                         const Json::Value & metadata = Json::Value(),
-                         const std::string & augmentationsStr = "");
-                         
-
     mutable Lock lock;
 
     std::shared_ptr<Banker> banker;
@@ -566,6 +551,9 @@ public:
 
     /** List of exchanges that are active. */
     std::vector<std::shared_ptr<ExchangeConnector> > exchanges;
+
+    /** Bid price calculator */
+    std::shared_ptr<BidPriceCalculator> bpc;
 
     /*************************************************************************/
     /* EXCEPTIONS                                                            */

@@ -18,6 +18,7 @@ LIBRTB_ROUTER_SOURCES := \
 	router.cc \
 	router_types.cc \
 	router_stack.cc \
+	bid_price_calculator.cc \
 	filter_pool.cc
 
 LIBRTB_ROUTER_LINK := \
