@@ -125,11 +125,11 @@ BOOST_AUTO_TEST_CASE( test_nexage ) {
     agent.configure();
 
 
-    ML::sleep(1.0);
+    ML::sleep(3.0);
 
     // load bid json
     std::string strJson = loadFile(bid_sample_filename);
-    std::cerr << strJson << std::endl;
+    // std::cerr << strJson << std::endl;
 
     // prepare request
     NetworkAddress address(port);
