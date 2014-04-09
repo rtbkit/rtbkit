@@ -31,7 +31,8 @@ using namespace RTBKIT;
 const std::string bid_sample_filename("rtbkit/plugins/exchange/testing/nexage_bid_request.json");
 
 
-std::string loadFile(const std::string & filename) {
+std::string loadFile(const std::string & filename)
+{
     ML::filter_istream stream(filename);
 
     std::string result;
@@ -45,7 +46,8 @@ std::string loadFile(const std::string & filename) {
     return result;
 }
 
-BOOST_AUTO_TEST_CASE( test_nexage ) {
+BOOST_AUTO_TEST_CASE( test_nexage )
+{
     std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
 
     // The agent config service lets the router know how our agent is configured
@@ -90,15 +92,32 @@ BOOST_AUTO_TEST_CASE( test_nexage ) {
     agent.config.creatives.push_back(RTBKIT::Creative::sampleLB);
     agent.config.creatives.push_back(RTBKIT::Creative::sampleWS);
     agent.config.creatives.push_back(RTBKIT::Creative::sampleBB);
+    std::string portName = std::to_string(port);
+    std::string hostName = ML::fqdn_hostname(portName) + ":" + portName;
 
     agent.config.providerConfig["nexage"]["seat"] = "123";
     agent.config.providerConfig["nexage"]["iurl"] = "http://www.gnu.org";
+
 
     // Configure the agent for bidding
     for (auto & c: agent.config.creatives) {
         c.providerConfig["nexage"]["adomain"][0] = "rtbkit.org";
         c.providerConfig["nexage"]["crid"] = c.name;
+        c.providerConfig["nexage"]["nurl"]
+            = "<img src=\"http://dsp.com/creative.png?width="
+              + std::to_string(c.format.width)
+              + "&height="
+              + std::to_string(c.format.height)
+              + "&price=${AUCTION_PRICE}\"/>";
+        c.providerConfig["nexage"]["adm"]
+            = "<img src=\"http://dsp.com/creative.png?width="
+              + std::to_string(c.format.width)
+              + "&height="
+              + std::to_string(c.format.height)
+              + "&price=${AUCTION_PRICE}\"/>";
     }
+
+
 
     agent.onBidRequest = [&] (
                              double timestamp,
@@ -125,11 +144,11 @@ BOOST_AUTO_TEST_CASE( test_nexage ) {
     agent.configure();
 
 
-    ML::sleep(3.0);
+    ML::sleep(1.0);
 
     // load bid json
     std::string strJson = loadFile(bid_sample_filename);
-    // std::cerr << strJson << std::endl;
+    std::cerr << strJson << std::endl;
 
     // prepare request
     NetworkAddress address(port);
