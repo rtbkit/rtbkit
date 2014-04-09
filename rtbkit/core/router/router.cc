@@ -1594,13 +1594,6 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                                "agent %s is already processing auction %s",
                                agent.c_str(),
                                auctionId.toString().c_str());
-
-            //cerr << "sending to agent " << agent << endl;
-            //cerr << fName << " sending AUCTION message " << endl;c
-
-            bpc->sendAuctionMessage(agent, auctionInfo.auction, timeLeftMs, winner.imp);
-
-            //cerr << "done" << endl;
         }
 
         //cerr << " auction " << id << " with "
@@ -1623,6 +1616,8 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                 //cerr << "couldn't finish auction 1 " << auction->id << endl;
             }
         }
+
+        bpc->sendAuctionMessage(auctionInfo.auction, timeLeftMs, auctionInfo.bidders);
 
         debugAuction(auctionId, "AUCTION");
     } catch (const std::exception & exc) {

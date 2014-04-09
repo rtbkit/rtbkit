@@ -13,22 +13,25 @@ BidPriceCalculator::BidPriceCalculator(Router * router) :
     router(router) {
 }
 
-void BidPriceCalculator::sendAuctionMessage(std::string const & agent,
-                                            std::shared_ptr<Auction> const & auction,
+void BidPriceCalculator::sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                                             double timeLeftMs,
-                                            BiddableSpots const & spots) {
-    auto & info = router->agents[agent];
-    WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction, *info.config);
-    router->sendAgentMessage(agent,
-                             "AUCTION",
-                             auction->start,
-                             auction->id,
-                             info.getBidRequestEncoding(*auction),
-                             info.encodeBidRequest(*auction),
-                             spots.toJsonStr(),
-                             std::to_string(timeLeftMs),
-                             auction->agentAugmentations[agent],
-                             wcm.toJson());
+                                            std::map<std::string, BidInfo> const & bidders) {
+    for(auto & item : bidders) {
+        auto & agent = item.first;
+        auto & spots = item.second.imp;
+        auto & info = router->agents[agent];
+        WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction, *info.config);
+        router->sendAgentMessage(agent,
+                                 "AUCTION",
+                                 auction->start,
+                                 auction->id,
+                                 info.getBidRequestEncoding(*auction),
+                                 info.encodeBidRequest(*auction),
+                                 spots.toJsonStr(),
+                                 std::to_string(timeLeftMs),
+                                 auction->agentAugmentations[agent],
+                                 wcm.toJson());
+    }
 }
 
 void BidPriceCalculator::sendWinMessage(std::string const & agent,

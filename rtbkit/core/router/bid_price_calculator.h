@@ -15,10 +15,9 @@ struct BidPriceCalculator
 {
     BidPriceCalculator(Router * router);
 
-    void sendAuctionMessage(std::string const & agent,
-                            std::shared_ptr<Auction> const & auction,
+    void sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                             double timeLeftMs,
-                            RTBKIT::BiddableSpots const & spots);
+                            std::map<std::string, BidInfo> const & bidders);
 
     void sendWinMessage(std::string const & agent,
                         std::string const & id,
