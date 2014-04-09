@@ -174,18 +174,75 @@ handleWinRq(const HttpHeader & header,
     UserIds userIds;
     string userIdStr;
 
-
+    /*
+     *  UserIds is an optional field.
+     *  If null, we just put an empty array.
+     */
     if (json.isMember("userIds")) {
         auto item =  json["userIds"];
-        if(item.isMember("prov")){
-             userIdStr = item["prov"].asString();
-             userIds.add(Id(userIdStr), ID_PROVIDER);
+
+        for(auto i : item) {
+            userIds.add(Id(i.asString()), ID_PROVIDER);
         }
     }
     else {
+        // UserIds is optional
+    }
+
+    /*
+     *  Timestamp is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("timestamp")) {
+
+    } else {
         response.valid = false;
-        response.error = "MISSING_USERID";
-        response.details = "A win notice requires the userIds field";
+        response.error = "MISSING_TIMESTAMP";
+        response.details = "A win notice requires the timestamp field.";
+
+        return response;
+    }
+
+    /*
+     *  auctionId is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("auctionId")) {
+
+    } else {
+        response.valid = false;
+        response.error = "MISSING_AUCTIONID";
+        response.details = "A win notice requires the auctionId field.";
+
+        return response;
+    }
+
+    /*
+     *  adSpotId is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("adSpotId")) {
+
+    } else {
+        response.valid = false;
+        response.error = "MISSING_ADSPOTID";
+        response.details = "A win notice requires the adSpotId field.";
+    
+        return response;
+    }
+
+    /*
+     *  winPrice is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("winPrice")) {
+
+    } else {
+        response.valid = false;
+        response.error = "MISSING_WINPRICE";
+        response.details = "A win notice requires the winPrice field.";
+    
+        return response;
     }
     
     const Json::Value & meta = json["winMeta"];
@@ -221,39 +278,64 @@ handleDeliveryRq(const HttpHeader & header,
     
     Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
 
-    if (!json.isMember("auctionId") || !json.isMember("adSpotId")) {
-        response.valid = false;
-        response.error = "MISSING_ID";
-        response.details = "A conversion notice requires the auctionId and adSpotId field";
-    }
+    /*
+     *  type is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("type")) {
+
+        event = (json["type"].asString());
+        
+        if(eventType.find(event) == eventType.end()) {
+            response.valid = false;
+            response.error = "UNSUPPORTED_TYPE";
+            response.details = "A campaign event requires the type field.";
     
+            return response;
+        }
+
+    } else {
+
+        response.valid = false;
+        response.error = "MISSING_TYPE";
+        response.details = "A campaign event requires the type field.";
+    
+        return response;
+    }
+
+    /*
+     *  adSpotId is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("adSpotId")) {
+
+    } else {
+        response.valid = false;
+        response.error = "MISSING_ADSPOTID";
+        response.details = "A campaign event requires the adSpotId field.";
+    
+        return response;
+    }
+
+    /*
+     *  auctionId is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("auctionId")) {
+
+    } else {
+        response.valid = false;
+        response.error = "MISSING_AUCTIONID";
+        response.details = "A campaign event requires the auctionId field.";
+    
+        return response;
+    }
+
     auctionIdStr = json["auctionId"].asString();
     adSpotIdStr = json["adSpotId"].asString();
     auctionId = Id(auctionIdStr);
     adSpotId = Id(adSpotIdStr);
     
-    if (json.isMember("userIds")) {
-        auto item =  json["userIds"];
-        if(item.isMember("prov")){
-            userIdStr = item["prov"].asString();
-            userIds.add(Id(userIdStr), ID_PROVIDER);
-        }
-    }
-
-    if(json.isMember("event")) {
-        event = (json["event"].asString());
-        if(eventType.find(event) == eventType.end()){
-            response.valid = false;
-            response.error = "UNSUPPORTED_EVENT_TYPE";
-            response.details = "A conversion notice requires the event field";
-        }
-    }
-    else {
-        response.valid = false;
-        response.error = "MISSING_EVENT_TYPE";
-        response.details = "A conversion notice requires the event field";
-    }
-
     writeUnitTestDeliveryReqOutput(timestamp,
                                     auctionIdStr, 
                                     adSpotIdStr, 
