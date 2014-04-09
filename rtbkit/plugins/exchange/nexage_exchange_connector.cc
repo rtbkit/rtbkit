@@ -1,6 +1,29 @@
 /* nexage_exchange_connector.cc
+   Jan S.
    (C) 2014 Datacratic Inc
+
    Implementation of the Nexage exchange connector.
+
+   OpenRTB is fully supported with respect to the win notice and ad
+   serving mechanisms. In addition, a default win notice can be
+   configured on the Nexage RTB Exchange. This default win notice will
+   be used if it is not passed via the “nurl” attribute.
+
+   All substitution macros are supported both in ad markup and in win
+   notices (whether passed in the bid response or configured as an
+   Exchange default). No macro encoding options are currently
+   supported.
+
+   Bidders can provide ad markup in their bid response via the “adm”
+   attribute in case they win or on the win notice response when they
+   win. Only one method should be used in a given auction, but if
+   non-empty strings are found in both, the Nexage RTB Exchange will
+   use the bid response “adm” attribute and ignore the win notice
+   return body.
+
+   On a given auction if the winning bidder fails to return ad markup
+   via one of these two methods, then the win will be forfeited and
+   the Exchange will select a new winner.
 */
 
 #include "nexage_exchange_connector.h"
@@ -138,6 +161,18 @@ getCreativeCompatibility(const Creative & creative,
         result.setIncompatible
         ("creative[].providerConfig.nexage.adomain is null",
          includeReasons);
+
+
+    // 3.  Might have nurl that includes 's macro
+    if (pconf.isMember("nurl")) {
+        crinfo->nurl = pconf["nurl"].asString();
+    }
+
+    // 4.  Might have adm that includes 's macro
+    if (pconf.isMember("adm")) {
+        crinfo->adm = pconf["adm"].asString();
+    }
+
     // Cache the information
     result.info = crinfo;
 
@@ -240,6 +275,9 @@ setSeatBid(Auction const & auction,
     b.price.val = USD_CPM(resp.price.maxPrice);
     b.crid = crinfo->crid;
     b.adomain = crinfo->adomain;
+    // optional parts
+    if (!crinfo->nurl.empty()) b.nurl = crinfo->nurl;
+    if (!crinfo->adm.empty()) b.adm = crinfo->adm;
 }
 
 } // namespace RTBKIT

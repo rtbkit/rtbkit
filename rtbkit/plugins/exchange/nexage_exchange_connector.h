@@ -55,7 +55,7 @@ struct NexageExchangeConnector: public OpenRTBExchangeConnector {
     */
     struct CampaignInfo {
         Id seat;          ///< ID of the Nexage exchange seat
-        std::string iurl; ///< Image URL for content checking
+        std::string iurl; ///< Image URL for content checkin
     };
 
     virtual ExchangeCompatibility
@@ -67,6 +67,8 @@ struct NexageExchangeConnector: public OpenRTBExchangeConnector {
     */
     struct CreativeInfo {
         Id crid;                ///< ID Creative Id
+        std::string  nurl;      ///< win notif url (optional)
+        std::string  adm;       ///< XHTML markup  (optional)
         std::vector<std::string> adomain;    ///< Advertiser Domain
     };
 
