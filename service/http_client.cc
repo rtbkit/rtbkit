@@ -221,6 +221,7 @@ fixConnectionStash()
         current = current->next;
     }
     current->next = nullptr;
+    avlConnections_ = connectionStash_.size();
 }
 
 void
@@ -369,14 +370,14 @@ handleWakeupEvent()
 {
     // cerr << "  wakeup event\n";
     wakeup_.read();
-    HttpConnection * conn = getConnection();
-    if (conn != nullptr) {
-        if (queue_.tryPop(conn->request_)) {
+    if (avlConnections_ > 0) {
+        vector<HttpRequest> requests = queue_.tryPopMulti(avlConnections_);
+
+        for (HttpRequest & request: requests) {
+            HttpConnection *conn = getConnection();
+            conn->request_ = move(request);
             conn->perform(noSSLChecks, debug_);
             multi_.add(&conn->easy_);
-        }
-        else {
-            releaseConnection(conn);
         }
     }
 }
@@ -542,6 +543,7 @@ getConnection()
     HttpConnection * conn = connections_;
     if (conn) {
         connections_ = conn->next;
+        avlConnections_--;
     }
 
     return conn;
@@ -553,6 +555,7 @@ releaseConnection(HttpConnection * oldConnection)
 {
     oldConnection->next = connections_;
     connections_ = oldConnection;
+    avlConnections_++;
 }
 
 
