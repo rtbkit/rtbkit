@@ -13,11 +13,17 @@
 
 namespace RTBKIT {
 
+/** Converts an OpenRTB BidRequest to RTBKIT internal BidRequest format
+ */
 BidRequest *
 fromOpenRtb(OpenRTB::BidRequest && req,
             const std::string & provider,
             const std::string & exchange);
 
+
+/** Converts RTBKIT BidRequest to OpenRTB BidRequest
+ */
+OpenRTB::BidRequest toOpenRtb(const BidRequest &req);
 
 /*****************************************************************************/
 /* OPENRTB BID REQUEST PARSER                                                */

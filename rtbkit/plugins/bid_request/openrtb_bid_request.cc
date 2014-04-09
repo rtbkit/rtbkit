@@ -245,6 +245,66 @@ fromOpenRtb(OpenRTB::BidRequest && req,
     return result.release();
 }
 
+OpenRTB::BidRequest toOpenRtb(const BidRequest &req)
+{
+    OpenRTB::BidRequest result;
+
+    result.id = req.auctionId; 
+    result.at = req.auctionType;
+    result.tmax = req.timeAvailableMs;
+    result.unparseable = req.unparseable;
+
+    auto onAdSpot = [&](const AdSpot &spot) {
+        OpenRTB::Impression imp(spot);
+
+        result.imp.push_back(std::move(imp));
+    };
+
+    result.imp.reserve(req.imp.size());
+    for (const auto &spot: req.imp) {
+        onAdSpot(spot);
+    }
+
+    if (req.site && req.app)
+        throw ML::Exception("can't have site and app");
+
+    if (req.site) {
+        result.site.reset(new OpenRTB::Site(*req.site));
+    }
+    else if (req.app) {
+        result.app.reset(new OpenRTB::App(*req.app));
+    }
+
+    if (req.user) {
+        result.user.reset(new OpenRTB::User(*req.user));
+    }
+
+    if (req.device) {
+        result.device.reset(new OpenRTB::Device(*req.device));
+    }
+
+    result.bcat = req.blockedCategories;
+    result.cur.reserve(req.bidCurrency.size());
+
+    for (const auto &cur: req.bidCurrency) {
+
+        result.cur.push_back(toString(cur));
+    }
+
+    result.badv = req.badv;
+
+    result.ext = req.ext;
+    const auto &wseatSegments = req.segments.get("openrtb-wseat");
+    std::vector<std::string> wseat;
+    wseatSegments.forEach([&](int, const std::string &str, float) {
+        wseat.push_back(str);
+    });
+
+    result.wseat = std::move(wseat);
+
+    return result;
+}
+
 namespace {
 
 static DefaultDescription<OpenRTB::BidRequest> desc;
