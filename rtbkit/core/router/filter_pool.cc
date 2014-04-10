@@ -29,13 +29,6 @@ namespace RTBKIT {
 FilterPool::
 FilterPool() : data(new Data()), events(nullptr) {}
 
-void
-FilterPool::
-initWithDefaultFilters(FilterPool& pool)
-{
-    for (const auto& filter : FilterRegistry::listFilters())
-        pool.addFilter(filter);
-}
 
 void
 FilterPool::
@@ -183,6 +176,28 @@ removeFilter(const string& name)
     if (events) events->recordHit("filters.removeFilter.%s", name);
 }
 
+void
+FilterPool::
+initWithDefaultFilters()
+{
+    GcLockBase::SharedGuard guard(gc);
+
+    Data* oldData = data.load();
+    unique_ptr<Data> newData;
+
+    do {
+        newData.reset(new Data);
+
+        for (const auto& name: FilterRegistry::listFilters()) {
+            newData->addFilter(FilterRegistry::makeFilter(name));
+            if (events) events->recordHit("filters.addFilter.%s", name);
+        }
+
+    } while (!setData(oldData, newData));
+
+}
+
+
 
 unsigned
 FilterPool::
@@ -308,6 +323,14 @@ void
 FilterPool::Data::
 addFilter(FilterBase* filter)
 {
+    ConfigSet active = activeConfigs.aggregate();
+    for (size_t cfgId = active.next();
+         cfgId < active.size();
+         cfgId += active.next(cfgId + 1))
+    {
+        filter->addConfig(cfgId, configs[cfgId].config);
+    }
+
     filters.push_back(filter);
     sort(filters.begin(), filters.end(), [] (FilterBase* lhs, FilterBase* rhs) {
                 return lhs->priority() < rhs->priority();

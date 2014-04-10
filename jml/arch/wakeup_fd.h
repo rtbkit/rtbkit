@@ -17,14 +17,23 @@ namespace ML {
 struct Wakeup_Fd {
     Wakeup_Fd(int flags = 0)
     {
-        fd_ = eventfd(0, flags);
+        fd_ = ::eventfd(0, flags);
         if (fd_ == -1)
             throw ML::Exception(errno, "eventfd");
     }
 
+    Wakeup_Fd(const Wakeup_Fd & other) = delete;
+    Wakeup_Fd(Wakeup_Fd && other)
+        noexcept
+        : fd_(other.fd_)
+    {
+        other.fd_ = -1;
+    }
+
     ~Wakeup_Fd()
     {
-        close(fd_);
+        if (fd_ != -1)
+            ::close(fd_);
     }
 
     int fd() const { return fd_; }
@@ -65,6 +74,16 @@ struct Wakeup_Fd {
     {
         eventfd_t val = 0;
         return tryRead(val);
+    }
+
+    Wakeup_Fd & operator = (const Wakeup_Fd & other) = delete;
+    Wakeup_Fd & operator = (Wakeup_Fd && other)
+        noexcept
+    {
+        fd_ = other.fd_;
+        other.fd_ = -1;
+
+        return *this;
     }
 
     int fd_;

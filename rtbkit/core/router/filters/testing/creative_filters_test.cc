@@ -24,56 +24,6 @@ using namespace Datacratic;
 
 
 /******************************************************************************/
-/* UTILS                                                                      */
-/******************************************************************************/
-
-void check(
-        const FilterBase& filter,
-        const BidRequest& request,
-        const CreativeMatrix& creatives,
-        unsigned imp,
-        const std::vector< std::vector<size_t> >& expected)
-{
-    FilterExchangeConnector conn("bob");
-
-    FilterState state(request, &conn, creatives);
-    filter.filter(state);
-
-    check(state.creatives(imp), expected);
-}
-
-
-void addImp(
-        BidRequest& request,
-        OpenRTB::AdPosition::Vals pos,
-        const initializer_list<Format>& formats)
-{
-    AdSpot imp;
-    for (const auto& format : formats) imp.formats.push_back(format);
-    imp.position.val = pos;
-    request.imp.push_back(imp);
-};
-
-void addConfig(
-        FilterBase& filter,
-        unsigned cfgIndex, AgentConfig& cfg,
-        CreativeMatrix& creatives)
-{
-    addConfig(filter, cfgIndex, cfg);
-    creatives.setConfig(cfgIndex, cfg.creatives.size());
-}
-
-void removeConfig(
-        FilterBase& filter,
-        unsigned cfgIndex, AgentConfig& cfg,
-        CreativeMatrix& creatives)
-{
-    removeConfig(filter, cfgIndex, cfg);
-    creatives.resetConfig(cfgIndex);
-}
-
-
-/******************************************************************************/
 /* FORMAT FILTER                                                              */
 /******************************************************************************/
 

@@ -8,4 +8,6 @@
 
 $(eval $(call test,fixture_test,test_utils,boost))
 $(eval $(call test,variadic_hash_test,variadic_hash,boost))
+$(eval $(call test,type_traits_test,,boost))
+
 

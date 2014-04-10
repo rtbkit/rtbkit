@@ -85,11 +85,11 @@ perform(const std::string & verb,
             myRequest.setOpt<SslVerifyPeer>(false);
         }
 
-        auto onData = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
-            {
-                //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
-                return 0;
-            };
+        // auto onData = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
+        //     {
+        //         //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
+        //         return 0;
+        //     };
 
         auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
             {

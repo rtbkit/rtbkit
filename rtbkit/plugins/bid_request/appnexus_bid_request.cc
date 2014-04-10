@@ -63,7 +63,7 @@ fromAppNexus(const AppNexus::BidRequest & req_b,
     const auto & reqTag = req.tags.front();
 
     // OpenRTB::User
-    rv->user.reset (new OpenRTB::User);
+    rv->user.reset(new OpenRTB::User);
     rv->user->id = Id(req.bidInfo.userId64.val);
     rv->user->gender = req.bidInfo.gender;
     static struct current_year_st_ {
@@ -79,7 +79,7 @@ fromAppNexus(const AppNexus::BidRequest & req_b,
     rv->user->yob.val = current_year.val_ - (req.bidInfo.age.val<=0?0:req.bidInfo.age.val);
     rv->device.reset (new OpenRTB::Device);
     rv->device->geo.reset(new OpenRTB::Geo);
-    rv->device->ua = req.bidInfo.userAgent.rawString();
+    rv->device->ua = req.bidInfo.userAgent.utf8String();
     int osCode = req.bidInfo.operatingSystem.val;
     rv->device->os = req.bidInfo.getANDeviceOsStringForCode(osCode);
     rv->device->osv = "N/A";
@@ -92,8 +92,8 @@ fromAppNexus(const AppNexus::BidRequest & req_b,
     rv->device->model = to_string(req.bidInfo.model.val);
 
     // TODO VALIDATION convert to ISO 3166-1 Alpha 3
-    rv->device->geo->country = req.bidInfo.country.rawString();
-    rv->device->geo->region = req.bidInfo.region.rawString();
+    rv->device->geo->country = req.bidInfo.country.utf8String();
+    rv->device->geo->region = req.bidInfo.region.utf8String();
     rv->device->geo->city = req.bidInfo.city; // copy ctor, Utf8Strings
     rv->device->geo->zip = req.bidInfo.postalCode;
     rv->device->geo->dma = to_string(req.bidInfo.dma.val);

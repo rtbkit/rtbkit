@@ -322,6 +322,9 @@ printIso8601(unsigned int fraction) const
 
     string result = print("%Y-%m-%dT%H:%M:%S");
 
+    if (result == "Inf" || result == "-Inf" || result == "NaD")
+        return result;
+    
     double partial_seconds = fractionalSeconds();
     string fractional = format("%.*fZ", fraction, partial_seconds);
 
@@ -376,8 +379,9 @@ quantize(double fraction)
     }
     else {
         // Fractions of a second; split off to avoid loss of precision
-        double whole_seconds, partial_seconds;
-        partial_seconds = modf(secondsSinceEpoch_, &whole_seconds);
+        double whole_seconds;
+        // double partial_seconds = modf(secondsSinceEpoch_, &whole_seconds);
+        modf(secondsSinceEpoch_, &whole_seconds);
 
         uint64_t frac = fraction;
         if (frac != fraction)
@@ -624,6 +628,20 @@ match_date(ML::Parse_Context & context,
             break;
         case 'M':
             switch(tolower(*context)) {
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9': {
+                if (!context.match_int(month, 1, 12))
+                    return false;
+                break;
+            }
             case 'j': {
                 ++context;
                 if (context.match_literal("an")) {
@@ -744,6 +762,20 @@ expect_date(ML::Parse_Context & context, const std::string & format)
             break;
         case 'M':
             switch(tolower(*context)) {
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9': {
+                month = expectFixedWidthInt(context, 1, 2, 1, 12,
+                                            "expected month of year");
+                break;
+            }
             case 'j': {
                 ++context;
                 if (context.match_literal("an")) {

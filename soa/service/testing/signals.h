@@ -13,24 +13,32 @@ struct BlockedSignals
 
     ~BlockedSignals()
     {
-        sigprocmask(SIG_UNBLOCK, &oldSet_, NULL);
+        // Clear the pending signals before we unblock them
+        // This avoids us getting spurious signals, especially SIGCHLD from
+        // grandchildren, etc.
+        struct timespec timeout = { 0, 0 };
+        siginfo_t info;
+        while (::sigtimedwait(&newSet_, &info, &timeout) != -1) ;
+
+        // Now unblock
+        ::pthread_sigmask(SIG_UNBLOCK, &oldSet_, NULL);
     }
 
     BlockedSignals(int signum)
     {
-        sigset_t newSet;
+        sigemptyset(&newSet_);
+        sigaddset(&newSet_, signum);
 
-        sigemptyset(&newSet);
-        sigaddset(&newSet, signum);
-
-        blockMask(newSet);
+        blockMask(newSet_);
     }
 
     void blockMask(const sigset_t & newSet)
     {
-        ::sigprocmask(SIG_BLOCK, &newSet, &oldSet_);
+        newSet_ = newSet;
+        ::pthread_sigmask(SIG_BLOCK, &newSet, &oldSet_);
     }
 
+    sigset_t newSet_;
     sigset_t oldSet_;
 };
 

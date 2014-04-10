@@ -18,6 +18,7 @@
 #include "http_rest_proxy.h"
 #include <memory>
 #include "aws.h"
+#include "fs_utils.h"
 
 namespace Datacratic {
 
@@ -45,6 +46,7 @@ struct S3Api : public AwsApi {
           const std::string & serviceUri = "s3.amazonaws.com");
 
     /** Set up the API to called with the given credentials. */
+    void init();
     void init(const std::string & accessKeyId,
               const std::string & accessKey,
               double bandwidthToServiceMbps = defaultBandwidthToServiceMbps,
@@ -389,20 +391,13 @@ struct S3Api : public AwsApi {
                     const std::string & object,
                     const ObjectMetadata & md = ObjectMetadata()) const;
 
-    struct ObjectInfo {
-        ObjectInfo();
+    struct ObjectInfo : public FsObjectInfo {
+        ObjectInfo()
+        {}
+
         ObjectInfo(tinyxml2::XMLNode * element);
 
-        JML_IMPLEMENT_OPERATOR_BOOL(exists);
-
         std::string key;
-        uint64_t size;
-        bool exists;
-        std::string etag;
-        std::string ownerId;
-        std::string ownerName;
-        Date lastModified;
-        std::string storageClass;
     };
 
     typedef std::function<bool (const std::string & prefix,
@@ -590,6 +585,7 @@ struct S3Api : public AwsApi {
 
     /// Static variable to hold the default redundancy to be used
     static Redundancy defaultRedundancy;
+
 };
 
 struct S3Handle{
@@ -629,27 +625,11 @@ std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName);
 
 std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri);
 
-// Return an URI for either a file or an s3 object
-size_t getUriSize(const std::string & filename);
+std::tuple<std::string, std::string, std::string, std::string, std::string> 
+    getCloudCredentials();
 
-// Return an etag for either a file or an s3 object
-std::string getUriEtag(const std::string & filename);
+std::pair<std::string, std::string> getS3CredentialsFromEnvVar();
 
-// Return the object info for either a file or an S3 object
-S3Api::ObjectInfo getUriObjectInfo(const std::string & filename);
-
-// Return the object info for either a file or an S3 object, or null if
-// it doesn't exist
-S3Api::ObjectInfo tryGetUriObjectInfo(const std::string & filename);
-
-// Create the directories for the given path.  For S3 it does nothing;
-// for normal directories it does mkdir -p
-void makeUriDirectory(const std::string & uri);
-
-// Erase the object at the given uri
-void eraseUriObject(const std::string & uri);
-
-// Erase the object at the given uri
-bool tryEraseUriObject(const std::string & uri);
+// std::pair<std::string, std::string> getDefaultCredentials();
 
 } // namespace Datacratic

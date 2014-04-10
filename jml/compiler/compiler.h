@@ -40,6 +40,16 @@
 #define JML_ALIGNED(x) __attribute__((__aligned__(x)))
 #define JML_FORMAT_STRING(arg1, arg2) __attribute__((__format__ (printf, arg1, arg2)))
 
+// Macro to catch all exceptions apart from stack unwinding exceptions...
+// it's against the standard to do catch(...) without rethrowing.
+
+#define JML_CATCH_ALL \
+    catch (__cxxabiv1::__forced_unwind& ) { \
+        throw;                       \
+    } catch (...)
+
+
+
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
 #  define jml_typeof(x) decltype(x)
 #  define JML_HAS_RVALUE_REFERENCES 1

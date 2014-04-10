@@ -284,6 +284,13 @@ inline std::istream & operator >> (std::istream & stream, Id & id)
     return stream;
 }
 
+using std::to_string;
+
+inline std::string to_string(const Id & id)
+{
+    return id.toString();
+}
+
 } // namespace Datacratic
 
 namespace std {

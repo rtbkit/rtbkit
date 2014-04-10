@@ -85,7 +85,7 @@ reconstituteFromString(const std::string & str)
     }
     bid.reconstitute(store);
 
-    if (bidRequestStr != Utf8String(""))
+    if (!bidRequestStr.empty())
         bidRequest.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
     else bidRequest.reset();
 }

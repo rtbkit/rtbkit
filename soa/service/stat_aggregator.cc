@@ -127,7 +127,7 @@ reset()
 
     while ((current = values) == 0 || !cmp_xchg(values, current, new_current));
 
-    Date oldStart = start;
+    // Date oldStart = start;
     start = Date::now();
 
     return make_pair(current, start);
