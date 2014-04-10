@@ -633,33 +633,55 @@ connectAllServiceProviders(const std::string & serviceClass,
     connected = true;
 }
 
+/** Zookeeper makes the onServiceProvidersChanged calls re-entrant which is
+    annoying to deal with. Instead, when a re-entrant call is detected we defer
+    the call until we're done with the original call.
+ */
+bool
+ZmqMultipleNamedClientBusProxy::
+enterProvidersChanged(const std::string& path, bool local)
+{
+    std::lock_guard<ML::Spinlock> guard(providersChangedLock);
+
+    if (!inProvidersChanged) {
+        inProvidersChanged = true;
+        return true;
+    }
+
+    LOG(ZmqLogs::trace)
+        << "defering providers changed for " << path << std::endl;
+
+    deferedProvidersChanges.emplace_back(path, local);
+    return false;
+}
+
+void
+ZmqMultipleNamedClientBusProxy::
+exitProvidersChanged()
+{
+    std::vector<DeferedProvidersChanges> defered;
+
+    {
+        std::lock_guard<ML::Spinlock> guard(providersChangedLock);
+
+        defered = std::move(deferedProvidersChanges);
+        inProvidersChanged = false;
+    }
+
+    for (const auto& item : defered)
+        onServiceProvidersChanged(item.first, item.second);
+}
 
 void
 ZmqMultipleNamedClientBusProxy::
 onServiceProvidersChanged(const std::string & path, bool local)
 {
-    // this function is invoked upon a disconnect
-    if (inProvidersChanged) {
-
-        std::stringstream ss;
-        ss << "discovering: " << dbg_lastChildren << "\nbacktrace:\n";
-        ML::backtrace(ss);
-
-        LOG(ZmqLogs::print)
-            << "@@@ Already in service providers changed - bailing out\n"
-                << ss.str() << "\n"
-                << std::endl;
-        return ;
-    }
-
-    inProvidersChanged = true;
+    if (!enterProvidersChanged(path, local)) return;
 
     // The list of service providers has changed
 
     std::vector<std::string> children
         = config->getChildren(path, serviceProvidersWatch);
-
-    dbg_lastChildren = children;
 
     for (auto c: children) {
         Json::Value value = config->getJson(path + "/" + c);
@@ -704,7 +726,8 @@ onServiceProvidersChanged(const std::string & path, bool local)
     // We're no longer holding the lock so any delayed. Time to really
     // disconnect and trigger the callbacks.
     pendingDisconnects.clear();
-    inProvidersChanged = false;
+
+    exitProvidersChanged();
 }
 
 

@@ -1285,10 +1285,15 @@ private:
     ConfigurationService::Watch serviceProvidersWatch;
 
     /** Are we currently in onServiceProvidersChanged? **/
-    bool inProvidersChanged ;
-    /** Queue of operations to perform asynchronously from our own thread. */
+    bool inProvidersChanged;
+    ML::Spinlock providersChangedLock;
 
-    std::vector<std::string> dbg_lastChildren;
+    /** Queue for defered onServiceProvidersChanged calls */
+    typedef std::pair<std::string, bool> DeferedProvidersChanges;
+    std::vector<DeferedProvidersChanges> deferedProvidersChanges;
+
+    bool enterProvidersChanged(const std::string& path, bool local);
+    void exitProvidersChanged();
 
     /** Callback that will be called when the list of service providers has changed. */
     void onServiceProvidersChanged(const std::string & path, bool local);
