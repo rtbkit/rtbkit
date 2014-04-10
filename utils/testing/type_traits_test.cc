@@ -35,17 +35,17 @@ struct Neither
     Neither& operator=(Neither&&) = delete;
 };
 
-static_assert(is_copy_assignable<size_t>::value, "size_t copy");
-static_assert(is_move_assignable<size_t>::value, "size_t move");
+static_assert(Datacratic::is_copy_assignable<size_t>::value, "size_t copy");
+static_assert(Datacratic::is_move_assignable<size_t>::value, "size_t move");
 
-static_assert(!is_copy_assignable<Movable>::value, "Movable copy");
-static_assert( is_move_assignable<Movable>::value, "Movable move");
+static_assert(!Datacratic::is_copy_assignable<Movable>::value, "Movable copy");
+static_assert( Datacratic::is_move_assignable<Movable>::value, "Movable move");
 
-static_assert( is_copy_assignable<Copiable>::value, "Copiable copy");
-static_assert(!is_move_assignable<Copiable>::value, "Copiable move");
+static_assert( Datacratic::is_copy_assignable<Copiable>::value, "Copiable copy");
+static_assert(!Datacratic::is_move_assignable<Copiable>::value, "Copiable move");
 
-static_assert(!is_copy_assignable<Neither>::value, "Neither copy");
-static_assert(!is_move_assignable<Neither>::value, "Neither move");
+static_assert(!Datacratic::is_copy_assignable<Neither>::value, "Neither copy");
+static_assert(!Datacratic::is_move_assignable<Neither>::value, "Neither move");
 
 
 BOOST_AUTO_TEST_CASE( test_something )
