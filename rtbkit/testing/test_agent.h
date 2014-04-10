@@ -165,14 +165,15 @@ struct TestAgent : public RTBKIT::BiddingAgent {
     }
 
     void bidWithFixedAmount(Amount amount) {
-        onBidRequest = [&] (double timestamp,
-                            const Id & id,
-                            std::shared_ptr<BidRequest> br,
-                            Bids bids,
-                            double timeLeftMs,
-                            const Json::Value & augmentations,
-                            const WinCostModel & wcm)
+        onBidRequest = [this, amount] (double timestamp,
+                                       const Id & id,
+                                       std::shared_ptr<BidRequest> br,
+                                       Bids bids,
+                                       double timeLeftMs,
+                                       const Json::Value & augmentations,
+                                       const WinCostModel & wcm)
         {
+            std::cerr << amount.toString() << std::endl;
             Bid & bid = bids[0];
             bid.bid(bid.availableCreatives[0], amount);
             doBid(id, bids, Json::Value(), wcm);

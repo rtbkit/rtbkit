@@ -26,7 +26,18 @@ struct BidStack {
         proxies.reset(new ServiceProxies());
     }
 
-     void run(std::string const & configuration, Amount amount, int count) {
+    void run(std::string const & configuration, Amount amount = Amount(), int count = 0) {
+        runThen(configuration, amount, count, [=](Json::Value const & config) {
+            if(count) {
+                auto proxies = std::make_shared<ServiceProxies>();
+                MockExchange mockExchange(proxies);
+                mockExchange.start(config);
+            }
+        });
+    }
+
+    template<typename T>
+    void runThen(std::string const & configuration, Amount amount, int count, T const & then) {
         // The agent config service lets the router know how our agent is
         // configured
         AgentConfigurationService agentConfig(proxies, "config");
@@ -86,8 +97,7 @@ struct BidStack {
         // Wait a little for the stack to startup...
         ML::sleep(1.0);
 
-        MockExchange mockExchange(proxies);
-        mockExchange.start(Json::parse(mock));
+        then(Json::parse(mock));
     }
 };
 
