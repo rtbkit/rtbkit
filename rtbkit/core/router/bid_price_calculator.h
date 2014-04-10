@@ -5,15 +5,23 @@
 
 #pragma once
 
+#include "rtbkit/common/auction_events.h"
 #include "rtbkit/core/router/router.h"
 
 namespace RTBKIT {
 
 class Router;
 
-struct BidPriceCalculator
+struct BidPriceCalculator : public ServiceBase
 {
-    BidPriceCalculator(Router * router);
+    BidPriceCalculator(ServiceBase & parent,
+                       std::string const & name = "bpc");
+
+    BidPriceCalculator(std::shared_ptr<ServiceProxies> proxies = std::make_shared<ServiceProxies>(),
+                       std::string const & name = "bpc");
+
+    void init(Router * value);
+    void bindTcp();
 
     void sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                             double timeLeftMs,
@@ -52,8 +60,17 @@ struct BidPriceCalculator
     void sendPingMessage(std::string const & agent,
                          int ping);
 
+    void send(std::shared_ptr<PostAuctionEvent> const & event);
+
 private:
+    void handlePostAuctionMessage(std::vector<std::string> const & items);
+
     Router * router;
+
+    MessageLoop loop;
+    TypedMessageSink<std::shared_ptr<PostAuctionEvent>> events;
+
+    ZmqNamedEndpoint endpoint;
 };
 
 }

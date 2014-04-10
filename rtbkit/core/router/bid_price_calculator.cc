@@ -3,14 +3,47 @@
    Copyright (c) 2011 Datacratic.  All rights reserved.
 */
 
+#include "jml/db/persistent.h"
 #include "rtbkit/common/messages.h"
 #include "bid_price_calculator.h"
 
 using namespace Datacratic;
 using namespace RTBKIT;
 
-BidPriceCalculator::BidPriceCalculator(Router * router) :
-    router(router) {
+BidPriceCalculator::BidPriceCalculator(ServiceBase & parent,
+                                       std::string const & name) :
+    ServiceBase(name, parent),
+    events(65536),
+    endpoint(getZmqContext()) {
+}
+
+BidPriceCalculator::BidPriceCalculator(std::shared_ptr<ServiceProxies> proxies,
+                                       std::string const & name) :
+    ServiceBase(name, proxies),
+    events(65536),
+    endpoint(getZmqContext()) {
+}
+
+void BidPriceCalculator::init(Router * value) {
+    router = value;
+
+    registerServiceProvider(serviceName(), { "rtbBiddingService" });
+
+    events.onEvent = std::bind<void>(&BidPriceCalculator::send,
+                                    this,
+                                    std::placeholders::_1);
+
+    endpoint.messageHandler = std::bind(&BidPriceCalculator::handlePostAuctionMessage,
+                                        this,
+                                        std::placeholders::_1);
+
+    endpoint.init(getServices()->config, ZMQ_XREP, serviceName() + "/events");
+
+    loop.addSource("BidPriceCalculator::events", events);
+}
+
+void BidPriceCalculator::bindTcp() {
+    endpoint.bindTcp(getServices()->ports->getRange("biddingService"));
 }
 
 void BidPriceCalculator::sendAuctionMessage(std::shared_ptr<Auction> const & auction,
@@ -211,5 +244,33 @@ void BidPriceCalculator::sendPingMessage(std::string const & agent,
                                  Date::now(),
                                  "null");
     }
+}
+
+void BidPriceCalculator::send(std::shared_ptr<PostAuctionEvent> const & event) {
+    /*
+    router->sendAgentMessage(agent,
+                             event->label,
+                             Date::now(),
+                             "guaranteed",
+                             event->auctionId,
+                             event->adSpotId,
+                             event->winPrice.toString());*/
+}
+
+void BidPriceCalculator::handlePostAuctionMessage(std::vector<std::string> const & items) {
+    std::string key = "messages." + items[1];
+    recordHit(key);
+
+    auto event = std::make_shared<PostAuctionEvent>(
+                    ML::DB::reconstituteFromString<PostAuctionEvent>(items.at(2)));
+    if(items[1] != event->label) {
+        key += "." + event->label;
+        recordHit(key);
+    }
+    else {
+        event->label = items[1];
+    }
+
+    events.push(event);
 }
 

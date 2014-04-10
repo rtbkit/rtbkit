@@ -145,7 +145,7 @@ Router(ServiceBase & parent,
       monitorProviderClient(getZmqContext(), *this),
       maxBidAmount(maxBidAmount)
 {
-    bpc = std::make_shared<BidPriceCalculator>(this);
+    bpc = std::make_shared<BidPriceCalculator>(*this);
 }
 
 Router::
@@ -188,7 +188,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       monitorProviderClient(getZmqContext(), *this),
       maxBidAmount(maxBidAmount)
 {
-    bpc = std::make_shared<BidPriceCalculator>(this);
+    bpc = std::make_shared<BidPriceCalculator>(services);
 }
 
 void
@@ -208,6 +208,7 @@ init()
 
     logger.init(getServices()->config, serviceName() + "/logger");
 
+    bpc->init(this);
 
     agentEndpoint.init(getServices()->config, serviceName() + "/agents");
     agentEndpoint.clientMessageHandler
@@ -285,6 +286,7 @@ bindTcp()
 {
     logger.bindTcp(getServices()->ports->getRange("logs"));
     agentEndpoint.bindTcp(getServices()->ports->getRange("router"));
+    bpc->bindTcp();
 }
 
 void
