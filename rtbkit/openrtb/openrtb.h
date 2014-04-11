@@ -633,7 +633,7 @@ struct Video {
     VideoLinearity linearity;   ///< Whether it's linear or not (table 6.6)
     Datacratic::TaggedInt minduration;      ///< Minimum ad duration in seconds
     Datacratic::TaggedInt maxduration;      ///< Maximum ad duration in seconds
-    Datacratic::VideoBidResponseProtocol protocol;  ///< Bid response protocols (table 6.7)
+    VideoBidResponseProtocol protocol;  ///< Bid response protocols (table 6.7)
     Datacratic::TaggedInt w;                ///< Width of player in pixels
     Datacratic::TaggedInt h;                ///< Height of player in pixels
     ///< Starting delay in seconds for placement (table 6.9)
