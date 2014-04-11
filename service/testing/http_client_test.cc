@@ -69,8 +69,10 @@ makeNewHandler()
 }
 
 struct HttpGetService : public HttpService {
+    atomic<int> numReqs;
+
     HttpGetService(const shared_ptr<ServiceProxies> & proxies)
-        : HttpService(proxies)
+        : HttpService(proxies), numReqs(0)
     {}
 
     struct TestResponse {
@@ -86,6 +88,11 @@ struct HttpGetService : public HttpService {
                            const HttpHeader & header,
                            const string & payload)
     {
+        numReqs++;
+        // int localRq = numReqs;
+        // if ((localRq % 100) == 0) {
+        //     ::fprintf(stderr, "srv reqs: %d\n", localRq);
+        // }
         string key = header.verb + ":" + header.resource;
         if (header.resource == "/timeout") {
             sleep(3);
@@ -151,7 +158,7 @@ struct HttpUploadService : public HttpService {
     }
 };
 
-typedef tuple<HttpClientError, int, std::string> ClientResponse;
+typedef tuple<HttpClientError, int, string> ClientResponse;
 
 /* sync request helpers */
 ClientResponse
@@ -163,27 +170,21 @@ doGetRequest(MessageLoop & loop,
     ClientResponse response;
 
     int done(false);
-    auto onResponseStart = [&] (const HttpRequest & rq,
-                                const std::string & httpVersion,
-                                int code_) {
+    auto onResponse = [&] (const HttpRequest & rq,
+                           HttpClientError error,
+                           int status,
+                           string && headers,
+                           string && body) {
         int & code = get<1>(response);
-        code = code_;
-    };
-    auto onData = [&] (const HttpRequest & rq, const std::string & data) {
-        string & body = get<2>(response);
-        body += data;
-    };
-    auto onDone = [&] (const HttpRequest & rq,
-                       HttpClientError errorCode_) {
+        code = status;
+        string & body_ = get<2>(response);
+        body_ = move(body);
         HttpClientError & errorCode = get<0>(response);
-        errorCode = errorCode_;
+        errorCode = error;
         done = true;
         ML::futex_wake(done);
     };
-
-    auto cbs = make_shared<HttpClientCallbacks>(onResponseStart, nullptr,
-                                                onData, onDone);
-
+    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     auto client = make_shared<HttpClient>(baseUrl);
     loop.addSource("httpClient", client);
     if (timeout == -1) {
@@ -211,30 +212,27 @@ doUploadRequest(MessageLoop & loop,
                 const string & baseUrl, const string & resource,
                 const string & body, const string & type)
 {
-    HttpClientError errorCode;
-    string respBody;
-    int code;
+    ClientResponse response;
     int done(false);
 
-    auto onResponseStart = [&] (const HttpRequest & rq,
-                                const std::string & httpVersion,
-                                int code_) {
-        code = code_;
-    };
-    auto onData = [&] (const HttpRequest & rq, const std::string & data) {
-        respBody += data;
-    };
-    auto onDone = [&] (const HttpRequest & rq,
-                       HttpClientError errorCode_) {
-        errorCode = errorCode_;
+    auto onResponse = [&] (const HttpRequest & rq,
+                           HttpClientError error,
+                           int status,
+                           string && headers,
+                           string && body) {
+        int & code = get<1>(response);
+        code = status;
+        string & body_ = get<2>(response);
+        body_ = move(body);
+        HttpClientError & errorCode = get<0>(response);
+        errorCode = error;
         done = true;
         ML::futex_wake(done);
     };
 
     auto client = make_shared<HttpClient>(baseUrl);
     loop.addSource("httpClient", client);
-    auto cbs = make_shared<HttpClientCallbacks>(onResponseStart, nullptr,
-                                                onData, onDone);
+    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     HttpRequest::Content content(body, type);
     if (isPut) {
         client->put(resource, cbs, content);
@@ -251,8 +249,6 @@ doUploadRequest(MessageLoop & loop,
     loop.removeSource(client.get());
     client->waitConnectionState(AsyncEventSource::DISCONNECTED);
 
-    ClientResponse response(errorCode, code, respBody);
-
     return response;
 }
 
@@ -262,6 +258,7 @@ doUploadRequest(MessageLoop & loop,
 #if 1
 BOOST_AUTO_TEST_CASE( test_http_client_get )
 {
+    cerr << "client_get\n";
     ML::Watchdog watchdog(10);
     auto proxies = make_shared<ServiceProxies>();
     HttpGetService service(proxies);
@@ -340,6 +337,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
 #if 1
 BOOST_AUTO_TEST_CASE( test_http_client_post )
 {
+    cerr << "client_post\n";
     ML::Watchdog watchdog(10);
     auto proxies = make_shared<ServiceProxies>();
     HttpUploadService service(proxies);
@@ -367,6 +365,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_post )
 #if 1
 BOOST_AUTO_TEST_CASE( test_http_client_put )
 {
+    cerr << "client_put\n";
     ML::Watchdog watchdog(10);
     auto proxies = make_shared<ServiceProxies>();
     HttpUploadService service(proxies);
@@ -397,7 +396,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_put )
    Not a performance test. */
 BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
 {
-    ML::Watchdog watchdog(30);
+    cerr << "stress_test\n";
+    // ML::Watchdog watchdog(300);
     auto proxies = make_shared<ServiceProxies>();
     HttpGetService service(proxies);
 
@@ -414,17 +414,20 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
     auto & clientRef = *client.get();
     loop.addSource("httpClient", client);
 
-    int maxReqs(10000), numReqs(0);
+    int maxReqs(10000), numReqs(0), missedReqs(0);
     int numResponses(0);
 
     auto onDone = [&] (const HttpRequest & rq,
                        HttpClientError errorCode, int status,
-                       const string & headers, const string & body) {
+                       string && headers, string && body) {
         // cerr << ("* onResponse " + to_string(numResponses)
         //          + ": " + to_string(get<1>(resp))
         //          + "\n\n\n");
         // cerr << "    body =\n/" + get<2>(resp) + "/\n";
         numResponses++;
+        // if ((numResponses & 0xff) == 0 || numResponses > 9980) {
+        //     ::fprintf(stderr, "responses: %d\n", numResponses);
+        // }
         if (numResponses == numReqs) {
             ML::futex_wake(numResponses);
         }
@@ -434,13 +437,24 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
     while (numReqs < maxReqs) {
         if (clientRef.get("/", cbs)) {
             numReqs++;
+            // if ((numReqs & 0xff) == 0 || numReqs > 9980) {
+            //     cerr << "requests performed: " + to_string(numReqs) + "\n";
+            // }
+        }
+        else {
+            missedReqs++;
         }
     }
+    cerr << "performed all requests: " + to_string(maxReqs) + "\n";
+    cerr << " missedReqs: " + to_string(missedReqs) + "\n";
 
-    while (numResponses < numReqs) {
+    while (numResponses < maxReqs) {
         int old(numResponses);
         ML::futex_wait(numResponses, old);
     }
+
+    loop.removeSource(client.get());
+    client->waitConnectionState(AsyncEventSource::DISCONNECTED);
 }
 #endif
 
@@ -449,6 +463,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
    reasonably well. */
 BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
 {
+    cerr << "move_constructor\n";
     ML::Watchdog watchdog(30);
     auto proxies = make_shared<ServiceProxies>();
 
@@ -470,7 +485,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
 
         auto onDone = [&] (const HttpRequest & rq,
                            HttpClientError errorCode, int status,
-                           const string & headers, const string & body) {
+                           string && headers, string && body) {
             done = true;
             ML::futex_wake(done);
         };

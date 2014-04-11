@@ -106,18 +106,18 @@ onResponseStart(const HttpRequest & rq,
 
 void
 HttpClientCallbacks::
-onHeader(const HttpRequest & rq, const string & header)
+onHeader(const HttpRequest & rq, const char * data, size_t size)
 {
     if (onHeader_)
-        onHeader_(rq, header);
+        onHeader_(rq, data, size);
 }
 
 void
 HttpClientCallbacks::
-onData(const HttpRequest & rq, const string & data)
+onData(const HttpRequest & rq, const char * data, size_t size)
 {
     if (onData_)
-        onData_(rq, data);
+        onData_(rq, data, size);
 }
 
 void
@@ -301,10 +301,8 @@ enqueueRequest(const string & verb, const string & resource,
                int timeout)
 {
     string url = baseUrl_ + resource + queryParams.uriEscaped();
-    if (!queue_.tryPush(HttpRequest(verb, url, callbacks,
-                                    content, headers, timeout))) {
-        return false;
-    }
+    queue_.push(HttpRequest(verb, url, callbacks,
+                            content, headers, timeout));
     wakeup_.signal();
 
     return true;
@@ -322,7 +320,7 @@ bool
 HttpClient::
 processOne()
 {
-    static const int nEvents(256);
+    static const int nEvents(1024);
     ::epoll_event events[nEvents];
 
     while (true) {
@@ -368,9 +366,22 @@ void
 HttpClient::
 handleWakeupEvent()
 {
-    // cerr << "  wakeup event\n";
     wakeup_.read();
+    // cerr << "  wakeup event\n";
+
     if (avlConnections_ > 0) {
+        /* empty the queue of events on the wakeup fd */
+        bool retry(false);
+        while (retry) {
+            try {
+                JML_TRACE_EXCEPTIONS(false);
+                wakeup_.read();
+            }
+            catch (const ML::Exception & exc) {
+                retry = false;
+            }
+        }
+
         vector<HttpRequest> requests = queue_.tryPopMulti(avlConnections_);
 
         for (HttpRequest & request: requests) {
@@ -470,7 +481,7 @@ int
 HttpClient::
 onCurlSocketEvent(CURL *e, curl_socket_t fd, int what, void *sockp)
 {
-    // cerr << "onCurlSocketEvent: " + to_string(what) + "\n";
+    // cerr << "onCurlSocketEvent: " + to_string(fd) + " what: " + to_string(what) + "\n";
 
     if (what == CURL_POLL_REMOVE) {
         // cerr << "remove fd\n";
@@ -671,7 +682,7 @@ onCurlHeader(const char * data, size_t size)
                                                  move(version), code);
         }
         else {
-            request_.callbacks_->onHeader(request_, move(headerLine));
+            request_.callbacks_->onHeader(request_, data, size);
         }
     }
 
@@ -685,7 +696,7 @@ onCurlWrite(const char * data, size_t size)
     noexcept
 {
     // cerr << "onCurlWrite\n";
-    request_.callbacks_->onData(request_, string(data, size));
+    request_.callbacks_->onData(request_, data, size);
     return size;
 }
 
@@ -726,32 +737,32 @@ onResponseStart(const HttpRequest & rq,
 
 void
 HttpClientSimpleCallbacks::
-onHeader(const HttpRequest & rq, const string & header)
+onHeader(const HttpRequest & rq, const char * data, size_t size)
 {
-    headers_.append(header);
+    headers_.append(data, size);
 }
 
 void
 HttpClientSimpleCallbacks::
-onData(const HttpRequest & rq, const string & data)
+onData(const HttpRequest & rq, const char * data, size_t size)
 {
-    body_.append(data);
+    body_.append(data, size);
 }
 
 void
 HttpClientSimpleCallbacks::
 onDone(const HttpRequest & rq, HttpClientError error)
 {
-    onResponse(rq, error, statusCode_, headers_, body_);
+    onResponse(rq, error, statusCode_, move(headers_), move(body_));
 }
 
 void
 HttpClientSimpleCallbacks::
 onResponse(const HttpRequest & rq,
            HttpClientError error, int status,
-           const string & headers, const string & body)
+           string && headers, string && body)
 {
     if (onResponse_) {
-        onResponse_(rq, error, status, headers, body);
+        onResponse_(rq, error, status, move(headers), move(body));
     }
 }
