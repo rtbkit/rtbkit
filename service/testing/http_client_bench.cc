@@ -219,6 +219,10 @@ int main(int argc, char *argv[])
          "size of the response body (*8)")
         ("help,H", "show help");
 
+    if (argc == 1) {
+        return 0;
+    }
+
     variables_map vm;
     store(command_line_parser(argc, argv)
           .options(all_opt)
