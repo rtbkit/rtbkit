@@ -135,7 +135,8 @@ struct HttpGetService : public HttpService {
 /* bench methods */
 
 void
-AsyncModelBench(const string & baseUrl, int maxReqs, int concurrency)
+AsyncModelBench(const string & baseUrl, int maxReqs, int concurrency,
+                Date & start, Date & end)
 {
     int numReqs, numResponses(0);
     MessageLoop loop;
@@ -154,8 +155,10 @@ AsyncModelBench(const string & baseUrl, int maxReqs, int concurrency)
     auto cbs = make_shared<HttpClientCallbacks>(nullptr, nullptr, nullptr, onDone);
 
     auto & clientRef = *client.get();
+    string url("/");
+    start = Date::now();
     for (numReqs = 0; numReqs < maxReqs;) {
-        if (clientRef.get("/", cbs)) {
+        if (clientRef.get(url, cbs)) {
             numReqs++;
         }
     }
@@ -164,10 +167,15 @@ AsyncModelBench(const string & baseUrl, int maxReqs, int concurrency)
         int old(numResponses);
         ML::futex_wait(numResponses, old);
     }
+    end = Date::now();
+
+    loop.removeSource(client.get());
+    client->waitConnectionState(AsyncEventSource::DISCONNECTED);
 }
 
 void
-ThreadedModelBench(const string & baseUrl, int maxReqs, int concurrency)
+ThreadedModelBench(const string & baseUrl, int maxReqs, int concurrency,
+                   Date & start, Date & end)
 {
     vector<thread> threads;
 
@@ -179,6 +187,7 @@ ThreadedModelBench(const string & baseUrl, int maxReqs, int concurrency)
         }
     };
 
+    start = Date::now();
     int slice(maxReqs / concurrency);
     for (int i = 0; i < concurrency; i++) {
         threads.emplace_back(threadFn, i, slice);
@@ -186,6 +195,7 @@ ThreadedModelBench(const string & baseUrl, int maxReqs, int concurrency)
     for (int i = 0; i < concurrency; i++) {
         threads[i].join();
     }
+    end = Date::now();
 }
 
 int main(int argc, char *argv[])
@@ -208,6 +218,10 @@ int main(int argc, char *argv[])
         ("payload-size,s", value(&payloadSize),
          "size of the response body (*8)")
         ("help,H", "show help");
+
+    if (argc == 1) {
+        return 0;
+    }
 
     variables_map vm;
     store(command_line_parser(argc, argv)
@@ -247,17 +261,16 @@ int main(int argc, char *argv[])
     string baseUrl("http://127.0.0.1:"
                    + to_string(service.port()));
 
-    Date start = Date::now();
+    Date start, end;
     if (model == 1) {
-        AsyncModelBench(baseUrl, maxReqs,concurrency);
+        AsyncModelBench(baseUrl, maxReqs, concurrency, start, end);
     }
     else if (model == 2) {
-        ThreadedModelBench(baseUrl, maxReqs,concurrency);
+        ThreadedModelBench(baseUrl, maxReqs, concurrency, start, end);
     }
     else {
         throw ML::Exception("invalid 'model'");
     }
-    Date end = Date::now();
     double delta = end - start;
     double qps = maxReqs / delta;
     ::fprintf(stderr, "%d requests performed in %f secs => %f qps\n",

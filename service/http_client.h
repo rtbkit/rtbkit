@@ -288,7 +288,7 @@ struct HttpClientCallbacks {
                                 const std::string &,
                                 int code)> OnResponseStart;
     typedef std::function<void (const HttpRequest &,
-                                const std::string &)> OnData;
+                                const char * data, size_t size)> OnData;
     typedef std::function<void (const HttpRequest & rq,
                                 HttpClientError errorCode)> OnDone;
 
@@ -315,11 +315,11 @@ struct HttpClientCallbacks {
 
     /* callback for header lines, one invocation per line */
     virtual void onHeader(const HttpRequest & rq,
-                          const std::string & header);
+                          const char * data, size_t size);
 
     /* callback for body data, one invocation per chunk */
     virtual void onData(const HttpRequest & rq,
-                        const std::string & data);
+                        const char * data, size_t size);
 
     /* callback for operation completions, implying that no other call will
      * be performed for the same request */
@@ -340,26 +340,28 @@ private:
  * need support for progressive responses. */
 struct HttpClientSimpleCallbacks : public HttpClientCallbacks
 {
-    typedef std::function<void (const HttpRequest &,    /* request */
-                                HttpClientError,                  /* error code */
-                                int,                    /* status code */
-                                const std::string &,    /* headers */
-                                const std::string &)>   /* body */
+    typedef std::function<void (const HttpRequest &,  /* request */
+                                HttpClientError,      /* error code */
+                                int,                  /* status code */
+                                std::string &&,       /* headers */
+                                std::string &&)>      /* body */
         OnResponse;
     HttpClientSimpleCallbacks(const OnResponse & onResponse = nullptr);
 
     /* HttpClientCallbacks overrides */
     virtual void onResponseStart(const HttpRequest & rq,
                                  const std::string & httpVersion, int code);
-    virtual void onHeader(const HttpRequest & rq, const std::string & header);
-    virtual void onData(const HttpRequest & rq, const std::string & data);
+    virtual void onHeader(const HttpRequest & rq,
+                          const char * data, size_t size);
+    virtual void onData(const HttpRequest & rq,
+                        const char * data, size_t size);
     virtual void onDone(const HttpRequest & rq, HttpClientError errorCode);
 
     virtual void onResponse(const HttpRequest & rq,
                             HttpClientError error,
                             int status,
-                            const std::string & headers,
-                            const std::string & body);
+                            std::string && headers,
+                            std::string && body);
 
 private:
     OnResponse onResponse_;
