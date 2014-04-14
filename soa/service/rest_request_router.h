@@ -54,7 +54,7 @@ struct PathSpec {
     {
     }
 
-    void getHelp(Json::Value & result)
+    void getHelp(Json::Value & result) const
     {
         switch (type) {
         case STRING:
@@ -140,7 +140,7 @@ struct RequestFilter {
     {
     }
 
-    void getHelp(Json::Value & result)
+    void getHelp(Json::Value & result) const
     {
         if (!verbs.empty()) {
             int i = 0;
@@ -395,6 +395,11 @@ struct RestRequestRouter {
                    const RestRequest & request,
                    RestRequestParsingContext & context) const;
 
+    virtual void options(std::set<std::string> & verbsAccepted,
+                         Json::Value & help,
+                         const RestRequest & request,
+                         RestRequestParsingContext & context) const;
+
     /** Type of a function that is called by the route after matching to extract any
         objects referred to so that they can be added to the context and made
         available to futher event handlers.
@@ -416,9 +421,18 @@ struct RestRequestRouter {
         std::shared_ptr<RestRequestRouter> router;
         std::function<void(RestRequestParsingContext & context)> extractObject;
 
+        bool matchPath(const RestRequest & request,
+                       RestRequestParsingContext & context) const;
+
         MatchResult process(const RestRequest & request,
                             RestRequestParsingContext & context,
                             const RestServiceEndpoint::ConnectionId & connection) const;
+
+        void
+        options(std::set<std::string> & verbsAccepted,
+                Json::Value & help,
+                const RestRequest & request,
+                RestRequestParsingContext & context) const;
     };
 
     /** Add a route that will match the given path and filter and will
@@ -441,7 +455,7 @@ struct RestRequestRouter {
 
     virtual void getHelp(Json::Value & result,
                          const std::string & currentPath,
-                         const std::set<std::string> & verbs);
+                         const std::set<std::string> & verbs) const;
 
     /** Create a generic sub router. */
     RestRequestRouter &
