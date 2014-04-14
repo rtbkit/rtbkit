@@ -139,8 +139,9 @@ HttpClient(const string & baseUrl, int numParallel, size_t queueSize)
       fd_(-1),
       wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
       timerFd_(-1),
-      connections_(nullptr),
       connectionStash_(numParallel),
+      avlConnections_(numParallel),
+      nextAvail_(0),
       queue_(queueSize)
 {
     fd_ = epoll_create1(EPOLL_CLOEXEC);
@@ -161,8 +162,10 @@ HttpClient(const string & baseUrl, int numParallel, size_t queueSize)
     ::curl_multi_setopt(handle_, CURLMOPT_TIMERFUNCTION, timerCallback);
     ::curl_multi_setopt(handle_, CURLMOPT_TIMERDATA, this);
 
-    /* connections */
-    fixConnectionStash();
+    /* available connections */
+    for (size_t i = 0; i < connectionStash_.size(); i++) {
+        avlConnections_[i] = &connectionStash_[i];
+    }
 
     /* kick start multi */
     int runningHandles;
@@ -183,6 +186,8 @@ HttpClient(HttpClient && other)
       wakeup_(move(other.wakeup_)),
       timerFd_(other.timerFd_),
       connectionStash_(move(other.connectionStash_)),
+      avlConnections_(move(other.avlConnections_)),
+      nextAvail_(other.nextAvail_),
       queue_(move(other.queue_))
 {
     other.fd_ = -1;
@@ -196,7 +201,6 @@ HttpClient(HttpClient && other)
     ::curl_multi_setopt(handle_, CURLMOPT_SOCKETDATA, this);
     ::curl_multi_setopt(handle_, CURLMOPT_TIMERFUNCTION, timerCallback);
     ::curl_multi_setopt(handle_, CURLMOPT_TIMERDATA, this);
-    fixConnectionStash();
 }
 
 HttpClient::
@@ -208,20 +212,6 @@ HttpClient::
     if (timerFd_ != -1) {
         ::close(timerFd_);
     }
-}
-
-void
-HttpClient::
-fixConnectionStash()
-{
-    connections_ = &connectionStash_[0];
-    HttpConnection * current = connections_;
-    for (size_t i = 1; i < connectionStash_.size(); i++) {
-        current->next = &connectionStash_[i];
-        current = current->next;
-    }
-    current->next = nullptr;
-    avlConnections_ = connectionStash_.size();
 }
 
 void
@@ -244,7 +234,8 @@ operator = (HttpClient && other)
     timerFd_ = other.timerFd_;
     other.timerFd_ = -1;
     connectionStash_ = move(other.connectionStash_);
-    fixConnectionStash();
+    avlConnections_ = move(other.avlConnections_);
+    nextAvail_ = other.nextAvail_;
     queue_ = move(other.queue_);
 
     return *this;
@@ -369,7 +360,8 @@ handleWakeupEvent()
     wakeup_.read();
     // cerr << "  wakeup event\n";
 
-    if (avlConnections_ > 0) {
+    size_t numAvail = avlConnections_.size() - nextAvail_;
+    if (numAvail > 0) {
         /* empty the queue of events on the wakeup fd */
         bool retry(false);
         while (retry) {
@@ -382,8 +374,7 @@ handleWakeupEvent()
             }
         }
 
-        vector<HttpRequest> requests = queue_.tryPopMulti(avlConnections_);
-
+        vector<HttpRequest> requests = queue_.tryPopMulti(numAvail);
         for (HttpRequest & request: requests) {
             HttpConnection *conn = getConnection();
             conn->request_ = move(request);
@@ -551,10 +542,14 @@ HttpConnection *
 HttpClient::
 getConnection()
 {
-    HttpConnection * conn = connections_;
-    if (conn) {
-        connections_ = conn->next;
-        avlConnections_--;
+    HttpConnection * conn;
+
+    if (nextAvail_ < avlConnections_.size()) {
+        conn = avlConnections_[nextAvail_];
+        nextAvail_++;
+    }
+    else {
+        conn = nullptr;
     }
 
     return conn;
@@ -564,9 +559,10 @@ void
 HttpClient::
 releaseConnection(HttpConnection * oldConnection)
 {
-    oldConnection->next = connections_;
-    connections_ = oldConnection;
-    avlConnections_++;
+    if (nextAvail_ > 0) {
+        nextAvail_--;
+        avlConnections_[nextAvail_] = oldConnection;
+    }
 }
 
 
@@ -632,6 +628,7 @@ perform(bool noSSLChecks, bool debug)
     easy_.setOpt<curlopt::HeaderFunction>(onHeader_);
     easy_.setOpt<curlopt::WriteFunction>(onWrite_);
     easy_.setOpt<curlopt::ReadFunction>(onRead_);
+    easy_.setOpt<curlopt::BufferSize>(65536);
     if (request_.timeout_ != -1) {
         easy_.setOpt<curlopt::Timeout>(request_.timeout_);
     }
