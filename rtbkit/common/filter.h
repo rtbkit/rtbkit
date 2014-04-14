@@ -2,9 +2,7 @@
     Rémi Attab, 23 Jul 2013
     Copyright (c) 2013 Datacratic.  All rights reserved.
 
-    Interface definition for bid request filters used by the filter pool
-    mechanism.
-
+    Utilities and interfaces for the filtering framework.
 */
 
 #pragma once
@@ -31,6 +29,18 @@ struct AgentConfig;
 /* CONFIG SET                                                                 */
 /******************************************************************************/
 
+/** Represents a set of config ids as a bitfield to enable efficient batch
+    processing of configs during filtering. A value of 1 at position i in the
+    bitfield indicates the config id i is part of the set.
+
+    The config set is dynamically expanded as new config ids are added. When
+    expanding it uses the defaultValue provided to the constructor to determine
+    whether configs should be part of the set by default or not. In other words
+    ConfigSet(true) indicades that all configs are part of the set by default.
+
+    Note that this class is easier reflects more a bitfield then it does a
+    set. In other words, it uses bitfield nomenclature to manipulate the set.
+ */
 struct ConfigSet
 {
     typedef uint64_t Word;
@@ -46,6 +56,8 @@ struct ConfigSet
         return bitfield.size() * Div;
     }
 
+    // Expands the set to contain at least newSize configs and use the
+    // defaultValue provided to the constructor to initialize the bit field.
     void expand(size_t newSize)
     {
         if (newSize) newSize = (newSize - 1) / Div + 1; // ceilDiv(newSize, Div)
@@ -102,7 +114,6 @@ struct ConfigSet
         return true;
     }
 
-
 #define RTBKIT_CONFIG_SET_OP(_op_)                                      \
     ConfigSet& operator _op_ (const ConfigSet& other)                   \
     {                                                                   \
@@ -138,7 +149,9 @@ struct ConfigSet
 #undef RTBKIT_CONFIG_SET_OP_CONST
 
 
-
+    // The not(~) operator which doesn't have a analogue in set terminology.
+    // There's a good reason why this isn't an operator overload but I can't
+    // remember.
     ConfigSet& negate()
     {
         defaultValue = ~defaultValue;
@@ -153,9 +166,10 @@ struct ConfigSet
     }
 
 
-    /** Usage example:
+    /** Utility to iterate over every config ids that is part of the bitfield.
+        Usage example:
 
-        for (size_t i = set.next(); i < set.size(); i = set.next(i + 1)) {
+        for (size_t id = set.next(); id < set.size(); id = set.next(id + 1)) {
             // ...
         }
 
@@ -198,6 +212,21 @@ private:
 /* CREATIVE MATRIX                                                            */
 /******************************************************************************/
 
+/** Represents the set of creative for each config. This is done by building a
+    matrix where a 1 at position (i, j) means that the creative i for the config
+    j is in the set.
+
+    WARNING: The matrix is stored in creative major and config minor, in other
+    words access by creative first and config second. The reason for this is
+    make it easy to re-use the ConfigSet code internally for all the bitfield
+    trickery.
+
+    Like the ConfigSet, the matrix is dynamically expanded on demand where the
+    defaultValue provided to the constructor is used to determine whether
+    creatives are included by default or not. Internally, this uses bitfields to
+    efficiently batch up creative manipulations in the filters.
+
+ */
 struct CreativeMatrix
 {
     explicit CreativeMatrix(bool defaultValue = false) :
@@ -281,6 +310,8 @@ struct CreativeMatrix
 
 #undef RTBKIT_CREATIVE_MATRIX_OP
 
+    // The bit-wise not(~) operator. There's a good reason why this isn't a
+    // operator overload but I can't remember it.
     CreativeMatrix& negate()
     {
         defaultValue = defaultValue.negate();
@@ -293,6 +324,9 @@ struct CreativeMatrix
         return CreativeMatrix(*this).negate();
     }
 
+
+    // Returns a ConfigSet where a config will be present iff there's at least
+    // one creative present for that config in the matrix.
     ConfigSet aggregate() const
     {
         ConfigSet configs;
@@ -326,6 +360,14 @@ private:
 /* FILTER STATE                                                               */
 /******************************************************************************/
 
+/** Contains the current state of the filtering process for a single bid
+    request. It's also used to extract information after the fitlering is over.
+
+    Note that the state includes a CreativeMatrix for each impression in the bid
+    request so that we can track, which creative is available for bidding on a
+    per impression basis.
+
+ */
 struct FilterState
 {
     FilterState(
@@ -343,9 +385,15 @@ struct FilterState
     const BidRequest& request;
     const ExchangeConnector * const exchange;
 
+    // Current set of active configuration.
     const ConfigSet& configs() const { return configs_; }
+
+    // Restrict the number of active configs to those specified by the
+    // mask. Can't add a config that was previously removed. Will also restrict
+    // the creatives accordingly.
     void narrowConfigs(const ConfigSet& mask) { configs_ &= mask; }
 
+    // Current set of active creatives for a given impression.
     CreativeMatrix creatives(unsigned impId) const
     {
         CreativeMatrix mask(configs_);
@@ -353,12 +401,18 @@ struct FilterState
         return mask;
     }
 
+    // Restricts the number of active creatives to those specified by the mask
+    // for the given impression. Can't add a creative that was previously
+    // removed. Will also restrict the configs accordingly.
     void narrowCreativesForImp(unsigned impId, const CreativeMatrix& mask)
     {
         creatives_[impId] &= mask;
         updateConfigs();
     }
 
+    // Restricts the number of active creatives to those specified by the mask
+    // for all impressions. Can't add a creative that was previously
+    // removed. Will also restrict the configs accordingly.
     void narrowAllCreatives(const CreativeMatrix& mask)
     {
         for (CreativeMatrix& matrix : creatives_) matrix &= mask;
@@ -366,9 +420,8 @@ struct FilterState
     }
 
 
-    /** Returns a map of configIndex to BiddableSpots object based on the
-        creative matrix.
-     */
+    // Returns a map of configIndex to BiddableSpots object based on the
+    // creative matrix. This is the format ingested by the router.
     std::unordered_map<unsigned, BiddableSpots> biddableSpots();
 
 private:
@@ -388,54 +441,75 @@ private:
 /* FILTER BASE                                                                */
 /******************************************************************************/
 
+/** Filtering interface for all filters.
+
+    Note that this class should never be used directly. Prefer the FilterBaseT
+    templates (core/router/filters/generic_filters.h) instead since they provide
+    useful default implementation for various technicalities.
+ */
 struct FilterBase
 {
     virtual ~FilterBase() {}
 
-    /**
-
-     */
     virtual std::string name() const = 0;
 
-    /**
-
-     */
     virtual FilterBase* clone() const = 0;
 
+    /** Determine in which order filters are executed. Priority is ascending (0
+        is the first).
+
+        Ideally, filters that are able to remove large chunks of the traffic
+        quickly should be ordered first.
+     */
+    virtual unsigned priority() const { return 0; }
+
+
     /** Filters the given bid request such and a return the set of agent
-        configuration that matches the given bid request.
+        configuration that matches the given bid request. The filter should
+        modified state to filter-out configs.
+
+        This function may be invoked from multiple threads and should therefor
+        not modify any internal state. Locking is STRONGLY discouraged as well.
      */
     virtual void filter(FilterState& state) const = 0;
 
 
-    /** Indicates that a new agent configuration is available and that it is
-        associated with the given index. The configIndex should be used to
-        return the ConfigSet object returned by the filter function.
+    /** Indicates that a new config is available and that it is associated with
+        the given index. The configIndex should be used to manipulate the
+        FilterState object during filtering.
+
+        This function is used to preprocess auction ahead of filtering so that
+        we can do efficient batch processing of configs using ConfigSet and
+        CreativeMatrix.
+
+        FilterPool ensures that this function is called in a thread-safe context
+        so no locking is required.
      */
     virtual void
     addConfig(unsigned configIndex, const std::shared_ptr<AgentConfig>& config) = 0;
 
-    /**
+    /** Indicates that an existing config was removed and that it is associated
+        with the given index. The configIndex should be used to manipulate the
+        FilterState object during filtering.
 
+        This function follows the same convention as addConfig.
      */
     virtual void
     removeConfig(unsigned configIndex, const std::shared_ptr<AgentConfig>& config) = 0;
 
-    /**
-       \todo This will eventually need to be dynamic or something.
-     */
-    virtual unsigned priority() const { return 0; }
-
 };
+
 
 /******************************************************************************/
 /* FILTER REGISTRY                                                            */
 /******************************************************************************/
 
+/** Global registry for the filters. */
 struct FilterRegistry
 {
     typedef std::function<FilterBase* ()> ConstructFn;
 
+    /** Add the filter of type Filter to the registry. */
     template<typename Filter>
     static void registerFilter()
     {
