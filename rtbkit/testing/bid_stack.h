@@ -8,6 +8,7 @@
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/banker/null_banker.h"
+#include "rtbkit/core/router/bid_price_calculator.h"
 #include "rtbkit/common/testing/exchange_source.h"
 #include "rtbkit/testing/test_agent.h"
 #include "rtbkit/testing/mock_exchange.h"
@@ -22,8 +23,13 @@ struct BidStack {
     std::shared_ptr<Banker> banker;
     std::shared_ptr<TestAgent> agent;
 
+    std::pair<std::string, std::string> forwardInfo;
     BidStack() {
         proxies.reset(new ServiceProxies());
+    }
+
+    void useForwardingUri(const std::string &host, const std::string &resource) {
+        forwardInfo = { host, resource };
     }
 
     void run(std::string const & configuration, Amount amount = Amount(), int count = 0) {
@@ -58,6 +64,9 @@ struct BidStack {
         }
 
         router.setBanker(banker);
+        if (!forwardInfo.first.empty()) {
+            router.bpc->useForwardingUri(forwardInfo.first, forwardInfo.second);
+        }
 
         // Start the router up
         router.bindTcp();
@@ -89,9 +98,14 @@ struct BidStack {
             agent = std::make_shared<TestAgent>(proxies, "agent");
         }
 
+        if (!forwardInfo.first.empty()) {
+            agent->config.external = true;
+        }
+
         agent->init();
         agent->bidWithFixedAmount(amount);
         agent->start();
+        agent->strictMode(false);
         agent->configure();
 
         // Wait a little for the stack to startup...

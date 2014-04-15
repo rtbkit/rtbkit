@@ -17,7 +17,7 @@
 using namespace Datacratic;
 using namespace RTBKIT;
 
-BOOST_AUTO_TEST_CASE( win_cost_model_test )
+BOOST_AUTO_TEST_CASE( bpc_http_test )
 {
     ML::Watchdog watchdog(10.0);
 
@@ -32,8 +32,11 @@ BOOST_AUTO_TEST_CASE( win_cost_model_test )
     BidStack bpcStack;
 
     bidStack.runThen(configuration, USD_CPM(10), 0, [&](Json::Value const & json) {
-        auto url = json["workers"][0]["bids"]["url"];
-        std::cerr << url << std::endl;
+        const auto &bids = json["workers"][0]["bids"];
+        auto url = bids["url"].asString();
+        auto resource = bids.get("resource", "/").asString();
+        std::cerr << url << resource << std::endl;
+        bpcStack.useForwardingUri(url, resource);
         bpcStack.run(configuration, USD_CPM(20), 10);
     });
 

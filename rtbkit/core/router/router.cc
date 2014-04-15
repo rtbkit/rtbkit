@@ -341,6 +341,7 @@ start(boost::function<void ()> onStop)
             if (onStop) onStop();
         };
 
+    bpc->start();
     logger.start();
     augmentationLoop.start();
     runThread.reset(new boost::thread(runfn));

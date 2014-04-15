@@ -7,6 +7,7 @@
 
 #include "rtbkit/common/auction_events.h"
 #include "rtbkit/core/router/router.h"
+#include "soa/service/http_client.h"
 
 namespace RTBKIT {
 
@@ -21,11 +22,13 @@ struct BidPriceCalculator : public ServiceBase
                        std::string const & name = "bpc");
 
     void init(Router * value);
+    void start();
     void bindTcp();
 
     void sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                             double timeLeftMs,
-                            std::map<std::string, BidInfo> const & bidders);
+                            std::map<std::string, BidInfo> const & bidders,
+                            const std::string &forwardHost = "");
 
     void sendWinMessage(std::string const & agent,
                         std::string const & id,
@@ -62,6 +65,8 @@ struct BidPriceCalculator : public ServiceBase
 
     void send(std::shared_ptr<PostAuctionEvent> const & event);
 
+    void useForwardingUri(const std::string &host, const std::string &resource);
+
 private:
     void handlePostAuctionMessage(std::vector<std::string> const & items);
 
@@ -71,6 +76,8 @@ private:
     TypedMessageSink<std::shared_ptr<PostAuctionEvent>> events;
 
     ZmqNamedEndpoint endpoint;
+    std::shared_ptr<HttpClient> httpClient;
+    std::pair<std::string, std::string> forwardInfo;
 };
 
 }
