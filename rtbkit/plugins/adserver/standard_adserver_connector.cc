@@ -251,13 +251,11 @@ handleWinRq(const HttpHeader & header,
         // UserIds is optional
     }
 
-    writeUnitTestWinReqOutput(timestamp,
-                                    Date(),
-                                    bidRequestIdStr, 
-                                    impIdStr, 
-                                    "", 
-                                    winPrice,
-                                    userIdStr);
+    LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
+        "\"bidRequestId\":\"" << bidRequestId << "\"," <<
+        "\"impId\":\"" << impId << "\"," <<
+        "\"winPrice\":\"" << winPrice.toString() << "\" }";
+
     if(response.valid) {
         publishWin(bidRequestId, impId, winPrice, timestamp, Json::Value(), userIds,
                    AccountKey(), Date());
@@ -338,11 +336,10 @@ handleDeliveryRq(const HttpHeader & header,
     bidRequestId = Id(bidRequestIdStr);
     impId = Id(impIdStr);
     
-    writeUnitTestDeliveryReqOutput(timestamp,
-                                    bidRequestIdStr, 
-                                    impIdStr, 
-                                    userIdStr,
-                                    event);
+    LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
+        "\"bidRequestId\":\"" << bidRequestIdStr << "\"," <<
+        "\"impId\":\"" << impIdStr << "\"," <<
+        "\"event\":\"" << event << "\"}";
 
     if(response.valid) {
         publishCampaignEvent(eventType[event], bidRequestId, impId, timestamp,
@@ -351,33 +348,6 @@ handleDeliveryRq(const HttpHeader & header,
                                 impIdStr, userIds.toString());
     }
     return response;
-}
-
-void
-StandardAdServerConnector::
-writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, const string & bidRequestId, 
-                          const string & impId, const string & accountKeyStr, const USD_CPM & winPrice,
-                          const string & userId) {
-
-    LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
-        "\"bidTimestamp\":\"" << bidTimestamp.print(3) << "\"," <<
-        "\"bidRequestId\":\"" << bidRequestId << "\"," <<
-        "\"impId\":\"" << impId << "\"," <<
-        "\"accountId\":\"" << accountKeyStr << "\"," <<
-        "\"winPrice\":\"" << winPrice.toString() << "\"," <<
-        "\"userIds\":" << "\"" << userId << "}";
-} 
-
-void
-StandardAdServerConnector::
-writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & bidRequestIdStr, const string & impIdStr, 
-                               const string &  userIdStr, const string &event){
-
-    LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
-        "\"bidRequestId\":\"" << bidRequestIdStr << "\"," <<
-        "\"impId\":\"" << impIdStr << "\"," <<
-        "\"userIds\":" << "\"" << userIdStr << "\"," <<
-        "\"event\":\"" << event << "\"}";
 }
 
 namespace {
