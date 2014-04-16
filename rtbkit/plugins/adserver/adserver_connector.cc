@@ -84,8 +84,8 @@ recordUptime()
 
 void
 AdServerConnector::
-publishWin(const Id & auctionId,
-           const Id & adSpotId,
+publishWin(const Id & bidRequestId,
+           const Id & impId,
            Amount winPrice,
            Date timestamp,
            const JsonHolder & winMeta,
@@ -98,8 +98,8 @@ publishWin(const Id & auctionId,
 
     PostAuctionEvent event;
     event.type = PAE_WIN;
-    event.auctionId = auctionId;
-    event.adSpotId = adSpotId;
+    event.auctionId = bidRequestId;
+    event.adSpotId = impId;
     event.winPrice = winPrice;
     event.timestamp = timestamp;
     event.metadata = winMeta;
@@ -113,8 +113,8 @@ publishWin(const Id & auctionId,
 
 void
 AdServerConnector::
-publishLoss(const Id & auctionId,
-            const Id & adSpotId,
+publishLoss(const Id & bidRequestId,
+            const Id & impId,
             Date timestamp,
             const JsonHolder & lossMeta,
             const AccountKey & account,
@@ -125,8 +125,8 @@ publishLoss(const Id & auctionId,
 
     PostAuctionEvent event;
     event.type = PAE_LOSS;
-    event.auctionId = auctionId;
-    event.adSpotId = adSpotId;
+    event.auctionId = bidRequestId;
+    event.adSpotId = impId;
     event.timestamp = timestamp;
     event.metadata = lossMeta;
     event.account = account;
@@ -139,8 +139,8 @@ publishLoss(const Id & auctionId,
 void
 AdServerConnector::
 publishCampaignEvent(const string & label,
-                     const Id & auctionId,
-                     const Id & adSpotId,
+                     const Id & bidRequestId,
+                     const Id & impId,
                      Date timestamp,
                      const JsonHolder & impressionMeta,
                      const UserIds & ids)
@@ -151,8 +151,8 @@ publishCampaignEvent(const string & label,
     PostAuctionEvent event;
     event.type = PAE_CAMPAIGN_EVENT;
     event.label = label;
-    event.auctionId = auctionId;
-    event.adSpotId = adSpotId;
+    event.auctionId = bidRequestId;
+    event.adSpotId = impId;
     event.timestamp = timestamp;
     event.uids = ids;
     event.metadata = impressionMeta;

@@ -5,8 +5,6 @@
    *AuctionEvent and related classes
 */
 
-
-
 #include <ostream>
 #include <string>
 

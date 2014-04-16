@@ -64,12 +64,12 @@ private :
     virtual void initEventType(const Json::Value &json);
 
     void writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, 
-                                   const string & auctionId, const string & adSpotId, 
+                                   const string & bidRequestId, const string & impId, 
                                    const string & accountKeyStr, const USD_CPM & winPrice,
-                                   const string & userId, const USD_CPM dataCost);
+                                   const string & userId);
 
-    void writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdStr, 
-                                        const string & adSpotIdStr, const string &  userIdStr, 
+    void writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & bidRequestIdStr, 
+                                        const string & impIdStr, const string &  userIdStr, 
                                         const string &event);
 
     std::map<std::string , std::string> eventType;  

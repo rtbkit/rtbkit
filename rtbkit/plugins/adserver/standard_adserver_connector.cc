@@ -153,27 +153,78 @@ handleWinRq(const HttpHeader & header,
 {
     HttpAdServerResponse response;
 
-    Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
-    Date bidTimestamp;
-    if (json.isMember("bidTimestamp")) {
-        bidTimestamp
-            = Date::fromSecondsSinceEpoch(json["bidTimestamp"].asDouble());
-    }
-    string auctionIdStr(json["auctionId"].asString());
-    string adSpotIdStr(json["adSpotId"].asString());
-    string accountKeyStr(json["accountId"].asString());
-    double winPriceDbl(json["winPrice"].asDouble());
-    double dataCostDbl(json["dataCost"].asDouble());
+    Date timestamp;
+    string bidRequestIdStr;
+    string impIdStr;
+    double winPriceDbl;
 
-    Id auctionId(auctionIdStr);
-    Id adSpotId(adSpotIdStr);
-    AccountKey accountKey(accountKeyStr);
-    USD_CPM winPrice(winPriceDbl);
-    USD_CPM dataCost(dataCostDbl);
+    Id bidRequestId;
+    Id impId;
+    USD_CPM winPrice;
 
     UserIds userIds;
     string userIdStr;
+    string passback;
 
+    /*
+     *  Timestamp is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("timestamp")) {
+        timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+    } else {
+        response.valid = false;
+        response.error = "MISSING_TIMESTAMP";
+        response.details = "A win notice requires the timestamp field.";
+
+        return response;
+    }
+
+    /*
+     *  bidRequestId is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("bidRequestId")) {
+        bidRequestIdStr = json["bidRequestId"].asString();
+        bidRequestId = Id(bidRequestIdStr); 
+    } else {
+        response.valid = false;
+        response.error = "MISSING_BIDREQUESTID";
+        response.details = "A win notice requires the bidRequestId field.";
+
+        return response;
+    }
+
+    /*
+     *  impId is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("impId")) {
+        impIdStr = json["impId"].asString();
+        impId = Id(impIdStr);
+    } else {
+        response.valid = false;
+        response.error = "MISSING_IMPID";
+        response.details = "A win notice requires the impId field.";
+    
+        return response;
+    }
+
+    /*
+     *  winPrice is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("winPrice")) {
+        winPriceDbl = json["winPrice"].asDouble();
+        winPrice = USD_CPM(winPriceDbl);
+    } else {
+        response.valid = false;
+        response.error = "MISSING_WINPRICE";
+        response.details = "A win notice requires the winPrice field.";
+    
+        return response;
+    }
+    
     /*
      *  UserIds is an optional field.
      *  If null, we just put an empty array.
@@ -190,77 +241,28 @@ handleWinRq(const HttpHeader & header,
     }
 
     /*
-     *  Timestamp is an required field.
-     *  If null, we return an error response.
+     *  Passback is an optional field.
+     *  If null, we just put an empty string.
      */
-    if (json.isMember("timestamp")) {
-
-    } else {
-        response.valid = false;
-        response.error = "MISSING_TIMESTAMP";
-        response.details = "A win notice requires the timestamp field.";
-
-        return response;
+    if (json.isMember("passback")) {
+        passback =  json["passback"].asString();
     }
-
-    /*
-     *  auctionId is an required field.
-     *  If null, we return an error response.
-     */
-    if (json.isMember("auctionId")) {
-
-    } else {
-        response.valid = false;
-        response.error = "MISSING_AUCTIONID";
-        response.details = "A win notice requires the auctionId field.";
-
-        return response;
+    else {
+        // UserIds is optional
     }
-
-    /*
-     *  adSpotId is an required field.
-     *  If null, we return an error response.
-     */
-    if (json.isMember("adSpotId")) {
-
-    } else {
-        response.valid = false;
-        response.error = "MISSING_ADSPOTID";
-        response.details = "A win notice requires the adSpotId field.";
-    
-        return response;
-    }
-
-    /*
-     *  winPrice is an required field.
-     *  If null, we return an error response.
-     */
-    if (json.isMember("winPrice")) {
-
-    } else {
-        response.valid = false;
-        response.error = "MISSING_WINPRICE";
-        response.details = "A win notice requires the winPrice field.";
-    
-        return response;
-    }
-    
-    const Json::Value & meta = json["winMeta"];
 
     writeUnitTestWinReqOutput(timestamp,
-                                    bidTimestamp,
-                                    auctionIdStr, 
-                                    adSpotIdStr, 
-                                    accountKeyStr, 
+                                    Date(),
+                                    bidRequestIdStr, 
+                                    impIdStr, 
+                                    "", 
                                     winPrice,
-                                    userIdStr,
-                                    dataCost);
+                                    userIdStr);
     if(response.valid) {
-        publishWin(auctionId, adSpotId, winPrice, timestamp, meta, userIds,
-                   accountKey, bidTimestamp);
-        publisher_.publish("WIN", timestamp.print(3), auctionIdStr,
-                           adSpotIdStr, accountKeyStr,
-                           winPrice.toString(), dataCost.toString(), meta);
+        publishWin(bidRequestId, impId, winPrice, timestamp, Json::Value(), userIds,
+                   AccountKey(), Date());
+        publisher_.publish("WIN", timestamp.print(3), bidRequestIdStr,
+                           impIdStr, winPrice.toString());
     }
 
     return response;
@@ -272,8 +274,8 @@ handleDeliveryRq(const HttpHeader & header,
                  const Json::Value & json, const std::string & jsonStr)
 {    
     HttpAdServerResponse response;
-    string auctionIdStr, adSpotIdStr, userIdStr, event;
-    Id auctionId, adSpotId, userId;
+    string bidRequestIdStr, impIdStr, userIdStr, event;
+    Id bidRequestId, impId, userId;
     UserIds userIds;
     
     Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
@@ -304,77 +306,76 @@ handleDeliveryRq(const HttpHeader & header,
     }
 
     /*
-     *  adSpotId is an required field.
+     *  impId is an required field.
      *  If null, we return an error response.
      */
-    if (json.isMember("adSpotId")) {
+    if (json.isMember("impId")) {
 
     } else {
         response.valid = false;
-        response.error = "MISSING_ADSPOTID";
-        response.details = "A campaign event requires the adSpotId field.";
+        response.error = "MISSING_IMPID";
+        response.details = "A campaign event requires the impId field.";
     
         return response;
     }
 
     /*
-     *  auctionId is an required field.
+     *  bidRequestId is an required field.
      *  If null, we return an error response.
      */
-    if (json.isMember("auctionId")) {
+    if (json.isMember("bidRequestId")) {
 
     } else {
         response.valid = false;
-        response.error = "MISSING_AUCTIONID";
-        response.details = "A campaign event requires the auctionId field.";
+        response.error = "MISSING_BIDREQUESTID";
+        response.details = "A campaign event requires the bidRequestId field.";
     
         return response;
     }
 
-    auctionIdStr = json["auctionId"].asString();
-    adSpotIdStr = json["adSpotId"].asString();
-    auctionId = Id(auctionIdStr);
-    adSpotId = Id(adSpotIdStr);
+    bidRequestIdStr = json["bidRequestId"].asString();
+    impIdStr = json["impId"].asString();
+    bidRequestId = Id(bidRequestIdStr);
+    impId = Id(impIdStr);
     
     writeUnitTestDeliveryReqOutput(timestamp,
-                                    auctionIdStr, 
-                                    adSpotIdStr, 
+                                    bidRequestIdStr, 
+                                    impIdStr, 
                                     userIdStr,
                                     event);
 
     if(response.valid) {
-        publishCampaignEvent(eventType[event], auctionId, adSpotId, timestamp,
+        publishCampaignEvent(eventType[event], bidRequestId, impId, timestamp,
                                  Json::Value(), userIds);
-        publisher_.publish(eventType[event], timestamp.print(3), auctionIdStr,
-                                adSpotIdStr, userIds.toString());
+        publisher_.publish(eventType[event], timestamp.print(3), bidRequestIdStr,
+                                impIdStr, userIds.toString());
     }
     return response;
 }
 
 void
 StandardAdServerConnector::
-writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, const string & auctionId, 
-                          const string & adSpotId, const string & accountKeyStr, const USD_CPM & winPrice,
-                          const string & userId, const USD_CPM dataCost) {
+writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, const string & bidRequestId, 
+                          const string & impId, const string & accountKeyStr, const USD_CPM & winPrice,
+                          const string & userId) {
 
     LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
         "\"bidTimestamp\":\"" << bidTimestamp.print(3) << "\"," <<
-        "\"auctionId\":\"" << auctionId << "\"," <<
-        "\"adSpotId\":\"" << adSpotId << "\"," <<
+        "\"bidRequestId\":\"" << bidRequestId << "\"," <<
+        "\"impId\":\"" << impId << "\"," <<
         "\"accountId\":\"" << accountKeyStr << "\"," <<
         "\"winPrice\":\"" << winPrice.toString() << "\"," <<
-        "\"userIds\":" << "\"" << userId << "\"," <<
-        "\"dataCost\":\"" << dataCost.toString() << "\"}";
+        "\"userIds\":" << "\"" << userId << "}";
 } 
 
 void
 StandardAdServerConnector::
-writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdStr, const string & adSpotIdStr, 
+writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & bidRequestIdStr, const string & impIdStr, 
                                const string &  userIdStr, const string &event){
 
     LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
-        "\"auctionId\":\"" << auctionIdStr << "\"," <<
-        "\"adSpotId\":\"" << adSpotIdStr << "\"," <<
+        "\"bidRequestId\":\"" << bidRequestIdStr << "\"," <<
+        "\"impId\":\"" << impIdStr << "\"," <<
         "\"userIds\":" << "\"" << userIdStr << "\"," <<
         "\"event\":\"" << event << "\"}";
 }

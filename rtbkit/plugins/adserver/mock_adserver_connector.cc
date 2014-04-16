@@ -24,7 +24,7 @@ void MockAdServerConnector::init(int winPort, int eventPort) {
     HttpAdServerConnector::init(services->config);
 
     // Prepare a simple JSON handler that already parsed the incoming HTTP payload so that it can
-    // create the requied post auction object.
+    // create the requied post bidRequest object.
     auto handleEvent = [&](const Datacratic::HttpHeader & header,
                            const Json::Value & json,
                            const std::string & text) {
