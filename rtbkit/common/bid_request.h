@@ -241,7 +241,7 @@ struct Location {
 
     static Location createFromJson(const Json::Value & json);
 
-    /** Return a location string with COUNTRY:REGION:CITY:POSTAL:DMA */
+    /** Return a location string with COUNTRY:REGION:CITY:POSTAL:DMA:METRO */
     Datacratic::UnicodeString fullLocationString() const;
 
     /** Return a canonical JSON version of the bid request. */
