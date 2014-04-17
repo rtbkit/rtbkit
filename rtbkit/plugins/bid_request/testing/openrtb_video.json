@@ -13,7 +13,7 @@
         "linearity": 1,
         "minduration": 5,
         "maxduration": 30,
-        "protocol": [ 1, 2, 3, 4 ],
+        "protocol": 1,
         "w": 640,
         "h": 480,
         "startdelay": 0,

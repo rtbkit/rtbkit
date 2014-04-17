@@ -169,6 +169,14 @@ struct RestServiceEndpoint: public MessageLoop {
 
         void sendRedirect(int responseCode, const std::string & location) const;
 
+        /** Send an HTTP-only response with the given headers.  If it's not
+            an HTTP connection, this will fail.
+        */
+        void sendHttpResponse(int responseCode,
+                              const std::string & response,
+                              const std::string & contentType,
+                              const RestParams & headers) const;
+
         /** Send the given error string back on the connection. */
         void sendErrorResponse(int responseCode,
                                const std::string & error,

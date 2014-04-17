@@ -556,6 +556,20 @@ close()
     rdbuf(0);
 }
 
+string
+filter_istream::
+readAll()
+{
+    string result;
+
+    char buffer[65536];
+    while (*this) {
+        read(buffer, sizeof(buffer));
+        result.append(buffer, gcount());
+    }
+
+    return result;
+}
 
 /*****************************************************************************/
 /* REGISTRATION                                                              */

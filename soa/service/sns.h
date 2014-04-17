@@ -18,25 +18,16 @@ namespace Datacratic {
 /* SNS API                                                                   */
 /*****************************************************************************/
  
-struct SnsApi : public AwsApi {
-
-    std::string accessKeyId;
-    std::string accessKey;
-    std::string serviceUri;
-
-    HttpRestProxy proxy;
-
+struct SnsApi : public AwsBasicApi {
     SnsApi();
 
     /** Set up the API to called with the given credentials. */
     SnsApi(const std::string & accessKeyId,
-           const std::string & accessKey,
-           const std::string & serviceUri = "http://sns.us-east-1.amazonaws.com/");
+           const std::string & accessKey);
 
     /** Set up the API to called with the given credentials. */
     void init(const std::string & accessKeyId,
-              const std::string & accessKey,
-              const std::string & serviceUri = "http://sns.us-east-1.amazonaws.com/");
+              const std::string & accessKey);
 
     /** Publish a message to a given SNS topic.  Returns the Message ID assigned
         by Amazon.

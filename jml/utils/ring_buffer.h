@@ -300,6 +300,24 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         return true;
     }
 
+    bool tryPush(Request && request)
+    {
+        Guard guard(mutex);
+
+        // What position would the read position be in if the buffer was
+        // full?
+        unsigned fullReadPosition = (writePosition + 1) % bufferSize;
+        if (readPosition == fullReadPosition)
+            return false;
+
+        //ring[writePosition] = request;
+        ring[writePosition] = std::move(request);
+        writePosition = (writePosition + 1) % bufferSize;
+        ML::futex_wake(writePosition);
+
+        return true;
+    }
+
     Request pop()
     {
         Request result;
@@ -354,6 +372,22 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         ML::futex_wake(readPosition);
 
         return true;
+    }
+
+    std::vector<Request> tryPopMulti(size_t nbrRequests)
+    {
+        std::vector<Request> result;
+
+        for (size_t i = 0;
+             writePosition != readPosition && i < nbrRequests;
+             i++) {
+            result.emplace_back(std::move(ring[readPosition]));
+            ring[readPosition] = Request();
+            readPosition = (readPosition + 1) % bufferSize;
+        }
+        ML::futex_wake(readPosition);
+        
+        return result;
     }
 
     bool couldPop() const

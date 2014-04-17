@@ -68,6 +68,7 @@ struct Logging
         bool isEnabled() const;
         bool isDisabled() const;
 
+        std::shared_ptr<Writer> const & getWriter() const;
         void writeTo(std::shared_ptr<Writer> output, bool recurse = true);
 
         void activate(bool recurse = true);
@@ -77,13 +78,15 @@ struct Logging
 
         static Category root;
 
-    public:
+    private:
+        bool initialized;
         bool enabled;
         char const * name;
         std::shared_ptr<Writer> writer;
         std::stringstream stream;
         Category * parent;
-        std::vector<Category *> children;
+        Category * children;
+        Category * nextChild;
     };
 
     struct Printer {

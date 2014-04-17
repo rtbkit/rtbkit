@@ -385,12 +385,12 @@ struct ValueDescriptionT : public ValueDescription {
 
     virtual void copyValue(const void * from, void * to) const
     {
-        copyValue(to, from, typename is_copy_assignable<T>::type());
+        copyValue(to, from, typename Datacratic::is_copy_assignable<T>::type());
     }
 
     virtual void moveValue(void * from, void * to) const
     {
-        moveValue(to, from, typename is_move_assignable<T>::type());
+        moveValue(to, from, typename Datacratic::is_move_assignable<T>::type());
     }
 
     virtual void swapValues(void * from, void * to) const

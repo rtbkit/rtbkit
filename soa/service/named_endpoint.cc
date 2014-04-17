@@ -13,6 +13,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include "jml/utils/guard.h"
+#include "jml/arch/info.h"
 #include <sys/utsname.h>
 
 using namespace std;
@@ -149,10 +150,7 @@ getInterfaces(const std::set<int> & families,
 
         // TODO: better way of detecting non-routable addresses
         if (iface.loopback || iface.addr == "127.0.0.1") {
-            utsname name;
-            if (uname(&name))
-                throw ML::Exception(errno, "uname");
-            iface.hostScope = name.nodename;
+            iface.hostScope = ML::fqdn_hostname("");
         }
         else {
             iface.hostScope = "*";

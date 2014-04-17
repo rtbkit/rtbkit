@@ -81,6 +81,7 @@ init()
                                            proxies->config,
                                            postAuctionLoop->serviceName() + ".slaveBanker");
 
+    postAuctionLoop->addSource("slave-banker", *banker);
 	postAuctionLoop->setBanker(banker);
 	postAuctionLoop->bindTcp();
 
@@ -90,7 +91,6 @@ void
 PostAuctionRunner::
 start()
 {
-    banker->start();
     postAuctionLoop->start();
 }
 

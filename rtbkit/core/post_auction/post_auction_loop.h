@@ -374,6 +374,9 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
        	//std::cerr << "********* setting Auction Timeout to " << auctionTimeout << std::endl;
 	}
 
+    void addSource(std::string name, AsyncEventSource & source, int priority = 0) {
+        loop.addSource(std::move(name), source, priority);
+    }
 
 private:
     /** Initialize all of our connections, hooking everything in to the

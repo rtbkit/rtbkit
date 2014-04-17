@@ -234,6 +234,7 @@ processRemoveSource(AsyncEventSource* source)
     SourceEntry entry = *it;
     sources.erase(it);
 
+    source->parent_ = nullptr;
     int fd = source->selectFd();
     if (fd == -1) return;
     removeFd(fd);

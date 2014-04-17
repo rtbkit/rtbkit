@@ -8,6 +8,9 @@
 
 #pragma once
 
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "jml/arch/format.h"
 
 
@@ -65,8 +68,13 @@ randomString(size_t size)
         "abcdefghijklmnopqrstuvwxyz"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-    /* provide some randomness based on time */
-    ::srandom(::time(NULL) ^ getpid());
+    /* provide some randomness based on time and pid */
+    static struct AtInit {
+        AtInit()
+        {
+            ::srandom((::getpid() << 16 | 0xffff) ^ ::time(NULL));
+        }
+    } atInit;
 
     std::string s;
     for (size_t i = 0; i < size; ++i)

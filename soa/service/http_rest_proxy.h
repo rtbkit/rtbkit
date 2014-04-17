@@ -164,7 +164,7 @@ struct HttpRestProxy {
                   const Content & content = Content(),
                   const RestParams & queryParams = RestParams(),
                   const RestParams & headers = RestParams(),
-                  int timeout = -1) const
+                  double timeout = -1) const
     {
         return perform("POST", resource, content, queryParams, headers,
                        timeout);
@@ -175,7 +175,7 @@ struct HttpRestProxy {
                  const Content & content = Content(),
                  const RestParams & queryParams = RestParams(),
                  const RestParams & headers = RestParams(),
-                 int timeout = -1) const
+                 double timeout = -1) const
     {
         return perform("PUT", resource, content, queryParams, headers,
                        timeout);
@@ -185,7 +185,7 @@ struct HttpRestProxy {
     Response get(const std::string & resource,
                  const RestParams & queryParams = RestParams(),
                  const RestParams & headers = RestParams(),
-                 int timeout = -1) const
+                 double timeout = -1) const
     {
         return perform("GET", resource, Content(), queryParams, headers,
                        timeout);
@@ -197,7 +197,7 @@ struct HttpRestProxy {
                      const Content & content = Content(),
                      const RestParams & queryParams = RestParams(),
                      const RestParams & headers = RestParams(),
-                     int timeout = -1) const;
+                     double timeout = -1) const;
 
     /** URI that will be automatically prepended to resources passed in to
         the perform() methods

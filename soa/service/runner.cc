@@ -447,6 +447,16 @@ kill(int signum) const
     waitTermination();
 }
 
+void
+Runner::
+signal(int signum)
+{
+    if (childPid_ <= 0)
+        throw ML::Exception("subprocess not available");
+
+    ::kill(childPid_, signum);
+}
+
 bool
 Runner::
 waitStart(double secondsToWait) const
@@ -821,13 +831,15 @@ close()
 
 Runner::Task::ChildStatus::
 ChildStatus()
-    : state(ST_UNKNOWN),
-      pid(-1),
-      childStatus(-1),
-      launchErrno(0),
-      launchErrorCode(E_NONE)
 {
-    ::memset(&usage, 0, sizeof(usage));
+    // Doing it this way keeps ValGrind happy
+    ::memset(this, 0, sizeof(*this));
+
+    state = ST_UNKNOWN;
+    pid = -1;
+    childStatus = -1;
+    launchErrno = 0;
+    launchErrorCode = E_NONE;
 }
 
 

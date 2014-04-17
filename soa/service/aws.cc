@@ -517,7 +517,7 @@ performPost(RestParams && params,
             const std::string & resource,
             double timeoutSeconds)
 {
-    return perform(signGet(std::move(params), resource), timeoutSeconds, 3);
+    return perform(signPost(std::move(params), resource), timeoutSeconds, 3);
 }
 
 std::string

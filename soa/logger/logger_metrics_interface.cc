@@ -103,7 +103,7 @@ shared_ptr<ILoggerMetrics> ILoggerMetrics
     v["appName"] = appName;
     char* metricsParentId = getenv("METRICS_PARENT_ID");
     v["parent_id"] = string(metricsParentId ?: "");
-    v["user"] = string(getenv("USER"));
+    v["user"] = string(getenv("LOGNAME"));
     char hostname[128];
     int hostnameOk = !gethostname(hostname, 128);
     v["hostname"] = string(hostnameOk ? hostname : "");
