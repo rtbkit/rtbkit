@@ -63,11 +63,55 @@ struct S3UrlFsHandler : public UrlFsHandler {
     {
     }
 
-    virtual void erase(const Url & url) const
+    virtual bool erase(const Url & url, bool throwException) const
     {
         string bucket = url.host();
         auto api = getS3ApiForBucket(bucket);
-        api->erase(bucket, url.path());
+        if (throwException) {
+            api->eraseObject(bucket, url.path());
+            return true;
+        }
+        else { 
+            return api->tryEraseObject(bucket, url.path());
+        }
+    }
+
+    virtual bool forEach(const Url & prefix,
+                         const OnUriObject & onObject,
+                         const OnUriSubdir & onSubdir,
+                         const std::string & delimiter,
+                         const std::string & startAt) const
+    {
+        string bucket = prefix.host();
+        auto api = getS3ApiForBucket(bucket);
+
+        bool result = true;
+
+        auto onObject2 = [&] (const std::string & prefix,
+                              const std::string & objectName,
+                              const S3Api::ObjectInfo & info,
+                              int depth)
+            {
+                return onObject("s3://" + bucket + "/" + prefix + objectName,
+                                info, depth);
+            };
+
+        auto onSubdir2 = [&] (const std::string & prefix,
+                              const std::string & dirName,
+                              int depth)
+            {
+                return onSubdir("s3://" + bucket + "/" + prefix + dirName,
+                                depth);
+            };
+
+        // Get rid of leading / on prefix
+        string prefix2 = string(prefix.path(), 1);
+
+        api->forEachObject(bucket, prefix2, onObject2,
+                           onSubdir ? onSubdir2 : S3Api::OnSubdir(),
+                           delimiter, 1, startAt);
+
+        return result;
     }
 };
 

@@ -138,6 +138,9 @@ public:
 
     void close();
 
+    /* read the entire stream into a std::string */
+    std::string readAll();
+
 private:
     std::unique_ptr<std::istream> stream;
     std::unique_ptr<std::streambuf> sink;
