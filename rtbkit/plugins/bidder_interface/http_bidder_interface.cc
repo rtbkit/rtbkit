@@ -16,6 +16,38 @@ using namespace RTBKIT;
 
 namespace {
     DefaultDescription<OpenRTB::BidRequest> desc;
+
+    void tagRequest(OpenRTB::BidRequest &request,
+                    const std::map<std::string, BidInfo> &bidders)
+    {
+
+        for (const auto &bidder: bidders) {
+            const auto &agentConfig = bidder.second.agentConfig;
+            const auto &spots = bidder.second.imp;
+            const auto &creatives = agentConfig->creatives;
+
+            Json::Value creativesValue(Json::arrayValue);
+            for (const auto &spot: spots) {
+                const int adSpotIndex = spot.first;
+                ExcCheck(adSpotIndex >= 0 && adSpotIndex < request.imp.size(),
+                         "adSpotIndex out of range");
+                auto &imp = request.imp[adSpotIndex];
+                auto &ext = imp.ext;
+                for (int creativeIndex: spot.second) {
+                    ExcCheck(creativeIndex >= 0 && creativeIndex < creatives.size(),
+                             "creativeIndex out of range");
+                    const int creativeId = creatives[creativeIndex].id;
+                    creativesValue.append(creativeId);
+                }
+
+                ext["allowed_ids"][std::to_string(agentConfig->externalId)] =
+                    std::move(creativesValue);
+
+            }
+
+        }
+
+    }
 }
 
 HttpBidderInterface::HttpBidderInterface(std::string name,
