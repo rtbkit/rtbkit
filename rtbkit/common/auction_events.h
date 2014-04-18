@@ -204,7 +204,8 @@ struct DeliveryEvent
 
         Date time;                ///< Time at which win received
         BidStatus reportedStatus; ///< Whether we think we won it or lost it
-        Amount price;             ///< Win price
+        Amount price;             ///< Win price post-WinCostModel
+        Amount rawPrice;          ///< Win price pre-WinCostModel
         std::string meta;         ///< Metadata from win
 
         static Win fromJson(const Json::Value&);
