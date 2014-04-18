@@ -39,7 +39,7 @@ namespace RTBKIT {
 struct Banker;
 struct BudgetController;
 struct Accountant;
-struct BidPriceCalculator;
+struct BidderInterface;
 
 /*****************************************************************************/
 /* AGENT INFO                                                                */
@@ -553,7 +553,7 @@ public:
     std::vector<std::shared_ptr<ExchangeConnector> > exchanges;
 
     /** Bid price calculator */
-    std::shared_ptr<BidPriceCalculator> bpc;
+    std::shared_ptr<BidderInterface> bidder;
 
     /*************************************************************************/
     /* EXCEPTIONS                                                            */

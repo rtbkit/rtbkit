@@ -1,137 +1,42 @@
-/* bid_price_calculator.cc
+/* agents_bidder_interface.cc
    Eric Robert, 2 April 2014
    Copyright (c) 2011 Datacratic.  All rights reserved.
 */
 
-#include "jml/db/persistent.h"
+#include "agents_bidder_interface.h"
 #include "rtbkit/common/messages.h"
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
-#include "rtbkit/openrtb/openrtb_parsing.h"
-#include "bid_price_calculator.h"
-#include "soa/service/http_client.h"
+#include "rtbkit/core/router/router.h"
 
 using namespace Datacratic;
 using namespace RTBKIT;
 
-namespace {
-    DefaultDescription<OpenRTB::BidRequest> desc;
+AgentsBidderInterface::AgentsBidderInterface(std::string const & name,
+                                             std::shared_ptr<ServiceProxies> proxies,
+                                             Json::Value const & config) {
 }
 
-
-BidPriceCalculator::BidPriceCalculator(ServiceBase & parent,
-                                       std::string const & name) :
-    ServiceBase(name, parent),
-    events(65536),
-    endpoint(getZmqContext()),
-    httpClient(nullptr)
-{
-}
-
-BidPriceCalculator::BidPriceCalculator(std::shared_ptr<ServiceProxies> proxies,
-                                       std::string const & name) :
-    ServiceBase(name, proxies),
-    events(65536),
-    endpoint(getZmqContext()),
-    httpClient(nullptr)
-{
-}
-
-void BidPriceCalculator::init(Router * value) {
-    router = value;
-
-    registerServiceProvider(serviceName(), { "rtbBiddingService" });
-
-    events.onEvent = std::bind<void>(&BidPriceCalculator::send,
-                                    this,
-                                    std::placeholders::_1);
-
-    endpoint.messageHandler = std::bind(&BidPriceCalculator::handlePostAuctionMessage,
-                                        this,
-                                        std::placeholders::_1);
-    endpoint.init(getServices()->config, ZMQ_XREP, serviceName() + "/events");
-    loop.addSource("BidPriceCalculator::events", events);
-}
-
-void BidPriceCalculator::bindTcp() {
-    endpoint.bindTcp(getServices()->ports->getRange("biddingService"));
-}
-
-void BidPriceCalculator::start() {
-    loop.start();
-}
-
-void BidPriceCalculator::sendAuctionMessage(std::shared_ptr<Auction> const & auction,
+void AgentsBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                                             double timeLeftMs,
-                                            std::map<std::string, BidInfo> const & bidders,
-                                            const std::string &forwardHost) {
+                                            std::map<std::string, BidInfo> const & bidders) {
     for(auto & item : bidders) {
         auto & agent = item.first;
         auto & spots = item.second.imp;
         auto & info = router->agents[agent];
-        const auto &config = info.config;
         WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction, *info.config);
-        if (config->external) {
-            if (forwardInfo.first.empty()) {
-                throw ML::Exception("Empty forward host");
-            }
-
-            OpenRTB::BidRequest openRtbRequest = toOpenRtb(*auction->request);
-            StructuredJsonPrintingContext context;
-            desc.printJson(&openRtbRequest, context);
-            auto requestStr = context.output.toString();
-
-            auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
-                    [&](const HttpRequest &, HttpClientError errorCode,
-                        int, const std::string &, const std::string &body)
-                    {
-                        if (errorCode != HttpClientError::NONE) {
-                            auto toErrorString = [](HttpClientError code) -> std::string {
-                                switch (code) {
-                                    #define CASE(code) \
-                                        case code: \
-                                            return #code;
-                                    CASE(HttpClientError::NONE)
-                                    CASE(HttpClientError::UNKNOWN)
-                                    CASE(HttpClientError::TIMEOUT)
-                                    CASE(HttpClientError::HOST_NOT_FOUND)
-                                    CASE(HttpClientError::COULD_NOT_CONNECT)
-                                    #undef CASE
-                                }
-                                ExcCheck(false, "Invalid code path");
-                                return "";
-                            };
-                            std::cerr << "Error requesting " << forwardHost
-                                      << ": " << toErrorString(errorCode);
-                          }
-                          else {
-                              std::cerr << "Response: " << body << std::endl;
-                          }
-                      });
-
-            HttpRequest::Content reqContent { requestStr, "application/json" };
-            RestParams headers { { "x-openrtb-version", "2.1" } };
-            std::cerr << "Sending HTTP POST to: " << forwardInfo.first <<
-                      " " << forwardInfo.second << std::endl;
-            std::cerr << "Content " << reqContent.str << std::endl;
-            httpClient->post(forwardInfo.second, callbacks, reqContent,
-                            { } /* queryParams */, headers);
-        }
-        else {
-            router->sendAgentMessage(agent,
-                                     "AUCTION",
-                                     auction->start,
-                                     auction->id,
-                                     info.getBidRequestEncoding(*auction),
-                                     info.encodeBidRequest(*auction),
-                                     spots.toJsonStr(),
-                                     std::to_string(timeLeftMs),
-                                     auction->agentAugmentations[agent],
-                                     wcm.toJson());
-        }
+        router->sendAgentMessage(agent,
+                                 "AUCTION",
+                                 auction->start,
+                                 auction->id,
+                                 info.getBidRequestEncoding(*auction),
+                                 info.encodeBidRequest(*auction),
+                                 spots.toJsonStr(),
+                                 std::to_string(timeLeftMs),
+                                 auction->agentAugmentations[agent],
+                                 wcm.toJson());
     }
 }
 
-void BidPriceCalculator::sendWinMessage(std::string const & agent,
+void AgentsBidderInterface::sendWinMessage(std::string const & agent,
                                         std::string const & id,
                                         Amount price) {
     router->sendAgentMessage(agent,
@@ -143,7 +48,7 @@ void BidPriceCalculator::sendWinMessage(std::string const & agent,
                              price.toString());
 }
 
-void BidPriceCalculator::sendLossMessage(std::string const & agent,
+void AgentsBidderInterface::sendLossMessage(std::string const & agent,
                                          std::string const & id) {
     router->sendAgentMessage(agent,
                              "LOSS",
@@ -154,7 +59,7 @@ void BidPriceCalculator::sendLossMessage(std::string const & agent,
                              Amount().toString());
 }
 
-void BidPriceCalculator::sendBidLostMessage(std::string const & agent,
+void AgentsBidderInterface::sendBidLostMessage(std::string const & agent,
                                             std::shared_ptr<Auction> const & auction) {
     router->sendAgentMessage(agent,
                              "LOST",
@@ -174,7 +79,7 @@ void BidPriceCalculator::sendBidLostMessage(std::string const & agent,
 */
 }
 
-void BidPriceCalculator::sendBidDroppedMessage(std::string const & agent,
+void AgentsBidderInterface::sendBidDroppedMessage(std::string const & agent,
                                                std::shared_ptr<Auction> const & auction) {
     router->sendAgentMessage(agent,
                              "DROPPEDBID",
@@ -196,7 +101,7 @@ void BidPriceCalculator::sendBidDroppedMessage(std::string const & agent,
 */
 }
 
-void BidPriceCalculator::sendBidInvalidMessage(std::string const & agent,
+void AgentsBidderInterface::sendBidInvalidMessage(std::string const & agent,
                                                std::string const & reason,
                                                std::shared_ptr<Auction> const & auction) {
     router->sendAgentMessage(agent,
@@ -218,7 +123,7 @@ void BidPriceCalculator::sendBidInvalidMessage(std::string const & agent,
 */
 }
 
-void BidPriceCalculator::sendNoBudgetMessage(std::string const & agent,
+void AgentsBidderInterface::sendNoBudgetMessage(std::string const & agent,
                                              std::shared_ptr<Auction> const & auction) {
     router->sendAgentMessage(agent,
                              "NOBUDGET",
@@ -237,7 +142,7 @@ void BidPriceCalculator::sendNoBudgetMessage(std::string const & agent,
 */
 }
 
-void BidPriceCalculator::sendTooLateMessage(std::string const & agent,
+void AgentsBidderInterface::sendTooLateMessage(std::string const & agent,
                                             std::shared_ptr<Auction> const & auction) {
     router->sendAgentMessage(agent,
                              "TOOLATE",
@@ -277,14 +182,14 @@ void BidPriceCalculator::sendTooLateMessage(std::string const & agent,
 */
 }
 
-void BidPriceCalculator::sendMessage(std::string const & agent,
+void AgentsBidderInterface::sendMessage(std::string const & agent,
                                      std::string const & message) {
     router->sendAgentMessage(agent,
                              message,
                              Date::now());
 }
 
-void BidPriceCalculator::sendErrorMessage(std::string const & agent,
+void AgentsBidderInterface::sendErrorMessage(std::string const & agent,
                                           std::string const & error,
                                           std::vector<std::string> const & payload) {
     router->sendAgentMessage(agent,
@@ -294,7 +199,7 @@ void BidPriceCalculator::sendErrorMessage(std::string const & agent,
                              payload);
 }
 
-void BidPriceCalculator::sendPingMessage(std::string const & agent,
+void AgentsBidderInterface::sendPingMessage(std::string const & agent,
                                          int ping) {
     if(ping == 0) {
         router->sendAgentMessage(agent,
@@ -310,7 +215,7 @@ void BidPriceCalculator::sendPingMessage(std::string const & agent,
     }
 }
 
-void BidPriceCalculator::send(std::shared_ptr<PostAuctionEvent> const & event) {
+void AgentsBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event) {
     /*
     router->sendAgentMessage(agent,
                              event->label,
@@ -321,26 +226,16 @@ void BidPriceCalculator::send(std::shared_ptr<PostAuctionEvent> const & event) {
                              event->winPrice.toString());*/
 }
 
-void BidPriceCalculator::handlePostAuctionMessage(std::vector<std::string> const & items) {
-    std::string key = "messages." + items[1];
-    recordHit(key);
+//
+// factory
+//
 
-    auto event = std::make_shared<PostAuctionEvent>(
-                    ML::DB::reconstituteFromString<PostAuctionEvent>(items.at(2)));
-    if(items[1] != event->label) {
-        key += "." + event->label;
-        recordHit(key);
+struct AtInit {
+    AtInit()
+    {
+        BidderInterface::registerFactory("agents", [](std::string const & name , std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) {
+            return new AgentsBidderInterface(name, proxies, json);
+        });
     }
-    else {
-        event->label = items[1];
-    }
+} atInit;
 
-    events.push(event);
-}
-
-void BidPriceCalculator::useForwardingUri(const std::string &host,
-                                   const std::string &resource) {
-    forwardInfo = { host, resource };
-    httpClient.reset(new HttpClient(host));
-    loop.addSource("BidPriceCalculator::httpClient", httpClient);
-}

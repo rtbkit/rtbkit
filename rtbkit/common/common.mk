@@ -19,6 +19,7 @@ LIBRTB_SOURCES := \
 	bids.cc \
 	auction_events.cc \
 	exchange_connector.cc \
+	bidder_interface.cc \
 	win_cost_model.cc
 
 LIBRTB_LINK := \

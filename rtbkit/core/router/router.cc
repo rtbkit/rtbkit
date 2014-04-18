@@ -32,7 +32,7 @@
 #include "rtbkit/common/auction_events.h"
 #include "rtbkit/common/messages.h"
 #include "rtbkit/common/win_cost_model.h"
-#include "rtbkit/core/router/bid_price_calculator.h"
+#include "rtbkit/common/bidder_interface.h"
 
 using namespace std;
 using namespace ML;
@@ -145,7 +145,6 @@ Router(ServiceBase & parent,
       monitorProviderClient(getZmqContext(), *this),
       maxBidAmount(maxBidAmount)
 {
-    bpc = std::make_shared<BidPriceCalculator>(*this);
 }
 
 Router::
@@ -188,7 +187,6 @@ Router(std::shared_ptr<ServiceProxies> services,
       monitorProviderClient(getZmqContext(), *this),
       maxBidAmount(maxBidAmount)
 {
-    bpc = std::make_shared<BidPriceCalculator>(services);
 }
 
 void
@@ -204,11 +202,14 @@ init()
 
     banker.reset(new NullBanker());
 
+    Json::Value json;
+    json["type"] = "agents";
+    bidder = BidderInterface::create("bidder", getServices(), json);
+    bidder->init(this);
+
     augmentationLoop.init();
 
     logger.init(getServices()->config, serviceName() + "/logger");
-
-    bpc->init(this);
 
     agentEndpoint.init(getServices()->config, serviceName() + "/agents");
     agentEndpoint.clientMessageHandler
@@ -286,7 +287,7 @@ bindTcp()
 {
     logger.bindTcp(getServices()->ports->getRange("logs"));
     agentEndpoint.bindTcp(getServices()->ports->getRange("router"));
-    bpc->bindTcp();
+    bidder->bindTcp();
 }
 
 void
@@ -341,7 +342,7 @@ start(boost::function<void ()> onStop)
             if (onStop) onStop();
         };
 
-    bpc->start();
+    bidder->start();
     logger.start();
     augmentationLoop.start();
     runThread.reset(new boost::thread(runfn));
@@ -802,7 +803,7 @@ handleAgentMessage(const std::vector<std::string> & message)
             string configName = message.at(2);
             if (!agents.count(configName)) {
                 // We don't yet know about its configuration
-                bpc->sendMessage(address, "NEEDCONFIG");
+                bidder->sendMessage(address, "NEEDCONFIG");
                 return;
             }
             agents[configName].address = address;
@@ -954,7 +955,7 @@ checkDeadAgents()
 
                     this->recordHit("accounts.%s.lostBids", account);
 
-                    bpc->sendBidLostMessage(it->first, inFlight[id].auction);
+                    bidder->sendBidLostMessage(it->first, inFlight[id].auction);
 
                     toExpire.push_back(id);
                 }
@@ -1004,7 +1005,7 @@ checkDeadAgents()
                 // agent is dead
                 cerr << "agent " << it->first << " appears to be dead"
                      << endl;
-                bpc->sendMessage(it->first, "BYEBYE");
+                bidder->sendMessage(it->first, "BYEBYE");
                 deadAgents.push_back(it);
             }
         }
@@ -1058,7 +1059,7 @@ checkExpiredAuctions()
                         this->recordHit("accounts.%s.droppedBids",
                                         info.config->account.toString('.'));
 
-                        bpc->sendBidDroppedMessage(agent, auctionInfo.auction);
+                        bidder->sendBidDroppedMessage(agent, auctionInfo.auction);
                     }
                 }
 
@@ -1111,7 +1112,7 @@ returnErrorResponse(const std::vector<std::string> & message,
     using namespace std;
     if (message.empty()) return;
     logMessage("ERROR", error, message);
-    bpc->sendErrorMessage(message[0], error, message);
+    bidder->sendErrorMessage(message[0], error, message);
 }
 
 void
@@ -1620,7 +1621,7 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
             }
         }
 
-        bpc->sendAuctionMessage(auctionInfo.auction, timeLeftMs, auctionInfo.bidders);
+        bidder->sendAuctionMessage(auctionInfo.auction, timeLeftMs, auctionInfo.bidders);
 
         debugAuction(auctionId, "AUCTION");
     } catch (const std::exception & exc) {
@@ -1811,7 +1812,7 @@ doBid(const std::vector<std::string> & message)
                  << formatted << endl;
             cerr << biddata << endl;
 
-            bpc->sendBidInvalidMessage(agent, formatted, auctionInfo.auction);
+            bidder->sendBidInvalidMessage(agent, formatted, auctionInfo.auction);
         };
 
     BidInfo bidInfo(std::move(biddersIt->second));
@@ -1920,7 +1921,7 @@ doBid(const std::vector<std::string> & message)
         {
             ++info.stats->noBudget;
 
-            bpc->sendNoBudgetMessage(agent, auctionInfo.auction);
+            bidder->sendNoBudgetMessage(agent, auctionInfo.auction);
 
             this->logMessage("NOBUDGET", agent, auctionId,
                     biddata, meta);
@@ -1998,15 +1999,15 @@ doBid(const std::vector<std::string> & message)
             switch (localResult.val) {
             case Auction::WinLoss::LOSS:
                 status = BS_LOSS;
-                bpc->sendLossMessage(agent, auctionId.toString());
+                bidder->sendLossMessage(agent, auctionId.toString());
                 break;
             case Auction::WinLoss::TOOLATE:
                 status = BS_TOOLATE;
-                bpc->sendTooLateMessage(agent, auctionInfo.auction);
+                bidder->sendTooLateMessage(agent, auctionInfo.auction);
                 break;
             case Auction::WinLoss::INVALID:
                 status = BS_INVALID;
-                bpc->sendBidInvalidMessage(agent, msg, auctionInfo.auction);
+                bidder->sendBidInvalidMessage(agent, msg, auctionInfo.auction);
                 break;
             default:
                 throw ML::Exception("logic error");
@@ -2196,13 +2197,13 @@ doSubmitted(std::shared_ptr<Auction> auction)
                 bidStatus = BS_LOSS;
                 ++info.stats->losses;
                 msg = "LOSS";
-                bpc->sendLossMessage(response.agent, auctionId.toString());
+                bidder->sendLossMessage(response.agent, auctionId.toString());
                 break;
             case Auction::WinLoss::TOOLATE:
                 bidStatus = BS_TOOLATE;
                 ++info.stats->tooLate;
                 msg = "TOOLATE";
-                bpc->sendTooLateMessage(response.agent, auction);
+                bidder->sendTooLateMessage(response.agent, auction);
                 break;
             default:
                 throwException("doSubmitted.unknownStatus",
@@ -2400,7 +2401,7 @@ doConfig(const std::string & agent,
 
     configure(agent, *newConfig);
     info.configured = true;
-    bpc->sendMessage(agent, "GOTCONFIG");
+    bidder->sendMessage(agent, "GOTCONFIG");
 
     info.filterIndex = filters.addConfig(agent, info);
 
@@ -2527,9 +2528,9 @@ sendPings()
         // 1.  Send out new pings
         Date now = Date::now();
         if (info.sendPing(0, now))
-            bpc->sendPingMessage(agent, 0);
+            bidder->sendPingMessage(agent, 0);
         if (info.sendPing(1, now))
-            bpc->sendPingMessage(agent, 1);
+            bidder->sendPingMessage(agent, 1);
 
         // 2.  Look at the trend
         //double mean, max;

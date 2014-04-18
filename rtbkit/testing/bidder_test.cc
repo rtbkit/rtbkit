@@ -1,4 +1,4 @@
-/* bpc_test.cc
+/* bidder_test.cc
    Eric Robert, 10 April 2014
    Copyright (c) 2013 Datacratic.  All rights reserved.
 */
@@ -17,7 +17,7 @@
 using namespace Datacratic;
 using namespace RTBKIT;
 
-BOOST_AUTO_TEST_CASE( bpc_http_test )
+BOOST_AUTO_TEST_CASE( bidder_http_test )
 {
     ML::Watchdog watchdog(10.0);
 
@@ -28,26 +28,26 @@ BOOST_AUTO_TEST_CASE( bpc_http_test )
 
     std::cout << configuration << std::endl;
 
-    BidStack bidStack;
-    BidStack bpcStack;
+    BidStack hapiStack;
+    BidStack httpStack;
 
-    bidStack.runThen(configuration, USD_CPM(10), 0, [&](Json::Value const & json) {
+    hapiStack.runThen(configuration, USD_CPM(10), 0, [&](Json::Value const & json) {
         const auto &bids = json["workers"][0]["bids"];
         auto url = bids["url"].asString();
         auto resource = bids.get("resource", "/").asString();
         std::cerr << url << resource << std::endl;
-        bpcStack.useForwardingUri(url, resource);
-        bpcStack.run(configuration, USD_CPM(20), 10);
+        httpStack.useForwardingUri(url, resource);
+        httpStack.run(configuration, USD_CPM(20), 10);
     });
 
 
-    auto bpcEvents = bpcStack.proxies->events->get(std::cerr);
-    int bpcCount = bpcEvents["router.bid"];
-    std::cerr << "BPC BID COUNT=" << bpcCount << std::endl;
+    auto httpEvents = httpStack.proxies->events->get(std::cerr);
+    int httpCount = httpEvents["router.bid"];
+    std::cerr << "BPC BID COUNT=" << httpCount << std::endl;
 
-    auto bidEvents = bidStack.proxies->events->get(std::cerr);
-    int bidCount = bidEvents["router.bid"];
-    std::cerr << "BID BID COUNT=" << bidCount << std::endl;
+    auto hapiEvents = hapiStack.proxies->events->get(std::cerr);
+    int hapiCount = hapiEvents["router.bid"];
+    std::cerr << "BID BID COUNT=" << hapiCount << std::endl;
 
     //BOOST_CHECK_EQUAL(bpcEvents["router.cummulatedBidPrice"], count * 1000);
     //BOOST_CHECK_EQUAL(bpcEvents["router.cummulatedAuthorizedPrice"], count * 505);

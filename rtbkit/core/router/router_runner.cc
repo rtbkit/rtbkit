@@ -15,6 +15,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/thread/thread.hpp>
 
+#include "rtbkit/common/bidder_interface.h"
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/banker/slave_banker.h"
 #include "jml/arch/timers.h"
@@ -40,6 +41,7 @@ static inline Json::Value loadJsonFromFile(const std::string & filename)
 RouterRunner::
 RouterRunner() :
     exchangeConfigurationFile("rtbkit/examples/router-config.json"),
+    bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
     lossSeconds(15.0),
     noPostAuctionLoop(false),
     logAuctions(false),
@@ -65,6 +67,8 @@ doOptions(int argc, char ** argv,
          "URI to publish logs to")
         ("exchange-configuration,x", value<string>(&exchangeConfigurationFile),
          "configuration file with exchange data")
+        ("bidder-configuration,b", value<string>(&bidderConfigurationFile),
+         "configuration file with bidder interface data")
         ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
          "log auction requests")
         ("log-bids", value<bool>(&logBids)->zero_tokens(),
@@ -101,6 +105,7 @@ init()
     auto serviceName = serviceArgs.serviceName("router");
 
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
+    bidderConfig = loadJsonFromFile(bidderConfigurationFile);
 
     auto connectPostAuctionLoop = !noPostAuctionLoop;
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
@@ -108,6 +113,7 @@ init()
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice));
     router->init();
+    router->bidder = BidderInterface::create("bidder", proxies, bidderConfig);
 
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
                                            proxies->config,

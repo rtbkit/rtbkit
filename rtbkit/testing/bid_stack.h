@@ -8,7 +8,7 @@
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/banker/null_banker.h"
-#include "rtbkit/core/router/bid_price_calculator.h"
+#include "rtbkit/common/bidder_interface.h"
 #include "rtbkit/common/testing/exchange_source.h"
 #include "rtbkit/testing/test_agent.h"
 #include "rtbkit/testing/mock_exchange.h"
@@ -65,7 +65,12 @@ struct BidStack {
 
         router.setBanker(banker);
         if (!forwardInfo.first.empty()) {
-            router.bpc->useForwardingUri(forwardInfo.first, forwardInfo.second);
+            Json::Value json;
+            json["type"] = "http";
+            json["host"] = forwardInfo.first;
+            json["path"] = forwardInfo.second;
+            router.bidder = BidderInterface::create("bidder", proxies, json);
+            router.bidder->init(&router);
         }
 
         // Start the router up
