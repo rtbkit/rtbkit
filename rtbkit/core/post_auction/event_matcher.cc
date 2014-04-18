@@ -47,9 +47,24 @@ bool findAuction(PendingList<pair<Id,Id>, Value> & pending,
 }
 
 
+std::string makeBidId(Id auctionId, Id spotId, const std::string & agent)
+{
+    return auctionId.toString() + "-" + spotId.toString() + "-" + agent;
+}
+
+
 /******************************************************************************/
 /* EVENT MATCHER                                                              */
 /******************************************************************************/
+
+EventMatcher::
+EventMatcher(
+        PostAuctionService& service,
+        std::shared_ptr<EventService> events) :
+    EventRecorder(events),
+    service(service)
+{}
+
 
 void
 EventMatcher::
@@ -81,8 +96,8 @@ checkExpiredAuctions()
                                       "null", UserIds());
                 } catch (const std::exception & exc) {
                     cerr << "error handling expired loss auction: " << exc.what()
-                    << endl;
-                    this->logPAError("checkExpiredAuctions.loss", exc.what());
+                        << endl;
+                    doError("checkExpiredAuctions.loss", exc.what());
                 }
 
                 return Date();
@@ -109,6 +124,31 @@ checkExpiredAuctions()
 }
 
 
+
+void
+EventMatcher::
+doEvent(const std::shared_ptr<PostAuctionEvent> & event)
+{
+    try {
+        switch (event->type) {
+        case PAE_WIN:
+        case PAE_LOSS:
+            doWinLoss(event, false);
+            break;
+        case PAE_CAMPAIGN_EVENT:
+            doCampaignEvent(event);
+            break;
+        default:
+            throw Exception("postAuctionLoop.unknownEventType",
+                            "unknown event type (%d)", event->type);
+        }
+    } catch (const std::exception & exc) {
+        cerr << "doEvent " << print(event->type) << " threw: "
+             << exc.what() << endl;
+    }
+}
+
+
 void
 EventMatcher::
 doAuction(const SubmittedAuctionEvent & event)
@@ -117,8 +157,6 @@ doAuction(const SubmittedAuctionEvent & event)
         recordHit("processedAuction");
 
         const Id & auctionId = event.auctionId;
-
-        //cerr << "doAuction for " << auctionId << endl;
 
         Date lossTimeout = event.lossTimeout;
 
@@ -141,85 +179,30 @@ doAuction(const SubmittedAuctionEvent & event)
 
         submitted.insert(key, submission, lossTimeout);
 
-        string transId = makeBidId(auctionId, event.adSpotId, event.bidResponse.agent);
+        string transId =
+            makeBidId(auctionId, event.adSpotId, event.bidResponse.agent);
         banker->attachBid(event.bidResponse.account,
                           transId,
                           event.bidResponse.price.maxPrice);
 
-#if 0
-        //cerr << "submitted " << auctionId << "; now " << submitted.size()
-        //     << " auctions submitted" << endl;
-
-        // Add to awaiting result list
-        if (!agents.count(submission.bid.agent)) {
-            logPAError("doSubmitted.unknownAgentWonAuction",
-                       "unknown agent won auction");
-            continue;
-        }
-        agents[submission.bid.agent].awaitingResult
-            .insert(make_pair(auctionId, adSpotId));
-#endif
-
         /* Replay any early win/loss events. */
-        for (auto it = earlyWinEvents.begin(),
-                 end = earlyWinEvents.end();
-             it != end;  ++it) {
+        for (auto it = earlyWinEvents.begin(), end = earlyWinEvents.end();
+             it != end;  ++it)
+        {
             recordHit("replayedEarlyWinEvent");
-            //cerr << "replaying early win message" << endl;
             doWinLoss(*it, true /* is_replay */);
         }
+
     } catch (const std::exception & exc) {
         cerr << "doAuction ignored error handling auction: "
              << exc.what() << endl;
     }
 }
 
-
-void
-EventMatcher::
-doEvent(const std::shared_ptr<PostAuctionEvent> & event)
-{
-    //cerr << "!!!EventMatcher::doEvent:got post auction event " <<
-    //print(event->type) << endl;
-
-    try {
-        switch (event->type) {
-        case PAE_WIN:
-        case PAE_LOSS:
-            doWinLoss(event, false);
-            break;
-        case PAE_CAMPAIGN_EVENT:
-            doCampaignEvent(event);
-            break;
-        default:
-            throw Exception("postAuctionLoop.unknownEventType",
-                            "unknown event type (%d)", event->type);
-        }
-    } catch (const std::exception & exc) {
-        cerr << "doEvent " << print(event->type) << " threw: "
-             << exc.what() << endl;
-    }
-
-    //cerr << "finished with event " << print(event->type) << endl;
-}
-
 void
 EventMatcher::
 doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 {
-    lastWinLoss = Date::now();
-
-#if 0
-    static Date dbg_ts;
-
-    if (!dbg_ts.secondsSinceEpoch()) dbg_ts = lastWinLoss;
-
-    if (lastWinLoss > dbg_ts.plusSeconds(0.2)) {
-      cerr << "WIN_RECEIVED: " << dbg_ts.printClassic() << endl;
-      dbg_ts = Date::now();
-    }
-#endif
-
     BidStatus status;
     if (event->type == PAE_WIN) {
         ML::atomic_inc(numWins);
@@ -239,9 +222,6 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
     else
         recordHit("bidResult.%s.messagesReplayed", typeStr);
 
-    //cerr << "doWinLoss 1" << endl;
-
-    // cerr << "doWin" << message << endl;
     const Id & auctionId = event->auctionId;
     const Id & adSpotId = event->adSpotId;
     Amount winPrice = event->winPrice;
@@ -251,20 +231,13 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 
     Date bidTimestamp = event->bidTimestamp;
 
-    // debugSpot(auctionId, adSpotId, typeStr);
-
     auto getTimeGapMs = [&] ()
         {
             return 1000.0 * Date::now().secondsSince(bidTimestamp);
         };
 
-    /*cerr << "doWinLoss for " << auctionId << "-" << adSpotId
-         << " " << typeStr
-         << " submitted.size() = " << submitted.size()
-         << endl;
-         */
-    //cerr << "  key = (" << auctionId << "," << adSpotId << ")" << endl;
     auto key = make_pair(auctionId, adSpotId);
+
     /* In this case, the auction is finished which means we've already either:
        a) received a WIN message (and this one is a duplicate);
        b) received no WIN message, timed out, and inferred a loss
@@ -304,37 +277,13 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 
             finished.update(key, info);
 
-            logMessage("MATCHEDWIN",
-                    info.auctionId,
-                    to_string(info.spotIndex),
-                    info.bid.agent,
-                    info.bid.account.at(1, ""),
-                    info.winPrice.toString(),
-                    info.bid.price.maxPrice.toString(),
-                    to_string(info.bid.price.priority),
-                    info.bidRequestStr,
-                    info.bid.bidData,
-                    info.bid.meta,
-                    to_string(info.bid.creativeId),
-                    info.bid.creativeName,
-                    info.bid.account.at(0, ""),
-                    uids.toJsonStr(),
-                    info.winMeta,
-                    info.bid.account.at(0, ""),
-                    info.adSpotId,
-                    info.bid.account.toString(),
-                    info.bidRequestStrFormat);
-
-
-            sendAgentMessage(info.bid.agent, "LATEWIN", timestamp,
-                     "guaranteed", info.auctionId,
-                     to_string(info.bidRequest->findAdSpotIndex(adSpotId)),
-                     info.winPrice.toString(),
-                     info.bidRequestStrFormat,
-                     info.bidRequestStr,
-                     info.bid.bidData,
-                     info.bid.meta,
-                     info.augmentations);
+            if (onMatchedWinLoss) {
+                MatchedWinLoss matchedEvent(
+                        MatchedWinLoss::LateWin,
+                        MatchedWinLoss::Guaranteed,
+                        event, info);
+                onMatchedWinLoss(std::move(matchedEvent));
+            }
 
             recordHit("bidResult.%s.winAfterLossAssumed", typeStr);
             recordOutcome(winPrice.value,
@@ -342,17 +291,13 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
                           typeStr, winPrice.getCurrencyStr());
         }
 
-        /*
-          cerr << "doWinLoss: auction " << key
-          << " was in submitted auctions and also in finished auctions"
-          << endl;
-        */
         return;
     }
 
     //cerr << "doWinLoss not in finished" << endl;
 
     double lossTimeout = 15.0;
+
     /* If the auction wasn't finished, then it should be submitted.  The only
        time this won't happen is:
        a) when the WIN message raced and got in before we noticed the auction
@@ -361,17 +306,10 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
        b) when we were more than an hour late, which means that the auction
           is completely unknown.
     */
-#if 0
-    cerr << fName << " number of elements in submitted " << submitted.size() << endl;
-    for (auto it = submitted.begin() ; it != submitted.end() ;++it)
-        cerr << it->first << endl;
-#endif
     if (!submitted.count(key)) {
         double timeGapMs = getTimeGapMs();
         if (timeGapMs < lossTimeout * 1000) {
             recordHit("bidResult.%s.noBidSubmitted", typeStr);
-            //cerr << "WIN for active auction: " << meta
-            //     << " timeGapMs = " << timeGapMs << endl;
 
             /* We record the win message here and play it back once we submit
                the auction.
@@ -404,9 +342,9 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
             return;
         }
     }
+
     SubmissionInfo info = submitted.pop(key);
     if (!info.bidRequest) {
-        //cerr << "doWinLoss doubled bid request" << endl;
 
         // We doubled up on a WIN without having got the auction yet
         info.earlyWinEvents.push_back(event);
@@ -416,19 +354,18 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 
     recordHit("bidResult.%s.delivered", typeStr);
 
-    //cerr << "event.metadata = " << event->metadata << endl;
-    //cerr << "event.winPrice = " << event->winPrice << endl;
+    auto confidence = status == BS_WIN ?
+        MatchedWinLoss::Guaranteed : MatchedWinLoss::Inferred;
 
     doBidResult(auctionId, adSpotId, info,
-                winPrice, timestamp, status,
-                status == BS_WIN ? "guaranteed" : "inferred",
+                winPrice, timestamp, status, confidence,
                 meta.toString(), uids);
-    std::for_each(info.earlyCampaignEvents.begin(),
-                  info.earlyCampaignEvents.end(),
-                  std::bind(&EventMatcher::doCampaignEvent, this,
-                            std::placeholders::_1));
 
-    //cerr << "doWinLoss done" << endl;
+    using namespace std::placeholders;
+    std::for_each(
+            info.earlyCampaignEvents.begin(),
+            info.earlyCampaignEvents.end(),
+            std::bind(&EventMatcher::doCampaignEvent, this, _1));
 }
 
 
@@ -436,8 +373,6 @@ void
 EventMatcher::
 doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
 {
-    //RouterProfiler profiler(this, dutyCycleCurrent.nsImpression);
-    //static const char* fName = "EventMatcher::doCampaignEvent:";
     const string & label = event->label;
     const Id & auctionId = event->auctionId;
     Id adSpotId = event->adSpotId;
@@ -453,18 +388,11 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
                             + string(print(event->type)));
     }
 
-    lastCampaignEvent = Date::now();
-
     recordHit("delivery.EVENT.%s.messagesReceived", label);
 
-    //cerr << fName << typeStr << " " << auctionId << "-" << adSpotId << endl;
-    //cerr <<"The number of elements in submitted " << submitted.size() << endl;
     auto recordUnmatched = [&] (const std::string & why)
         {
-            this->logMessage(string("UNMATCHED") + label, why,
-                             auctionId.toString(), adSpotId.toString(),
-                             to_string(timestamp.secondsSinceEpoch()),
-                             meta);
+            onUnmatchedEvent(UnmatchedEvent(why, event));
         };
 
     if (findAuction(submitted, auctionId, adSpotId, submissionInfo)) {
@@ -473,24 +401,23 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
         //
         // TODO: for now we just ignore the event; we should eventually
         // implement what is written above
-        //cerr << "auction " << auctionId << "-" << adSpotId
-        //     << " in flight but got " << type << endl;
         recordHit("delivery.%s.stillInFlight", label);
-        logPAError(string("doCampaignEvent.auctionNotWon") + label,
-                   "message for auction that's not won");
+        doError("doCampaignEvent.auctionNotWon" + label,
+                "message for auction that's not won");
+
         recordUnmatched("inFlight");
 
         submissionInfo.earlyCampaignEvents.push_back(event);
-
         submitted.update(make_pair(auctionId, adSpotId), submissionInfo);
         return;
     }
+
     else if (findAuction(finished, auctionId, adSpotId, finishedInfo)) {
         // Update the info
         if (finishedInfo.campaignEvents.hasEvent(label)) {
             recordHit("delivery.%s.duplicate", label);
-            logPAError(string("doCampaignEvent.duplicate")
-                       + label, "message duplicated");
+            doError("doCampaignEvent.duplicate" + label,
+                    "message duplicated");
             recordUnmatched("duplicate");
             return;
         }
@@ -503,7 +430,6 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
                   finishedInfo.bid.account.toString().c_str());
 
         pair<Id, Id> key(auctionId, adSpotId);
-        //cerr << "key = " << key << endl;
         if (!key.second)
             throw ML::Exception("updating null entry in finished map");
 
@@ -513,9 +439,10 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
 
         finished.update(key, finishedInfo);
 
-        routePostAuctionEvent(label, finishedInfo,
-                              SegmentList(), false /* filterChannels */);
+        if (onMatchedCampaignEvent)
+            onMatchedCampaignEvent(MatchedCampaignEvent(label, finishedInfo));
     }
+
     else {
         /* We get here if we got an IMPRESSION or a CLICK before we got
            notification that an auction had been submitted.
@@ -531,10 +458,7 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
         */
 
         recordHit("delivery.%s.auctionNotFound", label);
-        //cerr << "delivery " << typeStr << ": auction "
-        //     << auctionId << "-" << adSpotId << " not found"
-        //     << endl;
-        logPAError(string("doCampaignEvent.auctionNotFound") + label,
+        doError("doCampaignEvent.auctionNotFound" + label,
                    "auction not found for delivery message");
         recordUnmatched("auctionNotFound");
     }
@@ -543,21 +467,22 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
 
 void
 EventMatcher::
-doBidResult(const Id & auctionId,
-            const Id & adSpotId,
-            const SubmissionInfo & submission,
-            Amount winPrice,
-            Date timestamp,
-            BidStatus status,
-            const std::string & confidence,
-            const std::string & winLossMeta,
-            const UserIds & uids)
+doBidResult(
+        const Id & auctionId,
+        const Id & adSpotId,
+        const SubmissionInfo & submission,
+        Amount winPrice,
+        Date timestamp,
+        BidStatus status,
+        MatchedWinLoss::Confidence,
+        const std::string & winLossMeta,
+        const UserIds & uids)
 {
     string msg;
 
     if (status == BS_WIN) msg = "WIN";
     else if (status == BS_LOSS) msg = "LOSS";
-    else throwException("doBidResult.nonWinLoss", "submitted non win/loss");
+    else throw ML::Exception("submitted non win/loss");
 
     if (!adSpotId)
         throw ML::Exception("inserting null entry in finished map");
@@ -566,35 +491,30 @@ doBidResult(const Id & auctionId,
 
     // Find the adspot ID
     int adspot_num = submission.bidRequest->findAdSpotIndex(adSpotId);
-
     if (adspot_num == -1) {
-        logPAError("doBidResult.adSpotIdNotFound",
-                   "adspot ID ", adSpotId, " not found in auction ",
-                   submission.bidRequestStr);
+        doError("doBidResult.adSpotIdNotFound",
+                "adspot ID " + std::to_string(adSpotId) +
+                " not found in auction " + submission.bidRequestStr);
     }
 
     const Auction::Response & response = submission.bid;
 
     const AccountKey & account = response.account;
-    if (account.size() == 0) {
+    if (account.size() == 0)
         throw ML::Exception("invalid account key");
-    }
 
     Amount bidPrice = response.price.maxPrice;
 
     if (winPrice > bidPrice) {
-        logPAError("doBidResult.winPriceExceedsBidPrice",
-                   ML::format("win price %s exceeds bid price %s",
-                              winPrice.toString(),
-                                  bidPrice.toString()));
+        doError("doBidResult.winPriceExceedsBidPrice",
+                ML::format("win price %s exceeds bid price %s",
+                        winPrice.toString(), bidPrice.toString()));
     }
 
     // Make sure we account for the bid no matter what
-    ML::Call_Guard guard
-        ([&] ()
-         {
-             banker->cancelBid(account, makeBidId(auctionId, adSpotId, agent));
-         });
+    ML::Call_Guard guard ([&] () {
+                banker->cancelBid(account, makeBidId(auctionId, adSpotId, agent));
+            });
 
     // No bid
     if (bidPrice == Amount() && response.price.priority == 0) {
@@ -622,45 +542,7 @@ doBidResult(const Id & auctionId,
         guard.clear();
         banker->winBid(account, makeBidId(auctionId, adSpotId, agent), price,
                        LineItems());
-
-        // local win; send it back
     }
-    else if (status == BS_LOSS) {
-        // local loss; send it back
-    }
-    else throwException("doBidResult.nonWinLoss", "submitted non win/loss");
-
-    logMessage("MATCHED" + msg,
-               auctionId,
-               to_string(adspot_num),
-               response.agent,
-               account.at(1, ""),
-               price.toString(),
-               response.price.maxPrice.toString(),
-               to_string(response.price.priority),
-               submission.bidRequestStr,
-               response.bidData,
-               response.meta,
-               to_string(response.creativeId),
-               response.creativeName,
-               account.at(0, ""),
-               uids.toJsonStr(),
-               winLossMeta,
-               account.at(0, ""),
-               adSpotId,
-               account.toString(),
-               submission.bidRequestStrFormat,
-               winPrice.toString());
-
-    sendAgentMessage(response.agent, msg, timestamp,
-                     confidence, auctionId,
-                     to_string(adspot_num),
-                     price.toString(),
-                     submission.bidRequestStrFormat,
-                     submission.bidRequestStr,
-                     response.bidData,
-                     response.meta,
-                     submission.augmentations);
 
     // Finally, place it in the finished queue
     FinishedInfo i;
@@ -672,21 +554,27 @@ doBidResult(const Id & auctionId,
     i.bidRequestStrFormat = submission.bidRequestStrFormat ;
     i.bid = response;
     i.reportedStatus = status;
-    //i.auctionTime = auction.start;
     i.setWin(timestamp, status, price, winPrice, winLossMeta);
+    i.addUids(uids);
 
     // Copy the configuration into the finished info so that we can
     // know which visits to route back
     i.visitChannels = response.visitChannels;
 
-    i.addUids(uids);
+
+    if (onMatchedWinLoss) {
+        auto matchedType =
+            status == BS_WIN ? MatchedWinLoss::Win : MatchedWinLoss::Loss;
+        onMatchedWinLoss(
+                MatchedWinLoss(matchedType, confidence, i, timestamp, uids));
+    }
 
     double expiryInterval = winTimeout;
     if (status == BS_LOSS)
         expiryInterval = auctionTimeout;
 
     Date expiryTime = Date::now().plusSeconds(expiryInterval);
-
     finished.insert(make_pair(auctionId, adSpotId), i, expiryTime);
 }
+
 } // RTBKIT

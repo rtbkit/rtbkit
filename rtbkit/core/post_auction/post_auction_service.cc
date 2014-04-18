@@ -66,6 +66,17 @@ init()
 {
     initConnections();
     monitorProviderClient.init(getServices()->config);
+
+    using namespace std::placeholders;
+
+    matcher.doMatchedWinLoss =
+        std::bind(&PostAuctionService::doMatchedWinLoss, this, _1);
+
+    matcher.doMatchedCampaignEvent =
+        std::bind(&PostAuctionService::doMatchedCampaignEvent, this, _1);
+
+    matcher.doUnmatched = std::bind(&PostAuctionService::doUnmatched, this, _1);
+    matcher.doError = std::bind(&PostAuctionService::doError, this, _1);
 }
 
 void
@@ -88,23 +99,16 @@ initConnections()
             cerr << "PostAuctionService got agent message " << msg << endl;
         };
 
-    router.bind("AUCTION",
-                std::bind(&PostAuctionService::doAuctionMessage, this,
-                          std::placeholders::_1));
-    router.bind("WIN",
-                std::bind(&PostAuctionService::doWinMessage, this,
-                          std::placeholders::_1));
-    router.bind("LOSS",
-                std::bind(&PostAuctionService::doLossMessage, this,
-                          std::placeholders::_1));
-    router.bind("EVENT",
-                std::bind(&PostAuctionService::doCampaignEventMessage, this,
-                          std::placeholders::_1));
+    using namespace placeholders;
+
+    router.bind("AUCTION", std::bind(&PostAuctionService::doAuctionMessage, this, _1));
+    router.bind("WIN", std::bind(&PostAuctionService::doWinMessage, this, _1));
+    router.bind("LOSS", std::bind(&PostAuctionService::doLossMessage, this,_1));
+    router.bind("EVENT", std::bind(&PostAuctionService::doCampaignEventMessage, this, _1));
 
     // Every second we check for expired auctions
     loop.addPeriodic("PostAuctionService::checkExpiredAuctions", 1.0,
-                     std::bind<void>(&PostAuctionService::checkExpiredAuctions,
-                                     this));
+                     std::bind(&EventMatcher::checkExpiredAuctions, &matcher));
 
     // Initialize zeromq endpoints
     endpoint.init(getServices()->config, ZMQ_XREP, serviceName() + "/events");
@@ -176,8 +180,6 @@ PostAuctionService::
 doAuctionMessage(const std::vector<std::string> & message)
 {
     recordHit("messages.AUCTION");
-    //cerr << "doAuctionMessage " << message << endl;
-
     auto event = Message<SubmittedAuctionEvent>::fromString(message.at(2));
     if(event) {
         matcher.doAuction(event.payload);
@@ -189,8 +191,8 @@ PostAuctionService::
 doWinMessage(const std::vector<std::string> & message)
 {
     recordHit("messages.WIN");
-    auto event = std::make_shared<PostAuctionEvent>
-        (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
+    auto event = std::make_shared<PostAuctionEvent>(
+            ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
     matcher.doWinLoss(event, false /* replay */);
 }
 
@@ -199,8 +201,8 @@ PostAuctionService::
 doLossMessage(const std::vector<std::string> & message)
 {
     recordHit("messages.LOSS");
-    auto event = std::make_shared<PostAuctionEvent>
-        (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
+    auto event = std::make_shared<PostAuctionEvent>(
+            ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
     matcher.doWinLoss(event, false /* replay */);
 }
 
@@ -208,8 +210,8 @@ void
 PostAuctionService::
 doCampaignEventMessage(const std::vector<std::string> & message)
 {
-    auto event = std::make_shared<PostAuctionEvent>
-        (ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
+    auto event = std::make_shared<PostAuctionEvent>(
+            ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
     recordHit("messages.EVENT." + event->label);
     matcher.doCampaignEvent(event);
 }
@@ -320,68 +322,60 @@ injectCampaignEvent(const string & label,
 }
 
 
-
-bool
+void
 PostAuctionService::
-routePostAuctionEvent(const string & label,
-                      const FinishedInfo & finishedInfo,
-                      const SegmentList & channels,
-                      bool filterChannels)
+doMatchedWinLoss(MatchedWinLoss event)
 {
+    lastWinLoss = Date::now();
+
+    event.logMessage(logger);
+    event.sendAgentMessage(toAgents);
+}
+
+void
+PostAuctionService::
+doMatchedCampaignEvent(MatchedCampaignEvent event)
+{
+    lastCampaignEvent = Date::now();
+
+    event.logMessage(logger);
+
     // For the moment, send the message to all of the agents that are
     // bidding on this account
-    const AccountKey & account = finishedInfo.bid.account;
 
     bool sent = false;
     auto onMatchingAgent = [&] (const AgentConfigEntry & entry)
         {
             if (!entry.config) return;
-            if (filterChannels) {
-                if (!entry.config->visitChannels.match(channels))
-                    return;
-            }
-
+            event.sendAgentMessage(entry.name);
             sent = true;
-
-            this->sendAgentMessage(entry.name,
-                                   "CAMPAIGN_EVENT", label,
-                                   Date::now(),
-                                   finishedInfo.auctionId,
-                                   finishedInfo.adSpotId,
-                                   to_string(finishedInfo.spotIndex),
-                                   finishedInfo.bidRequestStrFormat,
-                                   finishedInfo.bidRequestStr,
-                                   finishedInfo.augmentations,
-                                   finishedInfo.bidToJson(),
-                                   finishedInfo.winToJson(),
-                                   finishedInfo.campaignEvents.toJson(),
-                                   finishedInfo.visitsToJson());
         };
 
+    const AccountKey & account = event.account;
     configListener.forEachAccountAgent(account, onMatchingAgent);
 
     if (!sent) {
         recordHit("delivery.%s.orphaned", label);
-        logPAError(string("doCampaignEvent.noListeners") + label,
-                   "nothing listening for account " + account.toString());
+        logPAError("doCampaignEvent.noListeners" + label,
+                "nothing listening for account " + account.toString());
     }
     else recordHit("delivery.%s.delivered", label);
 
-    this->logMessage
-        (string("MATCHED") + label,
-         finishedInfo.auctionId,
-         finishedInfo.adSpotId,
-         finishedInfo.bidRequestStr,
-         finishedInfo.bidToJson(),
-         finishedInfo.winToJson(),
-         finishedInfo.campaignEvents.toJson(),
-         finishedInfo.visitsToJson(),
-         finishedInfo.bid.account.at(0, ""),
-         finishedInfo.bid.account.at(1, ""),
-         finishedInfo.bid.account.toString(),
-         finishedInfo.bidRequestStrFormat);
-
     return sent;
+}
+
+void
+PostAuctionService::
+doUnmatched(UnmatchedEvent event)
+{
+    event.logMessage(logger);
+}
+
+void
+PostAuctionService::
+doError(PostAuctionErrorEvent error)
+{
+    error.logMessage(logger);
 }
 
 
@@ -405,7 +399,9 @@ getProviderIndicators()
     bool winLossOk = now < lastWinLoss.plusSeconds(10);
     bool campaignEventOk = now < lastCampaignEvent.plusSeconds(10);
 
-#if 0 // Kept around for posterity.
+    // Kept around for posterity.
+    // Earned the "Best Error Message in RTBKIT" award.
+#if 0
     if (!status)  {
       cerr << "--- WRONGNESS DETECTED:"
           << " last event: " << (now - lastCampaignEvent)

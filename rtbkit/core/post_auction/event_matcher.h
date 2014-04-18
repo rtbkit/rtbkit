@@ -20,7 +20,30 @@ namespace RTBKIT {
 struct EventMatcher : public EventRecoder
 {
 
-    EventMatcher(std::shared_ptr<EventService> events);
+    EventMatcher(
+            PostAuctionService& service,
+            std::shared_ptr<EventService> events);
+
+
+    /************************************************************************/
+    /* CALLBACKS                                                            */
+    /************************************************************************/
+
+    std::function<void(MatchedWinLoss)> onMatchedWinLoss;
+
+    std::function<void(MatchedCampaignEvent)> onMatchedCampaignEvent;
+
+    std::function<void(UnmatchedEvent)> onUnmatchedEvent;
+
+    std::function<void(PostAuctionErrorEvent)> onError;
+
+
+    void doError(std::string key, std::string message)
+    {
+        if (!onError) return;
+        recordHit("error.%s", key);
+        onError(PostAuctionerrorEvent(std::mmove(key), std::move(message)));
+    }
 
 
     /************************************************************************/
@@ -58,6 +81,11 @@ struct EventMatcher : public EventRecoder
         matcher.setWinTimeout(auctionTimeout = timeOut);
     }
 
+
+    /************************************************************************/
+    /* EVENT MATCHING                                                       */
+    /************************************************************************/
+
     /** Handle a new auction that came in. */
     void doAuction(const SubmittedAuctionEvent & event);
 
@@ -90,7 +118,7 @@ private:
             Amount price,
             Date timestamp,
             BidStatus status,
-            const std::string & confidence,
+            MatchedWinLoss::Confidence,
             const std::string & winLossMeta,
             const UserIds & uids);
 
@@ -119,6 +147,7 @@ private:
     Finished finished;
 
     std::shared_ptr<Banker> banker;
+    PostAuctionService& service;
 
     float auctionTimeout;
     float winTimeout;

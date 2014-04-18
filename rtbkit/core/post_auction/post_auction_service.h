@@ -100,7 +100,6 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
     /* EVENT MATCHING                                                       */
     /************************************************************************/
 
-
     /** Transfer the given auction to the post auction loop.  This method
         assumes that the given auction was submitted with a non-empty
         bid, and adds it to the internal data structures so that any
@@ -154,6 +153,11 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
             const JsonHolder & eventMeta,
             const UserIds & ids);
 
+
+    /************************************************************************/
+    /* EVENT NOTIFICATION                                                   */
+    /************************************************************************/
+
 private:
 
     std::string getProviderClass() const;
@@ -181,6 +185,13 @@ private:
     void doConfigChange(
             const std::string & agent,
             std::shared_ptr<const AgentConfig> config);
+
+
+    void doMatchedWinLoss(MatchedWinLoss event);
+    void doMatchedCampaignEvent(MatchedCampaignEvent event);
+    void doUnmatched(UnmatchedEvent event);
+    void doError(PostAuctionErrorEvent error);
+
 
     /** Send out a post-auction event to anything that may be listening. */
     bool routePostAuctionEvent(
