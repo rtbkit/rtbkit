@@ -92,6 +92,10 @@ void check(
     BOOST_CHECK(false);
 }
 
+// Runs the filter on request and checks the result against expected for
+// impression imp. Expected follows the same conventions as CreativeMatrix is
+// therefor a creative major, list of config ids
+// (eg. expected[creativeId][configId]).
 void check(
         const FilterBase& filter,
         const BidRequest& request,

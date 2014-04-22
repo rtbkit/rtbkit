@@ -2,7 +2,7 @@
     Rémi Attab, 07 Aug 2013
     Copyright (c) 2013 Datacratic.  All rights reserved.
 
-    Utilities for writting filters.
+    Generic utilities for writting filters.
 
 */
 
@@ -20,6 +20,7 @@ namespace RTBKIT {
 /* FILTER BASE T                                                              */
 /******************************************************************************/
 
+/** Convenience base class for filters. */
 template<typename Filter>
 struct FilterBaseT : public FilterBase
 {
@@ -41,6 +42,8 @@ struct FilterBaseT : public FilterBase
         setConfig(cfgIndex, *config, false);
     }
 
+    // If value is true then assume addConfig semantics else assume removeConfig
+    // semantics. Exists for convenience.
     virtual void setConfig(unsigned cfgIndex, const AgentConfig& config, bool value)
     {
         ExcAssert(false);
@@ -53,7 +56,9 @@ struct FilterBaseT : public FilterBase
 /* ITERATIVE FILTER                                                           */
 /******************************************************************************/
 
-/** These filters are discouraged because they do not scale well. */
+/** Simplified filter base class at the cost of runtime performance. The filter
+    should override and implement the filterConfig function.
+ */
 template<typename Filter>
 struct IterativeFilter : public FilterBaseT<Filter>
 {
@@ -91,6 +96,7 @@ struct IterativeFilter : public FilterBaseT<Filter>
         state.narrowConfigs(matches);
     }
 
+    // Returns true if the config should be kept.
     virtual bool filterConfig(FilterState&, const AgentConfig&) const
     {
         ExcAssert(false);
@@ -525,6 +531,10 @@ private:
 /* INCLUDE EXCLUDE FILTER                                                     */
 /******************************************************************************/
 
+/** Takes any filter which follows the addConfig, removeConfig, setConfig,
+    filterConfig interface and turns it into a standard include/exclude filter.
+
+ */
 template<typename Filter>
 struct IncludeExcludeFilter
 {
