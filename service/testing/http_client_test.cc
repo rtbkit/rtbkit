@@ -187,6 +187,7 @@ doGetRequest(MessageLoop & loop,
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     auto client = make_shared<HttpClient>(baseUrl);
     loop.addSource("httpClient", client);
+    client->waitConnectionState(AsyncEventSource::CONNECTED);
     if (timeout == -1) {
         client->get(resource, cbs, RestParams(), headers);
     }
@@ -232,6 +233,7 @@ doUploadRequest(MessageLoop & loop,
 
     auto client = make_shared<HttpClient>(baseUrl);
     loop.addSource("httpClient", client);
+    client->waitConnectionState(AsyncEventSource::CONNECTED);
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     HttpRequest::Content content(body, type);
     if (isPut) {
@@ -269,6 +271,12 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
     MessageLoop loop;
     loop.start();
 
+    service.waitListening();
+
+#if 0
+    /* FIXME: this test does not work because the Datacratic router silently
+     * either drops packets to unreachable host or the arp timeout is very
+     * high */
     /* request to bad ip */
     {
         string baseUrl("http://123.234.12.23");
@@ -277,6 +285,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
                           HttpClientError::COULD_NOT_CONNECT);
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
+#endif
 
     /* FIXME: this test does not work because the Datacratic name service
      * always returns something */
@@ -403,6 +412,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
 
     service.addResponse("GET", "/", 200, "coucou");
     service.start();
+    service.waitListening();
 
     MessageLoop loop;
     loop.start();
@@ -470,6 +480,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
     HttpGetService service(proxies);
     service.addResponse("GET", "/", 200, "coucou");
     service.start();
+    service.waitListening();
 
     MessageLoop loop;
     loop.start();
