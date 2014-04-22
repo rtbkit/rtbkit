@@ -62,18 +62,23 @@ HttpBidderInterface::HttpBidderInterface(std::string name,
 void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                                              double timeLeftMs,
                                              std::map<std::string, BidInfo> const & bidders) {
+    using namespace std;
     for(auto & item : bidders) {
         auto & agent = item.first;
         auto & info = router->agents[agent];
         WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction, *info.config);
 
         OpenRTB::BidRequest openRtbRequest = toOpenRtb(*auction->request);
+        tagRequest(openRtbRequest, bidders);
         StructuredJsonPrintingContext context;
         desc.printJson(&openRtbRequest, context);
         auto requestStr = context.output.toString();
 
+        /* We need to capture by copy inside the lambda otherwise we might get
+           a dangling reference if we go out of scope before receiving the http response
+        */
         auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
-                [&](const HttpRequest &, HttpClientError errorCode,
+                [=](const HttpRequest &, HttpClientError errorCode,
                     int, const std::string &, const std::string &body)
                 {
                     if (errorCode != HttpClientError::NONE) {
@@ -92,11 +97,58 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                             ExcCheck(false, "Invalid code path");
                             return "";
                         };
-                        std::cerr << "Error requesting " << host
+                        cerr << "Error requesting " << host
                                   << ": " << toErrorString(errorCode);
                       }
                       else {
                           std::cerr << "Response: " << body << std::endl;
+                          OpenRTB::BidResponse response;
+                          ML::Parse_Context context("payload",
+                                  body.c_str(), body.size());
+                          StreamingJsonParsingContext jsonContext(context);
+                          DefaultDescription<OpenRTB::BidResponse> respDesc;
+                          respDesc.parseJson(&response, jsonContext);
+
+                          for (const auto &seatbid: response.seatbid) {
+                              Bids bids;
+
+                              for (const auto &bid: seatbid.bid) {
+                                Bid theBid;
+                                theBid.creativeIndex = bid.crid.toInt();
+                                theBid.price = USD_CPM(bid.price.val);
+                                theBid.priority = 0.0;
+
+                                /* Looping over the impressions to find the corresponding
+                                   adSpotIndex
+                                */
+                                auto impIt = find_if(
+                                    begin(openRtbRequest.imp), end(openRtbRequest.imp),
+                                    [&](const OpenRTB::Impression &imp) {
+                                        return imp.id == bid.impid;
+                                });
+                                if (impIt == end(openRtbRequest.imp)) {
+                                    throw ML::Exception(ML::format(
+                                        "Unknown impression id: %s", bid.impid.toString()));
+                                }
+
+                                auto spotIndex = distance(begin(openRtbRequest.imp),
+                                                                impIt);
+                                theBid.spotIndex = spotIndex;
+
+                                bids.push_back(std::move(theBid));
+                             }
+
+                             Json::FastWriter writer;
+                             std::vector<std::string> message { agent, "BID" };
+                             message.push_back(auction->id.toString());
+                             std::string bidsStr = writer.write(bids.toJson());
+                             std::string wcmStr = writer.write(wcm.toJson());
+                             message.push_back(std::move(bidsStr));
+                             message.push_back(std::move(wcmStr));
+
+                             router->doBid(message);
+
+                          }
                       }
                   });
 
