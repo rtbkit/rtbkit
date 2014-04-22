@@ -37,6 +37,9 @@ struct Acceptor {
 
     /** What port are we listening on? */
     virtual int port() const = 0;
+
+    /** Wait until we are ready to accept connections */
+    virtual void waitListening() const = 0;
 };
 
 
@@ -84,6 +87,16 @@ struct PassiveEndpoint: public EndpointBase {
             throw ML::Exception("can't listen without acceptor");
 
         return acceptor->listen(portRange, host, this, nameLookup, backlog);
+    }
+
+    /** Wait until we are ready to accept connections */
+    void waitListening()
+        const
+    {
+        if (!acceptor)
+            throw ML::Exception("can't listen without acceptor");
+
+        acceptor->waitListening();
     }
 
     /** Closing the peer in the context of a passive endpoint means
@@ -197,6 +210,8 @@ struct AcceptorT<SocketTransport> : public Acceptor {
     */
     void runAcceptThread();
 
+    /** Wait until we are ready to accept connections */
+    void waitListening() const;
 
 protected:
     std::shared_ptr<boost::thread> acceptThread;
@@ -204,6 +219,7 @@ protected:
     ACE_INET_Addr addr;
     int fd;
     PassiveEndpoint * endpoint;
+    int listening_; // whether the socket is listening
     bool nameLookup;
     bool shutdown;
 };

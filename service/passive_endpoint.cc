@@ -7,6 +7,7 @@
 
 #include <unordered_map>
 
+#include "jml/arch/futex.h"
 #include "soa/service//passive_endpoint.h"
 #include <poll.h>
 #include <boost/date_time/gregorian/gregorian.hpp>
@@ -56,7 +57,7 @@ init(PortRange const & portRange, const std::string & hostname, int num_threads,
 
 AcceptorT<SocketTransport>::
 AcceptorT()
-    : fd(-1), endpoint(0)
+    : fd(-1), endpoint(0), listening_(false)
 {
 }
 
@@ -142,6 +143,9 @@ listen(PortRange const & portRange,
         port = ntohs(inAddr.sin_port);
         addr.set(&inAddr, inAddrLen);
     }
+
+    listening_ = true;
+    ML::futex_wake(listening_);
 
     shutdown = false;
 
@@ -303,6 +307,17 @@ runAcceptThread()
                 it++;
             }
         }
+    }
+}
+
+void
+AcceptorT<SocketTransport>::
+waitListening()
+    const
+{
+    while (!listening_) {
+        int oldListening = listening_;
+        ML::futex_wait(listening_, oldListening);
     }
 }
 
