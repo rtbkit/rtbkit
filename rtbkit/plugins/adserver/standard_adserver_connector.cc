@@ -275,8 +275,22 @@ handleDeliveryRq(const HttpHeader & header,
     string bidRequestIdStr, impIdStr, userIdStr, event;
     Id bidRequestId, impId, userId;
     UserIds userIds;
+    Date timestamp;
     
-    Date timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+    /*
+     *  Timestamp is an required field.
+     *  If null, we return an error response.
+     */
+    if (json.isMember("timestamp")) {
+        timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+    } else {
+        response.valid = false;
+        response.error = "MISSING_TIMESTAMP";
+        response.details = "A win notice requires the timestamp field.";
+
+        return response;
+    }
+
 
     /*
      *  type is an required field.
