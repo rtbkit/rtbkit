@@ -8,8 +8,11 @@
 
 #pragma once
 
-namespace RTBKIT {
+#include "rtbkit/common/auction.h"
+#include "rtbkit/common/auction_events.h"
+#include "soa/types/string.h"
 
+namespace RTBKIT {
 
 /*****************************************************************************/
 /* SUBMISSION INFO                                                           */

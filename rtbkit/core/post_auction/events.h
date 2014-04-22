@@ -8,36 +8,56 @@
 
 #pragma once
 
-namespace RTBKIT {
+#include "finished_info.h"
+#include "rtbkit/common/auction.h"
+#include "rtbkit/common/auction_events.h"
+#include "soa/types/id.h"
+#include "soa/types/string.h"
+
+
+/******************************************************************************/
+/* PROTOTYPES                                                                 */
+/******************************************************************************/
+
+namespace Datacratic {
+
+struct ZmqNamedPublisher;
+struct ZmqNamedClientBus;
+
+} // namespace Datacratic
 
 
 /******************************************************************************/
 /* MATCHED WIN LOSS                                                           */
 /******************************************************************************/
 
+namespace RTBKIT {
+
 struct MatchedWinLoss
 {
     enum Type { Win, LateWin, Loss };
     Type type;
 
-    enum Confidence { Guaranteed, Inferred }:
+    enum Confidence { Guaranteed, Inferred };
     Confidence confidence;
 
-    Id auctionId;
-    Id impId;
+    Datacratic::Date timestamp;
+
+    Datacratic::Id auctionId;
+    Datacratic::Id impId;
 
     Amount winPrice;    // post-WinCostModel
     Amount rawWinPrice; // pre-WinCostModel
 
     Auction::Response response;
 
-    std::string requestStr;
+    Datacratic::UnicodeString requestStr;
     std::string requestStrFormat;
     std::shared_ptr<BidRequest> request;
 
     UserIds uids;
     std::string meta;
-    Json::Value augmentations;
+    JsonHolder augmentations;
 
     MatchedWinLoss(
             Type type,
@@ -49,9 +69,8 @@ struct MatchedWinLoss
             Type type,
             Confidence confidence,
             const FinishedInfo& info,
-            Date timestamp,
-            UserIds uids,
-            Json::Value augmentations);
+            Datacratic::Date timestamp,
+            UserIds uids);
 
     std::string typeString() const;
     std::string confidenceString() const;
@@ -63,10 +82,10 @@ struct MatchedWinLoss
 private:
     void initFinishedInfo(const FinishedInfo& info);
     void initMisc(const PostAuctionEvent& event);
-    void initMisc(Date timestamp, UserIds uids, Json::value augmentations);
+    void initMisc(Datacratic::Date timestamp, UserIds uids);
 
-    void send(ZmqNamedClientBus& agent) const;
-    void sendLateWin(ZmqNamedClientBus& agent) const;
+    void send(Datacratic::ZmqNamedClientBus& agent) const;
+    void sendLateWin(Datacratic::ZmqNamedClientBus& agent) const;
 };
 
 
@@ -77,28 +96,28 @@ private:
 struct MatchedCampaignEvent
 {
     std::string label;
-    Id auctionId;
-    Id impId;
-
-    std::string agent;
+    Datacratic::Id auctionId;
+    Datacratic::Id impId;
     AccountKey account;
 
-    std::string requestStr;
+    Datacratic::UnicodeString requestStr;
     std::shared_ptr<BidRequest> request;
     std::string requestStrFormat;
 
     Json::Value bid;
-    Json::Value augemntations;
     Json::Value win;
     Json::Value campaignEvents;
     Json::Value visits;
+    JsonHolder augmentations;
 
     MatchedCampaignEvent(std::string label, const FinishedInfo& info);
 
     size_t impIndex() const;
 
     void publish(ZmqNamedPublisher& logger) const;
-    void sendAgentMessage(ZmqNamedClientBus& agent) const;
+    void sendAgentMessage(
+            const std::string& agent,
+            Datacratic::ZmqNamedClientBus& endpoint) const;
 };
 
 
@@ -114,6 +133,21 @@ struct UnmatchedEvent
     UnmatchedEvent(std::string reason, PostAuctionEvent event);
 
     std::string channel() const;
+    void publish(ZmqNamedPublisher& logger) const;
+};
+
+
+/******************************************************************************/
+/* ERROR EVENT                                                                */
+/******************************************************************************/
+
+struct PostAuctionErrorEvent
+{
+    std::string key;
+    std::string message;
+    std::string rest;
+
+    PostAuctionErrorEvent(std::string key, std::string message);
     void publish(ZmqNamedPublisher& logger) const;
 };
 

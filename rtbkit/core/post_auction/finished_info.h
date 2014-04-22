@@ -8,6 +8,12 @@
 
 #pragma once
 
+#include "rtbkit/common/auction.h"
+#include "rtbkit/common/auction_events.h"
+#include "soa/types/string.h"
+
+#include <memory>
+
 namespace RTBKIT {
 
 /*****************************************************************************/
@@ -59,14 +65,19 @@ struct FinishedInfo {
     Json::Value bidToJson() const;
 
     bool hasWin() const { return winTime != Date(); }
-    void setWin(Date winTime, BidStatus status, Amount winPrice,
-                const std::string & winMeta)
+    void setWin(
+            Date winTime,
+            BidStatus status,
+            Amount winPrice,
+            Amount rawWinPrice,
+            const std::string & winMeta)
     {
         ExcCheck(!hasWin(), "already has win");
 
         this->winTime = winTime;
         this->reportedStatus = status;
         this->winPrice = winPrice;
+        this->rawWinPrice = rawWinPrice;
         this->winMeta = winMeta;
     }
 

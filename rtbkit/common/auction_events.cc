@@ -491,7 +491,7 @@ fromJson(const Json::Value& json)
             if (m == "reportedStatus")
                 win.reportedStatus = bidStatusFromString(member.asString());
             if (m == "rawWinPrice")
-                win.rawWinPrice = Amount::fromJson(member);
+                win.rawPrice = Amount::fromJson(member);
             else invalid = true;
             break;
 

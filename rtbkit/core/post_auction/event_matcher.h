@@ -7,22 +7,29 @@
 
 #pragma once
 
+#include "events.h"
 #include "finished_info.h"
-#include "submitted_info.h"
+#include "submission_info.h"
+#include "rtbkit/core/banker/banker.h"
+#include "rtbkit/common/auction.h"
+#include "rtbkit/common/auction_events.h"
+#include "soa/service/service_base.h"
+#include "soa/service/pending_list.h"
+
+#include <utility>
 
 namespace RTBKIT {
 
+struct PostAuctionService;
 
 /******************************************************************************/
 /* EVENT MATCHER                                                              */
 /******************************************************************************/
 
-struct EventMatcher : public EventRecoder
+struct EventMatcher : public EventRecorder
 {
-
-    EventMatcher(
-            PostAuctionService& service,
-            std::shared_ptr<EventService> events);
+    EventMatcher(std::string prefix, std::shared_ptr<EventService> events);
+    EventMatcher(std::string prefix, std::shared_ptr<ServiceProxies> proxies);
 
 
     /************************************************************************/
@@ -42,9 +49,15 @@ struct EventMatcher : public EventRecoder
     {
         if (!onError) return;
         recordHit("error.%s", key);
-        onError(PostAuctionerrorEvent(std::mmove(key), std::move(message)));
+        onError(PostAuctionErrorEvent(std::move(key), std::move(message)));
     }
 
+    // \todo Needs to go.
+    void throwException(const std::string & key, const std::string & fmt, ...)
+        __attribute__((__noreturn__))
+    {
+        throw ML::Exception(key);
+    }
 
     /************************************************************************/
     /* BANKER                                                               */
@@ -57,7 +70,7 @@ struct EventMatcher : public EventRecoder
 
     void setBanker(const std::shared_ptr<Banker> & newBanker)
     {
-        matcher.setBanker(banker = newBanker);
+        banker = newBanker;
     }
 
 
@@ -70,7 +83,7 @@ struct EventMatcher : public EventRecoder
         if (timeOut < 0.0)
             throw ML::Exception("Invalid timeout for Win timeout");
 
-        matcher.setWinTimeout(winTimeout = timeOut);
+        winTimeout = timeOut;
     }
 
     void setAuctionTimeout(const float & timeOut) {
@@ -78,7 +91,7 @@ struct EventMatcher : public EventRecoder
         if (timeOut < 0.0)
             throw ML::Exception("Invalid timeout for Win timeout");
 
-        matcher.setWinTimeout(auctionTimeout = timeOut);
+        auctionTimeout = timeOut;
     }
 
 
@@ -88,6 +101,12 @@ struct EventMatcher : public EventRecoder
 
     /** Handle a new auction that came in. */
     void doAuction(const SubmittedAuctionEvent & event);
+
+    /** We got a win/loss.  Match it up with its bid and pass on to the
+        winning bidder.
+    */
+    void doWinLoss(
+            const std::shared_ptr<PostAuctionEvent> & event, bool isReplay);
 
     /** Handle a post-auction event that came in. */
     void doEvent(const std::shared_ptr<PostAuctionEvent> & event);
@@ -104,12 +123,6 @@ struct EventMatcher : public EventRecoder
 
 private:
 
-    /** We got a win/loss.  Match it up with its bid and pass on to the
-        winning bidder.
-    */
-    void doWinLoss(const std::shared_ptr<PostAuctionEvent> & event,
-                   bool isReplay);
-
     /** Communicate the result of a bid message to an agent. */
     void doBidResult(
             const Id & auctionId,
@@ -122,8 +135,6 @@ private:
             const std::string & winLossMeta,
             const UserIds & uids);
 
-
-    std::shared_ptr<Banker> banker;
 
     /** List of auctions we're currently tracking as submitted.  Note that an
         auction may be both submitted and in flight (if we had submitted a bid
@@ -146,12 +157,11 @@ private:
     typedef PendingList<std::pair<Id, Id>, FinishedInfo> Finished;
     Finished finished;
 
-    std::shared_ptr<Banker> banker;
-    PostAuctionService& service;
-
     float auctionTimeout;
     float winTimeout;
 
+    std::shared_ptr<EventService> events;
+    std::shared_ptr<Banker> banker;
 };
 
 } // RTBKIT

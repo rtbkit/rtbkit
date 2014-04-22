@@ -9,9 +9,15 @@
 #pragma once
 
 #include "event_matcher.h"
+#include "rtbkit/core/monitor/monitor_provider.h"
+#include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
+#include "soa/service/service_base.h"
+#include "soa/service/loop_monitor.h"
+#include "soa/service/zmq_endpoint.h"
+#include "soa/service/zmq_named_pub_sub.h"
+#include "soa/service/zmq_message_router.h"
 
 namespace RTBKIT {
-
 
 /******************************************************************************/
 /* POST AUCTION SERVICE                                                       */
@@ -19,13 +25,13 @@ namespace RTBKIT {
 
 struct PostAuctionService : public ServiceBase, public MonitorProvider
 {
-    PostAuctionLoop(ServiceBase & parent,
+    PostAuctionService(ServiceBase & parent,
                     const std::string & serviceName);
-    PostAuctionLoop(std::shared_ptr<ServiceProxies> proxies,
+    PostAuctionService(std::shared_ptr<ServiceProxies> proxies,
                     const std::string & serviceName);
 
 
-    ~PostAuctionLoop() { shutdown(); }
+    ~PostAuctionService() { shutdown(); }
 
 
     void init();
@@ -153,11 +159,6 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
             const JsonHolder & eventMeta,
             const UserIds & ids);
 
-
-    /************************************************************************/
-    /* EVENT NOTIFICATION                                                   */
-    /************************************************************************/
-
 private:
 
     std::string getProviderClass() const;
@@ -168,6 +169,12 @@ private:
         event loop.
     */
     void initConnections();
+
+    void doAuction(const SubmittedAuctionEvent & event);
+    void doEvent(const std::shared_ptr<PostAuctionEvent> & event);
+    void doSubmitted(const std::shared_ptr<PostAuctionEvent> & event);
+    void doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event);
+    void checkExpiredAuctions();
 
     /** Decode from zeromq and handle a new auction that came in. */
     void doAuctionMessage(const std::vector<std::string> & message);
@@ -224,9 +231,6 @@ private:
     }
 
 
-    std::shared_ptr<Banker> banker;
-    EventMatcher matcher;
-
     float auctionTimeout;
     float winTimeout;
 
@@ -234,8 +238,11 @@ private:
     Date lastCampaignEvent;
 
     MessageLoop loop;
-    AgentConfigurationListener configListener;
     LoopMonitor loopMonitor;
+
+    EventMatcher matcher;
+    std::shared_ptr<Banker> banker;
+    AgentConfigurationListener configListener;
     MonitorProviderClient monitorProviderClient;
 
     TypedMessageSink<SubmittedAuctionEvent> auctions;

@@ -7,6 +7,8 @@
 */
 
 #include "events.h"
+#include "soa/service/zmq_endpoint.h"
+#include "soa/service/zmq_named_pub_sub.h"
 
 using namespace std;
 using namespace ML;
@@ -40,7 +42,7 @@ initFinishedInfo(const FinishedInfo& info)
     impId = info.adSpotId;
     winPrice = info.winPrice;
     rawWinPrice = info.rawWinPrice;
-    response = info.response;
+    response = info.bid;
     requestStr = info.bidRequestStr;
     requestStrFormat = info.bidRequestStrFormat;
     request = info.bidRequest;
@@ -74,7 +76,7 @@ MatchedWinLoss(
     type(type), confidence(confidence)
 {
     initFinishedInfo(info);
-    initPostAuctionEvent(event);
+    initMisc(event);
 }
 
 
@@ -111,7 +113,7 @@ confidenceString() const
 {
     switch (confidence) {
     case Inferred: return "inferred";
-    case Guaranteed: turn "guaranteed";
+    case Guaranteed: return "guaranteed";
     }
 
     ExcAssert(false);
@@ -130,11 +132,11 @@ MatchedWinLoss::
 publish(ZmqNamedPublisher& logger) const
 {
     logger.publish(
-            "MATCHED" + typeString();
+            "MATCHED" + typeString(),
             publishTimestamp(),
 
-            auctionId,
-            std::to_string(impIndex),
+            auctionId.toString(),
+            std::to_string(impIndex()),
             request->findAdSpotIndex(impId),
             response.agent,
             response.account.at(1, ""),
@@ -151,15 +153,15 @@ publish(ZmqNamedPublisher& logger) const
 
             std::to_string(response.creativeId),
             response.creativeName,
-            response.account(0, ""),
+            response.account.at(0, ""),
 
             uids.toJsonStr(),
             meta,
 
-            // And this is where we lose a pretenses of sanity.
+            // And this is where we lose all pretenses of sanity.
 
-            response.account(0, ""),
-            impId,
+            response.account.at(0, ""),
+            impId.toString(),
             response.account.toString(),
 
             // Ok back to sanity now.
@@ -182,7 +184,7 @@ sendAgentMessage(ZmqNamedClientBus& agents) const
             timestamp,
             confidenceString(),
 
-            auctionId,
+            auctionId.toString(),
             std::to_string(impIndex()),
             winPrice.toString(),
 
@@ -190,7 +192,7 @@ sendAgentMessage(ZmqNamedClientBus& agents) const
             requestStr,
             response.bidData,
             response.meta,
-            augmentations
+            augmentations.toJson()
         );
 }
 
@@ -200,20 +202,19 @@ sendAgentMessage(ZmqNamedClientBus& agents) const
 /******************************************************************************/
 
 MatchedCampaignEvent::
-MatchCampaignEvent(std::string label, const FinishedInfo& info) :
+MatchedCampaignEvent(std::string label, const FinishedInfo& info) :
     label(std::move(label)),
     auctionId(info.auctionId),
     impId(info.adSpotId),
-    agent(info.response.agent),
-    account(info.account),
+    account(info.bid.account),
     requestStr(info.bidRequestStr),
     request(info.bidRequest),
     requestStrFormat(info.bidRequestStrFormat),
     bid(info.bidToJson()),
-    augmentations(info.augmentations),
     win(info.winToJson()),
     campaignEvents(info.campaignEvents.toJson()),
-    visits(info.visitsToJson())
+    visits(info.visitsToJson()),
+    augmentations(info.augmentations)
 {}
 
 size_t
@@ -231,8 +232,8 @@ publish(ZmqNamedPublisher& logger) const
             "MATCHED" + label,
             publishTimestamp(),
 
-            auctionId,
-            impId,
+            auctionId.toString(),
+            impId.toString(),
             requestStr,
 
             bid,
@@ -250,21 +251,21 @@ publish(ZmqNamedPublisher& logger) const
 
 void
 MatchedCampaignEvent::
-sendAgentMessage(ZmqNamedClientBus& agents) const
+sendAgentMessage(const std::string& agent, ZmqNamedClientBus& endpoint) const
 {
-    agents.sendMessage(
+    endpoint.sendMessage(
             agent,
-            "CAMPAIGN_EVENT"
+            "CAMPAIGN_EVENT",
             label,
             Date::now(),
 
-            auctionId,
-            impId,
+            auctionId.toString(),
+            impId.toString(),
             std::to_string(impIndex()),
 
             requestStrFormat,
             requestStr,
-            augmentations,
+            augmentations.toJson(),
 
             bid,
             win,
@@ -280,8 +281,8 @@ sendAgentMessage(ZmqNamedClientBus& agents) const
 
 UnmatchedEvent::
 UnmatchedEvent(std::string reason, PostAuctionEvent event) :
-    label(std::move(label)),
-    event(std::move(other))
+    reason(std::move(reason)),
+    event(std::move(event))
 {}
 
 void
@@ -293,12 +294,30 @@ publish(ZmqNamedPublisher& logger) const
             publishTimestamp(),
 
             reason,
-            event.auctionId,
-            event.impId,
+            event.auctionId.toString(),
+            event.adSpotId.toString(),
 
             std::to_string(event.timestamp.secondsSinceEpoch()),
-            event.meta
+            event.metadata.toJson()
         );
+}
+
+
+/******************************************************************************/
+/* POST AUCTION ERROR EVENT                                                   */
+/******************************************************************************/
+
+
+PostAuctionErrorEvent::
+PostAuctionErrorEvent(std::string key, std::string message) :
+    key(std::move(key)), message(std::move(message))
+{}
+
+void
+PostAuctionErrorEvent::
+publish(ZmqNamedPublisher& logger) const
+{
+    logger.publish("PAERROR", publishTimestamp(), key, message);
 }
 
 

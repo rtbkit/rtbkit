@@ -5,14 +5,22 @@
    Event matching implementation.
 */
 
-#pragma once
+#include "event_matcher.h"
+#include "events.h"
+
+#include <iostream>
+
+using namespace std;
+using namespace Datacratic;
+using namespace ML;
 
 namespace RTBKIT {
-
 
 /******************************************************************************/
 /* UTILS                                                                      */
 /******************************************************************************/
+
+namespace {
 
 template<typename Value>
 bool findAuction(PendingList<pair<Id,Id>, Value> & pending,
@@ -53,16 +61,21 @@ std::string makeBidId(Id auctionId, Id spotId, const std::string & agent)
 }
 
 
+} // namespace anonymous
+
+
 /******************************************************************************/
 /* EVENT MATCHER                                                              */
 /******************************************************************************/
 
 EventMatcher::
-EventMatcher(
-        PostAuctionService& service,
-        std::shared_ptr<EventService> events) :
-    EventRecorder(events),
-    service(service)
+EventMatcher(std::string prefix, std::shared_ptr<EventService> events) :
+    EventRecorder(prefix, std::move(events))
+{}
+
+EventMatcher::
+EventMatcher(std::string prefix, std::shared_ptr<ServiceProxies> proxies) :
+    EventRecorder(prefix, std::move(proxies))
 {}
 
 
@@ -91,9 +104,16 @@ checkExpiredAuctions()
                 }
 
                 try {
-                    this->doBidResult(auctionId, adSpotId, info, Amount() /* price */,
-                                      start /* date */, BS_LOSS, "inferred",
-                                      "null", UserIds());
+                    this->doBidResult(
+                            auctionId,
+                            adSpotId,
+                            info,
+                            Amount() /* price */,
+                            start /* date */,
+                            BS_LOSS,
+                            MatchedWinLoss::Inferred,
+                            "null",
+                            UserIds());
                 } catch (const std::exception & exc) {
                     cerr << "error handling expired loss auction: " << exc.what()
                         << endl;
@@ -205,13 +225,11 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 {
     BidStatus status;
     if (event->type == PAE_WIN) {
-        ML::atomic_inc(numWins);
         status = BS_WIN;
         recordHit("processedWin");
     }
     else {
         status = BS_LOSS;
-        ML::atomic_inc(numLosses);
         recordHit("processedLoss");
     }
 
@@ -273,7 +291,7 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
             // Late win with auction still around
             banker->forceWinBid(info.bid.account, winPrice, LineItems());
 
-            info.forceWin(timestamp, winPrice, meta.toString());
+            info.forceWin(timestamp, winPrice, winPrice, meta.toString());
 
             finished.update(key, info);
 
@@ -281,7 +299,7 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
                 MatchedWinLoss matchedEvent(
                         MatchedWinLoss::LateWin,
                         MatchedWinLoss::Guaranteed,
-                        event, info);
+                        *event, info);
                 onMatchedWinLoss(std::move(matchedEvent));
             }
 
@@ -392,7 +410,7 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
 
     auto recordUnmatched = [&] (const std::string & why)
         {
-            onUnmatchedEvent(UnmatchedEvent(why, event));
+            onUnmatchedEvent(UnmatchedEvent(why, *event));
         };
 
     if (findAuction(submitted, auctionId, adSpotId, submissionInfo)) {
@@ -423,7 +441,6 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
         }
 
         finishedInfo.campaignEvents.setEvent(label, timestamp, meta);
-        ML::atomic_inc(numCampaignEvents);
 
         recordHit("delivery.%s.account.%s.matched",
                   label,
@@ -474,7 +491,7 @@ doBidResult(
         Amount winPrice,
         Date timestamp,
         BidStatus status,
-        MatchedWinLoss::Confidence,
+        MatchedWinLoss::Confidence confidence,
         const std::string & winLossMeta,
         const UserIds & uids)
 {
@@ -493,8 +510,9 @@ doBidResult(
     int adspot_num = submission.bidRequest->findAdSpotIndex(adSpotId);
     if (adspot_num == -1) {
         doError("doBidResult.adSpotIdNotFound",
-                "adspot ID " + std::to_string(adSpotId) +
-                " not found in auction " + submission.bidRequestStr);
+                "adspot ID " + adSpotId.toString() +
+                " not found in auction " +
+                submission.bidRequestStr.utf8String());
     }
 
     const Auction::Response & response = submission.bid;

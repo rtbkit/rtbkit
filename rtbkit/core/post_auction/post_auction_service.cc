@@ -8,7 +8,10 @@
 
 #include "post_auction_service.h"
 
+#include "rtbkit/common/messages.h"
+
 using namespace std;
+using namespace Datacratic;
 using namespace ML;
 
 namespace RTBKIT {
@@ -19,36 +22,47 @@ namespace RTBKIT {
 /******************************************************************************/
 
 PostAuctionService::
-PostAuctionService(std::shared_ptr<ServiceProxies> proxies,
-                const std::string & serviceName)
+PostAuctionService(
+        std::shared_ptr<ServiceProxies> proxies, const std::string & serviceName)
     : ServiceBase(serviceName, proxies),
-      logger(getZmqContext()),
+
+      auctionTimeout(15),
+      winTimeout(1 * 60 * 60),
+
+      loopMonitor(*this),
+      matcher(serviceName, proxies),
+      configListener(getZmqContext()),
       monitorProviderClient(getZmqContext(), *this),
+
       auctions(65536),
       events(65536),
+
+      logger(getZmqContext()),
       endpoint(getZmqContext()),
-      router(!!getZmqContext()),
       toAgents(getZmqContext()),
-      configListener(getZmqContext()),
-      loopMonitor(*this)
-{
-}
+      router(!!getZmqContext())
+{}
 
 PostAuctionService::
-PostAuctionService(ServiceBase & parent,
-                const std::string & serviceName)
+PostAuctionService(ServiceBase & parent, const std::string & serviceName)
     : ServiceBase(serviceName, parent),
-      logger(getZmqContext()),
+
+      auctionTimeout(15),
+      winTimeout(1 * 60 * 60),
+
+      loopMonitor(*this),
+      matcher(serviceName, getServices()),
+      configListener(getZmqContext()),
       monitorProviderClient(getZmqContext(), *this),
+
       auctions(65536),
       events(65536),
+
+      logger(getZmqContext()),
       endpoint(getZmqContext()),
-      router(!!getZmqContext()),
       toAgents(getZmqContext()),
-      configListener(getZmqContext()),
-      loopMonitor(*this)
-{
-}
+      router(!!getZmqContext())
+{}
 
 
 void
@@ -67,67 +81,68 @@ init()
     initConnections();
     monitorProviderClient.init(getServices()->config);
 
-    using namespace std::placeholders;
+    using std::placeholders::_1;
 
-    matcher.doMatchedWinLoss =
+    matcher.onMatchedWinLoss =
         std::bind(&PostAuctionService::doMatchedWinLoss, this, _1);
 
-    matcher.doMatchedCampaignEvent =
+    matcher.onMatchedCampaignEvent =
         std::bind(&PostAuctionService::doMatchedCampaignEvent, this, _1);
 
-    matcher.doUnmatched = std::bind(&PostAuctionService::doUnmatched, this, _1);
-    matcher.doError = std::bind(&PostAuctionService::doError, this, _1);
+    matcher.onUnmatchedEvent =
+        std::bind(&PostAuctionService::doUnmatched, this, _1);
+
+    matcher.onError = std::bind(&PostAuctionService::doError, this, _1);
 }
 
 void
 PostAuctionService::
 initConnections()
 {
+    using std::placeholders::_1;
+    using std::placeholders::_2;
+
     registerServiceProvider(serviceName(), { "rtbPostAuctionService" });
 
     cerr << "post auction logger on " << serviceName() + "/logger" << endl;
     logger.init(getServices()->config, serviceName() + "/logger");
+    loop.addSource("PostAuctionService::logger", logger);
 
-    auctions.onEvent = std::bind<void>(&PostAuctionService::doAuction, this,
-                                       std::placeholders::_1);
-    events.onEvent   = std::bind<void>(&PostAuctionService::doEvent, this,
-                                       std::placeholders::_1);
-    toAgents.clientMessageHandler = [&] (const std::vector<std::string> & msg)
-        {
-            // Clients should never send the post auction service anything,
-            // but we catch it here just in case
-            cerr << "PostAuctionService got agent message " << msg << endl;
-        };
+    auctions.onEvent = std::bind(&PostAuctionService::doAuction, this, _1);
+    loop.addSource("PostAuctionService::auctions", auctions);
 
-    using namespace placeholders;
+    events.onEvent = std::bind(&PostAuctionService::doEvent, this,_1);
+    loop.addSource("PostAuctionService::events", events);
+
+    // Initialize zeromq endpoints
+    endpoint.init(getServices()->config, ZMQ_XREP, serviceName() + "/events");
 
     router.bind("AUCTION", std::bind(&PostAuctionService::doAuctionMessage, this, _1));
     router.bind("WIN", std::bind(&PostAuctionService::doWinMessage, this, _1));
     router.bind("LOSS", std::bind(&PostAuctionService::doLossMessage, this,_1));
     router.bind("EVENT", std::bind(&PostAuctionService::doCampaignEventMessage, this, _1));
 
+    endpoint.messageHandler = std::bind(
+            &ZmqMessageRouter::handleMessage, &router, std::placeholders::_1);
+    loop.addSource("PostAuctionService::endpoint", endpoint);
+
+    toAgents.init(getServices()->config, serviceName() + "/agents");
+    toAgents.clientMessageHandler = [&] (const std::vector<std::string> & msg)
+        {
+            // Clients should never send the post auction service anything,
+            // but we catch it here just in case
+            cerr << "PostAuctionService got agent message " << msg << endl;
+        };
+    loop.addSource("PostAuctionService::toAgents", toAgents);
+
+    configListener.init(getServices()->config);
+    configListener.onConfigChange =
+        std::bind(&PostAuctionService::doConfigChange, this, _1, _2);
+    loop.addSource("PostAuctionService::configListener", configListener);
+
     // Every second we check for expired auctions
     loop.addPeriodic("PostAuctionService::checkExpiredAuctions", 1.0,
                      std::bind(&EventMatcher::checkExpiredAuctions, &matcher));
-
-    // Initialize zeromq endpoints
-    endpoint.init(getServices()->config, ZMQ_XREP, serviceName() + "/events");
-    toAgents.init(getServices()->config, serviceName() + "/agents");
-
-    configListener.init(getServices()->config);
-    configListener.onConfigChange = std::bind(&doConfigChange, *this, _1, _2);
-
-    endpoint.messageHandler = std::bind(
-            &ZmqMessageRouter::handleMessage, &router, std::placeholders::_1);
-
-    loop.addSource("PostAuctionService::auctions", auctions);
-    loop.addSource("PostAuctionService::events", events);
-
-    loop.addSource("PostAuctionService::endpoint", endpoint);
-
-    loop.addSource("PostAuctionService::toAgents", toAgents);
-    loop.addSource("PostAuctionService::configListener", configListener);
-    loop.addSource("PostAuctionService::logger", logger);
 
     // Loop monitor is purely for monitoring purposes. There's no message we can
     // just drop in the PAL to alleviate the load.
@@ -321,6 +336,41 @@ injectCampaignEvent(const string & label,
     events.push(event);
 }
 
+void
+PostAuctionService::
+doAuction(const SubmittedAuctionEvent & event)
+{
+    matcher.doAuction(event);
+}
+
+void
+PostAuctionService::
+doEvent(const std::shared_ptr<PostAuctionEvent> & event)
+{
+    matcher.doEvent(event);
+}
+
+void
+PostAuctionService::
+doSubmitted(const std::shared_ptr<PostAuctionEvent> & event)
+{
+    matcher.doSubmitted(event);
+}
+
+void
+PostAuctionService::
+doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
+{
+    matcher.doCampaignEvent(event);
+}
+
+void
+PostAuctionService::
+checkExpiredAuctions()
+{
+    matcher.checkExpiredAuctions();
+}
+
 
 void
 PostAuctionService::
@@ -328,7 +378,7 @@ doMatchedWinLoss(MatchedWinLoss event)
 {
     lastWinLoss = Date::now();
 
-    event.logMessage(logger);
+    event.publish(logger);
     event.sendAgentMessage(toAgents);
 }
 
@@ -338,7 +388,7 @@ doMatchedCampaignEvent(MatchedCampaignEvent event)
 {
     lastCampaignEvent = Date::now();
 
-    event.logMessage(logger);
+    event.publish(logger);
 
     // For the moment, send the message to all of the agents that are
     // bidding on this account
@@ -347,7 +397,7 @@ doMatchedCampaignEvent(MatchedCampaignEvent event)
     auto onMatchingAgent = [&] (const AgentConfigEntry & entry)
         {
             if (!entry.config) return;
-            event.sendAgentMessage(entry.name);
+            event.sendAgentMessage(entry.name, toAgents);
             sent = true;
         };
 
@@ -355,27 +405,25 @@ doMatchedCampaignEvent(MatchedCampaignEvent event)
     configListener.forEachAccountAgent(account, onMatchingAgent);
 
     if (!sent) {
-        recordHit("delivery.%s.orphaned", label);
-        logPAError("doCampaignEvent.noListeners" + label,
+        recordHit("delivery.%s.orphaned", event.label);
+        logPAError("doCampaignEvent.noListeners" + event.label,
                 "nothing listening for account " + account.toString());
     }
-    else recordHit("delivery.%s.delivered", label);
-
-    return sent;
+    else recordHit("delivery.%s.delivered", event.label);
 }
 
 void
 PostAuctionService::
 doUnmatched(UnmatchedEvent event)
 {
-    event.logMessage(logger);
+    event.publish(logger);
 }
 
 void
 PostAuctionService::
 doError(PostAuctionErrorEvent error)
 {
-    error.logMessage(logger);
+    error.publish(logger);
 }
 
 
