@@ -132,41 +132,40 @@ MatchedWinLoss::
 publish(ZmqNamedPublisher& logger) const
 {
     logger.publish(
-            "MATCHED" + typeString(),
+            "MATCHED" + typeString(),            // 0
             publishTimestamp(),
 
-            auctionId.toString(),
+            auctionId.toString(),                // 2
             std::to_string(impIndex()),
-            request->findAdSpotIndex(impId),
             response.agent,
             response.account.at(1, ""),
 
-            winPrice.toString(),
+            winPrice.toString(),                 // 6
             response.price.maxPrice.toString(),
             std::to_string(response.price.priority),
 
-            requestStr,
+            requestStr,                          // 9
             response.bidData,
             response.meta,
 
             // This is where things start to get weird.
 
-            std::to_string(response.creativeId),
+            std::to_string(response.creativeId), // 12
             response.creativeName,
             response.account.at(0, ""),
 
-            uids.toJsonStr(),
+            uids.toJsonStr(),                    // 15
             meta,
 
             // And this is where we lose all pretenses of sanity.
 
-            response.account.at(0, ""),
+            response.account.at(0, ""),          // 17
             impId.toString(),
             response.account.toString(),
 
             // Ok back to sanity now.
 
-            requestStrFormat,
+            requestStrFormat,                    // 20
             rawWinPrice.toString()
         );
 }
