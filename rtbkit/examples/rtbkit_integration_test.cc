@@ -266,7 +266,7 @@ void setupAgent(TestAgent& agent)
             Bid& bid = bids[0];
             ExcAssertGreater(bid.availableCreatives.size(), 0);
 
-            bid.bid(bid.availableCreatives[0], USD_CPM(10));
+            bid.bid(bid.availableCreatives[0], USD_CPM(1));
 
             agent.doBid(id, bids, Json::Value(), wcm);
             ML::atomic_inc(agent.numBidRequests);
