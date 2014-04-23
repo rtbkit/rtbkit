@@ -111,9 +111,6 @@ struct EventMatcher : public EventRecorder
     /** Handle a post-auction event that came in. */
     void doEvent(const std::shared_ptr<PostAuctionEvent> & event);
 
-    /** An auction was submitted... record that */
-    void doSubmitted(const std::shared_ptr<PostAuctionEvent> & event);
-
     /** We got an impression or click on the control socket */
     void doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event);
 

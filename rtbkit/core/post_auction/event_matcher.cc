@@ -583,8 +583,8 @@ doBidResult(
     if (onMatchedWinLoss) {
         auto matchedType =
             status == BS_WIN ? MatchedWinLoss::Win : MatchedWinLoss::Loss;
-        onMatchedWinLoss(
-                MatchedWinLoss(matchedType, confidence, i, timestamp, uids));
+        MatchedWinLoss event(matchedType, confidence, i, timestamp, uids);
+        onMatchedWinLoss(std::move(event));
     }
 
     double expiryInterval = winTimeout;

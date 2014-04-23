@@ -8,7 +8,7 @@
 #include "augmentor_ex.h"
 
 #include "rtbkit/core/router/router.h"
-#include "rtbkit/core/post_auction/post_auction_loop.h"
+#include "rtbkit/core/post_auction/post_auction_service.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/banker/master_banker.h"
 #include "rtbkit/core/banker/slave_banker.h"
@@ -53,7 +53,7 @@ struct Components
 
     RedisTemporaryServer redis;
     Router router1, router2;
-    PostAuctionLoop postAuctionLoop;
+    PostAuctionService postAuctionLoop;
     MasterBanker masterBanker;
     SlaveBudgetController budgetController;
     AgentConfigurationService agentConfig;

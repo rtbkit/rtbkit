@@ -352,13 +352,6 @@ doEvent(const std::shared_ptr<PostAuctionEvent> & event)
 
 void
 PostAuctionService::
-doSubmitted(const std::shared_ptr<PostAuctionEvent> & event)
-{
-    matcher.doSubmitted(event);
-}
-
-void
-PostAuctionService::
 doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
 {
     matcher.doCampaignEvent(event);

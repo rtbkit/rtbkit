@@ -172,7 +172,6 @@ private:
 
     void doAuction(const SubmittedAuctionEvent & event);
     void doEvent(const std::shared_ptr<PostAuctionEvent> & event);
-    void doSubmitted(const std::shared_ptr<PostAuctionEvent> & event);
     void doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event);
     void checkExpiredAuctions();
 
