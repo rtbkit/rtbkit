@@ -14,6 +14,8 @@ using namespace RTBKIT;
 BidderInterface::BidderInterface(ServiceBase & parent,
                                  std::string const & name) :
     ServiceBase(name, parent),
+    router(nullptr),
+    bridge(nullptr),
     events(65536),
     endpoint(getZmqContext()) {
 }
@@ -21,12 +23,15 @@ BidderInterface::BidderInterface(ServiceBase & parent,
 BidderInterface::BidderInterface(std::shared_ptr<ServiceProxies> proxies,
                                  std::string const & name) :
     ServiceBase(name, proxies),
+    router(nullptr),
+    bridge(nullptr),
     events(65536),
     endpoint(getZmqContext()) {
 }
 
-void BidderInterface::init(Router * value) {
-    router = value;
+void BidderInterface::init(AgentBridge * value, Router * r) {
+    router = r;
+    bridge = value;
 
     registerServiceProvider(serviceName(), { "rtbBidderService" });
 

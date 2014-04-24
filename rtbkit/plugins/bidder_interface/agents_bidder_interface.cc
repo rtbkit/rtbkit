@@ -16,14 +16,14 @@ AgentsBidderInterface::AgentsBidderInterface(std::string const & name,
 }
 
 void AgentsBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & auction,
-                                            double timeLeftMs,
-                                            std::map<std::string, BidInfo> const & bidders) {
+                                               double timeLeftMs,
+                                               std::map<std::string, BidInfo> const & bidders) {
     for(auto & item : bidders) {
         auto & agent = item.first;
         auto & spots = item.second.imp;
         auto & info = router->agents[agent];
         WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction, *info.config);
-        router->sendAgentMessage(agent,
+        bridge->sendAgentMessage(agent,
                                  "AUCTION",
                                  auction->start,
                                  auction->id,
@@ -37,9 +37,9 @@ void AgentsBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & 
 }
 
 void AgentsBidderInterface::sendWinMessage(std::string const & agent,
-                                        std::string const & id,
-                                        Amount price) {
-    router->sendAgentMessage(agent,
+                                           std::string const & id,
+                                           Amount price) {
+    bridge->sendAgentMessage(agent,
                              "WIN",
                              Date::now(),
                              "guaranteed",
@@ -48,9 +48,43 @@ void AgentsBidderInterface::sendWinMessage(std::string const & agent,
                              price.toString());
 }
 
+void AgentsBidderInterface::sendWinMessage(std::string const & agent,
+                                           Amount price,
+                                           FinishedInfo const & event) {
+    bridge->sendAgentMessage(agent,
+                             "WIN",
+                             event.winTime,
+                             "guaranteed",
+                             event.auctionId,
+                             std::to_string(event.spotIndex),
+                             price.toString(),
+                             event.bidRequestStrFormat,
+                             event.bidRequestStr,
+                             event.bid.bidData,
+                             event.bid.meta,
+                             event.augmentations);
+}
+
+void AgentsBidderInterface::sendLateWinMessage(std::string const & agent,
+                                               Amount price,
+                                               FinishedInfo const & event) {
+    bridge->sendAgentMessage(agent,
+                             "LATEWIN",
+                             event.winTime,
+                             "guaranteed",
+                             event.auctionId,
+                             std::to_string(event.spotIndex),
+                             event.winPrice.toString(),
+                             event.bidRequestStrFormat,
+                             event.bidRequestStr,
+                             event.bid.bidData,
+                             event.bid.meta,
+                             event.augmentations);
+}
+
 void AgentsBidderInterface::sendLossMessage(std::string const & agent,
-                                         std::string const & id) {
-    router->sendAgentMessage(agent,
+                                            std::string const & id) {
+    bridge->sendAgentMessage(agent,
                              "LOSS",
                              Date::now(),
                              "guaranteed",
@@ -59,9 +93,44 @@ void AgentsBidderInterface::sendLossMessage(std::string const & agent,
                              Amount().toString());
 }
 
+void AgentsBidderInterface::sendLossMessage(std::string const & agent,
+                                            FinishedInfo const & event) {
+    bridge->sendAgentMessage(agent,
+                             "LOSS",
+                             event.winTime,
+                             "inferred",
+                             event.auctionId,
+                             std::to_string(event.spotIndex),
+                             Amount().toString(),
+                             event.bidRequestStrFormat,
+                             event.bidRequestStr,
+                             event.bid.bidData,
+                             event.bid.meta,
+                             event.augmentations);
+}
+
+void AgentsBidderInterface::sendCampaignEventMessage(std::string const & agent,
+                                                     std::string const & label,
+                                                     FinishedInfo const & event) {
+    bridge->sendAgentMessage(agent,
+                             "CAMPAIGN_EVENT",
+                             label,
+                             Date::now(),
+                             event.auctionId,
+                             event.adSpotId,
+                             std::to_string(event.spotIndex),
+                             event.bidRequestStrFormat,
+                             event.bidRequestStr,
+                             event.augmentations,
+                             event.bidToJson(),
+                             event.winToJson(),
+                             event.campaignEvents.toJson(),
+                             event.visitsToJson());
+}
+
 void AgentsBidderInterface::sendBidLostMessage(std::string const & agent,
-                                            std::shared_ptr<Auction> const & auction) {
-    router->sendAgentMessage(agent,
+                                               std::shared_ptr<Auction> const & auction) {
+    bridge->sendAgentMessage(agent,
                              "LOST",
                              Date::now(),
                              "guaranteed",
@@ -80,8 +149,8 @@ void AgentsBidderInterface::sendBidLostMessage(std::string const & agent,
 }
 
 void AgentsBidderInterface::sendBidDroppedMessage(std::string const & agent,
-                                               std::shared_ptr<Auction> const & auction) {
-    router->sendAgentMessage(agent,
+                                                  std::shared_ptr<Auction> const & auction) {
+    bridge->sendAgentMessage(agent,
                              "DROPPEDBID",
                              Date::now(),
                              "guaranteed",
@@ -102,9 +171,9 @@ void AgentsBidderInterface::sendBidDroppedMessage(std::string const & agent,
 }
 
 void AgentsBidderInterface::sendBidInvalidMessage(std::string const & agent,
-                                               std::string const & reason,
-                                               std::shared_ptr<Auction> const & auction) {
-    router->sendAgentMessage(agent,
+                                                  std::string const & reason,
+                                                  std::shared_ptr<Auction> const & auction) {
+    bridge->sendAgentMessage(agent,
                              "INVALID",
                              Date::now(),
                              reason,
@@ -124,8 +193,8 @@ void AgentsBidderInterface::sendBidInvalidMessage(std::string const & agent,
 }
 
 void AgentsBidderInterface::sendNoBudgetMessage(std::string const & agent,
-                                             std::shared_ptr<Auction> const & auction) {
-    router->sendAgentMessage(agent,
+                                                std::shared_ptr<Auction> const & auction) {
+    bridge->sendAgentMessage(agent,
                              "NOBUDGET",
                              Date::now(),
                              "guaranteed",
@@ -143,8 +212,8 @@ void AgentsBidderInterface::sendNoBudgetMessage(std::string const & agent,
 }
 
 void AgentsBidderInterface::sendTooLateMessage(std::string const & agent,
-                                            std::shared_ptr<Auction> const & auction) {
-    router->sendAgentMessage(agent,
+                                               std::shared_ptr<Auction> const & auction) {
+    bridge->sendAgentMessage(agent,
                              "TOOLATE",
                              Date::now(),
                              "guaranteed",
@@ -183,16 +252,16 @@ void AgentsBidderInterface::sendTooLateMessage(std::string const & agent,
 }
 
 void AgentsBidderInterface::sendMessage(std::string const & agent,
-                                     std::string const & message) {
-    router->sendAgentMessage(agent,
+                                        std::string const & message) {
+    bridge->sendAgentMessage(agent,
                              message,
                              Date::now());
 }
 
 void AgentsBidderInterface::sendErrorMessage(std::string const & agent,
-                                          std::string const & error,
-                                          std::vector<std::string> const & payload) {
-    router->sendAgentMessage(agent,
+                                             std::string const & error,
+                                             std::vector<std::string> const & payload) {
+    bridge->sendAgentMessage(agent,
                              "ERROR",
                              Date::now(),
                              error,
@@ -200,15 +269,15 @@ void AgentsBidderInterface::sendErrorMessage(std::string const & agent,
 }
 
 void AgentsBidderInterface::sendPingMessage(std::string const & agent,
-                                         int ping) {
+                                            int ping) {
     if(ping == 0) {
-        router->sendAgentMessage(agent,
+        bridge->sendAgentMessage(agent,
                                  "PING0",
                                  Date::now(),
                                  "null");
     }
     else {
-        router->sendAgentMessage(agent,
+        bridge->sendAgentMessage(agent,
                                  "PING1",
                                  Date::now(),
                                  "null");

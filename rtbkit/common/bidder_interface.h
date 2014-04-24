@@ -10,20 +10,22 @@
 #include "soa/service/typed_message_channel.h"
 #include "rtbkit/common/auction_events.h"
 #include "rtbkit/core/router/router_types.h"
+#include "rtbkit/core/post_auction/post_auction_types.h"
 
 namespace RTBKIT {
 
 class Router;
+class AgentBridge;
 
 struct BidderInterface : public ServiceBase
 {
     BidderInterface(ServiceBase & parent,
-                     std::string const & name = "bidder");
+                    std::string const & name = "bidder");
 
     BidderInterface(std::shared_ptr<ServiceProxies> proxies = std::make_shared<ServiceProxies>(),
-                     std::string const & name = "bidder");
+                    std::string const & name = "bidder");
 
-    void init(Router * value);
+    void init(AgentBridge * value, Router * r = nullptr);
     void start();
     void bindTcp();
 
@@ -38,8 +40,27 @@ struct BidderInterface : public ServiceBase
                         Amount price) = 0;
 
     virtual
+    void sendWinMessage(std::string const & agent,
+                        Amount price,
+                        FinishedInfo const & event) = 0;
+
+    virtual
+    void sendLateWinMessage(std::string const & agent,
+                            Amount price,
+                            FinishedInfo const & event) = 0;
+
+    virtual
     void sendLossMessage(std::string const & agent,
                          std::string const & id) = 0;
+
+    virtual
+    void sendLossMessage(std::string const & agent,
+                         FinishedInfo const & event) = 0;
+
+    virtual
+    void sendCampaignEventMessage(std::string const & agent,
+                                  std::string const & label,
+                                  FinishedInfo const & event) = 0;
 
     virtual
     void sendBidLostMessage(std::string const & agent,
@@ -96,6 +117,7 @@ protected:
     void handlePostAuctionMessage(std::vector<std::string> const & items);
 
     Router * router;
+    AgentBridge * bridge;
 
     MessageLoop loop;
     TypedMessageSink<std::shared_ptr<PostAuctionEvent>> events;

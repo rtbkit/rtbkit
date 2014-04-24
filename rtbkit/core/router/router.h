@@ -375,9 +375,6 @@ protected:
     int shutdown_;
 
 public:
-    // Connection to the agents
-    ZmqNamedClientBus agentEndpoint;
-
     // Connection to the post auction loop
     ZmqNamedProxy postAuctionEndpoint;
 
@@ -495,16 +492,6 @@ public:
     */
     void configure(const std::string & agent, AgentConfig & config);
 
-    /** Send the given message to the given bidding agent. */
-    template<typename... Args>
-    void sendAgentMessage(const std::string & agent,
-                          const std::string & messageType,
-                          const Date & date,
-                          Args... args)
-    {
-        agentEndpoint.sendMessage(agent, messageType, date, args...);
-    }
-
     mutable Lock lock;
 
     std::shared_ptr<Banker> banker;
@@ -554,6 +541,7 @@ public:
 
     /** Bid price calculator */
     std::shared_ptr<BidderInterface> bidder;
+    AgentBridge bridge;
 
     /*************************************************************************/
     /* EXCEPTIONS                                                            */
