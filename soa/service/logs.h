@@ -103,7 +103,7 @@ struct Logging
         Thrower(Category & category) : category(category) {
         }
 
-        void operator&(std::ostream & stream);
+        void operator&(std::ostream & stream) __attribute__((noreturn));
 
     private:
         Category & category;
