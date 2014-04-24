@@ -113,7 +113,6 @@ init()
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice));
     router->init();
-    router->bidder = BidderInterface::create("bidder", proxies, bidderConfig);
 
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
                                            proxies->config,
