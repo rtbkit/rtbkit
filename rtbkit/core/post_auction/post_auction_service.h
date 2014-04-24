@@ -11,6 +11,7 @@
 #include "event_matcher.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
+#include "soa/service/logs.h"
 #include "soa/service/service_base.h"
 #include "soa/service/loop_monitor.h"
 #include "soa/service/zmq_endpoint.h"
@@ -252,6 +253,10 @@ private:
     ZmqNamedClientBus toAgents;
 
     ZmqMessageRouter router;
+
+    static Logging::Category print;
+    static Logging::Category error;
+    static Logging::Category trace;
 };
 
 } // namespace RTBKIT

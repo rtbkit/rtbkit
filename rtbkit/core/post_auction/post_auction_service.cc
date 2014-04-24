@@ -21,6 +21,11 @@ namespace RTBKIT {
 /* POST AUCTION SERVICE                                                       */
 /******************************************************************************/
 
+Logging::Category PostAuctionService::print("PostAuctionService");
+Logging::Category PostAuctionService::error("PostAuctionService Error", PostAuctionService::print);
+Logging::Category PostAuctionService::trace("PostAuctionService Trace", PostAuctionService::print);
+
+
 PostAuctionService::
 PostAuctionService(
         std::shared_ptr<ServiceProxies> proxies, const std::string & serviceName)
@@ -104,7 +109,7 @@ initConnections()
 
     registerServiceProvider(serviceName(), { "rtbPostAuctionService" });
 
-    cerr << "post auction logger on " << serviceName() + "/logger" << endl;
+    LOG(print) << "post auction logger on " << serviceName() + "/logger" << endl;
     logger.init(getServices()->config, serviceName() + "/logger");
     loop.addSource("PostAuctionService::logger", logger);
 
@@ -122,7 +127,7 @@ initConnections()
     router.bind("LOSS", std::bind(&PostAuctionService::doLossMessage, this,_1));
     router.bind("EVENT", std::bind(&PostAuctionService::doCampaignEventMessage, this, _1));
     router.defaultHandler = [=](const std::vector<std::string> & message) {
-        cerr << "unroutable message: " << message[0] << std::endl;
+        LOG(error) << "unroutable message: " << message[0] << std::endl;
     };
 
     endpoint.messageHandler = std::bind(
@@ -134,7 +139,7 @@ initConnections()
         {
             // Clients should never send the post auction service anything,
             // but we catch it here just in case
-            cerr << "PostAuctionService got agent message " << msg << endl;
+            LOG(print) << "PostAuctionService got agent message " << msg << endl;
         };
     loop.addSource("PostAuctionService::toAgents", toAgents);
 
@@ -301,8 +306,6 @@ injectLoss(const Id & auctionId,
            const AccountKey & account,
            Date bidTimestamp)
 {
-    //cerr << "injecting loss for " << auctionId << endl;
-
     if (timestamp == Date())
         timestamp = Date::now();
 

@@ -15,6 +15,7 @@
 #include "rtbkit/common/auction_events.h"
 #include "soa/service/service_base.h"
 #include "soa/service/pending_list.h"
+#include "soa/service/logs.h"
 
 #include <utility>
 
@@ -47,16 +48,16 @@ struct EventMatcher : public EventRecorder
 
     void doError(std::string key, std::string message)
     {
-        if (!onError) return;
         recordHit("error.%s", key);
+        if (!onError) return;
         onError(PostAuctionErrorEvent(std::move(key), std::move(message)));
     }
 
-    // \todo Needs to go.
-    void throwException(const std::string & key, const std::string & fmt, ...)
+    void throwException(const std::string & key, const std::string & msg)
         __attribute__((__noreturn__))
     {
-        throw ML::Exception(key);
+        doError(key, msg);
+        THROW(error) << msg;
     }
 
     /************************************************************************/
@@ -159,6 +160,10 @@ private:
 
     std::shared_ptr<EventService> events;
     std::shared_ptr<Banker> banker;
+
+    static Logging::Category print;
+    static Logging::Category error;
+    static Logging::Category trace;
 };
 
 } // RTBKIT
