@@ -122,6 +122,42 @@ private:
     ZmqNamedClientBusProxy configEndpoint;
 };
 
+struct AgentBridge {
+    AgentBridge(std::shared_ptr<zmq::context_t> context) :
+        agents(context) {
+    }
+
+    void shutdown() {
+        agents.shutdown();
+    }
+
+    /// Messages to the agents go out on this
+    ZmqNamedClientBus agents;
+
+    /** Send the given message to the given bidding agent. */
+    template<typename... Args>
+    void sendAgentMessage(const std::string & agent,
+                          const std::string & messageType,
+                          const Date & date,
+                          Args... args)
+    {
+        agents.sendMessage(agent, messageType, date,
+                           std::forward<Args>(args)...);
+    }
+
+    /** Send the given message to the given bidding agent. */
+    template<typename... Args>
+    void sendAgentMessage(const std::string & agent,
+                          const std::string & eventType,
+                          const std::string & messageType,
+                          const Date & date,
+                          Args... args)
+    {
+        agents.sendMessage(agent, eventType, messageType, date,
+                           std::forward<Args>(args)...);
+    }
+};
+
 
 } // namespace RTBKIT
 

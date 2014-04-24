@@ -70,7 +70,7 @@ struct BidStack {
             json["host"] = forwardInfo.first;
             json["path"] = forwardInfo.second;
             router.bidder = BidderInterface::create("bidder", proxies, json);
-            router.bidder->init(&router);
+            router.bidder->init(&router.bridge, &router);
         }
 
         // Start the router up

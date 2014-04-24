@@ -116,7 +116,6 @@ Router(ServiceBase & parent,
        Amount maxBidAmount)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
-      agentEndpoint(getZmqContext()),
       configBuffer(1024),
       exchangeBuffer(64),
       startBiddingBuffer(65536),
@@ -133,6 +132,7 @@ Router(ServiceBase & parent,
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
+      bridge(getZmqContext()),
       logAuctions(logAuctions),
       logBids(logBids),
       logger(getZmqContext()),
@@ -157,7 +157,6 @@ Router(std::shared_ptr<ServiceProxies> services,
        Amount maxBidAmount)
     : ServiceBase(serviceName, services),
       shutdown_(false),
-      agentEndpoint(getZmqContext()),
       postAuctionEndpoint(getZmqContext()),
       configBuffer(1024),
       exchangeBuffer(64),
@@ -175,6 +174,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       allAgents(new AllAgentInfo()),
       configListener(getZmqContext()),
       initialized(false),
+      bridge(getZmqContext()),
       logAuctions(logAuctions),
       logBids(logBids),
       logger(getZmqContext()),
@@ -205,21 +205,21 @@ init()
     Json::Value json;
     json["type"] = "agents";
     bidder = BidderInterface::create("bidder", getServices(), json);
-    bidder->init(this);
+    bidder->init(&bridge, this);
 
     augmentationLoop.init();
 
     logger.init(getServices()->config, serviceName() + "/logger");
 
-    agentEndpoint.init(getServices()->config, serviceName() + "/agents");
-    agentEndpoint.clientMessageHandler
+    bridge.agents.init(getServices()->config, serviceName() + "/agents");
+    bridge.agents.clientMessageHandler
         = std::bind(&Router::handleAgentMessage, this, std::placeholders::_1);
-    agentEndpoint.onConnection = [=] (const std::string & agent)
+    bridge.agents.onConnection = [=] (const std::string & agent)
         {
             cerr << "agent " << agent << " connected to router" << endl;
         };
 
-    agentEndpoint.onDisconnection = [=] (const std::string & agent)
+    bridge.agents.onDisconnection = [=] (const std::string & agent)
         {
             cerr << "agent " << agent << " disconnected from router" << endl;
         };
@@ -286,7 +286,7 @@ Router::
 bindTcp()
 {
     logger.bindTcp(getServices()->ports->getRange("logs"));
-    agentEndpoint.bindTcp(getServices()->ports->getRange("router"));
+    bridge.agents.bindTcp(getServices()->ports->getRange("router"));
     bidder->bindTcp();
 }
 
@@ -295,7 +295,7 @@ Router::
 bindAgents(std::string agentUri)
 {
     try {
-        agentEndpoint.bind(agentUri.c_str());
+        bridge.agents.bind(agentUri.c_str());
     } catch (const std::exception & exc) {
         throw Exception("error while binding agent URI %s: %s",
                             agentUri.c_str(), exc.what());
@@ -429,7 +429,7 @@ run()
     using namespace std;
 
     zmq_pollitem_t items [] = {
-        { agentEndpoint.getSocketUnsafe(), 0, ZMQ_POLLIN, 0 },
+        { bridge.agents.getSocketUnsafe(), 0, ZMQ_POLLIN, 0 },
         { 0, wakeupMainLoop.fd(), ZMQ_POLLIN, 0 }
     };
 
@@ -583,8 +583,8 @@ run()
             // Agent message
             vector<string> message;
             try {
-                message = recvAll(agentEndpoint.getSocketUnsafe());
-                agentEndpoint.handleMessage(std::move(message));
+                message = recvAll(bridge.agents.getSocketUnsafe());
+                bridge.agents.handleMessage(std::move(message));
                 double atEnd = getTime();
                 times[message.at(1)].add(microsecondsBetween(atEnd, beforeMessage));
             } catch (const std::exception & exc) {

@@ -167,8 +167,27 @@ void HttpBidderInterface::sendWinMessage(std::string const & agent,
                                          Amount price) {
 }
 
+void HttpBidderInterface::sendWinMessage(std::string const & agent,
+                                         Amount price,
+                                         FinishedInfo const & event) {
+}
+
+void HttpBidderInterface::sendLateWinMessage(std::string const & agent,
+                                             Amount price,
+                                             FinishedInfo const & event) {
+}
+
 void HttpBidderInterface::sendLossMessage(std::string const & agent,
                                           std::string const & id) {
+}
+
+void HttpBidderInterface::sendLossMessage(std::string const & agent,
+                                          FinishedInfo const & event) {
+}
+
+void HttpBidderInterface::sendCampaignEventMessage(std::string const & agent,
+                                                   std::string const & label,
+                                                   FinishedInfo const & event) {
 }
 
 void HttpBidderInterface::sendBidLostMessage(std::string const & agent,
