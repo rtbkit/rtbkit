@@ -333,7 +333,7 @@ int main(int argc, char ** argv)
     // Controls the length of the test.
     enum {
         nExchangeThreads = 10,
-        nBidRequestsPerThread = 2000
+        nBidRequestsPerThread = 100
     };
 
     auto proxies = std::make_shared<ServiceProxies>();
