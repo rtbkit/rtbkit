@@ -121,6 +121,9 @@ initConnections()
     router.bind("WIN", std::bind(&PostAuctionService::doWinMessage, this, _1));
     router.bind("LOSS", std::bind(&PostAuctionService::doLossMessage, this,_1));
     router.bind("EVENT", std::bind(&PostAuctionService::doCampaignEventMessage, this, _1));
+    router.defaultHandler = [=](const std::vector<std::string> & message) {
+        cerr << "unroutable message: " << message[0] << std::endl;
+    };
 
     endpoint.messageHandler = std::bind(
             &ZmqMessageRouter::handleMessage, &router, std::placeholders::_1);
