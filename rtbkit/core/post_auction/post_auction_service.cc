@@ -96,10 +96,15 @@ void
 PostAuctionService::
 initMatcher(size_t shards)
 {
-    if (shards <= 1)
+    if (shards <= 1) {
+        LOG(print) << "Creating SimpleEventMatcher" << endl;
         matcher.reset(new SimpleEventMatcher(serviceName(), getServices()));
+    }
 
     else {
+        LOG(print) << "Creating ShardedEventMatcher with " << shards << "shards"
+            << endl;
+
         ShardedEventMatcher* m;
         matcher.reset(m = new ShardedEventMatcher(serviceName(), getServices()));
         m->init(shards);

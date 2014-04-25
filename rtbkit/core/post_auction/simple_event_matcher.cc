@@ -205,10 +205,10 @@ doAuction(std::shared_ptr<SubmittedAuctionEvent> event)
         submitted.insert(key, submission, lossTimeout);
 
         string transId =
-            makeBidId(auctionId, event->adSpotId, event->bidResponse.agent);
-        banker->attachBid(event->bidResponse.account,
-                          transId,
-                          event->bidResponse.price.maxPrice);
+            makeBidId(auctionId, event->adSpotId, submission.bid.agent);
+
+        banker->attachBid(
+                submission.bid.account, transId, submission.bid.price.maxPrice);
 
         /* Replay any early win/loss events. */
         for (auto it = earlyWinEvents.begin(), end = earlyWinEvents.end();
@@ -528,7 +528,8 @@ doBidResult(
 
     // Make sure we account for the bid no matter what
     ML::Call_Guard guard ([&] () {
-                banker->cancelBid(account, makeBidId(auctionId, adSpotId, agent));
+                auto transId = makeBidId(auctionId, adSpotId, agent);
+                banker->cancelBid(account, transId);
             });
 
     // No bid
@@ -555,8 +556,9 @@ doBidResult(
 
         // This is a real win
         guard.clear();
-        banker->winBid(account, makeBidId(auctionId, adSpotId, agent), price,
-                       LineItems());
+
+        auto transId = makeBidId(auctionId, adSpotId, agent);
+        banker->winBid(account, transId, price, LineItems());
     }
 
     // Finally, place it in the finished queue
