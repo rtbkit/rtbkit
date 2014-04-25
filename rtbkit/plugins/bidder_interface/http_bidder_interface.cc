@@ -66,10 +66,16 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
     for(auto & item : bidders) {
         auto & agent = item.first;
         auto & info = router->agents[agent];
+        BidRequest originalRequest = *auction->request;
         WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction, *info.config);
 
-        OpenRTB::BidRequest openRtbRequest = toOpenRtb(*auction->request);
-        tagRequest(openRtbRequest, bidders);
+        OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
+        bool ok = prepareRequest(openRtbRequest, originalRequest, bidders);
+        if (!ok) {
+            std::cerr << "Too late to send the BidRequest" << std::endl;
+            // TODO: return a no-bid
+            return;
+        }
         StructuredJsonPrintingContext context;
         desc.printJson(&openRtbRequest, context);
         auto requestStr = context.output.toString();
@@ -225,6 +231,27 @@ void HttpBidderInterface::sendPingMessage(std::string const & agent,
 }
 
 void HttpBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event) {
+}
+
+bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
+                                         const RTBKIT::BidRequest &originalRequest,
+                                         const std::map<std::string, BidInfo> &bidders) {
+    tagRequest(request, bidders);
+
+    // We update the tmax value before sending the BidRequest to substract our processing time
+    double processingTimeMs = originalRequest.timestamp.secondsUntil(Date::now()) * 1000;
+    int oldTmax = request.tmax.value();
+    int newTmax = oldTmax - static_cast<int>(std::round(processingTimeMs));
+    if (newTmax <= 0) {
+        return false;
+    }
+#if 0
+    std::cerr << "old tmax = " << oldTmax << std::endl
+              << "new tmax = " << newTmax << std::endl;
+#endif
+    ExcCheck(newTmax <= oldTmax, "Wrong tmax calculation");
+    request.tmax.val = newTmax;
+    return true;
 }
 
 //
