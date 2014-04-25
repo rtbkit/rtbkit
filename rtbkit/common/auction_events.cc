@@ -23,6 +23,22 @@ using namespace RTBKIT;
 /* SUBMITTED AUCTION EVENT                                                   */
 /*****************************************************************************/
 
+std::shared_ptr<BidRequest>
+SubmittedAuctionEvent::
+bidRequest() const
+{
+    if (!bidRequest_)
+        bidRequest_.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
+    return bidRequest_;
+}
+
+void
+SubmittedAuctionEvent::
+bidRequest(std::shared_ptr<BidRequest> event)
+{
+    bidRequest_ = std::move(event);
+}
+
 void
 SubmittedAuctionEvent::
 serialize(ML::DB::Store_Writer & store) const
@@ -44,7 +60,6 @@ reconstitute(ML::DB::Store_Reader & store)
     store >> auctionId >> adSpotId >> lossTimeout >> augmentations
           >> bidRequestStr >> bidResponse >> bidRequestStrFormat;
 
-    bidRequest.reset(BidRequest::parse(bidRequestStrFormat, bidRequestStr));
 }
 
 SubmittedAuctionEventDescription::
@@ -53,8 +68,7 @@ SubmittedAuctionEventDescription() {
     addField("adSpotId", &SubmittedAuctionEvent::adSpotId, "");
     addField("lossTimeout", &SubmittedAuctionEvent::lossTimeout, "");
     addField("augmentation", &SubmittedAuctionEvent::augmentations, "");
-    addField("bidRequest", &SubmittedAuctionEvent::bidRequest, "");
-    addField("bidRequestStr", &SubmittedAuctionEvent::bidRequestStr, "");
+    addField("bidRequest", &SubmittedAuctionEvent::bidRequestStr, "");
     addField("bidResponse", &SubmittedAuctionEvent::bidResponse, "");
     addField("bidRequestStrFormat", &SubmittedAuctionEvent::bidRequestStrFormat, "");
 }

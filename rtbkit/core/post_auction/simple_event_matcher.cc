@@ -1,11 +1,11 @@
-/* event_matcher.cc                                 -*- C++ -*-
+/* simple_event_matcher.cc                                 -*- C++ -*-
    Rémi Attab (remi.attab@gmail.com), 18 Apr 2014
    FreeBSD-style copyright and disclaimer apply
 
    Event matching implementation.
 */
 
-#include "event_matcher.h"
+#include "simple_event_matcher.h"
 #include "events.h"
 
 #include <iostream>
@@ -66,24 +66,24 @@ std::string makeBidId(Id auctionId, Id spotId, const std::string & agent)
 /* EVENT MATCHER                                                              */
 /******************************************************************************/
 
-Logging::Category EventMatcher::print("EventMatcher");
-Logging::Category EventMatcher::error("EventMatcher Error", EventMatcher::print);
-Logging::Category EventMatcher::trace("EventMatcher Trace", EventMatcher::print);
+Logging::Category SimpleEventMatcher::print("SimpleEventMatcher");
+Logging::Category SimpleEventMatcher::error("SimpleEventMatcher Error", SimpleEventMatcher::print);
+Logging::Category SimpleEventMatcher::trace("SimpleEventMatcher Trace", SimpleEventMatcher::print);
 
 
-EventMatcher::
-EventMatcher(std::string prefix, std::shared_ptr<EventService> events) :
-    EventRecorder(prefix, std::move(events))
+SimpleEventMatcher::
+SimpleEventMatcher(std::string prefix, std::shared_ptr<EventService> events) :
+    EventMatcher(std::move(prefix), std::move(events))
 {}
 
-EventMatcher::
-EventMatcher(std::string prefix, std::shared_ptr<ServiceProxies> proxies) :
-    EventRecorder(prefix, std::move(proxies))
+SimpleEventMatcher::
+SimpleEventMatcher(std::string prefix, std::shared_ptr<ServiceProxies> proxies) :
+    EventMatcher(std::move(prefix), std::move(proxies))
 {}
 
 
 void
-EventMatcher::
+SimpleEventMatcher::
 checkExpiredAuctions()
 {
     Date start = Date::now();
@@ -149,42 +149,44 @@ checkExpiredAuctions()
 
 
 void
-EventMatcher::
-doEvent(const std::shared_ptr<PostAuctionEvent> & event)
+SimpleEventMatcher::
+doEvent(std::shared_ptr<PostAuctionEvent> event)
 {
+    auto type = event->type;
+
     try {
-        switch (event->type) {
+        switch (type) {
         case PAE_WIN:
         case PAE_LOSS:
-            doWinLoss(event, false);
+            doWinLoss(std::move(event), false);
             break;
         case PAE_CAMPAIGN_EVENT:
-            doCampaignEvent(event);
+            doCampaignEvent(std::move(event));
             break;
         default:
             THROW(error) << "postAuctionLoop.unknownEventType"
-                << "unknown event type " << event->type;
+                << "unknown event type " << type;
         }
     } catch (const std::exception & exc) {
-        LOG(error) << "doEvent " << RTBKIT::print(event->type)
+        LOG(error) << "doEvent " << RTBKIT::print(type)
             << " threw: " << exc.what() << endl;
     }
 }
 
 
 void
-EventMatcher::
-doAuction(const SubmittedAuctionEvent & event)
+SimpleEventMatcher::
+doAuction(std::shared_ptr<SubmittedAuctionEvent> event)
 {
     try {
         recordHit("processedAuction");
 
-        const Id & auctionId = event.auctionId;
+        const Id & auctionId = event->auctionId;
 
-        Date lossTimeout = event.lossTimeout;
+        Date lossTimeout = event->lossTimeout;
 
         // move the auction over to the submitted bid pipeline...
-        auto key = make_pair(auctionId, event.adSpotId);
+        auto key = make_pair(auctionId, event->adSpotId);
 
         SubmissionInfo submission;
         vector<std::shared_ptr<PostAuctionEvent> > earlyWinEvents;
@@ -194,19 +196,19 @@ doAuction(const SubmittedAuctionEvent & event)
             recordHit("auctionAlreadySubmitted");
         }
 
-        submission.bidRequest = std::move(event.bidRequest);
-        submission.bidRequestStrFormat = std::move(event.bidRequestStrFormat);
-        submission.bidRequestStr = std::move(event.bidRequestStr);
-        submission.augmentations = std::move(event.augmentations);
-        submission.bid = std::move(event.bidResponse);
+        submission.bidRequest = event->bidRequest();
+        submission.bidRequestStrFormat = std::move(event->bidRequestStrFormat);
+        submission.bidRequestStr = std::move(event->bidRequestStr);
+        submission.augmentations = std::move(event->augmentations);
+        submission.bid = std::move(event->bidResponse);
 
         submitted.insert(key, submission, lossTimeout);
 
         string transId =
-            makeBidId(auctionId, event.adSpotId, event.bidResponse.agent);
-        banker->attachBid(event.bidResponse.account,
+            makeBidId(auctionId, event->adSpotId, event->bidResponse.agent);
+        banker->attachBid(event->bidResponse.account,
                           transId,
-                          event.bidResponse.price.maxPrice);
+                          event->bidResponse.price.maxPrice);
 
         /* Replay any early win/loss events. */
         for (auto it = earlyWinEvents.begin(), end = earlyWinEvents.end();
@@ -223,8 +225,8 @@ doAuction(const SubmittedAuctionEvent & event)
 }
 
 void
-EventMatcher::
-doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
+SimpleEventMatcher::
+doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
 {
     BidStatus status;
     if (event->type == PAE_WIN) {
@@ -296,13 +298,10 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
 
             finished.update(key, info);
 
-            if (onMatchedWinLoss) {
-                MatchedWinLoss matchedEvent(
-                        MatchedWinLoss::LateWin,
-                        MatchedWinLoss::Guaranteed,
-                        *event, info);
-                onMatchedWinLoss(std::move(matchedEvent));
-            }
+            doMatchedWinLoss(std::make_shared<MatchedWinLoss>(
+                            MatchedWinLoss::LateWin,
+                            MatchedWinLoss::Guaranteed,
+                            *event, info));
 
             recordHit("bidResult.%s.winAfterLossAssumed", typeStr);
             recordOutcome(winPrice.value,
@@ -382,13 +381,13 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
     std::for_each(
             info.earlyCampaignEvents.begin(),
             info.earlyCampaignEvents.end(),
-            std::bind(&EventMatcher::doCampaignEvent, this, _1));
+            std::bind(&SimpleEventMatcher::doCampaignEvent, this, _1));
 }
 
 
 void
-EventMatcher::
-doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
+SimpleEventMatcher::
+doCampaignEvent(std::shared_ptr<PostAuctionEvent> event)
 {
     const string & label = event->label;
     const Id & auctionId = event->auctionId;
@@ -407,10 +406,9 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
 
     recordHit("delivery.EVENT.%s.messagesReceived", label);
 
-    auto recordUnmatched = [&] (const std::string & why)
-        {
-            onUnmatchedEvent(UnmatchedEvent(why, *event));
-        };
+    auto recordUnmatched = [&] (const std::string & why) {
+        doUnmatchedEvent(std::make_shared<UnmatchedEvent>(why, *event));
+    };
 
     if (findAuction(submitted, auctionId, adSpotId, submissionInfo)) {
         // Record the impression or click in the submission info.  This will
@@ -455,8 +453,8 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
 
         finished.update(key, finishedInfo);
 
-        if (onMatchedCampaignEvent)
-            onMatchedCampaignEvent(MatchedCampaignEvent(label, finishedInfo));
+        doMatchedCampaignEvent(
+                std::make_shared<MatchedCampaignEvent>(label, finishedInfo));
     }
 
     else {
@@ -482,7 +480,7 @@ doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
 
 
 void
-EventMatcher::
+SimpleEventMatcher::
 doBidResult(
         const Id & auctionId,
         const Id & adSpotId,
@@ -578,13 +576,10 @@ doBidResult(
     // know which visits to route back
     i.visitChannels = response.visitChannels;
 
-
-    if (onMatchedWinLoss) {
-        auto matchedType =
-            status == BS_WIN ? MatchedWinLoss::Win : MatchedWinLoss::Loss;
-        MatchedWinLoss event(matchedType, confidence, i, timestamp, uids);
-        onMatchedWinLoss(std::move(event));
-    }
+    auto matchedType =
+        status == BS_WIN ? MatchedWinLoss::Win : MatchedWinLoss::Loss;
+    doMatchedWinLoss(std::make_shared<MatchedWinLoss>(
+                    matchedType, confidence, i, timestamp, uids));
 
     double expiryInterval = winTimeout;
     if (status == BS_LOSS)

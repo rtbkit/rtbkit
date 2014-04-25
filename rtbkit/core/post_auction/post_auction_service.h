@@ -35,7 +35,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
     ~PostAuctionService() { shutdown(); }
 
 
-    void init();
+    void init(size_t shards = 1);
     void start(std::function<void ()> onStop = std::function<void ()>());
     void shutdown();
 
@@ -55,7 +55,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
 
     void setBanker(const std::shared_ptr<Banker> & newBanker)
     {
-        matcher.setBanker(banker = newBanker);
+        matcher->setBanker(banker = newBanker);
     }
 
 
@@ -68,7 +68,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
         if (timeOut < 0.0)
             throw ML::Exception("Invalid timeout for Win timeout");
 
-        matcher.setWinTimeout(winTimeout = timeOut);
+        matcher->setWinTimeout(winTimeout = timeOut);
     }
 
     void setAuctionTimeout(const float & timeOut) {
@@ -76,7 +76,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
         if (timeOut < 0.0)
             throw ML::Exception("Invalid timeout for Win timeout");
 
-        matcher.setWinTimeout(auctionTimeout = timeOut);
+        matcher->setWinTimeout(auctionTimeout = timeOut);
     }
 
 
@@ -170,10 +170,11 @@ private:
         event loop.
     */
     void initConnections();
+    void initMatcher(size_t shards);
 
-    void doAuction(const SubmittedAuctionEvent & event);
-    void doEvent(const std::shared_ptr<PostAuctionEvent> & event);
-    void doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event);
+    void doAuction(std::shared_ptr< SubmittedAuctionEvent> event);
+    void doEvent(std::shared_ptr<PostAuctionEvent> event);
+    void doCampaignEvent(std::shared_ptr<PostAuctionEvent> event);
     void checkExpiredAuctions();
 
     /** Decode from zeromq and handle a new auction that came in. */
@@ -194,41 +195,10 @@ private:
             std::shared_ptr<const AgentConfig> config);
 
 
-    void doMatchedWinLoss(MatchedWinLoss event);
-    void doMatchedCampaignEvent(MatchedCampaignEvent event);
-    void doUnmatched(UnmatchedEvent event);
-    void doError(PostAuctionErrorEvent error);
-
-
-    /** Send out a post-auction event to anything that may be listening. */
-    bool routePostAuctionEvent(
-            const std::string & label,
-            const FinishedInfo & finished,
-            const SegmentList & channels,
-            bool filterChannels);
-
-    /** Send the given message to the given bidding agent. */
-    template<typename... Args>
-    void sendAgentMessage(const std::string & agent,
-                          const std::string & messageType,
-                          const Date & date,
-                          Args... args)
-    {
-        toAgents.sendMessage(agent, messageType, date,
-                             std::forward<Args>(args)...);
-    }
-
-    /** Send the given message to the given bidding agent. */
-    template<typename... Args>
-    void sendAgentMessage(const std::string & agent,
-                          const std::string & eventType,
-                          const std::string & messageType,
-                          const Date & date,
-                          Args... args)
-    {
-        toAgents.sendMessage(agent, eventType, messageType, date,
-                             std::forward<Args>(args)...);
-    }
+    void doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event);
+    void doMatchedCampaignEvent(std::shared_ptr<MatchedCampaignEvent> event);
+    void doUnmatched(std::shared_ptr<UnmatchedEvent> event);
+    void doError(std::shared_ptr<PostAuctionErrorEvent> error);
 
 
     float auctionTimeout;
@@ -240,12 +210,12 @@ private:
     MessageLoop loop;
     LoopMonitor loopMonitor;
 
-    EventMatcher matcher;
+    std::unique_ptr<EventMatcher> matcher;
     std::shared_ptr<Banker> banker;
     AgentConfigurationListener configListener;
     MonitorProviderClient monitorProviderClient;
 
-    TypedMessageSink<SubmittedAuctionEvent> auctions;
+    TypedMessageSink<std::shared_ptr<SubmittedAuctionEvent> > auctions;
     TypedMessageSink<std::shared_ptr<PostAuctionEvent> > events;
 
     ZmqNamedPublisher logger;

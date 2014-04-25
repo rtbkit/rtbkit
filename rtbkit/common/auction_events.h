@@ -37,13 +37,19 @@ struct SubmittedAuctionEvent {
     Id adSpotId;                   ///< ID of the adspot
     Date lossTimeout;              ///< Time at which a loss is to be assumed
     JsonHolder augmentations;      ///< Augmentations active
-    std::shared_ptr<BidRequest> bidRequest;  ///< Bid request
+
+    std::shared_ptr<BidRequest> bidRequest() const;
+    void bidRequest(std::shared_ptr<BidRequest> event);
+
     Datacratic::UnicodeString bidRequestStr;     ///< Bid request as string on the wire
     Auction::Response bidResponse; ///< Bid response that was sent
     std::string bidRequestStrFormat;  ///< Format of stringified request(i.e "datacratic")
 
     void serialize(ML::DB::Store_Writer & store) const;
     void reconstitute(ML::DB::Store_Reader & store);
+
+private:
+    mutable std::shared_ptr<BidRequest> bidRequest_;  ///< Bid request
 };
 
 CREATE_STRUCTURE_DESCRIPTION(SubmittedAuctionEvent)

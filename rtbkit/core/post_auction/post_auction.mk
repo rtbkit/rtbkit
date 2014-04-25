@@ -11,7 +11,8 @@ $(eval $(call library,post_auction,$(LIBRTB_POST_AUCTION_SOURCES),$(LIBRTB_POST_
 
 
 LIB_POST_AUCTION_2_SOURCES := \
-        event_matcher.cc \
+        simple_event_matcher.cc \
+	sharded_event_matcher.cc \
 	events.cc \
 	finished_info.cc \
 	post_auction_service.cc \

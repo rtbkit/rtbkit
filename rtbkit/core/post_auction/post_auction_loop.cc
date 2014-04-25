@@ -796,7 +796,7 @@ doAuction(const SubmittedAuctionEvent & event)
             recordHit("auctionAlreadySubmitted");
         }
 
-        submission.bidRequest = std::move(event.bidRequest);
+        submission.bidRequest = event.bidRequest();
         submission.bidRequestStrFormat = std::move(event.bidRequestStrFormat);
         submission.bidRequestStr = std::move(event.bidRequestStr);
         submission.augmentations = std::move(event.augmentations);
@@ -1500,7 +1500,7 @@ injectSubmittedAuction(const Id & auctionId,
     SubmittedAuctionEvent event;
     event.auctionId = auctionId;
     event.adSpotId = adSpotId;
-    event.bidRequest = bidRequest;
+    event.bidRequest(std::move(bidRequest));
     event.bidRequestStr = bidRequestStr;
     event.bidRequestStrFormat = bidRequestStrFormat;
     event.augmentations = augmentations;

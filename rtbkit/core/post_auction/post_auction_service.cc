@@ -7,7 +7,8 @@
 */
 
 #include "post_auction_service.h"
-
+#include "simple_event_matcher.h"
+#include "sharded_event_matcher.h"
 #include "rtbkit/common/messages.h"
 
 using namespace std;
@@ -35,7 +36,6 @@ PostAuctionService(
       winTimeout(1 * 60 * 60),
 
       loopMonitor(*this),
-      matcher(serviceName, proxies),
       configListener(getZmqContext()),
       monitorProviderClient(getZmqContext(), *this),
 
@@ -56,7 +56,6 @@ PostAuctionService(ServiceBase & parent, const std::string & serviceName)
       winTimeout(1 * 60 * 60),
 
       loopMonitor(*this),
-      matcher(serviceName, getServices()),
       configListener(getZmqContext()),
       monitorProviderClient(getZmqContext(), *this),
 
@@ -81,24 +80,49 @@ bindTcp()
 
 void
 PostAuctionService::
-init()
+init(size_t shards)
 {
+    // Loop monitor is purely for monitoring purposes. There's no message we can
+    // just drop in the PAL to alleviate the load.
+    loopMonitor.init();
+    loopMonitor.addMessageLoop("postAuctionLoop", &loop);
+
+    initMatcher(shards);
     initConnections();
     monitorProviderClient.init(getServices()->config);
+}
+
+void
+PostAuctionService::
+initMatcher(size_t shards)
+{
+    if (shards <= 1)
+        matcher.reset(new SimpleEventMatcher(serviceName(), getServices()));
+
+    else {
+        ShardedEventMatcher* m;
+        matcher.reset(m = new ShardedEventMatcher(serviceName(), getServices()));
+        m->init(shards);
+
+        loopMonitor.addMessageLoop("matcher", m);
+        loop.addSource("PostAuctionService::matcher", *m);
+    }
+
 
     using std::placeholders::_1;
 
-    matcher.onMatchedWinLoss =
+    matcher->onMatchedWinLoss =
         std::bind(&PostAuctionService::doMatchedWinLoss, this, _1);
 
-    matcher.onMatchedCampaignEvent =
+    matcher->onMatchedCampaignEvent =
         std::bind(&PostAuctionService::doMatchedCampaignEvent, this, _1);
 
-    matcher.onUnmatchedEvent =
+    matcher->onUnmatchedEvent =
         std::bind(&PostAuctionService::doUnmatched, this, _1);
 
-    matcher.onError = std::bind(&PostAuctionService::doError, this, _1);
+    matcher->onError = std::bind(&PostAuctionService::doError, this, _1);
 }
+
 
 void
 PostAuctionService::
@@ -150,12 +174,8 @@ initConnections()
 
     // Every second we check for expired auctions
     loop.addPeriodic("PostAuctionService::checkExpiredAuctions", 1.0,
-                     std::bind(&EventMatcher::checkExpiredAuctions, &matcher));
+            std::bind(&EventMatcher::checkExpiredAuctions, matcher.get()));
 
-    // Loop monitor is purely for monitoring purposes. There's no message we can
-    // just drop in the PAL to alleviate the load.
-    loopMonitor.init();
-    loopMonitor.addMessageLoop("postAuctionLoop", &loop);
 }
 
 void
@@ -165,12 +185,14 @@ start(std::function<void ()> onStop)
     loop.start(onStop);
     monitorProviderClient.start();
     loopMonitor.start();
+    matcher->start();
 }
 
 void
 PostAuctionService::
 shutdown()
 {
+    matcher->shutdown();
     loopMonitor.shutdown();
     loop.shutdown();
     logger.shutdown();
@@ -203,9 +225,16 @@ PostAuctionService::
 doAuctionMessage(const std::vector<std::string> & message)
 {
     recordHit("messages.AUCTION");
-    auto event = Message<SubmittedAuctionEvent>::fromString(message.at(2));
-    if(event) {
-        matcher.doAuction(event.payload);
+
+    auto msg = Message<SubmittedAuctionEvent>::fromString(message.at(2));
+    if (msg) {
+        auto event = std::make_shared<SubmittedAuctionEvent>(std::move(msg.payload));
+        matcher->doAuction(std::move(event));
+    }
+
+    else {
+        LOG(error)
+            << "error while parsing AUCTION message: " << message.at(2) << endl;
     }
 }
 
@@ -216,7 +245,7 @@ doWinMessage(const std::vector<std::string> & message)
     recordHit("messages.WIN");
     auto event = std::make_shared<PostAuctionEvent>(
             ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
-    matcher.doWinLoss(event, false /* replay */);
+    matcher->doEvent(event);
 }
 
 void
@@ -226,7 +255,7 @@ doLossMessage(const std::vector<std::string> & message)
     recordHit("messages.LOSS");
     auto event = std::make_shared<PostAuctionEvent>(
             ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
-    matcher.doWinLoss(event, false /* replay */);
+    matcher->doEvent(event);
 }
 
 void
@@ -236,7 +265,7 @@ doCampaignEventMessage(const std::vector<std::string> & message)
     auto event = std::make_shared<PostAuctionEvent>(
             ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
     recordHit("messages.EVENT." + event->label);
-    matcher.doCampaignEvent(event);
+    matcher->doEvent(event);
 }
 
 
@@ -259,15 +288,15 @@ injectSubmittedAuction(
         throw ML::Exception("invalid bidRequestStrFormat");
     }
 
-    SubmittedAuctionEvent event;
-    event.auctionId = auctionId;
-    event.adSpotId = adSpotId;
-    event.bidRequest = bidRequest;
-    event.bidRequestStr = bidRequestStr;
-    event.bidRequestStrFormat = bidRequestStrFormat;
-    event.augmentations = augmentations;
-    event.bidResponse = bidResponse;
-    event.lossTimeout = lossTimeout;
+    auto event = std::make_shared<SubmittedAuctionEvent>();
+    event->auctionId = auctionId;
+    event->adSpotId = adSpotId;
+    event->bidRequest(bidRequest);
+    event->bidRequestStr = bidRequestStr;
+    event->bidRequestStrFormat = bidRequestStrFormat;
+    event->augmentations = augmentations;
+    event->bidResponse = bidResponse;
+    event->lossTimeout = lossTimeout;
 
     auctions.push(event);
 }
@@ -344,50 +373,50 @@ injectCampaignEvent(const string & label,
 
 void
 PostAuctionService::
-doAuction(const SubmittedAuctionEvent & event)
+doAuction(std::shared_ptr<SubmittedAuctionEvent> event)
 {
-    matcher.doAuction(event);
+    matcher->doAuction(std::move(event));
 }
 
 void
 PostAuctionService::
-doEvent(const std::shared_ptr<PostAuctionEvent> & event)
+doEvent(std::shared_ptr<PostAuctionEvent> event)
 {
-    matcher.doEvent(event);
+    matcher->doEvent(std::move(event));
 }
 
 void
 PostAuctionService::
-doCampaignEvent(const std::shared_ptr<PostAuctionEvent> & event)
+doCampaignEvent(std::shared_ptr<PostAuctionEvent> event)
 {
-    matcher.doCampaignEvent(event);
+    matcher->doEvent(std::move(event));
 }
 
 void
 PostAuctionService::
 checkExpiredAuctions()
 {
-    matcher.checkExpiredAuctions();
+    matcher->checkExpiredAuctions();
 }
 
 
 void
 PostAuctionService::
-doMatchedWinLoss(MatchedWinLoss event)
+doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)
 {
     lastWinLoss = Date::now();
 
-    event.publish(logger);
-    event.sendAgentMessage(toAgents);
+    event->publish(logger);
+    event->sendAgentMessage(toAgents);
 }
 
 void
 PostAuctionService::
-doMatchedCampaignEvent(MatchedCampaignEvent event)
+doMatchedCampaignEvent(std::shared_ptr<MatchedCampaignEvent> event)
 {
     lastCampaignEvent = Date::now();
 
-    event.publish(logger);
+    event->publish(logger);
 
     // For the moment, send the message to all of the agents that are
     // bidding on this account
@@ -396,33 +425,33 @@ doMatchedCampaignEvent(MatchedCampaignEvent event)
     auto onMatchingAgent = [&] (const AgentConfigEntry & entry)
         {
             if (!entry.config) return;
-            event.sendAgentMessage(entry.name, toAgents);
+            event->sendAgentMessage(entry.name, toAgents);
             sent = true;
         };
 
-    const AccountKey & account = event.account;
+    const AccountKey & account = event->account;
     configListener.forEachAccountAgent(account, onMatchingAgent);
 
     if (!sent) {
-        recordHit("delivery.%s.orphaned", event.label);
-        logPAError("doCampaignEvent.noListeners" + event.label,
+        recordHit("delivery.%s.orphaned", event->label);
+        logPAError("doCampaignEvent.noListeners" + event->label,
                 "nothing listening for account " + account.toString());
     }
-    else recordHit("delivery.%s.delivered", event.label);
+    else recordHit("delivery.%s.delivered", event->label);
 }
 
 void
 PostAuctionService::
-doUnmatched(UnmatchedEvent event)
+doUnmatched(std::shared_ptr<UnmatchedEvent> event)
 {
-    event.publish(logger);
+    event->publish(logger);
 }
 
 void
 PostAuctionService::
-doError(PostAuctionErrorEvent error)
+doError(std::shared_ptr<PostAuctionErrorEvent> error)
 {
-    error.publish(logger);
+    error->publish(logger);
 }
 
 
