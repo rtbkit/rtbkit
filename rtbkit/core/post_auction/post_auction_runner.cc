@@ -13,7 +13,7 @@
 #include "rtbkit/core/banker/slave_banker.h"
 #include "soa/service/service_utils.h"
 
-#include "post_auction_loop.h"
+#include "post_auction_service.h"
 
 using namespace std;
 using namespace boost::program_options;
@@ -25,6 +25,7 @@ using namespace RTBKIT;
 /************************************************************************/
 PostAuctionRunner::
 PostAuctionRunner() :
+    shards(1),
     auctionTimeout(900.0),
     winTimeout(3600.0)
 {
@@ -39,6 +40,7 @@ doOptions(int argc, char ** argv,
 
     options_description postAuctionLoop_options("Post Auction Loop options");
     postAuctionLoop_options.add_options()
+        ("shards", value<size_t>(&shards),"Number of shards(threads) used for matching.")
         ("win-seconds", value<float>(&winTimeout),"Timeout for storing win auction")
         ("auction-seconds", value<float>(&auctionTimeout),"Timeout to get late win auction");
 
@@ -70,8 +72,8 @@ init()
     auto proxies = serviceArgs.makeServiceProxies();
     auto serviceName = serviceArgs.serviceName("PostAuctionLoop");
 
-    postAuctionLoop = std::make_shared<PostAuctionLoop>(proxies, serviceName);
-    postAuctionLoop->init();    
+    postAuctionLoop = std::make_shared<PostAuctionService>(proxies, serviceName);
+    postAuctionLoop->init(shards);
 
     postAuctionLoop->setWinTimeout(winTimeout);
     postAuctionLoop->setAuctionTimeout(auctionTimeout);

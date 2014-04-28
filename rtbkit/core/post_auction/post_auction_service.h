@@ -43,6 +43,11 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
     /// and event sources
     void bindTcp();
 
+    void addSource(std::string name, AsyncEventSource & source, int priority = 0)
+    {
+        loop.addSource(std::move(name), source, priority);
+    }
+
 
     /************************************************************************/
     /* BANKER                                                               */
