@@ -102,7 +102,7 @@ initMatcher(size_t shards)
     }
 
     else {
-        LOG(print) << "Creating ShardedEventMatcher with " << shards << "shards"
+        LOG(print) << "Creating ShardedEventMatcher with " << shards << " shards"
             << endl;
 
         ShardedEventMatcher* m;

@@ -54,7 +54,8 @@ private:
     struct Shard : public MessageLoop
     {
         Shard(std::string prefix, std::shared_ptr<EventService> events);
-        void init(ShardedEventMatcher* parent);
+        Shard(std::string prefix, std::shared_ptr<ServiceProxies> proxies);
+        void init(size_t shard, ShardedEventMatcher* parent);
 
         SimpleEventMatcher matcher;
         TypedMessageSink<std::shared_ptr<SubmittedAuctionEvent> > auctions;

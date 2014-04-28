@@ -52,6 +52,13 @@ Shard(std::string prefix, std::shared_ptr<EventService> events) :
     events(1 << 6)
 {}
 
+ShardedEventMatcher::Shard::
+Shard(std::string prefix, std::shared_ptr<ServiceProxies> proxies) :
+    matcher(std::move(prefix), std::move(proxies)),
+    auctions(1 << 8),
+    events(1 << 6)
+{}
+
 void
 ShardedEventMatcher::
 init(size_t numShards)
@@ -62,9 +69,12 @@ init(size_t numShards)
     shards.reserve(numShards);
 
     for (size_t i = 0; i < numShards; ++i) {
-        Shard* shard;
-        shards.emplace_back(shard = new Shard(eventPrefix_, events_));
-        shard->init(this);
+        Shard* shard = events_ ?
+            new Shard(eventPrefix_, events_) :
+            new Shard(eventPrefix_, services_);
+
+        shards.emplace_back(shard);
+        shard->init(i, this);
     }
 
     using std::placeholders::_1;
@@ -85,26 +95,48 @@ init(size_t numShards)
 
 void
 ShardedEventMatcher::Shard::
-init(ShardedEventMatcher* parent)
+init(size_t shard, ShardedEventMatcher* parent)
 {
     using std::placeholders::_1;
 
-    auctions.onEvent = std::bind(&SimpleEventMatcher::doAuction, &matcher, _1);
-    events.onEvent = std::bind(&SimpleEventMatcher::doEvent, &matcher, _1);
+    auctions.onEvent = [=] (std::shared_ptr<SubmittedAuctionEvent> event) {
+        parent->recordHit("shards.%d.messages.%s", shard, "AUCTION");
+
+        this->matcher.doAuction(std::move(event));
+    };
+    addSource("ShardedEventMatcher::Shard::auctions", auctions);
+
+    events.onEvent = [=] (std::shared_ptr<PostAuctionEvent> event) {
+        parent->recordHit("shards.%d.messages.%s", shard, RTBKIT::print(event->type));
+        if (event->type == PAE_CAMPAIGN_EVENT)
+            parent->recordHit("shards.%d.messages.events.%s", shard, event->label);
+
+        this->matcher.doEvent(std::move(event));
+    };
+    addSource("ShardedEventMatcher::Shard::events", events);
+
     addPeriodic("ShardedEventMatcher::checkExpiredAuctions", 1.0,
             std::bind(&SimpleEventMatcher::checkExpiredAuctions, &matcher));
 
 
+
     matcher.onMatchedWinLoss = [=] (std::shared_ptr<MatchedWinLoss> event) {
+        parent->recordHit("shards.%d.results.MATCHED%s", shard, event->typeString());
         parent->matchedWinLossEvents.push(std::move(event));
     };
+
     matcher.onMatchedCampaignEvent = [=] (std::shared_ptr<MatchedCampaignEvent> event) {
+        parent->recordHit("shards.%d.results.MATCHED%s", shard, event->label);
         parent->matchedCampaignEvents.push(std::move(event));
     };
+
     matcher.onUnmatchedEvent = [=] (std::shared_ptr<UnmatchedEvent> event) {
+        parent->recordHit("shards.%d.results.%s", shard, "UNMATCHED");
         parent->unmatchedEvents.push(std::move(event));
     };
+
     matcher.onError = [=] (std::shared_ptr<PostAuctionErrorEvent> event) {
+        parent->recordHit("shards.%d.results.%s", shard, "ERROR");
         parent->errorEvents.push(std::move(event));
     };
 }

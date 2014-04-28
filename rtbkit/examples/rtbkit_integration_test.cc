@@ -152,7 +152,7 @@ struct Components
 
         // Setup a post auction loop (PAL) which handles all exchange events
         // that don't need to be processed in real-time (wins, loss, etc).
-        postAuctionLoop.init();
+        postAuctionLoop.init(8);
         postAuctionLoop.setBanker(makeSlaveBanker("pas1"));
         postAuctionLoop.bindTcp();
         postAuctionLoop.start();
