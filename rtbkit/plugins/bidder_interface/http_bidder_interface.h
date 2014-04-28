@@ -10,6 +10,8 @@
 
 namespace RTBKIT {
 
+struct Bids;
+
 struct HttpBidderInterface : public BidderInterface
 {
     HttpBidderInterface(std::string name = "bidder",
@@ -73,7 +75,9 @@ struct HttpBidderInterface : public BidderInterface
 private:
     bool prepareRequest(OpenRTB::BidRequest &request,
                         const RTBKIT::BidRequest &originalRequest,
-                        const std::map<std::string, BidInfo> &bidders);
+                        const std::map<std::string, BidInfo> &bidders) const;
+    void submitBids(const std::string &agent, Id auctionId,
+                         const Bids &bids, WinCostModel wcm);
     std::shared_ptr<HttpClient> httpClient;
     std::string host;
     std::string path;
