@@ -1,6 +1,6 @@
 /* simple_event_matcher.cc                                 -*- C++ -*-
    Rémi Attab (remi.attab@gmail.com), 18 Apr 2014
-   FreeBSD-style copyright and disclaimer apply
+   Copyright (c) 2014 Datacratic.  All rights reserved.
 
    Event matching implementation.
 */
