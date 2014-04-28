@@ -21,40 +21,40 @@ using namespace Datacratic;
 using namespace RTBKIT;
 
 /************************************************************************/
-/* POST AUCTION LOOP RUNNER						*/
+/* POST AUCTION LOOP RUNNER                                             */
 /************************************************************************/
 PostAuctionRunner::
 PostAuctionRunner() :
-	auctionTimeout(900.0),
-	winTimeout(3600.0)
+    auctionTimeout(900.0),
+    winTimeout(3600.0)
 {
 }
 
 void 
 PostAuctionRunner::
 doOptions(int argc, char ** argv,
-	  const boost::program_options::options_description & opts)
+        const boost::program_options::options_description & opts)
 {
-	using namespace boost::program_options;
+    using namespace boost::program_options;
 
-	options_description postAuctionLoop_options("Post Auction Loop options");
-	postAuctionLoop_options.add_options()
-		("win-seconds", value<float>(&winTimeout),"Timeout for storing win auction")
-		("auction-seconds", value<float>(&auctionTimeout),"Timeout to get late win auction");
+    options_description postAuctionLoop_options("Post Auction Loop options");
+    postAuctionLoop_options.add_options()
+        ("win-seconds", value<float>(&winTimeout),"Timeout for storing win auction")
+        ("auction-seconds", value<float>(&auctionTimeout),"Timeout to get late win auction");
 
-	options_description all_opt = opts;
-	all_opt
-		.add(serviceArgs.makeProgramOptions())
-		.add(postAuctionLoop_options);
+    options_description all_opt = opts;
+    all_opt
+        .add(serviceArgs.makeProgramOptions())
+        .add(postAuctionLoop_options);
 
-	all_opt.add_options()
-		("help,h","print this message");
+    all_opt.add_options()
+        ("help,h","print this message");
 
     variables_map vm;
     store(command_line_parser(argc, argv)
-          .options(all_opt)
-          .run(),
-          vm);
+            .options(all_opt)
+            .run(),
+            vm);
     notify(vm);
 
     if (vm.count("help")) {
@@ -71,19 +71,19 @@ init()
     auto serviceName = serviceArgs.serviceName("PostAuctionLoop");
 
     postAuctionLoop = std::make_shared<PostAuctionLoop>(proxies, serviceName);
-	postAuctionLoop->init();    
+    postAuctionLoop->init();    
 
-	postAuctionLoop->setWinTimeout(winTimeout);
-	postAuctionLoop->setAuctionTimeout(auctionTimeout);
+    postAuctionLoop->setWinTimeout(winTimeout);
+    postAuctionLoop->setAuctionTimeout(auctionTimeout);
 
 
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
-                                           proxies->config,
-                                           postAuctionLoop->serviceName() + ".slaveBanker");
+            proxies->config,
+            postAuctionLoop->serviceName() + ".slaveBanker");
 
     postAuctionLoop->addSource("slave-banker", *banker);
-	postAuctionLoop->setBanker(banker);
-	postAuctionLoop->bindTcp();
+    postAuctionLoop->setBanker(banker);
+    postAuctionLoop->bindTcp();
 
 }
 
@@ -107,7 +107,7 @@ shutdown()
 int main(int argc, char ** argv)
 {
 
-	PostAuctionRunner runner;
+    PostAuctionRunner runner;
 
     runner.doOptions(argc, argv);
     runner.init();
@@ -116,6 +116,6 @@ int main(int argc, char ** argv)
 
     for (;;) {
         ML::sleep(10.0);
-	}
+    }
 
 }
