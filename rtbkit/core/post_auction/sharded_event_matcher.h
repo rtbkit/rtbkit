@@ -1,8 +1,9 @@
-/* sharded_event_matcher.h                                 -*- C++ -*-
-   Rémi Attab (remi.attab@gmail.com), 24 Apr 2014
-   FreeBSD-style copyright and disclaimer apply
+/** sharded_event_matcher.h                                 -*- C++ -*-
+    Rémi Attab, 28 Apr 2014
+    Copyright (c) 2014 Datacratic.  All rights reserved.
 
-   In-memory sharding of the event matcher.
+    In-Memory sharding for event matching.
+
 */
 
 #pragma once
