@@ -107,7 +107,7 @@ initMatcher(size_t shards)
 
         ShardedEventMatcher* m;
         matcher.reset(m = new ShardedEventMatcher(serviceName(), getServices()));
-        m->init(shards, loop);
+        m->init(shards);
 
         loopMonitor.addMessageLoop("matcher", m);
         loop.addSource("PostAuctionService::matcher", *m);
