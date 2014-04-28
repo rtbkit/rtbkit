@@ -27,8 +27,9 @@ struct RouterRunner {
     ServiceProxyArguments serviceArgs;
     std::vector<std::string> logUris;  ///< TODO: zookeeper
 
-    //std::string routerConfigurationFile;
     std::string exchangeConfigurationFile;
+    std::string bidderConfigurationFile;
+
     float lossSeconds;
     bool noPostAuctionLoop;
 
@@ -45,6 +46,7 @@ struct RouterRunner {
     std::shared_ptr<SlaveBanker> banker;
     std::shared_ptr<Router> router;
     Json::Value exchangeConfig;
+    Json::Value bidderConfig;
 
     void init();
 

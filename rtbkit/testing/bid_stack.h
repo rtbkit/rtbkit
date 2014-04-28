@@ -8,6 +8,7 @@
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/banker/null_banker.h"
+#include "rtbkit/common/bidder_interface.h"
 #include "rtbkit/common/testing/exchange_source.h"
 #include "rtbkit/testing/test_agent.h"
 #include "rtbkit/testing/mock_exchange.h"
@@ -22,11 +23,27 @@ struct BidStack {
     std::shared_ptr<Banker> banker;
     std::shared_ptr<TestAgent> agent;
 
+    std::pair<std::string, std::string> forwardInfo;
     BidStack() {
         proxies.reset(new ServiceProxies());
     }
 
-     void run(std::string const & configuration, Amount amount, int count) {
+    void useForwardingUri(const std::string &host, const std::string &resource) {
+        forwardInfo = { host, resource };
+    }
+
+    void run(std::string const & configuration, Amount amount = Amount(), int count = 0) {
+        runThen(configuration, amount, count, [=](Json::Value const & config) {
+            if(count) {
+                auto proxies = std::make_shared<ServiceProxies>();
+                MockExchange mockExchange(proxies);
+                mockExchange.start(config);
+            }
+        });
+    }
+
+    template<typename T>
+    void runThen(std::string const & configuration, Amount amount, int count, T const & then) {
         // The agent config service lets the router know how our agent is
         // configured
         AgentConfigurationService agentConfig(proxies, "config");
@@ -47,6 +64,14 @@ struct BidStack {
         }
 
         router.setBanker(banker);
+        if (!forwardInfo.first.empty()) {
+            Json::Value json;
+            json["type"] = "http";
+            json["host"] = forwardInfo.first;
+            json["path"] = forwardInfo.second;
+            router.bidder = BidderInterface::create("bidder", proxies, json);
+            router.bidder->init(&router.bridge, &router);
+        }
 
         // Start the router up
         router.bindTcp();
@@ -78,16 +103,20 @@ struct BidStack {
             agent = std::make_shared<TestAgent>(proxies, "agent");
         }
 
+        if (!forwardInfo.first.empty()) {
+            agent->config.external = true;
+        }
+
         agent->init();
         agent->bidWithFixedAmount(amount);
         agent->start();
+        agent->strictMode(false);
         agent->configure();
 
         // Wait a little for the stack to startup...
         ML::sleep(1.0);
 
-        MockExchange mockExchange(proxies);
-        mockExchange.start(Json::parse(mock));
+        then(Json::parse(mock));
     }
 };
 

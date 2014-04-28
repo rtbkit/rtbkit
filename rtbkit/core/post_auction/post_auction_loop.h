@@ -24,8 +24,11 @@
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
+#include "rtbkit/core/post_auction/post_auction_types.h"
 
 namespace RTBKIT {
+
+struct BidderInterface;
 
 /*****************************************************************************/
 /* POST AUCTION LOOP                                                         */
@@ -238,6 +241,9 @@ struct PostAuctionLoop : public ServiceBase, public MonitorProvider
     }
 
 private:
+    std::shared_ptr<BidderInterface> bidder;
+    AgentBridge bridge;
+
     /** Initialize all of our connections, hooking everything in to the
         event loop.
     */
@@ -331,32 +337,6 @@ private:
     /// Object to route zeromq messages from the endpoint to the appropriate
     /// place
     ZmqMessageRouter router;
-
-    /// Messages to the agents go out on this
-    ZmqNamedClientBus toAgents;
-
-    /** Send the given message to the given bidding agent. */
-    template<typename... Args>
-    void sendAgentMessage(const std::string & agent,
-                          const std::string & messageType,
-                          const Date & date,
-                          Args... args)
-    {
-        toAgents.sendMessage(agent, messageType, date,
-                             std::forward<Args>(args)...);
-    }
-
-    /** Send the given message to the given bidding agent. */
-    template<typename... Args>
-    void sendAgentMessage(const std::string & agent,
-                          const std::string & eventType,
-                          const std::string & messageType,
-                          const Date & date,
-                          Args... args)
-    {
-        toAgents.sendMessage(agent, eventType, messageType, date,
-                             std::forward<Args>(args)...);
-    }
 
     /** Turn an auction and agent into the bid ID for the banker */
     static std::string makeBidId(Id auctionId, Id spotId, const std::string & agent);

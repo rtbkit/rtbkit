@@ -244,6 +244,7 @@ struct AgentConfig {
 
     uint64_t externalId;  ///< Simplifies id reconciliation with external systems
 
+    bool external;        ///< Forward bid request that have this configuration
     bool test;            ///< Can't make real bids
     
     std::string roundRobinGroup;

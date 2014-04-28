@@ -8,7 +8,7 @@
 #ifndef __router__messages_h__
 #define __router__messages_h__
 
-#include "jml/utils/json_parsing.h"
+#include "soa/types/value_description.h"
 #include "soa/service/zmq.hpp"
 #include "rtbkit/common/json_holder.h"
 
@@ -98,7 +98,7 @@ struct Message {
         static auto desc = getDefaultDescriptionShared((T*) 0);
 
         std::stringstream stream;
-        StreamJsonPrintingContext context(stream);
+        Datacratic::StreamJsonPrintingContext context(stream);
         desc->printJson(&payload, context);
 
         return ML::format("{\"%s\":%s}", desc->typeName, stream.str());
@@ -109,9 +109,9 @@ struct Message {
         ML::Parse_Context source("Message", value.c_str(), value.size());
         expectJsonObject(source, [&](std::string key,
                                      ML::Parse_Context & context) {
-            auto desc = ValueDescription::get(key);
+            auto desc = Datacratic::ValueDescription::get(key);
             if(desc) {
-                StreamingJsonParsingContext json(context);
+                Datacratic::StreamingJsonParsingContext json(context);
                 desc->parseJson(&result.payload, json);
                 result.ok = true;
             }

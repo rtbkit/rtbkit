@@ -15,7 +15,7 @@
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/common/auction_events.h"
 #include "rtbkit/common/messages.h"
-
+#include "rtbkit/common/bidder_interface.h"
 #include "post_auction_loop.h"
 
 using namespace std;
@@ -34,11 +34,11 @@ PostAuctionLoop(std::shared_ptr<ServiceProxies> proxies,
     : ServiceBase(serviceName, proxies),
       logger(getZmqContext()),
       monitorProviderClient(getZmqContext(), *this),
+      bridge(getZmqContext()),
       auctions(65536),
       events(65536),
       endpoint(getZmqContext()),
       router(!!getZmqContext()),
-      toAgents(getZmqContext()),
       configListener(getZmqContext()),
       loopMonitor(*this)
 {
@@ -50,11 +50,11 @@ PostAuctionLoop(ServiceBase & parent,
     : ServiceBase(serviceName, parent),
       logger(getZmqContext()),
       monitorProviderClient(getZmqContext(), *this),
+      bridge(getZmqContext()),
       auctions(65536),
       events(65536),
       endpoint(getZmqContext()),
       router(!!getZmqContext()),
-      toAgents(getZmqContext()),
       configListener(getZmqContext()),
       loopMonitor(*this)
 {
@@ -64,6 +64,11 @@ void
 PostAuctionLoop::
 init()
 {
+    Json::Value json;
+    json["type"] = "agents";
+    bidder = BidderInterface::create("bidder", getServices(), json);
+    bidder->init(&bridge);
+
     initConnections();
     monitorProviderClient.init(getServices()->config);
 }
@@ -81,12 +86,6 @@ initConnections()
                                        std::placeholders::_1);
     events.onEvent   = std::bind<void>(&PostAuctionLoop::doEvent, this,
                                        std::placeholders::_1);
-    toAgents.clientMessageHandler = [&] (const std::vector<std::string> & msg)
-        {
-            // Clients should never send the post auction service anything,
-            // but we catch it here just in case
-            cerr << "PostAuctionLoop got agent message " << msg << endl;
-        };
 
     router.bind("AUCTION",
                 std::bind(&PostAuctionLoop::doAuctionMessage, this,
@@ -108,7 +107,13 @@ initConnections()
 
     // Initialize zeromq endpoints
     endpoint.init(getServices()->config, ZMQ_XREP, serviceName() + "/events");
-    toAgents.init(getServices()->config, serviceName() + "/agents");
+    bridge.agents.init(getServices()->config, serviceName() + "/agents");
+    bridge.agents.clientMessageHandler = [&] (const std::vector<std::string> & msg)
+        {
+            // Clients should never send the post auction service anything,
+            // but we catch it here just in case
+            cerr << "PostAuctionLoop got agent message " << msg << endl;
+        };
 
     configListener.init(getServices()->config);
     configListener.onConfigChange = [=](const std::string & agent,
@@ -133,7 +138,7 @@ initConnections()
 
     loop.addSource("PostAuctionLoop::endpoint", endpoint);
 
-    loop.addSource("PostAuctionLoop::toAgents", toAgents);
+    loop.addSource("PostAuctionLoop::toAgents", bridge.agents);
     loop.addSource("PostAuctionLoop::configListener", configListener);
     loop.addSource("PostAuctionLoop::logger", logger);
 
@@ -149,7 +154,7 @@ bindTcp()
 {
     logger.bindTcp(getServices()->ports->getRange("logs"));
     endpoint.bindTcp(getServices()->ports->getRange("postAuctionLoop"));
-    toAgents.bindTcp(getServices()->ports->getRange("postAuctionLoopAgents"));
+    bridge.agents.bindTcp(getServices()->ports->getRange("postAuctionLoopAgents"));
 }
 
 void
@@ -168,7 +173,7 @@ shutdown()
     loopMonitor.shutdown();
     loop.shutdown();
     logger.shutdown();
-    toAgents.shutdown();
+    bridge.shutdown();
     endpoint.shutdown();
     configListener.shutdown();
     monitorProviderClient.shutdown();
@@ -773,21 +778,12 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
                     info.bid.account.toString(),
                     info.bidRequestStrFormat);
 
-
-		sendAgentMessage(info.bid.agent, "LATEWIN", timestamp,
-                     "guaranteed", info.auctionId,
-                     to_string(info.bidRequest->findAdSpotIndex(adSpotId)),
-                     info.winPrice.toString(),
-                     info.bidRequestStrFormat,
-                     info.bidRequestStr,
-                     info.bid.bidData,
-                     info.bid.meta,
-                     info.augmentations);
-
             recordHit("bidResult.%s.winAfterLossAssumed", typeStr);
             recordOutcome(winPrice.value,
                           "bidResult.%s.winAfterLossAssumedAmount.%s",
                           typeStr, winPrice.getCurrencyStr());
+
+            bidder->sendLateWinMessage(info.bid.agent, winPrice, info);
         }
 
         /*
@@ -1041,19 +1037,7 @@ routePostAuctionEvent(const string & label,
 
             sent = true;
 
-            this->sendAgentMessage(entry.name,
-                                   "CAMPAIGN_EVENT", label,
-                                   Date::now(),
-                                   finishedInfo.auctionId,
-                                   finishedInfo.adSpotId,
-                                   to_string(finishedInfo.spotIndex),
-                                   finishedInfo.bidRequestStrFormat,
-                                   finishedInfo.bidRequestStr,
-                                   finishedInfo.augmentations,
-                                   finishedInfo.bidToJson(),
-                                   finishedInfo.winToJson(),
-                                   finishedInfo.campaignEvents.toJson(),
-                                   finishedInfo.visitsToJson());
+            bidder->sendCampaignEventMessage(entry.name, label, finishedInfo);
         };
 
     configListener.forEachAccountAgent(account, onMatchingAgent);
@@ -1227,16 +1211,6 @@ doBidResult(const Id & auctionId,
                submission.bidRequestStrFormat,
                winPrice.toString());
 
-    sendAgentMessage(response.agent, msg, timestamp,
-                     confidence, auctionId,
-                     to_string(adspot_num),
-                     price.toString(),
-                     submission.bidRequestStrFormat,
-                     submission.bidRequestStr,
-                     response.bidData,
-                     response.meta,
-                     submission.augmentations);
-
     // Finally, place it in the finished queue
     FinishedInfo i;
     i.auctionId = auctionId;
@@ -1255,6 +1229,13 @@ doBidResult(const Id & auctionId,
     i.visitChannels = response.visitChannels;
 
     i.addUids(uids);
+
+    if(status == BS_WIN) {
+        bidder->sendWinMessage(response.agent, price, i);
+    }
+    else {
+        bidder->sendLossMessage(response.agent, i);
+    }
 
     double expiryInterval = winTimeout;
     if (status == BS_LOSS)

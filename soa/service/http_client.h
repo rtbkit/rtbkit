@@ -188,8 +188,6 @@ private:
     virtual int selectFd() const;
     virtual bool processOne();
 
-    void fixConnectionStash();
-
     /* Local */
     bool enqueueRequest(const std::string & verb,
                         const std::string & resource,
@@ -263,9 +261,9 @@ private:
     curlpp::Multi multi_;
     ::CURLM * handle_;
 
-    HttpConnection * connections_;
     std::vector<HttpConnection> connectionStash_;
-    size_t avlConnections_;
+    std::vector<HttpConnection *> avlConnections_;
+    size_t nextAvail_;
 
     ML::RingBufferSRMW<HttpRequest> queue_; /* queued requests */
 };
