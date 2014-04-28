@@ -27,7 +27,7 @@ struct ShardedEventMatcher : public EventMatcher, public MessageLoop
     ShardedEventMatcher(std::string prefix, std::shared_ptr<EventService> events);
     ShardedEventMatcher(std::string prefix, std::shared_ptr<ServiceProxies> proxies);
 
-    void init(size_t shards);
+    void init(size_t shards, MessageLoop& loop);
     void start();
     void shutdown();
 

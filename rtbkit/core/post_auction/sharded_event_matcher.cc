@@ -61,7 +61,7 @@ Shard(std::string prefix, std::shared_ptr<ServiceProxies> proxies) :
 
 void
 ShardedEventMatcher::
-init(size_t numShards)
+init(size_t numShards, MessageLoop& loop)
 {
     if (numShards <= 1)
         THROW(error) << "Invalid number of shards: " << numShards;
@@ -81,16 +81,20 @@ init(size_t numShards)
 
     matchedWinLossEvents.onEvent =
         std::bind(&ShardedEventMatcher::doMatchedWinLoss, this, _1);
+    loop.addSource("SahrdedEventMatcher::matchedWinLossEvents", matchedWinLossEvents);
 
     matchedCampaignEvents.onEvent =
         std::bind(&ShardedEventMatcher::doMatchedCampaignEvent, this, _1);
+    loop.addSource("SahrdedEventMatcher::matchedCampaignEvents", matchedCampaignEvents);
 
     unmatchedEvents.onEvent =
         std::bind(&ShardedEventMatcher::doUnmatchedEvent, this, _1);
+    loop.addSource("SahrdedEventMatcher::unmatchedEvents", unmatchedEvents);
 
     errorEvents.onEvent = [=] (std::shared_ptr<PostAuctionErrorEvent> event) {
         doError(std::move(event));
     };
+    loop.addSource("SahrdedEventMatcher::errorEvents", errorEvents);
 }
 
 void
