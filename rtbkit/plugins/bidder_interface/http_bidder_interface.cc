@@ -66,6 +66,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
     for(auto & item : bidders) {
         auto & agent = item.first;
         auto & info = router->agents[agent];
+        const auto &config = info.config;
         BidRequest originalRequest = *auction->request;
         WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction, *info.config);
 
@@ -116,7 +117,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                   << ": " << toErrorString(errorCode);
                       }
                       else {
-                         cerr << "Response: " << body << endl;
+                        // cerr << "Response: " << body << endl;
                          OpenRTB::BidResponse response;
                          ML::Parse_Context context("payload",
                                body.c_str(), body.size());
@@ -129,7 +130,25 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
                              for (const auto &bid: seatbid.bid) {
                                  Bid theBid;
-                                 theBid.creativeIndex = bid.crid.toInt();
+
+                                 /* Looping over the creatives to find the corresponding
+                                    creativeIndex
+                                 */
+                                 int crid = bid.crid.toInt();
+                                 auto crIt = find_if(
+                                    begin(config->creatives), end(config->creatives),
+                                    [&](const Creative &creative) {
+                                        return creative.id == crid;
+                                 });
+
+                                 if (crIt == end(config->creatives)) {
+                                     throw ML::Exception(ML::format(
+                                        "Unknown creative id: %d", crid));
+                                 }
+
+                                 auto creativeIndex = distance(begin(config->creatives),
+                                                               crIt);
+                                 theBid.creativeIndex = creativeIndex;
                                  theBid.price = USD_CPM(bid.price.val);
                                  theBid.priority = 0.0;
 
@@ -160,8 +179,8 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
         HttpRequest::Content reqContent { requestStr, "application/json" };
         RestParams headers { { "x-openrtb-version", "2.1" } };
-        std::cerr << "Sending HTTP POST to: " << host << " " << path << std::endl;
-        std::cerr << "Content " << reqContent.str << std::endl;
+       // std::cerr << "Sending HTTP POST to: " << host << " " << path << std::endl;
+       // std::cerr << "Content " << reqContent.str << std::endl;
 
         httpClient->post(path, callbacks, reqContent,
                          { } /* queryParams */, headers);
