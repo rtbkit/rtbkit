@@ -299,12 +299,16 @@ void AgentsBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event
 // factory
 //
 
+namespace {
+
 struct AtInit {
     AtInit()
     {
         BidderInterface::registerFactory("agents", [](std::string const & name , std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) {
             return new AgentsBidderInterface(name, proxies, json);
         });
+        RTBKIT::FilterRegistry::registerFilter<AllowedIdsCreativeExchangeFilter>();
     }
 } atInit;
 
+}

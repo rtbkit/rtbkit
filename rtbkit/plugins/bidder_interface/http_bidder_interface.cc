@@ -116,7 +116,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                   << ": " << toErrorString(errorCode);
                       }
                       else {
-                         //cerr << "Response: " << body << endl;
+                         cerr << "Response: " << body << endl;
                          OpenRTB::BidResponse response;
                          ML::Parse_Context context("payload",
                                body.c_str(), body.size());
@@ -160,8 +160,8 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
         HttpRequest::Content reqContent { requestStr, "application/json" };
         RestParams headers { { "x-openrtb-version", "2.1" } };
-        //std::cerr << "Sending HTTP POST to: " << host << " " << path << std::endl;
-        //std::cerr << "Content " << reqContent.str << std::endl;
+        std::cerr << "Sending HTTP POST to: " << host << " " << path << std::endl;
+        std::cerr << "Content " << reqContent.str << std::endl;
 
         httpClient->post(path, callbacks, reqContent,
                          { } /* queryParams */, headers);
@@ -272,6 +272,8 @@ void HttpBidderInterface::submitBids(const std::string &agent, Id auctionId,
 // factory
 //
 
+namespace {
+
 struct AtInit {
     AtInit()
     {
@@ -280,4 +282,6 @@ struct AtInit {
         });
     }
 } atInit;
+
+}
 

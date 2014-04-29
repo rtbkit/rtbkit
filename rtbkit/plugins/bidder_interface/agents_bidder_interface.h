@@ -6,8 +6,52 @@
 #pragma once
 
 #include "rtbkit/common/bidder_interface.h"
+#include "rtbkit/core/router/filters/generic_creative_filters.h"
+#include "soa/jsoncpp/json.h"
+#include <iostream>
 
 namespace RTBKIT {
+
+struct AllowedIdsCreativeExchangeFilter
+    : public IterativeCreativeFilter<AllowedIdsCreativeExchangeFilter>
+{
+    static constexpr const char *name = "AllowedIdsCreativeExchangeFilter";
+
+    bool filterCreative(FilterState &state, const AdSpot &,
+                        const AgentConfig &config, const Creative &creative) const
+    {
+        const auto &request = state.request;
+        ExcCheck(request.imp.size() > 0, "Request has empty impression");
+        if (!request.imp[0].ext.isMember("allowed_ids")) {
+            return true;
+        }
+
+        for (const auto &imp: request.imp) {
+            const auto &allowed_ids = imp.ext["allowed_ids"];
+            for (auto it = allowed_ids.begin(); it != allowed_ids.end(); ++it) {
+                size_t pos;
+                int id = std::stoi(it.key().asString(), &pos);
+                if (pos != 0) {
+                }
+                if (id == config.externalId) {
+                    const auto &creative_ids = *it;
+                    auto crIt = std::find_if(
+                        std::begin(creative_ids), std::end(creative_ids),
+                        [&](const Json::Value &value) {
+                            return value.asInt() == creative.id;
+                        });
+                    if (crIt != std::end(creative_ids)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+
+    }
+
+};
 
 struct AgentsBidderInterface : public BidderInterface
 {
