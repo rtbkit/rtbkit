@@ -232,9 +232,7 @@ handleWinRq(const HttpHeader & header,
     if (json.isMember("userIds")) {
         auto item =  json["userIds"];
 
-        for(auto i : item) {
-            userIds.add(Id(i.asString()), ID_PROVIDER);
-        }
+        userIds.add(Id(item[0].asString()), ID_PROVIDER);
     }
     else {
         // UserIds is optional
