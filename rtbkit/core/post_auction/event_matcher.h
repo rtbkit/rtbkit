@@ -97,6 +97,14 @@ struct EventMatcher : public EventRecorder
     /** Periodic auction expiry. */
     virtual void checkExpiredAuctions() = 0;
 
+
+    /************************************************************************/
+    /* PERSISTENCE                                                          */
+    /************************************************************************/
+
+    virtual void initStatePersistence(const std::string & path) {}
+
+
 protected:
 
     void doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)

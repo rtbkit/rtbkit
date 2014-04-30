@@ -42,6 +42,13 @@ struct SimpleEventMatcher : public EventMatcher
     virtual void checkExpiredAuctions();
 
 
+    /************************************************************************/
+    /* PERSISTENCE                                                          */
+    /************************************************************************/
+
+    virtual void initStatePersistence(const std::string & path);
+
+
 private:
 
     void throwException(const std::string & key, const std::string & msg)

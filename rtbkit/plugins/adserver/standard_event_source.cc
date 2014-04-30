@@ -5,7 +5,6 @@
 */
 
 #include "standard_event_source.h"
-#include "rtbkit/core/post_auction/post_auction_loop.h"
 
 using namespace RTBKIT;
 

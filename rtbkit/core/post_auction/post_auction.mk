@@ -1,6 +1,6 @@
 # RTBKIT post auction makefile
 
-LIB_POST_AUCTION_2_SOURCES := \
+LIB_POST_AUCTION_SOURCES := \
         simple_event_matcher.cc \
 	sharded_event_matcher.cc \
 	events.cc \
@@ -8,20 +8,10 @@ LIB_POST_AUCTION_2_SOURCES := \
 	post_auction_service.cc \
 	submission_info.cc
 
-LIB_POST_AUCTION_2_LINK := \
+LIB_POST_AUCTION_LINK := \
 	agent_configuration zeromq boost_thread logger opstats leveldb services banker rtb
 
-$(eval $(call library,post_auction_2,$(LIB_POST_AUCTION_2_SOURCES),$(LIB_POST_AUCTION_2_LINK)))
-
-
-
-LIBRTB_POST_AUCTION_SOURCES := \
-	post_auction_loop.cc
-
-LIBRTB_POST_AUCTION_LINK := \
-	agent_configuration zeromq boost_thread logger opstats crypto++ leveldb services banker rtb post_auction_2
-
-$(eval $(call library,post_auction,$(LIBRTB_POST_AUCTION_SOURCES),$(LIBRTB_POST_AUCTION_LINK)))
+$(eval $(call library,post_auction,$(LIB_POST_AUCTION_SOURCES),$(LIB_POST_AUCTION_LINK)))
 
 
 # post auction runner

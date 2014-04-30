@@ -8,7 +8,6 @@
 
 #include "mock_exchange.h"
 
-#include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "soa/service/http_header.h"
 #include "jml/utils/smart_ptr_utils.h"
 

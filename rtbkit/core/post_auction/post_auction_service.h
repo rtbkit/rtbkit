@@ -168,6 +168,18 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
             const JsonHolder & eventMeta,
             const UserIds & ids);
 
+
+    /************************************************************************/
+    /* PERSISTENCE                                                          */
+    /************************************************************************/
+
+    void initStatePersistence(const std::string & path)
+    {
+        throw ML::Exception(
+                "post auction service persistence is not yet implemented.");
+    }
+
+
 private:
 
     std::string getProviderClass() const;

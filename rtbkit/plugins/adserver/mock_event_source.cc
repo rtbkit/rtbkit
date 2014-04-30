@@ -5,7 +5,7 @@
 */
 
 #include "mock_event_source.h"
-#include "rtbkit/core/post_auction/post_auction_loop.h"
+#include "rtbkit/common/auction_events.h"
 
 using namespace RTBKIT;
 

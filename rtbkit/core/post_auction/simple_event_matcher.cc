@@ -591,4 +591,176 @@ doBidResult(
     finished.insert(make_pair(auctionId, adSpotId), i, expiryTime);
 }
 
+
+
+/******************************************************************************/
+/* PERSISTENCE                                                                */
+/******************************************************************************/
+// Needs to be properly tested before enabling.
+
+namespace {
+
+std::pair<Id, Id>
+unstringifyPair(const std::string & str)
+{
+    istringstream stream(str);
+    DB::Store_Reader store(stream);
+    pair<Id, Id> result;
+    store >> result.first >> result.second;
+    return result;
+}
+
+std::string stringifyPair(const std::pair<Id, Id> & vals)
+{
+    if (!vals.second || vals.second.type == Id::NULLID)
+        throw ML::Exception("attempt to store null ID");
+
+    ostringstream stream;
+    {
+        DB::Store_Writer store(stream);
+        store << vals.first << vals.second;
+    }
+
+    return stream.str();
+}
+
+} // file scope
+
+
+void
+SimpleEventMatcher::
+initStatePersistence(const std::string & path)
+{
+    typedef PendingPersistenceT<pair<Id, Id>, SubmissionInfo>
+        SubmittedPending;
+
+    auto submittedDb = std::make_shared<LeveldbPendingPersistence>();
+    submittedDb->open(path + "/submitted");
+
+    auto submittedPersistence
+        = std::make_shared<SubmittedPending>();
+    submittedPersistence->store = submittedDb;
+
+    auto stringifySubmissionInfo = [] (const SubmissionInfo & info)
+        {
+            return info.serializeToString();
+        };
+
+    auto unstringifySubmissionInfo = [] (const std::string & str)
+        {
+            SubmissionInfo info;
+            info.reconstituteFromString(str);
+            return info;
+        };
+
+    submittedPersistence->stringifyKey = stringifyPair;
+    submittedPersistence->unstringifyKey = unstringifyPair;
+    submittedPersistence->stringifyValue = stringifySubmissionInfo;
+    submittedPersistence->unstringifyValue = unstringifySubmissionInfo;
+
+    Date newTimeout = Date::now().plusSeconds(15);
+
+    auto acceptSubmitted = [&] (pair<Id, Id> & key,
+                                SubmissionInfo & info,
+                                Date & timeout) -> bool
+        {
+            info.fromOldRouter = true;
+            newTimeout.addSeconds(0.001);
+            timeout = newTimeout;
+            // this->debugSpot(key.first, key.second, "RECONST SUBMITTED");
+            return true;
+        };
+
+    submitted.initFromStore(submittedPersistence,
+                            acceptSubmitted,
+                            Date::now().plusSeconds(15));
+
+    typedef PendingPersistenceT<pair<Id, Id>, FinishedInfo>
+        FinishedPending;
+
+    auto finishedDb = std::make_shared<LeveldbPendingPersistence>();
+    finishedDb->open(path + "/finished");
+
+    auto finishedPersistence
+        = std::make_shared<FinishedPending>();
+    finishedPersistence->store = finishedDb;
+
+    auto stringifyFinishedInfo = [] (const FinishedInfo & info)
+        {
+            return info.serializeToString();
+        };
+
+    auto unstringifyFinishedInfo = [] (const std::string & str)
+        {
+            FinishedInfo info;
+            info.reconstituteFromString(str);
+            return info;
+        };
+
+    finishedPersistence->stringifyKey = stringifyPair;
+    finishedPersistence->unstringifyKey = unstringifyPair;
+    finishedPersistence->stringifyValue = stringifyFinishedInfo;
+    finishedPersistence->unstringifyValue = unstringifyFinishedInfo;
+
+    newTimeout = Date::now().plusSeconds(auctionTimeout);
+
+    auto acceptFinished = [&] (pair<Id, Id> & key,
+                               FinishedInfo & info,
+                               Date & timeout) -> bool
+        {
+            info.fromOldRouter = true;
+            newTimeout.addSeconds(0.001);
+            timeout = newTimeout;
+            // this->debugSpot(key.first, key.second, "RECONST FINISHED");
+
+            return true;
+        };
+
+    finished.initFromStore(finishedPersistence,
+                           acceptFinished,
+                           Date::now().plusSeconds(auctionTimeout));
+
+    auto backgroundWork = [=] (volatile int & shutdown, int64_t threadId)
+        {
+            while (!shutdown) {
+                futex_wait(const_cast<int &>(shutdown), 0, 600.0);
+                if (shutdown) break;
+                //continue;
+
+                {
+                    Date start = Date::now();
+                    submittedDb->compact();
+                    Date end = Date::now();
+                    this->recordEvent("persistentData.submitted.compactTimeMs",
+                                  ET_OUTCOME,
+                                  1000.0 * (end.secondsSince(start)));
+                    uint64_t size = submittedDb->getDbSize();
+                    //cerr << "submitted db is " << size / 1024.0 / 1024.0
+                    //     << "MB" << endl;
+                    this->recordEvent("persistentData.submitted.dbSizeMb",
+                                  ET_LEVEL, size / 1024.0 / 1024.0);
+                }
+
+                {
+                    Date start = Date::now();
+                    finishedDb->compact();
+                    Date end = Date::now();
+                    this->recordEvent("persistentData.finished.compactTimeMs",
+                                  ET_OUTCOME,
+                                  1000.0 * (end.secondsSince(start)));
+                    uint64_t size = finishedDb->getDbSize();
+                    //cerr << "finished db is " << size / 1024.0 / 1024.0
+                    //     << "MB" << endl;
+                    this->recordEvent("persistentData.finished.dbSizeMb",
+                                  ET_LEVEL, size / 1024.0 / 1024.0);
+                }
+            }
+
+            cerr << "exiting background work thread" << endl;
+        };
+
+    // loop.startSubordinateThread(backgroundWork);
+}
+
+
 } // RTBKIT
