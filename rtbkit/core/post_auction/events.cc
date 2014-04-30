@@ -170,31 +170,6 @@ publish(ZmqNamedPublisher& logger) const
         );
 }
 
-void
-MatchedWinLoss::
-sendAgentMessage(ZmqNamedClientBus& agents) const
-{
-    std::string channel =
-        type == LateWin ? "LATEWIN" : typeString();
-
-    agents.sendMessage(
-            response.agent,
-            channel,
-            timestamp,
-            confidenceString(),
-
-            auctionId.toString(),
-            std::to_string(impIndex()),
-            winPrice.toString(),
-
-            requestStrFormat,
-            requestStr,
-            response.bidData,
-            response.meta,
-            augmentations.toJson()
-        );
-}
-
 
 /******************************************************************************/
 /* MATCHED CAMPAIGN EVENT                                                     */
@@ -246,31 +221,6 @@ publish(ZmqNamedPublisher& logger) const
 
             requestStrFormat      // 12
     );
-}
-
-void
-MatchedCampaignEvent::
-sendAgentMessage(const std::string& agent, ZmqNamedClientBus& endpoint) const
-{
-    endpoint.sendMessage(
-            agent,
-            "CAMPAIGN_EVENT",
-            label,
-            Date::now(),
-
-            auctionId.toString(),
-            impId.toString(),
-            std::to_string(impIndex()),
-
-            requestStrFormat,
-            requestStr,
-            augmentations.toJson(),
-
-            bid,
-            win,
-            campaignEvents,
-            visits
-        );
 }
 
 

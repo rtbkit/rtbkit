@@ -44,7 +44,7 @@ PostAuctionService(
 
       logger(getZmqContext()),
       endpoint(getZmqContext()),
-      toAgents(getZmqContext()),
+      bridge(getZmqContext()),
       router(!!getZmqContext())
 {}
 
@@ -64,7 +64,7 @@ PostAuctionService(ServiceBase & parent, const std::string & serviceName)
 
       logger(getZmqContext()),
       endpoint(getZmqContext()),
-      toAgents(getZmqContext()),
+      bridge(getZmqContext()),
       router(!!getZmqContext())
 {}
 
@@ -75,7 +75,7 @@ bindTcp()
 {
     logger.bindTcp(getServices()->ports->getRange("logs"));
     endpoint.bindTcp(getServices()->ports->getRange("postAuctionLoop"));
-    toAgents.bindTcp(getServices()->ports->getRange("postAuctionLoopAgents"));
+    bridge.agents.bindTcp(getServices()->ports->getRange("postAuctionLoopAgents"));
 }
 
 void
@@ -87,9 +87,21 @@ init(size_t shards)
     loopMonitor.init();
     loopMonitor.addMessageLoop("postAuctionLoop", &loop);
 
+    initBidderInterface();
+
     initMatcher(shards);
     initConnections();
     monitorProviderClient.init(getServices()->config);
+}
+
+void
+PostAuctionService::
+initBidderInterface()
+{
+    Json::Value json;
+    json["type"] = "agents";
+    bidder = BidderInterface::create("bidder", getServices(), json);
+    bidder->init(&bridge);
 }
 
 void
@@ -163,14 +175,14 @@ initConnections()
             &ZmqMessageRouter::handleMessage, &router, std::placeholders::_1);
     loop.addSource("PostAuctionService::endpoint", endpoint);
 
-    toAgents.init(getServices()->config, serviceName() + "/agents");
-    toAgents.clientMessageHandler = [&] (const std::vector<std::string> & msg)
+    bridge.agents.init(getServices()->config, serviceName() + "/agents");
+    bridge.agents.clientMessageHandler = [&] (const std::vector<std::string> & msg)
         {
             // Clients should never send the post auction service anything,
             // but we catch it here just in case
             LOG(print) << "PostAuctionService got agent message " << msg << endl;
         };
-    loop.addSource("PostAuctionService::toAgents", toAgents);
+    loop.addSource("PostAuctionService::bridge.agents", bridge.agents);
 
     configListener.init(getServices()->config);
     configListener.onConfigChange =
@@ -201,7 +213,7 @@ shutdown()
     loopMonitor.shutdown();
     loop.shutdown();
     logger.shutdown();
-    toAgents.shutdown();
+    bridge.shutdown();
     endpoint.shutdown();
     configListener.shutdown();
     monitorProviderClient.shutdown();
@@ -412,7 +424,7 @@ doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)
     lastWinLoss = Date::now();
 
     event->publish(logger);
-    event->sendAgentMessage(toAgents);
+    bidder->sendWinLossMessage(*event);
 }
 
 void
@@ -430,7 +442,7 @@ doMatchedCampaignEvent(std::shared_ptr<MatchedCampaignEvent> event)
     auto onMatchingAgent = [&] (const AgentConfigEntry & entry)
         {
             if (!entry.config) return;
-            event->sendAgentMessage(entry.name, toAgents);
+            bidder->sendCampaignEventMessage(entry.name, *event);
             sent = true;
         };
 

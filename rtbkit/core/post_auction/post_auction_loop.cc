@@ -783,7 +783,7 @@ doWinLoss(const std::shared_ptr<PostAuctionEvent> & event, bool isReplay)
                           "bidResult.%s.winAfterLossAssumedAmount.%s",
                           typeStr, winPrice.getCurrencyStr());
 
-            bidder->sendLateWinMessage(info.bid.agent, winPrice, info);
+            // bidder->sendLateWinMessage(info.bid.agent, winPrice, info);
         }
 
         /*
@@ -1037,7 +1037,7 @@ routePostAuctionEvent(const string & label,
 
             sent = true;
 
-            bidder->sendCampaignEventMessage(entry.name, label, finishedInfo);
+            // bidder->sendCampaignEventMessage(entry.name, label, finishedInfo);
         };
 
     configListener.forEachAccountAgent(account, onMatchingAgent);
@@ -1230,12 +1230,12 @@ doBidResult(const Id & auctionId,
 
     i.addUids(uids);
 
-    if(status == BS_WIN) {
-        bidder->sendWinMessage(response.agent, price, i);
-    }
-    else {
-        bidder->sendLossMessage(response.agent, i);
-    }
+    // if(status == BS_WIN) {
+    //     bidder->sendWinMessage(response.agent, price, i);
+    // }
+    // else {
+    //     bidder->sendLossMessage(response.agent, i);
+    // }
 
     double expiryInterval = winTimeout;
     if (status == BS_LOSS)

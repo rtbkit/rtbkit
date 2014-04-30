@@ -11,6 +11,7 @@
 #include "event_matcher.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
+#include "rtbkit/common/bidder_interface.h"
 #include "soa/service/logs.h"
 #include "soa/service/service_base.h"
 #include "soa/service/loop_monitor.h"
@@ -19,6 +20,8 @@
 #include "soa/service/zmq_message_router.h"
 
 namespace RTBKIT {
+
+struct BidderInterface;
 
 /******************************************************************************/
 /* POST AUCTION SERVICE                                                       */
@@ -175,6 +178,7 @@ private:
         event loop.
     */
     void initConnections();
+    void initBidderInterface();
     void initMatcher(size_t shards);
 
     void doAuction(std::shared_ptr< SubmittedAuctionEvent> event);
@@ -225,7 +229,9 @@ private:
 
     ZmqNamedPublisher logger;
     ZmqNamedEndpoint endpoint;
-    ZmqNamedClientBus toAgents;
+
+    std::shared_ptr<BidderInterface> bidder;
+    AgentBridge bridge;
 
     ZmqMessageRouter router;
 

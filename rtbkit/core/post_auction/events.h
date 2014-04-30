@@ -77,7 +77,6 @@ struct MatchedWinLoss
     size_t impIndex() const;
 
     void publish(ZmqNamedPublisher& logger) const;
-    void sendAgentMessage(ZmqNamedClientBus& agent) const;
 
 private:
     void initFinishedInfo(const FinishedInfo& info);
@@ -115,9 +114,6 @@ struct MatchedCampaignEvent
     size_t impIndex() const;
 
     void publish(ZmqNamedPublisher& logger) const;
-    void sendAgentMessage(
-            const std::string& agent,
-            Datacratic::ZmqNamedClientBus& endpoint) const;
 };
 
 

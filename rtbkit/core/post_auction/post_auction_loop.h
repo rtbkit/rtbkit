@@ -24,7 +24,6 @@
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 #include "rtbkit/core/banker/banker.h"
 #include "rtbkit/core/monitor/monitor_provider.h"
-#include "rtbkit/core/post_auction/post_auction_types.h"
 
 namespace RTBKIT {
 
