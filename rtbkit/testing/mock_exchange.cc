@@ -121,7 +121,7 @@ MockExchange::Worker::bid() {
 
         if (!response.first || items.empty()) {
             exchange->recordHit("noBids");
-            continue;
+            break;
         }
 
         for (auto & bid : items) {
