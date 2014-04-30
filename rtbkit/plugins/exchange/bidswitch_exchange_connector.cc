@@ -55,9 +55,10 @@ getCampaignCompatibility(const AgentConfig & config,
 
     try {
         cpinfo->seat = Id(pconf["seat"].asString());
-        if (!cpinfo->seat)
+        /*if (!cpinfo->seat)
             result.setIncompatible("providerConfig.bidswitch.seat is null",
                                    includeReasons);
+        */
     } catch (const std::exception & exc) {
         result.setIncompatible
         (string("providerConfig.bidswitch.seat parsing error: ")
@@ -223,15 +224,17 @@ setSeatBid(Auction const & auction,
 
     // Find the index in the seats array
     int seatIndex = 0;
-    while(response.seatbid.size() != seatIndex) {
-        if(response.seatbid[seatIndex].seat == cpinfo->seat) break;
-        ++seatIndex;
-    }
+    if(cpinfo->seat) {
+        while(response.seatbid.size() != seatIndex) {
+            if(response.seatbid[seatIndex].seat == cpinfo->seat) break;
+            ++seatIndex;
+        }
 
     // Create if required
-    if(seatIndex == response.seatbid.size()) {
-        response.seatbid.emplace_back();
-        response.seatbid.back().seat = cpinfo->seat;
+        if(seatIndex == response.seatbid.size()) {
+            response.seatbid.emplace_back();
+            response.seatbid.back().seat = cpinfo->seat;
+        }
     }
 
     // Get the seatBid object
