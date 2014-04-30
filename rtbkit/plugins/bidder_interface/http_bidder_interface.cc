@@ -6,6 +6,7 @@
 #include "http_bidder_interface.h"
 #include "jml/db/persistent.h"
 #include "soa/service/http_client.h"
+#include "soa/utils/generic_utils.h"
 #include "rtbkit/common/messages.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
@@ -58,6 +59,7 @@ HttpBidderInterface::HttpBidderInterface(std::string name,
     httpClient.reset(new HttpClient(host));
     loop.addSource("HttpBidderInterface::httpClient", httpClient);
 }
+
 
 void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                                              double timeLeftMs,
@@ -131,42 +133,26 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                              for (const auto &bid: seatbid.bid) {
                                  Bid theBid;
 
-                                 /* Looping over the creatives to find the corresponding
-                                    creativeIndex
-                                 */
                                  int crid = bid.crid.toInt();
-                                 auto crIt = find_if(
-                                    begin(config->creatives), end(config->creatives),
-                                    [&](const Creative &creative) {
-                                        return creative.id == crid;
-                                 });
+                                 int creativeIndex = indexOf(config->creatives,
+                                     &Creative::id, crid);
 
-                                 if (crIt == end(config->creatives)) {
+                                 if (creativeIndex == -1) {
                                      throw ML::Exception(ML::format(
                                         "Unknown creative id: %d", crid));
                                  }
 
-                                 auto creativeIndex = distance(begin(config->creatives),
-                                                               crIt);
                                  theBid.creativeIndex = creativeIndex;
                                  theBid.price = USD_CPM(bid.price.val);
                                  theBid.priority = 0.0;
 
-                                 /* Looping over the impressions to find the corresponding
-                                    adSpotIndex
-                                 */
-                                 auto impIt = find_if(
-                                     begin(openRtbRequest.imp), end(openRtbRequest.imp),
-                                     [&](const OpenRTB::Impression &imp) {
-                                         return imp.id == bid.impid;
-                                 });
-                                 if (impIt == end(openRtbRequest.imp)) {
+                                 int spotIndex = indexOf(openRtbRequest.imp,
+                                                        &OpenRTB::Impression::id, bid.impid);
+                                 if (spotIndex == -1) {
                                      throw ML::Exception(ML::format(
                                          "Unknown impression id: %s", bid.impid.toString()));
                                  }
 
-                                 auto spotIndex = distance(begin(openRtbRequest.imp),
-                                                                 impIt);
                                  theBid.spotIndex = spotIndex;
 
                                  bids.push_back(std::move(theBid));
