@@ -95,7 +95,6 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
     std::string portName = std::to_string(port);
     std::string hostName = ML::fqdn_hostname(portName) + ":" + portName;
 
-    agent.config.providerConfig["bidswitch"]["seat"] = "123";
     agent.config.providerConfig["bidswitch"]["iurl"] = "http://www.gnu.org";
 
     // Configure the agent for bidding
