@@ -39,7 +39,7 @@ namespace RTBKIT {
 struct Banker;
 struct BudgetController;
 struct Accountant;
-
+struct BidderInterface;
 
 /*****************************************************************************/
 /* AGENT INFO                                                                */
@@ -375,9 +375,6 @@ protected:
     int shutdown_;
 
 public:
-    // Connection to the agents
-    ZmqNamedClientBus agentEndpoint;
-
     // Connection to the post auction loop
     ZmqNamedProxy postAuctionEndpoint;
 
@@ -495,31 +492,6 @@ public:
     */
     void configure(const std::string & agent, AgentConfig & config);
 
-    /** Send the given message to the given bidding agent. */
-    template<typename... Args>
-    void sendAgentMessage(const std::string & agent,
-                          const std::string & messageType,
-                          const Date & date,
-                          Args... args)
-    {
-        agentEndpoint.sendMessage(agent, messageType, date, args...);
-    }
-
-    /** Send the given bid response to the given bidding agent. */
-    void sendBidResponse(const std::string & agent,
-                         const AgentInfo & info,
-                         BidStatus status,
-                         Date timestamp,
-                         const std::string & message,
-                         const Id & auctionId,
-                         int spotNum = -1,
-                         Amount price = Amount(),
-                         const Auction * auction = 0,
-                         const std::string & bidData = "",
-                         const Json::Value & metadata = Json::Value(),
-                         const std::string & augmentationsStr = "");
-                         
-
     mutable Lock lock;
 
     std::shared_ptr<Banker> banker;
@@ -566,6 +538,10 @@ public:
 
     /** List of exchanges that are active. */
     std::vector<std::shared_ptr<ExchangeConnector> > exchanges;
+
+    /** Bid price calculator */
+    std::shared_ptr<BidderInterface> bidder;
+    AgentBridge bridge;
 
     /*************************************************************************/
     /* EXCEPTIONS                                                            */

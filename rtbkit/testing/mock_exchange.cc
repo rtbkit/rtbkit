@@ -118,7 +118,7 @@ MockExchange::Worker::bid() {
         auto response = bids->receiveBid();
         exchange->recordHit("responses");
 
-        if (!response.first) continue;
+        if (!response.first) break;
         vector<ExchangeSource::Bid> items = response.second;
 
         for (auto & bid : items) {

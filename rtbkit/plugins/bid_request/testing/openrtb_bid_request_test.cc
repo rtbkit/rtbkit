@@ -237,6 +237,52 @@ void testBidRequestRoundTrip(const std::string & filename,
     }
 }
 
+void testBidRequestConversion(const std::string &fileName, const std::string &request)
+{
+    static DefaultDescription<OpenRTB::BidRequest> desc;
+
+    // Parse the BidRequest in OpenRTB format
+    OpenRTB::BidRequest originalReq;
+    {
+        StreamingJsonParsingContext context;
+        context.init(fileName, request.c_str(), request.size());
+        desc.parseJson(&originalReq, context);
+    }
+
+    string jsonBr1;
+    {
+        std::ostringstream stream;
+        StreamJsonPrintingContext printContext(stream);
+        desc.printJson(&originalReq, printContext);
+        jsonBr1 = stream.str();
+    }
+
+    // Convert it to Datacratic format
+    std::unique_ptr<BidRequest> br { fromOpenRtb(std::move(originalReq), "openrtb", "openrtb") };
+
+    // Convert it back to OpenRTB
+    OpenRTB::BidRequest br2 = toOpenRtb(*br);
+
+    string jsonBr2;
+    {
+        std::ostringstream stream;
+        StreamJsonPrintingContext printContext(stream);
+        desc.printJson(&br2, printContext);
+        jsonBr2 = stream.str();
+    }
+
+    auto json = [](const string &jsonStr) {
+        Json::Reader reader;
+        Json::Value value;
+        bool ok;
+        ok = reader.parse(jsonStr, value);
+        BOOST_CHECK(ok);
+        return value;
+    };
+
+    BOOST_CHECK(jsonDiff(json(jsonBr1), json(jsonBr2)));
+}
+
 BOOST_AUTO_TEST_CASE( test_openrtb_round_trip )
 {
     vector<string> reqs;
@@ -244,8 +290,10 @@ BOOST_AUTO_TEST_CASE( test_openrtb_round_trip )
     for (auto s: samples)
         reqs.push_back(loadFile(s));
 
-    for (unsigned i = 0;  i < reqs.size();  ++i)
+    for (unsigned i = 0;  i < reqs.size();  ++i) {
         testBidRequestRoundTrip(samples[i], reqs[i]);
+       // testBidRequestConversion(samples[i], reqs[i]);
+    }
 }
 
 BOOST_AUTO_TEST_CASE( benchmark_openrtb_round_trip )
