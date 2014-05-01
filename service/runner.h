@@ -104,6 +104,9 @@ struct Runner: public Epoller {
 
     OutputSink & getStdInSink();
 
+    /* Close stdin at launch time if stdin sink was not queried. */
+    bool closeStdin;
+
     /** Run the subprocess. */
     void run(const std::vector<std::string> & command,
              const OnTerminate & onTerminate = nullptr,
@@ -257,12 +260,14 @@ RunResult execute(MessageLoop & loop,
                   const std::vector<std::string> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
-                  const std::string & stdInData = "");
+                  const std::string & stdInData = "",
+                  bool closeStdin = false);
 
 /** Execute a command synchronously using its own message loop. */
 RunResult execute(const std::vector<std::string> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
-                  const std::string & stdInData = "");
+                  const std::string & stdInData = "",
+                  bool closeStdin = false);
 
 } // namespace Datacratic

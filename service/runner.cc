@@ -94,8 +94,8 @@ namespace Datacratic {
 
 Runner::
 Runner()
-    : running_(false), childPid_(-1), wakeup_(EFD_NONBLOCK),
-      statusRemaining_(sizeof(Task::ChildStatus))
+    : closeStdin(false), running_(false), childPid_(-1),
+      wakeup_(EFD_NONBLOCK), statusRemaining_(sizeof(Task::ChildStatus))
 {
     Epoller::init(4);
 
@@ -390,6 +390,9 @@ run(const vector<string> & command,
 
     if (stdInSink_) {
         tie(task_.stdInFd, childFds.stdIn) = CreateStdPipe(true);
+    }
+    else if (closeStdin) {
+        childFds.stdIn = -1;
     }
     if (stdOutSink) {
         stdOutSink_ = stdOutSink;
@@ -784,7 +787,7 @@ closeRemainingFds()
     ::getrlimit(RLIMIT_NOFILE, &limits);
 
     for (int fd = 0; fd < limits.rlim_cur; fd++) {
-        if (fd != STDIN_FILENO
+        if ((fd != STDIN_FILENO || stdIn == -1)
             && fd != STDOUT_FILENO && fd != STDERR_FILENO
             && fd != statusFd) {
             ::close(fd);
@@ -805,7 +808,9 @@ dupToStdStreams()
             }
         }
     };
-    dupToStdStream(stdIn, STDIN_FILENO);
+    if (stdIn != -1) {
+        dupToStdStream(stdIn, STDIN_FILENO);
+    }
     dupToStdStream(stdOut, STDOUT_FILENO);
     dupToStdStream(stdErr, STDERR_FILENO);
 }
@@ -966,7 +971,8 @@ execute(MessageLoop & loop,
         const vector<string> & command,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink,
-        const string & stdInData)
+        const string & stdInData,
+        bool closeStdin)
 {
     RunResult result;
     auto onTerminate = [&](const RunResult & runResult) {
@@ -984,6 +990,7 @@ execute(MessageLoop & loop,
         sink.requestClose();
     }
     else {
+        runner.closeStdin = closeStdin;
         runner.run(command, onTerminate, stdOutSink, stdErrSink);
     }
 
@@ -998,14 +1005,14 @@ RunResult
 execute(const vector<string> & command,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink,
-        const string & stdInData)
+        const string & stdInData,
+        bool closeStdin)
 {
     MessageLoop loop;
 
     loop.start();
     RunResult result = execute(loop, command, stdOutSink, stdErrSink,
-                               stdInData);
-
+                               stdInData, closeStdin);
     loop.shutdown();
 
     return result;
