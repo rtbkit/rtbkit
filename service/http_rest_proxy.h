@@ -6,19 +6,21 @@
 
 #pragma once
 
-#include "soa/service/http_endpoint.h"
 #include "jml/utils/vector_utils.h"
 #include "jml/utils/exc_assert.h"
 #include "jml/utils/string_functions.h"
-#include <boost/make_shared.hpp>
+#include "soa/types/value_description.h"
+#include "soa/service/http_endpoint.h"
+
 
 namespace curlpp {
+
 struct Easy;
+
 } // namespace curlpp
 
 
 namespace Datacratic {
-
 
 /*****************************************************************************/
 /* HTTP REST PROXY                                                           */
@@ -29,7 +31,6 @@ namespace Datacratic {
 */
 
 struct HttpRestProxy {
-
     HttpRestProxy(const std::string & serviceUri = "")
         : serviceUri(serviceUri), noSSLChecks(false), debug(false)
     {
@@ -263,5 +264,142 @@ operator << (std::ostream & stream, const HttpRestProxy::Response & response)
     return stream << response.header_ << "\n" << response.body_ << "\n";
 }
 
-} // namespace Datacratic
 
+/****************************************************************************/
+/* JSON REST PROXY                                                          */
+/****************************************************************************/
+
+/** A class that performs json queries and expects json responses, by
+ * serializing C++ structures to their JSON form and vice-versa. */
+
+struct JsonAuthenticationRequest;
+
+struct JsonRestProxy : HttpRestProxy {
+    JsonRestProxy(const std::string & url);
+
+    /* authentication token */
+    std::string authToken;
+
+    static void sleepAfterRetry(int retryNbr);
+
+    HttpRestProxy::Response post(const std::string & resource,
+                                 const std::string & body) const
+    {
+        return putOrPost(resource, body, true);
+    }
+
+    HttpRestProxy::Response put(const std::string & resource,
+                                const std::string & body) const
+    {
+        return putOrPost(resource, body, false);
+    }
+
+    HttpRestProxy::Response get(const std::string & resource) const;
+
+    template<typename R>
+    R getTyped(const std::string & resource, int expectedCode=-1)
+        const
+    {
+        auto resp = get(resource);
+        if (expectedCode > -1) {
+            if (resp.code() != expectedCode) {
+                throw ML::Exception("expected code: "
+                                    + to_string(expectedCode));
+            }
+        }
+
+        R data;
+        try {
+            data = jsonDecodeStr<R>(resp.body());
+        }
+        catch (...) {
+            std::cerr << "exception decoding payload: " + resp.body() + "\n";
+            throw;
+        }
+
+        return data;
+    }
+
+    bool authenticate(const JsonAuthenticationRequest & creds);
+
+    /* number of exponential backoffs */
+    size_t maxRetries;
+
+    template<typename R, typename T>
+    R postTyped(const std::string & resource,
+                const T & payload, int expectedCode=-1)
+        const
+    {
+        return putOrPostTyped<R>(resource, payload, expectedCode, true);
+    }
+
+    template<typename R, typename T>
+    R putTyped(const std::string & resource,
+               const T & payload, int expectedCode=-1)
+        const
+    {
+        return putOrPostTyped<R>(resource, payload, expectedCode, false);
+    }
+
+private:
+    HttpRestProxy::Response putOrPost(const std::string & resource,
+                                      const std::string & body,
+                                      bool isPost) const;
+
+    template<typename R, typename T>
+    R putOrPostTyped(const std::string & resource,
+                     const T & payload, int expectedCode, bool isPost)
+        const
+    {
+        std::string postData = jsonEncodeStr<T>(payload);
+
+        auto resp = (isPost
+                     ? post(resource, postData)
+                     : put(resource, postData));
+        if (expectedCode > -1) {
+            if (resp.code() != expectedCode) {
+                throw ML::Exception("expected code: "
+                                    + to_string(expectedCode));
+            }
+        }
+
+        R data;
+        try {
+            data = jsonDecodeStr<R>(resp.body());
+        }
+        catch (...) {
+            std::cerr << "exception decoding payload: " + resp.body() + "\n";
+            throw;
+        }
+
+        return data;
+    }
+};
+
+
+/****************************************************************************/
+/* JSON AUTHENTICATION REQUEST                                              */
+/****************************************************************************/
+
+/* JsonAuthenticationRequest is a holder for username (email) and password
+ * data. */
+
+struct JsonAuthenticationRequest {
+    std::string email;
+    std::string password;
+};
+
+CREATE_STRUCTURE_DESCRIPTION(JsonAuthenticationRequest);
+
+
+/****************************************************************************/
+/* JSON AUTHENTICATION RESPONSE                                             */
+/****************************************************************************/
+
+struct JsonAuthenticationResponse {
+    std::string token;
+};
+
+CREATE_STRUCTURE_DESCRIPTION(JsonAuthenticationResponse);
+
+} // namespace Datacratic
