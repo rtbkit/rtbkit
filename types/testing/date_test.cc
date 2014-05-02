@@ -272,10 +272,18 @@ BOOST_AUTO_TEST_CASE( test_print_format )
 
 BOOST_AUTO_TEST_CASE( test_utc_parse )
 {
-    Date d(2012, 06, 06, 15, 15, 38.380);
-    string s = "2012-Jun-06 15:15:38.380";
-    Date d2 = Date::parseDefaultUtc(s);
-    BOOST_CHECK_EQUAL(d2.print(3), s);
+    {
+        Date d(2012, 06, 06, 15, 15, 38.380);
+        string s = "2012-Jun-06 15:15:38.380";
+        Date d2 = Date::parseDefaultUtc(s);
+        BOOST_CHECK_EQUAL(d2.print(3), s);
+    }
+
+    {
+        string s = "2012-Jun-06 15:15:38";
+        Date d2 = Date::parseDefaultUtc(s);
+        BOOST_CHECK_EQUAL(d2.print(0), s);
+    }
 }
 
 BOOST_AUTO_TEST_CASE( test_now )

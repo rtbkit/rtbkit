@@ -419,6 +419,11 @@ BOOST_AUTO_TEST_CASE( test_date_value_description )
     iso00.resize(iso00.size() - 1);
     iso00.append("+00:00");
     BOOST_CHECK_EQUAL(jsonDecode<Date>(iso00), d);
+
+    /* normal (2014-May-02 14:33:02) */
+    Date normal = d.quantized(1);
+    string normalStr = normal.print();
+    BOOST_CHECK_EQUAL(jsonDecode<Date>(normalStr), normal);
 }
 
 
