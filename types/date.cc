@@ -1251,22 +1251,21 @@ Date
 Iso8601Parser::
 expectDateTime()
 {
-        /* try parse time
-           or {
-           parse date
-           try eof
-           or {
-           parse 'T'
-           parse time
-           }
-           }
-           try eof
-           or
-           parse tz
-           } */
+    /*
+      parse date
+      try eof
+      or {
+        parse 'T' || ' '
+        parse time
+      }
+      try eof
+      or {
+        parse tz
+      }
+    */
 
     Date date = expectDate();
-    if (!eof() && match_literal('T')) {
+    if (!eof() && (match_literal('T') || match_literal(' '))) {
         date.addSeconds(expectTime().secondsSinceEpoch());
     }
 

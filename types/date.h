@@ -8,14 +8,11 @@
 
 #pragma once
 
-#include <string>
-#include <iostream>
-#include <boost/date_time/gregorian/gregorian.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include "jml/db/persistent_fwd.h"
-#include "jml/utils/parse_context.h"
 #include <chrono>
-
+#include <string>
+#include "boost/date_time/posix_time/posix_time.hpp"
+#include "jml/utils/parse_context.h"
+#include "jml/db/persistent_fwd.h"
 
 struct ACE_Time_Value;
 
@@ -25,10 +22,6 @@ struct Value;
 
 } // namespace Json
 
-namespace ML {
-struct Parse_Context;
-} // namespace ML
-
 namespace Datacratic {
 
 using boost::posix_time::ptime;
@@ -37,6 +30,7 @@ struct Opaque;
 namespace JS {
 struct JSValue;
 } // namespace JS
+
 
 /*****************************************************************************/
 /* DATE                                                                      */

@@ -35,6 +35,10 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
         expected = "2013-Apr-01 09:08:07.000";
         BOOST_CHECK_EQUAL(date.print(3), expected);
 
+        date = Date::parseIso8601DateTime("2013-04-01 09:08:07");
+        expected = "2013-Apr-01 09:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
         date = Date::parseIso8601DateTime("2013-04-01T09:08:07Z");
         expected = "2013-Apr-01 09:08:07.000";
         BOOST_CHECK_EQUAL(date.print(3), expected);
