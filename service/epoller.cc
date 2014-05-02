@@ -127,7 +127,7 @@ removeFd(int fd)
 
 int
 Epoller::
-handleEvents(int usToWait, int nEvents,
+handleEvents(int usToWait, int nEvents, int epollTimeout,
              const HandleEvent & handleEvent_,
              const OnEvent & beforeSleep_,
              const OnEvent & afterSleep_)
@@ -159,7 +159,7 @@ handleEvents(int usToWait, int nEvents,
             if (res == 0) return 0;
         }
 
-        int res = epoll_wait(epoll_fd, events, nEvents, 0);
+        int res = epoll_wait(epoll_fd, events, nEvents, epollTimeout);
 
         if (afterSleep)
             afterSleep();

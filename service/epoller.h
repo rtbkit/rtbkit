@@ -68,7 +68,7 @@ struct Epoller: public AsyncEventSource {
         event handler to exit.
     */
 
-    int handleEvents(int usToWait = 0, int nEvents = 1,
+    int handleEvents(int usToWait = 0, int nEvents = 1, int epollTimeout = 0,
                      const HandleEvent & handleEvent = HandleEvent(),
                      const OnEvent & beforeSleep = OnEvent(),
                      const OnEvent & afterSleep = OnEvent());

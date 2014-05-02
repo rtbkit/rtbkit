@@ -551,7 +551,7 @@ runEventThread(int threadNum, int numThreads)
         if (realTimePolling_) {
 
             Date beforePoll = Date::now();
-            bool isBusy = handleEvents(0, 4, handleEvent) > 0;
+            bool isBusy = handleEvents(0, 4, 0, handleEvent) > 0;
 
             // This ensures that our load sampling mechanism is still somewhat
             // meaningfull even though we never sleep.
@@ -604,7 +604,7 @@ runEventThread(int threadNum, int numThreads)
                 usToWait = timesliceUs;
 
             totalSleepTime[threadNum] += double(usToWait) / 1000000.0;
-            int numHandled = handleEvents(usToWait, 4, handleEvent,
+            int numHandled = handleEvents(usToWait, 4, 0, handleEvent,
                                           beforeSleep, afterSleep);
             if (debug && false)
                 cerr << "  in slice: handled " << numHandled << " events "
@@ -617,7 +617,7 @@ runEventThread(int threadNum, int numThreads)
         else {
             // No... try to handle something and then sleep if we don't
             // find anything to do
-            int numHandled = handleEvents(0, 1, handleEvent,
+            int numHandled = handleEvents(0, 1, 0, handleEvent,
                                           beforeSleep, afterSleep);
             if (debug && false)
                 cerr << "  out of slice: handled " << numHandled << " events"
