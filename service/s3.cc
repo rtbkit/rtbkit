@@ -1133,7 +1133,7 @@ forEachObject(const std::string & bucket,
 {
     using namespace tinyxml2;
 
-    //cerr << "forEachObject under " << prefix << endl;
+    // cerr << "forEachObject under " << prefix << endl;
 
     string marker = startAt;
     // bool firstIter = true;
@@ -1178,6 +1178,7 @@ forEachObject(const std::string & bucket,
             marker = key;
 
             ExcAssertEqual(info.key.find(foundPrefix), 0);
+            // cerr << "info.key: " + info.key + "; foundPrefix: " +foundPrefix + "\n";
             string basename(info.key, foundPrefix.length());
 
             if (!onObject(foundPrefix, basename, info, depth)) {
@@ -1237,7 +1238,10 @@ forEachObject(const std::string & uriPrefix,
                           const ObjectInfo & info,
                           int depth)
         {
-            string uri = "s3://" + bucket + "/" + prefix + delimiter + objectName;
+            string uri = "s3://" + bucket + "/" + prefix;
+            if (objectName.size() > 0) {
+                uri += delimiter + objectName;
+            }
             return onObject(uri, info, depth);
         };
 
