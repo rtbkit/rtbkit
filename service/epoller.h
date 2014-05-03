@@ -29,7 +29,7 @@ struct Epoller: public AsyncEventSource {
 
     ~Epoller();
 
-    void init(int maxFds);
+    void init(int maxFds, int timeout = 0);
 
     void close();
 
@@ -68,7 +68,7 @@ struct Epoller: public AsyncEventSource {
         event handler to exit.
     */
 
-    int handleEvents(int usToWait = 0, int nEvents = 1, int epollTimeout = 0,
+    int handleEvents(int usToWait = 0, int nEvents = 1,
                      const HandleEvent & handleEvent = HandleEvent(),
                      const OnEvent & beforeSleep = OnEvent(),
                      const OnEvent & afterSleep = OnEvent());
@@ -89,6 +89,9 @@ struct Epoller: public AsyncEventSource {
 private:
     /* Fd for the epoll mechanism. */
     int epoll_fd;
+
+    /* Timeout value to use for epoll_wait */
+    int timeout_;
 };
 
 } // namespace Datacratic
