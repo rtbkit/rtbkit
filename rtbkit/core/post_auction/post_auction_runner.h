@@ -9,7 +9,7 @@
 
 
 #include <boost/program_options/options_description.hpp>
-#include "rtbkit/core/post_auction/post_auction_loop.h"
+#include "rtbkit/core/post_auction/post_auction_service.h"
 #include "rtbkit/core/banker/slave_banker.h"
 #include "soa/service/service_utils.h"
 
@@ -26,6 +26,7 @@ struct PostAuctionRunner {
 
     ServiceProxyArguments serviceArgs;
 
+    size_t shards;
     float auctionTimeout;
     float winTimeout;
 
@@ -36,7 +37,7 @@ struct PostAuctionRunner {
 
     std::shared_ptr<ServiceProxies> proxies;
     std::shared_ptr<SlaveBanker> banker;
-    std::shared_ptr<PostAuctionLoop> postAuctionLoop;
+    std::shared_ptr<PostAuctionService> postAuctionLoop;
 
     void init();
 

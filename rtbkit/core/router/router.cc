@@ -2643,7 +2643,7 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
         event.adSpotId = adSpotId;
         event.lossTimeout = auction->lossAssumed;
         event.augmentations = auction->agentAugmentations[bid.agent];
-        event.bidRequest = auction->request;
+        event.bidRequest(auction->request);
         event.bidRequestStr = auction->requestStr;
         event.bidRequestStrFormat = auction->requestStrFormat ;
         event.bidResponse = bid;

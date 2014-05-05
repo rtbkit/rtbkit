@@ -10,7 +10,7 @@
 #include "soa/service/typed_message_channel.h"
 #include "rtbkit/common/auction_events.h"
 #include "rtbkit/core/router/router_types.h"
-#include "rtbkit/core/post_auction/post_auction_types.h"
+#include "rtbkit/core/post_auction/events.h"
 
 namespace RTBKIT {
 
@@ -35,32 +35,15 @@ struct BidderInterface : public ServiceBase
                             std::map<std::string, BidInfo> const & bidders) = 0;
 
     virtual
-    void sendWinMessage(std::string const & agent,
-                        std::string const & id,
-                        Amount price) = 0;
-
-    virtual
-    void sendWinMessage(std::string const & agent,
-                        Amount price,
-                        FinishedInfo const & event) = 0;
-
-    virtual
-    void sendLateWinMessage(std::string const & agent,
-                            Amount price,
-                            FinishedInfo const & event) = 0;
+    void sendWinLossMessage(MatchedWinLoss const & event) = 0;
 
     virtual
     void sendLossMessage(std::string const & agent,
                          std::string const & id) = 0;
 
     virtual
-    void sendLossMessage(std::string const & agent,
-                         FinishedInfo const & event) = 0;
-
-    virtual
     void sendCampaignEventMessage(std::string const & agent,
-                                  std::string const & label,
-                                  FinishedInfo const & event) = 0;
+                                  MatchedCampaignEvent const & event) = 0;
 
     virtual
     void sendBidLostMessage(std::string const & agent,
