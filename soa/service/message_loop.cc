@@ -34,13 +34,13 @@ namespace Datacratic {
 /*****************************************************************************/
 
 MessageLoop::
-MessageLoop(int numThreads, double maxAddedLatency)
+MessageLoop(int numThreads, double maxAddedLatency, int epollTimeout)
     : queueFd(EFD_NONBLOCK),
       sourceQueueFlag(false),
       numThreadsCreated(0),
       totalSleepTime_(0.0)
 {
-    init(numThreads, maxAddedLatency);
+    init(numThreads, maxAddedLatency, epollTimeout);
 }
 
 MessageLoop::
@@ -51,15 +51,15 @@ MessageLoop::
 
 void
 MessageLoop::
-init(int numThreads, double maxAddedLatency)
+init(int numThreads, double maxAddedLatency, int epollTimeout)
 {
-    if (maxAddedLatency == 0)
-        cerr << "warning: MessageLoop with maxAddedLatency of zero will busy wait" << endl;
+    if (maxAddedLatency == 0 && epollTimeout != -1)
+        cerr << "warning: MessageLoop with maxAddedLatency of zero and epollTeimout != -1 will busy wait" << endl;
 
     // See the comments on processOne below for more details on this assertion.
     ExcAssertEqual(numThreads, 1);
 
-    Epoller::init(16384);
+    Epoller::init(16384, epollTimeout);
     this->shutdown_ = false;
     this->maxAddedLatency_ = maxAddedLatency;
     this->handleEvent = std::bind(&MessageLoop::handleEpollEvent,

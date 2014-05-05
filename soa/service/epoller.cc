@@ -26,7 +26,7 @@ namespace Datacratic {
 
 Epoller::
 Epoller()
-    : epoll_fd(-1)
+    : epoll_fd(-1), timeout_(0)
 {
 }
 
@@ -38,7 +38,7 @@ Epoller::
 
 void
 Epoller::
-init(int maxFds)
+init(int maxFds, int timeout)
 {
     //cerr << "initializing epoller at " << this << endl;
     //backtrace();
@@ -47,6 +47,8 @@ init(int maxFds)
     epoll_fd = epoll_create(maxFds);
     if (epoll_fd == -1)
         throw ML::Exception(errno, "EndpointBase epoll_create()");
+
+    timeout_ = timeout;
 }
 
 void
@@ -159,7 +161,7 @@ handleEvents(int usToWait, int nEvents,
             if (res == 0) return 0;
         }
 
-        int res = epoll_wait(epoll_fd, events, nEvents, 0);
+        int res = epoll_wait(epoll_fd, events, nEvents, timeout_);
 
         if (afterSleep)
             afterSleep();
