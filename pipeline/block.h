@@ -25,10 +25,10 @@ namespace Datacratic
 
         virtual void run();
 
-        Logging::Category print;
-        Logging::Category error;
-        Logging::Category trace;
-        Logging::Category debug;
+        static Logging::Category print;
+        static Logging::Category error;
+        static Logging::Category trace;
+        static Logging::Category debug;
 
     private:
         Pipeline * pipeline;

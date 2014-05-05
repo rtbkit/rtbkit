@@ -5,20 +5,12 @@
 */
 
 Block::Block() :
-    print("print"),
-    error("error", print),
-    trace("trace", print),
-    debug("debug", trace),
     pipeline(nullptr),
     parent(nullptr) {
     //debug.deactivate();
 }
 
 Block::Block(Pipeline * pipeline) :
-    print("print"),
-    error("error", print),
-    trace("trace", print),
-    debug("debug", trace),
     pipeline(pipeline),
     parent(nullptr) {
     //debug.deactivate();
@@ -81,3 +73,7 @@ void Blocks::add(std::shared_ptr<Block> item, std::string name) {
     blocks.push_back(std::move(item));
 }
 
+Logging::Category Block::print("print");
+Logging::Category Block::error("error", print);
+Logging::Category Block::trace("trace", print);
+Logging::Category Block::debug("debug", trace);
