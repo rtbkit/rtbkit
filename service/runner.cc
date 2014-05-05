@@ -580,7 +580,7 @@ runWrapper(const vector<string> & command, ChildFds & fds)
     else if (childPid == 0) {
         ::close(childLaunchStatusFd[0]);
 
-        ::setpgid(0, 0);
+        ::setsid();
 
         ::signal(SIGQUIT, SIG_DFL);
         ::signal(SIGTERM, SIG_DFL);
