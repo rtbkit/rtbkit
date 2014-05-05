@@ -1610,7 +1610,11 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
             // Unwind everything?
         }
 
-        if (auctionInfo.bidders.empty()) {
+        if (!auctionInfo.bidders.empty()) {
+            bidder->sendAuctionMessage(
+                    auctionInfo.auction, timeLeftMs, auctionInfo.bidders);
+        }
+        else {
             /* No bidders; don't bother with the bid */
             ML::atomic_inc(numNoBidders);
             inFlight.erase(auctionId);
@@ -1620,8 +1624,6 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
                 //cerr << "couldn't finish auction 1 " << auction->id << endl;
             }
         }
-
-        bidder->sendAuctionMessage(auctionInfo.auction, timeLeftMs, auctionInfo.bidders);
 
         debugAuction(auctionId, "AUCTION");
     } catch (const std::exception & exc) {
