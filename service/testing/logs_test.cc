@@ -8,7 +8,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "service/logs.h"
+#include "soa/service/logs.h"
 
 #include <boost/test/unit_test.hpp>
 
