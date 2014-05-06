@@ -157,8 +157,8 @@ init()
                  JsonParam<Json::Value>("", "Configuration block for agent"));
 
     addRouteSync(agent,
-                 "/delete",
-                 {"GET"},
+                 "/config",
+                 {"DELETE"},
                  "Delete the configuration of the given agent",
                  &AgentConfigurationService::handleDeleteConfig,
                  this,
