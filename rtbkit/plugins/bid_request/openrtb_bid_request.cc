@@ -47,20 +47,16 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                                                  spot.banner->h[i]));
                 }
                 spot.position = spot.banner->pos;
-            }
+            } 
 
             // Now create tags
-            
-#if 0
-
-
             spot.id = std::move(imp.id);
             if (imp.banner) {
                 auto & b = *imp.banner;
-
+                
                 if (b.w.size() != b.h.size())
                     throw ML::Exception("widths and heights must match");
-
+                
                 for (unsigned i = 0;  i < b.w.size();  ++i) {
                     int w = b.w[i];
                     int h = b.h[i];
@@ -68,27 +64,50 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                     Format format(w, h);
                     spot.formats.push_back(format);
                 }
-
-                if (!bexpdir.empty()) {
+#if 0
+                if (!b.expdir.empty()) {
                     spot.tagFilter.mustInclude.add("expandableTargetingNotSupported");
                 }
-                if (!bapi.empty()) {
+                if (!b.api.empty()) {
                     spot.tagFilter.mustInclude.add("apiFrameworksNotSupported");
                 }
-                if (!bbtype.empty()) {
+                if (!b.btype.empty()) {
                     spot.tagFilter.mustInclude.add("creativeTypeBlockingNotSupported");
                 }
-                if (!bbattr.empty()) {
+                if (!b.battr.empty()) {
                     spot.tagFilter.mustInclude.add("creativeTypeB");
                     // Blocked creative attributes
                 }
-                if (!bmimes.empty()) {
+                if (!b.mimes.empty()) {
                     // We must have specified a MIME type and it must be
                     // supported by the exchange.
                     
                 }
+#endif
+
+            } else if (imp.video) {
+                auto & v = *imp.video;
+
+                if(!v.mimes.empty()) {
+                    // We need at least one MIME type supported by the exchange
+                }
+
+                if(v.linearity.value() < 0) {
+                
+                }
+                
+                if(v.minduration.value() < 0) {
+                
+                }
+
+                if(v.maxduration.value() < 0) {
+                
+                }
+                
+                Format format(v.w.value(), v.h.value());
+                spot.formats.push_back(format);
             }
-            
+#if 0
             if (!imp.displaymanager.empty()) {
                 tags.add("displayManager", imp.displaymanager);
             }
@@ -111,11 +130,8 @@ fromOpenRtb(OpenRTB::BidRequest && req,
             for (b: imp.iframebuster) {
                 spot.tags.add("iframebuster", b);
             }
-#endif
-            
+#endif            
             result->imp.emplace_back(std::move(spot));
-
-            
         };
 
     result->imp.reserve(req.imp.size());
