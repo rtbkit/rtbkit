@@ -157,6 +157,14 @@ init()
                  JsonParam<Json::Value>("", "Configuration block for agent"));
 
     addRouteSync(agent,
+                 "/delete",
+                 {"GET"},
+                 "Delete the configuration of the given agent",
+                 &AgentConfigurationService::handleDeleteConfig,
+                 this,
+                 agentKeyParam);
+
+    addRouteSync(agent,
                  "/heartbeat",
                  {"POST"},
                  "Send a heartbeat for the agent",
@@ -235,6 +243,21 @@ void
 AgentConfigurationService::
 handleAgentHeartbeat(const std::string & agent)
 {
+}
+
+void AgentConfigurationService::
+handleDeleteConfig(const std::string &agent)
+{
+    auto it = agentInfo.find(agent);
+    if (it == std::end(agentInfo)) {
+        throw ML::Exception(ML::format("No config for agent %s", agent.c_str()));
+    }
+
+    agentInfo.erase(it);
+
+    // Sending an empty config to the listeners will remove the config from the listener
+    for (auto &listener: listenerInfo)
+        listeners.sendMessage(listener.first, "CONFIG", agent, "");
 }
 
 /** MonitorProvider interface */
