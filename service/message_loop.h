@@ -160,10 +160,7 @@ private:
     boost::thread_group threads;
     
     /** Global flag to shutdown. */
-    volatile int shutdown_;
-
-    /** Global flag for idle. */
-    volatile int idle_;
+    int shutdown_;
 
     /** Do we debug? */
     bool debug_;

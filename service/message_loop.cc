@@ -56,12 +56,17 @@ init(int numThreads, double maxAddedLatency, int epollTimeout)
     ExcAssertEqual(numThreads, 1);
 
     Epoller::init(16384, epollTimeout);
-    shutdown_ = false;
     maxAddedLatency_ = maxAddedLatency;
     handleEvent = std::bind(&MessageLoop::handleEpollEvent,
                             this,
                             std::placeholders::_1);
 
+    /* Our source action is a source in itself. This enables us to handle
+       source operations from the same epoll mechanism as the rest.
+
+       Adding special source named "_shutdown", enable to trigger
+       shutdown-related events, without requiring the use of an additional signal
+       fd. */
     sourceActions_.onEvent = [&] (SourceAction && action) {
         handleSourceAction(move(action));
     };
@@ -77,15 +82,15 @@ start(const OnStop & onStop)
     if (numThreadsCreated)
         throw ML::Exception("already have started message loop");
 
+    shutdown_ = false;
+
     //cerr << "starting thread from " << this << endl;
     //ML::backtrace();
 
-    auto runfn = [&, onStop] ()
-        {
-            this->runWorkerThread();
-            if (onStop) onStop();
-        };
-
+    auto runfn = [&, onStop] () {
+        this->runWorkerThread();
+        if (onStop) onStop();
+    };
     threads.create_thread(runfn);
 
     ++numThreadsCreated;
@@ -113,6 +118,8 @@ shutdown()
     shutdown_ = true;
     ML::futex_wake((int &)shutdown_);
 
+    addSource("_shutdown", nullptr);
+
     threads.join_all();
 
     numThreadsCreated = 0;
@@ -132,8 +139,10 @@ addSource(const std::string & name,
           const std::shared_ptr<AsyncEventSource> & source,
           int priority)
 {
-    ExcCheck(!source->parent_, "source already has a parent: " + name);
-    source->parent_ = this;
+    if (name != "_shutdown") {
+        ExcCheck(!source->parent_, "source already has a parent: " + name);
+        source->parent_ = this;
+    }
 
     SourceEntry entry(name, source, priority);
     SourceAction newAction(SourceAction::ADD, move(entry));
@@ -192,7 +201,6 @@ runWorkerThread()
     ML::Duty_Cycle_Timer duty;
 
     while (!shutdown_) {
-
         Date start = Date::now();
 
         bool more = true;
@@ -277,6 +285,9 @@ void
 MessageLoop::
 processAddSource(const SourceEntry & entry)
 {
+    if (entry.name == "_shutdown")
+        return;
+
     int fd = entry.source->selectFd();
     if (fd != -1)
         addFd(fd, entry.source.get());
