@@ -7,16 +7,15 @@
 
 #pragma once
 
-#include "epoller.h"
-#include "async_event_source.h"
+#include <boost/thread/thread.hpp>
+#include <functional>
+
 #include "jml/arch/wakeup_fd.h"
 #include "jml/arch/spinlock.h"
 
-#include <boost/thread/thread.hpp>
-#include <functional>
-#include <mutex>
-#include <atomic>
-
+#include "epoller.h"
+#include "async_event_source.h"
+#include "typed_message_channel.h"
 
 namespace Datacratic {
 
@@ -26,7 +25,8 @@ namespace Datacratic {
 /*****************************************************************************/
 
 struct MessageLoop : public Epoller {
-    
+    typedef std::function<void ()> OnStop;
+
     MessageLoop(int numThreads = 1, double maxAddedLatency = 0.0005,
                 int epollTimeout = 0);
     ~MessageLoop();
@@ -34,7 +34,7 @@ struct MessageLoop : public Epoller {
     void init(int numThreads = 1, double maxAddedLatency = 0.0005,
               int epollTimeout = 0);
 
-    void start(std::function<void ()> onStop = std::function<void ()>());
+    void start(const OnStop & onStop = OnStop());
 
     void startSync();
     
@@ -47,8 +47,10 @@ struct MessageLoop : public Epoller {
 
         Note that this function call will not take effect immediately. All work
         is deferred to the main message loop thread.
+
+        Returns true if the request was successfully enqueued, false otherwise.
     */
-    void addSource(const std::string & name,
+    bool addSource(const std::string & name,
                    AsyncEventSource & source,
                    int priority = 0);
 
@@ -57,9 +59,11 @@ struct MessageLoop : public Epoller {
 
         Note that this function call will not take effect immediately. All work
         is deferred to the main message loop thread.
+
+        Returns true if the request was successfully enqueued, false otherwise.
     */
-    void addSource(const std::string & name,
-                   std::shared_ptr<AsyncEventSource> source,
+    bool addSource(const std::string & name,
+                   const std::shared_ptr<AsyncEventSource> & source,
                    int priority = 0);
 
     /** Add a periodic job to be performed by the loop.  The number passed
@@ -69,8 +73,10 @@ struct MessageLoop : public Epoller {
 
         Note that this function call will not take effect immediately. All work
         is deferred to the main message loop thread.
+
+        Returns true if the request was successfully enqueued, false otherwise.
     */
-    void addPeriodic(const std::string & name,
+    bool addPeriodic(const std::string & name,
                      double timePeriodSeconds,
                      std::function<void (uint64_t)> toRun,
                      int priority = 0);
@@ -93,7 +99,7 @@ struct MessageLoop : public Epoller {
         Note that this function call will not take effect immediately. All work
         is deferred to the main message loop thread.
      */
-    void removeSource(AsyncEventSource * source);
+    bool removeSource(AsyncEventSource * source);
 
     /** Re-check if anything needs to poll. */
     void checkNeedsPoll();
@@ -110,21 +116,16 @@ private:
     
     void wakeupMainThread();
 
-    /** Implementation of addSource that runs without taking the lock. */
-    void addSourceImpl(const std::string & name,
-                       std::shared_ptr<AsyncEventSource> source,
-                       int priority);
-
     typedef ML::Spinlock Lock;
     typedef std::lock_guard<Lock> Guard;
 
     struct SourceEntry
     {
-        SourceEntry(
-                const std::string& name,
-                std::shared_ptr<AsyncEventSource> source,
-                int priority) :
-            name(name), source(source), priority(priority)
+        SourceEntry() = default;
+        SourceEntry(const std::string& name,
+                    std::shared_ptr<AsyncEventSource> source,
+                    int priority)
+            : name(name), source(source), priority(priority)
         {}
 
         std::string name;
@@ -134,22 +135,25 @@ private:
 
     std::vector<SourceEntry> sources;
 
-    mutable Lock queueLock;
-    std::vector<SourceEntry> addSourceQueue;
-    std::vector<AsyncEventSource*> removeSourceQueue;
+    /* Addition/removal action to perform on an event source */
+    struct SourceAction {
+        static constexpr int ADD = 0;
+        static constexpr int REMOVE = 1;
 
-    // Notifies the main loop that a new source event needs processing.
-    ML::Wakeup_Fd queueFd;
+        SourceAction() = default;
+        
+        SourceAction(int action, SourceEntry && entry)
+            : action_(action), entry_(std::move(entry))
+        {
+        }
 
-    /** Flag used to notify the main thread that one of the source queues has an
-        event. Thread-safe on reads but writes must occur while hold queueLock
-        to avoid lost notifications.
-     */
-    std::atomic<bool> sourceQueueFlag;
+        int action_;
+        SourceEntry entry_;
+    };
 
-    void processRemoveSource(AsyncEventSource* source);
-    void processAddSource(const SourceEntry& entry);
-    void processSourceQueue();
+    /* Queue of source actions to perform */
+    TypedMessageSink<SourceAction> sourceActions_;
+    // ML::Wakeup_Fd queueFd;
 
     Lock threadsLock;
     int numThreadsCreated;
@@ -173,6 +177,9 @@ private:
     double maxAddedLatency_;
 
     bool handleEpollEvent(epoll_event & event);
+    void handleSourceAction(SourceAction && action);
+    void processAddSource(const SourceEntry & entry);
+    void processRemoveSource(const SourceEntry & entry);
 };
 
 } // namespace Datacratic
