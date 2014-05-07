@@ -71,20 +71,22 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
     /* TIMEOUTS                                                               */
     /**************************************************************************/
 
-    void setWinTimeout(const float & timeOut) {
-
-        if (timeOut < 0.0)
+    void setWinTimeout(float timeout)
+    {
+        if (timeout < 0.0)
             throw ML::Exception("Invalid timeout for Win timeout");
 
-        matcher->setWinTimeout(winTimeout = timeOut);
+        winTimeout = timeout;
+        if (matcher) matcher->setWinTimeout(timeout);
     }
 
-    void setAuctionTimeout(const float & timeOut) {
-
-        if (timeOut < 0.0)
+    void setAuctionTimeout(float timeout)
+    {
+        if (timeout < 0.0)
             throw ML::Exception("Invalid timeout for Win timeout");
 
-        matcher->setWinTimeout(auctionTimeout = timeOut);
+        auctionTimeout = timeout;
+        if (matcher) matcher->setAuctionTimeout(timeout);
     }
 
 

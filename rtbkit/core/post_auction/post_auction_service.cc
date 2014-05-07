@@ -32,8 +32,8 @@ PostAuctionService(
         std::shared_ptr<ServiceProxies> proxies, const std::string & serviceName)
     : ServiceBase(serviceName, proxies),
 
-      auctionTimeout(15),
-      winTimeout(1 * 60 * 60),
+      auctionTimeout(EventMatcher::DefaultAuctionTimeout),
+      winTimeout(EventMatcher::DefaultWinTimeout),
 
       loopMonitor(*this),
       configListener(getZmqContext()),
@@ -52,8 +52,8 @@ PostAuctionService::
 PostAuctionService(ServiceBase & parent, const std::string & serviceName)
     : ServiceBase(serviceName, parent),
 
-      auctionTimeout(15),
-      winTimeout(1 * 60 * 60),
+      auctionTimeout(EventMatcher::DefaultAuctionTimeout),
+      winTimeout(EventMatcher::DefaultWinTimeout),
 
       loopMonitor(*this),
       configListener(getZmqContext()),
@@ -138,6 +138,9 @@ initMatcher(size_t shards)
         std::bind(&PostAuctionService::doUnmatched, this, _1);
 
     matcher->onError = std::bind(&PostAuctionService::doError, this, _1);
+
+    matcher->setWinTimeout(winTimeout);
+    matcher->setAuctionTimeout(auctionTimeout);
 }
 
 

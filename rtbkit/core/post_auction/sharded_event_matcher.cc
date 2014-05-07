@@ -155,16 +155,16 @@ setBanker(const std::shared_ptr<Banker> & newBanker)
 
 void
 ShardedEventMatcher::
-setWinTimeout(const float & timeOut)
+setWinTimeout(float timeout)
 {
-    for (auto& shard : shards) shard->matcher.setWinTimeout(timeOut);
+    for (auto& shard : shards) shard->matcher.setWinTimeout(timeout);
 }
 
 void
 ShardedEventMatcher::
-setAuctionTimeout(const float & timeOut)
+setAuctionTimeout(float timeout)
 {
-    for (auto& shard : shards) shard->matcher.setAuctionTimeout(timeOut);
+    for (auto& shard : shards) shard->matcher.setAuctionTimeout(timeout);
 }
 
 

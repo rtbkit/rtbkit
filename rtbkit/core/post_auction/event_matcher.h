@@ -25,13 +25,22 @@ namespace RTBKIT {
 
 struct EventMatcher : public EventRecorder
 {
+    enum
+    {
+        DefaultAuctionTimeout = 15 * 60,
+        DefaultWinTimeout = 1 * 60 * 60
+    };
 
     EventMatcher(std::string prefix, std::shared_ptr<EventService> events) :
-        EventRecorder(prefix, std::move(events))
+        EventRecorder(prefix, std::move(events)),
+        auctionTimeout(DefaultAuctionTimeout),
+        winTimeout(DefaultWinTimeout)
     {}
 
     EventMatcher(std::string prefix, std::shared_ptr<ServiceProxies> proxies) :
-        EventRecorder(prefix, std::move(proxies))
+        EventRecorder(prefix, std::move(proxies)),
+        auctionTimeout(DefaultAuctionTimeout),
+        winTimeout(DefaultWinTimeout)
     {}
 
     virtual void start() {}
@@ -67,20 +76,20 @@ struct EventMatcher : public EventRecorder
     /* TIMEOUTS                                                               */
     /**************************************************************************/
 
-    virtual void setWinTimeout(const float & timeOut)
+    virtual void setWinTimeout(float timeout)
     {
-        if (timeOut < 0.0)
+        if (timeout < 0.0)
             throw ML::Exception("Invalid timeout for Win timeout");
 
-        winTimeout = timeOut;
+        winTimeout = timeout;
     }
 
-    virtual void setAuctionTimeout(const float & timeOut)
+    virtual void setAuctionTimeout(float timeout)
     {
-        if (timeOut < 0.0)
-            throw ML::Exception("Invalid timeout for Win timeout");
+        if (timeout < 0.0)
+            throw ML::Exception("Invalid timeout for auction timeout");
 
-        auctionTimeout = timeOut;
+        auctionTimeout = timeout;
     }
 
 

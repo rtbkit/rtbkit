@@ -33,8 +33,8 @@ struct ShardedEventMatcher : public EventMatcher, public MessageLoop
     void shutdown();
 
     virtual void setBanker(const std::shared_ptr<Banker> & newBanker);
-    virtual void setWinTimeout(const float & timeOut);
-    virtual void setAuctionTimeout(const float & timeOut);
+    virtual void setWinTimeout(float timeout);
+    virtual void setAuctionTimeout(float timeout);
 
 
     /************************************************************************/
