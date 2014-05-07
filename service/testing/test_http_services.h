@@ -20,7 +20,7 @@ struct HttpService : public ServiceBase, public HttpEndpoint
 
     ~HttpService();
 
-    void start();
+    void start(const std::string & address = "127.0.0.1", int numThreads = 1);
 
     virtual std::shared_ptr<ConnectionHandler> makeNewHandler();
     virtual void handleHttpPayload(HttpTestConnHandler & handler,
