@@ -26,7 +26,7 @@ namespace Datacratic {
 
 Epoller::
 Epoller()
-    : epoll_fd(-1), timeout_(0)
+    : epoll_fd(-1), timeout_(0), numFds_(0)
 {
 }
 
@@ -76,6 +76,13 @@ removeFd(int fd)
             throw ML::Exception("epoll_ctl DEL fd %d: %s", fd,
                                 strerror(errno));
     }
+
+    if (numFds_ > 0) {
+        numFds_--;
+    }
+    else {
+        throw ML::Exception("too many file descriptors removed");
+    }
 }
 
 int
@@ -85,6 +92,10 @@ handleEvents(int usToWait, int nEvents,
              const OnEvent & beforeSleep_,
              const OnEvent & afterSleep_)
 {
+    if (nEvents == -1) {
+        nEvents = numFds_;
+    }
+
     const HandleEvent & handleEvent
         = handleEvent_ ? handleEvent_ : this->handleEvent;
     const OnEvent & beforeSleep
@@ -158,12 +169,12 @@ void
 Epoller::
 performAddFd(int fd, void * data, bool oneshot, bool restart)
 {
-    cerr << (Date::now().print(4)
-             + " performAddFd: epoll_fd=" + to_string(epoll_fd)
-             + " fd=" + to_string(fd)
-             + " one-shot=" + to_string(oneshot)
-             + " restart=" + to_string(restart)
-             + "\n");
+    // cerr << (Date::now().print(4)
+    //          + " performAddFd: epoll_fd=" + to_string(epoll_fd)
+    //          + " fd=" + to_string(fd)
+    //          + " one-shot=" + to_string(oneshot)
+    //          + " restart=" + to_string(restart)
+    //          + "\n");
 
     struct epoll_event event;
     event.events = EPOLLIN;
@@ -171,6 +182,10 @@ performAddFd(int fd, void * data, bool oneshot, bool restart)
         event.events |= EPOLLONESHOT;
     }
     event.data.ptr = data;
+
+    if (!restart) {
+        numFds_++;
+    }
 
     int action = restart ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
     int res = epoll_ctl(epoll_fd, action, fd, &event);

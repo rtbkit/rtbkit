@@ -105,6 +105,9 @@ private:
 
     /* Timeout value to use for epoll_wait */
     int timeout_;
+
+    /* Number of registered file descriptors */
+    size_t numFds_;
 };
 
 } // namespace Datacratic
