@@ -196,11 +196,11 @@ handleWinRq(const HttpHeader & header,
     }
 
     /*
-     *  impId is an required field.
+     *  impid is an required field.
      *  If null, we return an error response.
      */
-    if (json.isMember("impId")) {
-        impIdStr = json["impId"].asString();
+    if (json.isMember("impid")) {
+        impIdStr = json["impid"].asString();
         impId = Id(impIdStr);
     } else {
         response.valid = false;
@@ -211,11 +211,11 @@ handleWinRq(const HttpHeader & header,
     }
 
     /*
-     *  winPrice is an required field.
+     *  price is an required field.
      *  If null, we return an error response.
      */
-    if (json.isMember("winPrice")) {
-        winPriceDbl = json["winPrice"].asDouble();
+    if (json.isMember("price")) {
+        winPriceDbl = json["price"].asDouble();
         winPrice = USD_CPM(winPriceDbl);
     } else {
         response.valid = false;
@@ -316,10 +316,10 @@ handleDeliveryRq(const HttpHeader & header,
     }
 
     /*
-     *  impId is an required field.
+     *  impid is an required field.
      *  If null, we return an error response.
      */
-    if (json.isMember("impId")) {
+    if (json.isMember("impid")) {
 
     } else {
         response.valid = false;
@@ -344,7 +344,7 @@ handleDeliveryRq(const HttpHeader & header,
     }
 
     bidRequestIdStr = json["bidRequestId"].asString();
-    impIdStr = json["impId"].asString();
+    impIdStr = json["impid"].asString();
     bidRequestId = Id(bidRequestIdStr);
     impId = Id(impIdStr);
     
