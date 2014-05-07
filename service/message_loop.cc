@@ -62,12 +62,11 @@ init(int numThreads, double maxAddedLatency, int epollTimeout)
                             this,
                             std::placeholders::_1);
 
-    /* Our source action is a source in itself. This enables us to handle
-       source operations from the same epoll mechanism as the rest.
+    /* Our source action queue is a source in itself, which enables us to
+       handle source operations from the same epoll mechanism as the rest.
 
-       Adding special source named "_shutdown", enable to trigger
-       shutdown-related events, without requiring the use of an additional signal
-       fd. */
+       Adding a special source named "_shutdown" triggers shutdown-related
+       events, without requiring the use of an additional signal fd. */
     sourceActions_.onEvent = [&] (SourceAction && action) {
         handleSourceAction(move(action));
     };
