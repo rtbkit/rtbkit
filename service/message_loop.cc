@@ -49,6 +49,7 @@ void
 MessageLoop::
 init(int numThreads, double maxAddedLatency, int epollTimeout)
 {
+    // std::cerr << "msgloop init: " << this << "\n";
     if (maxAddedLatency == 0 && epollTimeout != -1)
         cerr << "warning: MessageLoop with maxAddedLatency of zero and epollTeimout != -1 will busy wait" << endl;
 
@@ -143,6 +144,13 @@ addSource(const std::string & name,
         ExcCheck(!source->parent_, "source already has a parent: " + name);
         source->parent_ = this;
     }
+
+    // cerr << "addSource: " << source.get()
+    //      << " (" << ML::type_name(*source) << ")"
+    //      << " needsPoll: " << source->needsPoll
+    //      << " in msg loop: " << this
+    //      << " needsPoll: " << needsPoll
+    //      << endl;
 
     SourceEntry entry(name, source, priority);
     SourceAction newAction(SourceAction::ADD, move(entry));
@@ -256,7 +264,7 @@ handleEpollEvent(epoll_event & event)
              << (mask & EPOLLHUP ? "H" : "")
              << (mask & EPOLLRDHUP ? "R" : "")
              << endl;
-    }            
+    }
     
     AsyncEventSource * source
         = reinterpret_cast<AsyncEventSource *>(event.data.ptr);
@@ -288,6 +296,12 @@ processAddSource(const SourceEntry & entry)
     if (entry.name == "_shutdown")
         return;
 
+    // cerr << "processAddSource: " << entry.source.get()
+    //      << " (" << ML::type_name(*entry.source) << ")"
+    //      << " needsPoll: " << entry.source->needsPoll
+    //      << " in msg loop: " << this
+    //      << " needsPoll: " << needsPoll
+    //      << endl;
     int fd = entry.source->selectFd();
     if (fd != -1)
         addFd(fd, entry.source.get());
@@ -366,6 +380,7 @@ processOne()
     bool more = false;
 
     if (needsPoll) {
+        more = sourceActions_.processOne();
         for (unsigned i = 0;  i < sources.size();  ++i) {
             try {
                 bool hasMore = sources[i].source->processOne();
