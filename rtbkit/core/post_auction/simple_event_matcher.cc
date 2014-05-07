@@ -82,66 +82,71 @@ SimpleEventMatcher(std::string prefix, std::shared_ptr<ServiceProxies> proxies) 
 {}
 
 
+Date
+SimpleEventMatcher::
+expireSubmitted(Date start, const pair<Id, Id> & key, const SubmissionInfo & info)
+{
+    const Id & auctionId = key.first;
+    const Id & adSpotId = key.second;
+
+    recordHit("submittedAuctionExpiry");
+
+    if (!info.bidRequest) {
+        recordHit("submittedAuctionExpiryWithoutBid");
+        return Date();
+    }
+
+    try {
+        this->doBidResult(
+                auctionId,
+                adSpotId,
+                info,
+                Amount() /* price */,
+                start /* date */,
+                BS_LOSS,
+                MatchedWinLoss::Inferred,
+                "null",
+                UserIds());
+    } catch (const std::exception & exc) {
+        LOG(print) << "error handling expired loss auction: "
+            << exc.what() << endl;
+        doError("checkExpiredAuctions.loss", exc.what());
+    }
+
+    return Date();
+}
+
+
+Date
+SimpleEventMatcher::
+expireFinished(const pair<Id, Id> & key, const FinishedInfo & info)
+{
+    recordHit("finishedAuctionExpiry");
+    return Date();
+}
+
 void
 SimpleEventMatcher::
 checkExpiredAuctions()
 {
-    Date start = Date::now();
+    Date now = Date::now();
 
-    {
-        LOG(print) << " checking " << submitted.size()
-            << " submitted auctions for inferred loss" << endl;
+    using std::placeholders::_1;
+    using std::placeholders::_2;
 
+    LOG(print) << " checking " << submitted.size()
+        << " submitted auctions for inferred loss" << endl;
 
-        auto onExpiredSubmitted = [&] (const pair<Id, Id> & key,
-                                       const SubmissionInfo & info)
-            {
-                const Id & auctionId = key.first;
-                const Id & adSpotId = key.second;
+    submitted.expire(
+            std::bind(&SimpleEventMatcher::expireSubmitted, this, now, _1, _2),
+            now);
 
-                recordHit("submittedAuctionExpiry");
+    LOG(print) << " checking " << finished.size()
+        << " finished auctions for expiry" << endl;
 
-                if (!info.bidRequest) {
-                    recordHit("submittedAuctionExpiryWithoutBid");
-                    return Date();
-                }
-
-                try {
-                    this->doBidResult(
-                            auctionId,
-                            adSpotId,
-                            info,
-                            Amount() /* price */,
-                            start /* date */,
-                            BS_LOSS,
-                            MatchedWinLoss::Inferred,
-                            "null",
-                            UserIds());
-                } catch (const std::exception & exc) {
-                    LOG(print) << "error handling expired loss auction: "
-                        << exc.what() << endl;
-                    doError("checkExpiredAuctions.loss", exc.what());
-                }
-
-                return Date();
-            };
-
-        submitted.expire(onExpiredSubmitted, start);
-    }
-
-    {
-        LOG(print) << " checking " << finished.size()
-            << " finished auctions for expiry" << endl;
-
-        auto onExpiredFinished = [&] (const pair<Id, Id> & key,
-                                      const FinishedInfo & info)
-            {
-                recordHit("finishedAuctionExpiry");
-                return Date();
-            };
-
-        finished.expire(onExpiredFinished);
-    }
+    finished.expire(
+            std::bind(&SimpleEventMatcher::expireFinished, this, _1, _2),
+            now);
 
     banker->logBidEvents(*this);
 }

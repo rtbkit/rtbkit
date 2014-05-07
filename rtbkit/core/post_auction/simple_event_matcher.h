@@ -79,6 +79,11 @@ private:
             const std::string & winLossMeta,
             const UserIds & uids);
 
+    Date expireSubmitted(
+            Date start, const std::pair<Id, Id> & key, const SubmissionInfo & info);
+
+    Date expireFinished(const std::pair<Id, Id> & key, const FinishedInfo & info);
+
 
     /** List of auctions we're currently tracking as submitted.  Note that an
         auction may be both submitted and in flight (if we had submitted a bid
