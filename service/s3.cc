@@ -1178,10 +1178,11 @@ forEachObject(const std::string & bucket,
             marker = key;
 
             ExcAssertEqual(info.key.find(foundPrefix), 0);
-            // cerr << "info.key: " + info.key + "; foundPrefix: " +foundPrefix + "\n";
+            // cerr << "info.key: " + info.key + "; foundPrefix: "
+            // + foundPrefix + "\n";
             string basename(info.key, foundPrefix.length());
 
-            if (!onObject(foundPrefix, basename, info, depth)) {
+            if (!onObject(foundPrefix, info.key, info, depth)) {
                 stop = true;
                 break;
             }
@@ -1238,10 +1239,10 @@ forEachObject(const std::string & uriPrefix,
                           const ObjectInfo & info,
                           int depth)
         {
-            string uri = "s3://" + bucket + "/" + prefix;
-            if (objectName.size() > 0) {
-                uri += delimiter + objectName;
-            }
+            string uri = "s3://" + bucket + "/" + objectName;
+            // if (objectName.size() > 0) {
+            //     uri += delimiter + objectName;
+            // }
             return onObject(uri, info, depth);
         };
 
