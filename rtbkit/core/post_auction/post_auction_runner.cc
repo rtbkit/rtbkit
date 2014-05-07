@@ -115,7 +115,7 @@ report( const PostAuctionService& service,
     auto current = service.stats;
 
     auto diff = current;
-    diff -= current;
+    diff -= last;
 
     double bidsThroughput = diff.auctions / delta;
     double eventsThroughput = diff.events / delta;

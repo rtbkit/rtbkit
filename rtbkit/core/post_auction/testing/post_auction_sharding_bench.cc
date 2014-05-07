@@ -7,12 +7,16 @@
 */
 
 #include "rtbkit/core/post_auction/post_auction_service.h"
+#include "rtbkit/core/post_auction/simple_event_matcher.h"
 #include "rtbkit/core/banker/null_banker.h"
 #include "rtbkit/common/messages.h"
 #include "soa/service/zookeeper_configuration_service.h"
 #include "soa/service/testing/zookeeper_temporary_server.h"
 #include "soa/utils/print_utils.h"
 
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/parsers.hpp>
+#include <boost/program_options/variables_map.hpp>
 #include <thread>
 #include <atomic>
 
@@ -25,17 +29,46 @@ using namespace Datacratic;
 /* CONFIG                                                                     */
 /******************************************************************************/
 
-enum {
-    NumShards = 1,
-    LossTimeout = 15,
+struct Config
+{
+    Config() : shards(1), feeders(1), pauseMs(1), durationSec(10) {}
 
-    NumFeeders = 1,
-    PauseMs = 1,
-    DurationSec = 10
+    size_t shards;
+    size_t feeders;
+    size_t pauseMs;
+    size_t durationSec;
+    size_t lossTimeout;
+
 };
 
+Config getConfig(int argc, char** argv)
+{
+    using namespace boost::program_options;
 
-const char* requestTemplate = "{\"id\":\"%s\"}";
+    Config config;
+
+    options_description postAuctionLoop_options("Bench options");
+    options_description opt;
+    opt.add_options()
+        ("shards,s", value<size_t>(&config.shards))
+        ("feeders,f", value<size_t>(&config.feeders))
+        ("pauseMs,p", value<size_t>(&config.pauseMs))
+        ("durationSec,d", value<size_t>(&config.durationSec))
+        ("lossTimeout,l", value<size_t>(&config.lossTimeout))
+        ("help,h","print this message");
+
+    variables_map vm;
+    store(command_line_parser(argc, argv).options(opt).run(), vm);
+    notify(vm);
+
+    if (vm.count("help")) {
+        cerr << opt << endl;
+        exit(1);
+    }
+
+    return config;
+}
+
 
 /******************************************************************************/
 /* FEEDER                                                                     */
@@ -43,8 +76,8 @@ const char* requestTemplate = "{\"id\":\"%s\"}";
 
 struct Feeder
 {
-    Feeder(std::shared_ptr<zmq::context_t> context) :
-        done(false), feed(context)
+    Feeder(std::shared_ptr<zmq::context_t> context, Config config) :
+        done(false), feed(context), config(std::move(config))
     {}
 
     void init(std::shared_ptr<ConfigurationService> config)
@@ -76,10 +109,43 @@ private:
             if (auction.auctionId.hash() % 7 == 0)
                 sendWin(makeWin(auction));
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(PauseMs));
+            std::this_thread::sleep_for(std::chrono::milliseconds(config.pauseMs));
         }
     }
 
+    std::string makeBidRequest(Id auctionId) const
+    {
+        BidRequest bidRequest;
+
+        FormatSet formats;
+        formats.push_back(Format(160,600));
+        AdSpot spot;
+        spot.id = Id(1);
+        spot.formats = formats;
+        bidRequest.imp.push_back(spot);
+
+        formats[0] = Format(300,250);
+        spot.id = Id(2);
+        bidRequest.imp.push_back(spot);
+
+        bidRequest.location.countryCode = "CA";
+        bidRequest.location.regionCode = "QC";
+        bidRequest.location.cityName = "Montreal";
+        bidRequest.auctionId = auctionId;
+        bidRequest.exchange = "mock";
+        bidRequest.language = "en";
+        bidRequest.url = Url("http://datacratic.com");
+        bidRequest.timestamp = Date::now();
+
+        return bidRequest.toJsonStr();
+    }
+
+    Auction::Response makeBid() const
+    {
+        Auction::Response bid(USD_CPM(2), 1, AccountKey("a.b.c"));
+        bid.bidData = "{\"bids\":[{\"spotIndex\":0}]}";
+        return bid;
+    }
 
     SubmittedAuctionEvent makeAuction() const
     {
@@ -87,14 +153,12 @@ private:
         static size_t counter = 0;
         
         event.auctionId = Id((size_t(this) << 32) + counter++);
-        event.adSpotId = Id(0);
-        event.lossTimeout = Date::now().plusSeconds(LossTimeout);
-        event.bidRequestStr = ML::format(requestTemplate, event.auctionId.toString());
+        event.adSpotId = Id(1);
+        event.lossTimeout = Date::now().plusSeconds(config.lossTimeout);
+        event.bidRequestStr = makeBidRequest(event.auctionId);
         event.bidRequestStrFormat = "datacratic";
         event.bidResponse = {};
-        event.bidResponse.account = AccountKey("a.b.c");
-        event.bidResponse.price = USD_CPM(2);
-        event.bidResponse.bidData = "{\"bids\":[{\"spotIndex\":0}]}";
+        event.bidResponse = makeBid();
 
         return event;
     }
@@ -131,7 +195,7 @@ private:
     std::thread runThread;
 
     ZmqNamedProxy feed;
-
+    Config config;
 };
 
 
@@ -142,22 +206,23 @@ private:
 // Will leak feeder objects at the end of the test (who cares)
 void initFeeders(
         std::vector<Feeder*>& feeders, 
-        std::shared_ptr<ConfigurationService> config)
+        std::shared_ptr<ConfigurationService> config,
+        const Config& cfg)
 {
     auto zmq = std::make_shared<zmq::context_t>(1);
 
-    for (size_t i = 0; i < NumFeeders; ++i) {
-        feeders.emplace_back(new Feeder(zmq));
+    for (size_t i = 0; i < cfg.feeders; ++i) {
+        feeders.emplace_back(new Feeder(zmq, cfg));
         feeders.back()->init(config);
         feeders.back()->start();
     }
 }
 
 std::shared_ptr<PostAuctionService>
-initService(std::shared_ptr<ServiceProxies> proxies)
+initService(std::shared_ptr<ServiceProxies> proxies, const Config& config)
 {
     auto service = std::make_shared<PostAuctionService>(proxies, "bob");
-    service->init(NumShards);
+    service->init(config.shards);
     service->setBanker(std::make_shared<NullBanker>());
     service->bindTcp();
     service->start();
@@ -178,7 +243,7 @@ report( const PostAuctionService& service,
     auto current = service.stats;
 
     auto diff = current;
-    diff -= current;
+    diff -= last;
 
     double bidsThroughput = diff.auctions / delta;
     double eventsThroughput = diff.events / delta;
@@ -203,10 +268,10 @@ report( const PostAuctionService& service,
 /* RUN                                                                        */
 /******************************************************************************/
 
-void run(const PostAuctionService& service)
+void run(const PostAuctionService& service, const Config& config)
 {
     auto now = Date::now();
-    auto stop = now.plusSeconds(DurationSec);
+    auto stop = now.plusSeconds(config.durationSec);
     
     auto stats = report(service, 0.1);
     
@@ -224,23 +289,27 @@ void run(const PostAuctionService& service)
 int main(int argc, char* argv[])
 {
     ZmqLogs::print.deactivate();
+    PostAuctionService::print.deactivate();
+    SimpleEventMatcher::print.deactivate();
 
+    auto config = getConfig(argc, argv);
     auto proxies = std::make_shared<ServiceProxies>();
-    auto service = initService(proxies);
+    auto service = initService(proxies, config);
 
     std::vector<Feeder*> feeders;
-    initFeeders(feeders, proxies->config);
+    initFeeders(feeders, proxies->config, config);
 
-    run(*service);
+    run(*service, config);
 
     service->shutdown();
     for (auto& feeder : feeders) feeder->join();
 
     std::cerr << "\n\n"
-        << printValue(DurationSec) << " Duration\n"
-        << printValue(NumShards) << " Shards\n"
-        << printValue(NumFeeders * (1000.0 / PauseMs) ) << " Request/sec\n"
+        << printValue(config.durationSec) << " Duration\n"
+        << printValue(config.shards) << " Shards\n"
+        << printValue(config.feeders * (1000.0 / config.pauseMs) ) << " Request/sec\n"
         << std::endl;
     
-    report(*service, DurationSec);
+    report(*service, config.durationSec);
+    std::cerr << std::endl;
 }

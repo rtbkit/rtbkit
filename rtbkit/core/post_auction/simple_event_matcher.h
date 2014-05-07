@@ -48,6 +48,9 @@ struct SimpleEventMatcher : public EventMatcher
 
     virtual void initStatePersistence(const std::string & path);
 
+    static Logging::Category print;
+    static Logging::Category error;
+    static Logging::Category trace;
 
 private:
 
@@ -105,10 +108,6 @@ private:
     */
     typedef PendingList<std::pair<Id, Id>, FinishedInfo> Finished;
     Finished finished;
-
-    static Logging::Category print;
-    static Logging::Category error;
-    static Logging::Category trace;
 };
 
 } // RTBKIT
