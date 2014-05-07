@@ -83,7 +83,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
     void setAuctionTimeout(float timeout)
     {
         if (timeout < 0.0)
-            throw ML::Exception("Invalid timeout for Win timeout");
+            throw ML::Exception("Invalid timeout for Auction timeout");
 
         auctionTimeout = timeout;
         if (matcher) matcher->setAuctionTimeout(timeout);
@@ -182,6 +182,32 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
     }
 
 
+    /************************************************************************/
+    /* STATS                                                                */
+    /************************************************************************/
+
+    struct Stats
+    {
+        size_t auctions;
+        size_t events;
+
+        size_t matchedWins;
+        size_t matchedLosses;
+        size_t matchedCampaignEvents;
+        size_t unmatchedEvents;
+        size_t errors;
+
+        Stats();
+        Stats(const Stats& other);
+        Stats& operator=(const Stats& other);
+        Stats& operator-=(const Stats& other);
+
+    } stats;
+
+    static Logging::Category print;
+    static Logging::Category error;
+    static Logging::Category trace;
+
 private:
 
     std::string getProviderClass() const;
@@ -197,7 +223,6 @@ private:
 
     void doAuction(std::shared_ptr< SubmittedAuctionEvent> event);
     void doEvent(std::shared_ptr<PostAuctionEvent> event);
-    void doCampaignEvent(std::shared_ptr<PostAuctionEvent> event);
     void checkExpiredAuctions();
 
     /** Decode from zeromq and handle a new auction that came in. */
@@ -249,9 +274,6 @@ private:
 
     ZmqMessageRouter router;
 
-    static Logging::Category print;
-    static Logging::Category error;
-    static Logging::Category trace;
 };
 
 } // namespace RTBKIT

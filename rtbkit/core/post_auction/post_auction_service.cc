@@ -249,7 +249,7 @@ doAuctionMessage(const std::vector<std::string> & message)
     auto msg = Message<SubmittedAuctionEvent>::fromString(message.at(2));
     if (msg) {
         auto event = std::make_shared<SubmittedAuctionEvent>(std::move(msg.payload));
-        matcher->doAuction(std::move(event));
+        doAuction(std::move(event));
     }
 
     else {
@@ -265,7 +265,7 @@ doWinMessage(const std::vector<std::string> & message)
     recordHit("messages.WIN");
     auto event = std::make_shared<PostAuctionEvent>(
             ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
-    matcher->doEvent(event);
+    doEvent(event);
 }
 
 void
@@ -275,7 +275,7 @@ doLossMessage(const std::vector<std::string> & message)
     recordHit("messages.LOSS");
     auto event = std::make_shared<PostAuctionEvent>(
             ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
-    matcher->doEvent(event);
+    doEvent(event);
 }
 
 void
@@ -285,7 +285,7 @@ doCampaignEventMessage(const std::vector<std::string> & message)
     auto event = std::make_shared<PostAuctionEvent>(
             ML::DB::reconstituteFromString<PostAuctionEvent>(message.at(2)));
     recordHit("messages.EVENT." + event->label);
-    matcher->doEvent(event);
+    doEvent(event);
 }
 
 
@@ -395,6 +395,7 @@ void
 PostAuctionService::
 doAuction(std::shared_ptr<SubmittedAuctionEvent> event)
 {
+    stats.auctions++;
     matcher->doAuction(std::move(event));
 }
 
@@ -402,13 +403,7 @@ void
 PostAuctionService::
 doEvent(std::shared_ptr<PostAuctionEvent> event)
 {
-    matcher->doEvent(std::move(event));
-}
-
-void
-PostAuctionService::
-doCampaignEvent(std::shared_ptr<PostAuctionEvent> event)
-{
+    stats.events++;
     matcher->doEvent(std::move(event));
 }
 
@@ -424,6 +419,10 @@ void
 PostAuctionService::
 doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)
 {
+    if (event->type == MatchedWinLoss::Loss)
+        stats.matchedLosses++;
+    else stats.matchedWins++;
+
     lastWinLoss = Date::now();
 
     event->publish(logger);
@@ -434,6 +433,8 @@ void
 PostAuctionService::
 doMatchedCampaignEvent(std::shared_ptr<MatchedCampaignEvent> event)
 {
+    stats.matchedCampaignEvents++;
+
     lastCampaignEvent = Date::now();
 
     event->publish(logger);
@@ -464,6 +465,7 @@ void
 PostAuctionService::
 doUnmatched(std::shared_ptr<UnmatchedEvent> event)
 {
+    stats.unmatchedEvents++;
     event->publish(logger);
 }
 
@@ -471,6 +473,7 @@ void
 PostAuctionService::
 doError(std::shared_ptr<PostAuctionErrorEvent> error)
 {
+    stats.errors++;
     error->publish(logger);
 }
 
@@ -514,5 +517,63 @@ getProviderIndicators()
 
     return ind;
 }
+
+
+/******************************************************************************/
+/* STATS                                                                      */
+/******************************************************************************/
+
+
+PostAuctionService::Stats::
+Stats() :
+    auctions(0), events(0),
+    matchedWins(0), matchedCampaignEvents(0), unmatchedEvents(0),
+    errors(0)
+{}
+
+PostAuctionService::Stats::
+Stats(const Stats& other) :
+    auctions(other.auctions),
+    events(other.events),
+
+    matchedWins(other.matchedWins),
+    matchedLosses(other.matchedLosses),
+    matchedCampaignEvents(other.matchedCampaignEvents),
+    unmatchedEvents(other.unmatchedEvents),
+    errors(other.errors)
+{}
+
+auto
+PostAuctionService::Stats::
+operator=(const Stats& other) -> Stats&
+{
+    auctions = other.auctions;
+    events = other.events;
+
+    matchedWins = other.matchedWins;
+    matchedLosses = other.matchedLosses;
+    matchedCampaignEvents = other.matchedCampaignEvents;
+    unmatchedEvents = other.unmatchedEvents;
+    errors = other.errors;
+
+    return *this;
+}
+
+auto
+PostAuctionService::Stats::
+operator-=(const Stats& other) -> Stats&
+{
+    auctions -= other.auctions;
+    events -= other.events;
+
+    matchedWins -= other.matchedWins;
+    matchedLosses -= other.matchedLosses;
+    matchedCampaignEvents -= other.matchedCampaignEvents;
+    unmatchedEvents -= other.unmatchedEvents;
+    errors -= other.errors;
+
+    return *this;
+}
+
 
 } // namepsace RTBKIT

@@ -5,15 +5,14 @@
 */
 
 #include "post_auction_runner.h"
+#include "post_auction_service.h"
+#include "rtbkit/core/banker/slave_banker.h"
+#include "soa/service/service_utils.h"
+#include "soa/utils/print_utils.h"
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
-
-#include "rtbkit/core/banker/slave_banker.h"
-#include "soa/service/service_utils.h"
-
-#include "post_auction_service.h"
 
 using namespace std;
 using namespace boost::program_options;
@@ -26,12 +25,12 @@ using namespace RTBKIT;
 PostAuctionRunner::
 PostAuctionRunner() :
     shards(1),
-    auctionTimeout(900.0),
-    winTimeout(3600.0)
+    auctionTimeout(EventMatcher::DefaultAuctionTimeout),
+    winTimeout(EventMatcher::DefaultWinTimeout)
 {
 }
 
-void 
+void
 PostAuctionRunner::
 doOptions(int argc, char ** argv,
         const boost::program_options::options_description & opts)
@@ -78,6 +77,8 @@ init()
     postAuctionLoop->setWinTimeout(winTimeout);
     postAuctionLoop->setAuctionTimeout(auctionTimeout);
 
+    LOG(PostAuctionService::print) << "win timeout is " << winTimeout << std::endl;
+    LOG(PostAuctionService::print) << "auction timeout is " << auctionTimeout << std::endl;
 
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
             proxies->config,
@@ -106,6 +107,34 @@ shutdown()
 
 
 
+PostAuctionService::Stats
+report( const PostAuctionService& service,
+        double delta,
+        const PostAuctionService::Stats& last = PostAuctionService::Stats())
+{
+    auto current = service.stats;
+
+    auto diff = current;
+    diff -= current;
+
+    double bidsThroughput = diff.auctions / delta;
+    double eventsThroughput = diff.events / delta;
+    double winsThroughput = diff.matchedWins / delta;
+    double lossThroughput = diff.matchedLosses / delta;
+
+    std::stringstream ss;
+    ss << std::endl
+        << printValue(bidsThroughput) << " bids/sec\n"
+        << printValue(eventsThroughput) << " events/sec\n"
+        << printValue(winsThroughput) << " wins/sec\n"
+        << printValue(lossThroughput) << " loss/sec\n"
+        << printValue(current.unmatchedEvents) << " unmatched\n"
+        << printValue(current.errors) << " errors\n";
+    LOG(PostAuctionService::print) << ss.str();
+
+    return current;
+}
+
 int main(int argc, char ** argv)
 {
 
@@ -115,9 +144,10 @@ int main(int argc, char ** argv)
     runner.init();
     runner.start();
 
-
+    auto stats = report(*runner.postAuctionLoop, 0.1);
     for (;;) {
         ML::sleep(10.0);
+        stats = report(*runner.postAuctionLoop, 10.0, stats);
     }
 
 }
