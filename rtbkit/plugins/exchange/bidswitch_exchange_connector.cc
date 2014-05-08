@@ -54,18 +54,6 @@ getCampaignCompatibility(const AgentConfig & config,
     const Json::Value & pconf = config.providerConfig["bidswitch"];
 
     try {
-        cpinfo->seat = Id(pconf["seat"].asString());
-        if (!cpinfo->seat)
-            result.setIncompatible("providerConfig.bidswitch.seat is null",
-                                   includeReasons);
-    } catch (const std::exception & exc) {
-        result.setIncompatible
-        (string("providerConfig.bidswitch.seat parsing error: ")
-         + exc.what(), includeReasons);
-        return result;
-    }
-
-    try {
         cpinfo->iurl = pconf["iurl"].asString();
         if (!cpinfo->iurl.size())
             result.setIncompatible("providerConfig.bidswitch.iurl is null",

@@ -27,10 +27,12 @@ namespace Datacratic {
 
 struct MessageLoop : public Epoller {
     
-    MessageLoop(int numThreads = 1, double maxAddedLatency = 0.0005);
+    MessageLoop(int numThreads = 1, double maxAddedLatency = 0.0005,
+                int epollTimeout = 0);
     ~MessageLoop();
 
-    void init(int numThreads = 1, double maxAddedLatency = 0.0005);
+    void init(int numThreads = 1, double maxAddedLatency = 0.0005,
+              int epollTimeout = 0);
 
     void start(std::function<void ()> onStop = std::function<void ()>());
 

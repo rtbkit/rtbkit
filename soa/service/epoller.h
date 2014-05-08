@@ -29,7 +29,7 @@ struct Epoller: public AsyncEventSource {
 
     ~Epoller();
 
-    void init(int maxFds);
+    void init(int maxFds, int timeout = 0);
 
     void close();
 
@@ -89,6 +89,9 @@ struct Epoller: public AsyncEventSource {
 private:
     /* Fd for the epoll mechanism. */
     int epoll_fd;
+
+    /* Timeout value to use for epoll_wait */
+    int timeout_;
 };
 
 } // namespace Datacratic

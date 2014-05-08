@@ -649,7 +649,7 @@ runEventThread(int threadNum, int numThreads)
         }
     }
 
-    cerr << "thread shutting down" << endl;
+    // cerr << "thread shutting down" << endl;
 
     ML::atomic_dec(threadsActive_);
     futex_wake(threadsActive_);

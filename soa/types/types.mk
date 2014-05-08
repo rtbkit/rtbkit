@@ -27,7 +27,7 @@ LIBVALUE_DESCRIPTION_SOURCES := \
 	periodic_utils_value_descriptions.cc
 
 LIBVALUE_DESCRIPTION_LINK := \
-	types
+	arch types
 
 $(eval $(call library,value_description,$(LIBVALUE_DESCRIPTION_SOURCES),$(LIBVALUE_DESCRIPTION_LINK)))
 

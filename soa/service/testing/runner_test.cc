@@ -338,6 +338,14 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
     BOOST_CHECK_EQUAL(received, "hello callbacks");
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
+
+    /* If stdin is not closed, then "cat" will wait an block indefinitely.
+       This test ensures this does not happen and thus that the closing of stdin
+       works via the "closeStdin" parameter. */
+    result = execute({"/bin/cat"},
+                      stdOutSink, nullptr, "", true);
+    BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
+    BOOST_CHECK_NE(result.returnCode, 0);
 }
 #endif
 

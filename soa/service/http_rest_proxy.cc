@@ -5,18 +5,30 @@
    REST proxy class for http.
 */
 
-#include "http_rest_proxy.h"
-
 #include <curlpp/cURLpp.hpp>
 #include <curlpp/Easy.hpp>
 #include <curlpp/Options.hpp>
 #include <curlpp/Info.hpp>
 #include <curlpp/Infos.hpp>
 
+#include "jml/arch/timers.h"
+#include "soa/types/basic_value_descriptions.h"
+
+#include "http_rest_proxy.h"
 
 
 using namespace std;
 using namespace ML;
+
+
+namespace {
+
+pid_t gettid()
+{
+    return (pid_t) syscall(SYS_gettid);
+}
+
+}
 
 
 namespace Datacratic {
@@ -218,6 +230,157 @@ doneConnection(curlpp::Easy * conn)
 {
     std::unique_lock<std::mutex> guard(lock);
     inactive.push_back(conn);
+}
+
+
+/****************************************************************************/
+/* JSON REST PROXY                                                          */
+/****************************************************************************/
+
+JsonRestProxy::
+JsonRestProxy(const string & url)
+    : HttpRestProxy(url), maxRetries(10)
+{
+    if (url.find("https://") == 0) {
+        cerr << "warning: no validation will be performed on the SSL cert.\n";
+        noSSLChecks = true;
+    }
+}
+
+HttpRestProxy::Response
+JsonRestProxy::
+putOrPost(const string & resource, const string & body, bool isPost)
+    const
+{
+    HttpRestProxy::Response response;
+    const char * verb = isPost ? "POST" : "PUT";
+
+    JML_TRACE_EXCEPTIONS(false);
+
+    Content content(body, "application/json");
+    RestParams headers;
+
+    // cerr << "posting data to " + resource + "\n";
+    if (authToken.size() > 0) {
+        headers.emplace_back(make_pair("Cookie", "token=\"" + authToken + "\""));
+    }
+
+    typedef HttpRestProxy::Response
+        (Datacratic::HttpRestProxy::* UploadFunc)(const string &,
+                                                  const HttpRestProxy::Content&,
+                                                  const RestParams&,
+                                                  const RestParams&,
+                                                  double) const;
+
+    UploadFunc method = isPost ? &HttpRestProxy::post : &HttpRestProxy::put;
+    pid_t tid = gettid();
+    size_t retries;
+    for (retries = 0; retries < maxRetries; retries++) {
+        response = (this->*method)(resource, content, RestParams(),
+                                   headers, -1);
+        int code = response.code();
+        if (code < 400) {
+            break;
+        }
+
+        /* error handling */
+        if (retries == 0) {
+            string respBody = response.body();
+            ::fprintf(stderr,
+                      "[%d] %s %s returned response code %d"
+                      " (attempt %lu):\n"
+                      "request body (%lu) = '%s'\n"
+                      "response body (%lu): '%s'\n",
+                      tid, verb, resource.c_str(), code, retries,
+                      body.size(), body.c_str(),
+                      respBody.size(), respBody.c_str());
+        }
+        if (code < 500) {
+            throw ML::Exception("[%d] error is unrecoverable");
+        }
+
+        /* recoverable errors */
+        if (retries < maxRetries) {
+            sleepAfterRetry(retries);
+            ::fprintf(stderr, "[%d] retrying %s %s after error"
+                      " (%lu/%lu)\n",
+                      tid, verb, resource.c_str(), retries + 1, maxRetries);
+        }
+        else {
+            throw ML::Exception("[%d] too many retries\n", tid);
+        }
+    }
+
+    return response;
+}
+
+HttpRestProxy::Response
+JsonRestProxy::
+get(const string & resource)
+    const
+{
+    RestParams headers;
+
+    if (authToken.size() > 0) {
+        headers.emplace_back(make_pair("Cookie", "token=\"" + authToken + "\""));
+    }
+
+    return HttpRestProxy::get(resource, RestParams(), headers);
+}
+
+bool
+JsonRestProxy::
+authenticate(const JsonAuthenticationRequest & creds)
+{
+    bool result;
+
+    try {
+        auto authResponse = postTyped<JsonAuthenticationResponse>("/authenticate", creds, 200);
+        authToken = authResponse.token;
+        result = true;
+    }
+    catch (const ML::Exception & exc) {
+        result = false;
+    }
+
+    return result;
+}
+
+void
+JsonRestProxy::
+sleepAfterRetry(int retryNbr)
+{
+    static const double sleepUnit(0.2);
+    int rnd = random();
+
+    int maxSlot = (1 << retryNbr) - 1;
+    double timeToSleep = ((double) rnd / RAND_MAX) * maxSlot * sleepUnit;
+    // cerr << "sleeping " << timeToSleep << endl;
+
+    ML::sleep(timeToSleep);
+}
+
+
+/****************************************************************************/
+/* JSON AUTHENTICATION REQUEST                                              */
+/****************************************************************************/
+
+JsonAuthenticationRequestDescription::
+JsonAuthenticationRequestDescription()
+{
+    addField("email", &JsonAuthenticationRequest::email, "");
+    addField("password", &JsonAuthenticationRequest::password, "");
+}
+
+
+/****************************************************************************/
+/* JSON AUTHENTICATION RESPONSE                                             */
+/****************************************************************************/
+
+JsonAuthenticationResponseDescription::
+JsonAuthenticationResponseDescription()
+{
+    addField("token", &JsonAuthenticationResponse::token, "");
 }
 
 } // namespace Datacratic

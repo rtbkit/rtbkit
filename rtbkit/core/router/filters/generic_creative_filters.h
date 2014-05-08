@@ -89,7 +89,7 @@ struct IterativeCreativeFilter : public IterativeFilter<Filter>
 
     // Same semantics as filter but called for every impressions.
     virtual CreativeMatrix
-    filterImpression(FilterState& state, size_t impId, const AdSpot& imp)
+    filterImpression(FilterState& state, size_t impId, const AdSpot& imp) const
     {
         CreativeMatrix mask;
         auto active = state.creatives(impId);
@@ -116,7 +116,7 @@ struct IterativeCreativeFilter : public IterativeFilter<Filter>
     // creatives combinations.
     virtual bool
     filterCreative(
-            FilterState&, const AdSpot&, const AgentConfig&, const Creative&)
+            FilterState&, const AdSpot&, const AgentConfig&, const Creative&) const
     {
         ExcAssert(false);
         return false;
