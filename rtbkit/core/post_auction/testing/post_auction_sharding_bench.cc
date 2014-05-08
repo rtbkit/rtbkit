@@ -299,17 +299,16 @@ int main(int argc, char* argv[])
     std::vector<Feeder*> feeders;
     initFeeders(feeders, proxies->config, config);
 
+    auto start = service->stats;
     run(*service, config);
-
-    service->shutdown();
-    for (auto& feeder : feeders) feeder->join();
 
     std::cerr << "\n\n"
         << printValue(config.durationSec) << " Duration\n"
         << printValue(config.shards) << " Shards\n"
         << printValue(config.feeders * (1000.0 / config.pauseMs) ) << " Request/sec\n"
         << std::endl;
-    
-    report(*service, config.durationSec);
+    report(*service, config.durationSec, start);
     std::cerr << std::endl;
+
+    _exit(0);
 }
