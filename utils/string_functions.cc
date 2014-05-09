@@ -156,4 +156,35 @@ std::string hexify_string(const std::string & str)
     return newString;
 }
 
+int
+antoi(const char * start, const char * end, int base)
+{
+    int result(0);
+
+    for (const char * ptr = start; ptr < end; ptr++) {
+        int digit;
+        if (*ptr >= '0' and *ptr <= '9') {
+            digit = *ptr - '0';
+        }
+        else if (*ptr >= 'A' and *ptr <= 'F') {
+            digit = *ptr - 'A' + 10;
+        }
+        else if (*ptr >= 'a' and *ptr <= 'f') {
+            digit = *ptr - 'a' + 10;
+        }
+        else {
+            throw ML::Exception("expected digit");
+        }
+        if (digit > base) {
+            intptr_t offset = ptr - start;
+            throw ML::Exception("digit '%c' (%d) exceeds base '%d'"
+                                " at offset '%d'",
+                                *ptr, digit, base, offset);
+        }
+        result = result * base + digit;
+    }
+
+    return result;
+}
+
 } // namespace ML
