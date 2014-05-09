@@ -52,6 +52,8 @@ sendEvent(Json::Value const & json)
         str.c_str());
 
     write(httpRequest);
+
+    std::string result = read();
 }
 
 namespace {

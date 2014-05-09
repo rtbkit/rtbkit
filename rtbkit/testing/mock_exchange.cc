@@ -110,11 +110,11 @@ run() {
 
 bool
 MockExchange::Worker::bid() {
+
     for (;;) {
         auto br = bids->sendBidRequest();
         exchange->recordHit("requests");
-
-        auto response = bids->receiveBid();
+                auto response = bids->receiveBid();
         exchange->recordHit("responses");
 
         vector<ExchangeSource::Bid> items = response.second;
@@ -134,13 +134,9 @@ MockExchange::Worker::bid() {
             if (!ret.first) continue;
             ML::sleep(0.5);
 
-            bid.bidTimestamp = Date::now();
-
+			bid.bidTimestamp = Date::now();
             wins->sendWin(br, bid, ret.second);
             exchange->recordHit("wins");
-
-            events->sendImpression(br, bid);
-            exchange->recordHit("impressions");
 
             if (!isClick(br, bid)) continue;
             events->sendClick(br, bid);
