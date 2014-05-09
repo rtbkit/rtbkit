@@ -102,6 +102,10 @@ struct ContentCategory {
 
     std::string val;
 
+    inline bool operator==(const ContentCategory & other) const {
+        return this->val == other.val;
+    }
+
 #if 0    
     ContentCategory(int l1 = -1, int l2 = -1)
         : l1(l1), l2(l2)

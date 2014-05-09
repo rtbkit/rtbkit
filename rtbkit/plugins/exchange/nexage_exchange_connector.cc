@@ -51,17 +51,21 @@ namespace RTBKIT {
 
 NexageExchangeConnector::
 NexageExchangeConnector(ServiceBase & owner, const std::string & name)
-    : OpenRTBExchangeConnector(owner, name) {
+    : OpenRTBExchangeConnector(owner, name),
+      configuration_("nexage"){
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+    init();
 }
 
 NexageExchangeConnector::
 NexageExchangeConnector(const std::string & name,
                         std::shared_ptr<ServiceProxies> proxies)
-    : OpenRTBExchangeConnector(name, proxies) {
+    : OpenRTBExchangeConnector(name, proxies),
+      configuration_("nexage"){
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+    init();
 }
 
 ExchangeConnector::ExchangeCompatibility
@@ -87,97 +91,94 @@ getCampaignCompatibility(const AgentConfig & config,
         return result;
     }
 
-    try {
-        cpinfo->iurl = pconf["iurl"].asString();
-        if (!cpinfo->iurl.size())
-            result.setIncompatible("providerConfig.nexage.iurl is null",
-                                   includeReasons);
-    } catch (const std::exception & exc) {
-        result.setIncompatible
-        (string("providerConfig.nexage.iurl parsing error: ")
-         + exc.what(), includeReasons);
-        return result;
-    }
-
     result.info = cpinfo;
 
     return result;
 }
 
-namespace {
+void
+NexageExchangeConnector::init()
+{
 
-using Datacratic::jsonDecode;
+    // Mandatory Attributes
+    // Must have adm that includes Nexage macro (at least the price)
+    configuration_.addField(
+        "adm",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.adm);
+            if (data.adm.find("${AUCTION_PRICE}") == std::string::npos) {
+                throw std::invalid_argument("${AUCTION_PRICE} is expected in adm");
+            }
+            return true;
+    }).snippet();
 
-/** Given a configuration field, convert it to the appropriate JSON */
-template<typename T>
-void getAttr(ExchangeConnector::ExchangeCompatibility & result,
-             const Json::Value & config,
-             const char * fieldName,
-             T & field,
-             bool includeReasons) {
-    try {
-        if (!config.isMember(fieldName)) {
-            result.setIncompatible
-            ("creative[].providerConfig.nexage." + string(fieldName)
-             + " must be specified", includeReasons);
-            return;
-        }
+    // Must have advertiser names array in mopub.adomain
+    configuration_.addField(
+        "adomain",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.adomain);
+            if (data.adomain.empty()){
+                throw std::invalid_argument("adomain can not be empty");
+            }
+            return true;
+    });
 
-        const Json::Value & val = config[fieldName];
+    // Must have iurl that represents the creative.
+    configuration_.addField(
+        "iurl",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.iurl);
+            if (data.iurl.empty()){
+                throw std::invalid_argument("iurl can not be empty");
+            }
+            return true;
+    });
 
-        jsonDecode(val, field);
-    } catch (const std::exception & exc) {
-        result.setIncompatible("creative[].providerConfig.nexage."
-                               + string(fieldName) + ": error parsing field: "
-                               + exc.what(), includeReasons);
-        return;
-    }
+    // Must have creative ID in mopub.crid
+    configuration_.addField(
+        "crid",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.crid);
+            if (data.crid.toString().empty()){
+                throw std::invalid_argument("crid can not be empty");
+            }
+            return true;
+    });
+
+
+    // Optional Attributes
+
+    configuration_.addField(
+        "cat",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.cat);
+            return true;
+    }).optional();
+
+    configuration_.addField(
+        "attr",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.attr);
+            return true;
+    }).optional();
+
+    configuration_.addField(
+        "nurl",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.nurl);
+            return true;
+    }).optional();
+
 }
 
-} // file scope
 
 ExchangeConnector::ExchangeCompatibility
 NexageExchangeConnector::
 getCreativeCompatibility(const Creative & creative,
                          bool includeReasons) const {
-    ExchangeCompatibility result;
-    result.setCompatible();
-
-    auto crinfo = std::make_shared<CreativeInfo>();
-
-    const Json::Value & pconf = creative.providerConfig["nexage"];
-
-    // 1.  Must have creative ID in nexage.crid
-    getAttr(result, pconf, "crid", crinfo->crid, includeReasons);
-    if (!crinfo->crid)
-        result.setIncompatible
-        ("creative[].providerConfig.nexage.crid is null",
-         includeReasons);
-
-
-    // 2.  Must have AdvertiserDomain in nexage.crid
-    getAttr(result, pconf, "adomain", crinfo->adomain, includeReasons);
-    if (crinfo->adomain.empty())
-        result.setIncompatible
-        ("creative[].providerConfig.nexage.adomain is null",
-         includeReasons);
-
-
-    // 3.  Might have nurl that includes 's macro
-    if (pconf.isMember("nurl")) {
-        crinfo->nurl = pconf["nurl"].asString();
-    }
-
-    // 4.  Might have adm that includes 's macro
-    if (pconf.isMember("adm")) {
-        crinfo->adm = pconf["adm"].asString();
-    }
-
-    // Cache the information
-    result.info = crinfo;
-
-    return result;
+    return configuration_.handleCreativeCompatibility(creative, includeReasons);
 }
+
 std::shared_ptr<BidRequest>
 NexageExchangeConnector::
 parseBidRequest(HttpAuctionHandler & connection,
@@ -267,9 +268,15 @@ setSeatBid(Auction const & auction,
     seatBid.bid.emplace_back();
     auto & b = seatBid.bid.back();
 
+    NexageCreativeConfiguration::Context ctx = {
+        creative,
+        resp,
+        *auction.request
+    };
+
     // Put in the variable parts
     b.cid = Id(resp.agent);
-    b.iurl = cpinfo->iurl;
+    b.iurl = crinfo->iurl;
     b.impid = auction.request->imp[spotNum].id;
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.price.val = USD_CPM(resp.price.maxPrice);
@@ -277,7 +284,53 @@ setSeatBid(Auction const & auction,
     b.adomain = crinfo->adomain;
     // optional parts
     if (!crinfo->nurl.empty()) b.nurl = crinfo->nurl;
-    if (!crinfo->adm.empty()) b.adm = crinfo->adm;
+    if (!crinfo->adm.empty()) b.adm = configuration_.expand(crinfo->adm, ctx);
+}
+
+template<typename T>
+bool contains(const OpenRTB::List<T> & list, const T & value){
+    return std::find(list.cbegin(), list.cend(), value) != list.cend();
+}
+
+bool contains(const vector<Utf8String> & list, const Utf8String & value){
+    return std::find(list.cbegin(), list.cend(), value) != list.cend();
+}
+
+
+bool NexageExchangeConnector::
+bidRequestCreativeFilter(const BidRequest & request,
+                                      const AgentConfig & config,
+                                      const void * info) const{
+
+    const auto crinfo = reinterpret_cast<const CreativeInfo*>(info);
+
+    for (const auto& cat: crinfo->cat){
+        if (contains(request.blockedCategories, cat)) {
+            this->recordHit ("blockedCategory");
+            return false;
+        }
+    }
+
+    // 2) now go throught the spots, to check for blocked attrs
+    for (const auto& spot : request.imp) {
+        for (const auto& battr : spot.banner->battr) {
+            if (contains(crinfo->attr, battr)) {
+                this->recordHit("blockedAttr");
+                return false;
+            }
+        }
+    }
+
+    // Check for blockeds adomains
+    for ( const auto& adomain : crinfo->adomain) {
+        Utf8String utf_adomain(adomain, false);
+        if (contains(request.badv, utf_adomain)) {
+            this->recordHit("blockedAdomain");
+            return false;
+        }
+    }
+
+    return true;
 }
 
 } // namespace RTBKIT
