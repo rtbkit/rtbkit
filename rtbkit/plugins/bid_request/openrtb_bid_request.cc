@@ -56,18 +56,23 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 
                 if(!v.mimes.empty()) {
                     // We need at least one MIME type supported by the exchange
+                    // Not used for now, keeping it for the future
+                    // when we will support the video object fully
                 }
 
                 if(v.linearity.value() < 0) {
-                
+                    // Not used for now, keeping it for the future
+                    // when we will support the video object fully
                 }
                 
                 if(v.minduration.value() < 0) {
-                
+                    // Not used for now, keeping it for the future
+                    // when we will support the video object fully
                 }
 
                 if(v.maxduration.value() < 0) {
-                
+                    // Not used for now, keeping it for the future
+                    // when we will support the video object fully
                 }
                 
                 Format format(v.w.value(), v.h.value());
