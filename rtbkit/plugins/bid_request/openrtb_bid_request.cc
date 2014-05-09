@@ -42,51 +42,17 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 
             // Copy the ad formats in for the moment
             if (spot.banner) {
+                
                 for (unsigned i = 0;  i < spot.banner->w.size();  ++i) {
                     spot.formats.push_back(Format(spot.banner->w[i],
                                                  spot.banner->h[i]));
                 }
                 spot.position = spot.banner->pos;
-            } 
-
-            // Now create tags
-            spot.id = std::move(imp.id);
-            if (imp.banner) {
-                auto & b = *imp.banner;
+            
+            } else if (spot.video) {
                 
-                if (b.w.size() != b.h.size())
-                    throw ML::Exception("widths and heights must match");
-                
-                for (unsigned i = 0;  i < b.w.size();  ++i) {
-                    int w = b.w[i];
-                    int h = b.h[i];
-
-                    Format format(w, h);
-                    spot.formats.push_back(format);
-                }
-#if 0
-                if (!b.expdir.empty()) {
-                    spot.tagFilter.mustInclude.add("expandableTargetingNotSupported");
-                }
-                if (!b.api.empty()) {
-                    spot.tagFilter.mustInclude.add("apiFrameworksNotSupported");
-                }
-                if (!b.btype.empty()) {
-                    spot.tagFilter.mustInclude.add("creativeTypeBlockingNotSupported");
-                }
-                if (!b.battr.empty()) {
-                    spot.tagFilter.mustInclude.add("creativeTypeB");
-                    // Blocked creative attributes
-                }
-                if (!b.mimes.empty()) {
-                    // We must have specified a MIME type and it must be
-                    // supported by the exchange.
-                    
-                }
-#endif
-
-            } else if (imp.video) {
-                auto & v = *imp.video;
+                // Unique ptr doesn't overload operators.. great.
+                auto & v = *spot.video;
 
                 if(!v.mimes.empty()) {
                     // We need at least one MIME type supported by the exchange
@@ -107,7 +73,41 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                 Format format(v.w.value(), v.h.value());
                 spot.formats.push_back(format);
             }
+
 #if 0
+            if (imp.banner) {
+                auto & b = *imp.banner;
+                
+                if (b.w.size() != b.h.size())
+                    throw ML::Exception("widths and heights must match");
+                
+                for (unsigned i = 0;  i < b.w.size();  ++i) {
+                    int w = b.w[i];
+                    int h = b.h[i];
+
+                    Format format(w, h);
+                    spot.formats.push_back(format);
+                }
+
+                if (!b.expdir.empty()) {
+                    spot.tagFilter.mustInclude.add("expandableTargetingNotSupported");
+                }
+                if (!b.api.empty()) {
+                    spot.tagFilter.mustInclude.add("apiFrameworksNotSupported");
+                }
+                if (!b.btype.empty()) {
+                    spot.tagFilter.mustInclude.add("creativeTypeBlockingNotSupported");
+                }
+                if (!b.battr.empty()) {
+                    spot.tagFilter.mustInclude.add("creativeTypeB");
+                    // Blocked creative attributes
+                }
+                if (!b.mimes.empty()) {
+                    // We must have specified a MIME type and it must be
+                    // supported by the exchange.
+                    
+                }
+            
             if (!imp.displaymanager.empty()) {
                 tags.add("displayManager", imp.displaymanager);
             }
@@ -130,7 +130,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
             for (b: imp.iframebuster) {
                 spot.tags.add("iframebuster", b);
             }
-#endif            
+#endif
             result->imp.emplace_back(std::move(spot));
         };
 
