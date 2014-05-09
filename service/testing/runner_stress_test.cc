@@ -168,9 +168,12 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         // cerr << "running with pid: " << pid << endl;
         childPids[threadNum] = pid;
 
+        // cerr << "sleeping\n";
         ML::sleep(1.0);
 
+        // cerr << "waiting termination...\n";
         runner.waitTermination();
+        // cerr << "terminated\n";
 
         loop.shutdown();
 
@@ -185,7 +188,13 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         if (activeThreads == 0) {
             ML::futex_wake(activeThreads);
         }
+        cerr << "thread shutting down\n";
     };
+
+    /* initialize childPids with a non-random bad value */
+    for (int i = 0; i < nThreads; i++) {
+        childPids[i] = 0xdeadface;
+    }
 
     for (int i = 0; i < nThreads; i++) {
         threads.emplace_back(runThread, i);
@@ -209,13 +218,16 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
     /* ensure children have all exited... */
     BOOST_CHECK_EQUAL(childPids.size(), threads.size());
     for (const int & pid: childPids) {
-        if (pid > 0) {
-            waitpid(pid, NULL, WNOHANG);
-            int errno_ = errno;
-            BOOST_CHECK_EQUAL(errno_, ECHILD);
+        if (pid != 0xdeadface) {
+            /* the child may already be done when childPid was invoked */
+            if (pid > 0) {
+                waitpid(pid, NULL, WNOHANG);
+                int errno_ = errno;
+                BOOST_CHECK_EQUAL(errno_, ECHILD);
+            }
         }
         else {
-            throw ML::Exception("no pid");
+            throw ML::Exception("pid was never set");
         }
     }
 }
