@@ -133,7 +133,8 @@ struct Runner: public Epoller {
     /** Is the subprocess running? */
     bool running() const { return running_; }
 
-    /** Process ID of the child process.  Returns -1 if not running. */
+    /** Process ID of the child process. Returns -1 if not running, -2 in case
+        of a launch error, -3 when terminated. */
     pid_t childPid() const { return childPid_; }
 
 private:
