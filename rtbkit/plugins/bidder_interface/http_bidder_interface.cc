@@ -233,6 +233,17 @@ void HttpBidderInterface::sendErrorMessage(std::string const & agent,
 
 void HttpBidderInterface::sendPingMessage(std::string const & agent,
                                           int ping) {
+    ExcCheck(ping == 0 || ping == 1, "Bad PING level, must be either 0 or 1");
+
+    auto encodeDate = [](Date date) {
+        return ML::format("%.5f", date.secondsSinceEpoch());
+    };
+
+    const std::string sentTime = encodeDate(Date::now());
+    const std::string receivedTime = sentTime;
+    const std::string pong = (ping == 0 ? "PONG0" : "PONG1");
+    std::vector<std::string> message { agent, pong, sentTime, receivedTime };
+    router->doPong(ping, message);
 }
 
 void HttpBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event) {
