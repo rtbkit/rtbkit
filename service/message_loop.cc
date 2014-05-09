@@ -105,6 +105,7 @@ startSync()
 
     ++numThreadsCreated;
 
+    shutdown_ = false;
     runWorkerThread();
 }
     
