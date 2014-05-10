@@ -1036,7 +1036,7 @@ execute(const vector<string> & command,
         const string & stdInData,
         bool closeStdin)
 {
-    MessageLoop loop;
+    MessageLoop loop(1, 0, -1);
 
     loop.start();
     RunResult result = execute(loop, command, stdOutSink, stdErrSink,
