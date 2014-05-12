@@ -496,7 +496,7 @@ class Parser:
                 expect(tok, Token.END_BLOCK)
 
                 if var in self.var_map:
-                    line = self.var_map[var] + line
+                    line = self.var_map[var] + " " + line
                     print_dbg("\tmap: %s -> %s" % (var, self.var_map[var]))
                 else:
                     print_dbg("unknown: " + var)
@@ -574,6 +574,34 @@ class Parser:
         self.include('.', line)
         return ''
 
+    def parse_line(self, line, path):
+        try:
+            tok, line = next_token(line)
+
+            if accept(tok, Token.WORD):
+                word = token_value(tok)
+
+                if word == "include" or word == "-include":
+                    line = self.parse_include(line)
+
+                if word not in self.keywords:
+                    line = self.parse_var_decl(word, line)
+
+            elif accept(tok, Token.START_BLOCK):
+                tok, line = next_token(line)
+                expect(tok, Token.WORD)
+
+                # We don't bother with any non-eval function calls.
+                if token_value(tok) == "eval":
+                    line = self.parse_function(line)
+                    tok, line = next_token(line)
+                    expect(tok, Token.END_BLOCK)
+
+        except Exception as ex:
+            print_err(str(ex), "%s: %s" % (path, line))
+            if verbose: print traceback.format_exc()
+            if strict: raise ex
+
 
     def parse_makefile(self, folder, filename):
         """
@@ -581,11 +609,15 @@ class Parser:
         vals.
         """
 
+
         self.folder_stack.append(folder)
+
         path = '/'.join(self.folder_stack) + "/" + filename
 
         if path in self.visited_files:
             print_dbg("been-there-done-that: " + path)
+            self.folder_stack.pop()
+            self.current_file = old_file
             return
 
         self.visited_files = self.visited_files | set([path])
@@ -594,38 +626,18 @@ class Parser:
         old_file = self.current_file
         self.current_file = filename
 
-        with open(path, 'r') as f:
-            line = next_line(f)
-
-            while line:
-                try:
-                    tok, line = next_token(line)
-
-                    if accept(tok, Token.WORD):
-                        word = token_value(tok)
-
-                        if word == "include" or word == "-include":
-                            line = self.parse_include(line)
-
-                        if word not in self.keywords:
-                            line = self.parse_var_decl(word, line)
-
-                    elif accept(tok, Token.START_BLOCK):
-                        tok, line = next_token(line)
-                        expect(tok, Token.WORD)
-
-                        # We don't bother with any non-eval function calls.
-                        if token_value(tok) == "eval":
-                            line = self.parse_function(line)
-                            tok, line = next_token(line)
-                            expect(tok, Token.END_BLOCK)
-
-                except Exception as ex:
-                    print_err(str(ex), "%s: %s" % (path, line))
-                    if verbose: print traceback.format_exc()
-                    if strict: raise ex
-
+        try:
+            line = ""
+            with open(path, 'r') as f:
                 line = next_line(f)
+                while line:
+                    self.parse_line(line, path)
+                    line = next_line(f)
+
+        except Exception as ex:
+            print_err(str(ex), "%s: %s" % (path, line))
+            if verbose: print traceback.format_exc()
+            if strict: raise ex
 
         self.folder_stack.pop()
         self.current_file = old_file

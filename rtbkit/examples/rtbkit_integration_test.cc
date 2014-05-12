@@ -8,7 +8,7 @@
 #include "augmentor_ex.h"
 
 #include "rtbkit/core/router/router.h"
-#include "rtbkit/core/post_auction/post_auction_loop.h"
+#include "rtbkit/core/post_auction/post_auction_service.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/banker/master_banker.h"
 #include "rtbkit/core/banker/slave_banker.h"
@@ -53,7 +53,7 @@ struct Components
 
     RedisTemporaryServer redis;
     Router router1, router2;
-    PostAuctionLoop postAuctionLoop;
+    PostAuctionService postAuctionLoop;
     MasterBanker masterBanker;
     SlaveBudgetController budgetController;
     AgentConfigurationService agentConfig;
@@ -152,7 +152,7 @@ struct Components
 
         // Setup a post auction loop (PAL) which handles all exchange events
         // that don't need to be processed in real-time (wins, loss, etc).
-        postAuctionLoop.init();
+        postAuctionLoop.init(8);
         postAuctionLoop.setBanker(makeSlaveBanker("pas1"));
         postAuctionLoop.bindTcp();
         postAuctionLoop.start();
@@ -266,7 +266,7 @@ void setupAgent(TestAgent& agent)
             Bid& bid = bids[0];
             ExcAssertGreater(bid.availableCreatives.size(), 0);
 
-            bid.bid(bid.availableCreatives[0], USD_CPM(10));
+            bid.bid(bid.availableCreatives[0], USD_CPM(1));
 
             agent.doBid(id, bids, Json::Value(), wcm);
             ML::atomic_inc(agent.numBidRequests);
@@ -333,7 +333,7 @@ int main(int argc, char ** argv)
     // Controls the length of the test.
     enum {
         nExchangeThreads = 10,
-        nBidRequestsPerThread = 2000
+        nBidRequestsPerThread = 100
     };
 
     auto proxies = std::make_shared<ServiceProxies>();

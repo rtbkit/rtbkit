@@ -12,6 +12,8 @@ for l in fileinput.input():
     if pieces[1] == "passed": passed.add(pieces[0])
     if pieces[1] == "FAILED": failed.add(pieces[0])
 
+failed.difference_update(passed)
+
 print """<?xml version="1.0" encoding="UTF-8" ?>
 <testsuite errors="0" tests="%d" time="0" failures="%d" name="tests">""" % (len(passed)+len(failed), len(failed))
 

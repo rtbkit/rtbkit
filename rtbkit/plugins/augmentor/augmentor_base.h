@@ -8,6 +8,8 @@
 #ifndef __rtb__augmentor_base_h__
 #define __rtb__augmentor_base_h__
 
+#include <atomic>
+
 #include "soa/service/service_base.h"
 #include "soa/service/zmq.hpp"
 #include "soa/types/id.h"
@@ -22,7 +24,6 @@
 #include "jml/utils/ring_buffer.h"
 #include "soa/service/zmq_endpoint.h"
 
-#include <boost/make_shared.hpp>
 #include <boost/function.hpp>
 #include <boost/thread.hpp>
 

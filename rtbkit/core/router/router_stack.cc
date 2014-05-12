@@ -132,18 +132,16 @@ size_t
 RouterStack::
 numNonIdle() const
 {
-    size_t numInFlight, numSubmitted, numAwaitingAugmentation;
+    size_t numInFlight, numAwaitingAugmentation;
     {
         numInFlight = router.inFlight.size();
         numAwaitingAugmentation = router.augmentationLoop.numAugmenting();
-        numSubmitted = postAuctionLoop.numAwaitingWinLoss();
     }
 
     cerr << "numInFlight = " << numInFlight << endl;
-    cerr << "numSubmitted = " << numSubmitted << endl;
     cerr << "numAwaitingAugmentation = " << numAwaitingAugmentation << endl;
 
-    size_t result = numInFlight + numSubmitted + numAwaitingAugmentation;
+    size_t result = numInFlight + numAwaitingAugmentation;
     return result;
 }
 

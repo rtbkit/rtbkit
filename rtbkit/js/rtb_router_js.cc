@@ -109,8 +109,6 @@ struct RTBRouterStackJS
 #endif
         registerMemberFn(&RTBKIT::RouterStack::notifyFinishedAuction,
                          "notifyFinishedAuction");
-        registerMemberFn(&RTBKIT::RouterStack::notifyFinishedSpot,
-                         "notifyFinishedSpot");
         registerMemberFn(&RTBKIT::RouterStack::init, "init");
     }
 

@@ -36,50 +36,26 @@ void AgentsBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & 
     }
 }
 
-void AgentsBidderInterface::sendWinMessage(std::string const & agent,
-                                           std::string const & id,
-                                           Amount price) {
-    bridge->sendAgentMessage(agent,
-                             "WIN",
-                             Date::now(),
-                             "guaranteed",
-                             id,
-                             0,
-                             price.toString());
-}
 
-void AgentsBidderInterface::sendWinMessage(std::string const & agent,
-                                           Amount price,
-                                           FinishedInfo const & event) {
-    bridge->sendAgentMessage(agent,
-                             "WIN",
-                             event.winTime,
-                             "guaranteed",
-                             event.auctionId,
-                             std::to_string(event.spotIndex),
-                             price.toString(),
-                             event.bidRequestStrFormat,
-                             event.bidRequestStr,
-                             event.bid.bidData,
-                             event.bid.meta,
-                             event.augmentations);
-}
+void AgentsBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
+    std::string channel =
+        event.type == MatchedWinLoss::LateWin ? "LATEWIN" : event.typeString();
 
-void AgentsBidderInterface::sendLateWinMessage(std::string const & agent,
-                                               Amount price,
-                                               FinishedInfo const & event) {
-    bridge->sendAgentMessage(agent,
-                             "LATEWIN",
-                             event.winTime,
-                             "guaranteed",
-                             event.auctionId,
-                             std::to_string(event.spotIndex),
-                             event.winPrice.toString(),
-                             event.bidRequestStrFormat,
-                             event.bidRequestStr,
-                             event.bid.bidData,
-                             event.bid.meta,
-                             event.augmentations);
+    bridge->sendAgentMessage(event.response.agent,
+                              channel,
+                              event.timestamp,
+                              event.confidenceString(),
+
+                              event.auctionId.toString(),
+                              std::to_string(event.impIndex()),
+                              event.winPrice.toString(),
+
+                              event.requestStrFormat,
+                              event.requestStr,
+                              event.response.bidData,
+                              event.response.meta,
+                              event.augmentations.toJson());
+
 }
 
 void AgentsBidderInterface::sendLossMessage(std::string const & agent,
@@ -93,39 +69,26 @@ void AgentsBidderInterface::sendLossMessage(std::string const & agent,
                              Amount().toString());
 }
 
-void AgentsBidderInterface::sendLossMessage(std::string const & agent,
-                                            FinishedInfo const & event) {
-    bridge->sendAgentMessage(agent,
-                             "LOSS",
-                             event.winTime,
-                             "inferred",
-                             event.auctionId,
-                             std::to_string(event.spotIndex),
-                             Amount().toString(),
-                             event.bidRequestStrFormat,
-                             event.bidRequestStr,
-                             event.bid.bidData,
-                             event.bid.meta,
-                             event.augmentations);
-}
-
 void AgentsBidderInterface::sendCampaignEventMessage(std::string const & agent,
-                                                     std::string const & label,
-                                                     FinishedInfo const & event) {
+                                                     MatchedCampaignEvent const & event) {
     bridge->sendAgentMessage(agent,
                              "CAMPAIGN_EVENT",
-                             label,
+                             event.label,
                              Date::now(),
-                             event.auctionId,
-                             event.adSpotId,
-                             std::to_string(event.spotIndex),
-                             event.bidRequestStrFormat,
-                             event.bidRequestStr,
-                             event.augmentations,
-                             event.bidToJson(),
-                             event.winToJson(),
-                             event.campaignEvents.toJson(),
-                             event.visitsToJson());
+
+                             event.auctionId.toString(),
+                             event.impId.toString(),
+                             std::to_string(event.impIndex()),
+
+                             event.requestStrFormat,
+                             event.requestStr,
+                             event.augmentations.toJson(),
+
+                             event.bid,
+                             event.win,
+                             event.campaignEvents,
+                             event.visits);
+
 }
 
 void AgentsBidderInterface::sendBidLostMessage(std::string const & agent,

@@ -63,15 +63,6 @@ private :
     void init(int winsPort, int eventsPort, bool verbose);
     virtual void initEventType(const Json::Value &json);
 
-    void writeUnitTestWinReqOutput(const Date & timestamp, const Date & bidTimestamp, 
-                                   const string & auctionId, const string & adSpotId, 
-                                   const string & accountKeyStr, const USD_CPM & winPrice,
-                                   const string & userId, const USD_CPM dataCost);
-
-    void writeUnitTestDeliveryReqOutput(const Date & timestamp, const string & auctionIdStr, 
-                                        const string & adSpotIdStr, const string &  userIdStr, 
-                                        const string &event);
-
     std::map<std::string , std::string> eventType;  
     bool verbose;
 };

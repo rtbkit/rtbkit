@@ -11,7 +11,6 @@
 #include <boost/test/unit_test.hpp>
 
 #include "rtbkit/core/router/router.h"
-#include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 #include "jml/utils/pair_utils.h"

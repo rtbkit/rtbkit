@@ -42,8 +42,8 @@ struct AdServerConnector : public Datacratic::ServiceBase {
 
     /** Publish a WIN into the post auction loop.  Thread safe and
         asynchronous. */
-    void publishWin(const Id & auctionId,
-                    const Id & adSpotId,
+    void publishWin(const Id & bidRequestId,
+                    const Id & impId,
                     Amount winPrice,
                     Date timestamp,
                     const JsonHolder & winMeta,
@@ -55,8 +55,8 @@ struct AdServerConnector : public Datacratic::ServiceBase {
         asynchronous. Note that this method ONLY is useful for simulations;
         otherwise losses are implicit.
     */
-    void publishLoss(const Id & auctionId,
-                     const Id & adSpotId,
+    void publishLoss(const Id & bidRequestId,
+                     const Id & impId,
                      Date timestamp,
                      const JsonHolder & lossMeta,
                      const AccountKey & account,
@@ -65,12 +65,12 @@ struct AdServerConnector : public Datacratic::ServiceBase {
     /** Publish a campaign-based event into the post auction loop, to be
         passed on to the agent that bid on it.
         
-        If the spot ID is empty, then the click will be sent to all
+        If the imp ID is empty, then the click will be sent to all
         agents that had a win on the auction.
     */
     void publishCampaignEvent(const std::string & label,
-                              const Id & auctionId,
-                              const Id & adSpotId,
+                              const Id & bidRequestId,
+                              const Id & impId,
                               Date timestamp,
                               const JsonHolder & eventMeta,
                               const UserIds & ids);
