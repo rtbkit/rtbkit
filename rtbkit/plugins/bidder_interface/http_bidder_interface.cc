@@ -51,6 +51,7 @@ namespace {
     }
 }
 
+
 HttpBidderInterface::HttpBidderInterface(std::string name,
                                          std::shared_ptr<ServiceProxies> proxies,
                                          Json::Value const & json) {
@@ -74,10 +75,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
         OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
         bool ok = prepareRequest(openRtbRequest, originalRequest, bidders);
-        /* If we took too much time processing the request, then we don't send it.
-           Instead, we're making null bids for each impression
-        */
-        if (!ok) {
+        auto submitNoBid = [&]() {
             Bids bids;
             for_each(begin(openRtbRequest.imp), end(openRtbRequest.imp),
                      [&](const OpenRTB::Impression &imp) {
@@ -86,6 +84,13 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                 bids.push_back(move(theBid));
             });
             submitBids(agent, auction->id, bids, wcm);
+        };
+
+        /* If we took too much time processing the request, then we don't send it.
+           Instead, we're making null bids for each impression
+        */
+        if (!ok) {
+            submitNoBid();
             return;
         }
         StructuredJsonPrintingContext context;
@@ -97,7 +102,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
         */
         auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
                 [=](const HttpRequest &, HttpClientError errorCode,
-                    int, const std::string &, const std::string &body)
+                    int statusCode, const std::string &, std::string &&body)
                 {
                     if (errorCode != HttpClientError::NONE) {
                         auto toErrorString = [](HttpClientError code) -> std::string {
@@ -118,7 +123,10 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                         cerr << "Error requesting " << host
                                   << ": " << toErrorString(errorCode);
                       }
-                      else {
+                      else if (statusCode == 204) {
+                         submitNoBid();
+                      }
+                      else if (statusCode == 200) {
                         // cerr << "Response: " << body << endl;
                          OpenRTB::BidResponse response;
                          ML::Parse_Context context("payload",
@@ -243,7 +251,7 @@ void HttpBidderInterface::sendPingMessage(std::string const & agent,
     const std::string receivedTime = sentTime;
     const std::string pong = (ping == 0 ? "PONG0" : "PONG1");
     std::vector<std::string> message { agent, pong, sentTime, receivedTime };
-    router->handleAgentMessage(ping, message);
+    router->handleAgentMessage(message);
 }
 
 void HttpBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event) {
