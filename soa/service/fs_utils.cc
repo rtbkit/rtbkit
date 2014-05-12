@@ -29,8 +29,17 @@ namespace {
 
 /* registry */
 
-std::mutex registryMutex;
-map<string, std::unique_ptr<const UrlFsHandler> > registry;
+struct Registry 
+{
+    std::mutex mutex;
+    map<string, std::unique_ptr<const UrlFsHandler> > handlers;
+};
+
+Registry& getRegistry()
+{
+    static Registry* registry = new Registry;
+    return *registry;
+}
 
 } // file scope
 
@@ -139,9 +148,11 @@ struct LocalUrlFsHandler : public UrlFsHandler {
 
 const UrlFsHandler * findFsHandler(const string & scheme)
 {
-    std::unique_lock<std::mutex> guard(registryMutex);
-    auto handler = registry.find(scheme);
-    if (handler == registry.end()) {
+    auto& registry = getRegistry();
+
+    std::unique_lock<std::mutex> guard(registry.mutex);
+    auto handler = registry.handlers.find(scheme);
+    if (handler == registry.handlers.end()) {
         throw ML::Exception("no handler found for scheme: " + scheme);
     }
     return handler->second.get();
@@ -203,14 +214,16 @@ getEtag(const Url & url) const
 void registerUrlFsHandler(const std::string & scheme,
                           UrlFsHandler * handler)
 {
-    if (registry.find(scheme) != registry.end()) {
+    auto& registry = getRegistry();
+
+    if (registry.handlers.find(scheme) != registry.handlers.end()) {
         throw ML::Exception("fs handler already registered");
     }
 
     /* this enables googleuri to parse our urls properly */
     url_util::AddStandardScheme(scheme.c_str());
 
-    registry[scheme].reset(handler);
+    registry.handlers[scheme].reset(handler);
 }
 
 FsObjectInfo

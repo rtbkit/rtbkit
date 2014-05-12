@@ -74,6 +74,7 @@ expectStringUtf8()
             case 'n': c = '\n';  break;
             case 'r': c = '\r';  break;
             case 'f': c = '\f';  break;
+            case 'b': c = '\b';  break;
             case '/': c = '/';   break;
             case '\\':c = '\\';  break;
             case '"': c = '"';   break;

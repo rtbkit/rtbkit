@@ -26,7 +26,7 @@ namespace Datacratic {
 
 Epoller::
 Epoller()
-    : epoll_fd(-1)
+    : epoll_fd(-1), timeout_(0), numFds_(0)
 {
 }
 
@@ -38,7 +38,7 @@ Epoller::
 
 void
 Epoller::
-init(int maxFds)
+init(int maxFds, int timeout)
 {
     //cerr << "initializing epoller at " << this << endl;
     //backtrace();
@@ -47,6 +47,8 @@ init(int maxFds)
     epoll_fd = epoll_create(maxFds);
     if (epoll_fd == -1)
         throw ML::Exception(errno, "EndpointBase epoll_create()");
+
+    timeout_ = timeout;
 }
 
 void
@@ -63,55 +65,6 @@ close()
 
 void
 Epoller::
-addFd(int fd, void * data)
-{
-    //cerr << Date::now().print(4) << "added " << fd << " multiple shot" << endl;
-
-    struct epoll_event event;
-    event.events = EPOLLIN;
-    event.data.ptr = data;
-    
-    int res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
-    
-    if (res == -1)
-        throw ML::Exception(errno, "epoll_ctl ADD");
-}
-    
-void
-Epoller::
-addFdOneShot(int fd, void * data)
-{
-    //cerr << Date::now().print(4) << "added " << fd << " one-shot" << endl;
-
-    struct epoll_event event;
-    event.events = EPOLLIN | EPOLLONESHOT;
-    event.data.ptr = data;
-    
-    int res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
-        
-    if (res == -1)
-        throw ML::Exception("epoll_ctl ADD: %s (fd = %d, epollfd = %d)",
-                            strerror(errno), fd, epoll_fd);
-}
-
-void
-Epoller::
-restartFdOneShot(int fd, void * data)
-{
-    //cerr << Date::now().print(4) << "restarted " << fd << " one-shot" << endl;
-
-    struct epoll_event event;
-    event.events = EPOLLIN | EPOLLONESHOT;
-    event.data.ptr = data;
-    
-    int res = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
-    
-    if (res == -1)
-        throw ML::Exception(errno, "epoll_ctl MOD");
-}
-
-void
-Epoller::
 removeFd(int fd)
 {
     //cerr << Date::now().print(4) << "removed " << fd << endl;
@@ -123,6 +76,13 @@ removeFd(int fd)
             throw ML::Exception("epoll_ctl DEL fd %d: %s", fd,
                                 strerror(errno));
     }
+
+    if (numFds_ > 0) {
+        numFds_--;
+    }
+    else {
+        throw ML::Exception("too many file descriptors removed");
+    }
 }
 
 int
@@ -132,6 +92,10 @@ handleEvents(int usToWait, int nEvents,
              const OnEvent & beforeSleep_,
              const OnEvent & afterSleep_)
 {
+    if (nEvents == -1) {
+        nEvents = numFds_;
+    }
+
     const HandleEvent & handleEvent
         = handleEvent_ ? handleEvent_ : this->handleEvent;
     const OnEvent & beforeSleep
@@ -159,7 +123,7 @@ handleEvents(int usToWait, int nEvents,
             if (res == 0) return 0;
         }
 
-        int res = epoll_wait(epoll_fd, events, nEvents, 0);
+        int res = epoll_wait(epoll_fd, events, nEvents, timeout_);
 
         if (afterSleep)
             afterSleep();
@@ -199,6 +163,37 @@ poll() const
             throw ML::Exception("ppoll in Epoller::poll");
         return res > 0;
     }
+}
+
+void
+Epoller::
+performAddFd(int fd, void * data, bool oneshot, bool restart)
+{
+    // cerr << (Date::now().print(4)
+    //          + " performAddFd: epoll_fd=" + to_string(epoll_fd)
+    //          + " fd=" + to_string(fd)
+    //          + " one-shot=" + to_string(oneshot)
+    //          + " restart=" + to_string(restart)
+    //          + "\n");
+
+    struct epoll_event event;
+    event.events = EPOLLIN;
+    if (oneshot) {
+        event.events |= EPOLLONESHOT;
+    }
+    event.data.ptr = data;
+
+    if (!restart) {
+        numFds_++;
+    }
+
+    int action = restart ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
+    int res = epoll_ctl(epoll_fd, action, fd, &event);
+
+    if (res == -1)
+        throw ML::Exception("epoll_ctl: %s (fd=%d, epollfd=%d, oneshot=%d,"
+                            " restart=%d)",
+                            strerror(errno), fd, epoll_fd, oneshot, restart);
 }
 
 } // namespace Datacratic

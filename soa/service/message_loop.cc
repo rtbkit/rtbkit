@@ -4,8 +4,11 @@
 
 */
 
-#include "soa/service//message_loop.h"
-#include "soa/types/date.h"
+#include <thread>
+#include <time.h>
+#include <limits.h>
+#include <sys/epoll.h>
+
 #include "jml/arch/exception.h"
 #include "jml/arch/futex.h"
 #include "jml/arch/timers.h"
@@ -14,17 +17,11 @@
 #include "jml/arch/backtrace.h"
 #include "jml/utils/smart_ptr_utils.h"
 #include "jml/utils/exc_assert.h"
+#include "soa/types/date.h"
 
-#include <boost/make_shared.hpp>
-#include <iostream>
-#include <thread>
-#include <time.h>
-#include <limits.h>
-#include <sys/epoll.h>
-
+#include "message_loop.h"
 
 using namespace std;
-using namespace ML;
 
 
 namespace Datacratic {
@@ -34,13 +31,12 @@ namespace Datacratic {
 /*****************************************************************************/
 
 MessageLoop::
-MessageLoop(int numThreads, double maxAddedLatency)
-    : queueFd(EFD_NONBLOCK),
-      sourceQueueFlag(false),
+MessageLoop(int numThreads, double maxAddedLatency, int epollTimeout)
+    : sourceActions_(32),
       numThreadsCreated(0),
       totalSleepTime_(0.0)
 {
-    init(numThreads, maxAddedLatency);
+    init(numThreads, maxAddedLatency, epollTimeout);
 }
 
 MessageLoop::
@@ -51,40 +47,50 @@ MessageLoop::
 
 void
 MessageLoop::
-init(int numThreads, double maxAddedLatency)
+init(int numThreads, double maxAddedLatency, int epollTimeout)
 {
-    if (maxAddedLatency == 0)
-        cerr << "warning: MessageLoop with maxAddedLatency of zero will busy wait" << endl;
+    // std::cerr << "msgloop init: " << this << "\n";
+    if (maxAddedLatency == 0 && epollTimeout != -1)
+        cerr << "warning: MessageLoop with maxAddedLatency of zero and epollTeimout != -1 will busy wait" << endl;
 
     // See the comments on processOne below for more details on this assertion.
     ExcAssertEqual(numThreads, 1);
 
-    Epoller::init(16384);
-    this->shutdown_ = false;
-    this->maxAddedLatency_ = maxAddedLatency;
-    this->handleEvent = std::bind(&MessageLoop::handleEpollEvent,
-                                   this,
-                                   std::placeholders::_1);
-    addFd(queueFd.fd());
+    Epoller::init(16384, epollTimeout);
+    maxAddedLatency_ = maxAddedLatency;
+    handleEvent = std::bind(&MessageLoop::handleEpollEvent,
+                            this,
+                            std::placeholders::_1);
+
+    /* Our source action queue is a source in itself, which enables us to
+       handle source operations from the same epoll mechanism as the rest.
+
+       Adding a special source named "_shutdown" triggers shutdown-related
+       events, without requiring the use of an additional signal fd. */
+    sourceActions_.onEvent = [&] (SourceAction && action) {
+        handleSourceAction(move(action));
+    };
+    addFd(sourceActions_.selectFd(), &sourceActions_);
+
     debug_ = false;
 }
 
 void
 MessageLoop::
-start(std::function<void ()> onStop)
+start(const OnStop & onStop)
 {
     if (numThreadsCreated)
         throw ML::Exception("already have started message loop");
 
+    shutdown_ = false;
+
     //cerr << "starting thread from " << this << endl;
     //ML::backtrace();
 
-    auto runfn = [=] ()
-        {
-            this->runWorkerThread();
-            if (onStop) onStop();
-        };
-
+    auto runfn = [&, onStop] () {
+        this->runWorkerThread();
+        if (onStop) onStop();
+    };
     threads.create_thread(runfn);
 
     ++numThreadsCreated;
@@ -111,146 +117,70 @@ shutdown()
         return;
 
     shutdown_ = true;
-    futex_wake((int &)shutdown_);
+    ML::futex_wake((int &)shutdown_);
+
+    addSource("_shutdown", nullptr);
 
     threads.join_all();
 
     numThreadsCreated = 0;
 }
 
-void
+bool
 MessageLoop::
 addSource(const std::string & name,
           AsyncEventSource & source, int priority)
 {
-    addSource(name, make_unowned_std_sp(source), priority);
+    return addSource(name, ML::make_unowned_std_sp(source), priority);
 }
 
-void
+bool
 MessageLoop::
 addSource(const std::string & name,
-          std::shared_ptr<AsyncEventSource> source, int priority)
+          const std::shared_ptr<AsyncEventSource> & source,
+          int priority)
 {
-    addSourceImpl(name, source, priority);
+    if (name != "_shutdown") {
+        ExcCheck(!source->parent_, "source already has a parent: " + name);
+        source->parent_ = this;
+    }
+
+    // cerr << "addSource: " << source.get()
+    //      << " (" << ML::type_name(*source) << ")"
+    //      << " needsPoll: " << source->needsPoll
+    //      << " in msg loop: " << this
+    //      << " needsPoll: " << needsPoll
+    //      << endl;
+
+    SourceEntry entry(name, source, priority);
+    SourceAction newAction(SourceAction::ADD, move(entry));
+
+    return sourceActions_.tryPush(move(newAction));
 }
 
-void
+bool
 MessageLoop::
 addPeriodic(const std::string & name,
             double timePeriodSeconds,
             std::function<void (uint64_t)> toRun,
             int priority)
 {
-    addSource(name,
-              std::make_shared<PeriodicEventSource>(timePeriodSeconds, toRun),
-              priority);
+    auto newPeriodic
+        = make_shared<PeriodicEventSource>(timePeriodSeconds, toRun);
+    return addSource(name, newPeriodic, priority);
 }
 
-void
-MessageLoop::
-addSourceImpl(const std::string & name,
-              std::shared_ptr<AsyncEventSource> source,
-              int priority)
-{
-    ExcCheck(!source->parent_, "source already has a parent: " + name);
-    source->parent_ = this;
-
-    Guard guard(queueLock);
-    addSourceQueue.emplace_back(name, source, priority);
-    sourceQueueFlag = true;
-    queueFd.signal();
-}
-
-void
+bool
 MessageLoop::
 removeSource(AsyncEventSource * source)
 {
     // When we free the elements in our destructor, they will try to remove themselves.
     // we just make it a nop.
-    if (shutdown_) return;
+    if (shutdown_) return true;
 
-    Guard guard(queueLock);
-    removeSourceQueue.emplace_back(source);
-    sourceQueueFlag = true;
-    queueFd.signal();
-}
-
-void
-MessageLoop::
-processSourceQueue()
-{
-    if (!sourceQueueFlag) return;
-
-    std::vector<SourceEntry> sourcesToAdd;
-    std::vector<AsyncEventSource*> sourcesToRemove;
-
-    {
-        Guard guard(queueLock);
-
-        sourcesToAdd = std::move(addSourceQueue);
-        sourcesToRemove = std::move(removeSourceQueue);
-
-        sourceQueueFlag = false;
-        while (!queueFd.tryRead());
-    }
-
-    for (auto& entry : sourcesToAdd)
-        processAddSource(entry);
-
-    for (AsyncEventSource* source : sourcesToRemove)
-        processRemoveSource(source);
-}
-
-void
-MessageLoop::
-processAddSource(const SourceEntry& entry)
-{
-    int fd = entry.source->selectFd();
-    if (fd != -1)
-        addFd(fd, entry.source.get());
-
-    if (!needsPoll && entry.source->needsPoll) {
-        needsPoll = true;
-        if (parent_) parent_->checkNeedsPoll();
-    }
-
-    if (debug_) entry.source->debug(true);
-    sources.push_back(entry);
-
-    entry.source->connectionState_ = AsyncEventSource::CONNECTED;
-    ML::futex_wake(entry.source->connectionState_);
-}
-
-void
-MessageLoop::
-processRemoveSource(AsyncEventSource* source)
-{
-    auto pred = [&] (const SourceEntry& entry) {
-        return entry.source.get() == source;
-    };
-    auto it = find_if(sources.begin(), sources.end(), pred);
-
-    ExcCheck(it != sources.end(), "couldn't remove source");
-
-    SourceEntry entry = *it;
-    sources.erase(it);
-
-    source->parent_ = nullptr;
-    int fd = source->selectFd();
-    if (fd == -1) return;
-    removeFd(fd);
-
-    // Make sure that our and our parent's value of needsPoll is up to date
-    bool sourceNeedsPoll = entry.source->needsPoll;
-    if (needsPoll && sourceNeedsPoll) {
-        bool oldNeedsPoll = needsPoll;
-        checkNeedsPoll();
-        if (oldNeedsPoll != needsPoll && parent_)
-            parent_->checkNeedsPoll();
-    }
-
-    entry.source->connectionState_ = AsyncEventSource::DISCONNECTED;
-    ML::futex_wake(entry.source->connectionState_);
+    SourceEntry entry("", ML::make_unowned_std_sp(*source), 0);
+    SourceAction newAction(SourceAction::REMOVE, move(entry));
+    return sourceActions_.tryPush(move(newAction));
 }
 
 void
@@ -279,7 +209,6 @@ runWorkerThread()
     ML::Duty_Cycle_Timer duty;
 
     while (!shutdown_) {
-
         Date start = Date::now();
 
         bool more = true;
@@ -335,7 +264,7 @@ handleEpollEvent(epoll_event & event)
              << (mask & EPOLLHUP ? "H" : "")
              << (mask & EPOLLRDHUP ? "R" : "")
              << endl;
-    }            
+    }
     
     AsyncEventSource * source
         = reinterpret_cast<AsyncEventSource *>(event.data.ptr);
@@ -343,11 +272,82 @@ handleEpollEvent(epoll_event & event)
     //cerr << "source = " << source << " of type "
     //     << ML::type_name(*source) << endl;
 
-    if (source == 0) return true;  // wakeup for shutdown
-
     source->processOne();
 
     return false;
+}
+
+void
+MessageLoop::
+handleSourceAction(SourceAction && action)
+{
+    if (action.action_ == SourceAction::ADD) {
+        processAddSource(action.entry_);
+    }
+    else if (action.action_ == SourceAction::REMOVE) {
+        processRemoveSource(action.entry_);
+    }
+}
+
+void
+MessageLoop::
+processAddSource(const SourceEntry & entry)
+{
+    if (entry.name == "_shutdown")
+        return;
+
+    // cerr << "processAddSource: " << entry.source.get()
+    //      << " (" << ML::type_name(*entry.source) << ")"
+    //      << " needsPoll: " << entry.source->needsPoll
+    //      << " in msg loop: " << this
+    //      << " needsPoll: " << needsPoll
+    //      << endl;
+    int fd = entry.source->selectFd();
+    if (fd != -1)
+        addFd(fd, entry.source.get());
+
+    if (!needsPoll && entry.source->needsPoll) {
+        needsPoll = true;
+        if (parent_) parent_->checkNeedsPoll();
+    }
+
+    if (debug_) entry.source->debug(true);
+    sources.push_back(entry);
+
+    entry.source->connectionState_ = AsyncEventSource::CONNECTED;
+    ML::futex_wake(entry.source->connectionState_);
+}
+
+void
+MessageLoop::
+processRemoveSource(const SourceEntry & rmEntry)
+{
+    auto pred = [&] (const SourceEntry & entry) {
+        return entry.source.get() == rmEntry.source.get();
+    };
+    auto it = find_if(sources.begin(), sources.end(), pred);
+
+    ExcCheck(it != sources.end(), "couldn't remove source");
+
+    SourceEntry entry = *it;
+    sources.erase(it);
+
+    entry.source->parent_ = nullptr;
+    int fd = entry.source->selectFd();
+    if (fd == -1) return;
+    removeFd(fd);
+
+    // Make sure that our and our parent's value of needsPoll is up to date
+    bool sourceNeedsPoll = entry.source->needsPoll;
+    if (needsPoll && sourceNeedsPoll) {
+        bool oldNeedsPoll = needsPoll;
+        checkNeedsPoll();
+        if (oldNeedsPoll != needsPoll && parent_)
+            parent_->checkNeedsPoll();
+    }
+
+    entry.source->connectionState_ = AsyncEventSource::DISCONNECTED;
+    ML::futex_wake(entry.source->connectionState_);
 }
 
 bool
@@ -379,9 +379,8 @@ processOne()
 {
     bool more = false;
 
-    processSourceQueue();
-
     if (needsPoll) {
+        more = sourceActions_.processOne();
         for (unsigned i = 0;  i < sources.size();  ++i) {
             try {
                 bool hasMore = sources[i].source->processOne();

@@ -94,8 +94,8 @@ namespace Datacratic {
 
 Runner::
 Runner()
-    : running_(false), childPid_(-1), wakeup_(EFD_NONBLOCK),
-      statusRemaining_(sizeof(Task::ChildStatus))
+    : closeStdin(false), running_(false), childPid_(-1),
+      wakeup_(EFD_NONBLOCK), statusRemaining_(sizeof(Task::ChildStatus))
 {
     Epoller::init(4);
 
@@ -208,13 +208,16 @@ handleChildStatus(const struct epoll_event & event)
             switch (status.state) {
             case Task::LAUNCHING:
                 childPid_ = status.pid;
+                // cerr << " childPid_ = status.pid (launching)\n";
                 break;
             case Task::RUNNING:
                 childPid_ = status.pid;
+                // cerr << " childPid_ = status.pid (running)\n";
                 ML::futex_wake(childPid_);
                 break;
             case Task::STOPPED:
                 childPid_ = -3;
+                // cerr << " childPid_ = -3 (stopped)\n";
                 ML::futex_wake(childPid_);
                 task_.runResult.updateFromStatus(status.childStatus);
                 task_.statusState = Task::StatusState::DONE;
@@ -337,14 +340,37 @@ attemptTaskTermination()
     /* for a task to be considered done:
        - stdout and stderr must have been closed, provided we redirected them
        - the closing child status must have been returned */
-    if (!stdInSink_ && !stdOutSink_ && !stdErrSink_ && childPid_ < 0
+    if ((!stdInSink_ || stdInSink_->state == OutputSink::CLOSED)
+        && !stdOutSink_ && !stdErrSink_ && childPid_ < 0
         && (task_.statusState == Task::StatusState::STOPPED
             || task_.statusState == Task::StatusState::DONE)) {
         task_.postTerminate(*this);
 
+        // cerr << "terminated task\n";
         running_ = false;
         ML::futex_wake(running_);
     }
+#if 0
+    else {
+        cerr << "cannot terminate yet because:\n";
+        if ((stdInSink_ && stdInSink_->state != OutputSink::CLOSED)) {
+            cerr << "stdin sink active\n";
+        }
+        if (stdOutSink_) {
+            cerr << "stdout sink active\n";
+        }
+        if (stdErrSink_) {
+            cerr << "stderr sink active\n";
+        }
+        if (childPid_ >= 0) {
+            cerr << "childPid_ >= 0\n";
+        }
+        if (!(task_.statusState == Task::StatusState::STOPPED
+              || task_.statusState == Task::StatusState::DONE)) {
+            cerr << "task status != stopped/done\n";
+        }
+    }
+#endif
 }
 
 OutputSink &
@@ -390,6 +416,9 @@ run(const vector<string> & command,
 
     if (stdInSink_) {
         tie(task_.stdInFd, childFds.stdIn) = CreateStdPipe(true);
+    }
+    else if (closeStdin) {
+        childFds.stdIn = -1;
     }
     if (stdOutSink) {
         stdOutSink_ = stdOutSink;
@@ -577,15 +606,17 @@ runWrapper(const vector<string> & command, ChildFds & fds)
     else if (childPid == 0) {
         ::close(childLaunchStatusFd[0]);
 
-        ::setpgid(0, 0);
+        ::setsid();
 
         ::signal(SIGQUIT, SIG_DFL);
         ::signal(SIGTERM, SIG_DFL);
         ::signal(SIGINT, SIG_DFL);
 
         ::prctl(PR_SET_PDEATHSIG, SIGHUP);
-        if (getppid() == 1)
+        if (getppid() == 1) {
+            cerr << "runner: parent process already dead\n";
             ::kill(getpid(), SIGHUP);
+        }
         ::close(fds.statusFd);
         int res = ::execv(command[0].c_str(), argv);
         if (res == -1) {
@@ -784,7 +815,7 @@ closeRemainingFds()
     ::getrlimit(RLIMIT_NOFILE, &limits);
 
     for (int fd = 0; fd < limits.rlim_cur; fd++) {
-        if (fd != STDIN_FILENO
+        if ((fd != STDIN_FILENO || stdIn == -1)
             && fd != STDOUT_FILENO && fd != STDERR_FILENO
             && fd != statusFd) {
             ::close(fd);
@@ -805,7 +836,9 @@ dupToStdStreams()
             }
         }
     };
-    dupToStdStream(stdIn, STDIN_FILENO);
+    if (stdIn != -1) {
+        dupToStdStream(stdIn, STDIN_FILENO);
+    }
     dupToStdStream(stdOut, STDOUT_FILENO);
     dupToStdStream(stdErr, STDERR_FILENO);
 }
@@ -966,7 +999,8 @@ execute(MessageLoop & loop,
         const vector<string> & command,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink,
-        const string & stdInData)
+        const string & stdInData,
+        bool closeStdin)
 {
     RunResult result;
     auto onTerminate = [&](const RunResult & runResult) {
@@ -984,6 +1018,7 @@ execute(MessageLoop & loop,
         sink.requestClose();
     }
     else {
+        runner.closeStdin = closeStdin;
         runner.run(command, onTerminate, stdOutSink, stdErrSink);
     }
 
@@ -998,14 +1033,14 @@ RunResult
 execute(const vector<string> & command,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink,
-        const string & stdInData)
+        const string & stdInData,
+        bool closeStdin)
 {
-    MessageLoop loop;
+    MessageLoop loop(1, 0, -1);
 
     loop.start();
     RunResult result = execute(loop, command, stdOutSink, stdErrSink,
-                               stdInData);
-
+                               stdInData, closeStdin);
     loop.shutdown();
 
     return result;
