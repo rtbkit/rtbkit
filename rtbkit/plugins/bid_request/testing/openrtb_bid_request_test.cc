@@ -24,6 +24,7 @@ vector<string> samples = {
     "rtbkit/plugins/bid_request/testing/openrtb1_req.json",
     "rtbkit/plugins/bid_request/testing/openrtb2_req.json",
     "rtbkit/plugins/bid_request/testing/openrtb3_req.json",
+    "rtbkit/plugins/bid_request/testing/openrtb4_req.json",
     "rtbkit/plugins/bid_request/testing/openrtb_wseat_req.json",
     "rtbkit/plugins/bid_request/testing/openrtb_banner.json",
     "rtbkit/plugins/bid_request/testing/openrtb_expandable_creative.json",
