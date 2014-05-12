@@ -243,7 +243,7 @@ void HttpBidderInterface::sendPingMessage(std::string const & agent,
     const std::string receivedTime = sentTime;
     const std::string pong = (ping == 0 ? "PONG0" : "PONG1");
     std::vector<std::string> message { agent, pong, sentTime, receivedTime };
-    router->doPong(ping, message);
+    router->handleAgentMessage(ping, message);
 }
 
 void HttpBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event) {
