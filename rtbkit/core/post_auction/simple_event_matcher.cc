@@ -5,8 +5,9 @@
    Event matching implementation.
 */
 
-#include "simple_event_matcher.h"
 #include "events.h"
+#include "simple_event_matcher.h"
+#include "jml/utils/guard.h"
 
 #include <iostream>
 
@@ -23,35 +24,24 @@ namespace RTBKIT {
 namespace {
 
 template<typename Value>
-bool findAuction(PendingList<pair<Id,Id>, Value> & pending,
-                 const Id & auctionId)
+bool findAuction(
+        TimeoutMap<pair<Id,Id>, Value> & pending,
+        const std::unordered_map<Id, Id>& spotIdMap,
+        const Id & auctionId, Id & adSpotId, Value & val)
 {
-    auto key = make_pair(auctionId, Id());
-    auto key2 = pending.completePrefix(key, IsPrefixPair());
-    return key2.first == auctionId;
-}
-
-template<typename Value>
-bool findAuction(PendingList<pair<Id,Id>, Value> & pending,
-                 const Id & auctionId,
-                 Id & adSpotId, Value & val)
-{
-    auto key = make_pair(auctionId, adSpotId);
     if (!adSpotId) {
-        auto key2 = pending.completePrefix(key, IsPrefixPair());
-        if (key2.first == auctionId) {
-            adSpotId = key2.second;
-            key = key2;
-        }
-        else return false;
+        auto it = spotIdMap.find(auctionId);
+        if (it == spotIdMap.end()) return false;
+
+        adSpotId = it->second;
     }
 
+    auto key = make_pair(auctionId, adSpotId);
     if (!pending.count(key)) return false;
-    val = pending.get(key);
 
+    val = pending.get(key);
     return true;
 }
-
 
 std::string makeBidId(Id auctionId, Id spotId, const std::string & agent)
 {
@@ -89,6 +79,9 @@ expireSubmitted(Date start, const pair<Id, Id> & key, const SubmissionInfo & inf
     const Id & auctionId = key.first;
     const Id & adSpotId = key.second;
 
+    // Just making sure it doesn't leak if doBidResult throws.
+    spotIdMap.erase(key.first);
+
     recordHit("submittedAuctionExpiry");
 
     if (!info.bidRequest) {
@@ -121,6 +114,8 @@ Date
 SimpleEventMatcher::
 expireFinished(const pair<Id, Id> & key, const FinishedInfo & info)
 {
+    spotIdMap.erase(key.first);
+
     recordHit("finishedAuctionExpiry");
     return Date();
 }
@@ -197,6 +192,8 @@ doAuction(std::shared_ptr<SubmittedAuctionEvent> event)
         vector<std::shared_ptr<PostAuctionEvent> > earlyWinEvents;
         if (submitted.count(key)) {
             submission = submitted.pop(key);
+            spotIdMap.erase(key.first);
+
             earlyWinEvents.swap(submission.earlyWinEvents);
             recordHit("auctionAlreadySubmitted");
         }
@@ -207,7 +204,8 @@ doAuction(std::shared_ptr<SubmittedAuctionEvent> event)
         submission.augmentations = std::move(event->augmentations);
         submission.bid = std::move(event->bidResponse);
 
-        submitted.insert(key, submission, lossTimeout);
+        submitted.emplace(key, submission, lossTimeout);
+        spotIdMap[key.first] = key.second;
 
         string transId =
             makeBidId(auctionId, event->adSpotId, submission.bid.agent);
@@ -301,12 +299,13 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
 
             info.forceWin(timestamp, winPrice, winPrice, meta.toString());
 
-            finished.update(key, info);
+            finished.get(key) = info;
 
             doMatchedWinLoss(std::make_shared<MatchedWinLoss>(
                             MatchedWinLoss::LateWin,
                             MatchedWinLoss::Guaranteed,
                             *event, info));
+
 
             recordHit("bidResult.%s.winAfterLossAssumed", typeStr);
             recordOutcome(winPrice.value,
@@ -337,7 +336,8 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
             */
             SubmissionInfo info;
             info.earlyWinEvents.push_back(event);
-            submitted.insert(key, info, Date::now().plusSeconds(lossTimeout));
+            submitted.emplace(key, info, Date::now().plusSeconds(lossTimeout));
+            spotIdMap[key.first] = key.second;
 
             return;
         }
@@ -365,11 +365,13 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
     }
 
     SubmissionInfo info = submitted.pop(key);
-    if (!info.bidRequest) {
+    spotIdMap.erase(key.first);
 
+    if (!info.bidRequest) {
         // We doubled up on a WIN without having got the auction yet
         info.earlyWinEvents.push_back(event);
-        submitted.insert(key, info, Date::now().plusSeconds(lossTimeout));
+        submitted.emplace(key, info, Date::now().plusSeconds(lossTimeout));
+        spotIdMap[key.first] = key.second;
         return;
     }
 
@@ -415,7 +417,7 @@ doCampaignEvent(std::shared_ptr<PostAuctionEvent> event)
         doUnmatchedEvent(std::make_shared<UnmatchedEvent>(why, *event));
     };
 
-    if (findAuction(submitted, auctionId, adSpotId, submissionInfo)) {
+    if (findAuction(submitted, spotIdMap, auctionId, adSpotId, submissionInfo)) {
         // Record the impression or click in the submission info.  This will
         // then be passed on once the win comes in.
         //
@@ -428,11 +430,12 @@ doCampaignEvent(std::shared_ptr<PostAuctionEvent> event)
         recordUnmatched("inFlight");
 
         submissionInfo.earlyCampaignEvents.push_back(event);
-        submitted.update(make_pair(auctionId, adSpotId), submissionInfo);
+        submitted.get(make_pair(auctionId, adSpotId)) = submissionInfo;
+        spotIdMap[auctionId] = adSpotId;
         return;
     }
 
-    else if (findAuction(finished, auctionId, adSpotId, finishedInfo)) {
+    else if (findAuction(finished, spotIdMap, auctionId, adSpotId, finishedInfo)) {
         // Update the info
         if (finishedInfo.campaignEvents.hasEvent(label)) {
             recordHit("delivery.%s.duplicate", label);
@@ -456,7 +459,7 @@ doCampaignEvent(std::shared_ptr<PostAuctionEvent> event)
         // properly
         finishedInfo.addUids(uids);
 
-        finished.update(key, finishedInfo);
+        finished.get(key) = finishedInfo;
 
         doMatchedCampaignEvent(
                 std::make_shared<MatchedCampaignEvent>(label, finishedInfo));
@@ -593,7 +596,8 @@ doBidResult(
         expiryInterval = auctionTimeout;
 
     Date expiryTime = Date::now().plusSeconds(expiryInterval);
-    finished.insert(make_pair(auctionId, adSpotId), i, expiryTime);
+    finished.emplace(make_pair(auctionId, adSpotId), i, expiryTime);
+    spotIdMap[auctionId] = adSpotId;
 }
 
 
@@ -631,6 +635,8 @@ std::string stringifyPair(const std::pair<Id, Id> & vals)
 
 } // file scope
 
+
+#if 0 // Persistence layer that needs to be reworked.
 
 void
 SimpleEventMatcher::
@@ -767,5 +773,6 @@ initStatePersistence(const std::string & path)
     // loop.startSubordinateThread(backgroundWork);
 }
 
+#endif
 
 } // RTBKIT

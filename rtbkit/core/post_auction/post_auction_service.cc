@@ -120,8 +120,6 @@ initMatcher(size_t shards)
         ShardedEventMatcher* m;
         matcher.reset(m = new ShardedEventMatcher(serviceName(), getServices()));
         m->init(shards);
-
-        loopMonitor.addMessageLoop("matcher", m);
         loop.addSource("PostAuctionService::matcher", *m);
     }
 
@@ -193,7 +191,7 @@ initConnections()
     loop.addSource("PostAuctionService::configListener", configListener);
 
     // Every second we check for expired auctions
-    loop.addPeriodic("PostAuctionService::checkExpiredAuctions", 1.0,
+    loop.addPeriodic("PostAuctionService::checkExpiredAuctions", 0.1,
             std::bind(&EventMatcher::checkExpiredAuctions, matcher.get()));
 
 }
