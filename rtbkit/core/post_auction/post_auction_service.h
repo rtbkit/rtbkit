@@ -204,6 +204,8 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
 
     } stats;
 
+    float sampleLoad() const { return loopMonitor.sampleLoad().load; }
+
     static Logging::Category print;
     static Logging::Category error;
     static Logging::Category trace;
