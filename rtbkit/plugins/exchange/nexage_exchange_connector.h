@@ -6,6 +6,7 @@
 #pragma once
 
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
+#include "rtbkit/common/creative_configuration.h"
 
 namespace RTBKIT {
 
@@ -31,6 +32,8 @@ struct NexageExchangeConnector: public OpenRTBExchangeConnector {
         return exchangeNameString();
     }
 
+    void init();
+
     virtual std::shared_ptr<BidRequest>
     parseBidRequest(HttpAuctionHandler & connection,
                     const HttpHeader & header,
@@ -55,7 +58,6 @@ struct NexageExchangeConnector: public OpenRTBExchangeConnector {
     */
     struct CampaignInfo {
         Id seat;          ///< ID of the Nexage exchange seat
-        std::string iurl; ///< Image URL for content checkin
     };
 
     virtual ExchangeCompatibility
@@ -67,10 +69,15 @@ struct NexageExchangeConnector: public OpenRTBExchangeConnector {
     */
     struct CreativeInfo {
         Id crid;                ///< ID Creative Id
+        std::string iurl;       ///< Image URL for content checkin
         std::string  nurl;      ///< win notif url (optional)
         std::string  adm;       ///< XHTML markup  (optional)
         std::vector<std::string> adomain;    ///< Advertiser Domain
+        OpenRTB::List<OpenRTB::ContentCategory> cat;    ///< Creative category Appendix 6.1
+        OpenRTB::List<OpenRTB::CreativeAttribute>  attr;///< Creative attributes Appendix 6.3
     };
+
+    typedef CreativeConfiguration<CreativeInfo> NexageCreativeConfiguration;
 
     virtual ExchangeCompatibility
     getCreativeCompatibility(const Creative & creative,
@@ -80,10 +87,16 @@ struct NexageExchangeConnector: public OpenRTBExchangeConnector {
     static float decodeWinPrice(const std::string & sharedSecret,
                                 const std::string & winPriceStr);
 
+    virtual bool bidRequestCreativeFilter(const BidRequest & request,
+                                          const AgentConfig & config,
+                                          const void * info) const;
+
   private:
     virtual void setSeatBid(Auction const & auction,
                             int spotNum,
                             OpenRTB::BidResponse & response) const;
+
+    NexageCreativeConfiguration configuration_;
 };
 
 
