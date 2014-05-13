@@ -75,22 +75,8 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
         OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
         bool ok = prepareRequest(openRtbRequest, originalRequest, bidders);
-        auto submitNoBid = [&]() {
-            Bids bids;
-            for_each(begin(openRtbRequest.imp), end(openRtbRequest.imp),
-                     [&](const OpenRTB::Impression &imp) {
-                Bid theBid;
-                theBid.price = USD_CPM(0);
-                bids.push_back(move(theBid));
-            });
-            submitBids(agent, auction->id, bids, wcm);
-        };
-
-        /* If we took too much time processing the request, then we don't send it.
-           Instead, we're making null bids for each impression
-        */
+        /* If we took too much time processing the request, then we don't send it.  */
         if (!ok) {
-            submitNoBid();
             return;
         }
         StructuredJsonPrintingContext context;
@@ -120,11 +106,9 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                             ExcCheck(false, "Invalid code path");
                             return "";
                         };
-                        cerr << "Error requesting " << host
-                                  << ": " << toErrorString(errorCode);
-                      }
-                      else if (statusCode == 204) {
-                         submitNoBid();
+                        router->throwException("http", "Error requesting %s: %s",
+                                               host.c_str(),
+                                               toErrorString(errorCode).c_str());
                       }
                       else if (statusCode == 200) {
                         // cerr << "Response: " << body << endl;
@@ -146,8 +130,8 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                      &Creative::id, crid);
 
                                  if (creativeIndex == -1) {
-                                     throw ML::Exception(ML::format(
-                                        "Unknown creative id: %d", crid));
+                                     router->throwException("http.response",
+                                        "Unknown creative id: %d", crid);
                                  }
 
                                  theBid.creativeIndex = creativeIndex;
@@ -157,8 +141,9 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                  int spotIndex = indexOf(openRtbRequest.imp,
                                                         &OpenRTB::Impression::id, bid.impid);
                                  if (spotIndex == -1) {
-                                     throw ML::Exception(ML::format(
-                                         "Unknown impression id: %s", bid.impid.toString()));
+                                      router->throwException("http.response",
+                                         "Unknown impression id: %s",
+                                         bid.impid.toString().c_str());
                                  }
 
                                  theBid.spotIndex = spotIndex;
