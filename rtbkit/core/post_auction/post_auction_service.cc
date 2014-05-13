@@ -87,7 +87,11 @@ init(size_t shards)
     loopMonitor.init();
     loopMonitor.addMessageLoop("postAuctionLoop", &loop);
 
-    initBidderInterface();
+    if(!bidder) {
+        Json::Value json;
+        json["type"] = "agents";
+        initBidderInterface(json);
+    }
 
     initMatcher(shards);
     initConnections();
@@ -96,10 +100,8 @@ init(size_t shards)
 
 void
 PostAuctionService::
-initBidderInterface()
+initBidderInterface(Json::Value const & json)
 {
-    Json::Value json;
-    json["type"] = "agents";
     bidder = BidderInterface::create("bidder", getServices(), json);
     bidder->init(&bridge);
 }

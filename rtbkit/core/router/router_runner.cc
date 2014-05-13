@@ -67,7 +67,7 @@ doOptions(int argc, char ** argv,
          "URI to publish logs to")
         ("exchange-configuration,x", value<string>(&exchangeConfigurationFile),
          "configuration file with exchange data")
-        ("bidder-configuration,b", value<string>(&bidderConfigurationFile),
+        ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
         ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
          "log auction requests")
@@ -112,6 +112,7 @@ init()
                                       connectPostAuctionLoop,
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice));
+    router->initBidderInterface(bidderConfig);
     router->init();
 
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,

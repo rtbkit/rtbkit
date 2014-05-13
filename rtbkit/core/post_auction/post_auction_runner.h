@@ -29,7 +29,7 @@ struct PostAuctionRunner {
     size_t shards;
     float auctionTimeout;
     float winTimeout;
-
+    std::string bidderConfigurationFile;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
