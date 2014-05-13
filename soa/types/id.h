@@ -196,6 +196,11 @@ struct Id {
         return val < other.val;
     }
 
+    bool operator > (const Id & other) const
+    {
+        return (*this != other && !(*this < other));
+    }
+
     uint64_t hash() const
     {
         if (type == NONE || type == NULLID) return 0;

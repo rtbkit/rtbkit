@@ -104,6 +104,9 @@ struct Runner: public Epoller {
 
     OutputSink & getStdInSink();
 
+    /* Close stdin at launch time if stdin sink was not queried. */
+    bool closeStdin;
+
     /** Run the subprocess. */
     void run(const std::vector<std::string> & command,
              const OnTerminate & onTerminate = nullptr,
@@ -130,7 +133,8 @@ struct Runner: public Epoller {
     /** Is the subprocess running? */
     bool running() const { return running_; }
 
-    /** Process ID of the child process.  Returns -1 if not running. */
+    /** Process ID of the child process. Returns -1 if not running, -2 in case
+        of a launch error, -3 when terminated. */
     pid_t childPid() const { return childPid_; }
 
 private:
@@ -257,12 +261,14 @@ RunResult execute(MessageLoop & loop,
                   const std::vector<std::string> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
-                  const std::string & stdInData = "");
+                  const std::string & stdInData = "",
+                  bool closeStdin = false);
 
 /** Execute a command synchronously using its own message loop. */
 RunResult execute(const std::vector<std::string> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
-                  const std::string & stdInData = "");
+                  const std::string & stdInData = "",
+                  bool closeStdin = false);
 
 } // namespace Datacratic

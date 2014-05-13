@@ -29,22 +29,31 @@ struct Epoller: public AsyncEventSource {
 
     ~Epoller();
 
-    void init(int maxFds);
+    void init(int maxFds, int timeout = 0);
 
     void close();
 
     /** Add the given fd to multiplex fd.  It will repeatedly wake up the
         loop without being restarted.
     */
-    void addFd(int fd, void * data = 0);
+    void addFd(int fd, void * data = 0)
+    {
+        performAddFd(fd, data, false, false);
+    }
     
     /** Add the given fd to wake up one a one-shot basis.  It will need to
         be restarted once the event is handled.
     */
-    void addFdOneShot(int fd, void * data = 0);
+    void addFdOneShot(int fd, void * data = 0)
+    {
+        performAddFd(fd, data, true, false);
+    }
 
     /** Restart a woken up one-shot fd. */
-    void restartFdOneShot(int fd, void * data = 0);
+    void restartFdOneShot(int fd, void * data = 0)
+    {
+        performAddFd(fd, data, true, true);
+    }
 
     /** Remove the given fd from the multiplexer set. */
     void removeFd(int fd);
@@ -66,9 +75,10 @@ struct Epoller: public AsyncEventSource {
         
         Returns the number of events handled or -1 if a handler forced the
         event handler to exit.
+
     */
 
-    int handleEvents(int usToWait = 0, int nEvents = 1,
+    int handleEvents(int usToWait = 0, int nEvents = -1,
                      const HandleEvent & handleEvent = HandleEvent(),
                      const OnEvent & beforeSleep = OnEvent(),
                      const OnEvent & afterSleep = OnEvent());
@@ -87,8 +97,17 @@ struct Epoller: public AsyncEventSource {
     }
     
 private:
+    /* Perform the fd addition and modification */
+    void performAddFd(int fd, void * data, bool oneShot, bool restart);
+
     /* Fd for the epoll mechanism. */
     int epoll_fd;
+
+    /* Timeout value to use for epoll_wait */
+    int timeout_;
+
+    /* Number of registered file descriptors */
+    size_t numFds_;
 };
 
 } // namespace Datacratic

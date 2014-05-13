@@ -63,27 +63,13 @@ struct AgentsBidderInterface : public BidderInterface
                             double timeLeftMs,
                             std::map<std::string, BidInfo> const & bidders);
 
-    void sendWinMessage(std::string const & agent,
-                        std::string const & id,
-                        Amount price);
-
-    void sendWinMessage(std::string const & agent,
-                        Amount price,
-                        FinishedInfo const & event);
-
-    void sendLateWinMessage(std::string const & agent,
-                            Amount price,
-                            FinishedInfo const & event);
+    void sendWinLossMessage(MatchedWinLoss const & event);
 
     void sendLossMessage(std::string const & agent,
                          std::string const & id);
 
-    void sendLossMessage(std::string const & agent,
-                         FinishedInfo const & event);
-
     void sendCampaignEventMessage(std::string const & agent,
-                                  std::string const & label,
-                                  FinishedInfo const & event);
+                                  MatchedCampaignEvent const & event);
 
     void sendBidLostMessage(std::string const & agent,
                             std::shared_ptr<Auction> const & auction);

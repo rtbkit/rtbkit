@@ -159,12 +159,13 @@ OpenRTBBidSource::
 parseResponse(const std::string& rawResponse) -> std::pair<bool, std::vector<Bid>> {
     OpenRTB::BidResponse response;
 
-    if(rawResponse.empty()) {
+    if(rawResponse.empty() || rawResponse.find("204 No Content") == std::string::npos ) {
         return std::make_pair(false, std::vector<Bid>());
     }
 
     try {
         HttpHeader header;
+
         header.parse(rawResponse);
         if (!header.contentLength || header.resource != "200") {
             //std::cerr << rawResponse << std::endl;

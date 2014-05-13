@@ -1,51 +1,20 @@
-/* post_auction_loop_types.h                                             -*- C++ -*-
-   Jeremy Barnes, 30 May 2012
-   Router post-auction loop.
+/** finished_info.h                                 -*- C++ -*-
+    Rémi Attab, 18 Apr 2014
+    Copyright (c) 2014 Datacratic.  All rights reserved.
+
+    Information related to bids that were associated with a win.
+
 */
 
 #pragma once
 
-#include <unordered_map>
 #include "rtbkit/common/auction.h"
 #include "rtbkit/common/auction_events.h"
+#include "soa/types/string.h"
+
+#include <memory>
 
 namespace RTBKIT {
-
-/*****************************************************************************/
-/* SUBMISSION INFO                                                           */
-/*****************************************************************************/
-
-/** Information we track (persistently) about an auction that has been
-    submitted and for which we are waiting for information about whether
-    it is won or not.
-*/
-
-struct SubmissionInfo {
-    SubmissionInfo()
-        : fromOldRouter(false)
-    {
-    }
-
-    std::shared_ptr<BidRequest> bidRequest;
-    Datacratic::UnicodeString bidRequestStr;
-    std::string bidRequestStrFormat;
-    JsonHolder augmentations;
-    Auction::Response  bid;               ///< Bid we passed on
-    bool fromOldRouter;                   ///< Was reconstituted
-
-    /** If the timeout races with the last bid or the router event loop
-        is very busy (as it only processes timeouts when it is idle),
-        it is possible that we get a WIN message before we have finished
-        the acution.  In this case, we record that message here and replay
-        it after the auction has finished.
-    */
-    std::vector<std::shared_ptr<PostAuctionEvent> > earlyWinEvents;
-    std::vector<std::shared_ptr<PostAuctionEvent> > earlyCampaignEvents;
-
-    std::string serializeToString() const;
-    void reconstituteFromString(const std::string & str);
-};
-
 
 /*****************************************************************************/
 /* FINISHED INFO                                                             */
@@ -96,18 +65,27 @@ struct FinishedInfo {
     Json::Value bidToJson() const;
 
     bool hasWin() const { return winTime != Date(); }
-    void setWin(Date winTime, BidStatus status, Amount winPrice,
-                const std::string & winMeta)
+    void setWin(
+            Date winTime,
+            BidStatus status,
+            Amount winPrice,
+            Amount rawWinPrice,
+            const std::string & winMeta)
     {
         ExcCheck(!hasWin(), "already has win");
 
         this->winTime = winTime;
         this->reportedStatus = status;
         this->winPrice = winPrice;
+        this->rawWinPrice = rawWinPrice;
         this->winMeta = winMeta;
     }
 
-    void forceWin(Date winTime, Amount winPrice, const std::string & winMeta)
+    void forceWin(
+            Date winTime,
+            Amount winPrice,
+            Amount rawWinPrice,
+            const std::string & winMeta)
     {
         ExcCheck(!hasWin() || (reportedStatus == BS_LOSS),
                 "only losses can be overriden");
@@ -115,12 +93,14 @@ struct FinishedInfo {
         this->winTime = winTime;
         this->reportedStatus = BS_WIN;
         this->winPrice = winPrice;
+        this->rawWinPrice = rawWinPrice;
         this->winMeta = winMeta;
     }
 
     Date winTime;                ///< Time at which win received
     BidStatus reportedStatus;    ///< Whether we think we won it or lost it
-    Amount winPrice;             ///< Win price
+    Amount winPrice;             ///< Win price Post-WinPriceCostModel
+    Amount rawWinPrice;          ///< Win price Pre-WinPriceCostModel
     std::string winMeta;         ///< Metadata from win
     Json::Value winToJson() const;
 
@@ -153,5 +133,5 @@ struct FinishedInfo {
     void reconstituteFromString(const std::string & str);
 };
 
-} // namespace RTBKIT
 
+} // namespace RTBKIT
