@@ -96,13 +96,13 @@ BOOST_AUTO_TEST_CASE( test_nexage )
     std::string hostName = ML::fqdn_hostname(portName) + ":" + portName;
 
     agent.config.providerConfig["nexage"]["seat"] = "123";
-    agent.config.providerConfig["nexage"]["iurl"] = "http://www.gnu.org";
 
 
     // Configure the agent for bidding
     for (auto & c: agent.config.creatives) {
         c.providerConfig["nexage"]["adomain"][0] = "rtbkit.org";
         c.providerConfig["nexage"]["crid"] = c.name;
+        c.providerConfig["nexage"]["iurl"] = "http://www.gnu.org";
         c.providerConfig["nexage"]["nurl"]
             = "<img src=\"http://dsp.com/creative.png?width="
               + std::to_string(c.format.width)
