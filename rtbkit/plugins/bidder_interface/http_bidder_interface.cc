@@ -18,27 +18,6 @@ using namespace RTBKIT;
 namespace {
     DefaultDescription<OpenRTB::BidRequest> desc;
 
-    void tagRequest(OpenRTB::BidRequest &request,
-                    const std::map<std::string, BidInfo> &bidders)
-    {
-
-        for (const auto &bidder: bidders) {
-            const auto &agentConfig = bidder.second.agentConfig;
-            const auto &spots = bidder.second.imp;
-
-            for (const auto &spot: spots) {
-                const int adSpotIndex = spot.first;
-                ExcCheck(adSpotIndex >= 0 && adSpotIndex < request.imp.size(),
-                         "adSpotIndex out of range");
-                auto &imp = request.imp[adSpotIndex];
-                auto &ext = imp.ext;
-
-                ext["allowed_ids"].append(agentConfig->externalId);
-            }
-
-        }
-
-    }
 }
 
 
@@ -217,6 +196,28 @@ void HttpBidderInterface::sendPingMessage(std::string const & agent,
 }
 
 void HttpBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event) {
+}
+
+void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
+                                     const std::map<std::string, BidInfo> &bidders) const
+{
+
+    for (const auto &bidder: bidders) {
+        const auto &agentConfig = bidder.second.agentConfig;
+        const auto &spots = bidder.second.imp;
+
+        for (const auto &spot: spots) {
+            const int adSpotIndex = spot.first;
+            ExcCheck(adSpotIndex >= 0 && adSpotIndex < request.imp.size(),
+                     "adSpotIndex out of range");
+            auto &imp = request.imp[adSpotIndex];
+            auto &ext = imp.ext;
+
+            ext["allowed_ids"].append(agentConfig->externalId);
+        }
+
+    }
+
 }
 
 bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
