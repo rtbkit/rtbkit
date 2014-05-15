@@ -23,6 +23,7 @@
 #ifndef __arch__threads_h__
 #define __arch__threads_h__ 1
 
+#include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <mutex>
