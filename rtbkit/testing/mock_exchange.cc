@@ -8,7 +8,6 @@
 
 #include "mock_exchange.h"
 
-#include "rtbkit/core/post_auction/post_auction_loop.h"
 #include "soa/service/http_header.h"
 #include "jml/utils/smart_ptr_utils.h"
 
@@ -111,33 +110,33 @@ run() {
 
 bool
 MockExchange::Worker::bid() {
+
     for (;;) {
         auto br = bids->sendBidRequest();
         exchange->recordHit("requests");
-
-        auto response = bids->receiveBid();
+                auto response = bids->receiveBid();
         exchange->recordHit("responses");
 
-        if (!response.first) break;
         vector<ExchangeSource::Bid> items = response.second;
+
+        if (!response.first || items.empty()) {
+            exchange->recordHit("noBids");
+            break;
+        }
 
         for (auto & bid : items) {
             if(bid.maxPrice == 0) continue;
-            exchange->recordHit("responses");
+            exchange->recordHit("bids");
 
             if (!wins) break;
 
             auto ret = isWin(br, bid);
             if (!ret.first) continue;
-			ML::sleep(0.5);
+            ML::sleep(0.5);
 
 			bid.bidTimestamp = Date::now();
-
             wins->sendWin(br, bid, ret.second);
             exchange->recordHit("wins");
-
-            events->sendImpression(br, bid);
-            exchange->recordHit("impressions");
 
             if (!isClick(br, bid)) continue;
             events->sendClick(br, bid);

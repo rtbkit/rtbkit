@@ -20,9 +20,10 @@ HttpService::
 
 void
 HttpService::
-start()
+start(const string & address, int numThreads)
 {
-    init(portToUse, "127.0.0.1", 1);
+    init(portToUse, address, numThreads);
+    waitListening();
 }
 
 shared_ptr<ConnectionHandler>
