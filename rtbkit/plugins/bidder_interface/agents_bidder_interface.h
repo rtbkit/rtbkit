@@ -6,33 +6,10 @@
 #pragma once
 
 #include "rtbkit/common/bidder_interface.h"
-#include "rtbkit/core/router/filters/generic_creative_filters.h"
 #include "soa/jsoncpp/json.h"
 #include <iostream>
 
 namespace RTBKIT {
-
-struct AllowedIdsCreativeExchangeFilter
-    : public IterativeCreativeFilter<AllowedIdsCreativeExchangeFilter>
-{
-    static constexpr const char *name = "AllowedIdsCreativeExchangeFilter";
-
-    bool filterCreative(FilterState &state, const AdSpot &spot,
-                        const AgentConfig &config, const Creative &) const
-    {
-        if (!spot.ext.isMember("allowed_ids")) {
-            return true;
-        }
-
-        const auto &allowed_ids = spot.ext["allowed_ids"];
-        auto it = std::find_if(std::begin(allowed_ids), std::end(allowed_ids),
-                      [&](const Json::Value &value) {
-                         return value.isIntegral() && value.asInt() == config.externalId;
-                  });
-        return it != std::end(allowed_ids);
-    }
-
-};
 
 struct AgentsBidderInterface : public BidderInterface
 {
