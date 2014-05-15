@@ -29,7 +29,7 @@ sendImpression(const BidRequest& bidRequest, const Bid& bid)
     json["auctionId"] = bidRequest.auctionId.toString();
     json["adSpotId"] = bid.adSpotId.toString();
     json["userIds"] = bidRequest.userIds.toJson();
-    json["event"] = "IMPRESSION";
+    json["event"] = "CONVERSION";
     sendEvent(json); 
 }
 
@@ -54,7 +54,7 @@ sendEvent(Json::Value const & json)
 {
     std::string str = json.toString();
     std::string httpRequest = ML::format(
-            "POST /win HTTP/1.1\r\n"
+            "POST /events HTTP/1.1\r\n"
             "Content-Length: %zd\r\n"
             "Content-Type: application/json\r\n"
             "Connection: Keep-Alive\r\n"

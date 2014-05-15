@@ -42,7 +42,7 @@ sendEvent(Json::Value const & json)
 {
     std::string str = json.toString();
     std::string httpRequest = ML::format(
-        "POST /win HTTP/1.1\r\n"
+        "POST /wins HTTP/1.1\r\n"
         "Content-Length: %zd\r\n"
         "Content-Type: application/json\r\n"
         "Connection: Keep-Alive\r\n"

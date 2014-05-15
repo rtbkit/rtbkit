@@ -111,6 +111,9 @@ generateRequest()
     imp.banner.reset(new OpenRTB::Banner);
     imp.banner->w.push_back(300);
     imp.banner->h.push_back(250);
+    req.user.reset(new OpenRTB::User);
+    req.user->id = Id(rng.random());
+    req.user->buyeruid = Id(rng.random());
 
     return req;
 }
