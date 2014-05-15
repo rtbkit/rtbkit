@@ -12,7 +12,7 @@
 #include "rtbkit/core/monitor/monitor_endpoint.h"
 #include "rtbkit/core/banker/master_banker.h"
 #include "rtbkit/core/banker/slave_banker.h"
-#include "rtbkit/core/post_auction/post_auction_loop.h"
+#include "rtbkit/core/post_auction/post_auction_service.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
 #include "soa/service/testing/redis_temporary_server.h"
 
@@ -119,28 +119,6 @@ struct RouterStack: public ServiceBase {
                                             timestamp, eventMeta, uids);
     }
 
-    /** Notify the router that the given auction/spot will never receive
-        another message and should be forgotten.  This is mostly for the
-        simulation.
-
-        This message is the preferred way for a simulation to notify the
-        router that things are finished; normally auctions finish by
-        themselves (once submitted) but the auction/spot combination stays
-        alive much longer waiting for further messages.  You should only
-        call finishedAuction in rare cases when you want to cancel an
-        auction before bidding has finished.
-
-        If the auction doesn't exist, the message will be silently ignored.
-
-        There is no penalty for not calling this, apart from potentially
-        having to wait one hour before the simulation decides that it is
-        finished.
-    */
-    void notifyFinishedSpot(const Id & auctionId, const Id & adSpotId)
-    {
-        postAuctionLoop.notifyFinishedSpot(auctionId, adSpotId);
-    }
-
     /** Place where the state persistence should be put. */
     void initStatePersistence(const std::string & path)
     {
@@ -165,7 +143,7 @@ struct RouterStack: public ServiceBase {
     MasterBanker masterBanker;
     SlaveBudgetController budgetController;
 
-    PostAuctionLoop postAuctionLoop;
+    PostAuctionService postAuctionLoop;
     AgentConfigurationService config;
 
     MonitorEndpoint monitor;

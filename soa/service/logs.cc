@@ -5,8 +5,13 @@
    Basic logs
 */
 
-#include <iostream>
 #include "soa/service/logs.h"
+#include "jml/utils/exc_check.h"
+
+#include <iostream>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
 
 using namespace Datacratic;
 
@@ -52,68 +57,211 @@ void Logging::JsonWriter::body(std::string const & content) {
     stream.str("");
 }
 
-Logging::Category::Category(char const * name, Category & super) :
-    initialized(true),
-    enabled(true),
-    name(name),
-    parent(&super)
-{
-    if(parent != this) {
-        nextChild = parent->children;
-        parent->children = this;
+namespace {
+
+struct Registry {
+    std::mutex lock;
+    std::unordered_map<std::string, std::unique_ptr<Logging::CategoryData> > categories;
+};
+
+Registry& getRegistry() {
+    // Will leak but that's on program exit so who cares.
+    static Registry* registry = new Registry;
+
+    return *registry;
+}
+
+} // namespace anonymous
+
+struct Logging::CategoryData {
+    bool initialized;
+    bool enabled;
+    char const * name;
+    std::shared_ptr<Writer> writer;
+    std::stringstream stream;
+
+    CategoryData * parent;
+    std::vector<CategoryData *> children;
+
+    static CategoryData * getRoot();
+    static CategoryData * get(char const * name);
+
+    static CategoryData * create(char const * name, char const * super);
+    static void destroy(CategoryData * name);
+
+    void activate(bool recurse = true);
+    void deactivate(bool recurse = true);
+    void writeTo(std::shared_ptr<Writer> output, bool recurse = true);
+
+private:
+
+    CategoryData(char const * name) :
+        initialized(false),
+        enabled(true),
+        name(name),
+        parent(nullptr) {
     }
 
-    // Make sure to propagate our state to any children who were initialized
-    // before we were.
+};
 
-    if(parent->initialized && parent != this) {
-        parent->enabled ? activate() : deactivate();
-        writeTo(parent->writer);
+Logging::CategoryData * Logging::CategoryData::get(char const * name) {
+    Registry& registry = getRegistry();
+
+    auto it = registry.categories.find(name);
+    return it != registry.categories.end() ? it->second.get() : nullptr;
+}
+
+Logging::CategoryData * Logging::CategoryData::getRoot() {
+    CategoryData * root = get("*");
+    if (root) return root;
+
+    getRegistry().categories["*"].reset(root = new CategoryData("*"));
+    root->parent = root;
+    root->writer = std::make_shared<ConsoleWriter>();
+
+    return root;
+}
+
+Logging::CategoryData * Logging::CategoryData::create(char const * name, char const * super) {
+    Registry& registry = getRegistry();
+    std::lock_guard<std::mutex> guard(registry.lock);
+
+    CategoryData * root = getRoot();
+    CategoryData * data = get(name);
+
+    if (!data) {
+        registry.categories[name].reset(data = new CategoryData(name));
     }
     else {
-        enabled ? activate() : deactivate();
-        writeTo(std::make_shared<ConsoleWriter>());
+        ExcCheck(!data->initialized,
+                "making duplicate category: " + std::string(name));
     }
+
+    data->initialized = true;
+
+    data->parent = get(super);
+    if (!data->parent) {
+        registry.categories[super].reset(data->parent = new CategoryData(super));
+    }
+
+    data->parent->children.push_back(data);
+
+    if (data->parent->initialized) {
+        data->writer = data->parent->writer;
+        data->enabled = data->parent->enabled;
+    }
+    else {
+        data->writer = root->writer;
+        data->enabled = root->enabled;
+    }
+
+    return data;
 }
 
-bool Logging::Category::isEnabled() const {
-    return enabled;
+void Logging::CategoryData::destroy(CategoryData * data) {
+    if (data->parent == data) return;
+
+    Registry& registry = getRegistry();
+    std::string name = data->name;
+
+    std::lock_guard<std::mutex> guard(registry.lock);
+
+    auto dataIt = registry.categories.find(name);
+    ExcCheck(dataIt != registry.categories.end(),
+            "double destroy of a category: " + name);
+
+    auto& children = data->parent->children;
+
+    auto childIt = std::find(children.begin(), children.end(), data);
+    if (childIt != children.end()) {
+        children.erase(childIt);
+    }
+
+    CategoryData* root = getRoot();
+    for (auto& child : data->children) {
+        child->parent = root;
+    }
+
+    registry.categories.erase(dataIt);
 }
 
-bool Logging::Category::isDisabled() const {
-    return !enabled;
-}
 
-void Logging::Category::activate(bool recurse) {
+void Logging::CategoryData::activate(bool recurse) {
     enabled = true;
     if(recurse) {
-        for(auto item = children; item; item = item->nextChild) {
+        for(auto item : children) {
             item->activate(recurse);
         }
     }
 }
 
-void Logging::Category::deactivate(bool recurse) {
+void Logging::CategoryData::deactivate(bool recurse) {
     enabled = false;
     if(recurse) {
-        for(auto item = children; item; item = item->nextChild) {
+        for(auto item : children) {
             item->deactivate(recurse);
         }
     }
 }
 
-void Logging::Category::writeTo(std::shared_ptr<Writer> output, bool recurse) {
+void Logging::CategoryData::writeTo(std::shared_ptr<Writer> output, bool recurse) {
     writer = output;
     if(recurse) {
-        for(auto item = children; item; item = item->nextChild) {
+        for(auto item : children) {
             item->writeTo(output, recurse);
         }
     }
 }
 
+Logging::Category& Logging::Category::root() {
+    static Category root(CategoryData::getRoot());
+    return root;
+}
+
+Logging::Category::Category(CategoryData * data) :
+    data(data) {
+}
+
+Logging::Category::Category(char const * name, Category & super) :
+    data(CategoryData::create(name, super.name())) {
+}
+
+Logging::Category::Category(char const * name, char const * super) :
+    data(CategoryData::create(name, super)) {
+}
+
+Logging::Category::~Category()
+{
+    CategoryData::destroy(data);
+}
+
+char const * Logging::Category::name() const {
+    return data->name;
+}
+
+bool Logging::Category::isEnabled() const {
+    return data->enabled;
+}
+
+bool Logging::Category::isDisabled() const {
+    return !data->enabled;
+}
+
 auto Logging::Category::getWriter() const -> std::shared_ptr<Writer> const &
 {
-    return writer;
+    return data->writer;
+}
+
+void Logging::Category::activate(bool recurse) {
+    data->activate(recurse);
+}
+
+void Logging::Category::deactivate(bool recurse) {
+    data->deactivate(recurse);
+}
+
+void Logging::Category::writeTo(std::shared_ptr<Writer> output, bool recurse) {
+    data->writeTo(output, recurse);
 }
 
 std::ostream & Logging::Category::beginWrite(char const * fct, char const * file, int line) {
@@ -123,11 +271,9 @@ std::ostream & Logging::Category::beginWrite(char const * fct, char const * file
     auto count = strftime(text, sizeof(text), "%Y-%m-%d %H:%M:%S", localtime(&now.tv_sec));
     int ms = now.tv_usec / 1000;
     sprintf(text + count, ".%03d", ms);
-    writer->head(text, name, fct, file, line);
-    return stream;
+    data->writer->head(text, data->name, fct, file, line);
+    return data->stream;
 }
-
-Logging::Category Logging::Category::root("*");
 
 void Logging::Printer::operator&(std::ostream & stream) {
     std::stringstream & text = (std::stringstream &) stream;

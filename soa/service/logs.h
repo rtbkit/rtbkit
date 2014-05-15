@@ -61,9 +61,17 @@ struct Logging
         std::stringstream stream;
     };
 
-    struct Category
-    {
-        Category(char const * name, Category & super = root);
+    struct CategoryData;
+
+    struct Category {
+        Category(char const * name, Category & super);
+        Category(char const * name, char const * super = "*");
+        ~Category();
+
+        Category(const Category&) = delete;
+        Category& operator=(const Category&) = delete;
+
+        char const * name() const;
 
         bool isEnabled() const;
         bool isDisabled() const;
@@ -76,17 +84,12 @@ struct Logging
 
         std::ostream & beginWrite(char const * function, char const * file, int line);
 
-        static Category root;
+        static Category& root();
 
     private:
-        bool initialized;
-        bool enabled;
-        char const * name;
-        std::shared_ptr<Writer> writer;
-        std::stringstream stream;
-        Category * parent;
-        Category * children;
-        Category * nextChild;
+        Category(CategoryData * data);
+
+        CategoryData * data;
     };
 
     struct Printer {
@@ -103,7 +106,7 @@ struct Logging
         Thrower(Category & category) : category(category) {
         }
 
-        void operator&(std::ostream & stream);
+        void operator&(std::ostream & stream) __attribute__((noreturn));
 
     private:
         Category & category;

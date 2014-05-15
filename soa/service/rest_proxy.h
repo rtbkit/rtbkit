@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "soa/service/message_loop.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/typed_message_channel.h"
 #include "soa/service/rest_service_endpoint.h"

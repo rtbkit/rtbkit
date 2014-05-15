@@ -105,13 +105,13 @@ struct ValueDescription {
         this->typeName = newName;
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const = 0;
-    virtual void printJson(const void * val, JsonPrintingContext & context) const = 0;
-    virtual bool isDefault(const void * val) const = 0;
-    virtual void setDefault(void * val) const = 0;
-    virtual void copyValue(const void * from, void * to) const = 0;
-    virtual void moveValue(void * from, void * to) const = 0;
-    virtual void swapValues(void * from, void * to) const = 0;
+    virtual void parseJson(void * val, JsonParsingContext & context) const {};
+    virtual void printJson(const void * val, JsonPrintingContext & context) const {};
+    virtual bool isDefault(const void * val) const { return false; }
+    virtual void setDefault(void * val) const {}
+    virtual void copyValue(const void * from, void * to) const {}
+    virtual void moveValue(void * from, void * to) const {}
+    virtual void swapValues(void * from, void * to) const {}
     
     virtual void * optionalMakeValue(void * val) const
     {
@@ -322,6 +322,16 @@ struct RegisterValueDescriptionI {
     static const RegisterValueDescription<type> registerValueDescription##type; \
     }
 
+/*****************************************************************************/
+/* PURE VALUE DESCRIPTION                                                    */
+/*****************************************************************************/
+
+template<typename T>
+struct PureValueDescription : public ValueDescription {
+    PureValueDescription() :
+        ValueDescription(ValueKind::ATOM, &typeid(T)) {
+    }
+};
 
 /*****************************************************************************/
 /* VALUE DESCRIPTION TEMPLATE                                                */

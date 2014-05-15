@@ -10,10 +10,10 @@
 
 #include "jml/utils/ring_buffer.h"
 #include "jml/arch/wakeup_fd.h"
-#include "soa/service/message_loop.h"
+#include "soa/service/async_event_source.h"
+
 
 namespace Datacratic {
-
 
 template<typename Message>
 struct TypedMessageChannel {
