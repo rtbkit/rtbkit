@@ -53,6 +53,8 @@ parseBidRequest(HttpAuctionHandler &connection,
     return request;
 }
 
+} // namespace RTBKIT
+
 namespace {
 
 struct Init
@@ -60,9 +62,9 @@ struct Init
     Init()
     {
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::AllowedIdsCreativeExchangeFilter>();
+        RTBKIT::ExchangeConnector::registerFactory<RTBKIT::RTBKitExchangeConnector>();
     }
 } init;
 
 }
 
-} // namespace RTBKIT
