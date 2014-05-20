@@ -475,6 +475,7 @@ BOOST_AUTO_TEST_CASE( test_iso8601WeekOfYear )
 
     for (const auto & entry: weeks) {
         cerr << "testing " + entry.first << endl;
+
         Date date = Date::parse_date_time(entry.first, "%y-%m-%d-", "%H");
         BOOST_CHECK_EQUAL(date.iso8601WeekOfYear(), entry.second);
     }
@@ -550,4 +551,24 @@ BOOST_AUTO_TEST_CASE( test_date_iostream_print )
     BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(9223372036854775807ULL)), "Inf");
     
     BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(-9.22337e+18)), "-Inf");
+}
+
+BOOST_AUTO_TEST_CASE( test_minute )
+{
+    {
+        // parse_date_time("2013-05-13/21:00:00", "%y-%m-%d/","%H:%M:%S")
+        Date date = Date::parse_date_time("2012-12-30-00:01:02", "%y-%m-%d-", "%H:%M:%S");
+        BOOST_CHECK_EQUAL(date.minute(), 1);
+    }
+
+}
+
+BOOST_AUTO_TEST_CASE( test_second )
+{
+    {
+        // parse_date_time("2013-05-13/21:00:00", "%y-%m-%d/","%H:%M:%S")
+        Date date = Date::parse_date_time("2012-12-30-00:01:02", "%y-%m-%d-", "%H:%M:%S");
+        BOOST_CHECK_EQUAL(date.second(), 2);
+    }
+
 }
