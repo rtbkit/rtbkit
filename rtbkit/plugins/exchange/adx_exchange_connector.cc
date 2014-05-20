@@ -743,7 +743,7 @@ getResponse(const HttpAuctionHandler & connection,
     const Auction::Data * current = auction.getCurrentData();
 
     if (current->hasError())
-        return getErrorResponse(connection, auction, current->error + ": " + current->details);
+        return getErrorResponse(connection,current->error + ": " + current->details);
 
     GoogleBidResponse gresp ;
     gresp.set_processing_time_ms(static_cast<uint32_t>(auction.timeUsed()*1000));
@@ -807,7 +807,6 @@ getResponse(const HttpAuctionHandler & connection,
                     if (!reader.parse(resp.meta, meta)) {
                         return getErrorResponse(
                                 connection,
-                                auction,
                                 "Cannot decode meta information");
                     }
 
@@ -853,7 +852,6 @@ getDroppedAuctionResponse(const HttpAuctionHandler & connection,
 HttpResponse
 AdXExchangeConnector::
 getErrorResponse(const HttpAuctionHandler & connection,
-                 const Auction & auction,
                  const std::string & errorMessage) const
 {
     Json::Value response;

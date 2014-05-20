@@ -68,7 +68,6 @@ struct GenericExchangeConnector
 
     virtual HttpResponse
     getErrorResponse(const HttpAuctionHandler & connection,
-                     const RTBKIT::Auction & auction,
                      const std::string & errorMessage) const;
 
 };

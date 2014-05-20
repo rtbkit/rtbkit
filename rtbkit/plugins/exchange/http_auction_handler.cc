@@ -574,7 +574,7 @@ HttpAuctionHandler::
 sendErrorResponse(const std::string & error,
                   const std::string & details)
 {
-    putResponseOnWire(endpoint->getErrorResponse(*this, *auction, error + ": " + details));
+    putResponseOnWire(endpoint->getErrorResponse(*this,  error + ": " + details));
 }
 
 std::string

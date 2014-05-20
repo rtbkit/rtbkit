@@ -78,7 +78,7 @@ struct MockExchangeConnector : public HttpExchangeConnector {
     
         const Auction::Data * current = auction.getCurrentData();
         if (current->hasError())
-            return getErrorResponse(handler, auction, current->error + ": " + current->details);
+            return getErrorResponse(handler, current->error + ": " + current->details);
 
         result = "{\"imp\":[";
 

@@ -118,7 +118,6 @@ getResponse(const HttpAuctionHandler & connection,
 
     if (current->hasError()) {
         return getErrorResponse(connection,
-                                auction,
                                 current->error + ": " + current->details);
     }
 
@@ -188,7 +187,6 @@ getDroppedAuctionResponse(const HttpAuctionHandler & connection,
 HttpResponse
 GenericExchangeConnector::
 getErrorResponse(const HttpAuctionHandler & connection,
-                 const Auction & auction,
                  const std::string & errorMessage) const
 {
     Json::Value response;

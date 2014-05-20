@@ -152,11 +152,11 @@ parseBidRequest(HttpAuctionHandler & connection,
     }
     catch(ML::Exception const & e) {
         connection.sendErrorResponse("INVALID_JSON", e.what());
-        return none;
+        throw;
     }
     catch(...) {
         connection.sendErrorResponse("INVALID_JSON", "Failed to parse the json payload");
-        return none;
+        throw;
     }
 
     // Check if we want some reporting
@@ -198,7 +198,7 @@ getResponse(const HttpAuctionHandler & connection,
     const Auction::Data * current = auction.getCurrentData();
 
     if (current->hasError())
-        return getErrorResponse(connection, auction,
+        return getErrorResponse(connection,
                                 current->error + ": " + current->details);
 
     OpenRTB::BidResponse response;
@@ -244,7 +244,6 @@ getDroppedAuctionResponse(const HttpAuctionHandler & connection,
 HttpResponse
 OpenRTBExchangeConnector::
 getErrorResponse(const HttpAuctionHandler & connection,
-                 const Auction & auction,
                  const std::string & message) const
 {
     Json::Value response;

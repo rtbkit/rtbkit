@@ -54,7 +54,6 @@ struct OpenRTBExchangeConnector : public HttpExchangeConnector {
 
     virtual HttpResponse
     getErrorResponse(const HttpAuctionHandler & connection,
-                     const Auction & auction,
                      const std::string & errorMessage) const;
 
     virtual std::string getBidSourceConfiguration() const;

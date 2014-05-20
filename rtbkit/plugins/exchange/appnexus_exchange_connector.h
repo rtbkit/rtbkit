@@ -55,7 +55,6 @@ struct AppNexusExchangeConnector : public HttpExchangeConnector {
 
     virtual HttpResponse
     getErrorResponse(const HttpAuctionHandler & connection,
-                     const Auction & auction,
                      const std::string & errorMessage) const;
 
     /** This is the information that AppNexus needs in order to properly

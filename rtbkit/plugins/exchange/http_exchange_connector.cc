@@ -280,7 +280,6 @@ getDroppedAuctionResponse(const HttpAuctionHandler & connection,
 HttpResponse
 HttpExchangeConnector::
 getErrorResponse(const HttpAuctionHandler & connection,
-                 const Auction & auction,
                  const std::string & errorMessage) const
 {
     return HttpResponse(400, "none", errorMessage);

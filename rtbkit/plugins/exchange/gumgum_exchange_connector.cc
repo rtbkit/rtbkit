@@ -164,7 +164,7 @@ getResponse(const HttpAuctionHandler & connection,
     const Auction::Data * current = auction.getCurrentData();
 
     if (current->hasError())
-        return getErrorResponse(connection, auction, current->error + ": " + current->details);
+        return getErrorResponse(connection, current->error + ": " + current->details);
     
     OpenRTB::BidResponse response;
     response.id = auction.id;
@@ -270,7 +270,6 @@ getDroppedAuctionResponse(const HttpAuctionHandler & connection,
 HttpResponse
 GumgumExchangeConnector::
 getErrorResponse(const HttpAuctionHandler & connection,
-                 const Auction & auction,
                  const std::string & errorMessage) const
 {
     Json::Value response;
