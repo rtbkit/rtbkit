@@ -58,6 +58,9 @@ struct HttpBidderInterface : public BidderInterface
 
     void send(std::shared_ptr<PostAuctionEvent> const & event);
 
+    virtual void tagRequest(OpenRTB::BidRequest &request,
+                            const std::map<std::string, BidInfo> &bidders) const;
+
 private:
     bool prepareRequest(OpenRTB::BidRequest &request,
                         const RTBKIT::BidRequest &originalRequest,

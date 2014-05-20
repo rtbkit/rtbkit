@@ -75,6 +75,8 @@ struct AgentConfigurationService : public RestServiceEndpoint,
     void handleAgentConfig(const std::string & agent,
                            const Json::Value & config);
 
+    void handleDeleteConfig(const std::string & agent);
+
     /// Handler for GET /v1/agents/<name>/
     Json::Value handleGetAgent(const std::string & agent) const;
 
