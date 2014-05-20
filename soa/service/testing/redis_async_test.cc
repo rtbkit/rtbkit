@@ -196,6 +196,7 @@ BOOST_AUTO_TEST_CASE( test_redis_async )
 
     connection.queueMulti(commands, onResult5);
     m.lock();
+    m.unlock();
 }
 
 #if 1
