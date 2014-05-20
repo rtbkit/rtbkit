@@ -32,8 +32,9 @@ namespace Datacratic {
 
 MessageLoop::
 MessageLoop(int numThreads, double maxAddedLatency, int epollTimeout)
-    : sourceActions_(32),
+    : sourceActions_(8),
       numThreadsCreated(0),
+      shutdown_(true),
       totalSleepTime_(0.0)
 {
     init(numThreads, maxAddedLatency, epollTimeout);
@@ -156,6 +157,23 @@ addSource(const std::string & name,
     SourceAction newAction(SourceAction::ADD, move(entry));
 
     return sourceActions_.tryPush(move(newAction));
+}
+
+void
+MessageLoop::
+addSourceRightAway(const std::string & name,
+                   const std::shared_ptr<AsyncEventSource> & source,
+                   int priority)
+{
+    // cerr << "addSourceRightAway: " << source.get()
+    //      << " (" << ML::type_name(*source) << ")"
+    //      << " needsPoll: " << source->needsPoll
+    //      << " in msg loop: " << this
+    //      << " needsPoll: " << needsPoll
+    //      << endl;
+
+    SourceEntry entry(name, source, priority);
+    processAddSource(entry);
 }
 
 bool
