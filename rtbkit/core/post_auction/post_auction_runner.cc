@@ -9,6 +9,7 @@
 #include "rtbkit/core/banker/slave_banker.h"
 #include "soa/service/service_utils.h"
 #include "soa/utils/print_utils.h"
+#include "jml/utils/file_functions.h"
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
@@ -19,6 +20,12 @@ using namespace boost::program_options;
 using namespace Datacratic;
 using namespace RTBKIT;
 
+static Json::Value loadJsonFromFile(const std::string & filename)
+{
+    ML::File_Read_Buffer buf(filename);
+    return Json::parse(std::string(buf.start(), buf.end()));
+}
+
 /************************************************************************/
 /* POST AUCTION LOOP RUNNER                                             */
 /************************************************************************/
@@ -26,7 +33,8 @@ PostAuctionRunner::
 PostAuctionRunner() :
     shards(1),
     auctionTimeout(EventMatcher::DefaultAuctionTimeout),
-    winTimeout(EventMatcher::DefaultWinTimeout)
+    winTimeout(EventMatcher::DefaultWinTimeout),
+    bidderConfigurationFile("rtbkit/examples/bidder-config.json")
 {
 }
 
@@ -39,9 +47,14 @@ doOptions(int argc, char ** argv,
 
     options_description postAuctionLoop_options("Post Auction Loop options");
     postAuctionLoop_options.add_options()
-        ("shards", value<size_t>(&shards),"Number of shards(threads) used for matching.")
-        ("win-seconds", value<float>(&winTimeout),"Timeout for storing win auction")
-        ("auction-seconds", value<float>(&auctionTimeout),"Timeout to get late win auction");
+        ("bidder,b", value<string>(&bidderConfigurationFile),
+         "configuration file with bidder interface data")
+        ("shards", value<size_t>(&shards),
+         "Number of shards(threads) used for matching.")
+        ("win-seconds", value<float>(&winTimeout),
+         "Timeout for storing win auction")
+        ("auction-seconds", value<float>(&auctionTimeout),
+         "Timeout to get late win auction");
 
     options_description all_opt = opts;
     all_opt
@@ -71,7 +84,10 @@ init()
     auto proxies = serviceArgs.makeServiceProxies();
     auto serviceName = serviceArgs.serviceName("PostAuctionLoop");
 
+    auto bidderConfig = loadJsonFromFile(bidderConfigurationFile);
+
     postAuctionLoop = std::make_shared<PostAuctionService>(proxies, serviceName);
+    postAuctionLoop->initBidderInterface(bidderConfig);
     postAuctionLoop->init(shards);
 
     postAuctionLoop->setWinTimeout(winTimeout);

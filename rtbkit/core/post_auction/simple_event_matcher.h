@@ -7,11 +7,12 @@
 
 #pragma once
 
+#include "timeout_map.h"
 #include "event_matcher.h"
 #include "finished_info.h"
 #include "submission_info.h"
 #include "rtbkit/common/auction.h"
-#include "soa/service/pending_list.h"
+// #include "soa/service/pending_list.h"
 #include "soa/service/logs.h"
 
 #include <utility>
@@ -46,7 +47,7 @@ struct SimpleEventMatcher : public EventMatcher
     /* PERSISTENCE                                                          */
     /************************************************************************/
 
-    virtual void initStatePersistence(const std::string & path);
+    // virtual void initStatePersistence(const std::string & path);
 
     static Logging::Category print;
     static Logging::Category error;
@@ -95,7 +96,7 @@ private:
         The key is the (auction id, spot id) pair since after submission,
         the result from every auction comes back separately.
     */
-    typedef PendingList<std::pair<Id, Id>, SubmissionInfo> Submitted;
+    typedef TimeoutMap<std::pair<Id, Id>, SubmissionInfo> Submitted;
     Submitted submitted;
 
     /** List of auctions we've won and we're waiting for a campaign event
@@ -106,8 +107,19 @@ private:
         We keep this list around for 5 minutes for those that were lost,
         and one hour for those that were won.
     */
-    typedef PendingList<std::pair<Id, Id>, FinishedInfo> Finished;
+    typedef TimeoutMap<std::pair<Id, Id>, FinishedInfo> Finished;
     Finished finished;
+
+    /** Maintains a map of auction id with the most recently seen spot id. Used
+        to associate an event that doesn't have a spot id with an entry within
+        submitted or finished.
+
+        Note that while we could maintain the list of all spot ids associated
+        with an auction id, this doesn't give us anything since we don't know
+        which entry is the real entry. So instead we keep an arbitrarily chosen
+        entry.
+     */
+    std::unordered_map<Id, Id> spotIdMap;
 };
 
 } // RTBKIT

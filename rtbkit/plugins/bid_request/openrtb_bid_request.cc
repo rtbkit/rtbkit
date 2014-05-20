@@ -42,25 +42,50 @@ fromOpenRtb(OpenRTB::BidRequest && req,
 
             // Copy the ad formats in for the moment
             if (spot.banner) {
+                
                 for (unsigned i = 0;  i < spot.banner->w.size();  ++i) {
                     spot.formats.push_back(Format(spot.banner->w[i],
                                                  spot.banner->h[i]));
                 }
                 spot.position = spot.banner->pos;
+            
+            } else if (spot.video) {
+                
+                // Unique ptr doesn't overload operators.. great.
+                auto & v = *spot.video;
+
+                if(!v.mimes.empty()) {
+                    // We need at least one MIME type supported by the exchange
+                    // Not used for now, keeping it for the future
+                    // when we will support the video object fully
+                }
+
+                if(v.linearity.value() < 0) {
+                    // Not used for now, keeping it for the future
+                    // when we will support the video object fully
+                }
+                
+                if(v.minduration.value() < 0) {
+                    // Not used for now, keeping it for the future
+                    // when we will support the video object fully
+                }
+
+                if(v.maxduration.value() < 0) {
+                    // Not used for now, keeping it for the future
+                    // when we will support the video object fully
+                }
+                
+                Format format(v.w.value(), v.h.value());
+                spot.formats.push_back(format);
             }
 
-            // Now create tags
-            
 #if 0
-
-
-            spot.id = std::move(imp.id);
             if (imp.banner) {
                 auto & b = *imp.banner;
-
+                
                 if (b.w.size() != b.h.size())
                     throw ML::Exception("widths and heights must match");
-
+                
                 for (unsigned i = 0;  i < b.w.size();  ++i) {
                     int w = b.w[i];
                     int h = b.h[i];
@@ -69,25 +94,24 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                     spot.formats.push_back(format);
                 }
 
-                if (!bexpdir.empty()) {
+                if (!b.expdir.empty()) {
                     spot.tagFilter.mustInclude.add("expandableTargetingNotSupported");
                 }
-                if (!bapi.empty()) {
+                if (!b.api.empty()) {
                     spot.tagFilter.mustInclude.add("apiFrameworksNotSupported");
                 }
-                if (!bbtype.empty()) {
+                if (!b.btype.empty()) {
                     spot.tagFilter.mustInclude.add("creativeTypeBlockingNotSupported");
                 }
-                if (!bbattr.empty()) {
+                if (!b.battr.empty()) {
                     spot.tagFilter.mustInclude.add("creativeTypeB");
                     // Blocked creative attributes
                 }
-                if (!bmimes.empty()) {
+                if (!b.mimes.empty()) {
                     // We must have specified a MIME type and it must be
                     // supported by the exchange.
                     
                 }
-            }
             
             if (!imp.displaymanager.empty()) {
                 tags.add("displayManager", imp.displaymanager);
@@ -112,10 +136,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                 spot.tags.add("iframebuster", b);
             }
 #endif
-            
             result->imp.emplace_back(std::move(spot));
-
-            
         };
 
     result->imp.reserve(req.imp.size());

@@ -443,14 +443,26 @@ int
 Date::
 minute() const
 {
-    throw Exception("Date: stub method");
+    time_t t = secondsSinceEpoch();
+    tm time;
+
+    if (!gmtime_r(&t, &time))
+        throw Exception("problem with gmtime_r");
+
+    return time.tm_min;
 }
 
 int
 Date::
 second() const
 {
-    throw Exception("Date: stub method");
+    time_t t = secondsSinceEpoch();
+    tm time;
+
+    if (!gmtime_r(&t, &time))
+        throw Exception("problem with gmtime_r");
+
+    return time.tm_sec;
 }
 
 int

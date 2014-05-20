@@ -87,7 +87,11 @@ init(size_t shards)
     loopMonitor.init();
     loopMonitor.addMessageLoop("postAuctionLoop", &loop);
 
-    initBidderInterface();
+    if(!bidder) {
+        Json::Value json;
+        json["type"] = "agents";
+        initBidderInterface(json);
+    }
 
     initMatcher(shards);
     initConnections();
@@ -96,10 +100,8 @@ init(size_t shards)
 
 void
 PostAuctionService::
-initBidderInterface()
+initBidderInterface(Json::Value const & json)
 {
-    Json::Value json;
-    json["type"] = "agents";
     bidder = BidderInterface::create("bidder", getServices(), json);
     bidder->init(&bridge);
 }
@@ -120,8 +122,6 @@ initMatcher(size_t shards)
         ShardedEventMatcher* m;
         matcher.reset(m = new ShardedEventMatcher(serviceName(), getServices()));
         m->init(shards);
-
-        loopMonitor.addMessageLoop("matcher", m);
         loop.addSource("PostAuctionService::matcher", *m);
     }
 
@@ -193,7 +193,7 @@ initConnections()
     loop.addSource("PostAuctionService::configListener", configListener);
 
     // Every second we check for expired auctions
-    loop.addPeriodic("PostAuctionService::checkExpiredAuctions", 1.0,
+    loop.addPeriodic("PostAuctionService::checkExpiredAuctions", 0.1,
             std::bind(&EventMatcher::checkExpiredAuctions, matcher.get()));
 
 }

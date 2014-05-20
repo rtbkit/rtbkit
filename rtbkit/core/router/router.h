@@ -130,6 +130,9 @@ struct Router : public ServiceBase,
     std::shared_ptr<Banker> getBanker() const;
     void setBanker(const std::shared_ptr<Banker> & newBanker);
 
+    /** Initialize the bidder interface. */
+    void initBidderInterface(Json::Value const & json);
+
     /** Initialize all of the internal data structures and configuration. */
     void init();
 

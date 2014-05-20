@@ -151,7 +151,7 @@ private:
     {
         SubmittedAuctionEvent event;
         static size_t counter = 0;
-        
+
         event.auctionId = Id((size_t(this) << 32) + counter++);
         event.adSpotId = Id(1);
         event.lossTimeout = Date::now().plusSeconds(config.lossTimeout);
@@ -205,7 +205,7 @@ private:
 
 // Will leak feeder objects at the end of the test (who cares)
 void initFeeders(
-        std::vector<Feeder*>& feeders, 
+        std::vector<Feeder*>& feeders,
         std::shared_ptr<ConfigurationService> config,
         const Config& cfg)
 {
@@ -236,7 +236,7 @@ initService(std::shared_ptr<ServiceProxies> proxies, const Config& config)
 /******************************************************************************/
 
 PostAuctionService::Stats
-report( const PostAuctionService& service, 
+report( const PostAuctionService& service,
         double delta,
         const PostAuctionService::Stats& last = PostAuctionService::Stats())
 {
@@ -245,19 +245,23 @@ report( const PostAuctionService& service,
     auto diff = current;
     diff -= last;
 
+    float load = service.sampleLoad();
+
     double bidsThroughput = diff.auctions / delta;
     double eventsThroughput = diff.events / delta;
     double winsThroughput = diff.matchedWins / delta;
     double lossThroughput = diff.matchedLosses / delta;
+    double totalThroughput =
+        bidsThroughput + eventsThroughput + winsThroughput + lossThroughput;
 
     std::stringstream ss;
     ss << "\r"
-        << "bids/sec=" << printValue(bidsThroughput)
+        << "load=" << printValue(load)
+        << ", total/sec=" << printValue(totalThroughput)
+        << ", bids/sec=" << printValue(bidsThroughput)
         << ", events/sec=" << printValue(eventsThroughput)
         << ", wins/sec= " << printValue(winsThroughput)
-        << ", loss/sec=" << printValue(lossThroughput)
-        << ", unmatched=" << printValue(current.unmatchedEvents)
-        << ", errors=" << printValue(current.errors);
+        << ", loss/sec=" << printValue(lossThroughput);
     std::cerr << ss.str();
 
     return current;
@@ -272,9 +276,9 @@ void run(const PostAuctionService& service, const Config& config)
 {
     auto now = Date::now();
     auto stop = now.plusSeconds(config.durationSec);
-    
+
     auto stats = report(service, 0.1);
-    
+
     while ((now = Date::now()) < stop) {
         stats = report(service, 0.1, stats);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

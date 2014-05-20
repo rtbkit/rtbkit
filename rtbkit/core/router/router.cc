@@ -191,6 +191,14 @@ Router(std::shared_ptr<ServiceProxies> services,
 
 void
 Router::
+initBidderInterface(Json::Value const & json)
+{
+    bidder = BidderInterface::create("bidder", getServices(), json);
+    bidder->init(&bridge, this);
+}
+
+void
+Router::
 init()
 {
     ExcAssert(!initialized);
@@ -202,10 +210,11 @@ init()
 
     banker.reset(new NullBanker());
 
-    Json::Value json;
-    json["type"] = "agents";
-    bidder = BidderInterface::create("bidder", getServices(), json);
-    bidder->init(&bridge, this);
+    if(!bidder) {
+        Json::Value json;
+        json["type"] = "agents";
+        initBidderInterface(json);
+    }
 
     augmentationLoop.init();
 
