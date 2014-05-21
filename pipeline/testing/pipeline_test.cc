@@ -113,6 +113,7 @@ BOOST_AUTO_TEST_CASE( test_blocks )
     boost::filesystem::create_directories(path);
 
     auto environment = std::make_shared<Environment>();
+    environment->set("name", "lorem");
     environment->set("input-path", path);
     pipeline.environment.set(environment);
 
@@ -124,7 +125,7 @@ BOOST_AUTO_TEST_CASE( test_blocks )
     }
 
     auto r = pipeline.create<FileReaderBlock>("r");
-    r->filename = "lorem-1.txt";
+    r->filename = "$(name)-1.txt";
 
     auto a = pipeline.create<MyBlockThatMergesLines>("a");
     a->lines.connectWith(r->lines);
@@ -141,7 +142,7 @@ BOOST_AUTO_TEST_CASE( test_blocks )
     d->text.connectWith(c->writingPin);
 
     auto w = pipeline.create<FileWriterBlock>("w");
-    w->filename = "lorem-2.txt";
+    w->filename = "$(name)-2.txt";
     w->folder = "$(input-path)";
     w->lines.connectWith(d->lines);
 

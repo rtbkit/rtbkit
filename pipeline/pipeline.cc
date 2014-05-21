@@ -9,7 +9,7 @@ std::string Environment::expandVariables(std::string const & text) const {
     std::string result;
     for(;;) {
         auto j = text.find("$(", i);
-        result.append(text, i, j);
+        result.append(text, i, j - i);
 
         if(j == std::string::npos) {
             break;
@@ -23,15 +23,17 @@ std::string Environment::expandVariables(std::string const & text) const {
         }
 
         std::string key(text, i, j - i);
-        auto k = keys.find(key);
-        if(keys.end() != k) {
-            result += k->second;
-        }
+        result += getVariable(key);
 
         i = j + 1;
     }
 
     return result;
+}
+
+std::string Environment::getVariable(std::string const & text) const {
+    auto k = keys.find(text);
+    return keys.end() != k ? k->second : text;
 }
 
 void Environment::set(std::string key, std::string value) {
