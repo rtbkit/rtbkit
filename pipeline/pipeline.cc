@@ -8,7 +8,7 @@ std::string Environment::expandVariables(std::string const & text) const {
     size_t i = 0;
     std::string result;
     for(;;) {
-        auto j = text.find("$(", i);
+        auto j = text.find("%{", i);
         result.append(text, i, j - i);
 
         if(j == std::string::npos) {
@@ -16,7 +16,7 @@ std::string Environment::expandVariables(std::string const & text) const {
         }
 
         i = j + 2;
-        j = text.find(")", i);
+        j = text.find("}", i);
 
         if(j == std::string::npos) {
             break;

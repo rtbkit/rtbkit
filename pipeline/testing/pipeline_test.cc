@@ -125,7 +125,7 @@ BOOST_AUTO_TEST_CASE( test_blocks )
     }
 
     auto r = pipeline.create<FileReaderBlock>("r");
-    r->filename = "$(name)-1.txt";
+    r->filename = "%{name}-1.txt";
 
     auto a = pipeline.create<MyBlockThatMergesLines>("a");
     a->lines.connectWith(r->lines);
@@ -142,8 +142,8 @@ BOOST_AUTO_TEST_CASE( test_blocks )
     d->text.connectWith(c->writingPin);
 
     auto w = pipeline.create<FileWriterBlock>("w");
-    w->filename = "$(name)-2.txt";
-    w->folder = "$(input-path)";
+    w->filename = "%{name}-2.txt";
+    w->folder = "%{input-path}";
     w->lines.connectWith(d->lines);
 
     pipeline.run();

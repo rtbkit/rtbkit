@@ -6,7 +6,7 @@
 
 FileWriterBlock::FileWriterBlock() :
     lines(this, "lines"),
-    folder("$(output-path)"),
+    folder("%{output-path}"),
     count(0),
     bytes(0) {
 }
