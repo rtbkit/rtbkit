@@ -136,6 +136,7 @@ int main(int argc, char ** argv) {
 
     // This is our bidding agent, that actually calculates the bid price
     TestAgent agent(proxies, "agent");
+    agent.strictMode(false);
 
     agent.onBidRequest = [&] (
             double timestamp,
