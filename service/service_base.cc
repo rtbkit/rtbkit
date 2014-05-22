@@ -365,6 +365,50 @@ removePath(const std::string & key)
     parent->children.erase(leaf);
 }
 
+/*****************************************************************************/
+/* NULL CONFIGURATION SERVICE                                                */
+/*****************************************************************************/
+
+Json::Value
+NullConfigurationService::
+getJson(const std::string &value, Watch watch)
+{
+    return Json::Value { };
+}
+
+void
+NullConfigurationService::
+set(const std::string &key, const Json::Value &value)
+{
+}
+
+std::string
+NullConfigurationService::
+setUnique(const std::string &key, const Json::Value &value)
+{
+    return "";
+}
+
+std::vector<std::string>
+NullConfigurationService::
+getChildren(const std::string &key, Watch watch)
+{
+    return std::vector<std::string> { };
+}
+
+bool
+NullConfigurationService::
+forEachEntry(const OnEntry &onEntry, const std::string &startPrefix) const
+{
+    return false;
+}
+
+void
+NullConfigurationService::
+removePath(const std::string &path)
+{
+}
+
 
 /*****************************************************************************/
 /* SERVICE PROXIES                                                           */
