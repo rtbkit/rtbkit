@@ -6,6 +6,8 @@
    operations among different fs types or alikes.
 */
 
+#include <libgen.h>
+
 #include <memory>
 #include <map>
 #include <mutex>
@@ -297,6 +299,28 @@ bool forEachUriObject(const std::string & urlPrefix,
     Url realUrl = makeUrl(urlPrefix);
     return findFsHandler(realUrl.scheme())
         ->forEach(realUrl, onObject, onSubdir, delimiter, startAt);
+}
+
+string
+baseName(const std::string & filename)
+{
+    char *fnCopy = ::strdup(filename.c_str());
+    char *dirNameC = ::basename(fnCopy);
+    string dirname(dirNameC);
+    ::free(fnCopy);
+
+    return dirname;
+}
+
+string
+dirName(const std::string & filename)
+{
+    char *fnCopy = ::strdup(filename.c_str());
+    char *dirNameC = ::dirname(fnCopy);
+    string dirname(dirNameC);
+    ::free(fnCopy);
+
+    return dirname;
 }
 
 } // namespace Datacratic
