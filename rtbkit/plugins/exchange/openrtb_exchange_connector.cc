@@ -151,11 +151,9 @@ parseBidRequest(HttpAuctionHandler & connection,
                                                            exchangeName()));
     }
     catch(ML::Exception const & e) {
-        connection.sendErrorResponse("INVALID_JSON", e.what());
         throw;
     }
     catch(...) {
-        connection.sendErrorResponse("INVALID_JSON", "Failed to parse the json payload");
         throw;
     }
 

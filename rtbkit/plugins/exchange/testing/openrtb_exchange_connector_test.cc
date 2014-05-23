@@ -86,14 +86,14 @@ BOOST_AUTO_TEST_CASE( test_openrtb_error_codes )
                                                                  "Content-Type: application/json\r\n"
                                                                  "x-openrtb-version: 2\r\n"
                                                                  "\r\n"));
-    BOOST_CHECK(validateHttpQuery("INVALID_JSON", "POST /auctions HTTP/1.1\r\n"
+    BOOST_CHECK(validateHttpQuery("INVALID_BID_REQUEST", "POST /auctions HTTP/1.1\r\n"
                                                   "Content-Length: 0\r\n"
                                                   "Content-Type: application/json\r\n"
                                                   "x-openrtb-version: 2.1\r\n"
                                                   "\r\n"));
 
 
-    BOOST_CHECK(validateJsonQuery("INVALID_JSON", "asdf"));
+    BOOST_CHECK(validateJsonQuery("INVALID_BID_REQUEST", "asdf"));
     BOOST_CHECK(validateJsonQuery("MISSING_ID", "{}"));
 
     router.shutdown();
