@@ -1345,7 +1345,7 @@ eraseObject(const std::string & bucket,
 {
     Response response = erase(bucket, object);
 
-    if (response.code_ != 200) {
+    if (response.code_ != 204) {
         cerr << response.bodyXmlStr() << endl;
         throw ML::Exception("error erasing object request: %d",
                             response.code_);

@@ -119,7 +119,7 @@ init(size_t shard, ShardedEventMatcher* parent)
     };
     addSource("ShardedEventMatcher::Shard::events", events);
 
-    addPeriodic("ShardedEventMatcher::checkExpiredAuctions", 1.0,
+    addPeriodic("ShardedEventMatcher::checkExpiredAuctions", 0.1,
             std::bind(&SimpleEventMatcher::checkExpiredAuctions, &matcher));
 
 

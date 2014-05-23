@@ -38,6 +38,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
     ~PostAuctionService() { shutdown(); }
 
 
+    void initBidderInterface(Json::Value const & json);
     void init(size_t shards = 1);
     void start(std::function<void ()> onStop = std::function<void ()>());
     void shutdown();
@@ -204,6 +205,8 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
 
     } stats;
 
+    float sampleLoad() const { return loopMonitor.sampleLoad().load; }
+
     static Logging::Category print;
     static Logging::Category error;
     static Logging::Category trace;
@@ -218,7 +221,6 @@ private:
         event loop.
     */
     void initConnections();
-    void initBidderInterface();
     void initMatcher(size_t shards);
 
     void doAuction(std::shared_ptr< SubmittedAuctionEvent> event);
