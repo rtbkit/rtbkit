@@ -353,6 +353,36 @@ private:
     mutable Lock lock;
 };
 
+/*****************************************************************************/
+/* NULL CONFIGURATION SERVICE                                                */
+/*****************************************************************************/
+
+/** Configuration Service that does nothing and does not keep any information */
+
+struct NullConfigurationService : public ConfigurationService {
+    virtual ~NullConfigurationService()
+    {
+    }
+
+    virtual Json::Value getJson(const std::string & value,
+                                Watch watch = Watch());
+
+    virtual void set(const std::string & key,
+                     const Json::Value & value);
+
+    virtual std::string setUnique(const std::string & key,
+                                  const Json::Value & value);
+
+    virtual std::vector<std::string>
+    getChildren(const std::string & key,
+                Watch watch = Watch());
+
+    virtual bool forEachEntry(const OnEntry & onEntry,
+                              const std::string & startPrefix = "") const;
+
+    virtual void removePath(const std::string & path);
+};
+
 
 /*****************************************************************************/
 /* SERVICE PROXIES                                                           */
