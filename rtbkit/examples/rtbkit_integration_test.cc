@@ -137,7 +137,7 @@ struct Components
 
         // Setup a slave banker that we can use to manipulate and peak at the
         // budgets during the test.
-        budgetController.init(proxies->config);
+        budgetController.init(proxies->config, bankerAddr);
         budgetController.start();
 
         // Each router contains a slave masterBanker which is periodically

@@ -8,12 +8,43 @@
 #include "slave_banker.h"
 #include "soa/service/http_header.h"
 #include "jml/utils/vector_utils.h"
+#include "soa/service/rest_proxy.h"
 #include <type_traits>
 
 using namespace std;
 
 
 namespace RTBKIT {
+
+template<typename Result>
+std::shared_ptr<HttpClientSimpleCallbacks>
+makeCallback(std::string functionName,
+                  std::function<void (std::exception_ptr, Result &&)> onDone)
+{
+    //static_assert(std::is_default_constructible<Result>::value,
+    //              "Result is not default constructible");
+
+    return std::make_shared<HttpClientSimpleCallbacks>(
+        [=](const HttpRequest &,
+            HttpClientError error, int statusCode,
+            std::string &&, std::string &&body)
+    {
+        if (!onDone) {
+            return;
+        }
+
+        if (error != HttpClientError::NONE) {
+            std::ostringstream oss;
+            oss << error;
+            onDone(std::make_exception_ptr(ML::Exception("HTTP Request failed in '%s': %s",
+                                                         functionName.c_str(), oss.str().c_str())),
+                   Result { });
+        }
+        else {
+           decodeRestResponseJson<Result>(functionName, nullptr, statusCode, body, onDone);
+        }
+    });
+}
 
 
 /*****************************************************************************/
@@ -30,10 +61,10 @@ SlaveBudgetController::
 addAccount(const AccountKey & account,
            const OnBudgetResult & onResult)
 {
-    push(budgetResultCallback(onResult),
-         "POST", "/v1/accounts",
-         { {"accountName", account.toString()},
-           { "accountType", "budget" } });
+    httpClient->post("/v1/accounts", budgetResultCallback(onResult),
+                    { },
+                    { { "accountName", account.toString() },
+                      { "accountType", "budget" }});
 }
 
 
@@ -43,10 +74,10 @@ topupTransfer(const AccountKey & account,
               CurrencyPool amount,
               const OnBudgetResult & onResult)
 {
-    push(budgetResultCallback(onResult),
-         "PUT", "/v1/accounts/" + account.toString() + "/balance",
-         { { "accountType", "budget"} },
-         amount.toJson().toString());
+    httpClient->put("/v1/accounts/" + account.toString() + "/balance",
+                    budgetResultCallback(onResult),
+                    amount.toJson(),
+                    { { "accountType", "budget" } });
 }
 
 void
@@ -55,10 +86,9 @@ setBudget(const std::string & topLevelAccount,
           CurrencyPool amount,
           const OnBudgetResult & onResult)
 {
-    push(budgetResultCallback(onResult),
-         "PUT", "/v1/accounts/" + topLevelAccount + "/budget",
-         { /* {"amount", amount.toString()}*/ },
-         amount.toJson().toString());
+    httpClient->put("/v1/accounts/" + topLevelAccount + "/budget",
+                    budgetResultCallback(onResult),
+                    amount.toJson());
 }
 
 void
@@ -87,27 +117,11 @@ getAccountSummary(const AccountKey & account,
                   std::function<void (std::exception_ptr,
                                       AccountSummary &&)> onResult)
 {
-    push([=] (std::exception_ptr ptr, int resultCode, string body)
-         {
-             AccountSummary summary;
-             if (ptr)
-                 onResult(ptr, std::move(summary));
-             else if (resultCode < 200 || resultCode >= 300)
-                 onResult(std::make_exception_ptr(ML::Exception("getAccountSummary returned code %d: %s", resultCode, body.c_str())),
-                          std::move(summary));
-             else {
-                 try {
-                     Json::Value result = Json::parse(body);
-                     summary = AccountSummary::fromJson(result);
-                     onResult(nullptr, std::move(summary));
-                 } catch (...) {
-                     onResult(std::current_exception(), std::move(summary));
-                 }
-             }
-         },
-         "GET", "/v1/accounts/" + account.toString() + "/summary",
-         { {"depth", to_string(depth)} },
-         "");
+    httpClient->get("/v1/accounts/" + account.toString() + "/summary",
+                    makeCallback<AccountSummary>(
+                       "SlaveBudgetController::getAccountSummary",
+                        onResult),
+                    { { "depth", to_string(depth) } });
 }
 
 void
@@ -116,37 +130,31 @@ getAccount(const AccountKey & accountKey,
            std::function<void (std::exception_ptr,
                                Account &&)> onResult)
 {
-    push([=] (std::exception_ptr ptr, int resultCode, string body)
-         {
-             Account account;
-             if (ptr)
-                 onResult(ptr, std::move(account));
-             else if (resultCode < 200 || resultCode >= 300)
-                 onResult(std::make_exception_ptr(ML::Exception("getAccount returned code %d: %s", resultCode, body.c_str())),
-                          std::move(account));
-             else {
-                 try {
-                     Json::Value result = Json::parse(body);
-                     account = Account::fromJson(result);
-                     onResult(nullptr, std::move(account));
-                 } catch (...) {
-                     onResult(std::current_exception(), std::move(account));
-                 }
-             }
-         },
-         "GET", "/v1/accounts/" + accountKey.toString());
+    httpClient->get("/v1/accounts/" + accountKey.toString(),
+                    makeCallback<Account>(
+                    "SlaveBudgetController::getAccount",
+                    onResult));
 }
 
-SlaveBudgetController::OnDone
+std::shared_ptr<HttpClientSimpleCallbacks>
 SlaveBudgetController::
 budgetResultCallback(const OnBudgetResult & onResult)
 {
-    return [=] (std::exception_ptr ptr, int resultCode, string body)
-        {
-            //cerr << "got budget result callback with resultCode "
-            //     << resultCode << " body " << body << endl;
-            onResult(ptr);
-        };
+    return std::make_shared<HttpClientSimpleCallbacks>(
+        [=](const HttpRequest &,
+            HttpClientError error, int statusCode,
+            std::string &&, std::string &&body)
+    {
+        if (error != HttpClientError::NONE) {
+            std::ostringstream oss;
+            oss << error;
+            onResult(std::make_exception_ptr(
+                ML::Exception("HTTP Request failed with return code %s", oss.str().c_str())));
+        }
+        else {
+            onResult(nullptr);
+        }
+    });
 }
 
 
@@ -306,36 +314,6 @@ onInitializeResult(const AccountKey & accountKey,
 }
 
 
-template<typename Result>
-std::shared_ptr<HttpClientSimpleCallbacks>
-makeCallback(std::string functionName,
-                  std::function<void (std::exception_ptr, Result &&)> onDone)
-{
-    //static_assert(std::is_default_constructible<Result>::value,
-    //              "Result is not default constructible");
-
-    return std::make_shared<HttpClientSimpleCallbacks>(
-        [=](const HttpRequest &,
-            HttpClientError error, int statusCode,
-            std::string &&, std::string &&body)
-    {
-        if (!onDone) {
-            return;
-        }
-
-        if (error != HttpClientError::NONE) {
-            std::ostringstream oss;
-            oss << error;
-            onDone(std::make_exception_ptr(ML::Exception("HTTP Request failed in '%s': %s",
-                                                         functionName.c_str(), oss.str().c_str())),
-                   Result { });
-        }
-        else {
-           decodeRestResponseJson<Result>(functionName, nullptr, statusCode, body, onDone);
-        }
-    });
-}
-
 void
 SlaveBanker::
 syncAccount(const AccountKey & accountKey,
@@ -356,11 +334,6 @@ syncAccount(const AccountKey & accountKey,
     httpClient->put("/v1/accounts/" + getShadowAccountStr(accountKey) + "/shadow",
                     makeCallback<Account>("SlaverBanker::syncAcount", onDone2),
                     accounts.getAccount(accountKey).toJson());
-  //  push(makeRestResponseJsonDecoder<Account>("syncAccount", onDone2),
-  //       "PUT",
-  //       "/v1/accounts/" + getShadowAccountStr(accountKey) + "/shadow",
-  //       {},
-  //       accounts.getAccount(accountKey).toJson().toString());
 }
 
 void
@@ -477,14 +450,6 @@ addSpendAccount(const AccountKey & accountKey,
                             { "accountType", "spend" }
                          });
 
-       // push(makeRestResponseJsonDecoder<Account>("addSpendAccount", onDone2),
-       //      "POST",
-       //      "/v1/accounts",
-       //      {
-       //          { "accountName", getShadowAccountStr(accountKey) },
-       //          { "accountType", "spend" }
-       //      },
-       //      "");
     }
 }
 
@@ -537,6 +502,7 @@ reauthorizeBudget(uint64_t numTimeoutsExpired)
             Json::Value payload = CurrencyPool(USD(0.10)).toJson();
             ++numDone;
 
+            // Finally, send it out
             httpClient->post("/v1/accounts/" + getShadowAccountStr(key) + "/balance",
                             std::make_shared<HttpClientSimpleCallbacks>(
                             [=](const HttpRequest &, HttpClientError error,
@@ -562,13 +528,6 @@ reauthorizeBudget(uint64_t numTimeoutsExpired)
                             payload,
                             { { "accountType", "spend" } });
 
-            // Finally, send it out
-           // push(request, std::bind(&SlaveBanker::onReauthorizeBudgetMessage,
-           //                         this,
-           //                         key,
-           //                         std::placeholders::_1,
-           //                         std::placeholders::_2,
-           //                         std::placeholders::_3));
         };
 
     accounts.forEachInitializedAccount(onAccount);

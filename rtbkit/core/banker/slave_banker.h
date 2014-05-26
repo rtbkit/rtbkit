@@ -12,7 +12,6 @@
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/typed_message_channel.h"
 #include "soa/service/http_client.h"
-#include "soa/service/rest_proxy.h"
 #include <thread>
 
 namespace RTBKIT {
@@ -26,7 +25,7 @@ namespace RTBKIT {
  */
 
 struct SlaveBudgetController
-    : public BudgetController, public Accountant, public RestProxy  {
+    : public BudgetController, public Accountant, public MessageLoop  {
 
     SlaveBudgetController();
 
@@ -38,7 +37,8 @@ struct SlaveBudgetController
     void init(std::shared_ptr<ConfigurationService> config,
               const std::string & serviceClass = "rtbBanker")
     {
-        RestProxy::initServiceClass(config, serviceClass, "zeromq");
+        httpClient.reset(new HttpClient(serviceClass));
+        addSource("SlaveBudgetController::httpClient", httpClient);
     }
 
     virtual void addAccount(const AccountKey & account,
@@ -73,7 +73,10 @@ struct SlaveBudgetController
                std::function<void (std::exception_ptr,
                                    Account &&)> onResult);
 
-    static OnDone budgetResultCallback(const OnBudgetResult & onResult);
+    static std::shared_ptr<HttpClientSimpleCallbacks>
+    budgetResultCallback(const OnBudgetResult & onResult);
+private:
+    std::shared_ptr<HttpClient> httpClient;
 };
 
 
