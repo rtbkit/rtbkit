@@ -11,6 +11,7 @@
 #include "banker.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/typed_message_channel.h"
+#include "soa/service/http_client.h"
 #include "soa/service/rest_proxy.h"
 #include <thread>
 
@@ -84,7 +85,7 @@ struct SlaveBudgetController
     big block of budget into individual auctions and keeps track of
     what has been committed so far.
 */
-struct SlaveBanker : public Banker, public RestProxy {
+struct SlaveBanker : public Banker, public MessageLoop {
 
     SlaveBanker(std::shared_ptr<zmq::context_t> context);
 
@@ -207,6 +208,8 @@ private:
     /// created and must therefore be synchronized
     TypedMessageSink<AccountKey> createdAccounts;
     std::string accountSuffix;
+
+    std::shared_ptr<HttpClient> httpClient;
     
     /** Periodically we report spend to the banker.*/
     void reportSpend(uint64_t numTimeoutsExpired);

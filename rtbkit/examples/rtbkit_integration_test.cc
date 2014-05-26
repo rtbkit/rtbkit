@@ -132,7 +132,7 @@ struct Components
         // various bidding agent accounts. The data contained in this service is
         // periodically persisted to redis.
         masterBanker.init(std::make_shared<RedisBankerPersistence>(redis));
-        masterBanker.bindTcp();
+        auto bankerAddr = masterBanker.bindTcp().second;
         masterBanker.start();
 
         // Setup a slave banker that we can use to manipulate and peak at the
@@ -145,7 +145,7 @@ struct Components
         auto makeSlaveBanker = [=] (const std::string & name)
             {
                 auto res = std::make_shared<SlaveBanker>
-                (proxies->zmqContext, proxies->config, name);
+                (proxies->zmqContext, proxies->config, name, bankerAddr);
                 res->start();
                 return res;
             };

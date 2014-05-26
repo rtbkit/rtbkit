@@ -8,6 +8,7 @@
 #include "slave_banker.h"
 #include "soa/service/http_header.h"
 #include "jml/utils/vector_utils.h"
+#include <type_traits>
 
 using namespace std;
 
@@ -155,7 +156,7 @@ budgetResultCallback(const OnBudgetResult & onResult)
 
 SlaveBanker::
 SlaveBanker(std::shared_ptr<zmq::context_t> context)
-    : RestProxy(context), createdAccounts(128)
+    : createdAccounts(128)
 {
 }
 
@@ -164,7 +165,7 @@ SlaveBanker(std::shared_ptr<zmq::context_t> context,
             std::shared_ptr<ConfigurationService> config,
             const std::string & accountSuffix,
             const std::string & bankerServiceName)
-    : RestProxy(context), createdAccounts(128)
+    : createdAccounts(128)
 {
     init(config, accountSuffix, bankerServiceName);
 }
@@ -216,12 +217,12 @@ init(std::shared_ptr<ConfigurationService> config,
             addSpendAccount(accountKey, USD(0), onDone);
         };
 
+    httpClient.reset(new HttpClient(bankerServiceName));
+    addSource("SlaveBanker::httpClient", httpClient);
+
     addSource("SlaveBanker::createdAccounts", createdAccounts);
 
     this->accountSuffix = accountSuffix;
-    
-    // Connect to the master banker
-    RestProxy::initServiceClass(config, bankerServiceName, "zeromq", false);
     
     addPeriodic("SlaveBanker::reportSpend", 1.0,
                 std::bind(&SlaveBanker::reportSpend,
@@ -304,6 +305,37 @@ onInitializeResult(const AccountKey & accountKey,
     }
 }
 
+
+template<typename Result>
+std::shared_ptr<HttpClientSimpleCallbacks>
+makeCallback(std::string functionName,
+                  std::function<void (std::exception_ptr, Result &&)> onDone)
+{
+    //static_assert(std::is_default_constructible<Result>::value,
+    //              "Result is not default constructible");
+
+    return std::make_shared<HttpClientSimpleCallbacks>(
+        [=](const HttpRequest &,
+            HttpClientError error, int statusCode,
+            std::string &&, std::string &&body)
+    {
+        if (!onDone) {
+            return;
+        }
+
+        if (error != HttpClientError::NONE) {
+            std::ostringstream oss;
+            oss << error;
+            onDone(std::make_exception_ptr(ML::Exception("HTTP Request failed in '%s': %s",
+                                                         functionName.c_str(), oss.str().c_str())),
+                   Result { });
+        }
+        else {
+           decodeRestResponseJson<Result>(functionName, nullptr, statusCode, body, onDone);
+        }
+    });
+}
+
 void
 SlaveBanker::
 syncAccount(const AccountKey & accountKey,
@@ -321,11 +353,14 @@ syncAccount(const AccountKey & accountKey,
     //cerr << "syncing account " << accountKey << ": "
     //     << accounts.getAccount(accountKey) << endl;
 
-    push(makeRestResponseJsonDecoder<Account>("syncAccount", onDone2),
-         "PUT",
-         "/v1/accounts/" + getShadowAccountStr(accountKey) + "/shadow",
-         {},
-         accounts.getAccount(accountKey).toJson().toString());
+    httpClient->put("/v1/accounts/" + getShadowAccountStr(accountKey) + "/shadow",
+                    makeCallback<Account>("SlaverBanker::syncAcount", onDone2),
+                    accounts.getAccount(accountKey).toJson());
+  //  push(makeRestResponseJsonDecoder<Account>("syncAccount", onDone2),
+  //       "PUT",
+  //       "/v1/accounts/" + getShadowAccountStr(accountKey) + "/shadow",
+  //       {},
+  //       accounts.getAccount(accountKey).toJson().toString());
 }
 
 void
@@ -434,14 +469,22 @@ addSpendAccount(const AccountKey & accountKey,
         cerr << "********* calling addSpendAccount for " << accountKey
              << " for SlaveBanker " << accountSuffix << endl;
 
-        push(makeRestResponseJsonDecoder<Account>("addSpendAccount", onDone2),
-             "POST",
-             "/v1/accounts",
-             {
-                 { "accountName", getShadowAccountStr(accountKey) },
-                 { "accountType", "spend" }
-             },
-             "");
+        httpClient->post("/v1/accounts",
+                         makeCallback<Account>("SlaveBanker::addSpendAccount", onDone2),
+                         { },
+                         {
+                            { "accountName", getShadowAccountStr(accountKey) },
+                            { "accountType", "spend" }
+                         });
+
+       // push(makeRestResponseJsonDecoder<Account>("addSpendAccount", onDone2),
+       //      "POST",
+       //      "/v1/accounts",
+       //      {
+       //          { "accountName", getShadowAccountStr(accountKey) },
+       //          { "accountType", "spend" }
+       //      },
+       //      "");
     }
 }
 
@@ -491,27 +534,41 @@ reauthorizeBudget(uint64_t numTimeoutsExpired)
     auto onAccount = [&] (const AccountKey & key,
                           const ShadowAccount & account)
         {
-            RestRequest request;
-            request.verb = "POST";
-            request.resource
-                = "/v1/accounts/"
-                + getShadowAccountStr(key)
-                + "/balance";
-            request.params = { { "accountType", "spend" } };
-
             Json::Value payload = CurrencyPool(USD(0.10)).toJson();
-            request.payload = payload.toString();
-            
-            //cerr << "sending out request " << request << endl;
             ++numDone;
 
+            httpClient->post("/v1/accounts/" + getShadowAccountStr(key) + "/balance",
+                            std::make_shared<HttpClientSimpleCallbacks>(
+                            [=](const HttpRequest &, HttpClientError error,
+                                int statusCode,
+                                std::string &&, std::string &&body)
+                            {
+                                if (error != HttpClientError::NONE) {
+                                    std::ostringstream oss;
+                                    oss << error;
+                                    onReauthorizeBudgetMessage(
+                                        key,
+                                        std::make_exception_ptr(ML::Exception(
+                                            "HTTP Request failed in 'reauthorizeBudget': %s",
+                                             oss.str().c_str())),
+                                        statusCode,
+                                        body);
+                                }
+                                else {
+                                    onReauthorizeBudgetMessage(key, nullptr, statusCode,
+                                                               body);
+                                }
+                            }),
+                            payload,
+                            { { "accountType", "spend" } });
+
             // Finally, send it out
-            push(request, std::bind(&SlaveBanker::onReauthorizeBudgetMessage,
-                                    this,
-                                    key,
-                                    std::placeholders::_1,
-                                    std::placeholders::_2,
-                                    std::placeholders::_3));
+           // push(request, std::bind(&SlaveBanker::onReauthorizeBudgetMessage,
+           //                         this,
+           //                         key,
+           //                         std::placeholders::_1,
+           //                         std::placeholders::_2,
+           //                         std::placeholders::_3));
         };
 
     accounts.forEachInitializedAccount(onAccount);
