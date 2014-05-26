@@ -1240,7 +1240,7 @@ forEachObject(const std::string & uriPrefix,
         {
             string uri = "s3://" + bucket + "/" + prefix;
             if (objectName.size() > 0) {
-                uri += delimiter + objectName;
+                uri += objectName;
             }
             return onObject(uri, info, depth);
         };

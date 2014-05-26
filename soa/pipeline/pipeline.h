@@ -8,6 +8,7 @@ namespace Datacratic
 {
     struct Environment {
         std::string expandVariables(std::string const & text) const;
+        std::string getVariable(std::string const & text) const;
 
         void set(std::string key, std::string value);
 

@@ -150,4 +150,9 @@ bool forEachUriObject(const std::string & uriPrefix,
                       const std::string & startAt = "");
 
 
+// wrappers around "basename" and "dirname" from the libc
+std::string baseName(const std::string & filename);
+std::string dirName(const std::string & filename);
+
+
 } // namespace Datacratic
