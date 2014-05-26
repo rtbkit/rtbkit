@@ -62,7 +62,7 @@ std::ostream &
 Datacratic::
 operator << (std::ostream & stream, HttpClientError error)
 {
-    return stream << to_string(int(error));
+    return stream << HttpClientCallbacks::errorMessage(error);
 }
 
 
