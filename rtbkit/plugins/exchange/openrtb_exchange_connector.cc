@@ -112,7 +112,7 @@ parseBidRequest(HttpAuctionHandler & connection,
         if(posDelim == std::string::npos)
             content = header.contentType;
         else {
-            std::string content = header.contentType.substr(0, posDelim);
+            content = header.contentType.substr(0, posDelim);
             #if 0
             std::string charset = header.contentType.substr(posDelim, header.contentType.length());
             #endif
