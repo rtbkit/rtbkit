@@ -82,10 +82,10 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
         distribution<float> point2(point);
         point2.insert(point2.begin(), 1.0);
 
-        cerr << "point1: " << point1 << endl;
+        // cerr << "point1: " << point1 << endl;
         float prediction1 = class1.impl->predict(0, *class1.impl->feature_space<Dense_Feature_Space>()->encode(point1));
 
-        cerr << "point2: " << point2 << endl;
+        // cerr << "point2: " << point2 << endl;
         float prediction2 = class2.impl->predict(0, *class2.impl->feature_space<Dense_Feature_Space>()->encode(point2));
         BOOST_CHECK_EQUAL(prediction1, prediction2);
     }
