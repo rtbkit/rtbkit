@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
     filestream.close(); 
 
     string cmd1 = "make classifier_training_tool; build/x86_64/bin/classifier_training_tool " + filename1 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 0 -p 1 -o " + modelname1 + " glz.verbosity=10  -W LABEL/F,ExampleId/F -z ExampleId";
-    string cmd2 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 0 -p 1 -o " + modelname2 + " glz.verbosity=10  -W LABEL/F,ExampleId/F,WEIGHT/V -z ExampleId,WEIGHT";
+    string cmd2 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 0 -p 1 -o " + modelname2 + " glz.verbosity=10  -W LABEL/F,ExampleId/F,WEIGHT/V -z ExampleId -z WEIGHT";
     
     if ( system(cmd1.c_str()) == -1 )
         throw Exception("Call 1 to classifier_training_tool failed");
