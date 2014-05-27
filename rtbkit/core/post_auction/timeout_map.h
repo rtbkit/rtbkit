@@ -90,13 +90,13 @@ struct TimeoutMap
         std::vector< std::pair<Key, Entry> > toExpire;
         toExpire.reserve(1 << 4);
 
-        while (!queue.empty() && queue.top().timeout >= now) {
+        while (!queue.empty() && queue.top().timeout <= now) {
             TimeoutEntry entry = std::move(queue.top());
             queue.pop();
 
             auto it = map.find(entry.key);
             if (it == map.end()) continue;
-            if (it->second.timeout < now) continue;
+            if (it->second.timeout > now) continue;
 
             toExpire.emplace_back(std::move(*it));
             map.erase(it);
@@ -131,7 +131,7 @@ private:
 
         bool operator<(const TimeoutEntry& other) const
         {
-            return timeout < other.timeout;
+            return timeout > other.timeout;
         }
     };
 
