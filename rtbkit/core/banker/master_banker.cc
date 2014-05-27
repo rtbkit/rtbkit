@@ -313,10 +313,6 @@ init(const shared_ptr<BankerPersistence> & storage)
                 bind(&MasterBanker::saveState, this),
                 true /* single threaded */);
 
-    registerServiceProvider(serviceName(), { "rtbBanker" });
-
-    getServices()->config->removePath(serviceName());
-    //registerService();
     RestServiceEndpoint::init(getServices()->config, serviceName());
 
     onHandleRequest = router.requestHandler();
@@ -504,7 +500,6 @@ void
 MasterBanker::
 shutdown()
 {
-    unregisterServiceProvider(serviceName(), { "rtbBanker" });
     RestServiceEndpoint::shutdown();
     monitorProviderClient.shutdown();
 }
