@@ -432,7 +432,7 @@ std::string bootstrapConfigPath()
 ServiceProxies::
 ServiceProxies()
     : events(new NullEventService()),
-      config(new InternalConfigurationService()),
+      config(new NullConfigurationService()),
       ports(new DefaultPortRangeService()),
       zmqContext(new zmq::context_t(1 /* num worker threads */))
 {
