@@ -18,7 +18,9 @@
 #include "jml/utils/testing/watchdog.h"
 #include <future>
 #include <boost/thread/thread.hpp>
+#include "soa/service/http_rest_proxy.h"
 #include "soa/service/testing/zookeeper_temporary_server.h"
+#include "soa/service/testing/redis_temporary_server.h"
 
 using namespace std;
 using namespace ML;
@@ -41,6 +43,7 @@ BOOST_AUTO_TEST_CASE( test_master_slave_banker )
     master.init(make_shared<NoBankerPersistence>());
     master.monitorProviderClient.inhibit_ = true;
     auto addr = master.bindTcp();
+    auto bankerAddr = addr.second;
 
     cerr << "master banker is listening on " << addr.first << ","
          << addr.second << endl;
@@ -53,7 +56,7 @@ BOOST_AUTO_TEST_CASE( test_master_slave_banker )
     proxies->config->dump(cerr);
     
     SlaveBudgetController slave;
-    slave.init(proxies->config);
+    slave.init(proxies->config, bankerAddr);
     slave.start();
     slave.addAccountSync({"hello", "world"});
 
@@ -67,7 +70,7 @@ BOOST_AUTO_TEST_CASE( test_master_slave_banker )
     //slave.shutdown();
 
     SlaveBanker banker(proxies->zmqContext);
-    banker.init(proxies->config, "slave");
+    banker.init(proxies->config, "slave", bankerAddr);
     banker.start();
     banker.addSpendAccountSync({"hello", "world"});
 
@@ -101,6 +104,7 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
     master.init(make_shared<NoBankerPersistence>());
     master.monitorProviderClient.inhibit_ = true;
     auto addr = master.bindTcp();
+    auto bankerAddr = addr.second;
     cerr << "master banker is listening on " << addr.first << ","
          << addr.second << endl;
 
@@ -109,7 +113,7 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
     proxies->config->dump(cerr);
     
     SlaveBudgetController slave;
-    slave.init(proxies->config);
+    slave.init(proxies->config, bankerAddr);
     slave.start();
     slave.addAccountSync({"hello", "world"});
     slave.setBudgetSync("hello", USD(200));
@@ -118,7 +122,7 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
     // Record some spend in an initial slave
     {
         SlaveBanker banker(proxies->zmqContext);
-        banker.init(proxies->config, "slave");
+        banker.init(proxies->config, "slave", bankerAddr);
         banker.start();
         banker.addSpendAccountSync({"hello", "world"});
 
@@ -144,7 +148,7 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
     // Now asynchronously start up and record another dollar of spend
     {
         SlaveBanker banker(proxies->zmqContext);
-        banker.init(proxies->config, "slave");
+        banker.init(proxies->config, "slave", bankerAddr);
         banker.start();
         banker.addSpendAccountSync({"hello", "world"});
 
@@ -194,6 +198,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     master.init(make_shared<NoBankerPersistence>());
     master.monitorProviderClient.inhibit_ = true;
     auto addr = master.bindTcp();
+    auto bankerAddr = addr.second;
     cerr << "master banker is listening on " << addr.first << ","
          << addr.second << endl;
 
@@ -203,7 +208,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     AccountKey strategy("campaign:strategy");
 
     SlaveBudgetController slave;
-    slave.init(proxies->config);
+    slave.init(proxies->config, bankerAddr);
     slave.start();
 
     // Create a budget for the campaign
@@ -222,7 +227,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     auto runTopupThread = [&] ()
         {
             SlaveBudgetController slave;
-            slave.init(proxies->config);
+            slave.init(proxies->config, bankerAddr);
             slave.start();
 
             while (!finished) {
@@ -234,7 +239,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     auto runAddBudgetThread = [&] ()
         {
             SlaveBudgetController slave;
-            slave.init(proxies->config);
+            slave.init(proxies->config, bankerAddr);
             slave.start();
             
             for (unsigned i = 0;  i < numAddBudgetsPerThread;  ++i) {
@@ -256,7 +261,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     auto runBidThread = [&] (int threadNum)
         {
             SlaveBanker slave(proxies->zmqContext);
-            slave.init(proxies->config, "bid" + to_string(threadNum));
+            slave.init(proxies->config, "bid" + to_string(threadNum), bankerAddr);
             slave.start();
 
             AccountKey account = strategy;
@@ -296,7 +301,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     auto runCommitThread = [&] (int threadNum)
         {
             SlaveBanker slave(proxies->zmqContext);
-            slave.init(proxies->config, "commit" + to_string(threadNum));
+            slave.init(proxies->config, "commit" + to_string(threadNum), bankerAddr);
             slave.start();
 
             AccountKey account = strategy;
@@ -392,3 +397,68 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
 #endif
 }
 #endif
+
+BOOST_AUTO_TEST_CASE( test_redis_persistence )
+{
+    using namespace Redis;
+    // Start up a temporary redis server
+    RedisTemporaryServer redis;
+    auto address = redis.address();
+
+    auto proxies = std::make_shared<ServiceProxies>();
+    // No configuration service
+    proxies->config.reset(new NullConfigurationService);
+
+    MasterBanker banker(proxies);
+    banker.init(std::make_shared<RedisBankerPersistence>(address));
+    auto bankerAddr = banker.bindTcp().second;
+    banker.start();
+
+    SlaveBudgetController slave;
+    slave.init(proxies->config, bankerAddr);
+    slave.start();
+
+    AccountKey key { "hello" };
+    slave.addAccountSync(key);
+
+    HttpRestProxy proxy(bankerAddr);
+
+    {
+        auto response = proxy.get("/v1/accounts");
+        BOOST_CHECK_EQUAL(response.code(), 200);
+    }
+
+    // Suspend the Redis backend
+    std::cerr << "Suspending Redis" << std::endl;
+    redis.suspend();
+
+    // Wait a little to let the banker figure out that the backend is down
+    std::cerr << "Now sleeping" << std::endl;
+    ML::sleep(10.0);
+
+    {
+        // The banker should still be able to serve this request
+        auto response = proxy.get("/v1/accounts");
+        BOOST_CHECK_EQUAL(response.code(), 200);
+    }
+
+    {
+        std::string amount = "{ \"USD/1M\": 123456789 }";
+        auto response = proxy.put("/v1/accounts/hello/budget",
+                                  { amount, "application/json" });
+        BOOST_CHECK_EQUAL(response.code(), 400);
+    }
+
+    std::cerr << "Resuming redis" << std::endl;
+    redis.resume();
+
+    // Give some time to the banker to persist again
+    ML::sleep(5.0);
+    {
+        std::string amount = "{ \"USD/1M\": 123456789 }";
+        auto response = proxy.put("/v1/accounts/hello/budget",
+                                  { amount, "application/json" });
+        BOOST_CHECK_EQUAL(response.code(), 200);
+    }
+
+}
