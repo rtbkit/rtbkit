@@ -292,3 +292,62 @@ BOOST_AUTO_TEST_CASE( test_redis_mt )
 
 }
 #endif
+
+BOOST_AUTO_TEST_CASE( test_redis_timeout )
+{
+    RedisTemporaryServer redis;
+    Redis::AsyncConnection connection(redis);
+
+    {
+        auto onResult = [&](const Redis::Result &result) {
+            if (result) {
+                auto reply = result.reply();
+                BOOST_CHECK_EQUAL(reply.type(), Redis::STATUS);
+                BOOST_CHECK_EQUAL(reply.asString(), "OK");
+            }
+            else {
+                BOOST_CHECK(false);
+            }
+        };
+
+        connection.queue(SET("Hello", "World"), onResult);
+        ML::sleep(2.0);
+    }
+
+    std::cerr << "Suspending redis" << std::endl;
+    redis.suspend();
+
+    {
+
+        auto result = connection.exec(GET("Hello"), 2.0);
+        BOOST_CHECK(result.timedOut());
+
+        auto onResult = [&](const Redis::Result &result) {
+            BOOST_CHECK(result.timedOut());
+        };
+
+        connection.queue(GET("Hello"), onResult, 2.0);
+        ML::sleep(5.0);
+    }
+
+    std::cerr << "Resuming redis" << std::endl;
+    redis.resume();
+
+    {
+        auto onResult = [&](const Redis::Result &result) {
+            if (result) {
+                auto reply = result.reply();
+                BOOST_CHECK_EQUAL(reply.type(), Redis::STRING);
+                BOOST_CHECK_EQUAL(reply.asString(), "World");
+            }
+            else {
+                BOOST_CHECK(false);
+            }
+        };
+
+        connection.queue(GET("Hello"), onResult);
+        ML::sleep(2.0);
+    }
+
+    redis.shutdown();
+}
