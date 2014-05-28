@@ -194,6 +194,7 @@ struct NoBankerPersistence : public BankerPersistence {
     {
         onDone(SUCCESS, "");
     }
+
 };
 
 /*****************************************************************************/
@@ -298,6 +299,14 @@ struct MasterBanker
 
     Date lastWin;
     Date lastImpression;
+
+private:
+    const Account onCreateAccount(const AccountKey &account, AccountType type);
+    const Account setBudget(const AccountKey &key, const CurrencyPool &newBudget);
+    const Account setBalance(const AccountKey &key, CurrencyPool amount, AccountType type);
+    const Account addAdjustment(const AccountKey &key, CurrencyPool amount);
+    const Account syncFromShadow(const AccountKey &key, const ShadowAccount &shadow);
+
 };
 
 } // namespace RTBKIT
