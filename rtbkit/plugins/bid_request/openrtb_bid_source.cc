@@ -83,7 +83,8 @@ OpenRTBBidSource(Json::Value const & json) :
     BidSource(json),
     host(json.get("host", ML::hostname()).asString()),
     verb(json.get("verb", "POST").asString()),
-    resource(json.get("resource", "/").asString())
+    resource(json.get("resource", "/").asString()),
+    replayFile(false)
 {
     if (json.isMember("replayFile")) {
         replayFile = true;

@@ -414,7 +414,9 @@ handleHttpPayload(const HttpHeader & header,
 
     } catch (const std::exception & exc) {
         // Inject the error message in
-        sendErrorResponse("Error parsing bid request", exc.what());
+        std::stringstream details;
+        details << "Error parsing bid request : " <<  exc.what() << std::endl;
+        sendErrorResponse("INVALID_BID_REQUEST" , details.str() );
         return;
     }
 
@@ -574,7 +576,7 @@ HttpAuctionHandler::
 sendErrorResponse(const std::string & error,
                   const std::string & details)
 {
-    putResponseOnWire(endpoint->getErrorResponse(*this, *auction, error + ": " + details));
+    putResponseOnWire(endpoint->getErrorResponse(*this,  error + ": " + details));
 }
 
 std::string

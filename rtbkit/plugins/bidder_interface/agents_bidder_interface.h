@@ -6,6 +6,8 @@
 #pragma once
 
 #include "rtbkit/common/bidder_interface.h"
+#include "soa/jsoncpp/json.h"
+#include <iostream>
 
 namespace RTBKIT {
 

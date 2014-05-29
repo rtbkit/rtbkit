@@ -262,6 +262,8 @@ void AgentsBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event
 // factory
 //
 
+namespace {
+
 struct AtInit {
     AtInit()
     {
@@ -271,3 +273,4 @@ struct AtInit {
     }
 } atInit;
 
+}

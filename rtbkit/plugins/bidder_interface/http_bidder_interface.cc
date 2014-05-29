@@ -6,6 +6,7 @@
 #include "http_bidder_interface.h"
 #include "jml/db/persistent.h"
 #include "soa/service/http_client.h"
+#include "soa/utils/generic_utils.h"
 #include "rtbkit/common/messages.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
@@ -17,38 +18,8 @@ using namespace RTBKIT;
 namespace {
     DefaultDescription<OpenRTB::BidRequest> desc;
 
-    void tagRequest(OpenRTB::BidRequest &request,
-                    const std::map<std::string, BidInfo> &bidders)
-    {
-
-        for (const auto &bidder: bidders) {
-            const auto &agentConfig = bidder.second.agentConfig;
-            const auto &spots = bidder.second.imp;
-            const auto &creatives = agentConfig->creatives;
-
-            Json::Value creativesValue(Json::arrayValue);
-            for (const auto &spot: spots) {
-                const int adSpotIndex = spot.first;
-                ExcCheck(adSpotIndex >= 0 && adSpotIndex < request.imp.size(),
-                         "adSpotIndex out of range");
-                auto &imp = request.imp[adSpotIndex];
-                auto &ext = imp.ext;
-                for (int creativeIndex: spot.second) {
-                    ExcCheck(creativeIndex >= 0 && creativeIndex < creatives.size(),
-                             "creativeIndex out of range");
-                    const int creativeId = creatives[creativeIndex].id;
-                    creativesValue.append(creativeId);
-                }
-
-                ext["allowed_ids"][std::to_string(agentConfig->externalId)] =
-                    std::move(creativesValue);
-
-            }
-
-        }
-
-    }
 }
+
 
 HttpBidderInterface::HttpBidderInterface(std::string name,
                                          std::shared_ptr<ServiceProxies> proxies,
@@ -59,6 +30,7 @@ HttpBidderInterface::HttpBidderInterface(std::string name,
     loop.addSource("HttpBidderInterface::httpClient", httpClient);
 }
 
+
 void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                                              double timeLeftMs,
                                              std::map<std::string, BidInfo> const & bidders) {
@@ -66,23 +38,14 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
     for(auto & item : bidders) {
         auto & agent = item.first;
         auto & info = router->agents[agent];
+        const auto &config = info.config;
         BidRequest originalRequest = *auction->request;
         WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction, *info.config);
 
         OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
         bool ok = prepareRequest(openRtbRequest, originalRequest, bidders);
-        /* If we took too much time processing the request, then we don't send it.
-           Instead, we're making null bids for each impression
-        */
+        /* If we took too much time processing the request, then we don't send it.  */
         if (!ok) {
-            Bids bids;
-            for_each(begin(openRtbRequest.imp), end(openRtbRequest.imp),
-                     [&](const OpenRTB::Impression &imp) {
-                Bid theBid;
-                theBid.price = USD_CPM(0);
-                bids.push_back(move(theBid));
-            });
-            submitBids(agent, auction->id, bids, wcm);
             return;
         }
         StructuredJsonPrintingContext context;
@@ -94,7 +57,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
         */
         auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
                 [=](const HttpRequest &, HttpClientError errorCode,
-                    int, const std::string &, const std::string &body)
+                    int statusCode, const std::string &, std::string &&body)
                 {
                     if (errorCode != HttpClientError::NONE) {
                         auto toErrorString = [](HttpClientError code) -> std::string {
@@ -112,11 +75,12 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                             ExcCheck(false, "Invalid code path");
                             return "";
                         };
-                        cerr << "Error requesting " << host
-                                  << ": " << toErrorString(errorCode);
+                        router->throwException("http", "Error requesting %s: %s",
+                                               host.c_str(),
+                                               toErrorString(errorCode).c_str());
                       }
-                      else {
-                         //cerr << "Response: " << body << endl;
+                      else if (statusCode == 200) {
+                        // cerr << "Response: " << body << endl;
                          OpenRTB::BidResponse response;
                          ML::Parse_Context context("payload",
                                body.c_str(), body.size());
@@ -129,25 +93,28 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
                              for (const auto &bid: seatbid.bid) {
                                  Bid theBid;
-                                 theBid.creativeIndex = bid.crid.toInt();
+
+                                 int crid = bid.crid.toInt();
+                                 int creativeIndex = indexOf(config->creatives,
+                                     &Creative::id, crid);
+
+                                 if (creativeIndex == -1) {
+                                     router->throwException("http.response",
+                                        "Unknown creative id: %d", crid);
+                                 }
+
+                                 theBid.creativeIndex = creativeIndex;
                                  theBid.price = USD_CPM(bid.price.val);
                                  theBid.priority = 0.0;
 
-                                 /* Looping over the impressions to find the corresponding
-                                    adSpotIndex
-                                 */
-                                 auto impIt = find_if(
-                                     begin(openRtbRequest.imp), end(openRtbRequest.imp),
-                                     [&](const OpenRTB::Impression &imp) {
-                                         return imp.id == bid.impid;
-                                 });
-                                 if (impIt == end(openRtbRequest.imp)) {
-                                     throw ML::Exception(ML::format(
-                                         "Unknown impression id: %s", bid.impid.toString()));
+                                 int spotIndex = indexOf(openRtbRequest.imp,
+                                                        &OpenRTB::Impression::id, bid.impid);
+                                 if (spotIndex == -1) {
+                                      router->throwException("http.response",
+                                         "Unknown impression id: %s",
+                                         bid.impid.toString().c_str());
                                  }
 
-                                 auto spotIndex = distance(begin(openRtbRequest.imp),
-                                                                 impIt);
                                  theBid.spotIndex = spotIndex;
 
                                  bids.push_back(std::move(theBid));
@@ -160,8 +127,8 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
         HttpRequest::Content reqContent { requestStr, "application/json" };
         RestParams headers { { "x-openrtb-version", "2.1" } };
-        //std::cerr << "Sending HTTP POST to: " << host << " " << path << std::endl;
-        //std::cerr << "Content " << reqContent.str << std::endl;
+       // std::cerr << "Sending HTTP POST to: " << host << " " << path << std::endl;
+       // std::cerr << "Content " << reqContent.str << std::endl;
 
         httpClient->post(path, callbacks, reqContent,
                          { } /* queryParams */, headers);
@@ -215,9 +182,42 @@ void HttpBidderInterface::sendErrorMessage(std::string const & agent,
 
 void HttpBidderInterface::sendPingMessage(std::string const & agent,
                                           int ping) {
+    ExcCheck(ping == 0 || ping == 1, "Bad PING level, must be either 0 or 1");
+
+    auto encodeDate = [](Date date) {
+        return ML::format("%.5f", date.secondsSinceEpoch());
+    };
+
+    const std::string sentTime = encodeDate(Date::now());
+    const std::string receivedTime = sentTime;
+    const std::string pong = (ping == 0 ? "PONG0" : "PONG1");
+    std::vector<std::string> message { agent, pong, sentTime, receivedTime };
+    router->handleAgentMessage(message);
 }
 
 void HttpBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event) {
+}
+
+void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
+                                     const std::map<std::string, BidInfo> &bidders) const
+{
+
+    for (const auto &bidder: bidders) {
+        const auto &agentConfig = bidder.second.agentConfig;
+        const auto &spots = bidder.second.imp;
+
+        for (const auto &spot: spots) {
+            const int adSpotIndex = spot.first;
+            ExcCheck(adSpotIndex >= 0 && adSpotIndex < request.imp.size(),
+                     "adSpotIndex out of range");
+            auto &imp = request.imp[adSpotIndex];
+            auto &ext = imp.ext;
+
+            ext["allowed_ids"].append(agentConfig->externalId);
+        }
+
+    }
+
 }
 
 bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
@@ -259,6 +259,8 @@ void HttpBidderInterface::submitBids(const std::string &agent, Id auctionId,
 // factory
 //
 
+namespace {
+
 struct AtInit {
     AtInit()
     {
@@ -267,4 +269,6 @@ struct AtInit {
         });
     }
 } atInit;
+
+}
 

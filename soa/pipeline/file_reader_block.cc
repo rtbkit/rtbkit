@@ -10,7 +10,7 @@ TextLineDescription() {
 
 FileReaderBlock::FileReaderBlock() :
     lines(this, "lines"),
-    folder("$(input-path)") {
+    folder("%{input-path}") {
 }
 
 void FileReaderBlock::run() {

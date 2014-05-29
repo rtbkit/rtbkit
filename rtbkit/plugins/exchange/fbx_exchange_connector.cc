@@ -115,7 +115,7 @@ getResponse(const HttpAuctionHandler & connection,
     const Auction::Data * current = auction.getCurrentData();
 
     if (current->hasError())
-        return getErrorResponse(connection, auction,
+        return getErrorResponse(connection, 
                                 current->error + ": " + current->details);
 
     FBX::BidResponse response;
