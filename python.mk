@@ -150,7 +150,7 @@ run_$(1):	$(PYTHON_BIN_PATH)/$(1)
 $(PYTHON_BIN_PATH)/$(1): $(CWD)/$(2) $(PYTHON_BIN_PATH)/.dir_exists $$(foreach pymod,$(3),$(TMPBIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"
 	@$(PYFLAKES) $$<
-	@cp $$< $$@~
+	@(echo -n "#!$(VIRTUALENV)/bin/python"; cat $$<) > $$@~
 	@chmod +x $$@~
 	@mv $$@~ $$@
 
