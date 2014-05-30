@@ -220,7 +220,7 @@ handleWinRq(const HttpHeader & header,
     } else {
         response.valid = false;
         response.error = "MISSING_WINPRICE";
-        response.details = "A win notice requires the winPrice field.";
+        response.details = "A win notice requires the price field.";
     
         return response;
     }
