@@ -129,16 +129,12 @@ checkExpiredAuctions()
     using std::placeholders::_1;
     using std::placeholders::_2;
 
-    LOG(print) << " checking " << submitted.size()
-        << " submitted auctions for inferred loss" << endl;
-
+    recordLevel(submitted.size(), "submittedSize");
     submitted.expire(
             std::bind(&SimpleEventMatcher::expireSubmitted, this, now, _1, _2),
             now);
 
-    LOG(print) << " checking " << finished.size()
-        << " finished auctions for expiry" << endl;
-
+    recordLevel(finished.size(), "finishedSize");
     finished.expire(
             std::bind(&SimpleEventMatcher::expireFinished, this, _1, _2),
             now);

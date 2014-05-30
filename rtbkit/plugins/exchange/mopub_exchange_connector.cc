@@ -168,10 +168,10 @@ getCreativeCompatibility(const Creative & creative,
 
     // 4.  Must have mopub.adm that includes MoPub's macro
     getAttr(result, pconf, "adm", crinfo->adm, includeReasons);
-    if (crinfo->adm.find("${AUCTION_PRICE:BF}") == string::npos)
+    if (crinfo->adm.find("${AUCTION_PRICE}") == string::npos)
         result.setIncompatible
         ("creative[].providerConfig.mopub.adm ad markup must contain "
-         "encrypted win price macro ${AUCTION_PRICE:BF}",
+         "encrypted win price macro ${AUCTION_PRICE}",
          includeReasons);
 
     // 5.  Must have creative ID in mopub.crid
