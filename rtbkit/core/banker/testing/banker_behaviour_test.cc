@@ -108,7 +108,6 @@ BOOST_AUTO_TEST_CASE( test_banker_slave_banker_accounts )
         MasterBanker master(proxies, "initBanker");
         auto storage = make_shared<RedisBankerPersistence>(redis);
         master.init(storage);
-        master.monitorProviderClient.inhibit_ = true;
         master.start();
 
         master.accounts.createAccount({"top"}, AT_BUDGET);
@@ -147,7 +146,6 @@ BOOST_AUTO_TEST_CASE( test_banker_slave_banker_accounts )
         MasterBanker master(proxies, "initBanker2");
         auto storage = make_shared<RedisBankerPersistence>(redis);
         master.init(storage);
-        master.monitorProviderClient.inhibit_ = true;
         master.start();
         auto account
             = master.accounts.getAccount({"top", "sub", "slaveBanker"});
