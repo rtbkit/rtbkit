@@ -35,7 +35,7 @@ using namespace std;
 
 namespace ML {
 
-char * demangle(const char * name)
+char * char_demangle(const char * name)
 {
     int status;
     char * result = abi::__cxa_demangle(name, nullptr, 0, &status);
@@ -49,7 +49,7 @@ char * demangle(const char * name)
 std::string demangle(const std::string & name)
 {
     string result;
-    char * ptr = demangle(name.c_str());
+    char * ptr = char_demangle(name.c_str());
 
     if (ptr) {
         ML::Call_Guard guard([&] { free(ptr); });

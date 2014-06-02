@@ -30,7 +30,7 @@
 namespace ML {
 
 /* returns a null-terminated string allocated on the heap */
-char * demangle(const char * name);
+char * char_demangle(const char * name);
 
 std::string demangle(const std::string & name);
 std::string demangle(const std::type_info & type);

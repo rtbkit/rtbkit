@@ -126,7 +126,7 @@ void trace_exception(void * object, const std::type_info * tinfo)
 
     char * demangled = (noAlloc
                         ? (char *) "std::bad_alloc"
-                        : demangle(tinfo->name()));
+                        : char_demangle(tinfo->name()));
     auto pid = getpid();
     auto tid = gettid();
 
