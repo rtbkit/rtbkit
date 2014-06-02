@@ -38,6 +38,27 @@ using namespace std;
 
 namespace ML {
 
+size_t backtrace(char * buffer, size_t bufferSize, int num_to_skip)
+{
+    size_t remaining(bufferSize);
+    size_t written, totalWritten(0);
+
+    vector<BacktraceFrame> result = backtrace(num_to_skip);
+
+    for (unsigned i = 0;  i < result.size();  ++i) {
+        string line = result[i].print();
+        written = snprintf(buffer + totalWritten, remaining,
+                           "%02u: %s\n", i, line.c_str());
+        totalWritten += written;
+        if (written >= remaining) {
+            break;
+        }
+        remaining -= written;
+    }
+
+    return totalWritten;
+}
+
 void backtrace(std::ostream & stream, int num_to_skip)
 {
     vector<BacktraceFrame> result = backtrace(num_to_skip);

@@ -21,36 +21,44 @@
    us.
 */
 
-#include "demangle.h"
-
+#include <string.h>
 #include <string>
 #include <cxxabi.h>
 #include <stdlib.h>
 
-using namespace std;
+#include "jml/utils/guard.h"
 
+#include "demangle.h"
+
+
+using namespace std;
 
 namespace ML {
 
-std::string demangle(const std::string & name)
+char * demangle(const char * name)
 {
     int status;
-    string result;
-    char * ptr = abi::__cxa_demangle(name.c_str(), 0, 0, &status);
+    char * result = abi::__cxa_demangle(name, nullptr, 0, &status);
 
     if (status != 0)
-        return name;
-        //return "<<DEMANGLE ERROR: " + name + ">>";
-    
-    try {
+        result = ::strdup(name);
+
+    return result;
+}
+
+std::string demangle(const std::string & name)
+{
+    string result;
+    char * ptr = demangle(name.c_str());
+
+    if (ptr) {
+        ML::Call_Guard guard([&] { free(ptr); });
         result = ptr;
     }
-    catch (...) {
-        free(ptr);
-        throw;
+    else {
+        result = name;
     }
 
-    free(ptr);
     return result;
 }
 
