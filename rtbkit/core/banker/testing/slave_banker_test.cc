@@ -41,7 +41,6 @@ BOOST_AUTO_TEST_CASE( test_master_slave_banker )
 
     MasterBanker master(proxies, bankerServiceName);
     master.init(make_shared<NoBankerPersistence>());
-    master.monitorProviderClient.inhibit_ = true;
     auto addr = master.bindTcp();
     auto bankerAddr = addr.second;
 
@@ -102,7 +101,6 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
 
     MasterBanker master(proxies);
     master.init(make_shared<NoBankerPersistence>());
-    master.monitorProviderClient.inhibit_ = true;
     auto addr = master.bindTcp();
     auto bankerAddr = addr.second;
     cerr << "master banker is listening on " << addr.first << ","
@@ -196,7 +194,6 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
 
     MasterBanker master(proxies);
     master.init(make_shared<NoBankerPersistence>());
-    master.monitorProviderClient.inhibit_ = true;
     auto addr = master.bindTcp();
     auto bankerAddr = addr.second;
     cerr << "master banker is listening on " << addr.first << ","

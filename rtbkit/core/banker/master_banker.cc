@@ -281,8 +281,7 @@ MasterBanker(std::shared_ptr<ServiceProxies> proxies,
              const string & serviceName)
     : ServiceBase(serviceName, proxies),
       RestServiceEndpoint(proxies->zmqContext),
-      saving(false),
-      monitorProviderClient(proxies->zmqContext, *this)
+      saving(false)
 {
     /* Set the Access-Control-Allow-Origins: * header to allow browser-based
        REST calls directly to the endpoint.
@@ -473,10 +472,6 @@ init(const shared_ptr<BankerPersistence> & storage)
                        accountKeyParam,
                        JsonParam<ShadowAccount>("",
                                                 "Representation of the shadow account"));
-
-    // Connects to all the monitors regardless of location. This ensures that if
-    // our master banker is down then all data-centers will stop bidding.
-    monitorProviderClient.init(getServices()->config, "monitor", false);
 }
 
 void
@@ -484,7 +479,6 @@ MasterBanker::
 start()
 {
     RestServiceEndpoint::start();
-    monitorProviderClient.start();
 }
 
 pair<string, string>
@@ -501,7 +495,6 @@ MasterBanker::
 shutdown()
 {
     RestServiceEndpoint::shutdown();
-    monitorProviderClient.shutdown();
 }
 
 Json::Value
@@ -685,30 +678,5 @@ syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
     return accounts.syncFromShadow(key, shadow);
 }
 
-
-/** MonitorProvider interface */
-string
-MasterBanker::
-getProviderClass()
-    const
-{
-    return "rtbBanker";
-}
-
-MonitorIndicator
-MasterBanker::
-getProviderIndicators()
-    const
-{
-    bool persistenceOk = lastSaveStatus == BankerPersistence::SUCCESS;
-
-    MonitorIndicator ind;
-    ind.serviceName = serviceName();
-    ind.status = persistenceOk;
-    ind.message = string()
-        + "Banker persistence: " + (persistenceOk ? "OK" : "ERROR");
-
-    return ind;
-}
 
 } // namespace RTBKIT

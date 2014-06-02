@@ -238,8 +238,7 @@ struct OldRedisBankerPersistence : public BankerPersistence {
 
 struct MasterBanker
     : public ServiceBase,
-      public RestServiceEndpoint,
-      public MonitorProvider
+      public RestServiceEndpoint
 {
 
     MasterBanker(std::shared_ptr<ServiceProxies> proxies,
@@ -289,13 +288,6 @@ struct MasterBanker
                        const std::string & info);
     void onStateSaved(BankerPersistence::PersistenceCallbackStatus status,
                       const std::string & info);
-
-    /* Reponds to Monitor requests */
-    MonitorProviderClient monitorProviderClient;
-
-    /* MonitorProvider interface */
-    std::string getProviderClass() const;
-    MonitorIndicator getProviderIndicators() const;
 
     Date lastWin;
     Date lastImpression;
