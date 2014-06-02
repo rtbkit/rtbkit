@@ -51,6 +51,7 @@ struct BacktraceInfo {
     frames from the top of the trace.
 */
 void backtrace(std::ostream & stream = std::cerr, int num_to_skip = 1);
+size_t backtrace(char * buffer, size_t bufferSize, int num_to_skip = 1);
 
 /** The information in a backtrace frame. */
 struct BacktraceFrame {
