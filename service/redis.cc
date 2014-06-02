@@ -890,6 +890,7 @@ queue(const Command & command,
         needWakeup = !timeouts.empty()
             && timeout.expiry < timeouts.begin()->first;
         data->timeoutIterator = timeouts.insert(make_pair(timeout.expiry, it));
+        earliestTimeout = timeouts.begin()->first;
     }
     
     vector<const char *> argv = command.argv();
