@@ -11,6 +11,7 @@
 #include <curlpp/Info.hpp>
 #include <curlpp/Infos.hpp>
 
+#include "jml/arch/threads.h"
 #include "jml/arch/timers.h"
 #include "soa/types/basic_value_descriptions.h"
 
@@ -19,16 +20,6 @@
 
 using namespace std;
 using namespace ML;
-
-
-namespace {
-
-pid_t gettid()
-{
-    return (pid_t) syscall(SYS_gettid);
-}
-
-}
 
 
 namespace Datacratic {
