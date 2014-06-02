@@ -124,9 +124,16 @@ void trace_exception(void * object, const std::type_info * tinfo)
     time(&now);
     strftime(datetime, sizeof(datetime), "%FT%H:%M:%S", localtime(&now));
 
-    char * demangled = (noAlloc
-                        ? (char *) "std::bad_alloc"
-                        : char_demangle(tinfo->name()));
+    const char * demangled;
+    char * heapDemangled;
+    if (noAlloc) {
+        heapDemangled = nullptr;
+        demangled = "std::bad_alloc";
+    }
+    else {
+        heapDemangled = char_demangle(tinfo->name());
+        demangled = heapDemangled;
+    }
     auto pid = getpid();
     auto tid = gettid();
 
@@ -138,8 +145,9 @@ void trace_exception(void * object, const std::type_info * tinfo)
                          "type:   %s\n"
                          "pid:    %d; tid: %d\n",
                          datetime, demangled, pid, tid);
-    if (noAlloc)
-        free(demangled);
+    if (heapDemangled) {
+        free(heapDemangled);
+    }
     if (written >= remaining) {
         goto end;
     }
