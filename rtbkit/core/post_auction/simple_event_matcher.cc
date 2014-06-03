@@ -380,11 +380,11 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
                 winPrice, timestamp, status, confidence,
                 meta.toString(), uids);
 
-    using namespace std::placeholders;
+    namespace ph = std::placeholders;
     std::for_each(
             info.earlyCampaignEvents.begin(),
             info.earlyCampaignEvents.end(),
-            std::bind(&SimpleEventMatcher::doCampaignEvent, this, _1));
+            std::bind(&SimpleEventMatcher::doCampaignEvent, this, ph::_1));
 }
 
 

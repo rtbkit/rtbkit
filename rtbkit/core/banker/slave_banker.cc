@@ -13,6 +13,7 @@
 
 using namespace std;
 
+static constexpr int MaximumFailSyncSeconds = 3;
 
 namespace RTBKIT {
 
@@ -359,6 +360,7 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
     allKeys.swap(filteredKeys);
 
     if (allKeys.empty()) {
+        lastSync = Date::now();
         if (onDone)
             onDone(nullptr);
         return;
@@ -366,10 +368,11 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
 
     struct Aggregator {
 
-        Aggregator(int numTotal,
+        Aggregator(SlaveBanker *self, int numTotal,
                    std::function<void (std::exception_ptr)> onDone)
             : itl(new Itl())
         {
+            itl->self = self;
             itl->numTotal = numTotal;
             itl->numFinished = 0;
             itl->exc = nullptr;
@@ -377,6 +380,7 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
         }
 
         struct Itl {
+            SlaveBanker *self;
             int numTotal;
             int numFinished;
             std::exception_ptr exc;
@@ -391,6 +395,15 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
                 itl->exc = exc;
             int nowDone = __sync_add_and_fetch(&itl->numFinished, 1);
             if (nowDone == itl->numTotal) {
+                if (!itl->exc) {
+                    // We need some kind of synchronization here because the lastSync
+                    // member variable will also be read in the context of an other
+                    // MessageLoop (the MonitorProviderClient). Thus, if we want to avoid
+                    // data-race here, we grab a lock.
+                    std::lock_guard<Lock> guard(itl->self->syncLock);
+                    itl->self->lastSync = Date::now();
+                }
+
                 if (itl->onDone)
                     itl->onDone(itl->exc);
                 else {
@@ -402,7 +415,7 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
         }               
     };
     
-    Aggregator aggregator(allKeys.size(), onDone);
+    Aggregator aggregator(const_cast<SlaveBanker *>(this), allKeys.size(), onDone);
 
     //cerr << "syncing " << allKeys.size() << " keys" << endl;
 
@@ -555,6 +568,24 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
     Account masterAccount = Account::fromJson(Json::parse(payload));
     accounts.syncFromMaster(accountKey, masterAccount);
     reauthorizeBudgetSent = Date();
+}
+
+MonitorIndicator
+SlaveBanker::
+getProviderIndicators() const
+{
+    Date now = Date::now();
+
+    // See syncAll for the reason of this lock
+    std::lock_guard<Lock> guard(syncLock);
+    bool syncOk = now < lastSync.plusSeconds(MaximumFailSyncSeconds);
+
+    MonitorIndicator ind;
+    ind.serviceName = "slaveBanker";
+    ind.status = syncOk;
+    ind.message = string() + "Sync with MasterBanker: " + (syncOk ? "OK" : "ERROR");
+
+    return ind;
 }
 
 } // namespace RTBKIT

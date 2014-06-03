@@ -12,7 +12,9 @@
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/typed_message_channel.h"
 #include "soa/service/http_client.h"
+#include "jml/arch/spinlock.h"
 #include <thread>
+#include <atomic>
 
 namespace RTBKIT {
 
@@ -204,6 +206,9 @@ struct SlaveBanker : public Banker, public MessageLoop {
         accounts.logBidEvents(eventRecorder);
     }
 
+    /* Monitor */
+    virtual MonitorIndicator getProviderIndicators() const;
+
 private:    
     ShadowAccounts accounts;
 
@@ -213,6 +218,9 @@ private:
     std::string accountSuffix;
 
     std::shared_ptr<HttpClient> httpClient;
+    typedef ML::Spinlock Lock;
+    mutable Lock syncLock;
+    Datacratic::Date lastSync;
     
     /** Periodically we report spend to the banker.*/
     void reportSpend(uint64_t numTimeoutsExpired);

@@ -290,6 +290,7 @@ Router::
 setBanker(const std::shared_ptr<Banker> & newBanker)
 {
     banker = newBanker;
+    monitorProviderClient.addProvider(banker.get());
 }
 
 void
