@@ -5,6 +5,7 @@
 */
 
 #include <cxxabi.h>
+#include <cstring>
 #include <fstream>
 
 #include "jml/compiler/compiler.h"
