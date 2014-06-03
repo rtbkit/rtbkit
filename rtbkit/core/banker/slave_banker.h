@@ -37,9 +37,12 @@ struct SlaveBudgetController
     }
 
     void init(std::shared_ptr<ConfigurationService> config,
-              const std::string & serviceClass = "rtbBanker")
+              const std::string & bankerHost)
     {
-        httpClient.reset(new HttpClient(serviceClass));
+        if (bankerHost.empty())
+            throw ML::Exception("bankerHost can not be empty");
+
+        httpClient.reset(new HttpClient(bankerHost));
         addSource("SlaveBudgetController::httpClient", httpClient);
     }
 
@@ -102,7 +105,7 @@ struct SlaveBanker : public Banker, public MessageLoop {
     SlaveBanker(std::shared_ptr<zmq::context_t> context,
                 std::shared_ptr<ConfigurationService> config,
                 const std::string & accountSuffix,
-                const std::string & bankerServiceClass = "rtbBanker");
+                const std::string & bankerHost);
 
     /** Initialize the slave banker.  This will connect it to the master
         banker (that it will discover using the configuration service
@@ -115,7 +118,7 @@ struct SlaveBanker : public Banker, public MessageLoop {
     */
     void init(std::shared_ptr<ConfigurationService> config,
               const std::string & accountSuffix,
-              const std::string & serviceClass = "rtbBanker");
+              const std::string & bankerHost);
 
     /** Notify the banker that we're going to need to be spending some
         money for the given account.  We also keep track of how much

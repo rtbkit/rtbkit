@@ -85,6 +85,7 @@ start()
 
         cerr << "MasterBanker: addrs = " << addr.first << "," << addr.second
              << endl;
+        bankerAddress = addr.second;
 
         // cerr << "running banker" << endl;
         banker->start();
@@ -160,6 +161,7 @@ shutdownWithSignal(int signum)
         throw ML::Exception(errno, "wait for banker shutdown");
 
     serverPid_ = -1;
+    bankerAddress = "";
 
     signal(SIGCHLD, oldHandler);
 }

@@ -48,16 +48,16 @@ init()
     config.start();
 
     masterBanker.init(std::make_shared<RedisBankerPersistence>(redis));
-    masterBanker.bindTcp();
+    auto bankerAddr = masterBanker.bindTcp().second;
     masterBanker.start();
 
-    budgetController.init(getServices()->config);
+    budgetController.init(getServices()->config, bankerAddr);
     budgetController.start();
 
     auto makeSlaveBanker = [=] (const std::string & name)
         {
             auto res = make_shared<SlaveBanker>(
-                    getZmqContext(), getServices()->config, name);
+                    getZmqContext(), getServices()->config, name, bankerAddr);
             res->start();
             return res;
         };

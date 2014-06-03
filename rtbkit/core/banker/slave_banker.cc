@@ -173,23 +173,23 @@ SlaveBanker::
 SlaveBanker(std::shared_ptr<zmq::context_t> context,
             std::shared_ptr<ConfigurationService> config,
             const std::string & accountSuffix,
-            const std::string & bankerServiceName)
+            const std::string & bankerHost)
     : createdAccounts(128)
 {
-    init(config, accountSuffix, bankerServiceName);
+    init(config, accountSuffix, bankerHost);
 }
 
 void
 SlaveBanker::
 init(std::shared_ptr<ConfigurationService> config,
      const std::string & accountSuffix,
-     const std::string & bankerServiceName)
+     const std::string & bankerHost)
 {
     if (accountSuffix.empty()) {
         throw ML::Exception("'accountSuffix' cannot be empty");
     }
-    if (bankerServiceName.empty()) {
-        throw ML::Exception("'bankerServiceName' cannot be empty");
+    if (bankerHost.empty()) {
+        throw ML::Exception("'bankerHost' cannot be empty");
     }
 
     // When our account manager creates an account, it will call this
@@ -226,7 +226,7 @@ init(std::shared_ptr<ConfigurationService> config,
             addSpendAccount(accountKey, USD(0), onDone);
         };
 
-    httpClient.reset(new HttpClient(bankerServiceName));
+    httpClient.reset(new HttpClient(bankerHost));
     addSource("SlaveBanker::httpClient", httpClient);
 
     addSource("SlaveBanker::createdAccounts", createdAccounts);

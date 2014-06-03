@@ -69,6 +69,8 @@ doOptions(int argc, char ** argv,
          "configuration file with exchange data")
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
+        ("banker-uri", value<string>(&bankerUri),
+         "URI of the master banker (host:port)")
         ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
          "log auction requests")
         ("log-bids", value<bool>(&logBids)->zero_tokens(),
@@ -117,7 +119,8 @@ init()
 
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
                                            proxies->config,
-                                           router->serviceName() + ".slaveBanker");
+                                           router->serviceName() + ".slaveBanker",
+                                           bankerUri);
 
     router->setBanker(banker);
     router->bindTcp();

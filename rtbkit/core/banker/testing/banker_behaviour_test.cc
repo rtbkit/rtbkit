@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE( test_banker_slave_banker_accounts )
 
         /* spawn slave */
         SlaveBanker slave(proxies->zmqContext);
-        slave.init(proxies->config, "slaveBanker");
+        slave.init(proxies->config, "slaveBanker", master.bankerAddress);
         slave.start();
 
         slave.addSpendAccountSync({"top", "sub"});

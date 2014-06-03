@@ -49,6 +49,8 @@ doOptions(int argc, char ** argv,
     postAuctionLoop_options.add_options()
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
+        ("banker-uri", value<string>(&bankerUri),
+         "URI of the master banker (host:port)")
         ("shards", value<size_t>(&shards),
          "Number of shards(threads) used for matching.")
         ("win-seconds", value<float>(&winTimeout),
@@ -98,7 +100,8 @@ init()
 
     banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
             proxies->config,
-            postAuctionLoop->serviceName() + ".slaveBanker");
+            postAuctionLoop->serviceName() + ".slaveBanker",
+            bankerUri);
 
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);
