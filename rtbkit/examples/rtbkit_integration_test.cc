@@ -94,7 +94,6 @@ struct Components
         postAuctionLoop.shutdown();
 
         budgetController.shutdown();
-        masterBanker.shutdown();
 
         agent.shutdown();
         augmentor1.shutdown();
@@ -102,6 +101,11 @@ struct Components
         agentConfig.shutdown();
 
         monitor.shutdown();
+
+        // Waiting a little bit that SlaveBanker from the Router and PAS stop
+        // sending requests to the master banker before shutting it down
+        ML::sleep(2);
+        masterBanker.shutdown();
 
         cerr << "done shutdown" << endl;
     }
