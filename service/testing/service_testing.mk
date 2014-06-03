@@ -46,3 +46,5 @@ $(eval $(call test,http_client_test,services test_services,boost))
 $(eval $(call test,http_client_bench,boost_program_options services test_services,boost manual))
 
 $(eval $(call test,logs_test,services,boost))
+
+$(eval $(call test,sns_mock_test,cloud services,boost))
