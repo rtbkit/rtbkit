@@ -37,7 +37,7 @@ PostAuctionService(
 
       loopMonitor(*this),
       configListener(getZmqContext()),
-      monitorProviderClient(getZmqContext(), *this),
+      monitorProviderClient(getZmqContext()),
 
       auctions(65536),
       events(65536),
@@ -46,7 +46,9 @@ PostAuctionService(
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
       router(!!getZmqContext())
-{}
+{
+    monitorProviderClient.addProvider(this);
+}
 
 PostAuctionService::
 PostAuctionService(ServiceBase & parent, const std::string & serviceName)
@@ -57,7 +59,7 @@ PostAuctionService(ServiceBase & parent, const std::string & serviceName)
 
       loopMonitor(*this),
       configListener(getZmqContext()),
-      monitorProviderClient(getZmqContext(), *this),
+      monitorProviderClient(getZmqContext()),
 
       auctions(65536),
       events(65536),
@@ -66,7 +68,9 @@ PostAuctionService(ServiceBase & parent, const std::string & serviceName)
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
       router(!!getZmqContext())
-{}
+{
+    monitorProviderClient.addProvider(this);
+}
 
 
 void
