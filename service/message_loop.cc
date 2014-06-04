@@ -32,7 +32,7 @@ namespace Datacratic {
 
 MessageLoop::
 MessageLoop(int numThreads, double maxAddedLatency, int epollTimeout)
-    : sourceActions_(8),
+    : sourceActions_(256),
       numThreadsCreated(0),
       shutdown_(true),
       totalSleepTime_(0.0)
