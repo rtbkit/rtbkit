@@ -5,6 +5,7 @@
     Code to talk to s3.
 */
 
+#include <atomic>
 #include "soa/service/s3.h"
 #include "jml/utils/string_functions.h"
 #include "soa/types/date.h"
@@ -1565,7 +1566,7 @@ struct StreamingDownloadSource {
         impl->bucket = bucket;
         impl->object = object;
         impl->info = owner->getObjectInfo(bucket, object);
-        impl->chunkSize = 1024 * 1024;  // start with 1MB and ramp up
+        impl->baseChunkSize = 1024 * 1024;  // start with 1MB and ramp up
 
         int numThreads = 1;
         if (impl->info.size > 1024 * 1024)
@@ -1588,9 +1589,9 @@ struct StreamingDownloadSource {
 
     struct Impl {
         Impl()
-            : owner(0), offset(0), shutdown(false),
-              readPartOffset(0), readPartDone(1)
+            : owner(0), baseChunkSize(0)
         {
+            reset();
         }
 
         ~Impl()
@@ -1599,202 +1600,240 @@ struct StreamingDownloadSource {
         }
 
         const S3Api * owner;
-        S3Api::ObjectInfo info;
         std::string bucket;
         std::string object;
-        size_t offset;
-        size_t chunkSize;
-        size_t bytesDone;
-        bool shutdown;
-        boost::thread_group tg;
+        S3Api::ObjectInfo info;
+        size_t baseChunkSize;
 
-        string readPart;
-        size_t readPartOffset;
+        size_t maxChunkSize;
 
-        Date startDate;
+        // Date startDate;
 
-        size_t writeOffset, readOffset;
-        int readPartReady, readPartDone, writePartNumber, allocPartNumber;
+        atomic<bool> shutdown;
+        exception_ptr lastExc;
 
+        /* read thread */
+        uint64_t readOffset; /* number of bytes from the entire stream that
+                              * have been returned to the caller */
 
-        void start(int numThreads)
+        string readPart; /* data buffer for the part of the stream being
+                          * transferred to the caller */
+        ssize_t readPartOffset; /* number of bytes from "readPart" that have
+                                 * been returned to the caller, or -1 when
+                                 * awaiting a new part */
+        int readPartDone; /* the number of the chunk representing "readPart" */
+
+        /* http threads */
+        typedef RingBufferSRMW<string> ThreadData;
+
+        int numThreads; /* number of download threads */
+        vector<thread> threads; /* thread pool */
+        vector<ThreadData> threadQueues; /* per-thread queue of chunk data */
+
+        /* cleanup all the variables that are used during reading, the
+           "static" ones are left untouched */
+        void reset()
         {
-            readPartOffset = offset = bytesDone = writeOffset
-                = writePartNumber = allocPartNumber = readOffset = 0;
-            readPartReady = 0;
+            shutdown = false;
+
+            readOffset = 0;
+
+            readPart = "";
+            readPartOffset = -1;
             readPartDone = 0;
-            startDate = Date::now();
-            for (unsigned i = 0;  i < numThreads;  ++i)
-                tg.create_thread(boost::bind<void>(&Impl::runThread, this));
+
+            threadQueues.clear();
+            threads.clear();
+            numThreads = 0;
         }
 
-        void stop()
-        {
-            shutdown = true;
-            ML::memory_barrier();
-            futex_wake(writePartNumber);
-            futex_wake(readPartReady);
-            futex_wake(readPartDone);
-            tg.join_all();
-        }
-
-        std::streamsize read(char_type* s, std::streamsize n)
-        {
-            if (readOffset == info.size)
-                return -1;
-
-            //Date start = Date::now();
-
-#if 0
-            cerr << "read: readPartReady = " << readPartReady
-                 << " readPartDone = " << readPartDone
-                 << " writePartNumber = " << writePartNumber
-                 << " allocPartNumber = " << allocPartNumber
-                 << " readPartOffset = " << readPartOffset
-                 << endl;
-#endif
-
-            //cerr << "trying to read " << n << " characters at offset "
-            //     << readPartOffset << " of "
-            //     << readPart.size() << endl;
-
-            while (readPartDone == readPartReady) {
-                //cerr << "waiting for part " << readPartDone << endl;
-                ML::futex_wait(readPartReady, readPartDone);
-            }
-
-            ExcAssertGreaterEqual(readPartReady, readPartDone);
-
-            //cerr << "ready to start reading" << endl;
-
-            //cerr << "trying to read " << n << " characters at offset "
-            //     << readPartOffset << " of "
-            //     << readPart.size() << endl;
-
-            ExcAssertGreaterEqual(readPart.size(), readPartOffset);
-
-            size_t toDo = std::min<size_t>(readPart.size() - readPartOffset,
-                                           n);
-
-            //cerr << "toDo = " << toDo << endl;
-
-            std::copy(readPart.c_str() + readPartOffset,
-                      readPart.c_str() + readPartOffset + toDo,
-                      s);
-
-            readPartOffset += toDo;
-            readOffset += toDo;
-            if (readPartOffset == readPart.size()) {
-                //cerr << "finished part " << readPartDone << endl;
-                ++readPartDone;
-                ML::futex_wake(readPartDone);
-            }
-
-            //Date end = Date::now();
-            //double elapsed = end.secondsSince(start);
-            //if (elapsed > 0.0001)
-            //    cerr << "read elapsed " << elapsed << endl;
-
-            return toDo;
-        }
-
-        void runThread()
+        void start(int nThreads)
         {
             // Maximum chunk size is what we can do in 3 seconds
-            size_t maxChunkSize
-                = owner->bandwidthToServiceMbps
-                * 3.0 * 1000000;
-
+            maxChunkSize = (owner->bandwidthToServiceMbps
+                            * 3.0 * 1000000);
             size_t sysMemory = getTotalSystemMemory();
 
             //cerr << "sysMemory = " << sysMemory << endl;
             // Limit each chunk to 1% of system memory
             maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
             //cerr << "maxChunkSize = " << maxChunkSize << endl;
+            numThreads = nThreads;
 
-            while (!shutdown) {
-                // Go in the lottery to see which part I need to download
-                int partToDo = __sync_fetch_and_add(&allocPartNumber, 1);
+            // startDate = Date::now();
 
-                //cerr << "partToDo = " << partToDo << endl;
+            for (int i = 0; i < numThreads; i++) {
+                threadQueues.emplace_back(2);
+            }
+            
+            /* ensure that the queues are ready before the threads are
+               launched */
+            ML::memory_barrier();
 
-                // Wait until it's my turn to increment the offset
-                while (!shutdown) {
-                    int currentWritePart = writePartNumber;
-                    if (currentWritePart >= partToDo) break;
-                    ML::futex_wait(writePartNumber, currentWritePart, 0.1);
+            for (int i = 0; i < numThreads; i++) {
+                auto threadFn = [&] (int threadNum) {
+                    this->runThread(threadNum);
+                };
+                threads.emplace_back(threadFn, i);
+            }
+        }
+
+        void stop()
+        {
+            shutdown = true;
+            for (thread & th: threads) {
+                th.join();
+            }
+            if (lastExc) {
+                rethrow_exception(lastExc);
+            }
+
+            reset();
+        }
+
+        /* reader thread */
+        std::streamsize read(char_type* s, std::streamsize n)
+        {
+            if (lastExc) {
+                rethrow_exception(lastExc);
+            }
+
+            if (readOffset == info.size)
+                return -1;
+
+            if (readPartOffset == -1) {
+                waitNextPart();
+            }
+            // cerr << "readPartOffset: "  + to_string(readPartOffset) + "\n";
+
+            if (lastExc) {
+                rethrow_exception(lastExc);
+            }
+
+            size_t toDo = min<size_t>(readPart.size() - readPartOffset,
+                                      n);
+            const char_type * start = readPart.c_str() + readPartOffset;
+            std::copy(start, start + toDo, s);
+
+            readPartOffset += toDo;
+            if (readPartOffset == readPart.size()) {
+                readPartOffset = -1;
+            }
+
+            readOffset += toDo;
+
+            // cerr << "read: "  + to_string(toDo) + "\n";
+
+            return toDo;
+        }
+
+        void waitNextPart()
+        {
+            int partThread = readPartDone % numThreads;
+            ThreadData & threadQueue = threadQueues[partThread];
+
+            /* We set a timeout to avoid dead locking due to threads that
+             * have exited after an exception. */
+            while (!lastExc) {
+                if (threadQueue.tryPop(readPart, 1.0)) {
+                    break;
                 }
-                if (shutdown) return;
+            }
 
-                //cerr << "ready" << endl;
+            readPartOffset = 0;
+            readPartDone++;
+        }
 
-                ExcAssertEqual(writePartNumber, partToDo);
+        /* download threads */
+        void runThread(int threadNum)
+        {
+            ThreadData & threadQueue = threadQueues[threadNum];
 
-                // If we're done then get out
-                if (writeOffset >= info.size || shutdown) return;  // done
+            uint64_t start = 0;
+            unsigned int prevChunkNbr = 0;
 
-                if (partToDo && partToDo % 2 == 0 && chunkSize < maxChunkSize)
-                    chunkSize *= 2;
+            try {
+                for (int loop = 0;; loop++) {
+                    /* number of the chunk that we need to process */
+                    unsigned int chunkNbr = loop * numThreads + threadNum;
 
-                //cerr << "chunkSize = " << chunkSize << " maxChunkSize = "
-                //     << maxChunkSize << endl;
+                    /* we adjust the offset by adding the chunk sizes of all the
+                       threads in the previous loop */
+                    for (unsigned int i = prevChunkNbr; i < chunkNbr; i++) {
+                        start += getChunkSize(i);
+                    }
 
-                size_t start = writeOffset;
-                size_t end = std::min<size_t>(writeOffset + chunkSize,
-                                              info.size);
+                    if (start >= info.size) {
+                        /* we are done */
+                        return;
+                    }
+                    prevChunkNbr = chunkNbr;
 
-                writeOffset = end;
+                    size_t chunkSize = getChunkSize(chunkNbr);
+                    uint64_t end = start + chunkSize;
+                    if (end > info.size) {
+                        end = info.size;
+                        chunkSize = end - start;
+                    }
 
-                // Finished my turn to increment.  Wake up the next thread
-                ++writePartNumber;
-                futex_wake(writePartNumber);
+                    // ::fprintf(stderr,
+                    //           "thread %d downloading %d from %lu to %lu\n",
+                    //           threadNum, chunkNbr, start, end);
 
-                // Download my part
-                //cerr << "downloading" << endl;
+                    auto partResult
+                        = owner->get(bucket, "/" + object,
+                                     S3Api::Range(start, chunkSize));
+                    if (partResult.code_ != 206) {
+                        throw ML::Exception("http error "
+                                            + to_string(partResult.code_)
+                                            + " while getting part "
+                                            + partResult.bodyXmlStr());
+                    }
 
-                auto partResult
-                    = owner->get(bucket, "/" + object,
-                                 S3Api::Range(start, end - start));
-                if (partResult.code_ != 206) {
-                    cerr << "error getting part "
-                         << partResult.bodyXmlStr() << endl;
-                    return;
-                }
+                    //cerr << "done downloading" << endl;
 
-                //cerr << "done downloading" << endl;
+                    while (true) {
+                        if (shutdown || lastExc) {
+                            return;
+                        }
+                        if (threadQueue.tryPush(partResult.body())) {
+                            // ::fprintf(stderr,
+                            //           "thread %d has pushed its contents (offset: %lu, size: %lu)\n",
+                            //           threadNum, start, partResult.body().size());
+                            break;
+                        }
+                        else {
+                            ML::sleep(0.1);
+                        }
+                    }
 
-                // Wait until the reader needs my part
-                while (!shutdown) {
-                    int currentReadPart = readPartDone;
-                    if (currentReadPart == partToDo) break;
-                    ML::futex_wait(readPartDone, currentReadPart, 0.1);
-                }
-                if (shutdown) return;
+                    //cerr << "ready for part " << partToDo << endl;
 
-                //cerr << "ready for part " << partToDo << endl;
-
-                bytesDone += partResult.body_.size();
-
-                //double elapsed = Date::now().secondsSince(startDate);
-
-                // Give my part to the reader
-                readPart = partResult.body();
-                readPartOffset = 0;
-
-                // Wake up the reader
-                ++readPartReady;
-                ML::memory_barrier();
-                ML::futex_wake(readPartReady);
+                    //double elapsed = Date::now().secondsSince(startDate);
 
 #if 0
-                double elapsed = Date::now().secondsSince(startDate);
-                cerr << "done " << bytesDone << " of "
-                     << info.size << " at "
-                     << bytesDone / elapsed / 1024 / 1024
-                     << "MB/second" << endl;
+                    double elapsed = Date::now().secondsSince(startDate);
+                    cerr << "done " << bytesDone << " of "
+                         << info.size << " at "
+                         << bytesDone / elapsed / 1024 / 1024
+                         << "MB/second" << endl;
 #endif
+                }
             }
+            catch (...) {
+                lastExc = current_exception();
+                return;
+            }
+
             //cerr << "finished thread" << endl;
+        }
+
+        size_t getChunkSize(unsigned int chunkNbr)
+            const
+        {
+            size_t chunkSize = std::min(baseChunkSize * (1 << (chunkNbr / 2)),
+                                        maxChunkSize);
+            return chunkSize;
         }
     };
 
