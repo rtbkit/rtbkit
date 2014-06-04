@@ -59,7 +59,7 @@ struct HttpHeader {
 
     void swap(HttpHeader & other);
 
-    void parse(const std::string & headerAndData);
+    void parse(const std::string & headerAndData, bool checkBodyLength = true);
 
     std::string verb;       // GET, PUT, etc
     std::string resource;   // after the get
@@ -69,7 +69,7 @@ struct HttpHeader {
 
     // These headers are automatically pulled out
     std::string contentType;
-    ssize_t contentLength;
+    int64_t contentLength;
     bool isChunked;
 
     // The rest of the headers are here
