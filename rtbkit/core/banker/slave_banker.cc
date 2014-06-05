@@ -30,6 +30,7 @@ makeCallback(std::string functionName,
             HttpClientError error, int statusCode,
             std::string &&, std::string &&body)
     {
+        JML_TRACE_EXCEPTIONS(false);
         if (!onDone) {
             return;
         }
@@ -226,7 +227,10 @@ init(std::shared_ptr<ConfigurationService> config,
             addSpendAccount(accountKey, USD(0), onDone);
         };
 
-    httpClient.reset(new HttpClient(bankerHost));
+    // Since we send one HttpRequest per account when syncing, this is a good idea
+    // to keep a fairly large queue size in order to avoid deadlocks
+    httpClient.reset(new HttpClient(bankerHost, 4 /* numParallel */,
+                                                1024 /* queueSize */));
     addSource("SlaveBanker::httpClient", httpClient);
 
     addSource("SlaveBanker::createdAccounts", createdAccounts);
@@ -360,6 +364,11 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
     allKeys.swap(filteredKeys);
 
     if (allKeys.empty()) {
+        // We need some kind of synchronization here because the lastSync
+        // member variable will also be read in the context of an other
+        // MessageLoop (the MonitorProviderClient). Thus, if we want to avoid
+        // data-race here, we grab a lock.
+        std::lock_guard<Lock> guard(syncLock);
         lastSync = Date::now();
         if (onDone)
             onDone(nullptr);
@@ -396,10 +405,6 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
             int nowDone = __sync_add_and_fetch(&itl->numFinished, 1);
             if (nowDone == itl->numTotal) {
                 if (!itl->exc) {
-                    // We need some kind of synchronization here because the lastSync
-                    // member variable will also be read in the context of an other
-                    // MessageLoop (the MonitorProviderClient). Thus, if we want to avoid
-                    // data-race here, we grab a lock.
                     std::lock_guard<Lock> guard(itl->self->syncLock);
                     itl->self->lastSync = Date::now();
                 }
@@ -564,9 +569,10 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
         abort();  // for now...
         return;
     }
-
-    Account masterAccount = Account::fromJson(Json::parse(payload));
-    accounts.syncFromMaster(accountKey, masterAccount);
+    else if (responseCode == 200) {
+        Account masterAccount = Account::fromJson(Json::parse(payload));
+        accounts.syncFromMaster(accountKey, masterAccount);
+    }
     reauthorizeBudgetSent = Date();
 }
 

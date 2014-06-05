@@ -672,6 +672,7 @@ const Account
 MasterBanker::
 syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
 {
+    JML_TRACE_EXCEPTIONS(false);
     if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
         throw ML::Exception("Error with the backend");
 
