@@ -581,7 +581,7 @@ getProviderIndicators() const
     bool syncOk = now < lastSync.plusSeconds(MaximumFailSyncSeconds);
 
     MonitorIndicator ind;
-    ind.serviceName = "slaveBanker";
+    ind.serviceName = accountSuffix;
     ind.status = syncOk;
     ind.message = string() + "Sync with MasterBanker: " + (syncOk ? "OK" : "ERROR");
 
