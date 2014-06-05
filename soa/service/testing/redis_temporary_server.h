@@ -23,6 +23,7 @@ namespace Redis {
 struct RedisTemporaryServer : boost::noncopyable {
 
     RedisTemporaryServer(std::string uniquePath = "")
+        : state(Inactive)
     {
         static int index;
         ++index;
@@ -148,7 +149,38 @@ struct RedisTemporaryServer : boost::noncopyable {
         cerr << "address is " << unixPath << endl;
 
         this->address_ = Address::unix(unixPath);
+        state = Running;
     }
+
+    void suspend() {
+        if (serverPid == -1)
+            return;
+
+        signal(SIGCHLD, SIG_DFL);
+
+        int res = kill(serverPid, SIGSTOP);
+        if (res == -1) {
+            throw ML::Exception(errno, "suspend redis");
+        }
+        state = Suspended;
+    }
+
+    void resume() {
+        if (serverPid == -1)
+            return;
+
+        if (state != Suspended) {
+            throw ML::Exception("Server has not been suspended");
+        }
+
+        int res = kill(serverPid, SIGCONT);
+        if (res == -1) {
+            throw ML::Exception(errno, "resuming redis");
+        }
+
+        state = Running;
+    }
+
 
     void shutdown()
     {
@@ -177,6 +209,8 @@ struct RedisTemporaryServer : boost::noncopyable {
             int rmstatus = system(("rm -rf " + uniquePath).c_str());
             if (rmstatus)
                 throw ML::Exception(errno, "removing redis path");
+
+            state = Stopped;
         }
     }
 
@@ -190,6 +224,9 @@ struct RedisTemporaryServer : boost::noncopyable {
         return address();
     }
 
+private:
+    enum State { Inactive, Stopped, Suspended, Running };
+    State state;
     Address address_;
     std::string uniquePath;
     int serverPid;

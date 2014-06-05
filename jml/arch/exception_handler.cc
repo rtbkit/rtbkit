@@ -4,16 +4,19 @@
 
 */
 
-#include <sys/syscall.h>
-#include <fstream>
-#include "exception.h"
-#include "exception_hook.h"
-#include "demangle.h"
 #include <cxxabi.h>
-#include "backtrace.h"
-#include "jml/arch/format.h"
+#include <fstream>
+
 #include "jml/compiler/compiler.h"
 #include "jml/utils/environment.h"
+
+#include "backtrace.h"
+#include "demangle.h"
+#include "exception.h"
+#include "exception_hook.h"
+#include "format.h"
+#include "threads.h"
+
 
 using namespace std;
 
@@ -109,34 +112,86 @@ void trace_exception(void * object, const std::type_info * tinfo)
     // We don't want these exceptions to be printed out.
     if (dynamic_cast<const ML::SilentException *>(exc)) return;
 
+    /* avoid allocations when std::bad_alloc is thrown */
+    bool noAlloc = dynamic_cast<const std::bad_alloc *>(exc);
+
+    size_t bufferSize(1024*1024);
+    char buffer[bufferSize];
+    char datetime[128];
+    size_t totalWritten(0), written, remaining(bufferSize);
+
     time_t now;
     time(&now);
+    strftime(datetime, sizeof(datetime), "%FT%H:%M:%S", localtime(&now));
 
-    char datetime[128];
-    strftime(datetime, sizeof(datetime), "%F-%H%M%S", localtime(&now));
-
+    const char * demangled;
+    char * heapDemangled;
+    if (noAlloc) {
+        heapDemangled = nullptr;
+        demangled = "std::bad_alloc";
+    }
+    else {
+        heapDemangled = char_demangle(tinfo->name());
+        demangled = heapDemangled;
+    }
     auto pid = getpid();
-    auto tid = (long) syscall(SYS_gettid);
+    auto tid = gettid();
 
+    written = ::snprintf(buffer, remaining,
+                         "\n"
+                         "--------------------------[Exception thrown]"
+                         "---------------------------\n"
+                         "time:   %s\n"
+                         "type:   %s\n"
+                         "pid:    %d; tid: %d\n",
+                         datetime, demangled, pid, tid);
+    if (heapDemangled) {
+        free(heapDemangled);
+    }
+    if (written >= remaining) {
+        goto end;
+    }
+    totalWritten += written;
+    remaining -= written;
 
-    cerr << endl;
-    cerr << "--------------------------[Exception thrown]---------------------------"
-         << endl;
-    cerr << "time:   " << datetime << endl;
-    cerr << "type:   " << demangle(tinfo->name()) << endl
-         << "pid:    " << pid << "; tid: " << tid << endl;
-    if (exc) cerr << "what:   " << exc->what() << endl;
+    if (exc) {
+        written = snprintf(buffer + totalWritten, remaining,
+                           "what:   %s\n", exc->what());
+        if (written >= remaining) {
+            goto end;
+        }
+        totalWritten += written;
+        remaining -= written;
+    }
 
-    cerr << "stack:" << endl;
-    backtrace(cerr, 3);
+    if (noAlloc) {
+        goto end;
+    }
+
+    written = snprintf(buffer + totalWritten, remaining, "stack:\n");
+    if (written >= remaining) {
+        goto end;
+    }
+    totalWritten += written;
+    remaining -= written;
+
+    written = backtrace(buffer + totalWritten, remaining, 3);
+    if (written >= remaining) {
+        goto end;
+    }
+    totalWritten += written;
+
+    if (totalWritten < bufferSize - 1) {
+        strcpy(buffer + totalWritten, "\n");
+    }
+
+end:
+    cerr << buffer;
 
     char const * reports = getenv("ENABLE_EXCEPTION_REPORTS");
-    if(reports) {
+    if (!noAlloc && reports) {
         std::string path = ML::format("%s/exception-report-%s-%d-%d.log",
-                                      reports,
-                                      datetime,
-                                      pid,
-                                      tid);
+                                      reports, datetime, pid, tid);
 
         std::ofstream file(path, std::ios_base::app);
         if(file) {
@@ -145,8 +200,6 @@ void trace_exception(void * object, const std::type_info * tinfo)
             file.close();
         }
     }
-
-    cerr << endl;
 }
 
 namespace {

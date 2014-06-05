@@ -32,6 +32,7 @@ struct TestAgent : public RTBKIT::BiddingAgent {
         config.creatives.push_back(RTBKIT::Creative::sampleLB);
         config.creatives.push_back(RTBKIT::Creative::sampleWS);
         config.creatives.push_back(RTBKIT::Creative::sampleBB);
+        config.externalId = 1;
 
         this->config = config;
     }
