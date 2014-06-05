@@ -26,11 +26,11 @@ sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
     Json::Value json;
     json["timestamp"] = Date::now().secondsSinceEpoch();
     json["bidTimestamp"] = bid.bidTimestamp.secondsSinceEpoch();
-    json["auctionId"] = bidRequest.auctionId.toString();
-    json["adSpotId"] = bid.adSpotId.toString();
+    json["bidRequestId"] = bidRequest.auctionId.toString();
+    json["impid"] = bid.adSpotId.toString();
     json["accountId"] = bid.account.toString();
-    json["winPrice"] = (double) USD_CPM(winPrice);
-    json["userIds"] = bidRequest.userIds.toJson();
+    json["price"] = (double) USD_CPM(winPrice);
+    // json["userIds"].append(bidRequest.userIds.toJson());
 
     sendEvent(json);
 }
@@ -54,6 +54,11 @@ sendEvent(Json::Value const & json)
     write(httpRequest);
 
     std::string result = read();
+    std::string status = "HTTP/1.1 200 OK";
+
+    if(result.compare(0, status.length(), status)) {
+        std::cerr << result << std::endl;
+    }
 }
 
 namespace {

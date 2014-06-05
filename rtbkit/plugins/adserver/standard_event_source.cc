@@ -26,10 +26,10 @@ sendImpression(const BidRequest& bidRequest, const Bid& bid)
 {
     Json::Value json;
     json["timestamp"] = Date::now().secondsSinceEpoch();
-    json["auctionId"] = bidRequest.auctionId.toString();
-    json["adSpotId"] = bid.adSpotId.toString();
+    json["bidRequestId"] = bidRequest.auctionId.toString();
+    json["impid"] = bid.adSpotId.toString();
     json["userIds"] = bidRequest.userIds.toJson();
-    json["event"] = "CONVERSION";
+    json["type"] = "CONVERSION";
     sendEvent(json); 
 }
 
@@ -40,10 +40,10 @@ sendClick(const BidRequest& bidRequest, const Bid& bid)
 {
     Json::Value json;
     json["timestamp"] = Date::now().secondsSinceEpoch();
-    json["auctionId"] = bidRequest.auctionId.toString();
-    json["adSpotId"] = bid.adSpotId.toString();
+    json["bidRequestId"] = bidRequest.auctionId.toString();
+    json["impid"] = bid.adSpotId.toString();
     json["userIds"] = bidRequest.userIds.toJson();
-    json["event"] = "CLICK";
+    json["type"] = "CLICK";
     sendEvent(json); 
 }
 
