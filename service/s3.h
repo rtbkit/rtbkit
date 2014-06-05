@@ -24,6 +24,28 @@ namespace Datacratic {
 
 
 /*****************************************************************************/
+/* S3 OBJECTINFO TYPES                                                       */
+/*****************************************************************************/
+
+/* This enum contains the list of attributes that can be queried via the
+ * S3Api::getObjectInfo functions */
+
+enum S3ObjectInfoTypes {
+    LASTMODIFIED  = 1 << 0,
+    SIZE          = 1 << 1,
+    ETAG          = 1 << 2,
+
+    STORAGECLASS  = 1 << 3,
+    OWNERID       = 1 << 4,
+    OWNERNAME     = 1 << 5,
+
+    SHORT_INFO = LASTMODIFIED | SIZE | ETAG,
+    FULL_EXTRAS = STORAGECLASS | OWNERID | OWNERNAME,
+    FULL_INFO = SHORT_INFO | FULL_EXTRAS
+};
+
+
+/*****************************************************************************/
 /* S3 API                                                                    */
 /*****************************************************************************/
 
@@ -149,6 +171,8 @@ struct S3Api : public AwsApi {
 
         std::unique_ptr<tinyxml2::XMLDocument> bodyXml() const
         {
+            if (code_ != 200)
+                throw ML::Exception("invalid http code returned");
             std::unique_ptr<tinyxml2::XMLDocument> result(new tinyxml2::XMLDocument());
             result->Parse(body_.c_str());
             return result;
@@ -244,6 +268,18 @@ struct S3Api : public AwsApi {
     /** Escape a resource used by S3; this in particular leaves a slash
         in place. */
     static std::string s3EscapeResource(const std::string & resource);
+
+    /** Perform a HEAD request from end to end. */
+    Response head(const std::string & bucket,
+                  const std::string & resource,
+                  const std::string & subResource = "",
+                  const StrPairVector & headers = StrPairVector(),
+                  const StrPairVector & queryParams = StrPairVector())
+        const
+    {
+        return headEscaped(bucket, s3EscapeResource(resource), subResource,
+                           headers, queryParams);
+    }
 
     /** Perform a GET request from end to end. */
     Response get(const std::string & bucket,
@@ -396,6 +432,7 @@ struct S3Api : public AwsApi {
         {}
 
         ObjectInfo(tinyxml2::XMLNode * element);
+        ObjectInfo(const S3Api::Response & response);
 
         std::string key;
     };
@@ -444,18 +481,20 @@ struct S3Api : public AwsApi {
 
     /** Does the object exist? */
     ObjectInfo tryGetObjectInfo(const std::string & bucket,
-                                const std::string & object) const;
-
-    ObjectInfo tryGetObjectInfo(const std::string & uri) const;
+                                const std::string & object,
+                                S3ObjectInfoTypes infos = SHORT_INFO) const;
+    ObjectInfo tryGetObjectInfo(const std::string & uri,
+                                S3ObjectInfoTypes infos = SHORT_INFO) const;
 
 
     /** Return the ObjectInfo about the object.  Throws an exception if it
         doesn't exist.
     */
     ObjectInfo getObjectInfo(const std::string & bucket,
-                             const std::string & object) const;
-
-    ObjectInfo getObjectInfo(const std::string & uri) const;
+                             const std::string & object,
+                             S3ObjectInfoTypes infos = SHORT_INFO) const;
+    ObjectInfo getObjectInfo(const std::string & uri,
+                             S3ObjectInfoTypes infos = SHORT_INFO) const;
 
     /** Erase the given object.  Throws an exception if it fails. */
     void eraseObject(const std::string & bucket,
@@ -545,6 +584,13 @@ struct S3Api : public AwsApi {
 
     /** Pre-escaped versions of the above methods */
 
+    /* head */
+    Response headEscaped(const std::string & bucket,
+                         const std::string & resource,
+                         const std::string & subResource = "",
+                         const StrPairVector & headers = StrPairVector(),
+                         const StrPairVector & queryParams = StrPairVector()) const;
+
     /* get */
     Response getEscaped(const std::string & bucket,
                         const std::string & resource,
@@ -580,6 +626,16 @@ struct S3Api : public AwsApi {
     //easy handle for v8 wrapping
     void setDefaultBandwidthToServiceMbps(double mpbs);
 
+private:
+    ObjectInfo tryGetObjectInfoShort(const std::string & bucket,
+                                     const std::string & object) const;
+    ObjectInfo tryGetObjectInfoFull(const std::string & bucket,
+                                    const std::string & object) const;
+    ObjectInfo getObjectInfoShort(const std::string & bucket,
+                                  const std::string & object) const;
+    ObjectInfo getObjectInfoFull(const std::string & bucket,
+                                 const std::string & object) const;
+
     // Used to pool connections to the S3 service
     static HttpRestProxy proxy;
 
@@ -609,6 +665,7 @@ void registerS3Bucket(const std::string & bucketName,
                       double bandwidthToServiceMbps = S3Api::defaultBandwidthToServiceMbps,
                       const std::string & protocol = "http",
                       const std::string & serviceUri = "s3.amazonaws.com");
+
 
 /** S3 support for filter_ostream opens.  Register the bucket name here, and
     you can open it directly from s3.  Queries and iterates over all

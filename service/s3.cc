@@ -273,6 +273,7 @@ performSync() const
 
         auto connection = owner->proxy.getConnection();
         curlpp::Easy & myRequest = *connection;
+        myRequest.reset();
 
         using namespace curlpp;
         using namespace curlpp::infos;
@@ -305,16 +306,6 @@ performSync() const
         cerr << "timeout = " << timeout << endl;
 #endif
 
-#if 0
-        if (params.verb == "GET") ;
-        else if (params.verb == "POST") {
-            //myRequest.setOpt<Post>(true);
-        }
-        else if (params.verb == "PUT") {
-            myRequest.setOpt<options::Post>(true);
-        }
-        else throw ML::Exception("unknown verb " + params.verb);
-#endif
         //cerr << "!!!Setting params verb " << params.verb << endl;
         myRequest.setOpt<options::CustomRequest>(params.verb);
 
@@ -323,6 +314,11 @@ performSync() const
         myRequest.setOpt<options::ErrorBuffer>((char *)0);
         myRequest.setOpt<options::Timeout>(timeout);
         myRequest.setOpt<options::NoSignal>(1);
+
+        bool noBody = (params.verb == "HEAD");
+        if (noBody) {
+            myRequest.setOpt<options::NoBody>(noBody);
+        }
 
         // auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
         //     //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
@@ -402,7 +398,7 @@ performSync() const
         curlpp::InfoGetter::get(myRequest, CURLINFO_RESPONSE_CODE,
                                 responseCode);
 
-        if (responseCode >= 300) {
+        if (responseCode >= 300 && responseCode != 404) {
             string message("S3 operation failed with HTTP code "
                            + to_string(responseCode) + "\n"
                            + params.verb + " " + uri + "\n");
@@ -454,7 +450,7 @@ performSync() const
 
         Response response;
         response.code_ = responseCode;
-        response.header_.parse(responseHeaders);
+        response.header_.parse(responseHeaders, !noBody);
         body.append(responseBody);
         response.body_ = body;
 
@@ -526,6 +522,26 @@ prepare(const RequestParams & request) const
     //cerr << "result.auth = " << result.auth << endl;
 
     return result;
+}
+
+S3Api::Response
+S3Api::
+headEscaped(const std::string & bucket,
+            const std::string & resource,
+            const std::string & subResource,
+            const StrPairVector & headers,
+            const StrPairVector & queryParams) const
+{
+    RequestParams request;
+    request.verb = "HEAD";
+    request.bucket = bucket;
+    request.resource = resource;
+    request.subResource = subResource;
+    request.headers = headers;
+    request.queryParams = queryParams;
+    request.date = Date::now().printRfc2616();
+
+    return prepare(request).performSync();
 }
 
 S3Api::Response
@@ -1122,6 +1138,20 @@ ObjectInfo(tinyxml2::XMLNode * element)
     exists = true;
 }
 
+S3Api::ObjectInfo::
+ObjectInfo(const S3Api::Response & response)
+{
+    exists = true;
+    lastModified = Date::parse(response.getHeader("last-modified"),
+            "%a, %e %b %Y %H:%M:%S %Z");
+    size = response.header_.contentLength;
+    etag = response.getHeader("etag");
+    storageClass = ""; // Not available in headers
+    ownerId = "";      // Not available in headers
+    ownerName = "";    // Not available in headers
+}
+
+
 void
 S3Api::
 forEachObject(const std::string & bucket,
@@ -1251,8 +1281,19 @@ forEachObject(const std::string & uriPrefix,
 
 S3Api::ObjectInfo
 S3Api::
-getObjectInfo(const std::string & bucket,
-              const std::string & object) const
+getObjectInfo(const std::string & bucket, const std::string & object,
+              S3ObjectInfoTypes infos)
+    const
+{
+    return ((infos & int(S3ObjectInfoTypes::FULL_EXTRAS)) != 0
+            ? getObjectInfoFull(bucket, object)
+            : getObjectInfoShort(bucket, object));
+}
+
+S3Api::ObjectInfo
+S3Api::
+getObjectInfoFull(const std::string & bucket, const std::string & object)
+    const
 {
     StrPairVector queryParams;
     queryParams.push_back({"prefix", object});
@@ -1282,15 +1323,41 @@ getObjectInfo(const std::string & bucket,
         throw ML::Exception("object " + object + " not found in bucket "
                             + bucket);
     }
-
-
     return info;
 }
 
 S3Api::ObjectInfo
 S3Api::
+getObjectInfoShort(const std::string & bucket, const std::string & object)
+    const
+{
+    auto res = head(bucket, "/" + object);
+    if (res.code_ == 404) {
+        throw ML::Exception("object " + object + " not found in bucket "
+                            + bucket);
+    }
+    if (res.code_ != 200) {
+        throw ML::Exception("error getting object");
+    }
+    return ObjectInfo(res);
+}
+
+S3Api::ObjectInfo
+S3Api::
 tryGetObjectInfo(const std::string & bucket,
-                 const std::string & object) const
+                 const std::string & object,
+                 S3ObjectInfoTypes infos)
+    const
+{
+    return ((infos & int(S3ObjectInfoTypes::FULL_EXTRAS)) != 0
+            ? tryGetObjectInfoFull(bucket, object)
+            : tryGetObjectInfoShort(bucket, object));
+}
+
+S3Api::ObjectInfo
+S3Api::
+tryGetObjectInfoFull(const std::string & bucket, const std::string & object)
+    const
 {
     StrPairVector queryParams;
     queryParams.push_back({"prefix", object});
@@ -1314,7 +1381,7 @@ tryGetObjectInfo(const std::string & bucket,
 
     ObjectInfo info(foundObject);
 
-    if(info.key != object){
+    if (info.key != object) {
         return ObjectInfo();
     }
 
@@ -1323,20 +1390,38 @@ tryGetObjectInfo(const std::string & bucket,
 
 S3Api::ObjectInfo
 S3Api::
-getObjectInfo(const std::string & uri) const
+tryGetObjectInfoShort(const std::string & bucket, const std::string & object)
+    const
 {
-    string bucket, object;
-    std::tie(bucket, object) = parseUri(uri);
-    return getObjectInfo(bucket, object);
+    auto res = head(bucket, "/" + object);
+    if (res.code_ == 404) {
+        return ObjectInfo();
+    }
+    if (res.code_ != 200) {
+        throw ML::Exception("error getting object");
+    }
+
+    return ObjectInfo(res);
 }
 
 S3Api::ObjectInfo
 S3Api::
-tryGetObjectInfo(const std::string & uri) const
+getObjectInfo(const std::string & uri, S3ObjectInfoTypes infos)
+    const
 {
     string bucket, object;
     std::tie(bucket, object) = parseUri(uri);
-    return tryGetObjectInfo(bucket, object);
+    return getObjectInfo(bucket, object, infos);
+}
+
+S3Api::ObjectInfo
+S3Api::
+tryGetObjectInfo(const std::string & uri, S3ObjectInfoTypes infos)
+    const
+{
+    string bucket, object;
+    std::tie(bucket, object) = parseUri(uri);
+    return tryGetObjectInfo(bucket, object, infos);
 }
 
 void
@@ -1426,11 +1511,6 @@ download(const std::string & bucket,
 {
 
     ObjectInfo info = getObjectInfo(bucket, object);
-    if(info.storageClass == "GLACIER"){
-        throw ML::Exception("Cannot download [" + info.key + "] because its "
-            "storage class is [GLACIER]");
-    }
-
     size_t chunkSize = 128 * 1024 * 1024;  // 128MB probably good
 
     struct Part {
