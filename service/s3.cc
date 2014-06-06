@@ -1764,9 +1764,6 @@ struct StreamingDownloadSource {
             for (thread & th: threads) {
                 th.join();
             }
-            if (lastExc) {
-                rethrow_exception(lastExc);
-            }
 
             reset();
         }
