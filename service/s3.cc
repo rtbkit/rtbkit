@@ -1679,15 +1679,15 @@ struct StreamingDownloadSource {
             stop();
         }
 
+        /* static variables, set during or right after construction */
         const S3Api * owner;
         std::string bucket;
         std::string object;
         S3Api::ObjectInfo info;
         size_t baseChunkSize;
 
+        /* variables set during or after "start" has been called */
         size_t maxChunkSize;
-
-        // Date startDate;
 
         atomic<bool> shutdown;
         exception_ptr lastExc;
@@ -1706,7 +1706,7 @@ struct StreamingDownloadSource {
         /* http threads */
         typedef RingBufferSRMW<string> ThreadData;
 
-        int numThreads; /* number of download threads */
+        int numThreads; /* number of http threads */
         vector<thread> threads; /* thread pool */
         vector<ThreadData> threadQueues; /* per-thread queue of chunk data */
 
@@ -1739,8 +1739,6 @@ struct StreamingDownloadSource {
             maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
             //cerr << "maxChunkSize = " << maxChunkSize << endl;
             numThreads = nThreads;
-
-            // startDate = Date::now();
 
             for (int i = 0; i < numThreads; i++) {
                 threadQueues.emplace_back(2);
@@ -1781,7 +1779,6 @@ struct StreamingDownloadSource {
             if (readPartOffset == -1) {
                 waitNextPart();
             }
-            // cerr << "readPartOffset: "  + to_string(readPartOffset) + "\n";
 
             if (lastExc) {
                 rethrow_exception(lastExc);
@@ -1799,8 +1796,6 @@ struct StreamingDownloadSource {
 
             readOffset += toDo;
 
-            // cerr << "read: "  + to_string(toDo) + "\n";
-
             return toDo;
         }
 
@@ -1809,8 +1804,8 @@ struct StreamingDownloadSource {
             int partThread = readPartDone % numThreads;
             ThreadData & threadQueue = threadQueues[partThread];
 
-            /* We set a timeout to avoid dead locking due to threads that
-             * have exited after an exception. */
+            /* We set a timeout to avoid dead locking when http threads have
+             * exited after an exception. */
             while (!lastExc) {
                 if (threadQueue.tryPop(readPart, 1.0)) {
                     break;
@@ -1834,8 +1829,9 @@ struct StreamingDownloadSource {
                     /* number of the chunk that we need to process */
                     unsigned int chunkNbr = loop * numThreads + threadNum;
 
-                    /* we adjust the offset by adding the chunk sizes of all the
-                       threads in the previous loop */
+                    /* we adjust the offset by adding the chunk sizes of all
+                       the chunks downloaded between our previous loop until
+                       now */
                     for (unsigned int i = prevChunkNbr; i < chunkNbr; i++) {
                         start += getChunkSize(i);
                     }
@@ -1853,10 +1849,6 @@ struct StreamingDownloadSource {
                         chunkSize = end - start;
                     }
 
-                    // ::fprintf(stderr,
-                    //           "thread %d downloading %d from %lu to %lu\n",
-                    //           threadNum, chunkNbr, start, end);
-
                     auto partResult
                         = owner->get(bucket, "/" + object,
                                      S3Api::Range(start, chunkSize));
@@ -1867,42 +1859,22 @@ struct StreamingDownloadSource {
                                             + partResult.bodyXmlStr());
                     }
 
-                    //cerr << "done downloading" << endl;
-
                     while (true) {
                         if (shutdown || lastExc) {
                             return;
                         }
                         if (threadQueue.tryPush(partResult.body())) {
-                            // ::fprintf(stderr,
-                            //           "thread %d has pushed its contents (offset: %lu, size: %lu)\n",
-                            //           threadNum, start, partResult.body().size());
                             break;
                         }
                         else {
                             ML::sleep(0.1);
                         }
                     }
-
-                    //cerr << "ready for part " << partToDo << endl;
-
-                    //double elapsed = Date::now().secondsSince(startDate);
-
-#if 0
-                    double elapsed = Date::now().secondsSince(startDate);
-                    cerr << "done " << bytesDone << " of "
-                         << info.size << " at "
-                         << bytesDone / elapsed / 1024 / 1024
-                         << "MB/second" << endl;
-#endif
                 }
             }
             catch (...) {
                 lastExc = current_exception();
-                return;
             }
-
-            //cerr << "finished thread" << endl;
         }
 
         size_t getChunkSize(unsigned int chunkNbr)
