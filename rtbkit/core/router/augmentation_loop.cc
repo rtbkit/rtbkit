@@ -496,9 +496,10 @@ doDisconnection(const std::string & addr, const std::string & aug)
         {
             if (it->addr != addr) continue;
 
-            augmentor.instances.erase(it);
             recordHit("augmentor.%s.instances.%s.disconnected",
                     augmentor.name, it->addr);
+
+            augmentor.instances.erase(it);
             break;
         }
 
