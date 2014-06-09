@@ -58,7 +58,7 @@ int main(int argc, char** argv)
     }
 
     auto proxies = args.makeServiceProxies();
-    auto serviceName = args.serviceName("adServer");
+    auto serviceName = args.serviceName("");
     auto server = RTBKIT::AdServerConnector::create(serviceName, proxies, loadJsonFromFile(configuration));
     server->start();
 
