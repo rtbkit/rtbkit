@@ -430,23 +430,39 @@ public:
         SharedGuard(GcLockBase & lock,
                     RunDefer runDefer = RD_YES,
                     DoLock doLock = DO_LOCK)
-            : lock(lock),
+            : lock_(lock),
               runDefer_(runDefer),
               doLock_(doLock)
         {
             if (doLock_)
-                lock.lockShared(0, runDefer_);
+                lock_.lockShared(0, runDefer_);
         }
 
         ~SharedGuard()
         {
             if (doLock_)
-                lock.unlockShared(0, runDefer_);
+                lock_.unlockShared(0, runDefer_);
         }
         
-        GcLockBase & lock;
+        void lock()
+        {
+            if (doLock_)
+                return;
+            lock_.lockShared(0, runDefer_);
+            doLock_ = DO_LOCK;
+        }
+
+        void unlock()
+        {
+            if (!doLock_)
+                return;
+            lock_.unlockShared(0, runDefer_);
+            doLock_ = DONT_LOCK;
+        }
+
+        GcLockBase & lock_;
         const RunDefer runDefer_;  ///< Can this do deferred work?
-        const DoLock doLock_;      ///< Do we really lock?
+        DoLock doLock_;      ///< Do we really lock?
     };
 
     struct ExclusiveGuard {
