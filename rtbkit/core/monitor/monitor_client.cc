@@ -10,6 +10,10 @@ using namespace std;
 
 namespace RTBKIT {
 
+Logging::Category MonitorClient::print("[LOG] MonitorClient");
+Logging::Category MonitorClient::error("[ERROR] MonitorClient", MonitorClient::print);
+Logging::Category MonitorClient::trace("[TRACE] MonitorClient", MonitorClient::print);
+
 MonitorClient::
 ~MonitorClient()
 {
@@ -48,7 +52,7 @@ checkStatus()
         Guard(requestLock);
 
         if (pendingRequest) {
-            cerr << "MonitorClient::checkStatus: last request is still active\n";
+             LOG(print) << "checkStatus: last request is still active\n";
         }
         else {
             pendingRequest = true;
@@ -63,7 +67,7 @@ checkTimeout()
     if(lastCheck.plusSeconds(checkTimeout_) < Date::now()) {
         if(pendingRequest) {
             // We timed out, output a message that we timed out and reset pending
-            cerr << "MonitorClient::checkTimeout: last request dropped" << endl;
+            LOG(print) << "checkTimeout: last request dropped" << endl;
             pendingRequest = false;
         }
     }

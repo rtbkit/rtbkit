@@ -9,6 +9,7 @@
 #include <vector>
 #include "soa/types/date.h"
 #include "soa/service/rest_proxy.h"
+#include "soa/service/logs.h"
 
 namespace RTBKIT {
     using namespace Datacratic;
@@ -77,6 +78,10 @@ struct MonitorClient : public RestProxy
     /** helper members to make testing of dependent services easier */
     bool testMode;
     bool testResponse;
+
+    static Logging::Category print;
+    static Logging::Category error;
+    static Logging::Category trace;
 };
 
 } // RTB
