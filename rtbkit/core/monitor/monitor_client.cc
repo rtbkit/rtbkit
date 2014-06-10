@@ -61,7 +61,11 @@ void MonitorClient::
 checkTimeout()
 {
     if(lastCheck.plusSeconds(checkTimeout_) < Date::now()) {
-        onResponseTimeout();       
+        if(pendingRequest) {
+            // We timed out, output a message that we timed out and reset pending
+            cerr << "MonitorClient::checkTimeout: last request dropped" << endl;
+            pendingRequest = false;
+        }
     }
 }
 
@@ -86,19 +90,6 @@ onResponseReceived(exception_ptr ext, int responseCode, const string & body)
     lastStatus = newStatus;
     lastCheck = Date::now();
     pendingRequest = false;
-}
-
-void
-MonitorClient::
-onResponseTimeout()
-{
-    Guard(requestLock);
-
-    if(pendingRequest) {
-        // We timed out, output a message that we timed out and reset pending
-        cerr << "MonitorClient::checkTimeout: last request dropped" << endl;
-        pendingRequest = false;
-    }
 }
 
 bool

@@ -55,9 +55,6 @@ struct MonitorClient : public RestProxy
     void onResponseReceived(std::exception_ptr ext,
                             int responseCode, const std::string & body);
     
-    /** method executed when we do not receive a response from the Monitor */ 
-    void onResponseTimeout();
-
     /** bound instance of onResponseReceived */
     RestProxy::OnDone onDone;
 
