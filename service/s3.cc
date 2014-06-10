@@ -194,13 +194,14 @@ void
 S3Api::init()
 {
     string keyId, key;
-    tie(keyId, key, std::ignore, std::ignore, std::ignore)
-        = getCloudCredentials();
-    if (keyId != "" && key != "") {
-        std::tie(keyId, key, std::ignore)
-            = getS3CredentialsFromEnvVar();
+    std::tie(keyId, key, std::ignore)
+        = getS3CredentialsFromEnvVar();
+
+    if (keyId == "" || key == "") {
+        tie(keyId, key, std::ignore, std::ignore, std::ignore)
+            = getCloudCredentials();
     }
-    if (keyId != "" && key != "")
+    if (keyId == "" || key == "")
         throw ML::Exception("Cannot init S3 API with no keys, environment or creedentials file");
     
     this->init(keyId, key);
