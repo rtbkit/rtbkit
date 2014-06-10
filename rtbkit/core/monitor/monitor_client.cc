@@ -25,6 +25,10 @@ init(std::shared_ptr<ConfigurationService> & config,
                 std::bind(&MonitorClient::checkStatus, this),
                 true);
 
+    addPeriodic("MonitorClient::checkTimeout", checkTimeout_ / 2,
+                std::bind(&MonitorClient::checkTimeout, this),
+                true);
+
     RestProxy::initServiceClass(config, serviceName, "zeromq", true);
 }
 
@@ -53,6 +57,15 @@ checkStatus()
     }
 }
 
+void MonitorClient::
+checkTimeout()
+{
+    cerr << "in checkTimeout() yo" << endl;
+    if(lastCheck.plusSeconds(checkTimeout_) < Date::now()) {
+        onResponseTimeout();       
+    }
+}
+
 void
 MonitorClient::
 onResponseReceived(exception_ptr ext, int responseCode, const string & body)
@@ -74,6 +87,19 @@ onResponseReceived(exception_ptr ext, int responseCode, const string & body)
     lastStatus = newStatus;
     lastCheck = Date::now();
     pendingRequest = false;
+}
+
+void
+MonitorClient::
+onResponseTimeout()
+{
+    Guard(requestLock);
+
+    if(pendingRequest) {
+        // We timed out, output a message that we timed out and reset pending
+        cerr << "MonitorClient::checkTimeout: last request dropped" << endl;
+        pendingRequest = false;
+    }
 }
 
 bool

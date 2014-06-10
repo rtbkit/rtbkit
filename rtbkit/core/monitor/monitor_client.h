@@ -48,9 +48,16 @@ struct MonitorClient : public RestProxy
     /** method invoked periodically to trigger a request to the Monitor */
     void checkStatus();
 
+    /** method invoked periodically to trigger a request to the Monitor */
+    void checkTimeout();
+
     /** method executed when we receive the response from the Monitor */
     void onResponseReceived(std::exception_ptr ext,
                             int responseCode, const std::string & body);
+    
+    /** method executed when we do not receive a response from the Monitor */ 
+    void onResponseTimeout();
+
     /** bound instance of onResponseReceived */
     RestProxy::OnDone onDone;
 
