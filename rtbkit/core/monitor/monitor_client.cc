@@ -60,7 +60,6 @@ checkStatus()
 void MonitorClient::
 checkTimeout()
 {
-    cerr << "in checkTimeout() yo" << endl;
     if(lastCheck.plusSeconds(checkTimeout_) < Date::now()) {
         onResponseTimeout();       
     }
