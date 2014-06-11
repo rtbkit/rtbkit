@@ -105,13 +105,16 @@ struct ValueDescription {
         this->typeName = newName;
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const {};
-    virtual void printJson(const void * val, JsonPrintingContext & context) const {};
-    virtual bool isDefault(const void * val) const { return false; }
-    virtual void setDefault(void * val) const {}
-    virtual void copyValue(const void * from, void * to) const {}
-    virtual void moveValue(void * from, void * to) const {}
-    virtual void swapValues(void * from, void * to) const {}
+    virtual void parseJson(void * val, JsonParsingContext & context) const = 0;
+    virtual void printJson(const void * val, JsonPrintingContext & context) const = 0;
+    virtual bool isDefault(const void * val) const = 0;
+    virtual void setDefault(void * val) const = 0;
+    virtual void copyValue(const void * from, void * to) const = 0;
+    virtual void moveValue(void * from, void * to) const = 0;
+    virtual void swapValues(void * from, void * to) const = 0;
+    virtual void * constructDefault() const = 0;
+    virtual void destroy(void *) const = 0;
+
     
     virtual void * optionalMakeValue(void * val) const
     {
@@ -136,6 +139,16 @@ struct ValueDescription {
     virtual const void * getArrayElement(const void * val, uint32_t element) const
     {
         throw ML::Exception("type is not an array");
+    }
+
+    /** Return the value description for the nth array element.  This is
+        necessary for tuple types, which don't have the same type for each
+        element.
+    */
+    virtual const ValueDescription &
+    getArrayElementDescription(const void * val, uint32_t element)
+    {
+        return contained();
     }
 
     virtual void setArrayLength(void * val, size_t newLength) const
@@ -331,6 +344,17 @@ struct PureValueDescription : public ValueDescription {
     PureValueDescription() :
         ValueDescription(ValueKind::ATOM, &typeid(T)) {
     }
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const {};
+    virtual void printJson(const void * val, JsonPrintingContext & context) const {};
+    virtual bool isDefault(const void * val) const { return false; }
+    virtual void setDefault(void * val) const {}
+    virtual void copyValue(const void * from, void * to) const {}
+    virtual void moveValue(void * from, void * to) const {}
+    virtual void swapValues(void * from, void * to) const {}
+    virtual void * constructDefault() const {return nullptr;}
+    virtual void destroy(void *) const {}
+
 };
 
 /*****************************************************************************/
@@ -413,6 +437,16 @@ struct ValueDescriptionT : public ValueDescription {
         std::swap(*from2, *to2);
     }
 
+    virtual void * constructDefault() const
+    {
+        return constructDefault(typename Datacratic::is_default_constructible<T>::type());
+    }
+
+    virtual void destroy(void * val) const
+    {
+        delete (T*)val;
+    }
+
     virtual void set(
             void* obj, void* value, const ValueDescription* valueDesc) const
     {
@@ -467,6 +501,18 @@ private:
         throw ML::Exception("type is not move assignable");
     }
 
+    // Template parameter so not instantiated for types that are not
+    // default constructible
+    template<typename X>
+    void * constructDefault(X) const
+    {
+        return new T();
+    }
+
+    void * constructDefault(std::false_type) const
+    {
+        throw ML::Exception("type is not default constructible");
+    }
 };
 
 /** Basic function to implement getting a default description for a type.
@@ -567,6 +613,41 @@ getDefaultDescriptionShared(T * = 0)
 
     return cast;
 }
+
+
+template<typename T, typename Enable = void>
+struct GetDefaultDescriptionMaybe {
+    static std::shared_ptr<const ValueDescription> get()
+    {
+        return nullptr;
+    }
+};
+
+template<typename T>
+struct GetDefaultDescriptionMaybe<T, decltype(getDefaultDescription((T *)0))> {
+    static std::shared_ptr<const ValueDescription> get()
+    {
+        return getDefaultDescriptionShared((T *)0);
+    }
+};
+
+/** Return the default description for the given type if it exists, or
+    otherwise return a null pointer.
+*/
+    
+template<typename T>
+inline std::shared_ptr<const ValueDescription>
+maybeGetDefaultDescriptionShared(T * = 0)
+{
+    auto result = GetDefaultDescriptionMaybe<T>::get();
+    if (!result) {
+        // Look to see if it's registered in the registry so that we can
+        // get it
+        result = ValueDescription::getType<T>();
+    }
+    return result;
+}
+
 
 /*****************************************************************************/
 /* VALUE DESCRIPTION CONCRETE IMPL                                           */
