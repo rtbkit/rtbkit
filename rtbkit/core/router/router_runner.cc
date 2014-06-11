@@ -117,10 +117,8 @@ init()
     router->initBidderInterface(bidderConfig);
     router->init();
 
-    banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
-                                           proxies->config,
-                                           router->serviceName() + ".slaveBanker",
-                                           bankerUri);
+    banker = std::make_shared<SlaveBanker>(router->serviceName() + ".slaveBanker");
+    banker->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
 
     router->setBanker(banker);
     router->bindTcp();

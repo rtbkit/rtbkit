@@ -98,10 +98,8 @@ init()
     LOG(PostAuctionService::print) << "win timeout is " << winTimeout << std::endl;
     LOG(PostAuctionService::print) << "auction timeout is " << auctionTimeout << std::endl;
 
-    banker = std::make_shared<SlaveBanker>(proxies->zmqContext,
-            proxies->config,
-            postAuctionLoop->serviceName() + ".slaveBanker",
-            bankerUri);
+    banker = std::make_shared<SlaveBanker>(postAuctionLoop->serviceName() + ".slaveBanker");
+    banker->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
 
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);

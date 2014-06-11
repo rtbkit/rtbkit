@@ -9,9 +9,9 @@
 #define __banker__slave_banker_h__
 
 #include "banker.h"
+#include "application_layer.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/typed_message_channel.h"
-#include "soa/service/http_client.h"
 #include "jml/arch/spinlock.h"
 #include <thread>
 #include <atomic>
@@ -36,14 +36,12 @@ struct SlaveBudgetController
         shutdown();
     }
 
-    void init(std::shared_ptr<ConfigurationService> config,
-              const std::string & bankerHost)
-    {
-        if (bankerHost.empty())
-            throw ML::Exception("bankerHost can not be empty");
 
-        httpClient.reset(new HttpClient(bankerHost));
-        addSource("SlaveBudgetController::httpClient", httpClient);
+    void setApplicationLayer(const std::shared_ptr<ApplicationLayer> &layer)
+    {
+        ExcCheck(layer != nullptr, "Layer can not be null");
+        applicationLayer = layer;
+        addSource("SlaveBudgetController::ApplicationLayer", *layer);
     }
 
     virtual void addAccount(const AccountKey & account,
@@ -79,9 +77,10 @@ struct SlaveBudgetController
                                    Account &&)> onResult);
 
     static std::shared_ptr<HttpClientSimpleCallbacks>
-    budgetResultCallback(const OnBudgetResult & onResult);
+    budgetResultCallback(const SlaveBudgetController::OnBudgetResult & onResult);
 private:
-    std::shared_ptr<HttpClient> httpClient;
+    std::shared_ptr<ApplicationLayer> applicationLayer;
+    //std::shared_ptr<HttpClient> httpClient;
 };
 
 
@@ -95,30 +94,23 @@ private:
 */
 struct SlaveBanker : public Banker, public MessageLoop {
 
-    SlaveBanker(std::shared_ptr<zmq::context_t> context);
+    SlaveBanker();
 
     ~SlaveBanker()
     {
         shutdown();
     }
 
-    SlaveBanker(std::shared_ptr<zmq::context_t> context,
-                std::shared_ptr<ConfigurationService> config,
-                const std::string & accountSuffix,
-                const std::string & bankerHost);
+    SlaveBanker(const std::string & accountSuffix);
 
-    /** Initialize the slave banker.  This will connect it to the master
-        banker (that it will discover using the configuration service
-        under the bankerServiceName).
+    /** Initialize the slave banker.  
 
         The accountSuffix parameter is used to name spend accounts underneath
         the given budget accounts (to disambiguate between multiple
         accessors of those accounts).  It must be unique across the entire
         system, but should be consistent from one invocation to another.
     */
-    void init(std::shared_ptr<ConfigurationService> config,
-              const std::string & accountSuffix,
-              const std::string & bankerHost);
+    void init(const std::string & accountSuffix);
 
     /** Notify the banker that we're going to need to be spending some
         money for the given account.  We also keep track of how much
@@ -203,6 +195,12 @@ struct SlaveBanker : public Banker, public MessageLoop {
         return accounts.getAccount(accountKey);
     }
 
+    void setApplicationLayer(const std::shared_ptr<ApplicationLayer> &layer)
+    {
+        applicationLayer = layer;
+        addSource("SlaveBanker::ApplicationLayer", *layer);
+    }
+
     /* Logging */
     virtual void logBidEvents(const Datacratic::EventRecorder & eventRecorder)
     {
@@ -220,10 +218,11 @@ private:
     TypedMessageSink<AccountKey> createdAccounts;
     std::string accountSuffix;
 
-    std::shared_ptr<HttpClient> httpClient;
+    std::shared_ptr<ApplicationLayer> applicationLayer;
     typedef ML::Spinlock Lock;
     mutable Lock syncLock;
     Datacratic::Date lastSync;
+
     
     /** Periodically we report spend to the banker.*/
     void reportSpend(uint64_t numTimeoutsExpired);
@@ -232,6 +231,7 @@ private:
     /** Periodically we ask the banker to re-authorize our budget. */
     void reauthorizeBudget(uint64_t numTimeoutsExpired);
     Date reauthorizeBudgetSent;
+
 
     /// Called when we get an account status back from the master banker
     /// after a synchrnonization

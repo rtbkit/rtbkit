@@ -141,15 +141,15 @@ struct Components
 
         // Setup a slave banker that we can use to manipulate and peak at the
         // budgets during the test.
-        budgetController.init(proxies->config, bankerAddr);
+        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
         budgetController.start();
 
         // Each router contains a slave masterBanker which is periodically
         // synced with the master banker.
         auto makeSlaveBanker = [=] (const std::string & name)
             {
-                auto res = std::make_shared<SlaveBanker>
-                (proxies->zmqContext, proxies->config, name, bankerAddr);
+                auto res = std::make_shared<SlaveBanker>(name);
+                res->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
                 res->start();
                 return res;
             };

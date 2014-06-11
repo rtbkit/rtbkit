@@ -131,8 +131,8 @@ BOOST_AUTO_TEST_CASE( test_banker_slave_banker_accounts )
         ML::sleep(2);
 
         /* spawn slave */
-        SlaveBanker slave(proxies->zmqContext);
-        slave.init(proxies->config, "slaveBanker", master.bankerAddress);
+        SlaveBanker slave("slaveBanker");
+        slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
         slave.start();
 
         slave.addSpendAccountSync({"top", "sub"});
