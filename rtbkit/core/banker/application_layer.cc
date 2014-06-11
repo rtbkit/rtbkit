@@ -1,8 +1,8 @@
-/* slave_banker.cc
-   Jeremy Barnes, 8 November 2012
-   Copyright (c) 2012 Datacratic Inc.  All rights reserved.
+/* application_layer.cc
+   Mathieu Stefani, 11 June 2014
+   Copyright (c) 2042 Datacratic Inc.  All rights reserved.
 
-   Slave banker implementation.
+   application layers implementation.
 */
 
 #include "application_layer.h"
