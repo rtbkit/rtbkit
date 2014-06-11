@@ -2769,13 +2769,15 @@ getProviderIndicators()
     const
 {
     bool connectedToPal = postAuctionEndpoint.isConnected();
+    bool bankerOk = banker->getProviderIndicators().status;
 
     MonitorIndicator ind;
 
     ind.serviceName = serviceName();
-    ind.status = connectedToPal;
+    ind.status = connectedToPal && bankerOk;
     ind.message = string()
-        + "Connection to PAL: " + (connectedToPal ? "OK" : "ERROR");
+        + "Connection to PAL: " + (connectedToPal ? "OK" : "ERROR") + ", "
+        + "Banker: " + (bankerOk ? "OK": "ERROR");
 
     return ind;
 }
