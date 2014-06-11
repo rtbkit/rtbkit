@@ -685,7 +685,13 @@ std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri);
 std::tuple<std::string, std::string, std::string, std::string, std::string> 
     getCloudCredentials();
 
-std::pair<std::string, std::string> getS3CredentialsFromEnvVar();
+/** Returns the keyId, key and list of buckets to register (can be empty,
+    which means all) from the environment variables
+
+    S3_KEY_ID, S3_KEY and S3_BUCKETS
+*/
+std::tuple<std::string, std::string, std::vector<std::string> >
+getS3CredentialsFromEnvVar();
 
 // std::pair<std::string, std::string> getDefaultCredentials();
 

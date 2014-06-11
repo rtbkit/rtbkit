@@ -194,15 +194,15 @@ void
 S3Api::init()
 {
     string keyId, key;
-    tie(keyId, key, std::ignore, std::ignore, std::ignore)
-        = getCloudCredentials();
-    if (keyId != "" && key != "") {
-        auto keys = getS3CredentialsFromEnvVar();
-        keyId = keys.first;
-        key = keys.second;
+    std::tie(keyId, key, std::ignore)
+        = getS3CredentialsFromEnvVar();
+
+    if (keyId == "" || key == "") {
+        tie(keyId, key, std::ignore, std::ignore, std::ignore)
+            = getCloudCredentials();
     }
-    if (keyId != "" && key != "")
-        throw ML::Exception("does this make sense?");
+    if (keyId == "" || key == "")
+        throw ML::Exception("Cannot init S3 API with no keys, environment or creedentials file");
     
     this->init(keyId, key);
 }
@@ -2592,13 +2592,17 @@ tuple<string, string, string, string, string> getCloudCredentials()
     return make_tuple("", "", "", "", "");
 }
 
-pair<string, string> getS3CredentialsFromEnvVar()
+std::string getEnv(const char * varName)
 {
-    char* s3KeyIdCStr = getenv("S3_KEY_ID");
-    char* s3KeyCStr = getenv("S3_KEY");
-    string s3KeyId = (s3KeyIdCStr == NULL ? "" : string(s3KeyIdCStr));
-    string s3Key= (s3KeyCStr == NULL ? "" : string(s3KeyCStr));
-    return make_pair(s3KeyId, s3Key);
+    const char * val = getenv(varName);
+    return val ? val : "";
+}
+
+tuple<string, string, std::vector<std::string> >
+getS3CredentialsFromEnvVar()
+{
+    return make_tuple(getEnv("S3_KEY_ID"), getEnv("S3_KEY"),
+                      ML::split(getEnv("S3_BUCKETS"), ','));
 }
 
 /** Parse the ~/.cloud_credentials file and add those buckets in.
@@ -2649,14 +2653,24 @@ void registerDefaultBuckets()
                           protocol, serviceUri);
         return;
     }
-    auto keys = getS3CredentialsFromEnvVar();
-    if (keys.first != "" && keys.second != "")
-        registerS3Buckets(keys.first, keys.second, 20., "http",
-                          "s3.amazonaws.com");
+    string keyId;
+    string key;
+    vector<string> buckets;
+
+    std::tie(keyId, key, buckets) = getS3CredentialsFromEnvVar();
+    if (keyId != "" && key != "") {
+        if (buckets.empty()) {
+            registerS3Buckets(keyId, key);
+        }
+        else {
+            for (string bucket: buckets)
+                registerS3Bucket(bucket, keyId, key);
+        }
+    }
     else
         cerr << "WARNING: registerDefaultBuckets needs either a "
-                ".cloud_credentials or S3_KEY_ID and S3_KEY environment "
-                " variables" << endl;
+            ".cloud_credentials or S3_KEY_ID and S3_KEY environment "
+            " variables" << endl;
 
 #if 0
     char* configFilenameCStr = getenv("CONFIG");
