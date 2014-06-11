@@ -54,27 +54,33 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                 // Unique ptr doesn't overload operators.. great.
                 auto & v = *spot.video;
 
-                if(!v.mimes.empty()) {
+                if(v.mimes.empty()) {
                     // We need at least one MIME type supported by the exchange
-                    // Not used for now, keeping it for the future
-                    // when we will support the video object fully
+                    throw ML::Exception("Video::mimes needs to be populated.");
                 }
-
+            
                 if(v.linearity.value() < 0) {
-                    // Not used for now, keeping it for the future
-                    // when we will support the video object fully
+                    throw ML::Exception("Video::linearity must be specified and positive.");
                 }
                 
                 if(v.minduration.value() < 0) {
-                    // Not used for now, keeping it for the future
-                    // when we will support the video object fully
+                    throw ML::Exception("Video::minduration must be specified and positive.");
                 }
 
                 if(v.maxduration.value() < 0) {
-                    // Not used for now, keeping it for the future
-                    // when we will support the video object fully
+                    throw ML::Exception("Video::maxduration must be specified and positive.");
+                }
+                else if(v.maxduration.value() < v.minduration.value()) {
+                    // Illogical
+                    throw ML::Exception("Video::maxduration can't be smaller than Video::minduration.");
+                }
+
+                if(v.protocol.value() < 0) {
+                    throw ML::Exception("Video::protocol must be specified and positive."); 
                 }
                 
+                spot.position = spot.video->pos;
+
                 Format format(v.w.value(), v.h.value());
                 spot.formats.push_back(format);
             }
@@ -120,7 +126,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                 tags.add("displayManagerVersion", imp.displaymanagerver);
             }
             if (!imp.instl.unspecified()) {
-                tags.add("interstitial", imp.instl.value());
+                tags.add("interstitial", Liimp.instl.value());
             }
             if (!imp.tagid.empty()) {
                 tags.add("tagid", imp.tagid.value());

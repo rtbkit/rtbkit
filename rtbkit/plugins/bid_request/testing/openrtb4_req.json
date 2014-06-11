@@ -6,6 +6,11 @@
 	 [{
 		"video":
 		{
+            "mimes": ["video/x-wmv"],
+            "linearity": 1,
+            "minduration": 10,
+            "maxduration": 33,
+            "protocol": 4,
 		    "w":100,
 		    "h":123
 		},
