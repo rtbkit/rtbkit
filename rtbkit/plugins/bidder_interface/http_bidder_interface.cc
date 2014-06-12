@@ -23,11 +23,16 @@ namespace {
 
 HttpBidderInterface::HttpBidderInterface(std::string name,
                                          std::shared_ptr<ServiceProxies> proxies,
-                                         Json::Value const & json) {
+                                         Json::Value const & json)
+        : BidderInterface(proxies, name) {
     host = json["host"].asString();
     path = json["path"].asString();
     httpClient.reset(new HttpClient(host));
     loop.addSource("HttpBidderInterface::httpClient", httpClient);
+}
+
+void HttpBidderInterface::start() {
+    loop.start();
 }
 
 
@@ -193,9 +198,6 @@ void HttpBidderInterface::sendPingMessage(std::string const & agent,
     const std::string pong = (ping == 0 ? "PONG0" : "PONG1");
     std::vector<std::string> message { agent, pong, sentTime, receivedTime };
     router->handleAgentMessage(message);
-}
-
-void HttpBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event) {
 }
 
 void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,

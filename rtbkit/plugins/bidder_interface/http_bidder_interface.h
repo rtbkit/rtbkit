@@ -18,6 +18,7 @@ struct HttpBidderInterface : public BidderInterface
                         std::shared_ptr<ServiceProxies> proxies = std::make_shared<ServiceProxies>(),
                         Json::Value const & json = Json::Value());
 
+    void start();
     void sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                             double timeLeftMs,
                             std::map<std::string, BidInfo> const & bidders);
@@ -56,8 +57,6 @@ struct HttpBidderInterface : public BidderInterface
     void sendPingMessage(std::string const & agent,
                          int ping);
 
-    void send(std::shared_ptr<PostAuctionEvent> const & event);
-
     virtual void tagRequest(OpenRTB::BidRequest &request,
                             const std::map<std::string, BidInfo> &bidders) const;
 
@@ -67,6 +66,7 @@ private:
                         const std::map<std::string, BidInfo> &bidders) const;
     void submitBids(const std::string &agent, Id auctionId,
                          const Bids &bids, WinCostModel wcm);
+    MessageLoop loop;
     std::shared_ptr<HttpClient> httpClient;
     std::string host;
     std::string path;
