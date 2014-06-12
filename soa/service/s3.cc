@@ -5,6 +5,7 @@
     Code to talk to s3.
 */
 
+#include <atomic>
 #include "soa/service/s3.h"
 #include "jml/utils/string_functions.h"
 #include "soa/types/date.h"
@@ -193,15 +194,15 @@ void
 S3Api::init()
 {
     string keyId, key;
-    tie(keyId, key, std::ignore, std::ignore, std::ignore)
-        = getCloudCredentials();
-    if (keyId != "" && key != "") {
-        auto keys = getS3CredentialsFromEnvVar();
-        keyId = keys.first;
-        key = keys.second;
+    std::tie(keyId, key, std::ignore)
+        = getS3CredentialsFromEnvVar();
+
+    if (keyId == "" || key == "") {
+        tie(keyId, key, std::ignore, std::ignore, std::ignore)
+            = getCloudCredentials();
     }
-    if (keyId != "" && key != "")
-        throw ML::Exception("does this make sense?");
+    if (keyId == "" || key == "")
+        throw ML::Exception("Cannot init S3 API with no keys, environment or creedentials file");
     
     this->init(keyId, key);
 }
@@ -272,6 +273,7 @@ performSync() const
 
         auto connection = owner->proxy.getConnection();
         curlpp::Easy & myRequest = *connection;
+        myRequest.reset();
 
         using namespace curlpp;
         using namespace curlpp::infos;
@@ -304,16 +306,6 @@ performSync() const
         cerr << "timeout = " << timeout << endl;
 #endif
 
-#if 0
-        if (params.verb == "GET") ;
-        else if (params.verb == "POST") {
-            //myRequest.setOpt<Post>(true);
-        }
-        else if (params.verb == "PUT") {
-            myRequest.setOpt<options::Post>(true);
-        }
-        else throw ML::Exception("unknown verb " + params.verb);
-#endif
         //cerr << "!!!Setting params verb " << params.verb << endl;
         myRequest.setOpt<options::CustomRequest>(params.verb);
 
@@ -322,6 +314,11 @@ performSync() const
         myRequest.setOpt<options::ErrorBuffer>((char *)0);
         myRequest.setOpt<options::Timeout>(timeout);
         myRequest.setOpt<options::NoSignal>(1);
+
+        bool noBody = (params.verb == "HEAD");
+        if (noBody) {
+            myRequest.setOpt<options::NoBody>(noBody);
+        }
 
         // auto onData = [&] (char * data, size_t ofs1, size_t ofs2) {
         //     //cerr << "called onData for " << ofs1 << " " << ofs2 << endl;
@@ -401,7 +398,7 @@ performSync() const
         curlpp::InfoGetter::get(myRequest, CURLINFO_RESPONSE_CODE,
                                 responseCode);
 
-        if (responseCode >= 300) {
+        if (responseCode >= 300 && responseCode != 404) {
             string message("S3 operation failed with HTTP code "
                            + to_string(responseCode) + "\n"
                            + params.verb + " " + uri + "\n");
@@ -453,7 +450,7 @@ performSync() const
 
         Response response;
         response.code_ = responseCode;
-        response.header_.parse(responseHeaders);
+        response.header_.parse(responseHeaders, !noBody);
         body.append(responseBody);
         response.body_ = body;
 
@@ -525,6 +522,26 @@ prepare(const RequestParams & request) const
     //cerr << "result.auth = " << result.auth << endl;
 
     return result;
+}
+
+S3Api::Response
+S3Api::
+headEscaped(const std::string & bucket,
+            const std::string & resource,
+            const std::string & subResource,
+            const StrPairVector & headers,
+            const StrPairVector & queryParams) const
+{
+    RequestParams request;
+    request.verb = "HEAD";
+    request.bucket = bucket;
+    request.resource = resource;
+    request.subResource = subResource;
+    request.headers = headers;
+    request.queryParams = queryParams;
+    request.date = Date::now().printRfc2616();
+
+    return prepare(request).performSync();
 }
 
 S3Api::Response
@@ -1121,6 +1138,20 @@ ObjectInfo(tinyxml2::XMLNode * element)
     exists = true;
 }
 
+S3Api::ObjectInfo::
+ObjectInfo(const S3Api::Response & response)
+{
+    exists = true;
+    lastModified = Date::parse(response.getHeader("last-modified"),
+            "%a, %e %b %Y %H:%M:%S %Z");
+    size = response.header_.contentLength;
+    etag = response.getHeader("etag");
+    storageClass = ""; // Not available in headers
+    ownerId = "";      // Not available in headers
+    ownerName = "";    // Not available in headers
+}
+
+
 void
 S3Api::
 forEachObject(const std::string & bucket,
@@ -1250,8 +1281,19 @@ forEachObject(const std::string & uriPrefix,
 
 S3Api::ObjectInfo
 S3Api::
-getObjectInfo(const std::string & bucket,
-              const std::string & object) const
+getObjectInfo(const std::string & bucket, const std::string & object,
+              S3ObjectInfoTypes infos)
+    const
+{
+    return ((infos & int(S3ObjectInfoTypes::FULL_EXTRAS)) != 0
+            ? getObjectInfoFull(bucket, object)
+            : getObjectInfoShort(bucket, object));
+}
+
+S3Api::ObjectInfo
+S3Api::
+getObjectInfoFull(const std::string & bucket, const std::string & object)
+    const
 {
     StrPairVector queryParams;
     queryParams.push_back({"prefix", object});
@@ -1281,15 +1323,41 @@ getObjectInfo(const std::string & bucket,
         throw ML::Exception("object " + object + " not found in bucket "
                             + bucket);
     }
-
-
     return info;
 }
 
 S3Api::ObjectInfo
 S3Api::
+getObjectInfoShort(const std::string & bucket, const std::string & object)
+    const
+{
+    auto res = head(bucket, "/" + object);
+    if (res.code_ == 404) {
+        throw ML::Exception("object " + object + " not found in bucket "
+                            + bucket);
+    }
+    if (res.code_ != 200) {
+        throw ML::Exception("error getting object");
+    }
+    return ObjectInfo(res);
+}
+
+S3Api::ObjectInfo
+S3Api::
 tryGetObjectInfo(const std::string & bucket,
-                 const std::string & object) const
+                 const std::string & object,
+                 S3ObjectInfoTypes infos)
+    const
+{
+    return ((infos & int(S3ObjectInfoTypes::FULL_EXTRAS)) != 0
+            ? tryGetObjectInfoFull(bucket, object)
+            : tryGetObjectInfoShort(bucket, object));
+}
+
+S3Api::ObjectInfo
+S3Api::
+tryGetObjectInfoFull(const std::string & bucket, const std::string & object)
+    const
 {
     StrPairVector queryParams;
     queryParams.push_back({"prefix", object});
@@ -1313,7 +1381,7 @@ tryGetObjectInfo(const std::string & bucket,
 
     ObjectInfo info(foundObject);
 
-    if(info.key != object){
+    if (info.key != object) {
         return ObjectInfo();
     }
 
@@ -1322,20 +1390,38 @@ tryGetObjectInfo(const std::string & bucket,
 
 S3Api::ObjectInfo
 S3Api::
-getObjectInfo(const std::string & uri) const
+tryGetObjectInfoShort(const std::string & bucket, const std::string & object)
+    const
 {
-    string bucket, object;
-    std::tie(bucket, object) = parseUri(uri);
-    return getObjectInfo(bucket, object);
+    auto res = head(bucket, "/" + object);
+    if (res.code_ == 404) {
+        return ObjectInfo();
+    }
+    if (res.code_ != 200) {
+        throw ML::Exception("error getting object");
+    }
+
+    return ObjectInfo(res);
 }
 
 S3Api::ObjectInfo
 S3Api::
-tryGetObjectInfo(const std::string & uri) const
+getObjectInfo(const std::string & uri, S3ObjectInfoTypes infos)
+    const
 {
     string bucket, object;
     std::tie(bucket, object) = parseUri(uri);
-    return tryGetObjectInfo(bucket, object);
+    return getObjectInfo(bucket, object, infos);
+}
+
+S3Api::ObjectInfo
+S3Api::
+tryGetObjectInfo(const std::string & uri, S3ObjectInfoTypes infos)
+    const
+{
+    string bucket, object;
+    std::tie(bucket, object) = parseUri(uri);
+    return tryGetObjectInfo(bucket, object, infos);
 }
 
 void
@@ -1425,11 +1511,6 @@ download(const std::string & bucket,
 {
 
     ObjectInfo info = getObjectInfo(bucket, object);
-    if(info.storageClass == "GLACIER"){
-        throw ML::Exception("Cannot download [" + info.key + "] because its "
-            "storage class is [GLACIER]");
-    }
-
     size_t chunkSize = 128 * 1024 * 1024;  // 128MB probably good
 
     struct Part {
@@ -1565,7 +1646,7 @@ struct StreamingDownloadSource {
         impl->bucket = bucket;
         impl->object = object;
         impl->info = owner->getObjectInfo(bucket, object);
-        impl->chunkSize = 1024 * 1024;  // start with 1MB and ramp up
+        impl->baseChunkSize = 1024 * 1024;  // start with 1MB and ramp up
 
         int numThreads = 1;
         if (impl->info.size > 1024 * 1024)
@@ -1588,9 +1669,9 @@ struct StreamingDownloadSource {
 
     struct Impl {
         Impl()
-            : owner(0), offset(0), shutdown(false),
-              readPartOffset(0), readPartDone(1)
+            : owner(0), baseChunkSize(0)
         {
+            reset();
         }
 
         ~Impl()
@@ -1598,203 +1679,210 @@ struct StreamingDownloadSource {
             stop();
         }
 
+        /* static variables, set during or right after construction */
         const S3Api * owner;
-        S3Api::ObjectInfo info;
         std::string bucket;
         std::string object;
-        size_t offset;
-        size_t chunkSize;
-        size_t bytesDone;
-        bool shutdown;
-        boost::thread_group tg;
+        S3Api::ObjectInfo info;
+        size_t baseChunkSize;
 
-        string readPart;
-        size_t readPartOffset;
+        /* variables set during or after "start" has been called */
+        size_t maxChunkSize;
 
-        Date startDate;
+        atomic<bool> shutdown;
+        exception_ptr lastExc;
 
-        size_t writeOffset, readOffset;
-        int readPartReady, readPartDone, writePartNumber, allocPartNumber;
+        /* read thread */
+        uint64_t readOffset; /* number of bytes from the entire stream that
+                              * have been returned to the caller */
 
+        string readPart; /* data buffer for the part of the stream being
+                          * transferred to the caller */
+        ssize_t readPartOffset; /* number of bytes from "readPart" that have
+                                 * been returned to the caller, or -1 when
+                                 * awaiting a new part */
+        int readPartDone; /* the number of the chunk representing "readPart" */
 
-        void start(int numThreads)
+        /* http threads */
+        typedef RingBufferSRMW<string> ThreadData;
+
+        int numThreads; /* number of http threads */
+        vector<thread> threads; /* thread pool */
+        vector<ThreadData> threadQueues; /* per-thread queue of chunk data */
+
+        /* cleanup all the variables that are used during reading, the
+           "static" ones are left untouched */
+        void reset()
         {
-            readPartOffset = offset = bytesDone = writeOffset
-                = writePartNumber = allocPartNumber = readOffset = 0;
-            readPartReady = 0;
+            shutdown = false;
+
+            readOffset = 0;
+
+            readPart = "";
+            readPartOffset = -1;
             readPartDone = 0;
-            startDate = Date::now();
-            for (unsigned i = 0;  i < numThreads;  ++i)
-                tg.create_thread(boost::bind<void>(&Impl::runThread, this));
+
+            threadQueues.clear();
+            threads.clear();
+            numThreads = 0;
         }
 
-        void stop()
-        {
-            shutdown = true;
-            ML::memory_barrier();
-            futex_wake(writePartNumber);
-            futex_wake(readPartReady);
-            futex_wake(readPartDone);
-            tg.join_all();
-        }
-
-        std::streamsize read(char_type* s, std::streamsize n)
-        {
-            if (readOffset == info.size)
-                return -1;
-
-            //Date start = Date::now();
-
-#if 0
-            cerr << "read: readPartReady = " << readPartReady
-                 << " readPartDone = " << readPartDone
-                 << " writePartNumber = " << writePartNumber
-                 << " allocPartNumber = " << allocPartNumber
-                 << " readPartOffset = " << readPartOffset
-                 << endl;
-#endif
-
-            //cerr << "trying to read " << n << " characters at offset "
-            //     << readPartOffset << " of "
-            //     << readPart.size() << endl;
-
-            while (readPartDone == readPartReady) {
-                //cerr << "waiting for part " << readPartDone << endl;
-                ML::futex_wait(readPartReady, readPartDone);
-            }
-
-            ExcAssertGreaterEqual(readPartReady, readPartDone);
-
-            //cerr << "ready to start reading" << endl;
-
-            //cerr << "trying to read " << n << " characters at offset "
-            //     << readPartOffset << " of "
-            //     << readPart.size() << endl;
-
-            ExcAssertGreaterEqual(readPart.size(), readPartOffset);
-
-            size_t toDo = std::min<size_t>(readPart.size() - readPartOffset,
-                                           n);
-
-            //cerr << "toDo = " << toDo << endl;
-
-            std::copy(readPart.c_str() + readPartOffset,
-                      readPart.c_str() + readPartOffset + toDo,
-                      s);
-
-            readPartOffset += toDo;
-            readOffset += toDo;
-            if (readPartOffset == readPart.size()) {
-                //cerr << "finished part " << readPartDone << endl;
-                ++readPartDone;
-                ML::futex_wake(readPartDone);
-            }
-
-            //Date end = Date::now();
-            //double elapsed = end.secondsSince(start);
-            //if (elapsed > 0.0001)
-            //    cerr << "read elapsed " << elapsed << endl;
-
-            return toDo;
-        }
-
-        void runThread()
+        void start(int nThreads)
         {
             // Maximum chunk size is what we can do in 3 seconds
-            size_t maxChunkSize
-                = owner->bandwidthToServiceMbps
-                * 3.0 * 1000000;
-
+            maxChunkSize = (owner->bandwidthToServiceMbps
+                            * 3.0 * 1000000);
             size_t sysMemory = getTotalSystemMemory();
 
             //cerr << "sysMemory = " << sysMemory << endl;
             // Limit each chunk to 1% of system memory
             maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
             //cerr << "maxChunkSize = " << maxChunkSize << endl;
+            numThreads = nThreads;
 
-            while (!shutdown) {
-                // Go in the lottery to see which part I need to download
-                int partToDo = __sync_fetch_and_add(&allocPartNumber, 1);
-
-                //cerr << "partToDo = " << partToDo << endl;
-
-                // Wait until it's my turn to increment the offset
-                while (!shutdown) {
-                    int currentWritePart = writePartNumber;
-                    if (currentWritePart >= partToDo) break;
-                    ML::futex_wait(writePartNumber, currentWritePart, 0.1);
-                }
-                if (shutdown) return;
-
-                //cerr << "ready" << endl;
-
-                ExcAssertEqual(writePartNumber, partToDo);
-
-                // If we're done then get out
-                if (writeOffset >= info.size || shutdown) return;  // done
-
-                if (partToDo && partToDo % 2 == 0 && chunkSize < maxChunkSize)
-                    chunkSize *= 2;
-
-                //cerr << "chunkSize = " << chunkSize << " maxChunkSize = "
-                //     << maxChunkSize << endl;
-
-                size_t start = writeOffset;
-                size_t end = std::min<size_t>(writeOffset + chunkSize,
-                                              info.size);
-
-                writeOffset = end;
-
-                // Finished my turn to increment.  Wake up the next thread
-                ++writePartNumber;
-                futex_wake(writePartNumber);
-
-                // Download my part
-                //cerr << "downloading" << endl;
-
-                auto partResult
-                    = owner->get(bucket, "/" + object,
-                                 S3Api::Range(start, end - start));
-                if (partResult.code_ != 206) {
-                    cerr << "error getting part "
-                         << partResult.bodyXmlStr() << endl;
-                    return;
-                }
-
-                //cerr << "done downloading" << endl;
-
-                // Wait until the reader needs my part
-                while (!shutdown) {
-                    int currentReadPart = readPartDone;
-                    if (currentReadPart == partToDo) break;
-                    ML::futex_wait(readPartDone, currentReadPart, 0.1);
-                }
-                if (shutdown) return;
-
-                //cerr << "ready for part " << partToDo << endl;
-
-                bytesDone += partResult.body_.size();
-
-                //double elapsed = Date::now().secondsSince(startDate);
-
-                // Give my part to the reader
-                readPart = partResult.body();
-                readPartOffset = 0;
-
-                // Wake up the reader
-                ++readPartReady;
-                ML::memory_barrier();
-                ML::futex_wake(readPartReady);
-
-#if 0
-                double elapsed = Date::now().secondsSince(startDate);
-                cerr << "done " << bytesDone << " of "
-                     << info.size << " at "
-                     << bytesDone / elapsed / 1024 / 1024
-                     << "MB/second" << endl;
-#endif
+            for (int i = 0; i < numThreads; i++) {
+                threadQueues.emplace_back(2);
             }
-            //cerr << "finished thread" << endl;
+            
+            /* ensure that the queues are ready before the threads are
+               launched */
+            ML::memory_barrier();
+
+            for (int i = 0; i < numThreads; i++) {
+                auto threadFn = [&] (int threadNum) {
+                    this->runThread(threadNum);
+                };
+                threads.emplace_back(threadFn, i);
+            }
+        }
+
+        void stop()
+        {
+            shutdown = true;
+            for (thread & th: threads) {
+                th.join();
+            }
+
+            reset();
+        }
+
+        /* reader thread */
+        std::streamsize read(char_type* s, std::streamsize n)
+        {
+            if (lastExc) {
+                rethrow_exception(lastExc);
+            }
+
+            if (readOffset == info.size)
+                return -1;
+
+            if (readPartOffset == -1) {
+                waitNextPart();
+            }
+
+            if (lastExc) {
+                rethrow_exception(lastExc);
+            }
+
+            size_t toDo = min<size_t>(readPart.size() - readPartOffset,
+                                      n);
+            const char_type * start = readPart.c_str() + readPartOffset;
+            std::copy(start, start + toDo, s);
+
+            readPartOffset += toDo;
+            if (readPartOffset == readPart.size()) {
+                readPartOffset = -1;
+            }
+
+            readOffset += toDo;
+
+            return toDo;
+        }
+
+        void waitNextPart()
+        {
+            int partThread = readPartDone % numThreads;
+            ThreadData & threadQueue = threadQueues[partThread];
+
+            /* We set a timeout to avoid dead locking when http threads have
+             * exited after an exception. */
+            while (!lastExc) {
+                if (threadQueue.tryPop(readPart, 1.0)) {
+                    break;
+                }
+            }
+
+            readPartOffset = 0;
+            readPartDone++;
+        }
+
+        /* download threads */
+        void runThread(int threadNum)
+        {
+            ThreadData & threadQueue = threadQueues[threadNum];
+
+            uint64_t start = 0;
+            unsigned int prevChunkNbr = 0;
+
+            try {
+                for (int loop = 0;; loop++) {
+                    /* number of the chunk that we need to process */
+                    unsigned int chunkNbr = loop * numThreads + threadNum;
+
+                    /* we adjust the offset by adding the chunk sizes of all
+                       the chunks downloaded between our previous loop until
+                       now */
+                    for (unsigned int i = prevChunkNbr; i < chunkNbr; i++) {
+                        start += getChunkSize(i);
+                    }
+
+                    if (start >= info.size) {
+                        /* we are done */
+                        return;
+                    }
+                    prevChunkNbr = chunkNbr;
+
+                    size_t chunkSize = getChunkSize(chunkNbr);
+                    uint64_t end = start + chunkSize;
+                    if (end > info.size) {
+                        end = info.size;
+                        chunkSize = end - start;
+                    }
+
+                    auto partResult
+                        = owner->get(bucket, "/" + object,
+                                     S3Api::Range(start, chunkSize));
+                    if (partResult.code_ != 206) {
+                        throw ML::Exception("http error "
+                                            + to_string(partResult.code_)
+                                            + " while getting part "
+                                            + partResult.bodyXmlStr());
+                    }
+
+                    while (true) {
+                        if (shutdown || lastExc) {
+                            return;
+                        }
+                        if (threadQueue.tryPush(partResult.body())) {
+                            break;
+                        }
+                        else {
+                            ML::sleep(0.1);
+                        }
+                    }
+                }
+            }
+            catch (...) {
+                lastExc = current_exception();
+            }
+        }
+
+        size_t getChunkSize(unsigned int chunkNbr)
+            const
+        {
+            size_t chunkSize = std::min(baseChunkSize * (1 << (chunkNbr / 2)),
+                                        maxChunkSize);
+            return chunkSize;
         }
     };
 
@@ -2504,13 +2592,17 @@ tuple<string, string, string, string, string> getCloudCredentials()
     return make_tuple("", "", "", "", "");
 }
 
-pair<string, string> getS3CredentialsFromEnvVar()
+std::string getEnv(const char * varName)
 {
-    char* s3KeyIdCStr = getenv("S3_KEY_ID");
-    char* s3KeyCStr = getenv("S3_KEY");
-    string s3KeyId = (s3KeyIdCStr == NULL ? "" : string(s3KeyIdCStr));
-    string s3Key= (s3KeyCStr == NULL ? "" : string(s3KeyCStr));
-    return make_pair(s3KeyId, s3Key);
+    const char * val = getenv(varName);
+    return val ? val : "";
+}
+
+tuple<string, string, std::vector<std::string> >
+getS3CredentialsFromEnvVar()
+{
+    return make_tuple(getEnv("S3_KEY_ID"), getEnv("S3_KEY"),
+                      ML::split(getEnv("S3_BUCKETS"), ','));
 }
 
 /** Parse the ~/.cloud_credentials file and add those buckets in.
@@ -2561,14 +2653,24 @@ void registerDefaultBuckets()
                           protocol, serviceUri);
         return;
     }
-    auto keys = getS3CredentialsFromEnvVar();
-    if (keys.first != "" && keys.second != "")
-        registerS3Buckets(keys.first, keys.second, 20., "http",
-                          "s3.amazonaws.com");
+    string keyId;
+    string key;
+    vector<string> buckets;
+
+    std::tie(keyId, key, buckets) = getS3CredentialsFromEnvVar();
+    if (keyId != "" && key != "") {
+        if (buckets.empty()) {
+            registerS3Buckets(keyId, key);
+        }
+        else {
+            for (string bucket: buckets)
+                registerS3Bucket(bucket, keyId, key);
+        }
+    }
     else
         cerr << "WARNING: registerDefaultBuckets needs either a "
-                ".cloud_credentials or S3_KEY_ID and S3_KEY environment "
-                " variables" << endl;
+            ".cloud_credentials or S3_KEY_ID and S3_KEY environment "
+            " variables" << endl;
 
 #if 0
     char* configFilenameCStr = getenv("CONFIG");
