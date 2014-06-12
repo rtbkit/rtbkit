@@ -25,7 +25,7 @@ $(eval $(call test,test_endpoint_accept_speed,endpoint,boost))
 $(eval $(call test,endpoint_periodic_test,endpoint,boost))
 $(eval $(call test,endpoint_closed_connection_test,endpoint,boost))
 $(eval $(call test,http_long_header_test,endpoint,boost manual))
-$(eval $(call test,http_header_query_parser_test,endpoint,boost manual))
+$(eval $(call test,http_header_test,endpoint,boost manual))
 $(eval $(call test,service_proxies_test,endpoint,boost manual))
 
 $(eval $(call test,message_loop_test,services,boost))
@@ -46,3 +46,5 @@ $(eval $(call test,http_client_test,services test_services,boost))
 $(eval $(call test,http_client_bench,boost_program_options services test_services,boost manual))
 
 $(eval $(call test,logs_test,services,boost))
+
+$(eval $(call test,sns_mock_test,cloud services,boost))
