@@ -350,6 +350,7 @@ start(boost::function<void ()> onStop)
             if (onStop) onStop();
         };
 
+    bidder->start();
     logger.start();
     augmentationLoop.start();
     runThread.reset(new boost::thread(runfn));
