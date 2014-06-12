@@ -193,7 +193,7 @@ void
 Router::
 initBidderInterface(Json::Value const & json)
 {
-    bidder = BidderInterface::create("bidder", getServices(), json);
+    bidder = BidderInterface::create(serviceName() + ".bidder", getServices(), json);
     bidder->init(&bridge, this);
 }
 
@@ -296,7 +296,6 @@ bindTcp()
 {
     logger.bindTcp(getServices()->ports->getRange("logs"));
     bridge.agents.bindTcp(getServices()->ports->getRange("router"));
-    bidder->bindTcp();
 }
 
 void
@@ -351,7 +350,6 @@ start(boost::function<void ()> onStop)
             if (onStop) onStop();
         };
 
-    bidder->start();
     logger.start();
     augmentationLoop.start();
     runThread.reset(new boost::thread(runfn));

@@ -26,8 +26,7 @@ struct BidderInterface : public ServiceBase
                     std::string const & name = "bidder");
 
     void init(AgentBridge * value, Router * r = nullptr);
-    void start();
-    void bindTcp();
+    virtual void start();
 
     virtual
     void sendAuctionMessage(std::shared_ptr<Auction> const & auction,
@@ -79,9 +78,6 @@ struct BidderInterface : public ServiceBase
     void sendPingMessage(std::string const & agent,
                          int ping) = 0;
 
-    virtual
-    void send(std::shared_ptr<PostAuctionEvent> const & event) = 0;
-
     //
     // factory
     //
@@ -97,15 +93,9 @@ struct BidderInterface : public ServiceBase
     static void registerFactory(std::string const & name, Factory factory);
 
 protected:
-    void handlePostAuctionMessage(std::vector<std::string> const & items);
 
     Router * router;
     AgentBridge * bridge;
-
-    MessageLoop loop;
-    TypedMessageSink<std::shared_ptr<PostAuctionEvent>> events;
-
-    ZmqNamedEndpoint endpoint;
 };
 
 }

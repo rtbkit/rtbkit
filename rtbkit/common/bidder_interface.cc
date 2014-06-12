@@ -15,63 +15,24 @@ BidderInterface::BidderInterface(ServiceBase & parent,
                                  std::string const & name) :
     ServiceBase(name, parent),
     router(nullptr),
-    bridge(nullptr),
-    events(65536),
-    endpoint(getZmqContext()) {
+    bridge(nullptr) {
 }
 
 BidderInterface::BidderInterface(std::shared_ptr<ServiceProxies> proxies,
                                  std::string const & name) :
     ServiceBase(name, proxies),
     router(nullptr),
-    bridge(nullptr),
-    events(65536),
-    endpoint(getZmqContext()) {
+    bridge(nullptr) {
 }
 
 void BidderInterface::init(AgentBridge * value, Router * r) {
     router = r;
     bridge = value;
-
-    registerServiceProvider(serviceName(), { "rtbBidderService" });
-
-    events.onEvent = std::bind<void>(&BidderInterface::send,
-                                    this,
-                                    std::placeholders::_1);
-
-    endpoint.messageHandler = std::bind(&BidderInterface::handlePostAuctionMessage,
-                                        this,
-                                        std::placeholders::_1);
-
-    endpoint.init(getServices()->config, ZMQ_XREP, serviceName() + "/events");
-    loop.addSource("Bidder::events", events);
 }
 
-void BidderInterface::bindTcp() {
-    endpoint.bindTcp(getServices()->ports->getRange("biddingService"));
+void BidderInterface::start()
+{
 }
-
-void BidderInterface::start() {
-    loop.start();
-}
-
-void BidderInterface::handlePostAuctionMessage(std::vector<std::string> const & items) {
-    std::string key = "messages." + items[1];
-    recordHit(key);
-
-    auto event = std::make_shared<PostAuctionEvent>(
-                    ML::DB::reconstituteFromString<PostAuctionEvent>(items.at(2)));
-    if(items[1] != event->label) {
-        key += "." + event->label;
-        recordHit(key);
-    }
-    else {
-        event->label = items[1];
-    }
-
-    events.push(event);
-}
-
 
 namespace {
     typedef std::lock_guard<ML::Spinlock> Guard;
