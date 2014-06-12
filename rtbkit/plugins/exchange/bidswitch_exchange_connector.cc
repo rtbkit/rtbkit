@@ -159,7 +159,6 @@ struct GoogleObject {
           for (auto ii: detected_vertical)
                cerr << '(' << ii.first << ',' << ii.second << ')';
           cerr << ']' << endl ;
-
      }
 };
 
@@ -192,10 +191,36 @@ parseGoogleObject(const Json::Value& gobj)
                }
           }
      }
-     rc.dump();
      return rc;
 }
+
+struct AdtruthObject {
+	uint64_t tdl_millis;
+	std::unordered_map<std::string,std::string> dev_insight_map;
+	AdtruthObject() : tdl_millis (0L) {}
+	void dump () const {
+		cerr << "tdl_millis: " << tdl_millis << endl ;
+		cerr << "DevInsight: { ";
+		for (auto const ii:  dev_insight_map) {
+			cerr << ii.first << ":" << ii.second;
+		}
+		cerr << " }\n";
+	}
+};
+
+AdtruthObject
+parseAdtruthObject(const Json::Value& adt)
+{
+	AdtruthObject rc;
+    for (const auto name: adt.getMemberNames()) {
+    	if (name == "tdl_millis")
+    		rc.tdl_millis = adt[name].asInt();
+    	else
+    		rc.dev_insight_map[name] = adt[name].asString();
+    }
+    return rc;
 }
+}// anonymous
 
 std::shared_ptr<BidRequest>
 BidSwitchExchangeConnector::
@@ -239,12 +264,13 @@ parseBidRequest(HttpAuctionHandler & connection,
      if (ext.isMember("ssp")) {
           if (ext.isMember("google")) {
                const auto& gobj = ext["google"];
-               cerr << gobj << endl ;
-               parseGoogleObject (gobj);
+               auto gobj_parsed = parseGoogleObject (gobj);
+               gobj_parsed.dump();
           }
           if (ext.isMember("adtruth")) {
                const auto& adt = ext["adtruth"];
-               cerr << adt.toString() << endl ;
+               auto adt_parsed = parseAdtruthObject (adt);
+               adt_parsed.dump();
           }
      }
 
