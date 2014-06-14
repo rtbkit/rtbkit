@@ -37,7 +37,23 @@ struct HttpResponse {
           responseStatus(getResponseReasonPhrase(responseCode)),
           contentType(contentType),
           body(body),
-          extraHeaders(extraHeaders)
+          extraHeaders(extraHeaders),
+          sendBody(true)
+    {
+    }
+
+    /** Construct an HTTP response header only, with no body.  No content-
+        length will be inferred. */
+
+    HttpResponse(int responseCode,
+                 std::string contentType,
+                 std::vector<std::pair<std::string, std::string> > extraHeaders
+                     = std::vector<std::pair<std::string, std::string> >())
+        : responseCode(responseCode),
+          responseStatus(getResponseReasonPhrase(responseCode)),
+          contentType(contentType),
+          extraHeaders(extraHeaders),
+          sendBody(false)
     {
     }
 
@@ -49,7 +65,8 @@ struct HttpResponse {
           responseStatus(getResponseReasonPhrase(responseCode)),
           contentType("application/json"),
           body(boost::trim_copy(body.toString())),
-          extraHeaders(extraHeaders)
+          extraHeaders(extraHeaders),
+          sendBody(true)
     {
     }
 
@@ -58,6 +75,7 @@ struct HttpResponse {
     std::string contentType;
     std::string body;
     std::vector<std::pair<std::string, std::string> > extraHeaders;
+    bool sendBody;
 };
 
 
