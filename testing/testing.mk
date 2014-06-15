@@ -22,3 +22,5 @@ $(eval $(call program,json_feeder,curlpp boost_program_options utils))
 $(eval $(call program,json_listener,boost_program_options services utils))
 
 $(eval $(call test,creative_configuration_test,rtb_router, boost))
+
+$(eval $(call test,agent_context_switch_test,rtb_router bidding_agent,boost))
