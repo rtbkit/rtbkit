@@ -246,7 +246,7 @@ handleWinRq(const HttpHeader & header,
         passback =  json["passback"].asString();
     }
     else {
-        // UserIds is optional
+        // Passback is optional
     }
 
     LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
@@ -343,6 +343,19 @@ handleDeliveryRq(const HttpHeader & header,
         return response;
     }
 
+    /*
+     *  UserIds is an optional field.
+     *  If null, we just put an empty array.
+     */
+    if (json.isMember("userIds")) {
+        auto item =  json["userIds"];
+
+        userIds.add(Id(item[0].asString()), ID_PROVIDER);
+    }
+    else {
+        // UserIds is optional
+    }
+
     bidRequestIdStr = json["bidRequestId"].asString();
     impIdStr = json["impid"].asString();
     bidRequestId = Id(bidRequestIdStr);
@@ -351,7 +364,8 @@ handleDeliveryRq(const HttpHeader & header,
     LOG(adserverTrace) << "{\"timestamp\":\"" << timestamp.print(3) << "\"," <<
         "\"bidRequestId\":\"" << bidRequestIdStr << "\"," <<
         "\"impId\":\"" << impIdStr << "\"," <<
-        "\"event\":\"" << event << "\"}";
+        "\"event\":\"" << event << 
+        "\"userIds\":" << userIds.toString() << "\"}";
 
     if(response.valid) {
         publishCampaignEvent(eventType[event], bidRequestId, impId, timestamp,
@@ -363,8 +377,6 @@ handleDeliveryRq(const HttpHeader & header,
 }
 
 namespace {
-
-//Logging::Category adserverTrace("Standard Ad-Server connector");
 
 struct AtInit {
     AtInit()
