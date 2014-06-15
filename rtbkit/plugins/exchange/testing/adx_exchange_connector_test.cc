@@ -107,7 +107,7 @@ BOOST_AUTO_TEST_CASE( test_adx )
         c.providerConfig["adx"]["externalId"] = "1234";
         c.providerConfig["adx"]["htmlTemplate"] = "<a href=\"http://usmc.com=%%WINNING_PRICE%%\"/>";
         c.providerConfig["adx"]["clickThroughUrl"] = "<a href=\"http://click.usmc.com\"/>";
-	c.providerConfig["adx"]["restrictedCategories"] = "0";
+        c.providerConfig["adx"]["restrictedCategories"] = "0";
         c.providerConfig["adx"]["agencyId"] = 59;
         c.providerConfig["adx"]["adGroupId"] = 33970612;
         c.providerConfig["adx"]["vendorType"] = "534 423";
