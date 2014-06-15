@@ -12,6 +12,7 @@
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
+#include "soa/service/logs.h"
 #include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
 #include "jml/utils/file_functions.h"
@@ -23,6 +24,11 @@
 
 using namespace std;
 using namespace Datacratic;
+
+namespace {
+Logging::Category mopubExchangeConnectorTrace("MoPub Exchange Connector");
+Logging::Category mopubExchangeConnectorError("[ERROR] MoPub Exchange Connector", mopubExchangeConnectorTrace);
+}
 
 namespace RTBKIT {
 
@@ -219,6 +225,7 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     //2) per slot: blocked type and attribute;
     //3) per slot: check ext field if we have video object.
+    //4) per slot: check for mraid object.. not supported for now
     std::vector<int> intv;
     for (auto& spot: res->imp) {
         for (const auto& t: spot.banner->btype) {
@@ -271,11 +278,20 @@ parseBidRequest(HttpAuctionHandler & connection,
                     spot.video->minduration = video["maxduration"].asInt();   
                 } else {
                     // Makes no sense that maxduration < minduration
+                    THROW(mopubExchangeConnectorError) << "minduration cannot be higher than maxduration" << endl;
                 }
             }
 
             // Since MoPub removes the Mime type, we will add none as a Mime-Type
             spot.video->mimes.push_back(OpenRTB::MimeType("none"));
+
+            // Note : There is no need to add height and width since they
+            // should be included in the banner object and thus will be populated
+            // in the format object of the AdSpot object.
+        }
+
+        if(spot.ext.isMember("mraid")) {
+            LOG(mopubExchangeConnectorTrace) << "Mobile Rich Media Ad Interface Definition is not supported." << endl;
         }
     }
    
