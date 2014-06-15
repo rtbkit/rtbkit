@@ -257,6 +257,25 @@ parseBidRequest(HttpAuctionHandler & connection,
                 }
             }
 
+            /** Minimum video duration
+             *  Maximum video duration
+             *  Making sure that max >= min
+             */
+            if(video.isMember("minduration")) {
+                spot.video->minduration = video["minduration"].asInt();   
+            }
+
+            if(video.isMember("maxduration")) {
+                if(video.isMember("minduration") && 
+                   video["minduration"].asInt() > video["maxduration"].asInt()) {
+                    spot.video->minduration = video["maxduration"].asInt();   
+                } else {
+                    // Makes no sense that maxduration < minduration
+                }
+            }
+
+            // Since MoPub removes the Mime type, we will add none as a Mime-Type
+            spot.video->mimes.push_back(OpenRTB::MimeType("none"));
         }
     }
    
