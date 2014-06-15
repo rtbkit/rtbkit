@@ -218,6 +218,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     res->restrictions.addStrings("blockedCategories", strv);
 
     //2) per slot: blocked type and attribute;
+    //3) per slot: check ext field if we have video object.
     std::vector<int> intv;
     for (auto& spot: res->imp) {
         for (const auto& t: spot.banner->btype) {
@@ -229,7 +230,36 @@ parseBidRequest(HttpAuctionHandler & connection,
             intv.push_back (a.val);
         }
         spot.restrictions.addInts("blockedAttrs", intv);
+
+        // Check for a video bid
+        if(spot.ext.isMember("video")) {
+            auto video = spot.ext["video"];
+
+            if(video.isMember("linearity")) {
+                spot.video->linearity.val = video["linearity"].asInt();
+            }
+
+            if(video.isMember("type")) {
+                // Type is defined as an array in MoPub 2.1 spec
+                for(auto it = video["type"].begin(); it != video["type"].end(); it++) {
+                    
+                    const std::string &s = (*it).asString();
+                    
+                    if(s == "VAST 2.0") {
+                        // If VAST 2.0 is there.. protocol will be 2
+                        // according to Table 6.7 of OpenRTB 2.1
+                        spot.video->protocol.val = 2;
+                    }
+
+                    if(s == "HTML5") {
+                        // Not sure what to do with this
+                    } 
+                }
+            }
+
+        }
     }
+   
     return res;
 }
 
