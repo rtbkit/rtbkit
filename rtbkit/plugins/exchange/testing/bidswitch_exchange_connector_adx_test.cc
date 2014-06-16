@@ -28,7 +28,7 @@
 using namespace RTBKIT;
 
 
-const std::string bid_sample_filename("rtbkit/plugins/exchange/testing/BidSwitchSimpleBannerAd.json");
+const std::string bid_sample_filename("rtbkit/plugins/exchange/testing/BidSwitchAdX.json");
 
 
 std::string loadFile(const std::string & filename)
@@ -109,6 +109,10 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
               + std::to_string(c.format.height)
               + "&price=${AUCTION_PRICE}\"/>";
         c.providerConfig["bidswitch"]["adid"] = c.name;
+        c.providerConfig["bidswitch"]["google"]["vendorType"] = "";
+        c.providerConfig["bidswitch"]["google"]["attribute"] = "";
+
+
     }
 
     agent.onBidRequest = [&] (
