@@ -278,7 +278,7 @@ putOrPost(const string & resource, const string & body, bool isPost)
         headers.emplace_back(make_pair("Cookie", "token=\"" + authToken + "\""));
     }
 
-    string method = isPost ? "post" : "put";
+    string method = isPost ? "POST" : "PUT";
     pid_t tid = gettid();
     size_t retries;
     for (retries = 0; retries < maxRetries; retries++) {
