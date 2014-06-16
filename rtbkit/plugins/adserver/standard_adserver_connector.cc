@@ -231,8 +231,8 @@ handleWinRq(const HttpHeader & header,
      */
     if (json.isMember("userIds")) {
         auto item =  json["userIds"];
-
-        userIds.add(Id(item[0].asString()), ID_PROVIDER);
+        if(!item.empty())
+            userIds.add(Id(item[0].asString()), ID_PROVIDER);
     }
     else {
         // UserIds is optional
@@ -350,7 +350,8 @@ handleDeliveryRq(const HttpHeader & header,
     if (json.isMember("userIds")) {
         auto item =  json["userIds"];
 
-        userIds.add(Id(item[0].asString()), ID_PROVIDER);
+        if(!item.empty())
+            userIds.add(Id(item[0].asString()), ID_PROVIDER);
     }
     else {
         // UserIds is optional
