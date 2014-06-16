@@ -34,14 +34,14 @@ ZmqEventSource::
 ZmqEventSource()
     : socket_(0), socketLock_(nullptr)
 {
-    needsPoll = true;
+    needsPoll = false;
 }
 
 ZmqEventSource::
 ZmqEventSource(zmq::socket_t & socket, SocketLock * socketLock)
     : socket_(&socket), socketLock_(socketLock)
 {
-    needsPoll = true;
+    needsPoll = false;
 }
 
 void
@@ -50,7 +50,8 @@ init(zmq::socket_t & socket, SocketLock * socketLock)
 {
     socket_ = &socket;
     socketLock_ = socketLock;
-    needsPoll = true;
+    needsPoll = false;
+    updateEvents();
 }
 
 int
@@ -69,7 +70,38 @@ bool
 ZmqEventSource::
 poll() const
 {
-    return getEvents(socket()).first;
+    if (currentEvents & ZMQ_POLLIN)
+        return true;
+
+    std::unique_lock<SocketLock> guard;
+
+    if (socketLock_)
+        guard = std::unique_lock<SocketLock>(*socketLock_);
+
+    updateEvents();
+
+    return currentEvents & ZMQ_POLLIN;
+
+#if 0
+    using namespace std;
+
+    
+
+    zmq_pollitem_t toPoll = { socket(), 0, ZMQ_POLLIN };
+    int res = zmq_poll(&toPoll, 1, 0);
+    //cerr << "poll returned " << res << endl;
+    if (res == -1)
+        throw ML::Exception(errno, "zmq_poll");
+    return res;
+#endif
+}
+
+void
+ZmqEventSource::
+updateEvents() const
+{
+    size_t events_size = sizeof(currentEvents);
+    socket().getsockopt(ZMQ_EVENTS, &currentEvents, &events_size);
 }
 
 bool
@@ -91,6 +123,8 @@ processOne()
             guard = std::unique_lock<SocketLock>(*socketLock_);
 
         msg = recvAllNonBlocking(socket());
+
+        updateEvents();
     }
 
     if (!msg.empty()) {
@@ -99,7 +133,7 @@ processOne()
         handleMessage(msg);
     }
 
-    return poll();
+    return currentEvents & ZMQ_POLLIN;
 }
 
 void

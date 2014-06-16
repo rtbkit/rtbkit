@@ -38,8 +38,6 @@ struct MessageLoop : public Epoller {
 
     void startSync();
     
-    //void sleepUntilIdle();
-
     void shutdown();
 
     /** Add the given source of asynchronous wakeups with the given
@@ -171,7 +169,7 @@ private:
     boost::thread_group threads;
     
     /** Global flag to shutdown. */
-    int shutdown_;
+    volatile int shutdown_;
 
     /** Do we debug? */
     bool debug_;

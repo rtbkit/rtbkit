@@ -90,11 +90,7 @@ struct Epoller: public AsyncEventSource {
 
     virtual bool poll() const;
 
-    virtual bool processOne()
-    {
-        handleEvents();
-        return poll();
-    }
+    virtual bool processOne();
     
 private:
     /* Perform the fd addition and modification */
