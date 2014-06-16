@@ -36,8 +36,6 @@ struct MessageLoop : public Epoller {
 
     void startSync();
     
-    //void sleepUntilIdle();
-
     void shutdown();
 
     /** Add the given source of asynchronous wakeups with the given
@@ -136,8 +134,8 @@ private:
     std::vector<SourceEntry> addSourceQueue;
     std::vector<AsyncEventSource*> removeSourceQueue;
 
-    // Notifies the main loop that a new source event needs processing.
-    ML::Wakeup_Fd queueFd;
+    /// Notifies the main loop that a new source event needs processing.
+    ML::Wakeup_Fd wakeupFd;
 
     /** Flag used to notify the main thread that one of the source queues has an
         event. Thread-safe on reads but writes must occur while hold queueLock
@@ -155,9 +153,6 @@ private:
     
     /** Global flag to shutdown. */
     volatile int shutdown_;
-
-    /** Global flag for idle. */
-    volatile int idle_;
 
     /** Do we debug? */
     bool debug_;

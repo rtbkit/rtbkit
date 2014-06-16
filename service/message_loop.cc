@@ -35,7 +35,7 @@ namespace Datacratic {
 
 MessageLoop::
 MessageLoop(int numThreads, double maxAddedLatency)
-    : queueFd(EFD_NONBLOCK),
+    : wakeupFd(EFD_NONBLOCK),
       sourceQueueFlag(false),
       numThreadsCreated(0),
       totalSleepTime_(0.0)
@@ -65,7 +65,7 @@ init(int numThreads, double maxAddedLatency)
     this->handleEvent = std::bind(&MessageLoop::handleEpollEvent,
                                    this,
                                    std::placeholders::_1);
-    addFd(queueFd.fd());
+    addFd(wakeupFd.fd());
     debug_ = false;
 }
 
@@ -112,6 +112,8 @@ shutdown()
 {
     if (shutdown_)
         return;
+
+    wakeupFd.signal();
 
     shutdown_ = true;
     futex_wake((int &)shutdown_);
@@ -161,7 +163,7 @@ addSourceImpl(const std::string & name,
     Guard guard(queueLock);
     addSourceQueue.emplace_back(name, source, priority);
     sourceQueueFlag = true;
-    queueFd.signal();
+    wakeupFd.signal();
 }
 
 void
@@ -175,7 +177,7 @@ removeSource(AsyncEventSource * source)
     Guard guard(queueLock);
     removeSourceQueue.emplace_back(source);
     sourceQueueFlag = true;
-    queueFd.signal();
+    wakeupFd.signal();
 }
 
 void
@@ -194,7 +196,6 @@ processSourceQueue()
         sourcesToRemove = std::move(removeSourceQueue);
 
         sourceQueueFlag = false;
-        while (!queueFd.tryRead());
     }
 
     for (auto& entry : sourcesToAdd)
@@ -278,7 +279,7 @@ void
 MessageLoop::
 wakeupMainThread()
 {
-    // TODO: do
+    wakeupFd.signal();
 }
 
 void
@@ -303,8 +304,6 @@ runWorkerThread()
 
         Date start = Date::now();
 
-        bool more = true;
-
         if (debug_) {
             cerr << "handling events from " << sources.size()
                  << " sources with needsPoll " << needsPoll << endl;
@@ -312,10 +311,57 @@ runWorkerThread()
                 cerr << sources[i].name << " " << sources[i].source->needsPoll << endl;
         }
 
-        while (more) {
-            more = processOne();
+        // Check if there are any sources that were added
+        processSourceQueue();
+
+        if (needsPoll) {
+
+            bool more = true;
+
+            while (more) {
+                more = processOne();
+            }
+        } else {
+            auto beforeSleep = [&] ()
+                {
+                    duty.notifyBeforeSleep();
+                };
+
+            auto afterSleep = [&] ()
+                {
+                    duty.notifyAfterSleep();
+                };
+
+            // Maximum number of events to handle in handleEvents.
+            int maxEventsToHandle = 512;
+
+            // First time, we sleep for up to one second waiting for events to come
+            // in to the event loop, and handle as many as we can until we hit the
+            // limit or we're idle.
+            int res = handleEvents(999999 /* microseconds */, maxEventsToHandle,
+                                   nullptr, beforeSleep, afterSleep);
+            cerr << "handleEvents returned " << res << endl;
+
+            while (res != 0) {
+                if (shutdown_)
+                    return;
+                
+                // Now we busy loop handling events while there is still more work to do
+                res = handleEvents(0 /* microseconds */, maxEventsToHandle,
+                                   nullptr, beforeSleep, afterSleep);
+            }
+
+            // Clear events on the wakeupFd
+            wakeupFd.tryRead();
+            
         }
-        
+
+        // At this point, we've done as much work as we can (there is no more work to
+        // do).  We will now sleep for the maximum allowable delay time minus the time
+        // we spent working.  This allows us to batch up work to be done next time we
+        // wake up, rather then waking up all the time to do a little bit of work.  The
+        // busier we get, the less time we will sleep for until when we're completely
+        // busy we don't sleep at all.
         Date end = Date::now();
 
         double elapsed = end.secondsSince(start);
@@ -327,7 +373,7 @@ runWorkerThread()
             totalSleepTime_ += sleepTime;
         }
         duty.notifyAfterSleep();
-
+        
         if (lastCheck.secondsUntil(end) > 10.0) {
             auto stats = duty.stats();
             //cerr << "message loop: wakeups " << stats.numWakeups
@@ -364,7 +410,11 @@ handleEpollEvent(epoll_event & event)
     //cerr << "source = " << source << " of type "
     //     << ML::type_name(*source) << endl;
 
-    if (source == 0) return true;  // wakeup for shutdown
+    if (source == 0) {
+        cerr << "wakeup for shutdown" << endl;
+        wakeupFd.tryRead();
+        return true;  // wakeup for shutdown
+    }
 
     source->processOne();
 
@@ -402,7 +452,9 @@ processOne()
 
     processSourceQueue();
 
-    if (needsPoll) {
+    // NOTE: this || true shouldn't be necessary, but for some reason Epoller::processOne()
+    // doesn't do the same thing as the code below.
+    if (needsPoll || true) {
         for (unsigned i = 0;  i < sources.size();  ++i) {
             try {
                 bool hasMore = sources[i].source->processOne();
