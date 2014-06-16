@@ -52,10 +52,10 @@ struct BiddingAgent : public ServiceBase, public MessageLoop {
 
     BiddingAgent(std::shared_ptr<ServiceProxies> proxies,
                  const std::string & name = "bidding_agent",
-                 double maxAddedLatency = 0.005);
+                 double maxAddedLatency = 0.002);
     BiddingAgent(ServiceBase & parent,
                  const std::string & name = "bidding_agent",
-                 double maxAddedLatench = 0.005);
+                 double maxAddedLatench = 0.002);
 
     ~BiddingAgent();
 
