@@ -55,8 +55,10 @@ jsonParse(const std::string & str)
 
 BiddingAgent::
 BiddingAgent(std::shared_ptr<ServiceProxies> proxies,
-            const std::string & name)
+             const std::string & name,
+             double maxAddedLatency)
     : ServiceBase(name, proxies),
+      MessageLoop(1 /* threads */, maxAddedLatency),
       agentName(name + "_" + to_string(getpid())),
       toRouters(getZmqContext()),
       toPostAuctionServices(getZmqContext()),
@@ -68,8 +70,10 @@ BiddingAgent(std::shared_ptr<ServiceProxies> proxies,
 
 BiddingAgent::
 BiddingAgent(ServiceBase& parent,
-            const std::string & name)
+             const std::string & name,
+             double maxAddedLatency)
     : ServiceBase(name, parent),
+      MessageLoop(1 /* threads */, maxAddedLatency),
       agentName(name + "_" + to_string(getpid())),
       toRouters(getZmqContext()),
       toPostAuctionServices(getZmqContext()),
@@ -145,7 +149,7 @@ init()
     addSource("BiddingAgent::toConfigurationAgent", toConfigurationAgent);
     addSource("BiddingAgent::toRouterChannel", toRouterChannel);
 
-    MessageLoop::init();
+    // No need to init() message loop; it was done in the constructor
 }
 
 void
