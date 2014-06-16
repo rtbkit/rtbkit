@@ -247,20 +247,31 @@ parseBidRequest(HttpAuctionHandler & connection,
             }
 
             if(video.isMember("type")) {
+
+                bool vast = false;
+                bool html = false;
                 // Type is defined as an array in MoPub 2.1 spec
                 for(auto it = video["type"].begin(); it != video["type"].end(); it++) {
                     
                     const std::string &s = (*it).asString();
-                    
+
                     if(s == "VAST 2.0") {
                         // If VAST 2.0 is there.. protocol will be 2
                         // according to Table 6.7 of OpenRTB 2.1
                         spot.video->protocol.val = 2;
+                        vast = true;
                     }
 
                     if(s == "HTML5") {
                         // Not sure what to do with this
-                    } 
+                        html = true;
+                    }
+                }
+
+                if(html && vast) {
+                    // TO DO figure out which openrtb video protocol when we have both these tags
+                    // for now, assume protocol = vast 2.0
+                    spot.video->protocol.val = 2;
                 }
             }
 
@@ -268,14 +279,18 @@ parseBidRequest(HttpAuctionHandler & connection,
              *  Maximum video duration
              *  Making sure that max >= min
              */
+
+            int minduration = -1;
+
             if(video.isMember("minduration")) {
-                spot.video->minduration = video["minduration"].asInt();   
+                minduration = video["minduration"].asInt();
+                spot.video->minduration = minduration;   
             }
 
             if(video.isMember("maxduration")) {
                 if(video.isMember("minduration") && 
-                   video["minduration"].asInt() > video["maxduration"].asInt()) {
-                    spot.video->minduration = video["maxduration"].asInt();   
+                   minduration <= video["maxduration"].asInt()) {
+                    spot.video->maxduration = video["maxduration"].asInt();   
                 } else {
                     // Makes no sense that maxduration < minduration
                     THROW(mopubExchangeConnectorError) << "minduration cannot be higher than maxduration" << endl;
