@@ -6,6 +6,7 @@ LIBBANKER_SOURCES := \
 	null_banker.cc \
 	slave_banker.cc \
 	master_banker.cc \
+	application_layer.cc
 
 LIBBANKER_LINK := \
 	types services redis monitor

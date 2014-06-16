@@ -48,7 +48,7 @@ int main(int argc, char ** argv)
 
     options_description all_opt;
     all_opt
-        .add(serviceArgs.makeProgramOptions())
+        .add(serviceArgs.makeProgramOptions("General Options", NO_ZOOKEEPER))
         .add(configuration_options);
     all_opt.add_options()
         ("help,h", "print this message");
@@ -66,7 +66,7 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
-    auto proxies = serviceArgs.makeServiceProxies();
+    auto proxies = serviceArgs.makeServiceProxies(CS_NULL);
     auto serviceName = serviceArgs.serviceName("masterBanker");
 
     MasterBanker banker(proxies, serviceName);

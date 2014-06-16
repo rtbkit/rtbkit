@@ -26,8 +26,9 @@ AgentConfigurationService(std::shared_ptr<ServiceProxies> services,
       ServiceBase(serviceName, services),
       agents(services->zmqContext),
       listeners(services->zmqContext),
-      monitorProviderClient(services->zmqContext, *this)
+      monitorProviderClient(services->zmqContext)
 {
+    monitorProviderClient.addProvider(this);
 }
 
 void

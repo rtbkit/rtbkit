@@ -40,6 +40,7 @@ struct BankerTemporaryServer : boost::noncopyable {
     std::string zookeeperUri_;
     std::string zookeeperPath_;
     int serverPid_;
+    std::string bankerAddress;
 };
 
 } // namespace RTBKIT

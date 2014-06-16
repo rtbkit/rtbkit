@@ -87,6 +87,16 @@ forceWinBid(const AccountKey & account,
 {
 }
 
+MonitorIndicator
+NullBanker::
+getProviderIndicators() const
+{
+    MonitorIndicator ind;
+    ind.status = true;
+    ind.message = "OK";
+    return ind;
+}
+
 #if 0
 //----------------------------------------------------------------------
 std::string NullBanker::getCampaignStatusStr(const std::string & campaign,

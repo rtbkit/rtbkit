@@ -39,7 +39,7 @@ struct DataLogger : public Datacratic::ServiceBase,
                                     const std::string & epName);
 
     void unsafeDisableMonitor() {
-        monitorProviderClient.inhibit_ = true;
+        monitorProviderClient.disable();
     }
 
     // Subscription object to the named services

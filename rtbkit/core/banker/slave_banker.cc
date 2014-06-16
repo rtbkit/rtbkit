@@ -6,11 +6,11 @@
 */
 
 #include "slave_banker.h"
-#include "soa/service/http_header.h"
 #include "jml/utils/vector_utils.h"
 
 using namespace std;
 
+static constexpr int MaximumFailSyncSeconds = 3;
 
 namespace RTBKIT {
 
@@ -24,15 +24,13 @@ SlaveBudgetController()
 {
 }
 
+
 void
 SlaveBudgetController::
 addAccount(const AccountKey & account,
            const OnBudgetResult & onResult)
 {
-    push(budgetResultCallback(onResult),
-         "POST", "/v1/accounts",
-         { {"accountName", account.toString()},
-           { "accountType", "budget" } });
+    applicationLayer->addAccount(account, onResult);
 }
 
 
@@ -42,10 +40,7 @@ topupTransfer(const AccountKey & account,
               CurrencyPool amount,
               const OnBudgetResult & onResult)
 {
-    push(budgetResultCallback(onResult),
-         "PUT", "/v1/accounts/" + account.toString() + "/balance",
-         { { "accountType", "budget"} },
-         amount.toJson().toString());
+    applicationLayer->toPopupTransfer(account, AT_BUDGET, amount, onResult);
 }
 
 void
@@ -54,10 +49,7 @@ setBudget(const std::string & topLevelAccount,
           CurrencyPool amount,
           const OnBudgetResult & onResult)
 {
-    push(budgetResultCallback(onResult),
-         "PUT", "/v1/accounts/" + topLevelAccount + "/budget",
-         { /* {"amount", amount.toString()}*/ },
-         amount.toJson().toString());
+    applicationLayer->setBudget(topLevelAccount, amount, onResult);
 }
 
 void
@@ -86,27 +78,7 @@ getAccountSummary(const AccountKey & account,
                   std::function<void (std::exception_ptr,
                                       AccountSummary &&)> onResult)
 {
-    push([=] (std::exception_ptr ptr, int resultCode, string body)
-         {
-             AccountSummary summary;
-             if (ptr)
-                 onResult(ptr, std::move(summary));
-             else if (resultCode < 200 || resultCode >= 300)
-                 onResult(std::make_exception_ptr(ML::Exception("getAccountSummary returned code %d: %s", resultCode, body.c_str())),
-                          std::move(summary));
-             else {
-                 try {
-                     Json::Value result = Json::parse(body);
-                     summary = AccountSummary::fromJson(result);
-                     onResult(nullptr, std::move(summary));
-                 } catch (...) {
-                     onResult(std::current_exception(), std::move(summary));
-                 }
-             }
-         },
-         "GET", "/v1/accounts/" + account.toString() + "/summary",
-         { {"depth", to_string(depth)} },
-         "");
+    applicationLayer->getAccountSummary(account, depth, onResult);
 }
 
 void
@@ -115,37 +87,7 @@ getAccount(const AccountKey & accountKey,
            std::function<void (std::exception_ptr,
                                Account &&)> onResult)
 {
-    push([=] (std::exception_ptr ptr, int resultCode, string body)
-         {
-             Account account;
-             if (ptr)
-                 onResult(ptr, std::move(account));
-             else if (resultCode < 200 || resultCode >= 300)
-                 onResult(std::make_exception_ptr(ML::Exception("getAccount returned code %d: %s", resultCode, body.c_str())),
-                          std::move(account));
-             else {
-                 try {
-                     Json::Value result = Json::parse(body);
-                     account = Account::fromJson(result);
-                     onResult(nullptr, std::move(account));
-                 } catch (...) {
-                     onResult(std::current_exception(), std::move(account));
-                 }
-             }
-         },
-         "GET", "/v1/accounts/" + accountKey.toString());
-}
-
-SlaveBudgetController::OnDone
-SlaveBudgetController::
-budgetResultCallback(const OnBudgetResult & onResult)
-{
-    return [=] (std::exception_ptr ptr, int resultCode, string body)
-        {
-            //cerr << "got budget result callback with resultCode "
-            //     << resultCode << " body " << body << endl;
-            onResult(ptr);
-        };
+    applicationLayer->getAccount(accountKey, onResult);
 }
 
 
@@ -154,32 +96,18 @@ budgetResultCallback(const OnBudgetResult & onResult)
 /*****************************************************************************/
 
 SlaveBanker::
-SlaveBanker(std::shared_ptr<zmq::context_t> context)
-    : RestProxy(context), createdAccounts(128)
+SlaveBanker(const std::string & accountSuffix)
+    : createdAccounts(128)
 {
-}
-
-SlaveBanker::
-SlaveBanker(std::shared_ptr<zmq::context_t> context,
-            std::shared_ptr<ConfigurationService> config,
-            const std::string & accountSuffix,
-            const std::string & bankerServiceName)
-    : RestProxy(context), createdAccounts(128)
-{
-    init(config, accountSuffix, bankerServiceName);
+    init(accountSuffix);
 }
 
 void
 SlaveBanker::
-init(std::shared_ptr<ConfigurationService> config,
-     const std::string & accountSuffix,
-     const std::string & bankerServiceName)
+init( const std::string & accountSuffix)
 {
     if (accountSuffix.empty()) {
         throw ML::Exception("'accountSuffix' cannot be empty");
-    }
-    if (bankerServiceName.empty()) {
-        throw ML::Exception("'bankerServiceName' cannot be empty");
     }
 
     // When our account manager creates an account, it will call this
@@ -219,9 +147,6 @@ init(std::shared_ptr<ConfigurationService> config,
     addSource("SlaveBanker::createdAccounts", createdAccounts);
 
     this->accountSuffix = accountSuffix;
-    
-    // Connect to the master banker
-    RestProxy::initServiceClass(config, bankerServiceName, "zeromq", false);
     
     addPeriodic("SlaveBanker::reportSpend", 1.0,
                 std::bind(&SlaveBanker::reportSpend,
@@ -304,6 +229,7 @@ onInitializeResult(const AccountKey & accountKey,
     }
 }
 
+
 void
 SlaveBanker::
 syncAccount(const AccountKey & accountKey,
@@ -320,12 +246,10 @@ syncAccount(const AccountKey & accountKey,
 
     //cerr << "syncing account " << accountKey << ": "
     //     << accounts.getAccount(accountKey) << endl;
-
-    push(makeRestResponseJsonDecoder<Account>("syncAccount", onDone2),
-         "PUT",
-         "/v1/accounts/" + getShadowAccountStr(accountKey) + "/shadow",
-         {},
-         accounts.getAccount(accountKey).toJson().toString());
+    applicationLayer->syncAccount(
+                          accounts.getAccount(accountKey),
+                          getShadowAccountStr(accountKey),
+                          onDone2);
 }
 
 void
@@ -351,6 +275,12 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
     allKeys.swap(filteredKeys);
 
     if (allKeys.empty()) {
+        // We need some kind of synchronization here because the lastSync
+        // member variable will also be read in the context of an other
+        // MessageLoop (the MonitorProviderClient). Thus, if we want to avoid
+        // data-race here, we grab a lock.
+        std::lock_guard<Lock> guard(syncLock);
+        lastSync = Date::now();
         if (onDone)
             onDone(nullptr);
         return;
@@ -358,10 +288,11 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
 
     struct Aggregator {
 
-        Aggregator(int numTotal,
+        Aggregator(SlaveBanker *self, int numTotal,
                    std::function<void (std::exception_ptr)> onDone)
             : itl(new Itl())
         {
+            itl->self = self;
             itl->numTotal = numTotal;
             itl->numFinished = 0;
             itl->exc = nullptr;
@@ -369,6 +300,7 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
         }
 
         struct Itl {
+            SlaveBanker *self;
             int numTotal;
             int numFinished;
             std::exception_ptr exc;
@@ -383,6 +315,11 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
                 itl->exc = exc;
             int nowDone = __sync_add_and_fetch(&itl->numFinished, 1);
             if (nowDone == itl->numTotal) {
+                if (!itl->exc) {
+                    std::lock_guard<Lock> guard(itl->self->syncLock);
+                    itl->self->lastSync = Date::now();
+                }
+
                 if (itl->onDone)
                     itl->onDone(itl->exc);
                 else {
@@ -394,7 +331,7 @@ syncAll(std::function<void (std::exception_ptr)> onDone)
         }               
     };
     
-    Aggregator aggregator(allKeys.size(), onDone);
+    Aggregator aggregator(const_cast<SlaveBanker *>(this), allKeys.size(), onDone);
 
     //cerr << "syncing " << allKeys.size() << " keys" << endl;
 
@@ -434,14 +371,8 @@ addSpendAccount(const AccountKey & accountKey,
         cerr << "********* calling addSpendAccount for " << accountKey
              << " for SlaveBanker " << accountSuffix << endl;
 
-        push(makeRestResponseJsonDecoder<Account>("addSpendAccount", onDone2),
-             "POST",
-             "/v1/accounts",
-             {
-                 { "accountName", getShadowAccountStr(accountKey) },
-                 { "accountType", "spend" }
-             },
-             "");
+        applicationLayer->addSpendAccount(getShadowAccountStr(accountKey), onDone2);
+
     }
 }
 
@@ -491,27 +422,20 @@ reauthorizeBudget(uint64_t numTimeoutsExpired)
     auto onAccount = [&] (const AccountKey & key,
                           const ShadowAccount & account)
         {
-            RestRequest request;
-            request.verb = "POST";
-            request.resource
-                = "/v1/accounts/"
-                + getShadowAccountStr(key)
-                + "/balance";
-            request.params = { { "accountType", "spend" } };
-
             Json::Value payload = CurrencyPool(USD(0.10)).toJson();
-            request.payload = payload.toString();
-            
-            //cerr << "sending out request " << request << endl;
             ++numDone;
 
-            // Finally, send it out
-            push(request, std::bind(&SlaveBanker::onReauthorizeBudgetMessage,
-                                    this,
+            auto onDone = std::bind(&SlaveBanker::onReauthorizeBudgetMessage, this,
                                     key,
-                                    std::placeholders::_1,
-                                    std::placeholders::_2,
-                                    std::placeholders::_3));
+                                    std::placeholders::_1, std::placeholders::_2,
+                                    std::placeholders::_3);
+
+            // Finally, send it out
+            applicationLayer->request(
+                            "POST", "/v1/accounts/" + getShadowAccountStr(key) + "/balance",
+                            { { "accountType", "spend" } },
+                            payload.toString(),
+                            onDone);
         };
 
     accounts.forEachInitializedAccount(onAccount);
@@ -535,10 +459,29 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
         abort();  // for now...
         return;
     }
-
-    Account masterAccount = Account::fromJson(Json::parse(payload));
-    accounts.syncFromMaster(accountKey, masterAccount);
+    else if (responseCode == 200) {
+        Account masterAccount = Account::fromJson(Json::parse(payload));
+        accounts.syncFromMaster(accountKey, masterAccount);
+    }
     reauthorizeBudgetSent = Date();
+}
+
+MonitorIndicator
+SlaveBanker::
+getProviderIndicators() const
+{
+    Date now = Date::now();
+
+    // See syncAll for the reason of this lock
+    std::lock_guard<Lock> guard(syncLock);
+    bool syncOk = now < lastSync.plusSeconds(MaximumFailSyncSeconds);
+
+    MonitorIndicator ind;
+    ind.serviceName = accountSuffix;
+    ind.status = syncOk;
+    ind.message = string() + "Sync with MasterBanker: " + (syncOk ? "OK" : "ERROR");
+
+    return ind;
 }
 
 } // namespace RTBKIT

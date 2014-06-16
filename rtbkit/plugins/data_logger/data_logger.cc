@@ -20,10 +20,12 @@ DataLogger(const string & serviceName, std::shared_ptr<ServiceProxies> proxies,
     : ServiceBase(serviceName, proxies),
       Logger(proxies->zmqContext, bufferSize),
       multipleSubscriber(proxies->zmqContext),
-      monitorProviderClient(proxies->zmqContext, *this),
+      monitorProviderClient(proxies->zmqContext),
       monitor_(monitor),
       loopMonitor_(*this)
-{}
+{
+    monitorProviderClient.addProvider(this);
+}
 
 DataLogger::
 ~DataLogger()

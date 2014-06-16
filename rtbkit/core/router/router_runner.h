@@ -37,6 +37,7 @@ struct RouterRunner {
     bool logBids;
 
     float maxBidPrice;
+    std::string bankerUri;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts

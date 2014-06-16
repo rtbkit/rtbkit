@@ -16,19 +16,23 @@ using namespace std;
 namespace RTBKIT {
 
 MonitorProviderClient::
-MonitorProviderClient(const std::shared_ptr<zmq::context_t> & context,
-                      MonitorProvider & provider)
+MonitorProviderClient(const std::shared_ptr<zmq::context_t> & context)
         : MultiRestProxy(context),
-          provider_(provider),
           inhibit_(false)
 {
-    restUrlPath_ = "/v1/services/" + provider.getProviderClass();
 }
 
 MonitorProviderClient::
 ~MonitorProviderClient()
 {
     shutdown();
+}
+
+void
+MonitorProviderClient::
+addProvider(const MonitorProvider *provider)
+{
+    providers.push_back(provider);
 }
 
 void
@@ -54,14 +58,24 @@ shutdown()
 
 void
 MonitorProviderClient::
+disable()
+{
+    inhibit_ = true;
+}
+
+void
+MonitorProviderClient::
 postStatus()
 {
     if (inhibit_) return;
 
-    string payload = provider_.getProviderIndicators().toJson().toString();
+    for (const MonitorProvider *provider: providers) {
+        const string payload = provider->getProviderIndicators().toJson().toString();
+        const string url = "/v1/services/" + provider->getProviderClass();
 
-    MultiRestProxy::OnResponse onResponse; // no-op
-    push(onResponse, "POST", restUrlPath_, RestParams(), payload);
+        MultiRestProxy::OnResponse onResponse; // no-op
+        push(onResponse, "POST", url, RestParams(), payload);
+    }
 }
 
 } // namespace RTBKIT

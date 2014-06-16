@@ -82,6 +82,9 @@ public:
     }
 
 
+    virtual MonitorIndicator
+    getProviderIndicators() const;
+
 #if 0
     std::string getCampaignStatusStr(const std::string & campaign,
                                      const std::string &strategy) const;

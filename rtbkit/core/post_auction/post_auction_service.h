@@ -65,6 +65,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
     void setBanker(const std::shared_ptr<Banker> & newBanker)
     {
         matcher->setBanker(banker = newBanker);
+        monitorProviderClient.addProvider(banker.get());
     }
 
 

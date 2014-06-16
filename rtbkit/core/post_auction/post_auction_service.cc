@@ -37,7 +37,7 @@ PostAuctionService(
 
       loopMonitor(*this),
       configListener(getZmqContext()),
-      monitorProviderClient(getZmqContext(), *this),
+      monitorProviderClient(getZmqContext()),
 
       auctions(65536),
       events(65536),
@@ -46,7 +46,9 @@ PostAuctionService(
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
       router(!!getZmqContext())
-{}
+{
+    monitorProviderClient.addProvider(this);
+}
 
 PostAuctionService::
 PostAuctionService(ServiceBase & parent, const std::string & serviceName)
@@ -57,7 +59,7 @@ PostAuctionService(ServiceBase & parent, const std::string & serviceName)
 
       loopMonitor(*this),
       configListener(getZmqContext()),
-      monitorProviderClient(getZmqContext(), *this),
+      monitorProviderClient(getZmqContext()),
 
       auctions(65536),
       events(65536),
@@ -66,7 +68,9 @@ PostAuctionService(ServiceBase & parent, const std::string & serviceName)
       endpoint(getZmqContext()),
       bridge(getZmqContext()),
       router(!!getZmqContext())
-{}
+{
+    monitorProviderClient.addProvider(this);
+}
 
 
 void
@@ -497,6 +501,7 @@ getProviderIndicators()
     Date now = Date::now();
     bool winLossOk = now < lastWinLoss.plusSeconds(10);
     bool campaignEventOk = now < lastCampaignEvent.plusSeconds(10);
+    bool bankerOk = banker->getProviderIndicators().status;
 
     // Kept around for posterity.
     // Earned the "Best Error Message in RTBKIT" award.
@@ -510,10 +515,11 @@ getProviderIndicators()
 
     MonitorIndicator ind;
     ind.serviceName = serviceName();
-    ind.status = winLossOk || campaignEventOk;
+    ind.status = (winLossOk || campaignEventOk) && bankerOk;
     ind.message = string()
         + "WinLoss pipe: " + (winLossOk ? "OK" : "ERROR") + ", "
-        + "CampaignEvent pipe: " + (campaignEventOk ? "OK" : "ERROR");
+        + "CampaignEvent pipe: " + (campaignEventOk ? "OK" : "ERROR") + ", "
+        + "Banker: " + (bankerOk ? "OK" : "ERROR");
 
     return ind;
 }
