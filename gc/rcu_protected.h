@@ -16,7 +16,7 @@ namespace Datacratic {
 
 template<typename T>
 struct RcuLocked {
-    RcuLocked(T * ptr = 0, GcLock * lock = 0)
+    RcuLocked(T * ptr = nullptr, GcLock * lock = nullptr)
         : ptr(ptr), lock(lock)
     {
         if (lock)
@@ -28,7 +28,8 @@ struct RcuLocked {
     RcuLocked(T * ptr, RcuLocked<T2> && other)
         : ptr(ptr), lock(other.lock)
     {
-        other.lock = 0;
+        other.lock = nullptr;
+        other.ptr = nullptr;
     }
 
     /// Copy from another lock
@@ -44,14 +45,18 @@ struct RcuLocked {
     RcuLocked(RcuLocked<T2> && other)
         : ptr(other.ptr), lock(other.lock)
     {
-        other.lock = 0;
+        other.lock = nullptr;
     }
 
     RcuLocked & operator = (RcuLocked && other)
     {
-        unlock();
+        if (lock != other.lock) {
+            unlock();
+        }
         lock = other.lock;
         ptr = other.ptr;
+        other.lock = nullptr;
+        other.ptr = nullptr;
         return *this;
     }
 
@@ -61,6 +66,7 @@ struct RcuLocked {
         unlock();
         lock = other.lock;
         ptr = other.ptr;
+        other.lock = nullptr;
         return *this;
     }
 
@@ -73,7 +79,8 @@ struct RcuLocked {
     {
         if (lock) {
             lock->unlockShared();
-            lock = 0;
+            lock = nullptr;
+            ptr = nullptr;
         }
     }
 
@@ -156,6 +163,12 @@ struct RcuProtected {
         return RcuLocked<const T>(val, lock);
     }
 
+    RcuLocked<const T> getImmutable() const
+    {
+        //ExcAssert(lock);
+        return RcuLocked<const T>(val, lock);
+    }
+
     T * unsafePtr() const
     {
         return val;
@@ -173,23 +186,36 @@ struct RcuProtected {
             }
         }
     }
+
+    std::unique_ptr<T> replaceCustomCleanup(T * newVal)
+    {
+        return std::unique_ptr<T>(ML::atomic_xchg(val, newVal));
+    }
     
     bool cmp_xchg(RcuLocked<T> & current, std::auto_ptr<T> & newValue,
-                  bool defer = true)
+                  bool defer = true,
+                  void (*cleanup) (T *) = GcLock::doDelete<T>)
     {
+        // Make sure everything written behind newValue is visible before
+        // the update.  This may not be necessary as cmp_xchg may assure
+        // the same thing, but best to be explicit.
+        ML::memory_barrier();
+
         T * currentVal = current.ptr;
         if (ML::cmp_xchg(val, currentVal, newValue.get())) {
             ExcAssertNotEqual(currentVal, val);
-            if (currentVal) {
-                if (defer) 
-                    lock->deferDelete(currentVal);
+            if (currentVal && cleanup) {
+                if (defer) {
+                    lock->defer(cleanup, currentVal);
+                }
                 else {
+                    current.unlock();  // so that visible barrier can pass
                     lock->visibleBarrier();
-                    delete currentVal;
+                    cleanup(currentVal);
                 }
             }
+            current.ptr = newValue.get();
             newValue.release();
-            current.ptr = val;
             return true;
         }
         return false;
