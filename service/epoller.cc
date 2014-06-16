@@ -139,6 +139,9 @@ handleEvents(int usToWait, int nEvents,
     const OnEvent & afterSleep
         = afterSleep_ ? afterSleep_ : this->afterSleep;
 
+    if (nEvents > 1024)
+        throw ML::Exception("waiting for too many events will overflow the stack");
+
     for (;;) {
         epoll_event events[nEvents];
                 
@@ -151,8 +154,10 @@ handleEvents(int usToWait, int nEvents,
             pollfd fd[1] = { { epoll_fd, POLLIN, 0 } };
             timespec timeout = { 0, usToWait * 1000 };
             int res = ppoll(fd, 1, &timeout, 0);
-            if (res == -1 && errno == EBADF)
+            if (res == -1 && errno == EBADF) {
+                cerr << "got bad FD on sleep" << endl;
                 return -1;
+            }
             if (res == -1 && errno == EINTR)
                 continue;
             //if (debug) cerr << "handleEvents: res = " << res << endl;
@@ -191,14 +196,28 @@ poll() const
     for (;;) {
         pollfd fds[1] = { { epoll_fd, POLLIN, 0 } };
         int res = ::poll(fds, 1, 0);
+
+        //cerr << "poll res = " << res << endl;
+
         if (res == -1 && errno == EBADF)
             return false;
         if (res == -1 && errno == EINTR)
             continue;
         if (res == -1)
             throw ML::Exception("ppoll in Epoller::poll");
+
         return res > 0;
     }
+}
+
+bool
+Epoller::
+processOne()
+{
+    int res = handleEvents();
+    //cerr << "processOne res = " << res << endl;
+    if (res == -1) return false;  // wakeup for shutdown
+    return poll();
 }
 
 } // namespace Datacratic

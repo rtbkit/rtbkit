@@ -80,11 +80,7 @@ struct Epoller: public AsyncEventSource {
 
     virtual bool poll() const;
 
-    virtual bool processOne()
-    {
-        handleEvents();
-        return poll();
-    }
+    virtual bool processOne();
     
 private:
     /* Fd for the epoll mechanism. */
