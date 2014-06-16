@@ -107,9 +107,18 @@ struct ZmqEventSource : public AsyncEventSource {
         return socketLock_;
     }
 
+protected:
     zmq::socket_t * socket_;
 
     SocketLock * socketLock_;
+
+    /** Update the current cached event mask.  Note that this requires that the
+        socketLock be taken if non-null.
+    */
+    void updateEvents() const;
+
+    /// Mask of current events that are pending on the socket.
+    mutable int currentEvents;
 };
 
 

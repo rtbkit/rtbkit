@@ -25,14 +25,14 @@ ZmqEventSource::
 ZmqEventSource()
     : socket_(0), socketLock_(nullptr)
 {
-    needsPoll = true;
+    needsPoll = false;
 }
 
 ZmqEventSource::
 ZmqEventSource(zmq::socket_t & socket, SocketLock * socketLock)
     : socket_(&socket), socketLock_(socketLock)
 {
-    needsPoll = true;
+    needsPoll = false;
 }
 
 void
@@ -41,7 +41,8 @@ init(zmq::socket_t & socket, SocketLock * socketLock)
 {
     socket_ = &socket;
     socketLock_ = socketLock;
-    needsPoll = true;
+    needsPoll = false;
+    updateEvents();
 }
 
 int
@@ -53,8 +54,6 @@ selectFd() const
     socket().getsockopt(ZMQ_FD, &res, &resSize);
     if (res == -1)
         throw ML::Exception("no fd for zeromq socket");
-    using namespace std;
-    //cerr << "select FD is " << res << endl;
     return res;
 }
 
@@ -62,7 +61,17 @@ bool
 ZmqEventSource::
 poll() const
 {
-    return getEvents(socket()).first;
+    if (currentEvents & ZMQ_POLLIN)
+        return true;
+
+    std::unique_lock<SocketLock> guard;
+
+    if (socketLock_)
+        guard = std::unique_lock<SocketLock>(*socketLock_);
+
+    updateEvents();
+
+    return currentEvents & ZMQ_POLLIN;
 
 #if 0
     using namespace std;
@@ -76,6 +85,14 @@ poll() const
         throw ML::Exception(errno, "zmq_poll");
     return res;
 #endif
+}
+
+void
+ZmqEventSource::
+updateEvents() const
+{
+    size_t events_size = sizeof(currentEvents);
+    socket().getsockopt(ZMQ_EVENTS, &currentEvents, &events_size);
 }
 
 bool
@@ -97,6 +114,8 @@ processOne()
             guard = std::unique_lock<SocketLock>(*socketLock_);
 
         msg = recvAllNonBlocking(socket());
+
+        updateEvents();
     }
 
     if (!msg.empty()) {
@@ -105,7 +124,7 @@ processOne()
         handleMessage(msg);
     }
 
-    return poll();
+    return currentEvents & ZMQ_POLLIN;
 }
 
 void
