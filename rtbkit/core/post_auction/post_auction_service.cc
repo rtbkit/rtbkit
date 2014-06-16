@@ -419,11 +419,11 @@ void
 PostAuctionService::
 doMatchedWinLoss(std::shared_ptr<MatchedWinLoss> event)
 {
-    if (event->type == MatchedWinLoss::Loss)
-        stats.matchedLosses++;
-    else stats.matchedWins++;
-
-    lastWinLoss = Date::now();
+    if (event->type == MatchedWinLoss::Win) {
+        lastWinLoss = Date::now();
+        stats.matchedWins++;
+    }
+    else stats.matchedLosses++;
 
     event->publish(logger);
     bidder->sendWinLossMessage(*event);

@@ -232,7 +232,7 @@ handleRouterMessage(const std::string & fromRouter,
                         handleDelivery(message, onVisit); 
                         break;
                     }
-                    case hash_compile_time("CONVERSION") : {
+                    case hash_compile_time("IMPRESSION") : {
                         handleDelivery(message, onImpression); 
                         break;
                     }

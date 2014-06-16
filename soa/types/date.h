@@ -410,6 +410,13 @@ namespace JS {
 void to_js(JSValue & jsval, Date value);
 Date from_js(const JSValue & val, Date *);
 
+inline Date
+from_js_ref(const JSValue & val, Date *)
+{
+    return from_js(val, (Date *)0);
+}
+
+
 } // namespace JS
 
 
