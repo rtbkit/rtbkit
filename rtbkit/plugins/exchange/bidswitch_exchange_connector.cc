@@ -345,7 +345,6 @@ bidRequestCreativeFilter(const BidRequest & request,
                          const AgentConfig & config,
                          const void * info) const {
     // return true for non AdX traffic
-
     const auto& ext = request.ext;
     if (!ext.isMember("google"))
         return true;
