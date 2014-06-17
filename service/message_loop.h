@@ -182,7 +182,7 @@ private:
     */
     double maxAddedLatency_;
 
-    bool handleEpollEvent(epoll_event & event);
+    Epoller::HandleEventResult handleEpollEvent(epoll_event & event);
     void handleSourceAction(SourceAction && action);
     void processAddSource(const SourceEntry & entry);
     void processRemoveSource(const SourceEntry & entry);

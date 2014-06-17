@@ -110,7 +110,7 @@ Runner::
     waitTermination();
 }
 
-bool
+Epoller::HandleEventResult
 Runner::
 handleEpollEvent(const struct epoll_event & event)
 {
@@ -134,7 +134,7 @@ handleEpollEvent(const struct epoll_event & event)
         throw ML::Exception("this should never occur");
     }
 
-    return false;
+    return Epoller::DONE;
 }
 
 void

@@ -337,7 +337,7 @@ runWorkerThread()
     }
 }
 
-bool
+Epoller::HandleEventResult
 MessageLoop::
 handleEpollEvent(epoll_event & event)
 {
@@ -373,7 +373,7 @@ handleEpollEvent(epoll_event & event)
 
     source->processOne();
 
-    return false;
+    return Epoller::DONE;
 }
 
 void

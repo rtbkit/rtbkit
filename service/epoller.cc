@@ -140,13 +140,13 @@ handleEvents(int usToWait, int nEvents,
             return -1;
         }
         if (res == 0) return 0;
-
+        
         if (res == -1)
             throw Exception(errno, "epoll_wait");
         nEvents = res;
-
+        
         for (unsigned i = 0;  i < nEvents;  ++i) {
-            if (handleEvent(events[i])) return -1;
+            if (handleEvent(events[i]) == SHUTDOWN) return -1;
         }
                 
         return nEvents;
