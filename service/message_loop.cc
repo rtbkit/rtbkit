@@ -130,8 +130,11 @@ shutdown()
         return;
 
     shutdown_ = true;
-    ML::futex_wake((int &)shutdown_);
 
+    // We could be asleep (in which case we sleep on the shutdown_ futex and
+    // will be woken by the futex_wake) or blocked in epoll (in which case
+    // we will get the addSource event to wake us up).
+    ML::futex_wake(shutdown_);
     addSource("_shutdown", nullptr);
 
     for (auto & t: threads)
@@ -256,7 +259,7 @@ void
 MessageLoop::
 wakeupMainThread()
 {
-    throw ML::Exception("MessageLoop::wakeupMainThread(): not impl");
+    ML::futex_wake(shutdown_);
 }
 
 void
@@ -335,7 +338,7 @@ runWorkerThread()
 
         duty.notifyBeforeSleep();
         if (sleepTime > 0) {
-            ML::sleep(sleepTime);
+            ML::futex_wait(shutdown_, 0, sleepTime);
             totalSleepTime_ += sleepTime;
         }
         duty.notifyAfterSleep();
