@@ -17,6 +17,7 @@
 #include "jml/utils/smart_ptr_utils.h"
 #include "jml/utils/exc_assert.h"
 #include "soa/types/date.h"
+#include "soa/service/logs.h"
 
 #include "message_loop.h"
 
@@ -24,6 +25,15 @@ using namespace std;
 
 
 namespace Datacratic {
+
+namespace {
+
+Logging::Category msgLoopPrint("Message Loop");
+Logging::Category msgLoopWarning("Message Loop Warning", msgLoopPrint);
+Logging::Category msgLoopError("Message Loop Error", msgLoopPrint);
+Logging::Category msgLoopTrace("Message Loop Trace", msgLoopPrint);
+
+} // file scope
 
 /*****************************************************************************/
 /* MESSAGE LOOP                                                              */
@@ -51,8 +61,10 @@ init(int numThreads, double maxAddedLatency, int epollTimeout)
 {
     // std::cerr << "msgloop init: " << this << "\n";
     if (maxAddedLatency == 0 && epollTimeout != -1)
-        cerr << "warning: MessageLoop with maxAddedLatency of zero and epollTeimout != -1 will busy wait" << endl;
-
+        LOG(msgLoopWarning)
+            << "MessageLoop with maxAddedLatency of zero and "
+            << "epollTeimout != -1 will busy wait" << endl;
+    
     // See the comments on processOne below for more details on this assertion.
     ExcAssertEqual(numThreads, 1);
 
@@ -413,6 +425,25 @@ processAddSource(const SourceEntry & entry)
 
     if (debug_) entry.source->debug(true);
     sources.push_back(entry);
+
+    if (needsPoll) {
+        string pollingSources;
+        
+        for (auto & s: sources) {
+            if (s.source->needsPoll) {
+                if (!pollingSources.empty())
+                    pollingSources += ", ";
+                pollingSources += s.name;
+            }
+        }
+        
+        double wakeupsPerSecond = 1.0 / maxAddedLatency_;
+        
+        LOG(msgLoopWarning)
+            << "message loop in polling mode will cause " << wakeupsPerSecond
+            << " context switches per second due to polling on sources "
+            << pollingSources << endl;
+    }
 
     entry.source->connectionState_ = AsyncEventSource::CONNECTED;
     ML::futex_wake(entry.source->connectionState_);
