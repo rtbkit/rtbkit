@@ -82,19 +82,6 @@ poll() const
     updateEvents();
 
     return currentEvents & ZMQ_POLLIN;
-
-#if 0
-    using namespace std;
-
-    
-
-    zmq_pollitem_t toPoll = { socket(), 0, ZMQ_POLLIN };
-    int res = zmq_poll(&toPoll, 1, 0);
-    //cerr << "poll returned " << res << endl;
-    if (res == -1)
-        throw ML::Exception(errno, "zmq_poll");
-    return res;
-#endif
 }
 
 void
@@ -113,22 +100,29 @@ processOne()
     if (debug_)
         cerr << "called processOne on " << this << ", poll = " << poll() << endl;
 
+    if (!poll())
+        return false;
+
     std::vector<std::string> msg;
 
-    /** NOTE: poll() will only work after we've tried (and failed) to
-        pull a message off.
-    */
-    {
-        std::unique_lock<SocketLock> guard;
-        if (socketLock_)
-            guard = std::unique_lock<SocketLock>(*socketLock_);
+    // We process all events, as otherwise the select fd can't be guaranteed to wake us up
+    for (;;) {
+        {
+            std::unique_lock<SocketLock> guard;
+            if (socketLock_)
+                guard = std::unique_lock<SocketLock>(*socketLock_);
 
-        msg = recvAllNonBlocking(socket());
+            msg = recvAllNonBlocking(socket());
 
-        updateEvents();
-    }
+            if (msg.empty()) {
+                if (currentEvents & ZMQ_POLLIN)
+                    throw ML::Exception("empty message with currentEvents");
+                return false;  // no more events
+            }
 
-    if (!msg.empty()) {
+            updateEvents();
+        }
+
         if (debug_)
             cerr << "got message of length " << msg.size() << endl;
         handleMessage(msg);

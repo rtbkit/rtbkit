@@ -252,9 +252,6 @@ runWorkerThread()
                 cerr << sources[i].name << " " << sources[i].source->needsPoll << endl;
         }
 
-        // Do any outstanding work now
-        while (processOne()) ;
-        
         if (!needsPoll) {
             // Now we've processed what we can, let's allow a sleep
             auto beforeSleep = [&] ()
@@ -273,10 +270,11 @@ runWorkerThread()
             // First time, we sleep for up to one second waiting for events to come
             // in to the event loop, and handle as many as we can until we hit the
             // limit or we're idle.
-            int res = handleEvents(999999 /* microseconds */, maxEventsToHandle,
-                                   nullptr, beforeSleep, afterSleep);
-            cerr << "handleEvents returned " << res << endl;
+            int res JML_UNUSED = handleEvents(999999 /* microseconds */, maxEventsToHandle,
+                                              nullptr, beforeSleep, afterSleep);
+            //cerr << "handleEvents returned " << res << endl;
 
+#if 0
             while (res != 0) {
                 if (shutdown_)
                     return;
@@ -285,7 +283,16 @@ runWorkerThread()
                 res = handleEvents(0 /* microseconds */, maxEventsToHandle,
                                    nullptr, beforeSleep, afterSleep);
             }
+#endif
         }
+
+        if (shutdown_)
+            return;
+
+        // Do any outstanding work now
+        while (processOne())
+            if (shutdown_)
+                return;
 
         // At this point, we've done as much work as we can (there is no more
         // work to do).  We will now sleep for the maximum allowable delay
@@ -339,18 +346,19 @@ handleEpollEvent(epoll_event & event)
     AsyncEventSource * source
         = reinterpret_cast<AsyncEventSource *>(event.data.ptr);
     
-    //cerr << "source = " << source << " of type "
-    //     << ML::type_name(*source) << endl;
-
-#if 0
-    if (source == 0) {
-        cerr << "wakeup for shutdown" << endl;
-        wakeupFd.tryRead();
-        return true;  // wakeup for shutdown
+    if (debug) {
+        ExcAssert(source->poll());
+        cerr << "message loop " << this << " with parent " << parent_
+             << " handing source " << ML::type_name(*source) << " poll result "
+             << Epoller::poll() << endl;
     }
-#endif
 
-    source->processOne();
+    int res = source->processOne();
+
+    if (debug) {
+        cerr << "source " << ML::type_name(*source) << " had processOne() result " << res << endl;
+        cerr << "poll() is now " << Epoller::poll() << endl;
+    }
 
     return Epoller::DONE;
 }
@@ -476,7 +484,9 @@ processOne()
 {
     bool more = false;
 
-    if (needsPoll) {
+    // NOTE: this is required for some buggy sources that don't have a reliable FD to
+    // sleep on.  It shouldn't be substantially less efficient.
+    if (needsPoll || true) {
         more = sourceActions_.processOne();
 
         for (unsigned i = 0;  i < sources.size();  ++i) {
