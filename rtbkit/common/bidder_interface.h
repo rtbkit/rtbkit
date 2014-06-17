@@ -97,6 +97,8 @@ struct BidderInterface : public ServiceBase
     static void registerFactory(std::string const & name, Factory factory);
 
 protected:
+    void shutdown();
+
     void handlePostAuctionMessage(std::vector<std::string> const & items);
 
     Router * router;

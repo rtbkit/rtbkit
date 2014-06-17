@@ -55,6 +55,10 @@ void BidderInterface::start() {
     loop.start();
 }
 
+void BidderInterface::shutdown() {
+    loop.shutdown();
+};
+
 void BidderInterface::handlePostAuctionMessage(std::vector<std::string> const & items) {
     std::string key = "messages." + items[1];
     recordHit(key);

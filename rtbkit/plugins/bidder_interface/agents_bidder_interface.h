@@ -1,4 +1,4 @@
-/* agents_bidder_interface.h
+/* agents_bidder_interface.h                                       -*- C++ -*-
    Eric Robert, 2 April 2014
    Copyright (c) 2011 Datacratic.  All rights reserved.
 */
@@ -16,6 +16,8 @@ struct AgentsBidderInterface : public BidderInterface
     AgentsBidderInterface(std::string const & name = "bidder",
                           std::shared_ptr<ServiceProxies> proxies = std::make_shared<ServiceProxies>(),
                           Json::Value const & config = Json::Value());
+
+    ~AgentsBidderInterface();
 
     void sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                             double timeLeftMs,

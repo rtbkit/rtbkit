@@ -15,14 +15,20 @@ AgentsBidderInterface::AgentsBidderInterface(std::string const & name,
                                              Json::Value const & config) {
 }
 
+AgentsBidderInterface::~AgentsBidderInterface() {
+    this->shutdown();
+}
+
 void AgentsBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                                                double timeLeftMs,
                                                std::map<std::string, BidInfo> const & bidders) {
+
     for(auto & item : bidders) {
         auto & agent = item.first;
         auto & spots = item.second.imp;
         auto & info = router->agents[agent];
         WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction, *info.config);
+
         bridge->sendAgentMessage(agent,
                                  "AUCTION",
                                  auction->start,
