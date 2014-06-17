@@ -12,6 +12,7 @@
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
+#include "soa/service/logs.h"
 #include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
 #include "jml/utils/file_functions.h"
@@ -23,6 +24,11 @@
 
 using namespace std;
 using namespace Datacratic;
+
+namespace {
+Logging::Category mopubExchangeConnectorTrace("MoPub Exchange Connector");
+Logging::Category mopubExchangeConnectorError("[ERROR] MoPub Exchange Connector", mopubExchangeConnectorTrace);
+}
 
 namespace RTBKIT {
 
@@ -218,6 +224,8 @@ parseBidRequest(HttpAuctionHandler & connection,
     res->restrictions.addStrings("blockedCategories", strv);
 
     //2) per slot: blocked type and attribute;
+    //3) per slot: check ext field if we have video object.
+    //4) per slot: check for mraid object.. not supported for now
     std::vector<int> intv;
     for (auto& spot: res->imp) {
         for (const auto& t: spot.banner->btype) {
@@ -229,7 +237,79 @@ parseBidRequest(HttpAuctionHandler & connection,
             intv.push_back (a.val);
         }
         spot.restrictions.addInts("blockedAttrs", intv);
+
+        // Check for a video bid
+        if(spot.ext.isMember("video")) {
+            auto video = spot.ext["video"];
+
+            if(video.isMember("linearity")) {
+                spot.video->linearity.val = video["linearity"].asInt();
+            }
+
+            if(video.isMember("type")) {
+
+                bool vast = false;
+                bool html = false;
+                // Type is defined as an array in MoPub 2.1 spec
+                for(auto it = video["type"].begin(); it != video["type"].end(); it++) {
+                    
+                    const std::string &s = (*it).asString();
+
+                    if(s == "VAST 2.0") {
+                        // If VAST 2.0 is there.. protocol will be 2
+                        // according to Table 6.7 of OpenRTB 2.1
+                        spot.video->protocol.val = 2;
+                        vast = true;
+                    }
+
+                    if(s == "HTML5") {
+                        // Not sure what to do with this
+                        html = true;
+                    }
+                }
+
+                if(html && vast) {
+                    // TO DO figure out which openrtb video protocol when we have both these tags
+                    // for now, assume protocol = vast 2.0
+                    spot.video->protocol.val = 2;
+                }
+            }
+
+            /** Minimum video duration
+             *  Maximum video duration
+             *  Making sure that max >= min
+             */
+
+            int minduration = -1;
+
+            if(video.isMember("minduration")) {
+                minduration = video["minduration"].asInt();
+                spot.video->minduration = minduration;   
+            }
+
+            if(video.isMember("maxduration")) {
+                if(video.isMember("minduration") && 
+                   minduration <= video["maxduration"].asInt()) {
+                    spot.video->maxduration = video["maxduration"].asInt();   
+                } else {
+                    // Makes no sense that maxduration < minduration
+                    THROW(mopubExchangeConnectorError) << "minduration cannot be higher than maxduration" << endl;
+                }
+            }
+
+            // Since MoPub removes the Mime type, we will add none as a Mime-Type
+            spot.video->mimes.push_back(OpenRTB::MimeType("none"));
+
+            // Note : There is no need to add height and width since they
+            // should be included in the banner object and thus will be populated
+            // in the format object of the AdSpot object.
+        }
+
+        if(spot.ext.isMember("mraid")) {
+            LOG(mopubExchangeConnectorTrace) << "Mobile Rich Media Ad Interface Definition is not supported." << endl;
+        }
     }
+   
     return res;
 }
 
