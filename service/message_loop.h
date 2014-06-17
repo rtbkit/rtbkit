@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <boost/thread/thread.hpp>
+#include <thread>
 #include <functional>
 
 #include "jml/arch/wakeup_fd.h"
@@ -166,7 +166,7 @@ private:
 
     Lock threadsLock;
     int numThreadsCreated;
-    boost::thread_group threads;
+    std::vector<std::thread> threads;
     
     /** Global flag to shutdown. */
     volatile int shutdown_;

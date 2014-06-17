@@ -10,7 +10,6 @@
 #include <sys/epoll.h>
 
 #include "jml/arch/exception.h"
-#include "jml/arch/futex.h"
 #include "jml/arch/timers.h"
 #include "jml/arch/demangle.h"
 #include "jml/arch/futex.h"
@@ -92,7 +91,8 @@ start(const OnStop & onStop)
         this->runWorkerThread();
         if (onStop) onStop();
     };
-    threads.create_thread(runfn);
+
+    threads.emplace_back(runfn);
 
     ++numThreadsCreated;
 }
@@ -122,7 +122,9 @@ shutdown()
 
     addSource("_shutdown", nullptr);
 
-    threads.join_all();
+    for (auto & t: threads)
+        t.join();
+    threads.clear();
 
     numThreadsCreated = 0;
 }
@@ -251,8 +253,7 @@ startSubordinateThread(const SubordinateThreadFn & thread)
 {
     Guard guard(threadsLock);
     int64_t id = 0;
-    threads.create_thread(std::bind(thread, std::ref(shutdown_),
-                                    id));
+    threads.emplace_back(std::bind(thread, std::ref(shutdown_), id));
 }
 
 void
