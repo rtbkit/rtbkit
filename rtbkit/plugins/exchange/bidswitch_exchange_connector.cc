@@ -12,6 +12,7 @@
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
+#include "soa/service/logs.h"
 #include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
 #include "jml/utils/file_functions.h"
@@ -19,6 +20,13 @@
 #include "crypto++/blowfish.h"
 #include "crypto++/modes.h"
 #include "crypto++/filters.h"
+
+namespace {
+
+Logging::Category bidswitchExchangeConnectorTrace("Bidswitch Exchange Connector");
+Logging::Category bidswitchExchangeConnectorError("[ERROR] Bidswitch Exchange Connector", trace);
+
+}
 
 using namespace std;
 using namespace Datacratic;
@@ -220,12 +228,12 @@ struct AdtruthObject {
     std::unordered_map<std::string,std::string> dev_insight_map;
     AdtruthObject() : tdl_millis (0L) {}
     void dump () const {
-        cerr << "tdl_millis: " << tdl_millis << endl ;
-        cerr << "DevInsight: { ";
+        LOG(bidswitchExchangeConnectorTrace) << "tdl_millis: " << tdl_millis << endl ;
+        LOG(bidswitchExchangeConnectorTrace) << "DevInsight: { ";
         for (auto const ii:  dev_insight_map) {
-            cerr << ii.first << ":" << ii.second;
+            LOG(bidswitchExchangeConnectorTrace) << ii.first << ":" << ii.second;
         }
-        cerr << " }\n";
+        LOG(bidswitchExchangeConnectorTrace) << " }\n";
     }
 };
 
