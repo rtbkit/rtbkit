@@ -174,7 +174,7 @@ expectUrlEncodedString(ML::Parse_Context & context,
 
 void
 HttpHeader::
-parse(const std::string & headerAndData)
+parse(const std::string & headerAndData, bool checkBodyLength)
 {
     try {
         HttpHeader parsed;
@@ -209,7 +209,7 @@ parse(const std::string & headerAndData)
             context.expect_literal(':');
             context.match_whitespace();
             if (name == "content-length") {
-                parsed.contentLength = context.expect_int();
+                parsed.contentLength = context.expect_long_long();
                 //cerr << "******* set cntentLength " << parsed.contentLength
                 //     << endl;
             }
@@ -237,7 +237,7 @@ parse(const std::string & headerAndData)
             = string(content_start,
                      headerAndData.c_str() + headerAndData.length());
 
-        if ((parsed.contentLength != -1)
+        if (checkBodyLength && (parsed.contentLength != -1)
             && ((int)parsed.knownData.length() > (int)parsed.contentLength)) {
             cerr << "got double packet: got content length " << parsed.knownData.length()
                  << " wanted " << parsed.contentLength << endl;

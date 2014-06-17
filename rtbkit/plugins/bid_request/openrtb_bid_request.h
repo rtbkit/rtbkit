@@ -7,12 +7,11 @@
 
 #pragma once
 
-
 #include "rtbkit/common/bid_request.h"
 #include "jml/utils/parse_context.h"
 
 namespace RTBKIT {
-
+    
 /** Converts an OpenRTB BidRequest to RTBKIT internal BidRequest format
  */
 BidRequest *

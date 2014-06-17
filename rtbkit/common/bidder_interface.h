@@ -1,4 +1,4 @@
-/* bidding_interface.h
+/* bidding_interface.h                                             -*- C++ -*-
    Eric Robert, 2 April 2014
    Copyright (c) 2011 Datacratic.  All rights reserved.
 */
@@ -26,8 +26,9 @@ struct BidderInterface : public ServiceBase
                     std::string const & name = "bidder");
 
     void init(AgentBridge * value, Router * r = nullptr);
-    void start();
-    void bindTcp();
+    void shutdown();
+
+    virtual void start();
 
     virtual
     void sendAuctionMessage(std::shared_ptr<Auction> const & auction,
@@ -79,9 +80,6 @@ struct BidderInterface : public ServiceBase
     void sendPingMessage(std::string const & agent,
                          int ping) = 0;
 
-    virtual
-    void send(std::shared_ptr<PostAuctionEvent> const & event) = 0;
-
     //
     // factory
     //
@@ -96,18 +94,8 @@ struct BidderInterface : public ServiceBase
 
     static void registerFactory(std::string const & name, Factory factory);
 
-protected:
-    void shutdown();
-
-    void handlePostAuctionMessage(std::vector<std::string> const & items);
-
     Router * router;
     AgentBridge * bridge;
-
-    MessageLoop loop;
-    TypedMessageSink<std::shared_ptr<PostAuctionEvent>> events;
-
-    ZmqNamedEndpoint endpoint;
 };
 
 }

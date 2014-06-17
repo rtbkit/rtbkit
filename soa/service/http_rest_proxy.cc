@@ -43,7 +43,9 @@ perform(const std::string & verb,
         const Content & content,
         const RestParams & queryParams,
         const RestParams & headers,
-        double timeout) const
+        double timeout,
+        bool exceptions,
+        OnData onData) const
 {
     string responseHeaders;
     string body;
@@ -96,6 +98,14 @@ perform(const std::string & verb,
 
         auto onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
             {
+                if (debug)
+                    cerr << "got data " << string(data, data + ofs1 * ofs2) << endl;
+
+                if (onData) {
+                    if (!onData(string(data, data + ofs1 * ofs2)))
+                        return 0;
+                }
+
                 body.append(data, ofs1 * ofs2);
                 return ofs1 * ofs2;
                 //cerr << "called onWrite for " << ofs1 << " " << ofs2 << endl;
@@ -117,7 +127,8 @@ perform(const std::string & verb,
             {
                 string headerLine(data, ofs1 * ofs2);
 
-                //cerr << "got header " << headerLine << endl;
+                if (debug)
+                    cerr << "got header " << headerLine << endl;
 
                 if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
                     afterContinue = true;
@@ -157,7 +168,18 @@ perform(const std::string & verb,
 
         myRequest.setOpt<curlpp::options::HttpHeader>(curlHeaders);
 
-        myRequest.perform();
+        if (exceptions) {
+            myRequest.perform();
+        }
+        else {
+            CURLcode code = curl_easy_perform(myRequest.getHandle());
+            if (code != CURLE_OK) {
+                Response response;
+                response.errorCode_ = code;
+                response.errorMessage_ = curl_easy_strerror(code);
+                return response;
+            }
+        }
 
         Response response;
         response.body_ = body;
@@ -256,19 +278,12 @@ putOrPost(const string & resource, const string & body, bool isPost)
         headers.emplace_back(make_pair("Cookie", "token=\"" + authToken + "\""));
     }
 
-    typedef HttpRestProxy::Response
-        (Datacratic::HttpRestProxy::* UploadFunc)(const string &,
-                                                  const HttpRestProxy::Content&,
-                                                  const RestParams&,
-                                                  const RestParams&,
-                                                  double) const;
-
-    UploadFunc method = isPost ? &HttpRestProxy::post : &HttpRestProxy::put;
+    string method = isPost ? "post" : "put";
     pid_t tid = gettid();
     size_t retries;
     for (retries = 0; retries < maxRetries; retries++) {
-        response = (this->*method)(resource, content, RestParams(),
-                                   headers, -1);
+        response = this->perform(method, resource, content, RestParams(),
+                                 headers);
         int code = response.code();
         if (code < 400) {
             break;

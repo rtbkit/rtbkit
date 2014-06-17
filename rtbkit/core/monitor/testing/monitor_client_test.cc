@@ -94,3 +94,19 @@ BOOST_AUTO_TEST_CASE( test_monitor_client_onResponseReceived )
     BOOST_CHECK_EQUAL(client.lastStatus, true);
     BOOST_CHECK(client.lastCheck != pastDate);
 }
+
+BOOST_AUTO_TEST_CASE( test_monitor_client_onTimeout )
+{
+    /* setup */
+    std::shared_ptr<zmq::context_t> zero_context;
+    MonitorClient client(zero_context);
+    
+    cerr << "test: pendingRequest, no response received." << endl;
+    client.pendingRequest = true;
+    BOOST_CHECK_EQUAL(client.pendingRequest, true);
+    ML::sleep(3);
+    client.checkTimeout();
+    BOOST_CHECK_EQUAL(client.pendingRequest, false);
+
+    client.shutdown();
+}

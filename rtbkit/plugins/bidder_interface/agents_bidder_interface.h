@@ -57,7 +57,6 @@ struct AgentsBidderInterface : public BidderInterface
     void sendPingMessage(std::string const & agent,
                          int ping);
 
-    void send(std::shared_ptr<PostAuctionEvent> const & event);
 };
 
 }

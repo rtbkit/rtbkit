@@ -861,8 +861,8 @@ struct App: public Context, public AppInfo {
 
 struct Geo {
     ~Geo();
-    Datacratic::TaggedFloat lat;        ///< Latitude of user (-90 to 90; South negative)
-    Datacratic::TaggedFloat lon;        ///< Longtitude (-180 to 180; west is negative)
+    Datacratic::TaggedDouble lat;        ///< Latitude of user (-90 to 90; South negative)
+    Datacratic::TaggedDouble lon;        ///< Longtitude (-180 to 180; west is negative)
     std::string country;         ///< Country code (ISO 3166-1 Alpha-3)
     std::string region;          ///< Region code (ISO 3166-2)
     std::string regionfips104;   ///< Region using FIPS 10-4
