@@ -1565,6 +1565,7 @@ struct BidRequestJS
         Persistent<FunctionTemplate> t = Register(New);
 
         registerRWProperty(&BidRequest::auctionId, "id", v8::DontDelete);
+        registerRWProperty(&BidRequest::timeAvailableMs, "timeAvailableMs", v8::DontDelete);
         registerRWProperty(&BidRequest::timestamp, "timestamp", v8::DontDelete);
         registerRWProperty(&BidRequest::isTest, "isTest", v8::DontDelete);
         registerRWProperty(&BidRequest::url, "url", v8::DontDelete);
