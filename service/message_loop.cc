@@ -205,43 +205,6 @@ addPeriodic(const std::string & name,
     return addSource(name, newPeriodic, priority);
 }
 
-#if 0
-    int fd = entry.source->selectFd();
-    if (fd != -1)
-        addFd(fd, entry.source.get());
-
-    if (!needsPoll && entry.source->needsPoll) {
-        needsPoll = true;
-        
-        if (parent_) parent_->checkNeedsPoll();
-    }
-
-    if (debug_) entry.source->debug(true);
-    sources.push_back(entry);
-
-    if (needsPoll) {
-        string pollingSources;
-        
-        for (auto & s: sources) {
-            if (s.source->needsPoll) {
-                if (!pollingSources.empty())
-                    pollingSources += ", ";
-                pollingSources += s.name;
-            }
-        }
-        
-        double wakeupsPerSecond = 1.0 / maxAddedLatency_;
-        
-        cerr << "WARNING: message loop in polling mode will cause " << wakeupsPerSecond
-             << " context switches per second due to polling on sources "
-             << pollingSources << endl;
-    }
-
-    entry.source->connectionState_ = AsyncEventSource::CONNECTED;
-    ML::futex_wake(entry.source->connectionState_);
-#endif
-
-
 bool
 MessageLoop::
 removeSource(AsyncEventSource * source)
