@@ -30,6 +30,12 @@ endif
 python_dependencies: python_requirements.txt
 	$(PIP) install -r python_requirements.txt
 
+# Loop over the python_extra_requirements.txt file and install packages in order.
+# We did that because of dependencies bugs in pip and the packages are freaking big.
+# WARNING: order in python_extra_requirements.txt matters!!!
+python_extra_dependencies: python_extra_requirements.txt python_dependencies	
+	jml-build/get_python_requirements.sh -c $(PIP) -r python_extra_requirements.txt 
+
 dependencies: python_dependencies
 
 # add a swig wrapper source file
