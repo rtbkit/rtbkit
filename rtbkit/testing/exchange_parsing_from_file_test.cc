@@ -95,6 +95,9 @@ BOOST_AUTO_TEST_CASE( test_exchange_parsing_multi_requests )
 
                 std::string utf8String = reqs[i]; 
 
+                // Overwrite Auction probablility to avoid early drop
+                router.setAcceptAuctionProbability(1.0);
+
                 std::ostringstream stream;
                 stream << "POST /auctions HTTP/1.1\r\n"
                        << "Content-Length: " << utf8String.size() << "\r\n"
