@@ -93,7 +93,7 @@ handleEvents(int usToWait, int nEvents,
              const OnEvent & afterSleep_)
 {
     if (nEvents == -1) {
-        nEvents = numFds_;
+        nEvents = std::max<int>(numFds_, 1);
     }
 
     const HandleEvent & handleEvent
@@ -103,6 +103,8 @@ handleEvents(int usToWait, int nEvents,
     const OnEvent & afterSleep
         = afterSleep_ ? afterSleep_ : this->afterSleep;
 
+    if (nEvents <= 0)
+        throw ML::Exception("can't wait for no events");
     if (nEvents > 1024)
         throw ML::Exception("waiting for too many events will overflow the stack");
 
@@ -141,8 +143,12 @@ handleEvents(int usToWait, int nEvents,
         }
         if (res == 0) return 0;
         
-        if (res == -1)
+        if (res == -1) {
+            //cerr << "epoll_fd = " << epoll_fd << endl;
+            //cerr << "timeout_ = " << timeout_ << endl;
+            //cerr << "nEvents = " << nEvents << endl;
             throw Exception(errno, "epoll_wait");
+        }
         nEvents = res;
         
         for (unsigned i = 0;  i < nEvents;  ++i) {
