@@ -42,6 +42,7 @@ ZmqEventSource(zmq::socket_t & socket, SocketLock * socketLock)
     : socket_(&socket), socketLock_(socketLock)
 {
     needsPoll = false;
+    updateEvents();
 }
 
 void
