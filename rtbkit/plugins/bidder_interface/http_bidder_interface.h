@@ -1,4 +1,4 @@
-/* http_bidder_interface.h
+/* http_bidder_interface.h                                         -*- C++ -*-
    Eric Robert, 2 April 2014
    Copyright (c) 2011 Datacratic.  All rights reserved.
 */
@@ -17,8 +17,10 @@ struct HttpBidderInterface : public BidderInterface
     HttpBidderInterface(std::string name = "bidder",
                         std::shared_ptr<ServiceProxies> proxies = std::make_shared<ServiceProxies>(),
                         Json::Value const & json = Json::Value());
+    ~HttpBidderInterface();
 
     void start();
+    virtual void shutdown();
     void sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                             double timeLeftMs,
                             std::map<std::string, BidInfo> const & bidders);

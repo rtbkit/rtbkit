@@ -31,8 +31,17 @@ HttpBidderInterface::HttpBidderInterface(std::string name,
     loop.addSource("HttpBidderInterface::httpClient", httpClient);
 }
 
+HttpBidderInterface::~HttpBidderInterface()
+{
+    shutdown();
+}
+
 void HttpBidderInterface::start() {
     loop.start();
+}
+
+void HttpBidderInterface::shutdown() {
+    loop.shutdown();
 }
 
 

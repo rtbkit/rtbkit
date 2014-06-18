@@ -26,7 +26,7 @@ struct BidderInterface : public ServiceBase
                     std::string const & name = "bidder");
 
     void init(AgentBridge * value, Router * r = nullptr);
-    void shutdown();
+    virtual void shutdown();
 
     virtual void start();
 
