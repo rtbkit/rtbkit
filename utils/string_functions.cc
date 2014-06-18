@@ -160,8 +160,17 @@ int
 antoi(const char * start, const char * end, int base)
 {
     int result(0);
+    bool neg = false;
+    if (*start == '-') {
+        if (base == 10) {
+            neg = true;
+        }
+        else {
+            throw ML::Exception("Cannot negate non base 10");
+        }
+    }
 
-    for (const char * ptr = start; ptr < end; ptr++) {
+    for (const char * ptr = start + neg; ptr < end; ptr++) {
         int digit;
         if (*ptr >= '0' and *ptr <= '9') {
             digit = *ptr - '0';
@@ -184,6 +193,9 @@ antoi(const char * start, const char * end, int base)
         result = result * base + digit;
     }
 
+    if (neg) {
+        return result * -1;
+    }    
     return result;
 }
 
