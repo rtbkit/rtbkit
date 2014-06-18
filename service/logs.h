@@ -1,4 +1,4 @@
-/* logs.h
+/* logs.h                                                          -*- C++ -*-
    Eric Robert, 9 October 2013
    Copyright (c) 2013 Datacratic.  All rights reserved.
 
@@ -64,8 +64,9 @@ struct Logging
     struct CategoryData;
 
     struct Category {
-        Category(char const * name, Category & super);
-        Category(char const * name, char const * super = "*");
+        Category(char const * name, Category & super, bool enabled = true);
+        Category(char const * name, char const * super, bool enabled = true);
+        Category(char const * name, bool enabled = true);
         ~Category();
 
         Category(const Category&) = delete;
@@ -75,6 +76,26 @@ struct Logging
 
         bool isEnabled() const;
         bool isDisabled() const;
+
+        /// Type that is convertible to bool but nothing else for operator bool
+        typedef void (Category::* boolConvertibleType)() const;
+
+        /** Boolean conversion allows you to know if it's enabled.  Usage:
+
+            Logging::Category logMyComponent("myComponent");
+            
+            std::string output;
+            Json::Value loggingInfo;
+
+            std::tie(output, loggingInfo)
+                = performCallMaybeWithExpensiveLoggingInfo((bool)logMyComponent);
+
+            LOG(myComponent) << loggingInfo;
+        */
+        operator boolConvertibleType () const
+        {
+            return isEnabled() ? &Category::dummy : nullptr;
+        }
 
         std::shared_ptr<Writer> const & getWriter() const;
         void writeTo(std::shared_ptr<Writer> output, bool recurse = true);
@@ -88,8 +109,10 @@ struct Logging
 
     private:
         Category(CategoryData * data);
-
         CategoryData * data;
+
+        // operator bool result
+        void dummy() const {}
     };
 
     struct Printer {
@@ -157,10 +180,24 @@ struct Logging
 
 } // namespace Datacratic
 
+/** Macro to call to log a message to the given group.  Usage is as follows:
+
+    Logging::Category errors("errors");
+    
+    LOG(errors) << "error frobbing: " << errorMessage << endl;
+*/
 #define LOG(group, ...) \
     group.isDisabled() ? (void) 0 : Logging::Printer(group) & \
     group.beginWrite(__PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_ARGS__)
 
+/** Macro to log a thrown exeption to the given group and then throw it.  Usage is
+    as follows:
+
+    Logging::Category logMyComponent("myComponent");
+    
+    if (badErrorCondition)
+        THROW(logMyComponent) << "fatal error with bad error condition";
+*/
 #define THROW(group, ...) \
     Logging::Thrower(group) & \
     group.beginWrite(__PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_ARGS__)
