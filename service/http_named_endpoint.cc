@@ -217,6 +217,8 @@ sendResponse(int code,
              const std::string & contentType,
              RestParams headers)
 {
+    // Recycle back to a new handler once done so that the next connection can be
+    // handled.
     auto onSendFinished = [=] {
         this->transport().associateWhenHandlerFinished
         (std::make_shared<RestConnectionHandler>(endpoint),
@@ -227,6 +229,24 @@ sendResponse(int code,
         headers.push_back(h);
 
     putResponseOnWire(HttpResponse(code, contentType, body, headers),
+                      onSendFinished);
+}
+
+void
+HttpNamedEndpoint::RestConnectionHandler::
+sendResponseHeader(int code,
+                   const std::string & contentType,
+                   RestParams headers)
+{
+    auto onSendFinished = [=] {
+        // Do nothing once we've finished sending the response, so that
+        // the connection isn't closed
+    };
+    
+    for (auto & h: endpoint->extraHeaders)
+        headers.push_back(h);
+
+    putResponseOnWire(HttpResponse(code, contentType, headers),
                       onSendFinished);
 }
 
