@@ -21,17 +21,13 @@
 #include "crypto++/modes.h"
 #include "crypto++/filters.h"
 
-namespace {
-
-Logging::Category bidswitchExchangeConnectorTrace("Bidswitch Exchange Connector");
-Logging::Category bidswitchExchangeConnectorError("[ERROR] Bidswitch Exchange Connector", trace);
-
-}
-
 using namespace std;
 using namespace Datacratic;
 
 namespace RTBKIT {
+
+Logging::Category bidswitchExchangeConnectorTrace("Bidswitch Exchange Connector");
+Logging::Category bidswitchExchangeConnectorError("[ERROR] Bidswitch Exchange Connector", bidswitchExchangeConnectorTrace);
 
 /*****************************************************************************/
 /* BIDSWITCH EXCHANGE CONNECTOR                                                */
