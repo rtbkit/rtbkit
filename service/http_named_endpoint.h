@@ -79,6 +79,10 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
                           const std::string & body,
                           const std::string & contentType,
                           RestParams headers = RestParams());
+
+        void sendResponseHeader(int code,
+                                const std::string & contentType,
+                                RestParams headers = RestParams());
     };
 
     typedef std::function<void (RestConnectionHandler * connection,
