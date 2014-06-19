@@ -9,11 +9,17 @@
 #include "jml/utils/json_parsing.h"
 #include "rtbkit/openrtb/openrtb.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
+#include "soa/service/logs.h"
 
 using namespace std;
 
 namespace RTBKIT {
 
+namespace {
+
+    Logging::Category openrtbBidRequestTrace("OpenRTB Bid Request");
+    Logging::Category openrtbBidRequestError("[ERROR] OpenRTB Bid Request error", openrtbBidRequestTrace);
+}
 
 /*****************************************************************************/
 /* OPENRTB BID REQUEST PARSER                                                */
@@ -54,27 +60,44 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                 // Unique ptr doesn't overload operators.. great.
                 auto & v = *spot.video;
 
-                if(!v.mimes.empty()) {
+                if(v.mimes.empty()) {
                     // We need at least one MIME type supported by the exchange
-                    // Not used for now, keeping it for the future
-                    // when we will support the video object fully
+                    THROW(openrtbBidRequestError) << "Video::mimes needs to be populated." << endl;
                 }
-
-                if(v.linearity.value() < 0) {
-                    // Not used for now, keeping it for the future
-                    // when we will support the video object fully
+            
+                /** 
+                 * Refers to table 6.6 of OpenRTB 2.1
+                 * Linearity is initialized to -1 if we don't get it in the bid request
+                 * so if it's under 0, it means it wasn't given and it can only be 1 or 2
+                 */
+                if(v.linearity.value() < 0 || v.linearity.value() > 2) {
+                    THROW(openrtbBidRequestError) <<"Video::linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
                 }
                 
                 if(v.minduration.value() < 0) {
-                    // Not used for now, keeping it for the future
-                    // when we will support the video object fully
+                    THROW(openrtbBidRequestError) << "Video::minduration must be specified and positive." << endl;
                 }
 
                 if(v.maxduration.value() < 0) {
-                    // Not used for now, keeping it for the future
-                    // when we will support the video object fully
+                    THROW(openrtbBidRequestError) << "Video::maxduration must be specified and positive." << endl;
+                }
+                else if(v.maxduration.value() < v.minduration.value()) {
+                    // Illogical
+                    THROW(openrtbBidRequestError) << "Video::maxduration can't be smaller than Video::minduration." << endl;
+                }
+
+                /** 
+                 * Refers to table 6.7 of OpenRTB 2.1
+                 * Linearity is initialized to -1 if we don't get it in the bid request
+                 * so if it's under 0, it means it wasn't given and it can only be 1 to 6
+                 */
+                
+                if(v.protocol.value() < 0 || v.protocol.value() > 6) {
+                    THROW(openrtbBidRequestError) << "Video::protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
                 }
                 
+                spot.position = spot.video->pos;
+
                 Format format(v.w.value(), v.h.value());
                 spot.formats.push_back(format);
             }
@@ -84,7 +107,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
                 auto & b = *imp.banner;
                 
                 if (b.w.size() != b.h.size())
-                    throw ML::Exception("widths and heights must match");
+                    THROW(openrtbBidRequestError) <<("widths and heights must match");
                 
                 for (unsigned i = 0;  i < b.w.size();  ++i) {
                     int w = b.w[i];
@@ -145,7 +168,7 @@ fromOpenRtb(OpenRTB::BidRequest && req,
         onImpression(std::move(i));
 
     if (req.site && req.app)
-        throw ML::Exception("can't have site and app");
+        THROW(openrtbBidRequestError) << "can't have site and app" << endl;
 
     if (req.site) {
         result->site.reset(req.site.release());
@@ -300,7 +323,7 @@ OpenRTB::BidRequest toOpenRtb(const BidRequest &req)
     }
 
     if (req.site && req.app)
-        throw ML::Exception("can't have site and app");
+        THROW(openrtbBidRequestError) << "can't have site and app" << endl;
 
     if (req.site) {
         result.site.reset(new OpenRTB::Site(*req.site));

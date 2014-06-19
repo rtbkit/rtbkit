@@ -12,7 +12,8 @@ using namespace RTBKIT;
 
 AgentsBidderInterface::AgentsBidderInterface(std::string const & name,
                                              std::shared_ptr<ServiceProxies> proxies,
-                                             Json::Value const & config) {
+                                             Json::Value const & config)
+    : BidderInterface(proxies, name) {
 }
 
 void AgentsBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & auction,
@@ -245,17 +246,6 @@ void AgentsBidderInterface::sendPingMessage(std::string const & agent,
                                  Date::now(),
                                  "null");
     }
-}
-
-void AgentsBidderInterface::send(std::shared_ptr<PostAuctionEvent> const & event) {
-    /*
-    router->sendAgentMessage(agent,
-                             event->label,
-                             Date::now(),
-                             "guaranteed",
-                             event->auctionId,
-                             event->adSpotId,
-                             event->winPrice.toString());*/
 }
 
 //
