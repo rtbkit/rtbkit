@@ -129,11 +129,13 @@ struct CarbonConnectorJS
                 getShared(args)->open(getArg<vector<string> >
                                       (args, 0, "carbonAddr"),
                                       getArg(args, 1, "statsPath"),
+                                      getArg(args, 2, "dumpInterval"),
                                       cleanup);
             }
             else {
                 getShared(args)->open(getArg<string>(args, 0, "carbonAddr"),
                                       getArg(args, 1, "statsPath"),
+                                      getArg(args, 2, "dumpInterval"),
                                       cleanup);
             }
             
