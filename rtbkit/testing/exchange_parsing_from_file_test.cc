@@ -33,113 +33,116 @@ static Json::Value loadJsonFromFile(const std::string & filename) {
 
 BOOST_AUTO_TEST_CASE( test_exchange_parsing_multi_requests )
 {
-
     Json::Value config = loadJsonFromFile(configurationFile); 
-    
-    std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
 
-    // We need a router for our exchange connector to work
-    Router router(proxies, "router");
-    router.unsafeDisableMonitor();  // Don't require a monitor service
-    router.unsafeDisableAuctionProbability(); // Disable auction prob to avoid dropping BR
-    router.init();
+    for ( auto currentConfig : config) {
+        std::cerr << "Current Exchange :" <<  currentConfig["exchangeType"] << std::endl;
 
-    // Start the router up
-    router.bindTcp();
-    router.start();
+        std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
 
-    // Start exchange
-    const std::string type = config["exchangeType"].asString();
-    auto exchange = ExchangeConnector::create(type, router , type); 
+        // We need a router for our exchange connector to work
+        Router router(proxies, "router");
+        router.unsafeDisableMonitor();  // Don't require a monitor service
+        router.unsafeDisableAuctionProbability(); // Disable auction prob to avoid dropping BR
+        router.init();
 
-    std::shared_ptr<ExchangeConnector> connector(exchange.release());
-    std::shared_ptr<HttpExchangeConnector> connector1 = dynamic_pointer_cast<HttpExchangeConnector>(connector);
+        // Start the router up
+        router.bindTcp();
+        router.start();
 
-    std::cerr << "Loading " << connector1->exchangeName() << " exchange connector." << std::endl;
+        // Start exchange
+        const std::string type = currentConfig["exchangeType"].asString();
+        std::cerr << type << std::endl;
+        auto exchange = ExchangeConnector::create(type, router , type);
 
-    connector1->configureHttp(1, -1, "0.0.0.0");
-    connector1->start();
-    connector1->enableUntil(Date::positiveInfinity());
-    
-    // Tell the router about the new exchange connector
-    router.addExchange(connector1);
-    ML::sleep(1.0);
+        std::shared_ptr<ExchangeConnector> connector(exchange.release());
+        std::shared_ptr<HttpExchangeConnector> connector1 = dynamic_pointer_cast<HttpExchangeConnector>(connector);
 
-    // prepare request
-    NetworkAddress address(connector1->port());
-    BidSource source(address);
+        std::cerr << "Loading " << connector1->exchangeName() << " exchange connector." << std::endl;
 
+        connector1->configureHttp(1, -1, "0.0.0.0");
+        connector1->start();
+        connector1->enableUntil(Date::positiveInfinity());
 
-    for (auto sample : config["samples"])
-    {
-        std::string req = sample.asString();
-        vector<string> reqs;
-        
-        ML::filter_istream stream(req);
-    
-        while (stream) {
-            string line;
-            getline(stream, line);
-            reqs.push_back(line);
-        }
-
-        std::stringstream ss;
-        std::stringstream ssError;
-        ss << "---------------------------------------------------" << endl;
-        ss << "Summary of parsing" << endl;
-        ss << "Number of bid request : " << reqs.size()-1 << endl;
-        int rejected = 0;
-        std::string response;
-
-        for (unsigned i = 0;  i < reqs.size()-1;  ++i) {
-            try {
-
-                std::string utf8String = reqs[i]; 
-
-                std::ostringstream stream;
-                stream << "POST /auctions HTTP/1.1\r\n"
-                       << "Content-Length: " << utf8String.size() << "\r\n"
-                       << "Content-Type: application/json\r\n"
-                       << "x-openrtb-version: 2.1\r\n"
-                       << "x-openrtb-verbose: 1\r\n"
-                       << "\r\n"
-                       << utf8String;
-
-                source.write(stream.str());
-                response = source.read();
-                
-                HttpHeader http;
-                if(response.find("Content-Type: none") == std::string::npos) {
-                    http.parse(response);
-                
-                    std::string error;
-                    if(http.contentType.find("Content-Type: none") == std::string::npos) {
-                        auto json = Json::parse(http.knownData);
-                        error = json["error"].asString();
-                        rejected++;        
-                        ssError << "---------------------------------------------------" << endl;
-                        ssError << "At line : " << i+1 << endl;
-                        ssError << "Error: " << error << endl;
-                        ssError << "Bid_request : " << reqs[i] << endl;
-                    }
-                }
-            }
-            catch (const std::exception & exc) {
-            }
-        }
-
-        ss << "Number of error during parsing : " << rejected << endl;
-        if(rejected > 0) {
-            ss << "List of errors :\n" << ssError.str() << endl;
-        }
-        ss << "---------------------------------------------------" << endl;
-        std::cerr << ss.str() << endl;
-
-        router.shutdown();
-
+        // Tell the router about the new exchange connector
+        router.addExchange(connector1);
         ML::sleep(1.0);
 
-        BOOST_CHECK_EQUAL(rejected, 0); 
+        // prepare request
+        NetworkAddress address(connector1->port());
+        BidSource source(address);
 
+
+        for (auto sample : currentConfig["samples"])
+        {
+            std::string req = sample.asString();
+            vector<string> reqs;
+
+            ML::filter_istream stream(req);
+
+            while (stream) {
+                string line;
+                getline(stream, line);
+                reqs.push_back(line);
+            }
+
+            std::stringstream ss;
+            std::stringstream ssError;
+            ss << "---------------------------------------------------" << endl;
+            ss << "Summary of parsing" << endl;
+            ss << "Number of bid request : " << reqs.size()-1 << endl;
+            int rejected = 0;
+            std::string response;
+
+            for (unsigned i = 0;  i < reqs.size()-1;  ++i) {
+                try {
+
+                    std::string utf8String = reqs[i];
+
+                    std::ostringstream stream;
+                    stream << "POST /auctions HTTP/1.1\r\n"
+                           << "Content-Length: " << utf8String.size() << "\r\n"
+                           << "Content-Type: application/json\r\n"
+                           << "x-openrtb-version: 2.1\r\n"
+                           << "x-openrtb-verbose: 1\r\n"
+                           << "\r\n"
+                           << utf8String;
+
+                    source.write(stream.str());
+                    response = source.read();
+
+                    HttpHeader http;
+                    if(response.find("Content-Type: none") == std::string::npos) {
+                        http.parse(response);
+
+                        std::string error;
+                        if(http.contentType.find("Content-Type: none") == std::string::npos) {
+                            auto json = Json::parse(http.knownData);
+                            error = json["error"].asString();
+                            rejected++;
+                            ssError << "---------------------------------------------------" << endl;
+                            ssError << "At line : " << i+1 << endl;
+                            ssError << "Error: " << error << endl;
+                            ssError << "Bid_request : " << reqs[i] << endl;
+                        }
+                    }
+                }
+                catch (const std::exception & exc) {
+                }
+            }
+
+            ss << "Number of error during parsing : " << rejected << endl;
+            if(rejected > 0) {
+                ss << "List of errors :\n" << ssError.str() << endl;
+            }
+            ss << "---------------------------------------------------" << endl;
+            std::cerr << ss.str() << endl;
+
+            router.shutdown();
+
+            ML::sleep(1.0);
+
+            BOOST_CHECK_EQUAL(rejected, currentConfig["expectedRejected"].asInt() );
+        }
     }
 }
