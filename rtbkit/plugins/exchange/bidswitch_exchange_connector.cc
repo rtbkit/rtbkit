@@ -4,12 +4,15 @@
    Implementation of the BidSwitch exchange connector.
 */
 
+#include <iterator> // std::begin
+
 #include "bidswitch_exchange_connector.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
 #include "soa/types/json_printing.h"
+#include "soa/service/logs.h"
 #include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
 #include "jml/utils/file_functions.h"
@@ -22,6 +25,9 @@ using namespace std;
 using namespace Datacratic;
 
 namespace RTBKIT {
+
+Logging::Category bidswitchExchangeConnectorTrace("Bidswitch Exchange Connector");
+Logging::Category bidswitchExchangeConnectorError("[ERROR] Bidswitch Exchange Connector", bidswitchExchangeConnectorTrace);
 
 /*****************************************************************************/
 /* BIDSWITCH EXCHANGE CONNECTOR                                                */
@@ -41,6 +47,24 @@ BidSwitchExchangeConnector(const std::string & name,
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
 }
+
+namespace {
+std::vector<int> stringsToInts(const Json::Value& value) {
+    const std::string & data = value.asString();
+    std::vector<std::string> strings;
+    std::vector<int> ints;
+    boost::split(strings, data, boost::is_space(), boost::token_compress_on);
+    for (const std::string& e : strings) {
+        if (e.empty()) {
+            continue;
+        }
+        ints.push_back(std::stoi(e));
+    }
+
+    return ints;
+}
+}
+
 
 ExchangeConnector::ExchangeCompatibility
 BidSwitchExchangeConnector::
@@ -138,39 +162,102 @@ getCreativeCompatibility(const Creative & creative,
     // Cache the information
     result.info = crinfo;
 
+    // 4. Check if the creative has a Google subsection.
+    // if so, try to read "vendor type" and "attributes"
+    // we do not enforce anything here. If nothing's configured
+    // here, Adx traffic will be filtered out.
+    if (pconf.isMember("google"))  {
+        const Json::Value & pgconf = pconf["google"];
+        if (pgconf.isMember("vendorType")) {
+            auto ints = stringsToInts(pgconf["vendorType"]);
+            crinfo->Google.vendor_type_ = { std::begin(ints), std::end(ints) };
+        }
+        if (pgconf.isMember("attribute")) {
+            auto ints = stringsToInts(pgconf["attribute"]);
+            crinfo->Google.attribute_ = { std::begin(ints), std::end(ints) };
+        }
+    }
     return result;
 }
+
+namespace {
+
+struct GoogleObject {
+    std::set<int32_t> allowed_vendor_type;
+    std::vector<std::pair<int,double>> detected_vertical;
+    std::set<int32_t> excluded_attribute;
+};
+
+
+GoogleObject
+parseGoogleObject(const Json::Value& gobj) {
+    GoogleObject rc;
+    if (gobj.isMember("allowed_vendor_type")) {
+        const auto& avt = gobj["allowed_vendor_type"];
+        if (avt.isArray()) {
+            for (auto ii: avt) {
+                rc.allowed_vendor_type.insert (ii.asInt());
+            }
+        }
+    }
+    if (gobj.isMember("excluded_attribute")) {
+        const auto& avt = gobj["excluded_attribute"];
+        if (avt.isArray()) {
+            for (auto ii: avt) {
+                rc.excluded_attribute.insert (ii.asInt());
+            }
+        }
+    }
+    if (gobj.isMember("detected_vertical")) {
+        const auto& avt = gobj["detected_vertical"];
+        if (avt.isArray()) {
+            for (auto ii: avt) {
+                rc.detected_vertical.push_back ( {ii["id"].asInt(),ii["weight"].asDouble()});
+            }
+        }
+    }
+    return rc;
+}
+
+struct AdtruthObject {
+    uint64_t tdl_millis;
+    std::unordered_map<std::string,std::string> dev_insight_map;
+    AdtruthObject() : tdl_millis (0L) {}
+    void dump () const {
+        LOG(bidswitchExchangeConnectorTrace) << "tdl_millis: " << tdl_millis << endl ;
+        LOG(bidswitchExchangeConnectorTrace) << "DevInsight: { ";
+        for (auto const ii:  dev_insight_map) {
+            LOG(bidswitchExchangeConnectorTrace) << ii.first << ":" << ii.second;
+        }
+        LOG(bidswitchExchangeConnectorTrace) << " }\n";
+    }
+};
+
+AdtruthObject
+parseAdtruthObject(const Json::Value& adt) {
+    AdtruthObject rc;
+    for (const auto name: adt.getMemberNames()) {
+        if (name == "tdl_millis")
+            rc.tdl_millis = adt[name].asInt();
+        else
+            rc.dev_insight_map[name] = adt[name].asString();
+    }
+    return rc;
+}
+}// anonymous
+
 std::shared_ptr<BidRequest>
 BidSwitchExchangeConnector::
 parseBidRequest(HttpAuctionHandler & connection,
                 const HttpHeader & header,
                 const std::string & payload) {
     std::shared_ptr<BidRequest> res;
-//
+    //
     // Check for JSON content-type
     if (header.contentType != "application/json") {
         connection.sendErrorResponse("non-JSON request");
         return res;
     }
-
-#if 0
-    /*
-     * Unfortunately, x-openrtb-version isn't sent in the real traffic
-     */
-    // Check for the x-openrtb-version header
-    auto it = header.headers.find("x-openrtb-version");
-    if (it == header.headers.end()) {
-        connection.sendErrorResponse("no OpenRTB version header supplied");
-        return res;
-    }
-
-    // Check that it's version 2.1
-    std::string openRtbVersion = it->second;
-    if (openRtbVersion != "2.0") {
-        connection.sendErrorResponse("expected OpenRTB version 2.0; got " + openRtbVersion);
-        return res;
-    }
-#endif
 
     // Parse the bid request
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
@@ -239,6 +326,56 @@ setSeatBid(Auction const & auction,
     b.adomain = crinfo->adomain;
     b.iurl = cpinfo->iurl;
 }
+
+namespace {
+bool empty_intersection(const set<int32_t>& x, const set<int32_t>& y) {
+    auto i = x.begin();
+    auto j = y.begin();
+    while (i != x.end() && j != y.end()) {
+        if (*i == *j)
+            return false;
+        else if (*i < *j)
+            ++i;
+        else
+            ++j;
+    }
+    return true;
+}
+}
+
+bool
+BidSwitchExchangeConnector::
+bidRequestCreativeFilter(const BidRequest & request,
+                         const AgentConfig & config,
+                         const void * info) const {
+    // return true for non AdX traffic
+    const auto& ext = request.ext;
+    if (!ext.isMember("google"))
+        return true;
+
+    const auto& gobj = ext["google"];
+    auto gobj_parsed = parseGoogleObject (gobj);
+    const auto crinfo = reinterpret_cast<const CreativeInfo*>(info);
+
+    // check for attributes
+    if (false==empty_intersection(
+                crinfo->Google.attribute_,
+                gobj_parsed.excluded_attribute)) {
+        this->recordHit ("google.attribute_excluded");
+        return false ;
+    }
+
+    // check for vendors
+    for (const auto vendor: crinfo->Google.vendor_type_) {
+        if (0==gobj_parsed.allowed_vendor_type.count(vendor)) {
+            this->recordHit ("google.now_allowed_vendor");
+            return false ;
+        }
+    }
+
+    return true;
+}
+
 
 } // namespace RTBKIT
 

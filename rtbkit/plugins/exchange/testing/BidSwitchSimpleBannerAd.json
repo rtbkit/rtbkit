@@ -1,0 +1,56 @@
+{
+  "ext": {
+    "adtruth": {
+      "WEB_APP_BRIDGE_4_0": "4FD87B97751E9C305FD5314A665D2AF1C8FAA2D3",
+      "WEB_APP_BRIDGE_3_2": "FD5314A665D2AF1C8FAA2D34FD87B97751E9C305",
+      "tdl_millis": 19534993
+    },
+    "ssp": "rubicon"
+  },
+  "at": 2,
+  "cur": [
+    "USD"
+  ],
+  "user": {
+    "buyeruid": "1234567890",
+    "id": "45asdf987656789adfad4678rew656789"
+  },
+  "device": {
+    "language": "en",
+    "ua": "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.16) Gecko/20110319 Firefox/3.6.16",
+    "geo": {
+      "zip": "10601",
+      "city": "White Plains",
+      "region": "NY",
+      "county": "US",
+      "lon": -116.97750091552734,
+      "lat": 33.94940185546875
+    },
+    "ip": "64.124.253.1"
+  },
+  "site": {
+    "publisher": {
+      "id": "rubicon_25"
+    },
+    "page": "http://siteabcd.com/page.htm",
+    "domain": "siteabcd.com",
+    "id": "234563"
+  },
+  "imp": [
+    {
+      "ext": {
+        "rubicon": {
+          "site_size_session_count": 5
+        }
+      },
+      "banner": {
+        "topframe": 0,
+        "pos": 1,
+        "h": 250,
+        "w": 300
+      },
+      "id": "1"
+    }
+  ],
+  "id": "1234534625253"
+}
