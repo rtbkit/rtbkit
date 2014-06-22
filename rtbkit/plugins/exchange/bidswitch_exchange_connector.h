@@ -1,11 +1,10 @@
 /* bidswitch_exchange_connector.h                                    -*- C++ -*-
-   Jeremy Barnes, 12 March 2013
-   Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+   Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
 */
 
 #pragma once
-
+#include <set>
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
 
 namespace RTBKIT {
@@ -37,13 +36,6 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
                     const HttpHeader & header,
                     const std::string & payload);
 
-#if 0
-    virtual HttpResponse
-    getResponse(const HttpAuctionHandler & connection,
-                const HttpHeader & requestHeader,
-                const Auction & auction) const;
-#endif
-
     virtual double
     getTimeAvailableMs(HttpAuctionHandler & connection,
                        const HttpHeader & header,
@@ -71,11 +63,21 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
         Id adid;                ///< ID for ad to be service if bid wins
         std::string nurl;       ///< Win notice URL
         std::vector<std::string> adomain;    ///< Advertiser Domain
+        struct {
+            std::vector<int32_t> vendor_type_;
+            std::set<int32_t> attribute_ ;
+        } Google;
     };
 
     virtual ExchangeCompatibility
     getCreativeCompatibility(const Creative & creative,
                              bool includeReasons) const;
+
+    virtual bool
+    bidRequestCreativeFilter(const BidRequest & request,
+                             const AgentConfig & config,
+                             const void * info) const;
+
 
     // BidSwitch win price decoding function.
     static float decodeWinPrice(const std::string & sharedSecret,
@@ -85,6 +87,7 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
     virtual void setSeatBid(Auction const & auction,
                             int spotNum,
                             OpenRTB::BidResponse & response) const;
+
 };
 
 

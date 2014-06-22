@@ -1,22 +1,19 @@
-/* adx_exchange_connector_test.cc
+/* bidswitch_exchange_connector_test.cc
 
-   Exchange connector test for AdX
+   Exchange connector test for BidSwitch.
+   Based on rubicon_exchange_connector_test.cc
 */
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include <cassert>
-#include <fstream>
-#include <sstream>
-#include <cstdint>
 #include <boost/test/unit_test.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include "rtbkit/common/testing/exchange_source.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
-#include "rtbkit/plugins/exchange/adx_exchange_connector.h"
+#include "rtbkit/plugins/exchange/bidswitch_exchange_connector.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_service.h"
@@ -31,28 +28,27 @@
 using namespace RTBKIT;
 
 
-const std::string bid_sample_filename("rtbkit/plugins/exchange/testing/adx-bidrequests.dat");
+const std::string bid_sample_filename("rtbkit/plugins/exchange/testing/BidSwitchAdX.json");
 
 
 std::string loadFile(const std::string & filename)
 {
-    // the first 4 bytes of our file do contain the lenght of the following
-    // serialized bid request.
-    std::ifstream ifs(filename.c_str(), std::ios::in|std::ios::binary);
-    assert (ifs.is_open());
-    char buf[1024];
-    uint32_t len =0;
-    ifs.read ((char*)&len, 4);
-    assert (ifs);
-    assert (len<sizeof buf);
-    ifs.read (buf, len);
-    assert (ifs);
-    return std::string (buf, len);
+    ML::filter_istream stream(filename);
+
+    std::string result;
+
+    while (stream) {
+        std::string line;
+        getline(stream, line);
+        result += line + "\n";
+    }
+
+    return result;
 }
 
-BOOST_AUTO_TEST_CASE( test_adx )
+BOOST_AUTO_TEST_CASE( test_bidswitch )
 {
-     std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
+    std::shared_ptr<ServiceProxies> proxies(new ServiceProxies());
 
     // The agent config service lets the router know how our agent is configured
     AgentConfigurationService agentConfig(proxies, "config");
@@ -77,8 +73,8 @@ BOOST_AUTO_TEST_CASE( test_adx )
     // Create our exchange connector and configure it to listen on port
     // 10002.  Note that we need to ensure that port 10002 is open on
     // our firewall.
-    std::shared_ptr<AdXExchangeConnector> connector
-    (new AdXExchangeConnector("connector", proxies));
+    std::shared_ptr<BidSwitchExchangeConnector> connector
+    (new BidSwitchExchangeConnector("connector", proxies));
 
     connector->configureHttp(1, -1, "0.0.0.0");
     connector->start();
@@ -96,23 +92,27 @@ BOOST_AUTO_TEST_CASE( test_adx )
     agent.config.creatives.push_back(RTBKIT::Creative::sampleLB);
     agent.config.creatives.push_back(RTBKIT::Creative::sampleWS);
     agent.config.creatives.push_back(RTBKIT::Creative::sampleBB);
-    agent.config.exchangeFilter.include.push_back("adx");
     std::string portName = std::to_string(port);
     std::string hostName = ML::fqdn_hostname(portName) + ":" + portName;
 
+    agent.config.providerConfig["bidswitch"]["iurl"] = "http://www.gnu.org";
 
     // Configure the agent for bidding
     for (auto & c: agent.config.creatives) {
-        c.exchangeFilter.include.push_back("adx");
-        c.providerConfig["adx"]["externalId"] = "1234";
-        c.providerConfig["adx"]["htmlTemplate"] = "<a href=\"http://usmc.com=%%WINNING_PRICE%%\"/>";
-        c.providerConfig["adx"]["clickThroughUrl"] = "<a href=\"http://click.usmc.com\"/>";
-        c.providerConfig["adx"]["restrictedCategories"] = "0";
-        c.providerConfig["adx"]["agencyId"] = 59;
-        c.providerConfig["adx"]["adGroupId"] = 33970612;
-        c.providerConfig["adx"]["vendorType"] = "534 423";
-        c.providerConfig["adx"]["attribute"]  = "";
-        c.providerConfig["adx"]["sensitiveCategory"]  = "0";
+        c.providerConfig["bidswitch"]["adomain"][0] = "rtbkit.org";
+        c.providerConfig["bidswitch"]["nurl"]
+            = "<img src=\"http://"
+              + hostName
+              + "/creative.png?width="
+              + std::to_string(c.format.width)
+              + "&height="
+              + std::to_string(c.format.height)
+              + "&price=${AUCTION_PRICE}\"/>";
+        c.providerConfig["bidswitch"]["adid"] = c.name;
+        c.providerConfig["bidswitch"]["google"]["vendorType"] = "";
+        c.providerConfig["bidswitch"]["google"]["attribute"] = "";
+
+
     }
 
     agent.onBidRequest = [&] (
@@ -142,20 +142,24 @@ BOOST_AUTO_TEST_CASE( test_adx )
 
     ML::sleep(1.0);
 
-    // load bid protocol buffer
-    std::string google_bid_request = loadFile(bid_sample_filename);
+    // load bid json
+    std::string strJson = loadFile(bid_sample_filename);
+    std::cerr << strJson << std::endl;
 
     // prepare request
     NetworkAddress address(port);
     BidSource source(address);
 
-    std::ostringstream oss ;
-    oss << "POST /auctions HTTP/1.1\r\n"
-        << "Content-Length: "<< google_bid_request.size() << "\r\n"
-        << "Content-Type: application/octet-stream\r\n"
-        << "Connection: Keep-Alive\r\n"
-        << "\r\n";
-    auto httpRequest = oss.str() + google_bid_request;
+    std::string httpRequest = ML::format(
+                                  "POST /auctions HTTP/1.1\r\n"
+                                  "Content-Length: %zd\r\n"
+                                  "Content-Type: application/json\r\n"
+                                  "Connection: Keep-Alive\r\n"
+                                  "x-openrtb-version: 2.0\r\n"
+                                  "\r\n"
+                                  "%s",
+                                  strJson.size(),
+                                  strJson.c_str());
 
     // and send it
     source.write(httpRequest);
