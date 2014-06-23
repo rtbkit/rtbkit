@@ -41,6 +41,7 @@ BOOST_AUTO_TEST_CASE( test_exchange_parsing_multi_requests )
     // We need a router for our exchange connector to work
     Router router(proxies, "router");
     router.unsafeDisableMonitor();  // Don't require a monitor service
+    router.unsafeDisableAuctionProbability(); // Disable auction prob to avoid dropping BR
     router.init();
 
     // Start the router up

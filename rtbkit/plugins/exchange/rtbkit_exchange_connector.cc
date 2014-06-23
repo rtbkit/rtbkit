@@ -40,9 +40,9 @@ parseBidRequest(HttpAuctionHandler &connection,
 
     if (request != nullptr) {
         for (const auto &imp: request->imp) {
-            if (!imp.ext.isMember("allowed_ids")) {
+            if (!imp.ext.isMember("external-ids")) {
                 connection.sendErrorResponse("MISSING_EXTENSION_FIELD",
-                    ML::format("The impression '%s' requires the 'allowed_ids' extension field",
+                    ML::format("The impression '%s' requires the 'external-ids' extension field",
                                imp.id.toString()));  
                 request.reset();
                 break;
@@ -61,7 +61,7 @@ struct Init
 { 
     Init()
     {
-        RTBKIT::FilterRegistry::registerFilter<RTBKIT::AllowedIdsCreativeExchangeFilter>();
+        RTBKIT::FilterRegistry::registerFilter<RTBKIT::ExternalIdsCreativeExchangeFilter>();
         RTBKIT::ExchangeConnector::registerFactory<RTBKIT::RTBKitExchangeConnector>();
     }
 } init;

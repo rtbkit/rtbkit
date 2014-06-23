@@ -137,6 +137,7 @@ Router(ServiceBase & parent,
       logBids(logBids),
       logger(getZmqContext()),
       doDebug(false),
+      disableAuctionProb(false),
       numAuctions(0), numBids(0), numNonEmptyBids(0),
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
@@ -179,6 +180,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       logBids(logBids),
       logger(getZmqContext()),
       doDebug(false),
+      disableAuctionProb(false),
       numAuctions(0), numBids(0), numNonEmptyBids(0),
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
@@ -261,7 +263,11 @@ init()
 
     loopMonitor.onLoadChange = [=] (double)
         {
-            double keepProb = 1.0 - loadStabilizer.shedProbability();
+            double keepProb = 1.0;
+
+            if(!disableAuctionProb) {
+                keepProb -= loadStabilizer.shedProbability();
+            }
 
             setAcceptAuctionProbability(keepProb);
             recordEvent("auctionKeepPercentage", ET_LEVEL, keepProb * 100.0);
@@ -330,6 +336,13 @@ unsafeDisableMonitor()
     monitorClient.testMode = true;
     monitorClient.testResponse = true;
     monitorProviderClient.inhibit_ = true;
+}
+
+void
+Router::
+unsafeDisableAuctionProbability()
+{
+    disableAuctionProb = true;
 }
 
 void

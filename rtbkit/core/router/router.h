@@ -150,6 +150,11 @@ struct Router : public ServiceBase,
     */
     void unsafeDisableMonitor();
 
+    /** Disable the auction probability for testing purposes.  In production this could lead
+        to unbounded overspend, so please do really only use it for testing.
+    */
+    void unsafeDisableAuctionProbability();
+
     /** Start the router running in a separate thread.  The given function
         will be called when the thread is stopped. */
     virtual void
@@ -718,6 +723,9 @@ public:
     /** Debug only */
     bool doDebug;
 
+    /* Disable auction probability for testing only : don't drop any BR*/ 
+    bool disableAuctionProb;
+
     mutable ML::Spinlock debugLock;
     TimeoutMap<Id, AuctionDebugInfo> debugInfo;
 
@@ -739,6 +747,7 @@ public:
     MonitorProviderClient monitorProviderClient;
 
     Amount maxBidAmount;
+
 
     /* MonitorProvider interface */
     std::string getProviderClass() const;

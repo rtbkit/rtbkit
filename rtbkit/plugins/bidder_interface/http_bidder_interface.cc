@@ -224,7 +224,7 @@ void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
             auto &imp = request.imp[adSpotIndex];
             auto &ext = imp.ext;
 
-            ext["allowed_ids"].append(agentConfig->externalId);
+            ext["external-ids"].append(agentConfig->externalId);
         }
 
     }
