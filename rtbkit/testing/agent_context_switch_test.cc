@@ -43,5 +43,8 @@ BOOST_AUTO_TEST_CASE( test_agent_configuration )
 
     cerr << "did " << stats.totalContextSwitches() - stats0.totalContextSwitches()
          << " context switches per second" << endl;
+
+    cerr << "used " << stats.totalTime() - stats0.totalTime() << "s CPU time"
+         << endl;
 }
 
