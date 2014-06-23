@@ -25,5 +25,12 @@ $(eval $(call test,rtbkit_integration_test,$(RTBKIT_INTEGRATION_TEST_LINK),boost
 
 $(eval $(call program,standalone_bidder_ex,augmentor_base rtb bid_request agent_configuration boost_program_options rtb_router adserver_connector exchange))
 
-$(eval $(call include_sub_make,nodeagents))
+LIBRTBKIT_LINK :=                          \
+        bidding_agent bid_request          \
+        boost_program_options data_logger  \
+        exchange rtb_router                \
+        services standard_adserver
 
+$(eval $(call library,rtbkit,rtbkit.cc,$(LIBRTBKIT_LINK)))
+
+$(eval $(call include_sub_make,nodeagents))
