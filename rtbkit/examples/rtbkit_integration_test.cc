@@ -94,7 +94,6 @@ struct Components
         postAuctionLoop.shutdown();
 
         budgetController.shutdown();
-        masterBanker.shutdown();
 
         agent.shutdown();
         augmentor1.shutdown();
@@ -102,6 +101,11 @@ struct Components
         agentConfig.shutdown();
 
         monitor.shutdown();
+
+        // Waiting a little bit that SlaveBanker from the Router and PAS stop
+        // sending requests to the master banker before shutting it down
+        ML::sleep(2);
+        masterBanker.shutdown();
 
         cerr << "done shutdown" << endl;
     }
@@ -132,20 +136,20 @@ struct Components
         // various bidding agent accounts. The data contained in this service is
         // periodically persisted to redis.
         masterBanker.init(std::make_shared<RedisBankerPersistence>(redis));
-        masterBanker.bindTcp();
+        auto bankerAddr = masterBanker.bindTcp().second;
         masterBanker.start();
 
         // Setup a slave banker that we can use to manipulate and peak at the
         // budgets during the test.
-        budgetController.init(proxies->config);
+        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
         budgetController.start();
 
         // Each router contains a slave masterBanker which is periodically
         // synced with the master banker.
         auto makeSlaveBanker = [=] (const std::string & name)
             {
-                auto res = std::make_shared<SlaveBanker>
-                (proxies->zmqContext, proxies->config, name);
+                auto res = std::make_shared<SlaveBanker>(name);
+                res->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
                 res->start();
                 return res;
             };

@@ -281,8 +281,7 @@ MasterBanker(std::shared_ptr<ServiceProxies> proxies,
              const string & serviceName)
     : ServiceBase(serviceName, proxies),
       RestServiceEndpoint(proxies->zmqContext),
-      saving(false),
-      monitorProviderClient(proxies->zmqContext, *this)
+      saving(false)
 {
     /* Set the Access-Control-Allow-Origins: * header to allow browser-based
        REST calls directly to the endpoint.
@@ -316,7 +315,6 @@ init(const shared_ptr<BankerPersistence> & storage)
     registerServiceProvider(serviceName(), { "rtbBanker" });
 
     getServices()->config->removePath(serviceName());
-    //registerService();
     RestServiceEndpoint::init(getServices()->config, serviceName());
 
     onHandleRequest = router.requestHandler();
@@ -359,8 +357,8 @@ init(const shared_ptr<BankerPersistence> & storage)
                        "Add a new account to the banker",
                        "Representation of the added account",
                        [] (const Account & a) { return a.toJson(); },
-                       &Accounts::createAccount,
-                       &accounts,
+                       &MasterBanker::onCreateAccount,
+                       this,
                        RestParam<AccountKey>("accountName", "account name to create x:y:z"),
                        RestParam<AccountType>("accountType", "account type (spend or budget)"));
     
@@ -426,8 +424,8 @@ init(const shared_ptr<BankerPersistence> & storage)
                        "amount.  ",
                        "Status of the account after the operation",
                        [] (const Account & a) { return a.toJson(); },
-                       &Accounts::setBudget,
-                       &accounts,
+                       &MasterBanker::setBudget,
+                       this,
                        accountKeyParam,
                        JsonParam<CurrencyPool>("", "amount to set budget to"));
 
@@ -438,8 +436,8 @@ init(const shared_ptr<BankerPersistence> & storage)
                        "balance amount matches the parameter",
                        "Account: Representation of the modified account",
                        [] (const Account & a) { return a.toJson(); },
-                       &Accounts::setBalance,
-                       &accounts,
+                       &MasterBanker::setBalance,
+                       this,
                        accountKeyParam,
                        JsonParam<CurrencyPool>("", "amount to set balance to"),
                        RestParamDefault<AccountType>("accountType", "type of account for implicit creation (default no creation)", AT_NONE));
@@ -450,8 +448,8 @@ init(const shared_ptr<BankerPersistence> & storage)
                        "Perform an adjustment to the account",
                        "Account: Representation of the modified account",
                        [] (const Account & a) { return a.toJson(); },
-                       &Accounts::addAdjustment,
-                       &accounts,
+                       &MasterBanker::addAdjustment,
+                       this,
                        accountKeyParam,
                        JsonParam<CurrencyPool>("", "amount to add or substract"));
 
@@ -472,15 +470,11 @@ init(const shared_ptr<BankerPersistence> & storage)
                        "Update a spend account's spend and commitments",
                        "Account: Representation of the modified account",
                        [] (const Account & a) { return a.toJson(); },
-                       &Accounts::syncFromShadow,
-                       &accounts,
+                       &MasterBanker::syncFromShadow,
+                       this,
                        accountKeyParam,
                        JsonParam<ShadowAccount>("",
                                                 "Representation of the shadow account"));
-
-    // Connects to all the monitors regardless of location. This ensures that if
-    // our master banker is down then all data-centers will stop bidding.
-    monitorProviderClient.init(getServices()->config, "monitor", false);
 }
 
 void
@@ -488,7 +482,6 @@ MasterBanker::
 start()
 {
     RestServiceEndpoint::start();
-    monitorProviderClient.start();
 }
 
 pair<string, string>
@@ -506,7 +499,6 @@ shutdown()
 {
     unregisterServiceProvider(serviceName(), { "rtbBanker" });
     RestServiceEndpoint::shutdown();
-    monitorProviderClient.shutdown();
 }
 
 Json::Value
@@ -636,29 +628,60 @@ bindFixedHttpAddress(const string & uri)
 {
 }
 
-/** MonitorProvider interface */
-string
+const Account
 MasterBanker::
-getProviderClass()
-    const
+setBudget(const AccountKey &key, const CurrencyPool &newBudget)
 {
-    return "rtbBanker";
+    JML_TRACE_EXCEPTIONS(false);
+    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
+        throw ML::Exception("Error with the backend");
+
+    return accounts.setBudget(key, newBudget);
 }
 
-MonitorIndicator
+const Account
 MasterBanker::
-getProviderIndicators()
-    const
+onCreateAccount(const AccountKey &key, AccountType type)
 {
-    bool persistenceOk = lastSaveStatus == BankerPersistence::SUCCESS;
+    JML_TRACE_EXCEPTIONS(false);
+    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
+        throw ML::Exception("Error with the backend");
 
-    MonitorIndicator ind;
-    ind.serviceName = serviceName();
-    ind.status = persistenceOk;
-    ind.message = string()
-        + "Banker persistence: " + (persistenceOk ? "OK" : "ERROR");
-
-    return ind;
+    return accounts.createAccount(key, type);
 }
+
+const Account
+MasterBanker::
+setBalance(const AccountKey &key, CurrencyPool amount, AccountType type)
+{
+    JML_TRACE_EXCEPTIONS(false);
+    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
+        throw ML::Exception("Error with the backend");
+
+    return accounts.setBalance(key, amount, type);
+}
+
+const Account
+MasterBanker::
+addAdjustment(const AccountKey &key, CurrencyPool amount)
+{
+    JML_TRACE_EXCEPTIONS(false);
+    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
+        throw ML::Exception("Error with the backend");
+
+    return accounts.addAdjustment(key, amount);
+}
+
+const Account
+MasterBanker::
+syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
+{
+    JML_TRACE_EXCEPTIONS(false);
+    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
+        throw ML::Exception("Error with the backend");
+
+    return accounts.syncFromShadow(key, shadow);
+}
+
 
 } // namespace RTBKIT

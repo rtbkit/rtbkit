@@ -194,6 +194,7 @@ struct NoBankerPersistence : public BankerPersistence {
     {
         onDone(SUCCESS, "");
     }
+
 };
 
 /*****************************************************************************/
@@ -237,8 +238,7 @@ struct OldRedisBankerPersistence : public BankerPersistence {
 
 struct MasterBanker
     : public ServiceBase,
-      public RestServiceEndpoint,
-      public MonitorProvider
+      public RestServiceEndpoint
 {
 
     MasterBanker(std::shared_ptr<ServiceProxies> proxies,
@@ -289,15 +289,16 @@ struct MasterBanker
     void onStateSaved(BankerPersistence::PersistenceCallbackStatus status,
                       const std::string & info);
 
-    /* Reponds to Monitor requests */
-    MonitorProviderClient monitorProviderClient;
-
-    /* MonitorProvider interface */
-    std::string getProviderClass() const;
-    MonitorIndicator getProviderIndicators() const;
-
     Date lastWin;
     Date lastImpression;
+
+private:
+    const Account onCreateAccount(const AccountKey &account, AccountType type);
+    const Account setBudget(const AccountKey &key, const CurrencyPool &newBudget);
+    const Account setBalance(const AccountKey &key, CurrencyPool amount, AccountType type);
+    const Account addAdjustment(const AccountKey &key, CurrencyPool amount);
+    const Account syncFromShadow(const AccountKey &key, const ShadowAccount &shadow);
+
 };
 
 } // namespace RTBKIT
