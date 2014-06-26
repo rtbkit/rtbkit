@@ -107,7 +107,7 @@ struct Router : public ServiceBase,
            bool logAuctions = false,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(200),
-           int secondsUntileSlowMode = 2);
+           int secondsUntilSlowMode = 2);
 
     Router(std::shared_ptr<ServiceProxies> services = std::make_shared<ServiceProxies>(),
            const std::string & serviceName = "router",
@@ -116,7 +116,7 @@ struct Router : public ServiceBase,
            bool logAuctions = false,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(200),
-           int secondsUntileSlowMode = 2);
+           int secondsUntilSlowMode = 2);
 
     ~Router();
 
