@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <boost/thread/thread.hpp>
+#include <thread>
 #include <functional>
 
 #include "jml/arch/wakeup_fd.h"
@@ -38,8 +38,6 @@ struct MessageLoop : public Epoller {
 
     void startSync();
     
-    //void sleepUntilIdle();
-
     void shutdown();
 
     /** Add the given source of asynchronous wakeups with the given
@@ -168,10 +166,10 @@ private:
 
     Lock threadsLock;
     int numThreadsCreated;
-    boost::thread_group threads;
+    std::vector<std::thread> threads;
     
     /** Global flag to shutdown. */
-    int shutdown_;
+    volatile int shutdown_;
 
     /** Do we debug? */
     bool debug_;
@@ -184,7 +182,7 @@ private:
     */
     double maxAddedLatency_;
 
-    bool handleEpollEvent(epoll_event & event);
+    Epoller::HandleEventResult handleEpollEvent(epoll_event & event);
     void handleSourceAction(SourceAction && action);
     void processAddSource(const SourceEntry & entry);
     void processRemoveSource(const SourceEntry & entry);

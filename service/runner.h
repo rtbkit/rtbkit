@@ -219,7 +219,8 @@ private:
     };
 
     void prepareChild();
-    bool handleEpollEvent(const struct epoll_event & event);
+    Epoller::HandleEventResult
+    handleEpollEvent(const struct epoll_event & event);
     void handleChildStatus(const struct epoll_event & event);
     void handleOutputStatus(const struct epoll_event & event,
                             int fd, std::shared_ptr<InputSink> & sink);
