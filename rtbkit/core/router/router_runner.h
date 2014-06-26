@@ -37,6 +37,8 @@ struct RouterRunner {
     bool logBids;
 
     float maxBidPrice;
+    int slowModeTimeout; // Default 2 in MonitorClient constructor
+
     std::string bankerUri;
 
     void doOptions(int argc, char ** argv,
