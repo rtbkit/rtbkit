@@ -32,6 +32,9 @@ struct PostAuctionRunner {
     std::string bidderConfigurationFile;
     std::string bankerUri;
 
+    int winLossPipeTimeout;
+    int campaignEventPipeTimeout;
+
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
                    = boost::program_options::options_description());

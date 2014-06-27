@@ -34,7 +34,9 @@ PostAuctionRunner() :
     shards(1),
     auctionTimeout(EventMatcher::DefaultAuctionTimeout),
     winTimeout(EventMatcher::DefaultWinTimeout),
-    bidderConfigurationFile("rtbkit/examples/bidder-config.json")
+    bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
+    winLossPipeTimeout(PostAuctionService::DefaultWinLossPipeTimeout),
+    campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout)
 {
 }
 
@@ -56,7 +58,11 @@ doOptions(int argc, char ** argv,
         ("win-seconds", value<float>(&winTimeout),
          "Timeout for storing win auction")
         ("auction-seconds", value<float>(&auctionTimeout),
-         "Timeout to get late win auction");
+         "Timeout to get late win auction")
+        ("winlossPipe-seconds", value<int>(&winLossPipeTimeout),
+         "Timeout before sending error on WinLoss pipe")
+        ("campaignEventPipe-seconds", value<int>(&campaignEventPipeTimeout),
+         "Timeout before sending error on CampaignEvent pipe");
 
     options_description all_opt = opts;
     all_opt
@@ -94,9 +100,13 @@ init()
 
     postAuctionLoop->setWinTimeout(winTimeout);
     postAuctionLoop->setAuctionTimeout(auctionTimeout);
+    postAuctionLoop->setWinLossPipeTimeout(winLossPipeTimeout);
+    postAuctionLoop->setCampaignEventPipeTimeout(campaignEventPipeTimeout);
 
     LOG(PostAuctionService::print) << "win timeout is " << winTimeout << std::endl;
     LOG(PostAuctionService::print) << "auction timeout is " << auctionTimeout << std::endl;
+    LOG(PostAuctionService::print) << "winLoss pipe timeout is " << winLossPipeTimeout << std::endl;
+    LOG(PostAuctionService::print) << "campaignEvent pipe timeout is " << campaignEventPipeTimeout << std::endl;
 
     banker = std::make_shared<SlaveBanker>(postAuctionLoop->serviceName() + ".slaveBanker");
     banker->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
