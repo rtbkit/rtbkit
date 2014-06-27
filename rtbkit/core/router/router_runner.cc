@@ -47,7 +47,7 @@ RouterRunner() :
     logAuctions(false),
     logBids(false),
     maxBidPrice(200),
-    slowModeTimeout(2)
+    slowModeTimeout(MonitorClient::DefaultCheckTimeout)
 {
 }
 
