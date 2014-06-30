@@ -571,6 +571,8 @@ createFromJson(const Json::Value & json)
             newConfig.languageFilter.fromJson(*it, "languageFilter");
         else if (it.memberName() == "exchangeFilter")
             newConfig.exchangeFilter.fromJson(*it, "exchangeFilter");
+        else if (it.memberName() == "latLongDevFilter")
+            newConfig.latLongDevFilter.fromJson(*it);
         else if (it.memberName() == "segmentFilter") {
             for (auto jt = it->begin(), jend = it->end();
                  jt != jend;  ++jt) {
@@ -734,6 +736,8 @@ toJson(bool includeCreatives) const
         result["languageFilter"] = languageFilter.toJson();
     if (!exchangeFilter.empty())
         result["exchangeFilter"] = exchangeFilter.toJson();
+    if (!latLongDevFilter.empty())
+        result["latLongDevFilter"] = latLongDevFilter.toJson();
     if (!requiredIds.empty()) {
         for (unsigned i = 0;  i < requiredIds.size();  ++i)
             result["requiredIds"][i] = requiredIds[i];

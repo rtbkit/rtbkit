@@ -203,6 +203,87 @@ getValue(const BidRequest& br, const FilterEntry& entry) const
 }
 
 
+LatLongDevFilter::Square
+LatLongDevFilter::squareFromLatLongRadius(float lat, float lon, float radius)
+{
+    Square sq;
+    sq.y_max = (lat * LATITUDE_1DEGREE_KMS) + radius;
+    sq.y_min = (lat * LATITUDE_1DEGREE_KMS) - radius;
+
+    sq.x_max = ( lon * LONGITUDE_1DEGREE_KMS * cosInDegrees(lat) ) + radius;
+    sq.x_min = ( lon * LONGITUDE_1DEGREE_KMS * cosInDegrees(lat) ) - radius;
+
+    return sq;
+}
+
+void LatLongDevFilter::addConfig(unsigned cfgIndex,
+        const std::shared_ptr<RTBKIT::AgentConfig>& config)
+{
+    SquareList squares;
+    for ( const RTBKIT::LatLonRad & llr : config->latLongDevFilter.latlonrads){
+        auto sq = squareFromLatLongRadius(llr.lat, llr.lon, llr.radius);
+        squares.push_back(sq);
+    }
+    if ( ! squares.empty()){
+        squares_by_confindx[cfgIndex] = squares;
+    }
+}
+
+void LatLongDevFilter::removeConfig(unsigned cfgIndex,
+        const std::shared_ptr<RTBKIT::AgentConfig>& config)
+{
+    squares_by_confindx.erase(cfgIndex);
+}
+
+void LatLongDevFilter::filter(RTBKIT::FilterState& state) const
+ {
+    RTBKIT::ConfigSet matches = state.configs();
+
+    auto it = squares_by_confindx.begin();
+    if ( ! checkLatLongPresent(state.request)){
+        // If there is no geo info the filter, then filter out all the
+        // agent configs that has this filter present.
+        for ( ; it != squares_by_confindx.end(); ++it ){
+            matches.reset(it->first);
+        }
+    } else {
+        // Filter using the lat long of the request and from the configs
+        // of the agents.
+        for ( ; it != squares_by_confindx.end(); ++it ){
+            if (pointInsideAnySquare(state.request.device->geo->lat.val,
+                    state.request.device->geo->lon.val, it->second)) {
+                continue;
+            }
+            matches.reset(it->first);
+        }
+    }
+
+    state.narrowConfigs(matches);
+ }
+
+bool LatLongDevFilter::checkLatLongPresent(
+        const RTBKIT::BidRequest & req) const
+{
+    if ( ! req.device) return false;
+    if ( ! req.device->geo) return false;
+    if ( req.device->geo->lat.val == std::numeric_limits<float>::quiet_NaN() ||
+         req.device->geo->lat.val == std::numeric_limits<float>::quiet_NaN() )
+        return false;
+    return true;
+}
+
+bool
+LatLongDevFilter::pointInsideAnySquare(float lat, float lon,
+        const SquareList & squares)
+{
+    const float y = lat * LATITUDE_1DEGREE_KMS;
+    const float x = lon * LONGITUDE_1DEGREE_KMS * cosInDegrees(lat);
+    for ( auto & sq : squares){
+        if (insideSquare(x, y , sq)) return true;
+    }
+    return false;
+}
+
 } // namespace RTBKIT
 
 
@@ -230,6 +311,8 @@ struct InitFilters
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::ExchangePreFilter>();
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::ExchangeNameFilter>();
         RTBKIT::FilterRegistry::registerFilter<RTBKIT::ExchangePostFilter>();
+
+        RTBKIT::FilterRegistry::registerFilter<RTBKIT::LatLongDevFilter>();
     }
 
 } initFilters;
