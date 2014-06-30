@@ -16,6 +16,7 @@
 #include "rtbkit/common/bid_request.h"
 #include "include_exclude.h"
 #include "rtbkit/common/account_key.h"
+#include "rtbkit/core/agent_configuration/latlonrad.h"
 
 namespace RTBKIT {
 
@@ -263,6 +264,8 @@ struct AgentConfig {
     IncludeExclude<CachedRegex<boost::regex, std::string> > urlFilter;
     IncludeExclude<CachedRegex<boost::regex, std::string> > languageFilter;
     IncludeExclude<CachedRegex<boost::u32regex, Datacratic::UnicodeString> > locationFilter;
+    LatLonRadList latLongDevFilter; // latitude and longitude device filter
+
 
     struct SegmentInfo {
         SegmentInfo()
