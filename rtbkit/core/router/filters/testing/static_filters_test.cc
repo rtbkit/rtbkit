@@ -15,9 +15,11 @@
 
 #include "utils.h"
 #include "rtbkit/core/router/filters/static_filters.h"
+#include "rtbkit/core/agent_configuration/latlonrad.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/common/bid_request.h"
 #include "rtbkit/common/exchange_connector.h"
+#include "rtbkit/openrtb/openrtb.h"
 #include "jml/utils/vector_utils.h"
 
 #include <boost/test/unit_test.hpp>
@@ -538,4 +540,136 @@ BOOST_AUTO_TEST_CASE( requiredIds )
     doCheck(r3, "ex1", { 4 });
     doCheck(r4, "ex1", { 1 });
     doCheck(r5, "ex1", { });
+}
+
+/**
+ * Check these cases:
+ * - No configuration of the filter -> should pass
+ * - Config of the filter with a point inside the given point-radius -> should
+ *  pass
+ *  - Config of the filter with a point out the given point-radius -> should
+ *  not pass
+ *
+ *  Make all of this with the same bid request that has the same lat/long in
+ *  its device->geo
+ *
+ *  Cases where there is no device->geo info in the bid request:
+ *  - A config with the filter should not pass
+ *  - A config with no filter should pass
+ */
+BOOST_AUTO_TEST_CASE( LatLongDevFilterTest)
+{
+    LatLongDevFilter filt;
+    ConfigSet mask;
+
+    auto doCheck = [&] (
+            BidRequest& request,
+            const initializer_list<size_t>& expected)
+    {
+        check(filt, request, "exch0", mask, expected);
+    };
+
+    // This is terible but the UserPartition constructor adds a 0-1 range.
+    auto createBr = [&] (float lat, float lon)
+    {
+        BidRequest br;
+        br.device.emplace();
+        br.device->geo.emplace();
+        br.device->geo->lat.val = lat;
+        br.device->geo->lon.val = lon;
+        return br;
+    };
+
+
+    typedef std::pair<float, float> PairF;
+    auto createConfAg = [] (const initializer_list<PairF>& ranges, float radius) {
+
+        AgentConfig ag;
+        for ( const auto & pair : ranges){
+            LatLonRad llr(pair.first, pair.second, radius);
+            ag.latLongDevFilter.latlonrads.push_back(llr);
+        }
+        return ag;
+    };
+
+    const PairF p0(29.7022, -95.7537);
+    const PairF p1(37.541217, -77.436293);
+
+    BidRequest br0;
+
+    // Out of range of p0
+    BidRequest br1 = createBr(29.8226064,-95.7918521);
+
+    // Inside of range of p0
+    BidRequest br2 = createBr(29.774409,-95.7700225);
+    BidRequest br3 = createBr(29.7048431,-95.7213192);
+
+    // Out of range of p1
+    BidRequest br4 = createBr(37.665520, -77.451957);
+    BidRequest br5 = createBr(37.542850, -77.676146);
+    BidRequest br6 = createBr(37.427340, -77.166999);
+
+    // Inside of range p1
+    BidRequest br7 = createBr(37.540673, -77.388099);
+    BidRequest br8 = createBr(37.541217, -77.471011);
+    BidRequest br9 = createBr(37.595914, -77.453158);
+
+    AgentConfig c0;
+    AgentConfig c1 = createConfAg({ p0 }, 10.0);
+    AgentConfig c2 = createConfAg({ p1 }, 10.0);
+    AgentConfig c3 = createConfAg({ p0, p1 }, 10.0);
+
+
+    addConfig(filt, 0, c0); mask.set(0);
+    addConfig(filt, 1, c1); mask.set(1);
+    addConfig(filt, 2, c2); mask.set(2);
+
+    title("Latitude/Longitude Filter - 1");
+
+    doCheck(br0, {0});
+    doCheck(br1, {0});
+    doCheck(br2, {0, 1});
+    doCheck(br3, {0, 1});
+
+    doCheck(br4, {0});
+    doCheck(br5, {0});
+    doCheck(br6, {0});
+    doCheck(br7, {0, 2});
+    doCheck(br8, {0, 2});
+    doCheck(br9, {0, 2});
+
+    title("Latitude/Longitude Filter - 2");
+
+    addConfig(filt, 3, c3); mask.set(3);
+
+    doCheck(br0, {0});
+    doCheck(br1, {0});
+    doCheck(br2, {0, 1, 3});
+    doCheck(br3, {0, 1, 3});
+
+    doCheck(br4, {0});
+    doCheck(br5, {0});
+    doCheck(br6, {0});
+    doCheck(br7, {0, 2, 3});
+    doCheck(br8, {0, 2, 3});
+    doCheck(br9, {0, 2, 3});
+
+    title("Latitude/Longitude Filter - 3");
+
+    removeConfig(filt, 1, c1); mask.reset(1);
+
+    doCheck(br0, {0});
+    doCheck(br1, {0});
+    doCheck(br2, {0, 3});
+    doCheck(br3, {0, 3});
+
+    removeConfig(filt, 0, c0); mask.reset(0);
+
+    doCheck(br4, { });
+    doCheck(br5, { });
+    doCheck(br6, { });
+    doCheck(br7, { 2, 3});
+    doCheck(br8, { 2, 3});
+    doCheck(br9, { 2, 3});
+
 }
