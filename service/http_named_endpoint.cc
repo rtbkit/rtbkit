@@ -136,7 +136,11 @@ std::shared_ptr<ConnectionHandler>
 HttpNamedEndpoint::
 makeNewHandler()
 {
-    return std::make_shared<RestConnectionHandler>(this);
+    auto res = std::make_shared<RestConnectionHandler>(this);
+
+    // Allow it to get a shared pointer to itself
+    res->sharedThis = res;
+    return res;
 }
 
 
@@ -156,7 +160,9 @@ handleHttpPayload(const HttpHeader & header,
                   const std::string & payload)
 {
     try {
-        endpoint->onRequest(this, header, payload);
+        auto th = sharedThis.lock();
+        ExcAssert(th);
+        endpoint->onRequest(th, header, payload);
     }
     catch(const std::exception& ex) {
         Json::Value response;
@@ -221,8 +227,7 @@ sendResponse(int code,
     // handled.
     auto onSendFinished = [=] {
         this->transport().associateWhenHandlerFinished
-        (std::make_shared<RestConnectionHandler>(endpoint),
-         "sendResponse");
+        (endpoint->makeNewHandler(), "sendResponse");
     };
     
     for (auto & h: endpoint->extraHeaders)

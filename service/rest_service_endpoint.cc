@@ -326,7 +326,7 @@ init(std::shared_ptr<ConfigurationService> config,
     zmqEndpoint.messageHandler = zmqHandler;
         
     httpEndpoint.onRequest
-        = [=] (HttpNamedEndpoint::RestConnectionHandler * connection,
+        = [=] (std::shared_ptr<HttpNamedEndpoint::RestConnectionHandler> connection,
                const HttpHeader & header,
                const std::string & payload)
         {
