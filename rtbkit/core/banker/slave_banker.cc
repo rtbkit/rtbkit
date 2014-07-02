@@ -96,18 +96,22 @@ getAccount(const AccountKey & accountKey,
 /*****************************************************************************/
 
 SlaveBanker::
-SlaveBanker(const std::string & accountSuffix)
+SlaveBanker(const std::string & accountSuffix, CurrencyPool spendRate)
     : createdAccounts(128)
 {
-    init(accountSuffix);
+    init(accountSuffix, spendRate);
 }
 
 void
 SlaveBanker::
-init( const std::string & accountSuffix)
+init(const std::string & accountSuffix, CurrencyPool spendRate)
 {
     if (accountSuffix.empty()) {
         throw ML::Exception("'accountSuffix' cannot be empty");
+    }
+
+    if (spendRate.isZero()) {
+        throw ML::Exception("'spendRate' can not be zero");
     }
 
     // When our account manager creates an account, it will call this
@@ -147,6 +151,7 @@ init( const std::string & accountSuffix)
     addSource("SlaveBanker::createdAccounts", createdAccounts);
 
     this->accountSuffix = accountSuffix;
+    this->spendRate = spendRate;
     
     addPeriodic("SlaveBanker::reportSpend", 1.0,
                 std::bind(&SlaveBanker::reportSpend,
@@ -422,7 +427,7 @@ reauthorizeBudget(uint64_t numTimeoutsExpired)
     auto onAccount = [&] (const AccountKey & key,
                           const ShadowAccount & account)
         {
-            Json::Value payload = CurrencyPool(USD(0.10)).toJson();
+            Json::Value payload = spendRate.toJson();
             ++numDone;
 
             auto onDone = std::bind(&SlaveBanker::onReauthorizeBudgetMessage, this,

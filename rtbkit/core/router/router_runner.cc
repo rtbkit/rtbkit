@@ -76,7 +76,9 @@ doOptions(int argc, char ** argv,
         ("log-bids", value<bool>(&logBids)->zero_tokens(),
          "log bid responses")
         ("max-bid-price", value(&maxBidPrice),
-         "maximum bid price accepted by router");
+         "maximum bid price accepted by router")
+        ("spend-rate", value<float>(&spendRate)->default_value(0.10),
+         "Amount of budget in USD to be periodically re-authorized (default 0.10)");
 
     options_description all_opt = opts;
     all_opt
@@ -117,7 +119,8 @@ init()
     router->initBidderInterface(bidderConfig);
     router->init();
 
-    banker = std::make_shared<SlaveBanker>(router->serviceName() + ".slaveBanker");
+    banker = std::make_shared<SlaveBanker>(router->serviceName() + ".slaveBanker",
+                                           CurrencyPool(USD(spendRate)));
     banker->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
 
     router->setBanker(banker);
