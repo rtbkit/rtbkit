@@ -114,11 +114,23 @@ struct Runner: public Epoller {
              const std::shared_ptr<InputSink> & stdErrSink = nullptr);
 
     /** Kill the subprocess with the given signal, then wait for it to
-        terminate. */
-    void kill(int signal = SIGTERM) const;
+        terminate.
 
-    /** Send the given signal, but don't wait for it to terminate. */
-    void signal(int signum);
+        If mustSucceed = true, then an exception will be thrown if there
+        is no process.
+
+        Returns whether or not the call succeeded.
+    */
+    bool kill(int signal = SIGTERM, bool mustSucceed = true) const;
+
+    /** Send the given signal, but don't wait for it to terminate.
+
+        If mustSucceed = true, then an exception will be thrown if there
+        is no process.
+
+        Returns whether or not the call succeeded.
+    */
+    bool signal(int signum, bool mustSucceed = true);
 
     /** Synchronous wait for the subprocess to start.  Returns true if the
         process started, or false if it wasn't able to start.
