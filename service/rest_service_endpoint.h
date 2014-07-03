@@ -97,7 +97,7 @@ struct RestServiceEndpoint: public MessageLoop {
         }
 
         /// Initialize for http
-        ConnectionId(HttpNamedEndpoint::RestConnectionHandler * http,
+        ConnectionId(std::shared_ptr<HttpNamedEndpoint::RestConnectionHandler> http,
                      const std::string & requestId,
                      RestServiceEndpoint * endpoint)
             : itl(new Itl(http, requestId, endpoint))
@@ -105,7 +105,7 @@ struct RestServiceEndpoint: public MessageLoop {
         }
 
         struct Itl {
-            Itl(HttpNamedEndpoint::RestConnectionHandler * http,
+            Itl(std::shared_ptr<HttpNamedEndpoint::RestConnectionHandler> http,
                 const std::string & requestId,
                 RestServiceEndpoint * endpoint)
                 : requestId(requestId),
@@ -140,7 +140,7 @@ struct RestServiceEndpoint: public MessageLoop {
 
             std::string zmqAddress;
             std::string requestId;
-            HttpNamedEndpoint::RestConnectionHandler * http;
+            std::shared_ptr<HttpNamedEndpoint::RestConnectionHandler> http;
             RestServiceEndpoint * endpoint;
             bool responseSent;
             Date startDate;
