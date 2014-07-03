@@ -253,14 +253,19 @@ runWorkerThread()
         }
 
         if (!needsPoll) {
+            Date beforeSleepTime;
+
             // Now we've processed what we can, let's allow a sleep
             auto beforeSleep = [&] ()
                 {
                     duty.notifyBeforeSleep();
+                    beforeSleepTime = Date::now();
                 };
 
             auto afterSleep = [&] ()
                 {
+                    double delta  = Date::now().secondsSince(beforeSleepTime);
+                    totalSleepTime_ += delta;
                     duty.notifyAfterSleep();
                 };
 
