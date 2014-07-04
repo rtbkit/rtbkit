@@ -26,4 +26,5 @@ $(eval $(call test,rtbkit_integration_test,$(RTBKIT_INTEGRATION_TEST_LINK),boost
 $(eval $(call program,standalone_bidder_ex,augmentor_base rtb bid_request agent_configuration boost_program_options rtb_router adserver_connector exchange))
 
 $(eval $(call include_sub_make,nodeagents))
+$(eval $(call include_sub_make,availability_agent,availability_agent,availability_agent.mk))
 
