@@ -489,4 +489,6 @@ getProviderIndicators() const
     return ind;
 }
 
+const CurrencyPool SlaveBanker::DefaultSpendRate = CurrencyPool(USD(0.10));
+
 } // namespace RTBKIT

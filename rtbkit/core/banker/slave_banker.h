@@ -94,6 +94,8 @@ private:
 */
 struct SlaveBanker : public Banker, public MessageLoop {
 
+    static const CurrencyPool DefaultSpendRate;
+
     SlaveBanker();
 
     ~SlaveBanker()
@@ -102,7 +104,7 @@ struct SlaveBanker : public Banker, public MessageLoop {
     }
 
     SlaveBanker(const std::string & accountSuffix,
-                CurrencyPool spenRate = CurrencyPool(USD(0.10)));
+                CurrencyPool spenRate = DefaultSpendRate);
 
     /** Initialize the slave banker.  
 
@@ -112,7 +114,7 @@ struct SlaveBanker : public Banker, public MessageLoop {
         system, but should be consistent from one invocation to another.
     */
     void init(const std::string & accountSuffix,
-              CurrencyPool spendRate = CurrencyPool(USD(0.10)));
+              CurrencyPool spendRate = DefaultSpendRate);
 
     /** Notify the banker that we're going to need to be spending some
         money for the given account.  We also keep track of how much
