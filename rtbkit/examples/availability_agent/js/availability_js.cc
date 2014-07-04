@@ -7,7 +7,7 @@
 */
 
 
-#include "examples/availability_agent/availability_agent.h"
+#include "rtbkit/examples/availability_agent/availability_agent.h"
 #include "soa/service/js/service_base_js.h"
 #include "soa/service/js/opstats_js.h"
 #include "soa/js/js_wrapped.h"
