@@ -10,6 +10,7 @@
 #define __jml__arch__wakeup_fd_h__
 
 #include <sys/eventfd.h>
+#include <unistd.h>
 #include "exception.h"
 
 namespace ML {
