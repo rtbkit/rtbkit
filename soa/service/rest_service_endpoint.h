@@ -97,7 +97,7 @@ struct RestServiceEndpoint: public MessageLoop {
         }
 
         /// Initialize for http
-        ConnectionId(HttpNamedEndpoint::RestConnectionHandler * http,
+        ConnectionId(std::shared_ptr<HttpNamedEndpoint::RestConnectionHandler> http,
                      const std::string & requestId,
                      RestServiceEndpoint * endpoint)
             : itl(new Itl(http, requestId, endpoint))
@@ -105,14 +105,16 @@ struct RestServiceEndpoint: public MessageLoop {
         }
 
         struct Itl {
-            Itl(HttpNamedEndpoint::RestConnectionHandler * http,
+            Itl(std::shared_ptr<HttpNamedEndpoint::RestConnectionHandler> http,
                 const std::string & requestId,
                 RestServiceEndpoint * endpoint)
                 : requestId(requestId),
                   http(http),
                   endpoint(endpoint),
                   responseSent(false),
-                  startDate(Date::now())
+                  startDate(Date::now()),
+                  chunkedEncoding(false),
+                  keepAlive(true)
             {
             }
 
@@ -124,7 +126,9 @@ struct RestServiceEndpoint: public MessageLoop {
                   http(0),
                   endpoint(endpoint),
                   responseSent(false),
-                  startDate(Date::now())
+                  startDate(Date::now()),
+                  chunkedEncoding(false),
+                  keepAlive(true)
             {
             }
 
@@ -136,10 +140,18 @@ struct RestServiceEndpoint: public MessageLoop {
 
             std::string zmqAddress;
             std::string requestId;
-            HttpNamedEndpoint::RestConnectionHandler * http;
+            std::shared_ptr<HttpNamedEndpoint::RestConnectionHandler> http;
             RestServiceEndpoint * endpoint;
             bool responseSent;
             Date startDate;
+            bool chunkedEncoding;
+            bool keepAlive;
+
+            /** Data that is maintained with the connection.  This is where control
+                data required for asynchronous or long-running connections can be
+                put.
+            */
+            std::vector<std::shared_ptr<void> > piggyBack;
         };
 
         std::shared_ptr<Itl> itl;
@@ -176,6 +188,27 @@ struct RestServiceEndpoint: public MessageLoop {
                               const std::string & response,
                               const std::string & contentType,
                               const RestParams & headers) const;
+
+        enum {
+            UNKNOWN_CONTENT_LENGTH = -1,
+            CHUNKED_ENCODING = -2
+        };
+
+        /** Send an HTTP-only response header.  This will not close the connection.  A
+            contentLength of -1 means don't send it (for when the content length is
+            not known ahead of time).  A contentLength of -2 means used HTTP chunked
+            transfer encoding
+        */
+        void sendHttpResponseHeader(int responseCode,
+                                    const std::string & contentType,
+                                    ssize_t contentLength,
+                                    const RestParams & headers = RestParams()) const;
+
+        /** Send a payload (or a chunk of a payload) for an HTTP connection. */
+        void sendPayload(const std::string & payload);
+
+        /** Finish the response, recycling or closing the connection. */
+        void finishResponse();
 
         /** Send the given error string back on the connection. */
         void sendErrorResponse(int responseCode,

@@ -110,7 +110,7 @@ Runner::
     waitTermination();
 }
 
-bool
+Epoller::HandleEventResult
 Runner::
 handleEpollEvent(const struct epoll_event & event)
 {
@@ -134,7 +134,7 @@ handleEpollEvent(const struct epoll_event & event)
         throw ML::Exception("this should never occur");
     }
 
-    return false;
+    return Epoller::DONE;
 }
 
 void
@@ -465,25 +465,33 @@ run(const vector<string> & command,
     }
 }
 
-void
+bool
 Runner::
-kill(int signum) const
+kill(int signum, bool mustSucceed) const
 {
-    if (childPid_ <= 0)
-        throw ML::Exception("subprocess not available");
+    if (childPid_ <= 0) {
+        if (mustSucceed)
+            throw ML::Exception("subprocess not available");
+        else return false;
+    }
 
     ::kill(-childPid_, signum);
     waitTermination();
+    return true;
 }
 
-void
+bool
 Runner::
-signal(int signum)
+signal(int signum, bool mustSucceed)
 {
-    if (childPid_ <= 0)
-        throw ML::Exception("subprocess not available");
-
+    if (childPid_ <= 0) {
+        if (mustSucceed)
+            throw ML::Exception("subprocess not available");
+        else return false;
+    }
+    
     ::kill(childPid_, signum);
+    return true;
 }
 
 bool

@@ -199,6 +199,66 @@ sendHttpResponse(int responseCode,
     itl->responseSent = true;
 }
 
+void
+RestServiceEndpoint::ConnectionId::
+sendHttpResponseHeader(int responseCode,
+                       const std::string & contentType,
+                       ssize_t contentLength,
+                       const RestParams & headers_) const
+{
+    if (itl->responseSent)
+        throw ML::Exception("response already sent");
+
+    if (!itl->http)
+        throw ML::Exception("sendHttpResponseHeader only works on HTTP connections");
+
+    if (itl->endpoint->logResponse)
+        itl->endpoint->logResponse(*this, responseCode, "", contentType);
+
+    RestParams headers = headers_;
+    if (contentLength == CHUNKED_ENCODING) {
+        itl->chunkedEncoding = true;
+        headers.push_back({"Transfer-Encoding", "chunked"});
+    }
+    else if (contentLength >= 0) {
+        headers.push_back({"Content-Length", to_string(contentLength) });
+    }
+    else {
+        itl->keepAlive = false;
+    }
+
+    itl->http->sendResponseHeader(responseCode, contentType, headers);
+}
+
+void
+RestServiceEndpoint::ConnectionId::
+sendPayload(const std::string & payload)
+{
+    if (itl->chunkedEncoding) {
+        if (payload.empty()) {
+            throw ML::Exception("Can't send empty chunk over a chunked connection");
+        }
+        string length = ML::format("%llx\r\n", (long long)payload.length());
+        itl->http->sendHttpChunk(payload, HttpConnectionHandler::NEXT_CONTINUE);
+    }
+    else itl->http->send(payload);
+}
+
+void
+RestServiceEndpoint::ConnectionId::
+finishResponse()
+{
+    if (itl->chunkedEncoding) {
+        itl->http->sendHttpChunk("", HttpConnectionHandler::NEXT_RECYCLE);
+    }
+    else if (!itl->keepAlive) {
+        itl->http->closeConnection();
+    }
+
+    itl->responseSent = true;
+}
+
+
 
 /*****************************************************************************/
 /* REST SERVICE ENDPOINT                                                     */
@@ -266,7 +326,7 @@ init(std::shared_ptr<ConfigurationService> config,
     zmqEndpoint.messageHandler = zmqHandler;
         
     httpEndpoint.onRequest
-        = [=] (HttpNamedEndpoint::RestConnectionHandler * connection,
+        = [=] (std::shared_ptr<HttpNamedEndpoint::RestConnectionHandler> connection,
                const HttpHeader & header,
                const std::string & payload)
         {

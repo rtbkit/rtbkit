@@ -265,7 +265,7 @@ private:
     void runEventThread(int threadNum, int numThreads);
 
     /** Handle a single ePoll event */
-    bool handleEpollEvent(epoll_event & event);
+    Epoller::HandleEventResult handleEpollEvent(epoll_event & event);
     void handleTransportEvent(const std::shared_ptr<TransportBase>
                               & transport);
     void handleTimerEvent(int fd, OnTimer toRun);

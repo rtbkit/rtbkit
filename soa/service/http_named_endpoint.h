@@ -61,6 +61,7 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
         RestConnectionHandler(HttpNamedEndpoint * endpoint);
 
         HttpNamedEndpoint * endpoint;
+        std::weak_ptr<RestConnectionHandler> sharedThis;
 
         virtual void
         handleHttpPayload(const HttpHeader & header,
@@ -79,9 +80,13 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
                           const std::string & body,
                           const std::string & contentType,
                           RestParams headers = RestParams());
+
+        void sendResponseHeader(int code,
+                                const std::string & contentType,
+                                RestParams headers = RestParams());
     };
 
-    typedef std::function<void (RestConnectionHandler * connection,
+    typedef std::function<void (std::shared_ptr<RestConnectionHandler> connection,
                                 const HttpHeader & header,
                                 const std::string & payload)> OnRequest;
 
