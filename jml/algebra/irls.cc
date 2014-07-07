@@ -22,8 +22,12 @@
 
 using namespace std;
 
+#ifndef UNDER_VALGRIND
+#define UNDER_VALGRIND 0
+#endif
+
 // TODO:in which boost version was this added?
-#if (BOOST_VERSION > 103500)
+#if (BOOST_VERSION > 103500 && !UNDER_VALGRIND)
 #include <boost/math/special_functions/erf.hpp>
 
 
