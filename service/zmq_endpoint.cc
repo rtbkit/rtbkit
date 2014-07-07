@@ -34,14 +34,15 @@ ZmqEventSource::
 ZmqEventSource()
     : socket_(0), socketLock_(nullptr)
 {
-    needsPoll = true;
+    needsPoll = false;
 }
 
 ZmqEventSource::
 ZmqEventSource(zmq::socket_t & socket, SocketLock * socketLock)
     : socket_(&socket), socketLock_(socketLock)
 {
-    needsPoll = true;
+    needsPoll = false;
+    updateEvents();
 }
 
 void
@@ -50,7 +51,8 @@ init(zmq::socket_t & socket, SocketLock * socketLock)
 {
     socket_ = &socket;
     socketLock_ = socketLock;
-    needsPoll = true;
+    needsPoll = false;
+    updateEvents();
 }
 
 int
@@ -69,7 +71,25 @@ bool
 ZmqEventSource::
 poll() const
 {
-    return getEvents(socket()).first;
+    if (currentEvents & ZMQ_POLLIN)
+        return true;
+
+    std::unique_lock<SocketLock> guard;
+
+    if (socketLock_)
+        guard = std::unique_lock<SocketLock>(*socketLock_);
+
+    updateEvents();
+
+    return currentEvents & ZMQ_POLLIN;
+}
+
+void
+ZmqEventSource::
+updateEvents() const
+{
+    size_t events_size = sizeof(currentEvents);
+    socket().getsockopt(ZMQ_EVENTS, &currentEvents, &events_size);
 }
 
 bool
@@ -80,26 +100,35 @@ processOne()
     if (debug_)
         cerr << "called processOne on " << this << ", poll = " << poll() << endl;
 
+    if (!poll())
+        return false;
+
     std::vector<std::string> msg;
 
-    /** NOTE: poll() will only work after we've tried (and failed) to
-        pull a message off.
-    */
-    {
-        std::unique_lock<SocketLock> guard;
-        if (socketLock_)
-            guard = std::unique_lock<SocketLock>(*socketLock_);
+    // We process all events, as otherwise the select fd can't be guaranteed to wake us up
+    for (;;) {
+        {
+            std::unique_lock<SocketLock> guard;
+            if (socketLock_)
+                guard = std::unique_lock<SocketLock>(*socketLock_);
 
-        msg = recvAllNonBlocking(socket());
-    }
+            msg = recvAllNonBlocking(socket());
 
-    if (!msg.empty()) {
+            if (msg.empty()) {
+                if (currentEvents & ZMQ_POLLIN)
+                    throw ML::Exception("empty message with currentEvents");
+                return false;  // no more events
+            }
+
+            updateEvents();
+        }
+
         if (debug_)
             cerr << "got message of length " << msg.size() << endl;
         handleMessage(msg);
     }
 
-    return poll();
+    return currentEvents & ZMQ_POLLIN;
 }
 
 void

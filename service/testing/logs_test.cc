@@ -24,12 +24,14 @@ BOOST_AUTO_TEST_CASE(blah)
 {
     Logging::Category d("d", "a");
     Logging::Category e("e", "d");
+    Logging::Category f("f", "d", false /* enabled */);
 
     BOOST_CHECK(a.isEnabled());
     BOOST_CHECK(b.isEnabled());
     BOOST_CHECK(c.isEnabled());
     BOOST_CHECK(d.isEnabled());
     BOOST_CHECK(e.isEnabled());
+    BOOST_CHECK(!f.isEnabled());
 
     BOOST_CHECK(!!a.getWriter());
     BOOST_CHECK(!!b.getWriter());

@@ -58,8 +58,8 @@ namespace Datacratic {
 struct CloudSink : public CompressingOutput::Sink {
     CloudSink(const std::string & uri ,
               bool append, bool disambiguate, std::string backupDir,
-              std::string bucket, std::string accessKeyId, std::string accessKey
-        );
+              std::string bucket, std::string accessKeyId, std::string accessKey,
+              unsigned int numThreads);
 
     virtual ~CloudSink();
 
@@ -79,7 +79,7 @@ struct CloudSink : public CompressingOutput::Sink {
     std::string bucket_;
     std::string accessKeyId_;
     std::string accessKey_;
-
+    unsigned int numThreads_;
     /// Current stream to the cloud (TM)
     ML::filter_ostream cloudStream;
     // we write to a temporary file on local disk which we delete when
@@ -113,6 +113,7 @@ struct CloudOutput : public NamedOutput {
 
     CloudOutput(std::string backupDir, std::string bucket, 
                 std::string accessKeyId, std::string accessKey,
+                unsigned int numThreads,
                 size_t ringBufferSize = 65536);
 
     virtual ~CloudOutput();
@@ -127,6 +128,7 @@ struct CloudOutput : public NamedOutput {
     std::string bucket_;
     std::string accessKeyId_;
     std::string accessKey_;
+    unsigned numThreads_;
     // note that this structure is only filled in a function that is guaranteed
     // to be called once
     static std::vector<boost::filesystem::path> filesToUpload_;
@@ -145,7 +147,8 @@ struct CloudOutput : public NamedOutput {
 struct RotatingCloudOutput : public RotatingOutputAdaptor {
 
     RotatingCloudOutput(std::string backupDir, std::string bucket, 
-                        std::string accessKeyId, std::string accessKey);
+                        std::string accessKeyId, std::string accessKey,
+                        unsigned int numThreads);
 
     virtual ~RotatingCloudOutput();
 
@@ -176,6 +179,7 @@ private:
     std::string bucket_;
     std::string accessKeyId_;
     std::string accessKey_;
+    unsigned int numThreads_;//number of threads to use for s3 upload per file
 };
 
 } // namespace Datacratic
