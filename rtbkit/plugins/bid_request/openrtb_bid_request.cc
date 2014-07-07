@@ -247,6 +247,19 @@ fromOpenRtb(OpenRTB::BidRequest && req,
         else
             result->userIds.add(Id(0), ID_PROVIDER);
 
+        if (result->user->geo) {
+            const auto & ug = *result->user->geo;
+            auto & l = result->location;
+            if(l.countryCode.empty() && !ug.country.empty())
+                l.countryCode = ug.country;
+            if(l.regionCode.empty() && !ug.region.empty())
+                l.regionCode = ug.region;
+            if(l.cityName.empty() && !ug.city.empty())
+                l.cityName = ug.city;
+            if(l.postalCode.empty() && !ug.zip.empty())
+                l.postalCode = ug.zip;
+        }
+
     }
     else
     {
