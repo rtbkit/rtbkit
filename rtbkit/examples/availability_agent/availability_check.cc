@@ -28,6 +28,8 @@ AvailabilityCheck(size_t size) :
     pos = 0;
     for (size_t i = 0; i < requests.size(); ++i)
         requests[i] = NULL;
+
+    filters.initWithDefaultFilters();
 }
 
 
