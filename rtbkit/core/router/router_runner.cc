@@ -69,8 +69,8 @@ doOptions(int argc, char ** argv,
          "configuration file with exchange data")
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
-        ("banker-uri", value<string>(&bankerUri),
-         "URI of the master banker (host:port)")
+        ("use-http-banker", value<bool>(&useHttpBanker),
+         "Communicate with the MasterBanker over http")
         ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
          "log auction requests")
         ("log-bids", value<bool>(&logBids)->zero_tokens(),
@@ -118,7 +118,17 @@ init()
     router->init();
 
     banker = std::make_shared<SlaveBanker>(router->serviceName() + ".slaveBanker");
-    banker->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+    std::shared_ptr<ApplicationLayer> layer;
+    if (useHttpBanker) {
+        auto bankerUri = proxies->bankerUri;
+        ExcCheck(!bankerUri.empty(),
+                "the banker-uri must be specified in the bootstrap.json");
+        layer = make_application_layer<HttpLayer>(bankerUri);
+    }
+    else {
+        layer = make_application_layer<ZmqLayer>(proxies->config);
+    }
+    banker->setApplicationLayer(layer);
 
     router->setBanker(banker);
     router->bindTcp();
