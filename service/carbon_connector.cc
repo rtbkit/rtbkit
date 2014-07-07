@@ -65,6 +65,9 @@ open(const std::string & path,
     shutdown();
 
     doShutdown = doDump = false;
+    if (dumpInterval < 1.0) {
+        dumpInterval = 1.0;
+    }
     this->dumpInterval = dumpInterval;
     this->onStop = onStop;
 
@@ -262,17 +265,8 @@ void
 MultiAggregator::
 runDumpingThread()
 {
-    auto calcNextDump = [=] {
-        Date next = Date::now().plusSeconds(dumpInterval);
-        if (dumpInterval <= 1.0) return next;
 
-        size_t seconds = next.quantize(1).secondsSinceEpoch();
-        seconds -= seconds % size_t(dumpInterval);
-        seconds += dumpInterval / 2;
-        return Date::fromSecondsSinceEpoch(seconds);
-    };
-
-    Date nextDump = calcNextDump();
+    size_t current = 0;
 
     for (;;) {
         std::unique_lock<std::mutex> lock(m);
@@ -291,8 +285,9 @@ runDumpingThread()
                 toDump.push_back(it);
         }
 
-        bool dumpNow = doDump.exchange(false) || now >= nextDump;
-        if (dumpNow) nextDump = calcNextDump();
+        ++current;
+        bool dumpNow = doDump.exchange(false) ||
+                       (current % static_cast<size_t>(dumpInterval)) == 0;
 
         // Now dump them without the lock held. Note that we still need to call
         // read every second even if we're not flushing to carbon.
