@@ -49,8 +49,8 @@ doOptions(int argc, char ** argv,
     postAuctionLoop_options.add_options()
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
-        ("banker-uri", value<string>(&bankerUri),
-         "URI of the master banker (host:port)")
+        ("use-http-banker", value<bool>(&useHttpBanker),
+         "Communicate with the MasterBanker over http")
         ("shards", value<size_t>(&shards),
          "Number of shards(threads) used for matching.")
         ("win-seconds", value<float>(&winTimeout),
@@ -99,7 +99,17 @@ init()
     LOG(PostAuctionService::print) << "auction timeout is " << auctionTimeout << std::endl;
 
     banker = std::make_shared<SlaveBanker>(postAuctionLoop->serviceName() + ".slaveBanker");
-    banker->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+    std::shared_ptr<ApplicationLayer> layer;
+    if (useHttpBanker) {
+        auto bankerUri = proxies->bankerUri;
+        ExcCheck(!bankerUri.empty(),
+                "the banker-uri must be specified in the bootstrap.json");
+        layer = make_application_layer<HttpLayer>(bankerUri);
+    }
+    else {
+        layer = make_application_layer<ZmqLayer>(proxies->config);
+    }
+    banker->setApplicationLayer(layer);
 
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);
