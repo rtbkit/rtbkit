@@ -46,7 +46,8 @@ RouterRunner() :
     noPostAuctionLoop(false),
     logAuctions(false),
     logBids(false),
-    maxBidPrice(200)
+    maxBidPrice(200),
+    useHttpBanker(false)
 {
 }
 
@@ -69,7 +70,7 @@ doOptions(int argc, char ** argv,
          "configuration file with exchange data")
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
-        ("use-http-banker", value<bool>(&useHttpBanker),
+        ("use-http-banker", bool_switch(&useHttpBanker),
          "Communicate with the MasterBanker over http")
         ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
          "log auction requests")
@@ -124,9 +125,11 @@ init()
         ExcCheck(!bankerUri.empty(),
                 "the banker-uri must be specified in the bootstrap.json");
         layer = make_application_layer<HttpLayer>(bankerUri);
+        std::cerr << "using http interface for the MasterBanker" << std::endl;
     }
     else {
         layer = make_application_layer<ZmqLayer>(proxies->config);
+        std::cerr << "using zmq interface for the MasterBanker" << std::endl;
     }
     banker->setApplicationLayer(layer);
 
