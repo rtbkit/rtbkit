@@ -47,6 +47,7 @@ RouterRunner() :
     logAuctions(false),
     logBids(false),
     maxBidPrice(200),
+    slowModeTimeout(MonitorClient::DefaultCheckTimeout),
     useHttpBanker(false)
 {
 }
@@ -62,6 +63,8 @@ doOptions(int argc, char ** argv,
     router_options.add_options()
         ("loss-seconds,l", value<float>(&lossSeconds),
          "number of seconds after which a loss is assumed")
+        ("slowModeTimeout", value<int>(&slowModeTimeout),
+         "number of seconds after which the system consider to be in SlowMode")
         ("no-post-auction-loop", bool_switch(&noPostAuctionLoop),
          "don't connect to the post auction loop")
         ("log-uri", value<vector<string> >(&logUris),
@@ -114,7 +117,8 @@ init()
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
                                       connectPostAuctionLoop,
                                       logAuctions, logBids,
-                                      USD_CPM(maxBidPrice));
+                                      USD_CPM(maxBidPrice),
+                                      slowModeTimeout);
     router->initBidderInterface(bidderConfig);
     router->init();
 

@@ -30,6 +30,9 @@ struct PostAuctionRunner {
     float auctionTimeout;
     float winTimeout;
     std::string bidderConfigurationFile;
+
+    int winLossPipeTimeout;
+    int campaignEventPipeTimeout;
     bool useHttpBanker;
 
     void doOptions(int argc, char ** argv,

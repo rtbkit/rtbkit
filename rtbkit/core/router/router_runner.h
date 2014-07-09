@@ -37,6 +37,8 @@ struct RouterRunner {
     bool logBids;
 
     float maxBidPrice;
+    int slowModeTimeout; // Default value =  MonitorClient::DefaultCheckTimeout
+
     bool useHttpBanker;
 
     void doOptions(int argc, char ** argv,
