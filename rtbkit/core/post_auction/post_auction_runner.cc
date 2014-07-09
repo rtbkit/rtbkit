@@ -36,7 +36,7 @@ PostAuctionRunner() :
     winTimeout(EventMatcher::DefaultWinTimeout),
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
     winLossPipeTimeout(PostAuctionService::DefaultWinLossPipeTimeout),
-    campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout)
+    campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout),
     useHttpBanker(false)
 {
 }
