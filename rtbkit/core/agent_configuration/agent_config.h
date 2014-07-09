@@ -366,63 +366,6 @@ struct AgentConfig {
 
     /** Message formats */
     BidResultFormat winFormat, lossFormat, errorFormat;
-
-    /** Returns a list of (adspot, [creatives]) pairs compatible with this
-        agent.
-    */
-    BiddableSpots
-    canBid(const ExchangeConnector * exchangeConnector,
-           const BidRequest& request,
-           const Datacratic::UnicodeString & language,
-           const Datacratic::UnicodeString & location, uint64_t locationHash,
-           ML::Lightweight_Hash<uint64_t, int> & locationCache) const;
-
-
-    /** Cache used to speed up successive calls to isBiddableRequest() for a
-        given request.
-    */
-    struct RequestFilterCache
-    {
-        RequestFilterCache(const BidRequest& request) :
-            urlHash(hashString(request.url.c_str())),
-
-            language(!request.language.empty() ?
-                     request.language : Datacratic::UnicodeString("unspecified")),
-            languageHash(hashString(request.language)),
-
-            location(request.location.fullLocationString()),
-            locationHash(hashString(location))
-        {}
-
-        uint64_t urlHash;
-
-        Datacratic::UnicodeString language;
-        uint64_t languageHash;
-
-        Datacratic::UnicodeString location;
-        uint64_t locationHash;
-
-        // Cache of regex -> bool
-        ML::Lightweight_Hash<uint64_t, int> urlFilter;
-        ML::Lightweight_Hash<uint64_t, int> languageFilter;
-        ML::Lightweight_Hash<uint64_t, int> locationFilter;
-    };
-
-    typedef std::function<void(const char*)> FilterStatFn;
-
-    /** Returns the biddable imp (see canBid) if the agent can bid on the
-        given bid request.
-
-        Before the function returns false, doFilterStat will be called with the
-        cause of the filtering and the appropriate member of AgentStats will be
-        incremented.
-    */
-    BiddableSpots
-    isBiddableRequest(const ExchangeConnector * exchange,
-                      const BidRequest& request,
-                      AgentStats& stats,
-                      RequestFilterCache& cache,
-                      const FilterStatFn & doFilterStat = FilterStatFn()) const;
 };
 
 

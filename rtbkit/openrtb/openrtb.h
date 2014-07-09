@@ -1009,7 +1009,7 @@ struct User {
     std::string gender;             ///< Gender: Male, Female, Other
     Datacratic::CSList keywords;           ///< List of keywords of consumer intent
     Datacratic::UnicodeString customdata;         ///< Custom data from exchange
-    Geo geo;                   ///< Geolocation of user at registration
+    Datacratic::Optional<Geo> geo;                   ///< Geolocation of user at registration
     std::vector<Data> data;         ///< User data segments
     Json::Value ext;           ///< Extensions go here, new in OpenRTB 2.1
 

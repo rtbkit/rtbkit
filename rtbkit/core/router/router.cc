@@ -1265,8 +1265,6 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
 
     bool traceAuction = auction->id.hash() % 10 == 0;
 
-    AgentConfig::RequestFilterCache cache(*auction->request);
-
     auto exchangeConnector = auction->exchangeConnector;
 
 

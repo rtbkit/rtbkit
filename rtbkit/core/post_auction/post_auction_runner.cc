@@ -37,6 +37,7 @@ PostAuctionRunner() :
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
     winLossPipeTimeout(PostAuctionService::DefaultWinLossPipeTimeout),
     campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout)
+    useHttpBanker(false)
 {
 }
 
@@ -51,8 +52,8 @@ doOptions(int argc, char ** argv,
     postAuctionLoop_options.add_options()
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
-        ("banker-uri", value<string>(&bankerUri),
-         "URI of the master banker (host:port)")
+        ("use-http-banker", bool_switch(&useHttpBanker),
+         "Communicate with the MasterBanker over http")
         ("shards", value<size_t>(&shards),
          "Number of shards(threads) used for matching.")
         ("win-seconds", value<float>(&winTimeout),
@@ -109,7 +110,19 @@ init()
     LOG(PostAuctionService::print) << "campaignEvent pipe timeout is " << campaignEventPipeTimeout << std::endl;
 
     banker = std::make_shared<SlaveBanker>(postAuctionLoop->serviceName() + ".slaveBanker");
-    banker->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+    std::shared_ptr<ApplicationLayer> layer;
+    if (useHttpBanker) {
+        auto bankerUri = proxies->bankerUri;
+        ExcCheck(!bankerUri.empty(),
+                "the banker-uri must be specified in the bootstrap.json");
+        LOG(PostAuctionService::print) << "using http interface for the MasterBanker" << std::endl;
+        layer = make_application_layer<HttpLayer>(bankerUri);
+    }
+    else {
+        layer = make_application_layer<ZmqLayer>(proxies->config);
+        LOG(PostAuctionService::print) << "using zmq interface for the MasterBanker" << std::endl;
+    }
+    banker->setApplicationLayer(layer);
 
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);

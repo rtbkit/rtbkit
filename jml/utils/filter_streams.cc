@@ -293,6 +293,21 @@ open(const std::string & uri, std::ios_base::openmode mode,
 
 void
 filter_ostream::
+open(const std::string & uri, std::ios_base::openmode mode,
+     const std::string & compression, int compressionLevel, 
+     unsigned int numThreads)
+{
+    //cerr << "uri = " << uri << " compression = " << compression << endl;
+    std::map<std::string, std::string>  options = 
+         createOptions(mode, compression, compressionLevel);
+    // add the number of threads to the options
+    options["num-threads"] = to_string(numThreads);
+    open(uri, options);
+}
+
+
+void
+filter_ostream::
 open(const std::string & uri,
      const std::map<std::string, std::string> & options)
 {

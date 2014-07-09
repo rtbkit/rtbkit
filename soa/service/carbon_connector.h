@@ -16,6 +16,7 @@
 #include <map>
 #include <memory>
 #include <thread>
+#include <atomic>
 #include <condition_variable>
 #include <boost/thread.hpp>
 
@@ -152,8 +153,8 @@ private:
 
     std::condition_variable cond;  // to wake up dumping thread
     std::mutex m;
-    bool doShutdown;                 // thread woken up to shutdown
-    bool doDump;                     // thread woken up to dump
+    std::atomic<bool> doShutdown;                 // thread woken up to shutdown
+    std::atomic<bool> doDump;                     // thread woken up to dump
 
     /** How many seconds to wait before we dump.  If set to zero, dumping
         is only done on demand.
@@ -175,11 +176,13 @@ struct CarbonConnector : public MultiAggregator {
 
     CarbonConnector(const std::string & carbonAddr,
                     const std::string & path,
+                    double dumpInterval = 1.0,
                     std::function<void ()> onStop
                         = std::function<void ()>());
 
     CarbonConnector(const std::vector<std::string> & carbonAddrs,
                     const std::string & path,
+                    double dumpInterval = 1.0,
                     std::function<void ()> onStop
                         = std::function<void ()>());
 
@@ -187,11 +190,13 @@ struct CarbonConnector : public MultiAggregator {
 
     void open(const std::string & carbonAddr,
               const std::string & path,
+              double dumpInterval = 1.0,
               std::function<void ()> onStop
                   = std::function<void ()>());
 
     void open(const std::vector<std::string> & carbonAddrs,
               const std::string & path,
+              double dumpInterval = 1.0,
               std::function<void ()> onStop
                   = std::function<void ()>());
 

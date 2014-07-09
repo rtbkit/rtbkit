@@ -77,7 +77,7 @@ addMessageLoop(const string& name, const MessageLoop* loop)
 
     auto sampleFn = [=] (double elapsedTime) mutable {
         double timeSlept = loop->totalSleepSeconds();
-        double delta = timeSlept - lastTimeSlept;
+        double delta = std::min(timeSlept - lastTimeSlept, 1.0);
         lastTimeSlept = timeSlept;
 
         return 1.0 - (delta / elapsedTime);

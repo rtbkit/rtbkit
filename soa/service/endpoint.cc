@@ -406,8 +406,7 @@ numConnectionsByHost() const
     return numTransportsByHost;
 }
 
-/** Handle a single ePoll event */
-bool
+Epoller::HandleEventResult
 EndpointBase::
 handleEpollEvent(epoll_event & event)
 {
@@ -446,13 +445,13 @@ handleEpollEvent(epoll_event & event)
     }
     case EpollData::EpollDataType::WAKEUP:
         // wakeup for shutdown
-        return true;
+        return Epoller::SHUTDOWN;
     default:
         throw ML::Exception("unrecognized fd type");
     }
 
 
-    return false;
+    return Epoller::DONE;
 }
 
 void
