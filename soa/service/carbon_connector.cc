@@ -265,14 +265,13 @@ void
 MultiAggregator::
 runDumpingThread()
 {
-
     size_t current = 0;
+    Date nextWakeup = Date::now();
 
     for (;;) {
         std::unique_lock<std::mutex> lock(m);
 
-        Date now = Date::now();
-        Date nextWakeup = now.plusSeconds(1.0);
+        nextWakeup.addSeconds(1.0);
         if (cond.wait_until(lock, nextWakeup.toStd(), [&] { return doShutdown.load(); }))
             break;
 
@@ -295,6 +294,11 @@ runDumpingThread()
 
             try {
                 auto stat = (*it)->second->read((*it)->first);
+
+                // Hack: ensures that all timestamps are consistent and that we
+                // will not have any gaps within carbon.
+                for (auto& s : stat) s.timestamp = nextWakeup;
+
                 if (dumpNow) doStat(std::move(stat));
             } catch (const std::exception & exc) {
                 cerr << "error writing stat: " << exc.what() << endl;
