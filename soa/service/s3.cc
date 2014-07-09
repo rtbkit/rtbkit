@@ -1924,7 +1924,8 @@ struct StreamingUploadSource {
     StreamingUploadSource(const S3Api * owner,
                           const std::string & bucket,
                           const std::string & object,
-                          const S3Api::ObjectMetadata & metadata)
+                          const S3Api::ObjectMetadata & metadata,
+                          unsigned int numThreads)
     {
         impl.reset(new Impl());
         impl->owner = owner;
@@ -2050,10 +2051,11 @@ struct StreamingUploadSource {
                                                        S3Api::UR_EXCLUSIVE);
 
             uploadId = upload.id;
-            //cerr << "uploadId = " << uploadId << endl;
+            //cerr << "uploadId = " << uploadId << " with " << metadata.numThreads 
+            //<< "threads!!! " << endl;
 
             startDate = Date::now();
-            for (unsigned i = 0;  i < 8;  ++i)
+            for (unsigned i = 0;  i < metadata.numThreads;  ++i)
                 tg.create_thread(boost::bind<void>(&Impl::runThread, this));
             current.init(0, chunkSize, 0);
         }
@@ -2214,11 +2216,12 @@ std::auto_ptr<std::streambuf>
 S3Api::
 streamingUpload(const std::string & bucket,
                 const std::string & object,
-                const ObjectMetadata & metadata) const
+                const ObjectMetadata & metadata,
+                unsigned int numThreads) const
 {
     std::auto_ptr<std::streambuf> result;
     result.reset(new boost::iostreams::stream_buffer<StreamingUploadSource>
-                 (StreamingUploadSource(this, bucket, object, metadata),
+                 (StreamingUploadSource(this, bucket, object, metadata, numThreads),
                   131072));
     return result;
 }
@@ -2513,6 +2516,10 @@ struct RegisterS3Handler {
                 else if (name.find("aws-") == 0) {
                     throw ML::Exception("unknown aws option " + name + "=" + value
                                         + " opening S3 object " + resource);
+                }
+                else if(name == "num-threads")
+                {
+                    md.numThreads = std::stoi(value);
                 }
                 else {
                     cerr << "warning: skipping unknown S3 option "

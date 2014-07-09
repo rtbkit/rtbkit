@@ -105,15 +105,17 @@ CarbonEventService(std::shared_ptr<CarbonConnector> conn) :
 
 CarbonEventService::
 CarbonEventService(const std::string & carbonAddress,
-                   const std::string & prefix)
-    : connector(new CarbonConnector(carbonAddress, prefix))
+                   const std::string & prefix,
+                   double dumpInterval)
+    : connector(new CarbonConnector(carbonAddress, prefix, dumpInterval))
 {
 }
 
 CarbonEventService::
 CarbonEventService(const std::vector<std::string> & carbonAddresses,
-                   const std::string & prefix)
-    : connector(new CarbonConnector(carbonAddresses, prefix))
+                   const std::string & prefix,
+                   double dumpInterval)
+    : connector(new CarbonConnector(carbonAddresses, prefix, dumpInterval))
 {
 }
 
@@ -442,17 +444,19 @@ ServiceProxies()
 void
 ServiceProxies::
 logToCarbon(const std::string & carbonConnection,
-            const std::string & prefix)
+            const std::string & prefix,
+            double dumpInterval)
 {
-    events.reset(new CarbonEventService(carbonConnection, prefix));
+    events.reset(new CarbonEventService(carbonConnection, prefix, dumpInterval));
 }
 
 void
 ServiceProxies::
 logToCarbon(const std::vector<std::string> & carbonConnections,
-            const std::string & prefix)
+            const std::string & prefix,
+            double dumpInterval)
 {
-    events.reset(new CarbonEventService(carbonConnections, prefix));
+    events.reset(new CarbonEventService(carbonConnections, prefix, dumpInterval));
 }
 
 void
@@ -588,6 +592,12 @@ bootstrap(const Json::Value& config)
     string location = config["location"].asString();
     ExcCheck(!location.empty(), "location is not specified in the bootstrap.json");
 
+    bankerUri = config.get("banker-uri", "").asString();
+    if (bankerUri.empty()) {
+        // Reading bankerHost for historical reason
+        bankerUri = config.get("bankerHost", "").asString();
+    }
+
     if (config.isMember("carbon-uri")) {
         const Json::Value& entry = config["carbon-uri"];
         vector<string> uris;
@@ -598,7 +608,9 @@ bootstrap(const Json::Value& config)
         }
         else uris.push_back(entry.asString());
 
-        logToCarbon(uris, install);
+        double dumpInterval = config.get("carbon-dump-interval", 1.0).asDouble();
+
+        logToCarbon(uris, install, dumpInterval);
     }
 
     if (config.isMember("zookeeper-uri"))

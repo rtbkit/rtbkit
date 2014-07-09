@@ -19,9 +19,9 @@ std::vector<boost::filesystem::path> CloudOutput::filesToUpload_;
 CloudSink::
 CloudSink(const std::string & uri, bool append, bool disambiguate,
           std::string backupDir, std::string bucket, string accessKeyId, 
-          string accessKey):
+          string accessKey, unsigned int numThreads):
     backupDir_(backupDir),bucket_(bucket), 
-    accessKeyId_(accessKeyId), accessKey_(accessKey)
+    accessKeyId_(accessKeyId), accessKey_(accessKey),numThreads_(numThreads)
 {
     if (uri != "")
     {
@@ -122,8 +122,11 @@ open(const std::string & uri, bool append, bool disambiguate)
 
     currentUri = disambUri;
 
+    string compression = "";
+    int level = -1;
     cloudStream.open(disambUri, std::ios_base::out |
-                          (append ? std::ios_base::app : std::ios::openmode()));
+                     (append ? std::ios_base::app : std::ios::openmode()),
+                     compression, level, numThreads_);
 
     // Get the file name from the s3 uri. We want to preserve the path since
     // if we only get the filename we could overwrite files with the same name
@@ -334,18 +337,19 @@ std::shared_ptr<CompressingOutput::Sink>
 CloudOutput::createSink(const string & uri, bool append)
 {
     return make_shared<CloudSink>(uri, append, true, backupDir_, bucket_, 
-                                  accessKeyId_, accessKey_);
+                                  accessKeyId_, accessKey_, numThreads_);
 }
 
- RotatingCloudOutput::RotatingCloudOutput(std::string backupDir, 
-                                          string bucket,
-                                          string accessKeyId,
-                                          string accessKey)
+RotatingCloudOutput::RotatingCloudOutput(std::string backupDir, 
+                                         string bucket,
+                                         string accessKeyId,
+                                         string accessKey,
+                                         unsigned int numThreads)
 :RotatingOutputAdaptor(std::bind(&RotatingCloudOutput::createFile,
                                       this,
                                   std::placeholders::_1)),
         backupDir_(backupDir),bucket_(bucket), accessKeyId_(accessKeyId), 
-        accessKey_(accessKey)
+        accessKey_(accessKey),numThreads_(numThreads)
 {
 }
 
@@ -374,9 +378,9 @@ CloudOutput *
 RotatingCloudOutput::
 createFile(const string & filename)
 {
-
     std::unique_ptr<CloudOutput> result(new CloudOutput(backupDir_, bucket_,
-                                                      accessKeyId_,accessKey_));
+                                                        accessKeyId_,accessKey_,
+                                                        numThreads_));
 
     result->onPreFileOpen = [=] (const string & fn)
     {
@@ -410,9 +414,10 @@ namespace
 }
 CloudOutput::
     CloudOutput(std::string backupDir, std::string bucket, 
-                std::string accessKeyId, std::string accessKey, size_t ringBufferSize)
+                std::string accessKeyId, std::string accessKey, 
+                unsigned int numThreads, size_t ringBufferSize)
     : NamedOutput(ringBufferSize),backupDir_(backupDir),bucket_(bucket),
-      accessKeyId_(accessKeyId),accessKey_(accessKey)
+      accessKeyId_(accessKeyId),accessKey_(accessKey),numThreads_(numThreads)
 {
 
     if( !fs::exists(backupDir))

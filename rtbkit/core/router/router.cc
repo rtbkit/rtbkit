@@ -113,7 +113,8 @@ Router(ServiceBase & parent,
        bool connectPostAuctionLoop,
        bool logAuctions,
        bool logBids,
-       Amount maxBidAmount)
+       Amount maxBidAmount,
+       int secondsUntilSlowMode)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       configBuffer(1024),
@@ -141,7 +142,7 @@ Router(ServiceBase & parent,
       numAuctions(0), numBids(0), numNonEmptyBids(0),
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
-      monitorClient(getZmqContext()),
+      monitorClient(getZmqContext(), secondsUntilSlowMode),
       slowModeCount(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount)
@@ -156,7 +157,8 @@ Router(std::shared_ptr<ServiceProxies> services,
        bool connectPostAuctionLoop,
        bool logAuctions,
        bool logBids,
-       Amount maxBidAmount)
+       Amount maxBidAmount,
+       int secondsUntilSlowMode)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       postAuctionEndpoint(getZmqContext()),
@@ -185,7 +187,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       numAuctions(0), numBids(0), numNonEmptyBids(0),
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
-      monitorClient(getZmqContext()),
+      monitorClient(getZmqContext(), secondsUntilSlowMode),
       slowModeCount(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount)
@@ -1262,8 +1264,6 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
     double timeLeftMs = auction->timeAvailable() * 1000.0;
 
     bool traceAuction = auction->id.hash() % 10 == 0;
-
-    AgentConfig::RequestFilterCache cache(*auction->request);
 
     auto exchangeConnector = auction->exchangeConnector;
 

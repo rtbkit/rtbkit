@@ -29,6 +29,12 @@ struct BidderInterface;
 
 struct PostAuctionService : public ServiceBase, public MonitorProvider
 {
+
+    enum {
+        DefaultWinLossPipeTimeout = 10,
+        DefaultCampaignEventPipeTimeout = 10
+    };
+
     PostAuctionService(ServiceBase & parent,
                     const std::string & serviceName);
     PostAuctionService(std::shared_ptr<ServiceProxies> proxies,
@@ -91,6 +97,21 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
         if (matcher) matcher->setAuctionTimeout(timeout);
     }
 
+    void setWinLossPipeTimeout(int timeout)
+    {
+        if (timeout < 0)
+            throw ML::Exception("Invalid timeout for WinLoss Pipe timeout");
+
+        winLossPipeTimeout = timeout;
+    }
+
+    void setCampaignEventPipeTimeout(int timeout)
+    {
+        if (timeout < 0)
+            throw ML::Exception("Invalid timeout for Campaign Event Pipe timeout");
+
+        campaignEventPipeTimeout = timeout;
+    }
 
     /************************************************************************/
     /* LOGGING                                                              */
@@ -254,6 +275,9 @@ private:
 
     float auctionTimeout;
     float winTimeout;
+
+    int winLossPipeTimeout;
+    int campaignEventPipeTimeout;
 
     Date lastWinLoss;
     Date lastCampaignEvent;

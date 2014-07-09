@@ -70,10 +70,17 @@ public:
               std::ios_base::openmode mode = std::ios_base::out,
               const std::string & compression = "",
               int level = -1);
+    // have a version where we can specify the number of threads
+    void open(const std::string & uri,
+              std::ios_base::openmode mode,
+              const std::string & compression,
+              int level , unsigned int numThreads);
+
     void open(int fd,
               std::ios_base::openmode mode = std::ios_base::out,
               const std::string & compression = "",
               int level = -1);
+    
 
     void openFromStreambuf(std::streambuf * buf,
                            bool weOwnBuf,

@@ -226,13 +226,15 @@ struct S3Api : public AwsApi {
     struct ObjectMetadata {
         ObjectMetadata()
             : redundancy(REDUNDANCY_DEFAULT),
-              serverSideEncryption(SSE_NONE)
+              serverSideEncryption(SSE_NONE),
+              numThreads(8)
         {
         }
 
         ObjectMetadata(const Redundancy & redundancy)
             : redundancy(redundancy),
-              serverSideEncryption(SSE_NONE)
+              serverSideEncryption(SSE_NONE),
+              numThreads(8)
         {
         }
 
@@ -245,6 +247,7 @@ struct S3Api : public AwsApi {
         std::string contentEncoding;
         std::map<std::string, std::string> metadata;
         std::string acl;
+        unsigned int numThreads;
     };
 
     /** Signed request that can be executed. */
@@ -425,7 +428,8 @@ struct S3Api : public AwsApi {
     std::auto_ptr<std::streambuf>
     streamingUpload(const std::string & bucket,
                     const std::string & object,
-                    const ObjectMetadata & md = ObjectMetadata()) const;
+                    const ObjectMetadata & md = ObjectMetadata(),
+                    unsigned int numThreads = 8) const;
 
     struct ObjectInfo : public FsObjectInfo {
         ObjectInfo()

@@ -87,9 +87,11 @@ struct CarbonEventService : public EventService {
 
     CarbonEventService(std::shared_ptr<CarbonConnector> conn);
     CarbonEventService(const std::string & connection,
-                       const std::string & prefix = "");
+                       const std::string & prefix = "",
+                       double dumpInterval = 1.0);
     CarbonEventService(const std::vector<std::string> & connections,
-                       const std::string & prefix = "");
+                       const std::string & prefix = "",
+                       double dumpInterval = 1.0);
 
     virtual void onEvent(const std::string & name,
                          const char * event,
@@ -395,6 +397,8 @@ struct ServiceProxies {
     std::shared_ptr<ConfigurationService> config;
     std::shared_ptr<PortRangeService> ports;
 
+    std::string bankerUri;
+
     /** Zeromq context for communication. */
     std::shared_ptr<zmq::context_t> zmqContext;
 
@@ -407,9 +411,11 @@ struct ServiceProxies {
 
     void logToCarbon(std::shared_ptr<CarbonConnector> conn);
     void logToCarbon(const std::string & carbonConnection,
-                     const std::string & prefix = "");
+                     const std::string & prefix = "",
+                     double dumpInterval = 1.0);
     void logToCarbon(const std::vector<std::string> & carbonConnections,
-                     const std::string & prefix = "");
+                     const std::string & prefix = "",
+                     double dumpInterval = 1.0);
 
     void useZookeeper(std::string url = "localhost:2181",
                       std::string prefix = "CWD",
