@@ -47,7 +47,7 @@ RouterRunner() :
     logAuctions(false),
     logBids(false),
     maxBidPrice(200),
-    slowModeTimeout(MonitorClient::DefaultCheckTimeout)
+    slowModeTimeout(MonitorClient::DefaultCheckTimeout),
     useHttpBanker(false)
 {
 }
