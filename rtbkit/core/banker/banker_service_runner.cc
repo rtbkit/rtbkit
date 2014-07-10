@@ -48,7 +48,7 @@ int main(int argc, char ** argv)
 
     options_description all_opt;
     all_opt
-        .add(serviceArgs.makeProgramOptions())
+        .add(serviceArgs.makeProgramOptions("General Options"))
         .add(configuration_options);
     all_opt.add_options()
         ("help,h", "print this message");

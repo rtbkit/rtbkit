@@ -10,26 +10,26 @@
 
 namespace RTBKIT {
 
-struct AllowedIdsCreativeExchangeFilter
-    : public IterativeCreativeFilter<AllowedIdsCreativeExchangeFilter>
+struct ExternalIdsCreativeExchangeFilter
+    : public IterativeCreativeFilter<ExternalIdsCreativeExchangeFilter>
 {
-    static constexpr const char *name = "AllowedIdsCreativeExchangeFilter";
+    static constexpr const char *name = "ExternalIdsCreativeExchangeFilter";
 
     bool filterCreative(FilterState &state, const AdSpot &spot,
                         const AgentConfig &config, const Creative &) const
     {
-        // We're doing this check in the exchange connector level
+        // We're doing this check at the exchange connector level
 #if 0
-        if (!spot.ext.isMember("allowed_ids")) {
+        if (!spot.ext.isMember("external-ids")) {
             return true;
         }
 #endif
-        const auto &allowed_ids = spot.ext["allowed_ids"];
-        auto it = std::find_if(std::begin(allowed_ids), std::end(allowed_ids),
+        const auto &external_ids = spot.ext["external-ids"];
+        auto it = std::find_if(std::begin(external_ids), std::end(external_ids),
                       [&](const Json::Value &value) {
                          return value.isIntegral() && value.asInt() == config.externalId;
                   });
-        return it != std::end(allowed_ids);
+        return it != std::end(external_ids);
     }
 
 };

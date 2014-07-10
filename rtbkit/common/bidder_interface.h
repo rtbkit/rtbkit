@@ -1,4 +1,4 @@
-/* bidding_interface.h
+/* bidding_interface.h                                             -*- C++ -*-
    Eric Robert, 2 April 2014
    Copyright (c) 2011 Datacratic.  All rights reserved.
 */
@@ -26,6 +26,8 @@ struct BidderInterface : public ServiceBase
                     std::string const & name = "bidder");
 
     void init(AgentBridge * value, Router * r = nullptr);
+    virtual void shutdown();
+
     virtual void start();
 
     virtual
@@ -91,8 +93,6 @@ struct BidderInterface : public ServiceBase
                                               Json::Value const & json)> Factory;
 
     static void registerFactory(std::string const & name, Factory factory);
-
-protected:
 
     Router * router;
     AgentBridge * bridge;

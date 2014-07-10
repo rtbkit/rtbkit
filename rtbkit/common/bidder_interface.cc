@@ -34,6 +34,10 @@ void BidderInterface::start()
 {
 }
 
+void BidderInterface::shutdown()
+{
+}
+
 namespace {
     typedef std::lock_guard<ML::Spinlock> Guard;
     static ML::Spinlock lock;

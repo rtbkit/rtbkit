@@ -137,14 +137,16 @@ Router(ServiceBase & parent,
       logBids(logBids),
       logger(getZmqContext()),
       doDebug(false),
+      disableAuctionProb(false),
       numAuctions(0), numBids(0), numNonEmptyBids(0),
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
       monitorClient(getZmqContext()),
       slowModeCount(0),
-      monitorProviderClient(getZmqContext(), *this),
+      monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount)
 {
+    monitorProviderClient.addProvider(this);
 }
 
 Router::
@@ -179,14 +181,16 @@ Router(std::shared_ptr<ServiceProxies> services,
       logBids(logBids),
       logger(getZmqContext()),
       doDebug(false),
+      disableAuctionProb(false),
       numAuctions(0), numBids(0), numNonEmptyBids(0),
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
       monitorClient(getZmqContext()),
       slowModeCount(0),
-      monitorProviderClient(getZmqContext(), *this),
+      monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount)
 {
+    monitorProviderClient.addProvider(this);
 }
 
 void
@@ -261,7 +265,11 @@ init()
 
     loopMonitor.onLoadChange = [=] (double)
         {
-            double keepProb = 1.0 - loadStabilizer.shedProbability();
+            double keepProb = 1.0;
+
+            if(!disableAuctionProb) {
+                keepProb -= loadStabilizer.shedProbability();
+            }
 
             setAcceptAuctionProbability(keepProb);
             recordEvent("auctionKeepPercentage", ET_LEVEL, keepProb * 100.0);
@@ -288,6 +296,7 @@ Router::
 setBanker(const std::shared_ptr<Banker> & newBanker)
 {
     banker = newBanker;
+    monitorProviderClient.addProvider(banker.get());
 }
 
 void
@@ -329,7 +338,14 @@ unsafeDisableMonitor()
     // TODO: we shouldn't be reaching inside these structures...
     monitorClient.testMode = true;
     monitorClient.testResponse = true;
-    monitorProviderClient.inhibit_ = true;
+    monitorProviderClient.disable();
+}
+
+void
+Router::
+unsafeDisableAuctionProbability()
+{
+    disableAuctionProb = true;
 }
 
 void
@@ -1246,8 +1262,6 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
     double timeLeftMs = auction->timeAvailable() * 1000.0;
 
     bool traceAuction = auction->id.hash() % 10 == 0;
-
-    AgentConfig::RequestFilterCache cache(*auction->request);
 
     auto exchangeConnector = auction->exchangeConnector;
 
@@ -2765,13 +2779,15 @@ getProviderIndicators()
     const
 {
     bool connectedToPal = postAuctionEndpoint.isConnected();
+    bool bankerOk = banker->getProviderIndicators().status;
 
     MonitorIndicator ind;
 
     ind.serviceName = serviceName();
-    ind.status = connectedToPal;
+    ind.status = connectedToPal && bankerOk;
     ind.message = string()
-        + "Connection to PAL: " + (connectedToPal ? "OK" : "ERROR");
+        + "Connection to PAL: " + (connectedToPal ? "OK" : "ERROR") + ", "
+        + "Banker: " + (bankerOk ? "OK": "ERROR");
 
     return ind;
 }

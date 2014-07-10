@@ -34,3 +34,4 @@ LIBRTBKIT_LINK :=                          \
 $(eval $(call library,rtbkit,rtbkit.cc,$(LIBRTBKIT_LINK)))
 
 $(eval $(call include_sub_make,nodeagents))
+$(eval $(call include_sub_make,availability_agent,availability_agent,availability_agent.mk))

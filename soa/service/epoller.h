@@ -58,7 +58,12 @@ struct Epoller: public AsyncEventSource {
     /** Remove the given fd from the multiplexer set. */
     void removeFd(int fd);
     
-    typedef std::function<bool (epoll_event & event)> HandleEvent;
+    enum HandleEventResult {
+        DONE,
+        SHUTDOWN
+    };
+
+    typedef std::function<HandleEventResult (epoll_event & event)> HandleEvent;
     typedef std::function<void ()> OnEvent;
 
     /** Default event handler function to use. */
@@ -90,11 +95,7 @@ struct Epoller: public AsyncEventSource {
 
     virtual bool poll() const;
 
-    virtual bool processOne()
-    {
-        handleEvents();
-        return poll();
-    }
+    virtual bool processOne();
     
 private:
     /* Perform the fd addition and modification */

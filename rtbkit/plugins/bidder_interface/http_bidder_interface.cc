@@ -31,8 +31,17 @@ HttpBidderInterface::HttpBidderInterface(std::string name,
     loop.addSource("HttpBidderInterface::httpClient", httpClient);
 }
 
+HttpBidderInterface::~HttpBidderInterface()
+{
+    shutdown();
+}
+
 void HttpBidderInterface::start() {
     loop.start();
+}
+
+void HttpBidderInterface::shutdown() {
+    loop.shutdown();
 }
 
 
@@ -215,7 +224,7 @@ void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
             auto &imp = request.imp[adSpotIndex];
             auto &ext = imp.ext;
 
-            ext["allowed_ids"].append(agentConfig->externalId);
+            ext["external-ids"].append(agentConfig->externalId);
         }
 
     }

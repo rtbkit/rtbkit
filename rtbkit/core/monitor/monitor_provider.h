@@ -8,6 +8,8 @@
 #pragma once
 
 #include <memory>
+#include <vector>
+#include <atomic>
 
 #include "monitor_indicator.h"
 #include "soa/types/date.h"
@@ -33,11 +35,11 @@ struct MonitorProvider
 
 struct MonitorProviderClient : public MultiRestProxy
 {
-    MonitorProviderClient(const std::shared_ptr<zmq::context_t> & context,
-                          MonitorProvider & provider);
+    MonitorProviderClient(const std::shared_ptr<zmq::context_t> & context);
 
     ~MonitorProviderClient();
  
+    void addProvider(const MonitorProvider *provider);
     void init(
             std::shared_ptr<ConfigurationService> & config,
             const std::string & serviceClass = "monitor",
@@ -47,18 +49,19 @@ struct MonitorProviderClient : public MultiRestProxy
         completed beforehand. */
     void shutdown();
 
+    void disable();
+private:
+
     /** this method is invoked periodically to query the MonitorProvider and
      * "POST" the result to the Monitor */
     void postStatus();
 
     /** monitored service proxy */
-    MonitorProvider & provider_;
+    std::vector<const MonitorProvider *> providers;
 
     /** flag enabling the inhibition of requests to the Monitor service */
-    bool inhibit_;
+    std::atomic<bool> inhibit_;
 
-    /** monitored service name */
-    std::string restUrlPath_;
 };
 
 } // namespace RTBKIT

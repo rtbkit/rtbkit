@@ -47,7 +47,7 @@ struct FixedPriceBiddingAgent :
     {}
 
 
-    void init()
+    void init(const std::string &bankerUri)
     {
         // We only want to specify a subset of the callbacks so turn the
         // annoying safety belt off.
@@ -58,7 +58,7 @@ struct FixedPriceBiddingAgent :
 
         // This component is used to speak with the master banker and pace the
         // rate at which we spend our budget.
-        budgetController.init(getServices()->config);
+        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(getServices()->config));
         budgetController.start();
 
         // Update our pacer every 10 seconds. Note that since this interacts
@@ -208,8 +208,13 @@ int main(int argc, char** argv)
 
     Datacratic::ServiceProxyArguments args;
 
+    std::string bankerUri;
+
     options_description options = args.makeProgramOptions();
-    options.add_options() ("help,h", "Print this message");
+    options.add_options()
+        ("help,h", "Print this message")
+        ("banker-uri", value<string>(&bankerUri),
+         "URI of the master banker (host:port)");
 
     variables_map vm;
     store(command_line_parser(argc, argv).options(options).run(), vm);
@@ -222,7 +227,7 @@ int main(int argc, char** argv)
 
     auto serviceProxies = args.makeServiceProxies();
     RTBKIT::FixedPriceBiddingAgent agent(serviceProxies, "fixed-price-agent-ex");
-    agent.init();
+    agent.init(bankerUri);
     agent.start();
 
     while (true) this_thread::sleep_for(chrono::seconds(10));

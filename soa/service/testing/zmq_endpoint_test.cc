@@ -27,7 +27,7 @@ using namespace Datacratic;
  */
 BOOST_AUTO_TEST_CASE( test_no_connect )
 {
-    Watchdog watchdow(10.0);
+    Watchdog watchdog(10.0);
 
     auto proxies = std::make_shared<ServiceProxies>();
 
