@@ -69,9 +69,14 @@ private:
     void submitBids(const std::string &agent, Id auctionId,
                          const Bids &bids, WinCostModel wcm);
     MessageLoop loop;
-    std::shared_ptr<HttpClient> httpClient;
-    std::string host;
-    std::string path;
+    std::shared_ptr<HttpClient> httpClientRouter;
+    std::shared_ptr<HttpClient> httpClientAdserver;
+    std::string routerHost;
+    std::string routerPath;
+    std::string adserverHost;
+    uint16_t adserverWinPort;
+    uint16_t adserverEventPort;
+
 };
 
 }

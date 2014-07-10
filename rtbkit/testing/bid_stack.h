@@ -67,8 +67,11 @@ struct BidStack {
         if (!forwardInfo.first.empty()) {
             Json::Value json;
             json["type"] = "http";
-            json["host"] = forwardInfo.first;
-            json["path"] = forwardInfo.second;
+            json["router"]["host"] = forwardInfo.first;
+            json["router"]["path"] = forwardInfo.second;
+            //json["adserver"]["host"];
+            //json["adserver"]["winPort"] = 18143;
+            //json["adserver"]["eventPort"] = 18144;
             router.bidder = BidderInterface::create("bidder", proxies, json);
             router.bidder->init(&router.bridge, &router);
         }

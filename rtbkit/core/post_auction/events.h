@@ -99,6 +99,8 @@ struct MatchedCampaignEvent
     Datacratic::Id impId;
     AccountKey account;
 
+    Datacratic::Date timestamp;
+
     Datacratic::UnicodeString requestStr;
     std::shared_ptr<BidRequest> request;
     std::string requestStrFormat;
