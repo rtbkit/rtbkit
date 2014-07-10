@@ -65,6 +65,9 @@ open(const std::string & path,
     shutdown();
 
     doShutdown = doDump = false;
+    if (dumpInterval < 1.0) {
+        dumpInterval = 1.0;
+    }
     this->dumpInterval = dumpInterval;
     this->onStop = onStop;
 
@@ -262,50 +265,41 @@ void
 MultiAggregator::
 runDumpingThread()
 {
-    Date nextDump = Date::now().plusSeconds(dumpInterval);
+
+    size_t current = 0;
 
     for (;;) {
         std::unique_lock<std::mutex> lock(m);
 
-        while ((dumpInterval == 0.0 || Date::now() < nextDump)
-               && !doShutdown && !doDump)
-            cond.wait_until(lock, nextDump.toStd());
-        
-        if (doShutdown)
+        Date now = Date::now();
+        Date nextWakeup = now.plusSeconds(1.0);
+        if (cond.wait_until(lock, nextWakeup.toStd(), [&] { return doShutdown.load(); }))
             break;
-
-        ExcAssert((dumpInterval != 0.0 && Date::now() >= nextDump) || doDump);
-        
-        doDump = false;
 
         // Get the read lock to extract a list of stats to dump
         vector<Stats::iterator> toDump;
-
         {
             std::unique_lock<Lock> guard(this->lock);
             toDump.reserve(stats.size());
-            for (auto it = stats.begin(), end = stats.end();
-                 it != end;  ++it)
+            for (auto it = stats.begin(), end = stats.end(); it != end;  ++it)
                 toDump.push_back(it);
-            //std::copy(stats.begin(), stats.end(), back_inserter(toDump));
         }
 
-        std::vector<std::string> toWrite;
+        ++current;
+        bool dumpNow = doDump.exchange(false) ||
+                       (current % static_cast<size_t>(dumpInterval)) == 0;
 
-        // Now dump them without the lock held
-        for (auto it = toDump.begin(), end = toDump.end();
-             it != end;  ++it) {
+        // Now dump them without the lock held. Note that we still need to call
+        // read every second even if we're not flushing to carbon.
+        for (auto it = toDump.begin(), end = toDump.end(); it != end;  ++it) {
 
             try {
-                //cerr << "doStat(" << (*it)->first << ")" << endl;
-                doStat((*it)->second->read((*it)->first));
+                auto stat = (*it)->second->read((*it)->first);
+                if (dumpNow) doStat(std::move(stat));
             } catch (const std::exception & exc) {
                 cerr << "error writing stat: " << exc.what() << endl;
             }
         }
-
-        while (nextDump < Date::now() && dumpInterval != 0.0)
-            nextDump.addSeconds(dumpInterval);
     }
 }
 
@@ -322,17 +316,19 @@ CarbonConnector()
 CarbonConnector::
 CarbonConnector(const std::string & carbonAddr,
                 const std::string & path,
+                double dumpInterval,
                 std::function<void ()> onStop)
 {
-    open(carbonAddr, path, onStop);
+    open(carbonAddr, path, dumpInterval, onStop);
 }
 
 CarbonConnector::
 CarbonConnector(const std::vector<std::string> & carbonAddrs,
                 const std::string & path,
+                double dumpInterval,
                 std::function<void ()> onStop)
 {
-    open(carbonAddrs, path, onStop);
+    open(carbonAddrs, path,dumpInterval,  onStop);
 }
 
 CarbonConnector::
@@ -345,15 +341,17 @@ void
 CarbonConnector::
 open(const std::string & carbonAddr,
      const std::string & path,
+     double dumpInterval,
      std::function<void ()> onStop)
 {
-    return open(vector<string>({carbonAddr}), path, onStop);
+    return open(vector<string>({carbonAddr}), path, dumpInterval, onStop);
 }
 
 void
 CarbonConnector::
 open(const std::vector<std::string> & carbonAddrs,
      const std::string & path,
+     double dumpInterval,
      std::function<void ()> onStop)
 {
     stop();
@@ -377,7 +375,7 @@ open(const std::vector<std::string> & carbonAddrs,
 
     this->onPostShutdown = std::bind(&CarbonConnector::doShutdown, this);
 
-    MultiAggregator::open(path, OutputFn(), 1.0, onStop);
+    MultiAggregator::open(path, OutputFn(), dumpInterval, onStop);
 }
 
 void

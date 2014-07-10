@@ -106,8 +106,8 @@ NexageExchangeConnector::init()
         "adm",
         [](const Json::Value & value, CreativeInfo & data) {
             Datacratic::jsonDecode(value, data.adm);
-            if (data.adm.find("${AUCTION_PRICE}") == std::string::npos) {
-                throw std::invalid_argument("${AUCTION_PRICE} is expected in adm");
+            if (data.adm.empty()) {
+                throw std::invalid_argument("adm can not be empty");
             }
             return true;
     }).snippet();

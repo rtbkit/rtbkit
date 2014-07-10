@@ -268,8 +268,11 @@ void scanFiles(const std::string & path,
 
     scanFilesThreadData = 0;
 
-    if (res == -1)
+    if (res == -1) {
+        if (errno == ENOENT)
+            return;
         throw ML::Exception(errno, "ftw");
+    }
 }
 
 /** Call fdatasync on the file. */

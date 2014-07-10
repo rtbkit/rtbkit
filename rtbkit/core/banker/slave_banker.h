@@ -94,6 +94,8 @@ private:
 */
 struct SlaveBanker : public Banker, public MessageLoop {
 
+    static const CurrencyPool DefaultSpendRate;
+
     SlaveBanker();
 
     ~SlaveBanker()
@@ -101,7 +103,8 @@ struct SlaveBanker : public Banker, public MessageLoop {
         shutdown();
     }
 
-    SlaveBanker(const std::string & accountSuffix);
+    SlaveBanker(const std::string & accountSuffix,
+                CurrencyPool spenRate = DefaultSpendRate);
 
     /** Initialize the slave banker.  
 
@@ -110,7 +113,8 @@ struct SlaveBanker : public Banker, public MessageLoop {
         accessors of those accounts).  It must be unique across the entire
         system, but should be consistent from one invocation to another.
     */
-    void init(const std::string & accountSuffix);
+    void init(const std::string & accountSuffix,
+              CurrencyPool spendRate = DefaultSpendRate);
 
     /** Notify the banker that we're going to need to be spending some
         money for the given account.  We also keep track of how much
@@ -231,6 +235,7 @@ private:
     /** Periodically we ask the banker to re-authorize our budget. */
     void reauthorizeBudget(uint64_t numTimeoutsExpired);
     Date reauthorizeBudgetSent;
+    CurrencyPool spendRate;
 
 
     /// Called when we get an account status back from the master banker

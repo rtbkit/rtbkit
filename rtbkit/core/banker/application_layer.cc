@@ -225,7 +225,7 @@ init(const std::shared_ptr<ConfigurationService> &config,
         throw ML::Exception("bankerServiceName can not be empty");
 
     proxy.reset(new RestProxy); 
-    proxy->initServiceClass(config, bankerServiceName, "zeromq");
+    proxy->initServiceClass(config, bankerServiceName, "zeromq", false /* local */);
     addSource("ZmqLayer::proxy", *proxy);
 }
 

@@ -47,7 +47,8 @@ RouterRunner() :
     logAuctions(false),
     logBids(false),
     maxBidPrice(200),
-    slowModeTimeout(MonitorClient::DefaultCheckTimeout)
+    slowModeTimeout(MonitorClient::DefaultCheckTimeout),
+    useHttpBanker(false)
 {
 }
 
@@ -72,14 +73,16 @@ doOptions(int argc, char ** argv,
          "configuration file with exchange data")
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
-        ("banker-uri", value<string>(&bankerUri),
-         "URI of the master banker (host:port)")
+        ("use-http-banker", bool_switch(&useHttpBanker),
+         "Communicate with the MasterBanker over http")
         ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
          "log auction requests")
         ("log-bids", value<bool>(&logBids)->zero_tokens(),
          "log bid responses")
         ("max-bid-price", value(&maxBidPrice),
-         "maximum bid price accepted by router");
+         "maximum bid price accepted by router")
+        ("spend-rate", value<string>(&spendRate)->default_value("100000USD/1M"),
+         "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)");
 
     options_description all_opt = opts;
     all_opt
@@ -121,8 +124,22 @@ init()
     router->initBidderInterface(bidderConfig);
     router->init();
 
-    banker = std::make_shared<SlaveBanker>(router->serviceName() + ".slaveBanker");
-    banker->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+    const auto amount = Amount::parse(spendRate);
+    banker = std::make_shared<SlaveBanker>(router->serviceName() + ".slaveBanker",
+                                           CurrencyPool(amount));
+    std::shared_ptr<ApplicationLayer> layer;
+    if (useHttpBanker) {
+        auto bankerUri = proxies->bankerUri;
+        ExcCheck(!bankerUri.empty(),
+                "the banker-uri must be specified in the bootstrap.json");
+        layer = make_application_layer<HttpLayer>(bankerUri);
+        std::cerr << "using http interface for the MasterBanker" << std::endl;
+    }
+    else {
+        layer = make_application_layer<ZmqLayer>(proxies->config);
+        std::cerr << "using zmq interface for the MasterBanker" << std::endl;
+    }
+    banker->setApplicationLayer(layer);
 
     router->setBanker(banker);
     router->bindTcp();

@@ -55,10 +55,10 @@ bool endsWith(const std::string & haystack, const std::string & needle);
 /* replace unprintable characters with a hex representation thereof */
 std::string hexify_string(const std::string & str);
 
-/* Parse the positive integer stored in the chars between "start" and "end",
+/* Parse an integer stored in the chars between "start" and "end",
    where all characters are expected to be strict digits. The name is inspired
    from "atoi" with the "n" indicating that it is reading only from a numbered
-   set of bytes. */
+   set of bytes. Base 10 can be negative. */
 int antoi(const char * start, const char * end, int base = 10);
 
 } // namespace ML

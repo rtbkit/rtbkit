@@ -30,10 +30,10 @@ struct PostAuctionRunner {
     float auctionTimeout;
     float winTimeout;
     std::string bidderConfigurationFile;
-    std::string bankerUri;
 
     int winLossPipeTimeout;
     int campaignEventPipeTimeout;
+    bool useHttpBanker;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
