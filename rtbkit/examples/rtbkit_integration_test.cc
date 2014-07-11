@@ -39,6 +39,9 @@ using namespace Datacratic;
 using namespace RTBKIT;
 
 
+#define NUM_ACCOUNTS 200
+
+
 /******************************************************************************/
 /* COMPONENTS                                                                 */
 /******************************************************************************/
@@ -58,7 +61,7 @@ struct Components
     SlaveBudgetController budgetController;
     AgentConfigurationService agentConfig;
     MonitorEndpoint monitor;
-    TestAgent agent;
+    vector<shared_ptr<TestAgent> > agents;
     FrequencyCapAugmentor augmentor1, augmentor2;
 
     // \todo Add a PAL event subscriber.
@@ -79,7 +82,6 @@ struct Components
           masterBanker(proxies, "masterBanker"),
           agentConfig(proxies, "agentConfigurationService"),
           monitor(proxies, "monitor"),
-          agent(proxies, "agent1"),
           augmentor1(proxies, "fca1"),
           augmentor2(proxies, "fca2"),
           winStream("mockStream", proxies)
@@ -95,7 +97,9 @@ struct Components
 
         budgetController.shutdown();
 
-        agent.shutdown();
+        for (shared_ptr<TestAgent> & agent: agents) {
+            agent->shutdown();
+        }
         augmentor1.shutdown();
         augmentor2.shutdown();
         agentConfig.shutdown();
@@ -142,6 +146,7 @@ struct Components
         // Setup a slave banker that we can use to manipulate and peak at the
         // budgets during the test.
         budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+        // budgetController.setApplicationLayer(make_application_layer<HttpLayer>(bankerAddr));
         budgetController.start();
 
         // Each router contains a slave masterBanker which is periodically
@@ -150,6 +155,7 @@ struct Components
             {
                 auto res = std::make_shared<SlaveBanker>(name);
                 res->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+                // res->setApplicationLayer(make_application_layer<HttpLayer>(bankerAddr));
                 res->start();
                 return res;
             };
@@ -205,9 +211,11 @@ struct Components
         // Our bidding agent which listens to the bid request stream from all
         // available routers and decide who gets to see your awesome pictures of
         // kittens.
-        agent.init();
-        agent.start();
-        agent.configure();
+        for (const shared_ptr<TestAgent> & agent: agents) {
+            agent->init();
+            agent->start();
+            agent->configure();
+        }
 
         // Our augmentor which does frequency capping for our agent.
         augmentor1.init();
@@ -288,23 +296,21 @@ void allocateBudget(
     budgetController.setBudgetSync(account[0], budget);
     budgetController.topupTransferSync(account, USD(10));
 
-    cerr << budgetController.getAccountSummarySync(account[0], -1) << endl;
+    // cerr << budgetController.getAccountSummarySync(account[0], -1) << endl;
+}
 
-    // Syncing is done periodically so we have to wait a bit before the router
-    // will have a budget available. Necessary because the bid request stream
-    // for this test isn't infinit.
-    cerr << "sleeping so that the slave accounts can sync up" << endl;
-    ML::sleep(2.1);
-
+void testBudget(SlaveBudgetController& budgetController,
+                const AccountKey& account)
+{
     auto summary = budgetController.getAccountSummarySync(account[0], -1);
     cerr << summary << endl;
 
     ExcAssertEqual(
-            summary.subAccounts["testStrategy"].subAccounts["router1"].budget,
+            summary.subAccounts[account[1]].subAccounts["router1"].budget,
             USD(0.10));
 
     ExcAssertEqual(
-            summary.subAccounts["testStrategy"].subAccounts["router2"].budget,
+            summary.subAccounts[account[1]].subAccounts["router2"].budget,
             USD(0.10));
 }
 
@@ -332,7 +338,7 @@ void dumpAccounts(
  */
 int main(int argc, char ** argv)
 {
-    Watchdog watchdog(30.0);
+    Watchdog watchdog(200.0);
 
     // Controls the length of the test.
     enum {
@@ -352,20 +358,47 @@ int main(int argc, char ** argv)
     if (false) proxies->logToCarbon("carbon.rtbkit.org", "stats");
 
 
-    // Setups up the various component of the RTBKit stack. See Components::init
-    // for more details.
     Components components(proxies);
-    components.init();
-
-    // Some extra customization for our agent to make it extra special. See
-    // setupAgent for more details.
-    setupAgent(components.agent);
 
     // Setup an initial budgeting for the test.
-    allocateBudget(
-            components.budgetController,
-            {"testCampaign", "testStrategy"},
-            USD(1000));
+    for (int i = 0; i < NUM_ACCOUNTS; i++) {
+        AccountKey key{"testCampaign" + to_string(i),
+                       "testStrategy" + to_string(i)};
+        auto agent = make_shared<TestAgent>(proxies,
+                                            "testAgent" + to_string(i),
+                                            key);
+        components.agents.push_back(agent);
+    }
+
+    // Setups up the various component of the RTBKit stack. See Components::init
+    // for more details.
+    components.init();
+
+    // Setup an initial budgeting for the test.
+    for (int i = 0; i < NUM_ACCOUNTS; i++) {
+        AccountKey key{"testCampaign" + to_string(i),
+                       "testStrategy" + to_string(i)};
+        allocateBudget(components.budgetController, key, USD(1000));
+    }
+
+    // Syncing is done periodically so we have to wait a bit before the router
+    // will have a budget available. Necessary because the bid request stream
+    // for this test isn't infinit.
+    cerr << "sleeping so that the slave accounts can sync up" << endl;
+    ML::sleep(2.1);
+
+    for (int i = 0; i < NUM_ACCOUNTS; i++) {
+        AccountKey key{"testCampaign" + to_string(i),
+                       "testStrategy" + to_string(i)};
+        testBudget(components.budgetController, key);
+    }
+
+
+    for (const auto & agent: components.agents) {
+        // Some extra customization for our agent to make it extra special.
+        // See setupAgent for more details.
+        setupAgent(*agent);
+    }
 
     // Start up the exchange threads which should let bid requests flow through
     // our stack.
@@ -380,11 +413,11 @@ int main(int argc, char ** argv)
 
     // Dump the budget stats while we wait for the test to finish.
     while (!exchange.isDone()) {
-        auto summary = components.budgetController.getAccountSummarySync(
-                {"testCampaign"}, -1);
+         auto summary = components.budgetController.getAccountSummarySync(
+             {"testCampaign0"}, -1);
         cerr <<  summary << endl;
 
-        dumpAccounts(components.budgetController, {"testCampaign"}, summary);
+        dumpAccounts(components.budgetController, {"testCampaign0"}, summary);
         ML::sleep(1.0);
     }
 
