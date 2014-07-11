@@ -75,7 +75,8 @@ private:
                          const Bids &bids, WinCostModel wcm);
     MessageLoop loop;
     std::shared_ptr<HttpClient> httpClientRouter;
-    std::shared_ptr<HttpClient> httpClientAdserver;
+    std::shared_ptr<HttpClient> httpClientAdserverWins;
+    std::shared_ptr<HttpClient> httpClientAdserverEvents;
     std::string routerHost;
     std::string routerPath;
     std::string adserverHost;
