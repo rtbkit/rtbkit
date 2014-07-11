@@ -221,7 +221,7 @@ handleChildStatus(const struct epoll_event & event)
                 ML::futex_wake(childPid_);
                 task_.runResult.updateFromStatus(status.childStatus);
                 task_.statusState = Task::StatusState::DONE;
-                if (stdInSink_) {
+                if (stdInSink_ && stdInSink_->state != OutputSink::CLOSED) {
                     stdInSink_->requestClose();
                 }
                 attemptTaskTermination();
