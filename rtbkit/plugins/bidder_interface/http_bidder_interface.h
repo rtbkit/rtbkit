@@ -7,6 +7,7 @@
 
 #include "rtbkit/common/bidder_interface.h"
 #include "soa/service/http_client.h"
+#include "soa/service/logs.h"
 
 namespace RTBKIT {
 
@@ -62,6 +63,10 @@ struct HttpBidderInterface : public BidderInterface
     virtual void tagRequest(OpenRTB::BidRequest &request,
                             const std::map<std::string, BidInfo> &bidders) const;
 
+    static Logging::Category print;
+    static Logging::Category error;
+    static Logging::Category trace;
+    
 private:
     bool prepareRequest(OpenRTB::BidRequest &request,
                         const RTBKIT::BidRequest &originalRequest,
