@@ -390,3 +390,60 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
     doGet(client2);
 }
 #endif
+
+#if 1
+/* Ensure that an infinite number of requests can be queued, even from within
+ * callbacks. */
+BOOST_AUTO_TEST_CASE( test_http_client_unlimited_queue )
+{
+    static const int maxLevel(4);
+
+    ML::Watchdog watchdog(30);
+    auto proxies = make_shared<ServiceProxies>();
+
+    HttpGetService service(proxies);
+    service.addResponse("GET", "/", 200, "coucou");
+    service.start();
+    service.waitListening();
+
+    MessageLoop loop;
+    loop.start();
+
+    string baseUrl("http://127.0.0.1:"
+                   + to_string(service.port()));
+
+    auto client = make_shared<HttpClient>(baseUrl);
+    loop.addSource("client", client);
+    client->waitConnectionState(AsyncEventSource::CONNECTED);
+
+    atomic<int> pending(0);
+    int done(0);
+
+    function<void(int)> doGet = [&] (int level) {
+        pending++;
+        auto onDone = [&,level] (const HttpRequest & rq,
+                                 HttpClientError errorCode, int status,
+                                 string && headers, string && body) {
+            if (level < maxLevel) {
+                for (int i = 0; i < 10; i++) {
+                    doGet(level+1);
+                }
+            }
+            pending--;
+            done++;
+        };
+        auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
+        client->get("/", cbs);
+    };
+
+    doGet(0);
+
+    while (pending > 0) {
+        ML::sleep(1);
+        cerr << "requests done: " + to_string(done) + "\n";
+    }
+
+    loop.removeSource(client.get());
+    client->waitConnectionState(AsyncEventSource::DISCONNECTED);
+}
+#endif
