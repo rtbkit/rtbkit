@@ -41,6 +41,7 @@ using namespace RTBKIT;
 
 const size_t numAccounts(200); /* number of accounts and agents */
 
+#define ZMQ_APP_LAYER 0
 
 /******************************************************************************/
 /* SETUP                                                                      */
@@ -180,7 +181,7 @@ struct Components
         : proxies(proxies),
           router1(proxies, "router1"),
           router2(proxies, "router2"),
-          postAuctionLoop(proxies, "pas1"),
+          postAuctionLoop(proxies, "pal1"),
           masterBanker(proxies, "masterBanker"),
           agentConfig(proxies, "agentConfigurationService"),
           monitor(proxies, "monitor"),
@@ -245,27 +246,39 @@ struct Components
         auto bankerAddr = masterBanker.bindTcp().second;
         masterBanker.start();
 
+        cerr << "bankerAddr: " + bankerAddr + "\n";
+        ML::sleep(5);
+
         // Setup a slave banker that we can use to manipulate and peak at the
         // budgets during the test.
+#if 0
         budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
-        // budgetController.setApplicationLayer(make_application_layer<HttpLayer>(bankerAddr));
+#else
+        auto appLayer = make_application_layer<HttpLayer>("http://127.0.0.1:15500");
+        budgetController.setApplicationLayer(appLayer);
+#endif
+
         budgetController.start();
 
         // Each router contains a slave masterBanker which is periodically
         // synced with the master banker.
-        auto makeSlaveBanker = [=] (const std::string & name)
-            {
-                auto res = std::make_shared<SlaveBanker>(name);
-                res->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
-                // res->setApplicationLayer(make_application_layer<HttpLayer>(bankerAddr));
-                res->start();
-                return res;
-            };
+        auto makeSlaveBanker = [=] (const std::string & name) {
+            auto res = std::make_shared<SlaveBanker>(name);
+#if 0
+            auto appLayer = make_application_layer<ZmqLayer>(proxies->config);
+#else
+            cerr << "bankerAddr: " + bankerAddr + "\n";
+            auto appLayer = make_application_layer<HttpLayer>("http://127.0.0.1:15500");
+#endif
+            res->setApplicationLayer(appLayer);
+            res->start();
+            return res;
+        };
 
         // Setup a post auction loop (PAL) which handles all exchange events
         // that don't need to be processed in real-time (wins, loss, etc).
         postAuctionLoop.init(8);
-        postAuctionLoop.setBanker(makeSlaveBanker("pas1"));
+        postAuctionLoop.setBanker(makeSlaveBanker("pal1"));
         postAuctionLoop.bindTcp();
         postAuctionLoop.start();
 
@@ -381,8 +394,17 @@ int main(int argc, char ** argv)
     // Syncing is done periodically so we have to wait a bit before the router
     // will have a budget available. Necessary because the bid request stream
     // for this test isn't infinit.
-    cerr << "sleeping so that the slave accounts can sync up" << endl;
-    ML::sleep(2.1);
+    auto ensureBudgetSync = [&] (const shared_ptr<Banker> & banker) {
+        auto slave = (SlaveBanker *) banker.get();
+        while (slave->getNumReauthorized() == 0) {
+            ML::sleep(0.5);
+        }
+    };
+    ensureBudgetSync(components.postAuctionLoop.getBanker());
+    ensureBudgetSync(components.router1.getBanker());
+    ensureBudgetSync(components.router2.getBanker());
+
+    ML::sleep(5);
 
     for (int i = 0; i < numAccounts; i++) {
         AccountKey key{"testCampaign" + to_string(i),
@@ -402,16 +424,33 @@ int main(int argc, char ** argv)
         exchange.add(new MockBidSource(bids, nBidRequestsPerThread), new MockWinSource(wins), new MockEventSource(events));
     }
 
-    // Dump the budget stats while we wait for the test to finish.
+    // Dump the budget stats while we wait for the test to finish. Only the
+    // first one is fetched to avoid flooding the console with unreadable
+    // data.
     while (!exchange.isDone()) {
-         auto summary = components.budgetController.getAccountSummarySync(
-             {"testCampaign0"}, -1);
+        auto summary = components.budgetController.getAccountSummarySync(
+            {"testCampaign0"}, -1);
         cerr <<  summary << endl;
 
         dumpAccounts(components.budgetController, {"testCampaign0"}, summary);
         ML::sleep(1.0);
+
+        auto doCheckBanker = [&] (const string & label,
+                                  const shared_ptr<Banker> & banker) {
+            auto slave = (SlaveBanker *) banker.get();
+            cerr << ("banker rqs : " + label + " "
+                     + to_string(slave->getNumReauthorized())
+                     + " last delay: " + to_string(slave->getLastReauthorizeDelay())
+                     + "\n");
+        };
+
+        doCheckBanker("pal", components.postAuctionLoop.getBanker());
+        doCheckBanker("router1", components.router1.getBanker());
+        doCheckBanker("router2", components.router2.getBanker());
     }
 
+    cerr << "SHUTDOWN\n";
+    exit(0);
     // Test is done; clean up time.
     components.shutdown();
 
