@@ -52,8 +52,8 @@ HttpBidderInterface::HttpBidderInterface(std::string name,
         routerHost = json["router"]["host"].asString();
         routerPath = json["router"]["path"].asString();
         adserverHost = json["adserver"]["host"].asString();
-        adserverWinPort = json["adserver"]["eventPort"].asInt();
-        adserverEventPort = json["adserver"]["winPort"].asInt();
+        adserverWinPort = json["adserver"]["winPort"].asInt();
+        adserverEventPort = json["adserver"]["eventPort"].asInt();
     } catch (const std::exception & e) {
         THROW(error) << "configuration file is invalid" << std::endl
                    << "usage : " << std::endl
@@ -75,7 +75,7 @@ HttpBidderInterface::HttpBidderInterface(std::string name,
     httpClientAdserverWins.reset(new HttpClient(winHost));
     loop.addSource("HttpBidderInterface::httpClientAdserverWins", httpClientAdserverWins);
 
-    std::string eventHost = adserverHost + ':' + std::to_string(adserverWinPort);
+    std::string eventHost = adserverHost + ':' + std::to_string(adserverEventPort);
     httpClientAdserverEvents.reset(new HttpClient(eventHost));
     loop.addSource("HttpBidderInterface::httpClientAdserverEvents", httpClientAdserverEvents);
 
@@ -197,7 +197,7 @@ void HttpBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
             int statusCode, const std::string &, std::string &&body)
         {
             if (errorCode != HttpClientError::NONE) {
-                throw ML::Exception("Error requesting %s:%d %s",
+                throw ML::Exception("Error requesting %s:%d '%s'",
                                     adserverHost.c_str(),
                                     adserverWinPort,
                                     httpErrorString(errorCode).c_str());
@@ -233,7 +233,7 @@ void HttpBidderInterface::sendCampaignEventMessage(std::string const & agent,
             int statusCode, const std::string &, std::string &&body)
         {
             if (errorCode != HttpClientError::NONE) {
-                throw ML::Exception("Error requesting %s:%d %s",
+                throw ML::Exception("Error requesting %s:%d '%s'",
                                     adserverHost.c_str(),
                                     adserverEventPort,
                                     httpErrorString(errorCode).c_str());
