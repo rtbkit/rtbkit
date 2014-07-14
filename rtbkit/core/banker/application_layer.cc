@@ -65,8 +65,7 @@ init(std::string bankerUri)
 
     // Since we send one HttpRequest per account when syncing, this is a good idea
     // to keep a fairly large queue size in order to avoid deadlocks
-    httpClient.reset(new HttpClient(bankerUri, 4 /* numParallel */,
-                                                1024 /* queueSize */));
+    httpClient.reset(new HttpClient(bankerUri, 4 /* numParallel */));
     addSource("HttpLayer::httpClient", httpClient);
 }
 
