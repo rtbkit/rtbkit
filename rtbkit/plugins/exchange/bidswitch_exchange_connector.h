@@ -98,6 +98,7 @@ struct BidSwitchWSeatFilter : public FilterBaseT<BidSwitchWSeatFilter>
     unsigned priority() const { return 10; }
 
     std::unordered_map<std::string, ConfigSet> data;
+    std::vector<ConfigSet> emptyConfigSet;
 
     void setConfig(unsigned configIndex, const AgentConfig& config, bool value)
     {
@@ -106,11 +107,22 @@ struct BidSwitchWSeatFilter : public FilterBaseT<BidSwitchWSeatFilter>
             // Might change depending if the providerConfig allows more than one seat.
             data[config.providerConfig["bidswitch"]["seat"].asString()].set(configIndex, value);
         }
+        else {
+            ConfigSet item;
+            item.set(configIndex, value);
+            emptyConfigSet.push_back(std::move(item));
+        }
     }
 
     void filter(FilterState& state) const
     {
         ConfigSet mask;
+
+        // Fill mask with empty seat in AgentConfig
+        for(const auto &item : emptyConfigSet ) {
+            mask |= item;
+        }
+
         
         auto& segs = state.request.segments.get("openrtb-wseat");
  

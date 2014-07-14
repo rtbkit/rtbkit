@@ -45,6 +45,9 @@ BOOST_AUTO_TEST_CASE( bidswitch_wseat_filter )
     std::string providerConfigStr1 = "{ \"bidswitch\": { \"seat\": \"1\" }}";
     c1.providerConfig = Json::parse(providerConfigStr1);
     
+    AgentConfig c2;
+    c2.creatives.push_back(Creative());
+    
     BidRequest r0;
     std::string ext1 = "{\"flight_ids\": [1200] }";
     addImp(r0, OpenRTB::AdPosition::ABOVE, ext1);
@@ -73,9 +76,13 @@ BOOST_AUTO_TEST_CASE( bidswitch_wseat_filter )
     check(filter, r2, creatives, 0, { {}  });
     check(filter, r3, creatives, 0, { {0,1}  });
 
+    removeConfig(filter, 0, c0, creatives);
+    removeConfig(filter, 1, c1, creatives);
 
-    //TODO : Add AgentConfig with the same seat as AgentCong 0
-
-
+    addConfig(filter, 0, c2, creatives);
+    check(filter, r0, creatives, 0, { {0}  });
+    check(filter, r1, creatives, 0, { {0}  });
+    check(filter, r2, creatives, 0, { {0}  });
+    check(filter, r3, creatives, 0, { {0}  });
 
 }
