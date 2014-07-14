@@ -91,7 +91,7 @@ void HttpBidderInterface::start() {
 }
 
 void HttpBidderInterface::shutdown() {
-loop.shutdown();
+    loop.shutdown();
 }
 
 
@@ -182,6 +182,11 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
         httpClientRouter->post(routerPath, callbacks, reqContent,
                          { } /* queryParams */, headers);
     }
+}
+
+void HttpBidderInterface::sendLossMessage(std::string const & agent,
+                                          std::string const & id) {
+
 }
 
 void HttpBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
@@ -314,15 +319,15 @@ void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
 bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
                                          const RTBKIT::BidRequest &originalRequest,
                                          const std::map<std::string, BidInfo> &bidders) const {
-        tagRequest(request, bidders);
+    tagRequest(request, bidders);
 
-        // We update the tmax value before sending the BidRequest to substract our processing time
-        double processingTimeMs = originalRequest.timestamp.secondsUntil(Date::now()) * 1000;
-        int oldTmax = request.tmax.value();
-        int newTmax = oldTmax - static_cast<int>(std::round(processingTimeMs));
-        if (newTmax <= 0) {
-            return false;
-        }
+    // We update the tmax value before sending the BidRequest to substract our processing time
+    double processingTimeMs = originalRequest.timestamp.secondsUntil(Date::now()) * 1000;
+    int oldTmax = request.tmax.value();
+    int newTmax = oldTmax - static_cast<int>(std::round(processingTimeMs));
+    if (newTmax <= 0) {
+        return false;
+    }
 #if 0
         std::cerr << "old tmax = " << oldTmax << std::std::endl
                   << "new tmax = " << newTmax << std::std::endl;
