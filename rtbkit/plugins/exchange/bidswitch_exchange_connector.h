@@ -110,16 +110,20 @@ struct BidSwitchWSeatFilter : public FilterBaseT<BidSwitchWSeatFilter>
 
     void filter(FilterState& state) const
     {
-        auto& segs = state.request.segments.get("openrtb-wseat");
+        ConfigSet mask;
         
+        auto& segs = state.request.segments.get("openrtb-wseat");
+ 
         // Calls the filter for every wseat in the BR.
         segs.forEach([&](int, const std::string &str, float) {
             auto it = data.find(str);
             if(!(it == data.end())) {
                 auto& configs = it->second;
-                state.narrowConfigs(configs);
+                mask |= configs;
             }
         });
+        
+        state.narrowConfigs(mask);
     }
 };
 
