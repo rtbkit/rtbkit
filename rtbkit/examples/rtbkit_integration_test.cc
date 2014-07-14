@@ -39,191 +39,7 @@ using namespace Datacratic;
 using namespace RTBKIT;
 
 
-#define NUM_ACCOUNTS 200
-
-
-/******************************************************************************/
-/* COMPONENTS                                                                 */
-/******************************************************************************/
-
-/** Initializes the various components of the RTBKit stack. */
-struct Components
-{
-
-    std::shared_ptr<ServiceProxies> proxies;
-
-    // See init for an inline description of the various components.
-
-    RedisTemporaryServer redis;
-    Router router1, router2;
-    PostAuctionService postAuctionLoop;
-    MasterBanker masterBanker;
-    SlaveBudgetController budgetController;
-    AgentConfigurationService agentConfig;
-    MonitorEndpoint monitor;
-    vector<shared_ptr<TestAgent> > agents;
-    FrequencyCapAugmentor augmentor1, augmentor2;
-
-    // \todo Add a PAL event subscriber.
-
-    MockAdServerConnector winStream;
-    int winStreamPort;
-    int eventStreamPort;
-
-    vector<unique_ptr<MockExchangeConnector> > exchangeConnectors;
-    vector<int> exchangePorts;
-
-
-    Components(std::shared_ptr<ServiceProxies> proxies)
-        : proxies(proxies),
-          router1(proxies, "router1"),
-          router2(proxies, "router2"),
-          postAuctionLoop(proxies, "pas1"),
-          masterBanker(proxies, "masterBanker"),
-          agentConfig(proxies, "agentConfigurationService"),
-          monitor(proxies, "monitor"),
-          augmentor1(proxies, "fca1"),
-          augmentor2(proxies, "fca2"),
-          winStream("mockStream", proxies)
-    {
-    }
-
-    void shutdown()
-    {
-        router1.shutdown();
-        router2.shutdown();
-        winStream.shutdown();
-        postAuctionLoop.shutdown();
-
-        budgetController.shutdown();
-
-        for (shared_ptr<TestAgent> & agent: agents) {
-            agent->shutdown();
-        }
-        augmentor1.shutdown();
-        augmentor2.shutdown();
-        agentConfig.shutdown();
-
-        monitor.shutdown();
-
-        // Waiting a little bit that SlaveBanker from the Router and PAS stop
-        // sending requests to the master banker before shutting it down
-        ML::sleep(2);
-        masterBanker.shutdown();
-
-        cerr << "done shutdown" << endl;
-    }
-
-    void init()
-    {
-        const string agentUri = "tcp://127.0.0.1:1234";
-
-        // Setup a monitor which ensures that any instability in the system will
-        // throttle the bid request stream. In other words, it ensures you won't
-        // go bankrupt.
-        monitor.init({
-                    "rtbRequestRouter",
-                    "rtbPostAuctionService",
-                    "rtbBanker",
-                    "rtbDataLogger",
-                    "rtbAgentConfiguration"});
-        monitor.bindTcp();
-        monitor.start();
-
-        // Setup and agent configuration service which is used to notify all
-        // interested services of changes to the agent configuration.
-        agentConfig.init();
-        agentConfig.bindTcp();
-        agentConfig.start();
-
-        // Setup a master banker used to keep the canonical budget of the
-        // various bidding agent accounts. The data contained in this service is
-        // periodically persisted to redis.
-        masterBanker.init(std::make_shared<RedisBankerPersistence>(redis));
-        auto bankerAddr = masterBanker.bindTcp().second;
-        masterBanker.start();
-
-        // Setup a slave banker that we can use to manipulate and peak at the
-        // budgets during the test.
-        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
-        // budgetController.setApplicationLayer(make_application_layer<HttpLayer>(bankerAddr));
-        budgetController.start();
-
-        // Each router contains a slave masterBanker which is periodically
-        // synced with the master banker.
-        auto makeSlaveBanker = [=] (const std::string & name)
-            {
-                auto res = std::make_shared<SlaveBanker>(name);
-                res->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
-                // res->setApplicationLayer(make_application_layer<HttpLayer>(bankerAddr));
-                res->start();
-                return res;
-            };
-
-        // Setup a post auction loop (PAL) which handles all exchange events
-        // that don't need to be processed in real-time (wins, loss, etc).
-        postAuctionLoop.init(8);
-        postAuctionLoop.setBanker(makeSlaveBanker("pas1"));
-        postAuctionLoop.bindTcp();
-        postAuctionLoop.start();
-
-        // Setup two routers which will manage the bid request stream coming
-        // from the exchange, the augmentations coming from the augmentors (to
-        // be added to the test) and the bids coming from the agents. Along the
-        // way it also applies various filters based on agent configuration
-        // while ensuring that all the real-time constraints are respected.
-        router1.init();
-        router1.setBanker(makeSlaveBanker("router1"));
-        router1.bindTcp();
-        router1.start();
-
-        router2.init();
-        router2.setBanker(makeSlaveBanker("router2"));
-        router2.bindTcp();
-        router2.start();
-
-        // Setup an exchange connector for each router which will act as the
-        // middle men between the exchange and the router.
-
-        exchangeConnectors.emplace_back(
-                new MockExchangeConnector("mock-1", proxies));
-
-        exchangeConnectors.emplace_back(
-                new MockExchangeConnector("mock-2", proxies));
-
-        auto ports = proxies->ports->getRange("mock-exchange");
-
-        for (auto& connector : exchangeConnectors) {
-            connector->enableUntil(Date::positiveInfinity());
-
-            int port = connector->init(ports, "localhost", 2 /* threads */);
-            exchangePorts.push_back(port);
-        }
-
-        router1.addExchange(*exchangeConnectors[0]);
-        router2.addExchange(*exchangeConnectors[1]);
-        
-        // Setup an ad server connector that also acts as a midlle men between
-        // the exchange's wins and the post auction loop.
-        winStream.init(winStreamPort = 12340, eventStreamPort = 12341);
-        winStream.start();
-
-        // Our bidding agent which listens to the bid request stream from all
-        // available routers and decide who gets to see your awesome pictures of
-        // kittens.
-        for (const shared_ptr<TestAgent> & agent: agents) {
-            agent->init();
-            agent->start();
-            agent->configure();
-        }
-
-        // Our augmentor which does frequency capping for our agent.
-        augmentor1.init();
-        augmentor1.start();
-        augmentor2.init();
-        augmentor2.start();
-    }
-};
+const size_t numAccounts(200); /* number of accounts and agents */
 
 
 /******************************************************************************/
@@ -329,6 +145,204 @@ void dumpAccounts(
 
 
 /******************************************************************************/
+/* COMPONENTS                                                                 */
+/******************************************************************************/
+
+/** Initializes the various components of the RTBKit stack. */
+struct Components
+{
+
+    std::shared_ptr<ServiceProxies> proxies;
+
+    // See init for an inline description of the various components.
+
+    RedisTemporaryServer redis;
+    Router router1, router2;
+    PostAuctionService postAuctionLoop;
+    MasterBanker masterBanker;
+    SlaveBudgetController budgetController;
+    AgentConfigurationService agentConfig;
+    MonitorEndpoint monitor;
+    vector<shared_ptr<TestAgent> > agents;
+    FrequencyCapAugmentor augmentor1, augmentor2;
+
+    // \todo Add a PAL event subscriber.
+
+    MockAdServerConnector winStream;
+    int winStreamPort;
+    int eventStreamPort;
+
+    vector<unique_ptr<MockExchangeConnector> > exchangeConnectors;
+    vector<int> exchangePorts;
+
+
+    Components(std::shared_ptr<ServiceProxies> proxies)
+        : proxies(proxies),
+          router1(proxies, "router1"),
+          router2(proxies, "router2"),
+          postAuctionLoop(proxies, "pas1"),
+          masterBanker(proxies, "masterBanker"),
+          agentConfig(proxies, "agentConfigurationService"),
+          monitor(proxies, "monitor"),
+          augmentor1(proxies, "fca1"),
+          augmentor2(proxies, "fca2"),
+          winStream("mockStream", proxies)
+    {
+    }
+
+    void shutdown()
+    {
+        router1.shutdown();
+        router2.shutdown();
+        winStream.shutdown();
+        postAuctionLoop.shutdown();
+
+        budgetController.shutdown();
+
+        for (shared_ptr<TestAgent> & agent: agents) {
+            agent->shutdown();
+        }
+        augmentor1.shutdown();
+        augmentor2.shutdown();
+        agentConfig.shutdown();
+
+        monitor.shutdown();
+
+        // Waiting a little bit that SlaveBanker from the Router and PAS stop
+        // sending requests to the master banker before shutting it down
+        ML::sleep(2);
+        masterBanker.shutdown();
+
+        cerr << "done shutdown" << endl;
+    }
+
+    void init(size_t numAgents)
+    {
+        const string agentUri = "tcp://127.0.0.1:1234";
+
+        // Setup a monitor which ensures that any instability in the system will
+        // throttle the bid request stream. In other words, it ensures you won't
+        // go bankrupt.
+        monitor.init({
+                    "rtbRequestRouter",
+                    "rtbPostAuctionService",
+                    "rtbBanker",
+                    "rtbDataLogger",
+                    "rtbAgentConfiguration"});
+        monitor.bindTcp();
+        monitor.start();
+
+        // Setup and agent configuration service which is used to notify all
+        // interested services of changes to the agent configuration.
+        agentConfig.init();
+        agentConfig.bindTcp();
+        agentConfig.start();
+
+        // Setup a master banker used to keep the canonical budget of the
+        // various bidding agent accounts. The data contained in this service is
+        // periodically persisted to redis.
+        masterBanker.init(std::make_shared<RedisBankerPersistence>(redis));
+        auto bankerAddr = masterBanker.bindTcp().second;
+        masterBanker.start();
+
+        // Setup a slave banker that we can use to manipulate and peak at the
+        // budgets during the test.
+        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+        // budgetController.setApplicationLayer(make_application_layer<HttpLayer>(bankerAddr));
+        budgetController.start();
+
+        // Each router contains a slave masterBanker which is periodically
+        // synced with the master banker.
+        auto makeSlaveBanker = [=] (const std::string & name)
+            {
+                auto res = std::make_shared<SlaveBanker>(name);
+                res->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+                // res->setApplicationLayer(make_application_layer<HttpLayer>(bankerAddr));
+                res->start();
+                return res;
+            };
+
+        // Setup a post auction loop (PAL) which handles all exchange events
+        // that don't need to be processed in real-time (wins, loss, etc).
+        postAuctionLoop.init(8);
+        postAuctionLoop.setBanker(makeSlaveBanker("pas1"));
+        postAuctionLoop.bindTcp();
+        postAuctionLoop.start();
+
+        // Setup two routers which will manage the bid request stream coming
+        // from the exchange, the augmentations coming from the augmentors (to
+        // be added to the test) and the bids coming from the agents. Along the
+        // way it also applies various filters based on agent configuration
+        // while ensuring that all the real-time constraints are respected.
+        router1.init();
+        router1.setBanker(makeSlaveBanker("router1"));
+        router1.bindTcp();
+        router1.start();
+
+        router2.init();
+        router2.setBanker(makeSlaveBanker("router2"));
+        router2.bindTcp();
+        router2.start();
+
+        // Setup an exchange connector for each router which will act as the
+        // middle men between the exchange and the router.
+
+        exchangeConnectors.emplace_back(
+                new MockExchangeConnector("mock-1", proxies));
+
+        exchangeConnectors.emplace_back(
+                new MockExchangeConnector("mock-2", proxies));
+
+        auto ports = proxies->ports->getRange("mock-exchange");
+
+        for (auto& connector : exchangeConnectors) {
+            connector->enableUntil(Date::positiveInfinity());
+
+            int port = connector->init(ports, "localhost", 2 /* threads */);
+            exchangePorts.push_back(port);
+        }
+
+        router1.addExchange(*exchangeConnectors[0]);
+        router2.addExchange(*exchangeConnectors[1]);
+        
+        // Setup an ad server connector that also acts as a midlle men between
+        // the exchange's wins and the post auction loop.
+        winStream.init(winStreamPort = 12340, eventStreamPort = 12341);
+        winStream.start();
+
+        // Our bidding agent which listens to the bid request stream from all
+        // available routers and decide who gets to see your awesome pictures of
+        // kittens.
+        for (size_t i = 0; i < numAgents; i++) {
+            AccountKey key{"testCampaign" + to_string(i),
+                           "testStrategy" + to_string(i)};
+            auto agent = make_shared<TestAgent>(proxies,
+                                                "testAgent" + to_string(i),
+                                                key);
+            agents.push_back(agent);
+
+            agent->init();
+            agent->start();
+            agent->configure();
+
+            // Some extra customization for our agent to make it extra
+            // special. See setupAgent for more details.
+            setupAgent(*agent);
+
+            // Setup an initial budgeting for the test.
+            allocateBudget(budgetController, key, USD(1000));
+        }
+
+        // Our augmentor which does frequency capping for our agent.
+        augmentor1.init();
+        augmentor1.start();
+        augmentor2.init();
+        augmentor2.start();
+    }
+};
+
+
+/******************************************************************************/
 /* MAIN                                                                       */
 /******************************************************************************/
 
@@ -360,26 +374,9 @@ int main(int argc, char ** argv)
 
     Components components(proxies);
 
-    // Setup an initial budgeting for the test.
-    for (int i = 0; i < NUM_ACCOUNTS; i++) {
-        AccountKey key{"testCampaign" + to_string(i),
-                       "testStrategy" + to_string(i)};
-        auto agent = make_shared<TestAgent>(proxies,
-                                            "testAgent" + to_string(i),
-                                            key);
-        components.agents.push_back(agent);
-    }
-
-    // Setups up the various component of the RTBKit stack. See Components::init
-    // for more details.
-    components.init();
-
-    // Setup an initial budgeting for the test.
-    for (int i = 0; i < NUM_ACCOUNTS; i++) {
-        AccountKey key{"testCampaign" + to_string(i),
-                       "testStrategy" + to_string(i)};
-        allocateBudget(components.budgetController, key, USD(1000));
-    }
+    // Setups up the various component of the RTBKit stack. See
+    // Components::init for more details.
+    components.init(numAccounts);
 
     // Syncing is done periodically so we have to wait a bit before the router
     // will have a budget available. Necessary because the bid request stream
@@ -387,18 +384,12 @@ int main(int argc, char ** argv)
     cerr << "sleeping so that the slave accounts can sync up" << endl;
     ML::sleep(2.1);
 
-    for (int i = 0; i < NUM_ACCOUNTS; i++) {
+    for (int i = 0; i < numAccounts; i++) {
         AccountKey key{"testCampaign" + to_string(i),
                        "testStrategy" + to_string(i)};
         testBudget(components.budgetController, key);
     }
 
-
-    for (const auto & agent: components.agents) {
-        // Some extra customization for our agent to make it extra special.
-        // See setupAgent for more details.
-        setupAgent(*agent);
-    }
 
     // Start up the exchange threads which should let bid requests flow through
     // our stack.
