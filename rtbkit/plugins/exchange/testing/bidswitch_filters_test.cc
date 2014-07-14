@@ -35,41 +35,36 @@ BOOST_AUTO_TEST_CASE( bidswitch_wseat_filter )
     BidSwitchWSeatFilter filter; 
     CreativeMatrix creatives;
 
-    AgentConfig c0;
-    c0.creatives.push_back(Creative());
-    std::string providerConfigStr = "{ \"bidswitch\": { \"seat\": \"123\" }}";
-    c0.providerConfig = Json::parse(providerConfigStr);
+    // AgentConfigs
+    auto doAgentConfigInit = [&] (AgentConfig & ac, const std::string & providerConfigStr) {
+        ac.creatives.push_back(Creative());
+        ac.providerConfig = Json::parse(providerConfigStr);
+    };
 
-    AgentConfig c1;
-    c1.creatives.push_back(Creative());
-    std::string providerConfigStr1 = "{ \"bidswitch\": { \"seat\": \"1\" }}";
-    c1.providerConfig = Json::parse(providerConfigStr1);
-    
-    AgentConfig c2;
-    c2.creatives.push_back(Creative());
-    
-    BidRequest r0;
-    std::string ext1 = "{\"flight_ids\": [1200] }";
-    addImp(r0, OpenRTB::AdPosition::ABOVE, ext1);
-    r0.segments.addStrings("openrtb-wseat", {"aaa",  "1" } );
+    AgentConfig c0, c1, c2;
+    doAgentConfigInit(c0, "{ \"bidswitch\": { \"seat\": \"123\" }}");
+    doAgentConfigInit(c1, "{ \"bidswitch\": { \"seat\": \"1\" }}");
+    doAgentConfigInit(c2, "{}");
+
+    auto doBidRequestInit = [&] (BidRequest & br, const std::vector<string> & wseat) {
+        // add at least one Impression
+        addImp(br, OpenRTB::AdPosition::ABOVE, "{\"flight_ids\": [1200] }");
+        br.segments.addStrings("openrtb-wseat", wseat );
+
+    };
+
+    // BidRequests 
+    BidRequest r0, r1, r2, r3;
+    doBidRequestInit(r0, { "aaa",  "1" } );
+    doBidRequestInit(r1, { "123", "aaa" } );
+    doBidRequestInit(r2, { "bbb", "aaa" });
+    doBidRequestInit(r3, { "1", "123" });
 
     
-    BidRequest r1;
-    addImp(r1, OpenRTB::AdPosition::ABOVE, ext1);
-    r1.segments.addStrings("openrtb-wseat", { "123", "aaa" } );
-    
-    BidRequest r2;
-    addImp(r2, OpenRTB::AdPosition::ABOVE, ext1);
-    r2.segments.addStrings("openrtb-wseat", { "bbb", "aaa" } );
-    
-    BidRequest r3;
-    addImp(r3, OpenRTB::AdPosition::ABOVE, ext1);
-    r3.segments.addStrings("openrtb-wseat", { "1", "123" } );
-    
+    // Test 1
     title("Bidswtich-wseat-1");
     addConfig(filter, 0, c0, creatives);
     addConfig(filter, 1, c1, creatives);
-
 
     check(filter, r0, creatives, 0, { {1}  });
     check(filter, r1, creatives, 0, { {0}  });
@@ -79,6 +74,8 @@ BOOST_AUTO_TEST_CASE( bidswitch_wseat_filter )
     removeConfig(filter, 0, c0, creatives);
     removeConfig(filter, 1, c1, creatives);
 
+    // Test 2
+    title("Bidswtich-wseat-2");
     addConfig(filter, 0, c2, creatives);
     check(filter, r0, creatives, 0, { {0}  });
     check(filter, r1, creatives, 0, { {0}  });
