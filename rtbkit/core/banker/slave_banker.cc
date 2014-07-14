@@ -40,7 +40,7 @@ topupTransfer(const AccountKey & account,
               CurrencyPool amount,
               const OnBudgetResult & onResult)
 {
-    applicationLayer->toPopupTransfer(account, AT_BUDGET, amount, onResult);
+    applicationLayer->topupTransfer(account, AT_BUDGET, amount, onResult);
 }
 
 void
