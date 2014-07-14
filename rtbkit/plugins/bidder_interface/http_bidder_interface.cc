@@ -18,17 +18,67 @@ using namespace RTBKIT;
 namespace {
     DefaultDescription<OpenRTB::BidRequest> desc;
 
+    std::string httpErrorString(HttpClientError code)  {
+        switch (code) {
+            #define CASE(code) \
+                case code: \
+                    return #code;
+            CASE(HttpClientError::NONE)
+            CASE(HttpClientError::UNKNOWN)
+            CASE(HttpClientError::TIMEOUT)
+            CASE(HttpClientError::HOST_NOT_FOUND)
+            CASE(HttpClientError::COULD_NOT_CONNECT)
+            #undef CASE
+        }
+        ExcCheck(false, "Invalid code path");
+        return "";
+    }
 }
 
+namespace RTBKIT {
+
+Logging::Category HttpBidderInterface::print("HttpBidderInterface");
+Logging::Category HttpBidderInterface::error("HttpBidderInterface Error", HttpBidderInterface::print);
+Logging::Category HttpBidderInterface::trace("HttpBidderInterface Trace", HttpBidderInterface::print);
+
+}
 
 HttpBidderInterface::HttpBidderInterface(std::string name,
                                          std::shared_ptr<ServiceProxies> proxies,
                                          Json::Value const & json)
         : BidderInterface(proxies, name) {
-    host = json["host"].asString();
-    path = json["path"].asString();
-    httpClient.reset(new HttpClient(host));
-    loop.addSource("HttpBidderInterface::httpClient", httpClient);
+
+    try {
+        routerHost = json["router"]["host"].asString();
+        routerPath = json["router"]["path"].asString();
+        adserverHost = json["adserver"]["host"].asString();
+        adserverWinPort = json["adserver"]["winPort"].asInt();
+        adserverEventPort = json["adserver"]["eventPort"].asInt();
+    } catch (const std::exception & e) {
+        THROW(error) << "configuration file is invalid" << std::endl
+                   << "usage : " << std::endl
+                   << "{" << std::endl << "\t\"router\" : {" << std::endl
+                   << "\t\t\"host\" : <string : hostname with port>" << std::endl  
+                   << "\t\t\"path\" : <string : resource name>" << std::endl
+                   << "\t}" << std::endl << "\t{" << std::endl 
+                   << "\t{" << std::endl << "\t\"adserver\" : {" << std::endl
+                   << "\t\t\"host\" : <string : hostname>" << std::endl  
+                   << "\t\t\"winPort\" : <int : winPort>" << std::endl  
+                   << "\t\t\"eventPort\" : <int eventPort>" << std::endl
+                   << "\t}" << std::endl << "}";
+    }
+
+    httpClientRouter.reset(new HttpClient(routerHost));
+    loop.addSource("HttpBidderInterface::httpClientRouter", httpClientRouter);
+
+    std::string winHost = adserverHost + ':' + std::to_string(adserverWinPort);
+    httpClientAdserverWins.reset(new HttpClient(winHost));
+    loop.addSource("HttpBidderInterface::httpClientAdserverWins", httpClientAdserverWins);
+
+    std::string eventHost = adserverHost + ':' + std::to_string(adserverEventPort);
+    httpClientAdserverEvents.reset(new HttpClient(eventHost));
+    loop.addSource("HttpBidderInterface::httpClientAdserverEvents", httpClientAdserverEvents);
+
 }
 
 HttpBidderInterface::~HttpBidderInterface()
@@ -74,27 +124,12 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                     int statusCode, const std::string &, std::string &&body)
                 {
                     if (errorCode != HttpClientError::NONE) {
-                        auto toErrorString = [](HttpClientError code) -> std::string {
-                            switch (code) {
-                                #define CASE(code) \
-                                    case code: \
-                                        return #code;
-                                CASE(HttpClientError::NONE)
-                                CASE(HttpClientError::UNKNOWN)
-                                CASE(HttpClientError::TIMEOUT)
-                                CASE(HttpClientError::HOST_NOT_FOUND)
-                                CASE(HttpClientError::COULD_NOT_CONNECT)
-                                #undef CASE
-                            }
-                            ExcCheck(false, "Invalid code path");
-                            return "";
-                        };
                         router->throwException("http", "Error requesting %s: %s",
-                                               host.c_str(),
-                                               toErrorString(errorCode).c_str());
+                                               routerHost.c_str(),
+                                               httpErrorString(errorCode).c_str());
                       }
                       else if (statusCode == 200) {
-                        // cerr << "Response: " << body << endl;
+                        // cerr << "Response: " << body << std::endl;
                          OpenRTB::BidResponse response;
                          ML::Parse_Context context("payload",
                                body.c_str(), body.size());
@@ -141,17 +176,12 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
         HttpRequest::Content reqContent { requestStr, "application/json" };
         RestParams headers { { "x-openrtb-version", "2.1" } };
-       // std::cerr << "Sending HTTP POST to: " << host << " " << path << std::endl;
+       // std::cerr << "Sending HTTP POST to: " << routerHost << " " << routerPath << std::endl;
        // std::cerr << "Content " << reqContent.str << std::endl;
 
-        httpClient->post(path, callbacks, reqContent,
+        httpClientRouter->post(routerPath, callbacks, reqContent,
                          { } /* queryParams */, headers);
     }
-}
-
-
-void HttpBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
-
 }
 
 void HttpBidderInterface::sendLossMessage(std::string const & agent,
@@ -159,13 +189,68 @@ void HttpBidderInterface::sendLossMessage(std::string const & agent,
 
 }
 
-void HttpBidderInterface::sendCampaignEventMessage(std::string const & agent,
-                                                   MatchedCampaignEvent const & event) {
+void HttpBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
+    if (event.type == MatchedWinLoss::Loss) return;
 
+    auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
+        [=](const HttpRequest &, HttpClientError errorCode,
+            int statusCode, const std::string &, std::string &&body)
+        {
+            if (errorCode != HttpClientError::NONE) {
+                throw ML::Exception("Error requesting %s:%d '%s'",
+                                    adserverHost.c_str(),
+                                    adserverWinPort,
+                                    httpErrorString(errorCode).c_str());
+              }
+        });
+
+    Json::Value content;
+
+    content["timestamp"] = event.timestamp.secondsSinceEpoch();
+    content["bidRequestId"] = event.auctionId.toString();
+    content["impid"] = event.impId.toString();
+    content["userIds"] = event.uids.toJson();
+    // ratio cannot be casted to json::value ...
+    content["price"] = (double) getAmountIn<CPM>(event.winPrice);
+
+    //requestStr["passback"];
+    
+    HttpRequest::Content reqContent { content, "application/json" };
+    httpClientAdserverWins->post("/", callbacks, reqContent,
+                         { } /* queryParams */);
+    
 }
+
 
 void HttpBidderInterface::sendBidLostMessage(std::string const & agent,
                                              std::shared_ptr<Auction> const & auction) {
+}
+
+void HttpBidderInterface::sendCampaignEventMessage(std::string const & agent,
+                                                   MatchedCampaignEvent const & event) {
+    auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
+        [=](const HttpRequest &, HttpClientError errorCode,
+            int statusCode, const std::string &, std::string &&body)
+        {
+            if (errorCode != HttpClientError::NONE) {
+                throw ML::Exception("Error requesting %s:%d '%s'",
+                                    adserverHost.c_str(),
+                                    adserverEventPort,
+                                    httpErrorString(errorCode).c_str());
+              }
+        });
+    
+    Json::Value content;
+
+    content["timestamp"] = event.timestamp.secondsSinceEpoch();
+    content["bidRequestId"] = event.auctionId.toString();
+    content["impid"] = event.impId.toString();
+    content["type"] = event.label;
+    
+    HttpRequest::Content reqContent { content, "application/json" };
+    httpClientAdserverEvents->post("/", callbacks, reqContent,
+                         { } /* queryParams */);
+    
 }
 
 void HttpBidderInterface::sendBidDroppedMessage(std::string const & agent,
@@ -244,8 +329,8 @@ bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
         return false;
     }
 #if 0
-    std::cerr << "old tmax = " << oldTmax << std::endl
-              << "new tmax = " << newTmax << std::endl;
+        std::cerr << "old tmax = " << oldTmax << std::std::endl
+                  << "new tmax = " << newTmax << std::std::endl;
 #endif
     ExcCheck(newTmax <= oldTmax, "Wrong tmax calculation");
     request.tmax.val = newTmax;

@@ -212,6 +212,7 @@ start(std::function<void ()> onStop)
     monitorProviderClient.start();
     loopMonitor.start();
     matcher->start();
+    bidder->start();
 }
 
 void
