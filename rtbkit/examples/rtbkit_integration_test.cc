@@ -41,7 +41,7 @@ using namespace Datacratic;
 using namespace RTBKIT;
 
 
-const size_t numAccounts(200); /* number of accounts and agents */
+const size_t numAccounts(50); /* number of accounts and agents */
 
 #define ZMQ_APP_LAYER 1
 
