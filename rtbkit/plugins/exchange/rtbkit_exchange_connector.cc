@@ -73,7 +73,7 @@ setSeatBid(const Auction & auction,
     OpenRTB::Bid &bid = seatBid.bid.back();
 
     Json::Value ext(Json::objectValue);
-    ext["external-id"] = std::to_string(agentConfig->externalId);
+    ext["external-id"] = agentConfig->externalId;
     bid.ext = ext;
 }
 
