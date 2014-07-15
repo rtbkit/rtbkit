@@ -43,7 +43,7 @@ using namespace RTBKIT;
 
 const size_t numAccounts(200); /* number of accounts and agents */
 
-#define ZMQ_APP_LAYER 0
+#define ZMQ_APP_LAYER 1
 
 /******************************************************************************/
 /* SETUP                                                                      */
@@ -118,19 +118,22 @@ void allocateBudget(
     // cerr << budgetController.getAccountSummarySync(account[0], -1) << endl;
 }
 
-void testBudget(SlaveBudgetController& budgetController,
-                const AccountKey& account)
+void testBudget(SlaveBudgetController & budgetController,
+                const AccountKey & account)
 {
     auto summary = budgetController.getAccountSummarySync(account[0], -1);
-    cerr << summary << endl;
 
-    ExcAssertEqual(
-            summary.subAccounts[account[1]].subAccounts["router1"].budget,
-            USD(0.10));
+    if (summary.subAccounts[account[1]].subAccounts["router1"].budget
+        != USD(0.10)) {
+        cerr << summary << endl;
+        throw ML::Exception("USD(0.10) not available in budget of router1");
+    }
 
-    ExcAssertEqual(
-            summary.subAccounts[account[1]].subAccounts["router2"].budget,
-            USD(0.10));
+    if (summary.subAccounts[account[1]].subAccounts["router2"].budget
+        != USD(0.10)) {
+        cerr << summary << endl;
+        throw ML::Exception("USD(0.10) not available in budget of router2");
+    }
 }
 
 /** Some debugging output for the banker. */
@@ -253,7 +256,7 @@ struct Components
 
         // Setup a slave banker that we can use to manipulate and peak at the
         // budgets during the test.
-#if 0
+#if ZMQ_APP_LAYER
         budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
 #else
         auto appLayer = make_application_layer<HttpLayer>("http://127.0.0.1:15500");
@@ -266,7 +269,7 @@ struct Components
         // synced with the master banker.
         auto makeSlaveBanker = [=] (const std::string & name) {
             auto res = std::make_shared<SlaveBanker>(name);
-#if 0
+#if ZMQ_APP_LAYER
             auto appLayer = make_application_layer<ZmqLayer>(proxies->config);
 #else
             cerr << "bankerAddr: " + bankerAddr + "\n";
@@ -406,14 +409,15 @@ int main(int argc, char ** argv)
     ensureBudgetSync(components.router1.getBanker());
     ensureBudgetSync(components.router2.getBanker());
 
-    ML::sleep(5);
+    ML::sleep(2.1);
 
+    cerr << "testing budgets\n";
     for (int i = 0; i < numAccounts; i++) {
         AccountKey key{"testCampaign" + to_string(i),
                        "testStrategy" + to_string(i)};
         testBudget(components.budgetController, key);
     }
-
+    cerr << "budgets tested\n";
 
     // Start up the exchange threads which should let bid requests flow through
     // our stack.
