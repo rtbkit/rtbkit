@@ -1194,7 +1194,7 @@ private:
     {
         auto it = accounts.find(account);
         if (it == accounts.end())
-            throw ML::Exception("couldn't get account");
+            throw ML::Exception("couldn't get account: " + account.toString());
         return it->second;
     }
 
@@ -1202,7 +1202,7 @@ private:
     {
         auto it = accounts.find(account);
         if (it == accounts.end())
-            throw ML::Exception("couldn't get account");
+            throw ML::Exception("couldn't get account: " + account.toString());
         return it->second;
     }
 

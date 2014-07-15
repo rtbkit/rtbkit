@@ -38,6 +38,10 @@ struct RouterRunner {
 
     float maxBidPrice;
     std::string bankerUri;
+    std::string spendRate;
+    int slowModeTimeout; // Default value =  MonitorClient::DefaultCheckTimeout
+
+    bool useHttpBanker;
 
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts

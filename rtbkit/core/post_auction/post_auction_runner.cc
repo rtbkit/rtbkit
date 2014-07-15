@@ -34,7 +34,10 @@ PostAuctionRunner() :
     shards(1),
     auctionTimeout(EventMatcher::DefaultAuctionTimeout),
     winTimeout(EventMatcher::DefaultWinTimeout),
-    bidderConfigurationFile("rtbkit/examples/bidder-config.json")
+    bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
+    winLossPipeTimeout(PostAuctionService::DefaultWinLossPipeTimeout),
+    campaignEventPipeTimeout(PostAuctionService::DefaultCampaignEventPipeTimeout),
+    useHttpBanker(false)
 {
 }
 
@@ -49,14 +52,18 @@ doOptions(int argc, char ** argv,
     postAuctionLoop_options.add_options()
         ("bidder,b", value<string>(&bidderConfigurationFile),
          "configuration file with bidder interface data")
-        ("banker-uri", value<string>(&bankerUri),
-         "URI of the master banker (host:port)")
+        ("use-http-banker", bool_switch(&useHttpBanker),
+         "Communicate with the MasterBanker over http")
         ("shards", value<size_t>(&shards),
          "Number of shards(threads) used for matching.")
         ("win-seconds", value<float>(&winTimeout),
          "Timeout for storing win auction")
         ("auction-seconds", value<float>(&auctionTimeout),
-         "Timeout to get late win auction");
+         "Timeout to get late win auction")
+        ("winlossPipe-seconds", value<int>(&winLossPipeTimeout),
+         "Timeout before sending error on WinLoss pipe")
+        ("campaignEventPipe-seconds", value<int>(&campaignEventPipeTimeout),
+         "Timeout before sending error on CampaignEvent pipe");
 
     options_description all_opt = opts;
     all_opt
@@ -94,12 +101,28 @@ init()
 
     postAuctionLoop->setWinTimeout(winTimeout);
     postAuctionLoop->setAuctionTimeout(auctionTimeout);
+    postAuctionLoop->setWinLossPipeTimeout(winLossPipeTimeout);
+    postAuctionLoop->setCampaignEventPipeTimeout(campaignEventPipeTimeout);
 
     LOG(PostAuctionService::print) << "win timeout is " << winTimeout << std::endl;
     LOG(PostAuctionService::print) << "auction timeout is " << auctionTimeout << std::endl;
+    LOG(PostAuctionService::print) << "winLoss pipe timeout is " << winLossPipeTimeout << std::endl;
+    LOG(PostAuctionService::print) << "campaignEvent pipe timeout is " << campaignEventPipeTimeout << std::endl;
 
     banker = std::make_shared<SlaveBanker>(postAuctionLoop->serviceName() + ".slaveBanker");
-    banker->setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+    std::shared_ptr<ApplicationLayer> layer;
+    if (useHttpBanker) {
+        auto bankerUri = proxies->bankerUri;
+        ExcCheck(!bankerUri.empty(),
+                "the banker-uri must be specified in the bootstrap.json");
+        LOG(PostAuctionService::print) << "using http interface for the MasterBanker" << std::endl;
+        layer = make_application_layer<HttpLayer>(bankerUri);
+    }
+    else {
+        layer = make_application_layer<ZmqLayer>(proxies->config);
+        LOG(PostAuctionService::print) << "using zmq interface for the MasterBanker" << std::endl;
+    }
+    banker->setApplicationLayer(layer);
 
     postAuctionLoop->addSource("slave-banker", *banker);
     postAuctionLoop->setBanker(banker);

@@ -8,6 +8,7 @@
 #ifndef __banker__slave_banker_h__
 #define __banker__slave_banker_h__
 
+#include <atomic>
 #include "banker.h"
 #include "application_layer.h"
 #include "soa/service/zmq_endpoint.h"
@@ -93,6 +94,7 @@ private:
     what has been committed so far.
 */
 struct SlaveBanker : public Banker, public MessageLoop {
+    static const CurrencyPool DefaultSpendRate;
 
     SlaveBanker();
 
@@ -101,7 +103,8 @@ struct SlaveBanker : public Banker, public MessageLoop {
         shutdown();
     }
 
-    SlaveBanker(const std::string & accountSuffix);
+    SlaveBanker(const std::string & accountSuffix,
+                CurrencyPool spenRate = DefaultSpendRate);
 
     /** Initialize the slave banker.  
 
@@ -110,7 +113,8 @@ struct SlaveBanker : public Banker, public MessageLoop {
         accessors of those accounts).  It must be unique across the entire
         system, but should be consistent from one invocation to another.
     */
-    void init(const std::string & accountSuffix);
+    void init(const std::string & accountSuffix,
+              CurrencyPool spendRate = DefaultSpendRate);
 
     /** Notify the banker that we're going to need to be spending some
         money for the given account.  We also keep track of how much
@@ -201,6 +205,25 @@ struct SlaveBanker : public Banker, public MessageLoop {
         addSource("SlaveBanker::ApplicationLayer", *layer);
     }
 
+    bool isReauthorizing() const
+    {
+        return reauthorizing;
+    }
+
+    void waitReauthorized() const;
+
+    size_t getNumReauthorized()
+        const
+    {
+        return numReauthorized;
+    }
+
+    double getLastReauthorizeDelay()
+        const
+    {
+        return lastReauthorizeDelay;
+    }
+
     /* Logging */
     virtual void logBidEvents(const Datacratic::EventRecorder & eventRecorder)
     {
@@ -231,6 +254,7 @@ private:
     /** Periodically we ask the banker to re-authorize our budget. */
     void reauthorizeBudget(uint64_t numTimeoutsExpired);
     Date reauthorizeBudgetSent;
+    CurrencyPool spendRate;
 
 
     /// Called when we get an account status back from the master banker
@@ -261,6 +285,14 @@ private:
     {
         return account.childKey(accountSuffix).toString();
     }
+
+    std::atomic<bool> shutdown_;
+
+    std::atomic<bool> reauthorizing;
+    Date reauthorizeDate;
+    double lastReauthorizeDelay;
+    size_t numReauthorized;
+    size_t accountsLeft;
 };
 
 } // naemspace RTBKIT

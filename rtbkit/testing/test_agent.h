@@ -7,27 +7,30 @@
 
 #pragma once
 
+#include "rtbkit/common/account_key.h"
 #include "rtbkit/plugins/bidding_agent/bidding_agent.h"
 #include "jml/arch/futex.h"
 
 namespace RTBKIT {
 
-struct TestAgent : public RTBKIT::BiddingAgent {
+struct TestAgent : public BiddingAgent {
     TestAgent(std::shared_ptr<RTBKIT::ServiceProxies> proxies,
-              const std::string & name = "testAgent")
+              const std::string & name = "testAgent",
+              const AccountKey & accountKey
+              = AccountKey({"testCampaign", "testStrategy"})) noexcept
         : RTBKIT::BiddingAgent(proxies, name)
     {
-        setDefaultConfig();
+        setDefaultConfig(accountKey);
         setupCallbacks();
         clear();
     }
 
     RTBKIT::AgentConfig config;
 
-    void setDefaultConfig()
+    void setDefaultConfig(const AccountKey & accountKey)
     {
         RTBKIT::AgentConfig config;
-        config.account = {"testCampaign", "testStrategy"};
+        config.account = accountKey;
         config.maxInFlight = 20000;
         config.creatives.push_back(RTBKIT::Creative::sampleLB);
         config.creatives.push_back(RTBKIT::Creative::sampleWS);

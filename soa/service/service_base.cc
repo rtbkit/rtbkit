@@ -592,6 +592,12 @@ bootstrap(const Json::Value& config)
     string location = config["location"].asString();
     ExcCheck(!location.empty(), "location is not specified in the bootstrap.json");
 
+    bankerUri = config.get("banker-uri", "").asString();
+    if (bankerUri.empty()) {
+        // Reading bankerHost for historical reason
+        bankerUri = config.get("bankerHost", "").asString();
+    }
+
     if (config.isMember("carbon-uri")) {
         const Json::Value& entry = config["carbon-uri"];
         vector<string> uris;

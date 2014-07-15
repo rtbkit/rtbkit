@@ -397,6 +397,8 @@ struct ServiceProxies {
     std::shared_ptr<ConfigurationService> config;
     std::shared_ptr<PortRangeService> ports;
 
+    std::string bankerUri;
+
     /** Zeromq context for communication. */
     std::shared_ptr<zmq::context_t> zmqContext;
 

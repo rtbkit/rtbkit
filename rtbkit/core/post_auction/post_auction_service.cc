@@ -34,6 +34,8 @@ PostAuctionService(
 
       auctionTimeout(EventMatcher::DefaultAuctionTimeout),
       winTimeout(EventMatcher::DefaultWinTimeout),
+      winLossPipeTimeout(DefaultWinLossPipeTimeout),
+      campaignEventPipeTimeout(DefaultCampaignEventPipeTimeout),
 
       loopMonitor(*this),
       configListener(getZmqContext()),
@@ -210,6 +212,7 @@ start(std::function<void ()> onStop)
     monitorProviderClient.start();
     loopMonitor.start();
     matcher->start();
+    bidder->start();
 }
 
 void
@@ -499,8 +502,8 @@ getProviderIndicators()
     /* PA health check:
        - last campaign event in the last 10 seconds */
     Date now = Date::now();
-    bool winLossOk = now < lastWinLoss.plusSeconds(10);
-    bool campaignEventOk = now < lastCampaignEvent.plusSeconds(10);
+    bool winLossOk = now < lastWinLoss.plusSeconds(winLossPipeTimeout);
+    bool campaignEventOk = now < lastCampaignEvent.plusSeconds(campaignEventPipeTimeout);
     bool bankerOk = banker->getProviderIndicators().status;
 
     // Kept around for posterity.

@@ -35,13 +35,13 @@ struct ApplicationLayer : public MessageLoop {
                     const AccountKey &account,
                     const BudgetController::OnBudgetResult &onResult) = 0;
 
-    virtual void toPopupTransfer(
+    virtual void topupTransfer(
                     const AccountKey &account,
                     AccountType accountType,
                     CurrencyPool amount,
                     const BudgetController::OnBudgetResult &onResult);
 
-    virtual void toPopupTransfer(
+    virtual void topupTransfer(
                     const std::string &accountStr,
                     AccountType accountType,
                     CurrencyPool amount,
@@ -90,8 +90,8 @@ struct HttpLayer : public ApplicationLayer {
                     const AccountKey &account,
                     const BudgetController::OnBudgetResult &onResult);
 
-    using ApplicationLayer::toPopupTransfer;
-    void toPopupTransfer(
+    using ApplicationLayer::topupTransfer;
+    void topupTransfer(
                     const std::string &accountStr,
                     AccountType accountType,
                     CurrencyPool amount,
@@ -143,8 +143,8 @@ struct ZmqLayer : public ApplicationLayer {
                     const AccountKey &account,
                     const BudgetController::OnBudgetResult &onResult);
 
-    using ApplicationLayer::toPopupTransfer;
-    void toPopupTransfer(
+    using ApplicationLayer::topupTransfer;
+    void topupTransfer(
                     const std::string &accountStr,
                     AccountType accountType,
                     CurrencyPool amount,

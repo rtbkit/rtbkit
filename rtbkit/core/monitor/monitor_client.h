@@ -19,8 +19,13 @@ namespace RTBKIT {
  * processing its client requests. */
 struct MonitorClient : public RestProxy
 {
+
+    enum {
+        DefaultCheckTimeout = 2
+    };
+
     MonitorClient(const std::shared_ptr<zmq::context_t> & context,
-                  int checkTimeout = 2)
+                  int checkTimeout = DefaultCheckTimeout)
         : RestProxy(context),
           pendingRequest(false),
           checkTimeout_(checkTimeout), lastStatus(false),

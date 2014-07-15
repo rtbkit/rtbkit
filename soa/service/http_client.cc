@@ -132,7 +132,7 @@ onDone(const HttpRequest & rq, HttpClientError errorCode)
 /* HTTPCLIENT */
 
 HttpClient::
-HttpClient(const string & baseUrl, int numParallel, size_t queueSize)
+HttpClient(const string & baseUrl, int numParallel)
     : AsyncEventSource(),
       noSSLChecks(false),
       baseUrl_(baseUrl),
@@ -141,8 +141,7 @@ HttpClient(const string & baseUrl, int numParallel, size_t queueSize)
       timerFd_(-1),
       connectionStash_(numParallel),
       avlConnections_(numParallel),
-      nextAvail_(0),
-      queue_(queueSize)
+      nextAvail_(0)
 {
     fd_ = epoll_create1(EPOLL_CLOEXEC);
     if (fd_ == -1) {
@@ -292,11 +291,31 @@ enqueueRequest(const string & verb, const string & resource,
                int timeout)
 {
     string url = baseUrl_ + resource + queryParams.uriEscaped();
-    queue_.push(HttpRequest(verb, url, callbacks,
-                            content, headers, timeout));
+    {
+        Guard guard(queueLock_);
+        queue_.emplace(verb, url, callbacks, content, headers, timeout);
+    }
     wakeup_.signal();
 
     return true;
+}
+
+std::vector<HttpRequest>
+HttpClient::
+popRequests(size_t number)
+{
+    std::vector<HttpRequest> requests;
+    number = min(number, queue_.size());
+
+    {
+        Guard guard(queueLock_);
+        for (size_t i = 0; i < number; i++) {
+            requests.emplace_back(move(queue_.front()));
+            queue_.pop();
+        }
+    }
+
+    return requests;
 }
 
 int
@@ -357,24 +376,14 @@ void
 HttpClient::
 handleWakeupEvent()
 {
-    wakeup_.read();
     // cerr << "  wakeup event\n";
+
+    /* Deduplication of wakeup events */
+    while (wakeup_.tryRead());
 
     size_t numAvail = avlConnections_.size() - nextAvail_;
     if (numAvail > 0) {
-        /* empty the queue of events on the wakeup fd */
-        bool retry(false);
-        while (retry) {
-            try {
-                JML_TRACE_EXCEPTIONS(false);
-                wakeup_.read();
-            }
-            catch (const ML::Exception & exc) {
-                retry = false;
-            }
-        }
-
-        vector<HttpRequest> requests = queue_.tryPopMulti(numAvail);
+        vector<HttpRequest> requests = popRequests(numAvail);
         for (HttpRequest & request: requests) {
             HttpConnection *conn = getConnection();
             conn->request_ = move(request);

@@ -40,7 +40,7 @@ topupTransfer(const AccountKey & account,
               CurrencyPool amount,
               const OnBudgetResult & onResult)
 {
-    applicationLayer->toPopupTransfer(account, AT_BUDGET, amount, onResult);
+    applicationLayer->topupTransfer(account, AT_BUDGET, amount, onResult);
 }
 
 void
@@ -96,18 +96,22 @@ getAccount(const AccountKey & accountKey,
 /*****************************************************************************/
 
 SlaveBanker::
-SlaveBanker(const std::string & accountSuffix)
-    : createdAccounts(128)
+SlaveBanker(const std::string & accountSuffix, CurrencyPool spendRate)
+    : createdAccounts(128), reauthorizing(false), numReauthorized(0)
 {
-    init(accountSuffix);
+    init(accountSuffix, spendRate);
 }
 
 void
 SlaveBanker::
-init( const std::string & accountSuffix)
+init(const std::string & accountSuffix, CurrencyPool spendRate)
 {
     if (accountSuffix.empty()) {
         throw ML::Exception("'accountSuffix' cannot be empty");
+    }
+
+    if (spendRate.isZero()) {
+        throw ML::Exception("'spendRate' can not be zero");
     }
 
     // When our account manager creates an account, it will call this
@@ -147,6 +151,7 @@ init( const std::string & accountSuffix)
     addSource("SlaveBanker::createdAccounts", createdAccounts);
 
     this->accountSuffix = accountSuffix;
+    this->spendRate = spendRate;
     
     addPeriodic("SlaveBanker::reportSpend", 1.0,
                 std::bind(&SlaveBanker::reportSpend,
@@ -405,30 +410,36 @@ void
 SlaveBanker::
 reauthorizeBudget(uint64_t numTimeoutsExpired)
 {
+    cerr << "reauthorizeBudget....\n";
+
+
+
     if (numTimeoutsExpired > 1) {
         cerr << "warning: slave banker missed " << numTimeoutsExpired
              << " timeouts" << endl;
     }
 
     //std::unique_lock<Lock> guard(lock);
-    if (reauthorizeBudgetSent != Date()) {
+    if (reauthorizing) {
         cerr << "warning: reauthorize budget still in progress" << endl;
+        return;
     }
 
-    int numDone = 0;
+    accountsLeft = 0;
 
     // For each of our accounts, we report back what has been spent
     // and re-up to our desired float
     auto onAccount = [&] (const AccountKey & key,
                           const ShadowAccount & account)
         {
-            Json::Value payload = CurrencyPool(USD(0.10)).toJson();
-            ++numDone;
+            Json::Value payload = spendRate.toJson();
 
             auto onDone = std::bind(&SlaveBanker::onReauthorizeBudgetMessage, this,
                                     key,
                                     std::placeholders::_1, std::placeholders::_2,
                                     std::placeholders::_3);
+
+            accountsLeft++;
 
             // Finally, send it out
             applicationLayer->request(
@@ -437,11 +448,12 @@ reauthorizeBudget(uint64_t numTimeoutsExpired)
                             payload.toString(),
                             onDone);
         };
-
     accounts.forEachInitializedAccount(onAccount);
-
-    if (numDone != 0)
-        reauthorizeBudgetSent = Date::now();
+    
+    if (accountsLeft > 0) {
+        reauthorizing = true;
+        reauthorizeDate = Date::now();
+    }
 }
 
 void
@@ -451,8 +463,7 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
                            int responseCode,
                            const std::string & payload)
 {
-    //cerr << "finished reauthorize budget" << endl;
-
+    cerr << "finished reauthorize budget: responseCode : " + to_string(responseCode) + "\n";
     if (exc) {
         cerr << "reauthorize budget got exception" << payload << endl;
         cerr << "accountKey = " << accountKey << endl;
@@ -460,10 +471,27 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
         return;
     }
     else if (responseCode == 200) {
+        cerr << "reauth account: " + accountKey.toString() + "\n";
         Account masterAccount = Account::fromJson(Json::parse(payload));
         accounts.syncFromMaster(accountKey, masterAccount);
     }
     reauthorizeBudgetSent = Date();
+    accountsLeft--;
+    if (accountsLeft == 0) {
+        lastReauthorizeDelay = Date::now() - reauthorizeDate;
+        numReauthorized++;
+        reauthorizing = false;
+    }
+}
+
+void
+SlaveBanker::
+waitReauthorized()
+    const
+{
+    while (reauthorizing) {
+        ML::sleep(0.2);
+    }
 }
 
 MonitorIndicator
@@ -483,5 +511,7 @@ getProviderIndicators() const
 
     return ind;
 }
+
+const CurrencyPool SlaveBanker::DefaultSpendRate = CurrencyPool(USD(0.10));
 
 } // namespace RTBKIT
