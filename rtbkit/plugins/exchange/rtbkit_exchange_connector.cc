@@ -53,7 +53,30 @@ parseBidRequest(HttpAuctionHandler &connection,
     return request;
 }
 
-} // namespace RTBKIT
+void
+RTBKitExchangeConnector::
+setSeatBid(const Auction & auction,
+           int spotNum,
+           OpenRTB::BidResponse &response) const
+{
+    // Same as OpenRTB
+    OpenRTBExchangeConnector::setSeatBid(auction, spotNum, response);
+
+    // We also add the externalId in the Bid extension field
+    const Auction::Data *data = auction.getCurrentData();
+
+    auto &resp = data->winningResponse(spotNum);
+    const auto &agentConfig = resp.agentConfig;
+
+    OpenRTB::SeatBid &seatBid = response.seatbid.back();
+
+    OpenRTB::Bid &bid = seatBid.bid.back();
+
+    Json::Value ext(Json::objectValue);
+    ext["external-id"] = std::to_string(agentConfig->externalId);
+    bid.ext = ext;
+}
+
 
 namespace {
 
@@ -68,3 +91,4 @@ struct Init
 
 }
 
+} // namespace RTBKIT
