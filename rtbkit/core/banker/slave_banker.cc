@@ -410,10 +410,6 @@ void
 SlaveBanker::
 reauthorizeBudget(uint64_t numTimeoutsExpired)
 {
-    cerr << "reauthorizeBudget....\n";
-
-
-
     if (numTimeoutsExpired > 1) {
         cerr << "warning: slave banker missed " << numTimeoutsExpired
              << " timeouts" << endl;
@@ -463,7 +459,6 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
                            int responseCode,
                            const std::string & payload)
 {
-    cerr << "finished reauthorize budget: responseCode : " + to_string(responseCode) + "\n";
     if (exc) {
         cerr << "reauthorize budget got exception" << payload << endl;
         cerr << "accountKey = " << accountKey << endl;
@@ -471,7 +466,6 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
         return;
     }
     else if (responseCode == 200) {
-        cerr << "reauth account: " + accountKey.toString() + "\n";
         Account masterAccount = Account::fromJson(Json::parse(payload));
         accounts.syncFromMaster(accountKey, masterAccount);
     }
