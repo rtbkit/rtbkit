@@ -99,89 +99,124 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                              double timeLeftMs,
                                              std::map<std::string, BidInfo> const & bidders) {
     using namespace std;
-    for(auto & item : bidders) {
-        auto & agent = item.first;
-        auto & info = router->agents[agent];
-        const auto &config = info.config;
-        BidRequest originalRequest = *auction->request;
-        WinCostModel wcm = auction->exchangeConnector->getWinCostModel(*auction, *info.config);
 
-        OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
-        bool ok = prepareRequest(openRtbRequest, originalRequest, bidders);
-        /* If we took too much time processing the request, then we don't send it.  */
-        if (!ok) {
-            return;
+    auto findAgent = [&](uint64_t externalId)
+        -> pair<string, shared_ptr<const AgentConfig>> {
+
+        auto it =
+        find_if(begin(bidders), end(bidders),
+                [&](const pair<string, BidInfo> &bidder)
+        {
+            std::string agent = bidder.first;
+            const auto &info = router->agents[agent];
+            return info.config->externalId == externalId;
+        });
+
+        if (it == end(bidders)) {
+            return make_pair("", nullptr);
         }
-        StructuredJsonPrintingContext context;
-        desc.printJson(&openRtbRequest, context);
-        auto requestStr = context.output.toString();
 
-        /* We need to capture by copy inside the lambda otherwise we might get
-           a dangling reference if we go out of scope before receiving the http response
-        */
-        auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
-                [=](const HttpRequest &, HttpClientError errorCode,
-                    int statusCode, const std::string &, std::string &&body)
-                {
-                    if (errorCode != HttpClientError::NONE) {
-                        router->throwException("http", "Error requesting %s: %s",
-                                               routerHost.c_str(),
-                                               httpErrorString(errorCode).c_str());
-                      }
-                      else if (statusCode == 200) {
-                        // cerr << "Response: " << body << std::endl;
-                         OpenRTB::BidResponse response;
-                         ML::Parse_Context context("payload",
-                               body.c_str(), body.size());
-                         StreamingJsonParsingContext jsonContext(context);
-                         static DefaultDescription<OpenRTB::BidResponse> respDesc;
-                         respDesc.parseJson(&response, jsonContext);
+        return make_pair(it->first, it->second.agentConfig);
 
-                         for (const auto &seatbid: response.seatbid) {
-                             Bids bids;
+    };
 
-                             for (const auto &bid: seatbid.bid) {
-                                 Bid theBid;
+    BidRequest originalRequest = *auction->request;
+    OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
+    bool ok = prepareRequest(openRtbRequest, originalRequest, bidders);
+    /* If we took too much time processing the request, then we don't send it.  */
+    if (!ok) {
+        return;
+    }
+    StructuredJsonPrintingContext context;
+    desc.printJson(&openRtbRequest, context);
+    auto requestStr = context.output.toString();
 
-                                 int crid = bid.crid.toInt();
-                                 int creativeIndex = indexOf(config->creatives,
-                                     &Creative::id, crid);
+    /* We need to capture by copy inside the lambda otherwise we might get
+       a dangling reference if we go out of scope before receiving the http response
+    */
+    auto callbacks = std::make_shared<HttpClientSimpleCallbacks>(
+            [=](const HttpRequest &, HttpClientError errorCode,
+                int statusCode, const std::string &, std::string &&body)
+            {
+                if (errorCode != HttpClientError::NONE) {
+                    router->throwException("http", "Error requesting %s: %s",
+                                           routerHost.c_str(),
+                                           httpErrorString(errorCode).c_str());
+                  }
+                  else if (statusCode == 200) {
+                    // cerr << "Response: " << body << endl;
+                     OpenRTB::BidResponse response;
+                     ML::Parse_Context context("payload",
+                           body.c_str(), body.size());
+                     StreamingJsonParsingContext jsonContext(context);
+                     static DefaultDescription<OpenRTB::BidResponse> respDesc;
+                     respDesc.parseJson(&response, jsonContext);
 
-                                 if (creativeIndex == -1) {
-                                     router->throwException("http.response",
-                                        "Unknown creative id: %d", crid);
-                                 }
+                     for (const auto &seatbid: response.seatbid) {
 
-                                 theBid.creativeIndex = creativeIndex;
-                                 theBid.price = USD_CPM(bid.price.val);
-                                 theBid.priority = 0.0;
-
-                                 int spotIndex = indexOf(openRtbRequest.imp,
-                                                        &OpenRTB::Impression::id, bid.impid);
-                                 if (spotIndex == -1) {
-                                      router->throwException("http.response",
-                                         "Unknown impression id: %s",
-                                         bid.impid.toString().c_str());
-                                 }
-
-                                 theBid.spotIndex = spotIndex;
-
-                                 bids.push_back(std::move(theBid));
+                         for (const auto &bid: seatbid.bid) {
+                             if (!bid.ext.isMember("external-id"))
+                             {
+                                 router->throwException("http.response",
+                                    "Missing external-id ext field in BidResponse");
                              }
+
+                             uint64_t externalId = bid.ext["external-id"].asUInt();
+
+                             string agent;
+                             shared_ptr<const AgentConfig> config;
+                             tie(agent, config) = findAgent(externalId);
+                             if (config == nullptr) {
+                                 router->throwException("http.response",
+                                    "Couldn't find config for externalId: %lu",
+                                    externalId);
+                             }
+
+                             Bids bids;
+                             Bid theBid;
+
+                             int crid = bid.crid.toInt();
+                             int creativeIndex = indexOf(config->creatives,
+                                 &Creative::id, crid);
+
+                             if (creativeIndex == -1) {
+                                 router->throwException("http.response",
+                                    "Unknown creative id: %d", crid);
+                             }
+
+                             theBid.creativeIndex = creativeIndex;
+                             theBid.price = USD_CPM(bid.price.val);
+                             theBid.priority = 0.0;
+
+                             int spotIndex = indexOf(openRtbRequest.imp,
+                                                    &OpenRTB::Impression::id, bid.impid);
+                             if (spotIndex == -1) {
+                                  router->throwException("http.response",
+                                     "Unknown impression id: %s",
+                                     bid.impid.toString().c_str());
+                             }
+
+                             theBid.spotIndex = spotIndex;
+
+                             bids.push_back(std::move(theBid));
+
+                             WinCostModel wcm =
+                                 auction->exchangeConnector->getWinCostModel(*auction, *config);
+
                              submitBids(agent, auction->id, bids, wcm);
                          }
                      }
-                }
-        );
+                 }
+            }
+    );
 
-        HttpRequest::Content reqContent { requestStr, "application/json" };
-        RestParams headers { { "x-openrtb-version", "2.1" } };
-       // std::cerr << "Sending HTTP POST to: " << routerHost << " " << routerPath << std::endl;
-       // std::cerr << "Content " << reqContent.str << std::endl;
+    HttpRequest::Content reqContent { requestStr, "application/json" };
+    RestParams headers { { "x-openrtb-version", "2.1" } };
+   // std::cerr << "Sending HTTP POST to: " << host << " " << path << std::endl;
+   // std::cerr << "Content " << reqContent.str << std::endl;
 
-        httpClientRouter->post(routerPath, callbacks, reqContent,
-                         { } /* queryParams */, headers);
-    }
+    httpClientRouter->post(routerPath, callbacks, reqContent,
+                     { } /* queryParams */, headers);
 }
 
 void HttpBidderInterface::sendLossMessage(std::string const & agent,
