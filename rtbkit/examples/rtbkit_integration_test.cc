@@ -5,6 +5,8 @@
    Overall integration test for the router stack.
 */
 
+#include <memory>
+
 #include "augmentor_ex.h"
 
 #include "rtbkit/core/router/router.h"
@@ -395,7 +397,7 @@ int main(int argc, char ** argv)
     // will have a budget available. Necessary because the bid request stream
     // for this test isn't infinit.
     auto ensureBudgetSync = [&] (const shared_ptr<Banker> & banker) {
-        auto slave = (SlaveBanker *) banker.get();
+        shared_ptr<SlaveBanker> slave = static_pointer_cast<SlaveBanker>(banker);
         while (slave->getNumReauthorized() == 0) {
             ML::sleep(0.5);
         }
@@ -437,7 +439,7 @@ int main(int argc, char ** argv)
 
         auto doCheckBanker = [&] (const string & label,
                                   const shared_ptr<Banker> & banker) {
-            auto slave = (SlaveBanker *) banker.get();
+            shared_ptr<SlaveBanker> slave = static_pointer_cast<SlaveBanker>(banker);
             cerr << ("banker rqs : " + label + " "
                      + to_string(slave->getNumReauthorized())
                      + " last delay: " + to_string(slave->getLastReauthorizeDelay())
