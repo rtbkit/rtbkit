@@ -25,6 +25,8 @@
 
 #include "sys/epoll.h"
 
+#include <mutex>
+#include <queue>
 #include <string>
 #include <vector>
 
@@ -33,7 +35,6 @@
 #include <curlpp/Types.hpp>
 
 #include "jml/arch/wakeup_fd.h"
-#include "jml/utils/ring_buffer.h"
 
 #include "soa/jsoncpp/value.h"
 #include "soa/service/async_event_source.h"
@@ -121,7 +122,7 @@ struct HttpClient : public AsyncEventSource {
        "queueSize": size of the backlog of pending requests, after which
        operations will be refused */
     HttpClient(const std::string & baseUrl,
-               int numParallel = 4, size_t queueSize = 32);
+               int numParallel = 4);
     HttpClient(HttpClient && other) noexcept;
     HttpClient(const HttpClient & other) = delete;
 
@@ -196,6 +197,7 @@ private:
                         const RestParams & queryParams,
                         const RestParams & headers,
                         int timeout = -1);
+    std::vector<HttpRequest> popRequests(size_t number);
 
     void handleEvents();
     void handleEvent(const ::epoll_event & event);
@@ -265,7 +267,10 @@ private:
     std::vector<HttpConnection *> avlConnections_;
     size_t nextAvail_;
 
-    ML::RingBufferSRMW<HttpRequest> queue_; /* queued requests */
+    typedef std::mutex Mutex;
+    typedef std::unique_lock<Mutex> Guard;
+    Mutex queueLock_;
+    std::queue<HttpRequest> queue_; /* queued requests */
 };
 
 
