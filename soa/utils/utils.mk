@@ -8,6 +8,7 @@
 
 
 LIB_TEST_UTILS_SOURCES := \
+        benchmarks.cc \
         fixtures.cc \
         threaded_test.cc
 
