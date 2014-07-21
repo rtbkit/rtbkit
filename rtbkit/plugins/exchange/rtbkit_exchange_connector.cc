@@ -47,6 +47,14 @@ parseBidRequest(HttpAuctionHandler &connection,
                 request.reset();
                 break;
             }
+            else {
+                if(!imp.ext["external-ids"].isArray()) {
+                    connection.sendErrorResponse("UNSUPPORTED_EXTENSION_FIELD",
+                        ML::format("The impression '%s' requires the 'external-ids' extension field as an array of integer",
+                               imp.id.toString()));
+                    request.reset();
+                }
+            }
         }
     }
 
@@ -84,8 +92,8 @@ struct Init
 { 
     Init()
     {
-        RTBKIT::FilterRegistry::registerFilter<RTBKIT::ExternalIdsCreativeExchangeFilter>();
         RTBKIT::ExchangeConnector::registerFactory<RTBKIT::RTBKitExchangeConnector>();
+        RTBKIT::FilterRegistry::registerFilter<RTBKIT::ExternalIdsCreativeExchangeFilter>();
     }
 } init;
 
