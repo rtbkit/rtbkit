@@ -249,7 +249,7 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
     Amount winPrice = event->winPrice;
     Date timestamp = event->timestamp;
     const JsonHolder & meta = event->metadata;
-    const UserIds & uids = event->uids;
+    UserIds & uids = event->uids;
 
     Date bidTimestamp = event->bidTimestamp;
 
@@ -369,6 +369,11 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
         submitted.emplace(key, info, Date::now().plusSeconds(lossTimeout));
         spotIdMap[key.first] = key.second;
         return;
+    }
+
+   if(uids.empty()) {
+        // If uids is empty in win message, try to get them form BR
+        uids  = info.bidRequest->userIds;
     }
 
     recordHit("bidResult.%s.delivered", typeStr);
