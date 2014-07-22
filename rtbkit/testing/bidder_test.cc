@@ -19,7 +19,6 @@
 using namespace Datacratic;
 using namespace RTBKIT;
 
-#if 0
 BOOST_AUTO_TEST_CASE( bidder_http_test )
 {
     ML::Watchdog watchdog(10.0);
@@ -90,7 +89,6 @@ BOOST_AUTO_TEST_CASE( bidder_http_test )
     //BOOST_CHECK_EQUAL(bpcEvents["router.cummulatedBidPrice"], count * 1000);
     //BOOST_CHECK_EQUAL(bpcEvents["router.cummulatedAuthorizedPrice"], count * 505);
 }
-#endif
 
 struct BiddingAgentOfDestiny : public TestAgent {
     BiddingAgentOfDestiny(std::shared_ptr<ServiceProxies> proxies,
@@ -198,26 +196,7 @@ BOOST_AUTO_TEST_CASE( multi_bidder_test )
         auto bidder = std::static_pointer_cast<MultiBidderInterface>(
                 upstreamStack.services.router->bidder);
         ExcAssert(bidder);
-        auto stats = bidder->stats();
-        auto percentage = [](int value, int total) {
-            return std::to_string((value * 100) / total) + "%";
-        };
+        bidder->stats().dump(std::cerr);
 
-        for (const auto &stat: stats) {
-            size_t totalAuctions = stat.second.totalAuctions;
-            std::cerr << "Stats for " << stat.first << std::endl;
-            std::cerr << std::string(40, '-') << std::endl;
-            std::cerr << std::string(4, ' ')
-                      <<"- totalAuctionsSent: " << totalAuctions << std::endl;
-            std::cerr << std::string(4, ' ')
-                      << "- Auctions for BidderInterface: " << std::endl;
-            for (const auto &interface: stat.second.interfacesStats) {
-                size_t count = interface.second.auctionsSent;
-                std::cerr << std::string(8, ' ')
-                          << "* " << interface.first << ": " << count
-                          << " (" + percentage(count, totalAuctions) << ")" << std::endl;
-            }
-            std::cerr << std::endl;
-        }
-    });
+   });
 }
