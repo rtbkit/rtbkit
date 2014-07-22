@@ -337,6 +337,7 @@ struct AgentConfig {
 
     /** JSON value that is passed through with each bid. */
     Json::Value providerConfig;
+    Json::Value bidderConfig;
 
     /// lock for the provider data
     mutable ML::Spinlock lock;

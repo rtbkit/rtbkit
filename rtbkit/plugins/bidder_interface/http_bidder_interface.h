@@ -15,7 +15,7 @@ struct Bids;
 
 struct HttpBidderInterface : public BidderInterface
 {
-    HttpBidderInterface(std::string name = "bidder",
+    HttpBidderInterface(std::string serviceName = "bidderService",
                         std::shared_ptr<ServiceProxies> proxies = std::make_shared<ServiceProxies>(),
                         Json::Value const & json = Json::Value());
     ~HttpBidderInterface();

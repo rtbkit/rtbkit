@@ -43,10 +43,10 @@ Logging::Category HttpBidderInterface::trace("HttpBidderInterface Trace", HttpBi
 
 }
 
-HttpBidderInterface::HttpBidderInterface(std::string name,
+HttpBidderInterface::HttpBidderInterface(std::string serviceName,
                                          std::shared_ptr<ServiceProxies> proxies,
                                          Json::Value const & json)
-        : BidderInterface(proxies, name) {
+        : BidderInterface(proxies, serviceName) {
 
     try {
         routerHost = json["router"]["host"].asString();
@@ -100,7 +100,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                              std::map<std::string, BidInfo> const & bidders) {
     using namespace std;
 
-    auto findAgent = [&](uint64_t externalId)
+    auto findAgent = [=](uint64_t externalId)
         -> pair<string, shared_ptr<const AgentConfig>> {
 
         auto it =
@@ -395,8 +395,12 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        BidderInterface::registerFactory("http", [](std::string const & name , std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) {
-            return new HttpBidderInterface(name, proxies, json);
+        BidderInterface::registerFactory("http",
+        [](std::string const & serviceName,
+           std::shared_ptr<ServiceProxies> const & proxies,
+           Json::Value const & json)
+        {
+            return new HttpBidderInterface(serviceName, proxies, json);
         });
     }
 } atInit;

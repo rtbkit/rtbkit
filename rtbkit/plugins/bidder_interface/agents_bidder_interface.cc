@@ -10,10 +10,10 @@
 using namespace Datacratic;
 using namespace RTBKIT;
 
-AgentsBidderInterface::AgentsBidderInterface(std::string const & name,
+AgentsBidderInterface::AgentsBidderInterface(std::string const &serviceName,
                                              std::shared_ptr<ServiceProxies> proxies,
                                              Json::Value const & config)
-    : BidderInterface(proxies, name) {
+    : BidderInterface(proxies, serviceName) {
 }
 
 AgentsBidderInterface::~AgentsBidderInterface() {
@@ -263,8 +263,12 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        BidderInterface::registerFactory("agents", [](std::string const & name , std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) {
-            return new AgentsBidderInterface(name, proxies, json);
+        BidderInterface::registerFactory("agents",
+        [](std::string const &serviceName,
+           std::shared_ptr<ServiceProxies> const &proxies,
+           Json::Value const &json)
+        {
+            return new AgentsBidderInterface(serviceName, proxies, json);
         });
     }
 } atInit;

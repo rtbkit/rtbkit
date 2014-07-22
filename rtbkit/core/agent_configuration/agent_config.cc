@@ -587,6 +587,9 @@ createFromJson(const Json::Value & json)
         else if (it.memberName() == "providerConfig") {
             newConfig.providerConfig = *it;
         }
+        else if (it.memberName() == "bidderConfig") {
+            newConfig.bidderConfig = *it;
+        }
         else if (it.memberName() == "winFormat") {
             RTBKIT::fromJson(newConfig.winFormat, *it);
         }
@@ -730,6 +733,9 @@ toJson(bool includeCreatives) const
 
     if (!providerConfig.isNull()) {
         result["providerConfig"] = providerConfig;
+    }
+    if (!bidderConfig.isNull()) {
+        result["bidderConfig"] = bidderConfig;
     }
 
     result["winFormat"] = RTBKIT::toJson(winFormat);

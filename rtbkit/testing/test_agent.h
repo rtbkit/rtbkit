@@ -177,7 +177,7 @@ struct TestAgent : public BiddingAgent {
                                        const Json::Value & augmentations,
                                        const WinCostModel & wcm)
         {
-            std::cerr << amount.toString() << std::endl;
+            //std::cerr << amount.toString() << std::endl;
             Bid & bid = bids[0];
             bid.bid(bid.availableCreatives[0], amount);
             doBid(id, bids, Json::Value(), wcm);

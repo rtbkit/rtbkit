@@ -20,12 +20,15 @@ class AgentBridge;
 struct BidderInterface : public ServiceBase
 {
     BidderInterface(ServiceBase & parent,
-                    std::string const & name = "bidder");
+                    std::string const & serviceName = "bidderService");
 
     BidderInterface(std::shared_ptr<ServiceProxies> proxies = std::make_shared<ServiceProxies>(),
-                    std::string const & name = "bidder");
+                    std::string const & serviceName = "bidderService");
 
-    void init(AgentBridge * value, Router * r = nullptr);
+    void setInterfaceName(const std::string &name);
+    std::string interfaceName() const;
+
+    virtual void init(AgentBridge * bridge, Router * r = nullptr);
     virtual void shutdown();
 
     virtual void start();
@@ -84,18 +87,21 @@ struct BidderInterface : public ServiceBase
     // factory
     //
 
-    static std::shared_ptr<BidderInterface> create(std::string name,
-                                                    std::shared_ptr<ServiceProxies> const & proxies,
-                                                    Json::Value const & json);
+    static std::shared_ptr<BidderInterface>
+    create(std::string serviceName,
+           std::shared_ptr<ServiceProxies> const & proxies,
+           Json::Value const & json);
 
-    typedef std::function<BidderInterface * (std::string name,
-                                              std::shared_ptr<ServiceProxies> const & proxies,
-                                              Json::Value const & json)> Factory;
+    typedef std::function<BidderInterface * (std::string serviceName,
+                                             std::shared_ptr<ServiceProxies> const & proxies,
+                                             Json::Value const & json)> Factory;
 
     static void registerFactory(std::string const & name, Factory factory);
 
+    std::string name;
     Router * router;
     AgentBridge * bridge;
+
 };
 
 }
