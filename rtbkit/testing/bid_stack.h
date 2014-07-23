@@ -50,6 +50,12 @@ struct BidStack {
         services.agents.push_back(agent);
     }
 
+    void postConfig(const std::string &agent, const Json::Value &config) {
+        ExcAssert(services.acs);
+
+        services.acs->handleAgentConfig(agent, config);
+    }
+
     template<typename T>
     void runThen(Json::Value const & routerConfig,
                  Json::Value const & bidderConfig,

@@ -25,6 +25,9 @@ struct BidderInterface : public ServiceBase
     BidderInterface(std::shared_ptr<ServiceProxies> proxies = std::make_shared<ServiceProxies>(),
                     std::string const & serviceName = "bidderService");
 
+    BidderInterface(const BidderInterface &other) = delete;
+    BidderInterface &operator=(const BidderInterface &other) = delete;
+
     void setInterfaceName(const std::string &name);
     std::string interfaceName() const;
 
@@ -105,4 +108,3 @@ struct BidderInterface : public ServiceBase
 };
 
 }
-

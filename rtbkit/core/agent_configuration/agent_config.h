@@ -255,6 +255,8 @@ struct AgentConfig {
 
     int maxInFlight;
 
+    std::string bidderInterface;
+
     std::vector<std::string> requiredIds;
 
     IncludeExclude<DomainMatcher> hostFilter;
@@ -337,7 +339,6 @@ struct AgentConfig {
 
     /** JSON value that is passed through with each bid. */
     Json::Value providerConfig;
-    Json::Value bidderConfig;
 
     /// lock for the provider data
     mutable ML::Spinlock lock;

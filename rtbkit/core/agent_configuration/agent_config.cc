@@ -478,6 +478,8 @@ createFromJson(const Json::Value & json)
                 throw Exception("maxInFlight has wrong value: %d",
                                 newConfig.maxInFlight);
         }
+        else if (it.memberName() == "bidderInterface")
+            newConfig.bidderInterface = it->asString();
         else if (it.memberName() == "userPartition") {
             newConfig.userPartition.fromJson(*it);
         }
@@ -587,9 +589,6 @@ createFromJson(const Json::Value & json)
         else if (it.memberName() == "providerConfig") {
             newConfig.providerConfig = *it;
         }
-        else if (it.memberName() == "bidderConfig") {
-            newConfig.bidderConfig = *it;
-        }
         else if (it.memberName() == "winFormat") {
             RTBKIT::fromJson(newConfig.winFormat, *it);
         }
@@ -646,6 +645,9 @@ toJson(bool includeCreatives) const
     result["minTimeAvailableMs"] = minTimeAvailableMs;
     if (maxInFlight != 100)
         result["maxInFlight"] = maxInFlight;
+
+    if (!bidderInterface.empty())
+        result["bidderInterface"] = bidderInterface;
 
     if (!urlFilter.empty())
         result["urlFilter"] = urlFilter.toJson();
@@ -734,10 +736,6 @@ toJson(bool includeCreatives) const
     if (!providerConfig.isNull()) {
         result["providerConfig"] = providerConfig;
     }
-    if (!bidderConfig.isNull()) {
-        result["bidderConfig"] = bidderConfig;
-    }
-
     result["winFormat"] = RTBKIT::toJson(winFormat);
     result["lossFormat"] = RTBKIT::toJson(lossFormat);
     result["errorFormat"] = RTBKIT::toJson(errorFormat);

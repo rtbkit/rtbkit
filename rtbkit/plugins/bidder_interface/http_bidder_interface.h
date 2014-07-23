@@ -21,7 +21,7 @@ struct HttpBidderInterface : public BidderInterface
     ~HttpBidderInterface();
 
     void start();
-    virtual void shutdown();
+    void shutdown();
     void sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                             double timeLeftMs,
                             std::map<std::string, BidInfo> const & bidders);
