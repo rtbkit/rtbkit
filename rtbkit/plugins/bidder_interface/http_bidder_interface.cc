@@ -155,10 +155,14 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                      for (const auto &seatbid: response.seatbid) {
 
                          for (const auto &bid: seatbid.bid) {
-                             if (!bid.ext.isMember("external-id"))
-                             {
+                             if (!bid.ext.isMember("external-id")) {
                                  router->throwException("http.response",
                                     "Missing external-id ext field in BidResponse");
+                             }
+
+                             if (!bid.ext.isMember("priority")) {
+                                 router->throwException("http.response",
+                                    "Missing priority ext field in BidResponse");
                              }
 
                              uint64_t externalId = bid.ext["external-id"].asUInt();
@@ -186,7 +190,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
                              theBid.creativeIndex = creativeIndex;
                              theBid.price = USD_CPM(bid.price.val);
-                             theBid.priority = 0.0;
+                             theBid.priority = bid.ext["priority"].asDouble();
 
                              int spotIndex = indexOf(openRtbRequest.imp,
                                                     &OpenRTB::Impression::id, bid.impid);

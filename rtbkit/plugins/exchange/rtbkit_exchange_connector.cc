@@ -74,6 +74,7 @@ setSeatBid(const Auction & auction,
 
     Json::Value ext(Json::objectValue);
     ext["external-id"] = agentConfig->externalId;
+    ext["priority"] = resp.price.priority;
     bid.ext = ext;
 }
 
