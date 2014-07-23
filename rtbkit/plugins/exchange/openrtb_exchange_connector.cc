@@ -122,13 +122,6 @@ parseBidRequest(HttpAuctionHandler & connection,
             connection.sendErrorResponse("UNSUPPORTED_CONTENT_TYPE", "The request is required to use the 'Content-Type: application/json' header");
             return none;
         }
-
-        if(payload.empty()) {
-            this->recordHit("error.emptyBidRequest");
-            connection.sendErrorResponse("EMPTY_BID_REQUEST", "The request is empty");
-            return none;
-        }
-
     }
     else {
         connection.sendErrorResponse("MISSING_CONTENT_TYPE_HEADER", "The request is missing the 'Content-Type' header");
@@ -146,6 +139,12 @@ parseBidRequest(HttpAuctionHandler & connection,
     std::string openRtbVersion = it->second;
     if (openRtbVersion != "2.1") {
         connection.sendErrorResponse("UNSUPPORTED_OPENRTB_VERSION", "The request is required to be using version 2.1 of the OpenRTB protocol but requested " + openRtbVersion);
+        return none;
+    }
+
+    if(payload.empty()) {
+        this->recordHit("error.emptyBidRequest");
+        connection.sendErrorResponse("EMPTY_BID_REQUEST", "The request is empty");
         return none;
     }
 
