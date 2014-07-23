@@ -388,7 +388,8 @@ handleHttpPayload(const HttpHeader & header,
         auto bidRequest = parseBidRequest(header, payload);
 
         if (!bidRequest) {
-            cerr << "got no bid request" << endl;
+            endpoint->recordHit("error.noBidRequest");
+            //cerr << "got no bid request" << endl;
             // The request was handled; nothing to do
             return;
         }
