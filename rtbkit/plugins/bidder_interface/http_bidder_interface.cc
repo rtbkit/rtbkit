@@ -143,6 +143,17 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                            routerHost.c_str(),
                                            httpErrorString(errorCode).c_str());
                   }
+                  // If we receive a 204 No-bid, we still need to "re-inject" it to the
+                  // router otherwise we won't expire the inFlights
+                  else if (statusCode == 204) {
+                     Bids bids;
+                     bids.resize(openRtbRequest.imp.size());
+                     fill(begin(bids), end(bids), Bid());
+                     for (const auto &bidder: bidders) {
+                         submitBids(bidder.first, auction->id, bids, WinCostModel());
+                     }
+                  }
+
                   else if (statusCode == 200) {
                     // cerr << "Response: " << body << endl;
                      OpenRTB::BidResponse response;

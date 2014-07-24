@@ -106,12 +106,13 @@ struct BidStack {
 
         // This is our bidding agent, that actually calculates the bid price
         if(services.agents.empty()) {
-            services.agents.push_back(std::make_shared<TestAgent>(proxies, "agent"));
+            auto agent = std::make_shared<TestAgent>(proxies, "agent");
+            agent->bidWithFixedAmount(amount);
+            services.agents.push_back(agent);
         }
 
         for (auto &agent: services.agents) {
             agent->init();
-            agent->bidWithFixedAmount(amount);
             agent->start();
             agent->strictMode(false);
             agent->configure();
