@@ -53,6 +53,7 @@ parseBidRequest(HttpAuctionHandler &connection,
                         ML::format("The impression '%s' requires the 'external-ids' extension field as an array of integer",
                                imp.id.toString()));
                     request.reset();
+                    break;
                 }
             }
         }
