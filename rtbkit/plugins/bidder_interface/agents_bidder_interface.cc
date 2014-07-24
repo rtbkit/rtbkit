@@ -3,9 +3,9 @@
    Copyright (c) 2011 Datacratic.  All rights reserved.
 */
 
-#include "agents_bidder_interface.h"
 #include "rtbkit/common/messages.h"
 #include "rtbkit/core/router/router.h"
+#include "agents_bidder_interface.h"
 
 using namespace Datacratic;
 using namespace RTBKIT;

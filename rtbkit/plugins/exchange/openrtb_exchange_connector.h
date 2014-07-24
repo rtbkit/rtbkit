@@ -59,13 +59,15 @@ struct OpenRTBExchangeConnector : public HttpExchangeConnector {
     virtual std::string getBidSourceConfiguration() const;
 
 private:
-    virtual void setSeatBid(Auction const & auction,
-                            int spotNum,
-                            OpenRTB::BidResponse & response) const;
 
     virtual Json::Value
     getResponseExt(const HttpAuctionHandler & connection,
                    const Auction & auction) const;
+protected:
+
+    virtual void setSeatBid(Auction const & auction,
+                            int spotNum,
+                            OpenRTB::BidResponse & response) const;
 };
 
 

@@ -69,15 +69,14 @@ BOOST_AUTO_TEST_CASE( win_cost_model_test )
     // register the win cost model
     WinCostModel::registerModel("test", linearWinCostModel);
 
-    std::string configuration = ML::format(
-        "[{"
-            "\"exchangeType\":\"test\""
-        "}]");
+    Json::Value routerConfig;
+    routerConfig[0]["exchangeType"] = "test";
 
-    std::cout << configuration << std::endl;
+    Json::Value bidderConfig;
+    bidderConfig["type"] = "agents";
 
     BidStack stack;
-    stack.run(configuration, USD_CPM(1.0), 10);
+    stack.run(routerConfig, bidderConfig, USD_CPM(1.0), 10);
 
     auto events = stack.proxies->events->get(std::cerr);
 
