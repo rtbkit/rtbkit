@@ -142,6 +142,12 @@ parseBidRequest(HttpAuctionHandler & connection,
         return none;
     }
 
+    if(payload.empty()) {
+        this->recordHit("error.emptyBidRequest");
+        connection.sendErrorResponse("EMPTY_BID_REQUEST", "The request is empty");
+        return none;
+    }
+
     // Parse the bid request
     std::shared_ptr<BidRequest> result;
     try {
