@@ -22,7 +22,7 @@ struct BidStack {
     // components
     struct Services {
         std::shared_ptr<Banker> banker;
-        std::shared_ptr<TestAgent> agent;
+        std::vector<std::shared_ptr<TestAgent>> agents;
         std::shared_ptr<AgentConfigurationService> acs;
         std::shared_ptr<Router> router;
     } services;
@@ -44,6 +44,16 @@ struct BidStack {
                 mockExchange.start(config);
             }
         });
+    }
+
+    void addAgent(const std::shared_ptr<TestAgent> &agent) {
+        services.agents.push_back(agent);
+    }
+
+    void postConfig(const std::string &agent, const Json::Value &config) {
+        ExcAssert(services.acs);
+
+        services.acs->handleAgentConfig(agent, config);
     }
 
     template<typename T>
@@ -95,15 +105,17 @@ struct BidStack {
         mock += "]}";
 
         // This is our bidding agent, that actually calculates the bid price
-        if(!services.agent) {
-            services.agent = std::make_shared<TestAgent>(proxies, "agent");
+        if(services.agents.empty()) {
+            services.agents.push_back(std::make_shared<TestAgent>(proxies, "agent"));
         }
 
-        services.agent->init();
-        services.agent->bidWithFixedAmount(amount);
-        services.agent->start();
-        services.agent->strictMode(false);
-        services.agent->configure();
+        for (auto &agent: services.agents) {
+            agent->init();
+            agent->bidWithFixedAmount(amount);
+            agent->start();
+            agent->strictMode(false);
+            agent->configure();
+        }
 
         // Wait a little for the stack to startup...
         ML::sleep(1.0);

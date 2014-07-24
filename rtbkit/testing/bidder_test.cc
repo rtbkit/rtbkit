@@ -14,6 +14,7 @@
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
 #include "rtbkit/plugins/exchange/rtbkit_exchange_connector.h"
 #include "rtbkit/testing/bid_stack.h"
+#include "rtbkit/plugins/bidder_interface/multi_bidder_interface.h"
 
 using namespace Datacratic;
 using namespace RTBKIT;
@@ -89,3 +90,128 @@ BOOST_AUTO_TEST_CASE( bidder_http_test )
     //BOOST_CHECK_EQUAL(bpcEvents["router.cummulatedAuthorizedPrice"], count * 505);
 }
 
+struct BiddingAgentOfDestiny : public TestAgent {
+    BiddingAgentOfDestiny(std::shared_ptr<ServiceProxies> proxies,
+                          const std::string &bidderInterface,
+                          const std::string &name = "biddingAgentOfDestiny",
+                          const AccountKey &accountKey =
+                             AccountKey({"testCampaign", "testStrategy"}))
+        : TestAgent(proxies, name, accountKey)
+     {
+         config.bidderInterface = bidderInterface;
+     }
+
+};
+
+BOOST_AUTO_TEST_CASE( multi_bidder_test )
+{
+    Json::Value upstreamRouterConfig;
+    upstreamRouterConfig[0]["exchangeType"] = "openrtb";
+
+    Json::Value downstreamRouterConfig;
+    downstreamRouterConfig[0]["exchangeType"] = "rtbkit";
+
+    Json::Value upstreamBidderConfig = Json::parse(
+            R"JSON(
+            {
+               "type": "multi",
+               "interfaces": [
+                   {
+                       "iface.agents": { "type": "agents" }
+                   },
+                   {
+                       "iface.http": {
+                           "type": "http",
+
+                           "router": {
+                           },
+
+                           "adserver": {
+                               "winPort": 18143,
+                               "eventPort": 18144
+                           }
+                       }
+                   }
+               ]
+            }
+            )JSON");
+
+    Json::Value httpAgentConfig = Json::parse(
+            R"JSON(
+            {
+                "account": ["dummy_account"],
+                "bidProbability": 1,
+                "creatives": [ { "width": 300, "height": 250, "id": 1 } ],
+                "externalId": 1,
+                "bidderInterface": "iface.http"
+            }
+            )JSON");
+
+    Json::Value downstreamBidderConfig;
+    downstreamBidderConfig["type"] = "agents";
+
+    BidStack upstreamStack;
+    BidStack downstreamStack;
+
+    auto destinyAgent =
+        std::make_shared<BiddingAgentOfDestiny>(
+                upstreamStack.proxies,
+                "iface.agents",
+                "bidding_agent_of_destiny_1");
+
+    auto destinyAgent2 =
+        std::make_shared<BiddingAgentOfDestiny>(
+                upstreamStack.proxies,
+                "iface.agents",
+                "bidding_agent_of_destiny_2",
+                AccountKey({ "testCampaign", "testStrategy2" }));
+
+    upstreamStack.addAgent(destinyAgent);
+    upstreamStack.addAgent(destinyAgent2);
+
+    downstreamStack.runThen(downstreamRouterConfig, downstreamBidderConfig, USD_CPM(10), 0,
+                            [&](const Json::Value &json) {
+
+        const auto &bids = json["workers"][0]["bids"];
+        const auto &wins = json["workers"][0]["wins"];
+        const auto &events = json["workers"][0]["events"];
+
+        (void) wins;
+        (void) events;
+
+        auto url = bids["url"].asString();
+        auto resource = bids.get("resource", "/").asString();
+        auto &httpIface = upstreamBidderConfig["interfaces"][1]["iface.http"];
+        httpIface["router"]["host"] = "http://" + url;
+        httpIface["router"]["path"] = resource;
+        httpIface["adserver"]["host"] = "";
+
+        upstreamStack.runThen(upstreamRouterConfig, upstreamBidderConfig, USD_CPM(10),
+                              100,
+                              [&](const Json::Value &json) {
+            upstreamStack.services.router->filters.removeFilter(
+                ExternalIdsCreativeExchangeFilter::name);
+
+            upstreamStack.postConfig("sample_http_config", httpAgentConfig);
+
+            auto proxies = std::make_shared<ServiceProxies>();
+            MockExchange mockExchange(proxies);
+                mockExchange.start(json);
+        });
+
+        auto bidder = std::static_pointer_cast<MultiBidderInterface>(
+                upstreamStack.services.router->bidder);
+
+        std::cerr << std::endl;
+        bidder->stats().dump(std::cerr);
+
+   });
+
+   auto upstreamEvents = upstreamStack.proxies->events->get(std::cerr);
+   int upstreamBidCount = upstreamEvents["router.bid"];
+   std::cerr << "UPSTREAM BID COUNT=" << upstreamBidCount << std::endl;
+
+   auto downstreamEvents = downstreamStack.proxies->events->get(std::cerr);
+   int downstreamBidCount = downstreamEvents["router.bid"];
+   std::cerr << "DOWNSTREAM BID COUNT=" << downstreamBidCount << std::endl;
+}

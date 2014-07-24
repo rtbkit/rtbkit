@@ -478,6 +478,8 @@ createFromJson(const Json::Value & json)
                 throw Exception("maxInFlight has wrong value: %d",
                                 newConfig.maxInFlight);
         }
+        else if (it.memberName() == "bidderInterface")
+            newConfig.bidderInterface = it->asString();
         else if (it.memberName() == "userPartition") {
             newConfig.userPartition.fromJson(*it);
         }
@@ -644,6 +646,9 @@ toJson(bool includeCreatives) const
     if (maxInFlight != 100)
         result["maxInFlight"] = maxInFlight;
 
+    if (!bidderInterface.empty())
+        result["bidderInterface"] = bidderInterface;
+
     if (!urlFilter.empty())
         result["urlFilter"] = urlFilter.toJson();
     if (!hostFilter.empty())
@@ -731,7 +736,6 @@ toJson(bool includeCreatives) const
     if (!providerConfig.isNull()) {
         result["providerConfig"] = providerConfig;
     }
-
     result["winFormat"] = RTBKIT::toJson(winFormat);
     result["lossFormat"] = RTBKIT::toJson(lossFormat);
     result["errorFormat"] = RTBKIT::toJson(errorFormat);
