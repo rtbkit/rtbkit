@@ -393,8 +393,13 @@ void HttpBidderInterface::submitBids(const std::string &agent, Id auctionId,
      Json::FastWriter writer;
      std::vector<std::string> message { agent, "BID" };
      message.push_back(auctionId.toString());
+
      std::string bidsStr = writer.write(bids.toJson());
+     boost::trim(bidsStr);
+
      std::string wcmStr = writer.write(wcm.toJson());
+     boost::trim(wcmStr);
+
      message.push_back(std::move(bidsStr));
      message.push_back(std::move(wcmStr));
 
