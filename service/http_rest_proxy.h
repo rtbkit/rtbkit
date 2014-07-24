@@ -297,7 +297,7 @@ struct JsonRestProxy : HttpRestProxy {
     /* authentication token */
     std::string authToken;
 
-    static void sleepAfterRetry(int retryNbr);
+    static void sleepAfterRetry(int retryNbr, int maxBaseTime);
 
     HttpRestProxy::Response post(const std::string & resource,
                                  const std::string & body) const
@@ -341,6 +341,10 @@ struct JsonRestProxy : HttpRestProxy {
 
     /* number of exponential backoffs */
     size_t maxRetries;
+
+    /* maximum number of seconds to sleep before a retry, as computed before
+       randomization */
+    int maxBackoffTime;
 
     template<typename R, typename T>
     R postTyped(const std::string & resource,
