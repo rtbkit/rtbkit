@@ -280,8 +280,9 @@ putOrPost(const string & resource, const string & body, bool isPost)
 
     string method = isPost ? "POST" : "PUT";
     pid_t tid = gettid();
-    size_t retries;
-    for (retries = 0; retries < maxRetries; retries++) {
+    for (int retries = 0;
+         (maxRetries == -1) || (retries < maxRetries);
+         retries++) {
         response = this->perform(method, resource, content, RestParams(),
                                  headers);
         int code = response.code();
@@ -294,7 +295,7 @@ putOrPost(const string & resource, const string & body, bool isPost)
             string respBody = response.body();
             ::fprintf(stderr,
                       "[%d] %s %s returned response code %d"
-                      " (attempt %lu):\n"
+                      " (attempt %d):\n"
                       "request body (%lu) = '%s'\n"
                       "response body (%lu): '%s'\n",
                       tid, verb, resource.c_str(), code, retries,
@@ -306,10 +307,9 @@ putOrPost(const string & resource, const string & body, bool isPost)
         }
 
         /* recoverable errors */
-        if (retries < maxRetries) {
+        if (maxRetries == -1 || retries < maxRetries) {
             sleepAfterRetry(retries, maxBackoffTime);
-            ::fprintf(stderr, "[%d] retrying %s %s after error"
-                      " (%lu/%lu)\n",
+            ::fprintf(stderr, "[%d] retrying %s %s after error (%d/%d)\n",
                       tid, verb, resource.c_str(), retries + 1, maxRetries);
         }
         else {

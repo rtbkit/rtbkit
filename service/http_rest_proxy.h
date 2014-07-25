@@ -339,8 +339,8 @@ struct JsonRestProxy : HttpRestProxy {
 
     bool authenticate(const JsonAuthenticationRequest & creds);
 
-    /* number of exponential backoffs */
-    size_t maxRetries;
+    /* number of exponential backoffs, -1 = unlimited */
+    int maxRetries;
 
     /* maximum number of seconds to sleep before a retry, as computed before
        randomization */
