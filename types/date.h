@@ -160,7 +160,7 @@ struct Date {
     Date & addMinutes(double interval)
     {
         secondsSinceEpoch_ += interval * 60.0;
-        retunrn *this;
+        return *this;
     }
 
     Date & addHours(double interval)
