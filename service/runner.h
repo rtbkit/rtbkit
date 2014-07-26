@@ -139,7 +139,8 @@ struct Runner: public Epoller {
     */
     bool waitStart(double secondsToWait = INFINITY) const;
 
-    /** Synchronous wait for termination of the subprocess. */
+    /** Synchronous wait for termination of the subprocess and the closing of
+     * all related resources. */
     void waitTermination() const;
 
     /** Is the subprocess running? */
