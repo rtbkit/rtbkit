@@ -123,7 +123,10 @@ void trace_exception(void * object, const std::type_info * tinfo)
 
     time_t now;
     time(&now);
-    strftime(datetime, sizeof(datetime), "%FT%H:%M:%S", localtime(&now));
+
+    struct tm lt_tm;
+    strftime(datetime, sizeof(datetime), "%FT%H:%M:%S",
+             localtime_r(&now, &lt_tm));
 
     const char * demangled;
     char * heapDemangled;
