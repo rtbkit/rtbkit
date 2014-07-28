@@ -8,6 +8,7 @@
 #ifndef __banker__slave_banker_h__
 #define __banker__slave_banker_h__
 
+#include <atomic>
 #include "banker.h"
 #include "application_layer.h"
 #include "soa/service/zmq_endpoint.h"
@@ -93,7 +94,6 @@ private:
     what has been committed so far.
 */
 struct SlaveBanker : public Banker, public MessageLoop {
-
     static const CurrencyPool DefaultSpendRate;
 
     SlaveBanker();
@@ -205,6 +205,25 @@ struct SlaveBanker : public Banker, public MessageLoop {
         addSource("SlaveBanker::ApplicationLayer", *layer);
     }
 
+    bool isReauthorizing() const
+    {
+        return reauthorizing;
+    }
+
+    void waitReauthorized() const;
+
+    size_t getNumReauthorized()
+        const
+    {
+        return numReauthorized;
+    }
+
+    double getLastReauthorizeDelay()
+        const
+    {
+        return lastReauthorizeDelay;
+    }
+
     /* Logging */
     virtual void logBidEvents(const Datacratic::EventRecorder & eventRecorder)
     {
@@ -266,6 +285,14 @@ private:
     {
         return account.childKey(accountSuffix).toString();
     }
+
+    std::atomic<bool> shutdown_;
+
+    std::atomic<bool> reauthorizing;
+    Date reauthorizeDate;
+    double lastReauthorizeDelay;
+    size_t numReauthorized;
+    size_t accountsLeft;
 };
 
 } // naemspace RTBKIT

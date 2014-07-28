@@ -5,7 +5,9 @@
 
 #pragma once
 #include <set>
+#include <unordered_map>
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
+#include "rtbkit/core/router/filters/generic_filters.h"
 
 namespace RTBKIT {
 
@@ -90,6 +92,43 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
 
 };
 
+struct BidSwitchWSeatFilter : public FilterBaseT<BidSwitchWSeatFilter>
+{
+    static constexpr const char* name = "bidswitch-wseat";
+    unsigned priority() const { return 10; }
 
+    std::unordered_map<std::string, ConfigSet> data;
+    ConfigSet emptyConfigSet;
+
+    void setConfig(unsigned configIndex, const AgentConfig& config, bool value)
+    {
+        Json::Value cfg = config.providerConfig["bidswitch"];
+        if(!cfg.empty() && !cfg["seat"].empty()) {
+            // Might change depending if the providerConfig allows more than one seat.
+            data[config.providerConfig["bidswitch"]["seat"].asString()].set(configIndex, value);
+        }
+        else {
+            emptyConfigSet.set(configIndex, value);
+        }
+    }
+
+    void filter(FilterState& state) const
+    {
+        ConfigSet mask(emptyConfigSet);
+
+        auto& segs = state.request.segments.get("openrtb-wseat");
+ 
+        // Calls the filter for every wseat in the BR.
+        segs.forEach([&](int, const std::string &str, float) {
+            auto it = data.find(str);
+            if(!(it == data.end())) {
+                auto& configs = it->second;
+                mask |= configs;
+            }
+        });
+        
+        state.narrowConfigs(mask);
+    }
+};
 
 } // namespace RTBKIT

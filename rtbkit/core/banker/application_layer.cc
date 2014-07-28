@@ -15,7 +15,7 @@ namespace RTBKIT {
 template<typename Result>
 std::shared_ptr<HttpClientSimpleCallbacks>
 makeCallback(std::string functionName,
-                  std::function<void (std::exception_ptr, Result &&)> onDone)
+             std::function<void (std::exception_ptr, Result &&)> onDone)
 {
     //static_assert(std::is_default_constructible<Result>::value,
     //              "Result is not default constructible");
@@ -23,8 +23,7 @@ makeCallback(std::string functionName,
     return std::make_shared<HttpClientSimpleCallbacks>(
         [=](const HttpRequest &,
             HttpClientError error, int statusCode,
-            std::string &&, std::string &&body)
-    {
+            std::string &&, std::string &&body) {
         JML_TRACE_EXCEPTIONS(false);
         if (!onDone) {
             return;
@@ -38,19 +37,19 @@ makeCallback(std::string functionName,
                    Result { });
         }
         else {
-           decodeRestResponseJson<Result>(functionName, nullptr, statusCode, body, onDone);
+            decodeRestResponseJson<Result>(functionName, nullptr, statusCode, body, onDone);
         }
     });
 }
 
 void
 ApplicationLayer::
-toPopupTransfer(const AccountKey &account,
-                AccountType accountType,
-                CurrencyPool amount,
-                const BudgetController::OnBudgetResult &onResult)
+topupTransfer(const AccountKey &account,
+              AccountType accountType,
+              CurrencyPool amount,
+              const BudgetController::OnBudgetResult &onResult)
 {
-    toPopupTransfer(account.toString(), accountType, amount, onResult);
+    topupTransfer(account.toString(), accountType, amount, onResult);
 }
 
 void
@@ -65,8 +64,7 @@ init(std::string bankerUri)
 
     // Since we send one HttpRequest per account when syncing, this is a good idea
     // to keep a fairly large queue size in order to avoid deadlocks
-    httpClient.reset(new HttpClient(bankerUri, 4 /* numParallel */,
-                                                1024 /* queueSize */));
+    httpClient.reset(new HttpClient(bankerUri, 4 /* numParallel */));
     addSource("HttpLayer::httpClient", httpClient);
 }
 
@@ -76,18 +74,18 @@ addAccount(const AccountKey &account,
            const BudgetController::OnBudgetResult &onResult)
 {
     httpClient->post("/v1/accounts", budgetResultCallback(onResult),
-                    { },
-                    { { "accountName", account.toString() },
-                      { "accountType", "budget" }});
+                     { },
+                     { { "accountName", account.toString() },
+                         { "accountType", "budget" }});
 }
 
 
 void
 HttpLayer::
-toPopupTransfer(const std::string &accountStr,
-                AccountType accountType,
-                CurrencyPool amount,
-                const BudgetController::OnBudgetResult &onResult)
+topupTransfer(const std::string &accountStr,
+              AccountType accountType,
+              CurrencyPool amount,
+              const BudgetController::OnBudgetResult &onResult)
 {
     httpClient->put("/v1/accounts/" + accountStr + "/balance",
                     budgetResultCallback(onResult),
@@ -109,14 +107,14 @@ setBudget(const std::string &topLevelAccount,
 void
 HttpLayer::
 getAccountSummary(
-               const AccountKey &account,
-               int depth,
-               std::function<void (std::exception_ptr, AccountSummary &&)>
-               onResult)
+    const AccountKey &account,
+    int depth,
+    std::function<void (std::exception_ptr, AccountSummary &&)>
+    onResult)
 {
     httpClient->get("/v1/accounts/" + account.toString() + "/summary",
                     makeCallback<AccountSummary>(
-                       "HttpLayer::getAccountSummary",
+                        "HttpLayer::getAccountSummary",
                         onResult),
                     { { "depth", to_string(depth) } });
 }
@@ -128,8 +126,8 @@ getAccount(const AccountKey &account,
 {
     httpClient->get("/v1/accounts/" + account.toString(),
                     makeCallback<Account>(
-                    "HttpLayer::getAccount",
-                    onResult));
+                        "HttpLayer::getAccount",
+                        onResult));
 }
 
 void
@@ -141,8 +139,8 @@ addSpendAccount(const std::string &shadowStr,
                      makeCallback<Account>("HttpLayer::addSpendAccount", onDone),
                      { },
                      {
-                        { "accountName", shadowStr },
-                        { "accountType", "spend" }
+                         { "accountName", shadowStr },
+                         { "accountType", "spend" }
                      });
 }
 
@@ -160,23 +158,22 @@ syncAccount(const ShadowAccount &account, const std::string &shadowStr,
 void
 HttpLayer::
 request(std::string method, const std::string &resource,
-      const RestParams &params, const std::string &content, OnRequestResult onResult)
+        const RestParams &params, const std::string &content, OnRequestResult onResult)
 {
     std::transform(begin(method), end(method), begin(method), [](char c) { return ::tolower(c); });
 
     auto onDone = std::make_shared<HttpClientSimpleCallbacks>(
-            [=](const HttpRequest &,
-                HttpClientError error, int statusCode,
-                std::string &&, std::string &&body)
-    {
+        [=](const HttpRequest &,
+            HttpClientError error, int statusCode,
+            std::string &&, std::string &&body) {
         if (error != HttpClientError::NONE) {
             std::ostringstream oss;
             oss << error;
             onResult(std::make_exception_ptr(
-                ML::Exception("HTTP Request failed with return code %s", oss.str().c_str())),
-                statusCode, "");
-         }
-         else {
+                         ML::Exception("HTTP Request failed with return code %s", oss.str().c_str())),
+                     statusCode, "");
+        }
+        else {
             onResult(nullptr, statusCode, body);
         }
     });
@@ -202,13 +199,12 @@ budgetResultCallback(const BudgetController::OnBudgetResult &onResult)
     return std::make_shared<HttpClientSimpleCallbacks>(
         [=](const HttpRequest &,
             HttpClientError error, int statusCode,
-            std::string &&, std::string &&body)
-    {
+            std::string &&, std::string &&body) {
         if (error != HttpClientError::NONE) {
             std::ostringstream oss;
             oss << error;
             onResult(std::make_exception_ptr(
-                ML::Exception("HTTP Request failed with return code %s", oss.str().c_str())));
+                         ML::Exception("HTTP Request failed with return code %s", oss.str().c_str())));
         }
         else {
             onResult(nullptr);
@@ -235,23 +231,23 @@ addAccount(const AccountKey &account,
            const BudgetController::OnBudgetResult &onResult)
 {
     proxy->push(budgetResultCallback(onResult),
-             "POST", "/v1/accounts",
-             { {"accountName", account.toString()},
-               { "accountType", "budget" } });
+                "POST", "/v1/accounts",
+                { {"accountName", account.toString()},
+                    { "accountType", "budget" } });
 }
 
 
 void
 ZmqLayer::
-toPopupTransfer(const std::string &accountStr,
-                AccountType accountType,
-                CurrencyPool amount,
-                const BudgetController::OnBudgetResult &onResult)
+topupTransfer(const std::string &accountStr,
+              AccountType accountType,
+              CurrencyPool amount,
+              const BudgetController::OnBudgetResult &onResult)
 {
     proxy->push(budgetResultCallback(onResult),
-             "PUT", "/v1/accounts/" + accountStr + "/balance",
-             { { "accountType", AccountTypeToString(accountType) } },
-             amount.toJson().toString());
+                "PUT", "/v1/accounts/" + accountStr + "/balance",
+                { { "accountType", AccountTypeToString(accountType) } },
+                amount.toJson().toString());
 }
 
 void
@@ -261,23 +257,23 @@ setBudget(const std::string &topLevelAccount,
           const BudgetController::OnBudgetResult &onResult)
 {
     proxy->push(budgetResultCallback(onResult),
-         "PUT", "/v1/accounts/" + topLevelAccount + "/budget",
-         { /* {"amount", amount.toString()}*/ },
-         amount.toJson().toString());
+                "PUT", "/v1/accounts/" + topLevelAccount + "/budget",
+                { /* {"amount", amount.toString()}*/ },
+                amount.toJson().toString());
 }
 
 void
 ZmqLayer::
 getAccountSummary(
-               const AccountKey &account,
-               int depth,
-               std::function<void (std::exception_ptr, AccountSummary &&)>
-               onResult)
+    const AccountKey &account,
+    int depth,
+    std::function<void (std::exception_ptr, AccountSummary &&)>
+    onResult)
 {
     proxy->push(makeRestResponseJsonDecoder<AccountSummary>("ZmqLayer::getAccountSummary", onResult),
-                 "GET", "/v1/accounts/" + account.toString() + "/summary",
-                 { {"depth", to_string(depth)} },
-                 "");
+                "GET", "/v1/accounts/" + account.toString() + "/summary",
+                { {"depth", to_string(depth)} },
+                "");
 }
 
 void
@@ -295,31 +291,31 @@ addSpendAccount(const std::string &shadowStr,
                 std::function<void (std::exception_ptr, Account &&)> onDone)
 {
     proxy->push(makeRestResponseJsonDecoder<Account>("ZmqLayer::addSpendAccount", onDone),
-                 "POST",
-                 "/v1/accounts",
-                 {
-                     { "accountName", shadowStr },
-                     { "accountType", "spend" }
-                 },
-                 "");
+                "POST",
+                "/v1/accounts",
+                {
+                    { "accountName", shadowStr },
+                    { "accountType", "spend" }
+                },
+                "");
 }
 
 void
 ZmqLayer::
 syncAccount(const ShadowAccount &account, const std::string &shadowStr,
-             std::function<void (std::exception_ptr, Account &&)> onDone)
+            std::function<void (std::exception_ptr, Account &&)> onDone)
 {
     proxy->push(makeRestResponseJsonDecoder<Account>("ZmqLayer::syncAccount", onDone),
-         "PUT",
-         "/v1/accounts/" + shadowStr + "/shadow",
-         {},
-         account.toJson().toString());
+                "PUT",
+                "/v1/accounts/" + shadowStr + "/shadow",
+                {},
+                account.toJson().toString());
 }
 
 void
 ZmqLayer::
 request(std::string method, const std::string &resource,
-      const RestParams &params, const std::string &content, OnRequestResult onResult)
+        const RestParams &params, const std::string &content, OnRequestResult onResult)
 {
     proxy->push(onResult, method, resource, params, content);
 }
@@ -329,12 +325,11 @@ RestProxy::OnDone
 ZmqLayer::
 budgetResultCallback(const BudgetController::OnBudgetResult &onResult)
 {
-    return [=] (std::exception_ptr ptr, int resultCode, string body)
-        {
-            //cerr << "got budget result callback with resultCode "
-            //     << resultCode << " body " << body << endl;
-            onResult(ptr);
-        };
+    return [=] (std::exception_ptr ptr, int resultCode, string body) {
+        //cerr << "got budget result callback with resultCode "
+        //     << resultCode << " body " << body << endl;
+        onResult(ptr);
+    };
 }
 
 } // namespace RTBKIT

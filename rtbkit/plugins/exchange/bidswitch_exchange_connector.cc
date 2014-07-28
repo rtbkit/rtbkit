@@ -89,6 +89,15 @@ getCampaignCompatibility(const AgentConfig & config,
         return result;
     }
 
+    try {
+        cpinfo->seat = Id(pconf["seat"].asString());
+    } catch (const std::exception & exc) {
+        result.setIncompatible
+        (string("providerConfig.bidswitch.seat parsing error: ")
+         + exc.what(), includeReasons);
+        return result;
+    }
+
     result.info = cpinfo;
 
     return result;
@@ -385,6 +394,7 @@ using namespace RTBKIT;
 struct Init {
     Init() {
         ExchangeConnector::registerFactory<BidSwitchExchangeConnector>();
+        FilterRegistry::registerFilter<BidSwitchWSeatFilter>();
     }
 } init;
 }

@@ -221,7 +221,7 @@ handleChildStatus(const struct epoll_event & event)
                 ML::futex_wake(childPid_);
                 task_.runResult.updateFromStatus(status.childStatus);
                 task_.statusState = Task::StatusState::DONE;
-                if (stdInSink_) {
+                if (stdInSink_ && stdInSink_->state != OutputSink::CLOSED) {
                     stdInSink_->requestClose();
                 }
                 attemptTaskTermination();
@@ -324,7 +324,6 @@ handleWakeup(const struct epoll_event & event)
         if (stdInSink_) {
             if (stdInSink_->connectionState_
                 == AsyncEventSource::DISCONNECTED) {
-                stdInSink_.reset();
                 attemptTaskTermination();
             }
         }
@@ -345,6 +344,10 @@ attemptTaskTermination()
         && (task_.statusState == Task::StatusState::STOPPED
             || task_.statusState == Task::StatusState::DONE)) {
         task_.postTerminate(*this);
+
+        if (stdInSink_) {
+            stdInSink_.reset();
+        }
 
         // cerr << "terminated task\n";
         running_ = false;
@@ -759,15 +762,26 @@ postTerminate(Runner & runner)
 {
     // cerr << "postTerminate\n";
 
+    if (wrapperPid <= 0) {
+        throw ML::Exception("wrapperPid <= 0, has postTerminate been executed before?");
+    }
+
     // cerr << "waiting for wrapper pid: " << wrapperPid << endl;
     int wrapperPidStatus;
-    int res;
-    while ((res = ::waitpid(wrapperPid, &wrapperPidStatus, 0)) == -1
-           && errno == EINTR);
-    if (res == -1)
-        throw ML::Exception(errno, "waitpid");
-    if (res != wrapperPid)
-        throw ML::Exception("waitpid has not returned the wrappedPid");
+    while (true) {
+        int res = ::waitpid(wrapperPid, &wrapperPidStatus, 0);
+        if (res == wrapperPid) {
+            break;
+        }
+        else if (res == -1) {
+            if (errno != EINTR) {
+                throw ML::Exception(errno, "waitpid");
+            }
+        }
+        else {
+            throw ML::Exception("waitpid has not returned the wrappedPid");
+        }
+    }
     wrapperPid = -1;
 
     //cerr << "finished waiting for wrapper with status " << wrapperPidStatus

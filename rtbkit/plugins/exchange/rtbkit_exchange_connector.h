@@ -63,6 +63,12 @@ struct RTBKitExchangeConnector : public OpenRTBExchangeConnector {
     parseBidRequest(HttpAuctionHandler &connection,
                     const HttpHeader &header,
                     const std::string &payload);
+protected:
+
+    virtual void
+    setSeatBid(const Auction &auction,
+               int spotNum,
+               OpenRTB::BidResponse &response) const;
 };
 
 } // namespace RTBKIT
