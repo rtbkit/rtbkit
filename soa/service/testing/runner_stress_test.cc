@@ -98,6 +98,7 @@ and
 */
 BOOST_AUTO_TEST_CASE( test_stress_runner )
 {
+    ML::Watchdog wd(120);
     vector<thread> threads;
     int nThreads(20), activeThreads;
     vector<pid_t> childPids(nThreads);
@@ -175,8 +176,6 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         /* before closing stdinsink, wait until all bytes are correctly
            sent */
         {
-            ML::Watchdog wd(30);
-
             AsyncFdOutputSink & sinkPtr = (AsyncFdOutputSink &) stdInSink;
             while (sinkPtr.bytesSent() != stdInBytes) {
                 ML::sleep(0.2);
