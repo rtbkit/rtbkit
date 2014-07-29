@@ -122,7 +122,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
     BidRequest originalRequest = *auction->request;
     OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
-    bool ok = prepareRequest(openRtbRequest, originalRequest, bidders);
+    bool ok = prepareRequest(openRtbRequest, originalRequest, auction, bidders);
     /* If we took too much time processing the request, then we don't send it.  */
     if (!ok) {
         return;
@@ -368,22 +368,19 @@ void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
 
 bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
                                          const RTBKIT::BidRequest &originalRequest,
+                                         const std::shared_ptr<Auction> &auction,
                                          const std::map<std::string, BidInfo> &bidders) const {
     tagRequest(request, bidders);
 
     // We update the tmax value before sending the BidRequest to substract our processing time
-    double processingTimeMs = originalRequest.timestamp.secondsUntil(Date::now()) * 1000;
-    int oldTmax = request.tmax.value();
-    int newTmax = oldTmax - static_cast<int>(std::round(processingTimeMs));
-    if (newTmax <= 0) {
+
+    Date auctionExpiry = auction->expiry;
+    double remainingTimeMs = auctionExpiry.secondsSince(Date::now()) * 1000;
+    if (remainingTimeMs < 0) {
         return false;
     }
-#if 0
-        std::cerr << "old tmax = " << oldTmax << std::std::endl
-                  << "new tmax = " << newTmax << std::std::endl;
-#endif
-    ExcCheck(newTmax <= oldTmax, "Wrong tmax calculation");
-    request.tmax.val = newTmax;
+
+    request.tmax.val = remainingTimeMs;
     return true;
 }
 
