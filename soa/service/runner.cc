@@ -319,16 +319,20 @@ Runner::
 handleWakeup(const struct epoll_event & event)
 {
     // cerr << "handleWakup\n";
+    while (!wakeup_.tryRead());
 
     if ((event.events & EPOLLIN) != 0) {
         if (stdInSink_) {
             if (stdInSink_->connectionState_
                 == AsyncEventSource::DISCONNECTED) {
                 attemptTaskTermination();
+                removeFd(wakeup_.fd());
+            }
+            else {
+                wakeup_.signal();
+                restartFdOneShot(wakeup_.fd(), event.data.ptr);
             }
         }
-        while (!wakeup_.tryRead());
-        removeFd(wakeup_.fd());
     }
 }
 

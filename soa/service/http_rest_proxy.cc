@@ -252,7 +252,7 @@ doneConnection(curlpp::Easy * conn)
 
 JsonRestProxy::
 JsonRestProxy(const string & url)
-    : HttpRestProxy(url), maxRetries(10)
+    : HttpRestProxy(url), maxRetries(10), maxBackoffTime(900)
 {
     if (url.find("https://") == 0) {
         cerr << "warning: no validation will be performed on the SSL cert.\n";
@@ -280,8 +280,9 @@ putOrPost(const string & resource, const string & body, bool isPost)
 
     string method = isPost ? "POST" : "PUT";
     pid_t tid = gettid();
-    size_t retries;
-    for (retries = 0; retries < maxRetries; retries++) {
+    for (int retries = 0;
+         (maxRetries == -1) || (retries < maxRetries);
+         retries++) {
         response = this->perform(method, resource, content, RestParams(),
                                  headers);
         int code = response.code();
@@ -294,7 +295,7 @@ putOrPost(const string & resource, const string & body, bool isPost)
             string respBody = response.body();
             ::fprintf(stderr,
                       "[%d] %s %s returned response code %d"
-                      " (attempt %lu):\n"
+                      " (attempt %d):\n"
                       "request body (%lu) = '%s'\n"
                       "response body (%lu): '%s'\n",
                       tid, verb, resource.c_str(), code, retries,
@@ -302,14 +303,13 @@ putOrPost(const string & resource, const string & body, bool isPost)
                       respBody.size(), respBody.c_str());
         }
         if (code < 500) {
-            throw ML::Exception("[%d] error is unrecoverable");
+            throw ML::Exception("[%d] error is unrecoverable", tid);
         }
 
         /* recoverable errors */
-        if (retries < maxRetries) {
-            sleepAfterRetry(retries);
-            ::fprintf(stderr, "[%d] retrying %s %s after error"
-                      " (%lu/%lu)\n",
+        if (maxRetries == -1 || retries < maxRetries) {
+            sleepAfterRetry(retries, maxBackoffTime);
+            ::fprintf(stderr, "[%d] retrying %s %s after error (%d/%d)\n",
                       tid, verb, resource.c_str(), retries + 1, maxRetries);
         }
         else {
@@ -354,13 +354,17 @@ authenticate(const JsonAuthenticationRequest & creds)
 
 void
 JsonRestProxy::
-sleepAfterRetry(int retryNbr)
+sleepAfterRetry(int retryNbr, int maxBaseTime)
 {
     static const double sleepUnit(0.2);
-    int rnd = random();
 
     int maxSlot = (1 << retryNbr) - 1;
-    double timeToSleep = ((double) rnd / RAND_MAX) * maxSlot * sleepUnit;
+    double baseTime = maxSlot * sleepUnit;
+    if (baseTime > maxBaseTime) {
+        baseTime = maxBaseTime;
+    }
+    int rnd = random();
+    double timeToSleep = ((double) rnd / RAND_MAX) * baseTime;
     // cerr << "sleeping " << timeToSleep << endl;
 
     ML::sleep(timeToSleep);

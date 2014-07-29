@@ -12,17 +12,25 @@ using namespace Datacratic;
 using namespace RTBKIT;
 
 BidderInterface::BidderInterface(ServiceBase & parent,
-                                 std::string const & name) :
-    ServiceBase(name, parent),
+                                 std::string const & serviceName) :
+    ServiceBase(serviceName, parent),
     router(nullptr),
     bridge(nullptr) {
 }
 
 BidderInterface::BidderInterface(std::shared_ptr<ServiceProxies> proxies,
-                                 std::string const & name) :
-    ServiceBase(name, proxies),
+                                 std::string const & serviceName) :
+    ServiceBase(serviceName, proxies),
     router(nullptr),
     bridge(nullptr) {
+}
+
+void BidderInterface::setInterfaceName(const std::string &name) {
+    this->name = name;
+}
+
+std::string BidderInterface::interfaceName() const {
+    return name;
 }
 
 void BidderInterface::init(AgentBridge * value, Router * r) {
@@ -78,15 +86,16 @@ void BidderInterface::registerFactory(std::string const & name, Factory callback
 
 
 std::shared_ptr<BidderInterface> BidderInterface::create(
-        std::string name,
+        std::string serviceName,
         std::shared_ptr<ServiceProxies> const & proxies,
         Json::Value const & json) {
     auto type = json.get("type", "unknown").asString();
     auto factory = getFactory(type);
-    if(name.empty()) {
-        name = json.get("name", "bidder").asString();
+    if(serviceName.empty()) {
+        serviceName = json.get("serviceName", "bidder").asString();
     }
 
-    return std::shared_ptr<BidderInterface>(factory(name, proxies, json));
+
+    return std::shared_ptr<BidderInterface>(factory(serviceName, proxies, json));
 }
 

@@ -13,7 +13,7 @@ namespace RTBKIT {
 
 struct AgentsBidderInterface : public BidderInterface
 {
-    AgentsBidderInterface(std::string const & name = "bidder",
+    AgentsBidderInterface(std::string const & serviceName = "bidderService",
                           std::shared_ptr<ServiceProxies> proxies = std::make_shared<ServiceProxies>(),
                           Json::Value const & config = Json::Value());
 

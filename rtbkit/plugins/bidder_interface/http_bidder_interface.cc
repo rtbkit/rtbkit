@@ -43,10 +43,10 @@ Logging::Category HttpBidderInterface::trace("HttpBidderInterface Trace", HttpBi
 
 }
 
-HttpBidderInterface::HttpBidderInterface(std::string name,
+HttpBidderInterface::HttpBidderInterface(std::string serviceName,
                                          std::shared_ptr<ServiceProxies> proxies,
                                          Json::Value const & json)
-        : BidderInterface(proxies, name) {
+        : BidderInterface(proxies, serviceName) {
 
     try {
         routerHost = json["router"]["host"].asString();
@@ -100,7 +100,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                              std::map<std::string, BidInfo> const & bidders) {
     using namespace std;
 
-    auto findAgent = [&](uint64_t externalId)
+    auto findAgent = [=](uint64_t externalId)
         -> pair<string, shared_ptr<const AgentConfig>> {
 
         auto it =
@@ -143,6 +143,17 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                            routerHost.c_str(),
                                            httpErrorString(errorCode).c_str());
                   }
+                  // If we receive a 204 No-bid, we still need to "re-inject" it to the
+                  // router otherwise we won't expire the inFlights
+                  else if (statusCode == 204) {
+                     Bids bids;
+                     bids.resize(openRtbRequest.imp.size());
+                     fill(begin(bids), end(bids), Bid());
+                     for (const auto &bidder: bidders) {
+                         submitBids(bidder.first, auction->id, bids, WinCostModel());
+                     }
+                  }
+
                   else if (statusCode == 200) {
                     // cerr << "Response: " << body << endl;
                      OpenRTB::BidResponse response;
@@ -155,10 +166,14 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                      for (const auto &seatbid: response.seatbid) {
 
                          for (const auto &bid: seatbid.bid) {
-                             if (!bid.ext.isMember("external-id"))
-                             {
+                             if (!bid.ext.isMember("external-id")) {
                                  router->throwException("http.response",
                                     "Missing external-id ext field in BidResponse");
+                             }
+
+                             if (!bid.ext.isMember("priority")) {
+                                 router->throwException("http.response",
+                                    "Missing priority ext field in BidResponse");
                              }
 
                              uint64_t externalId = bid.ext["external-id"].asUInt();
@@ -186,7 +201,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
                              theBid.creativeIndex = creativeIndex;
                              theBid.price = USD_CPM(bid.price.val);
-                             theBid.priority = 0.0;
+                             theBid.priority = bid.ext["priority"].asDouble();
 
                              int spotIndex = indexOf(openRtbRequest.imp,
                                                     &OpenRTB::Impression::id, bid.impid);
@@ -378,8 +393,13 @@ void HttpBidderInterface::submitBids(const std::string &agent, Id auctionId,
      Json::FastWriter writer;
      std::vector<std::string> message { agent, "BID" };
      message.push_back(auctionId.toString());
+
      std::string bidsStr = writer.write(bids.toJson());
+     boost::trim(bidsStr);
+
      std::string wcmStr = writer.write(wcm.toJson());
+     boost::trim(wcmStr);
+
      message.push_back(std::move(bidsStr));
      message.push_back(std::move(wcmStr));
 
@@ -395,8 +415,12 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        BidderInterface::registerFactory("http", [](std::string const & name , std::shared_ptr<ServiceProxies> const & proxies, Json::Value const & json) {
-            return new HttpBidderInterface(name, proxies, json);
+        BidderInterface::registerFactory("http",
+        [](std::string const & serviceName,
+           std::shared_ptr<ServiceProxies> const & proxies,
+           Json::Value const & json)
+        {
+            return new HttpBidderInterface(serviceName, proxies, json);
         });
     }
 } atInit;

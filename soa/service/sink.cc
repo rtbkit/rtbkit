@@ -28,6 +28,9 @@ void
 OutputSink::
 doClose()
 {
+    if (state == CLOSED) {
+        return;
+    }
     state = CLOSING;
     ML::futex_wake(state);
     if (onClose_) {

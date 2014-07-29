@@ -255,6 +255,8 @@ struct AgentConfig {
 
     int maxInFlight;
 
+    std::string bidderInterface;
+
     std::vector<std::string> requiredIds;
 
     IncludeExclude<DomainMatcher> hostFilter;

@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE( test_openrtb_error_codes )
                                                                  "Content-Type: application/json\r\n"
                                                                  "x-openrtb-version: 2\r\n"
                                                                  "\r\n"));
-    BOOST_CHECK(validateHttpQuery("INVALID_BID_REQUEST", "POST /auctions HTTP/1.1\r\n"
+    BOOST_CHECK(validateHttpQuery("EMPTY_BID_REQUEST", "POST /auctions HTTP/1.1\r\n"
                                                   "Content-Length: 0\r\n"
                                                   "Content-Type: application/json\r\n"
                                                   "x-openrtb-version: 2.1\r\n"
