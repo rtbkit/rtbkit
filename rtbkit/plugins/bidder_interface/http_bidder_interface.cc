@@ -138,7 +138,8 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
             [=](const HttpRequest &, HttpClientError errorCode,
                 int statusCode, const std::string &, std::string &&body)
             {
-                if (errorCode != HttpClientError::NONE) {
+                 //cerr << "Response: " << "HTTP " << statusCode << std::endl << body << endl;
+                 if (errorCode != HttpClientError::NONE) {
                     router->throwException("http", "Error requesting %s: %s",
                                            routerHost.c_str(),
                                            httpErrorString(errorCode).c_str());
@@ -155,7 +156,6 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                   }
 
                   else if (statusCode == 200) {
-                    // cerr << "Response: " << body << endl;
                      OpenRTB::BidResponse response;
                      ML::Parse_Context context("payload",
                            body.c_str(), body.size());
@@ -227,7 +227,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
     HttpRequest::Content reqContent { requestStr, "application/json" };
     RestParams headers { { "x-openrtb-version", "2.1" } };
-   // std::cerr << "Sending HTTP POST to: " << host << " " << path << std::endl;
+   // std::cerr << "Sending HTTP POST to: " << routerHost << " " << routerPath << std::endl;
    // std::cerr << "Content " << reqContent.str << std::endl;
 
     httpClientRouter->post(routerPath, callbacks, reqContent,
@@ -400,7 +400,17 @@ void HttpBidderInterface::submitBids(const std::string &agent, Id auctionId,
      message.push_back(std::move(bidsStr));
      message.push_back(std::move(wcmStr));
 
-     router->doBid(message);
+     // We can not directly call router->doBid here because otherwise we would end up
+     // calling doBid from the context of an other thread (the MessageLoop worker thread).
+     // Since the object that handles in flight BidRequests for an agent is not
+     // thread-safe, we can not call the doBid function from an other thread.
+     // Instead, we use a queue to communicate with the router thread. We then avoid
+     // an evil race condition.
+
+     if (!router->doBidBuffer.tryPush(std::move(message))) {
+         throw ML::Exception("Main router loop can not keep up with HttpBidderInterface");
+     }
+     router->wakeupMainLoop.signal();
 }
 
 //

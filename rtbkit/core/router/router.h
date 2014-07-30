@@ -399,6 +399,7 @@ public:
     ML::RingBufferSRMW<std::shared_ptr<AugmentationInfo> > startBiddingBuffer;
     ML::RingBufferSRMW<std::shared_ptr<Auction> > submittedBuffer;
     ML::RingBufferSWMR<std::shared_ptr<Auction> > auctionGraveyard;
+    ML::RingBufferSRMW<std::vector<std::string>> doBidBuffer;
 
     ML::Wakeup_Fd wakeupMainLoop;
 
