@@ -19,5 +19,8 @@ $(eval $(call library,test_utils,$(LIB_TEST_UTILS_SOURCES),$(LIB_TEST_UTILS_LINK
 
 $(eval $(call library,variadic_hash,variadic_hash.cc,cityhash))
 
+$(eval $(call library,py_util,py.cc,boost_python python$(PYTHON_VERSION)))
+$(eval $(call set_compile_option,py.cc,-I$(PYTHON_INCLUDE_PATH)))
+
 $(eval $(call include_sub_make,testing))
 
