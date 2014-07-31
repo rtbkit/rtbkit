@@ -65,8 +65,20 @@ biddableSpots()
 
 namespace {
 
-unordered_map<string, FilterRegistry::ConstructFn> filterRegister;
-Spinlock filterRegisterLock;
+struct FilterRegister {
+    unordered_map<string, FilterRegistry::ConstructFn> filterRegister;
+    Spinlock filterRegisterLock;
+};
+
+FilterRegister * filters ;
+
+FilterRegister * getFilterRegister() {
+    if(!filters) {
+        filters = new FilterRegister();
+    }
+    return filters;
+}
+
 
 } // namespace anonymous
 
@@ -75,8 +87,9 @@ void
 FilterRegistry::
 registerFilter(const string& name, ConstructFn fn)
 {
-    lock_guard<Spinlock> guard(filterRegisterLock);
-    filterRegister.insert(make_pair(name, fn));
+    auto filters = getFilterRegister();
+    lock_guard<Spinlock> guard(filters->filterRegisterLock);
+    filters->filterRegister.insert(make_pair(name, fn));
 }
 
 
@@ -85,12 +98,12 @@ FilterRegistry::
 makeFilter(const string& name)
 {
     ConstructFn fn;
-
+    auto filters = getFilterRegister();
     {
-        lock_guard<Spinlock> guard(filterRegisterLock);
+        lock_guard<Spinlock> guard(filters->filterRegisterLock);
 
-        auto it = filterRegister.find(name);
-        ExcCheck(it != filterRegister.end(), "Unknown filter: " + name);
+        auto it = filters->filterRegister.find(name);
+        ExcCheck(it != filters->filterRegister.end(), "Unknown filter: " + name);
         fn = it->second;
     }
 
@@ -101,16 +114,17 @@ vector<string>
 FilterRegistry::
 listFilters()
 {
-    vector<string> filters;
+    vector<string> filtersStr;
+    auto filters = getFilterRegister();
     {
-        lock_guard<Spinlock> guard(filterRegisterLock);
+        lock_guard<Spinlock> guard(filters->filterRegisterLock);
 
-        filters.reserve(filterRegister.size());
-        for (const auto& filter : filterRegister)
-            filters.push_back(filter.first);
+        filtersStr.reserve(filters->filterRegister.size());
+        for (const auto& filter : filters->filterRegister)
+            filtersStr.push_back(filter.first);
     }
 
-    return filters;
+    return filtersStr;
 }
 
 } // namepsace RTBKIT

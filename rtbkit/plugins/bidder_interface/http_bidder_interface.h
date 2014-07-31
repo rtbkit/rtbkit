@@ -15,13 +15,13 @@ struct Bids;
 
 struct HttpBidderInterface : public BidderInterface
 {
-    HttpBidderInterface(std::string name = "bidder",
+    HttpBidderInterface(std::string serviceName = "bidderService",
                         std::shared_ptr<ServiceProxies> proxies = std::make_shared<ServiceProxies>(),
                         Json::Value const & json = Json::Value());
     ~HttpBidderInterface();
 
     void start();
-    virtual void shutdown();
+    void shutdown();
     void sendAuctionMessage(std::shared_ptr<Auction> const & auction,
                             double timeLeftMs,
                             std::map<std::string, BidInfo> const & bidders);
