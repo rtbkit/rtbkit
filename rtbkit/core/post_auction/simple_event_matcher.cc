@@ -580,6 +580,7 @@ doBidResult(
     i.bidRequestStrFormat = submission.bidRequestStrFormat ;
     i.bid = response;
     i.reportedStatus = status;
+    i.augmentations = submission.augmentations;
     i.setWin(timestamp, status, price, winPrice, winLossMeta);
     i.addUids(uids);
 
