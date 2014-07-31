@@ -75,7 +75,7 @@ public:
         std::lock_guard<std::mutex> l(mtx_);
         auto it = agents_.insert ({name, new_member});
         if (it.second)
-            this->addSource (name, *new_member.get());
+            this->addSource (name, new_member);
         return it.second ;
     }
 
