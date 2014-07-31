@@ -122,6 +122,7 @@ Router(ServiceBase & parent,
       startBiddingBuffer(65536),
       submittedBuffer(65536),
       auctionGraveyard(65536),
+      doBidBuffer(65536),
       augmentationLoop(*this),
       loopMonitor(*this),
       loadStabilizer(loopMonitor),
@@ -167,6 +168,7 @@ Router(std::shared_ptr<ServiceProxies> services,
       startBiddingBuffer(65536),
       submittedBuffer(65536),
       auctionGraveyard(65536),
+      doBidBuffer(65536),
       augmentationLoop(*this),
       loopMonitor(*this),
       loadStabilizer(loopMonitor),
@@ -561,6 +563,13 @@ run()
 
             double atEnd = getTime();
             times["doStartBidding"].add(microsecondsBetween(atEnd, atStart));
+        }
+
+        {
+            std::vector<std::string> message;
+            while (doBidBuffer.tryPop(message)) {
+                doBid(message);
+            }
         }
 
         {
