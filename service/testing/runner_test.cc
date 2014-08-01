@@ -570,3 +570,21 @@ BOOST_AUTO_TEST_CASE( test_timeval_value_description )
         BOOST_CHECK_EQUAL(tv.tv_usec, 3456);
     }
 }
+
+BOOST_AUTO_TEST_CASE( test_runner_no_msgloop )
+{
+    BlockedSignals blockedSigs2(SIGCHLD);
+    Runner runner;
+
+    vector<string> command = {"/bin/ls", "-l"};
+    
+    auto onTerminate = [&] (const RunResult & result) {
+        cerr << "command has terminated" << endl;
+    };
+    
+    runner.run(command, onTerminate);
+
+    BOOST_REQUIRE_EQUAL(runner.waitStart(1.0), true);
+
+    runner.waitTermination();
+}

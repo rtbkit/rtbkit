@@ -27,6 +27,7 @@
 #include "jml/utils/guard.h"
 #include "jml/utils/file_functions.h"
 
+#include "logs.h"
 #include "message_loop.h"
 #include "sink.h"
 
@@ -68,6 +69,11 @@ rusageDescription()
 
 
 namespace {
+
+
+
+Logging::Category warnings("Runner::warning");
+
 
 tuple<int, int>
 CreateStdPipe(bool forWriting)
@@ -409,6 +415,11 @@ run(const vector<string> & command,
     const shared_ptr<InputSink> & stdOutSink,
     const shared_ptr<InputSink> & stdErrSink)
 {
+    if (parent_ == nullptr) {
+        LOG(warnings)
+            << ML::format("Runner %p is not connected to any MessageLoop\n", this);
+    }
+
     if (running_)
         throw ML::Exception("already running");
 
