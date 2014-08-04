@@ -166,7 +166,8 @@ publish(ZmqNamedPublisher& logger) const
             // Ok back to sanity now.
 
             requestStrFormat,                        // 20
-            rawWinPrice.toString()                   // 21
+            rawWinPrice.toString(),                  // 21
+            augmentations.toString()
         );
 }
 
