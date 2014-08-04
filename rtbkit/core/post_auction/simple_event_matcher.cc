@@ -15,6 +15,22 @@ using namespace std;
 using namespace Datacratic;
 using namespace ML;
 
+
+/******************************************************************************/
+/* HASH                                                                       */
+/******************************************************************************/
+
+namespace std {
+
+size_t
+hash< std::pair<Datacratic::Id, Datacratic::Id> >::
+operator() (const std::pair<Datacratic::Id, Datacratic::Id>& val) const
+{
+    return val.first.hash() ^ val.second.hash();
+}
+
+} // namespace std
+
 namespace RTBKIT {
 
 /******************************************************************************/
