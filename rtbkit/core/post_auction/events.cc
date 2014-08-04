@@ -167,7 +167,7 @@ publish(ZmqNamedPublisher& logger) const
 
             requestStrFormat,                        // 20
             rawWinPrice.toString(),                  // 21
-            augmentations.toString()
+            augmentations.toString()                 // 22
         );
 }
 
