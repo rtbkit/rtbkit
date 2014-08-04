@@ -13,6 +13,7 @@ LIBTYPES_SOURCES := \
 	id.cc \
 	url.cc \
 	periodic_utils.cc \
+	csiphash.c
 
 LIBTYPES_LINK := \
 	boost_regex boost_date_time jsoncpp ACE db googleurl cityhash utils
