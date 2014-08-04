@@ -625,7 +625,6 @@ perform(bool noSSLChecks, bool debug)
         }
         curlHeaders.push_back("Content-Length: "
                               + to_string(data.size()));
-        curlHeaders.push_back("Expect:");
         curlHeaders.push_back("Transfer-Encoding:");
         curlHeaders.push_back("Content-Type: "
                               + request_.content_.contentType);
