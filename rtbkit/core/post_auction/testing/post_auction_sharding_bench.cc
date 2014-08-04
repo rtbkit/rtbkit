@@ -31,7 +31,9 @@ using namespace Datacratic;
 
 struct Config
 {
-    Config() : shards(1), feeders(1), pauseMs(1), durationSec(10) {}
+    Config() :
+        shards(1), feeders(1), pauseMs(1), durationSec(10), lossTimeout(15)
+    {}
 
     size_t shards;
     size_t feeders;
@@ -165,8 +167,7 @@ private:
 
     void sendAuction(const SubmittedAuctionEvent& event)
     {
-        Message<SubmittedAuctionEvent> message(std::move(event));
-        feed.sendMessage("AUCTION", message.toString());
+        feed.sendMessage("AUCTION", ML::DB::serializeToString(event));
     }
 
 

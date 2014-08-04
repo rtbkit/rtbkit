@@ -2683,8 +2683,8 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
         event.bidRequestStrFormat = auction->requestStrFormat ;
         event.bidResponse = bid;
 
-        Message<SubmittedAuctionEvent> message(std::move(event));
-        postAuctionEndpoint.sendMessage("AUCTION", message.toString());
+        std::string eventStr = ML::DB::serializeToString(event);
+        postAuctionEndpoint.sendMessage("AUCTION", std::move(eventStr));
     }
 
     if (auction.unique()) {

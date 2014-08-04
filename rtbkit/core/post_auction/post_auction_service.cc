@@ -252,17 +252,9 @@ PostAuctionService::
 doAuctionMessage(const std::vector<std::string> & message)
 {
     recordHit("messages.AUCTION");
-
-    auto msg = Message<SubmittedAuctionEvent>::fromString(message.at(2));
-    if (msg) {
-        auto event = std::make_shared<SubmittedAuctionEvent>(std::move(msg.payload));
-        doAuction(std::move(event));
-    }
-
-    else {
-        LOG(error)
-            << "error while parsing AUCTION message: " << message.at(2) << endl;
-    }
+    auto event = std::make_shared<SubmittedAuctionEvent>(
+            ML::DB::reconstituteFromString<SubmittedAuctionEvent>(message.at(2)));
+    doAuction(std::move(event));
 }
 
 void
