@@ -101,7 +101,8 @@ namespace Datacratic {
 Runner::
 Runner()
     : closeStdin(false), running_(false), childPid_(-1),
-      wakeup_(EFD_NONBLOCK), statusRemaining_(sizeof(Task::ChildStatus))
+      wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
+      statusRemaining_(sizeof(Task::ChildStatus))
 {
     Epoller::init(4);
 
