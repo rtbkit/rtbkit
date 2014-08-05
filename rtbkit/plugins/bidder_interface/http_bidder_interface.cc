@@ -23,11 +23,11 @@ namespace {
             #define CASE(code) \
                 case code: \
                     return #code;
-            CASE(HttpClientError::NONE)
-            CASE(HttpClientError::UNKNOWN)
-            CASE(HttpClientError::TIMEOUT)
-            CASE(HttpClientError::HOST_NOT_FOUND)
-            CASE(HttpClientError::COULD_NOT_CONNECT)
+            CASE(HttpClientError::None)
+            CASE(HttpClientError::Unknown)
+            CASE(HttpClientError::Timeout)
+            CASE(HttpClientError::HostNotFound)
+            CASE(HttpClientError::CouldNotConnect)
             #undef CASE
         }
         ExcCheck(false, "Invalid code path");
@@ -139,7 +139,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                 int statusCode, const std::string &, std::string &&body)
             {
                  //cerr << "Response: " << "HTTP " << statusCode << std::endl << body << endl;
-                 if (errorCode != HttpClientError::NONE) {
+                 if (errorCode != HttpClientError::None) {
                     router->throwException("http", "Error requesting %s: %s",
                                            routerHost.c_str(),
                                            httpErrorString(errorCode).c_str());
@@ -246,7 +246,7 @@ void HttpBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
         [=](const HttpRequest &, HttpClientError errorCode,
             int statusCode, const std::string &, std::string &&body)
         {
-            if (errorCode != HttpClientError::NONE) {
+            if (errorCode != HttpClientError::None) {
                 throw ML::Exception("Error requesting %s:%d '%s'",
                                     adserverHost.c_str(),
                                     adserverWinPort,
@@ -282,7 +282,7 @@ void HttpBidderInterface::sendCampaignEventMessage(std::string const & agent,
         [=](const HttpRequest &, HttpClientError errorCode,
             int statusCode, const std::string &, std::string &&body)
         {
-            if (errorCode != HttpClientError::NONE) {
+            if (errorCode != HttpClientError::None) {
                 throw ML::Exception("Error requesting %s:%d '%s'",
                                     adserverHost.c_str(),
                                     adserverEventPort,
