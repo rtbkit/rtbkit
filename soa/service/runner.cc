@@ -27,6 +27,7 @@
 #include "jml/utils/guard.h"
 #include "jml/utils/file_functions.h"
 
+#include "logs.h"
 #include "message_loop.h"
 #include "sink.h"
 
@@ -69,6 +70,11 @@ rusageDescription()
 
 namespace {
 
+
+
+Logging::Category warnings("Runner::warning");
+
+
 tuple<int, int>
 CreateStdPipe(bool forWriting)
 {
@@ -95,7 +101,8 @@ namespace Datacratic {
 Runner::
 Runner()
     : closeStdin(false), running_(false), childPid_(-1),
-      wakeup_(EFD_NONBLOCK), statusRemaining_(sizeof(Task::ChildStatus))
+      wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
+      statusRemaining_(sizeof(Task::ChildStatus))
 {
     Epoller::init(4);
 
@@ -409,6 +416,11 @@ run(const vector<string> & command,
     const shared_ptr<InputSink> & stdOutSink,
     const shared_ptr<InputSink> & stdErrSink)
 {
+    if (parent_ == nullptr) {
+        LOG(warnings)
+            << ML::format("Runner %p is not connected to any MessageLoop\n", this);
+    }
+
     if (running_)
         throw ML::Exception("already running");
 
