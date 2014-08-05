@@ -8,15 +8,6 @@
 
 using namespace RTBKIT;
 
-static Json::Value formatUserIds(const BidRequest& bidRequest)
-{
-    Json::Value userIds(Json::arrayValue);
-    for (const auto &uid: bidRequest.userIds) {
-        userIds.append(uid.second.toString());
-    }
-    return userIds;
-}
-
 StandardEventSource::
 StandardEventSource(NetworkAddress address) :
     EventSource(std::move(address)) {
@@ -37,7 +28,7 @@ sendImpression(const BidRequest& bidRequest, const Bid& bid)
     json["timestamp"] = Date::now().secondsSinceEpoch();
     json["bidRequestId"] = bidRequest.auctionId.toString();
     json["impid"] = bid.adSpotId.toString();
-    json["userIds"] = formatUserIds(bidRequest);
+    json["userIds"] = bidRequest.userIds.toJsonArray();
     json["type"] = "CONVERSION";
     sendEvent(json); 
 }
@@ -51,7 +42,7 @@ sendClick(const BidRequest& bidRequest, const Bid& bid)
     json["timestamp"] = Date::now().secondsSinceEpoch();
     json["bidRequestId"] = bidRequest.auctionId.toString();
     json["impid"] = bid.adSpotId.toString();
-    json["userIds"] = formatUserIds(bidRequest);
+    json["userIds"] = bidRequest.userIds.toJsonArray();
     json["type"] = "CLICK";
     sendEvent(json); 
 }
