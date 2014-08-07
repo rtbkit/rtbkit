@@ -45,7 +45,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
 
 
     void initBidderInterface(Json::Value const & json);
-    void init(size_t shards = 1);
+    void init(size_t externalShard = 0, size_t internalShards = 1);
     void start(std::function<void ()> onStop = std::function<void ()>());
     void shutdown();
 
@@ -224,6 +224,7 @@ struct PostAuctionService : public ServiceBase, public MonitorProvider
         Stats(const Stats& other);
         Stats& operator=(const Stats& other);
         Stats& operator-=(const Stats& other);
+        Stats& operator+=(const Stats& other);
 
     } stats;
 
@@ -242,7 +243,7 @@ private:
     /** Initialize all of our connections, hooking everything in to the
         event loop.
     */
-    void initConnections();
+    void initConnections(size_t shard);
     void initMatcher(size_t shards);
 
     void doAuction(std::shared_ptr< SubmittedAuctionEvent> event);

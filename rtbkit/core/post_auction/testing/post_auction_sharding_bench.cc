@@ -9,7 +9,7 @@
 #include "rtbkit/core/post_auction/post_auction_service.h"
 #include "rtbkit/core/post_auction/simple_event_matcher.h"
 #include "rtbkit/core/banker/null_banker.h"
-#include "rtbkit/common/messages.h"
+#include "rtbkit/common/post_auction_proxy.h"
 #include "soa/service/zookeeper_configuration_service.h"
 #include "soa/service/testing/zookeeper_temporary_server.h"
 #include "soa/utils/print_utils.h"
@@ -24,6 +24,8 @@ using namespace std;
 using namespace ML;
 using namespace Datacratic;
 
+
+typedef std::shared_ptr<PostAuctionService> ServicePtr;
 
 /******************************************************************************/
 /* CONFIG                                                                     */
@@ -78,14 +80,10 @@ Config getConfig(int argc, char** argv)
 
 struct Feeder
 {
-    Feeder(std::shared_ptr<zmq::context_t> context, Config config) :
-        done(false), feed(context), config(std::move(config))
-    {}
-
-    void init(std::shared_ptr<ConfigurationService> config)
+    Feeder(std::shared_ptr<ServiceProxies> proxies, Config config) :
+        done(false), feed(proxies), config(std::move(config))
     {
-        feed.init(config, ZMQ_XREQ);
-        feed.connectToServiceClass("rtbPostAuctionService", "events");
+        feed.init();
     }
 
     void start()
@@ -106,10 +104,10 @@ private:
     {
         while(!done) {
             auto auction = makeAuction();
-            sendAuction(auction);
+            feed.sendAuction(auction);
 
             if (auction.auctionId.hash() % 7 == 0)
-                sendWin(makeWin(auction));
+                feed.sendEvent(makeWin(auction));
 
             std::this_thread::sleep_for(std::chrono::milliseconds(config.pauseMs));
         }
@@ -165,11 +163,6 @@ private:
         return event;
     }
 
-    void sendAuction(const SubmittedAuctionEvent& event)
-    {
-        feed.sendMessage("AUCTION", ML::DB::serializeToString(event));
-    }
-
 
     PostAuctionEvent makeWin(const SubmittedAuctionEvent& auction) const
     {
@@ -187,15 +180,10 @@ private:
         return event;
     }
 
-    void sendWin(const PostAuctionEvent& event)
-    {
-        feed.sendMessage("WIN", ML::DB::serializeToString(event));
-    }
-
     std::atomic<bool> done;
     std::thread runThread;
 
-    ZmqNamedProxy feed;
+    PostAuctionProxy feed;
     Config config;
 };
 
@@ -204,26 +192,35 @@ private:
 /* INIT                                                                       */
 /******************************************************************************/
 
-// Will leak feeder objects at the end of the test (who cares)
-void initFeeders(
-        std::vector<Feeder*>& feeders,
-        std::shared_ptr<ConfigurationService> config,
-        const Config& cfg)
+// Note: we want a seperate zmq context to avoid unrealistic zmq fast-paths.
+std::shared_ptr<ServiceProxies>
+makeProxies(const Config& config)
 {
-    auto zmq = std::make_shared<zmq::context_t>(1);
+    static auto configService = std::make_shared<InternalConfigurationService>();
 
-    for (size_t i = 0; i < cfg.feeders; ++i) {
-        feeders.emplace_back(new Feeder(zmq, cfg));
-        feeders.back()->init(config);
+    auto proxies = std::make_shared<ServiceProxies>();
+    proxies->config = configService;
+    proxies->params["postAuctionShards"] = config.shards;
+
+    return proxies;
+}
+
+// Will leak feeder objects at the end of the test (who cares)
+void initFeeders(std::vector<Feeder*>& feeders, const Config& config)
+{
+    auto proxies = makeProxies(config);
+    for (size_t i = 0; i < config.feeders; ++i) {
+        feeders.emplace_back(new Feeder(proxies, config));
         feeders.back()->start();
     }
 }
 
-std::shared_ptr<PostAuctionService>
-initService(std::shared_ptr<ServiceProxies> proxies, const Config& config)
+ServicePtr
+initService(const Config& config, size_t shard)
 {
-    auto service = std::make_shared<PostAuctionService>(proxies, "bob");
-    service->init(config.shards);
+    std::string name = "bob-" + std::to_string(shard);
+    auto service = std::make_shared<PostAuctionService>(makeProxies(config), name);
+    service->init(shard);
     service->setBanker(std::make_shared<NullBanker>());
     service->bindTcp();
     service->start();
@@ -237,16 +234,33 @@ initService(std::shared_ptr<ServiceProxies> proxies, const Config& config)
 /******************************************************************************/
 
 PostAuctionService::Stats
-report( const PostAuctionService& service,
+getStats(const std::vector<ServicePtr>& services)
+{
+    PostAuctionService::Stats sum;
+    for (const auto& service : services)
+        sum += service->stats;
+    return sum;
+}
+
+float
+sampleLoad(const std::vector<ServicePtr>& services)
+{
+    float load = 0.0;
+    for (const auto& service : services)
+        load = std::max(load, service->sampleLoad());
+    return load;
+}
+
+PostAuctionService::Stats
+report( const std::vector<ServicePtr>& services,
         double delta,
         const PostAuctionService::Stats& last = PostAuctionService::Stats())
 {
-    auto current = service.stats;
+    float load = sampleLoad(services);
+    auto current = getStats(services);
 
     auto diff = current;
     diff -= last;
-
-    float load = service.sampleLoad();
 
     double bidsThroughput = diff.auctions / delta;
     double eventsThroughput = diff.events / delta;
@@ -273,16 +287,16 @@ report( const PostAuctionService& service,
 /* RUN                                                                        */
 /******************************************************************************/
 
-void run(const PostAuctionService& service, const Config& config)
+void run(const std::vector<ServicePtr>& services, const Config& config)
 {
     auto now = Date::now();
     auto stop = now.plusSeconds(config.durationSec);
 
-    auto stats = report(service, 0.1);
+    auto stats = report(services, 0.1);
 
     while ((now = Date::now()) < stop) {
-        stats = report(service, 0.1, stats);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        stats = report(services, 0.1, stats);
     }
 }
 
@@ -296,24 +310,33 @@ int main(int argc, char* argv[])
     ZmqLogs::print.deactivate();
     PostAuctionService::print.deactivate();
     SimpleEventMatcher::print.deactivate();
+    MessageLoopLogs::print.deactivate();
 
     auto config = getConfig(argc, argv);
-    auto proxies = std::make_shared<ServiceProxies>();
-    auto service = initService(proxies, config);
+
+    std::vector<ServicePtr> services;
+    for (size_t shard = 0; shard < config.shards; ++shard)
+        services.emplace_back(initService(config, shard));
 
     std::vector<Feeder*> feeders;
-    initFeeders(feeders, proxies->config, config);
+    initFeeders(feeders, config);
 
-    auto start = service->stats;
-    run(*service, config);
+    auto start = getStats(services);
+    run(services, config);
 
     std::cerr << "\n\n"
         << printValue(config.durationSec) << " Duration\n"
         << printValue(config.shards) << " Shards\n"
         << printValue(config.feeders * (1000.0 / config.pauseMs) ) << " Request/sec\n"
         << std::endl;
-    report(*service, config.durationSec, start);
-    std::cerr << std::endl;
 
+    auto end = report(services, config.durationSec, start);
+
+    std::cerr << "\n"
+        << printValue(end.unmatchedEvents) << "Unmatched\n"
+        << printValue(end.errors) << "Errors\n"
+        << std::endl;
+
+    // No worth trying to figure out the various shutdown issues.
     _exit(0);
 }

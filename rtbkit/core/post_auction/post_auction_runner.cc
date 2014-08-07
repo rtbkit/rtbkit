@@ -31,7 +31,7 @@ static Json::Value loadJsonFromFile(const std::string & filename)
 /************************************************************************/
 PostAuctionRunner::
 PostAuctionRunner() :
-    shards(1),
+    shard(1),
     auctionTimeout(EventMatcher::DefaultAuctionTimeout),
     winTimeout(EventMatcher::DefaultWinTimeout),
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
@@ -54,8 +54,8 @@ doOptions(int argc, char ** argv,
          "configuration file with bidder interface data")
         ("use-http-banker", bool_switch(&useHttpBanker),
          "Communicate with the MasterBanker over http")
-        ("shards", value<size_t>(&shards),
-         "Number of shards(threads) used for matching.")
+        ("shard,s", value<size_t>(&shard),
+         "Shard index starting at 0 for this post auction loop")
         ("win-seconds", value<float>(&winTimeout),
          "Timeout for storing win auction")
         ("auction-seconds", value<float>(&auctionTimeout),
@@ -97,7 +97,7 @@ init()
 
     postAuctionLoop = std::make_shared<PostAuctionService>(proxies, serviceName);
     postAuctionLoop->initBidderInterface(bidderConfig);
-    postAuctionLoop->init(shards);
+    postAuctionLoop->init(shard);
 
     postAuctionLoop->setWinTimeout(winTimeout);
     postAuctionLoop->setAuctionTimeout(auctionTimeout);

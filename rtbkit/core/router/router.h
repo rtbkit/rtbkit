@@ -28,6 +28,7 @@
 #include <unordered_set>
 #include <thread>
 #include "rtbkit/common/exchange_connector.h"
+#include "rtbkit/common/post_auction_proxy.h"
 #include "rtbkit/core/agent_configuration/blacklist.h"
 #include "rtbkit/core/agent_configuration/agent_configuration_listener.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
@@ -386,7 +387,7 @@ protected:
 
 public:
     // Connection to the post auction loop
-    ZmqNamedProxy postAuctionEndpoint;
+    PostAuctionProxy postAuctionEndpoint;
 
     void updateAllAgents();
 
