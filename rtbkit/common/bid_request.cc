@@ -793,6 +793,16 @@ toJsonStr() const
     return boost::trim_copy(toJson().toString());
 }
 
+Json::Value
+UserIds::
+toJsonArray() const
+{
+    Json::Value result(Json::arrayValue);
+    for (auto it = begin(), end = this->end();  it != end;  ++it)
+        result.append(it->second.toString());
+    return result;
+}
+
 UserIds
 UserIds::
 createFromJson(const Json::Value & json)
