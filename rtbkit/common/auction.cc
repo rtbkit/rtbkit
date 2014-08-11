@@ -312,7 +312,7 @@ setResponse(int spotNum, Response newResponse)
             }
             // If not filter on price
             else if(newResponse.price.priority ==
-                    current->winningResponse(spotNum).price.priority
+                    current->winningResponse(spotNum).price.priority &&
                     newResponse.price.maxPrice >
                     current->winningResponse(spotNum).price.maxPrice) {
                  std::swap(spot.front(), spot.back());
