@@ -42,8 +42,8 @@ struct JsonHolder {
     {
     }
 
-    JsonHolder(const std::string & str)
-        : str()
+    JsonHolder(const std::string & val)
+        : str(val)
     {
     }
 
