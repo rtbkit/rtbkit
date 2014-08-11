@@ -16,9 +16,21 @@
 #include "epoller.h"
 #include "async_event_source.h"
 #include "typed_message_channel.h"
+#include "logs.h"
 
 namespace Datacratic {
 
+/******************************************************************************/
+/* LOGS                                                                       */
+/******************************************************************************/
+
+struct MessageLoopLogs
+{
+    static Logging::Category print;
+    static Logging::Category warning;
+    static Logging::Category error;
+    static Logging::Category trace;
+};
 
 /*****************************************************************************/
 /* MESSAGE LOOP                                                              */
