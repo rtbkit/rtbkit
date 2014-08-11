@@ -304,9 +304,21 @@ setResponse(int spotNum, Response newResponse)
 
         if (hasExisting) {
             auto & spot = newData->responses[spotNum];
+            
+            // Filter on priority first.
             if (newResponse.price.priority >
                 current->winningResponse(spotNum).price.priority) {
                 std::swap(spot.front(), spot.back());
+            }
+            // If not filter on price
+            else if(newResponse.price.priority ==
+                    current->winningResponse(spotNum).price.priority
+                    newResponse.price.maxPrice >
+                    current->winningResponse(spotNum).price.maxPrice) {
+                 std::swap(spot.front(), spot.back());
+            }
+            else {
+                // Do nothing, whichever bid came first wins.
             }
 
             spot.back().localStatus = WinLoss::LOSS;
