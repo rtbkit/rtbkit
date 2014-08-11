@@ -139,23 +139,45 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                 int statusCode, const std::string &, std::string &&body)
             {
                  //cerr << "Response: " << "HTTP " << statusCode << std::endl << body << endl;
+
+                 /* We need to make sure that we re-inject bids into the router for each
+                  * agent. When receiving a BidResponse, if the SeatBid array contains
+                  * less bids than impressions, we still need to tell "no-bid" to the
+                  * router for the agent that did not bid, otherwise the router will
+                  * be artificially waiting for that particular bidder to bid, and will
+                  * expire the auction.
+                  */
+                 AgentBids bidsToSubmit;
+                 Bids bids;
+                 bids.reserve(openRtbRequest.imp.size());
+                 for (const auto &bidder: bidders) {
+                     AgentBidsInfo info;
+                     info.agentName = bidder.first;
+                     info.agentConfig = bidder.second.agentConfig;
+                     info.auctionId = auction->id;
+                     info.bids = bids;
+                     info.wcm = auction->exchangeConnector->getWinCostModel(
+                                       *auction, *info.agentConfig);
+                     bidsToSubmit[bidder.first] = info;
+                 }
+
                  if (errorCode != HttpClientError::None) {
                     router->throwException("http", "Error requesting %s: %s",
                                            routerHost.c_str(),
                                            httpErrorString(errorCode).c_str());
-                  }
-                  // If we receive a 204 No-bid, we still need to "re-inject" it to the
-                  // router otherwise we won't expire the inFlights
-                  else if (statusCode == 204) {
-                     Bids bids;
-                     bids.resize(openRtbRequest.imp.size());
-                     fill(begin(bids), end(bids), Bid());
-                     for (const auto &bidder: bidders) {
-                         submitBids(bidder.first, auction->id, bids, WinCostModel());
+                 }
+
+                 // If we receive a 204 No-bid, we still need to "re-inject" it to the
+                 // router otherwise we won't expire the inFlights
+                 else if (statusCode == 204) {
+                     for (auto &bidsInfo: bidsToSubmit) {
+                         auto &info = bidsInfo.second;
+                         fill_n(back_inserter(info.bids), openRtbRequest.imp.size(), Bid());
                      }
+
                   }
 
-                  else if (statusCode == 200) {
+                 else if (statusCode == 200) {
                      OpenRTB::BidResponse response;
                      ML::Parse_Context context("payload",
                            body.c_str(), body.size());
@@ -186,8 +208,8 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                     "Couldn't find config for externalId: %lu",
                                     externalId);
                              }
+                             ExcCheck(!agent.empty(), "Invalid agent");
 
-                             Bids bids;
                              Bid theBid;
 
                              int crid = bid.crid.toInt();
@@ -213,15 +235,14 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
                              theBid.spotIndex = spotIndex;
 
-                             bids.push_back(std::move(theBid));
+                             auto &bidInfo = bidsToSubmit[agent];
+                             bidInfo.bids.push_back(std::move(theBid));
 
-                             WinCostModel wcm =
-                                 auction->exchangeConnector->getWinCostModel(*auction, *config);
-
-                             submitBids(agent, auction->id, bids, wcm);
                          }
                      }
+
                  }
+                 submitBids(bidsToSubmit, openRtbRequest.imp.size());
             }
     );
 
@@ -384,7 +405,7 @@ bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
     return true;
 }
 
-void HttpBidderInterface::submitBids(const std::string &agent, Id auctionId,
+void HttpBidderInterface::injectBids(const std::string &agent, Id auctionId,
                                      const Bids &bids, WinCostModel wcm)
 {
      Json::FastWriter writer;
@@ -411,6 +432,24 @@ void HttpBidderInterface::submitBids(const std::string &agent, Id auctionId,
          throw ML::Exception("Main router loop can not keep up with HttpBidderInterface");
      }
      router->wakeupMainLoop.signal();
+}
+
+void HttpBidderInterface::submitBids(AgentBids &info, size_t impressionsCount) {
+
+    using namespace std;
+    for (auto &bidsInfo: info) {
+
+        auto &bids = bidsInfo.second;
+        // We check whether the agent bid on all impressions. If not, then we
+        // complete the resopnse with no-bids because the router is actually
+        // asserting on the size of the bids array matching the size of
+        // the impressions object
+        const size_t diff = impressionsCount - bids.bids.size();
+        if (diff > 0) {
+            fill_n(back_inserter(bids.bids), diff, Bid());
+        }
+        injectBids(bidsInfo.first, bids.auctionId, bids.bids, bids.wcm);
+    }
 }
 
 //
