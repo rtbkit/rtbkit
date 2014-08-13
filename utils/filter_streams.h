@@ -23,6 +23,7 @@
 #ifndef __utils__filter_streams_h__
 #define __utils__filter_streams_h__
 
+#include <atomic>
 #include <iostream>
 #include <fstream>
 #include <memory>
@@ -113,6 +114,7 @@ public:
 private:
     std::unique_ptr<std::ostream> stream;
     std::unique_ptr<std::streambuf> sink;
+    std::atomic<bool> deferredFailure;
     std::map<std::string, std::string> options;
 };
 
@@ -151,6 +153,7 @@ public:
 private:
     std::unique_ptr<std::istream> stream;
     std::unique_ptr<std::streambuf> sink;
+    std::atomic<bool> deferredFailure;
 };
 
 
@@ -158,11 +161,19 @@ private:
 /* REGISTRY                                                                  */
 /*****************************************************************************/
 
+/* The type of a function a uri handler invokes when an execption is thrown at
+ * closing time. This serves as a workaround of the silent catching that
+ * boost::iostreams::stream_buffer performs when a streambuf is being
+ * destroyed. To be effective, it requires that "close" be called on all
+ * streams before destruction. */
+typedef std::function<void ()> OnUriHandlerException;
+
 typedef std::function<std::pair<std::streambuf *, bool>
                       (const std::string & scheme,
                        const std::string & resource,
                        std::ios_base::openmode mode,
-                       const std::map<std::string, std::string> & options)>
+                       const std::map<std::string, std::string> & options,
+                       const OnUriHandlerException & onException)>
 UriHandlerFunction;
 
 void registerUriHandler(const std::string & scheme,
