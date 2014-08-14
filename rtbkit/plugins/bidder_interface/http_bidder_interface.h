@@ -68,12 +68,17 @@ struct HttpBidderInterface : public BidderInterface
     static Logging::Category trace;
     
 private:
-    bool prepareRequest(OpenRTB::BidRequest &request,
-                        const RTBKIT::BidRequest &originalRequest,
-                        const std::shared_ptr<Auction> &auction,
-                        const std::map<std::string, BidInfo> &bidders) const;
-    void submitBids(const std::string &agent, Id auctionId,
-                         const Bids &bids, WinCostModel wcm);
+
+    struct AgentBidsInfo {
+        std::shared_ptr<const AgentConfig> agentConfig;
+        std::string agentName;
+        Id auctionId;
+        Bids bids;
+        WinCostModel wcm;
+    };
+
+    typedef std::map<std::string, AgentBidsInfo> AgentBids;
+
     MessageLoop loop;
     std::shared_ptr<HttpClient> httpClientRouter;
     std::shared_ptr<HttpClient> httpClientAdserverWins;
@@ -83,6 +88,14 @@ private:
     std::string adserverHost;
     uint16_t adserverWinPort;
     uint16_t adserverEventPort;
+
+    void submitBids(AgentBids &info, size_t impressionsCount);
+    bool prepareRequest(OpenRTB::BidRequest &request,
+                        const RTBKIT::BidRequest &originalRequest,
+                        const std::shared_ptr<Auction> &auction,
+                        const std::map<std::string, BidInfo> &bidders) const;
+    void injectBids(const std::string &agent, Id auctionId,
+                    const Bids &bids, WinCostModel wcm);
 
 };
 

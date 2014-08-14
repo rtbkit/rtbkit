@@ -31,7 +31,7 @@ static Json::Value loadJsonFromFile(const std::string & filename)
 /************************************************************************/
 PostAuctionRunner::
 PostAuctionRunner() :
-    shard(1),
+    shard(0),
     auctionTimeout(EventMatcher::DefaultAuctionTimeout),
     winTimeout(EventMatcher::DefaultWinTimeout),
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
