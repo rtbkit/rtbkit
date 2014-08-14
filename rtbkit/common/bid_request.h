@@ -193,6 +193,9 @@ struct UserIds : public std::map<std::string, Id> {
     /** Return a canonical stringified JSON version of the bid request. */
     std::string toJsonStr() const;
 
+    /** Return an array of all the userIds as strings without xchg or prov key. */
+    Json::Value toJsonArray() const;
+
     std::string toString() const
     {
         return toJsonStr();

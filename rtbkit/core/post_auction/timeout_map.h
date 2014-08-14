@@ -135,7 +135,7 @@ private:
         }
     };
 
-    std::map<Key, Entry> map;
+    std::unordered_map<Key, Entry> map;
     std::priority_queue<TimeoutEntry> queue;
 };
 

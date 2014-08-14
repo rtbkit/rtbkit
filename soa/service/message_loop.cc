@@ -26,14 +26,12 @@ using namespace std;
 
 namespace Datacratic {
 
-namespace {
+Logging::Category MessageLoopLogs::print("Message Loop");
+Logging::Category MessageLoopLogs::warning("Message Loop Warning", print);
+Logging::Category MessageLoopLogs::error("Message Loop Error", print);
+Logging::Category MessageLoopLogs::trace("Message Loop Trace", print);
 
-Logging::Category msgLoopPrint("Message Loop");
-Logging::Category msgLoopWarning("Message Loop Warning", msgLoopPrint);
-Logging::Category msgLoopError("Message Loop Error", msgLoopPrint);
-Logging::Category msgLoopTrace("Message Loop Trace", msgLoopPrint);
-
-} // file scope
+typedef MessageLoopLogs Logs;
 
 /*****************************************************************************/
 /* MESSAGE LOOP                                                              */
@@ -61,7 +59,7 @@ init(int numThreads, double maxAddedLatency, int epollTimeout)
 {
     // std::cerr << "msgloop init: " << this << "\n";
     if (maxAddedLatency == 0 && epollTimeout != -1)
-        LOG(msgLoopWarning)
+        LOG(Logs::warning)
             << "MessageLoop with maxAddedLatency of zero and "
             << "epollTeimout != -1 will busy wait" << endl;
     
@@ -418,7 +416,7 @@ processAddSource(const SourceEntry & entry)
         
         double wakeupsPerSecond = 1.0 / maxAddedLatency_;
         
-        LOG(msgLoopWarning)
+        LOG(Logs::warning)
             << "message loop in polling mode will cause " << wakeupsPerSecond
             << " context switches per second due to polling on sources "
             << pollingSources << endl;

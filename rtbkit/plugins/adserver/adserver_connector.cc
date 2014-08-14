@@ -25,7 +25,7 @@ AdServerConnector::
 AdServerConnector(const string & serviceName,
                   const shared_ptr<Datacratic::ServiceProxies> & proxy)
     : ServiceBase(serviceName, proxy),
-      toPostAuctionService_(proxy->zmqContext)
+      toPostAuctionService_(proxy)
 {
 }
 
@@ -43,21 +43,7 @@ init(shared_ptr<ConfigurationService> config)
     registerServiceProvider(serviceName_, { "adServer" });
     services->config->removePath(serviceName());
 
-    toPostAuctionService_.init(config, ZMQ_XREQ);
-    toPostAuctionService_.connectToServiceClass("rtbPostAuctionService",
-                                                "events");
-
-#if 0 // later, for when we have multiple
-
-    toPostAuctionServices_.init(getServices()->config, name);
-    toPostAuctionServices_.connectHandler = [=] (const string & connectedTo) {
-        cerr << "AdServerConnector is connected to post auction service "
-        << connectedTo << endl;
-    };
-    toPostAuctionServices_.connectAllServiceProviders("rtbPostAuctionService",
-                                                      "agents");
-    toPostAuctionServices_.connectToServiceClass();
-#endif
+    toPostAuctionService_.init();
 }
 
 void
@@ -107,8 +93,7 @@ publishWin(const Id & bidRequestId,
     event.account = account;
     event.bidTimestamp = bidTimestamp;
 
-    string str = ML::DB::serializeToString(event);
-    toPostAuctionService_.sendMessage("WIN", str);
+    toPostAuctionService_.sendEvent(event);
 }
 
 void
@@ -132,8 +117,7 @@ publishLoss(const Id & bidRequestId,
     event.account = account;
     event.bidTimestamp = bidTimestamp;
 
-    string str = ML::DB::serializeToString(event);
-    toPostAuctionService_.sendMessage("LOSS", str);
+    toPostAuctionService_.sendEvent(event);
 }
 
 void
@@ -157,8 +141,7 @@ publishCampaignEvent(const string & label,
     event.uids = ids;
     event.metadata = impressionMeta;
 
-    string str = ML::DB::serializeToString(event);
-    toPostAuctionService_.sendMessage("EVENT", str);
+    toPostAuctionService_.sendEvent(event);
 }
 
 void

@@ -579,7 +579,7 @@ bootstrap(const std::string& path)
         file += line + "\n";
     }
 
-    bootstrap(Json::parse(file));
+    bootstrap(params = Json::parse(file));
 }
 
 void
@@ -716,6 +716,22 @@ registerServiceProvider(const std::string & name,
         json["serviceName"] = name;
         json["serviceLocation"] = services_->config->currentLocation;
         json["servicePath"] = name;
+        services_->config->setUnique("serviceClass/" + cl + "/" + name, json);
+    }
+}
+
+void
+ServiceBase::
+registerShardedServiceProvider(const std::string & name,
+                               const std::vector<std::string> & serviceClasses,
+                               size_t shardIndex)
+{
+    for (auto cl: serviceClasses) {
+        Json::Value json;
+        json["serviceName"] = name;
+        json["serviceLocation"] = services_->config->currentLocation;
+        json["servicePath"] = name;
+        json["shardIndex"] = shardIndex;
         services_->config->setUnique("serviceClass/" + cl + "/" + name, json);
     }
 }
