@@ -418,14 +418,16 @@ bindTcp(PortRange const & portRange, std::string host)
 ZmqNamedProxy::
 ZmqNamedProxy() :
     context_(new zmq::context_t(1)),
-    local(true)
+    local(true),
+    shardIndex(-1)
 {
 }
 
 ZmqNamedProxy::
-ZmqNamedProxy(std::shared_ptr<zmq::context_t> context) :
+ZmqNamedProxy(std::shared_ptr<zmq::context_t> context, int shardIndex) :
     context_(context),
-    local(true)
+    local(true),
+    shardIndex(shardIndex)
 {
 }
 
@@ -587,9 +589,13 @@ connectToServiceClass(const std::string & serviceClass,
             continue;
         }
 
-        if (connect(path + "/" + endpointName,
-                    style == CS_ASYNCHRONOUS ? CS_ASYNCHRONOUS : CS_SYNCHRONOUS))
-            return true;
+        bool ok = connect(
+                path + "/" + endpointName,
+                style == CS_ASYNCHRONOUS ? CS_ASYNCHRONOUS : CS_SYNCHRONOUS);
+        if (!ok) continue;
+
+        shardIndex = value.get("shardIndex", -1).asInt();
+        return true;
     }
 
     if (style == CS_MUST_SUCCEED && connectionState != CONNECTED) {
@@ -716,6 +722,7 @@ onServiceProvidersChanged(const std::string & path, bool local)
         Json::Value value = config->getJson(path + "/" + c);
         std::string name = value["serviceName"].asString();
         std::string path = value["servicePath"].asString();
+        int shardIndex = value.get("shardIndex", -1).asInt();
 
         std::string location = value["serviceLocation"].asString();
         if (local && location != config->currentLocation) {
@@ -726,7 +733,7 @@ onServiceProvidersChanged(const std::string & path, bool local)
             continue;
         }
 
-        watchServiceProvider(name, path);
+        watchServiceProvider(name, path, shardIndex);
     }
 
     // deleting the connection could trigger a callback which is a bad idea
@@ -825,7 +832,7 @@ private:
 
 void
 ZmqMultipleNamedClientBusProxy::
-watchServiceProvider(const std::string & name, const std::string & path)
+watchServiceProvider(const std::string & name, const std::string & path, int shardIndex)
 {
     // Protects the connections map... I think.
     std::unique_lock<Lock> guard(connectionsLock);
@@ -844,7 +851,7 @@ watchServiceProvider(const std::string & name, const std::string & path)
         << "connecting to " << path << " / " << name << std::endl;
 
     try {
-        auto newClient = std::make_shared<ZmqNamedClientBusProxy>(zmqContext);
+        auto newClient = std::make_shared<ZmqNamedClientBusProxy>(zmqContext, shardIndex);
         newClient->init(config, identity);
 
         // The connect call below could trigger this callback while we're

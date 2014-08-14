@@ -157,6 +157,7 @@ parseBidRequest(HttpAuctionHandler & connection,
                                                            exchangeName()));
     }
     catch(ML::Exception const & e) {
+        this->recordHit("error.parsingBidRequest");
         throw;
     }
     catch(...) {

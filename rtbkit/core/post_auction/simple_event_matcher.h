@@ -17,6 +17,22 @@
 
 #include <utility>
 
+
+/******************************************************************************/
+/* HASH                                                                       */
+/******************************************************************************/
+
+namespace std {
+
+template<>
+struct hash< std::pair<Datacratic::Id, Datacratic::Id> >
+{
+    size_t operator() (const std::pair<Datacratic::Id, Datacratic::Id>&) const;
+};
+
+} // namespace std
+
+
 namespace RTBKIT {
 
 /******************************************************************************/

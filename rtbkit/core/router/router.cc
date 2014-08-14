@@ -117,11 +117,13 @@ Router(ServiceBase & parent,
        int secondsUntilSlowMode)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
+      postAuctionEndpoint(parent.getServices()),
       configBuffer(1024),
       exchangeBuffer(64),
       startBiddingBuffer(65536),
       submittedBuffer(65536),
       auctionGraveyard(65536),
+      doBidBuffer(65536),
       augmentationLoop(*this),
       loopMonitor(*this),
       loadStabilizer(loopMonitor),
@@ -161,12 +163,13 @@ Router(std::shared_ptr<ServiceProxies> services,
        int secondsUntilSlowMode)
     : ServiceBase(serviceName, services),
       shutdown_(false),
-      postAuctionEndpoint(getZmqContext()),
+      postAuctionEndpoint(services),
       configBuffer(1024),
       exchangeBuffer(64),
       startBiddingBuffer(65536),
       submittedBuffer(65536),
       auctionGraveyard(65536),
+      doBidBuffer(65536),
       augmentationLoop(*this),
       loopMonitor(*this),
       loadStabilizer(loopMonitor),
@@ -238,8 +241,6 @@ init()
         {
             cerr << "agent " << agent << " disconnected from router" << endl;
         };
-
-    postAuctionEndpoint.init(getServices()->config, ZMQ_XREQ);
 
     configListener.onConfigChange = [=] (const std::string & agent,
                                          std::shared_ptr<const AgentConfig> config)
@@ -374,7 +375,7 @@ start(boost::function<void ()> onStop)
     runThread.reset(new boost::thread(runfn));
 
     if (connectPostAuctionLoop) {
-        postAuctionEndpoint.connectToServiceClass("rtbPostAuctionService", "events");
+        postAuctionEndpoint.init();
     }
 
     configListener.init(getServices()->config);
@@ -561,6 +562,13 @@ run()
 
             double atEnd = getTime();
             times["doStartBidding"].add(microsecondsBetween(atEnd, atStart));
+        }
+
+        {
+            std::vector<std::string> message;
+            while (doBidBuffer.tryPop(message)) {
+                doBid(message);
+            }
         }
 
         {
@@ -2663,7 +2671,7 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
                         + "-" + bid.agent;
     banker->detachBid(bid.account, auctionKey);
 
-    if (postAuctionEndpoint.isConnected()) {
+    if (connectPostAuctionLoop) {
         SubmittedAuctionEvent event;
         event.auctionId = auction->id;
         event.adSpotId = adSpotId;
@@ -2674,8 +2682,7 @@ submitToPostAuctionService(std::shared_ptr<Auction> auction,
         event.bidRequestStrFormat = auction->requestStrFormat ;
         event.bidResponse = bid;
 
-        Message<SubmittedAuctionEvent> message(std::move(event));
-        postAuctionEndpoint.sendMessage("AUCTION", message.toString());
+        postAuctionEndpoint.sendAuction(event);
     }
 
     if (auction.unique()) {
@@ -2780,7 +2787,7 @@ Router::
 getProviderIndicators()
     const
 {
-    bool connectedToPal = postAuctionEndpoint.isConnected();
+    bool connectedToPal = !connectPostAuctionLoop || postAuctionEndpoint.isConnected();
     bool bankerOk = banker->getProviderIndicators().status;
 
     MonitorIndicator ind;

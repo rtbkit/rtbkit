@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://somewhere.lost");
         auto resp = doGetRequest(loop, baseUrl, "/");
         BOOST_CHECK_EQUAL(get<0>(resp),
-                          HttpClientError::HOST_NOT_FOUND);
+                          HttpClientError::HostNotFound);
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 #endif
@@ -168,7 +168,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://127.0.0.1:" + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/timeout", {}, 1);
         BOOST_CHECK_EQUAL(get<0>(resp),
-                          HttpClientError::TIMEOUT);
+                          HttpClientError::Timeout);
         BOOST_CHECK_EQUAL(get<1>(resp), 0);
     }
 
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://127.0.0.1:"
                        + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/nothing");
-        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::NONE);
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::None);
         BOOST_CHECK_EQUAL(get<1>(resp), 404);
     }
 
@@ -186,7 +186,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
         string baseUrl("http://127.0.0.1:"
                        + to_string(service.port()));
         auto resp = doGetRequest(loop, baseUrl, "/coucou");
-        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::NONE);
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::None);
         BOOST_CHECK_EQUAL(get<1>(resp), 200);
         BOOST_CHECK_EQUAL(get<2>(resp), "coucou");
     }
@@ -224,7 +224,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_post )
                        + to_string(service.port()));
         auto resp = doUploadRequest(loop, false, baseUrl, "/post-test",
                                     "post body", "application/x-nothing");
-        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::NONE);
+        BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::None);
         BOOST_CHECK_EQUAL(get<1>(resp), 200);
         Json::Value jsonBody = Json::parse(get<2>(resp));
         BOOST_CHECK_EQUAL(jsonBody["verb"], "POST");
@@ -254,7 +254,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put )
     }
     auto resp = doUploadRequest(loop, true, baseUrl, "/put-test",
                                 bigBody, "application/x-nothing");
-    BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::NONE);
+    BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::None);
     BOOST_CHECK_EQUAL(get<1>(resp), 200);
     Json::Value jsonBody = Json::parse(get<2>(resp));
     BOOST_CHECK_EQUAL(jsonBody["verb"], "PUT");

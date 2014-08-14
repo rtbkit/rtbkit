@@ -15,6 +15,7 @@
 #include "rtbkit/common/json_holder.h"
 #include "rtbkit/common/bid_request.h"
 #include "rtbkit/common/account_key.h"
+#include "rtbkit/common/post_auction_proxy.h"
 
 
 namespace RTBKIT {
@@ -96,7 +97,7 @@ struct AdServerConnector : public Datacratic::ServiceBase {
 
 private:
     // Connection to the post auction loops
-    ZmqNamedProxy toPostAuctionService_;
+    PostAuctionProxy toPostAuctionService_;
 
     // later... when we have multiple services
     //ZmqMultipleNamedClientBusProxy toPostAuctionServices;

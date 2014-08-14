@@ -26,7 +26,7 @@ struct PostAuctionRunner {
 
     ServiceProxyArguments serviceArgs;
 
-    size_t shards;
+    size_t shard;
     float auctionTimeout;
     float winTimeout;
     std::string bidderConfigurationFile;

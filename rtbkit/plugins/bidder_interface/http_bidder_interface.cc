@@ -23,11 +23,11 @@ namespace {
             #define CASE(code) \
                 case code: \
                     return #code;
-            CASE(HttpClientError::NONE)
-            CASE(HttpClientError::UNKNOWN)
-            CASE(HttpClientError::TIMEOUT)
-            CASE(HttpClientError::HOST_NOT_FOUND)
-            CASE(HttpClientError::COULD_NOT_CONNECT)
+            CASE(HttpClientError::None)
+            CASE(HttpClientError::Unknown)
+            CASE(HttpClientError::Timeout)
+            CASE(HttpClientError::HostNotFound)
+            CASE(HttpClientError::CouldNotConnect)
             #undef CASE
         }
         ExcCheck(false, "Invalid code path");
@@ -122,7 +122,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
     BidRequest originalRequest = *auction->request;
     OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
-    bool ok = prepareRequest(openRtbRequest, originalRequest, bidders);
+    bool ok = prepareRequest(openRtbRequest, originalRequest, auction, bidders);
     /* If we took too much time processing the request, then we don't send it.  */
     if (!ok) {
         return;
@@ -138,24 +138,46 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
             [=](const HttpRequest &, HttpClientError errorCode,
                 int statusCode, const std::string &, std::string &&body)
             {
-                if (errorCode != HttpClientError::NONE) {
+                 //cerr << "Response: " << "HTTP " << statusCode << std::endl << body << endl;
+
+                 /* We need to make sure that we re-inject bids into the router for each
+                  * agent. When receiving a BidResponse, if the SeatBid array contains
+                  * less bids than impressions, we still need to tell "no-bid" to the
+                  * router for the agent that did not bid, otherwise the router will
+                  * be artificially waiting for that particular bidder to bid, and will
+                  * expire the auction.
+                  */
+                 AgentBids bidsToSubmit;
+                 Bids bids;
+                 bids.reserve(openRtbRequest.imp.size());
+                 for (const auto &bidder: bidders) {
+                     AgentBidsInfo info;
+                     info.agentName = bidder.first;
+                     info.agentConfig = bidder.second.agentConfig;
+                     info.auctionId = auction->id;
+                     info.bids = bids;
+                     info.wcm = auction->exchangeConnector->getWinCostModel(
+                                       *auction, *info.agentConfig);
+                     bidsToSubmit[bidder.first] = info;
+                 }
+
+                 if (errorCode != HttpClientError::None) {
                     router->throwException("http", "Error requesting %s: %s",
                                            routerHost.c_str(),
                                            httpErrorString(errorCode).c_str());
-                  }
-                  // If we receive a 204 No-bid, we still need to "re-inject" it to the
-                  // router otherwise we won't expire the inFlights
-                  else if (statusCode == 204) {
-                     Bids bids;
-                     bids.resize(openRtbRequest.imp.size());
-                     fill(begin(bids), end(bids), Bid());
-                     for (const auto &bidder: bidders) {
-                         submitBids(bidder.first, auction->id, bids, WinCostModel());
+                 }
+
+                 // If we receive a 204 No-bid, we still need to "re-inject" it to the
+                 // router otherwise we won't expire the inFlights
+                 else if (statusCode == 204) {
+                     for (auto &bidsInfo: bidsToSubmit) {
+                         auto &info = bidsInfo.second;
+                         fill_n(back_inserter(info.bids), openRtbRequest.imp.size(), Bid());
                      }
+
                   }
 
-                  else if (statusCode == 200) {
-                    // cerr << "Response: " << body << endl;
+                 else if (statusCode == 200) {
                      OpenRTB::BidResponse response;
                      ML::Parse_Context context("payload",
                            body.c_str(), body.size());
@@ -186,8 +208,8 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                                     "Couldn't find config for externalId: %lu",
                                     externalId);
                              }
+                             ExcCheck(!agent.empty(), "Invalid agent");
 
-                             Bids bids;
                              Bid theBid;
 
                              int crid = bid.crid.toInt();
@@ -213,21 +235,20 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
                              theBid.spotIndex = spotIndex;
 
-                             bids.push_back(std::move(theBid));
+                             auto &bidInfo = bidsToSubmit[agent];
+                             bidInfo.bids.push_back(std::move(theBid));
 
-                             WinCostModel wcm =
-                                 auction->exchangeConnector->getWinCostModel(*auction, *config);
-
-                             submitBids(agent, auction->id, bids, wcm);
                          }
                      }
+
                  }
+                 submitBids(bidsToSubmit, openRtbRequest.imp.size());
             }
     );
 
     HttpRequest::Content reqContent { requestStr, "application/json" };
     RestParams headers { { "x-openrtb-version", "2.1" } };
-   // std::cerr << "Sending HTTP POST to: " << host << " " << path << std::endl;
+   // std::cerr << "Sending HTTP POST to: " << routerHost << " " << routerPath << std::endl;
    // std::cerr << "Content " << reqContent.str << std::endl;
 
     httpClientRouter->post(routerPath, callbacks, reqContent,
@@ -246,7 +267,7 @@ void HttpBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
         [=](const HttpRequest &, HttpClientError errorCode,
             int statusCode, const std::string &, std::string &&body)
         {
-            if (errorCode != HttpClientError::NONE) {
+            if (errorCode != HttpClientError::None) {
                 throw ML::Exception("Error requesting %s:%d '%s'",
                                     adserverHost.c_str(),
                                     adserverWinPort,
@@ -282,7 +303,7 @@ void HttpBidderInterface::sendCampaignEventMessage(std::string const & agent,
         [=](const HttpRequest &, HttpClientError errorCode,
             int statusCode, const std::string &, std::string &&body)
         {
-            if (errorCode != HttpClientError::NONE) {
+            if (errorCode != HttpClientError::None) {
                 throw ML::Exception("Error requesting %s:%d '%s'",
                                     adserverHost.c_str(),
                                     adserverEventPort,
@@ -368,26 +389,23 @@ void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
 
 bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
                                          const RTBKIT::BidRequest &originalRequest,
+                                         const std::shared_ptr<Auction> &auction,
                                          const std::map<std::string, BidInfo> &bidders) const {
     tagRequest(request, bidders);
 
     // We update the tmax value before sending the BidRequest to substract our processing time
-    double processingTimeMs = originalRequest.timestamp.secondsUntil(Date::now()) * 1000;
-    int oldTmax = request.tmax.value();
-    int newTmax = oldTmax - static_cast<int>(std::round(processingTimeMs));
-    if (newTmax <= 0) {
+
+    Date auctionExpiry = auction->expiry;
+    double remainingTimeMs = auctionExpiry.secondsSince(Date::now()) * 1000;
+    if (remainingTimeMs < 0) {
         return false;
     }
-#if 0
-        std::cerr << "old tmax = " << oldTmax << std::std::endl
-                  << "new tmax = " << newTmax << std::std::endl;
-#endif
-    ExcCheck(newTmax <= oldTmax, "Wrong tmax calculation");
-    request.tmax.val = newTmax;
+
+    request.tmax.val = remainingTimeMs;
     return true;
 }
 
-void HttpBidderInterface::submitBids(const std::string &agent, Id auctionId,
+void HttpBidderInterface::injectBids(const std::string &agent, Id auctionId,
                                      const Bids &bids, WinCostModel wcm)
 {
      Json::FastWriter writer;
@@ -403,7 +421,35 @@ void HttpBidderInterface::submitBids(const std::string &agent, Id auctionId,
      message.push_back(std::move(bidsStr));
      message.push_back(std::move(wcmStr));
 
-     router->doBid(message);
+     // We can not directly call router->doBid here because otherwise we would end up
+     // calling doBid from the context of an other thread (the MessageLoop worker thread).
+     // Since the object that handles in flight BidRequests for an agent is not
+     // thread-safe, we can not call the doBid function from an other thread.
+     // Instead, we use a queue to communicate with the router thread. We then avoid
+     // an evil race condition.
+
+     if (!router->doBidBuffer.tryPush(std::move(message))) {
+         throw ML::Exception("Main router loop can not keep up with HttpBidderInterface");
+     }
+     router->wakeupMainLoop.signal();
+}
+
+void HttpBidderInterface::submitBids(AgentBids &info, size_t impressionsCount) {
+
+    using namespace std;
+    for (auto &bidsInfo: info) {
+
+        auto &bids = bidsInfo.second;
+        // We check whether the agent bid on all impressions. If not, then we
+        // complete the resopnse with no-bids because the router is actually
+        // asserting on the size of the bids array matching the size of
+        // the impressions object
+        const size_t diff = impressionsCount - bids.bids.size();
+        if (diff > 0) {
+            fill_n(back_inserter(bids.bids), diff, Bid());
+        }
+        injectBids(bidsInfo.first, bids.auctionId, bids.bids, bids.wcm);
+    }
 }
 
 //

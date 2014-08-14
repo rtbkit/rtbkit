@@ -275,11 +275,11 @@ private:
 
 
 enum struct HttpClientError {
-    NONE,
-    UNKNOWN,
-    TIMEOUT,
-    HOST_NOT_FOUND,
-    COULD_NOT_CONNECT,
+    None,
+    Unknown,
+    Timeout,
+    HostNotFound,
+    CouldNotConnect,
 };
 
 std::ostream & operator << (std::ostream & stream, HttpClientError error);

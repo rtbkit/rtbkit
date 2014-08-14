@@ -29,7 +29,7 @@ makeCallback(std::string functionName,
             return;
         }
 
-        if (error != HttpClientError::NONE) {
+        if (error != HttpClientError::None) {
             std::ostringstream oss;
             oss << error;
             onDone(std::make_exception_ptr(ML::Exception("HTTP Request failed in '%s': %s",
@@ -166,7 +166,7 @@ request(std::string method, const std::string &resource,
         [=](const HttpRequest &,
             HttpClientError error, int statusCode,
             std::string &&, std::string &&body) {
-        if (error != HttpClientError::NONE) {
+        if (error != HttpClientError::None) {
             std::ostringstream oss;
             oss << error;
             onResult(std::make_exception_ptr(
@@ -200,7 +200,7 @@ budgetResultCallback(const BudgetController::OnBudgetResult &onResult)
         [=](const HttpRequest &,
             HttpClientError error, int statusCode,
             std::string &&, std::string &&body) {
-        if (error != HttpClientError::NONE) {
+        if (error != HttpClientError::None) {
             std::ostringstream oss;
             oss << error;
             onResult(std::make_exception_ptr(

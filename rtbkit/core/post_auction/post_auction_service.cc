@@ -86,7 +86,7 @@ bindTcp()
 
 void
 PostAuctionService::
-init(size_t shards)
+init(size_t externalShard, size_t internalShards)
 {
     // Loop monitor is purely for monitoring purposes. There's no message we can
     // just drop in the PAL to alleviate the load.
@@ -99,8 +99,8 @@ init(size_t shards)
         initBidderInterface(json);
     }
 
-    initMatcher(shards);
-    initConnections();
+    initMatcher(internalShards);
+    initConnections(externalShard);
     monitorProviderClient.init(getServices()->config);
 }
 
@@ -152,12 +152,12 @@ initMatcher(size_t shards)
 
 void
 PostAuctionService::
-initConnections()
+initConnections(size_t shard)
 {
     using std::placeholders::_1;
     using std::placeholders::_2;
 
-    registerServiceProvider(serviceName(), { "rtbPostAuctionService" });
+    registerShardedServiceProvider(serviceName(), { "rtbPostAuctionService" }, shard);
 
     LOG(print) << "post auction logger on " << serviceName() + "/logger" << endl;
     logger.init(getServices()->config, serviceName() + "/logger");
@@ -252,17 +252,9 @@ PostAuctionService::
 doAuctionMessage(const std::vector<std::string> & message)
 {
     recordHit("messages.AUCTION");
-
-    auto msg = Message<SubmittedAuctionEvent>::fromString(message.at(2));
-    if (msg) {
-        auto event = std::make_shared<SubmittedAuctionEvent>(std::move(msg.payload));
-        doAuction(std::move(event));
-    }
-
-    else {
-        LOG(error)
-            << "error while parsing AUCTION message: " << message.at(2) << endl;
-    }
+    auto event = std::make_shared<SubmittedAuctionEvent>(
+            ML::DB::reconstituteFromString<SubmittedAuctionEvent>(message.at(2)));
+    doAuction(std::move(event));
 }
 
 void
@@ -536,8 +528,8 @@ getProviderIndicators()
 PostAuctionService::Stats::
 Stats() :
     auctions(0), events(0),
-    matchedWins(0), matchedCampaignEvents(0), unmatchedEvents(0),
-    errors(0)
+    matchedWins(0), matchedLosses(0), matchedCampaignEvents(0),
+    unmatchedEvents(0), errors(0)
 {}
 
 PostAuctionService::Stats::
@@ -584,5 +576,20 @@ operator-=(const Stats& other) -> Stats&
     return *this;
 }
 
+auto
+PostAuctionService::Stats::
+operator+=(const Stats& other) -> Stats&
+{
+    auctions += other.auctions;
+    events += other.events;
+
+    matchedWins += other.matchedWins;
+    matchedLosses += other.matchedLosses;
+    matchedCampaignEvents += other.matchedCampaignEvents;
+    unmatchedEvents += other.unmatchedEvents;
+    errors += other.errors;
+
+    return *this;
+}
 
 } // namepsace RTBKIT

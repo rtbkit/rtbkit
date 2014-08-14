@@ -75,7 +75,7 @@ public:
         std::lock_guard<std::mutex> l(mtx_);
         auto it = agents_.insert ({name, new_member});
         if (it.second)
-            this->addSource (name, *new_member.get());
+            this->addSource (name, new_member);
         return it.second ;
     }
 
@@ -83,7 +83,14 @@ public:
     bool leave (const std::string& name)
     {
         std::lock_guard<std::mutex> l(mtx_);
-        return 0 < agents_.erase (name);
+        auto it = agents_.find(name);
+        if (it != std::end(agents_)) {
+            removeSource(it->second.get());
+            agents_.erase(it);
+            return true;
+        }
+
+        return false;
     }
 
     /** returns true if agent is member of our cluster */
