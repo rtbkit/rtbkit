@@ -58,4 +58,19 @@ Publisher::
 {
 }
 
+PMP::
+~PMP()
+{
+}
+
+Deal::
+~Deal()
+{
+}
+
+Regulations::
+~Regulations()
+{
+}
+
 } // namespace OpenRTB
