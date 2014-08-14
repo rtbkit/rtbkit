@@ -490,7 +490,8 @@ ParseGbrAdSlot (const std::string currency,
                         Id(directDeal.direct_deal_id()),
                         amountInCpm,
                         currency,
-                        List<std::string>{},
+                        List<std::string>{}, // Assumes empty wseat
+                        List<std::string>{}, // Assumes empty wadomain
                         SECOND_PRICE_AUCTION,
                         Json::Value::null
                     };

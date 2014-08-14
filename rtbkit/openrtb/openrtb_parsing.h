@@ -367,6 +367,10 @@ struct DefaultDescription<OpenRTB::PMP>
     DefaultDescription();
 };
 
-
+template<>
+struct DefaultDescription<OpenRTB::Regulations>
+    : public StructureDescription<OpenRTB::Regulations> {
+    DefaultDescription();
+};
 
 } // namespace Datacratic
