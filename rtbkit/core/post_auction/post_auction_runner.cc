@@ -176,8 +176,21 @@ report( const PostAuctionService& service,
     return current;
 }
 
+void setMemoryLimit()
+{
+    rlimit64 currentLimit;
+    int status = getrlimit64(RLIMIT_AS, &currentLimit);
+    if(status != 0)
+        throw ML::Exception("Failed to get the current system limits");
+
+    currentLimit.rlim_cur = 1UL << 36;// 64G
+    if(setrlimit64(RLIMIT_AS, &currentLimit) != 0)
+        throw ML::Exception("Failed to set the current system limits to 512G");
+}
+
 int main(int argc, char ** argv)
 {
+    setMemoryLimit();
 
     PostAuctionRunner runner;
 
