@@ -111,6 +111,12 @@ public:
 
     std::string status() const;
 
+    /* notifies that an exception occurred in the streambuf */
+    void notifyException()
+    {
+        deferredFailure = true;
+    }
+
 private:
     std::unique_ptr<std::ostream> stream;
     std::unique_ptr<std::streambuf> sink;
