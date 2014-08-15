@@ -8,6 +8,7 @@
 #include "post_auction_service.h"
 #include "rtbkit/core/banker/slave_banker.h"
 #include "soa/service/service_utils.h"
+#include "soa/service/process_stats.h"
 #include "soa/utils/print_utils.h"
 #include "jml/utils/file_functions.h"
 
@@ -185,9 +186,21 @@ int main(int argc, char ** argv)
     runner.start();
 
     auto stats = report(*runner.postAuctionLoop, 0.1);
-    for (;;) {
-        ML::sleep(10.0);
-        stats = report(*runner.postAuctionLoop, 10.0, stats);
+    ProcessStats lastStats;
+
+    auto onStat = [&] (std::string key, double val) {
+        runner.postAuctionLoop->recordStableLevel(val, key);
+    };
+
+    for (size_t i = 0;; ++i) {
+        ML::sleep(1.0);
+
+        ProcessStats curStats;
+        ProcessStats::logToCallback(onStat, lastStats, curStats, "process");
+        lastStats = curStats;
+
+        if (i % 10 == 0)
+            stats = report(*runner.postAuctionLoop, 10.0, stats);
     }
 
 }
