@@ -214,15 +214,15 @@ budgetResultCallback(const BudgetController::OnBudgetResult &onResult)
 
 void
 ZmqLayer::
-init(const std::shared_ptr<ConfigurationService> &config,
+init(const std::shared_ptr<ServiceProxies> &services,
      const std::string &bankerServiceName)
 {
     if (bankerServiceName.empty())
         throw ML::Exception("bankerServiceName can not be empty");
 
-    proxy.reset(new RestProxy); 
-    proxy->initServiceClass(config, bankerServiceName, "zeromq", false /* local */);
-    addSource("ZmqLayer::proxy", *proxy);
+    proxy.reset(new RestProxy(services->zmqContext));
+    proxy->initServiceClass(services->config, bankerServiceName, "zeromq", false /* local */);
+    addSource("ZmqLayer::proxy", proxy);
 }
 
 void

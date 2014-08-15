@@ -119,7 +119,7 @@ init()
         layer = make_application_layer<HttpLayer>(bankerUri);
     }
     else {
-        layer = make_application_layer<ZmqLayer>(proxies->config);
+        layer = make_application_layer<ZmqLayer>(proxies);
         LOG(PostAuctionService::print) << "using zmq interface for the MasterBanker" << std::endl;
     }
     banker->setApplicationLayer(layer);

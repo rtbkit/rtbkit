@@ -136,7 +136,7 @@ private:
 /*****************************************************************************/
 
 struct ZmqLayer : public ApplicationLayer {
-    void init(const std::shared_ptr<ConfigurationService> &config,
+    void init(const std::shared_ptr<ServiceProxies> &services,
               const std::string &bankerServiceName = "rtbBanker");
 
     void addAccount(

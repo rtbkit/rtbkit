@@ -136,7 +136,7 @@ init()
         std::cerr << "using http interface for the MasterBanker" << std::endl;
     }
     else {
-        layer = make_application_layer<ZmqLayer>(proxies->config);
+        layer = make_application_layer<ZmqLayer>(proxies);
         std::cerr << "using zmq interface for the MasterBanker" << std::endl;
     }
     banker->setApplicationLayer(layer);

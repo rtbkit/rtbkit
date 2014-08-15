@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE( test_banker_slave_banker_accounts )
 
         /* spawn slave */
         SlaveBanker slave("slaveBanker");
-        slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+        slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
         slave.start();
 
         slave.addSpendAccountSync({"top", "sub"});
