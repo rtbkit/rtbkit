@@ -33,23 +33,17 @@ struct TypedMessageSink: public AsyncEventSource {
 
     std::function<void (Message && message)> onEvent;
 
-    void push(const Message & message)
+    template<typename MessageT>
+    void push(MessageT&& message)
     {
-        if (buf.tryPush(message))
-            wakeup.signal();
-        else
-            throw ML::Exception("the message queue is full");
-    }
-
-    void push(Message && message)
-    {
-        buf.push(message);
+        buf.push(std::forward<MessageT>(message));
         wakeup.signal();
     }
 
-    bool tryPush(Message && message)
+    template<typename MessageT>
+    bool tryPush(MessageT&& message)
     {
-        bool pushed = buf.tryPush(message);
+        bool pushed = buf.tryPush(std::forward<MessageT>(message));
         if (pushed)
             wakeup.signal();
 
