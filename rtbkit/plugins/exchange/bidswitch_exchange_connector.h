@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include "rtbkit/plugins/exchange/openrtb_exchange_connector.h"
 #include "rtbkit/core/router/filters/generic_filters.h"
+#include "rtbkit/common/creative_configuration.h"
 
 namespace RTBKIT {
 
@@ -71,6 +72,8 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
         } Google;
     };
 
+    typedef CreativeConfiguration<CreativeInfo> BidSwitchCreativeConfiguration;
+    
     virtual ExchangeCompatibility
     getCreativeCompatibility(const Creative & creative,
                              bool includeReasons) const;
@@ -86,10 +89,14 @@ struct BidSwitchExchangeConnector: public OpenRTBExchangeConnector {
                                 const std::string & winPriceStr);
 
   private:
+
+    BidSwitchCreativeConfiguration configuration_;
+
     virtual void setSeatBid(Auction const & auction,
                             int spotNum,
                             OpenRTB::BidResponse & response) const;
 
+    void init();
 };
 
 struct BidSwitchWSeatFilter : public FilterBaseT<BidSwitchWSeatFilter>
