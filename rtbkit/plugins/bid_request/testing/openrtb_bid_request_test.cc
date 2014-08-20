@@ -40,6 +40,12 @@ vector<string> samples = {
     "rtbkit/plugins/bid_request/testing/rubicon_test1.json"
 };
 
+vector<string> samples2_2 = {
+    "rtbkit/plugins/bid_request/testing/openrtb_2_2_req_imp.json",
+    "rtbkit/plugins/bid_request/testing/openrtb_2_2_req_video.json"
+};
+
+
 std::string loadFile(const std::string & filename)
 {
     ML::filter_istream stream(filename);
@@ -78,22 +84,22 @@ BOOST_AUTO_TEST_CASE( test_parse_openrtb_sample_requests )
         parseBidRequest(req);
 }
 
-void testBidRequest(const std::string & filename)
+void testBidRequest(const std::string & filename, const std::string & version = "2.1")
 {
     cerr << endl << "loading " << filename << endl;
-
     ML::Parse_Context context(filename);
-
-    auto res = OpenRtbBidRequestParser::parseBidRequest(context, "test", "test");
-
+    auto res = OpenRtbBidRequestParser::parseBidRequest(context, "test", "test", version);
     cerr << res->toJson() << endl;
-
 }
 
 BOOST_AUTO_TEST_CASE( test_openrtb_sample_requests )
 {
     for (auto s: samples)
         testBidRequest(s);
+
+    // Use 2.2 parsing
+    for (auto s: samples2_2)
+        testBidRequest(s, "2.2");
 }
 
 bool jsonDiff(const Json::Value & v1, const Json::Value & v2,
