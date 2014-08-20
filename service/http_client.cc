@@ -273,13 +273,7 @@ removeFd(int fd)
     const
 {
     // cerr << "removeFd: removing fd " + to_string(fd) + "\n";
-    int rc = ::epoll_ctl(fd_, EPOLL_CTL_DEL, fd, nullptr);
-    if (rc == -1) {
-        // cerr << "removeFd: errno = " + to_string(errno) + "\n";
-        if (errno != EBADF && errno != ENOENT) {
-            throw ML::Exception(errno, "epoll_ctl del");
-        }
-    }
+    ::epoll_ctl(fd_, EPOLL_CTL_DEL, fd, nullptr);
 }
 
 bool
