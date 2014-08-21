@@ -8,7 +8,7 @@ define copy_doc
 
 ifneq ($(PREMAKE),1)
 
-$(DOC)/$(1):
+$(DOC)/$(1): $(CWD)/$(1)
 	@mkdir -p $(DOC)
 	cp $(CWD)/$(1) $(DOC)/$(1)
 
