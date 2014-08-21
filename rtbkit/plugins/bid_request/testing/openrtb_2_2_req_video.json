@@ -15,6 +15,14 @@
 		},
 		"bidfloor":0.1503213,
 		"id" : "8345y78945239",
+        "pmp" : {
+            "private_auction" : 0,
+            "deals" : [{
+                "id" : "some-id",
+                "bidfloor" : 0,
+                "at" : 1
+            }]
+        },
         "secure": 0
 	}], 
 	"device": { 
@@ -38,11 +46,10 @@
         "macmd5" : "somemacmd5"
 	 },
     "regs" : {
-        "coppa" : 0
-    },
-    "pmp" : {
-        "private_auction" : 0,
-        "deals" : {}
+        "coppa" : 0,
+        "ext" : {
+            "random" : "stuff"
+        }
     },
 	"at":2  
 }

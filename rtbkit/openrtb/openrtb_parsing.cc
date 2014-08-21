@@ -336,6 +336,7 @@ DefaultDescription()
     addField("bidfloor", &Deal::bidfloor, "bid floor");
     addField("bidfloorcur", &Deal::bidfloorcur, "Currency of the deal");
     addField("wseat", &Deal::wseat, "List of buyer seats allowed");
+    addField("wadomain", &Deal::wadomain, "List of advertiser domains allowed");
     addField("at", &Deal::at, "Auction type");
     addField("ext", &Deal::ext, "Extensions");
 }

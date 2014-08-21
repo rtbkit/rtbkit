@@ -23,8 +23,8 @@
 #pragma once
 
 #include <string>
-#include <memory>
 #include <vector>
+#include <memory>
 #include "soa/types/id.h"
 #include "soa/types/string.h"
 #include "soa/types/url.h"
@@ -738,7 +738,7 @@ struct Deal { // New in OpenRTB 2.2
 struct PMP { // New in OpenRTB 2.2
     ~PMP();
     Datacratic::TaggedIntDef<0> privateAuction;    ///< Flag for private auction traffic : = 0 all bids, 1 = private deal
-    Datacratic::List<Deal> deals;   ///< List of deals eligible for this impression
+    std::vector<Deal> deals;   ///< List of deals eligible for this impression
     Json::Value ext;                ///< Extensions related to private deals between parties 
 };
 
@@ -1115,7 +1115,6 @@ struct Regulations { // New in OpenRTB 2.2
 struct BidRequest {
     ~BidRequest();
     Datacratic::Id id;                             ///< Bid request ID
-
     std::vector<Impression> imp;            ///< List of impressions
     //unique_ptr<Context> context;     // TODO: factor out of site and app
     Datacratic::Optional<Site> site;
