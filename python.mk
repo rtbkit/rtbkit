@@ -30,9 +30,13 @@ endif
 python_dependencies: python_requirements.txt
 	$(PIP) install -r python_requirements.txt
 
-# Loop over the python_extra_requirements.txt file and install packages in order.
-# We did that because of dependencies bugs in pip and the packages are freaking big.
-# WARNING: order in python_extra_requirements.txt matters!!!
+# Loop over the python_extra_requirements.txt file and install packages in
+# order. We did that because the package "statsmodels" does not handle
+# dependencies that are not installed. For more information, see:
+# https://github.com/statsmodels/statsmodels/pull/1902
+# https://github.com/statsmodels/statsmodels/issues/1897
+#
+# WARNING: packages order in python_extra_requirements.txt matters!!!
 python_extra_dependencies: python_extra_requirements.txt python_dependencies	
 	jml-build/get_python_requirements.sh -c $(PIP) -r python_extra_requirements.txt 
 

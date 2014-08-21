@@ -43,8 +43,7 @@ if [[ ! -f "$req_file" ]]; then
 fi
 
 # Remove commented and empty lines & loop through the requirements
-echo $VIRTUALENV
-grep -v '^#\|^$' $req_file | while read line
+grep -vE '^#|^$' $req_file | while read line
 do
     cmd="$pip_command install $line"
     echo $cmd
