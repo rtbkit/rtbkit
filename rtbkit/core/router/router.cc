@@ -1151,6 +1151,42 @@ returnErrorResponse(const std::vector<std::string> & message,
 
 void
 Router::
+returnInvalidBid(
+        const std::string &agent, const std::string &bidData,
+        const std::shared_ptr<Auction> &auction,
+        const char *reason, const char *message, ...) {
+
+    auto& agentInfo = agents[agent];
+    const auto& agentConfig = agentInfo.config;
+    this->recordHit("bidErrors.%s", reason);
+    this->recordHit("accounts.%s.bidErrors.total",
+                    agentConfig->account.toString('.'));
+    this->recordHit("accounts.%s.bidErrors.%s",
+                    agentConfig->account.toString('.'),
+                    reason);
+
+    ++agentInfo.stats->invalid;
+
+    va_list ap;
+    va_start(ap, message);
+    string formatted;
+    try {
+        formatted = vformat(message, ap);
+    } catch (...) {
+        va_end(ap);
+        throw;
+    }
+    va_end(ap);
+
+    cerr << "invalid bid for agent " << agent << ": "
+         << formatted << endl;
+    cerr << bidData << endl;
+
+    bidder->sendBidInvalidMessage(agent, formatted, auction);
+}
+
+void
+Router::
 doStats(const std::vector<std::string> & message)
 {
     Json::Value result(Json::objectValue);
@@ -1727,6 +1763,17 @@ doBid(const std::vector<std::string> & message)
         bids = Bids::fromJson(biddata);
     }
     catch (const std::exception & exc) {
+        auto it = inFlight.find(auctionId);
+        if (it == inFlight.end()) {
+            recordHit("bidError.unknownAuction");
+            returnErrorResponse(message, "unknown auction");
+            return;
+        }
+        else {
+            returnInvalidBid(agent, biddata, it->second.auction,
+                    "bidParseError",
+                    "couldn't parse bid JSON %s: %s", biddata.c_str(), exc.what());
+        }
         return;
     }
     bidMessage.bids = std::move(bids);
@@ -1797,36 +1844,6 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
     const auto& bids = message.bids;
     auto bidsString = bids.toJson().toString();
 
-    auto returnInvalidBid = [&] (int i, const char * reason,
-                                 const char * message, ...)
-        {
-            this->recordHit("bidErrors.%s", reason);
-            this->recordHit("accounts.%s.bidErrors.total",
-                            config.account.toString('.'));
-            this->recordHit("accounts.%s.bidErrors.%s",
-                            config.account.toString('.'),
-                            reason);
-
-            ++info.stats->invalid;
-
-            va_list ap;
-            va_start(ap, message);
-            string formatted;
-            try {
-                formatted = vformat(message, ap);
-            } catch (...) {
-                va_end(ap);
-                throw;
-            }
-            va_end(ap);
-
-            cerr << "invalid bid for agent " << agent << ": "
-                 << formatted << endl;
-            cerr << bidsString << endl;
-
-            bidder->sendBidInvalidMessage(agent, formatted, auctionInfo.auction);
-        };
-
     BidInfo bidInfo(std::move(biddersIt->second));
 
     RouterProfiler profiler(dutyCycleCurrent.nsBid);
@@ -1852,7 +1869,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         int spotIndex = bidInfo.imp[i].first;
 
         if (bid.creativeIndex == -1) {
-            returnInvalidBid(i, "nullCreativeField",
+            returnInvalidBid(agent, bidsString, auctionInfo.auction,
+                    "nullCreativeField",
                     "creative field is null in response %s",
                     bidsString.c_str());
             continue;
@@ -1861,7 +1879,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         if (bid.creativeIndex < 0
                 || bid.creativeIndex >= config.creatives.size())
         {
-            returnInvalidBid(i, "outOfRangeCreative",
+            returnInvalidBid(agent, bidsString, auctionInfo.auction,
+                    "outOfRangeCreative",
                     "parsing field 'creative' of %s: creative "
                     "number %d out of range 0-%zd",
                     bidsString.c_str(), bid.creativeIndex,
@@ -1870,7 +1889,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         }
 
         if (bid.price.isNegative() || bid.price > maxBidAmount) {
-            returnInvalidBid(i, "invalidPrice",
+            returnInvalidBid(agent, bidsString, auctionInfo.auction,
+                    "invalidPrice",
                     "bid price of %s is outside range of $0-%s parsing bid %s",
                     bid.price.toString().c_str(),
                     maxBidAmount.toString().c_str(),
@@ -1893,7 +1913,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             cerr << "creative num: " << bid.creativeIndex << endl;
             cerr << "creative: " << creative.toJson() << endl;
 #endif
-            returnInvalidBid(i, "creativeNotCompatibleWithSpot",
+            returnInvalidBid(agent, bidsString, auctionInfo.auction,
+                    "creativeNotCompatibleWithSpot",
                     "creative %s not compatible with spot %s",
                     creative.toJson().toString().c_str(),
                     imp[spotIndex].toJson().toString().c_str());
@@ -1902,7 +1923,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
         if (!creative.biddable(auctionInfo.auction->request->exchange,
                         auctionInfo.auction->request->protocolVersion)) {
-            returnInvalidBid(i, "creativeNotBiddableOnExchange",
+            returnInvalidBid(agent, bidsString, auctionInfo.auction,
+                    "creativeNotBiddableOnExchange",
                     "creative not biddable on exchange/version");
             continue;
         }
