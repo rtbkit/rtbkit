@@ -565,9 +565,9 @@ run()
         }
 
         {
-            std::vector<std::string> message;
+            BidMessage message;
             while (doBidBuffer.tryPop(message)) {
-                doBid(message);
+                doBidImpl(message);
             }
         }
 
@@ -1747,13 +1747,6 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
     ExcAssert(!message.agents.empty());
 
-    for (const auto &agent: message.agents) {
-        if (!agents.count(agent)) {
-            returnErrorResponse(originalMessage, "unknown agent");
-            return;
-        }
-    }
-
     const auto& auctionId = message.auctionId;
     auto it = inFlight.find(auctionId);
     if (it == inFlight.end()) {
@@ -1765,7 +1758,10 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
     AuctionInfo & auctionInfo = it->second;
 
     for (const auto &agent: message.agents) {
-        AgentInfo & info = agents[agent];
+        if (!agents.count(agent)) {
+            returnErrorResponse(originalMessage, "unknown agent");
+            return;
+        }
 
         auto biddersIt = auctionInfo.bidders.find(agent);
         if (biddersIt == auctionInfo.bidders.end()) {
@@ -1775,6 +1771,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             return;
         }
 
+        AgentInfo & info = agents[agent];
         /* One less in flight. */
         if (!info.expireBidInFlight(auctionId)) {
             recordHit("bidError.agentNotBidding");
@@ -1783,10 +1780,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         }
         auto & config = *biddersIt->second.agentConfig;
         recordHit("accounts.%s.bids", config.account.toString('.'));
-
-        auctionInfo.bidders.erase(biddersIt);
-        
     }
+
 
     const std::vector<AdSpot> & imp = auctionInfo.auction->request->imp;
 
@@ -2043,6 +2038,9 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         }
     }
 
+    for (const auto& agent: message.agents) {
+        auctionInfo.bidders.erase(agent);
+    }
 
     double bidTime = dateGotBid.secondsSince(bidInfo.bidTime);
 

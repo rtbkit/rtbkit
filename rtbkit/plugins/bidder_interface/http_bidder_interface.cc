@@ -408,18 +408,12 @@ bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
 void HttpBidderInterface::injectBids(const std::string &agent, Id auctionId,
                                      const Bids &bids, WinCostModel wcm)
 {
-     Json::FastWriter writer;
-     std::vector<std::string> message { agent, "BID" };
-     message.push_back(auctionId.toString());
-
-     std::string bidsStr = writer.write(bids.toJson());
-     boost::trim(bidsStr);
-
-     std::string wcmStr = writer.write(wcm.toJson());
-     boost::trim(wcmStr);
-
-     message.push_back(std::move(bidsStr));
-     message.push_back(std::move(wcmStr));
+     BidMessage message;
+     message.agents.push_back(agent);
+     message.auctionId = auctionId;
+     message.bids = bids;
+     message.wcm = wcm;
+     message.meta = "null";
 
      // We can not directly call router->doBid here because otherwise we would end up
      // calling doBid from the context of an other thread (the MessageLoop worker thread).
