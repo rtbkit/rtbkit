@@ -1700,60 +1700,10 @@ void
 Router::
 doBid(const std::vector<std::string> & message)
 {
-    //static const char *fName = "Router::doBid:";
-    if (failBid(bidsErrorRate)) {
-        returnErrorResponse(message, "Intentional error response (--bids-error-rate)");
-        return;
-    }
-
-    Date dateGotBid = Date::now();
-
-    RouterProfiler profiler(dutyCycleCurrent.nsBid);
-
-    ML::atomic_inc(numBids);
-
     if (message.size() < 5 || message.size() > 6) {
         returnErrorResponse(message, "BID message has 4-5 parts");
         return;
     }
-
-    static std::map<const char *, unsigned long long> times;
-
-    static Date lastPrinted = Date::now();
-
-    if (lastPrinted.secondsUntil(dateGotBid) > 10.0) {
-#if 0
-        unsigned long long total = 0;
-        for (auto it = times.begin(), end = times.end(); it != end;  ++it)
-            total += it->second;
-
-        cerr << "doBid of " << total << " microseconds" << endl;
-        cerr << "id = " << message[2] << endl;
-        for (auto it = times.begin(), end = times.end();
-             it != end;  ++it) {
-            cerr << ML::format("%-30s %8lld %6.2f%%\n",
-                               it->first,
-                               it->second,
-                               100.0 * it->second / total);
-        }
-#endif
-        lastPrinted = dateGotBid;
-        times.clear();
-    }
-
-    double current = getProfilingTime();
-
-    auto doProfileEvent = [&] (int i, const char * what)
-        {
-            return;
-            double after = getProfilingTime();
-            times[what] += microsecondsBetween(after, current);
-            current = after;
-        };
-
-    recordHit("bid");
-
-    doProfileEvent(0, "start");
 
     Id auctionId(message[2]);
 
@@ -1766,58 +1716,91 @@ doBid(const std::vector<std::string> & message)
     static const string nullStr("null");
     const string & meta = (message.size() >= 6 ? message[5] : nullStr);
 
-    doProfileEvent(1, "params");
+    BidMessage bidMessage;
+    bidMessage.agents.push_back(agent);
+    bidMessage.auctionId = auctionId;
+    bidMessage.wcm = std::move(wcm);
+    bidMessage.meta = std::move(meta);
 
-    debugAuction(auctionId, "BID", message);
+    Bids bids;
+    try {
+        bids = Bids::fromJson(biddata);
+    }
+    catch (const std::exception & exc) {
+        return;
+    }
+    bidMessage.bids = std::move(bids);
 
-    if (!agents.count(agent)) {
-        returnErrorResponse(message, "unknown agent");
+    doBidImpl(bidMessage, message);
+}
+
+void
+Router::
+doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMessage)
+{
+    Date dateGotBid = Date::now();
+
+    if (failBid(bidsErrorRate)) {
+        returnErrorResponse(originalMessage, "Intentional error response (--bids-error-rate)");
         return;
     }
 
-    doProfileEvent(2, "agents");
+    ExcAssert(!message.agents.empty());
 
-    AgentInfo & info = agents[agent];
-
-    /* One less in flight. */
-    if (!info.expireBidInFlight(auctionId)) {
-        recordHit("bidError.agentNotBidding");
-        returnErrorResponse(message, "agent wasn't bidding on this auction");
-        return;
+    for (const auto &agent: message.agents) {
+        if (!agents.count(agent)) {
+            returnErrorResponse(originalMessage, "unknown agent");
+            return;
+        }
     }
 
-    doProfileEvent(3, "inFlight");
-
+    const auto& auctionId = message.auctionId;
     auto it = inFlight.find(auctionId);
     if (it == inFlight.end()) {
         recordHit("bidError.unknownAuction");
-        returnErrorResponse(message, "unknown auction");
+        returnErrorResponse(originalMessage, "unknown auction");
         return;
     }
-
-    doProfileEvent(4, "account");
 
     AuctionInfo & auctionInfo = it->second;
 
-    auto biddersIt = auctionInfo.bidders.find(agent);
-    if (biddersIt == auctionInfo.bidders.end()) {
-        recordHit("bidError.agentSkippedAuction");
-        returnErrorResponse(message,
-                            "agent shouldn't bid on this auction");
-        return;
+    for (const auto &agent: message.agents) {
+        AgentInfo & info = agents[agent];
+
+        auto biddersIt = auctionInfo.bidders.find(agent);
+        if (biddersIt == auctionInfo.bidders.end()) {
+            recordHit("bidError.agentSkippedAuction");
+            returnErrorResponse(originalMessage,
+                                "agent shouldn't bid on this auction");
+            return;
+        }
+
+        /* One less in flight. */
+        if (!info.expireBidInFlight(auctionId)) {
+            recordHit("bidError.agentNotBidding");
+            returnErrorResponse(originalMessage, "agent wasn't bidding on this auction");
+            return;
+        }
+        auto & config = *biddersIt->second.agentConfig;
+        recordHit("accounts.%s.bids", config.account.toString('.'));
+
+        auctionInfo.bidders.erase(biddersIt);
+        
     }
-
-    auto & config = *biddersIt->second.agentConfig;
-
-    recordHit("accounts.%s.bids", config.account.toString('.'));
-
-    doProfileEvent(5, "auctionInfo");
-
-    //cerr << "info.inFlight = " << info.inFlight << endl;
 
     const std::vector<AdSpot> & imp = auctionInfo.auction->request->imp;
 
     int numValidBids = 0;
+
+    recordHit("bid");
+
+    const auto& agent = message.agents[0];
+    auto biddersIt = auctionInfo.bidders.find(agent);
+    auto & config = *biddersIt->second.agentConfig;
+    AgentInfo & info = agents[agent];
+
+    const auto& bids = message.bids;
+    auto bidsString = bids.toJson().toString();
 
     auto returnInvalidBid = [&] (int i, const char * reason,
                                  const char * message, ...)
@@ -1844,29 +1827,18 @@ doBid(const std::vector<std::string> & message)
 
             cerr << "invalid bid for agent " << agent << ": "
                  << formatted << endl;
-            cerr << biddata << endl;
+            cerr << bidsString << endl;
 
             bidder->sendBidInvalidMessage(agent, formatted, auctionInfo.auction);
         };
 
     BidInfo bidInfo(std::move(biddersIt->second));
-    auctionInfo.bidders.erase(biddersIt);
 
-    doProfileEvent(6, "bidInfo");
+    RouterProfiler profiler(dutyCycleCurrent.nsBid);
+
+    ML::atomic_inc(numBids);
 
     int numPassedBids = 0;
-
-    Bids bids;
-    try {
-        bids = Bids::fromJson(biddata);
-    }
-    catch (const std::exception & exc) {
-        returnInvalidBid(-1, "bidParseError",
-                "couldn't parse bid JSON %s: %s", biddata.c_str(), exc.what());
-        return;
-    }
-
-    doProfileEvent(6, "parsing");
 
     ExcCheckEqual(bids.size(), bidInfo.imp.size(),
             "invalid shape for bids array");
@@ -1887,7 +1859,7 @@ doBid(const std::vector<std::string> & message)
         if (bid.creativeIndex == -1) {
             returnInvalidBid(i, "nullCreativeField",
                     "creative field is null in response %s",
-                    biddata.c_str());
+                    bidsString.c_str());
             continue;
         }
 
@@ -1897,7 +1869,7 @@ doBid(const std::vector<std::string> & message)
             returnInvalidBid(i, "outOfRangeCreative",
                     "parsing field 'creative' of %s: creative "
                     "number %d out of range 0-%zd",
-                    biddata.c_str(), bid.creativeIndex,
+                    bidsString.c_str(), bid.creativeIndex,
                     config.creatives.size());
             continue;
         }
@@ -1907,7 +1879,7 @@ doBid(const std::vector<std::string> & message)
                     "bid price of %s is outside range of $0-%s parsing bid %s",
                     bid.price.toString().c_str(),
                     maxBidAmount.toString().c_str(),
-                    biddata.c_str());
+                    bidsString.c_str());
             continue;
         }
 
@@ -1919,7 +1891,7 @@ doBid(const std::vector<std::string> & message)
             cerr << "auction: " << auctionInfo.auction->requestStr
                 << endl;
             cerr << "config: " << config.toJson() << endl;
-            cerr << "bid: " << biddata << endl;
+            cerr << "bid: " << bidsString << endl;
             cerr << "spot: " << imp[i].toJson() << endl;
             cerr << "spot num: " << spotIndex << endl;
             cerr << "bid num: " << i << endl;
@@ -1940,15 +1912,13 @@ doBid(const std::vector<std::string> & message)
             continue;
         }
 
-        doProfileEvent(6, "creativeCompatibility");
-
         string auctionKey
             = auctionId.toString() + "-"
             + imp[spotIndex].id.toString() + "-"
             + agent;
 
         // authorize an amount of money computed from the win cost model.
-        Amount price = wcm.evaluate(bid, bid.price);
+        Amount price = message.wcm.evaluate(bid, bid.price);
 
         if (!banker->authorizeBid(config.account, auctionKey, price)
                 || failBid(budgetErrorRate))
@@ -1958,14 +1928,13 @@ doBid(const std::vector<std::string> & message)
             bidder->sendNoBudgetMessage(agent, auctionInfo.auction);
 
             this->logMessage("NOBUDGET", agent, auctionId,
-                    biddata, meta);
+                    bidsString, message.meta);
             continue;
         }
 
-	recordCount(bid.price.value, "cummulatedBidPrice");
-	recordCount(price.value, "cummulatedAuthorizedPrice");
+        recordCount(bid.price.value, "cummulatedBidPrice");
+        recordCount(price.value, "cummulatedAuthorizedPrice");
 
-        doProfileEvent(6, "banker");
 
         if (doDebug)
             this->debugSpot(auctionId, imp[spotIndex].id,
@@ -1981,19 +1950,18 @@ doBid(const std::vector<std::string> & message)
                 config.account,
                 config.test,
                 agent,
-                biddata,
-                meta,
+                bidsString,
+                message.meta,
                 info.config,
                 config.visitChannels,
                 bid.creativeIndex,
-                wcm);
+                message.wcm);
 
         response.creativeName = creative.name;
 
         Auction::WinLoss localResult
             = auctionInfo.auction->setResponse(spotIndex, response);
 
-        doProfileEvent(6, "bidSubmission");
         ++numValidBids;
 
         // Possible results:
@@ -2047,7 +2015,7 @@ doBid(const std::vector<std::string> & message)
                 throw ML::Exception("logic error");
             }
 
-            this->logMessage(msg, agent, auctionId, biddata, meta);
+            this->logMessage(msg, agent, auctionId, bidsString, message.meta);
             continue;
         }
         case Auction::WinLoss::WIN:
@@ -2059,13 +2027,12 @@ doBid(const std::vector<std::string> & message)
                     "unknown bid result returned by auction");
         }
 
-        doProfileEvent(6, "bidResponse");
     }
 
     if (numValidBids > 0) {
         if (logBids)
             // Send BID to logger
-            logMessage("BID", agent, auctionId, biddata, meta);
+            logMessage("BID", agent, auctionId, bidsString, message.meta);
         ML::atomic_add(numNonEmptyBids, 1);
     }
     else if (numPassedBids > 0) {
@@ -2074,10 +2041,8 @@ doBid(const std::vector<std::string> & message)
             const BidRequest & bidRequest = *auctionInfo.auction->request;
             blacklist.add(bidRequest, agent, *info.config);
         }
-        doProfileEvent(8, "blacklist");
     }
 
-    doProfileEvent(8, "postParsing");
 
     double bidTime = dateGotBid.secondsSince(bidInfo.bidTime);
 
@@ -2090,39 +2055,19 @@ doBid(const std::vector<std::string> & message)
                   "accounts.%s.bidResponseTimeMs",
                   config.account.toString('.'));
 
-    doProfileEvent(9, "postTiming");
 
     if (auctionInfo.bidders.empty()) {
-        debugAuction(auctionId, "FINISH", message);
+        debugAuction(auctionId, "FINISH", originalMessage);
         if (!auctionInfo.auction->finish()) {
-            debugAuction(auctionId, "FINISH TOO LATE", message);
+            debugAuction(auctionId, "FINISH TOO LATE", originalMessage);
         }
         inFlight.erase(auctionId);
         //cerr << "couldn't finish auction " << auctionInfo.auction->id
         //<< " after bid " << message << endl;
     }
 
-    doProfileEvent(10, "finishAuction");
-
-    // TODO: clean up if no bids were made?
-#if 0
-    // Bids must be the same shape as the bid info or empty
-    if (bidInfo.imp.size() != bids.size() && bids.size() != 0) {
-        ++info.stats->bidErrors;
-        returnInvalidBid(-1, "wrongBidResponseShape",
-                         "number of imp in bid request doesn't match "
-                         "those in bid: %d vs %d",
-                         bidInfo.imp.size(), bids.size(),
-                         bidInfo.imp.toJson().toString().c_str(),
-                         biddata.c_str());
-
-        if (auctionInfo.bidders.empty()) {
-            auctionInfo.auction->finish();
-            inFlight.erase(auctionId);
-        }
-    }
-#endif
 }
+
 
 void
 Router::
