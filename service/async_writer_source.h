@@ -172,6 +172,11 @@ protected:
        registry */
     void unregisterFdCallback(int fd);
 
+    std::vector<std::string> emptyMessageQueue()
+    {
+        return queue_.pop_front(0);
+    }
+
 private:
     void performAddFd(int fd, bool readerFd, bool writerFd,
                       bool modify, bool oneshot);
