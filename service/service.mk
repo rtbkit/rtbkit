@@ -40,6 +40,7 @@ LIBSERVICES_SOURCES := \
 	zookeeper_configuration_service.cc \
 	zmq_endpoint.cc \
 	async_event_source.cc \
+	async_writer_source.cc \
 	rest_service_endpoint.cc \
 	http_named_endpoint.cc \
 	rest_proxy.cc \

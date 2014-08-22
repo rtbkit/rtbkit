@@ -9,11 +9,10 @@
 
 #include <functional>
 #include <string>
-
-#include "jml/arch/wakeup_fd.h"
-#include "jml/utils/ring_buffer.h"
+#include <vector>
 
 #include "async_event_source.h"
+#include "async_writer_source.h"
 
 
 namespace Datacratic {
@@ -89,7 +88,7 @@ private:
 
    A non-blocking output sink that sends data to an open file descriptor.
    Opening and closing of the file descriptor is left to the provider. */
-struct AsyncFdOutputSink : public AsyncEventSource,
+struct AsyncFdOutputSink : public AsyncWriterSource,
                            public OutputSink {
     /* The file-descriptor was hung up by the receiving end. */
     typedef std::function<void ()> OnHangup;
@@ -101,49 +100,15 @@ struct AsyncFdOutputSink : public AsyncEventSource,
 
     void init(int outputFd);
 
-    /* AsyncEventSource interface */
-    virtual int selectFd() const
-    { return epollFd_; }
-    virtual bool processOne();
-
-    size_t bytesSent() const
-    { return bytesSent_; }
+    /* AsyncWriterSource */
+    void onClosed(bool fromPeer, const std::vector<std::string> & msgs);
 
     /* OutputSink interface */
     virtual bool write(std::string && data);
     virtual void requestClose();
 
-    OnHangup onHangup_;
-    void doClose();
-
 private:
-    typedef std::function<void (struct epoll_event &)> EpollCallback;
-
-    void addFdOneShot(int fd, EpollCallback & cb, bool writerFd = false);
-    void restartFdOneShot(int fd, EpollCallback & cb, bool writerFd = false);
-    void removeFd(int fd);
-    void close();
-
-    void handleHangup();
-
-    int epollFd_;
-
-    void handleFdEvent(const struct epoll_event & event);
-    void handleWakeupEvent(const struct epoll_event & event);
-    EpollCallback handleFdEventCb_;
-    EpollCallback handleWakeupEventCb_;
-
-    void flush();
-
-    int outputFd_;
-    bool fdReady_;
-
-    ML::Wakeup_Fd wakeup_;
-    ML::RingBufferSRMW<std::string> threadBuffer_;
-    std::string lastLine_;
-
-    size_t bytesSent_;
-    size_t remainingMsgs_;
+    OnHangup onHangup_;
 };
 
 

@@ -97,6 +97,7 @@ BOOST_AUTO_TEST_CASE( test_typed_message_queue )
         size_t numNotifications(0);
         auto onNotify = [&]() {
             numNotifications++;
+            return true;
         };
         TypedMessageQueue<string> queue(onNotify, 5);
 
@@ -172,6 +173,7 @@ BOOST_AUTO_TEST_CASE( test_typed_message_queue )
                 cerr << ("received " + to_string(numPopped) + " msgs;"
                          " last = " + msgs.back() + "\n");
             }
+            return true;
         };
         queue.reset(new TypedMessageQueue<string>(onNotify, 1000));
         loop.addSource("queue", queue);
