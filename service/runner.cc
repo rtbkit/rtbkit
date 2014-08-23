@@ -656,6 +656,8 @@ runWrapper(const vector<string> & command, ChildFds & fds)
         throw ML::Exception("The Alpha became the Omega.");
     }
     else {
+        ::prctl(PR_SET_PDEATHSIG, SIGHUP);
+
         ::close(childLaunchStatusFd[1]);
         childLaunchStatusFd[1] = -1;
         // FILE * terminal = ::fopen("/dev/tty", "a");
