@@ -41,6 +41,7 @@ AsyncWriterSource(const OnClosed & onClosed,
       bytesReceived_(0),
       msgsSent_(0),
       onClosed_(onClosed),
+      onWriteResult_(onWriteResult),
       onReceivedData_(onReceivedData),
       onException_(onException)
 {
