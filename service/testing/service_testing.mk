@@ -42,6 +42,8 @@ $(eval $(call test,nprobe_test,services,boost manual))
 
 $(eval $(call library,test_services,test_http_services.cc,services))
 
+$(eval $(call program,async_writer_bench,services))
+
 # nsq_client_test is "manual" because of dependency on nsqd */
 $(eval $(call test,nsq_client_test,cloud,boost manual))
 
