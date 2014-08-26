@@ -4,8 +4,6 @@
 #
 # Date library for recoset.
 
-BOOST_TIMEZONES_DIR := $(shell pwd)/$(CWD)
-
 LIBTYPES_SOURCES := \
 	date.cc \
 	localdate.cc \
@@ -17,7 +15,16 @@ LIBTYPES_SOURCES := \
 LIBTYPES_LINK := \
 	boost_regex boost_date_time jsoncpp ACE db googleurl cityhash utils
 
-$(eval $(call set_compile_option,localdate.cc,-DBOOST_TIMEZONES_DIR=\"$(BOOST_TIMEZONES_DIR)\"))
+$(eval $(call set_compile_option,localdate.cc,-DLIB=\"$(LIB)\"))
+
+ifneq ($(PREMAKE),1)
+$(LIB)/libtypes.so: $(LIB)/date_timezone_spec.csv
+
+$(LIB)/date_timezone_spec.csv: soa/types/date_timezone_spec.csv
+	@echo "           $(COLOR_CYAN)[COPY]$(COLOR_RESET) $< -> $@"
+	@/bin/cp -f $< $@
+endif
+
 $(eval $(call library,types,$(LIBTYPES_SOURCES),$(LIBTYPES_LINK)))
 
 LIBVALUE_DESCRIPTION_SOURCES := \
