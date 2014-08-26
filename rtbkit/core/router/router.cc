@@ -1842,7 +1842,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
     AgentInfo & info = agents[agent];
 
     const auto& bids = message.bids;
-    auto bidsString = bids.toJson().toString();
+    auto bidsString = bids.toJson().toStringNoNewLine();
 
     BidInfo bidInfo(std::move(biddersIt->second));
 
