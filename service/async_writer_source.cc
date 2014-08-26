@@ -468,3 +468,10 @@ removeFd(int fd)
     }
     numFds_--;
 }
+
+std::vector<std::string>
+AsyncWriterSource::
+emptyMessageQueue()
+{
+    return queue_.pop_front(0);
+}
