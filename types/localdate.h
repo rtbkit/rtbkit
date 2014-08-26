@@ -8,7 +8,6 @@
 #pragma once
 
 #include <string>
-#include <boost/date_time/posix_time/ptime.hpp>
 
 namespace Datacratic {
 
