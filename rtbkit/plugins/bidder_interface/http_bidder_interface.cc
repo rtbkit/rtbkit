@@ -120,6 +120,7 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
     };
 
+
     BidRequest originalRequest = *auction->request;
     OpenRTB::BidRequest openRtbRequest = toOpenRtb(originalRequest);
     bool ok = prepareRequest(openRtbRequest, originalRequest, auction, bidders);
@@ -131,6 +132,8 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
     desc.printJson(&openRtbRequest, context);
     auto requestStr = context.output.toString();
 
+
+    Date sentResponseTime = Date::now();
     /* We need to capture by copy inside the lambda otherwise we might get
        a dangling reference if we go out of scope before receiving the http response
     */
@@ -138,6 +141,9 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
             [=](const HttpRequest &, HttpClientError errorCode,
                 int statusCode, const std::string &, std::string &&body)
             {
+                Date responseReceivedTime = Date::now();
+                const double responseTime = responseReceivedTime.secondsSince(sentResponseTime);
+                router->recordOutcome(1000.0 * responseTime, "httpResponseTimeMs");
                  //cerr << "Response: " << "HTTP " << statusCode << std::endl << body << endl;
 
                  /* We need to make sure that we re-inject bids into the router for each
@@ -161,21 +167,20 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                      bidsToSubmit[bidder.first] = info;
                  }
 
+                 // Make sure to submit the bids no matter what
+                 ML::Call_Guard guard([&]() { submitBids(bidsToSubmit, openRtbRequest.imp.size()); });
+
+                 auto recordError = [&](const std::string &key) {
+                     router->recordHit("error.httpBidderInterface.total");
+                     router->recordHit("error.httpBidderInterface.%s", key);
+                 };
+
                  if (errorCode != HttpClientError::None) {
-                    router->throwException("http", "Error requesting %s: %s",
-                                           routerHost.c_str(),
-                                           httpErrorString(errorCode).c_str());
+                     LOG(error) << "Error requesting " << routerHost << ": "
+                                << httpErrorString(errorCode) << std::endl;
+                     recordError("network");
+                     goto error;
                  }
-
-                 // If we receive a 204 No-bid, we still need to "re-inject" it to the
-                 // router otherwise we won't expire the inFlights
-                 else if (statusCode == 204) {
-                     for (auto &bidsInfo: bidsToSubmit) {
-                         auto &info = bidsInfo.second;
-                         fill_n(back_inserter(info.bids), openRtbRequest.imp.size(), Bid());
-                     }
-
-                  }
 
                  else if (statusCode == 200) {
                      OpenRTB::BidResponse response;
@@ -189,13 +194,17 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
 
                          for (const auto &bid: seatbid.bid) {
                              if (!bid.ext.isMember("external-id")) {
-                                 router->throwException("http.response",
-                                    "Missing external-id ext field in BidResponse");
+                                 LOG(error) << "Missing external-id ext field in BidResponse: "
+                                            << body << std::endl;
+                                 recordError("response");
+                                 goto error;
                              }
 
                              if (!bid.ext.isMember("priority")) {
-                                 router->throwException("http.response",
-                                    "Missing priority ext field in BidResponse");
+                                 LOG(error) << "Missing priority ext field in BidResponse: "
+                                            << body << std::endl;
+                                 recordError("response");
+                                 goto error;
                              }
 
                              uint64_t externalId = bid.ext["external-id"].asUInt();
@@ -204,21 +213,30 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                              shared_ptr<const AgentConfig> config;
                              tie(agent, config) = findAgent(externalId);
                              if (config == nullptr) {
-                                 router->throwException("http.response",
-                                    "Couldn't find config for externalId: %lu",
-                                    externalId);
+                                 LOG(error) << "Couldn't find config for externalId: "
+                                            << externalId << std::endl;
+                                 recordError("unknown");
+                                 goto error;
                              }
                              ExcCheck(!agent.empty(), "Invalid agent");
 
                              Bid theBid;
+
+                             if (!bid.crid) {
+                                 LOG(error) << "crid not found in BidResponse: "
+                                            << body << std::endl;
+                                 recordError("unknown");
+                                 goto error;
+                             }
 
                              int crid = bid.crid.toInt();
                              int creativeIndex = indexOf(config->creatives,
                                  &Creative::id, crid);
 
                              if (creativeIndex == -1) {
-                                 router->throwException("http.response",
-                                    "Unknown creative id: %d", crid);
+                                  LOG(error) << "Unknown creative id: " << crid << std::endl;
+                                  recordError("unknown");
+                                  goto error;
                              }
 
                              theBid.creativeIndex = creativeIndex;
@@ -228,9 +246,10 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                              int spotIndex = indexOf(openRtbRequest.imp,
                                                     &OpenRTB::Impression::id, bid.impid);
                              if (spotIndex == -1) {
-                                  router->throwException("http.response",
-                                     "Unknown impression id: %s",
-                                     bid.impid.toString().c_str());
+                                 LOG(error) <<"Unknown impression id: "
+                                            << bid.impid.toString() << std::endl;
+                                 recordError("unknown");
+                                 goto error;
                              }
 
                              theBid.spotIndex = spotIndex;
@@ -242,7 +261,19 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                      }
 
                  }
-                 submitBids(bidsToSubmit, openRtbRequest.imp.size());
+                 else {
+                     LOG(error) << "Invalid HTTP status code: " << statusCode << std::endl;
+                     recordError("response");
+                     goto error;
+                 }
+                 error:
+                     Bids nullBids;
+                     const size_t impSize = openRtbRequest.imp.size();
+                     nullBids.reserve(impSize);
+                     fill_n(back_inserter(nullBids), impSize, Bid());
+                     for (auto &bidsInfo: bidsToSubmit) {
+                         bidsInfo.second.bids = nullBids;
+                     }
             }
     );
 
