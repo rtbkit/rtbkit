@@ -128,6 +128,31 @@ year() const
     return time.tm_year + 1900;
 }
 
+string
+LocalDate::
+findTimezoneSpec()
+    const
+{
+    /* first, we attempt to load the csv from a path relative to the
+       executable */
+    string exeName = ML::get_link_target("/proc/self/exe");
+    /* the ".." entries enable this code to work from tests are well
+       as from regular programs */
+    string specFile = (dirName(exeName)
+                       + "/../../../" LIB "/date_timezone_spec.csv");
+    if (ML::fileExists(specFile)) {
+        return specFile;
+    }
+
+    /* second, we attempt to load from the current directory */
+    specFile = LIB "/date_timezone_spec.csv";
+    if (ML::fileExists(specFile)) {
+        return specFile;
+    }
+
+    throw ML::Exception("timezone spec file not found");    
+}
+
 void
 LocalDate::
 recomputeTZOffset()
@@ -138,11 +163,7 @@ recomputeTZOffset()
     }
     else {
         call_once(once, [&] {
-            string exeName = ML::get_link_target("/proc/self/exe");
-            /* the ".." entries enable this code to work from tests are well
-               as from regular programs */
-            string specFile = (dirName(exeName)
-                               + "/../../../" LIB "/date_timezone_spec.csv");
+            string specFile = findTimezoneSpec();
             tz_db.load_from_file(specFile);
         });
 

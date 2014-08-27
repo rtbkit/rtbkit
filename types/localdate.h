@@ -34,6 +34,8 @@ private:
                     * changes */
 
     void fillTM(struct tm & time) const;
+    std::string findTimezoneSpec() const;
+
 
     void recomputeTZOffset();
 };
