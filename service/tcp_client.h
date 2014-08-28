@@ -7,8 +7,9 @@
 
 #pragma once
 
-#include <atomic>
+#include <functional>
 #include <string>
+#include <vector>
 
 #include "jml/arch/wakeup_fd.h"
 #include "jml/utils/ring_buffer.h"
@@ -39,8 +40,18 @@ enum TcpConnectionCode {
 /****************************************************************************/
 
 struct TcpConnectionResult {
-    TcpConnectionResult(TcpConnectionCode newCode = Success,
-                        std::vector<std::string> newMessages = {})
+    TcpConnectionResult()
+        : code(Success)
+    {
+    }
+
+    TcpConnectionResult(TcpConnectionCode newCode)
+        : code(newCode)
+    {
+    }
+
+    TcpConnectionResult(TcpConnectionCode newCode,
+                        std::vector<std::string> newMessages)
         : code(newCode), messages(std::move(newMessages))
     {
     }
