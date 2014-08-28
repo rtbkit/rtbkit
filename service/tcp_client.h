@@ -22,15 +22,35 @@ struct Url;
 
 
 /****************************************************************************/
-/* CLIENT TCP SOCKET CONNECTION RESULT                                      */
+/* TCP CONNECTION CODE                                                      */
 /****************************************************************************/
 
-enum ConnectionResult {
+enum TcpConnectionCode {
     Success = 0,
     UnknownError = 1,
     ConnectionFailure = 2,
     HostUnknown = 3,
     Timeout = 4
+};
+
+
+/****************************************************************************/
+/* TCP CONNECTION RESULT                                                    */
+/****************************************************************************/
+
+struct TcpConnectionResult {
+    TcpConnectionResult(TcpConnectionCode newCode = Success,
+                        std::vector<std::string> newMessages = {})
+        : code(newCode), messages(std::move(newMessages))
+    {
+    }
+
+    /* status code of the connect operation */
+    TcpConnectionCode code;
+
+    /* messages that could not be sent due in the event of a connection
+       error */ 
+    std::vector<std::string> messages;
 };
 
 
@@ -54,16 +74,13 @@ enum TcpClientState {
 
 struct TcpClient : public AsyncWriterSource
 {
-    typedef std::function<void(ConnectionResult, const std::vector<std::string> &)>
-        OnConnectionResult;
+    typedef std::function<void(TcpConnectionResult)> OnConnectionResult;
 
-    TcpClient(OnConnectionResult onConnectionResult = nullptr,
-                    OnClosed onClosed = nullptr,
-                    OnWriteResult onWriteResult = nullptr,
-                    OnReceivedData onReceivedData = nullptr,
-                    OnException onException = nullptr,
-                    size_t maxMessages = 32,
-                    size_t recvBufSize = 65536);
+    TcpClient(const OnClosed & onClosed = nullptr,
+              const OnReceivedData & onReceivedData = nullptr,
+              const OnException & onException = nullptr,
+              size_t maxMessages = 32,
+              size_t recvBufSize = 65536);
 
     virtual ~TcpClient();
 
@@ -76,18 +93,15 @@ struct TcpClient : public AsyncWriterSource
     void setUseNagle(bool useNagle);
 
     /* initiate or restore a connection to the target service */
-    void connect();
-
-    /* invoked when the status of the connection becomes available */
-    virtual void onConnectionResult(ConnectionResult result,
-                                    const std::vector<std::string> & msgs);
+    void connect(const OnConnectionResult & onConnectionResult);
 
     /* state of the connection */
     TcpClientState state() const
     { return TcpClientState(state_); }
 
 private:
-    void handleConnectionEvent(int socketFd, const ::epoll_event & event);
+    void handleConnectionEvent(int socketFd,
+                               OnConnectionResult onConnectionResult);
     void handleConnectionResult();
 
     std::string address_;
@@ -96,8 +110,6 @@ private:
     bool noNagle_;
 
     EpollCallback handleConnectionEventCb_;
-
-    OnConnectionResult onConnectionResult_;
 };
 
 } // namespace Datacratic

@@ -71,14 +71,14 @@ struct NsqClient : public TcpClient {
 
     NsqClient(OnClosed onClosed = nullptr,
               const OnMessage & onMessage = nullptr)
-        : TcpClient(nullptr, onClosed, nullptr, nullptr, nullptr, 0),
+        : TcpClient(onClosed, nullptr, nullptr, 0),
           parserStep_(0), parserRemaining_(0),
           onMessage_(onMessage), remainingRdy_(0)
     {
         setUseNagle(true);
     }
 
-    ConnectionResult connectSync();
+    TcpConnectionResult connectSync();
 
     void nop();
     void cls(const OnFrame & onFrame);
@@ -99,8 +99,6 @@ struct NsqClient : public TcpClient {
                            const std::string & message);
 
 private:
-    void onConnectionResult(ConnectionResult result,
-                            const std::vector<std::string> & msgs);
     void onReceivedData(const char * buffer, size_t bufferSize);
 
     void forceWrite(std::string data);
@@ -114,10 +112,6 @@ private:
         remainingRdy_ = 1000;
         rdy(1000);
     }
-
-    /* connection handling */
-    int connecting_;
-    ConnectionResult connectionResult_;
 
     /* response parsing */
     int parserStep_; /* 0 = size; 1 = type; 2 = message */
