@@ -12,6 +12,7 @@
 #include "jml/arch/exception_internals.h"
 #include "jml/arch/backtrace.h"
 #include "jml/utils/string_functions.h"
+#include "jml/compiler/compiler.h"
 
 using namespace std;
 using namespace v8;
@@ -131,7 +132,7 @@ translateCurrentException()
     catch(const std::exception& ex) {
         return mapException(ex);
     }
-    catch(...) {
+    JML_CATCH_ALL {
         std::string msg = "unknown exception type";
         auto error = v8::Exception::Error(v8::String::New(msg.c_str()));
         return v8::ThrowException(injectBacktrace(error));
