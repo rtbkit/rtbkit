@@ -11,6 +11,7 @@
 
 #include <string>
 
+#include "soa/types/date.h"
 #include "soa/types/value_description.h"
 
 #include "soa/service/tcp_client.h"
