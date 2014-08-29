@@ -152,6 +152,8 @@ init(const std::string & accountSuffix, CurrencyPool spendRate)
 
     this->accountSuffix = accountSuffix;
     this->spendRate = spendRate;
+
+    lastSync = lastReauthorize = Date::now();
     
     addPeriodic("SlaveBanker::reportSpend", 1.0,
                 std::bind(&SlaveBanker::reportSpend,
@@ -462,7 +464,6 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
     if (exc) {
         cerr << "reauthorize budget got exception" << payload << endl;
         cerr << "accountKey = " << accountKey << endl;
-        abort();  // for now...
         return;
     }
     else if (responseCode == 200) {
@@ -475,6 +476,9 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
         lastReauthorizeDelay = Date::now() - reauthorizeDate;
         numReauthorized++;
         reauthorizing = false;
+
+        std::lock_guard<Lock> guard(syncLock);
+        lastReauthorize = Date::now();
     }
 }
 
@@ -496,7 +500,8 @@ getProviderIndicators() const
 
     // See syncAll for the reason of this lock
     std::lock_guard<Lock> guard(syncLock);
-    bool syncOk = now < lastSync.plusSeconds(MaximumFailSyncSeconds);
+    bool syncOk = now < lastSync.plusSeconds(MaximumFailSyncSeconds) &&
+                  now < lastReauthorize.plusSeconds(MaximumFailSyncSeconds);
 
     MonitorIndicator ind;
     ind.serviceName = accountSuffix;
