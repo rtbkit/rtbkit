@@ -1904,15 +1904,14 @@ struct StreamingDownloadSource {
     }
 };
 
-std::auto_ptr<std::streambuf>
+std::unique_ptr<std::streambuf>
 S3Api::
 streamingDownload(const std::string & bucket,
                   const std::string & object,
                   ssize_t startOffset,
-                  ssize_t endOffset,
-                  const OnChunk & onChunk) const
+                  ssize_t endOffset) const
 {
-    std::auto_ptr<std::streambuf> result;
+    std::unique_ptr<std::streambuf> result;
     result.reset(new boost::iostreams::stream_buffer<StreamingDownloadSource>
                  (StreamingDownloadSource(this, bucket, object),
                   131072));
@@ -1924,14 +1923,15 @@ struct StreamingUploadSource {
     StreamingUploadSource(const S3Api * owner,
                           const std::string & bucket,
                           const std::string & object,
-                          const S3Api::ObjectMetadata & metadata,
-                          unsigned int numThreads)
+                          const ML::OnUriHandlerException & excCallback,
+                          const S3Api::ObjectMetadata & metadata)
     {
         impl.reset(new Impl());
         impl->owner = owner;
         impl->bucket = bucket;
         impl->object = object;
         impl->metadata = metadata;
+        impl->onException = excCallback;
         impl->chunkSize = 8 * 1024 * 1024;  // start with 8MB and ramp up
 
         impl->start();
@@ -2044,11 +2044,20 @@ struct StreamingUploadSource {
         std::mutex etagsLock;
         std::vector<std::string> etags;
         std::exception_ptr exc;
+        ML::OnUriHandlerException onException;
 
         void start()
         {
-            auto upload = owner->obtainMultiPartUpload(bucket, "/" + object, metadata,
-                                                       S3Api::UR_EXCLUSIVE);
+            S3Api::MultiPartUpload upload;
+            try {
+                upload = owner->obtainMultiPartUpload(bucket, "/" + object,
+                                                      metadata,
+                                                      S3Api::UR_EXCLUSIVE);
+            }
+            catch (...) {
+                onException();
+                throw;
+            }
 
             uploadId = upload.id;
             //cerr << "uploadId = " << uploadId << " with " << metadata.numThreads 
@@ -2123,9 +2132,16 @@ struct StreamingUploadSource {
             if (exc)
                 std::rethrow_exception(exc);
 
-            string etag = owner->finishMultiPartUpload(bucket, "/" + object,
-                                                       uploadId,
-                                                       etags);
+            string etag;
+            try {
+                etag = owner->finishMultiPartUpload(bucket, "/" + object,
+                                                    uploadId,
+                                                    etags);
+            }
+            catch (...) {
+                onException();
+                throw;
+            }
             //cerr << "final etag is " << etag << endl;
 
             if (exc)
@@ -2177,6 +2193,7 @@ struct StreamingUploadSource {
                     } catch (...) {
                         // Capture exception to be thrown later
                         exc = std::current_exception();
+                        onException();
                     }
                 }
             }
@@ -2202,26 +2219,30 @@ struct StreamingUploadSource {
     }
 };
 
-std::auto_ptr<std::streambuf>
+std::unique_ptr<std::streambuf>
 S3Api::
 streamingUpload(const std::string & uri,
-                const ObjectMetadata & metadata) const
+                const ML::OnUriHandlerException & onException,
+                const ObjectMetadata & metadata)
+    const
 {
     string bucket, object;
     std::tie(bucket, object) = parseUri(uri);
-    return streamingUpload(bucket, object, metadata);
+    return streamingUpload(bucket, object, onException, metadata);
 }
 
-std::auto_ptr<std::streambuf>
+std::unique_ptr<std::streambuf>
 S3Api::
 streamingUpload(const std::string & bucket,
                 const std::string & object,
-                const ObjectMetadata & metadata,
-                unsigned int numThreads) const
+                const ML::OnUriHandlerException & onException,
+                const ObjectMetadata & metadata)
+    const
 {
-    std::auto_ptr<std::streambuf> result;
+    std::unique_ptr<std::streambuf> result;
     result.reset(new boost::iostreams::stream_buffer<StreamingUploadSource>
-                 (StreamingUploadSource(this, bucket, object, metadata, numThreads),
+                 (StreamingUploadSource(this, bucket, object, onException,
+                                        metadata),
                   131072));
     return result;
 }
@@ -2242,19 +2263,19 @@ parseUri(const std::string & uri)
     return make_pair(bucket, object);
 }
 
-std::auto_ptr<std::streambuf>
+std::unique_ptr<std::streambuf>
 S3Api::
 streamingDownload(const std::string & uri,
                   ssize_t startOffset,
-                  ssize_t endOffset,
-                  const OnChunk & onChunk) const
+                  ssize_t endOffset)
+    const
 {
     string bucket, object;
     std::tie(bucket, object) = parseUri(uri);
 
     //cerr << "bucket = " << bucket << " object = " << object << endl;
 
-    return streamingDownload(bucket, object, startOffset, endOffset, onChunk);
+    return streamingDownload(bucket, object, startOffset, endOffset);
 }
 
 void
@@ -2470,7 +2491,8 @@ struct RegisterS3Handler {
     getS3Handler(const std::string & scheme,
                  const std::string & resource,
                  std::ios_base::open_mode mode,
-                 const std::map<std::string, std::string> & options)
+                 const std::map<std::string, std::string> & options,
+                 const ML::OnUriHandlerException & onException)
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
@@ -2527,7 +2549,8 @@ struct RegisterS3Handler {
                 }
             }
 
-            return make_pair(api->streamingUpload("s3://" + resource, md)
+            return make_pair(api->streamingUpload("s3://" + resource,
+                                                  onException, md)
                              .release(),
                              true);
         }

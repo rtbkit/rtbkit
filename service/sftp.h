@@ -147,7 +147,8 @@ struct SftpConnection : public SshConnection {
     bool getAttributes(const std::string & path, Attributes & attrs) const;
     
     std::unique_ptr<std::streambuf>
-    streamingUploadStreambuf(const std::string & path);
+    streamingUploadStreambuf(const std::string & path,
+                             const ML::OnUriHandlerException & onException);
 
     std::unique_ptr<std::streambuf>
     streamingDownloadStreambuf(const std::string & path);

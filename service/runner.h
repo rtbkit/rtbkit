@@ -236,7 +236,7 @@ private:
     handleEpollEvent(const struct epoll_event & event);
     void handleChildStatus(const struct epoll_event & event);
     void handleOutputStatus(const struct epoll_event & event,
-                            int fd, std::shared_ptr<InputSink> & sink);
+                            int & fd, std::shared_ptr<InputSink> & sink);
     void handleWakeup(const struct epoll_event & event);
 
     void attemptTaskTermination();
