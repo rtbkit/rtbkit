@@ -68,7 +68,7 @@ getScheme(const std::string & uri)
 /*****************************************************************************/
 
 filter_ostream::filter_ostream()
-    : ostream(std::cout.rdbuf())
+    : ostream(std::cout.rdbuf()), deferredFailure(false)
 {
 }
 
@@ -76,14 +76,15 @@ filter_ostream::
 filter_ostream(filter_ostream && other) noexcept
     : ostream(other.rdbuf()),
     stream(std::move(other.stream)),
-    sink(std::move(other.sink))
+    sink(std::move(other.sink)),
+    deferredFailure(false)
 {
 }
 
 filter_ostream::
 filter_ostream(const std::string & file, std::ios_base::openmode mode,
                const std::string & compression, int level)
-    : ostream(std::cout.rdbuf())
+    : ostream(std::cout.rdbuf()), deferredFailure(false)
 {
     open(file, mode, compression, level);
 }
@@ -91,7 +92,7 @@ filter_ostream(const std::string & file, std::ios_base::openmode mode,
 filter_ostream::
 filter_ostream(int fd, std::ios_base::openmode mode,
                const std::string & compression, int level)
-    : ostream(std::cout.rdbuf())
+    : ostream(std::cout.rdbuf()), deferredFailure(false)
 {
     open(fd, mode, compression, level);
 }
@@ -99,7 +100,7 @@ filter_ostream(int fd, std::ios_base::openmode mode,
 filter_ostream::
 filter_ostream(int fd,
                const std::map<std::string, std::string> & options)
-    : ostream(std::cout.rdbuf())
+    : ostream(std::cout.rdbuf()), deferredFailure(false)
 {
     open(fd, options);
 }
@@ -107,7 +108,7 @@ filter_ostream(int fd,
 filter_ostream::
 filter_ostream(const std::string & uri,
                const std::map<std::string, std::string> & options)
-    : ostream(std::cout.rdbuf())
+    : ostream(std::cout.rdbuf()), deferredFailure(false)
 {
     open(uri, options);
 }
@@ -115,7 +116,12 @@ filter_ostream(const std::string & uri,
 filter_ostream::
 ~filter_ostream()
 {
-    close();
+    try {
+        close();
+    }
+    catch (...) {
+        cerr << "~filter_ostream: ignored exception\n";
+    }
 }
 
 filter_ostream &
@@ -326,7 +332,9 @@ open(const std::string & uri,
     const auto & handler = getUriHandler(scheme);
     std::streambuf * buf;
     bool weOwnBuf;
-    std::tie(buf, weOwnBuf) = handler(scheme, resource, mode, options);
+    auto onException = [&]() { this->deferredFailure = true; };
+    std::tie(buf, weOwnBuf) = handler(scheme, resource, mode, options,
+                                      onException);
     
     return openFromStreambuf(buf, weOwnBuf, resource, options);
 }
@@ -424,11 +432,15 @@ close()
         boost::iostreams::close(*stream);
     }
     exceptions(ios::goodbit);
+    rdbuf(0);
     stream.reset();
     sink.reset();
-    rdbuf(0);
     options.clear();
-    //stream->close();
+    if (deferredFailure) {
+        deferredFailure = false;
+        exceptions(ios::badbit | ios::failbit);
+        setstate(ios::badbit);
+    }
 }
 
 std::string
@@ -448,14 +460,15 @@ status() const
 /*****************************************************************************/
 
 filter_istream::filter_istream()
-    : istream(std::cin.rdbuf())
+    : istream(std::cin.rdbuf()), deferredFailure(false)
 {
 }
 
 filter_istream::
 filter_istream(const std::string & file, std::ios_base::openmode mode,
                const std::string & compression)
-    : istream(std::cin.rdbuf())
+    : istream(std::cin.rdbuf()),
+      deferredFailure(false)
 {
     open(file, mode, compression);
 }
@@ -464,14 +477,20 @@ filter_istream::
 filter_istream(filter_istream && other) noexcept
     : istream(other.rdbuf()),
     stream(std::move(other.stream)),
-    sink(std::move(other.sink))
+    sink(std::move(other.sink)),
+    deferredFailure(false)
 {
 }
 
 filter_istream::
 ~filter_istream()
 {
-    close();
+    try {
+        close();
+    }
+    catch (...) {
+        cerr << "~filter_istream: ignored exception\n";
+    }
 }
 
 filter_istream &
@@ -503,8 +522,10 @@ open(const std::string & uri,
     const auto & handler = getUriHandler(scheme);
     std::streambuf * buf;
     bool weOwnBuf;
+    auto onException = [&]() { this->deferredFailure = true; };
     std::tie(buf, weOwnBuf) = handler(scheme, resource, mode,
-                                      createOptions(mode, compression, -1));
+                                      createOptions(mode, compression, -1),
+                                      onException);
 
     openFromStreambuf(buf, weOwnBuf, resource, compression);
 }
@@ -566,9 +587,14 @@ close()
         boost::iostreams::close(*stream);
     }
     exceptions(ios::goodbit);
+    rdbuf(0);
     stream.reset();
     sink.reset();
-    rdbuf(0);
+    if (deferredFailure) {
+        deferredFailure = false;
+        exceptions(ios::badbit | ios::failbit);
+        setstate(ios::badbit);
+    }
 }
 
 string
@@ -626,7 +652,8 @@ struct RegisterFileHandler {
     getFileHandler(const std::string & scheme,
                    std::string resource,
                    std::ios_base::open_mode mode,
-                   const std::map<std::string, std::string> & options)
+                   const std::map<std::string, std::string> & options,
+                   const OnUriHandlerException & onException)
     {
         if (resource == "")
             resource = "/dev/null";
@@ -799,7 +826,8 @@ struct RegisterMemHandler {
     getMemHandler(const string & scheme,
                   string resource,
                   ios_base::open_mode mode,
-                  const map<string, string> & options)
+                  const map<string, string> & options,
+                  const OnUriHandlerException & onException)
     {
         if (scheme != "mem")
             throw ML::Exception("bad scheme name");

@@ -20,12 +20,12 @@ void Logging::ConsoleWriter::head(char const * timestamp,
                                   char const * function,
                                   char const * file,
                                   int line) {
-    stream << timestamp << " " << name << " " << file << ":" << line << " - " << function;
+    stream << timestamp << " " << " \033[1;32m" << name << " ";
 }
 
 void Logging::ConsoleWriter::body(std::string const & content) {
     if(color) {
-        stream << " \033[1;31m";
+        stream << " \033[1;34m";
         stream.write(content.c_str(), content.size() - 1);
         stream << "\033[0m\n";
     }

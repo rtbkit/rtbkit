@@ -97,6 +97,7 @@ BOOST_AUTO_TEST_CASE( test_typed_message_queue )
         size_t numNotifications(0);
         auto onNotify = [&]() {
             numNotifications++;
+            return true;
         };
         TypedMessageQueue<string> queue(onNotify, 5);
 
@@ -114,14 +115,15 @@ BOOST_AUTO_TEST_CASE( test_typed_message_queue )
 
         /* process one */
         queue.processOne();
-        /* "pending_" stays untouched as we do not empty the queue */
+        /* only "pop_front" affects "pending_" */
         BOOST_CHECK_EQUAL(queue.pending_, true);
         BOOST_CHECK_EQUAL(queue.queue_.size(), 1);
         BOOST_CHECK_EQUAL(numNotifications, 1);
 
         queue.queue_.pop();
         queue.processOne();
-        BOOST_CHECK_EQUAL(queue.pending_, false);
+        /* only "pop_front" affects "pending_" */
+        BOOST_CHECK_EQUAL(queue.pending_, true);
         BOOST_CHECK_EQUAL(queue.queue_.size(), 0);
         BOOST_CHECK_EQUAL(numNotifications, 2);
 
@@ -171,6 +173,7 @@ BOOST_AUTO_TEST_CASE( test_typed_message_queue )
                 cerr << ("received " + to_string(numPopped) + " msgs;"
                          " last = " + msgs.back() + "\n");
             }
+            return true;
         };
         queue.reset(new TypedMessageQueue<string>(onNotify, 1000));
         loop.addSource("queue", queue);

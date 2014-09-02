@@ -143,25 +143,28 @@ struct Logger {
         be converted to a string and logged like that.
     */
     template<typename... Args>
-    void operator () (const std::string & channel, Args... args)
+    void operator () (const std::string & channel, Args&&... args)
     {
-        logMessage(channel, args...);
+        logMessage(channel, std::forward<Args>(args)...);
     }
 
     template<typename... Args>
-    void logMessage(const std::string & channel, Args... args)
+    void logMessage(const std::string & channel, Args&&... args)
     {
         if (!outputs) return;
         ML::atomic_add(messagesSent, 1);
-        messages.push({ channel, Date::now().print(5), args... });
+        messages.push(
+           std::vector<std::string>{ channel, Date::now().print(5),
+                         std::forward<Args>(args)... });
     }
 
     template<typename... Args>
-    void logMessageNoTimestamp(const std::string & channel, Args... args)
+    void logMessageNoTimestamp(const std::string & channel, Args&&... args)
     {
         if (!outputs) return;
         ML::atomic_add(messagesSent, 1);
-        messages.push({ channel, args... });
+        messages.push(
+             std::vector<std::string>{ channel, std::forward<Args>(args)... });
     }
 
     void logMessageNoTimestamp(const std::vector<std::string> & message)
