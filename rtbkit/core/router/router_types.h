@@ -353,8 +353,17 @@ struct DutyCycleEntry {
     Json::Value toJson() const;
 };
 
+// Structure representing bids from one or multiple agents
+struct BidMessage {
+    std::vector<std::string> agents;
 
+    Id auctionId;
+    Bids bids;
+    WinCostModel wcm;
 
+    std::string meta;
+
+};
 
 } // namespace RTBKIT
 

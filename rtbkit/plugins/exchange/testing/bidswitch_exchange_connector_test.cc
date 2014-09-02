@@ -107,7 +107,8 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
               + std::to_string(c.format.width)
               + "&height="
               + std::to_string(c.format.height)
-              + "&price=${AUCTION_PRICE}\"/>";
+              + "&price=${AUCTION_PRICE}"
+              + "&brid=%{bidrequest.id}\"/>";
         c.providerConfig["bidswitch"]["adid"] = c.name;
     }
 
@@ -159,9 +160,14 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
 
     // and send it
     source.write(httpRequest);
-    std::cerr << source.read() << std::endl;
+    std::string resp = source.read();
+    
+    std::cerr << resp << std::endl;
 
     BOOST_CHECK_EQUAL(agent.numBidRequests, 1);
+
+    // Validate bidrequest.id was re-written
+    BOOST_CHECK_EQUAL(resp.find("%{bidrequest.id}"), std::string::npos);
 
     proxies->events->dump(std::cerr);
 

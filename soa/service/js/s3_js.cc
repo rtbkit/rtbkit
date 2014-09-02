@@ -20,7 +20,7 @@ const char * const S3ApiModule = "s3";
 const char * S3ApiName = "S3Api";
 
 struct S3ApiJS : public JSWrapped2<S3Api, S3ApiJS, S3ApiName, S3ApiModule>{
-    S3ApiJS(v8::Handle<v8::Object> This, 
+    S3ApiJS(v8::Handle<v8::Object> This,
         const std::shared_ptr<S3Api>& store = std::shared_ptr<S3Api>())
     {
         HandleScope scope;
@@ -48,12 +48,33 @@ struct S3ApiJS : public JSWrapped2<S3Api, S3ApiJS, S3ApiName, S3ApiModule>{
         registerMemberFn(&S3Api::downloadToFile, "downloadToFile");
         registerMemberFn(&S3Api::setDefaultBandwidthToServiceMbps, "setDefaultBandwidthToServiceMbps");
     }
-
 };
+
+
+Handle<v8::Value>
+registerS3BucketJS(const Arguments & args)
+{
+    try {
+        std::string bucketName = getArg(args, 0, "bucketName");
+        std::string accessKeyId = getArg(args, 1, "accessKeyId");
+        std::string accessKey = getArg(args, 2, "accessKey");
+
+        registerS3Bucket(bucketName, accessKeyId, accessKey);
+        return NULL_HANDLE;
+    } HANDLE_JS_EXCEPTIONS;
+}
+
 extern "C" void
 init(Handle<v8::Object> target){
     Datacratic::JS::registry.init(target, S3ApiModule);
+
+    target->Set(String::NewSymbol("registerS3Bucket"),
+        v8::Persistent<FunctionTemplate>::New
+        (v8::FunctionTemplate::New(registerS3BucketJS))->GetFunction());
 }
-    
+
+
+
+
 }//namespace JS
 }//namespace Datacratic

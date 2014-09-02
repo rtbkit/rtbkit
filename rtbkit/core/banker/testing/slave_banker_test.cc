@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_CASE( test_master_slave_banker )
     proxies->config->dump(cerr);
     
     SlaveBudgetController slave;
-    slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+    slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
     slave.start();
     slave.addAccountSync({"hello", "world"});
 
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE( test_master_slave_banker )
     //slave.shutdown();
 
     SlaveBanker banker("slave");
-    banker.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+    banker.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
     banker.start();
     banker.addSpendAccountSync({"hello", "world"});
 
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
     
     SlaveBudgetController slave;
     //slave.init(proxies->config, bankerAddr);
-    slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+    slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
     slave.start();
     slave.addAccountSync({"hello", "world"});
     slave.setBudgetSync("hello", USD(200));
@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
     // Record some spend in an initial slave
     {
         SlaveBanker banker("slave");
-        banker.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+        banker.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
         banker.start();
         banker.addSpendAccountSync({"hello", "world"});
 
@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE( test_initialization_and_spending )
     // Now asynchronously start up and record another dollar of spend
     {
         SlaveBanker banker("slave");
-        banker.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+        banker.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
         banker.start();
         banker.addSpendAccountSync({"hello", "world"});
 
@@ -206,7 +206,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     AccountKey strategy("campaign:strategy");
 
     SlaveBudgetController slave;
-    slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+    slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
     slave.start();
 
     // Create a budget for the campaign
@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     auto runTopupThread = [&] ()
         {
             SlaveBudgetController slave;
-            slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+            slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
             slave.start();
 
             while (!finished) {
@@ -237,7 +237,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     auto runAddBudgetThread = [&] ()
         {
             SlaveBudgetController slave;
-            slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+            slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
             slave.start();
             
             for (unsigned i = 0;  i < numAddBudgetsPerThread;  ++i) {
@@ -259,7 +259,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     auto runBidThread = [&] (int threadNum)
         {
             SlaveBanker slave("bid" + to_string(threadNum));
-            slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+            slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
             slave.start();
 
             AccountKey account = strategy;
@@ -299,7 +299,7 @@ BOOST_AUTO_TEST_CASE( test_bidding_with_slave )
     auto runCommitThread = [&] (int threadNum)
         {
             SlaveBanker slave("commit" + to_string(threadNum));
-            slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+            slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
             slave.start();
 
             AccountKey account = strategy;
@@ -413,7 +413,7 @@ BOOST_AUTO_TEST_CASE( test_redis_persistence )
     banker.start();
 
     SlaveBudgetController slave;
-    slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+    slave.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
     slave.start();
 
     AccountKey key { "hello" };

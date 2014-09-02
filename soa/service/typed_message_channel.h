@@ -33,23 +33,17 @@ struct TypedMessageSink: public AsyncEventSource {
 
     std::function<void (Message && message)> onEvent;
 
-    void push(const Message & message)
+    template<typename MessageT>
+    void push(MessageT&& message)
     {
-        if (buf.tryPush(message))
-            wakeup.signal();
-        else
-            throw ML::Exception("the message queue is full");
-    }
-
-    void push(Message && message)
-    {
-        buf.push(message);
+        buf.push(std::forward<MessageT>(message));
         wakeup.signal();
     }
 
-    bool tryPush(Message && message)
+    template<typename MessageT>
+    bool tryPush(MessageT&& message)
     {
-        bool pushed = buf.tryPush(message);
+        bool pushed = buf.tryPush(std::forward<MessageT>(message));
         if (pushed)
             wakeup.signal();
 
@@ -106,6 +100,12 @@ struct TypedMessageQueue: public AsyncEventSource
 {
     friend class test_typed_message_queue;
 
+    /* Type of callback invoked when one or more messages have become
+     * available. If the function returns "true", it will continue to be
+     * invoked periodically as long as there are elements in the queue,
+     * otherwise it will stop after the first invocation and until the queue
+     * has been emptied completely. It is the receiver's responsibility to
+     * consume the queue using "pop_front". */
     typedef std::function<void ()> OnNotify;
 
     /* "onNotify": callback used when one or more messages are reported in the
@@ -129,20 +129,9 @@ struct TypedMessageQueue: public AsyncEventSource
         while (wakeup_.tryRead());
         onNotify();
         
-        Guard guard(queueLock_);
-        if (queue_.size() == 0) {
-            pending_ = false;
-        }
-        else {
-            wakeup_.signal();
-        }
-
         return false;
     }
 
-    /* function invoked when one or more messages become available and as long
-     * as at least one message stays available; it is the receiver's
-     * responsibility to consume the queue using "pop_front" */
     virtual void onNotify()
     {
         if (onNotify_) {
@@ -191,12 +180,15 @@ struct TypedMessageQueue: public AsyncEventSource
             queue_.pop();
         }
 
+        if (queue_.size() == 0) {
+            pending_ = false;
+        }
+
         return messages;
     }
 
     /* number of messages present in the queue */
     uint64_t size()
-        const
     {
         Guard guard(queueLock_);
         return queue_.size();
@@ -214,6 +206,7 @@ private:
     /* notifications are pending */
     bool pending_;
 
+    /* callback */
     OnNotify onNotify_;
 };
 

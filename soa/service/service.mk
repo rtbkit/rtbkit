@@ -40,6 +40,8 @@ LIBSERVICES_SOURCES := \
 	zookeeper_configuration_service.cc \
 	zmq_endpoint.cc \
 	async_event_source.cc \
+	async_writer_source.cc \
+	tcp_client.cc \
 	rest_service_endpoint.cc \
 	http_named_endpoint.cc \
 	rest_proxy.cc \
@@ -71,6 +73,7 @@ $(eval $(call library,endpoint,$(LIBENDPOINT_SOURCES),$(LIBENDPOINT_LINK)))
 
 LIBCLOUD_SOURCES := \
 	fs_utils.cc \
+	nsq_client.cc \
 	sftp.cc \
 	s3.cc \
 	sns.cc \

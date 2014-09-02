@@ -51,13 +51,13 @@ init()
     auto bankerAddr = masterBanker.bindTcp().second;
     masterBanker.start();
 
-    budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(getServices()->config));
+    budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(getServices()));
     budgetController.start();
 
     auto makeSlaveBanker = [=] (const std::string & name)
         {
             auto res = make_shared<SlaveBanker>(name);
-            res->setApplicationLayer(make_application_layer<ZmqLayer>(getServices()->config));
+            res->setApplicationLayer(make_application_layer<ZmqLayer>(getServices()));
             res->start();
             return res;
         };

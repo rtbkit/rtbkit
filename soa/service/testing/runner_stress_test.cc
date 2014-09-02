@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
     int nThreads(20), activeThreads;
     vector<pid_t> childPids(nThreads);
     int msgsToSend(10000);
-    int nRunning(0);
+    atomic<int> nRunning(0);
 
     activeThreads = nThreads;
     auto runThread = [&] (int threadNum) {
@@ -166,8 +166,9 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
 
         runner.waitStart();
         pid_t pid = runner.childPid();
-        ML::atomic_inc(nRunning);
-        // cerr << "running with pid: " << pid << endl;
+        nRunning++;
+        // cerr << "running with pid: " + to_string(pid) + "\n";
+
         childPids[threadNum] = pid;
 
         // cerr << "sleeping\n";
@@ -200,10 +201,13 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         cerr << "thread shutting down\n";
     };
 
-    /* initialize childPids with a non-random bad value */
+    /* initialize childPids with a non-random bad value, so that we can know
+     * later whether the pids were correctly initialized from the workers */
     for (int i = 0; i < nThreads; i++) {
         childPids[i] = 0xdeadface;
     }
+
+    ML::memory_barrier();
 
     for (int i = 0; i < nThreads; i++) {
         threads.emplace_back(runThread, i);
