@@ -5,25 +5,39 @@
 */
 
 
+#include <libgen.h>
 #include <time.h>
 #include <mutex>
 #include <boost/date_time/local_time/tz_database.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
 #include <jml/arch/exception.h>
+#include <jml/utils/file_functions.h>
+#include <jml/utils/guard.h>
 
 #include "date.h"
-
 #include "localdate.h"
 
+using namespace std;
 using namespace boost::local_time;
 using namespace boost::posix_time;
-using namespace std;
-// using namespace ML;
 
-namespace
+
+namespace {
+
+static tz_database tz_db;
+std::once_flag once;
+
+string
+dirName(const string & filename)
 {
-    static tz_database tz_db;
-    std::once_flag once ;
+    char * fnCopy = ::strdup(filename.c_str());
+    ML::Call_Guard guard([&]() { free(fnCopy); });
+    char * dirNameC = ::dirname(fnCopy);
+    string dirname(dirNameC);
+
+    return dirname;
+}
+
 }
 
 namespace Datacratic {
@@ -114,6 +128,31 @@ year() const
     return time.tm_year + 1900;
 }
 
+string
+LocalDate::
+findTimezoneSpec()
+    const
+{
+    /* first, we attempt to load the csv from a path relative to the
+       executable */
+    string exeName = ML::get_link_target("/proc/self/exe");
+    /* the ".." entries enable this code to work from tests are well
+       as from regular programs */
+    string specFile = (dirName(exeName)
+                       + "/../../../" LIB "/date_timezone_spec.csv");
+    if (ML::fileExists(specFile)) {
+        return specFile;
+    }
+
+    /* second, we attempt to load from the current directory */
+    specFile = LIB "/date_timezone_spec.csv";
+    if (ML::fileExists(specFile)) {
+        return specFile;
+    }
+
+    throw ML::Exception("timezone spec file not found");    
+}
+
 void
 LocalDate::
 recomputeTZOffset()
@@ -124,9 +163,9 @@ recomputeTZOffset()
     }
     else {
         call_once(once, [&] {
-                string zoneSpecFile = BOOST_TIMEZONES_DIR "/date_timezone_spec.csv";
-                tz_db.load_from_file(zoneSpecFile);
-            });
+            string specFile = findTimezoneSpec();
+            tz_db.load_from_file(specFile);
+        });
 
         time_zone_ptr tz = tz_db.time_zone_from_region(tzName_);
         if (tz == 0) {
