@@ -375,7 +375,7 @@ struct LatLongDevFilter : public RTBKIT::FilterBaseT<LatLongDevFilter>
     typedef std::vector<Square> SquareList;
     std::unordered_map<unsigned, SquareList> squares_by_confindx;
 
-    unsigned priority() const { return 200; } //low priority
+    unsigned priority() const { return Priority::LatLong; } //low priority
 
     static constexpr float LONGITUDE_1DEGREE_KMS = 111.321;
     static constexpr float LATITUDE_1DEGREE_KMS = 111.0;
