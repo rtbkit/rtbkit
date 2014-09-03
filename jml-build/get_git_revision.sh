@@ -54,6 +54,7 @@ if [ $NUMUNCLEAN -gt 0 ]; then
     make -n --debug=v $target 2>/dev/null | grep 'Considering target file' | sed 's/ *Considering target file `\(.*\)'"'"'./\1/' | grep -v '^/' | grep -v 'build/' | sort > $FILESUSED
     cat $FILESUSED | wc -l > /dev/stderr
 
+    # Dump these in a make friendly manner
 
     # Now extract a list of dirty submodules.  These will be scanned for dirty files that
     # are used in the build.
