@@ -39,10 +39,10 @@ typedef MessageLoopLogs Logs;
 
 MessageLoop::
 MessageLoop(int numThreads, double maxAddedLatency, int epollTimeout)
-  : sourceActions_(256),
-    numThreadsCreated(0),
-    shutdown_(true),
-    totalSleepTime_(0.0)
+    : sourceActions_([&] () { handleSourceActions(); }),
+      numThreadsCreated(0),
+      shutdown_(true),
+      totalSleepTime_(0.0)
 {
     init(numThreads, maxAddedLatency, epollTimeout);
 }
@@ -77,9 +77,6 @@ init(int numThreads, double maxAddedLatency, int epollTimeout)
 
        Adding a special source named "_shutdown" triggers shutdown-related
        events, without requiring the use of an additional signal fd. */
-    sourceActions_.onEvent = [&] (SourceAction && action) {
-        handleSourceAction(move(action));
-    };
     addFd(sourceActions_.selectFd(), &sourceActions_);
 
     debug_ = false;
@@ -171,24 +168,7 @@ addSource(const std::string & name,
     SourceEntry entry(name, source, priority);
     SourceAction newAction(SourceAction::ADD, move(entry));
 
-    return sourceActions_.tryPush(move(newAction));
-}
-
-void
-MessageLoop::
-addSourceRightAway(const std::string & name,
-                   const std::shared_ptr<AsyncEventSource> & source,
-                   int priority)
-{
-    // cerr << "addSourceRightAway: " << source.get()
-    //      << " (" << ML::type_name(*source) << ")"
-    //      << " needsPoll: " << source->needsPoll
-    //      << " in msg loop: " << this
-    //      << " needsPoll: " << needsPoll
-    //      << endl;
-
-    SourceEntry entry(name, source, priority);
-    processAddSource(entry);
+    return sourceActions_.push_back(move(newAction));
 }
 
 bool
@@ -213,7 +193,7 @@ removeSource(AsyncEventSource * source)
 
     SourceEntry entry("", ML::make_unowned_std_sp(*source), 0);
     SourceAction newAction(SourceAction::REMOVE, move(entry));
-    return sourceActions_.tryPush(move(newAction));
+    return sourceActions_.push_back(move(newAction));
 }
 
 void
@@ -368,13 +348,16 @@ handleEpollEvent(epoll_event & event)
 
 void
 MessageLoop::
-handleSourceAction(SourceAction && action)
+handleSourceActions()
 {
-    if (action.action_ == SourceAction::ADD) {
-        processAddSource(action.entry_);
-    }
-    else if (action.action_ == SourceAction::REMOVE) {
-        processRemoveSource(action.entry_);
+    vector<SourceAction> actions = sourceActions_.pop_front(0);
+    for (auto & action: actions) {
+        if (action.action_ == SourceAction::ADD) {
+            processAddSource(action.entry_);
+        }
+        else if (action.action_ == SourceAction::REMOVE) {
+            processRemoveSource(action.entry_);
+        }
     }
 }
 
