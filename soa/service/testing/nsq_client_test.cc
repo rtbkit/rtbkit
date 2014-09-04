@@ -40,7 +40,7 @@ doPublisherThread()
     client->init("http://127.0.0.1:4150");
     cerr << "publisher: connect...\n";
     auto result = client->connectSync();
-    if (result != ConnectionResult::Success) {
+    if (result.code != TcpConnectionCode::Success) {
         throw ML::Exception("connection error");
     }
     closed = false;
@@ -133,7 +133,7 @@ doSubscriberThread()
     client->init("http://127.0.0.1:4150");
     cerr << "subscriber: connect...\n";
     auto result = client->connectSync();
-    if (result != ConnectionResult::Success) {
+    if (result.code != TcpConnectionCode::Success) {
         throw ML::Exception("connection error");
     }
     closed = false;

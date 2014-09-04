@@ -72,11 +72,9 @@ write(std::string && data)
 /* ASYNCOUTPUTSINK */
 
 AsyncFdOutputSink::
-AsyncFdOutputSink(const OnHangup & onHangup,
-                  const OnClose & onClose,
+AsyncFdOutputSink(const OnHangup & onHangup, const OnClose & onClose,
                   int bufferSize)
-    : AsyncWriterSource(nullptr, nullptr, nullptr, nullptr,
-                        bufferSize, 0),
+    : AsyncWriterSource(nullptr, nullptr, nullptr, bufferSize, 0),
       OutputSink(onClose),
       onHangup_(onHangup)
 {
@@ -98,7 +96,7 @@ bool
 AsyncFdOutputSink::
 write(std::string && data)
 {
-    return AsyncWriterSource::write(move(data));
+    return AsyncWriterSource::write(move(data), nullptr);
 }
 
 void
