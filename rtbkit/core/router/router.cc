@@ -1402,6 +1402,8 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
         validGroups.push_back(it->second);
     }
 
+    this->recordLevel(validGroups.size(), "potentialBiddersPerRequest");
+
     if (validGroups.empty()) {
         // Now we need to end the auction
         //inFlight.erase(auctionId);
@@ -1677,6 +1679,8 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
             recordHit("tooLateAfterRouting");
             // Unwind everything?
         }
+
+        this->recordLevel(auctionInfo.bidders.size(), "bidRequestsSentToBiddersPerRequest");
 
         if (!auctionInfo.bidders.empty()) {
             bidder->sendAuctionMessage(
@@ -2046,6 +2050,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
     }
 
+    this->recordCount(numValidBids, "bidsPerBidRequest");
+
     if (numValidBids > 0) {
         if (logBids)
             // Send BID to logger
@@ -2218,7 +2224,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
 
         // If we didn't actually submit a bid then nothing else to do
         if (!hasSubmittedBid) continue;
-
+        this->recordHit("numRequestWithBid");
         ML::atomic_add(numAuctionsWithBid, 1);
         //cerr << fName << "injecting submitted auction " << endl;
 
