@@ -111,6 +111,18 @@ struct MessageLoop : public Epoller {
      */
     bool removeSource(AsyncEventSource * source);
 
+    /** Remove the given source from the list of active sources and waits for
+        the operation to complete. Useful in the cases where you need to destroy
+        the resources associated with the source.
+
+        WARNING: Calling this function from the message loop thread will result
+        in a deadlock.
+
+        \todo We need a callback version for the removeSource functions to fix
+        the above warning.
+    */
+    bool removeSourceSync(AsyncEventSource * source);
+
     /** Re-check if anything needs to poll. */
     void checkNeedsPoll();
 

@@ -196,6 +196,20 @@ removeSource(AsyncEventSource * source)
     return sourceActions_.push_back(move(newAction));
 }
 
+bool
+MessageLoop::
+removeSourceSync(AsyncEventSource * source)
+{
+    bool r = removeSource(source);
+    if (!r) return false;
+
+    while(source->connectionState_ != AsyncEventSource::DISCONNECTED) {
+        ML::futex_wait(source->connectionState_, AsyncEventSource::CONNECTED);
+    }
+
+    return true;
+}
+
 void
 MessageLoop::
 wakeupMainThread()
