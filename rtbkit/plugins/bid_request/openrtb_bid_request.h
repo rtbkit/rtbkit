@@ -53,6 +53,4 @@ struct OpenRtbBidRequestParser {
                     const std::string & version = "2.1");
         
 };
-
-
 } // namespace RTBKIT
