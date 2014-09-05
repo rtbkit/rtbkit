@@ -46,6 +46,68 @@ openRTBBidRequestParserFactory(const std::string & version) {
 
 OpenRTB::BidRequest
 OpenRTBBidRequestParser::
+toBidRequest(const RTBKIT::BidRequest & br) {
+
+    OpenRTB::BidRequest result;
+
+    result.id = br.auctionId;
+    result.at = br.auctionType;
+    result.tmax = br.timeAvailableMs;
+    result.unparseable = br.unparseable;
+
+    auto onAdSpot = [&](const AdSpot & spot) {
+        OpenRTB::Impression imp(spot);
+
+        // Since it's openrtb 2.1, make sure none of the 2.n fields are added.
+        imp.pmp.reset();
+
+        result.imp.push_back(std::move(imp));
+    };
+
+    result.imp.reserve(br.imp.size());
+
+    for(const auto & spot : br.imp) {
+        onAdSpot(spot);
+    }
+
+    if(br.site && br.app)
+        THROW(openrtbBidRequestError) << "OpenRTB::BidRequest cannot have site and app." << endl;
+
+    if(br.site)
+        result.site.reset(new OpenRTB::Site(*br.site));
+    else if(br.app)
+        result.app.reset(new OpenRTB::App(*br.app));
+
+    if(br.user)
+        result.user.reset(new OpenRTB::User(*br.user));
+
+    if(br.device)
+        result.device.reset(new OpenRTB::Device(*br.device));
+
+    result.bcat = br.blockedCategories;
+    result.cur.reserve(br.bidCurrency.size());
+
+    for(const auto & cur : br.bidCurrency) {
+        result.cur.push_back(toString(cur));
+    }
+
+    result.badv = br.badv;
+
+    result.ext = br.ext;
+
+    const auto & wseatSegments = br.segments.get("openrtb-wseat");
+
+    std::vector<std::string> wseat;
+
+    wseatSegments.forEach([&](int, const std::string & str, float) {
+        wseat.push_back(str);        
+    });
+
+    return result;
+}
+
+OpenRTB::BidRequest
+OpenRTBBidRequestParser::
 parseBidRequest(const std::string & jsonValue)
 {
     const char * strStart = jsonValue.c_str();
@@ -91,6 +153,12 @@ parseBidRequest(ML::Parse_Context & context,
     
     p->onBid(br);
 
+    // Transfer app, site, device, user to br
+    ctx.br->app.reset(br.app.release());
+    ctx.br->site.reset(br.site.release());
+    ctx.br->device.reset(br.device.release());
+    ctx.br->user.reset(br.user.release());
+
     // Release control upon exit
     return ctx.br.release();
 }
@@ -99,9 +167,8 @@ void
 OpenRTBBidRequestParser::
 onBid(OpenRTB::BidRequest & br) {
 
-    // Create context.
-    ctx.br = std::unique_ptr<BidRequest>(new BidRequest());
-    
+    ctx.br->auctionId = br.id;
+
     // Check for at to be 1 or 2
     if(br.at.val == 1 || br.at.val == 2)
         ctx.br->auctionType = AuctionType(br.at);
@@ -179,10 +246,10 @@ OpenRTBBidRequestParser::
 onImpression(OpenRTB::Impression & impression) {
 
     ctx.spot = std::move(std::unique_ptr<AdSpot>(new AdSpot(std::move(impression))));
-
+/*
     if(!ctx.spot->banner && !ctx.spot->video)
         LOG(openrtbBidRequestError) << "br.imp must included either a video or a banner object." << endl;
-    
+*/  
     // Possible to have a video and a banner object.
     if(ctx.spot->banner) {
         this->onBanner(*ctx.spot->banner);
@@ -273,8 +340,6 @@ onSite(OpenRTB::Site & site) {
         ctx.br->url = site.page;
     else if (site.id)
         ctx.br->url = Url("http://" + site.id.toString() + ".siteid/");
-
-    //ctx.br->site.reset(*site);
 }
 
 void
@@ -288,8 +353,6 @@ onApp(OpenRTB::App & app) {
         ctx.br->url = Url(app.bundle);
     else if (app.id)
         ctx.br->url = Url("http://" + app.id.toString() + ".appid/");
-
-    //ctx.br->app.reset(*app);
 }
 
 // Helper method for App / Site
@@ -362,19 +425,20 @@ onGeo(OpenRTB::Geo & geo) {
     // Validation that lat is -90 to 90
     if(geo.lat.val > 90.0 || geo.lat.val < -90.0)
         LOG(openrtbBidRequestTrace) << " br.device.geo.lat : " << geo.lat.val << 
-                                    "is invalid and should be within -90 to 90." << endl; 
+                                    " is invalid and should be within -90 to 90." << endl; 
+
 
     // Validation that lat is -180 to 180
     if(geo.lon.val > 180.0 || geo.lat.val < -180.0)
         LOG(openrtbBidRequestTrace) << " br.device.geo.lon : " << geo.lon.val << 
-                                    "is invalid and should be within -180 to 180." << endl; 
+                                    " is invalid and should be within -180 to 180." << endl; 
 
     // Validate ISO-3166 Alpha 3 for country
-    if(!geo.country.empty()) {
+    if(!geo.country.empty()) {/*
         if(geo.country.size() != 3) 
             LOG(openrtbBidRequestTrace) << " br.device.geo.country : " << geo.country <<  
-                                        "is invalid and doesn't respect ISO-3166 1 Alpha-3" << endl;
-        
+                                        " is invalid and doesn't respect ISO-3166 1 Alpha-3" << endl;
+*/      
         // TODO
         // Maybe create a map / flat file with the valid codes and test against it 
         if(loc.countryCode.empty())

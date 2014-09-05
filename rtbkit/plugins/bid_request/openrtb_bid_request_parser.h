@@ -25,6 +25,8 @@ struct OpenRTBBidRequestParser
     OpenRTB::BidRequest parseBidRequest(const std::string & jsonValue);
     OpenRTB::BidRequest parseBidRequest(ML::Parse_Context & context);
 
+    OpenRTB::BidRequest toBidRequest(const RTBKIT::BidRequest & br);
+
     RTBKIT::BidRequest* parseBidRequest(ML::Parse_Context & context,
                                         const std::string & provider,
                                         const std::string & exchange,
