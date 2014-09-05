@@ -2050,7 +2050,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
 
     }
 
-    this->recordCount(numValidBids, "bidsPerBidRequest");
+    this->recordCount(info.stats->bids, "bidsPerBidRequest");
 
     if (numValidBids > 0) {
         if (logBids)
