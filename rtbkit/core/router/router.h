@@ -751,7 +751,10 @@ public:
        requests */
     MonitorClient monitorClient;
     Date slowModeLastAuction;
-    int slowModeCount;
+//     int slowModeCount;
+    bool slowModeActive;    
+    int64_t slowModeAuthorizedMoneyLimit;
+    int64_t accumulatedBidMoneyInThisSecond;
 
     /* MONITOR PROVIDER */
     /* Post service health status to Monitor */

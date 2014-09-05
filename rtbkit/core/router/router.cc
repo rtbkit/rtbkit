@@ -1948,9 +1948,21 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                     bidsString, message.meta);
             continue;
         }
-
+        
         recordCount(bid.price.value, "cummulatedBidPrice");
         recordCount(price.value, "cummulatedAuthorizedPrice");
+        
+        if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
+            < (uint32_t) now.secondsSinceEpoch()) {
+            slowModeLastAuction = now;
+            slowModeActive = false;
+            recordHit("monitor.systemInSlowMode");
+        }
+        else {
+           // add code here 
+        }
+
+
 
 
         if (doDebug)
@@ -2260,25 +2272,31 @@ void
 Router::
 onNewAuction(std::shared_ptr<Auction> auction)
 {
-    if (!monitorClient.getStatus()) {
-        Date now = Date::now();
-
-        if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
-            < (uint32_t) now.secondsSinceEpoch()) {
-            slowModeLastAuction = now;
-            slowModeCount = 1;
-            recordHit("monitor.systemInSlowMode");
-        }
-        else {
-            slowModeCount++;
-        }
-
-        if (slowModeCount > 100) {
-            /* we only let the first 100 auctions take place each second */
-            recordHit("monitor.ignoredAuctions");
-            auction->finish();
-            return;
-        }
+//     if (!monitorClient.getStatus()) {
+//         Date now = Date::now();
+// 
+//         if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
+//             < (uint32_t) now.secondsSinceEpoch()) {
+//             slowModeLastAuction = now;
+//             slowModeCount = 1;
+//             recordHit("monitor.systemInSlowMode");
+//         }
+//         else {
+//             slowModeCount++;
+//         }
+// 
+//         if (slowModeCount > 100) {
+//             /* we only let the first 100 auctions take place each second */
+//             recordHit("monitor.ignoredAuctions");
+//             auction->finish();
+//             return;
+//         }
+//     }
+// 
+    if (slowModeActive) {
+        recordHit("monitor.ignoredAuctions");
+        auction->finish();
+        return;
     }
 
     //cerr << "AUCTION GOT THROUGH" << endl;
