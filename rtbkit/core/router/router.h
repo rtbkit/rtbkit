@@ -8,6 +8,7 @@
 #ifndef __rtb__router_h__
 #define __rtb__router_h__
 
+#include <cstdint>
 #include "filter_pool.h"
 #include "soa/service/zmq.hpp"
 #include <unordered_map>
@@ -108,7 +109,8 @@ struct Router : public ServiceBase,
            bool logAuctions = false,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(200),
-           int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout);
+           int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
+           int64_t slowModeAuthorizedMoneyLimit = INT64_MAX);
 
     Router(std::shared_ptr<ServiceProxies> services = std::make_shared<ServiceProxies>(),
            const std::string & serviceName = "router",
@@ -117,7 +119,8 @@ struct Router : public ServiceBase,
            bool logAuctions = false,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(200),
-           int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout);
+           int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
+           int64_t slowModeAuthorizedMoneyLimit = INT64_MAX);
 
     ~Router();
 

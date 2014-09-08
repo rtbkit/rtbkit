@@ -114,7 +114,8 @@ Router(ServiceBase & parent,
        bool logAuctions,
        bool logBids,
        Amount maxBidAmount,
-       int secondsUntilSlowMode)
+       int secondsUntilSlowMode,
+       int64_t slowModeAuthorizedMoneyLimit)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       postAuctionEndpoint(parent.getServices()),
@@ -145,7 +146,9 @@ Router(ServiceBase & parent,
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
       monitorClient(getZmqContext(), secondsUntilSlowMode),
-      slowModeCount(0),
+      slowModeActive(false),
+      slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
+      accumulatedBidMoneyInThisSecond(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount)
 {
@@ -160,7 +163,8 @@ Router(std::shared_ptr<ServiceProxies> services,
        bool logAuctions,
        bool logBids,
        Amount maxBidAmount,
-       int secondsUntilSlowMode)
+       int secondsUntilSlowMode,
+       int64_t slowModeAuthorizedMoneyLimit)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       postAuctionEndpoint(services),
@@ -191,7 +195,9 @@ Router(std::shared_ptr<ServiceProxies> services,
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
       monitorClient(getZmqContext(), secondsUntilSlowMode),
-      slowModeCount(0),
+      slowModeActive(false),
+      slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
+      accumulatedBidMoneyInThisSecond(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount)
 {
@@ -1951,17 +1957,31 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         
         recordCount(bid.price.value, "cummulatedBidPrice");
         recordCount(price.value, "cummulatedAuthorizedPrice");
-        
+
+         
+        Date now = Date::now();
         if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
             < (uint32_t) now.secondsSinceEpoch()) {
             slowModeLastAuction = now;
             slowModeActive = false;
-            recordHit("monitor.systemInSlowMode");
-        }
+            accumulatedBidMoneyInThisSecond = price.value;
+            
+            // actually this should be system out of slow mode
+            recordHit("monitor.systemInSlowMode"); 
+        } 
         else {
-           // add code here 
+            accumulatedBidMoneyInThisSecond += price.value;
         }
 
+        if (accumulatedBidMoneyInThisSecond > slowModeAuthorizedMoneyLimit) {
+            slowModeActive = true;
+
+            ++info.stats->noBudget;
+            bidder->sendNoBudgetMessage(agent, auctionInfo.auction);
+            this->logMessage("NOBUDGET", agent, auctionId,
+                        bidsString, message.meta);
+            continue;
+        }
 
 
 
