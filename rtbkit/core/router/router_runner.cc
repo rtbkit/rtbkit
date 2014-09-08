@@ -7,6 +7,7 @@
 
 #include "router_runner.h"
 
+#include <cstdint>
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/positional_options.hpp>
@@ -49,7 +50,8 @@ RouterRunner() :
     logBids(false),
     maxBidPrice(200),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
-    useHttpBanker(false)
+    useHttpBanker(false),
+    slowModeMoneyLimit(INT64_MAX)
 {
 }
 
@@ -83,7 +85,9 @@ doOptions(int argc, char ** argv,
         ("max-bid-price", value(&maxBidPrice),
          "maximum bid price accepted by router")
         ("spend-rate", value<string>(&spendRate)->default_value("100000USD/1M"),
-         "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)");
+         "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)")
+        ("slow-mode-money-limit", value<int64_t>(&slowModeMoneyLimit),
+         "Amout of money authorized per second when router enters slow mode.");
 
     options_description all_opt = opts;
     all_opt
@@ -121,7 +125,7 @@ init()
                                       connectPostAuctionLoop,
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
-                                      slowModeTimeout);
+                                      slowModeTimeout, slowModeMoneyLimit);
     router->initBidderInterface(bidderConfig);
     router->init();
 
