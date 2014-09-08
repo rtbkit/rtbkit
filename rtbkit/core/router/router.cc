@@ -1970,7 +1970,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             recordHit("monitor.systemInSlowMode"); 
         } 
         else {
-            accumulatedBidMoneyInThisSecond += price.value;
+            ML::atomic_add(accumulatedBidMoneyInThisSecond, price.value);
         }
 
         if (accumulatedBidMoneyInThisSecond > slowModeAuthorizedMoneyLimit) {
