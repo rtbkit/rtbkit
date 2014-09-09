@@ -127,6 +127,13 @@ struct AtInit {
 
 namespace Datacratic {
 
+S3ConfigDescription::
+S3ConfigDescription()
+{
+    addField("accessKeyId", &S3Config::accessKeyId, "");
+    addField("accessKey", &S3Config::accessKey, "");
+}
+
 std::string
 S3Api::
 s3EscapeResource(const std::string & str)
