@@ -1943,6 +1943,31 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         // authorize an amount of money computed from the win cost model.
         Amount price = message.wcm.evaluate(bid, bid.price);
 
+        if (!monitorClient.getStatus()) {
+            Date now = Date::now();
+            if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
+                    < (uint32_t) now.secondsSinceEpoch()) {
+                slowModeLastAuction = now;
+                slowModeActive = false;
+                accumulatedBidMoneyInThisSecond = price.value;
+
+                recordHit("monitor.systemInSlowMode"); 
+            }
+
+            else {
+                ML::atomic_add(accumulatedBidMoneyInThisSecond, price.value);
+            }
+
+            if (accumulatedBidMoneyInThisSecond > slowModeAuthorizedMoneyLimit) {
+                slowModeActive = true;
+                ++info.stats->noBudget;
+                bidder->sendNoBudgetMessage(agent, auctionInfo.auction);
+                this->logMessage("NOBUDGET", agent, auctionId,
+                        bidsString, message.meta);
+                continue;
+            }
+        }
+
         if (!banker->authorizeBid(config.account, auctionKey, price)
                 || failBid(budgetErrorRate))
         {
@@ -1957,32 +1982,6 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         
         recordCount(bid.price.value, "cummulatedBidPrice");
         recordCount(price.value, "cummulatedAuthorizedPrice");
-
-         
-        Date now = Date::now();
-        if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
-            < (uint32_t) now.secondsSinceEpoch()) {
-            slowModeLastAuction = now;
-            slowModeActive = false;
-            accumulatedBidMoneyInThisSecond = price.value;
-            
-            // actually this should be system out of slow mode
-            recordHit("monitor.systemInSlowMode"); 
-        } 
-        else {
-            ML::atomic_add(accumulatedBidMoneyInThisSecond, price.value);
-        }
-
-        if (accumulatedBidMoneyInThisSecond > slowModeAuthorizedMoneyLimit) {
-            slowModeActive = true;
-
-            ++info.stats->noBudget;
-            bidder->sendNoBudgetMessage(agent, auctionInfo.auction);
-            this->logMessage("NOBUDGET", agent, auctionId,
-                        bidsString, message.meta);
-            continue;
-        }
-
 
 
         if (doDebug)
@@ -2292,31 +2291,15 @@ void
 Router::
 onNewAuction(std::shared_ptr<Auction> auction)
 {
-//     if (!monitorClient.getStatus()) {
-//         Date now = Date::now();
-// 
-//         if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
-//             < (uint32_t) now.secondsSinceEpoch()) {
-//             slowModeLastAuction = now;
-//             slowModeCount = 1;
-//             recordHit("monitor.systemInSlowMode");
-//         }
-//         else {
-//             slowModeCount++;
-//         }
-// 
-//         if (slowModeCount > 100) {
-//             /* we only let the first 100 auctions take place each second */
-//             recordHit("monitor.ignoredAuctions");
-//             auction->finish();
-//             return;
-//         }
-//     }
-// 
-    if (slowModeActive) {
-        recordHit("monitor.ignoredAuctions");
-        auction->finish();
-        return;
+    if (!monitorClient.getStatus()) {
+        // check if slow mode active and in the same second then ignore the Auction
+        Date now = Date::now();
+        if (slowModeActive && (uint32_t) slowModeLastAuction.secondsSinceEpoch()
+                == (uint32_t) now.secondsSinceEpoch() ) {
+            recordHit("monitor.ignoredAuctions");
+            auction->finish();
+            return;
+        }
     }
 
     //cerr << "AUCTION GOT THROUGH" << endl;

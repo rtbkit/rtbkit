@@ -51,7 +51,7 @@ RouterRunner() :
     maxBidPrice(200),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
     useHttpBanker(false),
-    slowModeMoneyLimit(INT64_MAX)
+    slowModeMoneyLimit(UINT_MAX)
 {
 }
 
@@ -86,7 +86,7 @@ doOptions(int argc, char ** argv,
          "maximum bid price accepted by router")
         ("spend-rate", value<string>(&spendRate)->default_value("100000USD/1M"),
          "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)")
-        ("slow-mode-money-limit", value<int64_t>(&slowModeMoneyLimit),
+        ("slow-mode-money-limit,s", value<uint32_t>(&slowModeMoneyLimit),
          "Amout of money authorized per second when router enters slow mode.");
 
     options_description all_opt = opts;
