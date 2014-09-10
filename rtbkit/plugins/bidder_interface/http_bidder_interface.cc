@@ -396,6 +396,10 @@ void HttpBidderInterface::sendPingMessage(std::string const & agent,
     router->handleAgentMessage(message);
 }
 
+void HttpBidderInterface::registerLoopMonitor(LoopMonitor *monitor) {
+    monitor->addMessageLoop("httpBidderInterfaceLoop", &loop);
+}
+
 void HttpBidderInterface::tagRequest(OpenRTB::BidRequest &request,
                                      const std::map<std::string, BidInfo> &bidders) const
 {
@@ -435,6 +439,7 @@ bool HttpBidderInterface::prepareRequest(OpenRTB::BidRequest &request,
     request.tmax.val = remainingTimeMs;
     return true;
 }
+
 
 void HttpBidderInterface::injectBids(const std::string &agent, Id auctionId,
                                      const Bids &bids, WinCostModel wcm)

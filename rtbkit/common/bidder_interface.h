@@ -8,6 +8,7 @@
 #include "soa/service/service_base.h"
 #include "soa/service/zmq_endpoint.h"
 #include "soa/service/typed_message_channel.h"
+#include "soa/service/loop_monitor.h"
 #include "rtbkit/common/auction_events.h"
 #include "rtbkit/core/router/router_types.h"
 #include "rtbkit/core/post_auction/events.h"
@@ -85,6 +86,9 @@ struct BidderInterface : public ServiceBase
     virtual
     void sendPingMessage(std::string const & agent,
                          int ping) = 0;
+
+
+    virtual void registerLoopMonitor(LoopMonitor *monitor) { }
 
     //
     // factory

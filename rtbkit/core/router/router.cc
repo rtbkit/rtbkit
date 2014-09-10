@@ -204,6 +204,7 @@ initBidderInterface(Json::Value const & json)
 {
     bidder = BidderInterface::create(serviceName() + ".bidder", getServices(), json);
     bidder->init(&bridge, this);
+    bidder->registerLoopMonitor(&loopMonitor);
 }
 
 void
