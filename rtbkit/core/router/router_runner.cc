@@ -86,7 +86,7 @@ doOptions(int argc, char ** argv,
         ("spend-rate", value<string>(&spendRate)->default_value("100000USD/1M"),
          "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)")
         ("slow-mode-money-limit,s", value<string>(&slowModeMoneyLimit)->default_value("100000USD/1M"),
-         "Amout of money authorized per second when router enters slow mode in USD/1M (default is 100000USD/1M).");
+         "Amout of money authorized per second when router enters slow mode (default is 100000USD/1M).");
 
     options_description all_opt = opts;
     all_opt
