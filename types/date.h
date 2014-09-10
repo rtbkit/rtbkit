@@ -305,7 +305,9 @@ struct Date {
     double fractionalSeconds() const
     {
         double whole_seconds;
-        return modf(secondsSinceEpoch_, &whole_seconds);
+        return modf(secondsSinceEpoch_ >= 0
+                    ? secondsSinceEpoch_ : -secondsSinceEpoch_,
+                    &whole_seconds);
     }
 
     long long wholeSecondsSinceEpoch() const
