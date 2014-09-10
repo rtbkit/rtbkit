@@ -43,6 +43,8 @@ struct RouterRunner {
 
     bool useHttpBanker;
 
+    std::string slowModeMoneyLimit;
+
     void doOptions(int argc, char ** argv,
                    const boost::program_options::options_description & opts
                    = boost::program_options::options_description());
