@@ -155,6 +155,9 @@ init(std::string host,
         prefix = "/" + prefix;
 
     this->prefix = std::move(prefix);
+
+    currentInstallation = this->prefix;
+
     zoo->createPath(this->prefix);
 }
 
