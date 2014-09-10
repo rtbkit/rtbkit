@@ -7,7 +7,6 @@
 
 #include "router_runner.h"
 
-#include <cstdint>
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/positional_options.hpp>
@@ -51,7 +50,7 @@ RouterRunner() :
     maxBidPrice(200),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
     useHttpBanker(false),
-    slowModeMoneyLimit(UINT_MAX)
+    slowModeMoneyLimit("")
 {
 }
 
@@ -86,8 +85,8 @@ doOptions(int argc, char ** argv,
          "maximum bid price accepted by router")
         ("spend-rate", value<string>(&spendRate)->default_value("100000USD/1M"),
          "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)")
-        ("slow-mode-money-limit,s", value<uint32_t>(&slowModeMoneyLimit),
-         "Amout of money authorized per second when router enters slow mode in CPM (default is unlimited).");
+        ("slow-mode-money-limit,s", value<string>(&slowModeMoneyLimit)->default_value("100USD/1M"),
+         "Amout of money authorized per second when router enters slow mode in USD/1M (default is 100USD/1M).");
 
     options_description all_opt = opts;
     all_opt
@@ -120,12 +119,14 @@ init()
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
     bidderConfig = loadJsonFromFile(bidderConfigurationFile);
 
+    const auto amountSlowModeMoneyLimit = Amount::parse(slowModeMoneyLimit);
+
     auto connectPostAuctionLoop = !noPostAuctionLoop;
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
                                       connectPostAuctionLoop,
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
-                                      slowModeTimeout, slowModeMoneyLimit);
+                                      slowModeTimeout, amountSlowModeMoneyLimit);
     router->initBidderInterface(bidderConfig);
     router->init();
 

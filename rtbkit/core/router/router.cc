@@ -6,6 +6,7 @@
 */
 
 #include <set>
+#include <atomic>
 #include "router.h"
 #include "soa/service/zmq_utils.h"
 #include "jml/arch/backtrace.h"
@@ -115,7 +116,7 @@ Router(ServiceBase & parent,
        bool logBids,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
-       int64_t slowModeAuthorizedMoneyLimit)
+       Amount slowModeAuthorizedMoneyLimit)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       postAuctionEndpoint(parent.getServices()),
@@ -164,7 +165,7 @@ Router(std::shared_ptr<ServiceProxies> services,
        bool logBids,
        Amount maxBidAmount,
        int secondsUntilSlowMode,
-       int64_t slowModeAuthorizedMoneyLimit)
+       Amount slowModeAuthorizedMoneyLimit)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       postAuctionEndpoint(services),
@@ -1955,15 +1956,13 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
             }
 
             else {
-                ML::atomic_add(accumulatedBidMoneyInThisSecond, price.value);
+                accumulatedBidMoneyInThisSecond += price.value;
             }
 
-            if (accumulatedBidMoneyInThisSecond > slowModeAuthorizedMoneyLimit) {
+            if (accumulatedBidMoneyInThisSecond > slowModeAuthorizedMoneyLimit.value) {
                 slowModeActive = true;
-                ++info.stats->noBudget;
-                bidder->sendNoBudgetMessage(agent, auctionInfo.auction);
-                this->logMessage("NOBUDGET", agent, auctionId,
-                        bidsString, message.meta);
+                bidder->sendBidDroppedMessage(agent, auctionInfo.auction);
+                recordHit("slowMode.droppedBid");
                 continue;
             }
         }

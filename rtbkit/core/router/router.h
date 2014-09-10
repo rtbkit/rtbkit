@@ -8,7 +8,7 @@
 #ifndef __rtb__router_h__
 #define __rtb__router_h__
 
-#include <cstdint>
+#include <atomic>
 #include "filter_pool.h"
 #include "soa/service/zmq.hpp"
 #include <unordered_map>
@@ -110,7 +110,7 @@ struct Router : public ServiceBase,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(200),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
-           int64_t slowModeAuthorizedMoneyLimit = INT64_MAX);
+           Amount slowModeAuthorizedMoneyLimit = USD_CPM(100));
 
     Router(std::shared_ptr<ServiceProxies> services = std::make_shared<ServiceProxies>(),
            const std::string & serviceName = "router",
@@ -120,7 +120,7 @@ struct Router : public ServiceBase,
            bool logBids = false,
            Amount maxBidAmount = USD_CPM(200),
            int secondsUntilSlowMode = MonitorClient::DefaultCheckTimeout,
-           int64_t slowModeAuthorizedMoneyLimit = INT64_MAX);
+           Amount slowModeAuthorizedMoneyLimit = USD_CPM(100));
 
     ~Router();
 
@@ -754,10 +754,9 @@ public:
        requests */
     MonitorClient monitorClient;
     Date slowModeLastAuction;
-//     int slowModeCount;
     bool slowModeActive;    
-    int64_t slowModeAuthorizedMoneyLimit;
-    int64_t accumulatedBidMoneyInThisSecond;
+    Amount slowModeAuthorizedMoneyLimit;
+    std::atomic<uint64_t> accumulatedBidMoneyInThisSecond;
 
     /* MONITOR PROVIDER */
     /* Post service health status to Monitor */
