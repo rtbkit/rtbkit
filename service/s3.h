@@ -21,7 +21,16 @@
 #include "http_endpoint.h"
 #include "http_rest_proxy.h"
 
+#include "soa/types/basic_value_descriptions.h"
+#include "soa/types/value_description.h"
+
 namespace Datacratic {
+
+struct S3Config {
+    std::string accessKeyId;
+    std::string accessKey;
+};
+CREATE_STRUCTURE_DESCRIPTION(S3Config);
 
 
 /*****************************************************************************/
