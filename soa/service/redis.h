@@ -325,7 +325,8 @@ extern const Command DEL;
 extern const Command SADD;
 extern const Command SMEMBERS;
 extern const Command TTL;
-
+extern const Command AUTH;
+extern const Command SELECT;
 
 /*****************************************************************************/
 /* ADDRESS                                                                   */
@@ -374,6 +375,8 @@ struct AsyncConnection {
         the connection works.
     */
     void test();
+    void auth(std::string password);
+    void select(int database);
 
     void close();
 

@@ -27,4 +27,78 @@ BOOST_AUTO_TEST_CASE( test_addSource_with_needsPoll )
     loop.addSource("source", aSource);
     loop.start();
     aSource.waitConnectionState(AsyncEventSource::CONNECTED);
+
+    loop.removeSource(&aSource);
+    aSource.waitConnectionState(AsyncEventSource::DISCONNECTED);
+}
+
+/* This test ensures that adding sources works correctly independently of
+ * whether the loop has been started or not, even with a ridiculous amount of
+ * sources. */
+BOOST_AUTO_TEST_CASE( test_addSource_after_before_start )
+{
+    ML::Watchdog wd(30);
+    const int numSources(1000);
+
+    typedef shared_ptr<TypedMessageSink<string> > TestSource;
+
+    /* before "start" */
+    {
+        MessageLoop loop;
+        vector<TestSource> sources;
+        for (int i = 0; i < numSources; i++) {
+            sources.emplace_back(new TypedMessageSink<string>(5));
+        }
+
+        for (auto & source: sources) {
+            loop.addSource("source", source);
+        }
+
+        loop.start();
+
+        cerr << "added before start\n";
+        for (auto & source: sources) {
+            source->waitConnectionState(AsyncEventSource::CONNECTED);
+        }
+
+        ML::sleep(1.0);
+
+        /* cleanup */
+        for (auto & source: sources) {
+            loop.removeSource(source.get());
+        }
+        for (auto & source: sources) {
+            source->waitConnectionState(AsyncEventSource::DISCONNECTED);
+        }
+    }
+
+    /* after "start" */
+    {
+        MessageLoop loop;
+        vector<TestSource> sources;
+        for (int i = 0; i < numSources; i++) {
+            sources.emplace_back(new TypedMessageSink<string>(5));
+        }
+
+        loop.start();
+
+        cerr << "added after start\n";
+        for (auto & source: sources) {
+            loop.addSource("source", source);
+        }
+
+        for (auto & source: sources) {
+            source->waitConnectionState(AsyncEventSource::CONNECTED);
+        }
+
+        ML::sleep(1.0);
+
+        /* cleanup */
+        for (auto & source: sources) {
+            loop.removeSource(source.get());
+        }
+        for (auto & source: sources) {
+            source->waitConnectionState(AsyncEventSource::DISCONNECTED);
+        }
+    }
 }

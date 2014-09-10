@@ -38,11 +38,19 @@ int main(int argc, char ** argv)
 
     std::string redisUri;  ///< TODO: zookeeper
 
+    std::string redisPassword;
+
+    int redisDatabase = 0;
+
     std::vector<std::string> fixedHttpBindAddresses;
 
     configuration_options.add_options()
         ("redis-uri,r", value<string>(&redisUri)->required(),
          "URI of connection to redis")
+        ("redis-password,p", value<string>(&redisPassword),
+         "Password of connection to redis")
+        ("redis-database,d", value<int>(&redisDatabase),
+         "Database of connection to redis")
         ("fixed-http-bind-address,a", value(&fixedHttpBindAddresses),
          "Fixed address (host:port or *:port) at which we will always listen");
 
@@ -73,11 +81,15 @@ int main(int argc, char ** argv)
     std::shared_ptr<Redis::AsyncConnection> redis;
 
     if (redisUri != "nopersistence") {
+        std::cout << " redisUri=" << redisUri << std::endl;
         auto address = Redis::Address(redisUri);
         redis = std::make_shared<Redis::AsyncConnection>(redisUri);
+        if(redisPassword != "")
+            redis->auth(redisPassword);
+        if(redisDatabase != 0)
+            redis->select(redisDatabase);
         redis->test();
-
-        banker.init(std::make_shared<RedisBankerPersistence>(redisUri));
+        banker.init(std::make_shared<RedisBankerPersistence>(redis));
     }
     else {
         cerr << "*** WARNING ***" << endl;

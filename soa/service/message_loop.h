@@ -76,17 +76,6 @@ struct MessageLoop : public Epoller {
                    const std::shared_ptr<AsyncEventSource> & source,
                    int priority = 0);
 
-    /** Add the given source of asynchronous wakeups with the given
-        callback to be run when they trigger.
-
-        CAUTION: this function call will take effect immediately but is not
-        thread-safe and is to be used only when it is known that the
-        MessageLoop has not started yet.
-    */
-    void addSourceRightAway(const std::string & name,
-                            const std::shared_ptr<AsyncEventSource> & source,
-                            int priority = 0);
-
     /** Add a periodic job to be performed by the loop.  The number passed
         to the toRun function is the number of timeouts that have elapsed
         since the last call; this is useful to know if something has
@@ -121,6 +110,18 @@ struct MessageLoop : public Epoller {
         is deferred to the main message loop thread.
      */
     bool removeSource(AsyncEventSource * source);
+
+    /** Remove the given source from the list of active sources and waits for
+        the operation to complete. Useful in the cases where you need to destroy
+        the resources associated with the source.
+
+        WARNING: Calling this function from the message loop thread will result
+        in a deadlock.
+
+        \todo We need a callback version for the removeSource functions to fix
+        the above warning.
+    */
+    bool removeSourceSync(AsyncEventSource * source);
 
     /** Re-check if anything needs to poll. */
     void checkNeedsPoll();
@@ -173,7 +174,7 @@ private:
     };
 
     /* Queue of source actions to perform */
-    TypedMessageSink<SourceAction> sourceActions_;
+    TypedMessageQueue<SourceAction> sourceActions_;
     // ML::Wakeup_Fd queueFd;
 
     Lock threadsLock;
@@ -195,7 +196,7 @@ private:
     double maxAddedLatency_;
 
     Epoller::HandleEventResult handleEpollEvent(epoll_event & event);
-    void handleSourceAction(SourceAction && action);
+    void handleSourceActions();
     void processAddSource(const SourceEntry & entry);
     void processRemoveSource(const SourceEntry & entry);
 };

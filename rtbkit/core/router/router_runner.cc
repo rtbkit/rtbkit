@@ -49,7 +49,8 @@ RouterRunner() :
     logBids(false),
     maxBidPrice(200),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
-    useHttpBanker(false)
+    useHttpBanker(false),
+    slowModeMoneyLimit("")
 {
 }
 
@@ -83,7 +84,9 @@ doOptions(int argc, char ** argv,
         ("max-bid-price", value(&maxBidPrice),
          "maximum bid price accepted by router")
         ("spend-rate", value<string>(&spendRate)->default_value("100000USD/1M"),
-         "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)");
+         "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)")
+        ("slow-mode-money-limit,s", value<string>(&slowModeMoneyLimit)->default_value("100000USD/1M"),
+         "Amout of money authorized per second when router enters slow mode (default is 100000USD/1M).");
 
     options_description all_opt = opts;
     all_opt
@@ -116,12 +119,14 @@ init()
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
     bidderConfig = loadJsonFromFile(bidderConfigurationFile);
 
+    const auto amountSlowModeMoneyLimit = Amount::parse(slowModeMoneyLimit);
+
     auto connectPostAuctionLoop = !noPostAuctionLoop;
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
                                       connectPostAuctionLoop,
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
-                                      slowModeTimeout);
+                                      slowModeTimeout, amountSlowModeMoneyLimit);
     router->initBidderInterface(bidderConfig);
     router->init();
 
