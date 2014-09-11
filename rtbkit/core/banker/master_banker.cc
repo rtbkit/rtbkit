@@ -475,6 +475,19 @@ init(const shared_ptr<BankerPersistence> & storage)
                        accountKeyParam,
                        JsonParam<ShadowAccount>("",
                                                 "Representation of the shadow account"));
+    addRouteSyncReturn(account,
+                       "/close",
+                       {"PUT", "POST"},
+                       "Close an account and all of its child accounts, "
+                       "transfers all remaining balances to parent.",
+                       "Account: Representation of the modified account",
+                       [] (const Account & a) { return a.toJson(); },
+                       &MasterBanker::closeAccount,
+                       this,
+                       accountKeyParam);
+
+
+
 }
 
 void
@@ -648,6 +661,18 @@ onCreateAccount(const AccountKey &key, AccountType type)
         throw ML::Exception("Error with the backend");
 
     return accounts.createAccount(key, type);
+}
+
+const Account
+MasterBanker::
+closeAccount(const AccountKey &key)
+{
+    
+    JML_TRACE_EXCEPTIONS(false);
+    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
+        throw ML::Exception("Error with the backend");
+
+    return accounts.closeAccount(key);
 }
 
 const Account

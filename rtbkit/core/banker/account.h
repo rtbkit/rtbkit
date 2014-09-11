@@ -144,7 +144,7 @@ public:
         result["adjustmentsOut"] = adjustmentsOut.toJson();
         result["lineItems"] = lineItems.toJson();
         result["adjustmentLineItems"] = adjustmentLineItems.toJson();
-        result["status"] = status;
+        result["status"] = (int) status;
 
         return result;
     }
@@ -178,7 +178,7 @@ public:
         result.adjustmentsIn = CurrencyPool::fromJson(json["adjustmentsIn"]);
         result.lineItems = LineItems::fromJson(json["lineItems"]);
         result.adjustmentLineItems = LineItems::fromJson(json["adjustmentLineItems"]);
-        result.status = json["status"].asInt();
+        result.status = (Status)json["status"].asInt();
 
         result.balance = ((result.budgetIncreases
                              + result.recycledIn
@@ -196,6 +196,10 @@ public:
         result.checkInvariants();
 
         return result;
+    }
+
+    void setClosed() {
+        status = CLOSED;
     }
 
     /*************************************************************************/
@@ -871,6 +875,36 @@ struct Accounts {
     {
         Guard guard(lock);
         return getAccountImpl(account);
+    }
+    
+    /** closeAccount behavious is to close all children then close itself,
+        always transfering from children to parent. If top most account, 
+        then throws an error after closing all children first.
+    */
+    const Account closeAccount(const AccountKey & account) {
+        Guard guard(lock);
+        // behavious is to close all children then close its self,
+        // always transfering from children to parent. If top most account,
+        // then throws an error after closing all children first.
+
+        // recuperate from children
+        AccountInfo accountInfo = getAccountImpl(account);
+        
+        // check if there are children accounts,
+        // close each child account. 
+        if (accountInfo.children.size() > 0) {
+            for ( AccountKey child : accountInfo.children) {
+                closeAccount(child);
+            }
+        }
+        
+        // throws error if parent account does not exist.
+        recuperate(account);
+        
+        // set close flag on account.
+        accountInfo.setClosed();
+        
+        return accountInfo; 
     }
 
     void checkInvariants() const
