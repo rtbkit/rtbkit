@@ -100,8 +100,8 @@ struct Account {
 
     // Invariant: sum(Credit Side) = sum(Debit Side)
 
-    enum Status {CLOSED, ACTIVE};
-    Status status;
+//     enum Status {CLOSED, ACTIVE};
+//     Status status;
 
 public:
     bool isSameOrPastVersion(const Account & otherAccount) const
@@ -144,8 +144,10 @@ public:
         result["adjustmentsOut"] = adjustmentsOut.toJson();
         result["lineItems"] = lineItems.toJson();
         result["adjustmentLineItems"] = adjustmentLineItems.toJson();
-        result["status"] = (int) status;
-
+//         if (status) 
+//             result["status"] = (int) status;
+//         else 
+//             result["status"] = 0;
         return result;
     }
 
@@ -178,7 +180,7 @@ public:
         result.adjustmentsIn = CurrencyPool::fromJson(json["adjustmentsIn"]);
         result.lineItems = LineItems::fromJson(json["lineItems"]);
         result.adjustmentLineItems = LineItems::fromJson(json["adjustmentLineItems"]);
-        result.status = (Status)json["status"].asInt();
+//         result.status = (Status)json["status"].asInt();
 
         result.balance = ((result.budgetIncreases
                              + result.recycledIn
@@ -199,7 +201,7 @@ public:
     }
 
     void setClosed() {
-        status = CLOSED;
+//         status = CLOSED;
     }
 
     /*************************************************************************/
