@@ -68,7 +68,7 @@ extern const std::string AccountTypeToString(enum AccountType type);
 
 struct Account {
     Account()
-        : type(AT_NONE)
+        : type(AT_NONE), status(CLOSED)
     {
     }
 
@@ -100,8 +100,8 @@ struct Account {
 
     // Invariant: sum(Credit Side) = sum(Debit Side)
 
-//     enum Status {CLOSED, ACTIVE};
-//     Status status;
+    enum Status {CLOSED, ACTIVE};
+    Status status;
 
 public:
     bool isSameOrPastVersion(const Account & otherAccount) const
@@ -144,10 +144,7 @@ public:
         result["adjustmentsOut"] = adjustmentsOut.toJson();
         result["lineItems"] = lineItems.toJson();
         result["adjustmentLineItems"] = adjustmentLineItems.toJson();
-//         if (status) 
-//             result["status"] = (int) status;
-//         else 
-//             result["status"] = 0;
+        result["status"] = (int) status;
         return result;
     }
 
@@ -180,7 +177,7 @@ public:
         result.adjustmentsIn = CurrencyPool::fromJson(json["adjustmentsIn"]);
         result.lineItems = LineItems::fromJson(json["lineItems"]);
         result.adjustmentLineItems = LineItems::fromJson(json["adjustmentLineItems"]);
-//         result.status = (Status)json["status"].asInt();
+        result.status = (Status) json["status"].asInt();
 
         result.balance = ((result.budgetIncreases
                              + result.recycledIn
@@ -201,7 +198,7 @@ public:
     }
 
     void setClosed() {
-//         status = CLOSED;
+        status = CLOSED;
     }
 
     /*************************************************************************/
