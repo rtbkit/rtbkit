@@ -280,7 +280,7 @@ void HttpBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
     content["timestamp"] = event.timestamp.secondsSinceEpoch();
     content["bidRequestId"] = event.auctionId.toString();
     content["impid"] = event.impId.toString();
-    content["userIds"] = event.uids.toJson();
+    content["userIds"] = event.uids.toJsonArray();
     // ratio cannot be casted to json::value ...
     content["price"] = (double) getAmountIn<CPM>(event.winPrice);
 
