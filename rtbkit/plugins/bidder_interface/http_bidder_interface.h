@@ -99,6 +99,8 @@ private:
     void injectBids(const std::string &agent, Id auctionId,
                     const Bids &bids, WinCostModel wcm);
 
+    void recordError(const std::string &key);
+
 };
 
 }

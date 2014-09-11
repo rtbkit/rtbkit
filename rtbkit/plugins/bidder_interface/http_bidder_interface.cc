@@ -170,14 +170,9 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                  // Make sure to submit the bids no matter what
                  ML::Call_Guard guard([&]() { submitBids(bidsToSubmit, openRtbRequest.imp.size()); });
 
-                 auto recordError = [&](const std::string &key) {
-                     router->recordHit("error.httpBidderInterface.total");
-                     router->recordHit("error.httpBidderInterface.%s", key);
-                 };
-
                  if (errorCode != HttpClientError::None) {
-                     LOG(error) << "Error requesting " << routerHost << ": "
-                                << httpErrorString(errorCode) << std::endl;
+                     LOG(error) << "Error requesting " << routerHost << " ("
+                                << httpErrorString(errorCode) << ")" << std::endl;
                      recordError("network");
                      goto error;
                  }
@@ -303,10 +298,10 @@ void HttpBidderInterface::sendWinLossMessage(MatchedWinLoss const & event) {
             int statusCode, const std::string &, std::string &&body)
         {
             if (errorCode != HttpClientError::None) {
-                throw ML::Exception("Error requesting %s:%d '%s'",
-                                    adserverHost.c_str(),
-                                    adserverWinPort,
-                                    httpErrorString(errorCode).c_str());
+                 LOG(error) << "Error requesting "
+                            << adserverHost << ":" << adserverWinPort
+                            << " (" << httpErrorString(errorCode) << ")" << std::endl;
+                 recordError("network");
               }
         });
 
@@ -339,10 +334,10 @@ void HttpBidderInterface::sendCampaignEventMessage(std::string const & agent,
             int statusCode, const std::string &, std::string &&body)
         {
             if (errorCode != HttpClientError::None) {
-                throw ML::Exception("Error requesting %s:%d '%s'",
-                                    adserverHost.c_str(),
-                                    adserverEventPort,
-                                    httpErrorString(errorCode).c_str());
+                 LOG(error) << "Error requesting "
+                            << adserverHost << ":" << adserverEventPort
+                            << " (" << httpErrorString(errorCode) << ")" << std::endl;
+                 recordError("network");
               }
         });
     
@@ -484,6 +479,11 @@ void HttpBidderInterface::submitBids(AgentBids &info, size_t impressionsCount) {
         }
         injectBids(bidsInfo.first, bids.auctionId, bids.bids, bids.wcm);
     }
+}
+
+void HttpBidderInterface::recordError(const std::string &key) {
+     recordHit("error.httpBidderInterface.total");
+     recordHit("error.httpBidderInterface.%s", key);
 }
 
 //
