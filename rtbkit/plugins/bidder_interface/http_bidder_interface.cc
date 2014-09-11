@@ -260,12 +260,16 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
                          }
                      }
 
+                     return;
+
                  }
                  else if (statusCode != 204) {
                      LOG(error) << "Invalid HTTP status code: " << statusCode << std::endl;
                      recordError("response");
                      goto error;
                  }
+
+                 // If an error occurs, we will jump here and return "no-bid"
                  error:
                      Bids nullBids;
                      const size_t impSize = openRtbRequest.imp.size();
