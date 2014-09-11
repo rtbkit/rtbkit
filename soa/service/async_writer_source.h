@@ -10,7 +10,12 @@
 #include <sys/epoll.h>
 
 #include <atomic>
+#include <queue>
+#include <vector>
 #include <string>
+#include <map>
+#include <functional>
+#include <exception>
 
 #include "jml/utils/ring_buffer.h"
 
@@ -19,6 +24,31 @@
 
 
 namespace Datacratic {
+
+/****************************************************************************/
+/* ASYNC WRITE RESULT                                                       */
+/****************************************************************************/
+
+/* invoked when a write operation has been performed, where "written" is the
+   string that was sent, "writtenSize" is the amount of bytes from it that was
+   sent; the latter is always equal to the length of the string when error is
+   0 */
+
+struct AsyncWriteResult {
+    AsyncWriteResult(int newError,
+                     std::string && newWritten,
+                     size_t newWrittenSize)
+        : error(newError),
+          written(std::move(newWritten)),
+          writtenSize(newWrittenSize)
+    {
+    }
+
+    int error;
+    std::string written;
+    size_t writtenSize;
+};
+
 
 /****************************************************************************/
 /* ASYNC WRITER SOURCE                                                      */
@@ -37,9 +67,7 @@ struct AsyncWriterSource : public AsyncEventSource
 
     /* type of callback invoked when a string or a message has been written to
        the file descriptor */
-    typedef std::function<void(int error,
-                               const std::string & written,
-                               size_t writtenSize)> OnWriteResult;
+    typedef std::function<void(AsyncWriteResult)> OnWriteResult;
 
     /* type of callback invoked when data has been read from the file
        descriptor */
@@ -49,7 +77,6 @@ struct AsyncWriterSource : public AsyncEventSource
     typedef std::function<void(const std::exception_ptr &)> OnException;
 
     AsyncWriterSource(const OnClosed & onClosed,
-                      const OnWriteResult & onWriteResult,
                       const OnReceivedData & onReceivedData,
                       const OnException & onException,
                       /* size of the message queue */
@@ -65,10 +92,12 @@ struct AsyncWriterSource : public AsyncEventSource
 
     /* enqueue "data" for writing, provided the file descriptor is open or
      * being opened, or throws */
-    bool write(std::string data);
-    bool write(const char * data, size_t size)
+    bool write(std::string data,
+               const OnWriteResult & onWriteResult);
+    bool write(const char * data, size_t size,
+               const OnWriteResult & onWriteResult)
     {
-        return write(std::string(data, size));
+        return write(std::string(data, size), onWriteResult);
     }
 
     /* returns whether we are ready to accept messages for sending */
@@ -77,14 +106,6 @@ struct AsyncWriterSource : public AsyncEventSource
     {
         return queueEnabled_;
     }
-
-    /* invoked when a write operation has been performed, where "written" is
-       the string that was sent, "writtenSize" is the amount of bytes from it
-       that was sent; the latter is always equal to the length of the string
-       when error is 0 */
-    virtual void onWriteResult(int error,
-                               const std::string & written,
-                               size_t writtenSize);
 
     /* close the file descriptor as soon as all bytes have been sent and
      * received, implying that "write" will never be invoked anymore */
@@ -172,12 +193,35 @@ protected:
        registry */
     void unregisterFdCallback(int fd);
 
-    std::vector<std::string> emptyMessageQueue()
-    {
-        return queue_.pop_front(0);
-    }
+    std::vector<std::string> emptyMessageQueue();
 
 private:
+    /* Structure holding a write operation */
+    struct AsyncWrite {
+        AsyncWrite()
+            : sent(0)
+        {
+        }
+
+        AsyncWrite(std::string && newMessage,
+                   const OnWriteResult & newOnWriteResult)
+            : message(std::move(newMessage)), sent(0),
+              onWriteResult(newOnWriteResult)
+        {
+        }
+
+        void clear()
+        {
+            message.clear();
+            sent = 0;
+            onWriteResult = nullptr;
+        }
+
+        std::string message;
+        size_t sent;
+        OnWriteResult onWriteResult;
+    };
+
     void performAddFd(int fd, bool readerFd, bool writerFd,
                       bool modify, bool oneshot);
 
@@ -190,8 +234,7 @@ private:
     void handleFdEvent(const ::epoll_event & event);
     void handleReadReady();
     void handleWriteReady();
-    void handleWriteResult(int error,
-                           const std::string & written, size_t writtenSize);
+    void handleWriteResult(int error, AsyncWrite && currentWrite);
     void handleClosing(bool fromPeer);
     void handleException();
 
@@ -209,9 +252,8 @@ private:
     bool writeReady_;
 
     bool queueEnabled_;
-    TypedMessageQueue<std::string> queue_;
-    std::string currentLine_;
-    size_t currentSent_;
+    TypedMessageQueue<AsyncWrite> queue_;
+    AsyncWrite currentWrite_;
 
     uint64_t bytesSent_;
     uint64_t bytesReceived_;

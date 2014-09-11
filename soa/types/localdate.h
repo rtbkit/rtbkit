@@ -8,7 +8,6 @@
 #pragma once
 
 #include <string>
-#include <boost/date_time/posix_time/ptime.hpp>
 
 namespace Datacratic {
 
@@ -35,6 +34,8 @@ private:
                     * changes */
 
     void fillTM(struct tm & time) const;
+    std::string findTimezoneSpec() const;
+
 
     void recomputeTZOffset();
 };

@@ -2481,6 +2481,10 @@ void registerS3Bucket(const std::string & bucketName,
                                        protocol, serviceUri);
     info.api->getEscaped("", "/" + bucketName + "/", 8192);//throws if !accessible
     s3Buckets[bucketName] = info;
+
+    if (accessKeyId.size() > 0 && accessKey.size() > 0) {
+        registerAwsCredentials(accessKeyId, accessKey);
+    }
 }
 
 /** Register S3 with the filter streams API so that a filter_stream can be used to
@@ -2778,7 +2782,23 @@ std::shared_ptr<S3Api> getS3ApiForBucket(const std::string & bucketName)
 
 std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri)
 {
-    return getS3ApiForBucket(S3Api::parseUri(uri).first);
+    Url url(uri);
+
+    string bucketName = url.host();
+    string accessKeyId = url.username();
+    if (accessKeyId.empty()) {
+        return getS3ApiForBucket(bucketName);
+    }
+
+    string accessKey = url.password();
+    if (accessKey.empty()) {
+        accessKey = getAwsAccessKey(accessKeyId);
+    }
+
+    auto api = make_shared<S3Api>(accessKeyId, accessKey);
+    api->getEscaped("", "/" + bucketName + "/", 8192);//throws if !accessible
+
+    return api;
 }
 
 

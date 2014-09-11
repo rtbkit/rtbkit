@@ -26,6 +26,9 @@ namespace RTBKIT {
 using Datacratic::jsonEncode;
 using Datacratic::jsonDecode;
 
+double bankerTimeout = 10.0;
+double bankerSaveAllPeriod = 10.0;
+
 /*****************************************************************************/
 /* REDIS BANKER PERSISTENCE                                                  */
 /*****************************************************************************/
@@ -54,7 +57,7 @@ loadAll(const string & topLevelKey, OnLoadedCallback onLoaded)
 {
     shared_ptr<Accounts> newAccounts;
 
-    Redis::Result result = itl->redis->exec(SMEMBERS("banker:accounts"), 5);
+    Redis::Result result = itl->redis->exec(SMEMBERS("banker:accounts"), bankerTimeout);
     if (!result.ok()) {
         onLoaded(newAccounts, BACKEND_ERROR, result.error());
         return;
@@ -81,7 +84,7 @@ loadAll(const string & topLevelKey, OnLoadedCallback onLoaded)
         fetchCommand.addArg("banker-" + key);
     }
 
-    result = itl->redis->exec(fetchCommand, 5);
+    result = itl->redis->exec(fetchCommand, bankerTimeout);
     if (!result.ok()) {
         onLoaded(newAccounts, BACKEND_ERROR, result.error());
         return;
@@ -256,7 +259,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                          onSaved(BACKEND_ERROR, results.error());
                  };
 
-                 itl->redis->queueMulti(storeCommands, onPhase2Result, 5.0);
+                 itl->redis->queueMulti(storeCommands, onPhase2Result, bankerTimeout);
             }
             else {
                 onSaved(SUCCESS, "");
@@ -269,7 +272,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
         return;
     }
 
-    itl->redis->queue(fetchCommand, onPhase1Result, 5.0);
+    itl->redis->queue(fetchCommand, onPhase1Result, bankerTimeout);
 }
 
 /*****************************************************************************/
@@ -308,7 +311,7 @@ init(const shared_ptr<BankerPersistence> & storage)
 
     loadStateSync();
 
-    addPeriodic("MasterBanker::saveState", 1.0,
+    addPeriodic("MasterBanker::saveState", bankerSaveAllPeriod,
                 bind(&MasterBanker::saveState, this),
                 true /* single threaded */);
 

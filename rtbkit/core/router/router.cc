@@ -6,6 +6,7 @@
 */
 
 #include <set>
+#include <atomic>
 #include "router.h"
 #include "soa/service/zmq_utils.h"
 #include "jml/arch/backtrace.h"
@@ -114,7 +115,8 @@ Router(ServiceBase & parent,
        bool logAuctions,
        bool logBids,
        Amount maxBidAmount,
-       int secondsUntilSlowMode)
+       int secondsUntilSlowMode,
+       Amount slowModeAuthorizedMoneyLimit)
     : ServiceBase(serviceName, parent),
       shutdown_(false),
       postAuctionEndpoint(parent.getServices()),
@@ -145,7 +147,9 @@ Router(ServiceBase & parent,
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
       monitorClient(getZmqContext(), secondsUntilSlowMode),
-      slowModeCount(0),
+      slowModeActive(false),
+      slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
+      accumulatedBidMoneyInThisSecond(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount)
 {
@@ -160,7 +164,8 @@ Router(std::shared_ptr<ServiceProxies> services,
        bool logAuctions,
        bool logBids,
        Amount maxBidAmount,
-       int secondsUntilSlowMode)
+       int secondsUntilSlowMode,
+       Amount slowModeAuthorizedMoneyLimit)
     : ServiceBase(serviceName, services),
       shutdown_(false),
       postAuctionEndpoint(services),
@@ -191,7 +196,9 @@ Router(std::shared_ptr<ServiceProxies> services,
       numAuctionsWithBid(0), numNoPotentialBidders(0),
       numNoBidders(0),
       monitorClient(getZmqContext(), secondsUntilSlowMode),
-      slowModeCount(0),
+      slowModeActive(false),
+      slowModeAuthorizedMoneyLimit(slowModeAuthorizedMoneyLimit),
+      accumulatedBidMoneyInThisSecond(0),
       monitorProviderClient(getZmqContext()),
       maxBidAmount(maxBidAmount)
 {
@@ -204,6 +211,7 @@ initBidderInterface(Json::Value const & json)
 {
     bidder = BidderInterface::create(serviceName() + ".bidder", getServices(), json);
     bidder->init(&bridge, this);
+    bidder->registerLoopMonitor(&loopMonitor);
 }
 
 void
@@ -1402,6 +1410,8 @@ preprocessAuction(const std::shared_ptr<Auction> & auction)
         validGroups.push_back(it->second);
     }
 
+    this->recordLevel(validGroups.size(), "potentialBiddersPerRequest");
+
     if (validGroups.empty()) {
         // Now we need to end the auction
         //inFlight.erase(auctionId);
@@ -1678,6 +1688,8 @@ doStartBidding(const std::shared_ptr<AugmentationInfo> & augInfo)
             // Unwind everything?
         }
 
+        this->recordLevel(auctionInfo.bidders.size(), "bidRequestsSentToBiddersPerRequest");
+
         if (!auctionInfo.bidders.empty()) {
             bidder->sendAuctionMessage(
                     auctionInfo.auction, timeLeftMs, auctionInfo.bidders);
@@ -1937,6 +1949,29 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         // authorize an amount of money computed from the win cost model.
         Amount price = message.wcm.evaluate(bid, bid.price);
 
+        if (!monitorClient.getStatus()) {
+            Date now = Date::now();
+            if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
+                    < (uint32_t) now.secondsSinceEpoch()) {
+                slowModeLastAuction = now;
+                slowModeActive = false;
+                accumulatedBidMoneyInThisSecond = price.value;
+
+                recordHit("monitor.systemInSlowMode"); 
+            }
+
+            else {
+                accumulatedBidMoneyInThisSecond += price.value;
+            }
+
+            if (accumulatedBidMoneyInThisSecond > slowModeAuthorizedMoneyLimit.value) {
+                slowModeActive = true;
+                bidder->sendBidDroppedMessage(agent, auctionInfo.auction);
+                recordHit("slowMode.droppedBid");
+                continue;
+            }
+        }
+
         if (!banker->authorizeBid(config.account, auctionKey, price)
                 || failBid(budgetErrorRate))
         {
@@ -1948,7 +1983,7 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
                     bidsString, message.meta);
             continue;
         }
-
+        
         recordCount(bid.price.value, "cummulatedBidPrice");
         recordCount(price.value, "cummulatedAuthorizedPrice");
 
@@ -2045,6 +2080,8 @@ doBidImpl(const BidMessage &message, const std::vector<std::string> &originalMes
         }
 
     }
+
+    this->recordCount(info.stats->bids, "bidsPerBidRequest");
 
     if (numValidBids > 0) {
         if (logBids)
@@ -2218,7 +2255,7 @@ doSubmitted(std::shared_ptr<Auction> auction)
 
         // If we didn't actually submit a bid then nothing else to do
         if (!hasSubmittedBid) continue;
-
+        this->recordHit("numRequestWithBid");
         ML::atomic_add(numAuctionsWithBid, 1);
         //cerr << fName << "injecting submitted auction " << endl;
 
@@ -2261,20 +2298,10 @@ Router::
 onNewAuction(std::shared_ptr<Auction> auction)
 {
     if (!monitorClient.getStatus()) {
+        // check if slow mode active and in the same second then ignore the Auction
         Date now = Date::now();
-
-        if ((uint32_t) slowModeLastAuction.secondsSinceEpoch()
-            < (uint32_t) now.secondsSinceEpoch()) {
-            slowModeLastAuction = now;
-            slowModeCount = 1;
-            recordHit("monitor.systemInSlowMode");
-        }
-        else {
-            slowModeCount++;
-        }
-
-        if (slowModeCount > 100) {
-            /* we only let the first 100 auctions take place each second */
+        if (slowModeActive && (uint32_t) slowModeLastAuction.secondsSinceEpoch()
+                == (uint32_t) now.secondsSinceEpoch() ) {
             recordHit("monitor.ignoredAuctions");
             auction->finish();
             return;
