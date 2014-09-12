@@ -68,7 +68,7 @@ extern const std::string AccountTypeToString(enum AccountType type);
 
 struct Account {
     Account()
-        : type(AT_NONE), status(CLOSED)
+        : type(AT_NONE), status(ACTIVE)
     {
     }
 
@@ -196,11 +196,7 @@ public:
 
         return result;
     }
-
-    void setClosed() {
-        status = CLOSED;
-    }
-
+    
     /*************************************************************************/
     /* DERIVED QUANTITIES                                                    */
     /*************************************************************************/
@@ -350,12 +346,14 @@ public:
         parentAccount.balance -= fromRecycled;
         recycledIn += fromRecycled;
         balance += fromRecycled;
+        parentAccount.status = ACTIVE;
         
         // Give back to budget
         parentAccount.allocatedOut += fromBudget;
         parentAccount.balance -= fromBudget;
         budgetIncreases += fromBudget;
         balance += fromBudget;
+        status = ACTIVE;
 
         // Give to parent recycled
         parentAccount.recycledIn += toRecycled;
@@ -880,30 +878,10 @@ struct Accounts {
         always transfering from children to parent. If top most account, 
         then throws an error after closing all children first.
     */
-    const Account closeAccount(const AccountKey & account) {
+    const Account closeAccount(const AccountKey & account) 
+    {
         Guard guard(lock);
-        // behavious is to close all children then close its self,
-        // always transfering from children to parent. If top most account,
-        // then throws an error after closing all children first.
-
-        // recuperate from children
-        AccountInfo accountInfo = getAccountImpl(account);
-        
-        // check if there are children accounts,
-        // close each child account. 
-        if (accountInfo.children.size() > 0) {
-            for ( AccountKey child : accountInfo.children) {
-                closeAccount(child);
-            }
-        }
-        
-        // throws error if parent account does not exist.
-        recuperate(account);
-        
-        // set close flag on account.
-        accountInfo.setClosed();
-        
-        return accountInfo; 
+        return closeAccountImpl(account);
     }
 
     void checkInvariants() const
@@ -1202,7 +1180,7 @@ public:
         return result;
     }
 
-private:
+// private:
 
     AccountInfo & ensureAccount(const AccountKey & accountKey,
                                 AccountType type)
@@ -1237,6 +1215,36 @@ private:
             throw ML::Exception("couldn't get account: " + account.toString());
         return it->second;
     }
+
+    const Account closeAccountImpl(const AccountKey & account) {
+        // behavious is to close all children then close its self,
+        // always transfering from children to parent. If top most account,
+        // will be set as closed after closing all children first, 
+        // however without transfering to parent.
+
+        // recuperate from children
+        AccountInfo accountInfo = getAccountImpl(account);
+        
+        // check if there are children accounts,
+        // close each child account. 
+        if (accountInfo.children.size() > 0) {
+            for ( AccountKey child : accountInfo.children) {
+                closeAccountImpl(child);
+                using namespace std;
+            }
+        }
+        
+        // if the account has a parent the tranfer money to it,
+        // if it doesn't then keep it.
+        if (account.size() > 1)
+            getAccountImpl(account).recuperateTo(getParentAccount(account));
+
+        // set close flag on account.
+        getAccountImpl(account).status = Account::CLOSED;
+        
+        return getAccountImpl(account); 
+    }
+
 
     const AccountInfo & getAccountImpl(const AccountKey & account) const
     {

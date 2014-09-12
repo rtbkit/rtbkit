@@ -480,11 +480,18 @@ init(const shared_ptr<BankerPersistence> & storage)
                                                 "Representation of the shadow account"));
     addRouteSyncReturn(account,
                        "/close",
-                       {"PUT", "POST"},
+                       {"GET"},
                        "Close an account and all of its child accounts, "
                        "transfers all remaining balances to parent.",
                        "Account: Representation of the modified account",
-                       [] (const Account & a) { return a.toJson(); },
+                       [] (const std::vector<AccountSummary> & a) { 
+                            Json::Value result(Json::objectValue);
+                            result["account_before_close"] = a[0].toJson();
+                            result["account_after_close"] = a[1].toJson();
+                            result["parent_before_close"] = a[2].toJson();
+                            result["parent_after_close"] = a[3].toJson();
+                            return result;
+                            },
                        &MasterBanker::closeAccount,
                        this,
                        accountKeyParam);
@@ -666,7 +673,7 @@ onCreateAccount(const AccountKey &key, AccountType type)
     return accounts.createAccount(key, type);
 }
 
-const Account
+const std::vector<AccountSummary>
 MasterBanker::
 closeAccount(const AccountKey &key)
 {
@@ -674,8 +681,22 @@ closeAccount(const AccountKey &key)
     JML_TRACE_EXCEPTIONS(false);
     if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
         throw ML::Exception("Error with the backend");
+ 
+    AccountKey parentKey = key;
+    if (key.size() > 1) {
+        parentKey.pop_back();
+    }
 
-    return accounts.closeAccount(key);
+    AccountSummary before = accounts.getAccountSummary(key);
+    AccountSummary beforeParent = accounts.getAccountSummary(parentKey);
+
+    accounts.closeAccount(key);
+    AccountSummary after = accounts.getAccountSummary(key);
+    AccountSummary afterParent = accounts.getAccountSummary(parentKey);
+
+    std::vector<AccountSummary> testClose = {before, after, beforeParent, afterParent};
+//     return accounts.closeAccount(key);
+    return testClose;
 }
 
 const Account

@@ -298,7 +298,7 @@ private:
     const Account setBalance(const AccountKey &key, CurrencyPool amount, AccountType type);
     const Account addAdjustment(const AccountKey &key, CurrencyPool amount);
     const Account syncFromShadow(const AccountKey &key, const ShadowAccount &shadow);
-    const Account closeAccount(const AccountKey &key);
+    const std::vector<AccountSummary> closeAccount(const AccountKey &key);
 };
 
 } // namespace RTBKIT
