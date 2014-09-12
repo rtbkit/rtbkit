@@ -100,6 +100,10 @@ HttpBidderInterface::HttpBidderInterface(std::string serviceName,
     httpClientAdserverEvents.reset(new HttpClient(eventHost, adserverHttpActiveConnections));
     loop.addSource("HttpBidderInterface::httpClientAdserverEvents", httpClientAdserverEvents);
 
+    loop.addPeriodic("HttpBidderInterface::reportQueues", 1.0, [=](uint64_t) {
+        recordLevel(httpClientRouter->queuedRequests(), "queuedRequests");
+    });
+
 }
 
 HttpBidderInterface::~HttpBidderInterface()
