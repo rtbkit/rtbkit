@@ -48,35 +48,56 @@ HttpBidderInterface::HttpBidderInterface(std::string serviceName,
                                          Json::Value const & json)
         : BidderInterface(proxies, serviceName) {
 
+    int routerHttpActiveConnections = 0;
+    int adserverHttpActiveConnections = 0;
+
     try {
-        routerHost = json["router"]["host"].asString();
-        routerPath = json["router"]["path"].asString();
-        adserverHost = json["adserver"]["host"].asString();
-        adserverWinPort = json["adserver"]["winPort"].asInt();
-        adserverEventPort = json["adserver"]["eventPort"].asInt();
+        const auto& router = json["router"];
+        const auto& adserver = json["adserver"];
+
+        routerHost
+            = router["host"].asString();
+        routerPath
+            = router["path"].asString();
+        routerHttpActiveConnections
+            = router.get("httpActiveConnections", 4).asInt();
+
+        adserverHost
+            = adserver["host"].asString();
+        adserverWinPort
+            = adserver["winPort"].asInt();
+        adserverEventPort
+            = adserver["eventPort"].asInt();
+        adserverHttpActiveConnections
+            = adserver.get("httpActiveConnections", 4).asInt();
     } catch (const std::exception & e) {
         THROW(error) << "configuration file is invalid" << std::endl
                    << "usage : " << std::endl
                    << "{" << std::endl << "\t\"router\" : {" << std::endl
                    << "\t\t\"host\" : <string : hostname with port>" << std::endl  
                    << "\t\t\"path\" : <string : resource name>" << std::endl
+                   << "\t\t\"httpActiveConnections\" : <int : concurrent connections>"
+                   << std::endl
+                   << "\t\t"
                    << "\t}" << std::endl << "\t{" << std::endl 
                    << "\t{" << std::endl << "\t\"adserver\" : {" << std::endl
                    << "\t\t\"host\" : <string : hostname>" << std::endl  
                    << "\t\t\"winPort\" : <int : winPort>" << std::endl  
                    << "\t\t\"eventPort\" : <int eventPort>" << std::endl
+                   << "\t\t\"httpActiveConnections\" : <int : concurrent connections>"
+                   << std::endl
                    << "\t}" << std::endl << "}";
     }
 
-    httpClientRouter.reset(new HttpClient(routerHost));
+    httpClientRouter.reset(new HttpClient(routerHost, routerHttpActiveConnections));
     loop.addSource("HttpBidderInterface::httpClientRouter", httpClientRouter);
 
     std::string winHost = adserverHost + ':' + std::to_string(adserverWinPort);
-    httpClientAdserverWins.reset(new HttpClient(winHost));
+    httpClientAdserverWins.reset(new HttpClient(winHost, adserverHttpActiveConnections));
     loop.addSource("HttpBidderInterface::httpClientAdserverWins", httpClientAdserverWins);
 
     std::string eventHost = adserverHost + ':' + std::to_string(adserverEventPort);
-    httpClientAdserverEvents.reset(new HttpClient(eventHost));
+    httpClientAdserverEvents.reset(new HttpClient(eventHost, adserverHttpActiveConnections));
     loop.addSource("HttpBidderInterface::httpClientAdserverEvents", httpClientAdserverEvents);
 
 }
