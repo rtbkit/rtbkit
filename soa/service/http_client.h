@@ -182,6 +182,8 @@ struct HttpClient : public AsyncEventSource {
                               queryParams, headers, timeout);
     }
 
+    size_t queuedRequests() const;
+
     HttpClient & operator = (HttpClient && other) noexcept;
 
 private:
@@ -269,7 +271,7 @@ private:
 
     typedef std::mutex Mutex;
     typedef std::unique_lock<Mutex> Guard;
-    Mutex queueLock_;
+    mutable Mutex queueLock_;
     std::queue<HttpRequest> queue_; /* queued requests */
 };
 

@@ -21,7 +21,16 @@
 #include "http_endpoint.h"
 #include "http_rest_proxy.h"
 
+#include "soa/types/basic_value_descriptions.h"
+#include "soa/types/value_description.h"
+
 namespace Datacratic {
+
+struct S3Config {
+    std::string accessKeyId;
+    std::string accessKey;
+};
+CREATE_STRUCTURE_DESCRIPTION(S3Config);
 
 
 /*****************************************************************************/
@@ -396,38 +405,6 @@ struct S3Api : public AwsApi {
     void downloadToFile(const std::string & uri,
                   const std::string & outfile,
                   ssize_t endOffset = -1) const;
-
-    /** Get a streambuf that will allow a bucket to be streamed through.  If
-        an onChunk is provided, downloaded chunks will also be provided
-        to that method.
-    */
-    std::unique_ptr<std::streambuf>
-    streamingDownload(const std::string & bucket,
-                      const std::string & object,
-                      ssize_t startOffset = 0,
-                      ssize_t endOffset = -1) const;
-
-    /** Get a streambuf that will allow a bucket to be streamed through.  If
-        an onChunk is provided, downloaded chunks will also be provided
-        to that method.
-    */
-    std::unique_ptr<std::streambuf>
-    streamingDownload(const std::string & uri,
-                      ssize_t startOffset = 0,
-                      ssize_t endOffset = -1) const;
-
-    /** Get a streambuf that will write to s3 when written to. */
-    std::unique_ptr<std::streambuf>
-    streamingUpload(const std::string & uri,
-                    const ML::OnUriHandlerException & onException,
-                    const ObjectMetadata & md = ObjectMetadata()) const;
-
-    /** Get a streambuf that will write to s3 when written to. */
-    std::unique_ptr<std::streambuf>
-    streamingUpload(const std::string & bucket,
-                    const std::string & object,
-                    const ML::OnUriHandlerException & onException,
-                    const ObjectMetadata & md = ObjectMetadata()) const;
 
     struct ObjectInfo : public FsObjectInfo {
         ObjectInfo()
