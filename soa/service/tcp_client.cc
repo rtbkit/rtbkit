@@ -25,19 +25,14 @@ using namespace std;
 using namespace Datacratic;
 
 TcpClient::
-TcpClient(OnConnectionResult onConnectionResult,
-          OnClosed onClosed,
-          OnWriteResult onWriteResult,
-          OnReceivedData onReceivedData,
-          OnException onException,
-          size_t maxMessages,
-          size_t recvBufSize)
-    : AsyncWriterSource(onClosed, onWriteResult, onReceivedData,
-                        onException, maxMessages, recvBufSize),
+TcpClient(const OnClosed & onClosed, const OnReceivedData & onReceivedData,
+          const OnException & onException,
+          size_t maxMessages, size_t recvBufSize)
+    : AsyncWriterSource(onClosed, onReceivedData, onException,
+                        maxMessages, recvBufSize),
       port_(-1),
       state_(TcpClientState::Disconnected),
-      noNagle_(false),
-      onConnectionResult_(onConnectionResult)
+      noNagle_(false)
 {
 }
 
@@ -92,7 +87,7 @@ setUseNagle(bool useNagle)
 
 void
 TcpClient::
-connect()
+connect(const OnConnectionResult & onConnectionResult)
 {
     // cerr << "connect...\n";
     ExcCheck(state() == Disconnected, "socket is not closed");
@@ -153,7 +148,7 @@ connect()
                               buffer, sizeof(buffer),
                               &hostentryP, &hErrnoP);
         if (res == -1 || hostentry.h_addr_list == nullptr) {
-            onConnectionResult(ConnectionResult::HostUnknown, {});
+            onConnectionResult(TcpConnectionCode::HostUnknown);
             return;
         }
         addr.sin_family = hostentry.h_addrtype;
@@ -165,13 +160,11 @@ connect()
                     (const struct sockaddr *) &addr, sizeof(sockaddr_in));
     if (res == -1) {
         if (errno != EINPROGRESS) {
-            onConnectionResult(ConnectionResult::ConnectionFailure,
-                               {});
+            onConnectionResult(TcpConnectionCode::ConnectionFailure);
             return;
         }
-        handleConnectionEventCb_
-            = [&, socketFd] (const ::epoll_event & event) {
-            this->handleConnectionEvent(socketFd, event);
+        handleConnectionEventCb_ = [=] (const ::epoll_event & event) {
+            this->handleConnectionEvent(socketFd, onConnectionResult);
         };
         registerFdCallback(socketFd, handleConnectionEventCb_);
         addFdOneShot(socketFd, false, true);
@@ -182,7 +175,7 @@ connect()
     else {
         // cerr << "connection established\n";
         setFd(socketFd);
-        onConnectionResult(ConnectionResult::Success, {});
+        onConnectionResult(TcpConnectionCode::Success);
         state_ = TcpClientState::Connected;
     }
     ML::futex_wake(state_);
@@ -193,7 +186,7 @@ connect()
 
 void
 TcpClient::
-handleConnectionEvent(int socketFd, const ::epoll_event & event)
+handleConnectionEvent(int socketFd, OnConnectionResult onConnectionResult)
 {
     // cerr << "handle connection result\n";
     int32_t result;
@@ -204,26 +197,26 @@ handleConnectionEvent(int socketFd, const ::epoll_event & event)
         throw ML::Exception(errno, "getsockopt");
     }
 
-    ConnectionResult connResult;
+    TcpConnectionCode connCode;
+    vector<string> lostMessages;
     if (result == 0) {
-        connResult = Success;
+        connCode = Success;
     }
     else if (result == ENETUNREACH) {
-        connResult = HostUnknown;
+        connCode = HostUnknown;
     }
     else if (result == ECONNREFUSED
              || result == EHOSTDOWN
              || result == EHOSTUNREACH) {
-        connResult = ConnectionFailure;
+        connCode = ConnectionFailure;
     }
     else {
         throw ML::Exception("unhandled error:" + to_string(result));
     }
 
-    vector<string> lostMessages;
     removeFd(socketFd);
     unregisterFdCallback(socketFd);
-    if (connResult == Success) {
+    if (connCode == Success) {
         errno = 0;
         setFd(socketFd);
         // cerr << "connection successful\n";
@@ -236,14 +229,7 @@ handleConnectionEvent(int socketFd, const ::epoll_event & event)
         lostMessages = emptyMessageQueue();
     }
     ML::futex_wake(state_);
-    onConnectionResult(connResult, lostMessages);
-}
 
-void
-TcpClient::
-onConnectionResult(ConnectionResult result, const vector<string> & msgs)
-{
-    if (onConnectionResult_) {
-        onConnectionResult_(result, msgs);
-    }
+    TcpConnectionResult connResult(connCode, move(lostMessages));
+    onConnectionResult(move(connResult));
 }

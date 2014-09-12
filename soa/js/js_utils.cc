@@ -12,6 +12,7 @@
 #include "jml/arch/exception_internals.h"
 #include "jml/arch/backtrace.h"
 #include "jml/utils/string_functions.h"
+#include "jml/compiler/compiler.h"
 
 using namespace std;
 using namespace v8;
@@ -115,52 +116,27 @@ mapException(const ML::Exception & exc)
 v8::Handle<v8::Value>
 translateCurrentException()
 {
-    using namespace __cxxabiv1;
-    using ML::Exception;
+    if (!std::current_exception()) {
+        throw ML::Exception("no exception");
+    }
 
-    __cxa_eh_globals * exc_globals = __cxa_get_globals();
-    if (!exc_globals)
-        throw Exception("no globals");
-
-    if (!exc_globals->caughtExceptions)
-        throw Exception("no exception");
-        
-    const __cxa_exception & exc = *exc_globals->caughtExceptions;
-
-    void * thr_obj = exc.adjustedPtr;
-    std::type_info * exc_ti = exc.exceptionType;
-
-    if (!exc_ti)
-        throw ML::Exception("translateCurrentException(): "
-                            "no current exception");
-
-    //cerr << "got exception of type" << exc_ti->name() << " at "
-    //     << thr_obj << endl;
-    
-    if (typeid(JSPassException).__do_catch(exc_ti, &thr_obj, 0)) {
-        //cerr << "passing through" << endl;
+    try {
+        throw;
+    }
+    catch(const JSPassException&) {
         return v8::Handle<v8::Value>();
     }
-
-    if (typeid(ML::Exception).__do_catch(exc_ti, &thr_obj, 0)) {
-        //cerr << "it's a ML::exception at " << thr_obj << endl;
-        const ML::Exception & cast
-            = *reinterpret_cast<const ML::Exception *>(thr_obj);
-        return mapException(cast);
+    catch(const ML::Exception& ex) {
+        return mapException(ex);
     }
-
-    if (typeid(std::exception).__do_catch(exc_ti, &thr_obj, 0)) {
-        //cerr << "it's a std::exception at " << thr_obj << endl;
-        const std::exception & cast
-            = *reinterpret_cast<const std::exception *>(thr_obj);
-        return mapException(cast);
+    catch(const std::exception& ex) {
+        return mapException(ex);
     }
-
-    return v8::ThrowException
-        (injectBacktrace
-         (v8::Exception::Error
-          (v8::String::New(("Exception of type "
-                            + demangle(exc_ti->name())).c_str()))));
+    JML_CATCH_ALL {
+        std::string msg = "unknown exception type";
+        auto error = v8::Exception::Error(v8::String::New(msg.c_str()));
+        return v8::ThrowException(injectBacktrace(error));
+    }
 }
 
 void passJsException(const v8::TryCatch & tc);

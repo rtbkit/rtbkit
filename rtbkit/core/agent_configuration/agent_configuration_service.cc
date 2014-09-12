@@ -93,9 +93,13 @@ init()
         {
             //cerr << "agent message " << message << endl;
             const std::string & agent = message.at(2);
-            Json::Value j = Json::parse(message.at(3));
-
-            handleAgentConfig(agent, j);
+            const Json::Value config = Json::parse(message.at(3));
+            if (config.empty()) {
+                handleDeleteConfig(agent);
+            }
+            else {
+                handleAgentConfig(agent, config);
+            }
         };
 
     RestServiceEndpoint::init(getServices()->config, serviceName() + "/rest");

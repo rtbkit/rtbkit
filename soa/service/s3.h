@@ -668,7 +668,6 @@ void registerS3Bucket(const std::string & bucketName,
                       const std::string & protocol = "http",
                       const std::string & serviceUri = "s3.amazonaws.com");
 
-
 /** S3 support for filter_ostream opens.  Register the bucket name here, and
     you can open it directly from s3.  Queries and iterates over all
     buckets within the account.

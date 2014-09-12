@@ -35,6 +35,8 @@ struct Url {
 
     std::string canonical() const;
     std::string scheme() const;
+    std::string username() const;
+    std::string password() const;
     std::string host() const;
     bool hostIsIpAddress() const;
     bool domainMatches(const std::string & str) const;
