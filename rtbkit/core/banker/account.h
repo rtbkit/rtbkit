@@ -144,7 +144,16 @@ public:
         result["adjustmentsOut"] = adjustmentsOut.toJson();
         result["lineItems"] = lineItems.toJson();
         result["adjustmentLineItems"] = adjustmentLineItems.toJson();
-        result["status"] = (int) status;
+        switch (status) {
+        case ACTIVE:
+            result["status"] = "active";
+            break;
+        case CLOSED:
+            result["status"] = "closed";
+            break; 
+        default: 
+            result["status"] = "active";
+        }
         return result;
     }
 
@@ -165,6 +174,19 @@ public:
             result.budgetDecreases = CurrencyPool::fromJson(json["budgetDecreases"]);
             result.adjustmentsOut = CurrencyPool::fromJson(json["adjustmentsOut"]);
         }
+        
+        if (json.isMember("status")) {
+            std::string s = json["status"].asString();
+            if (s == "active") 
+                result.status = ACTIVE;
+            else if (s == "closed")
+                result.status = CLOSED;
+            else
+                result.status = ACTIVE;
+        } else {
+            result.status = ACTIVE;
+        }
+
         result.spent = CurrencyPool::fromJson(json["spent"]);
         result.recycledIn = CurrencyPool::fromJson(json["recycledIn"]);
         result.recycledOut = CurrencyPool::fromJson(json["recycledOut"]);
@@ -177,7 +199,6 @@ public:
         result.adjustmentsIn = CurrencyPool::fromJson(json["adjustmentsIn"]);
         result.lineItems = LineItems::fromJson(json["lineItems"]);
         result.adjustmentLineItems = LineItems::fromJson(json["adjustmentLineItems"]);
-        result.status = (Status) json["status"].asInt();
 
         result.balance = ((result.budgetIncreases
                              + result.recycledIn

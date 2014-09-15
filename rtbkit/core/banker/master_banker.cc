@@ -488,8 +488,13 @@ init(const shared_ptr<BankerPersistence> & storage)
                             Json::Value result(Json::objectValue);
                             result["account_before_close"] = a[0].toJson();
                             result["account_after_close"] = a[1].toJson();
-                            result["parent_before_close"] = a[2].toJson();
-                            result["parent_after_close"] = a[3].toJson();
+                            if (a.size() == 4) {
+                                result["parent_before_close"] = a[2].toJson();
+                                result["parent_after_close"] = a[3].toJson();
+                            } else {
+                                result["parent_before_close"] = "No Parent Account";
+                                result["parent_after_close"] = "No Parent Account";
+                            }
                             return result;
                             },
                        &MasterBanker::closeAccount,
@@ -691,11 +696,17 @@ closeAccount(const AccountKey &key)
     AccountSummary beforeParent = accounts.getAccountSummary(parentKey);
 
     accounts.closeAccount(key);
+    
     AccountSummary after = accounts.getAccountSummary(key);
     AccountSummary afterParent = accounts.getAccountSummary(parentKey);
 
-    std::vector<AccountSummary> testClose = {before, after, beforeParent, afterParent};
-//     return accounts.closeAccount(key);
+    std::vector<AccountSummary> testClose = {before, after};
+    
+    if (key.size() > 1) {
+        testClose.push_back(beforeParent);
+        testClose.push_back(afterParent);
+    }  
+
     return testClose;
 }
 
