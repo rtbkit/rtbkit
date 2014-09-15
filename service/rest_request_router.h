@@ -404,12 +404,16 @@ struct RestRequestRouter {
         objects referred to so that they can be added to the context and made
         available to futher event handlers.
     */
-    typedef std::function<void(RestRequestParsingContext & context)> ExtractObject;
+    typedef std::function<void(const RestServiceEndpoint::ConnectionId & connection,
+                               const RestRequest & request,
+                               RestRequestParsingContext & context)> ExtractObject;
 
     template<typename T>
     static ExtractObject addObject(T * obj)
     {
-        return [=] (RestRequestParsingContext & context)
+        return [=] (const RestServiceEndpoint::ConnectionId & connection,
+                    const RestRequest & request,
+                    RestRequestParsingContext & context)
             {
                 context.addObject(obj);
             };
@@ -419,7 +423,7 @@ struct RestRequestRouter {
         PathSpec path;
         RequestFilter filter;
         std::shared_ptr<RestRequestRouter> router;
-        std::function<void(RestRequestParsingContext & context)> extractObject;
+        ExtractObject extractObject;
 
         bool matchPath(const RestRequest & request,
                        RestRequestParsingContext & context) const;
@@ -476,7 +480,9 @@ struct RestRequestRouter {
     static ExtractObject getExtractObject(T * val,
                                           decltype(std::declval<T *>()->getObject(std::declval<RestRequestParsingContext>())) * = 0)
     {
-        return [=] (RestRequestParsingContext & context) -> int
+        return [=] (const ConnectionId & connection,
+                    const RestRequest & request,
+                    RestRequestParsingContext & context) -> int
             {
                 return val->getObject(context);
             };
