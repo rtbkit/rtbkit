@@ -24,11 +24,12 @@ namespace {
 typedef tuple<HttpClientError, int, string> ClientResponse;
 
 /* sync request helpers */
+template<typename Func>
 ClientResponse
-doGetRequest(MessageLoop & loop,
-             const string & baseUrl, const string & resource,
-             const RestParams & headers = RestParams(),
-             int timeout = -1)
+doRequest(MessageLoop& loop, const string &baseUrl, const string& resource,
+          Func func,
+          const RestParams &headers = RestParams(),
+          int timeout = -1)
 {
     ClientResponse response;
 
@@ -49,26 +50,50 @@ doGetRequest(MessageLoop & loop,
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
     auto client = make_shared<HttpClient>(baseUrl);
+    HttpClient *ptr = client.get();
     loop.addSource("httpClient", client);
     client->waitConnectionState(AsyncEventSource::CONNECTED);
-    if (timeout == -1) {
-        client->get(resource, cbs, RestParams(), headers);
-    }
-    else {
-        client->get(resource, cbs, RestParams(), headers,
-                    timeout);
-    }
+
+#define CALL_MEMBER_FN(object, pointer)  ((object)->*(pointer))
+
+    CALL_MEMBER_FN(ptr, func)(resource, cbs, RestParams(), headers,
+                timeout);
 
     while (!done) {
         int oldDone = done;
         ML::futex_wait(done, oldDone);
     }
 
-    loop.removeSource(client.get());
+    loop.removeSource(ptr);
     client->waitConnectionState(AsyncEventSource::DISCONNECTED);
 
     return response;
 }
+
+ClientResponse
+doGetRequest(MessageLoop & loop,
+             const string & baseUrl, const string & resource,
+             const RestParams & headers = RestParams(),
+             int timeout = -1)
+{
+    return doRequest(loop, baseUrl, resource,
+              &HttpClient::get,
+              headers,
+              timeout);
+}
+
+ClientResponse
+doDeleteRequest(MessageLoop & loop,
+               const string & baseUrl, const string & resource,
+               const RestParams & headers = RestParams(),
+               int timeout = -1)
+{
+    return doRequest(loop, baseUrl, resource,
+              &HttpClient::del,
+              headers,
+              timeout);
+}
+
 
 ClientResponse
 doUploadRequest(MessageLoop & loop,
@@ -262,6 +287,27 @@ BOOST_AUTO_TEST_CASE( test_http_client_put )
     BOOST_CHECK_EQUAL(jsonBody["type"], "application/x-nothing");
 }
 #endif
+
+BOOST_AUTO_TEST_CASE( http_test_client_delete )
+{
+    cerr << "client_delete" << endl;
+    ML::Watchdog watchdog(10);
+
+    auto proxies = make_shared<ServiceProxies>();
+    HttpGetService service(proxies);
+
+    service.addResponse("DELETE", "/deleteMe", 200, "Deleted");
+    service.start();
+
+    MessageLoop loop;
+    loop.start();
+
+    string baseUrl("http://127.0.0.1:" + to_string(service.port()));
+    auto resp = doDeleteRequest(loop, baseUrl, "/deleteMe", {}, 1);
+
+    BOOST_CHECK_EQUAL(get<0>(resp), HttpClientError::None);
+    BOOST_CHECK_EQUAL(get<1>(resp), 200);
+}
 
 #if 1
 /* Ensures that all requests are correctly performed under load.
