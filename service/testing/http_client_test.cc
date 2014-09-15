@@ -23,6 +23,8 @@ namespace {
 
 typedef tuple<HttpClientError, int, string> ClientResponse;
 
+#define CALL_MEMBER_FN(object, pointer)  ((object)->*(pointer))
+
 /* sync request helpers */
 template<typename Func>
 ClientResponse
@@ -53,8 +55,6 @@ doRequest(MessageLoop& loop, const string &baseUrl, const string& resource,
     HttpClient *ptr = client.get();
     loop.addSource("httpClient", client);
     client->waitConnectionState(AsyncEventSource::CONNECTED);
-
-#define CALL_MEMBER_FN(object, pointer)  ((object)->*(pointer))
 
     CALL_MEMBER_FN(ptr, func)(resource, cbs, RestParams(), headers,
                 timeout);
