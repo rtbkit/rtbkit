@@ -1201,7 +1201,7 @@ public:
         return result;
     }
 
-// private:
+private:
 
     AccountInfo & ensureAccount(const AccountKey & accountKey,
                                 AccountType type)
