@@ -126,7 +126,7 @@ NsqClient::
 forceWrite(string data)
 {
     bool paused(false);
-    while (!write(move(data))) {
+    while (!write(move(data), nullptr)) {
         if (!paused) {
             paused = true;
             ::fprintf(stderr, "queue is full (%s)...\n", data.c_str());
@@ -214,30 +214,33 @@ onMessage(Date ts, uint16_t attempts,
     }
 }
 
-ConnectionResult
+TcpConnectionResult
 NsqClient::
 connectSync()
 {
-    connecting_ = true;
-    TcpClient::connect();
-    while (connecting_) {
-        int old = connecting_;
-        ML::futex_wait(connecting_, old);
-    }
-    if (connectionResult_ == ConnectionResult::Success) {
-        forceWrite("  V2");
-    }
-    return connectionResult_;
-}
+    TcpConnectionResult result;
 
-void
-NsqClient::
-onConnectionResult(ConnectionResult result,
-                   const vector<string> & msgs)
-{
-    connectionResult_ = result;
-    connecting_ = false;
-    ML::futex_wake(connecting_);
+    int connected(false);
+    ML::memory_barrier();
+
+    auto onConnectionResult = [&, this] (TcpConnectionResult newResult) {
+        if (newResult.code == TcpConnectionCode::Success) {
+            forceWrite("  V2");
+        }
+        result = move(newResult);
+        ML::memory_barrier();
+        connected = true;
+        ML::futex_wake(connected);
+    };
+    cerr << "connectSync start: " << this << endl;
+    connect(onConnectionResult);
+
+    while (!connected) {
+        int old = connected;
+        ML::futex_wait(connected, old);
+    }
+
+    return result;
 }
 
 void

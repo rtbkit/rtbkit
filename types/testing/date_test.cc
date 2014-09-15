@@ -137,6 +137,16 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
         expected = "2012-Dec-20 14:57:57.1234567";
         BOOST_CHECK_EQUAL(date.print(7), expected);
     }
+
+    /* negative seconds */
+    {
+        string dt = "1969-12-31T23:59:58.984375";
+        date = Date::parseIso8601DateTime(dt);
+        double result = date.secondsSinceEpoch();
+
+        /* 0.015625 = 1/2 + 1/4 + ... + 1/64 */
+        BOOST_CHECK_EQUAL(result, -1.015625);
+    }
 }
 
 #if 0
@@ -490,6 +500,13 @@ BOOST_AUTO_TEST_CASE( test_printIso8601 )
     BOOST_CHECK_EQUAL(result, expected);
 
     expected = "2012-09-19T21:16:40.416978Z";
+    result = testDate.printIso8601(6);
+    BOOST_CHECK_EQUAL(result, expected);
+
+    /* ensure that negative seconds do not append a extra digit to the number
+     * of seconds */
+    testDate = Date::fromSecondsSinceEpoch(-60);
+    expected = "1969-12-31T23:59:00.000000Z";
     result = testDate.printIso8601(6);
     BOOST_CHECK_EQUAL(result, expected);
 }

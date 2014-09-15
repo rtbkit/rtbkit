@@ -283,10 +283,10 @@ struct ConfigurationService {
     static std::pair<std::string, std::string>
     splitPath(const std::string & path);
 
-    /** Store the current hostname and location
+    /** Store the current installation and location
      */
 
-    std::string currentHostname;
+    std::string currentInstallation;
     std::string currentLocation;
 };
 

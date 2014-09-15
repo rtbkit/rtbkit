@@ -21,10 +21,8 @@ using namespace Datacratic;
 
 
 struct WriterSource : public AsyncWriterSource {
-    WriterSource(int fd, const OnWriteResult & onWriteResult,
-                 size_t maxMessages)
-        : AsyncWriterSource(nullptr, onWriteResult, nullptr, nullptr,
-                            maxMessages, 0)
+    WriterSource(int fd, size_t maxMessages)
+        : AsyncWriterSource(nullptr, nullptr, nullptr, maxMessages, 0)
     {
         setFd(fd);
         enableQueue();
@@ -34,8 +32,7 @@ struct WriterSource : public AsyncWriterSource {
 struct ReaderSource : public AsyncWriterSource {
     ReaderSource(int fd, const OnReceivedData & onReaderData,
                  size_t readBufferSize)
-        : AsyncWriterSource(nullptr, nullptr, onReaderData, nullptr,
-                            0, readBufferSize)
+        : AsyncWriterSource(nullptr, onReaderData, nullptr, 0, readBufferSize)
     {
         setFd(fd);
     }
@@ -133,10 +130,8 @@ void doBench(const string & label,
     int numWriteResults(0);
     int numWritten(0);
     int numMissed(0);
-    auto onWriteResult = [&] (int error,
-                              const std::string & written,
-                              size_t writtenSize) {
-        if (error != 0) {
+    auto onWriteResult = [&] (AsyncWriteResult result) {
+        if (result.error != 0) {
             throw ML::Exception("write error");
         }
         numWriteResults++;
@@ -146,7 +141,7 @@ void doBench(const string & label,
         }
     };
 
-    auto writer = make_shared<WriterSource>(writerFd, onWriteResult, 1000);
+    auto writer = make_shared<WriterSource>(writerFd, 1000);
     writerLoop.addSource("writer", writer);
 
     /* reader setup */
@@ -169,7 +164,7 @@ void doBench(const string & label,
     Date start = Date::now();
     ML::memory_barrier();
     for (numWritten = 0 ; numWritten < numMessages;) {
-        if (writer->write(message)) {
+        if (writer->write(message, onWriteResult)) {
             numWritten++;
         }
         else {

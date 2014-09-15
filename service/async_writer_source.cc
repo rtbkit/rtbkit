@@ -21,7 +21,6 @@ using namespace Datacratic;
 
 AsyncWriterSource::
 AsyncWriterSource(const OnClosed & onClosed,
-                  const OnWriteResult & onWriteResult,
                   const OnReceivedData & onReceivedData,
                   const OnException & onException,
                   size_t maxMessages,
@@ -36,12 +35,10 @@ AsyncWriterSource(const OnClosed & onClosed,
       queueEnabled_(false),
       queue_([&] { this->handleQueueNotification(); },
              maxMessages),
-      currentSent_(0),
       bytesSent_(0),
       bytesReceived_(0),
       msgsSent_(0),
       onClosed_(onClosed),
-      onWriteResult_(onWriteResult),
       onReceivedData_(onReceivedData),
       onException_(onException)
 {
@@ -106,7 +103,7 @@ closeEpollFd()
 
 bool
 AsyncWriterSource::
-write(string data)
+write(string data, const OnWriteResult & onWriteResult)
 {
     ExcAssert(!closing_);
     ExcAssert(queueEnabled_);
@@ -115,7 +112,7 @@ write(string data)
 
     if (queueEnabled()) {
         ExcCheck(data.size() > 0, "attempting to write empty data");
-        result = queue_.push_back(move(data));
+        result = queue_.push_back(AsyncWrite(move(data), onWriteResult));
     }
     else {
         throw ML::Exception("cannot write while queue is disabled");
@@ -167,10 +164,16 @@ handleWriteReady()
 
 void
 AsyncWriterSource::
-handleWriteResult(int error,
-                  const string & written, size_t writtenSize)
+handleWriteResult(int error, AsyncWrite && currentWrite)
 {
-    onWriteResult(error, written, writtenSize);
+    if (currentWrite.onWriteResult) {
+        currentWrite.onWriteResult(
+            AsyncWriteResult(error,
+                             move(currentWrite.message),
+                             currentWrite.sent)
+        );
+    }
+    currentWrite.clear();
 }
 
 void
@@ -186,16 +189,6 @@ onClosed(bool fromPeer, const vector<string> & msgs)
 {
     if (onClosed_) {
         onClosed_(fromPeer, msgs);
-    }
-}
-
-void
-AsyncWriterSource::
-onWriteResult(int error,
-              const string & written, size_t writtenSize)
-{
-    if (onWriteResult_) {
-        onWriteResult_(error, written, writtenSize);
     }
 }
 
@@ -227,7 +220,7 @@ requestClose()
     if (queueEnabled()) {
         disableQueue();
         closing_ = true;
-        queue_.push_back("");
+        queue_.push_back(AsyncWrite("", nullptr));
     }
     else {
         throw ML::Exception("already closed/ing\n");
@@ -284,52 +277,50 @@ flush()
         return;
     }
 
-    auto popLine = [&] () {
+    auto popWrite = [&] () {
         if (queue_.size() == 0) {
             return false;
         }
-        auto lines = queue_.pop_front(1);
-        ExcAssert(lines.size() > 0);
-        currentLine_ = move(lines[0]);
-        currentSent_ = 0;
+        auto writes = queue_.pop_front(1);
+        ExcAssert(writes.size() > 0);
+        currentWrite_ = move(writes[0]);
         return true;
     };
 
-    if (currentLine_.size() == 0) {
-        if (!popLine()) {
+    if (currentWrite_.message.empty()) {
+        if (!popWrite()) {
             return;
         }
-        if (currentLine_.empty()) {
+        if (currentWrite_.message.empty()) {
             ExcAssert(closing_);
             closeFd();
             return;
         }
     }
 
-    ssize_t remaining(currentLine_.size() - currentSent_);
+    ssize_t remaining(currentWrite_.message.size() - currentWrite_.sent);
 
     errno = 0;
 
     while (true) {
-        const char * data = currentLine_.c_str() + currentSent_;
+        const char * data = currentWrite_.message.c_str() + currentWrite_.sent;
         ssize_t len = ::write(fd_, data, remaining);
         if (len > 0) {
-            currentSent_ += len;
+            currentWrite_.sent += len;
             remaining -= len;
             bytesSent_ += len;
             if (remaining == 0) {
                 msgsSent_++;
-                handleWriteResult(0, currentLine_, currentLine_.size());
-                if (!popLine()) {
-                    currentLine_.clear();
+                handleWriteResult(0, move(currentWrite_));
+                if (!popWrite()) {
                     break;
                 }
-                if (currentLine_.empty()) {
+                if (currentWrite_.message.empty()) {
                     ExcAssert(closing_);
                     closeFd();
                     break;
                 }
-                remaining = currentLine_.size();
+                remaining = currentWrite_.message.size();
             }
         }
         else if (len < 0) {
@@ -337,8 +328,7 @@ flush()
             if (errno == EWOULDBLOCK || errno == EAGAIN) {
                 break;
             }
-            handleWriteResult(errno, currentLine_, currentSent_);
-            currentLine_.clear();
+            handleWriteResult(errno, move(currentWrite_));
             if (errno == EPIPE || errno == EBADF) {
                 handleClosing(true);
                 break;
@@ -386,7 +376,7 @@ handleClosing(bool fromPeer)
         fd_ = -1;
         writeReady_ = false;
 
-        vector<string> lostMessages = queue_.pop_front(0);
+        vector<string> lostMessages = emptyMessageQueue();
         onClosed(fromPeer, lostMessages);
     }
 }
@@ -473,5 +463,12 @@ std::vector<std::string>
 AsyncWriterSource::
 emptyMessageQueue()
 {
-    return queue_.pop_front(0);
+    std::vector<std::string> messages;
+
+    auto writes = queue_.pop_front(0);
+    for (auto & write: writes) {
+        messages.emplace_back(move(write.message));
+    }
+
+    return messages;
 }
