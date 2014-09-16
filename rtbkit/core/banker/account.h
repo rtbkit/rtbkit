@@ -895,7 +895,7 @@ struct Accounts {
         return getAccountImpl(account);
     }
     
-    /** closeAccount behavious is to close all children then close itself,
+    /** closeAccount behavior is to close all children then close itself,
         always transfering from children to parent. If top most account, 
         then throws an error after closing all children first.
     */
@@ -1237,17 +1237,10 @@ private:
         return it->second;
     }
 
-    const Account closeAccountImpl(const AccountKey & account) {
-        // behavious is to close all children then close its self,
-        // always transfering from children to parent. If top most account,
-        // will be set as closed after closing all children first, 
-        // however without transfering to parent.
-
-        // recuperate from children
+    const Account closeAccountImpl(const AccountKey & account) 
+    {
         AccountInfo accountInfo = getAccountImpl(account);
         
-        // check if there are children accounts,
-        // close each child account. 
         if (accountInfo.children.size() > 0) {
             for ( AccountKey child : accountInfo.children) {
                 closeAccountImpl(child);
@@ -1255,12 +1248,9 @@ private:
             }
         }
         
-        // if the account has a parent the tranfer money to it,
-        // if it doesn't then keep it.
         if (account.size() > 1)
             getAccountImpl(account).recuperateTo(getParentAccount(account));
 
-        // set close flag on account.
         getAccountImpl(account).status = Account::CLOSED;
         
         return getAccountImpl(account); 
