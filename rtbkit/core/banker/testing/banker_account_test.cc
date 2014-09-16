@@ -284,7 +284,6 @@ BOOST_AUTO_TEST_CASE( test_account_close )
     BOOST_CHECK_EQUAL(accounts.getBalance(spend2), USD(1));
     BOOST_CHECK_EQUAL(accounts.getBalance(spend3), USD(1));
     
-    cerr << "about to closeAccount" << endl;
     accounts.closeAccount(strategy);
 
     BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(8));
@@ -312,6 +311,71 @@ BOOST_AUTO_TEST_CASE( test_account_close )
     
     BOOST_CHECK_EQUAL(accounts.getAccount(campaign).status, Account::ACTIVE);
     BOOST_CHECK_EQUAL(accounts.getAccount(strategy).status, Account::ACTIVE);
+
+}
+
+
+BOOST_AUTO_TEST_CASE( test_account_close_with_spend )
+{
+    Accounts accounts;
+
+    AccountKey campaign("campaign");
+    AccountKey strategy("campaign:strategy");
+    AccountKey spend("campaign:strategy:spend");
+
+    accounts.createBudgetAccount(campaign);
+    accounts.createBudgetAccount(strategy);
+    accounts.createSpendAccount(spend);
+
+    ShadowAccounts shadow; 
+
+    // Top level budget of $10
+    accounts.setBudget(campaign, USD(10));
+
+    // Make $2 available in the strategy account
+    accounts.setBalance(strategy, USD(4), AT_NONE);
+    
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(6));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(4));
+
+    accounts.setBalance(spend, USD(2), AT_NONE);
+
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(6));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(2));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(2));
+
+    // Bid on an ad
+    shadow.activateAccount(spend);
+    shadow.syncFrom(accounts);
+ 
+    bool auth = shadow.authorizeBid(spend, "ad1", USD(1));
+    BOOST_CHECK_EQUAL(auth, true);
+
+    shadow.commitBid(spend, "ad1", USD(1), LineItems());
+
+    shadow.syncTo(accounts);
+    
+    cerr << "before close account" << endl;
+    cerr << accounts.getAccountSummary(campaign) << endl;
+    cerr << accounts.getAccount(campaign) << endl;
+    cerr << accounts.getAccount(strategy) << endl;
+    cerr << accounts.getAccount(spend) << endl;
+
+    accounts.closeAccount(campaign);
+    
+    cerr << "after close account" << endl;
+    cerr << accounts.getAccountSummary(campaign) << endl;
+    cerr << accounts.getAccount(campaign) << endl;
+    cerr << accounts.getAccount(strategy) << endl;
+    cerr << accounts.getAccount(spend) << endl;
+
+    BOOST_CHECK_EQUAL(accounts.getBalance(campaign), USD(9));
+    BOOST_CHECK_EQUAL(accounts.getBalance(strategy), USD(0));
+    BOOST_CHECK_EQUAL(accounts.getBalance(spend), USD(0));
+
+    // check if accounts are closed.
+    BOOST_CHECK_EQUAL(accounts.getAccount(campaign).status, Account::CLOSED);
+    BOOST_CHECK_EQUAL(accounts.getAccount(strategy).status, Account::CLOSED);
 
 }
 
