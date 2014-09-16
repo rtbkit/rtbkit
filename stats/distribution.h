@@ -52,6 +52,11 @@ class distribution : public Underlying {
 public:
     distribution() {}
 
+    distribution(std::initializer_list<F> list)
+        : parent(std::move(list))
+    {
+    }
+
     explicit distribution(size_t size, F val = F())
         : parent(size, val)
     {
