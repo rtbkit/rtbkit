@@ -222,6 +222,11 @@ struct RestServiceEndpoint: public MessageLoop {
         }
 
         void sendErrorResponse(int responseCode, const Json::Value & error) const;
+
+        bool responseSent() const
+        {
+            return itl->responseSent;
+        }
     };
 
     void init(std::shared_ptr<ConfigurationService> config,

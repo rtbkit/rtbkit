@@ -247,7 +247,10 @@ process(const RestRequest & request,
         return MR_NO;
 
     if (extractObject)
-        extractObject(context);
+        extractObject(connection, request, context);
+
+    if (connection.responseSent())
+        return MR_YES;
 
     return router->processRequest(connection, request, context);
 }

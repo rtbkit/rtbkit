@@ -403,13 +403,47 @@ struct RestRequestRouter {
     /** Type of a function that is called by the route after matching to extract any
         objects referred to so that they can be added to the context and made
         available to futher event handlers.
+        
+        Sample usage:
+        
+        // Verify that the given subject is indeed present in the behaviour domain
+        auto verifySubject = [=] (const RestServiceEndpoint::ConnectionId & connection,
+                                  const RestRequest & request,
+                                  RestRequestParsingContext & context)
+        {
+            // Grab the dataset, which was matched previously with an addObject
+            Dataset & dataset = context.getObjectAs<Dataset>();
+
+            // Find the subject we just parsed from the path
+            string subject = context.resources.back();
+
+            SubjectId sid = SubjectId::fromString(subject);
+
+            bool exists = dataset.knownSubject(sid);
+
+            if (!exists && request.verb != "PUT") {
+                Json::Value error;
+                error["error"] = "subject '" + subject + "' doesn't exist in dataset";
+                connection.sendResponse(404, error);
+            }
+        };
+
+        auto & subject
+            = subjects.addSubRouter(Rx("/([^/]*)", "/<subject>"),
+                                    "operations on an individual subject",
+                                    verifySubject);
     */
-    typedef std::function<void(RestRequestParsingContext & context)> ExtractObject;
+    
+    typedef std::function<void(const RestServiceEndpoint::ConnectionId & connection,
+                               const RestRequest & request,
+                               RestRequestParsingContext & context)> ExtractObject;
 
     template<typename T>
     static ExtractObject addObject(T * obj)
     {
-        return [=] (RestRequestParsingContext & context)
+        return [=] (const RestServiceEndpoint::ConnectionId & connection,
+                    const RestRequest & request,
+                    RestRequestParsingContext & context)
             {
                 context.addObject(obj);
             };
@@ -419,7 +453,7 @@ struct RestRequestRouter {
         PathSpec path;
         RequestFilter filter;
         std::shared_ptr<RestRequestRouter> router;
-        std::function<void(RestRequestParsingContext & context)> extractObject;
+        ExtractObject extractObject;
 
         bool matchPath(const RestRequest & request,
                        RestRequestParsingContext & context) const;
@@ -476,7 +510,9 @@ struct RestRequestRouter {
     static ExtractObject getExtractObject(T * val,
                                           decltype(std::declval<T *>()->getObject(std::declval<RestRequestParsingContext>())) * = 0)
     {
-        return [=] (RestRequestParsingContext & context) -> int
+        return [=] (const ConnectionId & connection,
+                    const RestRequest & request,
+                    RestRequestParsingContext & context) -> int
             {
                 return val->getObject(context);
             };
