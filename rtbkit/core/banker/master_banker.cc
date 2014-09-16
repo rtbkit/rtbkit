@@ -26,7 +26,6 @@ namespace RTBKIT {
 using Datacratic::jsonEncode;
 using Datacratic::jsonDecode;
 
-double bankerTimeout = 10.0;
 double bankerSaveAllPeriod = 10.0;
 
 Logging::Category MasterBanker::print("MasterBanker");
@@ -44,20 +43,24 @@ Logging::Category BankerPersistence::error("BankerPersistence Error", BankerPers
 
 struct RedisBankerPersistence::Itl {
     shared_ptr<Redis::AsyncConnection> redis;
+
+    int timeout;
 };
 
 RedisBankerPersistence::
-RedisBankerPersistence(const Redis::Address & redis)
+RedisBankerPersistence(const Redis::Address & redis, int timeout)
 {
     itl = make_shared<Itl>();
     itl->redis = make_shared<Redis::AsyncConnection>(redis);
+    itl->timeout = timeout;
 }
 
 RedisBankerPersistence::
-RedisBankerPersistence(shared_ptr<Redis::AsyncConnection> redis)
+RedisBankerPersistence(shared_ptr<Redis::AsyncConnection> redis, int timeout)
 {
     itl = make_shared<Itl>();
     itl->redis = redis;
+    itl->timeout = timeout;
 }
 
 void
@@ -66,7 +69,7 @@ loadAll(const string & topLevelKey, OnLoadedCallback onLoaded)
 {
     shared_ptr<Accounts> newAccounts;
 
-    Redis::Result result = itl->redis->exec(SMEMBERS("banker:accounts"), bankerTimeout);
+    Redis::Result result = itl->redis->exec(SMEMBERS("banker:accounts"), itl->timeout);
     if (!result.ok()) {
         onLoaded(newAccounts, BACKEND_ERROR, result.error());
         return;
@@ -93,7 +96,7 @@ loadAll(const string & topLevelKey, OnLoadedCallback onLoaded)
         fetchCommand.addArg("banker-" + key);
     }
 
-    result = itl->redis->exec(fetchCommand, bankerTimeout);
+    result = itl->redis->exec(fetchCommand, itl->timeout);
     if (!result.ok()) {
         onLoaded(newAccounts, BACKEND_ERROR, result.error());
         return;
@@ -303,7 +306,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                      }
                  };
 
-                 itl->redis->queueMulti(storeCommands, onPhase2Result, bankerTimeout);
+                 itl->redis->queueMulti(storeCommands, onPhase2Result, itl->timeout);
             }
             else {
                 saveResult.status = SUCCESS;
@@ -322,7 +325,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
         return;
     }
 
-    itl->redis->queue(fetchCommand, onPhase1Result, bankerTimeout);
+    itl->redis->queue(fetchCommand, onPhase1Result, itl->timeout);
 }
 
 /*****************************************************************************/
@@ -355,13 +358,13 @@ MasterBanker::
 
 void
 MasterBanker::
-init(const shared_ptr<BankerPersistence> & storage)
+init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
 {
     this->storage_ = storage;
 
     loadStateSync();
 
-    addPeriodic("MasterBanker::saveState", bankerSaveAllPeriod,
+    addPeriodic("MasterBanker::saveState", saveInterval,
                 bind(&MasterBanker::saveState, this),
                 true /* single threaded */);
 

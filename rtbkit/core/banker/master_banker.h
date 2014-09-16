@@ -35,6 +35,11 @@ inline std::string restEncode(const AccountKey & val)
     return val.toString();
 }
 
+namespace Default {
+    static constexpr int RedisTimeout = 10;
+    static constexpr double SaveInterval = 10.0;
+}
+
 
 /*****************************************************************************/
 /* REAL BANKER                                                               */
@@ -221,8 +226,10 @@ struct NoBankerPersistence : public BankerPersistence {
 /*****************************************************************************/
 
 struct RedisBankerPersistence : public BankerPersistence {
-    RedisBankerPersistence(const Redis::Address & redis);
-    RedisBankerPersistence(std::shared_ptr<Redis::AsyncConnection> redis);
+    RedisBankerPersistence(
+            const Redis::Address & redis, int timeout = Default::RedisTimeout);
+    RedisBankerPersistence(
+            std::shared_ptr<Redis::AsyncConnection> redis, int timeout = Default::RedisTimeout);
 
     struct Itl;
     std::shared_ptr<Itl> itl;
@@ -266,7 +273,8 @@ struct MasterBanker
 
     std::shared_ptr<BankerPersistence> storage_;
 
-    void init(const std::shared_ptr<BankerPersistence> & storage);
+    void init(const std::shared_ptr<BankerPersistence> & storage,
+              double saveInterval = Default::SaveInterval);
     void start();
     std::pair<std::string, std::string> bindTcp();
 
