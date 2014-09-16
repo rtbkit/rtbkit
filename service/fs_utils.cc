@@ -70,6 +70,9 @@ struct LocalUrlFsHandler : public UrlFsHandler {
         // cerr << "fs info on path: " + path + "\n";
         int res = ::stat(path.c_str(), &stats);
         if (res == -1) {
+            if (errno == ENOENT) {
+                return FsObjectInfo();
+            }
             throw ML::Exception(errno, "stat");
         }
 
