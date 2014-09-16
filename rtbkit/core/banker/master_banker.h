@@ -330,7 +330,7 @@ private:
     const Account addAdjustment(const AccountKey &key, CurrencyPool amount);
     const Account syncFromShadow(const AccountKey &key, const ShadowAccount &shadow);
 
-    void recordLatencies(const std::string& category,
+    void reportLatencies(const std::string& category,
                          const BankerPersistence::LatencyMap& latencies) const;
 
 };

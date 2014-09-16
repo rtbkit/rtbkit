@@ -611,7 +611,7 @@ onStateSaved(const BankerPersistence::Result& result,
 
     lastSaveStatus = result.status;
 
-    recordLatencies("save", result.latencies);
+    reportLatencies("save state", result.latencies);
     saving = false;
     ML::futex_wake(saving);
 }
@@ -742,12 +742,16 @@ syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
 
 void
 MasterBanker::
-recordLatencies(const std::string &category,
+reportLatencies(const std::string &category,
                 const BankerPersistence::LatencyMap& latencies) const
 {
+    std::stringstream ss;
+    ss << "Latency report for " << category << std::endl;
     for (const auto& latency: latencies) {
-        recordOutcome(latency.second, "persistence.%s.%s", category, latency.first);
+        ss << "- " << latency.first << ": " << latency.second << std::endl;
     }
+
+    LOG(trace) << ss.str() << std::endl;
 }
 
 
