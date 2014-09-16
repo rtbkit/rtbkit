@@ -149,16 +149,35 @@ struct BankerPersistence {
         DATA_INCONSISTENCY   /* info = json array of account keys */
     };
 
+    typedef std::map<std::string, uint64_t> LatencyMap;
+
+    struct Result {
+        PersistenceCallbackStatus status;
+        LatencyMap latencies;
+
+        Result() { }
+        Result(PersistenceCallbackStatus cbStatus) : status(cbStatus) { }
+
+        void recordLatency(const std::string &key, uint64_t latency) {
+            latencies.insert(std::make_pair(key, latency));
+        }
+    };
+
     virtual ~BankerPersistence()
     {
     }
+
+
+    static Logging::Category print;
+    static Logging::Category trace;
+    static Logging::Category error;
 
     /* callback types */
     typedef std::function<void (std::shared_ptr<Accounts>,
                                 PersistenceCallbackStatus,
                                 const std::string & info)>
         OnLoadedCallback;
-    typedef std::function<void (PersistenceCallbackStatus,
+    typedef std::function<void (const Result& result,
                                 const std::string & info)>
         OnSavedCallback;
 
@@ -192,7 +211,7 @@ struct NoBankerPersistence : public BankerPersistence {
     virtual void
     saveAll(const Accounts & toSave, OnSavedCallback onDone)
     {
-        onDone(SUCCESS, "");
+        onDone(Result { SUCCESS }, "");
     }
 
 };
@@ -284,13 +303,17 @@ struct MasterBanker
     void loadStateSync();
 
     void onStateLoaded(std::shared_ptr<Accounts> newAccounts,
-                       BankerPersistence::PersistenceCallbackStatus status,
+                       const BankerPersistence::Result& result,
                        const std::string & info);
-    void onStateSaved(BankerPersistence::PersistenceCallbackStatus status,
+    void onStateSaved(const BankerPersistence::Result& result,
                       const std::string & info);
 
     Date lastWin;
     Date lastImpression;
+
+    static Logging::Category print;
+    static Logging::Category trace;
+    static Logging::Category error;
 
 private:
     const Account onCreateAccount(const AccountKey &account, AccountType type);
@@ -298,6 +321,9 @@ private:
     const Account setBalance(const AccountKey &key, CurrencyPool amount, AccountType type);
     const Account addAdjustment(const AccountKey &key, CurrencyPool amount);
     const Account syncFromShadow(const AccountKey &key, const ShadowAccount &shadow);
+
+    void recordLatencies(const std::string& category,
+                         const BankerPersistence::LatencyMap& latencies) const;
 
 };
 

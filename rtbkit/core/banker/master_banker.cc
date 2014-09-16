@@ -29,6 +29,15 @@ using Datacratic::jsonDecode;
 double bankerTimeout = 10.0;
 double bankerSaveAllPeriod = 10.0;
 
+Logging::Category MasterBanker::print("MasterBanker");
+Logging::Category MasterBanker::trace("MasterBanker Trace", MasterBanker::print);
+Logging::Category MasterBanker::error("MasterBanker Error", MasterBanker::print);
+
+Logging::Category BankerPersistence::print("BankerPersistence");
+Logging::Category BankerPersistence::trace("BankerPersistence Trace", BankerPersistence::print);
+Logging::Category BankerPersistence::error("BankerPersistence Error", BankerPersistence::print);
+
+
 /*****************************************************************************/
 /* REDIS BANKER PERSISTENCE                                                  */
 /*****************************************************************************/
@@ -119,9 +128,14 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
     // present and deal with keys that should be zeroed out.  We can also
     // detect if we have a synchronization error and bail out.
 
+    const Date begin = Date::now();
     vector<string> keys;
 
     Redis::Command fetchCommand(MGET);
+
+    auto latencyBetween = [](const Date& lhs, const Date& rhs) {
+        return rhs.secondsSince(lhs) * 1000;
+    };
 
     /* fetch all account keys and values from storage */
     auto onAccount = [&] (const AccountKey & key,
@@ -133,10 +147,22 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
         };
     toSave.forEachAccount(onAccount);
 
+    const Date beforePhase1Time = Date::now();
     auto onPhase1Result = [=] (const Redis::Result & result)
         {
+            BankerPersistence::Result saveResult;
+
+            const Date afterPhase1Time = Date::now();
+            saveResult.recordLatency(
+                    "phase1TimeMs", latencyBetween(beforePhase1Time, afterPhase1Time));
+
             if (!result.ok()) {
-                onSaved(BACKEND_ERROR, result.error());
+                saveResult.status = BACKEND_ERROR;
+                saveResult.recordLatency(
+                        "totalTimeMs", latencyBetween(begin, Date::now()));
+                LOG(error) << "phase1 save operation failed with error '"
+                           << result.error() << "'" << std::endl;
+                onSaved(saveResult, result.error());
                 return;
             }
 
@@ -156,14 +182,14 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                 const Accounts::AccountInfo & bankerAccount
                     = toSave.getAccount(key);
                 if (toSave.isAccountOutOfSync(key)) {
-                    cerr << "account '" << key
-                         << "' is out of sync and will not be saved" << endl;
+                    LOG(trace) << "account '" << key
+                               << "' is out of sync and will not be saved" << endl;
                     continue;
                 }
                 Json::Value bankerValue = bankerAccount.toJson();
                 bool saveAccount(false);
 
-                Result result = reply[i];
+                Redis::Result result = reply[i];
                 Reply accountReply = result.reply();
                 if (accountReply.type() == STRING) {
                     // We have here:
@@ -246,29 +272,53 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
             if (badAccounts.size() > 0) {
                 /* For now we do not save any account when at least one has
                    been detected as inconsistent. */
-                onSaved(DATA_INCONSISTENCY, boost::trim_copy(badAccounts.toString()));
+                saveResult.status = DATA_INCONSISTENCY;
+                saveResult.recordLatency(
+                        "totalTimeMs", latencyBetween(begin, Date::now()));
+                onSaved(saveResult, boost::trim_copy(badAccounts.toString()));
             }
             else if (storeCommands.size() > 1) {
                  storeCommands.push_back(EXEC);
                  
-                 auto onPhase2Result = [=] (const Redis::Results & results)
+                 const Date beforePhase2Time = Date::now();
+
+                 auto onPhase2Result = [=] (const Redis::Results & results) mutable
                  {
-                     if (results.ok())
-                         onSaved(SUCCESS, "");
-                     else
-                         onSaved(BACKEND_ERROR, results.error());
+                     const Date afterPhase2Time = Date::now();
+                     saveResult.recordLatency(
+                             "phase2TimeMs", latencyBetween(beforePhase2Time, afterPhase2Time));
+
+                     saveResult.recordLatency(
+                             "totalTimeMs", latencyBetween(begin, Date::now()));
+
+                     if (results.ok()) {
+                         saveResult.status = SUCCESS;
+                         onSaved(saveResult, "");
+                     }
+                     else {
+                         LOG(error) << "phase2 save operation failed with error '"
+                                   << results.error() << "'" << std::endl;
+                         saveResult.status = BACKEND_ERROR;
+                         onSaved(saveResult, results.error());
+                     }
                  };
 
                  itl->redis->queueMulti(storeCommands, onPhase2Result, bankerTimeout);
             }
             else {
-                onSaved(SUCCESS, "");
+                saveResult.status = SUCCESS;
+                saveResult.recordLatency(
+                        "totalTimeMs", latencyBetween(begin, Date::now()));
+                onSaved(saveResult, "");
             }
         };
 
     if (keys.size() == 0) {
         /* no account to save */
-        onSaved(SUCCESS, "");
+        BankerPersistence::Result result;
+        result.status = SUCCESS;
+        result.recordLatency("totalTimeMs", latencyBetween(begin, Date::now()));
+        onSaved(result, "");
         return;
     }
 
@@ -529,35 +579,36 @@ getAccountsSimpleSummaries(int depth)
 
 void
 MasterBanker::
-onStateSaved(BankerPersistence::PersistenceCallbackStatus status,
+onStateSaved(const BankerPersistence::Result& result,
              const string & info)
 {
-    if (status == BankerPersistence::SUCCESS) {
+    if (result.status == BankerPersistence::SUCCESS) {
         //cerr << __FUNCTION__
         //     <<  ": banker state saved successfully to backend" << endl;
         lastSavedState = Date::now();
     }
-    else if (status == BankerPersistence::DATA_INCONSISTENCY) {
+    else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
         Json::Value accountKeys = Json::parse(info);
         ExcAssert(accountKeys.type() == Json::arrayValue);
         for (Json::Value jsonKey: accountKeys) {
             ExcAssert(jsonKey.type() == Json::stringValue);
             string keyStr = jsonKey.asString();
             accounts.markAccountOutOfSync(AccountKey(keyStr));
-            cerr << __FUNCTION__
-                 << ": account '" << keyStr << "' marked out of sync" << endl;
+            LOG(error) << "account '" << keyStr << "' marked out of sync" << endl;
         }
     }
-    else if (status == BankerPersistence::BACKEND_ERROR) {
+    else if (result.status == BankerPersistence::BACKEND_ERROR) {
         /* the backend is unavailable */
-        cerr << __FUNCTION__ <<  ": " << info << endl;
+        LOG(error) << "Failed to save banker state, backend unavailable: "
+                   << info << endl;
     }
     else {
         throw ML::Exception("status code is not handled");
     }
 
-    lastSaveStatus = status;
+    lastSaveStatus = result.status;
 
+    recordLatencies("save", result.latencies);
     saving = false;
     ML::futex_wake(saving);
 }
@@ -580,21 +631,21 @@ saveState()
 void
 MasterBanker::
 onStateLoaded(shared_ptr<Accounts> newAccounts,
-              BankerPersistence::PersistenceCallbackStatus status,
+              const BankerPersistence::Result& result,
               const string & info)
 {
-    if (status == BankerPersistence::SUCCESS) {
+    if (result.status == BankerPersistence::SUCCESS) {
         newAccounts->ensureInterAccountConsistency();
         accounts = *newAccounts;
-        cerr << __FUNCTION__ <<  ": successfully loaded accounts" << endl;
+        LOG(print) << "successfully loaded accounts" << endl;
     }
-    else if (status == BankerPersistence::DATA_INCONSISTENCY) {
+    else if (result.status == BankerPersistence::DATA_INCONSISTENCY) {
         /* something is wrong with the backend data types */
-        cerr << __FUNCTION__ <<  ": " << info << endl;
+        LOG(error) << "Failed to load accounts, DATA_INCONSISTENCY: " << info << endl;
     }
-    else if (status == BankerPersistence::BACKEND_ERROR) {
+    else if (result.status == BankerPersistence::BACKEND_ERROR) {
         /* the backend is unavailable */
-        cerr << __FUNCTION__ <<  ": " << info << endl;
+        LOG(error) << "Failed to load accounts, backend unavailable: " << info << endl;
     }
     else {
         throw ML::Exception("status code is not handled");
@@ -684,6 +735,16 @@ syncFromShadow(const AccountKey &key, const ShadowAccount &shadow)
         throw ML::Exception("Error with the backend");
 
     return accounts.syncFromShadow(key, shadow);
+}
+
+void
+MasterBanker::
+recordLatencies(const std::string &category,
+                const BankerPersistence::LatencyMap& latencies) const
+{
+    for (const auto& latency: latencies) {
+        recordOutcome(latency.second, "persistence.%s.%s", category, latency.first);
+    }
 }
 
 

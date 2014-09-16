@@ -160,9 +160,9 @@ void StoreAccounts(shared_ptr<Redis::AsyncConnection> & redis,
     RedisBankerPersistence storage(redis);
     volatile int done(0);
     BankerPersistence::OnSavedCallback callback
-        = [&](BankerPersistence::PersistenceCallbackStatus status,
+        = [&](const BankerPersistence::Result& result,
               const std::string & info) {
-        switch (status) {
+        switch (result.status) {
         case BankerPersistence::SUCCESS: {
             cerr << "- accounts successfully saved" << endl;
             break;
