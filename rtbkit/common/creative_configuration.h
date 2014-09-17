@@ -107,6 +107,12 @@ public:
                 }
             }
         },
+
+        {
+            "bidrequest.timstamp",
+            [](const Context& ctx)
+            { return std::to_string( ctx.bidrequest.timestamp.secondsSinceEpoch() ); }
+        },
         };
 
         filters_ = {

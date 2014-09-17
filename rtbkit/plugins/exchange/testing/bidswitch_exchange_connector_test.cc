@@ -108,6 +108,7 @@ BOOST_AUTO_TEST_CASE( test_bidswitch )
               + "&height="
               + std::to_string(c.format.height)
               + "&price=${AUCTION_PRICE}"
+              + "&brtimestamp=%{bidrequest.timestamp}"
               + "&brid=%{bidrequest.id}\"/>";
         c.providerConfig["bidswitch"]["adid"] = c.name;
     }
