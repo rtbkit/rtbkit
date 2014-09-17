@@ -157,7 +157,7 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
 
             const Date afterPhase1Time = Date::now();
             saveResult.recordLatency(
-                    "phase1TimeMs", latencyBetween(beforePhase1Time, afterPhase1Time));
+                    "redisPhase1TimeMs", latencyBetween(beforePhase1Time, afterPhase1Time));
 
             if (!result.ok()) {
                 saveResult.status = BACKEND_ERROR;
@@ -276,8 +276,11 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                 /* For now we do not save any account when at least one has
                    been detected as inconsistent. */
                 saveResult.status = DATA_INCONSISTENCY;
+                const Date now = Date::now();
                 saveResult.recordLatency(
-                        "totalTimeMs", latencyBetween(begin, Date::now()));
+                        "inPhase1TimeMs", latencyBetween(afterPhase1Time, now));
+                saveResult.recordLatency(
+                        "totalTimeMs", latencyBetween(begin, now));
                 onSaved(saveResult, boost::trim_copy(badAccounts.toString()));
             }
             else if (storeCommands.size() > 1) {
@@ -285,11 +288,14 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
                  
                  const Date beforePhase2Time = Date::now();
 
+                 saveResult.recordLatency(
+                        "inPhase1TimeMs", latencyBetween(afterPhase1Time, Date::now()));
+
                  auto onPhase2Result = [=] (const Redis::Results & results) mutable
                  {
                      const Date afterPhase2Time = Date::now();
                      saveResult.recordLatency(
-                             "phase2TimeMs", latencyBetween(beforePhase2Time, afterPhase2Time));
+                             "redisPhase2TimeMs", latencyBetween(beforePhase2Time, afterPhase2Time));
 
                      saveResult.recordLatency(
                              "totalTimeMs", latencyBetween(begin, Date::now()));
@@ -310,6 +316,8 @@ saveAll(const Accounts & toSave, OnSavedCallback onSaved)
             }
             else {
                 saveResult.status = SUCCESS;
+                saveResult.recordLatency(
+                        "inPhase1TimeMs", latencyBetween(afterPhase1Time, Date::now()));
                 saveResult.recordLatency(
                         "totalTimeMs", latencyBetween(begin, Date::now()));
                 onSaved(saveResult, "");
@@ -746,7 +754,7 @@ reportLatencies(const std::string &category,
                 const BankerPersistence::LatencyMap& latencies) const
 {
     std::stringstream ss;
-    ss << "Latency report for " << category << std::endl;
+    ss << std::endl << "Latency report for " << category << std::endl;
     for (const auto& latency: latencies) {
         ss << "- " << latency.first << ": " << latency.second << std::endl;
     }
