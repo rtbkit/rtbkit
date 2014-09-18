@@ -54,3 +54,5 @@ $(eval $(call test,logs_test,services,boost))
 
 $(eval $(call test,sns_mock_test,cloud services,boost))
 $(eval $(call test,zmq_message_loop_test,services,boost))
+
+$(eval $(call program,http_requester,boost_program_options services))
