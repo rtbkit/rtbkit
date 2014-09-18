@@ -109,9 +109,15 @@ public:
         },
 
         {
-            "bidrequest.timstamp",
+            "bidrequest.timestamp",
             [](const Context& ctx)
             { return std::to_string( ctx.bidrequest.timestamp.secondsSinceEpoch() ); }
+        },
+
+        {
+            "response.account",
+            [](const Context& ctx)
+            { return ctx.response.account.toString(); }
         },
         };
 
