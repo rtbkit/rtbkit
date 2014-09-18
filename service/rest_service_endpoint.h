@@ -227,6 +227,13 @@ struct RestServiceEndpoint: public MessageLoop {
         {
             return itl->responseSent;
         }
+
+        bool isConnected() const
+        {
+            if (itl->http)
+                return !itl->http->isZombie;  // NOTE: race condition
+            else return true;  // zmq is always "connected"
+        }
     };
 
     void init(std::shared_ptr<ConfigurationService> config,
