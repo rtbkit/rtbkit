@@ -105,6 +105,7 @@ perform(const std::string & verb,
                 if (onData) {
                     if (!onData(string(data, data + ofs1 * ofs2)))
                         return 0;
+                    return ofs1 * ofs2;
                 }
 
                 body.append(data, ofs1 * ofs2);
