@@ -45,7 +45,8 @@ perform(const std::string & verb,
         const RestParams & headers,
         double timeout,
         bool exceptions,
-        OnData onData) const
+        OnData onData,
+        OnHeader onHeader) const
 {
     string responseHeaders;
     string body;
@@ -123,8 +124,13 @@ perform(const std::string & verb,
 
         //cerr << endl << endl << "*******************" << endl;
 
-        auto onHeader = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
+        Response response;
+        bool headerParsed = false;
+
+        auto onHeaderLine = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
             {
+                ExcAssert(!headerParsed);
+
                 string headerLine(data, ofs1 * ofs2);
 
                 if (debug)
@@ -139,12 +145,20 @@ perform(const std::string & verb,
                 }
                 else {
                     responseHeaders.append(headerLine);
+                    if (headerLine == "\r\n") {
+                        response.header_.parse(responseHeaders);
+                        headerParsed = true;
+
+                        if (onHeader)
+                            if (!onHeader(response.header_))
+                                return 0;  // bail
+                    }
                     //cerr << "got header data " << headerLine << endl;
                 }
                 return ofs1 * ofs2;
             };
 
-        myRequest.setOpt<BoostHeaderFunction>(onHeader);
+        myRequest.setOpt<BoostHeaderFunction>(onHeaderLine);
         myRequest.setOpt<BoostWriteFunction>(onWriteData);
         myRequest.setOpt<BoostProgressFunction>(onProgress);
         for (auto & cookie: cookies)
@@ -170,19 +184,17 @@ perform(const std::string & verb,
 
         if (exceptions) {
             myRequest.perform();
+            response.body_ = body;
         }
         else {
             CURLcode code = curl_easy_perform(myRequest.getHandle());
+            response.body_ = body;
             if (code != CURLE_OK) {
-                Response response;
                 response.errorCode_ = code;
                 response.errorMessage_ = curl_easy_strerror(code);
                 return response;
             }
         }
-
-        Response response;
-        response.body_ = body;
 
         curlpp::InfoGetter::get(myRequest, CURLINFO_RESPONSE_CODE,
                                 response.code_);
@@ -194,7 +206,7 @@ perform(const std::string & verb,
 
         //cerr << "uploaded " << bytesUploaded << " bytes" << endl;
 
-        response.header_.parse(responseHeaders);
+        ExcAssert(headerParsed);
 
         return response;
     } catch (const curlpp::LibcurlRuntimeError & exc) {
