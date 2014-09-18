@@ -238,7 +238,6 @@ sendPayload(const std::string & payload)
         if (payload.empty()) {
             throw ML::Exception("Can't send empty chunk over a chunked connection");
         }
-        string length = ML::format("%llx\r\n", (long long)payload.length());
         itl->http->sendHttpChunk(payload, HttpConnectionHandler::NEXT_CONTINUE);
     }
     else itl->http->send(payload);
