@@ -10,8 +10,16 @@
 #include "rtbkit/common/bid_request.h"
 #include "jml/utils/parse_context.h"
 #include "rtbkit/plugins/bid_request/bid_request_parser.h"
+#include "soa/service/logs.h"
 
 namespace RTBKIT {
+
+struct OpenRTBBidRequestLogs {
+    static Logging::Category trace; 
+    static Logging::Category error;
+    static Logging::Category trace22;
+    static Logging::Category error22;
+};
 
 /*****************************************************************************/
 /* OPEN RTB BID REQUEST PARSER                                               */
@@ -28,6 +36,11 @@ struct OpenRTBBidRequestParser
     OpenRTB::BidRequest toBidRequest(const RTBKIT::BidRequest & br);
 
     RTBKIT::BidRequest* parseBidRequest(ML::Parse_Context & context,
+                                        const std::string & provider,
+                                        const std::string & exchange,
+                                        const std::string & version);
+
+    RTBKIT::BidRequest* parseBidRequest(const std::string & json,
                                         const std::string & provider,
                                         const std::string & exchange,
                                         const std::string & version);
@@ -53,7 +66,7 @@ struct OpenRTBBidRequestParser
         virtual void onApp(OpenRTB::App & app);
         virtual void onContext(OpenRTB::Context & context);
         virtual void onContent(OpenRTB::Content & content);
-        void onProducer(OpenRTB::Producer & producer);
+        virtual void onProducer(OpenRTB::Producer & producer);
         virtual void onPublisher(OpenRTB::Publisher & publisher);
         virtual void onDevice(OpenRTB::Device & device);
         virtual void onGeo(OpenRTB::Geo & geo);

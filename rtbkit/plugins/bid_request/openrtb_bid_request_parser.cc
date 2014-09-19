@@ -9,22 +9,17 @@
 #include "jml/utils/json_parsing.h"
 #include "rtbkit/openrtb/openrtb.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
-#include "soa/service/logs.h"
 
 using namespace std;
 
 namespace RTBKIT {
 
-namespace {
-
-    Logging::Category openrtbBidRequestTrace("OpenRTB Bid Request");
-    Logging::Category openrtbBidRequestError("[ERROR] OpenRTB Bid Request error", openrtbBidRequestTrace);
-    Logging::Category openrtbBidRequest22Trace("OpenRTB Bid Request 2.2");
-    Logging::Category openrtbBidRequest22Error("[ERROR] OpenRTB Bid Request 2.2 error", openrtbBidRequest22Trace);
+    Logging::Category OpenRTBBidRequestLogs::trace("OpenRTB Bid Request Parser");
+    Logging::Category OpenRTBBidRequestLogs::error("[ERROR] OpenRTB Bid Request Parser error", OpenRTBBidRequestLogs::trace);
+    Logging::Category OpenRTBBidRequestLogs::trace22("OpenRTB Bid Request 2.2 Parser ");
+    Logging::Category OpenRTBBidRequestLogs::error22("[ERROR] OpenRTB Bid Request Parser 2.2 error", OpenRTBBidRequestLogs::trace22);
 
     static DefaultDescription<OpenRTB::BidRequest> desc;
-
-} // file scope
 
 std::shared_ptr<OpenRTBBidRequestParser>
 OpenRTBBidRequestParser::
@@ -41,7 +36,7 @@ openRTBBidRequestParserFactory(const std::string & version) {
         return p2;
     }
 
-    THROW(openrtbBidRequestError) << "Version : " << version << " not supported in RTBkit." << endl;
+    THROW(OpenRTBBidRequestLogs::error) << "Version : " << version << " not supported in RTBkit." << endl;
 }
 
 OpenRTB::BidRequest
@@ -71,7 +66,7 @@ toBidRequest(const RTBKIT::BidRequest & br) {
     }
 
     if(br.site && br.app)
-        THROW(openrtbBidRequestError) << "OpenRTB::BidRequest cannot have site and app." << endl;
+        THROW(OpenRTBBidRequestLogs::error) << "OpenRTB::BidRequest cannot have site and app." << endl;
 
     if(br.site)
         result.site.reset(new OpenRTB::Site(*br.site));
@@ -163,6 +158,39 @@ parseBidRequest(ML::Parse_Context & context,
     return ctx.br.release();
 }
 
+RTBKIT::BidRequest *
+OpenRTBBidRequestParser::
+parseBidRequest(const std::string & json,
+                const std::string & provider,
+                const std::string & exchange,
+                const std::string & version)
+{
+    // Parse using Parse_Context
+    auto br = std::move(parseBidRequest(json));
+
+    // Create context.
+    ctx.br = std::unique_ptr<BidRequest>(new BidRequest());
+
+    ctx.br->timestamp = Date::now();
+    ctx.br->isTest = false;
+    // Assign provider and exchange if available
+    ctx.br->provider = provider;
+    ctx.br->exchange = (exchange.empty() ? provider : exchange);
+
+    std::shared_ptr<OpenRTBBidRequestParser> p = openRTBBidRequestParserFactory(version);
+    
+    p->onBid(br);
+
+    // Transfer app, site, device, user to br
+    ctx.br->app.reset(br.app.release());
+    ctx.br->site.reset(br.site.release());
+    ctx.br->device.reset(br.device.release());
+    ctx.br->user.reset(br.user.release());
+
+    // Release control upon exit
+    return ctx.br.release();
+}
+
 void 
 OpenRTBBidRequestParser::
 onBid(OpenRTB::BidRequest & br) {
@@ -173,7 +201,7 @@ onBid(OpenRTB::BidRequest & br) {
     if(br.at.val == 1 || br.at.val == 2)
         ctx.br->auctionType = AuctionType(br.at);
     else {
-        LOG(openrtbBidRequestTrace) << "at :" << br.at.val << " is invalid, assuming second price auction." << endl;
+        LOG(OpenRTBBidRequestLogs::trace) << "at :" << br.at.val << " is invalid, assuming second price auction." << endl;
         ctx.br->auctionType = AuctionType::SECOND_PRICE;
     }
 
@@ -189,7 +217,7 @@ onBid(OpenRTB::BidRequest & br) {
 
     // Should only contain site or app
     if (br.site && br.app)
-        THROW(openrtbBidRequestError) << " can't have site and app in one openrtb bid request" << endl;
+        THROW(OpenRTBBidRequestLogs::error) << " can't have site and app in one openrtb bid request" << endl;
     
     if (br.site) {
         // Contains one site object
@@ -257,7 +285,7 @@ onImpression(OpenRTB::Impression & impression) {
 
     if(ctx.spot->video) {
         if(ctx.spot->banner && ctx.spot->banner->id == Id("0"))
-            LOG(openrtbBidRequestTrace) << "It's recommended to include br.imp.banner.id when subordinate to video object." << endl;
+            LOG(OpenRTBBidRequestLogs::trace) << "It's recommended to include br.imp.banner.id when subordinate to video object." << endl;
         this->onVideo(*ctx.spot->video);
     }
 
@@ -272,7 +300,7 @@ onBanner(OpenRTB::Banner & banner) {
 
     // RTBKit allows multiple banner sizes restrictions
     if(banner.w.size() != banner.h.size())
-        LOG(openrtbBidRequestError) << "Mismatch between number of width and heights illegal." << endl;
+        LOG(OpenRTBBidRequestLogs::error) << "Mismatch between number of width and heights illegal." << endl;
 
     for(unsigned int i = 0; i < banner.w.size(); ++i) {
         ctx.spot->formats.push_back(Format(banner.w[i], banner.h[i]));    
@@ -294,26 +322,26 @@ OpenRTBBidRequestParser::
 onVideo(OpenRTB::Video & video) {
     
     if(video.mimes.empty()) {
-        THROW(openrtbBidRequestError) << "br.imp.video.mimes needs to be populated." << endl;
+        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.mimes needs to be populated." << endl;
     }
 
     if(video.linearity.value() < 0 || video.linearity.value() > 2) {
-        THROW(openrtbBidRequestError) << "br.imp.video.linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
+        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.linearity must be specified and match a value in OpenRTB 2.1 Table 6.6." << endl;
     }
 
     if(video.protocol.value() < 0 || video.protocol.value() > 6) {
-        THROW(openrtbBidRequestError) << "br.imp.video.protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
+        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.protocol must be specified and match a value in OpenRTB 2.1 Table 6.7." << endl;
     }
 
     if(video.minduration.value() < 0) {
-        THROW(openrtbBidRequestError) << "br.imp.video.minduration must be specified and positive." << endl;
+        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.minduration must be specified and positive." << endl;
     }
 
     if(video.maxduration.value() < 0) {
-        THROW(openrtbBidRequestError) << "br.imp.video.maxduration must be specified and positive." << endl;
+        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.maxduration must be specified and positive." << endl;
     } else if (video.maxduration.value() < video.minduration.value()) {
         // Illogical
-        THROW(openrtbBidRequestError) << "br.imp.video.maxduration can't be smaller than br.imp.video.minduration." << endl;
+        THROW(OpenRTBBidRequestLogs::error) << "br.imp.video.maxduration can't be smaller than br.imp.video.minduration." << endl;
     } 
 
     ctx.spot->position = video.pos;
@@ -391,6 +419,12 @@ onContent(OpenRTB::Content & content) {
     // Nothing for now
 }
 
+void
+OpenRTBBidRequestParser::
+onProducer(OpenRTB::Producer & producer) {
+    // Nothing for now
+}
+
 void 
 OpenRTBBidRequestParser::
 onPublisher(OpenRTB::Publisher & publisher) {
@@ -413,7 +447,7 @@ onDevice(OpenRTB::Device & device) {
     }
 
     if(device.devicetype.val > 3)
-        LOG(openrtbBidRequestError) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.1." << endl;
+        LOG(OpenRTBBidRequestLogs::error) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.1." << endl;
 }
 
 void
@@ -424,20 +458,20 @@ onGeo(OpenRTB::Geo & geo) {
 
     // Validation that lat is -90 to 90
     if(geo.lat.val > 90.0 || geo.lat.val < -90.0)
-        LOG(openrtbBidRequestTrace) << " br.device.geo.lat : " << geo.lat.val << 
-                                    " is invalid and should be within -90 to 90." << endl; 
+        LOG(OpenRTBBidRequestLogs::trace) << " br.device.geo.lat : " << geo.lat.val << 
+                                             " is invalid and should be within -90 to 90." << endl; 
 
 
     // Validation that lat is -180 to 180
     if(geo.lon.val > 180.0 || geo.lat.val < -180.0)
-        LOG(openrtbBidRequestTrace) << " br.device.geo.lon : " << geo.lon.val << 
-                                    " is invalid and should be within -180 to 180." << endl; 
+        LOG(OpenRTBBidRequestLogs::trace) << " br.device.geo.lon : " << geo.lon.val << 
+                                             " is invalid and should be within -180 to 180." << endl; 
 
     // Validate ISO-3166 Alpha 3 for country
     if(!geo.country.empty()) {/*
         if(geo.country.size() != 3) 
-            LOG(openrtbBidRequestTrace) << " br.device.geo.country : " << geo.country <<  
-                                        " is invalid and doesn't respect ISO-3166 1 Alpha-3" << endl;
+            LOG(OpenRTBBidRequest::trace) << " br.device.geo.country : " << geo.country <<  
+                                             " is invalid and doesn't respect ISO-3166 1 Alpha-3" << endl;
 */      
         // TODO
         // Maybe create a map / flat file with the valid codes and test against it 
@@ -505,13 +539,13 @@ onUser(OpenRTB::User & user) {
             } else if(user.gender.compare("F") == 0) {
             } else if(user.gender.compare("O") == 0) {
             } else {
-                LOG(openrtbBidRequestTrace) << " br.user.gender : " << user.gender <<  
-                                        "is invalid. It should be either 'M' 'F' 'O' or null/empty" << endl;
+                LOG(OpenRTBBidRequestLogs::trace) << " br.user.gender : " << user.gender <<  
+                                                     "is invalid. It should be either 'M' 'F' 'O' or null/empty" << endl;
             }
         } else {
             // Invalid gender
-            LOG(openrtbBidRequestTrace) << " br.user.gender : " << user.gender << 
-                                        "is invalid. It should be either 'M' 'F' 'O' or null/empty" << endl;
+            LOG(OpenRTBBidRequestLogs::trace) << " br.user.gender : " << user.gender << 
+                                                 "is invalid. It should be either 'M' 'F' 'O' or null/empty" << endl;
         }
 
     } else {
@@ -559,7 +593,7 @@ onData(OpenRTB::Data & data) {
 void 
 OpenRTBBidRequestParser::
 onSegment(OpenRTB::Segment & segment) {
-    LOG(openrtbBidRequestError) << "onSegment : Not used / Not implemented." << endl;
+    LOG(OpenRTBBidRequestLogs::error) << "onSegment : Not used / Not implemented." << endl;
 }
 
 void
@@ -603,24 +637,24 @@ OpenRTBBidRequestParser2point2::
 onVideo(OpenRTB::Video & video) {
 
     if(video.mimes.empty()) {
-        THROW(openrtbBidRequestError) << "br.imp.video.mimes needs to be populated." << endl;
+        THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.mimes needs to be populated." << endl;
     }
 
     // -1 being the default value
     if(video.protocol.value() != -1 && (video.protocol.value() < 0 || video.protocol.value() > 6)) {
-        LOG(openrtbBidRequestError) << video.protocol.value() << endl;
-        THROW(openrtbBidRequestError) << "br.imp.video.protocol if specified must match a value in OpenRTB 2.2 Table 6.7." << endl;
+        LOG(OpenRTBBidRequestLogs::error22) << video.protocol.value() << endl;
+        THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.protocol if specified must match a value in OpenRTB 2.2 Table 6.7." << endl;
     }
 
-    if(!video.minduration.value()) {
-        THROW(openrtbBidRequestError) << "br.imp.video.minduration must be specified and positive." << endl;
+    if(video.minduration.value() < 0 ) {
+        THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.minduration must be specified and positive." << endl;
     }
 
-    if(!video.maxduration.value()) {
-        THROW(openrtbBidRequestError) << "br.imp.video.maxduration must be specified and positive." << endl;
+    if(video.maxduration.value() < 0 ) {
+        THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.maxduration must be specified and positive." << endl;
     } else if (video.maxduration.value() < video.minduration.value()) {
         // Illogical
-        THROW(openrtbBidRequestError) << "br.imp.video.maxduration can't be smaller than br.imp.video.minduration." << endl;
+        THROW(OpenRTBBidRequestLogs::error22) << "br.imp.video.maxduration can't be smaller than br.imp.video.minduration." << endl;
     } 
 
     ctx.spot->position = video.pos;
@@ -642,7 +676,7 @@ OpenRTBBidRequestParser2point2::
 onDevice(OpenRTB::Device & device) {
 
     if(device.devicetype.val > 7)
-        LOG(openrtbBidRequestError) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.2." << endl;
+        LOG(OpenRTBBidRequestLogs::error22) << "Device Type : " << device.devicetype.val << " not supported in OpenRTB 2.2." << endl;
 
 }
 

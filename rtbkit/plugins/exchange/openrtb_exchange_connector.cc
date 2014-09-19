@@ -6,8 +6,8 @@
 
 #include "openrtb_exchange_connector.h"
 #include "rtbkit/common/testing/exchange_source.h"
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/bid_request/openrtb_bid_source.h"
+#include "rtbkit/plugins/bid_request/openrtb_bid_request_parser.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
@@ -152,9 +152,10 @@ parseBidRequest(HttpAuctionHandler & connection,
     std::shared_ptr<BidRequest> result;
     try {
         ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
-        result.reset(OpenRtbBidRequestParser::parseBidRequest(context,
-                                                           exchangeName(),
-                                                           exchangeName()));
+        result.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory(openRtbVersion)->parseBidRequest(context,
+                                                                                              exchangeName(),
+                                                                                              exchangeName(),
+                                                                                              openRtbVersion));
     }
     catch(ML::Exception const & e) {
         this->recordHit("error.parsingBidRequest");

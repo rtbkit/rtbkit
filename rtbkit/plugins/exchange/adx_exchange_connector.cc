@@ -16,7 +16,6 @@
 #include <boost/range/irange.hpp>
 #include <boost/algorithm/string.hpp>
 #include "adx_exchange_connector.h"
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/plugins/exchange/realtime-bidding.pb.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
