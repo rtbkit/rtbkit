@@ -113,6 +113,7 @@ private:
     struct Entry {
         std::shared_ptr<AugmentationInfo> info;
         std::set<std::string> outstanding;
+        std::map<std::string, std::set<std::string> > augmentorAgents;
         OnFinished onFinished;
         Date timeout;
     };
