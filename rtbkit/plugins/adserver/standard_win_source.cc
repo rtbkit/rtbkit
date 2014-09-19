@@ -31,7 +31,7 @@ sendWin(const BidRequest& bidRequest, const Bid& bid, const Amount& winPrice)
     json["accountId"] = bid.account.toString();
     json["price"] = (double) USD_CPM(winPrice);
     // The standard protocol assumes userIds will be an array without xchg and prov keys.
-    json["userIds"].append(bidRequest.userIds.toJsonArray());
+    json["userIds"] = bidRequest.userIds.toJsonArray();
 
     sendEvent(json);
 }

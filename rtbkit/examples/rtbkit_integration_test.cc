@@ -257,7 +257,7 @@ struct Components
         // Setup a slave banker that we can use to manipulate and peak at the
         // budgets during the test.
 #if ZMQ_APP_LAYER
-        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(proxies->config));
+        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(proxies));
 #else
         auto appLayer = make_application_layer<HttpLayer>("http://127.0.0.1:15500");
         budgetController.setApplicationLayer(appLayer);
@@ -270,7 +270,7 @@ struct Components
         auto makeSlaveBanker = [=] (const std::string & name) {
             auto res = std::make_shared<SlaveBanker>(name);
 #if ZMQ_APP_LAYER
-            auto appLayer = make_application_layer<ZmqLayer>(proxies->config);
+            auto appLayer = make_application_layer<ZmqLayer>(proxies);
 #else
             cerr << "bankerAddr: " + bankerAddr + "\n";
             auto appLayer = make_application_layer<HttpLayer>("http://127.0.0.1:15500");

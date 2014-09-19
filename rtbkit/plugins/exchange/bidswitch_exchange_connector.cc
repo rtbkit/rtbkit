@@ -289,7 +289,10 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     // Parse the bid request
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
-    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.2")->parseBidRequest(context, exchangeName(), exchangeName(), "2.2"));
+    // TODO Move to use 2.2 parser instead of 2.1
+    // bidswitch_exchange_connector_test and bidswitch_exchange_connector_adx_test
+    // fail at static filters for 2.2
+    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1")->parseBidRequest(context, exchangeName(), exchangeName(), "2.1"));
 
     return res;
 }

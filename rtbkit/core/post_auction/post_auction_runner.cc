@@ -8,6 +8,7 @@
 #include "post_auction_service.h"
 #include "rtbkit/core/banker/slave_banker.h"
 #include "soa/service/service_utils.h"
+#include "soa/service/process_stats.h"
 #include "soa/utils/print_utils.h"
 #include "jml/utils/file_functions.h"
 
@@ -31,7 +32,7 @@ static Json::Value loadJsonFromFile(const std::string & filename)
 /************************************************************************/
 PostAuctionRunner::
 PostAuctionRunner() :
-    shard(1),
+    shard(0),
     auctionTimeout(EventMatcher::DefaultAuctionTimeout),
     winTimeout(EventMatcher::DefaultWinTimeout),
     bidderConfigurationFile("rtbkit/examples/bidder-config.json"),
@@ -119,7 +120,7 @@ init()
         layer = make_application_layer<HttpLayer>(bankerUri);
     }
     else {
-        layer = make_application_layer<ZmqLayer>(proxies->config);
+        layer = make_application_layer<ZmqLayer>(proxies);
         LOG(PostAuctionService::print) << "using zmq interface for the MasterBanker" << std::endl;
     }
     banker->setApplicationLayer(layer);
@@ -175,8 +176,21 @@ report( const PostAuctionService& service,
     return current;
 }
 
+void setMemoryLimit()
+{
+    rlimit64 currentLimit;
+    int status = getrlimit64(RLIMIT_AS, &currentLimit);
+    if(status != 0)
+        throw ML::Exception("Failed to get the current system limits");
+
+    currentLimit.rlim_cur = 1UL << 36;// 64G
+    if(setrlimit64(RLIMIT_AS, &currentLimit) != 0)
+        throw ML::Exception("Failed to set the current system limits to 512G");
+}
+
 int main(int argc, char ** argv)
 {
+    setMemoryLimit();
 
     PostAuctionRunner runner;
 
@@ -185,9 +199,21 @@ int main(int argc, char ** argv)
     runner.start();
 
     auto stats = report(*runner.postAuctionLoop, 0.1);
-    for (;;) {
-        ML::sleep(10.0);
-        stats = report(*runner.postAuctionLoop, 10.0, stats);
+    ProcessStats lastStats;
+
+    auto onStat = [&] (std::string key, double val) {
+        runner.postAuctionLoop->recordStableLevel(val, key);
+    };
+
+    for (size_t i = 0;; ++i) {
+        ML::sleep(1.0);
+
+        ProcessStats curStats;
+        ProcessStats::logToCallback(onStat, lastStats, curStats, "process");
+        lastStats = curStats;
+
+        if (i % 10 == 0)
+            stats = report(*runner.postAuctionLoop, 10.0, stats);
     }
 
 }

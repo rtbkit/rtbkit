@@ -58,7 +58,7 @@ struct FixedPriceBiddingAgent :
 
         // This component is used to speak with the master banker and pace the
         // rate at which we spend our budget.
-        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(getServices()->config));
+        budgetController.setApplicationLayer(make_application_layer<ZmqLayer>(getServices()));
         budgetController.start();
 
         // Update our pacer every 10 seconds. Note that since this interacts

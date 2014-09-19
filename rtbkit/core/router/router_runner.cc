@@ -18,6 +18,7 @@
 #include "rtbkit/common/bidder_interface.h"
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/banker/slave_banker.h"
+#include "soa/service/process_stats.h"
 #include "jml/arch/timers.h"
 #include "jml/utils/file_functions.h"
 
@@ -48,7 +49,8 @@ RouterRunner() :
     logBids(false),
     maxBidPrice(200),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
-    useHttpBanker(false)
+    useHttpBanker(false),
+    slowModeMoneyLimit("")
 {
 }
 
@@ -82,7 +84,9 @@ doOptions(int argc, char ** argv,
         ("max-bid-price", value(&maxBidPrice),
          "maximum bid price accepted by router")
         ("spend-rate", value<string>(&spendRate)->default_value("100000USD/1M"),
-         "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)");
+         "Amount of budget in USD to be periodically re-authorized (default 100000USD/1M)")
+        ("slow-mode-money-limit,s", value<string>(&slowModeMoneyLimit)->default_value("100000USD/1M"),
+         "Amout of money authorized per second when router enters slow mode (default is 100000USD/1M).");
 
     options_description all_opt = opts;
     all_opt
@@ -115,12 +119,14 @@ init()
     exchangeConfig = loadJsonFromFile(exchangeConfigurationFile);
     bidderConfig = loadJsonFromFile(bidderConfigurationFile);
 
+    const auto amountSlowModeMoneyLimit = Amount::parse(slowModeMoneyLimit);
+
     auto connectPostAuctionLoop = !noPostAuctionLoop;
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
                                       connectPostAuctionLoop,
                                       logAuctions, logBids,
                                       USD_CPM(maxBidPrice),
-                                      slowModeTimeout);
+                                      slowModeTimeout, amountSlowModeMoneyLimit);
     router->initBidderInterface(bidderConfig);
     router->init();
 
@@ -136,7 +142,7 @@ init()
         std::cerr << "using http interface for the MasterBanker" << std::endl;
     }
     else {
-        layer = make_application_layer<ZmqLayer>(proxies->config);
+        layer = make_application_layer<ZmqLayer>(proxies);
         std::cerr << "using zmq interface for the MasterBanker" << std::endl;
     }
     banker->setApplicationLayer(layer);
@@ -177,7 +183,16 @@ int main(int argc, char ** argv)
         item->enableUntil(Date::positiveInfinity());
     });
 
+    ProcessStats lastStats;
+    auto onStat = [&] (std::string key, double val) {
+        runner.router->recordStableLevel(val, key);
+    };
+
     for (;;) {
-        ML::sleep(10.0);
+        ML::sleep(1.0);
+
+        ProcessStats curStats;
+        ProcessStats::logToCallback(onStat, lastStats, curStats, "process");
+        lastStats = curStats;
     }
 }
