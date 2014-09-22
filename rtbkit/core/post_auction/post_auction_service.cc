@@ -88,6 +88,8 @@ void
 PostAuctionService::
 init(size_t externalShard, size_t internalShards)
 {
+    recordHit("up");
+
     // Loop monitor is purely for monitoring purposes. There's no message we can
     // just drop in the PAL to alleviate the load.
     loopMonitor.init();
