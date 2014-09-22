@@ -333,6 +333,7 @@ private:
     void reportLatencies(const std::string& category,
                          const BankerPersistence::LatencyMap& latencies) const;
 
+    const std::vector<AccountSummary> closeAccount(const AccountKey &key);
 };
 
 } // namespace RTBKIT

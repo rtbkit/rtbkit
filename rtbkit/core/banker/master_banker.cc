@@ -539,6 +539,31 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
                        accountKeyParam,
                        JsonParam<ShadowAccount>("",
                                                 "Representation of the shadow account"));
+    addRouteSyncReturn(account,
+                       "/close",
+                       {"GET"},
+                       "Close an account and all of its child accounts, "
+                       "transfers all remaining balances to parent.",
+                       "Account: Representation of the modified account",
+                       [] (const std::vector<AccountSummary> & a) { 
+                            Json::Value result(Json::objectValue);
+                            result["account_before_close"] = a[0].toJson();
+                            result["account_after_close"] = a[1].toJson();
+                            if (a.size() == 4) {
+                                result["parent_before_close"] = a[2].toJson();
+                                result["parent_after_close"] = a[3].toJson();
+                            } else {
+                                result["parent_before_close"] = "No Parent Account";
+                                result["parent_after_close"] = "No Parent Account";
+                            }
+                            return result;
+                            },
+                       &MasterBanker::closeAccount,
+                       this,
+                       accountKeyParam);
+
+
+
 }
 
 void
@@ -713,6 +738,38 @@ onCreateAccount(const AccountKey &key, AccountType type)
         throw ML::Exception("Error with the backend");
 
     return accounts.createAccount(key, type);
+}
+
+const std::vector<AccountSummary>
+MasterBanker::
+closeAccount(const AccountKey &key)
+{
+    
+    JML_TRACE_EXCEPTIONS(false);
+    if (lastSaveStatus == BankerPersistence::BACKEND_ERROR)
+        throw ML::Exception("Error with the backend");
+ 
+    AccountKey parentKey = key;
+    if (key.size() > 1) {
+        parentKey.pop_back();
+    }
+
+    AccountSummary before = accounts.getAccountSummary(key);
+    AccountSummary beforeParent = accounts.getAccountSummary(parentKey);
+
+    accounts.closeAccount(key);
+    
+    AccountSummary after = accounts.getAccountSummary(key);
+    AccountSummary afterParent = accounts.getAccountSummary(parentKey);
+
+    std::vector<AccountSummary> testClose = {before, after};
+    
+    if (key.size() > 1) {
+        testClose.push_back(beforeParent);
+        testClose.push_back(afterParent);
+    }  
+
+    return testClose;
 }
 
 const Account
