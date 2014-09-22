@@ -279,10 +279,6 @@ augment(const std::shared_ptr<AugmentationInfo> & info,
             for (unsigned k = 0;  k < config.augmentations.size();  ++k) {
                 const std::string & name = config.augmentations[k].name;
                 augmentors.insert(name);
-                if(entry->augmentorAgents.find(name)==entry->augmentorAgents.end())
-                {
-                   entry->augmentorAgents[name]=std::set<std::string>();
-                }
                 entry->augmentorAgents[name].insert(bidder.agent);
             }
         }
