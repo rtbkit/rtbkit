@@ -282,12 +282,13 @@ enqueueRequest(const string & verb, const string & resource,
                const shared_ptr<HttpClientCallbacks> & callbacks,
                const HttpRequest::Content & content,
                const RestParams & queryParams, const RestParams & headers,
-               int timeout)
+               int timeout, int connection_timeout)
 {
     string url = baseUrl_ + resource + queryParams.uriEscaped();
     {
         Guard guard(queueLock_);
-        queue_.emplace(verb, url, callbacks, content, headers, timeout);
+        queue_.emplace(verb, url, callbacks, content, headers, 
+                        timeout, connection_timeout);
     }
     wakeup_.signal();
 
@@ -633,6 +634,9 @@ perform(bool noSSLChecks, bool debug)
     easy_.setOpt<curlopt::BufferSize>(65536);
     if (request_.timeout_ != -1) {
         easy_.setOpt<curlopt::TimeoutMs>(request_.timeout_);
+    }
+    if (request_.connection_timeout_ != -1) {
+        easy_.setOpt<curlopt::ConnectTimeoutMs>(request_.connection_timeout_);
     }
     easy_.setOpt<curlopt::NoSignal>(true);
     easy_.setOpt<curlopt::NoProgress>(true);

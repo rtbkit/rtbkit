@@ -78,18 +78,18 @@ struct HttpRequest {
     };
 
     HttpRequest()
-        : timeout_(-1)
+        : timeout_(-1), connection_timeout_(-1)
     {
     }
 
     HttpRequest(const std::string & verb, const std::string & url,
                 const std::shared_ptr<HttpClientCallbacks> & callbacks,
                 const Content & content, const RestParams & headers,
-                int timeout = -1)
+                int timeout = -1, int connection_timeout = -1)
         noexcept
         : verb_(verb), url_(url), callbacks_(callbacks),
           content_(content), headers_(headers),
-          timeout_(timeout)
+          timeout_(timeout), connection_timeout_(connection_timeout)
     {
     }
 
@@ -101,6 +101,7 @@ struct HttpRequest {
         content_ = Content();
         headers_ = RestParams();
         timeout_ = -1;
+        connection_timeout_ = -1;
     }
 
     std::string verb_;
@@ -109,6 +110,7 @@ struct HttpRequest {
     Content content_;
     RestParams headers_;
     int timeout_;
+    int connection_timeout_;
 };
 
 
@@ -144,11 +146,13 @@ struct HttpClient : public AsyncEventSource {
              const std::shared_ptr<HttpClientCallbacks> & callbacks,
              const RestParams & queryParams = RestParams(),
              const RestParams & headers = RestParams(),
-             int timeout = -1)
+             int timeout = -1,
+             int connection_timeout = -1)
     {
         return enqueueRequest("GET", resource, callbacks,
                               HttpRequest::Content(),
-                              queryParams, headers, timeout);
+                              queryParams, headers, timeout,
+                              connection_timeout);
     }
 
     /** Performs a POST request, using similar parameters as get with the
@@ -161,10 +165,12 @@ struct HttpClient : public AsyncEventSource {
               const HttpRequest::Content & content = HttpRequest::Content(),
               const RestParams & queryParams = RestParams(),
               const RestParams & headers = RestParams(),
-              int timeout = -1)
+              int timeout = -1,
+              int connection_timeout = -1)
     {
         return enqueueRequest("POST", resource, callbacks, content,
-                              queryParams, headers, timeout);
+                              queryParams, headers, timeout,
+                              connection_timeout);
     }
 
     /** Performs a PUT request in a similar fashion to "post" above.
@@ -176,10 +182,12 @@ struct HttpClient : public AsyncEventSource {
              const HttpRequest::Content & content = HttpRequest::Content(),
              const RestParams & queryParams = RestParams(),
              const RestParams & headers = RestParams(),
-             int timeout = -1)
+             int timeout = -1,
+             int connection_timeout = -1)
     {
         return enqueueRequest("PUT", resource, callbacks, content,
-                              queryParams, headers, timeout);
+                              queryParams, headers, timeout,
+                              connection_timeout);
     }
 
     HttpClient & operator = (HttpClient && other) noexcept;
@@ -196,7 +204,8 @@ private:
                         const HttpRequest::Content & content,
                         const RestParams & queryParams,
                         const RestParams & headers,
-                        int timeout = -1);
+                        int timeout = -1,
+                        int connection_timeout = -1);
     std::vector<HttpRequest> popRequests(size_t number);
 
     void handleEvents();
