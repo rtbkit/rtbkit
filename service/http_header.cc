@@ -9,6 +9,7 @@
 #include "jml/utils/string_functions.h"
 #include "jml/db/persistent.h"
 #include "jml/utils/vector_utils.h"
+#include <boost/lexical_cast.hpp>
 
 using namespace std;
 using namespace ML;
@@ -258,6 +259,11 @@ parse(const std::string & headerAndData, bool checkBodyLength)
         cerr << headerAndData << endl;
         throw;
     }
+}
+
+int HttpHeader::responseCode() const
+{
+    return boost::lexical_cast<int>(resource);
 }
 
 std::ostream & operator << (std::ostream & stream, const HttpHeader & header)

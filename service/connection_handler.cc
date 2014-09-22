@@ -276,7 +276,7 @@ handleOutput()
         send(str.c_str() + done, len - done, MSG_NOSIGNAL | MSG_DONTWAIT);
 
     if (written == -1 && errno == EWOULDBLOCK) {
-        cerr << "write would block" << endl;
+        //cerr << "write would block" << endl;
         return;
     }    
 

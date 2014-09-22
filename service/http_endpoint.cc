@@ -305,7 +305,7 @@ sendHttpChunk(const std::string & chunk,
               OnWriteFinished onWriteFinished)
 {
     // Add the chunk header
-    string fullChunk = ML::format("%zx\r\n%s", chunk.length(), chunk.c_str());
+    string fullChunk = ML::format("%zx\r\n%s\r\n", chunk.length(), chunk.c_str());
     send(fullChunk, next, onWriteFinished);
 }
 

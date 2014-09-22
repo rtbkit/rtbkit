@@ -67,6 +67,12 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
         handleHttpPayload(const HttpHeader & header,
                           const std::string & payload);
 
+        /** Called when the other end disconnects from us.  We set the
+            zombie flag and stop anything else from happening on the
+            socket once we're done.
+        */
+        virtual void handleDisconnect();
+
         void sendErrorResponse(int code, const std::string & error);
 
         void sendErrorResponse(int code, const Json::Value & error);
@@ -84,6 +90,23 @@ struct HttpNamedEndpoint : public NamedEndpoint, public HttpEndpoint {
         void sendResponseHeader(int code,
                                 const std::string & contentType,
                                 RestParams headers = RestParams());
+
+        /** Send an HTTP chunk with the appropriate headers back down the
+            wire. */
+        void sendHttpChunk(const std::string & chunk,
+                           NextAction next = NEXT_CONTINUE,
+                           OnWriteFinished onWriteFinished = OnWriteFinished());
+
+        /** Send the entire HTTP payload.  Its length must match that of
+            the response header.
+        */
+        void sendHttpPayload(const std::string & str);
+
+        mutable std::mutex mutex;
+
+    public:
+        /// If this is true, the connection has no transport
+        std::atomic<bool> isZombie;
     };
 
     typedef std::function<void (std::shared_ptr<RestConnectionHandler> connection,
