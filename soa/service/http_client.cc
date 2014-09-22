@@ -632,7 +632,7 @@ perform(bool noSSLChecks, bool debug)
     easy_.setOpt<curlopt::ReadFunction>(onRead_);
     easy_.setOpt<curlopt::BufferSize>(65536);
     if (request_.timeout_ != -1) {
-        easy_.setOpt<curlopt::Timeout>(request_.timeout_);
+        easy_.setOpt<curlopt::TimeoutMs>(request_.timeout_);
     }
     easy_.setOpt<curlopt::NoSignal>(true);
     easy_.setOpt<curlopt::NoProgress>(true);
