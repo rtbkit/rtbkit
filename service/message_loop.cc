@@ -26,14 +26,12 @@ using namespace std;
 
 namespace Datacratic {
 
-namespace {
+Logging::Category MessageLoopLogs::print("Message Loop");
+Logging::Category MessageLoopLogs::warning("Message Loop Warning", print);
+Logging::Category MessageLoopLogs::error("Message Loop Error", print);
+Logging::Category MessageLoopLogs::trace("Message Loop Trace", print);
 
-Logging::Category msgLoopPrint("Message Loop");
-Logging::Category msgLoopWarning("Message Loop Warning", msgLoopPrint);
-Logging::Category msgLoopError("Message Loop Error", msgLoopPrint);
-Logging::Category msgLoopTrace("Message Loop Trace", msgLoopPrint);
-
-} // file scope
+typedef MessageLoopLogs Logs;
 
 /*****************************************************************************/
 /* MESSAGE LOOP                                                              */
@@ -41,10 +39,10 @@ Logging::Category msgLoopTrace("Message Loop Trace", msgLoopPrint);
 
 MessageLoop::
 MessageLoop(int numThreads, double maxAddedLatency, int epollTimeout)
-  : sourceActions_(256),
-    numThreadsCreated(0),
-    shutdown_(true),
-    totalSleepTime_(0.0)
+    : sourceActions_([&] () { handleSourceActions(); }),
+      numThreadsCreated(0),
+      shutdown_(true),
+      totalSleepTime_(0.0)
 {
     init(numThreads, maxAddedLatency, epollTimeout);
 }
@@ -61,7 +59,7 @@ init(int numThreads, double maxAddedLatency, int epollTimeout)
 {
     // std::cerr << "msgloop init: " << this << "\n";
     if (maxAddedLatency == 0 && epollTimeout != -1)
-        LOG(msgLoopWarning)
+        LOG(Logs::warning)
             << "MessageLoop with maxAddedLatency of zero and "
             << "epollTeimout != -1 will busy wait" << endl;
     
@@ -79,9 +77,6 @@ init(int numThreads, double maxAddedLatency, int epollTimeout)
 
        Adding a special source named "_shutdown" triggers shutdown-related
        events, without requiring the use of an additional signal fd. */
-    sourceActions_.onEvent = [&] (SourceAction && action) {
-        handleSourceAction(move(action));
-    };
     addFd(sourceActions_.selectFd(), &sourceActions_);
 
     debug_ = false;
@@ -173,24 +168,7 @@ addSource(const std::string & name,
     SourceEntry entry(name, source, priority);
     SourceAction newAction(SourceAction::ADD, move(entry));
 
-    return sourceActions_.tryPush(move(newAction));
-}
-
-void
-MessageLoop::
-addSourceRightAway(const std::string & name,
-                   const std::shared_ptr<AsyncEventSource> & source,
-                   int priority)
-{
-    // cerr << "addSourceRightAway: " << source.get()
-    //      << " (" << ML::type_name(*source) << ")"
-    //      << " needsPoll: " << source->needsPoll
-    //      << " in msg loop: " << this
-    //      << " needsPoll: " << needsPoll
-    //      << endl;
-
-    SourceEntry entry(name, source, priority);
-    processAddSource(entry);
+    return sourceActions_.push_back(move(newAction));
 }
 
 bool
@@ -215,7 +193,21 @@ removeSource(AsyncEventSource * source)
 
     SourceEntry entry("", ML::make_unowned_std_sp(*source), 0);
     SourceAction newAction(SourceAction::REMOVE, move(entry));
-    return sourceActions_.tryPush(move(newAction));
+    return sourceActions_.push_back(move(newAction));
+}
+
+bool
+MessageLoop::
+removeSourceSync(AsyncEventSource * source)
+{
+    bool r = removeSource(source);
+    if (!r) return false;
+
+    while(source->connectionState_ != AsyncEventSource::DISCONNECTED) {
+        ML::futex_wait(source->connectionState_, AsyncEventSource::CONNECTED);
+    }
+
+    return true;
 }
 
 void
@@ -370,13 +362,16 @@ handleEpollEvent(epoll_event & event)
 
 void
 MessageLoop::
-handleSourceAction(SourceAction && action)
+handleSourceActions()
 {
-    if (action.action_ == SourceAction::ADD) {
-        processAddSource(action.entry_);
-    }
-    else if (action.action_ == SourceAction::REMOVE) {
-        processRemoveSource(action.entry_);
+    vector<SourceAction> actions = sourceActions_.pop_front(0);
+    for (auto & action: actions) {
+        if (action.action_ == SourceAction::ADD) {
+            processAddSource(action.entry_);
+        }
+        else if (action.action_ == SourceAction::REMOVE) {
+            processRemoveSource(action.entry_);
+        }
     }
 }
 
@@ -418,7 +413,7 @@ processAddSource(const SourceEntry & entry)
         
         double wakeupsPerSecond = 1.0 / maxAddedLatency_;
         
-        LOG(msgLoopWarning)
+        LOG(Logs::warning)
             << "message loop in polling mode will cause " << wakeupsPerSecond
             << " context switches per second due to polling on sources "
             << pollingSources << endl;

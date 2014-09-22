@@ -15,9 +15,11 @@
 #include "jml/arch/timers.h"
 #include "jml/utils/exc_assert.h"
 #include "jml/utils/string_functions.h"
+#include "jml/utils/testing/watchdog.h"
 #include "soa/service/message_loop.h"
 #include "soa/service/runner.h"
 #include "soa/service/sink.h"
+#include "soa/types/date.h"
 
 #include <iostream>
 
@@ -96,11 +98,12 @@ and
 */
 BOOST_AUTO_TEST_CASE( test_stress_runner )
 {
+    ML::Watchdog wd(120);
     vector<thread> threads;
     int nThreads(20), activeThreads;
     vector<pid_t> childPids(nThreads);
     int msgsToSend(10000);
-    int nRunning(0);
+    atomic<int> nRunning(0);
 
     activeThreads = nThreads;
     auto runThread = [&] (int threadNum) {
@@ -160,25 +163,32 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
             }
             stdInBytes += command.size();
         }
-        stdInSink.requestClose();
 
         runner.waitStart();
         pid_t pid = runner.childPid();
-        ML::atomic_inc(nRunning);
-        // cerr << "running with pid: " << pid << endl;
+        nRunning++;
+        // cerr << "running with pid: " + to_string(pid) + "\n";
+
         childPids[threadNum] = pid;
 
         // cerr << "sleeping\n";
         ML::sleep(1.0);
+
+        /* before closing stdinsink, wait until all bytes are correctly
+           sent */
+        {
+            AsyncFdOutputSink & sinkPtr = (AsyncFdOutputSink &) stdInSink;
+            while (sinkPtr.bytesSent() != stdInBytes) {
+                ML::sleep(0.2);
+            }
+            stdInSink.requestClose();
+        }
 
         // cerr << "waiting termination...\n";
         runner.waitTermination();
         // cerr << "terminated\n";
 
         loop.shutdown();
-
-        AsyncFdOutputSink * sinkPtr = (AsyncFdOutputSink *) &stdInSink;
-        BOOST_CHECK_EQUAL(sinkPtr->bytesSent(), stdInBytes);
 
         BOOST_CHECK_EQUAL(receivedStdOut, expectedStdOut);
         BOOST_CHECK_EQUAL(receivedStdErr, expectedStdErr);
@@ -191,10 +201,13 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         cerr << "thread shutting down\n";
     };
 
-    /* initialize childPids with a non-random bad value */
+    /* initialize childPids with a non-random bad value, so that we can know
+     * later whether the pids were correctly initialized from the workers */
     for (int i = 0; i < nThreads; i++) {
         childPids[i] = 0xdeadface;
     }
+
+    ML::memory_barrier();
 
     for (int i = 0; i < nThreads; i++) {
         threads.emplace_back(runThread, i);

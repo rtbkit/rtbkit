@@ -283,10 +283,10 @@ struct ConfigurationService {
     static std::pair<std::string, std::string>
     splitPath(const std::string & path);
 
-    /** Store the current hostname and location
+    /** Store the current installation and location
      */
 
-    std::string currentHostname;
+    std::string currentInstallation;
     std::string currentLocation;
 };
 
@@ -396,6 +396,7 @@ struct ServiceProxies {
     std::shared_ptr<EventService> events;
     std::shared_ptr<ConfigurationService> config;
     std::shared_ptr<PortRangeService> ports;
+    Json::Value params;
 
     std::string bankerUri;
 
@@ -658,6 +659,10 @@ struct ServiceBase: public EventRecorder {
     
     void registerServiceProvider(const std::string & name,
                                  const std::vector<std::string> & serviceClasses);
+
+    void registerShardedServiceProvider(const std::string & name,
+                                        const std::vector<std::string> & serviceClasses,
+                                        size_t shardIndex);
 
     /** Unregister service from configuration service. */
 

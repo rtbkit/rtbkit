@@ -862,7 +862,7 @@ struct ZmqNamedProxy: public MessageLoop {
 
     ZmqNamedProxy();
 
-    ZmqNamedProxy(std::shared_ptr<zmq::context_t> context);
+    ZmqNamedProxy(std::shared_ptr<zmq::context_t> context, int shardIndex = -1);
 
     ~ZmqNamedProxy()
     {
@@ -986,6 +986,10 @@ struct ZmqNamedProxy: public MessageLoop {
         onDisconnect(connectedUri);
     }
 
+    size_t getShardIndex() const
+    {
+        return shardIndex;
+    }
 
 protected:
     ConfigurationService::Watch serviceWatch, endpointWatch;
@@ -1017,6 +1021,7 @@ protected:
     std::string connectedService;  ///< Name of service we're connected to
     std::string connectedUri;      ///< URI we're connected to
     bool local;
+    int shardIndex;
 };
 
 
@@ -1037,8 +1042,8 @@ struct ZmqNamedClientBusProxy : public ZmqNamedProxy {
     {
     }
 
-    ZmqNamedClientBusProxy(std::shared_ptr<zmq::context_t> context)
-        : ZmqNamedProxy(context), timeout(2.0)
+    ZmqNamedClientBusProxy(std::shared_ptr<zmq::context_t> context, int shardIndex = -1)
+        : ZmqNamedProxy(context, shardIndex), timeout(2.0)
     {
     }
 
@@ -1186,6 +1191,33 @@ struct ZmqMultipleNamedClientBusProxy: public MessageLoop {
         it->second->sendMessage(topic, std::forward<Args>(args)...);
     }
 
+
+    template<typename... Args>
+    bool sendMessageToShard(size_t shard,
+                            const std::string & topic,
+                            Args&&... args) const
+    {
+        std::unique_lock<Lock> guard(connectionsLock);
+        for (const auto& conn : connections) {
+            if (conn.second->getShardIndex() != shard) continue;
+
+            conn.second->sendMessage(topic, std::forward<Args>(args)...);
+            return true;
+        }
+        return false;
+    }
+
+    bool isConnectedToShard(size_t shard) const
+    {
+        std::unique_lock<Lock> guard(connectionsLock);
+        for (const auto& conn : connections) {
+            if (conn.second->getShardIndex() != shard) continue;
+
+            return conn.second->isConnected();
+        }
+        return false;
+    }
+
     /** Connect to all instances of the given service type, and make sure
         that we listen and connect to any further ones that appear.
     */
@@ -1310,7 +1342,7 @@ private:
     struct OnConnectCallback;
 
     /** Call this to watch for a given service provider. */
-    void watchServiceProvider(const std::string & name, const std::string & path);
+    void watchServiceProvider(const std::string & name, const std::string & path, int shardIndex);
 
 };
 

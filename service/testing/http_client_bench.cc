@@ -11,6 +11,7 @@
 #include "jml/arch/exception.h"
 #include "soa/types/date.h"
 #include "soa/types/value_description.h"
+#include "soa/utils/print_utils.h"
 #include "soa/service/http_client.h"
 #include "soa/service/http_endpoint.h"
 #include "soa/service/named_endpoint.h"
@@ -24,12 +25,18 @@
 using namespace std;
 using namespace Datacratic;
 
+enum HttpMethod {
+    GET,
+    POST,
+    PUT
+};
 
 /* bench methods */
 
-void
-AsyncModelBench(const string & baseUrl, int maxReqs, int concurrency,
-                Date & start, Date & end)
+double
+AsyncModelBench(HttpMethod method,
+                const string & baseUrl, const string & payload,
+                int maxReqs, int concurrency)
 {
     int numReqs, numResponses(0), numMissed(0);
     MessageLoop loop(1, 0, -1);
@@ -51,12 +58,26 @@ AsyncModelBench(const string & baseUrl, int maxReqs, int concurrency,
         }
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
+    HttpRequest::Content content(payload, "application/binary");
 
     auto & clientRef = *client.get();
     string url("/");
-    start = Date::now();
+    Date start = Date::now();
     for (numReqs = 0; numReqs < maxReqs;) {
-        if (clientRef.get(url, cbs)) {
+        bool result;
+        if (method == GET) {
+            result = clientRef.get(url, cbs);
+        }
+        else if (method == POST) {
+            result = clientRef.post(url, cbs, content);
+        }
+        else if (method == PUT) {
+            result = clientRef.put(url, cbs, content);
+        }
+        else {
+            result = true;
+        }
+        if (result) {
             numReqs++;
             // if (numReqs % 1000) {
             //     cerr << "reqs: "  + to_string(numReqs) + "\n";
@@ -74,29 +95,42 @@ AsyncModelBench(const string & baseUrl, int maxReqs, int concurrency,
         int old(numResponses);
         ML::futex_wait(numResponses, old);
     }
-    end = Date::now();
+    Date end = Date::now();
 
     loop.removeSource(client.get());
     client->waitConnectionState(AsyncEventSource::DISCONNECTED);
 
     cerr << "num misses: "  + to_string(numMissed) + "\n";
+
+    return end - start;
 }
 
-void
-ThreadedModelBench(const string & baseUrl, int maxReqs, int concurrency,
-                   Date & start, Date & end)
+double
+ThreadedModelBench(HttpMethod method,
+                   const string & baseUrl, const string & payload,
+                   int maxReqs, int concurrency)
 {
     vector<thread> threads;
+
+    HttpRestProxy::Content content(payload, "application/binary");
 
     auto threadFn = [&] (int num, int nReqs) {
         int i;
         HttpRestProxy client(baseUrl);
         for (i = 0; i < nReqs; i++) {
-            auto response = client.get("/");
+            if (method == GET) {
+                auto response = client.get("/");
+            }
+            else if (method == POST) {
+                auto response = client.post("/", content);
+            }
+            else if (method == PUT) {
+                auto response = client.put("/", content);
+            }
         }
     };
 
-    start = Date::now();
+    Date start = Date::now();
     int slice(maxReqs / concurrency);
     for (int i = 0; i < concurrency; i++) {
         // cerr << "doing slice: "  + to_string(slice) + "\n";
@@ -105,7 +139,8 @@ ThreadedModelBench(const string & baseUrl, int maxReqs, int concurrency,
     for (int i = 0; i < concurrency; i++) {
         threads[i].join();
     }
-    end = Date::now();
+
+    return Date::now() - start;
 }
 
 int main(int argc, char *argv[])
@@ -115,6 +150,7 @@ int main(int argc, char *argv[])
     size_t concurrency(0);
     int model(0);
     size_t maxReqs(0);
+    string method("GET");
     size_t payloadSize(0);
 
     string serveriface("127.0.0.1");
@@ -126,6 +162,8 @@ int main(int argc, char *argv[])
          "address:port to connect to (\"none\" for no client)")
         ("concurrency,c", value(&concurrency),
          "Number of concurrent requests")
+        ("method,M", value(&method),
+         "Method to use (\"GET\"*, \"PUT\", \"POST\")")
         ("model,m", value(&model),
          "Type of concurrency model (1 for async, 2 for threaded))")
         ("requests,r", value(&maxReqs),
@@ -167,7 +205,7 @@ int main(int argc, char *argv[])
 
     string payload;
     while (payload.size() < payloadSize) {
-        payload += "aaaaaaaa";
+        payload += randomString(128);
     }
 
     if (serveriface != "none") {
@@ -175,6 +213,8 @@ int main(int argc, char *argv[])
         service.portToUse = 20000;
 
         service.addResponse("GET", "/", 200, payload);
+        service.addResponse("PUT", "/", 200, "");
+        service.addResponse("POST", "/", 200, "");
         service.start(serveriface, concurrency);
     }
 
@@ -182,6 +222,10 @@ int main(int argc, char *argv[])
         cerr << "launching client\n";
         if (maxReqs == 0) {
             throw ML::Exception("'max-reqs' must be specified");
+        }
+
+        if (!(method == "GET" || method == "POST" || method == "PUT")) {
+            throw ML::Exception("invalid method:" + method);
         }
 
         string baseUrl;
@@ -195,17 +239,30 @@ int main(int argc, char *argv[])
 
         ::printf("model\tconc.\treqs\tsize\ttime_secs\tqps\n");
 
-        Date start, end;
+        HttpMethod httpMethod;
+        if (method == "GET") {
+            httpMethod = GET;
+        }
+        else if (method == "POST") {
+            httpMethod = POST;
+        }
+        else if (method == "PUT") {
+            httpMethod = PUT;
+        }
+        else {
+            throw ML::Exception("unknown method: "  + method);
+        }
+
+        double delta;
         if (model == 1) {
-            AsyncModelBench(baseUrl, maxReqs, concurrency, start, end);
+            delta = AsyncModelBench(httpMethod, baseUrl, payload, maxReqs, concurrency);
         }
         else if (model == 2) {
-            ThreadedModelBench(baseUrl, maxReqs, concurrency, start, end);
+            delta = ThreadedModelBench(httpMethod, baseUrl, payload, maxReqs, concurrency);
         }
         else {
             throw ML::Exception("invalid 'model'");
         }
-        double delta = end - start;
         double qps = maxReqs / delta;
         ::printf("%d\t%lu\t%lu\t%lu\t%f\t%f\n",
                  model, concurrency, maxReqs, payloadSize, delta, qps);

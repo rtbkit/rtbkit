@@ -151,29 +151,34 @@ struct Date {
     Date quantized(double fraction) const;
     Date & quantize(double fraction);
 
-    void addSeconds(double interval)
+    Date & addSeconds(double interval)
     {
         secondsSinceEpoch_ += interval;
+        return *this;
     }
 
-    void addMinutes(double interval)
+    Date & addMinutes(double interval)
     {
         secondsSinceEpoch_ += interval * 60.0;
+        return *this;
     }
 
-    void addHours(double interval)
+    Date & addHours(double interval)
     {
         secondsSinceEpoch_ += interval * 3600.0;
+        return *this;
     }
 
-    void addDays(double interval)
+    Date & addDays(double interval)
     {
         secondsSinceEpoch_ += interval * 3600.0 * 24.0;
+        return *this;
     }
 
-    void addWeeks(double interval)
+    Date & addWeeks(double interval)
     {
         addDays(interval * 7.0);
+        return *this;
     }
 
     Date plusSeconds(double interval) const
@@ -300,7 +305,9 @@ struct Date {
     double fractionalSeconds() const
     {
         double whole_seconds;
-        return modf(secondsSinceEpoch_, &whole_seconds);
+        return modf(secondsSinceEpoch_ >= 0
+                    ? secondsSinceEpoch_ : -secondsSinceEpoch_,
+                    &whole_seconds);
     }
 
     long long wholeSecondsSinceEpoch() const

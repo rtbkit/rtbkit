@@ -34,20 +34,20 @@ translateError(CURLcode curlError)
 
     switch (curlError) {
     case CURLE_OK:
-        error = HttpClientError::NONE;
+        error = HttpClientError::None;
         break;
     case CURLE_OPERATION_TIMEDOUT:
-        error = HttpClientError::TIMEOUT;
+        error = HttpClientError::Timeout;
         break;
     case CURLE_COULDNT_RESOLVE_HOST:
-        error = HttpClientError::HOST_NOT_FOUND;
+        error = HttpClientError::HostNotFound;
         break;
     case CURLE_COULDNT_CONNECT:
-        error = HttpClientError::COULD_NOT_CONNECT;
+        error = HttpClientError::CouldNotConnect;
         break;
     default:
         ::fprintf(stderr, "returning 'unknown' for code %d\n", curlError);
-        error = HttpClientError::UNKNOWN;
+        error = HttpClientError::Unknown;
     }
 
     return error;
@@ -80,15 +80,15 @@ errorMessage(HttpClientError errorCode)
     static const string timeout = "Request timed out";
 
     switch (errorCode) {
-    case HttpClientError::NONE:
+    case HttpClientError::None:
         return none;
-    case HttpClientError::UNKNOWN:
+    case HttpClientError::Unknown:
         return unknown;
-    case HttpClientError::TIMEOUT:
+    case HttpClientError::Timeout:
         return timeout;
-    case HttpClientError::HOST_NOT_FOUND:
+    case HttpClientError::HostNotFound:
         return hostNotFound;
-    case HttpClientError::COULD_NOT_CONNECT:
+    case HttpClientError::CouldNotConnect:
         return couldNotConnect;
     default:
         throw ML::Exception("invalid error code");
@@ -273,13 +273,7 @@ removeFd(int fd)
     const
 {
     // cerr << "removeFd: removing fd " + to_string(fd) + "\n";
-    int rc = ::epoll_ctl(fd_, EPOLL_CTL_DEL, fd, nullptr);
-    if (rc == -1) {
-        // cerr << "removeFd: errno = " + to_string(errno) + "\n";
-        if (errno != EBADF) {
-            throw ML::Exception(errno, "epoll_ctl del");
-        }
-    }
+    ::epoll_ctl(fd_, EPOLL_CTL_DEL, fd, nullptr);
 }
 
 bool
@@ -316,6 +310,13 @@ popRequests(size_t number)
     }
 
     return requests;
+}
+
+size_t
+HttpClient::
+queuedRequests() const {
+    Guard guard(queueLock_);
+    return queue_.size();
 }
 
 int
@@ -625,7 +626,6 @@ perform(bool noSSLChecks, bool debug)
         }
         curlHeaders.push_back("Content-Length: "
                               + to_string(data.size()));
-        curlHeaders.push_back("Expect:");
         curlHeaders.push_back("Transfer-Encoding:");
         curlHeaders.push_back("Content-Type: "
                               + request_.content_.contentType);

@@ -356,7 +356,7 @@ replay(const std::string & filename, ssize_t maxEvents)
         string line;
         getline(stream, line);
         atomic_add(messagesSent, 1);
-        messages.push({ line });
+        messages.push(std::vector<std::string> { line });
     }
 
     cerr << "replay: sent " << messagesSent << " done: "

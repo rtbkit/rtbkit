@@ -139,7 +139,8 @@ struct Runner: public Epoller {
     */
     bool waitStart(double secondsToWait = INFINITY) const;
 
-    /** Synchronous wait for termination of the subprocess. */
+    /** Synchronous wait for termination of the subprocess and the closing of
+     * all related resources. */
     void waitTermination() const;
 
     /** Is the subprocess running? */
@@ -235,7 +236,7 @@ private:
     handleEpollEvent(const struct epoll_event & event);
     void handleChildStatus(const struct epoll_event & event);
     void handleOutputStatus(const struct epoll_event & event,
-                            int fd, std::shared_ptr<InputSink> & sink);
+                            int & fd, std::shared_ptr<InputSink> & sink);
     void handleWakeup(const struct epoll_event & event);
 
     void attemptTaskTermination();

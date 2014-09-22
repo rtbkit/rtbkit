@@ -137,6 +137,20 @@ scheme() const
 
 std::string
 Url::
+username() const
+{
+    return url->username();
+}
+
+std::string
+Url::
+password() const
+{
+    return url->password();
+}
+
+std::string
+Url::
 host() const
 {
     return url->host();
