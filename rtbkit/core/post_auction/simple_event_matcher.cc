@@ -102,6 +102,10 @@ expireSubmitted(Date start, const pair<Id, Id> & key, const SubmissionInfo & inf
 
     if (!info.bidRequest) {
         recordHit("submittedAuctionExpiryWithoutBid");
+
+        for(const auto& event : info.pendingWinEvents)
+            doReallyLateWin(event);
+
         return Date();
     }
 
@@ -201,12 +205,12 @@ doAuction(std::shared_ptr<SubmittedAuctionEvent> event)
         auto key = make_pair(auctionId, event->adSpotId);
 
         SubmissionInfo submission;
-        vector<std::shared_ptr<PostAuctionEvent> > earlyWinEvents;
+        vector<std::shared_ptr<PostAuctionEvent> > pendingWinEvents;
         if (submitted.count(key)) {
             submission = submitted.pop(key);
             spotIdMap.erase(key.first);
 
-            earlyWinEvents.swap(submission.earlyWinEvents);
+            pendingWinEvents.swap(submission.pendingWinEvents);
             recordHit("auctionAlreadySubmitted");
         }
 
@@ -226,7 +230,7 @@ doAuction(std::shared_ptr<SubmittedAuctionEvent> event)
                 submission.bid.account, transId, submission.bid.price.maxPrice);
 
         /* Replay any early win/loss events. */
-        for (auto it = earlyWinEvents.begin(), end = earlyWinEvents.end();
+        for (auto it = pendingWinEvents.begin(), end = pendingWinEvents.end();
              it != end;  ++it)
         {
             recordHit("replayedEarlyWinEvent");
@@ -267,13 +271,6 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
     const JsonHolder & meta = event->metadata;
     UserIds & uids = event->uids;
 
-    Date bidTimestamp = event->bidTimestamp;
-
-    auto getTimeGapMs = [&] ()
-        {
-            return 1000.0 * Date::now().secondsSince(bidTimestamp);
-        };
-
     auto key = make_pair(auctionId, adSpotId);
 
     /* In this case, the auction is finished which means we've already either:
@@ -300,10 +297,6 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
         }
         else recordHit("bidResult.%s.auctionAlreadyFinished",
                        typeStr);
-        double timeGapMs = getTimeGapMs();
-        recordOutcome(timeGapMs,
-                      "bidResult.%s.alreadyFinishedTimeSinceBidSubmittedMs",
-                      typeStr);
 
         if (event->type == PAE_WIN) {
             // Late win with auction still around
@@ -328,8 +321,6 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
         return;
     }
 
-    double lossTimeout = 15.0;
-
     /* If the auction wasn't finished, then it should be submitted.  The only
        time this won't happen is:
        a) when the WIN message raced and got in before we noticed the auction
@@ -339,41 +330,17 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
           is completely unknown.
     */
     if (!submitted.count(key)) {
-        double timeGapMs = getTimeGapMs();
-        if (timeGapMs < lossTimeout * 1000) {
-            recordHit("bidResult.%s.noBidSubmitted", typeStr);
+        recordHit("bidResult.%s.noBidSubmitted", typeStr);
 
-            /* We record the win message here and play it back once we submit
-               the auction.
-            */
-            SubmissionInfo info;
-            info.earlyWinEvents.push_back(event);
-            submitted.emplace(key, info, Date::now().plusSeconds(lossTimeout));
-            spotIdMap[key.first] = key.second;
+        /* We record the win message here and play it back once we submit
+           the auction.
+        */
+        SubmissionInfo info;
+        info.pendingWinEvents.push_back(event);
+        submitted.emplace(key, info, Date::now().plusSeconds(auctionTimeout));
+        spotIdMap[key.first] = key.second;
 
-            return;
-        }
-        else {
-            auto & account = event->account;
-
-            LOG(print) << "REALLY REALLY LATE WIN event='" << *event
-                << "' timeGapMs = " << timeGapMs << endl;
-            LOG(print) << "message = " << meta << endl;
-            LOG(print) << "bidTimestamp = " << bidTimestamp.print(6) << endl;
-            LOG(print) << "now = " << Date::now().print(6) << endl;
-            LOG(print) << "account = " << account << endl;
-
-            recordHit("bidResult.%s.notInSubmitted", typeStr);
-            recordOutcome(timeGapMs,
-                          "bidResult.%s.notInSubmittedTimeSinceBidSubmittedMs",
-                          typeStr);
-
-            if(!account.empty()) {
-                banker->forceWinBid(account, winPrice, LineItems());
-            }
-
-            return;
-        }
+        return;
     }
 
     SubmissionInfo info = submitted.pop(key);
@@ -381,8 +348,8 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
 
     if (!info.bidRequest) {
         // We doubled up on a WIN without having got the auction yet
-        info.earlyWinEvents.push_back(event);
-        submitted.emplace(key, info, Date::now().plusSeconds(lossTimeout));
+        info.pendingWinEvents.push_back(event);
+        submitted.emplace(key, info, Date::now().plusSeconds(auctionTimeout));
         spotIdMap[key.first] = key.second;
         return;
     }
@@ -406,6 +373,20 @@ doWinLoss(std::shared_ptr<PostAuctionEvent> event, bool isReplay)
             info.earlyCampaignEvents.begin(),
             info.earlyCampaignEvents.end(),
             std::bind(&SimpleEventMatcher::doCampaignEvent, this, ph::_1));
+}
+
+void
+SimpleEventMatcher::
+doReallyLateWin(const std::shared_ptr<PostAuctionEvent>& event)
+{
+    if (!event->account.empty()) {
+        banker->forceWinBid(event->account, event->winPrice, LineItems());
+    }
+
+    recordHit("bidResult.%s.unmatched", RTBKIT::print(event->type));
+    LOG(error) << "REALLY REALLY LATE WIN event='" << *event << "'" << endl;
+
+    doUnmatchedEvent(std::make_shared<UnmatchedEvent>("really really late win", *event));
 }
 
 
