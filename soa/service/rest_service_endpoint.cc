@@ -238,10 +238,9 @@ sendPayload(const std::string & payload)
         if (payload.empty()) {
             throw ML::Exception("Can't send empty chunk over a chunked connection");
         }
-        string length = ML::format("%llx\r\n", (long long)payload.length());
         itl->http->sendHttpChunk(payload, HttpConnectionHandler::NEXT_CONTINUE);
     }
-    else itl->http->send(payload);
+    else itl->http->sendHttpPayload(payload);
 }
 
 void
@@ -249,15 +248,16 @@ RestServiceEndpoint::ConnectionId::
 finishResponse()
 {
     if (itl->chunkedEncoding) {
-        itl->http->sendHttpChunk("", HttpConnectionHandler::NEXT_RECYCLE);
+        itl->http->sendHttpChunk("", HttpConnectionHandler::NEXT_CLOSE);
     }
     else if (!itl->keepAlive) {
-        itl->http->closeConnection();
+        itl->http->send("", HttpConnectionHandler::NEXT_CLOSE);
+    } else {
+        itl->http->send("", HttpConnectionHandler::NEXT_RECYCLE);
     }
 
     itl->responseSent = true;
 }
-
 
 
 /*****************************************************************************/
