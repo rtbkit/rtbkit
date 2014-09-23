@@ -302,7 +302,13 @@ void HttpBidderInterface::sendAuctionMessage(std::shared_ptr<Auction> const & au
     );
 
     HttpRequest::Content reqContent { requestStr, "application/json" };
-    RestParams headers { { "x-openrtb-version", "2.1" } };
+
+    /* We do not want curl to add an extra "Expect: 100-continue" HTTP header
+     * and then pay the cost of an extra HTTP roundtrip. Thus we remove this
+     * header
+     */
+    RestParams headers { { "x-openrtb-version", "2.1" },
+                         { "Expect", "" } };
    // std::cerr << "Sending HTTP POST to: " << routerHost << " " << routerPath << std::endl;
    // std::cerr << "Content " << reqContent.str << std::endl;
 
