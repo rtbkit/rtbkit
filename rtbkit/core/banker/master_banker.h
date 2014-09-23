@@ -334,6 +334,7 @@ private:
                          const BankerPersistence::LatencyMap& latencies) const;
 
     const std::vector<AccountSummary> closeAccount(const AccountKey &key);
+    const std::vector<AccountKey> getActiveAccounts();
 };
 
 } // namespace RTBKIT
