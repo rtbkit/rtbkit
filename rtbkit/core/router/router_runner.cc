@@ -129,8 +129,10 @@ init()
     if (maxBidPriceAmount > amountSlowModeMoneyLimit) {
         THROW(error) << "max-bid-price and slow-mode-money-limit "
             << "configuration is invalid" << endl
-            << "usage: max-bid-price must be lower or equal to the "
-            << "slow-mode-money-limit." << endl;
+            << "usage:  max-bid-price must be lower or equal to the "
+            << "slow-mode-money-limit." << endl
+            << "max-bid-price= " << maxBidPriceAmount << endl
+            << "slow-mode-money-limit= " << amountSlowModeMoneyLimit <<endl;
     }
 
     auto connectPostAuctionLoop = !noPostAuctionLoop;
