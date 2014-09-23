@@ -1865,12 +1865,20 @@ struct StreamingDownloadSource {
                     auto partResult
                         = owner->get(bucket, "/" + object,
                                      S3Api::Range(start, chunkSize));
+                    
                     if (partResult.code_ != 206) {
                         throw ML::Exception("http error "
                                             + to_string(partResult.code_)
                                             + " while getting part "
                                             + partResult.bodyXmlStr());
                     }
+                    // it can sometimes happen that a file changes during download
+                    // i.e it is being overwritten. Make sure we check for this condition
+                    // and throw an appropriate exception
+                    string chunkEtag = partResult.getHeader("etag") ;
+                    if(chunkEtag != info.etag)
+                        throw ML::Exception("chunk etag %s not equal to file etag %s: file <%s> has changed during download!!", chunkEtag.c_str(), info.etag.c_str(), object.c_str());
+                    ExcAssert(partResult.body().size() == chunkSize);
 
                     while (true) {
                         if (shutdown || lastExc) {
