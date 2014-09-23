@@ -1877,8 +1877,7 @@ struct StreamingDownloadSource {
                     // and throw an appropriate exception
                     string chunkEtag = partResult.getHeader("etag") ;
                     if(chunkEtag != info.etag)
-                        throw ML::Exception(ML::format("chunk etag %s not equal to file etag %s: file <%s> has changed during download!!",
-                                                       chunkEtag.c_str(), info.etag.c_str(), object.c_str()));
+                        throw ML::Exception("chunk etag %s not equal to file etag %s: file <%s> has changed during download!!", chunkEtag.c_str(), info.etag.c_str(), object.c_str());
                     ExcAssert(partResult.body().size() == chunkSize);
 
                     while (true) {
