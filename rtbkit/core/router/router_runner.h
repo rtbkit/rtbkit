@@ -12,6 +12,7 @@
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/banker/slave_banker.h"
 #include "soa/service/service_utils.h"
+#include "soa/service/logs.h"
 
 namespace RTBKIT {
 
@@ -54,6 +55,9 @@ struct RouterRunner {
     std::shared_ptr<Router> router;
     Json::Value exchangeConfig;
     Json::Value bidderConfig;
+
+    static Logging::Category print;
+    static Logging::Category error;
 
     void init();
 

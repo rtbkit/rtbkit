@@ -33,6 +33,10 @@ static inline Json::Value loadJsonFromFile(const std::string & filename)
     return Json::parse(std::string(buf.start(), buf.end()));
 }
 
+namespace RTBKIT {
+    Logging::Category RouterRunner::print("RouterRunner");
+    Logging::Category RouterRunner::error("RouterRunner Error", RouterRunner::print);
+}
 
 /*****************************************************************************/
 /* ROUTER RUNNER                                                             */
@@ -47,7 +51,7 @@ RouterRunner() :
     noPostAuctionLoop(false),
     logAuctions(false),
     logBids(false),
-    maxBidPrice(200),
+    maxBidPrice(40),
     slowModeTimeout(MonitorClient::DefaultCheckTimeout),
     useHttpBanker(false),
     slowModeMoneyLimit("")
@@ -120,6 +124,16 @@ init()
     bidderConfig = loadJsonFromFile(bidderConfigurationFile);
 
     const auto amountSlowModeMoneyLimit = Amount::parse(slowModeMoneyLimit);
+    const auto maxBidPriceAmount = USD_CPM(maxBidPrice);
+
+    if (maxBidPriceAmount > amountSlowModeMoneyLimit) {
+        THROW(error) << "max-bid-price and slow-mode-money-limit "
+            << "configuration is invalid" << endl
+            << "usage:  max-bid-price must be lower or equal to the "
+            << "slow-mode-money-limit." << endl
+            << "max-bid-price= " << maxBidPriceAmount << endl
+            << "slow-mode-money-limit= " << amountSlowModeMoneyLimit <<endl;
+    }
 
     auto connectPostAuctionLoop = !noPostAuctionLoop;
     router = std::make_shared<Router>(proxies, serviceName, lossSeconds,
