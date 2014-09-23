@@ -181,7 +181,9 @@ std::string
 Url::
 path() const
 {
-    return url->path();
+    if (url->scheme() == "file")
+        return url->host() + url->path();
+    else return url->path();
 }
 
 std::string
