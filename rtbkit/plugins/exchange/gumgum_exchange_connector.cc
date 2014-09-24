@@ -129,7 +129,7 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     // Parse the bid request
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
-    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory(openRtbVersion)->parseBidRequest(context, exchangeName(), exchangeName(), openRtbVersion));
+    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory(openRtbVersion)->parseBidRequest(context, exchangeName(), exchangeName()));
         
     cerr << res->toJson() << endl;
 

@@ -25,15 +25,10 @@ std::shared_ptr<OpenRTBBidRequestParser>
 OpenRTBBidRequestParser::
 openRTBBidRequestParserFactory(const std::string & version) {
 
-    static std::shared_ptr<OpenRTBBidRequestParser> p1 =
-        std::shared_ptr<OpenRTBBidRequestParser2point1>(new OpenRTBBidRequestParser2point1());
-    static std::shared_ptr<OpenRTBBidRequestParser> p2 =
-        std::shared_ptr<OpenRTBBidRequestParser2point2>(new OpenRTBBidRequestParser2point2());
-
     if(version == "2.0" || version == "2.1") {
-        return p1;
+        return std::shared_ptr<OpenRTBBidRequestParser2point1>(new OpenRTBBidRequestParser2point1());
     } else if(version == "2.2") {
-        return p2;
+        return std::shared_ptr<OpenRTBBidRequestParser2point2>(new OpenRTBBidRequestParser2point2());
     }
 
     THROW(OpenRTBBidRequestLogs::error) << "Version : " << version << " not supported in RTBkit." << endl;
@@ -127,26 +122,20 @@ parseBidRequest(ML::Parse_Context & context)
 
 RTBKIT::BidRequest *
 OpenRTBBidRequestParser::
-parseBidRequest(ML::Parse_Context & context,
-                const std::string & provider,
-                const std::string & exchange,
-                const std::string & version)
-{
-    // Parse using Parse_Context
-    auto br = std::move(parseBidRequest(context));
+createBidRequestHelper(OpenRTB::BidRequest & br,
+                       const std::string & provider,
+                       const std::string & exchange) {
 
-    // Create context.
+    // Create context
     ctx.br = std::unique_ptr<BidRequest>(new BidRequest());
-
+    
     ctx.br->timestamp = Date::now();
     ctx.br->isTest = false;
     // Assign provider and exchange if available
     ctx.br->provider = provider;
     ctx.br->exchange = (exchange.empty() ? provider : exchange);
 
-    std::shared_ptr<OpenRTBBidRequestParser> p = openRTBBidRequestParserFactory(version);
-    
-    p->onBid(br);
+    this->onBidRequest(br);
 
     // Transfer app, site, device, user to br
     ctx.br->app.reset(br.app.release());
@@ -156,44 +145,38 @@ parseBidRequest(ML::Parse_Context & context,
 
     // Release control upon exit
     return ctx.br.release();
+
+}
+
+RTBKIT::BidRequest *
+OpenRTBBidRequestParser::
+parseBidRequest(ML::Parse_Context & context,
+                const std::string & provider,
+                const std::string & exchange)
+{
+    // Parse using Parse_Context
+    auto br = parseBidRequest(context);
+    return createBidRequestHelper(br,
+                                  provider,
+                                  exchange);
 }
 
 RTBKIT::BidRequest *
 OpenRTBBidRequestParser::
 parseBidRequest(const std::string & json,
                 const std::string & provider,
-                const std::string & exchange,
-                const std::string & version)
+                const std::string & exchange)
 {
-    // Parse using Parse_Context
-    auto br = std::move(parseBidRequest(json));
-
-    // Create context.
-    ctx.br = std::unique_ptr<BidRequest>(new BidRequest());
-
-    ctx.br->timestamp = Date::now();
-    ctx.br->isTest = false;
-    // Assign provider and exchange if available
-    ctx.br->provider = provider;
-    ctx.br->exchange = (exchange.empty() ? provider : exchange);
-
-    std::shared_ptr<OpenRTBBidRequestParser> p = openRTBBidRequestParserFactory(version);
-    
-    p->onBid(br);
-
-    // Transfer app, site, device, user to br
-    ctx.br->app.reset(br.app.release());
-    ctx.br->site.reset(br.site.release());
-    ctx.br->device.reset(br.device.release());
-    ctx.br->user.reset(br.user.release());
-
-    // Release control upon exit
-    return ctx.br.release();
+    // Parse using json string
+    auto br = parseBidRequest(json);
+    return createBidRequestHelper(br,
+                                  provider,
+                                  exchange);
 }
 
 void 
 OpenRTBBidRequestParser::
-onBid(OpenRTB::BidRequest & br) {
+onBidRequest(OpenRTB::BidRequest & br) {
 
     ctx.br->auctionId = br.id;
 
@@ -598,10 +581,10 @@ onSegment(OpenRTB::Segment & segment) {
 
 void
 OpenRTBBidRequestParser2point2::
-onBid(OpenRTB::BidRequest & br) {
+onBidRequest(OpenRTB::BidRequest & br) {
 
     // Call V1
-    OpenRTBBidRequestParser::onBid(br);
+    OpenRTBBidRequestParser::onBidRequest(br);
 
     if(ctx.br->regs)
         this->onRegulations(*br.regs);

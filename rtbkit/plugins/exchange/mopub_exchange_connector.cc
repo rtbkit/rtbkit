@@ -216,7 +216,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     // TODO Check with MoPub if they send the x-openrtb-version header
     // and if they support 2.2 now.
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
-    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1")->parseBidRequest(context, exchangeName(), exchangeName(), "2.1"));
+    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1")->parseBidRequest(context, exchangeName(), exchangeName()));
 
     // get restrictions enforced by MoPub.
     //1) blocked category

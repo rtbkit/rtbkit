@@ -292,7 +292,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     // TODO Move to use 2.2 parser instead of 2.1
     // bidswitch_exchange_connector_test and bidswitch_exchange_connector_adx_test
     // fail at static filters for 2.2
-    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1")->parseBidRequest(context, exchangeName(), exchangeName(), "2.1"));
+    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1")->parseBidRequest(context, exchangeName(), exchangeName()));
 
     return res;
 }

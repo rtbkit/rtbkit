@@ -159,8 +159,7 @@ BidRequest OpenRTBBidSource::generateRandomBidRequest() {
     write(message);
     std::unique_ptr<BidRequest> br(p->parseBidRequest(content,
                                                       "openrtb",
-                                                      "openrtb",
-                                                      "2.1"));
+                                                      "openrtb"));
     return BidRequest(*br);
 }
 

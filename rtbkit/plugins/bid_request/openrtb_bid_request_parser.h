@@ -37,13 +37,11 @@ struct OpenRTBBidRequestParser
 
     RTBKIT::BidRequest* parseBidRequest(ML::Parse_Context & context,
                                         const std::string & provider,
-                                        const std::string & exchange,
-                                        const std::string & version);
+                                        const std::string & exchange);
 
     RTBKIT::BidRequest* parseBidRequest(const std::string & json,
                                         const std::string & provider,
-                                        const std::string & exchange,
-                                        const std::string & version);
+                                        const std::string & exchange);
 
     static std::shared_ptr<OpenRTBBidRequestParser>
         openRTBBidRequestParserFactory(const std::string & version);
@@ -52,13 +50,13 @@ struct OpenRTBBidRequestParser
         std::unique_ptr<RTBKIT::BidRequest> br;
         std::unique_ptr<AdSpot> spot;
     } ctx;
-
+    
     virtual ~OpenRTBBidRequestParser(){};
 
     protected :
         // All those methods are defined based on OpenRTB 2.1
         // further versions just have to redefine those methods
-        virtual void onBid(OpenRTB::BidRequest & br);
+        virtual void onBidRequest(OpenRTB::BidRequest & br);
         virtual void onImpression(OpenRTB::Impression & imp);
         virtual void onBanner(OpenRTB::Banner & banner);
         virtual void onVideo(OpenRTB::Video & video);
@@ -73,6 +71,11 @@ struct OpenRTBBidRequestParser
         virtual void onUser(OpenRTB::User & user);
         virtual void onData(OpenRTB::Data & data);
         virtual void onSegment(OpenRTB::Segment & segment);
+    
+    private:
+        RTBKIT::BidRequest * createBidRequestHelper(OpenRTB::BidRequest & br,
+                                    const std::string & provider,
+                                    const std::string & exchange);
 };
 
 struct OpenRTBBidRequestParser2point1 : OpenRTBBidRequestParser {
@@ -85,7 +88,7 @@ struct OpenRTBBidRequestParser2point2 : OpenRTBBidRequestParser {
     OpenRTBBidRequestParser2point2(){};
 
     private :
-        virtual void onBid(OpenRTB::BidRequest & br);
+        virtual void onBidRequest(OpenRTB::BidRequest & br);
         virtual void onImpression(OpenRTB::Impression & imp);
         virtual void onBanner(OpenRTB::Banner & banner);
         virtual void onVideo(OpenRTB::Video & video);

@@ -196,7 +196,7 @@ parseBidRequest(HttpAuctionHandler & connection,
     // Nexage used not to send x-openrtb-version but they're now at 2.2
     // source : http://www.nexage.com/resource-center/openrtb-2-2-technical-reference/
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
-    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.2")->parseBidRequest(context, exchangeName(), exchangeName(), "2.2"));
+    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.2")->parseBidRequest(context, exchangeName(), exchangeName()));
 
     return res;
 }

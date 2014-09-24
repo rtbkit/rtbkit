@@ -89,7 +89,7 @@ void testBidRequest(const std::string & filename, const std::string & version = 
     cerr << endl << "loading " << filename << endl;
     ML::Parse_Context context(filename);
     std::shared_ptr<OpenRTBBidRequestParser> p = OpenRTBBidRequestParser::openRTBBidRequestParserFactory(version);
-    auto res = p->parseBidRequest(context, "test", "test", version);
+    auto res = p->parseBidRequest(context, "test", "test");
     cerr << res->toJson() << endl;
 }
 
@@ -230,7 +230,7 @@ void testBidRequestRoundTrip(const std::string & filename,
     std::shared_ptr<OpenRTBBidRequestParser> p = OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1");
     
     // Convert to a standard bid request
-    std::unique_ptr<BidRequest> br(p->parseBidRequest(c, "test", "test", "2.1"));   
+    std::unique_ptr<BidRequest> br(p->parseBidRequest(c, "test", "test"));   
     // Convert it to JSON
     string s1 = br->toJsonStr();
 
@@ -272,7 +272,7 @@ void testBidRequestConversion(const std::string &fileName, const std::string &re
     std::shared_ptr<OpenRTBBidRequestParser> p = OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1");
     
     // Convert to a standard bid request
-    std::unique_ptr<BidRequest> br(p->parseBidRequest(c, "test", "test", "2.1"));   
+    std::unique_ptr<BidRequest> br(p->parseBidRequest(c, "test", "test"));   
 
     // Convert it back to OpenRTB
     OpenRTB::BidRequest br2 = p->toBidRequest(*br);
@@ -395,7 +395,7 @@ BOOST_AUTO_TEST_CASE( benchmark_openrtb_conversion )
             {
                 StreamingJsonParsingContext context;
                 context.init(samples[i], reqs[i].c_str(), reqs[i].size());
-                std::unique_ptr<BidRequest> br(p->parseBidRequest(*context.context, "openrtb", "openrtb", "2.1"));   
+                std::unique_ptr<BidRequest> br(p->parseBidRequest(*context.context, "openrtb", "openrtb"));   
         
             }
         }
@@ -422,7 +422,7 @@ BOOST_AUTO_TEST_CASE( benchmark_canonical_parsing )
         {
             StreamingJsonParsingContext context;
             context.init(s);
-            std::unique_ptr<BidRequest> br(p->parseBidRequest(*context.context, "openrtb", "openrtb", "2.1"));   
+            std::unique_ptr<BidRequest> br(p->parseBidRequest(*context.context, "openrtb", "openrtb"));   
             reqs.push_back(br->toJsonStr());
         }
     }
@@ -467,7 +467,7 @@ BOOST_AUTO_TEST_CASE( id_provider ) {
         {
             StreamingJsonParsingContext context;
             context.init(s);
-            datacraticReq.reset(p->parseBidRequest(*context.context, "openrtb", "openrtb", "2.1"));   
+            datacraticReq.reset(p->parseBidRequest(*context.context, "openrtb", "openrtb"));   
         }
 
 
