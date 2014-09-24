@@ -568,10 +568,6 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
                        "Return a list of all active account names",
                        "Account: list of Account Keys",
                        [] (const std::vector<AccountKey> & accountKeys) {
-//                             Json::Value result(Json::arrayValue);
-//                             for (const AccountKey & a : accountKeys)
-//                                 result.append(a.toString());
-//                             return result;
                             return jsonEncode(accountKeys);
                        },
                        &MasterBanker::getActiveAccounts,
