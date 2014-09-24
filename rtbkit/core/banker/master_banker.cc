@@ -562,7 +562,7 @@ init(const shared_ptr<BankerPersistence> & storage, double saveInterval)
                        this,
                        accountKeyParam);
 
-    addRouteSyncReturn(account,
+    addRouteSyncReturn(versionNode,
                        "/activeaccounts",
                        {"GET"},
                        "Return a list of all active account names",
