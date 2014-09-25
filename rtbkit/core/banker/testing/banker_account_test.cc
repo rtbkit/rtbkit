@@ -64,11 +64,8 @@ BOOST_AUTO_TEST_CASE( test_account_set_budget )
     account.allocatedOut = USD(10);
     account.balance = USD(3);
     account.checkInvariants();
-    {
-        auto notrace = Set_Trace_Exceptions(false);
-        BOOST_CHECK_THROW(account.setBudget(USD(9)),
-                          std::exception);
-    }
+    account.setBudget(USD(9));
+    BOOST_CHECK_EQUAL(account.balance, USD(6));
 
     /* we adjust the budget down the the least possible value and ensure that
        "available" is adjusted by taking the "allocatedOut" into account */
