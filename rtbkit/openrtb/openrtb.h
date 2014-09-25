@@ -23,8 +23,8 @@
 #pragma once
 
 #include <string>
-#include <memory>
 #include <vector>
+#include <memory>
 #include "soa/types/id.h"
 #include "soa/types/string.h"
 #include "soa/types/url.h"
@@ -647,7 +647,7 @@ struct Banner {
 struct Video {
     ~Video();
     Datacratic::List<MimeType> mimes;       ///< Content MIME types supported
-    VideoLinearity linearity;   ///< Whether it's linear or not (table 6.6)
+    VideoLinearity linearity;               ///< Whether it's linear or not (table 6.6)
     Datacratic::TaggedInt minduration;      ///< Minimum ad duration in seconds
     Datacratic::TaggedInt maxduration;      ///< Maximum ad duration in seconds
     VideoBidResponseProtocol protocol;  ///< Bid response protocols (table 6.7)
@@ -738,7 +738,7 @@ struct Deal { // New in OpenRTB 2.2
 struct PMP { // New in OpenRTB 2.2
     ~PMP();
     Datacratic::TaggedIntDef<0> privateAuction;    ///< Flag for private auction traffic : = 0 all bids, 1 = private deal
-    Datacratic::List<Deal> deals;   ///< List of deals eligible for this impression
+    std::vector<Deal> deals;   ///< List of deals eligible for this impression
     Json::Value ext;                ///< Extensions related to private deals between parties 
 };
 
@@ -1115,7 +1115,6 @@ struct Regulations { // New in OpenRTB 2.2
 struct BidRequest {
     ~BidRequest();
     Datacratic::Id id;                             ///< Bid request ID
-
     std::vector<Impression> imp;            ///< List of impressions
     //unique_ptr<Context> context;     // TODO: factor out of site and app
     Datacratic::Optional<Site> site;
@@ -1129,7 +1128,7 @@ struct BidRequest {
     std::vector<std::string> cur;                ///< Allowable currencies
     Datacratic::List<ContentCategory> bcat;        ///< Blocked advertiser categories (table 6.1)
     std::vector<Datacratic::UnicodeString> badv;           ///< Blocked advertiser domains
-    Datacratic::Optional<Regulations> regs; ///< Regulations Object (OpenRTB 2.2)
+    Datacratic::Optional<Regulations> regs; ///< Regulations Object list (OpenRTB 2.2)
     Json::Value ext;                   ///< Protocol extensions
     Json::Value unparseable;           ///< Unparseable fields get put here
 };

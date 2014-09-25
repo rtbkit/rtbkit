@@ -7,7 +7,7 @@
 #include <iterator> // std::begin
 
 #include "bidswitch_exchange_connector.h"
-#include "rtbkit/plugins/bid_request/openrtb_bid_request.h"
+#include "rtbkit/plugins/bid_request/openrtb_bid_request_parser.h"
 #include "rtbkit/plugins/exchange/http_auction_handler.h"
 #include "rtbkit/core/agent_configuration/agent_config.h"
 #include "rtbkit/openrtb/openrtb_parsing.h"
@@ -289,7 +289,10 @@ parseBidRequest(HttpAuctionHandler & connection,
 
     // Parse the bid request
     ML::Parse_Context context("Bid Request", payload.c_str(), payload.size());
-    res.reset(OpenRtbBidRequestParser::parseBidRequest(context, exchangeName(), exchangeName()));
+    // TODO Move to use 2.2 parser instead of 2.1
+    // bidswitch_exchange_connector_test and bidswitch_exchange_connector_adx_test
+    // fail at static filters for 2.2
+    res.reset(OpenRTBBidRequestParser::openRTBBidRequestParserFactory("2.1")->parseBidRequest(context, exchangeName(), exchangeName()));
 
     return res;
 }
