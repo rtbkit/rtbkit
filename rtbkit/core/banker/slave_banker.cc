@@ -461,6 +461,8 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
                            int responseCode,
                            const std::string & payload)
 {
+    accountsLeft--;
+
     if (exc) {
         cerr << "reauthorize budget got exception" << payload << endl;
         cerr << "accountKey = " << accountKey << endl;
@@ -471,7 +473,6 @@ onReauthorizeBudgetMessage(const AccountKey & accountKey,
         accounts.syncFromMaster(accountKey, masterAccount);
     }
     reauthorizeBudgetSent = Date();
-    accountsLeft--;
     if (accountsLeft == 0) {
         lastReauthorizeDelay = Date::now() - reauthorizeDate;
         numReauthorized++;
