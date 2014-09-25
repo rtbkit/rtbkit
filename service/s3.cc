@@ -1652,12 +1652,9 @@ size_t getTotalSystemMemory()
 struct StreamingDownloadSource {
     StreamingDownloadSource(const std::string & urlStr)
     {
-        Url url(urlStr);
-
         impl.reset(new Impl());
         impl->owner = getS3ApiForUri(urlStr);
-        impl->bucket = url.host();
-        impl->object = url.path().substr(1);
+        std::tie(impl->bucket, impl->object) = S3Api::parseUri(urlStr);
         impl->info = impl->owner->getObjectInfo(urlStr);
         impl->baseChunkSize = 1024 * 1024;  // start with 1MB and ramp up
 
@@ -1948,13 +1945,9 @@ struct StreamingUploadSource {
                           const ML::OnUriHandlerException & excCallback,
                           const S3Api::ObjectMetadata & metadata)
     {
-        auto s3Api = getS3ApiForUri(urlStr);
-        Url url(urlStr);
-
         impl.reset(new Impl());
-        impl->owner = s3Api;
-        impl->bucket = url.host();
-        impl->object = url.path().substr(1);
+        impl->owner = getS3ApiForUri(urlStr);
+        std::tie(impl->bucket, impl->object) = S3Api::parseUri(urlStr);
         impl->metadata = metadata;
         impl->onException = excCallback;
         impl->chunkSize = 8 * 1024 * 1024;  // start with 8MB and ramp up
