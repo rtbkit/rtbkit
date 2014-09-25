@@ -87,7 +87,9 @@ Worker(MockExchange * exchange, BidSource *bid, WinSource *win, EventSource *eve
     bids(bid),
     wins(win),
     events(event),
-    rng(random()) {
+    rng(random()),
+    winsDelay(0),
+    eventsDelay(0) {
 }
 
 
@@ -136,9 +138,8 @@ MockExchange::Worker::bid() {
             if (!wins) break;
 
             auto ret = isWin(br, bid);
-            if (!ret.first) continue;
-
-            winsQueue.push_back({Date::now(), br, bid, ret.second});
+            if (ret.first)
+                winsQueue.push_back({Date::now(), br, bid, ret.second});
         }
 
         break;
@@ -159,8 +160,8 @@ MockExchange::Worker::processWinsQueue() {
         wins->sendWin(win.br, win.bid, win.winPrice);
         exchange->recordHit("wins");
 
-        if (!isClick(win.br, win.bid)) continue;
-        eventsQueue.push_back({Date::now(), Event::Click, win.br, win.bid});
+        if (isClick(win.br, win.bid))
+            eventsQueue.push_back({Date::now(), Event::Click, win.br, win.bid});
     }
 }
 
