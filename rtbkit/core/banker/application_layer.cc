@@ -62,8 +62,6 @@ init(std::string bankerUri, int activeConnections /* = 4 */)
     if (bankerUri.compare(0, 7, "http://"))
         bankerUri = "http://" + bankerUri;
 
-    // Since we send one HttpRequest per account when syncing, this is a good idea
-    // to keep a fairly large queue size in order to avoid deadlocks
     httpClient.reset(new HttpClient(bankerUri, activeConnections));
     addSource("HttpLayer::httpClient", httpClient);
 }
