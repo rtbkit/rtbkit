@@ -148,8 +148,8 @@ shutdown()
 
 void
 errorResponseHelper(HttpAdServerResponse & resp,
-                    const std::string errorName,
-                    const std::string details) {
+                    const std::string & errorName,
+                    const std::string & details) {
     resp.valid = false;
     resp.error = errorName;
     resp.details = details;
