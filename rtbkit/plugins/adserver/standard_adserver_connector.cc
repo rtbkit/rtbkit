@@ -146,6 +146,15 @@ shutdown()
     HttpAdServerConnector::shutdown();
 }
 
+void
+errorResponseHelper(HttpAdServerResponse & resp,
+                    const std::string & errorName,
+                    const std::string & details) {
+    resp.valid = false;
+    resp.error = errorName;
+    resp.details = details;
+}
+
 HttpAdServerResponse
 StandardAdServerConnector::
 handleWinRq(const HttpHeader & header,
@@ -172,11 +181,18 @@ handleWinRq(const HttpHeader & header,
      */
     if (json.isMember("timestamp")) {
         timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
-    } else {
-        response.valid = false;
-        response.error = "MISSING_TIMESTAMP";
-        response.details = "A win notice requires the timestamp field.";
 
+        // Check if timestamp is finite when treated as seconds
+        if(!timestamp.isADate()) {
+            errorResponseHelper(response,
+                                "TIMESTAMP_NOT_SECONDS",
+                                "The timestamp field is not in seconds.");
+            return response;
+        }
+    } else {
+        errorResponseHelper(response,
+                            "MISSING_TIMESTAMP",
+                            "A win notice requires the timestamp field.");
         return response;
     }
 
@@ -188,10 +204,9 @@ handleWinRq(const HttpHeader & header,
         bidRequestIdStr = json["bidRequestId"].asString();
         bidRequestId = Id(bidRequestIdStr); 
     } else {
-        response.valid = false;
-        response.error = "MISSING_BIDREQUESTID";
-        response.details = "A win notice requires the bidRequestId field.";
-
+        errorResponseHelper(response,
+                            "MISSING_BIDREQUESTID",
+                            "A win notice requires the bidRequestId field.");
         return response;
     }
 
@@ -203,10 +218,9 @@ handleWinRq(const HttpHeader & header,
         impIdStr = json["impid"].asString();
         impId = Id(impIdStr);
     } else {
-        response.valid = false;
-        response.error = "MISSING_IMPID";
-        response.details = "A win notice requires the impId field.";
-    
+        errorResponseHelper(response,
+                            "MISSING_IMPID",
+                            "A win notice requires the impId field.");
         return response;
     }
 
@@ -218,10 +232,9 @@ handleWinRq(const HttpHeader & header,
         winPriceDbl = json["price"].asDouble();
         winPrice = USD_CPM(winPriceDbl);
     } else {
-        response.valid = false;
-        response.error = "MISSING_WINPRICE";
-        response.details = "A win notice requires the price field.";
-    
+        errorResponseHelper(response,
+                            "MISSING_WINPRICE",
+                            "A win notice requires the price field.");
         return response;
     }
     
@@ -281,14 +294,20 @@ handleDeliveryRq(const HttpHeader & header,
      */
     if (json.isMember("timestamp")) {
         timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+        
+        // Check if timestamp is finite when treated as seconds
+        if(!timestamp.isADate()) {
+            errorResponseHelper(response,
+                                "TIMESTAMP_NOT_SECONDS",
+                                "The timestamp field is not in seconds.");
+            return response;
+        }
     } else {
-        response.valid = false;
-        response.error = "MISSING_TIMESTAMP";
-        response.details = "A win notice requires the timestamp field.";
-
+        errorResponseHelper(response,
+                            "MISSING_TIMESTAMP",
+                            "A win notice requires the timestamp field.");
         return response;
     }
-
 
     /*
      *  type is an required field.
@@ -299,19 +318,17 @@ handleDeliveryRq(const HttpHeader & header,
         event = (json["type"].asString());
         
         if(eventType.find(event) == eventType.end()) {
-            response.valid = false;
-            response.error = "UNSUPPORTED_TYPE";
-            response.details = "A campaign event requires the type field.";
-    
+            errorResponseHelper(response,
+                                "UNSUPPORTED_TYPE",
+                                "A campaign event requires the type field.");
             return response;
         }
 
     } else {
 
-        response.valid = false;
-        response.error = "MISSING_TYPE";
-        response.details = "A campaign event requires the type field.";
-    
+        errorResponseHelper(response,
+                            "MISSING_TYPE",
+                            "A campaign event requires the type field.");
         return response;
     }
 
@@ -322,9 +339,9 @@ handleDeliveryRq(const HttpHeader & header,
     if (json.isMember("impid")) {
 
     } else {
-        response.valid = false;
-        response.error = "MISSING_IMPID";
-        response.details = "A campaign event requires the impId field.";
+        errorResponseHelper(response,
+                            "MISSING_IMPID",
+                            "A campaign event requires the impId field.");
     
         return response;
     }
@@ -336,10 +353,9 @@ handleDeliveryRq(const HttpHeader & header,
     if (json.isMember("bidRequestId")) {
 
     } else {
-        response.valid = false;
-        response.error = "MISSING_BIDREQUESTID";
-        response.details = "A campaign event requires the bidRequestId field.";
-    
+        errorResponseHelper(response,
+                            "MISSING_BIDREQUESTID",
+                            "A campaign event requires the bidRequestId field.");
         return response;
     }
 
