@@ -2323,14 +2323,6 @@ onNewAuction(std::shared_ptr<Auction> auction)
     if (request.userIds.exchangeId) ++numFields;
     if (request.userIds.providerId) ++numFields;
 
-    if (numFields > 1) {
-        logMessageNoTimestamp("BEHAVIOUR",
-                              ML::format("%.2f", request.timestamp),
-                              request.exchange,
-                              reduceUrl(request.url),
-                              request.userIds.exchangeId,
-                              request.userIds.providerId);
-    }
     auto info = preprocessAuction(auction);
 
     if (info) {
