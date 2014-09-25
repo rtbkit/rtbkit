@@ -35,17 +35,33 @@ Logging::Category bidswitchExchangeConnectorError("[ERROR] Bidswitch Exchange Co
 
 BidSwitchExchangeConnector::
 BidSwitchExchangeConnector(ServiceBase & owner, const std::string & name)
-    : OpenRTBExchangeConnector(owner, name) {
+    : OpenRTBExchangeConnector(owner, name),
+    configuration_("bidswitch") {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+    init();
 }
 
 BidSwitchExchangeConnector::
 BidSwitchExchangeConnector(const std::string & name,
                            std::shared_ptr<ServiceProxies> proxies)
-    : OpenRTBExchangeConnector(name, proxies) {
+    : OpenRTBExchangeConnector(name, proxies),
+      configuration_("bidswitch") {
     this->auctionResource = "/auctions";
     this->auctionVerb = "POST";
+    init();
+}
+
+void
+BidSwitchExchangeConnector::init() {
+
+    // nurl might contain macros
+    configuration_.addField(
+        "nurl",
+        [](const Json::Value & value, CreativeInfo & data) {
+            Datacratic::jsonDecode(value, data.nurl);
+            return true;
+        }).optional().snippet();
 }
 
 namespace {
@@ -64,7 +80,6 @@ std::vector<int> stringsToInts(const Json::Value& value) {
     return ints;
 }
 }
-
 
 ExchangeConnector::ExchangeCompatibility
 BidSwitchExchangeConnector::
@@ -186,6 +201,10 @@ getCreativeCompatibility(const Creative & creative,
             crinfo->Google.attribute_ = { std::begin(ints), std::end(ints) };
         }
     }
+    
+    // Don't care about result since it's only an optional macro
+    configuration_.handleCreativeCompatibility(creative, includeReasons);
+
     return result;
 }
 
@@ -330,7 +349,7 @@ setSeatBid(Auction const & auction,
     b.id = Id(auction.id, auction.request->imp[0].id);
     b.impid = auction.request->imp[spotNum].id;
     b.price.val = USD_CPM(resp.price.maxPrice);
-    b.nurl = crinfo->nurl;
+    b.nurl = configuration_.expand(crinfo->nurl, {creative, resp, *auction.request});
     b.adid = crinfo->adid;
     b.adomain = crinfo->adomain;
     b.iurl = cpinfo->iurl;

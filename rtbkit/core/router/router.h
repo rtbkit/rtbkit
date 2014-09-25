@@ -400,7 +400,7 @@ public:
     ML::RingBufferSRMW<std::shared_ptr<AugmentationInfo> > startBiddingBuffer;
     ML::RingBufferSRMW<std::shared_ptr<Auction> > submittedBuffer;
     ML::RingBufferSWMR<std::shared_ptr<Auction> > auctionGraveyard;
-    ML::RingBufferSRMW<std::vector<std::string>> doBidBuffer;
+    ML::RingBufferSRMW<BidMessage> doBidBuffer;
 
     ML::Wakeup_Fd wakeupMainLoop;
 
@@ -434,6 +434,10 @@ public:
     void returnErrorResponse(const std::vector<std::string> & message,
                              const std::string & error);
 
+    void returnInvalidBid(const std::string &agent, const std::string &bidData,
+                          const std::shared_ptr<Auction> &auction,
+                          const char *reason, const char *message, ...);
+
     void doShutdown();
 
     /** Perform initial auction processing to see how it can be used.  Returns a
@@ -465,6 +469,9 @@ public:
 
     /** An agent bid on an auction.  Arrange for this bid to be recorded. */
     void doBid(const std::vector<std::string> & message);
+
+    void doBidImpl(const BidMessage &message,
+                   const std::vector<std::string> &originalMessage = std::vector<std::string>());
 
     /** An agent responded to a ping message.  Arrange for the ping time
         to be recorded. */

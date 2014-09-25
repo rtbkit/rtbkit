@@ -23,10 +23,22 @@ $(VIRTUALENV)/bin/activate:
 
 python_dependencies: $(VIRTUALENV)/bin/activate
 
+PYTHON_EXECUTABLE ?= $(VIRTUALENV)/bin/python
+
 endif
 
 python_dependencies: python_requirements.txt
 	$(PIP) install -r python_requirements.txt
+
+# Loop over the python_extra_requirements.txt file and install packages in
+# order. We did that because the package "statsmodels" does not handle
+# dependencies that are not installed. For more information, see:
+# https://github.com/statsmodels/statsmodels/pull/1902
+# https://github.com/statsmodels/statsmodels/issues/1897
+#
+# WARNING: packages order in python_extra_requirements.txt matters!!!
+python_extra_dependencies: python_extra_requirements.txt python_dependencies	
+	jml-build/get_python_requirements.sh -c $(PIP) -r python_extra_requirements.txt 
 
 dependencies: python_dependencies
 
@@ -150,7 +162,7 @@ run_$(1):	$(PYTHON_BIN_PATH)/$(1)
 $(PYTHON_BIN_PATH)/$(1): $(CWD)/$(2) $(PYTHON_BIN_PATH)/.dir_exists $$(foreach pymod,$(3),$(TMPBIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS))
 	@echo "$(COLOR_BLUE)[PYTHON_PROGRAM]$(COLOR_RESET) $(1)"
 	@$(PYFLAKES) $$<
-	@cp $$< $$@~
+	@(echo "#!$(PYTHON_EXECUTABLE)"; cat $$<) > $$@~
 	@chmod +x $$@~
 	@mv $$@~ $$@
 

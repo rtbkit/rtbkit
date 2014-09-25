@@ -245,6 +245,7 @@ private:
     typedef ML::Spinlock Lock;
     mutable Lock syncLock;
     Datacratic::Date lastSync;
+    Datacratic::Date lastReauthorize;
 
     
     /** Periodically we report spend to the banker.*/

@@ -8,12 +8,15 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
+#include <string.h>
+
 #include "jml/utils/file_functions.h"
 #include "jml/utils/filter_streams.h"
 #include "jml/arch/exception.h"
 #include "jml/arch/exception_handler.h"
 
 #include <boost/filesystem.hpp>
+#include <boost/iostreams/stream_buffer.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/barrier.hpp>
@@ -373,4 +376,187 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_in )
 
     BOOST_CHECK_EQUAL(text, result);
 }
+#endif
+
+#if 1
+/* Testing the behaviour of filter_stream when exceptions occur during read,
+ * write, close or destruction */
+struct ExceptionSource {
+    enum ThrowType {
+        ThrowOnWrite,
+        ThrowOnRead,
+        ThrowOnClose
+    };
+
+    ExceptionSource(const OnUriHandlerException & onException,
+                    ThrowType throwType)
+        : onException_(onException), throwType_(throwType)
+    {
+    }
+
+    typedef char char_type;
+    struct category
+        : public boost::iostreams::bidirectional_device_tag,
+          public boost::iostreams::closable_tag
+    {
+    };
+
+    bool is_open() const
+    {
+        return true;
+    }
+
+    std::streamsize write(const char_type* s, std::streamsize n)
+    {
+        if (throwType_ == ThrowType::ThrowOnWrite) {
+            throw ML::Exception("throwing when writing");
+        }
+        return n;
+    }
+
+    std::streamsize read(char_type* s, std::streamsize n)
+    {
+        if (throwType_ == ThrowType::ThrowOnRead) {
+            throw ML::Exception("throwing when reading");
+        }
+        char randomdata[n];
+        ::memcpy(s, randomdata, n);
+        return n;
+    }
+
+    void close(ios::openmode which)
+    {
+        if (throwType_ == ThrowType::ThrowOnClose) {
+            onException_();
+        }
+    }
+
+    OnUriHandlerException onException_;
+    ThrowType throwType_;
+};
+
+struct RegisterExcHandlers {
+    static std::pair<std::streambuf *, bool>
+    getExceptionSource(const OnUriHandlerException & onException,
+                       ExceptionSource::ThrowType throwType)
+    {
+        unique_ptr<streambuf> handler;
+
+        handler.reset(new boost::iostreams::stream_buffer<ExceptionSource>
+                      (ExceptionSource(onException, throwType),
+                       1));
+
+        return make_pair(handler.release(), true);
+    }
+
+    static std::pair<std::streambuf *, bool>
+    getExcOnReadHandler(const std::string & scheme,
+                        const std::string & resource,
+                        std::ios_base::open_mode mode,
+                        const std::map<std::string, std::string> & options,
+                        const OnUriHandlerException & onException)
+    {
+        return getExceptionSource(onException, ExceptionSource::ThrowOnRead);
+    }
+
+    static std::pair<std::streambuf *, bool>
+    getExcOnWriteHandler(const std::string & scheme,
+                         const std::string & resource,
+                         std::ios_base::open_mode mode,
+                         const std::map<std::string, std::string> & options,
+                         const OnUriHandlerException & onException)
+    {
+        return getExceptionSource(onException, ExceptionSource::ThrowOnWrite);
+    }
+
+    static std::pair<std::streambuf *, bool>
+    getExcOnCloseHandler(const std::string & scheme,
+                         const std::string & resource,
+                         std::ios_base::open_mode mode,
+                         const std::map<std::string, std::string> & options,
+                         const OnUriHandlerException & onException)
+    {
+        return getExceptionSource(onException, ExceptionSource::ThrowOnClose);
+    }
+
+    void registerBuckets()
+    {
+    }
+
+    RegisterExcHandlers()
+    {
+        ML::registerUriHandler("throw-on-read", getExcOnReadHandler);
+        ML::registerUriHandler("throw-on-write", getExcOnWriteHandler);
+        ML::registerUriHandler("throw-on-close", getExcOnCloseHandler);
+    }
+} registerExcHandlers;
+
+BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_read)
+{
+    ML::filter_istream stream("throw-on-read://exception-zone");
+
+    string data;
+    auto action = [&]() {
+        JML_TRACE_EXCEPTIONS(false);
+        stream >> data;
+    };
+
+    BOOST_CHECK_THROW(action(), ML::Exception);
+}
+
+BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
+{
+    JML_TRACE_EXCEPTIONS(false);
+    ML::filter_ostream stream("throw-on-write://exception-zone");
+
+    auto action = [&]() {
+        string sample("abcdef0123456789");
+        /* we loop enough times to saturate the stream internal buffer
+         * and cause "write" to be called */
+        for (int i = 0; i < 1000000; i++) {
+            stream << sample;
+        }
+    };
+
+    BOOST_CHECK_THROW(action(), ML::Exception);
+}
+
+BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_close)
+{
+    ML::filter_ostream stream("throw-on-close://exception-zone");
+
+    auto action = [&]() {
+        JML_TRACE_EXCEPTIONS(false);
+        stream.close();
+    };
+
+    BOOST_CHECK_THROW(action(), std::ios_base::failure);
+}
+
+BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_ostream)
+{
+    unique_ptr<ML::filter_ostream> stream;
+    stream.reset(new ML::filter_ostream("throw-on-close://exception-zone"));
+
+    auto action = [&]() {
+        JML_TRACE_EXCEPTIONS(false);
+        stream.reset();
+    };
+
+    action();
+}
+
+BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_istream)
+{
+    unique_ptr<ML::filter_istream> stream;
+    stream.reset(new ML::filter_istream("throw-on-close://exception-zone"));
+
+    auto action = [&]() {
+        JML_TRACE_EXCEPTIONS(false);
+        stream.reset();
+    };
+
+    action();
+}
+
 #endif

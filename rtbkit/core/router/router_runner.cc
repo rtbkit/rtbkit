@@ -18,6 +18,7 @@
 #include "rtbkit/common/bidder_interface.h"
 #include "rtbkit/core/router/router.h"
 #include "rtbkit/core/banker/slave_banker.h"
+#include "soa/service/process_stats.h"
 #include "jml/arch/timers.h"
 #include "jml/utils/file_functions.h"
 
@@ -136,7 +137,7 @@ init()
         std::cerr << "using http interface for the MasterBanker" << std::endl;
     }
     else {
-        layer = make_application_layer<ZmqLayer>(proxies->config);
+        layer = make_application_layer<ZmqLayer>(proxies);
         std::cerr << "using zmq interface for the MasterBanker" << std::endl;
     }
     banker->setApplicationLayer(layer);
@@ -177,7 +178,16 @@ int main(int argc, char ** argv)
         item->enableUntil(Date::positiveInfinity());
     });
 
+    ProcessStats lastStats;
+    auto onStat = [&] (std::string key, double val) {
+        runner.router->recordStableLevel(val, key);
+    };
+
     for (;;) {
-        ML::sleep(10.0);
+        ML::sleep(1.0);
+
+        ProcessStats curStats;
+        ProcessStats::logToCallback(onStat, lastStats, curStats, "process");
+        lastStats = curStats;
     }
 }
