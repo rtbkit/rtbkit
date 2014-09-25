@@ -624,6 +624,9 @@ perform(bool noSSLChecks, bool debug)
             easy_.setOpt<curlopt::PostFields>(data);
             easy_.setOpt<curlopt::PostFieldSize>(data.size());
         }
+        else if (request_.verb_ == "HEAD") {
+            easy_.setOpt<curlopt::NoBody>(true);
+        }
         curlHeaders.push_back("Content-Length: "
                               + to_string(data.size()));
         curlHeaders.push_back("Transfer-Encoding:");
