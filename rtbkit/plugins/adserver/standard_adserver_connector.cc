@@ -172,6 +172,14 @@ handleWinRq(const HttpHeader & header,
      */
     if (json.isMember("timestamp")) {
         timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+
+        // Check if timestamp is finite when treated as seconds
+        if(!timestamp.isADate()) {
+            response.valid = false;
+            response.error = "TIMESTAMP_NOT_SECONDS";
+            response.details = "The timestamp field is not in seconds.";
+            return response;
+        }
     } else {
         response.valid = false;
         response.error = "MISSING_TIMESTAMP";
@@ -281,6 +289,15 @@ handleDeliveryRq(const HttpHeader & header,
      */
     if (json.isMember("timestamp")) {
         timestamp = Date::fromSecondsSinceEpoch(json["timestamp"].asDouble());
+        
+        // Check if timestamp is finite when treated as seconds
+        if(!timestamp.isADate()) {
+            response.valid = false;
+            response.error = "TIMESTAMP_NOT_SECONDS";
+            response.details = "The timestamp field is not in seconds.";
+            return response;
+        }
+
     } else {
         response.valid = false;
         response.error = "MISSING_TIMESTAMP";
