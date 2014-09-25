@@ -43,6 +43,7 @@ struct RouterRunner {
     int slowModeTimeout; // Default value =  MonitorClient::DefaultCheckTimeout
 
     bool useHttpBanker;
+    int httpActiveConnections;
 
     std::string slowModeMoneyLimit;
 
@@ -57,6 +58,7 @@ struct RouterRunner {
     Json::Value bidderConfig;
 
     static Logging::Category print;
+    static Logging::Category trace;
     static Logging::Category error;
 
     void init();

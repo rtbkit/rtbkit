@@ -27,15 +27,14 @@ using namespace ML;
 using namespace Datacratic;
 using namespace RTBKIT;
 
+Logging::Category RouterRunner::print("RouterRunner");
+Logging::Category RouterRunner::error("RouterRUnner Error", RouterRunner::print);
+Logging::Category RouterRunner::trace("RouterRunner Trace", RouterRunner::print);
+
 static inline Json::Value loadJsonFromFile(const std::string & filename)
 {
     ML::File_Read_Buffer buf(filename);
     return Json::parse(std::string(buf.start(), buf.end()));
-}
-
-namespace RTBKIT {
-    Logging::Category RouterRunner::print("RouterRunner");
-    Logging::Category RouterRunner::error("RouterRunner Error", RouterRunner::print);
 }
 
 /*****************************************************************************/
@@ -81,6 +80,8 @@ doOptions(int argc, char ** argv,
          "configuration file with bidder interface data")
         ("use-http-banker", bool_switch(&useHttpBanker),
          "Communicate with the MasterBanker over http")
+        ("http-connections", value<int>(&httpActiveConnections)->default_value(4),
+         "Number of active http connections to use when http is enabled")
         ("log-auctions", value<bool>(&logAuctions)->zero_tokens(),
          "log auction requests")
         ("log-bids", value<bool>(&logBids)->zero_tokens(),
@@ -152,12 +153,18 @@ init()
         auto bankerUri = proxies->bankerUri;
         ExcCheck(!bankerUri.empty(),
                 "the banker-uri must be specified in the bootstrap.json");
-        layer = make_application_layer<HttpLayer>(bankerUri);
-        std::cerr << "using http interface for the MasterBanker" << std::endl;
+        ExcCheck(httpActiveConnections > 0,
+                "The number of active http connections must be > 0");
+        std::stringstream ss;
+        ss << "using http interface for the MasterBanker" << std::endl;
+        ss << "url                = " << bankerUri << std::endl;
+        ss << "active connections = " << httpActiveConnections;
+        LOG(print) << ss.str() << std::endl;
+        layer = make_application_layer<HttpLayer>(bankerUri, httpActiveConnections);
     }
     else {
         layer = make_application_layer<ZmqLayer>(proxies);
-        std::cerr << "using zmq interface for the MasterBanker" << std::endl;
+        LOG(print) << "using zmq interface for the MasterBanker" << std::endl;
     }
     banker->setApplicationLayer(layer);
 
