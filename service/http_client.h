@@ -131,6 +131,8 @@ struct HttpClient : public AsyncEventSource {
     /** SSL checks */
     bool noSSLChecks;
 
+    void sendExpect100Continue(bool value);
+
     /** Use with servers that support HTTP pipelining */
     void enablePipelining();
 
@@ -250,7 +252,8 @@ private:
             afterContinue_ = false;
             uploadOffset_ = 0;
         }
-        void perform(bool noSSLChecks, bool debug);
+        void perform(bool noSSLChecks, bool withExpect100Continue = true,
+                     bool debug = false);
 
         /* header and body write callbacks */
         curlpp::types::WriteFunctionFunctor onHeader_;
@@ -276,6 +279,7 @@ private:
     void releaseConnection(HttpConnection * connection);
 
     std::string baseUrl_;
+    bool expect100Continue;
 
     int fd_;
     ML::Wakeup_Fd wakeup_;

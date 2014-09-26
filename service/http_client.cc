@@ -136,6 +136,7 @@ HttpClient(const string & baseUrl, int numParallel)
     : AsyncEventSource(),
       noSSLChecks(false),
       baseUrl_(baseUrl),
+      expect100Continue(true),
       fd_(-1),
       wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
       timerFd_(-1),
@@ -181,6 +182,7 @@ HttpClient(HttpClient && other)
     noexcept
     : AsyncEventSource(move(other)),
       baseUrl_(move(other.baseUrl_)),
+      expect100Continue(move(other.expect100Continue)),
       fd_(other.fd_),
       wakeup_(move(other.wakeup_)),
       timerFd_(other.timerFd_),
@@ -215,6 +217,13 @@ HttpClient::
 
 void
 HttpClient::
+sendExpect100Continue(bool value)
+{
+    expect100Continue = value;
+}
+
+void
+HttpClient::
 enablePipelining()
 {
     ::curl_multi_setopt(handle_, CURLMOPT_PIPELINING, 1);
@@ -225,8 +234,9 @@ HttpClient::
 operator = (HttpClient && other)
     noexcept
 {
-    AsyncEventSource::operator = (other);
+    AsyncEventSource::operator = (move(other));
     baseUrl_ = move(other.baseUrl_);
+    expect100Continue = move(other.expect100Continue);
     fd_ = other.fd_;
     other.fd_ = -1;
     wakeup_ = move(other.wakeup_);
@@ -388,7 +398,7 @@ handleWakeupEvent()
         for (HttpRequest & request: requests) {
             HttpConnection *conn = getConnection();
             conn->request_ = move(request);
-            conn->perform(noSSLChecks, debug_);
+            conn->perform(noSSLChecks, expect100Continue, debug_);
             multi_.add(&conn->easy_);
         }
     }
@@ -597,7 +607,7 @@ HttpConnection()
 void
 HttpClient::
 HttpConnection::
-perform(bool noSSLChecks, bool debug)
+perform(bool noSSLChecks, bool withExpect100Continue, bool debug)
 {
     // cerr << "* performRequest\n";
 
@@ -632,6 +642,10 @@ perform(bool noSSLChecks, bool debug)
         curlHeaders.push_back("Transfer-Encoding:");
         curlHeaders.push_back("Content-Type: "
                               + request_.content_.contentType);
+
+        if (!withExpect100Continue) {
+            curlHeaders.push_back("Expect:");
+        }
     }
     easy_.setOpt<curlopt::HttpHeader>(curlHeaders);
 
